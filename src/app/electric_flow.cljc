@@ -14,6 +14,9 @@
                       [app.server.rama.util-fns :as util-fns]])
             #?@(:cljs [[app.client.substrate.webgpu.renderer :as editor]
                        [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
+                       [app.client.workspace.live-atoms :as live-atoms]
+                       [app.client.workspace.live-edges :as live-edges]
+                       [app.client.workspace.scene-runtime :as scene-runtime]
                        [app.client.workspace.runtime.fonts :as runtime-fonts]
                        [app.client.workspace.runtime :as loop]
                        [global-flow :refer [await-promise]]
@@ -591,6 +594,10 @@
                 !agent-trail-truth (atom nil)
                 !flow-session-truth (atom nil)
                 !workspace-truth (atom nil)
+                ;; CONNECTOR ATOM: the boot-static R1 response. It remains nil
+                ;; unless the shared live-atoms flag and real canvas addresses
+                ;; both exist.
+                !live-edges-data (atom nil)
                 ;; Trail face (view-mvp WP-B2): request set by the runtime
                 ;; wiring, pull result + epoch pushed back to it.
                 !trail-request (atom nil)
@@ -659,6 +666,12 @@
             (reset! !flow-session-truth (fv/WatchFlowSession))
             (reset! !workspace-truth (fv/WatchWorkspaceTruth))
             (reset! !ingest-epoch-remote (fv/WatchIngestEpoch))
+            (let [addresses
+                  (when (live-edges/live-edges-enabled?)
+                    (live-edges/capture-boot-addresses!
+                     (e/watch scene-runtime/!scene-store)))]
+              (when (seq addresses)
+                (reset! !live-edges-data (fv/LiveEdges addresses))))
             ;; Trail face pull: re-runs when the request changes (face entry,
             ;; expansion clicks, debounced epoch bumps re-stamp the request).
             (let [treq (e/watch !trail-request)]
@@ -739,7 +752,9 @@
                     font-manifest (get resources :font-manifest)
                     font-config (get resources :font-config)
                     font-assets (get resources :font-assets)
-                    pipelines (editor/create-editor-state resources)]
+                    pipelines (e/Task (await-promise (live-atoms/augment-pipelines! resources (editor/create-editor-state resources))))
+                    _ (when-let [response (e/watch !live-edges-data)]
+                        (live-edges/mount-live-edges! response))]
                 (js/console.log "[BOOT] Client resources ready"
                                 {:font-id (:id font-config)
                                  :font-backend (:backend font-assets)

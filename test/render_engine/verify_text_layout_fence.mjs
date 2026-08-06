@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 const owners = [
+  ["src/app/client/substrate/connector_route.cljc", "layout-label", ["tl/layout"]],
   ["src/app/client/workspace/rect_tree.cljc", "wrap-line", ["tl/wrap-line"]],
   ["src/app/client/workspace/rect_tree.cljc", "resolve-text-layout", ["tl/layout", "tl/line-paint-ops"]],
   ["src/app/client/workspace/rect_tree.cljc", "tree->text-ops", ["tl/layout", "tl/clip-result"]],

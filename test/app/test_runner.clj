@@ -32,7 +32,11 @@
   '[app.anatomy-test
     app.client.substrate.image-citizenship-test
     app.client.substrate.image-material-test
+    app.client.substrate.connector-material-test
+    app.client.substrate.connector-route-test
     app.client.substrate.maintained-view-test
+    app.client.substrate.path-material-test
+    app.client.substrate.path-tessellation-test
     app.client.substrate.scene-tape-test
     app.client.workspace.block-edit-test
     app.client.workspace.ground-edit-test
@@ -74,6 +78,9 @@
    them."
   '{app.client.workspace.trail-face-test
     "The live receipt pins a two-task trail-view launch and imports the trail fixture helpers."
+
+    app.client.substrate.connector-join-test
+    "Owns an ephemeral relation-kernel IPC runtime for the durable R1 connector tripwire."
 
     app.cascade-table-test
     "Boots fresh OC, relation, and LLM runtimes for the behavior-identity cut."

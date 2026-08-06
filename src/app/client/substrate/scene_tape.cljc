@@ -5,7 +5,9 @@
    Scene entries own semantic order.  Paint and pick are projections of the
    same compiled tape: paint walks forward, pick walks exact reverse.  This
    namespace is data-only and has no GPU objects, atoms, renderer imports, or
-   family-specific ordering branches.")
+   family-specific ordering branches."
+  (:require [app.client.substrate.connector-material :as connector-material]
+            [app.client.substrate.path-material :as path-material]))
 
 (def family-ids
   "The complete pre-W2-B family set.  Adding image/path changes this registry;
@@ -15,7 +17,9 @@
    :render.family/msdf
    :render.family/slug
    :render.family/clip
-   :render.family/image])
+   :render.family/image
+   :render.family/path
+   :render.family/connector])
 
 (def legacy-direct-color
   {:scene-color/version 1
@@ -391,6 +395,53 @@
    [:grammar :entry-paint-required-keys]
    [:sub-draws]))
 
+(def path-registration
+  (assoc-in
+   (registration
+    :render.family/path path-material/geometry-declaration
+    [:path-atom/admission :path-atom/geometry :path-atom/color
+     :path-atom/resources :path-atom/store-lane :path-atom/product-pick]
+    {:material-fields [:path/material-id :path/revision :path/kind
+                       :path/geometry :path/paint :path/provenance]
+     :instance-fields [:instance/id :container-slot :path/material
+                       :path/local-origin]
+     :validation :path-material/fail-closed-v1
+     :defaults :path-material/explicit-v1
+     :edit-operations [:path/move-knot :path/set-knot-pressure
+                       :path/move-contour-point :path/set-paint
+                       :path/replace-contours]
+     :serialization :canonical-edn-v1
+     :export-projections :none-promised
+     :resources :path-system/content-keyed-mesh-lifecycle-v1})
+   [:grammar :entry-paint-required-keys]
+   [:vertex-count]))
+
+(def connector-registration
+  (assoc-in
+   (registration
+    :render.family/connector connector-material/geometry-declaration
+    [:connector-atom/admission :connector-atom/geometry
+     :connector-atom/color :connector-atom/resources
+     :connector-atom/store-lane :connector-atom/product-pick
+     :connector-atom/durable-r1-read]
+    {:material-fields [:connector/relation-id :connector/row-stamp
+                       :connector/dress-revision :connector/kind
+                       :connector/from :connector/to :connector/route
+                       :connector/heads :connector/label :connector/paint
+                       :connector/status :connector/provenance]
+     :instance-fields [:instance/id :container-slot
+                       :connector/edge-instance-id]
+     :validation :connector-material/fail-closed-v1
+     :defaults :connector-material/relation-row-plus-session-dress-v1
+     :edit-operations [:connector/set-binding :connector/set-route
+                       :connector/set-waypoints :connector/set-heads
+                       :connector/set-label :connector/set-paint]
+     :serialization :canonical-edn-v1
+     :export-projections :none-promised
+     :resources :connector-system/bounded-current-route-lifecycle-v1})
+   [:grammar :entry-paint-required-keys]
+   [:vertex-count]))
+
 (def family-contracts
   [(registration :render.family/rect rect-geometry
                  [:w2-a/q5 :w0-a/sdf :w2-b/ordered-executor])
@@ -402,7 +453,9 @@
                  [:w0-a/slug :w2-a/q8])
    (registration :render.family/clip clip-geometry
                  [:w2-b/shared-visibility])
-   image-registration])
+   image-registration
+   path-registration
+   connector-registration])
 
 (def ^:private required-family-keys
   [:family/id :family/version :grammar :pick :provenance :versioning :render

@@ -67,6 +67,8 @@ const families = [
   ":render.family/slug",
   ":render.family/clip",
   ":render.family/image",
+  ":render.family/path",
+  ":render.family/connector",
 ];
 
 const failures = [];

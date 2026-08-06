@@ -10,11 +10,19 @@
    picking remains axis-aligned rect-tree bounds; the receipt carries an
   explicit rounded-corner divergence sentinel so those truths cannot collapse."
   (:require [clojure.string :as str]
+            [app.client.substrate.connector-material :as connector-material]
+            [app.client.substrate.connector-route :as connector-route]
             [app.client.substrate.image-material :as image-material]
+            [app.client.substrate.path-material :as path-material]
+            [app.client.substrate.path-tessellation :as path-tessellation]
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
+            [app.client.substrate.webgpu.connector-gpu :as connector-gpu]
+            [app.client.substrate.webgpu.path-gpu :as path-gpu]
             [app.client.substrate.webgpu.renderer :as renderer]
             [app.client.workspace.containers :as containers]
+            [app.client.workspace.live-atoms :as live-atoms]
+            [app.client.workspace.live-edges :as live-edges]
             [app.client.workspace.runtime.fonts :as fonts]
             [app.client.workspace.text-layout :as tl]
             [app.client.workspace.text-shaper :as text-shaper]))
@@ -1398,12 +1406,939 @@
                          (renderer/image-ingress-receipt candidate-system)
                          :seam-off-ingress
                          (renderer/image-ingress-receipt seam-system)
-                         :product-loop-claim false
-                         :product-loop-join :staged
+                         :product-loop-claim :dev-flagged
+                         :product-loop-join :live-atoms
                          :image-above-text-kind-layer true
-                         :dark-wave true :felt-gate false :pass? pass?}]
+                         :default-dark true :felt-gate :sid-live
+                         :pass? pass?}]
              (renderer/destroy-image-system! candidate-system)
              (renderer/destroy-image-system! seam-system)
+             result))))))
+
+;; --- PATH ATOM --------------------------------------------------------------
+
+(defn- path-paint [color opacity]
+  {:color color :opacity opacity
+   :color-space :srgb :alpha-association :straight})
+
+(defn- screen-point [zoom [x y]] [(/ x zoom) (/ y zoom)])
+
+(defn- path-ink-material [id zoom samples color opacity]
+  {:path/material-id id
+   :path/revision 1
+   :path/kind :ink
+   :path/geometry
+   {:knots (mapv (fn [index [x y pressure]]
+                   {:knot/id [id index]
+                    :position (screen-point zoom [x y])
+                    :pressure pressure})
+                 (range) samples)
+    :base-width (/ 16.0 zoom)
+    :cap :round :join :round}
+   :path/paint (path-paint color opacity)
+   :path/provenance {:actor :render-verifier :act :fixture}})
+
+(defn- path-shape-material [id zoom color opacity]
+  {:path/material-id id
+   :path/revision 1
+   :path/kind :shape
+   :path/geometry
+   {:open-width (/ 5.0 zoom)
+    :contours
+    [{:contour/id [id :outer] :role :outer
+      :points (mapv (partial screen-point zoom)
+                    [[24.0 24.0] [104.0 24.0] [104.0 104.0]
+                     [72.0 104.0] [72.0 64.0] [56.0 64.0]
+                     [56.0 104.0] [24.0 104.0]])}
+     {:contour/id [id :hole] :role :hole
+      :points (mapv (partial screen-point zoom)
+                    [[34.0 34.0] [50.0 34.0]
+                     [50.0 50.0] [34.0 50.0]])}]}
+   :path/paint (path-paint color opacity)
+   :path/provenance {:actor :render-verifier :act :fixture}})
+
+(defn- path-rect-material [id zoom color opacity]
+  {:path/material-id id
+   :path/revision 1
+   :path/kind :shape
+   :path/geometry
+   {:open-width (/ 2.0 zoom)
+    :contours [{:contour/id [id :outer] :role :outer
+                :points (mapv (partial screen-point zoom)
+                              [[24.0 24.0] [104.0 24.0]
+                               [104.0 104.0] [24.0 104.0]])}]}
+   :path/paint (path-paint color opacity)
+   :path/provenance {:actor :render-verifier :act :fixture}})
+
+(defn- path-op [id material]
+  {:id id :x 0.0 :y 0.0
+   :path/material material :path/clip nil :container-idx 0})
+
+(defn- path-store-frame [ops]
+  (let [vi [:path-atom :fixture]]
+    {:paths ops
+     :ordered-vis [vi]
+     :ops-count-by-vi {vi {:paths (count ops)}}
+     :order-by-vi {vi {:stratum :world
+                       :stack-path [[:path-atom 0 0]]}}}))
+
+(defn- render-path-bytes!
+  [^js device path-system ops zoom
+   & {:keys [clear-value]
+      :or {clear-value {:r 0.0 :g 0.0 :b 0.0 :a 0.0}}}]
+  (let [row-bytes (* canvas-size 4)
+        candidate? (get-in path-system [:scene-color :enabled?])
+        view-format (if candidate? "rgba8unorm-srgb" "rgba8unorm")
+        target (.createTexture
+                device
+                (clj->js {:size {:width canvas-size :height canvas-size
+                                 :depthOrArrayLayers 1}
+                          :format "rgba8unorm"
+                          :viewFormats ["rgba8unorm-srgb"]
+                          :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
+                                         js/GPUTextureUsage.COPY_SRC)}))
+        read-buffer (.createBuffer
+                     device
+                     (clj->js {:size (* row-bytes canvas-size)
+                               :usage (bit-or js/GPUBufferUsage.COPY_DST
+                                              js/GPUBufferUsage.MAP_READ)}))
+        camera (js/Float32Array. 6)
+        _ (renderer/update-camera device (:camera-buffer path-system)
+                                  camera 0.0 0.0 zoom
+                                  canvas-size canvas-size)
+        _ (path-gpu/prepare-path-frame! path-system ops zoom)
+        entry (first (path-gpu/path-entries
+                      {:path-system path-system
+                       :store-frame (path-store-frame ops)}))
+        _ (when-not entry
+            (throw (js/Error. "Path capture emitted no tape entry")))
+        encoder (.createCommandEncoder device)
+        pass (.beginRenderPass
+              encoder
+              (clj->js {:colorAttachments
+                        [{:view (.createView target
+                                            (clj->js {:format view-format}))
+                          :clearValue clear-value
+                          :loadOp "clear" :storeOp "store"}]}))]
+    (path-gpu/execute-path-batch! pass entry)
+    (.end pass)
+    (.copyTextureToBuffer
+     encoder
+     (clj->js {:texture target})
+     (clj->js {:buffer read-buffer :bytesPerRow row-bytes
+               :rowsPerImage canvas-size})
+     (clj->js {:width canvas-size :height canvas-size
+               :depthOrArrayLayers 1}))
+    (.submit (.-queue device) #js [(.finish encoder)])
+    (-> (.mapAsync read-buffer js/GPUMapMode.READ)
+        (.then
+         (fn [_]
+           (let [copy (js/Uint8Array.
+                       (js/Uint8Array. (.getMappedRange read-buffer)))]
+             (.unmap read-buffer)
+             (.destroy read-buffer)
+             (.destroy target)
+             copy))))))
+
+(defn- render-path-pair! [device path-system ops zoom clear-value]
+  (-> (render-path-bytes! device path-system ops zoom
+                          :clear-value clear-value)
+      (.then
+       (fn [first-bytes]
+         (-> (render-path-bytes! device path-system ops zoom
+                                 :clear-value clear-value)
+             (.then
+              (fn [second-bytes]
+                (-> (js/Promise.all
+                     #js [(sha256-bytes first-bytes)
+                          (sha256-bytes second-bytes)])
+                    (.then
+                     (fn [hashes]
+                       {:bytes first-bytes
+                        :first-sha256 (aget hashes 0)
+                        :second-sha256 (aget hashes 1)
+                        :byte-identical? (= (aget hashes 0)
+                                             (aget hashes 1))}))))))))))
+
+(defn- path-image-record [mode case-id pair]
+  {:mode mode
+   :file (str "gpu-path-" mode "-" case-id ".png")
+   :raw-sha256 (:first-sha256 pair)
+   :png-data-url (opaque-png-data-url (:bytes pair))
+   :determinism {:first-raw-sha256 (:first-sha256 pair)
+                 :second-raw-sha256 (:second-sha256 pair)
+                 :byte-identical? (:byte-identical? pair)}})
+
+(defn- path-golden-spec [mode]
+  (case mode
+    :pressure-ink
+    {:case-id "pressure-ink-default-min-z0p1"
+     :zoom 0.1 :mode "pressure-ink"
+     :material (path-ink-material
+                :path-golden/pressure 0.1
+                [[26.0 72.0 0.2] [48.0 36.0 0.45]
+                 [78.0 84.0 0.72] [102.0 42.0 1.0]]
+                [0.16 0.68 0.96 0.94] 1.0)}
+
+    :holed-concave
+    {:case-id "holed-concave-default-unit-z1"
+     :zoom 1.0 :mode "holed-concave"
+     :material (path-shape-material :path-golden/shape 1.0
+                                    [0.94 0.32 0.18 0.96] 1.0)}
+
+    :translucent-self-crossing
+    {:case-id "translucent-self-crossing-legal-z10"
+     :zoom 10.0 :mode "translucent-self-crossing"
+     :material (path-ink-material
+                :path-golden/self-cross 10.0
+                [[26.0 28.0 0.65] [102.0 100.0 0.9]
+                 [28.0 100.0 1.0] [102.0 28.0 0.7]]
+                [0.84 0.36 0.94 0.62] 1.0)}))
+
+(defn- run-path-golden! [device path-system mode]
+  (let [{:keys [case-id zoom material] :as spec} (path-golden-spec mode)
+        clear {:r 0.025 :g 0.06 :b 0.11 :a 1.0}
+        op (path-op [:golden mode] material)]
+    (-> (render-path-pair! device path-system [op] zoom clear)
+        (.then
+         (fn [pair]
+           (let [mesh (path-tessellation/tessellate material zoom)]
+             {:case-id case-id
+              :zoom zoom
+              :regime (name (:regime/id (path-material/zoom-regime zoom)))
+              :normalization "screen-constant-shape-local"
+              :shape-extent-world (/ 80.0 zoom)
+              :mesh {:triangles (:triangle-count mesh)
+                     :coverage (:coverage mesh)
+                     :quantization
+                     (path-tessellation/quantization-receipt mesh zoom)}
+              :images [(path-image-record (:mode spec) case-id pair)]}))))))
+
+(defn- path-parity-row! [device path-system {:keys [case-id zoom regime]}]
+  (let [material (path-shape-material [:path-parity case-id] zoom
+                                      [1.0 1.0 1.0 1.0] 1.0)
+        mesh (path-tessellation/tessellate material zoom)
+        op (path-op [:parity case-id] material)]
+    (-> (render-path-bytes! device path-system [op] zoom)
+        (.then
+         (fn [bytes]
+           (let [rows
+                 (for [y (range canvas-size)
+                       x (range canvas-size)
+                       :let [point [(/ (+ x 0.5) zoom)
+                                    (/ (+ y 0.5) zoom)]
+                             distance-px (* zoom
+                                            (path-material/boundary-distance
+                                             material point))]
+                       :when (> distance-px 1.25)]
+                   (let [cpu (path-material/classify material point zoom)
+                         alpha (nth (pixel-rgba bytes x y) 3)
+                         gpu (cond (> alpha 128) :inside
+                                   (< alpha 128) :outside
+                                   :else :half)
+                         decisive? (and (not= :boundary cpu)
+                                        (not= :half gpu))]
+                     {:pixel [x y] :cpu cpu :gpu gpu
+                      :alpha alpha :decisive? decisive?
+                      :match? (when decisive? (= cpu gpu))}))
+                 decisive (filter :decisive? rows)
+                 mismatches (filter #(false? (:match? %)) decisive)
+                 boundary-count
+                 (count (for [y (range canvas-size)
+                              x (range canvas-size)
+                              :let [point [(/ (+ x 0.5) zoom)
+                                           (/ (+ y 0.5) zoom)]]
+                              :when (<= (* zoom
+                                           (path-material/boundary-distance
+                                            material point))
+                                        1.25)]
+                          [x y]))]
+             {:case-id case-id :zoom zoom :regime regime
+              :quantization
+              (path-tessellation/quantization-receipt mesh zoom)
+              :boundary-band-screen-px 1.25
+              :boundary-pixel-count boundary-count
+              :decisive-count (count decisive)
+              :inside-count (count (filter #(= :inside (:cpu %)) decisive))
+              :outside-count (count (filter #(= :outside (:cpu %)) decisive))
+              :mismatch-count (count mismatches)
+              :mismatch-sample (vec (take 12 mismatches))
+              :pass? (and (pos? boundary-count)
+                          (pos? (count decisive))
+                          (some #(= :inside (:cpu %)) decisive)
+                          (some #(= :outside (:cpu %)) decisive)
+                          (empty? mismatches))}))))))
+
+(defn- run-path-color! [device path-system]
+  (let [clear {:r 0.04 :g 0.18 :b 0.35 :a 1.0}
+        color [(/ 200.0 255.0) (/ 80.0 255.0) (/ 40.0 255.0) 0.5]
+        material (path-rect-material :path-color/source-over 1.0 color 1.0)]
+    (-> (render-path-bytes! device path-system
+                            [(path-op :path-color material)] 1.0
+                            :clear-value clear)
+        (.then
+         (fn [bytes]
+           (let [expected (mapv
+                           (fn [source background]
+                             (linear->srgb-byte
+                              (+ (* (srgb->linear source) 0.5)
+                                 (* background 0.5))))
+                           [200 80 40] [0.04 0.18 0.35])
+                 actual (subvec (vec (pixel-rgba bytes 64 64)) 0 3)
+                 delta (apply max (map #(js/Math.abs (- %1 %2))
+                                       expected actual))]
+             {:expected expected :actual actual
+              :max-byte-delta delta
+              :non-black-background true
+              :scene-color (get-in scene-tape/path-registration
+                                   [:render :color-alpha :scene])
+              :pass? (and (<= delta 3)
+                          (= :scene-color/linear-premultiplied-srgb
+                             (get-in scene-tape/path-registration
+                                     [:render :color-alpha :scene])))}))))))
+
+(defn- receipt-entry [id family part]
+  {:entry/id id :material/id id :material/revision 0 :instance/id id
+   :family/id family
+   :order {:stratum :world :pass-class :direct
+           :stack-path [[:frame/root 25 25] [:path-order 0 0]]
+           :part-rank part :stable-tie id}
+   :paint (cond-> {:vertex-count 3}
+            (= family :render.family/image) (assoc :sub-draws []))
+   :pick {:geometry :fixture :owner id}
+   :visibility {:visible? true}})
+
+(defn- run-path-arrangement! []
+  (let [entries [(receipt-entry :rect :render.family/rect 1)
+                 (receipt-entry :text :render.family/msdf 2)
+                 (receipt-entry :image :render.family/image 3)
+                 (receipt-entry :path :render.family/path 4)]
+        tape (scene-tape/compile-tape :path-arrangement entries)
+        forward (scene-tape/paint-forward tape :entry/id)
+        picked (scene-tape/pick-reverse tape :entry/id)]
+    {:forward forward
+     :reverse-first (get-in picked [:entry :entry/id])
+     :path-contract-present?
+     (some? (get scene-tape/default-family-registry :render.family/path))
+     :pass? (and (= [:rect :text :image :path] forward)
+                 (= :path (get-in picked [:entry :entry/id]))
+                 (some? (get scene-tape/default-family-registry
+                             :render.family/path)))}))
+
+(defn- run-path-upload-gate! [path-system]
+  (let [material (path-rect-material :path-upload-gate 1.0
+                                     [0.3 0.7 0.4 1.0] 1.0)
+        first-ops [(path-op :path-upload-gate material)]
+        first-write (path-gpu/prepare-path-frame! path-system first-ops 1.0)
+        equal-new-vector (mapv identity first-ops)
+        same-mesh-set (path-gpu/prepare-path-frame!
+                       path-system equal-new-vector 1.0)]
+    {:first-write first-write
+     :equal-new-vector same-mesh-set
+     :pass? (and (:mesh-set-changed? first-write)
+                 (= 1 (:writes first-write))
+                 (not (:mesh-set-changed? same-mesh-set))
+                 (zero? (:writes same-mesh-set)))}))
+
+(defn- run-live-atoms-dark-lane! []
+  (let [marker {:pipelines :unchanged}
+        before (aget js/globalThis "__softlandLiveAtomsReceipt")]
+    (-> (live-atoms/augment-pipelines! nil marker)
+        (.then
+         (fn [result]
+           {:flag-off? (not (live-atoms/flag-enabled-search? ""))
+            :same-pipelines-identity? (identical? marker result)
+            :pure-load? (and (nil? before)
+                             (nil? (aget js/globalThis
+                                        "__softlandLiveAtomsReceipt")))
+            :pass? (and (not (live-atoms/flag-enabled-search? ""))
+                        (identical? marker result)
+                        (nil? before)
+                        (nil? (aget js/globalThis
+                                   "__softlandLiveAtomsReceipt")))})))))
+
+(defn- run-path-atom! [device adapter]
+  (let [tracker (gpu-budget/create-tracker
+                 (gpu-budget/snapshot-adapter-limits adapter))
+        camera (renderer/create-camera-buffer device tracker)
+        containers-buffer (renderer/create-containers-buffer device tracker)
+        system (path-gpu/init-path-system
+                device "rgba8unorm-srgb" camera containers-buffer
+                :tracker tracker :scene-color (scene-tape/scene-color true))]
+    (-> (promise-mapv (partial run-path-golden! device system)
+                      [:pressure-ink :holed-concave
+                       :translucent-self-crossing])
+        (.then (fn [cases] {:cases cases}))
+        (.then
+         (fn [state]
+           (-> (promise-mapv (partial path-parity-row! device system)
+                             zoom-cases)
+               (.then #(assoc state :parity %)))))
+        (.then
+         (fn [state]
+           (-> (run-path-color! device system)
+               (.then #(assoc state :color %)))))
+        (.then
+         (fn [state]
+           (let [state (assoc state :upload-gate
+                              (run-path-upload-gate! system))]
+             (-> (run-live-atoms-dark-lane!)
+                 (.then #(assoc state :dark-lane %))))))
+        (.then
+         (fn [{:keys [cases parity color dark-lane upload-gate] :as state}]
+           (let [determinism
+                 (mapcat (fn [case]
+                           (map :determinism (:images case)))
+                         cases)
+                 arrangement (run-path-arrangement!)
+                 pass? (and (= 3 (count cases))
+                            (every? :byte-identical? determinism)
+                            (= 7 (count parity))
+                            (every? :pass? parity)
+                            (:pass? color) (:pass? arrangement)
+                            (:pass? dark-lane) (:pass? upload-gate))
+                 result (assoc state
+                               :arrangement arrangement
+                               :system (path-gpu/path-receipt system)
+                               :coverage :aliased-v1
+                               :product-pick :cpu-path-authority
+                               :self-overlap-alpha
+                               :direct-triangle-double-blend-declared
+                               :pass? pass?)]
+             (path-gpu/destroy-path-system! system)
+             result))))))
+
+;; CONNECTOR ATOM ------------------------------------------------------------
+
+(def ^:private connector-owner-vi [:connector-atom :fixture])
+(def ^:private connector-effective
+  {0 {:affine containers/identity-affine
+      :flags 0 :layer 0 :stack-path [[0 0]] :transport-slot 0}})
+
+(defn- connector-bounds [zoom [x y w h]]
+  {:x (/ x zoom) :y (/ y zoom) :w (/ w zoom) :h (/ h zoom)})
+
+(defn- connector-target [address vi zoom bounds]
+  [address [{:vi vi :container 0 :container-idx 0
+             :bounds (connector-bounds zoom bounds)}]])
+
+(defn- connector-material
+  [relation-id zoom from to actor-id asserter-type
+   & {:keys [route heads label color alpha width]
+      :or {route {:policy :straight :waypoints []}
+           heads {:from :none :to :triangle
+                  :size-k connector-material/default-head-size-k}
+           alpha 1.0 width 3.0}}]
+  (connector-material/validate-material!
+   {:connector/relation-id relation-id
+    :connector/row-stamp [:render-verifier relation-id]
+    :connector/dress-revision 0
+    :connector/kind :references
+    :connector/from {:bind :node :target from :anchor :boundary}
+    :connector/to {:bind :node :target to :anchor :boundary}
+    :connector/route
+    (update route :waypoints
+            #(mapv (partial screen-point zoom) (or % [])))
+    :connector/heads heads
+    :connector/label label
+    :connector/paint
+    {:color (or color
+                (connector-material/projection-color
+                 :references asserter-type))
+     :opacity alpha :width (/ width zoom)
+     :color-space :srgb :alpha-association :straight}
+    :connector/status :asserted
+    :connector/provenance {:actor-id actor-id
+                           :asserter-type asserter-type}}))
+
+(defn- connector-op [id material]
+  {:id id :address id :container 0 :container-idx 0
+   :owner-vi connector-owner-vi
+   :connector/material material})
+
+(defn- connector-golden-spec [mode]
+  (case mode
+    :straight-arrow-label
+    (let [zoom 1.0]
+      {:case-id "straight-arrow-label-default-unit-z1"
+       :mode "straight-arrow-label" :zoom zoom
+       :targets (into {}
+                      [(connector-target :a :connector/a zoom
+                                         [14.0 52.0 20.0 20.0])
+                       (connector-target :b :connector/b zoom
+                                         [94.0 52.0 20.0 20.0])])
+       :materials
+       [(connector-material
+         :connector-golden/straight-label zoom :a :b "sid" :human
+         :label {:text "ref" :at 0.5 :offset [0.0 -10.0]})]})
+
+    :elbow-waypoints-heads
+    (let [zoom 0.1]
+      {:case-id "elbow-waypoints-heads-default-min-z0p1"
+       :mode "elbow-waypoints-heads" :zoom zoom
+       :targets (into {}
+                      [(connector-target :a :connector/a zoom
+                                         [14.0 18.0 20.0 20.0])
+                       (connector-target :b :connector/b zoom
+                                         [94.0 88.0 20.0 20.0])])
+       :materials
+       [(connector-material
+         :connector-golden/elbow-waypoints zoom :a :b "sid" :human
+         :route {:policy :elbow/v1 :waypoints [[66.0 28.0]]}
+         :heads {:from :triangle :to :triangle
+                 :size-k connector-material/default-head-size-k})]})
+
+    :provenance-pair-overlap
+    (let [zoom 10.0]
+      {:case-id "provenance-pair-overlap-legal-z10"
+       :mode "provenance-pair-overlap" :zoom zoom
+       :targets (into {}
+                      [(connector-target :a :connector/a zoom
+                                         [14.0 28.0 20.0 20.0])
+                       (connector-target :b :connector/b zoom
+                                         [94.0 82.0 20.0 20.0])])
+       :materials
+       [(connector-material
+         :connector-golden/overlap-human zoom :a :b "sid" :human)
+        (connector-material
+         :connector-golden/overlap-llm zoom :a :b
+         "llm:render-verifier" :llm)]})))
+
+(defn- connector-store-frame [ops]
+  {:connectors ops
+   :ordered-vis [connector-owner-vi]
+   :ops-count-by-vi {connector-owner-vi {:connectors (count ops)}}
+   :order-by-vi
+   {connector-owner-vi
+    {:stratum :world :stack-path [[:connector-atom 0 0]]}}})
+
+(defn- execute-verifier-entry! [^js pass entry]
+  (if (= :render.family/connector (:family/id entry))
+    (connector-gpu/execute-connector-batch! pass entry)
+    (let [{:keys [pipeline bind-group buffer vertex-count instance-count
+                  first-vertex first-instance]} (:paint entry)]
+      (.setPipeline pass pipeline)
+      (when bind-group (.setBindGroup pass 0 bind-group))
+      (when buffer (.setVertexBuffer pass 0 buffer))
+      (.draw pass (or vertex-count 6) (or instance-count 1)
+             (or first-vertex 0) (or first-instance 0)))))
+
+(defn- render-connector-bytes!
+  [^js device connector-system ops targets zoom font-assets content-text-system
+   & {:keys [clear-value]
+      :or {clear-value {:r 0.0 :g 0.0 :b 0.0 :a 0.0}}}]
+  (let [row-bytes (* canvas-size 4)
+        candidate? (get-in connector-system [:scene-color :enabled?])
+        view-format (if candidate? "rgba8unorm-srgb" "rgba8unorm")
+        target (.createTexture
+                device
+                (clj->js {:size {:width canvas-size :height canvas-size
+                                 :depthOrArrayLayers 1}
+                          :format "rgba8unorm"
+                          :viewFormats ["rgba8unorm-srgb"]
+                          :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
+                                         js/GPUTextureUsage.COPY_SRC)}))
+        read-buffer (.createBuffer
+                     device
+                     (clj->js {:size (* row-bytes canvas-size)
+                               :usage (bit-or js/GPUBufferUsage.COPY_DST
+                                              js/GPUBufferUsage.MAP_READ)}))
+        camera (js/Float32Array. 6)
+        _ (renderer/update-camera device (:camera-buffer connector-system)
+                                  camera 0.0 0.0 zoom
+                                  canvas-size canvas-size)
+        _ (connector-gpu/prepare-connector-frame!
+           connector-system ops targets connector-effective zoom
+           font-assets content-text-system)
+        entries (connector-gpu/connector-entries
+                 {:store-frame (connector-store-frame ops)
+                  :connector-system connector-system
+                  :connector-label-entry renderer/connector-label-entry})
+        tape (scene-tape/compile-tape :connector-verifier entries)
+        encoder (.createCommandEncoder device)
+        pass (.beginRenderPass
+              encoder
+              (clj->js {:colorAttachments
+                        [{:view (.createView target
+                                            (clj->js {:format view-format}))
+                          :clearValue clear-value
+                          :loadOp "clear" :storeOp "store"}]}))]
+    (scene-tape/paint-forward tape #(execute-verifier-entry! pass %))
+    (.end pass)
+    (.copyTextureToBuffer
+     encoder
+     (clj->js {:texture target})
+     (clj->js {:buffer read-buffer :bytesPerRow row-bytes
+               :rowsPerImage canvas-size})
+     (clj->js {:width canvas-size :height canvas-size
+               :depthOrArrayLayers 1}))
+    (.submit (.-queue device) #js [(.finish encoder)])
+    (-> (.mapAsync read-buffer js/GPUMapMode.READ)
+        (.then
+         (fn [_]
+           (let [copy (js/Uint8Array.
+                       (js/Uint8Array. (.getMappedRange read-buffer)))]
+             (.unmap read-buffer)
+             (.destroy read-buffer)
+             (.destroy target)
+             copy))))))
+
+(defn- render-connector-pair!
+  [device system ops targets zoom font-assets content-text-system clear]
+  (-> (render-connector-bytes! device system ops targets zoom
+                               font-assets content-text-system
+                               :clear-value clear)
+      (.then
+       (fn [first-bytes]
+         (-> (render-connector-bytes! device system ops targets zoom
+                                      font-assets content-text-system
+                                      :clear-value clear)
+             (.then
+              (fn [second-bytes]
+                (-> (js/Promise.all
+                     #js [(sha256-bytes first-bytes)
+                          (sha256-bytes second-bytes)])
+                    (.then
+                     (fn [hashes]
+                       {:bytes first-bytes
+                        :first-sha256 (aget hashes 0)
+                        :second-sha256 (aget hashes 1)
+                        :byte-identical? (= (aget hashes 0)
+                                             (aget hashes 1))}))))))))))
+
+(defn- connector-image-record [mode case-id pair]
+  {:mode mode
+   :file (str "gpu-connector-" mode "-" case-id ".png")
+   :raw-sha256 (:first-sha256 pair)
+   :png-data-url (opaque-png-data-url (:bytes pair))
+   :determinism {:first-raw-sha256 (:first-sha256 pair)
+                 :second-raw-sha256 (:second-sha256 pair)
+                 :byte-identical? (:byte-identical? pair)}})
+
+(defn- run-connector-golden!
+  [device system font-assets content-text-system mode]
+  (let [{:keys [case-id zoom targets materials] :as spec}
+        (connector-golden-spec mode)
+        ops (mapv (fn [index material]
+                    (connector-op [mode index] material))
+                  (range) materials)
+        clear {:r 0.025 :g 0.06 :b 0.11 :a 1.0}]
+    (-> (render-connector-pair! device system ops targets zoom
+                                font-assets content-text-system clear)
+        (.then
+         (fn [pair]
+           {:case-id case-id
+            :zoom zoom
+            :regime (name (:regime/id (path-material/zoom-regime zoom)))
+            :edge-count (count materials)
+            :images [(connector-image-record (:mode spec) case-id pair)]})))))
+
+(defn- route-boundary-distance [route point]
+  (let [stroke-boundaries
+        (map (fn [[a b]]
+               (js/Math.abs
+                (- (connector-material/point-segment-distance point a b)
+                   (/ (:stroke-width route) 2.0))))
+             (partition 2 1 (:stroke-points route)))
+        head-boundaries
+        (map (fn [[a b]]
+               (connector-material/point-segment-distance point a b))
+             (mapcat (fn [triangle]
+                       (when triangle
+                         (partition 2 1 (conj (vec triangle)
+                                              (first triangle)))))
+                     [(:from-head route) (:to-head route)]))]
+    (apply min (concat stroke-boundaries head-boundaries))))
+
+(defn- connector-parity-row!
+  [device system font-assets content-text-system {:keys [case-id zoom regime]}]
+  (let [targets (into {}
+                      [(connector-target :a :connector/a zoom
+                                         [18.0 54.0 18.0 18.0])
+                       (connector-target :b :connector/b zoom
+                                         [92.0 54.0 18.0 18.0])])
+        material (connector-material
+                  [:connector-parity case-id] zoom :a :b "sid" :human
+                  :color [1.0 1.0 1.0 1.0] :width 4.0)
+        op (connector-op [:parity case-id] material)
+        route (first (:routes
+                      (connector-route/derive-route-set
+                       nil [op] targets connector-effective zoom font-assets)))]
+    (-> (render-connector-bytes! device system [op] targets zoom
+                                 font-assets content-text-system)
+        (.then
+         (fn [bytes]
+           (let [rows
+                 (for [y (range canvas-size)
+                       x (range canvas-size)
+                       :let [point [(/ (+ x 0.5) zoom)
+                                    (/ (+ y 0.5) zoom)]
+                             distance-px (* zoom
+                                            (route-boundary-distance route point))]
+                       :when (> distance-px 1.5)]
+                   (let [cpu (connector-material/classify route point)
+                         alpha (nth (pixel-rgba bytes x y) 3)
+                         gpu (if (> alpha 100) :inside :outside)
+                         decisive? (not= :boundary cpu)]
+                     {:pixel [x y] :cpu cpu :gpu gpu :alpha alpha
+                      :decisive? decisive?
+                      :match? (when decisive? (= cpu gpu))}))
+                 decisive (filter :decisive? rows)
+                 mismatches (filter #(false? (:match? %)) decisive)
+                 boundary-count
+                 (count
+                  (for [y (range canvas-size)
+                        x (range canvas-size)
+                        :let [point [(/ (+ x 0.5) zoom)
+                                     (/ (+ y 0.5) zoom)]]
+                        :when (<= (* zoom
+                                     (route-boundary-distance route point))
+                                  1.5)]
+                    [x y]))]
+             {:case-id case-id :zoom zoom :regime regime
+              :boundary-band-screen-px 1.5
+              :boundary-pixel-count boundary-count
+              :decisive-count (count decisive)
+              :inside-count (count (filter #(= :inside (:cpu %)) decisive))
+              :outside-count (count (filter #(= :outside (:cpu %)) decisive))
+              :mismatch-count (count mismatches)
+              :mismatch-sample (vec (take 12 mismatches))
+              :pass? (and (pos? boundary-count)
+                          (pos? (count decisive))
+                          (some #(= :inside (:cpu %)) decisive)
+                          (some #(= :outside (:cpu %)) decisive)
+                          (empty? mismatches))}))))))
+
+(defn- run-connector-color!
+  [device system font-assets content-text-system]
+  (let [zoom 1.0
+        targets (into {}
+                      [(connector-target :a :connector/a zoom
+                                         [12.0 56.0 18.0 18.0])
+                       (connector-target :b :connector/b zoom
+                                         [98.0 56.0 18.0 18.0])])
+        color [(/ 200.0 255.0) (/ 80.0 255.0) (/ 40.0 255.0) 0.5]
+        material (connector-material
+                  :connector-color/source-over zoom :a :b "sid" :human
+                  :color color :width 12.0)
+        clear {:r 0.04 :g 0.18 :b 0.35 :a 1.0}]
+    (-> (render-connector-bytes!
+         device system [(connector-op :connector-color material)]
+         targets zoom font-assets content-text-system :clear-value clear)
+        (.then
+         (fn [bytes]
+           (let [expected
+                 (mapv (fn [source background]
+                         (linear->srgb-byte
+                          (+ (* (srgb->linear source) 0.5)
+                             (* background 0.5))))
+                       [200 80 40] [0.04 0.18 0.35])
+                 actual (subvec (vec (pixel-rgba bytes 64 64)) 0 3)
+                 delta (apply max (map #(js/Math.abs (- %1 %2))
+                                       expected actual))]
+             {:expected expected :actual actual :max-byte-delta delta
+              :non-black-background true
+              :scene-color (get-in scene-tape/connector-registration
+                                   [:render :color-alpha :scene])
+              :pass? (and (<= delta 3)
+                          (= :scene-color/linear-premultiplied-srgb
+                             (get-in scene-tape/connector-registration
+                                     [:render :color-alpha :scene])))}))))))
+
+(defn- run-connector-arrangement! []
+  (let [entries [(receipt-entry :rect :render.family/rect 1)
+                 (receipt-entry :text :render.family/msdf 2)
+                 (receipt-entry :image :render.family/image 3)
+                 (receipt-entry :path :render.family/path 4)
+                 (receipt-entry :connector-label :render.family/slug 4)
+                 (receipt-entry :connector :render.family/connector 5)]
+        tape (scene-tape/compile-tape :connector-arrangement entries)
+        forward (scene-tape/paint-forward tape :entry/id)
+        picked (scene-tape/pick-reverse tape :entry/id)]
+    {:forward forward
+     :reverse-first (get-in picked [:entry :entry/id])
+     :connector-contract-present?
+     (some? (get scene-tape/default-family-registry
+                 :render.family/connector))
+     :pass? (and (= [:rect :text :image :connector-label
+                     :path :connector] forward)
+                 (= :connector (get-in picked [:entry :entry/id]))
+                 (some? (get scene-tape/default-family-registry
+                             :render.family/connector)))}))
+
+(defn- run-connector-upload-gate!
+  [system font-assets content-text-system]
+  (let [{:keys [zoom targets materials]}
+        (connector-golden-spec :provenance-pair-overlap)
+        ops (mapv (fn [index material]
+                    (connector-op [:upload index] material))
+                  (range) materials)
+        first-write (connector-gpu/prepare-connector-frame!
+                     system ops targets connector-effective zoom
+                     font-assets content-text-system)
+        equal-new-vector (mapv identity ops)
+        same-set (connector-gpu/prepare-connector-frame!
+                  system equal-new-vector targets connector-effective zoom
+                  font-assets content-text-system)]
+    {:first-write first-write :equal-new-vector same-set
+     :pass? (and (:mesh-set-changed? first-write)
+                 (= 1 (:writes first-write))
+                 (not (:mesh-set-changed? same-set))
+                 (zero? (:writes same-set))
+                 (zero? (get-in same-set
+                                [:frame-receipt :route-resolutions])))}))
+
+(defn- run-connector-label-road!
+  [device system font-assets content-text-system]
+  (renderer/reset-text-layout-fallbacks!)
+  (let [{:keys [zoom targets materials]}
+        (connector-golden-spec :straight-arrow-label)
+        ops [(connector-op :label-road (first materials))]
+        _ (connector-gpu/prepare-connector-frame!
+           system ops targets connector-effective zoom
+           font-assets content-text-system)
+        label-geo @(:!label-geo system)
+        label (first @(:!labels system))
+        baseline (renderer/clone-text-system device content-text-system 64)
+        baseline (renderer/update-text-data
+                  device baseline [[(:paint-op label)]] font-assets
+                  connector-route/label-font-size
+                  :px-range 8.0
+                  :line-height connector-route/label-line-height
+                  :char-width 0.56 :snap-step nil :sharpness 0.0
+                  :surface :connector-label)
+        entries (connector-gpu/connector-entries
+                 {:store-frame (connector-store-frame ops)
+                  :connector-system system
+                  :connector-label-entry renderer/connector-label-entry})
+        label-entry (first (filter #(not= :render.family/connector
+                                          (:family/id %)) entries))]
+    (-> (js/Promise.all
+         #js [(render-system-bytes! device label-geo zoom)
+              (render-system-bytes! device baseline zoom)])
+        (.then
+         (fn [values]
+           (let [label-bytes (aget values 0)
+                 baseline-bytes (aget values 1)]
+             (-> (js/Promise.all
+                  #js [(sha256-bytes label-bytes)
+                       (sha256-bytes baseline-bytes)])
+                 (.then
+                  (fn [hashes]
+                    (let [label-hash (aget hashes 0)
+                          baseline-hash (aget hashes 1)
+                          expected-family
+                          (scene-tape/text-family-id (:backend label-geo))
+                          fallback
+                          (renderer/text-layout-fallback-report)
+                          result
+                          {:label-raw-sha256 label-hash
+                           :slot-text-raw-sha256 baseline-hash
+                           :byte-identical? (= label-hash baseline-hash)
+                           :entry-family (:family/id label-entry)
+                           :live-family expected-family
+                           :pick-owner (get-in label-entry [:pick :owner])
+                           :fallback fallback
+                           :pass? (and (= label-hash baseline-hash)
+                                       (= expected-family
+                                          (:family/id label-entry))
+                                       (= :label
+                                          (get-in label-entry
+                                                  [:pick :owner 0 :part]))
+                                       (zero? (get fallback
+                                                   :connector-label 0)))}]
+                      (renderer/destroy-text-system! baseline)
+                      result))))))))))
+
+(defn- run-connector-dark-lane! []
+  (let [before (aget js/globalThis "__softlandLiveEdgesReceipt")]
+    {:flag-off? (not (live-edges/live-edges-enabled?))
+     :pure-load? (and (nil? before)
+                      (nil? (aget js/globalThis
+                                  "__softlandLiveEdgesReceipt")))
+     :zero-query-door? true
+     :pass? (and (not (live-edges/live-edges-enabled?))
+                 (nil? before)
+                 (nil? (aget js/globalThis
+                             "__softlandLiveEdgesReceipt")))}))
+
+(defn- run-connector-atom!
+  [device adapter font-assets camera containers-buffer]
+  (let [tracker (gpu-budget/create-tracker
+                 (gpu-budget/snapshot-adapter-limits adapter))
+        _ (renderer/write-containers! device containers-buffer
+                                      connector-effective)
+        content-text-system
+        (renderer/init-text-system
+         device color-format camera font-assets
+         :initial-capacity 64 :tracker tracker
+         :containers-buffer containers-buffer
+         :scene-color scene-tape/legacy-direct-color)
+        text-api {:clone renderer/clone-text-system
+                  :update renderer/update-text-data
+                  :destroy renderer/destroy-text-system!}
+        system (connector-gpu/init-connector-system
+                device color-format camera containers-buffer
+                :tracker tracker
+                :scene-color scene-tape/legacy-direct-color
+                :text-api text-api)
+        color-system (connector-gpu/init-connector-system
+                      device "rgba8unorm-srgb" camera containers-buffer
+                      :tracker tracker
+                      :scene-color (scene-tape/scene-color true)
+                      :text-api text-api)]
+    (-> (promise-mapv
+         (partial run-connector-golden!
+                  device system font-assets content-text-system)
+         [:straight-arrow-label :elbow-waypoints-heads
+          :provenance-pair-overlap])
+        (.then (fn [cases] {:cases cases}))
+        (.then
+         (fn [state]
+           (-> (promise-mapv
+                (partial connector-parity-row!
+                         device system font-assets content-text-system)
+                zoom-cases)
+               (.then #(assoc state :parity %)))))
+        (.then
+         (fn [state]
+           (-> (run-connector-color!
+                device color-system font-assets content-text-system)
+               (.then #(assoc state :color %)))))
+        (.then
+         (fn [state]
+           (-> (run-connector-label-road!
+                device system font-assets content-text-system)
+               (.then #(assoc state :label-road %)))))
+        (.then
+         (fn [{:keys [cases parity color label-road] :as state}]
+           (let [determinism
+                 (mapcat (fn [case]
+                           (map :determinism (:images case))) cases)
+                 arrangement (run-connector-arrangement!)
+                 upload-gate (run-connector-upload-gate!
+                              system font-assets content-text-system)
+                 dark-lane (run-connector-dark-lane!)
+                 pass? (and (= 3 (count cases))
+                            (every? :byte-identical? determinism)
+                            (= 7 (count parity))
+                            (every? :pass? parity)
+                            (:pass? color) (:pass? label-road)
+                            (:pass? arrangement) (:pass? upload-gate)
+                            (:pass? dark-lane))
+                 result
+                 (assoc state
+                        :arrangement arrangement
+                        :upload-gate upload-gate
+                        :dark-lane dark-lane
+                        :system (connector-gpu/connector-receipt system)
+                        :geometry connector-material/geometry-declaration
+                        :coverage :aliased-v1
+                        :product-pick :cpu-connector-authority
+                        :pass? pass?)]
+             (connector-gpu/destroy-connector-system! color-system)
+             (connector-gpu/destroy-connector-system! system)
+             (renderer/destroy-text-system! content-text-system)
              result))))))
 
 (defn- selected-limits [^js limits]
@@ -1538,11 +2473,14 @@
                            (throw (js/Error. "A verifier font is absent from manifest")))
                          (-> (js/Promise.all
                                #js [(fonts/load-font-assets font-config)
-                                    (load-t1-provider t1-font-config)])
+                                    (fonts/load-font-assets t1-font-config)])
                              (.then
                               (fn [font-values]
                                 (let [slug-assets (aget font-values 0)
-                                      t1-receipt (t1-layout-receipt (aget font-values 1))]
+                                      t1-assets (aget font-values 1)
+                                      t1-receipt
+                                      (t1-layout-receipt
+                                       (:layout-provider t1-assets))]
                                 (js/console.log "[W0-A] init-font-assets")
                                 (let [msdf-assets (assoc slug-assets :backend :msdf)
                                       camera-buffer (renderer/create-camera-buffer device nil)
@@ -1617,7 +2555,12 @@
                                        #js [(promise-mapv (partial run-case! harness) zoom-cases)
                                             (shader-digests)
                                             (run-q5-affine-boundary! device q5-system q5-effective)
-                                            (run-image-atom! device adapter)])
+                                            (run-image-atom! device adapter)
+                                            (run-path-atom! device adapter)
+                                            (run-connector-atom!
+                                             device adapter t1-assets
+                                             camera-buffer
+                                             containers-buffer)])
                                       (.then
                                        (fn [values]
                                          {:schema-version 2
@@ -1642,6 +2585,8 @@
                                           :t1-layout t1-receipt
                                           :q5-affine-boundary (aget values 2)
                                           :image-atom (aget values 3)
+                                          :path-atom (aget values 4)
+                                          :connector-atom (aget values 5)
                                           :cases (aget values 0)})))))))))))))))))))
 
 (defn ^:export start! []

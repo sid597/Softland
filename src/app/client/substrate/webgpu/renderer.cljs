@@ -3,7 +3,9 @@
             [app.client.substrate.image-material :as image-material]
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.buffer-pool :as buffer-pool]
+            [app.client.substrate.webgpu.connector-gpu :as connector-gpu]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
+            [app.client.substrate.webgpu.path-gpu :as path-gpu]
             [app.client.workspace.text-layout :as tl]))
 
 (def ^:private scene-color-mode-declaration
@@ -2845,6 +2847,13 @@
   (or (:family/id system)
       (scene-tape/text-family-id (:backend system))))
 
+(defn connector-label-entry
+  "The connector label paint door. Family identity is read from the live
+   cloned text geo; connector code never hardcodes an MSDF or Slug family."
+  [{:keys [entry-id order system instance-count first-instance pick]}]
+  (system-entry entry-id (text-system-family system) order system
+                instance-count first-instance pick))
+
 (defn- text-entries-for-family
   [family-id
    {:keys [text-sys extra-text-geos chrome-text-sys chrome-base-line-count
@@ -2969,7 +2978,19 @@
      :render.family/image
      {:contract (get scene-tape/default-family-registry :render.family/image)
       :produce image-entries
-      :execute! execute-image-batch!}}))
+      :execute! execute-image-batch!}
+
+     :render.family/path
+     {:contract (get scene-tape/default-family-registry :render.family/path)
+      :produce path-gpu/path-entries
+      :execute! path-gpu/execute-path-batch!}
+
+     :render.family/connector
+     {:contract (get scene-tape/default-family-registry
+                     :render.family/connector)
+      :produce #(connector-gpu/connector-entries
+                 (assoc % :connector-label-entry connector-label-entry))
+      :execute! connector-gpu/execute-connector-batch!}}))
 
 (def ^:private frame-contract-registry
   (let [executor-families (set (keys frame-family-registry))
@@ -2978,6 +2999,12 @@
       (throw (ex-info "Frame executor registrations must exactly cover admitted families"
                       {:admitted admitted-families
                        :executors executor-families})))
+    (when-let [nil-contracts
+               (seq (keep (fn [[family-id registration]]
+                            (when (nil? (:contract registration)) family-id))
+                          frame-family-registry))]
+      (throw (ex-info "Frame executor registration has no declarative contract"
+                      {:families (vec nil-contracts)})))
     (into {}
           (map (fn [[family-id registration]]
                  [family-id (:contract registration)]))
@@ -3064,7 +3091,8 @@
                              editor-shadow-pool-info sidebar-shadow-pool-info sidebar-pool-info
                              dirty-rect render-target clear-quad frame-idx zoom
                              extra-text-geos store-frame editor-rect-count
-                             editor-shadow-count image-system]
+                             editor-shadow-count image-system path-system
+                             connector-system effective-transforms font-assets]
                       :or {cmd-panel-visible false chrome-text-sys nil chrome-base-line-count 0
                            settings-line-count 0 settings-visible false
                            settings-rect-sys nil agent-visible false
@@ -3072,7 +3100,8 @@
                            dirty-rect nil render-target nil clear-quad nil frame-idx 0
                            zoom 1.0 extra-text-geos nil store-frame nil
                            editor-rect-count 0 editor-shadow-count 0
-                           image-system nil}}]
+                           image-system nil path-system nil connector-system nil
+                           effective-transforms nil font-assets nil}}]
   ;; scene-substrate P2: the world camera zoom wakes — callers may drive it;
   ;; default 1.0 keeps every existing call byte-identical.
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y zoom w h)
@@ -3130,6 +3159,13 @@
       ;; producer reads it; product construction of image-system stays staged.
       (when image-system
         (prepare-image-frame! image-system (:images store-frame)))
+      (when path-system
+        (path-gpu/prepare-path-frame! path-system (:paths store-frame) zoom))
+      (when connector-system
+        (connector-gpu/prepare-connector-frame!
+         connector-system (:connectors store-frame)
+         (:targets-by-address store-frame) effective-transforms zoom
+         font-assets text-sys))
       (let [frame {:frame-idx frame-idx
                    :partial? partial?
                    :dirty-rect dirty-rect
@@ -3150,6 +3186,8 @@
                    :sidebar-shadow-pool-info sidebar-shadow-pool-info
                    :sidebar-pool-info sidebar-pool-info
                    :image-system image-system
+                   :path-system path-system
+                   :connector-system connector-system
                    :store-frame store-frame
                    :editor-rect-count editor-rect-count
                    :editor-shadow-count editor-shadow-count

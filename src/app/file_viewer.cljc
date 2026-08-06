@@ -8,6 +8,7 @@
             #?(:clj [clojure.string :as str])
             #?(:clj [app.server.rama.util-fns :as util-fns])
             #?(:clj [app.server.rama.trail-view :as trail-view])
+            #?(:clj [app.client.workspace.live-edges :as live-edges])
             #?(:clj [app.server.ingest-watchers :as ingest-watchers])
             ;; Faces-as-assemblies · the ONE generic face artery (CONTRACT §7).
             #?(:clj [app.server.rama.face-projection :as face-projection])
@@ -235,8 +236,14 @@
            (some? (cluster/trail-runtime))
            (realized? trail-view-runtime))))))
 
+#?(:clj (declare face-ctx))
+
 (e/defn TrailBundle [targets opts]
   (e/server (trail-view/read-context-bundle (trail-rt) targets opts)))
+
+(e/defn LiveEdges [addresses]
+  (e/server
+    (live-edges/read-live-edges (:rk-rt (face-ctx)) addresses)))
 
 (e/defn TrailFeed [window opts]
   (e/server (trail-view/read-recent-activity (trail-rt) window opts)))

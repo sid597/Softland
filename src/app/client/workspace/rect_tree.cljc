@@ -3,6 +3,9 @@
    Everything is a rect. The tree replaces scattered compute-*-rects fns with
    one generic walk that produces flat GPU-compatible vectors."
   (:require [app.client.substrate.image-material :as image-material]
+            [app.client.substrate.connector-material :as connector-material]
+            [app.client.substrate.connector-route :as connector-route]
+            [app.client.substrate.path-material :as path-material]
             [app.client.workspace.text-layout :as tl]))
 
 (defn wrap-line
@@ -324,6 +327,110 @@
            own-op (conj own-op)
            true (into child-ops)))))))
 
+;; --- Tree walk: path ops ----------------------------------------------------
+
+(defn tree->paths
+  "Walk path-bearing rt-nodes depth-first and emit ordered path ops.
+
+   Presence is `[:data :path/material]`. Bounds remain the broad phase, while
+   the material's CPU classifier is the narrow pick truth. Coordinates in the
+   material stay node-local; :x/:y places the derived mesh in container-local
+   space and the existing compact container transform handles motion."
+  ([node] (tree->paths node 0 0 nil))
+  ([node parent-x parent-y clip-bounds]
+   (let [{:keys [bounds children clip? data]} node
+         abs-x (+ parent-x (:x bounds 0))
+         abs-y (+ parent-y (:y bounds 0))
+         width (:w bounds 0)
+         height (:h bounds 0)
+         material (:path/material data)
+         visible? (if clip-bounds
+                    (let [clip-x (:x clip-bounds)
+                          clip-y (:y clip-bounds)
+                          clip-width (:w clip-bounds)
+                          clip-height (:h clip-bounds)]
+                      (and (< abs-x (+ clip-x clip-width))
+                           (< abs-y (+ clip-y clip-height))
+                           (> (+ abs-x width) clip-x)
+                           (> (+ abs-y height) clip-y)))
+                    true)]
+     (when material
+       (path-material/validate-material! material)
+       (when (nil? (:address data))
+         (throw (ex-info "Path rt-node requires its own semantic address"
+                         {:node/id (:id node)
+                          :path/material-id (:path/material-id material)}))))
+     (when visible?
+       (let [own-op (when material
+                      {:id (:id node)
+                       :address (:address data)
+                       :x abs-x :y abs-y
+                       :path/material material
+                       :path/clip clip-bounds})
+             child-clip (if clip?
+                          (intersect-clip abs-x abs-y width height clip-bounds)
+                          clip-bounds)
+             child-ops (into []
+                             (mapcat #(tree->paths % abs-x abs-y child-clip))
+                             children)]
+         (cond-> []
+           own-op (conj own-op)
+           true (into child-ops)))))))
+
+;; --- Tree walk: connector ops ----------------------------------------------
+
+(defn tree->connectors
+  "Walk connector-bearing rt-nodes depth-first. Connector nodes span their
+   owning container from origin so the broad phase can never reject a route
+   whose endpoint transform changed without a tree write; the registered
+   live-route predicate remains the narrow pick truth."
+  ([node] (tree->connectors node 0 0 nil))
+  ([node parent-x parent-y clip-bounds]
+   (let [{:keys [bounds children clip? data]} node
+         abs-x (+ parent-x (:x bounds 0))
+         abs-y (+ parent-y (:y bounds 0))
+         width (:w bounds 0)
+         height (:h bounds 0)
+         material (:connector/material data)
+         visible? (if clip-bounds
+                    (let [clip-x (:x clip-bounds)
+                          clip-y (:y clip-bounds)
+                          clip-width (:w clip-bounds)
+                          clip-height (:h clip-bounds)]
+                      (and (< abs-x (+ clip-x clip-width))
+                           (< abs-y (+ clip-y clip-height))
+                           (> (+ abs-x width) clip-x)
+                           (> (+ abs-y height) clip-y)))
+                    true)]
+     (when material
+       (connector-material/validate-material! material)
+       (when-not (and (zero? abs-x) (zero? abs-y)
+                      (pos? width) (pos? height))
+         (throw (ex-info "Connector rt-node must span its container from [0,0]"
+                         {:node/id (:id node) :bounds bounds})))
+       (when (nil? (:address data))
+         (throw (ex-info "Connector rt-node requires its edge-instance address"
+                         {:node/id (:id node)
+                          :relation-id (:connector/relation-id material)}))))
+     (when visible?
+       (let [own-op (when material
+                      {:id (:id node)
+                       :address (:address data)
+                       :connector/edge-instance-id
+                       (:connector/edge-instance-id data)
+                       :connector/from-vi (:connector/from-vi data)
+                       :connector/to-vi (:connector/to-vi data)
+                       :connector/material material})
+             child-clip (if clip?
+                          (intersect-clip abs-x abs-y width height clip-bounds)
+                          clip-bounds)
+             child-ops (into []
+                             (mapcat #(tree->connectors % abs-x abs-y child-clip))
+                             children)]
+         (cond-> []
+           own-op (conj own-op)
+           true (into child-ops)))))))
+
 ;; --- Tree walk: text ops ----------------------------------------------------
 
 (defn tree->text-ops
@@ -426,6 +533,29 @@
 
 ;; --- Hit testing ------------------------------------------------------------
 
+(def family-hit-predicates
+  "Per-family narrow-phase seam. Bounds remain the universal broad phase;
+   registered families may replace only their own mathematical predicate."
+  {:render.family/path
+   (fn [node local-point]
+     (path-material/hit? (get-in node [:data :path/material]) local-point))
+
+   :render.family/connector
+   (fn [node local-point]
+     (connector-route/live-hit?
+      (get-in node [:data :connector/edge-instance-id]) local-point))})
+
+(defn- node-family-id [node]
+  (or (get-in node [:data :render/family])
+      (when (get-in node [:data :connector/material])
+        :render.family/connector)
+      (when (get-in node [:data :path/material]) :render.family/path)))
+
+(defn- node-narrow-hit? [node local-point]
+  (if-let [predicate (get family-hit-predicates (node-family-id node))]
+    (predicate node local-point)
+    true))
+
 (defn hit-test
   "Find the deepest node containing point (px, py).
    Returns a vector of nodes from root to deepest hit [root ... leaf],
@@ -444,10 +574,13 @@
        ;; Point is inside this node — check children (reverse order = front-to-back)
        (let [child-hit (some (fn [child]
                                (hit-test child px py abs-x abs-y))
-                             (rseq children))]
-         (if child-hit
-           (into [node] child-hit)
-           [node]))))))
+                             (rseq children))
+             own-hit? (node-narrow-hit? node
+                                        [(- px abs-x) (- py abs-y)])]
+         (cond
+           child-hit (into [node] child-hit)
+           own-hit? [node]
+           :else nil))))))
 
 ;; --- Event dispatch with bubbling -------------------------------------------
 

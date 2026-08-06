@@ -12,7 +12,8 @@
    view-instance's resolved tree + flattened ops + its address→paths subtree
    index (CONTRACT §5):
      {:vi <edn> :container <int> :tree <resolved rt-tree, container-LOCAL>
-      :ops {:text [...] :rects [...] :shadows [...] :images [...]}
+      :ops {:text [...] :rects [...] :shadows [...] :images [...] :paths [...]
+            :connectors [...]}
       :addresses {address → #{index-path}} :meta {...} :stratum :world|:overlay}
    The :index fan-out is maintained incrementally by upsert/remove, NEVER
    recomputed by scanning slots at read time. Resolution route:
@@ -51,7 +52,9 @@
   {:text    (rt/tree->text-ops tree)
    :rects   (rt/tree->rects tree)
    :shadows (rt/tree->shadows tree)
-   :images  (rt/tree->images tree)})
+   :images  (rt/tree->images tree)
+   :paths   (rt/tree->paths tree)
+   :connectors (rt/tree->connectors tree)})
 
 (defn- stamp-ops-container
   "Bake the slot's compact transform-table index onto every flattened op so the GPU places each
@@ -62,14 +65,22 @@
    :container-slot is stable for a slot's whole life (move/affine changes the
    registry transform, not the slot). Text ops are nested [[op..]..] (lines);
    rects, shadows, and images are flat."
-  [ops container-slot]
+  [ops container-slot container vi]
   (let [slot (or container-slot 0)]
     {:text    (mapv (fn [line] (mapv #(assoc % :container-idx slot) line)) (:text ops))
      :rects   (mapv #(assoc % :container-idx slot) (:rects ops))
      :shadows (mapv #(assoc % :container-idx slot) (:shadows ops))
      ;; IMAGE-ATOM T8/T14: stamping reuses W2-A's compact slot; image ops
      ;; acquire no per-node transform representation.
-     :images  (mapv #(assoc % :container-idx slot) (:images ops))}))
+     :images  (mapv #(assoc % :container-idx slot) (:images ops))
+     :paths   (mapv #(assoc % :container-idx slot) (:paths ops))
+     ;; Connector anchor space is always the SLOT's own container. Both the
+     ;; semantic cid (CPU route resolution) and compact transport slot (GPU)
+     ;; are stamped here; no per-edge foreign transform road exists.
+     :connectors (mapv #(assoc % :container-idx slot
+                               :container container
+                               :owner-vi vi)
+                       (:connectors ops))}))
 
 (defn- build-slot
   "Resolve → flatten → stamp container-idx → index a tree into a slot value. The
@@ -92,7 +103,9 @@
      :stack-path (or stack-path [])
      :tree      resolved
      :ops       (stamp-ops-container (flatten-ops resolved)
-                                     (or container-slot container 0))
+                                     (or container-slot container 0)
+                                     (or container 0)
+                                     vi)
      :addresses (collect-addresses resolved)
      :meta      (or meta {})
      :stratum   (or stratum :world)}))
@@ -291,6 +304,8 @@
   [store]
   (into [] (map val) (:ordered store)))
 
+(declare targets-by-address)
+
 (defn derive-store-frame
   "Pure GPU payload projection from the write-maintained scene order.
 
@@ -303,6 +318,9 @@
     {:rects (into [] (mapcat (comp :rects :ops)) ordered)
      :shadows (into [] (mapcat (comp :shadows :ops)) ordered)
      :images (into [] (mapcat (comp :images :ops)) ordered)
+     :paths (into [] (mapcat (comp :paths :ops)) ordered)
+     :connectors (into [] (mapcat (comp :connectors :ops)) ordered)
+     :targets-by-address (targets-by-address ordered)
      :text-by-vi (reduce (fn [result slot]
                            (assoc result (:vi slot) (get-in slot [:ops :text])))
                          {}
@@ -315,7 +333,9 @@
                    {:rects (count (get-in slot [:ops :rects]))
                     :shadows (count (get-in slot [:ops :shadows]))
                     :text-lines (count (get-in slot [:ops :text]))
-                    :images (count (get-in slot [:ops :images]))}]))
+                    :images (count (get-in slot [:ops :images]))
+                    :paths (count (get-in slot [:ops :paths]))
+                    :connectors (count (get-in slot [:ops :connectors]))}]))
            ordered)
      :order-by-vi
      (into {}
@@ -449,7 +469,7 @@
 
 (def ^:private identity-camera {:x 0.0 :y 0.0 :zoom 1.0})
 
-(defn- addressed-rects
+(defn addressed-rects
   "Walk a RESOLVED tree; for every node carrying [:data :address], return
    {:address a :x ax :y ay :w w :h h} in ABSOLUTE container-LOCAL coords (bounds
    offset down the parent chain — the same accumulation tree->rects/hit-test do).
@@ -468,6 +488,36 @@
                         acc)]
               (reduce (fn [a c] (walk c ax ay a)) acc (:children node))))]
     (walk tree 0 0 [])))
+
+(defn targets-by-address
+  "Batch oracle for connector attachment: address -> every visible occurrence
+   with its slot identity, absolute container-local bounds, semantic container,
+   and compact GPU slot. The future incremental sibling must fence against this
+   exact walk."
+  [ordered-slots]
+  (reduce
+   (fn [index slot]
+     (let [largest-by-address
+           (reduce
+            (fn [by-address {:keys [address w h] :as rect}]
+              (let [prior (get by-address address)]
+                (if (or (nil? prior)
+                        (> (* w h) (* (:w prior) (:h prior))))
+                  (assoc by-address address rect)
+                  by-address)))
+            {}
+            (addressed-rects (:tree slot)))]
+       (reduce-kv
+        (fn [index address {:keys [x y w h]}]
+          (update index address (fnil conj [])
+                  {:vi (:vi slot)
+                   :bounds {:x x :y y :w w :h h}
+                   :container (:container slot)
+                   :container-idx (:container-slot slot)}))
+        index
+        largest-by-address)))
+   {}
+   ordered-slots))
 
 (defn- rect-screen-area
   "Clipped on-screen area of a container-LOCAL rect. local →(container eff)→

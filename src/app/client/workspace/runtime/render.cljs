@@ -745,6 +745,12 @@
                                     :sidebar-shadow-pool-info (pool/pool-draw-info !sidebar-shadow-pool)
                                     :sidebar-pool-info (pool/pool-draw-info !sidebar-pool)
                                     :store-frame store-frame
+                                    :image-system (:image-system (:pipelines geometry))
+                                    :path-system (:path-system (:pipelines geometry))
+                                    :connector-system (:connector-system
+                                                       (:pipelines geometry))
+                                    :effective-transforms effective
+                                    :font-assets font-assets
                                     :editor-rect-count (count editor-rects)
                                     :editor-shadow-count (count (or editor-shadows []))
                                     :dirty-rect dirty-rect
