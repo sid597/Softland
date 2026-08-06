@@ -39,15 +39,40 @@ It carries exactly:
 - the 3–5 decisive scenarios — frozen as tripwire tests at close;
 - real MUST-NOTs only (env.clj, protected files). Nothing conjunctive.
 The cutter reads BINDING law docs primary (W1-class, never a summary), and
-the cut CLOSES through ONE bounded fresh-eyes falsification round —
+the cut CLOSES through ONE bounded fresh-eyes falsification round — run as
+NEW sessions at Sid's hand, never the cutter's own subagents (corpse:
+2026-08-06, a spawned falsifier stopped mid-read) —
 claim→source, evidence-cited, no verdict authority, no recut; author repairs
 in-session; still Sid-touch #1 (corpse: path-atom 2026-08-06 — three
 unwritten forks + two receipt-passing wrong-build classes post-cut; expiry:
 a round returning ≤1 decision-changing finding retires the round). While
-cutting: write the fork you saw · every receipt names what it observes ·
-every pointed-at law gets an operationalizing scenario or a written why-not.
+cutting, the AUTHOR'S PASS runs four general lenses — built to shrink each
+round's delta toward that expiry, over time to nil (corpse: the connector
+round 2026-08-06, 16 fresh-eyes findings / nine repair groups, all four
+classes): chain-of-custody (every value a consumer needs has a WRITTEN road
+from its producer — quote the threading; tests are consumers too: each
+scenario loadable against its declared namespaces/lane) · receipt-gaming
+(per scenario, name in writing one wrong build that passes it; strengthen
+until you can't) · pin-or-fork (expand every its/own/the on a load-bearing
+noun to the explicit referent — awkward expansion = two readings existed;
+every policy adjective is a pinned exact algorithm or a written fork) ·
+obligation cross-check (every MUST-NOT × every scenario/entry obligation,
+hunting the forced violation; every pointed-at law names the scenario that
+FAILS under its violation).
+Write the fork you saw.
 Open questions are ruled in-session or handed down as a default + note. It
 ends with the implementer's opening prompt.
+
+### Model routing at the cut (Sid, 2026-08-06: "never outsource the thinking")
+Composition, rulings, repairs ride the STRONGEST model, never delegated
+down; the contract header names its cutter model + effort — Sid's
+two-second check at touch #1. Binding-law reads stay primary (CLAUDE.md
+carve-out). Opus lawfully takes: lens-1/lens-4 sweeps of the finished draft
+(candidates return, verdicts stay home) · gatherer returns in SCHEMA
+(anchor + ≤3-line verbatim + one classification line, no narrative) ·
+board/baton mechanics (grep + scoped block reads, never whole-file).
+Lenses 2–3 (receipt-gaming, pin-or-fork) are author judgment — never
+delegated.
 
 ### Execution — straight through
 The implementer builds the WHOLE atom in one lane: build → surface bugs →
@@ -104,11 +129,7 @@ one pointer line per thread. Rulings live in decisions.md. That is all.
 ## Field notes that earned their keep (cheap lines, expensive bugs)
 - Thread-file precedence: the baton never outranks CONTRACT.md or
   decisions.md — flag drift in a NOW entry, keep moving.
-- Whole-corpus processors: one receipt over the FULL real corpus, ASSERTED
-  (only assertion catches silent class gaps).
 - GPU/perf receipts state the adapter/device identity first (SwiftShader vs
   hardware reclassifies every number).
 - A suite that reads git HEAD dynamically pins a specimen, or is re-run
   after the closing commit moves HEAD.
-- Commits: Sid's word; code and docs separate, both on
-  `docs/current-mental-model-local`; never push.

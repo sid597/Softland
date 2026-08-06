@@ -775,8 +775,28 @@ ruled: no further rounds. Implementation receipts are frozen in
 preserved MSDF counterexample. Sid's felt pass accepted the rounded v1 endpoint
 style after the cap-overlap correction; cap/marker styling remains widenable.
 Code/test/goldens landed with the accepted PATH prerequisite in `10dd8e5`.
-**NEXT: cut Package 2 wave 4 — selection/manipulation · snapping · guides ·
-drawing chrome, the next drawing-floor row established by `ENGINE.md` §0.**
+**NEXT ran 2026-08-06: the chrome-atom contract is cut and its
+falsification round closed (block below).**
+
+**chrome-atom — Package 2 wave 4, CONTRACT CUT + ROUND CLOSED 2026-08-06,
+IMPLEMENTATION NEXT.** Selection/manipulation · snapping · guides · drawing
+chrome: `:render.family/chrome` through the W2-B tape (first store-slot
+consumer of the overlay stratum, ranked under the product-chrome frame
+ladder) + scene selection (`{:vi :address}` session truth, legacy road
+untouched unflagged) + arrangement manipulation (translate through the
+existing settle artery, snapped; uniform fixture scale via corner handles)
++ the pure snap engine + smart guides + the hybrid anchor/metric WGSL law —
+all behind `?live-atoms=1`, flag absent byte-identical. Contract (ends with
+the Codex opening prompt): `docs/render-engine/CHROME-ATOM-CONTRACT.md`;
+baton `CHROME-ATOM-NOW.md`. The armed A/B ran as this cut's bounded round,
+both arms reading the pre-repair draft: 10 findings (arm 1, repaired at
+ingest in the cutter's session) + 6 (arm 2, adjudicated against source
+receipts same day — five already covered by arm-1 repairs, one residual
+contradiction repaired + four tightenings; ledger in the baton). Arm-2
+overlap 5/6 vs connector's 3-of-9 shared: pooling value fell as the
+four-lens author pass improved. Arm attribution awaits Sid's line; the
+round expiry did NOT fire. NEXT: Sid pastes the Codex opening prompt
+(contract tail) into a fresh implementer session.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.
