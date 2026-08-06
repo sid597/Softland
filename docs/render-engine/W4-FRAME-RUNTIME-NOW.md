@@ -27,6 +27,18 @@ decisions.md — flag drift, keep moving.
 (NOW entries below, ≤15 lines each, newest first; close entry includes the
 process-vs-code line self-audit.)
 
+## 2026-08-07 — ROUND CLOSED (Sid: no second arm); the contract is the build law
+- Touch #1 is spent: cut + one-arm round + repairs (`9c192af`). Next
+  authority: the contract-tail Codex implementation prompt, then Sid's
+  accept (touch #2).
+- Workflow amendments landed in the work-package skill, this round the
+  corpse: ONE Codex-class arm is the standing round shape · gatherers
+  return index-first · the draft composes FULL before its first Write,
+  repairs land as one batched pass (token economy).
+- Round datum for the ledger: arm-1 6 findings → 3 new decision-changers
+  / 2 partial / 1 stale-vs-committed; author-pass sweep had returned 29
+  candidates → ~17 landed. Expiry did NOT fire.
+
 ## 2026-08-07 — ROUND arm 1 (Codex) ADJUDICATED; repairs landed in the contract
 - 6 findings; some quotes pin to the pre-repair draft (version skew) —
   every finding adjudicated against the COMMITTED text + fresh source.

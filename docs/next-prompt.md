@@ -813,11 +813,13 @@ Contract-C linear road); pick fully effect-blind v1, declared; all visible
 behavior behind `?live-atoms=1`. Contract (ends with the Codex
 implementation prompt): `docs/render-engine/W4-FRAME-RUNTIME-CONTRACT.md`;
 baton `W4-FRAME-RUNTIME-NOW.md`. Four-lens author pass closed (12 author +
-~17 adjudicated sweep repairs; ledger in the baton). NEXT: Sid runs the
-bounded fresh-eyes round (brief delivered in-session) → author repairs →
-Codex builds the package straight through; then the T2 input-floor
-contract (starter delivered); the Package-2 seam courtroom closes over the
-whole set.
+~17 adjudicated sweep repairs). **ROUND CLOSED 2026-08-07** — one Codex
+arm, 3 decision-changers repaired (`9c192af`; gradient law · per-op
+scissor granularity · variant-layer resource custody); Sid: no second
+arm; the one-arm round shape + token-economy laws landed in the
+work-package skill. NEXT: Codex builds the package straight through (the
+contract-tail prompt); then the T2 input-floor contract (starter
+delivered); the Package-2 seam courtroom closes over the whole set.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.

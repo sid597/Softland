@@ -40,8 +40,11 @@ It carries exactly:
 - real MUST-NOTs only (env.clj, protected files). Nothing conjunctive.
 The cutter reads BINDING law docs primary (W1-class, never a summary), and
 the cut CLOSES through ONE bounded fresh-eyes falsification round — run as
-NEW sessions at Sid's hand, never the cutter's own subagents (corpse:
-2026-08-06, a spawned falsifier stopped mid-read) —
+ONE fresh Codex-class session at Sid's hand, never the cutter's own
+subagents (corpse: 2026-08-06, a spawned falsifier stopped mid-read; the
+second arm retired 2026-08-07, Sid's word — W4 round: the author pass
+absorbed the fresh-arm find class, Codex's uniques were cross-layer
+re-derivations; trend from chrome's 5/6 overlap) —
 claim→source, evidence-cited, no verdict authority, no recut; author repairs
 in-session; still Sid-touch #1 (corpse: path-atom 2026-08-06 — three
 unwritten forks + two receipt-passing wrong-build classes post-cut; expiry:
@@ -68,11 +71,15 @@ Composition, rulings, repairs ride the STRONGEST model, never delegated
 down; the contract header names its cutter model + effort — Sid's
 two-second check at touch #1. Binding-law reads stay primary (CLAUDE.md
 carve-out). Opus lawfully takes: lens-1/lens-4 sweeps of the finished draft
-(candidates return, verdicts stay home) · gatherer returns in SCHEMA
-(anchor + ≤3-line verbatim + one classification line, no narrative) ·
+(candidates return, verdicts stay home) · gatherer returns INDEX-FIRST in
+SCHEMA (one line per site; verbatim pulled only for load-bearing anchors —
+corpse: the W4 cut's ~100k mostly-unused verbatim) ·
 board/baton mechanics (grep + scoped block reads, never whole-file).
 Lenses 2–3 (receipt-gaming, pin-or-fork) are author judgment — never
-delegated.
+delegated. Token economy at the cut (corpse: W4's ~30 post-Write edits,
+each re-quoting old+new): the draft is composed FULL — lenses 2–3 already
+run — before its FIRST Write; sweep and round repairs land as ONE batched
+edit pass each, never fix-by-fix.
 
 ### Execution — straight through
 The implementer builds the WHOLE atom in one lane: build → surface bugs →
