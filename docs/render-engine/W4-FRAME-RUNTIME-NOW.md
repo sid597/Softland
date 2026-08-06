@@ -27,6 +27,26 @@ decisions.md — flag drift, keep moving.
 (NOW entries below, ≤15 lines each, newest first; close entry includes the
 process-vs-code line self-audit.)
 
+## 2026-08-07 — ROUND arm 1 (Codex) ADJUDICATED; repairs landed in the contract
+- 6 findings; some quotes pin to the pre-repair draft (version skew) —
+  every finding adjudicated against the COMMITTED text + fresh source.
+- CONFIRMED, new (3): the gradient law — legacy mixes ENCODED stops, a
+  decode-after-mix seam-ON build passes naive cross-road C4 while
+  violating W1 §8.2 → seam-ON decodes stops pre-mix behind the same
+  const; rect-fragment digest rides the NEW `--amend-shader-digests`
+  one-shot (preflight: all goldens byte-identical) · per-OP scissor
+  granularity → same-clip sub-ranges via the image sub-draw precedent;
+  S3(c) two-sibling probe · seam-ON set = VARIANT LAYER sharing
+  textures/registries (a second `init-image-system` placeholders
+  everything); S3(a) anti-preload order pinned.
+- PARTIAL (2): pick characterized honestly — ancestor-BOUNDS-gated
+  descent, no `:clip?` read (`rect_tree.cljc:595-605`); ZERO-changes law
+  unchanged · plan-STRUCTURE wording + topology-not-indices reuse key.
+- STALE (1): export was already stratum-only; C7 now NAMES the
+  flattening loss. A/B datum: Codex uniques again the deep cross-layer
+  class (shader math × color law × digest mechanism). Expiry did NOT
+  fire (3 ≫ 1). Arm 2 = Sid's line; marginal value likely low.
+
 ## 2026-08-07 — CONTRACT CUT; author pass closed; round pending at Sid's hand
 - Cut from primary reads (ENGINE §0/§4 · W0-C §5 · W1 O/G/M/C · decisions
   render-seam · chrome/path contracts) + three schema'd Opus gatherers

@@ -50,8 +50,10 @@ are reserved for exactly this package.
    this cut mints them. Plan compile happens BEFORE any pass opens (today
    the arrangement update runs inside the open pass,
    `renderer.cljs:3206-3209` — that ordering inverts). Compile is
-   change-driven, not per-frame (W0-C §5.5): the plan is a pure function of
-   (effect-span set · enabled capabilities · viewport shape · color mode)
+   change-driven, not per-frame (W0-C §5.5): the plan's STRUCTURE is a
+   pure function of (the effect-bearing container TOPOLOGY — ids ·
+   nesting · effect values, never concrete entry indices · enabled
+   capabilities · viewport shape · color mode)
    and is reused while those inputs are value-equal; the batch recompute
    stays alive as its oracle (decisions.md fenced-incremental-view law; the
    `compile-frame-tape`/twin precedent, `renderer.cljs:3052-3078`). The
@@ -131,8 +133,15 @@ are reserved for exactly this package.
    clamping/truncating geometry (`rect_tree.cljc:186-202` `intersect-clip`
    stays the one CPU composition; the already-carried-but-unread
    `:visibility :clip` tokens — `renderer.cljs:2615`, `path_gpu.cljs:371` —
-   become real for opted-in entries), and the
-   executor applies it as a scissor per entry. The one existing
+   become real for opted-in entries). CLIP GRANULARITY IS PER-OP, never
+   per-entry: two sibling nodes in ONE `(vi, family)` slot may sit under
+   DIFFERENT clip ancestors, so the entry's ops are grouped into
+   contiguous same-clip-rect sub-ranges and executed with a scissor per
+   sub-range — the image atom's family-owned sub-draw walker is the
+   exact precedent (`execute-image-batch!`, `renderer.cljs:2944-2954`);
+   a single-scissor-per-entry build is a named wrong build (it passes a
+   one-clip fixture and breaks mixed-clip siblings — S3(c) pins it). The
+   one existing
    `setScissorRect` site (`renderer.cljs:2931-2937`) currently LEAKS — set
    and never reset within the pass; this cut fixes the semantics: scissor
    is explicit per-entry state (entry's clip rect, else full attachment),
@@ -174,7 +183,9 @@ are reserved for exactly this package.
    canvas `toBlob`/`convertToBlob` (zero new dependencies; the
    `live_atoms.cljs:53-54` precedent). Returns a Promise of bytes +
    records the C7 export receipt fields (output space sRGB, straight
-   alpha, intentional losses). Flag-only chord (installed by
+   alpha, intentional losses — NAMED, per M9's spirit: a raster seed
+   flattens identity/provenance and is not a family export projection;
+   the C7 receipt says so in writing). Flag-only chord (installed by
    `frame-runtime`, its own listener — zero keyboard.cljs edits) downloads
    it for the felt pass.
 
@@ -238,8 +249,30 @@ frame.**
   that machinery stays dormant); and the compiler accepts a FORCED color
   mode for verifier receipts only (C3 needs direct paint and the group
   road on the same linear footing).
+- GRADIENT LAW (the round's catch): W1 §8.2 — "Linear gradients
+  interpolate decoded linear-light stops by default." The legacy rect
+  shader mixes ENCODED stops (`renderer.cljs:268-296`) and the seam
+  boolean decodes only the mixed result — decode-AFTER-interpolation is
+  the named wrong build, and it would pass a naive cross-road C4 because
+  both roads err identically. The seam-ON variant therefore decodes each
+  stop BEFORE `mix`, guarded by the SAME `kSceneColorLinearPremultiplied`
+  const so the legacy path's bytes are untouched. This is a rect-fragment
+  SOURCE change: the manifest's recorded shader digest shifts, riding a
+  NEW one-shot `--amend-shader-digests` road whose preflight is ALL
+  existing goldens byte-identical (a digest amendment is a recorded
+  intended change, never a golden edit — the digest exists to catch
+  UNINTENDED drift).
 - The seam-ON pipeline set is constructed LAZILY on the first linear-mode
-  plan (unflagged boots allocate nothing new).
+  plan (unflagged boots allocate nothing new) — and it is a VARIANT
+  LAYER over the EXISTING family systems, never a second system: it
+  shares textures, atlases, source registries, and bytes
+  (`init-image-system` mints fresh empty registries,
+  `renderer.cljs:1086-1168` — calling it again would placeholder every
+  already-registered image), minting ONLY mode-specific views
+  (the sRGB-view switch, `renderer.cljs:988-992`), bind groups, and
+  pipelines, with zero re-decode/re-upload; if variant creation is
+  asynchronous it rides the `:resource` cause, else it is a declared
+  synchronous first-effect-frame cost (implementer's recorded default).
 - Flipping the BASE product to the linear road for effectless frames too
   (with its golden re-bank) is the staged scene-color activation —
   `scene_tape.cljc:54-57` already models it — LATER, Sid's line.
@@ -254,10 +287,13 @@ One thin hook adds `usage: RENDER_ATTACHMENT | COPY_DST` at configure.
 **Pick is untouched in this package — fully, declared, not silent.** The
 v1 declared policy (W1 Contract O receipt O4's "according to their
 declared policies" clause): paint gains exact GPU clip/mask/opacity; PICK
-stays exactly today's road with ZERO changes — clip-blind, mask-blind,
-AND effect-blind including opacity-zero (the pick walk is
-`scene_store.cljc:368-391` `ss/pick` → reverse tape; `rect_tree`
-hit-test is an AABB walk with no clip participation, W1 §1; the chrome
+stays exactly today's road with ZERO changes — and "today's road" is
+characterized honestly: `ss/pick` (`scene_store.cljc:368-391`) → reverse
+tape → `rt/hit-test`, which GATES DESCENT through every ancestor's
+BOUNDS without ever reading `:clip?` (`rect_tree.cljc:595-605`) — so
+today is neither clip-aware nor purely clip-blind; it is
+ancestor-bounds-gated, and ZERO changes means preserving exactly that
+gate, effect-blind including mask and opacity-zero (the chrome
 atom's clip-blind-v1 ruling is the precedent), census-counted (the
 receipt counts pickable-but-invisible identities). ACKNOWLEDGED
 DEVIATION, not silence: W1 §3.2.3 states clips/masks/group visibility
@@ -402,8 +438,10 @@ together (the chrome contract's together-law, upheld verbatim).
   byte-identical; goldens append-only; shared-source digest shifts ride
   the input-amendment roads, never golden edits; the manifest's
   `shaderDigests` pin SIX renderer WGSL sources
-  (`verifier.cljs:2770-2775`) — the seam-ON variants reuse those sources
-  via the existing string-replace, so all six hold; chrome's WGSL lives
+  (`verifier.cljs:2770-2775`) — five hold via the existing
+  string-replace reuse; the RECT-FRAGMENT source changes for the
+  gradient law and rides the new `--amend-shader-digests` one-shot
+  (preflight: all existing goldens byte-identical); chrome's WGSL lives
   in the chrome INPUT-digest set (`run_verifier.mjs:378`), so the pulse
   uniform rides the chrome input-amendment road. → S3, S5.
 
@@ -436,9 +474,12 @@ New namespaces (ALL new code lives here):
   `run-color-receipts!` shape).
 - `src/app/client/substrate/webgpu/compositor_gpu.cljs` — the target pool
   (create/recycle `rgba16float` + swap-format targets, gpu-budget
-  registered, destroy road) · the seam-ON pipeline-set constructor (lazy;
-  reuses each family's existing constructors with
-  `(scene-tape/scene-color true)`) · composite pipeline (WGSL: sample
+  registered, destroy road) · the seam-ON VARIANT-LAYER constructor
+  (lazy; shares each family system's textures/registries/bytes and mints
+  only mode views/bind-groups/pipelines with
+  `(scene-tape/scene-color true)` — never a second system) · the
+  seam-ON rect-fragment gradient-decode variant (the same-const guard) ·
+  composite pipeline (WGSL: sample
   group target, apply opacity/mask, premultiplied blend) · separable blur
   pipelines + downsample ladder · snapshot copy (the backdrop producer
   edge) · the present/transfer pipeline (linear → swap format, the ONE
@@ -523,7 +564,9 @@ Thin hooks only (few lines each, enumerated):
   the clock pin + export digest) wired into the top-level `Promise.all`;
   `run_verifier.mjs` w4 rows + `w4FrameRuntimeInputs` digest set +
   one-shot `--append-w4-goldens` (preflight: prior banks byte-identical +
-  no existing w4 cases) + `--append-w4-input-amendment`; `manifest.json`
+  no existing w4 cases) + `--append-w4-input-amendment` + the NEW
+  `--amend-shader-digests` one-shot (preflight: ALL existing goldens
+  byte-identical; records the intended rect-fragment change); `manifest.json`
   gains the w4 sets; `verify_scene_tape_fence.mjs` — the families array
   (`:63-73`) and the seeded-effect-family negative fence (S1's static
   fence) land here, the chrome precedent. SHARED-FILE LAW: prior
@@ -595,9 +638,15 @@ compiler must handle split spans — a fork note in the baton, not a stop).
    linear mode (the force exists exactly for this receipt; within the
    declared quantization ε; recorded per-channel max delta); C1 reference
    source-over on the linear road incl. output alpha; C4 exactly-one
-   transfer — tagged solids/gradients equivalent across direct-legacy,
+   transfer — tagged solids equivalent across direct-legacy,
    linear-intermediate, readback, and export within declared ε, with
-   double/missing-conversion sentinels; mask truth — inside/outside/
+   double/missing-conversion sentinels — and the GRADIENT DECISIVE
+   fixture: a black→white linear gradient's midpoint through the linear
+   road reads ≈0.735 encoded (decoded-stop interpolation, W1 §8.2);
+   the decode-after-mix wrong build reads 0.5 and FAILS (gradients are
+   deliberately excluded from naive cross-road equivalence — the two
+   roads lawfully differ there until the base-scene activation);
+   mask truth — inside/outside/
    soft-edge samples against the CPU reference, mask source absent from
    normal paint; an opacity-zero group absent from PAINT while its
    identities remain pickable-and-census-counted (the declared v1 pick
@@ -617,7 +666,14 @@ compiler must handle split spans — a fork note in the baton, not a stop).
    a pixel inside the clip at the corner-radius arc must read BACKGROUND
    (the CPU clamp road paints it square — the named wrong build), and a
    pixel inside a glyph fragment the CPU road drops whole must read
-   NONZERO coverage; determinism ×2; the
+   NONZERO coverage — and (c) includes TWO SIBLINGS under DIFFERENT clip
+   ancestors in one view instance, each clipped to its own rect (the
+   per-op granularity probe; a single-scissor-per-entry build fails it);
+   the mixed-content golden (a) registers its images into the LEGACY
+   system BEFORE the linear variant set exists — the product's
+   activation order — so a build whose "linear system" is a second
+   empty system placeholders the image and fails (anti-preload law);
+   determinism ×2; the
    aliasing receipt — the backdrop plan names its snapshot copy edge and
    no pass reads its own attachment (plan-level assertion, not prose);
    blur cost receipt at zoom stations (ms, regime-tagged, adapter
@@ -683,7 +739,9 @@ compiler must handle split spans — a fork note in the baton, not a stop).
 Never read `src/app/server/env.clj` · NO durable/Rama writes (effects,
 fixtures, selection, exports are client-session values) · never edit
 existing goldens/manifest rows or the MSDF RED case — append only;
-shared-source drift rides the input-amendment roads · no hand-positioned
+shared-source drift rides the input-amendment roads and the ONE named
+shader-digest amendment (rect-fragment, gradient law) rides its
+byte-identity-preflighted one-shot · no hand-positioned
 central family/effect branch (the negative-space law; the fence self-test
 stays green) · no new JS/npm dependency (PNG via canvas API) · no
 execution clock as a derivation ancestor — no rAF/interval/`js/Date`/
