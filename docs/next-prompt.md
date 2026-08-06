@@ -800,7 +800,24 @@ round expiry did NOT fire. Implementation receipts are frozen in
 GREEN; `verify:render-engine` RED only on the preserved MSDF counterexample.
 Sid's felt pass accepted scaling, reload-empty session truth, and the Figma-like
 interaction; feedback semantics + the invisible-connector census receipt are
-recorded in the baton. NEXT: Package 2's cross-atom seam courtroom and close.
+recorded in the baton. **NEXT ran 2026-08-07: the W4 frame-runtime contract
+is cut (block below); the seam courtroom waits for W4 + T2.**
+
+**W4-frame-runtime — Package 2's frame-kind package, CONTRACT CUT
+2026-08-07; falsification round pending at Sid's hand.** The W2-B tape's
+executor learns compiled multi-pass plans; seven serial internal cuts, one
+owner (pass-graph/intermediates · groups+opacity · masks · blur · scissor
+clip road · export seeds · THEN clock/scheduler); plan-level color mode
+(effectless = legacy byte-identical; any effect = the whole frame on the
+Contract-C linear road); pick fully effect-blind v1, declared; all visible
+behavior behind `?live-atoms=1`. Contract (ends with the Codex
+implementation prompt): `docs/render-engine/W4-FRAME-RUNTIME-CONTRACT.md`;
+baton `W4-FRAME-RUNTIME-NOW.md`. Four-lens author pass closed (12 author +
+~17 adjudicated sweep repairs; ledger in the baton). NEXT: Sid runs the
+bounded fresh-eyes round (brief delivered in-session) → author repairs →
+Codex builds the package straight through; then the T2 input-floor
+contract (starter delivered); the Package-2 seam courtroom closes over the
+whole set.
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.
