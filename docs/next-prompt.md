@@ -736,26 +736,47 @@ product frame-loop join are staged. **NEXT ran 2026-08-06: the path-atom
 contract is cut; the flagged live join (path-atom block below) lights image
 alongside path.**
 
-**path-atom — Package 2 wave 2, CONTRACT CUT 2026-08-06 (first post-law
-one-pass contract).** The tessellated/path atom on D2=A — ink
+**path-atom — Package 2 wave 2, IMPLEMENTED / SID-ACCEPTED 2026-08-06.**
+The tessellated/path atom on D2=A — ink
 (centerline+pressure, outline a versioned derivation) + shapes (open
 polylines · closed contours · explicit holes) as material,
 `:render.family/path` registered through the W2-B tape — PLUS Sid's cut
 ruling: **studio custody stays OPEN; a minimal on-canvas join behind
 `?live-atoms=1` renders path AND image live through the real artery**
 (fixtures only, no authoring, no durable writes — the
-no-third-dark-atom corner discharged at zero custody cost). The felt
-GATE (real use) still waits on the durable-artery/custody ruling
-reserved to Sid. Contract (ends with the Codex opening prompt):
+no-third-dark-atom corner discharged at zero custody cost). The bounded felt
+receipt is accepted; authoring/durable custody remains OPEN and reserved to
+Sid. Contract (ends with the Codex opening prompt):
 `docs/render-engine/PATH-ATOM-CONTRACT.md`; baton `PATH-ATOM-NOW.md`.
 Falsification round ran at Sid's order 2026-08-06 (8/8 substantive, 0
 noise; repairs in place, `877c793`); outcome routed to law same day: the
 cut now closes through one bounded round (decisions.md + work-package
-skill; expiry pre-registered). **A/B armed for the NEXT contract cut:
-identical falsification brief to Codex AND a fresh-Claude subagent —
-decides role-vs-model; model identity is zero evidence until it runs.**
-**NEXT: Sid pastes the Codex opening prompt; Codex builds the whole
-atom one-pass; acceptance = Sid's word.**
+skill; expiry pre-registered). Sid's lived ruling: the honest aliased baseline
+stands; analytic AA and exact translucent overlap remain routed LATER.
+Code/test/goldens landed with connector in `10dd8e5`.
+**NEXT ran 2026-08-06: the connector-atom contract is cut and its
+falsification round closed (block below).**
+
+**connector-atom — Package 2 wave 3, IMPLEMENTED / SID-ACCEPTED
+2026-08-06.** The reference/
+connector atom: durable reference edges READ-ONLY over the relation kernel's
+R1 (no kinds minted, no Rama writes; the `?live-atoms=1` join — drag a real
+block, its edges follow) + straight/`:elbow/v1`/waypoint routing + arrowheads
++ post-T1 labels through the one layout seam, `:render.family/connector`
+through the W2-B tape. Contract (ends with the Codex implementation prompt):
+`docs/render-engine/CONNECTOR-ATOM-CONTRACT.md`; baton `CONNECTOR-ATOM-NOW.md`.
+The armed Codex-vs-fresh-Claude A/B ran as this cut's bounded round (both
+fresh sessions at Sid's hand): 6 + 10 findings → nine defect groups, all
+repaired in the contract same day; the round law's expiry did NOT fire; the
+role-vs-model datum is in the baton (Codex deeper on law-crossings, 4 unique
+groups; fresh Claude caught 2 groups Codex missed — keep both arms). Sid
+ruled: no further rounds. Implementation receipts are frozen in
+`CONNECTOR-ATOM-NOW.md`; `verify:render-engine` remains RED only on the
+preserved MSDF counterexample. Sid's felt pass accepted the rounded v1 endpoint
+style after the cap-overlap correction; cap/marker styling remains widenable.
+Code/test/goldens landed with the accepted PATH prerequisite in `10dd8e5`.
+**NEXT: cut Package 2 wave 4 — selection/manipulation · snapping · guides ·
+drawing chrome, the next drawing-floor row established by `ENGINE.md` §0.**
 
 **smalltalk-ui-vm — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING
 (this session).** The Workshop: component types become living material.
