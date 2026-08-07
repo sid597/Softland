@@ -85,7 +85,9 @@ each re-quoting old+new): the draft is composed FULL — lenses 2–3 already
 run — before its FIRST Write; sweep and round repairs land as ONE batched
 edit pass each, never fix-by-fix — applied by a subagent or a fresh session
 when the parent is deep (corpse: W4's post-Write tail, 42% of the bill for
-22% of the output). The deep session ends at the Write.
+22% of the output). The deep session ends at the Write. The applier lands
+non-overlapping edits in parallel groups of 5–8 per response, never one per
+request (corpse: T2-repair applier, 24 requests for 24 edits).
 
 ### Execution — straight through
 The implementer builds the WHOLE atom in one lane: build → surface bugs →
