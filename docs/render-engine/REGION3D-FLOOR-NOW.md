@@ -1,0 +1,12 @@
+# REGION3D floor — NOW
+- 2026-08-07: Atom A is SID-ACCEPTED at the real-canvas felt fixture after the bounded camera/gizmo repair.
+- Material v1, pure scene/camera/ray/BVH, store/pick seams, frame passes, held leases, GPU PBR/shadow/composite, gizmos, overlays, and session input are live.
+- Real-canvas fixture: open the ordinary app with `?region3d=1`; orbit, pan/dolly, select, switch W/E/R, and drag/settle a transform.
+- Prior JVM close: 23 tests, 296 assertions, 0 failures/errors (`region3d_*`, scene tape, frame graph, maintained view).
+- GPU close: 3/3 goldens deterministic; S1/S2/S3/S4/S5 true; source/environment fingerprints true; assertion failures empty.
+- Round-added legs include reverse-pick/reorder/shuffle, boundary/gizmo/glyph parity, pick replay/reparent, alpha/PBR, clean sleep, resize/close/refusal, and destroy/recreate.
+- Repairs: shadow depth order, visible gizmos, lease invalidation, set-parent guard, plus elevated view, slower pole-safe orbit, painted-shape gizmo picking, ring rotation, and per-axis scale.
+- Felt receipt: orbit/pan/dolly and W/E/R object interaction work as expected; Sid loved the lit/translucent scene. Object manipulation felt slow — observed, unmeasured, unattributed package-close debt.
+- Foreign board debt preserved: canonical replay remains RED only as `candidate-pick-parity-failure` (MSDF 14/21; 47 mismatches + 2 boundary ties per row).
+- Self-audit: protected files/custody stayed closed, all pre-Atom-A golden bytes stayed unchanged, no durable/Rama vocabulary moved, and no genuine fork was found.
+- NEXT (DONE 2026-08-07): Atom B's contract is cut — `REGION3D-SEAM-CONTRACT.md`; the latency trace rides its courtroom §9 before any cause/fix claim.
