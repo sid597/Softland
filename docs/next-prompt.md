@@ -455,7 +455,9 @@ proof-decay + was this line accurate).
 
 - **W4-frame-runtime** → `docs/packages/w4-frame-runtime.md` — Package 2's frame-kind package, SID-ACCEPTED 2026-08-07; CODE `143497a`
 
-- **T2-input-floor** → `docs/render-engine/T2-INPUT-FLOOR-CONTRACT.md` + `docs/render-engine/T2-INPUT-FLOOR-NOW.md` — Package 2's FINAL atom; SID-ACCEPTED 2026-08-07; CODE `cdd4d81`; lived bounds/DPR-clip correction LANDED `06c9cc1`; canonical verifier red only on preserved MSDF counterexample; NEXT → the Package-2 seam courtroom
+- **T2-input-floor** → `docs/render-engine/T2-INPUT-FLOOR-CONTRACT.md` + `docs/render-engine/T2-INPUT-FLOOR-NOW.md` — Package 2's FINAL atom; SID-ACCEPTED 2026-08-07; CODE `cdd4d81`; lived bounds/DPR-clip correction LANDED `06c9cc1`; canonical verifier red only on preserved MSDF counterexample; NEXT → absorbed into Package 3's close (Sid 2026-08-07): ONE seam courtroom over P2+P3, defined `REGION3D-FLOOR-CONTRACT.md` §10
+
+- **region3d-floor** → `docs/render-engine/REGION3D-FLOOR-CONTRACT.md` — **Package 3 Atom A (the Blender floor), CONTRACT CUT 2026-08-07** (Fable 5, max effort, one pass; 36KB); NEXT → the fresh-eyes falsification round at Sid's hand (Codex), then author repairs, then the implementation session (starter prompt inside the contract). Atom B (coexistence seam + THE SEAM DEMO) obligations FROZEN in §9; the P2+P3 courtroom defined in §10; durable-custody flip stays Sid's line after it
 
 - **smalltalk-ui-vm** → `docs/packages/smalltalk-ui-vm.md` — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING (this session)
 
