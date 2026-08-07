@@ -14,7 +14,7 @@ Contract-C linear road (rgba16float intermediates, one present transfer).
 Pick is fully effect-blind v1, declared. Everything visible rides
 `?live-atoms=1`. Contract: `W4-FRAME-RUNTIME-CONTRACT.md` (one-pass law;
 cutter `claude-fable-5` effort max; two Sid-touches: cut 2026-08-07 ·
-accept pending; the cut closes through the bounded fresh-eyes round at
+accepted 2026-08-07; the cut closes through the bounded fresh-eyes round at
 Sid's hand — arms' findings pool here, author repairs in-session).
 Implementer: Codex, one session, whole package. Genuine forks and
 strongest-default notes land HERE as one-liners. Focused suite: the three
@@ -26,6 +26,38 @@ decisions.md — flag drift, keep moving.
 ---
 (NOW entries below, ≤15 lines each, newest first; close entry includes the
 process-vs-code line self-audit.)
+
+## 2026-08-07 — SID-ACCEPTED; W4 CLOSED AND LANDED
+- Sid's second felt pass: opacity and frost now read against detailed substrate; clip is legible; zoom/pan work; overall `lgtm`.
+- The slightly offset blue text box is the declared effect-blind v1 road: selection keeps full semantic bounds while GPU clip changes pixels only; carry exact visible-bound chrome to T2/seam if desired.
+- Resource ruling: cross-frame reuse of free GPU render targets is approved; this is allocation pooling only, never a cache of scene truth, layout, geometry, material, or reactive derivation.
+- The screenshot repair is frozen structurally: two-tone 14-stripe opacity substrate, four backdrop detail boundaries, and a six-pixel partial-glyph overhang.
+- Final receipts remain JVM 13/92 GREEN; W4 goldens/determinism 3/3; verifier RED only on canonical MSDF parity with assertion failures empty.
+- Code landed as `143497a`; no push. Self-audit — process/code/product all closed by Sid's word.
+- NEXT: T2 input-floor contract, then the Package-2 seam courtroom over the landed atom set.
+
+## 2026-08-07 — 4K POOL FAILURE REPAIRED; SID RECHECK PENDING
+- Sid's first felt pass surfaced `Frame target pool budget exceeded` at the mask pass on a 3840×2160 physical canvas; W4 was not accepted.
+- Receipt: one full-size rgba16 target is 66,355,200 bytes; the old 256 MiB cap admitted four while the eager executor held 17 intermediates across one submit.
+- Repair: groups now execute on demand, outputs allocate after child work, and clip/blur/group/snapshot targets recycle after their last encoded use; failed encodes release every lease.
+- The declared backdrop road peaks at five live viewport targets; the owned cap is 384 MiB, while free targets are reclaimed only at a safe between-frame boundary before a named refusal.
+- Frozen tripwires: measured high-water ≤5, conservative 4K live set 331,776,000 ≤402,653,184 bytes, resize targets reclaimed, 100-cycle reuse steady, no visual golden changed.
+- Product replay at 3840×2160: one real W4 frame, all mask/backdrop/present passes, five live, 364,953,600 reserved, zero refusals; Sid's browser remains the felt authority.
+- Focused close: JVM 13/92 GREEN; W4 3/3 golden + 3/3 deterministic and every W4 receipt GREEN; full verifier RED only on canonical MSDF parity, assertions empty.
+- Self-audit — process: in-session falsification repair closed; code: W4 complete; product acceptance: Sid recheck pending. No commits. No successor contract until acceptance.
+
+## 2026-08-07 — WHOLE PACKAGE BUILT; AWAITING SID ACCEPTANCE
+- Seven internal cuts landed serially in contract order: plan/intermediates → groups/opacity → masks → blur → GPU clip → export → clock/scheduler.
+- Effectless frames stay legacy/direct; effect frames use one linear-premultiplied plan with rgba16float intermediates and exactly one presentation transfer.
+- Real image/path/connector/block fixtures share one 50% live group; image ingress precedes lazy linear variant creation; masks, frosted panel, GPU clip, pulse, and export chord are flag-only.
+- Falsification repaired mask double-application, general convex clip fallback, world-scale blur magnitude, world-only export rebinding, one-read clocks, empty scissors, and named budget refusals.
+- Strongest default: if compare-order ever splits a container span, each contiguous range executes at its own tape position; the GPU twin is byte-equal to two forward-order groups (delta 0).
+- No genuine fork remained; pick stayed effect-blind and `ground.cljs`/image/path/connector namespaces stayed untouched.
+- Frozen: 13 tests / 92 assertions GREEN across the three pure namespaces; W4 goldens 3/3 and determinism 3/3 on SwiftShader.
+- `npm run verify:render-engine`: all prior banks and W4 receipts GREEN; exit 1 only as canonical `candidate-pick-parity-failure` (MSDF 14/21), assertion failures empty.
+- Golden/input roads are append-only; rect-fragment is the sole shader digest amendment; MSDF/slug digests did not move.
+- Self-audit — process: one-pass build/falsify/repair/close complete; code: whole contract implemented; product acceptance: Sid pending.
+- No commits made. NEXT after Sid accepts: T2 input-floor contract, then the Package-2 seam courtroom.
 
 ## 2026-08-07 — ROUND CLOSED (Sid: no second arm); the contract is the build law
 - Touch #1 is spent: cut + one-arm round + repairs (`9c192af`). Next
