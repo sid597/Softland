@@ -12,6 +12,15 @@ the work-package skill. Code seams verified at the bytes:
 verbatim-anchored): the Package-2 contract seam index and the full code index —
 `W4-FRAME-RUNTIME-CONTRACT.md`, `T2-INPUT-FLOOR-CONTRACT.md`, `W2-A-T0.md`,
 `W2-B-T1.md`, probe reports, `DISCOVERIES.md` §8.
+**Falsification round ingested (2026-08-07, fresh-eyes Codex-class, 15
+decision-changing findings — all accepted; repairs landed in place the same
+day):** the order token, the producer/color-mode/store/pick roads, the T2
+seam reading, lease ownership, and the §5.2/§5.10 schemas were re-cut against
+re-verified bytes (`scene_tape.cljc:584-680/751`, `frame_graph.cljc:69/262/572`,
+`compositor_gpu.cljs:111-246/369-401/752-878`,
+`renderer.cljs:3238-3330/3482-3545`, `scene_store.cljc:47-100/214-344/386-410`,
+`runtime/mouse.cljs:31-54/699-725`); S1–S5 each gained the leg that kills the
+round's named wrong build.
 
 **Two Sid rulings this contract lands under (2026-08-07):**
 1. Package 2 is complete and stays closed; its seam-courtroom obligation is
@@ -62,8 +71,13 @@ and un-feelable. The envelope's Blender clause is one floor; A is that floor.
 A **3D region** is a first-class container the 2D world hosts: one ordered
 compositor entry in the scene tape, with its own camera and its own depth
 buffer, rendered offscreen and composited in tape order like any other entry
-(Contract O §3.2.5 — the schema slot `:region-router` and the pass-rank
-`:region 3` already exist as validated, unminted data; this atom mints them).
+(Contract O §3.2.5 is the charter. What exists today: O §3.1's DOC schema
+names a `:region-router` entry slot, and the PLAN vocabulary already admits
+the `:region` frame-pass kind — `frame-pass-kinds`, `scene_tape.cljc:592`.
+What does NOT exist in code: any router field or hit-fn (`grep router` over
+`scene_tape.cljc` is empty) and any region pass structure —
+`frame_graph.cljc:572` `region-executable?` REFUSES plans carrying `:region`
+passes today. This atom mints the road; it inherits vocabulary only).
 Inside the region, **depth owns picture order**; outside, the tape does. Two
 picture ontologies, shared atoms, never one space model (`ENGINE.md` §10).
 
@@ -140,13 +154,19 @@ event-driven only).
 - `W1/CONTRACT-M.md` §5 — citizenship template + M1–M12 for each new family.
 - `W1/CONTRACT-C.md` §8 — straight→linear-premultiplied→one present transfer;
   depth/ID/normal textures are data, never sRGB (§8.1.4).
-- `W4-FRAME-RUNTIME-CONTRACT.md` — the plan compiler, pass-rank ladder
-  (`:region 3`), the ABSOLUTE aliasing law (producer edges for sampled
-  intermediates), the color-mode law (any effect ⇒ whole-frame linear), the
+- `W4-FRAME-RUNTIME-CONTRACT.md` — the plan compiler, the plan pass-kind
+  vocabulary (`:region` already legal — `frame-pass-kinds`,
+  `scene_tape.cljc:592`; the ENTRY-level pass-rank `:region 3` at `:587` is
+  a different token and stays unused by A, pin 5.1), the ABSOLUTE aliasing
+  law (producer edges for sampled intermediates), the color-mode law (any
+  effect ⇒ whole-frame linear; regions join the trigger, pin 5.3), the
   scheduler causes, the target pool + M10, the negative-space law S1.
-- `T2-INPUT-FLOOR-CONTRACT.md:245-288` — dispatch precedence session > chrome
-  > legacy; the intercept-predicate seam A's input rides; the camera-gesture
-  reservation (naked drag/wheel at ground stays the world camera's, always).
+- `T2-INPUT-FLOOR-CONTRACT.md:243-288` — dispatch precedence session > chrome
+  > legacy; sessions OWN their listeners (the editing runtime's own dblclick/
+  pointer road — T2's ONLY shared mouse hook is the paste predicate,
+  `runtime/mouse.cljs:31-54`); A's focus input rides that session pattern,
+  pin 5.5; the camera-gesture reservation (naked drag/wheel at ground stays
+  the world camera's, always).
 - `docs/decisions.md` "The render seam" — no derivation without a contract
   (keyed inputs · door · ownership · projections · oracle+fence); no execution
   clock as derivation ancestor; proportional recompute; minted diffs as
@@ -181,9 +201,14 @@ event-driven only).
   fragment, tone-map + BRDF reference implementations (the CPU oracle for S4).
 - `src/app/client/substrate/webgpu/region3d_gpu.cljs` — WGSL (mesh opaque ·
   mesh transparent · overlay/grid/glyph · gizmo · shadow-depth) + pipeline
-  init + `prepare-region3d-frame!` (uploads; region-pass + shadow-pass encode
-  per plan) + `region3d-entries` (produce) + `execute-region3d-batch!`
-  (composite draw) + region target/depth lease management.
+  init + `prepare-region3d-frame!` (pre-pass UPLOADS ONLY: instance arrays,
+  material/light/camera uniforms, shadow constants — queue writes, zero
+  encoders, plan-independent) + `encode-region-passes!` (the registered
+  `:region` pass producer the compositor invokes at plan execution — the
+  compositor bullet below) + `region3d-entries` (produce) +
+  `execute-region3d-batch!` (composite draw) + region lease REQUESTS + the
+  S5 upload/encode receipt counters (lease OWNERSHIP stays with the
+  compositor pool — pin 5.6).
 - `src/app/client/workspace/region3d_runtime.cljs` — session state (per-region
   view camera, focus, in-region selection, gizmo drag), the input intercept
   (registered through T2's dispatch seam), the felt fixture scene, the
@@ -203,23 +228,75 @@ event-driven only).
 - `renderer.cljs:3238-3280` — one `frame-family-registry` entry
   `{:contract … :produce region3d-gpu/region3d-entries :execute!
   region3d-gpu/execute-region3d-batch!}`; one `prepare-region3d-frame!` call
-  in the pre-pass upload block (`renderer.cljs:3508-3524`).
-- `frame_graph.cljc` — mint the `:region` pass-kind (rank 3 already in the
-  ladder, `scene_tape.cljc:584-588`) + the `:depth` resource kind + region
-  target resources; extend the fail-closed validation set (depth resource
-  without owner, region pass without producer edge to its composite entry,
-  sampled/attachment aliasing — the W4 laws extended, not new machinery).
-  This is the lawful "genuinely new pass/resource capability" of W0-C §5.1 —
-  the executor gains a capability, never a family name.
-- `compositor_gpu.cljs` — execute `:region` passes in `draw-multipass!` via
-  the registered region-pass producer; extend the target pool key/sizing for
-  depth formats and MSAA sample counts (`target-pool-version` 2); region
-  targets are HELD LEASES with declared M10 lifetime (see pin 5.6), distinct
-  from the transient per-frame pool.
-- `runtime/mouse.cljs` — register the region intercept predicate through T2's
-  dispatch seam (T2-CONTRACT:245-288); no new event paths.
+  at the END of the pre-pass upload block (`renderer.cljs:3482-3495`, after
+  `prepare-chrome-frame!` — uploads run BEFORE the arrangement/plan at
+  `:3523`/`:3538`, which is exactly why prepare is upload-only); thread the
+  region session snapshot into the frame map (`:region3d-session`, the
+  renderer-edge session-lane precedent — the frame map already carries
+  session values like `:pulse-alpha`, `renderer.cljs:3502-3522`) and thread
+  `region3d-gpu/encode-region-passes!` into the compositor call as the
+  `:region` pass producer (the `execute-entry!` threading precedent,
+  `compositor_gpu.cljs:853-856`).
+- `frame_graph.cljc` — the `:region` pass KIND is already legal
+  (`legal-pass-kinds` = `frame-pass-kinds`, `frame_graph.cljc:16` /
+  `scene_tape.cljc:592`); what frame_graph mints is region pass STRUCTURE:
+  `structure-input` (`frame_graph.cljc:80`) derives
+  `:regions [{:region/id … :size [qw qh] :shadow? …}]` from the
+  arrangement's region-3d entries (the arrangement is already its input);
+  `select-color-mode` (`frame_graph.cljc:69`) gains that key —
+  `(seq regions)` ⇒ `:scene-color/linear` (`:capabilities` stays out of
+  color mode; the live call keeps `#{}`, `renderer.cljs:3542`);
+  `compile-plan-structure` (`frame_graph.cljc:262`) emits per region one
+  `:region` pass (`:region/role :interior`) plus, when `:shadow?`, one
+  preceding `:region` pass (`:region/role :shadow`), their `:depth`
+  resource rows (add `:depth` to `frame-resource-kinds` —
+  `scene_tape.cljc:595`, a one-line set edit) and the region resolve target
+  with an explicit producer edge into the scene pass that draws the
+  composite entry (W4 aliasing law); extend the fail-closed validators
+  (`validate-pass!`/`validate-plan!`, `frame_graph.cljc:371/440`): depth
+  resource without owner, region pass without producer edge,
+  sampled/attachment aliasing. `region-executable?` (`frame_graph.cljc:572`)
+  keeps refusing region plans on the LEGACY road — a region frame always
+  compiles linear. This is the lawful "genuinely new pass/resource
+  capability" of W0-C §5.1 — the executor gains a capability, never a
+  family name.
+- `compositor_gpu.cljs` — `draw-multipass!` gains a `:pass-producers` opts
+  key (`{:region region3d-gpu/encode-region-passes!}`, threaded exactly like
+  `execute-entry!`): before `encode-linear-scene!` it walks the plan's
+  `:region` passes IN PLAN ORDER and invokes the producer with the encoder,
+  the pass row, and that region's leases — today the plan is receipt-only
+  (`compositor_gpu.cljs:853-878` never dispatches `(:passes plan)`); this
+  dispatch is the new capability. `create-target!`
+  (`compositor_gpu.cljs:145`) gains format generality + `:sample-count`
+  (depth formats, 4× MSAA; `texture-bytes`, `:111`, learns depth and MSAA
+  multipliers; `target-pool-version` 2). Region targets are HELD LEASES in
+  a NEW `:region-leases` map on the compositor struct (`create-compositor!`,
+  `:369`) — the compositor is the ONE owner of every target byte; exact API
+  and lifecycle in pin 5.6.
+- `runtime/mouse.cljs` — UNTOUCHED (the round's seam repair: T2's only
+  shared mouse hook is the paste predicate, `runtime/mouse.cljs:31-54`, and
+  `mouse.cljs` handles no wheel/dblclick at all — the ground owns the whole
+  pointer grammar, `mouse.cljs:699-725`). Region input is session-owned
+  listeners in `region3d_runtime` — pin 5.5.
 - `runtime/render.cljs` — the fixture/flag mount (the islands probe's 5-line
   mount precedent, production-shaped).
+- `rect_tree.cljc` — one lane walker `tree->regions` (the `tree->images`
+  pattern): collects region nodes (nodes carrying `:region3d/scene` data)
+  with their resolved rects.
+- `scene_store.cljc` — three thin data edits (the round's missing store
+  road, now written): `flatten-ops` gains the `:regions` lane
+  (`scene_store.cljc:47-58`); `derive-store-frame` output gains `:regions`
+  (`:315` — signature stays `[store]`, the MUST-NOT holds; the renderer's
+  frame map already carries `:store-frame`, so `region3d-entries` reads
+  `(:regions (:store-frame frame))`); the pick terminal (`:391-409`) gains
+  the region-node dispatch — when the deepest addressed hit node carries
+  region data, return `{:route :region3d :region-id … :region-local [lx ly]
+  …}` (session-free; the store never sees a camera).
+- `scene_runtime.cljs` — `pick-world` (`:319`) gains the completion hook: a
+  `:route :region3d` result is handed to the registered resolver
+  (`region3d_runtime/resolve-region-pick`: session camera +
+  `region3d_scene`'s ladder) before returning — one pick seam, one named
+  new step.
 
 MUST-NOT list for entry points: `containers.cljc` (Q8 transport) untouched —
 3D transforms NEVER ride the affine slot lane; `text_layout.cljc` /
@@ -231,9 +308,20 @@ region slot is ordinary store DATA, not a new derivation input.
 
 **5.1 Family shape — one tape family, two material grammars.** The tape gains
 exactly ONE family: `:render.family/region-3d`, whose entries are region
-composite quads (stratum `:world`, pass-class `:region-composite`, ordinary
-`stack-path`). Interior objects are NOT tape entries — depth owns inside
-(Contract O §3.2.5). Two citizenship records are admitted under Contract M:
+composite quads with the order token
+`{:stratum :world :pass-class :direct :stack-path <ordinary> :part-rank 0}` —
+the SAME token class every store slot mints (`scene_store.cljc:266-271`).
+That token is FORCED by `compare-order` (stratum → pass-class → stack-path,
+`scene_tape.cljc:638`): only a `:world`/`:direct` entry can sit between two
+`:world`/`:direct` siblings, which is S1's sandwich. Written fork, ruled: the
+`:region-composite` STRATUM (rank 2, above `:overlay` —
+`scene_tape.cljc:584`) and the entry-level pass-rank `:region 3` (`:587`)
+both order the region OUTSIDE the 2D sibling ladder and can never satisfy
+S1; both stay unused by A (the region's `:region` vocabulary lives at the
+PLAN layer, `frame-pass-kinds` `:592`). Produced entries also carry
+`:region-router <region-id>` as declarative data (Contract O §3.1's schema
+slot; the operative router is the pick road, pin 5.8). Interior objects are
+NOT tape entries — depth owns inside (Contract O §3.2.5). Two citizenship records are admitted under Contract M:
 the **region family** (tape citizen; compositor entry; router; region
 grammar) and the **object-3d family** (mesh/light/camera/empty grammar;
 identity, provenance, versioning, edit operations; pick identity resolved
@@ -244,43 +332,90 @@ connector atom's row-projection precedent: a citizen whose paint rides another
 family's pass).
 
 **5.2 Region material grammar (the region slot value, EDN, pure store
-payload):**
-`{:region3d/version 1, :extent {:width :height :depth}` (region-local units;
-declared budget: extent components ≤ 10^4 — beyond is a LATER regime),
-`:background {:kind :opaque|:transparent :color <tagged straight sRGB>}`
-(default opaque viewport grey, versioned constant), `:view-default {camera
-pose used when no session camera exists}`, `:scene {<object-id> → object-row}}`.
-Object rows: `{:object/id, :object/kind :mesh|:light|:camera|:empty,
-:parent <object-id|nil>, :transform {:translation [x y z] :rotation
-<quaternion> :scale [x y z]}, :provenance {…asserted-by…}` + kind fields —
-mesh: `{:mesh {:kind :box|:sphere|:cylinder|:plane|:cone|:torus :params …}
-| {:kind :indexed-triangles :positions … :normals … :indices …}` +
-`:material {:base-color <tagged> :metallic 0-1 :roughness 0-1 :emissive
-<tagged>}`; light: `{:light {:kind :directional|:point|:spot :color <tagged>
-:intensity <number> :range … :cone …} :cast-shadow <bool, directional only in
-A>}`; camera: `{:camera {:kind :perspective|:ortho :fov-y-deg … :near :far
-| :ortho-scale}}`. Unknown fields: PRESERVE (Contract M unknown-field-policy)
-— this is the door sculpting/node-authoring enter by later. Parametric
-primitives are generators minting deterministic indexed triangles (versioned
-algorithm; the derived mesh is a cache keyed source-revision + algorithm
-version, Contract G derivations — never a second authority).
+payload) — every field pinned, fail-closed.** Coordinate law first: region
+space is right-handed, +Y up, −Z camera-forward (glTF's), CCW front faces,
+back-face cull on opaque meshes.
+`{:region3d/version 1, :extent {:width :height :depth}` (region-local units,
+each in (0, 10^4] — beyond is a LATER regime), `:background {:kind
+:opaque|:transparent :color <tagged straight sRGB>}` (default opaque
+viewport grey, versioned constant), `:ambient {:color <tagged>
+:intensity <≥0, default 0.1>}`, `:view-default <camera pose map:
+pivot/distance/yaw/pitch + lens, used when no session camera exists>`,
+`:scene {<object-id> → object-row}}`.
+Object rows: `{:object/id <unique in scene>, :object/kind
+:mesh|:light|:camera|:empty, :parent <object-id|nil>` (cycle = validation
+refusal), `:transform {:translation [x y z] :rotation [x y z w]
+:scale [x y z]}, :provenance {…asserted-by…}` + kind field. QUATERNION LAW:
+`[x y z w]` component order (glTF's); the validator REJECTS zero-length and
+`|‖q‖−1| > 1e-3`, and canonicalizes by exact normalization inside that
+tolerance — no other rotation value ever enters the store.
+Mesh: `{:mesh {:kind <primitive> :params <per-kind map below>} |
+{:kind :indexed-triangles :positions <f32 flat, 3·n> :normals <f32 flat,
+3·n, same n> :indices <u32 flat, 3·m, every index < n>}` (caps: n ≤ 65536
+vertices, m ≤ 131072 triangles — A's regime; NaN/∞ anywhere = refusal) +
+`:material {:base-color <tagged straight sRGBA — alpha < 1 ⇒ the
+transparent road, 5.3> :metallic <0-1> :roughness <0-1> :emissive <tagged>}`.
+Primitive params, versioned generator `:region3d/primitives v1`
+(deterministic vertex order, CCW winding; normals flat for box/plane, smooth
+elsewhere; the values shown ARE the versioned defaults):
+`:box {:size [1 1 1]}` · `:sphere {:radius 0.5 :width-segments 32
+:height-segments 16}` · `:cylinder {:radius 0.5 :height 1
+:radial-segments 32}` · `:plane {:size [1 1]}` (XZ, +Y normal) ·
+`:cone {:radius 0.5 :height 1 :radial-segments 32}` · `:torus {:radius 0.5
+:tube 0.2 :radial-segments 32 :tubular-segments 16}`. The derived triangle
+mesh is a cache keyed source-revision + algorithm version (Contract G
+derivations — never a second authority).
+Light: `{:light {:kind :directional|:point|:spot :color <tagged>
+:intensity <≥0: lux for directional, candela for point/spot>
+:range <point/spot only: cutoff distance > 0, default 100>
+:cone <spot only: {:inner-deg :outer-deg}, 0 ≤ inner ≤ outer ≤ 89>}
+:cast-shadow <bool — the validator accepts it on :directional only in A>}`.
+Camera: `{:camera {:kind :perspective :fov-y-deg <(0,170), default 50>
+:near <>0, default 0.1> :far <>near, default 10^4>} | {:kind :ortho
+:ortho-scale <>0, default 10> :near :far}}`.
+Edit operations (M1 semantic IDs, the family's `:edit-operations`):
+`:region3d/add-object` · `:region3d/remove-object` ·
+`:region3d/set-transform` · `:region3d/set-parent` ·
+`:region3d/set-material` · `:region3d/set-light` · `:region3d/set-camera` ·
+`:region3d/set-region` (extent/background/ambient/view-default). Every op
+payload is `{:region-id :object-id :before :after}` where before/after
+carry ONLY the named sub-map — the per-object diff grain 5.7 and S3 assert.
+Serialization: canonical EDN, version 1; unknown fields: PRESERVE (Contract
+M unknown-field-policy) — this is the door sculpting/node-authoring enter by
+later; migration: v1 is the base, the chain starts here.
 
-**5.3 The region pass.** Region rendering is DECLARED PLAN DATA: the frame
-graph gains, per enabled region, a `:region` pass (rank 3) rendering that
-region's interior into a leased color target (rgba16float, linear
-premultiplied) with a leased depth24plus attachment, 4× MSAA resolved at pass
-end, plus (when a shadow-casting directional light exists) one preceding
-shadow-depth pass into a leased depth target. The composite entry samples the
-resolved target with an explicit producer edge (the W4 aliasing law). Region
-presence enables the linear color mode for the frame (the W4 color-mode law —
-plan-level, never mixed); the machinery is landed, this is its second
-consumer. Draw order inside the pass: opaque meshes front-to-back with depth
-write; grid/overlays with declared depth policies; transparent meshes
-back-to-front depth-test-no-write; gizmos and selection outline last with
-depth cleared or depth-test-off (overlay ladder declared per element).
-Tone-map (Khronos PBR Neutral, version-tagged) is the pass's final shading
-step; the target holds tone-mapped linear premultiplied values; Contract C's
-one-present-transfer law is untouched.
+**5.3 The region pass.** Region rendering is DECLARED PLAN DATA with a
+WRITTEN execution road (the round's chain repair — today's compositor holds
+the plan as receipt only, so the road is named end-to-end): per enabled
+region the plan carries one `:region` pass (`:region/role :interior`)
+rendering the interior into that region's held color lease (rgba16float,
+linear premultiplied, 4× MSAA resolved at pass end) against its held
+depth24plus attachment, plus — when a shadow-casting directional light
+exists — one preceding `:region` pass (`:region/role :shadow`) into the
+held shadow depth target (5.10), with an explicit producer edge
+shadow → interior. The composite tape entry samples the resolved target
+through an explicit producer edge into the scene pass that draws it (the W4
+aliasing law). COLOR MODE, the exact road (W4's law gains its second
+trigger): `structure-input` derives `:regions` from the arrangement,
+`select-color-mode` returns `:scene-color/linear` when regions are present
+(`frame_graph.cljc:69` — today effect-spans-only; `:capabilities` stays out
+of it), so a region frame ALWAYS rides `draw-multipass!` — where the new
+`:pass-producers` dispatch encodes the region passes in plan order before
+the scene encode (§4 compositor bullet). CLEAN-REGION LAW: the region pass
+stays DECLARED in every plan (plan structure is entry-independent); its
+ENCODE is conditional on that region's dirty cause — a clean region encodes
+nothing and the composite samples the held lease (the receipt records
+encoded-vs-held per region; S5 asserts it). Draw order inside the pass:
+opaque meshes front-to-back with depth write; grid/overlays with declared
+depth policies; transparent meshes (material alpha < 1, or compositing over
+a `:transparent` background) back-to-front by view-space depth,
+depth-test-on/write-off, premultiplied source-over per Contract C §8.1 —
+material alpha multiplies linear RGB and alpha through `A = a×c×o`, never a
+forced alpha 1 (S4's transparency leg kills that build); gizmos and
+selection outline last with depth cleared or depth-test-off (overlay ladder
+declared per element). Tone-map (Khronos PBR Neutral, version-tagged) is the
+pass's final shading step; the target holds tone-mapped linear premultiplied
+values; Contract C's one-present-transfer law is untouched.
 
 **5.4 Camera model.** Two camera notions, never conflated: **the view camera**
 (session truth, per region instance, lives in `region3d_runtime` — orbit
@@ -294,30 +429,61 @@ exponential dolly; declared in one constants block, versioned.
 
 **5.5 Input + focus.** The camera-gesture reservation stands untouched: naked
 drag/wheel at GROUND always drives the world camera. A region gains gestures
-only through FOCUS: double-click on a region enters it (Esc / click outside /
-double-click outside exits); focus is session truth in `region3d_runtime`.
-Unfocused: the region is an ordinary 2D object (single-click selects, drag
-moves it, wheel zooms the world). Focused: drag orbits, shift-drag pans,
-wheel dollies, click picks interior objects, gizmo drags win over orbit — all
-registered through T2's intercept-predicate seam at session precedence.
+only through FOCUS, and focus is a SESSION in T2's exact sense —
+`region3d_runtime` OWNS its listeners (T2's session-lifecycle precedent,
+T2-CONTRACT:243-288: "a flag-only dblclick listener owned by the editing
+runtime … zero shared-file listeners"; the round's repair — T2 offers no
+shared pointer-intercept seam, `runtime/mouse.cljs` handles no wheel or
+dblclick at all, and the ground owns the pointer grammar wholesale,
+`mouse.cljs:699-725`). Flag-gated capture-phase listeners
+(dblclick/pointerdown/pointermove/pointerup/wheel) on the canvas: dblclick →
+`pick-world` through the ONE road → region hit ⇒ focus session opens;
+anything else passes untouched. While focused: unmodified pointer/wheel
+whose point lands in the focused region's 2D bounds are session input
+consumed wholesale — drag orbits, shift-drag pans, wheel dollies, click
+picks interior objects, gizmo drags win over orbit; pointerdown outside =
+end session, then the event proceeds to its normal meaning; Escape exits
+(precedence session > chrome > legacy — T2's pinned ladder). Unfocused: the
+region is an ordinary 2D object (single-click selects, drag moves it, wheel
+zooms the world; zero behavior change anywhere while no session is live).
 FELT-TUNABLE, not architecture: single-click focus, hover-scroll dolly, and
-focus-ring styling are one-line dispatch-predicate changes; Sid adjusts at the
-felt pass. (Written fork, default chosen: double-click-focus. The alternative
-— wheel-over-region dollies WITHOUT focus — was rejected because it makes
-world zoom dead over every region, the exact iframe-feel §8 forbids.)
+focus-ring styling are one-line session-predicate changes; Sid adjusts at
+the felt pass. (Written fork, default chosen: double-click-focus. The
+alternative — wheel-over-region dollies WITHOUT focus — was rejected because
+it makes world zoom dead over every region, the exact iframe-feel §8
+forbids.)
 
-**5.6 Region target lifetime.** Region color/depth targets are LEASES HELD
-ACROSS FRAMES, keyed by region instance + pixel size (region 2D bounds ×
-world zoom × DPR, quantized to a declared step ladder to bound re-allocation
-churn; ladder versioned) — released on region close/resize-out-of-step/
-device loss. This is declared M10 lifetime/budget, NOT the transient
-per-frame pool (`W4-NOW:33`'s ruling governs the FREE pool; a held lease is an
-owned resource with a named owner). Budget: region targets count into the
-384MiB pool accounting; on refusal the region pass halts with a receipt and
-the composite draws the declared refusal fill (background color + corner
-glyph) — never a silent skip (W0-C §5.7 rule 8's spirit at runtime scale).
-A CLEAN region (no dirty cause) encodes NO region pass; the composite samples
-the held target — the sleeping-island receipt made production law
+**5.6 Region target lifetime — ONE owner, exact API.** The compositor's
+target pool owns EVERY target byte, held leases included (Contract M10: one
+named machine-driven owner; the round killed the split-ownership reading).
+New compositor API — `acquire-region-lease!` / `release-region-lease!` /
+`release-all-region-leases!` over a new `:region-leases` map on the
+compositor struct. Lease KEY: `[region-id qw qh]` where region-id is the
+region node's durable object id (one region slot = one region instance in
+A) and qw/qh = pixel size (region 2D bounds × world zoom × DPR) quantized
+UP on the versioned ladder: multiples of 256 px, clamped to 4096
+(`region-lease-quant 256` / `region-lease-max 4096`, versioned constants).
+Lease VALUE: `{:color-msaa <rgba16float 4×> :depth <depth24plus 4×>
+:resolve <rgba16float 1×> :shadow <depth32float 1×, 2048², present only
+while a shadow-casting light exists> :bytes}` — bytes counted by the
+extended `texture-bytes` (format × sample-count) into the SAME 384MiB pool
+budget as the transient pool (`W4-NOW:33`'s ruling governs the FREE pool; a
+held lease is an owned resource with this named owner). LIFECYCLE, all
+machine-driven: released when the region leaves the enabled arrangement
+(region close — the renderer's region maintenance detects departure);
+re-keyed on resize crossing a quantization step (acquire new, release old
+after the next submit); `destroy-compositor!` releases all (the existing
+teardown, `compositor_gpu.cljs:396-401`); DEVICE LOSS: leases are
+per-compositor and the compositor is minted per device
+(`ensure-frame-compositor!` WeakMap-by-device, `renderer.cljs:3313`) — a
+new device starts with zero leases and the next frame re-acquires; no
+separate recovery machinery is invented. REFUSAL: when a lease would exceed
+the budget cap, `acquire-region-lease!` returns a refusal receipt (the
+pool's `:refusals` road), the region pass halts, and the composite draws
+the declared refusal fill (background color + corner glyph) — never a
+silent skip (W0-C §5.7 rule 8's spirit at runtime scale). A CLEAN region
+(no dirty cause) encodes NO region pass; the composite samples the held
+resolve target — the sleeping-island receipt made production law
 (`islands REPORT:113-120`; scheduler §5.7 rule 3).
 
 **5.7 Derivation contract (the render-seam five, declared here).** The region
@@ -333,22 +499,40 @@ its own (they meet at the frame pull, stamped); **projections** = region pass
 encode (forward), router pick (reverse-ladder), inspector-by-id, the oracle;
 **oracle+fence** = full re-derive of instance arrays + BVH vs the maintained
 increments, asserted in tests (the maintained-view fence pattern,
-`maintained_view_test.clj`). Proportionality pins: an object transform edit
-dirties that object's instance slot + the BVH refit for its leaves + one
-region-pass cause — never a scene rebuild; a camera move dirties the region
-pass ONLY (zero instance uploads); 2D entries are untouched by any in-region
-cause.
+`maintained_view_test.clj`). Proportionality pins (the round forced the
+fork into writing — ruled): effective transforms are composed on the CPU in
+`region3d_scene` and packed per object; a GPU hierarchy-composing instance
+lane was REJECTED because the CPU BVH needs effective transforms for
+picking regardless, so it cannot shrink any affected set — it only
+duplicates the composition. Therefore: an object transform edit dirties its
+SUBTREE's packed instance slots + the BVH refit for the subtree's leaves
+(the subtree IS the affected set of a parent edit — decisions.md
+proportionality law: to the affected set, never the population) + one
+region-pass cause — never a scene rebuild, and never a diff whose payload
+is the scene (the diff stays the one per-object op, 5.2's grain; the
+maintained derivation fans it out to the subtree); a camera move dirties
+the region pass ONLY (zero instance uploads); 2D entries are untouched by
+any in-region cause.
 
-**5.8 Picking.** One road: CPU ray. The chain, quoted end-to-end:
-`mouse.cljs:470 pick-world → scene_runtime.cljs:319 → scene_store.cljc:386-410`
-(inverse Q8 affine into region-local 2D) → region entry hit-fn →
-`region3d_scene/pick-region`: region-local 2D → NDC → ray via inverse
-view-projection → the ladder: gizmo handles (screen-metric slop per G §4.7,
-declared radius) → objects (BVH ray-triangle; nearest-t wins — depth owns
-inside; light/camera/empty glyphs pick as screen-metric billboards with
-declared slop) → MISS ⇒ the region itself (`:route :region-background`) —
-a pick inside region bounds NEVER falls through to 2D beneath (the region is
-a container; space-as-entity's outermost-rung law, region-scoped). Returns
+**5.8 Picking.** One road: CPU ray. The chain, written against the REAL
+bytes (the round's repair — today's terminal hard-codes `rt/hit-test` and
+consults no entry hit road, `scene_store.cljc:391-409`):
+`mouse.cljs:470 pick-world → scene_runtime.cljs:319 → ss/pick
+(scene_store.cljc:386-410)` — inverse Q8 affine into slot-local 2D,
+`rt/hit-test` walks the tree exactly as today; NEW: when the deepest
+addressed hit node carries region data, the terminal returns
+`{:route :region3d :region-id … :region-local [lx ly] …}` (session-free —
+the store never sees a camera) → `scene_runtime/pick-world` hands that
+route to the registered resolver → `region3d_runtime/resolve-region-pick`
+(session camera joins here) → `region3d_scene/pick-region`: region-local 2D
+→ NDC → ray via inverse view-projection → the ladder: gizmo handles
+(screen-metric slop per G §4.7, declared radius) → objects (BVH
+ray-triangle; NEAREST positive t wins — depth owns inside, and S2 asserts
+the winner's identity and t at interpenetration pixels; light/camera/empty
+glyphs pick as screen-metric billboards with declared slop) → MISS ⇒ the
+region itself (`:route :region-background`) — a pick inside region bounds
+NEVER falls through to 2D beneath (the region is a container;
+space-as-entity's outermost-rung law, region-scoped). Returns
 `{:object-id :point3 :normal :t :route}` as the router's resolved inner
 identity through the ordinary pick result. Boundary semantics: ray-triangle
 boundary counts as hit (G §4.2.3); ties between coincident surfaces resolve
@@ -375,15 +559,31 @@ region (session state): `:flat` (base-color unlit) · `:normal` (normal
 visualization) · `:lit` (the default). `:lit` = glTF metallic-roughness core:
 Lambert diffuse × (1−metallic), GGX NDF + Smith visibility + Schlick Fresnel
 specular, punctual lights per the glTF KHR punctual model
-(directional/point/spot with declared units: lux / candela), flat ambient term
-(scene-level declared color × intensity), emissive additive. One directional
-shadow map: single 2048² depth map, orthographic fit to a declared bounds
-heuristic (fit-to-scene-AABB, versioned), 3×3 PCF, declared bias constants —
-version-tagged as algorithm facts under Contract G derivations. All shading in
-linear (Contract C working space); tone-map per pin 5.3. The CPU reference
-BRDF in `region3d_scene` is the S4 oracle — GPU output matches it on pinned
-pixels within a pre-declared per-regime error bound (declared BEFORE results,
-G §4.3's law).
+(directional/point/spot with declared units: lux / candela), flat ambient
+term (the region's `:ambient` color × intensity, 5.2), emissive additive.
+THE SHADOW ALGORITHM, `:region3d/shadow v1` (every former adjective now a
+fact — Contract G derivation facts, W4 producer/lifetime law): one
+directional light (the first `:cast-shadow :directional` by object-id
+order) renders scene depth into the held 2048² `depth32float` shadow lease
+(5.6) through its `:region/role :shadow` plan pass, producer edge into the
+interior pass. Light space: view = looking down the light's −Z (its
+effective transform), up = world +Y (fallback +X when |dir·Y| > 0.99);
+bounds = the light-space AABB of ALL meshes padded 5% in x/y, near/far =
+the padded light-space z range; the light-space origin snaps to the shadow
+texel grid (extent/2048 world units per texel) so a static scene never
+shimmers; DEGENERATE scenes (no meshes, zero extent) skip the shadow pass
+and the shadow factor is 1. Filtering: 3×3 PCF, texel-centered offsets,
+mean of comparison taps. Bias, declared constants (versioned in the
+`:region3d/shadow v1` block): pipeline depthBias 2, depthBiasSlopeScale
+2.0, shader comparison offset 0.0015. All shading in linear (Contract C
+working space); tone-map per pin 5.3. The CPU reference BRDF in
+`region3d_scene` is the S4 oracle; the oracle's shadow factor is a BVH
+ray-toward-light occlusion test, and S4's pinned pixels are DECLARED ≥3
+shadow-texels from any shadow boundary so PCF and the ray agree exactly
+(penumbra pixels belong to the golden, never the oracle). Error bound,
+pre-registered from declared facts (G §4.3's law): ±2/255 per channel on
+the rgba8 readback of pinned pixels — fp32 shading + tone-map + one
+quantization; declared BEFORE results.
 
 **5.11 Store + persistence lanes.** The region slot value rides the EXISTING
 store artery (`scene_store` slots — EDN, pure payload, image-atom precedent);
@@ -412,41 +612,70 @@ Each carries its named wrong-build (the receipt-gaming pass, written):
   composites in exact tape order; reverse pick: click on the overlapping text
   → text wins; click on the region (not over text) → router resolves a mesh;
   click inside the region missing all meshes → `:region-background`, never
-  the path beneath. *Wrong-build named:* a region drawn as a top-most overlay
-  (ignoring tape order) passes a naive "is it visible" check — the sandwich's
-  above-AND-below assertions kill it.
+  the path beneath. THEN the order is EARNED, not fixtured: reorder the
+  region above the text (an ordinary 2D sibling reorder) and the composite +
+  pick assertions FLIP accordingly; rebuild the same scene from shuffled
+  registration/map insertion order and assert the identical order hash and
+  entry sequence (Contract O O1/O3). *Wrong-build named:* a region drawn as
+  a top-most overlay (ignoring tape order) passes a naive "is it visible"
+  check — the sandwich's above-AND-below assertions kill it; a producer
+  that hard-codes the fixture's stack-path constant passes the static
+  sandwich — the reorder + shuffle legs kill it.
 - **S2 · depth truth.** Two interpenetrating boxes (mutual partial occlusion
   impossible under painter's order) golden-imaged; pinned-pixel ray-parity:
   CPU classifier vs GPU silhouette on declared pixels covering interior /
   outside / boundary / gizmo-over-mesh / glyph-slop classes, per declared
-  regime cells. *Wrong-build named:* per-object painter-sorted quads (no real
-  depth buffer) pass any single-object golden — interpenetration kills it;
-  bounds-only picking passes center-hits — the near-silhouette boundary
-  pixels kill it.
+  regime cells; AND at declared overlap pixels the CPU pick asserts the
+  EXPECTED WINNING OBJECT-ID and its t (nearest positive t, within declared
+  tolerance) — identity, not just silhouette. *Wrong-build named:*
+  per-object painter-sorted quads (no real depth buffer) pass any
+  single-object golden — interpenetration kills it; bounds-only picking
+  passes center-hits — the near-silhouette boundary pixels kill it; a
+  farthest-t picker matches every hit/miss silhouette — the
+  expected-identity/t assertions kill it.
 - **S3 · hierarchy edit round-trip.** Parent an object; gizmo-translate the
   parent; the child follows through composed transforms; gesture end mints
-  exactly ONE keyed diff with provenance; replaying the recorded rows reloads
-  the identical scene (M8) and the identical pick results. *Wrong-build
-  named:* per-frame durable writes during drag pass an end-state check — the
-  one-diff-per-gesture assertion kills it; baking effective transforms into
-  children passes render checks — reparenting kills it.
+  exactly ONE keyed diff with provenance, keyed `[region-id object-id]`,
+  whose payload carries ONLY the edited object's transform before/after
+  (assert: the payload for the same edit is identical in a 2-object and a
+  50-object scene, modulo ids — never a `:scene` replacement); replaying
+  the recorded rows reloads the identical scene (M8) and the identical pick
+  results. *Wrong-build named:* per-frame durable writes during drag pass
+  an end-state check — the one-diff-per-gesture assertion kills it; baking
+  effective transforms into children passes render checks — reparenting
+  kills it; ONE whole-region replacement diff passes a naive
+  "exactly one diff" count — the payload-grain assertions kill it.
 - **S4 · lit color law.** A PBR sphere (declared metallic/roughness) under
   directional+point+spot over the declared background, one directional
-  shadow: GPU pinned pixels match the CPU BRDF+tone-map oracle within the
-  pre-declared bound; the composite obeys Contract C (linear-premultiplied
-  seam, C4-style exactly-one-transfer sentinel through the region road; no
-  fringe on non-black background per C2). *Wrong-build named:* shading in
-  sRGB (double transfer) matches "looks right" screenshots — the oracle and
-  the transfer sentinel kill it.
-- **S5 · the proportional wake.** Orbiting the view camera re-encodes the
-  region pass ONLY (zero object-instance uploads, zero 2D family uploads,
-  measured by upload/encode receipt counters that `region3d_gpu` owns in its
-  prepare path, asserted by this tripwire); a clean frame encodes NO region pass and
-  composites the held target byte-identically; a fully clean scene sleeps
-  (no frames). *Wrong-build named:* re-uploading instance arrays per frame
-  passes every visual check — the upload counters kill it; re-rendering the
-  region every frame passes visuals — the clean-frame byte receipt and sleep
-  receipt kill it.
+  shadow; PLUS the transparency leg: one translucent mesh (base-color alpha
+  0.5) overlapping an opaque mesh over a `:transparent` region background.
+  GPU pinned pixels (shadow pixels ≥3 texels from any shadow boundary per
+  5.10; blended translucent-overlap pixels included) match the CPU
+  BRDF+tone-map oracle within the pre-declared bound; the composite obeys
+  Contract C (linear-premultiplied seam, material alpha through `A = a×c×o`
+  per §8.1, C4-style exactly-one-transfer sentinel through the region road;
+  no fringe on non-black background per C2). *Wrong-build named:* shading
+  in sRGB (double transfer) matches "looks right" screenshots — the oracle
+  and the transfer sentinel kill it; a shader that forces every material
+  alpha to 1 passes every opaque golden — the translucent-overlap oracle
+  pixels kill it.
+- **S5 · the proportional wake + the lease lifecycle.** Orbiting the view
+  camera re-encodes the region pass ONLY (zero object-instance uploads,
+  zero 2D family uploads, measured by upload/encode receipt counters that
+  `region3d_gpu` owns in its prepare path, asserted by this tripwire); a
+  clean frame encodes NO region pass and composites the held target
+  byte-identically; a fully clean scene sleeps (no frames). THEN the lease
+  legs (5.6's M10, driven): close the region → its leases release and pool
+  bytes return to the pre-open baseline (receipt); resize across a
+  quantization step → new lease acquired, old released (receipt); a forced
+  tiny budget cap → refusal receipt + the refusal fill composite, never a
+  silent skip; destroy/recreate the compositor → zero leases survive and
+  the next frame re-acquires cleanly. *Wrong-build named:* re-uploading
+  instance arrays per frame passes every visual check — the upload counters
+  kill it; re-rendering the region every frame passes visuals — the
+  clean-frame byte receipt and sleep receipt kill it; a build that
+  allocates per size and never releases passes every visual forever — the
+  close/resize/budget receipts kill it.
 
 ## 7. MUST-NOTs — real only
 
@@ -461,6 +690,8 @@ Each carries its named wrong-build (the receipt-gaming pass, written):
 - The 44-image golden bank stays byte-identical; the MSDF 47-mismatch
   counterexample stays RED and untouched.
 - No synchronous GPU readback anywhere in the hand path (pick is CPU ray).
+- `runtime/mouse.cljs`, `events.cljs`, and the ground pointer grammar:
+  byte-untouched — region input is session-owned listeners (pin 5.5).
 - No new durable event vocabulary, no Rama-side change, no custody flip (all
   staged at Sid's line; a discovered need = the atom's one fork question).
 - `derive-store-frame` stays `[store]`; effects/session state never enter
@@ -541,29 +772,32 @@ both packages (Sid's absorption ruling):
   Sid (his reserved capability-level call), plus the board debt list and the
   campaign's done-condition check against `ENGINE.md` §0.
 
-# Implementer's opening prompt — Atom A (paste into a fresh session)
+# Implementer's opening prompt — Atom A (paste into a fresh Codex session)
 
-> **Preflight (before the first prompt):** set permission mode now; no
-> /remote-control, no MCP connects, no permission-mode changes mid-session
-> (prefix-rewrite law). Plan the session to END at the build+fix completion —
-> repairs batch, never fix-by-fix at depth.
->
 > Build Atom A — the region-3d floor — under
-> `docs/render-engine/REGION3D-FLOOR-CONTRACT.md` (read it PRIMARY, whole).
-> Boot docs, byte-priced: the contract (~36KB) · `W1/CONTRACT-O.md` (4KB) ·
-> `W1/CONTRACT-G.md` (10KB) · `W1/CONTRACT-M.md` (4KB) · `W1/CONTRACT-C.md`
-> (5KB) — read whole. `W4-FRAME-RUNTIME-CONTRACT.md` + `T2-INPUT-FLOOR-
-> CONTRACT.md`: scoped sections only as the contract cites them (pass-rank/
-> aliasing/color-mode/scheduler/pool; the dispatch seam at :245-288). Code by
-> seam, skeleton-first (`grep -n "^(def"`), whole-file reads only for files
-> you are editing: `scene_tape.cljc`, `frame_graph.cljc`, `compositor_gpu.cljs`,
-> `renderer.cljs:3238-3320`/`3453-3620`, one Package-2 family pair as the
+> `docs/render-engine/REGION3D-FLOOR-CONTRACT.md` (read it PRIMARY, whole;
+> it is post-falsification-round — every road it names was verified against
+> the code bytes on 2026-08-07, and every constant it pins is the law: use
+> it, never a substitute). Boot docs, byte-priced: the contract (~52KB) ·
+> `W1/CONTRACT-O.md` (4KB) · `W1/CONTRACT-G.md` (10KB) · `W1/CONTRACT-M.md`
+> (4KB) · `W1/CONTRACT-C.md` (5KB) — read whole. `W4-FRAME-RUNTIME-
+> CONTRACT.md` (52KB) + `T2-INPUT-FLOOR-CONTRACT.md` (54KB): scoped
+> sections only as the contract cites them (the color-mode law, the
+> aliasing law, scheduler/pool; T2's session-lifecycle precedent at
+> :243-288). Code by seam, skeleton-first (`grep -n "^(def"`), whole-file
+> reads only for files you are editing; the contract's §4 lists every entry
+> point with verified line anchors, and one Package-2 family pair is the
 > admission exemplar (`path_material.cljc` + `path_gpu.cljs`).
-> Build the WHOLE atom straight through: material grammars → pure scene/camera/
-> ray/BVH derivation (JVM tests as you go) → frame-graph `:region` capability →
-> GPU pass + composite → picking through the one seam → gizmos → lighting
-> ladder + shadow → overlays → the felt fixture behind `?region3d=1`. Keep
-> your own falsification pass; fix in-session; a genuine fork is ONE noted
-> question in `REGION3D-FLOOR-NOW.md`, never a stop. Close per contract §8
-> (tripwires, goldens, NOW ≤15 lines, board flip). Foreign test failures are
-> board debt. Acceptance is Sid's word at the felt fixture.
+> Build the WHOLE atom straight through: material grammars (5.2) → pure
+> scene/camera/ray/BVH derivation in `region3d_scene` (JVM tests as you go)
+> → store lanes + pick dispatch (§4 rect_tree/scene_store/scene_runtime
+> hooks) → frame-graph region structure + color-mode trigger (§4) →
+> compositor pass-producer dispatch + held leases (§4, 5.6) → GPU pass +
+> composite (5.3) → picking through the one seam (5.8) → gizmos (5.9) →
+> lighting + shadow v1 (5.10) → overlays → session input (5.5) → the felt
+> fixture behind `?region3d=1`. Keep your own falsification pass; fix
+> in-session; a genuine fork is ONE noted question in
+> `REGION3D-FLOOR-NOW.md`, never a stop. Close per contract §8 (S1–S5
+> frozen as tripwires INCLUDING the round-added legs, 2–3 goldens, NOW ≤15
+> lines, board flip). Foreign test failures are board debt, recorded,
+> passed by. Acceptance is Sid's word at the felt fixture.
