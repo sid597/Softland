@@ -64,7 +64,10 @@ hunting the forced violation; every pointed-at law names the scenario that
 FAILS under its violation).
 Write the fork you saw.
 Open questions are ruled in-session or handed down as a default + note. It
-ends with the implementer's opening prompt.
+ends with the implementer's opening prompt — which OPENS with the toggle
+preflight (permission mode / remote-control / MCP set BEFORE the first
+prompt; corpse: W4's 702k prefix rewrite) and a byte-sized boot-doc list
+(over ~100KB → cut or shard first; CLAUDE.md Token Economy).
 
 ### Model routing at the cut (Sid, 2026-08-06: "never outsource the thinking")
 Composition, rulings, repairs ride the STRONGEST model, never delegated
@@ -73,13 +76,16 @@ two-second check at touch #1. Binding-law reads stay primary (CLAUDE.md
 carve-out). Opus lawfully takes: lens-1/lens-4 sweeps of the finished draft
 (candidates return, verdicts stay home) · gatherer returns INDEX-FIRST in
 SCHEMA (one line per site; verbatim pulled only for load-bearing anchors —
-corpse: the W4 cut's ~100k mostly-unused verbatim) ·
+corpse: the W4 cut's ~100k mostly-unused verbatim; assignments FILE-scoped
+when substrates overlap — corpse: T2's 181KB duplicated gatherer reading) ·
 board/baton mechanics (grep + scoped block reads, never whole-file).
 Lenses 2–3 (receipt-gaming, pin-or-fork) are author judgment — never
 delegated. Token economy at the cut (corpse: W4's ~30 post-Write edits,
 each re-quoting old+new): the draft is composed FULL — lenses 2–3 already
 run — before its FIRST Write; sweep and round repairs land as ONE batched
-edit pass each, never fix-by-fix.
+edit pass each, never fix-by-fix — applied by a subagent or a fresh session
+when the parent is deep (corpse: W4's post-Write tail, 42% of the bill for
+22% of the output). The deep session ends at the Write.
 
 ### Execution — straight through
 The implementer builds the WHOLE atom in one lane: build → surface bugs →
