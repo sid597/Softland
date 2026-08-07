@@ -4122,7 +4122,19 @@
 (defn- t2-capture-snapshot!
   [device adapter font-assets effective snapshot case-id projection
    chrome-store-frame]
-  (let [tracker (gpu-budget/create-tracker
+  (let [source-clip-op (first (filter :gpu/clip
+                                      (mapcat identity
+                                              (get-in snapshot [:ops :text]))))
+        source-clip (:gpu/clip source-clip-op)
+        source-container (:container source-clip-op)
+        projected-clip (renderer/project-clip-rect
+                        source-clip source-container effective
+                        (:pan-x projection) (:pan-y projection)
+                        (:zoom projection) [canvas-size canvas-size]
+                        [canvas-size canvas-size])
+        projection (cond-> projection
+                     projected-clip (assoc :scissor projected-clip))
+        tracker (gpu-budget/create-tracker
                  (gpu-budget/snapshot-adapter-limits adapter))
         camera (renderer/create-camera-buffer device tracker)
         containers-buffer (renderer/create-containers-buffer device tracker)
@@ -4171,6 +4183,8 @@
                           :zoom (:zoom projection)
                           :regime :t2/session-world-subtree
                           :normalization :production-msdf
+                          :clip-source (when source-clip
+                                         :production-store-metadata)
                           :shape-extent-world 128.0
                           :bytes first-bytes
                           :images
@@ -4198,6 +4212,18 @@
                             (get-in snapshot [:document :layout :lines])))
         (mapv :text (mapcat identity (get-in snapshot [:ops :text]))))
      :pass? (and (seq paint-ids) (every? #{layout-id} paint-ids))}))
+
+(defn- t2-paragraph-containment [snapshot]
+  (let [root-height (get-in snapshot [:tree :bounds :h] 0.0)
+        content-y (get-in snapshot [:tree :children 1 :bounds :y] 0.0)
+        logical (or (get-in snapshot [:session :layout :metrics :logical-bounds])
+                    (get-in snapshot [:document :layout :metrics :logical-bounds]))
+        content-bottom (+ content-y (:y logical 0.0) (:h logical 0.0))]
+    {:root-height root-height
+     :content-bottom content-bottom
+     :bottom-padding (- root-height content-bottom)
+     :pass? (>= root-height
+                 (+ content-bottom editing-runtime/paragraph-bottom-padding))}))
 
 (defn- run-t2-input-floor! [device adapter font-assets]
   (let [before (aget js/globalThis "__softlandEditingReceipt")
@@ -4249,6 +4275,14 @@
         (scene-store/derive-store-frame (scene-runtime/store-snapshot))
         clipped-snapshot
         (editing-runtime/fixture-render-snapshot editing-runtime/clipped-card-vi)
+        clipped-source-op
+        (first (filter :gpu/clip
+                       (mapcat identity (get-in clipped-snapshot [:ops :text]))))
+        dpr2-clip
+        (renderer/project-clip-rect
+         (:gpu/clip clipped-source-op) (:container clipped-source-op)
+         (scene-runtime/effective-transforms)
+         -630.0 -680.0 1.0 [256 256] [128 128])
         ;; Golden C and the event-path IME receipt: composition listeners on
         ;; the real hidden textarea, with the caret inside preedit.
         _ (editing-runtime/open-session-for-verifier!
@@ -4290,6 +4324,8 @@
         paste-consumed?
         (editing-runtime/dispatch-paste-for-verifier! paste-event)
         after-paste (editing-runtime/receipt)
+        paragraph-after-paste-snapshot
+        (editing-runtime/fixture-render-snapshot editing-runtime/paragraph-vi)
         shift-event (js/MouseEvent.
                      "mousedown"
                      #js {:bubbles true :cancelable true :shiftKey true
@@ -4326,6 +4362,9 @@
         identity-rows {:paragraph (t2-layout-identity paragraph-snapshot)
                        :clipped (t2-layout-identity clipped-snapshot)
                        :composition (t2-layout-identity composition-snapshot)}
+        paragraph-containment
+        {:initial (t2-paragraph-containment paragraph-snapshot)
+         :after-paste (t2-paragraph-containment paragraph-after-paste-snapshot)}
         transition-rows
         [{:kind :composition-update :seam-delta (- after-update before-update)}
          {:kind :composition-commit :seam-delta composition-commit-delta
@@ -4342,8 +4381,7 @@
               (t2-capture-snapshot!
                device adapter font-assets effective clipped-snapshot
                "clipped-card"
-               {:pan-x -630.0 :pan-y -680.0 :zoom 1.0
-                :scissor {:x 20 :y 0 :w 108 :h 128}}
+               {:pan-x -630.0 :pan-y -680.0 :zoom 1.0}
                chrome-frame-after-shift)
               (t2-capture-snapshot!
                device adapter font-assets effective composition-snapshot
@@ -4434,6 +4472,15 @@
                       (= 1 (:paste-intercepts after-paste))
                       (true? (get-in runtime-receipt
                                      [:census :container-stable?]))
+                      (= :production-store-metadata
+                         (:clip-source (second cases)))
+                      (= {:mode :scissor :x 40 :y 0 :w 216 :h 256}
+                         dpr2-clip)
+                      (every? :pass? (vals paragraph-containment))
+                      (>= (get-in paragraph-containment
+                                  [:after-paste :root-height])
+                          (get-in paragraph-containment
+                                  [:initial :root-height]))
                       (zero? outside-max)
                       (> inside-max 32)
                       outside-default-proceeded?
@@ -4467,7 +4514,8 @@
               :paragraph {:selection-source-range [12 (min paragraph-length 166)]
                           :spans-ligature-and-rtl? (>= paragraph-length 166)
                           :caret-capture-point paragraph-caret-capture-point
-                          :caret-captured? paragraph-caret-captured?}
+                          :caret-captured? paragraph-caret-captured?
+                          :containment paragraph-containment}
               :font-shaper-environment
               (:font-shaper-environment boot-receipt)
               :one-result identity-rows
@@ -4497,7 +4545,14 @@
                          (get-in after-paste [:last-transition :ops 0 :text])}
               :clip {:outside-probe-max outside-max
                      :inside-probe-max inside-max
-                     :pass? (and (zero? outside-max) (> inside-max 32))}
+                     :source (:clip-source (second cases))
+                     :device-scale-probe dpr2-clip
+                     :pass? (and (= :production-store-metadata
+                                    (:clip-source (second cases)))
+                                 (= {:mode :scissor :x 40 :y 0
+                                     :w 216 :h 256}
+                                    dpr2-clip)
+                                 (zero? outside-max) (> inside-max 32))}
               :export-deviation
               {:world-session-visuals
                (get-in runtime-receipt [:census :max-session-visual-count])

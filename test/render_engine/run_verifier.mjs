@@ -35,6 +35,9 @@ const appendConnectorGoldens = process.argv.includes(
 const appendChromeGoldens = process.argv.includes("--append-chrome-goldens");
 const appendW4Goldens = process.argv.includes("--append-w4-goldens");
 const appendT2Goldens = process.argv.includes("--append-t2-goldens");
+const amendT2LivedCorrection = process.argv.includes(
+  "--amend-t2-lived-correction",
+);
 const appendImageInputAmendment = process.argv.includes(
   "--append-image-input-amendment",
 );
@@ -510,6 +513,7 @@ const t2InputFloorInputs = () => ({
   sceneRuntime: sha256File("src/app/client/workspace/scene_runtime.cljs"),
   rectTree: sha256File("src/app/client/workspace/rect_tree.cljc"),
   containers: sha256File("src/app/client/workspace/containers.cljc"),
+  renderer: sha256File("src/app/client/substrate/webgpu/renderer.cljs"),
   verifier: sha256File("src/app/client/substrate/webgpu/verifier.cljs"),
   runner: sha256File("test/render_engine/run_verifier.mjs"),
   fence: sha256File("test/render_engine/verify_text_layout_fence.mjs"),
@@ -728,6 +732,7 @@ const main = async () => {
       appendChromeGoldens,
       appendW4Goldens,
       appendT2Goldens,
+      amendT2LivedCorrection,
       appendImageInputAmendment,
       appendPathInputAmendment,
       appendConnectorInputAmendment,
@@ -1797,6 +1802,206 @@ const main = async () => {
     t2AppendPreflight.priorGoldenBytesUnchanged = true;
   }
 
+  const latestInputs = (baseKey, amendmentKey) =>
+    expectedManifest[amendmentKey]?.at(-1)?.inputs ||
+    expectedManifest[baseKey];
+  const changedInputKeys = (baseKey, amendmentKey) => {
+    const expected = latestInputs(baseKey, amendmentKey);
+    const current = currentManifest[baseKey];
+    return Object.keys(current).filter(
+      (key) => expected?.[key]?.sha256 !== current[key]?.sha256,
+    );
+  };
+  const t2LivedCorrectionInputDebt = {
+    imageAtomInputs: changedInputKeys(
+      "imageAtomInputs",
+      "imageAtomInputAmendments",
+    ),
+    pathAtomInputs: changedInputKeys(
+      "pathAtomInputs",
+      "pathAtomInputAmendments",
+    ),
+    connectorAtomInputs: changedInputKeys(
+      "connectorAtomInputs",
+      "connectorAtomInputAmendments",
+    ),
+    chromeAtomInputs: changedInputKeys(
+      "chromeAtomInputs",
+      "chromeAtomInputAmendments",
+    ),
+    w4FrameRuntimeInputs: changedInputKeys(
+      "w4FrameRuntimeInputs",
+      "w4FrameRuntimeInputAmendments",
+    ),
+    t2InputFloorInputs: changedInputKeys(
+      "t2InputFloorInputs",
+      "t2InputFloorInputAmendments",
+    ),
+  };
+  const expectedT2LivedCorrectionInputDebt = {
+    imageAtomInputs: ["verifier"],
+    pathAtomInputs: ["renderer", "verifier"],
+    connectorAtomInputs: ["renderer", "verifier"],
+    chromeAtomInputs: ["renderer", "verifier", "runner"],
+    w4FrameRuntimeInputs: ["renderer", "verifier", "runner"],
+    t2InputFloorInputs: ["editingRuntime", "renderer", "verifier", "runner"],
+  };
+  const t2LivedCorrectionRows = compareGoldenRows(
+    currentManifest.t2InputFloorCases,
+    expectedManifest?.t2InputFloorCases,
+  );
+  const t2LivedCorrectionChangedRows = t2LivedCorrectionRows.filter(
+    (row) => !row.rawMatch || !row.pngManifestMatch,
+  );
+  const t2LivedCorrectionProductionDebt = Object.keys(
+    currentManifest.productionInputs,
+  ).filter(
+    (key) =>
+      expectedManifest.productionInputs?.[key]?.sha256 !==
+      currentManifest.productionInputs[key]?.sha256,
+  );
+  const t2LivedCorrectionPreflight = {
+    bankPresent,
+    environmentMatch,
+    priorGoldenSetsPass: priorT2GoldenSetsPass,
+    productionDebt: t2LivedCorrectionProductionDebt,
+    inputDebt: t2LivedCorrectionInputDebt,
+    changedT2Cases: t2LivedCorrectionChangedRows.map((row) => row.caseId),
+    unchangedT2CasesPass: t2LivedCorrectionRows
+      .filter((row) => row.caseId !== "paragraph-selection")
+      .every(
+        (row) => row.rawMatch && row.pngManifestMatch && row.goldenFileMatch,
+      ),
+    priorParagraphGoldenPresent:
+      t2LivedCorrectionChangedRows[0]?.goldenFileMatch || false,
+    t2DeterminismPass,
+    t2ContractPass: result.t2InputFloor.pass,
+    clipPass: result.t2InputFloor.clip?.pass,
+  };
+  const t2LivedCorrectionAuthorized =
+    bankPresent &&
+    environmentMatch &&
+    priorT2GoldenSetsPass &&
+    JSON.stringify(t2LivedCorrectionProductionDebt) ===
+      JSON.stringify(["rendererSource"]) &&
+    JSON.stringify(t2LivedCorrectionInputDebt) ===
+      JSON.stringify(expectedT2LivedCorrectionInputDebt) &&
+    t2LivedCorrectionChangedRows.length === 1 &&
+    t2LivedCorrectionChangedRows[0].caseId === "paragraph-selection" &&
+    t2LivedCorrectionChangedRows[0].goldenFileMatch &&
+    t2LivedCorrectionPreflight.unchangedT2CasesPass &&
+    t2DeterminismPass &&
+    result.t2InputFloor.clip?.pass &&
+    result.t2InputFloor.pass;
+
+  if (amendT2LivedCorrection) {
+    if (!t2LivedCorrectionAuthorized) {
+      throw new Error(
+        `T2 lived-correction amendment preflight failed: ${JSON.stringify(t2LivedCorrectionPreflight)}`,
+      );
+    }
+    const paragraphCase = result.t2InputFloor.cases.find(
+      (renderCase) => renderCase.caseId === "paragraph-selection",
+    );
+    const paragraphImage = paragraphCase?.images?.[0];
+    if (!paragraphImage) {
+      throw new Error("T2 lived correction lacks paragraph-selection pixels");
+    }
+    const protectedGoldenRows = [
+      ...expectedManifest.images,
+      ...expectedManifest.imageAtomCases,
+      ...expectedManifest.pathAtomCases,
+      ...expectedManifest.connectorAtomCases,
+      ...expectedManifest.chromeAtomCases,
+      ...expectedManifest.w4FrameRuntimeCases,
+      ...expectedManifest.t2InputFloorCases.filter(
+        (row) => row.caseId !== "paragraph-selection",
+      ),
+    ];
+    const protectedGoldenDigests = new Map(
+      protectedGoldenRows.map((row) => [
+        row.file,
+        sha256(fs.readFileSync(path.join(goldenDir, row.file))),
+      ]),
+    );
+    const png = Buffer.from(paragraphImage.pngDataUrl.split(",", 2)[1], "base64");
+    fs.writeFileSync(path.join(goldenDir, paragraphImage.file), png);
+    if (
+      [...protectedGoldenDigests].some(
+        ([file, digest]) =>
+          sha256(fs.readFileSync(path.join(goldenDir, file))) !== digest,
+      )
+    ) {
+      throw new Error("T2 lived correction changed an unrelated golden byte");
+    }
+    const amendmentFor = (key, inputs) => ({
+      amendment: (expectedManifest[key]?.length || 0) + 1,
+      reason:
+        "T2 lived correction repaired paragraph containment and device-pixel clip projection; unrelated golden bytes remain unchanged",
+      inputs,
+    });
+    const priorParagraph = expectedManifest.t2InputFloorCases.find(
+      (row) => row.caseId === "paragraph-selection",
+    );
+    const currentParagraph = currentManifest.t2InputFloorCases.find(
+      (row) => row.caseId === "paragraph-selection",
+    );
+    expectedManifest = {
+      ...expectedManifest,
+      productionInputs: currentManifest.productionInputs,
+      imageAtomInputAmendments: [
+        ...(expectedManifest.imageAtomInputAmendments || []),
+        amendmentFor("imageAtomInputAmendments", currentManifest.imageAtomInputs),
+      ],
+      pathAtomInputAmendments: [
+        ...(expectedManifest.pathAtomInputAmendments || []),
+        amendmentFor("pathAtomInputAmendments", currentManifest.pathAtomInputs),
+      ],
+      connectorAtomInputAmendments: [
+        ...(expectedManifest.connectorAtomInputAmendments || []),
+        amendmentFor(
+          "connectorAtomInputAmendments",
+          currentManifest.connectorAtomInputs,
+        ),
+      ],
+      chromeAtomInputAmendments: [
+        ...(expectedManifest.chromeAtomInputAmendments || []),
+        amendmentFor("chromeAtomInputAmendments", currentManifest.chromeAtomInputs),
+      ],
+      w4FrameRuntimeInputAmendments: [
+        ...(expectedManifest.w4FrameRuntimeInputAmendments || []),
+        amendmentFor(
+          "w4FrameRuntimeInputAmendments",
+          currentManifest.w4FrameRuntimeInputs,
+        ),
+      ],
+      t2InputFloorInputAmendments: [
+        ...(expectedManifest.t2InputFloorInputAmendments || []),
+        amendmentFor(
+          "t2InputFloorInputAmendments",
+          currentManifest.t2InputFloorInputs,
+        ),
+      ],
+      t2InputFloorGoldenAmendments: [
+        ...(expectedManifest.t2InputFloorGoldenAmendments || []),
+        {
+          amendment:
+            (expectedManifest.t2InputFloorGoldenAmendments?.length || 0) + 1,
+          reason:
+            "Lived paragraph text escaped its fixed background; freeze the corrected layout-owned block height",
+          before: priorParagraph,
+          after: currentParagraph,
+        },
+      ],
+      t2InputFloorCases: currentManifest.t2InputFloorCases,
+    };
+    fs.writeFileSync(
+      manifestFile,
+      `${JSON.stringify(expectedManifest, null, 2)}\n`,
+    );
+    t2LivedCorrectionPreflight.unrelatedGoldenBytesUnchanged = true;
+  }
+
   const changedShaderDigestKeys = Object.keys(currentManifest.shaderDigests)
     .filter(
       (key) =>
@@ -2711,6 +2916,9 @@ const main = async () => {
   );
   assertField(
     result.t2InputFloor.clip?.pass &&
+      result.t2InputFloor.clip?.source === "production-store-metadata" &&
+      JSON.stringify(result.t2InputFloor.clip?.deviceScaleProbe) ===
+        JSON.stringify({ mode: "scissor", x: 40, y: 0, w: 216, h: 256 }) &&
       result.t2InputFloor.clip?.outsideProbeMax === 0 &&
       result.t2InputFloor.clip?.insideProbeMax > 32,
     "t2-clip-probes",
@@ -2718,6 +2926,10 @@ const main = async () => {
   assertField(
     result.t2InputFloor.paragraph?.caretCaptured &&
       result.t2InputFloor.paragraph?.spansLigatureAndRtl &&
+      result.t2InputFloor.paragraph?.containment?.initial?.pass &&
+      result.t2InputFloor.paragraph?.containment?.afterPaste?.pass &&
+      result.t2InputFloor.paragraph?.containment?.afterPaste?.rootHeight >=
+        result.t2InputFloor.paragraph?.containment?.initial?.rootHeight &&
       JSON.stringify(result.t2InputFloor.paragraph?.selectionSourceRange) ===
         JSON.stringify([12, 166]) &&
       result.t2InputFloor.paragraph?.caretCapturePoint?.every(
@@ -2905,6 +3117,8 @@ const main = async () => {
     w4AppendAuthorized,
     appendT2Goldens,
     t2AppendAuthorized,
+    amendT2LivedCorrection,
+    t2LivedCorrectionAuthorized,
     appendImageInputAmendment,
     appendPathInputAmendment,
     inputAmendmentAuthorized,
@@ -3014,6 +3228,7 @@ const main = async () => {
       appendChromeGoldens ||
       appendW4Goldens ||
       appendT2Goldens ||
+      amendT2LivedCorrection ||
       appendImageInputAmendment ||
       appendPathInputAmendment ||
       appendConnectorInputAmendment ||
@@ -3033,6 +3248,8 @@ const main = async () => {
           ? w4AppendAuthorized
         : appendT2Goldens
           ? t2AppendAuthorized
+        : amendT2LivedCorrection
+          ? t2LivedCorrectionAuthorized
         : amendShaderDigests
           ? shaderAmendmentAuthorized
         : appendImageInputAmendment
@@ -3254,6 +3471,8 @@ const main = async () => {
             ? w4AppendPreflight
           : appendT2Goldens
             ? t2AppendPreflight
+          : amendT2LivedCorrection
+            ? t2LivedCorrectionPreflight
           : amendShaderDigests
             ? shaderAmendmentPreflight
           : appendImageInputAmendment
@@ -3279,6 +3498,8 @@ const main = async () => {
             ? w4AppendAuthorized
           : appendT2Goldens
             ? t2AppendAuthorized
+          : amendT2LivedCorrection
+            ? t2LivedCorrectionAuthorized
           : amendShaderDigests
             ? shaderAmendmentAuthorized
           : appendImageInputAmendment
@@ -3334,6 +3555,7 @@ const main = async () => {
       appendChromeGoldens ||
       appendW4Goldens ||
       appendT2Goldens ||
+      amendT2LivedCorrection ||
       appendImageInputAmendment ||
       appendPathInputAmendment ||
       appendConnectorInputAmendment ||

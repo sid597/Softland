@@ -3373,8 +3373,12 @@
         (throw (ex-info "Maintained frame arrangement diverged from batch oracle"
                         {:frame (:frame-idx frame)}))))))
 
-(defn- project-clip-rect
-  [clip container effective-transforms pan-x pan-y zoom attachment-size]
+(defn project-clip-rect
+  "Project a container-local clip into WebGPU attachment pixels. Camera and
+   container coordinates are CSS pixels; scissor rectangles are device pixels,
+   so the viewport-to-attachment scale is part of the projection."
+  [clip container effective-transforms pan-x pan-y zoom attachment-size
+   viewport-size]
   (when clip
     (let [{:keys [affine flags]}
           (or (get effective-transforms container)
@@ -3386,9 +3390,15 @@
             zm (if screen? 1.0 zoom)
             px (if screen? 0.0 pan-x)
             py (if screen? 0.0 pan-y)
+            [aw ah] attachment-size
+            [vw vh] (or viewport-size attachment-size)
+            device-x (/ aw (max 1.0 vw))
+            device-y (/ ah (max 1.0 vh))
             projected (map (fn [[lx ly]]
-                             [(+ (* (+ (* a lx) (* c ly) tx) zm) px)
-                              (+ (* (+ (* b lx) (* d ly) ty) zm) py)])
+                             [(* device-x
+                                 (+ (* (+ (* a lx) (* c ly) tx) zm) px))
+                              (* device-y
+                                 (+ (* (+ (* b lx) (* d ly) ty) zm) py))])
                            points)
             xs (map first projected)
             ys (map second projected)
@@ -3396,7 +3406,6 @@
             y0 (int (js/Math.floor (apply min ys)))
             x1 (int (js/Math.ceil (apply max xs)))
             y1 (int (js/Math.ceil (apply max ys)))
-            [aw ah] attachment-size
             cx (max 0 (min aw x0))
             cy (max 0 (min ah y0))]
         (if (= :scissor (frame-graph/clip-execution-mode affine))
@@ -3410,14 +3419,14 @@
            :container container :local-clip clip})))))
 
 (defn- project-entry-scissors
-  [entry effective-transforms pan-x pan-y zoom attachment-size]
+  [entry effective-transforms pan-x pan-y zoom attachment-size viewport-size]
   (if-let [sub-draws (get-in entry [:paint :sub-draws])]
     (update-in entry [:paint :sub-draws]
                (fn [rows]
                  (mapv (fn [row]
                          (update row :clip project-clip-rect (:container row)
                                  effective-transforms pan-x pan-y zoom
-                                 attachment-size))
+                                 attachment-size viewport-size))
                        rows)))
     entry))
 
@@ -3517,7 +3526,7 @@
               (map (fn [[key entry]]
                      [key (project-entry-scissors entry effective-transforms
                                                   pan-x pan-y zoom
-                                                  attachment-size)]))
+                                                  attachment-size [w h])]))
               arrangement-raw)
         _ (frame-tape-twin-check! frame arrangement-raw)
         effect-state (if container-registry

@@ -18,6 +18,7 @@
 (def clipped-card-vi :t2-input-floor/clipped-card)
 (def blink-deadline-id :t2/caret-blink)
 (def blink-cadence-ms 530.0)
+(def paragraph-bottom-padding 14.0)
 
 (def fixture-specs
   [{:vi paragraph-vi
@@ -195,23 +196,35 @@
       (seq underline-nodes) (into underline-nodes)
       caret-node (conj caret-node))))
 
+(defn fixture-bounds
+  "The proportional paragraph owns a growing block box; the clipped-card box
+   stays fixed because overflow is the fixture's subject."
+  [spec layout-result]
+  (if (= :paragraph (:kind spec))
+    (let [[_ content-y] (:origin spec)
+          logical (get-in layout-result [:metrics :logical-bounds])
+          content-bottom (+ content-y (:y logical 0.0) (:h logical 0.0))]
+      (update (:bounds spec) :h max (+ content-bottom paragraph-bottom-padding)))
+    (:bounds spec)))
+
 (defn- fixture-tree [spec document]
   (let [[content-x content-y] (:origin spec)
+        bounds (fixture-bounds spec (:layout (session-view spec document)))
         root-data (addressed-data spec
                                   (when (= :clipped-card (:kind spec))
                                     {:gpu-clip? true}))
         background-color (if (= :clipped-card (:kind spec))
                            [0.14 0.31 0.58 1.0]
                            [0.075 0.085 0.11 0.96])
-        background (rect-node spec :t2/background (:bounds spec)
+        background (rect-node spec :t2/background bounds
                               background-color)
         content (rt/rt-node
                  :t2/content :group
                  {:x content-x :y content-y
-                  :w (:w (:bounds spec)) :h (:h (:bounds spec))}
+                  :w (:w bounds) :h (:h bounds)}
                  :data (addressed-data spec)
                  :children (editing-nodes spec document))]
-    (rt/rt-node (:address spec) :group (:bounds spec)
+    (rt/rt-node (:address spec) :group bounds
                 :clip? (= :clipped-card (:kind spec))
                 :data root-data
                 :children [background content])))
