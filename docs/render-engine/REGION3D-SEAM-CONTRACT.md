@@ -38,6 +38,16 @@ verdicts). A wrong build this rule kills: an implementer who "fixes the
 slowness" mid-atom by restructuring A's upload or encode paths — that work is
 unauthorized here even if it helps.
 
+**Falsification round ingested (Codex fresh-eyes, 2026-08-07):** 13 findings
+(10 decision-changing + 3 soft), all adjudicated against fresh source and
+repaired in place this session, no recut — the receipt formula restored
+verbatim · ref resolution given its occurrence-OWNER rule + the legacy-color
+adapter · the mirror keyed by `:layout/id` · the one ink-cache cell named
+with its owner · both grammar migrations made executable · `:local` required
+· the region door re-homed to `derive-route-set` with a value-tuple key +
+same-frame order · atlas custody per-frame with the Slug refusal · S4
+provenance read from material rows · S1–S5 anti-gaming legs.
+
 ---
 
 ## 1. Scope in plain words
@@ -192,8 +202,22 @@ pass and grammar at two existing families), no durable/Rama change.
 
 - `src/app/client/substrate/region3d_placement.cljc` — PURE, JVM-testable:
   placed-ref resolution helpers (address → material value + content-keyed
-  revision, walking the owning slot's resolved tree via the store's
-  `:addresses` index); plane math (material-local ↔ object-local mapping,
+  revision — the road: address → store `:index` → vis → owning slot
+  `:addresses` → index-paths → nodes, and BOTH indexes are occurrence SETS
+  (`scene_store.cljc:10-20`: `address → #{vi}` / `address → #{index-path}`),
+  so resolution selects the MATERIAL OWNER deterministically: a `:text` ref's
+  owner is the occurrence node of kind `:text` (T2 stamps ONE address across
+  root/background/content/furniture — only the `:t2/text` node carries layout
+  + paint, `editing_runtime.cljs:171-181`); an `:ink` ref's owner is the
+  slot's `:ops :paths` row carrying that address; zero owners → the declared
+  absent state; MORE than one owner → `:ref-ambiguous`, censused, paints
+  nothing, fail-closed. Legacy-paint admission: the 2D lanes carry untagged
+  `[r g b a]` paint projected to flat `:r/:g/:b/:a`
+  (`editing_runtime.cljs:23-44`) — Contract C forbids untagged RGB at
+  admission and the placement IS an admission point, so resolution ADAPTS it
+  to tagged straight sRGBA through one declared versioned adapter
+  (`:region3d/placed-color v1`); the 2D lanes' own bytes stay untouched);
+  plane math (material-local ↔ object-local mapping,
   ray→plane→material-local point); glyph-quad packing (consumes
   `text-layout/paint-result` glyph positions + atlas metrics — the SAME
   planeBounds×font-size derivation `renderer.cljs:2243-2252` uses, re-emitted
@@ -227,33 +251,70 @@ pass and grammar at two existing families), no durable/Rama change.
   `canonical-object` (`:330-345`) validates their kind field
   (`{:text {:ref {:address …} :params …}}` / `{:ink {:ref {:address …}}}`,
   fail-closed, exact shapes in 5.2); `edit-operation-ids` (`:82-87`) gains
-  `:region3d/set-placed`; `:versioning` (`:624`) bumps
-  `:compatibility {:reader-min 1 :reader-max 2}` with the total v1→v2
-  migration (identity — v1 values are valid v2 values); `edit-diff` /
+  `:region3d/set-placed`; `schema-version` (`:11`) bumps 1→2 and admission becomes
+  MIGRATE-THEN-VALIDATE: `validate-region!` (`:389-402`) compares
+  `:region3d/version` by strict equality, so the v1→v2 migration is a REAL
+  step, not a descriptor keyword — a value tagged 1 is RETAGGED to 2 (all
+  other bytes identity; every v1 value is semantically valid v2), then
+  validated at exactly 2; `:versioning` (`:618-625`) bumps `:migration` to
+  the chain `:region3d/v1-base → :region3d/v2-placements` and
+  `:compatibility {:reader-min 1 :reader-max 2}`; the M6 receipt replays a
+  v1 fixture through migration to identical semantics; `edit-diff` /
   `apply-edit` (`:441/:467`) cover the new op. The region-family and
   object-family citizenship declarations (`:498-647`) gain the 5.9 deltas.
 - `src/app/client/substrate/region3d_scene.cljc` — `pick-region` (`:876`)
-  ladder gains the placed legs between gizmo and mesh resolution (dispatching
-  to `region3d_placement`; nearest-positive-t law unchanged);
+  ladder: placed plane hits JOIN the mesh candidate set BELOW the gizmo
+  short-circuit and compete with mesh hits by nearest positive t as ONE
+  comparison set (5.5's law) — NOT a sequential leg inserted between gizmo
+  and mesh: today's ladder short-circuits gizmo, then distance-compares
+  `mesh-hit` against glyph handles (`:885-929`); placements enter that same
+  distance comparison, dispatching to `region3d_placement` for the winner's
+  inner resolution;
   `derive-instance-row`/`maintain-scene` (`:740/:783`) treat placed rows as
   transform-bearing objects with NO BVH triangles (their pick is the plane
   road; their subtree/refit behavior is unchanged hierarchy law).
 - `src/app/client/substrate/connector_material.cljc` — the binding `case`
   (`:97-116`) gains `:region-object` (exact keys
-  `#{:bind :region :object :local}`, 5.6); grammar version bump, same M6
-  mechanics as above.
+  `#{:bind :region :object :local}` — ALL four required: `exact-keys!`
+  (`:80-92`) treats every member as required and the grammar has NO
+  canonical-default step; B adds none — writers spell `:local` out, 5.6).
+  The version bump is DESCRIPTOR-level, not value-level: the 11-key material
+  map (`:58-62`) carries no version discriminator and B does NOT add one
+  (that would break every existing fixture byte) — `schema-version` (`:9`,
+  today defined and never referenced) bumps 1→2 and becomes load-bearing in
+  the family's citizenship/versioning declaration; migration v1→v2 is
+  identity over values (every v1 material is a valid v2 material);
+  `:compatibility {:reader-min 1 :reader-max 2}`; the version FENCE for
+  untagged values is the binding case itself — a v1 validator fail-closes on
+  any `:region-object` binding (that refusal IS M6's rollback receipt,
+  declared); old-fixture receipt: v1 fixtures validate unchanged under v2.
 - `src/app/client/substrate/connector_route.cljc` — `resolved-binding`
   (`:119`) gains the `:region-object` case calling the INJECTED resolver;
   `resolve-route-geometry` (`:222`) threads an opts map
-  `{:region-anchor-resolver f}` down to it; new census statuses
-  `:region-anchor-absent` (5.6). The `:resolved-anchor-tuple` (`:298-299`)
-  already carries the projected centers — the route/label cache re-keys by
-  existing machinery, zero new cache design.
+  `{:region-anchor-resolver f}` down to it. THE REGION DOOR LIVES HERE, in
+  `derive-route-set`'s existing invalidation core (`:499-536` — where
+  `:last-effective`, `bound-edges-by-container`, `effective-value-diff`, and
+  the affected-edge union already live): the cache (`empty-cache`,
+  `:444-454`) gains `:last-region-doors` (region-address → door value, 5.6)
+  and a `bound-edges-by-region` index beside `bound-edges-by-container`;
+  changed regions fan into `affected` exactly like `affected-by-containers`;
+  a `:region-object` endpoint's `anchor-input-token` (`:480-488`) carries
+  the resolved projection so route/label re-derive only when the tuple
+  actually moved (the existing `:resolved-anchor-tuple` machinery, zero new
+  cache design). Census: resolution rows mint the statuses here, but the
+  census OWNER is `connector_material/corpus-census` (`:360-377`) — it gains
+  `:region-anchor-absent` (a status; paints nothing) and `:anchor-clamped`
+  (a counted FLAG on rows that stay `:resolved` — a clamped edge still
+  paints).
 - `src/app/client/substrate/webgpu/connector_gpu.cljs` —
-  `prepare-connector-frame!` (`:224`) accepts the resolver + the per-region
-  door values; the frame-edge value-diff (the `:145/:190-201` token-compare
-  shape) gains the per-region `[view-value scene-revision]` compare so orbit
-  dirties exactly the region-bound edges (5.6/5.7).
+  `prepare-connector-frame!` (`:224`) stays THIN: it accepts the resolver +
+  the per-region door values and threads both into the route derivation. Its
+  own two gates — the label token (`:190-201`) and the vertex `mesh-set-key`
+  gate (`:243-260`) — are UNCHANGED; region-driven changes reach them
+  through the derivation's routes/mesh-set-key exactly like container
+  changes do. The per-region value compare itself lives in
+  `derive-route-set` (previous bullet), so orbit dirties exactly the
+  region-bound edges (5.6/5.7).
 
 **Thin hooks only, in the big/landed files (each a few lines, data or one call):**
 
@@ -263,7 +324,11 @@ pass and grammar at two existing families), no durable/Rama change.
   `encode-interior!` gains the `draw-placements!` call in the declared
   transparent stage (after the mesh draw at the `:1155-1159` block's
   ladder position, before gizmos); the destroy list (`:934`) and
-  `region3d-receipt` (`:1254`) gain the placement buffers/counters.
+  `region3d-receipt` (`:1254`) gain the placement buffers/counters PLUS a
+  cumulative `:scene-derives` counter incremented at every
+  `derive-scene`/`maintain-scene` recompute — today's receipt counts uploads
+  and `:prepare-calls` only, and S5's no-idle-derivation law needs the CPU
+  counter to exist.
 - `src/app/client/workspace/scene_store.cljc` — the `:regions` assembly in
   `derive-store-frame` (`:332`) gains the pure ref-resolution step
   (`placement/resolve-placed-refs` over the ordered slots; signature stays
@@ -272,17 +337,42 @@ pass and grammar at two existing families), no durable/Rama change.
 - `src/app/client/workspace/editing_runtime.cljs` — one public getter,
   `session-layout-snapshot` (≈5 lines over the private `!session`,
   `editing_runtime.cljs:54`): `{:vi … :address … :revision … :layout …}`
-  when a session is live, else nil.
+  when a session is live, else nil. `:revision` IS the carried layout's
+  `:layout/id` — the hash over semantic input INCLUDING `:source-revision`
+  (`text_layout.cljc:744-757`) — and NEVER the document revision alone: an
+  IME composition relayout replaces `:layout` with a fresh `:layout/id`
+  while `[:state :document :revision]` stays put
+  (`editing_runtime.cljs:409-444`), and the mirror must follow preedit live
+  (S1's composition leg).
 - `src/app/client/substrate/webgpu/renderer.cljs` — inside the existing
-  region prepare block (`:3491-3516`): thread `font-assets` and the editing
-  snapshot into `prepare-region3d-frame!`'s options; build
+  region prepare block (`:3491-3516`), three thin moves. (1) ORDER:
+  `prepare-region3d-frame!` moves ABOVE `prepare-connector-frame!` (today's
+  order is image → path → connector → chrome → region3d, `:3499-3516`;
+  regions consume no connector output, and W4's
+  all-prepare-before-first-pass law is untouched) so the resolver + door
+  values close over THIS frame's maintained scene and camera, never the
+  previous frame's. (2) THREADING: `prepare-region3d-frame!`'s options gain
+  `font-assets`, the editing snapshot, the CURRENT atlas view + sampler, and
+  the path lane's tessellation-cache owner (`path-system`, the same cell
+  `prepare-path-frame!` reads/writes — placed ink derives through THAT one
+  cache, value-in/updated-value-back-to-owner; the region system owns no
+  second tessellation cache, 5.4). The atlas GPU handles are TEXT-SYS
+  fields, not font-assets fields (`create-msdf-font-resources` merges
+  `:font-texture-view`/`:font-sampler` INTO text-sys,
+  `:1463-1487/:1569-1631`), and the font-update path DESTROYS + replaces
+  them (`:1704-1731`) — so the handles are threaded PER FRAME from the
+  current text-sys and placement retains nothing across frames (text-sys
+  stays the one destroy-owner, M10). Backend: `init-text-system` picks Slug
+  when `(:backend font-assets)` is `:slug` (`:1698-1702`) and a Slug
+  text-sys owns NO MSDF atlas — placement under an active Slug backend is a
+  DECLARED refusal (censused `:no-msdf-atlas`, paints nothing; the placed
+  road stays MSDF-only per §2, and a Slug-era placement atlas is that
+  refusal's LATER road). (3) RESOLVER: build
   `placement/region-anchor-resolver` from the store-frame + region3d session
-  + prepared state and inject it into the connector produce exactly like
-  `:connector-label-entry` (`:3271-3276`) and into
-  `prepare-connector-frame!`'s call. The placed-MSDF pipeline binds the SAME
-  atlas texture view + sampler the 2D system owns
-  (`create-msdf-font-resources`, `renderer.cljs:1463-1487` — the text system
-  remains the one owner; region placement holds a reference, M10).
+  + THIS frame's prepared state and inject it into the connector produce
+  exactly like `:connector-label-entry` (`:3271-3276`) and into
+  `prepare-connector-frame!`'s call along with the per-region door values
+  (5.6).
 - `src/app/client/workspace/region3d_runtime.cljs` — the fixture assembly
   grows the demo hooks `seam_demo` needs (exported helpers only); session
   snapshot shape unchanged.
@@ -334,7 +424,10 @@ to placements).
 
 **5.3 The placed-text road — one layout truth, two consumers, written
 end-to-end.** SETTLED source: `resolve-placed-refs` (store lane, pure)
-resolves the address to the referenced node's text content + style and stamps
+resolves the address to its MATERIAL-OWNER occurrence (§4's owner rule — the
+`:text`-kind node; zero owners → declared absent, several → `:ref-ambiguous`,
+both censused), reads text content + style THROUGH the legacy-color adapter
+(untagged `[r g b a]` → tagged straight sRGBA, §4) and stamps
 a CONTENT-KEYED revision (the `path_material/material-content-key` pattern —
 text + style + constraints hashed; provider identity joins at packing). LIVE
 source: when the editing session's target address equals a placed ref's
@@ -349,7 +442,9 @@ owner: the call carries the live provider from font-assets and
 `CONNECTOR-ATOM-CONTRACT.md:135-147`), and the packing cache is keyed
 `[address content-revision provider-identity]` — an unchanged placement does
 ZERO layout work (the live substitution keys on the session snapshot's
-`:revision` in place of content-revision). Packing itself: `paint-result` glyphs → per-glyph
+`:revision` — the carried layout's `:layout/id`, minted fresh on EVERY
+carried replacement including composition/preedit relayouts, §4; the
+document revision alone is NOT a lawful key — in place of content-revision). Packing itself: `paint-result` glyphs → per-glyph
 material-local rects via planeBounds×font-size + atlas UVs (the
 `renderer.cljs:2243-2252` derivation, re-implemented in the placement
 namespace against the SAME font-assets atlas metrics — MSDF selects coverage
@@ -357,8 +452,14 @@ metadata only; a missing glyph never changes placement), emitted as placed
 glyph instances `[rect uv color object-index]` in material-local units; the
 GPU transforms material-local → object plane → region clip via the object's
 effective matrix × the region camera (one matrix chain, in-shader). WGSL law:
-screenPxRange = `max(pxRange * 0.5 * dot(vec2(distanceRange)/atlasSize,
-1.0/fwidth(uv_texels)) …, 1.0)` — the fwidth form (islands receipt), NEVER a
+screenPxRange = `max(0.5 * dot(vec2(distanceRange) / atlasSize,
+1.0 / fwidth(uv)), 1.0)` — the islands receipt's formula VERBATIM
+(`0.5·dot(distanceRange/atlasSize, 1/fwidth(uv))`, REPORT:133-140), with
+every quantity defined: `distanceRange` = the atlas distance-field range in
+TEXELS (msdfgen's pxRange — ONE quantity, read from the font-assets atlas
+metrics; there is no second range constant and no extra multiplier),
+`atlasSize` = the atlas dimensions in texels, `uv` = the NORMALIZED [0,1]
+atlas coordinate the sample itself uses; NEVER a
 per-vertex visual_size; the formula constant block is versioned
 `:region3d/placed-msdf v1`. Depth: test on, write off, transparent-stage
 order (A's 5.3 back-to-front law; placements sort with transparent meshes by
@@ -374,7 +475,13 @@ texture is data (rgba8unorm, no sRGB transfer — it already is,
 **5.4 The placed-ink road — one authority, one cache.** Resolution pulls the
 referenced path MATERIAL row; triangles come from
 `path_tessellation/derive-mesh-set` under `path_material/material-cache-key`
-— the SAME content-keyed cache the 2D road uses (D2 law: readers are
+— through the SAME cache CELL the 2D road uses: `derive-mesh-set` is
+cache-value-in/updated-cache-out with NO ambient state
+(`path_tessellation.cljc:425-439`), the one cell lives with `path-system`,
+and the renderer threads that owner into region prepare (§4); packing
+derives through it and hands the updated value back to the SAME owner — the
+region system holds NO second tessellation cache, and the JVM/test road
+passes an explicit cache value (D2 law: readers are
 projections of one pinned revision + algorithm version; a region placement is
 one more reader, never a second tessellation authority). The zoom argument of
 the cache key is pinned to the SETTLE regime's zoom-1 cell for placements v1
@@ -406,8 +513,10 @@ screen-metric slop maps through the inverse chain like A's glyph slop
 
 **5.6 The `:region-object` endpoint, exact.** Grammar:
 `{:bind :region-object, :region <the region NODE's address>,
-:object <object-id in that region's scene>, :local [x y z] (default [0 0 0],
-finite, object-local offset)}` — fail-closed, exact keys. Resolution (the
+:object <object-id in that region's scene>, :local [x y z] (REQUIRED,
+finite, object-local offset — NO default: `exact-keys!` requires every
+member and the connector grammar has no canonical-default step; writers
+spell `[0 0 0]` out)}` — fail-closed, exact keys. Resolution (the
 injected resolver, built at the renderer edge, pure math in
 `region3d_placement`): region address → the region op row (rect + container
 + scene, from the store frame's `:regions`) + that region's SESSION camera
@@ -427,12 +536,19 @@ state); point BEHIND the camera (w ≤ 0 or z outside clip) →
 `:region-anchor-absent`; projection in front but OUTSIDE the region rect →
 CLAMP to the rect boundary along the segment from rect center to the
 projection, censused `:anchor-clamped` (the region is the window; the arrow
-points into it). Doors (proportionality): the per-frame value-diff compares,
-per region with bound edges, `[the session view value, the maintained scene
-revision, the region node's effective transform]` — all cheap value
-compares in the connector prepare (the `:190-201` token-compare shape); a
-change re-projects ONLY that region's bound edges (a `bound-edges-by-region`
-index beside the existing `bound-edges-by-container`), and the route/label
+points into it). Doors (proportionality): NO scene
+revision exists to compare — the maintained scene carries only the
+algorithm constant `:derive/version` (verified at the bytes) — so the door
+is a VALUE tuple, per region with bound edges: `[the session view value ·
+the session row's preview-transform · its settled-transforms · the region
+node's effective container transform]` (the same shape `region3d_gpu`'s own
+dirty key already compares, `[region preview settled-transforms]`,
+`:979-1009`). The diff lives in `derive-route-set`'s invalidation core
+beside `:last-effective` (§4: `:last-region-doors` + the
+`bound-edges-by-region` index beside the existing
+`bound-edges-by-container`); the renderer supplies the door values with the
+resolver AFTER the region prepare (§4's same-frame order); a
+change re-projects ONLY that region's bound edges, and the route/label
 re-derive only when the resolved tuple actually moved (the existing
 `:resolved-anchor-tuple` key). New receipt counter: `:anchor-projections`.
 No clock, ever. Region-bound endpoints are FIXTURE/session edges in B
@@ -522,36 +638,60 @@ stops.
 Each carries its named wrong-build (the receipt-gaming pass, written):
 
 - **S1 · one identity, two spaces (the mirror).** The T2 paragraph placed in
-  the region; a session opens on the 2D instance; three keystrokes land.
-  Assert per transition: layout-call counter +1 TOTAL (the carried result
-  serves both consumers — `editing_runtime` receipt + the placement pack
-  counter); the placed instance's glyph pack re-derives from the SAME
-  `:layout/id`; pick through the 2D road and through the region road return
-  the SAME address; session exit → settled content-keyed revision takes
-  over with identical glyphs. THEN the absent leg: retarget the ref to a
-  dead address → declared absent state (census, no paint, no crash).
-  *Wrong-build named:* a placement that COPIES text into its own material
-  passes every visual — the shared-`:layout/id` and same-address-pick
-  assertions kill it; a second layout call per keystroke passes visuals —
-  the call counter kills it; a mirror that polls the session per frame
-  passes everything visible — the door receipt (zero packs on a frame with
-  no transition) kills it.
+  the region; a session opens on the 2D instance; three keystrokes land, one
+  of them an IME COMPOSITION update (preedit): the relayout mints a fresh
+  `:layout/id` while the document revision stays put, and the mirror follows
+  it live (§4's `:revision` pin). Assert per transition: layout-call counter
+  +1 TOTAL (the carried result serves both consumers — `editing_runtime`
+  receipt + the placement pack counter); the placed instance's glyph pack
+  re-derives from the SAME `:layout/id`; pick through the 2D road and
+  through the region road return the SAME address; session exit → settled
+  content-keyed revision takes over with identical glyphs. THEN the absent
+  leg: retarget the ref to a dead address → declared absent state (census,
+  no paint, no crash). AND the stored-shape leg: the placed rows' slot
+  values equal EXACTLY the fixture's written 5.2 shapes (value equality —
+  preserve-unknown protects FOREIGN values; the fixture's own placements
+  carry no extra bytes anywhere, `:params` included).
+  *Wrong-build named:* a placement that COPIES text into its own material —
+  including a copy stashed under preserved-unknown `:params` space — passes
+  every visual — the shared-`:layout/id`, same-address-pick, and
+  stored-shape-equality assertions kill it; a second layout call per
+  keystroke passes visuals — the call counter kills it; a mirror keyed on
+  the DOCUMENT revision passes committed keystrokes — the preedit leg kills
+  it (the layout moved, the document revision didn't); a mirror that polls
+  the session per frame passes everything visible — the door receipt (zero
+  packs on a frame with no transition) kills it.
 - **S2 · perspective truth for placed atoms.** The paragraph and an ink
   stroke placed at a steep oblique angle between two grey-boxes (one
   in front, one behind — real depth interleaving); golden + pinned-pixel
   legs: CPU ray→plane→layout/classifier picks vs GPU silhouette on declared
-  pixel classes (glyph interior ≥3 texels from edges · ink interior ·
-  plane-miss · mesh-occludes-placement · placement-in-front-of-mesh), within
-  the 5.10 pre-registered bound; the depth interleave asserts placement
-  pixels lose to the nearer box and win over the farther one. *Wrong-build
-  named:* reusing the 2D per-vertex `visual_size` road passes every
-  FACE-ON golden — the oblique-angle pinned pixels kill it (edges blur or
-  alias, coverage departs the bound); billboarding placements
+  pixel classes (glyph interior ≥3 texels from edges · GLYPH EDGE, below ·
+  ink interior · plane-miss · mesh-occludes-placement ·
+  placement-in-front-of-mesh), within the 5.10 pre-registered bound; the
+  depth interleave asserts placement pixels lose to the nearer box and win
+  over the farther one. The glyph-EDGE class is the formula's EXTERNAL
+  oracle — a golden minted from the build under test proves nothing about
+  the formula: at declared edge-crossing pixels of the OBLIQUE view,
+  expected coverage is computed CPU-SIDE from the versioned 5.3 formula (the
+  known projection gives analytic UV derivatives standing in for `fwidth`,
+  so screenPxRange and coverage are computable off-GPU), and the GPU pixel
+  must land within the pre-registered bound of THAT prediction.
+  *Wrong-build named:* reusing the 2D per-vertex `visual_size` road passes
+  every FACE-ON golden AND every interior-only pinned pixel — the
+  edge-class CPU prediction kills it (its screenPxRange is
+  projection-independent, so oblique edge coverage departs the analytic
+  value by construction); regenerating the golden FROM the wrong build
+  passes golden comparison — same kill, the edge oracle derives from the
+  formula, never from a render; billboarding placements
   (camera-facing) passes face-on views — the oblique golden's foreshortening
   kills it; drawing placements as overlay (depth-test off) passes
   single-box scenes — the in-front/behind interleave kills it.
 - **S3 · the anchor follows everything that can move.** A labeled edge from
-  a 2D block to `{:bind :region-object}` on a grey-box. Five moves, each
+  a 2D block to `{:bind :region-object}` on a grey-box, `:local`
+  `[0.4 0.25 0.3]` — NONZERO on every axis, pinned so a build that ignores
+  `:local` and projects the object origin fails immediately: in every pose
+  the projected tip sits off the origin projection by more than slop and
+  tracks effective×local across both orbit poses. Five moves, each
   asserting the projected tip + route + label move correctly AND the
   counters stay proportional (`:anchor-projections` touches only this
   region's edges; `:route-resolutions` only re-fires when the tuple moved):
@@ -571,26 +711,43 @@ Each carries its named wrong-build (the receipt-gaming pass, written):
   text · image · path · connector stroke + label · chrome · effect-group
   content · region background · in-region mesh · placed text (cluster
   route) · placed ink · gizmo — every hit returns its declared route and
-  material identity through the ONE seam; provenance readable on each
-  (`asserted-by` present); then RECORD → cold reload → REPLAY: identical
+  material identity through the ONE seam; provenance is read FROM each
+  resolved material row in its OWN family's declared shape — the
+  connector's is exactly `{:actor-id :asserter-type}` (its validator
+  rejects any other key; "asserted-by rides every relation" is
+  decisions.md's LAW-name for this obligation, never a literal key) — and
+  NEVER decorated at the router/pick edge: the fixture plants DISTINCT
+  actor-ids across its materials and the walk asserts the exact planted
+  value per hit; then RECORD → cold reload → REPLAY: identical
   scene value, identical order hash, identical pick results, session dress
   honestly gone (M8 + the absence law). Rebuild the arrangement from
   shuffled registration order → identical order hash (O1 extended across
   the composed scene). *Wrong-build named:* a pick road special-casing the
   demo fixture ids passes the walk — the shuffled rebuild + a second
   arrangement with permuted ids kill it; a replay that REGENERATES (fresh
-  ids) passes visuals — the identity-stability assertions kill it.
-- **S5 · the seam sleeps proportionally.** From the full demo at rest:
-  full-scene sleep (zero encodes, zero uploads — A's receipt extended to
-  the composed scene); type in the clipped-card fixture (editable, NOT
-  placed): text lanes wake, every region receipt stays ZERO; type in the
-  placed paragraph: exactly that region wakes; orbit:
+  ids) passes visuals — the identity-stability assertions kill it; a
+  router decorating every pick receipt with one constant provenance map
+  passes any presence check — the distinct-planted-values assertion kills
+  it.
+- **S5 · the seam sleeps proportionally.** ZERO means DELTAS over the
+  window of these NAMED counters: `:scene-derives` (the new cumulative CPU
+  counter, §4 — today's receipt counts only uploads) · placement packs ·
+  `:object-instance-uploads` · `:mesh-vertex-uploads` · `:uniform-uploads`
+  · `:composite-uploads` · `:region-encodes` · `:anchor-projections` ·
+  `:route-resolutions`; `:prepare-calls` MAY advance (the loop invokes
+  prepare per frame — the law is zero WORK, not zero calls). From the full
+  demo at rest: full-scene sleep (zero encodes, zero uploads — A's receipt
+  extended to the composed scene); type in the clipped-card fixture
+  (editable, NOT placed): text lanes wake, every region delta stays ZERO;
+  type in the placed paragraph: exactly that region wakes; orbit:
   region + its bound edges wake, every 2D family's upload counters stay
   ZERO; drag the image: image lane wakes, region stays asleep. *Wrong-build
   named:* any cross-wake (camera dirties 2D uploads; a text edit dirties a
   region not placing it) passes all visuals — the per-family counters kill
   it; re-packing placements every frame passes visuals — the pack counter
-  over idle frames kills it.
+  over idle frames kills it; re-DERIVING the scene every frame behind an
+  equality gate does zero uploads and passes every GPU counter — the
+  `:scene-derives` delta kills it.
 
 ## 7. MUST-NOTs — real only
 
@@ -669,7 +826,9 @@ ADDS the debt receipt:
 > MCP toggles NOW (a later toggle rewrites the whole cached prefix).
 > Build Atom B — the coexistence seam + THE SEAM DEMO — under
 > `docs/render-engine/REGION3D-SEAM-CONTRACT.md` (read it PRIMARY, whole;
-> every road it names was verified against the code bytes on 2026-08-07;
+> every road it names was verified against the code bytes on 2026-08-07 and
+> re-verified by the fresh-eyes falsification round the same day — its 13
+> findings are repaired IN this text, so what you read is post-repair;
 > every constant it pins is the law). Boot docs, byte-priced:
 > this contract (~33KB) · `REGION3D-FLOOR-CONTRACT.md` (52KB — §4/§5 are
 > standing law for every region seam you touch; read whole) ·

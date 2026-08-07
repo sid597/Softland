@@ -24,6 +24,23 @@ flag drift, keep moving.
 (NOW entries below, ≤15 lines each, newest first; close entry includes the
 process-vs-code self-audit line.)
 
+## 2026-08-07 — FALSIFICATION ROUND INGESTED; contract repaired; Codex next
+- Codex returned 10 decision-changing + 3 soft findings; all 13 adjudicated
+  against fresh source (three Opus gatherers, zero line drift) and repaired
+  in the contract as ONE batched pass. No recut; every §1 obligation intact.
+- Load-bearing repairs: islands formula restored VERBATIM (double-pxRange +
+  `uv_texels` killed) · ref resolution got the occurrence-OWNER rule +
+  legacy-color adapter · mirror keyed by `:layout/id` (preedit-proof) · ONE
+  ink-cache cell, path-system the owner · both grammar migrations made
+  executable (region retags 1→2; connector bumps at the descriptor) ·
+  `:local` REQUIRED · region door re-homed to `derive-route-set` with a
+  value-tuple key + region-before-connector frame order · atlas handles
+  per-frame from text-sys, Slug backend = declared `:no-msdf-atlas` refusal
+  · S4 provenance reads planted family-shaped rows · S1–S5 each gained the
+  anti-gaming leg its named wrong build required (new `:scene-derives`).
+- NEXT: paste the contract-tail implementer prompt into ONE fresh Codex
+  session; acceptance stays Sid's word at the demo; courtroom §9 at close.
+
 ## 2026-08-07 — CONTRACT CUT; round pending at Sid's hand
 - Cut from primary reads (A-contract whole · W1 O/G/M/T/C/D2/GROUND ·
   ENGINE §0/§7/§8/§10 · W0-C §3.3/§4/§5.1 · decisions render-seam +
