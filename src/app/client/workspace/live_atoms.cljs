@@ -12,7 +12,9 @@
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
             [app.client.substrate.webgpu.renderer :as renderer]
             [app.client.workspace.chrome-runtime :as chrome-runtime]
+            [app.client.workspace.editing-runtime :as editing-runtime]
             [app.client.workspace.frame-runtime :as frame-runtime]
+            [app.client.workspace.ground :as ground]
             [app.client.workspace.rect-tree :as rt]
             [app.client.workspace.scene-runtime :as scene-runtime]))
 
@@ -353,6 +355,14 @@
                             ;; W4 boot follows chrome so the pulse stop predicate
                             ;; reads chrome's published selection census.
                             (frame-runtime/boot!)
+                            ;; T2 boots last: its Escape/input precedence composes
+                            ;; over chrome, and blink joins W4's scheduler sink.
+                            (editing-runtime/boot!
+                             {:layout-provider
+                              (get-in resources [:font-assets :layout-provider])
+                              :camera-provider ground/camera-snapshot
+                              :effective-provider
+                              scene-runtime/effective-transforms})
                             (aset js/globalThis
                                   "__softlandLiveAtomsReceipt"
                                   (clj->js receipt))

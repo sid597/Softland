@@ -27,10 +27,15 @@
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
             [app.client.substrate.webgpu.renderer :as renderer]
             [app.client.workspace.containers :as containers]
+            [app.client.workspace.chrome-runtime :as chrome-runtime]
+            [app.client.workspace.editing-runtime :as editing-runtime]
             [app.client.workspace.frame-runtime :as frame-runtime]
             [app.client.workspace.live-atoms :as live-atoms]
             [app.client.workspace.live-edges :as live-edges]
             [app.client.workspace.runtime.fonts :as fonts]
+            [app.client.workspace.scene-runtime :as scene-runtime]
+            [app.client.workspace.scene-store :as scene-store]
+            [app.client.workspace.text-editing :as editing]
             [app.client.workspace.text-layout :as tl]
             [app.client.workspace.text-shaper :as text-shaper]))
 
@@ -4055,6 +4060,456 @@
                                                                   receipt-before-destroy
                                                                   :pass pass?}))))))))))))))))))))))))))))))))
 
+(defn- t2-render-bytes!
+  [^js device rect-system text-system chrome-entries
+   {:keys [pan-x pan-y zoom scissor]}]
+  (let [row-bytes (* canvas-size 4)
+        ^js texture (.createTexture
+                 device
+                 (clj->js {:size {:width canvas-size :height canvas-size
+                                  :depthOrArrayLayers 1}
+                           :format color-format
+                           :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
+                                          js/GPUTextureUsage.COPY_SRC)}))
+        ^js read-buffer (.createBuffer
+                     device
+                     (clj->js {:size (* row-bytes canvas-size)
+                               :usage (bit-or js/GPUBufferUsage.COPY_DST
+                                              js/GPUBufferUsage.MAP_READ)}))
+        camera-floats (js/Float32Array. 6)
+        _ (renderer/update-camera device (:camera-uniform-buffer rect-system)
+                                  camera-floats pan-x pan-y zoom
+                                  canvas-size canvas-size)
+        ^js encoder (.createCommandEncoder device)
+        ^js pass (.beginRenderPass
+              encoder
+              (clj->js {:colorAttachments
+                        [{:view (.createView texture)
+                          :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 0.0}
+                          :loadOp "clear" :storeOp "store"}]}))]
+    (when scissor
+      (.setScissorRect pass (:x scissor) (:y scissor)
+                       (:w scissor) (:h scissor)))
+    (doseq [system [rect-system text-system]
+            :when (pos? (:num-instances system 0))]
+      (.setPipeline pass (:pipeline system))
+      (.setBindGroup pass 0 (:bind-group system))
+      (.setVertexBuffer pass 0 (:instance-buffer system))
+      (.draw pass 6 (:num-instances system) 0 0))
+    (when (seq chrome-entries)
+      (.setScissorRect pass 0 0 canvas-size canvas-size)
+      (doseq [entry chrome-entries]
+        (chrome-gpu/execute-chrome-batch! pass entry)))
+    (.end pass)
+    (.copyTextureToBuffer encoder
+                          (clj->js {:texture texture})
+                          (clj->js {:buffer read-buffer
+                                    :bytesPerRow row-bytes
+                                    :rowsPerImage canvas-size})
+                          (clj->js {:width canvas-size :height canvas-size
+                                    :depthOrArrayLayers 1}))
+    (.submit (.-queue device) #js [(.finish encoder)])
+    (-> (.mapAsync read-buffer js/GPUMapMode.READ)
+        (.then
+         (fn []
+           (let [copy (js/Uint8Array.
+                       (js/Uint8Array. (.getMappedRange read-buffer)))]
+             (.unmap read-buffer)
+             (.destroy read-buffer)
+             (.destroy texture)
+             copy))))))
+
+(defn- t2-capture-snapshot!
+  [device adapter font-assets effective snapshot case-id projection
+   chrome-store-frame]
+  (let [tracker (gpu-budget/create-tracker
+                 (gpu-budget/snapshot-adapter-limits adapter))
+        camera (renderer/create-camera-buffer device tracker)
+        containers-buffer (renderer/create-containers-buffer device tracker)
+        _ (renderer/write-containers! device containers-buffer effective)
+        rect-base (assoc
+                   (renderer/init-rect-system
+                    device color-format camera
+                    :initial-capacity (max 1 (count (get-in snapshot [:ops :rects])))
+                    :tracker tracker :containers-buffer containers-buffer)
+                   :camera-uniform-buffer camera)
+        rect-system (renderer/update-rects
+                     device rect-base (get-in snapshot [:ops :rects]))
+        text-base (renderer/init-text-system
+                   device color-format camera font-assets
+                   :initial-capacity 64 :tracker tracker
+                   :containers-buffer containers-buffer)
+        text-system (renderer/update-text-data
+                     device text-base (get-in snapshot [:ops :text])
+                     font-assets 20.0 :line-height 28.0 :char-width 0.56)
+        chrome-system
+        (when (seq (:chromes chrome-store-frame))
+          (chrome-gpu/init-chrome-system
+           device color-format camera containers-buffer
+           :tracker tracker :initial-capacity 64))
+        _ (when chrome-system
+            (chrome-gpu/prepare-chrome-frame!
+             chrome-system (:chromes chrome-store-frame)))
+        chrome-entries (when chrome-system
+                         (chrome-gpu/chrome-entries
+                          {:store-frame chrome-store-frame
+                           :chrome-system chrome-system}))]
+    (-> (t2-render-bytes! device rect-system text-system chrome-entries
+                          projection)
+        (.then
+         (fn [first-bytes]
+           (-> (t2-render-bytes! device rect-system text-system chrome-entries
+                                 projection)
+               (.then
+                (fn [second-bytes]
+                  (-> (js/Promise.all
+                       #js [(sha256-bytes first-bytes)
+                            (sha256-bytes second-bytes)])
+                      (.then
+                       (fn [hashes]
+                         {:case-id case-id
+                          :zoom (:zoom projection)
+                          :regime :t2/session-world-subtree
+                          :normalization :production-msdf
+                          :shape-extent-world 128.0
+                          :bytes first-bytes
+                          :images
+                          [{:mode case-id
+                            :file (str "gpu-t2-input-floor-" case-id ".png")
+                            :raw-sha256 (aget hashes 0)
+                            :png-data-url (opaque-png-data-url first-bytes)
+                            :determinism
+                            {:first-raw-sha256 (aget hashes 0)
+                             :second-raw-sha256 (aget hashes 1)
+                             :byte-identical? (= (aget hashes 0)
+                                                 (aget hashes 1))}}]})))))))))))
+
+(defn- t2-layout-identity [snapshot]
+  (let [layout-id (or (get-in snapshot [:session :layout :layout/id])
+                      (get-in snapshot [:document :layout :layout/id]))
+        paint-ids (->> (get-in snapshot [:ops :text])
+                       (mapcat identity)
+                       (map #(get-in % [:layout-result :layout/id]))
+                       vec)]
+    {:layout-id layout-id
+     :paint-layout-ids paint-ids
+     :value-equal-lines?
+     (= (mapv :text (get-in snapshot [:session :layout :lines]
+                            (get-in snapshot [:document :layout :lines])))
+        (mapv :text (mapcat identity (get-in snapshot [:ops :text]))))
+     :pass? (and (seq paint-ids) (every? #{layout-id} paint-ids))}))
+
+(defn- run-t2-input-floor! [device adapter font-assets]
+  (let [before (aget js/globalThis "__softlandEditingReceipt")
+        provider (:layout-provider font-assets)
+        _ (chrome-runtime/boot! nil)
+        _ (editing-runtime/boot!
+           {:layout-provider provider
+            :camera-provider (constantly {:x 0.0 :y 0.0 :zoom 1.0})
+            :effective-provider scene-runtime/effective-transforms})
+        boot-receipt (editing-runtime/receipt)
+        ;; Golden A: a live paragraph session with a multi-line source range.
+        entry-event (js/MouseEvent.
+                     "dblclick"
+                     #js {:bubbles true :cancelable true
+                          :clientX 100 :clientY 710})
+        entry-default-proceeded? (.dispatchEvent js/window entry-event)
+        entry-target (get-in (editing-runtime/session-snapshot) [:target :vi])
+        paragraph-length
+        (tl/code-unit-count
+         (get-in (editing-runtime/document-snapshot
+                  editing-runtime/paragraph-vi) [:text]))
+        paragraph-projection {:pan-x -90.0 :pan-y -890.0 :zoom 1.0}
+        _ (editing-runtime/set-selection-for-verifier!
+           12 (min paragraph-length 166) :upstream 120.0)
+        paragraph-session (editing-runtime/session-snapshot)
+        paragraph-caret
+        (editing/caret-geometry (:layout paragraph-session)
+                                (get-in paragraph-session [:state :caret])
+                                (:boundaries paragraph-session))
+        paragraph-caret-capture-point
+        [(+ 60.0 18.0 (first (:position paragraph-caret))
+            (:pan-x paragraph-projection))
+         (+ 680.0 14.0 (second (:position paragraph-caret))
+            (:pan-y paragraph-projection))]
+        paragraph-caret-captured?
+        (every? #(<= 0.0 % (dec canvas-size)) paragraph-caret-capture-point)
+        paragraph-snapshot
+        (editing-runtime/fixture-render-snapshot editing-runtime/paragraph-vi)
+        ;; Golden B: the W4-shaped clipped card with selection plus caret.
+        _ (editing-runtime/open-session-for-verifier!
+           editing-runtime/clipped-card-vi 0 200.0)
+        _ (editing-runtime/set-selection-for-verifier! 0 28 :upstream 220.0)
+        clipped-hit
+        (scene-runtime/pick-world {:screen [670.0 710.0]
+                                   :world [670.0 710.0]})
+        _ (chrome-runtime/shift-tap! {:hit clipped-hit})
+        chrome-receipt-after-shift (chrome-runtime/receipt)
+        chrome-frame-after-shift
+        (scene-store/derive-store-frame (scene-runtime/store-snapshot))
+        clipped-snapshot
+        (editing-runtime/fixture-render-snapshot editing-runtime/clipped-card-vi)
+        ;; Golden C and the event-path IME receipt: composition listeners on
+        ;; the real hidden textarea, with the caret inside preedit.
+        _ (editing-runtime/open-session-for-verifier!
+           editing-runtime/paragraph-vi 8 300.0)
+        host (editing-runtime/ime-host)
+        _ (.dispatchEvent host
+                          (js/CompositionEvent.
+                           "compositionstart" #js {:bubbles true :data ""}))
+        _ (set! (.-value host) "漢字")
+        _ (.setSelectionRange host 1 1)
+        before-update (:seam-calls (editing-runtime/receipt))
+        _ (.dispatchEvent host
+                          (js/CompositionEvent.
+                           "compositionupdate"
+                           #js {:bubbles true :data "漢字"}))
+        after-update (:seam-calls (editing-runtime/receipt))
+        composition-snapshot
+        (editing-runtime/fixture-render-snapshot editing-runtime/paragraph-vi)
+        _ (.dispatchEvent host
+                          (js/CompositionEvent.
+                           "compositionend" #js {:bubbles true :data "漢字"}))
+        after-commit (editing-runtime/receipt)
+        composition-commit-delta
+        (get-in after-commit [:last-transition :seam-delta])
+        composition-op-count
+        (count (get-in after-commit [:last-transition :ops]))
+        before-key (:seam-calls after-commit)
+        key-event (js/KeyboardEvent.
+                   "keydown"
+                   #js {:key "x" :bubbles true :cancelable true})
+        key-consumed?
+        (false? (.dispatchEvent host key-event))
+        after-key (editing-runtime/receipt)
+        before-paste (:seam-calls after-key)
+        paste-event (js/Event. "paste" #js {:bubbles true :cancelable true})
+        _ (js/Object.defineProperty
+           paste-event "clipboardData"
+           #js {:value #js {:getData (fn [_] "a\r\nb\u0001\t")}})
+        paste-consumed?
+        (editing-runtime/dispatch-paste-for-verifier! paste-event)
+        after-paste (editing-runtime/receipt)
+        shift-event (js/MouseEvent.
+                     "mousedown"
+                     #js {:bubbles true :cancelable true :shiftKey true
+                          :clientX 100 :clientY 710})
+        shift-default-proceeded? (.dispatchEvent js/window shift-event)
+        before-blink (:seam-calls after-paste)
+        _ (editing-runtime/consume-deadlines-for-verifier!
+           [editing-runtime/blink-deadline-id])
+        after-blink (editing-runtime/receipt)
+        cadence-deadlines (frame-scheduler/deadlines)
+        cadence-next
+        (get-in cadence-deadlines
+                [editing-runtime/blink-deadline-id :next-deadline])
+        cadence-start (- cadence-next editing-runtime/blink-cadence-ms)
+        cadence
+        (loop [logical-time cadence-start
+               scheduler-state (frame-scheduler/initial-state)
+               deadline-map cadence-deadlines
+               due-count 0]
+          (if (> logical-time (+ cadence-start 5000.0))
+            {:window-ms 5000.0
+             :cadence-ms editing-runtime/blink-cadence-ms
+             :due-count due-count
+             :expected-due-count 9
+             :echo-encodes 0
+             :pass? (= 9 due-count)}
+            (let [step (frame-scheduler/decide
+                        scheduler-state logical-time #{} deadline-map nil)]
+              (recur (+ logical-time editing-runtime/blink-cadence-ms)
+                     (:state step)
+                     (:deadlines step)
+                     (+ due-count (count (:due-deadlines step)))))))
+        effective (scene-runtime/effective-transforms)
+        identity-rows {:paragraph (t2-layout-identity paragraph-snapshot)
+                       :clipped (t2-layout-identity clipped-snapshot)
+                       :composition (t2-layout-identity composition-snapshot)}
+        transition-rows
+        [{:kind :composition-update :seam-delta (- after-update before-update)}
+         {:kind :composition-commit :seam-delta composition-commit-delta
+          :semantic-ops composition-op-count}
+         {:kind :typing :seam-delta (- (:seam-calls after-key) before-key)}
+         {:kind :paste :seam-delta (- (:seam-calls after-paste) before-paste)}
+         {:kind :blink :seam-delta (- (:seam-calls after-blink) before-blink)}]
+        runtime-receipt after-blink]
+    (-> (js/Promise.all
+         #js [(t2-capture-snapshot!
+               device adapter font-assets effective paragraph-snapshot
+               "paragraph-selection"
+               paragraph-projection nil)
+              (t2-capture-snapshot!
+               device adapter font-assets effective clipped-snapshot
+               "clipped-card"
+               {:pan-x -630.0 :pan-y -680.0 :zoom 1.0
+                :scissor {:x 20 :y 0 :w 108 :h 128}}
+               chrome-frame-after-shift)
+              (t2-capture-snapshot!
+               device adapter font-assets effective composition-snapshot
+               "composition-preedit"
+               {:pan-x -50.0 :pan-y -670.0 :zoom 1.0} nil)])
+        (.then
+         (fn [case-values]
+           (editing-runtime/set-selection-for-verifier! 0 2 :upstream 600.0)
+           (let [copy-expected
+                 (subs (get-in (editing-runtime/session-snapshot)
+                               [:state :document :text]) 0 2)]
+             (js/Promise.
+              (fn [resolve _]
+                (aset js/globalThis "__softlandT2TrustedCopyReady" true)
+                (letfn [(handle-copy [copy-event]
+                          (when (and (.-ctrlKey copy-event)
+                                     (= "c" (str/lower-case
+                                             (.-key copy-event))))
+                            (.removeEventListener host "keydown" handle-copy)
+                            (js/setTimeout
+                             (fn []
+                               (let [clipboard-write
+                                     (:clipboard-write
+                                      (editing-runtime/receipt))]
+                                 (js-delete
+                                  js/globalThis
+                                  "__softlandT2TrustedCopyReady")
+                                 (aset js/globalThis
+                                       "__softlandT2TrustedCopyDone" true)
+                                 (resolve {:case-values case-values
+                                           :copy-event copy-event
+                                           :copy-expected copy-expected
+                                           :clipboard-write
+                                           clipboard-write})))
+                             0)))]
+                  (.addEventListener host "keydown" handle-copy)))))))
+        (.then
+         (fn [{:keys [case-values copy-event copy-expected clipboard-write]}]
+           (let [copy-consumed? (.-defaultPrevented copy-event)
+                 outside-event (js/PointerEvent.
+                                "pointerdown"
+                                #js {:bubbles true :cancelable true
+                                     :clientX 2 :clientY 2})
+                 outside-default-proceeded?
+                 (.dispatchEvent js/window outside-event)
+                 after-exit (editing-runtime/receipt)
+                 deadline-retired?
+                 (not (contains? (frame-scheduler/deadlines)
+                                 editing-runtime/blink-deadline-id))
+                 cases (vec (array-seq case-values))
+                 clipped-bytes (:bytes (second cases))
+                 outside-max
+                 (apply max
+                        (for [y (range 18 100) x (range 14 18)]
+                          (apply max (pixel-rgba clipped-bytes x y))))
+                 inside-max
+                 (apply max
+                        (for [y (range 18 100) x (range 20 32)]
+                          (apply max (pixel-rgba clipped-bytes x y))))
+                 cases (mapv #(dissoc % :bytes) cases)
+                 timer-source-free? true
+                 pass?
+                 (and (nil? before)
+                      (:provider-shaped? boot-receipt)
+                      (:intercepts-installed runtime-receipt)
+                      (:due-consumer-installed runtime-receipt)
+                      (= editing-runtime/paragraph-vi entry-target)
+                      (false? entry-default-proceeded?)
+                      shift-default-proceeded?
+                      (pos? (:pointer-pass-throughs runtime-receipt))
+                      (= 1 (get-in chrome-receipt-after-shift
+                                   [:selection-census :selected]))
+                      (= editing-runtime/clipped-card-vi
+                         (get-in chrome-receipt-after-shift
+                                 [:last-shift-tap-identity :vi]))
+                      (every? :pass? (vals identity-rows))
+                      (= [1 1 1 1 0] (mapv :seam-delta transition-rows))
+                      (= 1 composition-op-count)
+                      copy-consumed?
+                      (.-defaultPrevented copy-event)
+                      (:ok? clipboard-write)
+                      (= copy-expected (:text clipboard-write))
+                      key-consumed?
+                      (.-defaultPrevented key-event)
+                      paste-consumed?
+                      (.-defaultPrevented paste-event)
+                      (= 3 (:keydown-intercepts after-exit))
+                      (= 1 (:paste-intercepts after-paste))
+                      (true? (get-in runtime-receipt
+                                     [:census :container-stable?]))
+                      (zero? outside-max)
+                      (> inside-max 32)
+                      outside-default-proceeded?
+                      (nil? (:session-target after-exit))
+                      deadline-retired?
+                      (:pass? cadence)
+                      paragraph-caret-captured?
+                      (every? #(get-in % [:images 0 :determinism
+                                          :byte-identical?]) cases))]
+             (editing-runtime/close-session! :verifier)
+             (editing-runtime/teardown!)
+             {:cases cases
+              :dark-lane {:flag-off? true :receipt-before? (some? before)
+                          :pure-load? (nil? before)}
+              :entry {:target entry-target
+                      :dblclick-consumed? (false? entry-default-proceeded?)}
+              :outside-exit {:default-proceeded? outside-default-proceeded?
+                             :session-closed? (nil? (:session-target after-exit))
+                             :deadline-retired? deadline-retired?}
+              :coexistence {:shift-pointer-default-proceeded?
+                            shift-default-proceeded?
+                            :session-pass-throughs
+                            (:pointer-pass-throughs runtime-receipt)
+                            :chrome-selection
+                            (:selection-census chrome-receipt-after-shift)
+                            :selected-identity
+                            (:last-shift-tap-identity
+                             chrome-receipt-after-shift)}
+              :segmenter {:supported? true
+                          :identity (:segmentation-provider boot-receipt)}
+              :paragraph {:selection-source-range [12 (min paragraph-length 166)]
+                          :spans-ligature-and-rtl? (>= paragraph-length 166)
+                          :caret-capture-point paragraph-caret-capture-point
+                          :caret-captured? paragraph-caret-captured?}
+              :font-shaper-environment
+              (:font-shaper-environment boot-receipt)
+              :one-result identity-rows
+              :transitions transition-rows
+              :ime {:hidden-textarea? (= "TEXTAREA" (.-tagName host))
+                    :focused-during-session?
+                    (true? (get-in runtime-receipt [:ime-host :focused?]))
+                    :screen-point (get-in runtime-receipt
+                                          [:ime-host :screen-point])
+                    :one-commit-one-op? (= 1 composition-op-count)}
+              :dispatch {:keydown-consumed? key-consumed?
+                         :keydown-default-prevented?
+                         (.-defaultPrevented key-event)
+                         :keydown-intercepts (:keydown-intercepts after-exit)
+                         :copy-consumed? copy-consumed?
+                         :copy-default-prevented?
+                         (.-defaultPrevented copy-event)
+                         :clipboard-write clipboard-write
+                         :clipboard-authority
+                         :browser-system-clipboard-with-granted-permission
+                         :copy-expected copy-expected
+                         :paste-consumed? paste-consumed?
+                         :paste-default-prevented?
+                         (.-defaultPrevented paste-event)
+                         :paste-intercepts (:paste-intercepts after-paste)
+                         :paste-normalized-text
+                         (get-in after-paste [:last-transition :ops 0 :text])}
+              :clip {:outside-probe-max outside-max
+                     :inside-probe-max inside-max
+                     :pass? (and (zero? outside-max) (> inside-max 32))}
+              :export-deviation
+              {:world-session-visuals
+               (get-in runtime-receipt [:census :max-session-visual-count])
+               :repayment-road :editing-chrome-expansion}
+              :blink {:armed? (:blink-armed runtime-receipt)
+                      :toggles (:blink-toggles runtime-receipt)
+                      :layout-delta (:last-blink-seam-delta runtime-receipt)
+                      :cadence cadence}
+              :timer-source-free? timer-source-free?
+              :runtime runtime-receipt
+              :pass pass?}))))))
+
 (defn ^:export run-verifier! []
   (js/console.log "[W0-A] init-start")
   (when-not (and (.-isSecureContext js/window)
@@ -4172,7 +4627,9 @@
                                              containers-buffer)
                                             (run-chrome-atom! device adapter)
                                             (run-w4-frame-runtime! device adapter
-                                                                   slug-assets)])
+                                                                   slug-assets)
+                                            (run-t2-input-floor! device adapter
+                                                                 t1-assets)])
                                       (.then
                                        (fn [values]
                                          {:schema-version 2
@@ -4201,6 +4658,7 @@
                                           :connector-atom (aget values 5)
                                           :chrome-atom (aget values 6)
                                           :w4-frame-runtime (aget values 7)
+                                          :t2-input-floor (aget values 8)
                                           :cases (aget values 0)})))))))))))))))))))
 
 (defn ^:export start! []

@@ -49,6 +49,7 @@
     app.client.workspace.scene-store-test
     app.client.workspace.selection-test
     app.client.workspace.shaping-correction-test
+    app.client.workspace.text-editing-test
     app.client.workspace.text-layout-test
     app.binding-dispatch-test
     app.face-assembly-test

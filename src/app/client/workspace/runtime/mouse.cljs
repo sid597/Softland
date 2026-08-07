@@ -29,6 +29,14 @@
 ;; stacked handler (the ×N genus, paste-side). One cell per listener kind:
 ;; installing swaps the window's handler instead of adding a sibling.
 (defonce ^:private !window-handlers (atom {}))
+(defonce ^:private !paste-intercept (atom nil))
+
+(defn install-paste-intercept!
+  "Install T2's nil-default paste intercept. True means the session handled
+   the event and the legacy focus router must remain untouched."
+  [intercept]
+  (reset! !paste-intercept intercept)
+  true)
 
 (defn- swap-window-listener!
   [event-name handler]
@@ -43,6 +51,7 @@
            !undo-stack !redo-stack !current-file]}]
   (let [paste-handler
         (fn [e]
+          (when-not (and @!paste-intercept (@!paste-intercept e))
           (let [text (.getData (.-clipboardData e) "text/plain")]
             (when (seq text)
               (.preventDefault e)
@@ -76,7 +85,7 @@
                       new-text (str (subs ci-text 0 ci-cursor) text (subs ci-text ci-cursor))]
                   (reset! !chat-input {:text new-text :cursor (+ ci-cursor (count text))})
                   (reset! !caret-visible true))
-                nil))))]
+                nil)))))]
     (swap-window-listener! "paste" paste-handler)))
 
 (defn install-drag-select!

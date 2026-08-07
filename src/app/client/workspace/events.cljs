@@ -161,14 +161,25 @@
 
       :else nil)))
 
+(defonce ^:private !keydown-intercept (atom nil))
+
+(defn install-keydown-intercept!
+  "Install T2's nil-default raw key intercept. The predicate owns any browser
+   default it consumes and returns true to keep the legacy flow byte-silent."
+  [intercept]
+  (reset! !keydown-intercept intercept)
+  true)
+
 (defn >keyboard [node]
   "Flow that emits parsed keyboard events"
   (->> (m/observe
          (fn [!]
            (let [handler (fn [e]
-                           (when-let [event (parse-key-event e)]
-                             (.preventDefault e)
-                             (! event)))]
+                           (when-not (and @!keydown-intercept
+                                          (@!keydown-intercept e))
+                             (when-let [event (parse-key-event e)]
+                               (.preventDefault e)
+                               (! event))))]
              (.addEventListener node "keydown" handler)
              #(.removeEventListener node "keydown" handler))))
        (m/relieve (fn [_ x] x))))

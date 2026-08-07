@@ -23,7 +23,7 @@ const goldenDir = path.join(
 );
 const manifestFile = path.join(goldenDir, "manifest.json");
 const environmentFile = path.join(goldenDir, "environment.json");
-const origin = "https://softland-render-verifier.invalid";
+const origin = "http://localhost";
 const chromeExecutable =
   process.env.RENDER_VERIFIER_CHROME || "/usr/bin/google-chrome";
 const updateGoldens = process.argv.includes("--update-goldens");
@@ -34,6 +34,7 @@ const appendConnectorGoldens = process.argv.includes(
 );
 const appendChromeGoldens = process.argv.includes("--append-chrome-goldens");
 const appendW4Goldens = process.argv.includes("--append-w4-goldens");
+const appendT2Goldens = process.argv.includes("--append-t2-goldens");
 const appendImageInputAmendment = process.argv.includes(
   "--append-image-input-amendment",
 );
@@ -49,6 +50,9 @@ const appendChromeInputAmendment = process.argv.includes(
 const appendW4InputAmendment = process.argv.includes(
   "--append-w4-input-amendment",
 );
+const appendT2InputAmendment = process.argv.includes(
+  "--append-t2-input-amendment",
+);
 const amendShaderDigests = process.argv.includes("--amend-shader-digests");
 const assertImageContract = process.argv.includes("--assert-image-contract");
 const assertPathContract = process.argv.includes("--assert-path-contract");
@@ -57,6 +61,7 @@ const assertConnectorContract = process.argv.includes(
 );
 const assertChromeContract = process.argv.includes("--assert-chrome-contract");
 const assertW4Contract = process.argv.includes("--assert-w4-contract");
+const assertT2Contract = process.argv.includes("--assert-t2-contract");
 const launchArgs = [
   "--no-sandbox",
   "--enable-unsafe-webgpu",
@@ -255,6 +260,13 @@ const stripDataUrls = (result) => ({
   w4FrameRuntime: {
     ...result.w4FrameRuntime,
     cases: result.w4FrameRuntime.cases.map((renderCase) => ({
+      ...renderCase,
+      images: renderCase.images.map(({ pngDataUrl, ...image }) => image),
+    })),
+  },
+  t2InputFloor: {
+    ...result.t2InputFloor,
+    cases: result.t2InputFloor.cases.map((renderCase) => ({
       ...renderCase,
       images: renderCase.images.map(({ pngDataUrl, ...image }) => image),
     })),
@@ -461,6 +473,72 @@ const w4FrameRuntimeInputs = () => ({
   fence: sha256File("test/render_engine/verify_scene_tape_fence.mjs"),
 });
 
+const t2InputFloorRows = (result) =>
+  result.t2InputFloor.cases.flatMap((renderCase) =>
+    renderCase.images.map((image) => ({
+      caseId: renderCase.caseId,
+      zoom: renderCase.zoom,
+      regime: renderCase.regime,
+      normalization: renderCase.normalization,
+      shapeExtentWorld: renderCase.shapeExtentWorld,
+      mode: image.mode,
+      file: image.file,
+      rawSha256: image.rawSha256,
+      pngSha256: sha256(
+        Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64"),
+      ),
+    })),
+  );
+
+const t2InputFloorInputs = () => ({
+  textEditing: sha256File("src/app/client/workspace/text_editing.cljc"),
+  editingSegmentation: sha256File(
+    "src/app/client/workspace/editing_segmentation.cljs",
+  ),
+  editingRuntime: sha256File(
+    "src/app/client/workspace/editing_runtime.cljs",
+  ),
+  textLayout: sha256File("src/app/client/workspace/text_layout.cljc"),
+  events: sha256File("src/app/client/workspace/events.cljs"),
+  runtimeMouse: sha256File("src/app/client/workspace/runtime/mouse.cljs"),
+  runtimeRender: sha256File("src/app/client/workspace/runtime/render.cljs"),
+  liveAtoms: sha256File("src/app/client/workspace/live_atoms.cljs"),
+  frameScheduler: sha256File(
+    "src/app/client/substrate/frame_scheduler.cljc",
+  ),
+  sceneStore: sha256File("src/app/client/workspace/scene_store.cljc"),
+  sceneRuntime: sha256File("src/app/client/workspace/scene_runtime.cljs"),
+  rectTree: sha256File("src/app/client/workspace/rect_tree.cljc"),
+  containers: sha256File("src/app/client/workspace/containers.cljc"),
+  verifier: sha256File("src/app/client/substrate/webgpu/verifier.cljs"),
+  runner: sha256File("test/render_engine/run_verifier.mjs"),
+  fence: sha256File("test/render_engine/verify_text_layout_fence.mjs"),
+});
+
+const t2NewNamespaceFiles = [
+  "src/app/client/workspace/text_editing.cljc",
+  "src/app/client/workspace/editing_segmentation.cljs",
+  "src/app/client/workspace/editing_runtime.cljs",
+];
+
+const t2StaticAbsence = () => {
+  const executionClockTokens = t2NewNamespaceFiles.flatMap((relativePath) => {
+    const source = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
+    return [
+      ...source.matchAll(
+        /(?:js\/Date|performance\.now|requestAnimationFrame|\brAF\b|setInterval|setTimeout)/g,
+      ),
+    ].map((match) => ({ path: relativePath, token: match[0] }));
+  });
+  return {
+    namespaceCount: t2NewNamespaceFiles.length,
+    namespaces: t2NewNamespaceFiles,
+    executionClockTokens,
+    pass:
+      t2NewNamespaceFiles.length === 3 && executionClockTokens.length === 0,
+  };
+};
+
 const sourceTokenRows = (pattern) =>
   Object.entries(chromeSourceFiles).flatMap(([namespace, relativePath]) => {
     const source = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
@@ -528,6 +606,12 @@ const writeActualImages = (result) => {
     }
   }
   for (const renderCase of result.w4FrameRuntime.cases) {
+    for (const image of renderCase.images) {
+      const png = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+      fs.writeFileSync(path.join(actualDir, image.file), png);
+    }
+  }
+  for (const renderCase of result.t2InputFloor.cases) {
     for (const image of renderCase.images) {
       const png = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
       fs.writeFileSync(path.join(actualDir, image.file), png);
@@ -611,6 +695,17 @@ const w4FrameRuntimeDeterminismRows = (result) =>
     })),
   );
 
+const t2InputFloorDeterminismRows = (result) =>
+  result.t2InputFloor.cases.flatMap((renderCase) =>
+    renderCase.images.map((image) => ({
+      caseId: renderCase.caseId,
+      zoom: renderCase.zoom,
+      regime: renderCase.regime,
+      mode: image.mode,
+      ...image.determinism,
+    })),
+  );
+
 const expectedDivergenceRows = (result) =>
   result.cases.map((renderCase) => ({
     caseId: renderCase.caseId,
@@ -632,11 +727,13 @@ const main = async () => {
       appendConnectorGoldens,
       appendChromeGoldens,
       appendW4Goldens,
+      appendT2Goldens,
       appendImageInputAmendment,
       appendPathInputAmendment,
       appendConnectorInputAmendment,
       appendChromeInputAmendment,
       appendW4InputAmendment,
+      appendT2InputAmendment,
       amendShaderDigests,
     ].filter(Boolean).length > 1
   ) {
@@ -650,11 +747,27 @@ const main = async () => {
 
   const browser = await puppeteer.launch({
     executablePath: chromeExecutable,
-    headless: true,
+    headless: "chrome",
     ignoreHTTPSErrors: true,
     args: launchArgs,
   });
+  await browser.defaultBrowserContext().overridePermissions(origin, [
+    "clipboard-read",
+    "clipboard-write",
+  ]);
   const page = await browser.newPage();
+  const browserSession = await page.target().createCDPSession();
+  await browserSession.send("Browser.grantPermissions", {
+    origin,
+    permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"],
+  });
+  for (const name of ["clipboard-read", "clipboard-write"]) {
+    await browserSession.send("Browser.setPermission", {
+      origin,
+      permission: { name, allowWithoutSanitization: true },
+      setting: "granted",
+    });
+  }
   const browserConsole = [];
   page.on("console", (message) => {
     const row = { type: message.type(), text: message.text() };
@@ -671,6 +784,25 @@ const main = async () => {
   try {
     await serveSyntheticOrigin(page);
     await page.goto(`${origin}/`, { waitUntil: "load", timeout: 30_000 });
+    await page.waitForFunction(
+      () =>
+        window.__softlandT2TrustedCopyReady === true ||
+        window.__renderVerifierDone === true,
+      { timeout: 600_000 },
+    );
+    if (
+      await page.evaluate(
+        () => window.__softlandT2TrustedCopyReady === true,
+      )
+    ) {
+      await page.keyboard.down("Control");
+      await page.keyboard.press("KeyC");
+      await page.keyboard.up("Control");
+      await page.waitForFunction(
+        () => window.__softlandT2TrustedCopyDone === true,
+        { timeout: 30_000 },
+      );
+    }
     await page.waitForFunction(() => window.__renderVerifierDone === true, {
       // SwiftShader performs 49 production-pipeline render/readback operations.
       // This is a replay ceiling, not a performance verdict.
@@ -762,6 +894,8 @@ const main = async () => {
     chromeAtomCases: chromeAtomRows(result),
     w4FrameRuntimeInputs: w4FrameRuntimeInputs(),
     w4FrameRuntimeCases: w4FrameRuntimeRows(result),
+    t2InputFloorInputs: t2InputFloorInputs(),
+    t2InputFloorCases: t2InputFloorRows(result),
   };
   const deterministic = determinismRows(result);
   const imageDeterministic = imageAtomDeterminismRows(result);
@@ -769,7 +903,9 @@ const main = async () => {
   const connectorDeterministic = connectorAtomDeterminismRows(result);
   const chromeDeterministic = chromeAtomDeterminismRows(result);
   const w4Deterministic = w4FrameRuntimeDeterminismRows(result);
+  const t2Deterministic = t2InputFloorDeterminismRows(result);
   const chromeAbsence = chromeStaticAbsence();
+  const t2Absence = t2StaticAbsence();
   const imageParity = result.imageAtom.parity;
   const pathParity = result.pathAtom.parity;
   const connectorParity = result.connectorAtom.parity;
@@ -806,6 +942,9 @@ const main = async () => {
   const w4DeterminismPass =
     w4Deterministic.length === 3 &&
     w4Deterministic.every((row) => row.byteIdentical);
+  const t2DeterminismPass =
+    t2Deterministic.length === 3 &&
+    t2Deterministic.every((row) => row.byteIdentical);
   const connectorParityPass =
     connectorParity.length === 7 &&
     connectorParity.every(
@@ -1500,6 +1639,164 @@ const main = async () => {
     w4AppendPreflight.priorGoldenBytesUnchanged = true;
   }
 
+  const priorT2GoldenSetsPass =
+    priorGoldenSetsPass &&
+    comparisonPass(
+      compareGoldenRows(
+        currentManifest.w4FrameRuntimeCases,
+        expectedManifest?.w4FrameRuntimeCases,
+      ),
+      expectedManifest?.w4FrameRuntimeCases,
+      3,
+    );
+  const priorInputAmendmentsRecorded = [
+    ["imageAtomInputAmendments", "imageAtomInputs"],
+    ["pathAtomInputAmendments", "pathAtomInputs"],
+    ["connectorAtomInputAmendments", "connectorAtomInputs"],
+    ["chromeAtomInputAmendments", "chromeAtomInputs"],
+    ["w4FrameRuntimeInputAmendments", "w4FrameRuntimeInputs"],
+  ].every(([amendmentKey, inputKey]) => {
+    const expectedInputs =
+      expectedManifest[amendmentKey]?.at(-1)?.inputs ||
+      expectedManifest[inputKey];
+    return (
+      Boolean(expectedInputs) &&
+      fingerprintSha(expectedInputs) ===
+      fingerprintSha(currentManifest[inputKey])
+    );
+  });
+  const chromeNamespaceCustodyRows = Object.keys(chromeSourceFiles).map(
+    (key) => ({
+      key,
+      expected:
+        (expectedManifest.chromeAtomInputAmendments?.at(-1)?.inputs ||
+          expectedManifest.chromeAtomInputs)?.[key]?.sha256 || null,
+      current: currentManifest.chromeAtomInputs?.[key]?.sha256 || null,
+      match:
+        (expectedManifest.chromeAtomInputAmendments?.at(-1)?.inputs ||
+          expectedManifest.chromeAtomInputs)?.[key]?.sha256 ===
+        currentManifest.chromeAtomInputs?.[key]?.sha256,
+    }),
+  );
+  const chromeNamespaceCustodyPass =
+    chromeNamespaceCustodyRows.length === 6 &&
+    chromeNamespaceCustodyRows.every((row) => row.match);
+  const pickRoadCustodyRows = [
+    "imageAtomInputs",
+    "pathAtomInputs",
+    "connectorAtomInputs",
+    "chromeAtomInputs",
+    "w4FrameRuntimeInputs",
+  ].flatMap((inputKey) =>
+    ["sceneStore", "rectTree"].map((key) => ({
+      inputKey,
+      key,
+      expected:
+        ({
+          imageAtomInputs: expectedManifest.imageAtomInputAmendments,
+          pathAtomInputs: expectedManifest.pathAtomInputAmendments,
+          connectorAtomInputs: expectedManifest.connectorAtomInputAmendments,
+          chromeAtomInputs: expectedManifest.chromeAtomInputAmendments,
+          w4FrameRuntimeInputs:
+            expectedManifest.w4FrameRuntimeInputAmendments,
+        }[inputKey]?.at(-1)?.inputs || expectedManifest[inputKey])?.[key]
+          ?.sha256 || null,
+      current: currentManifest[inputKey]?.[key]?.sha256 || null,
+      match:
+        ({
+          imageAtomInputs: expectedManifest.imageAtomInputAmendments,
+          pathAtomInputs: expectedManifest.pathAtomInputAmendments,
+          connectorAtomInputs: expectedManifest.connectorAtomInputAmendments,
+          chromeAtomInputs: expectedManifest.chromeAtomInputAmendments,
+          w4FrameRuntimeInputs:
+            expectedManifest.w4FrameRuntimeInputAmendments,
+        }[inputKey]?.at(-1)?.inputs || expectedManifest[inputKey])?.[key]
+          ?.sha256 ===
+        currentManifest[inputKey]?.[key]?.sha256,
+    })),
+  );
+  const pickRoadCustodyPass =
+    pickRoadCustodyRows.length === 10 &&
+    pickRoadCustodyRows.every((row) => row.match);
+  const t2AppendPreflight = {
+    bankPresent,
+    environmentMatch,
+    priorGoldenSetsPass: priorT2GoldenSetsPass,
+    priorInputAmendmentsRecorded,
+    chromeNamespaceCustodyPass,
+    pickRoadCustodyPass,
+    t2StaticAbsencePass: t2Absence.pass,
+    existingT2Rows: expectedManifest?.t2InputFloorCases?.length || 0,
+    t2Rows: currentManifest.t2InputFloorCases.length,
+    t2DeterminismPass,
+    t2ContractPass: result.t2InputFloor.pass,
+  };
+  const t2AppendAuthorized =
+    bankPresent &&
+    environmentMatch &&
+    priorT2GoldenSetsPass &&
+    priorInputAmendmentsRecorded &&
+    chromeNamespaceCustodyPass &&
+    pickRoadCustodyPass &&
+    t2Absence.pass &&
+    !expectedManifest.t2InputFloorCases &&
+    currentManifest.t2InputFloorCases.length === 3 &&
+    t2DeterminismPass &&
+    result.t2InputFloor.pass;
+
+  if (appendT2Goldens) {
+    if (!t2AppendAuthorized) {
+      throw new Error(
+        `T2 INPUT-FLOOR append preflight failed: ${JSON.stringify(t2AppendPreflight)}`,
+      );
+    }
+    const occupiedFiles = new Set([
+      ...expectedManifest.images.map((row) => row.file),
+      ...expectedManifest.imageAtomCases.map((row) => row.file),
+      ...expectedManifest.pathAtomCases.map((row) => row.file),
+      ...expectedManifest.connectorAtomCases.map((row) => row.file),
+      ...expectedManifest.chromeAtomCases.map((row) => row.file),
+      ...expectedManifest.w4FrameRuntimeCases.map((row) => row.file),
+    ]);
+    const occupiedDigests = Object.fromEntries(
+      [...occupiedFiles].map((file) => [
+        file,
+        sha256(fs.readFileSync(path.join(goldenDir, file))),
+      ]),
+    );
+    const t2Files = currentManifest.t2InputFloorCases.map((row) => row.file);
+    if (
+      new Set(t2Files).size !== 3 ||
+      t2Files.some((file) => occupiedFiles.has(file))
+    ) {
+      throw new Error("T2 INPUT-FLOOR filenames collide or are not unique");
+    }
+    for (const renderCase of result.t2InputFloor.cases) {
+      for (const image of renderCase.images) {
+        const png = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+        fs.writeFileSync(path.join(goldenDir, image.file), png);
+      }
+    }
+    if (
+      !Object.entries(occupiedDigests).every(
+        ([file, digest]) =>
+          sha256(fs.readFileSync(path.join(goldenDir, file))) === digest,
+      )
+    ) {
+      throw new Error("T2 INPUT-FLOOR append changed an existing golden byte");
+    }
+    expectedManifest = {
+      ...expectedManifest,
+      t2InputFloorInputs: currentManifest.t2InputFloorInputs,
+      t2InputFloorCases: currentManifest.t2InputFloorCases,
+    };
+    fs.writeFileSync(
+      manifestFile,
+      `${JSON.stringify(expectedManifest, null, 2)}\n`,
+    );
+    t2AppendPreflight.priorGoldenBytesUnchanged = true;
+  }
+
   const changedShaderDigestKeys = Object.keys(currentManifest.shaderDigests)
     .filter(
       (key) =>
@@ -1665,6 +1962,25 @@ const main = async () => {
     comparisonPass(
       w4FrameRuntimeComparison,
       expectedManifest?.w4FrameRuntimeCases,
+      3,
+    );
+  let expectedT2InputFloorInputs =
+    expectedManifest.t2InputFloorInputAmendments?.at(-1)?.inputs ||
+    expectedManifest.t2InputFloorInputs;
+  let t2InputFloorInputsMatch =
+    bankPresent &&
+    Boolean(expectedT2InputFloorInputs) &&
+    fingerprintSha(expectedT2InputFloorInputs) ===
+      fingerprintSha(currentManifest.t2InputFloorInputs);
+  const t2InputFloorComparison = compareGoldenRows(
+    currentManifest.t2InputFloorCases,
+    expectedManifest?.t2InputFloorCases,
+  );
+  const t2InputFloorPass =
+    bankPresent &&
+    comparisonPass(
+      t2InputFloorComparison,
+      expectedManifest?.t2InputFloorCases,
       3,
     );
   const inputAmendmentPreflight = {
@@ -2014,6 +2330,59 @@ const main = async () => {
     expectedW4FrameRuntimeInputs = currentManifest.w4FrameRuntimeInputs;
     w4FrameRuntimeInputsMatch = true;
   }
+  const t2InputAmendmentPreflight = {
+    ...inputAmendmentPreflight,
+    t2GoldensPass: t2InputFloorPass,
+    t2DeterminismPass,
+    t2ClipPass: result.t2InputFloor.clip?.pass,
+    t2OneResultPass: Object.values(result.t2InputFloor.oneResult || {}).every(
+      (row) => row.pass,
+    ),
+    t2StaticAbsencePass: t2Absence.pass,
+    chromeNamespaceCustodyPass,
+    pickRoadCustodyPass,
+    t2ContractPass: result.t2InputFloor.pass,
+  };
+  const t2InputAmendmentAuthorized =
+    inputAmendmentAuthorized &&
+    t2InputFloorPass &&
+    t2DeterminismPass &&
+    result.t2InputFloor.clip?.pass &&
+    Object.values(result.t2InputFloor.oneResult || {}).length === 3 &&
+    Object.values(result.t2InputFloor.oneResult || {}).every(
+      (row) => row.pass,
+    ) &&
+    t2Absence.pass &&
+    chromeNamespaceCustodyPass &&
+    pickRoadCustodyPass &&
+    result.t2InputFloor.pass;
+
+  if (appendT2InputAmendment) {
+    if (!t2InputAmendmentAuthorized) {
+      throw new Error(
+        `T2 INPUT-FLOOR input amendment preflight failed: ${JSON.stringify(t2InputAmendmentPreflight)}`,
+      );
+    }
+    expectedManifest = {
+      ...expectedManifest,
+      t2InputFloorInputAmendments: [
+        ...(expectedManifest.t2InputFloorInputAmendments || []),
+        {
+          amendment:
+            (expectedManifest.t2InputFloorInputAmendments?.length || 0) + 1,
+          reason:
+            "T2 INPUT-FLOOR close refreshed its implementation and verifier input set with all golden bytes unchanged",
+          inputs: currentManifest.t2InputFloorInputs,
+        },
+      ],
+    };
+    fs.writeFileSync(
+      manifestFile,
+      `${JSON.stringify(expectedManifest, null, 2)}\n`,
+    );
+    expectedT2InputFloorInputs = currentManifest.t2InputFloorInputs;
+    t2InputFloorInputsMatch = true;
+  }
   const appendPostflightPass =
     (!appendImageGoldens ||
       (sourceMatch &&
@@ -2034,6 +2403,11 @@ const main = async () => {
         priorGoldenSetsPass &&
         w4FrameRuntimePass &&
         w4FrameRuntimeInputsMatch)) &&
+    (!appendT2Goldens ||
+      (environmentMatch &&
+        priorT2GoldenSetsPass &&
+        t2InputFloorPass &&
+        t2InputFloorInputsMatch)) &&
     (!amendShaderDigests ||
       (shaderAmendmentAuthorized && sourceMatch && w4FrameRuntimePass)) &&
     (!appendImageInputAmendment ||
@@ -2079,7 +2453,11 @@ const main = async () => {
     (!appendW4InputAmendment ||
       (w4InputAmendmentAuthorized &&
         w4FrameRuntimePass &&
-        w4FrameRuntimeInputsMatch));
+        w4FrameRuntimeInputsMatch)) &&
+    (!appendT2InputAmendment ||
+      (t2InputAmendmentAuthorized &&
+        t2InputFloorPass &&
+        t2InputFloorInputsMatch));
   if (!appendPostflightPass) {
     throw new Error("Scoped atom append postflight failed");
   }
@@ -2157,6 +2535,27 @@ const main = async () => {
     !result.w4FrameRuntime.pass
   )
     classification = "w4-frame-runtime-contract-failure";
+  else if (
+    !t2InputFloorPass ||
+    !t2DeterminismPass ||
+    !t2InputFloorInputsMatch ||
+    !result.t2InputFloor.clip?.pass ||
+    !result.t2InputFloor.entry?.dblclickConsumed ||
+    !result.t2InputFloor.outsideExit?.sessionClosed ||
+    !result.t2InputFloor.outsideExit?.deadlineRetired ||
+    !result.t2InputFloor.coexistence?.shiftPointerDefaultProceeded ||
+    result.t2InputFloor.coexistence?.chromeSelection?.selected !== 1 ||
+    !result.t2InputFloor.paragraph?.caretCaptured ||
+    !result.t2InputFloor.blink?.cadence?.pass ||
+    !result.t2InputFloor.dispatch?.keydownConsumed ||
+    !result.t2InputFloor.dispatch?.pasteConsumed ||
+    !chromeNamespaceCustodyPass ||
+    !pickRoadCustodyPass ||
+    !t2Absence.pass ||
+    !result.t2InputFloor.timerSourceFree ||
+    !result.t2InputFloor.pass
+  )
+    classification = "t2-input-floor-contract-failure";
   else if (!parityPass) classification = "candidate-pick-parity-failure";
   else if (!divergencePass)
     classification = "current-product-pick-sentinel-failure";
@@ -2290,6 +2689,124 @@ const main = async () => {
   assertField(result.w4FrameRuntime.scheduler?.pass, "w4-scheduler");
   assertField(result.w4FrameRuntime.pass, "w4-frame-runtime-contract");
   assertField(
+    t2InputFloorPass && t2InputFloorComparison.length === 3,
+    "t2-input-floor-goldens",
+  );
+  assertField(t2DeterminismPass, "t2-input-floor-determinism");
+  assertField(t2InputFloorInputsMatch, "t2-input-floor-inputs");
+  assertField(
+    Object.values(result.t2InputFloor.oneResult || {}).length === 3 &&
+      Object.values(result.t2InputFloor.oneResult || {}).every(
+        (row) =>
+          row.pass && row.valueEqualLines && row.paintLayoutIds?.length > 0,
+      ),
+    "t2-one-result-identity",
+  );
+  assertField(
+    JSON.stringify(
+      (result.t2InputFloor.transitions || []).map((row) => row.seamDelta),
+    ) === JSON.stringify([1, 1, 1, 1, 0]) &&
+      result.t2InputFloor.transitions?.[1]?.semanticOps === 1,
+    "t2-one-seam-transitions",
+  );
+  assertField(
+    result.t2InputFloor.clip?.pass &&
+      result.t2InputFloor.clip?.outsideProbeMax === 0 &&
+      result.t2InputFloor.clip?.insideProbeMax > 32,
+    "t2-clip-probes",
+  );
+  assertField(
+    result.t2InputFloor.paragraph?.caretCaptured &&
+      result.t2InputFloor.paragraph?.spansLigatureAndRtl &&
+      JSON.stringify(result.t2InputFloor.paragraph?.selectionSourceRange) ===
+        JSON.stringify([12, 166]) &&
+      result.t2InputFloor.paragraph?.caretCapturePoint?.every(
+        (coordinate) => coordinate >= 0 && coordinate < 128,
+      ),
+    "t2-paragraph-caret-capture",
+  );
+  assertField(
+    result.t2InputFloor.darkLane?.flagOff &&
+      !result.t2InputFloor.darkLane?.receiptBefore &&
+      result.t2InputFloor.darkLane?.pureLoad,
+    "t2-dark-lane",
+  );
+  assertField(
+    result.t2InputFloor.segmenter?.supported &&
+      result.t2InputFloor.segmenter?.identity?.api === "intl-segmenter",
+    "t2-segmenter",
+  );
+  assertField(
+    result.t2InputFloor.ime?.hiddenTextarea &&
+      result.t2InputFloor.ime?.focusedDuringSession &&
+      result.t2InputFloor.ime?.screenPoint?.length === 2 &&
+      result.t2InputFloor.ime?.oneCommitOneOp,
+    "t2-ime-host",
+  );
+  assertField(
+    result.t2InputFloor.dispatch?.keydownConsumed &&
+      result.t2InputFloor.dispatch?.keydownDefaultPrevented &&
+      result.t2InputFloor.dispatch?.keydownIntercepts === 3 &&
+      result.t2InputFloor.dispatch?.copyConsumed &&
+      result.t2InputFloor.dispatch?.copyDefaultPrevented &&
+      result.t2InputFloor.dispatch?.clipboardWrite?.ok &&
+      result.t2InputFloor.dispatch?.clipboardWrite?.text ===
+        result.t2InputFloor.dispatch?.copyExpected &&
+      result.t2InputFloor.dispatch?.clipboardAuthority ===
+        "browser-system-clipboard-with-granted-permission" &&
+      result.t2InputFloor.dispatch?.pasteConsumed &&
+      result.t2InputFloor.dispatch?.pasteDefaultPrevented &&
+      result.t2InputFloor.dispatch?.pasteIntercepts === 1 &&
+      result.t2InputFloor.dispatch?.pasteNormalizedText === "a\nb\t",
+    "t2-dispatch-intercepts",
+  );
+  assertField(
+    result.t2InputFloor.entry?.target === "paragraph" &&
+      result.t2InputFloor.entry?.dblclickConsumed,
+    "t2-entry",
+  );
+  assertField(
+    result.t2InputFloor.coexistence?.shiftPointerDefaultProceeded &&
+      result.t2InputFloor.coexistence?.sessionPassThroughs > 0 &&
+      result.t2InputFloor.coexistence?.chromeSelection?.selected === 1 &&
+      result.t2InputFloor.coexistence?.selectedIdentity?.vi ===
+        "clipped-card",
+    "t2-shift-pass-through",
+  );
+  assertField(
+    result.t2InputFloor.outsideExit?.defaultProceeded &&
+      result.t2InputFloor.outsideExit?.sessionClosed &&
+      result.t2InputFloor.outsideExit?.deadlineRetired,
+    "t2-outside-exit",
+  );
+  assertField(
+    result.t2InputFloor.blink?.armed &&
+      result.t2InputFloor.blink?.toggles > 0 &&
+      result.t2InputFloor.blink?.layoutDelta === 0 &&
+      result.t2InputFloor.blink?.cadence?.pass &&
+      result.t2InputFloor.blink?.cadence?.dueCount === 9 &&
+      result.t2InputFloor.blink?.cadence?.echoEncodes === 0 &&
+      result.t2InputFloor.runtime?.dueConsumerInstalled,
+    "t2-blink-deadline",
+  );
+  assertField(
+    result.t2InputFloor.runtime?.providerShaped &&
+      result.t2InputFloor.runtime?.interceptsInstalled &&
+      result.t2InputFloor.runtime?.census?.containerStable,
+    "t2-runtime-install",
+  );
+  assertField(
+    result.t2InputFloor.exportDeviation?.worldSessionVisuals > 0 &&
+      result.t2InputFloor.exportDeviation?.repaymentRoad ===
+        "editing-chrome-expansion",
+    "t2-export-deviation",
+  );
+  assertField(result.t2InputFloor.timerSourceFree, "t2-timer-source-free");
+  assertField(t2Absence.pass, "t2-static-timer-absence");
+  assertField(chromeNamespaceCustodyPass, "t2-chrome-namespace-custody");
+  assertField(pickRoadCustodyPass, "t2-pick-road-custody");
+  assertField(result.t2InputFloor.pass, "t2-input-floor-contract");
+  assertField(
     Boolean(
       attestation.adapterIdentity.vendor &&
         typeof attestation.isFallbackAdapter === "boolean" &&
@@ -2346,6 +2863,32 @@ const main = async () => {
     w4TargetPool: Boolean(result.w4FrameRuntime.pool?.pass),
     w4Export: Boolean(result.w4FrameRuntime.export?.pass),
     w4Scheduler: Boolean(result.w4FrameRuntime.scheduler?.pass),
+    t2Goldens: `${t2InputFloorComparison.filter((row) => row.rawMatch && row.pngManifestMatch && row.goldenFileMatch).length}/${t2InputFloorComparison.length}`,
+    t2Determinism: `${t2Deterministic.filter((row) => row.byteIdentical).length}/${t2Deterministic.length}`,
+    t2Inputs: t2InputFloorInputsMatch,
+    t2OneResult: Object.values(result.t2InputFloor.oneResult || {}).every(
+      (row) => row.pass,
+    ),
+    t2Clip: Boolean(result.t2InputFloor.clip?.pass),
+    t2ParagraphCaret: Boolean(result.t2InputFloor.paragraph?.caretCaptured),
+    t2Ime: Boolean(result.t2InputFloor.ime?.oneCommitOneOp),
+    t2Dispatch: Boolean(
+      result.t2InputFloor.dispatch?.keydownConsumed &&
+        result.t2InputFloor.dispatch?.pasteConsumed,
+    ),
+    t2Entry: Boolean(result.t2InputFloor.entry?.dblclickConsumed),
+    t2OutsideExit: Boolean(result.t2InputFloor.outsideExit?.sessionClosed),
+    t2DeadlineRetired: Boolean(
+      result.t2InputFloor.outsideExit?.deadlineRetired,
+    ),
+    t2BlinkCadence: Boolean(result.t2InputFloor.blink?.cadence?.pass),
+    t2ShiftPassThrough: Boolean(
+      result.t2InputFloor.coexistence?.shiftPointerDefaultProceeded,
+    ),
+    t2TimerSourceFree: Boolean(result.t2InputFloor.timerSourceFree),
+    t2StaticTimerAbsence: t2Absence.pass,
+    t2ChromeNamespaceCustody: chromeNamespaceCustodyPass,
+    t2PickRoadCustody: pickRoadCustodyPass,
     q8AffineTransport: q8TransportPass,
     q5AffineRasterBoundary: q5AffineBoundaryPass,
     candidateParity: `${parity.filter((row) => row.pass).length}/${parity.length}`,
@@ -2360,6 +2903,8 @@ const main = async () => {
     chromeAppendAuthorized,
     appendW4Goldens,
     w4AppendAuthorized,
+    appendT2Goldens,
+    t2AppendAuthorized,
     appendImageInputAmendment,
     appendPathInputAmendment,
     inputAmendmentAuthorized,
@@ -2369,6 +2914,8 @@ const main = async () => {
     chromeInputAmendmentAuthorized,
     appendW4InputAmendment,
     w4InputAmendmentAuthorized,
+    appendT2InputAmendment,
+    t2InputAmendmentAuthorized,
     amendShaderDigests,
     shaderAmendmentAuthorized,
     assertImageContract,
@@ -2376,6 +2923,7 @@ const main = async () => {
     assertConnectorContract,
     assertChromeContract,
     assertW4Contract,
+    assertT2Contract,
     assertionPass: assertionFailures.length === 0,
     assertionFailures,
     environmentFingerprint: environment.fingerprintSha256,
@@ -2423,6 +2971,23 @@ const main = async () => {
     w4TargetPool: true,
     w4Export: true,
     w4Scheduler: true,
+    t2Goldens: "3/3",
+    t2Determinism: "3/3",
+    t2Inputs: true,
+    t2OneResult: true,
+    t2Clip: true,
+    t2ParagraphCaret: true,
+    t2Ime: true,
+    t2Dispatch: true,
+    t2Entry: true,
+    t2OutsideExit: true,
+    t2DeadlineRetired: true,
+    t2BlinkCadence: true,
+    t2ShiftPassThrough: true,
+    t2TimerSourceFree: true,
+    t2StaticTimerAbsence: true,
+    t2ChromeNamespaceCustody: true,
+    t2PickRoadCustody: true,
   })) {
     assertField(
       Object.hasOwn(stdoutSummary, key) && stdoutSummary[key] === value,
@@ -2438,7 +3003,7 @@ const main = async () => {
     verifier: result.verifier,
     replayCommand: "npm run verify:render-engine",
     updateCommand:
-      "clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs --append-w4-goldens --assert-w4-contract",
+      "clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs --append-t2-goldens --assert-t2-contract",
     pass,
     classification,
     bankPresent,
@@ -2448,11 +3013,13 @@ const main = async () => {
       appendConnectorGoldens ||
       appendChromeGoldens ||
       appendW4Goldens ||
+      appendT2Goldens ||
       appendImageInputAmendment ||
       appendPathInputAmendment ||
       appendConnectorInputAmendment ||
       appendChromeInputAmendment ||
       appendW4InputAmendment ||
+      appendT2InputAmendment ||
       amendShaderDigests,
     updateAuthorized: appendImageGoldens
       ? appendAuthorized
@@ -2464,6 +3031,8 @@ const main = async () => {
           ? chromeAppendAuthorized
         : appendW4Goldens
           ? w4AppendAuthorized
+        : appendT2Goldens
+          ? t2AppendAuthorized
         : amendShaderDigests
           ? shaderAmendmentAuthorized
         : appendImageInputAmendment
@@ -2476,6 +3045,8 @@ const main = async () => {
             ? chromeInputAmendmentAuthorized
           : appendW4InputAmendment
             ? w4InputAmendmentAuthorized
+          : appendT2InputAmendment
+            ? t2InputAmendmentAuthorized
         : updateAuthorized,
     updateAuthority:
       "scoped atom appends require unchanged prior golden bytes, deterministic new pixels, contract receipts, and the preserved independent MSDF RED",
@@ -2596,6 +3167,39 @@ const main = async () => {
       scheduler: result.w4FrameRuntime.scheduler,
       compositor: result.w4FrameRuntime.compositor,
     },
+    t2InputFloor: {
+      pass: result.t2InputFloor.pass,
+      inputFingerprintsMatch: t2InputFloorInputsMatch,
+      determinism: { pass: t2DeterminismPass, rows: t2Deterministic },
+      goldenComparison: {
+        pass: t2InputFloorPass,
+        rows: t2InputFloorComparison,
+      },
+      oneResult: result.t2InputFloor.oneResult,
+      transitions: result.t2InputFloor.transitions,
+      clip: result.t2InputFloor.clip,
+      paragraph: result.t2InputFloor.paragraph,
+      darkLane: result.t2InputFloor.darkLane,
+      entry: result.t2InputFloor.entry,
+      outsideExit: result.t2InputFloor.outsideExit,
+      coexistence: result.t2InputFloor.coexistence,
+      segmenter: result.t2InputFloor.segmenter,
+      ime: result.t2InputFloor.ime,
+      dispatch: result.t2InputFloor.dispatch,
+      blink: result.t2InputFloor.blink,
+      timerSourceFree: result.t2InputFloor.timerSourceFree,
+      staticAbsence: t2Absence,
+      exportDeviation: result.t2InputFloor.exportDeviation,
+      runtime: result.t2InputFloor.runtime,
+      chromeNamespaceCustody: {
+        pass: chromeNamespaceCustodyPass,
+        rows: chromeNamespaceCustodyRows,
+      },
+      pickRoadCustody: {
+        pass: pickRoadCustodyPass,
+        rows: pickRoadCustodyRows,
+      },
+    },
     append: {
       requested:
         appendImageGoldens ||
@@ -2603,11 +3207,13 @@ const main = async () => {
         appendConnectorGoldens ||
         appendChromeGoldens ||
         appendW4Goldens ||
+        appendT2Goldens ||
         appendImageInputAmendment ||
         appendPathInputAmendment ||
         appendConnectorInputAmendment ||
         appendChromeInputAmendment ||
         appendW4InputAmendment ||
+        appendT2InputAmendment ||
         amendShaderDigests,
       kind: appendImageGoldens
         ? "image"
@@ -2619,6 +3225,8 @@ const main = async () => {
             ? "chrome"
           : appendW4Goldens
             ? "w4-frame-runtime"
+          : appendT2Goldens
+            ? "t2-input-floor"
           : amendShaderDigests
             ? "shader-digest-amendment"
           : appendImageInputAmendment
@@ -2631,6 +3239,8 @@ const main = async () => {
               ? "chrome-input-amendment"
             : appendW4InputAmendment
               ? "w4-input-amendment"
+            : appendT2InputAmendment
+              ? "t2-input-amendment"
             : null,
       preflight: appendImageGoldens
         ? appendPreflight
@@ -2642,12 +3252,16 @@ const main = async () => {
             ? chromeAppendPreflight
           : appendW4Goldens
             ? w4AppendPreflight
+          : appendT2Goldens
+            ? t2AppendPreflight
           : amendShaderDigests
             ? shaderAmendmentPreflight
           : appendImageInputAmendment
             ? inputAmendmentPreflight
           : appendW4InputAmendment
             ? w4InputAmendmentPreflight
+          : appendT2InputAmendment
+            ? t2InputAmendmentPreflight
           : appendChromeInputAmendment
             ? chromeInputAmendmentPreflight
           : appendConnectorInputAmendment
@@ -2663,6 +3277,8 @@ const main = async () => {
             ? chromeAppendAuthorized
           : appendW4Goldens
             ? w4AppendAuthorized
+          : appendT2Goldens
+            ? t2AppendAuthorized
           : amendShaderDigests
             ? shaderAmendmentAuthorized
           : appendImageInputAmendment
@@ -2675,6 +3291,8 @@ const main = async () => {
               ? chromeInputAmendmentAuthorized
             : appendW4InputAmendment
               ? w4InputAmendmentAuthorized
+            : appendT2InputAmendment
+              ? t2InputAmendmentAuthorized
           : false,
       postflightPass: appendPostflightPass,
     },
@@ -2684,7 +3302,8 @@ const main = async () => {
         assertPathContract ||
         assertConnectorContract ||
         assertChromeContract ||
-        assertW4Contract,
+        assertW4Contract ||
+        assertT2Contract,
       pass: assertionFailures.length === 0,
       failures: assertionFailures,
     },
@@ -2702,7 +3321,8 @@ const main = async () => {
     assertPathContract ||
     assertConnectorContract ||
     assertChromeContract ||
-    assertW4Contract
+    assertW4Contract ||
+    assertT2Contract
   ) {
     if (assertionFailures.length > 0) process.exitCode = 1;
   } else if (
@@ -2713,11 +3333,13 @@ const main = async () => {
       appendConnectorGoldens ||
       appendChromeGoldens ||
       appendW4Goldens ||
+      appendT2Goldens ||
       appendImageInputAmendment ||
       appendPathInputAmendment ||
       appendConnectorInputAmendment ||
       appendChromeInputAmendment ||
       appendW4InputAmendment ||
+      appendT2InputAmendment ||
       amendShaderDigests
     )
   ) {

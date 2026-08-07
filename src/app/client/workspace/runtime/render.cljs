@@ -18,6 +18,14 @@
             [app.client.workflows.dg-flow :as dg]))
 
 (def ^:private use-persistent-render-target? false)
+(defonce ^:private !due-deadline-consumer (atom nil))
+
+(defn install-due-deadline-consumer!
+  "Install T2's nil-default sink hook. It observes the ids returned by the
+   scheduler after decide and before this frame's encode branch."
+  [consumer]
+  (reset! !due-deadline-consumer consumer)
+  true)
 
 (defn- render-debug! [label data]
   (let [payload (clj->js data)]
@@ -311,6 +319,8 @@
                               (:scheduler-state prev-state)
                               logical-time causes
                               (:last-plan-hash prev-state))
+              _ (when-let [consume @!due-deadline-consumer]
+                  (consume (:due-deadlines scheduler-step)))
               _ (publish-scheduler-receipt! (:state scheduler-step))]
         (if-not (:encode? scheduler-step)
           (assoc prev-state :scheduler-state (:state scheduler-step))

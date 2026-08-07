@@ -844,8 +844,10 @@
                        (mapv (fn [offset]
                                {:index (tagged-index offset)
                                 :position [x top-y]
-                                :affinity :downstream})
-                             (range consumed-start consumed-end))
+                                :affinity (if (= offset consumed-end)
+                                            :upstream
+                                            :downstream)})
+                             (range consumed-start (inc consumed-end)))
                        :logical-bounds {:x x :y top-y :w 0 :h line-height}
                        :ink-bounds nil}))
                   clusters (cond-> clusters consumed-cluster
@@ -1157,8 +1159,42 @@
 (defn- shaped-result? [layout-result]
   (not= :legacy/code-unit-grid (get-in layout-result [:shaping :shaper-id])))
 
-(defn- line-caret-stops [line-data]
-  (vec (mapcat :caret-stops (:clusters line-data))))
+(defn- injected-cluster-stops
+  "T2 additive reader capability. Grapheme boundaries are injected DATA; an
+   interior boundary interpolates between the shaped cluster's declared edge
+   stops by its UTF-16 advance fraction."
+  [cluster grapheme-boundaries]
+  (let [[start-index end-index] (:source-range cluster)
+        start (source-index-offset start-index)
+        end (source-index-offset end-index)
+        [start-stop end-stop] (:caret-stops cluster)
+        [start-x start-y] (:position start-stop)
+        [end-x end-y] (:position end-stop)
+        span (- end start)]
+    (if (and (pos? span) (seq grapheme-boundaries))
+      (->> grapheme-boundaries
+           (map #(if (map? %) (source-index-offset %) %))
+           (filter #(and (number? %) (< start % end)))
+           distinct
+           sort
+           (mapv (fn [boundary]
+                   (let [fraction (/ (- boundary start) span)]
+                     {:index (tagged-index boundary)
+                      :position [(+ start-x (* fraction (- end-x start-x)))
+                                 (+ start-y (* fraction (- end-y start-y)))]
+                      :affinity :downstream
+                      :interior? true}))))
+      [])))
+
+(defn- line-caret-stops
+  ([line-data] (line-caret-stops line-data nil))
+  ([line-data grapheme-boundaries]
+   (->> (:clusters line-data)
+        (mapcat (fn [cluster]
+                  (concat (:caret-stops cluster)
+                          (injected-cluster-stops cluster
+                                                  grapheme-boundaries))))
+        vec)))
 
 (defn- nearest-by [value value-fn xs]
   (when (seq xs)
@@ -1169,7 +1205,8 @@
                 best))
             (first xs) (rest xs))))
 
-(defn- shaped-caret-result [layout-result line col]
+(defn- shaped-caret-result
+  [layout-result line col {:keys [grapheme-boundaries affinity]}]
   (let [lines (:lines layout-result)
         line (max 0 (min (long (or line 0)) (dec (max 1 (count lines)))))
         line-data (nth lines line {:text "" :logical-bounds {:x 0 :y 0 :h 0}
@@ -1183,13 +1220,17 @@
                           (inc line))
         next-line-data (when next-line-index (nth lines next-line-index))
         next-line-start (some-> next-line-data :source-range line-source-bounds first)
-        move-to-next? (and next-line-data (= requested next-line-start))
+        move-to-next? (and next-line-data
+                           (= requested next-line-start)
+                           (not= :upstream affinity))
         line (if move-to-next? next-line-index line)
         line-data (if move-to-next? next-line-data line-data)
         [line-start _] (line-source-bounds (:source-range line-data))
-        stops (line-caret-stops line-data)
+        stops (line-caret-stops line-data grapheme-boundaries)
         exact (filter #(= requested (source-index-offset (:index %))) stops)
-        stop (or (first (filter #(= :downstream (:affinity %)) exact))
+        stop (or (when affinity
+                   (first (filter #(= affinity (:affinity %)) exact)))
+                 (first (filter #(= :downstream (:affinity %)) exact))
                  (first exact)
                  (nearest-by requested #(source-index-offset (:index %)) stops)
                  {:index (if (= :header (first (:source-range line-data)))
@@ -1210,9 +1251,12 @@
      :rect {:x x :y (:y bounds) :w 2 :h (:h bounds)}
      :affinity (:affinity stop)}))
 
-(defn caret-result [layout-result line col]
+(defn caret-result
+  ([layout-result line col]
+   (caret-result layout-result line col nil))
+  ([layout-result line col options]
   (if (shaped-result? layout-result)
-    (shaped-caret-result layout-result line col)
+    (shaped-caret-result layout-result line col options)
     (let [lines (:lines layout-result)
         line (max 0 (min (long (or line 0)) (dec (max 1 (count lines)))))
         line-data (nth lines line {:text "" :logical-bounds {:x 0 :y 0 :h 0}
@@ -1232,11 +1276,11 @@
      :rect {:x (+ (:x bounds) (* col char-advance))
             :y (:y bounds) :w 2 :h (:h bounds)}
      :affinity :downstream
-     :legacy/font-size advance})))
+     :legacy/font-size advance}))))
 
 (defn- shaped-selection-result [layout-result line col-start col-end min-width]
-  (let [a (shaped-caret-result layout-result line col-start)
-        b (shaped-caret-result layout-result line col-end)
+  (let [a (shaped-caret-result layout-result line col-start nil)
+        b (shaped-caret-result layout-result line col-end nil)
         [start end] (sort [(source-index-offset (:index a))
                            (source-index-offset (:index b))])
         line-data (get (:lines layout-result) (:line a))
@@ -1382,7 +1426,8 @@
                (assoc :to end))))
      :visible-range [(tagged-index skip) (tagged-index end)]})))
 
-(defn- shaped-hit-test-result [layout-result [x y]]
+(defn- shaped-hit-test-result
+  [layout-result [x y] {:keys [grapheme-boundaries]}]
   (let [lines (:lines layout-result)
         line-data (or (first (filter (fn [line]
                                       (let [{ly :y h :h} (:logical-bounds line)]
@@ -1390,7 +1435,7 @@
                                     lines))
                       (nearest-by y #(get-in % [:logical-bounds :y]) lines)
                       (first lines))
-        stops (line-caret-stops line-data)
+        stops (line-caret-stops line-data grapheme-boundaries)
         consumed-start (some-> line-data :consumed-range first source-index-offset)
         painted-end (+ (get-in line-data [:logical-bounds :x] 0)
                        (get-in line-data [:logical-bounds :w] 0))
@@ -1416,10 +1461,14 @@
      :index-space legacy-index-space}))
 
 (defn hit-test-result
-  "Point -> visual line -> optional logical line map -> legacy caret stop."
-  [layout-result [x y]]
+  "Point -> visual line -> optional logical line map -> source caret stop.
+   T2 may inject grapheme boundaries so shaped-cluster interiors become lawful
+   stops without introducing a second metric route."
+  ([layout-result point]
+   (hit-test-result layout-result point nil))
+  ([layout-result [x y] options]
   (if (shaped-result? layout-result)
-    (shaped-hit-test-result layout-result [x y])
+    (shaped-hit-test-result layout-result [x y] options)
     (let [{:keys [line-map]} (:constraints layout-result)
         source-lines (or (get-in layout-result [:receipts :source-lines])
                          (mapv :text (:lines layout-result)))
@@ -1446,4 +1495,4 @@
      :visual-line visual-line
      :line logical-line
      :col col
-     :index-space legacy-index-space})))
+     :index-space legacy-index-space}))))

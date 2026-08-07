@@ -4194,6 +4194,84 @@
           "sha256": "2965d704f480606b6df99c3b8ebbcc5cf178166f7b232fa03ddbdf6666789577"
         }
       }
+    },
+    {
+      "amendment": 19,
+      "reason": "W4 shared-source integration changed scene flattening and verifier inputs with all image goldens byte-identical",
+      "inputs": {
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 32846,
+          "sha256": "e9403882e508e4f57a22f7db26506ba666edd303fab3bba843531e4daa602888"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 33550,
+          "sha256": "ef62209e1692d8bf9a13c4e3cdecc27bf66122fe1e437dab6ad1ae89fd0b3170"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 32614,
+          "sha256": "ad61d06624879253bf19dfd12aa75c61b33ce314e6277b73aacb57ce3523b511"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 250203,
+          "sha256": "e3edb6899e9a521bf90de6d42ff96609c219935953a9157f996382d0eb61d38b"
+        }
+      }
+    },
+    {
+      "amendment": 20,
+      "reason": "PATH-ATOM source integration changed shared scene/verifier inputs with all 21 image-atom goldens and receipts unchanged",
+      "inputs": {
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 32846,
+          "sha256": "e9403882e508e4f57a22f7db26506ba666edd303fab3bba843531e4daa602888"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 33550,
+          "sha256": "ef62209e1692d8bf9a13c4e3cdecc27bf66122fe1e437dab6ad1ae89fd0b3170"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 32614,
+          "sha256": "ad61d06624879253bf19dfd12aa75c61b33ce314e6277b73aacb57ce3523b511"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 250203,
+          "sha256": "e3edb6899e9a521bf90de6d42ff96609c219935953a9157f996382d0eb61d38b"
+        }
+      }
+    },
+    {
+      "amendment": 21,
+      "reason": "CONNECTOR-ATOM post-append repair refreshed shared image inputs with all image goldens byte-identical",
+      "inputs": {
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 32846,
+          "sha256": "e9403882e508e4f57a22f7db26506ba666edd303fab3bba843531e4daa602888"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 33550,
+          "sha256": "ef62209e1692d8bf9a13c4e3cdecc27bf66122fe1e437dab6ad1ae89fd0b3170"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 32614,
+          "sha256": "ad61d06624879253bf19dfd12aa75c61b33ce314e6277b73aacb57ce3523b511"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 250203,
+          "sha256": "e3edb6899e9a521bf90de6d42ff96609c219935953a9157f996382d0eb61d38b"
+        }
+      }
     }
   ],
   "pathAtomInputAmendments": [
@@ -5040,6 +5118,128 @@
           "sha256": "2965d704f480606b6df99c3b8ebbcc5cf178166f7b232fa03ddbdf6666789577"
         }
       }
+    },
+    {
+      "amendment": 15,
+      "reason": "post-append falsification repaired mesh-set upload identity and froze its verifier receipt; all 45 golden files remain byte-identical",
+      "inputs": {
+        "pathMaterial": {
+          "path": "src/app/client/substrate/path_material.cljc",
+          "bytes": 24594,
+          "sha256": "ce0b6dbc1690525fd0a67cb99bfab6107ccdf294091a4f8b952d3ef4c6a4b92f"
+        },
+        "pathTessellation": {
+          "path": "src/app/client/substrate/path_tessellation.cljc",
+          "bytes": 18815,
+          "sha256": "957cb1aa26d21922657bcb8d718992548ffca379b111667115fde4475d663ed6"
+        },
+        "pathGpu": {
+          "path": "src/app/client/substrate/webgpu/path_gpu.cljs",
+          "bytes": 17980,
+          "sha256": "694bc595d1498fb1f7b9f80edcc317b514bfd62782006a4f10fcfcd183e406f8"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 32846,
+          "sha256": "e9403882e508e4f57a22f7db26506ba666edd303fab3bba843531e4daa602888"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 33550,
+          "sha256": "ef62209e1692d8bf9a13c4e3cdecc27bf66122fe1e437dab6ad1ae89fd0b3170"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 32614,
+          "sha256": "ad61d06624879253bf19dfd12aa75c61b33ce314e6277b73aacb57ce3523b511"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58124,
+          "sha256": "6af9b8494126e3092de2ce148537b0de47e85450f8750d8ef44b583f2af5b128"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 183787,
+          "sha256": "43088d6843278f2105e7c959e2074981a72ca9b3dc6f010fe741ec171ac4e54f"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 250203,
+          "sha256": "e3edb6899e9a521bf90de6d42ff96609c219935953a9157f996382d0eb61d38b"
+        }
+      }
+    },
+    {
+      "amendment": 16,
+      "reason": "CONNECTOR-ATOM post-append repair refreshed shared path inputs with all path goldens byte-identical",
+      "inputs": {
+        "pathMaterial": {
+          "path": "src/app/client/substrate/path_material.cljc",
+          "bytes": 24594,
+          "sha256": "ce0b6dbc1690525fd0a67cb99bfab6107ccdf294091a4f8b952d3ef4c6a4b92f"
+        },
+        "pathTessellation": {
+          "path": "src/app/client/substrate/path_tessellation.cljc",
+          "bytes": 18815,
+          "sha256": "957cb1aa26d21922657bcb8d718992548ffca379b111667115fde4475d663ed6"
+        },
+        "pathGpu": {
+          "path": "src/app/client/substrate/webgpu/path_gpu.cljs",
+          "bytes": 17980,
+          "sha256": "694bc595d1498fb1f7b9f80edcc317b514bfd62782006a4f10fcfcd183e406f8"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 32846,
+          "sha256": "e9403882e508e4f57a22f7db26506ba666edd303fab3bba843531e4daa602888"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 33550,
+          "sha256": "ef62209e1692d8bf9a13c4e3cdecc27bf66122fe1e437dab6ad1ae89fd0b3170"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 32614,
+          "sha256": "ad61d06624879253bf19dfd12aa75c61b33ce314e6277b73aacb57ce3523b511"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58124,
+          "sha256": "6af9b8494126e3092de2ce148537b0de47e85450f8750d8ef44b583f2af5b128"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 183787,
+          "sha256": "43088d6843278f2105e7c959e2074981a72ca9b3dc6f010fe741ec171ac4e54f"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 250203,
+          "sha256": "e3edb6899e9a521bf90de6d42ff96609c219935953a9157f996382d0eb61d38b"
+        }
+      }
     }
   ],
   "connectorAtomInputs": {
@@ -5780,6 +5980,148 @@
           "sha256": "2965d704f480606b6df99c3b8ebbcc5cf178166f7b232fa03ddbdf6666789577"
         }
       }
+    },
+    {
+      "amendment": 10,
+      "reason": "PATH-ATOM input amendment refreshed shared verifier inputs with connector goldens unchanged",
+      "inputs": {
+        "connectorMaterial": {
+          "path": "src/app/client/substrate/connector_material.cljc",
+          "bytes": 16679,
+          "sha256": "a1c7faa4c1a777956526313076680b0e90d60fea76775e122eeff70929e9f7bd"
+        },
+        "connectorRoute": {
+          "path": "src/app/client/substrate/connector_route.cljc",
+          "bytes": 29220,
+          "sha256": "27ade235ae8a0e86eb61a5388b1892a620b86a0bfe0f561af4bc9f748d70b6af"
+        },
+        "connectorGpu": {
+          "path": "src/app/client/substrate/webgpu/connector_gpu.cljs",
+          "bytes": 19435,
+          "sha256": "f496a5bc215c562a50ddeab014c05357670a027a5435c8cea963a2cc0ff10b60"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 32846,
+          "sha256": "e9403882e508e4f57a22f7db26506ba666edd303fab3bba843531e4daa602888"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 33550,
+          "sha256": "ef62209e1692d8bf9a13c4e3cdecc27bf66122fe1e437dab6ad1ae89fd0b3170"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 32614,
+          "sha256": "ad61d06624879253bf19dfd12aa75c61b33ce314e6277b73aacb57ce3523b511"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "liveEdges": {
+          "path": "src/app/client/workspace/live_edges.cljc",
+          "bytes": 6473,
+          "sha256": "2fc9284167fe8d937ca782eabb41a45db1efbdd7d87a5b714172a64564f480ae"
+        },
+        "fileViewer": {
+          "path": "src/app/file_viewer.cljc",
+          "bytes": 27926,
+          "sha256": "a164e9a5d9c08e5d1147d847c3d7a7984f5590382d0210713684347c9bade810"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58124,
+          "sha256": "6af9b8494126e3092de2ce148537b0de47e85450f8750d8ef44b583f2af5b128"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 183787,
+          "sha256": "43088d6843278f2105e7c959e2074981a72ca9b3dc6f010fe741ec171ac4e54f"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 250203,
+          "sha256": "e3edb6899e9a521bf90de6d42ff96609c219935953a9157f996382d0eb61d38b"
+        }
+      }
+    },
+    {
+      "amendment": 11,
+      "reason": "CONNECTOR-ATOM post-append falsification repaired implementation inputs with all connector goldens byte-identical",
+      "inputs": {
+        "connectorMaterial": {
+          "path": "src/app/client/substrate/connector_material.cljc",
+          "bytes": 16679,
+          "sha256": "a1c7faa4c1a777956526313076680b0e90d60fea76775e122eeff70929e9f7bd"
+        },
+        "connectorRoute": {
+          "path": "src/app/client/substrate/connector_route.cljc",
+          "bytes": 29220,
+          "sha256": "27ade235ae8a0e86eb61a5388b1892a620b86a0bfe0f561af4bc9f748d70b6af"
+        },
+        "connectorGpu": {
+          "path": "src/app/client/substrate/webgpu/connector_gpu.cljs",
+          "bytes": 19435,
+          "sha256": "f496a5bc215c562a50ddeab014c05357670a027a5435c8cea963a2cc0ff10b60"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 32846,
+          "sha256": "e9403882e508e4f57a22f7db26506ba666edd303fab3bba843531e4daa602888"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 33550,
+          "sha256": "ef62209e1692d8bf9a13c4e3cdecc27bf66122fe1e437dab6ad1ae89fd0b3170"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 32614,
+          "sha256": "ad61d06624879253bf19dfd12aa75c61b33ce314e6277b73aacb57ce3523b511"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "liveEdges": {
+          "path": "src/app/client/workspace/live_edges.cljc",
+          "bytes": 6473,
+          "sha256": "2fc9284167fe8d937ca782eabb41a45db1efbdd7d87a5b714172a64564f480ae"
+        },
+        "fileViewer": {
+          "path": "src/app/file_viewer.cljc",
+          "bytes": 27926,
+          "sha256": "a164e9a5d9c08e5d1147d847c3d7a7984f5590382d0210713684347c9bade810"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58124,
+          "sha256": "6af9b8494126e3092de2ce148537b0de47e85450f8750d8ef44b583f2af5b128"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 183787,
+          "sha256": "43088d6843278f2105e7c959e2074981a72ca9b3dc6f010fe741ec171ac4e54f"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 250203,
+          "sha256": "e3edb6899e9a521bf90de6d42ff96609c219935953a9157f996382d0eb61d38b"
+        }
+      }
     }
   ],
   "chromeAtomInputs": {
@@ -6451,6 +6793,97 @@
           "path": "test/render_engine/run_verifier.mjs",
           "bytes": 98905,
           "sha256": "054809be00ce8bfa61406939b8a30d4d9a98f9d6e6f2a7609d180496190611cd"
+        }
+      }
+    },
+    {
+      "amendment": 7,
+      "reason": "CHROME-ATOM post-append falsification repaired implementation inputs with all chrome goldens byte-identical",
+      "inputs": {
+        "selection": {
+          "path": "src/app/client/workspace/selection.cljc",
+          "bytes": 6208,
+          "sha256": "01274e169be05008e18cd562937ba1838efdcb4bf74f8d9500ea004b555496ef"
+        },
+        "chromeMaterial": {
+          "path": "src/app/client/substrate/chrome_material.cljc",
+          "bytes": 12785,
+          "sha256": "107a83ab794f647bb10f02fb29342296245d32084ec268582f5d07a62a4cf4dc"
+        },
+        "snap": {
+          "path": "src/app/client/substrate/snap.cljc",
+          "bytes": 11211,
+          "sha256": "d857ebdc6a36cc69a1b11d4e1029cfcb7996b2b077131f1ae5dccd3af018c88f"
+        },
+        "chromeDerive": {
+          "path": "src/app/client/substrate/chrome_derive.cljc",
+          "bytes": 13824,
+          "sha256": "ae4cd4ac339703b22c43dc5dfbed590e8747ece79c6b4b25030c66a810ae16c7"
+        },
+        "chromeGpu": {
+          "path": "src/app/client/substrate/webgpu/chrome_gpu.cljs",
+          "bytes": 16642,
+          "sha256": "a689b1b5e6eafddcad04e19d01ca68e65d42320ac132e033420a0cec43caf9d4"
+        },
+        "chromeRuntime": {
+          "path": "src/app/client/workspace/chrome_runtime.cljs",
+          "bytes": 16473,
+          "sha256": "3522d6fa4379ce1348ba6228dcd5469dc947b6513fc66fc6cdb8df3d92d5b937"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 32846,
+          "sha256": "e9403882e508e4f57a22f7db26506ba666edd303fab3bba843531e4daa602888"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 33550,
+          "sha256": "ef62209e1692d8bf9a13c4e3cdecc27bf66122fe1e437dab6ad1ae89fd0b3170"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 32614,
+          "sha256": "ad61d06624879253bf19dfd12aa75c61b33ce314e6277b73aacb57ce3523b511"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28231,
+          "sha256": "c15941e509222d55838977184e82e44904d387b2ec70abf892dece0b9b634359"
+        },
+        "ground": {
+          "path": "src/app/client/workspace/ground.cljs",
+          "bytes": 224452,
+          "sha256": "252bee13fb81fedae79f15abf58a0c309ae23f97b69f7ca68687e6503f73a926"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58124,
+          "sha256": "6af9b8494126e3092de2ce148537b0de47e85450f8750d8ef44b583f2af5b128"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 183787,
+          "sha256": "43088d6843278f2105e7c959e2074981a72ca9b3dc6f010fe741ec171ac4e54f"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 250203,
+          "sha256": "e3edb6899e9a521bf90de6d42ff96609c219935953a9157f996382d0eb61d38b"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 122078,
+          "sha256": "69408ffc9ba051a75c4e440529f18ffbaa93f50c52c5cf7fc4eaf295ebd95d1a"
         }
       }
     }
@@ -7146,6 +7579,224 @@
           "sha256": "600e7d955ed5f36fae3c47a1368146a70bcb04e8b79148ad4f7f54333f211483"
         }
       }
+    },
+    {
+      "amendment": 6,
+      "reason": "W4 close refreshed its complete implementation and verifier input set after the bounded repair pass",
+      "inputs": {
+        "frameEffects": {
+          "path": "src/app/client/substrate/frame_effects.cljc",
+          "bytes": 14194,
+          "sha256": "8c90cd09d00bb08923b3ab5be32c20e21d92adc2f0e0f4fe34bd8c060f2e39eb"
+        },
+        "frameGraph": {
+          "path": "src/app/client/substrate/frame_graph.cljc",
+          "bytes": 31316,
+          "sha256": "ef17b67c6091ba313c4c0718a0505093c4a6e7d164a691b8e32a37cc7966817f"
+        },
+        "frameScheduler": {
+          "path": "src/app/client/substrate/frame_scheduler.cljc",
+          "bytes": 7915,
+          "sha256": "19df7b384c1b5ad7a6341146151ad7bd9998ec351a7f433aebf0bb27cdf2765d"
+        },
+        "compositorGpu": {
+          "path": "src/app/client/substrate/webgpu/compositor_gpu.cljs",
+          "bytes": 49622,
+          "sha256": "991168cdea1ff4df66865e19771796ac5b740b307bc92c8a05000a8046bc4086"
+        },
+        "frameRuntime": {
+          "path": "src/app/client/workspace/frame_runtime.cljs",
+          "bytes": 15083,
+          "sha256": "4464093577bbc58d245f1de57d0d5c69d498b91a9135b2b924f37d1a80a5cffb"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 32846,
+          "sha256": "e9403882e508e4f57a22f7db26506ba666edd303fab3bba843531e4daa602888"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 33550,
+          "sha256": "ef62209e1692d8bf9a13c4e3cdecc27bf66122fe1e437dab6ad1ae89fd0b3170"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 32614,
+          "sha256": "ad61d06624879253bf19dfd12aa75c61b33ce314e6277b73aacb57ce3523b511"
+        },
+        "containers": {
+          "path": "src/app/client/workspace/containers.cljc",
+          "bytes": 12458,
+          "sha256": "8eb7b7f73596470986da251e4158a96f944387cef54cd63eeca3f5121aa52300"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28231,
+          "sha256": "c15941e509222d55838977184e82e44904d387b2ec70abf892dece0b9b634359"
+        },
+        "chromeMaterial": {
+          "path": "src/app/client/substrate/chrome_material.cljc",
+          "bytes": 12785,
+          "sha256": "107a83ab794f647bb10f02fb29342296245d32084ec268582f5d07a62a4cf4dc"
+        },
+        "chromeGpu": {
+          "path": "src/app/client/substrate/webgpu/chrome_gpu.cljs",
+          "bytes": 16642,
+          "sha256": "a689b1b5e6eafddcad04e19d01ca68e65d42320ac132e033420a0cec43caf9d4"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58124,
+          "sha256": "6af9b8494126e3092de2ce148537b0de47e85450f8750d8ef44b583f2af5b128"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 183787,
+          "sha256": "43088d6843278f2105e7c959e2074981a72ca9b3dc6f010fe741ec171ac4e54f"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 250203,
+          "sha256": "e3edb6899e9a521bf90de6d42ff96609c219935953a9157f996382d0eb61d38b"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 122078,
+          "sha256": "69408ffc9ba051a75c4e440529f18ffbaa93f50c52c5cf7fc4eaf295ebd95d1a"
+        },
+        "fence": {
+          "path": "test/render_engine/verify_scene_tape_fence.mjs",
+          "bytes": 9203,
+          "sha256": "600e7d955ed5f36fae3c47a1368146a70bcb04e8b79148ad4f7f54333f211483"
+        }
+      }
+    }
+  ],
+  "t2InputFloorInputs": {
+    "textEditing": {
+      "path": "src/app/client/workspace/text_editing.cljc",
+      "bytes": 20908,
+      "sha256": "77366a2eb98016fe3f48bf0ff5da96313aac12043bf83b40afdf60cf9e7f6ec7"
+    },
+    "editingSegmentation": {
+      "path": "src/app/client/workspace/editing_segmentation.cljs",
+      "bytes": 2136,
+      "sha256": "894850264409b4e9aa27b79159cea598a80516b30d04914d46b5e8c5439c0698"
+    },
+    "editingRuntime": {
+      "path": "src/app/client/workspace/editing_runtime.cljs",
+      "bytes": 32935,
+      "sha256": "177cdfbedcf1efa3ba4c5af253adc23f43d7b0839fbc35de2f7e02dbb25908c9"
+    },
+    "textLayout": {
+      "path": "src/app/client/workspace/text_layout.cljc",
+      "bytes": 71450,
+      "sha256": "87112273dbc34b615929a5c62959dd408fa54f091aca1624d712325ddeb06905"
+    },
+    "events": {
+      "path": "src/app/client/workspace/events.cljs",
+      "bytes": 11699,
+      "sha256": "50d3fde2ae648a2233e9a0c4984591ad2f746ce981d92afaed1eb0495087fe59"
+    },
+    "runtimeMouse": {
+      "path": "src/app/client/workspace/runtime/mouse.cljs",
+      "bytes": 38971,
+      "sha256": "5bbbc14296b6a1340cd50752eec3f3ae4da74791021ad702712cd1e05667dc66"
+    },
+    "runtimeRender": {
+      "path": "src/app/client/workspace/runtime/render.cljs",
+      "bytes": 58124,
+      "sha256": "6af9b8494126e3092de2ce148537b0de47e85450f8750d8ef44b583f2af5b128"
+    },
+    "liveAtoms": {
+      "path": "src/app/client/workspace/live_atoms.cljs",
+      "bytes": 17154,
+      "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+    },
+    "frameScheduler": {
+      "path": "src/app/client/substrate/frame_scheduler.cljc",
+      "bytes": 7915,
+      "sha256": "19df7b384c1b5ad7a6341146151ad7bd9998ec351a7f433aebf0bb27cdf2765d"
+    },
+    "sceneStore": {
+      "path": "src/app/client/workspace/scene_store.cljc",
+      "bytes": 33550,
+      "sha256": "ef62209e1692d8bf9a13c4e3cdecc27bf66122fe1e437dab6ad1ae89fd0b3170"
+    },
+    "sceneRuntime": {
+      "path": "src/app/client/workspace/scene_runtime.cljs",
+      "bytes": 28231,
+      "sha256": "c15941e509222d55838977184e82e44904d387b2ec70abf892dece0b9b634359"
+    },
+    "rectTree": {
+      "path": "src/app/client/workspace/rect_tree.cljc",
+      "bytes": 32614,
+      "sha256": "ad61d06624879253bf19dfd12aa75c61b33ce314e6277b73aacb57ce3523b511"
+    },
+    "containers": {
+      "path": "src/app/client/workspace/containers.cljc",
+      "bytes": 12458,
+      "sha256": "8eb7b7f73596470986da251e4158a96f944387cef54cd63eeca3f5121aa52300"
+    },
+    "verifier": {
+      "path": "src/app/client/substrate/webgpu/verifier.cljs",
+      "bytes": 250203,
+      "sha256": "e3edb6899e9a521bf90de6d42ff96609c219935953a9157f996382d0eb61d38b"
+    },
+    "runner": {
+      "path": "test/render_engine/run_verifier.mjs",
+      "bytes": 122078,
+      "sha256": "69408ffc9ba051a75c4e440529f18ffbaa93f50c52c5cf7fc4eaf295ebd95d1a"
+    },
+    "fence": {
+      "path": "test/render_engine/verify_text_layout_fence.mjs",
+      "bytes": 8938,
+      "sha256": "28e2d51d202e6776c9044979d24973c84b6c96736dc988360f141a7e9a95a547"
+    }
+  },
+  "t2InputFloorCases": [
+    {
+      "caseId": "paragraph-selection",
+      "zoom": 1,
+      "regime": "session-world-subtree",
+      "normalization": "production-msdf",
+      "shapeExtentWorld": 128,
+      "mode": "paragraph-selection",
+      "file": "gpu-t2-input-floor-paragraph-selection.png",
+      "rawSha256": "329476c92f71458126d462384d674feba208c1f7dddcbe96a5def14bf2a92867",
+      "pngSha256": "7d9d26f1f322fabf5ed3c96f8dab4fb8c5a7c223ae7e3f603204e3bcf45a7d87"
+    },
+    {
+      "caseId": "clipped-card",
+      "zoom": 1,
+      "regime": "session-world-subtree",
+      "normalization": "production-msdf",
+      "shapeExtentWorld": 128,
+      "mode": "clipped-card",
+      "file": "gpu-t2-input-floor-clipped-card.png",
+      "rawSha256": "66c7a0529e3d65d6fd2733b5d1f1cb1ac2e6545cb47b7336fa9892b9b54c1f71",
+      "pngSha256": "2aa7186ac8d1a1aa387e87a19470fc7cc4797353ced6fd1569990eab081c9b6e"
+    },
+    {
+      "caseId": "composition-preedit",
+      "zoom": 1,
+      "regime": "session-world-subtree",
+      "normalization": "production-msdf",
+      "shapeExtentWorld": 128,
+      "mode": "composition-preedit",
+      "file": "gpu-t2-input-floor-composition-preedit.png",
+      "rawSha256": "71a1d88fdf8c2d2c6b46ac8ee55214d491f809050efb83999572d0caae851e63",
+      "pngSha256": "fce6f026112f46bdef89cfe76935be81fc70142405210b5467457d20094e3b6b"
     }
   ]
 }
