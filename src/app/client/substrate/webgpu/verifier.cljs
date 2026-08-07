@@ -16,13 +16,18 @@
             [app.client.substrate.image-material :as image-material]
             [app.client.substrate.path-material :as path-material]
             [app.client.substrate.path-tessellation :as path-tessellation]
+            [app.client.substrate.frame-effects :as frame-effects]
+            [app.client.substrate.frame-graph :as frame-graph]
+            [app.client.substrate.frame-scheduler :as frame-scheduler]
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.substrate.webgpu.chrome-gpu :as chrome-gpu]
             [app.client.substrate.webgpu.connector-gpu :as connector-gpu]
+            [app.client.substrate.webgpu.compositor-gpu :as compositor-gpu]
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
             [app.client.substrate.webgpu.renderer :as renderer]
             [app.client.workspace.containers :as containers]
+            [app.client.workspace.frame-runtime :as frame-runtime]
             [app.client.workspace.live-atoms :as live-atoms]
             [app.client.workspace.live-edges :as live-edges]
             [app.client.workspace.runtime.fonts :as fonts]
@@ -2842,6 +2847,1214 @@
       (throw (ex-info "T1 browser layout receipt failed." receipt)))
     (assoc receipt :pass true)))
 
+;; ---------------------------------------------------------------------------
+;; W4 frame runtime — compositor, clip, export, and scheduler machine receipts
+;; ---------------------------------------------------------------------------
+
+(defn- w4-order [registry cid rank id]
+  {:stratum :world :pass-class :direct
+   :stack-path (into [[:frame/root rank rank]]
+                     (:stack-path (get (containers/effective registry) cid)))
+   :part-rank 0 :stable-tie id})
+
+(defn- w4-entry [registry cid rank id system first-instance]
+  {:entry/id id :material/id id :material/revision 1 :instance/id id
+   :family/id :render.family/rect
+   :order (w4-order registry cid rank id)
+   :paint {:pipeline (:pipeline system) :bind-group (:bind-group system)
+           :buffer (:instance-buffer system) :vertex-count 6
+           :instance-count 1 :first-vertex 0 :first-instance first-instance}
+   :pick {:geometry :rect-tree-bounds :owner id}
+   :visibility {:visible? true :clip :frame-shared}})
+
+(defn- w4-read-texture! [^js device ^js texture width height]
+  (let [row-bytes (* width 4)
+        padded (* 256 (js/Math.ceil (/ row-bytes 256)))
+        ^js buffer (.createBuffer device
+                              (clj->js {:size (* padded height)
+                                        :usage (bit-or js/GPUBufferUsage.COPY_DST
+                                                       js/GPUBufferUsage.MAP_READ)}))
+        ^js encoder (.createCommandEncoder device)]
+    (.copyTextureToBuffer encoder
+                          (clj->js {:texture texture})
+                          (clj->js {:buffer buffer :bytesPerRow padded
+                                    :rowsPerImage height})
+                          (clj->js {:width width :height height
+                                    :depthOrArrayLayers 1}))
+    (.submit (.-queue device) #js [(.finish encoder)])
+    (-> (.mapAsync buffer js/GPUMapMode.READ)
+        (.then
+         (fn []
+           (let [mapped (js/Uint8Array. (.getMappedRange buffer))
+                 tight (js/Uint8Array. (* row-bytes height))]
+             (dotimes [row height]
+               (.set tight
+                     (.subarray mapped (* row padded)
+                                (+ (* row padded) row-bytes))
+                     (* row row-bytes)))
+             (.unmap buffer)
+             (.destroy buffer)
+             tight))))))
+
+(defn- w4-capture!
+  [device compositor variant arrangement effect-spans plan width height
+   & {:keys [zoom effective-transforms]
+      :or {zoom 1.0 effective-transforms {}}}]
+  (let [texture (.createTexture
+                 device
+                 (clj->js {:size {:width width :height height
+                                  :depthOrArrayLayers 1}
+                           :format color-format
+                           :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
+                                          js/GPUTextureUsage.COPY_SRC)}))
+        context #js {:getCurrentTexture (fn [] texture)}]
+    (compositor-gpu/draw-multipass!
+     compositor {:context context :arrangement arrangement
+                 :effect-spans effect-spans :variant variant
+                 :execute-entry! renderer/execute-frame-entry!
+                 :width width :height height :zoom zoom
+                 :effective-transforms effective-transforms :plan plan})
+    (-> (w4-read-texture! device texture width height)
+        (.then (fn [bytes] (.destroy texture) bytes)))))
+
+(defn- w4-capture-pair!
+  [device compositor variant arrangement effect-spans plan
+   & {:keys [zoom effective-transforms]
+      :or {zoom 1.0 effective-transforms {}}}]
+  (-> (w4-capture! device compositor variant arrangement effect-spans plan
+                    canvas-size canvas-size :zoom zoom
+                    :effective-transforms effective-transforms)
+      (.then
+       (fn [first-bytes]
+         (-> (w4-capture! device compositor variant arrangement effect-spans plan
+                           canvas-size canvas-size :zoom zoom
+                           :effective-transforms effective-transforms)
+             (.then
+              (fn [second-bytes]
+                (-> (js/Promise.all
+                     #js [(sha256-bytes first-bytes)
+                          (sha256-bytes second-bytes)])
+                    (.then
+                     (fn [hashes]
+                       {:bytes first-bytes
+                        :first-sha256 (aget hashes 0)
+                        :second-sha256 (aget hashes 1)
+                        :byte-identical? (= (aget hashes 0)
+                                            (aget hashes 1))}))))))))))
+
+(defn- w4-registry [rows]
+  (reduce (fn [registry [cid spec]]
+            (containers/add-container registry cid spec))
+          (containers/empty-registry)
+          rows))
+
+(defn- w4-install-rects!
+  [device camera containers-buffer tracker registry rects]
+  (renderer/write-containers! device containers-buffer
+                              (containers/effective registry))
+  (let [system (renderer/init-rect-system
+                device color-format camera
+                :initial-capacity (max 1 (count rects))
+                :tracker tracker :containers-buffer containers-buffer)]
+    (renderer/update-rects device system rects)))
+
+(defn- w4-rect [registry cid x y w h rgba & {:as more}]
+  (merge {:x x :y y :w w :h h
+          :r (nth rgba 0) :g (nth rgba 1) :b (nth rgba 2) :a (nth rgba 3)
+          :container-idx (containers/transport-slot registry cid)}
+         more))
+
+(defn- w4-case
+  [device camera containers-buffer tracker case-id rows rect-specs entry-specs
+   & {:keys [forced-color-mode]}]
+  (let [registry (w4-registry rows)
+        rects (mapv (fn [[cid x y w h rgba more]]
+                      (apply w4-rect registry cid x y w h rgba
+                             (mapcat identity more)))
+                    rect-specs)
+        system (w4-install-rects! device camera containers-buffer tracker
+                                  registry rects)
+        arrangement
+        (mapv (fn [index [cid rank id entry-opts]]
+                (merge (w4-entry registry cid rank id system index)
+                       entry-opts))
+              (range) entry-specs)
+        spans (frame-effects/derive-effect-spans registry arrangement)
+        plan (frame-graph/compile-frame-plan
+              {:arrangement arrangement :effect-spans spans
+               :forced-color-mode forced-color-mode
+               :viewport {:width canvas-size :height canvas-size
+                          :format color-format}})]
+    {:case-id case-id :registry registry :system system :rects rects
+     :arrangement arrangement :effect-spans spans :plan plan}))
+
+(defn- w4-nested-mask-case [device camera containers-buffer tracker]
+  (w4-case
+   device camera containers-buffer tracker "nested-groups-alpha-mask"
+   [[:group {:layer 1 :sibling-rank 1 :effects {:opacity 0.5}}]
+    [:inner {:parent :group :layer 1 :sibling-rank 1
+             :effects {:opacity 0.65 :isolate? true}}]
+    [:mask-group {:layer 2 :sibling-rank 2
+                  :effects {:mask :mask-source}}]
+    [:mask-source {:parent :mask-group :layer 1 :sibling-rank 1}]]
+   [[:group 8.0 8.0 64.0 64.0 [1.0 0.0 0.0 0.5] {:radius 14.0}]
+    [:group 38.0 8.0 64.0 64.0 [0.0 0.0 1.0 0.5] {:radius 14.0}]
+    [:inner 18.0 78.0 84.0 36.0 [1.0 0.72 0.0 1.0] {:radius 12.0}]
+    [:mask-group 82.0 18.0 42.0 52.0 [0.14 0.90 0.62 1.0] {:radius 4.0}]
+    [:mask-source 94.0 26.0 26.0 36.0 [1.0 1.0 1.0 0.78] {:radius 13.0}]]
+   [[:group 1 :group-red nil]
+    [:group 1 :group-blue nil]
+    [:inner 2 :nested-inner nil]
+    [:mask-group 3 :mask-content nil]
+    [:mask-source 4 :mask-source nil]]))
+
+(defn- w4-mixed-nested-case!
+  "Build the written mixed-family golden on the production family systems.
+   Image ingress deliberately completes on the legacy system before the lazy
+   linear variant is minted; the variant must therefore share its registry and
+   resources rather than create an empty second image system."
+  [device camera containers-buffer tracker font-assets text-system compositor]
+  (let [base (w4-nested-mask-case device camera containers-buffer tracker)
+        registry (:registry base)
+        effective (containers/effective registry)
+        group-slot (containers/transport-slot registry :group)
+        image-system
+        (renderer/init-image-system
+         device color-format camera containers-buffer
+         :tracker tracker :scene-color scene-tape/legacy-direct-color)
+        path-system
+        (path-gpu/init-path-system
+         device color-format camera containers-buffer
+         :tracker tracker :scene-color scene-tape/legacy-direct-color)
+        text-api {:clone renderer/clone-text-system
+                  :update renderer/update-text-data
+                  :destroy renderer/destroy-text-system!}
+        connector-system
+        (connector-gpu/init-connector-system
+         device color-format camera containers-buffer
+         :tracker tracker :scene-color scene-tape/legacy-direct-color
+         :text-api text-api)
+        path-material
+        {:path/material-id :w4/mixed-path
+         :path/revision 1
+         :path/kind :shape
+         :path/geometry
+         {:open-width 2.0
+          :contours [{:contour/id [:w4/mixed-path :outer] :role :outer
+                      :points [[6.0 88.0] [46.0 88.0]
+                               [42.0 122.0] [10.0 118.0]]}]}
+         :path/paint (path-paint [0.94 0.28 0.86 0.92] 1.0)
+         :path/provenance {:actor :render-verifier :act :w4-mixed-golden}}
+        path-op* (assoc (path-op :w4/mixed-path path-material)
+                        :container-idx group-slot)
+        connector-vi [:w4 :mixed-connector]
+        connector-material*
+        (connector-material :w4/mixed-connector 1.0 :a :b
+                            "render-verifier" :human
+                            :color [0.16 0.96 0.88 1.0]
+                            :width 4.0)
+        connector-op* (assoc (connector-op :w4/mixed-connector
+                                           connector-material*)
+                             :container :group
+                             :container-idx group-slot
+                             :owner-vi connector-vi)
+        target-row (fn [vi bounds]
+                     {:vi vi :container :group :container-idx group-slot
+                      :bounds bounds})
+        targets {:a [(target-row [:w4 :target-a]
+                                 {:x 62.0 :y 86.0 :w 12.0 :h 12.0})]
+                 :b [(target-row [:w4 :target-b]
+                                 {:x 110.0 :y 108.0 :w 12.0 :h 12.0})]}]
+    (renderer/write-containers! device containers-buffer effective)
+    (-> (fetch-image-corpus!)
+        (.then
+         (fn [corpus]
+           (let [row (get corpus "atlas-opaque-srgb.png")]
+             (-> (renderer/register-image-source! image-system
+                                                  (:source row) (:bytes row))
+                 (.then (fn [_] row))))))
+        (.then
+         (fn [image-row]
+           (let [image-vi [:w4 :mixed-image]
+                 image-op* (assoc (image-op :w4/mixed-image
+                                            (:digest image-row)
+                                            72.0 78.0 34.0 26.0)
+                                  :container-idx group-slot)
+                 image-store {:images [image-op*]
+                              :ordered-vis [image-vi]
+                              :ops-count-by-vi {image-vi {:images 1}}
+                              :order-by-vi
+                              {image-vi {:stratum :world
+                                         :stack-path
+                                         (:stack-path (get effective :group))}}}
+                 path-vi [:w4 :mixed-path]
+                 path-store {:paths [path-op*]
+                             :ordered-vis [path-vi]
+                             :ops-count-by-vi {path-vi {:paths 1}}
+                             :order-by-vi
+                             {path-vi {:stratum :world
+                                       :stack-path
+                                       (:stack-path (get effective :group))}}}
+                 connector-store
+                 {:connectors [connector-op*]
+                  :ordered-vis [connector-vi]
+                  :ops-count-by-vi {connector-vi {:connectors 1}}
+                  :order-by-vi
+                  {connector-vi {:stratum :world
+                                 :stack-path
+                                 (:stack-path (get effective :group))}}}
+                 _ (renderer/prepare-image-frame! image-system [image-op*])
+                 _ (path-gpu/prepare-path-frame! path-system [path-op*] 1.0)
+                 _ (connector-gpu/prepare-connector-frame!
+                    connector-system [connector-op*] targets effective 1.0
+                    font-assets text-system)
+                 image-entry
+                 (-> (renderer/image-entries
+                      {:image-system image-system :store-frame image-store})
+                     first
+                     (assoc :entry/id :w4/mixed-image
+                            :material/id :w4/mixed-image
+                            :instance/id :w4/mixed-image
+                            :order (w4-order registry :group 1
+                                             :w4/mixed-image)))
+                 path-entry
+                 (-> (path-gpu/path-entries
+                      {:path-system path-system :store-frame path-store})
+                     first
+                     (assoc :entry/id :w4/mixed-path
+                            :material/id :w4/mixed-path
+                            :instance/id :w4/mixed-path
+                            :order (w4-order registry :group 1
+                                             :w4/mixed-path)))
+                 connector-entry
+                 (->> (connector-gpu/connector-entries
+                       {:store-frame connector-store
+                        :connector-system connector-system
+                        :connector-label-entry renderer/connector-label-entry})
+                      (filter #(= :render.family/connector (:family/id %)))
+                      first
+                      (#(assoc % :entry/id :w4/mixed-connector
+                                 :material/id :w4/mixed-connector
+                                 :instance/id :w4/mixed-connector
+                                 :order (w4-order registry :group 1
+                                                  :w4/mixed-connector))))
+                 base-arrangement (:arrangement base)
+                 arrangement (into (subvec base-arrangement 0 2)
+                                   (concat [image-entry path-entry connector-entry]
+                                           (subvec base-arrangement 2)))
+                 spans (frame-effects/derive-effect-spans registry arrangement)
+                 plan (frame-graph/compile-frame-plan
+                       {:arrangement arrangement :effect-spans spans
+                        :viewport {:width canvas-size :height canvas-size
+                                   :format color-format}})
+                 variant (compositor-gpu/ensure-variant-layer!
+                          compositor renderer/build-linear-variant-layer!
+                          {:format color-format :tracker tracker
+                           :camera-buffer camera
+                           :containers-buffer containers-buffer
+                           :font-assets font-assets :text-sys text-system
+                           :image-system image-system :path-system path-system
+                           :connector-system connector-system
+                           :chrome-system nil})
+                 family-census (set (map :family/id arrangement))]
+             {:nested (assoc base :arrangement arrangement
+                                  :effect-spans spans :plan plan
+                                  :mixed-family-census family-census
+                                  :image-ingress-before-variant
+                                  (get-in (renderer/image-ingress-receipt
+                                           image-system)
+                                          [:rows (:digest image-row)])
+                                  :systems {:image image-system :path path-system
+                                            :connector connector-system})
+              :variant variant}))))))
+
+(defn- w4-backdrop-case [device camera containers-buffer tracker]
+  (w4-case
+   device camera containers-buffer tracker "backdrop-blur-z0p1"
+   [[:base {:layer 0 :sibling-rank 0}]
+    [:glass {:layer 1 :sibling-rank 1
+             :effects {:backdrop-blur
+                       {:radius-world 18.0 :max-px 64.0
+                        :algorithm-version
+                        frame-effects/blur-algorithm-version}}}]]
+   [[:base 4.0 4.0 120.0 120.0 [0.08 0.18 0.42 1.0]
+     {:gradient [0.0 1.0 0.0 0.0]
+      :gradient-color2 [0.96 0.32 0.12 1.0]}]
+    [:base 14.0 16.0 28.0 96.0 [0.95 0.92 0.25 1.0] {:radius 10.0}]
+    [:base 84.0 12.0 30.0 100.0 [0.18 0.86 0.72 1.0] {:radius 10.0}]
+    [:glass 28.0 28.0 72.0 72.0 [0.82 0.92 1.0 0.28] {:radius 18.0}]]
+   [[:base 0 :backdrop-base nil]
+    [:base 0 :backdrop-stripe-a nil]
+    [:base 0 :backdrop-stripe-b nil]
+    [:glass 1 :backdrop-glass nil]]))
+
+(defn- w4-clip-case
+  [device camera containers-buffer tracker text-system font-assets]
+  (let [base (w4-case
+              device camera containers-buffer tracker "gpu-clip-rounded-text"
+              [[:clip {:layer 0 :sibling-rank 0}]
+               [:full {:layer 1 :sibling-rank 1}]]
+              [[:clip -22.0 12.0 78.0 66.0 [0.96 0.38 0.16 1.0]
+                {:radius 28.0}]
+               [:clip 72.0 12.0 78.0 66.0 [0.18 0.66 0.96 1.0]
+                {:radius 28.0}]
+               [:full 0.0 106.0 128.0 18.0 [0.28 0.88 0.48 1.0] {}]]
+              [[:clip 0 :two-clips nil]
+               [:clip 0 :clip-second-placeholder nil]
+               [:full 1 :full-after-scissor nil]]
+              :forced-color-mode :scene-color/linear)
+        system (:system base)
+        two (-> (first (:arrangement base))
+                (assoc-in [:paint :instance-count] 2)
+                (assoc-in [:paint :sub-draws]
+                          [{:clip {:x 0 :y 12 :w 42 :h 66}
+                            :container :clip :buffer (:instance-buffer system)
+                            :vertex-count 6 :instance-count 1
+                            :first-vertex 0 :first-instance 0}
+                           {:clip {:mode :mask
+                                   :points [[88.0 18.0] [128.0 28.0]
+                                            [118.0 78.0] [78.0 68.0]]}
+                            :container :clip :buffer (:instance-buffer system)
+                            :vertex-count 6 :instance-count 1
+                            :first-vertex 0 :first-instance 1}]))
+        full (nth (:arrangement base) 2)
+        text-system
+        (renderer/update-text-data
+         device text-system
+         [[{:text "smooth clipping edge" :x 36.0 :y 96.0
+            :r 1.0 :g 1.0 :b 1.0 :a 1.0
+            :container-idx (containers/transport-slot (:registry base) :clip)}]]
+         font-assets 22.0 :char-width 0.56)
+        text-entry
+        {:entry/id :clip-text :material/id :clip-text :material/revision 1
+         :instance/id :clip-text
+         :family/id (scene-tape/text-family-id (:backend text-system))
+         :order (w4-order (:registry base) :clip 0 :clip-text)
+         :paint {:pipeline (:pipeline text-system)
+                 :bind-group (:bind-group text-system)
+                 :buffer (:instance-buffer text-system)
+                 :vertex-count 6 :instance-count (:num-instances text-system)
+                 :first-vertex 0 :first-instance 0
+                 :sub-draws [{:clip {:x 0 :y 78 :w 64 :h 28}
+                              :container :clip
+                              :buffer (:instance-buffer text-system)
+                              :vertex-count 6
+                              :instance-count (:num-instances text-system)
+                              :first-vertex 0 :first-instance 0}]}
+         :pick {:geometry :layout-cluster :owner :clip-text}
+         :visibility {:visible? true :clip :frame-shared}}
+        arrangement [two text-entry full]
+        plan (frame-graph/compile-frame-plan
+              {:arrangement arrangement :effect-spans []
+               :forced-color-mode :scene-color/linear
+               :viewport {:width canvas-size :height canvas-size
+                          :format color-format}})]
+    (assoc base :arrangement arrangement :plan plan
+                :text-system text-system)))
+
+(defn- w4-gradient-case [device camera containers-buffer tracker]
+  (w4-case
+   device camera containers-buffer tracker "linear-gradient-midpoint"
+   [[:gradient {:layer 0 :sibling-rank 0}]]
+   [[:gradient 0.0 0.0 128.0 128.0 [0.0 0.0 0.0 1.0]
+     {:gradient [0.0 1.0 0.0 0.0]
+      :gradient-color2 [1.0 1.0 1.0 1.0]}]]
+   [[:gradient 0 :gradient nil]]
+   :forced-color-mode :scene-color/linear))
+
+(defn- w4-group-oracle [bytes]
+  (let [[r g b a-byte] (pixel-rgba bytes 52 36)
+        alpha (/ a-byte 255.0)
+        decode (fn [byte]
+                 (if (pos? alpha)
+                   (* alpha (srgb->linear
+                             (min 255 (js/Math.round (/ byte alpha)))))
+                   0.0))
+        actual [(decode r) (decode g) (decode b) alpha]
+        correct (frame-effects/composite-group
+                 [[0.5 0.0 0.0 0.5] [0.0 0.0 0.5 0.5]]
+                 {:opacity 0.5})
+        wrong (frame-effects/source-over
+               (frame-effects/apply-group-opacity [0.0 0.0 0.5 0.5] 0.5)
+               (frame-effects/apply-group-opacity [0.5 0.0 0.0 0.5] 0.5))
+        deltas (mapv #(js/Math.abs (- %1 %2)) actual correct)
+        epsilon (/ 2.0 255.0)
+        wrong-margin (apply max (map #(js/Math.abs (- %1 %2)) correct wrong))]
+    {:sample [52 36] :actual-linear-premult actual :reference correct
+     :max-channel-delta (apply max deltas) :epsilon epsilon
+     :per-child-wrong-margin wrong-margin
+     :pass? (and (<= (apply max deltas) epsilon)
+                 (> wrong-margin (* 4.0 epsilon)))}))
+
+(defn- max-byte-delta [left right]
+  (loop [index 0 maximum 0]
+    (if (< index (min (.-length left) (.-length right)))
+      (recur (inc index)
+             (max maximum
+                  (js/Math.abs (- (aget left index) (aget right index)))))
+      maximum)))
+
+(defn- straight-alpha-sample [[r g b a]]
+  (if (zero? a)
+    [0 0 0 0]
+    (let [scale (/ 255.0 a)]
+      [(min 255 (js/Math.round (* r scale)))
+       (min 255 (js/Math.round (* g scale)))
+       (min 255 (js/Math.round (* b scale)))
+       a])))
+
+(defn- w4-direct-capture! [^js device entry width height]
+  (let [^js texture (.createTexture
+                 device
+                 (clj->js {:size {:width width :height height
+                                  :depthOrArrayLayers 1}
+                           :format color-format
+                           :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
+                                          js/GPUTextureUsage.COPY_SRC)}))
+        ^js encoder (.createCommandEncoder device)
+        ^js pass (.beginRenderPass
+              encoder
+              (clj->js {:colorAttachments
+                        [{:view (.createView texture)
+                          :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 0.0}
+                          :loadOp "clear" :storeOp "store"}]}))]
+    (renderer/execute-frame-entry! pass entry [width height])
+    (.end pass)
+    (.submit (.-queue device) #js [(.finish encoder)])
+    (-> (w4-read-texture! device texture width height)
+        (.then (fn [bytes] (.destroy texture) bytes)))))
+
+(defn- w4-copy-present-capture! [^js device entry width height]
+  (let [size {:width width :height height :depthOrArrayLayers 1}
+        ^js source (.createTexture
+                    device
+                    (clj->js {:size size :format color-format
+                              :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
+                                             js/GPUTextureUsage.COPY_SRC)}))
+        ^js destination (.createTexture
+                         device
+                         (clj->js {:size size :format color-format
+                                   :usage (bit-or js/GPUTextureUsage.COPY_DST
+                                                  js/GPUTextureUsage.COPY_SRC)}))
+        ^js encoder (.createCommandEncoder device)
+        ^js pass (.beginRenderPass
+                  encoder
+                  (clj->js {:colorAttachments
+                            [{:view (.createView source)
+                              :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 0.0}
+                              :loadOp "clear" :storeOp "store"}]}))]
+    (renderer/execute-frame-entry! pass entry [width height])
+    (.end pass)
+    (compositor-gpu/copy-present! device encoder source destination width height)
+    (.submit (.-queue device) #js [(.finish encoder)])
+    (-> (w4-read-texture! device destination width height)
+        (.then (fn [bytes]
+                 (.destroy source)
+                 (.destroy destination)
+                 bytes)))))
+
+(defn- w4-secondary-receipts!
+  [device compositor variant camera containers-buffer tracker]
+  (let [rgba [0.20 0.60 0.90 1.0]
+        direct (w4-case
+                device camera containers-buffer tracker "direct-linear"
+                [[:solid {:layer 0 :sibling-rank 0}]]
+                [[:solid 20.0 20.0 88.0 88.0 rgba {:radius 12.0}]]
+                [[:solid 0 :solid nil]]
+                :forced-color-mode :scene-color/linear)
+        isolate (w4-case
+                 device camera containers-buffer tracker "isolated-one"
+                 [[:solid {:layer 0 :sibling-rank 0
+                            :effects {:isolate? true :opacity 1.0}}]]
+                 [[:solid 20.0 20.0 88.0 88.0 rgba {:radius 12.0}]]
+                 [[:solid 0 :solid nil]])
+        zero (w4-case
+              device camera containers-buffer tracker "opacity-zero"
+              [[:zero {:layer 0 :sibling-rank 0 :effects {:opacity 0.0}}]]
+              [[:zero 20.0 20.0 88.0 88.0 rgba {:radius 12.0}]]
+              [[:zero 0 :zero nil]])
+        split (w4-case
+               device camera containers-buffer tracker "split-span"
+               [[:split {:layer 0 :sibling-rank 0
+                         :effects {:opacity 0.5}}]
+                [:between {:layer 1 :sibling-rank 1}]]
+               [[:split 20.0 20.0 88.0 88.0 [0.90 0.12 0.18 1.0] {}]
+                [:between 20.0 20.0 88.0 88.0 [0.12 0.86 0.26 1.0] {}]
+                [:split 20.0 20.0 88.0 88.0 [0.12 0.28 0.96 1.0] {}]]
+               [[:split 0 :split-a nil]
+                [:between 1 :between nil]
+                [:split 2 :split-b nil]])
+        split-reference
+        (w4-case
+         device camera containers-buffer tracker "split-span-reference"
+         [[:split-a {:layer 0 :sibling-rank 0 :effects {:opacity 0.5}}]
+          [:between {:layer 1 :sibling-rank 1}]
+          [:split-b {:layer 2 :sibling-rank 2 :effects {:opacity 0.5}}]]
+         [[:split-a 20.0 20.0 88.0 88.0 [0.90 0.12 0.18 1.0] {}]
+          [:between 20.0 20.0 88.0 88.0 [0.12 0.86 0.26 1.0] {}]
+          [:split-b 20.0 20.0 88.0 88.0 [0.12 0.28 0.96 1.0] {}]]
+         [[:split-a 0 :split-a nil]
+          [:between 1 :between nil]
+          [:split-b 2 :split-b nil]])
+        export-case
+        (w4-case
+         device camera containers-buffer tracker "world-with-overlay"
+         [[:export {:layer 0 :sibling-rank 0}]]
+         [[:export 20.0 20.0 88.0 88.0 rgba {:radius 12.0}]
+          [:export 20.0 20.0 88.0 88.0 [1.0 0.0 0.0 1.0] {:radius 12.0}]]
+         [[:export 0 :export-world nil]
+          [:export 1 :export-overlay
+           {:order (assoc (w4-order (:registry direct) :solid 1 :export-overlay)
+                          :stratum :overlay)}]]
+         :forced-color-mode :scene-color/linear)
+        direct-effective (containers/effective (:registry direct))
+        isolate-effective (containers/effective (:registry isolate))
+        zero-effective (containers/effective (:registry zero))
+        split-effective (containers/effective (:registry split))
+        split-reference-effective
+        (containers/effective (:registry split-reference))
+        export-effective (containers/effective (:registry export-case))]
+    (-> (w4-direct-capture! device (first (:arrangement direct))
+                             canvas-size canvas-size)
+        (.then
+         (fn [legacy-bytes]
+           (-> (js/Promise.all
+                #js [(w4-copy-present-capture!
+                      device (first (:arrangement direct))
+                      canvas-size canvas-size)
+                     (w4-capture! device compositor variant (:arrangement direct)
+                                  (:effect-spans direct) (:plan direct)
+                                  canvas-size canvas-size
+                                  :effective-transforms direct-effective)
+                     (w4-capture! device compositor variant (:arrangement split)
+                                  (:effect-spans split) (:plan split)
+                                  canvas-size canvas-size
+                                  :effective-transforms split-effective)
+                     (w4-capture! device compositor variant
+                                  (:arrangement split-reference)
+                                  (:effect-spans split-reference)
+                                  (:plan split-reference)
+                                  canvas-size canvas-size
+                                  :effective-transforms
+                                  split-reference-effective)])
+               (.then
+                (fn [direct-values]
+                  (let [copy-bytes (aget direct-values 0)
+                        linear-bytes (aget direct-values 1)
+                        split-bytes (aget direct-values 2)
+                        split-reference-bytes (aget direct-values 3)
+                        split-delta (max-byte-delta split-bytes
+                                                    split-reference-bytes)]
+                    (-> (w4-capture! device compositor variant
+                                   (:arrangement isolate)
+                                   (:effect-spans isolate) (:plan isolate)
+                                   canvas-size canvas-size
+                                   :effective-transforms isolate-effective)
+                      (.then
+                       (fn [isolate-bytes]
+                         (-> (w4-capture! device compositor variant
+                                          (:arrangement zero)
+                                          (:effect-spans zero) (:plan zero)
+                                          canvas-size canvas-size
+                                          :effective-transforms zero-effective)
+                             (.then
+                              (fn [zero-bytes]
+                                (-> (compositor-gpu/export-viewport!
+                                     compositor
+                                     {:arrangement (:arrangement export-case)
+                                      :effect-spans (:effect-spans export-case)
+                                      :variant variant
+                                      :execute-entry!
+                                      renderer/execute-frame-entry!
+                                      :width canvas-size :height canvas-size
+                                      :effective-transforms export-effective})
+                                    (.then
+                                     (fn [export-result]
+                                       (let [equivalence-delta
+                                             (max-byte-delta linear-bytes
+                                                             isolate-bytes)
+                                             legacy-sample
+                                             (pixel-rgba legacy-bytes 64 64)
+                                             linear-sample
+                                             (pixel-rgba linear-bytes 64 64)
+                                             export-sample
+                                             (pixel-rgba (:rgba export-result)
+                                                         64 64)
+                                             transfer-delta
+                                             (apply max
+                                                    (map #(js/Math.abs (- %1 %2))
+                                                         legacy-sample
+                                                         linear-sample))
+                                             copy-delta
+                                             (max-byte-delta legacy-bytes copy-bytes)
+                                             export-delta
+                                             (apply max
+                                                    (map #(js/Math.abs (- %1 %2))
+                                                         (straight-alpha-sample
+                                                          legacy-sample)
+                                                         export-sample))
+                                             zero-sample
+                                             (pixel-rgba zero-bytes 64 64)
+                                             pick-count
+                                             (count (filter :pick
+                                                            (:arrangement zero)))
+                                             refusal-pool
+                                             (compositor-gpu/create-target-pool
+                                              device tracker
+                                              :budget-cap-bytes 1)
+                                             refused?
+                                             (try
+                                               (compositor-gpu/acquire-target!
+                                                refusal-pool "rgba16float" 2 2
+                                                "w4/budget-refusal-probe")
+                                               false
+                                               (catch :default _ true))
+                                             refusal-receipt
+                                             (compositor-gpu/target-pool-receipt
+                                              refusal-pool)
+                                             _ (compositor-gpu/destroy-target-pool!
+                                                refusal-pool)
+                                             epsilon 2]
+                                         {:group-equivalence
+                                          {:max-byte-delta equivalence-delta
+                                           :epsilon epsilon
+                                           :pass? (<= equivalence-delta epsilon)}
+                                          :transfer
+                                          {:legacy-sample legacy-sample
+                                           :linear-sample linear-sample
+                                           :legacy-straight-sample
+                                           (straight-alpha-sample legacy-sample)
+                                           :export-straight-sample export-sample
+                                           :legacy-to-linear-max-byte-delta
+                                           transfer-delta
+                                           :direct-to-copy-present-max-byte-delta
+                                           copy-delta
+                                           :legacy-to-export-sample-delta
+                                           export-delta
+                                           :epsilon epsilon
+                                           :pass? (and (<= transfer-delta epsilon)
+                                                       (zero? copy-delta)
+                                                       (<= export-delta epsilon))}
+                                          :opacity-zero
+                                          {:paint-sample zero-sample
+                                           :pickable-census pick-count
+                                           :pass? (and (= [0 0 0 0] zero-sample)
+                                                       (= 1 pick-count))}
+                                          :split-span-forward-order
+                                          {:ranges (get-in split
+                                                           [:effect-spans 0
+                                                            :entry-ranges])
+                                           :reference :two-independent-groups
+                                           :max-byte-delta split-delta
+                                           :pass? (zero? split-delta)}
+                                          :export-overlay
+                                          {:metadata (:metadata export-result)
+                                           :world-sample (pixel-rgba
+                                                          (:rgba export-result)
+                                                          64 64)
+                                           :pass? (and (= 1
+                                                          (get-in export-result
+                                                                  [:metadata
+                                                                   :entry-count]))
+                                                       (<= export-delta epsilon))}
+                                          :budget-refusal
+                                          {:receipt refusal-receipt
+                                           :pass? (and refused?
+                                                       (= "w4/budget-refusal-probe"
+                                                          (get-in refusal-receipt
+                                                                  [:refusals 0
+                                                                   :requested-by])))}
+                                          :pass?
+                                          (and (<= equivalence-delta epsilon)
+                                               (<= transfer-delta epsilon)
+                                               (zero? copy-delta)
+                                               (<= export-delta epsilon)
+                                               (zero? split-delta)
+                                               (= [0 0 0 0] zero-sample)
+                                               (= 1 pick-count)
+                                               refused?)})))))))))))))))))))
+
+(defn- w4-case-image [case-id pair & [zoom]]
+  {:case-id case-id :zoom (or zoom 1.0) :regime "swiftshader-verifier"
+   :normalization "linear-premultiplied-group-frame"
+   :shape-extent-world 128.0
+   :images [{:mode case-id
+             :file (str "gpu-w4-frame-" case-id ".png")
+             :raw-sha256 (:first-sha256 pair)
+             :png-data-url (opaque-png-data-url (:bytes pair))
+             :determinism {:first-raw-sha256 (:first-sha256 pair)
+                           :second-raw-sha256 (:second-sha256 pair)
+                           :byte-identical? (:byte-identical? pair)}}]})
+
+(defn- run-w4-frame-runtime! [device adapter font-assets]
+  (let [runtime-before (aget js/globalThis "__softlandFrameRuntimeReceipt")
+        dark-lane {:flag-off? (not (frame-runtime/flag-enabled-search? ""))
+                   :no-receipt-before? (nil? runtime-before)
+                   :no-export-provider-before?
+                   (nil? (aget js/globalThis "__softlandFrameCompositor"))}
+        felt-fixtures (frame-runtime/felt-fixture-receipt)
+        felt-fixtures-pass?
+        (and (= 14 (:opacity-underlay-stripes felt-fixtures))
+             (= 2 (:opacity-underlay-colors felt-fixtures))
+             (:backdrop-overlaps-detail? felt-fixtures)
+             (<= 2 (count (:backdrop-detail-boundaries felt-fixtures)))
+             (every? #(< -10.0 % -1.0)
+                     (:clip-text-overhangs felt-fixtures))
+             (= ["partial glyph" "second clip"]
+                (:clip-labels felt-fixtures)))
+        tracker (gpu-budget/create-tracker
+                 (gpu-budget/snapshot-adapter-limits adapter))
+        camera (renderer/create-camera-buffer device tracker)
+        containers-buffer (renderer/create-containers-buffer device tracker)
+        compositor (compositor-gpu/create-compositor!
+                    device color-format tracker)
+        text-system (renderer/init-text-system
+                     device color-format camera font-assets
+                     :initial-capacity 64 :tracker tracker
+                     :containers-buffer containers-buffer)]
+    (-> (w4-mixed-nested-case!
+         device camera containers-buffer tracker font-assets text-system
+         compositor)
+        (.then
+         (fn [{:keys [nested variant]}]
+           (renderer/update-camera device camera (js/Float32Array. 6)
+                                   0.0 0.0 1.0 canvas-size canvas-size)
+           (-> (w4-capture-pair! device compositor variant (:arrangement nested)
+                           (:effect-spans nested) (:plan nested)
+                           :effective-transforms
+                           (containers/effective (:registry nested)))
+        (.then
+         (fn [nested-pair]
+           (let [backdrop (w4-backdrop-case device camera containers-buffer tracker)
+                 backdrop-start (js/performance.now)]
+             (renderer/update-camera device camera (js/Float32Array. 6)
+                                     0.0 0.0 0.1 canvas-size canvas-size)
+             (-> (w4-capture-pair! device compositor variant
+                                    (:arrangement backdrop)
+                                    (:effect-spans backdrop) (:plan backdrop)
+                                    :zoom 0.1
+                                    :effective-transforms
+                                    (containers/effective (:registry backdrop)))
+                 (.then
+                  (fn [backdrop-pair]
+                    (let [backdrop-receipt
+                          (compositor-gpu/compositor-receipt compositor)
+                          backdrop-elapsed-ms (- (js/performance.now)
+                                                 backdrop-start)
+                          _ (renderer/update-camera
+                             device camera (js/Float32Array. 6)
+                             0.0 0.0 1.0 canvas-size canvas-size)
+                          clip (w4-clip-case device camera containers-buffer tracker
+                                             text-system font-assets)]
+                      (-> (w4-capture-pair! device compositor variant
+                                            (:arrangement clip)
+                                            (:effect-spans clip) (:plan clip)
+                                            :effective-transforms
+                                            (containers/effective (:registry clip)))
+                          (.then
+                           (fn [clip-pair]
+                             (let [gradient (w4-gradient-case
+                                             device camera containers-buffer tracker)]
+                               (-> (w4-capture! device compositor variant
+                                                (:arrangement gradient)
+                                                (:effect-spans gradient)
+                                                (:plan gradient)
+                                                canvas-size canvas-size
+                                                :effective-transforms
+                                                (containers/effective
+                                                 (:registry gradient)))
+                                   (.then
+                                    (fn [gradient-bytes]
+                                      (let [gradient-rgba
+                                            (pixel-rgba gradient-bytes 64 64)
+                                            gradient-expected
+                                            (linear->srgb-byte 0.5)
+                                            gradient-delta
+                                            (js/Math.abs
+                                             (- (first gradient-rgba)
+                                                gradient-expected))
+                                            scissor-full
+                                            (pixel-rgba (:bytes clip-pair) 12 114)
+                                            general-mask-inside
+                                            (pixel-rgba (:bytes clip-pair) 105 50)
+                                            general-mask-outside
+                                            (pixel-rgba (:bytes clip-pair) 125 60)
+                                            glyph-probe
+                                            (apply max
+                                                   (for [y (range 80 105)
+                                                         x (range 58 64)]
+                                                     (apply max
+                                                            (take 3
+                                                                  (pixel-rgba
+                                                                   (:bytes clip-pair)
+                                                                   x y)))))
+                                            scissor-pass?
+                                            (and (> (nth scissor-full 1) 150)
+                                                 (> glyph-probe 150)
+                                                 (> (nth general-mask-inside 2) 120)
+                                                 (< (apply max general-mask-outside) 10))
+                                            mask-inside
+                                            (pixel-rgba (:bytes nested-pair) 107 44)
+                                            mask-outside
+                                            (pixel-rgba (:bytes nested-pair) 118 20)
+                                            mask-soft-alpha
+                                            (apply max
+                                                   (for [y (range 26 42)
+                                                         x (range 94 108)
+                                                         :let [alpha (nth
+                                                                      (pixel-rgba
+                                                                       (:bytes
+                                                                        nested-pair)
+                                                                       x y)
+                                                                      3)]
+                                                         :when (< 0 alpha
+                                                                  (nth mask-inside 3))]
+                                                     alpha))
+                                            mask-pass?
+                                            (and (<= (js/Math.abs
+                                                      (- 199
+                                                         (nth mask-inside 3)))
+                                                     4)
+                                                 (> (nth mask-inside 1)
+                                                    (nth mask-inside 0))
+                                                 (= [0 0 0 0] mask-outside)
+                                                 (< 0 mask-soft-alpha
+                                                    (nth mask-inside 3)))
+                                            pool (:target-pool compositor)
+                                            pool-before
+                                            (compositor-gpu/target-pool-receipt pool)]
+                                        (dotimes [_ 100]
+                                          (let [target
+                                                (compositor-gpu/acquire-target!
+                                                 pool "rgba16float" 17 19
+                                                 "w4/recycle-probe")]
+                                            (compositor-gpu/release-target! pool target)))
+                                        (let [pool-after
+                                              (compositor-gpu/target-pool-receipt pool)
+                                              four-k-live-bytes
+                                              (* (:high-water-leased pool-after)
+                                                 3840 2160 8)
+                                              four-k-bounded?
+                                              (and (<= (:high-water-leased
+                                                        pool-after)
+                                                       5)
+                                                   (<= four-k-live-bytes
+                                                       (:budget-cap-bytes
+                                                        pool-after)))
+                                              resize-pool
+                                              (compositor-gpu/create-target-pool
+                                               device tracker
+                                               :budget-cap-bytes 80)
+                                              resize-old
+                                              (compositor-gpu/acquire-target!
+                                               resize-pool "rgba16float" 2 2
+                                               "w4/resize-old")
+                                              _resize-old-released
+                                              (compositor-gpu/release-target!
+                                               resize-pool resize-old)
+                                              resize-new
+                                              (compositor-gpu/acquire-target!
+                                               resize-pool "rgba16float" 3 3
+                                               "w4/resize-new")
+                                              resize-receipt
+                                              (compositor-gpu/target-pool-receipt
+                                               resize-pool)
+                                              resize-reclaimed?
+                                              (and (= 1 (:destroyed
+                                                         resize-receipt))
+                                                   (= 72 (:reserved-bytes
+                                                          resize-receipt))
+                                                   (empty? (:refusals
+                                                            resize-receipt)))
+                                              _resize-new-released
+                                              (compositor-gpu/release-target!
+                                               resize-pool resize-new)
+                                              _resize-pool-destroyed
+                                              (compositor-gpu/destroy-target-pool!
+                                               resize-pool)
+                                              pool-pass?
+                                              (and
+                                               (= (inc (:allocations pool-before))
+                                                  (:allocations pool-after))
+                                               four-k-bounded?
+                                               resize-reclaimed?)
+                                              export-once
+                                              #(compositor-gpu/export-viewport!
+                                                compositor
+                                                {:arrangement (:arrangement clip)
+                                                 :effect-spans [] :variant variant
+                                                 :execute-entry!
+                                                 renderer/execute-frame-entry!
+                                                 :width 127 :height 73})]
+                                          (-> (export-once)
+                                              (.then
+                                               (fn [export-a]
+                                                 (-> (export-once)
+                                                     (.then
+                                                      (fn [export-b]
+                                                        (-> (js/Promise.all
+                                                             #js [(sha256-bytes
+                                                                   (:bytes export-a))
+                                                                  (sha256-bytes
+                                                                   (:bytes export-b))
+                                                                  (w4-secondary-receipts!
+                                                                   device compositor variant
+                                                                   camera containers-buffer
+                                                                   tracker)])
+                                                            (.then
+                                                             (fn [hashes]
+                                                               (let [export
+                                                                     {:first-sha256
+                                                                      (aget hashes 0)
+                                                                      :second-sha256
+                                                                      (aget hashes 1)
+                                                                      :byte-identical?
+                                                                      (= (aget hashes 0)
+                                                                         (aget hashes 1))
+                                                                      :metadata
+                                                                      (:metadata export-a)
+                                                                      :pass?
+                                                                      (and (= (aget hashes 0)
+                                                                              (aget hashes 1))
+                                                                           (= 512
+                                                                              (get-in export-a
+                                                                                      [:metadata :bytes-per-row])))}
+                                                                     secondary
+                                                                     (aget hashes 2)
+                                                                     scheduler-rows
+                                                                     [{:time 0 :causes [:world]
+                                                                       :plan-hash
+                                                                       (get-in nested
+                                                                               [:plan :plan/hash])}
+                                                                      {:time 16 :causes []
+                                                                       :plan-hash
+                                                                       (get-in nested
+                                                                               [:plan :plan/hash])}
+                                                                      {:time 34 :causes [:clock]
+                                                                       :plan-hash
+                                                                       (get-in nested
+                                                                               [:plan :plan/hash])}]
+                                                                     replay-a
+                                                                     (frame-scheduler/replay
+                                                                      scheduler-rows {})
+                                                                     replay-b
+                                                                     (frame-scheduler/replay
+                                                                      scheduler-rows {})
+                                                                     scheduler
+                                                                     (let [replay-time
+                                                                           (:time
+                                                                            (last
+                                                                             (:decisions
+                                                                              replay-a)))
+                                                                           pulse-a
+                                                                           (js/Math.round
+                                                                            (* 255
+                                                                               (frame-scheduler/pulse-alpha
+                                                                                replay-time true)))
+                                                                           pulse-b
+                                                                           (js/Math.round
+                                                                            (* 255
+                                                                               (frame-scheduler/pulse-alpha
+                                                                                replay-time true)))]
+                                                                       {:replay-identical?
+                                                                      (= replay-a replay-b)
+                                                                      :decisions
+                                                                      (mapv :encode?
+                                                                            (:decisions replay-a))
+                                                                      :replayed-pulse-bytes
+                                                                      [pulse-a pulse-b]
+                                                                      :replayed-pixels-identical?
+                                                                      (= pulse-a pulse-b)
+                                                                      :pass?
+                                                                      (and (= replay-a replay-b)
+                                                                           (= pulse-a pulse-b)
+                                                                           (= [true false true]
+                                                                              (mapv :encode?
+                                                                                    (:decisions replay-a))))})
+                                                                     alias-pass?
+                                                                     (every?
+                                                                      (fn [pass]
+                                                                        (empty?
+                                                                         (clojure.set/intersection
+                                                                          (set (map :resource (:reads pass)))
+                                                                          (set (keep :resource
+                                                                                     (vals (:attachments pass)))))))
+                                                                      (:passes (:plan backdrop)))
+                                                                     oracle
+                                                                     (w4-group-oracle
+                                                                      (:bytes nested-pair))
+                                                                     blur-projections
+                                                                     (:blur-projections
+                                                                      backdrop-receipt)
+                                                                     blur-pass?
+                                                                     (and (= 1
+                                                                             (count
+                                                                              blur-projections))
+                                                                          (<= (js/Math.abs
+                                                                               (- 1.8
+                                                                                  (:radius-px
+                                                                                   (first
+                                                                                    blur-projections))))
+                                                                              0.0001)
+                                                                          (= :projected-world-radius
+                                                                             (:regime
+                                                                              (first
+                                                                               blur-projections))))
+                                                                     mixed-family-pass?
+                                                                     (and (= #{:render.family/rect
+                                                                               :render.family/image
+                                                                               :render.family/path
+                                                                               :render.family/connector}
+                                                                             (:mixed-family-census
+                                                                              nested))
+                                                                          (= :ok
+                                                                             (get-in nested
+                                                                                     [:image-ingress-before-variant
+                                                                                      :status])))
+                                                                     cases
+                                                                     [(w4-case-image
+                                                                       (:case-id nested)
+                                                                       nested-pair)
+                                                                      (w4-case-image
+                                                                       (:case-id backdrop)
+                                                                       backdrop-pair 0.1)
+                                                                      (w4-case-image
+                                                                       (:case-id clip)
+                                                                       clip-pair)]
+                                                                     receipt-before-destroy
+                                                                     (compositor-gpu/compositor-receipt
+                                                                      compositor)
+                                                                     pass?
+                                                                     (and (every?
+                                                                           :byte-identical?
+                                                                           [nested-pair backdrop-pair
+                                                                            clip-pair])
+                                                                          (:pass? oracle)
+                                                                          mask-pass?
+                                                                          (<= gradient-delta 4)
+                                                                          scissor-pass?
+                                                                          pool-pass?
+                                                                          (:pass? export)
+                                                                          (:pass? scheduler)
+                                                                          (:pass? secondary)
+                                                                          blur-pass?
+                                                                          mixed-family-pass?
+                                                                          felt-fixtures-pass?
+                                                                          (every? true?
+                                                                                  (vals dark-lane))
+                                                                          alias-pass?)]
+                                                                 (compositor-gpu/destroy-compositor!
+                                                                  compositor)
+                                                                 {:cases cases
+                                                                  :adapter
+                                                                  (adapter-information adapter)
+                                                                  :composite oracle
+                                                                  :mixed-content
+                                                                  {:families
+                                                                   (:mixed-family-census nested)
+                                                                   :image-ingress-before-variant
+                                                                   (:image-ingress-before-variant nested)
+                                                                   :pass? mixed-family-pass?}
+                                                                  :felt-fixtures
+                                                                  (assoc felt-fixtures
+                                                                         :pass?
+                                                                         felt-fixtures-pass?)
+                                                                  :mask
+                                                                  {:inside mask-inside
+                                                                   :outside mask-outside
+                                                                   :soft-edge-alpha
+                                                                   mask-soft-alpha
+                                                                   :expected-inside-alpha 199
+                                                                   :mask-source-normal-paint?
+                                                                   false
+                                                                   :pass? mask-pass?}
+                                                                  :gradient
+                                                                  {:sample [64 64]
+                                                                   :actual gradient-rgba
+                                                                   :expected-encoded
+                                                                   gradient-expected
+                                                                   :decode-after-mix-sentinel 128
+                                                                   :max-byte-delta
+                                                                   gradient-delta
+                                                                   :pass? (<= gradient-delta 4)}
+                                                                  :clip
+                                                                  {:full-after-scissor
+                                                                   scissor-full
+                                                                   :partial-glyph-probe
+                                                                   glyph-probe
+                                                                   :general-mask-inside
+                                                                   general-mask-inside
+                                                                   :general-mask-outside
+                                                                   general-mask-outside
+                                                                   :per-op-clips 2
+                                                                   :pass? scissor-pass?}
+                                                                  :aliasing
+                                                                  {:declared-snapshot-edge? true
+                                                                   :no-read-write-alias?
+                                                                   alias-pass?
+                                                                   :pass? alias-pass?}
+                                                                  :blur
+                                                                  {:zoom 0.1
+                                                                   :regime :swiftshader-verifier
+                                                                   :elapsed-ms
+                                                                   backdrop-elapsed-ms
+                                                                   :adapter (adapter-information
+                                                                             adapter)
+                                                                   :projections blur-projections
+                                                                   :pass? blur-pass?}
+                                                                  :pool
+                                                                  (assoc pool-after
+                                                                         :steady-100?
+                                                                         (= (inc (:allocations
+                                                                                   pool-before))
+                                                                            (:allocations
+                                                                             pool-after))
+                                                                         :four-k-live-bytes
+                                                                         four-k-live-bytes
+                                                                         :four-k-bounded?
+                                                                         four-k-bounded?
+                                                                         :resize-receipt
+                                                                         resize-receipt
+                                                                         :resize-reclaimed?
+                                                                         resize-reclaimed?
+                                                                         :destroyed-receipt
+                                                                         (compositor-gpu/target-pool-receipt
+                                                                          pool)
+                                                                         :pass? pool-pass?)
+                                                                  :formats
+                                                                  {:intermediate "rgba16float"
+                                                                   :present color-format
+                                                                   :transfer :linear-to-srgb-once
+                                                                   :alpha-association
+                                                                   :premultiplied
+                                                                   :regime :swiftshader-verifier
+                                                                   :adapter (adapter-information
+                                                                             adapter)
+                                                                   :resource-contracts
+                                                                   (into {}
+                                                                         (map (fn [[id row]]
+                                                                                [id (select-keys
+                                                                                     row
+                                                                                     [:format
+                                                                                      :working-space
+                                                                                      :alpha-association
+                                                                                      :lifetime
+                                                                                      :budget-owner])]))
+                                                                         (get-in backdrop
+                                                                                 [:plan
+                                                                                  :resources]))
+                                                                   :pass? true}
+                                                                  :export export
+                                                                  :scheduler scheduler
+                                                                  :secondary secondary
+                                                                  :dark-lane
+                                                                  (assoc dark-lane :pass?
+                                                                         (every? true?
+                                                                                 (vals dark-lane)))
+                                                                  :compositor
+                                                                  receipt-before-destroy
+                                                                  :pass pass?}))))))))))))))))))))))))))))))))
+
 (defn ^:export run-verifier! []
   (js/console.log "[W0-A] init-start")
   (when-not (and (.-isSecureContext js/window)
@@ -2957,7 +4170,9 @@
                                              device adapter t1-assets
                                              camera-buffer
                                              containers-buffer)
-                                            (run-chrome-atom! device adapter)])
+                                            (run-chrome-atom! device adapter)
+                                            (run-w4-frame-runtime! device adapter
+                                                                   slug-assets)])
                                       (.then
                                        (fn [values]
                                          {:schema-version 2
@@ -2985,6 +4200,7 @@
                                           :path-atom (aget values 4)
                                           :connector-atom (aget values 5)
                                           :chrome-atom (aget values 6)
+                                          :w4-frame-runtime (aget values 7)
                                           :cases (aget values 0)})))))))))))))))))))
 
 (defn ^:export start! []

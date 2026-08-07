@@ -1,11 +1,14 @@
 (ns app.client.substrate.webgpu.renderer
   (:require [clojure.string :as str]
+            [app.client.substrate.frame-effects :as frame-effects]
+            [app.client.substrate.frame-graph :as frame-graph]
             [app.client.substrate.image-material :as image-material]
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.buffer-pool :as buffer-pool]
             [app.client.substrate.webgpu.chrome-gpu :as chrome-gpu]
             [app.client.substrate.webgpu.connector-gpu :as connector-gpu]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
+            [app.client.substrate.webgpu.compositor-gpu :as compositor-gpu]
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
             [app.client.workspace.text-layout :as tl]))
 
@@ -224,6 +227,18 @@
   }")
 
 (def rect-fragment-shader (str scene-color-wgsl "
+  // Rect gradients decode their stops before interpolation on the linear
+  // road, so their result is already prepared in the target color space.
+  // Keep this helper local to the rect source: W4's one-shot shader-digest
+  // amendment is intentionally rect-only.
+  fn scene_color_prepared(prepared: vec4<f32>, coverage: f32) -> vec4<f32> {
+      if (!kSceneColorLinearPremultiplied) {
+          return vec4<f32>(prepared.rgb, prepared.a * coverage);
+      }
+      let alpha = clamp(prepared.a * coverage, 0.0, 1.0);
+      return vec4<f32>(prepared.rgb * alpha, alpha);
+  }
+
   // Inigo Quilez SDF rounded box with per-corner radii
   fn sd_rounded_box(p: vec2<f32>, half_size: vec2<f32>, radii: vec4<f32>) -> f32 {
       // radii: tl, tr, br, bl → select based on quadrant
@@ -267,6 +282,11 @@
 
       // --- Fill color (with optional gradient) ---
       var fill = color;
+      if (kSceneColorLinearPremultiplied) {
+          fill = vec4<f32>(srgb_channel_to_linear(color.r),
+                           srgb_channel_to_linear(color.g),
+                           srgb_channel_to_linear(color.b), color.a);
+      }
       let t_stop = gradient.y;
       if (t_stop > 0.0) {
           // Linear gradient: angle in radians, t_stop = blend position
@@ -276,7 +296,14 @@
           // Project centered UV onto gradient axis
           let uv_norm = local_pos / rect_size;
           let t = clamp(uv_norm.x * cs + uv_norm.y * sn, 0.0, 1.0);
-          fill = mix(color, gradient_color2, smoothstep(0.0, t_stop, t));
+          var stop2 = gradient_color2;
+          if (kSceneColorLinearPremultiplied) {
+              stop2 = vec4<f32>(srgb_channel_to_linear(gradient_color2.r),
+                                srgb_channel_to_linear(gradient_color2.g),
+                                srgb_channel_to_linear(gradient_color2.b),
+                                gradient_color2.a);
+          }
+          fill = mix(fill, stop2, smoothstep(0.0, t_stop, t));
       }
 
       // --- Border ---
@@ -289,11 +316,18 @@
           let inner_dist = sd_rounded_box(p, inner_half, inner_radii);
           let inner_aa = clamp(0.5 - inner_dist, 0.0, 1.0);
           // Composite: border color in the ring, fill inside
-          let result = mix(border_color, fill, inner_aa);
-          return scene_color(result, aa);
+          var prepared_border = border_color;
+          if (kSceneColorLinearPremultiplied) {
+              prepared_border = vec4<f32>(srgb_channel_to_linear(border_color.r),
+                                          srgb_channel_to_linear(border_color.g),
+                                          srgb_channel_to_linear(border_color.b),
+                                          border_color.a);
+          }
+          let result = mix(prepared_border, fill, inner_aa);
+          return scene_color_prepared(result, aa);
       }
 
-      return scene_color(fill, aa);
+      return scene_color_prepared(fill, aa);
   }"))
 
 ;; --- Shadow shaders ---
@@ -2623,6 +2657,50 @@
    :first-vertex 0
    :first-instance (or first-instance 0)})
 
+(defn- contiguous-state-runs [rows]
+  (loop [remaining rows offset 0 result []]
+    (if-let [row (first remaining)]
+      (let [same (take-while #(= row %) remaining)
+            n (count same)]
+        (recur (drop n remaining) (+ offset n)
+               (conj result {:clip (:clip row) :container (:container row)
+                             :offset offset :count n})))
+      result)))
+
+(defn- add-instance-clip-runs [paint clip-rows base-offset]
+  (if-not (some :clip clip-rows)
+    paint
+    (assoc paint :sub-draws
+           (mapv (fn [{:keys [clip container offset count]}]
+                   {:clip clip :container container
+                    :buffer (:buffer paint)
+                    :instance-count count
+                    :first-instance (+ base-offset offset)
+                    :first-vertex (:first-vertex paint 0)
+                    :vertex-count (:vertex-count paint)})
+                 (contiguous-state-runs clip-rows)))))
+
+(defn- text-clip-runs [geo line-clips]
+  (let [offsets (:line-offsets geo)
+        line-count (count offsets)
+        rows (mapv (fn [line-index]
+                     (let [start (nth offsets line-index)
+                           end (if (< (inc line-index) line-count)
+                                 (nth offsets (inc line-index))
+                                 (:num-instances geo))
+                           clip-row (first (filter :clip
+                                                   (get line-clips line-index)))]
+                       {:clip (:clip clip-row) :container (:container clip-row)
+                        :offset start :count (- end start)}))
+                   (range line-count))]
+    (->> rows
+         (partition-by #(select-keys % [:clip :container]))
+         (mapv (fn [group]
+                 (let [first-row (first group)]
+                   {:clip (:clip first-row) :container (:container first-row)
+                    :offset (:offset first-row)
+                    :count (reduce + (map :count group))}))))))
+
 (defn- inset-resource-uv [resource-uv crop-uv]
   (let [[resource-u0 resource-v0 resource-u1 resource-v1] resource-uv
         [crop-u0 crop-v0 crop-u1 crop-v1] crop-uv
@@ -2742,14 +2820,20 @@
             entry-id [:frame/store vi count-key]
             order (frame-order (or (:stratum source-order) :world)
                                25 entry-id (:stack-path source-order) part-rank)
+            clip-rows (when (= :rects count-key)
+                        (get-in store-frame [:rect-clips-by-vi vi]))
+            paint (when pool-info
+                    (cond-> (gpu-paint (:pipeline pool-info)
+                                      (:bind-group pool-info)
+                                      (:buffer pool-info)
+                                      instance-count offset)
+                      (seq clip-rows)
+                      (add-instance-clip-runs clip-rows offset)))
             entries (cond-> entries
                       (and pool-info (pos? instance-count))
                       (conj (frame-entry
                              entry-id family-id order
-                             (gpu-paint (:pipeline pool-info)
-                                        (:bind-group pool-info)
-                                        (:buffer pool-info)
-                                        instance-count offset)
+                             paint
                              (if pickable?
                                {:geometry :rect-tree-bounds :owner vi}
                                :none))))]
@@ -2876,14 +2960,28 @@
          (fn [index item]
            (let [geo (or (:geo item) item)
                  vi (or (:vi item) index)
-                 source-order (:order item)]
+                 source-order (:order item)
+                 line-clips (:text-clips item)]
              (when (and geo (= family-id (text-system-family geo)))
-               (system-entry [:frame/slot-text vi] family-id
-                             (frame-order (or (:stratum source-order) :world)
-                                          25 [:frame/slot-text vi]
-                                          (:stack-path source-order) 2)
-                             geo (:num-instances geo) 0
-                             {:geometry :layout-cluster :owner vi}))))
+               (let [entry (system-entry
+                            [:frame/slot-text vi] family-id
+                            (frame-order (or (:stratum source-order) :world)
+                                         25 [:frame/slot-text vi]
+                                         (:stack-path source-order) 2)
+                            geo (:num-instances geo) 0
+                            {:geometry :layout-cluster :owner vi})
+                     runs (when (and entry (seq line-clips))
+                            (text-clip-runs geo line-clips))]
+                 (if (some :clip runs)
+                   (assoc-in entry [:paint :sub-draws]
+                             (mapv (fn [{:keys [clip container offset count]}]
+                                     {:clip clip :container container
+                                      :buffer (:instance-buffer geo)
+                                      :instance-count count
+                                      :first-instance offset
+                                      :first-vertex 0 :vertex-count 6})
+                                   runs))
+                   entry)))))
          extra-text-geos)
         chrome-base-entry
         (when chrome-ready?
@@ -2930,15 +3028,24 @@
 
 (defn- execute-gpu-batch! [^js pass entry]
   (let [{:keys [pipeline bind-group buffer vertex-count instance-count
-                first-vertex first-instance scissor]} (:paint entry)]
-    (when scissor
-      (.setScissorRect pass
-                       (nth scissor 0) (nth scissor 1)
-                       (nth scissor 2) (nth scissor 3)))
+                first-vertex first-instance scissor sub-draws attachment-size]}
+        (:paint entry)]
     (.setPipeline pass pipeline)
     (when bind-group (.setBindGroup pass 0 bind-group))
-    (when buffer (.setVertexBuffer pass 0 buffer))
-    (.draw pass vertex-count instance-count first-vertex first-instance)
+    (if (seq sub-draws)
+      (doseq [{:keys [clip buffer vertex-count instance-count first-vertex
+                      first-instance]} sub-draws]
+        (when (compositor-gpu/apply-scissor! pass clip attachment-size)
+          (when buffer (.setVertexBuffer pass 0 buffer))
+          (.draw pass vertex-count instance-count first-vertex first-instance)))
+      (do
+        (when (compositor-gpu/apply-scissor!
+               pass
+               (when scissor {:x (nth scissor 0) :y (nth scissor 1)
+                              :w (nth scissor 2) :h (nth scissor 3)})
+               attachment-size)
+          (when buffer (.setVertexBuffer pass 0 buffer))
+          (.draw pass vertex-count instance-count first-vertex first-instance))))
     (:entry/id entry)))
 
 (defn execute-image-batch!
@@ -2953,6 +3060,180 @@
       (.setVertexBuffer pass 0 buffer)
       (.draw pass 6 instance-count 0 first-instance))
     (:entry/id entry)))
+
+(defn- destroy-variant-buffer! [tracker buffer reason]
+  (when buffer
+    (gpu-budget/destroy-resource! tracker buffer :reason reason)
+    (.destroy ^js buffer)))
+
+(defn- create-linear-image-variant [^js device image-system]
+  (when image-system
+    (let [bind-layout
+          (.createBindGroupLayout
+           device
+           (clj->js
+            {:entries [{:binding 0 :visibility js/GPUShaderStage.FRAGMENT
+                        :sampler {:type "filtering"}}
+                       {:binding 1 :visibility js/GPUShaderStage.FRAGMENT
+                        :texture {:sampleType "float"}}
+                       {:binding 2 :visibility js/GPUShaderStage.VERTEX
+                        :buffer {:type "uniform"}}
+                       {:binding 3 :visibility js/GPUShaderStage.VERTEX
+                        :buffer {:type "read-only-storage"}}]}))
+          pipeline (create-image-pipeline device "rgba16float" bind-layout
+                                          scene-tape/linear-premultiplied-color)
+          binding-map (js/WeakMap.)
+          install!
+          (fn [{:keys [texture bind-group]}]
+            (when (and texture bind-group (not (.has binding-map bind-group)))
+              (let [view (.createView ^js texture
+                                      (clj->js {:format "rgba8unorm-srgb"}))
+                    linear-bind-group
+                    (create-image-bind-group
+                     device bind-layout (:sampler image-system) view
+                     (:camera-buffer image-system)
+                     (:containers-buffer image-system))]
+                (.set binding-map bind-group linear-bind-group))))
+          sync!
+          (fn []
+            (install! (:placeholder image-system))
+            (install! @(:!atlas-resource image-system))
+            (doseq [resource (vals @(:!resources image-system))]
+              (install! resource))
+            true)]
+      (sync!)
+      {:pipeline pipeline :binding-map binding-map :sync! sync!})))
+
+(defn build-linear-variant-layer!
+  "Create W4's lazy pipeline/view layer over existing family systems. No source
+   registry, atlas, instance buffer, or decoded byte is duplicated."
+  [^js device {:keys [format tracker camera-buffer containers-buffer font-assets
+                      text-sys image-system path-system connector-system
+                      chrome-system]}]
+  (let [linear scene-tape/linear-premultiplied-color
+        rect (init-rect-system device "rgba16float" camera-buffer
+                               :initial-capacity 1 :tracker tracker
+                               :label "frame-variant/rect-transient"
+                               :containers-buffer containers-buffer
+                               :scene-color linear)
+        _ (destroy-variant-buffer! tracker (:instance-buffer rect)
+                                   :frame-variant-transient)
+        shadow (init-shadow-system device "rgba16float" camera-buffer
+                                   :initial-capacity 1 :tracker tracker
+                                   :label "frame-variant/shadow-transient"
+                                   :containers-buffer containers-buffer
+                                   :scene-color linear)
+        _ (destroy-variant-buffer! tracker (:instance-buffer shadow)
+                                   :frame-variant-transient)
+        text-created (when (and text-sys font-assets)
+                       (init-text-system device "rgba16float" camera-buffer
+                                         font-assets :initial-capacity 1
+                                         :tracker tracker
+                                         :label "frame-variant/text-transient"
+                                         :containers-buffer containers-buffer
+                                         :scene-color linear))
+        text-shared (when text-created
+                      (share-font-resources text-created text-sys))
+        text-bind-group
+        (when text-shared
+          (case (:backend text-sys)
+            :slug (create-slug-bind-group
+                   device (:bind-group-layout text-created)
+                   (:curve-texture-view text-sys) (:band-texture-view text-sys)
+                   camera-buffer (:sizes-uniform-buffer text-sys)
+                   containers-buffer)
+            :msdf (create-msdf-bind-group
+                   device (:bind-group-layout text-created)
+                   (:font-sampler text-sys) (:font-texture-view text-sys)
+                   camera-buffer (:sizes-uniform-buffer text-sys)
+                   containers-buffer)))
+        _ (when text-created
+            (destroy-variant-buffer! tracker (:instance-buffer text-created)
+                                     :frame-variant-transient)
+            (destroy-variant-buffer! tracker (:sizes-uniform-buffer text-created)
+                                     :frame-variant-transient))
+        path (when path-system
+               (path-gpu/init-path-system
+                device "rgba16float" camera-buffer containers-buffer
+                :initial-capacity 1 :tracker tracker :scene-color linear))
+        _ (when path
+            (destroy-variant-buffer! tracker @(:!buffer path)
+                                     :frame-variant-transient))
+        connector (when connector-system
+                    (connector-gpu/init-connector-system
+                     device "rgba16float" camera-buffer containers-buffer
+                     :initial-capacity 1 :tracker tracker :scene-color linear
+                     :text-api {:clone (fn [& _] nil)
+                                :update (fn [& _] nil)
+                                :destroy (fn [& _] nil)}))
+        _ (when connector
+            (destroy-variant-buffer! tracker @(:!buffer connector)
+                                     :frame-variant-transient))
+        chrome (when chrome-system
+                 (chrome-gpu/init-chrome-system
+                  device "rgba16float" camera-buffer containers-buffer
+                  :initial-capacity 1 :tracker tracker :scene-color linear
+                  :pulse-buffer (:pulse-buffer chrome-system)))
+        _ (when chrome
+            (destroy-variant-buffer! tracker @(:!buffer chrome)
+                                     :frame-variant-transient))
+        image (create-linear-image-variant device image-system)
+        text-family (when text-sys (text-system-family text-sys))
+        families (cond->
+                   {:render.family/rect
+                    {:pipeline (:pipeline rect) :bind-group (:bind-group rect)}
+                    :render.family/shadow
+                    {:pipeline (:pipeline shadow) :bind-group (:bind-group shadow)}}
+                   text-family
+                   (assoc text-family {:pipeline (:pipeline text-created)
+                                       :bind-group text-bind-group})
+                   path
+                   (assoc :render.family/path
+                          {:pipeline (:pipeline path) :bind-group (:bind-group path)})
+                   connector
+                   (assoc :render.family/connector
+                          {:pipeline (:pipeline connector)
+                           :bind-group (:bind-group connector)})
+                   chrome
+                   (assoc :render.family/chrome
+                          {:pipeline (:pipeline chrome) :bind-group (:bind-group chrome)})
+                   image
+                   (assoc :render.family/image {:pipeline (:pipeline image)}))
+        linearize-entry
+        (fn [entry]
+          (let [family-id (:family/id entry)
+                variant (get families family-id)]
+            (cond
+              (= :render.family/image family-id)
+              (do
+                ((:sync! image))
+                (-> entry
+                    (assoc-in [:paint :pipeline] (:pipeline image))
+                    (update-in [:paint :sub-draws]
+                               (fn [sub-draws]
+                                 (mapv (fn [sub-draw]
+                                         (let [old (:bind-group sub-draw)
+                                               replacement (.get ^js (:binding-map image)
+                                                                 old)]
+                                           (when-not replacement
+                                             (throw (ex-info
+                                                     "Image variant lacks a shared-resource view"
+                                                     {:entry/id (:entry/id entry)})))
+                                           (assoc sub-draw :bind-group replacement)))
+                                       sub-draws)))))
+
+              variant
+              (cond-> (assoc-in entry [:paint :pipeline] (:pipeline variant))
+                (:bind-group variant)
+                (assoc-in [:paint :bind-group] (:bind-group variant)))
+
+              :else entry)))]
+    {:scene-color linear :families families
+     :linearize-entry linearize-entry
+     :shares {:image-source-registry (some-> image-system :!source-registry)
+              :image-resource-registry (some-> image-system :!resources)
+              :text-instance-buffer (some-> text-sys :instance-buffer)}
+     :destroy! (fn [] nil)}))
 
 (def frame-family-registry
   (let [family (fn [family-id produce]
@@ -3021,6 +3302,21 @@
 (defonce ^:private !frame-arrangement
   (atom (sorted-map-by scene-tape/entry-key-compare)))
 
+(defonce ^:private !frame-effect-state
+  (atom (frame-effects/empty-maintained-state)))
+
+(defonce ^:private !frame-plan-state
+  (atom (frame-graph/empty-maintained-state)))
+
+(defonce ^:private !compositors-by-device (js/WeakMap.))
+
+(defn- ensure-frame-compositor! [device format tracker]
+  (or (.get !compositors-by-device device)
+      (let [compositor (compositor-gpu/create-compositor!
+                        device format tracker)]
+        (.set !compositors-by-device device compositor)
+        compositor)))
+
 (defn produce-frame-entries [frame]
   (into []
         (mapcat (fn [[_family-id registration]]
@@ -3077,20 +3373,75 @@
         (throw (ex-info "Maintained frame arrangement diverged from batch oracle"
                         {:frame (:frame-idx frame)}))))))
 
-(defn- execute-scene-tape! [pass arrangement]
+(defn- project-clip-rect
+  [clip container effective-transforms pan-x pan-y zoom attachment-size]
+  (when clip
+    (let [{:keys [affine flags]}
+          (or (get effective-transforms container)
+              {:affine [1.0 0.0 0.0 1.0 0.0 0.0] :flags 0})]
+      (let [[a b c d tx ty] affine
+            {:keys [x y w h]} clip
+            points [[x y] [(+ x w) y] [x (+ y h)] [(+ x w) (+ y h)]]
+            screen? (= 1 (bit-and (or flags 0) 1))
+            zm (if screen? 1.0 zoom)
+            px (if screen? 0.0 pan-x)
+            py (if screen? 0.0 pan-y)
+            projected (map (fn [[lx ly]]
+                             [(+ (* (+ (* a lx) (* c ly) tx) zm) px)
+                              (+ (* (+ (* b lx) (* d ly) ty) zm) py)])
+                           points)
+            xs (map first projected)
+            ys (map second projected)
+            x0 (int (js/Math.floor (apply min xs)))
+            y0 (int (js/Math.floor (apply min ys)))
+            x1 (int (js/Math.ceil (apply max xs)))
+            y1 (int (js/Math.ceil (apply max ys)))
+            [aw ah] attachment-size
+            cx (max 0 (min aw x0))
+            cy (max 0 (min ah y0))]
+        (if (= :scissor (frame-graph/clip-execution-mode affine))
+          {:mode :scissor
+           :x cx :y cy :w (max 0 (- (max cx (min aw x1)) cx))
+           :h (max 0 (- (max cy (min ah y1)) cy))}
+          ;; Perimeter order (tl, tr, br, bl) feeds the generic convex mask
+          ;; pass. A rotated/sheared clip is never approximated by its AABB.
+          {:mode :mask :points [(nth projected 0) (nth projected 1)
+                                (nth projected 3) (nth projected 2)]
+           :container container :local-clip clip})))))
+
+(defn- project-entry-scissors
+  [entry effective-transforms pan-x pan-y zoom attachment-size]
+  (if-let [sub-draws (get-in entry [:paint :sub-draws])]
+    (update-in entry [:paint :sub-draws]
+               (fn [rows]
+                 (mapv (fn [row]
+                         (update row :clip project-clip-rect (:container row)
+                                 effective-transforms pan-x pan-y zoom
+                                 attachment-size))
+                       rows)))
+    entry))
+
+(defn execute-frame-entry!
+  "Generic registered-family execution callback used by both legacy and W4
+   passes. It resets full scissor before family-owned walkers."
+  [^js pass entry attachment-size]
+  (compositor-gpu/apply-scissor! pass nil attachment-size)
+  (let [entry (assoc-in entry [:paint :attachment-size] attachment-size)
+        family-id (:family/id entry)
+        registration (get frame-family-registry family-id)
+        execute! (:execute! registration)]
+    (when-not (and registration execute!)
+      (throw (ex-info "Scene tape entry has no declared executor"
+                      {:entry/id (:entry/id entry) :family/id family-id})))
+    (execute! pass entry)))
+
+(defn- execute-scene-tape! [pass arrangement attachment-size]
   (scene-tape/paint-forward
    {:entries (into [] (map val) arrangement)}
-   (fn [entry]
-     (let [family-id (:family/id entry)
-           registration (get frame-family-registry family-id)
-           execute! (:execute! registration)]
-       (when-not (and registration execute!)
-         (throw (ex-info "Scene tape entry has no declared executor"
-                         {:entry/id (:entry/id entry) :family/id family-id})))
-       (execute! pass entry)))))
+   #(execute-frame-entry! pass % attachment-size)))
 
 
-(defn draw-frame! [^js device ^js context text-sys editor-pool-info cmd-rect-sys camera-floats _ignored_pass_descriptor pan-x pan-y w h
+(defn draw-frame! [^js device ^js context text-sys editor-pool-info cmd-rect-sys camera-floats _ignored-pass-descriptor pan-x pan-y w h
                    & {:keys [cmd-panel-visible chrome-text-sys chrome-base-line-count
                              settings-line-count settings-visible settings-rect-sys
                              diagnostics-visible diagnostics-line-index agent-visible
@@ -3099,7 +3450,7 @@
                              extra-text-geos store-frame editor-rect-count
                              editor-shadow-count image-system path-system
                              connector-system chrome-system effective-transforms
-                             font-assets]
+                             container-registry font-assets frame-format pulse-alpha]
                       :or {cmd-panel-visible false chrome-text-sys nil chrome-base-line-count 0
                            settings-line-count 0 settings-visible false
                            settings-rect-sys nil agent-visible false
@@ -3108,115 +3459,154 @@
                            zoom 1.0 extra-text-geos nil store-frame nil
                            editor-rect-count 0 editor-shadow-count 0
                            image-system nil path-system nil connector-system nil
-                           chrome-system nil
-                           effective-transforms nil font-assets nil}}]
-  ;; scene-substrate P2: the world camera zoom wakes — callers may drive it;
-  ;; default 1.0 keeps every existing call byte-identical.
-  (update-camera device (:camera-uniform-buffer text-sys) camera-floats pan-x pan-y zoom w h)
+                           chrome-system nil effective-transforms nil
+                           container-registry nil font-assets nil
+                           frame-format "bgra8unorm" pulse-alpha 1.0}}]
+  (update-camera device (:camera-uniform-buffer text-sys) camera-floats
+                 pan-x pan-y zoom w h)
   (when (and chrome-text-sys
-             (not= (:camera-uniform-buffer chrome-text-sys) (:camera-uniform-buffer text-sys)))
-    (update-camera device (:camera-uniform-buffer chrome-text-sys) camera-floats pan-x pan-y zoom w h))
+             (not= (:camera-uniform-buffer chrome-text-sys)
+                   (:camera-uniform-buffer text-sys)))
+    (update-camera device (:camera-uniform-buffer chrome-text-sys)
+                   camera-floats pan-x pan-y zoom w h))
 
-  (let [encoder (.createCommandEncoder device)
-          swap-texture (.getCurrentTexture context)
-          swap-view (.createView swap-texture)
-          ;; Phase 6E: always render to persistent target (survives swap chain double-buffering)
-          ;; dirty-rect non-nil → loadOp "load" + scissor + clear-quad (partial redraw)
-          ;; dirty-rect nil → loadOp "clear" (first frame, resize, text/font change)
-          use-rt? (some? render-target)
-          scene-color (or (:scene-color render-target)
-                          (:scene-color text-sys)
-                          scene-tape/legacy-direct-color)
-          scene-color-resource (scene-color-resource swap-view render-target
-                                                     scene-color)
-          target-view (:view scene-color-resource)
-          partial? (and use-rt? dirty-rect)
-          load-op (if partial? "load" "clear")
+  ;; W4: every upload/prepare happens before the first pass opens. No queue
+  ;; write is relied on while a pass encoder is live.
+  (when image-system
+    (prepare-image-frame! image-system (:images store-frame)))
+  (when path-system
+    (path-gpu/prepare-path-frame! path-system (:paths store-frame) zoom))
+  (when connector-system
+    (connector-gpu/prepare-connector-frame!
+     connector-system (:connectors store-frame)
+     (:targets-by-address store-frame) effective-transforms zoom
+     font-assets text-sys))
+  (when chrome-system
+    (chrome-gpu/prepare-chrome-frame! chrome-system (:chromes store-frame)
+                                      {:pulse-alpha pulse-alpha}))
 
-          pass-descriptor (clj->js
-                            {:colorAttachments [{:view target-view
-                                                 :clearValue (clear-value scene-color)
-                                                 :loadOp load-op
-                                                 :storeOp "store"}]})
-
-          pass (.beginRenderPass encoder pass-descriptor)]
-
-      (when (<= frame-idx 5)
-        (let [canvas (.-canvas context)
-              rect (when canvas (.getBoundingClientRect canvas))]
+  (let [canvas (.-canvas context)
+        attachment-size [(max 1 (or (some-> canvas .-width) (int w)))
+                         (max 1 (or (some-> canvas .-height) (int h)))]
+        use-rt? (some? render-target)
+        partial? (and use-rt? dirty-rect)
+        frame {:frame-idx frame-idx :partial? partial?
+               :dirty-rect dirty-rect :clear-quad clear-quad
+               :text-sys text-sys :editor-pool-info editor-pool-info
+               :cmd-rect-sys cmd-rect-sys
+               :cmd-panel-visible cmd-panel-visible
+               :chrome-text-sys chrome-text-sys
+               :chrome-base-line-count chrome-base-line-count
+               :settings-line-count settings-line-count
+               :settings-visible settings-visible
+               :settings-rect-sys settings-rect-sys
+               :diagnostics-visible diagnostics-visible
+               :diagnostics-line-index diagnostics-line-index
+               :agent-visible agent-visible
+               :editor-shadow-pool-info editor-shadow-pool-info
+               :sidebar-shadow-pool-info sidebar-shadow-pool-info
+               :sidebar-pool-info sidebar-pool-info
+               :image-system image-system :path-system path-system
+               :connector-system connector-system :chrome-system chrome-system
+               :store-frame store-frame :editor-rect-count editor-rect-count
+               :editor-shadow-count editor-shadow-count
+               :extra-text-geos extra-text-geos}
+        arrangement-raw (swap! !frame-arrangement update-frame-arrangement frame)
+        arrangement
+        (into (sorted-map-by scene-tape/entry-key-compare)
+              (map (fn [[key entry]]
+                     [key (project-entry-scissors entry effective-transforms
+                                                  pan-x pan-y zoom
+                                                  attachment-size)]))
+              arrangement-raw)
+        _ (frame-tape-twin-check! frame arrangement-raw)
+        effect-state (if container-registry
+                       (swap! !frame-effect-state
+                              frame-effects/maintain-effect-spans
+                              container-registry (mapv val arrangement))
+                       (assoc (frame-effects/empty-maintained-state) :spans []))
+        effect-spans (:spans effect-state)
+        plan-state (swap! !frame-plan-state
+                          frame-graph/maintain-frame-plan
+                          {:arrangement (mapv val arrangement)
+                           :effect-spans effect-spans
+                           :capabilities #{}
+                           :viewport {:width (first attachment-size)
+                                      :height (second attachment-size)
+                                      :format frame-format}})
+        plan (:plan plan-state)
+        linear? (= :scene-color/linear (:color-mode plan))]
+    (aset js/globalThis "__softlandFramePlanReceipt"
+          (clj->js {:color-mode (:color-mode plan)
+                    :passes (mapv :pass/id (:passes plan))
+                    :plan-hash (:plan/hash plan)
+                    :structure-reused? (:reused? plan-state)
+                    :effect-derivation (:last-derivation effect-state)}))
+    (if linear?
+      (let [tracker (:gpu-tracker text-sys)
+            compositor (ensure-frame-compositor! device frame-format tracker)
+            systems {:format frame-format :tracker tracker
+                     :camera-buffer (:camera-uniform-buffer text-sys)
+                     :containers-buffer (:containers-uniform-buffer text-sys)
+                     :font-assets font-assets :text-sys text-sys
+                     :image-system image-system :path-system path-system
+                     :connector-system connector-system :chrome-system chrome-system}
+            variant (compositor-gpu/ensure-variant-layer!
+                     compositor build-linear-variant-layer! systems)
+            result (compositor-gpu/draw-multipass!
+                    compositor {:context context :arrangement (mapv val arrangement)
+                                :effect-spans effect-spans :variant variant
+                                :execute-entry! execute-frame-entry!
+                                :width (first attachment-size)
+                                :height (second attachment-size)
+                                :zoom zoom :effective-transforms effective-transforms
+                                :plan plan})]
+        (aset js/globalThis "__softlandFrameCompositor"
+              #js {:receipt (fn [] (clj->js
+                                     (compositor-gpu/compositor-receipt compositor)))
+                   :exportViewport
+                   (fn []
+                     (compositor-gpu/export-viewport!
+                      compositor {:arrangement (mapv val arrangement)
+                                  :effect-spans effect-spans
+                                  :variant variant
+                                  :execute-entry! execute-frame-entry!
+                                  :width (first attachment-size)
+                                  :height (second attachment-size)
+                                  :zoom zoom
+                                  :effective-transforms effective-transforms}))})
+        result)
+      (let [encoder (.createCommandEncoder device)
+            swap-texture (.getCurrentTexture context)
+            swap-view (.createView swap-texture)
+            scene-color (or (:scene-color render-target)
+                            (:scene-color text-sys)
+                            scene-tape/legacy-direct-color)
+            scene-resource (scene-color-resource swap-view render-target
+                                                 scene-color)
+            target-view (:view scene-resource)
+            pass (.beginRenderPass
+                  encoder
+                  (clj->js {:colorAttachments
+                            [{:view target-view
+                              :clearValue (clear-value scene-color)
+                              :loadOp (if partial? "load" "clear")
+                              :storeOp "store"}]}))]
+        (when (<= frame-idx 5)
           (js/console.log "[RENDER/PRESENT]"
                           (str "{\"frame\":" frame-idx
-                               ",\"canvasWidth\":" (or (some-> canvas .-width) -1)
-                               ",\"canvasHeight\":" (or (some-> canvas .-height) -1)
-                               ",\"clientWidth\":" (or (some-> canvas .-clientWidth) -1)
-                               ",\"clientHeight\":" (or (some-> canvas .-clientHeight) -1)
-                               ",\"rectWidth\":" (or (some-> rect .-width) -1)
-                               ",\"rectHeight\":" (or (some-> rect .-height) -1)
-                               ",\"swapWidth\":" (or (some-> swap-texture .-width) -1)
-                               ",\"swapHeight\":" (or (some-> swap-texture .-height) -1)
+                               ",\"canvasWidth\":" (first attachment-size)
+                               ",\"canvasHeight\":" (second attachment-size)
                                ",\"useRenderTarget\":" (if use-rt? "true" "false")
                                ",\"sceneColor\":\"" (name (:scene-color/id scene-color)) "\""
                                ",\"contentInstances\":" (:num-instances text-sys)
                                ",\"chromeInstances\":" (or (:num-instances chrome-text-sys) 0)
-                               "}"))))
-
-      ;; W2-B: family producers register data; the central frame owns only one
-      ;; maintained forward loop. No family or surface can inject a
-      ;; hand-positioned draw branch here. IMAGE-ATOM Q6: the sole pool write
-      ;; is identity-gated inside this existing encode window, before the pure
-      ;; producer reads it; product construction of image-system stays staged.
-      (when image-system
-        (prepare-image-frame! image-system (:images store-frame)))
-      (when path-system
-        (path-gpu/prepare-path-frame! path-system (:paths store-frame) zoom))
-      (when connector-system
-        (connector-gpu/prepare-connector-frame!
-         connector-system (:connectors store-frame)
-         (:targets-by-address store-frame) effective-transforms zoom
-         font-assets text-sys))
-      (when chrome-system
-        (chrome-gpu/prepare-chrome-frame! chrome-system (:chromes store-frame)))
-      (let [frame {:frame-idx frame-idx
-                   :partial? partial?
-                   :dirty-rect dirty-rect
-                   :clear-quad clear-quad
-                   :text-sys text-sys
-                   :editor-pool-info editor-pool-info
-                   :cmd-rect-sys cmd-rect-sys
-                   :cmd-panel-visible cmd-panel-visible
-                   :chrome-text-sys chrome-text-sys
-                   :chrome-base-line-count chrome-base-line-count
-                   :settings-line-count settings-line-count
-                   :settings-visible settings-visible
-                   :settings-rect-sys settings-rect-sys
-                   :diagnostics-visible diagnostics-visible
-                   :diagnostics-line-index diagnostics-line-index
-                   :agent-visible agent-visible
-                   :editor-shadow-pool-info editor-shadow-pool-info
-                   :sidebar-shadow-pool-info sidebar-shadow-pool-info
-                   :sidebar-pool-info sidebar-pool-info
-                   :image-system image-system
-                   :path-system path-system
-                   :connector-system connector-system
-                   :chrome-system chrome-system
-                   :store-frame store-frame
-                   :editor-rect-count editor-rect-count
-                   :editor-shadow-count editor-shadow-count
-                   :extra-text-geos extra-text-geos}
-            arrangement (swap! !frame-arrangement
-                               update-frame-arrangement frame)]
-        (frame-tape-twin-check! frame arrangement)
-        (execute-scene-tape! pass arrangement))
-
-    (.end pass)
-
-    ;; Phase 6E: copy persistent render target → swap chain for presentation
-    (when use-rt?
-      (let [rt-tex (:texture render-target)]
-        (.copyTextureToTexture encoder
-          (clj->js {:texture rt-tex})
-          (clj->js {:texture swap-texture})
-          (clj->js {:width (:width render-target)
-                    :height (:height render-target)}))))
-
-    (.submit (.-queue device) #js [(.finish encoder)])))
+                               "}")))
+        (execute-scene-tape! pass arrangement attachment-size)
+        (.end pass)
+        (when use-rt?
+          (compositor-gpu/copy-present! device encoder (:texture render-target)
+                                        swap-texture (:width render-target)
+                                        (:height render-target)))
+        (.submit (.-queue device) #js [(.finish encoder)])
+        {:submitted? true :color-mode :legacy :plan-hash (:plan/hash plan)}))))

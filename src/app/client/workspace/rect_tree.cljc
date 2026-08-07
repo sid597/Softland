@@ -207,9 +207,11 @@
    Clip-bounds is {:x :y :w :h} in absolute space (nil = no clipping).
    Style keys: :bg, :radius, :corner-radii, :border-width, :border-widths,
                :border-color, :gradient, :gradient-color2"
-  ([node] (tree->rects node 0 0 nil))
+  ([node] (tree->rects node 0 0 nil false))
   ([node parent-x parent-y clip-bounds]
-   (let [{:keys [bounds style children clip?]} node
+   (tree->rects node parent-x parent-y clip-bounds false))
+  ([node parent-x parent-y clip-bounds gpu-clip-active?]
+   (let [{:keys [bounds style children clip? data]} node
          abs-x (+ parent-x (:x bounds 0))
          abs-y (+ parent-y (:y bounds 0))
          w     (:w bounds 0)
@@ -224,16 +226,19 @@
                            (> (+ abs-y h) cy)))
                     true)]
      (when visible?
-       (let [;; T-4 clamp: partially-visible bg rects are clamped to the
+       (let [gpu-road? (boolean gpu-clip-active?)
+             ;; T-4 clamp: partially-visible bg rects are clamped to the
              ;; axis-aligned intersection with clip bounds. visible? above
              ;; guarantees the intersection is non-empty. Radii degrade at
              ;; clamped corners (accepted, view-mvp contract §5.2).
-             bx (if clip-bounds (max abs-x (:x clip-bounds)) abs-x)
-             by (if clip-bounds (max abs-y (:y clip-bounds)) abs-y)
-             bw (if clip-bounds
+             bx (if (and clip-bounds (not gpu-road?))
+                  (max abs-x (:x clip-bounds)) abs-x)
+             by (if (and clip-bounds (not gpu-road?))
+                  (max abs-y (:y clip-bounds)) abs-y)
+             bw (if (and clip-bounds (not gpu-road?))
                   (- (min (+ abs-x w) (+ (:x clip-bounds) (:w clip-bounds))) bx)
                   w)
-             bh (if clip-bounds
+             bh (if (and clip-bounds (not gpu-road?))
                   (- (min (+ abs-y h) (+ (:y clip-bounds) (:h clip-bounds))) by)
                   h)
              ;; Background rect from style — now includes SDF properties
@@ -248,14 +253,21 @@
                      (:border-widths style)  (assoc :border-widths (:border-widths style))
                      (:border-color style)   (assoc :border-color (:border-color style))
                      (:gradient style)       (assoc :gradient (:gradient style))
-                     (:gradient-color2 style)(assoc :gradient-color2 (:gradient-color2 style))))
+                     (:gradient-color2 style)(assoc :gradient-color2 (:gradient-color2 style))
+                     (and gpu-road? clip-bounds)
+                     (assoc :gpu/clip clip-bounds)))
              ;; This node's clip bounds for children (if clip? is set):
              ;; INTERSECTED with the ancestor clip, never replacing it
              child-clip (if clip?
                           (intersect-clip abs-x abs-y w h clip-bounds)
                           clip-bounds)
              ;; Recurse children (depth-first, painter's order)
-             child-rects (into [] (mapcat #(tree->rects % abs-x abs-y child-clip)) children)]
+             child-gpu-road? (or gpu-road?
+                                 (and clip?
+                                      (or (:gpu-clip? node)
+                                          (:gpu-clip? data))))
+             child-rects (into [] (mapcat #(tree->rects % abs-x abs-y child-clip
+                                                        child-gpu-road?)) children)]
          (cond-> []
            bg   (conj bg)
            true (into child-rects)))))))
@@ -461,9 +473,11 @@
   "Walk rect tree depth-first, emit nested vector of text-op vectors.
    Text ops on each node have :x/:y in node-local space; the walk
    offsets them to absolute coordinates.  Returns [[{op}] ...]."
-  ([node] (tree->text-ops node 0 0 nil))
+  ([node] (tree->text-ops node 0 0 nil false))
   ([node parent-x parent-y clip-bounds]
-   (let [{:keys [bounds style children text clip?]} node
+   (tree->text-ops node parent-x parent-y clip-bounds false))
+  ([node parent-x parent-y clip-bounds gpu-clip-active?]
+   (let [{:keys [bounds style children text clip? data]} node
          abs-x (+ parent-x (:x bounds 0))
          abs-y (+ parent-y (:y bounds 0))
          w     (:w bounds 0)
@@ -483,7 +497,9 @@
              clip-top (when clip-bounds (:y clip-bounds))
              clip-bottom (when clip-bounds (+ (:y clip-bounds) (:h clip-bounds)))
              clip-op (fn [op]
-                       (let [fs (:size op 14)
+                       (if gpu-clip-active?
+                         op
+                         (let [fs (:size op 14)
                              existing (:layout-result op)
                              layout-result
                              (if existing
@@ -502,8 +518,8 @@
                                            :clip {:right (some-> clip-right (- abs-x))
                                                   :top (some-> clip-top (- abs-y))
                                                   :bottom (some-> clip-bottom (- abs-y))}}))]
-                         (:op (tl/clip-result layout-result op
-                                             :range-mode :right-only))))
+                           (:op (tl/clip-result layout-result op
+                                               :range-mode :right-only)))))
              ;; Offset this node's text ops to absolute space + clip truncation
              own-ops (when (seq text)
                        (mapv (fn [op]
@@ -512,18 +528,28 @@
                                  (into [] (keep (fn [sub]
                                                   (some-> (clip-op sub)
                                                           (update :x + abs-x)
-                                                          (update :y + abs-y)))
+                                                          (update :y + abs-y)
+                                                          (cond-> (and gpu-clip-active?
+                                                                      clip-bounds)
+                                                            (assoc :gpu/clip clip-bounds))))
                                                 op))
                                  ;; Single text-op map
                                  (when-let [clipped (clip-op op)]
-                                   [(-> clipped
-                                        (update :x + abs-x)
-                                        (update :y + abs-y))])))
+                                   [(cond-> (-> clipped
+                                                (update :x + abs-x)
+                                                (update :y + abs-y))
+                                      (and gpu-clip-active? clip-bounds)
+                                      (assoc :gpu/clip clip-bounds))])))
                              text))
              child-clip (if clip?
                           (intersect-clip abs-x abs-y w h clip-bounds)
                           clip-bounds)
-             child-ops (into [] (mapcat #(tree->text-ops % abs-x abs-y child-clip)) children)]
+             child-gpu-road? (or gpu-clip-active?
+                                 (and clip?
+                                      (or (:gpu-clip? node)
+                                          (:gpu-clip? data))))
+             child-ops (into [] (mapcat #(tree->text-ops % abs-x abs-y child-clip
+                                                          child-gpu-road?)) children)]
          (into (vec (filterv some? (or own-ops []))) child-ops))))))
 
 ;; --- Tree walk: shadows -----------------------------------------------------

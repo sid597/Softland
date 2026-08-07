@@ -587,6 +587,20 @@
 (def ^:private pass-rank
   {:frame-policy 0 :direct 1 :intermediate 2 :region 3 :present 4})
 
+;; W4 additive plan vocabulary. These are data declarations consumed by the
+;; frame compiler and verifier; they do not dispatch families or effects.
+(def frame-pass-kinds
+  #{:render :copy :present :readback :region})
+
+(def frame-resource-kinds
+  #{:color :coverage :external-swap :buffer})
+
+(def frame-resource-lifetimes
+  #{:frame :external :export :readback})
+
+(def frame-clip-modes
+  #{:scissor :mask})
+
 (defn compare-scalar [a b]
   (cond
     (= a b) 0

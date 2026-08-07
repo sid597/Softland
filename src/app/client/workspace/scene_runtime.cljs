@@ -22,6 +22,7 @@
    its singleton legacy path untouched, and the store fans the SAME projection
    into every extra instance on each edit echo."
   (:require [missionary.core :as m]
+            [app.client.substrate.frame-effects :as frame-effects]
             [app.client.workspace.scene-store :as ss]
             [app.client.workspace.containers :as ctn]
             [app.client.workspace.events :as ev]))
@@ -139,11 +140,13 @@
    address-stamped, container-LOCAL rt-tree (root at 0,0 — the container
    transform places it; :world camera so it pans/zooms with the scene). Returns
    {:vi :container}."
-  [vi tree {:keys [x y scale layer sibling-rank meta stratum pre-resolved?]
+  [vi tree {:keys [x y scale layer sibling-rank parent effects meta stratum pre-resolved?]
             :or   {x 0.0 y 0.0 scale 1.0 layer 1}}]
   (let [cid (alloc-cid!)]
     (swap! !containers-registry ctn/add-container cid
            {:x x :y y :scale scale :camera :world :layer layer
+            :parent parent :effects (when effects
+                                      (frame-effects/validate-effects! effects))
             ;; Existing instance creation order is the material/instance
             ;; sibling order.  W2-B records it in W2-A's nested path instead
             ;; of recovering order from family registration or map iteration.
@@ -288,6 +291,15 @@
   [cid t]
   (swap! !containers-registry ctn/set-transform cid t))
 
+(defn set-effects!
+  "Replace one container's flag-lane session effects. Validation happens before
+   the registry mutation; scene-store derivation remains untouched."
+  [cid effects]
+  (let [normalized (when (seq effects)
+                     (frame-effects/validate-effects! effects))]
+    (swap! !containers-registry ctn/set-effects cid normalized)
+    normalized))
+
 ;; ---------------------------------------------------------------------------
 ;; Reads / pick
 ;; ---------------------------------------------------------------------------
@@ -301,6 +313,8 @@
    GPU upload. Pure over the registry atom (CONTRACT §4/§5)."
   []
   (ctn/effective @!containers-registry))
+
+(defn container-registry-snapshot [] @!containers-registry)
 
 (defn pick-world
   "Pick through the store from either a backward-compatible bare world point or
@@ -399,6 +413,12 @@
    only when it changes (identical? skip)."
   []
   (m/latest ctn/effective (m/watch !containers-registry)))
+
+(defn <frame-registry
+  "Plan-layer view of container topology/effects. It is deliberately separate
+   from derive-store-frame so session effects never become store derivation."
+  []
+  (m/latest identity (m/watch !containers-registry)))
 
 ;; ---------------------------------------------------------------------------
 ;; Dev affordance — window.sceneFaces (UNCOMMITTED, delete-to-remove)

@@ -67,6 +67,7 @@
    :camera :world
    :layer 0
    :sibling-rank 0
+   :effects nil
    :transport-slot 0})
 
 (defn empty-registry
@@ -88,7 +89,7 @@
    :x/:y/:scale vocabulary remains behavior-identical; :rotation and
    :scale-x/:scale-y are convenience inputs.  The assigned transport slot is
    compact and independent of cid."
-  [reg cid {:keys [parent camera layer sibling-rank] :as spec
+  [reg cid {:keys [parent camera layer sibling-rank effects] :as spec
             :or {parent nil camera nil layer 0 sibling-rank 0}}]
   (when (= cid 0)
     (throw (ex-info "cid 0 is reserved (identity/world) and cannot be added"
@@ -104,7 +105,17 @@
                :camera camera
                :layer layer
                :sibling-rank sibling-rank
+               :effects effects
                :transport-slot slot})))
+
+(defn set-effects
+  "Replace one container's session effect declaration. Grammar validation is
+   owned by frame-effects at plan compile; the registry remains a generic data
+   carrier beside transforms."
+  [reg cid effects]
+  (when-not (contains? (:containers reg) cid)
+    (throw (ex-info "container does not exist" {:cid cid})))
+  (assoc-in reg [:containers cid :effects] effects))
 
 (defn transport-slot
   "Return cid's compact GPU transport slot, or nil for an unknown cid."

@@ -36,6 +36,9 @@
     app.client.substrate.connector-route-test
     app.client.substrate.chrome-material-test
     app.client.substrate.chrome-derive-test
+    app.client.substrate.frame-effects-test
+    app.client.substrate.frame-graph-test
+    app.client.substrate.frame-scheduler-test
     app.client.substrate.maintained-view-test
     app.client.substrate.path-material-test
     app.client.substrate.path-tessellation-test

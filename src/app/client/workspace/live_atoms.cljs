@@ -12,6 +12,7 @@
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
             [app.client.substrate.webgpu.renderer :as renderer]
             [app.client.workspace.chrome-runtime :as chrome-runtime]
+            [app.client.workspace.frame-runtime :as frame-runtime]
             [app.client.workspace.rect-tree :as rt]
             [app.client.workspace.scene-runtime :as scene-runtime]))
 
@@ -297,11 +298,15 @@
                           (doseq [vi [fixture-image-vi fixture-ink-pressure-vi
                                      fixture-ink-self-cross-vi fixture-holed-vi]]
                             (scene-runtime/close-instance! vi))
-                          (let [secondary-registration
+                          (let [opacity-group
+                                (frame-runtime/install-live-opacity-group!)
+                                opacity-container (:container opacity-group)
+                                secondary-registration
                                 (scene-runtime/register-face-instance!
                                  fixture-secondary-vi (fixture-secondary-tree)
                                  {:x 748.0 :y 156.0 :scale 1.0 :layer 9
                                   :sibling-rank 9
+                                  :parent opacity-container
                                   :meta {:live-atoms? true
                                          :material/id
                                          :live-atoms/connector-secondary
@@ -313,6 +318,7 @@
                                     vi node
                                     {:x x :y y :scale 1.0 :layer layer
                                      :sibling-rank layer
+                                     :parent opacity-container
                                      :meta {:live-atoms? true
                                             :manipulable-fixture? true
                                             :material/id vi
@@ -323,6 +329,7 @@
                                  fixture-vi (connector-fixture-tree)
                                  {:x 40.0 :y 32.0 :scale 1.0 :layer 10
                                   :sibling-rank 10
+                                  :parent opacity-container
                                   :meta {:live-atoms? true
                                          :connector-fixture? true
                                          :material/id :live-atoms/connectors
@@ -336,12 +343,16 @@
                                          :secondary-fixture fixture-secondary-vi
                                          :image-digest digest
                                          :registration registration
+                                         :opacity-group opacity-group
                                          :fixture-registrations fixture-registrations
                                          :secondary-registration
                                          secondary-registration
                                          :awaited-registrations
                                          (.-length registrations)}]
                             (chrome-runtime/boot! chrome-system)
+                            ;; W4 boot follows chrome so the pulse stop predicate
+                            ;; reads chrome's published selection census.
+                            (frame-runtime/boot!)
                             (aset js/globalThis
                                   "__softlandLiveAtomsReceipt"
                                   (clj->js receipt))

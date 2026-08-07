@@ -33,6 +33,10 @@ const appendConnectorGoldens = process.argv.includes(
   "--append-connector-goldens",
 );
 const appendChromeGoldens = process.argv.includes("--append-chrome-goldens");
+const appendW4Goldens = process.argv.includes("--append-w4-goldens");
+const appendImageInputAmendment = process.argv.includes(
+  "--append-image-input-amendment",
+);
 const appendPathInputAmendment = process.argv.includes(
   "--append-path-input-amendment",
 );
@@ -42,12 +46,17 @@ const appendConnectorInputAmendment = process.argv.includes(
 const appendChromeInputAmendment = process.argv.includes(
   "--append-chrome-input-amendment",
 );
+const appendW4InputAmendment = process.argv.includes(
+  "--append-w4-input-amendment",
+);
+const amendShaderDigests = process.argv.includes("--amend-shader-digests");
 const assertImageContract = process.argv.includes("--assert-image-contract");
 const assertPathContract = process.argv.includes("--assert-path-contract");
 const assertConnectorContract = process.argv.includes(
   "--assert-connector-contract",
 );
 const assertChromeContract = process.argv.includes("--assert-chrome-contract");
+const assertW4Contract = process.argv.includes("--assert-w4-contract");
 const launchArgs = [
   "--no-sandbox",
   "--enable-unsafe-webgpu",
@@ -243,6 +252,13 @@ const stripDataUrls = (result) => ({
       images: renderCase.images.map(({ pngDataUrl, ...image }) => image),
     })),
   },
+  w4FrameRuntime: {
+    ...result.w4FrameRuntime,
+    cases: result.w4FrameRuntime.cases.map((renderCase) => ({
+      ...renderCase,
+      images: renderCase.images.map(({ pngDataUrl, ...image }) => image),
+    })),
+  },
 });
 
 const imageRows = (result) =>
@@ -404,6 +420,47 @@ const chromeAtomInputs = () => ({
   runner: sha256File("test/render_engine/run_verifier.mjs"),
 });
 
+const w4FrameRuntimeRows = (result) =>
+  result.w4FrameRuntime.cases.flatMap((renderCase) =>
+    renderCase.images.map((image) => ({
+      caseId: renderCase.caseId,
+      zoom: renderCase.zoom,
+      regime: renderCase.regime,
+      normalization: renderCase.normalization,
+      shapeExtentWorld: renderCase.shapeExtentWorld,
+      mode: image.mode,
+      file: image.file,
+      rawSha256: image.rawSha256,
+      pngSha256: sha256(
+        Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64"),
+      ),
+    })),
+  );
+
+const w4FrameRuntimeInputs = () => ({
+  frameEffects: sha256File("src/app/client/substrate/frame_effects.cljc"),
+  frameGraph: sha256File("src/app/client/substrate/frame_graph.cljc"),
+  frameScheduler: sha256File("src/app/client/substrate/frame_scheduler.cljc"),
+  compositorGpu: sha256File(
+    "src/app/client/substrate/webgpu/compositor_gpu.cljs",
+  ),
+  frameRuntime: sha256File("src/app/client/workspace/frame_runtime.cljs"),
+  sceneTape: sha256File("src/app/client/substrate/scene_tape.cljc"),
+  sceneStore: sha256File("src/app/client/workspace/scene_store.cljc"),
+  rectTree: sha256File("src/app/client/workspace/rect_tree.cljc"),
+  containers: sha256File("src/app/client/workspace/containers.cljc"),
+  sceneRuntime: sha256File("src/app/client/workspace/scene_runtime.cljs"),
+  chromeMaterial: sha256File("src/app/client/substrate/chrome_material.cljc"),
+  chromeGpu: sha256File("src/app/client/substrate/webgpu/chrome_gpu.cljs"),
+  liveAtoms: sha256File("src/app/client/workspace/live_atoms.cljs"),
+  electricFlow: sha256File("src/app/electric_flow.cljc"),
+  runtimeRender: sha256File("src/app/client/workspace/runtime/render.cljs"),
+  renderer: sha256File("src/app/client/substrate/webgpu/renderer.cljs"),
+  verifier: sha256File("src/app/client/substrate/webgpu/verifier.cljs"),
+  runner: sha256File("test/render_engine/run_verifier.mjs"),
+  fence: sha256File("test/render_engine/verify_scene_tape_fence.mjs"),
+});
+
 const sourceTokenRows = (pattern) =>
   Object.entries(chromeSourceFiles).flatMap(([namespace, relativePath]) => {
     const source = fs.readFileSync(path.join(repoRoot, relativePath), "utf8");
@@ -465,6 +522,12 @@ const writeActualImages = (result) => {
     }
   }
   for (const renderCase of result.chromeAtom.cases) {
+    for (const image of renderCase.images) {
+      const png = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+      fs.writeFileSync(path.join(actualDir, image.file), png);
+    }
+  }
+  for (const renderCase of result.w4FrameRuntime.cases) {
     for (const image of renderCase.images) {
       const png = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
       fs.writeFileSync(path.join(actualDir, image.file), png);
@@ -537,6 +600,17 @@ const chromeAtomDeterminismRows = (result) =>
     })),
   );
 
+const w4FrameRuntimeDeterminismRows = (result) =>
+  result.w4FrameRuntime.cases.flatMap((renderCase) =>
+    renderCase.images.map((image) => ({
+      caseId: renderCase.caseId,
+      zoom: renderCase.zoom,
+      regime: renderCase.regime,
+      mode: image.mode,
+      ...image.determinism,
+    })),
+  );
+
 const expectedDivergenceRows = (result) =>
   result.cases.map((renderCase) => ({
     caseId: renderCase.caseId,
@@ -557,9 +631,13 @@ const main = async () => {
       appendPathGoldens,
       appendConnectorGoldens,
       appendChromeGoldens,
+      appendW4Goldens,
+      appendImageInputAmendment,
       appendPathInputAmendment,
       appendConnectorInputAmendment,
       appendChromeInputAmendment,
+      appendW4InputAmendment,
+      amendShaderDigests,
     ].filter(Boolean).length > 1
   ) {
     throw new Error("Only one scoped atom append may run at a time");
@@ -682,12 +760,15 @@ const main = async () => {
     connectorAtomCases: connectorAtomRows(result),
     chromeAtomInputs: chromeAtomInputs(),
     chromeAtomCases: chromeAtomRows(result),
+    w4FrameRuntimeInputs: w4FrameRuntimeInputs(),
+    w4FrameRuntimeCases: w4FrameRuntimeRows(result),
   };
   const deterministic = determinismRows(result);
   const imageDeterministic = imageAtomDeterminismRows(result);
   const pathDeterministic = pathAtomDeterminismRows(result);
   const connectorDeterministic = connectorAtomDeterminismRows(result);
   const chromeDeterministic = chromeAtomDeterminismRows(result);
+  const w4Deterministic = w4FrameRuntimeDeterminismRows(result);
   const chromeAbsence = chromeStaticAbsence();
   const imageParity = result.imageAtom.parity;
   const pathParity = result.pathAtom.parity;
@@ -722,6 +803,9 @@ const main = async () => {
   const chromeDeterminismPass =
     chromeDeterministic.length === 3 &&
     chromeDeterministic.every((row) => row.byteIdentical);
+  const w4DeterminismPass =
+    w4Deterministic.length === 3 &&
+    w4Deterministic.every((row) => row.byteIdentical);
   const connectorParityPass =
     connectorParity.length === 7 &&
     connectorParity.every(
@@ -1312,6 +1396,174 @@ const main = async () => {
     chromeAppendPreflight.priorGoldenBytesUnchanged = true;
   }
 
+  const priorGoldenSetsPass =
+    imagePass &&
+    comparisonPass(
+      compareGoldenRows(
+        currentManifest.imageAtomCases,
+        expectedManifest?.imageAtomCases,
+      ),
+      expectedManifest?.imageAtomCases,
+      21,
+    ) &&
+    comparisonPass(
+      compareGoldenRows(
+        currentManifest.pathAtomCases,
+        expectedManifest?.pathAtomCases,
+      ),
+      expectedManifest?.pathAtomCases,
+      3,
+    ) &&
+    comparisonPass(
+      compareGoldenRows(
+        currentManifest.connectorAtomCases,
+        expectedManifest?.connectorAtomCases,
+      ),
+      expectedManifest?.connectorAtomCases,
+      3,
+    ) &&
+    comparisonPass(
+      compareGoldenRows(
+        currentManifest.chromeAtomCases,
+        expectedManifest?.chromeAtomCases,
+      ),
+      expectedManifest?.chromeAtomCases,
+      3,
+    );
+  const w4AppendPreflight = {
+    bankPresent,
+    environmentMatch,
+    priorGoldenSetsPass,
+    existingW4Rows: expectedManifest?.w4FrameRuntimeCases?.length || 0,
+    w4Rows: currentManifest.w4FrameRuntimeCases.length,
+    w4DeterminismPass,
+    w4ContractPass: result.w4FrameRuntime.pass,
+  };
+  const w4AppendAuthorized =
+    bankPresent &&
+    environmentMatch &&
+    priorGoldenSetsPass &&
+    !expectedManifest.w4FrameRuntimeCases &&
+    currentManifest.w4FrameRuntimeCases.length === 3 &&
+    w4DeterminismPass &&
+    result.w4FrameRuntime.pass;
+
+  if (appendW4Goldens) {
+    if (!w4AppendAuthorized) {
+      throw new Error(
+        `W4 FRAME-RUNTIME append preflight failed: ${JSON.stringify(w4AppendPreflight)}`,
+      );
+    }
+    const occupiedFiles = new Set([
+      ...expectedManifest.images.map((row) => row.file),
+      ...expectedManifest.imageAtomCases.map((row) => row.file),
+      ...expectedManifest.pathAtomCases.map((row) => row.file),
+      ...expectedManifest.connectorAtomCases.map((row) => row.file),
+      ...expectedManifest.chromeAtomCases.map((row) => row.file),
+    ]);
+    const occupiedDigests = Object.fromEntries(
+      [...occupiedFiles].map((file) => [
+        file,
+        sha256(fs.readFileSync(path.join(goldenDir, file))),
+      ]),
+    );
+    const w4Files = currentManifest.w4FrameRuntimeCases.map((row) => row.file);
+    if (
+      new Set(w4Files).size !== 3 ||
+      w4Files.some((file) => occupiedFiles.has(file))
+    ) {
+      throw new Error("W4 FRAME-RUNTIME filenames collide or are not unique");
+    }
+    for (const renderCase of result.w4FrameRuntime.cases) {
+      for (const image of renderCase.images) {
+        const png = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+        fs.writeFileSync(path.join(goldenDir, image.file), png);
+      }
+    }
+    if (
+      !Object.entries(occupiedDigests).every(
+        ([file, digest]) =>
+          sha256(fs.readFileSync(path.join(goldenDir, file))) === digest,
+      )
+    ) {
+      throw new Error("W4 FRAME-RUNTIME append changed an existing golden byte");
+    }
+    expectedManifest = {
+      ...expectedManifest,
+      w4FrameRuntimeInputs: currentManifest.w4FrameRuntimeInputs,
+      w4FrameRuntimeCases: currentManifest.w4FrameRuntimeCases,
+    };
+    fs.writeFileSync(
+      manifestFile,
+      `${JSON.stringify(expectedManifest, null, 2)}\n`,
+    );
+    w4AppendPreflight.priorGoldenBytesUnchanged = true;
+  }
+
+  const changedShaderDigestKeys = Object.keys(currentManifest.shaderDigests)
+    .filter(
+      (key) =>
+        expectedManifest?.shaderDigests?.[key] !==
+        currentManifest.shaderDigests[key],
+    )
+    .sort();
+  const shaderAmendmentW4Pass = comparisonPass(
+    compareGoldenRows(
+      currentManifest.w4FrameRuntimeCases,
+      expectedManifest?.w4FrameRuntimeCases,
+    ),
+    expectedManifest?.w4FrameRuntimeCases,
+    3,
+  );
+  const shaderAmendmentPreflight = {
+    bankPresent,
+    environmentMatch,
+    priorGoldenSetsPass,
+    w4GoldensPass: shaderAmendmentW4Pass,
+    changedShaderDigestKeys,
+    productionInputDebtKeys,
+    w4ContractPass: result.w4FrameRuntime.pass,
+  };
+  const shaderAmendmentAuthorized =
+    bankPresent &&
+    environmentMatch &&
+    priorGoldenSetsPass &&
+    shaderAmendmentW4Pass &&
+    JSON.stringify(changedShaderDigestKeys) ===
+      JSON.stringify(["rectFragment"]) &&
+    JSON.stringify(productionInputDebtKeys) ===
+      JSON.stringify(["rendererSource"]) &&
+    result.w4FrameRuntime.gradient?.pass &&
+    result.w4FrameRuntime.pass;
+
+  if (amendShaderDigests) {
+    if (!shaderAmendmentAuthorized) {
+      throw new Error(
+        `W4 shader-digest amendment preflight failed: ${JSON.stringify(shaderAmendmentPreflight)}`,
+      );
+    }
+    expectedManifest = {
+      ...expectedManifest,
+      shaderDigests: currentManifest.shaderDigests,
+      productionInputs: currentManifest.productionInputs,
+      shaderDigestAmendments: [
+        ...(expectedManifest.shaderDigestAmendments || []),
+        {
+          amendment: (expectedManifest.shaderDigestAmendments?.length || 0) + 1,
+          reason:
+            "W4 decodes rect gradient stops before linear interpolation; every prior and W4 golden remained byte-stable under its declared road",
+          changedKeys: changedShaderDigestKeys,
+          shaderDigests: currentManifest.shaderDigests,
+          productionInputs: currentManifest.productionInputs,
+        },
+      ],
+    };
+    fs.writeFileSync(
+      manifestFile,
+      `${JSON.stringify(expectedManifest, null, 2)}\n`,
+    );
+  }
+
   const sourceMatch =
     bankPresent &&
     fingerprintSha({
@@ -1396,6 +1648,25 @@ const main = async () => {
       expectedManifest?.chromeAtomCases,
       3,
     );
+  let expectedW4FrameRuntimeInputs =
+    expectedManifest.w4FrameRuntimeInputAmendments?.at(-1)?.inputs ||
+    expectedManifest.w4FrameRuntimeInputs;
+  let w4FrameRuntimeInputsMatch =
+    bankPresent &&
+    Boolean(expectedW4FrameRuntimeInputs) &&
+    fingerprintSha(expectedW4FrameRuntimeInputs) ===
+      fingerprintSha(currentManifest.w4FrameRuntimeInputs);
+  const w4FrameRuntimeComparison = compareGoldenRows(
+    currentManifest.w4FrameRuntimeCases,
+    expectedManifest?.w4FrameRuntimeCases,
+  );
+  const w4FrameRuntimePass =
+    bankPresent &&
+    comparisonPass(
+      w4FrameRuntimeComparison,
+      expectedManifest?.w4FrameRuntimeCases,
+      3,
+    );
   const inputAmendmentPreflight = {
     bankPresent,
     sourceMatch,
@@ -1405,11 +1676,13 @@ const main = async () => {
     pathGoldensPass: pathAtomPass,
     connectorGoldensPass: connectorAtomPass,
     chromeGoldensPass: chromeAtomPass,
+    w4GoldensPass: w4FrameRuntimePass,
     legacyDeterminismPass: deterministic.length === 21 && determinismPass,
     imageDeterminismPass,
     pathDeterminismPass,
     connectorDeterminismPass,
     chromeDeterminismPass,
+    w4DeterminismPass,
     imageParityPass,
     pathParityPass,
     connectorParityPass,
@@ -1417,11 +1690,13 @@ const main = async () => {
     pathContractPass: result.pathAtom.pass,
     connectorContractPass: result.connectorAtom.pass,
     chromeContractPass: result.chromeAtom.pass,
+    w4ContractPass: result.w4FrameRuntime.pass,
     pathUploadGatePass: result.pathAtom.uploadGate?.pass,
     priorImageInputsMatch: imageAtomInputsMatch,
     priorPathInputsMatch: pathAtomInputsMatch,
     priorConnectorInputsMatch: connectorAtomInputsMatch,
     priorChromeInputsMatch: chromeAtomInputsMatch,
+    priorW4InputsMatch: w4FrameRuntimeInputsMatch,
   };
   const inputAmendmentAuthorized =
     bankPresent &&
@@ -1432,12 +1707,14 @@ const main = async () => {
     pathAtomPass &&
     connectorAtomPass &&
     chromeAtomPass &&
+    w4FrameRuntimePass &&
     deterministic.length === 21 &&
     determinismPass &&
     imageDeterminismPass &&
     pathDeterminismPass &&
     connectorDeterminismPass &&
     chromeDeterminismPass &&
+    w4DeterminismPass &&
     imageParityPass &&
     pathParityPass &&
     connectorParityPass &&
@@ -1445,12 +1722,39 @@ const main = async () => {
     result.pathAtom.pass &&
     result.connectorAtom.pass &&
     result.chromeAtom.pass &&
+    result.w4FrameRuntime.pass &&
     chromeHybridPass &&
     result.chromeAtom.color?.pass &&
     result.chromeAtom.arrangement?.pass &&
     result.chromeAtom.uploadGate?.pass &&
     chromeAbsence.pass &&
     result.pathAtom.uploadGate?.pass;
+
+  if (appendImageInputAmendment) {
+    if (!inputAmendmentAuthorized) {
+      throw new Error(
+        `IMAGE-ATOM input amendment preflight failed: ${JSON.stringify(inputAmendmentPreflight)}`,
+      );
+    }
+    expectedManifest = {
+      ...expectedManifest,
+      imageAtomInputAmendments: [
+        ...(expectedManifest.imageAtomInputAmendments || []),
+        {
+          amendment: (expectedManifest.imageAtomInputAmendments?.length || 0) + 1,
+          reason:
+            "W4 shared-source integration changed scene flattening and verifier inputs with all image goldens byte-identical",
+          inputs: currentManifest.imageAtomInputs,
+        },
+      ],
+    };
+    fs.writeFileSync(
+      manifestFile,
+      `${JSON.stringify(expectedManifest, null, 2)}\n`,
+    );
+    expectedImageAtomInputs = currentManifest.imageAtomInputs;
+    imageAtomInputsMatch = true;
+  }
 
   if (appendPathInputAmendment) {
     if (!inputAmendmentAuthorized) {
@@ -1655,6 +1959,61 @@ const main = async () => {
     connectorAtomInputsMatch = true;
     chromeAtomInputsMatch = true;
   }
+  const w4InputAmendmentPreflight = {
+    ...inputAmendmentPreflight,
+    w4GoldensPass: w4FrameRuntimePass,
+    w4DeterminismPass,
+    w4CompositePass: result.w4FrameRuntime.composite?.pass,
+    w4MixedContentPass: result.w4FrameRuntime.mixedContent?.pass,
+    w4MaskPass: result.w4FrameRuntime.mask?.pass,
+    w4GradientPass: result.w4FrameRuntime.gradient?.pass,
+    w4ClipPass: result.w4FrameRuntime.clip?.pass,
+    w4BlurPass: result.w4FrameRuntime.blur?.pass,
+    w4SecondaryPass: result.w4FrameRuntime.secondary?.pass,
+    w4ExportPass: result.w4FrameRuntime.export?.pass,
+    w4SchedulerPass: result.w4FrameRuntime.scheduler?.pass,
+  };
+  const w4InputAmendmentAuthorized =
+    inputAmendmentAuthorized &&
+    w4FrameRuntimePass &&
+    w4DeterminismPass &&
+    result.w4FrameRuntime.composite?.pass &&
+    result.w4FrameRuntime.mixedContent?.pass &&
+    result.w4FrameRuntime.mask?.pass &&
+    result.w4FrameRuntime.gradient?.pass &&
+    result.w4FrameRuntime.clip?.pass &&
+    result.w4FrameRuntime.blur?.pass &&
+    result.w4FrameRuntime.secondary?.pass &&
+    result.w4FrameRuntime.export?.pass &&
+    result.w4FrameRuntime.scheduler?.pass &&
+    result.w4FrameRuntime.pass;
+
+  if (appendW4InputAmendment) {
+    if (!w4InputAmendmentAuthorized) {
+      throw new Error(
+        `W4 FRAME-RUNTIME input amendment preflight failed: ${JSON.stringify(w4InputAmendmentPreflight)}`,
+      );
+    }
+    expectedManifest = {
+      ...expectedManifest,
+      w4FrameRuntimeInputAmendments: [
+        ...(expectedManifest.w4FrameRuntimeInputAmendments || []),
+        {
+          amendment:
+            (expectedManifest.w4FrameRuntimeInputAmendments?.length || 0) + 1,
+          reason:
+            "W4 close refreshed its complete implementation and verifier input set after the bounded repair pass",
+          inputs: currentManifest.w4FrameRuntimeInputs,
+        },
+      ],
+    };
+    fs.writeFileSync(
+      manifestFile,
+      `${JSON.stringify(expectedManifest, null, 2)}\n`,
+    );
+    expectedW4FrameRuntimeInputs = currentManifest.w4FrameRuntimeInputs;
+    w4FrameRuntimeInputsMatch = true;
+  }
   const appendPostflightPass =
     (!appendImageGoldens ||
       (sourceMatch &&
@@ -1670,6 +2029,15 @@ const main = async () => {
         imageAtomInputsMatch &&
         pathAtomPass &&
         pathAtomInputsMatch)) &&
+    (!appendW4Goldens ||
+      (environmentMatch &&
+        priorGoldenSetsPass &&
+        w4FrameRuntimePass &&
+        w4FrameRuntimeInputsMatch)) &&
+    (!amendShaderDigests ||
+      (shaderAmendmentAuthorized && sourceMatch && w4FrameRuntimePass)) &&
+    (!appendImageInputAmendment ||
+      (inputAmendmentAuthorized && imageAtomInputsMatch)) &&
     (!appendPathInputAmendment ||
       (inputAmendmentAuthorized &&
         imageAtomInputsMatch &&
@@ -1707,7 +2075,11 @@ const main = async () => {
         imageAtomInputsMatch &&
         pathAtomInputsMatch &&
         connectorAtomInputsMatch &&
-        chromeAtomInputsMatch));
+        chromeAtomInputsMatch)) &&
+    (!appendW4InputAmendment ||
+      (w4InputAmendmentAuthorized &&
+        w4FrameRuntimePass &&
+        w4FrameRuntimeInputsMatch));
   if (!appendPostflightPass) {
     throw new Error("Scoped atom append postflight failed");
   }
@@ -1767,6 +2139,24 @@ const main = async () => {
     !result.chromeAtom.pass
   )
     classification = "chrome-atom-contract-failure";
+  else if (
+    !w4FrameRuntimePass ||
+    !w4DeterminismPass ||
+    !w4FrameRuntimeInputsMatch ||
+    !result.w4FrameRuntime.composite?.pass ||
+    !result.w4FrameRuntime.mixedContent?.pass ||
+    !result.w4FrameRuntime.mask?.pass ||
+    !result.w4FrameRuntime.gradient?.pass ||
+    !result.w4FrameRuntime.clip?.pass ||
+    !result.w4FrameRuntime.blur?.pass ||
+    !result.w4FrameRuntime.secondary?.pass ||
+    !result.w4FrameRuntime.aliasing?.pass ||
+    !result.w4FrameRuntime.pool?.pass ||
+    !result.w4FrameRuntime.export?.pass ||
+    !result.w4FrameRuntime.scheduler?.pass ||
+    !result.w4FrameRuntime.pass
+  )
+    classification = "w4-frame-runtime-contract-failure";
   else if (!parityPass) classification = "candidate-pick-parity-failure";
   else if (!divergencePass)
     classification = "current-product-pick-sentinel-failure";
@@ -1882,6 +2272,24 @@ const main = async () => {
     "chrome-contract",
   );
   assertField(
+    w4FrameRuntimePass && w4FrameRuntimeComparison.length === 3,
+    "w4-frame-runtime-goldens",
+  );
+  assertField(w4DeterminismPass, "w4-frame-runtime-determinism");
+  assertField(w4FrameRuntimeInputsMatch, "w4-frame-runtime-inputs");
+  assertField(result.w4FrameRuntime.composite?.pass, "w4-composite");
+  assertField(result.w4FrameRuntime.mixedContent?.pass, "w4-mixed-content");
+  assertField(result.w4FrameRuntime.mask?.pass, "w4-mask");
+  assertField(result.w4FrameRuntime.gradient?.pass, "w4-gradient");
+  assertField(result.w4FrameRuntime.clip?.pass, "w4-clip");
+  assertField(result.w4FrameRuntime.blur?.pass, "w4-blur");
+  assertField(result.w4FrameRuntime.secondary?.pass, "w4-secondary");
+  assertField(result.w4FrameRuntime.aliasing?.pass, "w4-aliasing");
+  assertField(result.w4FrameRuntime.pool?.pass, "w4-target-pool");
+  assertField(result.w4FrameRuntime.export?.pass, "w4-export");
+  assertField(result.w4FrameRuntime.scheduler?.pass, "w4-scheduler");
+  assertField(result.w4FrameRuntime.pass, "w4-frame-runtime-contract");
+  assertField(
     Boolean(
       attestation.adapterIdentity.vendor &&
         typeof attestation.isFallbackAdapter === "boolean" &&
@@ -1925,6 +2333,19 @@ const main = async () => {
     chromeUploadGate: Boolean(result.chromeAtom.uploadGate?.pass),
     chromeResources: Boolean(result.chromeAtom.resources?.pass),
     chromeStaticAbsence: chromeAbsence.pass,
+    w4Goldens: `${w4FrameRuntimeComparison.filter((row) => row.rawMatch && row.pngManifestMatch && row.goldenFileMatch).length}/${w4FrameRuntimeComparison.length}`,
+    w4Determinism: `${w4Deterministic.filter((row) => row.byteIdentical).length}/${w4Deterministic.length}`,
+    w4Composite: Boolean(result.w4FrameRuntime.composite?.pass),
+    w4MixedContent: Boolean(result.w4FrameRuntime.mixedContent?.pass),
+    w4Mask: Boolean(result.w4FrameRuntime.mask?.pass),
+    w4Gradient: Boolean(result.w4FrameRuntime.gradient?.pass),
+    w4Clip: Boolean(result.w4FrameRuntime.clip?.pass),
+    w4Blur: Boolean(result.w4FrameRuntime.blur?.pass),
+    w4Secondary: Boolean(result.w4FrameRuntime.secondary?.pass),
+    w4Aliasing: Boolean(result.w4FrameRuntime.aliasing?.pass),
+    w4TargetPool: Boolean(result.w4FrameRuntime.pool?.pass),
+    w4Export: Boolean(result.w4FrameRuntime.export?.pass),
+    w4Scheduler: Boolean(result.w4FrameRuntime.scheduler?.pass),
     q8AffineTransport: q8TransportPass,
     q5AffineRasterBoundary: q5AffineBoundaryPass,
     candidateParity: `${parity.filter((row) => row.pass).length}/${parity.length}`,
@@ -1937,16 +2358,24 @@ const main = async () => {
     connectorAppendAuthorized,
     appendChromeGoldens,
     chromeAppendAuthorized,
+    appendW4Goldens,
+    w4AppendAuthorized,
+    appendImageInputAmendment,
     appendPathInputAmendment,
     inputAmendmentAuthorized,
     appendConnectorInputAmendment,
     connectorInputAmendmentAuthorized,
     appendChromeInputAmendment,
     chromeInputAmendmentAuthorized,
+    appendW4InputAmendment,
+    w4InputAmendmentAuthorized,
+    amendShaderDigests,
+    shaderAmendmentAuthorized,
     assertImageContract,
     assertPathContract,
     assertConnectorContract,
     assertChromeContract,
+    assertW4Contract,
     assertionPass: assertionFailures.length === 0,
     assertionFailures,
     environmentFingerprint: environment.fingerprintSha256,
@@ -1981,6 +2410,19 @@ const main = async () => {
     chromeUploadGate: true,
     chromeResources: true,
     chromeStaticAbsence: true,
+    w4Goldens: "3/3",
+    w4Determinism: "3/3",
+    w4Composite: true,
+    w4MixedContent: true,
+    w4Mask: true,
+    w4Gradient: true,
+    w4Clip: true,
+    w4Blur: true,
+    w4Secondary: true,
+    w4Aliasing: true,
+    w4TargetPool: true,
+    w4Export: true,
+    w4Scheduler: true,
   })) {
     assertField(
       Object.hasOwn(stdoutSummary, key) && stdoutSummary[key] === value,
@@ -1996,7 +2438,7 @@ const main = async () => {
     verifier: result.verifier,
     replayCommand: "npm run verify:render-engine",
     updateCommand:
-      "clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs --append-chrome-goldens --assert-chrome-contract",
+      "clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs --append-w4-goldens --assert-w4-contract",
     pass,
     classification,
     bankPresent,
@@ -2005,9 +2447,13 @@ const main = async () => {
       appendPathGoldens ||
       appendConnectorGoldens ||
       appendChromeGoldens ||
+      appendW4Goldens ||
+      appendImageInputAmendment ||
       appendPathInputAmendment ||
       appendConnectorInputAmendment ||
-      appendChromeInputAmendment,
+      appendChromeInputAmendment ||
+      appendW4InputAmendment ||
+      amendShaderDigests,
     updateAuthorized: appendImageGoldens
       ? appendAuthorized
       : appendPathGoldens
@@ -2016,12 +2462,20 @@ const main = async () => {
           ? connectorAppendAuthorized
         : appendChromeGoldens
           ? chromeAppendAuthorized
+        : appendW4Goldens
+          ? w4AppendAuthorized
+        : amendShaderDigests
+          ? shaderAmendmentAuthorized
+        : appendImageInputAmendment
+          ? inputAmendmentAuthorized
         : appendPathInputAmendment
           ? inputAmendmentAuthorized
           : appendConnectorInputAmendment
             ? connectorInputAmendmentAuthorized
           : appendChromeInputAmendment
             ? chromeInputAmendmentAuthorized
+          : appendW4InputAmendment
+            ? w4InputAmendmentAuthorized
         : updateAuthorized,
     updateAuthority:
       "scoped atom appends require unchanged prior golden bytes, deterministic new pixels, contract receipts, and the preserved independent MSDF RED",
@@ -2120,15 +2574,41 @@ const main = async () => {
       system: result.chromeAtom.system,
       coverage: result.chromeAtom.coverage,
     },
+    w4FrameRuntime: {
+      pass: result.w4FrameRuntime.pass,
+      inputFingerprintsMatch: w4FrameRuntimeInputsMatch,
+      determinism: { pass: w4DeterminismPass, rows: w4Deterministic },
+      goldenComparison: {
+        pass: w4FrameRuntimePass,
+        rows: w4FrameRuntimeComparison,
+      },
+      composite: result.w4FrameRuntime.composite,
+      mixedContent: result.w4FrameRuntime.mixedContent,
+      mask: result.w4FrameRuntime.mask,
+      gradient: result.w4FrameRuntime.gradient,
+      clip: result.w4FrameRuntime.clip,
+      blur: result.w4FrameRuntime.blur,
+      secondary: result.w4FrameRuntime.secondary,
+      aliasing: result.w4FrameRuntime.aliasing,
+      pool: result.w4FrameRuntime.pool,
+      formats: result.w4FrameRuntime.formats,
+      export: result.w4FrameRuntime.export,
+      scheduler: result.w4FrameRuntime.scheduler,
+      compositor: result.w4FrameRuntime.compositor,
+    },
     append: {
       requested:
         appendImageGoldens ||
         appendPathGoldens ||
         appendConnectorGoldens ||
         appendChromeGoldens ||
+        appendW4Goldens ||
+        appendImageInputAmendment ||
         appendPathInputAmendment ||
         appendConnectorInputAmendment ||
-        appendChromeInputAmendment,
+        appendChromeInputAmendment ||
+        appendW4InputAmendment ||
+        amendShaderDigests,
       kind: appendImageGoldens
         ? "image"
         : appendPathGoldens
@@ -2137,12 +2617,20 @@ const main = async () => {
             ? "connector"
           : appendChromeGoldens
             ? "chrome"
+          : appendW4Goldens
+            ? "w4-frame-runtime"
+          : amendShaderDigests
+            ? "shader-digest-amendment"
+          : appendImageInputAmendment
+            ? "image-input-amendment"
           : appendPathInputAmendment
             ? "path-input-amendment"
             : appendConnectorInputAmendment
               ? "connector-input-amendment"
             : appendChromeInputAmendment
               ? "chrome-input-amendment"
+            : appendW4InputAmendment
+              ? "w4-input-amendment"
             : null,
       preflight: appendImageGoldens
         ? appendPreflight
@@ -2152,6 +2640,14 @@ const main = async () => {
             ? connectorAppendPreflight
           : appendChromeGoldens
             ? chromeAppendPreflight
+          : appendW4Goldens
+            ? w4AppendPreflight
+          : amendShaderDigests
+            ? shaderAmendmentPreflight
+          : appendImageInputAmendment
+            ? inputAmendmentPreflight
+          : appendW4InputAmendment
+            ? w4InputAmendmentPreflight
           : appendChromeInputAmendment
             ? chromeInputAmendmentPreflight
           : appendConnectorInputAmendment
@@ -2165,12 +2661,20 @@ const main = async () => {
             ? connectorAppendAuthorized
           : appendChromeGoldens
             ? chromeAppendAuthorized
+          : appendW4Goldens
+            ? w4AppendAuthorized
+          : amendShaderDigests
+            ? shaderAmendmentAuthorized
+          : appendImageInputAmendment
+            ? inputAmendmentAuthorized
           : appendPathInputAmendment
             ? inputAmendmentAuthorized
             : appendConnectorInputAmendment
               ? connectorInputAmendmentAuthorized
             : appendChromeInputAmendment
               ? chromeInputAmendmentAuthorized
+            : appendW4InputAmendment
+              ? w4InputAmendmentAuthorized
           : false,
       postflightPass: appendPostflightPass,
     },
@@ -2179,7 +2683,8 @@ const main = async () => {
         assertImageContract ||
         assertPathContract ||
         assertConnectorContract ||
-        assertChromeContract,
+        assertChromeContract ||
+        assertW4Contract,
       pass: assertionFailures.length === 0,
       failures: assertionFailures,
     },
@@ -2196,10 +2701,26 @@ const main = async () => {
     assertImageContract ||
     assertPathContract ||
     assertConnectorContract ||
-    assertChromeContract
+    assertChromeContract ||
+    assertW4Contract
   ) {
     if (assertionFailures.length > 0) process.exitCode = 1;
-  } else if (!pass) {
+  } else if (
+    !pass &&
+    !(
+      appendImageGoldens ||
+      appendPathGoldens ||
+      appendConnectorGoldens ||
+      appendChromeGoldens ||
+      appendW4Goldens ||
+      appendImageInputAmendment ||
+      appendPathInputAmendment ||
+      appendConnectorInputAmendment ||
+      appendChromeInputAmendment ||
+      appendW4InputAmendment ||
+      amendShaderDigests
+    )
+  ) {
     process.exitCode = 1;
   }
 };

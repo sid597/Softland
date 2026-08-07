@@ -1,12 +1,14 @@
 (ns app.client.workspace.runtime.render
   "Render consumer: derived flow assembly, world snapshot, GPU upload diffing, draw."
   (:require [missionary.core :as m]
+            [app.client.substrate.frame-scheduler :as frame-scheduler]
             [app.client.substrate.webgpu.renderer :as editor]
             [app.client.workspace.scene-runtime :as scene-rt] ;; scene-substrate P3a/P3b
             [app.client.substrate.webgpu.buffer-pool :as pool]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.workspace.events :refer [maybe-snap]]
             [app.client.workspace.ground :as ground]
+            [app.client.workspace.frame-runtime :as frame-runtime]
             [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.sidebar :refer [cmd-panel-h status-bar-h]]
             [app.client.workspace.editor-compute :refer [<fold-state <bracket-match <editor-rects+sidebar build-main-face!]]
@@ -21,6 +23,16 @@
   (let [payload (clj->js data)]
     (js/console.log label payload)
     (js/console.log (str label " JSON " (js/JSON.stringify payload)))))
+
+(defn- selection-active? []
+  (pos? (or (some-> (aget js/globalThis "__softlandChromeReceipt")
+                     (aget "selection-census")
+                     (aget "selected"))
+            0)))
+
+(defn- publish-scheduler-receipt! [state]
+  (aset js/globalThis "__softlandFrameSchedulerReceipt"
+        (clj->js (frame-scheduler/receipt state))))
 
 (defn- text-op-seq [texts]
   (mapcat #(if (vector? %) % [%]) (or texts [])))
@@ -196,16 +208,18 @@
         ;; registry) combined ONCE in the world snapshot — no diamond (T3).
         <store-frame (scene-rt/<store-frame)
         <effective   (scene-rt/<effective)
+        <frame-registry (scene-rt/<frame-registry)
 
         ;; World snapshot (now includes sidebar data for pool updates)
         <world-snapshot (m/latest
                           (fn [text-data editor-rect-data sidebar-data
                                cmd-rects settings-rects settings-text
                                viewport scroll-y cmd-panel settings active-font agent-output
-                               local-world store-frame effective]
+                               local-world store-frame effective frame-registry]
                             {:text-data text-data
                              :store-frame store-frame ;; scene-substrate P3a
                              :effective   effective   ;; scene-substrate P3a
+                             :frame-registry frame-registry
                              ;; P3b finding #1: the store composites ONLY in face
                              ;; mode — a defensive gate mirroring the click
                              ;; dispatch (mouse.cljs), so a slot that outlives its
@@ -245,7 +259,8 @@
                           (m/watch !agent-output)
                           (m/watch !effective-local-world)
                           <store-frame   ;; scene-substrate P3a
-                          <effective)]   ;; scene-substrate P3a
+                          <effective     ;; scene-substrate P3a
+                          <frame-registry)]
 
     ;; Two joined consumers: the main-face slot edge + the RAF render pulse.
     (m/join vector
@@ -279,15 +294,26 @@
 
       ;; Render pulse: sample world on each RAF tick
       (m/reduce
-      (fn [prev-state [world _frame-time]]
+      (fn [prev-state [world frame-time]]
         ;; first-light P2b, quarantined by SEAM-STEP1: camera is a sink-local
         ;; mosaic input. It is dereferenced per RAF and never enters derivation.
         (let [ground-camera @ground/!camera
               world-changed? (not (identical? world (:prev-world prev-state)))
               camera-moved? (not= ground-camera (:prev-ground-camera prev-state))
-              dirty-rect-pending? (some? (:pending-dirty-rect prev-state))]
-        (if-not (or world-changed? camera-moved? dirty-rect-pending?)
-          prev-state
+              dirty-rect-pending? (some? (:pending-dirty-rect prev-state))
+              logical-time (frame-scheduler/clock-time frame-time)
+              _ (frame-runtime/sync-pulse-deadline! logical-time)
+              causes (frame-scheduler/derive-causes
+                      {:world-changed? world-changed?
+                       :camera-moved? camera-moved?
+                       :dirty-rect-pending? dirty-rect-pending?})
+              scheduler-step (frame-scheduler/decide-at!
+                              (:scheduler-state prev-state)
+                              logical-time causes
+                              (:last-plan-hash prev-state))
+              _ (publish-scheduler-receipt! (:state scheduler-step))]
+        (if-not (:encode? scheduler-step)
+          (assoc prev-state :scheduler-state (:state scheduler-step))
 
           (let [frame-idx (inc (or (:frame-idx prev-state) 0))
                 _ (ground/record-shaping-counter! [:raf-frames])
@@ -300,8 +326,9 @@
                 editor-shadows (:shadows editor-rect-data)
 
                 ;; ── scene-substrate P3b: store contribution + echo fan-out ──
-                store-frame          (:store-frame world)
-                effective            (:effective world)
+                        store-frame          (:store-frame world)
+                        effective            (:effective world)
+                        frame-registry       (:frame-registry world)
                 face-mode?           (:face-mode? world)
                 ground?              (ground/ground-active?)
                 gcam                 (or ground-camera
@@ -714,7 +741,8 @@
             (when (not= (.-height canvas) target-h)
               (set! (.-height canvas) target-h))
             (try
-              (editor/draw-frame! device ctx
+              (let [draw-result
+                    (editor/draw-frame! device ctx
                                     new-content-geo
                                     (assoc (pool/pool-draw-info !editor-pool)
                                            :draw-count (count editor-rects))
@@ -752,6 +780,12 @@
                                     :chrome-system (:chrome-system
                                                     (:pipelines geometry))
                                     :effective-transforms effective
+                                    :container-registry frame-registry
+                                    :frame-format (:format (:pipelines geometry))
+                                    :pulse-alpha
+                                    (frame-scheduler/pulse-alpha
+                                     (:time scheduler-step)
+                                     (selection-active?))
                                     :font-assets font-assets
                                     :editor-rect-count (count editor-rects)
                                     :editor-shadow-count (count (or editor-shadows []))
@@ -767,9 +801,14 @@
                                                   (when-let [slot-geo (get slot-text-geos vi)]
                                                     {:vi vi
                                                      :geo (:geo slot-geo)
+                                                     :text-clips
+                                                     (get-in store-frame
+                                                             [:text-clips-by-vi vi])
                                                      :order (get-in store-frame
                                                                     [:order-by-vi vi])})))
-                                          (:ordered-vis store-frame)))
+                                          (:ordered-vis store-frame)))]
+                (when-let [plan-hash (:plan-hash draw-result)]
+                  (aset js/globalThis "__softlandFrameLastPlanHash" plan-hash)))
               (catch :default err
                 (js/console.error "[RENDER/DRAW-FAIL]"
                                   err
@@ -797,6 +836,8 @@
              :prev-world world
              :prev-ground-camera ground-camera
              :pending-dirty-rect nil
+             :scheduler-state (:state scheduler-step)
+             :last-plan-hash (aget js/globalThis "__softlandFrameLastPlanHash")
              :prev-content-ops content-ops
              :prev-chrome-ops chrome-ops
              :prev-sidebar-data sidebar-data

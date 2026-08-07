@@ -15,6 +15,7 @@
             #?@(:cljs [[app.client.substrate.webgpu.renderer :as editor]
                        [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
                        [app.client.workspace.chrome-runtime :as chrome-runtime]
+                       [app.client.workspace.frame-runtime :as frame-runtime]
                        [app.client.workspace.live-atoms :as live-atoms]
                        [app.client.workspace.live-edges :as live-edges]
                        [app.client.workspace.scene-runtime :as scene-runtime]
@@ -754,6 +755,7 @@
                     font-config (get resources :font-config)
                     font-assets (get resources :font-assets)
                     pipelines (e/Task (await-promise (live-atoms/augment-pipelines! resources (editor/create-editor-state resources))))
+                    _ (frame-runtime/mount!)
                     _ (when-let [response (e/watch !live-edges-data)]
                         (live-edges/mount-live-edges! response))
                     _ (chrome-runtime/frame-edge!)]
@@ -818,6 +820,8 @@
                           (.configure ^js ctx
                             (clj->js {:device device
                                       :format format
+                                      :usage (bit-or (.-RENDER_ATTACHMENT js/GPUTextureUsage)
+                                                     (.-COPY_DST js/GPUTextureUsage))
                                       :alphaMode "premultiplied"}))
                           (js/console.log "[BOOT] Starting runtime loop"
                                           {:initial-file (:path file-info)

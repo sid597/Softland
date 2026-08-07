@@ -44,9 +44,13 @@ const store = read("src/app/client/workspace/scene_store.cljc");
 const contracts = read("src/app/client/substrate/scene_tape.cljc");
 const runtime = read("src/app/client/workspace/runtime/render.cljs");
 const rectTree = read("src/app/client/workspace/rect_tree.cljc");
+const frameEffects = read("src/app/client/substrate/frame_effects.cljc");
+const frameGraph = read("src/app/client/substrate/frame_graph.cljc");
+const compositor = read("src/app/client/substrate/webgpu/compositor_gpu.cljs");
 
 const drawFrame = findForm(renderer, "draw-frame!");
 const executor = findForm(renderer, "execute-scene-tape!");
+const entryExecutor = findForm(renderer, "execute-frame-entry!");
 const twinCheck = findForm(renderer, "frame-tape-twin-check!");
 const arrangementUpdate = findForm(renderer, "update-frame-arrangement");
 const imageProducer = findForm(renderer, "image-entries");
@@ -71,6 +75,13 @@ const families = [
   ":render.family/connector",
   ":render.family/chrome",
 ];
+const effectDeclarations = [
+  ":opacity",
+  ":mask",
+  ":layer-blur",
+  ":backdrop-blur",
+  ":isolate?",
+];
 
 const failures = [];
 // SEAM-STEP1 T7: ownership pins move to maintained names; no assertion or
@@ -90,9 +101,12 @@ forbid("draw-frame", drawFrame, /\.setVertexBuffer\s+pass/, "hand-positioned ver
 forbid("draw-frame", drawFrame, /\.draw\s+pass/, "hand-positioned draw branch");
 
 requireToken("executor", executor, "scene-tape/paint-forward");
-requireToken("executor", executor, "frame-family-registry");
-requireToken("executor", executor, "(:execute! registration)");
+requireToken("executor", executor, "execute-frame-entry!");
+requireToken("entry executor", entryExecutor, "frame-family-registry");
+requireToken("entry executor", entryExecutor, "(:execute! registration)");
 forbid("executor", executor, /\(case\s+/, "family case dispatch instead of registration");
+forbid("entry executor", entryExecutor, /\(case\s+/,
+  "family case dispatch instead of registration");
 
 // IMAGE-ATOM T10: the producer is a synchronous arrangement read. Decode,
 // upload, promises, and resource construction stay in the ingress path.
@@ -127,6 +141,18 @@ for (const family of families) {
   requireToken("frame executor registry", registry, family);
 }
 
+for (const effect of effectDeclarations) {
+  requireToken("effect grammar", frameEffects, effect);
+}
+for (const passKind of [":render", ":copy", ":present", ":readback", ":region"]) {
+  requireToken("frame graph pass vocabulary", frameGraph, passKind);
+}
+requireToken("compositor", compositor, "draw-multipass!");
+requireToken("compositor", compositor, "export-viewport!");
+forbid("draw-frame effects", drawFrame,
+  /\(case\s+[^)]*(?::opacity|:mask|:layer-blur|:backdrop-blur|:isolate\?)/s,
+  "hand-positioned central effect branch");
+
 requireToken("color seam", contracts, ":scene-color/linear-premultiplied-srgb");
 requireToken("color seam", contracts, ":default-off? true");
 requireToken("runtime target", runtime, "use-persistent-render-target? false");
@@ -145,9 +171,18 @@ const seededRejected = /\.draw\s+pass/.test(seededCentralBranch) &&
   !/\(case\s+/.test(executor);
 if (!seededRejected) failures.push("self-test: seeded family draw branch was not rejected");
 
+const seededEffectBranch = `${drawFrame}\n(case effect-kind :effect/fake-family :draw-direct)`;
+const seededEffectRejected = /\(case\s+[^)]*:effect\/fake-family/s.test(
+  seededEffectBranch,
+) && !/\(case\s+[^)]*:effect\/fake-family/s.test(drawFrame);
+if (!seededEffectRejected) {
+  failures.push("self-test: seeded central effect family was not rejected");
+}
+
 const receipt = {
-  contract: "W2-B/O-G-M-C+IMAGE-ATOM",
+  contract: "W2-B/O-G-M-C+IMAGE/PATH/CONNECTOR/CHROME+W4-FRAME-RUNTIME",
   families: families.length,
+  effectDeclarations: effectDeclarations.length,
   drawFrameBranches: 0,
   reversePick: pick.includes("scene-tape/pick-reverse"),
   cameraSinkQuarantined:
@@ -157,6 +192,7 @@ const receipt = {
     contracts.includes(":scene-color/linear-premultiplied-srgb") &&
     contracts.includes(":default-off? true"),
   seededCentralBranchRejected: seededRejected,
+  seededEffectFamilyRejected: seededEffectRejected,
   imageProducerPure:
     !/createImageBitmap|register-image-source!|copyExternalImageToTexture|writeTexture|\bPromise\b|\.then\s*\(|\bawait\b|\bfetch\b/.test(imageProducer),
   imageExecutorRegistered:

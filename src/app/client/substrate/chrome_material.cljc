@@ -258,16 +258,18 @@
 (defn material-vertices
   "Expand each quad to two clockwise-independent triangles."
   [material]
-  (into []
-        (mapcat (fn [[a b c d]] [a b c a c d]))
-        (material-quads material)))
+  (let [pulse? (= :selection-outline (:chrome/form material))]
+    (into []
+          (map (fn [vertex] (assoc vertex :pulse? pulse?)))
+          (mapcat (fn [[a b c d]] [a b c a c d])
+                  (material-quads material)))))
 
-(def vertex-words 9)
+(def vertex-words 10)
 (def vertex-stride (* vertex-words 4))
 
-(defn vertex-values [{:keys [anchor offset-px color]} container-idx]
+(defn vertex-values [{:keys [anchor offset-px color pulse?]} container-idx]
   (into (into (vec anchor) offset-px)
-        (conj (vec color) (or container-idx 0))))
+        (conj (vec color) (or container-idx 0) (if pulse? 1 0))))
 
 (def claimed-corpus-forms legal-forms)
 

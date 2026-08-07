@@ -68,8 +68,9 @@
    rects, shadows, and images are flat."
   [ops container-slot container vi]
   (let [slot (or container-slot 0)]
-    {:text    (mapv (fn [line] (mapv #(assoc % :container-idx slot) line)) (:text ops))
-     :rects   (mapv #(assoc % :container-idx slot) (:rects ops))
+    {:text    (mapv (fn [line] (mapv #(assoc % :container-idx slot
+                                              :container container) line)) (:text ops))
+     :rects   (mapv #(assoc % :container-idx slot :container container) (:rects ops))
      :shadows (mapv #(assoc % :container-idx slot) (:shadows ops))
      ;; IMAGE-ATOM T8/T14: stamping reuses W2-A's compact slot; image ops
      ;; acquire no per-node transform representation.
@@ -331,6 +332,23 @@
                            (assoc result (:vi slot) (get-in slot [:ops :text])))
                          {}
                          ordered)
+     :rect-clips-by-vi
+     (into {}
+           (map (fn [slot]
+                  [(:vi slot)
+                   (mapv (fn [op] {:clip (:gpu/clip op)
+                                   :container (:container op)})
+                         (get-in slot [:ops :rects]))]))
+           ordered)
+     :text-clips-by-vi
+     (into {}
+           (map (fn [slot]
+                  [(:vi slot)
+                   (mapv (fn [line]
+                           (mapv (fn [op] {:clip (:gpu/clip op)
+                                          :container (:container op)}) line))
+                         (get-in slot [:ops :text]))]))
+           ordered)
      :ordered-vis (mapv :vi ordered)
      :ops-count-by-vi
      (into {}

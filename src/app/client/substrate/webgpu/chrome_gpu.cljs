@@ -26,10 +26,12 @@
      @location(1) offset_px: vec2<f32>,
      @location(2) color: vec4<f32>,
      @location(3) container_idx: u32,
+     @location(4) pulse: u32,
    };
    struct VertexOutput {
      @builtin(position) position: vec4<f32>,
      @location(0) color: vec4<f32>,
+     @location(1) @interpolate(flat) pulse: u32,
    };
    @vertex fn main(input: VertexInput) -> VertexOutput {
      let c = containers[input.container_idx];
@@ -43,6 +45,7 @@
      var output: VertexOutput;
      output.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
      output.color = input.color;
+     output.pulse = input.pulse;
      return output;
    }")
 
@@ -52,9 +55,14 @@
        "  if (v <= 0.04045) { return v / 12.92; }\n"
        "  return pow((v + 0.055) / 1.055, 2.4);\n"
        "}\n"
-       "@fragment fn main(@location(0) color: vec4<f32>) -> @location(0) vec4<f32> {\n"
-       "  if (!kChromeLinearPremultiplied) { return color; }\n"
-       "  let alpha = clamp(color.a, 0.0, 1.0);\n"
+       "struct Pulse { alpha: f32, armed: f32, padding: vec2<f32>, };\n"
+       "@group(0) @binding(2) var<uniform> pulse_state: Pulse;\n"
+       "@fragment fn main(@location(0) color: vec4<f32>,\n"
+       "                  @location(1) @interpolate(flat) pulse: u32) -> @location(0) vec4<f32> {\n"
+       "  var prepared = color;\n"
+       "  if (pulse != 0u) { prepared.a = prepared.a * pulse_state.alpha; }\n"
+       "  if (!kChromeLinearPremultiplied) { return prepared; }\n"
+       "  let alpha = clamp(prepared.a, 0.0, 1.0);\n"
        "  let linear = vec3<f32>(srgb_channel_to_linear(color.r),\n"
        "                         srgb_channel_to_linear(color.g),\n"
        "                         srgb_channel_to_linear(color.b));\n"
@@ -82,7 +90,7 @@
 
 (defn init-chrome-system
   [^js device fformat camera-buffer containers-buffer
-   & {:keys [initial-capacity tracker scene-color]
+   & {:keys [initial-capacity tracker scene-color pulse-buffer]
       :or {initial-capacity 2048
            scene-color scene-tape/legacy-direct-color}}]
   (assert camera-buffer "init-chrome-system requires :camera-buffer")
@@ -93,13 +101,24 @@
                          device
                          (clj->js {:code (configure-chrome-color-shader
                                          chrome-fragment-shader scene-color)}))
+        owns-pulse-buffer? (nil? pulse-buffer)
+        pulse-buffer (or pulse-buffer
+                         (.createBuffer device
+                                        (clj->js {:size 16
+                                                  :usage (bit-or js/GPUBufferUsage.UNIFORM
+                                                                 js/GPUBufferUsage.COPY_DST)})))
+        _ (when owns-pulse-buffer?
+            (.writeBuffer (.-queue device) pulse-buffer 0
+                          (js/Float32Array. #js [1.0 0.0 0.0 0.0])))
         bind-layout (.createBindGroupLayout
                      device
                      (clj->js
                       {:entries [{:binding 0 :visibility js/GPUShaderStage.VERTEX
                                   :buffer {:type "uniform"}}
                                  {:binding 1 :visibility js/GPUShaderStage.VERTEX
-                                  :buffer {:type "read-only-storage"}}]}))
+                                  :buffer {:type "read-only-storage"}}
+                                 {:binding 2 :visibility js/GPUShaderStage.FRAGMENT
+                                  :buffer {:type "uniform"}}]}))
         pipeline-layout (.createPipelineLayout
                          device (clj->js {:bindGroupLayouts [bind-layout]}))
         pipeline (.createRenderPipeline
@@ -111,10 +130,11 @@
                      :buffers [{:arrayStride chrome-material/vertex-stride
                                 :stepMode "vertex"
                                 :attributes
-                                [{:shaderLocation 0 :offset 0 :format "float32x2"}
+                                 [{:shaderLocation 0 :offset 0 :format "float32x2"}
                                  {:shaderLocation 1 :offset 8 :format "float32x2"}
                                  {:shaderLocation 2 :offset 16 :format "float32x4"}
-                                 {:shaderLocation 3 :offset 32 :format "uint32"}]}]}
+                                 {:shaderLocation 3 :offset 32 :format "uint32"}
+                                 {:shaderLocation 4 :offset 36 :format "uint32"}]}]}
                     :fragment {:module fragment-module :entryPoint "main"
                                :targets [{:format fformat
                                           :blend (scene-color-blend scene-color)}]}
@@ -124,18 +144,25 @@
                     device
                     (clj->js {:layout bind-layout
                               :entries [{:binding 0 :resource {:buffer camera-buffer}}
-                                        {:binding 1 :resource {:buffer containers-buffer}}]}))
+                                        {:binding 1 :resource {:buffer containers-buffer}}
+                                        {:binding 2 :resource {:buffer pulse-buffer}}]}))
         buffer (create-vertex-buffer device initial-capacity)]
     (gpu-budget/register-buffer! tracker buffer "chrome/vertices"
                                  (* initial-capacity chrome-material/vertex-stride)
                                  :active-bytes 0)
+    (when owns-pulse-buffer?
+      (gpu-budget/register-buffer! tracker pulse-buffer "chrome/pulse" 16
+                                   :active-bytes 16))
     {:device device :pipeline pipeline :bind-group bind-group
      :camera-buffer camera-buffer :containers-buffer containers-buffer
      :scene-color scene-color :gpu-tracker tracker
+     :pulse-buffer pulse-buffer :owns-pulse-buffer? owns-pulse-buffer?
      :!buffer (atom buffer) :!capacity (atom initial-capacity)
      :!prepared (atom []) :!last-chromes (atom ::never)
      :!last-mesh-set-key (atom ::never)
-     :!receipt (atom {:chrome-system/version 1 :uploads 0 :vertices 0})}))
+     :!last-pulse-alpha (atom 1.0)
+     :!receipt (atom {:chrome-system/version 1 :uploads 0 :vertices 0
+                      :pulse-writes 0})}))
 
 (defn- prepared-op [op first-vertex]
   (let [vertices (chrome-material/material-vertices (:chrome/material op))]
@@ -159,7 +186,7 @@
         (do
           (doseq [[index vertex] (map-indexed vector vertices)]
             (let [base (* (+ vertex-offset index) chrome-material/vertex-words)
-                  [ax ay ox oy r g b a container-idx]
+                  [ax ay ox oy r g b a container-idx pulse]
                   (chrome-material/vertex-values vertex (:container-idx op))]
               (aset floats (+ base 0) ax)
               (aset floats (+ base 1) ay)
@@ -169,7 +196,8 @@
               (aset floats (+ base 5) g)
               (aset floats (+ base 6) b)
               (aset floats (+ base 7) a)
-              (aset uints (+ base 8) container-idx)))
+              (aset uints (+ base 8) container-idx)
+              (aset uints (+ base 9) pulse)))
           (recur (next rows) (+ vertex-offset (count vertices))))
         floats))))
 
@@ -191,8 +219,18 @@
         (reset! (:!capacity chrome-system) next-capacity)))
     @(:!buffer chrome-system)))
 
-(defn prepare-chrome-frame! [chrome-system chromes]
-  (let [chromes (or chromes [])]
+(defn prepare-chrome-frame! [chrome-system chromes & [{:keys [pulse-alpha]
+                                                       :or {pulse-alpha 1.0}}]]
+  (let [chromes (or chromes [])
+        pulse-alpha (max 0.4 (min 1.0 (double pulse-alpha)))]
+    (when (not= pulse-alpha @(:!last-pulse-alpha chrome-system))
+      (.writeBuffer (.-queue ^js (:device chrome-system))
+                    (:pulse-buffer chrome-system) 0
+                    (js/Float32Array. #js [pulse-alpha
+                                           (if (< pulse-alpha 1.0) 1.0 0.0)
+                                           0.0 0.0]))
+      (reset! (:!last-pulse-alpha chrome-system) pulse-alpha)
+      (swap! (:!receipt chrome-system) update :pulse-writes inc))
     (if (identical? chromes @(:!last-chromes chrome-system))
       {:mesh-set-changed? false :writes 0
        :vertices (reduce + (map :vertex-count @(:!prepared chrome-system)))}
@@ -282,6 +320,12 @@
     (gpu-budget/destroy-resource! (:gpu-tracker chrome-system) buffer
                                   :reason :chrome-system-destroy)
     (.destroy buffer))
+  (when (and (:owns-pulse-buffer? chrome-system)
+             (:pulse-buffer chrome-system))
+    (gpu-budget/destroy-resource! (:gpu-tracker chrome-system)
+                                  (:pulse-buffer chrome-system)
+                                  :reason :chrome-system-destroy)
+    (.destroy ^js (:pulse-buffer chrome-system)))
   (reset! (:!prepared chrome-system) [])
   (reset! (:!last-chromes chrome-system) ::destroyed)
   (reset! (:!last-mesh-set-key chrome-system) ::destroyed)
