@@ -321,12 +321,12 @@ Softland or still on paper? (`BETS.md` verdict log.)
 - **Fable's independent dual-read** — fresh session, PROTOCOL anti-anchoring.
   (Closed packages live in their FOREST/LANES lines + `docs/<pkg>/` records
   — not here; this section is running-or-ready only, pruned per the header.)
-- **Doc sharding (token economy) — READY:** split THIS file into the live
-  board + `docs/packages/<name>.md` per live package block (board lines
-  point at files); split `docs/render-engine/W1.md` per-contract + a
-  pointer-spine (CHROME "Laws — pointers, not restatements" pattern).
-  Byte-identical moves = typing delegation to Opus; Fable spot-checks the
-  spine. Law: CLAUDE.md Token Economy + `docs/token-economy.md` §7–8.
+- **Doc sharding (token economy) — DONE (2026-08-07, `05f6734`):** board
+  74KB→37KB (package blocks moved verbatim to `docs/packages/<name>.md`,
+  pointer lines below); `W1.md` is now a 3.8KB pointer-spine over
+  `W1/{GROUND,CONTRACT-O/G/M,D2-INK,CONTRACT-T/C,EXECUTION}.md` — §
+  numbering unchanged, both splits cmp-exact against the originals.
+  Residue: a few validation ledgers cite W1 by raw line number.
 - **src/ code-size/verbosity audit — DONE (2026-07-12):**
   `docs/code-audit/REPORT.md` — 47k lines / 83 files; ~440 safe mechanical
   shrink + ~130 gated + kernel.clj (830) relocatable; probe (1,482) + pinned
