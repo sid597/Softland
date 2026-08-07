@@ -42,6 +42,8 @@
     app.client.substrate.maintained-view-test
     app.client.substrate.path-material-test
     app.client.substrate.path-tessellation-test
+    app.client.substrate.region3d-material-test
+    app.client.substrate.region3d-scene-test
     app.client.substrate.scene-tape-test
     app.client.substrate.snap-test
     app.client.workspace.block-edit-test

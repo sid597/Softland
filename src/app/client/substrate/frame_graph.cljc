@@ -2,8 +2,9 @@
   "Pure W4 frame-plan compiler.
 
    Render-seam declarations: keyed inputs are effect-bearing container topology
-   (ids, nesting, normalized values), enabled capabilities, viewport resource
-   shape, and color mode; doors are registry/effect/viewport/capability changes;
+   (ids, nesting, normalized values), enabled regions, capabilities, viewport
+   resource shape, and color mode; doors are registry/effect/region/viewport/
+   capability changes;
    this namespace owns pass structure and fresh per-frame range binding;
    projections are validated executor data, replay hash, and export plan; the
    independent oracle is oracle-compile-frame-plan, which never calls the
@@ -19,9 +20,10 @@
   #{:world :viewport :resource :interaction :clock :readback :device-recovery})
 
 (def seam-declarations
-  {:keyed-inputs [:effect-container-topology :capabilities
+  {:keyed-inputs [:effect-container-topology :regions :capabilities
                   :viewport-shape :color-mode]
-   :doors [:registry-change :effect-change :capability-change :viewport-change]
+   :doors [:registry-change :effect-change :region-change
+           :capability-change :viewport-change]
    :ownership :frame-graph/compiler
    :projections [:pass-structure :entry-range-binding :plan-hash :export-plan]
    :oracle :oracle-compile-frame-plan})
@@ -66,8 +68,15 @@
        (sort-by (juxt (comp - :depth) (comp pr-str :container/id)))
        vec))
 
-(defn select-color-mode [{:keys [effect-spans forced-color-mode]}]
+(defn select-color-mode [{:keys [effect-spans regions forced-color-mode]}]
   (cond
+    (and (seq regions) (= :legacy forced-color-mode))
+    (throw (ex-info "Region3D plans cannot force the legacy color road"
+                    {:forced-color-mode forced-color-mode
+                     :regions (mapv :region/id regions)}))
+
+    (seq regions) :scene-color/linear
+
     forced-color-mode
     (do (when-not (contains? legal-color-modes forced-color-mode)
           (throw (ex-info "Unknown forced frame color mode"
@@ -77,13 +86,32 @@
     (seq effect-spans) :scene-color/linear
     :else :legacy))
 
+(defn- arrangement-regions [arrangement]
+  (->> arrangement
+       (keep (fn [entry]
+               (when (= :render.family/region-3d (:family/id entry))
+                 (let [region-id (or (get-in entry [:paint :region-id])
+                                     (:region-router entry))
+                       [width height] (or (get-in entry [:paint :lease-size])
+                                          (some-> (get-in entry [:paint :rect])
+                                                  (subvec 2 4))
+                                          [1 1])]
+                   {:region/id region-id
+                    :size [width height]
+                    :shadow? (boolean (get-in entry [:paint :shadow?]))}))))
+       (sort-by (comp pr-str :region/id))
+       vec))
+
 (defn structure-input
-  [{:keys [effect-spans capabilities viewport forced-color-mode]}]
-  {:effect-topology (effect-topology effect-spans)
+  [{:keys [arrangement effect-spans capabilities viewport forced-color-mode]}]
+  (let [regions (arrangement-regions arrangement)]
+    {:effect-topology (effect-topology effect-spans)
+   :regions regions
    :capabilities (into (sorted-set) (or capabilities #{}))
    :viewport (select-keys (or viewport {}) [:width :height :format :color-mode])
    :color-mode (select-color-mode {:effect-spans effect-spans
-                                   :forced-color-mode forced-color-mode})})
+                                   :regions regions
+                                   :forced-color-mode forced-color-mode})}))
 
 (defn- resource
   [kind format usage lifetime budget-owner & {:as opts}]
@@ -96,6 +124,73 @@
 
 (defn- attachment [resource-id format load store]
   {:resource resource-id :format format :load load :store store})
+
+(defn- region-resource-id [kind region-id]
+  (keyword "frame.region3d" (str (name kind) "-" (stable-hash region-id))))
+
+(defn- region-resources [{id :region/id shadow? :shadow?}]
+  (let [color-msaa (region-resource-id :color-msaa id)
+        depth (region-resource-id :depth id)
+        resolve (region-resource-id :resolve id)
+        shadow (region-resource-id :shadow id)]
+    (cond->
+     {color-msaa
+      (resource :color "rgba16float"
+                #{:render-attachment} :held :compositor/region-leases
+                :sample-count 4 :alpha-association :premultiplied
+                :working-space :linear-srgb)
+      depth
+      (resource :depth "depth24plus"
+                #{:render-attachment} :held :compositor/region-leases
+                :sample-count 4 :channel-meaning :depth)
+      resolve
+      (resource :color "rgba16float"
+                #{:render-attachment :texture-binding}
+                :held :compositor/region-leases
+                :sample-count 1 :alpha-association :premultiplied
+                :working-space :linear-srgb)}
+      shadow?
+      (assoc shadow
+             (resource :depth "depth32float"
+                       #{:render-attachment :texture-binding}
+                       :held :compositor/region-leases
+                       :sample-count 1 :channel-meaning :depth)))))
+
+(defn- region-passes [region rank]
+  (let [{id :region/id shadow? :shadow?} region
+        color-msaa (region-resource-id :color-msaa id)
+        depth (region-resource-id :depth id)
+        resolve (region-resource-id :resolve id)
+        shadow (region-resource-id :shadow id)
+        shadow-pass-id (region-resource-id :shadow-pass id)
+        interior-pass-id (region-resource-id :interior-pass id)
+        shadow-pass
+        (when shadow?
+          {:pass/id shadow-pass-id :pass/kind :region
+           :topology-rank rank :region/id id :region/role :shadow
+           :reads []
+           :attachments {:depth (attachment shadow "depth32float"
+                                            :clear :store)}})
+        interior
+        {:pass/id interior-pass-id :pass/kind :region
+         :topology-rank (+ rank (if shadow? 1 0))
+         :region/id id :region/role :interior
+         :reads (cond-> []
+                  shadow?
+                  (conj (read-edge shadow shadow-pass-id :sampled)))
+         :attachments
+         {:color (assoc (attachment color-msaa "rgba16float" :clear :store)
+                        :resolve-target resolve)
+          :depth (attachment depth "depth24plus" :clear :store)}
+         :produces resolve}]
+    (cond-> [] shadow-pass (conj shadow-pass) true (conj interior))))
+
+(defn- region-scene-reads [regions]
+  (mapv (fn [{:region/keys [id]}]
+          (read-edge (region-resource-id :resolve id)
+                     (region-resource-id :interior-pass id)
+                     :sampled))
+        regions))
 
 (defn- group-id [prefix cid]
   (keyword "frame.group" (str prefix "-" (stable-hash cid))))
@@ -263,29 +358,39 @@
   "Compile reusable pass/resource structure. No entry index is accepted or
    retained by this function."
   [structure-key]
-  (let [{:keys [effect-topology capabilities viewport color-mode]}
+  (let [{:keys [effect-topology regions capabilities viewport color-mode]}
         structure-key
         format (or (:format viewport) "bgra8unorm")
         linear? (= :scene-color/linear color-mode)
         copy-present? (and (not linear?) (contains? capabilities :copy-present))
         resources (merge (base-resources format linear? copy-present?)
+                         (apply merge (map region-resources regions))
                          (when linear?
                            (apply merge (map group-resources effect-topology))))
         passes
         (cond
           linear?
-          (let [base {:pass/id :flat/base :pass/kind :render :topology-rank 0
-                      :reads []
+          (let [region-passes (mapcat (fn [index region]
+                                       (region-passes region (* index 2)))
+                                     (range) regions)
+                base-rank (inc (* 2 (count regions)))
+                region-reads (region-scene-reads regions)
+                base {:pass/id :flat/base :pass/kind :render
+                      :topology-rank base-rank
+                      :reads region-reads
                       :attachments {:color (attachment :scene-color/main
                                                        "rgba16float" :clear :store)}}
                 group-passes (mapcat (fn [index row]
-                                       (group-passes effect-topology row
-                                                     (+ 10 (* index 10))))
+                                       (mapv #(update % :reads into region-reads)
+                                             (group-passes effect-topology row
+                                                           (+ base-rank 10
+                                                              (* index 10)))))
                                      (range) effect-topology)
                 top-groups (filter #(nil? (:parent/container-id %))
                                    effect-topology)
                 composite {:pass/id :flat/composite :pass/kind :render
-                           :topology-rank (+ 10 (* 10 (count effect-topology)))
+                           :topology-rank (+ base-rank 10
+                                             (* 10 (count effect-topology)))
                            :reads (mapv #(read-edge
                                          (group-id "output" (:container/id %))
                                          (group-id "composite" (:container/id %))
@@ -300,7 +405,8 @@
                          :attachments {:color (attachment :present format
                                                           :clear :store)}
                          :presentation-terminal? true}]
-            (vec (concat [base] group-passes [composite present])))
+            (vec (concat region-passes [base] group-passes
+                         [composite present])))
 
           copy-present?
           [{:pass/id :direct/main :pass/kind :render :topology-rank 0 :reads []
@@ -357,8 +463,9 @@
 (defn- produced-before [passes pass-index]
   (reduce (fn [produced pass]
             (let [attachments (keep :resource (vals (:attachments pass)))
+                  resolves (keep :resolve-target (vals (:attachments pass)))
                   writes (:copy-writes pass)]
-              (into produced (concat attachments writes))))
+              (into produced (concat attachments resolves writes))))
           #{} (take pass-index passes)))
 
 (defn- required-usage [mode]
@@ -406,7 +513,20 @@
           (throw (ex-info "Attachment format is incompatible with resource"
                           {:pass/id (:pass/id pass) :resource resource-id
                            :attachment-format (:format attachment)
-                           :resource-format (:format row)})))))
+                           :resource-format (:format row)})))
+        (when-let [resolve-target (:resolve-target attachment)]
+          (let [resolve-row (get resources resolve-target)]
+            (when-not resolve-row
+              (throw (ex-info "Region resolve target is undeclared"
+                              {:pass/id (:pass/id pass)
+                               :resource resolve-target})))
+            (when-not (and (= :color (:kind resolve-row))
+                           (= 1 (:sample-count resolve-row))
+                           (contains? (:usage resolve-row) :texture-binding))
+              (throw (ex-info "Region resolve target is not sampleable color"
+                              {:pass/id (:pass/id pass)
+                               :resource resolve-target
+                               :row resolve-row})))))))
     (doseq [resource-id (:copy-writes pass)]
       (when-not (contains? (get-in resources [resource-id :usage]) :copy-dst)
         (throw (ex-info "Copy destination lacks copy-dst usage"
@@ -466,7 +586,29 @@
         (throw (ex-info "Unknown frame resource lifetime"
                         {:resource resource-id :lifetime (:lifetime row)}))))
     (validate-families! (or families []))
-    plan))
+    (let [region-passes (filter #(= :region (:pass/kind %)) passes)
+          region-ids (set (map :region/id region-passes))]
+      (when (and (seq region-passes)
+                 (not= :scene-color/linear (:color-mode plan)))
+        (throw (ex-info "Region passes require whole-frame linear color"
+                        {:color-mode (:color-mode plan)})))
+      (doseq [region-id region-ids]
+        (let [rows (filter #(= region-id (:region/id %)) region-passes)
+              interiors (filter #(= :interior (:region/role %)) rows)
+              resolves (set (keep :produces interiors))]
+          (when-not (= 1 (count interiors))
+            (throw (ex-info "Region requires exactly one interior producer"
+                            {:region/id region-id
+                             :interiors (mapv :pass/id interiors)})))
+          (doseq [resolve-id resolves]
+            (when-not (some (fn [pass]
+                              (and (not= :region (:pass/kind pass))
+                                   (some #(= resolve-id (:resource %))
+                                         (:reads pass))))
+                            passes)
+              (throw (ex-info "Region resolve lacks a scene producer edge"
+                              {:region/id region-id :resolve resolve-id}))))))
+    plan)))
 
 (defn compile-frame-plan [inputs]
   (let [structure (compile-plan-structure (structure-input inputs))
@@ -497,27 +639,39 @@
    constructors define vocabulary, while this independent orchestration is the
    executable fence against stale/reused structure."
   [key]
-  (let [{:keys [effect-topology capabilities viewport color-mode]} key
+  (let [{:keys [effect-topology regions capabilities viewport color-mode]} key
         format (or (:format viewport) "bgra8unorm")
         linear? (= :scene-color/linear color-mode)
         copy? (and (not linear?) (contains? capabilities :copy-present))
         resources (merge (base-resources format linear? copy?)
+                         (reduce merge {} (map region-resources regions))
                          (if linear?
                            (reduce merge {} (map group-resources effect-topology))
                            {}))
         passes
         (if linear?
-          (let [base {:pass/id :flat/base :pass/kind :render :topology-rank 0
-                      :reads []
+          (let [region-passes (reduce-kv
+                               (fn [result index region]
+                                 (into result (region-passes region (* index 2))))
+                               [] regions)
+                base-rank (inc (* 2 (count regions)))
+                region-reads (region-scene-reads regions)
+                base {:pass/id :flat/base :pass/kind :render
+                      :topology-rank base-rank
+                      :reads region-reads
                       :attachments {:color (attachment :scene-color/main
                                                        "rgba16float" :clear :store)}}
                 expanded (reduce-kv
                           (fn [result index row]
-                            (into result (group-passes effect-topology row
-                                                      (+ 10 (* index 10)))))
+                            (into result
+                                  (mapv #(update % :reads into region-reads)
+                                        (group-passes
+                                         effect-topology row
+                                         (+ base-rank 10 (* index 10))))))
                           [] effect-topology)
                 roots (filterv #(nil? (:parent/container-id %)) effect-topology)
-                composite-rank (+ 10 (* 10 (count effect-topology)))
+                composite-rank (+ base-rank 10
+                                  (* 10 (count effect-topology)))
                 composite {:pass/id :flat/composite :pass/kind :render
                            :topology-rank composite-rank
                            :reads (mapv (fn [row]
@@ -534,7 +688,7 @@
                          :attachments {:color (attachment :present format
                                                           :clear :store)}
                          :presentation-terminal? true}]
-            (vec (concat [base] expanded [composite present])))
+            (vec (concat region-passes [base] expanded [composite present])))
           (if copy?
             [{:pass/id :direct/main :pass/kind :render :topology-rank 0
               :reads []
@@ -570,7 +724,8 @@
   (= (dissoc left :plan/hash) (dissoc right :plan/hash)))
 
 (defn region-executable? [plan]
-  (not-any? #(= :region (:pass/kind %)) (:passes plan)))
+  (or (not-any? #(= :region (:pass/kind %)) (:passes plan))
+      (= :scene-color/linear (:color-mode plan))))
 
 (defn- stratum-ranges [arrangement stratum]
   (frame-effects/contiguous-ranges

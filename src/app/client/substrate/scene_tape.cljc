@@ -8,7 +8,8 @@
    family-specific ordering branches."
   (:require [app.client.substrate.chrome-material :as chrome-material]
             [app.client.substrate.connector-material :as connector-material]
-            [app.client.substrate.path-material :as path-material]))
+            [app.client.substrate.path-material :as path-material]
+            [app.client.substrate.region3d-material :as region3d-material]))
 
 (def family-ids
   "The complete pre-W2-B family set.  Adding image/path changes this registry;
@@ -21,7 +22,8 @@
    :render.family/image
    :render.family/path
    :render.family/connector
-   :render.family/chrome])
+   :render.family/chrome
+   :render.family/region-3d])
 
 (def legacy-direct-color
   {:scene-color/version 1
@@ -489,7 +491,8 @@
    image-registration
    path-registration
    connector-registration
-   chrome-registration])
+   chrome-registration
+   region3d-material/region-family-registration])
 
 (def ^:private required-family-keys
   [:family/id :family/version :grammar :pick :provenance :versioning :render
@@ -593,10 +596,10 @@
   #{:render :copy :present :readback :region})
 
 (def frame-resource-kinds
-  #{:color :coverage :external-swap :buffer})
+  #{:color :coverage :depth :external-swap :buffer})
 
 (def frame-resource-lifetimes
-  #{:frame :external :export :readback})
+  #{:frame :held :external :export :readback})
 
 (def frame-clip-modes
   #{:scissor :mask})

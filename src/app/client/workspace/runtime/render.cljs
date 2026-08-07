@@ -9,6 +9,7 @@
             [app.client.workspace.events :refer [maybe-snap]]
             [app.client.workspace.ground :as ground]
             [app.client.workspace.frame-runtime :as frame-runtime]
+            [app.client.workspace.region3d-runtime :as region3d-runtime]
             [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.sidebar :refer [cmd-panel-h status-bar-h]]
             [app.client.workspace.editor-compute :refer [<fold-state <bracket-match <editor-rects+sidebar build-main-face!]]
@@ -223,11 +224,13 @@
                           (fn [text-data editor-rect-data sidebar-data
                                cmd-rects settings-rects settings-text
                                viewport scroll-y cmd-panel settings active-font agent-output
-                               local-world store-frame effective frame-registry]
+                               local-world store-frame effective frame-registry
+                               region3d-session]
                             {:text-data text-data
                              :store-frame store-frame ;; scene-substrate P3a
                              :effective   effective   ;; scene-substrate P3a
                              :frame-registry frame-registry
+                             :region3d-session region3d-session
                              ;; P3b finding #1: the store composites ONLY in face
                              ;; mode — a defensive gate mirroring the click
                              ;; dispatch (mouse.cljs), so a slot that outlives its
@@ -268,7 +271,8 @@
                           (m/watch !effective-local-world)
                           <store-frame   ;; scene-substrate P3a
                           <effective     ;; scene-substrate P3a
-                          <frame-registry)]
+                          <frame-registry
+                          (m/watch region3d-runtime/!session))]
 
     ;; Two joined consumers: the main-face slot edge + the RAF render pulse.
     (m/join vector
@@ -331,7 +335,7 @@
                 {:keys [text-data editor-rect-data sidebar-data cmd-rects settings-rects settings-text
                         viewport scroll-y cmd-visible agent-visible settings-visible
                         font-size px-range line-height sharpness char-width
-                        snap-to-pixel? show-diagnostics?]} world
+                        snap-to-pixel? show-diagnostics? region3d-session]} world
                 editor-rects   (:rects editor-rect-data)
                 editor-shadows (:shadows editor-rect-data)
 
@@ -792,6 +796,8 @@
                                     :effective-transforms effective
                                     :container-registry frame-registry
                                     :frame-format (:format (:pipelines geometry))
+                                    :region3d-session region3d-session
+                                    :dpr dpr
                                     :pulse-alpha
                                     (frame-scheduler/pulse-alpha
                                      (:time scheduler-step)
@@ -896,6 +902,14 @@
         (gpu-budget/log-startup-report! tracker)
         (scene-rt/install-window-api! atoms) ;; scene-substrate P3a dev affordance
         (scene-rt/install-context-window-api! atoms) ;; scene-substrate P4 dev affordance
+        (region3d-runtime/boot!
+         (.-canvas ctx)
+         {:screen->world
+          (fn [[screen-x screen-y]]
+            (let [{:keys [x y zoom]} @ground/!camera
+                  zoom (or zoom 1.0)]
+              [(/ (- screen-x (or x 0.0)) zoom)
+               (/ (- screen-y (or y 0.0)) zoom)]))})
         {:content-text-geo (:text geometry)
        :chrome-text-geo chrome-text-geo
        :cmd-rect-sys @!cmd-rect-sys

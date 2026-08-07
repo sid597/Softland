@@ -13,7 +13,7 @@
    index (CONTRACT §5):
      {:vi <edn> :container <int> :tree <resolved rt-tree, container-LOCAL>
       :ops {:text [...] :rects [...] :shadows [...] :images [...] :paths [...]
-            :connectors [...]}
+            :connectors [...] :regions [...]}
       :addresses {address → #{index-path}} :meta {...} :stratum :world|:overlay}
    The :index fan-out is maintained incrementally by upsert/remove, NEVER
    recomputed by scanning slots at read time. Resolution route:
@@ -53,6 +53,7 @@
    :rects   (rt/tree->rects tree)
    :shadows (rt/tree->shadows tree)
    :images  (rt/tree->images tree)
+   :regions (rt/tree->regions tree)
    :paths   (rt/tree->paths tree)
    :connectors (rt/tree->connectors tree)
    :chromes (rt/tree->chromes tree)})
@@ -75,6 +76,10 @@
      ;; IMAGE-ATOM T8/T14: stamping reuses W2-A's compact slot; image ops
      ;; acquire no per-node transform representation.
      :images  (mapv #(assoc % :container-idx slot) (:images ops))
+     :regions (mapv #(assoc % :container-idx slot
+                            :container container
+                            :owner-vi vi)
+                    (:regions ops))
      :paths   (mapv #(assoc % :container-idx slot) (:paths ops))
      ;; Connector anchor space is always the SLOT's own container. Both the
      ;; semantic cid (CPU route resolution) and compact transport slot (GPU)
@@ -324,6 +329,7 @@
     {:rects (into [] (mapcat (comp :rects :ops)) ordered)
      :shadows (into [] (mapcat (comp :shadows :ops)) ordered)
      :images (into [] (mapcat (comp :images :ops)) ordered)
+     :regions (into [] (mapcat (comp :regions :ops)) ordered)
      :paths (into [] (mapcat (comp :paths :ops)) ordered)
      :connectors (into [] (mapcat (comp :connectors :ops)) ordered)
      :chromes (into [] (mapcat (comp :chromes :ops)) ordered)
@@ -358,6 +364,7 @@
                     :shadows (count (get-in slot [:ops :shadows]))
                     :text-lines (count (get-in slot [:ops :text]))
                     :images (count (get-in slot [:ops :images]))
+                    :regions (count (get-in slot [:ops :regions]))
                     :paths (count (get-in slot [:ops :paths]))
                     :connectors (count (get-in slot [:ops :connectors]))
                     :chromes (count (get-in slot [:ops :chromes]))}]))
@@ -383,6 +390,17 @@
    (mapv :runtime/slot
          (:entries (scene-tape store effective-transforms)))))
 
+(defn- node-local-point
+  "Convert a slot-local point to the deepest node's local coordinates."
+  [path [slot-x slot-y]]
+  (let [[node-x node-y]
+        (reduce (fn [[x y] node]
+                  [(+ x (get-in node [:bounds :x] 0))
+                   (+ y (get-in node [:bounds :y] 0))])
+                [0.0 0.0]
+                path)]
+    [(- slot-x node-x) (- slot-y node-y)]))
+
 (defn pick
   "Resolve a world/screen point through the exact reverse of the paint tape.
    Every entry consumes W2-A's effective affine and nested stack path.  The
@@ -400,12 +418,22 @@
               [lx ly] (containers/inverse-point eff point)]
           (when-let [path (rt/hit-test (:tree s) lx ly)]
             (when-let [node (deepest-addressed path)]
-              {:vi          (:vi s)
-               :path        path
-               :address     (get-in node [:data :address])
-               :src-path    (get-in node [:data :assembly/src-path])
-               :actions     (get-in node [:data :actions])
-               :point-local [lx ly]})))))
+              (let [base {:vi          (:vi s)
+                          :path        path
+                          :address     (get-in node [:data :address])
+                          :src-path    (get-in node [:data :assembly/src-path])
+                          :actions     (get-in node [:data :actions])
+                          :point-local [lx ly]}]
+                (if-let [region (get-in node [:data :region3d/scene])]
+                  (assoc base
+                         :route :region3d
+                         :region-id (get-in node [:data :region3d/id])
+                         :region-local (node-local-point path [lx ly])
+                         :region-size [(get-in node [:bounds :w])
+                                       (get-in node [:bounds :h])]
+                         :region-material region
+                         :region-revision (:region3d/version region))
+                  base)))))))
      :hit)))
 
 ;; ============================================================================
@@ -496,6 +524,8 @@
 
 (defn- node-family [node]
   (or (get-in node [:data :render/family])
+      (when (get-in node [:data :region3d/scene])
+        :render.family/region-3d)
       (when (get-in node [:data :connector/material])
         :render.family/connector)
       (when (get-in node [:data :path/material]) :render.family/path)

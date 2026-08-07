@@ -10,6 +10,7 @@
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.substrate.webgpu.compositor-gpu :as compositor-gpu]
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
+            [app.client.substrate.webgpu.region3d-gpu :as region3d-gpu]
             [app.client.workspace.text-layout :as tl]))
 
 (def ^:private scene-color-mode-declaration
@@ -3277,7 +3278,13 @@
      :render.family/chrome
      {:contract (get scene-tape/default-family-registry :render.family/chrome)
       :produce chrome-gpu/chrome-entries
-      :execute! chrome-gpu/execute-chrome-batch!}}))
+      :execute! chrome-gpu/execute-chrome-batch!}
+
+     :render.family/region-3d
+     {:contract (get scene-tape/default-family-registry
+                     :render.family/region-3d)
+      :produce region3d-gpu/region3d-entries
+      :execute! region3d-gpu/execute-region3d-batch!}}))
 
 (def ^:private frame-contract-registry
   (let [executor-families (set (keys frame-family-registry))
@@ -3459,7 +3466,8 @@
                              extra-text-geos store-frame editor-rect-count
                              editor-shadow-count image-system path-system
                              connector-system chrome-system effective-transforms
-                             container-registry font-assets frame-format pulse-alpha]
+                             container-registry font-assets frame-format pulse-alpha
+                             region3d-session dpr]
                       :or {cmd-panel-visible false chrome-text-sys nil chrome-base-line-count 0
                            settings-line-count 0 settings-visible false
                            settings-rect-sys nil agent-visible false
@@ -3470,7 +3478,8 @@
                            image-system nil path-system nil connector-system nil
                            chrome-system nil effective-transforms nil
                            container-registry nil font-assets nil
-                           frame-format "bgra8unorm" pulse-alpha 1.0}}]
+                           frame-format "bgra8unorm" pulse-alpha 1.0
+                           region3d-session {} dpr 1.0}}]
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats
                  pan-x pan-y zoom w h)
   (when (and chrome-text-sys
@@ -3479,22 +3488,34 @@
     (update-camera device (:camera-uniform-buffer chrome-text-sys)
                    camera-floats pan-x pan-y zoom w h))
 
-  ;; W4: every upload/prepare happens before the first pass opens. No queue
-  ;; write is relied on while a pass encoder is live.
-  (when image-system
-    (prepare-image-frame! image-system (:images store-frame)))
-  (when path-system
-    (path-gpu/prepare-path-frame! path-system (:paths store-frame) zoom))
-  (when connector-system
-    (connector-gpu/prepare-connector-frame!
-     connector-system (:connectors store-frame)
-     (:targets-by-address store-frame) effective-transforms zoom
-     font-assets text-sys))
-  (when chrome-system
-    (chrome-gpu/prepare-chrome-frame! chrome-system (:chromes store-frame)
-                                      {:pulse-alpha pulse-alpha}))
+  (let [region3d-system
+        (or (when (seq (:regions store-frame))
+              (region3d-gpu/ensure-region3d-system!
+               device (:gpu-tracker text-sys)
+               (:camera-uniform-buffer text-sys)
+               (:containers-uniform-buffer text-sys)))
+            ;; Do not allocate a system for an empty world, but do retain an
+            ;; existing one for one empty prepare so final-region buffers die.
+            (region3d-gpu/region3d-system-for-device device))]
+    ;; W4: every upload/prepare happens before the first pass opens. No queue
+    ;; write is relied on while a pass encoder is live.
+    (when image-system
+      (prepare-image-frame! image-system (:images store-frame)))
+    (when path-system
+      (path-gpu/prepare-path-frame! path-system (:paths store-frame) zoom))
+    (when connector-system
+      (connector-gpu/prepare-connector-frame!
+       connector-system (:connectors store-frame)
+       (:targets-by-address store-frame) effective-transforms zoom
+       font-assets text-sys))
+    (when chrome-system
+      (chrome-gpu/prepare-chrome-frame! chrome-system (:chromes store-frame)
+                                        {:pulse-alpha pulse-alpha}))
+    (when region3d-system
+      (region3d-gpu/prepare-region3d-frame!
+       region3d-system store-frame region3d-session {:zoom zoom :dpr dpr}))
 
-  (let [canvas (.-canvas context)
+    (let [canvas (.-canvas context)
         attachment-size [(max 1 (or (some-> canvas .-width) (int w)))
                          (max 1 (or (some-> canvas .-height) (int h)))]
         use-rt? (some? render-target)
@@ -3517,6 +3538,8 @@
                :sidebar-pool-info sidebar-pool-info
                :image-system image-system :path-system path-system
                :connector-system connector-system :chrome-system chrome-system
+               :region3d-system region3d-system
+               :region3d-session region3d-session :zoom zoom :dpr dpr
                :store-frame store-frame :editor-rect-count editor-rect-count
                :editor-shadow-count editor-shadow-count
                :extra-text-geos extra-text-geos}
@@ -3554,6 +3577,8 @@
     (if linear?
       (let [tracker (:gpu-tracker text-sys)
             compositor (ensure-frame-compositor! device frame-format tracker)
+            _ (when region3d-system
+                (region3d-gpu/attach-compositor! region3d-system compositor))
             systems {:format frame-format :tracker tracker
                      :camera-buffer (:camera-uniform-buffer text-sys)
                      :containers-buffer (:containers-uniform-buffer text-sys)
@@ -3566,6 +3591,11 @@
                     compositor {:context context :arrangement (mapv val arrangement)
                                 :effect-spans effect-spans :variant variant
                                 :execute-entry! execute-frame-entry!
+                                :pass-producers
+                                {:region
+                                 (fn [encoder pass lease]
+                                   (region3d-gpu/encode-region-passes!
+                                    region3d-system encoder pass lease))}
                                 :width (first attachment-size)
                                 :height (second attachment-size)
                                 :zoom zoom :effective-transforms effective-transforms
@@ -3584,6 +3614,9 @@
                                   :height (second attachment-size)
                                   :zoom zoom
                                   :effective-transforms effective-transforms}))})
+        (when region3d-system
+          (aset js/globalThis "__softlandRegion3DReceipt"
+                (clj->js (region3d-gpu/region3d-receipt region3d-system))))
         result)
       (let [encoder (.createCommandEncoder device)
             swap-texture (.getCurrentTexture context)
@@ -3618,4 +3651,6 @@
                                         swap-texture (:width render-target)
                                         (:height render-target)))
         (.submit (.-queue device) #js [(.finish encoder)])
-        {:submitted? true :color-mode :legacy :plan-hash (:plan/hash plan)}))))
+        (when-let [compositor (.get !compositors-by-device device)]
+          (compositor-gpu/retire-absent-region-leases! compositor #{}))
+        {:submitted? true :color-mode :legacy :plan-hash (:plan/hash plan)})))))

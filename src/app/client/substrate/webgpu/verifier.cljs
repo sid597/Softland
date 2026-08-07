@@ -16,6 +16,8 @@
             [app.client.substrate.image-material :as image-material]
             [app.client.substrate.path-material :as path-material]
             [app.client.substrate.path-tessellation :as path-tessellation]
+            [app.client.substrate.region3d-material :as region3d-material]
+            [app.client.substrate.region3d-scene :as region3d-scene]
             [app.client.substrate.frame-effects :as frame-effects]
             [app.client.substrate.frame-graph :as frame-graph]
             [app.client.substrate.frame-scheduler :as frame-scheduler]
@@ -25,6 +27,7 @@
             [app.client.substrate.webgpu.connector-gpu :as connector-gpu]
             [app.client.substrate.webgpu.compositor-gpu :as compositor-gpu]
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
+            [app.client.substrate.webgpu.region3d-gpu :as region3d-gpu]
             [app.client.substrate.webgpu.renderer :as renderer]
             [app.client.workspace.containers :as containers]
             [app.client.workspace.chrome-runtime :as chrome-runtime]
@@ -2903,8 +2906,8 @@
 
 (defn- w4-capture!
   [device compositor variant arrangement effect-spans plan width height
-   & {:keys [zoom effective-transforms]
-      :or {zoom 1.0 effective-transforms {}}}]
+   & {:keys [zoom effective-transforms pass-producers]
+      :or {zoom 1.0 effective-transforms {} pass-producers {}}}]
   (let [texture (.createTexture
                  device
                  (clj->js {:size {:width width :height height
@@ -2917,6 +2920,7 @@
      compositor {:context context :arrangement arrangement
                  :effect-spans effect-spans :variant variant
                  :execute-entry! renderer/execute-frame-entry!
+                 :pass-producers pass-producers
                  :width width :height height :zoom zoom
                  :effective-transforms effective-transforms :plan plan})
     (-> (w4-read-texture! device texture width height)
@@ -2924,16 +2928,18 @@
 
 (defn- w4-capture-pair!
   [device compositor variant arrangement effect-spans plan
-   & {:keys [zoom effective-transforms]
-      :or {zoom 1.0 effective-transforms {}}}]
+   & {:keys [zoom effective-transforms pass-producers]
+      :or {zoom 1.0 effective-transforms {} pass-producers {}}}]
   (-> (w4-capture! device compositor variant arrangement effect-spans plan
                     canvas-size canvas-size :zoom zoom
-                    :effective-transforms effective-transforms)
+                    :effective-transforms effective-transforms
+                    :pass-producers pass-producers)
       (.then
        (fn [first-bytes]
          (-> (w4-capture! device compositor variant arrangement effect-spans plan
                            canvas-size canvas-size :zoom zoom
-                           :effective-transforms effective-transforms)
+                           :effective-transforms effective-transforms
+                           :pass-producers pass-producers)
              (.then
               (fn [second-bytes]
                 (-> (js/Promise.all
@@ -4060,6 +4066,724 @@
                                                                   receipt-before-destroy
                                                                   :pass pass?}))))))))))))))))))))))))))))))))
 
+;; ---------------------------------------------------------------------------
+;; REGION3D FLOOR — held interior/depth/shadow targets inside the 2D tape
+;; ---------------------------------------------------------------------------
+
+(def ^:private region3d-owner-vi [:region3d-floor :verifier])
+(def ^:private region3d-id :region3d/verifier)
+
+(defn- region3d-tagged
+  ([r g b] (region3d-tagged r g b 1.0))
+  ([r g b a]
+   {:rgba [r g b a] :color-space :srgb :alpha-association :straight}))
+
+(defn- region3d-transform [translation scale]
+  {:translation translation :rotation [0.0 0.0 0.0 1.0] :scale scale})
+
+(defn- region3d-mesh
+  [id primitive translation scale color metallic roughness]
+  {:object/id id :object/kind :mesh :parent nil
+   :transform (region3d-transform translation scale)
+   :provenance {:asserted-by :sid :act :render-verifier}
+   :mesh {:kind primitive
+          :params (get region3d-material/primitive-defaults primitive)}
+   :material {:base-color color :metallic metallic :roughness roughness
+              :emissive (region3d-tagged 0.0 0.0 0.0)}})
+
+(defn- region3d-light [id kind translation color intensity more]
+  {:object/id id :object/kind :light :parent nil
+   :transform (region3d-transform translation [1.0 1.0 1.0])
+   :provenance {:asserted-by :sid :act :render-verifier}
+   :light (merge {:kind kind :color color :intensity intensity
+                  :cast-shadow false}
+                 more)})
+
+(defn- region3d-empty [id translation]
+  {:object/id id :object/kind :empty :parent nil
+   :transform (region3d-transform translation [1.0 1.0 1.0])
+   :provenance {:asserted-by :sid :act :render-verifier}})
+
+(defn- region3d-fixture-region
+  ([] (region3d-fixture-region :transparent))
+  ([background-kind]
+   (region3d-material/validate-region!
+    {:region3d/version 1
+     :extent {:width 640.0 :height 360.0 :depth 100.0}
+     :background {:kind background-kind
+                  :color (region3d-tagged 0.055 0.07 0.10
+                                         (if (= :transparent background-kind)
+                                           0.0 1.0))}
+     :ambient {:color (region3d-tagged 0.72 0.80 1.0) :intensity 0.11}
+     :view-default {:pivot [0.0 0.0 0.0] :distance 8.0
+                    :yaw 0.0 :pitch 0.0
+                    :lens region3d-material/default-perspective-lens}
+     :scene
+     {:near (region3d-mesh :near :box [0.0 0.0 0.0] [2.0 2.0 2.0]
+                           (region3d-tagged 0.58 0.64 0.73) 0.18 0.42)
+      :far (region3d-mesh :far :box [0.35 0.05 -0.75] [2.5 1.35 2.0]
+                          (region3d-tagged 0.24 0.48 0.82) 0.42 0.30)
+      :sphere (region3d-mesh :sphere :sphere [-2.0 -0.05 0.0]
+                             [1.55 1.55 1.55]
+                             (region3d-tagged 0.82 0.34 0.16) 0.68 0.23)
+      :glass (region3d-mesh :glass :box [2.25 0.65 0.15] [1.35 1.35 1.35]
+                            (region3d-tagged 0.14 0.82 0.70 0.5) 0.08 0.24)
+      :floor (region3d-mesh :floor :plane [0.0 -1.20 0.0] [8.0 1.0 7.0]
+                            (region3d-tagged 0.30 0.33 0.38) 0.0 0.86)
+      :sun (region3d-light :sun :directional [4.0 8.0 6.0]
+                           (region3d-tagged 1.0 0.93 0.82) 2.4
+                           {:cast-shadow true})
+      :point (region3d-light :point :point [-3.0 2.5 4.0]
+                             (region3d-tagged 0.38 0.58 1.0) 34.0
+                             {:range 18.0})
+      :spot (region3d-light :spot :spot [3.0 4.0 4.0]
+                            (region3d-tagged 1.0 0.34 0.20) 24.0
+                            {:range 20.0
+                             :cone {:inner-deg 18.0 :outer-deg 32.0}})}})))
+
+(defn- region3d-op [region & {:keys [width height]
+                              :or {width 80.0 height 88.0}}]
+  {:id :region3d/verifier-node :address :region3d/verifier-address
+   :region-id region3d-id :owner-vi region3d-owner-vi
+   :container 0 :container-idx 0
+   :x 24.0 :y 20.0 :w width :h height
+   :region3d/scene region})
+
+(defn- region3d-store-frame [op]
+  {:regions [op]
+   :ordered-vis [region3d-owner-vi]
+   :ops-count-by-vi {region3d-owner-vi {:regions 1}}
+   :order-by-vi
+   {region3d-owner-vi
+    {:stratum :world :stack-path [[:region3d-verifier 1 1]]}}})
+
+(defn- region3d-rect-entry [id system first-instance rank]
+  {:entry/id id :material/id id :material/revision 1 :instance/id id
+   :family/id :render.family/rect
+   :order {:stratum :world :pass-class :direct
+           :stack-path [[:region3d-verifier rank rank]]
+           :part-rank 0 :stable-tie id}
+   :paint {:pipeline (:pipeline system) :bind-group (:bind-group system)
+           :buffer (:instance-buffer system) :vertex-count 6
+           :instance-count 1 :first-vertex 0 :first-instance first-instance}
+   :pick {:geometry :rect-tree-bounds :owner id}
+   :visibility {:visible? true :clip :none}})
+
+(defn- region3d-frame
+  [{:keys [region-system rect-system]} op sides]
+  (let [store-frame (region3d-store-frame op)
+        region-entry (first (region3d-gpu/region3d-entries
+                             {:store-frame store-frame
+                              :region3d-system region-system
+                              :zoom 1.0 :dpr 1.0}))
+        below (region3d-rect-entry :region3d/below rect-system 0 0)
+        above (region3d-rect-entry :region3d/above rect-system 1 2)
+        entries (case sides
+                  :sandwich [above region-entry below]
+                  :below [region-entry below]
+                  :region [region-entry])
+        arrangement (:entries (scene-tape/compile-tape
+                               :region3d-verifier entries))
+        plan (frame-graph/compile-frame-plan
+              {:arrangement arrangement :effect-spans []
+               :viewport {:width canvas-size :height canvas-size
+                          :format color-format}})]
+    {:store-frame store-frame :arrangement arrangement :plan plan
+     :region-entry region-entry}))
+
+(defn- region3d-pass-producers [region-system]
+  {:region (fn [encoder pass lease]
+             (region3d-gpu/encode-region-passes!
+              region-system encoder pass lease))})
+
+(defn- region3d-capture!
+  [{:keys [device compositor region-system] :as harness}
+   op session sides]
+  (region3d-gpu/attach-compositor! region-system compositor)
+  (region3d-gpu/prepare-region3d-frame!
+   region-system (region3d-store-frame op) session {:zoom 1.0 :dpr 1.0})
+  (let [{:keys [arrangement plan]} (region3d-frame harness op sides)]
+    (w4-capture! device compositor {:linearize-entry identity}
+                 arrangement [] plan canvas-size canvas-size
+                 :pass-producers (region3d-pass-producers region-system))))
+
+(defn- region3d-capture-pair!
+  [{:keys [device compositor region-system] :as harness}
+   op session sides]
+  (region3d-gpu/attach-compositor! region-system compositor)
+  (region3d-gpu/prepare-region3d-frame!
+   region-system (region3d-store-frame op) session {:zoom 1.0 :dpr 1.0})
+  (let [{:keys [arrangement plan]} (region3d-frame harness op sides)]
+    (w4-capture-pair! device compositor {:linearize-entry identity}
+                       arrangement [] plan
+                       :pass-producers
+                       (region3d-pass-producers region-system))))
+
+(defn- region3d-image-record [case-id pair]
+  {:mode case-id :file (str "gpu-region3d-floor-" case-id ".png")
+   :raw-sha256 (:first-sha256 pair)
+   :png-data-url (opaque-png-data-url (:bytes pair))
+   :determinism {:first-raw-sha256 (:first-sha256 pair)
+                 :second-raw-sha256 (:second-sha256 pair)
+                 :byte-identical? (:byte-identical? pair)}})
+
+(defn- region3d-lights [maintained]
+  (->> (get-in maintained [:region :scene])
+       (keep (fn [[id object]]
+               (when (= :light (:object/kind object))
+                 (let [matrix (get-in maintained [:effective-transforms id])]
+                   {:light (:light object)
+                    :position (region3d-scene/transform-point matrix
+                                                              [0.0 0.0 0.0])
+                    :direction (region3d-scene/transform-direction
+                                matrix [0.0 0.0 -1.0])}))))
+       vec))
+
+(defn- region3d-lit-oracle [region bytes]
+  (let [maintained (assoc (region3d-scene/derive-scene region)
+                          :region-id region3d-id)
+        camera (region3d-scene/camera-matrices (:view-default region)
+                                                [80.0 88.0])
+        hit (region3d-scene/pick-region
+             {:maintained maintained :camera camera :region-point [40.0 44.0]})
+        object (get-in region [:scene (:object-id hit)])
+        linear (region3d-scene/shade-reference
+                {:material (:material object) :normal (:normal hit)
+                 :point (:point3 hit) :eye (:eye camera)
+                 :lights (region3d-lights maintained)
+                 :ambient (:ambient region) :bvh (:bvh maintained)
+                 :object-id (:object-id hit)})
+        expected (conj (mapv #(linear->srgb-byte %) (take 3 linear))
+                       (js/Math.round (* 255.0 (last linear))))
+        actual (pixel-rgba bytes 64 64)
+        delta (apply max (map #(js/Math.abs (- %1 %2)) expected actual))
+        glass-screen (:screen (region3d-scene/project-point camera
+                                                             [2.25 0.65 0.825]))
+        [glass-x glass-y] (mapv js/Math.floor glass-screen)
+        glass-sample (pixel-rgba bytes (+ 24 glass-x) (+ 20 glass-y))
+        outside-point [1.0 1.0]
+        outside-pick (region3d-scene/pick-region
+                      {:maintained maintained :camera camera
+                       :region-point outside-point})
+        outside-sample (pixel-rgba bytes 25 21)
+        boundary-screen (:screen (region3d-scene/project-point
+                                  camera [1.0 1.0 1.0]))
+        boundary-pick (region3d-scene/pick-region
+                       {:maintained maintained :camera camera
+                        :region-point boundary-screen})
+        [boundary-x boundary-y] (mapv js/Math.floor boundary-screen)
+        boundary-sample (pixel-rgba bytes (+ 24 boundary-x)
+                                    (+ 20 boundary-y))
+        depth-classes
+        {:interior {:cpu-route (:route hit) :cpu-object (:object-id hit)
+                    :gpu-rgba actual}
+         :outside {:cpu-route (:route outside-pick) :gpu-rgba outside-sample}
+         :boundary {:cpu-route (:route boundary-pick)
+                    :cpu-object (:object-id boundary-pick)
+                    :cpu-boundary? (:boundary? boundary-pick)
+                    :gpu-rgba boundary-sample
+                    :screen boundary-screen}}
+        depth-classes-pass?
+        (and (= :object (get-in depth-classes [:interior :cpu-route]))
+             (= :near (get-in depth-classes [:interior :cpu-object]))
+             (pos? (last (get-in depth-classes [:interior :gpu-rgba])))
+             (= :region-background
+                (get-in depth-classes [:outside :cpu-route]))
+             (zero? (last (get-in depth-classes [:outside :gpu-rgba])))
+             (= :object (get-in depth-classes [:boundary :cpu-route]))
+             (= :near (get-in depth-classes [:boundary :cpu-object]))
+             (true? (get-in depth-classes [:boundary :cpu-boundary?]))
+             (pos? (last (get-in depth-classes [:boundary :gpu-rgba]))))]
+    {:sample [64 64] :expected-object :near
+     :actual-object (:object-id hit) :expected-t 6.9 :actual-t (:t hit)
+     :expected-rgba expected :actual-rgba actual :max-byte-delta delta
+     :epsilon-bytes 2
+     :transparency-sample [(+ 24 glass-x) (+ 20 glass-y)]
+     :transparency-rgba glass-sample
+     :depth-classes depth-classes
+     :depth-classes-pass? depth-classes-pass?
+     :pass? (and (= :near (:object-id hit))
+                 (<= (js/Math.abs (- 6.9 (:t hit))) 1.0e-6)
+                 (<= delta 2)
+                 (< 0 (last glass-sample) 255)
+                 depth-classes-pass?)}))
+
+(defn- region3d-overlay-probe [region bytes]
+  (let [maintained (assoc (region3d-scene/derive-scene region)
+                          :region-id region3d-id)
+        camera (region3d-scene/camera-matrices (:view-default region)
+                                                [80.0 88.0])
+        gizmo-position [1.15 0.0 0.0]
+        gizmo-screen (:screen (region3d-scene/project-point camera
+                                                            gizmo-position))
+        gizmo-pick (region3d-scene/pick-region
+                    {:maintained maintained :camera camera
+                     :region-point gizmo-screen
+                     :gizmo-handles [{:handle/id :translate/x
+                                      :object-id :near
+                                      :position gizmo-position}]})
+        [gizmo-x gizmo-y] (mapv js/Math.floor gizmo-screen)
+        gizmo-sample (pixel-rgba bytes (+ 24 gizmo-x) (+ 20 gizmo-y))
+        marker-position (region3d-scene/transform-point
+                         (get-in maintained [:effective-transforms :marker])
+                         [0.0 0.0 0.0])
+        marker-screen (:screen (region3d-scene/project-point camera
+                                                             marker-position))
+        glyph-slop-point (update marker-screen 0 +
+                                 (dec region3d-scene/glyph-hit-radius-px))
+        glyph-pick (region3d-scene/pick-region
+                    {:maintained maintained :camera camera
+                     :region-point glyph-slop-point})
+        [marker-x marker-y] (mapv js/Math.floor marker-screen)
+        marker-sample (pixel-rgba bytes (+ 24 marker-x) (+ 20 marker-y))
+        pass? (and (= :gizmo (:route gizmo-pick))
+                   (= :translate/x (:handle-id gizmo-pick))
+                   (> (first gizmo-sample) (second gizmo-sample))
+                   (> (first gizmo-sample) (nth gizmo-sample 2))
+                   (= :object-glyph (:route glyph-pick))
+                   (= :marker (:object-id glyph-pick))
+                   (pos? (last marker-sample)))]
+    {:gizmo-over-mesh {:cpu-route (:route gizmo-pick)
+                       :handle-id (:handle-id gizmo-pick)
+                       :gpu-rgba gizmo-sample :screen gizmo-screen}
+     :glyph-slop {:cpu-route (:route glyph-pick)
+                  :cpu-object (:object-id glyph-pick)
+                  :gpu-rgba marker-sample :screen marker-screen
+                  :slop-point glyph-slop-point}
+     :pass? pass?}))
+
+(defn- region3d-s1-receipt [harness op]
+  (region3d-gpu/prepare-region3d-frame!
+   (:region-system harness) (region3d-store-frame op) {} {:zoom 1.0 :dpr 1.0})
+  (let [{:keys [region-entry]} (region3d-frame harness op :region)
+        below (region3d-rect-entry :region3d/below (:rect-system harness) 0 0)
+        above (region3d-rect-entry :region3d/above (:rect-system harness) 1 2)
+        shuffled-tape (scene-tape/compile-tape
+                       :region3d/s1-shuffle [above below region-entry])
+        shuffled (:entries shuffled-tape)
+        reordered (assoc-in region-entry [:order :stack-path]
+                            [[:region3d-verifier 3 3]])
+        moved-tape (scene-tape/compile-tape
+                    :region3d/s1-reorder [reordered above below])
+        moved (:entries moved-tape)
+        forward (mapv :entry/id shuffled)
+        moved-forward (mapv :entry/id moved)
+        pick (fn [compiled click]
+               (some->
+                (scene-tape/pick-reverse
+                 compiled
+                 (fn [entry]
+                   (case click
+                     :over-text
+                     (cond
+                       (= :region3d/above (:entry/id entry)) {:route :text}
+                       (= [:frame/region3d region3d-id] (:entry/id entry))
+                       {:route :object :object-id :near}
+                       :else {:route :path})
+
+                     :region-mesh
+                     (when-not (= :region3d/above (:entry/id entry))
+                       (if (= [:frame/region3d region3d-id] (:entry/id entry))
+                         {:route :object :object-id :near}
+                         {:route :path}))
+
+                     :region-background
+                     (when-not (= :region3d/above (:entry/id entry))
+                       (if (= [:frame/region3d region3d-id] (:entry/id entry))
+                         {:route :region-background :region-id region3d-id}
+                         {:route :path})))))
+                :hit))
+        reverse-picks {:over-text (pick shuffled-tape :over-text)
+                       :region-mesh (pick shuffled-tape :region-mesh)
+                       :region-background (pick shuffled-tape
+                                                       :region-background)
+                       :moved-over-text (pick moved-tape :over-text)}]
+    {:forward forward :moved-forward moved-forward
+     :reverse-picks reverse-picks
+     :shuffle-derived? (= [:region3d/below
+                           [:frame/region3d region3d-id]
+                           :region3d/above] forward)
+     :reorder-derived? (= [:region3d/below :region3d/above
+                           [:frame/region3d region3d-id]] moved-forward)
+     :pass? (and (= {:over-text {:route :text}
+                     :region-mesh {:route :object :object-id :near}
+                     :region-background {:route :region-background
+                                         :region-id region3d-id}
+                     :moved-over-text {:route :object :object-id :near}}
+                    reverse-picks)
+                 (= [:region3d/below
+                     [:frame/region3d region3d-id]
+                     :region3d/above] forward)
+                 (= [:region3d/below :region3d/above
+                     [:frame/region3d region3d-id]] moved-forward))}))
+
+(defn- region3d-s3-receipt [region]
+  (let [parented (-> region
+                     (assoc-in [:scene :glass :parent] :near)
+                     region3d-material/validate-region!)
+        before (get-in parented [:scene :near :transform])
+        after (update before :translation #(mapv + % [0.6 0.25 0.0]))
+        diff (region3d-material/edit-diff
+              {:op :region3d/set-transform :region-id region3d-id
+               :object-id :near :before before :after after
+               :asserted-by :sid})
+        maintained (region3d-scene/derive-scene parented)
+        changed (region3d-scene/maintain-scene maintained diff)
+        replayed (region3d-material/apply-edit parented diff)
+        replayed-maintained (region3d-scene/derive-scene replayed)
+        camera (region3d-scene/camera-matrices (:view-default replayed)
+                                                [80.0 88.0])
+        changed-pick (region3d-scene/pick-region
+                      {:maintained changed :camera camera
+                       :region-point [40.0 44.0]})
+        replayed-pick (region3d-scene/pick-region
+                       {:maintained replayed-maintained :camera camera
+                        :region-point [40.0 44.0]})
+        reparent-diff (region3d-material/edit-diff
+                       {:op :region3d/set-parent :region-id region3d-id
+                        :object-id :glass :before :near :after :far
+                        :asserted-by :sid})
+        reparented (region3d-scene/maintain-scene maintained reparent-diff)
+        reparent-oracle (region3d-scene/derive-scene
+                         (region3d-material/apply-edit parented reparent-diff))
+        reparent-preserved?
+        (= (get-in reparented [:effective-transforms :glass])
+           (get-in reparent-oracle [:effective-transforms :glass]))
+        child-before (region3d-scene/transform-point
+                      (get-in maintained [:effective-transforms :glass])
+                      [0.0 0.0 0.0])
+        child-after (region3d-scene/transform-point
+                     (get-in changed [:effective-transforms :glass])
+                     [0.0 0.0 0.0])]
+    {:diff-count 1 :key (:key diff)
+     :payload-keys (set (keys (:payload diff)))
+     :scene-replacement? (contains? (:payload diff) :scene)
+     :child-delta (mapv - child-after child-before)
+     :replay-identical? (= replayed (:region changed))
+     :pick-replay-identical? (= changed-pick replayed-pick)
+     :reparent-preserved? reparent-preserved?
+     :pass? (and (= [region3d-id :near] (:key diff))
+                 (= #{:region-id :object-id :before :after}
+                    (set (keys (:payload diff))))
+                 (not (contains? (:payload diff) :scene))
+                 (= [0.6 0.25 0.0]
+                    (mapv #(double (/ (js/Math.round (* % 100.0)) 100.0))
+                          (mapv - child-after child-before)))
+                 (= replayed (:region changed))
+                 (= changed-pick replayed-pick)
+                 reparent-preserved?)}))
+
+(defn- region3d-empty-frame [harness]
+  (let [below (region3d-rect-entry :region3d/below
+                                    (:rect-system harness) 0 0)
+        arrangement [below]
+        plan (frame-graph/compile-frame-plan
+              {:arrangement arrangement :effect-spans []
+               :forced-color-mode :scene-color/linear
+               :viewport {:width canvas-size :height canvas-size
+                          :format color-format}})]
+    {:arrangement arrangement :plan plan}))
+
+(defn- region3d-s5-lifecycle!
+  [{:keys [device compositor region-system tracker] :as harness} region op]
+  (let [base-view (:view-default region)
+        orbit-view (region3d-scene/orbit base-view 9.0 -4.0)
+        before-orbit (region3d-gpu/region3d-receipt region-system)
+        wait-for-queue
+        (fn [value-fn]
+          (.then (.onSubmittedWorkDone (.-queue ^js device))
+                 value-fn))
+        steps
+        [(fn [_]
+           (.then
+            (region3d-capture!
+             harness op {:regions {region3d-id {:view orbit-view}}} :region)
+            (fn [_]
+              (let [after-orbit (region3d-gpu/region3d-receipt region-system)
+                    orbit-passes
+                    (get-in (compositor-gpu/compositor-receipt compositor)
+                            [:region-pass-receipts])]
+                (.then
+                 (region3d-capture!
+                  harness op {:regions {region3d-id {:view orbit-view}}}
+                  :region)
+                 (fn [_]
+                   {:before-orbit before-orbit :after-orbit after-orbit
+                    :orbit-passes orbit-passes
+                    :clean-passes
+                    (get-in (compositor-gpu/compositor-receipt compositor)
+                            [:region-pass-receipts])}))))))
+         (fn [state]
+           (let [resized (assoc op :w 300.0)]
+             (.then
+              (region3d-capture!
+               harness resized {:regions {region3d-id {:view orbit-view}}}
+               :region)
+              (fn [_]
+                (wait-for-queue
+                 (fn []
+                   (assoc state :resize
+                          (compositor-gpu/region-leases-receipt compositor)
+                          :resized-op resized)))))))
+         (fn [{:keys [resized-op] :as state}]
+           (let [shadow-off (assoc-in region
+                                      [:scene :sun :light :cast-shadow] false)
+                 shadow-off-op (assoc resized-op :region3d/scene shadow-off)]
+             (.then
+              (region3d-capture!
+               harness shadow-off-op
+               {:regions {region3d-id {:view orbit-view}}} :region)
+              (fn [_]
+                (wait-for-queue
+                 (fn []
+                   (assoc state :shadow-off
+                          (compositor-gpu/region-leases-receipt compositor))))))))
+         (fn [state]
+           (region3d-gpu/prepare-region3d-frame!
+            region-system {:regions []} {} {:zoom 1.0 :dpr 1.0})
+           (let [{:keys [arrangement plan]} (region3d-empty-frame harness)]
+             (.then
+              (w4-capture! device compositor {:linearize-entry identity}
+                           arrangement [] plan canvas-size canvas-size
+                           :pass-producers
+                           (region3d-pass-producers region-system))
+              (fn [_]
+                (wait-for-queue
+                 (fn []
+                   (assoc state :after-close
+                          (compositor-gpu/region-leases-receipt compositor))))))))
+         (fn [state]
+           (let [refusal-compositor
+                 (compositor-gpu/create-compositor!
+                  device color-format tracker
+                  :budget-cap-bytes (* 5 1024 1024))
+                 refusal-harness (assoc harness :compositor refusal-compositor)]
+             (.then
+              (region3d-capture! refusal-harness op {} :region)
+              (fn [bytes]
+                (wait-for-queue
+                 (fn []
+                   (let [receipt
+                         (compositor-gpu/compositor-receipt refusal-compositor)
+                         sample (pixel-rgba bytes 64 64)
+                         next-state
+                         (assoc state :refusal
+                                {:receipt receipt :sample sample
+                                 :pass? (and (some? (:last-region-refusal receipt))
+                                             (pos? (apply max sample)))})]
+                     (compositor-gpu/destroy-compositor! refusal-compositor)
+                     (region3d-gpu/attach-compositor! region-system compositor)
+                     (region3d-gpu/prepare-region3d-frame!
+                      region-system {:regions []} {} {:zoom 1.0 :dpr 1.0})
+                     next-state)))))))
+         (fn [state]
+           (let [first-compositor
+                 (compositor-gpu/create-compositor!
+                  device color-format tracker)
+                 first-harness (assoc harness :compositor first-compositor)]
+             (.then
+              (region3d-capture! first-harness op {} :region)
+              (fn [_]
+                (wait-for-queue
+                 (fn []
+                   (let [before-destroy
+                         (compositor-gpu/region-leases-receipt
+                          first-compositor)]
+                     (compositor-gpu/destroy-compositor! first-compositor)
+                     (let [after-destroy
+                           (compositor-gpu/region-leases-receipt
+                            first-compositor)
+                           recreated
+                           (compositor-gpu/create-compositor!
+                            device color-format tracker)
+                           recreated-harness (assoc harness
+                                                      :compositor recreated)]
+                       (.then
+                        (region3d-capture! recreated-harness op {} :region)
+                        (fn [_]
+                          (wait-for-queue
+                           (fn []
+                             (let [after-recreate
+                                   (compositor-gpu/region-leases-receipt
+                                    recreated)
+                                   passes
+                                   (get-in
+                                    (compositor-gpu/compositor-receipt recreated)
+                                    [:region-pass-receipts])
+                                   receipt
+                                   {:before-destroy before-destroy
+                                    :after-destroy after-destroy
+                                    :after-recreate after-recreate
+                                    :passes passes
+                                    :pass?
+                                    (and (pos? (:bytes before-destroy))
+                                         (zero? (:bytes after-destroy))
+                                         (pos? (:bytes after-recreate))
+                                         (every? :encoded? passes))}]
+                               (compositor-gpu/destroy-compositor! recreated)
+                               (region3d-gpu/attach-compositor!
+                                region-system compositor)
+                               (region3d-gpu/prepare-region3d-frame!
+                                region-system {:regions []} {}
+                                {:zoom 1.0 :dpr 1.0})
+                               (assoc state :destroy-recreate receipt))))))))))))))
+         (fn [{:keys [before-orbit after-orbit orbit-passes clean-passes
+                      resize shadow-off after-close refusal destroy-recreate]
+               :as receipt}]
+           (let [object-upload-delta
+                 (- (:object-instance-uploads after-orbit)
+                    (:object-instance-uploads before-orbit))
+                 mesh-upload-delta
+                 (- (:mesh-vertex-uploads after-orbit)
+                    (:mesh-vertex-uploads before-orbit))
+                 uniform-upload-delta
+                 (- (:uniform-uploads after-orbit)
+                    (:uniform-uploads before-orbit))
+                 orbit-by-role (into {} (map (juxt :role identity)) orbit-passes)
+                 clean? (every? #(and (:held? %) (not (:encoded? %)))
+                                clean-passes)
+                 sleep-step (frame-scheduler/decide
+                             (frame-scheduler/initial-state) 0 #{} {})
+                 fully-clean-sleep
+                 {:encode? (:encode? sleep-step)
+                  :scheduler (frame-scheduler/receipt (:state sleep-step))
+                  :pass? (and (not (:encode? sleep-step))
+                              (zero? (get-in sleep-step [:state :encodes]))
+                              (= 1 (get-in sleep-step [:state :skips])))}
+                 resize-leases (vals (:leases resize))
+                 shadow-off-leases (vals (:leases shadow-off))
+                 pass? (and (zero? object-upload-delta)
+                            (zero? mesh-upload-delta)
+                            (= 1 uniform-upload-delta)
+                            (get-in orbit-by-role [:interior :encoded?])
+                            (get-in orbit-by-role [:shadow :held?])
+                            clean?
+                            (= 1 (count resize-leases))
+                            (= [512 256] (:size (first resize-leases)))
+                            (= 1 (count shadow-off-leases))
+                            (< (:bytes shadow-off) (:bytes resize))
+                            (zero? (:bytes after-close))
+                            (:pass? refusal)
+                            (:pass? destroy-recreate)
+                            (:pass? fully-clean-sleep))]
+             (-> receipt
+                 (dissoc :resized-op)
+                 (assoc :camera-wake
+                        {:object-instance-upload-delta object-upload-delta
+                         :mesh-vertex-upload-delta mesh-upload-delta
+                         :uniform-upload-delta uniform-upload-delta
+                         :passes orbit-passes}
+                        :clean-held? clean?
+                        :fully-clean-sleep fully-clean-sleep
+                        :pass? pass?))))]]
+    (reduce (fn [promise step] (.then promise step))
+            (js/Promise.resolve nil)
+            steps)))
+
+(defn- run-region3d-floor! [device adapter]
+  (let [tracker (gpu-budget/create-tracker
+                 (gpu-budget/snapshot-adapter-limits adapter))
+        camera (renderer/create-camera-buffer device tracker)
+        containers-buffer (renderer/create-containers-buffer device tracker)
+        _ (renderer/update-camera device camera (js/Float32Array. 6)
+                                  0.0 0.0 1.0 canvas-size canvas-size)
+        _ (renderer/write-containers!
+           device containers-buffer
+           {0 {:affine containers/identity-affine :flags 0 :layer 0
+               :stack-path [[0 0]] :transport-slot 0}})
+        rect-base (renderer/init-rect-system
+                   device "rgba16float" camera :initial-capacity 2
+                   :tracker tracker :label "region3d/verifier-rects"
+                   :containers-buffer containers-buffer
+                   :scene-color (scene-tape/scene-color true))
+        rect-system (renderer/update-rects
+                     device rect-base
+                     [{:x 8.0 :y 8.0 :w 112.0 :h 112.0
+                       :r 0.04 :g 0.07 :b 0.15 :a 1.0 :radius 15.0
+                       :container-idx 0}
+                      {:x 10.0 :y 58.0 :w 108.0 :h 12.0
+                       :r 0.98 :g 0.72 :b 0.12 :a 0.88 :radius 4.0
+                       :container-idx 0}])
+        region-system (region3d-gpu/ensure-region3d-system!
+                       device tracker camera containers-buffer)
+        compositor (compositor-gpu/create-compositor!
+                    device color-format tracker)
+        harness {:device device :tracker tracker :camera camera
+                 :containers-buffer containers-buffer
+                 :rect-system rect-system :region-system region-system
+                 :compositor compositor}
+        opaque-region (region3d-fixture-region :opaque)
+        transparent-region (region3d-fixture-region :transparent)
+        overlay-region (-> transparent-region
+                           (assoc-in [:scene :marker]
+                                     (region3d-empty :marker
+                                                     [-2.6 1.7 0.4]))
+                           region3d-material/validate-region!)
+        opaque-op (region3d-op opaque-region)
+        transparent-op (region3d-op transparent-region)
+        overlay-op (region3d-op overlay-region)
+        s1 (region3d-s1-receipt harness opaque-op)
+        s3 (region3d-s3-receipt transparent-region)
+        specs [{:case-id "sandwich" :region opaque-region :op opaque-op
+                :session {} :sides :sandwich}
+               {:case-id "lit-depth-shadow" :region transparent-region
+                :op transparent-op :session {} :sides :region}
+               {:case-id "gizmo-overlay" :region overlay-region
+                :op overlay-op
+                :session {:regions {region3d-id
+                                    {:selection :near
+                                     :gizmo-mode :translate}}}
+                :sides :below}]]
+    (-> (promise-mapv
+         (fn [{:keys [case-id region op session sides]}]
+           (-> (region3d-capture-pair! harness op session sides)
+               (.then
+                (fn [pair]
+                  {:case-id case-id :zoom 1.0
+                   :regime :region3d-floor-default
+                   :normalization :region-local-3d-inside-world-2d
+                   :shape-extent-world [(:w op) (:h op)]
+                   :oracle (when (= case-id "lit-depth-shadow")
+                             (region3d-lit-oracle region (:bytes pair)))
+                   :overlay-probe (when (= case-id "gizmo-overlay")
+                                    (region3d-overlay-probe region
+                                                            (:bytes pair)))
+                   :images [(region3d-image-record case-id pair)]}))))
+         specs)
+        (.then
+         (fn [cases]
+           (-> (region3d-capture! harness transparent-op {} :region)
+               (.then
+                (fn [_]
+                  (-> (region3d-s5-lifecycle!
+                       harness transparent-region transparent-op)
+                      (.then (fn [s5] {:cases cases :s5 s5}))))))))
+        (.then
+         (fn [{:keys [cases s5]}]
+           (let [overlay-probe (get-in cases [2 :overlay-probe])
+                 s2 (assoc (get-in cases [1 :oracle])
+                           :overlay-classes overlay-probe
+                           :pass? (and (get-in cases [1 :oracle :pass?])
+                                       (:pass? overlay-probe)))
+                 s4 s2
+                 determinism (mapcat #(map :determinism (:images %)) cases)
+                 system-receipt (region3d-gpu/region3d-receipt region-system)
+                 compositor-receipt (compositor-gpu/compositor-receipt compositor)
+                 pass? (and (= 3 (count cases))
+                            (every? :byte-identical? determinism)
+                            (:pass? s1) (:pass? s2) (:pass? s3)
+                            (:pass? s4) (:pass? s5))
+                 result {:cases cases
+                         :s1 s1 :s2 s2 :s3 s3 :s4 s4 :s5 s5
+                         :system system-receipt
+                         :compositor compositor-receipt
+                         :felt-gate :sid-live
+                         :fixture-query "?region3d=1"
+                         :pass? pass?}]
+             (compositor-gpu/destroy-compositor! compositor)
+             (region3d-gpu/destroy-region3d-system! region-system)
+             result))))))
+
 (defn- t2-render-bytes!
   [^js device rect-system text-system chrome-entries
    {:keys [pan-x pan-y zoom scissor]}]
@@ -4683,6 +5407,7 @@
                                             (run-chrome-atom! device adapter)
                                             (run-w4-frame-runtime! device adapter
                                                                    slug-assets)
+                                            (run-region3d-floor! device adapter)
                                             (run-t2-input-floor! device adapter
                                                                  t1-assets)])
                                       (.then
@@ -4713,7 +5438,8 @@
                                           :connector-atom (aget values 5)
                                           :chrome-atom (aget values 6)
                                           :w4-frame-runtime (aget values 7)
-                                          :t2-input-floor (aget values 8)
+                                          :region3d-floor (aget values 8)
+                                          :t2-input-floor (aget values 9)
                                           :cases (aget values 0)})))))))))))))))))))
 
 (defn ^:export start! []

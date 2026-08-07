@@ -14,8 +14,8 @@
   "productionInputs": {
     "rendererSource": {
       "path": "src/app/client/substrate/webgpu/renderer.cljs",
-      "bytes": 184288,
-      "sha256": "47401620e3b140957f83cefb13925f78f524a50c9ed4cb2f9a78162b1d0722a8"
+      "bytes": 186195,
+      "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
     },
     "msdfAtlas": {
       "path": "resources/public/fonts/dejavu_sans_mono_atlas.png",
@@ -4298,6 +4298,84 @@
           "sha256": "ce528bfd286aa1d0578c331af4dbe2262de99ed1fb0b5ef645672bb156589c56"
         }
       }
+    },
+    {
+      "amendment": 23,
+      "reason": "REGION3D-FLOOR integrated shared render/store seams; every prior golden remained byte-identical under the scoped append road",
+      "inputs": {
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 278362,
+          "sha256": "d2f35779cbc2278b2758e96be6b7906650bd7ef28eb77669c251f249fe2e0658"
+        }
+      }
+    },
+    {
+      "amendment": 24,
+      "reason": "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      "inputs": {
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 278362,
+          "sha256": "d2f35779cbc2278b2758e96be6b7906650bd7ef28eb77669c251f249fe2e0658"
+        }
+      }
+    },
+    {
+      "amendment": 25,
+      "reason": "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      "inputs": {
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 290709,
+          "sha256": "1a09b55531fb143f8f50686c0d91cd00a2418cefe22593ee4d42e5fea75bf759"
+        }
+      }
     }
   ],
   "pathAtomInputAmendments": [
@@ -5327,6 +5405,189 @@
           "sha256": "ce528bfd286aa1d0578c331af4dbe2262de99ed1fb0b5ef645672bb156589c56"
         }
       }
+    },
+    {
+      "amendment": 18,
+      "reason": "REGION3D-FLOOR integrated shared render/store seams; every prior golden remained byte-identical under the scoped append road",
+      "inputs": {
+        "pathMaterial": {
+          "path": "src/app/client/substrate/path_material.cljc",
+          "bytes": 24594,
+          "sha256": "ce0b6dbc1690525fd0a67cb99bfab6107ccdf294091a4f8b952d3ef4c6a4b92f"
+        },
+        "pathTessellation": {
+          "path": "src/app/client/substrate/path_tessellation.cljc",
+          "bytes": 18815,
+          "sha256": "957cb1aa26d21922657bcb8d718992548ffca379b111667115fde4475d663ed6"
+        },
+        "pathGpu": {
+          "path": "src/app/client/substrate/webgpu/path_gpu.cljs",
+          "bytes": 17980,
+          "sha256": "694bc595d1498fb1f7b9f80edcc317b514bfd62782006a4f10fcfcd183e406f8"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 278362,
+          "sha256": "d2f35779cbc2278b2758e96be6b7906650bd7ef28eb77669c251f249fe2e0658"
+        }
+      }
+    },
+    {
+      "amendment": 19,
+      "reason": "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      "inputs": {
+        "pathMaterial": {
+          "path": "src/app/client/substrate/path_material.cljc",
+          "bytes": 24594,
+          "sha256": "ce0b6dbc1690525fd0a67cb99bfab6107ccdf294091a4f8b952d3ef4c6a4b92f"
+        },
+        "pathTessellation": {
+          "path": "src/app/client/substrate/path_tessellation.cljc",
+          "bytes": 18815,
+          "sha256": "957cb1aa26d21922657bcb8d718992548ffca379b111667115fde4475d663ed6"
+        },
+        "pathGpu": {
+          "path": "src/app/client/substrate/webgpu/path_gpu.cljs",
+          "bytes": 17980,
+          "sha256": "694bc595d1498fb1f7b9f80edcc317b514bfd62782006a4f10fcfcd183e406f8"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 278362,
+          "sha256": "d2f35779cbc2278b2758e96be6b7906650bd7ef28eb77669c251f249fe2e0658"
+        }
+      }
+    },
+    {
+      "amendment": 20,
+      "reason": "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      "inputs": {
+        "pathMaterial": {
+          "path": "src/app/client/substrate/path_material.cljc",
+          "bytes": 24594,
+          "sha256": "ce0b6dbc1690525fd0a67cb99bfab6107ccdf294091a4f8b952d3ef4c6a4b92f"
+        },
+        "pathTessellation": {
+          "path": "src/app/client/substrate/path_tessellation.cljc",
+          "bytes": 18815,
+          "sha256": "957cb1aa26d21922657bcb8d718992548ffca379b111667115fde4475d663ed6"
+        },
+        "pathGpu": {
+          "path": "src/app/client/substrate/webgpu/path_gpu.cljs",
+          "bytes": 17980,
+          "sha256": "694bc595d1498fb1f7b9f80edcc317b514bfd62782006a4f10fcfcd183e406f8"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 290709,
+          "sha256": "1a09b55531fb143f8f50686c0d91cd00a2418cefe22593ee4d42e5fea75bf759"
+        }
+      }
     }
   ],
   "connectorAtomInputs": {
@@ -6280,6 +6541,219 @@
           "sha256": "ce528bfd286aa1d0578c331af4dbe2262de99ed1fb0b5ef645672bb156589c56"
         }
       }
+    },
+    {
+      "amendment": 13,
+      "reason": "REGION3D-FLOOR integrated shared render/store seams; every prior golden remained byte-identical under the scoped append road",
+      "inputs": {
+        "connectorMaterial": {
+          "path": "src/app/client/substrate/connector_material.cljc",
+          "bytes": 16679,
+          "sha256": "a1c7faa4c1a777956526313076680b0e90d60fea76775e122eeff70929e9f7bd"
+        },
+        "connectorRoute": {
+          "path": "src/app/client/substrate/connector_route.cljc",
+          "bytes": 29220,
+          "sha256": "27ade235ae8a0e86eb61a5388b1892a620b86a0bfe0f561af4bc9f748d70b6af"
+        },
+        "connectorGpu": {
+          "path": "src/app/client/substrate/webgpu/connector_gpu.cljs",
+          "bytes": 19435,
+          "sha256": "f496a5bc215c562a50ddeab014c05357670a027a5435c8cea963a2cc0ff10b60"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "liveEdges": {
+          "path": "src/app/client/workspace/live_edges.cljc",
+          "bytes": 6473,
+          "sha256": "2fc9284167fe8d937ca782eabb41a45db1efbdd7d87a5b714172a64564f480ae"
+        },
+        "fileViewer": {
+          "path": "src/app/file_viewer.cljc",
+          "bytes": 27926,
+          "sha256": "a164e9a5d9c08e5d1147d847c3d7a7984f5590382d0210713684347c9bade810"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 278362,
+          "sha256": "d2f35779cbc2278b2758e96be6b7906650bd7ef28eb77669c251f249fe2e0658"
+        }
+      }
+    },
+    {
+      "amendment": 14,
+      "reason": "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      "inputs": {
+        "connectorMaterial": {
+          "path": "src/app/client/substrate/connector_material.cljc",
+          "bytes": 16679,
+          "sha256": "a1c7faa4c1a777956526313076680b0e90d60fea76775e122eeff70929e9f7bd"
+        },
+        "connectorRoute": {
+          "path": "src/app/client/substrate/connector_route.cljc",
+          "bytes": 29220,
+          "sha256": "27ade235ae8a0e86eb61a5388b1892a620b86a0bfe0f561af4bc9f748d70b6af"
+        },
+        "connectorGpu": {
+          "path": "src/app/client/substrate/webgpu/connector_gpu.cljs",
+          "bytes": 19435,
+          "sha256": "f496a5bc215c562a50ddeab014c05357670a027a5435c8cea963a2cc0ff10b60"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "liveEdges": {
+          "path": "src/app/client/workspace/live_edges.cljc",
+          "bytes": 6473,
+          "sha256": "2fc9284167fe8d937ca782eabb41a45db1efbdd7d87a5b714172a64564f480ae"
+        },
+        "fileViewer": {
+          "path": "src/app/file_viewer.cljc",
+          "bytes": 27926,
+          "sha256": "a164e9a5d9c08e5d1147d847c3d7a7984f5590382d0210713684347c9bade810"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 278362,
+          "sha256": "d2f35779cbc2278b2758e96be6b7906650bd7ef28eb77669c251f249fe2e0658"
+        }
+      }
+    },
+    {
+      "amendment": 15,
+      "reason": "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      "inputs": {
+        "connectorMaterial": {
+          "path": "src/app/client/substrate/connector_material.cljc",
+          "bytes": 16679,
+          "sha256": "a1c7faa4c1a777956526313076680b0e90d60fea76775e122eeff70929e9f7bd"
+        },
+        "connectorRoute": {
+          "path": "src/app/client/substrate/connector_route.cljc",
+          "bytes": 29220,
+          "sha256": "27ade235ae8a0e86eb61a5388b1892a620b86a0bfe0f561af4bc9f748d70b6af"
+        },
+        "connectorGpu": {
+          "path": "src/app/client/substrate/webgpu/connector_gpu.cljs",
+          "bytes": 19435,
+          "sha256": "f496a5bc215c562a50ddeab014c05357670a027a5435c8cea963a2cc0ff10b60"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "liveEdges": {
+          "path": "src/app/client/workspace/live_edges.cljc",
+          "bytes": 6473,
+          "sha256": "2fc9284167fe8d937ca782eabb41a45db1efbdd7d87a5b714172a64564f480ae"
+        },
+        "fileViewer": {
+          "path": "src/app/file_viewer.cljc",
+          "bytes": 27926,
+          "sha256": "a164e9a5d9c08e5d1147d847c3d7a7984f5590382d0210713684347c9bade810"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 290709,
+          "sha256": "1a09b55531fb143f8f50686c0d91cd00a2418cefe22593ee4d42e5fea75bf759"
+        }
+      }
     }
   ],
   "chromeAtomInputs": {
@@ -7133,6 +7607,279 @@
           "path": "test/render_engine/run_verifier.mjs",
           "bytes": 130607,
           "sha256": "da090748825ca2f89ea563afa757d39c4b9bb9cb082b8e7c2dd9e5a8117e2246"
+        }
+      }
+    },
+    {
+      "amendment": 9,
+      "reason": "REGION3D-FLOOR integrated shared render/store seams; every prior golden remained byte-identical under the scoped append road",
+      "inputs": {
+        "selection": {
+          "path": "src/app/client/workspace/selection.cljc",
+          "bytes": 6208,
+          "sha256": "01274e169be05008e18cd562937ba1838efdcb4bf74f8d9500ea004b555496ef"
+        },
+        "chromeMaterial": {
+          "path": "src/app/client/substrate/chrome_material.cljc",
+          "bytes": 12785,
+          "sha256": "107a83ab794f647bb10f02fb29342296245d32084ec268582f5d07a62a4cf4dc"
+        },
+        "snap": {
+          "path": "src/app/client/substrate/snap.cljc",
+          "bytes": 11211,
+          "sha256": "d857ebdc6a36cc69a1b11d4e1029cfcb7996b2b077131f1ae5dccd3af018c88f"
+        },
+        "chromeDerive": {
+          "path": "src/app/client/substrate/chrome_derive.cljc",
+          "bytes": 13824,
+          "sha256": "ae4cd4ac339703b22c43dc5dfbed590e8747ece79c6b4b25030c66a810ae16c7"
+        },
+        "chromeGpu": {
+          "path": "src/app/client/substrate/webgpu/chrome_gpu.cljs",
+          "bytes": 16642,
+          "sha256": "a689b1b5e6eafddcad04e19d01ca68e65d42320ac132e033420a0cec43caf9d4"
+        },
+        "chromeRuntime": {
+          "path": "src/app/client/workspace/chrome_runtime.cljs",
+          "bytes": 16473,
+          "sha256": "3522d6fa4379ce1348ba6228dcd5469dc947b6513fc66fc6cdb8df3d92d5b937"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "ground": {
+          "path": "src/app/client/workspace/ground.cljs",
+          "bytes": 224452,
+          "sha256": "252bee13fb81fedae79f15abf58a0c309ae23f97b69f7ca68687e6503f73a926"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 278362,
+          "sha256": "d2f35779cbc2278b2758e96be6b7906650bd7ef28eb77669c251f249fe2e0658"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 143827,
+          "sha256": "9b159f7235d6ee4d891221f4b80125ec146376abaa69f2a1969cc286d35c7f52"
+        }
+      }
+    },
+    {
+      "amendment": 10,
+      "reason": "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      "inputs": {
+        "selection": {
+          "path": "src/app/client/workspace/selection.cljc",
+          "bytes": 6208,
+          "sha256": "01274e169be05008e18cd562937ba1838efdcb4bf74f8d9500ea004b555496ef"
+        },
+        "chromeMaterial": {
+          "path": "src/app/client/substrate/chrome_material.cljc",
+          "bytes": 12785,
+          "sha256": "107a83ab794f647bb10f02fb29342296245d32084ec268582f5d07a62a4cf4dc"
+        },
+        "snap": {
+          "path": "src/app/client/substrate/snap.cljc",
+          "bytes": 11211,
+          "sha256": "d857ebdc6a36cc69a1b11d4e1029cfcb7996b2b077131f1ae5dccd3af018c88f"
+        },
+        "chromeDerive": {
+          "path": "src/app/client/substrate/chrome_derive.cljc",
+          "bytes": 13824,
+          "sha256": "ae4cd4ac339703b22c43dc5dfbed590e8747ece79c6b4b25030c66a810ae16c7"
+        },
+        "chromeGpu": {
+          "path": "src/app/client/substrate/webgpu/chrome_gpu.cljs",
+          "bytes": 16642,
+          "sha256": "a689b1b5e6eafddcad04e19d01ca68e65d42320ac132e033420a0cec43caf9d4"
+        },
+        "chromeRuntime": {
+          "path": "src/app/client/workspace/chrome_runtime.cljs",
+          "bytes": 16473,
+          "sha256": "3522d6fa4379ce1348ba6228dcd5469dc947b6513fc66fc6cdb8df3d92d5b937"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "ground": {
+          "path": "src/app/client/workspace/ground.cljs",
+          "bytes": 224452,
+          "sha256": "252bee13fb81fedae79f15abf58a0c309ae23f97b69f7ca68687e6503f73a926"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 278362,
+          "sha256": "d2f35779cbc2278b2758e96be6b7906650bd7ef28eb77669c251f249fe2e0658"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 152239,
+          "sha256": "20a289139d178018aeba8ade3746f76bbc51791e728d36f32d6bce61ba4dfc37"
+        }
+      }
+    },
+    {
+      "amendment": 11,
+      "reason": "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      "inputs": {
+        "selection": {
+          "path": "src/app/client/workspace/selection.cljc",
+          "bytes": 6208,
+          "sha256": "01274e169be05008e18cd562937ba1838efdcb4bf74f8d9500ea004b555496ef"
+        },
+        "chromeMaterial": {
+          "path": "src/app/client/substrate/chrome_material.cljc",
+          "bytes": 12785,
+          "sha256": "107a83ab794f647bb10f02fb29342296245d32084ec268582f5d07a62a4cf4dc"
+        },
+        "snap": {
+          "path": "src/app/client/substrate/snap.cljc",
+          "bytes": 11211,
+          "sha256": "d857ebdc6a36cc69a1b11d4e1029cfcb7996b2b077131f1ae5dccd3af018c88f"
+        },
+        "chromeDerive": {
+          "path": "src/app/client/substrate/chrome_derive.cljc",
+          "bytes": 13824,
+          "sha256": "ae4cd4ac339703b22c43dc5dfbed590e8747ece79c6b4b25030c66a810ae16c7"
+        },
+        "chromeGpu": {
+          "path": "src/app/client/substrate/webgpu/chrome_gpu.cljs",
+          "bytes": 16642,
+          "sha256": "a689b1b5e6eafddcad04e19d01ca68e65d42320ac132e033420a0cec43caf9d4"
+        },
+        "chromeRuntime": {
+          "path": "src/app/client/workspace/chrome_runtime.cljs",
+          "bytes": 16473,
+          "sha256": "3522d6fa4379ce1348ba6228dcd5469dc947b6513fc66fc6cdb8df3d92d5b937"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "ground": {
+          "path": "src/app/client/workspace/ground.cljs",
+          "bytes": 224452,
+          "sha256": "252bee13fb81fedae79f15abf58a0c309ae23f97b69f7ca68687e6503f73a926"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 290709,
+          "sha256": "1a09b55531fb143f8f50686c0d91cd00a2418cefe22593ee4d42e5fea75bf759"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 152239,
+          "sha256": "20a289139d178018aeba8ade3746f76bbc51791e728d36f32d6bce61ba4dfc37"
         }
       }
     }
@@ -8030,6 +8777,309 @@
           "sha256": "600e7d955ed5f36fae3c47a1368146a70bcb04e8b79148ad4f7f54333f211483"
         }
       }
+    },
+    {
+      "amendment": 8,
+      "reason": "REGION3D-FLOOR integrated shared render/store seams; every prior golden remained byte-identical under the scoped append road",
+      "inputs": {
+        "frameEffects": {
+          "path": "src/app/client/substrate/frame_effects.cljc",
+          "bytes": 14194,
+          "sha256": "8c90cd09d00bb08923b3ab5be32c20e21d92adc2f0e0f4fe34bd8c060f2e39eb"
+        },
+        "frameGraph": {
+          "path": "src/app/client/substrate/frame_graph.cljc",
+          "bytes": 39028,
+          "sha256": "3a9adf223b010965454cbfa9b7c028ff29929edfe2bc982fd6650972ae760784"
+        },
+        "frameScheduler": {
+          "path": "src/app/client/substrate/frame_scheduler.cljc",
+          "bytes": 7915,
+          "sha256": "19df7b384c1b5ad7a6341146151ad7bd9998ec351a7f433aebf0bb27cdf2765d"
+        },
+        "compositorGpu": {
+          "path": "src/app/client/substrate/webgpu/compositor_gpu.cljs",
+          "bytes": 61880,
+          "sha256": "059ba70d7f4c36b299976d86a5f541ff26188041649ca4526cb030fd6f5c151f"
+        },
+        "frameRuntime": {
+          "path": "src/app/client/workspace/frame_runtime.cljs",
+          "bytes": 15083,
+          "sha256": "4464093577bbc58d245f1de57d0d5c69d498b91a9135b2b924f37d1a80a5cffb"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "containers": {
+          "path": "src/app/client/workspace/containers.cljc",
+          "bytes": 12458,
+          "sha256": "8eb7b7f73596470986da251e4158a96f944387cef54cd63eeca3f5121aa52300"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "chromeMaterial": {
+          "path": "src/app/client/substrate/chrome_material.cljc",
+          "bytes": 12785,
+          "sha256": "107a83ab794f647bb10f02fb29342296245d32084ec268582f5d07a62a4cf4dc"
+        },
+        "chromeGpu": {
+          "path": "src/app/client/substrate/webgpu/chrome_gpu.cljs",
+          "bytes": 16642,
+          "sha256": "a689b1b5e6eafddcad04e19d01ca68e65d42320ac132e033420a0cec43caf9d4"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 278362,
+          "sha256": "d2f35779cbc2278b2758e96be6b7906650bd7ef28eb77669c251f249fe2e0658"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 143827,
+          "sha256": "9b159f7235d6ee4d891221f4b80125ec146376abaa69f2a1969cc286d35c7f52"
+        },
+        "fence": {
+          "path": "test/render_engine/verify_scene_tape_fence.mjs",
+          "bytes": 9203,
+          "sha256": "600e7d955ed5f36fae3c47a1368146a70bcb04e8b79148ad4f7f54333f211483"
+        }
+      }
+    },
+    {
+      "amendment": 9,
+      "reason": "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      "inputs": {
+        "frameEffects": {
+          "path": "src/app/client/substrate/frame_effects.cljc",
+          "bytes": 14194,
+          "sha256": "8c90cd09d00bb08923b3ab5be32c20e21d92adc2f0e0f4fe34bd8c060f2e39eb"
+        },
+        "frameGraph": {
+          "path": "src/app/client/substrate/frame_graph.cljc",
+          "bytes": 39028,
+          "sha256": "3a9adf223b010965454cbfa9b7c028ff29929edfe2bc982fd6650972ae760784"
+        },
+        "frameScheduler": {
+          "path": "src/app/client/substrate/frame_scheduler.cljc",
+          "bytes": 7915,
+          "sha256": "19df7b384c1b5ad7a6341146151ad7bd9998ec351a7f433aebf0bb27cdf2765d"
+        },
+        "compositorGpu": {
+          "path": "src/app/client/substrate/webgpu/compositor_gpu.cljs",
+          "bytes": 61880,
+          "sha256": "059ba70d7f4c36b299976d86a5f541ff26188041649ca4526cb030fd6f5c151f"
+        },
+        "frameRuntime": {
+          "path": "src/app/client/workspace/frame_runtime.cljs",
+          "bytes": 15083,
+          "sha256": "4464093577bbc58d245f1de57d0d5c69d498b91a9135b2b924f37d1a80a5cffb"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "containers": {
+          "path": "src/app/client/workspace/containers.cljc",
+          "bytes": 12458,
+          "sha256": "8eb7b7f73596470986da251e4158a96f944387cef54cd63eeca3f5121aa52300"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "chromeMaterial": {
+          "path": "src/app/client/substrate/chrome_material.cljc",
+          "bytes": 12785,
+          "sha256": "107a83ab794f647bb10f02fb29342296245d32084ec268582f5d07a62a4cf4dc"
+        },
+        "chromeGpu": {
+          "path": "src/app/client/substrate/webgpu/chrome_gpu.cljs",
+          "bytes": 16642,
+          "sha256": "a689b1b5e6eafddcad04e19d01ca68e65d42320ac132e033420a0cec43caf9d4"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 278362,
+          "sha256": "d2f35779cbc2278b2758e96be6b7906650bd7ef28eb77669c251f249fe2e0658"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 152239,
+          "sha256": "20a289139d178018aeba8ade3746f76bbc51791e728d36f32d6bce61ba4dfc37"
+        },
+        "fence": {
+          "path": "test/render_engine/verify_scene_tape_fence.mjs",
+          "bytes": 9203,
+          "sha256": "600e7d955ed5f36fae3c47a1368146a70bcb04e8b79148ad4f7f54333f211483"
+        }
+      }
+    },
+    {
+      "amendment": 10,
+      "reason": "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      "inputs": {
+        "frameEffects": {
+          "path": "src/app/client/substrate/frame_effects.cljc",
+          "bytes": 14194,
+          "sha256": "8c90cd09d00bb08923b3ab5be32c20e21d92adc2f0e0f4fe34bd8c060f2e39eb"
+        },
+        "frameGraph": {
+          "path": "src/app/client/substrate/frame_graph.cljc",
+          "bytes": 39028,
+          "sha256": "3a9adf223b010965454cbfa9b7c028ff29929edfe2bc982fd6650972ae760784"
+        },
+        "frameScheduler": {
+          "path": "src/app/client/substrate/frame_scheduler.cljc",
+          "bytes": 7915,
+          "sha256": "19df7b384c1b5ad7a6341146151ad7bd9998ec351a7f433aebf0bb27cdf2765d"
+        },
+        "compositorGpu": {
+          "path": "src/app/client/substrate/webgpu/compositor_gpu.cljs",
+          "bytes": 61880,
+          "sha256": "059ba70d7f4c36b299976d86a5f541ff26188041649ca4526cb030fd6f5c151f"
+        },
+        "frameRuntime": {
+          "path": "src/app/client/workspace/frame_runtime.cljs",
+          "bytes": 15083,
+          "sha256": "4464093577bbc58d245f1de57d0d5c69d498b91a9135b2b924f37d1a80a5cffb"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "containers": {
+          "path": "src/app/client/workspace/containers.cljc",
+          "bytes": 12458,
+          "sha256": "8eb7b7f73596470986da251e4158a96f944387cef54cd63eeca3f5121aa52300"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "chromeMaterial": {
+          "path": "src/app/client/substrate/chrome_material.cljc",
+          "bytes": 12785,
+          "sha256": "107a83ab794f647bb10f02fb29342296245d32084ec268582f5d07a62a4cf4dc"
+        },
+        "chromeGpu": {
+          "path": "src/app/client/substrate/webgpu/chrome_gpu.cljs",
+          "bytes": 16642,
+          "sha256": "a689b1b5e6eafddcad04e19d01ca68e65d42320ac132e033420a0cec43caf9d4"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 290709,
+          "sha256": "1a09b55531fb143f8f50686c0d91cd00a2418cefe22593ee4d42e5fea75bf759"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 152239,
+          "sha256": "20a289139d178018aeba8ade3746f76bbc51791e728d36f32d6bce61ba4dfc37"
+        },
+        "fence": {
+          "path": "test/render_engine/verify_scene_tape_fence.mjs",
+          "bytes": 9203,
+          "sha256": "600e7d955ed5f36fae3c47a1368146a70bcb04e8b79148ad4f7f54333f211483"
+        }
+      }
     }
   ],
   "t2InputFloorInputs": {
@@ -8331,6 +9381,279 @@
           "sha256": "28e2d51d202e6776c9044979d24973c84b6c96736dc988360f141a7e9a95a547"
         }
       }
+    },
+    {
+      "amendment": 3,
+      "reason": "REGION3D-FLOOR integrated shared render/store seams; every prior golden remained byte-identical under the scoped append road",
+      "inputs": {
+        "textEditing": {
+          "path": "src/app/client/workspace/text_editing.cljc",
+          "bytes": 20908,
+          "sha256": "77366a2eb98016fe3f48bf0ff5da96313aac12043bf83b40afdf60cf9e7f6ec7"
+        },
+        "editingSegmentation": {
+          "path": "src/app/client/workspace/editing_segmentation.cljs",
+          "bytes": 2136,
+          "sha256": "894850264409b4e9aa27b79159cea598a80516b30d04914d46b5e8c5439c0698"
+        },
+        "editingRuntime": {
+          "path": "src/app/client/workspace/editing_runtime.cljs",
+          "bytes": 33514,
+          "sha256": "e47186c54c589b1332d04960bb7c0d11f8a40750c64ccad54afd196bb4534c91"
+        },
+        "textLayout": {
+          "path": "src/app/client/workspace/text_layout.cljc",
+          "bytes": 71450,
+          "sha256": "87112273dbc34b615929a5c62959dd408fa54f091aca1624d712325ddeb06905"
+        },
+        "events": {
+          "path": "src/app/client/workspace/events.cljs",
+          "bytes": 11699,
+          "sha256": "50d3fde2ae648a2233e9a0c4984591ad2f746ce981d92afaed1eb0495087fe59"
+        },
+        "runtimeMouse": {
+          "path": "src/app/client/workspace/runtime/mouse.cljs",
+          "bytes": 38971,
+          "sha256": "5bbbc14296b6a1340cd50752eec3f3ae4da74791021ad702712cd1e05667dc66"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "frameScheduler": {
+          "path": "src/app/client/substrate/frame_scheduler.cljc",
+          "bytes": 7915,
+          "sha256": "19df7b384c1b5ad7a6341146151ad7bd9998ec351a7f433aebf0bb27cdf2765d"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "containers": {
+          "path": "src/app/client/workspace/containers.cljc",
+          "bytes": 12458,
+          "sha256": "8eb7b7f73596470986da251e4158a96f944387cef54cd63eeca3f5121aa52300"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 278362,
+          "sha256": "d2f35779cbc2278b2758e96be6b7906650bd7ef28eb77669c251f249fe2e0658"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 143827,
+          "sha256": "9b159f7235d6ee4d891221f4b80125ec146376abaa69f2a1969cc286d35c7f52"
+        },
+        "fence": {
+          "path": "test/render_engine/verify_text_layout_fence.mjs",
+          "bytes": 8938,
+          "sha256": "28e2d51d202e6776c9044979d24973c84b6c96736dc988360f141a7e9a95a547"
+        }
+      }
+    },
+    {
+      "amendment": 4,
+      "reason": "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      "inputs": {
+        "textEditing": {
+          "path": "src/app/client/workspace/text_editing.cljc",
+          "bytes": 20908,
+          "sha256": "77366a2eb98016fe3f48bf0ff5da96313aac12043bf83b40afdf60cf9e7f6ec7"
+        },
+        "editingSegmentation": {
+          "path": "src/app/client/workspace/editing_segmentation.cljs",
+          "bytes": 2136,
+          "sha256": "894850264409b4e9aa27b79159cea598a80516b30d04914d46b5e8c5439c0698"
+        },
+        "editingRuntime": {
+          "path": "src/app/client/workspace/editing_runtime.cljs",
+          "bytes": 33514,
+          "sha256": "e47186c54c589b1332d04960bb7c0d11f8a40750c64ccad54afd196bb4534c91"
+        },
+        "textLayout": {
+          "path": "src/app/client/workspace/text_layout.cljc",
+          "bytes": 71450,
+          "sha256": "87112273dbc34b615929a5c62959dd408fa54f091aca1624d712325ddeb06905"
+        },
+        "events": {
+          "path": "src/app/client/workspace/events.cljs",
+          "bytes": 11699,
+          "sha256": "50d3fde2ae648a2233e9a0c4984591ad2f746ce981d92afaed1eb0495087fe59"
+        },
+        "runtimeMouse": {
+          "path": "src/app/client/workspace/runtime/mouse.cljs",
+          "bytes": 38971,
+          "sha256": "5bbbc14296b6a1340cd50752eec3f3ae4da74791021ad702712cd1e05667dc66"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "frameScheduler": {
+          "path": "src/app/client/substrate/frame_scheduler.cljc",
+          "bytes": 7915,
+          "sha256": "19df7b384c1b5ad7a6341146151ad7bd9998ec351a7f433aebf0bb27cdf2765d"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "containers": {
+          "path": "src/app/client/workspace/containers.cljc",
+          "bytes": 12458,
+          "sha256": "8eb7b7f73596470986da251e4158a96f944387cef54cd63eeca3f5121aa52300"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 278362,
+          "sha256": "d2f35779cbc2278b2758e96be6b7906650bd7ef28eb77669c251f249fe2e0658"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 152239,
+          "sha256": "20a289139d178018aeba8ade3746f76bbc51791e728d36f32d6bce61ba4dfc37"
+        },
+        "fence": {
+          "path": "test/render_engine/verify_text_layout_fence.mjs",
+          "bytes": 8938,
+          "sha256": "28e2d51d202e6776c9044979d24973c84b6c96736dc988360f141a7e9a95a547"
+        }
+      }
+    },
+    {
+      "amendment": 5,
+      "reason": "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      "inputs": {
+        "textEditing": {
+          "path": "src/app/client/workspace/text_editing.cljc",
+          "bytes": 20908,
+          "sha256": "77366a2eb98016fe3f48bf0ff5da96313aac12043bf83b40afdf60cf9e7f6ec7"
+        },
+        "editingSegmentation": {
+          "path": "src/app/client/workspace/editing_segmentation.cljs",
+          "bytes": 2136,
+          "sha256": "894850264409b4e9aa27b79159cea598a80516b30d04914d46b5e8c5439c0698"
+        },
+        "editingRuntime": {
+          "path": "src/app/client/workspace/editing_runtime.cljs",
+          "bytes": 33514,
+          "sha256": "e47186c54c589b1332d04960bb7c0d11f8a40750c64ccad54afd196bb4534c91"
+        },
+        "textLayout": {
+          "path": "src/app/client/workspace/text_layout.cljc",
+          "bytes": 71450,
+          "sha256": "87112273dbc34b615929a5c62959dd408fa54f091aca1624d712325ddeb06905"
+        },
+        "events": {
+          "path": "src/app/client/workspace/events.cljs",
+          "bytes": 11699,
+          "sha256": "50d3fde2ae648a2233e9a0c4984591ad2f746ce981d92afaed1eb0495087fe59"
+        },
+        "runtimeMouse": {
+          "path": "src/app/client/workspace/runtime/mouse.cljs",
+          "bytes": 38971,
+          "sha256": "5bbbc14296b6a1340cd50752eec3f3ae4da74791021ad702712cd1e05667dc66"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17154,
+          "sha256": "de96d892cf4dccac257cd35c8500c9cabd7e4514172d4aa792e7db6679e7674c"
+        },
+        "frameScheduler": {
+          "path": "src/app/client/substrate/frame_scheduler.cljc",
+          "bytes": 7915,
+          "sha256": "19df7b384c1b5ad7a6341146151ad7bd9998ec351a7f433aebf0bb27cdf2765d"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "containers": {
+          "path": "src/app/client/workspace/containers.cljc",
+          "bytes": 12458,
+          "sha256": "8eb7b7f73596470986da251e4158a96f944387cef54cd63eeca3f5121aa52300"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 290709,
+          "sha256": "1a09b55531fb143f8f50686c0d91cd00a2418cefe22593ee4d42e5fea75bf759"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 152239,
+          "sha256": "20a289139d178018aeba8ade3746f76bbc51791e728d36f32d6bce61ba4dfc37"
+        },
+        "fence": {
+          "path": "test/render_engine/verify_text_layout_fence.mjs",
+          "bytes": 8938,
+          "sha256": "28e2d51d202e6776c9044979d24973c84b6c96736dc988360f141a7e9a95a547"
+        }
+      }
     }
   ],
   "t2InputFloorGoldenAmendments": [
@@ -8358,6 +9681,293 @@
         "file": "gpu-t2-input-floor-paragraph-selection.png",
         "rawSha256": "762940af8030143d7e7014ffe62b1c7df627b29e7642e7a57c8d58fdbfecf1cd",
         "pngSha256": "ad2578b42d450d3b97f934d2bba861d7f7699e324ca21a3cdf61d2b15c95192e"
+      }
+    }
+  ],
+  "region3dFloorInputs": {
+    "region3dMaterial": {
+      "path": "src/app/client/substrate/region3d_material.cljc",
+      "bytes": 28405,
+      "sha256": "7526a43d9b9161353992b7726ec8ca321239eefe34f6129377bcd45d455ebc8f"
+    },
+    "region3dScene": {
+      "path": "src/app/client/substrate/region3d_scene.cljc",
+      "bytes": 48000,
+      "sha256": "9c78bfee925a00c64b4282f8a54a9e710550f41ec5b91b9fe9bd9d9c6190deee"
+    },
+    "region3dGpu": {
+      "path": "src/app/client/substrate/webgpu/region3d_gpu.cljs",
+      "bytes": 61338,
+      "sha256": "0d06cb6d1ae1b1a7935bfd8af6e0eeb65c1141500be56e1ec571003ece4693fb"
+    },
+    "region3dRuntime": {
+      "path": "src/app/client/workspace/region3d_runtime.cljs",
+      "bytes": 19477,
+      "sha256": "76bf25c283f0fc002865be5d6f1cf80191b31d8fb201c270f44833cc0e45059e"
+    },
+    "compositorGpu": {
+      "path": "src/app/client/substrate/webgpu/compositor_gpu.cljs",
+      "bytes": 61880,
+      "sha256": "059ba70d7f4c36b299976d86a5f541ff26188041649ca4526cb030fd6f5c151f"
+    },
+    "frameGraph": {
+      "path": "src/app/client/substrate/frame_graph.cljc",
+      "bytes": 39028,
+      "sha256": "3a9adf223b010965454cbfa9b7c028ff29929edfe2bc982fd6650972ae760784"
+    },
+    "sceneTape": {
+      "path": "src/app/client/substrate/scene_tape.cljc",
+      "bytes": 33010,
+      "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+    },
+    "rectTree": {
+      "path": "src/app/client/workspace/rect_tree.cljc",
+      "bytes": 35219,
+      "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+    },
+    "sceneStore": {
+      "path": "src/app/client/workspace/scene_store.cljc",
+      "bytes": 35002,
+      "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+    },
+    "sceneRuntime": {
+      "path": "src/app/client/workspace/scene_runtime.cljs",
+      "bytes": 28720,
+      "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+    },
+    "runtimeRender": {
+      "path": "src/app/client/workspace/runtime/render.cljs",
+      "bytes": 58813,
+      "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+    },
+    "renderer": {
+      "path": "src/app/client/substrate/webgpu/renderer.cljs",
+      "bytes": 186195,
+      "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+    },
+    "verifier": {
+      "path": "src/app/client/substrate/webgpu/verifier.cljs",
+      "bytes": 278362,
+      "sha256": "d2f35779cbc2278b2758e96be6b7906650bd7ef28eb77669c251f249fe2e0658"
+    },
+    "runner": {
+      "path": "test/render_engine/run_verifier.mjs",
+      "bytes": 143827,
+      "sha256": "9b159f7235d6ee4d891221f4b80125ec146376abaa69f2a1969cc286d35c7f52"
+    }
+  },
+  "region3dFloorCases": [
+    {
+      "caseId": "sandwich",
+      "mode": "sandwich",
+      "file": "gpu-region3d-floor-sandwich.png",
+      "rawSha256": "481f0f90b82c03737e1c79901dced3a1c56b62a372d1db3a7292cd4e0166074e",
+      "pngSha256": "8ae2d801790772ffb9ac5f0d040a5bc79fda54fe33dfe064842aa5c9cb035600"
+    },
+    {
+      "caseId": "lit-depth-shadow",
+      "mode": "lit-depth-shadow",
+      "file": "gpu-region3d-floor-lit-depth-shadow.png",
+      "rawSha256": "71def3590e75cce0a9aa79f0cc3cde460ffbbfc74b9848a97f0db25cfa2d8d02",
+      "pngSha256": "07b10b50807d8c4d70914e14cce2dccad2471ec63cc861e90eb9cf205df03aba"
+    },
+    {
+      "caseId": "gizmo-overlay",
+      "mode": "gizmo-overlay",
+      "file": "gpu-region3d-floor-gizmo-overlay.png",
+      "rawSha256": "f51daf4d9eb9badd561f768ffb4f6d74b459e1d0483ea4a88029f40a7d1378f4",
+      "pngSha256": "6e91a5f7bd10f85a7373659422dd22d82bb94f934e21d53cbb6ef36c785134b3"
+    }
+  ],
+  "region3dFloorInputAmendments": [
+    {
+      "amendment": 1,
+      "reason": "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      "inputs": {
+        "region3dMaterial": {
+          "path": "src/app/client/substrate/region3d_material.cljc",
+          "bytes": 28405,
+          "sha256": "7526a43d9b9161353992b7726ec8ca321239eefe34f6129377bcd45d455ebc8f"
+        },
+        "region3dScene": {
+          "path": "src/app/client/substrate/region3d_scene.cljc",
+          "bytes": 48000,
+          "sha256": "9c78bfee925a00c64b4282f8a54a9e710550f41ec5b91b9fe9bd9d9c6190deee"
+        },
+        "region3dGpu": {
+          "path": "src/app/client/substrate/webgpu/region3d_gpu.cljs",
+          "bytes": 63375,
+          "sha256": "6ed783b335abc2b60b093e827a68b26548c66f7ca7c210bac13d2e871a16520b"
+        },
+        "region3dRuntime": {
+          "path": "src/app/client/workspace/region3d_runtime.cljs",
+          "bytes": 19477,
+          "sha256": "76bf25c283f0fc002865be5d6f1cf80191b31d8fb201c270f44833cc0e45059e"
+        },
+        "compositorGpu": {
+          "path": "src/app/client/substrate/webgpu/compositor_gpu.cljs",
+          "bytes": 61880,
+          "sha256": "059ba70d7f4c36b299976d86a5f541ff26188041649ca4526cb030fd6f5c151f"
+        },
+        "frameGraph": {
+          "path": "src/app/client/substrate/frame_graph.cljc",
+          "bytes": 39028,
+          "sha256": "3a9adf223b010965454cbfa9b7c028ff29929edfe2bc982fd6650972ae760784"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 278362,
+          "sha256": "d2f35779cbc2278b2758e96be6b7906650bd7ef28eb77669c251f249fe2e0658"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 152239,
+          "sha256": "20a289139d178018aeba8ade3746f76bbc51791e728d36f32d6bce61ba4dfc37"
+        }
+      }
+    },
+    {
+      "amendment": 2,
+      "reason": "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      "inputs": {
+        "region3dMaterial": {
+          "path": "src/app/client/substrate/region3d_material.cljc",
+          "bytes": 28428,
+          "sha256": "195579aacd254647c086ed2cfb14ee97f5637edd3219183e74dee840d70acf8a"
+        },
+        "region3dScene": {
+          "path": "src/app/client/substrate/region3d_scene.cljc",
+          "bytes": 48000,
+          "sha256": "9c78bfee925a00c64b4282f8a54a9e710550f41ec5b91b9fe9bd9d9c6190deee"
+        },
+        "region3dGpu": {
+          "path": "src/app/client/substrate/webgpu/region3d_gpu.cljs",
+          "bytes": 63901,
+          "sha256": "a41859174b0e8e37e743d2fbc7a1564490295cbeabaa8ebf1501fd8438bcd7db"
+        },
+        "region3dRuntime": {
+          "path": "src/app/client/workspace/region3d_runtime.cljs",
+          "bytes": 19477,
+          "sha256": "76bf25c283f0fc002865be5d6f1cf80191b31d8fb201c270f44833cc0e45059e"
+        },
+        "compositorGpu": {
+          "path": "src/app/client/substrate/webgpu/compositor_gpu.cljs",
+          "bytes": 61880,
+          "sha256": "059ba70d7f4c36b299976d86a5f541ff26188041649ca4526cb030fd6f5c151f"
+        },
+        "frameGraph": {
+          "path": "src/app/client/substrate/frame_graph.cljc",
+          "bytes": 39028,
+          "sha256": "3a9adf223b010965454cbfa9b7c028ff29929edfe2bc982fd6650972ae760784"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35002,
+          "sha256": "f3549335f1ac2660ac9ffe15955213dc555ca68a605212899361b54f6f92a61d"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 58813,
+          "sha256": "8249a12751cdffd9045339088cf5ef80e41a7d56452ef0dff8811633f194ddf6"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 186195,
+          "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 290709,
+          "sha256": "1a09b55531fb143f8f50686c0d91cd00a2418cefe22593ee4d42e5fea75bf759"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 152239,
+          "sha256": "20a289139d178018aeba8ade3746f76bbc51791e728d36f32d6bce61ba4dfc37"
+        }
+      }
+    }
+  ],
+  "region3dFloorGoldenAmendments": [
+    {
+      "amendment": 1,
+      "reason": "Visual falsification made the representative gizmo overlay leg visibly exercise its contract",
+      "before": {
+        "caseId": "gizmo-overlay",
+        "mode": "gizmo-overlay",
+        "file": "gpu-region3d-floor-gizmo-overlay.png",
+        "rawSha256": "92ec90188a300c8e3719c3b9c397b64f1a2b0b905d907e2810be3756e3971486",
+        "pngSha256": "da9d4495c2e25a74cd1efbaf37068d8e1f809722f81589353d867b330c87c565"
+      },
+      "after": {
+        "caseId": "gizmo-overlay",
+        "mode": "gizmo-overlay",
+        "file": "gpu-region3d-floor-gizmo-overlay.png",
+        "rawSha256": "c5e3a19c70b8833e46729ed40c40330a08524648d92256a47be365c155d7c87b",
+        "pngSha256": "a3458372e8465734987afe63ce9054fd8a875022e315a701d0c7aaeebc21e104"
+      }
+    },
+    {
+      "amendment": 2,
+      "reason": "Visual falsification made the representative gizmo overlay leg visibly exercise its contract",
+      "before": {
+        "caseId": "gizmo-overlay",
+        "mode": "gizmo-overlay",
+        "file": "gpu-region3d-floor-gizmo-overlay.png",
+        "rawSha256": "c5e3a19c70b8833e46729ed40c40330a08524648d92256a47be365c155d7c87b",
+        "pngSha256": "a3458372e8465734987afe63ce9054fd8a875022e315a701d0c7aaeebc21e104"
+      },
+      "after": {
+        "caseId": "gizmo-overlay",
+        "mode": "gizmo-overlay",
+        "file": "gpu-region3d-floor-gizmo-overlay.png",
+        "rawSha256": "f51daf4d9eb9badd561f768ffb4f6d74b459e1d0483ea4a88029f40a7d1378f4",
+        "pngSha256": "6e91a5f7bd10f85a7373659422dd22d82bb94f934e21d53cbb6ef36c785134b3"
       }
     }
   ]

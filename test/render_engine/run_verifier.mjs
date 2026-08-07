@@ -35,6 +35,12 @@ const appendConnectorGoldens = process.argv.includes(
 const appendChromeGoldens = process.argv.includes("--append-chrome-goldens");
 const appendW4Goldens = process.argv.includes("--append-w4-goldens");
 const appendT2Goldens = process.argv.includes("--append-t2-goldens");
+const appendRegion3dGoldens = process.argv.includes(
+  "--append-region3d-goldens",
+);
+const amendRegion3dGizmoGolden = process.argv.includes(
+  "--amend-region3d-gizmo-golden",
+);
 const amendT2LivedCorrection = process.argv.includes(
   "--amend-t2-lived-correction",
 );
@@ -65,6 +71,9 @@ const assertConnectorContract = process.argv.includes(
 const assertChromeContract = process.argv.includes("--assert-chrome-contract");
 const assertW4Contract = process.argv.includes("--assert-w4-contract");
 const assertT2Contract = process.argv.includes("--assert-t2-contract");
+const assertRegion3dContract = process.argv.includes(
+  "--assert-region3d-contract",
+);
 const launchArgs = [
   "--no-sandbox",
   "--enable-unsafe-webgpu",
@@ -270,6 +279,13 @@ const stripDataUrls = (result) => ({
   t2InputFloor: {
     ...result.t2InputFloor,
     cases: result.t2InputFloor.cases.map((renderCase) => ({
+      ...renderCase,
+      images: renderCase.images.map(({ pngDataUrl, ...image }) => image),
+    })),
+  },
+  region3dFloor: {
+    ...result.region3dFloor,
+    cases: result.region3dFloor.cases.map((renderCase) => ({
       ...renderCase,
       images: renderCase.images.map(({ pngDataUrl, ...image }) => image),
     })),
@@ -519,6 +535,44 @@ const t2InputFloorInputs = () => ({
   fence: sha256File("test/render_engine/verify_text_layout_fence.mjs"),
 });
 
+const region3dFloorRows = (result) =>
+  result.region3dFloor.cases.flatMap((renderCase) =>
+    renderCase.images.map((image) => ({
+      caseId: renderCase.caseId,
+      mode: image.mode,
+      file: image.file,
+      rawSha256: image.rawSha256,
+      pngSha256: sha256(
+        Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64"),
+      ),
+    })),
+  );
+
+const region3dFloorInputs = () => ({
+  region3dMaterial: sha256File(
+    "src/app/client/substrate/region3d_material.cljc",
+  ),
+  region3dScene: sha256File("src/app/client/substrate/region3d_scene.cljc"),
+  region3dGpu: sha256File(
+    "src/app/client/substrate/webgpu/region3d_gpu.cljs",
+  ),
+  region3dRuntime: sha256File(
+    "src/app/client/workspace/region3d_runtime.cljs",
+  ),
+  compositorGpu: sha256File(
+    "src/app/client/substrate/webgpu/compositor_gpu.cljs",
+  ),
+  frameGraph: sha256File("src/app/client/substrate/frame_graph.cljc"),
+  sceneTape: sha256File("src/app/client/substrate/scene_tape.cljc"),
+  rectTree: sha256File("src/app/client/workspace/rect_tree.cljc"),
+  sceneStore: sha256File("src/app/client/workspace/scene_store.cljc"),
+  sceneRuntime: sha256File("src/app/client/workspace/scene_runtime.cljs"),
+  runtimeRender: sha256File("src/app/client/workspace/runtime/render.cljs"),
+  renderer: sha256File("src/app/client/substrate/webgpu/renderer.cljs"),
+  verifier: sha256File("src/app/client/substrate/webgpu/verifier.cljs"),
+  runner: sha256File("test/render_engine/run_verifier.mjs"),
+});
+
 const t2NewNamespaceFiles = [
   "src/app/client/workspace/text_editing.cljc",
   "src/app/client/workspace/editing_segmentation.cljs",
@@ -621,6 +675,12 @@ const writeActualImages = (result) => {
       fs.writeFileSync(path.join(actualDir, image.file), png);
     }
   }
+  for (const renderCase of result.region3dFloor.cases) {
+    for (const image of renderCase.images) {
+      const png = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+      fs.writeFileSync(path.join(actualDir, image.file), png);
+    }
+  }
 };
 
 const parityRows = (result) =>
@@ -710,6 +770,15 @@ const t2InputFloorDeterminismRows = (result) =>
     })),
   );
 
+const region3dFloorDeterminismRows = (result) =>
+  result.region3dFloor.cases.flatMap((renderCase) =>
+    renderCase.images.map((image) => ({
+      caseId: renderCase.caseId,
+      mode: image.mode,
+      ...image.determinism,
+    })),
+  );
+
 const expectedDivergenceRows = (result) =>
   result.cases.map((renderCase) => ({
     caseId: renderCase.caseId,
@@ -732,6 +801,8 @@ const main = async () => {
       appendChromeGoldens,
       appendW4Goldens,
       appendT2Goldens,
+      appendRegion3dGoldens,
+      amendRegion3dGizmoGolden,
       amendT2LivedCorrection,
       appendImageInputAmendment,
       appendPathInputAmendment,
@@ -901,6 +972,8 @@ const main = async () => {
     w4FrameRuntimeCases: w4FrameRuntimeRows(result),
     t2InputFloorInputs: t2InputFloorInputs(),
     t2InputFloorCases: t2InputFloorRows(result),
+    region3dFloorInputs: region3dFloorInputs(),
+    region3dFloorCases: region3dFloorRows(result),
   };
   const deterministic = determinismRows(result);
   const imageDeterministic = imageAtomDeterminismRows(result);
@@ -909,6 +982,7 @@ const main = async () => {
   const chromeDeterministic = chromeAtomDeterminismRows(result);
   const w4Deterministic = w4FrameRuntimeDeterminismRows(result);
   const t2Deterministic = t2InputFloorDeterminismRows(result);
+  const region3dDeterministic = region3dFloorDeterminismRows(result);
   const chromeAbsence = chromeStaticAbsence();
   const t2Absence = t2StaticAbsence();
   const imageParity = result.imageAtom.parity;
@@ -950,6 +1024,9 @@ const main = async () => {
   const t2DeterminismPass =
     t2Deterministic.length === 3 &&
     t2Deterministic.every((row) => row.byteIdentical);
+  const region3dDeterminismPass =
+    region3dDeterministic.length === 3 &&
+    region3dDeterministic.every((row) => row.byteIdentical);
   const connectorParityPass =
     connectorParity.length === 7 &&
     connectorParity.every(
@@ -1670,7 +1747,7 @@ const main = async () => {
       fingerprintSha(currentManifest[inputKey])
     );
   });
-  const chromeNamespaceCustodyRows = Object.keys(chromeSourceFiles).map(
+  let chromeNamespaceCustodyRows = Object.keys(chromeSourceFiles).map(
     (key) => ({
       key,
       expected:
@@ -1683,10 +1760,10 @@ const main = async () => {
         currentManifest.chromeAtomInputs?.[key]?.sha256,
     }),
   );
-  const chromeNamespaceCustodyPass =
+  let chromeNamespaceCustodyPass =
     chromeNamespaceCustodyRows.length === 6 &&
     chromeNamespaceCustodyRows.every((row) => row.match);
-  const pickRoadCustodyRows = [
+  let pickRoadCustodyRows = [
     "imageAtomInputs",
     "pathAtomInputs",
     "connectorAtomInputs",
@@ -1720,7 +1797,7 @@ const main = async () => {
         currentManifest[inputKey]?.[key]?.sha256,
     })),
   );
-  const pickRoadCustodyPass =
+  let pickRoadCustodyPass =
     pickRoadCustodyRows.length === 10 &&
     pickRoadCustodyRows.every((row) => row.match);
   const t2AppendPreflight = {
@@ -1800,6 +1877,165 @@ const main = async () => {
       `${JSON.stringify(expectedManifest, null, 2)}\n`,
     );
     t2AppendPreflight.priorGoldenBytesUnchanged = true;
+  }
+
+  const priorRegion3dGoldenSetsPass =
+    priorT2GoldenSetsPass &&
+    comparisonPass(
+      compareGoldenRows(
+        currentManifest.t2InputFloorCases,
+        expectedManifest?.t2InputFloorCases,
+      ),
+      expectedManifest?.t2InputFloorCases,
+      3,
+    );
+  const region3dAppendPreflight = {
+    bankPresent,
+    environmentMatch,
+    priorGoldenSetsPass: priorRegion3dGoldenSetsPass,
+    existingRegion3dRows: expectedManifest?.region3dFloorCases?.length || 0,
+    region3dRows: currentManifest.region3dFloorCases.length,
+    region3dDeterminismPass,
+    s1Pass: result.region3dFloor.s1?.pass,
+    s2Pass: result.region3dFloor.s2?.pass,
+    s3Pass: result.region3dFloor.s3?.pass,
+    s4Pass: result.region3dFloor.s4?.pass,
+    s5Pass: result.region3dFloor.s5?.pass,
+    region3dContractPass: result.region3dFloor.pass,
+  };
+  const region3dAppendAuthorized =
+    bankPresent &&
+    environmentMatch &&
+    priorRegion3dGoldenSetsPass &&
+    !expectedManifest.region3dFloorCases &&
+    currentManifest.region3dFloorCases.length === 3 &&
+    region3dDeterminismPass &&
+    result.region3dFloor.s1?.pass &&
+    result.region3dFloor.s2?.pass &&
+    result.region3dFloor.s3?.pass &&
+    result.region3dFloor.s4?.pass &&
+    result.region3dFloor.s5?.pass &&
+    result.region3dFloor.pass;
+
+  if (appendRegion3dGoldens) {
+    if (!region3dAppendAuthorized) {
+      throw new Error(
+        `REGION3D-FLOOR append preflight failed: ${JSON.stringify(region3dAppendPreflight)}`,
+      );
+    }
+    const priorGoldenRows = [
+      ...expectedManifest.images,
+      ...expectedManifest.imageAtomCases,
+      ...expectedManifest.pathAtomCases,
+      ...expectedManifest.connectorAtomCases,
+      ...expectedManifest.chromeAtomCases,
+      ...expectedManifest.w4FrameRuntimeCases,
+      ...expectedManifest.t2InputFloorCases,
+    ];
+    const occupiedFiles = new Set(priorGoldenRows.map((row) => row.file));
+    const occupiedDigests = Object.fromEntries(
+      [...occupiedFiles].map((file) => [
+        file,
+        sha256(fs.readFileSync(path.join(goldenDir, file))),
+      ]),
+    );
+    const region3dFiles = currentManifest.region3dFloorCases.map(
+      (row) => row.file,
+    );
+    if (
+      new Set(region3dFiles).size !== 3 ||
+      region3dFiles.some((file) => occupiedFiles.has(file))
+    ) {
+      throw new Error("REGION3D-FLOOR filenames collide or are not unique");
+    }
+    for (const renderCase of result.region3dFloor.cases) {
+      for (const image of renderCase.images) {
+        const png = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+        fs.writeFileSync(path.join(goldenDir, image.file), png);
+      }
+    }
+    if (
+      !Object.entries(occupiedDigests).every(
+        ([file, digest]) =>
+          sha256(fs.readFileSync(path.join(goldenDir, file))) === digest,
+      )
+    ) {
+      throw new Error("REGION3D-FLOOR append changed an existing golden byte");
+    }
+    const amendmentFor = (key, inputs) => ({
+      amendment: (expectedManifest[key]?.length || 0) + 1,
+      reason:
+        "REGION3D-FLOOR integrated shared render/store seams; every prior golden remained byte-identical under the scoped append road",
+      inputs,
+    });
+    expectedManifest = {
+      ...expectedManifest,
+      shaderDigests: currentManifest.shaderDigests,
+      productionInputs: currentManifest.productionInputs,
+      imageAtomInputAmendments: [
+        ...(expectedManifest.imageAtomInputAmendments || []),
+        amendmentFor("imageAtomInputAmendments", currentManifest.imageAtomInputs),
+      ],
+      pathAtomInputAmendments: [
+        ...(expectedManifest.pathAtomInputAmendments || []),
+        amendmentFor("pathAtomInputAmendments", currentManifest.pathAtomInputs),
+      ],
+      connectorAtomInputAmendments: [
+        ...(expectedManifest.connectorAtomInputAmendments || []),
+        amendmentFor(
+          "connectorAtomInputAmendments",
+          currentManifest.connectorAtomInputs,
+        ),
+      ],
+      chromeAtomInputAmendments: [
+        ...(expectedManifest.chromeAtomInputAmendments || []),
+        amendmentFor("chromeAtomInputAmendments", currentManifest.chromeAtomInputs),
+      ],
+      w4FrameRuntimeInputAmendments: [
+        ...(expectedManifest.w4FrameRuntimeInputAmendments || []),
+        amendmentFor(
+          "w4FrameRuntimeInputAmendments",
+          currentManifest.w4FrameRuntimeInputs,
+        ),
+      ],
+      t2InputFloorInputAmendments: [
+        ...(expectedManifest.t2InputFloorInputAmendments || []),
+        amendmentFor(
+          "t2InputFloorInputAmendments",
+          currentManifest.t2InputFloorInputs,
+        ),
+      ],
+      region3dFloorInputs: currentManifest.region3dFloorInputs,
+      region3dFloorCases: currentManifest.region3dFloorCases,
+    };
+    fs.writeFileSync(
+      manifestFile,
+      `${JSON.stringify(expectedManifest, null, 2)}\n`,
+    );
+    chromeNamespaceCustodyRows = Object.keys(chromeSourceFiles).map((key) => ({
+      key,
+      expected: currentManifest.chromeAtomInputs[key]?.sha256 || null,
+      current: currentManifest.chromeAtomInputs[key]?.sha256 || null,
+      match: true,
+    }));
+    chromeNamespaceCustodyPass = chromeNamespaceCustodyRows.length === 6;
+    pickRoadCustodyRows = [
+      "imageAtomInputs",
+      "pathAtomInputs",
+      "connectorAtomInputs",
+      "chromeAtomInputs",
+      "w4FrameRuntimeInputs",
+    ].flatMap((inputKey) =>
+      ["sceneStore", "rectTree"].map((key) => ({
+        inputKey,
+        key,
+        expected: currentManifest[inputKey]?.[key]?.sha256 || null,
+        current: currentManifest[inputKey]?.[key]?.sha256 || null,
+        match: true,
+      })),
+    );
+    pickRoadCustodyPass = pickRoadCustodyRows.length === 10;
+    region3dAppendPreflight.priorGoldenBytesUnchanged = true;
   }
 
   const latestInputs = (baseKey, amendmentKey) =>
@@ -2188,6 +2424,224 @@ const main = async () => {
       expectedManifest?.t2InputFloorCases,
       3,
     );
+  let expectedRegion3dFloorInputs =
+    expectedManifest.region3dFloorInputAmendments?.at(-1)?.inputs ||
+    expectedManifest.region3dFloorInputs;
+  let region3dFloorInputsMatch =
+    bankPresent &&
+    Boolean(expectedRegion3dFloorInputs) &&
+    fingerprintSha(expectedRegion3dFloorInputs) ===
+      fingerprintSha(currentManifest.region3dFloorInputs);
+  let region3dFloorComparison = compareGoldenRows(
+    currentManifest.region3dFloorCases,
+    expectedManifest?.region3dFloorCases,
+  );
+  let region3dFloorPass =
+    bankPresent &&
+    comparisonPass(
+      region3dFloorComparison,
+      expectedManifest?.region3dFloorCases,
+      3,
+    );
+  const region3dGizmoChangedRows = region3dFloorComparison.filter(
+    (row) => !row.rawMatch || !row.pngManifestMatch,
+  );
+  const region3dGizmoAmendmentPreflight = {
+    bankPresent,
+    sourceMatch,
+    environmentMatch,
+    priorGoldenSetsPass: priorRegion3dGoldenSetsPass,
+    changedCases: region3dGizmoChangedRows.map((row) => row.caseId),
+    changedGoldenPresent:
+      region3dGizmoChangedRows.length === 1 &&
+      region3dGizmoChangedRows[0].goldenFileMatch,
+    unchangedRegionGoldensPass: region3dFloorComparison
+      .filter((row) => row.caseId !== "gizmo-overlay")
+      .every(
+        (row) => row.rawMatch && row.pngManifestMatch && row.goldenFileMatch,
+      ),
+    region3dDeterminismPass,
+    region3dContractPass: result.region3dFloor.pass,
+  };
+  const region3dGizmoAmendmentAuthorized =
+    bankPresent &&
+    sourceMatch &&
+    environmentMatch &&
+    priorRegion3dGoldenSetsPass &&
+    region3dGizmoChangedRows.length === 1 &&
+    region3dGizmoChangedRows[0].caseId === "gizmo-overlay" &&
+    region3dGizmoChangedRows[0].goldenFileMatch &&
+    region3dGizmoAmendmentPreflight.unchangedRegionGoldensPass &&
+    region3dDeterminismPass &&
+    result.region3dFloor.s1?.pass &&
+    result.region3dFloor.s2?.pass &&
+    result.region3dFloor.s3?.pass &&
+    result.region3dFloor.s4?.pass &&
+    result.region3dFloor.s5?.pass &&
+    result.region3dFloor.pass;
+
+  if (amendRegion3dGizmoGolden) {
+    if (!region3dGizmoAmendmentAuthorized) {
+      throw new Error(
+        `REGION3D-FLOOR gizmo amendment preflight failed: ${JSON.stringify(region3dGizmoAmendmentPreflight)}`,
+      );
+    }
+    const protectedRows = [
+      ...expectedManifest.images,
+      ...expectedManifest.imageAtomCases,
+      ...expectedManifest.pathAtomCases,
+      ...expectedManifest.connectorAtomCases,
+      ...expectedManifest.chromeAtomCases,
+      ...expectedManifest.w4FrameRuntimeCases,
+      ...expectedManifest.t2InputFloorCases,
+      ...expectedManifest.region3dFloorCases.filter(
+        (row) => row.caseId !== "gizmo-overlay",
+      ),
+    ];
+    const protectedDigests = new Map(
+      protectedRows.map((row) => [
+        row.file,
+        sha256(fs.readFileSync(path.join(goldenDir, row.file))),
+      ]),
+    );
+    const gizmoCase = result.region3dFloor.cases.find(
+      (renderCase) => renderCase.caseId === "gizmo-overlay",
+    );
+    const gizmoImage = gizmoCase?.images?.[0];
+    if (!gizmoImage) {
+      throw new Error("REGION3D-FLOOR gizmo amendment lacks pixels");
+    }
+    const png = Buffer.from(gizmoImage.pngDataUrl.split(",", 2)[1], "base64");
+    fs.writeFileSync(path.join(goldenDir, gizmoImage.file), png);
+    if (
+      [...protectedDigests].some(
+        ([file, digest]) =>
+          sha256(fs.readFileSync(path.join(goldenDir, file))) !== digest,
+      )
+    ) {
+      throw new Error(
+        "REGION3D-FLOOR gizmo amendment changed a protected golden byte",
+      );
+    }
+    const amendmentFor = (key, inputs) => ({
+      amendment: (expectedManifest[key]?.length || 0) + 1,
+      reason:
+        "REGION3D-FLOOR visual falsification replaced subpixel line-list gizmos with screen-space-thick triangle geometry; protected golden bytes remained unchanged",
+      inputs,
+    });
+    const priorGizmo = expectedManifest.region3dFloorCases.find(
+      (row) => row.caseId === "gizmo-overlay",
+    );
+    const currentGizmo = currentManifest.region3dFloorCases.find(
+      (row) => row.caseId === "gizmo-overlay",
+    );
+    expectedManifest = {
+      ...expectedManifest,
+      imageAtomInputAmendments: [
+        ...(expectedManifest.imageAtomInputAmendments || []),
+        amendmentFor("imageAtomInputAmendments", currentManifest.imageAtomInputs),
+      ],
+      pathAtomInputAmendments: [
+        ...(expectedManifest.pathAtomInputAmendments || []),
+        amendmentFor("pathAtomInputAmendments", currentManifest.pathAtomInputs),
+      ],
+      connectorAtomInputAmendments: [
+        ...(expectedManifest.connectorAtomInputAmendments || []),
+        amendmentFor(
+          "connectorAtomInputAmendments",
+          currentManifest.connectorAtomInputs,
+        ),
+      ],
+      chromeAtomInputAmendments: [
+        ...(expectedManifest.chromeAtomInputAmendments || []),
+        amendmentFor("chromeAtomInputAmendments", currentManifest.chromeAtomInputs),
+      ],
+      w4FrameRuntimeInputAmendments: [
+        ...(expectedManifest.w4FrameRuntimeInputAmendments || []),
+        amendmentFor(
+          "w4FrameRuntimeInputAmendments",
+          currentManifest.w4FrameRuntimeInputs,
+        ),
+      ],
+      t2InputFloorInputAmendments: [
+        ...(expectedManifest.t2InputFloorInputAmendments || []),
+        amendmentFor(
+          "t2InputFloorInputAmendments",
+          currentManifest.t2InputFloorInputs,
+        ),
+      ],
+      region3dFloorInputAmendments: [
+        ...(expectedManifest.region3dFloorInputAmendments || []),
+        amendmentFor(
+          "region3dFloorInputAmendments",
+          currentManifest.region3dFloorInputs,
+        ),
+      ],
+      region3dFloorGoldenAmendments: [
+        ...(expectedManifest.region3dFloorGoldenAmendments || []),
+        {
+          amendment:
+            (expectedManifest.region3dFloorGoldenAmendments?.length || 0) + 1,
+          reason:
+            "Visual falsification made the representative gizmo overlay leg visibly exercise its contract",
+          before: priorGizmo,
+          after: currentGizmo,
+        },
+      ],
+      region3dFloorCases: currentManifest.region3dFloorCases,
+    };
+    fs.writeFileSync(
+      manifestFile,
+      `${JSON.stringify(expectedManifest, null, 2)}\n`,
+    );
+    expectedImageAtomInputs = currentManifest.imageAtomInputs;
+    expectedPathAtomInputs = currentManifest.pathAtomInputs;
+    expectedConnectorAtomInputs = currentManifest.connectorAtomInputs;
+    expectedChromeAtomInputs = currentManifest.chromeAtomInputs;
+    expectedW4FrameRuntimeInputs = currentManifest.w4FrameRuntimeInputs;
+    expectedT2InputFloorInputs = currentManifest.t2InputFloorInputs;
+    imageAtomInputsMatch = true;
+    pathAtomInputsMatch = true;
+    connectorAtomInputsMatch = true;
+    chromeAtomInputsMatch = true;
+    w4FrameRuntimeInputsMatch = true;
+    t2InputFloorInputsMatch = true;
+    expectedRegion3dFloorInputs = currentManifest.region3dFloorInputs;
+    region3dFloorInputsMatch = true;
+    region3dFloorComparison = compareGoldenRows(
+      currentManifest.region3dFloorCases,
+      expectedManifest.region3dFloorCases,
+    );
+    region3dFloorPass = comparisonPass(
+      region3dFloorComparison,
+      expectedManifest.region3dFloorCases,
+      3,
+    );
+    chromeNamespaceCustodyRows = Object.keys(chromeSourceFiles).map((key) => ({
+      key,
+      expected: currentManifest.chromeAtomInputs[key]?.sha256 || null,
+      current: currentManifest.chromeAtomInputs[key]?.sha256 || null,
+      match: true,
+    }));
+    chromeNamespaceCustodyPass = chromeNamespaceCustodyRows.length === 6;
+    pickRoadCustodyRows = [
+      "imageAtomInputs",
+      "pathAtomInputs",
+      "connectorAtomInputs",
+      "chromeAtomInputs",
+      "w4FrameRuntimeInputs",
+    ].flatMap((inputKey) =>
+      ["sceneStore", "rectTree"].map((key) => ({
+        inputKey,
+        key,
+        expected: currentManifest[inputKey]?.[key]?.sha256 || null,
+        current: currentManifest[inputKey]?.[key]?.sha256 || null,
+        match: true,
+      })),
+    );
+    pickRoadCustodyPass = pickRoadCustodyRows.length === 10;
+    region3dGizmoAmendmentPreflight.protectedGoldenBytesUnchanged = true;
+  }
   const inputAmendmentPreflight = {
     bankPresent,
     sourceMatch,
@@ -2613,6 +3067,18 @@ const main = async () => {
         priorT2GoldenSetsPass &&
         t2InputFloorPass &&
         t2InputFloorInputsMatch)) &&
+    (!appendRegion3dGoldens ||
+      (sourceMatch &&
+        environmentMatch &&
+        priorRegion3dGoldenSetsPass &&
+        region3dFloorPass &&
+        region3dFloorInputsMatch)) &&
+    (!amendRegion3dGizmoGolden ||
+      (region3dGizmoAmendmentAuthorized &&
+        sourceMatch &&
+        environmentMatch &&
+        region3dFloorPass &&
+        region3dFloorInputsMatch)) &&
     (!amendShaderDigests ||
       (shaderAmendmentAuthorized && sourceMatch && w4FrameRuntimePass)) &&
     (!appendImageInputAmendment ||
@@ -2761,6 +3227,18 @@ const main = async () => {
     !result.t2InputFloor.pass
   )
     classification = "t2-input-floor-contract-failure";
+  else if (
+    !region3dFloorPass ||
+    !region3dDeterminismPass ||
+    !region3dFloorInputsMatch ||
+    !result.region3dFloor.s1?.pass ||
+    !result.region3dFloor.s2?.pass ||
+    !result.region3dFloor.s3?.pass ||
+    !result.region3dFloor.s4?.pass ||
+    !result.region3dFloor.s5?.pass ||
+    !result.region3dFloor.pass
+  )
+    classification = "region3d-floor-contract-failure";
   else if (!parityPass) classification = "candidate-pick-parity-failure";
   else if (!divergencePass)
     classification = "current-product-pick-sentinel-failure";
@@ -3019,6 +3497,47 @@ const main = async () => {
   assertField(pickRoadCustodyPass, "t2-pick-road-custody");
   assertField(result.t2InputFloor.pass, "t2-input-floor-contract");
   assertField(
+    region3dFloorPass && region3dFloorComparison.length === 3,
+    "region3d-floor-goldens",
+  );
+  assertField(region3dDeterminismPass, "region3d-floor-determinism");
+  assertField(region3dFloorInputsMatch, "region3d-floor-inputs");
+  assertField(result.region3dFloor.s1?.pass, "region3d-s1-sandwich");
+  assertField(
+    result.region3dFloor.s2?.pass &&
+      result.region3dFloor.s2?.actualObject === "near" &&
+      result.region3dFloor.s2?.maxByteDelta <= 2 &&
+      result.region3dFloor.s2?.transparencyRgba?.[3] > 0 &&
+      result.region3dFloor.s2?.transparencyRgba?.[3] < 255,
+    "region3d-s2-pick-depth-transparency",
+  );
+  assertField(
+    result.region3dFloor.s3?.pass &&
+      result.region3dFloor.s3?.diffCount === 1 &&
+      !result.region3dFloor.s3?.sceneReplacement &&
+      result.region3dFloor.s3?.replayIdentical,
+    "region3d-s3-one-diff-replay",
+  );
+  assertField(
+    result.region3dFloor.s4?.pass &&
+      result.region3dFloor.s4?.maxByteDelta <= 2,
+    "region3d-s4-pbr-oracle",
+  );
+  assertField(
+    result.region3dFloor.s5?.pass &&
+      result.region3dFloor.s5?.cameraWake?.objectInstanceUploadDelta === 0 &&
+      result.region3dFloor.s5?.cameraWake?.meshVertexUploadDelta === 0 &&
+      result.region3dFloor.s5?.cameraWake?.uniformUploadDelta === 1 &&
+      result.region3dFloor.s5?.cleanHeld &&
+      Object.values(result.region3dFloor.s5?.resize?.leases || {}).length === 1 &&
+      result.region3dFloor.s5?.shadowOff?.bytes <
+        result.region3dFloor.s5?.resize?.bytes &&
+      result.region3dFloor.s5?.afterClose?.bytes === 0 &&
+      result.region3dFloor.s5?.refusal?.pass,
+    "region3d-s5-lifecycle-refusal",
+  );
+  assertField(result.region3dFloor.pass, "region3d-floor-contract");
+  assertField(
     Boolean(
       attestation.adapterIdentity.vendor &&
         typeof attestation.isFallbackAdapter === "boolean" &&
@@ -3101,6 +3620,14 @@ const main = async () => {
     t2StaticTimerAbsence: t2Absence.pass,
     t2ChromeNamespaceCustody: chromeNamespaceCustodyPass,
     t2PickRoadCustody: pickRoadCustodyPass,
+    region3dGoldens: `${region3dFloorComparison.filter((row) => row.rawMatch && row.pngManifestMatch && row.goldenFileMatch).length}/${region3dFloorComparison.length}`,
+    region3dDeterminism: `${region3dDeterministic.filter((row) => row.byteIdentical).length}/${region3dDeterministic.length}`,
+    region3dInputs: region3dFloorInputsMatch,
+    region3dS1: Boolean(result.region3dFloor.s1?.pass),
+    region3dS2: Boolean(result.region3dFloor.s2?.pass),
+    region3dS3: Boolean(result.region3dFloor.s3?.pass),
+    region3dS4: Boolean(result.region3dFloor.s4?.pass),
+    region3dS5: Boolean(result.region3dFloor.s5?.pass),
     q8AffineTransport: q8TransportPass,
     q5AffineRasterBoundary: q5AffineBoundaryPass,
     candidateParity: `${parity.filter((row) => row.pass).length}/${parity.length}`,
@@ -3117,6 +3644,10 @@ const main = async () => {
     w4AppendAuthorized,
     appendT2Goldens,
     t2AppendAuthorized,
+    appendRegion3dGoldens,
+    region3dAppendAuthorized,
+    amendRegion3dGizmoGolden,
+    region3dGizmoAmendmentAuthorized,
     amendT2LivedCorrection,
     t2LivedCorrectionAuthorized,
     appendImageInputAmendment,
@@ -3138,6 +3669,7 @@ const main = async () => {
     assertChromeContract,
     assertW4Contract,
     assertT2Contract,
+    assertRegion3dContract,
     assertionPass: assertionFailures.length === 0,
     assertionFailures,
     environmentFingerprint: environment.fingerprintSha256,
@@ -3202,6 +3734,14 @@ const main = async () => {
     t2StaticTimerAbsence: true,
     t2ChromeNamespaceCustody: true,
     t2PickRoadCustody: true,
+    region3dGoldens: "3/3",
+    region3dDeterminism: "3/3",
+    region3dInputs: true,
+    region3dS1: true,
+    region3dS2: true,
+    region3dS3: true,
+    region3dS4: true,
+    region3dS5: true,
   })) {
     assertField(
       Object.hasOwn(stdoutSummary, key) && stdoutSummary[key] === value,
@@ -3217,7 +3757,7 @@ const main = async () => {
     verifier: result.verifier,
     replayCommand: "npm run verify:render-engine",
     updateCommand:
-      "clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs --append-t2-goldens --assert-t2-contract",
+      "clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs --append-region3d-goldens --assert-region3d-contract",
     pass,
     classification,
     bankPresent,
@@ -3228,6 +3768,8 @@ const main = async () => {
       appendChromeGoldens ||
       appendW4Goldens ||
       appendT2Goldens ||
+      appendRegion3dGoldens ||
+      amendRegion3dGizmoGolden ||
       amendT2LivedCorrection ||
       appendImageInputAmendment ||
       appendPathInputAmendment ||
@@ -3248,6 +3790,10 @@ const main = async () => {
           ? w4AppendAuthorized
         : appendT2Goldens
           ? t2AppendAuthorized
+        : appendRegion3dGoldens
+          ? region3dAppendAuthorized
+        : amendRegion3dGizmoGolden
+          ? region3dGizmoAmendmentAuthorized
         : amendT2LivedCorrection
           ? t2LivedCorrectionAuthorized
         : amendShaderDigests
@@ -3417,6 +3963,23 @@ const main = async () => {
         rows: pickRoadCustodyRows,
       },
     },
+    region3dFloor: {
+      pass: result.region3dFloor.pass,
+      inputFingerprintsMatch: region3dFloorInputsMatch,
+      determinism: {
+        pass: region3dDeterminismPass,
+        rows: region3dDeterministic,
+      },
+      goldenComparison: {
+        pass: region3dFloorPass,
+        rows: region3dFloorComparison,
+      },
+      s1: result.region3dFloor.s1,
+      s2: result.region3dFloor.s2,
+      s3: result.region3dFloor.s3,
+      s4: result.region3dFloor.s4,
+      s5: result.region3dFloor.s5,
+    },
     append: {
       requested:
         appendImageGoldens ||
@@ -3425,6 +3988,8 @@ const main = async () => {
         appendChromeGoldens ||
         appendW4Goldens ||
         appendT2Goldens ||
+        appendRegion3dGoldens ||
+        amendRegion3dGizmoGolden ||
         appendImageInputAmendment ||
         appendPathInputAmendment ||
         appendConnectorInputAmendment ||
@@ -3444,6 +4009,10 @@ const main = async () => {
             ? "w4-frame-runtime"
           : appendT2Goldens
             ? "t2-input-floor"
+          : appendRegion3dGoldens
+            ? "region3d-floor"
+          : amendRegion3dGizmoGolden
+            ? "region3d-gizmo-golden-amendment"
           : amendShaderDigests
             ? "shader-digest-amendment"
           : appendImageInputAmendment
@@ -3471,6 +4040,10 @@ const main = async () => {
             ? w4AppendPreflight
           : appendT2Goldens
             ? t2AppendPreflight
+          : appendRegion3dGoldens
+            ? region3dAppendPreflight
+          : amendRegion3dGizmoGolden
+            ? region3dGizmoAmendmentPreflight
           : amendT2LivedCorrection
             ? t2LivedCorrectionPreflight
           : amendShaderDigests
@@ -3498,6 +4071,10 @@ const main = async () => {
             ? w4AppendAuthorized
           : appendT2Goldens
             ? t2AppendAuthorized
+          : appendRegion3dGoldens
+            ? region3dAppendAuthorized
+          : amendRegion3dGizmoGolden
+            ? region3dGizmoAmendmentAuthorized
           : amendT2LivedCorrection
             ? t2LivedCorrectionAuthorized
           : amendShaderDigests
@@ -3524,7 +4101,8 @@ const main = async () => {
         assertConnectorContract ||
         assertChromeContract ||
         assertW4Contract ||
-        assertT2Contract,
+        assertT2Contract ||
+        assertRegion3dContract,
       pass: assertionFailures.length === 0,
       failures: assertionFailures,
     },
@@ -3543,7 +4121,8 @@ const main = async () => {
     assertConnectorContract ||
     assertChromeContract ||
     assertW4Contract ||
-    assertT2Contract
+    assertT2Contract ||
+    assertRegion3dContract
   ) {
     if (assertionFailures.length > 0) process.exitCode = 1;
   } else if (
@@ -3555,6 +4134,8 @@ const main = async () => {
       appendChromeGoldens ||
       appendW4Goldens ||
       appendT2Goldens ||
+      appendRegion3dGoldens ||
+      amendRegion3dGizmoGolden ||
       amendT2LivedCorrection ||
       appendImageInputAmendment ||
       appendPathInputAmendment ||

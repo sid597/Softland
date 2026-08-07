@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [app.client.substrate.frame-effects :as effects]
             [app.client.substrate.frame-graph :as graph]
+            [app.client.substrate.region3d-scene :as region3d]
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.workspace.containers :as containers]))
 
@@ -164,26 +165,35 @@
     (doseq [invalid invalids]
       (is (thrown? clojure.lang.ExceptionInfo (graph/validate-plan! invalid))))))
 
-(deftest export-is-world-only-linear-async-and-region-door-stays-data
+(deftest export-is-world-only-linear-and-region-door-is-now-executable
   (let [{:keys [arrangement viewport]} (effect-fixture)
         export (graph/compile-export-plan {:arrangement arrangement
                                            :viewport viewport})
-        direct (graph/compile-frame-plan {:arrangement [] :effect-spans []
-                                          :viewport viewport})
-        region-resource {:kind :color :format "bgra8unorm"
-                         :usage #{:render-attachment}
-                         :lifetime :frame :budget-owner :package-3}
-        region-pass {:pass/id :region/test :pass/kind :region
-                     :topology-rank -1 :reads []
-                     :attachments {:color {:resource :region/test
-                                           :format "bgra8unorm"
-                                           :load :clear :store :store}}}
-        region-plan (-> direct
-                        (assoc-in [:resources :region/test] region-resource)
-                        (update :passes #(vec (cons region-pass %))))]
+        region-entry
+        (update (region3d/tape-entry
+                 {:region-id :region/test :revision 1
+                  :source-order {:stack-path [[:root 1 1]]}
+                  :resolve-view :held :rect [0 0 320 200]})
+                :paint assoc :lease-size [512 256] :shadow? true)
+        region-plan (graph/compile-frame-plan
+                     {:arrangement [region-entry]
+                      :effect-spans [] :viewport viewport})
+        region-passes (filterv #(= :region (:pass/kind %))
+                               (:passes region-plan))
+        legacy-region (assoc region-plan :color-mode :legacy)]
     (is (= :scene-color/linear (:color-mode export)))
     (is (= [[0 2]] (get-in export [:passes 0 :entry-ranges])))
     (is (true? (get-in export [:passes 2 :async?])))
     (is (= #{:readback} (get-in export [:schedule :causes])))
-    (is (= region-plan (graph/validate-plan! region-plan)))
-    (is (false? (graph/region-executable? region-plan)))))
+    (is (= :scene-color/linear (:color-mode region-plan)))
+    (is (= [:shadow :interior] (mapv :region/role region-passes)))
+    (is (= 2 (count (filter #(= :depth (:kind (val %)))
+                            (:resources region-plan)))))
+    (is (every? #(= :held (:lifetime (val %)))
+                (filter #(re-find #"region3d" (name (key %)))
+                        (:resources region-plan))))
+    (is (true? (graph/region-executable? region-plan)))
+    (is (false? (graph/region-executable? legacy-region)))
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                          #"whole-frame linear"
+                          (graph/validate-plan! legacy-region)))))

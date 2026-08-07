@@ -48,6 +48,15 @@
 ;; the pure dispatch over this value.
 (defonce !action-registry (atom {}))
 
+;; Region3D completes the existing pick road only after scene-store has
+;; returned a session-free region route. The installed resolver owns the
+;; session camera; nil preserves the pre-Region3D result exactly.
+(defonce ^:private !region-pick-resolver (atom nil))
+
+(defn install-region-pick-resolver! [resolver]
+  (reset! !region-pick-resolver resolver)
+  resolver)
+
 ;; Face containers start just above the P2 probe's range (probe uses cids 1..16)
 ;; so the two dev tools never fight over cids in the shared containers buffer.
 ;; W2-A decoupled these semantic ids from the compact affine transport slots;
@@ -322,7 +331,10 @@
    selected by each container's effective camera flag and returns
    {:vi :address …} for the deepest addressed node, or nil on a miss."
   [point]
-  (ss/pick @!scene-store (effective-transforms) point))
+  (let [hit (ss/pick @!scene-store (effective-transforms) point)]
+    (if (and (= :region3d (:route hit)) @!region-pick-resolver)
+      (@!region-pick-resolver hit)
+      hit)))
 
 ;; ---------------------------------------------------------------------------
 ;; Deictic seam — last pick + context bundle (scene-substrate P4, CONTRACT §5)

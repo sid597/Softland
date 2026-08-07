@@ -8,6 +8,7 @@
             [app.client.substrate.connector-material :as connector-material]
             [app.client.substrate.connector-route :as connector-route]
             [app.client.substrate.path-material :as path-material]
+            [app.client.substrate.region3d-material :as region3d-material]
             [app.client.workspace.text-layout :as tl]))
 
 (defn wrap-line
@@ -341,6 +342,59 @@
            own-op (conj own-op)
            true (into child-ops)))))))
 
+;; --- Tree walk: Region3D ops -----------------------------------------------
+
+(defn tree->regions
+  "Walk Region3D-bearing nodes depth-first and emit ordinary store-data ops.
+   Presence is `[:data :region3d/scene]`. The node owns a stable
+   `:region3d/id`; its rect is the outer 2D composite/pick body. Interior
+   objects remain inside the validated region row and never enter the 2D tape."
+  ([node] (tree->regions node 0 0 nil))
+  ([node parent-x parent-y clip-bounds]
+   (let [{:keys [bounds children clip? data]} node
+         abs-x (+ parent-x (:x bounds 0))
+         abs-y (+ parent-y (:y bounds 0))
+         width (:w bounds 0)
+         height (:h bounds 0)
+         region (:region3d/scene data)
+         region-id (:region3d/id data)
+         visible? (if clip-bounds
+                    (let [clip-x (:x clip-bounds)
+                          clip-y (:y clip-bounds)
+                          clip-width (:w clip-bounds)
+                          clip-height (:h clip-bounds)]
+                      (and (< abs-x (+ clip-x clip-width))
+                           (< abs-y (+ clip-y clip-height))
+                           (> (+ abs-x width) clip-x)
+                           (> (+ abs-y height) clip-y)))
+                    true)]
+     (when region
+       (region3d-material/validate-region! region)
+       (when (nil? region-id)
+         (throw (ex-info "Region3D rt-node requires :region3d/id"
+                         {:node/id (:id node)})))
+       (when (nil? (:address data))
+         (throw (ex-info "Region3D rt-node requires its semantic address"
+                         {:node/id (:id node) :region3d/id region-id}))))
+     (when visible?
+       (let [own-op (when region
+                      {:id (:id node)
+                       :address (:address data)
+                       :region-id region-id
+                       :x abs-x :y abs-y :w width :h height
+                       :region3d/scene
+                       (region3d-material/validate-region! region)
+                       :region3d/clip clip-bounds})
+             child-clip (if clip?
+                          (intersect-clip abs-x abs-y width height clip-bounds)
+                          clip-bounds)
+             child-ops (into []
+                             (mapcat #(tree->regions % abs-x abs-y child-clip))
+                             children)]
+         (cond-> []
+           own-op (conj own-op)
+           true (into child-ops)))))))
+
 ;; --- Tree walk: path ops ----------------------------------------------------
 
 (defn tree->paths
@@ -601,6 +655,8 @@
 
 (defn- node-family-id [node]
   (or (get-in node [:data :render/family])
+      (when (get-in node [:data :region3d/scene])
+        :render.family/region-3d)
       (when (get-in node [:data :connector/material])
         :render.family/connector)
       (when (get-in node [:data :path/material]) :render.family/path)))
