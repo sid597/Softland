@@ -1,0 +1,13 @@
+# T2 INPUT-FLOOR — NOW (2026-08-07)
+- SID-ACCEPTED and landed; code `cdd4d81`.
+- Kernel: tagged UTF-16 edits, grapheme/word motion, affinity, selection, clipboard, paste, and IME lifecycle are pure data.
+- Segmentation: explicit `Intl.Segmenter` provider; live font/shaper receipt is Ubuntu Sans variable + HarfBuzz 14.0.0.
+- Runtime: hidden textarea owns native events; session/document truth drives stable world-space wash, caret, and preedit slots.
+- Checked claim: each semantic transition calls the layout seam once and paint reuses that carried result; deltas `[1 1 1 1 0]` include blink zero.
+- Chrome coexistence strongest default: real Shift pass-through plus the existing Chrome selection callback; standalone verifier ground refs are intentionally absent.
+- Blink strongest default: scheduler deadline at 530 ms; receipt is 9/9 direct due encodes in 5 s, zero echo encodes, and deadline retired on exit.
+- Falsification repairs: consumed-wrap affinity, ligature interpolation, deadline anchoring, trusted clipboard permission, and clip probe/outline separation.
+- Tripwires GREEN: T2 kernel 5 tests / 52 assertions; Contract-T 6 / 32; proportional shaper + 25-owner T-fence GREEN.
+- Goldens FROZEN: paragraph selection, clipped card + Chrome outline, composition preedit; 3/3 deterministic and old banks unchanged.
+- Canonical verifier exits 1 only as preserved `candidate-pick-parity-failure`; T2 all true and assertion failures `[]`.
+- Export deviation: 149 maximum session visual nodes; repayment road remains `editing-chrome-expansion`. No genuine fork.

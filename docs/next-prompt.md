@@ -455,7 +455,7 @@ proof-decay + was this line accurate).
 
 - **W4-frame-runtime** → `docs/packages/w4-frame-runtime.md` — Package 2's frame-kind package, SID-ACCEPTED 2026-08-07; CODE `143497a`
 
-- **T2-input-floor** → `docs/render-engine/T2-INPUT-FLOOR-CONTRACT.md` — Package 2's FINAL atom (input floor: Unicode editing · IME · paste · source mapping + the bounds ruling); CONTRACT CUT + falsification round ADJUDICATED/REPAIRED 2026-08-07 (10 findings, 8 decision-changing, repairs in the contract text; expiry does NOT fire); NEXT: implementer session — starter = the contract's own Codex opening prompt; after T2 lands → the Package-2 seam courtroom
+- **T2-input-floor** → `docs/render-engine/T2-INPUT-FLOOR-CONTRACT.md` + `docs/render-engine/T2-INPUT-FLOOR-NOW.md` — Package 2's FINAL atom; SID-ACCEPTED 2026-08-07; CODE `cdd4d81`; canonical verifier red only on preserved MSDF counterexample; NEXT → the Package-2 seam courtroom
 
 - **smalltalk-ui-vm** → `docs/packages/smalltalk-ui-vm.md` — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING (this session)
 
