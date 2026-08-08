@@ -6,7 +6,7 @@
    none of their coordinates become relation truth."
   (:require [app.client.substrate.path-material :as path-material]))
 
-(def schema-version 1)
+(def schema-version 2)
 (def algorithm-version :connector-route/v1)
 (def boundary-epsilon 1.0e-9)
 (def hit-slop-screen-px 0.0)
@@ -74,6 +74,11 @@
        (= 2 (count point))
        (every? finite-number? point)))
 
+(defn point3? [point]
+  (and (vector? point)
+       (= 3 (count point))
+       (every? finite-number? point)))
+
 (defn present-string? [value]
   (and (string? value) (not (empty? value))))
 
@@ -112,9 +117,32 @@
         (throw (ex-info "Connector point binding requires a finite [x y]"
                         {:binding binding}))))
 
+    :region-object
+    (do
+      (exact-keys! "Connector region-object binding"
+                   binding #{:bind :region :object :local})
+      (when (nil? (:region binding))
+        (throw (ex-info "Connector region-object binding requires a region address"
+                        {:binding binding})))
+      (when (nil? (:object binding))
+        (throw (ex-info "Connector region-object binding requires an object id"
+                        {:binding binding})))
+      (when-not (point3? (:local binding))
+        (throw (ex-info "Connector region-object binding requires finite :local [x y z]"
+                        {:binding binding}))))
+
     (throw (ex-info "Connector binding kind is invalid"
-                    {:bind (:bind binding) :legal #{:node :point}})))
+                    {:bind (:bind binding)
+                     :legal #{:node :point :region-object}})))
   binding)
+
+(defn validate-binding-v1!
+  "Rollback reader fence: v1 values have no region-object binding kind."
+  [binding]
+  (when (= :region-object (:bind binding))
+    (throw (ex-info "Connector v1 refuses region-object bindings"
+                    {:binding binding :schema-version 1})))
+  (validate-binding! binding))
 
 (defn validate-route! [route]
   (exact-keys! "Connector route" route #{:policy :waypoints})
@@ -211,6 +239,20 @@
   (validate-paint! (:connector/paint material))
   (validate-provenance! (:connector/provenance material))
   material)
+
+(defn validate-material-v1!
+  "Validate a value as the v1 reader saw it. Untagged v1 values stay byte
+   identical; the binding case is the rollback fence for v2 meaning."
+  [material]
+  (validate-material! material)
+  (validate-binding-v1! (:connector/from material))
+  (validate-binding-v1! (:connector/to material))
+  material)
+
+(defn migrate-v1->v2
+  "Descriptor-level identity migration for the connector's untagged values."
+  [material]
+  (-> material validate-material-v1! validate-material!))
 
 (defn canonical-material [material]
   (letfn [(canonical [value]
@@ -374,7 +416,24 @@
      :unresolved (get status-counts :unresolved 0)
      :degenerate (get status-counts :degenerate 0)
      :mixed-camera (get status-counts :mixed-camera 0)
+     :region-anchor-absent (get status-counts :region-anchor-absent 0)
+     :anchor-clamped (count (filter :anchor-clamped resolved-routes))
      :overlap-groups overlap-groups}))
+
+(def family-citizenship
+  {:family/id :render.family/connector
+   :family/version schema-version
+   :grammar {:schema/version schema-version
+             :validation :connector-material/fail-closed-v2
+             :migration :connector/v1-values-identity-v2-bindings
+             :unknown-field-policy :reject}
+   :versioning {:schema-version schema-version
+                :migration [:connector/v1-base :connector/v2-region-object]
+                :unknown-field-policy :reject
+                :compatibility {:reader-min 1 :reader-max 2}}
+   :receipts [:connector/v1-fixtures-identity
+              :connector/v1-refuses-region-object
+              :connector/v2-region-object]})
 
 (def claimed-corpus-pressures
   #{:straight-arrow-label :elbow-waypoints-heads :provenance-overlap

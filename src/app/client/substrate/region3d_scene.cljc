@@ -744,9 +744,14 @@
    :material (:material object)
    :light (:light object)
    :camera (:camera object)
-   :transparent? (and (= :mesh (:object/kind object))
-                      (< (get-in object [:material :base-color :rgba 3] 1.0)
-                         1.0))})
+   :placement (case (:object/kind object)
+                :text (:text object)
+                :ink (:ink object)
+                nil)
+   :transparent? (or (contains? #{:text :ink} (:object/kind object))
+                     (and (= :mesh (:object/kind object))
+                          (< (get-in object [:material :base-color :rgba 3] 1.0)
+                             1.0)))})
 
 (defn derive-scene [region]
   (let [region (material/validate-region! region)
@@ -873,10 +878,15 @@
        (sort-by (juxt :screen-distance2 (comp pr-str :handle/id)))
        first))
 
+(defn- nearest-surface-hit [hits]
+  (first (sort-by (juxt :t (comp pr-str :object-id)) (remove nil? hits))))
+
 (defn pick-region
-  "Gizmo -> object mesh/glyph -> region background. A point inside the outer
-   region never falls through to 2D beneath."
-  [{:keys [maintained camera region-point gizmo-handles]}]
+  "Gizmo -> {mesh + placed plane} by nearest t -> object glyph -> background.
+   The placement picker is the region3d-placement reader injected by the
+   workspace/GPU edge, avoiding a second region-scene authority."
+  [{:keys [maintained camera region-point gizmo-handles
+           placements placement-picker]}]
   (let [region (:region maintained)
         camera (or camera
                    (camera-matrices (:view-default region)
@@ -893,6 +903,16 @@
        (select-keys gizmo-hit [:pivot :axis :plane-normal]))
       (let [ray (ray-from-region-point camera region-point)
             mesh-hit (query-bvh (:bvh maintained) ray)
+            placement-hit (when placement-picker
+                            (nearest-surface-hit
+                             (map #(placement-picker % ray) placements)))
+            surface-hit
+            (nearest-surface-hit
+             [(when mesh-hit
+                (select-keys (assoc mesh-hit :route :object)
+                             [:route :object-id :point3 :normal :t
+                              :triangle-index :boundary?]))
+              placement-hit])
             glyph-handles
             (for [[object-id object] (:scene region)
                   :when (contains? #{:light :camera :empty}
@@ -905,21 +925,16 @@
             glyph-hit (pick-screen-handles camera region-point glyph-handles
                                            glyph-hit-radius-px :object-glyph)]
         (cond
-          (and mesh-hit glyph-hit)
+          (and surface-hit glyph-hit)
           (let [glyph-ray-distance
                 (length (v- (:position glyph-hit) (:origin ray)))]
-            (if (< glyph-ray-distance (:t mesh-hit))
+            (if (< glyph-ray-distance (:t surface-hit))
               {:route :object-glyph
                :object-id (:object-id glyph-hit)
                :point3 (:position glyph-hit)
                :normal nil :t glyph-ray-distance}
-              (select-keys (assoc mesh-hit :route :object)
-                           [:route :object-id :point3 :normal :t
-                            :triangle-index :boundary?])))
-          mesh-hit
-          (select-keys (assoc mesh-hit :route :object)
-                       [:route :object-id :point3 :normal :t
-                        :triangle-index :boundary?])
+              surface-hit))
+          surface-hit surface-hit
           glyph-hit
           {:route :object-glyph
            :object-id (:object-id glyph-hit)

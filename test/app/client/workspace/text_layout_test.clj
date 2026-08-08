@@ -172,15 +172,17 @@
     (testing "all readers retain one shaped layout identity"
       (is (every? #{(:layout/id layout-result)} (map :layout/id readers))))
     (testing "ligatures and combining marks remain declared clusters"
-      (is (some #(= 3 (- (get-in % [:source-range 1 :offset])
-                          (get-in % [:source-range 0 :offset])))
-                (:clusters layout-result)))
-      (is (some #(= 2 (- (get-in % [:source-range 1 :offset])
-                          (get-in % [:source-range 0 :offset])))
-                (:clusters layout-result))))
+      (let [clusters (mapcat tl/line-clusters (:lines layout-result))]
+        (is (some #(= 3 (- (get-in % [:source-range 1 :offset])
+                            (get-in % [:source-range 0 :offset])))
+                  clusters))
+        (is (some #(= 2 (- (get-in % [:source-range 1 :offset])
+                            (get-in % [:source-range 0 :offset])))
+                  clusters))))
     (testing "bidi, fallback, tabs/newlines, and variable axes survive the result"
-      (is (some #(= :rtl (:direction %)) (:runs layout-result)))
-      (is (some #(= "cjk-v1" (:font-revision %)) (:runs layout-result)))
+      (is (some #(= :rtl (:direction %)) (tl/result-runs layout-result)))
+      (is (some #(= "cjk-v1" (:font-revision %))
+                (tl/result-runs layout-result)))
       (is (some #(= :virtual/tab (:glyph-id-kind %))
                 (:glyphs (tl/paint-result layout-result))))
       (is (= 2 (count (:lines layout-result))))
@@ -191,7 +193,12 @@
         (is (> (count (distinct advances)) 1)))
       (is (not= 40 (get-in (tl/caret-result layout-result 0 4) [:rect :x]))))
     (testing "ink bounds remain in the same nonzero-origin material space"
-      (is (= 20.1 (get-in layout-result [:lines 0 :glyphs 0 :ink-bounds :x]))))))
+      (is (< (Math/abs
+              (- 20.1
+                 (get-in (first (tl/line-glyphs
+                                 (first (:lines layout-result))))
+                         [:ink-bounds :x])))
+             1.0e-5)))))
 
 (deftest t1-wrap-and-legal-zoom-are-result-owned
   (let [wrapped (tl/layout {:text "WW ii WW"

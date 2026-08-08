@@ -18,7 +18,8 @@
    The :index fan-out is maintained incrementally by upsert/remove, NEVER
    recomputed by scanning slots at read time. Resolution route:
    address → :index → vis → slot :addresses → index-paths → nodes."
-  (:require [app.client.substrate.scene-tape :as scene-tape]
+  (:require [app.client.substrate.region3d-placement :as region3d-placement]
+            [app.client.substrate.scene-tape :as scene-tape]
             [app.client.workspace.rect-tree :as rt]
             [app.client.workspace.containers :as containers]
             [app.client.workspace.face-assembly :as fa]
@@ -325,11 +326,12 @@
    remains lane-agnostic; only `:ops-count-by-vi` gains the image lane."
   [store]
   (let [entries (maintained-entries store)
-        ordered (mapv :runtime/slot entries)]
+        ordered (mapv :runtime/slot entries)
+        resolved-regions (region3d-placement/resolve-placed-refs ordered)]
     {:rects (into [] (mapcat (comp :rects :ops)) ordered)
      :shadows (into [] (mapcat (comp :shadows :ops)) ordered)
      :images (into [] (mapcat (comp :images :ops)) ordered)
-     :regions (into [] (mapcat (comp :regions :ops)) ordered)
+     :regions resolved-regions
      :paths (into [] (mapcat (comp :paths :ops)) ordered)
      :connectors (into [] (mapcat (comp :connectors :ops)) ordered)
      :chromes (into [] (mapcat (comp :chromes :ops)) ordered)

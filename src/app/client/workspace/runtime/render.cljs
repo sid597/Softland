@@ -20,12 +20,17 @@
 
 (def ^:private use-persistent-render-target? false)
 (defonce ^:private !due-deadline-consumer (atom nil))
+(defonce ^:private !session-layout-provider (atom nil))
 
 (defn install-due-deadline-consumer!
   "Install T2's nil-default sink hook. It observes the ids returned by the
    scheduler after decide and before this frame's encode branch."
   [consumer]
   (reset! !due-deadline-consumer consumer)
+  true)
+
+(defn install-session-layout-provider! [provider]
+  (reset! !session-layout-provider provider)
   true)
 
 (defn- render-debug! [label data]
@@ -797,6 +802,9 @@
                                     :container-registry frame-registry
                                     :frame-format (:format (:pipelines geometry))
                                     :region3d-session region3d-session
+                                    :session-layout-snapshot
+                                    (when-let [provider @!session-layout-provider]
+                                      (provider))
                                     :dpr dpr
                                     :pulse-alpha
                                     (frame-scheduler/pulse-alpha

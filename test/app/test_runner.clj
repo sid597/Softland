@@ -43,6 +43,7 @@
     app.client.substrate.path-material-test
     app.client.substrate.path-tessellation-test
     app.client.substrate.region3d-material-test
+    app.client.substrate.region3d-placement-test
     app.client.substrate.region3d-scene-test
     app.client.substrate.scene-tape-test
     app.client.substrate.snap-test
@@ -52,6 +53,7 @@
     app.client.workspace.selection-test
     app.client.workspace.shaping-correction-test
     app.client.workspace.text-editing-test
+    app.client.workspace.text-layout-planes-test
     app.client.workspace.text-layout-test
     app.binding-dispatch-test
     app.face-assembly-test

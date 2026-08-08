@@ -16,6 +16,7 @@
             [app.client.workspace.frame-runtime :as frame-runtime]
             [app.client.workspace.ground :as ground]
             [app.client.workspace.rect-tree :as rt]
+            [app.client.workspace.seam-demo :as seam-demo]
             [app.client.workspace.scene-runtime :as scene-runtime]))
 
 (def fixture-vi :live-atoms/fixture)
@@ -363,6 +364,7 @@
                               :camera-provider ground/camera-snapshot
                               :effective-provider
                               scene-runtime/effective-transforms})
+                            (seam-demo/install!)
                             (aset js/globalThis
                                   "__softlandLiveAtomsReceipt"
                                   (clj->js receipt))

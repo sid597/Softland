@@ -8,14 +8,14 @@
    node-authoring extensions can enter without silently losing meaning."
   )
 
-(def schema-version 1)
+(def schema-version 2)
 (def primitive-algorithm-version :region3d/primitives-v1)
 (def shadow-algorithm-version :region3d/shadow-v1)
 (def quaternion-tolerance 1.0e-3)
 (def extent-max 1.0e4)
 (def mesh-vertex-max 65536)
 (def mesh-triangle-max 131072)
-(def legal-object-kinds #{:mesh :light :camera :empty})
+(def legal-object-kinds #{:mesh :light :camera :empty :text :ink})
 (def legal-primitive-kinds #{:box :sphere :cylinder :plane :cone :torus})
 (def legal-light-kinds #{:directional :point :spot})
 (def legal-camera-kinds #{:perspective :ortho})
@@ -83,7 +83,7 @@
   #{:region3d/add-object :region3d/remove-object
     :region3d/set-transform :region3d/set-parent
     :region3d/set-material :region3d/set-light
-    :region3d/set-camera :region3d/set-region})
+    :region3d/set-camera :region3d/set-region :region3d/set-placed})
 
 (defn finite-number? [value]
   (and (number? value)
@@ -326,6 +326,36 @@
                   {:provenance provenance}))
   provenance)
 
+(defn- canonical-placed-ref [label ref]
+  (when-not (and (map? ref) (= #{:address} (set (keys ref))))
+    (throw-field! "Region3D placed ref requires exactly :address"
+                  {:field label :ref ref}))
+  (when (nil? (:address ref))
+    (throw-field! "Region3D placed ref address cannot be nil"
+                  {:field label :ref ref}))
+  ref)
+
+(defn- canonical-placed-text [text]
+  (when-not (and (map? text) (= #{:ref :params} (set (keys text))))
+    (throw-field! "Region3D text placement requires :ref and :params"
+                  {:text text}))
+  (when-not (map? (:params text))
+    (throw-field! "Region3D text placement params must be a map"
+                  {:params (:params text)}))
+  (when-let [color (:color (:params text))]
+    (validate-tagged-color! :text/color color))
+  (when-let [max-inline-size (:max-inline-size (:params text))]
+    (when-not (positive-finite? max-inline-size)
+      (throw-field! "Region3D text max-inline-size must be positive"
+                    {:max-inline-size max-inline-size})))
+  (update text :ref #(canonical-placed-ref :text/ref %)))
+
+(defn- canonical-placed-ink [ink]
+  (when-not (and (map? ink) (= #{:ref} (set (keys ink))))
+    (throw-field! "Region3D ink placement requires exactly :ref"
+                  {:ink ink}))
+  (update ink :ref #(canonical-placed-ref :ink/ref %)))
+
 (defn canonical-object [object]
   (let [kind (:object/kind object)
         object (-> object
@@ -342,6 +372,8 @@
                 (update :material canonical-material))
       :light (update object :light canonical-light)
       :camera (update object :camera canonical-lens)
+      :text (update object :text canonical-placed-text)
+      :ink (update object :ink canonical-placed-ink)
       :empty object)))
 
 (defn- validate-parent-graph! [scene]
@@ -386,13 +418,25 @@
                     {:intensity (:intensity ambient)}))
     ambient))
 
+(defn migrate-region
+  "Migrate the v1 base grammar into v2 placements. Every v1 value is already
+   semantically valid under v2, so migration changes only the version tag."
+  [region]
+  (case (:region3d/version region)
+    1 (assoc region :region3d/version 2)
+    2 region
+    (throw-field! "Region3D schema version is unsupported"
+                  {:version (:region3d/version region)
+                   :supported [1 2]})))
+
 (defn validate-region!
-  "Return the canonical Region3D v1 value. Validation is fail-closed for all
+  "Migrate then return the canonical Region3D v2 value. Validation is fail-closed for all
    pinned meanings and preserves unknown extension fields verbatim."
   [region]
   (when-not (map? region)
     (throw-field! "Region3D region must be an EDN map" {:region region}))
-  (when-not (= schema-version (:region3d/version region))
+  (let [region (migrate-region region)]
+   (when-not (= schema-version (:region3d/version region))
     (throw-field! "Region3D schema version is unsupported"
                   {:version (:region3d/version region)
                    :supported schema-version}))
@@ -416,7 +460,7 @@
                              (canonical-view (:view-default region)))
                       (assoc :scene canonical-scene))]
     (validate-parent-graph! canonical-scene)
-    canonical))
+    canonical)))
 
 (defn canonical-region [region]
   (letfn [(canonical [value]
@@ -491,6 +535,16 @@
       :region3d/set-camera
       (validate-region! (assoc-in region [:scene object-id :camera]
                                   (canonical-lens after)))
+      :region3d/set-placed
+      (let [kind (get-in region [:scene object-id :object/kind])]
+        (when-not (contains? #{:text :ink} kind)
+          (throw-field! "Region3D placed edit requires a text or ink object"
+                        {:object-id object-id :kind kind}))
+        (validate-region!
+         (assoc-in region [:scene object-id kind]
+                   (case kind
+                     :text (canonical-placed-text after)
+                     :ink (canonical-placed-ink after)))))
       :region3d/set-region
       (validate-region! (merge region after))
       (throw-field! "Region3D edit operation is not declared" {:op id}))))
@@ -592,12 +646,12 @@
 (defn- citizenship
   [family-id geometry material-fields instance-fields pick-result order-road]
   {:family/id family-id
-   :family/version 1
+   :family/version schema-version
    :grammar {:schema/version schema-version
              :material-fields material-fields
              :instance-fields instance-fields
-             :validation :region3d-material/fail-closed-v1
-             :defaults :region3d-material/explicit-v1
+             :validation :region3d-material/fail-closed-v2
+             :defaults :region3d-material/explicit-v2
              :edit-operations (vec (sort edit-operation-ids))
              :serialization :canonical-edn-v1
              :export-projections :none-promised
@@ -619,10 +673,10 @@
                 :algorithm-versions
                 {:primitives primitive-algorithm-version
                  :shadow shadow-algorithm-version}
-                :migration :region3d/v1-base
+                :migration [:region3d/v1-base :region3d/v2-placements]
                 :unknown-field-policy :preserve
                 :cache-invalidation :source+algorithm+regime
-                :compatibility {:reader-min 1 :reader-max 1}}
+                :compatibility {:reader-min 1 :reader-max 2}}
    :render {:order order-road
             :geometry geometry
             :color-alpha
@@ -648,7 +702,7 @@
   (citizenship :material.family/object-3d
                object-geometry-declaration
                [:object/id :object/kind :parent :transform :provenance
-                :mesh :material :light :camera]
+                :mesh :material :light :camera :text :ink]
                [:region-id :object/id :effective-transform]
-               :object-id+point3+normal+t
+               :object-id+point3+normal+t+placed-material-route
                :via-router))

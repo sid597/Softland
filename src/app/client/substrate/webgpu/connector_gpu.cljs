@@ -222,11 +222,18 @@
         {:writes 1 :geo geo}))))
 
 (defn prepare-connector-frame!
-  [connector-system connector-ops targets-by-address effective zoom
-   font-assets content-text-system]
+  ([connector-system connector-ops targets-by-address effective zoom
+    font-assets content-text-system]
+   (prepare-connector-frame! connector-system connector-ops targets-by-address
+                             effective zoom font-assets content-text-system {}))
+  ([connector-system connector-ops targets-by-address effective zoom
+    font-assets content-text-system
+    {:keys [region-anchor-resolver region-doors]}]
   (let [derivation (connector-route/derive-route-set
                     @(:!route-cache connector-system)
-                    connector-ops targets-by-address effective zoom font-assets)
+                    connector-ops targets-by-address effective zoom font-assets
+                    {:region-anchor-resolver region-anchor-resolver
+                     :region-doors region-doors})
         routes (:routes derivation)
         prepared
         (loop [remaining routes first-vertex 0 rows []]
@@ -270,14 +277,21 @@
                  (assoc :vertices vertices
                         :cache-size (:cache-size frame-receipt)
                         :route-resolutions (:route-resolutions route-state)
+                        :anchor-projections (:anchor-projections route-state)
                         :mesh-derivations (:mesh-derivations route-state)
+                        :routes
+                        (mapv #(select-keys %
+                                            [:edge-instance-id :status
+                                             :anchor-points :stroke-points
+                                             :label-position :anchor-clamped])
+                              (:routes derivation))
                         :last-frame frame-receipt
                         :census (:census derivation)))))
     {:mesh-set-changed? mesh-set-changed?
      :writes writes :label-writes (:writes label-result)
      :vertices vertices
      :frame-receipt frame-receipt
-     :census (:census derivation)}))
+     :census (:census derivation)})))
 
 (defn- frame-order [source-order entry-id part-rank]
   {:stratum (or (:stratum source-order) :world)

@@ -32,10 +32,11 @@
     :scene objects
     :future/sculpt-node {:preserved true}}))
 
-(deftest material-grammar-is-versioned-canonical-and-fail-closed
+(deftest material-grammar-migrates-v1-and-admits-v2-placements
   (let [input (region)
         canonical (material/validate-region! input)]
-    (is (= 1 (:region3d/version canonical)))
+    (is (= 2 (:region3d/version canonical)))
+    (is (= 2 material/schema-version))
     (is (= {:preserved true} (:future/sculpt-node canonical))
         "unknown fields are preserved, never silently dropped")
     (is (= [0.0 0.0 0.0 1.0]
@@ -69,7 +70,33 @@
       (is (thrown-with-msg?
            clojure.lang.ExceptionInfo #"extent component"
            (material/validate-region!
-            (assoc-in input [:extent :width] 10001.0)))))))
+            (assoc-in input [:extent :width] 10001.0))))))
+
+  (let [text-object {:object/id :placed-text :object/kind :text :parent nil
+                     :transform material/default-transform
+                     :provenance {:asserted-by :sid}
+                     :text {:ref {:address :text/shared}
+                            :params {:color nil :max-inline-size nil
+                                     :future/shape :preserved}}}
+        ink-object {:object/id :placed-ink :object/kind :ink :parent nil
+                    :transform material/default-transform
+                    :provenance {:asserted-by :sid}
+                    :ink {:ref {:address :ink/shared}}}
+        v2 (assoc (region {:placed-text text-object :placed-ink ink-object})
+                  :region3d/version 2)
+        canonical (material/validate-region! v2)]
+    (is (= :preserved
+           (get-in canonical [:scene :placed-text :text :params :future/shape])))
+    (is (= {:address :ink/shared}
+           (get-in canonical [:scene :placed-ink :ink :ref])))
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo #"requires :ref and :params"
+         (material/validate-region!
+          (assoc-in v2 [:scene :placed-text :text]
+                    {:ref {:address :text/shared}}))))
+    (is (= [:region3d/v1-base :region3d/v2-placements]
+           (get-in material/object-family-citizenship
+                   [:versioning :migration])))))
 
 (deftest primitive-generators-are-deterministic-general-triangle-projections
   (doseq [[kind params] material/primitive-defaults]
@@ -124,3 +151,20 @@
                       [:scene :child :parent])))
     (is (= (material/canonical-region (region))
            (material/canonical-region (material/apply-edit edited inverse))))))
+
+(deftest placed-edit-carries-only-the-kind-submap
+  (let [placed {:object/id :placed :object/kind :text :parent nil
+                :transform material/default-transform
+                :provenance {:asserted-by :sid}
+                :text {:ref {:address :text/a}
+                       :params {:color nil :max-inline-size nil}}}
+        input (assoc (region {:placed placed}) :region3d/version 2)
+        after {:ref {:address :text/b}
+               :params {:color nil :max-inline-size 320.0}}
+        diff (material/edit-diff
+              {:op :region3d/set-placed :region-id :region/a
+               :object-id :placed :before (:text placed) :after after})]
+    (is (= after (get-in (material/apply-edit input diff)
+                         [:scene :placed :text])))
+    (is (= #{:region-id :object-id :before :after}
+           (set (keys (:payload diff)))))))

@@ -43,6 +43,27 @@
                         (material/validate-material!
                          (assoc (connector) :connector/private-metric 0.56)))))
 
+(deftest s3-region-object-grammar-is-exact-with-a-v1-rollback-fence
+  (let [old (connector)
+        region-binding {:bind :region-object
+                        :region :region/address
+                        :object :mesh/a
+                        :local [0.4 0.25 0.3]}
+        current (assoc old :connector/to region-binding)]
+    (is (= 2 material/schema-version))
+    (is (= old (material/migrate-v1->v2 old))
+        "v1 connector values migrate byte-for-value")
+    (is (= current (material/validate-material! current)))
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"v1 refuses"
+                          (material/validate-material-v1! current)))
+    (is (thrown-with-msg?
+         clojure.lang.ExceptionInfo #"missing required"
+         (material/validate-material!
+          (assoc old :connector/to (dissoc region-binding :local)))))
+    (is (= {:reader-min 1 :reader-max 2}
+           (get-in material/family-citizenship
+                   [:versioning :compatibility])))))
+
 (deftest dress-edits-change-only-the-client-revision
   (let [before (connector)
         after (-> before
@@ -94,7 +115,8 @@
                  (route [:d :x :y] :degenerate [])
                  (route [:e :x :y] :mixed-camera [])])]
     (is (= {:edge-instances 5 :resolved 2 :unresolved 1
-            :degenerate 1 :mixed-camera 1 :overlap-groups 1}
+            :degenerate 1 :mixed-camera 1 :region-anchor-absent 0
+            :anchor-clamped 0 :overlap-groups 1}
            census))
     (is (material/assert-corpus-coverage!
          {:straight-arrow-label [:grammar]

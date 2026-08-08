@@ -6,7 +6,8 @@
     [contrib.assert :refer [check]]
     app.electric-flow
     #?(:clj [app.server-jetty :as jetty])
-    [hyperfiddle.electric :as e])
+    [hyperfiddle.electric3 :as e]
+    #?(:cljs hyperfiddle.electric-client3))
   #?(:cljs (:require-macros [prod :refer [compile-time-resource]])))
 
 (defmacro compile-time-resource [filename] (some-> filename io/resource slurp edn/read-string))
@@ -29,7 +30,10 @@
 #?(:clj
    (defn -main [& {:strs [] :as args}] ; clojure.main entrypoint, args are strings
      (log/info (pr-str config))
-     (check string? (::e/user-version config))
+     ;; The v3 compiler still writes the compatibility manifest key under the
+     ;; historical namespace; the production bootstrap had coupled this check
+     ;; to the removed v2 alias instead of to the manifest contract.
+     (check string? (:hyperfiddle.electric/user-version config))
      (jetty/start-server!
        (fn [ring-req] (e/boot-server {} app.electric-flow/main ring-req))
        config)))

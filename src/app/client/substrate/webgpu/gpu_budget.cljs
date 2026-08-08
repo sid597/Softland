@@ -150,19 +150,23 @@
       (install-resource! tracker obj resource))))
 
 (defn texture-reserved-bytes
-  "Price every allocated mip level, not only level zero (IMAGE-ATOM T11)."
-  [width height depth-or-array-layers bytes-per-pixel mip-level-count]
-  (let [depth (max 1 (or depth-or-array-layers 1))
-        levels (max 1 (or mip-level-count 1))]
-    (reduce + 0
-            (map (fn [level]
-                   (* (max 1 (quot (max 1 (or width 1))
-                                   (bit-shift-left 1 level)))
-                      (max 1 (quot (max 1 (or height 1))
-                                   (bit-shift-left 1 level)))
-                      depth
-                      bytes-per-pixel))
-                 (range levels)))))
+  "Price every allocated mip level and MSAA sample, not only level zero."
+  ([width height depth-or-array-layers bytes-per-pixel mip-level-count]
+   (texture-reserved-bytes width height depth-or-array-layers bytes-per-pixel
+                           mip-level-count 1))
+  ([width height depth-or-array-layers bytes-per-pixel mip-level-count
+    sample-count]
+   (let [depth (max 1 (or depth-or-array-layers 1))
+         levels (max 1 (or mip-level-count 1))
+         samples (max 1 (or sample-count 1))]
+     (reduce + 0
+             (map (fn [level]
+                    (* (max 1 (quot (max 1 (or width 1))
+                                    (bit-shift-left 1 level)))
+                       (max 1 (quot (max 1 (or height 1))
+                                    (bit-shift-left 1 level)))
+                       depth bytes-per-pixel samples))
+                  (range levels))))))
 
 (defn register-texture!
   [tracker obj label & {:keys [width height depth-or-array-layers format
@@ -181,7 +185,8 @@
                             4)
           reserved-bytes (texture-reserved-bytes
                           width height depth-or-array-layers bytes-per-pixel
-                          mip-level-count)
+                          mip-level-count (or (:sample-count details)
+                                              (:sampleCount details) 1))
           resource (resource-map :texture label reserved-bytes
                                  (or active-bytes reserved-bytes) details nil)]
       (push-event! tracker {:type :create :kind :texture :label label :bytes reserved-bytes})
@@ -226,7 +231,8 @@
                             4)
           reserved-bytes (texture-reserved-bytes
                           width height depth-or-array-layers bytes-per-pixel
-                          mip-level-count)
+                          mip-level-count (or (:sample-count details)
+                                              (:sampleCount details) 1))
           new-resource (resource-map :texture label reserved-bytes
                                      (or active-bytes reserved-bytes)
                                      details

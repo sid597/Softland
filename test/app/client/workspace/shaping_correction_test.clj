@@ -248,7 +248,7 @@
     {:wght {:min 100 :default 400 :max 800}
      :wdth {:min 75 :default 100 :max 125}}
     [{:id :mock/cjk :revision "cjk-v1"}] 1000 800 -200 100]
-   [1 14 20 14 :block-greedy [:columns 40] "und" :bidi {:columns 4}
+   [2 14 20 14 :block-greedy [:columns 40] "und" :bidi {:columns 4}
     [:utf-16-code-unit 1]]])
 
 (deftest exact-layout-key-and-ground-census
@@ -410,15 +410,15 @@
 (defn- work-shape
   "G, C, R and the retained proportionality receipt of one layout."
   [layout]
-  {:g (count (mapcat :glyphs (:lines layout)))
-   :c (count (:clusters layout))
-   :r (count (:runs layout))
+  {:g (count (mapcat tl/line-glyphs (:lines layout)))
+   :c (count (mapcat tl/line-clusters (:lines layout)))
+   :r (count (tl/result-runs layout))
    :receipt (get-in layout [:receipts :proportionality])})
 
 (defn- monotonic-line? [line]
   (every? (fn [[a b]]
             (<= (long (:cluster-start a)) (long (:cluster-start b))))
-          (partition 2 1 (:glyphs line))))
+          (partition 2 1 (tl/line-glyphs line))))
 
 (defn- consumed-text [text line]
   (when-let [range (:consumed-range line)]
@@ -498,9 +498,11 @@
         (is (= (mapv :cluster-start (:glyphs m))
                (vec (sort (map :cluster-start (:glyphs s))))))))
     (testing "the provider's paint order survives into the retained line"
-      (let [base (mapv :cluster-start (:glyphs (first (:lines monotonic))))]
+      (let [base (mapv :cluster-start
+                       (tl/line-glyphs (first (:lines monotonic))))]
         (is (= (vec (concat (take-nth 2 base) (take-nth 2 (rest base))))
-               (mapv :cluster-start (:glyphs (first (:lines shuffled))))))))))
+               (mapv :cluster-start
+                     (tl/line-glyphs (first (:lines shuffled))))))))))
 
 ;; ---------------------------------------------------------------------------
 ;; G1 "Captured seeded negatives" (a) and (b): the rejected strategies are RUN,
@@ -516,7 +518,7 @@
   (let [!visits (volatile! 0)
         membership
         (mapv (fn [line]
-                (let [glyphs (vec (:glyphs line))
+                (let [glyphs (tl/line-glyphs line)
                       n (count glyphs)]
                   (mapv (fn [cluster]
                           (loop [i 0 out []]
@@ -531,7 +533,7 @@
                                                    (:cluster-end glyph)))
                                          (conj out i)
                                          out))))))
-                        (remove :consumed? (:clusters line)))))
+                        (remove :consumed? (tl/line-clusters line)))))
               lines)]
     {:membership membership
      :receipt {:glyph-visits @!visits}}))
@@ -539,14 +541,16 @@
 (defn- indexed-cluster-glyph-membership
   "The linear road's answer: the retained exact index vectors."
   [lines]
-  (mapv (fn [line] (mapv :glyph-indexes (:glyph-span-index line))) lines))
+  (mapv (fn [line]
+          (mapv :glyph-indexes (tl/glyph-span-index-view line)))
+        lines))
 
 (defn- legacy-full-vector-span-scan
   "Negative (b): the rejected per-op full-glyph-vector reader (the renderer's
    per-op glyph filter). Selecting a source range visits EVERY glyph of the op;
    the cost is emitted through G6's own `:visited-glyphs`/`:glyph-span-count`."
   [line [start end]]
-  (let [glyphs (vec (:glyphs line))
+  (let [glyphs (tl/line-glyphs line)
         n (count glyphs)
         !visited (volatile! 0)
         selected (loop [i 0 out []]
@@ -590,7 +594,7 @@
       (let [legacy (legacy-full-vector-span-scan line [4 12])]
         (is (= (mapv :character (:glyphs selected))
                (mapv :character (:glyphs legacy))))
-        (is (= (count (:glyphs line)) (:visited-glyphs legacy)))
+        (is (= (count (tl/line-glyphs line)) (:visited-glyphs legacy)))
         (is (> (:visited-glyphs legacy) (:glyph-span-count legacy)))
         (is (false? (tl/within-span-bound? legacy)))))
     (testing "the T0 legacy road keeps its contiguous-subvector selection"
@@ -626,10 +630,10 @@
       (is (= [6 11] (offsets (:source-range later-line))))
       (is (= [0 1]
              ((juxt :source-start :source-end)
-              (first (:glyph-span-index first-line)))))
+              (first (tl/glyph-span-index-view first-line)))))
       (is (= [6 7]
              ((juxt :source-start :source-end)
-              (first (:glyph-span-index later-line)))))
+              (first (tl/glyph-span-index-view later-line)))))
       (is (= "first" (apply str (map :character (:glyphs first-selection)))))
       (is (= "later" (apply str (map :character (:glyphs later-selection)))))
       (is (= 5 (:visited-glyphs first-selection)))
@@ -644,10 +648,10 @@
       (is (= [7 10] (offsets (:source-range wrapped-b))))
       (is (= [4 5]
              ((juxt :source-start :source-end)
-              (first (:glyph-span-index wrapped-a)))))
+              (first (tl/glyph-span-index-view wrapped-a)))))
       (is (= [7 8]
              ((juxt :source-start :source-end)
-              (first (:glyph-span-index wrapped-b)))))
+              (first (tl/glyph-span-index-view wrapped-b)))))
       (is (= "abc" (apply str (map :character (:glyphs (select wrapped-a))))))
       (is (= "def" (apply str (map :character (:glyphs (select wrapped-b))))))))
   (testing "header span indices remain local to each per-header domain"
@@ -660,6 +664,6 @@
       (is (= [:header 0 [0 4]] (:source-range header)))
       (is (= [0 1]
              ((juxt :source-start :source-end)
-              (first (:glyph-span-index header)))))
+              (first (tl/glyph-span-index-view header)))))
       (is (= "head" (apply str (map :character (:glyphs selection)))))
       (is (= 4 (:visited-glyphs selection))))))

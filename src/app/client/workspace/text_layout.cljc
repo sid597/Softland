@@ -7,10 +7,11 @@
    and hit testing. T1 replaces this provider with shaping; readers do not
    acquire another metric route."
   (:require [clojure.string :as str]
+            [app.client.workspace.text-layout-planes :as planes]
             #?(:cljs [goog.crypt :as gcrypt])
             #?(:cljs [goog.crypt.Sha256])))
 
-(def layout-version 1)
+(def layout-version 2)
 
 (def legacy-index-space
   "T0's explicit adapter boundary. Offsets inside a layout result are UTF-16
@@ -39,8 +40,31 @@
   #?(:clj  (int (.charAt ^String s i))
      :cljs (.charCodeAt s i)))
 
+(def ^:private tagged-index-intern-limit 131072)
+
+(def ^:private !tagged-index-cache
+  ;; Flyweight: one shared immutable value per small offset. The same offset is
+  ;; named by ~8-10 retained ranges per glyph (glyph cluster, cluster range,
+  ;; run range, line ranges), so interning collapses millions of value-equal
+  ;; maps to one per offset (measured 2026-08-08: 163MB of live tagged-index
+  ;; maps on a 228k-glyph boot). Values are identical under =/hash.
+  #?(:cljs (js/Array. tagged-index-intern-limit)
+     :clj (object-array tagged-index-intern-limit)))
+
 (defn tagged-index [offset]
-  {:index-space legacy-index-space :offset offset})
+  (if (and (number? offset)
+           #?(:cljs (js/Number.isInteger offset)
+              :clj (integer? offset))
+           (<= 0 offset)
+           (< offset tagged-index-intern-limit))
+    (let [i (long offset)]
+      (or #?(:cljs (aget !tagged-index-cache i)
+             :clj (aget ^objects !tagged-index-cache i))
+          (let [v {:index-space legacy-index-space :offset offset}]
+            #?(:cljs (aset !tagged-index-cache i v)
+               :clj (aset ^objects !tagged-index-cache i v))
+            v)))
+    {:index-space legacy-index-space :offset offset}))
 
 (defn header-index [header-ordinal offset]
   [:header header-ordinal offset])
@@ -244,7 +268,8 @@
                        (mapcat :glyphs line-data))
         logical-w (reduce max 0 (map :advance line-data))
         logical-h (* (max 1 (count line-data)) line-height)]
-    {:text-layout/version layout-version
+    (planes/compact-result
+     {:text-layout/version layout-version
      :layout/id id
      :source {:id source-id
               :revision source-revision
@@ -279,9 +304,10 @@
                  :visible-glyph-ranges (mapv :source-range line-data)
                  :clip-geometry clip}
      :receipts {:input-hash id
-                :output-hash (str id "/" (hash [texts logical-w logical-h]))
+                :output-hash (str id "/" (hash [layout-version texts
+                                                 logical-w logical-h]))
                 :source-lines (vec (or source-lines texts))
-                :font-shaper-environment legacy-provider}}))
+                :font-shaper-environment legacy-provider}})))
 
 (defn- shaped-provider? [provider]
   (and provider (fn? (:shape-line provider))))
@@ -618,27 +644,37 @@
 (defn glyphs-in-source-range
   "Indexed paint/clip selection. `visited-glyphs` counts only the selected
    span, never the full line vector (G6's executable receipt)."
-  [line-data source-range]
-  (let [[start end] (line-source-bounds source-range)]
-    (if (contains? line-data :glyph-span-index)
-      (let [indexes (glyph-indexes-for-source-range
-                     (:glyph-span-index line-data) start end)
-            glyphs (mapv #(nth (:glyphs line-data) %) indexes)
-            span (when (seq indexes) [(first indexes) (inc (last indexes))])]
-        {:glyphs (vec glyphs)
-         :glyph-span span
-         :visited-glyphs (count glyphs)})
-      ;; T0 is one UTF-16 code unit per glyph in source order.  Its retained
-      ;; line range therefore is the index: select the contiguous subvector
-      ;; directly instead of manufacturing a shaped-span index or scanning.
-      (let [[line-start line-end] (line-source-bounds (:source-range line-data))
-            glyphs (vec (:glyphs line-data))
-            from (max 0 (min (count glyphs) (- (max start line-start) line-start)))
-            to (max from
-                    (min (count glyphs) (- (min end line-end) line-start)))]
-        {:glyphs (subvec glyphs from to)
-         :glyph-span (when (< from to) [from to])
-         :visited-glyphs (- to from)}))))
+  ([line-data source-range]
+   (planes/glyphs-in-source-range line-data source-range))
+  ([line-data source-range dx dy]
+   (planes/glyphs-in-source-range line-data source-range dx dy)))
+
+(defn line-glyphs
+  "Derive Contract-T glyph maps for one line; the maps are never retained."
+  ([line-data] (planes/line-glyphs line-data))
+  ([line-data dx dy] (planes/line-glyphs line-data dx dy)))
+
+(defn line-clusters
+  "Derive Contract-T cluster views for one line from the span plane."
+  [line-data]
+  (planes/line-clusters line-data))
+
+(defn glyph-span-index-view
+  "Derived compatibility/oracle view of one line's indexed spans."
+  [line-data]
+  (planes/glyph-span-index-view line-data))
+
+(defn first-glyph-advance-x [line-data]
+  (planes/first-glyph-advance-x line-data))
+
+(defn result-runs [layout-result]
+  (planes/result-runs layout-result))
+
+(defn plane-census [layout-result]
+  (planes/plane-census layout-result))
+
+(defn retained-rich-map? [layout-result]
+  (planes/retained-rich-map? layout-result))
 
 (defn within-span-bound? [{:keys [visited-glyphs glyph-span-count]}]
   (<= (long (or visited-glyphs 0)) (+ (long (or glyph-span-count 0)) 8)))
@@ -810,28 +846,22 @@
                                                             source-end)))
                             left (+ ox (* left scale))
                             right (+ ox (* right scale))
-                            start-x (if (= direction :rtl) right left)
-                            end-x (if (= direction :rtl) left right)
                             span (get-in indexed
                                          [:by-start (+ span-source-offset source-start)])
-                            _ (work+! !work :cluster-index-reads 1)
-                            span-glyphs (mapv #(nth glyphs %)
-                                              (:glyph-indexes span))]
+                            _ (work+! !work :cluster-index-reads 1)]
+                        ;; Caret stops and cluster ink bounds are NOT retained:
+                        ;; both are pure functions of the retained fields
+                        ;; (logical-bounds + direction + source-range, glyphs)
+                        ;; and are derived at read time (cluster-caret-stops).
+                        ;; Measured 2026-08-08: retaining them cost ~150MB on a
+                        ;; 228k-glyph boot with zero readers outside this file.
                         (assoc cluster
                                :source-range [absolute-start absolute-end]
                                :glyph-span (when span
                                              [(:glyph-start span) (:glyph-end span)])
-                               :caret-stops [{:index absolute-start
-                                              :position [start-x top-y]
-                                              :affinity :downstream}
-                                             {:index absolute-end
-                                              :position [end-x top-y]
-                                              :affinity :upstream}]
                                :logical-bounds {:x (min left right) :y top-y
                                                 :w (Math/abs (- right left))
-                                                :h line-height}
-                               :ink-bounds (union-bounds (keep :ink-bounds
-                                                              span-glyphs)))))
+                                                :h line-height})))
                     (sort-by (juxt :source-start :source-end) (:clusters shaped)))
                   consumed-cluster
                   (when consumed-absolute
@@ -919,7 +949,8 @@
     (when-not legal-zoom?
       (throw (ex-info "Text zoom is outside Contract-T's legal material range."
                       {:zoom zoom :legal-range [0.01 1000]})))
-    {:text-layout/version layout-version
+    (planes/compact-result
+     {:text-layout/version layout-version
      :layout/id id
      :source {:id source-id :revision source-revision :text text
               :headers headers
@@ -957,13 +988,15 @@
                  :visible-glyph-ranges (mapv :source-range line-data)
                  :clip-geometry clip}
      :receipts {:input-hash id
-                :output-hash (str id "/" (hash [(mapv :glyph-id (mapcat :glyphs line-data))
+                :output-hash (str id "/" (hash [layout-version
+                                                (mapv :glyph-id
+                                                      (mapcat :glyphs line-data))
                                                 logical-w logical-h]))
                 :source-lines (vec (or source-lines (mapv :text source-records)))
                 :font-shaper-environment (provider-identity provider)
                 :proportionality (dissoc work :provider-fault :reference-shapes)
                 :reference-shapes (:reference-shapes work)
-                :provider-fault (:provider-fault work)}}))
+                :provider-fault (:provider-fault work)}})))
 
 (defn layout
   "Produce the one immutable Contract-T result. A real provider selects T1;
@@ -1110,9 +1143,10 @@
        :text (subs text start end)})))
 
 (defn paint-result [layout-result]
-  {:layout/id (:layout/id layout-result)
-   :glyphs (vec (mapcat :glyphs (:lines layout-result)))
-   :lines (:lines layout-result)})
+  (let [lines (planes/rich-lines layout-result)]
+    {:layout/id (:layout/id layout-result)
+     :glyphs (vec (mapcat :glyphs lines))
+     :lines lines}))
 
 (defn line-paint-ops
   "Adapt layout lines back to the existing text-op maps without changing the
@@ -1159,6 +1193,22 @@
 (defn- shaped-result? [layout-result]
   (not= :legacy/code-unit-grid (get-in layout-result [:shaping :shaper-id])))
 
+(defn- cluster-caret-stops
+  "A cluster's two edge caret stops. Shaped clusters no longer retain
+   :caret-stops (memory: they are a pure function of retained fields); stored
+   stops win when present (legacy grid path, consumed clusters)."
+  [cluster]
+  (or (:caret-stops cluster)
+      (when-let [{:keys [x y w]} (:logical-bounds cluster)]
+        (let [[start end] (:source-range cluster)
+              rtl? (= :rtl (:direction cluster))
+              left x
+              right (+ x w)
+              start-x (if rtl? right left)
+              end-x (if rtl? left right)]
+          [{:index start :position [start-x y] :affinity :downstream}
+           {:index end :position [end-x y] :affinity :upstream}]))))
+
 (defn- injected-cluster-stops
   "T2 additive reader capability. Grapheme boundaries are injected DATA; an
    interior boundary interpolates between the shaped cluster's declared edge
@@ -1167,7 +1217,7 @@
   (let [[start-index end-index] (:source-range cluster)
         start (source-index-offset start-index)
         end (source-index-offset end-index)
-        [start-stop end-stop] (:caret-stops cluster)
+        [start-stop end-stop] (cluster-caret-stops cluster)
         [start-x start-y] (:position start-stop)
         [end-x end-y] (:position end-stop)
         span (- end start)]
@@ -1189,9 +1239,9 @@
 (defn- line-caret-stops
   ([line-data] (line-caret-stops line-data nil))
   ([line-data grapheme-boundaries]
-   (->> (:clusters line-data)
+   (->> (line-clusters line-data)
         (mapcat (fn [cluster]
-                  (concat (:caret-stops cluster)
+                  (concat (cluster-caret-stops cluster)
                           (injected-cluster-stops cluster
                                                   grapheme-boundaries))))
         vec)))
@@ -1263,7 +1313,7 @@
                                    :baseline [0 0]})
         col (max 0 (min (long (or col 0)) (code-unit-count (:text line-data))))
         advance (get-in layout-result [:font :size])
-        char-advance (or (get-in (first (:glyphs line-data)) [:advance 0])
+        char-advance (or (first-glyph-advance-x line-data)
                          (let [w (get-in line-data [:logical-bounds :w] 0)
                                n (code-unit-count (:text line-data))]
                            (if (pos? n) (/ w n) 0)))
@@ -1289,7 +1339,7 @@
                      (let [[cs ce] (mapv source-index-offset
                                          (:source-range cluster))]
                        (and (< cs end) (> ce start))))
-                   (:clusters line-data))
+                   (line-clusters line-data))
         rects (mapv :logical-bounds selected)
         rects (if (seq rects)
                 rects
@@ -1397,7 +1447,7 @@
         txt (:text line "")
         n (code-unit-count txt)
         [x y] (:baseline line [(:x op 0) (:y op 0)])
-        cw (or (get-in (first (:glyphs line)) [:advance 0])
+        cw (or (first-glyph-advance-x line)
                (let [w (get-in line [:logical-bounds :w] 0)]
                  (if (pos? n) (/ w n) 0)))
         text-end (+ x (* n cw))
@@ -1483,7 +1533,7 @@
         line-text (get source-lines logical-line "")
         line-len (code-unit-count line-text)
         first-line (first (:lines layout-result))
-        cw (or (get-in (first (:glyphs first-line)) [:advance 0])
+        cw (or (first-glyph-advance-x first-line)
                (let [w (get-in first-line [:logical-bounds :w] 0)
                      n (code-unit-count (:text first-line ""))]
                  (if (pos? n) (/ w n) 0)))

@@ -14,11 +14,13 @@
 (def compositor-version 2)
 (def region-lease-quant 256)
 (def region-lease-max 4096)
-;; The named W4 backdrop road peaks at five live viewport-sized rgba16 targets
-;; (scene, group, snapshot, and the separable blur pair). Keep that road inside
-;; the owned budget at a 3840x2160 physical canvas; the pool still refuses
-;; larger live sets by name and reclaims free cache before doing so.
-(def default-pool-budget-bytes (* 384 1024 1024))
+;; The W4 backdrop road at zoom peaks at six live viewport-sized rgba16
+;; targets — scene, group content, group output, snapshot, and the separable
+;; blur pair — plus the downsample chain and any mask target. Keep that road
+;; inside the owned budget at a 3840x2160 physical canvas (~66MB per target);
+;; the pool still refuses larger live sets by name, reclaims stale free cache
+;; under pressure, and the blur road degrades on refusal instead of dying.
+(def default-pool-budget-bytes (* 512 1024 1024))
 
 (def full-screen-vertex-shader
   "struct Output { @builtin(position) position: vec4<f32>,
@@ -128,7 +130,7 @@
   {:device device :tracker tracker :budget-cap-bytes budget-cap-bytes
    :!state (atom {:free {} :leased {} :allocations 0 :reuses 0
                   :destroyed 0 :reserved-bytes 0 :high-water-leased 0
-                  :refusals []})})
+                  :epoch 0 :refusals []})})
 
 (defn- target-key [format width height sample-count]
   [format (int width) (int height) (max 1 (or sample-count 1))])
@@ -153,14 +155,47 @@
         (.destroy ^js (:texture target))))
     (count targets)))
 
+(defn- reclaim-stale-free-targets!
+  "Held region leases keep :leased occupied across frames, so the empty-leased
+   reclaim road never runs on the region3d lane. Free targets released before
+   the current submit epoch can no longer be named by an unsubmitted encoder,
+   so budget pressure may destroy them mid-frame."
+  [pool]
+  (let [state @(:!state pool)
+        epoch (:epoch state 0)
+        stale? #(< (:released-epoch % -1) epoch)
+        targets (into [] (comp (mapcat val) (filter stale?)) (:free state))]
+    (when (seq targets)
+      (let [stale-ids (into #{} (map :target/id) targets)
+            reclaimed-bytes (reduce + 0 (map :bytes targets))]
+        (swap! (:!state pool)
+               (fn [current]
+                 (let [free (reduce-kv
+                             (fn [acc key row]
+                               (let [row (into [] (remove #(stale-ids
+                                                            (:target/id %)))
+                                               row)]
+                                 (if (seq row) (assoc acc key row) acc)))
+                             {} (:free current))]
+                   (-> current
+                       (assoc :free free)
+                       (update :reserved-bytes - reclaimed-bytes)
+                       (update :destroyed + (count targets))))))
+        (doseq [target targets]
+          (gpu-budget/destroy-resource! (:tracker pool) (:texture target)
+                                        :reason :frame-target-pool-reclaim)
+          (.destroy ^js (:texture target)))))
+    (count targets)))
+
 (defn- create-target!
   [pool format width height label sample-count usage]
   (let [sample-count (max 1 (or sample-count 1))
         bytes (texture-bytes format width height sample-count)
-        _ (when (and (empty? (:leased @(:!state pool)))
-                     (> (+ (:reserved-bytes @(:!state pool)) bytes)
-                        (:budget-cap-bytes pool)))
-            (reclaim-free-targets! pool))
+        _ (when (> (+ (:reserved-bytes @(:!state pool)) bytes)
+                   (:budget-cap-bytes pool))
+            (if (empty? (:leased @(:!state pool)))
+              (reclaim-free-targets! pool)
+              (reclaim-stale-free-targets! pool)))
         state @(:!state pool)]
     (when (> (+ (:reserved-bytes state) bytes) (:budget-cap-bytes pool))
       (swap! (:!state pool) update :refusals conj
@@ -250,28 +285,48 @@
                                                 (:width target)
                                                 (:height target)
                                                 (:sample-count target))]
-                              (fnil conj []) target))))))
+                              (fnil conj [])
+                              (assoc target :released-epoch
+                                     (:epoch state 0))))))))
+  nil)
+
+(defn bump-frame-epoch!
+  "Mark a submit boundary: everything free before this point is safe for
+   reclaim-stale-free-targets! to destroy under budget pressure."
+  [pool]
+  (swap! (:!state pool) update :epoch (fnil inc 0))
   nil)
 
 (defn- destroy-target! [pool target reason]
   (when target
     (let [target-id (:target/id target)
           key (target-key (:format target) (:width target) (:height target)
-                          (:sample-count target))]
+                          (:sample-count target))
+          ;; Idempotent like release-target!: three async release roads can
+          ;; name the same lease target, and a second decrement would corrupt
+          ;; reserved-bytes downward — the budget then over-admits.
+          removed? (volatile! false)]
       (swap! (:!state pool)
              (fn [state]
-               (let [free-rows (vec (remove #(= target-id (:target/id %))
-                                            (get-in state [:free key] [])))
-                     state (if (seq free-rows)
-                             (assoc-in state [:free key] free-rows)
-                             (update state :free dissoc key))]
-                 (-> state
-                     (update :leased dissoc target-id)
-                     (update :reserved-bytes - (:bytes target))
-                     (update :destroyed inc)))))
-      (gpu-budget/destroy-resource! (:tracker pool) (:texture target)
-                                    :reason reason)
-      (.destroy ^js (:texture target))))
+               (let [tracked? (or (contains? (:leased state) target-id)
+                                  (some #(= target-id (:target/id %))
+                                        (get-in state [:free key] [])))]
+                 (vreset! removed? (boolean tracked?))
+                 (if-not tracked?
+                   state
+                   (let [free-rows (vec (remove #(= target-id (:target/id %))
+                                                (get-in state [:free key] [])))
+                         state (if (seq free-rows)
+                                 (assoc-in state [:free key] free-rows)
+                                 (update state :free dissoc key))]
+                     (-> state
+                         (update :leased dissoc target-id)
+                         (update :reserved-bytes - (:bytes target))
+                         (update :destroyed inc)))))))
+      (when @removed?
+        (gpu-budget/destroy-resource! (:tracker pool) (:texture target)
+                                      :reason reason)
+        (.destroy ^js (:texture target)))))
   nil)
 
 (defn destroy-target-pool! [pool]
@@ -713,6 +768,18 @@
     (.draw pass 3 1 0 0)
     (.end pass)))
 
+(defn- try-acquire-target!
+  "Acquire on the effect road, degrading on budget refusal instead of killing
+   the frame. The pool has already written the refusal receipt; nil lets the
+   caller keep the sharpest source it still holds."
+  [compositor width height label]
+  (try
+    (acquire-target! (:target-pool compositor) "rgba16float" width height
+                     label)
+    (catch :default error
+      (when-not (= :frame-target-budget-exceeded (:reason (ex-data error)))
+        (throw error)))))
+
 (defn- blur-target!
   [compositor encoder source projection acquired transient-buffers label
    release-source?]
@@ -726,22 +793,26 @@
             ;; downsample level instead of quantizing magnitude to level count.
             sample-scale (/ (:radius-px projection)
                             (* 4.0 (js/Math.pow 2.0 level)))
-            horizontal (acquire-target! (:target-pool compositor)
-                                        "rgba16float" width height
-                                        (str label "/h" level))]
-        (swap! acquired conj horizontal)
-        (blur-pass! compositor encoder source horizontal [sample-scale 0.0]
-                    transient-buffers)
-        (when source-owned?
-          (release-target! (:target-pool compositor) source))
-        (let [vertical (acquire-target! (:target-pool compositor)
-                                        "rgba16float" width height
-                                        (str label "/v" level))]
-          (swap! acquired conj vertical)
-          (blur-pass! compositor encoder horizontal vertical [0.0 sample-scale]
-                      transient-buffers)
-          (release-target! (:target-pool compositor) horizontal)
-          (recur vertical (inc level) true))))))
+            horizontal (try-acquire-target! compositor width height
+                                            (str label "/h" level))]
+        (if (nil? horizontal)
+          source
+          (do
+            (swap! acquired conj horizontal)
+            (blur-pass! compositor encoder source horizontal
+                        [sample-scale 0.0] transient-buffers)
+            (when source-owned?
+              (release-target! (:target-pool compositor) source))
+            (let [vertical (try-acquire-target! compositor width height
+                                                (str label "/v" level))]
+              (if (nil? vertical)
+                horizontal
+                (do
+                  (swap! acquired conj vertical)
+                  (blur-pass! compositor encoder horizontal vertical
+                              [0.0 sample-scale] transient-buffers)
+                  (release-target! (:target-pool compositor) horizontal)
+                  (recur vertical (inc level) true))))))))))
 
 (defn- index-in-ranges? [ranges index]
   (some (fn [[start end]] (<= start index (dec end))) ranges))
@@ -908,12 +979,11 @@
       (let [cid (:container/id group)
             {:keys [output mask]} (render-group! group)
             {:keys [opacity backdrop-blur]} (:effects group)]
-        (if backdrop-blur
-          (let [snapshot (acquire-target! (:target-pool compositor)
-                                          "rgba16float" (:width target)
-                                          (:height target)
-                                          (str "frame/backdrop-snapshot/" cid))
-                projection (project-blur-fn group :backdrop-blur backdrop-blur)
+        (if-let [snapshot (when backdrop-blur
+                            (try-acquire-target!
+                             compositor (:width target) (:height target)
+                             (str "frame/backdrop-snapshot/" cid)))]
+          (let [projection (project-blur-fn group :backdrop-blur backdrop-blur)
                 _ (swap! acquired conj snapshot)
                 _ (.copyTextureToTexture
                    ^js encoder
@@ -928,6 +998,8 @@
                              blurred opacity true transient-buffers "load")
             (release-target! (:target-pool compositor) snapshot)
             (release-target! (:target-pool compositor) blurred))
+          ;; No backdrop declared, or its snapshot refused under budget
+          ;; pressure — composite without the backdrop road.
           (draw-composite! compositor encoder target output mask nil nil
                            opacity false transient-buffers "load"))
         (release-target! (:target-pool compositor) output)
@@ -1071,6 +1143,7 @@
 
 (defn- release-after-submit!
   [compositor acquired transient-buffers stale-region-leases]
+  (bump-frame-epoch! (:target-pool compositor))
   (doseq [target acquired]
     (release-target! (:target-pool compositor) target))
   (let [retired @(:!retired-region-targets compositor)]
@@ -1078,8 +1151,12 @@
     (-> (.onSubmittedWorkDone (.-queue ^js (:device compositor)))
       (.then (fn []
                (doseq [buffer transient-buffers] (.destroy ^js buffer))
+               ;; Same identity guard as retire-absent-region-leases!: a later
+               ;; frame may have eagerly released this lease already.
                (doseq [[key lease] stale-region-leases]
-                 (release-region-lease! compositor key lease))
+                 (when (identical? lease
+                                   (get @(:!region-leases compositor) key))
+                   (release-region-lease! compositor key lease)))
                (doseq [target retired]
                  (destroy-target! (:target-pool compositor) target
                                   :region3d-shadow-mode-change))))
@@ -1087,6 +1164,21 @@
 
 (defn- active-region-leases! [compositor plan]
   (let [regions (get-in plan [:structure/key :regions])
+        desired-keys (into #{}
+                           (map (fn [{region-id :region/id
+                                      [width height] :size}]
+                                  [region-id (quantize-region-size width)
+                                   (quantize-region-size height)]))
+                           regions)
+        ;; Old-generation leases die BEFORE the new generation is acquired:
+        ;; only submitted (or abandoned, never-submitted) encoders can still
+        ;; name them, and destroy after submit defers deallocation, so the two
+        ;; generations never bill the pool budget at once — a zoom gesture
+        ;; that crosses lease quanta otherwise holds both until a frame
+        ;; succeeds, which budget refusal can make unreachable.
+        _ (doseq [[key lease] @(:!region-leases compositor)
+                  :when (not (contains? desired-keys key))]
+            (release-region-lease! compositor key lease))
         active
         (into {}
               (map (fn [{region-id :region/id [width height] :size
@@ -1122,31 +1214,40 @@
                       pass-producers width height plan zoom effective-transforms]
                :or {zoom 1.0 effective-transforms {}}}]
   (let [device (:device compositor)
-        {:keys [active stale]} (active-region-leases! compositor plan)
-        encoder (.createCommandEncoder ^js device)
-        region-pass-receipts
-        (encode-region-pass-producers! encoder plan pass-producers active)
-        swap-texture (.getCurrentTexture ^js context)
-        swap-view (.createView swap-texture)
-        {:keys [scene acquired transient-buffers blur-projections]}
-        (encode-linear-scene! compositor encoder arrangement effect-spans
-                              variant execute-entry! width height zoom
-                              effective-transforms)]
-    (draw-present! compositor encoder scene swap-view (:format compositor))
-    (.submit (.-queue ^js device) #js [(.finish encoder)])
-    (release-after-submit! compositor acquired transient-buffers stale)
-    (swap! (:!receipt compositor)
-           (fn [receipt]
-             (-> receipt (update :frames inc) (update :linear-frames inc)
-                 (assoc :color-mode :scene-color/linear
-                        :passes (mapv :pass/id (:passes plan))
-                        :region-pass-receipts region-pass-receipts
-                        :region-leases (region-leases-receipt compositor)
-                        :plan-hash (:plan/hash plan)
-                        :blur-projections blur-projections
-                        :pool (target-pool-receipt (:target-pool compositor))))))
-    {:submitted? true :color-mode :scene-color/linear
-     :plan-hash (:plan/hash plan)}))
+        {:keys [active stale]} (active-region-leases! compositor plan)]
+    (try
+      (let [encoder (.createCommandEncoder ^js device)
+            region-pass-receipts
+            (encode-region-pass-producers! encoder plan pass-producers active)
+            swap-texture (.getCurrentTexture ^js context)
+            swap-view (.createView swap-texture)
+            {:keys [scene acquired transient-buffers blur-projections]}
+            (encode-linear-scene! compositor encoder arrangement effect-spans
+                                  variant execute-entry! width height zoom
+                                  effective-transforms)]
+        (draw-present! compositor encoder scene swap-view (:format compositor))
+        (.submit (.-queue ^js device) #js [(.finish encoder)])
+        (release-after-submit! compositor acquired transient-buffers stale)
+        (swap! (:!receipt compositor)
+               (fn [receipt]
+                 (-> receipt (update :frames inc) (update :linear-frames inc)
+                     (assoc :color-mode :scene-color/linear
+                            :passes (mapv :pass/id (:passes plan))
+                            :region-pass-receipts region-pass-receipts
+                            :region-leases (region-leases-receipt compositor)
+                            :plan-hash (:plan/hash plan)
+                            :blur-projections blur-projections
+                            :pool (target-pool-receipt
+                                   (:target-pool compositor))))))
+        {:submitted? true :color-mode :scene-color/linear
+         :plan-hash (:plan/hash plan)})
+      (catch :default error
+        ;; A failed encode submits nothing, so its released targets are only
+        ;; namable by the abandoned encoder; without this bump they stay
+        ;; same-epoch forever (release-after-submit! never ran) and the pool
+        ;; wedges — refusing every later frame on bytes the failure holds.
+        (bump-frame-epoch! (:target-pool compositor))
+        (throw error)))))
 
 (defn copy-present!
   "Legacy COPY-PRESENT executor primitive used by the effectless verifier row."

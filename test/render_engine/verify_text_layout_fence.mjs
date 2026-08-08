@@ -6,6 +6,8 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 
 const owners = [
   ["src/app/client/substrate/connector_route.cljc", "layout-label", ["tl/layout"]],
+  ["src/app/client/substrate/region3d_placement.cljc", "layout-placed-text", ["text-layout/layout"]],
+  ["src/app/client/substrate/region3d_placement.cljc", "pack-glyph-quads", ["text-layout/paint-result"]],
   ["src/app/client/workspace/rect_tree.cljc", "wrap-line", ["tl/wrap-line"]],
   ["src/app/client/workspace/rect_tree.cljc", "resolve-text-layout", ["tl/layout", "tl/line-paint-ops"]],
   ["src/app/client/workspace/rect_tree.cljc", "tree->text-ops", ["tl/layout", "tl/clip-result"]],
@@ -42,6 +44,13 @@ const privateMetricPatterns = [
   ["metric-times-count", /\(\s*\*[^\n)]{0,120}\b(?:char-w|char-advance)\b[^\n)]{0,80}\((?:count|tl\/code-unit-count)\b/],
   ["private substring clip", /\bsubs\b/],
   ["private line split", /\bstr\/split-lines\b/],
+];
+
+const rawPlaneTokens = [
+  ":glyph-id+flags",
+  ":position-x",
+  ":span-source-start",
+  ":span-glyph-start",
 ];
 
 function findOwner(source, name) {
@@ -142,11 +151,41 @@ for (const failure of auditStableEditorInputs(editorCompute)) {
   failures.push(`src/app/client/workspace/editor_compute.cljs#stable-inputs: ${failure}`);
 }
 
+// Layout-retention: raw column ownership ends at the accessor namespace.
+// Scan every production CLJ/CLJS source so a new consumer cannot evade the
+// seeded owner list merely by appearing in a new namespace.
+const sourceRoot = path.join(repoRoot, "src/app");
+const sourceFiles = [];
+const walkSources = (dir) => {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const absolute = path.join(dir, entry.name);
+    if (entry.isDirectory()) walkSources(absolute);
+    else if (/\.clj[cs]$/.test(entry.name)) sourceFiles.push(absolute);
+  }
+};
+walkSources(sourceRoot);
+for (const absolute of sourceFiles) {
+  const relative = path.relative(repoRoot, absolute);
+  if (relative.endsWith("text_layout_planes.cljc")) continue;
+  const source = fs.readFileSync(absolute, "utf8");
+  for (const token of rawPlaneTokens) {
+    if (source.includes(token)) failures.push(`${relative}: raw plane read ${token}`);
+  }
+}
+
 const seededPrivateConsumer = `(defn seeded-private-consumer [text char-advance]
   (* (count text) char-advance))`;
 const seedFailures = auditOwner(seededPrivateConsumer, ["tl/layout"]);
 if (!seedFailures.includes("count-times-metric")) {
   failures.push("self-test: seeded count-times-metric consumer was not rejected");
+}
+
+const seededRawPlaneConsumer = `(:position-x (:layout/planes layout-result))`;
+const seededRawPlaneRejected = rawPlaneTokens.some((token) =>
+  seededRawPlaneConsumer.includes(token),
+);
+if (!seededRawPlaneRejected) {
+  failures.push("self-test: seeded raw-plane consumer was not rejected");
 }
 
 const seededDormantBranch = `        <editor-content-stable
@@ -173,6 +212,7 @@ const receipt = {
   owners: owners.length,
   files: files.size,
   seededPrivateConsumerRejected: seedFailures.length > 0,
+  seededRawPlaneConsumerRejected: seededRawPlaneRejected,
   seededLateModeGuardRejected: auditDormantEditorBranch(seededDormantBranch).length > 0,
   seededStableTickerRejected: auditStableEditorInputs(seededTickerAncestor).length > 0,
   paintConsumers,

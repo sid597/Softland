@@ -64,7 +64,9 @@
 (defn binding-occurrences [binding targets-by-address]
   (case (:bind binding)
     :point (point-occurrence binding)
-    :node (vec (get targets-by-address (:target binding) []))))
+    :node (vec (get targets-by-address (:target binding) []))
+    :region-object [{:vi [:region-object (:region binding) (:object binding)]}]
+    []))
 
 (defn- select-occurrences [occurrences vi]
   (if (some? vi)
@@ -116,10 +118,21 @@
   (containers/inverse-point anchor-effective
                             (containers/forward-point target-effective point)))
 
-(defn- resolved-binding [binding occurrence effective anchor-container]
+(defn- resolved-binding
+  [binding occurrence effective anchor-container region-anchor-resolver]
   (let [anchor-effective (get effective anchor-container)]
     (cond
       (nil? anchor-effective) nil
+
+      (= :region-object (:bind binding))
+      (when-let [resolved (and region-anchor-resolver
+                               (region-anchor-resolver binding anchor-container
+                                                       effective))]
+        (merge {:kind :point
+                :vi [:region-object (:region binding) (:object binding)]
+                :container anchor-container
+                :quad nil}
+               resolved))
 
       (= :point (:bind binding))
       {:kind :point
@@ -221,86 +234,102 @@
 
 (defn resolve-route-geometry
   "Resolve attachment and route semantics without tessellation or text layout."
-  [edge effective]
-  (let [material (connector-material/validate-material!
-                  (:connector/material edge))
-        edge-instance-id (:connector/edge-instance-id edge)
-        anchor-container (:container edge)
-        anchor-camera (get-in effective [anchor-container :flags])
-        from (resolved-binding (:connector/from material)
-                               (:connector/from-target edge)
-                               effective anchor-container)
-        to (resolved-binding (:connector/to material)
-                             (:connector/to-target edge)
-                             effective anchor-container)]
-    (cond
-      (or (nil? from) (nil? to))
-      (assoc (route-status :unresolved edge-instance-id)
-             :material material :edge edge)
+  ([edge effective] (resolve-route-geometry edge effective {}))
+  ([edge effective {:keys [region-anchor-resolver]}]
+   (let [material (connector-material/validate-material!
+                   (:connector/material edge))
+         edge-instance-id (:connector/edge-instance-id edge)
+         anchor-container (:container edge)
+         anchor-camera (get-in effective [anchor-container :flags])
+         from-binding (:connector/from material)
+         to-binding (:connector/to material)
+         from (resolved-binding from-binding
+                                (:connector/from-target edge)
+                                effective anchor-container
+                                region-anchor-resolver)
+         to (resolved-binding to-binding
+                              (:connector/to-target edge)
+                              effective anchor-container
+                              region-anchor-resolver)
+         region-anchor? #(= :region-object (:bind %))
+         anchor-projections (+ (if (region-anchor? from-binding) 1 0)
+                               (if (region-anchor? to-binding) 1 0))
+         base-extra {:material material :edge edge
+                     :anchor-projections anchor-projections}]
+     (cond
+       (or (nil? from) (nil? to))
+       (merge (route-status
+               (if (or (and (region-anchor? from-binding) (nil? from))
+                       (and (region-anchor? to-binding) (nil? to)))
+                 :region-anchor-absent
+                 :unresolved)
+               edge-instance-id)
+              base-extra)
 
-      (or (not= (:camera from) (:camera to))
-          (not= anchor-camera (:camera from)))
-      (assoc (route-status :mixed-camera edge-instance-id)
-             :material material :edge edge)
+       (or (not= (:camera from) (:camera to))
+           (not= anchor-camera (:camera from)))
+       (merge (route-status :mixed-camera edge-instance-id) base-extra)
 
-      :else
-      (let [centers (route-centerline material (:center from) (:center to))]
-        (if (< (count centers) 2)
-          (assoc (route-status :degenerate edge-instance-id)
-                 :material material :edge edge)
-          (let [from-tip (clip-from-center from (second centers))
-                to-tip (clip-from-center to (nth centers (- (count centers) 2)))
-                anchors (dedupe-consecutive
-                         (assoc (assoc centers 0 from-tip)
-                                (dec (count centers)) to-tip))]
-            (if (or (< (count anchors) 2)
-                    (<= (reduce + (map (fn [[a b]] (distance a b))
-                                       (partition 2 1 anchors)))
-                        epsilon))
-              (assoc (route-status :degenerate edge-instance-id)
-                     :material material :edge edge)
-              (let [stroke-width (get-in material [:connector/paint :width])
-                    size-k (get-in material [:connector/heads :size-k])
-                    head-length (* size-k stroke-width)
-                    ;; The shared path library owns round caps.  Its cap reaches
-                    ;; half a stroke-width beyond the terminal centerline point,
-                    ;; so leave that radius outside the node/head instead of
-                    ;; letting the cap bleed into either painted surface.
-                    cap-radius (/ stroke-width 2.0)
-                    head-width (* 1.25 head-length)
-                    from-head? (= :triangle (get-in material [:connector/heads :from]))
-                    to-head? (= :triangle (get-in material [:connector/heads :to]))
-                    from-head (when from-head?
-                                (head-triangle from-tip
-                                               (sub (second anchors) from-tip)
-                                               head-length head-width))
-                    to-head (when to-head?
-                              (head-triangle to-tip
-                                             (sub (nth anchors (- (count anchors) 2))
-                                                  to-tip)
-                                             head-length head-width))
-                    stroke (-> anchors
-                               (trim-polyline-start
-                                (+ cap-radius
-                                   (if from-head? head-length 0.0)))
-                               (trim-polyline-end
-                                (+ cap-radius
-                                   (if to-head? head-length 0.0))))]
-                (if (< (count stroke) 2)
-                  (assoc (route-status :degenerate edge-instance-id)
-                         :material material :edge edge)
-                  {:status :resolved
-                   :edge-instance-id edge-instance-id
-                   :material material
-                   :edge edge
-                   :from from :to to
-                   :anchor-points anchors
-                   :resolved-anchor-tuple
-                   [(:center from) (:center to) from-tip to-tip]
-                   :stroke-points stroke
-                   :stroke-width stroke-width
-                   :from-head from-head
-                   :to-head to-head})))))))))
+       :else
+       (let [centers (route-centerline material (:center from) (:center to))]
+         (if (< (count centers) 2)
+           (merge (route-status :degenerate edge-instance-id) base-extra)
+           (let [from-tip (clip-from-center from (second centers))
+                 to-tip (clip-from-center to (nth centers (- (count centers) 2)))
+                 anchors (dedupe-consecutive
+                          (assoc (assoc centers 0 from-tip)
+                                 (dec (count centers)) to-tip))]
+             (if (or (< (count anchors) 2)
+                     (<= (reduce + (map (fn [[a b]] (distance a b))
+                                        (partition 2 1 anchors)))
+                         epsilon))
+               (merge (route-status :degenerate edge-instance-id) base-extra)
+               (let [stroke-width (get-in material [:connector/paint :width])
+                     size-k (get-in material [:connector/heads :size-k])
+                     head-length (* size-k stroke-width)
+                     ;; The shared path library owns round caps.  Its cap reaches
+                     ;; half a stroke-width beyond the terminal centerline point,
+                     ;; so leave that radius outside the node/head instead of
+                     ;; letting the cap bleed into either painted surface.
+                     cap-radius (/ stroke-width 2.0)
+                     head-width (* 1.25 head-length)
+                     from-head? (= :triangle (get-in material [:connector/heads :from]))
+                     to-head? (= :triangle (get-in material [:connector/heads :to]))
+                     from-head (when from-head?
+                                 (head-triangle from-tip
+                                                (sub (second anchors) from-tip)
+                                                head-length head-width))
+                     to-head (when to-head?
+                               (head-triangle to-tip
+                                              (sub (nth anchors (- (count anchors) 2))
+                                                   to-tip)
+                                              head-length head-width))
+                     stroke (-> anchors
+                                (trim-polyline-start
+                                 (+ cap-radius
+                                    (if from-head? head-length 0.0)))
+                                (trim-polyline-end
+                                 (+ cap-radius
+                                    (if to-head? head-length 0.0))))]
+                 (if (< (count stroke) 2)
+                   (merge (route-status :degenerate edge-instance-id) base-extra)
+                   (merge
+                    {:status :resolved
+                     :edge-instance-id edge-instance-id
+                     :material material
+                     :edge edge
+                     :from from :to to
+                     :anchor-points anchors
+                     :resolved-anchor-tuple
+                     [(:center from) (:center to) from-tip to-tip]
+                     :stroke-points stroke
+                     :stroke-width stroke-width
+                     :from-head from-head
+                     :to-head to-head
+                     :anchor-clamped
+                     (boolean (or (:anchor-clamped from)
+                                  (:anchor-clamped to)))}
+                    base-extra)))))))))))
 
 (defn- route-path-material [resolved]
   (let [material (:material resolved)
@@ -446,10 +475,13 @@
    :edge-set-token []
    :entries {}
    :bound-edges-by-container {}
+   :bound-edges-by-region {}
    :last-effective {}
+   :last-region-doors {}
    :last-regime nil
    :last-provider-identity nil
    :route-resolutions 0
+   :anchor-projections 0
    :mesh-derivations 0
    :per-edge {}})
 
@@ -474,6 +506,23 @@
           {}
           edges))
 
+(defn- edge-bound-regions [edge]
+  (into #{}
+        (keep (fn [binding]
+                (when (= :region-object (:bind binding)) (:region binding))))
+        [(get-in edge [:connector/material :connector/from])
+         (get-in edge [:connector/material :connector/to])]))
+
+(defn bound-edges-by-region [edges]
+  (reduce (fn [index edge]
+            (reduce (fn [index region]
+                      (update index region (fnil conj #{})
+                              (:connector/edge-instance-id edge)))
+                    index
+                    (edge-bound-regions edge)))
+          {}
+          edges))
+
 (defn- affected-by-containers [bound-index changed-containers]
   (into #{} (mapcat #(get bound-index % #{})) changed-containers))
 
@@ -495,12 +544,17 @@
 (defn derive-route-set
   "Bounded one-current-entry-per-edge-instance cache. Effective-transform
    value diffs route only changed containers through the bound-edge index."
-  [state connector-ops targets-by-address effective zoom font-assets]
+  ([state connector-ops targets-by-address effective zoom font-assets]
+   (derive-route-set state connector-ops targets-by-address effective zoom
+                     font-assets {}))
+  ([state connector-ops targets-by-address effective zoom font-assets
+    {:keys [region-anchor-resolver region-doors]}]
   (let [state (merge (empty-cache) (or state {}))
         edges (expand-edge-instances connector-ops targets-by-address)
         edge-set-token (mapv :connector/edge-instance-id edges)
         set-changed? (not= edge-set-token (:edge-set-token state))
         next-bound-index (bound-edges-by-container edges)
+        next-region-index (bound-edges-by-region edges)
         bound-index (if (= next-bound-index
                            (:bound-edges-by-container state))
                       (:bound-edges-by-container state)
@@ -509,14 +563,19 @@
                 (assoc state :entries {}
                        :edge-set-token edge-set-token
                        :bound-edges-by-container bound-index
+                       :bound-edges-by-region next-region-index
                        :per-edge
                        (select-keys (:per-edge state) edge-set-token))
-                (assoc state :bound-edges-by-container bound-index))
+                (assoc state :bound-edges-by-container bound-index
+                             :bound-edges-by-region next-region-index))
         changed-containers (effective-value-diff (:last-effective state)
                                                  effective)
+        changed-regions (effective-value-diff (:last-region-doors state)
+                                              (or region-doors {}))
         regime (:regime/id (path-material/zoom-regime zoom))
         provider-id (provider-identity font-assets)
-        affected (affected-by-containers bound-index changed-containers)
+        affected (into (affected-by-containers bound-index changed-containers)
+                       (affected-by-containers next-region-index changed-regions))
         edge-by-id (into {} (map (juxt :connector/edge-instance-id identity)) edges)
         affected
         (reduce (fn [ids edge]
@@ -538,8 +597,18 @@
         (reduce
          (fn [[state resolved-ids derived-ids] edge-id]
            (let [edge (get edge-by-id edge-id)
-                 geometry (resolve-route-geometry edge effective)
+                 geometry (resolve-route-geometry
+                           edge effective
+                           {:region-anchor-resolver region-anchor-resolver})
                  state (update-counter state edge-id :route-resolutions)
+                 state (if (pos? (:anchor-projections geometry 0))
+                         (-> state
+                             (update :anchor-projections +
+                                     (:anchor-projections geometry))
+                             (update-in [:per-edge edge-id :anchor-projections]
+                                        (fnil + 0)
+                                        (:anchor-projections geometry)))
+                         state)
                  key (when (= :resolved (:status geometry))
                        (connector-material/derivation-key
                         (:material geometry)
@@ -576,21 +645,29 @@
         routes (mapv :route entries)
         labels (vec (keep :label entries))
         state (assoc state :last-effective effective
+                           :last-region-doors (or region-doors {})
                            :last-regime regime
                            :last-provider-identity provider-id)
         frame-receipt {:edge-instances (count edges)
                        :cache-size (count (:entries state))
                        :changed-containers changed-containers
+                       :changed-regions changed-regions
                        :affected-edges affected
                        :resolved-this-frame resolved-this-frame
                        :route-resolutions (count resolved-this-frame)
                        :mesh-derivations (count derived-this-frame)
-                       :derived-this-frame derived-this-frame}]
+                       :derived-this-frame derived-this-frame
+                       :anchor-projections
+                       (reduce + 0 (map #(get-in state
+                                                [:entries % :route
+                                                 :anchor-projections] 0)
+                                        resolved-this-frame))}]
     (reset! !live-route-cache
             {:routes (into {} (map (juxt :edge-instance-id identity)) routes)
              :edges edge-by-id
              :targets-by-address targets-by-address
              :effective effective
+             :region-anchor-resolver region-anchor-resolver
              :route-effective
              (into {}
                    (map (fn [edge]
@@ -604,13 +681,14 @@
                             (get-in entry [:route :mesh-bytes])])
                          entries)
      :frame-receipt frame-receipt
-     :census (connector-material/corpus-census routes)}))
+     :census (connector-material/corpus-census routes)})))
 
 (defn live-route
   "Return the current route for pick. If endpoint transforms changed since the
    frame snapshot, lazily re-resolve geometry without touching the rect tree."
   [edge-instance-id]
-  (let [{:keys [routes edges effective route-effective]} @!live-route-cache
+  (let [{:keys [routes edges effective route-effective region-anchor-resolver]}
+        @!live-route-cache
         current-effective (if-let [provider @!effective-provider]
                             (provider)
                             effective)
@@ -626,7 +704,9 @@
     (when edge
       (if (= current-edge-effective cached-edge-effective)
         route
-        (let [next-route (resolve-route-geometry edge current-effective)]
+        (let [next-route (resolve-route-geometry
+                          edge current-effective
+                          {:region-anchor-resolver region-anchor-resolver})]
           (swap! !live-route-cache
                  (fn [cache]
                    (-> cache

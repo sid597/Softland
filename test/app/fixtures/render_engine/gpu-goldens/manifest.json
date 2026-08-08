@@ -9,13 +9,15 @@
     "msdfVertex": "08ca903ea58064cb3f8180b80a32d1033a0369b0632a25fc9b8a832ce118d204",
     "msdfFragment": "fce056017e45c9e1e35b54683408be2573ea22a8d911ab51493751ae2a79115b",
     "slugVertex": "374f5ebdff8ed10efddeca744428acfceb6e04cf71b43fa701107f5aab5aee9d",
-    "slugFragment": "9bcb7e8b32c4c92479c1c7cb8344d45b0230f3aaab8fed5bb16718d764efe190"
+    "slugFragment": "9bcb7e8b32c4c92479c1c7cb8344d45b0230f3aaab8fed5bb16718d764efe190",
+    "region3dPlacedFlat": "1515d54b249887bea0565899c821e72b7255e66cf674bcb298f8de2bd9183989",
+    "region3dPlacedMsdf": "bd9970ab88096daa18d4249bd9e944e1a431d8f218902a32e4551ec9d7a32d73"
   },
   "productionInputs": {
     "rendererSource": {
       "path": "src/app/client/substrate/webgpu/renderer.cljs",
-      "bytes": 186195,
-      "sha256": "3fa0a424f9ddffa9c66160505571f417e6d89a3065b0cf8bfe2d897b1148549d"
+      "bytes": 187877,
+      "sha256": "4536ba847fe0e1b9231e489d68064862ab9d73ea0746f0c01d6ab393124f0bec"
     },
     "msdfAtlas": {
       "path": "resources/public/fonts/dejavu_sans_mono_atlas.png",
@@ -4376,6 +4378,32 @@
           "sha256": "1a09b55531fb143f8f50686c0d91cd00a2418cefe22593ee4d42e5fea75bf759"
         }
       }
+    },
+    {
+      "amendment": 26,
+      "reason": "REGION3D-SEAM integrated placed text/ink, region-object anchors, and the live session mirror; all 47 prior golden bytes remained unchanged",
+      "inputs": {
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35122,
+          "sha256": "42cbbbafc72bc95a336b07440604ebd9195c555d90569755af35124841982062"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 302830,
+          "sha256": "12e1f7a99fbdc4da3dbd99b0487d61f0d1ed10df307a18b5b52c4c8f3ceca53e"
+        }
+      }
     }
   ],
   "pathAtomInputAmendments": [
@@ -5588,6 +5616,67 @@
           "sha256": "1a09b55531fb143f8f50686c0d91cd00a2418cefe22593ee4d42e5fea75bf759"
         }
       }
+    },
+    {
+      "amendment": 21,
+      "reason": "REGION3D-SEAM integrated placed text/ink, region-object anchors, and the live session mirror; all 47 prior golden bytes remained unchanged",
+      "inputs": {
+        "pathMaterial": {
+          "path": "src/app/client/substrate/path_material.cljc",
+          "bytes": 24594,
+          "sha256": "ce0b6dbc1690525fd0a67cb99bfab6107ccdf294091a4f8b952d3ef4c6a4b92f"
+        },
+        "pathTessellation": {
+          "path": "src/app/client/substrate/path_tessellation.cljc",
+          "bytes": 18815,
+          "sha256": "957cb1aa26d21922657bcb8d718992548ffca379b111667115fde4475d663ed6"
+        },
+        "pathGpu": {
+          "path": "src/app/client/substrate/webgpu/path_gpu.cljs",
+          "bytes": 17980,
+          "sha256": "694bc595d1498fb1f7b9f80edcc317b514bfd62782006a4f10fcfcd183e406f8"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35122,
+          "sha256": "42cbbbafc72bc95a336b07440604ebd9195c555d90569755af35124841982062"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17262,
+          "sha256": "f317820c2a76886acd49d02b7470616e8be60f6789a480a344cfbc3c1a1176ce"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 59167,
+          "sha256": "3a3aa2b62d7ff0fbd2acfcfcf10b246aa577ac2c0ccfa3008d15aaaf37553788"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 187877,
+          "sha256": "4536ba847fe0e1b9231e489d68064862ab9d73ea0746f0c01d6ab393124f0bec"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 302830,
+          "sha256": "12e1f7a99fbdc4da3dbd99b0487d61f0d1ed10df307a18b5b52c4c8f3ceca53e"
+        }
+      }
     }
   ],
   "connectorAtomInputs": {
@@ -6754,6 +6843,77 @@
           "sha256": "1a09b55531fb143f8f50686c0d91cd00a2418cefe22593ee4d42e5fea75bf759"
         }
       }
+    },
+    {
+      "amendment": 16,
+      "reason": "REGION3D-SEAM integrated placed text/ink, region-object anchors, and the live session mirror; all 47 prior golden bytes remained unchanged",
+      "inputs": {
+        "connectorMaterial": {
+          "path": "src/app/client/substrate/connector_material.cljc",
+          "bytes": 19117,
+          "sha256": "8b3fdd673474beac31de1b27cf260f2265119ba4489090313e88124df79d8cfc"
+        },
+        "connectorRoute": {
+          "path": "src/app/client/substrate/connector_route.cljc",
+          "bytes": 33215,
+          "sha256": "8d295e42b42ae5731cd4fecc2bdcb4367ae79e6b2645f4fc22431abc15219f4f"
+        },
+        "connectorGpu": {
+          "path": "src/app/client/substrate/webgpu/connector_gpu.cljs",
+          "bytes": 20304,
+          "sha256": "9206a939fed9fa7f6162822a11e9ae0d6d16f3ad0ad5ef8409c30b9d47c80cfd"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35122,
+          "sha256": "42cbbbafc72bc95a336b07440604ebd9195c555d90569755af35124841982062"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17262,
+          "sha256": "f317820c2a76886acd49d02b7470616e8be60f6789a480a344cfbc3c1a1176ce"
+        },
+        "liveEdges": {
+          "path": "src/app/client/workspace/live_edges.cljc",
+          "bytes": 6473,
+          "sha256": "2fc9284167fe8d937ca782eabb41a45db1efbdd7d87a5b714172a64564f480ae"
+        },
+        "fileViewer": {
+          "path": "src/app/file_viewer.cljc",
+          "bytes": 27926,
+          "sha256": "a164e9a5d9c08e5d1147d847c3d7a7984f5590382d0210713684347c9bade810"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 59167,
+          "sha256": "3a3aa2b62d7ff0fbd2acfcfcf10b246aa577ac2c0ccfa3008d15aaaf37553788"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 187877,
+          "sha256": "4536ba847fe0e1b9231e489d68064862ab9d73ea0746f0c01d6ab393124f0bec"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 302830,
+          "sha256": "12e1f7a99fbdc4da3dbd99b0487d61f0d1ed10df307a18b5b52c4c8f3ceca53e"
+        }
+      }
     }
   ],
   "chromeAtomInputs": {
@@ -7880,6 +8040,97 @@
           "path": "test/render_engine/run_verifier.mjs",
           "bytes": 152239,
           "sha256": "20a289139d178018aeba8ade3746f76bbc51791e728d36f32d6bce61ba4dfc37"
+        }
+      }
+    },
+    {
+      "amendment": 12,
+      "reason": "REGION3D-SEAM integrated placed text/ink, region-object anchors, and the live session mirror; all 47 prior golden bytes remained unchanged",
+      "inputs": {
+        "selection": {
+          "path": "src/app/client/workspace/selection.cljc",
+          "bytes": 6208,
+          "sha256": "01274e169be05008e18cd562937ba1838efdcb4bf74f8d9500ea004b555496ef"
+        },
+        "chromeMaterial": {
+          "path": "src/app/client/substrate/chrome_material.cljc",
+          "bytes": 12785,
+          "sha256": "107a83ab794f647bb10f02fb29342296245d32084ec268582f5d07a62a4cf4dc"
+        },
+        "snap": {
+          "path": "src/app/client/substrate/snap.cljc",
+          "bytes": 11211,
+          "sha256": "d857ebdc6a36cc69a1b11d4e1029cfcb7996b2b077131f1ae5dccd3af018c88f"
+        },
+        "chromeDerive": {
+          "path": "src/app/client/substrate/chrome_derive.cljc",
+          "bytes": 13824,
+          "sha256": "ae4cd4ac339703b22c43dc5dfbed590e8747ece79c6b4b25030c66a810ae16c7"
+        },
+        "chromeGpu": {
+          "path": "src/app/client/substrate/webgpu/chrome_gpu.cljs",
+          "bytes": 16642,
+          "sha256": "a689b1b5e6eafddcad04e19d01ca68e65d42320ac132e033420a0cec43caf9d4"
+        },
+        "chromeRuntime": {
+          "path": "src/app/client/workspace/chrome_runtime.cljs",
+          "bytes": 16473,
+          "sha256": "3522d6fa4379ce1348ba6228dcd5469dc947b6513fc66fc6cdb8df3d92d5b937"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35122,
+          "sha256": "42cbbbafc72bc95a336b07440604ebd9195c555d90569755af35124841982062"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "ground": {
+          "path": "src/app/client/workspace/ground.cljs",
+          "bytes": 224452,
+          "sha256": "252bee13fb81fedae79f15abf58a0c309ae23f97b69f7ca68687e6503f73a926"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17262,
+          "sha256": "f317820c2a76886acd49d02b7470616e8be60f6789a480a344cfbc3c1a1176ce"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 59167,
+          "sha256": "3a3aa2b62d7ff0fbd2acfcfcf10b246aa577ac2c0ccfa3008d15aaaf37553788"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 187877,
+          "sha256": "4536ba847fe0e1b9231e489d68064862ab9d73ea0746f0c01d6ab393124f0bec"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 302830,
+          "sha256": "12e1f7a99fbdc4da3dbd99b0487d61f0d1ed10df307a18b5b52c4c8f3ceca53e"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 160684,
+          "sha256": "ed3f7842d7f13a15a9ae3c7bbaecb66da9afbcd775e8db82e1a584ac9eb3b2e8"
         }
       }
     }
@@ -9080,6 +9331,107 @@
           "sha256": "600e7d955ed5f36fae3c47a1368146a70bcb04e8b79148ad4f7f54333f211483"
         }
       }
+    },
+    {
+      "amendment": 11,
+      "reason": "REGION3D-SEAM integrated placed text/ink, region-object anchors, and the live session mirror; all 47 prior golden bytes remained unchanged",
+      "inputs": {
+        "frameEffects": {
+          "path": "src/app/client/substrate/frame_effects.cljc",
+          "bytes": 14194,
+          "sha256": "8c90cd09d00bb08923b3ab5be32c20e21d92adc2f0e0f4fe34bd8c060f2e39eb"
+        },
+        "frameGraph": {
+          "path": "src/app/client/substrate/frame_graph.cljc",
+          "bytes": 39028,
+          "sha256": "3a9adf223b010965454cbfa9b7c028ff29929edfe2bc982fd6650972ae760784"
+        },
+        "frameScheduler": {
+          "path": "src/app/client/substrate/frame_scheduler.cljc",
+          "bytes": 7915,
+          "sha256": "19df7b384c1b5ad7a6341146151ad7bd9998ec351a7f433aebf0bb27cdf2765d"
+        },
+        "compositorGpu": {
+          "path": "src/app/client/substrate/webgpu/compositor_gpu.cljs",
+          "bytes": 61880,
+          "sha256": "059ba70d7f4c36b299976d86a5f541ff26188041649ca4526cb030fd6f5c151f"
+        },
+        "frameRuntime": {
+          "path": "src/app/client/workspace/frame_runtime.cljs",
+          "bytes": 15083,
+          "sha256": "4464093577bbc58d245f1de57d0d5c69d498b91a9135b2b924f37d1a80a5cffb"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35122,
+          "sha256": "42cbbbafc72bc95a336b07440604ebd9195c555d90569755af35124841982062"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "containers": {
+          "path": "src/app/client/workspace/containers.cljc",
+          "bytes": 12458,
+          "sha256": "8eb7b7f73596470986da251e4158a96f944387cef54cd63eeca3f5121aa52300"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "chromeMaterial": {
+          "path": "src/app/client/substrate/chrome_material.cljc",
+          "bytes": 12785,
+          "sha256": "107a83ab794f647bb10f02fb29342296245d32084ec268582f5d07a62a4cf4dc"
+        },
+        "chromeGpu": {
+          "path": "src/app/client/substrate/webgpu/chrome_gpu.cljs",
+          "bytes": 16642,
+          "sha256": "a689b1b5e6eafddcad04e19d01ca68e65d42320ac132e033420a0cec43caf9d4"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17262,
+          "sha256": "f317820c2a76886acd49d02b7470616e8be60f6789a480a344cfbc3c1a1176ce"
+        },
+        "electricFlow": {
+          "path": "src/app/electric_flow.cljc",
+          "bytes": 49516,
+          "sha256": "cacea9b1eb890b601b73a84f7f9ef716f88ac957403045d3a47e4231b74f743c"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 59167,
+          "sha256": "3a3aa2b62d7ff0fbd2acfcfcf10b246aa577ac2c0ccfa3008d15aaaf37553788"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 187877,
+          "sha256": "4536ba847fe0e1b9231e489d68064862ab9d73ea0746f0c01d6ab393124f0bec"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 302830,
+          "sha256": "12e1f7a99fbdc4da3dbd99b0487d61f0d1ed10df307a18b5b52c4c8f3ceca53e"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 160684,
+          "sha256": "ed3f7842d7f13a15a9ae3c7bbaecb66da9afbcd775e8db82e1a584ac9eb3b2e8"
+        },
+        "fence": {
+          "path": "test/render_engine/verify_scene_tape_fence.mjs",
+          "bytes": 9203,
+          "sha256": "600e7d955ed5f36fae3c47a1368146a70bcb04e8b79148ad4f7f54333f211483"
+        }
+      }
     }
   ],
   "t2InputFloorInputs": {
@@ -9654,6 +10006,97 @@
           "sha256": "28e2d51d202e6776c9044979d24973c84b6c96736dc988360f141a7e9a95a547"
         }
       }
+    },
+    {
+      "amendment": 6,
+      "reason": "REGION3D-SEAM integrated placed text/ink, region-object anchors, and the live session mirror; all 47 prior golden bytes remained unchanged",
+      "inputs": {
+        "textEditing": {
+          "path": "src/app/client/workspace/text_editing.cljc",
+          "bytes": 20908,
+          "sha256": "77366a2eb98016fe3f48bf0ff5da96313aac12043bf83b40afdf60cf9e7f6ec7"
+        },
+        "editingSegmentation": {
+          "path": "src/app/client/workspace/editing_segmentation.cljs",
+          "bytes": 2136,
+          "sha256": "894850264409b4e9aa27b79159cea598a80516b30d04914d46b5e8c5439c0698"
+        },
+        "editingRuntime": {
+          "path": "src/app/client/workspace/editing_runtime.cljs",
+          "bytes": 33877,
+          "sha256": "acf4116a4407ddf810559ec09665d321c2eaa24efcc1a060455c9660a0fd3e44"
+        },
+        "textLayout": {
+          "path": "src/app/client/workspace/text_layout.cljc",
+          "bytes": 71450,
+          "sha256": "87112273dbc34b615929a5c62959dd408fa54f091aca1624d712325ddeb06905"
+        },
+        "events": {
+          "path": "src/app/client/workspace/events.cljs",
+          "bytes": 11699,
+          "sha256": "50d3fde2ae648a2233e9a0c4984591ad2f746ce981d92afaed1eb0495087fe59"
+        },
+        "runtimeMouse": {
+          "path": "src/app/client/workspace/runtime/mouse.cljs",
+          "bytes": 38971,
+          "sha256": "5bbbc14296b6a1340cd50752eec3f3ae4da74791021ad702712cd1e05667dc66"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 59167,
+          "sha256": "3a3aa2b62d7ff0fbd2acfcfcf10b246aa577ac2c0ccfa3008d15aaaf37553788"
+        },
+        "liveAtoms": {
+          "path": "src/app/client/workspace/live_atoms.cljs",
+          "bytes": 17262,
+          "sha256": "f317820c2a76886acd49d02b7470616e8be60f6789a480a344cfbc3c1a1176ce"
+        },
+        "frameScheduler": {
+          "path": "src/app/client/substrate/frame_scheduler.cljc",
+          "bytes": 7915,
+          "sha256": "19df7b384c1b5ad7a6341146151ad7bd9998ec351a7f433aebf0bb27cdf2765d"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35122,
+          "sha256": "42cbbbafc72bc95a336b07440604ebd9195c555d90569755af35124841982062"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "containers": {
+          "path": "src/app/client/workspace/containers.cljc",
+          "bytes": 12458,
+          "sha256": "8eb7b7f73596470986da251e4158a96f944387cef54cd63eeca3f5121aa52300"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 187877,
+          "sha256": "4536ba847fe0e1b9231e489d68064862ab9d73ea0746f0c01d6ab393124f0bec"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 302830,
+          "sha256": "12e1f7a99fbdc4da3dbd99b0487d61f0d1ed10df307a18b5b52c4c8f3ceca53e"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 160684,
+          "sha256": "ed3f7842d7f13a15a9ae3c7bbaecb66da9afbcd775e8db82e1a584ac9eb3b2e8"
+        },
+        "fence": {
+          "path": "test/render_engine/verify_text_layout_fence.mjs",
+          "bytes": 9146,
+          "sha256": "6dd9d1cd0c477dc69ddb03f43ae6ff219fd32464c2f2900b1fbcfe231ff549dc"
+        }
+      }
     }
   ],
   "t2InputFloorGoldenAmendments": [
@@ -9777,6 +10220,27 @@
       "file": "gpu-region3d-floor-gizmo-overlay.png",
       "rawSha256": "f51daf4d9eb9badd561f768ffb4f6d74b459e1d0483ea4a88029f40a7d1378f4",
       "pngSha256": "6e91a5f7bd10f85a7373659422dd22d82bb94f934e21d53cbb6ef36c785134b3"
+    },
+    {
+      "caseId": "placed-depth-interleave",
+      "mode": "placed-depth-interleave",
+      "file": "gpu-region3d-floor-placed-depth-interleave.png",
+      "rawSha256": "975d7aa2f6500073168c6773a1ff8e59ede15f5cd81a4041db513a8355b4f17e",
+      "pngSha256": "7ab930e3f21ef789a28e3df8a5980b5e355baf446e0b12d887c2fdcac4d6c907"
+    },
+    {
+      "caseId": "anchored-edge-over-region",
+      "mode": "anchored-edge-over-region",
+      "file": "gpu-region3d-floor-anchored-edge-over-region.png",
+      "rawSha256": "efe9665a8cffa82751752fc53cd3c74e625d4efa407375bbe57dd7c2c1f441a1",
+      "pngSha256": "d71920fe65e7b5839c5f650163f43c0f015fe00aebf5f141050378d35444cfaa"
+    },
+    {
+      "caseId": "seam-demo",
+      "mode": "seam-demo",
+      "file": "gpu-region3d-floor-seam-demo.png",
+      "rawSha256": "6e2ca31d066a6746cd32c056a12f58939e032b01f477c8caa199001621be20e5",
+      "pngSha256": "c6672f157d6fb7be122f1f39d935e09bf59643f1add2a5ae818653808e74b453"
     }
   ],
   "region3dFloorInputAmendments": [
@@ -9929,6 +10393,117 @@
           "path": "test/render_engine/run_verifier.mjs",
           "bytes": 152239,
           "sha256": "20a289139d178018aeba8ade3746f76bbc51791e728d36f32d6bce61ba4dfc37"
+        }
+      }
+    },
+    {
+      "amendment": 3,
+      "reason": "REGION3D-SEAM integrated placed text/ink, region-object anchors, and the live session mirror; all 47 prior golden bytes remained unchanged",
+      "inputs": {
+        "region3dMaterial": {
+          "path": "src/app/client/substrate/region3d_material.cljc",
+          "bytes": 30969,
+          "sha256": "8b792d5f437887d42574c8d1aee1d090ff353543fdaf4429e3c2007843d0e0ff"
+        },
+        "region3dScene": {
+          "path": "src/app/client/substrate/region3d_scene.cljc",
+          "bytes": 53000,
+          "sha256": "5896ff5ba0fee006f18cd81c1129caf6e77ccfdc3d7b18c8c55b94004979b914"
+        },
+        "region3dGpu": {
+          "path": "src/app/client/substrate/webgpu/region3d_gpu.cljs",
+          "bytes": 66816,
+          "sha256": "00c437956c3c2e46f3b3fd6a998eb60ef1df78fcc951fe5ffb97136435d572e4"
+        },
+        "region3dPlacement": {
+          "path": "src/app/client/substrate/region3d_placement.cljc",
+          "bytes": 19873,
+          "sha256": "e89922fbe04ba920ec22fb3d8ca7a9340986a05017f2daf9501857ff863c6d8a"
+        },
+        "region3dPlacementGpu": {
+          "path": "src/app/client/substrate/webgpu/region3d_placement_gpu.cljs",
+          "bytes": 25777,
+          "sha256": "1d513d6a64517c83069305ebe529dd4a7607923c9e93e7ba143c837c9369c5dd"
+        },
+        "connectorMaterial": {
+          "path": "src/app/client/substrate/connector_material.cljc",
+          "bytes": 19117,
+          "sha256": "8b3fdd673474beac31de1b27cf260f2265119ba4489090313e88124df79d8cfc"
+        },
+        "connectorRoute": {
+          "path": "src/app/client/substrate/connector_route.cljc",
+          "bytes": 33215,
+          "sha256": "8d295e42b42ae5731cd4fecc2bdcb4367ae79e6b2645f4fc22431abc15219f4f"
+        },
+        "connectorGpu": {
+          "path": "src/app/client/substrate/webgpu/connector_gpu.cljs",
+          "bytes": 20304,
+          "sha256": "9206a939fed9fa7f6162822a11e9ae0d6d16f3ad0ad5ef8409c30b9d47c80cfd"
+        },
+        "region3dRuntime": {
+          "path": "src/app/client/workspace/region3d_runtime.cljs",
+          "bytes": 21497,
+          "sha256": "6b0fd78fed4cf265587e95a3d3a558f3723449b3c3961d122d6df644fdbfca30"
+        },
+        "compositorGpu": {
+          "path": "src/app/client/substrate/webgpu/compositor_gpu.cljs",
+          "bytes": 61880,
+          "sha256": "059ba70d7f4c36b299976d86a5f541ff26188041649ca4526cb030fd6f5c151f"
+        },
+        "frameGraph": {
+          "path": "src/app/client/substrate/frame_graph.cljc",
+          "bytes": 39028,
+          "sha256": "3a9adf223b010965454cbfa9b7c028ff29929edfe2bc982fd6650972ae760784"
+        },
+        "sceneTape": {
+          "path": "src/app/client/substrate/scene_tape.cljc",
+          "bytes": 33010,
+          "sha256": "f47aa9f34279a0ad7fc29838c4a14f328c6370a2e1ee64aa49307725686c045c"
+        },
+        "rectTree": {
+          "path": "src/app/client/workspace/rect_tree.cljc",
+          "bytes": 35219,
+          "sha256": "0ba9aa36fd9b7cdd060703352a03ad902b2acae16e6e4b4bb73eb79d334be7a1"
+        },
+        "sceneStore": {
+          "path": "src/app/client/workspace/scene_store.cljc",
+          "bytes": 35122,
+          "sha256": "42cbbbafc72bc95a336b07440604ebd9195c555d90569755af35124841982062"
+        },
+        "sceneRuntime": {
+          "path": "src/app/client/workspace/scene_runtime.cljs",
+          "bytes": 28720,
+          "sha256": "467c90603f0a83bea4628a08ed3e5a842279cfc1283f809d3fe147f62b34f50b"
+        },
+        "runtimeRender": {
+          "path": "src/app/client/workspace/runtime/render.cljs",
+          "bytes": 59167,
+          "sha256": "3a3aa2b62d7ff0fbd2acfcfcf10b246aa577ac2c0ccfa3008d15aaaf37553788"
+        },
+        "editingRuntime": {
+          "path": "src/app/client/workspace/editing_runtime.cljs",
+          "bytes": 33877,
+          "sha256": "acf4116a4407ddf810559ec09665d321c2eaa24efcc1a060455c9660a0fd3e44"
+        },
+        "seamDemo": {
+          "path": "src/app/client/workspace/seam_demo.cljs",
+          "bytes": 6854,
+          "sha256": "24e395428a46baaa702672b894317d5888d079c87beeb5535313fb3b95b6d423"
+        },
+        "renderer": {
+          "path": "src/app/client/substrate/webgpu/renderer.cljs",
+          "bytes": 187877,
+          "sha256": "4536ba847fe0e1b9231e489d68064862ab9d73ea0746f0c01d6ab393124f0bec"
+        },
+        "verifier": {
+          "path": "src/app/client/substrate/webgpu/verifier.cljs",
+          "bytes": 302830,
+          "sha256": "12e1f7a99fbdc4da3dbd99b0487d61f0d1ed10df307a18b5b52c4c8f3ceca53e"
+        },
+        "runner": {
+          "path": "test/render_engine/run_verifier.mjs",
+          "bytes": 160684,
+          "sha256": "ed3f7842d7f13a15a9ae3c7bbaecb66da9afbcd775e8db82e1a584ac9eb3b2e8"
         }
       }
     }

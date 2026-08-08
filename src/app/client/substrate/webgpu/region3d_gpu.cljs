@@ -8,7 +8,9 @@
   (:require [app.client.substrate.region3d-material :as material]
             [app.client.substrate.region3d-scene :as scene]
             [app.client.substrate.webgpu.compositor-gpu :as compositor]
-            [app.client.substrate.webgpu.gpu-budget :as gpu-budget]))
+            [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
+            [app.client.substrate.webgpu.region3d-placement-gpu
+             :as placement-gpu]))
 
 (def region3d-gpu-version 1)
 (def max-lights 8)
@@ -631,6 +633,7 @@
     {:region3d-gpu/version region3d-gpu-version
      :device device :tracker tracker :camera-buffer camera-buffer
      :containers-buffer containers-buffer :pipelines (create-pipelines! device)
+     :placement-system (placement-gpu/init-placement-system! device tracker)
      :sampler (.createSampler ^js device (clj->js {:minFilter "linear"
                                                    :magFilter "linear"}))
      :shadow-sampler (.createSampler ^js device
@@ -641,12 +644,17 @@
      :!compositor (atom nil)
      :!prepared (atom {}) :!composite-buffer (atom composite-buffer)
      :!last-composite-key (atom nil)
-     :!receipt (atom {:version 1 :prepare-calls 0 :region-encodes 0
+     :!receipt (atom {:version 1 :prepare-calls 0 :scene-derives 0
+                      :region-encodes 0
                       :held-passes 0 :object-instance-uploads 0
                       :mesh-vertex-uploads 0 :uniform-uploads 0
                       :composite-uploads 0 :regions {}})}))
 
 (defonce ^:private !systems-by-device (js/WeakMap.))
+(defonce ^:private !pick-state (atom {}))
+
+(defn prepared-pick-state [region-id]
+  (get @!pick-state region-id))
 
 (defn region3d-system-for-device
   "Return the already-created system without allocating one. This lets an
@@ -851,7 +859,9 @@
                                      shadow-uniform-bytes uniform-usage)
      :gizmo-uniform (create-buffer! (:device system) (:tracker system)
                                     (str "region3d/" region-id "/gizmo-uniform")
-                                    gizmo-uniform-bytes uniform-usage)}))
+                                    gizmo-uniform-bytes uniform-usage)
+     :placement (placement-gpu/create-region-gpu!
+                 (:placement-system system) region-id)}))
 
 (defn- write-material-gpu! [system region-id gpu maintained]
   (let [{:keys [vertices draws]} (mesh-upload maintained)
@@ -933,7 +943,9 @@
 (defn- destroy-region-gpu! [system gpu]
   (doseq [key [:vertex :instances :glyphs :lights :uniform :shadow-uniform
                :gizmo-uniform]]
-    (destroy-buffer! system (get gpu key) :region3d-region-close)))
+    (destroy-buffer! system (get gpu key) :region3d-region-close))
+  (placement-gpu/destroy-region-gpu! (:placement-system system)
+                                     (:placement gpu)))
 
 (defn- upload-composites! [system regions]
   (let [key (mapv #(select-keys % [:region-id :x :y :w :h :container-idx]) regions)]
@@ -963,7 +975,10 @@
 (defn prepare-region3d-frame!
   "Upload region material/session projections before any pass opens. Returns a
    receipt; it never creates a command encoder or requests a target lease."
-  [system store-frame session {:keys [zoom dpr] :or {zoom 1.0 dpr 1.0}}]
+  [system store-frame session
+   {:keys [zoom dpr font-assets session-layout-snapshot atlas-view
+           atlas-sampler path-system max-lease-size]
+    :or {zoom 1.0 dpr 1.0}}]
   (let [regions (vec (or (:regions store-frame) []))
         prior @(:!prepared system)
         live-ids (set (map :region-id regions))
@@ -981,11 +996,23 @@
                        old (get prior region-id)
                        material-changed? (not= material-key (:material-key old))
                        maintained (if material-changed?
-                                    (scene/derive-scene region)
+                                    (assoc (scene/derive-scene region)
+                                           :region-id region-id)
                                     (:maintained old))
                        pixel-size [(max 1 (js/Math.ceil (* (:w op) zoom dpr)))
                                    (max 1 (js/Math.ceil (* (:h op) zoom dpr)))]
-                       lease-size (mapv compositor/quantize-region-size pixel-size)
+                       ;; The composite maps the FULL lease onto the region's
+                       ;; screen rect, so texels past the attachment size can
+                       ;; never reach the screen; capping here also keeps one
+                       ;; lease (56 bytes/px across its four targets) inside
+                       ;; the frame-target budget at any zoom — unclamped, the
+                       ;; 4096-quant MSAA color target alone equals the whole
+                       ;; 512MB pool. Camera aspect and picking stay on the
+                       ;; unclamped pixel-size.
+                       lease-size (mapv compositor/quantize-region-size
+                                        (if max-lease-size
+                                          (mapv min pixel-size max-lease-size)
+                                          pixel-size))
                        view (or (:view session-row) (:view-default region))
                        camera (scene/camera-matrices view pixel-size)
                        shadow-space (scene/shadow-light-space maintained)
@@ -1002,17 +1029,32 @@
                               (write-view-gpu! system gpu1 maintained camera
                                                session-row shadow-space)
                               gpu1)
-                       draw-order (draw-order gpu2 maintained camera)
+                       placement-result
+                       (placement-gpu/prepare-placements!
+                        (:placement-system system) (:placement gpu2)
+                        (:region3d/resolved-placements op) maintained camera
+                        (if path-system @(:!mesh-cache path-system) {})
+                        {:font-assets font-assets
+                         :session-layout-snapshot session-layout-snapshot
+                         :atlas-view atlas-view :atlas-sampler atlas-sampler})
+                       _ (when path-system
+                           (reset! (:!mesh-cache path-system)
+                                   (:path-cache placement-result)))
+                       gpu3 (assoc gpu2 :placement (:gpu placement-result))
+                       draw-order (draw-order gpu3 maintained camera)
                        dirty-by-role
                        {:shadow (or material-changed? (nil? old))
                         :interior (or material-changed? view-changed?
+                                      (:changed? placement-result)
                                       (nil? old))}]
                    [region-id
                     {:region-id region-id :op op :composite-index composite-index
                      :material-key material-key :view-key view-key
                      :maintained maintained :camera camera :lease-size lease-size
                      :shadow-space shadow-space :shadow? (boolean shadow-space)
-                     :gpu gpu2 :draw-order draw-order
+                     :gpu gpu3 :draw-order draw-order
+                     :placements (:placements placement-result)
+                     :placement-census (:census placement-result)
                      :dirty-by-role dirty-by-role
                      :material-changed? material-changed?
                      :view-changed? view-changed?
@@ -1023,10 +1065,17 @@
     (doseq [region-id closed]
       (destroy-region-gpu! system (:gpu (get prior region-id))))
     (reset! (:!prepared system) next)
+    (reset! !pick-state
+            (into {} (map (fn [[region-id row]]
+                            [region-id
+                             (select-keys row [:maintained :camera :placements])]))
+                  next))
     (swap! (:!receipt system)
            (fn [receipt]
              (-> receipt
                  (update :prepare-calls inc)
+                 (update :scene-derives +
+                         (count (filter :material-changed? (vals next))))
                  (update :object-instance-uploads +
                          (reduce + 0 (map #(if (:material-changed? %)
                                             (count (get-in % [:maintained :instances])) 0)
@@ -1152,6 +1201,8 @@
     (draw-mesh-rows! pass system prepared
                      (get-in prepared [:draw-order :transparent])
                      (get-in system [:pipelines :transparent]) mesh-bind)
+    (placement-gpu/draw-placements! pass (:placement-system system)
+                                    (:placement gpu) (:uniform gpu))
     (when (pos? (get-in gpu [:glyph-count] 0))
       (.setPipeline pass (get-in system [:pipelines :glyph]))
       (.setBindGroup pass 0 region-bind)
@@ -1253,11 +1304,22 @@
 
 (defn region3d-receipt [system]
   (assoc @(:!receipt system)
+         :placements (placement-gpu/placement-receipt
+                      (:placement-system system))
          :prepared
          (into {} (map (fn [[id row]]
                          [id {:dirty-by-role (:dirty-by-role row)
                               :last-lease-keys (:last-lease-keys row)
                               :shadow? (:shadow? row)
+                              :placement-layouts
+                              (into {}
+                                    (map (fn [placed]
+                                           [(:object-id placed)
+                                            {:address (:address placed)
+                                             :status (:status placed)
+                                             :layout-id (get-in placed
+                                                                [:layout :layout/id])}]))
+                                    (:placements row))
                               :objects (count (get-in row [:maintained :instances]))}]))
                @(:!prepared system))))
 
@@ -1270,6 +1332,8 @@
     (gpu-budget/destroy-resource! (:tracker system) texture
                                   :reason :region3d-system-destroy)
     (.destroy ^js texture))
+  (placement-gpu/destroy-placement-system! (:placement-system system))
   (reset! (:!prepared system) {})
+  (reset! !pick-state {})
   (.delete !systems-by-device (:device system))
   true)

@@ -3,6 +3,7 @@
             [app.client.substrate.frame-effects :as frame-effects]
             [app.client.substrate.frame-graph :as frame-graph]
             [app.client.substrate.image-material :as image-material]
+            [app.client.substrate.region3d-placement :as region3d-placement]
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.buffer-pool :as buffer-pool]
             [app.client.substrate.webgpu.chrome-gpu :as chrome-gpu]
@@ -2039,7 +2040,10 @@
         camera-buffer (create-camera-buffer device gpu-budget)
         containers-buffer (create-containers-buffer device gpu-budget)
         text-sys (init-text-system device format camera-buffer font-assets
-                                   :initial-capacity 1000000
+                                   ;; Startup demand is unknown at device creation;
+                                   ;; seed one bounded growth step and let the
+                                   ;; existing 1.5x policy follow live demand.
+                                   :initial-capacity 4096
                                    :tracker gpu-budget
                                    :label "text/content"
                                    :containers-buffer containers-buffer
@@ -2205,16 +2209,13 @@
                    (if (= :header (first (:source-range line)))
                      [:header (second (:source-range line))
                       [range-start range-end]]
-                     [(tl/tagged-index range-start) (tl/tagged-index range-end)]))
-        glyphs (mapv (fn [glyph]
-                       (update glyph :position
-                               (fn [[gx gy]] [(+ gx dx) (+ gy dy)])))
-                     (:glyphs selection))]
+                     [(tl/tagged-index range-start) (tl/tagged-index range-end)])
+                   dx dy)]
     {:layout/id (:layout/id layout-result)
      :style txt
      :font-size fsize
      :span-receipt (select-keys selection [:glyph-span :visited-glyphs])
-     :glyphs glyphs}))
+     :glyphs (:glyphs selection)}))
 
 (defn- position-text
   [texts global-fsize font-assets char-width snap-step surface]
@@ -3467,7 +3468,7 @@
                              editor-shadow-count image-system path-system
                              connector-system chrome-system effective-transforms
                              container-registry font-assets frame-format pulse-alpha
-                             region3d-session dpr]
+                             region3d-session session-layout-snapshot dpr]
                       :or {cmd-panel-visible false chrome-text-sys nil chrome-base-line-count 0
                            settings-line-count 0 settings-visible false
                            settings-rect-sys nil agent-visible false
@@ -3479,7 +3480,7 @@
                            chrome-system nil effective-transforms nil
                            container-registry nil font-assets nil
                            frame-format "bgra8unorm" pulse-alpha 1.0
-                           region3d-session {} dpr 1.0}}]
+                           region3d-session {} session-layout-snapshot nil dpr 1.0}}]
   (update-camera device (:camera-uniform-buffer text-sys) camera-floats
                  pan-x pan-y zoom w h)
   (when (and chrome-text-sys
@@ -3503,17 +3504,49 @@
       (prepare-image-frame! image-system (:images store-frame)))
     (when path-system
       (path-gpu/prepare-path-frame! path-system (:paths store-frame) zoom))
-    (when connector-system
-      (connector-gpu/prepare-connector-frame!
-       connector-system (:connectors store-frame)
-       (:targets-by-address store-frame) effective-transforms zoom
-       font-assets text-sys))
     (when chrome-system
       (chrome-gpu/prepare-chrome-frame! chrome-system (:chromes store-frame)
                                         {:pulse-alpha pulse-alpha}))
     (when region3d-system
-      (region3d-gpu/prepare-region3d-frame!
-       region3d-system store-frame region3d-session {:zoom zoom :dpr dpr}))
+      (let [canvas (.-canvas context)
+            max-lease [(max 1 (or (some-> canvas .-width) (int w)))
+                       (max 1 (or (some-> canvas .-height) (int h)))]]
+        (region3d-gpu/prepare-region3d-frame!
+         region3d-system store-frame region3d-session
+         {:zoom zoom :dpr dpr :font-assets font-assets
+          :session-layout-snapshot session-layout-snapshot
+          :atlas-view (:font-texture-view text-sys)
+          :atlas-sampler (:font-sampler text-sys)
+          :path-system path-system
+          :max-lease-size max-lease})))
+    (let [prepared-by-region (when region3d-system
+                               @(:!prepared region3d-system))
+          region-anchor-resolver
+          (when region3d-system
+            (region3d-placement/region-anchor-resolver
+             {:regions (:regions store-frame)
+              :prepared-by-region prepared-by-region
+              :effective-transforms effective-transforms}))
+          region-doors
+          (into {}
+                (map (fn [op]
+                       (let [prepared (get prepared-by-region (:region-id op))
+                             session-row (:session prepared)]
+                         [(:address op)
+                          [(or (:view session-row)
+                               (get-in prepared
+                                       [:maintained :region :view-default]))
+                           (:preview-transform session-row)
+                           (:settled-transforms session-row)
+                           (get effective-transforms (:container op))]])))
+                (:regions store-frame))]
+      (when connector-system
+        (connector-gpu/prepare-connector-frame!
+         connector-system (:connectors store-frame)
+         (:targets-by-address store-frame) effective-transforms zoom
+         font-assets text-sys
+         {:region-anchor-resolver region-anchor-resolver
+          :region-doors region-doors})))
 
     (let [canvas (.-canvas context)
         attachment-size [(max 1 (or (some-> canvas .-width) (int w)))
@@ -3617,6 +3650,9 @@
         (when region3d-system
           (aset js/globalThis "__softlandRegion3DReceipt"
                 (clj->js (region3d-gpu/region3d-receipt region3d-system))))
+        (when connector-system
+          (aset js/globalThis "__softlandConnectorReceipt"
+                (clj->js (connector-gpu/connector-receipt connector-system))))
         result)
       (let [encoder (.createCommandEncoder device)
             swap-texture (.getCurrentTexture context)

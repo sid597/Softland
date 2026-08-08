@@ -6,17 +6,33 @@
    join rendering through the renderer-edge snapshot and never enter store
    derivation or durable event vocabulary."
   (:require [app.client.substrate.region3d-material :as material]
+            [app.client.substrate.region3d-placement :as placement]
             [app.client.substrate.region3d-scene :as scene]
+            [app.client.substrate.webgpu.region3d-gpu :as region3d-gpu]
             [app.client.workspace.rect-tree :as rt]
-            [app.client.workspace.scene-runtime :as scene-runtime]))
+            [app.client.workspace.scene-runtime :as scene-runtime]
+            [app.client.workspace.scene-store :as scene-store]))
 
 (def fixture-underlay-vi :region3d/fixture-underlay)
 (def fixture-region-vi :region3d/fixture-region)
 (def fixture-overlay-vi :region3d/fixture-overlay)
 (def fixture-region-id :region3d/felt-region)
 
+(def ^:private panel-origin [236.0 146.0])
+(def ^:private panel-members
+  [[fixture-underlay-vi [0.0 0.0]]
+   [fixture-region-vi [20.0 20.0]]
+   [fixture-overlay-vi [20.0 20.0]]])
+(def ^:private panel-handle-addresses
+  #{:region3d/fixture-underlay
+    :region3d/fixture-titlebar
+    :region3d/fixture-title})
+(def ^:private selectable-object-routes #{:object :object-glyph})
+(def ^:private placed-content-routes #{:placed-text :placed-ink})
+
 (defonce !session
   (atom {:version 1 :enabled? false :focused-region nil :regions {}
+         :panel-position panel-origin
          :settled-diffs [] :focus-opens 0 :focus-closes 0}))
 (defonce ^:private !mounted? (atom false))
 (defonce ^:private !canvas (atom nil))
@@ -24,12 +40,21 @@
 (defonce ^:private !listeners (atom []))
 (defonce ^:private !registrations (atom {}))
 (defonce ^:private !pick-cache (atom {}))
+(defonce ^:private !fixture-hooks (atom {}))
+
+(defn install-fixture-hook! [id hook]
+  (if hook
+    (swap! !fixture-hooks assoc id hook)
+    (swap! !fixture-hooks dissoc id))
+  true)
 
 (defn flag-enabled-search? [search]
   (= "1" (.get (js/URLSearchParams. (or search "")) "region3d")))
 
 (defn enabled? []
   (flag-enabled-search? (.-search js/location)))
+
+(defn fixture-mounted? [] @!mounted?)
 
 (defn session-snapshot [] @!session)
 
@@ -116,9 +141,15 @@
    {:x 0.0 :y 0.0 :w 720.0 :h 480.0}
    :children
    [(rt/rt-node
-     :region3d/fixture-title :text {:x 18.0 :y 14.0 :w 520.0 :h 52.0}
-     :text [{:text "REGION 3D · double-click to focus · W/E/R gizmo"
-             :x 0.0 :y 0.0 :size 18.0 :type :keyword
+     :region3d/fixture-titlebar :rect
+     {:x 0.0 :y 0.0 :w 720.0 :h 44.0}
+     :style {:bg [0.045 0.052 0.070 0.94]
+             :border-width 1.0 :border-color [0.22 0.27 0.36 1.0]}
+     :data {:address :region3d/fixture-titlebar})
+    (rt/rt-node
+     :region3d/fixture-title :text {:x 18.0 :y 12.0 :w 680.0 :h 30.0}
+     :text [{:text "REGION 3D · DRAG BAR · CLICK OBJECT · W MOVE  E ROTATE  R SCALE"
+             :x 0.0 :y 0.0 :size 15.0 :type :keyword
              :r 0.88 :g 0.91 :b 0.98 :a 1.0}]
      :data {:address :region3d/fixture-title})]))
 
@@ -138,6 +169,7 @@
     (register! fixture-underlay-vi (underlay-tree) 236.0 146.0 40)
     (register! fixture-region-vi (region-tree) 256.0 166.0 41)
     (register! fixture-overlay-vi (overlay-tree) 256.0 166.0 42)
+    (swap! !session assoc :panel-position panel-origin)
     true))
 
 (defn- session-region-value [region row]
@@ -174,50 +206,112 @@
   (let [region-id (:region-id hit)
         row (get-in @!session [:regions region-id] {})
         region (material/validate-region! (:region-material hit))
-        maintained (pick-maintained region-id region row)
+        prepared (region3d-gpu/prepared-pick-state region-id)
+        maintained (or (:maintained prepared)
+                       (pick-maintained region-id region row))
         viewport (or (:region-size hit)
                      [(get-in region [:extent :width])
                       (get-in region [:extent :height])])
         view (or (:view row) (:view-default region))
-        camera (scene/camera-matrices view viewport)
+        camera (or (:camera prepared)
+                   (scene/camera-matrices view viewport))
         resolved (scene/pick-region
                   {:maintained maintained :camera camera
                    :region-point (:region-local hit)
-                   :gizmo-handles (gizmo-handles maintained camera row)})]
-    (merge hit resolved {:camera camera :region-material region})))
+                   :gizmo-handles (gizmo-handles maintained camera row)
+                   :placements (:placements prepared)
+                   :placement-picker placement/pick-placement})]
+    ;; The GPU-prepared maintained view is intentionally session-free and does
+    ;; not carry the outer store row's region id.  Reassert that semantic id at
+    ;; the edge so an internal background hit cannot overwrite it with nil.
+    (merge hit resolved {:region-id region-id
+                         :camera camera :region-material region})))
 
 (defn- canvas-point [event]
   (let [rect (.getBoundingClientRect ^js @!canvas)]
     [(- (.-clientX event) (.-left rect))
      (- (.-clientY event) (.-top rect))]))
 
-(defn- pick-at [event]
+(defn- event-points [event]
   (let [screen (canvas-point event)
         world (if-let [screen->world (:screen->world @!io)]
                 (screen->world screen)
                 screen)]
+    {:screen screen :world world}))
+
+(defn- pick-at [event]
+  (let [{:keys [screen world]} (event-points event)]
     (scene-runtime/pick-world {:screen screen :world world})))
+
+(defn- panel-handle-hit? [hit]
+  (contains? panel-handle-addresses (:address hit)))
+
+(defn- current-container [vi]
+  (:container (scene-store/slot (scene-runtime/store-snapshot) vi)))
+
+(defn- set-panel-position! [[x y :as position]]
+  ;; Resolve each current slot by VI. THE SEAM DEMO replaces the Region3D slot
+  ;; after fixture boot, so a cached registration would move a stale container.
+  (doseq [[vi [dx dy]] panel-members]
+    (when-let [cid (current-container vi)]
+      (scene-runtime/set-transform! cid {:x (+ x dx) :y (+ y dy)})))
+  (swap! !session assoc :panel-position position)
+  position)
+
+(defn- start-panel-drag! [event]
+  (let [world (:world (event-points event))]
+    (swap! !session assoc :panel-drag
+           {:start-world world
+            :start-position (:panel-position @!session panel-origin)})
+    (when (.-pointerId event)
+      (.setPointerCapture ^js @!canvas (.-pointerId event)))
+    true))
+
+(defn- update-panel-drag! [event]
+  (when-let [{[start-x start-y] :start-world
+              [panel-x panel-y] :start-position} (:panel-drag @!session)]
+    (let [[world-x world-y] (:world (event-points event))]
+      (set-panel-position! [(+ panel-x (- world-x start-x))
+                            (+ panel-y (- world-y start-y))]))
+    true))
+
+(defn- release-pointer! [event]
+  (let [pointer-id (.-pointerId event)]
+    (when (and @!canvas (some? pointer-id)
+               (.hasPointerCapture ^js @!canvas pointer-id))
+      (.releasePointerCapture ^js @!canvas pointer-id))))
 
 (defn- consume! [event]
   (.preventDefault ^js event)
   (.stopPropagation ^js event)
   true)
 
+(defn- record-hit! [hit]
+  ;; Demo-facing receipt of the real reverse route.  Keep only semantic values;
+  ;; camera matrices and material payloads stay owned by their existing rows.
+  (swap! !session assoc :last-hit
+         (select-keys hit [:route :region-id :object-id :address :t
+                           :layout/id :material-local :text-hit :handle-id]))
+  hit)
+
 (defn- focus-region! [hit]
   (let [region-id (:region-id hit)
-        region (:region-material hit)]
+        region (:region-material hit)
+        selectable? (contains? selectable-object-routes (:route hit))]
     (swap! !session
            (fn [state]
              (-> state
                  (assoc :enabled? true :focused-region region-id)
                  (update :focus-opens inc)
                  (update-in [:regions region-id]
-                            #(merge {:view (:view-default region)
-                                     :display-mode :lit :gizmo-mode :translate
-                                     :selection (when (contains? #{:object :object-glyph}
-                                                                 (:route hit))
-                                                  (:object-id hit))}
-                                    %)))))
+                            (fn [row]
+                              (cond-> (merge {:view (:view-default region)
+                                              :display-mode :lit
+                                              :gizmo-mode :translate
+                                              :selection nil}
+                                             row)
+                                selectable?
+                                (assoc :selection (:object-id hit))))))))
     true))
 
 (defn end-focus! []
@@ -365,52 +459,95 @@
 
 (defn- on-dblclick [event]
   (when-let [hit (pick-at event)]
+    (record-hit! hit)
     (when (:region-id hit)
       (focus-region! hit)
       (consume! event))))
 
 (defn- on-pointerdown [event]
-  (when-let [focused (:focused-region @!session)]
-    (let [hit (pick-at event)]
-      (if-not (focused-hit? hit)
-        (end-focus!)
+  (let [focused (:focused-region @!session)
+        hit (pick-at event)]
+    (when hit (record-hit! hit))
+    (cond
+      ;; The title bar and exposed frame own panel relocation. Keeping this
+      ;; outside the Region3D interior prevents a tiny hand wobble from turning
+      ;; a panel move into orbit or object selection.
+      (panel-handle-hit? hit)
+      (do (start-panel-drag! event)
+          (consume! event))
+
+      ;; The first Region3D click is also its focus/selection gesture. Requiring
+      ;; an undiscoverable double-click first made meshes and light glyphs look
+      ;; inert and left W/E/R with no focused selection to operate on.
+      (and (nil? focused) (:region-id hit))
+      (do (focus-region! hit)
+          (consume! event))
+
+      (nil? focused)
+      nil
+
+      (not (focused-hit? hit))
+      (end-focus!)
+
+      :else
+      (cond
+        (= :gizmo (:route hit))
+        (do (start-drag! event hit)
+            (consume! event))
+
+        (contains? selectable-object-routes (:route hit))
         (do
-          (when (contains? #{:object :object-glyph} (:route hit))
-            (swap! !session assoc-in [:regions focused :selection]
-                   (:object-id hit)))
-          (start-drag! event hit)
-          (consume! event))))))
+          (swap! !session assoc-in [:regions focused :selection]
+                 (:object-id hit))
+          (consume! event))
+
+        ;; Placed text/ink owns its own semantic click route. It must not turn
+        ;; into camera orbit merely because the pointer moved a few pixels.
+        (contains? placed-content-routes (:route hit))
+        (consume! event)
+
+        :else
+        (do (start-drag! event hit)
+            (consume! event))))))
 
 (defn- on-pointermove [event]
-  (when-let [focused (:focused-region @!session)]
-    (when-let [drag (get-in @!session [:regions focused :drag])]
-      (let [hit (pick-at event)
-            current (canvas-point event)
-            [last-x last-y] (:last-screen drag current)
-            [x y] current]
-        (case (:kind drag)
-          :orbit
-          (swap! !session update-in [:regions focused :view]
-                 scene/orbit (- x last-x) (- y last-y))
+  (if (:panel-drag @!session)
+    (do (update-panel-drag! event)
+        (consume! event))
+    (when-let [focused (:focused-region @!session)]
+      (when-let [drag (get-in @!session [:regions focused :drag])]
+        (let [hit (pick-at event)
+              current (canvas-point event)
+              [last-x last-y] (:last-screen drag current)
+              [x y] current]
+          (case (:kind drag)
+            :orbit
+            (swap! !session update-in [:regions focused :view]
+                   scene/orbit (- x last-x) (- y last-y))
 
-          :pan
-          (swap! !session update-in [:regions focused :view]
-                 scene/pan (- x last-x) (- y last-y)
-                 (or (:region-size hit) [720.0 480.0]))
+            :pan
+            (swap! !session update-in [:regions focused :view]
+                   scene/pan (- x last-x) (- y last-y)
+                   (or (:region-size hit) [720.0 480.0]))
 
-          :gizmo
-          (when (:region-local hit)
-            (update-gizmo-preview! focused drag (:region-local hit)))
-          nil)
-        (swap! !session assoc-in [:regions focused :drag :last-screen] current)
-        (consume! event)))))
+            :gizmo
+            (when (:region-local hit)
+              (update-gizmo-preview! focused drag (:region-local hit)))
+            nil)
+          (swap! !session assoc-in [:regions focused :drag :last-screen] current)
+          (consume! event))))))
 
 (defn- on-pointerup [event]
-  (when-let [focused (:focused-region @!session)]
-    (when (get-in @!session [:regions focused :drag])
-      (settle-gizmo! focused)
-      (swap! !session update-in [:regions focused] dissoc :drag)
-      (consume! event))))
+  (if (:panel-drag @!session)
+    (do (swap! !session dissoc :panel-drag)
+        (release-pointer! event)
+        (consume! event))
+    (when-let [focused (:focused-region @!session)]
+      (when (get-in @!session [:regions focused :drag])
+        (settle-gizmo! focused)
+        (swap! !session update-in [:regions focused] dissoc :drag)
+        (release-pointer! event)
+        (consume! event)))))
 
 (defn- on-wheel [event]
   (when-let [focused (:focused-region @!session)]
@@ -458,11 +595,13 @@
     (scene-runtime/install-region-pick-resolver! resolve-region-pick)
     (when (compare-and-set! !mounted? false true)
       (install-fixture!)
+      (doseq [[_ hook] @!fixture-hooks] (hook))
       (let [capture #js {:capture true}]
         (listen! canvas "dblclick" on-dblclick capture)
         (listen! canvas "pointerdown" on-pointerdown capture)
         (listen! canvas "pointermove" on-pointermove capture)
         (listen! canvas "pointerup" on-pointerup capture)
+        (listen! canvas "pointercancel" on-pointerup capture)
         (listen! canvas "wheel" on-wheel #js {:capture true :passive false})
         (listen! js/window "keydown" on-keydown capture))
       (swap! !session assoc :enabled? true)
@@ -472,5 +611,5 @@
                  :close end-focus!
                  :unmount unmount!})
       (js/console.log
-       "[REGION3D] felt fixture mounted — double-click, orbit/pan/dolly, W/E/R, drag")))
+       "[REGION3D] mounted — drag title/frame; click object; W/E/R gizmo; background orbit")))
   @!session)

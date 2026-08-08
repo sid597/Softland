@@ -56,6 +56,13 @@
 (defonce ^:private !ime-host (atom nil))
 (defonce ^:private !receipt (atom nil))
 
+(defn session-layout-snapshot []
+  (when-let [session @!session]
+    {:vi (get-in session [:target :vi])
+     :address (get-in session [:target :address])
+     :revision (get-in session [:layout :layout/id])
+     :layout (:layout session)}))
+
 (defn enabled-search? [search]
   (= "1" (.get (js/URLSearchParams. (or search "")) "live-atoms")))
 
@@ -733,6 +740,7 @@
       (events/install-keydown-intercept! handle-keydown!)
       (mouse/install-paste-intercept! handle-paste!)
       (render/install-due-deadline-consumer! consume-due-deadlines!)
+      (render/install-session-layout-provider! session-layout-snapshot)
       (mount!)
       (reset! !booted? true)
       (receipt-assoc! :fixtures (mapv :vi fixture-specs)
@@ -755,6 +763,7 @@
   (events/install-keydown-intercept! nil)
   (mouse/install-paste-intercept! nil)
   (render/install-due-deadline-consumer! nil)
+  (render/install-session-layout-provider! nil)
   (doseq [vi (keys @!registrations)]
     (scene-runtime/close-instance! vi))
   (reset! !registrations {})

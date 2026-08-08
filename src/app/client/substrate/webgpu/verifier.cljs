@@ -17,6 +17,7 @@
             [app.client.substrate.path-material :as path-material]
             [app.client.substrate.path-tessellation :as path-tessellation]
             [app.client.substrate.region3d-material :as region3d-material]
+            [app.client.substrate.region3d-placement :as region3d-placement]
             [app.client.substrate.region3d-scene :as region3d-scene]
             [app.client.substrate.frame-effects :as frame-effects]
             [app.client.substrate.frame-graph :as frame-graph]
@@ -28,6 +29,7 @@
             [app.client.substrate.webgpu.compositor-gpu :as compositor-gpu]
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
             [app.client.substrate.webgpu.region3d-gpu :as region3d-gpu]
+            [app.client.substrate.webgpu.region3d-placement-gpu :as region3d-placement-gpu]
             [app.client.substrate.webgpu.renderer :as renderer]
             [app.client.workspace.containers :as containers]
             [app.client.workspace.chrome-runtime :as chrome-runtime]
@@ -2785,7 +2787,11 @@
                  ["msdf-vertex" renderer/text-vertex-shader]
                  ["msdf-fragment" renderer/text-fragment-shader]
                  ["slug-vertex" renderer/slug-vertex-shader]
-                 ["slug-fragment" renderer/slug-fragment-shader]]]
+                 ["slug-fragment" renderer/slug-fragment-shader]
+                 ["region3d-placed-flat"
+                  region3d-placement-gpu/placed-flat-shader]
+                 ["region3d-placed-msdf"
+                  region3d-placement-gpu/placed-msdf-shader]]]
     (-> (promise-mapv (fn [[label source]]
                         (.then (sha256-string source)
                                (fn [digest] [label digest])))
@@ -4078,8 +4084,11 @@
   ([r g b a]
    {:rgba [r g b a] :color-space :srgb :alpha-association :straight}))
 
-(defn- region3d-transform [translation scale]
-  {:translation translation :rotation [0.0 0.0 0.0 1.0] :scale scale})
+(defn- region3d-transform
+  ([translation scale]
+   (region3d-transform translation scale [0.0 0.0 0.0 1.0]))
+  ([translation scale rotation]
+   {:translation translation :rotation rotation :scale scale}))
 
 (defn- region3d-mesh
   [id primitive translation scale color metallic roughness]
@@ -4149,6 +4158,69 @@
    :x 24.0 :y 20.0 :w width :h height
    :region3d/scene region})
 
+(defn- region3d-seam-fixture [font-assets]
+  (let [text-value "one material · two spaces"
+        text-object
+        {:object/id :seam/text :object/kind :text :parent nil
+         :transform (region3d-transform
+                     [-2.9 1.25 0.35] [0.018 0.018 0.018]
+                     [0.0 0.300706 0.0 0.953717])
+         :provenance {:asserted-by :sid :act :render-verifier}
+         :text {:ref {:address :seam/text-material}
+                :params {:color nil :max-inline-size 310.0}}}
+        ink-object
+        {:object/id :seam/ink :object/kind :ink :parent nil
+         :transform (region3d-transform
+                     [-2.7 -0.95 0.4] [0.018 0.018 0.018]
+                     [0.0 -0.21644 0.0 0.976296])
+         :provenance {:asserted-by :sid :act :render-verifier}
+         :ink {:ref {:address :seam/ink-material}}}
+        region (-> (region3d-fixture-region :opaque)
+                   (assoc :region3d/version 2)
+                   (assoc-in [:scene :seam/text] text-object)
+                   (assoc-in [:scene :seam/ink] ink-object)
+                   region3d-material/validate-region!)
+        layout (tl/layout {:text text-value
+                           :provider (:layout-provider font-assets)
+                           :font-size 24.0 :line-height 30.0
+                           :baseline-offset 22.0 :origin [0.0 0.0]
+                           :inline-size 310.0 :wrap-policy :block-greedy
+                           :source-id :seam/text-material
+                           :source-revision 1 :zoom 1.0})
+        text-color (region3d-placement/adapt-legacy-color
+                    [0.96 0.97 1.0 1.0])
+        text-placement
+        {:object-id :seam/text :object text-object :kind :text
+         :address :seam/text-material :status :resolved
+         :content-revision [:region3d-seam/text-v1 text-value 24.0 310.0]
+         :text text-value
+         :style {:font-size 24.0 :max-inline-size 310.0
+                 :color text-color
+                 :color-adapter region3d-placement/placed-color-adapter-version}
+         :layout layout
+         :owner {:vi :seam/text-owner :node-id :seam/text-material}}
+        ink-material (path-ink-material
+                      :seam/ink-material 1.0
+                      [[0.0 8.0 0.45] [54.0 2.0 0.9]
+                       [108.0 26.0 0.62] [164.0 8.0 1.0]
+                       [222.0 34.0 0.55]]
+                      [0.16 0.82 1.0 0.92] 1.0)
+        ink-placement
+        {:object-id :seam/ink :object ink-object :kind :ink
+         :address :seam/ink-material :status :resolved
+         :content-revision (path-material/material-content-key ink-material)
+         :cache-key (path-material/material-cache-key ink-material 1.0)
+         :material ink-material
+         :owner {:vi :seam/ink-owner :op-id :seam/ink-material}}
+        op (assoc (region3d-op region)
+                  :region3d/resolved-placements
+                  [text-placement ink-placement]
+                  :region3d/placement-census
+                  {:placements 2 :resolved 2 :ref-absent 0
+                   :ref-ambiguous 0})]
+    {:region region :op op
+     :placements [text-placement ink-placement]}))
+
 (defn- region3d-store-frame [op]
   {:regions [op]
    :ordered-vis [region3d-owner-vi]
@@ -4196,12 +4268,20 @@
              (region3d-gpu/encode-region-passes!
               region-system encoder pass lease))})
 
+(defn- region3d-prepare-options [harness]
+  {:zoom 1.0 :dpr 1.0
+   :font-assets (:font-assets harness)
+   :atlas-view (get-in harness [:placement-text-system :font-texture-view])
+   :atlas-sampler (get-in harness [:placement-text-system :font-sampler])
+   :path-system (:path-system harness)})
+
 (defn- region3d-capture!
   [{:keys [device compositor region-system] :as harness}
    op session sides]
   (region3d-gpu/attach-compositor! region-system compositor)
   (region3d-gpu/prepare-region3d-frame!
-   region-system (region3d-store-frame op) session {:zoom 1.0 :dpr 1.0})
+   region-system (region3d-store-frame op) session
+   (region3d-prepare-options harness))
   (let [{:keys [arrangement plan]} (region3d-frame harness op sides)]
     (w4-capture! device compositor {:linearize-entry identity}
                  arrangement [] plan canvas-size canvas-size
@@ -4212,7 +4292,8 @@
    op session sides]
   (region3d-gpu/attach-compositor! region-system compositor)
   (region3d-gpu/prepare-region3d-frame!
-   region-system (region3d-store-frame op) session {:zoom 1.0 :dpr 1.0})
+   region-system (region3d-store-frame op) session
+   (region3d-prepare-options harness))
   (let [{:keys [arrangement plan]} (region3d-frame harness op sides)]
     (w4-capture-pair! device compositor {:linearize-entry identity}
                        arrangement [] plan
@@ -4223,9 +4304,124 @@
   {:mode case-id :file (str "gpu-region3d-floor-" case-id ".png")
    :raw-sha256 (:first-sha256 pair)
    :png-data-url (opaque-png-data-url (:bytes pair))
-   :determinism {:first-raw-sha256 (:first-sha256 pair)
+                 :determinism {:first-raw-sha256 (:first-sha256 pair)
                  :second-raw-sha256 (:second-sha256 pair)
                  :byte-identical? (:byte-identical? pair)}})
+
+(def ^:private region3d-seam-connector-vi [:region3d-seam :connector])
+
+(defn- region3d-seam-connector-op []
+  (let [edge-id [:region3d-seam/anchor :seam/source
+                 [:region-object :region3d/verifier-address :near]]]
+    {:id :region3d-seam/anchor
+     :address edge-id
+     :container 0 :container-idx 0
+     :owner-vi region3d-seam-connector-vi
+     :connector/edge-instance-id edge-id
+     :connector/from-vi :seam/source-vi
+     :connector/to-vi nil
+     :connector/material
+     (connector-material/validate-material!
+      {:connector/relation-id :region3d-seam/anchor
+       :connector/row-stamp [:region3d-seam :anchor]
+       :connector/dress-revision 0
+       :connector/kind :references
+       :connector/from {:bind :node :target :seam/source
+                        :anchor :boundary}
+       :connector/to {:bind :region-object
+                      :region :region3d/verifier-address
+                      :object :near :local [0.4 0.25 0.3]}
+       :connector/route {:policy :straight :waypoints []}
+       :connector/heads {:from :none :to :triangle
+                         :size-k connector-material/default-head-size-k}
+       :connector/label {:text "same material · region object"
+                         :at 0.52 :offset [0.0 -8.0]}
+       :connector/paint
+       {:color (connector-material/projection-color :references :human)
+        :opacity 1.0 :width 3.0
+        :color-space :srgb :alpha-association :straight}
+       :connector/status :asserted
+       :connector/provenance {:actor-id "sid" :asserter-type :human}})}))
+
+(defn- region3d-seam-connector-frame [op]
+  {:connectors [(region3d-seam-connector-op)]
+   :regions [op]
+   :targets-by-address
+   {:seam/source [{:vi :seam/source-vi :container 0 :container-idx 0
+                   :bounds {:x 8.0 :y 106.0 :w 18.0 :h 12.0}}]}
+   :ordered-vis [region3d-owner-vi region3d-seam-connector-vi]
+   :ops-count-by-vi {region3d-owner-vi {:regions 1}
+                     region3d-seam-connector-vi {:connectors 1}}
+   :order-by-vi
+   {region3d-owner-vi
+    {:stratum :world :stack-path [[:region3d-verifier 1 1]]}
+    region3d-seam-connector-vi
+    {:stratum :world :stack-path [[:region3d-verifier 3 3]]}}})
+
+(defn- region3d-seam-capture-pair!
+  [{:keys [device compositor region-system connector-system
+           placement-text-system font-assets] :as harness}
+   op broad?]
+  (let [store-frame (region3d-seam-connector-frame op)
+        effective {0 {:affine containers/identity-affine :flags 0
+                      :layer 0 :stack-path [[0 0]] :transport-slot 0}}]
+    (region3d-gpu/attach-compositor! region-system compositor)
+    (region3d-gpu/prepare-region3d-frame!
+     region-system store-frame {} (region3d-prepare-options harness))
+    (let [resolver
+          (region3d-placement/region-anchor-resolver
+           {:regions [op]
+            :prepared-by-region @(:!prepared region-system)
+            :effective-transforms effective})
+          doors {:region3d/verifier-address
+                 [(:view-default (:region3d/scene op)) nil {}
+                  (get effective 0)]}]
+      (connector-gpu/prepare-connector-frame!
+       connector-system (:connectors store-frame)
+       (:targets-by-address store-frame) effective 1.0
+       font-assets placement-text-system
+       {:region-anchor-resolver resolver :region-doors doors})
+      (let [region-entry
+            (first (region3d-gpu/region3d-entries
+                    {:store-frame store-frame
+                     :region3d-system region-system :zoom 1.0 :dpr 1.0}))
+            connector-entries
+            (connector-gpu/connector-entries
+             {:store-frame store-frame :connector-system connector-system
+              :connector-label-entry renderer/connector-label-entry})
+            below (region3d-rect-entry :region3d/below
+                                       (:rect-system harness) 0 0)
+            above (when broad?
+                    (region3d-rect-entry :region3d/above
+                                         (:rect-system harness) 1 2))
+            arrangement
+            (:entries
+             (scene-tape/compile-tape
+              (if broad? :region3d-seam/demo :region3d-seam/anchor)
+              (into [below region-entry]
+                    (concat (when above [above]) connector-entries))))
+            plan (frame-graph/compile-frame-plan
+                  {:arrangement arrangement :effect-spans []
+                   :viewport {:width canvas-size :height canvas-size
+                              :format color-format}})]
+        (w4-capture-pair!
+         device compositor {:linearize-entry identity}
+         arrangement [] plan
+         :pass-producers (region3d-pass-producers region-system))))))
+
+(defn- region3d-seam-receipt [harness seam-op]
+  (let [placement-receipt
+        (:placements
+         (region3d-gpu/region3d-receipt (:region-system harness)))
+        connector-receipt
+        (connector-gpu/connector-receipt (:connector-system harness))]
+    {:resolved (get-in seam-op [:region3d/placement-census :resolved])
+     :text-layout-id
+     (get-in seam-op [:region3d/resolved-placements 0 :layout :layout/id])
+     :glyphs (:glyphs placement-receipt)
+     :ink-vertices (:ink-vertices placement-receipt)
+     :anchor-projections (:anchor-projections connector-receipt)
+     :routes (count (:routes connector-receipt))}))
 
 (defn- region3d-lights [maintained]
   (->> (get-in maintained [:region :scene])
@@ -4680,7 +4876,7 @@
             (js/Promise.resolve nil)
             steps)))
 
-(defn- run-region3d-floor! [device adapter]
+(defn- run-region3d-floor! [device adapter font-assets]
   (let [tracker (gpu-budget/create-tracker
                  (gpu-budget/snapshot-adapter-limits adapter))
         camera (renderer/create-camera-buffer device tracker)
@@ -4706,12 +4902,32 @@
                        :container-idx 0}])
         region-system (region3d-gpu/ensure-region3d-system!
                        device tracker camera containers-buffer)
+        placement-text-system
+        (renderer/init-text-system
+         device "rgba16float" camera font-assets
+         :initial-capacity 64 :tracker tracker
+         :containers-buffer containers-buffer
+         :scene-color (scene-tape/scene-color true))
+        path-system
+        (path-gpu/init-path-system
+         device "rgba16float" camera containers-buffer
+         :tracker tracker :scene-color (scene-tape/scene-color true))
+        text-api {:clone renderer/clone-text-system
+                  :update renderer/update-text-data
+                  :destroy renderer/destroy-text-system!}
+        connector-system
+        (connector-gpu/init-connector-system
+         device "rgba16float" camera containers-buffer
+         :tracker tracker :scene-color (scene-tape/scene-color true)
+         :text-api text-api)
         compositor (compositor-gpu/create-compositor!
                     device color-format tracker)
         harness {:device device :tracker tracker :camera camera
                  :containers-buffer containers-buffer
                  :rect-system rect-system :region-system region-system
-                 :compositor compositor}
+                 :placement-text-system placement-text-system
+                 :path-system path-system :connector-system connector-system
+                 :font-assets font-assets :compositor compositor}
         opaque-region (region3d-fixture-region :opaque)
         transparent-region (region3d-fixture-region :transparent)
         overlay-region (-> transparent-region
@@ -4722,6 +4938,9 @@
         opaque-op (region3d-op opaque-region)
         transparent-op (region3d-op transparent-region)
         overlay-op (region3d-op overlay-region)
+        seam (region3d-seam-fixture font-assets)
+        seam-region (:region seam)
+        seam-op (:op seam)
         s1 (region3d-s1-receipt harness opaque-op)
         s3 (region3d-s3-receipt transparent-region)
         specs [{:case-id "sandwich" :region opaque-region :op opaque-op
@@ -4733,10 +4952,22 @@
                 :session {:regions {region3d-id
                                     {:selection :near
                                      :gizmo-mode :translate}}}
-                :sides :below}]]
+                :sides :below}
+               {:case-id "placed-depth-interleave" :region seam-region
+                :op seam-op :session {} :sides :sandwich
+                :seam-kind :placed}
+               {:case-id "anchored-edge-over-region" :region seam-region
+                :op seam-op :seam-kind :anchored-edge}
+               {:case-id "seam-demo" :region seam-region
+                :op seam-op :seam-kind :broad}]]
     (-> (promise-mapv
-         (fn [{:keys [case-id region op session sides]}]
-           (-> (region3d-capture-pair! harness op session sides)
+         (fn [{:keys [case-id region op session sides seam-kind]}]
+           (-> (case seam-kind
+                 :anchored-edge (region3d-seam-capture-pair!
+                                 harness op false)
+                 :broad (region3d-seam-capture-pair!
+                         harness op true)
+                 (region3d-capture-pair! harness op session sides))
                (.then
                 (fn [pair]
                   {:case-id case-id :zoom 1.0
@@ -4748,6 +4979,9 @@
                    :overlay-probe (when (= case-id "gizmo-overlay")
                                     (region3d-overlay-probe region
                                                             (:bytes pair)))
+                   :seam-kind seam-kind
+                   :seam-receipt (when seam-kind
+                                   (region3d-seam-receipt harness seam-op))
                    :images [(region3d-image-record case-id pair)]}))))
          specs)
         (.then
@@ -4768,20 +5002,32 @@
                  s4 s2
                  determinism (mapcat #(map :determinism (:images %)) cases)
                  system-receipt (region3d-gpu/region3d-receipt region-system)
+                 seam-receipt
+                 (:seam-receipt (last cases))
                  compositor-receipt (compositor-gpu/compositor-receipt compositor)
-                 pass? (and (= 3 (count cases))
+                 seam-pass? (and (= 2 (:resolved seam-receipt))
+                                 (some? (:text-layout-id seam-receipt))
+                                 (pos? (or (:glyphs seam-receipt) 0))
+                                 (pos? (or (:ink-vertices seam-receipt) 0))
+                                 (pos? (or (:anchor-projections seam-receipt) 0))
+                                 (pos? (or (:routes seam-receipt) 0)))
+                 pass? (and (= 6 (count cases))
                             (every? :byte-identical? determinism)
                             (:pass? s1) (:pass? s2) (:pass? s3)
-                            (:pass? s4) (:pass? s5))
+                            (:pass? s4) (:pass? s5) seam-pass?)
                  result {:cases cases
                          :s1 s1 :s2 s2 :s3 s3 :s4 s4 :s5 s5
+                         :seam (assoc seam-receipt :pass? seam-pass?)
                          :system system-receipt
                          :compositor compositor-receipt
                          :felt-gate :sid-live
                          :fixture-query "?region3d=1"
                          :pass? pass?}]
              (compositor-gpu/destroy-compositor! compositor)
+             (connector-gpu/destroy-connector-system! connector-system)
+             (path-gpu/destroy-path-system! path-system)
              (region3d-gpu/destroy-region3d-system! region-system)
+             (renderer/destroy-text-system! placement-text-system)
              result))))))
 
 (defn- t2-render-bytes!
@@ -5407,7 +5653,8 @@
                                             (run-chrome-atom! device adapter)
                                             (run-w4-frame-runtime! device adapter
                                                                    slug-assets)
-                                            (run-region3d-floor! device adapter)
+                                            (run-region3d-floor! device adapter
+                                                                 t1-assets)
                                             (run-t2-input-floor! device adapter
                                                                  t1-assets)])
                                       (.then

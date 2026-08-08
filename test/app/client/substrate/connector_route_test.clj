@@ -215,6 +215,45 @@
                     (get-in dragged [:state :entries b-id]))
         "unaffected sibling cache entry survives by identity")))
 
+(deftest s3-region-object-resolver-and-value-door-are-bounded-to-one-region
+  (let [material (-> (fixture/connector :relation/region)
+                     (assoc :connector/to
+                            {:bind :region-object :region :region/address
+                             :object :grey-box :local [0.4 0.25 0.3]}))
+        ops [(edge :region-edge material)]
+        target-map {:a [(target :vi/a 1 1 {:x 0 :y 0 :w 10 :h 10})]}
+        effective-map {0 identity-effective 1 identity-effective}
+        resolver (fn [_binding _anchor _effective]
+                   {:status :resolved :center [70.0 15.0] :camera 0
+                    :clip :none :anchor-clamped true})
+        door-a {:region/address [:view/a nil {} identity-effective]}
+        initial (route/derive-route-set
+                 nil ops target-map effective-map 1.0 {}
+                 {:region-anchor-resolver resolver :region-doors door-a})
+        static (route/derive-route-set
+                (:state initial) ops target-map effective-map 1.0 {}
+                {:region-anchor-resolver resolver :region-doors door-a})
+        moved (route/derive-route-set
+               (:state static) ops target-map effective-map 1.0 {}
+               {:region-anchor-resolver resolver
+                :region-doors
+                {:region/address [:view/b nil {} identity-effective]}})
+        absent (route/derive-route-set
+                nil ops target-map effective-map 1.0 {}
+                {:region-anchor-resolver (fn [& _] nil)
+                 :region-doors door-a})
+        edge-id [:relation/region :vi/a
+                 [:region-object :region/address :grey-box]]]
+    (is (= :resolved (get-in initial [:routes 0 :status])))
+    (is (true? (get-in initial [:routes 0 :anchor-clamped])))
+    (is (= 1 (get-in initial [:census :anchor-clamped])))
+    (is (= 1 (get-in initial [:frame-receipt :anchor-projections])))
+    (is (zero? (get-in static [:frame-receipt :route-resolutions])))
+    (is (= #{edge-id} (get-in moved [:frame-receipt :affected-edges])))
+    (is (= 1 (get-in moved [:frame-receipt :anchor-projections])))
+    (is (= :region-anchor-absent (get-in absent [:routes 0 :status])))
+    (is (= 1 (get-in absent [:census :region-anchor-absent])))))
+
 (deftest live-pick-re-resolves-after-transform-without-tree-write
   (let [target-map (targets {:x 0 :y 0 :w 10 :h 10}
                             {:x 60 :y 0 :w 10 :h 10})
