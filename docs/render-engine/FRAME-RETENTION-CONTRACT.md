@@ -1,9 +1,14 @@
 # FRAME-RETENTION — camera-only frame cost (contract)
 
 Cutter: Fable 5 (claude-fable-5), high effort. Cut 2026-08-08. One pass, one
-document (work-package law). Status: CUT — the one bounded fresh-eyes
-falsification round (Codex-class, at Sid's hand) is Sid-touch #1; acceptance
-of the built atom is Sid's word, touch #2.
+document (work-package law). Status: ROUND CLOSED — the one bounded
+fresh-eyes falsification round ran 2026-08-08 (fresh headless Codex session
+at Sid's word; 3 decision-changing + 1 precision findings, all repaired in
+place: prepare-gate completeness law, retention lifecycle pins, the
+two-ladder region encode split, extra-text-geos identity). Round count is
+ABOVE the ≤1 expiry threshold — the round requirement stays for the next
+cut. Sid-touch #1 spent; acceptance of the built atom is Sid's word, touch
+#2. Ready for the implementer prompt at the tail.
 
 Sid's framing: fix performance as a whole, not piecemeal. This contract is
 not a patch list — it is the enforcement of standing law (W0-C §5.5–5.7 and
@@ -201,10 +206,11 @@ data:
    flag-on twin throws.
 2. **The quantization-door registry**: every legal camera→semantic door,
    named with its versioned constants — today: the path zoom regime; the
-   region lease ladder (quant 256 / max 4096); the connector zoom door
-   (§5f — struck from the registry if connector zoom proves payload-only).
-   A camera-derived value not in this registry is illegal as a declared
-   input (fence assert).
+   region lease ALLOCATION ladder (quant 256 / max 4096); the region
+   ENCODE ladder (geometric, default step 1.12× — §5g); the connector
+   zoom door (§5f — struck from the registry if connector zoom proves
+   payload-only). A camera-derived value not in this registry is illegal
+   as a declared input (fence assert).
 3. **`changed-families`**: `(prev-inputs, inputs) → #{family-id}` via the
    three-tier ladder proven by the slot-reconcile repair: `identical?`
    per key first, declared value-token comparison second, changed third.
@@ -231,7 +237,7 @@ method — and the twin oracle fences completeness; known members):
 |---|---|---|
 | `:render.family/rect` | `rect-entries` | store-frame (`:rects :ordered-vis :ops-count-by-vi :order-by-vi`), editor-pool shape-rev + `editor-rect-count`, sidebar-pool shape-rev, cmd-rect shape-rev + `cmd-panel-visible`, settings-rect shape-rev + `settings-visible`, `agent-visible`, chrome-text shape-rev (row verified against the destructuring at `renderer.cljs:2893-2896`) |
 | `:render.family/shadow` | `shadow-entries` | editor-shadow-pool shape-rev + `editor-shadow-count`, sidebar-shadow-pool shape-rev, store-frame `:shadows` |
-| `:render.family/msdf`, `:render.family/slug` | `text-entries-for-family` ×2 | text-sys shape-rev, `extra-text-geos` identity, chrome-text-sys shape-rev + `chrome-base-line-count`, `settings-line-count`, `settings-visible`, `diagnostics-visible`, `diagnostics-line-index`, `cmd-panel-visible`, font/atlas rev, text precision regime IF one exists (verify; if none, none) (row verified against `renderer.cljs:2944-2948`) |
+| `:render.family/msdf`, `:render.family/slug` | `text-entries-for-family` ×2 | text-sys shape-rev, `extra-text-geos` identity (made REAL by the §6 render.cljs change — upstream currently mints a fresh vector every RAF, which would mark both text families changed every frame), chrome-text-sys shape-rev + `chrome-base-line-count`, `settings-line-count`, `settings-visible`, `diagnostics-visible`, `diagnostics-line-index`, `cmd-panel-visible`, font/atlas rev, text precision regime IF one exists (verify; if none, none) (row verified against `renderer.cljs:2944-2948`) |
 | `:render.family/clip` | `clip-entries` | `dirty-rect`, `clear-quad`, `partial?` |
 | `:render.family/image` | `image-entries` | image-system rev (today's `:!last-images` site), store-frame image keys |
 | path | `path-gpu/path-entries` | path-system rev (paths + zoom REGIME — the existing door) |
@@ -311,12 +317,24 @@ early-out over its declared semantic inputs BEFORE any derivation. Image
 have this shape; region3d gains it in §5g; connector and chrome gain it
 here. Connector today has none — `derive-route-set` runs every frame on
 raw `zoom` (`connector_gpu.cljs:232-252`; the banked `conn 2–8ms`), so
-the connector prepare gets an early-out over `[connector-ops,
-targets-by-address, effective-transforms identity]` plus the REGISTERED
-connector zoom door (same regime pattern as path). If the implementer
-finds connector zoom feeds only screen-constant label/arrow scale, that is
-payload — route it through §5d indirection, strike the door from the
-registry, note it in NOW.
+the connector prepare gets an early-out over its COMPLETE input set —
+`[connector-ops, targets-by-address, effective-transforms, font-assets
+(provider identity), content-text-system, region-anchor-resolver,
+region-doors]` (the full signature at `connector_gpu.cljs:229-252`;
+`connector_route.cljc:571-592` already diffs region-doors and provider-id
+internally — the early-out must not starve those diffs) — plus the
+REGISTERED connector zoom door (same regime pattern as path). If the
+implementer finds connector zoom feeds only screen-constant label/arrow
+scale, that is payload — route it through §5d indirection, strike the
+door from the registry, note it in NOW.
+
+**The prepare-gate completeness law** (round finding, 2026-08-08): a
+prepare's early-out key is derived from its COMPLETE argument list plus
+every value its internal derivation diffs — enumerated from the
+signature, never curated. The twin CANNOT catch prepare-level
+under-declaration — both its sides read the same prepared atoms — so the
+fence for this class is the scenario kills (S2's region-door and
+font-arrival legs), which are mandatory, not illustrative.
 
 At its existing change-decision point each prepare mints a monotonic
 **`shape-rev`** on its system — bumped IFF re-producing the family now
@@ -331,8 +349,19 @@ are payload BY LAW: they reach the GPU only as frame-edge uniform writes
 under their `:clock` cause (T12: the sink; W0-C §5.7 rule 3), never as a
 ledger input, never a shape-rev bump. A rev is never `frame-idx`, never
 wall time — it increments only on actual change (the constitution: change
-minted once, at the write site). Device recreation mints fresh revs by
-construction (new system objects).
+minted once, at the write site).
+
+**Lifecycle pins** (round finding, 2026-08-08 — the retained state is
+process-wide `defonce` at `renderer.cljs:3310` while systems are
+device-keyed WeakMaps): a system-carried ledger input compares as the
+PAIR `[system-object-identity, shape-rev]` — a bare numeric rev is
+illegal (a new device's system at rev N would compare equal to the old
+device's N). The prev-inputs snapshot carries the DEVICE identity; a
+device change ⇒ every family changed, the retained
+arrangement/effect/plan state rebuilt from scratch (retained entries
+reference old-device systems — resolving through one is the kill), and
+prev-inputs reseeded. First frame: nil prev-inputs ⇒ every family
+changed (boot behavior unchanged by construction).
 
 ### 5g. Region3d: derive only on change; camera enters by ladder only
 
@@ -346,14 +375,26 @@ pick-state rebuild, no receipt swap. Specifically:
 
 - `shadow-light-space` moves under the material gate (it is a function of
   scene only — verified).
-- `view-key` is recomposed to carry the QUANTIZED `lease-size` (the §5.6
-  ladder), never raw `pixel-size`. Within-quantum zoom → `view-changed?`
-  false → interior held (the composite samples the held lease, the floor
-  contract's own design). Aspect is zoom-invariant (both dims scale), so
-  the view uniform survives quantization — VERIFY point: any uniform field
-  found to need exact pixel-size either is aspect (zoom-invariant) or
-  moves to encode-time; if a genuine exact-pixel-size semantic dependency
-  surfaces, that is the atom's one-question fork.
+- `view-key` drops raw `pixel-size` for a TWO-LADDER split (round
+  finding, 2026-08-08: exact-pixel consumers EXIST inside the interior
+  pass — point markers compute a 7px extent and gizmo strokes a 3px
+  normal by dividing by the exact viewport in `camera_info`
+  (`region3d_gpu.cljs:241`, :344, written at :808) — so a naive hold
+  would drift them up to ~2× on small regions):
+  - **Allocation ladder** (unchanged): the lease KEY keeps the §5.6
+    256/4096 ladder — texture destroy/create only at quantum crossings.
+  - **Encode ladder** (new door, registered): the view-key's pixel-size
+    term is quantized on a versioned GEOMETRIC ladder (default step
+    1.12× — implementer may tune the constant; Sid judges it at the felt
+    pass). Crossing an encode step re-ENCODES the interior into the SAME
+    lease (no allocation); within a step the interior is held and
+    screen-metric elements drift by at most the step ratio — transient
+    and bounded, re-exactified at every re-encode. Gesture-end settle
+    re-encode is R1's package.
+  This still kills the every-zoom-frame re-encode (today's 400ms road)
+  while keeping the invariant: camera enters region derivation only
+  through the two versioned ladders. Aspect is zoom-invariant (both dims
+  scale), so within-step view uniforms stay correct.
 - Pick keeps EXACT values: the retained prepared `:camera` carries a
   `:viewport` from prepare time, and `ray-from-region-point` maps picks
   through it (`region3d_scene.cljc:578-583`; pick-state retains it at
@@ -425,9 +466,13 @@ new input plumbing.
   zoom door around `derive-route-set` :232-252; chrome at :226).
 - `src/app/client/substrate/{frame_graph,frame_effects}.cljc` — internals
   UNTOUCHED; their renderer call sites gate + re-plumb to semantic entries.
-- `src/app/client/workspace/runtime/render.cljs` — no structural change;
-  its existing identity gates (`content-same?`, `chrome-same?`, geo
-  identity) are the upstream signals the ledger consumes.
+- `src/app/client/workspace/runtime/render.cljs` — ONE structural change
+  (round finding): the `:extra-text-geos` assembly (:832-834) becomes
+  identity-stable when its sources are unchanged — the same three-tier
+  ladder as the banked slot-reconcile beside it. Everything else
+  untouched; its existing identity gates (`content-same?`,
+  `chrome-same?`, geo identity) are the upstream signals the ledger
+  consumes.
 - `src/app/client/substrate/scene_tape.cljc` — **BYTE-UNTOUCHED.**
 - `src/app/client/substrate/frame_scheduler.cljc` — untouched (it owns
   WHEN; the ledger owns WHAT).
@@ -446,29 +491,44 @@ Anti-gaming: counters live inside the real bodies; the encode assertion
 kills the frozen-screen build that passes by skipping everything.
 
 **S2 — a semantic change lands in its own frame, during camera motion.**
-While panning: type into a slot, change selection, move a connector. The
-change's family (and only it) produces in that same frame; twin flag on,
-equality holds; text-side reads ride the §7.5 accessors. Kills
-under-declared inputs and deferred/one-frame-late gating. Run WITH S1's
-counters live: the untouched families stay at zero.
+While panning: type into a slot, change selection, move a connector — the
+change's family (and only it) produces in that same frame. Two MANDATORY
+prepare-level legs (the twin is blind to this class — §5f's completeness
+law): orbit a region's session camera (region-doors change →
+region-anchored connector routes re-derive same frame, region + connector
+families produce); complete a font/atlas arrival (provider identity
+change → connector labels and text re-derive). Twin flag on, equality
+holds; text-side reads ride the layout accessors (MUST-NOT 7). Kills
+under-declared inputs — producer AND prepare level — and
+deferred/one-frame-late gating. Run WITH S1's counters live: the
+untouched families stay at zero.
 
-**S3 — the zoom roads are quantized.** (a) Zoom continuously inside one
-lease quantum: no interior re-encode, no lease churn, no family produce.
-(b) Cross a quantum boundary: exactly one lease re-key (acquire new,
-release old after submit — the wedge lifecycle observably intact), one
-interior re-encode, region family re-produces, plan recompiles
-(`structure-input` sees the new lease-size). (c) Cross the path zoom
-regime: path family alone re-produces. (d) Pick during within-quantum
-zoom stays exact: a region pick at mid-quantum resolves through the
-CURRENT viewport, never the lease-quantized one (§5g's pick road).
-Anti-gaming: the re-key must land
-at the versioned 256 ladder exactly — a build that "wins" S3a by
-never re-keying (giant quantum) fails S3b's crossing assertions.
+**S3 — the zoom roads are quantized, on two ladders.** (a) Zoom inside
+one ENCODE step: no interior re-encode, no lease churn, no family
+produce; screen-metric interior elements (markers/gizmo) drift at most
+the step ratio — the scenario asserts the BOUND, not pixel-exactness.
+(b) Cross an encode step: one interior re-encode into the SAME lease (no
+allocation), elements re-exactified. (c) Cross a 256 lease quantum:
+exactly one lease re-key (acquire new, release old after submit — the
+wedge lifecycle observably intact) plus its re-encode, region family
+re-produces, plan recompiles (`structure-input` sees the new
+lease-size). (d) Cross the path zoom regime: path family alone
+re-produces. (e) Pick during any within-step zoom stays exact: a region
+pick resolves through the CURRENT viewport, never a quantized one (§5g's
+pick road). Anti-gaming: both ladders land at their versioned constants
+exactly — a build that "wins" (a) by never re-encoding (giant step)
+fails (b)/(c)'s crossing assertions.
 
-**S4 — the twin verifies retention across a mixed script.** Flag on
-through: pan → type → within-quantum zoom → quantum cross → viewport
-resize → async font/image arrival. Batch equality every frame including
-skipped ones; `scene_tape.cljc` byte-identical; all existing goldens
+**S4 — the twin verifies retention across a mixed script, including the
+lifecycle transitions.** The script BEGINS at first frame after boot (nil
+prev-inputs → one full produce, then retention), runs flag-OFF through a
+retention stretch, then flips the flag ON mid-script (off→on must verify
+the arrangement retained while off), then: pan → type → within-step zoom
+→ encode-step cross → lease-quantum cross → viewport resize → async
+font/image arrival → a simulated device loss (new device ⇒ every family
+re-produces; no retained entry resolves through an old-device system —
+the §5f lifecycle pins). Batch equality every frame including skipped
+ones; `scene_tape.cljc` byte-identical; all existing goldens
 byte-unchanged. A golden that only passes re-blessed is a finding.
 Anti-gaming: the twin is compare-only — a build that feeds the batch
 result into the live path masks retention bugs and is wrong by definition.
