@@ -22,3 +22,16 @@ receipt at text_layout.cljc:841-847). NEXT → ONE bounded fresh-eyes
 falsification round at Sid's hand (paste-prompt delivered in-session), author
 repairs in place, then the implementer prompt at contract tail. Self-audit:
 contract-cut session — all process lines, zero code lines, by design.
+
+**2026-08-08 — implementation + measured correction.** Contract-named release
+receipt is stable at 59.044 / 58.921 / 58.921MB used JS heap (**B1 GREEN**)
+and 14.5997MB planes / 228,116 glyphs / 181 layouts (**B2 GREEN**); fingerprint
+stable, SwiftShader identity pinned. The reported 484MB was not instrument-
+tagged; the matching reproduced class is Chrome renderer RSS (~432MB dev,
+~375MB release), not B1. Release managed+backing is
+~81.8MB and a blank renderer is ~90MB, so `<100MB renderer RSS` was never this
+contract's executable target. Production boot's stale Electric-v2 import was
+repaired so S5 can run. Focused plane/layout/shaping/editing suite: 25 tests,
+290 assertions, green. Headless SwiftShader loses its device before draw, so
+nonblank/pixel acceptance remains open; no renderer fix inferred from fallback.
+Self-audit: code/test/harness corrections exceed this 12-line NOW entry.
