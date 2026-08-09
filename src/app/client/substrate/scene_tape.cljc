@@ -397,7 +397,7 @@
      :export-projections :none-promised
      :resources :image-system/digest-keyed-lifecycle-v1})
    [:grammar :entry-paint-required-keys]
-   [:sub-draws]))
+   [:paint/source :paint/source-type :op-offset :instance-count]))
 
 (def path-registration
   (assoc-in

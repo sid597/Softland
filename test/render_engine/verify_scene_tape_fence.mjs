@@ -55,6 +55,7 @@ const twinCheck = findForm(renderer, "frame-tape-twin-check!");
 const arrangementUpdate = findForm(renderer, "update-frame-arrangement");
 const imageProducer = findForm(renderer, "image-entries");
 const imageExecutor = findForm(renderer, "execute-image-batch!");
+const imageResolver = findForm(renderer, "resolve-image-paint");
 const pick = findForm(store, "pick");
 const rtNode = findForm(rectTree, "rt-node");
 const registryStart = renderer.indexOf("(def frame-family-registry");
@@ -110,14 +111,26 @@ forbid("entry executor", entryExecutor, /\(case\s+/,
 
 // IMAGE-ATOM T10: the producer is a synchronous arrangement read. Decode,
 // upload, promises, and resource construction stay in the ingress path.
-requireToken("image producer", imageProducer, "contiguous-binding-runs");
+// FRAME-RETENTION §5d moved sub-draw derivation from the producer to
+// encode-time resolution; the pin moves with it (T7: pins move, never delete).
+requireToken("image resolver", imageResolver, "contiguous-binding-runs");
 requireToken("image producer", imageProducer, "(:stack-path source-order) 3");
 forbid("image producer", imageProducer,
   /createImageBitmap|register-image-source!|copyExternalImageToTexture|writeTexture|\bPromise\b|\.then\s*\(|\bawait\b|\bfetch\b/,
   "decode/upload/async work entered the frame producer");
 requireToken("image executor", imageExecutor, "sub-draws");
 requireToken("image executor", imageExecutor, "first-instance");
-requireToken("image registry", registry, ":execute! execute-image-batch!");
+// The registry was refactored into family/generic constructor helpers, so the
+// literal ":execute! execute-image-batch!" token became structurally
+// impossible. The pin MOVES (T7) to the same strength: the helper binds its
+// executor argument under :execute!, and the image family passes
+// execute-image-batch! as that argument.
+requireToken("registry helper binds executor", registry, ":execute! execute!");
+const imageExecutorBound =
+  /:render\.family\/image\s+\(family\s[\s\S]{0,400}?execute-image-batch!\)/.test(registry);
+if (!imageExecutorBound) {
+  failures.push("image registry: execute-image-batch! is not the image family's :execute! argument");
+}
 
 requireToken("twin-check", twinCheck, "compile-frame-tape");
 forbid("arrangement-update", arrangementUpdate, /frame-idx/,
@@ -195,8 +208,7 @@ const receipt = {
   seededEffectFamilyRejected: seededEffectRejected,
   imageProducerPure:
     !/createImageBitmap|register-image-source!|copyExternalImageToTexture|writeTexture|\bPromise\b|\.then\s*\(|\bawait\b|\bfetch\b/.test(imageProducer),
-  imageExecutorRegistered:
-    registry.includes(":execute! execute-image-batch!"),
+  imageExecutorRegistered: imageExecutorBound,
   rtNodeTransformAbsent: !/:transform(?:\s|\]|\})/.test(rtNode),
   productionFailures: failures,
   pass: failures.length === 0,

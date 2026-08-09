@@ -28,7 +28,10 @@
            :stack-path [[:root 0 0]]
            :part-rank part-rank :stable-tie id}
    :paint (if (= :render.family/image family-id)
-            {:sub-draws []}
+            {:paint/source ::image-system
+             :paint/source-type :image-system
+             :op-offset 0
+             :instance-count 0}
             {:batch id})
    :pick :none
    :visibility {:visible? true}})
@@ -52,7 +55,7 @@
          (get-in tape/image-registration [:grammar :export-projections])))
   (is (= :none-static
          (get-in tape/image-registration [:render :geometry :time-sample])))
-  (is (= [:sub-draws]
+  (is (= [:paint/source :paint/source-type :op-offset :instance-count]
          (get-in tape/image-registration
                  [:grammar :entry-paint-required-keys])))
   (is (= "581daf7fc7980853e5e71df8aa4b4ad689d6d5a6adb93e4b09a994bb863aed0b"
