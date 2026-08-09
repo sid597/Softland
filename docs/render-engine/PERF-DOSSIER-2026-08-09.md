@@ -747,23 +747,50 @@ prefix).
 (`~/.claude/projects/-mnt-data-projects-Softland/f5e55e24-….jsonl`):
 
 ```
-  2 claude-fable-5     ← the first two turns, before Sid's /model switch
-157 claude-opus-5      ← everything after
+  2 claude-fable-5
+157 claude-opus-5
 ```
 
-**The first revision of this dossier named the wrong model in its own header.**
-It said Fable 5, because that is what the environment's static self-description
-says, and the author copied that claim instead of measuring it. The `/model`
-switch to Opus 5 happened at turn three and the environment description never
-updated.
+**The ordering matters and is not what it looks like.** RECEIPT, from the same
+transcript:
 
-This is worth leaving in the record rather than quietly amending, because it is
-**the same failure as E1** — a document asserting a provenance fact in the exact
-field that exists to be checked, without measuring it first. E1 cost a protected
-SHA. This cost the cutter-model header, which CLAUDE.md makes load-bearing
-precisely so Sid can verify in two seconds that the thinking rode the strongest
-model. It did — but the header said so for the wrong reason, which is not the
-same as being right.
+```
+2026-08-08T15:59:53Z  user   /model → "Set model to Opus 5 (1M context)"
+2026-08-08T16:01:05Z  assi   claude-opus-5     ← the FIRST assistant turn is already opus
+   … ~11.5h of session, all opus-5, including an overnight idle …
+2026-08-09T03:58:07Z  user   "what is the testin link?"
+2026-08-09T03:58:12Z  assi   claude-fable-5    ← reversion, one turn, 2 events
+2026-08-09T03:58:13Z  user   [Request interrupted by user]
+2026-08-09T03:58:24Z  user   /model → "Set model to Opus 5 (1M context)"   (re-set by hand)
+2026-08-09T03:58:48Z  assi   claude-opus-5     ← restored, and stays
+```
+
+So the two fable turns are **not** "the first two before a switch." They are a
+single **mid-session reversion at the first interaction after a long idle**,
+which Sid interrupted and corrected manually with a second `/model`.
+
+**UNEXAMINED — why the reversion happened**, and why the environment's static
+self-description says Fable 5 for the whole session while 157 of 159 turns were
+served by Opus 5. Both are harness behaviour, observable only from outside the
+model. Do not build on any story about it; the facts above are all that is
+established.
+
+## Three instances of one pattern, in one thread
+
+This correction is the third. Recorded together because the shape repeats:
+
+1. **E1** — `FRAME-RETENTION-NOW.md` asserts `scene_tape.cljc` is byte-unchanged.
+   `sha256sum` disagrees. One command would have caught it.
+2. **This dossier's first header** — named Fable 5, copied from the environment's
+   self-description. One `jq` over the transcript disagreed.
+3. **This dossier's first correction** — named the two fable turns as "the first
+   two, before the switch." Plausible, and wrong: the counts were checked, the
+   *ordering* was not. One more `jq` disagreed.
+
+Each time the shape was identical: **a cheap check existed, a plausible story
+explained the data, and the story got written instead of the check.** Instance 3
+happened while explicitly writing about instance 2. That is worth more than any
+single finding in this document.
 
 *Every number in this dossier came from a real run. Every interpretation next to
 a number may still be wrong.*
