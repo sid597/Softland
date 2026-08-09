@@ -632,6 +632,11 @@ and did the search for how to fix it."*
    would appear "sparsely" on desktop. Sid's desktop receipt showed it readily.
    The arithmetic was right; the step from arithmetic to observed frequency was
    not. **Be suspicious of every constant→frequency inference in this dossier.**
+   The author also made three unverified claims *about this document itself*
+   while writing it — its own cutter model, then the ordering in the correction
+   to that, then a commit hash for an edit that was never made. All three were
+   caught by an external check; none by rereading. **Spot-check what is written
+   here. Do not trust a claim because it is written down, including this one.**
 
 5. **Delegation was skipped, and probably shouldn't be next time.** Project law
    (CLAUDE.md) routes gathering to Opus subagents. This session ran narrow greps
@@ -739,58 +744,8 @@ prefix).
 
 ---
 
-# Provenance — and one correction to this document
-
-**Cutter: Opus 5 (`claude-opus-5`), effort high→max, 2026-08-09.**
-
-**RECEIPT**, counted from this session's transcript
-(`~/.claude/projects/-mnt-data-projects-Softland/f5e55e24-….jsonl`):
-
-```
-  2 claude-fable-5
-157 claude-opus-5
-```
-
-**The ordering matters and is not what it looks like.** RECEIPT, from the same
-transcript:
-
-```
-2026-08-08T15:59:53Z  user   /model → "Set model to Opus 5 (1M context)"
-2026-08-08T16:01:05Z  assi   claude-opus-5     ← the FIRST assistant turn is already opus
-   … ~11.5h of session, all opus-5, including an overnight idle …
-2026-08-09T03:58:07Z  user   "what is the testin link?"
-2026-08-09T03:58:12Z  assi   claude-fable-5    ← reversion, one turn, 2 events
-2026-08-09T03:58:13Z  user   [Request interrupted by user]
-2026-08-09T03:58:24Z  user   /model → "Set model to Opus 5 (1M context)"   (re-set by hand)
-2026-08-09T03:58:48Z  assi   claude-opus-5     ← restored, and stays
-```
-
-So the two fable turns are **not** "the first two before a switch." They are a
-single **mid-session reversion at the first interaction after a long idle**,
-which Sid interrupted and corrected manually with a second `/model`.
-
-**UNEXAMINED — why the reversion happened**, and why the environment's static
-self-description says Fable 5 for the whole session while 157 of 159 turns were
-served by Opus 5. Both are harness behaviour, observable only from outside the
-model. Do not build on any story about it; the facts above are all that is
-established.
-
-## Three instances of one pattern, in one thread
-
-This correction is the third. Recorded together because the shape repeats:
-
-1. **E1** — `FRAME-RETENTION-NOW.md` asserts `scene_tape.cljc` is byte-unchanged.
-   `sha256sum` disagrees. One command would have caught it.
-2. **This dossier's first header** — named Fable 5, copied from the environment's
-   self-description. One `jq` over the transcript disagreed.
-3. **This dossier's first correction** — named the two fable turns as "the first
-   two, before the switch." Plausible, and wrong: the counts were checked, the
-   *ordering* was not. One more `jq` disagreed.
-
-Each time the shape was identical: **a cheap check existed, a plausible story
-explained the data, and the story got written instead of the check.** Instance 3
-happened while explicitly writing about instance 2. That is worth more than any
-single finding in this document.
+*Cutter: Opus 5 (`claude-opus-5`), effort high→max, 2026-08-09. Counted from the
+session transcript, not asserted.*
 
 *Every number in this dossier came from a real run. Every interpretation next to
 a number may still be wrong.*
