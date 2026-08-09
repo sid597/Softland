@@ -299,6 +299,11 @@ stays the bar, now through the re-plumbed executor.
 
 ### 5e. Effects + plan, gated and re-plumbed
 
+> **SUPERSEDED 2026-08-09** — replaced by
+> `FRAME-VIEW-REGION-BINDING-CONTRACT.md` §4.1/§6 (explicit deltas; the
+> internals this section left untouched are in scope there). Kept for
+> history; bind no new work on this section.
+
 `maintain-effect-spans` and `maintain-frame-plan` are called only when
 `[arrangement-identity, container-registry, viewport(w/h/format),
 capabilities]` changed (identity ladder), and are fed SEMANTIC entries
@@ -364,6 +369,12 @@ prev-inputs reseeded. First frame: nil prev-inputs ⇒ every family
 changed (boot behavior unchanged by construction).
 
 ### 5g. Region3d: derive only on change; camera enters by ladder only
+
+> **PARTIALLY SUPERSEDED 2026-08-09** — the lease-size-as-semantic-shape
+> classification (quantized lease-size in the prepare gate / shape
+> identity; "lease-rung changes mint shape") is replaced by the
+> binding-lane law in `FRAME-VIEW-REGION-BINDING-CONTRACT.md` §4.2/§6e.
+> The rest of this section stands.
 
 Inside `prepare-region3d-frame!`, per region, a gate BEFORE any derivation:
 the identity ladder over `[region-op identity, session values
@@ -585,7 +596,10 @@ for Sid, never CI assertions.
   today camera motion = full clear, unchanged) → LATER.
 - **R5 — effect-span/plan O(n)-per-semantic-frame** (`arrangement-token`,
   `bind-entry-ranges`) → LATER if a typing receipt summons it; they die on
-  camera frames here.
+  camera frames here. **IN SCOPE 2026-08-09** — closed by
+  `FRAME-VIEW-REGION-BINDING-CONTRACT.md` (the C1 receipt was the
+  summons, arriving via the lease-mint road rather than the named typing
+  receipt — same population mechanism, different door).
 - **R6 — cheaper semantic keys for region material** (the O(scene) compare
   when something DID change) → LATER; dies on camera frames here.
 - **R7 — boot-path costs** (14.4s ground reconcile [GROUND], 3.4s initial
