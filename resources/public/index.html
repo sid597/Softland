@@ -18,6 +18,132 @@
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
+    <script>
+      // Twin-oracle switch for consoleless devices (temporary, rides the mdbg
+      // probe's lifetime): ?twin=1 turns the retained-vs-batch check on from
+      // boot and logs its receipt every 5s so the mdbg overlay can carry it.
+      (function () {
+        if (!/[?&]twin=1/.test(location.search)) return;
+        globalThis.__softland_frame_tape_twin_check = true;
+        setInterval(function () {
+          var r = globalThis.__softland_frame_tape_twin_receipt;
+          if (r) console.log("[TWIN] frames=" + r.frames + " divergences=" + r.divergences);
+        }, 5000);
+      })();
+      // Mobile debug overlay probe (temporary): add ?mdbg=1 to the URL to
+      // mirror console output + uncaught errors onto the page. Must run
+      // BEFORE the app script so boot-time errors are captured.
+      (function () {
+        if (!/[?&]mdbg=1/.test(location.search)) return;
+        var box = document.createElement("div");
+        box.style.cssText =
+          "position:fixed;bottom:0;left:0;right:0;max-height:55vh;overflow-y:auto;" +
+          "z-index:2147483647;background:rgba(0,0,0,.85);color:#0f0;" +
+          "font:11px/1.4 monospace;padding:6px;white-space:pre-wrap;" +
+          "word-break:break-all;-webkit-overflow-scrolling:touch;display:none;";
+        var btn = document.createElement("div");
+        btn.style.cssText =
+          "position:fixed;bottom:10px;right:10px;z-index:2147483647;" +
+          "padding:7px 12px;border-radius:16px;background:#333;color:#ccc;" +
+          "font:12px monospace;border:1px solid #555;";
+        btn.textContent = "dbg";
+        var errs = 0;
+        btn.addEventListener("click", function () {
+          box.style.display = box.style.display === "none" ? "block" : "none";
+          if (box.style.display === "block") box.scrollTop = box.scrollHeight;
+        });
+        var lines = 0;
+        var all = [];
+        var copyBtn = document.createElement("div");
+        copyBtn.style.cssText =
+          "position:fixed;bottom:10px;left:10px;z-index:2147483647;" +
+          "padding:7px 12px;border-radius:16px;background:#333;color:#ccc;" +
+          "font:12px monospace;border:1px solid #555;";
+        copyBtn.textContent = "copy log";
+        copyBtn.addEventListener("click", function () {
+          var text = all.join("\n");
+          function done() {
+            copyBtn.textContent = "copied ✓ " + all.length + " lines";
+            setTimeout(function () { copyBtn.textContent = "copy log"; }, 2000);
+          }
+          function legacy() {
+            var ta = document.createElement("textarea");
+            ta.value = text; document.body.appendChild(ta); ta.select();
+            try { document.execCommand("copy"); done(); } catch (e) {}
+            document.body.removeChild(ta);
+          }
+          if (navigator.clipboard && navigator.clipboard.writeText)
+            navigator.clipboard.writeText(text).then(done, legacy);
+          else legacy();
+        });
+        function fmt(a) {
+          try {
+            if (a instanceof Error) return a.name + ": " + a.message + "\n" + (a.stack || "");
+            if (typeof a === "object") return JSON.stringify(a);
+            return String(a);
+          } catch (e) { return String(a); }
+        }
+        function add(color, tag, args) {
+          if (lines++ > 300) { box.removeChild(box.firstChild); }
+          var d = document.createElement("div");
+          d.style.color = color;
+          var line = tag + " " + Array.prototype.map.call(args, fmt).join(" ").slice(0, 600);
+          if (all.length < 5000) all.push(line);
+          d.textContent = line;
+          box.appendChild(d);
+          box.scrollTop = box.scrollHeight;
+          if (color === "#f66") {
+            errs++;
+            btn.textContent = "dbg ⚠ " + errs;
+            btn.style.background = "#611";
+            btn.style.color = "#fbb";
+          }
+        }
+        ["log", "warn", "error"].forEach(function (level) {
+          var orig = console[level].bind(console);
+          var color = level === "error" ? "#f66" : level === "warn" ? "#fc6" : "#9cf";
+          console[level] = function () { add(color, level.toUpperCase(), arguments); orig.apply(null, arguments); };
+        });
+        window.addEventListener("error", function (e) {
+          add("#f66", "UNCAUGHT", [e.message + " @ " + e.filename + ":" + e.lineno, e.error]);
+        });
+        window.addEventListener("unhandledrejection", function (e) {
+          add("#f66", "REJECTION", [e.reason]);
+        });
+        document.addEventListener("DOMContentLoaded", function () {
+          document.body.appendChild(box);
+          document.body.appendChild(btn);
+          document.body.appendChild(copyBtn);
+        });
+        add("#fff", "UA", [navigator.userAgent]);
+        add("#fff", "GPU", [typeof navigator.gpu !== "undefined" ? "navigator.gpu present" : "navigator.gpu MISSING"]);
+        // Pacing probe: rAF interval percentiles + input event rate, one
+        // [PACE] line every 2s. Separates frame COST (the [RAF] log) from
+        // frame PACING (are we even getting display-rate callbacks) and
+        // event rate (how many touchmoves/wheels land per frame).
+        (function () {
+          var iv = [], last = 0, frames = 0, tm = 0, wh = 0, mm = 0;
+          window.addEventListener("touchmove", function () { tm++; }, { capture: true, passive: true });
+          window.addEventListener("wheel", function () { wh++; }, { capture: true, passive: true });
+          window.addEventListener("mousemove", function () { mm++; }, { capture: true, passive: true });
+          function tick(t) {
+            if (last) iv.push(t - last);
+            last = t; frames++;
+            requestAnimationFrame(tick);
+          }
+          requestAnimationFrame(tick);
+          setInterval(function () {
+            if (!iv.length) return;
+            var s = iv.slice().sort(function (a, b) { return a - b; });
+            function p(q) { return s[Math.min(s.length - 1, Math.floor(q * s.length))].toFixed(1); }
+            console.log("[PACE] fps~" + (frames / 2).toFixed(0) +
+              " raf p50 " + p(0.5) + "ms p95 " + p(0.95) + "ms max " + s[s.length - 1].toFixed(1) + "ms" +
+              " | /s: touchmove " + (tm / 2) + " wheel " + (wh / 2) + " mousemove " + (mm / 2));
+            iv = []; frames = 0; tm = 0; wh = 0; mm = 0;
+          }, 2000);
+        })();
+      })();
+    </script>
     <script type="text/javascript" src="$:hyperfiddle.client.module/main$"></script>
   </body>
 </html>

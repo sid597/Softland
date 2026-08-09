@@ -459,9 +459,9 @@
                                 :pack-key pack-key :flat flat-buffer
                                 :glyphs glyph-buffer :census statuses
                                 :draw-order
-                                (sort-draws (if changed? (:draws upload)
-                                                (:draw-order region-gpu))
-                                            maintained camera))
+                                (if changed?
+                                  (sort-draws (:draws upload) maintained camera)
+                                  (:draw-order region-gpu)))
                    changed? (assoc :placements (:placements upload)))
         glyph-count (reduce + 0 (map #(or (get-in % [:packed :glyph-count]) 0)
                                          rows))

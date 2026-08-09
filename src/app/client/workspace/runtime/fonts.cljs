@@ -50,19 +50,63 @@
          :id "dejavu-sans-mono"
          :charWidth 0.56})))
 
-(defn- fetch-json [url]
+;; TEMP mobile-boot probe: per-asset timing + failure logs. Remove with the
+;; ?mdbg=1 overlay in resources/public/index.html once the phone boots.
+(defn- probe [label p]
+  (let [t0 (js/performance.now)]
+    (-> p
+        (.then (fn [v]
+                 (js/console.log "[FONT/PROBE]" label "ok"
+                                 (js/Math.round (- (js/performance.now) t0)) "ms")
+                 v))
+        (.catch (fn [e]
+                  (js/console.error "[FONT/PROBE]" label "FAILED" e)
+                  (throw e))))))
+
+(defn- with-retry
+  "Run thunk (→ promise) with up to 4 attempts and linear backoff. Mobile
+   networks drop parallel asset fetches wholesale; one failure must not
+   kill the boot."
+  ([label thunk] (with-retry label thunk 1))
+  ([label thunk attempt]
+   (-> (thunk)
+       (.catch (fn [e]
+                 (if (< attempt 4)
+                   (let [delay-ms (* 600 attempt)]
+                     (js/console.warn "[FONT/RETRY]" label "attempt" attempt
+                                      "failed:" (str e) "— retry in" delay-ms "ms")
+                     (js/Promise.
+                       (fn [resolve _]
+                         (js/setTimeout
+                           #(resolve (with-retry label thunk (inc attempt)))
+                           delay-ms))))
+                   (throw e)))))))
+
+(defn- fetch-ok [url]
   (-> (js/fetch url)
-      (.then #(.json %))
-      (.then #(js->clj % :keywordize-keys true))))
+      (.then (fn [response]
+               (when-not (.-ok response)
+                 (throw (js/Error. (str "HTTP " (.-status response) " " url))))
+               response))))
+
+(defn- fetch-json [url]
+  (probe (str "json " url)
+         (with-retry url
+           #(-> (fetch-ok url)
+                (.then (fn [r] (.json r)))
+                (.then (fn [j] (js->clj j :keywordize-keys true)))))))
 
 (defn- fetch-bitmap [url]
-  (-> (js/fetch url)
-      (.then #(.blob %))
-      (.then #(js/createImageBitmap %))))
+  (-> (probe (str "blob " url)
+             (with-retry url
+               #(-> (fetch-ok url) (.then (fn [r] (.blob r))))))
+      (.then (fn [blob]
+               (probe (str "decode " url) (js/createImageBitmap blob))))))
 
 (defn- fetch-bytes [url]
-  (-> (js/fetch url)
-      (.then #(.arrayBuffer %))))
+  (probe (str "bytes " url)
+         (with-retry url
+           #(-> (fetch-ok url) (.then (fn [r] (.arrayBuffer r)))))))
 
 (defn- shaper-source [font-config]
   (when-let [font-file (:font font-config)]
@@ -103,12 +147,13 @@
                         (conj (fetch-bytes (str base-path (:band slug-config)))))
         sources (shaper-sources font-config)
         shaper-promise (if (seq sources)
-                         (text-shaper/load-provider!
-                           sources
-                           {:features (or (:features font-config)
-                                          ["kern" "liga" "clig" "calt"])
-                            :language (or (:language font-config) "und")
-                            :tab-columns (or (:tabColumns font-config) 4)})
+                         (probe "shaper load-provider!"
+                                (text-shaper/load-provider!
+                                  sources
+                                  {:features (or (:features font-config)
+                                                 ["kern" "liga" "clig" "calt"])
+                                   :language (or (:language font-config) "und")
+                                   :tab-columns (or (:tabColumns font-config) 4)}))
                          (js/Promise.resolve nil))
         asset-promises (vec (concat msdf-promises slug-promises
                                     [shaper-promise]))]
@@ -171,7 +216,11 @@
                                      :backend (:backend font-assets)})
                     {:font-manifest manifest
                      :font-config font-config
-                     :font-assets font-assets}))))))))
+                     :font-assets font-assets}))))))
+      (.catch
+        (fn [e]
+          (js/console.error "[FONT] Default font load FAILED — boot cannot continue" e)
+          (throw e)))))
 
 (defn install-font-watch!
   "Watch !active-font for id changes; apply defaults and async-load new font assets."

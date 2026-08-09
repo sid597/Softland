@@ -7,6 +7,7 @@
   (:require [clojure.string :as str]
             [app.client.substrate.connector-material :as connector-material]
             [app.client.substrate.connector-route :as connector-route]
+            [app.client.substrate.frame-inputs :as frame-inputs]
             [app.client.substrate.path-material :as path-material]
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
@@ -111,10 +112,12 @@
     {:device device :pipeline pipeline :bind-group bind-group
      :camera-buffer camera-buffer :containers-buffer containers-buffer
      :scene-color scene-color :gpu-tracker tracker :text-api text-api
+     :frame-input/identity (js-obj) :!shape-rev (atom 0)
      :!buffer (atom buffer) :!capacity (atom initial-capacity)
      :!route-cache (atom (connector-route/empty-cache))
      :!prepared (atom []) :!labels (atom [])
      :!last-mesh-set-key (atom ::never)
+     :!last-prepare-key (atom ::never)
      :!label-geo (atom nil) :!label-token (atom ::never)
      :!label-parent (atom nil)
      :!receipt (atom {:connector-system/version 1 :uploads 0
@@ -228,8 +231,30 @@
                              effective zoom font-assets content-text-system {}))
   ([connector-system connector-ops targets-by-address effective zoom
     font-assets content-text-system
-    {:keys [region-anchor-resolver region-doors]}]
-  (let [derivation (connector-route/derive-route-set
+    {:keys [region-anchor-resolver region-anchor-resolver-token region-doors]}]
+  (let [connector-ops (or connector-ops [])
+        prepare-key {:connector-ops connector-ops
+                     :targets-by-address targets-by-address
+                     :effective-transforms effective
+                     :connector-zoom-regime
+                     (:regime/id (path-material/zoom-regime zoom))
+                     :font-provider
+                     (connector-route/provider-identity font-assets)
+                     :content-text-system
+                     (frame-inputs/system-token content-text-system)
+                     :region-anchor-resolver
+                     (or region-anchor-resolver-token region-anchor-resolver)
+                     :region-doors region-doors}]
+    (if (and (map? @(:!last-prepare-key connector-system))
+             (frame-inputs/inputs-same?
+              (keys prepare-key) @(:!last-prepare-key connector-system)
+              prepare-key))
+      (let [receipt @(:!receipt connector-system)]
+        {:mesh-set-changed? false :writes 0 :label-writes 0
+         :vertices (:vertices receipt 0)
+         :frame-receipt (:last-frame receipt)
+         :census (:census receipt)})
+      (let [derivation (connector-route/derive-route-set
                     @(:!route-cache connector-system)
                     connector-ops targets-by-address effective zoom font-assets
                     {:region-anchor-resolver region-anchor-resolver
@@ -266,9 +291,14 @@
             (if (pos? vertices) 1 0))
           0)
         route-state (:state derivation)
-        frame-receipt (:frame-receipt derivation)]
+        frame-receipt (:frame-receipt derivation)
+        shape-changed? (or mesh-set-changed?
+                           (pos? (:writes label-result)))]
     (reset! (:!route-cache connector-system) route-state)
     (reset! (:!labels connector-system) labels)
+    (reset! (:!last-prepare-key connector-system) prepare-key)
+    (when shape-changed?
+      (frame-inputs/bump-shape-rev! connector-system))
     (swap! (:!receipt connector-system)
            (fn [receipt]
              (-> receipt
@@ -291,7 +321,7 @@
      :writes writes :label-writes (:writes label-result)
      :vertices vertices
      :frame-receipt frame-receipt
-     :census (:census derivation)})))
+     :census (:census derivation)})))))
 
 (defn- frame-order [source-order entry-id part-rank]
   {:stratum (or (:stratum source-order) :world)
@@ -365,9 +395,8 @@
                         :instance/id mesh-id
                         :family/id :render.family/connector
                         :order (frame-order source-order mesh-id 5)
-                        :paint {:pipeline (:pipeline connector-system)
-                                :bind-group (:bind-group connector-system)
-                                :buffer @(:!buffer connector-system)
+                        :paint {:paint/source connector-system
+                                :paint/source-type :connector-system
                                 :vertex-count mesh-count
                                 :first-vertex mesh-first}
                         :pick {:geometry :reference-edge-route
@@ -383,8 +412,15 @@
              mesh-runs)))))
 
 (defn execute-connector-batch! [^js pass entry]
-  (let [{:keys [pipeline bind-group buffer vertex-count first-vertex]}
-        (:paint entry)]
+  (let [paint (:paint entry)
+        connector-system (:paint/source paint)
+        {:keys [vertex-count first-vertex]} paint
+        ;; Explicit paint wins (same law as resolve-gpu-paint): the linear
+        ;; variant's linearize-entry overrides pipeline/bind-group for the
+        ;; rgba16float pass; only the buffer resolves through the source.
+        pipeline (or (:pipeline paint) (:pipeline connector-system))
+        bind-group (or (:bind-group paint) (:bind-group connector-system))
+        buffer @(:!buffer connector-system)]
     (.setPipeline pass pipeline)
     (.setBindGroup pass 0 bind-group)
     (.setVertexBuffer pass 0 buffer)

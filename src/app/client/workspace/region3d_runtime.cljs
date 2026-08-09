@@ -202,6 +202,12 @@
   (scene/gizmo-handles (:effective-transforms maintained) camera
                        (:selection row) (or (:gizmo-mode row) :translate)))
 
+(defn- current-viewport-scale []
+  (let [{:keys [zoom dpr]}
+        (if-let [viewport-scale (:viewport-scale @!io)]
+          (viewport-scale) {:zoom 1.0 :dpr 1.0})]
+    (* (double (or zoom 1.0)) (double (or dpr 1.0)))))
+
 (defn resolve-region-pick [hit]
   (let [region-id (:region-id hit)
         row (get-in @!session [:regions region-id] {})
@@ -209,15 +215,19 @@
         prepared (region3d-gpu/prepared-pick-state region-id)
         maintained (or (:maintained prepared)
                        (pick-maintained region-id region row))
-        viewport (or (:region-size hit)
-                     [(get-in region [:extent :width])
-                      (get-in region [:extent :height])])
+        region-size (or (:region-size hit)
+                        [(get-in region [:extent :width])
+                         (get-in region [:extent :height])])
+        scale (current-viewport-scale)
+        viewport (mapv #(* scale %) region-size)
+        region-point (mapv #(* scale %) (:region-local hit))
         view (or (:view row) (:view-default region))
-        camera (or (:camera prepared)
-                   (scene/camera-matrices view viewport))
+        ;; Pick is exact even while the retained interior camera is held inside
+        ;; an encode rung. Prepared state contributes scene/BVH/placements only.
+        camera (scene/camera-matrices view viewport)
         resolved (scene/pick-region
                   {:maintained maintained :camera camera
-                   :region-point (:region-local hit)
+                   :region-point region-point
                    :gizmo-handles (gizmo-handles maintained camera row)
                    :placements (:placements prepared)
                    :placement-picker placement/pick-placement})]
@@ -225,7 +235,8 @@
     ;; not carry the outer store row's region id.  Reassert that semantic id at
     ;; the edge so an internal background hit cannot overwrite it with nil.
     (merge hit resolved {:region-id region-id
-                         :camera camera :region-material region})))
+                         :camera camera :region-ray-point region-point
+                         :region-material region})))
 
 (defn- canvas-point [event]
   (let [rect (.getBoundingClientRect ^js @!canvas)]
@@ -335,7 +346,8 @@
   (let [region-id (:region-id hit)
         row (get-in @!session [:regions region-id])
         point (canvas-point event)
-        local (:region-local hit)
+                local (:region-local hit)
+                ray-local (or (:region-ray-point hit) local)
         drag
         (if (= :gizmo (:route hit))
           (let [object-id (:object-id hit)
@@ -366,7 +378,7 @@
                          (scene/cross axis (scene/cross view-normal axis)))
                         view-normal)
                       view-normal))
-                start-ray (scene/ray-from-region-point camera local)]
+                start-ray (scene/ray-from-region-point camera ray-local)]
             {:kind :gizmo :object-id object-id :handle-id (:handle-id hit)
              :before before :start-local local
              :start-ray start-ray :start-point (ray-plane-point

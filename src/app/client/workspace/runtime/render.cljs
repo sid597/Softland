@@ -1,6 +1,7 @@
 (ns app.client.workspace.runtime.render
   "Render consumer: derived flow assembly, world snapshot, GPU upload diffing, draw."
   (:require [missionary.core :as m]
+            [app.client.substrate.frame-inputs :as frame-inputs]
             [app.client.substrate.frame-scheduler :as frame-scheduler]
             [app.client.substrate.webgpu.renderer :as editor]
             [app.client.workspace.scene-runtime :as scene-rt] ;; scene-substrate P3a/P3b
@@ -96,13 +97,21 @@
         {:keys [geos writes]}
         (reduce-kv
           (fn [acc vi texts]
-            (let [prev (get prev-geos vi)
-                  layout-token (slot-layout-token texts)
-                  paint-token (slot-paint-token texts)
-                  same-layout? (and prev (= layout-token (:layout-token prev)))
-                  same-paint? (and prev (= paint-token (:paint-token prev)))]
-              (if (and prev (not reclone?) same-layout? same-paint?)
+            (let [prev (get prev-geos vi)]
+              (if (and prev (not reclone?) (identical? texts (:text prev)))
+                ;; identity fast path: the exact op vector from last frame ⇒
+                ;; tokens are unchanged by construction — skip computing them.
+                ;; A camera-only frame must cost ~0 here (perf receipt
+                ;; 2026-08-08: token recompute over unchanged slots was the
+                ;; whole text-gpu bucket, ~26ms/frame on an iPhone).
                 (update acc :geos assoc vi prev)
+                (let [layout-token (slot-layout-token texts)
+                      paint-token (slot-paint-token texts)
+                      same-layout? (and prev (= layout-token (:layout-token prev)))
+                      same-paint? (and prev (= paint-token (:paint-token prev)))]
+                  (if (and prev (not reclone?) same-layout? same-paint?)
+                    ;; value fast path: fresh op objects, unchanged content
+                    (update acc :geos assoc vi prev)
                 (let [base (if (and prev (not reclone?))
                              (:geo prev)                    ; evolve this slot's geo in place
                              (do (when (and prev reclone?)  ; stale clone (old font) → free
@@ -145,7 +154,7 @@
                       (update :geos assoc vi {:geo geo :text texts
                                               :layout-token layout-token
                                               :paint-token paint-token})
-                      (update :writes inc))))))
+                      (update :writes inc))))))))
           {:geos {} :writes 0}
           (or text-by-vi {}))]
     (doseq [[vi prev] prev-geos]
@@ -154,7 +163,8 @@
         (ground/record-shaping-counter! [:geo :destroyed])
         (ground/record-shaping-counter! [:dirty :exit])
         (ground/evict-layouts-for-slot! vi)))
-    [geos writes]))
+    [(if (frame-inputs/input-value-same? geos prev-geos) prev-geos geos)
+     writes]))
 
 (defn render-consumer
   "Missionary consumer: assemble derived flows, build world snapshot, diff-upload to GPU, draw on RAF."
@@ -522,6 +532,7 @@
                 ;; Reconcile one text geo per store slot off the content system.
                 ;; reclone on a font change (the content clone-parent is fresh).
                 prev-slot-geos (:slot-text-geos prev-state)
+                rec-t0 (js/performance.now)
                 [slot-text-geos slot-text-writes]
                 (reconcile-slot-text-geos! device new-content-geo font-assets
                                            prev-slot-geos store-text-by-vi
@@ -529,10 +540,38 @@
                                            (if backend-changed? :other
                                                :provider-change)
                                            font-size px-range line-h char-width snap-step sharpness)
+                rec-ms (- (js/performance.now) rec-t0)
                 _ (when (pos? slot-text-writes)
                     (js/console.log "[SCENE-FACES/G8] slot text geos reshaped:" slot-text-writes
                                     "| content geo reshaped this frame?:" (not content-same?)
                                     "| live slots:" (count store-text-by-vi)))
+                prev-store-frame (:prev-store-frame prev-state)
+                prev-extra-text-geos (:extra-text-geos prev-state)
+                extra-sources-same?
+                (and (identical? slot-text-geos (:slot-text-geos prev-state))
+                     (identical? (:ordered-vis store-frame)
+                                 (:ordered-vis prev-store-frame))
+                     (identical? (:text-clips-by-vi store-frame)
+                                 (:text-clips-by-vi prev-store-frame))
+                     (identical? (:order-by-vi store-frame)
+                                 (:order-by-vi prev-store-frame)))
+                extra-text-geos
+                (if extra-sources-same?
+                  prev-extra-text-geos
+                  (let [candidate
+                        (into []
+                              (keep (fn [vi]
+                                      (when-let [slot-geo (get slot-text-geos vi)]
+                                        {:vi vi :geo (:geo slot-geo)
+                                         :text-clips
+                                         (get-in store-frame
+                                                 [:text-clips-by-vi vi])
+                                         :order (get-in store-frame
+                                                        [:order-by-vi vi])})))
+                              (:ordered-vis store-frame))]
+                    (if (frame-inputs/input-value-same?
+                         candidate prev-extra-text-geos)
+                      prev-extra-text-geos candidate)))
 
                 ;; ── Chrome text (cmd + agent + status + settings + diagnostics) ──
                 chrome-ops (:chrome-ops text-data)
@@ -819,18 +858,7 @@
                                     ;; W2-B consumes the store tape's canonical
                                     ;; W2-A stack order; map iteration is never
                                     ;; a second text-family order truth.
-                                    :extra-text-geos
-                                    (into []
-                                          (keep (fn [vi]
-                                                  (when-let [slot-geo (get slot-text-geos vi)]
-                                                    {:vi vi
-                                                     :geo (:geo slot-geo)
-                                                     :text-clips
-                                                     (get-in store-frame
-                                                             [:text-clips-by-vi vi])
-                                                     :order (get-in store-frame
-                                                                    [:order-by-vi vi])})))
-                                          (:ordered-vis store-frame)))]
+                                    :extra-text-geos extra-text-geos)]
                 (when-let [plan-hash (:plan-hash draw-result)]
                   (aset js/globalThis "__softlandFrameLastPlanHash" plan-hash)))
               (catch :default err
@@ -850,7 +878,29 @@
               (let [raf-t4 (js/performance.now)]
                 (when (> (- raf-t4 raf-t0) 5)
                   (js/console.log "[RAF] prep:" (.toFixed (- raf-t1 raf-t0) 1) "ms | text-gpu:" (.toFixed (- raf-t2 raf-t1) 1) "ms | rects-gpu:" (.toFixed (- raf-t3 raf-t2) 1) "ms | draw:" (.toFixed (- raf-t4 raf-t3) 1) "ms | TOTAL:" (.toFixed (- raf-t4 raf-t0) 1) "ms | content-same?:" content-same? "chrome-same?:" chrome-same?
-                                  "dirty-rect:" (if dirty-rect "partial" "full")))))
+                                  "dirty-rect:" (if dirty-rect "partial" "full")
+                                  "| reconcile:" (.toFixed rec-ms 1) "ms")
+                  ;; [DRAW] sub-buckets from renderer.cljs mark-draw! stamps —
+                  ;; splits the draw bucket into its per-frame phases.
+                  (when-let [d (aget js/globalThis "__sfDraw")]
+                    (let [g (fn [k] (aget d k))
+                          f (fn [a b] (if (and (g a) (g b)) (.toFixed (- (g b) (g a)) 1) "?"))]
+                      (js/console.log "[DRAW] img:" (f "t0" "img")
+                                      "| path:" (f "img" "path") "| chrome:" (f "path" "chrome")
+                                      "| region:" (f "chrome" "region") "| conn:" (f "region" "conn")
+                                      "| produce:" (f "conn" "produce")
+                                      "| plan:" (f "produce" "plan")
+                                      "| cam:" (f "plan" "cam")
+                                      "| project:" (f "cam" "arrange")
+                                      "| twin:" (f "arrange" "twin")
+                                      "| encode:" (if (g "twin") (.toFixed (- raf-t4 (g "twin")) 1) "?")
+                                      "| fams:" (or (aget js/globalThis "__sfFams") "")
+                                      "| changed:"
+                                      (if-let [l (aget js/globalThis "__softlandFrameLedger")]
+                                        (str (js/JSON.stringify (aget l "changed-families"))
+                                             " plan?" (aget l "plan-maintained?")
+                                             " rgn-prep" (aget l "region-prepared"))
+                                        "?")))))))
 
             {:content-text-geo new-content-geo
              :chrome-text-geo new-chrome-geo
@@ -888,6 +938,7 @@
              :prev-face-context face-context
              ;; scene-substrate P3b Rung 2: per-slot text geos {vi {:geo :text}}
              :slot-text-geos slot-text-geos
+             :extra-text-geos extra-text-geos
              :frame-idx frame-idx}))))
 
       (let [tracker @!gpu-budget
@@ -917,7 +968,11 @@
             (let [{:keys [x y zoom]} @ground/!camera
                   zoom (or zoom 1.0)]
               [(/ (- screen-x (or x 0.0)) zoom)
-               (/ (- screen-y (or y 0.0)) zoom)]))})
+               (/ (- screen-y (or y 0.0)) zoom)]))
+          :viewport-scale
+          (fn []
+            {:zoom (or (:zoom @ground/!camera) 1.0)
+             :dpr (or (:dpr @!viewport) 1.0)})})
         {:content-text-geo (:text geometry)
        :chrome-text-geo chrome-text-geo
        :cmd-rect-sys @!cmd-rect-sys
@@ -954,6 +1009,7 @@
        :prev-face-context nil
        ;; scene-substrate P3b Rung 2
        :slot-text-geos {}
+       :extra-text-geos nil
        :frame-idx 0})
 
       (m/sample vector <world-snapshot >raf)))))

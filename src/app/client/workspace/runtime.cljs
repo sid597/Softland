@@ -15,6 +15,7 @@
             [app.client.workspace.runtime.agent-flow :as agent-flow]
             [app.client.workspace.runtime.scroll :as scroll]
             [app.client.workspace.runtime.mouse :as mouse]
+            [app.client.workspace.runtime.touch :as touch]
             [app.client.workspace.runtime.keyboard :as kbd]
             [app.client.workspace.trail-face.wiring :as trail-wiring]
             [app.client.workspace.face-wiring :as face-wiring]
@@ -415,7 +416,8 @@
 
         ;; ── DOM listeners (raw, not Missionary) ─────────────────────
         _ (mouse/install-drag-select! atoms layout node)
-        _ (mouse/install-paste-handler! atoms)]
+        _ (mouse/install-paste-handler! atoms)
+        _ (touch/install-touch-adapter! node)]
 
     ;; ═══════════════════════════════════════════════════════════════
     ;; JOIN: all consumers run concurrently

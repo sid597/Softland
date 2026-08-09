@@ -37,6 +37,7 @@
     app.client.substrate.chrome-material-test
     app.client.substrate.chrome-derive-test
     app.client.substrate.frame-effects-test
+    app.client.substrate.frame-inputs-test
     app.client.substrate.frame-graph-test
     app.client.substrate.frame-scheduler-test
     app.client.substrate.maintained-view-test

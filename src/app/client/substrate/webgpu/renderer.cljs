@@ -2,7 +2,9 @@
   (:require [clojure.string :as str]
             [app.client.substrate.frame-effects :as frame-effects]
             [app.client.substrate.frame-graph :as frame-graph]
+            [app.client.substrate.frame-inputs :as frame-inputs]
             [app.client.substrate.image-material :as image-material]
+            [app.client.substrate.path-material :as path-material]
             [app.client.substrate.region3d-placement :as region3d-placement]
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.buffer-pool :as buffer-pool]
@@ -770,6 +772,14 @@
 (def affine-entry-bytes 32)
 (def max-transform-nodes 16384)
 
+(defn- sync-paint-state! [system]
+  (when-let [state (:!paint-state system)]
+    (reset! state {:pipeline (:pipeline system)
+                   :bind-group (:bind-group system)
+                   :buffer (:instance-buffer system)
+                   :instance-count (:num-instances system 0)}))
+  system)
+
 (defn create-containers-buffer
   "Create the shared Q8 affine storage buffer and write identity slot 0.
    Shared across all four transform-consuming pipelines like the camera."
@@ -873,6 +883,10 @@
      :num-instances 0
      :family/id :render.family/rect
      :scene-color scene-color
+     :frame-input/identity (js-obj)
+     :!shape-rev (atom 0)
+     :!paint-state (atom {:pipeline pipeline :bind-group bind-group
+                          :buffer instance-buffer :instance-count 0})
      :gpu-tracker tracker
      :gpu-label label}))
 
@@ -1199,7 +1213,9 @@
          :!resources (atom {})
          :!source-registry (atom (image-material/empty-source-registry))
          :!source-bytes (atom {})
+         :frame-input/identity (js-obj) :!shape-rev (atom 0)
          :!last-images (atom ::never) :!prepared-images (atom [])
+         :!last-prepare-key (atom ::never)
          :!receipt (atom {:version 1 :rows {}
                           :ingress image-material/ingress-receipt})}]
     (publish-image-receipt! image-system)
@@ -1626,6 +1642,10 @@
             :instance-buffer instance-buffer
             :instance-stride msdf-text-instance-stride
             :num-instances 0
+            :frame-input/identity (js-obj)
+            :!shape-rev (atom 0)
+            :!paint-state (atom {:pipeline pipeline :bind-group bind-group
+                                 :buffer instance-buffer :instance-count 0})
             :gpu-tracker tracker
             :gpu-label label
             :owns-font-resources? true
@@ -1691,6 +1711,10 @@
             :instance-buffer instance-buffer
             :instance-stride slug-text-instance-stride
             :num-instances 0
+            :frame-input/identity (js-obj)
+            :!shape-rev (atom 0)
+            :!paint-state (atom {:pipeline pipeline :bind-group bind-group
+                                 :buffer instance-buffer :instance-count 0})
             :gpu-tracker tracker
             :gpu-label label
             :owns-font-resources? true
@@ -1711,49 +1735,50 @@
     (throw (ex-info "Text backend mismatch during font update."
                     {:current (:backend text-sys)
                      :requested (:backend font-assets)}))
-    (case (:backend text-sys)
-      :msdf
-      (let [tracker (:gpu-tracker text-sys)
-            old-texture (:font-texture text-sys)
-            font-resources (create-msdf-font-resources device tracker (:bitmap font-assets) (or (:font-texture-label text-sys) "text/atlas"))]
-        (when (and tracker old-texture (:owns-font-resources? text-sys))
-          (gpu-budget/destroy-resource! tracker old-texture :reason :font-update))
-        (when (and old-texture (:owns-font-resources? text-sys))
-          (.destroy ^js old-texture))
-        (merge text-sys
-               font-resources
-               {:bind-group (create-msdf-bind-group device
-                                                    (:bind-group-layout text-sys)
-                                                    (:font-sampler font-resources)
-                                                    (:font-texture-view font-resources)
-                                                    (:camera-uniform-buffer text-sys)
-                                                    (:sizes-uniform-buffer text-sys)
-                                                    (:containers-uniform-buffer text-sys))
-                :owns-font-resources? true}))
+    (sync-paint-state!
+     (case (:backend text-sys)
+       :msdf
+       (let [tracker (:gpu-tracker text-sys)
+             old-texture (:font-texture text-sys)
+             font-resources (create-msdf-font-resources device tracker (:bitmap font-assets) (or (:font-texture-label text-sys) "text/atlas"))]
+         (when (and tracker old-texture (:owns-font-resources? text-sys))
+           (gpu-budget/destroy-resource! tracker old-texture :reason :font-update))
+         (when (and old-texture (:owns-font-resources? text-sys))
+           (.destroy ^js old-texture))
+         (merge text-sys
+                font-resources
+                {:bind-group (create-msdf-bind-group device
+                                                     (:bind-group-layout text-sys)
+                                                     (:font-sampler font-resources)
+                                                     (:font-texture-view font-resources)
+                                                     (:camera-uniform-buffer text-sys)
+                                                     (:sizes-uniform-buffer text-sys)
+                                                     (:containers-uniform-buffer text-sys))
+                 :owns-font-resources? true}))
 
-      :slug
-      (let [tracker (:gpu-tracker text-sys)
-            old-curve (:curve-texture text-sys)
-            old-band (:band-texture text-sys)
-            font-resources (create-slug-font-resources device tracker (:slug font-assets))]
-        (when (and tracker old-curve (:owns-font-resources? text-sys))
-          (gpu-budget/destroy-resource! tracker old-curve :reason :slug-curve-update))
-        (when (and tracker old-band (:owns-font-resources? text-sys))
-          (gpu-budget/destroy-resource! tracker old-band :reason :slug-band-update))
-        (when (and old-curve (:owns-font-resources? text-sys))
-          (.destroy ^js old-curve))
-        (when (and old-band (:owns-font-resources? text-sys))
-          (.destroy ^js old-band))
-        (merge text-sys
-               font-resources
-               {:bind-group (create-slug-bind-group device
-                                                    (:bind-group-layout text-sys)
-                                                    (:curve-texture-view font-resources)
-                                                    (:band-texture-view font-resources)
-                                                    (:camera-uniform-buffer text-sys)
-                                                    (:sizes-uniform-buffer text-sys)
-                                                    (:containers-uniform-buffer text-sys))
-                :owns-font-resources? true})))))
+       :slug
+       (let [tracker (:gpu-tracker text-sys)
+             old-curve (:curve-texture text-sys)
+             old-band (:band-texture text-sys)
+             font-resources (create-slug-font-resources device tracker (:slug font-assets))]
+         (when (and tracker old-curve (:owns-font-resources? text-sys))
+           (gpu-budget/destroy-resource! tracker old-curve :reason :slug-curve-update))
+         (when (and tracker old-band (:owns-font-resources? text-sys))
+           (gpu-budget/destroy-resource! tracker old-band :reason :slug-band-update))
+         (when (and old-curve (:owns-font-resources? text-sys))
+           (.destroy ^js old-curve))
+         (when (and old-band (:owns-font-resources? text-sys))
+           (.destroy ^js old-band))
+         (merge text-sys
+                font-resources
+                {:bind-group (create-slug-bind-group device
+                                                     (:bind-group-layout text-sys)
+                                                     (:curve-texture-view font-resources)
+                                                     (:band-texture-view font-resources)
+                                                     (:camera-uniform-buffer text-sys)
+                                                     (:sizes-uniform-buffer text-sys)
+                                                     (:containers-uniform-buffer text-sys))
+                 :owns-font-resources? true}))))))
 
 (defn share-font-resources
   "Point a secondary text system at a primary text system's shared font resources."
@@ -1768,15 +1793,16 @@
       :msdf (destroy-msdf-font-resources! target-state)
       :slug (destroy-slug-font-resources! target-state)
       nil))
-  (-> target-state
-      (assoc :bind-group (:bind-group source-state)
-             :owns-font-resources? false)
-      (merge
+  (sync-paint-state!
+   (-> target-state
+       (assoc :bind-group (:bind-group source-state)
+              :owns-font-resources? false)
+       (merge
         (select-keys source-state
                      [:font-texture :font-texture-view :font-sampler :font-texture-label
                       :curve-texture :curve-texture-view :curve-texture-label
                       :band-texture :band-texture-view :band-texture-label
-                      :font-resource-kind]))))
+                      :font-resource-kind])))))
 
 (defn recreate-text-system
   [^js/GPUDevice device fformat old-text-sys font-assets]
@@ -1812,6 +1838,11 @@
            :instance-stride stride
            :num-instances 0
            :line-offsets nil
+           :frame-input/identity (js-obj)
+           :!shape-rev (atom 0)
+           :!paint-state (atom {:pipeline (:pipeline parent-text-sys)
+                                :bind-group (:bind-group parent-text-sys)
+                                :buffer ib :instance-count 0})
            :gpu-label "text/chrome"
            :owns-font-resources? false
            :owns-sizing-buffer? false)))
@@ -1859,6 +1890,10 @@
      :num-instances 0
      :family/id :render.family/shadow
      :scene-color scene-color
+     :frame-input/identity (js-obj)
+     :!shape-rev (atom 0)
+     :!paint-state (atom {:pipeline pipeline :bind-group bind-group
+                          :buffer instance-buffer :instance-count 0})
      :gpu-tracker tracker
      :gpu-label label}))
 
@@ -1931,7 +1966,10 @@
     (when (pos? n)
       (.writeBuffer (.-queue device) new-buffer 0 data))
     (gpu-budget/set-active-bytes! (:gpu-tracker shadow-system) new-buffer (* n shadow-stride))
-    (assoc shadow-system :instance-buffer new-buffer :num-instances n)))
+    (when (not= n (:num-instances shadow-system))
+      (frame-inputs/bump-shape-rev! shadow-system))
+    (sync-paint-state!
+     (assoc shadow-system :instance-buffer new-buffer :num-instances n))))
 
 ;; --- Clear-quad system (Phase 6E: dirty-present) ---
 (def clear-quad-shader "
@@ -2455,11 +2493,16 @@
           (let [sizes (js/Float32Array. #js [(float px-range) (float atlas-em) (float sharpness) 0.0])]
             (.writeBuffer (.-queue device) sizes-buffer 0 sizes)))
         (gpu-budget/set-active-bytes! (:gpu-tracker renderer-state) new-buffer active-bytes)
-        (assoc renderer-state
-               :instance-buffer new-buffer
-               :num-instances actual-instances
-               :line-offsets line-offsets
-               :line-height line-h))
+        (when (or (not= line-offsets (:line-offsets renderer-state))
+                  (not= (pos? actual-instances)
+                        (pos? (:num-instances renderer-state 0))))
+          (frame-inputs/bump-shape-rev! renderer-state))
+        (sync-paint-state!
+         (assoc renderer-state
+                :instance-buffer new-buffer
+                :num-instances actual-instances
+                :line-offsets line-offsets
+                :line-height line-h)))
 
       :slug
       (let [raw-buffer (js/ArrayBuffer. (* buffer-instance-count stride))
@@ -2476,11 +2519,16 @@
           (let [sizes (js/Float32Array. #js [0.0 0.0 0.0 0.0])]
             (.writeBuffer (.-queue device) sizes-buffer 0 sizes)))
         (gpu-budget/set-active-bytes! (:gpu-tracker renderer-state) new-buffer active-bytes)
-        (assoc renderer-state
-               :instance-buffer new-buffer
-               :num-instances actual-instances
-               :line-offsets line-offsets
-               :line-height line-h)))))
+        (when (or (not= line-offsets (:line-offsets renderer-state))
+                  (not= (pos? actual-instances)
+                        (pos? (:num-instances renderer-state 0))))
+          (frame-inputs/bump-shape-rev! renderer-state))
+        (sync-paint-state!
+         (assoc renderer-state
+                :instance-buffer new-buffer
+                :num-instances actual-instances
+                :line-offsets line-offsets
+                :line-height line-h))))))
 
 
 (defn update-rects [^js device rect-system rects]
@@ -2568,7 +2616,10 @@
     (when (pos? n)
       (.writeBuffer (.-queue device) new-buffer 0 data))
     (gpu-budget/set-active-bytes! (:gpu-tracker rect-system) new-buffer (* n rect-stride))
-    (assoc rect-system :instance-buffer new-buffer :num-instances n)))
+    (when (not= n (:num-instances rect-system))
+      (frame-inputs/bump-shape-rev! rect-system))
+    (sync-paint-state!
+     (assoc rect-system :instance-buffer new-buffer :num-instances n))))
 
 
 (defn update-camera [^js device camera-buffer ^js floats pan-x pan-y zoom w h]
@@ -2650,14 +2701,48 @@
     :pick pick
     :visibility {:visible? true :clip :frame-shared}}))
 
-(defn- gpu-paint [pipeline bind-group buffer instance-count first-instance]
-  {:pipeline pipeline
-   :bind-group bind-group
-   :buffer buffer
+(defn- gpu-paint [source source-type instance-count first-instance]
+  {:paint/source source
+   :paint/source-type source-type
    :vertex-count 6
    :instance-count instance-count
    :first-vertex 0
    :first-instance (or first-instance 0)})
+
+(defn resolve-gpu-paint
+  "Resolve prepare-mutable payload through the retained source reference.
+   Slice/range fields remain on the entry; buffers, bindings, and whole-system
+   instance counts are read at encode time.  The verifier uses this same door."
+  [paint]
+  (let [source (:paint/source paint)
+        source-state
+        (case (:paint/source-type paint)
+          :pool (if (satisfies? IDeref source) @source source)
+          :system (if-let [state (:!paint-state source)] @state source)
+          nil)
+        instance-count (if (= ::system (:instance-count paint))
+                         (or (:instance-count source-state)
+                             (:num-instances source-state)
+                             (:high-water-mark source-state)
+                             (:draw-count source-state)
+                             0)
+                         (:instance-count paint))
+        source-paint
+        (cond-> (select-keys source-state [:pipeline :bind-group :buffer])
+          (and (nil? (:buffer source-state))
+               (:instance-buffer source-state))
+          (assoc :buffer (:instance-buffer source-state)))
+        paint (merge source-paint
+                     paint
+                     {:instance-count instance-count})]
+    (if-let [sub-draws (:sub-draws paint)]
+      (assoc paint :sub-draws
+             (mapv (fn [row]
+                     (cond-> row
+                       (nil? (:buffer row))
+                       (assoc :buffer (:buffer source-paint))))
+                   sub-draws))
+      paint)))
 
 (defn- contiguous-state-runs [rows]
   (loop [remaining rows offset 0 result []]
@@ -2746,14 +2831,19 @@
    prepared vector (IMAGE-ATOM T10)."
   [image-system images]
   (let [images (or images [])
-        !last-images (:!last-images image-system)]
-    (if (identical? images @!last-images)
+        !last-images (:!last-images image-system)
+        prepare-key {:images images :resources @(:!resources image-system)}]
+    (if (and (map? @(:!last-prepare-key image-system))
+             (frame-inputs/inputs-same? (keys prepare-key)
+                                        @(:!last-prepare-key image-system)
+                                        prepare-key))
       {:identity-changed? false :writes 0
        :instances (count @(:!prepared-images image-system))}
       (let [prepared (mapv #(resolve-image-op image-system %) images)
             writes (buffer-pool/batch-update-pool! (:pool image-system)
                                                    prepared)]
         (reset! !last-images images)
+        (reset! (:!last-prepare-key image-system) prepare-key)
         (reset! (:!prepared-images image-system) prepared)
         (swap! (:!receipt image-system) assoc
                :frame-write {:identity-changed? true
@@ -2769,10 +2859,7 @@
   [{:keys [store-frame image-system]}]
   (if-not (and image-system store-frame)
     []
-    (let [prepared @(:!prepared-images image-system)
-          pool (:pool image-system)
-          buffer (:buffer @pool)
-          pipeline (:pipeline image-system)]
+    (let [prepared @(:!prepared-images image-system)]
       (loop [vis (:ordered-vis store-frame)
              offset 0
              entries []]
@@ -2780,23 +2867,18 @@
           (let [instance-count (get-in store-frame
                                        [:ops-count-by-vi vi :images] 0)
                 next-offset (+ offset instance-count)
-                slot-ops (subvec prepared offset next-offset)
                 source-order (get-in store-frame [:order-by-vi vi])
                 entry-id [:frame/store vi :images]
                 order (frame-order (or (:stratum source-order) :world)
                                    25 entry-id (:stack-path source-order) 3)
-                sub-draws
-                (mapv (fn [{:keys [first-instance instance-count ops]}]
-                        {:bind-group (:image/bind-group (first ops))
-                         :buffer buffer
-                         :instance-count instance-count
-                         :first-instance (+ offset first-instance)})
-                      (image-material/contiguous-binding-runs slot-ops))
                 entries (cond-> entries
                           (pos? instance-count)
                           (conj (frame-entry
                                  entry-id :render.family/image order
-                                 {:pipeline pipeline :sub-draws sub-draws}
+                                 {:paint/source image-system
+                                  :paint/source-type :image-system
+                                  :op-offset offset
+                                  :instance-count instance-count}
                                  {:geometry :image-quad :owner vi
                                   :boundary :half-open :hit-slop 0.0})))]
             (recur (next vis) next-offset entries))
@@ -2805,10 +2887,8 @@
 (defn- pool-entry [entry-id family-id order pool-info]
   (when (and pool-info (pos? (:draw-count pool-info)))
     (frame-entry entry-id family-id order
-                 (gpu-paint (:pipeline pool-info)
-                            (:bind-group pool-info)
-                            (:buffer pool-info)
-                            (:draw-count pool-info)
+                 (gpu-paint (or (:pool pool-info) pool-info) :pool
+                            ::system
                             0))))
 
 (defn- store-pool-entries
@@ -2825,9 +2905,7 @@
             clip-rows (when (= :rects count-key)
                         (get-in store-frame [:rect-clips-by-vi vi]))
             paint (when pool-info
-                    (cond-> (gpu-paint (:pipeline pool-info)
-                                      (:bind-group pool-info)
-                                      (:buffer pool-info)
+                    (cond-> (gpu-paint (or (:pool pool-info) pool-info) :pool
                                       instance-count offset)
                       (seq clip-rows)
                       (add-instance-clip-runs clip-rows offset)))
@@ -2844,16 +2922,14 @@
 
 (defn- system-entry
   ([entry-id family-id order system]
-   (system-entry entry-id family-id order system (:num-instances system) 0))
+   (system-entry entry-id family-id order system ::system 0))
   ([entry-id family-id order system instance-count first-instance]
    (system-entry entry-id family-id order system instance-count first-instance :none))
   ([entry-id family-id order system instance-count first-instance pick]
-   (when (and system (pos? (or instance-count 0)))
+   (when (and system (or (= ::system instance-count)
+                         (pos? (or instance-count 0))))
      (frame-entry entry-id family-id order
-                  (gpu-paint (:pipeline system)
-                             (:bind-group system)
-                             (:instance-buffer system)
-                             instance-count
+                  (gpu-paint system :system instance-count
                              first-instance)
                   pick))))
 
@@ -2970,7 +3046,7 @@
                             (frame-order (or (:stratum source-order) :world)
                                          25 [:frame/slot-text vi]
                                          (:stack-path source-order) 2)
-                            geo (:num-instances geo) 0
+                            geo ::system 0
                             {:geometry :layout-cluster :owner vi})
                      runs (when (and entry (seq line-clips))
                             (text-clip-runs geo line-clips))]
@@ -2978,7 +3054,6 @@
                    (assoc-in entry [:paint :sub-draws]
                              (mapv (fn [{:keys [clip container offset count]}]
                                      {:clip clip :container container
-                                      :buffer (:instance-buffer geo)
                                       :instance-count count
                                       :first-instance offset
                                       :first-vertex 0 :vertex-count 6})
@@ -3031,7 +3106,7 @@
 (defn- execute-gpu-batch! [^js pass entry]
   (let [{:keys [pipeline bind-group buffer vertex-count instance-count
                 first-vertex first-instance scissor sub-draws attachment-size]}
-        (:paint entry)]
+        (resolve-gpu-paint (:paint entry))]
     (.setPipeline pass pipeline)
     (when bind-group (.setBindGroup pass 0 bind-group))
     (if (seq sub-draws)
@@ -3050,11 +3125,34 @@
           (.draw pass vertex-count instance-count first-vertex first-instance))))
     (:entry/id entry)))
 
+(defn resolve-image-paint
+  "Resolve image sub-draws through the retained source reference at encode
+   time.  Pre-resolved paint (a variant linearization already replaced the
+   bind groups) passes through — explicit paint wins, same law as
+   resolve-gpu-paint."
+  [paint]
+  (if (:sub-draws paint)
+    paint
+    (let [image-system (:paint/source paint)
+        offset (:op-offset paint)
+        instance-count (:instance-count paint)
+        prepared @(:!prepared-images image-system)
+        slot-ops (subvec prepared offset (+ offset instance-count))
+        buffer (:buffer @(:pool image-system))]
+    {:pipeline (:pipeline image-system)
+     :sub-draws
+     (mapv (fn [{:keys [first-instance instance-count ops]}]
+             {:bind-group (:image/bind-group (first ops))
+              :buffer buffer
+              :instance-count instance-count
+              :first-instance (+ offset first-instance)})
+           (image-material/contiguous-binding-runs slot-ops))})))
+
 (defn execute-image-batch!
   "Family-owned sub-draw walker.  Bind changes are walked in the op-derived
-   vector's order; the central tape executor remains family-blind (T1)."
+  vector's order; the central tape executor remains family-blind (T1)."
   [^js pass entry]
-  (let [{:keys [pipeline sub-draws]} (:paint entry)]
+  (let [{:keys [pipeline sub-draws]} (resolve-image-paint (:paint entry))]
     (.setPipeline pass pipeline)
     (doseq [{:keys [bind-group buffer instance-count first-instance]}
             sub-draws]
@@ -3209,20 +3307,21 @@
               (= :render.family/image family-id)
               (do
                 ((:sync! image))
-                (-> entry
-                    (assoc-in [:paint :pipeline] (:pipeline image))
-                    (update-in [:paint :sub-draws]
-                               (fn [sub-draws]
-                                 (mapv (fn [sub-draw]
-                                         (let [old (:bind-group sub-draw)
-                                               replacement (.get ^js (:binding-map image)
-                                                                 old)]
-                                           (when-not replacement
-                                             (throw (ex-info
-                                                     "Image variant lacks a shared-resource view"
-                                                     {:entry/id (:entry/id entry)})))
-                                           (assoc sub-draw :bind-group replacement)))
-                                       sub-draws)))))
+                (let [{:keys [sub-draws]} (resolve-image-paint (:paint entry))
+                      replaced
+                      (mapv (fn [sub-draw]
+                              (let [old (:bind-group sub-draw)
+                                    replacement (.get ^js (:binding-map image)
+                                                      old)]
+                                (when-not replacement
+                                  (throw (ex-info
+                                          "Image variant lacks a shared-resource view"
+                                          {:entry/id (:entry/id entry)})))
+                                (assoc sub-draw :bind-group replacement)))
+                            sub-draws)]
+                  (update entry :paint assoc
+                          :pipeline (:pipeline image)
+                          :sub-draws replaced)))
 
               variant
               (cond-> (assoc-in entry [:paint :pipeline] (:pipeline variant))
@@ -3237,55 +3336,78 @@
               :text-instance-buffer (some-> text-sys :instance-buffer)}
      :destroy! (fn [] nil)}))
 
+(defn- store-frame-input [inputs keys]
+  (select-keys inputs keys))
+
+(defn- store-producer [producer store-keys]
+  (fn [inputs]
+    (producer (assoc inputs :store-frame (store-frame-input inputs store-keys)))))
+
 (def frame-family-registry
-  (let [family (fn [family-id produce]
+  (let [family (fn [family-id produce execute!]
                  {:contract (get scene-tape/default-family-registry family-id)
+                  :inputs (get frame-inputs/family-input-declarations family-id)
                   :produce produce
-                  :execute! execute-gpu-batch!})]
+                  :execute! execute!})
+        generic (fn [family-id produce]
+                  (family family-id produce execute-gpu-batch!))]
     {:render.family/rect
-     (family :render.family/rect rect-entries)
+     (generic :render.family/rect
+              (store-producer rect-entries
+                              [:rects :ordered-vis :ops-count-by-vi
+                               :order-by-vi :rect-clips-by-vi]))
 
      :render.family/shadow
-     (family :render.family/shadow shadow-entries)
+     (generic :render.family/shadow
+              (store-producer shadow-entries
+                              [:shadows :ordered-vis :ops-count-by-vi
+                               :order-by-vi]))
 
      :render.family/msdf
-     (family :render.family/msdf
-             #(text-entries-for-family :render.family/msdf %))
+     (generic :render.family/msdf
+              #(text-entries-for-family :render.family/msdf %))
 
      :render.family/slug
-     (family :render.family/slug
-             #(text-entries-for-family :render.family/slug %))
+     (generic :render.family/slug
+              #(text-entries-for-family :render.family/slug %))
 
      :render.family/clip
-     (family :render.family/clip clip-entries)
+     (generic :render.family/clip clip-entries)
 
      :render.family/image
-     {:contract (get scene-tape/default-family-registry :render.family/image)
-      :produce image-entries
-      :execute! execute-image-batch!}
+     (family :render.family/image
+             (store-producer image-entries
+                             [:images :ordered-vis :ops-count-by-vi
+                              :order-by-vi])
+             execute-image-batch!)
 
      :render.family/path
-     {:contract (get scene-tape/default-family-registry :render.family/path)
-      :produce path-gpu/path-entries
-      :execute! path-gpu/execute-path-batch!}
+     (family :render.family/path
+             (store-producer path-gpu/path-entries
+                             [:paths :ordered-vis :ops-count-by-vi
+                              :order-by-vi])
+             path-gpu/execute-path-batch!)
 
      :render.family/connector
-     {:contract (get scene-tape/default-family-registry
-                     :render.family/connector)
-      :produce #(connector-gpu/connector-entries
-                 (assoc % :connector-label-entry connector-label-entry))
-      :execute! connector-gpu/execute-connector-batch!}
+     (family :render.family/connector
+             (store-producer
+              #(connector-gpu/connector-entries
+                (assoc % :connector-label-entry connector-label-entry))
+              [:connectors :ordered-vis :order-by-vi])
+             connector-gpu/execute-connector-batch!)
 
      :render.family/chrome
-     {:contract (get scene-tape/default-family-registry :render.family/chrome)
-      :produce chrome-gpu/chrome-entries
-      :execute! chrome-gpu/execute-chrome-batch!}
+     (family :render.family/chrome
+             (store-producer chrome-gpu/chrome-entries
+                             [:chromes :ordered-vis :ops-count-by-vi
+                              :order-by-vi])
+             chrome-gpu/execute-chrome-batch!)
 
      :render.family/region-3d
-     {:contract (get scene-tape/default-family-registry
-                     :render.family/region-3d)
-      :produce region3d-gpu/region3d-entries
-      :execute! region3d-gpu/execute-region3d-batch!}}))
+     (family :render.family/region-3d
+             (store-producer region3d-gpu/region3d-entries
+                             [:regions :order-by-vi])
+             region3d-gpu/execute-region3d-batch!)}))
 
 (def ^:private frame-contract-registry
   (let [executor-families (set (keys frame-family-registry))
@@ -3307,14 +3429,26 @@
 
 ;; SEAM-STEP1 T8: frame vocabulary and its maintained arrangement stay owned
 ;; at the renderer edge; the scene store never learns these transient entries.
-(defonce ^:private !frame-arrangement
-  (atom (sorted-map-by scene-tape/entry-key-compare)))
+(defn empty-frame-arrangement []
+  {:ordered
+   (sorted-map-by
+    (fn [left right]
+      ;; Count at the comparator body, not beside a maintenance call.
+      (frame-inputs/increment-ledger! :comparator-calls)
+      (scene-tape/entry-key-compare left right)))
+   :keys-by-family {}})
+
+(defonce ^:private !frame-arrangement (atom (empty-frame-arrangement)))
 
 (defonce ^:private !frame-effect-state
   (atom (frame-effects/empty-maintained-state)))
 
 (defonce ^:private !frame-plan-state
   (atom (frame-graph/empty-maintained-state)))
+
+(defonce ^:private !prev-frame-inputs (atom nil))
+(defonce ^:private !frame-plan-inputs (atom nil))
+(defonce ^:private !frame-device (atom nil))
 
 (defonce ^:private !compositors-by-device (js/WeakMap.))
 
@@ -3325,61 +3459,145 @@
         (.set !compositors-by-device device compositor)
         compositor)))
 
-(defn produce-frame-entries [frame]
-  (into []
-        (mapcat (fn [[_family-id registration]]
-                  ((:produce registration) frame)))
-        frame-family-registry))
+(def ^:private store-input-keys
+  [:rects :shadows :images :paths :connectors :chromes :regions
+   :ordered-vis :ops-count-by-vi :order-by-vi :rect-clips-by-vi
+   :text-clips-by-vi])
 
-(defn update-frame-arrangement [arrangement frame]
-  (let [entries (produce-frame-entries frame)
-        ;; SEAM-STEP1 T12: order invalidation comes from the produced semantic
-        ;; id/token pairs. No execution-clock or revision stamp is an ancestor.
-        produced-pairs (into #{} (map (juxt :entry/id :order)) entries)
-        arrangement
-        (reduce (fn [ordered entry]
-                  (if (contains? produced-pairs [(:entry/id entry) (:order entry)])
-                    ordered
-                    (scene-tape/ordered-remove ordered entry)))
-                arrangement
-                (vals arrangement))]
-    (reduce
-     (fn [ordered entry]
-       (let [key (scene-tape/entry-key entry)]
-         (if (contains? ordered key)
-           ;; Same semantic order: only rebind the per-frame GPU payload.
-           (assoc ordered key entry)
-           (scene-tape/ordered-insert frame-contract-registry ordered entry))))
-     arrangement
-     entries)))
+(defn frame-input-map [device frame]
+  (let [store-frame (:store-frame frame)
+        zoom (:zoom frame 1.0)
+        font-assets (:font-assets frame)]
+    (merge frame
+           (select-keys store-frame store-input-keys)
+           {:device device
+            :text-sys-token (frame-inputs/system-token (:text-sys frame))
+            :chrome-text-sys-token
+            (frame-inputs/system-token (:chrome-text-sys frame))
+            :cmd-rect-sys-token
+            (frame-inputs/system-token (:cmd-rect-sys frame))
+            :settings-rect-sys-token
+            (frame-inputs/system-token (:settings-rect-sys frame))
+            :image-system-token
+            (frame-inputs/system-token (:image-system frame))
+            :path-system-token
+            (frame-inputs/system-token (:path-system frame))
+            :connector-system-token
+            (frame-inputs/system-token (:connector-system frame))
+            :chrome-system-token
+            (frame-inputs/system-token (:chrome-system frame))
+            :region3d-system-token
+            (frame-inputs/system-token (:region3d-system frame))
+            :font-provider-token
+            (region3d-placement/provider-identity font-assets)
+            :path-zoom-regime
+            (:regime/id (path-material/zoom-regime zoom))
+            :connector-zoom-regime
+            (:regime/id (path-material/zoom-regime zoom))})))
 
-(defn compile-frame-tape [frame]
-  (let [entries (produce-frame-entries frame)]
+(defn- reset-frame-retention! [device]
+  (when-not (identical? device @!frame-device)
+    (reset! !frame-device device)
+    (reset! !prev-frame-inputs nil)
+    (reset! !frame-plan-inputs nil)
+    (reset! !frame-arrangement (empty-frame-arrangement))
+    (reset! !frame-effect-state (frame-effects/empty-maintained-state))
+    (reset! !frame-plan-state (frame-graph/empty-maintained-state))))
+
+(defn produce-frame-entries
+  ([inputs families]
+   (produce-frame-entries inputs families {:receipt? true :instrument? true}))
+  ([inputs families {:keys [receipt? instrument?]
+                     :or {receipt? true instrument? true}}]
+   (let [fams #js []
+        out (into []
+                  (mapcat (fn [[family-id registration]]
+                            (if-not (contains? families family-id)
+                              []
+                            (let [t0 (js/performance.now)
+                                  ;; :frame/producer — cross-family entries
+                                  ;; (connector labels ride the text family's
+                                  ;; :family/id) must be maintained under the
+                                  ;; family that PRODUCED them, or the
+                                  ;; family-scoped delta removes them on any
+                                  ;; text produce and drops them on any
+                                  ;; connector produce (twin receipt 2026-08-09).
+                                  entries (mapv
+                                           #(assoc % :frame/producer family-id)
+                                           ((:produce registration)
+                                            (frame-inputs/declared-inputs
+                                             family-id inputs)))
+                                  dt (- (js/performance.now) t0)]
+                              (when receipt?
+                                (frame-inputs/increment-ledger!
+                                 :produced (count entries)))
+                              (when (and instrument? (> dt 2))
+                                (.push fams (str (name family-id) ":" (.toFixed dt 1))))
+                              entries))))
+                  frame-family-registry)]
+    ;; per-family produce cost + entry count for the [DRAW] receipt (perf probe)
+    (when instrument?
+      (aset js/globalThis "__sfFams" (str (.join fams " ") " n=" (count out))))
+    out)))
+
+(defn update-frame-arrangement [state entries produced-families]
+  (let [{:keys [remove insert next-keys]}
+        (frame-inputs/family-entry-delta
+         (:keys-by-family state) entries produced-families
+         scene-tape/entry-key)
+        ;; SEAM-STEP1 T12: removals are derived only from produced semantic
+        ;; id/order keys. The family index avoids visiting unchanged entries.
+        removed
+        (reduce (fn [ordered key]
+                  (if-let [entry (get ordered key)]
+                    (scene-tape/ordered-remove ordered entry)
+                    ordered))
+                (:ordered state) remove)
+        ordered
+        (reduce
+         (fn [ordered entry]
+           (let [key (scene-tape/entry-key entry)
+                 prior (get ordered key)]
+             (cond
+               (= prior entry) ordered
+               prior (assoc ordered key entry)
+               :else (scene-tape/ordered-insert frame-contract-registry
+                                                ordered entry))))
+         removed insert)]
+    {:ordered ordered :keys-by-family next-keys}))
+
+(defn compile-frame-tape [inputs]
+  (let [entries (produce-frame-entries
+                 inputs frame-inputs/family-ids
+                 {:receipt? false :instrument? false})]
     (scene-tape/compile-tape frame-contract-registry
-                             [:frame (:frame-idx frame)]
+                             [:frame (:frame-idx inputs)]
                              entries)))
 
-(defn- frame-tape-twin-check! [frame arrangement]
+(defn- frame-tape-twin-check! [inputs arrangement projected-count]
   (when (true? (aget js/globalThis "__softland_frame_tape_twin_check"))
     ;; SEAM-STEP1 T6: the batch compiler stays executable as the independent
     ;; flag-on oracle after the maintained arrangement becomes the live path.
-    (let [batch (compile-frame-tape frame)
-          maintained (into [] (map val) arrangement)
-          same? (= maintained (:entries batch))
+    (let [batch (compile-frame-tape inputs)
+          maintained (into [] (map val) (:ordered arrangement))
+          same-entries? (= maintained (:entries batch))
+          same-length? (= projected-count (count maintained))
+          same? (and same-entries? same-length?)
           prior (or (aget js/globalThis "__softland_frame_tape_twin_receipt")
                     #js {:frames 0 :divergences 0})
           receipt #js {:frames (inc (or (aget prior "frames") 0))
                        :divergences (+ (or (aget prior "divergences") 0)
                                        (if same? 0 1))
-                       :lastFrame (:frame-idx frame)}]
+                       :lastFrame (:frame-idx inputs)}]
       (aset js/globalThis "__softland_frame_tape_twin_receipt" receipt)
       (when-not same?
         (js/console.error "[FRAME-TAPE-TWIN/DIVERGENCE]"
-                          (clj->js {:frame (:frame-idx frame)
+                          (clj->js {:frame (:frame-idx inputs)
                                     :maintained (mapv :entry/id maintained)
-                                    :batch (mapv :entry/id (:entries batch))}))
-        (throw (ex-info "Maintained frame arrangement diverged from batch oracle"
-                        {:frame (:frame-idx frame)}))))))
+                                    :batch (mapv :entry/id (:entries batch))
+                                    :projected-count projected-count})))
+      (frame-inputs/assert-twin-equal!
+       maintained (:entries batch) projected-count))))
 
 (defn project-clip-rect
   "Project a container-local clip into WebGPU attachment pixels. Camera and
@@ -3452,11 +3670,22 @@
                       {:entry/id (:entry/id entry) :family/id family-id})))
     (execute! pass entry)))
 
-(defn- execute-scene-tape! [pass arrangement attachment-size]
+(defn- execute-scene-tape! [pass entries attachment-size]
   (scene-tape/paint-forward
-   {:entries (into [] (map val) arrangement)}
+   {:entries entries}
    #(execute-frame-entry! pass % attachment-size)))
 
+
+(defn- mark-draw!
+  "Frame-phase timestamp for the [DRAW] sub-bucket receipt (perf probe).
+   render.cljs prints the deltas alongside the slow-frame [RAF] line."
+  [k]
+  (let [o (if (= k "t0")
+            ;; fresh object per frame so an aborted frame never leaves stale marks
+            (let [o (js-obj)] (aset js/globalThis "__sfDraw" o) o)
+            (or (aget js/globalThis "__sfDraw")
+                (let [o (js-obj)] (aset js/globalThis "__sfDraw" o) o)))]
+    (aset o k (js/performance.now))))
 
 (defn draw-frame! [^js device ^js context text-sys editor-pool-info cmd-rect-sys camera-floats _ignored-pass-descriptor pan-x pan-y w h
                    & {:keys [cmd-panel-visible chrome-text-sys chrome-base-line-count
@@ -3481,14 +3710,9 @@
                            container-registry nil font-assets nil
                            frame-format "bgra8unorm" pulse-alpha 1.0
                            region3d-session {} session-layout-snapshot nil dpr 1.0}}]
-  (update-camera device (:camera-uniform-buffer text-sys) camera-floats
-                 pan-x pan-y zoom w h)
-  (when (and chrome-text-sys
-             (not= (:camera-uniform-buffer chrome-text-sys)
-                   (:camera-uniform-buffer text-sys)))
-    (update-camera device (:camera-uniform-buffer chrome-text-sys)
-                   camera-floats pan-x pan-y zoom w h))
-
+  (mark-draw! "t0")
+  (frame-inputs/begin-ledger!)
+  (reset-frame-retention! device)
   (let [region3d-system
         (or (when (seq (:regions store-frame))
               (region3d-gpu/ensure-region3d-system!
@@ -3502,11 +3726,14 @@
     ;; write is relied on while a pass encoder is live.
     (when image-system
       (prepare-image-frame! image-system (:images store-frame)))
+    (mark-draw! "img")
     (when path-system
       (path-gpu/prepare-path-frame! path-system (:paths store-frame) zoom))
+    (mark-draw! "path")
     (when chrome-system
       (chrome-gpu/prepare-chrome-frame! chrome-system (:chromes store-frame)
                                         {:pulse-alpha pulse-alpha}))
+    (mark-draw! "chrome")
     (when region3d-system
       (let [canvas (.-canvas context)
             max-lease [(max 1 (or (some-> canvas .-width) (int w)))
@@ -3519,6 +3746,7 @@
           :atlas-sampler (:font-sampler text-sys)
           :path-system path-system
           :max-lease-size max-lease})))
+    (mark-draw! "region")
     (let [prepared-by-region (when region3d-system
                                @(:!prepared region3d-system))
           region-anchor-resolver
@@ -3546,7 +3774,10 @@
          (:targets-by-address store-frame) effective-transforms zoom
          font-assets text-sys
          {:region-anchor-resolver region-anchor-resolver
+          :region-anchor-resolver-token
+          [(:regions store-frame) prepared-by-region effective-transforms]
           :region-doors region-doors})))
+    (mark-draw! "conn")
 
     (let [canvas (.-canvas context)
         attachment-size [(max 1 (or (some-> canvas .-width) (int w)))
@@ -3573,41 +3804,106 @@
                :connector-system connector-system :chrome-system chrome-system
                :region3d-system region3d-system
                :region3d-session region3d-session :zoom zoom :dpr dpr
+               :font-assets font-assets
                :store-frame store-frame :editor-rect-count editor-rect-count
                :editor-shadow-count editor-shadow-count
                :extra-text-geos extra-text-geos}
-        arrangement-raw (swap! !frame-arrangement update-frame-arrangement frame)
-        arrangement
-        (into (sorted-map-by scene-tape/entry-key-compare)
-              (map (fn [[key entry]]
-                     [key (project-entry-scissors entry effective-transforms
-                                                  pan-x pan-y zoom
-                                                  attachment-size [w h])]))
-              arrangement-raw)
-        _ (frame-tape-twin-check! frame arrangement-raw)
-        effect-state (if container-registry
-                       (swap! !frame-effect-state
-                              frame-effects/maintain-effect-spans
-                              container-registry (mapv val arrangement))
-                       (assoc (frame-effects/empty-maintained-state) :spans []))
+        inputs (frame-input-map device frame)
+        changed-families (frame-inputs/changed-families
+                          @!prev-frame-inputs inputs)
+        produced (produce-frame-entries inputs changed-families)
+        prior-arrangement @!frame-arrangement
+        arrangement-state (if (seq changed-families)
+                            (update-frame-arrangement
+                             prior-arrangement produced changed-families)
+                            prior-arrangement)
+        _ (when (seq changed-families)
+            (reset! !frame-arrangement arrangement-state))
+        arrangement-raw (:ordered arrangement-state)
+        semantic-entries (into [] (map val) arrangement-raw)
+        arrangement-identical?
+        (identical? (:ordered prior-arrangement) arrangement-raw)
+        _ (reset! !prev-frame-inputs inputs)
+        _ (frame-inputs/assoc-ledger!
+           :changed-families changed-families
+           :arrangement-identical? arrangement-identical?)
+        _ (mark-draw! "produce")
+        viewport {:width (first attachment-size)
+                  :height (second attachment-size)
+                  :format frame-format}
+        plan-inputs {:arrangement arrangement-raw
+                     :container-registry container-registry
+                     :viewport viewport :capabilities #{}}
+        maintain-plan?
+        (not (frame-inputs/input-value-same? @!frame-plan-inputs plan-inputs))
+        old-plan-state @!frame-plan-state
+        effect-state
+        (if maintain-plan?
+          (if container-registry
+            (do
+              (frame-inputs/assoc-ledger! :effects-maintained? true)
+              (let [next (frame-effects/maintain-effect-spans
+                          @!frame-effect-state container-registry
+                          semantic-entries)]
+                (reset! !frame-effect-state next)
+                next))
+            (let [next (assoc (frame-effects/empty-maintained-state)
+                              :spans [])]
+              (reset! !frame-effect-state next)
+              next))
+          @!frame-effect-state)
         effect-spans (:spans effect-state)
-        plan-state (swap! !frame-plan-state
-                          frame-graph/maintain-frame-plan
-                          {:arrangement (mapv val arrangement)
-                           :effect-spans effect-spans
-                           :capabilities #{}
-                           :viewport {:width (first attachment-size)
-                                      :height (second attachment-size)
-                                      :format frame-format}})
+        plan-state
+        (if maintain-plan?
+          (do
+            (frame-inputs/assoc-ledger! :plan-maintained? true)
+            (let [next (frame-graph/maintain-frame-plan
+                        old-plan-state
+                        {:arrangement semantic-entries
+                         :effect-spans effect-spans
+                         :capabilities #{} :viewport viewport})]
+              (reset! !frame-plan-inputs plan-inputs)
+              (reset! !frame-plan-state next)
+              next))
+          old-plan-state)
         plan (:plan plan-state)
+        _ (when (and maintain-plan? (not (identical? old-plan-state plan-state)))
+            (aset js/globalThis "__softlandFramePlanReceipt"
+                  (clj->js {:color-mode (:color-mode plan)
+                            :passes (mapv :pass/id (:passes plan))
+                            :plan-hash (:plan/hash plan)
+                            :structure-reused? (:reused? plan-state)
+                            :effect-derivation
+                            (:last-derivation effect-state)})))
+        _ (mark-draw! "plan")
+
+        ;; CAM: every encoded frame writes current uniforms and projects the
+        ;; retained semantic entries 1:1. Camera work is never a gate ancestor.
+        _ (update-camera device (:camera-uniform-buffer text-sys)
+                         camera-floats pan-x pan-y zoom w h)
+        _ (when (and chrome-text-sys
+                     (not= (:camera-uniform-buffer chrome-text-sys)
+                           (:camera-uniform-buffer text-sys)))
+            (update-camera device (:camera-uniform-buffer chrome-text-sys)
+                           camera-floats pan-x pan-y zoom w h))
+        _ (mark-draw! "cam")
+        ;; arrangement-raw already iterates in tape order (sorted map); every
+        ;; consumer flattens to entries, so project straight into a vector —
+        ;; rebuilding a second sorted map re-ran the Contract-O comparator
+        ;; ~n·log n times per frame for nothing (perf receipt 2026-08-08).
+        arrangement
+        (into []
+              (map (fn [[_key entry]]
+                     (project-entry-scissors entry effective-transforms
+                                             pan-x pan-y zoom
+                                             attachment-size [w h])))
+              arrangement-raw)
+        _ (mark-draw! "arrange")
+        _ (frame-tape-twin-check! inputs arrangement-state (count arrangement))
+        _ (mark-draw! "twin")
         linear? (= :scene-color/linear (:color-mode plan))]
-    (aset js/globalThis "__softlandFramePlanReceipt"
-          (clj->js {:color-mode (:color-mode plan)
-                    :passes (mapv :pass/id (:passes plan))
-                    :plan-hash (:plan/hash plan)
-                    :structure-reused? (:reused? plan-state)
-                    :effect-derivation (:last-derivation effect-state)}))
-    (if linear?
+    (let [result
+          (if linear?
       (let [tracker (:gpu-tracker text-sys)
             compositor (ensure-frame-compositor! device frame-format tracker)
             _ (when region3d-system
@@ -3621,7 +3917,7 @@
             variant (compositor-gpu/ensure-variant-layer!
                      compositor build-linear-variant-layer! systems)
             result (compositor-gpu/draw-multipass!
-                    compositor {:context context :arrangement (mapv val arrangement)
+                    compositor {:context context :arrangement arrangement
                                 :effect-spans effect-spans :variant variant
                                 :execute-entry! execute-frame-entry!
                                 :pass-producers
@@ -3639,7 +3935,7 @@
                    :exportViewport
                    (fn []
                      (compositor-gpu/export-viewport!
-                      compositor {:arrangement (mapv val arrangement)
+                      compositor {:arrangement arrangement
                                   :effect-spans effect-spans
                                   :variant variant
                                   :execute-entry! execute-frame-entry!
@@ -3689,4 +3985,6 @@
         (.submit (.-queue device) #js [(.finish encoder)])
         (when-let [compositor (.get !compositors-by-device device)]
           (compositor-gpu/retire-absent-region-leases! compositor #{}))
-        {:submitted? true :color-mode :legacy :plan-hash (:plan/hash plan)})))))
+        {:submitted? true :color-mode :legacy :plan-hash (:plan/hash plan)}))]
+      (frame-inputs/publish-ledger!)
+      result))))

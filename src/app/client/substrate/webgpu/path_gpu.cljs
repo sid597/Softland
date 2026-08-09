@@ -4,6 +4,7 @@
    mesh-set identity or zoom regime changes; camera/container motion remains a
    shader value."
   (:require [clojure.string :as str]
+            [app.client.substrate.frame-inputs :as frame-inputs]
             [app.client.substrate.path-material :as path-material]
             [app.client.substrate.path-tessellation :as tessellation]
             [app.client.substrate.scene-tape :as scene-tape]
@@ -141,6 +142,7 @@
     {:device device :pipeline pipeline :bind-group bind-group
      :camera-buffer camera-buffer :containers-buffer containers-buffer
      :scene-color scene-color :gpu-tracker tracker
+     :frame-input/identity (js-obj) :!shape-rev (atom 0)
      :!buffer (atom buffer) :!capacity (atom initial-capacity)
      :!mesh-cache (atom {}) :!prepared (atom [])
      :!last-paths (atom ::never) :!last-regime (atom nil)
@@ -274,7 +276,8 @@
   [path-system paths zoom]
   (let [paths (or paths [])
         regime (:regime/id (path-material/zoom-regime zoom))]
-    (if (and (identical? paths @(:!last-paths path-system))
+    (if (and (frame-inputs/input-value-same?
+              paths @(:!last-paths path-system))
              (= regime @(:!last-regime path-system)))
       {:mesh-set-changed? false :writes 0
        :vertices (reduce + (map :vertex-count @(:!prepared path-system)))}
@@ -313,6 +316,7 @@
              (* vertices path-material/vertex-stride))
             (reset! (:!prepared path-system) prepared)
             (reset! (:!last-mesh-set-key path-system) mesh-set-key)
+            (frame-inputs/bump-shape-rev! path-system)
             (swap! (:!receipt path-system)
                    (fn [receipt]
                      (-> receipt
@@ -360,9 +364,8 @@
                           :instance/id entry-id
                           :family/id :render.family/path
                           :order (frame-order source-order entry-id)
-                          :paint {:pipeline (:pipeline path-system)
-                                  :bind-group (:bind-group path-system)
-                                  :buffer @(:!buffer path-system)
+                          :paint {:paint/source path-system
+                                  :paint/source-type :path-system
                                   :vertex-count vertex-count
                                   :first-vertex first-vertex}
                           :pick {:geometry :path-material-authority
@@ -373,8 +376,15 @@
         entries))))
 
 (defn execute-path-batch! [^js pass entry]
-  (let [{:keys [pipeline bind-group buffer vertex-count first-vertex]}
-        (:paint entry)]
+  (let [paint (:paint entry)
+        path-system (:paint/source paint)
+        {:keys [vertex-count first-vertex]} paint
+        ;; Explicit paint wins (same law as resolve-gpu-paint): the linear
+        ;; variant's linearize-entry overrides pipeline/bind-group for the
+        ;; rgba16float pass; only the buffer resolves through the source.
+        pipeline (or (:pipeline paint) (:pipeline path-system))
+        bind-group (or (:bind-group paint) (:bind-group path-system))
+        buffer @(:!buffer path-system)]
     (.setPipeline pass pipeline)
     (.setBindGroup pass 0 bind-group)
     (.setVertexBuffer pass 0 buffer)

@@ -122,6 +122,8 @@
                                          (* initial-capacity bytes-per-item)
                                          :active-bytes 0)
             {:device device
+           :frame-input/identity (js-obj)
+           :!shape-rev (atom 0)
            :buffer buffer
            :capacity initial-capacity
            :free-list ()
@@ -135,7 +137,11 @@
             :gpu-tracker tracker
             :gpu-label (or label "pool/unnamed")
            :generations (vec (repeat initial-capacity 0))
-            :prev-rects nil}))))
+           :prev-rects nil}))))
+
+(defn- bump-shape-on-count-boundary! [pool prior-count next-count]
+  (when (not= (pos? prior-count) (pos? next-count))
+    (swap! (:!shape-rev @pool) inc)))
 
 (defn- grow-pool!
   "Double the pool's buffer capacity, copying existing data via command encoder."
@@ -177,6 +183,8 @@
       (do
         (ensure-capacity! pool (inc high-water-mark))
         (let [slot high-water-mark]
+          (bump-shape-on-count-boundary! pool high-water-mark
+                                         (inc high-water-mark))
           (swap! pool #(-> % (update :high-water-mark inc) (update :active-slots conj slot)))
           slot)))))
 
@@ -304,6 +312,7 @@
                 zeros (js/Float32Array. (* zero-count floats-per-item))]
             (.writeBuffer (.-queue device) buf (* new-n bytes-per-item) zeros)
             (vswap! freed + zero-count)))))
+    (bump-shape-on-count-boundary! pool prev-n new-n)
     (swap! pool assoc
            :ordered-ids new-ids
            :prev-keyed-rects new-keyed
@@ -345,6 +354,7 @@
           (.writeBuffer (.-queue device) buf (* new-n bytes-per-item) zeros)
           (vswap! writes + zero-count))))
     ;; Update pool state
+    (bump-shape-on-count-boundary! pool prev-n new-n)
     (swap! pool assoc
            :prev-rects new-rects
            :high-water-mark new-n)
@@ -353,10 +363,15 @@
 
 (defn pool-draw-info
   "Get draw parameters for the render pass.
-   Returns {:buffer :draw-count :pipeline :bind-group}."
+   The stable pool reference lets retained entries resolve a grown buffer at
+   encode time; the scalar fields remain for existing immediate callers."
   [pool]
-  (let [{:keys [buffer high-water-mark pipeline bind-group]} @pool]
-    {:buffer buffer
+  (let [{:keys [buffer high-water-mark pipeline bind-group
+                frame-input/identity !shape-rev]} @pool]
+    {:pool pool
+     :frame-input/identity identity
+     :frame-input/shape-rev @!shape-rev
+     :buffer buffer
      :draw-count high-water-mark
      :pipeline pipeline
      :bind-group bind-group}))

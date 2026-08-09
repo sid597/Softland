@@ -18,7 +18,9 @@
 (defn- module-default [module]
   (or (.-default module) module))
 
-(defn- fetch-bytes [url]
+(defn- fetch-bytes*
+  "One fetch attempt for url → ArrayBuffer."
+  [url]
   (-> (js/fetch url)
       (.then (fn [response]
                (when-not (.-ok response)
@@ -26,9 +28,28 @@
                                         " (" (.-status response) ")"))))
                (.arrayBuffer response)))))
 
+(defn- fetch-bytes
+  "fetch-bytes* with up to 4 attempts and linear backoff — mobile networks
+   drop parallel asset fetches wholesale."
+  ([url] (fetch-bytes url 1))
+  ([url attempt]
+   (-> (fetch-bytes* url)
+       (.catch (fn [e]
+                 (if (< attempt 4)
+                   (let [delay-ms (* 600 attempt)]
+                     (js/console.warn "[SHAPER/RETRY]" url "attempt" attempt
+                                      "failed:" (str e) "— retry in" delay-ms "ms")
+                     (js/Promise.
+                       (fn [resolve _]
+                         (js/setTimeout #(resolve (fetch-bytes url (inc attempt)))
+                                        delay-ms))))
+                   (throw e)))))))
+
 (defn load-harfbuzz!
   "Instantiate the pinned HarfBuzz WASM once. The explicit wasmBinary keeps
-   asset resolution independent of the bundle/script URL."
+   asset resolution independent of the bundle/script URL. A failed attempt
+   clears the promise cache so a later call can retry instead of reusing
+   the rejection forever."
   []
   (or @!harfbuzz-promise
       (let [create-hb (module-default hb-module)
@@ -39,7 +60,10 @@
                   (.then (fn [module]
                            (let [hb (wrap-hb module)]
                              (reset! !harfbuzz hb)
-                             hb))))]
+                             hb)))
+                  (.catch (fn [e]
+                            (reset! !harfbuzz-promise nil)
+                            (throw e))))]
         (reset! !harfbuzz-promise p)
         p)))
 

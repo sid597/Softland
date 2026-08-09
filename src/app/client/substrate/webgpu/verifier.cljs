@@ -13,6 +13,7 @@
             [app.client.substrate.chrome-material :as chrome-material]
             [app.client.substrate.connector-material :as connector-material]
             [app.client.substrate.connector-route :as connector-route]
+            [app.client.substrate.frame-inputs :as frame-inputs]
             [app.client.substrate.image-material :as image-material]
             [app.client.substrate.path-material :as path-material]
             [app.client.substrate.path-tessellation :as path-tessellation]
@@ -1095,10 +1096,15 @@
                :editor-shadow-pool-info fake-pool :editor-shadow-count 0
                :editor-pool-info fake-pool :editor-rect-count 0
                :extra-text-geos [{:geo fake-text :vi vi :order order}]}
-        batch (renderer/compile-frame-tape frame)
+        inputs (renderer/frame-input-map nil frame)
+        batch (renderer/compile-frame-tape inputs)
+        produced (renderer/produce-frame-entries
+                  inputs frame-inputs/family-ids
+                  {:receipt? false :instrument? false})
         arrangement (renderer/update-frame-arrangement
-                     (sorted-map-by scene-tape/entry-key-compare) frame)
-        maintained (into [] (map val) arrangement)
+                     (renderer/empty-frame-arrangement)
+                     produced frame-inputs/family-ids)
+        maintained (into [] (map val) (:ordered arrangement))
         lane-ids [[:frame/store vi :shadows]
                   [:frame/store vi :rects]
                   [:frame/slot-text vi]
@@ -1108,7 +1114,8 @@
         image-entry (first (filter #(= [:frame/store vi :images]
                                       (:entry/id %))
                                    (:entries batch)))
-        sub-draws (get-in image-entry [:paint :sub-draws])
+        sub-draws (:sub-draws
+                   (renderer/resolve-image-paint (:paint image-entry)))
         calls (atom [])
         fake-pass #js {}
         _ (aset fake-pass "setPipeline"
@@ -1130,7 +1137,8 @@
                           :ops-count-by-vi {vi {:images 1}}
                           :order-by-vi {vi order}}}
         duplicate-rejected?
-        (try (renderer/compile-frame-tape duplicate-frame) false
+        (try (renderer/compile-frame-tape
+              (renderer/frame-input-map nil duplicate-frame)) false
              (catch :default _ true))]
     (renderer/prepare-image-frame! image-system ops)
     {:maintained-equals-batch? (= maintained (:entries batch))
@@ -2327,12 +2335,59 @@
   (if (= :render.family/connector (:family/id entry))
     (connector-gpu/execute-connector-batch! pass entry)
     (let [{:keys [pipeline bind-group buffer vertex-count instance-count
-                  first-vertex first-instance]} (:paint entry)]
+                  first-vertex first-instance]}
+          (renderer/resolve-gpu-paint (:paint entry))]
       (.setPipeline pass pipeline)
       (when bind-group (.setBindGroup pass 0 bind-group))
       (when buffer (.setVertexBuffer pass 0 buffer))
       (.draw pass (or vertex-count 6) (or instance-count 1)
              (or first-vertex 0) (or first-instance 0)))))
+
+(defn- assert-frame-retention-payload-resolution! []
+  (let [pipeline #js {:kind "runtime-rect-pipeline"}
+        bind-group #js {:kind "runtime-rect-bind-group"}
+        instance-buffer #js {:kind "runtime-rect-instance-buffer"}
+        calls (atom [])
+        pass #js {}
+        entry {:family/id :render.family/rect
+               :paint {:paint/source {:pipeline pipeline
+                                      :bind-group bind-group
+                                      :instance-buffer instance-buffer
+                                      :num-instances 4}
+                       :paint/source-type :system
+                       :vertex-count 6 :instance-count 1
+                       :first-vertex 0 :first-instance 3}}
+        _ (aset pass "setPipeline"
+                (fn [value] (swap! calls conj [:pipeline value])))
+        _ (aset pass "setBindGroup"
+                (fn [slot value] (swap! calls conj [:bind-group slot value])))
+        _ (aset pass "setVertexBuffer"
+                (fn [slot value] (swap! calls conj [:vertex-buffer slot value])))
+        _ (aset pass "draw"
+                (fn [vertices instances first-vertex first-instance]
+                  (swap! calls conj [:draw vertices instances
+                                     first-vertex first-instance])))
+        resolved-clipped
+        (renderer/resolve-gpu-paint
+         (assoc-in (:paint entry) [:sub-draws]
+                   [{:vertex-count 6 :instance-count 1
+                     :first-vertex 0 :first-instance 3}]))
+        _ (execute-verifier-entry! pass entry)
+        expected [[:pipeline pipeline]
+                  [:bind-group 0 bind-group]
+                  [:vertex-buffer 0 instance-buffer]
+                  [:draw 6 1 0 3]]]
+    (when-not (and (= expected @calls)
+                   (identical? instance-buffer
+                               (get-in resolved-clipped
+                                       [:sub-draws 0 :buffer])))
+      (throw (ex-info "Retained runtime rect payload lost its instance buffer"
+                      {:expected expected :actual @calls
+                       :clipped-buffer-resolved?
+                       (identical? instance-buffer
+                                   (get-in resolved-clipped
+                                           [:sub-draws 0 :buffer]))})))
+    true))
 
 (defn- render-connector-bytes!
   [^js device connector-system ops targets zoom font-assets content-text-system
@@ -5537,6 +5592,7 @@
 
 (defn ^:export run-verifier! []
   (js/console.log "[W0-A] init-start")
+  (assert-frame-retention-payload-resolution!)
   (when-not (and (.-isSecureContext js/window)
                  (exists? js/navigator.gpu))
     (throw (js/Error. "W0-A requires a secure origin with WebGPU")))

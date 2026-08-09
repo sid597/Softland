@@ -4,6 +4,7 @@
    changes; camera and followed-container motion remain shader values."
   (:require [clojure.string :as str]
             [app.client.substrate.chrome-material :as chrome-material]
+            [app.client.substrate.frame-inputs :as frame-inputs]
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]))
 
@@ -156,6 +157,7 @@
     {:device device :pipeline pipeline :bind-group bind-group
      :camera-buffer camera-buffer :containers-buffer containers-buffer
      :scene-color scene-color :gpu-tracker tracker
+     :frame-input/identity (js-obj) :!shape-rev (atom 0)
      :pulse-buffer pulse-buffer :owns-pulse-buffer? owns-pulse-buffer?
      :!buffer (atom buffer) :!capacity (atom initial-capacity)
      :!prepared (atom []) :!last-chromes (atom ::never)
@@ -231,7 +233,8 @@
                                            0.0 0.0]))
       (reset! (:!last-pulse-alpha chrome-system) pulse-alpha)
       (swap! (:!receipt chrome-system) update :pulse-writes inc))
-    (if (identical? chromes @(:!last-chromes chrome-system))
+    (if (frame-inputs/input-value-same? chromes
+                                        @(:!last-chromes chrome-system))
       {:mesh-set-changed? false :writes 0
        :vertices (reduce + (map :vertex-count @(:!prepared chrome-system)))}
       (let [mesh-set-key (mapv (fn [op]
@@ -253,6 +256,7 @@
              (* vertices chrome-material/vertex-stride))
             (reset! (:!prepared chrome-system) prepared)
             (reset! (:!last-mesh-set-key chrome-system) mesh-set-key)
+            (frame-inputs/bump-shape-rev! chrome-system)
             (swap! (:!receipt chrome-system)
                    #(-> % (update :uploads inc)
                         (assoc :vertices vertices
@@ -291,9 +295,8 @@
                                :instance/id entry-id
                                :family/id :render.family/chrome
                                :order (frame-order source-order entry-id)
-                               :paint {:pipeline (:pipeline chrome-system)
-                                       :bind-group (:bind-group chrome-system)
-                                       :buffer @(:!buffer chrome-system)
+                               :paint {:paint/source chrome-system
+                                       :paint/source-type :chrome-system
                                        :vertex-count vertex-count
                                        :first-vertex first-vertex}
                                :pick {:geometry :chrome-form
@@ -304,8 +307,15 @@
         entries))))
 
 (defn execute-chrome-batch! [^js pass entry]
-  (let [{:keys [pipeline bind-group buffer vertex-count first-vertex]}
-        (:paint entry)]
+  (let [paint (:paint entry)
+        chrome-system (:paint/source paint)
+        {:keys [vertex-count first-vertex]} paint
+        ;; Explicit paint wins (same law as resolve-gpu-paint): the linear
+        ;; variant's linearize-entry overrides pipeline/bind-group for the
+        ;; rgba16float pass; only the buffer resolves through the source.
+        pipeline (or (:pipeline paint) (:pipeline chrome-system))
+        bind-group (or (:bind-group paint) (:bind-group chrome-system))
+        buffer @(:!buffer chrome-system)]
     (.setPipeline pass pipeline)
     (.setBindGroup pass 0 bind-group)
     (.setVertexBuffer pass 0 buffer)
