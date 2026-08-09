@@ -6,10 +6,20 @@ name is the environment's self-description, and the perf dossier's E1 showed
 that field can drift from the served model — the two-second check at touch #1
 is the session transcript, never this header alone.
 
-**Status: CUT — not yet law.** The cut closes through ONE bounded fresh-eyes
-falsification round (a fresh Codex-class session at Sid's hand, never the
-cutter's own subagent — work-package law), then Sid touch #1. No recut;
-author repairs land as one batched edit pass.
+**Status: CUT + round complete — awaiting Sid touch #1.** The ONE bounded
+fresh-eyes falsification round (Codex, 2026-08-09, at Sid's hand) returned
+three decision-changing findings; all three confirmed against source by the
+author session (verbatim re-read of every cited window) and folded in one
+batched author pass: the §6a container-delta mint moved to the registry
+write site (the in-file "already exists" producer was a population-sized
+discovery — the mechanism §4.1 outlaws); §6d execution order became an
+incrementally maintained subview with WORK counters (§4.4, S2/S3/S4, §15);
+the §6e epoch gained its missing production producer seam (renderer
+compositor-cache replacement; S5 drives it through `draw-frame!`);
+background's second payload consumer (the interior draw-order partition)
+pinned, with an S4 kind-transition leg; the §5 budget-wedge refusal
+citation now names both the mint and the draw-time fill consumer. No
+recut.
 
 **Input basis:** the reviewed Fable-Max draft (2026-08-09, in-chat) · the
 Fable review verdict (three decision-changing findings, all folded — F1 in
@@ -159,9 +169,13 @@ scene_tape ruling (MUST-NOT 2).
 4. **REGION3D-FLOOR S5 — extended, not replaced.** S5's counters stop at
    region-side uploads/encodes/leases; the extension adds downstream
    counters (semantic entries produced · arrangement upserts/removes ·
-   order-comparator calls · effect containers touched · plan fragments
-   compiled · full plan validations) so a subsystem-green receipt cannot
-   hide work moved downstream. This atom's S1/S4 carry them.
+   order-comparator calls · effect containers touched · container
+   declarations inspected · plan fragments compiled · plan-order
+   nodes/edges visited · full plan validations) so a subsystem-green
+   receipt cannot hide work moved downstream — the counters meter WORK
+   (inputs inspected, nodes visited), never outputs alone: a build that
+   rebuilds a population but mutates one row passes every output count.
+   This atom's S1/S4 carry them.
 5. **The door registry** — `:region-lease-size` is struck from
    `quantization-doors` (`frame_inputs.cljc:20-23`) and from the
    camera-door allowlist (`frame_inputs.cljc:89-92`), and the region-3d
@@ -217,7 +231,9 @@ MUST-NOTs 2–8, the ladder constants, the instrumentation law.
   BEFORE the new generation acquires (two generations never double-bill
   the budget) · async retirement rides `onSubmittedWorkDone` with identity
   re-check (`:640-652`) · refusal produces a receipt + refusal fill, never
-  a silent skip (`:590-602`) · idempotent destroy. Behavior-frozen; the
+  a silent skip (receipt + refusal VALUE minted at `:590-602`; the
+  draw-time fill consumer is `region3d_gpu.cljs:1371-1386`) · idempotent
+  destroy. Behavior-frozen; the
   ONE lawful re-plumb is §6e's desired-set source (fails S1/S4/S5).
 - `scene_tape.cljc` Contract-O ordering: comparator
   `[stratum, pass-class, stack-path, part-rank, stable-tie]` (`:641-651`),
@@ -247,10 +263,22 @@ the load-bearing wall:
   computes upserts/removes per family; it is promoted from ledger
   bookkeeping to the delta source.
 - container delta — `{:delta/kind :container, :container/id,
-  :class :parameter|:topology, :old-decl, :new-decl}`. Minted by the
-  per-container declaration diff that already exists inside
-  `maintain-effect-spans` (`frame_effects.cljc:264-265`), promoted from
-  fallback trigger to source. Classification pin: **topology** = the SET
+  :class :parameter|:topology, :old-decl, :new-decl}`. Minted at the
+  REGISTRY WRITE SITE, keyed by the container id the mutator already
+  holds — `set-effects!` (`scene_runtime.cljs:303-310`) is the proven
+  exemplar; sibling registry mutators that change an effectful
+  container's nesting mint likewise, covering the moved container's
+  stack-path subtree (proportional to the subtree, never the registry
+  population); thin hook per mutator vs one keyed registry journal is
+  implementer detail, bounded by the declarations-inspected counter
+  (§4.4). The per-container old/new-decl compare at
+  `frame_effects.cljc:264-265` supplies only the diff/classification
+  SHAPE, applied to the minted ids; its enclosing discovery — the
+  whole-registry `declarations` rebuild + all-keys union
+  (`frame_effects.cljc:241-245, 256-266`) — is itself the population
+  mechanism this contract kills (verified: no function in that file
+  takes a single container id). It dies on the live road and survives
+  only inside the oracle. Classification pin: **topology** = the SET
   of effect kinds present, nesting (`:parent/container-id`, `:stack-path`,
   `:depth`), mask structure — anything that changes pass shape;
   **parameter** = numeric/color values within a kind (opacity value, blur
@@ -382,7 +410,16 @@ id · stable logical pass ids and resource ids (today's
 dependency edges · a topology signature · a generation. Pass execution
 order = topological sort over explicit edges with a deterministic stable
 tie (pr-str of fragment/pass id) — durable dense ranks are illegal
-(inserting a fragment must not rewrite later passes' identity).
+(inserting a fragment must not rewrite later passes' identity), and the
+order is itself an incrementally maintained subview: a local topology
+delta re-derives order only for the affected subgraph (the changed
+fragment's passes plus nodes/edges adjacent or downstream of them); a
+whole-graph re-sort is lawful only inside a declared global transition
+or the oracle. Order work is receipted as WORK counters
+(`plan-order-nodes-visited` / `plan-order-edges-visited` — §4.4), never
+inferred from output counts: a build that re-sorts the population per
+local delta passes every output-equality assertion and is killed by
+these counters alone.
 
 **Region fragment signature** = `[region-id shadow?]` — NEVER lease
 width/height, background, composite slot, physical views/bind groups, or
@@ -452,8 +489,22 @@ receipt vocabulary). The epoch is the COMPOSITOR/SYSTEM IDENTITY
 generation — the existing structural mechanism (a new compositor is empty
 atoms by construction; the image-system recreate policy at
 `renderer.cljs:1387-1425` and retention's device-identity reset at §5f
-lifecycle pins are the precedents). S5's live leg is the
-destroy/recreate proxy, inheriting the Region3D S5 receipt; real
+lifecycle pins are the precedents). The epoch has exactly ONE live
+producer, and it does not exist yet: a renderer-owned SAME-DEVICE
+replacement seam that (i) calls `destroy-compositor!` on the old
+compositor, (ii) REPLACES the `!compositors-by-device` entry for that
+device — today the cache has no eviction anywhere
+(`ensure-frame-compositor!` returns the cached compositor forever,
+`renderer.cljs:3453-3460`; `destroy-compositor!` cannot reach the cache,
+`compositor_gpu.cljs:676-682`), so destroying without replacing hands
+the next frame a dead cached compositor — (iii) mints the new
+compositor = the new epoch, (iv) reattaches it as the Region3D owner,
+and (v) leaves the semantic state untouched: `reset-frame-retention!`
+(`renderer.cljs:3498-3505`) stays keyed on DEVICE identity and must not
+fire on a same-device epoch bump (the device-change road lawfully
+resets semantic state and is therefore NOT the epoch proxy). S5's live
+leg drives THIS seam, then the next `draw-frame!` through production
+custody, inheriting the Region3D S5 receipt. Real
 `GPUDevice.lost`/`uncapturederror` wiring is refusal R1′ (board debt);
 capability-changing recovery is exercised in the pure tier only.
 
@@ -503,7 +554,19 @@ region's row.
 **Background** is payload: it moves to the binding/payload lane (slot row
 or its existing uniform site), consumed at its current draw sites through
 the owner. Changing a background never reproduces a semantic entry and
-never recompiles a fragment.
+never recompiles a fragment. Background has TWO payload consumers and the
+lane must feed both: (i) the interior clear value
+(`region3d_gpu.cljs:1222-1228` reads color + kind) — any background
+change dirties the interior role; (ii) the region-local draw-order
+partition — background KIND feeds `transparent-background?`, which ORs
+into every interior instance's opaque/transparent classification and
+flips its sort direction (`region3d_gpu.cljs:908-921`; today this rides
+the material key, `:1098-1101`). An opaque↔transparent kind transition
+therefore additionally recomputes THAT region's interior draw-order
+before encode — region-local, proportional, still zero semantic and zero
+fragment work. A slot-row/uniform-only build that re-encodes with the
+previously prepared draw-order renders the wrong partition on kind
+transitions; S4's background leg kills it.
 
 **The shape key after the strike** (`region3d_gpu.cljs:985-992`): from
 `[region-id composite-index lease-size shadow? background source-order]`
@@ -558,7 +621,7 @@ a region lease resize runs reconcile + re-encode and NOTHING else.
 | Camera pan/orbit | none | none | project current camera; region encode per its own ladders |
 | Region lease-rung crossing | none | none | one binding reconcile: retire old + acquire new lease, re-encode required roles |
 | Region encode-rung crossing | none | none | re-encode affected roles (already payload-local today) |
-| Region background change | none | none | payload/slot row update |
+| Region background change | none | none | payload update + interior re-encode; kind transition also recomputes that region's interior draw-order |
 | Region order/geometry change | one entry delta; touched-set law | none | draw order/geometry from arrangement |
 | Region open | one entry insert; touched-set | insert one region fragment; global ONLY if color-mode value changes | slot + lease allocate |
 | Region close | one entry remove; touched-set | remove one region fragment; global ONLY if value changes | safe slot + lease release |
@@ -590,7 +653,12 @@ note it in NOW. Ownership boundaries outrank filenames.
 - `renderer.cljs` — replace the gate block (`:3811-3868`): keep
   ledger/changed-families/produce; feed `family-entry-delta` output to the
   reducer; one swap; binding reconcile; encode. The `plan-inputs` map,
-  `!frame-plan-inputs`, and the deep-`=` change discovery die.
+  `!frame-plan-inputs`, and the deep-`=` change discovery die. Owns the
+  §6e epoch producer: the same-device compositor replacement seam over
+  `!compositors-by-device` (`:3453-3460`).
+- `scene_runtime.cljs` — the registry write sites (`set-effects!`
+  `:303-310` and nesting-changing siblings) mint the keyed §6a container
+  delta (thin hook per mutator or one keyed registry journal).
 - `region3d_gpu.cljs` — shape-key strike (`:985-992`), paint strike
   (`:1194-1199`), prepare splits outputs into semantic / topology /
   binding / payload lanes, composite-instance writes (`:963-968`) move
@@ -649,7 +717,10 @@ harness, never an in-code `scene_tape` counter — MUST-NOT 2); touched
 containers ⊆ the six-lookup formula's union, and in legs (b)/(c) container
 A is touched despite being in NEITHER chain of the changed entry;
 untouched containers and untouched runs preserve identity (`identical?`);
-plan fragments compiled = 0 (no topology change in any leg); no complete
+plan fragments compiled = 0 and plan-order nodes visited = 0 (no
+topology change in any leg); container declarations inspected = 0 (no
+registry write in any leg — the counter that proves no whole-registry
+declaration diff ran); no complete
 old/new map comparison ran; oracle projection equal after every leg.
 *Wrong-builds named:* touched-set = the changed entry's own chains only —
 passes (a), dies on (b)/(c); rediscovering deltas by diffing whole maps —
@@ -658,9 +729,13 @@ rebuilding a touched container's ENTIRE run set — passes equality, the
 run-identity (`identical?`) assertions kill it.
 
 **S3 · parameter vs topology vs the road.** (a) opacity/blur magnitude
-change → parameter revision only, zero fragments compiled; (b) effect
+change → parameter revision only, zero fragments compiled, container
+declarations inspected = 1 (the written container alone); (b) effect
 kind added/removed, nesting change → that effect fragment (+ dependents)
-only; (c) road legs over the VALUE functions: empty scene + first effect
+only — declarations inspected = 1 for a kind change, ⊆ the moved
+container's stack-path subtree for a nesting change, and plan-order
+work bounded by the affected subgraph, never the registry or fragment
+population; (c) road legs over the VALUE functions: empty scene + first effect
 (`:legacy`→`:scene-color/linear`, global transition, full re-sign
 receipted); add a region while already linear → count changes, VALUE
 unchanged → NO global re-sign; regions present + forced `:legacy` →
@@ -678,18 +753,31 @@ the road value changes) → open region 2 (ONE fragment insert, no global)
 → reorder regions (entry deltas only; slots STABLE; composite order
 follows arrangement; zero fragment compiles) → toggle region 1's shadow
 (that fragment replaced, zero arrangement change, shadow resources
-reconciled) → close region 1 → open region 3 (takes the freed slot only
+reconciled) → flip region 1's background opaque↔transparent (zero
+entries produced, zero fragments compiled, ONE region's interior
+draw-order recomputed + re-encoded; composite correct in both
+directions — golden or partition assertion) → close region 1 → open
+region 3 (takes the freed slot only
 after safe retirement; holes legal meanwhile; region 2's row never
 rewritten — upload counters) → close all (global back iff value
-changes). Lease + refusal receipts throughout (forced tiny budget leg:
+changes). Every fragment insert/remove/replace leg also asserts
+plan-order work proportional to the affected subgraph
+(`plan-order-nodes-visited` bounded by that fragment's passes + adjacent
+edges, never the population). Lease + refusal receipts throughout
+(forced tiny budget leg:
 refusal receipt + fill, never silent). *Wrong-builds named:* positional
 composite-index passes until the reorder — slot-stability kills it; slot
 compaction on close passes single-region tests — the hole + row-untouched
 assertions kill it; shadow toggle re-signing all fragments — fragment
-counters kill it.
+counters kill it; a uniform-only background move that reuses the
+prepared draw-order passes every static golden — the kind-transition
+leg's ordering assertion kills it; a whole-graph re-sort per open/close
+passes output equality — the order-work counters kill it.
 
 **S5 · epoch and recovery (F2).** Live leg: destroy/recreate the
-compositor (the epoch proxy) → semantic arrangement/effect/plan views
+compositor THROUGH the §6e replacement seam — the seam fires, then the
+next `draw-frame!` resolves the NEW compositor from production custody
+→ semantic arrangement/effect/plan views
 preserve identity (`identical?`); ALL bindings, slots, lease generations
 reset; no stale generation survives; next frame re-acquires cleanly;
 equivalent capabilities reuse logical fragments. Pure leg:
@@ -698,7 +786,10 @@ capability-changing recovery → exactly one declared global transition.
 pass recreate-with-same-ids while resolving stale views; the epoch-stamp
 + refusal-on-incompatible assertion kills it; resetting semantic state
 too — passes visually after rebuild; the retained-identity assertions
-kill it.
+kill it; a test-constructed second compositor that bypasses
+`!compositors-by-device` — passes every identity assertion while
+production custody would still return the destroyed cached compositor;
+the through-`draw-frame!` requirement kills it.
 
 Counters ride the existing `frame_inputs` ledger (extended per §4.4) and
 must themselves update incrementally (§6d diagnostics law).
@@ -825,12 +916,15 @@ counterexample (RED) stay byte-identical.
    deep-`=` discovery dies here.
 2. **Region reclassification (Half A):** shape-key + paint strike,
    binding owner, lease road from binding deltas, slot allocator,
-   compositor reads binding state, door strikes in `frame_inputs.cljc`,
+   compositor reads binding state, the §6e epoch replacement seam,
+   background's two payload consumers (clear + interior draw-order),
+   door strikes in `frame_inputs.cljc`,
    rect-fallback deletion + explicit oracle input assembly. After this
    pass the exact C1 action produces zero semantic work — not atom
    completion (Half B still owed).
 3. **Effect view:** §6c state, touched-set law, event index, oracle
-   projection; `arrangement-token` door dies.
+   projection; the §6a container-delta mint lands at the registry write
+   sites; `arrangement-token` door dies.
 4. **Plan view:** §6d fragments, two road values, local validation,
    monotonic generation; full validate/hash behind oracle doors.
 5. **Compositor integration:** binding-resolved resources, projected
@@ -849,8 +943,9 @@ live plan identity · composite slot + background changes produce zero
 semantic entries · no complete old/new input comparison anywhere on the
 live road · the crossing action produces zero arrangement/effect/plan
 work · a real one-entry change touches only the §6c/§6d affected sets ·
-no durable numeric entry positions · plan is stable keyed fragments ·
-bindings owned by explicit device-local state with epoch stamps · batch
+no durable numeric entry positions · plan is stable keyed fragments
+with incrementally maintained execution order · bindings owned by
+explicit device-local state with epoch stamps · batch
 oracles alive and equal · every §5 law green · S1–S5 + goldens green ·
 desktop AND mobile taken-path receipts show the plan bucket absent on
 the crossing action · no full-frame executor claim without its own
@@ -863,7 +958,9 @@ never invent them):
 change: region-binding | region-id: <one> | lease: old→new
 changed-families [] · produced 0 · arrangement-upserts 0 · removes 0
 comparator-calls 0 · effect-containers-touched 0
-plan-fragments-touched 0 · plan-full-validations 0
+container-declarations-inspected 0
+plan-fragments-touched 0 · plan-order-nodes-visited 0
+plan-full-validations 0
 region-binding-updates 1 · leases-acquired 1 · leases-retired 1
 region-prepared 1 · region-encoded <required roles only>
 oracle-divergences 0
