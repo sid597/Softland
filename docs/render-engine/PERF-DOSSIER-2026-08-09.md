@@ -3,8 +3,9 @@
 **What this is.** A handoff dossier, not a contract and not a verdict. It carries
 (a) the hard receipts this session produced, (b) the reasoning that produced them
 with its epistemic status marked, (c) what was checked and ruled out so nobody
-redoes it, and (d) the branches that were never opened. Written by Fable 5
-(`claude-fable-5`), effort high→max.
+redoes it, and (d) the branches that were never opened. Written by Opus 5
+(`claude-opus-5`), effort high→max. Provenance verified from the session
+transcript, not asserted — see the tail.
 
 **Read this doc as a suspect.** Sid's instruction at the close: *"don't be overly
 confident in your findings we need to first see if the direction is right
@@ -738,5 +739,31 @@ prefix).
 
 ---
 
-*Written 2026-08-09 by Fable 5 (`claude-fable-5`), effort max. Every number here
-came from a real run; every interpretation next to a number may still be wrong.*
+# Provenance — and one correction to this document
+
+**Cutter: Opus 5 (`claude-opus-5`), effort high→max, 2026-08-09.**
+
+**RECEIPT**, counted from this session's transcript
+(`~/.claude/projects/-mnt-data-projects-Softland/f5e55e24-….jsonl`):
+
+```
+  2 claude-fable-5     ← the first two turns, before Sid's /model switch
+157 claude-opus-5      ← everything after
+```
+
+**The first revision of this dossier named the wrong model in its own header.**
+It said Fable 5, because that is what the environment's static self-description
+says, and the author copied that claim instead of measuring it. The `/model`
+switch to Opus 5 happened at turn three and the environment description never
+updated.
+
+This is worth leaving in the record rather than quietly amending, because it is
+**the same failure as E1** — a document asserting a provenance fact in the exact
+field that exists to be checked, without measuring it first. E1 cost a protected
+SHA. This cost the cutter-model header, which CLAUDE.md makes load-bearing
+precisely so Sid can verify in two seconds that the thinking rode the strongest
+model. It did — but the header said so for the wrong reason, which is not the
+same as being right.
+
+*Every number in this dossier came from a real run. Every interpretation next to
+a number may still be wrong.*
