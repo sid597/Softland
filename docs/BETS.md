@@ -193,6 +193,25 @@ and its dependencies — then files it here. Rules:
   Sid's first wear session with the halo live — deliberately NOT a build
   gate (`build/halo/CONTRACT.md` §8: scaffolding the open would poison the
   measurement). Depends on: halo (this package).
+- **C3 — the representation commons & marketplace** (filed 2026-08-10 from
+  `vision/LOG.md` 2026-08-10, verbatim source there; **sharpening PENDING**
+  — intake per this section's rules; the board's Vision line flags it).
+  Raw claim (Sid): everything flows through Softland so it's all tagged —
+  versioning, permissions, relations (the data + recipe, never each frame);
+  agents write the shaders/pipelines for "this" instance; everything gets
+  committed and shared, so "eventually we will land on deterministic set of
+  functions and pipelines for different fields the emergence will be
+  solidified." And as a world platform: one lab/group sends requests out to
+  humans/agents for specialised work; a specialist (a human expert + their
+  agents) builds and delivers in Softland; the product is marked theirs and
+  sellable — "code and data is open sourced sharable but the 'build on top'
+  that they provide is paid and theirs only."
+  Open tension to sharpen: the paid boundary when agents can re-derive
+  anything open (what stays scarce: taste, liveness/warranty, private data,
+  reputation; candidate mechanism: the license rides provenance the way
+  attribution already does). Depends on: the representation-ladder
+  direction (decisions.md 2026-08-10) · H4's protocol maturing ·
+  multiplayer (still intent-discovered).
 
 *(Intake also draws from the wall and the dated pre-reads in
 `docs/current-mental-model/intake/`; first pre-read:

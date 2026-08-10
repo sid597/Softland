@@ -81,7 +81,15 @@ includes P8; the P8 :8091 jetty is dead — see HANDOFF).
 **Ground:** `docs/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `docs/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `docs/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-08-03, first entry** (the
+**Vision:** LOG routed through **2026-08-10, first entry** (the
+representation arc — house inspector · science labs · "'good enough' is not
+good enough for me" · the commons; routed same-session → decisions.md "The
+spatial model & the representation ladder" (ambience law ·
+in-loop/out-of-loop seam · typed rungs — progressive refinement, never
+optimistic · the *generated* solidity tag · scientific-data floors future
+family + field library) + BETS **C3 filed RAW — sharpening PENDING** + board
+SPACE lane out-of-loop seam proof; frame-view correction scope UNCHANGED).
+Prior: **2026-08-03, first entry** (the
 electric-native seed — "never do caching NEVER" · diffs by uid/identity ·
 "why not we building electric native and equivalent": the verbatim that
 opened the render-seam inquiry, routed same-day → decisions.md "The render
@@ -383,6 +391,19 @@ round → benchmark room (question bank waits on kinds).
   `probes/`, off the classpath — Sid: keep, quarantined.)
 
 ### SPACE — spatial/3D
+- **out-of-loop render seam — LATER (direction settled 2026-08-10,
+  decisions.md "The spatial model & the representation ladder"):** first
+  receipt when pulled into NOW: the seam proof on Sid's own machine — one
+  GPU/process holds the interactive land, a second produces a materially
+  richer representation of the SAME scene/run identity, returning with
+  depth/entity info for picking + anchoring; recipe + data versioned once,
+  frames derived cache; heavy-executor death cannot kill or corrupt the
+  ambient land. Then: one real time-varying scientific dataset over the
+  same seam (volumes · time · provenance · domain anchors) — the test that
+  it carries science, not a bespoke animation. Sid's rig (2×24GB) is the
+  named testbed — "its a ladder and its starts at home." The frame-view
+  lower-resolution correction proceeds unchanged and is this ladder's
+  bottom rung, not a competitor.
 - **spatial cluster — FOLDED INTO scene-substrate (2026-07-12 ruling,
   decisions.md):** `container-transforms` = its transform leg ·
   `point-and-say`'s pick/bundle half = its P4 seam · `scene-diff` = a

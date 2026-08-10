@@ -589,6 +589,68 @@ vocabularies; renaming the arc makes it invisible to Sid.
   it — paint deltas, residency, streamed population — is authorized only
   by the post-linearization profile, never presumed.
 
+## The spatial model & the representation ladder (settled 2026-08-10)
+
+Born of the Region3D fullscreen incident + the lab-scenario visioning (house
+inspector · science labs · the commons — verbatim in `vision/LOG.md`
+2026-08-10). Direction and vocabulary in force now; machinery arrives by
+lived want; nothing here changes the current frame-view correction's scope.
+
+- **The land is root and home.** Cartographic, planar; zoom is the master
+  epistemic axis. Spaces are entities; a space appears inside another as a
+  first-class citizen face — its own camera, units, picture ontology — never
+  a window or iframe. Dimension is a per-space property: two picture
+  ontologies, shared atoms, never one space model.
+- **Exactly one space is ambient at a time.** The ambient space owns the
+  frame reserve, the naked camera gestures, and the gesture grammar; every
+  other visible space is material under residency law — budgeted,
+  degradable, honestly refusing (the refusal fill stays, as the floor rung).
+  A contained representation can never starve the ambient world; the frame
+  reserve belongs to whichever space is ambient — today hard-wired to the 2D
+  frame road, and the reserve's OWNER is the only thing that generalizes.
+- **Ambience transfers by travel at declared thresholds** — the diving bell
+  at region≈viewport, doors for rooms, zoom bands that act. World-not-mode,
+  everywhere. Camera gestures stay structurally uncapturable by material, so
+  a crossing is a space-level transition, never a material capture. The
+  possession state cuts when its lived pressure arrives (the Blender-floor
+  working posture / the lab scenarios); no recursive space-graph engine gets
+  built ahead of a lived scenario.
+- **A space's semantic identity is independent of where and how its
+  representations are produced** — browser rasterizer, a second local
+  GPU/process, a lab cluster, rented compute, an instrument, a human
+  specialist's package, an agent-authored pipeline. The seam is in-loop vs
+  out-of-loop (the interactive frame loop vs everything outside it);
+  distance is a deployment detail. Three escalating out-of-loop modes: data
+  (bricks/tiles/levels) → intermediate representations (isosurfaces, splats,
+  lensing fields) → full frames streamed. Compute is bring-your-own by
+  default: Softland governs identity and lineage even when bulk data and
+  execution live in authorized external systems.
+- **Representations are explicitly typed results over committed truth —
+  progressive refinement, never optimistic approximation.** One truth, many
+  projections at declared rungs; nothing rolls back — a higher rung arrives
+  and replaces a lower one, and the rung is WORN visibly (solidity /
+  provenance channels: measured · derived · reconstructed · generated).
+  Fidelity and honesty are orthogonal: an out-of-loop frame carries its
+  recipe (code version + data version + camera) the way a claim carries
+  grounds; recipe + data are versioned once, frames are derived cache.
+  Generated media (image/video models over rendered keyframes) is a welcome
+  rung typed *generated* — declared illustrative, never silently evidence.
+- **Device limits price today's rung, never the ceiling.** There is no top
+  rung; top rungs ride out-of-loop compute, and their prices (agent-hours,
+  rented FLOPS) are decaying receipts, not constants. One standing refusal,
+  correctly scoped: gesture-rate in-browser geodesic integration (GR-class
+  rendering) is never a floor promise — that capability lives at out-of-loop
+  rungs or arrives as instrument data.
+- **Scientific-data floors are a named future family** behind lived want:
+  volumes (participating media) · points-at-scale · time/sequence scrub ·
+  the out-of-core ingest lane. Want-slot: the lab scenarios. Baking
+  knowledge (transfer functions, LOD policies, lighting rigs, camera
+  choreographies) accumulates as an agent-maintained field library — the
+  residue of per-request work hardening into deterministic per-field
+  pipelines, the same emergence law as the native discourse protocol. First
+  receipt when pulled into NOW: the out-of-loop seam proof on Sid's own
+  machine (board, SPACE lane).
+
 ## Only Sid decides
 
 Spending money · pushing/merging the docs branch (never) · `env.clj` (never
