@@ -11,6 +11,7 @@
             [app.client.substrate.region3d-scene :as scene]
             [app.client.substrate.webgpu.compositor-gpu :as compositor]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
+            [app.client.substrate.webgpu.region-bindings :as region-bindings]
             [app.client.substrate.webgpu.region3d-placement-gpu
              :as placement-gpu]))
 
@@ -644,8 +645,10 @@
                                                :magFilter "linear"}))
      :shadow-fallback fallback
      :frame-input/identity (js-obj) :!shape-rev (atom 0)
+     :binding-owner (region-bindings/create-owner device)
      :!compositor (atom nil)
      :!prepared (atom {}) :!composite-buffer (atom composite-buffer)
+     :!composite-rows (atom {})
      :!last-composite-key (atom nil)
      :!last-regions (atom ::never)
      :!entry-shape-key (atom ::never)
@@ -660,6 +663,14 @@
 
 (defn prepared-pick-state [region-id]
   (get @!pick-state region-id))
+
+(defn binding-owner [system] (:binding-owner system))
+
+(defn drain-binding-deltas! [system]
+  (region-bindings/drain-deltas! (:binding-owner system)))
+
+(defn region-topology-rows [system]
+  (region-bindings/topology-rows (:binding-owner system)))
 
 (defn region3d-system-for-device
   "Return the already-created system without allocating one. This lets an
@@ -678,6 +689,8 @@
 (defn attach-compositor! [system frame-compositor]
   (when-not (identical? @(:!compositor system) frame-compositor)
     (reset! (:!compositor system) frame-compositor)
+    (region-bindings/attach-compositor! (:binding-owner system)
+                                        frame-compositor)
     (swap! (:!prepared system)
            (fn [prepared]
              (into {}
@@ -952,30 +965,45 @@
   (placement-gpu/destroy-region-gpu! (:placement-system system)
                                      (:placement gpu)))
 
-(defn- upload-composites! [system regions]
-  (let [key (mapv #(select-keys % [:region-id :x :y :w :h :container-idx]) regions)]
-    (if (= key @(:!last-composite-key system))
-      0
-      (let [raw (js/ArrayBuffer. (* (max 1 (count regions))
-                                    composite-instance-stride))
-            floats (js/Float32Array. raw)
-            uints (js/Uint32Array. raw)]
-        (doseq [[index {:keys [x y w h container-idx]}]
-                (map-indexed vector regions)]
-          (let [base (* index 5)]
-            (aset floats base x) (aset floats (+ base 1) y)
-            (aset floats (+ base 2) w) (aset floats (+ base 3) h)
-            (aset uints (+ base 4) (or container-idx 0))))
-        (let [buffer (ensure-buffer! system @(:!composite-buffer system)
-                                     "region3d/composite-instances"
-                                     (.-byteLength raw)
-                                     (bit-or js/GPUBufferUsage.COPY_DST
-                                             js/GPUBufferUsage.VERTEX))]
-          (write-buffer! system buffer (js/Uint8Array. raw)
-                         (* (count regions) composite-instance-stride))
-          (reset! (:!composite-buffer system) buffer)
-          (reset! (:!last-composite-key system) key)
-          1)))))
+(defn- composite-row-bytes [{:keys [x y w h container-idx]}]
+  (let [raw (js/ArrayBuffer. composite-instance-stride)
+        floats (js/Float32Array. raw)
+        uints (js/Uint32Array. raw)]
+    (aset floats 0 x) (aset floats 1 y)
+    (aset floats 2 w) (aset floats 3 h)
+    (aset uints 4 (or container-idx 0))
+    (js/Uint8Array. raw)))
+
+(defn- upload-composites! [system desired]
+  (let [rows (into {}
+                   (map (fn [{:keys [slot composite]}]
+                          [slot composite]))
+                   desired)
+        max-slot (reduce max -1 (keys rows))
+        active-bytes (* (inc max-slot) composite-instance-stride)
+        old-buffer @(:!composite-buffer system)
+        buffer (ensure-buffer! system old-buffer
+                               "region3d/composite-instances"
+                               (max 4 active-bytes)
+                               (bit-or js/GPUBufferUsage.COPY_DST
+                                       js/GPUBufferUsage.VERTEX))
+        grew? (not (identical? (:buffer old-buffer) (:buffer buffer)))
+        prior @(:!composite-rows system)
+        changed (if grew?
+                  rows
+                  (into {}
+                        (filter (fn [[slot row]]
+                                  (not= row (get prior slot))))
+                        rows))]
+    (doseq [[slot row] changed]
+      (.writeBuffer (.-queue ^js (:device system)) (:buffer buffer)
+                    (* slot composite-instance-stride)
+                    (composite-row-bytes row)))
+    (gpu-budget/set-active-bytes! (:tracker system) (:buffer buffer)
+                                  active-bytes)
+    (reset! (:!composite-buffer system) buffer)
+    (reset! (:!composite-rows system) rows)
+    (count changed)))
 
 (defn- font-input-token [font-assets]
   [(placement/provider-identity font-assets)
@@ -984,10 +1012,8 @@
 
 (defn- region-entry-shape-key [store-frame regions prepared]
   (mapv (fn [{:keys [region-id]}]
-          (let [row (get prepared region-id)
-                op (:op row)]
-            [region-id (:composite-index row) (:lease-size row) (:shadow? row)
-             (get-in row [:maintained :region :background])
+          (let [op (:op (get prepared region-id))]
+            [region-id
              (get-in store-frame [:order-by-vi (:owner-vi op)])]))
         regions))
 
@@ -1001,14 +1027,11 @@
   (let [regions (vec (or (:regions store-frame) []))
         prior @(:!prepared system)
         live-ids (set (map :region-id regions))
-        composite-input-changed?
-        (not (frame-inputs/input-value-same? regions @(:!last-regions system)))
-        composite-uploads (if composite-input-changed?
-                            (upload-composites! system regions) 0)
         computed
         (into {}
-              (map-indexed
-               (fn [composite-index op]
+              (map
+               (fn [op]
+                 (frame-inputs/increment-ledger! :region-prepared)
                  (let [region-id (:region-id op)
                        session-row (session-region session region-id)
                        pixel-size [(max 1 (js/Math.ceil (* (:w op) zoom dpr)))
@@ -1032,10 +1055,50 @@
                        [(max 1 (js/Math.ceil (* (:w op) encode-scale)))
                         (max 1 (js/Math.ceil (* (:h op) encode-scale)))]
                        old (get prior region-id)
+                       raw-region (:region3d/scene op)
+                       material-key
+                       [(dissoc raw-region :background)
+                        (:preview-transform session-row)
+                        (:settled-transforms session-row)]
+                       background-key (:background raw-region)
+                       material-changed?
+                       (or (nil? old)
+                           (not= material-key (:material-key old)))
+                       background-changed?
+                       (or (nil? old)
+                           (not= background-key (:background-key old)))
+                       canonical-region
+                       (when (or material-changed? background-changed?)
+                         (material/validate-region! raw-region))
+                       region
+                       (if material-changed?
+                         (session-region-value canonical-region session-row)
+                         (get-in old [:maintained :region]))
+                       maintained0
+                       (if material-changed?
+                         (assoc (scene/derive-scene region) :region-id region-id)
+                         (:maintained old))
+                       maintained
+                       (if (and background-changed? (not material-changed?))
+                         (assoc-in maintained0 [:region :background]
+                                   (:background canonical-region))
+                         maintained0)
+                       shadow-space (if material-changed?
+                                      (scene/shadow-light-space maintained)
+                                      (:shadow-space old))
+                       view (or (:view session-row)
+                                (get-in maintained [:region :view-default]))
+                       view-key [view (:display-mode session-row)
+                                 (:selection session-row) encode-rung
+                                 shadow-space]
+                       view-changed? (or material-changed? (nil? old)
+                                         (not= view-key (:view-key old)))
+                       camera (if view-changed?
+                                (scene/camera-matrices view encode-pixel-size)
+                                (:camera old))
                        prepare-key
-                       {:op op :session session-row :composite-index composite-index
-                        :region-lease-size lease-size
-                        :region-encode-scale encode-rung :dpr dpr
+                       {:material material-key :background background-key
+                        :view view-key :dpr dpr
                         :placements (:region3d/resolved-placements op)
                         :font (font-input-token font-assets)
                         :session-layout
@@ -1043,37 +1106,7 @@
                         :atlas-view atlas-view :atlas-sampler atlas-sampler
                         :path-system (frame-inputs/system-token path-system)
                         :max-lease-size max-lease-size}]
-                   (if (and old
-                            (frame-inputs/inputs-same?
-                             (keys prepare-key) (:prepare-key old) prepare-key))
-                     [region-id old]
-                     (let [_ (frame-inputs/increment-ledger! :region-prepared)
-                           base-region
-                           (material/validate-region! (:region3d/scene op))
-                           region (session-region-value base-region session-row)
-                           material-key
-                           [region (:preview-transform session-row)
-                            (:settled-transforms session-row)]
-                           material-changed?
-                           (or (nil? old)
-                               (not= material-key (:material-key old)))
-                           maintained (if material-changed?
-                                        (assoc (scene/derive-scene region)
-                                               :region-id region-id)
-                                        (:maintained old))
-                           shadow-space (if material-changed?
-                                          (scene/shadow-light-space maintained)
-                                          (:shadow-space old))
-                           view (or (:view session-row) (:view-default region))
-                           view-key [view (:display-mode session-row)
-                                     (:selection session-row) encode-rung
-                                     lease-size shadow-space]
-                           view-changed? (or material-changed? (nil? old)
-                                             (not= view-key (:view-key old)))
-                           camera (if view-changed?
-                                    (scene/camera-matrices view encode-pixel-size)
-                                    (:camera old))
-                           gpu0 (or (:gpu old)
+                   (let [gpu0 (or (:gpu old)
                                     (create-region-gpu system region-id))
                            gpu1 (if material-changed?
                                   (write-material-gpu! system region-id gpu0
@@ -1096,19 +1129,25 @@
                                        (:path-cache placement-result)))
                            gpu3 (assoc gpu2 :placement (:gpu placement-result))
                            mesh-draw-order
-                           (if (or material-changed? view-changed? (nil? old))
+                           (if (or material-changed? view-changed?
+                                   (not= (get-in old [:maintained :region
+                                                     :background :kind])
+                                         (get-in maintained [:region :background
+                                                             :kind]))
+                                   (nil? old))
                              (draw-order gpu3 maintained camera)
                              (:draw-order old))
                            dirty-by-role
                            {:shadow (or material-changed? (nil? old))
                             :interior (or material-changed? view-changed?
+                                          background-changed?
                                           (:changed? placement-result)
                                           (nil? old))}]
                        [region-id
                         {:region-id region-id :op op
-                         :composite-index composite-index
                          :prepare-key prepare-key
-                         :material-key material-key :view-key view-key
+                         :material-key material-key
+                         :background-key background-key :view-key view-key
                          :maintained maintained :camera camera
                          :lease-size lease-size :encode-rung encode-rung
                          :shadow-space shadow-space
@@ -1118,11 +1157,36 @@
                          :placement-census (:census placement-result)
                          :dirty-by-role dirty-by-role
                          :material-changed? material-changed?
+                         :background-changed? background-changed?
                          :view-changed? view-changed?
                          :last-lease-keys (:last-lease-keys old)
-                         :session session-row}]))))
+                         :session session-row}])))
                regions))
         closed (vec (remove live-ids (keys prior)))
+        desired
+        (region-bindings/reconcile-desired!
+         (:binding-owner system)
+         (mapv (fn [[region-id row]]
+                 (let [op (:op row)]
+                   {:region/id region-id
+                    :lease-size (:lease-size row)
+                    :shadow? (:shadow? row)
+                    :background (get-in row [:maintained :region :background])
+                    :encode-rung (:encode-rung row)
+                    :composite {:x (:x op) :y (:y op)
+                                :w (:w op) :h (:h op)
+                                :container-idx (:container-idx op)}}))
+               computed))
+        computed
+        (into {}
+              (map (fn [[region-id row]]
+                     (let [row (assoc row :composite-slot
+                                      (get-in desired [region-id :slot]))
+                           old (get prior region-id)]
+                       [region-id (if (= row old) old row)])))
+              computed)
+        composite-uploads
+        (upload-composites! system (vals desired))
         next (if (and (empty? closed)
                       (= (keys prior) (keys computed))
                       (every? (fn [[id row]] (identical? row (get prior id)))
@@ -1138,8 +1202,6 @@
         (not= entry-shape-key @(:!entry-shape-key system))]
     (doseq [region-id closed]
       (destroy-region-gpu! system (:gpu (get prior region-id))))
-    (when composite-input-changed?
-      (reset! (:!last-regions system) regions))
     (when prepared-changed?
       (reset! (:!prepared system) next)
       (reset! !pick-state
@@ -1184,19 +1246,13 @@
     (mapv
      (fn [op]
        (let [region-id (:region-id op)
-             prepared (get @(:!prepared region3d-system) region-id)
              source-order (get-in store-frame [:order-by-vi (:owner-vi op)])
              entry (scene/tape-entry
                     {:region-id region-id
                      :revision (get-in op [:region3d/scene :region3d/version])
                      :source-order source-order
                      :rect [(:x op) (:y op) (:w op) (:h op)]})]
-         (update entry :paint merge
-                  {:lease-size (:lease-size prepared)
-                  :shadow? (:shadow? prepared)
-                  :region-system region3d-system
-                  :composite-index (:composite-index prepared)
-                  :background (get-in prepared [:maintained :region :background])})))
+         (assoc-in entry [:paint :region-system] region3d-system)))
      (:regions store-frame))))
 
 (defn- region-bind-group [system prepared lease]
@@ -1369,13 +1425,11 @@
                        {:binding 3 :resource {:buffer (:containers-buffer system)}}]})))
 
 (defn execute-region3d-batch! [pass entry]
-  (let [{:keys [region-system region-id lease-size shadow? composite-index]}
+  (let [{:keys [region-system region-id]}
         (:paint entry)
-        [width height] lease-size
-        frame-compositor @(:!compositor region-system)
-        lease (when frame-compositor
-                (compositor/region-lease frame-compositor region-id
-                                         width height shadow?))
+        owner (:binding-owner region-system)
+        lease (region-bindings/lease owner region-id)
+        composite-slot (region-bindings/slot owner region-id)
         refused? (or (nil? lease) (:refused? lease))]
     (.setPipeline ^js pass (get-in region-system
                                    [:pipelines (if refused? :refusal :composite)]))
@@ -1383,11 +1437,12 @@
                                 (refusal-bind-group region-system)
                                 (composite-bind-group region-system lease)))
     (.setVertexBuffer ^js pass 0 (:buffer @(:!composite-buffer region-system)))
-    (.draw ^js pass 6 1 0 composite-index)
+    (.draw ^js pass 6 1 0 composite-slot)
     (:entry/id entry)))
 
 (defn region3d-receipt [system]
   (assoc @(:!receipt system)
+         :bindings (region-bindings/receipt (:binding-owner system))
          :placements (placement-gpu/placement-receipt
                       (:placement-system system))
          :prepared

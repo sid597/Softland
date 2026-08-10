@@ -8,6 +8,8 @@
    textures/registries/instance bytes remain owned by their existing systems."
   (:require [app.client.substrate.frame-effects :as frame-effects]
             [app.client.substrate.frame-graph :as frame-graph]
+            [app.client.substrate.frame-inputs :as frame-inputs]
+            [app.client.substrate.webgpu.region-bindings :as region-bindings]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]))
 
 (def target-pool-version 2)
@@ -187,28 +189,29 @@
           (.destroy ^js (:texture target)))))
     (count targets)))
 
+(defn- ensure-target-capacity!
+  [pool bytes label]
+  (let [state @(:!state pool)]
+    (when (> (+ (:reserved-bytes state) bytes) (:budget-cap-bytes pool))
+      (let [receipt {:reason :frame-target-budget-exceeded
+                     :requested-bytes bytes
+                     :reserved-bytes (:reserved-bytes state)
+                     :budget-cap-bytes (:budget-cap-bytes pool)
+                     :requested-by label}]
+        (swap! (:!state pool) update :refusals conj receipt)
+        (throw (ex-info "Frame target pool budget exceeded" receipt))))))
+
 (defn- create-target!
-  [pool format width height label sample-count usage]
+  [pool format width height label sample-count usage reclaim-free?]
   (let [sample-count (max 1 (or sample-count 1))
         bytes (texture-bytes format width height sample-count)
-        _ (when (> (+ (:reserved-bytes @(:!state pool)) bytes)
-                   (:budget-cap-bytes pool))
+        _ (when (and reclaim-free?
+                     (> (+ (:reserved-bytes @(:!state pool)) bytes)
+                        (:budget-cap-bytes pool)))
             (if (empty? (:leased @(:!state pool)))
               (reclaim-free-targets! pool)
               (reclaim-stale-free-targets! pool)))
-        state @(:!state pool)]
-    (when (> (+ (:reserved-bytes state) bytes) (:budget-cap-bytes pool))
-      (swap! (:!state pool) update :refusals conj
-             {:reason :frame-target-budget-exceeded :requested-bytes bytes
-              :reserved-bytes (:reserved-bytes state)
-              :budget-cap-bytes (:budget-cap-bytes pool)
-              :requested-by label})
-      (throw (ex-info "Frame target pool budget exceeded"
-                      {:reason :frame-target-budget-exceeded
-                       :requested-bytes bytes
-                       :reserved-bytes (:reserved-bytes state)
-                       :budget-cap-bytes (:budget-cap-bytes pool)
-                       :requested-by label})))
+        _ (ensure-target-capacity! pool bytes label)]
     (let [texture (.createTexture
                    ^js (:device pool)
                    (clj->js {:label label
@@ -233,8 +236,9 @@
       target)))
 
 (defn acquire-target!
-  [pool format width height label & {:keys [sample-count usage]
-                                    :or {sample-count 1}}]
+  [pool format width height label
+   & {:keys [sample-count usage preserve-free? reclaim-free?]
+      :or {sample-count 1 preserve-free? false reclaim-free? true}}]
   (let [width (max 1 (int width))
         height (max 1 (int height))
         sample-count (max 1 sample-count)
@@ -243,11 +247,14 @@
         ;; An unmatched first acquisition marks a frame/viewport boundary.
         ;; Reclaim there, while no unsubmitted encoder can still name a free
         ;; target. Same-frame releases remain reusable but never destroyable.
-        _ (when (and (empty? (:leased state))
+        reclaim-free? (and reclaim-free? (not preserve-free?))
+        _ (when (and reclaim-free?
+                     (empty? (:leased state))
                      (nil? (first (get-in state [:free key])))
                      (seq (:free state)))
             (reclaim-free-targets! pool))
-        target (first (get-in @(:!state pool) [:free key]))]
+        target (when-not preserve-free?
+                 (first (get-in @(:!state pool) [:free key])))]
     (if target
       (do
         (swap! (:!state pool)
@@ -262,7 +269,7 @@
                        (update :high-water-leased max (count leased))))))
         target)
       (let [target (create-target! pool format width height label
-                                   sample-count usage)]
+                                   sample-count usage reclaim-free?)]
         (swap! (:!state pool)
                (fn [state]
                  (let [leased (assoc (:leased state) (:target/id target) target)]
@@ -500,6 +507,27 @@
         [region-id (quantize-region-size width)
          (quantize-region-size height)])))
 
+(defn- acquire-region-target!
+  "Acquire persistent Region3D storage without reclaiming the free frame-road
+   cache. Those targets are the observed transient reserve for a frame that
+   already fit; consuming them here can admit the region and make the later
+   mandatory group-output allocation kill the whole frame. The caller's
+   existing lease-refusal path owns the combined-set failure instead."
+  [compositor format width height label & {:keys [sample-count usage]
+                                           :or {sample-count 1}}]
+  (acquire-target! (:target-pool compositor) format width height label
+                   :sample-count sample-count
+                   :usage usage
+                   :preserve-free? true))
+
+(defn- region-lease-bytes [width height shadow?]
+  (+ (texture-bytes "rgba16float" width height 4)
+     (texture-bytes "depth24plus" width height 4)
+     (texture-bytes "rgba16float" width height 1)
+     (if shadow?
+       (texture-bytes "depth32float" 2048 2048 1)
+       0)))
+
 (defn acquire-region-lease!
   "Acquire or reuse one compositor-owned held lease. Refusal is returned as
    data so the family can draw its declared fill; no target byte has another
@@ -515,9 +543,14 @@
 
       (and existing shadow? (nil? (:shadow existing)))
       (try
-        (let [shadow (acquire-target!
-                      (:target-pool compositor) "depth32float" 2048 2048
-                      (str "region3d/" region-id "/shadow")
+        (let [label (str "region3d/" region-id "/shadow")
+              _ (ensure-target-capacity!
+                 (:target-pool compositor)
+                 (texture-bytes "depth32float" 2048 2048 1)
+                 label)
+              shadow (acquire-region-target!
+                      compositor "depth32float" 2048 2048
+                      label
                       :sample-count 1
                       :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
                                      js/GPUTextureUsage.TEXTURE_BINDING))
@@ -549,23 +582,26 @@
         (let [pool (:target-pool compositor)
               acquired (atom [])]
           (try
-            (let [color-msaa
-                  (acquire-target!
-                   pool "rgba16float" qw qh
+            (let [_ (ensure-target-capacity!
+                     pool (region-lease-bytes qw qh shadow?)
+                     (str "region3d/" region-id "/lease"))
+                  color-msaa
+                  (acquire-region-target!
+                   compositor "rgba16float" qw qh
                    (str "region3d/" region-id "/color-msaa")
                    :sample-count 4
                    :usage js/GPUTextureUsage.RENDER_ATTACHMENT)
                   _ (swap! acquired conj color-msaa)
                   depth
-                  (acquire-target!
-                   pool "depth24plus" qw qh
+                  (acquire-region-target!
+                   compositor "depth24plus" qw qh
                    (str "region3d/" region-id "/depth")
                    :sample-count 4
                    :usage js/GPUTextureUsage.RENDER_ATTACHMENT)
                   _ (swap! acquired conj depth)
                   resolve
-                  (acquire-target!
-                   pool "rgba16float" qw qh
+                  (acquire-region-target!
+                   compositor "rgba16float" qw qh
                    (str "region3d/" region-id "/resolve")
                    :sample-count 1
                    :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
@@ -573,8 +609,8 @@
                   _ (swap! acquired conj resolve)
                   shadow
                   (when shadow?
-                    (acquire-target!
-                     pool "depth32float" 2048 2048
+                    (acquire-region-target!
+                     compositor "depth32float" 2048 2048
                      (str "region3d/" region-id "/shadow")
                      :sample-count 1
                      :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
@@ -775,7 +811,7 @@
   [compositor width height label]
   (try
     (acquire-target! (:target-pool compositor) "rgba16float" width height
-                     label)
+                     label :reclaim-free? false)
     (catch :default error
       (when-not (= :frame-target-budget-exceeded (:reason (ex-data error)))
         (throw error)))))
@@ -1162,11 +1198,18 @@
                                   :region3d-shadow-mode-change))))
       (.catch (fn [_] nil)))))
 
-(defn- active-region-leases! [compositor plan]
-  (let [regions (get-in plan [:structure/key :regions])
+(defn- active-region-leases! [compositor binding-owner binding-deltas]
+  (let [regions (if binding-owner
+                  (region-bindings/desired-rows binding-owner)
+                  [])
+        delta-region-ids
+        (into #{}
+              (keep #(when (= :region-lease (:binding/kind %))
+                       (:region/id %)))
+              binding-deltas)
         desired-keys (into #{}
                            (map (fn [{region-id :region/id
-                                      [width height] :size}]
+                                      [width height] :lease-size}]
                                   [region-id (quantize-region-size width)
                                    (quantize-region-size height)]))
                            regions)
@@ -1178,14 +1221,33 @@
         ;; succeeds, which budget refusal can make unreachable.
         _ (doseq [[key lease] @(:!region-leases compositor)
                   :when (not (contains? desired-keys key))]
+            (frame-inputs/increment-ledger! :leases-retired)
             (release-region-lease! compositor key lease))
         active
         (into {}
-              (map (fn [{region-id :region/id [width height] :size
+              (map (fn [{region-id :region/id [width height] :lease-size
                          shadow? :shadow?}]
-                     [region-id
-                      (acquire-region-lease!
-                       compositor region-id width height shadow?)]))
+                     (let [prior (when binding-owner
+                                   (region-bindings/lease binding-owner region-id))
+                           expected [region-id (quantize-region-size width)
+                                     (quantize-region-size height)]
+                           update? (or (contains? delta-region-ids region-id)
+                                       (nil? prior)
+                                       (:refused? prior)
+                                       (not= expected (:key prior))
+                                       (not= (boolean shadow?)
+                                             (boolean (:shadow prior))))
+                           lease (acquire-region-lease!
+                                  compositor region-id width height shadow?)]
+                       (when update?
+                         (frame-inputs/increment-ledger!
+                          :region-binding-updates)
+                         (when-not (:refused? lease)
+                           (frame-inputs/increment-ledger! :leases-acquired)))
+                       (when binding-owner
+                         (region-bindings/record-lease!
+                          binding-owner region-id lease))
+                       [region-id lease])))
               regions)
         active-keys (into #{} (keep (fn [[_ lease]]
                                       (when-not (:refused? lease)
@@ -1211,10 +1273,12 @@
 (defn draw-multipass!
   "Encode one linear effect frame, submit once, and present once."
   [compositor {:keys [context arrangement effect-spans variant execute-entry!
-                      pass-producers width height plan zoom effective-transforms]
+                      pass-producers width height plan zoom effective-transforms
+                      region-bindings binding-deltas]
                :or {zoom 1.0 effective-transforms {}}}]
   (let [device (:device compositor)
-        {:keys [active stale]} (active-region-leases! compositor plan)]
+        {:keys [active stale]}
+        (active-region-leases! compositor region-bindings binding-deltas)]
     (try
       (let [encoder (.createCommandEncoder ^js device)
             region-pass-receipts

@@ -22,6 +22,7 @@
    its singleton legacy path untouched, and the store fans the SAME projection
    into every extra instance on each edit echo."
   (:require [missionary.core :as m]
+            [app.client.substrate.frame-delta :as frame-delta]
             [app.client.substrate.frame-effects :as frame-effects]
             [app.client.workspace.scene-store :as ss]
             [app.client.workspace.containers :as ctn]
@@ -33,6 +34,41 @@
 
 (defonce !scene-store (atom (ss/empty-store)))
 (defonce !containers-registry (atom (ctn/empty-registry)))
+(defonce ^:private !frame-container-delta-journal
+  (atom {:high-water 0 :deltas []}))
+
+(defn- mint-container-delta! [delta]
+  (when delta
+    (swap! !frame-container-delta-journal
+           (fn [{:keys [high-water deltas]}]
+             (let [sequence (inc high-water)]
+               {:high-water sequence
+                :deltas (conj deltas (assoc delta :delta/sequence sequence))}))))
+  delta)
+
+(defn frame-container-delta-snapshot []
+  @!frame-container-delta-journal)
+
+(defn ack-frame-container-deltas! [high-water]
+  (swap! !frame-container-delta-journal
+         update :deltas
+         (fn [deltas]
+           (into [] (remove #(<= (:delta/sequence %) high-water)) deltas)))
+  nil)
+
+(defn- mutate-container-registry! [cid mutation]
+  (let [minted (volatile! nil)]
+    (swap! !containers-registry
+           (fn [before]
+             (let [after (mutation before)]
+               (vreset! minted
+                        (frame-delta/container-delta
+                         cid
+                         (frame-delta/container-declaration before cid)
+                         (frame-delta/container-declaration after cid)))
+               after)))
+    (mint-container-delta! @minted)
+    @!containers-registry))
 
 ;; !last-pick (scene-substrate P4) — the deictic seam's memory: the last face
 ;; pick's world-point + resolved node, recorded at the click consumer edge
@@ -152,14 +188,17 @@
   [vi tree {:keys [x y scale layer sibling-rank parent effects meta stratum pre-resolved?]
             :or   {x 0.0 y 0.0 scale 1.0 layer 1}}]
   (let [cid (alloc-cid!)]
-    (swap! !containers-registry ctn/add-container cid
-           {:x x :y y :scale scale :camera :world :layer layer
-            :parent parent :effects (when effects
-                                      (frame-effects/validate-effects! effects))
-            ;; Existing instance creation order is the material/instance
-            ;; sibling order.  W2-B records it in W2-A's nested path instead
-            ;; of recovering order from family registration or map iteration.
-            :sibling-rank (or sibling-rank layer)})
+    (mutate-container-registry!
+     cid
+     #(ctn/add-container
+       % cid
+       {:x x :y y :scale scale :camera :world :layer layer
+        :parent parent :effects (when effects
+                                  (frame-effects/validate-effects! effects))
+        ;; Existing instance creation order is the material/instance
+        ;; sibling order.  W2-B records it in W2-A's nested path instead
+        ;; of recovering order from family registration or map iteration.
+        :sibling-rank (or sibling-rank layer)}))
     (assert-container-registered! cid)
     (let [container-slot (ctn/transport-slot @!containers-registry cid)
           stack-path (:stack-path (get (ctn/effective @!containers-registry) cid))]
@@ -179,7 +218,8 @@
   [vi]
   (when-let [slot (ss/slot @!scene-store vi)]
     (swap! !scene-store ss/remove-slot vi)
-    (swap! !containers-registry ctn/remove-container (:container slot))
+    (mutate-container-registry!
+     (:container slot) #(ctn/remove-container % (:container slot)))
     (free-cid! (:container slot)))
   (swap! !vi-faces dissoc vi)
   nil)
@@ -306,7 +346,7 @@
   [cid effects]
   (let [normalized (when (seq effects)
                      (frame-effects/validate-effects! effects))]
-    (swap! !containers-registry ctn/set-effects cid normalized)
+    (mutate-container-registry! cid #(ctn/set-effects % cid normalized))
     normalized))
 
 ;; ---------------------------------------------------------------------------

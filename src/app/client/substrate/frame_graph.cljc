@@ -86,25 +86,12 @@
     (seq effect-spans) :scene-color/linear
     :else :legacy))
 
-(defn- arrangement-regions [arrangement]
-  (->> arrangement
-       (keep (fn [entry]
-               (when (= :render.family/region-3d (:family/id entry))
-                 (let [region-id (or (get-in entry [:paint :region-id])
-                                     (:region-router entry))
-                       [width height] (or (get-in entry [:paint :lease-size])
-                                          (some-> (get-in entry [:paint :rect])
-                                                  (subvec 2 4))
-                                          [1 1])]
-                   {:region/id region-id
-                    :size [width height]
-                    :shadow? (boolean (get-in entry [:paint :shadow?]))}))))
-       (sort-by (comp pr-str :region/id))
-       vec))
-
 (defn structure-input
-  [{:keys [arrangement effect-spans capabilities viewport forced-color-mode]}]
-  (let [regions (arrangement-regions arrangement)]
+  [{:keys [effect-spans regions capabilities viewport forced-color-mode]}]
+  (let [regions (->> (or regions [])
+                     (map #(select-keys % [:region/id :shadow?]))
+                     (sort-by (comp pr-str :region/id))
+                     vec)]
     {:effect-topology (effect-topology effect-spans)
    :regions regions
    :capabilities (into (sorted-set) (or capabilities #{}))
@@ -354,6 +341,75 @@
                :external :canvas-context
                :alpha-association :premultiplied :working-space :srgb)}))
 
+(defn compile-region-fragment
+  "Keyed Region3D plan vocabulary used by the maintained plan view.  Physical
+   lease dimensions are deliberately absent from the fragment signature."
+  [region]
+  {:fragment/id [:fragment/region (:region/id region)]
+   :signature [(:region/id region) (boolean (:shadow? region))]
+   :resources (region-resources region)
+   :passes (mapv #(dissoc % :topology-rank) (region-passes region 0))})
+
+(defn compile-effect-fragment
+  "Keyed effect fragment.  `topology` is needed only for immediate child
+   producer edges; callers update the parent fragment when nesting changes."
+  [topology row]
+  {:fragment/id [:fragment/effect (:container/id row)]
+   :signature (:topology-signature row)
+   :resources (group-resources row)
+   :passes (mapv #(dissoc % :topology-rank) (group-passes topology row 0))})
+
+(defn compile-global-fragment
+  "Base/presentation vocabulary.  Region resolves feed the base producer;
+   effect fragments then depend on their child outputs.  Region reads are not
+   duplicated into every effect pass."
+  [{:keys [effect-topology regions capabilities viewport color-mode]}]
+  (let [format (or (:format viewport) "bgra8unorm")
+        linear? (= :scene-color/linear color-mode)
+        copy-present? (and (not linear?) (contains? capabilities :copy-present))
+        resources (base-resources format linear? copy-present?)
+        passes
+        (cond
+          linear?
+          (let [region-reads (region-scene-reads regions)
+                base {:pass/id :flat/base :pass/kind :render
+                      :reads region-reads
+                      :attachments {:color (attachment :scene-color/main
+                                                       "rgba16float" :clear :store)}}
+                roots (filter #(nil? (:parent/container-id %)) effect-topology)
+                composite {:pass/id :flat/composite :pass/kind :render
+                           :reads (mapv #(read-edge
+                                         (group-id "output" (:container/id %))
+                                         (group-id "composite" (:container/id %))
+                                         :sampled)
+                                        roots)
+                           :attachments {:color (attachment :scene-color/main
+                                                            "rgba16float" :load :store)}}
+                present {:pass/id :present :pass/kind :present
+                         :reads [(read-edge :scene-color/main :flat/composite
+                                            :sampled)]
+                         :attachments {:color (attachment :present format
+                                                          :clear :store)}
+                         :presentation-terminal? true}]
+            [base composite present])
+
+          copy-present?
+          [{:pass/id :direct/main :pass/kind :render :reads []
+            :attachments {:color (attachment :scene-color/main format
+                                             :clear :store)}}
+           {:pass/id :present :pass/kind :copy
+            :reads [(read-edge :scene-color/main :direct/main :copy)]
+            :copy-writes #{:present} :presentation-terminal? true}]
+
+          :else
+          [{:pass/id :direct/main :pass/kind :render :reads []
+            :attachments {:color (attachment :present format :clear :store)}
+            :presentation-terminal? true}])]
+    {:fragment/id :fragment/global
+     :signature [color-mode format copy-present?]
+     :resources resources
+     :passes (vec passes)}))
+
 (defn compile-plan-structure
   "Compile reusable pass/resource structure. No entry index is accepted or
    retained by this function."
@@ -381,10 +437,9 @@
                       :attachments {:color (attachment :scene-color/main
                                                        "rgba16float" :clear :store)}}
                 group-passes (mapcat (fn [index row]
-                                       (mapv #(update % :reads into region-reads)
-                                             (group-passes effect-topology row
-                                                           (+ base-rank 10
-                                                              (* index 10)))))
+                                       (group-passes effect-topology row
+                                                     (+ base-rank 10
+                                                        (* index 10))))
                                      (range) effect-topology)
                 top-groups (filter #(nil? (:parent/container-id %))
                                    effect-topology)
@@ -664,10 +719,9 @@
                 expanded (reduce-kv
                           (fn [result index row]
                             (into result
-                                  (mapv #(update % :reads into region-reads)
-                                        (group-passes
-                                         effect-topology row
-                                         (+ base-rank 10 (* index 10))))))
+                                  (group-passes
+                                   effect-topology row
+                                   (+ base-rank 10 (* index 10)))))
                           [] effect-topology)
                 roots (filterv #(nil? (:parent/container-id %)) effect-topology)
                 composite-rank (+ base-rank 10

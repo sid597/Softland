@@ -1,8 +1,11 @@
 (ns app.client.substrate.webgpu.renderer
   (:require [clojure.string :as str]
-            [app.client.substrate.frame-effects :as frame-effects]
+            [app.client.substrate.frame-delta :as frame-delta]
+            [app.client.substrate.frame-effect-view :as frame-effect-view]
             [app.client.substrate.frame-graph :as frame-graph]
             [app.client.substrate.frame-inputs :as frame-inputs]
+            [app.client.substrate.frame-plan-view :as frame-plan-view]
+            [app.client.substrate.frame-semantic-state :as frame-semantic-state]
             [app.client.substrate.image-material :as image-material]
             [app.client.substrate.path-material :as path-material]
             [app.client.substrate.region3d-placement :as region3d-placement]
@@ -2933,9 +2936,10 @@
                              first-instance)
                   pick))))
 
-(defn- clip-entries [{:keys [partial? clear-quad dirty-rect]}]
+(defn- clip-entries [{:keys [clip-semantic-input]}]
+  (let [{:keys [clear-quad dirty-rect]} clip-semantic-input]
   (cond-> []
-    (and partial? clear-quad)
+    clear-quad
     (conj (let [{:keys [x y w h]} dirty-rect]
             (frame-entry :frame/partial-clear
                          :render.family/clip
@@ -2950,7 +2954,7 @@
                           :vertex-count 3
                           :instance-count 1
                           :first-vertex 0
-                          :first-instance 0})))))
+                          :first-instance 0}))))))
 
 (defn- shadow-entries
   [{:keys [editor-shadow-pool-info sidebar-shadow-pool-info store-frame
@@ -3438,17 +3442,10 @@
       (scene-tape/entry-key-compare left right)))
    :keys-by-family {}})
 
-(defonce ^:private !frame-arrangement (atom (empty-frame-arrangement)))
-
-(defonce ^:private !frame-effect-state
-  (atom (frame-effects/empty-maintained-state)))
-
-(defonce ^:private !frame-plan-state
-  (atom (frame-graph/empty-maintained-state)))
-
+(defonce ^:private !frame-semantic-state (atom nil))
 (defonce ^:private !prev-frame-inputs (atom nil))
-(defonce ^:private !frame-plan-inputs (atom nil))
 (defonce ^:private !frame-device (atom nil))
+(defonce ^:private !prev-attachment-size (atom nil))
 
 (defonce ^:private !compositors-by-device (js/WeakMap.))
 
@@ -3458,6 +3455,18 @@
                         device format tracker)]
         (.set !compositors-by-device device compositor)
         compositor)))
+
+(defn replace-frame-compositor!
+  "The sole same-device compositor epoch producer.  Semantic frame state is
+   deliberately retained; Region3D reattaches to the new binding epoch."
+  [device format tracker]
+  (when-let [old (.get !compositors-by-device device)]
+    (compositor-gpu/destroy-compositor! old))
+  (let [compositor (compositor-gpu/create-compositor! device format tracker)]
+    (.set !compositors-by-device device compositor)
+    (when-let [region-system (region3d-gpu/region3d-system-for-device device)]
+      (region3d-gpu/attach-compositor! region-system compositor))
+    compositor))
 
 (def ^:private store-input-keys
   [:rects :shadows :images :paths :connectors :chromes :regions
@@ -3471,6 +3480,19 @@
     (merge frame
            (select-keys store-frame store-input-keys)
            {:device device
+            ;; Region interior/material/background is device-local payload.
+            ;; Only the one outer tape citizen's fields enter family identity.
+            :regions (mapv #(select-keys % [:region-id :owner-vi
+                                            :x :y :w :h])
+                           (:regions store-frame))
+            ;; A dirty rect with no executable clear quad is not semantic
+            ;; family input.  In particular, surface resize stays on the
+            ;; viewport binding lane instead of producing a false :clip
+            ;; family change with zero entries.
+            :clip-semantic-input
+            (when (and (:partial? frame) (:clear-quad frame))
+              {:dirty-rect (:dirty-rect frame)
+               :clear-quad (:clear-quad frame)})
             :text-sys-token (frame-inputs/system-token (:text-sys frame))
             :chrome-text-sys-token
             (frame-inputs/system-token (:chrome-text-sys frame))
@@ -3499,10 +3521,8 @@
   (when-not (identical? device @!frame-device)
     (reset! !frame-device device)
     (reset! !prev-frame-inputs nil)
-    (reset! !frame-plan-inputs nil)
-    (reset! !frame-arrangement (empty-frame-arrangement))
-    (reset! !frame-effect-state (frame-effects/empty-maintained-state))
-    (reset! !frame-plan-state (frame-graph/empty-maintained-state))))
+    (reset! !prev-attachment-size nil)
+    (reset! !frame-semantic-state nil)))
 
 (defn produce-frame-entries
   ([inputs families]
@@ -3563,8 +3583,16 @@
                prior (assoc ordered key entry)
                :else (scene-tape/ordered-insert frame-contract-registry
                                                 ordered entry))))
-         removed insert)]
-    {:ordered ordered :keys-by-family next-keys}))
+         removed insert)
+        entry-deltas (frame-delta/entry-deltas
+                      (:ordered state) ordered remove insert
+                      scene-tape/entry-key)
+        upserts (count (filter #(not= :remove (:op %)) entry-deltas))
+        removals (count (filter #(= :remove (:op %)) entry-deltas))]
+    (frame-inputs/increment-ledger! :arrangement-upserts upserts)
+    (frame-inputs/increment-ledger! :arrangement-removes removals)
+    {:ordered ordered :keys-by-family next-keys
+     :entry-deltas entry-deltas}))
 
 (defn compile-frame-tape [inputs]
   (let [entries (produce-frame-entries
@@ -3574,20 +3602,35 @@
                              [:frame (:frame-idx inputs)]
                              entries)))
 
-(defn- frame-tape-twin-check! [inputs arrangement projected-count]
-  (when (true? (aget js/globalThis "__softland_frame_tape_twin_check"))
+(defn- frame-tape-twin-check!
+  ([inputs arrangement projected-count]
+   (frame-tape-twin-check! inputs arrangement projected-count nil))
+  ([inputs arrangement projected-count
+    {:keys [container-registry effect-state effect-spans plan-state
+            regions globals]}]
+   (when (true? (aget js/globalThis "__softland_frame_tape_twin_check"))
     ;; SEAM-STEP1 T6: the batch compiler stays executable as the independent
     ;; flag-on oracle after the maintained arrangement becomes the live path.
     (let [batch (compile-frame-tape inputs)
           maintained (into [] (map val) (:ordered arrangement))
           same-entries? (= maintained (:entries batch))
           same-length? (= projected-count (count maintained))
-          same? (and same-entries? same-length?)
+          effect-same? (or (nil? container-registry)
+                           (frame-effect-view/oracle-equal?
+                            effect-state container-registry arrangement))
+          plan-same? (or (nil? plan-state)
+                         (frame-plan-view/oracle-equal?
+                          plan-state {:arrangement maintained
+                                      :effect-spans effect-spans
+                                      :regions regions :globals globals}))
+          same? (and same-entries? same-length? effect-same? plan-same?)
           prior (or (aget js/globalThis "__softland_frame_tape_twin_receipt")
                     #js {:frames 0 :divergences 0})
           receipt #js {:frames (inc (or (aget prior "frames") 0))
                        :divergences (+ (or (aget prior "divergences") 0)
                                        (if same? 0 1))
+                       :effectEqual effect-same?
+                       :planEqual plan-same?
                        :lastFrame (:frame-idx inputs)}]
       (aset js/globalThis "__softland_frame_tape_twin_receipt" receipt)
       (when-not same?
@@ -3595,9 +3638,11 @@
                           (clj->js {:frame (:frame-idx inputs)
                                     :maintained (mapv :entry/id maintained)
                                     :batch (mapv :entry/id (:entries batch))
+                                    :effect-equal? effect-same?
+                                    :plan-equal? plan-same?
                                     :projected-count projected-count})))
       (frame-inputs/assert-twin-equal!
-       maintained (:entries batch) projected-count))))
+       maintained (:entries batch) projected-count)))))
 
 (defn project-clip-rect
   "Project a container-local clip into WebGPU attachment pixels. Camera and
@@ -3696,7 +3741,9 @@
                              extra-text-geos store-frame editor-rect-count
                              editor-shadow-count image-system path-system
                              connector-system chrome-system effective-transforms
-                             container-registry font-assets frame-format pulse-alpha
+                             container-registry container-delta-snapshot
+                             container-delta-ack! font-assets frame-format
+                             capabilities forced-color-mode pulse-alpha
                              region3d-session session-layout-snapshot dpr]
                       :or {cmd-panel-visible false chrome-text-sys nil chrome-base-line-count 0
                            settings-line-count 0 settings-visible false
@@ -3707,8 +3754,11 @@
                            editor-rect-count 0 editor-shadow-count 0
                            image-system nil path-system nil connector-system nil
                            chrome-system nil effective-transforms nil
-                           container-registry nil font-assets nil
+                           container-registry nil
+                           container-delta-snapshot {:high-water 0 :deltas []}
+                           container-delta-ack! nil font-assets nil
                            frame-format "bgra8unorm" pulse-alpha 1.0
+                           capabilities #{} forced-color-mode nil
                            region3d-session {} session-layout-snapshot nil dpr 1.0}}]
   (mark-draw! "t0")
   (frame-inputs/begin-ledger!)
@@ -3812,69 +3862,96 @@
         changed-families (frame-inputs/changed-families
                           @!prev-frame-inputs inputs)
         produced (produce-frame-entries inputs changed-families)
-        prior-arrangement @!frame-arrangement
+        prior-semantic-state @!frame-semantic-state
+        prior-arrangement (or (:arrangement prior-semantic-state)
+                              (empty-frame-arrangement))
         arrangement-state (if (seq changed-families)
                             (update-frame-arrangement
                              prior-arrangement produced changed-families)
                             prior-arrangement)
-        _ (when (seq changed-families)
-            (reset! !frame-arrangement arrangement-state))
+        entry-deltas (if (seq changed-families)
+                       (:entry-deltas arrangement-state)
+                       [])
         arrangement-raw (:ordered arrangement-state)
         semantic-entries (into [] (map val) arrangement-raw)
         arrangement-identical?
         (identical? (:ordered prior-arrangement) arrangement-raw)
+        container-deltas (vec (:deltas container-delta-snapshot))
+        region-delta-bundle (if region3d-system
+                              (region3d-gpu/drain-binding-deltas!
+                               region3d-system)
+                              {:semantic [] :binding []})
+        region-topology-deltas (vec (:semantic region-delta-bundle))
+        binding-deltas (vec (:binding region-delta-bundle))
+        region-topology (if region3d-system
+                          (region3d-gpu/region-topology-rows region3d-system)
+                          [])
+        globals {:viewport-format frame-format
+                 :capabilities (set capabilities)
+                 :forced-color-mode forced-color-mode}
+        global-deltas (frame-delta/global-deltas
+                       (:globals prior-semantic-state) globals)
+        viewport-binding-delta
+        (frame-delta/viewport-size-delta @!prev-attachment-size attachment-size)
+        _ (reset! !prev-attachment-size attachment-size)
+        semantic-result
+        (frame-semantic-state/apply-deltas
+         prior-semantic-state
+         {:old-arrangement prior-arrangement
+          :new-arrangement arrangement-state
+          :entry-deltas entry-deltas
+          :container-deltas container-deltas
+          :region-topology-deltas region-topology-deltas
+          :global-deltas global-deltas
+          :registry container-registry
+          :regions region-topology
+          :globals globals})
+        semantic-state (:state semantic-result)
+        semantic-work (:work semantic-result)
+        _ (when-not (identical? prior-semantic-state semantic-state)
+            (reset! !frame-semantic-state semantic-state))
+        _ (when container-delta-ack!
+            (container-delta-ack! (:high-water container-delta-snapshot)))
         _ (reset! !prev-frame-inputs inputs)
         _ (frame-inputs/assoc-ledger!
            :changed-families changed-families
-           :arrangement-identical? arrangement-identical?)
+           :arrangement-identical? arrangement-identical?
+           :effect-containers-touched
+           (:effect-containers-touched semantic-work 0)
+           :container-declarations-inspected
+           (:container-declarations-inspected semantic-work 0)
+           :plan-fragments-touched
+           (:plan-fragments-touched semantic-work 0)
+           :plan-order-nodes-visited
+           (:plan-order-nodes-visited semantic-work 0)
+           :plan-order-edges-visited
+           (:plan-order-edges-visited semantic-work 0)
+           :plan-full-validations
+           (:plan-full-validations semantic-work 0)
+           :viewport-binding-updates (if viewport-binding-delta 1 0)
+           :effects-maintained?
+           (pos? (:effect-containers-touched semantic-work 0))
+           :plan-maintained?
+           (or (pos? (:plan-fragments-touched semantic-work 0))
+               (true? (:global-transition semantic-work))))
         _ (mark-draw! "produce")
-        viewport {:width (first attachment-size)
-                  :height (second attachment-size)
-                  :format frame-format}
-        plan-inputs {:arrangement arrangement-raw
-                     :container-registry container-registry
-                     :viewport viewport :capabilities #{}}
-        maintain-plan?
-        (not (frame-inputs/input-value-same? @!frame-plan-inputs plan-inputs))
-        old-plan-state @!frame-plan-state
-        effect-state
-        (if maintain-plan?
-          (if container-registry
-            (do
-              (frame-inputs/assoc-ledger! :effects-maintained? true)
-              (let [next (frame-effects/maintain-effect-spans
-                          @!frame-effect-state container-registry
-                          semantic-entries)]
-                (reset! !frame-effect-state next)
-                next))
-            (let [next (assoc (frame-effects/empty-maintained-state)
-                              :spans [])]
-              (reset! !frame-effect-state next)
-              next))
-          @!frame-effect-state)
-        effect-spans (:spans effect-state)
-        plan-state
-        (if maintain-plan?
-          (do
-            (frame-inputs/assoc-ledger! :plan-maintained? true)
-            (let [next (frame-graph/maintain-frame-plan
-                        old-plan-state
-                        {:arrangement semantic-entries
-                         :effect-spans effect-spans
-                         :capabilities #{} :viewport viewport})]
-              (reset! !frame-plan-inputs plan-inputs)
-              (reset! !frame-plan-state next)
-              next))
-          old-plan-state)
-        plan (:plan plan-state)
-        _ (when (and maintain-plan? (not (identical? old-plan-state plan-state)))
+        effect-state (frame-semantic-state/effect-state semantic-state)
+        effect-spans (frame-effect-view/project-spans
+                      effect-state arrangement-state)
+        plan-state (frame-semantic-state/plan-state semantic-state)
+        plan (frame-plan-view/plan plan-state)
+        plan-changed? (not (identical?
+                            (some-> prior-semantic-state
+                                    frame-semantic-state/plan-state)
+                            plan-state))
+        _ (when plan-changed?
             (aset js/globalThis "__softlandFramePlanReceipt"
                   (clj->js {:color-mode (:color-mode plan)
                             :passes (mapv :pass/id (:passes plan))
                             :plan-hash (:plan/hash plan)
-                            :structure-reused? (:reused? plan-state)
-                            :effect-derivation
-                            (:last-derivation effect-state)})))
+                            :plan-generation (:plan/generation plan)
+                            :semantic-generation (:generation semantic-state)
+                            :work semantic-work})))
         _ (mark-draw! "plan")
 
         ;; CAM: every encoded frame writes current uniforms and projects the
@@ -3899,7 +3976,12 @@
                                              attachment-size [w h])))
               arrangement-raw)
         _ (mark-draw! "arrange")
-        _ (frame-tape-twin-check! inputs arrangement-state (count arrangement))
+        _ (frame-tape-twin-check!
+           inputs arrangement-state (count arrangement)
+           {:container-registry container-registry
+            :effect-state effect-state :effect-spans effect-spans
+            :plan-state plan-state :regions region-topology
+            :globals globals})
         _ (mark-draw! "twin")
         linear? (= :scene-color/linear (:color-mode plan))]
     (let [result
@@ -3908,6 +3990,9 @@
             compositor (ensure-frame-compositor! device frame-format tracker)
             _ (when region3d-system
                 (region3d-gpu/attach-compositor! region3d-system compositor))
+            _ (aset js/globalThis "__softlandReplaceFrameCompositor"
+                    (fn []
+                      (replace-frame-compositor! device frame-format tracker)))
             systems {:format frame-format :tracker tracker
                      :camera-buffer (:camera-uniform-buffer text-sys)
                      :containers-buffer (:containers-uniform-buffer text-sys)
@@ -3925,6 +4010,10 @@
                                  (fn [encoder pass lease]
                                    (region3d-gpu/encode-region-passes!
                                     region3d-system encoder pass lease))}
+                                :region-bindings
+                                (some-> region3d-system
+                                        region3d-gpu/binding-owner)
+                                :binding-deltas binding-deltas
                                 :width (first attachment-size)
                                 :height (second attachment-size)
                                 :zoom zoom :effective-transforms effective-transforms

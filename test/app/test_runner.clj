@@ -39,6 +39,7 @@
     app.client.substrate.frame-effects-test
     app.client.substrate.frame-inputs-test
     app.client.substrate.frame-graph-test
+    app.client.substrate.frame-view-region-binding-test
     app.client.substrate.frame-scheduler-test
     app.client.substrate.maintained-view-test
     app.client.substrate.path-material-test

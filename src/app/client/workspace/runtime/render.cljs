@@ -839,6 +839,10 @@
                                                     (:pipelines geometry))
                                     :effective-transforms effective
                                     :container-registry frame-registry
+                                    :container-delta-snapshot
+                                    (scene-rt/frame-container-delta-snapshot)
+                                    :container-delta-ack!
+                                    scene-rt/ack-frame-container-deltas!
                                     :frame-format (:format (:pipelines geometry))
                                     :region3d-session region3d-session
                                     :session-layout-snapshot

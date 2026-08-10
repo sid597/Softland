@@ -2967,8 +2967,10 @@
 
 (defn- w4-capture!
   [device compositor variant arrangement effect-spans plan width height
-   & {:keys [zoom effective-transforms pass-producers]
-      :or {zoom 1.0 effective-transforms {} pass-producers {}}}]
+   & {:keys [zoom effective-transforms pass-producers
+             region-bindings binding-deltas]
+      :or {zoom 1.0 effective-transforms {} pass-producers {}
+           binding-deltas []}}]
   (let [texture (.createTexture
                  device
                  (clj->js {:size {:width width :height height
@@ -2982,6 +2984,8 @@
                  :effect-spans effect-spans :variant variant
                  :execute-entry! renderer/execute-frame-entry!
                  :pass-producers pass-producers
+                 :region-bindings region-bindings
+                 :binding-deltas binding-deltas
                  :width width :height height :zoom zoom
                  :effective-transforms effective-transforms :plan plan})
     (-> (w4-read-texture! device texture width height)
@@ -2989,18 +2993,24 @@
 
 (defn- w4-capture-pair!
   [device compositor variant arrangement effect-spans plan
-   & {:keys [zoom effective-transforms pass-producers]
-      :or {zoom 1.0 effective-transforms {} pass-producers {}}}]
+   & {:keys [zoom effective-transforms pass-producers
+             region-bindings binding-deltas]
+      :or {zoom 1.0 effective-transforms {} pass-producers {}
+           binding-deltas []}}]
   (-> (w4-capture! device compositor variant arrangement effect-spans plan
                     canvas-size canvas-size :zoom zoom
                     :effective-transforms effective-transforms
-                    :pass-producers pass-producers)
+                    :pass-producers pass-producers
+                    :region-bindings region-bindings
+                    :binding-deltas binding-deltas)
       (.then
        (fn [first-bytes]
          (-> (w4-capture! device compositor variant arrangement effect-spans plan
                            canvas-size canvas-size :zoom zoom
                            :effective-transforms effective-transforms
-                           :pass-producers pass-producers)
+                           :pass-producers pass-producers
+                           :region-bindings region-bindings
+                           :binding-deltas [])
              (.then
               (fn [second-bytes]
                 (-> (js/Promise.all
@@ -3813,6 +3823,85 @@
                                                    (<= four-k-live-bytes
                                                        (:budget-cap-bytes
                                                         pool-after)))
+                                              region-reserve-pool
+                                              (compositor-gpu/create-target-pool
+                                               device tracker
+                                               :budget-cap-bytes
+                                               (* 4 1024 1024))
+                                              region-reserve-compositor
+                                              {:target-pool region-reserve-pool
+                                               :!region-leases (atom {})
+                                               :!retired-region-targets (atom [])
+                                               :!receipt (atom {})}
+                                              frame-reserve
+                                              (compositor-gpu/acquire-target!
+                                               region-reserve-pool
+                                               "rgba16float" 512 256
+                                               "frame/group-output/reserve-probe")
+                                              _frame-reserve-released
+                                              (compositor-gpu/release-target!
+                                               region-reserve-pool frame-reserve)
+                                              _reserve-epoch
+                                              (compositor-gpu/bump-frame-epoch!
+                                               region-reserve-pool)
+                                              region-refusal
+                                              (compositor-gpu/acquire-region-lease!
+                                               region-reserve-compositor
+                                               "reserve-probe" 256 256 false)
+                                              reserve-after-refusal
+                                              (compositor-gpu/target-pool-receipt
+                                               region-reserve-pool)
+                                              optional-refused?
+                                              (try
+                                                (compositor-gpu/acquire-target!
+                                                 region-reserve-pool
+                                                 "rgba16float" 1024 385
+                                                 "frame/optional-reserve-probe"
+                                                 :reclaim-free? false)
+                                                false
+                                                (catch :default _ true))
+                                              reserve-after-optional
+                                              (compositor-gpu/target-pool-receipt
+                                               region-reserve-pool)
+                                              frame-reserve-reused
+                                              (compositor-gpu/acquire-target!
+                                               region-reserve-pool
+                                               "rgba16float" 512 256
+                                               "frame/group-output/reserve-probe")
+                                              reserve-after-reuse
+                                              (compositor-gpu/target-pool-receipt
+                                               region-reserve-pool)
+                                              region-reserve-preserved?
+                                              (and (:refused? region-refusal)
+                                                   optional-refused?
+                                                   (= (* 512 256 8)
+                                                      (:reserved-bytes
+                                                       reserve-after-refusal))
+                                                   (= (:reserved-bytes
+                                                       reserve-after-refusal)
+                                                      (:reserved-bytes
+                                                       reserve-after-optional))
+                                                   (= 1 (:free
+                                                         reserve-after-refusal))
+                                                   (= 1 (:reuses
+                                                         reserve-after-reuse))
+                                                   (zero? (:destroyed
+                                                            reserve-after-reuse))
+                                                   (= "region3d/reserve-probe/lease"
+                                                      (get-in reserve-after-refusal
+                                                              [:refusals 0
+                                                               :requested-by]))
+                                                   (= "frame/optional-reserve-probe"
+                                                      (get-in reserve-after-optional
+                                                              [:refusals 1
+                                                               :requested-by])))
+                                              _frame-reserve-reused-released
+                                              (compositor-gpu/release-target!
+                                               region-reserve-pool
+                                               frame-reserve-reused)
+                                              _region-reserve-pool-destroyed
+                                              (compositor-gpu/destroy-target-pool!
+                                               region-reserve-pool)
                                               resize-pool
                                               (compositor-gpu/create-target-pool
                                                device tracker
@@ -3849,6 +3938,7 @@
                                                (= (inc (:allocations pool-before))
                                                   (:allocations pool-after))
                                                four-k-bounded?
+                                               region-reserve-preserved?
                                                resize-reclaimed?)
                                               export-once
                                               #(compositor-gpu/export-viewport!
@@ -4085,6 +4175,12 @@
                                                                          four-k-live-bytes
                                                                          :four-k-bounded?
                                                                          four-k-bounded?
+                                                                         :region-reserve-receipt
+                                                                         reserve-after-refusal
+                                                                         :optional-reserve-receipt
+                                                                         reserve-after-optional
+                                                                         :region-reserve-preserved?
+                                                                         region-reserve-preserved?
                                                                          :resize-receipt
                                                                          resize-receipt
                                                                          :resize-reclaimed?
@@ -4313,6 +4409,7 @@
                                :region3d-verifier entries))
         plan (frame-graph/compile-frame-plan
               {:arrangement arrangement :effect-spans []
+               :regions (region3d-gpu/region-topology-rows region-system)
                :viewport {:width canvas-size :height canvas-size
                           :format color-format}})]
     {:store-frame store-frame :arrangement arrangement :plan plan
@@ -4322,6 +4419,10 @@
   {:region (fn [encoder pass lease]
              (region3d-gpu/encode-region-passes!
               region-system encoder pass lease))})
+
+(defn- region3d-binding-frame [region-system]
+  {:owner (region3d-gpu/binding-owner region-system)
+   :deltas (:binding (region3d-gpu/drain-binding-deltas! region-system))})
 
 (defn- region3d-prepare-options [harness]
   {:zoom 1.0 :dpr 1.0
@@ -4337,10 +4438,13 @@
   (region3d-gpu/prepare-region3d-frame!
    region-system (region3d-store-frame op) session
    (region3d-prepare-options harness))
-  (let [{:keys [arrangement plan]} (region3d-frame harness op sides)]
+  (let [{:keys [arrangement plan]} (region3d-frame harness op sides)
+        binding (region3d-binding-frame region-system)]
     (w4-capture! device compositor {:linearize-entry identity}
                  arrangement [] plan canvas-size canvas-size
-                 :pass-producers (region3d-pass-producers region-system))))
+                 :pass-producers (region3d-pass-producers region-system)
+                 :region-bindings (:owner binding)
+                 :binding-deltas (:deltas binding))))
 
 (defn- region3d-capture-pair!
   [{:keys [device compositor region-system] :as harness}
@@ -4349,11 +4453,14 @@
   (region3d-gpu/prepare-region3d-frame!
    region-system (region3d-store-frame op) session
    (region3d-prepare-options harness))
-  (let [{:keys [arrangement plan]} (region3d-frame harness op sides)]
+  (let [{:keys [arrangement plan]} (region3d-frame harness op sides)
+        binding (region3d-binding-frame region-system)]
     (w4-capture-pair! device compositor {:linearize-entry identity}
                        arrangement [] plan
                        :pass-producers
-                       (region3d-pass-producers region-system))))
+                       (region3d-pass-producers region-system)
+                       :region-bindings (:owner binding)
+                       :binding-deltas (:deltas binding))))
 
 (defn- region3d-image-record [case-id pair]
   {:mode case-id :file (str "gpu-region3d-floor-" case-id ".png")
@@ -4457,12 +4564,16 @@
                     (concat (when above [above]) connector-entries))))
             plan (frame-graph/compile-frame-plan
                   {:arrangement arrangement :effect-spans []
+                   :regions (region3d-gpu/region-topology-rows region-system)
                    :viewport {:width canvas-size :height canvas-size
-                              :format color-format}})]
+                              :format color-format}})
+            binding (region3d-binding-frame region-system)]
         (w4-capture-pair!
          device compositor {:linearize-entry identity}
          arrangement [] plan
-         :pass-producers (region3d-pass-producers region-system))))))
+         :pass-producers (region3d-pass-producers region-system)
+         :region-bindings (:owner binding)
+         :binding-deltas (:deltas binding))))))
 
 (defn- region3d-seam-receipt [harness seam-op]
   (let [placement-receipt
@@ -4730,6 +4841,7 @@
         arrangement [below]
         plan (frame-graph/compile-frame-plan
               {:arrangement arrangement :effect-spans []
+               :regions []
                :forced-color-mode :scene-color/linear
                :viewport {:width canvas-size :height canvas-size
                           :format color-format}})]
@@ -4792,12 +4904,15 @@
          (fn [state]
            (region3d-gpu/prepare-region3d-frame!
             region-system {:regions []} {} {:zoom 1.0 :dpr 1.0})
-           (let [{:keys [arrangement plan]} (region3d-empty-frame harness)]
+           (let [{:keys [arrangement plan]} (region3d-empty-frame harness)
+                 binding (region3d-binding-frame region-system)]
              (.then
               (w4-capture! device compositor {:linearize-entry identity}
                            arrangement [] plan canvas-size canvas-size
                            :pass-producers
-                           (region3d-pass-producers region-system))
+                           (region3d-pass-producers region-system)
+                           :region-bindings (:owner binding)
+                           :binding-deltas (:deltas binding))
               (fn [_]
                 (wait-for-queue
                  (fn []

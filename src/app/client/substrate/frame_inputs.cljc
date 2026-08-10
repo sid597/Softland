@@ -17,10 +17,6 @@
    :connector-zoom-regime
    {:version :frame-input/connector-zoom-regime-v1
     :input-key :connector-zoom-regime}
-   :region-lease-allocation
-   {:version :frame-input/region-lease-allocation-v1
-    :input-key :region-lease-size
-    :quant region-lease-quant :max region-lease-max}
    :region-interior-encode
    {:version :frame-input/region-interior-encode-v1
     :input-key :region-encode-scale
@@ -55,7 +51,7 @@
      :diagnostics-line-index :cmd-panel-visible :font-provider-token}
 
    :render.family/clip
-   #{:partial? :clear-quad :dirty-rect}
+   #{:clip-semantic-input}
 
    :render.family/image
    #{:images :ordered-vis :ops-count-by-vi :order-by-vi
@@ -88,7 +84,6 @@
          camera-door-inputs (set/intersection declared
                                               #{:path-zoom-regime
                                                 :connector-zoom-regime
-                                                :region-lease-size
                                                 :region-encode-scale})
          unregistered (set/difference camera-door-inputs door-inputs)]
      (when (seq raw-camera)
@@ -211,9 +206,21 @@
   {:changed-families #{}
    :produced 0
    :comparator-calls 0
+   :arrangement-upserts 0
+   :arrangement-removes 0
    :arrangement-identical? true
    :effects-maintained? false
    :plan-maintained? false
+   :effect-containers-touched 0
+   :container-declarations-inspected 0
+   :plan-fragments-touched 0
+   :plan-order-nodes-visited 0
+   :plan-order-edges-visited 0
+   :plan-full-validations 0
+   :region-binding-updates 0
+   :leases-acquired 0
+   :leases-retired 0
+   :viewport-binding-updates 0
    :region-prepared 0
    :region-encoded 0
    :region-held 0})
@@ -233,5 +240,14 @@
   ([key amount] (swap! !ledger update key (fnil + 0) amount)))
 
 (defn publish-ledger! []
-  #?(:cljs (aset js/globalThis "__softlandFrameLedger" (clj->js @!ledger)))
-  @!ledger)
+  (let [receipt @!ledger]
+    #?(:cljs
+       (do
+         (aset js/globalThis "__softlandFrameLedger" (clj->js receipt))
+         ;; Touch/pinch gestures can schedule several RAFs. Preserve the
+         ;; decision-changing binding frame instead of letting the following
+         ;; quiet frame erase the exact counter receipt.
+         (when (pos? (:region-binding-updates receipt 0))
+           (aset js/globalThis "__softlandFrameLastBindingLedger"
+                 (clj->js receipt)))))
+    receipt))

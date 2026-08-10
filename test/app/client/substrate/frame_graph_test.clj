@@ -170,14 +170,15 @@
         export (graph/compile-export-plan {:arrangement arrangement
                                            :viewport viewport})
         region-entry
-        (update (region3d/tape-entry
-                 {:region-id :region/test :revision 1
-                  :source-order {:stack-path [[:root 1 1]]}
-                  :resolve-view :held :rect [0 0 320 200]})
-                :paint assoc :lease-size [512 256] :shadow? true)
+        (region3d/tape-entry
+         {:region-id :region/test :revision 1
+          :source-order {:stack-path [[:root 1 1]]}
+          :resolve-view :held :rect [0 0 320 200]})
         region-plan (graph/compile-frame-plan
                      {:arrangement [region-entry]
-                      :effect-spans [] :viewport viewport})
+                      :effect-spans []
+                      :regions [{:region/id :region/test :shadow? true}]
+                      :viewport viewport})
         region-passes (filterv #(= :region (:pass/kind %))
                                (:passes region-plan))
         legacy-region (assoc region-plan :color-mode :legacy)]
@@ -186,6 +187,8 @@
     (is (true? (get-in export [:passes 2 :async?])))
     (is (= #{:readback} (get-in export [:schedule :causes])))
     (is (= :scene-color/linear (:color-mode region-plan)))
+    (is (not-any? #(contains? (:paint region-entry) %)
+                  [:lease-size :shadow? :composite-index :background]))
     (is (= [:shadow :interior] (mapv :region/role region-passes)))
     (is (= 2 (count (filter #(= :depth (:kind (val %)))
                             (:resources region-plan)))))
