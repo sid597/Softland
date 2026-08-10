@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Reactive Architecture"
+  short_description: "Electric and Missionary DAG review"
+  default_prompt: "Use $review-reactive-architecture to review this Hyperfiddle Electric and Missionary code for invalidation scope, hidden side effects, ownership problems, and the smallest clearer reactive architecture."

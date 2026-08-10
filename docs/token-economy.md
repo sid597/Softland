@@ -279,3 +279,74 @@ Ranked by measured effect, not plausibility:
    context versus W4.
 7. The 42k boot floor is the splitting tax — three sessions pay 126k instead
    of 42k. Still the right trade at 2–3 parts; stops paying at five.
+
+---
+
+## Codex receipt — FRAME-VIEW/REGION-BINDING, 2026-08-09
+
+Source:
+`~/.codex/sessions/2026/08/09/rollout-2026-08-09T23-20-25-019fe7a5-b9b9-7b33-a0bc-141c4561df31.jsonl`.
+Measured from literal rollout records; encrypted reasoning was not used.
+
+```text
+model / effort             gpt-5.6-sol / xhigh
+original turn              58m 16s
+input before first abort   33,705,923
+cached input               33,115,136
+output / reasoning output  116,699 / 55,049
+peak request input         242,055 / 258,400 (93.7%)
+token-count events         243
+Codex exec orchestrations  228 total session
+nested actions             179 shell · 64 patch · 2 plan · 1 stdin
+tool-output text            ~1.51M chars · 26 returns over 20k chars
+compactions                18:27:16; 18:50:59 UTC
+```
+
+The original turn contained only the first compaction; the second followed
+Sid's interruption and a restarted turn. The 228 records were orchestration
+calls, not 228 literal shell calls. `297 reasoning` records were also not 297
+requests. These distinctions are structural because every orchestration
+roundtrip can carry the accumulated prefix.
+
+The tool-output row counts text from both custom and function-call outputs.
+The NOW close entry was patched at 18:43:58. Before the first abort, another
+16 orchestrations ran, containing 20 shell invocations and 2 patches. That
+tail added 3,874,624 input tokens (11.5% of the original turn). The prior
+"zero patches after 18:45:40" observation is true but does not establish a
+terminal NOW boundary: both late patches already followed the NOW write.
+
+The close-receipt stretch from about 18:25 to the NOW write added 11,373,928
+input tokens and contained 84 orchestrations, 83 shell invocations, and 11
+patches. This does not prove that receipts should be skipped. It proves that
+pre-registered receipt mechanics, new harness work, source repair, and close
+recording must not share one deep conversational loop.
+
+### Codex operating consequence
+
+- The primary owns binding law, source authorship, rulings, and synthesis.
+  Fresh lower-cost collector/explorer agents own bounded non-binding gathering;
+  receipt runners execute already-specified receipts. Returns have no verdict
+  authority and parent + children total cost is the measure.
+- Implementation is batch-shaped: one collected diagnostic set, one coherent
+  namespace/compile repair, one focused check. Relevance does not justify one
+  model roundtrip per command or patch.
+- Candidate-source freeze may self-handoff into one fresh close-receipt
+  context. This is the same atom/custody, not a phase ladder or Sid touch.
+- NOW is the terminal planned close mutation. Later source/test/tooling edits are
+  forbidden; an invalidating find marks REPAIR/RECEIPT PENDING and resumes in
+  a fresh context.
+- A pre-registered close receipt is not an investigation. The investigation
+  fence begins only when an unexplained result is being causally attributed.
+
+Reproduce the stable metrics without printing transcript content:
+
+```sh
+python3 scripts/report-codex-rollout.py \
+  ~/.codex/sessions/2026/08/09/rollout-2026-08-09T23-20-25-019fe7a5-b9b9-7b33-a0bc-141c4561df31.jsonl \
+  --now-path docs/render-engine/FRAME-VIEW-REGION-BINDING-NOW.md
+```
+
+Use multiple rollout paths in one invocation to report each parent/child and a
+combined token/action total. Do not import Claude's 42k boot floor or any
+single-session percentage as a Codex constant; establish task-class baselines
+from at least five representative Codex sessions first.

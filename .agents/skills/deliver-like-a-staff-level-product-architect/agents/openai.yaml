@@ -1,0 +1,4 @@
+interface:
+  display_name: "Staff Product Architect Review"
+  short_description: "Staff-level product UI architecture review"
+  default_prompt: "Use $deliver-like-a-staff-level-product-architect to deliver strict product-design critique and implementation-ready handoff specs with severity prioritization, explicit invariants, and acceptance tests."

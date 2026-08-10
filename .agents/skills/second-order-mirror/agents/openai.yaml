@@ -1,0 +1,4 @@
+interface:
+  display_name: "Second-Order Mirror"
+  short_description: "Live self-pattern meta-analysis"
+  default_prompt: "Use $second-order-mirror to read this characterization of your style or behavior, then include first-order assessment, second-order evidence, stable position, what you are protecting, and a practical lesson."

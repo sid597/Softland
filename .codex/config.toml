@@ -1,0 +1,2 @@
+tool_output_token_limit = 8000
+experimental_compact_prompt_file = "compact-prompt.md"

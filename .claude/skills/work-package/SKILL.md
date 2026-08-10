@@ -11,9 +11,8 @@ description: >-
 
 # Work Package — the one-pass law
 
-Rewritten 2026-08-06 on Sid's throughput ruling (the image atom: 13 process
-documents and a 72KB contract around a 372-line namespace; full history in
-git). Packages opened before 2026-08-06 finish under their opened contracts.
+Rewritten 2026-08-06 on Sid's throughput ruling (image-atom corpse: 13 process
+docs around one namespace; git keeps history). Older packages keep their process.
 **This file has a size budget: ~100 lines, forever. Adding a rule means
 deleting one** (corner: no rule without a corpse, no corpse without expiry).
 
@@ -41,14 +40,11 @@ It carries exactly:
 The cutter reads BINDING law docs primary (W1-class, never a summary), and
 the cut CLOSES through ONE bounded fresh-eyes falsification round — run as
 ONE fresh Codex-class session at Sid's hand, never the cutter's own
-subagents (corpse: 2026-08-06, a spawned falsifier stopped mid-read; the
-second arm retired 2026-08-07, Sid's word — W4 round: the author pass
-absorbed the fresh-arm find class, Codex's uniques were cross-layer
-re-derivations; trend from chrome's 5/6 overlap) —
+subagents (corpse: the spawned arm stopped mid-read; the duplicate arm retired
+after W4/chrome overlap) —
 claim→source, evidence-cited, no verdict authority, no recut; author repairs
-in-session; still Sid-touch #1 (corpse: path-atom 2026-08-06 — three
-unwritten forks + two receipt-passing wrong-build classes post-cut; expiry:
-a round returning ≤1 decision-changing finding retires the round). While
+in-session; still Sid-touch #1 (path-atom corpse: three unwritten forks + two
+receipt-passing wrong-build classes; ≤1 changing find retires the round). While
 cutting, the AUTHOR'S PASS runs four general lenses — built to shrink each
 round's delta toward that expiry, over time to nil (corpse: the connector
 round 2026-08-06, 16 fresh-eyes findings / nine repair groups, all four
@@ -67,46 +63,50 @@ Open questions are ruled in-session or handed down as a default + note. It
 ends with the implementer's opening prompt — which OPENS with the toggle
 preflight (permission mode / remote-control / MCP set BEFORE the first
 prompt; corpse: W4's 702k prefix rewrite) and a byte-sized boot-doc list
-(over ~100KB → cut or shard first; CLAUDE.md Token Economy).
+(over ~100KB → cut or shard first; CLAUDE.md Token Economy). The starter names
+bounded collectors, plan SOURCE + DONE WHEN, source-freeze → close receipt, and
+NOW as the terminal planned close mutation.
 
 ### Model routing at the cut (Sid, 2026-08-06: "never outsource the thinking")
-Composition, rulings, repairs ride the STRONGEST model, never delegated
-down; the contract header names its cutter model + effort — Sid's
-two-second check at touch #1. Binding-law reads stay primary (CLAUDE.md
-carve-out). Opus lawfully takes: lens-1/lens-4 sweeps of the finished draft
-(candidates return, verdicts stay home) · gatherer returns INDEX-FIRST in
-SCHEMA (one line per site; verbatim pulled only for load-bearing anchors —
-corpse: the W4 cut's ~100k mostly-unused verbatim; assignments FILE-scoped
-when substrates overlap — corpse: T2's 181KB duplicated gatherer reading) ·
-board/baton mechanics (grep + scoped block reads, never whole-file).
-Lenses 2–3 (receipt-gaming, pin-or-fork) are author judgment — never
-delegated. Token economy at the cut (corpse: W4's ~30 post-Write edits,
-each re-quoting old+new): the draft is composed FULL — lenses 2–3 already
-run — before its FIRST Write; sweep and round repairs land as ONE batched
-edit pass each, never fix-by-fix — applied by a subagent or a fresh session
-when the parent is deep (corpse: W4's post-Write tail, 42% of the bill for
-22% of the output). The deep session ends at the Write. The applier lands
-non-overlapping edits in parallel groups of 5–8 per response, never one per
-request (corpse: T2-repair applier, 24 requests for 24 edits).
+Composition, rulings, repairs ride the STRONGEST primary model; the contract
+header names cutter model + effort. Binding law stays primary. Fresh native
+gatherers may take file-scoped lens-1/lens-4 collection, index-first anchors,
+and board/baton mechanics; candidates return, verdicts stay home. Lenses 2–3
+(receipt-gaming, pin-or-fork) and every authored judgment never delegate.
+Compose the draft before its FIRST Write. Discovered non-overlapping repairs
+land as one coherent batch, never an edit-by-edit conversation (corpses: W4's
+post-Write tail, 42% of bill for 22% of output; T2 applier, 24 requests for 24
+edits). Raw gatherer output stays in scratch; parent + children total cost is
+the economy measure.
 
 ### Execution — straight through
-The implementer builds the WHOLE atom in one lane: build → surface bugs →
-fix in-session. The implementer's own falsification pass stays — it catches
-real bugs (image atom: 3; the P7 ledger: every real catch came from driving
-the seam live or probing a NEW claim, never a suite re-run). Ambiguity takes
-the strongest default plus a note; a genuine fork (two readings that cannot
-both hold) is ONE question in the thread file — note it, route around it,
-keep building. Never a stop-code halt. Parallel lanes split ATOMS, never
-share one question (the coverage-not-confidence corner, decisions.md).
+The implementer owns the WHOLE atom: build → surface bugs → fix before source
+freeze. Its one implementation adversarial check drives the real seam and new
+claims; it is neither the cut's falsification round nor the close receipt.
+Apply code by namespace/compile milestone; three repeated patch→same-check
+microloops collect the complete diagnostic once and regroup one repair batch.
+Ambiguity takes the strongest default plus a note; a genuine fork is ONE
+thread-file question, routed around while unblocked work continues.
 
-### Close of an atom
-- Freeze the contract's scenarios as 3–5 tripwires + 2–3 representative
-  goldens. Minutes, not matrices — no Cartesian banks.
-- FOCUSED suite only; the full repo suite is never a per-atom gate —
-  foreign failures are board debt: record them, pass by.
-- Changed-file list diff-derived (`git diff --name-only`), never memory.
-- One NOW entry (≤15 lines) + board line flip. Self-audit in the entry: if
-  this session wrote more process-artifact lines than code lines, say so.
+Whole-atom custody may cross one meaningful context boundary at candidate
+source freeze; this is a self-handoff, not a phase/gate/Sid touch. A fresh
+read-only receipt runner executes only pre-registered receipts. It invents no
+harness, matrix, instrumentation, or attribution: optional missing evidence is
+debt; required missing evidence means RECEIPT PENDING. A red receipt returns
+one bounded repair packet; replay only the failed receipts after the coherent
+repair. If still red, record pending rather than growing a new ladder. On a
+stop/side-quest interrupt, stop active work first, make no cleanup edit/test,
+and report ACTIVE WORK · LAST FINDING · MUTATION/PROCESS STATE, then wait.
+
+### Close receipt of an atom
+- Freeze 3–5 contract scenarios as tripwires + 2–3 representative goldens;
+  focused suite only, no matrices. Foreign full-suite failures are debt.
+- Derive changed files from `git diff --name-only`, never memory.
+- Write the terminal ≤15-line NOW close receipt, then flip its board pointer;
+  these are the final planned close mutation. After NOW, never edit atom
+  source/tests/tooling. A later invalidating finding gets one correction line
+  marking REPAIR/RECEIPT PENDING and resumes only in a fresh context.
+- Self-audit if process-artifact lines exceed code lines.
 - **Acceptance = Sid's word. No other acceptance exists.**
 
 ### Once per package — the seam courtroom

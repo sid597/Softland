@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rama"
+  short_description: "Rama module development process and API reference"
+  default_prompt: "Use $rama before writing, reading, or debugging any Rama code: follow its phased build process (implicit spec -> plan -> plan-validate -> implement -> impl-validate -> tests) and its guidance on PState schema, partition alignment, topology choice, and minimal RocksDB I/O, always designing for production fault-tolerance."

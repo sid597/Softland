@@ -1,0 +1,4 @@
+interface:
+  display_name: "Reactive Master"
+  short_description: "Electric and Missionary implementation"
+  default_prompt: "Use $reactive-master to refactor this Electric/Missionary code toward clearer source, derived-flow, and terminal-sink ownership while preserving Softland's safety patterns."

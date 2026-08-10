@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Cross-Model Artifact"
+  short_description: "Cross-model artifact review"
+  default_prompt: "Use $review-cross-model-artifact to review this Claude or cross-model artifact for claim validity, altitude fit, smallest corrections, and paste-ready feedback."
