@@ -4,9 +4,24 @@ Cut 2026-08-10. **Cutter: Fable 5 (`claude-fable-5`), effort max** — effort
 per Sid's commissioning line; the two-second check at touch #1 is the session
 transcript, never this header alone (the E1 drift precedent stands).
 
-**Status: CUT — the ONE bounded fresh-eyes falsification round (Codex-class,
-at Sid's hand) is pending; then Sid touch #1.** No recut exists; author
-repairs in-session after the round.
+**Status: CUT + round complete — awaiting Sid touch #1.** The ONE bounded
+fresh-eyes falsification round (Codex, 2026-08-10, at Sid's hand) returned
+seven findings — three decision-changing, four notes — ALL confirmed
+against source by the author session (verbatim re-read of every cited
+window) and folded in one batched pass: L4's lifecycle-counter legs
+re-homed to the driven floor lane (the JVM reducer has no binding-lane
+input by construction); counter custody pinned to GRANTED-key transitions
+and the desired-delta disjunct struck from it (the first cut's "zero
+predicate edits" was an overclaim — a desired quantum crossing at a held
+worn rung minted false acquires); the admission order re-pinned to
+`desired-rows`' pr-str order and the self-credit law split
+synchronous-vs-deferred (same-key shadow-off residue is never credited);
+`:region-pass-receipts` named as the per-role encode reader; L3's
+pressure relief pinned to the byte-releasing road; L5 gained the
+no-shadow floor leg; §15's example corrected to the quantizer's real
+output (and §6a's rung prices re-priced quantized). No recut. The round
+returned more than one decision-changing finding, so the bounded-round
+law stands for the next cut.
 
 **Input basis:** Sid's fullscreen re-wear (felt receipt,
 `FRAME-VIEW-REGION-BINDING-NOW.md:22`) · the W4 pool repair receipt
@@ -15,7 +30,8 @@ read-only gatherer sweep (2026-08-10, Opus-class, every anchor quoted
 verbatim from the working tree) · PRIMARY reads of
 `FRAME-VIEW-REGION-BINDING-CONTRACT.md`, `REGION3D-FLOOR-CONTRACT.md`
 §5.6/§5.8/S5, `FRAME-RETENTION-CONTRACT.md` §5g, `docs/decisions.md`
-"The spatial model & the representation ladder".
+"The spatial model & the representation ladder" · the fresh-eyes round
+findings (Codex, 2026-08-10, at Sid's hand — disposition in Status).
 
 **Supersedes (exact edits in §4):** the refusal TRIGGER in
 REGION3D-FLOOR-CONTRACT §5.6 · adds the SECOND lawful re-plumb to
@@ -219,21 +235,40 @@ For each divisor `d` in `1, 2, 4, 8` in order:
 - candidate bytes = `region-lease-bytes qw qh shadow?`
   (`compositor_gpu.cljs:523-529`, unchanged).
 - admission test: `(reserved-bytes − self-credit) + candidate-bytes ≤
-  budget-cap-bytes`, where **self-credit = the bytes of THIS region's own
-  currently-held lease** (lawful because the lifecycle releases the old
-  key before acquiring the new one inside the same pass — the old
-  generation's budget bytes free first; §4.2's frozen order is the
-  guarantor). Never credit another region's lease (no preemption, R2ᴸ).
+  budget-cap-bytes`. **`reserved-bytes` is the pool's ACTUAL value at
+  grant time** — read from pool state, never a virtual carry of pending
+  grants or pending retirements. **Self-credit = the bytes of THIS
+  region's own currently-held lease, and ONLY when the candidate implies
+  a key crossing**: a crossing releases the old lease through
+  `release-region-lease!` → `destroy-target!`, which decrements
+  `reserved-bytes` synchronously before the new acquire's capacity check
+  (`compositor_gpu.cljs:640-649`, `:307-332` — verified road). Bytes on
+  the DEFERRED retirement road are NEVER credited: a same-key shadow-off
+  drops the lease's logical `:bytes` but parks the shadow target in
+  `:!retired-region-targets` until after submit (`:572-579`, drained
+  `:1196`), so in that window the pool lawfully reserves more than the
+  lease values sum to — crediting it would over-admit (round finding
+  three). Conservative wear for one frame is lawful; the stateless
+  re-grant (§6d) corrects it. Never credit another region's lease (no
+  preemption, R2ᴸ). The acquire path's own `ensure-target-capacity!`
+  stays as the backstop — and L1 asserts it never fires on a granted
+  candidate: grant arithmetic is exact-or-conservative by this law.
 - first `d` that admits → granted key `[region-id qw qh]`, done.
 
 No `d` admits → **the existing refusal road, unchanged** (the floor rung).
 The ladder is a FROZEN set — `{1 2 4 8}` — with the floor at one quantum
 per axis; no divisor below 8, no dynamic extension, no sub-quantum lease
-(L5 kills a runaway ladder). At a 4K canvas the rungs price ~446MB · ~117MB
-· ~30MB · ~9MB (+16MB shadow) — real dynamic range under the shared pool.
+(L5 kills a runaway ladder). At a 4K canvas the QUANTIZED candidates
+price ~446MiB (3840×2176) · ~140MiB (2048×1280) · ~42MiB (1024×768) ·
+~14MiB (512×512), +16MiB shadow while a shadow-casting light exists —
+real dynamic range under the shared pool (prices are ceil-quantized
+outputs, round finding six's arithmetic; measure, never invent).
 
-Two regions under pressure admit **sequentially in the regions vector's
-existing iteration order** (arrangement order — deterministic), each
+Two regions under pressure admit **sequentially in `desired-rows`'
+existing deterministic order** — sorted by `(comp pr-str :region/id)`,
+`region_bindings.cljs:200-202`; that is the order
+`active-region-leases!` already iterates, and it is NOT arrangement
+order (round finding three corrected the first cut's referent) — each
 against the pool's then-current snapshot with self-credit only. This is
 deliberately conservative: when two regions cross in one frame, the second
 may wear one rung deeper for one frame than a global optimum would give;
@@ -256,10 +291,25 @@ outside the desired set and be released/re-acquired every frame — the
 gatherer's release-loop extraction (`:1218-1223`) is the receipt for why
 the mapping must precede the loop.
 
-The `update?` predicate (`:1234-1246`) keys on `expected` — which becomes
-the granted key; rung crossings therefore ride the existing five-way
-predicate and the existing `:region-binding-updates` /
-`:leases-acquired` / `:leases-retired` counters with zero predicate edits.
+Counter custody moves WITH the mapping (round finding two — the first
+cut claimed "zero predicate edits"; that was false). Today `update?`
+(`:1234-1239`) gates ONLY the counter increments (`:1242-1246` — the
+acquire and `record-lease!` run unconditionally), and its
+`(contains? delta-region-ids region-id)` disjunct fires on a DESIRED
+lease-key delta (`region_bindings.cljs:124-127`). Post-correction a
+desired quantum can cross while the granted key holds — that disjunct
+would mint `:region-binding-updates`/`:leases-acquired` with no physical
+transition (the same-key acquire returns the held lease verbatim,
+`:541`). The pin: the counter predicate becomes GRANTED-state truth —
+`(or (nil? prior) (:refused? prior) (not= granted-expected (:key prior))
+(not= (boolean shadow?) (boolean (:shadow prior))))` — and the delta-set
+disjunct is STRUCK from counter custody (fully covered: refusal recovery
+rides `(:refused? prior)`, shadow rides its own term, and a desired
+delta without a granted change is exactly the case that must not
+count). The binding delta itself is still consumed by the mapping — it
+is the reconcile trigger, never the counter's evidence.
+`:leases-retired` stays at the release loop, which operates on the
+granted-key set. L4's honest-counter leg is this pin's tripwire.
 
 The lease VALUE gains `:rung-divisor` (and the desired key for the
 receipt); wear state is compositor-side, on the lease, because the pool
@@ -325,9 +375,17 @@ tunable (R3ᴸ), not silent machinery.
   `:region-rung-recoveries` (a crossing to a strictly smaller `d`). They
   ride the existing `assoc-ledger!`/`increment-ledger!` road and the
   sticky `__softlandFrameLastBindingLedger` snapshot (`:242-253`) —
-  drivable receipts, no new plumbing.
+  drivable receipts, no new plumbing — and they mint at the granted-key
+  transition sites under §6b's predicate, never from desired deltas.
 - `region-leases-receipt` (`compositor_gpu.cljs:691-698`) adds
   `:rung-divisor` per lease row. `:last-region-refusal` unchanged.
+- **Per-role encode truth reads `:region-pass-receipts`** — the
+  per-region/per-role receipts `encode-region-pass-producers!` already
+  returns (`compositor_gpu.cljs:1284-1285`; row shape at
+  `region3d_gpu.cljs:1375-1386`). The scalar ledger `:region-encoded`
+  is an aggregate and is never the reader for a per-role assertion
+  (round finding four: an aggregate can green while a required role
+  is stale).
 - NO new quantization door: the admission rung is not semantic input and
   never registers in `quantization-doors` (L4 asserts the registry is
   unchanged).
@@ -371,11 +429,14 @@ tunable (R3ᴸ), not silent machinery.
   same fns the compositor passes in).
 
 **Thin hooks in existing files:**
-- `compositor_gpu.cljs` — `active-region-leases!` (`:1210-1246`): the
-  desired→granted mapping ahead of the release loop; loop operates on
-  granted keys; lease value carries `:rung-divisor`; receipt + counters
-  per §6e. `region-leases-receipt` (`:691-698`) adds the divisor field.
-  `acquire-region-lease!`, `release-region-lease!`,
+- `compositor_gpu.cljs` — `active-region-leases!` (`:1201-1258`): the
+  desired→granted mapping ahead of the release loop; the release loop,
+  `desired-keys`, `expected`, and the acquire call all operate on
+  granted keys/dims; the counter predicate becomes §6b's granted-state
+  form (ONE named predicate edit — the delta-set disjunct leaves
+  counter custody); lease value carries `:rung-divisor`; receipt +
+  counters per §6e. `region-leases-receipt` (`:691-698`) adds the
+  divisor field. `acquire-region-lease!`, `release-region-lease!`,
   `ensure-target-capacity!`, `acquire-region-target!`: ZERO edits.
 - `region3d_gpu.cljs` — the draw-time branch (`:1427-1441`) gains the
   worn case (composite + wear glyph) beside the existing refused case;
@@ -393,14 +454,23 @@ tunable (R3ᴸ), not silent machinery.
 - `test/app/client/substrate/region_rungs_test.clj` — NEW, pure JVM: the
   ladder walk, self-credit, sequential admission, floor termination,
   post-admission receipt (L2's math legs, L5's ladder-freeze leg).
-- `test/app/client/substrate/frame_view_region_binding_test.clj` — L4
-  rides the existing frame-view JVM harness shape.
+- `test/app/client/substrate/frame_view_region_binding_test.clj` — L4's
+  SEMANTIC legs only: that harness drives the pure reducer, which "has
+  no binding-lane input by construction" (its own comment, `:38-39`) —
+  round finding one: it can neither drive nor read a physical crossing,
+  so it proves the negative space (zero semantic work, doors unchanged)
+  and NEVER the lifecycle counters.
 - `verifier.cljs` Region3D floor lane (`region3d-s5-lifecycle!` and
   its harness, `:4850+`, forced-budget pattern `:4922-4939`) +
-  `test/render_engine/run_verifier.mjs` gates (`:3706-3757`) — L1, L3,
-  L5 driven legs and the new golden; the existing floor S1–S5 fields
-  stay green untouched (their compositors never force budget pressure,
-  so they never see a worn rung).
+  `test/render_engine/run_verifier.mjs` gates (`:3706-3757`) — L1, L2's
+  driven click leg, L3, L5, L4's PHYSICAL counter legs, and the new
+  golden. The six floor-golden compositors never force budget pressure,
+  so they never composite a worn rung; floor S5 DOES force pressure
+  (5MiB, shadow-casting fixture at `:4293`) and still lands on the
+  existing refusal road post-correction — its constant 2048² shadow
+  target (16MiB) exceeds that cap at EVERY rung, so no rung admits and
+  S5 stays green byte-identically (round-corrected rationale: the first
+  cut's "never sees pressure" was wrong for S5).
 
 ---
 
@@ -420,12 +490,14 @@ nil for this region · the reserve leg: a released
 `frame/group-output/*` target's bytes are untouched by the grant
 (the `region-reserve-preserved?` shape, re-asserted under a worn grant) ·
 second leg, budget sized so ÷2 refuses and ÷4 admits: receipt says
-`:rung-divisor 4` — the post-admission mint law. *Wrong-builds named:*
-compositing the prior sharp resolve scaled down/up (stale) — the
-content-after-mutation assertion + same-frame `:region-encoded` receipt
-kill it; a receipt minted from the first-attempted divisor (the blur
-flaw) — the ÷4 leg kills it; granting ÷1 by eating the reserve — the
-reserve leg kills it.
+`:rung-divisor 4` — the post-admission mint law · the acquire backstop
+never fires on the granted candidate (zero pool refusal receipts for
+the lease label — §6a's exact-or-conservative law). *Wrong-builds
+named:* compositing the prior sharp resolve scaled down/up (stale) —
+the content-after-mutation assertion + the region's same-frame
+`:region-pass-receipts` role rows kill it; a receipt minted from the
+first-attempted divisor (the blur flaw) — the ÷4 leg kills it; granting
+÷1 by eating the reserve — the reserve leg kills it.
 
 **L2 · exact picking at the worn rung** *(pure JVM + one driven leg)*.
 Pure: with desired `[dw dh]` and granted = desired/4, construct the pick
@@ -448,40 +520,67 @@ correctness is L1's golden + these identity assertions.)
 driven)*. Start worn at ÷2 under forced budget. Leg A (hold): N repeated
 draws with pressure held — granted key STABLE, `:leases-acquired 0` and
 `:leases-retired 0` across the span, zero refusal receipts, composite
-stays worn (never checkerboard, never black). Leg B (recover): raise the
-cap (or release the competing consumer) → next draw crosses to ÷1 —
-`:leases-retired 1` (old worn lease, old-dies-before-new),
+stays worn (never checkerboard, never black). Leg B (recover): release a
+COMPETING REGION's held lease (close that region) — the byte-releasing
+road: `release-region-lease!` → `destroy-target!` decrements
+`reserved-bytes` synchronously. Round finding five pinned this leg's
+mechanism: the pool cap is an immutable constructor field
+(`compositor_gpu.cljs:129`) so "raise the cap" proves nothing on a live
+compositor, and a transient consumer's `release-target!` (`:283-298`)
+only moves bytes to the free cache without reducing `reserved-bytes`,
+relieving no admission pressure. After the release → next draw crosses
+to ÷1 — `:leases-retired 1` (old worn lease, old-dies-before-new),
 `:leases-acquired 1`, `:region-rung-recoveries 1`, wear glyph GONE,
-composite sharp, required roles re-encoded that frame. Leg C (partial):
+composite sharp, required roles re-encoded that frame (read per role
+from `:region-pass-receipts`). Leg C (partial):
 raise the cap only enough for ÷2→ nothing happens if already ÷2 (grant
 is sharpest-admissible, not restless). *Wrong-builds named:* sticky wear
 (a worn flag someone must clear) — leg B kills it; release-then-fail
 upgrade probing — leg A's zero-retires + zero-refusals kills it; a
 recovery that skips re-encode and samples the retired rung's content —
-leg B's same-frame encode receipt kills it.
+leg B's `:region-pass-receipts` role rows kill it.
 
-**L4 · the worn crossing is still binding-only** *(frame-view JVM
-lane)*. Drive a rung crossing (both directions) through the frame-view
-harness at 200+ entries: `changed-families []` · `produced 0` ·
-arrangement upserts/removes 0 · comparator calls 0 · effect containers
-touched 0 · plan fragments compiled 0 · full validations 0 · binding
-update/acquire/retire `1/1/1` · twin equal throughout · the region's
-plan-fragment signature stays `[region-id shadow?]`
-(`region_bindings.cljs:204-205` road) · `quantization-doors` and the
-camera-door allowlist BYTE-UNCHANGED (no `:region-admission-rung` door
-exists) · within-quantum zoom motion at a HELD worn rung acquires zero
-leases. *Wrong-builds named:* the divisor entering a shape key, paint
-field, or registered door — the door-registry byte-assertion + twin
-divergence kill it; the wear glyph fed from a semantic field — the
-`produced 0` counter + the §6c custody assertion kill it.
+**L4 · the worn crossing is still binding-only — two lanes, one
+scenario** *(round finding one forced the split; the first cut homed
+the counter legs in a lane that cannot produce them)*. SEMANTIC legs
+*(frame-view JVM lane — the reducer's having no binding-lane input by
+construction IS the proof)*: at 200+ entries, reduce frames across a
+rung crossing's semantic view: state `identical?` · `changed-families
+[]` · `produced 0` · arrangement upserts/removes 0 · comparator calls 0
+· effect containers touched 0 · plan fragments compiled 0 · full
+validations 0 · twin equal · the region's plan-fragment signature stays
+`[region-id shadow?]` (`region_bindings.cljs:204-205` road) ·
+`quantization-doors` and the camera-door allowlist BYTE-UNCHANGED (no
+`:region-admission-rung` door exists). PHYSICAL legs *(floor lane,
+driven — the only lane that produces the lifecycle counters)*: a real
+worn crossing shows binding update/acquire/retire `1/1/1` (sticky
+binding ledger); a HELD worn rung across N frames shows `0/0/0`; and
+the honest-counter leg (round finding two's tripwire): cross a DESIRED
+quantum while the granted key holds (÷4: desired widths 2304→2560 both
+grant 768) — the binding delta is consumed, yet
+`:region-binding-updates 0`, `:leases-acquired 0`, zero releases.
+*Wrong-builds named:* the divisor entering a shape key, paint field, or
+registered door — the door-registry byte-assertion + twin divergence
+kill it; the wear glyph fed from a semantic field — the `produced 0`
+counter + the §6c custody assertion kill it; counters minted from the
+desired-delta disjunct — the honest-counter leg kills it; a synthetic
+JVM stand-in for the lifecycle counters — the lane split itself kills
+it (the JVM lane owns no such assertion).
 
-**L5 · the floor rung is the existing honest refusal** *(floor lane,
-driven)*. Budget forced below the ÷8 candidate (the 5MB-compositor
-pattern): the EXISTING refusal road fires — `:last-region-refusal`
+**L5 · the floor rung is the existing honest refusal — two driven
+legs** *(floor lane; round finding seven split them)*. Leg A, the
+NO-SHADOW floor: budget below the no-shadow ÷8 candidate (256×256×56 =
+3.5MiB → budget ≤3MiB), no shadow-casting light — every rung refuses on
+its own bytes. Leg B, the SHADOWED floor: the existing 5MiB pattern
+(`verifier.cljs:4922-4939`; fixture `:cast-shadow true` at `:4293`) —
+the constant 2048² shadow target (16MiB) exceeds the cap at every rung.
+Leg B alone cannot prove leg A: 5MiB sits ABOVE the 3.5MiB no-shadow
+floor, so a shadow-conditional refusal defect survives it. Both legs
+assert: the EXISTING refusal road fires — `:last-region-refusal`
 receipt present, checkerboard + orange corner composite BYTE-IDENTICAL
 to the existing refusal golden, encode skipped
 (`region3d_gpu.cljs:1375-1386` shape), mandatory frame targets + reserve
-intact, and the pure tier proves the ladder TERMINATES: exactly four
+intact — and the pure tier proves the ladder TERMINATES: exactly four
 candidates evaluated, divisor set frozen `{1 2 4 8}`, floor one quantum
 per axis, then refusal — no fifth rung, no 0×0 lease, no loop.
 *Wrong-builds named:* extending the ladder below the floor (a 128px or
@@ -504,8 +603,13 @@ named producer in §6e and a named reader in the test home in §7).
 2. The existing refusal-fill golden is L5's assertion, byte-identical.
 3. The six floor goldens, the 44-image bank, the region/seam goldens
    (47 + 3), and the MSDF counterexample (RED) stay byte-identical —
-   none of their harnesses force budget pressure, so none ever sees a
-   worn rung (verified against the harness setup, not assumed).
+   the six floor-golden compositors never force budget pressure, and
+   floor S5's forced 5MiB budget still refuses at every rung through
+   its constant 16MiB shadow target — so no existing case ever
+   composites a worn rung (verified against the harness setup and
+   re-taken by the round; the non-floor banks' no-pressure setup is
+   the round's one labeled unswept inference, an implementer
+   spot-check at §14.4).
 
 ---
 
@@ -619,8 +723,11 @@ named producer in §6e and a named reader in the test home in §7).
    of the loop, granted keys through release/acquire, lease value +
    receipts + counters.
 3. **Wear surface:** the draw-branch worn case + glyph.
-4. **Scenarios:** L4 in the frame-view JVM lane; L1/L3/L5 + the golden
-   in the floor lane; L2 pure + driven leg.
+4. **Scenarios:** L4's semantic legs in the frame-view JVM lane, its
+   physical counter legs beside L1/L3/L5 + the golden in the floor
+   lane; L2 pure + driven leg. Spot-check here that the non-floor
+   golden banks' harnesses apply no budget pressure (§9's labeled
+   inference).
 5. **Falsification (the implementer's own pass):** drive the REAL
    fullscreen re-wear road — Sid's exact gesture, maximum workspace zoom
    on the desktop AMD box — and confirm: mesh/text/ink continuously
@@ -645,14 +752,19 @@ Expected worn-crossing receipt (desktop, 4K canvas — measure, never
 invent):
 
 ```
-change: region-rung | region-id: <one> | desired 3840×2176 → granted 1920×1088 (÷2)
+change: region-rung | region-id: <one> | desired 3840×2176 → granted 2048×1280 (÷2)
 changed-families [] · produced 0 · comparator-calls 0
 effect-containers-touched 0 · plan-fragments-touched 0 · plan-full-validations 0
 region-binding-updates 1 · leases-acquired 1 · leases-retired 1
 region-rungs-worn 1 · region-rung-recoveries 0
 reserved-bytes ≤ budget-cap-bytes · refusals 0
-region-encoded <required roles, same frame> · oracle-divergences 0
+region-encoded ≥1 (aggregate) · region-pass-receipts <required roles, same frame>
+oracle-divergences 0
 ```
+
+(Granted dims are the quantizer's REAL outputs — ÷2 of 3840×2176 is
+1920×1088, which ceil-quantizes to 2048×1280; the first cut wrote the
+unquantized pair and the round caught it. Measure, never invent.)
 
 ## 16. Close mechanics + the implementer's opening prompt
 
