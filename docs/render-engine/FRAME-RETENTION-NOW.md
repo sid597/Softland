@@ -4,7 +4,7 @@
 
 FRAME-RETENTION retains semantic frame entries by declared family inputs while every encoded frame still projects the current camera.
 Prepare-owned shape revisions reopen only entry-shape work; mutable GPU payload is resolved through stable system/pool references at encode time.
-Region3D admits camera into semantic work only through the 256px allocation ladder and the 1.12x geometric encode ladder, with exact pick viewport rebuilt at pick time. *(Supersession pending: `FRAME-VIEW-REGION-BINDING-CONTRACT.md` moves the allocation ladder to the GPU-binding lane — this line flips at that atom's close.)*
+Region3D admits no camera-derived value into semantic work: the 256px allocation ladder lives on the GPU-binding lane, the 1.12x encode ladder lives on the payload lane, and exact pick viewport is rebuilt at pick time.
 
 ## NOW — 2026-08-09 (receipt session; 2026-08-08 entry kept verbatim below as evidence)
 
