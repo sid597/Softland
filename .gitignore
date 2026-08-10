@@ -26,6 +26,8 @@ external-resources/
 resources/electric-manifest.edn
 # throwaway backups
 *.bak
+# harness-generated CLAUDE.md change snapshots (machine state)
+snapshots/
 # python bytecode (scripts/ tooling)
 __pycache__/
 *.pyc
