@@ -54,6 +54,10 @@ NOW.md. The 200-line historical body this file once carried is deleted
   — cut and accept; ambiguity takes the strongest default plus a note,
   never a queued question. Parallelism buys coverage, never confidence —
   two lanes never share one question.
+- Lane division (Sid, 2026-08-10): this lane holds implementation and
+  grounding; direction/contract altitude belongs to the Fable lane. An
+  altitude question found mid-atom is one thread-file note, never settled
+  here.
 - Dead ceremony — never reintroduce it, and never imitate it from old
   contracts (IMAGE-ATOM, SEAM-STEP1 predate the law): validation
   ladders/rounds, default-fail verdicts, recut ledgers, ruling packets,
@@ -77,8 +81,8 @@ NOW.md. The 200-line historical body this file once carried is deleted
 ## Hard rules
 
 - NEVER read `src/app/server/env.clj` — API keys; reference as symbols only.
-- Commits only when the contract/handoff says so: code and docs in SEPARATE
-  commits, both on `docs/current-mental-model-local`; never push, never
-  merge, never a Co-Authored-By line.
+- Commit freely once work settles — closed-source repo (Sid, 2026-08-10);
+  commits land on `docs/current-mental-model-local`, grouped by concern.
+  Never push, never merge (Sid alone), never a Co-Authored-By line.
 - New code goes in its own namespace; big files (`renderer.cljs`,
   `ground.cljs`, `electric_flow.cljc`) get thin hooks only.

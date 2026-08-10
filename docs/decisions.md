@@ -29,6 +29,13 @@ Sid says is allowed to drop.
   strongest version: what do we lose and what do we get · how controllable is
   it · how does it follow from Softland's own eyes · is it buildable,
   modifiable, liveable from INSIDE the land?
+- **Lane division** (Sid, 2026-08-10). Fable holds the forest — direction,
+  future visioning, contract cuts, rulings, cross-law composition. Codex
+  holds the ground — implementation atoms, close receipts, gathering-heavy
+  grounding. A reference error in a Fable artifact is repaired by gathering
+  (Codex or a subagent), never by moving the decision down a lane; Fable's
+  higher-level calls stay falsifiable through the existing bounded rounds —
+  falsification is not demotion.
 - **Contract = the hard thinking; everything after is execution** (Sid,
   2026-08-06, after the image atom wrapped a 372-line namespace in 13
   process documents and a 72KB contract, and its stop code halted an
@@ -46,10 +53,12 @@ Sid says is allowed to drop.
   round: three unwritten forks + two receipt-passing wrong-build classes
   found post-cut; expires back to pure one-pass when a round returns ≤1
   decision-changing finding). Execution runs
-  straight through: the implementer builds the whole atom, keeps its own
-  falsification pass (it catches real bugs — image atom: 3), fixes what
-  surfaces in-session, and raises ONE question at a genuine fork instead
-  of stopping. Atom close = the scenarios frozen as 3–5 tripwires + 2–3
+  straight through: the implementer builds the whole atom, keeps its one
+  implementation adversarial check (it catches real bugs — image atom: 3;
+  distinct from the cut's fresh-eyes falsification round, from close
+  receipts, and from causal investigation — four separate concepts), fixes
+  what surfaces before source freeze, and raises ONE question at a genuine
+  fork instead of stopping. Atom close = the scenarios frozen as 3–5 tripwires + 2–3
   representative goldens + the focused suite + a thread-file entry + the
   board flip. Acceptance = Sid's word. Dead and never returning:
   validation ladders, recut ledgers, ruling packets, gate matrices, stop

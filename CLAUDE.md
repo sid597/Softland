@@ -39,7 +39,7 @@ Two registers exist; mis-tuning between them wrecks sessions (example: operation
 
 ## Exploration in Chat, Disk at Settlement
 Exploration lives in the conversation. While a question is live, write nothing under `docs/` or memory — no routing, no landing, no commits: a premature artifact breaks the chain of exploration and anchors the rest of the session around defending it. Disk happens at settlement — Sid's word ("land it", "settled", a yes to "settle this?") — or at session end, where the full write-set (including any board/thread status flip) is previewed in one message so Sid can veto in one line before it lands. Unattended session end: interpretive writes wait for the next attended moment; mechanical, already-settled ones proceed. Carve-outs: Sid's verbatim words may be captured into `vision/LOG.md` any time (append-only; routing still waits), and code probes built to answer a question are exploration, not materialization.
-Commit mechanics once settled: docs-only commits on the local docs branch, no approval needed, done by the session itself. NEVER push or merge this branch; never mix code and docs in one commit.
+Commit mechanics once settled: the repo is closed source (Sid, 2026-08-10) — commit freely, code, docs, and law files alike, on `docs/current-mental-model-local`, no approval needed; group commits by concern so bisect stays sharp. Pushing/merging stays Sid's alone (decisions.md "Only Sid decides"); never a Co-Authored-By line.
 
 ## Source Structure (post-refactor)
 Key source files live under `src/app/`:
@@ -62,13 +62,25 @@ test/app/missionary_claims_test.clj after any Electric SNAPSHOT bump).
 
 ### Behavioral Rules
 
-- **Gathering rides bounded native subagents; strongest tokens are for
-  sensemaking.** (Sid, standing) Any collection batch — reading
-  files/diffs/docs for a review, greps, suite runs, data pulls — is dispatched
-  fresh to the lowest competent read-only collector/explorer and never run
-  inline by the orchestrating session. The return is INDEX-FIRST and typed
-  FACT · SOURCE · EXTRACTION · UNCERTAINTY · DECISION SERVED; raw output stays
-  in scratch and the parent spot-checks only decision-changing facts.
+- **Lane division (Sid, 2026-08-10).** Fable holds the forest — direction,
+  future visioning, contract cuts, rulings, cross-law composition. Codex
+  holds the ground — implementation atoms, close receipts, gathering-heavy
+  grounding. A reference error in a Fable artifact is repaired by gathering
+  (Codex or a subagent), never by moving the decision down a lane; Fable's
+  higher-level calls stay falsifiable through the existing bounded rounds —
+  falsification is not demotion.
+- **Gathering rides bounded read-only subagents; strongest tokens are for
+  sensemaking.** (Sid, standing; routing amended 2026-08-10) Any collection
+  batch — reading files/diffs/docs for a review, greps, suite runs, data
+  pulls — is dispatched fresh to a read-only gatherer, never run inline by
+  the orchestrating session. Routing is two-tier: deterministic collection
+  (greps, counts, suite runs, exact extraction) rides the cheapest competent
+  lane; judgment-adjacent reading (doc sweeps feeding a cut, ruling, or
+  amendment) rides Opus-class — an UNCERTAINTY row is only as good as its
+  noticer. Judgment-feeding returns are INDEX-FIRST and typed FACT · SOURCE ·
+  EXTRACTION · UNCERTAINTY · DECISION SERVED; deterministic pulls collapse to
+  SOURCE + EXTRACTION anchors. Raw output stays in scratch; the parent
+  spot-checks only decision-changing facts.
   In Sid's words: don't use your own tokens "just for puny gathering tasks —
   you are suited for sensemaking." Adjudication, synthesis, and verdicts
   never delegate. (Composes with working-agreements' model-routing line:
