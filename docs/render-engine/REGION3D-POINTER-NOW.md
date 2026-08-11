@@ -5,11 +5,11 @@ One typed pointer packet owns CSS, local, desired-device, viewport, and scale cu
 Navigation is anchored/glued, one scroll court owns wheel camera dispatch, and gizmo picks the complete painted geometry with glass slop + hover.
 
 ## NOW
-- 2026-08-11 — BUILT; candidate SOURCE FROZEN; SID ACCEPTANCE PENDING.
-- S1–S5: 13 focused tests / 99 assertions GREEN; dev compile and render-verifier build GREEN.
-- Goldens: protected prior 7 byte-unchanged; required `gizmo-hover-x` appended; 8/8 deterministic + matching.
-- Custody: dead-road greps EMPTY; live packet handlers + sole exported `wheel!`/scroll court quoted; diff check clean.
-- Close debt: broad assertion stopped before Region3D on foreign `family paint is incomplete`; focused Region3D append contract GREEN.
-- Lived seam: RECEIPT PENDING — local product surface did not mount; no pointer-feel/runtime-custody claim; Sid has not accepted.
-- ONE FORK — does session→uniform hover permit adding `:gizmo-mode`/`:gizmo-hover` to the retained GPU view key despite §6's GPU-window fence? Strongest build default taken: yes; direction remains unrulled here.
-- Changed files: 13, exactly the staged `git diff --name-only HEAD` source/test/golden set.
+- 2026-08-11 — POINTER FUNCTION APPROVED BY SID; transform-lag correction BUILT; SOURCE FROZEN; repaired feel PENDING SID.
+- Pointer atom: S1–S5 13 tests / 99 assertions GREEN; protected 7 goldens byte-identical + `gizmo-hover-x`, 8/8 matching.
+- Correction: retained evaluated-scene transform component; affected hierarchy/BVH refit + stable-offset GPU row writes; no input throttling.
+- Correction tripwires: preview/cancel/settle, 49-object affected-set scaling, material full-oracle door; 12 tests / 81 assertions GREEN.
+- Real AMD/DPR≈2 drag: 182–210ms → 11–13ms frames; 12 moves = 12 transform updates + 12 instance rows, 0 scene derives/mesh uploads.
+- Close: dev compile GREEN (4 foreign warnings); render-verifier release GREEN (0 warnings); diff check clean.
+- Debt preserved: foreign `family paint is incomplete`; separate `editing_runtime.cljs:287-298` raw-clientX custody.
+- Changed files: 5 implementation/test files + this NOW and `docs/next-prompt.md`; no contract/golden/threshold edits.
