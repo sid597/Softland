@@ -6,7 +6,12 @@ pass, one session. Born of Sid driving `?live-atoms=1&region3d=1&seam-demo=1`
 anchored to that point … the W/E/R axes are much more confusing than useful."
 Pre-cut falsification: one Codex structural round on the assessment (at Sid's
 hand) — three findings, all accepted, folded below. The contract's own
-fresh-eyes round: PENDING at Sid's hand (touch #1).
+fresh-eyes round: RUN 2026-08-11 (Codex, at Sid's hand — touch #1), six
+findings, all folded in-session: §4/§5c/§11 F1 ambience reconciliation ·
+§7 custody header · S3(iii) projection custody · S4(c) honesty · S5 court
+extraction + broadened greps · §8 required hover golden · §13 custody
+greps. The round returned ≥2 decision-changing findings, so the
+fresh-eyes law stands for the next cut.
 
 ---
 
@@ -118,8 +123,9 @@ The defects register — scenarios in §7 trace back to these:
   a BUDGET door, never a camera door — camera/pick authority is the
   desired (unclamped) size. The packet's device representation is
   `region-size × effective-scale`, NEVER the granted lease/rung size.
-  Violation fails S3's analytic leg at fractional zoom (rung-quantized
-  viewport ≠ desired viewport).
+  Violation fails S3(iii)'s projection-custody leg — a rung camera lands
+  projected points at the rung ratio, off the device-px expectation (ray
+  legs alone cannot see it; S3's honesty note).
 - `REGION3D-FLOOR-CONTRACT.md` §5.8 one pick road: every pointer consumer
   resolves through `ss/pick → resolve-region-pick → pick-region`; §5.2
   coordinate law (right-handed, +Y up, −Z forward, quaternion `[x y z w]`).
@@ -128,10 +134,21 @@ The defects register — scenarios in §7 trace back to these:
   (G §4.7) — this atom pins the declaration unit (§6 F4).
 - `docs/decisions.md` "The spatial model & the representation ladder"
   (2026-08-10): ambient space owns naked camera gestures; machinery
-  arrives by lived want. This atom builds NO ambience machinery; the wheel
-  court (§5c) is the single seam where that grammar lands later. Violation
-  (a capture-priority framework, mode flags beyond today's focus) fails
-  the §9.7 cross-check, no scenario — it is scope law.
+  arrives by lived want. Reconciliation pinned (fresh-eyes finding 1,
+  2026-08-11): the reservation covers NAKED gestures — the floor
+  contract's own words are "naked drag/wheel AT GROUND stays the world
+  camera's", riding T2's dispatch precedence (session > chrome > legacy;
+  sessions OWN their input). A wheel over a FOCUSED region is
+  session-addressed input, not a naked gesture; custody: `on-wheel`
+  (`region3d_runtime.cljs:564-570`) already routes it to the interior
+  today — this atom removes the dual dispatch, it does not newly grant
+  the interior the wheel. If Sid rules the ambience law reaches focused
+  regions too, the flip is ONE line at the §5c court — that
+  reversibility is why the court exists. This atom builds NO ambience
+  machinery; the wheel court (§5c) is the single seam where that grammar
+  lands later. Violation (a capture-priority framework, mode flags
+  beyond today's focus) fails the §9.7 cross-check, no scenario — it is
+  scope law.
 - `FRAME-VIEW-LOWER-RESOLUTION-CONTRACT.md` §6f encode mechanics: interior
   renders the whole attachment, composite maps full uv — geometry-neutral;
   nothing here touches encode/composite. Violation fails the golden leg
@@ -219,7 +236,9 @@ by suppression. Dependency direction verified at build: `scroll.cljs`
 requires `region3d-runtime`; nothing in the runtime's require chain reaches
 back into `runtime/scroll`.
 
-Default: **focused-region-wins** (§11 F1). This court is the named seam
+Default: **focused-region-wins** (§11 F1 — session-addressed input under
+T2's dispatch precedence, not a naked ambient gesture; reconciliation
+pinned in §4). This court is the named seam
 where the settled ambience grammar lands later; nothing else about gesture
 ownership is built now. Pointer/mouse drag duality is NOT rewired in this
 atom: `consume!`'s `preventDefault` on pointerdown suppresses compat mouse
@@ -277,8 +296,10 @@ board-debt line, not silent scope creep.
   (`:337-470`) one-representation rays + start camera; `on-pointermove`
   (`:525-563`) glued pan + hover write; wheel listener deleted from
   `boot!` (`:600-627`); new `wheel!` export.
-- `src/app/client/workspace/runtime/scroll.cljs:23` — the court branch
-  (thin hook, ≤6 lines).
+- `src/app/client/workspace/runtime/scroll.cljs:23` — the court branch,
+  extracted as a pure callable that the `m/reduce` closure invokes (thin
+  hook, ≤6 lines at the seam; S5 drives the extracted callable, never a
+  hand-built copy).
 - `src/app/client/substrate/region3d_scene.cljc` — `axis-handles`/
   `ring-handles`/`pick-screen-handles` (`:645-738`, `:866-944`) →
   drawn-span segment metrics + glass slop; `dolly`/`pan` (`:610-640`)
@@ -293,7 +314,11 @@ board-debt line, not silent scope creep.
 
 ## 7. The five decisive scenarios (frozen as tripwires at close; wrong-builds named)
 
-Pure JVM tests in the new namespace's home except S5's grep leg. ε: 0.5
+Pure JVM tests in the new namespace's home prove the MATH; that the
+production handlers RIDE that math is a separate custody question
+(fresh-eyes finding 2: a build can green perfect helpers and leave the
+`.cljs` handlers on the old roads) answered by the §13 custody greps +
+Sid's felt pass — helper-green alone is never close evidence. ε: 0.5
 device px for reprojection; 1e-6 for ray equality; 1e-3 world units for
 analytic deltas. Every scenario runs at S ∈ {1.0, 2.0, 3.5} unless noted —
 S = 1 is the case that hid every defect.
@@ -310,45 +335,72 @@ S = 1 is the case that hid every defect.
   step, S ∈ {1.0, 2.75}. Wrong build named: today's units-per-pixel
   heuristic passes S = 1 (hence 2.75); per-move current-camera glue
   feedback passes one step (hence four).
-- **S3 gizmo ray/delta consistency** (D4a): at S = 2, (i) start-ray and
-  current-ray built for the SAME cursor position are equal ≤ 1e-6;
-  (ii) a known device-px cursor travel along the +X screen axis produces
-  the analytic world translate-delta ≤ 1e-3, computed under the
-  desired-size camera. Wrong build named: both-rays-unscaled is
-  self-consistent and passes (i) — leg (ii)'s analytic value under the
-  device camera kills it; a rung-sized viewport (MUST-NOT 2) also fails
-  (ii) at fractional zoom.
+- **S3 gizmo ray/delta + projection custody** (D4a): at S = 2, (i)
+  start-ray and current-ray built for the SAME cursor position are equal
+  ≤ 1e-6; (ii) a known device-px cursor travel along the +X screen axis
+  produces the analytic world translate-delta ≤ 1e-3, computed under the
+  desired-size camera; (iii) projection custody — `project` of a fixture
+  world point under the packet camera lands at the analytically expected
+  DEVICE px coordinate, S ∈ {2.0, 3.5}. Honesty note (fresh-eyes
+  finding 3): ray math is scale-INVARIANT — `camera-matrices` sees the
+  viewport only as aspect, `ray-from-region-point` only as x/W y/H
+  (`region3d_scene.cljc:560-588`) — so any consistently-paired scale
+  yields the identical ray; (i)+(ii) kill cross-pairs (the actual D4a
+  defect: scaled-start/unscaled-move fails (i), a delta cross-pair —
+  device travel over a local viewport or vice versa — fails (ii)), and
+  only (iii) is scale-SENSITIVE, because projected px and glass slop
+  meet in screen space: a consistent local/local pairing lands `project`
+  at 1/S of the expectation, a rung-sized camera lands it at the rung
+  ratio — both named wrong builds pass (i)+(ii) and die on (iii).
 - **S4 pick what you paint** (D4b/c): fixture where an axis projects
   ≈140 device px: (a) cursor at 15% along the drawn axis (the old dead
   interval) hits; (b) cursor at the midpoint between two of the old
   8 sample positions hits; (c) boundary honesty — a point 0.4 px inside
-  the slop distance hits and 0.4 px outside misses (true segment metric;
-  any sampled approximation misclassifies one of the pair); (d) hover:
-  move over the axis sets `:gizmo-hover` to its handle id, move off sets
-  nil; (e) slop at dpr 2 equals 10 css px = 20 device px. Wrong build
-  named: densified sampling (8→64 disks) passes (a),(b) — leg (c) kills
-  it; keeping device-fixed radii passes (a)–(d) — leg (e) kills it.
+  the slop distance hits and 0.4 px outside misses; (d) hover: move over
+  the axis sets `:gizmo-hover` to its handle id, move off sets nil;
+  (e) slop at dpr 2 equals 10 css px = 20 device px. Wrong builds named:
+  every sampler this code has ever run dies on (c) — 8 disks, full or
+  partial span, overestimate the inside point's distance by ≥2 px (disk
+  union only overestimates, so the kill threshold is sample spacing
+  > ~5.6 px at these radii). Honesty note (fresh-eyes finding 4): a
+  sampler densified past ~26 full-span disks converges under ±0.4 px and
+  passes (a)–(c) — the boundary pair pins BEHAVIOR, not algorithm; the
+  segment metric stays mandated in §5d because it is exact and simpler
+  than dense sampling, not because this tripwire can tell them apart.
+  Keeping device-fixed radii passes (a)–(d) — leg (e) kills it.
 - **S5 one wheel owner** (D3): drive the court as a pure routing call:
   (i) sample over a focused region under cursor → region view changes,
   ground camera untouched, consumed truthy; (ii) open ground, no focused
   hit → `ground/handle-wheel!` road taken; (iii) a dev-mode dual-dispatch
   counter (increments when >1 camera road mutates off one input sample)
-  reads exactly 1 per sample across (i)+(ii). Wrong build named: keeping
-  Region3D's own canvas listener while the court also consumes — invisible
-  to the pure test, so the close receipt includes the source-shape leg:
-  `grep -n '"wheel"' src/app/client/workspace/region3d_runtime.cljs`
-  returns NOTHING. The counter ships in dev builds as the standing
-  tripwire (fence law: permanent receipts carry attribution).
+  reads exactly 1 per sample across (i)+(ii). The routing callable S5
+  drives is the ONE `scroll-consumer` invokes (§6 extraction) — a
+  directly-invoked router that production never calls greens the pure
+  legs while every real wheel routes to ground (fresh-eyes finding 6).
+  Wrong builds named: keeping Region3D's own canvas listener while the
+  court also consumes, and re-registering it as `(name :wheel)` or any
+  other spelling that evades a string-literal grep — so the source-shape
+  legs are: (1) `grep -in 'wheel'
+  src/app/client/workspace/region3d_runtime.cljs` — the close receipt
+  QUOTES the hit list and every hit is the `wheel!` export chain, no
+  listener registration under any spelling; (2) `grep -n 'wheel!'
+  src/app/client/workspace/runtime/scroll.cljs` — shows the require-side
+  call inside `scroll-consumer`. The counter ships in dev builds as the
+  standing tripwire (fence law: permanent receipts carry attribution).
 
 ---
 
 ## 8. Representative goldens (reuse before minting)
 
 The existing Region3D golden bank: **byte-identical** (hover is off in
-golden scenes; painted geometry unchanged). No new golden — hover is
-asserted as state in S4(d). If the implementer's adversarial pass wants a
-hover golden it is ONE appended image, prior bytes unchanged, per the
-standing golden law.
+golden scenes; painted geometry unchanged). Plus ONE new REQUIRED golden
+(fresh-eyes finding 5): hover forced on a named axis handle via the
+fixture, appended to the bank, prior bytes unchanged, per the standing
+golden law. S4(d) alone is state-only — a build that never writes the
+hover field into the gizmo uniform (`region3d_gpu.cljs:963-981`) or
+whose WGSL branch never brightens passes S4(d) and a hover-off bank; the
+appended image is the visible road's permanent receipt
+(session → uniform → WGSL branch).
 
 ---
 
@@ -357,7 +409,7 @@ standing golden law.
 1. NEVER read/require `src/app/server/env.clj`.
 2. The packet's device representation is desired-size only
    (`region-size × S`); the encode rung / granted lease NEVER enters
-   pointer math (FRAME-RETENTION §5g; fails S3(ii)).
+   pointer math (FRAME-RETENTION §5g; fails S3(iii)).
 3. Lease/binding/budget machinery, the four numeric governors, refusal
    road, lifecycle semantics: zero edits. `region3d_gpu.cljs` edits are
    the gizmo hover uniform + WGSL branch only.
@@ -406,7 +458,10 @@ lower-res pick-chain MUST-NOT is superseded in §3, not violated.
 
 - **F1 wheel owner:** focused-region-wins (today's intent, made exclusive)
   vs ambient-wins (the settled spatial model's eventual grammar). DEFAULT:
-  focused-region-wins; the court is where ambient law lands later.
+  focused-region-wins — a focused region's wheel is session-addressed
+  input (T2 precedence; §4 reconciliation), not a naked camera gesture;
+  if Sid rules the ambience law reaches focused regions too, the flip is
+  ONE line at the §5c court. The court is where ambient law lands later.
 - **F2 pan glue plane:** grab-point plane vs pivot plane. DEFAULT:
   grab-point plane on a BVH hit; pivot-plane fallback on miss.
 - **F3 dolly anchor on miss:** pivot-plane point under cursor (DEFAULT)
@@ -434,21 +489,31 @@ lower-res pick-chain MUST-NOT is superseded in §3, not violated.
 
 ## 13. Definition of done + close mechanics
 
-S1–S5 frozen as tripwires; existing goldens byte-identical; the S5 grep
-leg empty; dual-dispatch counter live in dev builds; focused suite green
-(foreign failures = board debt); changed files derived from
+S1–S5 frozen as tripwires; existing goldens byte-identical + the hover
+golden appended (§8); the S5 source-shape legs quoted; the custody greps
+below clean; dual-dispatch counter live in dev builds; focused suite
+green (foreign failures = board debt); changed files derived from
 `git diff --name-only`; NOW ≤15 lines; board pointer flipped. Acceptance =
 Sid drives the seam demo and says so — the felt receipt (pointer stays
-glued, gizmo hittable and hoverable) IS the close.
+glued, gizmo hittable and hoverable) IS the close, and it is also the
+runtime custody leg (fresh-eyes finding 2).
+
+**Custody greps** (source-shape close receipts; quoted, not just run):
+dead roads gone — `units-per-pixel`, `:region-ray-point`, `720.0 480.0`
+grep EMPTY in `region3d_runtime.cljs`; `(defn dolly` / `(defn pan` grep
+EMPTY in `region3d_scene.cljc`; live road in — `region3d-pointer` appears
+in `region3d_runtime.cljs`'s requires AND inside each §6-named handler
+body; `scroll.cljs` requires the runtime and calls `wheel!` inside
+`scroll-consumer` (S5 legs 1–2).
 
 **Implementer's opening prompt** (paste-ready):
 
 > Preflight: set permission mode / remote-control / MCP BEFORE this
 > prompt; no mid-session toggles.
 > Boot docs (bytes): `docs/render-engine/REGION3D-POINTER-CONTRACT.md`
-> (~19KB, PRIMARY — carries all anchors; no re-gather) ·
-> `REGION3D-FLOOR-CONTRACT.md` §5.2 + §5.8 only (~4KB) · work-package
-> skill. Under 30KB total — boot and build.
+> (~28KB, PRIMARY — carries all anchors + the folded fresh-eyes round;
+> no re-gather) · `REGION3D-FLOOR-CONTRACT.md` §5.2 + §5.8 only (~4KB) ·
+> work-package skill. Under 35KB total — boot and build.
 > You own the whole atom: contract §12 order, straight through. Source is
 > read by seam (skeleton grep, scoped windows). Ambiguity → strongest
 > default + note; a genuine fork → ONE question. Freeze, close receipt
