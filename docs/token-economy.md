@@ -346,7 +346,48 @@ python3 scripts/report-codex-rollout.py \
   --now-path docs/render-engine/FRAME-VIEW-REGION-BINDING-NOW.md
 ```
 
-Use multiple rollout paths in one invocation to report each parent/child and a
-combined token/action total. Do not import Claude's 42k boot floor or any
-single-session percentage as a Codex constant; establish task-class baselines
-from at least five representative Codex sessions first.
+For a delegated session, report the whole family directly:
+
+```sh
+python3 scripts/report-codex-rollout.py --family \
+  019fef0a-ce3f-7b42-af30-4341ab8c512e
+```
+
+`--family` discovers descendants from `session_meta` parent links and reports
+parent, children, role totals, child share, and agent-management calls. Manual
+multi-path aggregation remains available for unrelated comparisons. Do not
+import Claude's 42k boot floor or a single-session percentage as a Codex
+constant; establish task-class baselines from at least five families.
+
+---
+
+## Codex follow-up receipt — LOWER-RESOLUTION, 2026-08-11
+
+Source parent: `019fef0a-ce3f-7b42-af30-4341ab8c512e`; eight descendants were
+discovered from literal `session_meta` parent links. Encrypted reasoning was
+not used.
+
+```text
+family rollouts              9 (1 parent + 8 children)
+family input / total         33,096,294 / 33,248,881
+parent / child input         26,235,199 / 6,861,095 (20.731% child)
+nested actions               267 shell · 22 patch · 4 plan · 13 stdin
+agent management             8 spawn · 18 follow-up · 24 agent-wait · 2 list · 1 send
+tool-output text             1,998,116 chars · 36 returns over 20k chars
+compactions                  2
+peak request input           219,865 / 258,400 (85.09%)
+```
+
+Patch batching improved sharply against the 2026-08-09 session (22 vs 64),
+and median/peak parent depth fell. Whole-family input fell only about 4.6%
+against that earlier full rollout's 34,689,991 because eight persistent
+children and their management/output consumed most of the parent saving. Before the first patch,
+the parent spent 5,846,288 input tokens across 33 execution and 37 agent
+management calls. After source freeze it spent about 6.8M more input reaching
+close, while the fresh final receipt runner itself used only 155,546.
+
+This is the corpse for the one-wave/one-return and compacted-primary handoff
+rules. They expire after five representative implementation families show no
+persistent-agent loop and compacted families close in a fresh primary. The
+receipt does not justify skipping the contract-required live preflight,
+abolishing subagents, or setting a universal numerical token ceiling.

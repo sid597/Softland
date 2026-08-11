@@ -25,6 +25,15 @@ NESTED_ACTIONS = {
     "wait": "tools.wait",
 }
 
+AGENT_MANAGEMENT_TOOLS = {
+    "spawn_agent",
+    "followup_task",
+    "send_message",
+    "wait_agent",
+    "interrupt_agent",
+    "list_agents",
+}
+
 PATCH_TARGET_RE = re.compile(
     r"\*\*\* (?:Add|Update|Delete) File: (?P<path>[^\r\n\\\"]+)"
 )
@@ -62,6 +71,121 @@ def patch_targets(tool_input: str) -> set[str]:
     return {match.group("path") for match in PATCH_TARGET_RE.finditer(tool_input)}
 
 
+def session_metadata(payload: dict[str, Any]) -> dict[str, str | int | None]:
+    """Extract stable parent/role metadata from a session_meta payload."""
+    source = payload.get("source")
+    source = source if isinstance(source, dict) else {}
+    subagent = source.get("subagent")
+    subagent = subagent if isinstance(subagent, dict) else {}
+    thread_spawn = subagent.get("thread_spawn")
+    thread_spawn = thread_spawn if isinstance(thread_spawn, dict) else {}
+    return {
+        "session_id": payload.get("id") if isinstance(payload.get("id"), str) else None,
+        "parent_thread_id": (
+            thread_spawn.get("parent_thread_id")
+            if isinstance(thread_spawn.get("parent_thread_id"), str)
+            else None
+        ),
+        "agent_role": (
+            thread_spawn.get("agent_role")
+            if isinstance(thread_spawn.get("agent_role"), str)
+            else None
+        ),
+        "agent_path": (
+            thread_spawn.get("agent_path")
+            if isinstance(thread_spawn.get("agent_path"), str)
+            else None
+        ),
+        "agent_depth": (
+            thread_spawn.get("depth")
+            if isinstance(thread_spawn.get("depth"), int)
+            else None
+        ),
+    }
+
+
+def read_session_metadata(path: Path) -> dict[str, str | int | None]:
+    """Read only far enough to find a rollout's session_meta record."""
+    with path.open("r", encoding="utf-8") as handle:
+        for index, line in enumerate(handle, start=1):
+            try:
+                record = json.loads(line)
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                if index >= 32:
+                    break
+                continue
+            if isinstance(record, dict) and record.get("type") == "session_meta":
+                payload = record.get("payload")
+                return session_metadata(payload if isinstance(payload, dict) else {})
+            if index >= 32:
+                break
+    return session_metadata({})
+
+
+def sessions_root_for(path: Path) -> Path:
+    """Return the nearest `sessions` ancestor, or the rollout's directory."""
+    for parent in (path.parent, *path.parents):
+        if parent.name == "sessions":
+            return parent
+    return path.parent
+
+
+def resolve_family_root(target: str, sessions_root: Path | None) -> tuple[Path, Path]:
+    candidate = Path(target).expanduser()
+    if candidate.is_file():
+        root_path = candidate.resolve()
+        return root_path, (sessions_root or sessions_root_for(root_path)).resolve()
+
+    root = (sessions_root or Path("~/.codex/sessions").expanduser()).resolve()
+    matches = sorted(root.rglob(f"rollout-*{target}.jsonl"))
+    if not matches:
+        raise ValueError(f"family root session not found under {root}: {target}")
+    if len(matches) > 1:
+        raise ValueError(f"family root session is ambiguous under {root}: {target}")
+    return matches[0].resolve(), root
+
+
+def discover_family_paths(root_path: Path, sessions_root: Path) -> list[Path]:
+    """Discover root plus all descendants through session metadata links."""
+    root_meta = read_session_metadata(root_path)
+    root_id = root_meta["session_id"]
+    if not isinstance(root_id, str):
+        raise ValueError(f"family root has no session id: {root_path}")
+
+    paths_by_id: dict[str, Path] = {}
+    children_by_parent: dict[str, list[str]] = {}
+    for path in sessions_root.rglob("rollout-*.jsonl"):
+        metadata = read_session_metadata(path)
+        session_id = metadata["session_id"]
+        if not isinstance(session_id, str):
+            continue
+        canonical = path.resolve()
+        prior = paths_by_id.get(session_id)
+        if prior is not None and prior != canonical:
+            raise ValueError(f"duplicate rollout session id {session_id}: {prior}, {canonical}")
+        paths_by_id[session_id] = canonical
+        parent_id = metadata["parent_thread_id"]
+        if isinstance(parent_id, str):
+            children_by_parent.setdefault(parent_id, []).append(session_id)
+
+    paths_by_id[root_id] = root_path.resolve()
+    ordered_ids = [root_id]
+    seen = {root_id}
+    index = 0
+    while index < len(ordered_ids):
+        parent_id = ordered_ids[index]
+        index += 1
+        for child_id in sorted(children_by_parent.get(parent_id, [])):
+            if child_id not in seen:
+                seen.add(child_id)
+                ordered_ids.append(child_id)
+
+    missing = [session_id for session_id in ordered_ids if session_id not in paths_by_id]
+    if missing:
+        raise ValueError(f"family descendants missing rollout paths: {', '.join(missing)}")
+    return [paths_by_id[session_id] for session_id in ordered_ids]
+
+
 def analyze(path: Path, now_path: str | None) -> dict[str, Any]:
     top_types: Counter[str] = Counter()
     response_types: Counter[str] = Counter()
@@ -87,6 +211,10 @@ def analyze(path: Path, now_path: str | None) -> dict[str, Any]:
     max_tool_output_chars = 0
     tool_outputs_over_20k = 0
     session_id: str | None = None
+    parent_thread_id: str | None = None
+    agent_role: str | None = None
+    agent_path: str | None = None
+    agent_depth: int | None = None
 
     with path.open("r", encoding="utf-8") as handle:
         for physical_lines, line in enumerate(handle, start=1):
@@ -112,9 +240,12 @@ def analyze(path: Path, now_path: str | None) -> dict[str, Any]:
                 last_timestamp = max(last_timestamp, timestamp) if last_timestamp else timestamp
 
             if record_type == "session_meta":
-                maybe_id = payload.get("id")
-                if isinstance(maybe_id, str):
-                    session_id = maybe_id
+                metadata = session_metadata(payload)
+                session_id = metadata["session_id"]  # type: ignore[assignment]
+                parent_thread_id = metadata["parent_thread_id"]  # type: ignore[assignment]
+                agent_role = metadata["agent_role"]  # type: ignore[assignment]
+                agent_path = metadata["agent_path"]  # type: ignore[assignment]
+                agent_depth = metadata["agent_depth"]  # type: ignore[assignment]
 
             if record_type == "compacted" and isinstance(timestamp_value, str):
                 compacted_at.append(timestamp_value)
@@ -213,9 +344,21 @@ def analyze(path: Path, now_path: str | None) -> dict[str, Any]:
     if first_timestamp is not None and last_timestamp is not None:
         elapsed_seconds = round((last_timestamp - first_timestamp).total_seconds(), 3)
 
+    agent_management_counts = Counter(
+        {
+            name: custom_tool_names[name] + function_names[name]
+            for name in AGENT_MANAGEMENT_TOOLS
+            if custom_tool_names[name] + function_names[name]
+        }
+    )
+
     return {
         "path": str(path),
         "session_id": session_id,
+        "parent_thread_id": parent_thread_id,
+        "agent_role": agent_role,
+        "agent_path": agent_path,
+        "agent_depth": agent_depth,
         "file_bytes": path.stat().st_size,
         "physical_lines": physical_lines,
         "valid_records": valid_records,
@@ -226,6 +369,7 @@ def analyze(path: Path, now_path: str | None) -> dict[str, Any]:
         "event_type_counts": sorted_dict(event_types),
         "custom_tool_names": sorted_dict(custom_tool_names),
         "function_names": sorted_dict(function_names),
+        "agent_management_counts": sorted_dict(agent_management_counts),
         "nested_action_counts": sorted_dict(nested_actions),
         "token_count_events": token_count_events,
         "final_token_timestamp": final_token_timestamp,
@@ -261,6 +405,9 @@ def aggregate(reports: list[dict[str, Any]]) -> dict[str, Any]:
     action_keys = {
         key for report in reports for key in report["nested_action_counts"].keys()
     }
+    management_keys = {
+        key for report in reports for key in report["agent_management_counts"].keys()
+    }
     return {
         "rollouts": len(reports),
         "valid_records_sum": sum(report["valid_records"] for report in reports),
@@ -276,8 +423,18 @@ def aggregate(reports: list[dict[str, Any]]) -> dict[str, Any]:
             key: sum(report["nested_action_counts"].get(key, 0) for report in reports)
             for key in sorted(action_keys)
         },
+        "agent_management_counts_sum": {
+            key: sum(report["agent_management_counts"].get(key, 0) for report in reports)
+            for key in sorted(management_keys)
+        },
+        "agent_management_calls_sum": sum(
+            sum(report["agent_management_counts"].values()) for report in reports
+        ),
         "tool_output_text_chars_sum": sum(
             report["tool_output_text_chars"] for report in reports
+        ),
+        "tool_outputs_over_20k_chars_sum": sum(
+            report["tool_outputs_over_20k_chars"] for report in reports
         ),
         "compactions_sum": sum(len(report["compacted_at"]) for report in reports),
         "now_patches_sum": sum(
@@ -300,9 +457,53 @@ def aggregate(reports: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def family_summary(reports: list[dict[str, Any]], root_session_id: str) -> dict[str, Any]:
+    root_reports = [report for report in reports if report["session_id"] == root_session_id]
+    if len(root_reports) != 1:
+        raise ValueError(f"expected one family root report for {root_session_id}")
+    root_report = root_reports[0]
+    descendants = [report for report in reports if report is not root_report]
+    family_totals = aggregate(reports)
+    child_totals = aggregate(descendants)
+    by_role: dict[str, dict[str, Any]] = {}
+    roles = sorted({str(report["agent_role"] or "primary") for report in reports})
+    for role in roles:
+        by_role[role] = aggregate(
+            [report for report in reports if str(report["agent_role"] or "primary") == role]
+        )
+
+    family_tokens = family_totals["final_cumulative_tokens_sum"]
+    child_tokens = child_totals["final_cumulative_tokens_sum"]
+    child_share_percent = {
+        key: round(100 * child_tokens.get(key, 0) / family_tokens[key], 3)
+        if family_tokens[key]
+        else 0.0
+        for key in sorted(family_tokens)
+    }
+    return {
+        "root_session_id": root_session_id,
+        "root_path": root_report["path"],
+        "descendant_rollouts": len(descendants),
+        "descendant_session_ids": sorted(
+            report["session_id"] for report in descendants if report["session_id"]
+        ),
+        "parent": aggregate([root_report]),
+        "children": child_totals,
+        "aggregate": family_totals,
+        "child_share_percent": child_share_percent,
+        "by_role": by_role,
+    }
+
+
 def print_human(report: dict[str, Any]) -> None:
     print(f"Codex rollout: {report['path']}")
     print(f"session_id: {report['session_id'] or '-'}")
+    print(
+        "agent: "
+        f"parent={report['parent_thread_id'] or '-'} "
+        f"role={report['agent_role'] or 'primary'} "
+        f"path={report['agent_path'] or '-'} depth={report['agent_depth']}"
+    )
     print(
         "records: "
         f"{report['valid_records']} valid / {report['physical_lines']} physical / "
@@ -313,6 +514,10 @@ def print_human(report: dict[str, Any]) -> None:
     print(f"response_items: {json.dumps(report['response_item_type_counts'], sort_keys=True)}")
     print(f"events: {json.dumps(report['event_type_counts'], sort_keys=True)}")
     print(f"nested_actions: {json.dumps(report['nested_action_counts'], sort_keys=True)}")
+    print(
+        "agent_management: "
+        f"{json.dumps(report['agent_management_counts'], sort_keys=True)}"
+    )
     print(
         "final_cumulative_tokens: "
         f"{json.dumps(report['final_cumulative_tokens'], sort_keys=True)} "
@@ -346,7 +551,16 @@ def print_human(report: dict[str, Any]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("paths", type=Path, nargs="+", help="Codex rollout JSONL path(s)")
+    parser.add_argument("paths", type=Path, nargs="*", help="Codex rollout JSONL path(s)")
+    parser.add_argument(
+        "--family",
+        help="Discover and report a parent plus all descendants by rollout path or session id",
+    )
+    parser.add_argument(
+        "--sessions-root",
+        type=Path,
+        help="Sessions root used by --family (default: nearest sessions ancestor or ~/.codex/sessions)",
+    )
     parser.add_argument(
         "--now-path",
         help="Only treat apply_patch calls targeting this exact path as terminal NOW writes",
@@ -354,13 +568,30 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="Emit stable JSON")
     args = parser.parse_args()
 
-    canonical_paths = [path.expanduser().resolve() for path in args.paths]
+    if args.family and args.paths:
+        parser.error("positional paths and --family are mutually exclusive")
+    if not args.family and not args.paths:
+        parser.error("provide rollout paths or --family")
+
+    root_session_id: str | None = None
+    if args.family:
+        try:
+            root_path, sessions_root = resolve_family_root(args.family, args.sessions_root)
+            canonical_paths = discover_family_paths(root_path, sessions_root)
+            root_metadata = read_session_metadata(root_path)
+            root_session_id = root_metadata["session_id"]  # type: ignore[assignment]
+        except ValueError as error:
+            parser.error(str(error))
+    else:
+        canonical_paths = [path.expanduser().resolve() for path in args.paths]
     if len(set(canonical_paths)) != len(canonical_paths):
         parser.error("duplicate rollout paths would double-count the aggregate")
     reports = [analyze(path, args.now_path) for path in canonical_paths]
     payload: dict[str, Any] = {"reports": reports}
     if len(reports) > 1:
         payload["aggregate"] = aggregate(reports)
+    if root_session_id:
+        payload["family"] = family_summary(reports, root_session_id)
 
     if args.json:
         print(json.dumps(payload, indent=2, sort_keys=True))
@@ -372,6 +603,9 @@ def main() -> int:
         if len(reports) > 1:
             print()
             print(f"Aggregate: {json.dumps(payload['aggregate'], sort_keys=True)}")
+        if "family" in payload:
+            print()
+            print(f"Family: {json.dumps(payload['family'], sort_keys=True)}")
     return 0
 
 
