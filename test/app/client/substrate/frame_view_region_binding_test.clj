@@ -3,6 +3,7 @@
             [app.client.substrate.frame-delta :as frame-delta]
             [app.client.substrate.frame-effect-view :as effect-view]
             [app.client.substrate.frame-effects :as frame-effects]
+            [app.client.substrate.frame-inputs :as frame-inputs]
             [app.client.substrate.frame-plan-view :as plan-view]
             [app.client.substrate.frame-semantic-state :as semantic-state]
             [app.client.substrate.scene-tape :as scene-tape]
@@ -23,29 +24,55 @@
               :capabilities #{} :forced-color-mode nil})
 
 (deftest s1-binding-only-crossing-preserves-the-whole-semantic-generation
-  (let [empty-arrangement (arrangement [])
+  (let [entries (mapv (fn [index]
+                        (entry (keyword (str "entry-" index))
+                               [[:root index index]] :direct))
+                      (range 256))
+        stable-arrangement (arrangement entries)
         registry (containers/empty-registry)
         boot (:state
               (semantic-state/apply-deltas
-               nil {:old-arrangement empty-arrangement
-                    :new-arrangement empty-arrangement
+               nil {:old-arrangement stable-arrangement
+                    :new-arrangement stable-arrangement
                     :registry registry :regions [{:region/id :r1 :shadow? false}]
                     :globals globals}))
+        _ (frame-inputs/begin-ledger!)
         crossing
         (semantic-state/apply-deltas
-         boot {:old-arrangement empty-arrangement
-               :new-arrangement empty-arrangement
+         boot {:old-arrangement stable-arrangement
+               :new-arrangement stable-arrangement
                ;; A lease/payload delta is deliberately absent: this reducer
                ;; has no binding-lane input by construction.
                :registry registry :regions [{:region/id :r1 :shadow? false}]
-               :globals globals})]
+               :globals globals})
+        ledger (frame-inputs/ledger-receipt)]
+    (is (= 256 (count entries)))
     (is (identical? boot (:state crossing)))
     (is (identical? (semantic-state/effect-state boot)
                     (semantic-state/effect-state (:state crossing))))
     (is (identical? (semantic-state/plan-state boot)
                     (semantic-state/plan-state (:state crossing))))
     (is (= 0 (get-in crossing [:work :plan-fragments-touched])))
-    (is (= 0 (get-in crossing [:work :effect-containers-touched])))))
+    (is (= 0 (get-in crossing [:work :effect-containers-touched])))
+    (is (= #{} (:changed-families ledger)))
+    (is (= 0 (:produced ledger)))
+    (is (= 0 (:arrangement-upserts ledger)))
+    (is (= 0 (:arrangement-removes ledger)))
+    (is (= 0 (:comparator-calls ledger)))
+    (is (= 0 (:plan-full-validations ledger)))
+    (is (= {:path-zoom-regime
+            {:version :frame-input/path-zoom-regime-v1
+             :input-key :path-zoom-regime}
+            :connector-zoom-regime
+            {:version :frame-input/connector-zoom-regime-v1
+             :input-key :connector-zoom-regime}
+            :region-interior-encode
+            {:version :frame-input/region-interior-encode-v1
+             :input-key :region-encode-scale
+             :step 1.12}}
+           frame-inputs/quantization-doors))
+    (is (not (contains? frame-inputs/quantization-doors
+                        :region-admission-rung)))))
 
 (deftest s2-foreign-interleaving-splits-and-merges-the-neighbor-container
   (let [registry (-> (containers/empty-registry)

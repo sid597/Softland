@@ -136,6 +136,29 @@
             ray {:origin [2.0 0.0 8.0] :direction [0.0 0.0 -1.0]}]
         (is (= :a (:object-id (region/query-bvh (:bvh derived) ray))))))))
 
+(deftest l2-worn-representation-does-not-enter-camera-or-pick-geometry
+  (let [maintained (assoc (region/derive-scene (fixture-region))
+                          :region-id :region/a)
+        desired-size [640.0 360.0]
+        sharp-lease {:desired-size desired-size :size [768 512]
+                     :rung-divisor 1}
+        worn-lease {:desired-size desired-size :size [384 256]
+                    :rung-divisor 2}
+        camera-for (fn [lease]
+                     (region/camera-matrices
+                      (get-in maintained [:region :view-default])
+                      (:desired-size lease)))
+        sharp-camera (camera-for sharp-lease)
+        worn-camera (camera-for worn-lease)
+        pick-for (fn [camera]
+                   (region/pick-region
+                    {:maintained maintained :camera camera
+                     :region-point [320.0 180.0]}))]
+    (is (not= (:size sharp-lease) (:size worn-lease)))
+    (is (= sharp-camera worn-camera))
+    (is (= (pick-for sharp-camera) (pick-for worn-camera)))
+    (is (= :near (:object-id (pick-for worn-camera))))))
+
 (deftest felt-camera-and-gizmo-controls-match-the-painted-affordance
   (let [maintained (assoc (region/derive-scene (fixture-region))
                           :region-id :region/a)

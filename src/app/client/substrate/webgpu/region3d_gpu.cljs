@@ -391,6 +391,17 @@
      return textureSample(region_resolve, region_sampler, uv);
    }")
 
+(def worn-fragment-shader
+  "@group(0) @binding(0) var region_sampler: sampler;
+   @group(0) @binding(1) var region_resolve: texture_2d<f32>;
+   @fragment fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+     let resolved = textureSample(region_resolve, region_sampler, uv);
+     let corner = uv.x > 0.90 && uv.y < 0.10;
+     let stripe = fract((uv.x + uv.y) * 72.0) > 0.42;
+     let worn = corner && stripe;
+     return select(resolved, vec4<f32>(0.16,0.78,0.92,1.0), worn);
+   }")
+
 (def refusal-fragment-shader
   "@fragment fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
      let checker = f32((u32(floor(uv.x * 12.0)) + u32(floor(uv.y * 12.0))) & 1u);
@@ -429,6 +440,7 @@
         gizmo-module (shader-module device gizmo-shader)
         composite-vertex (shader-module device composite-vertex-shader)
         composite-fragment (shader-module device composite-fragment-shader)
+        worn-fragment (shader-module device worn-fragment-shader)
         refusal-fragment (shader-module device refusal-fragment-shader)
         interior-layout
         (.createBindGroupLayout
@@ -558,6 +570,20 @@
                    :fragment {:module composite-fragment :entryPoint "main"
                               :targets [{:format "rgba16float" :blend (blend-state)}]}
                    :primitive {:topology "triangle-list"}}))
+        worn-pipeline
+        (.createRenderPipeline
+         ^js device
+         (clj->js {:layout (pipeline-layout [composite-layout])
+                   :vertex {:module composite-vertex :entryPoint "main"
+                            :buffers [{:arrayStride composite-instance-stride
+                                       :stepMode "instance"
+                                       :attributes [{:shaderLocation 0 :offset 0
+                                                     :format "float32x4"}
+                                                    {:shaderLocation 1 :offset 16
+                                                     :format "uint32"}]}]}
+                   :fragment {:module worn-fragment :entryPoint "main"
+                              :targets [{:format "rgba16float" :blend (blend-state)}]}
+                   :primitive {:topology "triangle-list"}}))
         refusal-pipeline
         (.createRenderPipeline
          ^js device
@@ -578,6 +604,7 @@
      :opaque (mesh-pipeline false) :transparent (mesh-pipeline true)
      :shadow shadow-pipeline :grid grid-pipeline :glyph glyph-pipeline
      :gizmo gizmo-pipeline :composite composite-pipeline
+     :worn worn-pipeline
      :refusal refusal-pipeline}))
 
 (defn- create-buffer! [device tracker label size usage]
@@ -1430,9 +1457,13 @@
         owner (:binding-owner region-system)
         lease (region-bindings/lease owner region-id)
         composite-slot (region-bindings/slot owner region-id)
-        refused? (or (nil? lease) (:refused? lease))]
+        refused? (or (nil? lease) (:refused? lease))
+        pipeline-key (cond
+                       refused? :refusal
+                       (> (:rung-divisor lease 1) 1) :worn
+                       :else :composite)]
     (.setPipeline ^js pass (get-in region-system
-                                   [:pipelines (if refused? :refusal :composite)]))
+                                   [:pipelines pipeline-key]))
     (.setBindGroup ^js pass 0 (if refused?
                                 (refusal-bind-group region-system)
                                 (composite-bind-group region-system lease)))

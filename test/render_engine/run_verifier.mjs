@@ -41,6 +41,9 @@ const appendRegion3dGoldens = process.argv.includes(
 const appendRegion3dSeamGoldens = process.argv.includes(
   "--append-region3d-seam-goldens",
 );
+const appendRegion3dWornGolden = process.argv.includes(
+  "--append-region3d-worn-golden",
+);
 const amendRegion3dGizmoGolden = process.argv.includes(
   "--amend-region3d-gizmo-golden",
 );
@@ -77,6 +80,11 @@ const assertT2Contract = process.argv.includes("--assert-t2-contract");
 const assertRegion3dContract = process.argv.includes(
   "--assert-region3d-contract",
 );
+const assertLowerResolutionContract = process.argv.includes(
+  "--assert-lower-resolution-contract",
+);
+const region3dFloorOnly =
+  appendRegion3dWornGolden || assertLowerResolutionContract;
 const launchArgs = [
   "--no-sandbox",
   "--enable-unsafe-webgpu",
@@ -552,6 +560,7 @@ const region3dFloorRows = (result) =>
   );
 
 const region3dFloorInputs = () => ({
+  regionRungs: sha256File("src/app/client/substrate/region_rungs.cljc"),
   region3dMaterial: sha256File(
     "src/app/client/substrate/region3d_material.cljc",
   ),
@@ -809,6 +818,39 @@ const expectedDivergenceRows = (result) =>
     ...renderCase.currentProductPickSentinel,
   }));
 
+const compareGoldenRows = (currentRows, expectedRows) => {
+  const expectedByFile = new Map(
+    (expectedRows || []).map((image) => [image.file, image]),
+  );
+  return currentRows.map((image) => {
+    const expected = expectedByFile.get(image.file);
+    const goldenFile = path.join(goldenDir, image.file);
+    const goldenPngSha256 = fs.existsSync(goldenFile)
+      ? sha256(fs.readFileSync(goldenFile))
+      : null;
+    return {
+      ...image,
+      expectedRawSha256: expected?.rawSha256 || null,
+      expectedPngSha256: expected?.pngSha256 || null,
+      goldenPngSha256,
+      rawMatch: Boolean(expected && expected.rawSha256 === image.rawSha256),
+      pngManifestMatch: Boolean(
+        expected && expected.pngSha256 === image.pngSha256,
+      ),
+      goldenFileMatch: Boolean(
+        expected && expected.pngSha256 === goldenPngSha256,
+      ),
+    };
+  });
+};
+
+const comparisonPass = (rows, expectedRows, exactCount) =>
+  rows.length === exactCount &&
+  (expectedRows || []).length === exactCount &&
+  rows.every(
+    (row) => row.rawMatch && row.pngManifestMatch && row.goldenFileMatch,
+  );
+
 const main = async () => {
   if (updateGoldens) {
     throw new Error(
@@ -825,6 +867,7 @@ const main = async () => {
       appendT2Goldens,
       appendRegion3dGoldens,
       appendRegion3dSeamGoldens,
+      appendRegion3dWornGolden,
       amendRegion3dGizmoGolden,
       amendT2LivedCorrection,
       appendImageInputAmendment,
@@ -882,7 +925,10 @@ const main = async () => {
   let result;
   try {
     await serveSyntheticOrigin(page);
-    await page.goto(`${origin}/`, { waitUntil: "load", timeout: 30_000 });
+    await page.goto(
+      `${origin}/${region3dFloorOnly ? "?region3d-floor-only=1" : ""}`,
+      { waitUntil: "load", timeout: 30_000 },
+    );
     await page.waitForFunction(
       () =>
         window.__softlandT2TrustedCopyReady === true ||
@@ -972,6 +1018,274 @@ const main = async () => {
     },
   };
   environment.fingerprintSha256 = fingerprintSha(environment);
+
+  if (region3dFloorOnly) {
+    const bankPresent =
+      fs.existsSync(manifestFile) && fs.existsSync(environmentFile);
+    let expectedManifest = bankPresent ? jsonRead(manifestFile) : null;
+    const expectedEnvironment = bankPresent ? jsonRead(environmentFile) : null;
+    const environmentMatch =
+      bankPresent &&
+      expectedEnvironment?.fingerprintSha256 === environment.fingerprintSha256;
+    const currentRows = region3dFloorRows(result);
+    const priorRows = currentRows.filter((row) => row.caseId !== "worn");
+    const wornRows = currentRows.filter((row) => row.caseId === "worn");
+    const deterministic = region3dFloorDeterminismRows(result);
+    const determinismPass =
+      deterministic.length === 7 &&
+      deterministic.every((row) => row.byteIdentical);
+    const lower = result.region3dFloor.lowerResolution;
+    const lowerPass =
+      lower?.pass &&
+      lower.currentContent &&
+      lower.glyph &&
+      lower.heldStable &&
+      lower.honestCounter &&
+      lower.recovery?.pass &&
+      lower.reservePreserved &&
+      lower.pick?.pass &&
+      lower.floor?.byteIdentical &&
+      lower.deterministic;
+    const protectedRows = bankPresent
+      ? [
+          ...(expectedManifest.images || []),
+          ...(expectedManifest.imageAtomCases || []),
+          ...(expectedManifest.pathAtomCases || []),
+          ...(expectedManifest.connectorAtomCases || []),
+          ...(expectedManifest.chromeAtomCases || []),
+          ...(expectedManifest.w4FrameRuntimeCases || []),
+          ...(expectedManifest.t2InputFloorCases || []),
+          ...(expectedManifest.region3dFloorCases || []),
+        ]
+      : [];
+    const protectedDigests = new Map(
+      protectedRows.map((row) => [
+        row.file,
+        fs.existsSync(path.join(goldenDir, row.file))
+          ? sha256(fs.readFileSync(path.join(goldenDir, row.file)))
+          : null,
+      ]),
+    );
+    const protectedBankPass =
+      protectedRows.length > 0 &&
+      protectedRows.every(
+        (row) => protectedDigests.get(row.file) === row.pngSha256,
+      );
+    const priorComparison = compareGoldenRows(
+      priorRows,
+      expectedManifest?.region3dFloorCases,
+    );
+    const priorPass = comparisonPass(
+      priorComparison,
+      expectedManifest?.region3dFloorCases,
+      6,
+    );
+    const wornFile = wornRows[0]?.file;
+    const appendPreflight = {
+      bankPresent,
+      environmentMatch,
+      protectedBankPass,
+      existingRegion3dRows:
+        expectedManifest?.region3dFloorCases?.length || 0,
+      currentRegion3dRows: currentRows.length,
+      wornRows: wornRows.length,
+      priorPass,
+      determinismPass,
+      lowerPass,
+      region3dContractPass: result.region3dFloor.pass,
+      wornFile,
+      wornFileUnoccupied:
+        Boolean(wornFile) && !fs.existsSync(path.join(goldenDir, wornFile)),
+    };
+    const appendAuthorized =
+      bankPresent &&
+      environmentMatch &&
+      protectedBankPass &&
+      expectedManifest.region3dFloorCases?.length === 6 &&
+      currentRows.length === 7 &&
+      wornRows.length === 1 &&
+      priorPass &&
+      determinismPass &&
+      lowerPass &&
+      result.region3dFloor.pass &&
+      appendPreflight.wornFileUnoccupied;
+
+    if (appendRegion3dWornGolden) {
+      if (!appendAuthorized) {
+        throw new Error(
+          `LOWER-RESOLUTION append preflight failed: ${JSON.stringify(appendPreflight)}`,
+        );
+      }
+      const wornCase = result.region3dFloor.cases.find(
+        (renderCase) => renderCase.caseId === "worn",
+      );
+      const image = wornCase.images[0];
+      fs.writeFileSync(
+        path.join(goldenDir, image.file),
+        Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64"),
+      );
+      if (
+        [...protectedDigests].some(
+          ([file, digest]) =>
+            sha256(fs.readFileSync(path.join(goldenDir, file))) !== digest,
+        )
+      ) {
+        throw new Error(
+          "LOWER-RESOLUTION append changed a protected golden byte",
+        );
+      }
+      const amendmentFor = (key, currentInputs) => ({
+        amendment: (expectedManifest[key]?.length || 0) + 1,
+        reason:
+          "FRAME-VIEW lower-resolution admission added one worn Region3D golden; all prior golden bytes remained unchanged",
+        inputs: currentInputs,
+      });
+      const currentInputSets = {
+        imageAtomInputs: imageAtomInputs(),
+        pathAtomInputs: pathAtomInputs(),
+        connectorAtomInputs: connectorAtomInputs(),
+        chromeAtomInputs: chromeAtomInputs(),
+        w4FrameRuntimeInputs: w4FrameRuntimeInputs(),
+        t2InputFloorInputs: t2InputFloorInputs(),
+        region3dFloorInputs: region3dFloorInputs(),
+      };
+      expectedManifest = {
+        ...expectedManifest,
+        shaderDigests: result.shaderDigests,
+        productionInputs: inputs,
+        imageAtomInputAmendments: [
+          ...(expectedManifest.imageAtomInputAmendments || []),
+          amendmentFor(
+            "imageAtomInputAmendments",
+            currentInputSets.imageAtomInputs,
+          ),
+        ],
+        pathAtomInputAmendments: [
+          ...(expectedManifest.pathAtomInputAmendments || []),
+          amendmentFor(
+            "pathAtomInputAmendments",
+            currentInputSets.pathAtomInputs,
+          ),
+        ],
+        connectorAtomInputAmendments: [
+          ...(expectedManifest.connectorAtomInputAmendments || []),
+          amendmentFor(
+            "connectorAtomInputAmendments",
+            currentInputSets.connectorAtomInputs,
+          ),
+        ],
+        chromeAtomInputAmendments: [
+          ...(expectedManifest.chromeAtomInputAmendments || []),
+          amendmentFor(
+            "chromeAtomInputAmendments",
+            currentInputSets.chromeAtomInputs,
+          ),
+        ],
+        w4FrameRuntimeInputAmendments: [
+          ...(expectedManifest.w4FrameRuntimeInputAmendments || []),
+          amendmentFor(
+            "w4FrameRuntimeInputAmendments",
+            currentInputSets.w4FrameRuntimeInputs,
+          ),
+        ],
+        t2InputFloorInputAmendments: [
+          ...(expectedManifest.t2InputFloorInputAmendments || []),
+          amendmentFor(
+            "t2InputFloorInputAmendments",
+            currentInputSets.t2InputFloorInputs,
+          ),
+        ],
+        region3dFloorInputAmendments: [
+          ...(expectedManifest.region3dFloorInputAmendments || []),
+          amendmentFor(
+            "region3dFloorInputAmendments",
+            currentInputSets.region3dFloorInputs,
+          ),
+        ],
+        region3dFloorCases: currentRows,
+      };
+      fs.writeFileSync(
+        manifestFile,
+        `${JSON.stringify(expectedManifest, null, 2)}\n`,
+      );
+      appendPreflight.protectedGoldenBytesUnchanged = true;
+    }
+
+    const expectedInputs =
+      expectedManifest?.region3dFloorInputAmendments?.at(-1)?.inputs ||
+      expectedManifest?.region3dFloorInputs;
+    const inputsMatch =
+      Boolean(expectedInputs) &&
+      fingerprintSha(expectedInputs) === fingerprintSha(region3dFloorInputs());
+    const comparison = compareGoldenRows(
+      currentRows,
+      expectedManifest?.region3dFloorCases,
+    );
+    const goldenPass = comparisonPass(
+      comparison,
+      expectedManifest?.region3dFloorCases,
+      7,
+    );
+    const pass =
+      environmentMatch &&
+      inputsMatch &&
+      goldenPass &&
+      determinismPass &&
+      lowerPass &&
+      result.region3dFloor.pass;
+    const focusedReceipt = {
+      schemaVersion: 1,
+      verifier: result.verifier,
+      pass,
+      classification: pass ? "pass" : "lower-resolution-contract-failure",
+      replayCommand:
+        "node test/render_engine/run_verifier.mjs --assert-lower-resolution-contract",
+      attestation,
+      environment,
+      append: {
+        requested: appendRegion3dWornGolden,
+        authorized: appendAuthorized,
+        preflight: appendPreflight,
+      },
+      foreignDebt: [
+        "T1 browser layout receipt failed",
+        "legacy family paint is incomplete",
+      ],
+      region3dFloor: {
+        pass: result.region3dFloor.pass,
+        lowerResolution: lower,
+        determinism: { pass: determinismPass, rows: deterministic },
+        goldenComparison: { pass: goldenPass, rows: comparison },
+        inputFingerprintsMatch: inputsMatch,
+      },
+      browserConsole,
+      browserResult: {
+        ...result,
+        region3dFloor: {
+          ...result.region3dFloor,
+          cases: result.region3dFloor.cases.map((renderCase) => ({
+            ...renderCase,
+            images: renderCase.images.map(({ pngDataUrl, ...image }) => image),
+          })),
+        },
+      },
+    };
+    fs.mkdirSync(path.dirname(receiptFile), { recursive: true });
+    fs.writeFileSync(receiptFile, `${JSON.stringify(focusedReceipt, null, 2)}\n`);
+    console.log(
+      JSON.stringify({
+        pass,
+        classification: focusedReceipt.classification,
+        receipt: path.relative(repoRoot, receiptFile),
+        lowerResolution: lower,
+        goldenRows: `${comparison.filter((row) => row.rawMatch && row.pngManifestMatch && row.goldenFileMatch).length}/${comparison.length}`,
+        inputsMatch,
+        foreignDebt: focusedReceipt.foreignDebt,
+      }),
+    );
+    if (!pass) process.exitCode = 1;
+    return;
+  }
 
   const currentManifest = {
     schemaVersion: 1,
@@ -1113,39 +1427,6 @@ const main = async () => {
   const environmentMatch =
     bankPresent &&
     expectedEnvironment.fingerprintSha256 === environment.fingerprintSha256;
-
-  const compareGoldenRows = (currentRows, expectedRows) => {
-    const expectedByFile = new Map(
-      (expectedRows || []).map((image) => [image.file, image]),
-    );
-    return currentRows.map((image) => {
-      const expected = expectedByFile.get(image.file);
-      const goldenFile = path.join(goldenDir, image.file);
-      const goldenPngSha256 = fs.existsSync(goldenFile)
-        ? sha256(fs.readFileSync(goldenFile))
-        : null;
-      return {
-        ...image,
-        expectedRawSha256: expected?.rawSha256 || null,
-        expectedPngSha256: expected?.pngSha256 || null,
-        goldenPngSha256,
-        rawMatch: Boolean(expected && expected.rawSha256 === image.rawSha256),
-        pngManifestMatch: Boolean(
-          expected && expected.pngSha256 === image.pngSha256,
-        ),
-        goldenFileMatch: Boolean(
-          expected && expected.pngSha256 === goldenPngSha256,
-        ),
-      };
-    });
-  };
-
-  const comparisonPass = (rows, expectedRows, exactCount) =>
-    rows.length === exactCount &&
-    (expectedRows || []).length === exactCount &&
-    rows.every(
-      (row) => row.rawMatch && row.pngManifestMatch && row.goldenFileMatch,
-    );
 
   let imageComparison = compareGoldenRows(
     currentManifest.images,

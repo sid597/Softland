@@ -223,7 +223,9 @@
    :viewport-binding-updates 0
    :region-prepared 0
    :region-encoded 0
-   :region-held 0})
+   :region-held 0
+   :region-rungs-worn 0
+   :region-rung-recoveries 0})
 
 (defonce ^:private !ledger (atom empty-ledger))
 

@@ -9,6 +9,7 @@
   (:require [app.client.substrate.frame-effects :as frame-effects]
             [app.client.substrate.frame-graph :as frame-graph]
             [app.client.substrate.frame-inputs :as frame-inputs]
+            [app.client.substrate.region-rungs :as region-rungs]
             [app.client.substrate.webgpu.region-bindings :as region-bindings]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]))
 
@@ -693,7 +694,8 @@
    :leases (into {}
                  (map (fn [[key lease]]
                         [key (select-keys lease
-                                          [:region-id :size :bytes :refused?])]))
+                                          [:region-id :size :bytes :refused?
+                                           :desired-key :rung-divisor])]))
                  @(:!region-leases compositor))
    :bytes (reduce + 0 (map :bytes (vals @(:!region-leases compositor))))})
 
@@ -1198,21 +1200,12 @@
                                   :region3d-shadow-mode-change))))
       (.catch (fn [_] nil)))))
 
-(defn- active-region-leases! [compositor binding-owner binding-deltas]
+(defn- active-region-leases! [compositor binding-owner _binding-deltas]
   (let [regions (if binding-owner
                   (region-bindings/desired-rows binding-owner)
                   [])
-        delta-region-ids
-        (into #{}
-              (keep #(when (= :region-lease (:binding/kind %))
-                       (:region/id %)))
-              binding-deltas)
-        desired-keys (into #{}
-                           (map (fn [{region-id :region/id
-                                      [width height] :lease-size}]
-                                  [region-id (quantize-region-size width)
-                                   (quantize-region-size height)]))
-                           regions)
+        desired-region-ids (into #{} (map :region/id) regions)
+        _ (swap! (:!receipt compositor) dissoc :last-region-refusal)
         ;; Old-generation leases die BEFORE the new generation is acquired:
         ;; only submitted (or abandoned, never-submitted) encoders can still
         ;; name them, and destroy after submit defers deallocation, so the two
@@ -1220,42 +1213,79 @@
         ;; that crosses lease quanta otherwise holds both until a frame
         ;; succeeds, which budget refusal can make unreachable.
         _ (doseq [[key lease] @(:!region-leases compositor)
-                  :when (not (contains? desired-keys key))]
+                  :when (not (contains? desired-region-ids (first key)))]
             (frame-inputs/increment-ledger! :leases-retired)
             (release-region-lease! compositor key lease))
-        active
-        (into {}
-              (map (fn [{region-id :region/id [width height] :lease-size
-                         shadow? :shadow?}]
-                     (let [prior (when binding-owner
-                                   (region-bindings/lease binding-owner region-id))
-                           expected [region-id (quantize-region-size width)
-                                     (quantize-region-size height)]
-                           update? (or (contains? delta-region-ids region-id)
-                                       (nil? prior)
-                                       (:refused? prior)
-                                       (not= expected (:key prior))
-                                       (not= (boolean shadow?)
-                                             (boolean (:shadow prior))))
-                           lease (acquire-region-lease!
-                                  compositor region-id width height shadow?)]
-                       (when update?
-                         (frame-inputs/increment-ledger!
-                          :region-binding-updates)
-                         (when-not (:refused? lease)
-                           (frame-inputs/increment-ledger! :leases-acquired)))
-                       (when binding-owner
-                         (region-bindings/record-lease!
-                          binding-owner region-id lease))
-                       [region-id lease])))
-              regions)
+        {:keys [active rung-receipts]}
+        (reduce
+         (fn [{:keys [active rung-receipts]}
+              {region-id :region/id [width height] :lease-size
+               shadow? :shadow?}]
+           (let [prior-physical (region-lease compositor region-id)
+                 pool (:target-pool compositor)
+                 pool-state @(:!state pool)
+                 grant (region-rungs/grant
+                        {:region/id region-id
+                         :desired-size [width height]
+                         :shadow? shadow?
+                         :held-lease prior-physical
+                         :reserved-bytes (:reserved-bytes pool-state)
+                         :budget-cap-bytes (:budget-cap-bytes pool)
+                         :quantize quantize-region-size
+                         :lease-bytes region-lease-bytes})
+                 selected-key (or (:granted-key grant) (:desired-key grant))
+                 [_ granted-width granted-height] selected-key
+                 retiring (into []
+                                (filter (fn [[key _lease]]
+                                          (and (= region-id (first key))
+                                               (not= selected-key key))))
+                                @(:!region-leases compositor))
+                 _ (doseq [[key lease] retiring]
+                     (frame-inputs/increment-ledger! :leases-retired)
+                     (release-region-lease! compositor key lease))
+                 prior (when binding-owner
+                         (region-bindings/lease binding-owner region-id))
+                 update? (or (nil? prior)
+                             (:refused? prior)
+                             (not= selected-key (:key prior))
+                             (not= (boolean shadow?)
+                                   (boolean (:shadow prior))))
+                 acquired (acquire-region-lease!
+                           compositor region-id granted-width granted-height shadow?)
+                 lease (assoc acquired
+                              :desired-key (:desired-key grant)
+                              :rung-divisor (:rung-divisor grant)
+                              :rung-receipt (:rung-receipt grant))
+                 _ (when-not (:refused? lease)
+                     (swap! (:!region-leases compositor)
+                            assoc selected-key lease))
+                 prior-divisor (:rung-divisor prior)
+                 granted-divisor (:rung-divisor grant)]
+             (when update?
+               (frame-inputs/increment-ledger! :region-binding-updates)
+               (when-not (:refused? lease)
+                 (frame-inputs/increment-ledger! :leases-acquired)
+                 (when (> granted-divisor 1)
+                   (frame-inputs/increment-ledger! :region-rungs-worn))
+                 (when (and prior-divisor
+                            (< granted-divisor prior-divisor))
+                   (frame-inputs/increment-ledger! :region-rung-recoveries))))
+             (when binding-owner
+               (region-bindings/record-lease! binding-owner region-id lease))
+             {:active (assoc active region-id lease)
+              :rung-receipts (cond-> rung-receipts
+                               (:rung-receipt grant)
+                               (conj (:rung-receipt grant)))}))
+         {:active {} :rung-receipts []}
+         regions)
         active-keys (into #{} (keep (fn [[_ lease]]
                                       (when-not (:refused? lease)
                                         (:key lease)))) active)
         stale (into []
                     (remove (fn [[key _lease]] (contains? active-keys key)))
                     @(:!region-leases compositor))]
-    {:active active :active-keys active-keys :stale stale}))
+    {:active active :active-keys active-keys :stale stale
+     :rung-receipts rung-receipts}))
 
 (defn- encode-region-pass-producers!
   [encoder plan pass-producers active-leases]
@@ -1277,7 +1307,7 @@
                       region-bindings binding-deltas]
                :or {zoom 1.0 effective-transforms {}}}]
   (let [device (:device compositor)
-        {:keys [active stale]}
+        {:keys [active stale rung-receipts]}
         (active-region-leases! compositor region-bindings binding-deltas)]
     (try
       (let [encoder (.createCommandEncoder ^js device)
@@ -1298,6 +1328,7 @@
                      (assoc :color-mode :scene-color/linear
                             :passes (mapv :pass/id (:passes plan))
                             :region-pass-receipts region-pass-receipts
+                            :region-rung-receipts rung-receipts
                             :region-leases (region-leases-receipt compositor)
                             :plan-hash (:plan/hash plan)
                             :blur-projections blur-projections

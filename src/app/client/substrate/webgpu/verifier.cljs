@@ -29,6 +29,7 @@
             [app.client.substrate.webgpu.connector-gpu :as connector-gpu]
             [app.client.substrate.webgpu.compositor-gpu :as compositor-gpu]
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
+            [app.client.substrate.webgpu.region-bindings :as region-bindings]
             [app.client.substrate.webgpu.region3d-gpu :as region3d-gpu]
             [app.client.substrate.webgpu.region3d-placement-gpu :as region3d-placement-gpu]
             [app.client.substrate.webgpu.renderer :as renderer]
@@ -4431,28 +4432,39 @@
    :atlas-sampler (get-in harness [:placement-text-system :font-sampler])
    :path-system (:path-system harness)})
 
-(defn- region3d-capture!
-  [{:keys [device compositor region-system] :as harness}
-   op session sides]
-  (region3d-gpu/attach-compositor! region-system compositor)
-  (region3d-gpu/prepare-region3d-frame!
-   region-system (region3d-store-frame op) session
-   (region3d-prepare-options harness))
-  (let [{:keys [arrangement plan]} (region3d-frame harness op sides)
-        binding (region3d-binding-frame region-system)]
+(defn- region3d-capture-frame!
+  [{:keys [device compositor region-system]} {:keys [arrangement plan]}]
+  (let [binding (region3d-binding-frame region-system)]
     (w4-capture! device compositor {:linearize-entry identity}
                  arrangement [] plan canvas-size canvas-size
                  :pass-producers (region3d-pass-producers region-system)
                  :region-bindings (:owner binding)
                  :binding-deltas (:deltas binding))))
 
-(defn- region3d-capture-pair!
-  [{:keys [device compositor region-system] :as harness}
-   op session sides]
+(defn- region3d-capture-prepared!
+  [harness op sides]
+  (region3d-capture-frame! harness (region3d-frame harness op sides)))
+
+(defn- region3d-capture!
+  ([harness op session sides]
+   (region3d-capture! harness op session sides {}))
+  ([{:keys [compositor region-system] :as harness}
+    op session sides prepare-overrides]
   (region3d-gpu/attach-compositor! region-system compositor)
   (region3d-gpu/prepare-region3d-frame!
    region-system (region3d-store-frame op) session
-   (region3d-prepare-options harness))
+   (merge (region3d-prepare-options harness) prepare-overrides))
+   (region3d-capture-prepared! harness op sides)))
+
+(defn- region3d-capture-pair!
+  ([harness op session sides]
+   (region3d-capture-pair! harness op session sides {}))
+  ([{:keys [device compositor region-system] :as harness}
+    op session sides prepare-overrides]
+  (region3d-gpu/attach-compositor! region-system compositor)
+  (region3d-gpu/prepare-region3d-frame!
+   region-system (region3d-store-frame op) session
+   (merge (region3d-prepare-options harness) prepare-overrides))
   (let [{:keys [arrangement plan]} (region3d-frame harness op sides)
         binding (region3d-binding-frame region-system)]
     (w4-capture-pair! device compositor {:linearize-entry identity}
@@ -4460,7 +4472,7 @@
                        :pass-producers
                        (region3d-pass-producers region-system)
                        :region-bindings (:owner binding)
-                       :binding-deltas (:deltas binding))))
+                       :binding-deltas (:deltas binding)))))
 
 (defn- region3d-image-record [case-id pair]
   {:mode case-id :file (str "gpu-region3d-floor-" case-id ".png")
@@ -5046,6 +5058,271 @@
             (js/Promise.resolve nil)
             steps)))
 
+(def ^:private lower-resolution-pressure-id :region3d/lower-resolution-pressure)
+
+(defn- pool-holds-free-target?
+  [pool target]
+  (let [target-id (:target/id target)]
+    (boolean
+     (some #(= target-id (:target/id %))
+           (mapcat val (:free @(:!state pool)))))))
+
+(defn- region3d-lower-step!
+  [harness frame]
+  (frame-inputs/begin-ledger!)
+  (-> (region3d-capture-frame! harness frame)
+      (.then (fn [bytes]
+               {:bytes bytes
+                :receipt (compositor-gpu/compositor-receipt
+                          (:compositor harness))
+                :ledger (frame-inputs/ledger-receipt)}))))
+
+(defn- region3d-refusal-leg!
+  [{:keys [device tracker region-system] :as harness}
+   region op budget-cap-bytes]
+  (let [compositor (compositor-gpu/create-compositor!
+                    device color-format tracker
+                    :budget-cap-bytes budget-cap-bytes)
+        refusal-harness (assoc harness :compositor compositor)]
+    (frame-inputs/begin-ledger!)
+    (-> (region3d-capture! refusal-harness op {} :region {:zoom 8.0})
+        (.then
+         (fn [bytes]
+           (let [receipt (compositor-gpu/compositor-receipt compositor)
+                 result {:bytes bytes
+                         :receipt receipt
+                         :sample (pixel-rgba bytes 64 64)
+                         :ledger (frame-inputs/ledger-receipt)
+                         :pass? (and (some? (:last-region-refusal receipt))
+                                     (pos? (apply max (pixel-rgba bytes 64 64))))}]
+             (compositor-gpu/destroy-compositor! compositor)
+             (region3d-gpu/prepare-region3d-frame!
+              region-system {:regions []} {} {:zoom 1.0 :dpr 1.0})
+             result))))))
+
+(defn- region3d-lower-resolution!
+  [{:keys [device tracker region-system compositor] :as harness} region op]
+  (let [lower-compositor
+        (compositor-gpu/create-compositor!
+         device color-format tracker :budget-cap-bytes (* 64 1024 1024))
+        lower-harness (assoc harness :compositor lower-compositor)
+        pool (:target-pool lower-compositor)
+        reserve-target
+        (compositor-gpu/acquire-target!
+         pool "rgba16float" 512 256 "frame/group-output/lower-resolution"
+         :usage js/GPUTextureUsage.RENDER_ATTACHMENT)
+        _ (compositor-gpu/release-target! pool reserve-target)
+        pressure-lease
+        (compositor-gpu/acquire-region-lease!
+         lower-compositor lower-resolution-pressure-id 768 512 false)
+        pressure-row {:region/id lower-resolution-pressure-id
+                      :lease-size [768 512] :shadow? false
+                      :background nil :encode-rung 1
+                      :composite {:x 0.0 :y 0.0 :w 1.0 :h 1.0
+                                  :container-idx 0}}
+        prepare-frame
+        (fn [current-op zoom]
+          (region3d-gpu/attach-compositor! region-system lower-compositor)
+          (region3d-gpu/prepare-region3d-frame!
+           region-system (region3d-store-frame current-op) {}
+           (merge (region3d-prepare-options lower-harness) {:zoom zoom}))
+          (region3d-frame lower-harness current-op :region))
+        install-pressure!
+        (fn []
+          (let [owner (region3d-gpu/binding-owner region-system)
+                primary (first (filter #(= region3d-id (:region/id %))
+                                       (region-bindings/desired-rows owner)))
+                physical (compositor-gpu/region-lease
+                          lower-compositor lower-resolution-pressure-id)]
+            (region-bindings/reconcile-desired!
+             owner [primary pressure-row])
+            (region-bindings/record-lease!
+             owner lower-resolution-pressure-id (or physical pressure-lease))))
+        mutated-region
+        (-> region
+            (assoc-in [:scene :near :material :base-color]
+                      (region3d-tagged 0.12 0.92 0.28))
+            region3d-material/validate-region!)
+        mutated-op (assoc op :region3d/scene mutated-region)
+        steps
+        [(fn [_]
+           (let [frame (prepare-frame op 2.0)]
+             (install-pressure!)
+             (region3d-lower-step! lower-harness frame)))
+         (fn [state]
+           (let [frame (prepare-frame op 8.0)]
+             (install-pressure!)
+             (.then (region3d-lower-step! lower-harness frame)
+                    #(assoc state :worn %))))
+         (fn [state]
+           (let [frame (prepare-frame mutated-op 8.0)]
+             (install-pressure!)
+             (.then (region3d-lower-step! lower-harness frame)
+                    #(assoc state :mutated % :mutated-frame frame))))
+         (fn [{:keys [mutated-frame] :as state}]
+           (.then (region3d-lower-step! lower-harness mutated-frame)
+                  #(assoc state :held %)))
+         (fn [state]
+           (let [frame (prepare-frame mutated-op 10.0)]
+             (install-pressure!)
+             (.then (region3d-lower-step! lower-harness frame)
+                    #(assoc state :honest-counter %))))
+         (fn [state]
+           (let [frame (prepare-frame mutated-op 8.0)
+                 owner (region3d-gpu/binding-owner region-system)
+                 primary (first (region-bindings/desired-rows owner))]
+             (region-bindings/reconcile-desired! owner [primary])
+             (compositor-gpu/release-region-lease!
+              lower-compositor lower-resolution-pressure-id)
+             (.then (region3d-lower-step! lower-harness frame)
+                    #(assoc state :recovered %))))
+         (fn [state]
+           (let [no-shadow-region
+                 (-> region
+                     (assoc-in [:scene :sun :light :cast-shadow] false)
+                     region3d-material/validate-region!)
+                 no-shadow-op (assoc op :region3d/scene no-shadow-region)]
+             (.then
+              (region3d-refusal-leg! harness no-shadow-region no-shadow-op
+                                     (* 3 1024 1024))
+              #(assoc state :no-shadow-floor %))))
+         (fn [state]
+           (.then
+            (region3d-refusal-leg! harness region op (* 5 1024 1024))
+            #(assoc state :shadowed-floor %)))
+         (fn [{:keys [bytes worn mutated held honest-counter recovered
+                      no-shadow-floor shadowed-floor]
+               :as state}]
+           (-> (js/Promise.all
+                #js [(sha256-bytes (get-in state [:mutated :bytes]))
+                     (sha256-bytes (get-in state [:held :bytes]))
+                     (sha256-bytes (:bytes no-shadow-floor))
+                     (sha256-bytes (:bytes shadowed-floor))])
+               (.then
+                (fn [hashes]
+                  (let [sharp state
+                        primary-lease
+                        (fn [step]
+                          (first
+                           (filter #(= region3d-id (:region-id %))
+                                   (vals (get-in step
+                                                 [:receipt :region-leases
+                                                  :leases])))))
+                        worn-lease (primary-lease worn)
+                        mutated-passes (get-in mutated
+                                               [:receipt :region-pass-receipts])
+                        held-passes (get-in held [:receipt :region-pass-receipts])
+                        recovered-lease (primary-lease recovered)
+                        wear-sample (pixel-rgba (:bytes mutated) 100 24)
+                        maintained (assoc (region3d-scene/derive-scene
+                                           mutated-region)
+                                          :region-id region3d-id)
+                        pick-camera (region3d-scene/camera-matrices
+                                     (:view-default mutated-region)
+                                     [640.0 704.0])
+                        object-pick (region3d-scene/pick-region
+                                     {:maintained maintained
+                                      :camera pick-camera
+                                      :region-point [320.0 352.0]})
+                        background-pick (region3d-scene/pick-region
+                                         {:maintained maintained
+                                          :camera pick-camera
+                                          :region-point [5.0 5.0]})
+                        reserve-preserved?
+                        (pool-holds-free-target? pool reserve-target)
+                        physical-crossing?
+                        (and (= 1 (get-in worn [:ledger
+                                               :region-binding-updates]))
+                             (= 1 (get-in worn [:ledger :leases-acquired]))
+                             (= 1 (get-in worn [:ledger :leases-retired]))
+                             (= 1 (get-in worn [:ledger :region-rungs-worn])))
+                        current-content?
+                        (and (> (byte-delta bytes (:bytes mutated)) 2)
+                             (every? :encoded? mutated-passes))
+                        held-stable?
+                        (and (zero? (get-in held [:ledger
+                                                 :region-binding-updates]))
+                             (zero? (get-in held [:ledger :leases-acquired]))
+                             (zero? (get-in held [:ledger :leases-retired]))
+                             (every? #(and (:held? %) (not (:encoded? %)))
+                                     held-passes))
+                        honest-counter?
+                        (and (= [512 512]
+                                (get-in honest-counter
+                                        [:receipt :region-leases :leases
+                                         [:region3d/verifier 512 512] :size]))
+                             (zero? (get-in honest-counter
+                                            [:ledger :region-binding-updates]))
+                             (zero? (get-in honest-counter
+                                            [:ledger :leases-acquired]))
+                             (zero? (get-in honest-counter
+                                            [:ledger :leases-retired])))
+                        recovery?
+                        (and (= 1 (:rung-divisor recovered-lease))
+                             (= [768 768] (:size recovered-lease))
+                             (= 1 (get-in recovered
+                                          [:ledger :region-binding-updates]))
+                             (= 1 (get-in recovered [:ledger :leases-acquired]))
+                             (= 1 (get-in recovered [:ledger :leases-retired]))
+                             (= 1 (get-in recovered
+                                          [:ledger :region-rung-recoveries])))
+                        floor-identical? (= (aget hashes 2) (aget hashes 3))
+                        pick? (and (= :near (:object-id object-pick))
+                                   (= :region-background
+                                      (:route background-pick)))
+                        deterministic? (= (aget hashes 0) (aget hashes 1))
+                        worn? (and (= 2 (:rung-divisor worn-lease))
+                                   (= [512 512] (:size worn-lease))
+                                   (empty? (get-in worn [:receipt :pool
+                                                         :refusals]))
+                                   (nil? (get-in worn [:receipt
+                                                       :last-region-refusal])))
+                        glyph? (and (> (nth wear-sample 1) (nth wear-sample 0))
+                                    (> (nth wear-sample 2) (nth wear-sample 0)))
+                        pass? (and (not (:refused? pressure-lease))
+                                   worn? physical-crossing? current-content?
+                                   held-stable? honest-counter? recovery?
+                                   reserve-preserved? deterministic? floor-identical?
+                                   (:pass? no-shadow-floor)
+                                   (:pass? shadowed-floor) pick? glyph?)
+                        pair {:bytes (:bytes mutated)
+                              :first-sha256 (aget hashes 0)
+                              :second-sha256 (aget hashes 1)
+                              :byte-identical? deterministic?}
+                        result {:image (region3d-image-record "worn" pair)
+                                :sharp {:lease (primary-lease sharp)
+                                        :ledger (:ledger sharp)}
+                                :worn {:lease worn-lease :ledger (:ledger worn)
+                                       :rung-receipts
+                                       (get-in worn [:receipt
+                                                     :region-rung-receipts])}
+                                :current-content? current-content?
+                                :wear-sample wear-sample :glyph? glyph?
+                                :held-stable? held-stable?
+                                :honest-counter? honest-counter?
+                                :recovery {:lease recovered-lease
+                                           :ledger (:ledger recovered)
+                                           :pass? recovery?}
+                                :reserve-preserved? reserve-preserved?
+                                :pick {:object (:object-id object-pick)
+                                       :background (:route background-pick)
+                                       :pass? pick?}
+                                :floor {:no-shadow
+                                        (dissoc no-shadow-floor :bytes)
+                                        :shadowed
+                                        (dissoc shadowed-floor :bytes)
+                                        :byte-identical? floor-identical?}
+                                :deterministic? deterministic?
+                                :pass? pass?}]
+                    (compositor-gpu/destroy-compositor! lower-compositor)
+                    (region3d-gpu/attach-compositor! region-system compositor)
+                    (region3d-gpu/prepare-region3d-frame!
+                     region-system {:regions []} {} {:zoom 1.0 :dpr 1.0})
+                    result)))))]]
+    (reduce (fn [promise step] (.then promise step))
+            (js/Promise.resolve nil)
+            steps)))
+
 (defn- run-region3d-floor! [device adapter font-assets]
   (let [tracker (gpu-budget/create-tracker
                  (gpu-budget/snapshot-adapter-limits adapter))
@@ -5161,19 +5438,32 @@
                 (fn [_]
                   (-> (region3d-s5-lifecycle!
                        harness transparent-region transparent-op)
-                      (.then (fn [s5] {:cases cases :s5 s5}))))))))
+                      (.then
+                       (fn [s5]
+                         (-> (region3d-lower-resolution!
+                              harness transparent-region transparent-op)
+                             (.then (fn [lower]
+                                      {:cases cases :s5 s5 :lower lower})))))))))))
         (.then
-         (fn [{:keys [cases s5]}]
-           (let [overlay-probe (get-in cases [2 :overlay-probe])
-                 s2 (assoc (get-in cases [1 :oracle])
+         (fn [{:keys [cases s5 lower]}]
+           (let [base-cases cases
+                 overlay-probe (get-in base-cases [2 :overlay-probe])
+                 s2 (assoc (get-in base-cases [1 :oracle])
                            :overlay-classes overlay-probe
-                           :pass? (and (get-in cases [1 :oracle :pass?])
+                           :pass? (and (get-in base-cases [1 :oracle :pass?])
                                        (:pass? overlay-probe)))
                  s4 s2
+                 cases (conj base-cases
+                             {:case-id "worn" :zoom 8.0
+                              :regime :region3d-floor-worn
+                              :normalization :region-local-3d-inside-world-2d
+                              :shape-extent-world [(:w transparent-op)
+                                                   (:h transparent-op)]
+                              :images [(:image lower)]})
                  determinism (mapcat #(map :determinism (:images %)) cases)
                  system-receipt (region3d-gpu/region3d-receipt region-system)
                  seam-receipt
-                 (:seam-receipt (last cases))
+                 (:seam-receipt (last base-cases))
                  compositor-receipt (compositor-gpu/compositor-receipt compositor)
                  seam-pass? (and (= 2 (:resolved seam-receipt))
                                  (some? (:text-layout-id seam-receipt))
@@ -5181,12 +5471,14 @@
                                  (pos? (or (:ink-vertices seam-receipt) 0))
                                  (pos? (or (:anchor-projections seam-receipt) 0))
                                  (pos? (or (:routes seam-receipt) 0)))
-                 pass? (and (= 6 (count cases))
+                 pass? (and (= 7 (count cases))
                             (every? :byte-identical? determinism)
                             (:pass? s1) (:pass? s2) (:pass? s3)
-                            (:pass? s4) (:pass? s5) seam-pass?)
+                            (:pass? s4) (:pass? s5) seam-pass?
+                            (:pass? lower))
                  result {:cases cases
                          :s1 s1 :s2 s2 :s3 s3 :s4 s4 :s5 s5
+                         :lower-resolution (dissoc lower :image)
                          :seam (assoc seam-receipt :pass? seam-pass?)
                          :system system-receipt
                          :compositor compositor-receipt
@@ -5739,8 +6031,14 @@
                                 (let [slug-assets (aget font-values 0)
                                       t1-assets (aget font-values 1)
                                       t1-receipt
-                                      (t1-layout-receipt
-                                       (:layout-provider t1-assets))]
+                                      (try
+                                        (t1-layout-receipt
+                                         (:layout-provider t1-assets))
+                                        (catch :default error
+                                          (assoc (or (ex-data error) {})
+                                                 :pass false
+                                                 :foreign-failure
+                                                 "T1 browser layout receipt failed.")))]
                                 (js/console.log "[W0-A] init-font-assets")
                                 (let [msdf-assets (assoc slug-assets :backend :msdf)
                                       camera-buffer (renderer/create-camera-buffer device nil)
@@ -5860,6 +6158,50 @@
                                           :t2-input-floor (aget values 9)
                                           :cases (aget values 0)})))))))))))))))))))
 
+(defn ^:export run-region3d-floor-verifier! []
+  (when-not (and (.-isSecureContext js/window)
+                 (exists? js/navigator.gpu))
+    (throw (js/Error. "Region3D floor verifier requires WebGPU")))
+  (-> (.requestAdapter js/navigator.gpu)
+      (.then
+       (fn [^js adapter]
+         (when-not adapter
+           (throw (js/Error. "Region3D floor verifier has no adapter")))
+         (-> (.requestDevice adapter)
+             (.then
+              (fn [^js device]
+                (-> (fonts/load-font-manifest-async)
+                    (.then
+                     (fn [manifest]
+                       (let [font-config
+                             (first (filter #(= "ubuntu-sans-variable" (:id %))
+                                            (:fonts manifest)))]
+                         (when-not font-config
+                           (throw (js/Error. "Region3D verifier font is absent")))
+                         (-> (fonts/load-font-assets font-config)
+                             (.then
+                              (fn [font-assets]
+                                (-> (js/Promise.all
+                                     #js [(shader-digests)
+                                          (run-region3d-floor!
+                                           device adapter font-assets)])
+                                    (.then
+                                     (fn [values]
+                                       {:schema-version 2
+                                        :verifier "softland-region3d-floor"
+                                        :secure-context? (.-isSecureContext js/window)
+                                        :user-agent (.-userAgent js/navigator)
+                                        :adapter (adapter-information adapter)
+                                        :device-limits
+                                        (selected-limits (.-limits device))
+                                        :canvas {:width canvas-size
+                                                 :height canvas-size
+                                                 :device-pixel-ratio
+                                                 (.-devicePixelRatio js/window)
+                                                 :color-format color-format}
+                                        :shader-digests (aget values 0)
+                                        :region3d-floor (aget values 1)})))))))))))))))))
+
 (defn ^:export start! []
   (js/console.log "[W0-A] start")
   (set! (.-__renderVerifierDone js/window) false)
@@ -5869,7 +6211,11 @@
    (fn []
      (js/console.log "[W0-A] scheduled-callback")
      (try
-       (-> (run-verifier!)
+       (let [params (js/URLSearchParams. (.-search js/location))
+             runner (if (.has params "region3d-floor-only")
+                      run-region3d-floor-verifier!
+                      run-verifier!)]
+       (-> (runner)
            (.then
             (fn [result]
               (set! (.-__renderVerifierResult js/window) (clj->js result))
@@ -5879,7 +6225,7 @@
               (set! (.-__renderVerifierResult js/window)
                     #js {:fatal (str error)
                          :stack (.-stack error)})
-              (set! (.-__renderVerifierDone js/window) true))))
+              (set! (.-__renderVerifierDone js/window) true)))))
        (catch :default error
          (set! (.-__renderVerifierResult js/window)
                #js {:fatal (str error)
