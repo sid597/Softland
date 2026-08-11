@@ -6,6 +6,7 @@
    join rendering through the renderer-edge snapshot and never enter store
    derivation or durable event vocabulary."
   (:require [app.client.substrate.region3d-material :as material]
+            [app.client.substrate.region3d-evaluation :as evaluation]
             [app.client.substrate.region3d-placement :as placement]
             [app.client.substrate.region3d-scene :as scene]
             [app.client.substrate.webgpu.region3d-gpu :as region3d-gpu]
@@ -173,19 +174,8 @@
     (swap! !session assoc :panel-position panel-origin)
     true))
 
-(defn- session-region-value [region row]
-  (let [region (reduce-kv
-                (fn [value object-id transform]
-                  (assoc-in value [:scene object-id :transform] transform))
-                region (or (:settled-transforms row) {}))
-        preview (:preview-transform row)]
-    (if (and (:object-id preview) (:transform preview))
-      (assoc-in region [:scene (:object-id preview) :transform]
-                (:transform preview))
-      region)))
-
 (defn- pick-maintained [region-id region row]
-  (let [region (session-region-value region row)
+  (let [region (evaluation/session-region-value region row)
         key [region-id region]]
     (or (get @!pick-cache key)
         (let [maintained (assoc (scene/derive-scene region)
@@ -356,7 +346,7 @@
         drag
         (if (= :gizmo (:route hit))
           (let [object-id (:object-id hit)
-                region (session-region-value (:region-material hit) row)
+                region (evaluation/session-region-value (:region-material hit) row)
                 maintained (pick-maintained region-id region row)
                 before (get-in region [:scene object-id :transform])
                 mode (first (:handle-id hit))

@@ -400,7 +400,8 @@
                 (let [bounds (reduce merge-aabb nil (map triangle-aabb rows))]
                   (if (<= (count rows) bvh-leaf-size)
                     {:bvh/version bvh-algorithm-version
-                     :kind :leaf :bounds bounds :triangles (vec rows)}
+                     :kind :leaf :bounds bounds :triangles (vec rows)
+                     :object-ids (set (map :object-id rows))}
                     (let [extent (v- (:max bounds) (:min bounds))
                           axis (apply max-key #(nth extent %) (range 3))
                           ordered (vec
@@ -415,40 +416,45 @@
                           right (build (subvec ordered split))]
                       {:bvh/version bvh-algorithm-version
                        :kind :branch :bounds bounds
+                       :object-ids (set/union (:object-ids left)
+                                              (:object-ids right))
                        :left left :right right}))))]
         (build triangles)))))
 
 (defn refit-bvh [bvh triangles-by-object affected-object-ids]
   (when bvh
-    (case (:kind bvh)
-      :leaf
-      (let [old-triangles (:triangles bvh)
-            touched (seq (set/intersection
-                          (set (map :object-id old-triangles))
-                          affected-object-ids))
-            replacements
-            (when touched
+    (if (empty? (set/intersection (:object-ids bvh) affected-object-ids))
+      bvh
+      (case (:kind bvh)
+        :leaf
+        (let [old-triangles (:triangles bvh)
+              touched (set/intersection (:object-ids bvh)
+                                        affected-object-ids)
+              replacements
               (into {}
                     (for [object-id touched]
                       [object-id
                        (into {} (map (juxt :triangle-index identity))
-                             (get triangles-by-object object-id []))])))
-            triangles
-            (if touched
+                             (get triangles-by-object object-id []))]))
+              triangles
               (mapv (fn [{:keys [object-id triangle-index] :as triangle}]
                       (or (get-in replacements [object-id triangle-index])
                           triangle))
-                    old-triangles)
-              old-triangles)]
-        (assoc bvh :triangles triangles
-                   :bounds (reduce merge-aabb nil (map triangle-aabb triangles))))
-      :branch
-      (let [left (refit-bvh (:left bvh) triangles-by-object
-                            affected-object-ids)
-            right (refit-bvh (:right bvh) triangles-by-object
-                             affected-object-ids)]
-        (assoc bvh :left left :right right
-                   :bounds (merge-aabb (:bounds left) (:bounds right)))))))
+                    old-triangles)]
+          (assoc bvh :triangles triangles
+                     :bounds (reduce merge-aabb nil
+                                     (map triangle-aabb triangles))))
+        :branch
+        (let [left (refit-bvh (:left bvh) triangles-by-object
+                              affected-object-ids)
+              right (refit-bvh (:right bvh) triangles-by-object
+                               affected-object-ids)]
+          (if (and (identical? left (:left bvh))
+                   (identical? right (:right bvh)))
+            bvh
+            (assoc bvh :left left :right right
+                       :bounds (merge-aabb (:bounds left)
+                                           (:bounds right)))))))))
 
 (defn- ray-aabb-hit?
   [{:keys [origin direction]} {min-point :min max-point :max} max-t]
@@ -756,6 +762,101 @@
                :bvh-refits 0
                :region-encodes 1}}))
 
+(defn- compose-affected
+  "Recompose only an already-canonical hierarchy subset. Unaffected parents
+  are read from the retained evaluated scene; affected parents are resolved
+  recursively so input map order cannot change the result."
+  [scene prior-effective affected]
+  (let [!memo (atom {})]
+    (letfn [(effective [object-id]
+              (if-not (contains? affected object-id)
+                (get prior-effective object-id)
+                (or (get @!memo object-id)
+                    (let [object (get scene object-id)
+                          local (trs-matrix (:transform object))
+                          result (if-let [parent (:parent object)]
+                                   (mat4-mul (effective parent) local)
+                                   local)]
+                      (swap! !memo assoc object-id result)
+                      result))))]
+      (doseq [object-id (sort-by pr-str affected)]
+        (effective object-id))
+      (merge prior-effective @!memo))))
+
+(defn- maintain-affected
+  [maintained next-region affected]
+  (let [effective (compose-affected (:scene next-region)
+                                    (:effective-transforms maintained)
+                                    affected)
+        instances-by-object
+        (reduce
+         (fn [rows id]
+           (assoc rows id
+                  (derive-instance-row (get-in next-region [:scene id])
+                                       (get effective id))))
+         (:instances-by-object maintained) affected)
+        triangles-by-object
+        (reduce
+         (fn [rows id]
+           (let [object (get-in next-region [:scene id])]
+             (if (= :mesh (:object/kind object))
+               (assoc rows id (transformed-triangles object
+                                                    (get effective id)))
+               rows)))
+         (:triangles-by-object maintained) affected)
+        bvh (refit-bvh (:bvh maintained) triangles-by-object affected)
+        object-ids (sort-by pr-str (keys (:scene next-region)))]
+    (assoc maintained
+           :region next-region
+           :effective-transforms effective
+           :instances-by-object instances-by-object
+           :instances (mapv instances-by-object object-ids)
+           :triangles-by-object triangles-by-object
+           :bvh bvh
+           :receipt {:full-rebuilds 0
+                     :instance-uploads (count affected)
+                     :bvh-build-triangles 0
+                     :bvh-refits (count (filter triangles-by-object affected))
+                     :region-encodes 1
+                     :affected-object-ids affected})))
+
+(defn maintain-transforms
+  "Apply a batch of transient or settled object transforms to the retained
+  evaluated scene. Geometry topology is preserved: only affected hierarchy
+  rows are recomposed and the existing BVH topology is refit."
+  [maintained transforms-by-object]
+  (when-not maintained
+    (throw (ex-info "Region3D transform maintenance requires a derived scene"
+                    {:transforms transforms-by-object})))
+  (let [region (:region maintained)
+        scene (:scene region)
+        transforms
+        (into {}
+              (map (fn [[object-id transform]]
+                     (when-not (contains? scene object-id)
+                       (throw (ex-info "Region3D transform target is missing"
+                                       {:object-id object-id})))
+                     [object-id (material/canonical-transform transform)]))
+              transforms-by-object)
+        changed
+        (into {}
+              (remove (fn [[object-id transform]]
+                        (= transform (get-in scene [object-id :transform]))))
+              transforms)]
+    (if (empty? changed)
+      (assoc maintained :receipt
+             {:full-rebuilds 0 :instance-uploads 0 :bvh-build-triangles 0
+              :bvh-refits 0 :region-encodes 0 :affected-object-ids #{}})
+      (let [next-region
+            (reduce-kv (fn [value object-id transform]
+                         (assoc-in value [:scene object-id :transform] transform))
+                       region changed)
+            affected
+            (reduce set/union #{}
+                    (map #(affected-descendants (:scene next-region) %)
+                         (keys changed)))]
+        (maintain-affected maintained next-region affected)))))
+
 (defn maintain-scene
   "Apply one settled edit. Transform and parent edits update only the affected
   hierarchy subtree and refit retained BVH leaves. Topology/material changes
@@ -764,46 +865,19 @@
   (if-not maintained
     (throw (ex-info "Region3D incremental maintenance requires a derived scene"
                     {:diff diff}))
-    (let [next-region (material/apply-edit (:region maintained) diff)
-          op (:op/id diff)
+    (let [op (:op/id diff)
           object-id (get-in diff [:payload :object-id])]
-      (if-not (contains? #{:region3d/set-transform :region3d/set-parent} op)
-        (derive-scene next-region)
-        (let [affected (affected-descendants (:scene next-region) object-id)
-              all-effective (compose-hierarchy next-region)
-              effective (reduce #(assoc %1 %2 (get all-effective %2))
-                                (:effective-transforms maintained) affected)
-              instances-by-object
-              (reduce
-               (fn [rows id]
-                 (assoc rows id
-                        (derive-instance-row (get-in next-region [:scene id])
-                                             (get effective id))))
-               (:instances-by-object maintained) affected)
-              triangles-by-object
-              (reduce
-               (fn [rows id]
-                 (let [object (get-in next-region [:scene id])]
-                   (if (= :mesh (:object/kind object))
-                     (assoc rows id (transformed-triangles object
-                                                          (get effective id)))
-                     rows)))
-               (:triangles-by-object maintained) affected)
-              bvh (refit-bvh (:bvh maintained) triangles-by-object affected)
-              object-ids (sort-by pr-str (keys (:scene next-region)))]
-          (assoc maintained
-                 :region next-region
-                 :effective-transforms effective
-                 :instances-by-object instances-by-object
-                 :instances (mapv instances-by-object object-ids)
-                 :triangles-by-object triangles-by-object
-                 :bvh bvh
-                 :receipt {:full-rebuilds 0
-                           :instance-uploads (count affected)
-                           :bvh-build-triangles 0
-                           :bvh-refits (count (filter triangles-by-object affected))
-                           :region-encodes 1
-                           :affected-object-ids affected}))))))
+      (case op
+        :region3d/set-transform
+        (maintain-transforms maintained
+                             {object-id (get-in diff [:payload :after])})
+
+        :region3d/set-parent
+        (let [next-region (material/apply-edit (:region maintained) diff)
+              affected (affected-descendants (:scene next-region) object-id)]
+          (maintain-affected maintained next-region affected))
+
+        (derive-scene (material/apply-edit (:region maintained) diff))))))
 
 (defn- bvh-triangle-receipt [bvh]
   (letfn [(walk [node]

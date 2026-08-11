@@ -6,6 +6,7 @@
    `execute-region3d-batch!` is the ordinary scene-tape composite executor.
    Region attachment bytes remain compositor target-pool leases throughout."
   (:require [app.client.substrate.frame-inputs :as frame-inputs]
+            [app.client.substrate.region3d-evaluation :as evaluation]
             [app.client.substrate.region3d-material :as material]
             [app.client.substrate.region3d-placement :as placement]
             [app.client.substrate.region3d-scene :as scene]
@@ -20,6 +21,7 @@
 (def mesh-vertex-stride 24)
 (def mesh-instance-stride 112)
 (def glyph-instance-stride 32)
+(def light-instance-stride 80)
 (def composite-instance-stride 20)
 (def region-uniform-bytes 128)
 (def shadow-uniform-bytes 64)
@@ -693,9 +695,11 @@
      :!last-regions (atom ::never)
      :!entry-shape-key (atom ::never)
      :!receipt (atom {:version 1 :prepare-calls 0 :scene-derives 0
+                      :scene-transform-updates 0
                       :region-encodes 0
                       :held-passes 0 :object-instance-uploads 0
-                      :mesh-vertex-uploads 0 :uniform-uploads 0
+                      :mesh-vertex-uploads 0 :glyph-instance-uploads 0
+                      :light-uploads 0 :uniform-uploads 0
                       :composite-uploads 0 :regions {}})}))
 
 (defonce ^:private !systems-by-device (js/WeakMap.))
@@ -758,6 +762,13 @@
 (defn- typed-f32 [values]
   (js/Float32Array. (clj->js (vec values))))
 
+(defn- write-buffer-range! [system buffer byte-offset values]
+  (let [data (typed-f32 values)]
+    (when (pos? (.-byteLength data))
+      (.writeBuffer (.-queue ^js (:device system))
+                    (:buffer buffer) byte-offset data)))
+  buffer)
+
 (defn- mesh-vertex-values [object]
   (let [{:keys [positions normals indices]} (scene/object-mesh object)]
     (vec
@@ -784,66 +795,84 @@
    {:vertices [] :draws {}}
    (sort-by (comp pr-str key) (get-in maintained [:region :scene]))))
 
+(defn- instance-row-values [{:keys [matrix material]}]
+  (let [material (or material material/default-material)
+        base (tagged-linear (:base-color material))
+        emissive (tagged-linear (:emissive material))]
+    (vec (concat (column-major matrix)
+                 base
+                 [(:metallic material) (:roughness material) 0.0 0.0]
+                 [(nth emissive 0) (nth emissive 1) (nth emissive 2) 0.0]))))
+
 (defn- instance-values [maintained]
-  (vec
-   (mapcat
-    (fn [{:keys [object-id matrix material]}]
-      (let [material (or material material/default-material)
-            base (tagged-linear (:base-color material))
-            emissive (tagged-linear (:emissive material))]
-        (concat (column-major matrix)
-                base
-                [(:metallic material) (:roughness material) 0.0 0.0]
-                [(nth emissive 0) (nth emissive 1) (nth emissive 2) 0.0])))
-    (:instances maintained))))
+  (vec (mapcat instance-row-values (:instances maintained))))
 
 (defn- object-index [maintained]
   (into {} (map-indexed (fn [index row] [(:object-id row) index])
                         (:instances maintained))))
 
+(defn- glyph-rows [maintained]
+  (->> (get-in maintained [:region :scene])
+       (filter (fn [[_ object]]
+                 (contains? #{:light :camera :empty} (:object/kind object))))
+       (sort-by (comp pr-str key))
+       vec))
+
+(defn- glyph-index [maintained]
+  (into {} (map-indexed (fn [index [object-id _]] [object-id index])
+                        (glyph-rows maintained))))
+
+(defn- glyph-row-values [maintained object-id object]
+  (let [origin (scene/transform-point
+                (get-in maintained [:effective-transforms object-id])
+                [0.0 0.0 0.0])
+        color (case (:object/kind object)
+                :light [1.0 0.72 0.18 1.0]
+                :camera [0.22 0.68 1.0 1.0]
+                [0.72 0.72 0.78 1.0])]
+    (vec (concat origin [1.0] color))))
+
 (defn- glyph-values [maintained]
-  (vec
-   (mapcat
-    (fn [[object-id object]]
-      (when (contains? #{:light :camera :empty} (:object/kind object))
-        (let [origin (scene/transform-point
-                      (get-in maintained [:effective-transforms object-id])
-                      [0.0 0.0 0.0])
-              color (case (:object/kind object)
-                      :light [1.0 0.72 0.18 1.0]
-                      :camera [0.22 0.68 1.0 1.0]
-                      [0.72 0.72 0.78 1.0])]
-          (concat origin [1.0] color))))
-    (sort-by (comp pr-str key) (get-in maintained [:region :scene])))))
+  (vec (mapcat (fn [[object-id object]]
+                 (glyph-row-values maintained object-id object))
+               (glyph-rows maintained))))
+
+(defn- light-rows [maintained]
+  (->> (get-in maintained [:region :scene])
+       (filter (fn [[_ object]] (= :light (:object/kind object))))
+       (sort-by (comp pr-str key))
+       (take max-lights)
+       vec))
+
+(defn- light-index [maintained]
+  (into {} (map-indexed (fn [index [object-id _]] [object-id index])
+                        (light-rows maintained))))
+
+(defn- light-row-values [maintained object-id object]
+  (let [light (:light object)
+        matrix (get-in maintained [:effective-transforms object-id])
+        position (scene/transform-point matrix [0.0 0.0 0.0])
+        direction (scene/normalize
+                   (scene/transform-direction matrix [0.0 0.0 -1.0]))
+        [r g b _] (tagged-linear (:color light))
+        kind (case (:kind light) :directional 0.0 :point 1.0 :spot 2.0)
+        cone (:cone light)
+        inner (js/Math.cos (* (or (:inner-deg cone) 0.0)
+                              (/ js/Math.PI 180.0)))
+        outer (js/Math.cos (* (or (:outer-deg cone) 0.0)
+                              (/ js/Math.PI 180.0)))]
+    (vec (concat [kind (:intensity light) (or (:range light) 100.0)
+                  (if (:cast-shadow light) 1.0 0.0)]
+                 position [1.0] direction [0.0] [r g b 1.0]
+                 [inner outer 0.0 0.0]))))
 
 (defn- light-values [maintained]
-  (let [lights
-        (->> (get-in maintained [:region :scene])
-             (filter (fn [[_ object]] (= :light (:object/kind object))))
-             (sort-by (comp pr-str key))
-             (take max-lights))]
+  (let [lights (light-rows maintained)]
     {:count (count lights)
      :values
-     (vec
-      (mapcat
-       (fn [[object-id object]]
-         (let [light (:light object)
-               matrix (get-in maintained [:effective-transforms object-id])
-               position (scene/transform-point matrix [0.0 0.0 0.0])
-               direction (scene/normalize
-                          (scene/transform-direction matrix [0.0 0.0 -1.0]))
-               [r g b _] (tagged-linear (:color light))
-               kind (case (:kind light) :directional 0.0 :point 1.0 :spot 2.0)
-               cone (:cone light)
-               inner (js/Math.cos (* (or (:inner-deg cone) 0.0)
-                                     (/ js/Math.PI 180.0)))
-               outer (js/Math.cos (* (or (:outer-deg cone) 0.0)
-                                     (/ js/Math.PI 180.0)))]
-           (concat [kind (:intensity light) (or (:range light) 100.0)
-                    (if (:cast-shadow light) 1.0 0.0)]
-                   position [1.0] direction [0.0] [r g b 1.0]
-                   [inner outer 0.0 0.0])))
-       lights))}))
+     (vec (mapcat (fn [[object-id object]]
+                    (light-row-values maintained object-id object))
+                  lights))}))
 
 (defn- shadow-projection [{:keys [min max]}]
   (let [[left bottom far] min
@@ -885,18 +914,6 @@
 (defn- session-region [session region-id]
   (get-in session [:regions region-id] {}))
 
-(defn- session-region-value [region session-row]
-  (let [settled (:settled-transforms session-row)
-        preview (:preview-transform session-row)
-        region (reduce-kv (fn [value object-id transform]
-                            (assoc-in value [:scene object-id :transform]
-                                      transform))
-                          region (or settled {}))]
-    (if (and (:object-id preview) (:transform preview))
-      (assoc-in region [:scene (:object-id preview) :transform]
-                (:transform preview))
-      region)))
-
 (defn- gizmo-hover-number [mode handle-id]
   (let [[handle-mode handle] handle-id]
     (if (not= mode handle-mode)
@@ -936,7 +953,7 @@
   (let [{:keys [vertices draws]} (mesh-upload maintained)
         vertex-data (typed-f32 vertices)
         instance-data (typed-f32 (instance-values maintained))
-        glyph-data (typed-f32 (remove nil? (glyph-values maintained)))
+        glyph-data (typed-f32 (glyph-values maintained))
         {:keys [count values]} (light-values maintained)
         light-data (typed-f32 values)
         vertex-buffer (ensure-buffer! system (:vertex gpu)
@@ -960,7 +977,38 @@
     (write-buffer! system (:lights gpu) light-data (.-byteLength light-data))
     (assoc gpu :vertex vertex-buffer :instances instance-buffer
            :glyphs glyph-buffer :draws draws :object-index (object-index maintained)
+           :glyph-index (glyph-index maintained) :light-index (light-index maintained)
            :glyph-count (quot (.-length glyph-data) 8) :light-count count)))
+
+(defn- write-transform-gpu!
+  "Write only evaluated transform dependents. Mesh vertices and draw topology
+  stay retained; instance, glyph, and light rows use their stable offsets."
+  [system gpu maintained affected-object-ids]
+  (reduce
+   (fn [receipt object-id]
+     (let [object (get-in maintained [:region :scene object-id])
+           instance-index (get-in gpu [:object-index object-id])
+           glyph-index (get-in gpu [:glyph-index object-id])
+           light-index (get-in gpu [:light-index object-id])]
+       (when (some? instance-index)
+         (write-buffer-range!
+          system (:instances gpu) (* instance-index mesh-instance-stride)
+          (instance-row-values
+           (get-in maintained [:instances-by-object object-id]))))
+       (when (some? glyph-index)
+         (write-buffer-range!
+          system (:glyphs gpu) (* glyph-index glyph-instance-stride)
+          (glyph-row-values maintained object-id object)))
+       (when (some? light-index)
+         (write-buffer-range!
+          system (:lights gpu) (* light-index light-instance-stride)
+          (light-row-values maintained object-id object)))
+       (cond-> receipt
+         (some? instance-index) (update :instance-uploads inc)
+         (some? glyph-index) (update :glyph-uploads inc)
+         (some? light-index) (update :light-uploads inc))))
+   {:instance-uploads 0 :glyph-uploads 0 :light-uploads 0}
+   (sort-by pr-str affected-object-ids)))
 
 (defn- object-depth [camera maintained object-id]
   (scene/length
@@ -1110,34 +1158,28 @@
                         (max 1 (js/Math.ceil (* (:h op) encode-scale)))]
                        old (get prior region-id)
                        raw-region (:region3d/scene op)
-                       material-key
-                       [(dissoc raw-region :background)
-                        (:preview-transform session-row)
-                        (:settled-transforms session-row)]
                        background-key (:background raw-region)
-                       material-changed?
-                       (or (nil? old)
-                           (not= material-key (:material-key old)))
                        background-changed?
                        (or (nil? old)
                            (not= background-key (:background-key old)))
-                       canonical-region
-                       (when (or material-changed? background-changed?)
-                         (material/validate-region! raw-region))
-                       region
-                       (if material-changed?
-                         (session-region-value canonical-region session-row)
-                         (get-in old [:maintained :region]))
+                       evaluation-result
+                       (evaluation/evaluate-scene
+                        (:maintained old) (:evaluation-key old)
+                        raw-region session-row)
+                       update-kind (:update-kind evaluation-result)
+                       material-changed? (= :full update-kind)
+                       transform-changed? (= :transform update-kind)
+                       scene-changed? (not= :none update-kind)
                        maintained0
-                       (if material-changed?
-                         (assoc (scene/derive-scene region) :region-id region-id)
-                         (:maintained old))
+                       (assoc (:maintained evaluation-result)
+                              :region-id region-id)
                        maintained
                        (if (and background-changed? (not material-changed?))
                          (assoc-in maintained0 [:region :background]
-                                   (:background canonical-region))
+                                   (:background
+                                    (material/validate-region! raw-region)))
                          maintained0)
-                       shadow-space (if material-changed?
+                       shadow-space (if scene-changed?
                                       (scene/shadow-light-space maintained)
                                       (:shadow-space old))
                        view (or (:view session-row)
@@ -1147,13 +1189,14 @@
                                  (:gizmo-mode session-row)
                                  (:gizmo-hover session-row)
                                  shadow-space]
-                       view-changed? (or material-changed? (nil? old)
+                       view-changed? (or scene-changed? (nil? old)
                                          (not= view-key (:view-key old)))
                        camera (if view-changed?
                                 (scene/camera-matrices view encode-pixel-size)
                                 (:camera old))
                        prepare-key
-                       {:material material-key :background background-key
+                       {:material (:evaluation-key evaluation-result)
+                        :background background-key
                         :view view-key :dpr dpr
                         :placements (:region3d/resolved-placements op)
                         :font (font-input-token font-assets)
@@ -1164,10 +1207,26 @@
                         :max-lease-size max-lease-size}]
                    (let [gpu0 (or (:gpu old)
                                     (create-region-gpu system region-id))
-                           gpu1 (if material-changed?
-                                  (write-material-gpu! system region-id gpu0
-                                                       maintained)
-                                  gpu0)
+                           upload-receipt
+                           (case update-kind
+                             :full
+                             {:gpu (write-material-gpu! system region-id gpu0
+                                                        maintained)
+                              :instance-uploads (count (:instances maintained))
+                              :mesh-vertex-uploads 1
+                              :glyph-uploads (count (glyph-rows maintained))
+                              :light-uploads (count (light-rows maintained))}
+
+                             :transform
+                             (assoc (write-transform-gpu!
+                                     system gpu0 maintained
+                                     (:affected-object-ids evaluation-result))
+                                    :gpu gpu0 :mesh-vertex-uploads 0)
+
+                             {:gpu gpu0 :instance-uploads 0
+                              :mesh-vertex-uploads 0 :glyph-uploads 0
+                              :light-uploads 0})
+                           gpu1 (:gpu upload-receipt)
                            gpu2 (if view-changed?
                                   (write-view-gpu! system gpu1 maintained camera
                                                    session-row shadow-space)
@@ -1185,7 +1244,7 @@
                                        (:path-cache placement-result)))
                            gpu3 (assoc gpu2 :placement (:gpu placement-result))
                            mesh-draw-order
-                           (if (or material-changed? view-changed?
+                           (if (or scene-changed? view-changed?
                                    (not= (get-in old [:maintained :region
                                                      :background :kind])
                                          (get-in maintained [:region :background
@@ -1194,15 +1253,16 @@
                              (draw-order gpu3 maintained camera)
                              (:draw-order old))
                            dirty-by-role
-                           {:shadow (or material-changed? (nil? old))
-                            :interior (or material-changed? view-changed?
+                           {:shadow (or scene-changed? (nil? old))
+                            :interior (or scene-changed? view-changed?
                                           background-changed?
                                           (:changed? placement-result)
                                           (nil? old))}]
                        [region-id
                         {:region-id region-id :op op
                          :prepare-key prepare-key
-                         :material-key material-key
+                         :material-key (:evaluation-key evaluation-result)
+                         :evaluation-key (:evaluation-key evaluation-result)
                          :background-key background-key :view-key view-key
                          :maintained maintained :camera camera
                          :lease-size lease-size :encode-rung encode-rung
@@ -1212,7 +1272,12 @@
                          :placements (:placements placement-result)
                          :placement-census (:census placement-result)
                          :dirty-by-role dirty-by-role
+                         :scene-update-kind update-kind
+                         :affected-object-ids
+                         (:affected-object-ids evaluation-result)
+                         :upload-receipt upload-receipt
                          :material-changed? material-changed?
+                         :transform-changed? transform-changed?
                          :background-changed? background-changed?
                          :view-changed? view-changed?
                          :last-lease-keys (:last-lease-keys old)
@@ -1275,14 +1340,32 @@
                (-> receipt
                    (update :prepare-calls inc)
                    (update :scene-derives +
-                           (count (filter :material-changed? changed-rows)))
+                           (count (filter #(= :full (:scene-update-kind %))
+                                          changed-rows)))
+                   (update :scene-transform-updates +
+                           (count (filter #(= :transform
+                                                (:scene-update-kind %))
+                                          changed-rows)))
                    (update :object-instance-uploads +
-                           (reduce + 0 (map #(if (:material-changed? %)
-                                              (count (get-in % [:maintained
-                                                                :instances])) 0)
-                                            changed-rows)))
+                           (reduce + 0
+                                   (map #(get-in % [:upload-receipt
+                                                    :instance-uploads] 0)
+                                        changed-rows)))
                    (update :mesh-vertex-uploads +
-                           (count (filter :material-changed? changed-rows)))
+                           (reduce + 0
+                                   (map #(get-in % [:upload-receipt
+                                                    :mesh-vertex-uploads] 0)
+                                        changed-rows)))
+                   (update :glyph-instance-uploads +
+                           (reduce + 0
+                                   (map #(get-in % [:upload-receipt
+                                                    :glyph-uploads] 0)
+                                        changed-rows)))
+                   (update :light-uploads +
+                           (reduce + 0
+                                   (map #(get-in % [:upload-receipt
+                                                    :light-uploads] 0)
+                                        changed-rows)))
                    (update :uniform-uploads +
                            (count (filter :view-changed? changed-rows)))
                    (update :composite-uploads + composite-uploads)
@@ -1292,6 +1375,13 @@
                                         (map (fn [[id row]]
                                                [id (:dirty-by-role row)]))
                                         next)
+                           :scene-updates
+                           (into {}
+                                 (map (fn [[id row]]
+                                        [id {:kind (:scene-update-kind row)
+                                             :affected
+                                             (:affected-object-ids row)}]))
+                                 next)
                            :composite-uploads composite-uploads})))))
     @(:!receipt system)))
 
