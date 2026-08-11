@@ -430,9 +430,13 @@
                   (assoc base
                          :route :region3d
                          :region-id (get-in node [:data :region3d/id])
+                         :css-point screen
                          :region-local (node-local-point path [lx ly])
                          :region-size [(get-in node [:bounds :w])
                                        (get-in node [:bounds :h])]
+                         :region-scale (Math/sqrt
+                                        (Math/abs
+                                         (containers/determinant (:affine eff))))
                          :region-material region
                          :region-revision (:region3d/version region))
                   base)))))))

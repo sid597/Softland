@@ -86,6 +86,8 @@
     (is (= :region3d (:route hit)))
     (is (= :region/a (:region-id hit)))
     (is (= [5.0 5.0] (:region-local hit)))
+    (is (= [145.0 115.0] (:css-point hit)))
+    (is (= 1.0 (:region-scale hit)))
     (is (not (contains? hit :camera))
         "the scene store never sees session camera state")))
 
@@ -169,8 +171,9 @@
         translate (region/gizmo-handles effective camera :near :translate)
         rotate (region/gizmo-handles effective camera :near :rotate)
         scale (region/gizmo-handles effective camera :near :scale)
-        z-handle (last (filter #(= [:translate :z] (:handle/id %)) translate))
-        z-screen (:screen (region/project-point camera (:position z-handle)))
+        z-handle (first (filter #(= [:translate :z] (:handle/id %)) translate))
+        z-screen (:screen (region/project-point camera
+                                                (second (:segment z-handle))))
         z-pick (region/pick-region
                 {:maintained maintained :camera camera
                  :region-point (update z-screen 0 + 8.0)
@@ -190,8 +193,10 @@
            (set (map :handle/id rotate))))
     (is (= #{[:scale :x] [:scale :y] [:scale :z] [:scale :uniform]}
            (set (map :handle/id scale))))
-    (is (> (count (filter #(= [:rotate :z] (:handle/id %)) rotate)) 32)
-        "the painted ring, not one endpoint, is pickable")
+    (is (= (inc region/gizmo-ring-sample-count)
+           (count (:polyline
+                   (first (filter #(= [:rotate :z] (:handle/id %)) rotate)))))
+        "the complete painted ring, including its closing segment, is pickable")
     (is (= [:translate :z] (:handle-id z-pick))
         "the declared screen slop reaches the visible Z axis")))
 

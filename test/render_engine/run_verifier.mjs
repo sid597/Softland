@@ -44,6 +44,9 @@ const appendRegion3dSeamGoldens = process.argv.includes(
 const appendRegion3dWornGolden = process.argv.includes(
   "--append-region3d-worn-golden",
 );
+const appendRegion3dPointerHoverGolden = process.argv.includes(
+  "--append-region3d-pointer-hover-golden",
+);
 const amendRegion3dGizmoGolden = process.argv.includes(
   "--amend-region3d-gizmo-golden",
 );
@@ -84,7 +87,9 @@ const assertLowerResolutionContract = process.argv.includes(
   "--assert-lower-resolution-contract",
 );
 const region3dFloorOnly =
-  appendRegion3dWornGolden || assertLowerResolutionContract;
+  appendRegion3dWornGolden ||
+  appendRegion3dPointerHoverGolden ||
+  assertLowerResolutionContract;
 const launchArgs = [
   "--no-sandbox",
   "--enable-unsafe-webgpu",
@@ -586,6 +591,9 @@ const region3dFloorInputs = () => ({
   region3dRuntime: sha256File(
     "src/app/client/workspace/region3d_runtime.cljs",
   ),
+  region3dPointer: sha256File(
+    "src/app/client/workspace/region3d_pointer.cljc",
+  ),
   compositorGpu: sha256File(
     "src/app/client/substrate/webgpu/compositor_gpu.cljs",
   ),
@@ -868,6 +876,7 @@ const main = async () => {
       appendRegion3dGoldens,
       appendRegion3dSeamGoldens,
       appendRegion3dWornGolden,
+      appendRegion3dPointerHoverGolden,
       amendRegion3dGizmoGolden,
       amendT2LivedCorrection,
       appendImageInputAmendment,
@@ -1028,11 +1037,20 @@ const main = async () => {
       bankPresent &&
       expectedEnvironment?.fingerprintSha256 === environment.fingerprintSha256;
     const currentRows = region3dFloorRows(result);
-    const priorRows = currentRows.filter((row) => row.caseId !== "worn");
-    const wornRows = currentRows.filter((row) => row.caseId === "worn");
+    const appendTargetId = appendRegion3dPointerHoverGolden
+      ? "gizmo-hover-x"
+      : "worn";
+    const appendTargetRows = currentRows.filter(
+      (row) => row.caseId === appendTargetId,
+    );
+    const priorRows = currentRows.filter(
+      (row) => row.caseId !== appendTargetId,
+    );
+    const priorCount = appendRegion3dPointerHoverGolden ? 7 : 6;
+    const currentCount = appendRegion3dPointerHoverGolden ? 8 : 7;
     const deterministic = region3dFloorDeterminismRows(result);
     const determinismPass =
-      deterministic.length === 7 &&
+      deterministic.length === 8 &&
       deterministic.every((row) => row.byteIdentical);
     const lower = result.region3dFloor.lowerResolution;
     const lowerPass =
@@ -1078,9 +1096,9 @@ const main = async () => {
     const priorPass = comparisonPass(
       priorComparison,
       expectedManifest?.region3dFloorCases,
-      6,
+      priorCount,
     );
-    const wornFile = wornRows[0]?.file;
+    const appendTargetFile = appendTargetRows[0]?.file;
     const appendPreflight = {
       bankPresent,
       environmentMatch,
@@ -1088,38 +1106,40 @@ const main = async () => {
       existingRegion3dRows:
         expectedManifest?.region3dFloorCases?.length || 0,
       currentRegion3dRows: currentRows.length,
-      wornRows: wornRows.length,
+      appendTargetId,
+      appendTargetRows: appendTargetRows.length,
       priorPass,
       determinismPass,
       lowerPass,
       region3dContractPass: result.region3dFloor.pass,
-      wornFile,
-      wornFileUnoccupied:
-        Boolean(wornFile) && !fs.existsSync(path.join(goldenDir, wornFile)),
+      appendTargetFile,
+      appendTargetFileUnoccupied:
+        Boolean(appendTargetFile) &&
+        !fs.existsSync(path.join(goldenDir, appendTargetFile)),
     };
     const appendAuthorized =
       bankPresent &&
       environmentMatch &&
       protectedBankPass &&
-      expectedManifest.region3dFloorCases?.length === 6 &&
-      currentRows.length === 7 &&
-      wornRows.length === 1 &&
+      expectedManifest.region3dFloorCases?.length === priorCount &&
+      currentRows.length === currentCount &&
+      appendTargetRows.length === 1 &&
       priorPass &&
       determinismPass &&
       lowerPass &&
       result.region3dFloor.pass &&
-      appendPreflight.wornFileUnoccupied;
+      appendPreflight.appendTargetFileUnoccupied;
 
-    if (appendRegion3dWornGolden) {
+    if (appendRegion3dWornGolden || appendRegion3dPointerHoverGolden) {
       if (!appendAuthorized) {
         throw new Error(
-          `LOWER-RESOLUTION append preflight failed: ${JSON.stringify(appendPreflight)}`,
+          `REGION3D append preflight failed: ${JSON.stringify(appendPreflight)}`,
         );
       }
-      const wornCase = result.region3dFloor.cases.find(
-        (renderCase) => renderCase.caseId === "worn",
+      const appendTargetCase = result.region3dFloor.cases.find(
+        (renderCase) => renderCase.caseId === appendTargetId,
       );
-      const image = wornCase.images[0];
+      const image = appendTargetCase.images[0];
       fs.writeFileSync(
         path.join(goldenDir, image.file),
         Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64"),
@@ -1131,13 +1151,14 @@ const main = async () => {
         )
       ) {
         throw new Error(
-          "LOWER-RESOLUTION append changed a protected golden byte",
+          "REGION3D append changed a protected golden byte",
         );
       }
       const amendmentFor = (key, currentInputs) => ({
         amendment: (expectedManifest[key]?.length || 0) + 1,
-        reason:
-          "FRAME-VIEW lower-resolution admission added one worn Region3D golden; all prior golden bytes remained unchanged",
+        reason: appendRegion3dPointerHoverGolden
+          ? "REGION3D pointer custody added one forced x-axis hover golden; all prior golden bytes remained unchanged"
+          : "FRAME-VIEW lower-resolution admission added one worn Region3D golden; all prior golden bytes remained unchanged",
         inputs: currentInputs,
       });
       const currentInputSets = {
@@ -1224,7 +1245,7 @@ const main = async () => {
     const goldenPass = comparisonPass(
       comparison,
       expectedManifest?.region3dFloorCases,
-      7,
+      8,
     );
     const pass =
       environmentMatch &&
@@ -1243,7 +1264,8 @@ const main = async () => {
       attestation,
       environment,
       append: {
-        requested: appendRegion3dWornGolden,
+        requested:
+          appendRegion3dWornGolden || appendRegion3dPointerHoverGolden,
         authorized: appendAuthorized,
         preflight: appendPreflight,
       },
@@ -1362,7 +1384,7 @@ const main = async () => {
     t2Deterministic.length === 3 &&
     t2Deterministic.every((row) => row.byteIdentical);
   const region3dDeterminismPass =
-    region3dDeterministic.length === 6 &&
+    region3dDeterministic.length === 8 &&
     region3dDeterministic.every((row) => row.byteIdentical);
   const connectorParityPass =
     connectorParity.length === 7 &&
@@ -2922,7 +2944,7 @@ const main = async () => {
     comparisonPass(
       region3dFloorComparison,
       expectedManifest?.region3dFloorCases,
-      6,
+      8,
     );
   const region3dGizmoChangedRows = region3dFloorComparison.filter(
     (row) => !row.rawMatch || !row.pngManifestMatch,
@@ -3985,7 +4007,7 @@ const main = async () => {
   assertField(pickRoadCustodyPass, "t2-pick-road-custody");
   assertField(result.t2InputFloor.pass, "t2-input-floor-contract");
   assertField(
-    region3dFloorPass && region3dFloorComparison.length === 6,
+    region3dFloorPass && region3dFloorComparison.length === 8,
     "region3d-floor-goldens",
   );
   assertField(region3dDeterminismPass, "region3d-floor-determinism");

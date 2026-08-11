@@ -47,6 +47,7 @@
     app.client.substrate.region3d-material-test
     app.client.substrate.region3d-placement-test
     app.client.substrate.region3d-scene-test
+    app.client.workspace.region3d-pointer-test
     app.client.substrate.scene-tape-test
     app.client.substrate.snap-test
     app.client.workspace.block-edit-test

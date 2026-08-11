@@ -5400,6 +5400,13 @@
                                     {:selection :near
                                      :gizmo-mode :translate}}}
                 :sides :below}
+               {:case-id "gizmo-hover-x" :region overlay-region
+                :op overlay-op
+                :session {:regions {region3d-id
+                                    {:selection :near
+                                     :gizmo-mode :translate
+                                     :gizmo-hover [:translate :x]}}}
+                :sides :below}
                {:case-id "placed-depth-interleave" :region seam-region
                 :op seam-op :session {} :sides :sandwich
                 :seam-kind :placed}
@@ -5471,7 +5478,7 @@
                                  (pos? (or (:ink-vertices seam-receipt) 0))
                                  (pos? (or (:anchor-projections seam-receipt) 0))
                                  (pos? (or (:routes seam-receipt) 0)))
-                 pass? (and (= 7 (count cases))
+                 pass? (and (= 8 (count cases))
                             (every? :byte-identical? determinism)
                             (:pass? s1) (:pass? s2) (:pass? s3)
                             (:pass? s4) (:pass? s5) seam-pass?

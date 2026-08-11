@@ -1,20 +1,15 @@
 # REGION3D / POINTER — NOW
 
 ## STANDING
-
-Region3D pointer interaction resolves every event into one typed packet
-(css · region-local · region-device + matching viewports, scale S = dpr ×
-effective outer scale); consumers declare their representation and never
-cross-pair. Navigation is pointer-anchored (similarity dolly about the
-anchor; grab-plane glued pan, start-camera rays). One wheel court in
-`scroll.cljs` gives each wheel event exactly one camera; the gizmo picks
-the geometry it paints (segment metric, glass-declared slop, hover).
-Desired-size pick authority and the one-pick-road chain are preserved.
+One typed pointer packet owns CSS, local, desired-device, viewport, and scale custody; consumers never cross-pair.
+Navigation is anchored/glued, one scroll court owns wheel camera dispatch, and gizmo picks the complete painted geometry with glass slop + hover.
 
 ## NOW
-
-- 2026-08-11 — CONTRACT CUT (Fable 5, this session; born of Sid driving
-  the seam demo: pointer drift + gizmo confusion). Four structural defects
-  pinned (D1 no anchor · D2 pan cross-pair · D3 dual wheel dispatch ·
-  D4 gizmo ray split / pick≠paint / device-fixed slop). Fresh-eyes round
-  at Sid's hand: PENDING. Implementation: NOT STARTED.
+- 2026-08-11 — BUILT; candidate SOURCE FROZEN; SID ACCEPTANCE PENDING.
+- S1–S5: 13 focused tests / 99 assertions GREEN; dev compile and render-verifier build GREEN.
+- Goldens: protected prior 7 byte-unchanged; required `gizmo-hover-x` appended; 8/8 deterministic + matching.
+- Custody: dead-road greps EMPTY; live packet handlers + sole exported `wheel!`/scroll court quoted; diff check clean.
+- Close debt: broad assertion stopped before Region3D on foreign `family paint is incomplete`; focused Region3D append contract GREEN.
+- Lived seam: RECEIPT PENDING — local product surface did not mount; no pointer-feel/runtime-custody claim; Sid has not accepted.
+- ONE FORK — does session→uniform hover permit adding `:gizmo-mode`/`:gizmo-hover` to the retained GPU view key despite §6's GPU-window fence? Strongest build default taken: yes; direction remains unrulled here.
+- Changed files: 13, exactly the staged `git diff --name-only HEAD` source/test/golden set.

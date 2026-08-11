@@ -3,12 +3,34 @@
   (:require [missionary.core :as m]
             [app.client.workspace.events :refer [maybe-snap]]
             [app.client.workspace.ground :as ground]
+            [app.client.workspace.region3d-pointer :as region3d-pointer]
+            [app.client.workspace.region3d-runtime :as region3d]
             [app.client.workspace.runtime.workspace-actions :as ws]
             [app.client.workspace.sidebar :refer [sidebar-w sidebar-tab-h cmd-panel-h status-bar-h compute-sidebar-content-height derive-effective-sidebar]]
             [app.client.workspace.trail :refer [compute-agent-panel-h agent-wrapped-line-count]]
             [app.client.workspace.ui-primitives :refer [list-left-pane-pct list-divider-w]]
             [app.client.workspace.trail-face.scene :as trail-scene]
             [app.client.workflows.dg-flow :refer [group-tickets-by-status list-content-height]]))
+
+(defonce ^:private !wheel-court-receipt
+  (atom (region3d-pointer/empty-wheel-receipt)))
+
+(defn wheel-court-receipt [] @!wheel-court-receipt)
+
+(defn- record-wheel-road! [route]
+  (let [roads (if (contains? #{:region3d :ground} route) [route] [])
+        receipt (swap! !wheel-court-receipt
+                       region3d-pointer/record-wheel-roads roads)]
+    (set! (.-__softlandRegion3dWheelCourt js/window) (clj->js receipt))))
+
+(defn- route-camera-wheel! [wheel-evt]
+  (let [region-consumed? (boolean (region3d/wheel! wheel-evt))
+        route (region3d-pointer/wheel-route
+               region-consumed?
+               (and (not region-consumed?) (ground/ground-active?)))]
+    (when (= :ground route) (ground/handle-wheel! wheel-evt))
+    (record-wheel-road! route)
+    (contains? #{:region3d :ground} route)))
 
 (defn scroll-consumer
   "Missionary consumer: route wheel events to the appropriate scroll target."
@@ -20,11 +42,8 @@
   (->> >wheel-events
        (m/reduce
          (fn [_ wheel-evt]
-           (if (ground/ground-active?)
-             ;; first-light P2b: on the open ground the wheel ZOOMS at the
-             ;; pointer (§9.4 — the world point under the pointer stays under
-             ;; it); there is no scroll rail to ride (Law 2: no top-left).
-             (ground/handle-wheel! wheel-evt)
+           (if (route-camera-wheel! wheel-evt)
+             nil
              (let [delta (:dy wheel-evt 0)
                  dx (:dx wheel-evt 0)
                  shift? (:shift? wheel-evt)

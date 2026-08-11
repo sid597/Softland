@@ -10,6 +10,7 @@
             [app.client.substrate.region3d-scene :as scene]
             [app.client.substrate.webgpu.region3d-gpu :as region3d-gpu]
             [app.client.workspace.rect-tree :as rt]
+            [app.client.workspace.region3d-pointer :as pointer]
             [app.client.workspace.scene-runtime :as scene-runtime]
             [app.client.workspace.scene-store :as scene-store]))
 
@@ -198,15 +199,17 @@
      (get-in maintained [:effective-transforms object-id])
      [0.0 0.0 0.0])))
 
-(defn- gizmo-handles [maintained camera row]
+(defn- gizmo-handles [maintained camera row dpr]
   (scene/gizmo-handles (:effective-transforms maintained) camera
-                       (:selection row) (or (:gizmo-mode row) :translate)))
+                       (:selection row) (or (:gizmo-mode row) :translate)
+                       dpr))
 
-(defn- current-viewport-scale []
+(defn- current-viewport-factors []
   (let [{:keys [zoom dpr]}
         (if-let [viewport-scale (:viewport-scale @!io)]
           (viewport-scale) {:zoom 1.0 :dpr 1.0})]
-    (* (double (or zoom 1.0)) (double (or dpr 1.0)))))
+    {:zoom (double (or zoom 1.0))
+     :dpr (double (or dpr 1.0))}))
 
 (defn resolve-region-pick [hit]
   (let [region-id (:region-id hit)
@@ -218,30 +221,37 @@
         region-size (or (:region-size hit)
                         [(get-in region [:extent :width])
                          (get-in region [:extent :height])])
-        scale (current-viewport-scale)
-        viewport (mapv #(* scale %) region-size)
-        region-point (mapv #(* scale %) (:region-local hit))
+        {:keys [zoom dpr]} (current-viewport-factors)
+        scale (* zoom dpr (double (or (:region-scale hit) 1.0)))
+        packet (pointer/pointer-packet
+                {:css-point (:css-point hit)
+                 :region-local (:region-local hit)
+                 :viewport-local region-size
+                 :scale scale})
         view (or (:view row) (:view-default region))
         ;; Pick is exact even while the retained interior camera is held inside
         ;; an encode rung. Prepared state contributes scene/BVH/placements only.
-        camera (scene/camera-matrices view viewport)
+        camera (scene/camera-matrices view (:viewport-device packet))
         resolved (scene/pick-region
                   {:maintained maintained :camera camera
-                   :region-point region-point
-                   :gizmo-handles (gizmo-handles maintained camera row)
+                   :region-point (:region-device packet)
+                   :gizmo-handles (gizmo-handles maintained camera row dpr)
+                   :dpr dpr
                    :placements (:placements prepared)
                    :placement-picker placement/pick-placement})]
     ;; The GPU-prepared maintained view is intentionally session-free and does
     ;; not carry the outer store row's region id.  Reassert that semantic id at
     ;; the edge so an internal background hit cannot overwrite it with nil.
-    (merge hit resolved {:region-id region-id
-                         :camera camera :region-ray-point region-point
+    (merge hit resolved {:region-id region-id :pointer packet :dpr dpr
+                         :camera camera
                          :region-material region})))
 
 (defn- canvas-point [event]
-  (let [rect (.getBoundingClientRect ^js @!canvas)]
-    [(- (.-clientX event) (.-left rect))
-     (- (.-clientY event) (.-top rect))]))
+  (if (map? event)
+    [(double (:x event)) (double (:y event))]
+    (let [rect (.getBoundingClientRect ^js @!canvas)]
+      [(- (.-clientX event) (.-left rect))
+       (- (.-clientY event) (.-top rect))])))
 
 (defn- event-points [event]
   (let [screen (canvas-point event)
@@ -326,28 +336,23 @@
     true))
 
 (defn end-focus! []
-  (when (:focused-region @!session)
-    (swap! !session #(-> % (assoc :focused-region nil)
+  (when-let [focused (:focused-region @!session)]
+    (swap! !session #(-> %
+                         (assoc :focused-region nil)
+                         (assoc-in [:regions focused :gizmo-hover] nil)
                          (update :focus-closes inc))))
   true)
 
 (defn- focused-hit? [hit]
   (= (:focused-region @!session) (:region-id hit)))
 
-(defn- ray-plane-point [{:keys [origin direction]} plane-point plane-normal]
-  (let [denominator (scene/dot direction plane-normal)]
-    (when (> (js/Math.abs denominator) scene/ray-epsilon)
-      (let [distance (/ (scene/dot (scene/v- plane-point origin) plane-normal)
-                        denominator)]
-        (when (pos? distance)
-          (scene/v+ origin (scene/v* direction distance)))))))
-
 (defn- start-drag! [event hit]
   (let [region-id (:region-id hit)
         row (get-in @!session [:regions region-id])
         point (canvas-point event)
-                local (:region-local hit)
-                ray-local (or (:region-ray-point hit) local)
+        packet (:pointer hit)
+        device (:region-device packet)
+        view (or (:view row) (get-in hit [:region-material :view-default]))
         drag
         (if (= :gizmo (:route hit))
           (let [object-id (:object-id hit)
@@ -378,15 +383,23 @@
                          (scene/cross axis (scene/cross view-normal axis)))
                         view-normal)
                       view-normal))
-                start-ray (scene/ray-from-region-point camera ray-local)]
+                start-ray (scene/ray-from-region-point camera device)]
             {:kind :gizmo :object-id object-id :handle-id (:handle-id hit)
-             :before before :start-local local
-             :start-ray start-ray :start-point (ray-plane-point
+             :before before :start-device device :dpr (:dpr hit)
+             :start-ray start-ray :start-point (pointer/ray-plane-point
                                                  start-ray pivot plane-normal)
              :pivot pivot :plane-point pivot :plane-normal plane-normal :axis axis
              :camera camera})
-          {:kind (if (.-shiftKey event) :pan :orbit)
-           :start-screen point :last-screen point})]
+          (if (.-shiftKey event)
+            (let [camera (:camera hit)
+                  start-ray (scene/ray-from-region-point camera device)
+                  normal (scene/normalize
+                          (scene/v- (:eye camera) (:pivot view)))]
+              {:kind :pan :start-screen point :last-screen point
+               :camera camera
+               :pan (pointer/start-glued-pan view start-ray (:point3 hit)
+                                             normal)})
+            {:kind :orbit :start-screen point :last-screen point}))]
     (swap! !session assoc-in [:regions region-id :drag] drag)
     (when (.-pointerId event)
       (.setPointerCapture ^js @!canvas (.-pointerId event)))
@@ -404,13 +417,14 @@
    (+ (* aw bz) (* ax by) (- (* ay bx)) (* az bw))
    (- (* aw bw) (* ax bx) (* ay by) (* az bz))])
 
-(defn- update-gizmo-preview! [region-id drag local]
+(defn- update-gizmo-preview! [region-id drag packet]
   (let [{:keys [before object-id handle-id camera start-ray plane-point
                 plane-normal axis pivot start-point]} drag
+        device (:region-device packet)
         mode (first handle-id)
         axis-name (second handle-id)
-        current-ray (scene/ray-from-region-point camera local)
-        current-point (ray-plane-point current-ray pivot plane-normal)
+        current-ray (scene/ray-from-region-point camera device)
+        current-point (pointer/ray-plane-point current-ray pivot plane-normal)
         transform
         (case mode
           :translate
@@ -440,9 +454,10 @@
                 (update-in before [:scale axis-index]
                            #(max 0.001 (* % ratio))))
               before)
-            (let [delta (+ (- (first local) (first (:start-local drag)))
-                           (- (second (:start-local drag)) (second local)))
-                  ratio (js/Math.exp (* delta 0.006))]
+            (let [delta (+ (- (first device) (first (:start-device drag)))
+                           (- (second (:start-device drag)) (second device)))
+                  glass-delta (/ delta (double (or (:dpr drag) 1.0)))
+                  ratio (js/Math.exp (* glass-delta 0.006))]
               (update before :scale
                       #(mapv (fn [value] (max 0.001 (* value ratio))) %))))
 
@@ -527,8 +542,9 @@
     (do (update-panel-drag! event)
         (consume! event))
     (when-let [focused (:focused-region @!session)]
-      (when-let [drag (get-in @!session [:regions focused :drag])]
+      (if-let [drag (get-in @!session [:regions focused :drag])]
         (let [hit (pick-at event)
+              packet (:pointer hit)
               current (canvas-point event)
               [last-x last-y] (:last-screen drag current)
               [x y] current]
@@ -538,16 +554,22 @@
                    scene/orbit (- x last-x) (- y last-y))
 
             :pan
-            (swap! !session update-in [:regions focused :view]
-                   scene/pan (- x last-x) (- y last-y)
-                   (or (:region-size hit) [720.0 480.0]))
+            (when (and packet (:pan drag))
+              (let [ray (scene/ray-from-region-point
+                         (:camera drag) (:region-device packet))]
+                (when-let [view (pointer/glued-pan (:pan drag) ray)]
+                  (swap! !session assoc-in [:regions focused :view] view))))
 
             :gizmo
-            (when (:region-local hit)
-              (update-gizmo-preview! focused drag (:region-local hit)))
+            (when packet
+              (update-gizmo-preview! focused drag packet))
             nil)
           (swap! !session assoc-in [:regions focused :drag :last-screen] current)
-          (consume! event))))))
+          (consume! event))
+        (let [hit (pick-at event)
+              hover (when (focused-hit? hit)
+                      (pointer/gizmo-hover-id hit))]
+          (swap! !session assoc-in [:regions focused :gizmo-hover] hover))))))
 
 (defn- on-pointerup [event]
   (if (:panel-drag @!session)
@@ -561,24 +583,37 @@
         (release-pointer! event)
         (consume! event)))))
 
-(defn- on-wheel [event]
+(defn wheel! [event]
   (when-let [focused (:focused-region @!session)]
     (let [hit (pick-at event)]
       (when (focused-hit? hit)
-        (swap! !session update-in [:regions focused :view]
-               scene/dolly (.-deltaY event))
-        (consume! event)))))
+        (let [view (get-in @!session [:regions focused :view])
+              packet (:pointer hit)
+              camera (:camera hit)
+              ray (scene/ray-from-region-point camera (:region-device packet))
+              normal (scene/normalize (scene/v- (:eye camera) (:pivot view)))
+              anchor (or (:point3 hit)
+                         (pointer/ray-plane-point ray (:pivot view) normal))]
+          (swap! !session assoc-in [:regions focused :view]
+                 (pointer/anchored-dolly view anchor (:dy event)))
+          true)))))
 
 (defn- on-keydown [event]
   (when-let [focused (:focused-region @!session)]
     (case (.-code event)
       "Escape" (do (end-focus!) (consume! event))
       "KeyW" (do (swap! !session assoc-in [:regions focused :gizmo-mode]
-                          :translate) (consume! event))
+                          :translate)
+                   (swap! !session assoc-in [:regions focused :gizmo-hover] nil)
+                   (consume! event))
       "KeyE" (do (swap! !session assoc-in [:regions focused :gizmo-mode]
-                          :rotate) (consume! event))
+                          :rotate)
+                   (swap! !session assoc-in [:regions focused :gizmo-hover] nil)
+                   (consume! event))
       "KeyR" (do (swap! !session assoc-in [:regions focused :gizmo-mode]
-                          :scale) (consume! event))
+                          :scale)
+                   (swap! !session assoc-in [:regions focused :gizmo-hover] nil)
+                   (consume! event))
       nil)))
 
 (defn- listen! [target event handler opts]
@@ -614,7 +649,6 @@
         (listen! canvas "pointermove" on-pointermove capture)
         (listen! canvas "pointerup" on-pointerup capture)
         (listen! canvas "pointercancel" on-pointerup capture)
-        (listen! canvas "wheel" on-wheel #js {:capture true :passive false})
         (listen! js/window "keydown" on-keydown capture))
       (swap! !session assoc :enabled? true)
       (set! (.-region3d js/window)

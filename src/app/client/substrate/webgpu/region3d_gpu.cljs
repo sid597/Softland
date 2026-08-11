@@ -331,6 +331,15 @@
                     gizmo.pivot.xyz + (u * sb.x + v * sb.y) * radius,
                     vec4<f32>(1.0));
    }
+   fn handle_code(mode: u32, segment_index: u32) -> u32 {
+     if (mode == 0u) {
+       if (segment_index < 3u) { return segment_index + 1u; }
+       return ((segment_index - 3u) / 2u) + 4u;
+     }
+     if (mode == 1u) { return (segment_index / 64u) + 1u; }
+     if (segment_index < 3u) { return segment_index + 1u; }
+     return 4u;
+   }
    @vertex fn vs(@builtin(vertex_index) index: u32) -> Out {
      let mode = u32(gizmo.state.x);
      let distance_scale = distance(region.eye.xyz, gizmo.pivot.xyz)
@@ -353,9 +362,13 @@
      let clip = select(clip_a, clip_b, endpoint_b);
      let ndc = select(ndc_a, ndc_b, endpoint_b)
              + select(-normal_ndc, normal_ndc, positive);
+     var color = segment.color;
+     if (gizmo.state.z == f32(handle_code(mode, segment_index))) {
+       color = vec4<f32>(mix(color.rgb, vec3<f32>(1.0), 0.45), color.a);
+     }
      var out: Out;
      out.position = vec4<f32>(ndc * clip.w, clip.z, clip.w);
-     out.color = segment.color; return out;
+     out.color = color; return out;
    }
    @fragment fn fs(@location(0) color: vec4<f32>) -> @location(0) vec4<f32> {
      return vec4<f32>(color.rgb * color.a, color.a);
@@ -884,6 +897,17 @@
                 (:transform preview))
       region)))
 
+(defn- gizmo-hover-number [mode handle-id]
+  (let [[handle-mode handle] handle-id]
+    (if (not= mode handle-mode)
+      0.0
+      (double
+       (case mode
+         :translate ({:x 1 :y 2 :z 3 :xy 4 :yz 5 :xz 6} handle 0)
+         :rotate ({:x 1 :y 2 :z 3 :view 4} handle 0)
+         :scale ({:x 1 :y 2 :z 3 :uniform 4} handle 0)
+         0)))))
+
 (defn- create-region-gpu [system region-id]
   (let [usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.VERTEX)
         uniform-usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.UNIFORM)
@@ -973,8 +997,11 @@
                 [0.0 0.0 0.0])
         gizmo-mode (case (or (:gizmo-mode session-row) :translate)
                      :rotate 1.0 :scale 2.0 0.0)
+        hover (gizmo-hover-number (or (:gizmo-mode session-row) :translate)
+                                   (:gizmo-hover session-row))
         gizmo (typed-f32 (concat pivot [1.0]
-                                 [gizmo-mode (if selection 1.0 0.0) 0.0 0.0]))]
+                                 [gizmo-mode (if selection 1.0 0.0)
+                                  hover 0.0]))]
     (write-buffer! system (:uniform gpu) uniform (.-byteLength uniform))
     (write-buffer! system (:shadow-uniform gpu) shadow (.-byteLength shadow))
     (write-buffer! system (:gizmo-uniform gpu) gizmo (.-byteLength gizmo))
@@ -1117,6 +1144,8 @@
                                 (get-in maintained [:region :view-default]))
                        view-key [view (:display-mode session-row)
                                  (:selection session-row) encode-rung
+                                 (:gizmo-mode session-row)
+                                 (:gizmo-hover session-row)
                                  shadow-space]
                        view-changed? (or material-changed? (nil? old)
                                          (not= view-key (:view-key old)))

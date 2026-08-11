@@ -9,7 +9,8 @@
    keeps the full derivation as its equivalence fence and refits only the
    affected hierarchy subtree for transform edits. No clock exists here."
   (:require [clojure.set :as set]
-            [app.client.substrate.region3d-material :as material]))
+            [app.client.substrate.region3d-material :as material]
+            [app.client.workspace.region3d-pointer :as pointer]))
 
 (def scene-algorithm-version :region3d/scene-v1)
 (def bvh-algorithm-version :region3d/bvh-v1)
@@ -20,7 +21,6 @@
 (def glyph-hit-radius-px 8.0)
 (def gizmo-hit-radius-px 10.0)
 (def gizmo-size-factor 0.32)
-(def gizmo-axis-sample-count 8)
 (def gizmo-ring-sample-count 64)
 (def orbit-radians-per-pixel 0.005)
 (def orbit-pitch-limit (- (/ Math/PI 2.0) 0.12))
@@ -614,31 +614,6 @@
                              (+ % (* delta-y orbit-radians-per-pixel))
                              orbit-pitch-limit))))
 
-(defn dolly [view wheel-delta]
-  (update (material/canonical-view view)
-          :distance #(* % (Math/exp (* wheel-delta 0.001)))))
-
-(defn pan [view delta-x delta-y viewport]
-  (let [view (material/canonical-view view)
-        camera (camera-matrices view viewport)
-        right (normalize [(nth (:view camera) 0)
-                          (nth (:view camera) 1)
-                          (nth (:view camera) 2)])
-        up (normalize [(nth (:view camera) 4)
-                       (nth (:view camera) 5)
-                       (nth (:view camera) 6)])
-        units-per-pixel
-        (case (get-in view [:lens :kind])
-          :ortho (/ (get-in view [:lens :ortho-scale]) (second viewport))
-          :perspective (/ (* 2.0 (:distance view)
-                              (Math/tan (/ (* (get-in view [:lens :fov-y-deg])
-                                              Math/PI)
-                                           360.0)))
-                           (second viewport)))]
-    (update view :pivot v+
-            (v+ (v* right (* (- delta-x) units-per-pixel))
-                (v* up (* delta-y units-per-pixel))))))
-
 (defn- object-origin [effective object-id]
   (transform-point (get effective object-id) [0.0 0.0 0.0]))
 
@@ -661,20 +636,17 @@
 (defn- sampled-handles [handle positions]
   (mapv #(assoc handle :position %) positions))
 
-(defn- axis-handles [origin scale object-id mode]
-  (mapcat
+(defn- axis-handles [origin scale object-id mode radius]
+  (mapv
    (fn [[axis direction]]
-     (let [start (v+ origin (v* direction (* scale 0.30)))
-           end (v+ origin (v* direction scale))]
-       (sampled-handles
-        {:handle/id [mode axis] :object-id object-id :pivot origin
-         :axis direction :screen-radius-px gizmo-hit-radius-px}
-        (line-samples start end gizmo-axis-sample-count))))
+     {:handle/id [mode axis] :object-id object-id :pivot origin
+      :axis direction :screen-radius-px radius
+      :segment [origin (v+ origin (v* direction scale))]})
    [[:x [1.0 0.0 0.0]]
     [:y [0.0 1.0 0.0]]
     [:z [0.0 0.0 1.0]]]))
 
-(defn- translate-plane-handles [origin scale object-id]
+(defn- translate-plane-handles [origin scale object-id radius]
   (mapcat
    (fn [[plane u v normal]]
      (let [corner (v+ origin (v* (v+ u v) (* scale 0.28)))
@@ -682,14 +654,14 @@
            v-end (v+ corner (v* v (* scale 0.19)))
            handle {:handle/id [:translate plane] :object-id object-id
                    :pivot origin :plane-normal normal
-                   :screen-radius-px gizmo-hit-radius-px}]
+                   :screen-radius-px radius}]
        (concat (sampled-handles handle (line-samples corner u-end 5))
                (sampled-handles handle (line-samples corner v-end 5)))))
    [[:xy [1.0 0.0 0.0] [0.0 1.0 0.0] [0.0 0.0 1.0]]
     [:yz [0.0 1.0 0.0] [0.0 0.0 1.0] [1.0 0.0 0.0]]
     [:xz [0.0 0.0 1.0] [1.0 0.0 0.0] [0.0 1.0 0.0]]]))
 
-(defn- ring-handles [origin scale camera object-id]
+(defn- ring-handles [origin scale camera object-id radius]
   (let [view-axis (normalize (v- (:eye camera) origin))
         seed (if (> (Math/abs (double (second view-axis))) 0.9)
                [1.0 0.0 0.0]
@@ -707,35 +679,34 @@
                                    (v* v (Math/sin angle)))
                                (* scale radius-multiplier)))))
                    (range gizmo-ring-sample-count))]
-         (sampled-handles
-          {:handle/id [:rotate axis-name] :object-id object-id
-           :pivot origin :axis axis
-           :screen-radius-px gizmo-hit-radius-px}
-          positions)))
+         [{:handle/id [:rotate axis-name] :object-id object-id
+           :pivot origin :axis axis :screen-radius-px radius
+           :polyline (conj positions (first positions))}]))
      [[:x [0.0 1.0 0.0] [0.0 0.0 1.0] [1.0 0.0 0.0] 1.0]
       [:y [1.0 0.0 0.0] [0.0 0.0 1.0] [0.0 1.0 0.0] 1.0]
       [:z [1.0 0.0 0.0] [0.0 1.0 0.0] [0.0 0.0 1.0] 1.0]
       [:view view-u view-v view-axis 1.12]])))
 
 (defn gizmo-handles
-  "Pure screen-metric pick samples for the exact gizmo geometry drawn by GPU.
-   Sampling the visible axes/rings makes the painted handle—not one tiny
-   endpoint—the interaction target."
-  [effective camera object-id mode]
-  (when object-id
-    (let [origin (object-origin effective object-id)
-          scale (gizmo-world-scale camera origin)
-          axes (axis-handles origin scale object-id mode)]
-      (case mode
-        :translate (vec (concat axes
-                                (translate-plane-handles origin scale
-                                                         object-id)))
-        :rotate (vec (ring-handles origin scale camera object-id))
-        :scale (conj (vec axes)
-                     {:handle/id [:scale :uniform] :object-id object-id
-                      :pivot origin :position origin
-                      :screen-radius-px 14.0})
-        (vec axes)))))
+  "Screen-metric pick geometry matching the complete segments painted by GPU."
+  ([effective camera object-id mode]
+   (gizmo-handles effective camera object-id mode 1.0))
+  ([effective camera object-id mode dpr]
+   (when object-id
+     (let [origin (object-origin effective object-id)
+           scale (gizmo-world-scale camera origin)
+           radius (pointer/slop-device gizmo-hit-radius-px dpr)
+           axes (axis-handles origin scale object-id mode radius)]
+       (case mode
+         :translate (vec (concat axes
+                                 (translate-plane-handles origin scale
+                                                          object-id radius)))
+         :rotate (vec (ring-handles origin scale camera object-id radius))
+         :scale (conj (vec axes)
+                      {:handle/id [:scale :uniform] :object-id object-id
+                       :pivot origin :position origin
+                       :screen-radius-px (pointer/slop-device 14.0 dpr)})
+         (vec axes))))))
 
 (defn derive-instance-row [object effective-matrix]
   {:object-id (:object/id object)
@@ -866,13 +837,31 @@
 (defn- squared-distance [[ax ay] [bx by]]
   (+ (* (- ax bx) (- ax bx)) (* (- ay by) (- ay by))))
 
+(defn- projected-handle-distance2 [camera point handle]
+  (cond
+    (:segment handle)
+    (let [[start end] (mapv #(some-> (project-point camera %) :screen)
+                            (:segment handle))]
+      (when (and start end)
+        (pointer/point-segment-distance2 point start end)))
+
+    (:polyline handle)
+    (let [points (mapv #(some-> (project-point camera %) :screen)
+                       (:polyline handle))]
+      (when (every? some? points)
+        (pointer/point-polyline-distance2 point points)))
+
+    :else
+    (when-let [projected (project-point camera (:position handle))]
+      (squared-distance point (:screen projected)))))
+
 (defn- pick-screen-handles [camera point handles default-radius route]
   (->> handles
        (keep (fn [handle]
-               (when-let [projected (project-point camera (:position handle))]
+               (when-let [distance2 (projected-handle-distance2
+                                     camera point handle)]
                  (let [radius (double (or (:screen-radius-px handle)
-                                          default-radius))
-                       distance2 (squared-distance point (:screen projected))]
+                                          default-radius))]
                    (when (<= distance2 (* radius radius))
                      (assoc handle :route route :screen-distance2 distance2))))))
        (sort-by (juxt :screen-distance2 (comp pr-str :handle/id)))
@@ -885,7 +874,7 @@
   "Gizmo -> {mesh + placed plane} by nearest t -> object glyph -> background.
    The placement picker is the region3d-placement reader injected by the
    workspace/GPU edge, avoiding a second region-scene authority."
-  [{:keys [maintained camera region-point gizmo-handles
+  [{:keys [maintained camera region-point gizmo-handles dpr
            placements placement-picker]}]
   (let [region (:region maintained)
         camera (or camera
@@ -922,8 +911,10 @@
                :position (object-origin (:effective-transforms maintained)
                                         object-id)
                :screen-radius-px glyph-hit-radius-px})
-            glyph-hit (pick-screen-handles camera region-point glyph-handles
-                                           glyph-hit-radius-px :object-glyph)]
+            glyph-hit (pick-screen-handles
+                       camera region-point glyph-handles
+                       (pointer/slop-device glyph-hit-radius-px (or dpr 1.0))
+                       :object-glyph)]
         (cond
           (and surface-hit glyph-hit)
           (let [glyph-ray-distance
