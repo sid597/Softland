@@ -59,13 +59,13 @@ obligation cross-check (every MUST-NOT × every scenario/entry obligation,
 hunting the forced violation; every pointed-at law names the scenario that
 FAILS under its violation).
 Write the fork you saw.
-Open questions are ruled in-session or handed down as a default + note. It
-ends with the implementer's opening prompt — which OPENS with the toggle
+Open questions are ruled in-session or handed down as a default + note. The
+implementer's opening prompt OPENS with the toggle
 preflight (permission mode / remote-control / MCP set BEFORE the first
 prompt; corpse: W4's 702k prefix rewrite) and a byte-sized boot-doc list
-(over ~100KB → cut or shard first; CLAUDE.md Token Economy). The starter names
-bounded collectors, plan SOURCE + DONE WHEN, source-freeze → close receipt, and
-NOW as the terminal planned close mutation.
+(over ~100KB → cut or shard first; CLAUDE.md Token Economy). Starter: bounded
+collectors · plan OWNER + SOURCE + DONE WHEN · source-freeze → close receipt ·
+terminal NOW.
 
 ### Model routing at the cut (Sid, 2026-08-06: "never outsource the thinking")
 Composition, rulings, repairs ride the STRONGEST primary model; the contract
@@ -76,8 +76,11 @@ and board/baton mechanics; candidates return, verdicts stay home. Lenses 2–3
 Compose the draft before its FIRST Write. Discovered non-overlapping repairs
 land as one coherent batch, never an edit-by-edit conversation (corpses: W4's
 post-Write tail, 42% of bill for 22% of output; T2 applier, 24 requests for 24
-edits). Raw gatherer output stays in scratch; parent + children total cost is
-the economy measure.
+edits). One pre-write collection wave runs every child once/return once; one
+exact follow-up is the total exception. Calls are command-filtered ≤8K; raw
+output uses named writable scratch or stays out of context. Family total is the
+measure (corpse: `019fef0a`, eight children/20.7% input; expiry: five families
+without a persistent loop).
 
 ### Execution — straight through
 The implementer owns the WHOLE atom: build → surface bugs → fix before source
@@ -88,15 +91,17 @@ microloops collect the complete diagnostic once and regroup one repair batch.
 Ambiguity takes the strongest default plus a note; a genuine fork is ONE
 thread-file question, routed around while unblocked work continues.
 
-Whole-atom custody may cross one meaningful context boundary at candidate
-source freeze; this is a self-handoff, not a phase/gate/Sid touch. A fresh
-read-only receipt runner executes only pre-registered receipts. It invents no
-harness, matrix, instrumentation, or attribution: optional missing evidence is
-debt; required missing evidence means RECEIPT PENDING. A red receipt returns
-one bounded repair packet; replay only the failed receipts after the coherent
-repair. If still red, record pending rather than growing a new ladder. On a
-stop/side-quest interrupt, stop active work first, make no cleanup edit/test,
-and report ACTIVE WORK · LAST FINDING · MUTATION/PROCESS STATE, then wait.
+Only after source freeze may custody cross one context boundary; this is a
+self-handoff, not a phase/gate/Sid touch. One fresh read-only receipt runner
+executes the pre-registered close bundle, never a pre-freeze check. If the
+primary compacted before freeze, freeze ends it; a fresh primary boots only
+contract-local close state (corpse: `019fef0a`, 6.8M parent input after freeze;
+expiry: five compacted families close fresh). The runner invents no harness,
+matrix, instrumentation, or attribution: optional missing evidence is debt;
+required missing evidence means RECEIPT PENDING. A red receipt returns one
+bounded repair packet; replay only failed receipts, else record pending. On a
+stop/side-quest interrupt, stop work, make no cleanup edit/test, and report
+ACTIVE WORK · LAST FINDING · MUTATION/PROCESS STATE, then wait.
 
 ### Close receipt of an atom
 - Freeze 3–5 contract scenarios as tripwires + 2–3 representative goldens;
@@ -107,7 +112,8 @@ and report ACTIVE WORK · LAST FINDING · MUTATION/PROCESS STATE, then wait.
   source/tests/tooling. A later invalidating finding gets one correction line
   marking REPAIR/RECEIPT PENDING and resumes only in a fresh context.
 - Self-audit if process-artifact lines exceed code lines.
-- **Acceptance = Sid's word. No other acceptance exists.**
+- **Acceptance = Sid's word. Afterward Codex stays contract-local unless Sid
+  opens new scope.**
 
 ### Once per package — the seam courtroom
 Full repo suite · cross-atom integration driven as SEAMS — real material
@@ -121,25 +127,19 @@ is purchased insurance priced by IRREVERSIBILITY — durable/Rama work keeps
 its ladders, reversible projection work buys once per package.
 
 ## Dead ceremony — never to return
-Validation ladders/rounds (R1/R2/… — the cut's ONE bounded round never
-recuts and is not this), default-fail verdicts, recut ledgers,
-ruling packets, merged rulings, traps ledgers cited by number, input
-manifests, gate matrices, per-phase gate partitions, stop codes (S1/S2),
-conjunctive full-suite gates ([JVM-FULL]-as-gate), allowlist partitions,
-phase artifacts beyond the thread file, PLAN.md, fresh-context re-derivation
-of contracts, second-model verification of implementations, separate
-gate-review sessions, per-package retros with adversarial rechecks.
+Validation ladders/rounds (R1/R2/…; the cut's ONE bounded round is not this),
+default-fail verdicts, recut/numbered-traps ledgers, ruling/merged-ruling packets,
+input manifests, gate matrices/per-phase partitions, S1/S2 stop codes,
+conjunctive [JVM-FULL] gates, allowlists, phase artifacts or PLAN.md,
+fresh-context contract re-derivation, second-model verification, separate gate sessions, and per-package retros with adversarial rechecks.
 
-A new contract that reintroduces any of these is wrong by definition. Do
-not imitate closed packages' contracts (IMAGE-ATOM, SEAM-STEP1, shaping
-correction) — they predate this law. This law also outranks per-domain
-phase ladders (EXCEPT the rama and rama-retro skills) for package acceptance;
-those skills serve their own domains' internals AND FOR RAMA SHOULD BE FOLLOWED.
+A contract reintroducing these is wrong. Do not imitate IMAGE-ATOM,
+SEAM-STEP1, or shaping-correction; they predate this law. This law outranks
+domain phase ladders except rama/rama-retro, which remain binding for Rama.
 
 ## Files
-`docs/<package>/` holds exactly two living documents per atom: CONTRACT.md
-and NOW.md (STANDING frozen at open · NOW entries ≤15 lines). The board gets
-one pointer line per thread. Rulings live in decisions.md. That is all.
+`docs/<package>/` holds only CONTRACT.md and NOW.md (STANDING frozen at open;
+NOW ≤15 lines). The board gets one pointer/thread; rulings live in decisions.md.
 
 ## Field notes that earned their keep (cheap lines, expensive bugs)
 - Thread-file precedence: the baton never outranks CONTRACT.md or

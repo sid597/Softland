@@ -14,30 +14,35 @@ NOW.md. The 200-line historical body this file once carried is deleted
   before boot. Binding law is read PRIMARY; code is skeleton-first and then
   only the contract-pinned windows, never whole big files by default.
 - The primary owns binding-law interpretation, synthesis, source authorship,
-  causal rulings, and final artifacts. Delegate collection batches — multi-file
-  scans, source census, logs, suites, environment state, transcript metrics —
-  to fresh read-only `collector`/`explorer` subagents at the lowest competent
-  model/effort. Give exact non-overlapping files/commands, no inherited history
-  when supported, and a bounded evidence schema; raw output goes to scratch.
-  Parallelism buys independent coverage only, and parent + children total cost
-  is the economy measure. Gatherer output has no verdict authority.
+  causal rulings, and final artifacts. Before the first write, delegate ONE
+  collection wave — multi-file scans, source census, logs, suites, environment
+  state, transcript metrics — to fresh read-only `collector`/`explorer`
+  subagents at the lowest competent model/effort. Give exact non-overlapping
+  files/commands, no inherited history when supported, and a bounded schema.
+  Each child runs once and returns once; the primary may issue at most one exact
+  decision-changing follow-up across the wave. Tool calls request ≤8K output
+  tokens and filter at the command; a named writable scratch path gets raw
+  output, otherwise return only bounded anchors. Parent + descendants' FAMILY
+  total is the economy measure; gatherer output has no verdict authority.
 - **Contract = the hard thinking; everything after is execution** (Sid,
   2026-08-06). Build the WHOLE atom straight through: build → surface bugs
   → fix them before source freeze. Keep one implementation adversarial check
   on newly introduced claims and the real seam. A genuine fork (two readings
   that cannot both hold) is ONE question in the thread file: note it, route
   around it, keep building what is unblocked. Never halt on a stop code.
-- A plan is a checklist, never authority. Every item names SOURCE (contract,
-  direct request, or observed in-scope defect) and DONE WHEN. An unsourced
-  device, matrix, artifact, or tooling road becomes one debt line, not work.
+- A plan is a checklist, never authority. Every item names OWNER, SOURCE
+  (contract, direct request, or observed in-scope defect), and DONE WHEN. An
+  unsourced device, matrix, artifact, or tooling road is debt, not work.
 - Work in coherent batches: collect independent reads once, patch a namespace
   or compile milestone together, and run the focused check once per batch.
   Three repeated patch→same-check microloops trigger one complete diagnostic
   collection and one regrouped repair batch, not another conversational tail.
-- Whole-atom custody may cross one meaningful context boundary at candidate
-  source freeze; that is a self-handoff, not a phase ladder, gate, or Sid
-  touch. Run already-specified close receipts in a fresh `receipt_runner`
-  context when the primary is deep. Do not invent missing harnesses mid-pass:
+- Only after candidate source freeze may whole-atom custody cross one meaningful
+  context boundary; that is a self-handoff, not a phase ladder, gate, or Sid
+  touch. Use exactly one fresh `receipt_runner` for the pre-registered close
+  bundle, never for pre-freeze checks. If the primary compacted before freeze,
+  freeze ends that context: a fresh primary boots only contract-local close
+  state and completes the atom. Do not invent missing harnesses mid-pass:
   optional evidence is debt; required missing evidence means RECEIPT PENDING.
 - At atom close: freeze the contract's 3–5 scenarios as tripwires + 2–3
   representative goldens (no matrices) · run the focused suite · record
@@ -46,7 +51,8 @@ NOW.md. The 200-line historical body this file once carried is deleted
   mutation.
   After NOW, do not change source/tests/tooling; append one correction marking
   REPAIR/RECEIPT PENDING if a later finding invalidates the close. Acceptance
-  is Sid's word; second-model verification does not exist.
+  is Sid's word; afterward Codex stays contract-local unless Sid opens new
+  scope, and second-model verification does not exist.
 - On a stop/side-quest/status interruption, stop active work before answering;
   make no cleanup edit or new test. Report only ACTIVE WORK · LAST
   DECISION-CHANGING FINDING · CURRENT MUTATION/PROCESS STATE, then wait.

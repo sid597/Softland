@@ -68,7 +68,10 @@ test/app/missionary_claims_test.clj after any Electric SNAPSHOT bump).
   grounding. A reference error in a Fable artifact is repaired by gathering
   (Codex or a subagent), never by moving the decision down a lane; Fable's
   higher-level calls stay falsifiable through the existing bounded rounds —
-  falsification is not demotion.
+  falsification is not demotion. After Sid accepts an atom, Codex answers only
+  contract-local status; it never selects the next board item unless Sid names
+  the new scope (corpse: `019fef0a` nominated viewport-residency after an
+  accepted correction; expiry: five accepted atoms end contract-local).
 - **Gathering rides bounded read-only subagents; strongest tokens are for
   sensemaking.** (Sid, standing; routing amended 2026-08-10) Any collection
   batch — reading files/diffs/docs for a review, greps, suite runs, data
@@ -79,8 +82,11 @@ test/app/missionary_claims_test.clj after any Electric SNAPSHOT bump).
   amendment) rides Opus-class — an UNCERTAINTY row is only as good as its
   noticer. Judgment-feeding returns are INDEX-FIRST and typed FACT · SOURCE ·
   EXTRACTION · UNCERTAINTY · DECISION SERVED; deterministic pulls collapse to
-  SOURCE + EXTRACTION anchors. Raw output stays in scratch; the parent
-  spot-checks only decision-changing facts.
+  SOURCE + EXTRACTION anchors. Before the first write there is one collection
+  wave: each child runs and returns once, with at most one exact follow-up
+  across the wave. Every tool call requests ≤8K output tokens and filters at
+  the command; raw output uses a named writable scratch path, otherwise only
+  bounded anchors return. The parent spot-checks decision-changing facts.
   In Sid's words: don't use your own tokens "just for puny gathering tasks —
   you are suited for sensemaking." Adjudication, synthesis, and verdicts
   never delegate. (Composes with working-agreements' model-routing line:
@@ -127,8 +133,10 @@ the lesson, percentages are receipts, not constants. Ranked by measured effect:
 - **Deep work ends at a durable boundary.** Compose before the first durable
   write; repairs collect into ONE coherent batch, never a fix-by-fix tail at
   depth (W4: 52 post-Write edits at 400k+ = 42% of the bill for 22% of the
-  output). Candidate-source freeze may self-handoff close mechanics into one
-  fresh context; the terminal NOW write admits no later source/test/tooling edit.
+  output). If the primary compacted before candidate-source freeze, freeze ends
+  that context and a fresh primary boots only contract-local close state. The
+  sole receipt runner is post-freeze; terminal NOW admits no later
+  source/test/tooling edit.
 - **Never mutate the prefix mid-session.** permission-mode, /remote-control,
   MCP connect each rewrite the ENTIRE cached prefix (702k, ~32% of W4's cost,
   zero new content). Every starter prompt opens with a preflight line: set
@@ -140,8 +148,10 @@ the lesson, percentages are receipts, not constants. Ranked by measured effect:
 - **Budget gatherers, not just returns.** Delegation moves cost to a cheaper
   meter, it doesn't erase it (T2: subagents billed 12.6M vs parent 4.3M).
   Gatherer prompts carry a scoped FILE list when substrates overlap
-  (topic-sharding duplicated 181KB of reading), bounded verbatim returns
-  (anchors + ≤8 lines per claim), full dump to scratchpad.
+  (topic-sharding duplicated 181KB of reading), one run/return, command-filtered
+  ≤8K-token tool calls, and anchors + ≤8 lines per claim. Full dumps use only a
+  named writable scratchpad; otherwise they never enter context. Measure the
+  parent plus every descendant as one family.
 - **Delegate typing, never authoring.** The test is whether the input
   compresses: gathering does (a question in, a digest out), typing does (an
   edit list in, a confirmation out), authoring does neither — its input is the

@@ -8,8 +8,11 @@ developer_instructions = """
 Work only from the named files and commands. Do not edit, attribute causes,
 redesign, or expand scope. Prefer deterministic commands for counts and
 arithmetic. Start fresh without parent conversation history when the spawning
-surface supports it. Return at most eight facts; each fact names SOURCE,
-EXTRACTION, UNCERTAINTY, and DECISION SERVED. Put raw output in the named
-scratch path and return only bounded anchors. Collection has no verdict
-authority.
+surface supports it. Run once and return once; do not become a persistent
+remote shell. Every tool call requests at most 8000 output tokens and filters
+at the command. Never read a whole file except the exact named artifact. Return
+at most eight facts; each names SOURCE, EXTRACTION, UNCERTAINTY, and DECISION
+SERVED. Put raw output in an explicitly named writable scratch path; when this
+read-only role has none, return only the minimum bounded anchors. Collection
+has no verdict authority.
 """
