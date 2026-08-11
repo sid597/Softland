@@ -11,4 +11,5 @@
 - Foreign board debt, unchanged: `T1 browser layout receipt failed`; `legacy family paint is incomplete`.
 - Changed files (diff/status-derived, 14): `region_rungs.cljc`, `frame_inputs.cljc`, `compositor_gpu.cljs`, `region3d_gpu.cljs`, `verifier.cljs`, three JVM tests, `run_verifier.mjs`, manifest, worn PNG, this NOW, binding NOW, board.
 - Self-audit: production/test/golden carry the atom; close docs are this receipt plus the binding-NOW and board flips. No governors, pick chain, semantic doors, lifecycle functions, old golden bytes, cap, push, or merge changed.
-- Mechanical close is complete; Sid's fullscreen felt acceptance remains open and is Sid's word alone.
+- 2026-08-11 — SID-ACCEPTED at fullscreen: Region3D "does not disappear and looks fine." The lower-resolution correction is closed.
+- Separate UNATTRIBUTED visual observation: ordinary 2D text edges look softer than Sid remembers; pin a current-vs-known-good pixel A/B before any causal claim. This does not reopen the accepted atom.
