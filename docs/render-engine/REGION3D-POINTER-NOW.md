@@ -5,7 +5,7 @@ One typed pointer packet owns CSS, local, desired-device, viewport, and scale cu
 Navigation is anchored/glued, one scroll court owns wheel camera dispatch, and gizmo picks the complete painted geometry with glass slop + hover.
 
 ## NOW
-- 2026-08-11 — POINTER FUNCTION APPROVED BY SID; transform-lag correction BUILT; SOURCE FROZEN; repaired feel PENDING SID.
+- 2026-08-11 — SID-ACCEPTED: pointer function + transform-lag correction; source and receipts CLOSED.
 - Pointer atom: S1–S5 13 tests / 99 assertions GREEN; protected 7 goldens byte-identical + `gizmo-hover-x`, 8/8 matching.
 - Correction: retained evaluated-scene transform component; affected hierarchy/BVH refit + stable-offset GPU row writes; no input throttling.
 - Correction tripwires: preview/cancel/settle, 49-object affected-set scaling, material full-oracle door; 12 tests / 81 assertions GREEN.
