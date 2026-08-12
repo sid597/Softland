@@ -438,8 +438,13 @@ kept untouched — never rewritten. **Electric the runtime internals**
 (keyed per-item flows, diffs minted at writes, the item/applier split)
 are mined: their design IS this section's store contract, re-keyed for
 our GPU target instead of the DOM. **Electric the language as face
-host** (e/defn-style composition) is the one deliberately OPEN
-question — the host probe below decides it, never a default.
+host** (e/defn-style composition) was the one deliberately OPEN
+question; ruled at the return sitting (Sid, 2026-08-12): **faces are
+data all the way** — a face's authored form is material/constitution
+for every inhabitant, human and agent, never source code. What stays
+open is machinery, not product: which host executes the face spec's
+interpretation (the register's probe below, one real face built both
+ways) — an engineering verdict, never re-presented as a product fork.
 **Missionary** is the soil: it runs the frame sink today and the
 per-key flows next, engaged at named points, never ambient. **"Softland
 as target"** means the scene store + GPU applier IS the compile target,
@@ -547,7 +552,10 @@ vocabularies; renaming the arc makes it invisible to Sid.
   failure.** The composition host (Electric generic host vs Missionary
   host): one real face built both ways, judged on container close/reopen,
   mid-drag teardown, served-source hot-swap; the probe may also push back
-  on the contract's shape. Where view-dependence lives (walk-time filter
+  on the contract's shape — its first real face is NAMED (2026-08-12):
+  the Block, rebuilt as material for the made-block gate
+  (`docs/electric-native/DIRECTION.md`); authoring-in-Electric's-language
+  is dead either way (faces are data, ruled above). Where view-dependence lives (walk-time filter
   now; maintained visible-set / spatial index / GPU cull later): the
   walk-cost profile at scale decides. The patch-driven executor: exists
   only if frame profiles summon it; today's walk waits as its oracle.

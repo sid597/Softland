@@ -81,7 +81,17 @@ includes P8; the P8 :8091 jetty is dead — see HANDOFF).
 **Ground:** `docs/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `docs/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `docs/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-08-10, first entry** (the
+**Vision:** LOG routed through **2026-08-12** (the return sitting — back to
+the workshop fork after the engine campaign: "electric should drive the
+rendering engine and vice versa" · faces ruled DATA all the way · porting
+the block ruled the wrong move · the gate = the Block MADE in-land,
+ECS-style, agent-driven, worn daily; routed same-session → decisions.md
+"The render seam" face-host amendment + `docs/electric-native/DIRECTION.md`
++ this board's electric-native block. Open pulls: BETS **C3 sharpening
+PENDING** · **review sitting DUE** — H1 unevaluated since ~07-19, C2's
+instrument FIRED 07-31 with reading only in LOG routing while BETS still
+shows it armed, C1/C2 instruments live on old-substrate surfaces).
+Prior: **2026-08-10, first entry** (the
 representation arc — house inspector · science labs · "'good enough' is not
 good enough for me" · the commons; routed same-session → decisions.md "The
 spatial model & the representation ladder" (ambience law ·
@@ -462,6 +472,8 @@ proof-decay + was this line accurate).
   full ruling sweep, then fresh Rama P0; no implementation from the failed plan.
 - **#2 — held open for Sid's first lived friction after the return.**
 
+- **electric-native (the return arc)** → `docs/electric-native/DIRECTION.md` — **DIRECTION SETTLED 2026-08-12** (the return sitting; LOG same date): faces ruled DATA all the way (render-seam amendment in decisions.md); gate = **the Block MADE in-land, ECS-style, agent-driven, worn daily** — hand-porting ruled wrong. Road: step 0 = felt typing-lag checked against the BANKED shaping adjudication (fence; `docs/shaping-correction/CONTRACT.md`) → SEAM-STEP1 closure → face/verb spec sitting (Sid+Fable, block as specimen) → store-contract slice + viewport-residency as demand v1 → host probe on the block-face → the gate. NEXT → build session runs step 0 ONLY; starter delivered in-chat 2026-08-12.
+
 - **studio** → `docs/packages/studio.md` — ARC OPENED + BRIEF SETTLED 2026-07-31 (working name, Sid redlines)
 
 - **shaping-correction** → `docs/packages/shaping-correction.md` — IMPLEMENTATION OPEN (SEAM-STEP1 landed `5f55cf5` 2026-08-05; R4 PASS 2026-08-04; SEAM stays frozen/unwidened)
@@ -488,7 +500,7 @@ proof-decay + was this line accurate).
 
 - **viewport-residency** — pulled from LATER into NOW at Sid's word 2026-08-08 (the rung LAYOUT-RETENTION-CONTRACT refused to LATER). Direction, in Sid's words: resident cost scales with what you're looking at, not what you own; view-only text until clicked; "1000s of nodes" must not go dog-slow. Mechanism sketch: offscreen nodes retain source text + measured bounds only; planes materialize on viewport approach through the existing accessor seam (`text_layout_planes.cljc` `plane-ref` door), evict on exit; offscreen text should cost neither heap nor GPU instances/draws. Shaper is HarfBuzz (`harfbuzzjs 0.10.3`, `text_shaper.cljs`; node harness `test/render_engine/verify_proportional_shaper.mjs`). Governing magnitudes UNMEASURED — re-shape µs/node, boot-corpus layout ms, offscreen GPU-instance occupancy: receipts before budgets (investigation fence). NEXT → probe, then Fable-xhigh contract cut, fresh session; starter prompt delivered in-chat 2026-08-08.
 
-- **smalltalk-ui-vm** → `docs/packages/smalltalk-ui-vm.md` — DIRECTION SETTLED 2026-07-30, CONTRACT IN AUTHORING (this session)
+- **smalltalk-ui-vm** → `docs/packages/smalltalk-ui-vm.md` — DIRECTION SETTLED 2026-07-30; the "CONTRACT IN AUTHORING" status is STALE (superseded by studio → G7 → the engine turn). The 2026-08-12 return re-enters through **electric-native** (block above) — the made-block gate IS this package's acceptance test.
 
 - **matter-room** → `docs/packages/matter-room.md` — PHASES COMPLETE 2026-07-28 (P1–P4 all landed + gated, slim tier)
 

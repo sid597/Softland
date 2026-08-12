@@ -1,0 +1,160 @@
+# Electric-Native — the return arc: one differential system, closed by the made-block gate
+
+2026-08-12 · born of the return sitting (direction session; Sid's word: "we
+should write this all up and then do further work on this"). The arc's name
+is settled ground — decisions.md "The render seam": "In Sid's words: this is
+the Electric-native arc"; briefings carry BOTH vocabularies (electric-native
+· the render seam). This doc composes with that constitution and never
+restates it — read the seam section PRIMARY before cutting any contract
+here. Status: DIRECTION SETTLED · contracts cut separately per work-package
+law.
+
+## The arc in one breath
+
+Make Electric and the engine one differential system — truth flowing down as
+scene-diffs, interest flowing up as facts — cut from day one against a single
+named gate: **the Block, made in Softland, ECS-style, by the agent, worn
+daily by Sid. Ported by nobody.** Hand-porting the block was ruled the wrong
+move (Sid, 2026-08-12): the fork's original want was modifying the block
+through the workshop and then using it; a port proves nothing about the VM.
+"Fully ready" is DEFINED by this gate — seam work is cut against the
+made-block scenarios (type · click · scroll · page · activate · reverse),
+never ready-in-the-abstract.
+
+## Ruled 2026-08-12 (the return sitting; verbatim in vision/LOG.md)
+
+1. **Faces are data, all the way.** A face's authored form is
+   material/constitution for every inhabitant — never source code. Landed as
+   an in-place amendment to decisions.md "The render seam" (the face-host
+   sentence). The register's machinery probe (Electric generic host vs
+   Missionary host — one real face built both ways) STAYS OPEN and now has
+   its named face: the Block.
+2. **Stand on shoulders, never rebuild.** Already settled ground (the
+   2026-08-03 four dispositions) — reaffirmed, no edit needed: transport
+   kept untouched · runtime internals mined and re-keyed for the GPU target
+   · Missionary the soil, engaged at named points.
+3. **Architecture first, gate named in the same breath** — this document.
+
+## The corrected ground (what is, provenance-marked)
+
+- There was never a DOM paint path for blocks — "old vs new" was always
+  recompiled join vs retained differential store; the disease was the JOIN
+  (per-frame tape recompile · the gpu-mount scar), never the paint target
+  (Sid's correction 2026-08-12 + the seam constitution's own history).
+- Ordinary Ground blocks already paint through the retained scene store +
+  HarfBuzz layout (Codex tree-read 2026-08-12: `runtime.cljs:107` ·
+  `ground.cljs:1334` · `runtime/render.cljs:230` · `electric_flow.cljc:802`);
+  the OLD editing/write controller still drives them; full T2 authoring
+  (grapheme/word movement · selection · IME · layout-true caret) sits
+  isolated in `?live-atoms=1`. The block is half-crossed: engine eye, old
+  hand — and the felt frictions live at that hybrid seam.
+- Reactive layer today: Rama → Electric explicit watches + request atoms →
+  Missionary-maintained client projections → scene store → renderer
+  (GPU-private residency; consumes scene facts; never queries truth). No
+  general view-driven demand fabric exists yet — the engine makes it
+  possible; viewport-residency (board NOW, Sid's pull 2026-08-08) is its
+  first slice.
+- Three organs: a nascent VM (facets · masters · deviations · bindings ·
+  revisioning · ONE controller both inhabitants push anatomy edits through)
+  · a broad display engine (floors stand; close condition — one picking /
+  annotation / provenance / persistence / authoring model across text + ink
+  + live component + 3D, per ENGINE.md — not yet walked by any tenant) ·
+  the missing browser that joins them. The gap is the browser, not the VM.
+
+## The road (composes with the seam constitution's own moments)
+
+0. **Shaping correction first** — already contracted
+   (`docs/shaping-correction/CONTRACT.md`; banked, binding profiling
+   adjudication; precedes SEAM-STEP1's closure; SEAM stays
+   frozen/unwidened). Sid's felt typing-lag ("dog dog slow… grows and
+   grows") checks against the BANKED receipt + contract scope FIRST — fence
+   law, no fresh blind profile, no verdict from reading. In scope →
+   executing the existing contract IS the relief, arriving as the arc's
+   first landing, never a patch. Out of scope → fresh probe with
+   pre-registered predictions.
+1. **SEAM-STEP1 closes** (maintained tape landed `5f55cf5` 2026-08-05;
+   closure rides the shaping correction).
+2. **The face/verb spec sitting** (Sid + Fable, closely; the block dissected
+   as the specimen): anatomy spec + v1 verb registry at INTENT grain
+   ("editable text" · "accepts children" · "dispatches ctrl+enter with
+   policies") — human naming law (no fm:space-style vocabulary
+   user-facing); deep behaviors are engine verbs material BINDS to (T2
+   stays the one text editor — editing parity arrives through the binding,
+   free); every capability gap surfaces as a NAMED verb request — the C1
+   escape gauge reborn at the verb boundary. Output comes to Sid for
+   redline; no cold forks.
+3. **The store-contract slice at composition pressure** (the constitution's
+   moment: per-key reads · write-site dispatch · signals — the 34-watch /
+   nine-dialect collapse), PLUS demand fabric v1 = viewport-residency
+   (board NOW; probe-first, receipts before budgets): renderer publishes
+   visibility facts; a client-side broker translates them to subscription
+   changes; interest at block/region grain; residency ≠ existence (local
+   state survives paging). Rungs = grains: the representation ladder's
+   typed solidity rungs and residency grains are one axis — "present at a
+   cheaper rung, honestly tagged."
+4. **The host probe on the block-face** (the constitution's "first real
+   face worth building twice" — now named): the block-face built both ways
+   (Electric generic host vs Missionary host), judged on the register's
+   criteria (container close/reopen · mid-drag teardown · served-source
+   hot-swap).
+5. **The gate act:** the agent makes the Block through the one shared
+   controller. Grammar v1 = exactly the operations the making needs
+   (propose-revision · attach-facet · bind-verb · arrange · derive-variant)
+   — validated, transactional, error messages legible to small models (the
+   32b easiness axis lives in the error surface). Candidates live Rama-side
+   as activation-scoped draft revisions — real and functional, mint on
+   accept (Sid's 07-31 rulings). One grammar, two hands: Sid's future halo
+   edits emit the same operations. Then Sid wears it daily — the wearing IS
+   the smalltalk-ui-vm question answered.
+
+## Working vocabulary (names finalize by recurrence; the naming is Sid's)
+
+- **constitution** — what explains an entity: the resolved graph of facet
+  attachments · active master revisions · local deviations · recipes ·
+  relations · bindings · anatomy contributions · interpreter/host
+  contributions. Not a type ("type" refused — Sid: constraining, built
+  upfront; the want is ecs style); never one parent edge.
+- **the gesture** — halo = ONE move ("why this?") followed recursively
+  along whichever constitution edge matters; it applies to its own
+  instruments (halo and browser are themselves entities with
+  constitutions).
+- **the shoreline** — every walk ends where material meets code; not one
+  top, a boundary visible from many directions; campaigns move it inward
+  (the strange-loopy-loops sequencing, ratified 2026-07-30).
+
+## Guards
+
+- **No browser blueprint.** Browser organs are friction-pulled from the
+  making; G7 stands guard (truth-to-substrate ≠ use-to-human; felt gates
+  test real use).
+- **No new floors.** The representation ladder (house inspector · labs ·
+  commons) waits for lived pull — breadth necessary, never sufficient
+  (Sid's own campaign law).
+- **Engine close is a relay.** After the block, the same authoring model
+  walks ink · live components · Region3D; only then is the campaign's
+  close honest.
+- **Ladder debt (flagged, untouched):** review sitting due — H1 unevaluated
+  since ~07-19 · C2's instrument FIRED 07-31 (reading recorded in LOG
+  routing; BETS still shows armed) · C1/C2 instruments live on
+  old-substrate surfaces (migrate-or-recut is a sitting decision) · C3
+  unsharpened.
+
+## Trees parked (receipts before attribution — fence)
+
+- Click-to-focus router: cursor lands away from the click (hybrid-seam
+  suspect class; cause UNKNOWN).
+- Typing lag grows with writing → checks against the banked shaping
+  adjudication first (road step 0).
+- Text softer than remembered → already board-tracked under frame-view;
+  pinned pixel A/B required before attribution.
+
+## Open — sorted by what closes each
+
+- **By the banked-receipt check (step 0):** the lag's mechanism; whether
+  relief = the existing shaping contract executing.
+- **By the spec sitting (step 2):** anatomy spec contents · verb grain +
+  names (Sid redlines the output).
+- **By contract + probe (steps 3–4):** exact incseq reuse line · patch-type
+  vocabulary · frame batching · interest-fact schema · the host machinery.
+- **By the gate act (step 5):** grammar v1 · the draft room's first form.
+- **By Sid, now:** nothing — all current forks ruled 2026-08-12.

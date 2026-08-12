@@ -1232,3 +1232,51 @@ frame-view correction's scope UNCHANGED. Codex's mini-review compression
 adjudicated by Fable: identity/representation kernel adopted; the
 worn-visibly solidity clause and the full ambience mechanics added back;
 marketplace split DOWN to bet — never constitution.)*
+
+---
+
+## 2026-08-12 — the return sitting: back to the workshop fork, faces ruled data, the made-block gate (verbatim)
+
+[the step back, after the engine campaign's atoms closed; the question he set:]
+
+> we just completed the render engine now i want to take a step back and see the timeline of where we are and what next ...
+
+> I think since rendering engine was fork or, like, launched from the previous workshop or small doc UI VM kind of thing, think that's where we need to go back to. Like, how does the system now look from that perspective? Is it enough now? Can we... can I go into the system and start making things and all that?
+
+[the halo recursion, the type-word refused:]
+
+> The idea with halos is not the ui but like pointing the to "type" (i hate using the word type because it seems constraining and build upfront .. and what we want is ecs style but i don't know the terms equivalent for type and instance) of an instance and interacting with that and then doing it recursively until you go to the top ....
+
+[the blender principle owned; the model as maker:]
+
+> i think what i have been saying is that softland should be like that kindish atleast we are much more broader and bigger than blender but the principle is same for this layer
+
+> Yeah i think we need the model as maker i agree with that statement
+
+[the reactive loop in his words; the no-dom correction and the architecture ruling:]
+
+> the reactive composiion between rama->electric/missionary querying data that needs to be rendered <-> rendering engine taking it and also asking for more <-> user interacting and based on the interaction we add or remove the data needed
+
+> Yes i think we should first fix the architecture truly electric should drive the rendering engine and vice versa .. i am also not truly sure what electric-dom means there is no dom previously also we used webgpu
+
+[porting refused; the gate named:]
+
+> Re: migrating block-on-engine .. where i left of or forked in road was exactly the problem of i want ot actually have workshop/playground or smth to modify the block itself because i want to modify its ui/ux, behaviour, add more components etc and then use it so if we are saying that the engines are not fully ready i think we should be making them fully ready and than the first test is if i can make the block component in it using ecs style/agent driven development .. that is also the place that will test out the seams of softland and if its really working out .. i think porting the block to engine would be wrong move .... i think the real work is having the solid architecture of electric based but engine based + webgpu
+
+[the rulings on the laid forks; the process law he named:]
+
+> 1. Face as data yess all way
+
+> 3. Adopt we dont want to rebuild it but stand on shoulders
+
+> what i like is to have the options ifff there are any like dont make up just for the sake of it but that would actually help us move forward if that is the goal and then we should write this all up and then do further work on this
+
+[the live frictions, noted in-land while reading the session's replies — offered as orientation, "NOT to bog down":]
+
+> current blocks don't have the correct click to focus router htthe click and where the cursor is put is very different
+
+> current blocks writing is dog dog slow as i write more and more the lag between what i type and when it appearst just grows and grows
+
+> the text is softer now idk what changed did we previously used slug and now using msdf or sdf idk
+
+*(Routed same-session: faces-are-data → decisions.md "The render seam" — the face-host sentence amended in place; the machinery probe (Electric generic vs Missionary host) stays open, its first real face now NAMED: the Block · the return arc (corrected ground · the road composed with the constitution's moments · guards · working vocabulary: constitution / the gesture / the shoreline) → `docs/electric-native/DIRECTION.md` · board: electric-native block opened, smalltalk-ui-vm's stale CONTRACT-IN-AUTHORING cleared — the made-block gate IS its acceptance test, Vision line → this entry · "adopt / stand on shoulders" recognized as ALREADY settled (the 2026-08-03 four dispositions) — reaffirmed, no edit · the felt frictions parked as trees: the lag checks FIRST against the banked shaping adjudication (`docs/shaping-correction/CONTRACT.md`), the softer-text A/B already board-tracked under frame-view · process feedback (options only at real forks) → memory · BETS untouched — review-sitting debt flagged on the Vision line.)*
