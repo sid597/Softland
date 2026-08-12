@@ -80,6 +80,20 @@ built two ways, keep the one that survives real handling · **5** you ask
 for a block variant, the agent makes it, you use it — the workshop is
 real.
 
+**Where the workshop lives in this road** (the ruling's two clauses stay
+visible together: the WORKSHOP is the want; the ARCHITECTURE is the
+order — both are Sid's sentence, 2026-08-12): the durable workshop loop
+OPENS at road 5 — the made block is its first act — and grows by use
+from there: the browser organs, the paper-page drawing experience (User
+Goal 1), the AI drawing in-land (User Goal 2). Along the way,
+playgrounds stay lawful (Sid's 08-01 stream ruling: broad, playable,
+allowed to break) — drawing-as-PLAY can land at any step on the existing
+floors; drawing-that-STICKS is what the road buys. Workshop-first was
+lived and ruled out by G7 + playground cuts 1–2 ("the root cause of all
+problems is trying to build out stuff for which this is not made");
+staged ≠ patchy — a patch hides a systemic wrong, a stage names its
+replacement in the contract.
+
 ### 1 · ELECTRIC DRIVES THE ENGINE — the down arrow (truth → screen, differential at every hop)
 
 One architecture, three organs, in dependency order:
