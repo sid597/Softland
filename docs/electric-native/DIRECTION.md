@@ -92,6 +92,22 @@ never ready-in-the-abstract.
    state survives paging). Rungs = grains: the representation ladder's
    typed solidity rungs and residency grains are one axis — "present at a
    cheaper rung, honestly tagged."
+   **Wire seam CONVERGED 2026-08-13** (two Fable sessions merged; tree
+   receipts banked in `RECON.md`): the adopt/adapt fork DISSOLVED — every
+   durable stage is already keyed (Rama PStates · client stores · GPU
+   pool); the wire is the one identity-blind hop, and every scar lives
+   there (512-cap · epoch re-pull · 1s floor). WORKING HYPOTHESIS:
+   Electric-native keyed wire — `e/diff-by :unit-id` server-side minting
+   by comparison, `e/for-by` per-key lifecycle client-side, feeding the
+   scene store and the already-stubbed buffer-pool bridge. Rider that
+   keeps it lawful under the seam constitution: comparison-minting is the
+   NAMED batch stage — demotion to write-site/per-key minting
+   pre-registered (Rama 1.6.0 proxy fix or topology-emitted deltas; the
+   comparer then demotes to oracle, per the growth law). Probes before
+   magnitudes: per-key branch overhead at real cardinalities ·
+   mount-against-pool contract · full-ground-pull cost · the demotion
+   trigger line. Collaboration is a named beneficiary of the keyed wire
+   (presence lane = later arc; truth lane already multi-actor).
 4. **The host probe on the block-face** (the constitution's "first real
    face worth building twice" — now named): the block-face built both ways
    (Electric generic host vs Missionary host), judged on the register's
@@ -154,7 +170,9 @@ never ready-in-the-abstract.
   relief = the existing shaping contract executing.
 - **By the spec sitting (step 2):** anatomy spec contents · verb grain +
   names (Sid redlines the output).
-- **By contract + probe (steps 3–4):** exact incseq reuse line · patch-type
-  vocabulary · frame batching · interest-fact schema · the host machinery.
+- **By contract + probe (steps 3–4):** the wire hypothesis's four probes
+  (`RECON.md`) · row shape — what a served unit carries · frame batching ·
+  interest-fact schema · the host machinery. (The incseq reuse line closed
+  2026-08-13: machinery adopted at the wire, minting staged — see step 3.)
 - **By the gate act (step 5):** grammar v1 · the draft room's first form.
 - **By Sid, now:** nothing — all current forks ruled 2026-08-12.
