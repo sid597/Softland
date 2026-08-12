@@ -69,6 +69,17 @@ ready-in-the-abstract.
 
 ## The road — Sid's ruling as the spine: the architecture FIRST, both arrows, then the test
 
+The same road in product language ("product language is more useful" —
+Sid, 2026-08-13): **1a** typing stops lagging, writing feels instant
+again · **1b** the screen maintains itself from one source, no
+whole-screen rebuilds · **1c** an edit anywhere appears everywhere it
+matters, one change moves one thing · **2** big spaces open instantly
+and stay smooth — you pay only for what you look at · **3** the block's
+parts and powers written down in human names · **4** the block's face
+built two ways, keep the one that survives real handling · **5** you ask
+for a block variant, the agent makes it, you use it — the workshop is
+real.
+
 ### 1 · ELECTRIC DRIVES THE ENGINE — the down arrow (truth → screen, differential at every hop)
 
 One architecture, three organs, in dependency order:
