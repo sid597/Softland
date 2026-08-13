@@ -1280,3 +1280,15 @@ marketplace split DOWN to bet — never constitution.)*
 > the text is softer now idk what changed did we previously used slug and now using msdf or sdf idk
 
 *(Routed same-session: faces-are-data → decisions.md "The render seam" — the face-host sentence amended in place; the machinery probe (Electric generic vs Missionary host) stays open, its first real face now NAMED: the Block · the return arc (corrected ground · the road composed with the constitution's moments · guards · working vocabulary: constitution / the gesture / the shoreline) → `docs/electric-native/DIRECTION.md` · board: electric-native block opened, smalltalk-ui-vm's stale CONTRACT-IN-AUTHORING cleared — the made-block gate IS its acceptance test, Vision line → this entry · "adopt / stand on shoulders" recognized as ALREADY settled (the 2026-08-03 four dispositions) — reaffirmed, no edit · the felt frictions parked as trees: the lag checks FIRST against the banked shaping adjudication (`docs/shaping-correction/CONTRACT.md`), the softer-text A/B already board-tracked under frame-view · process feedback (options only at real forks) → memory · BETS untouched — review-sitting debt flagged on the Vision line.)*
+
+## 2026-08-13 — the architecture commission: three parallel derivations, the final court, the book instinct (verbatim)
+
+[Sid ran the infrastructure question on three parallel sessions of one model, withheld their three merges, and convened a fresh session as the final court — missed directions · adversarial pass on every 3/3 convergence · final map. After the court closed, the commission:]
+
+> So i will give you 2 passes to explore what you want from this or not its on you final output i want is the problem space, and your direction doc and other docs you want to provide … also the final architecture we want in principle
+
+[the intellectual-goal naming; Rama's principles named as the model of the genre — the "big picture" excerpt (event sourcing + materialized views, source-of-truth vs indexed-store as the founding conflict) pasted alongside:]
+
+> I think maybe intuitively i am building the architecture of softland to how it should be ideally like maybe my intellectual goal is like protocol or architecture book equivalent idk … i like rama for their implementation, product but also the principles they build on
+
+*(Routed same-session: the commission → `docs/ARCHITECTURE.md` NEW (the principle register — six conflicts, each a separation with refusals + receipts, Rama's big-picture genre; every line marked SETTLED-pointer / PROPOSED-default-approved / FORK-Sid's) + `docs/electric-native/PROBLEM-SPACE.md` NEW (loads · tensions · holes · principled-vs-debt fate table · forks by decider · deduped probe sheet) + DIRECTION.md 1c court riders integrated in place + RECON.md §11 court receipts (RevisionRow spine · event-id-everywhere · the geometry-bump hole · the depot-theater kill) · the book instinct → ARCHITECTURE.md's closing section names it as the register's reason · Vision line → this entry. decisions.md deliberately UNTOUCHED — promotions of PROPOSED lines wait for Sid's word.)*

@@ -81,16 +81,24 @@ includes P8; the P8 :8091 jetty is dead — see HANDOFF).
 **Ground:** `docs/decisions.md` (settled ground — read once, then build) · active contracts: **first-light A** (OPEN 07-17, `docs/first-light/CONTRACT.md` + RECON.md + NOW.md) · **editable-material** (DIRECTION adopted 07-23, `docs/editable-material/DIRECTION.md`; probe staged at board top). durable-ground CLOSED 07-17 (gate PASS; G5c reboot receipt = Sid's slot); block-write CLOSED 07-13; scene-substrate CLOSED 07-13 (CONTRACTs remain binding records for staged later slices).
 **Register:** direction sessions boot ONLY from `sense-line-model.md` + BETS
 North + `vision/LOG.md` tail (CLAUDE.md rule) — never from this board.
-**Vision:** LOG routed through **2026-08-12** (the return sitting — back to
+**Vision:** LOG routed through **2026-08-13** (the architecture
+commission — three parallel derivations + the final court; "maybe my
+intellectual goal is like protocol or architecture book equivalent";
+routed same-session → `docs/ARCHITECTURE.md` NEW (the principle register:
+six conflicts, marks SETTLED/PROPOSED/FORK) + `docs/electric-native/
+PROBLEM-SPACE.md` NEW + DIRECTION 1c court riders + RECON §11 court
+receipts; decisions.md untouched — PROPOSED promotions wait for Sid.
+Open pulls: BETS **C3 sharpening PENDING** · **review sitting DUE** — H1
+unevaluated since ~07-19, C2's instrument FIRED 07-31 with reading only
+in LOG routing while BETS still shows it armed, C1/C2 instruments live on
+old-substrate surfaces).
+Prior: **2026-08-12** (the return sitting — back to
 the workshop fork after the engine campaign: "electric should drive the
 rendering engine and vice versa" · faces ruled DATA all the way · porting
 the block ruled the wrong move · the gate = the Block MADE in-land,
 ECS-style, agent-driven, worn daily; routed same-session → decisions.md
 "The render seam" face-host amendment + `docs/electric-native/DIRECTION.md`
-+ this board's electric-native block. Open pulls: BETS **C3 sharpening
-PENDING** · **review sitting DUE** — H1 unevaluated since ~07-19, C2's
-instrument FIRED 07-31 with reading only in LOG routing while BETS still
-shows it armed, C1/C2 instruments live on old-substrate surfaces).
++ this board's electric-native block).
 Prior: **2026-08-10, first entry** (the
 representation arc — house inspector · science labs · "'good enough' is not
 good enough for me" · the commons; routed same-session → decisions.md "The
@@ -472,7 +480,7 @@ proof-decay + was this line accurate).
   full ruling sweep, then fresh Rama P0; no implementation from the failed plan.
 - **#2 — held open for Sid's first lived friction after the return.**
 
-- **electric-native (the return arc)** → `docs/electric-native/DIRECTION.md` — **DIRECTION SETTLED 2026-08-12** (the return sitting; LOG same date): faces ruled DATA all the way (render-seam amendment in decisions.md); gate = **the Block MADE in-land, ECS-style, agent-driven, worn daily** — hand-porting ruled wrong. Road, in Sid's words — the architecture FIRST, both arrows: 1 ELECTRIC DRIVES THE ENGINE (1a shaping receipt check, fence · 1b tape closes · 1c keyed wire + store contract — wire seam CONVERGED 2026-08-13, receipts `docs/electric-native/RECON.md`) → 2 THE ENGINE DRIVES ELECTRIC (viewport-residency as demand v1) → 3 face/verb spec sitting (parallel lane, Sid+Fable, before the probe) → 4 host probe on the block-face → 5 the gate. NEXT → build session runs road 1a ONLY; starter delivered in-chat 2026-08-13.
+- **electric-native (the return arc)** → `docs/electric-native/DIRECTION.md` — **DIRECTION SETTLED 2026-08-12** (the return sitting; LOG same date): faces ruled DATA all the way (render-seam amendment in decisions.md); gate = **the Block MADE in-land, ECS-style, agent-driven, worn daily** — hand-porting ruled wrong. Road, in Sid's words — the architecture FIRST, both arrows: 1 ELECTRIC DRIVES THE ENGINE (1a shaping receipt check, fence · 1b tape closes · 1c keyed wire + store contract — wire seam CONVERGED 2026-08-13, court-audited same day; receipts `docs/electric-native/RECON.md` §1–11 · problem space `PROBLEM-SPACE.md` · principles `docs/ARCHITECTURE.md`) → 2 THE ENGINE DRIVES ELECTRIC (viewport-residency as demand v1) → 3 face/verb spec sitting (parallel lane, Sid+Fable, before the probe) → 4 host probe on the block-face → 5 the gate. NEXT → build session runs road 1a ONLY; starter delivered in-chat 2026-08-13.
 
 - **studio** → `docs/packages/studio.md` — ARC OPENED + BRIEF SETTLED 2026-07-31 (working name, Sid redlines)
 
