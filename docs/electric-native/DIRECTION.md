@@ -9,8 +9,10 @@ architecture is the ORDER; both are that sentence.
 
 This file is the guide. Detail lives in pointers, never restated here:
 binding law = decisions.md "The render seam" (read PRIMARY before cutting
-any contract) · evidence = `RECON.md` beside this file (tree receipts,
-2026-08-13) · history/why = `vision/LOG.md` 2026-08-12 entry.
+any contract) · evidence = `RECON.md` beside this file (tree receipts
+2026-08-13 + §11 court receipts) · the problem held open =
+`PROBLEM-SPACE.md` beside this file · principles = `docs/ARCHITECTURE.md`
+· history/why = `vision/LOG.md` 2026-08-12/13 entries.
 
 ## The picture
 
@@ -52,14 +54,28 @@ organs, dependency order:
   buffer-pool bridge; the hand-wired watches collapse into per-key reads.
   Comparison-minting is a NAMED temporary stage — demotion to
   write-site/per-key minting pre-registered (comparer becomes the oracle,
-  per the growth law). Converged 2026-08-13, two sessions merged; probes
-  and receipts in `RECON.md`.
+  per the growth law). Court riders (2026-08-13, receipts `RECON.md`
+  §11): normalization is 1c's first content — the wire carries flat
+  units-by-id + order/membership indexes, order as row data; the `:turns`
+  tree ends at the wire (both ends are already flat) · generation = the
+  accepted act (the bump discipline is already accept-gated) · the
+  demotion runway is short — the revision log half-exists (RevisionRow,
+  time-prefixed order-keys, cursor ranges; the since-reader is one
+  function) · container-grain notification is a lawful intermediate rung
+  (kills cross-conversation invalidation cheap). A stage is STABLE only
+  if it passes: one-path recovery (catch-up rides the live apply path
+  from a watermark, never a second reconcile) · tombstones (deleted keys
+  linger as entries until every lens passes them) · oracle demotion WITH
+  duties transferred (committed-echo cross-check INV-19 · cap-overflow
+  reconcile — both named in code). Converged 2026-08-13, two sessions
+  merged + court-audited; probes and receipts in `RECON.md`.
 
 **2 · The engine drives Electric** (the ↑ arrow) — viewport-residency as
 demand v1: "resident cost scales with what you're looking at, not what you
 own" (Sid, board NOW). Renderer publishes visibility facts; a broker turns
-them into subscriptions; residency ≠ existence. Collaboration is a named
-beneficiary of this wire.
+them into subscriptions; residency ≠ existence. Demand is MEMBERSHIP
+(grow/shrink against container indexes), never position windows (L16).
+Collaboration is a named beneficiary of this wire.
 
 **3 · The spec sitting** (parallel lane — Sid + Fable, any time, must land
 before 4): dissect the block as the specimen — anatomy + verb registry at
@@ -115,9 +131,11 @@ flagged, untouched: review sitting due (H1 · C1/C2 instruments · C3).
 
 - **Receipt (1a):** the lag's mechanism; whether relief = the existing
   contract executing.
-- **Probes (1c–2, 4; listed in `RECON.md`):** per-key overhead at real
+- **Probes (1c–2, 4):** the deduped sheet with what each closes lives in
+  `PROBLEM-SPACE.md`; originals in `RECON.md` §10. Headline: the transfer
+  bench (four algebras × diff-by losslessness) · per-key overhead at real
   cardinalities · pool-bridge contract · full-pull cost · demotion trigger
-  · host machinery · row shape (what a served unit carries).
+  · host machinery.
 - **Sitting (3):** anatomy spec · verb grain + names — Sid redlines output.
 - **Gate (5):** grammar v1 · the draft room's first form.
 - **Sid, now: nothing.** Two dormant forks are asked AT the sitting: gate

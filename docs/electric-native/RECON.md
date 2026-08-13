@@ -190,3 +190,67 @@ write-site minting pre-registered."
 - Material/portal projections' `:params` narrowing unread
   (`face_projection.clj:995, 1445, 1772`).
 - Genesis-episode row count vs the 100k cliff unknown.
+
+## 11 · Court receipts (2026-08-13 — adversarial audit, two gatherer waves + primary spot-checks)
+
+Banked by the final-court session over the three parallel derivations.
+Receipts only; the frame lives in `PROBLEM-SPACE.md` + `docs/ARCHITECTURE.md`.
+
+- **The revision log half-exists.** `RevisionRow [revision-id container-id
+  parent-revision-id content-text content-hash order-key created-at-ms
+  created-by event-id]` (`object_container.clj:109-111`).
+  `$$revision-history-by-container` `{container-id {order-key RevisionRow}}`
+  subindexed, order-key = `fixed-width-order-key created-at request-id` —
+  TIME-PREFIXED, so a since-cursor read is mechanically supported;
+  cursor-range reader exists (`runtime.clj:363`, `sorted-map-range-from`),
+  4 callers, no since-watermark reader anywhere yet.
+- **Who mints revisions:** 5 import adapters + facet-master bootstrap + ONE
+  edit path (`edit-effects`, `object_container.clj:1506`; graduation minted
+  in the same effect map :1516, persisted together :2404-2417). Geometry
+  does NOT mint revisions — settles land as event-linked hint rows in
+  `$$transcript-conversation-projection` (deterministic order-keys
+  `geo:unit:<sha8>` / `geo:camera`, last-settle-wins; `episode.clj:274,291`)
+  via the OC requests depot (append+await ack).
+- **`event-id` rides EVERY row defrecord** (`object_container.clj:90-129`)
+  — act linkage is the resting convention of all truth; only motion strips
+  it. The two-clock law is comment-enforced at rest ("NEVER read
+  :request/time-ms for this: it wall-clock-defaults", :91-95).
+- **Epoch topology: TWO counters, 13 sites, identity stripped at all
+  sampled.** Global `!ingest-epoch-atom` (12 sites) + separate local
+  `!epoch` in `electric_flow.cljc:103`, accept-gated ("ONLY on a real truth
+  change — not a replay, not a rejection", :100-104). 4/4 sampled bump
+  sites have changed ids in scope, none carry them (`ingest_watchers.clj:199`
+  — identity travels in the sibling `on-import` callback one line away;
+  `episode.clj:961`; `server_jetty.clj:2304` — "the mint IS an ingest
+  (INV-19) — the face re-pull is the committed-echo cross-check channel").
+- **Geometry settles bump NOTHING** — only `:deleted?` bumps
+  (`server_jetty.clj:2334-36`). Moves/camera settles are durable but
+  invisible to other lenses until an unrelated bump fires.
+- **Conflation scars verbatim:** cap-64 ("continuations for envelopes
+  skipped by Electric conflation never fire; keep the newest 64",
+  `block_edit_wiring.cljs:63-68`) · cap-8 ("Capped at 8 entries … the
+  clear-all prune below reconciles at the next full pull", :187,198 — the
+  oracle's second named duty) · the union map as existence proof that keyed
+  payloads survive conflation ("a union map makes conflation lossless —
+  the latest value contains every armed unit", `face_projection.clj:1691-95`).
+- **"Depot theater" KILLED.** The text-requests round trip is depot-append
+  → `$$decisions-by-id` PState query — no JVM atom
+  (`text_kernel.clj:562, 579-581`; PState declared :425).
+- **Mirror quarantine is test-enforced** ("adding a mirror without
+  declaring it … fails loudly", `util_fns.cljc:104-112`). Roster of 9:
+  cli-sessions · agent-runs · sidebar-truth · settings-truth · agent-trail
+  · workspace-truth · editor-doc · flow-session · ingest-epoch ("a
+  counter, not truth … resets on restart (INV-14)").
+- **T2 is fixture-fed** — `fixture-specs` hard-coded literal
+  (`editing_runtime.cljs:23`); wiring injects font/camera/transform
+  providers only (`live_atoms.cljs:361`) — no server data path exists.
+- **Registry + modules:** 12 projections in `projection-registry`
+  (`face_projection.clj:1815`); 11 modules in source, 5 deployed stands
+  (§1); depots — OC: requests + transcript-completions · transcript-ops: 2
+  · face-arsenal: 1 · trail-view: 0 · relation-kernel: 1 · text-kernel: 1
+  · dogfood transcript-ingest: 4 · transcript: 3 · llm: 4 · compute: 3 ·
+  space: 1 (+3 mirrored).
+- **Court kill worth remembering:** of ~12 audited citations across the
+  three derivations, 11 passed and the one kill was the lone solo dramatic
+  claim — variance concentrates where the shared well doesn't constrain;
+  `[R]` marks are auditable claims, not facts.
