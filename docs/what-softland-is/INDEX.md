@@ -40,3 +40,4 @@ Pending — assembled from the product-architecture exchange.
 - [exchange-02-adjudications.md](provenance/exchange-02-adjudications.md) — both sessions' adjudications of the routed items, verbatim
 - [exchange-03-ratification-round.md](provenance/exchange-03-ratification-round.md) — ratification packets + both sessions' verdicts, verbatim
 - [exchange-04-meta-syntheses.md](provenance/exchange-04-meta-syntheses.md) — the meta session's round syntheses: axis map, settled ledger, the twelve clauses, open register
+- [exchange-05-falsification.md](provenance/exchange-05-falsification.md) — the non-kin falsification round: Codex packet + review verbatim, Claude's sealed checklist run, Sid's lens, the adjudication (receipts re-verified), candidate amendments A1–A12 + register additions — unsigned; the breakup session reads this alongside exchange-04
