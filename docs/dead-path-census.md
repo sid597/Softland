@@ -412,3 +412,46 @@ and its finds are ingested above. Sid's item-by-item adjudication is the
 correction. After
 adjudication: whole paths, never patches; commits grouped by concern; build
 green per group; on `docs/current-mental-model-local`; never pushed.
+
+## Rulings (Sid, in-session, 2026-08-16)
+
+**A delete · B keep both (rama-side, confirmed) · C delete all · D delete
+this form (want banked for a future product form) · E keep seam_demo ·
+F delete.**
+
+## Outcome (the executed pass — receipts)
+
+Every ruling executed; both builds + verifier + fence + focused suites green
+at every group boundary. ~14.6k lines deleted across six commits:
+
+- **A** `f41b47b` — Roam era (file.clj, roam_ns.clj); 2 files, −184.
+- **C client half** `59c1d4e` — the 16 old-workspace client files deleted;
+  loom (state/fonts/keyboard/scroll/mouse/render/runtime/events/
+  electric_flow) rewritten for the always-ground boot; 26 files, +578/−10488.
+- **F** `eb23969` — review-pack module + test + jetty routes/require +
+  test-runner suite line; 4 files, −600.
+- **C server+test half** `941a0bb` — jetty loses Linear + the old agent API
+  (run/stream/status; the episode lane's stream helpers KEPT) + 15
+  old-surface routes; file_viewer loses the file-API trio + five Watch*
+  mirrors; util_fns loses 18 zero-caller fns + 8 orphan mirror atoms
+  (quarantine `:mirrors` now `[!ingest-epoch-atom]`); agent.cljs ticket half
+  pruned; G7 re-pointed at cards.cljc only; fence verifier audits of deleted
+  code dropped; 12 files, +43/−1120.
+- **D** `7d26213` — design-converter modules + e2e test + `components/`
+  registry tree + jetty extract/components routes; design_tokens.cljc KEPT
+  (face_primitives' live dt import); 70 files, +1/−2086.
+- **Deps rider** `99b9811` — datascript, openai-clojure, image-resizer,
+  pdfbox-io, fontbox (all zero-use, grep-verified); roamresearch/backend-sdk
+  stays pending Sid's env.clj check; −5 lines.
+
+Execution finds beyond the census rows (all fix-by-deletion, no stubs):
+`test_runner.clj` suite lines for the two deleted test nses; trail-face
+`g4-constraints-test`'s C3 block slurped workspace_actions.cljs as source
+(the pinned behaviors died with the file; C1/C2 live on); the fence
+verifier also audited the rewritten mouse.cljs handlers and electric_flow's
+layout-tokens (dead in the same rewrite — entries dropped, coverage of live
+code unchanged, self-tests intact); render.cljs missed one closing paren
+(the only compile error in the whole pass). Comment cites of dead files in
+five live files (block_edit_wiring, scene_runtime ×2, trail_face/scene ×2,
+face_wiring, trail_face_test:522) were left as-is — historical prose, no
+behavior; reword on next touch if they mislead.
