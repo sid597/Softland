@@ -70,7 +70,6 @@
     app.server.rama.core-guards-test
     app.server.rama.kernel-shape-test
     app.server.rama.probe-harness-test
-    app.server.review-pack-test
     design-converter-e2e-test])
 
 (def shared-cluster-namespaces

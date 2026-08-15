@@ -25,7 +25,6 @@
     [app.shared.facet-masters :as facet-masters]
     [app.shared.invocation-material :as invocation-material]
     [app.shared.matter-room :as matter-room]
-    [app.server.review-pack :as review-pack]
     [components.adapter :as adapter]
     [components.compiler :as compiler]
     [components.token-matcher :as token-matcher]
@@ -1882,62 +1881,6 @@ information."
                                :message (str "assert failed: " (.getMessage e))})))
         (edn-response 405 {:ok false :error :method-not-allowed
                            :message "Method not allowed. Use POST."}))
-
-      ;; ===== Review Pack API =====
-      (= uri "/api/review-pack/create")
-      (if (= request-method :post)
-        (try
-          (json-response (review-pack/create-review-pack! (parse-edn-body ring-req)))
-          (catch Exception e
-            (log/error e "[REVIEW-PACK][CREATE][ERROR]" {:uri uri})
-            (json-response {:ok false
-                            :error :server-error
-                            :message (str "Failed creating review pack: " (.getMessage e))})))
-        (json-response {:ok false :error :method-not-allowed :message "Method not allowed. Use POST."}))
-
-      (= uri "/api/review-pack/list")
-      (if (= request-method :get)
-        (json-response {:ok true :review-packs (review-pack/list-review-packs)})
-        (json-response {:ok false :error :method-not-allowed :message "Method not allowed. Use GET."}))
-
-      (re-matches #"/api/review-pack/([^/]+)/publish" uri)
-      (let [[_ pack-id] (re-matches #"/api/review-pack/([^/]+)/publish" uri)]
-        (if (= request-method :post)
-          (try
-            (json-response (review-pack/publish-review-pack! pack-id (parse-edn-body ring-req)))
-            (catch Exception e
-              (log/error e "[REVIEW-PACK][PUBLISH][ERROR]" {:pack-id pack-id})
-              (json-response {:ok false
-                              :error :server-error
-                              :message (str "Failed publishing review pack: " (.getMessage e))})))
-          (json-response {:ok false :error :method-not-allowed :message "Method not allowed. Use POST."})))
-
-      (re-matches #"/api/review-pack/([^/]+)/summary" uri)
-      (let [[_ pack-id] (re-matches #"/api/review-pack/([^/]+)/summary" uri)
-            base-url (or (get query-params "base-url") "")]
-        (if (= request-method :get)
-          (json-response (review-pack/review-pack-summary pack-id {:base-url base-url}))
-          (json-response {:ok false :error :method-not-allowed :message "Method not allowed. Use GET."})))
-
-      (re-matches #"/api/review-pack/([^/]+)/feedback" uri)
-      (let [[_ pack-id] (re-matches #"/api/review-pack/([^/]+)/feedback" uri)]
-        (if (= request-method :post)
-          (try
-            (json-response (review-pack/add-feedback! pack-id (parse-edn-body ring-req)))
-            (catch Exception e
-              (log/error e "[REVIEW-PACK][FEEDBACK][ERROR]" {:pack-id pack-id})
-              (json-response {:ok false
-                              :error :server-error
-                              :message (str "Failed adding feedback: " (.getMessage e))})))
-          (json-response {:ok false :error :method-not-allowed :message "Method not allowed. Use POST."})))
-
-      (re-matches #"/api/review-pack/([^/]+)" uri)
-      (let [[_ pack-id] (re-matches #"/api/review-pack/([^/]+)" uri)]
-        (if (= request-method :get)
-          (if-let [pack (review-pack/get-review-pack pack-id)]
-            (json-response {:ok true :pack pack})
-            (json-response {:ok false :error :not-found :message "Review pack not found"}))
-          (json-response {:ok false :error :method-not-allowed :message "Method not allowed. Use GET."})))
 
       ;; ===== Component Library Registry =====
       (= uri "/api/components/registry")
