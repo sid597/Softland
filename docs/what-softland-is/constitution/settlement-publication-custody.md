@@ -1,7 +1,7 @@
 # Settlement, publication, custody
 
 **Law.** Settlement and publication are two axes under three-way custody.
-The settlement profile is medium-declared — candidacy | echo | op-log: how
+The settlement profile is medium-declared — candidacy | committed | op-log: how
 input accretes into acts, and what the act quantum is (the profiles are
 fields of the [citizenship contract](../architecture/citizenship-contract.md)).
 The publication shape is universal, owned by no medium: every medium's acts

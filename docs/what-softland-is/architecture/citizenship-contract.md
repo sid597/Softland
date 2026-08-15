@@ -5,10 +5,12 @@ contract, two forms, not two architectures.
 
 *Material citizens* answer settlement laws. The declaration: surface form;
 distiller; anchor type + re-anchor law + dangling policy; region-identity
-and its normalization; settlement profile — candidacy | echo | op-log — with
-the echo profile defined by A2: per-edit-quantum committed acts, pending
-input local until the durable decision, the materialized pull the only echo,
-echoes never driving the pending buffer (the profile's name is Sid's call);
+and its normalization; settlement profile — candidacy | committed | op-log —
+with the committed profile defined by A2: per-edit-quantum committed acts,
+pending input local until the durable decision, the materialized pull the
+only echo, echoes never driving the pending buffer (named *committed* by
+Sid, closing A2's naming call — the old "committed echo" keeps only its
+true half);
 edit vocabulary under the profile; packager; checker tiers sized to declared
 blast radius. Publication is not in the medium contract
 ([settlement-publication-custody](../constitution/settlement-publication-custody.md)).
@@ -72,7 +74,6 @@ feed its deposit bridge. Checker tiers give the floor its teeth.
   proposal is its shape, sealed F6 the custody half). The lens-gate
   enforcement point — a deposit through a failed/undeclared lens lands
   dark-based or is refused — **Sid closes** (A3).
-- The echo profile's name — **Sid's call** (A2).
 - Declaration registry versioning/retirement (§7; Codex missing-organ row 1:
   who versions, replaces, retires a declaration; who *computes* rather than
   self-declares blast radius; what happens to existing material when an
