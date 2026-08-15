@@ -669,13 +669,6 @@
     (is (= {:op :off} (scene/parse-trail-command "/trail off" edn/read-string)))
     (is (= {:op :order :order :claimed}
            (scene/parse-trail-command "/trail order claimed" edn/read-string))))
-  (testing "G4 / C3: the boot-default mode flip stays a SINGLE line (assert
-            the exact form still exists - workspace_actions.cljs)"
-    (let [src (slurp "src/app/client/workspace/runtime/workspace_actions.cljs")]
-      (is (str/includes? src "(or (:mode local-world) :editor)")
-          "local-world-mode remains the one-line flip: (or (:mode local-world) :editor)")
-      (is (str/includes? src "not trail-face")
-          "the sidebar guard is present (no sidebar auto-appears in trail faces)")))
   (testing "G4 / C2: the face address lives in the rim, not floating card text"
     (let [rim (get-in (timeline-scene) [:data :trail-face/rim-slots])]
       (is (= 1 (count (filter :trail-face/address? rim))) "one rim address, always"))))

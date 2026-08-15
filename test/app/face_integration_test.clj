@@ -2,8 +2,9 @@
   "W1-INT gates (framework CONTRACT §11).
 
    G14(a) — the worn-UI structural-equality falsifier at assembly grain, the
-   JVM instance (the live sidebar check (b) runs at INT in the dev app and is
-   recorded in the INT artifact — sidebar.cljs is cljs-only, §10/§11 split).
+   JVM instance (the live check (b) ran at INT in the then-current dev app and
+   is recorded in the INT artifact — its cljs surface was cljs-only, §10/§11
+   split).
    The named trail-face sub-tree: the expansion card's HOLES COLUMN
    (scene.cljc:366-372 + :399-402) — map-indexed hole-endpoint-cards stacked
    in a column at y = i * (4 + line-height). Criterion held: >=1 :each, >=2

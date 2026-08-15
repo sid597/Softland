@@ -636,4 +636,4 @@
        :extra-text-geos nil
        :frame-idx 0})
 
-      (m/sample vector <world-snapshot >raf))))
+      (m/sample vector <world-snapshot >raf)))))

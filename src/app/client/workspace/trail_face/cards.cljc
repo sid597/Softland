@@ -1,6 +1,6 @@
 (ns app.client.workspace.trail-face.cards
   "Kernel-material card builders (pure cljc). A SEPARATE builder set
-   from trail.cljs agent-run cards (trap 10): these render WP1 shapes
+   from any agent-run card surface (trap 10): these render WP1 shapes
    (feed entries, bundle layers, verdicts, omissions, holes).
    Every fn is (data, geometry) -> data; `now-ms` where staleness needs
    it is an ARGUMENT (no wall clock in pure code); char-advance is an

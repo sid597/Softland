@@ -7,11 +7,13 @@
                       (clojure.test/run-tests 'app.face-primitives-test)\"
 
    G7 mechanical builder fidelity — a SOURCE-FORM DIFF (not call-and-compare;
-      the originals are cljs, this suite is JVM). Reads ui_primitives.cljs,
-      trail_face/cards.cljc and face_primitives.cljc as DATA and asserts every
-      copied builder's defn form is byte-for-form identical to its origin. The
-      allowlist of reviewed divergences starts EMPTY; ns forms are exempt
-      (carve-out, §11-G7).
+      the origin is cljc, this suite is JVM). Reads trail_face/cards.cljc and
+      face_primitives.cljc as DATA and asserts every copied builder's defn
+      form is byte-for-form identical to its origin. (The ui_primitives.cljs
+      half of the diff retired with that file; face_primitives.cljc is now
+      the canonical home of the panel/list/card builders.) The allowlist of
+      reviewed divergences starts EMPTY; ns forms are exempt (carve-out,
+      §11-G7).
    G8 the two new primitives measure — :text-run wraps ONCE via wrap-line, emits
       its own positioned text ops, and its :h = wrapped-line-count * line-height
       (trap T7). Carve-out asserted: :text-layout / resolve-text-layout appear
@@ -60,21 +62,16 @@
     (read-all-forms "app/client/workspace/face_primitives.cljc"
                     "src/app/client/workspace/face_primitives.cljc")))
 
-(def ui-forms
-  (def-forms-by-sym
-    (read-all-forms "app/client/workspace/ui_primitives.cljs"
-                    "src/app/client/workspace/ui_primitives.cljs")))
-
 (def cards-forms
   (def-forms-by-sym
     (read-all-forms "app/client/workspace/trail_face/cards.cljc"
                     "src/app/client/workspace/trail_face/cards.cljc")))
 
-;; ui takes precedence on the (empty) name intersection with cards.
-(def origin-forms (merge cards-forms ui-forms))
+(def origin-forms cards-forms)
 
 (def named-ui-builders
-  "The 11 ui_primitives.cljs builders §6 names for verbatim extraction."
+  "The 11 §6-named panel/list/card builders; face_primitives.cljc is their
+   canonical home (the ui_primitives.cljs origin is deleted)."
   '#{ui-panel ui-panel-header ui-panel-content ui-panel-footer ui-panel-group
      ui-list-item ui-card ui-badge ui-divider build-empty-state ui-scrollbar})
 
@@ -105,8 +102,9 @@
                       (remove allowlist)
                       sort)]
       (is (seq pinned) "the diff pins at least the named builders")
-      ;; the pinned set must cover every named builder (nothing silently dropped)
-      (doseq [b (concat named-ui-builders named-trail-builders)]
+      ;; the pinned set must cover every named trail builder (nothing silently
+      ;; dropped); the ui builders have no surviving origin to pin against
+      (doseq [b named-trail-builders]
         (is (some #{b} pinned)
             (str b " must be pinned by the source-form diff")))
       (doseq [sym pinned]

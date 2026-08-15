@@ -10,14 +10,13 @@
 
    1. VERBATIM COPIES of shipped builders — extraction, not invention (§6 /
       the copy-then-harmonize ruling, CONTRACT §2). The `ui-*` builders and the
-      `list-*`/`typo-*`/`dt` support defs are byte-for-form-identical copies of
-      `ui_primitives.cljs`; `omission-line`/`omissions-block`/`hole-endpoint-card`
-      are identical copies of `trail_face/cards.cljc`. `ui_primitives.cljs` is
-      CLJS-only so a cljc/JVM interpreter cannot `require` it (PROBE Finding 2) —
-      the copies bring the vocabulary onto the JVM path for golden tests. The
-      originals stay untouched; existing callers keep working. Gate G7
-      (`face_primitives_test.clj`) is a SOURCE-FORM DIFF that reads both files as
-      DATA and fails on any drift — so the two cannot diverge while both exist.
+      `list-*`/`typo-*`/`dt` support defs were extracted byte-for-form from the
+      old workspace's ui_primitives.cljs, whose deletion made THIS file their
+      canonical home; `omission-line`/`omissions-block`/`hole-endpoint-card`
+      are identical copies of `trail_face/cards.cljc` (that origin lives on).
+      Gate G7 (`face_primitives_test.clj`) is a SOURCE-FORM DIFF that reads
+      origin and copy as DATA and fails on any drift — it still pins the
+      cards.cljc copies; the ui-* half retired with its origin.
 
    2. §6 BUILDER-FN wrappers — the fixed interface `(fn [ctx props children]
       -> rt-node)`. The verbatim copies keep their original bounds-passing
@@ -39,7 +38,7 @@
             [components.design-tokens :as design-tokens]))
 
 ;; ===========================================================================
-;; VERBATIM COPIES — support defs (from ui_primitives.cljs; G7-pinned)
+;; Support defs (extracted from the old ui_primitives.cljs; canonical here)
 ;; ===========================================================================
 
 (def list-row-h 36)
@@ -63,8 +62,8 @@
 (def typo-caption  {:size (:sm (:font-sizes dt)) :a 0.6})
 
 ;; ===========================================================================
-;; VERBATIM COPIES — the named ui_primitives.cljs builders (G7-pinned).
-;; Do NOT edit: gate G7 diffs these forms against ui_primitives.cljs as data.
+;; The named ui-* builders (extracted from the old ui_primitives.cljs; this
+;; file is their canonical home — the G7 diff against that origin retired).
 ;; ===========================================================================
 
 (defn ui-card
@@ -1324,7 +1323,7 @@
 
 (def registry
   "keyword -> §6 builder-fn `(fn [ctx props children] -> rt-node)`."
-  {;; verbatim-copied ui_primitives.cljs builders (extraction, G7-pinned)
+  {;; the ui-* builders (canonical here; extracted from the old workspace)
    :panel         panel-prim
    :panel-header  panel-header-prim
    :panel-content panel-content-prim

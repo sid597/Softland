@@ -131,7 +131,7 @@
 (def outline-conversation (delay (read-fixture "outline-conversation.edn")))
 
 ;; char-advance = font-size * 0.56 (Ubuntu Sans Mono glyph advance, pixels-per-
-;; char; editor_compute.cljs:290). content-w = pane width. now-ms = honest stamp.
+;; char). content-w = pane width. now-ms = honest stamp.
 (def geom
   {:viewport-w 800 :viewport-h 600
    :content-w 760 :font-size 14 :line-height 20
