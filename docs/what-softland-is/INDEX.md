@@ -28,11 +28,47 @@ adjudicates the theme list.
 
 ## constitution/ — one file per principle
 
-Pending — assembled from the product-architecture exchange.
+Operative form, amendments applied. The essays' eight are converged
+destination law (session 1's convergence call, 2026-08-14); the exchange's
+clauses are the signed span (decision file); structural-guarantee is the
+thirteenth entry, marked meta-law.
+
+- [total-provenance.md](constitution/total-provenance.md) — every act carries who, basis, when; the log is the asset; payloads redactable, act-existence undeniable
+- [convergence-is-an-event.md](constitution/convergence-is-an-event.md) — schema fixes coexistence at the funnel; demand mints convergence as decision rows; the commons accretes convergences
+- [basis-and-staleness.md](constitution/basis-and-staleness.md) — "what moved under what I stand on" is a query; change priced by reverse-dependency depth
+- [checkers-and-depth.md](constitution/checkers-and-depth.md) — velocity set by the cheapest trusted checker; strength is computed calibration; masquerade is the poison
+- [mixed-species-leases.md](constitution/mixed-species-leases.md) — authority terminates at humans; agent authority leased, attenuating monotonically; credit in lineages
+- [economy-on-the-ledger.md](constitution/economy-on-the-ledger.md) — attention, trust, credit as views over the one log, loyal to the mind whose attention it is
+- [land-is-the-law.md](constitution/land-is-the-law.md) — the law reaches humans as material physics; renderer kernel, skin lease; ground shared, salience plural
+- [no-exits.md](constitution/no-exits.md) — meta-clause: every judge is substance on the ledger it judges; the one designed outside at the human terminus
+- [identity-law.md](constitution/identity-law.md) — durable medium-blind addresses; two-tier part birth; single-link anchors; basis rides acts, never names (A1)
+- [settlement-publication-custody.md](constitution/settlement-publication-custody.md) — settlement medium's, shape universal, cadence the place's; silent darkness refuses; declared darkness hole-typed, priced, owner-resolved (A4)
+- [read-honesty.md](constitution/read-honesty.md) — every lens declares cut and lacks, byte-equal, opens into basis; the invocation receipt is the deposit's birth record (A3)
+- [cage-or-silence.md](constitution/cage-or-silence.md) — universal tier {escape, ask, go-to/reveal} + the address-set noun; courts and point are kernel machinery; innermost-first, receipted (A9)
+- [cost-citizenship.md](constitution/cost-citizenship.md) — every heavy read returns (result, coverage-receipt); coverage composes by weakest child; an error is a refusal (A10)
+- [consequence-modes.md](constitution/consequence-modes.md) — recompute by reference, staleness by direct basis, re-examination by co-reference; three debt species, three closers; closers cite revisions (A5–A7)
+- [custody-floor.md](constitution/custody-floor.md) — blast radius is a declared field over a never-migrating, non-declarable floor; admission is floor-tier
+- [structural-guarantee.md](constitution/structural-guarantee.md) — meta-law: a structural guarantee names producer, transition owner, obligated consumer, clearing event (A12)
 
 ## architecture/ — one file per part
 
-Pending — assembled from the product-architecture exchange.
+The signed span's part inventory: duty · seams · existence status · open
+questions per part. Design truth, not build truth — existence statuses and
+the build-gap receipts stay honest; the one live defect (coverage error
+path) stands at its part as a build-lane item.
+
+- [identity-service.md](architecture/identity-service.md) — durable addresses, anchors, resolution; demand-mint idempotency; the lifecycle and cut-snapshot questions
+- [citizenship-contract.md](architecture/citizenship-contract.md) — the two-form contract (material + lens); admission; settlement profiles; the fail-open lens gap; Sid's open forks
+- [funnel.md](architecture/funnel.md) — one logical act envelope over family-owned depots; gesture→act at the mouth; stale-closure refusal
+- [dispatch-and-courts.md](architecture/dispatch-and-courts.md) — custody courts innermost-first, receipted; occurrence minting; the receipt-ledger questions
+- [relation-kernel.md](architecture/relation-kernel.md) — edges with asserter-in-identity; holes; co-reference groups; the missing hole-resolution transition
+- [debt-queue.md](architecture/debt-queue.md) — three debt species, three closers, who-closes explicit; the organ is missing
+- [graph-economy.md](architecture/graph-economy.md) — three producer strata; review→disposition; the deposit bridge and check-strength/darkness pricing (both missing)
+- [packagers.md](architecture/packagers.md) — mind-channel budgets and ladders; coverage propagation; owner of the standing coverage defect
+- [workshops-and-publication.md](architecture/workshops-and-publication.md) — the one decision-event shape; workshop scope; dark-closure at publish; signature horizon
+- [set-acts.md](architecture/set-acts.md) — intent / resolution / per-member acts; rollback over the accepted record; background-sweep lifecycle
+- [universal-verbs.md](architecture/universal-verbs.md) — escape, ask, go-to/reveal + the address-set noun, landing per family
+- [code-floor.md](architecture/code-floor.md) — the never-migrating floor; admission acts; the code lane and its one new checker
 
 ## provenance/ — verbatim testimony; kept for citation, NOT a reading surface
 
