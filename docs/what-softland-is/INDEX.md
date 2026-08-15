@@ -9,9 +9,19 @@ other file links.
 
 ## vision/ — destination material, one artifact per file
 
-Breakdown pending — a dedicated session fills this from the provenance essays
-plus a LOG extraction round. **Until then the two raw essays in `provenance/`
-are the interim reading surface for vision.**
+Cut from the two destination essays in `provenance/` — the essays' own words,
+excerpted; operative law stays with `constitution/`. A second round — LOG
+extraction, themes the essays don't cover, in Sid's words — lands after Sid
+adjudicates the theme list.
+
+- [destination.md](vision/destination.md) — the one-sentence destination, the three compressed wholes, the one demand on the present
+- [the-slot.md](vision/the-slot.md) — the diagnosis (the towers died of solitude; closure and commons never the same building) and the slot: nobody rents you a concurrency-of-minds law
+- [why-now.md](vision/why-now.md) — meaning has an affordable reader; the PDB long position; history run in the right order, with the wind-tunnel honesty clause
+- [morning-test.md](vision/morning-test.md) — the felt test the destination must pass
+- [refusals.md](vision/refusals.md) — not an oracle · not a converger · not a feed · not headless · not a museum; the five refusals read as exit-shapes
+- [mixed-species.md](vision/mixed-species.md) — the two-species picture: humans hold the terminus, agents are enzymes; the absorption ceiling; oversight as what the substrate does
+- [the-land.md](vision/the-land.md) — the land is the law, felt: patina, mass, darkness, morning light; the renderer as attention allocator, warned and brought inside the law
+- [reserved-seats.md](vision/reserved-seats.md) — the two honest cracks: how the human terminus pluralizes; the right to unsay
 
 ## constitution/ — one file per principle
 
