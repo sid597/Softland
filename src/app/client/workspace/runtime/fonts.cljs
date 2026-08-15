@@ -1,10 +1,38 @@
 (ns app.client.workspace.runtime.fonts
   "Font manifest helpers and runtime font asset loading."
-  (:require [app.client.workspace.settings-view :refer [font-defaults->settings]]
-            [app.client.workspace.text-shaper :as text-shaper]))
+  (:require [app.client.workspace.text-shaper :as text-shaper]))
 
 (def ^:private base-path "/fonts/")
 (declare resolve-default-font-config)
+
+(defn- compact-map [m]
+  (into {} (remove (fn [[_ v]] (nil? v)) m)))
+
+(defn manifest-defaults->settings
+  "Settings defaults from the font manifest's :settings block."
+  [manifest-settings]
+  (let [get-default (fn [k fallback]
+                      (or (get-in manifest-settings [k :default]) fallback))]
+    {:font-size (get-default :fontSize 19)
+     :line-height (get-default :lineHeight 1.2)
+     :px-range (get-default :pxRange 8)
+     :sharpness (get-default :sharpness 0.0)
+     :snap-to-pixel? (get-default :snapToPixel true)
+     :show-diagnostics? (get-default :showDiagnostics false)
+     :theme-id (get-default :theme :gruvbox-dark)}))
+
+(defn font-defaults->settings
+  "Settings overrides carried by one font config's :defaults block."
+  [font]
+  (let [defaults (:defaults font)]
+    (when defaults
+      (compact-map
+        {:font-size (or (:fontSize defaults) (:font-size defaults))
+         :line-height (or (:lineHeight defaults) (:line-height defaults))
+         :px-range (or (:pxRange defaults) (:px-range defaults))
+         :sharpness (or (:sharpness defaults) (:sharpness defaults))
+         :snap-to-pixel? (or (:snapToPixel defaults) (:snap-to-pixel? defaults))
+         :show-diagnostics? (or (:showDiagnostics defaults) (:show-diagnostics? defaults))}))))
 
 (defn load-font-manifest-async []
   "Load the font manifest from the fonts directory."

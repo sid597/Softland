@@ -116,26 +116,13 @@
         ctrl? (or (.-ctrlKey e) (.-metaKey e))
         shift? (.-shiftKey e)]
     (cond
-      ;; Global shortcuts (not affected by focus)
-      (and ctrl? (= key "k")) {:type :toggle-command-panel :global? true}
-      (and ctrl? (= key "g")) {:type :toggle-settings-panel :global? true}
-      (and ctrl? (= key "b")) {:type :toggle-file-viewer :global? true}
-      (and ctrl? (= key "s")) {:type :save :global? true}
-      ;; Pane focus shortcuts
-      (and ctrl? (= key "1")) {:type :focus-pane :pane :editor :global? true}
-      (and ctrl? (= key "2")) {:type :focus-pane :pane :chat :global? true}
-      (and ctrl? (= key "3")) {:type :focus-pane :pane :preview :global? true}
-
       ;; Escape - context dependent but handled globally
       (= key "Escape") {:type :escape :global? true}
 
-      ;; Editor-specific shortcuts
+      ;; Ctrl+Enter — the ground's send (revision-pinned turn from the
+      ;; focused block); the :eval name is historical event vocabulary.
       (and ctrl? (= key "Enter")) {:type :eval}
-      (and ctrl? (= key "z") (not shift?)) {:type :undo}
-      (and ctrl? (= key "z") shift?) {:type :redo}
-      (and ctrl? (= key "y")) {:type :redo}
       (and ctrl? (= key "c")) {:type :copy}
-      (and ctrl? (= key "x")) {:type :cut}
       ;; Ctrl+V: return nil so .preventDefault is NOT called — lets browser fire native paste event
 
       ;; Word navigation
@@ -227,42 +214,6 @@
   [>keyboard]
   (->> >keyboard
        (m/eduction (filter :global?))))
-
-(defn <editor-keys
-  "Flow of keyboard events routed to editor (when focused).
-   Uses deref instead of m/watch to avoid cancellation on focus change."
-  [>keyboard !focus]
-  (->> >keyboard
-       (m/eduction (filter (fn [event]
-                             (and (= @!focus :editor)
-                                  (not (:global? event))))))))
-
-(defn <cmd-panel-keys
-  "Flow of keyboard events routed to command panel (when focused).
-   Uses deref instead of m/watch to avoid cancellation on focus change."
-  [>keyboard !focus]
-  (->> >keyboard
-       (m/eduction (filter (fn [event]
-                             (and (= @!focus :command-panel)
-                                  (not (:global? event))))))))
-
-(defn <chat-input-keys
-  "Flow of keyboard events routed to chat input (when focused).
-   Uses deref instead of m/watch to avoid cancellation on focus change."
-  [>keyboard !focus]
-  (->> >keyboard
-       (m/eduction (filter (fn [event]
-                             (and (= @!focus :chat)
-                                  (not (:global? event))))))))
-
-(defn <settings-panel-keys
-  "Flow of keyboard events routed to settings panel (when focused).
-   Uses deref instead of m/watch to avoid cancellation on focus change."
-  [>keyboard !focus]
-  (->> >keyboard
-       (m/eduction (filter (fn [event]
-                             (and (= @!focus :settings-panel)
-                                  (not (:global? event))))))))
 
 (defn <face-edit-keys
   "Flow of keyboard events routed to the focused face block (block-write INT;
