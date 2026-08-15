@@ -69,8 +69,7 @@
     app.server.parser-test
     app.server.rama.core-guards-test
     app.server.rama.kernel-shape-test
-    app.server.rama.probe-harness-test
-    design-converter-e2e-test])
+    app.server.rama.probe-harness-test])
 
 (def shared-cluster-namespaces
   "Every IPC write in these namespaces uses disjoint or idempotent identity.

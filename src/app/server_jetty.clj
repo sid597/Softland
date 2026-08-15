@@ -25,10 +25,6 @@
     [app.shared.facet-masters :as facet-masters]
     [app.shared.invocation-material :as invocation-material]
     [app.shared.matter-room :as matter-room]
-    [components.adapter :as adapter]
-    [components.compiler :as compiler]
-    [components.token-matcher :as token-matcher]
-    [components.design-tokens :as design-tokens]
     [app.server.rama.util-fns :as util-fns]
     [app.server.rama.objects :as rama-objects]
     [app.server.rama.relation-kernel :as rk]
@@ -1477,77 +1473,6 @@ information."
                                :message (str "assert failed: " (.getMessage e))})))
         (edn-response 405 {:ok false :error :method-not-allowed
                            :message "Method not allowed. Use POST."}))
-
-      ;; ===== Component Library Registry =====
-      (= uri "/api/components/registry")
-      (try
-        (let [base-dir (io/file "components")
-              registry-file (io/file base-dir "_registry.edn")
-              registry (when (.exists registry-file)
-                         (edn/read-string (slurp registry-file)))
-              ;; Read _source.edn for each component to get current status
-              components (mapv (fn [{:keys [slug] :as comp}]
-                                (let [source-file (io/file base-dir slug "_source.edn")
-                                      source (when (.exists source-file)
-                                               (edn/read-string (slurp source-file)))
-                                      ;; Check if .cljc file exists for shadcn
-                                      cljc-file (io/file base-dir slug "shadcn.cljc")
-                                      has-cljc? (.exists cljc-file)]
-                                  (assoc comp
-                                    :source source
-                                    :has-cljc? has-cljc?)))
-                              (:components registry))]
-          (json-response {:ok true
-                          :libraries (:libraries registry)
-                          :components components}))
-        (catch Exception e
-          (log/error e "[COMPONENTS] registry read failed")
-          (json-response {:ok false :error (.getMessage e)})))
-
-      ;; Update component status (after conversion)
-      (= uri "/api/components/status")
-      (if (= request-method :post)
-        (try
-          (let [body (parse-edn-body ring-req)
-                slug (:slug body)
-                library (or (:library body) :shadcn-v4)
-                status (or (:status body) :ready)
-                source-file (io/file "components" slug "_source.edn")]
-            (if (.exists source-file)
-              (let [source (edn/read-string (slurp source-file))
-                    updated (-> source
-                                (assoc-in [library :status] status)
-                                (assoc-in [library :converted] (str (java.time.LocalDate/now))))]
-                (spit source-file (pr-str updated))
-                (json-response {:ok true :slug slug :status status}))
-              (json-response {:ok false :error "Component not found"})))
-          (catch Exception e
-            (log/error e "[COMPONENTS] status update failed")
-            (json-response {:ok false :error (.getMessage e)})))
-        (json-response {:ok false :error "POST required"}))
-
-      ;; ===== Design Converter API =====
-      (= uri "/api/extract/compile")
-      (if (= request-method :post)
-        (try
-          (let [request-data (parse-edn-body ring-req)
-                extracted-tree (:tree request-data)
-                source-url (or (:source-url request-data) "")
-                dt design-tokens/dt
-                ;; Step 1: extracted JSON → Design IR
-                ir (adapter/extracted->ir extracted-tree {:source-url source-url})
-                ;; Step 2: tokenize (snap to dt)
-                tokenized-ir (token-matcher/tokenize-ir ir dt)
-                ;; Step 3: compile to rt-node
-                rt-node (compiler/compile-ir tokenized-ir dt {:use-tokens? true})]
-            (json-response {:ok true
-                            :ir tokenized-ir
-                            :rt-node rt-node
-                            :source-url source-url}))
-          (catch Exception e
-            (log/error e "[EXTRACT] compile failed")
-            (json-response {:ok false :error (.getMessage e)})))
-        (json-response {:ok false :error "POST required"}))
 
       ;; editable-material — one deterministic malformed-candidate drill for
       ;; any registered master. Validation closes before active-pointer edit;
