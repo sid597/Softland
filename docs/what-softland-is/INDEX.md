@@ -7,6 +7,9 @@ Contracts — the per-part build specs — do not live here; they live with thei
 areas under `docs/<area>/` and cite these files. One owner per fact; every
 other file links.
 
+**Signed:** the product-architecture span (exchange-04 as amended by
+exchange-05) is signed — [decision-2026-08-15-span-signed.md](decision-2026-08-15-span-signed.md).
+
 ## vision/ — destination material, one artifact per file
 
 Cut from the two destination essays in `provenance/` — the essays' own words,
@@ -40,4 +43,4 @@ Pending — assembled from the product-architecture exchange.
 - [exchange-02-adjudications.md](provenance/exchange-02-adjudications.md) — both sessions' adjudications of the routed items, verbatim
 - [exchange-03-ratification-round.md](provenance/exchange-03-ratification-round.md) — ratification packets + both sessions' verdicts, verbatim
 - [exchange-04-meta-syntheses.md](provenance/exchange-04-meta-syntheses.md) — the meta session's round syntheses: axis map, settled ledger, the twelve clauses, open register
-- [exchange-05-falsification.md](provenance/exchange-05-falsification.md) — the non-kin falsification round: Codex packet + review verbatim, Claude's sealed checklist run, Sid's lens, the adjudication (receipts re-verified), candidate amendments A1–A12 + register additions — unsigned; the breakup session reads this alongside exchange-04
+- [exchange-05-falsification.md](provenance/exchange-05-falsification.md) — the non-kin falsification round: Codex packet + review verbatim, Claude's sealed checklist run, Sid's lens, the adjudication (receipts re-verified), candidate amendments A1–A12 + register additions — signed 2026-08-15 (see the decision file); the breakup session reads this alongside exchange-04
