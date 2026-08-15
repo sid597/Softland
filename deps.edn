@@ -11,19 +11,14 @@
              org.clojure/clojurescript          {:mvn/version "1.11.132"}
              org.clojure/tools.logging          {:mvn/version "1.2.4"}
              ch.qos.logback/logback-classic     {:mvn/version "1.2.11"}
-             datascript/datascript              {:mvn/version "1.5.2"}
              org.babashka/sci                  {:mvn/version "0.8.43"}
              com.rpl/rama                       {:mvn/version "1.6.0"}
              com.roamresearch/backend-sdk       {:mvn/version "0.0.4"}
              com.rpl/rama-helpers               {:mvn/version "0.10.0"}
              com.rpl/specter                    {:mvn/version "1.1.4"}
-             net.clojars.wkok/openai-clojure    {:mvn/version "0.14.0"}
-             image-resizer/image-resizer       {:mvn/version "0.1.10"}
              clj-http/clj-http                  {:mvn/version "3.12.3"}
              io.github.nextjournal/clojure-mode {:git/tag "v0.3.0" :git/sha "694abc7"}
              org.apache.logging.log4j/log4j-slf4j2-impl {:mvn/version "2.23.1"}
-             org.apache.pdfbox/pdfbox-io{:mvn/version "3.0.0"}
-             org.apache.pdfbox/fontbox {:mvn/version "3.0.3"}
              rewrite-clj/rewrite-clj {:mvn/version "1.1.47"}
              clj-kondo/clj-kondo {:mvn/version "2025.06.05"}}
 
