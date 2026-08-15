@@ -10,6 +10,11 @@ other file links.
 **Signed:** the product-architecture span (exchange-04 as amended by
 exchange-05) is signed — [decision-2026-08-15-span-signed.md](decision-2026-08-15-span-signed.md).
 
+**Candidate on record:** [candidate-self-hosting.md](candidate-self-hosting.md)
+— make the span self-hosting: this folder as material in the land, edges to
+the code it governs, staleness-lit. Nominated by Sid 2026-08-15; ranked at
+reconciliation.
+
 ## vision/ — destination material, one artifact per file
 
 Cut from the two destination essays in `provenance/` — the essays' own words,
@@ -25,6 +30,7 @@ adjudicates the theme list.
 - [mixed-species.md](vision/mixed-species.md) — the two-species picture: humans hold the terminus, agents are enzymes; the absorption ceiling; oversight as what the substrate does
 - [the-land.md](vision/the-land.md) — the land is the law, felt: patina, mass, darkness, morning light; the renderer as attention allocator, warned and brought inside the law
 - [reserved-seats.md](vision/reserved-seats.md) — the two honest cracks: how the human terminus pluralizes; the right to unsay
+- [the-interface-question.md](vision/the-interface-question.md) — Sid's words, live capture 2026-08-15: the overwhelm testimony and the question — what is the interface to agi, to alien, to god
 
 ## constitution/ — one file per principle
 
