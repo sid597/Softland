@@ -38,7 +38,8 @@ hole ids) lives with [relation-kernel](relation-kernel.md).
   across re-parenting; the hole-alias leg; the conflict winner for two
   re-anchor writers.
 - Revision/cut snapshot service (same table; the record assigns no owner —
-  placed here because resolution is this part's duty, flag stands):
+  placed here, endorsed by Sid: resolution is the identity service's read
+  half — lenses declare cuts, identity resolves them):
   cross-source consistency of a pinned revision vector; who declares
   ambiguity; what invalidates a cut. The capture instant itself is settled
   at law — once, at invocation admission

@@ -44,8 +44,8 @@ effect class, worn by no verb.
   query + cut, publishing only against that pinned cut, going
   stale-or-refused — never exhaustive — when its basis cannot be
   reconstructed; owner, idempotency key, cancellation unowned. One register
-  line with [packagers](packagers.md)' coverage algebra; the record names no
-  single owner, flag stands.
+  line with [packagers](packagers.md)' coverage algebra — split endorsed by
+  Sid: sweep lifecycle here, algebra there.
 
 **Law.** [consequence-modes](../constitution/consequence-modes.md) (A5) ·
 [cost-citizenship](../constitution/cost-citizenship.md) ·

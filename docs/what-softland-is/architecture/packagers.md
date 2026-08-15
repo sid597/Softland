@@ -41,8 +41,9 @@ this doc lane.
   coverage reaches lens activation.
 - The coverage algebra organ (exchange-05 §7 names "coverage algebra +
   background-sweep lifecycle" as one unowned line; the algebra side sits
-  here, the sweep side with [set-acts](set-acts.md) — the record names no
-  single owner, flag stands).
+  here, the sweep side with [set-acts](set-acts.md) — split endorsed by
+  Sid: two halves, each with one owner; the law itself stays in
+  [cost-citizenship](../constitution/cost-citizenship.md)).
 
 **Law.** [cost-citizenship](../constitution/cost-citizenship.md) (A10) ·
 [read-honesty](../constitution/read-honesty.md) (byte-equal precision, A3) ·

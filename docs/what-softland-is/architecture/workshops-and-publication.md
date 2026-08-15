@@ -37,8 +37,11 @@ signature (Codex S1, ruled PARTIAL).
 **Open.**
 - Workshop visibility enforcement — build-truth (open register).
 - Preview/review surfaces for geometric candidates — the register's one
-  "unowned design work" item; placed here as the workshop's review surface
-  (placement this file's, the record leaves it unowned).
+  "unowned design work" item. Frame (Sid): the obligation lives at
+  publication — nothing publishes unreviewable — and the answers are
+  per-medium: each citizenship declaration owes its own review face, since a
+  scene diff and a face diff can't share one
+  ([citizenship-contract](citizenship-contract.md)).
 - Signature authority — principal authentication is a multiplayer-horizon
   organ, deliberately withheld by the exchange (exchange-05 §7 horizon
   note).

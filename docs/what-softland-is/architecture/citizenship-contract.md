@@ -84,6 +84,9 @@ feed its deposit bridge. Checker tiers give the floor its teeth.
 - As-of pointer-walk cost — build-truth: priced under lens law as the cost
   any lens pays to declare a richer cut (exchange-03 R5), still real
   engineering (open register).
+- Per-medium review faces for candidate diffs — each declaration owes its
+  own; the obligation and its frame live with
+  [workshops-and-publication](workshops-and-publication.md) (Sid).
 
 **Law.** [read-honesty](../constitution/read-honesty.md) ·
 [settlement-publication-custody](../constitution/settlement-publication-custody.md)
