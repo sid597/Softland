@@ -33,6 +33,19 @@ claims are marked inference where they appear.
 
 **Result: 23 candidate files (~10.8k lines) across six groups; 137 keeps.**
 
+**Falsification round (non-kin, 2026-08-15 — ingested).** The factual layer
+went to Codex as a GATE: 22 pinned claims (K1–K22) plus one open
+deletion-safety lane; the keep-test, all verdicts, and the signed record were
+law for the round, not attackable. Result: FACTS-BROKEN on K3/K9/K20 plus
+four open-lane couplings — all ingested below (rows amended, riders added);
+**zero verdict changes**. The census graph's matching unit was ns names, so
+file-path strings in prose and in checker scripts were invisible — exactly
+the class the round's open lane existed to catch (kernel.clj taxonomy prose,
+`.mjs` checkers that read candidate source as data, a goldens manifest).
+Every load-bearing Codex citation was re-verified first-hand before
+amendment. The want was never attacked — no finding needed discarding under
+the normative-architecture law.
+
 ---
 
 ## The wiring spine (what actually mounts — every verdict leans on this)
@@ -54,7 +67,9 @@ claims are marked inference where they appear.
   `/api/agent/*`, `/api/flow/save-state`, `/api/linear/issues`), the
   design-converter routes (`/api/extract/compile`, `/api/components/*`), the
   review-pack family (`/api/review-pack/*`), and harness (`/api/dev/replay-fixture`).
-  The LLM runtime starts in-process (`server_jetty.clj:814`).
+  The LLM runtime is declared in-process as a lazy delay
+  (`server_jetty.clj:810-814`) and starts when the autotag path first forces
+  it (`:842-843`) — the autotag cascade's LLM lane (non-kin round precision).
 - **Rama cluster** (`bin/land`, T5 — modules deploy via CLI only): exactly
   five modules deploy — object-container, object-container-transcript-ops,
   relation-kernel, trail-view, face-arsenal. Any other module var in src/ is
@@ -99,11 +114,16 @@ Anything possibly still plan-active **defers to the reconciliation session**.
   work under a module-owned TaskGlobal executor; claim/observation depots
   stream start/stdout/stderr/exit back into Rama state ("the back-arrow").
   The kernel taxonomy's only `declare-object` + TaskGlobal executor.
-- Inbound: zero src. Tests only (`dogfood_compute_test`,
+- Inbound: zero executable src requires. Tests only (`dogfood_compute_test`,
   `dogfood_compute_probe_test`). Not in `bin/land`'s five-module deploy set.
-- Fails: 2 (no signed part file cites it — checked: the exchange receipts and
-  all twelve part files name space/llm/transcript/text-kernel receipts, never
-  compute) and 3. On clause 1: code-floor's "executor and its mathematics"
+  Prose citations exist (non-kin round, path-string grade — not consumers):
+  `kernel.clj` cites the file across its taxonomy and live-snapshot tables
+  (`:33,:50,:71,:135,:456,:474,:519,:529`); `probe_harness.clj:20` quotes the
+  ns in a docstring example. Both are stale-prose riders on delete.
+- Fails: 2 (no signed part file cites it — checked twice: this census read
+  the twelve part files + exchange-05's receipt tables; the non-kin round
+  re-verified the part files; provenance citation would not be a keep reason
+  regardless) and 3. On clause 1: code-floor's "executor and its mathematics"
   receipts resolve to the render executor and the **escape gauge**, which
   lives at `face_projection.clj:1518-1544` + `material_portal.clj:819` — not
   here (checked).
@@ -148,7 +168,7 @@ surfaces removed), while the items below delete as whole paths.
 | 6 | `client/workflows/jit.cljs` | 228 | 2026-03-08 | runtime/agent_flow | 1,2 |
 | 7 | `client/workspace/trail.cljs` | 1337 | 2026-03-10 | dg_flow, cmd_panel, combined_text, agent_flow, interop, scroll, shell | 1,2 |
 | 8 | `client/workspace/shell.cljs` | 283 | 2026-03-29 | combined_text, editor_compute, mouse | 1,2 |
-| 9 | `client/workspace/sidebar.cljs` | 414 | 2026-07-11 | cmd_panel, combined_text, editor_compute, runtime + 5 loom modules | 1,2 |
+| 9 | `client/workspace/sidebar.cljs` | 414 | 2026-07-11 | cmd_panel, combined_text, editor_compute, **settings_view (item 14)**, runtime + 4 loom modules | 1,2 |
 | 10 | `client/workspace/runtime/sidebar_io.cljs` | 239 | 2026-07-12 | runtime, agent_flow, keyboard, mouse | 1,2 |
 | 11 | `client/workspace/editor_compute.cljs` | 834 | 2026-08-05 | keyboard, mouse, render | 1,2 |
 | 12 | `client/workspace/cmd_panel.cljs` | 210 | 2026-07-18 | combined_text, agent_flow, keyboard, mouse, render | 1,2 |
@@ -190,6 +210,20 @@ lift-out-shaped — noted now so adjudication sees the real cost):
   `runtime/fonts` (live text system).
 - **16 themes** serves `get-color` to `app.electric-flow` (`electric_flow.cljc:383-388`).
 - **7 trail**'s panel-height fns are consumed by `runtime/interop` (harness — keeps).
+- **9 before 14 is illegal:** `settings_view.cljs:8` requires `sidebar`
+  (`sidebar-w`) — a candidate→candidate edge; item 9 deletes with or after
+  item 14, never before (non-kin round).
+- **11, 13 are fence-audited source:** the text-layout fence checker reads
+  `combined_text.cljs` and `editor_compute.cljs` as data and fails on named
+  functions (`test/render_engine/verify_text_layout_fence.mjs:25,28,146-151`)
+  — the audit list updates in the same commit that deletes either (non-kin
+  round).
+- **17 is a source-form test dependency of the faces lane:**
+  `face_primitives.cljc:14-20` copies its builders verbatim from
+  `ui_primitives.cljs`, and gate G7 (`face_primitives_test.clj:63-77`) reads
+  BOTH files as data and fails on drift — "so the two cannot diverge while
+  both exist," its own words. On deletion, G7's ui-primitives half retires
+  and the copies become sole owner (non-kin round).
 - Server riders under the same ruling: the old-workspace route families in
   `server_jetty.clj` and the file-explorer half of `file_viewer.cljc`
   (the file itself keeps — it is also the artery for episode / trail-view /
@@ -231,13 +265,18 @@ partial ruling.
 **22. `src/app/client/workspace/seam_demo.cljs`** (164 loc, 2026-08-08)
 - What: the composed Region3D coexistence demo, enabled only by all three
   flags; installed through `live_atoms` (`live_atoms.cljs:367`).
-- Inbound: `live_atoms` only.
+- Inbound: `live_atoms` only (install `live_atoms.cljs:367`, flag-gated).
+  Non-kin round addition: the render verifier hashes its source into
+  receipts (`test/render_engine/run_verifier.mjs:609`) and the GPU goldens
+  manifest records it in 3 entries — seam_demo sits in the render checker's
+  fixture set; deleting it forces a goldens regeneration.
 - Fails: 1 and 2 strictly (a demo composition, not machinery the record
   builds on — no part file cites it). It is, however, a wired felt fixture
-  over three part-receipted materials (region3d + connector + editing), and
-  it is eight days old.
-- **Proposed: KEEP-EMBRYO as the coexistence felt fixture — DELETE only if
-  Sid calls the demo served.** Cheapest item on the list either way.
+  over three part-receipted materials (region3d + connector + editing), a
+  checker fixture (above), and it is eight days old.
+- **Proposed: KEEP-EMBRYO as the coexistence felt fixture, now on
+  checker-fixture ground too — DELETE only if Sid calls the demo served
+  (that deletion carries the goldens regeneration).**
 - Was: CLAUDE-1.md silent. The three-atom coexistence demo.
 
 ### Group F — review-pack
@@ -350,6 +389,13 @@ in Group C with their seams).
   `dogfood_compute_probe_test` (item 3); `dogfood/transcript_ingest_test`
   (item 4); `design_converter_e2e_test` (items 18–21); `review_pack_test`
   (item 23). No tests cover items 1–2 or 5–17.
+- **Stale-prose sweep with any delete** (non-kin round finds; references, not
+  consumers): `kernel.clj`'s taxonomy/live-snapshot rows citing `compute.clj`;
+  `trail_face/cards.cljc:3` (compares against trail.cljs);
+  `face_integration_test.clj:6` and `face_assembly_test.clj:134` (comment
+  refs into items 9/11); `probe_harness.clj:20` (docstring example quoting
+  compute's ns). `test/resources/code-atom/electric_flow.cljc.txt` is a text
+  fixture — no action.
 - **Root trees observed, out of census scope** (task scope was src/):
   `components/` (rides Group D), `old-infra/`, `OLD DOCS/`, `snapshots/`,
   `runs/`, `probes/`, `bench/` — a follow-up census if wanted.
@@ -360,6 +406,9 @@ in Group C with their seams).
 law. 23 candidates (~10.8k loc) proposed above; 137 keeps mapped to their
 clause. The require/mention graph over-approximates liveness (a mention in a
 comment counts as an edge), which errs toward keeping — the safe direction
-for a census; Sid's item-by-item adjudication is the correction. After
+for a census; its matching unit was ns names, so file-path strings were
+invisible to it — that class was swept by the non-kin falsification round
+and its finds are ingested above. Sid's item-by-item adjudication is the
+correction. After
 adjudication: whole paths, never patches; commits grouped by concern; build
 green per group; on `docs/current-mental-model-local`; never pushed.
