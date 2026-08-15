@@ -1,5 +1,12 @@
 # editor-feel — NOW
 
+> **CLOSED — subject deleted (2026-08-16).** The editor world this board
+> repaired (`editor_compute.cljs`, `sidebar_io.cljs`, the keyboard editor
+> path) was removed whole in the dead-path pass (Sid's ruling C, census
+> items 5–17; commits `59c1d4e` + `941a0bb` — see
+> `docs/dead-path-census.md` § Outcome). Everything below is the record of
+> the repair as it ran; none of its fences or steps are executable now.
+
 Repair lane (no contract; substance-not-ceremony). Model Opus 4.8. Owns board
 thread #9 only. Fences: touch ONLY `keyboard.cljs`, `editor_compute.cljs`,
 `sidebar_io.cljs`, `runtime.cljs`. Do NOT touch `face_*`, `combined_text.cljs`,
