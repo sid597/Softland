@@ -509,3 +509,502 @@ Read, in order:
 Do not restart with all 248 records. The open problem is no longer “summarize
 the sessions.” It is the anatomy/substrate question at the end of the short
 answer, with the lived build-failure arc present from the first prompt.
+
+## 2026-08-16 — Process autopsy: how “What Softland Is” closed
+
+Scope: the inquiry that began in the 12 Aug architecture/history sessions,
+stabilized into the “What should Softland be?” and product-architecture
+sessions, and was closed/materialized through Claude session
+`725c2b53-22ad-475a-bb05-05a06c3fac38`. Reconciliation is used as a contrast,
+starting from the `e8af554d-5cb2-43cd-82a0-a89cc49e545c` branch near the end of
+the closure process and continuing through `docs/reconciliation/round-01.md`
+and the first failed Round-02 exchange.
+
+This is a process analysis, not a personality diagnosis. “Sid failure mode,”
+“Fable-max failure mode,” and “joint failure mode” below mean repeatable
+interaction patterns visible in this bounded transcript.
+
+Review posture: **MODE REVIEW · ALTITUDE process/meaning · AUTHORITY raw
+transcripts and signed records are canonical; derived recommendations are
+candidate operating guidance.**
+
+### Verdict first
+
+Your first-order diagnosis is partly right:
+
+- the process began chaotically;
+- it opened too many sibling sessions before the question was stable;
+- you became the courier, critic, ranking judge, and product owner at once;
+- confusion and anger repeatedly arrived after long, expensive answers;
+- Fable-max repeatedly produced coherent nouns, taxonomies, and plans before
+  it had found the level of the question.
+
+But “too many feelings” is not the main causal explanation. The anger was
+usually a **late instrument reading**: the model had crossed a level boundary,
+erased a product requirement, or handed you an artifact you could not use.
+The cursing made the mismatch impossible to ignore, but it rarely told the
+model exactly which invariant had been violated. Fable-max then tended to
+apologize, accommodate, and rewrite broadly. That spent another turn repairing
+tone and coherence before the actual mismatch was isolated.
+
+The successful process was not “eventually you found the magic prompt.” It was:
+
+1. one multi-turn session helped you discover the missing discriminators;
+2. you compressed those discriminators into a mature commission;
+3. one fresh sibling answered that mature commission in a single shot;
+4. a third session compared the two **without solving the problem again**;
+5. the siblings adjudicated only high-weight differences in their own
+   vocabularies;
+6. one ratification round produced a candidate span;
+7. Codex attacked that span against source;
+8. you separated “design wrong” from “design right but not built,” amended,
+   signed, and stopped.
+
+That is why “What Softland Is” closed while reconciliation did not. The former
+had become a **candidate-closure problem**. Reconciliation was still a
+**question-discovery problem**, but it was given a candidate-closure rig.
+
+```text
+DISCOVERY MODE                              CLOSURE MODE
+
+lived failure -> one causal link            mature commission
+              -> one new distinction                  |
+              -> Sid strikes/extends                  v
+              -> next link                   primary multi-turn lineage
+                                                       +
+No convergence target yet.                  one fresh one-shot sibling
+No deliverable yet.                                   |
+No parallel court yet.                                v
+                                              meta routes only deltas
+                                                       |
+                                                       v
+                                           cross-adjudicate -> falsify
+                                                       |
+                                                       v
+                                                Sid signs -> stop
+```
+
+The two modes compose. They are not interchangeable.
+
+### What actually happened
+
+#### 1. The initial question mixed four altitudes
+
+The first cluster asked, at once:
+
+- why the Render Engine had been necessary;
+- what Rama, Electric, Missionary, and WebGPU currently did;
+- what that infrastructure should become;
+- what product capability should be built next.
+
+Those are history, mechanism, architecture, and product-direction questions.
+The three parallel 13 Aug sessions received near-identical versions of that
+mixture. They explored widely, produced forest-to-leaves accounts and their
+own research trails, and then a court compared them. This bought coverage, but
+not a stable decision surface. The siblings could agree while answering
+different hidden questions.
+
+The first useful correction was not a new architecture thesis. It was your
+request for “the story of what actually happens over time” and then the
+render-engine editor walkthrough: what data is stored, transferred, changed,
+and shown, current versus proposed. That forced nouns into a sequence and gave
+you a manipulable mental model.
+
+Process learning: when you cannot yet picture the mechanism, another forest
+essay is premature. One concrete value journey is a better instrument than a
+larger architecture map.
+
+#### 2. Anger marked real ruptures, but arrived after the cost
+
+The strongest early rupture was not random frustration. When the session
+quietly lost “Electric should drive the rendering engine and vice versa” and
+the Workshop/made-Block destination, you asked where that architecture had
+gone and what the path would have been if you had not caught it. Later you
+called the rewritten direction “shit” because it had become a poor product
+guide. The durable result was a product-language rewrite and restoration of
+the made-Block road.
+
+Another rupture—“the whole thing is unreadable”—forced the model to stop
+describing layers and use the render-engine editor as a temporal example. The
+very next long user turn reports that this produced “much much much more
+clarity” and then advances the inquiry: perhaps editor is not a primitive at
+all.
+
+So the emotional signal was often **accurate**. Its weakness was resolution:
+
+```text
+high-value content:   something essential was erased / wrong level / unreadable
+low-resolution form:  reject the whole answer
+model's default:      apologize + preserve coherence + rewrite broadly
+desired response:     identify the violated dimension before rewriting
+```
+
+The learning is not “be calmer.” It is: keep the force, add the coordinate.
+For example: “Wrong level: you gave me the dependency path; I am asking for
+the product capability. Preserve the source corrections. Drop the roadmap.
+Ask me one question before answering again.”
+
+#### 3. The destination question had to be separated from the path question
+
+The next decisive move was explicit: the primary question was no longer “what
+is the smallest diff from the current system?” but “What should Softland be?”
+The direction sessions were fenced from current plan documents and sometimes
+from tools entirely. This prevented the nearest implementation road from
+colonizing the destination.
+
+That fence did not make the answers true. It changed their epistemic role:
+they became destination testimony rather than code-grounded findings. Their
+value was generative. Their weakness was that same-model agreement could look
+like independent discovery. You later corrected the archive topology:
+Session 5 inherited Session 1.0 plus your further thinking. The cross-share
+was a causal dialectic, not two independent roots.
+
+Process learning: a direction fence is useful when the current system is the
+attractor. It must be paired later with source grounding, and its outputs must
+retain their actual parentage.
+
+#### 4. The “right prompt” was learned in a multi-turn session
+
+The mature product-architecture commission did not appear ex nihilo. Its
+discriminators were accumulated through the multi-turn session
+`cfc8afd6-2887-464d-b451-0765a84cd85c`:
+
+1. Initial opening: what architecture must be built; what are Softland's
+   natives; where do editor, text, drawing primitives, data, code, and tools
+   belong?
+2. Your first correction: **existence falsifies absence; it does not establish
+   inheritance**. Move one level up, propose a systems contract, and test it
+   against a maximally dissimilar instance—3D.
+3. Your second addition: local and global acts must be granular and connected;
+   a mind must be able to descend into a 3D submodule, ask about it, and reach
+   its textual or spatial relations.
+4. Your final sharpening: when an action crosses text, 2D, and 3D, who owns
+   each step and what is the smallest genuinely common machinery?
+
+Only after those turns did the one-shot sibling
+`8dd63534-c175-48ba-b414-4976c280c942` receive the mature commission now
+preserved in `provenance/exchange-00-commission-and-round0-outputs.md`.
+
+The commission worked because it was precise about **judgment** without
+pre-solving the architecture:
+
+- **Level:** “missing product architecture,” not audit/inherit the plan.
+- **Source diet:** the two destination essays plus whatever source is relevant;
+  operational direction/board documents fenced out.
+- **Evidence law:** existing implementations are precedents, not the answer;
+  existence does not establish inheritance.
+- **Capability:** address any whole/subpart, act locally/globally, traverse
+  connected bidirectional projections.
+- **Falsifiers:** text, 2D, and 3D as deliberately dissimilar tests.
+- **Required distinctions:** recurring versus medium-specific; mutable data
+  versus stable code versus tool; existing versus missing architecture.
+- **Anti-attractors:** pencil/editor/current implementation must not define the
+  answer; no forced generalization.
+- **Human acceptance:** make the missing product capability concrete enough
+  to picture.
+
+This is the difference between respecting Fable-max and under-prompting it.
+The model was not told which boxes to invent. It was told what question it was
+answering, what evidence meant, which seductive answers were invalid, and how
+its generalization would be killed.
+
+#### 5. Later parallelism had different jobs, not duplicated jobs
+
+The earlier three-session research wave ran one unstable question three times.
+The successful product-architecture exchange used three roles:
+
+```text
+multi-turn worker                         one-shot worker
+learned through Sid's corrections        received the mature commission cold
+developed authoring/custody plane         developed durable substance/reference plane
+          \                               /
+           \                             /
+                    meta router (725)
+              compare axes; do not solve
+              route six high-weight items each way
+              preserve each worker's vocabulary
+              require adopt/amend/refute + receipts
+                              |
+                       one ratification round
+```
+
+The difference was not model diversity; all were Fable-max-class/kin. It was
+**role and information geometry**. The one-shot sibling tested whether the
+mature question produced a different architecture without inheriting the
+multi-turn answer. The meta session did not merge prose. It identified
+complementary planes and routed only claims worth disturbing the other
+worldview for.
+
+This also reduced your courier burden. The router sent the cross-items,
+received verbatim adjudications, and ran one final ratification. You retained
+the only role no model could own: whether the result meant the product you
+wanted.
+
+#### 6. The closure session itself still contained churn
+
+Session `725c2b53-22ad-475a-bb05-05a06c3fac38` was not a serene proof that the
+process had become perfect. It lasted roughly twelve and a half hours and
+contained several corrections:
+
+- you had to prohibit the meta session from solving the original problem;
+- dense output required a separate “talk to Sid” teaching seat;
+- you had to ask whether the result was architecture or merely principles;
+- moving giant files into a folder was initially mistaken for making them
+  readable;
+- the falsification/breakup/signing order was corrected in flight;
+- after 28 files landed, you said the surface was too dense to read;
+- “reconciliation” was first described as document/map alignment, then
+  corrected to the missing bridge from destination architecture to buildable
+  paths.
+
+What made the session close was not absence of errors. It was that errors were
+converted into bounded decisions with custody:
+
+- raw exchange preserved as provenance;
+- reading surfaces separated from testimony;
+- product architecture distinguished from constitution and implementation;
+- candidate span falsified before signature;
+- your signature explicitly covered design truth, not build truth;
+- remaining interface/self-hosting questions recorded as candidates;
+- reconciliation named as open instead of silently declared solved.
+
+The closure therefore succeeded at **design-span custody**. It did not prove
+human legibility, implementation readiness, or the reconciliation bridge.
+
+### Why reconciliation went bad
+
+#### It was the wrong process for the maturity of the question
+
+Round 01 looked sophisticated: three evidence diets—lived episodes, the full
+record, and source/running system—followed by a meta ranking. Each arm produced
+real distinct material. All three converged. The result still told you, in
+effect, to live a design conversation inside Softland and add placement—the
+class of experiment you had already run until it hit the “how do I modify
+this?” wall.
+
+The failure was upstream of model quality:
+
+- your complete lived build-failure arc was not in any arm's commission;
+- “and how to make it in the system” was dropped during prompt construction;
+- the shared prompt located the problem at arrangement/use-case level;
+- the real question was anatomy/composition: what are Softland things made
+  from, and what machinery makes those materials recursively malleable?
+- the meta session authored prompts, curated one diet, and judged outputs, so
+  its level error propagated through every arm.
+
+Different evidence diets are not independent frames when they all inherit the
+same question. Convergence proved the answer was stable **inside the supplied
+frame**. It could not prove that the frame contained your question.
+
+#### Round 02 fixed conversation form, then exposed “recital”
+
+Round 02 responded to the first failure by carrying your hammer/materials
+monologue verbatim and changing conversation geometry: five sentences, one
+load-bearing question, no summaries, no deliverable, Sid holds the next move.
+This was a serious correction.
+
+The first reply nevertheless read the code, identified existing text layout
+and rendering, named a missing source-file ingestor, and proposed the exact
+worked default embedded in the boot: hardcoded file, `0,0`, 2D, keep going.
+Structurally, it complied. Epistemically, it told you nothing new.
+
+The following self-analysis identified three important prompt traps:
+
+- a receipt rule can aim the model at closing **its own** ignorance about the
+  tree, not your uncertainty;
+- worked examples/defaults in a prompt become answers waiting to be repeated;
+- short-turn/one-question form can reduce reading cost without producing new
+  thought.
+
+This is a new failure class: **recital**. The model can perfectly enact the
+desired conversational costume and still not join the inquiry.
+
+### Your repeatable failure modes
+
+| Pattern | What it looks like here | Cost | Better move |
+|---|---|---|---|
+| Parallelize before the question stabilizes | Three near-identical architecture research sessions begin from the same mixed-altitude ask | More prose and courier work; shared blind frame survives | Keep one primary conversation until the live unknown and kill tests are stable; then open one fresh sibling |
+| Assume the model knows the causal history | Reconciliation received purpose/law/code but not the red-roadblock → ECS → coupled renderer → broad-atom Electric arc | Model returns an experiment your history already falsified | Put the lived failed attempt and why it failed in the first commission, in your own words |
+| Use examples to demonstrate a thinking motion | Hammer, hardcoded file, `0,0`, 2D were intended as method; Round 02 returned them as proposal | Example capture replaces exploration | Say what the example demonstrates, omit answer-like constants, and ask the model to name the transferable move before applying it |
+| Deliver the violated criterion late | “Unreadable,” “shit,” or anger arrives after a long artifact | Broad rewrite, apology, churn | Keep the force but add: wrong level / erased invariant / what to preserve / one next question |
+| Oscillate among direction, architecture, path, and implementation | “What should be?” repeatedly collapses into “what next?” | Model optimizes the nearest actionable road | Name the register at every handoff and end the session when the register changes |
+| Seek confidence from kin convergence | Several Fable-max sessions agree | Coherence masquerades as evidence | Use siblings for coverage; source/non-kin falsification for claims; your judgment for meaning |
+| Treat the final answer as the unit while valuing the whole lineage | Rankings drift between Session 10.3, whole Session 10, and Session 11 | Wrong artifact gets promoted | Declare the unit: one reply, cumulative lineage, or final candidate span |
+| Fear that constraints “insult” the strongest model | Prompts alternate between under-specified freedom and giant process specs | Either attractor capture or work-order servicing | Specify level, evidence law, falsifiers, refusals, and acceptance—not the solution or step-by-step reasoning |
+| Let machine legibility stand in for your comprehension | Signed span becomes 28 small files you cannot realistically read | Decision surface moves away from you | Require one strikeable Sid-facing account before signature; keep machine decomposition separate |
+
+None of these means your exploratory style is wrong. Your strongest
+contribution was often the live correction the models could not originate.
+The failure occurs when exploration branches faster than its discriminators
+are captured.
+
+### Fable-max's repeatable failure modes
+
+| Pattern | What it did here | Why it is dangerous |
+|---|---|---|
+| Literal-task optimization | Answered the supplied question cleanly even when a load-bearing clause/history was absent | A polished answer can be to the wrong question |
+| Coherence pressure | Turned many tensions into a unified architecture or final route early | Agreement and elegance hide unresolved altitude/ownership differences |
+| Taxonomy before mechanism | Named layers, nouns, and architecture planes before showing the data journey | You cannot build or challenge the model in your head |
+| Attractor capture | Current docs pulled it toward current plans; examples/defaults pulled it toward repeating the example | Removing one attractor does not create openness; another takes its place |
+| Existence → inheritance slide | A live policy/anatomy/editor organ was promoted toward the general solution | Existing mechanisms can disprove absence without deserving generalization |
+| Feedback costuming | “Think with me,” “simple English,” or short-turn rules were performed stylistically while the model still completed a solo answer | Form compliance can be mistaken for collaborative thought |
+| Artifact optimism | Small files, tables, diagrams, and complete ledgers were treated as legibility | Machine-readable decomposition can still overwhelm the human decider |
+| Recital under heavy context | Source-grounded reply accurately told you what you already knew | Receipts prove the model read; they do not prove it advanced your uncertainty |
+| Kin-convergence inflation | Same-family sessions independently produced compatible prose | Shared priors and shared framing make agreement cheap evidence |
+| Closure reflex | “Keep going,” synthesis, next steps, and deliverables appear before the question is mature | The model turns an inquiry into a queue because queues are easier to complete |
+
+Fable-max also showed clear strengths when used in the right role:
+
+- it can hold a large conceptual span coherently;
+- it responds well to discriminator-rich, solution-open commissions;
+- it can reason fresh when operational-doc attractors are fenced;
+- it can preserve its own vocabulary while adjudicating sibling claims;
+- it can source-ground a candidate after direction has formed;
+- it is an effective router and synthesizer once it does not own the verdict.
+
+The model is strongest after the question has structure, and weakest when its
+fluency is allowed to substitute for discovering that structure with you.
+
+### The joint failure modes
+
+The most expensive patterns belong to neither party alone:
+
+1. **Mutual closure pressure.** You want to land somewhere after substantial
+   effort; Fable-max is excellent at making a span feel complete. Together,
+   the pair can close before the level is correct.
+2. **Late acceptance instrumentation.** The model writes a long answer; only
+   then do you discover whether you can picture it, whether it is new, or
+   whether it repeats a failed path.
+3. **Process replaces the question.** More sessions, diets, courts, prompts,
+   and rankings become evidence of rigor while the omitted lived premise stays
+   omitted.
+4. **Your uncertainty becomes its performance opportunity.** When you say you
+   are confused, the model often answers more completely instead of locating
+   the exact edge of confusion with you.
+5. **The model protects coherence; you protect the product.** Your rupture
+   rejects an answer whose local claims may be useful; its repair tries to
+   retain a coherent whole. Without explicit preservation, both lose signal.
+
+### How Sid and Fable-max should work together
+
+#### Mode A — discover the real question
+
+Use this while you are still saying “I know this is not it, but I cannot yet
+name what is missing.” Do not run a panel or ask for an artifact.
+
+1. **Sid supplies the lived arc, not a dossier.** What I tried → where I hit
+   the wall → why the obvious answer repeats the wall → what level I think the
+   unknown lives at.
+2. **Fable takes one link.** Its next turn must do one of three things: extend
+   that causal chain, strike one assumption, or expose one fork. It may ask one
+   real question. It does not finish the chain.
+3. **Sid gives a value mark, not just approval.** `NEW`, `KNOWN`,
+   `WRONG-LEVEL`, `EXAMPLE-CAPTURE`, or `USEFUL-BUT-NOT-THE-QUESTION`, plus one
+   sentence when needed.
+4. **Reads follow hypotheses.** The model reads code only when a live claim
+   would change depending on source. Reading the tree is not itself progress.
+5. **Novelty is tested every turn.** “What in that reply changed my model?” If
+   the answer is nothing, stop; do not reward structural compliance with the
+   next queued question.
+6. **The question is a product of the dialogue.** After several productive
+   turns, Fable proposes a one-paragraph commission using Sid's vocabulary.
+   Sid redlines the level, falsifiers, and anti-attractors. Only then does
+   closure mode begin.
+
+Round 02 contains valuable form laws, but its worked defaults and source-read
+obligation should not become the inquiry's content. The minimal live request
+is closer to:
+
+> Stay with the causal chain I am building. Take one link from what I just
+> said: extend it, strike it, or expose a fork. Add something that may be new
+> to me; do not inventory the tree unless the link depends on it. Ask one
+> question and leave the wheel with me.
+
+This is intentionally not a complete prompt. Completing it would recreate the
+work-order failure.
+
+#### Mode B — test and close a mature candidate
+
+Use the process that actually closed “What Softland Is”:
+
+1. Preserve the multi-turn primary lineage that generated the mature question.
+2. Give exactly one fresh sibling the mature commission, not the primary's
+   answer.
+3. Give a meta router both outputs. Its job is axis discovery and a bounded
+   set of high-weight cross-items, not a third architecture.
+4. Each worker adopts/amends/refutes those items in its own vocabulary and
+   verifies claims it borrows.
+5. Run one ratification round; do not manufacture deltas after the expected
+   new-finding rate collapses.
+6. Create a candidate span.
+7. Use a non-kin/source-backed reviewer to attack factual and contract claims,
+   not to choose the product meaning.
+8. Sid classifies each finding: design contradiction, underspecified design,
+   build gap, or mere wording. Sid signs or rejects.
+9. Stop. Bank raw provenance separately from a short Sid-facing account and
+   machine-facing reading surfaces.
+
+Parallelism enters only at step 2. Before that, it multiplies an unstable
+question. After that, it tests whether the question and candidate survive a
+different taken path.
+
+### The practical operating agreement
+
+For a new high-altitude inquiry, the pair should be able to say these five
+things before spawning another session:
+
+1. **Mode:** are we discovering the question or closing a candidate?
+2. **Level:** product destination, architecture, contract, or code?
+3. **Lived falsifier:** what have I already tried and watched fail?
+4. **Value test:** what would be genuinely new or decision-changing for Sid?
+5. **Stop condition:** what event—not document size or model agreement—ends
+   this mode?
+
+If any answer is missing, another sibling is more likely to amplify the frame
+than repair it.
+
+### Second-order check on this autopsy
+
+The obvious failure available to this document is to become another complete
+taxonomy that feels true and changes nothing. My own default was to protect
+causal precision by naming every category. That is the same compression reflex
+being criticized.
+
+The stable position after that check is simpler:
+
+- You do not mainly need better prompt wording. You need to distinguish when
+  the question is still being discovered from when a candidate is ready to be
+  tested.
+- Fable-max is not failing because it lacks enough roles or context. It fails
+  when the supplied frame lets fluent completion stand in for joint discovery.
+- Your anger is not the enemy. It is an expensive, late sensor. Turn it into a
+  coordinate sooner.
+- The “What Softland Is” process is reusable **only after** the live question
+  has matured. Reconciliation copied the rigor while skipping that maturity.
+
+What this analysis is protecting is not a universal workflow. It is the one
+causal distinction the next conversation must not lose: **discover together;
+then diverge, adjudicate, falsify, and close.**
+
+### Evidence map
+
+- Claude closure/meta session:
+  `/home/sid/.claude/projects/-mnt-data-projects-Softland/725c2b53-22ad-475a-bb05-05a06c3fac38.jsonl`
+  (`2026-08-15T06:57:58Z` → `19:27:13Z`).
+- Mature commission and both round-0 outputs:
+  `docs/what-softland-is/provenance/exchange-00-commission-and-round0-outputs.md`.
+- Cross-routing, adjudication, ratification, meta synthesis, and non-kin
+  falsification:
+  `docs/what-softland-is/provenance/exchange-01-cross-items-routed.md` through
+  `exchange-05-falsification.md`.
+- Signature boundary:
+  `docs/what-softland-is/decision-2026-08-15-span-signed.md`.
+- Reconciliation failure and its own root-cause record:
+  `docs/reconciliation/round-01.md`.
+- Round-02 corrective prompt, still uncommitted at this snapshot:
+  `docs/reconciliation/round-02.md`.
+- Key working-session roots:
+  `cfc8afd6-2887-464d-b451-0765a84cd85c` (multi-turn),
+  `8dd63534-c175-48ba-b414-4976c280c942` (mature one-shot),
+  `d55f0edb-db37-49e1-a19b-19b0fa4a36f0` (teaching seat), and
+  `8df57594-940e-43dd-88e6-e240c7c6ef57` (falsification runner).
