@@ -45,6 +45,7 @@ The derived map of how the arrows connect: [synthesis.md](synthesis.md).
 - [terminal-purpose.md](vision/terminal-purpose.md) — the known/unknowns question, and why: humans living healthy forever; the collective-intelligence social network (LOG cut)
 - [the-interface-question.md](vision/the-interface-question.md) — Sid's words, live capture 2026-08-15: the overwhelm testimony and the question — what is the interface to agi, to alien, to god
 - [the-day-job.md](vision/the-day-job.md) — the oldest specialised purpose: working with agents on code — onboard, make sense, review; the sense line (LOG cut; old briefs cited)
+- [the-interview.md](vision/the-interview.md) — live capture 2026-08-16: the ui/ux interview mode; the agent drawing in-land as you talk; ECS dissolves "mockup"; the message that noticed itself becoming another arrow
 
 ### what is it for — feels level
 

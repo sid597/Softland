@@ -29,6 +29,7 @@ constitution clauses it instantiates → what the pairing shows.
 | terminal-purpose | destination · the-slot | — | the why under everything; no clause states it, correctly — purposes are not law |
 | the-interface-question | mixed-species (absorption) | land-is-the-law | the one purpose with a build candidate already attached (candidate-self-hosting) |
 | the-day-job | morning-test · why-now | total-provenance · basis-and-staleness · read-honesty | the oldest purpose — the previous Softland was built for it; nearest to running code today |
+| the-interview | the-land | settlement-publication-custody | ECS dissolves "mockup" into a settlement state — Sid's 2026-07-31 ruling ("the in progress components are dummy no they are real and functional as well") already answers the wonder; the loop that noticed itself, kept as structure |
 | the-knowledge-map | the-land | land-is-the-law · basis-and-staleness | zoom levels are absorption made navigable; the unconnected rendered = unknown unknowns made visible |
 | the-hci-thesis | the-slot · why-now | total-provenance · convergence-is-an-event | Sid's lived diagnosis, same shape as the essays' graveyard — the chatbox is this decade's sealed Smalltalk image |
 | sensemaking-by-default | morning-test · mixed-species | basis-and-staleness · consequence-modes | the divergence-convergence fractal is convergence-is-an-event lived at chat scale |
