@@ -17,10 +17,11 @@ reconciliation.
 
 ## vision/ — destination material, one artifact per file
 
-Cut from the two destination essays in `provenance/` — the essays' own words,
-excerpted; operative law stays with `constitution/`. A second round — LOG
-extraction, themes the essays don't cover, in Sid's words — lands after Sid
-adjudicates the theme list.
+Two cuts, one register. From the two destination essays in `provenance/` —
+the essays' own words, excerpted; operative law stays with `constitution/`.
+From `vision/LOG.md` (repo root) — themes the essays don't cover, Sid's
+words verbatim. The remaining LOG themes land as the "what is it for"
+grouping settles under Sid's word.
 
 - [destination.md](vision/destination.md) — the one-sentence destination, the three compressed wholes, the one demand on the present
 - [the-slot.md](vision/the-slot.md) — the diagnosis (the towers died of solitude; closure and commons never the same building) and the slot: nobody rents you a concurrency-of-minds law
@@ -30,6 +31,8 @@ adjudicates the theme list.
 - [mixed-species.md](vision/mixed-species.md) — the two-species picture: humans hold the terminus, agents are enzymes; the absorption ceiling; oversight as what the substrate does
 - [the-land.md](vision/the-land.md) — the land is the law, felt: patina, mass, darkness, morning light; the renderer as attention allocator, warned and brought inside the law
 - [reserved-seats.md](vision/reserved-seats.md) — the two honest cracks: how the human terminus pluralizes; the right to unsay
+- [the-name.md](vision/the-name.md) — why "Softland": counter to Dynamicland, the software land where anything is doable; the substrate framing as the name's why (LOG cut)
+- [the-economy.md](vision/the-economy.md) — "its a whole economy": share, build on, sponsor, buy, sell; the world platform where build-on-top is paid and yours (LOG cut)
 - [the-interface-question.md](vision/the-interface-question.md) — Sid's words, live capture 2026-08-15: the overwhelm testimony and the question — what is the interface to agi, to alien, to god
 
 ## constitution/ — one file per principle
