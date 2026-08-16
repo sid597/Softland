@@ -17,11 +17,19 @@ reconciliation.
 
 ## vision/ — destination material, one artifact per file
 
-Two cuts, one register. From the two destination essays in `provenance/` —
-the essays' own words, excerpted; operative law stays with `constitution/`.
-From `vision/LOG.md` (repo root) — themes the essays don't cover, Sid's
-words verbatim. The remaining LOG themes land as the "what is it for"
-grouping settles under Sid's word.
+Three sources, one register — testimony, excerpted verbatim, never new
+vision: the destination essays (`provenance/`), Sid's LOG (`vision/LOG.md`
+at repo root), live captures. Two groups, Sid's cut, the arrows frame
+ratified — the object is known by its readings: **what it should be** (the
+essays' law-shaped destination) and **what is it for** (the purposes, each
+an arrow out of the one object: outcome level · feels level · the minds).
+The derived map of how the arrows connect: [synthesis.md](synthesis.md).
+
+### the thing itself
+
+- [the-name.md](vision/the-name.md) — why "Softland": counter to Dynamicland, the software land where anything is doable; the substrate framing as the name's why (LOG cut)
+
+### what it should be
 
 - [destination.md](vision/destination.md) — the one-sentence destination, the three compressed wholes, the one demand on the present
 - [the-slot.md](vision/the-slot.md) — the diagnosis (the towers died of solitude; closure and commons never the same building) and the slot: nobody rents you a concurrency-of-minds law
@@ -31,9 +39,27 @@ grouping settles under Sid's word.
 - [mixed-species.md](vision/mixed-species.md) — the two-species picture: humans hold the terminus, agents are enzymes; the absorption ceiling; oversight as what the substrate does
 - [the-land.md](vision/the-land.md) — the land is the law, felt: patina, mass, darkness, morning light; the renderer as attention allocator, warned and brought inside the law
 - [reserved-seats.md](vision/reserved-seats.md) — the two honest cracks: how the human terminus pluralizes; the right to unsay
-- [the-name.md](vision/the-name.md) — why "Softland": counter to Dynamicland, the software land where anything is doable; the substrate framing as the name's why (LOG cut)
-- [the-economy.md](vision/the-economy.md) — "its a whole economy": share, build on, sponsor, buy, sell; the world platform where build-on-top is paid and yours (LOG cut)
+
+### what is it for — outcome level
+
+- [terminal-purpose.md](vision/terminal-purpose.md) — the known/unknowns question, and why: humans living healthy forever; the collective-intelligence social network (LOG cut)
 - [the-interface-question.md](vision/the-interface-question.md) — Sid's words, live capture 2026-08-15: the overwhelm testimony and the question — what is the interface to agi, to alien, to god
+- [the-day-job.md](vision/the-day-job.md) — the oldest specialised purpose: working with agents on code — onboard, make sense, review; the sense line (LOG cut; old briefs cited)
+
+### what is it for — feels level
+
+- [the-knowledge-map.md](vision/the-knowledge-map.md) — google earth for knowledge; zoom levels are levels of understanding; the unexplored rendered as information (LOG cut)
+- [the-hci-thesis.md](vision/the-hci-thesis.md) — the chatbox diagnosis; natively versioned, collaborative, on-the-fly interfaces; the Victor lineage; diff of everything (LOG cut)
+- [sensemaking-by-default.md](vision/sensemaking-by-default.md) — the system whose job is making sense by default; the divergence-convergence fractal; flow across zoom levels (LOG cut)
+- [softland-builds-softland.md](vision/softland-builds-softland.md) — the tool that builds the tool; instance→type; the broadest emergence layer; all the strange loopy loops (LOG cut)
+- [the-scenes.md](vision/the-scenes.md) — drug discovery, the house inspector, the lab loop; "good enough" is not good enough (LOG cut)
+
+### what is it for — the minds
+
+- [the-resident-mind.md](vision/the-resident-mind.md) — the ambient reader in the medium; levels of resident action; the agents workforce deployed by humans (LOG cut)
+- [care.md](vision/care.md) — care as the human feature; why humans have to be in there; inhabited, never autopilot (LOG cut; North candidate rides Sid's hand)
+- [sovereignty.md](vision/sovereignty.md) — your data, your models; the local pool; open-source personal models only (LOG cut)
+- [the-economy.md](vision/the-economy.md) — "its a whole economy": share, build on, sponsor, buy, sell; the world platform where build-on-top is paid and yours (LOG cut)
 
 ## constitution/ — one file per principle
 
