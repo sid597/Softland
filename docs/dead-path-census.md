@@ -443,6 +443,15 @@ at every group boundary. ~14.6k lines deleted across six commits:
 - **Deps rider** `99b9811` — datascript, openai-clojure, image-resizer,
   pdfbox-io, fontbox (all zero-use, grep-verified); roamresearch/backend-sdk
   stays pending Sid's env.clj check; −5 lines.
+- **old-infra rider (Sid's ruling, 2026-08-16)** — the pre-refactor
+  quarantine tree (`old-infra/`: the codemirror-editor world, v0
+  shapes/quad-tree/webgpu wrappers, electric_flow_old, old llm/rama_module,
+  two design-converter quarantine files) deleted whole; 35 files, −5,905.
+  Off every classpath, zero references anywhere — observed by the census as
+  out of src/ scope, ruled at Sid's word after the pass. Remaining observed
+  root trees (`OLD DOCS/`, `snapshots/`, `runs/`, `probes/`, `bench/`)
+  still await rulings; `probes/` already carries Sid's July "keep,
+  quarantined" word.
 
 Execution finds beyond the census rows (all fix-by-deletion, no stubs):
 `test_runner.clj` suite lines for the two deleted test nses; trail-face
