@@ -10,6 +10,11 @@ other file links.
 **Signed:** the product-architecture span (exchange-04 as amended by
 exchange-05) is signed — [decision-2026-08-15-span-signed.md](decision-2026-08-15-span-signed.md).
 
+**Authority:** settledness lives in this folder and only here — and
+narrowly: the signed span's invariants, not every sentence in these
+files. A SETTLED stamp in any artifact outside this folder is dated
+testimony from its era, never binding ground (Sid).
+
 **Candidate on record:** [candidate-self-hosting.md](candidate-self-hosting.md)
 — make the span self-hosting: this folder as material in the land, edges to
 the code it governs, staleness-lit. Nominated by Sid 2026-08-15; ranked at
