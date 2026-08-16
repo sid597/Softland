@@ -6,8 +6,8 @@
 > session 5 ([provenance](../provenance/what-should-softland-be.md)).
 > This file owns the felt land — the half of the destination that makes it
 > a place. The operative renderer law it ends on (renderer as kernel, skin
-> as lease, material properties auditable to basis) is constitution
-> material; `constitution/` owns it.
+> as lease, material properties auditable to basis) lives at
+> [constitution/land-is-the-law.md](../constitution/land-is-the-law.md).
 
 ## The headless test (session 1, Part I)
 
@@ -31,7 +31,9 @@
 
 The repair — the land obeys the constitution it delivers: renderer as
 kernel, skin as lease, every material property auditable to its basis — is
-operative law for `constitution/`. Its felt half stays here:
+operative law at
+[constitution/land-is-the-law.md](../constitution/land-is-the-law.md). Its
+felt half stays here:
 
 ## Ground shared, salience plural (session 1, Part II)
 

@@ -5,7 +5,7 @@
 > ([provenance](../provenance/what-should-softland-be-session-1.md)) ·
 > session 5 ([provenance](../provenance/what-should-softland-be.md)).
 > This file owns the destination statement itself; the operative laws the
-> statements compress live in `constitution/` (pending).
+> statements compress live in [`constitution/`](../constitution/).
 
 ## The sentence (session 1, Part I)
 
@@ -32,5 +32,5 @@ the same destination said with three emphases.
 
 > And the destination makes exactly one demand on any present, which I state and stop: whatever gets built next, every act must carry who, on what basis, when — because that is the one sentence that can never be retrofitted. The route can wait, as you said. The destination, I believe, is this.
 
-(The operative form — total provenance, forever — is a constitution
-principle; `constitution/` owns it.)
+(The operative form — total provenance, forever — is
+[constitution/total-provenance.md](../constitution/total-provenance.md).)

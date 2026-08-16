@@ -5,8 +5,8 @@
 > ([provenance](../provenance/what-should-softland-be-session-1.md)) ·
 > session 5 ([provenance](../provenance/what-should-softland-be.md)).
 > This file owns the five refusals and their exit-shapes reading. The
-> operative meta-clause they compress to — no exits — is a constitution
-> principle; `constitution/` owns it.
+> operative meta-clause they compress to is
+> [constitution/no-exits.md](../constitution/no-exits.md).
 
 ## What it refuses to be (session 1, Part I)
 

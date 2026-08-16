@@ -6,8 +6,9 @@
 > session 5 ([provenance](../provenance/what-should-softland-be.md)).
 > This file owns the two-species picture. The operative law it gestures at
 > — lease mechanics, monotone sub-delegation, credit lineages, briefings as
-> claims — is constitution material; `constitution/` owns it. Trims are
-> marked […].
+> claims — lives at
+> [constitution/mixed-species-leases.md](../constitution/mixed-species-leases.md).
+> Trims are marked […].
 
 ## The asymmetric constitution (session 1, Part I, clause 6)
 

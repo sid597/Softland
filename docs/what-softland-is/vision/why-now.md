@@ -6,8 +6,9 @@
 > ([provenance](../provenance/what-should-softland-be-session-1.md)).
 > This file owns the timing claim — why the fifty-year-old dream became
 > buildable this decade, and why the first test population is agents. The
-> checker law itself (velocity, strength, calibration) is constitution
-> material; `constitution/` owns it. Trims are marked […].
+> checker law itself (velocity, strength, calibration) is
+> [constitution/checkers-and-depth.md](../constitution/checkers-and-depth.md)'s.
+> Trims are marked […].
 
 ## Meaning has an affordable reader (session 5, Part I)
 

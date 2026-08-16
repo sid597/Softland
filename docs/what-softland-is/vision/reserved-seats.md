@@ -3,8 +3,12 @@
 > Reading surface cut from the destination essays — session 1's words
 > verbatim ([provenance](../provenance/what-should-softland-be-session-1.md),
 > Part II). This file owns the destination's two honest cracks — the seats
-> the constitution reserves rather than pretends to fill. The constitution's
-> open register (`constitution/`, pending) will carry the binding entries.
+> the constitution reserves rather than pretends to fill. The binding
+> entries ride their clauses:
+> [constitution/mixed-species-leases.md](../constitution/mixed-species-leases.md)
+> (the terminus) and
+> [constitution/total-provenance.md](../constitution/total-provenance.md)
+> (the right to unsay).
 
 ## How the terminus pluralizes (session 1, Part II)
 
