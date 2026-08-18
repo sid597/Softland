@@ -44,9 +44,11 @@
     app.client.substrate.maintained-view-test
     app.client.substrate.path-material-test
     app.client.substrate.path-tessellation-test
+    app.client.substrate.region3d-evaluation-test
     app.client.substrate.region3d-material-test
     app.client.substrate.region3d-placement-test
     app.client.substrate.region3d-scene-test
+    app.client.substrate.region-rungs-test
     app.client.workspace.region3d-pointer-test
     app.client.substrate.scene-tape-test
     app.client.substrate.snap-test
@@ -89,10 +91,7 @@
   "Namespaces whose semantics still require the historical private-cluster
    lifecycle. These remain in `full`; only the inner-loop `fast` lane omits
    them."
-  '{app.client.workspace.trail-face-test
-    "The live receipt pins a two-task trail-view launch and imports the trail fixture helpers."
-
-    app.client.substrate.connector-join-test
+  '{app.client.substrate.connector-join-test
     "Owns an ephemeral relation-kernel IPC runtime for the durable R1 connector tripwire."
 
     app.cascade-table-test
@@ -202,8 +201,7 @@
   '{app.face-projection-test 24000
     app.server.rama.dogfood-space-test 24000
     app.server.rama.object-container.block-distiller-test 1600
-    app.server.rama.dogfood.transcript-ingest-test 900
-    app.client.workspace.trail-face-test 500})
+    app.server.rama.dogfood.transcript-ingest-test 900})
 
 (def ^:private minimum-shard-port-span
   "One Rama IPC reserves a 1,000-port supervisor range plus conductor/client

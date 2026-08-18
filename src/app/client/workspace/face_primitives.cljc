@@ -8,18 +8,16 @@
 
    Three kinds of entry live here:
 
-   1. VERBATIM COPIES of shipped builders — extraction, not invention (§6 /
-      the copy-then-harmonize ruling, CONTRACT §2). The `ui-*` builders and the
-      `list-*`/`typo-*`/`dt` support defs were extracted byte-for-form from the
-      old workspace's ui_primitives.cljs, whose deletion made THIS file their
-      canonical home; `omission-line`/`omissions-block`/`hole-endpoint-card`
-      are identical copies of `trail_face/cards.cljc` (that origin lives on).
-      Gate G7 (`face_primitives_test.clj`) is a SOURCE-FORM DIFF that reads
-      origin and copy as DATA and fails on any drift — it still pins the
-      cards.cljc copies; the ui-* half retired with its origin.
+   1. HARVESTED BUILDERS — extraction, not invention (§6 / the
+      copy-then-harmonize ruling, CONTRACT §2). The `ui-*` builders and the
+      `list-*`/`typo-*`/`dt` support defs came from the old workspace's
+      ui_primitives.cljs; `omission-line`/`omissions-block`/
+      `hole-endpoint-card` came from the retired trail-face drawing island.
+      Those origins are gone, so THIS file is the canonical home of all of
+      them. Gate G7 (`face_primitives_test.clj`) pins their continued presence.
 
    2. §6 BUILDER-FN wrappers — the fixed interface `(fn [ctx props children]
-      -> rt-node)`. The verbatim copies keep their original bounds-passing
+      -> rt-node)`. The harvested builders keep their original bounds-passing
       signatures; the `*-prim` wrappers adapt the §6 interface to them, MEASURING
       each node's bounds bottom-up from its already-built children before
       returning (the measure rule, §6 / trap T7 — measure in the primitive,
@@ -329,12 +327,13 @@
       :text text-ops)))
 
 ;; ===========================================================================
-;; VERBATIM COPIES — trail_face/cards.cljc proto-primitives (G7-pinned).
+;; HARVESTED BUILDERS — canonical here since the trail-face drawing island
+;; retired.
 ;; The Outline face's D-005 affordances (holes/omissions "every lack the face
 ;; exposes"). feed-entry-card is NOT harvested: it pulls a heavy private-helper
 ;; chain (band-line-ops / two-clock stamps / kind-glyph …) and its band-specific
 ;; measure is trail-view, not outline-generic — a named extension point, not a
-;; void. Do NOT edit: G7 diffs these against cards.cljc as data.
+;; void.
 ;; ===========================================================================
 
 (defn omission-line
@@ -416,10 +415,10 @@
 
 (defn- named-id
   "The interpreter's node ids are structural VECTOR paths (§5), but three of the
-   verbatim-copied builders (ui-panel-group / ui-list-item / ui-scrollbar) derive
+   harvested builders (ui-panel-group / ui-list-item / ui-scrollbar) derive
    their child ids via `(name id)` — they assume a name-able keyword/string id
-   (their sidebar origin). Rather than edit the copies (G7 forbids it), the
-   wrappers hand those builders a deterministic name-able id folded from the
+   (their sidebar origin). The wrappers hand those builders a deterministic
+   name-able id folded from the
    vector path (`[:root 1] -> :root.1`); it still travels with the item on
    reorder (trap T6), so keyed-pool stability holds."
   [id]
@@ -981,8 +980,8 @@
    cards (BlockExplorer.dc.html:277 turn frame, :285 user frame, :296 chunk
    card, :309 response frame, :319 block card — Boxes; :358 strip group card,
    :385/:412 reader frames — Minimap+Reader). `:card` cannot express it: the
-   G7-pinned ui-card copy carries no :layout, so its children would not stack
-   (and the copy may not be edited). Column layout with :padding/:gap;
+   harvested ui-card carries no :layout, so its children would not stack.
+   Column layout with :padding/:gap;
    measures its own :h bottom-up from the already-built children (measure
    rule, trap T7 — measure in the primitive, arrange in the engine)."
   [ctx props children]
@@ -1287,7 +1286,7 @@
                 :data (:data props)))
 
 (defn omissions-prim
-  "Proto-primitive over trail_face/cards.cljc `omissions-block`. The omission
+  "Primitive over the canonical `omissions-block`. The omission
    entries arrive via props (:omissions, a :bind path). omissions-block returns
    nil on empty input; the §6 interface must return an rt-node, so an empty set
    coalesces to a zero-height node (honest gap, never a crash)."
@@ -1300,13 +1299,12 @@
                  {:x 0 :y 0 :w (content-w props geom) :h 0}))))
 
 (defn hole-card-prim
-  "Proto-primitive over trail_face/cards.cljc `hole-endpoint-card`. The hole row
+  "Primitive over the canonical `hole-endpoint-card`. The hole row
    arrives via props (:row, a :bind path; falls back to the whole props map).
    A row without :relation-id gets the interpreter's STRUCTURAL id injected —
    the original falls back to `(hash row)`, and `hash` is platform-divergent
    (JVM murmur ≠ cljs hash), which would leak a JVM-vs-browser-different node
-   id into the tree (G16 falsification fix; G7 forbids editing the copy, so
-   the wrapper closes the path)."
+   id into the tree (G16 falsification fix; the wrapper closes the path)."
   [ctx props _children]
   (let [geom (:geom ctx)
         row0 (or (:row props) props)
@@ -1335,7 +1333,7 @@
    :divider       divider-prim
    :empty-state   empty-state-prim
    :scrollbar     scrollbar-prim
-   ;; verbatim-copied trail_face proto-primitives (cards are proto-primitives)
+   ;; harvested omission and hole primitives
    :omissions     omissions-prim
    :hole-card     hole-card-prim
    ;; genuinely new (§6)

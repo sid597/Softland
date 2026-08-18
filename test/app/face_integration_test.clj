@@ -1,30 +1,7 @@
 (ns app.face-integration-test
   "W1-INT gates (framework CONTRACT §11).
 
-   G14(a) — the worn-UI structural-equality falsifier at assembly grain, the
-   JVM instance (the live check (b) ran at INT in the then-current dev app and
-   is recorded in the INT artifact — its cljs surface was cljs-only, §10/§11
-   split).
-   The named trail-face sub-tree: the expansion card's HOLES COLUMN
-   (scene.cljc:366-372 + :399-402) — map-indexed hole-endpoint-cards stacked
-   in a column at y = i * (4 + line-height). Criterion held: >=1 :each, >=2
-   nesting levels, text + rects. Re-expressed as an assembly (:stack + :each
-   + :hole-card) over the same committed fixture; children must be
-   STRUCTURALLY EQUAL — ids, bounds, styles, text, data (`=`, whole nodes).
-
-   Carve-outs (named, quantified — never silent):
-   - the CONTAINER node is the mount: the shipped one is a bare positioned
-     rt-node (:holes, explicit child y), the assembly one is :stack (engine
-     arrangement, Δ1-stamped root :data). Containers are compared on width;
-     the container :h differs by EXACTLY one trailing gap — the shipped math
-     allocates gap-after-each (n * (gap + row-h)), :stack gaps only BETWEEN
-     children (n * row-h + (n-1) * gap). That delta is a real G14 finding
-     (recorded in the INT artifact) and is asserted EXACTLY below so any
-     drift beyond the named difference still fails.
-   - hole rows carry :relation-id, not :id, so the :each id fallback counts
-     them in the apply-report (trap T6 honesty) — asserted, not hidden.
-
-   Plus the registry-wiring smoke: the WORN outline assembly
+   The registry-wiring smoke wears the outline assembly
    (resources/public/faces/outline.edn — the file the /face command fetches)
    compiles CLEAN against the real face_primitives registry and applies over
    a projection-shaped data-context (the §7 data contract) into a renderable,
@@ -38,109 +15,16 @@
             [clojure.java.io :as io]
             [app.client.workspace.rect-tree :as rt]
             [app.client.workspace.face-assembly :as fa]
-            [app.client.workspace.face-primitives :as prims]
-            [app.client.workspace.trail-face.cards :as cards]))
+            [app.client.workspace.face-primitives :as prims]))
 
 ;; ===========================================================================
-;; Shared geometry — one value for both sides (bounds equality demands it)
+;; Shared geometry for the integration checks
 ;; ===========================================================================
-
-(def line-height 18)
-(def card-w 320)
 
 (def geom
-  {:viewport-w 760 :viewport-h 600 :content-w card-w
-   :font-size 14 :char-advance (* 14 0.56) :line-height line-height
+  {:viewport-w 760 :viewport-h 600 :content-w 320
+   :font-size 14 :char-advance (* 14 0.56) :line-height 18
    :now-ms 0})
-
-;; ===========================================================================
-;; G14(a) fixture — committed hole rows (every row carries :relation-id so the
-;; shipped (hash row) fallback is never reached; :kind keywords are what
-;; hole-endpoint-card names in its text op)
-;; ===========================================================================
-
-(def hole-rows
-  [{:relation-id "rel-a" :kind :hole}
-   {:relation-id "rel-b" :kind :unresolved}
-   {:relation-id "rel-c" :kind :hole}])
-
-(defn shipped-holes-column
-  "The SHIPPED arrangement, scene.cljc:366-372 + :399-402 verbatim math:
-   hole-endpoint-cards positioned at y = i * (4 + line-height) inside a bare
-   container sized n * (4 + line-height) (gap-after-each)."
-  [rows]
-  (let [hole-nodes (vec (map-indexed
-                          (fn [i r]
-                            (-> (cards/hole-endpoint-card
-                                  r {:card-w card-w :line-height line-height})
-                                (assoc-in [:bounds :y] (* i (+ 4 line-height)))))
-                          rows))
-        holes-h (* (count hole-nodes) (+ 4 line-height))]
-    (rt/rt-node [:trail-face/holes "g14-fixture"] :holes
-                {:x 0 :y 0 :w card-w :h holes-h}
-                :children hole-nodes)))
-
-(def holes-slice-assembly
-  ;; the same sub-scene as ARRANGEMENT data (grammar v0, guard-clean):
-  ;; column of hole cards, gap 4. :hole-card receives the row fields as
-  ;; bound props (the wrapper's row fallback, face_primitives.cljc).
-  {:assembly/name    "g14-holes-slice"
-   :assembly/grammar 0
-   :root
-   {:prim :stack
-    :props {:w 320 :gap 4}
-    :children
-    [{:each [:holes]
-      :template
-      {:prim :hole-card
-       :props {:w 320
-               :kind        {:bind [:kind]}
-               :relation-id {:bind [:relation-id]}}}}]}})
-
-(defn- strip-src-path
-  "Structural equality is compared MODULO the interpreter's :assembly/src-path
-   provenance stamp: the interpreter records the template node each rt-node came
-   from (designer edit-mode), but the hand-shipped arrangement — built directly,
-   not through the interpreter — legitimately has none. Provenance is metadata,
-   not arrangement, so it is removed before the shape comparison. Removing the
-   only key restores :data to its pre-stamp form (nil), so an unstamped shipped
-   node still matches exactly."
-  [node]
-  (let [d (dissoc (:data node) :assembly/src-path)]
-    (-> node
-        (assoc :data (if (seq d) d nil))
-        (update :children (fn [cs] (mapv strip-src-path cs))))))
-
-(deftest g14a-holes-column-structural-equality
-  (let [shipped  (rt/resolve-layout (shipped-holes-column hole-rows))
-        compiled (fa/compile-assembly prims/registry holes-slice-assembly)
-        tree     (fa/apply-assembly compiled {:holes hole-rows}
-                                    {:view-instance :g14
-                                     :address "g14-fixture"
-                                     :geom geom})]
-    (testing "the assembly compiles against the REAL registry"
-      (is (not (fa/error? compiled)) (pr-str (fa/compile-errors compiled))))
-    (testing "children are structurally EQUAL — ids, bounds, styles, text, data (modulo provenance)"
-      (is (= 3 (count (:children shipped)) (count (:children tree))))
-      ;; whole-node equality, child by child (failure prints the diff pair);
-      ;; the assembly side carries the :assembly/src-path stamp the hand-shipped
-      ;; side cannot — stripped before compare (provenance is not arrangement)
-      (doseq [[s a] (map vector (:children shipped) (:children tree))]
-        (is (= s (strip-src-path a)))))
-    (testing "container width equal; height differs by EXACTLY one trailing gap"
-      (is (= (get-in shipped [:bounds :w]) (get-in tree [:bounds :w])))
-      (is (= (get-in shipped [:bounds :h])
-             (+ (get-in tree [:bounds :h]) 4))))
-    (testing "Δ1 stamp + honest id fallback count (rows carry no :id)"
-      (is (= :g14 (get-in tree [:data :view-instance])))
-      (is (= "g14-fixture" (get-in tree [:data :address])))
-      (is (= 3 (get-in tree [:data :assembly/apply-report :items-without-id])))
-      (is (zero? (get-in tree [:data :assembly/apply-report :binds-missing]))))
-    (testing "both flatten through the real render primitives"
-      (is (seq (rt/tree->rects shipped)))
-      (is (seq (rt/tree->rects tree)))
-      (is (= (count (rt/tree->text-ops shipped))
-             (count (rt/tree->text-ops tree)))))))
 
 (deftest root-each-rejects-at-compile
   ;; G16 gate fix regression: an :each at the ROOT must reject at wear-time

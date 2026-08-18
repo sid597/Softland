@@ -6,14 +6,9 @@
      clj -M:test -e \"(require 'app.face-primitives-test)
                       (clojure.test/run-tests 'app.face-primitives-test)\"
 
-   G7 mechanical builder fidelity — a SOURCE-FORM DIFF (not call-and-compare;
-      the origin is cljc, this suite is JVM). Reads trail_face/cards.cljc and
-      face_primitives.cljc as DATA and asserts every copied builder's defn
-      form is byte-for-form identical to its origin. (The ui_primitives.cljs
-      half of the diff retired with that file; face_primitives.cljc is now
-      the canonical home of the panel/list/card builders.) The allowlist of
-      reviewed divergences starts EMPTY; ns forms are exempt (carve-out,
-      §11-G7).
+   G7 harvested builder presence — reads face_primitives.cljc as DATA and
+      asserts every named builder remains in its canonical home. The deleted
+      origin files are no longer test dependencies.
    G8 the two new primitives measure — :text-run wraps ONCE via wrap-line, emits
       its own positioned text ops, and its :h = wrapped-line-count * line-height
       (trap T7). Carve-out asserted: :text-layout / resolve-text-layout appear
@@ -30,7 +25,7 @@
             [app.client.workspace.face-primitives :as fp]))
 
 ;; ===========================================================================
-;; G7 — mechanical builder fidelity (source-form diff)
+;; G7 — harvested builder presence in the canonical vocabulary
 ;; ===========================================================================
 
 (defn read-all-forms
@@ -40,7 +35,7 @@
   [resource-path relative-path]
   (let [src (or (io/resource resource-path)
                 (let [f (io/file relative-path)] (when (.exists f) f)))]
-    (assert src (str "cannot locate source for form-diff: " resource-path))
+    (assert src (str "cannot locate source for builder census: " resource-path))
     (with-open [r (java.io.PushbackReader. (io/reader src))]
       (binding [*read-eval* false]
         (loop [forms []]
@@ -62,55 +57,24 @@
     (read-all-forms "app/client/workspace/face_primitives.cljc"
                     "src/app/client/workspace/face_primitives.cljc")))
 
-(def cards-forms
-  (def-forms-by-sym
-    (read-all-forms "app/client/workspace/trail_face/cards.cljc"
-                    "src/app/client/workspace/trail_face/cards.cljc")))
-
-(def origin-forms cards-forms)
-
 (def named-ui-builders
   "The 11 §6-named panel/list/card builders; face_primitives.cljc is their
    canonical home (the ui_primitives.cljs origin is deleted)."
   '#{ui-panel ui-panel-header ui-panel-content ui-panel-footer ui-panel-group
      ui-list-item ui-card ui-badge ui-divider build-empty-state ui-scrollbar})
 
-(def named-trail-builders
-  "The trail_face/cards.cljc proto-primitives harvested (+ omission-line dep)."
+(def named-harvested-builders
+  "The omission and hole builders harvested into the canonical vocabulary."
   '#{omission-line omissions-block hole-endpoint-card})
 
-(def allowlist
-  "Named, reviewed per-builder divergences. STARTS EMPTY (§11-G7)."
-  #{})
-
 (deftest g7-named-builders-present
-  (testing "every §6-named copied builder is present in face_primitives.cljc"
+  (testing "every §6-named harvested builder is present in face_primitives.cljc"
     (doseq [b named-ui-builders]
       (is (contains? face-forms b)
-          (str "missing verbatim ui_primitives copy: " b)))
-    (doseq [b named-trail-builders]
+          (str "missing harvested UI builder: " b)))
+    (doseq [b named-harvested-builders]
       (is (contains? face-forms b)
-          (str "missing verbatim trail_face copy: " b)))))
-
-(deftest g7-source-form-fidelity
-  (testing "every copied def/defn form is byte-for-form identical to its origin"
-    ;; Any symbol defined in BOTH face_primitives and an origin file is a copy
-    ;; and must not have drifted. New symbols (wrappers, stack/text-run/
-    ;; indent-rail, registry) are unique to face_primitives -> not compared.
-    (let [pinned (->> (keys face-forms)
-                      (filter #(contains? origin-forms %))
-                      (remove allowlist)
-                      sort)]
-      (is (seq pinned) "the diff pins at least the named builders")
-      ;; the pinned set must cover every named trail builder (nothing silently
-      ;; dropped); the ui builders have no surviving origin to pin against
-      (doseq [b named-trail-builders]
-        (is (some #{b} pinned)
-            (str b " must be pinned by the source-form diff")))
-      (doseq [sym pinned]
-        (is (= (get face-forms sym) (get origin-forms sym))
-            (str "SOURCE-FORM DRIFT in copied builder " sym
-                 " — face_primitives.cljc diverged from its origin"))))))
+          (str "missing harvested builder: " b)))))
 
 ;; ===========================================================================
 ;; G8 — the two new primitives measure

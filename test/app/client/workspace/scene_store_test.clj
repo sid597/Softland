@@ -689,57 +689,40 @@
     (is (= bundle (edn/read-string (pr-str bundle))))))
 
 (deftest g10-actions-router-replays-descriptors-identically
-  ;; A scene tree with trail-face descriptors EDN round-trips; its descriptors
+  ;; A scene tree with generic descriptors EDN round-trips; its descriptors
   ;; replay through the registry with IDENTICAL call order + args (Δ6 falsifier).
-  (let [tree (rt/rt-node :root :feed {:x 0 :y 0 :w 200 :h 200}
+  (let [tree (rt/rt-node :root :list {:x 0 :y 0 :w 200 :h 200}
                          :children
-                         [(rt/rt-node [:trail-face/card "ek-1"] :feed-card {:x 0 :y 0 :w 200 :h 40}
-                                      :data {:trail-face/click {:action :trail-face/toggle-expand
-                                                                :id [:trail-face/card "ek-1"]}})
-                          (rt/rt-node [:trail-face/card "ek-2"] :feed-card {:x 0 :y 40 :w 200 :h 40}
-                                      :data {:trail-face/click {:action :trail-face/toggle-expand
-                                                                :id [:trail-face/card "ek-2"]}})])
+                         [(rt/rt-node [:example/item "one"] :item {:x 0 :y 0 :w 200 :h 40}
+                                      :data {:actions {:action :example/select
+                                                       :id [:example/item "one"]}})
+                          (rt/rt-node [:example/item "two"] :item {:x 0 :y 40 :w 200 :h 40}
+                                      :data {:actions {:action :example/select
+                                                       :id [:example/item "two"]}})])
         tree'       (edn/read-string (pr-str tree))
-        descriptors (ss/tree-descriptors tree' :trail-face/click)
+        descriptors (ss/tree-descriptors tree' :actions)
         ;; a recording handler stands in for the live registered one
         !calls   (atom [])
-        registry {:trail-face/toggle-expand
+        registry {:example/select
                   (fn [descriptor ctx]
                     (swap! !calls conj {:descriptor descriptor :ctx ctx})
-                    [:toggled (:id descriptor)])}
+                    [:selected (:id descriptor)])}
         ctx      {:tag :test-ctx}
         results  (ss/replay-descriptors registry descriptors ctx)]
     (testing "the scene tree round-trips EDN identically (descriptors are data)"
       (is (= tree tree')))
     (testing "descriptors lift in render/replay (pre-order) order"
-      (is (= [{:action :trail-face/toggle-expand :id [:trail-face/card "ek-1"]}
-              {:action :trail-face/toggle-expand :id [:trail-face/card "ek-2"]}]
+      (is (= [{:action :example/select :id [:example/item "one"]}
+              {:action :example/select :id [:example/item "two"]}]
              descriptors)))
     (testing "replay hits the handler in order with identical args"
       (is (= 2 (count @!calls)))
       (is (= descriptors (mapv :descriptor @!calls)) "call order + descriptor args identical")
       (is (every? #(= ctx (:ctx %)) @!calls) "ctx threaded to every handler")
-      (is (= [[:toggled [:trail-face/card "ek-1"]] [:toggled [:trail-face/card "ek-2"]]] results)))
+      (is (= [[:selected [:example/item "one"]] [:selected [:example/item "two"]]] results)))
     (testing "an unregistered action returns ::unregistered, never throws"
       (is (= :app.client.workspace.scene-store/unregistered
              (ss/dispatch-descriptor {} {:action :nope} ctx))))))
-
-(deftest g10-registered-toggle-expand-matches-legacy-case
-  ;; The handler scene_runtime registers for :trail-face/toggle-expand is the
-  ;; pre-P4 case body verbatim; exercise its DATA shape here (the runtime atom
-  ;; swap is the only cljs part). Toggling twice returns to the start set.
-  (let [!tfs   (atom {:expanded #{}})
-        ;; the exact handler scene_runtime/register-action! installs
-        handler (fn [{:keys [id]} {:keys [!trail-face-state]}]
-                  (swap! !trail-face-state update :expanded
-                         (fnil (fn [s] (if (contains? s id) (disj s id) (conj s id))) #{}))
-                  true)
-        registry {:trail-face/toggle-expand handler}
-        desc    {:action :trail-face/toggle-expand :id "ek-1"}]
-    (ss/dispatch-descriptor registry desc {:!trail-face-state !tfs})
-    (is (= #{"ek-1"} (:expanded @!tfs)) "first toggle expands")
-    (ss/dispatch-descriptor registry desc {:!trail-face-state !tfs})
-    (is (= #{} (:expanded @!tfs)) "second toggle collapses (identical to the legacy case)")))
 
 (deftest store-fns-free?-sees-metadata-closures
   ;; Finding #4: a closure smuggled in metadata survives BOTH pr-str

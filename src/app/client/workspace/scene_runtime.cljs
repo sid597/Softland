@@ -433,15 +433,6 @@
   [descriptor ctx]
   (ss/dispatch-descriptor @!action-registry descriptor ctx))
 
-;; Registered actions (G10) — the trail-face click case migrated to descriptors.
-;; Behavior identical to the pre-P4 case in mouse.cljs/handle-trail-face-click!;
-;; the atom to mutate arrives per-call in ctx so the handler stays atom-agnostic.
-(register-action! :trail-face/toggle-expand
-  (fn [{:keys [id]} {:keys [!trail-face-state]}]
-    (swap! !trail-face-state update :expanded
-           (fnil (fn [s] (if (contains? s id) (disj s id) (conj s id))) #{}))
-    true))
-
 ;; ---------------------------------------------------------------------------
 ;; GPU-frame derivations (missionary flows; merged at the render consumer edge)
 ;; ---------------------------------------------------------------------------
