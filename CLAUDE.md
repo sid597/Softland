@@ -45,8 +45,7 @@ Commit mechanics once settled: the repo is closed source (Sid, 2026-08-10) — c
 Key source files live under `src/app/`:
 - `electric_flow.cljc` — Electric reactive UI (layout, text rendering, DOM)
 - `client/substrate/webgpu/renderer.cljs` — WebGPU render loop, GPU pipeline
-- `client/workspace/` — workspace UI: runtime, editor, sidebar, shell, events, themes, etc.
-- `client/workflows/` — domain workflows (dg_flow, jit)
+- `client/workspace/` — the land runtime: loop modules (`runtime/`, `runtime.cljs`, `events.cljs`), ground + faces (`ground.cljs`, `face_*`), `trail_face/`, scene/editing/frame runtimes, text pipeline (`text_*`, `rect_tree.cljc`)
 - `shared/` — `.cljc` consumed by BOTH server and client (P1 gate ruling 2026-07-24; `face_assembly.cljc` is grandfathered under `client/workspace/` and migrates at a natural touchpoint)
 
 
