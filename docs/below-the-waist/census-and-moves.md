@@ -5,9 +5,11 @@ opus gatherer (static reading only: require graph + call-site grep, no runtime
 probe) — single-pass and unfalsified: the phase chat runs Codex adversarially
 over each row (try to prove it live/reachable) before any ruling (Sid,
 2026-08-19: Codex is "better than opus for hunting and figuring and also
-adversarial"). Adjudication verdicts by the derivation seat; **nothing here
-is ruled by Sid yet** — rulings happen in the phase chat, row by row, exact
-paths.
+adversarial"). Adjudication verdicts by the derivation seat. A row remains
+unruled unless explicitly marked **SID-RULED** below; rulings happen in the
+phase chat, row by row, exact paths. Row 1 was ruled 2026-08-19 after its
+Codex falsification pass found and repaired the test-only `cards.cljc`
+dependency.
 The underlying code always wins over this file.
 
 ## The goal (Sid, 2026-08-19, verbatim)
@@ -75,6 +77,62 @@ inflates rev-dep counts (requires editing_runtime, text_editing, live_atoms,
 chrome_runtime, frame_runtime, live_edges).
 
 ## Pile 1 — retire whole (Sid's yes/no per row)
+
+### Row 1 — trail-face drawing island — SID-RULED: RETIRE — CLOSED (2026-08-19)
+
+**Retired** is the architectural ruling: prove the path dark, preserve or
+transfer every surviving duty, repair its consumers, then remove it.
+**Removed** is the resulting tree operation. The five old drawing files are
+both retired and removed from the active tree; git keeps their history. Their
+three harvested builders do not retire: `omission-line`, `omissions-block`,
+and `hole-endpoint-card` already live in the generic face vocabulary as the
+`:omissions` and `:hole-card` primitives.
+
+Exact boundary — 16 affected files, no additions:
+
+- **Delete (9):** `trail_face/{scene,cards,threads,lanes,text_face}.cljc` ·
+  `test/app/client/workspace/trail_face_test.clj` ·
+  `test/resources/trail_face/{bundle,feed,projection}.edn`.
+- **Repair (6):** `face_primitives.cljc` loses only obsolete live-origin/G7
+  wording · `scene_runtime.cljs` loses only the orphan
+  `:trail-face/toggle-expand` registration · `face_primitives_test.clj`
+  loses the filesystem source-form pin while retaining primitive coverage ·
+  `face_integration_test.clj` loses or rebases only the legacy shipped-trail
+  comparison while retaining its independent assembly tests ·
+  `scene_store_test.clj` keeps the generic descriptor proof with neutral data
+  and loses the trail-only handler proof · `test_runner.clj` loses the retired
+  namespace's classification/cost entries and closes the pre-existing exact-
+  inventory drift exposed by the removal receipt (`region3d-evaluation-test`
+  and `region-rungs-test` are pure and green); its receipt floor changes only
+  from an actual post-removal receipt, never guessed subtraction.
+- **Converge (1):** this file records the ruling, corrected dependency
+  boundary, retained duties, and close receipt.
+
+Refusals: `trail_face/wiring.cljs`, `sanitize.cljc`, the pull atoms and
+Electric artery, every server ingestion/trail path, the generic descriptor
+router, all renderer/WebGPU/verifier code, and rendering-engine examples stay.
+Historical documents keep their snapshot/prior-art references.
+
+Close proof: no executable reference to a deleted namespace/path · retained
+face primitives still compile and render · generic descriptor replay remains
+true without trail vocabulary · the test inventory is exact · dev CLJS and
+the row-local removal receipt are green. The repository-wide lanes were also
+run and their foreign reds are recorded below; this row does not call them
+green. The waist member-walk records only the pressure found here: omission
+collections and hole endpoints are already generic enactable shapes; whether
+either earns a primitive fact-kind name remains open until its real material
+consumers are walked.
+
+Close receipt — 2026-08-19:
+
+- Tree: exactly 16 changed paths; 9 removals, 6 repairs, this census; diff-check green.
+- Reachability: zero executable references to the five removed namespaces/paths or orphan action.
+- Kept: wiring, sanitization, pull/ingestion artery, generic router, harvested primitives, renderer/verifier/examples.
+- Row-local JVM: 39 tests / 310 assertions / 0 failures / 0 errors.
+- Inventory: exact — 78 discovered = 43 pure + 8 shared + 27 isolated.
+- Browser: dev CLJS green — 265 files; close rerun compiled 2; 4 existing inference warnings.
+- Broad debt: fast 343 tests / 3,264 assertions, 7 fail + 1 error; full 612 / 7,615, 9 fail + 2 errors, outside this row's changed behavior.
+- Floor: 612 / 7,615 remains above 397 / 5,416; no receipt-floor edit.
 
 **The trail-face island** — one closed island, ~1,776 lines; `scene.cljc` is
 the only door in and nothing in src/ opens it; render loop has zero 'trail'
