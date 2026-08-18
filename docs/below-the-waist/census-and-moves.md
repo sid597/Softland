@@ -299,30 +299,59 @@ Close receipt — 2026-08-19:
 
 ## Pile 3 — demote later, never delete now (the artery; duty inventory)
 
-Carries the app's only data path today. This inventory is the transfer list
-the keyed-wire work consumes (electric-native DIRECTION 1c).
+### Row 4 — whole-pull artery — CODEX-RULED: DEMOTE-LATER — CLOSED (2026-08-19)
 
-Client: `electric_flow.cljc` — 26 mirror atoms `:210-250`, 12 pull loops
-`:251-311`, `submit-block-edit!` `:24-86`, `SubmitBlockEdit` `:88` ·
-`face_wiring.cljs` — `install-face-wiring!` `:631`, fetches `:371,387,399` ·
-`trail_face/wiring.cljs` — epoch → 1s debounce → re-arm `:24-84` ·
-`block_edit_wiring.cljs` — outbox/result seam + single-unit narrowing pull
-`:59-122` · `live_edges.cljc` — boot-static connector pull ·
-`runtime/state.cljs:134-153` — the landing atoms.
+Current source proves this path live: it is the product's only browser-to-Rama
+edit road and its only served-face road. Nothing in this row is removed now.
+The old shape may step down only after a keyed path carries every duty below;
+then the whole pull becomes recovery/oracle evidence, never a second truth
+loop.
 
-Server: `file_viewer.cljc` — the 7 bridge e/defns (`FacePull:381`,
-`RecordFaceWear:406`, `WatchIngestEpoch:130`, trail reads) ·
-`face_projection.clj` — registry `:1815`, `serve:1888` · `face_arsenal.clj` ·
-`trail_view.clj` · `util_fns.cljc:103` the one epoch mirror ·
-`server_jetty.clj` — ws middleware `:51`, 12 HTTP routes `:1462-1670`, second
-edit call site `:839` · `ingest_watchers.clj`, `episode.clj`,
-`machine_cut.clj`, `object_container.clj` + runtime, `material_circulation.clj`,
-`facet_master.clj`.
+The artery is four different jobs, not one pile of mirror atoms:
 
-All epoch-bump sites (13 + accept-side): `file_viewer.cljc:234,291,301` ·
-`server_jetty.clj:1629,1662` · `machine_cut.clj:619,809` · `episode.clj:961` ·
-`material_circulation.clj:756` · `facet_master.clj:220,336` ·
-`ingest_watchers.clj:199` · `electric_flow.cljc:78`.
+- **Write and answer:** `block_edit/mint-envelope` carries object key, unit id,
+  document-container id, deterministic request/idempotency identity, client id,
+  and edit sequence into `SubmitBlockEdit`. The Object Container request depot
+  is partitioned by object key. Its topology durably writes accepted or rejected
+  decisions; an accepted edit writes event, container/revision/graduation, and
+  edit-order truth before the stream `:ack` returns.
+- **Refresh the changed unit:** the result is correlated by request id. A fresh
+  accept arms `:block-truth` with a union map `{unit-id nonce}`; that value is
+  deliberately lossless under Electric conflation. `read-unit` serves the
+  materialized graduation/revision overlay, and the client overlays only those
+  keyed texts.
+- **Recover the whole view:** `FacePull` still serves the conversation as
+  ordered turns containing blocks whose stable `:id` is the durable unit id.
+  The next whole context clears the narrow overlay and remains the one recovery
+  path until the keyed wire owns catch-up, membership/order, and tombstones.
+- **Wake readers:** `!ingest-epoch-atom` is explicitly process-local and resets
+  on restart. It carries no facts and orders nothing semantically; accepted
+  writes and ingest continuations bump it only to re-arm current pulls. Face
+  roster/wear, trail reads, material projections, and boot-static live edges
+  share transport but are distinct duties and rates, not one truth family.
+
+Transfer list for Electric-native 1c: preserve request correlation and durable
+rejection; the ack-to-queryable-truth boundary; `unit-id` identity; object and
+document scope; edit lineage/sequence; order and membership as data; the union
+map's cross-unit conflation safety; full-pull catch-up; and overlay prune. The
+global epoch may disappear only when scoped notification or the changelog
+carries its wake-up duty. The whole comparer may demote only when catch-up uses
+the same keyed apply path and committed-echo cross-check plus overflow recovery
+have named owners.
+
+Waist member-walk: an edit crosses the floor as a proposed action with stable
+identity and target scope; it returns as a durable accepted/rejected decision;
+accepted truth is a queryable unit revision. A projection fact carries entity
+identity, occurrence membership, and order. Notification is not truth. Client
+buffers, selection, cursor, visibility, and debounce timing remain above the
+waist even when Electric transports their consequences.
+
+Receipt — 2026-08-19: the focused real Object Container product path ran 2
+tests / 53 assertions / 0 failures / 0 errors. It covers first graduation,
+later revision, narrow `:block-truth`, whole river re-read, identical replay,
+stale ordering rejection, unauthorized rejection, and edit-WAL replay across a
+fresh runtime. The missing receipt is the client join itself: one T2 edit must
+return by request id and repaint the same real `unit-id`; that is Pile 4.
 
 ## Pile 4 — the join (T2 eats real blocks)
 
