@@ -2,8 +2,12 @@
 
 The ground for the below-the-waist phase chat. Census taken 2026-08-18 by an
 opus gatherer (static reading only: require graph + call-site grep, no runtime
-probe); adjudication verdicts by the derivation seat; **nothing here is ruled
-by Sid yet** — rulings happen in the phase chat, row by row, exact paths.
+probe) — single-pass and unfalsified: the phase chat runs Codex adversarially
+over each row (try to prove it live/reachable) before any ruling (Sid,
+2026-08-19: Codex is "better than opus for hunting and figuring and also
+adversarial"). Adjudication verdicts by the derivation seat; **nothing here
+is ruled by Sid yet** — rulings happen in the phase chat, row by row, exact
+paths.
 The underlying code always wins over this file.
 
 ## The goal (Sid, 2026-08-19, verbatim)
@@ -208,9 +212,13 @@ constants (caps, sizes, visibility flags → hoist).
   (identity travels), 5 (cost follows attention); trails ruling recorded at
   conflict 2 and in PROBLEM-SPACE forks-by-decider.
 - Register laws live in session memory (plain English to Sid; exact paths
-  for anything he rules on; opus gatherers do grunt work, the main seat
-  thinks; his deletions are rulings; no Co-Authored-By; commit per concern
-  on `docs/current-mental-model-local`, never push).
+  for anything he rules on; his deletions are rulings; no Co-Authored-By;
+  commit per concern on `docs/current-mental-model-local`, never push).
+- Delegation for this phase (Sid, 2026-08-19): **Codex does the code
+  hunting/understanding and the adversarial checks** — package rounds with
+  the ask-codex-for-feedback skill, ingest with ingest-codex-feedback;
+  opus subagents only for mechanical in-harness collation; the main seat
+  thinks and adjudicates.
 
 ## Boot prompt for the phase chat (copy from here)
 
@@ -222,5 +230,9 @@ constants (caps, sizes, visibility flags → hoist).
 > verbs, discovered through the moves against what the repo already grew,
 > never guessed in the abstract; (3) doc convergence — every ruling lands in
 > the docs same turn, in Sid's register, so he ends the phase holding the
-> full picture. The phase's finish line, his words: "large parallelisation
-> and concurrent ui/ux and all other product work above the waist."
+> full picture. Gathering and code-understanding run through Codex,
+> adversarial by default: before Sid rules any retire/strip row, Codex gets
+> a falsification pass on it (prove it live/reachable), packaged via the
+> ask-codex-for-feedback skill and ingested via ingest-codex-feedback. The
+> phase's finish line, his words: "large parallelisation and concurrent
+> ui/ux and all other product work above the waist."
