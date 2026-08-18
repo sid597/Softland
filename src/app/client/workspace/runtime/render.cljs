@@ -168,8 +168,7 @@
   "Missionary consumer: build world snapshot, diff-upload to GPU, draw on RAF."
   [{:keys [!viewport !settings !active-font
            !font-manifest !font-assets !text-geo !gpu-budget
-           !cmd-rect-sys !settings-rect-sys
-           !sidebar-pool !editor-pool !editor-shadow-pool !sidebar-shadow-pool
+           !editor-pool !editor-shadow-pool
            !face-context]
     :as atoms}
    _layout
@@ -472,7 +471,6 @@
                                     new-content-geo
                                     (assoc (pool/pool-draw-info !editor-pool)
                                            :draw-count (count (or store-rects [])))
-                                    @!cmd-rect-sys
                                     (:camera-floats (:pipelines geometry))
                                     (:pass-descriptor (:pipelines geometry))
                                     ;; first-light P2b: the ground drives the
@@ -482,21 +480,13 @@
                                     (:width viewport) (:height viewport)
                                     :zoom (:zoom gcam)
                                     :frame-idx frame-idx
-                                    :cmd-panel-visible false
-                                    :cmd-panel-h 0
                                     :chrome-text-sys new-chrome-geo
                                     :chrome-base-line-count 0
-                                    :settings-line-count 0
-                                    :settings-visible false
-                                    :settings-rect-sys @!settings-rect-sys
                                     :diagnostics-visible show-diagnostics?
                                     :diagnostics-line-index diagnostics-line-index
-                                    :agent-visible false
                                     :editor-shadow-pool-info
                                     (assoc (pool/pool-draw-info !editor-shadow-pool)
                                            :draw-count (count (or store-shadows [])))
-                                    :sidebar-shadow-pool-info (pool/pool-draw-info !sidebar-shadow-pool)
-                                    :sidebar-pool-info (pool/pool-draw-info !sidebar-pool)
                                     :store-frame store-frame
                                     :image-system (:image-system (:pipelines geometry))
                                     :path-system (:path-system (:pipelines geometry))

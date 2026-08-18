@@ -28,27 +28,21 @@
 (def family-input-declarations
   {:render.family/rect
    #{:rects :ordered-vis :ops-count-by-vi :order-by-vi :rect-clips-by-vi
-     :editor-pool-info :editor-rect-count :sidebar-pool-info
-     :cmd-rect-sys :cmd-rect-sys-token :cmd-panel-visible
-     :settings-rect-sys :settings-rect-sys-token :settings-visible
-     :agent-visible :chrome-text-sys :chrome-text-sys-token}
+     :editor-pool-info :editor-rect-count}
 
    :render.family/shadow
    #{:shadows :ordered-vis :ops-count-by-vi :order-by-vi
-     :editor-shadow-pool-info :editor-shadow-count
-     :sidebar-shadow-pool-info}
+     :editor-shadow-pool-info :editor-shadow-count}
 
    :render.family/msdf
    #{:text-sys :text-sys-token :extra-text-geos
      :chrome-text-sys :chrome-text-sys-token :chrome-base-line-count
-     :settings-line-count :settings-visible :diagnostics-visible
-     :diagnostics-line-index :cmd-panel-visible :font-provider-token}
+     :diagnostics-visible :diagnostics-line-index :font-provider-token}
 
    :render.family/slug
    #{:text-sys :text-sys-token :extra-text-geos
      :chrome-text-sys :chrome-text-sys-token :chrome-base-line-count
-     :settings-line-count :settings-visible :diagnostics-visible
-     :diagnostics-line-index :cmd-panel-visible :font-provider-token}
+     :diagnostics-visible :diagnostics-line-index :font-provider-token}
 
    :render.family/clip
    #{:clip-semantic-input}
@@ -68,7 +62,7 @@
    :render.family/chrome
    #{:chromes :ordered-vis :ops-count-by-vi :order-by-vi
      :chrome-system :chrome-system-token
-     :diagnostics-visible :agent-visible}
+     :diagnostics-visible}
 
    :render.family/region-3d
    #{:regions :order-by-vi :region3d-system :region3d-system-token}})

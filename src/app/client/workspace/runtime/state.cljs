@@ -5,8 +5,7 @@
    state: fonts/settings, the GPU systems, the trail-face pull lane, and the
    faces lane. The dev workspace's editor/sidebar/flow/chat atoms died with
    that surface (dead-path census, Sid's ruling 2026-08-15)."
-  (:require [app.client.substrate.webgpu.renderer :as editor]
-            [app.client.substrate.webgpu.buffer-pool :as pool]
+  (:require [app.client.substrate.webgpu.buffer-pool :as pool]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.workspace.runtime.fonts :as fonts]))
 
@@ -42,18 +41,8 @@
         default-font (or (first (filter :default available-fonts))
                          (first available-fonts)
                          {:id "dejavu-sans-mono" :name "DejaVu Sans Mono" :charWidth 0.56})
-        default-font-idx (or (first (keep-indexed (fn [idx font]
-                                                    (when (= (:id font) (:id default-font)) idx))
-                                                  available-fonts))
-                             0)
         manifest-settings (fonts/manifest-defaults->settings (:settings manifest))
-        base-settings {:visible false
-                       :font-id (:id default-font)
-                       :selected-index default-font-idx
-                       :slider-index 0
-                       :focus-section :fonts}
-        initial-settings (merge base-settings
-                                manifest-settings
+        initial-settings (merge manifest-settings
                                 (fonts/font-defaults->settings default-font))]
 
     {:layout {}
@@ -76,35 +65,6 @@
       ;; GPU state (terminals update these)
       :!text-geo       (atom (:text geometry))
       :!gpu-budget     (atom gpu-budget)
-      ;; Generic rect systems threaded through draw-frame!'s stable API
-      ;; (the renderer floor keeps its capability surface; these carry zero
-      ;; instances on the ground).
-      :!cmd-rect-sys   (atom (let [capacity 16
-                                    size (* capacity editor/rect-stride)
-                                    ib (.createBuffer device
-                                         (clj->js {:size size
-                                                    :usage (bit-or js/GPUBufferUsage.VERTEX
-                                                                   js/GPUBufferUsage.COPY_DST)}))
-                                    _ (gpu-budget/register-buffer! gpu-budget ib "runtime/cmd" size :active-bytes 0)]
-                                {:pipeline (:pipeline (:rect geometry))
-                                 :bind-group (:bind-group (:rect geometry))
-                                 :instance-buffer ib
-                                 :num-instances 0
-                                 :gpu-tracker gpu-budget
-                                 :gpu-label "runtime/cmd"}))
-      :!settings-rect-sys (atom (let [capacity 16
-                                       size (* capacity editor/rect-stride)
-                                       ib (.createBuffer device
-                                            (clj->js {:size size
-                                                      :usage (bit-or js/GPUBufferUsage.VERTEX
-                                                                     js/GPUBufferUsage.COPY_DST)}))
-                                       _ (gpu-budget/register-buffer! gpu-budget ib "runtime/settings" size :active-bytes 0)]
-                                   {:pipeline (:pipeline (:rect geometry))
-                                    :bind-group (:bind-group (:rect geometry))
-                                    :instance-buffer ib
-                                    :num-instances 0
-                                    :gpu-tracker gpu-budget
-                                    :gpu-label "runtime/settings"}))
       ;; Store-slot pools: face/ground block rects + shadows ride these.
       :!editor-shadow-pool  (pool/create-pool device 16
                               (:pipeline (:shadow geometry))
@@ -113,18 +73,6 @@
                               :pack-fn pool/pack-shadow
                               :tracker gpu-budget
                               :label "pool/editor-shadow")
-      :!sidebar-shadow-pool (pool/create-pool device 16
-                              (:pipeline (:shadow geometry))
-                              (:bind-group (:shadow geometry))
-                              :floats-per-item 21
-                              :pack-fn pool/pack-shadow
-                              :tracker gpu-budget
-                              :label "pool/sidebar-shadow")
-      :!sidebar-pool  (pool/create-pool device 16
-                        (:pipeline (:rect geometry))
-                        (:bind-group (:rect geometry))
-                        :tracker gpu-budget
-                        :label "pool/sidebar")
       :!editor-pool   (pool/create-pool device 64
                         (:pipeline (:rect geometry))
                         (:bind-group (:rect geometry))

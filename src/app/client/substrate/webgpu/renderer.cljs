@@ -2957,58 +2957,23 @@
                           :first-instance 0}))))))
 
 (defn- shadow-entries
-  [{:keys [editor-shadow-pool-info sidebar-shadow-pool-info store-frame
-           editor-shadow-count]}]
+  [{:keys [editor-shadow-pool-info store-frame editor-shadow-count]}]
   (into
    (store-pool-entries store-frame editor-shadow-pool-info :shadows
                        :render.family/shadow 0 false editor-shadow-count)
         (keep identity)
         [(pool-entry :frame/editor-shadows :render.family/shadow
                      (frame-order :world 0 :frame/editor-shadows)
-                     editor-shadow-pool-info)
-         (pool-entry :frame/sidebar-shadows :render.family/shadow
-                     (frame-order :world 1 :frame/sidebar-shadows)
-                     sidebar-shadow-pool-info)]))
+                     editor-shadow-pool-info)]))
 
 (defn- rect-entries
-  [{:keys [sidebar-pool-info editor-pool-info cmd-rect-sys
-           cmd-panel-visible settings-visible settings-rect-sys agent-visible
-           chrome-text-sys store-frame editor-rect-count]}]
-  (let [chrome-ready? (and chrome-text-sys
-                           (pos? (:num-instances chrome-text-sys)))]
-    (into (store-pool-entries store-frame editor-pool-info :rects
-                              :render.family/rect 1 true editor-rect-count)
+  [{:keys [editor-pool-info store-frame editor-rect-count]}]
+  (into (store-pool-entries store-frame editor-pool-info :rects
+                            :render.family/rect 1 true editor-rect-count)
         (keep identity)
-        [(pool-entry :frame/sidebar-rects :render.family/rect
-                     (frame-order :world 10 :frame/sidebar-rects)
-                     sidebar-pool-info)
-         (pool-entry :frame/editor-rects :render.family/rect
+        [(pool-entry :frame/editor-rects :render.family/rect
                      (frame-order :world 20 :frame/editor-rects)
-                     editor-pool-info)
-         (when (and agent-visible cmd-rect-sys
-                    (>= (:num-instances cmd-rect-sys) 1))
-           (system-entry :frame/agent-background :render.family/rect
-                         (frame-order :overlay 0 :frame/agent-background)
-                         cmd-rect-sys 1 0))
-         (when (and cmd-panel-visible chrome-ready? cmd-rect-sys
-                    (>= (:num-instances cmd-rect-sys) 2))
-           (system-entry :frame/command-background :render.family/rect
-                         (frame-order :overlay 10 :frame/command-background)
-                         cmd-rect-sys 1 1))
-         (when (and cmd-panel-visible chrome-ready? cmd-rect-sys
-                    (>= (:num-instances cmd-rect-sys) 3))
-           (system-entry :frame/command-caret :render.family/rect
-                         (frame-order :overlay 30 :frame/command-caret)
-                         cmd-rect-sys 1 2))
-         (when (and cmd-rect-sys (>= (:num-instances cmd-rect-sys) 4))
-           (system-entry :frame/status-background :render.family/rect
-                         (frame-order :overlay 40 :frame/status-background)
-                         cmd-rect-sys 1 3))
-         (when (and settings-visible settings-rect-sys
-                    (pos? (:num-instances settings-rect-sys)))
-           (system-entry :frame/settings-rects :render.family/rect
-                         (frame-order :overlay 50 :frame/settings-rects)
-                         settings-rect-sys))])))
+                     editor-pool-info)]))
 
 (defn- text-system-family [system]
   (or (:family/id system)
@@ -3024,8 +2989,7 @@
 (defn- text-entries-for-family
   [family-id
    {:keys [text-sys extra-text-geos chrome-text-sys chrome-base-line-count
-           settings-line-count settings-visible diagnostics-visible
-           diagnostics-line-index cmd-panel-visible]}]
+           diagnostics-visible diagnostics-line-index]}]
   (let [content-family (when text-sys (text-system-family text-sys))
         chrome-family (when chrome-text-sys (text-system-family chrome-text-sys))
         chrome-ready? (and (= family-id chrome-family)
@@ -3072,25 +3036,8 @@
             (system-entry :frame/chrome-base-text family-id
                           (frame-order :overlay 20 :frame/chrome-base-text)
                           chrome-text-sys base-end 0)))
-        settings-entry
-        (when (and settings-visible chrome-ready? (pos? settings-line-count)
-                   chrome-offsets)
-          (let [settings-start-line chrome-base
-                settings-end-line (+ settings-start-line settings-line-count)
-                settings-start-inst (if (< settings-start-line chrome-lines)
-                                      (nth chrome-offsets settings-start-line)
-                                      (:num-instances chrome-text-sys))
-                settings-end-inst (if (< settings-end-line chrome-lines)
-                                    (nth chrome-offsets settings-end-line)
-                                    (:num-instances chrome-text-sys))]
-            (system-entry :frame/settings-text family-id
-                          (frame-order :overlay 60 :frame/settings-text)
-                          chrome-text-sys
-                          (- settings-end-inst settings-start-inst)
-                          settings-start-inst)))
         diagnostics-entry
-        (when (and diagnostics-visible (not cmd-panel-visible)
-                   (not settings-visible) diagnostics-line-index
+        (when (and diagnostics-visible diagnostics-line-index
                    chrome-ready? chrome-offsets
                    (< diagnostics-line-index chrome-lines))
           (let [start-inst (nth chrome-offsets diagnostics-line-index)
@@ -3105,7 +3052,7 @@
           (keep identity)
           (concat [content-entry]
                   extra-entries
-                  [chrome-base-entry settings-entry diagnostics-entry]))))
+                  [chrome-base-entry diagnostics-entry]))))
 
 (defn- execute-gpu-batch! [^js pass entry]
   (let [{:keys [pipeline bind-group buffer vertex-count instance-count
@@ -3496,10 +3443,6 @@
             :text-sys-token (frame-inputs/system-token (:text-sys frame))
             :chrome-text-sys-token
             (frame-inputs/system-token (:chrome-text-sys frame))
-            :cmd-rect-sys-token
-            (frame-inputs/system-token (:cmd-rect-sys frame))
-            :settings-rect-sys-token
-            (frame-inputs/system-token (:settings-rect-sys frame))
             :image-system-token
             (frame-inputs/system-token (:image-system frame))
             :path-system-token
@@ -3732,11 +3675,10 @@
                 (let [o (js-obj)] (aset js/globalThis "__sfDraw" o) o)))]
     (aset o k (js/performance.now))))
 
-(defn draw-frame! [^js device ^js context text-sys editor-pool-info cmd-rect-sys camera-floats _ignored-pass-descriptor pan-x pan-y w h
-                   & {:keys [cmd-panel-visible chrome-text-sys chrome-base-line-count
-                             settings-line-count settings-visible settings-rect-sys
-                             diagnostics-visible diagnostics-line-index agent-visible
-                             editor-shadow-pool-info sidebar-shadow-pool-info sidebar-pool-info
+(defn draw-frame! [^js device ^js context text-sys editor-pool-info camera-floats _ignored-pass-descriptor pan-x pan-y w h
+                   & {:keys [chrome-text-sys chrome-base-line-count
+                             diagnostics-visible diagnostics-line-index
+                             editor-shadow-pool-info
                              dirty-rect render-target clear-quad frame-idx zoom
                              extra-text-geos store-frame editor-rect-count
                              editor-shadow-count image-system path-system
@@ -3745,10 +3687,8 @@
                              container-delta-ack! font-assets frame-format
                              capabilities forced-color-mode pulse-alpha
                              region3d-session session-layout-snapshot dpr]
-                      :or {cmd-panel-visible false chrome-text-sys nil chrome-base-line-count 0
-                           settings-line-count 0 settings-visible false
-                           settings-rect-sys nil agent-visible false
-                           editor-shadow-pool-info nil sidebar-shadow-pool-info nil sidebar-pool-info nil
+                      :or {chrome-text-sys nil chrome-base-line-count 0
+                           editor-shadow-pool-info nil
                            dirty-rect nil render-target nil clear-quad nil frame-idx 0
                            zoom 1.0 extra-text-geos nil store-frame nil
                            editor-rect-count 0 editor-shadow-count 0
@@ -3837,19 +3777,11 @@
         frame {:frame-idx frame-idx :partial? partial?
                :dirty-rect dirty-rect :clear-quad clear-quad
                :text-sys text-sys :editor-pool-info editor-pool-info
-               :cmd-rect-sys cmd-rect-sys
-               :cmd-panel-visible cmd-panel-visible
                :chrome-text-sys chrome-text-sys
                :chrome-base-line-count chrome-base-line-count
-               :settings-line-count settings-line-count
-               :settings-visible settings-visible
-               :settings-rect-sys settings-rect-sys
                :diagnostics-visible diagnostics-visible
                :diagnostics-line-index diagnostics-line-index
-               :agent-visible agent-visible
                :editor-shadow-pool-info editor-shadow-pool-info
-               :sidebar-shadow-pool-info sidebar-shadow-pool-info
-               :sidebar-pool-info sidebar-pool-info
                :image-system image-system :path-system path-system
                :connector-system connector-system :chrome-system chrome-system
                :region3d-system region3d-system

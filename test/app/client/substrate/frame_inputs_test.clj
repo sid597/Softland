@@ -22,6 +22,21 @@
                   :render.family/rect conj :zoom)
           frame-inputs/quantization-doors)))))
 
+(deftest retired-overlay-plumbing-is-not-a-frame-input
+  (let [retired-inputs #{:sidebar-pool-info
+                         :sidebar-shadow-pool-info
+                         :cmd-rect-sys
+                         :cmd-rect-sys-token
+                         :cmd-panel-visible
+                         :settings-rect-sys
+                         :settings-rect-sys-token
+                         :settings-line-count
+                         :settings-visible
+                         :agent-visible}
+        declared-inputs (reduce set/union #{}
+                                (vals frame-inputs/family-input-declarations))]
+    (is (empty? (set/intersection retired-inputs declared-inputs)))))
+
 (deftest s2-change-is-family-scoped-and-same-frame
   (let [device (Object.)
         prior {:device device :rects [:old] :text-sys-token [:text 2]}

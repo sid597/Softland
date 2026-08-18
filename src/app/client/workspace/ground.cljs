@@ -4714,9 +4714,6 @@
   [atoms]
   (reset! !refs {:atoms atoms})
   (reset! !ground-edit (ge/init (str "ground:" (random-uuid))))
-  ;; T9 belt: the command panel boots :visible in the dev workspace — the
-  ;; ground closes it before the first frame.
-  (when-let [!p (:!cmd-panel atoms)] (swap! !p assoc :visible false))
   (reset! (:!face-state atoms)
           {:face :outline-face :address :episode
            ;; no :limit — the server serves its whole bounded page (clamp-limit

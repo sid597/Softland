@@ -18,8 +18,7 @@
      :px-range (get-default :pxRange 8)
      :sharpness (get-default :sharpness 0.0)
      :snap-to-pixel? (get-default :snapToPixel true)
-     :show-diagnostics? (get-default :showDiagnostics false)
-     :theme-id (get-default :theme :gruvbox-dark)}))
+     :show-diagnostics? (get-default :showDiagnostics false)}))
 
 (defn font-defaults->settings
   "Settings overrides carried by one font config's :defaults block."
@@ -260,7 +259,6 @@
               font-config (first (filter #(= (:id %) (:id new-val)) (:fonts manifest)))]
           (js/console.log "[FONT] Loading font:" (:id new-val) font-config)
           (when font-config
-            (swap! !settings assoc :font-id (:id font-config))
             (when-let [defaults (font-defaults->settings font-config)]
               (swap! !settings merge defaults))
             (-> (load-font-assets font-config)
