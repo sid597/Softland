@@ -230,21 +230,72 @@ Close receipt — 2026-08-19:
 
 ## Pile 2 — strip the ghosts (surgery inside live files)
 
-The old workspace died in the census; the renderer still pays its rent every
-boot — buffers allocated for panels hardcoded invisible:
+### Row 3 — invisible overlay plumbing — CODEX-RULED: STRIP — CLOSED (2026-08-19)
 
-- `runtime/state.cljs:82-94` `:!cmd-rect-sys` (16-rect GPU buffer) →
-  `:cmd-panel-visible` hardcoded `false` (`runtime/render.cljs:485`).
-- `runtime/state.cljs:95-107` `:!settings-rect-sys` → `:settings-visible`
-  hardcoded `false` (`render.cljs:490`).
-- `runtime/state.cljs:116-127` sidebar shadow + sidebar pools →
-  draw-info only (`render.cljs:498-499`).
-- `render.cljs:494` `:agent-visible false` hardcoded.
-- `ground.cljs:4719` reads `:!cmd-panel` — no longer created; always nil.
-- Renderer branches kept alive for these:
-  `substrate/webgpu/renderer.cljs:2975, 2988, 2993, 2998, 3007, 3027, 3076,
-  3092-3093, 3736-3750, 3841-3849`; key sets
-  `substrate/frame_inputs.cljc:32-34, 44-51, 71`.
+The 2026-08-19 Codex falsification returned **READY**. It tried to prove a
+live writer, nonzero draw, or caller-selected visibility for every command,
+settings, sidebar, and agent branch and found none. The command and settings
+rect systems are allocated every boot with zero instances and never written;
+the sidebar pools have no writer; the sole product draw call supplies false or
+zero for every visibility/count door. `ground.cljs` still tries to hide a
+command-panel atom that no runtime creates.
+
+Three corrections are accepted into the cut. Public `frame-input-map` and
+`draw-frame!` remain named and callable because renderer fences inspect them.
+Diagnostics keeps its own visibility, line index, chrome readiness, offsets,
+and bounds; only the permanently false command/settings blockers leave. One
+tripwire owns the complete ten-key retired input surface so a panel noun cannot
+quietly return as renderer state.
+
+Exact candidate boundary — 8 affected files, no file deletion:
+
+- **Stop paying at boot (2):** `runtime/state.cljs` drops the two zero-instance
+  rect buffers and the two writerless sidebar pools; its settings atom keeps
+  only values consumed by font layout/paint/diagnostics. `runtime/fonts.cljs`
+  drops the unread theme and selected-font UI mirrors while keeping font
+  defaults, manifest loading, active-font loading, and render settings.
+- **Remove the false caller story (2):** `runtime/render.cljs` stops passing
+  command/settings/sidebar/agent values that can never produce an entry;
+  `ground.cljs` drops the nil-only command-panel hide.
+- **Remove product nouns from the floor (2):** `frame_inputs.cljc` drops the ten
+  absent-surface inputs from family declarations; `renderer.cljs` drops only
+  their pool/system branches, tokens, arguments, and frame fields. Store
+  rect/shadow entries, editor pools, diagnostics, every material family,
+  retained-frame machinery, and the generic scene executor stay.
+- **Tripwire and convergence (2):** `frame_inputs_test.clj` asserts none of the
+  ten retired inputs is declared by any family; this census holds the ruling,
+  member-walk, and eventual close receipt.
+
+Refusals: no renderer example, verifier, material family, generic rect/shadow
+route, store-frame route, editor pool, diagnostics path, or WebGPU execution
+machinery is retired. This row removes dead product-specific plumbing inside a
+live renderer, not the renderer or its examples.
+
+Waist member-walk: the renderer floor consumes executable scene entries —
+family, stable identity/order, paint source and count, plus live system tokens
+that can actually change them. It does not own permanent command-panel,
+settings-panel, sidebar, or agent nouns. If any of those products returns, its
+visibility is above-waist material compiled into entries before the floor; it
+does not reopen panel-specific booleans in `draw-frame!`.
+
+Close receipt — 2026-08-19:
+
+- Custody: exactly 8 changed paths; 87 additions / 181 removals before this
+  close note; no file deletion; diff-check green before and after the bundle.
+- Reachability: zero executable occurrences of the retired atom, system,
+  visibility, count, or pool-info names. The only test occurrences are the ten
+  exact keys in the negative declaration tripwire.
+- Focused JVM: 10 tests / 24 assertions / 0 failures / 0 errors.
+- Product compile: dev CLJS built 264 files / 2 compiled / 4 existing inference
+  warnings. The scene-tape fence passed with 9 families, 5 effect declarations,
+  zero renderer family branches, and no production failures.
+- Renderer compile: release verifier built 184 files / 17 compiled / 0 Shadow
+  warnings; public `frame-input-map` and `draw-frame!` and all examples remain.
+- Full renderer chain: text layout 6/32, shaper fence, text-layout fence, and
+  scene-tape fence green. Its sole terminal red remains W0-A
+  `default-unit-z1`: the legacy paint value lacks `:paint/source`,
+  `:paint/source-type`, `:op-offset`, and `:instance-count`, identical to the
+  pinned pre-removal baseline. No new failure appeared.
 
 ## Pile 3 — demote later, never delete now (the artery; duty inventory)
 
