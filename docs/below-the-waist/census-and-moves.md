@@ -6,10 +6,11 @@ probe) — single-pass and unfalsified: the phase chat runs Codex adversarially
 over each row (try to prove it live/reachable) before any ruling (Sid,
 2026-08-19: Codex is "better than opus for hunting and figuring and also
 adversarial"). Adjudication verdicts by the derivation seat. A row remains
-unruled unless explicitly marked **SID-RULED** below; rulings happen in the
-phase chat, row by row, exact paths. Row 1 was ruled 2026-08-19 after its
-Codex falsification pass found and repaired the test-only `cards.cljc`
-dependency.
+unruled unless explicitly marked **SID-RULED** or **CODEX-RULED** under Sid's
+delegated removal authority below; rulings happen in the phase chat, row by
+row, exact paths. Row 1 was ruled 2026-08-19 after its Codex falsification pass
+found and repaired the test-only `cards.cljc` dependency; Row 2 closed after
+its live build falsified and corrected the first dependency cut.
 The underlying code always wins over this file.
 
 ## The goal (Sid, 2026-08-19, verbatim)
@@ -155,29 +156,77 @@ Their tests retire with them: `test/app/client/workspace/trail_face_test.clj`,
 trail-pull arms demote once the island is gone (they currently feed the dark
 atoms every epoch — lights on in an empty room).
 
-**Dead symbols inside live files** (zero callers in src/ each; file stays):
+### Row 2 — residue + legacy face editor — CODEX-RULED: STRIP — CLOSED (2026-08-19)
 
-- `src/global_flow.cljs` — everything except `await-promise` (`:80-87`;
-  `electric_flow.cljc:21` uses only that one fn).
-- `src/app/file_viewer.cljc:126` `TrailConversation`.
-- `src/app/client/workspace/block_edit_wiring.cljs` — `face-click!` `:247`,
-  `face-blur!` `:240`, `edit-focused?` `:235`, `submit-envelope!` `:259`
-  (ground has its own private one at `ground.cljs:2548`), `<focused-view`
-  `:113`, `<block-view` `:124`. Coupled fact: `face-edit-keys-consumer` IS
-  joined at `runtime.cljs:134` but its only `:face-edit` focus-writer is the
-  zero-caller `face-click!` — statically it can never fire (static-only claim).
-- `src/app/client/workspace/block_edit.cljc` — `display-text` `:256`,
-  `refusal-notice` `:265`, `overlay-face-context` `:271`, `dismiss-refusal`
-  `:192`.
-- `src/app/client/workspace/ground.cljs:69` `ground-boot?` (the dead `?dev`
-  switch).
+Sid delegated the remaining removal calls in this phase. The 2026-08-19
+Codex falsification returned **READY**, with three corrections accepted before
+the cut: `global-flow/await-promise` still needs Missionary; the old face
+projection's orphan `declare` must leave with it; and
+`probes/block_edit_probe.cljs` is retained explicitly as quarantined history,
+not mistaken for an executable consumer. It is off every configured classpath
+and would need historical checkout or adaptation before resurrection.
 
-**npm residue** — src/ requires only `bidi-js` and `harfbuzzjs/{hb,hbjs}.js`
-(`text_shaper.cljs:8-10`). Unreferenced from src/: all eight `@codemirror/*`,
-five `@lezer/*` + `@nextjournal/lezer-clojure` + `lezer-clojure`,
-`@radix-ui/themes`, `react`, `react-dom`, `recharts`, `prop-types`,
-`web-tree-sitter`, `w3c-keyname`. Caveat before cutting: confirm the build
-needs none transitively.
+The first browser compile then falsified the npm sub-ruling: Shadow restored 14
+CodeMirror/Lezer packages before compiling. The receipt led to the actual edge,
+the otherwise unused `io.github.nextjournal/clojure-mode` dependency in
+`deps.edn`; its own `deps.cljs` names exactly those 14 packages. A bounded Codex
+follow-up found no project consumer and returned **READY** on removing that one
+dependency too. The repeated compile, not this reading, is the kill test.
+
+The stronger finding replaces two inaccurate census claims. `display-text`,
+`refusal-notice`, and `overlay-face-context` were not individually dead: they
+called one another and had JVM tests. But that whole face-buffer/projection
+shell had no production entrance. The sole `:face-edit` writer was
+`face-click!`; only the archived probe called it; the product mouse grammar
+routes entirely to the ground. Tests proved the old island internally, not that
+the product could reach it.
+
+Exact boundary — 12 affected files, no file deletion:
+
+- **Strip stale shelves and doors (4):** `global_flow.cljs` keeps only
+  `await-promise`; `file_viewer.cljc` loses only `TrailConversation`;
+  `ground.cljs` loses only the dead `?dev` predicate `ground-boot?`; and
+  `events.cljs` loses only the unreachable `:face-edit` keyboard router.
+- **Retire the legacy face-editor shell (4):** `block_edit_wiring.cljs` loses
+  its face focus/buffer/view/key consumer while keeping submit/result
+  continuations, the accepted-edit narrow pull, truth overlay, full-pull prune,
+  and the ground's `edit-submit!`; `runtime.cljs` stops constructing and joining
+  that unreachable consumer; `block_edit.cljc` keeps deterministic request
+  identity, envelope minting, and the semantic key transition used by
+  `ground_edit.cljc`, while its old face buffer/render projection retires;
+  `block_edit_test.clj` keeps tests for that surviving vocabulary and removes
+  tests whose only subject retired.
+- **Remove dependency residue (3):** `deps.edn` drops only the unused
+  `nextjournal/clojure-mode` root that made Shadow restore CodeMirror; then
+  `package.json` and `package-lock.json` drop 22 direct packages: the
+  CodeMirror/Lezer family, Radix, React/Recharts, `prop-types`,
+  `web-tree-sitter`, and `w3c-keyname`. Electric itself, `bidi-js`,
+  `harfbuzzjs`, `shadow-cljs`, Karma, and Puppeteer stay.
+- **Converge (1):** this census records the falsification, correction, exact
+  boundary, retained duties, member-walk, and close receipt.
+
+Refusals: no archived probe or historical document is deleted; all
+renderer/WebGPU/verifier code and examples stay; the real ground editor, T2,
+whole face pull, narrow truth transport, trail wiring, and every server/Rama
+path stay.
+
+Waist member-walk: this removal exposes the current floor as deterministic edit
+request identity plus outbox/result transport and accepted-edit truth
+reconciliation. It also exposes one remaining above-waist weld:
+`block_edit/apply-keydown` maps keys to edit/caret actions and stays only because
+the ground editor calls it today. That is behavior/keymap material, not a newly
+declared floor member; Pile 4 must transfer it rather than blessing it as waist.
+
+Close receipt — 2026-08-19:
+
+- Tree: exactly 12 changed paths; 106 additions / 2,901 removals before this close note; no file deletion; diff-check green.
+- Reachability: zero executable references to the retired face-edit entrance/router/view symbols, `TrailConversation`, or `ground-boot?`.
+- Dependencies: 22 direct npm roots gone; lock records 445 → 302; retained roots are only `bidi-js`, `harfbuzzjs`, and `shadow-cljs`; `npm ls` green.
+- Clean install/build toggle: after pruning removed packages, dev CLJS built 264 files / 2 compiled / 4 existing inference warnings and restored nothing.
+- Focused JVM: 11 tests / 99 assertions / 0 failures / 0 errors across the surviving edit vocabulary and real ground editor.
+- Renderer fences: text layout 6/32 green; shaper, text-layout, and scene-tape fences green; release verifier built 184 files / 0 warnings.
+- Foreign renderer red: W0-A fails at `default-unit-z1` because a legacy family paint lacks four required tape fields; pinned pre-Row-2 HEAD fails identically on the same machine.
+- Kept: renderer/verifier/examples untouched, plus Electric, Rama/server paths, ground/T2, whole pulls, narrow truth, trail wiring, and archived probes.
 
 ## Pile 2 — strip the ghosts (surgery inside live files)
 
@@ -191,7 +240,7 @@ boot — buffers allocated for panels hardcoded invisible:
 - `runtime/state.cljs:116-127` sidebar shadow + sidebar pools →
   draw-info only (`render.cljs:498-499`).
 - `render.cljs:494` `:agent-visible false` hardcoded.
-- `ground.cljs:4729` reads `:!cmd-panel` — no longer created; always nil.
+- `ground.cljs:4719` reads `:!cmd-panel` — no longer created; always nil.
 - Renderer branches kept alive for these:
   `substrate/webgpu/renderer.cljs:2975, 2988, 2993, 2998, 3007, 3027, 3076,
   3092-3093, 3736-3750, 3841-3849`; key sets
@@ -207,11 +256,11 @@ Client: `electric_flow.cljc` — 26 mirror atoms `:210-250`, 12 pull loops
 `face_wiring.cljs` — `install-face-wiring!` `:631`, fetches `:371,387,399` ·
 `trail_face/wiring.cljs` — epoch → 1s debounce → re-arm `:24-84` ·
 `block_edit_wiring.cljs` — outbox/result seam + single-unit narrowing pull
-`:168-225` · `live_edges.cljc` — boot-static connector pull ·
+`:59-122` · `live_edges.cljc` — boot-static connector pull ·
 `runtime/state.cljs:134-153` — the landing atoms.
 
-Server: `file_viewer.cljc` — the 8 bridge e/defns (`FacePull:384`,
-`RecordFaceWear:409`, `WatchIngestEpoch:133`, trail reads) ·
+Server: `file_viewer.cljc` — the 7 bridge e/defns (`FacePull:381`,
+`RecordFaceWear:406`, `WatchIngestEpoch:130`, trail reads) ·
 `face_projection.clj` — registry `:1815`, `serve:1888` · `face_arsenal.clj` ·
 `trail_view.clj` · `util_fns.cljc:103` the one epoch mirror ·
 `server_jetty.clj` — ws middleware `:51`, 12 HTTP routes `:1462-1670`, second
@@ -251,11 +300,11 @@ constants (caps, sizes, visibility flags → hoist).
 
 ## Unknowns / caveats (honest edges)
 
-- Everything static: require graph + call-site grep. No runtime probe ran.
-- Test-runner inclusion unread (`deps.edn:test` → `app.test-runner/full`):
-  which dead tests are in the default suite gets checked at removal time;
-  builds + suite green is the gate after every removal.
-- npm transitive needs unverified before cutting residue.
+- Unruled rows remain static: require graph + call-site grep only.
+- Each removal checks its actual runner/build boundary at cut time; a test file
+  or dependency edge is not declared dead from source grep alone.
+- The renderer verifier's baseline family-paint red above is carried as foreign
+  debt into Pile 2; no renderer source is changed under Row 2.
 - `resources/public/faces/` observed, not opened ("W1 HTTP fetch … RETIRED"
   per `face_wiring.cljs:15`); `style.css` is 0 bytes.
 
