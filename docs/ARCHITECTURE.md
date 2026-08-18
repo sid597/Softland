@@ -121,6 +121,12 @@ material (as dwell/mark punctuation, never poses). The presence ring is
 really TWO rings with two algebras — latest-wins poses need ~3 samples,
 concat streams need the disconnection window — so ring depth *derives
 from* the trails ruling; 120 is a placeholder, not a law.
+**RULED (Sid, 2026-08-18, build-softland-in-softland session): yes.**
+Traces are material as dwell/mark punctuation, never poses; every
+threshold number is a userland dial ("60 is a spitball number and it
+should be controllable on userland"); and a burst's settlement always
+persists ("even after 60 pan ones we save the last one to server").
+Ring depth now derives from those dials.
 
 ### 3 · Identity travels — PROPOSED (the wire principle)
 

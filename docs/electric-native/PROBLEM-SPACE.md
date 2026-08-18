@@ -172,8 +172,13 @@ and keyed, applied atomically per accepted act.**
 
 ## Forks — by decider
 
-**Sid's alone** (options exist; only his word closes them): trails — are
-movement traces material, and therefore what the presence ring retains ·
+**Closed by his word (2026-08-18):** trails — movement traces ARE
+material, as dwell/mark punctuation, never poses; every threshold (the
+60, ring retention) is a userland dial; a burst's settlement always
+persists ("even after 60 pan ones we save the last one to server").
+Same ruling recorded at ARCHITECTURE.md conflict 2's fork.
+
+**Sid's alone** (options exist; only his word closes them):
 act grain (turn vs settlement vs verb) · chrome-as-material (do the 9
 mirrors' contents — workspace, sidebar, settings — deserve durability) ·
 zoom & briefings-as-zoom (semantic LOD as a named bet) · the collaboration
