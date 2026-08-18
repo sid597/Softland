@@ -72,9 +72,9 @@
                    :!face-wear-result !face-wear-result
                    :!ingest-epoch-remote !ingest-epoch-remote})
 
-        ;; ── Block edit (block-write INT) ────────────────────────────
-        ;; The reader-face edit seam: outbox/result ride Lane A's artery
-        ;; atoms (back-arrow); the §5 narrowing pull rides !block-truth-*.
+        ;; ── Ground edit transport ───────────────────────────────────
+        ;; The ground's outbox/result ride the back-arrow artery; the narrow
+        ;; accepted-edit truth pull rides !block-truth-*.
         _ (block-edit-wiring/install-block-edit-wiring!
             atoms {:!block-edit-outbox !block-edit-outbox
                    :!block-edit-result !block-edit-result
@@ -100,9 +100,8 @@
         >keyboard-events (events/>keyboard js/window)
 
         ;; ── Focus-based routing ─────────────────────────────────────
-        <global-keys      (events/<global-events >keyboard-events)
-        <face-edit-keyboard (events/<face-edit-keys >keyboard-events (:!focus atoms))
-        <ground-keyboard  (events/<ground-input-keys >keyboard-events (:!focus atoms))
+        <global-keys     (events/<global-events >keyboard-events)
+        <ground-keyboard (events/<ground-input-keys >keyboard-events (:!focus atoms))
 
         ;; ── DOM listeners (raw, not Missionary) ─────────────────────
         _ (mouse/install-paste-handler! atoms)
@@ -131,7 +130,6 @@
       (mouse/mouse-consumer atoms layout nil nil >mouse-events)
       (ground/meta-consumer >meta-events)
       (kbd/global-keys-consumer atoms <global-keys)
-      (block-edit-wiring/face-edit-keys-consumer <face-edit-keyboard)
       (ground/ground-keys-consumer atoms <ground-keyboard)
 
       ;; Render loop (the terminal consumer)

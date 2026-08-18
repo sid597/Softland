@@ -123,9 +123,6 @@
 (e/defn TrailFeed [window opts]
   (e/server (trail-view/read-recent-activity (trail-rt) window opts)))
 
-(e/defn TrailConversation [conversation cursor limit]
-  (e/server (trail-view/read-conversation-trail (trail-rt) conversation cursor limit)))
-
 (e/defn TrailText [targets opts]
   (e/server (trail-view/render-bundle-text
              (trail-view/read-context-bundle (trail-rt) (or targets []) (or opts {})))))

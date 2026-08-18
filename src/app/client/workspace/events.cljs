@@ -215,16 +215,6 @@
   (->> >keyboard
        (m/eduction (filter :global?))))
 
-(defn <face-edit-keys
-  "Flow of keyboard events routed to the focused face block (block-write INT;
-   !focus = :face-edit is set by the face click handler). Same R2 shape as the
-   other routers: m/eduction + deref, never an m/ap fork over a watch."
-  [>keyboard !focus]
-  (->> >keyboard
-       (m/eduction (filter (fn [event]
-                             (and (= @!focus :face-edit)
-                                  (not (:global? event))))))))
-
 (defn <ground-input-keys
   "Flow of keyboard events routed to the ground's utterance input
    (first-light A P2; !focus = :ground-input is the ground boot's resting

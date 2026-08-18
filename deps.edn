@@ -17,7 +17,6 @@
              com.rpl/rama-helpers               {:mvn/version "0.10.0"}
              com.rpl/specter                    {:mvn/version "1.1.4"}
              clj-http/clj-http                  {:mvn/version "3.12.3"}
-             io.github.nextjournal/clojure-mode {:git/tag "v0.3.0" :git/sha "694abc7"}
              org.apache.logging.log4j/log4j-slf4j2-impl {:mvn/version "2.23.1"}
              rewrite-clj/rewrite-clj {:mvn/version "1.1.47"}
              clj-kondo/clj-kondo {:mvn/version "2025.06.05"}}

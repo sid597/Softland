@@ -62,16 +62,6 @@
             [app.shared.threaded-material :as threaded-material]
             [app.shared.verb-registry :as verb-registry]))
 
-;; ===========================================================================
-;; Boot decision
-;; ===========================================================================
-
-(defn ground-boot?
-  "The PRODUCT boot is the ground (T9). Builders launch the dev workspace
-   explicitly with ?dev — never a link, never a keystroke, from the ground."
-  []
-  (not (str/includes? (str (.-search js/window.location)) "dev")))
-
 (defn- drill-conversation-id
   "The G4b drill seam's client half (§11: machinery drills run on their OWN
    episode; the genesis stays virgin). ?drill=<conv-id> threads through the
