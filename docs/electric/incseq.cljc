@@ -728,9 +728,9 @@ Returns the size of `incseq` as a continuous flow.
              (n2)
              (q) := :step
              (q {:grow 0 :degree 2 :shrink 1 :permutation {} :change {} :freeze #{}})
-             @ps := {:degree 4 :grow 0 :shrink 2 :permutation {1 2, 2 1} :change {} :freeze #{}})
+             @ps := {:degree 4 :grow 0 :shrink 2 :permutation {1 2, 2 1} :change {} :freeze #{}}))))
 
-           )))
+
 
 (comment
 
@@ -766,9 +766,9 @@ Returns the size of `incseq` as a continuous flow.
   > {:degree 20, :create 10, :remove 0, :cycles #{[15 10 18 19 14 16 17 12 13 11]}, :change {15 16, 13 14, 17 Fizz, 12 13, 19 Buzz, 11 Fizz, 14 FizzBuzz, 16 17, 10 11, 18 19}, :freeze #{15 13 12 16 10 18}}
   > {:degree 20, :create 0, :remove 0, :cycles #{}, :change {14 FuzzBuzz, 2 Fuzz, 5 Fuzz, 8 Fuzz, 17 Fuzz, 11 Fuzz}, :freeze #{}}
   > {:degree 20, :create 0, :remove 0, :cycles #{}, :change {14 FuzzBizz, 4 Bizz, 9 Bizz, 19 Bizz}, :freeze #{}}
-  > {:degree 20, :create 0, :remove 3, :cycles #{}, :change {}, :freeze #{}}
+  > {:degree 20, :create 0, :remove 3, :cycles #{}, :change {}, :freeze #{}})
 
-  )
+
 
 (comment
 
@@ -801,5 +801,5 @@ Returns the size of `incseq` as a continuous flow.
                 j (p i i)]
             (.removeChild element (.item children j))
             (recur (i/compose p (i/rotation i j)) i))))
-      element))
-  )
+      element)))
+
