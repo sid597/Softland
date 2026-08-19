@@ -1,11 +1,12 @@
-# Waist cleanup — the task (v2, 2026-08-19)
+# Waist cleanup — the task (v3, 2026-08-19)
 
-**What this is.** The full task as agreed in the 2026-08-19 review session
-(Sid + Fable), for a fresh execution or falsification session. v2 integrates
-two reviews (a sibling Fable session and Codex) — every accepted finding was
-re-verified against the tree this session (dependency greps); refused
-findings are recorded at the bottom so they don't resurface. Direction is
-SID-RULED — reopened only by his word.
+**What this is.** The full task as ruled in the 2026-08-19 review sittings
+(Sid + Fable + two hostile reviews: a sibling Fable session and two Codex
+rounds), for a fresh execution or falsification session. v3 lands Sid's
+final word — ALL LIGHTS OUT — and repairs two dependency claims v2 got
+factually wrong (comment matches mistaken for requires; Codex caught it,
+re-verified this session with ns-form greps). Direction is SID-RULED —
+reopened only by his word.
 
 ## Sid's words (verbatim — the ground of the task)
 
@@ -14,67 +15,71 @@ SID-RULED — reopened only by his word.
 - "WE need a pristine code that is aligned with what softland is, what is
   it for, and the waist line"
 - "The only hard constraint for me is that the data that i wrote down is
-  not lost"
+  not lost" · "the data should be saved as it is … what we do later is
+  that it will get maybeee migrated to new whatever the format is"
 - "There is nothing that we need to edit."
-- "fuck the previous laws" — said when a session-written clause ("the old
-  editors go when the new one carries the job") was quoted back at him as
-  his own. It never was his word: git blame shows it landed in `0d77cf8`
-  same day as session prose, no inline (Sid) stamp.
+- "I am fine with removing both read and write not keeping anything that
+  is not needed all lights go out i am fine we will build things correctly
+  how is it even acceptable to keep the single atom survives"
+- On "old editors go when the new one carries the job": "no fuck no they
+  go now" (the clause was session prose, never his word — git blame
+  `0d77cf8`, no (Sid) stamp; burned).
+- On halo/inspector: "the form they are now currently also makes them
+  useless the concept is what we need and we have that as smalltalk-vm"
+- On the transcript pipeline: "we do want this its not plugged in but i
+  think a core thing that will be used later and will also be modified
+  accordingly imo but not be used for some time"
 - From the census phase (verbatim, same day): "i do want to get to the
   state where large parallelisation and concurrent ui/ux and all other
-  product work i can do above the waist — everything below it right now
-  is sync and linear to this — has to be done"
+  product work i can do above the waist … has to be done"
 
 ## The ruling in plain words (SID-RULED — do not reopen)
 
 1. There is no new editor to build. Nothing waits for a replacement
    before it can be deleted.
-2. First, the codebase we already have gets cleaned until every file
-   passes one test: it is one of the four floor pieces, the plumbing
-   under them, a kernel, or material above the waist.
-3. Whatever fails the test is deleted or rewritten as material.
-4. Only when the whole tree (outside the parked groups, named below)
-   passes do we start building on top.
-5. Typing in the app may go dark while this runs; that is accepted.
-   (Reading is a separate, still-open call — see the reading question.)
-6. Hard rule: the data already written is never lost. Enumerated, so an
-   executor can't satisfy the words while losing the thing:
-   block/object text · edit revisions and decisions · turns · placement
-   cells · camera cells · face wear · relations · imported material ·
-   transcript file-state offsets. Identities preserved; every kind reads
-   back after a full app + cluster restart.
+2. Every file must pass one test: it is one of the four floor pieces, the
+   plumbing under them, a kernel, or material above the waist. Whatever
+   fails is deleted or rewritten as material.
+3. **All lights out — writing AND reading.** The product client goes dark
+   entirely. No thin read driver, no input pump, no console read surface.
+   "we will build things correctly."
+4. Only when the whole tree (outside the parked groups) passes do we
+   start building on top.
+5. Hard rule: the data already written is never lost — preserved AS IS
+   (migration, if any, is a later act). Enumerated so an executor can't
+   satisfy the words while losing a kind: block/object text · edit
+   revisions and decisions · turns · placement cells · camera cells ·
+   face wear · relations · imported material · transcript file-state
+   offsets. Identities preserved; every kind reads back after a full
+   app + cluster restart.
 
-## Step 0 — land the law (WAITS ON SID'S YES; not yet landed)
+## What the app IS at the end of this task
 
-`docs/decisions.md` "The editing waist" still carries the superseded tail
-("The next editor is built pristine — fresh beside the old ones … the old
-editors go when the new one carries the job"). A fresh session must NOT
-inherit that frame — session prose, burned by Sid 2026-08-19. On his yes,
-replace that tail with:
+- The server: jetty + the episode/matter routes + the five deployed
+  kernels. Agents/CLI keep writing turns, blocks, geometry; everything
+  acked durable. This is the whole running product during the dark.
+- The floor + parked engine survive as guarded code, not as a running
+  product surface: shaper (`text_shaper.cljs` · `text_layout.cljc` ·
+  `runtime/fonts.cljs`, guarded by `npm run verify:text-layout`) and the
+  parked scene+GPU machine + render families (guarded by
+  `npm run verify:render-engine` after its repair, below).
+- The product client (Electric boot, canvas loop, editors, faces, input,
+  read wire) is deleted. The dev/prod entries reduce to server start;
+  what remains of the client tree compiles only through the verifier
+  build and test fences.
 
-> The clean-up comes first (Sid, 2026-08-19). There is no new editor to
-> build, and nothing waits for a replacement before it can be deleted.
-> First the codebase we already have gets cleaned until every file passes
-> one test: it is one of the four floor pieces, the plumbing under them, a
-> kernel, or material above the waist. Whatever fails the test is deleted
-> or rewritten as material. Only when the whole tree passes do we start
-> building new things on top. Typing in the app may go dark while this
-> runs; that is accepted. Hard rule, unchanged: the data already written —
-> blocks, turns, edits, placement, camera, wear, relations — sits in the
-> kernels and is never lost by any of this.
+## Step 0 — land the law (DONE 2026-08-19, this sitting)
 
-Also fix the board (`docs/next-prompt.md`): the below-the-waist close line
-says above-waist product work may fan out now; under this ruling the
-cleanup comes first, and the electric-native "NEXT: road 1a" line queues
-behind it.
+`docs/decisions.md` "The editing waist" tail replaced: the pristine-build
+/ old-editors-go-when clause is burned (session prose); the cleanup-first
++ all-lights-out ruling stands in its place. The board's below-the-waist
+close line ("product work may fan out now") is superseded — cleanup
+first; electric-native road 1a queues behind it.
 
-**Census supersession (part of step 0's honesty):** the census
-(`census-and-moves.md`) stays the historical receipt of what existed and
-ran on 2026-08-19. Its forward-looking conclusions — Row 4's whole-pull
-demotion road, Row 5's T2-as-the-edit-floor, the scene-loop "hoist/melt
-above" plan — are dated testimony now; where they collide with this
-cleanup, this task wins. (The whole-pull still stays this phase — on its
-own merits below, not because the freeze binds.)
+**Census supersession:** `census-and-moves.md` stays the historical
+receipt of 2026-08-19. Its forward-looking conclusions (Row 4 whole-pull
+demotion road, Row 5 T2-as-edit-floor, hoist/melt plans) are dated
+testimony; where they collide with this task, this task wins.
 
 ## The test (every file, four doors) — and the parked exception
 
@@ -82,245 +87,216 @@ kernel · plumbing under the floor · one of the four floor pieces (shaper,
 edit verbs, validators, commit artery) · material above the waist.
 Anything that is none of these: delete, or rewrite as material.
 
-**Parked, by Sid's word ("I will come to it later"): the scene + GPU
-machine and the plug-in render families** (chrome/connector/path/image/
-region3d/effects/frame runtimes — the accepted build-ahead packages).
-They are outside this task's certification: not cut, not ruled floor,
-not walked through the doors. They keep their own later ruling. This
-task therefore certifies the tree MINUS the parked groups — saying
-otherwise would silently resolve a decision Sid parked.
+**Parked, by Sid's word: the scene + GPU machine and the plug-in render
+families** (scene_store/scene_runtime/rect_tree/containers/scene_tape/
+frame_* substrate/webgpu pipelines · chrome/connector/path/image/region3d/
+effects families incl. their runtimes, `selection.cljc`,
+`region3d_pointer.cljc`, `snap.cljc`). Outside this task's certification:
+not cut, not ruled floor, not walked through the doors. Their live door
+(the product client) dies with this task; the verifier build is their
+guard until their own later ruling.
 
-## Step 1 — dead cuts (each still needs its taken-path proof at cut time;
-grep alone declares nothing dead — census law)
+## Step 1 — dead cuts (each needs its taken-path proof at cut time; grep
+alone declares nothing dead — census law)
 
-Client:
-- `src/app/client/workspace/trail_face/{wiring.cljs,sanitize.cljc}` — the
-  retired trail-face's leftover pull lane. NOTE: explicit REFUSALS in
-  census Row 1 (its scope was only the drawing island). Cutting them is a
-  NEW row: fresh proof, read Row 1's refusal reasons first.
-- the trail pull lanes in `src/app/file_viewer.cljc` and the trail atoms
-  in `src/app/client/workspace/runtime/state.cljs`
-- the font-atlas boot fetch in `src/app/client/workspace/runtime.cljs`
-  (feeds only the trail sanitizer)
-- the face-list pull lane in `face_wiring.cljs` + its `:!face-list` mirror
-  (ships a roster nothing displays)
-- the `/face` command parser and the unread epoch mirror in
-  `face_wiring.cljs`
-- dead keybinds in `events.cljs` — Ctrl+arrows parsed with no handler;
-  shift flag carried, never read
+- `workspace/trail_face/{wiring.cljs,sanitize.cljc}` — Row 1 REFUSALS;
+  cutting them is a NEW row: fresh proof, read Row 1's refusal reasons.
+- the trail lanes + trail atoms (`file_viewer.cljc`, `runtime/state.cljs`)
+- the font-atlas boot fetch (`runtime.cljs`)
+- `/api/dev/replay-fixture` route · `/faces/*.edn` static serving
+- drafts, tree only (git keeps): `rama/text_kernel.clj` ·
+  `rama/dogfood/{space,compute}.clj` · **`rama/kernel.clj` + its
+  kernel_shape test** — v2 wrongly ruled kernel.clj alive on comment
+  matches; VERIFIED this session: zero executable requirers (llm.clj:32
+  and dogfood/transcript.clj:35 cite it in prose only). Sid's original
+  mark restored: goes.
 
-Server:
-- `/api/dev/replay-fixture` route in `src/app/server_jetty.clj`
-- `/faces/*.edn` static serving (client fetch retired)
-- drafts, tree only, git keeps: `src/app/server/rama/text_kernel.clj` ·
-  `src/app/server/rama/dogfood/{space,compute}.clj` ·
-  `dogfood/transcript_ingest.clj` (check its requirers at cut)
+## Step 2 — the monolith cut (one coherent pass; all lights out)
 
-Doors verified this session (receipts in the 2026-08-19 chat):
-- **`dogfood/transcript.clj` — SPLIT, not a whole-file delete.** Its
-  never-deployed draft module goes; its helper fns STAY — the live
-  episode lane and read wire call them (`episode.clj`, `file_viewer.cljc`,
-  `cluster.clj`, `git_spine.clj`, `ingest_watchers.clj`: harvest, paths,
-  request-id, import-observations…, append-and-await…). The deployed
-  transcript-ops module is a DIFFERENT thing — defined in the
-  object-container namespace, holds the file-offset data, fenced.
-- **`rama/kernel.clj` — LIVES.** Required by `dogfood/llm.clj` (stays,
-  runs hot) and by the transcript helpers above. A dependency, not
-  product. (One review said cut it, the other said llm needs it — grep
-  says llm needs it.)
-- **`dogfood/llm.clj` — stays** (hot in-memory by design; durable outputs
-  land in deployed kernels).
-
-## Step 2 — the monolith cut (one coherent pass, not per-file ceremony)
-
-Typing on the canvas goes dark here. Accepted (ruling, point 5).
-
-**Goes, one cut, with its callers** (zero-callers law: once the editor
-bodies go, their client plumbing has no caller and keeping it violates
-the test):
-- Ground's body: `ground.cljs` · `ground_edit.cljc` · `agent.cljs` (send
-  client; the HTTP routes stay)
+**Goes, with its callers** (zero-callers law):
+- Ground's body: `ground.cljs` · `ground_edit.cljc` · `agent.cljs`
 - T2's body: `editing_runtime.cljs` · `text_editing.cljc` ·
   `editing_segmentation.cljs` · `t2_block_wiring.cljs` ·
   `t2_block_join.cljc`
-- `live_atoms.cljs` — T2's boot and the flag composer (verified: requires
-  editing-runtime, calls its boot). The parked render families lose their
-  live door with it; that door returns with their own later ruling.
-- `live_edges.cljc`
-- the semantic key tables: the parse in `events.cljs` ·
-  `runtime/keyboard.cljs` — plus the boot glue in `runtime.cljs` that
-  arms all of the above
-- **the client artery implementation**: `block_edit.cljc` ·
-  `edit_transport.cljc` · `block_edit_wiring.cljs` — verified: their only
-  requirers are the editor bodies and boot glue. The artery FLOOR that
-  remains is the server side: the electric_flow server door, the
-  object-container admission road (depot → validate → decide → revisions
-  → keyed truth). No artery re-graining; the server contract is
-  untouched. (This corrects v1, which froze these client files as floor.)
+- `live_atoms.cljs` (T2 boot + flag composer) · `live_edges.cljc` ·
+  `seam_demo.cljs` (see note below)
+- the whole input tree: `events.cljs` · `runtime/{keyboard,mouse,touch,
+  scroll,state}.cljs` · `runtime.cljs` and `runtime/render.cljs` boot glue
+- the client artery implementation: `block_edit.cljc` ·
+  `edit_transport.cljc` · `block_edit_wiring.cljs`
+- **the read wire, whole** (Sid: "how is it even acceptable to keep the
+  single atom survives"): `face_wiring.cljs` · `file_viewer.cljc` ·
+  `electric_flow.cljc` (client main AND the server e/defn doors — zero
+  callers once the client dies) · `global_flow.cljs`
+- halo/inspector/portal console halves — "the concept is what we need and
+  we have that as smalltalk-vm"; the concept lives in the organs and the
+  law, not in this wiring.
+- `runtime/fonts.cljs` STAYS (shaper floor). `design_tokens.cljc` stays
+  (material data).
 
-**Splits, not whole files:**
-- `face_wiring.cljs` — its pull/wear arming STAYS (it is the read road's
-  client arm); its face-list lane, /face parser, epoch mirror go (step
-  1); console-face arming: see open calls.
+**Face split (VERIFIED requirers, ns-forms only):**
+- `face_assembly.cljc` LIVES — required by the fenced
+  `assembly_adapter.clj` and by `scene_store.cljc` (parked machine): a
+  pure shared interpreter; passes the below-waist test.
+- `face_primitives.cljc` SPLITS — `assembly_adapter.clj` requires it, but
+  the file mixes that shared registry with Ground widgets (caret,
+  selection wash, folds, refusal strip). At cut: keep what the adapter
+  compiles against (named split, executor draws the line by requirer
+  need), the product builders go with Ground. "Stays regardless" (v2) was
+  wrong — material_portal.clj / anatomy_material.cljc matches are prose.
 
-**Method for live cuts** (Ground/T2 are live paths — "prove nothing
-reaches it" is impossible and is the dead-cut test, not this one):
+**The transcript question (Sid's word, answered):** two pipelines exist.
+The REAL one is live and fenced: the four adapters + the transcript-ops
+module (file offsets, defined in the object-container namespace) + the
+helper fns in `dogfood/transcript.clj` that the episode lane and watchers
+call today (episode.clj:46, ingest_watchers.clj:22 — executable requires).
+The DUPLICATE is the never-deployed draft pair: `dogfood/transcript.clj`'s
+own module def + `dogfood/transcript_ingest.clj`. Per Sid ("a core thing
+that will be used later and will also be modified accordingly"), the
+draft pair is **PARKED, not deleted**: `transcript.clj` is retained whole
+and explicitly relabeled live-helpers + parked-draft-module;
+`transcript_ingest.clj` parks beside it. Executable endpoint, no split
+move needed.
+
+**Method for live cuts:**
 1. trace every live caller
-2. name what intentionally goes dark (typing, block birth by keystroke,
-   moves, send-from-canvas)
-3. preserve the ruled duties (data, routes, the read road)
-4. repair compile + tests + **the verifier** — verified:
-   `substrate/webgpu/verifier.cljs` requires editing-runtime,
-   text-editing, live-atoms, live-edges, chrome-runtime, frame-runtime;
-   strip its editor-dependent lanes, keep it guarding the parked machine
-5. cut
+2. name what goes dark (all of it: typing, reading, canvas)
+3. preserve the ruled duties: the data, the routes, the kernels
+4. repair compile + tests + **the verifier**: `verifier.cljs` requires
+   editing-runtime, text-editing, live-atoms, live-edges (going) AND
+   chrome-runtime, frame-runtime (parked). Strip the editor-dependent
+   lanes; keep it guarding the parked machine and families.
+5. name the runtime-context path for the routes with `file_viewer.cljc`
+   gone (its boot delay holds oc-rt/machine-cut ctx + non-cluster WAL
+   replays + first-pull distill; cluster mode has WALs off and the live
+   distill is episode.clj's own post-turn road — each duty gets a keeper
+   or a dead-ruling with receipt)
+6. cut — one receipt per row/group
+- `rama/trail_view.clj` goes with this pass (VERIFIED: mirror-pstates
+  only, no depots, no unique data — the hard rule does not protect it;
+  its only readers die here). Module undeploy is the named cluster op in
+  the same row.
 
-Receipts: one per row/group (not per file). Close proof is the five
-scenarios at the bottom — no validation ladder.
-
-## The reading question (Sid's call; default = the lean)
-
-Ruled: typing dark. NOT ruled: reading. Verified this session: the
-face-compile road already lives mostly OUTSIDE Ground —
-`face_assembly.cljc` and `face_primitives.cljc` are required by FENCED
-server organs (`assembly_adapter.clj`, `material_portal.clj`,
-`anatomy_material.cljc`) and by the scene store, so they stay regardless
-and the "extraction" is smaller than v1 feared. What `ground.cljs`
-uniquely holds: the reconcile driver, the placement + camera restore
-(~ground.cljs 2223-2258 — part of the job, NOT part of the body being
-burned), and camera gestures.
-
-- **LEAN (default):** read-lit. A thin fresh driver (pristine, never
-  grown from Ground): served truth → compile road → scene slots, with
-  placement + camera restored from their cells, plus a one-page raw
-  input pump (wheel/drag → camera) so Sid can look around.
-- **ALTERNATIVE:** full dark. Then `events.cljs`/`mouse`/`touch`/
-  `scroll` go whole too, and the console/inspector (riding face_wiring's
-  surviving half) is the only read surface.
-
-One word from Sid picks.
+**Note on seam_demo** (Sid asked what it is): a fixture page behind three
+URL flags that demos the render engine's seam package — it was the
+pending acceptance surface for render Package 3 Atom B (board). All
+lights out means no surface can drive it; it goes, and that acceptance
+drive is formally abandoned — when the parked render world gets its later
+ruling, acceptance evidence comes from the verifier or a rebuilt surface.
 
 ## Untouched throughout (the fence — named exactly)
 
-- **The five deployed modules** and all their PStates: object-container
-  (+ its transcript-ops module — defined in the object-container
-  namespace, holds the file offsets — + transcript-identity + the four
-  adapters: transcript/markdown/clojure/assembly) · relation-kernel ·
-  face-arsenal · trail-view · the object-container runtime adapter.
-  NOTE on trail-view: verified mirror-pstates only — no depots, no
-  unique data; its only readers die in step 1. It stays deployed this
-  phase (Sid's blanket kernel fence); undeploy is a later one-word call.
-- **Validators, named**: `object_container.clj` validate (~575-622),
-  edit-effects (~1414), decide (~2321-2483); admission checks inside
-  material grammars stay with their rows.
-- **The shaper**: `text_shaper.cljs` · `text_layout.cljc` · `fonts.cljs`.
-- **The read wire this phase**: `electric_flow.cljc` main ·
-  `file_viewer.cljc` (minus its trail lanes) · `global_flow.cljs` ·
-  `util_fns.cljc` epoch. The whole-pull STAYS — not because the census
-  freeze binds (superseded above) but because it is the only reading
-  road; re-graining it is building, not cleaning.
-- **Serve registry**: `face_projection.clj` · `block_distiller.clj`.
-- **Material**: the 11 `src/app/shared/*_material.cljc` rows and the
-  other 7 shared files (18 total — walk all 18 through the doors at
-  execution; expected: material). No recutting of rows in this task —
-  that is building.
+- **The five deployed modules** and all PStates: object-container (+
+  transcript-ops + transcript-identity + the four adapters) ·
+  relation-kernel · face-arsenal · the object-container runtime adapter
+  (`object_container/runtime.clj` — the admission road: depot → validate
+  → decide → revisions → keyed truth; the artery's surviving floor).
+  (trail-view leaves the fence by the no-data receipt above.)
+- **Validators, named**: `object_container.clj` validate (~575-622) ·
+  edit-effects (~1414) · decide (~2321-2483).
+- **The shaper**: `text_shaper.cljs` · `text_layout.cljc` ·
+  `runtime/fonts.cljs` (+ `text_layout_planes.cljc`, its internal).
+- **Serve registry** (Sid: "i am fine with it"): `face_projection.clj` ·
+  `block_distiller.clj` — goes dormant (no live caller during the dark),
+  kept as the material system's server half.
+- **Material**: the 18 `src/app/shared/*` files — walked through the
+  doors at execution; expected material. No recutting (nothing to recut
+  against until building).
 - **The server material organs, named**: facet_master · material_truth ·
   material_circulation · machine_cut · verb_release · code_atoms ·
-  cascade · material_portal · the face entries in face_projection.
+  cascade · material_portal.
 - **The episode lane**: `server_jetty.clj` · `episode.clj` + the
-  dogfood/transcript helpers they call (see step 1's split). Agents/CLI
-  keep writing turns, blocks, geometry while the canvas is dark.
-- **Parked (outside certification, untouched)**: scene + GPU machine ·
-  the plug-in render families.
+  transcript helpers they require. The only write surface during the
+  dark.
+- **Parked**: scene + GPU machine · plug-in render families · the draft
+  transcript pipeline.
 
-## Quarry (git history pointers for the future verbs/editor builder)
+## Quarry (what this section is: it deletes NOTHING and keeps NOTHING —
+three git-history pointers so the future builder digs instead of
+re-deriving)
 
-The cut commits are the bookmarks. Dig here later: `text_editing.cljc`
-(op kernel — already emits insert/delete/replace on tagged, grapheme-safe
-offsets) · `editing_segmentation.cljs` (grapheme boundaries) ·
-`block_edit.cljc` (envelope + id law) · `edit_transport.cljc`
-(queue/sequence law) · `t2_block_join.cljc` (keyed-truth join) ·
-`ground_edit.cljc` (splice + rejection-rewind behavior).
+`text_editing.cljc` (op kernel — already emits insert/delete/replace on
+grapheme-safe offsets) · `block_edit.cljc` + `edit_transport.cljc`
+(envelope id law · queue/sequence law) · `t2_block_join.cljc` (keyed-truth
+join). The cut commits are the bookmarks.
 
-## Done when
+## Done when — five close scenarios, exact receipts
 
-Every file outside the parked groups passes one of the four doors, and
-five close scenarios pass — no receipt ceremony beyond these:
+Cluster mode for all receipts: the normal external Rama cluster
+(LAND_CLUSTER unset — the default boot; NOT LAND_CLUSTER=0 in-memory).
 
-1. Client + server compile clean; the verifier is green after its repair
-   and still guards the parked machine.
-2. Boot serves the land per the reading ruling (lit read-only, or ruled
-   dark).
-3. An agent writes a turn + a block + geometry through the routes, acked
-   durable.
-4. Full restart (app + cluster): every data kind in the hard rule reads
-   back — text, revisions, decisions, turns, placement, camera, wear,
-   relations, offsets.
-5. One list names the door of every surviving non-parked file.
+1. Server compiles and boots clean: `clj -M:dev` starts jetty with no
+   client bundle errors (dev entry reduced to server start).
+2. `npm run verify:text-layout` green (shaper floor guard).
+3. `npm run verify:render-engine` green after the verifier repair (parked
+   machine + families still guarded).
+4. An agent writes through the routes — one turn (`/api/episode/
+   utterance`), one block (`/api/episode/block-birth`), one geometry
+   settle (`/api/episode/geometry`) — each acked durable.
+5. Full restart (app JVM + Rama cluster processes): every hard-rule kind
+   reads back by point read through `object_container/runtime.clj` /
+   kernel readers at the REPL — text, revisions, decisions, turns,
+   placement cells, camera cells, wear, relations, offsets. One list
+   names the door of every surviving non-parked file.
 
 Then, and only then, building on top begins — a new act, not this task.
 
 ## Explicitly not doing
 
 No contract session. No new editor. No verbs yet (empty slot; built when
-the first thing on top needs it). No artery re-graining. No read-wire
-re-graining. No material-row recutting. No kernel changes. No parked-group
-rulings.
+the first thing on top needs it). No artery re-graining (the server
+contract is untouched). No material-row recutting. No kernel changes. No
+parked-group rulings. No data migration (preserve as-is).
 
-## Open calls (one word each, Sid's)
+## Open calls
 
-- **The reading question** — lean read-lit (above); your word picks.
-- **`seam_demo.cljs`** — it is the PENDING acceptance surface for render
-  Package 3 Atom B (board). Cutting it = abandoning that acceptance
-  drive. Cut on your word, or drive it first.
-- **trail-view undeploy** — no unique data, readers gone after step 1;
-  later one-word call.
-- **`src/components/design_tokens.cljc`** — token data; lean: keep as
-  material candidate, classify at the doors.
-- **halo/inspector/portal console halves** — they ride face_wiring's
-  surviving half and are the only read surface under full-dark. Lean:
-  keep console halves, gesture entry dies with Ground.
+None. The hard thinking is closed; everything above is ruled or is an
+execution-time boundary with its receipt named.
+
+## Review findings ledger (so nothing resurfaces)
+
+Pulled from Codex round 2 (verified before landing):
+- kernel.clj dependency claim was FALSE (comment matches) — kernel.clj +
+  shape test now go. v2's "re-verified" header was too strong; v3's
+  dependency claims are ns-form greps only.
+- face_assembly lives / face_primitives splits (real requirers named).
+- "Split alone is not an executable endpoint" → transcript.clj retained
+  whole, relabeled; no split move.
+- Open calls reduced to zero; pump/driver question dissolved by Sid's
+  full-dark word; close scenarios now carry exact commands + cluster mode.
+
+Refused (with reasons):
+- "Re-grain the whole-pull now" — moot: Sid ruled the read wire GOES
+  whole; further than re-graining.
+- "Material rows recut now" — recutting is building; no grammar to recut
+  against; no Sid word.
+- "A fresh one-page pump occupies the input slot" — Sid ruled darker:
+  no pump, nothing survives the input tree.
+- (v2's own refusals of "face_wiring goes whole" and "reading is already
+  full dark" are WITHDRAWN — Sid ruled both, this sitting.)
 
 ## For the falsification session
 
 Attack, in order of value:
-1. The reading extraction boundary — what does `ground.cljs` uniquely
-   hold beyond driver + restore + gestures? Anything that drags the
-   monolith back in?
-2. Step-1 taken-path proofs — especially the transcript SPLIT line
-   (which helpers are live) and `transcript_ingest.clj`'s requirers.
-3. Routes-with-Ground-gone — walk the episode lane's request path and
-   show no cut file sits in it; name the `runtime.cljs` boot glue that
-   must be repaired.
-4. The hard-rule enumeration — every write path this task touches,
-   shown to reach no kernel/PState.
-5. The verifier repair boundary — exactly which lanes strip, what still
-   guards the parked machine.
-6. The shared-18 walk — do all 18 really pass as material?
+1. The file_viewer boot-duty walk (step 2.5) — every duty in its delay
+   named keeper-or-dead with receipt; the routes' oc-rt path with it gone.
+2. The face_primitives split line — does the adapter-needed part drag
+   Ground widgets back in?
+3. Step-1 taken-path proofs — trail-wiring vs Row 1 refusal reasons;
+   kernel.clj's zero-requirers re-check at cut time.
+4. The hard-rule enumeration — every write path this task touches reaches
+   no kernel/PState.
+5. The verifier repair boundary — exactly which lanes strip; parked
+   machine still guarded.
+6. The shared-18 walk — all pass as material?
+7. Dev/prod entry reduction — what does `dev.cljc` become with no
+   e/boot-client; does jetty still serve anything static it shouldn't.
 
 Do NOT reopen: the ruling section, the hard rule, the four-door test,
-the parked status of scene+GPU/render families. Findings against them
-file as flags for Sid, never as edits.
+the parked groups, all-lights-out. Findings against them file as flags
+for Sid, never as edits.
 
-## Review findings REFUSED (recorded so they don't resurface)
-
-- "face_primitives/face_assembly go" — refused: fenced server organs and
-  the scene store require them (verified requirers listed above).
-- "kernel.clj goes" — refused: llm.clj (stays) and the live transcript
-  helpers require it.
-- "Re-grain the whole-pull / read wire now" — refused: only reading road;
-  re-graining is building.
-- "Material rows recut for the new grammar" — refused: no Sid word in
-  this session's record; recutting is building. If another session holds
-  his word on this, it files as its own row with the receipt.
-- "face_wiring.cljs goes whole" — refused: it carries the read road's
-  client arm; it splits (named above).
-- "The reading question is already resolved to full dark" — refused: Sid
-  ruled typing dark; reading is his open call.
-- "One receipt + one commit per small removal" (v1's own ceremony) —
-  replaced by per-row receipts + the five close scenarios (one-pass law).
-
-Pointers: `docs/below-the-waist/census-and-moves.md` (historical receipt;
-supersession note in step 0) · `docs/decisions.md` "The editing waist"
-(floor of four; tail superseded — step 0) · the 2026-08-19 review session
-(map, verdict table, dependency receipts — in chat).
+Pointers: `census-and-moves.md` (historical receipt) · `docs/decisions.md`
+"The editing waist" (floor of four + cleanup-first tail, landed this
+sitting) · the 2026-08-19 review session (map, verdict table, dependency
+receipts — in chat).

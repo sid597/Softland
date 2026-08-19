@@ -382,11 +382,22 @@ which crossroads did we take."
   refused durably), and the commit artery (edit in, durable accepted/rejected
   out, keyed truth back). Text, wrap, cursor, selection, keys, behavior
   composition, placement, and presentation are material interpreted by that
-  floor, built above the waist. The next editor is built pristine (Sid) —
-  fresh beside the old ones, never grown from them; the old editors go when
-  the new one carries the job. Binding constraint on the pristine build: the
-  data already created (objects, turns, edits in durable truth) is
-  editor-independent, and the new editor serves it through the same artery.
+  floor, built above the waist. **The clean-up comes first (Sid, 2026-08-19,
+  superseding this entry's earlier tail — that tail was session prose, never
+  his word; burned: "no fuck no they go now").** There is no new editor to
+  build, and nothing waits for a replacement before it can be deleted. The
+  codebase we already have gets cleaned until every file passes one test:
+  floor piece, plumbing under the floor, kernel, or material above the waist
+  — whatever fails is deleted or rewritten as material. All lights go out
+  while this runs — writing AND reading ("removing both read and write …
+  all lights go out i am fine we will build things correctly", Sid). Only
+  when the tree passes (outside the parked scene+GPU/render groups) does
+  building on top begin. Hard rule, unchanged: the data already written —
+  blocks, edit revisions and decisions, turns, placement cells, camera
+  cells, face wear, relations, imported material, file offsets — sits in
+  the kernels, is never lost, and is preserved AS IS ("the data should be
+  saved as it is", Sid; migration, if any, is a later act). Task:
+  `docs/below-the-waist/waist-cleanup-task.md`.
 
 ## How engine work lands — the build model (settled 2026-07-26)
 
