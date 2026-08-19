@@ -33,7 +33,8 @@
    PURE .cljc: no atoms, no I/O, no clock, no randomness — block-id /
    turn-id / client-id are minted by the caller (ground.cljs)."
   (:require [clojure.string :as str]
-            [app.client.workspace.block-edit :as be]))
+            [app.client.workspace.block-edit :as be]
+            [app.client.workspace.edit-transport :as transport]))
 
 ;; ============================================================================
 ;; State
@@ -215,11 +216,7 @@
   (let [txt (or truth-text "")]
     (assoc st :mode :editing :focus unit-id :anchor nil :birth nil
            :selection nil
-           :queue {:confirmed {:text txt
-                               :caret (max 0 (min (long (or caret (count txt)))
-                                                  (count txt)))
-                               :seq -1}
-                   :inflight []}
+           :queue (transport/seed txt (or caret (count txt)))
            :refusal nil)))
 
 (defn blur [st] (escape (assoc st :mode :editing)))
@@ -261,8 +258,7 @@
     {:state st :envelopes []}
     (let [b  (:birth st)
           st (assoc st :mode :editing :focus unit-id :birth nil
-                    :queue {:confirmed {:text (:text b) :caret (:caret b) :seq -1}
-                            :inflight []})]
+                    :queue (transport/seed (:text b) (:caret b)))]
       (reduce (fn [{:keys [state envelopes]} ev]
                 (let [r (input state ev block-info object-key)]
                   {:state (:state r)
@@ -291,7 +287,7 @@
    so the caret law (no second signal to glitch against) still holds —
    the value is simply the head of the queue instead of its tail."
   [{:keys [queue]}]
-  (or (peek (:inflight queue)) (:confirmed queue)))
+  (transport/projection queue))
 
 (defn- displayed-text
   "The text the eye and the clipboard read: the projection's. Identical to
@@ -311,28 +307,10 @@
       (if-let [r (apply-ground-keydown {:text (:text proj) :caret (:caret proj)} keydown)]
         (case (:op r)
           :caret
-          (let [move (fn [{:keys [text] :as e}]
-                       (assoc e :caret (max 0 (min (long (:new-caret r))
-                                                   (count (or text ""))))))]
-            {:state (-> st
-                        (assoc :selection nil)
-                        (update :queue
-                                (fn [q]
-                                  ;; The caret moves on BOTH ends of the queue.
-                                  ;; confirmed: the committed-echo render source.
-                                  ;; in-flight HEAD: the base the next envelope is
-                                  ;; built on AND the :optimistic render source —
-                                  ;; without this an arrow key pressed mid-flight
-                                  ;; was dropped twice over (the next envelope
-                                  ;; inserted at the stale caret, and on-decision
-                                  ;; overwrote confirmed's caret with the entry's
-                                  ;; on every ack). Each entry keeps its own
-                                  ;; (text, caret) coherent — no tear either way.
-                                  (cond-> (update q :confirmed move)
-                                    (seq (:inflight q))
-                                    (update-in [:inflight (dec (count (:inflight q)))]
-                                               move)))))
-             :envelope nil})
+          {:state (-> st
+                      (assoc :selection nil)
+                      (update :queue transport/map-caret (:new-caret r)))
+           :envelope nil}
           :edit
           (let [seq' (:next-seq st)
                 env  (be/mint-envelope {:block          block-info
@@ -343,11 +321,9 @@
             {:state (-> st
                         (update :next-seq inc)
                         (assoc :refusal nil :selection nil)
-                        (update-in [:queue :inflight]
-                                   (fn [q]
-                                     (conj (if (>= (count q) 64) (subvec q 1) q)
-                                           {:seq seq' :request-id (:request-id env)
-                                            :text (:new-text r) :caret (:new-caret r)}))))
+                        (update :queue transport/enqueue
+                                {:seq seq' :request-id (:request-id env)
+                                 :text (:new-text r) :caret (:new-caret r)}))
              :envelope env}))
         {:state st :envelope nil}))))
 
@@ -360,23 +336,13 @@
    base — this IS the rebase onto the last confirmed revision) and the
    refusal explains itself visibly at the block."
   [st request-id decision]
-  (let [q (:queue st)
-        entry (some #(when (= request-id (:request-id %)) %) (:inflight q))]
+  (let [{:keys [queue matched? accepted? reason]}
+        (transport/decide (:queue st) request-id decision)]
     (cond
-      (nil? q) st
-      (nil? entry) st
-      (= :accepted (:status decision))
-      (update st :queue
-              (fn [q]
-                {:confirmed {:text (:text entry) :caret (:caret entry)
-                             :seq (:seq entry)}
-                 :inflight (vec (remove #(<= (:seq %) (:seq entry))
-                                        (:inflight q)))}))
-      :else
-      (-> st
-          (assoc-in [:queue :inflight] [])
-          (assoc :refusal {:unit-id (:focus st)
-                           :reason (or (:reason decision) :edit-refused)})))))
+      (not matched?) st
+      accepted? (assoc st :queue queue)
+      :else (assoc st :queue queue
+                   :refusal {:unit-id (:focus st) :reason reason}))))
 
 (defn adopt-truth
   "Cross-check channel: narrowed/served truth for the FOCUSED block, adopted
@@ -384,14 +350,8 @@
    byte-identical to confirmed by construction)."
   [st unit-id truth-text]
   (if (and (= :editing (:mode st))
-           (= unit-id (:focus st))
-           (empty? (get-in st [:queue :inflight]))
-           (some? truth-text)
-           (not= truth-text (get-in st [:queue :confirmed :text])))
-    (update-in st [:queue :confirmed]
-               (fn [c] {:text truth-text
-                        :caret (min (:caret c) (count truth-text))
-                        :seq (:seq c)}))
+           (= unit-id (:focus st)))
+    (update st :queue transport/adopt-truth truth-text)
     st))
 
 ;; ============================================================================

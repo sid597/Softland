@@ -114,7 +114,12 @@
                                  ;; client tracks no container id (BW-T7). Purely additive;
                                  ;; existing served keys are byte-stable (MC-T8 class).
                                  :document-container-id (:document-container-id b)
-                                 :block-path (:block-path b)}
+                                 :block-path (:block-path b)
+                                 ;; The face can weave several independently
+                                 ;; partitioned containers. The exact page key
+                                 ;; must survive that weave so a client never
+                                 ;; mistakes the face address for block scope.
+                                 :object-key (:object-key b)}
                           ;; one canvas, many conversations: the lane a block's
                           ;; material came from (additive; canvas blocks carry none)
                           (:thread-id b) (assoc :thread-id (:thread-id b))
@@ -228,6 +233,12 @@
                       (map (fn [sid] [sid (:created-at-ms (ocr/read-source oc-rt sid))]))
                       src-ids)]
     (mapv (fn [b] (assoc b :time-ms (long (or (get times (:source-id b)) 0)))) blocks)))
+
+(defn stamp-object-key
+  "Stamp every page block with the exact object key used to read that page.
+   Pure provenance thread-through; no id parsing and no extra durable read."
+  [object-key blocks]
+  (mapv #(assoc % :object-key object-key) blocks))
 
 (defn merge-episode-lanes
   "first-light A P2 — the episode time merge (PURE). river-page appends the
@@ -504,7 +515,10 @@
         :face/rendered-at-ms (System/currentTimeMillis)})
       (let [page      (bd/river-page {:oc-rt oc-rt :object-key address} limit)
             read-plan (:river-page/read-plan (meta page))
-            canvas-blocks (merge-episode-lanes (attach-source-times oc-rt page))
+            canvas-blocks (->> page
+                               (attach-source-times oc-rt)
+                               (stamp-object-key address)
+                               merge-episode-lanes)
             ;; one canvas, many conversations: the canvas's turn records ARE
             ;; its thread registry — each :thread-id names a per-thread CLI
             ;; session whose distilled material lives in that session's OWN
@@ -541,7 +555,9 @@
                                           limit)
                                    eplan (:river-page/read-plan (meta epage))]
                                {:eid eid
-                                :blocks (attach-source-times oc-rt epage)
+                                :blocks (->> epage
+                                             (attach-source-times oc-rt)
+                                             (stamp-object-key (lane-key eid)))
                                 :truncated? (:truncated? eplan)})
                              (catch Throwable t
                                {:eid eid :error (.getMessage t)})))
@@ -562,7 +578,9 @@
                                            ereads (mapv episode-page (successors tid))]
                                        {:tid tid
                                         :blocks (merge-successor-episodes
-                                                 (attach-source-times oc-rt tpage)
+                                                 (->> tpage
+                                                      (attach-source-times oc-rt)
+                                                      (stamp-object-key tkey))
                                                  (ok-lanes ereads))
                                         :ep-errors (into {} (keep (fn [{:keys [eid error]}]
                                                                     (when error [eid error]))
@@ -1695,10 +1713,10 @@
    client-side). Reaches this entry by direct projection addressing (resolve
    order 3). Total: unknown units serve found? false, never a throw (L13)."
   [{:keys [oc-rt]} request]
-  (let [units (keys (get-in request [:params :units]))]
+  (let [units (get-in request [:params :units])]
     {:block-truth/units
      (into {}
-           (map (fn [unit-id]
+           (map (fn [[unit-id request-nonce]]
                   ;; UnitReadResult's TOP-LEVEL :content-text is the overlay:
                   ;; the graduation row's current content when edited
                   ;; (refreshed per revision, object_container.clj:1491-1499),
@@ -1707,7 +1725,11 @@
                   ;; can never serve stale content.
                   (let [result (ocr/read-unit oc-rt unit-id)]
                     [unit-id {:found? (some? result)
-                              :text   (:content-text result)}])))
+                              :text   (:content-text result)
+                              ;; Causal read receipt: the client already sent
+                              ;; this nonce in the union map. Echoing it lets a
+                              ;; later acceptance reject a delayed older read.
+                              :request-nonce request-nonce}])))
            units)
      :face/rendered-at-ms (System/currentTimeMillis)}))
 

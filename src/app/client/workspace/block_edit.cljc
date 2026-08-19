@@ -57,8 +57,9 @@
      the graduation join, the client tracks NO container id (BW-T7).
    - payload document-container-id is copied VERBATIM off the focused block
      (PHASE_0 rule 3 / BW-T7): the client computes nothing.
-   - payload object-key = the FACE :address (the conversation object-key = the
-     partition key, CONTRACT §4); passed in, not read off the block.
+   - payload object-key = the served block's exact page provenance (the
+     partition key); passed explicitly because this pure builder does not
+     infer identity from a container id or a whole face address.
    - payload carries content-text ONLY. `content-hash` is NOT the client's:
      the kernel stamps it with its own `source-hash` server-side (no cljs
      crypto). Lane A's server entry point adds it before append (BW-T5).

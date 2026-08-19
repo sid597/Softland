@@ -49,9 +49,11 @@
 (defonce ^:private !segmenter (atom nil))
 (defonce ^:private !camera-provider (atom nil))
 (defonce ^:private !effective-provider (atom nil))
+(defonce ^:private !specs (atom {}))
 (defonce ^:private !documents (atom {}))
 (defonce ^:private !registrations (atom {}))
 (defonce ^:private !session (atom nil))
+(defonce ^:private !commit-sink (atom nil))
 (defonce ^:private !listeners (atom []))
 (defonce ^:private !ime-host (atom nil))
 (defonce ^:private !receipt (atom nil))
@@ -82,7 +84,7 @@
     (publish-receipt!)))
 
 (defn- spec-for-vi [vi]
-  (some #(when (= vi (:vi %)) %) fixture-specs))
+  (get @!specs vi))
 
 (defn layout-session-document
   "The only T2 owner that calls tl/layout. The result is material-local at
@@ -217,9 +219,11 @@
 (defn- fixture-tree [spec document]
   (let [[content-x content-y] (:origin spec)
         bounds (fixture-bounds spec (:layout (session-view spec document)))
-        root-data (addressed-data spec
-                                  (when (= :clipped-card (:kind spec))
-                                    {:gpu-clip? true}))
+        root-data (addressed-data
+                   spec
+                   (cond-> {}
+                     (= :clipped-card (:kind spec)) (assoc :gpu-clip? true)
+                     (:status document) (assoc :editing-status (:status document))))
         background-color (if (= :clipped-card (:kind spec))
                            [0.14 0.31 0.58 1.0]
                            [0.075 0.085 0.11 0.96])
@@ -230,11 +234,19 @@
                  {:x content-x :y content-y
                   :w (:w bounds) :h (:h bounds)}
                  :data (addressed-data spec)
-                 :children (editing-nodes spec document))]
+                 :children (editing-nodes spec document))
+        refusal-strip (when (:status document)
+                        (rect-node spec :t2/refusal
+                                   {:x 0.0 :y (max 0.0 (- (:h bounds) 4.0))
+                                    :w (:w bounds) :h 4.0}
+                                   [0.92 0.20 0.24 0.96]
+                                   {:editing-visual :refusal
+                                    :editing-status (:status document)}))]
     (rt/rt-node (:address spec) :group bounds
                 :clip? (= :clipped-card (:kind spec))
                 :data root-data
-                :children [background content])))
+                :children (cond-> [background content]
+                            refusal-strip (conj refusal-strip)))))
 
 (defn- upsert-tree! [vi]
   (when-let [spec (spec-for-vi vi)]
@@ -281,6 +293,7 @@
                                        :material/id (:address spec)
                                        :material/revision 1}}
                                (:container spec)))]
+      (swap! !specs assoc (:vi spec) spec)
       (swap! !documents assoc (:vi spec) document)
       (swap! !registrations assoc (:vi spec) registration))))
 
@@ -413,6 +426,83 @@
                        :blink-armed false)))
    nil))
 
+(defn booted? [] @!booted?)
+
+(defn install-commit-sink!
+  "Install the one owner of committed semantic T2 edit facts. Passing nil
+   removes it. The sink is never called for motion, preedit, or refused input."
+  [sink]
+  (reset! !commit-sink sink)
+  true)
+
+(defn- safe-plain-caret [text caret]
+  (let [length (tl/code-unit-count (str (or text "")))
+        caret (max 0 (min (long (or caret length)) length))]
+    (if (editing/surrogate-interior? text caret) (dec caret) caret)))
+
+(defn- rebase-open-session! [vi document caret]
+  (when (= vi (get-in @!session [:target :vi]))
+    (let [old @!session
+          state (editing/initial-state
+                 {:text (:text document)
+                  :revision (:revision document)
+                  :caret (editing/tagged-offset
+                          (safe-plain-caret (:text document) caret))
+                  :affinity :downstream})]
+      (reset! !session
+              (assoc old
+                     :state state
+                     :layout (:layout document)
+                     :document-layout (:layout document)
+                     :boundaries (:boundaries document)
+                     :view-text (:text document)
+                     :preedit-range nil
+                     :drag nil)))))
+
+(defn sync-document!
+  "Install or reconcile one retained T2 document under its stable VI.
+   `spec` owns temporary occurrence geometry; `value` carries the joined text,
+   plain UTF-16 caret, and optional durable-refusal status."
+  [{:keys [vi] :as spec} {:keys [text caret status]}]
+  (when (and @!booted? vi spec)
+    (let [text (str (or text ""))
+          old-document (get @!documents vi)
+          changed? (or (nil? old-document) (not= text (:text old-document)))
+          revision (if old-document
+                     (if changed? (inc (:revision old-document))
+                         (:revision old-document))
+                     0)
+          document (if changed?
+                     (assoc (document-record spec text revision) :status status)
+                     (assoc old-document :status status))]
+      (swap! !specs assoc vi spec)
+      (swap! !documents assoc vi document)
+      (if (contains? @!registrations vi)
+        (do
+          (when changed? (rebase-open-session! vi document caret))
+          (upsert-tree! vi))
+        (let [registration
+              (scene-runtime/register-face-instance!
+               vi (fixture-tree spec document)
+               (merge {:scale 1.0 :stratum :world
+                       :meta {:live-atoms? true
+                              :t2-real-block? (= :real-block (:kind spec))
+                              :material/id (:address spec)
+                              :material/revision 1}}
+                      (:container spec)))]
+          (swap! !registrations assoc vi registration)))
+      {:vi vi :text text :revision revision :status status})))
+
+(defn remove-document! [vi]
+  (when (= vi (get-in @!session [:target :vi]))
+    (close-session! :document-removed))
+  (when (contains? @!registrations vi)
+    (scene-runtime/close-instance! vi))
+  (swap! !registrations dissoc vi)
+  (swap! !documents dissoc vi)
+  (swap! !specs dissoc vi)
+  true)
+
 (defn- relayout-view!
   [old-session next-state]
   (let [vi (get-in old-session [:target :vi])
@@ -478,6 +568,14 @@
         (arm-blink! logical-time)
         (upsert-tree! vi)
         (position-ime-host!)
+        (when (and (seq (:ops result)) @!commit-sink)
+          (@!commit-sink
+           {:vi vi
+            :address (get-in old-session [:target :address])
+            :text (get-in (:state result) [:document :text])
+            :caret (get-in (:state result) [:caret :index])
+            :ops (:ops result)
+            :transition transition}))
         (receipt-assoc!
          :last-transition {:kind transition
                            :status (:status result)
@@ -709,8 +807,11 @@
 
 (defn boot!
   "Boot after chrome and frame runtime. Caller supplies the already-live font,
-   camera, and effective-transform providers; no provider fallback is hidden."
-  [{:keys [layout-provider camera-provider effective-provider]}]
+   camera, and effective-transform providers; no provider fallback is hidden.
+   Fixtures default on for the direct verifier. Product boot opts in only for
+   the composed seam demo."
+  [{:keys [layout-provider camera-provider effective-provider install-fixtures?]
+    :or {install-fixtures? true}}]
   (if @!booted?
     (publish-receipt!)
     (let [segmenter (segmentation/create-provider)
@@ -736,14 +837,17 @@
       (reset! !segmenter segmenter)
       (reset! !camera-provider camera-provider)
       (reset! !effective-provider effective-provider)
-      (install-fixtures!)
+      (reset! !specs {})
+      (when install-fixtures? (install-fixtures!))
       (events/install-keydown-intercept! handle-keydown!)
       (mouse/install-paste-intercept! handle-paste!)
       (render/install-due-deadline-consumer! consume-due-deadlines!)
       (render/install-session-layout-provider! session-layout-snapshot)
       (mount!)
       (reset! !booted? true)
-      (receipt-assoc! :fixtures (mapv :vi fixture-specs)
+      (receipt-assoc! :fixtures (if install-fixtures?
+                                  (mapv :vi fixture-specs)
+                                  [])
                       :intercepts-installed true
                       :due-consumer-installed true
                       :provider-shaped?
@@ -768,6 +872,8 @@
     (scene-runtime/close-instance! vi))
   (reset! !registrations {})
   (reset! !documents {})
+  (reset! !specs {})
+  (reset! !commit-sink nil)
   (reset! !mounted? false)
   (reset! !booted? false)
   (js-delete js/globalThis "__softlandEditingReceipt")

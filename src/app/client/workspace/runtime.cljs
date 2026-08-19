@@ -16,6 +16,7 @@
             [app.client.workspace.trail-face.wiring :as trail-wiring]
             [app.client.workspace.face-wiring :as face-wiring]
             [app.client.workspace.block-edit-wiring :as block-edit-wiring]
+            [app.client.workspace.t2-block-wiring :as t2-block-wiring]
             [app.client.workspace.runtime.render :as render]))
 
 (defn start-loop!
@@ -80,6 +81,13 @@
                    :!block-edit-result !block-edit-result
                    :!block-truth-request !block-truth-request
                    :!block-truth-data !block-truth-data})
+
+        ;; ── First real T2 floor member ─────────────────────────────
+        ;; Editing runtime is already booted by live-atoms before this loop.
+        ;; This hook owns only the served occurrence watches + semantic sink;
+        ;; write/query transport remains block-edit-wiring's.
+        _ (t2-block-wiring/install!
+            atoms {:!block-truth-data !block-truth-data})
 
         ;; dev observability: the runtime atoms map on window, read-only use
         ;; (drives live INT checks — G14(b)/G15 console equality + state

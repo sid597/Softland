@@ -2497,12 +2497,14 @@
 ;; ===========================================================================
 
 (defn- block-info
-  "The focused block's envelope identity {:id :document-container-id} from
+  "The focused block's envelope identity from
    served truth (BW-T7: the client computes nothing; O(1) via the context
    index — this runs per keystroke)."
   [unit-id]
   (when-let [b (get (:block-index @!world) unit-id)]
-    {:id (:id b) :document-container-id (:document-container-id b)}))
+    {:id (:id b)
+     :document-container-id (:document-container-id b)
+     :object-key (:object-key b)}))
 
 ;; narrow-echo samples (the G1 bar's measurement seam — envelope submit →
 ;; decision → confirmed render, ms). Read via window.__softland_atoms-style
@@ -2836,7 +2838,11 @@
       :editing
       (let [fid (:focus st)
             bi  (or (block-info fid) {:id fid})
-            {:keys [state envelope]} (ge/input st event bi (object-key*))]
+            ;; A conversation face can weave canvas/thread/episode containers.
+            ;; The served block's page provenance is the edit partition key;
+            ;; whole-face address is only a legacy fallback for local births.
+            {:keys [state envelope]}
+            (ge/input st event bi (or (:object-key bi) (object-key*)))]
         (reset! !ground-edit state)
         (when envelope (submit-envelope! envelope))
         (rebuild-block! fid))

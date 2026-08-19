@@ -53,11 +53,13 @@
     app.client.substrate.scene-tape-test
     app.client.substrate.snap-test
     app.client.workspace.block-edit-test
+    app.client.workspace.edit-transport-test
     app.client.workspace.ground-edit-test
     app.client.workspace.scene-store-test
     app.client.workspace.selection-test
     app.client.workspace.shaping-correction-test
     app.client.workspace.text-editing-test
+    app.client.workspace.t2-block-join-test
     app.client.workspace.text-layout-planes-test
     app.client.workspace.text-layout-test
     app.binding-dispatch-test

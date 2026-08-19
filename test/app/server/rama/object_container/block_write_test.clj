@@ -76,6 +76,10 @@
             object-key (:object-key summary)
             page       (bd/river-page {:oc-rt oc-rt :object-key object-key}
                                       bd/max-river-page-size)
+            served     (fp/serve {:oc-rt oc-rt}
+                                 {:face :conversation :address object-key
+                                  :params {}})
+            served-blocks (vec (mapcat :blocks (:turns served)))
             ;; distinct blocks per gate — no cross-gate mutable interference
             [bA bB bC bD] (mapv page [0 1 2 3])]
 
@@ -93,7 +97,10 @@
           (is (every? #(str/starts-with? (str (:document-container-id %))
                                           "oc:chat-message:")
                       page)
-              "consumer-1 river units carry a per-EVENT chat-message-id (PHASE_0)"))
+              "consumer-1 river units carry a per-EVENT chat-message-id (PHASE_0)")
+          (is (seq served-blocks))
+          (is (every? #(= object-key (:object-key %)) served-blocks)
+              "the real served face threads each page's writable object key"))
 
         (testing "G1 round-trip · first edit graduates; read-unit overlays edited content"
           (let [!epoch  (atom 0)
@@ -158,11 +165,16 @@
             (is (= "G2 revised body" (get-in units [(:unit-id bA) :text]))
                 "an edited unit serves the graduation overlay's CURRENT content")
             (is (true? (get-in units [(:unit-id bA) :found?])))
+            (is (= 1 (get-in units [(:unit-id bA) :request-nonce]))
+                "the response echoes the exact union-map nonce")
             (is (true? (get-in units [(:unit-id bC) :found?]))
                 "a never-edited unit is served too (union map — F1: no unit lost)")
+            (is (= 2 (get-in units [(:unit-id bC) :request-nonce])))
             (is (string? (get-in units [(:unit-id bC) :text])))
             (is (false? (get-in units ["oc:unit:nope" :found?]))
-                "unknown unit → honest found? false, no throw")))
+                "unknown unit → honest found? false, no throw")
+            (is (= 3 (get-in units ["oc:unit:nope" :request-nonce]))
+                "even absence is correlated to the requested read")))
 
         (testing "S2 fix · river-page serves the EDITED content for a graduated block (INT)"
           (let [page (bd/river-page {:oc-rt oc-rt :object-key object-key}

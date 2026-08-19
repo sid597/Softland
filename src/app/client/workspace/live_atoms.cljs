@@ -363,7 +363,12 @@
                               (get-in resources [:font-assets :layout-provider])
                               :camera-provider ground/camera-snapshot
                               :effective-provider
-                              scene-runtime/effective-transforms})
+                              scene-runtime/effective-transforms
+                              ;; Normal live product uses the real served-block
+                              ;; join. The two hardcoded T2 documents now exist
+                              ;; only for the composed three-flag demo; direct
+                              ;; verifier boot still defaults fixtures on.
+                              :install-fixtures? (seam-demo/enabled?)})
                             (seam-demo/install!)
                             (aset js/globalThis
                                   "__softlandLiveAtomsReceipt"

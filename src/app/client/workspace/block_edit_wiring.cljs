@@ -10,6 +10,13 @@
 ;; Pending decision continuations, keyed by request-id (real async path).
 (defonce ^:private !continuations (atom {}))
 
+(defn cancel-continuation!
+  "Dispose one caller-owned callback without cancelling the durable write.
+   A later accepted result still arms keyed truth through this wiring owner."
+  [request-id]
+  (swap! !continuations dissoc request-id)
+  true)
+
 ;; ---------------------------------------------------------------------------
 ;; The submit! seam
 ;; ---------------------------------------------------------------------------
@@ -21,33 +28,45 @@
    decision lands in !edit-result. depth-1 outbox by design: the open-loop
    keystroke grain (BW-T3) means the newest keystroke is the one that matters;
    the RESULT watch routes every decision by request-id so no ack is lost."
-  [!edit-outbox !edit-result]
-  ;; one watch, installed once, routes durable decisions to continuations.
-  ;; INT reconcile (LANE_A.md): submit-block-edit! returns the plain map
-  ;; {:accepted? :replay? :reason :errors :status :request-id ...} — adapt it
-  ;; to the seam's {:status :accepted|:rejected :reason} here, ONE place.
-  (add-watch !edit-result ::edit-ack
-             (fn [_ _ _ res]
-               (when-let [rid (:request-id res)]
-                 (when-let [done (get @!continuations rid)]
-                   (swap! !continuations dissoc rid)
-                   (done {:status (if (:accepted? res) :accepted :rejected)
-                          :reason (or (:reason res)
-                                      (some-> (:errors res) first :type))})))))
-  (fn submit! [env done]
-    ;; FALSIFY F3 bound: continuations for envelopes skipped by Electric
-    ;; conflation never fire; keep the newest 64 (request-id = client:seq,
-    ;; ordered by the numeric seq tail).
-    (swap! !continuations
-           (fn [conts]
-             (let [conts (if (>= (count conts) 64)
-                           (dissoc conts
-                                   (apply min-key
-                                          #(js/parseInt (subs % (inc (.lastIndexOf % ":"))) 10)
-                                          (keys conts)))
-                           conts)]
-               (assoc conts (:request-id env) done))))
-    (reset! !edit-outbox env)))
+  ([!edit-outbox !edit-result]
+   (atom-submit! !edit-outbox !edit-result nil))
+  ([!edit-outbox !edit-result arm-truth!]
+   ;; One result watch performs the causal sequence: allocate the keyed nonce,
+   ;; deliver it with the decision so the caller installs its wait barrier,
+   ;; then publish the read. A cancelled callback still publishes the refresh.
+   (add-watch !edit-result ::edit-ack
+              (fn [_ _ _ res]
+                (let [{:keys [request-nonce publish!]}
+                      (when arm-truth! (arm-truth! res))
+                      rid (:request-id res)
+                      done (get @!continuations rid)]
+                  (when done (swap! !continuations dissoc rid))
+                  (try
+                    (when done
+                      (done {:status (if (:accepted? res) :accepted :rejected)
+                             :reason (or (:reason res)
+                                         (some-> (:errors res) first :type))
+                             :request-id rid
+                             :target-id (:target-id res)
+                             :object-key (:object-key res)
+                             :replay? (:replay? res)
+                             :request-nonce request-nonce}))
+                    (finally
+                      (when publish! (publish!)))))))
+   (fn submit! [env done]
+     ;; FALSIFY F3 bound: continuations for envelopes skipped by Electric
+     ;; conflation never fire; keep the newest 64 (request-id = client:seq,
+     ;; ordered by the numeric seq tail).
+     (swap! !continuations
+            (fn [conts]
+              (let [conts (if (>= (count conts) 64)
+                            (dissoc conts
+                                    (apply min-key
+                                           #(js/parseInt (subs % (inc (.lastIndexOf % ":"))) 10)
+                                           (keys conts)))
+                            conts)]
+                (assoc conts (:request-id env) done))))
+     (reset! !edit-outbox env))))
 
 ;; §5 narrowing echo: unit-id → newest MATERIALIZED text, set from the
 ;; :block-truth single-unit pull on an accepted decision. Truth only (never
@@ -55,6 +74,7 @@
 ;; pruned when the full face pull catches up.
 (defonce !truth-overlay (atom {}))
 (defonce ^:private !submit (atom nil))
+(defonce ^:private !truth-nonce (atom 0))
 
 (defn install-block-edit-wiring!
   "Wire the edit seam into the runtime (called once from runtime.cljs):
@@ -67,32 +87,34 @@
   [atoms {:keys [!block-edit-outbox !block-edit-result
                  !block-truth-request !block-truth-data]}]
   (let [!face-context (:!face-context atoms)
+        ;; §5 narrowing trigger prepares, but does not publish, the read. The
+        ;; single result watch delivers its nonce to the continuation first;
+        ;; the returned publish! then resets the request atom. Replays and
+        ;; rejections changed no truth, so return nil and perform no pull.
+        arm-truth!
+        (when !block-truth-request
+          (fn [res]
+            (when (and (:accepted? res) (not (:replay? res)))
+              (let [nonce (swap! !truth-nonce inc)]
+                {:request-nonce nonce
+                 :publish!
+                 (fn []
+                   ;; FALSIFY F1: union-map conflation is lossless across
+                   ;; units. Keep newest eight; full pull is overflow recovery.
+                   (swap! !block-truth-request
+                          (fn [req]
+                            (let [units (-> (get-in req [:params :units] {})
+                                            (assoc (:target-id res) nonce))
+                                  units (if (> (count units) 8)
+                                          (dissoc units
+                                                  (key (apply min-key val units)))
+                                          units)]
+                              {:face :block-truth
+                               :address (:object-key res)
+                               :params {:units units}
+                               :epoch nonce}))))}))))
         submit! (when (and !block-edit-outbox !block-edit-result)
-                  (atom-submit! !block-edit-outbox !block-edit-result))
-        !nonce (atom 0)]
-    ;; §5 narrowing trigger — fires in the decision continuation path only,
-    ;; never from render (BW-T9). Replays/rejections changed no truth → no
-    ;; pull. FALSIFY F1 fix: the request carries a UNION map {unit → nonce},
-    ;; not a single unit — Electric conflates the request atom to its latest
-    ;; VALUE, and with a union map the latest value contains every armed unit,
-    ;; so a cross-unit burst can never lose a unit's final pull. Capped at 8
-    ;; entries (drop the lowest-nonce = oldest arm; its pull already executed
-    ;; and the clear-all prune below reconciles at the next full pull).
-    (when (and !block-edit-result !block-truth-request)
-      (add-watch !block-edit-result ::block-truth-pull
-                 (fn [_ _ _ res]
-                   (when (and (:accepted? res) (not (:replay? res)))
-                     (swap! !block-truth-request
-                            (fn [req]
-                              (let [units (-> (get-in req [:params :units] {})
-                                              (assoc (:target-id res) (swap! !nonce inc)))
-                                    units (if (> (count units) 8)
-                                            (dissoc units (key (apply min-key val units)))
-                                            units)]
-                                {:face    :block-truth
-                                 :address (:object-key res)
-                                 :params  {:units units}
-                                 :epoch   @!nonce})))))))
+                  (atom-submit! !block-edit-outbox !block-edit-result arm-truth!))]
     ;; narrowed truth arrives → overlay (truth only; the ground's truth lookup
     ;; and overlay watch rebuild the addressed block)
     (when !block-truth-data

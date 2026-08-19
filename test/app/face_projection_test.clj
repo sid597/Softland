@@ -26,11 +26,14 @@
    conversation-projection does). Two turns (e1 with 2 blocks, e2 with 1), river/time
    order preserved."
   [{:event-uuid "e1" :actor "human:external" :unit-id "u1" :form :human-message
-    :text "hello" :order [1 0 "a"] :time-ms 100 :source-id "s1" :part-path "message" :block-path "1a"}
+    :text "hello" :order [1 0 "a"] :time-ms 100 :source-id "s1" :part-path "message" :block-path "1a"
+    :object-key "chat:canvas"}
    {:event-uuid "e1" :actor "human:external" :unit-id "u2" :form :human-sub
-    :text "world" :order [1 0 "b"] :time-ms 100 :source-id "s1" :part-path "message" :block-path "1b"}
+    :text "world" :order [1 0 "b"] :time-ms 100 :source-id "s1" :part-path "message" :block-path "1b"
+    :object-key "chat:canvas"}
    {:event-uuid "e2" :actor "model:claude" :unit-id "u3" :form :assistant-text
-    :text "reply" :order [2 0 "a"] :time-ms 200 :source-id "s2" :part-path "text" :block-path "2a"}])
+    :text "reply" :order [2 0 "a"] :time-ms 200 :source-id "s2" :part-path "text" :block-path "2a"
+    :object-key "chat:thread"}])
 
 (deftest g13-pure-blocks->turns
   (testing "blocks group into turns by event-uuid, river order + speaker + kinds preserved"
@@ -41,9 +44,21 @@
       (is (= [1 2] (mapv :order turns)) "turn :order = event-order")
       (is (= 2 (count (:blocks (first turns)))) "e1 has both its blocks")
       (is (= ["u1" "u2"] (mapv :id (:blocks (first turns)))) "block ids + order preserved")
+      (is (= ["chat:canvas" "chat:canvas" "chat:thread"]
+             (mapv :object-key (mapcat :blocks turns)))
+          "each served block retains its exact source page key")
       (is (= [:human-message :human-sub] (mapv :kind (:blocks (first turns)))) "per-block kind")
       (is (= [:assistant-text] (mapv :kind (:blocks (second turns)))))
       (is (= "reply" (:text (first (:blocks (second turns)))))))))
+
+(deftest object-key-provenance-is-page-local
+  (is (= [{:unit-id "a" :object-key "chat:lane-a"}
+          {:unit-id "b" :object-key "chat:lane-a"}]
+         (fp/stamp-object-key "chat:lane-a"
+                              [{:unit-id "a"} {:unit-id "b"}])))
+  (is (= "chat:successor"
+         (:object-key (first (fp/stamp-object-key
+                              "chat:successor" [{:unit-id "same-lane"}]))))))
 
 (deftest g13-pure-until-ms-prefix
   (testing "apply-until-ms is prefix-consistent at block grain (G11 pure form)"
