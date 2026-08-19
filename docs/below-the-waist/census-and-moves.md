@@ -355,32 +355,159 @@ return by request id and repaint the same real `unit-id`; that is Pile 4.
 
 ## Pile 4 — the join (T2 eats real blocks)
 
+### Row 5 — real-block T2 join — CODEX-RULED: JOIN — CLOSED (2026-08-19)
+
 The one real editor is an island: flag-gated `?live-atoms=1`, fed by two
 hardcoded fixture documents (`editing_runtime.cljs:23-44`,
-`install-fixtures!` `:272-285`, called from `boot!` `:739`), no server data
-path (no FacePull, no fetch — checked). The move is not removal: feed it real
-facts — the keyed wire's first customer ("prove it by making a block").
-Landmines mapped: T2's mount rides `live_atoms.cljs`, which requires
-`ground.cljs` (camera provider `:364`); `seam_demo.cljs` dies with T2;
-T2-exclusive deps: `editing_segmentation.cljs`, `text_editing.cljc`
-(+ verifier). Shared deps (deleting them takes T2 down): containers, events,
-rect_tree, runtime/mouse, runtime/render, scene_runtime, scene_store,
-text_layout.
+`install-fixtures!` `:284-297`, called from `boot!` `:841`), no server data
+path (no FacePull, no fetch — checked). This row does not remove T2. It gives
+the existing text kernel its first real floor member and makes the hardcoded
+documents seam-demo fixtures in normal product boot. The renderer, verifier,
+examples, and every generic render family stay for their later type work.
 
-## Scene-loop verdict (adjudicated, unruled)
+The join is the smallest current-source bridge:
 
-Skeleton fits the settled shape (checked, static): keyed scene store with
-incrementally-maintained index, flat keyed renderer frame, closed family
-registry, identity-gated pools, camera outside the graph at frame clock,
-faces-as-data with "no logic ever" guard. Three misfits, each already in a
-pile: feeding (mirror atoms + whole pulls → pile 3), editing welded inline
-into `ground.cljs` (~5k lines; melts later into primitive verbs +
-cursor-entities + keymap-facts via the T2 join — pile 4), policies as
-constants (caps, sizes, visibility flags → hoist).
+- The conversation projection adds one fact it currently loses while weaving
+  lanes: every served block carries the actual `:object-key` from the page that
+  produced it. Canvas, thread, and successor-episode pages stamp their own key;
+  the client never guesses one from the face address or parses a Rama id.
+- T2 keeps one retained occurrence, `[:vi :t2-real-block unit-id]`. It retains
+  the current eligible unit while that unit remains served; otherwise it
+  flattens delivered turn/block vector order and chooses the final block that
+  has `:id`, string text, document-container id, and object key. No eligible
+  block means no occurrence.
+- A named local real-block spec supplies the visual facts the durable block
+  does not own: font, line height, baseline, origin, bounds, container, and
+  paint. This is a temporary T2 occurrence placement, not the Ground
+  occurrence and not durable geometry.
+- T2 remains the sole semantic edit kernel. Only a result with non-empty
+  semantic `:ops` becomes one edit proposal. Its tagged caret is converted at
+  the transport boundary to a plain UTF-16 offset; selection, composition,
+  motion, refused input, and no-ops emit no write.
+- The proposal uses the existing `block_edit/mint-envelope` and
+  `SubmitBlockEdit` artery unchanged in identity: actual object key, unit id,
+  exact document-container id, edit-client id, monotonic sequence, request id,
+  and idempotency key. Results change state only when they correlate to this
+  target/session's queued request. Unknown, prior-session, and other-target
+  results are ignored; rejection restores the last confirmed document and
+  shows the durable refusal.
+- Acceptance retires the queue through its sequence and keeps that accepted
+  projection visible while it waits for queryable truth. The already-present
+  union-map nonce is echoed per unit by `:block-truth`; the accepted callback
+  carries the exact nonce it armed. An older keyed response cannot release the
+  wait. Only the same unit with an equal-or-newer nonce may adopt server text.
+  While waiting, a whole face pull may change availability but cannot replace
+  the accepted text. After release, the whole pull is again recovery/oracle.
+- Installation owns and removes its watches and commit sink as one unit.
+  Target/session identity and its monotonic sequence survive an idempotent
+  install; deliberate target replacement disposes them together. The shared
+  continuation registry and truth overlay remain owned by block-edit wiring.
+  The edit client id contains one browser-session UUID, so a reload cannot
+  replay sequence zero under a prior page's durable idempotency identity.
+- The existing ground editor delegates its queue seed, projection, bounded
+  enqueue, decision, adoption, and settled tests to the same pure transport.
+  A copied second queue machine would not count as the join.
+- `editing-runtime/boot!` continues to install fixtures by default so the
+  verifier stays byte-for-byte callable. Normal live product boot passes the
+  triple-flag seam-demo predicate explicitly; only the composed seam demo asks
+  for the two hardcoded documents.
+
+Hostile Codex feedback — INGESTED. The first pass broke three clauses: a face
+can weave blocks from several object keys; timing-only truth admission permits
+a stale full pull; and a durable block carries no T2 layout facts. The second
+pass broke observation-order correlation: a delayed old keyed read can arrive
+after a newer acceptance. All four findings are accepted in the clauses above.
+The requested server changes are additive projection facts only; no Rama
+topology, storage ownership, renderer, or family registry changes.
+
+Waist member-walk: the floor now needs these fact-kinds because the real path
+uses them: a served occurrence has durable entity id, source object scope,
+document scope, membership and order; an edit proposal has target/session
+identity, semantic content, and sequence; a decision is durably accepted or
+rejected; queryable unit truth carries the unit id plus the request nonce that
+caused the read. The floor verbs are select an occurrence, propose an edit,
+correlate its decision, request keyed truth, admit causally-new truth, recover
+membership/order from the whole projection, and repaint the same occurrence.
+Caret, selection, IME preedit, keymap, temporary placement, focus, visibility,
+and refusal presentation remain above the waist.
+
+Close receipt — 2026-08-19:
+
+- Pure/client/projection bundle: 40 tests / 421 assertions / 0 failures / 0
+  errors. It includes the shared transport, T2 join, existing Ground and block
+  edit behavior, text editing, page-local projection provenance, scene-tape
+  fence, and both ordering tripwires: full-before-keyed and
+  old-keyed-before-new-keyed.
+- Durable Object Container path: 2 tests / 58 assertions / 0 failures / 0
+  errors. The served face carries its real writable object key and
+  `:block-truth` echoes each unit's exact request nonce while the prior
+  graduation, revision, rejection, replay, and WAL receipts remain green.
+- Browser: the hardware-backed product canvas served the same real unit as
+  Row 4. One insert and one backspace travelled through real request ids,
+  accepted decisions, and matching keyed nonces; each repainted the same
+  `unit-id` and `[:vi :t2-real-block unit-id]`. Final durable text returned
+  byte-for-byte to its original 6,842 UTF-16 units. A fresh page then served
+  that original text with no in-flight edit or truth wait and a UUID-bearing
+  client id.
+- Product compile: dev CLJS built 267 files / 2 compiled / 4 unchanged
+  inference warnings. Diff-check is green. Renderer, verifier, examples, and
+  generic families remain untouched; the scene-tape fence is green.
+
+## Scene-loop ruling — CODEX-RULED: KEEP THE FLOOR; HOIST/MELT ABOVE IT — CLOSED (2026-08-19)
+
+The skeleton is waist and stays: keyed scene store with an incrementally
+maintained index, flat keyed renderer frame, closed family registry,
+identity-gated pools, camera outside the graph at frame clock, and faces as
+data with the "no logic ever" guard. The moves found no honest deletion among
+those duties.
+
+The three misfits are no longer allowed to define the floor. Feeding now has
+one keyed real-unit path; whole pulls stay only as the live recovery/oracle
+until their remaining membership, ordering, tombstone, catch-up, and wake-up
+duties transfer. Editing has one shared pure intent transport and one real T2
+consumer; Ground's inline keymap, cursor/selection state, and temporary visual
+policy remain above-waist material to melt by replacement, not kernel verbs.
+Caps, sizes, placement, and visibility remain code defaults until a real
+material wearer forces each hoist; they are not generic floor fact-kinds.
+
+That closes this census. New product work may build concurrently above the
+waist against the member list below; changing the floor still requires a
+named duty and a real consumer, not a new product noun in the renderer or
+transport.
+
+## Phase close — the waist Sid now holds
+
+- Removed: the nine-file trail-face drawing island; its orphan action and
+  test-only dependency edges; the unreachable legacy face-editor shell; 22
+  dead npm roots; and the permanently invisible command/settings/sidebar/
+  agent renderer plumbing. Git retains their history.
+- Kept: Rama durable truth and rejection, the Electric transport, keyed scene
+  store/index, identity/order, generic render families and retained frame,
+  renderer/WebGPU/verifier/examples, T2 text semantics, and whole-pull
+  recovery duties not yet transferred.
+- Joined: a real served block now carries entity, object, and document scope
+  into the existing edit artery; accepted/rejected decisions correlate by
+  request identity; causally keyed truth repaints the same retained
+  occurrence.
+- Floor fact-kinds: durable entity id; occurrence membership and order;
+  object and document scope; material content/revision; proposed action with
+  client/session identity and sequence; durable accepted/rejected decision;
+  causally tagged keyed truth; executable scene entry with family, stable
+  identity/order, paint source, count, and live system token.
+- Floor verbs: select/serve an occurrence; propose and durably decide an
+  action; request, correlate, and admit keyed truth; recover membership/order;
+  compile faces-as-data into scene entries; incrementally maintain, schedule,
+  paint, and reverse-pick them. Notification wakes work but is not truth.
+- Above the waist: keymaps, caret/selection/IME, focus, temporary placement,
+  product visibility, debounce/caps/sizes, command/sidebar/settings nouns,
+  and product UI/UX composition. Those can now move in parallel without
+  silently becoming kernel law.
 
 ## Unknowns / caveats (honest edges)
 
-- Unruled rows remain static: require graph + call-site grep only.
+- This census has no unruled row. Any new removal candidate starts with a
+  fresh taken-path falsification; this close does not make old static absence
+  evidence stronger than it was.
 - Each removal checks its actual runner/build boundary at cut time; a test file
   or dependency edge is not declared dead from source grep alone.
 - The renderer verifier's baseline family-paint red above is carried as foreign
