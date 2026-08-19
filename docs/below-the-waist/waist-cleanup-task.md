@@ -166,16 +166,62 @@ move needed.
    editing-runtime, text-editing, live-atoms, live-edges (going) AND
    chrome-runtime, frame-runtime (parked). Strip the editor-dependent
    lanes; keep it guarding the parked machine and families.
-5. name the runtime-context path for the routes with `file_viewer.cljc`
-   gone (its boot delay holds oc-rt/machine-cut ctx + non-cluster WAL
-   replays + first-pull distill; cluster mode has WALs off and the live
-   distill is episode.clj's own post-turn road — each duty gets a keeper
-   or a dead-ruling with receipt)
+5. rehome the surviving routes' handles (RULED, no walk left — see the
+   file_viewer ruling below)
 6. cut — one receipt per row/group
-- `rama/trail_view.clj` goes with this pass (VERIFIED: mirror-pstates
-  only, no depots, no unique data — the hard rule does not protect it;
-  its only readers die here). Module undeploy is the named cluster op in
-  the same row.
+
+**The file_viewer ruling (SID-RULED 2026-08-19, closes v3's open walk).**
+TrailView lives. `file_viewer.cljc` goes whole. None of its IPC boot
+machinery is relocated. Surviving Jetty routes obtain their already-
+existing external-cluster handles directly from `cluster.clj`. The
+five-module deployment remains unchanged.
+
+Receipts (verified this sitting, executable greps):
+- **file_viewer has exactly two requirers**: `electric_flow.cljc:4` (dies
+  with the read wire) and `server_jetty.clj:12` (survives). Nothing else
+  in src/ requires it; the other matches are prose comments and test
+  fixtures.
+- **Every boot duty in its two delays already has a cluster-mode keeper**,
+  pre-existing and explicit (T9 — ingest is explicit in cluster mode):
+  handle bundles → `cluster/face-projection-runtime` (its own docstring:
+  "Cluster-mode replacement for file_viewer's face-projection-runtime
+  delay body … no launches, no boot replays, no harvest/distill") ·
+  machine-cut WAL replay → `cluster/machine-cut-bridge!` (cluster.clj:536)
+  · wear-log replay → `cluster/faces-ingest!` (:320) · block-edit WAL
+  replay + harvest/distill → `cluster/first-light-ingest!` (:513-517) ·
+  the LIVE distill → `episode/post-turn-distill!` (episode.clj:942,
+  called from the surviving utterance route, server_jetty.clj:757).
+  `fv/trail-rt` and `fv/face-rt` already state the IPC delay "is never
+  realized in cluster mode" — so in the receipt mode (LAND_CLUSTER unset)
+  the delay bodies are dead code today. Nothing to relocate; nothing goes
+  dark.
+- **The rehoming is a call-site swap, not new plumbing**: `server_jetty.clj`
+  already requires `app.server.rama.cluster :as cluster` (:23). The ten
+  `fv/face-ctx` sites become `(select-keys (cluster/face-projection-runtime)
+  [:oc-rt :arsenal-rt :rk-rt])` — that IS face-ctx's whole body. Named
+  sites: :533 and :661 (`/api/episode/utterance`), :1488 :1507 :1520 :1533
+  :1546 (`/api/matter-room/*`), :1559 (`/api/material/facet-master/drill`),
+  :1616 (`/api/episode/block-birth`), :1648 (`/api/episode/geometry`).
+- **One site is not a handle** and gets its own line: `fv/trail-runtime-ref`
+  at :1465 (`/api/relation/assert`) is a `reify IDeref/IPending` that
+  `resolve-trail-runtime-or-503` probes with `realized?` so a probe can
+  never trigger the IPC boot (validator A3). With the IPC branch gone that
+  hazard is gone: in cluster mode `isRealized` is just
+  `(some? (cluster/trail-runtime))`. At cut, `handle-assert-route` takes the
+  runtime-or-nil from `cluster/trail-runtime` and the 503 branch keys off
+  nil; the A3 probe rationale retires with the branch it guarded. Keep the
+  503 path and its test.
+- **TrailView is not merely permitted, it is REQUIRED.** v3's "its only
+  readers die here" was FALSE: `cluster.clj:145` requires
+  `trail-view/trail-view-module` inside `trail-view-bundle*`, and :168-170
+  query four of its topologies (`context-bundle`, `conversation-trail`,
+  `recent-file-activity`, `recent-source-activity`). `cluster/trail-runtime`
+  cannot be constructed without the deployed module — and it feeds
+  `/api/relation/assert` plus the `:rk-rt` half of `/api/episode/utterance`
+  (:533 destructures it, :591 and :643 pass it on). Undeploying TrailView
+  would break surviving routes. Test readers also survive
+  (`trail_view_test.clj`, `git_spine_test.clj`, `code_atoms_test.clj`).
+  No module undeploy in this task.
 
 **Note on seam_demo** (Sid asked what it is): a fixture page behind three
 URL flags that demos the render engine's seam package — it was the
@@ -186,12 +232,15 @@ ruling, acceptance evidence comes from the verifier or a rebuilt surface.
 
 ## Untouched throughout (the fence — named exactly)
 
-- **The five deployed modules** and all PStates: object-container (+
-  transcript-ops + transcript-identity + the four adapters) ·
-  relation-kernel · face-arsenal · the object-container runtime adapter
+- **The five deployed modules** and all PStates, named exactly as
+  `cluster.clj` names them: object-container · object-container-transcript-ops
+  (+ transcript-identity + the four adapters) · relation-kernel ·
+  **trail-view** · face-arsenal. Plus the object-container runtime adapter
   (`object_container/runtime.clj` — the admission road: depot → validate
-  → decide → revisions → keyed truth; the artery's surviving floor).
-  (trail-view leaves the fence by the no-data receipt above.)
+  → decide → revisions → keyed truth; the artery's surviving floor), which
+  is an adapter, not a sixth module. TrailView is inside the fence: it is
+  one of the five, `cluster/trail-runtime` requires its deployment, and
+  nothing in this task undeploys a module.
 - **Validators, named**: `object_container.clj` validate (~575-622) ·
   edit-effects (~1414) · decide (~2321-2483).
 - **The shaper**: `text_shaper.cljs` · `text_layout.cljc` ·
@@ -278,8 +327,10 @@ Refused (with reasons):
 ## For the falsification session
 
 Attack, in order of value:
-1. The file_viewer boot-duty walk (step 2.5) — every duty in its delay
-   named keeper-or-dead with receipt; the routes' oc-rt path with it gone.
+1. The file_viewer ruling's receipts (Step 2) — re-run the greps: two
+   requirers only; each boot duty's named cluster.clj keeper; the eleven
+   server_jetty call sites; `cluster.clj:145` as a live TrailView reader.
+   Attack the assert-route line hardest (the A3 probe retirement).
 2. The face_primitives split line — does the adapter-needed part drag
    Ground widgets back in?
 3. Step-1 taken-path proofs — trail-wiring vs Row 1 refusal reasons;
