@@ -369,6 +369,24 @@ which crossroads did we take."
 - **Ingest is idempotent and convergent everywhere:** deterministic ids,
   re-import safe by construction; a new import-key prefix registers its
   routing and ships a foreign-read gate.
+- **The editing waist (Sid, 2026-08-19).** The waist is what must exist as one
+  shared engine versus what rides on top as swappable material; the line cuts
+  through client and server alike — it is NOT client-vs-server. The old
+  editors are reference, not architecture: T2 is correct as the real-block
+  join and wrong as the editor to extend; Ground (the space-scene editor) is
+  the live editor we check against, never the one we grow — nothing new builds
+  on either. The editing floor — the only editor code that must exist as
+  shared engine — is four things: the shaper (text in, placement out; nobody
+  else measures), primitive edit verbs (insert / delete-range / replace-range
+  — the only ways text changes), validators (what makes an edit acceptable,
+  refused durably), and the commit artery (edit in, durable accepted/rejected
+  out, keyed truth back). Text, wrap, cursor, selection, keys, behavior
+  composition, placement, and presentation are material interpreted by that
+  floor, built above the waist. The next editor is built pristine (Sid) —
+  fresh beside the old ones, never grown from them; the old editors go when
+  the new one carries the job. Binding constraint on the pristine build: the
+  data already created (objects, turns, edits in durable truth) is
+  editor-independent, and the new editor serves it through the same artery.
 
 ## How engine work lands — the build model (settled 2026-07-26)
 
