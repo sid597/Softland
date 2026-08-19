@@ -138,12 +138,15 @@ alone declares nothing dead — census law)
 - `face_assembly.cljc` LIVES — required by the fenced
   `assembly_adapter.clj` and by `scene_store.cljc` (parked machine): a
   pure shared interpreter; passes the below-waist test.
-- `face_primitives.cljc` SPLITS — `assembly_adapter.clj` requires it, but
-  the file mixes that shared registry with Ground widgets (caret,
-  selection wash, folds, refusal strip). At cut: keep what the adapter
-  compiles against (named split, executor draws the line by requirer
-  need), the product builders go with Ground. "Stays regardless" (v2) was
-  wrong — material_portal.clj / anatomy_material.cljc matches are prose.
+- `face_primitives.cljc` SPLITS — and the line is PINNED, zero executor
+  judgment: `assembly_adapter.clj` uses exactly ONE var,
+  `face-primitives/registry` (assembly_adapter.clj:145, compiled against
+  by `face-assembly/compile-assembly`). Keep `registry` and every var
+  reachable from it; every var NOT reachable from `registry` (the Ground
+  widgets: caret, selection wash, folds, refusal strip, block builders)
+  goes with Ground. Mechanical closure walk at cut time. "Stays
+  regardless" (v2) was wrong — material_portal.clj /
+  anatomy_material.cljc matches are prose.
 
 **The transcript question (Sid's word, answered):** two pipelines exist.
 The REAL one is live and fenced: the four adapters + the transcript-ops
@@ -211,15 +214,19 @@ Receipts (verified this sitting, executable greps):
   runtime-or-nil from `cluster/trail-runtime` and the 503 branch keys off
   nil; the A3 probe rationale retires with the branch it guarded. Keep the
   503 path and its test.
-- **TrailView is not merely permitted, it is REQUIRED.** v3's "its only
-  readers die here" was FALSE: `cluster.clj:145` requires
-  `trail-view/trail-view-module` inside `trail-view-bundle*`, and :168-170
-  query four of its topologies (`context-bundle`, `conversation-trail`,
-  `recent-file-activity`, `recent-source-activity`). `cluster/trail-runtime`
-  cannot be constructed without the deployed module — and it feeds
-  `/api/relation/assert` plus the `:rk-rt` half of `/api/episode/utterance`
-  (:533 destructures it, :591 and :643 pass it on). Undeploying TrailView
-  would break surviving routes. Test readers also survive
+- **TrailView stays (Sid's ruling) — and the dependency is real but
+  construction-level, stated exactly:** `cluster.clj:145` resolves
+  `trail-view/trail-view-module` inside `trail-view-bundle*` and :168-170
+  open four of its query handles (`context-bundle`, `conversation-trail`,
+  `recent-file-activity`, `recent-source-activity`) while building the
+  composite bundle — remove the deployed module and
+  `cluster/trail-runtime` cannot be constructed, which breaks the
+  surviving `/api/relation/assert` route at boot. But **no surviving
+  production code invokes those four handles**: their only production
+  invoker was file_viewer's trail lanes (file_viewer.cljc:116-128 →
+  trail_view.clj read fns), which go. Precise status: live deployment
+  dependency through composite handle construction; no surviving
+  production query invocation traced. Test readers survive
   (`trail_view_test.clj`, `git_spine_test.clj`, `code_atoms_test.clj`).
   No module undeploy in this task.
 
@@ -254,9 +261,13 @@ ruling, acceptance evidence comes from the verifier or a rebuilt surface.
 - **The server material organs, named**: facet_master · material_truth ·
   material_circulation · machine_cut · verb_release · code_atoms ·
   cascade · material_portal.
-- **The episode lane**: `server_jetty.clj` · `episode.clj` + the
-  transcript helpers they require. The only write surface during the
-  dark.
+- **The episode lane**: `episode.clj` + the transcript helpers it
+  requires, untouched. `server_jetty.clj` SURVIVES BUT IS MODIFIED at the
+  boot/handle seams only: the eleven fv call sites swap to cluster.clj
+  handles, and the Electric websocket middleware goes with the client
+  (server_jetty.clj:1696-1698 upgrade intercept + :51-65 middleware);
+  every route body is otherwise untouched. The only write surface during
+  the dark.
 - **Parked**: scene + GPU machine · plug-in render families · the draft
   transcript pipeline.
 
@@ -274,19 +285,48 @@ join). The cut commits are the bookmarks.
 Cluster mode for all receipts: the normal external Rama cluster
 (LAND_CLUSTER unset — the default boot; NOT LAND_CLUSTER=0 in-memory).
 
-1. Server compiles and boots clean: `clj -M:dev` starts jetty with no
-   client bundle errors (dev entry reduced to server start).
+1. Server compiles and boots clean: `clj -M:dev -m dev` (package.json:7
+   "build" — NOT bare `clj -M:dev`) starts jetty with no client bundle
+   errors (dev entry reduced to server start).
 2. `npm run verify:text-layout` green (shaper floor guard).
 3. `npm run verify:render-engine` green after the verifier repair (parked
    machine + families still guarded).
-4. An agent writes through the routes — one turn (`/api/episode/
-   utterance`), one block (`/api/episode/block-birth`), one geometry
-   settle (`/api/episode/geometry`) — each acked durable.
-5. Full restart (app JVM + Rama cluster processes): every hard-rule kind
-   reads back by point read through `object_container/runtime.clj` /
-   kernel readers at the REPL — text, revisions, decisions, turns,
-   placement cells, camera cells, wear, relations, offsets. One list
-   names the door of every surviving non-parked file.
+4. Writes through the routes, exact bodies, stable IDs (EDN bodies —
+   `parse-edn-body`; field lists from the handlers, server_jetty.clj:497,
+   1613, 1646):
+   - block: `curl -s -X POST localhost:8080/api/episode/block-birth
+     -d '{:block-id "waist-close-block" :text "cleanup close receipt"
+     :time-ms 1755640000000 :position {:x 100.0 :y 100.0}}'` → `:accepted`,
+     note the returned unit-id.
+   - geometry: `curl -s -X POST localhost:8080/api/episode/geometry
+     -d '{:settle-id "waist-close-settle" :cells [{:unit-id "<unit-id
+     from the birth ack>" :x 240.0 :y 180.0}] :camera {:x 0.0 :y 0.0
+     :zoom 1.0} :time-ms 1755640000001}'` → `:accepted`.
+   - turn: `curl -sN -X POST localhost:8080/api/episode/utterance
+     -d '{:turn-id "waist-close-turn" :content-text "close receipt turn"
+     :time-ms 1755640000002}'` → the receipt is the FIRST SSE event (the
+     turn-durable ack, emitted BEFORE the agent spawns); the full agent
+     run is not part of this receipt.
+5. Full restart (app JVM + the external Rama cluster processes,
+   LAND_CLUSTER unset), then point reads at the REPL over
+   `(cluster/face-projection-runtime)` / `(cluster/trail-runtime)`
+   handles — one named reader per hard-rule kind:
+   - block text + revision + decision: `ocr/read-unit`,
+     `ocr/read-current-revision`, `ocr/read-decision`
+     (object_container/runtime.clj:382, :372, :191) for
+     "waist-close-block"'s unit-id and the geometry/turn request ids.
+   - turn + placement + camera cells: point read of
+     `$$transcript-conversation-projection` through the oc handle (the
+     cells `geo:unit:<sha8>` for the settled unit, `"geo:camera"`, and
+     the `:episode-turn` cell for "waist-close-turn").
+   - wear: `face-arsenal/read-wear-count` (face_arsenal.clj:268) for
+     `:outline-face` — count unchanged across restart.
+   - relations: `rk/read-relations-for-targets`
+     (relation_kernel.clj:947) over a known target from the starter
+     culture.
+   - offsets: the transcript-ops offsets handle
+     (object_container/runtime.clj:168-172) for one known ingested file.
+   One list names the door of every surviving non-parked file.
 
 Then, and only then, building on top begins — a new act, not this task.
 
@@ -329,9 +369,11 @@ Refused (with reasons):
 Attack, in order of value:
 1. The file_viewer ruling's receipts (Step 2) — re-run the greps: two
    requirers only; each boot duty's named cluster.clj keeper; the eleven
-   server_jetty call sites; `cluster.clj:145` as a live TrailView reader.
-   Attack the assert-route line hardest (the A3 probe retirement).
-2. The face_primitives split line — does the adapter-needed part drag
+   server_jetty call sites; TrailView as a construction-level dependency
+   (handle opening, no surviving query invocation). Attack the
+   assert-route line hardest (the A3 probe retirement).
+2. The pinned face_primitives split — walk the closure from
+   `face-primitives/registry`: does anything reachable from it drag
    Ground widgets back in?
 3. Step-1 taken-path proofs — trail-wiring vs Row 1 refusal reasons;
    kernel.clj's zero-requirers re-check at cut time.
