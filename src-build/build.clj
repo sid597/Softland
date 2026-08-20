@@ -1,79 +1,34 @@
 (ns build
-  (:require
-    [build.slug-font :as slug-font]
-    [clojure.edn :as edn]
-    [clojure.tools.build.api :as b]
-    [clojure.tools.logging :as log]
-    [shadow.cljs.devtools.api :as shadow-api]
-    [shadow.cljs.devtools.server :as shadow-server]))
+  (:require [build.slug-font :as slug-font]
+            [clojure.edn :as edn]
+            [clojure.tools.build.api :as b]
+            [clojure.tools.logging :as log]))
 
-(def electric-user-version (b/git-process {:git-args "describe --tags --long --always --dirty"}))
-
-(defn build-client ; invoke with `clj -X ...`
-  "build Electric app client, invoke with -X
-  e.g. `clojure -X:build:prod build-client :debug false :verbose false :optimize true`
-  Note: Electric shadow compilation requires application classpath to be available, so do not use `clj -T`"
-  [argmap]
-  (let [{:keys [optimize debug verbose]
-         :or {optimize true, debug false, verbose false}
-         :as config}
-        (assoc argmap :hyperfiddle.electric/user-version electric-user-version)]
-    (b/delete {:path "resources/public/js"})
-    (b/delete {:path "resources/electric-manifest.edn"})
-
-    ; bake user-version into artifact, cljs and clj
-    (b/write-file {:path "resources/electric-manifest.edn" :content config})
-
-    ; "java.lang.NoClassDefFoundError: com/google/common/collect/Streams" is fixed by
-    ; adding com.google.guava/guava {:mvn/version "31.1-jre"} to deps,
-    ; see https://hf-inc.slack.com/archives/C04TBSDFAM6/p1692636958361199
-    (shadow-server/start!)
-    (as->
-      (shadow-api/release :prod
-        {:debug   debug,
-         :verbose verbose,
-         :config-merge
-         [{:compiler-options {:optimizations (if optimize :advanced :simple)}
-           :closure-defines  {'hyperfiddle.electric-client/ELECTRIC_USER_VERSION electric-user-version}}]})
-      shadow-status (assert (= shadow-status :done) "shadow-api/release error")) ; fail build on error
-    (shadow-server/stop!)
-    (log/info "Client build successful. Version:" electric-user-version)))
+(def build-version
+  (b/git-process {:git-args "describe --tags --long --always --dirty"}))
 
 (def class-dir "target/classes")
 
 (defn uberjar
-  [{:keys [optimize debug verbose ::jar-name, ::skip-client]
-    :or {optimize true, debug false, verbose false, skip-client false}
-    :as args}]
-  ; careful, shell quote escaping combines poorly with clj -X arg parsing, strings read as symbols
+  [{:keys [::jar-name] :as args}]
   (log/info `uberjar (pr-str args))
   (b/delete {:path "target"})
-
-  (when-not skip-client
-    (build-client {:optimize optimize, :debug debug, :verbose verbose}))
-
   (b/copy-dir {:target-dir class-dir :src-dirs ["src" "src-prod" "resources"]})
-  (let [jar-name (or (some-> jar-name str) ; override for Dockerfile builds to avoid needing to reconstruct the name
-                   (format "target/electricfiddle-%s.jar" electric-user-version))
+  (let [jar-name (or (some-> jar-name str)
+                     (format "target/softland-%s.jar" build-version))
         aliases [:prod]]
     (log/info `uberjar "included aliases:" aliases)
     (b/uber {:class-dir class-dir
              :uber-file jar-name
-             :basis     (b/create-basis {:project "deps.edn" :aliases aliases})})
+             :basis (b/create-basis {:project "deps.edn" :aliases aliases})})
     (log/info jar-name)))
 
 (defn module-jar
-  "Slim source jar for `rama deploy` (durable-ground CONTRACT §7 P2, traps
-   T4/T5): server module sources + non-rama deps. NO client build; NO
-   com.rpl/rama — the cluster provides it, so the dep tree is resolved with
-   rama removed at the root and excluded from rama-helpers (Maven
-   provided-scope equivalent). Invoke: clj -X:build module-jar
-   Gate (T4): jar < 150MB and no rpl/rama impl classes inside."
+  "Slim source jar for Rama deployment; excludes the cluster-provided Rama
+   implementation and the server environment namespace."
   [_argmap]
   (b/delete {:path "target/land-modules"})
   (b/delete {:path "target/land-modules.jar"})
-  ;; env.clj carries secrets and no module requires it — it must never ride
-  ;; into a deploy artifact (hard rule; belt regardless of jar staying local).
   (b/copy-dir {:target-dir "target/land-modules/classes" :src-dirs ["src"]
                :ignores [#"env\.clj"]})
   (let [deps (-> (slurp "deps.edn")
@@ -83,17 +38,15 @@
                             assoc :exclusions ['com.rpl/rama]))]
     (b/uber {:class-dir "target/land-modules/classes"
              :uber-file "target/land-modules.jar"
-             :basis     (b/create-basis {:project deps})})
+             :basis (b/create-basis {:project deps})})
     (log/info "module jar: target/land-modules.jar")))
 
 (defn build-slug-font
-  "Generate Slug assets for the default DejaVu Sans Mono font bundle.
-   Invoke with `clj -X:build build-slug-font`."
+  "Generate Slug assets for the default DejaVu Sans Mono font bundle."
   [_argmap]
   (let [result (slug-font/write-font-assets! (slug-font/default-config))]
     (log/info "Slug font assets generated:" (pr-str result))
     result))
 
-;; clj -X:build:prod build-client
 ;; clj -X:build:prod uberjar :build/jar-name "app.jar"
 ;; java -cp app.jar clojure.main -m prod

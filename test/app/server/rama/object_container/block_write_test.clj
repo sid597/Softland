@@ -1,7 +1,8 @@
 (ns app.server.rama.object-container.block-write-test
   "block-write Lane A gates (CONTRACT §8: G1-G5 IPC half, G9). Exercises the REAL
    object-container stream module through the REAL server entry point
-   `app.electric-flow/submit-block-edit!` — no new module/depot/topology (BW-T1).
+   `app.server.block-edit/submit-block-edit!` — no new module/depot/topology
+   (BW-T1).
 
    Fixture: the checked-in deterministic transcript fixture (reused from
    block-distiller-test) ingested + distilled into a real conversation river page —
@@ -16,7 +17,7 @@
    'Physical (V1) reads vs public queries')."
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.string :as str]
-            [app.electric-flow :as ef]
+            [app.server.block-edit :as block-edit]
             [app.server.rama.face-projection :as fp]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.runtime :as ocr]
@@ -104,7 +105,7 @@
 
         (testing "G1 round-trip · first edit graduates; read-unit overlays edited content"
           (let [!epoch  (atom 0)
-                res     (ef/submit-block-edit!
+                res     (block-edit/submit-block-edit!
                          oc-rt
                          (edit-env object-key bA "G1 edited body"
                                    {:request-id "bw-g1" :edit-client-id "sid-c1"
@@ -132,7 +133,7 @@
                 cid       (:target-id unit0)
                 revs0     (revision-count oc-rt cid)
                 !epoch    (atom 0)
-                res       (ef/submit-block-edit!
+                res       (block-edit/submit-block-edit!
                            oc-rt
                            (edit-env object-key bA "G2 revised body"
                                      {:request-id "bw-g2" :edit-client-id "sid-c1"
@@ -200,13 +201,13 @@
                                   :edit-client-id "sid-c3" :edit-seq 1
                                   :time-ms 100200 :actor sid-actor})
                 !e1    (atom 0)
-                r1     (ef/submit-block-edit! oc-rt env !e1)
+                r1     (block-edit/submit-block-edit! oc-rt env !e1)
                 unit   (ocr/read-unit oc-rt (:unit-id bD))
                 cid    (:target-id unit)
                 crow0  (container-physical oc-rt cid)   ;; physical snapshot BEFORE replay
                 revs0  (revisions-physical oc-rt cid)
                 !e2    (atom 0)
-                r2     (ef/submit-block-edit! oc-rt env !e2) ;; identical envelope
+                r2     (block-edit/submit-block-edit! oc-rt env !e2) ;; identical envelope
                 crow1  (container-physical oc-rt cid)   ;; physical snapshot AFTER replay
                 revs1  (revisions-physical oc-rt cid)]
             (is (true? (:accepted? r1)))
@@ -219,7 +220,7 @@
 
         (testing "G4 stale ordering · out-of-order edit-seq is a durable :edit/stale"
           (let [!e0  (atom 0)
-                _    (ef/submit-block-edit!
+                _    (block-edit/submit-block-edit!
                       oc-rt
                       (edit-env object-key bB "G4 seq-5 body"
                                 {:request-id "bw-g4-a" :edit-client-id "sid-c4"
@@ -229,7 +230,7 @@
                 cid  (:target-id unit)
                 crow0 (container-physical oc-rt cid)
                 !e1  (atom 0)
-                res  (ef/submit-block-edit!
+                res  (block-edit/submit-block-edit!
                       oc-rt
                       ;; seq 3 <= last seq 5, different idempotency → stale (BW-T8 context)
                       (edit-env object-key bB "G4 stale body"
@@ -244,7 +245,7 @@
 
         (testing "G5 refusal · actor without :object/edit is rejected durably, reason surfaced"
           (let [!e   (atom 0)
-                res  (ef/submit-block-edit!
+                res  (block-edit/submit-block-edit!
                       oc-rt
                       (edit-env object-key bC "G5 unauthorized body"
                                 {:request-id "bw-g5" :edit-client-id "intr-c5"
@@ -289,7 +290,7 @@
                 object-key (:object-key summary)
                 block (first (bd/river-page {:oc-rt oc-rt :object-key object-key}
                                             bd/max-river-page-size))
-                res (ef/submit-block-edit!
+                res (block-edit/submit-block-edit!
                      oc-rt
                      (edit-env object-key block "G8 persisted body"
                                {:request-id "bw-g8-restart"

@@ -550,37 +550,16 @@
       (finally
         (ocr/close-object-container-runtime! runtime)))))
 
-(deftest second-wearer-left-no-parallel-artery-or-old-policy-literals
-  (let [ground (slurp "src/app/client/workspace/ground.cljs")
-        wiring
-        (str (slurp "src/app/client/workspace/face_wiring.cljs")
-             (slurp "src/app/electric_flow.cljc")
-             (slurp "src/app/client/workspace/runtime.cljs"))
-        projection
-        (slurp "src/app/server/rama/face_projection.clj")]
-    (is (not (str/includes? ground "(def ^:private block-pad")))
-    (is (not (str/includes? ground "(def ^:private attention-border")))
-    (is (not (str/includes? ground "(def ^:private fold-default")))
-    (is (not (str/includes? ground "(def ^:private reply-gap")))
-    (is (not (str/includes? ground "34.0")))
-    (is (not (str/includes? ground "{:x 60.0 :y 60.0}")))
-    (is (not (str/includes? ground "reach (* 3")))
-    (is (not (str/includes? ground "(max 32")))
-    (is (not (str/includes? ground "fallback 80")))
-    (is (str/includes? ground
-                       "(not (:placement-derived? live))"))
-    (is (str/includes? ground
-                       ":wrap-source-columns (reply-source-columns text)"))
-    (is (str/includes? ground "(reconcile! ctx)"))
-    (is (not (str/includes? ground "[0.45 0.52 0.66 0.55]")))
-    (is (not (str/includes? ground "\"thinking+tools\"")))
-    (is (not (str/includes? ground "\" — click to show\"")))
-    (is (not (str/includes? ground "\" — click to hide\"")))
-    (is (not (str/includes? wiring "!attention-material")))
-    (is (not (str/includes? wiring ":attention-material")))
-    (is (not (str/includes? wiring "!provenance-material")))
-    (is (not (str/includes? projection ":provenance-material")))
-    (is (not
-         (.exists
-          (io/file
-           "src/app/server/rama/object_container/provenance_material.clj"))))))
+(deftest the-retired-product-client-cannot-reopen-a-parallel-artery
+  (doseq [path ["src/app/client/workspace/ground.cljs"
+                "src/app/client/workspace/face_wiring.cljs"
+                "src/app/electric_flow.cljc"
+                "src/app/client/workspace/runtime.cljs"]]
+    (is (not (.exists (io/file path))) path))
+  (is (not (str/includes?
+            (slurp "src/app/server/rama/face_projection.clj")
+            ":provenance-material")))
+  (is (not
+       (.exists
+        (io/file
+         "src/app/server/rama/object_container/provenance_material.clj")))))

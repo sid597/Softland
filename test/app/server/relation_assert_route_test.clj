@@ -5,21 +5,23 @@
 ;;
 ;; Seams under test (all public in app.server-jetty):
 ;;   assert-relation-handler        — validate → write-ahead → depot append → response
-;;   resolve-trail-runtime-or-503   — realized?-guarded runtime access (never boots)
+;;   resolve-trail-runtime-or-503   — direct external-cluster availability
 ;;   handle-assert-route            — route composition (resolve → parse → delegate)
 ;;
 ;; The handler takes {:runtime :log-path} so tests drive it with a tests-only
 ;; relation runtime (rk/start-relation-runtime!) + a tmp log path — the real
-;; fv/trail-view-runtime defonce is NEVER forced here (requiring app.server-jetty
-;; does not boot it; the 503 test uses a throwaway delay).
+;; cluster runtime is supplied directly; the 503 test supplies nil.
 
 (ns app.server.relation-assert-route-test
   (:require [app.server-jetty :as sj]
+            [app.server.episode :as episode]
+            [app.server.rama.cluster :as cluster]
             [app.server.rama.relation-kernel :as rk]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.string :as str]
-            [clojure.test :refer [deftest is testing]]))
+            [clojure.test :refer [deftest is testing]])
+  (:import (java.io ByteArrayInputStream)))
 
 (defn- tmp-log-path
   "A fresh, non-existent tmp path (parent = java.io.tmpdir, which exists). Never
@@ -27,6 +29,31 @@
   []
   (str (System/getProperty "java.io.tmpdir")
        "/softland-assert-route-" (System/currentTimeMillis) "-" (rand-int 1000000) ".ednl"))
+
+(deftest curl-default-form-content-type-preserves-product-edn-body
+  (let [body "{:block-id \"waist-close-block\" :text \"cleanup close receipt\" :time-ms 1755640000000 :position {:x 100.0 :y 100.0}}"
+        seen (atom nil)]
+    (with-redefs [cluster/face-projection-runtime
+                  (constantly {:oc-rt :receipt-runtime})
+                  episode/append-utterance!
+                  (fn [runtime args]
+                    (reset! seen [runtime args])
+                    {:status :accepted :unit-ids ["du:receipt"] :decision {}})]
+      (let [response ((sj/http-middleware)
+                      {:request-method :post
+                       :uri "/api/episode/block-birth"
+                       :headers {"content-type" "application/x-www-form-urlencoded"}
+                       :content-type "application/x-www-form-urlencoded"
+                       :body (ByteArrayInputStream. (.getBytes body "UTF-8"))})]
+        (is (= 200 (:status response)))
+        (is (= [:receipt-runtime
+                {:text "cleanup close receipt"
+                 :turn-id "waist-close-block"
+                 :time-ms 1755640000000
+                 :position {:x 100.0 :y 100.0}
+                 :scene-context nil
+                 :conversation-id nil}]
+               @seen))))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
 ;;  G8/PW-1 — valid assert: 200, edge materializes, one tag-free EDN log line.
@@ -212,21 +239,14 @@
         (io/delete-file log-path true)))))
 
 ;; ═══════════════════════════════════════════════════════════════════════════
-;;  G8/PW-4 — unrealized runtime: 503, and the delay is NEVER forced (a probe
-;;  must not trigger cluster boot). The throwaway delay throws if forced, so a
-;;  clean :unavailable / 503 with !forced? still false is the no-boot proof.
+;;  G8/PW-4 — unavailable external-cluster runtime: 503.
 ;; ═══════════════════════════════════════════════════════════════════════════
-(deftest unrealized-runtime-returns-503-without-booting
-  (let [!forced?   (atom false)
-        never-boot (delay (reset! !forced? true)
-                          (throw (ex-info "delay forced — a probe triggered cluster boot" {})))]
-    (testing "resolver reports unavailable without forcing the delay"
-      (let [[status _] (sj/resolve-trail-runtime-or-503 never-boot)]
-        (is (= :unavailable status))
-        (is (not @!forced?) "delay never forced (no cluster boot)")))
-    (testing "route returns 503, still without booting"
-      (let [resp (sj/handle-assert-route {:body nil} never-boot (tmp-log-path))
-            body (edn/read-string (:body resp))]
-        (is (= 503 (:status resp)))
-        (is (false? (:ok body)))
-        (is (not @!forced?) "delay still never forced")))))
+(deftest unavailable-runtime-returns-503
+  (testing "resolver reports nil as unavailable"
+    (is (= :unavailable
+           (first (sj/resolve-trail-runtime-or-503 nil)))))
+  (testing "route returns 503"
+    (let [resp (sj/handle-assert-route {:body nil} nil (tmp-log-path))
+          body (edn/read-string (:body resp))]
+      (is (= 503 (:status resp)))
+      (is (false? (:ok body))))))

@@ -1,24 +1,10 @@
 {:nrepl {:port 9002}
  :dependencies [[cider/cider-nrepl "0.24.0"]]
  :builds
- {:dev  {:target :browser
-         :devtools {:watch-dir "resources/public"
-                    :loader-mode :default}
-         :output-dir "resources/public/js"
-         :asset-path "/js"
-         :modules {:main {:entries [dev]
-                          :init-fn dev/start!}}
-         :build-hooks [(hyperfiddle.electric.shadow-cljs.hooks3/reload-clj)]}
-  :prod {:target :browser
-         :output-dir "resources/public/js"
-         :asset-path "/js"
-         :module-hash-names true
-         :modules {:main {:entries [prod] :init-fn prod/start!}}}
-
+ {:render-verifier
   ;; Permanent W0-A render-engine verifier. The Puppeteer runner serves this
   ;; release build from a synthetic secure origin and drives the REAL renderer
   ;; pipelines; no product server or product surface participates.
-  :render-verifier
   {:target :browser
    :output-dir "target/render-verifier/js"
    :asset-path "/js"

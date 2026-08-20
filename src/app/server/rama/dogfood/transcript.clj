@@ -19,9 +19,14 @@
            (java.util UUID)))
 
 ;; ────────────────────────────────────────────────────────────────────────────────
-;;   TRANSCRIPT KERNEL
+;;   LIVE TRANSCRIPT HELPERS + PARKED DRAFT MODULE
 ;;
-;;   The Transcript Kernel is a passive observer of external chat logs: it
+;;   Episode and ingest-watcher call sites use the source parsing/identity
+;;   helpers in this namespace today. `transcript-module` and its IPC runtime
+;;   remain a parked draft and are not one of the five deployed land modules;
+;;   deployed file-offset truth lives in ObjectContainer transcript-ops.
+;;
+;;   The parked module is a passive observer of external chat logs: it
 ;;   watches transcript files produced by CLI tools such as Claude and Codex,
 ;;   harvests past content or tails live appends, parses and redacts each
 ;;   line, deduplicates source material against a line ledger, and indexes

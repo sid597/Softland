@@ -355,12 +355,3 @@
                              :refusal nil
                              :selection [1 8]}))
       (is (= tree-a tree-b)))))
-
-(deftest w8-defers-material-rebuild-during-a-pointer-gesture
-  (let [source (slurp "src/app/client/workspace/ground.cljs")]
-    (is (true? (str/includes? source "!pending-material-rederive?")))
-    (is (true? (str/includes? source "(= :idle (:phase @!pointer))")))
-    (is (true? (str/includes? source
-                              "preview ended: served base changed")))
-    (is (true? (str/includes? source
-                              "(reset! !pending-material-rederive? false)")))))

@@ -605,7 +605,6 @@
    deterministic constant anywhere in a production path fails this gate and has
    to be argued for explicitly."
   {"src/app/server/episode.clj" 1
-   "src/app/file_viewer.cljc" 1
    "src/app/server/rama/cluster.clj" 3
    "src/app/server/rama/object_container/facet_master.clj" 2})
 

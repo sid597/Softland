@@ -25,8 +25,7 @@
             [app.client.substrate.frame-delta :as frame-delta]
             [app.client.substrate.frame-effects :as frame-effects]
             [app.client.workspace.scene-store :as ss]
-            [app.client.workspace.containers :as ctn]
-            [app.client.workspace.events :as ev]))
+            [app.client.workspace.containers :as ctn]))
 
 ;; ---------------------------------------------------------------------------
 ;; State — the ONE store + the ONE registry (CONTRACT §4/§5)
@@ -36,6 +35,12 @@
 (defonce !containers-registry (atom (ctn/empty-registry)))
 (defonce ^:private !frame-container-delta-journal
   (atom {:high-water 0 :deltas []}))
+
+(defn- maybe-snap [v dpr snap?]
+  (if snap?
+    (let [scale (or dpr 1)]
+      (/ (js/Math.round (* v scale)) scale))
+    v))
 
 (defn- mint-container-delta! [delta]
   (when delta
@@ -150,7 +155,7 @@
      :content-w    (- (:width viewport) 32)
      :line-height  (js/Math.round (* font-size 1.4))
      :font-size    font-size
-     :char-advance (ev/maybe-snap (* font-size (:char-width active-font)) dpr snap?)
+     :char-advance (maybe-snap (* font-size (:char-width active-font)) dpr snap?)
      :text-provider (:layout-provider active-font)
      :now-ms       (or (:face/rendered-at-ms projection) 0)}))
 

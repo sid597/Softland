@@ -389,6 +389,21 @@ Do NOT reopen: the ruling section, the hard rule, the four-door test,
 the parked groups, all-lights-out. Findings against them file as flags
 for Sid, never as edits.
 
+## Execution thread (2026-08-20)
+
+Sid ruling: block-as-atom, the kernel data model, is waist and remains. The
+current block render channel — the sixteen registry-reachable builders plus
+the block words in the anatomy vocabulary — remains only because the kept
+TrailView, anatomy, and verifier-golden faces render through it today. It is
+not future presentation architecture: when that layer draws blocks, delete
+this channel whole, as Ground was deleted. No migration, no second copy, one
+cut-over.
+
+Custody overlap: the pre-cut user diff in `editing_runtime.cljs` moved one
+closing parenthesis onto the `:preedit-range` expression (2 additions / 2
+deletions). It was inspected and recorded here before the contract deletes the
+whole file; it was neither restored nor silently overwritten.
+
 Pointers: `census-and-moves.md` (historical receipt) · `docs/decisions.md`
 "The editing waist" (floor of four + cleanup-first tail, landed this
 sitting) · the 2026-08-19 review session (map, verdict table, dependency

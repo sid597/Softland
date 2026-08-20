@@ -618,7 +618,6 @@
         files ["src/app/server/rama/git_spine.clj"
                "test/app/server/rama/git_spine_test.clj"
                "src/app/server/ingest_watchers.clj"
-               "src/app/file_viewer.cljc"
                "docs/current-mental-model/build/git-spine/PHASE_P1P2.md"]]
     (doseq [rel files]
       (let [path (str (io/file root rel))

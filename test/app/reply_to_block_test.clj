@@ -240,22 +240,3 @@
            (get-in result [:bindings/releases 0 :release/worn-row])))
     (is (= [:portal/bindings :bindings/releases]
            (get-in result [:bindings/releases 0 :release/query-path])))))
-
-(deftest client-and-server-use-the-versioned-seam
-  (let [ground (slurp "src/app/client/workspace/ground.cljs")
-        server (slurp "src/app/server_jetty.clj")
-        portal (slurp "src/app/client/workspace/face_wiring.cljs")]
-    (is (str/includes? ground ":eval (dispatch-key-eval!)"))
-    (is (str/includes? ground
-                       "(register-verb! :resident/reply-to-block"))
-    (is (str/includes? server
-                       "reply-to-block/compose-resident-prompt"))
-    (is (str/includes? server
-                       "reply-to-block/narrowed-portal-open"))
-    (is (str/includes? server
-                       "invocation-wear-for-source"))
-    (is (str/includes? server
-                       ":invocation/precontext"))
-    (is (str/includes? portal ":release (fn"))
-    (is (str/includes? portal "portal->js")
-        "release extends the namespace-preserving P7 console convention")))

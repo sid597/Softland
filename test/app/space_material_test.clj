@@ -1,8 +1,7 @@
 (ns app.space-material-test
   "Space-as-entity P2 executable gates: the camera reservation, space-master
    totality, and RULING R1's compile+wear whole-form seam."
-  (:require [clojure.java.io :as io]
-            [clojure.string :as str]
+  (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [app.shared.binding-material :as binding-material]
             [app.shared.facet-material :as facet-material]
@@ -130,67 +129,6 @@
       (is (= [:camera/zoom-at-pointer :floor :claimed]
              ((juxt :probe/verb :probe/tier :probe/outcome)
               (get by-label "wheel → zoom at the pointer")))))))
-
-(deftest g5-r3-g6-one-place-censuses
-  (let [binding-source (slurp "src/app/shared/binding_material.cljc")
-        space-source (slurp "src/app/shared/space_material.cljc")
-        ground-source (slurp "src/app/client/workspace/ground.cljs")
-        facet-master-source
-        (slurp "src/app/server/rama/object_container/facet_master.clj")
-        wiring-source (slurp "src/app/client/workspace/face_wiring.cljs")
-        fence-pattern #"binding-material/camera-gesture-reserved\?"
-        meta-fence-pattern #"binding-material/meta-gesture-reserved\?"
-        legality-pattern #"binding-material/instance-site-legal\?"]
-    (testing "the reservation set is defined by exactly one predicate var"
-      (is (= 1 (count (re-seq #"\(defn camera-gesture-reserved\?"
-                              binding-source)))))
-    (testing "fm:space, console install, and served-instance consumption read it"
-      (is (= 1 (count (re-seq fence-pattern space-source))))
-      (is (= 2 (count (re-seq fence-pattern ground-source))))
-      (is (= 3 (+ (count (re-seq fence-pattern space-source))
-                  (count (re-seq fence-pattern ground-source))))))
-    (testing "Halo meta reservation has one owner and the same three consumers"
-      (is (= 1 (count (re-seq #"\(defn meta-gesture-reserved\?"
-                              binding-source))))
-      (is (= 1 (count (re-seq meta-fence-pattern space-source))))
-      (is (= 2 (count (re-seq meta-fence-pattern ground-source))))
-      (is (= 3 (+ (count (re-seq meta-fence-pattern space-source))
-                  (count (re-seq meta-fence-pattern ground-source))))))
-    (testing "R3-G6 — one legality predicate, three owner-aware product lanes"
-      (is (= 1 (count (re-seq #"\(defn instance-site-legal\?"
-                              binding-source))))
-      (is (= 2 (count (re-seq legality-pattern ground-source))))
-      (is (= 1 (count (re-seq legality-pattern facet-master-source))))
-      (is (= 3 (+ (count (re-seq legality-pattern ground-source))
-                  (count (re-seq legality-pattern facet-master-source))))))
-    (testing "R3-G6/T-R1 — exactly two client bridge sites and one serve subject"
-      (is (= 2 (count (re-seq #"T-R1" ground-source))))
-      (is (str/includes?
-           ground-source
-           "(= space-material/space-subject subject)"))
-      (is (str/includes?
-           wiring-source
-           ":subjects [space-material/space-subject]")))
-    (testing "R3-G6/T-R2 — no-instance wheels hit the existing subject cache"
-      (is (str/includes?
-           ground-source
-           "(contains? by-subject space-material/space-subject)"))
-      (is (str/includes?
-           ground-source
-           "{space-material/space-subject wears}"))
-      (is (str/includes? ground-source
-                         ":served served :wears wears :by-subject by-subject")))
-    (testing "the set is gesture-scoped; shift remains open"
-      (is (binding-material/camera-gesture-reserved?
-           :space/ground capture-row))
-      (is (binding-material/camera-gesture-reserved?
-           :space/ground
-           (assoc capture-row :binding/modifiers :any)))
-      (is (not (binding-material/camera-gesture-reserved?
-                :space/ground
-                (assoc capture-row :binding/modifiers #{:shift}))))
-      (is (not (binding-material/camera-gesture-reserved?
-                :block/user-hit-area capture-row))))))
 
 (deftest g6-space-master-meaning-changes-tier-but-camera-never-does
   (let [report (report-by-label

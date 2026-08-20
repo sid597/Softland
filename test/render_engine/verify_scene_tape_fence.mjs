@@ -42,7 +42,6 @@ function findForm(source, name) {
 const renderer = read("src/app/client/substrate/webgpu/renderer.cljs");
 const store = read("src/app/client/workspace/scene_store.cljc");
 const contracts = read("src/app/client/substrate/scene_tape.cljc");
-const runtime = read("src/app/client/workspace/runtime/render.cljs");
 const rectTree = read("src/app/client/workspace/rect_tree.cljc");
 const frameEffects = read("src/app/client/substrate/frame_effects.cljc");
 const frameGraph = read("src/app/client/substrate/frame_graph.cljc");
@@ -168,10 +167,6 @@ forbid("draw-frame effects", drawFrame,
 
 requireToken("color seam", contracts, ":scene-color/linear-premultiplied-srgb");
 requireToken("color seam", contracts, ":default-off? true");
-requireToken("runtime target", runtime, "use-persistent-render-target? false");
-requireToken("camera sink", runtime, "@ground/!camera");
-forbid("camera derivation", runtime, /\(m\/watch\s+ground\/!camera\)/,
-  "ground camera watch remains inside scene derivation");
 requireToken("renderer default", renderer, ":or {scene-color-enabled? false}");
 
 // IMAGE-ATOM T12: seed violations into the ACTUAL extracted production slice,
@@ -198,9 +193,6 @@ const receipt = {
   effectDeclarations: effectDeclarations.length,
   drawFrameBranches: 0,
   reversePick: pick.includes("scene-tape/pick-reverse"),
-  cameraSinkQuarantined:
-    runtime.includes("@ground/!camera") &&
-    !/\(m\/watch\s+ground\/!camera\)/.test(runtime),
   linearPremultipliedDefaultOff:
     contracts.includes(":scene-color/linear-premultiplied-srgb") &&
     contracts.includes(":default-off? true"),

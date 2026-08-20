@@ -5,7 +5,6 @@
   (:require [app.client.substrate.chrome-derive :as chrome-derive]
             [app.client.substrate.snap :as snap]
             [app.client.workspace.containers :as containers]
-            [app.client.workspace.ground :as ground]
             [app.client.workspace.scene-runtime :as scene-runtime]
             [app.client.workspace.scene-store :as scene-store]
             [app.client.workspace.selection :as selection]))
@@ -18,6 +17,7 @@
 (defonce ^:private !gesture (atom nil))
 (defonce ^:private !drag (atom nil))
 (defonce ^:private !receipt (atom nil))
+(defonce ^:private !host (atom nil))
 
 (defn- publish-live-receipt! []
   (when-let [receipt @!receipt]
@@ -170,7 +170,8 @@
     (impl ctx)))
 
 (defn- current-zoom []
-  (double (or (:zoom (ground/camera-snapshot)) 1.0)))
+  (let [camera-snapshot (:camera-snapshot @!host)]
+    (double (or (:zoom (when camera-snapshot (camera-snapshot))) 1.0))))
 
 (defn- snap-step! [identity raw-position raw-bounds]
   (let [frame (store-frame)
@@ -372,26 +373,33 @@
     (publish-live-receipt!)))
 
 (defn boot!
-  "Activate the dark lane once. Re-registration is the checked last-wins door;
-   each wrapper captures the implementation it composes or replaces."
-  [chrome-system]
+  "Prepare the parked Chrome runtime against explicit host hooks. No product
+   client supplies these hooks while the land is dark."
+  [{:keys [camera-snapshot install-selection-hooks! register-verb!
+           chrome-system]
+    :as host}]
   (if @!booted?
     @!receipt
     (do
-      (chrome-derive/set-live-camera-provider! ground/camera-snapshot)
+      (when-not (every? fn? [camera-snapshot install-selection-hooks!
+                             register-verb!])
+        (throw (ex-info "Chrome runtime requires explicit host hooks"
+                        {:provided (keys host)})))
+      (reset! !host host)
+      (chrome-derive/set-live-camera-provider! camera-snapshot)
       (chrome-derive/set-live-effective-provider!
        scene-runtime/effective-transforms)
       (reset! !selection-io
-              (ground/install-chrome-selection-hooks!
+              (install-selection-hooks!
                {:clear clear-selection! :shift-tap shift-tap!}))
       (let [!marquee-original (atom nil)
             !drag-original (atom nil)
             marquee-previous
-            (ground/register-verb! :selection/marquee-begin
-                                   (marquee-wrapper !marquee-original))
+            (register-verb! :selection/marquee-begin
+                            (marquee-wrapper !marquee-original))
             drag-previous
-            (ground/register-verb! :placement/drag-group
-                                   (block-drag-wrapper !drag-original))]
+            (register-verb! :placement/drag-group
+                            (block-drag-wrapper !drag-original))]
         (reset! !marquee-original marquee-previous)
         (reset! !drag-original drag-previous)
         (when-not (and (map? marquee-previous) (map? drag-previous))

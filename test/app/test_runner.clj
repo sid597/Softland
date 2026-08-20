@@ -52,14 +52,9 @@
     app.client.workspace.region3d-pointer-test
     app.client.substrate.scene-tape-test
     app.client.substrate.snap-test
-    app.client.workspace.block-edit-test
-    app.client.workspace.edit-transport-test
-    app.client.workspace.ground-edit-test
     app.client.workspace.scene-store-test
     app.client.workspace.selection-test
     app.client.workspace.shaping-correction-test
-    app.client.workspace.text-editing-test
-    app.client.workspace.t2-block-join-test
     app.client.workspace.text-layout-planes-test
     app.client.workspace.text-layout-test
     app.binding-dispatch-test
@@ -72,7 +67,6 @@
     app.space-material-test
     app.server.parser-test
     app.server.rama.core-guards-test
-    app.server.rama.kernel-shape-test
     app.server.rama.probe-harness-test])
 
 (def shared-cluster-namespaces
@@ -83,20 +77,14 @@
   '[app.face-gate-fixes-test
     app.machine-cut-serve-test
     app.material-inspector-test
-    app.server.rama.dogfood-space-probe-test
     app.server.rama.dogfood-transcript-probe-test
-    app.server.rama.dogfood-transcript-test
-    app.server.rama.text-kernel-probe-test
-    app.server.rama.text-kernel-test])
+    app.server.rama.dogfood-transcript-test])
 
 (def isolation-exceptions
   "Namespaces whose semantics still require the historical private-cluster
    lifecycle. These remain in `full`; only the inner-loop `fast` lane omits
    them."
-  '{app.client.substrate.connector-join-test
-    "Owns an ephemeral relation-kernel IPC runtime for the durable R1 connector tripwire."
-
-    app.cascade-table-test
+  '{app.cascade-table-test
     "Boots fresh OC, relation, and LLM runtimes for the behavior-identity cut."
 
     app.face-arsenal-test
@@ -129,20 +117,11 @@
     app.server.rama.code-atoms-test
     "Git-history receipts use randomized task counts and independently launched composite runtimes."
 
-    app.server.rama.dogfood-compute-probe-test
-    "The terminal probe deliberately closes the runtime to kill a live executor process."
-
-    app.server.rama.dogfood-compute-test
-    "TaskGlobal executors claim and run OS processes; cleanup is part of each private runtime."
-
     app.server.rama.dogfood-llm-probe-test
     "Registered suite-order flake; fixed thread ids overlap the space probe, so shared-state safety is unproven."
 
     app.server.rama.dogfood-llm-test
     "Executor-death and stale-approval recovery mutate shared executor indexes; registered flake semantics stay unchanged."
-
-    app.server.rama.dogfood-space-test
-    "Each test assumes clean LLM executor, approval, turn, and space indexes."
 
     app.server.rama.dogfood.transcript-ingest-test
     "Watch resume, file-offset restart, and terminal-state tests repeatedly assume a clean ingest runtime."
@@ -190,9 +169,7 @@
   '[app.server.rama.face-arsenal/close-face-arsenal-runtime!
     app.server.rama.relation-kernel/close-relation-runtime!
     app.server.rama.object-container.runtime/close-object-container-runtime!
-    app.server.rama.dogfood.space/close-space-runtime!
-    app.server.rama.dogfood.transcript/close-transcript-runtime!
-    app.server.rama.text-kernel/close-text-runtime!])
+    app.server.rama.dogfood.transcript/close-transcript-runtime!])
 
 (def ^:private slow-namespace-cost
   "Extra sharding weights for work whose cost is not represented by source
@@ -201,7 +178,6 @@
    launches a clean runtime for each integration test. Keep both minutes-long
    receipts on their own shards."
   '{app.face-projection-test 24000
-    app.server.rama.dogfood-space-test 24000
     app.server.rama.object-container.block-distiller-test 1600
     app.server.rama.dogfood.transcript-ingest-test 900})
 

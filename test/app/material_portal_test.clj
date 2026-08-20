@@ -302,10 +302,7 @@
                       (get-in registered [:portal/bindings :bindings/rows])))
           (is (every? #(= "await __portal.openMaster('fm:attention')"
                           (:question/call-console %))
-                      (:portal/questions registered)))
-          (is (str/includes?
-               (slurp "src/app/client/workspace/face_wiring.cljs")
-               ":openMaster (fn [master-id]")))
+                      (:portal/questions registered))))
 
         (testing "an unknown master still answers every question"
           (is (= [] (:portal/errors unknown)))

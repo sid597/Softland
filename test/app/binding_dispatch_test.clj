@@ -7,8 +7,7 @@
    rather than trust it. The floor drill is the fence's receipt: `binding-material
    /drill-report` is the SAME function the live console drill calls, so a green
    test and a green browser drill are the same claim."
-  (:require [clojure.java.io :as io]
-            [clojure.set :as set]
+  (:require [clojure.set :as set]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [app.shared.attention-material :as attention]
@@ -950,87 +949,7 @@
     (is (= [:instance :master :floor] bm/tier-order))
     (is (= #{:block/user-hit-area :block/machine-hit-area
              :block/fold-header :space/ground}
-           bm/sites)))
-
-  (testing "the kernel declares its own branch budget, and the declaration is
-            what a later session must edit to grow it"
-    (let [ground (slurp "src/app/client/workspace/ground.cljs")]
-      (is (str/includes? ground ":mechanism-branches {:pointer-down! 0"))
-      (is (str/includes? ground ":pointer-move! 3"))
-      (is (str/includes? ground ":pointer-up! 2"))
-      (is (str/includes? ground ":handle-wheel! 0"))
-      (is (str/includes? ground ":meaning-branches 0")))))
-
-(defn- code-only
-  "Drop `;`-comment lines. The kernel deliberately KEEPS prose pointers at each
-   verb's implementation site (and `verb-registry`'s `:verb/extracted-from`
-   records the same provenance as data), so a freeze test that greps raw source
-   would be asserting about documentation. The claim under test is that the
-   ladders are gone from the CODE."
-  [source]
-  (->> (str/split-lines source)
-       (remove #(str/starts-with? (str/triml %) ";"))
-       (str/join "\n")))
-
-(deftest the-migrated-ladders-are-deleted-from-the-kernel
-  (let [ground (code-only (slurp "src/app/client/workspace/ground.cljs"))]
-    (testing "family 1: the fold-header row arithmetic is gone"
-      (is (not (str/includes? ground "(<= row 1)")))
-      (is (not (str/includes? ground "(if (zero? row) :noise? :prose?)")))
-      (is (not (str/includes? ground "run? (contains? (context-block-entry"))))
-
-    (testing "families 2+3: the press-time meaning flags are gone"
-      (is (not (str/includes? ground "text?  (boolean (and shift? b")))
-      (is (not (str/includes? ground "mtext? (boolean (and shift? b")))
-      (is (not (str/includes? ground "(:text? p)")))
-      (is (not (str/includes? ground "(:mtext? p)")))
-      (is (not (str/includes? ground ":sel-caret")))
-      (is (not (str/includes? ground ":sel-lc"))))
-
-    (testing "the pointer machine's meaning-bearing phases are gone"
-      (doseq [phase [":phase :selecting" ":phase :mselecting"
-                     ":phase :marquee" ":phase :panning" ":phase :dragging"]]
-        (is (not (str/includes? ground phase))
-            (str phase " became a verb, not a phase"))))
-
-    (testing "the kernel keeps exactly three pointer phases"
-      (is (str/includes? ground ":pointer-phases #{:idle :pending :active}")))
-
-    (testing "the pointer families plus P8 eval reach verbs through exactly
-              THREE call sites of the law
-              sites of the law — the shared discrete dispatch (press/:begin,
-              tap, wheel), the threshold, and the key claim"
-      (is (= 3 (count (re-seq #"\(decide \{" ground))))
-      (is (= 1 (count (re-seq #"binding-material/resolve-binding" ground)))
-          "one law, one implementation")
-      (is (= 1 (count (re-seq #"\(defn- invoke-verb!" ground)))
-          "one side-effecting site"))
-
-    ;; T-R6 — rung 3 moves the space's INSTANCE legality, never claim-chain shape.
-    (testing "the space claim still has exactly one runtime chain builder"
-      (is (= 1 (count (re-seq #"binding-material/space-claim" ground)))
-          "G10g: only the one runtime chain builder names the space rung")
-      (is (= 1 (count (re-seq #"\(defn- claim-chain" ground))))
-      (is (str/includes?
-           ground
-           "(into claims binding-material/space-claim)"))
-      (is (str/includes? ground ":claims (claim-chain hit claims)")
-          "pointer and key/eval claims both cross the shared builder")
-      (is (str/includes? ground "floor-binding-rows")))
-
-    (testing "the verb registry is the only vocabulary the kernel registers"
-      (let [registered (set (map second (re-seq #"\(register-verb! (:\S+)"
-                                                ground)))]
-        (is (= (set (map str verbs/names)) registered)
-            "every declared verb has an implementation and vice versa")))
-
-    (testing "the interaction table and the drill are both reachable"
-      (is (str/includes? ground "binding-floor-drill"))
-      (is (str/includes? ground "__bindings")))
-
-    (testing "the shared law and registry exist as .cljc, JVM-provable"
-      (is (.exists (io/file "src/app/shared/binding_material.cljc")))
-      (is (.exists (io/file "src/app/shared/verb_registry.cljc"))))))
+           bm/sites))))
 
 ;; ===========================================================================
 ;; The containment path got finer at ZERO pixels
