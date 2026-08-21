@@ -253,7 +253,7 @@ numbers at `d507182`; the files are gone — `git show d507182:<path>` still fin
 | R2 · `npm run verify:text-layout` | the shaper floor survived the cut intact | **PASS** · 6 tests / 32 assertions |
 | R3 · `npm run verify:render-engine` | the parked machine compiles and every retained guard holds | **PASS** · 152 files · 0 warnings |
 | R4 · the exact contract curls | the only live write road works with no client: block birth, geometry settle, and a turn whose first SSE event is the durable ack (`:episode-durable`) | **PASS** · after two in-session repairs (§6) |
-| R5 · full restart + named readback | every written kind reads back after the cluster bounces: unit text / current revision / decisions (`ocr/read-unit`, `read-current-revision`, `read-decision`) · `$$transcript-conversation-projection` cells (the `:episode-turn` cell for `waist-close-turn`, the settled unit geometry cell, `geo:camera`) · wear (`face-arsenal/read-wear-count :outline-face`, pre-restart `nil` → must still be `nil`) · relations (`rk/read-relations-for-targets`, one starter-culture target) · one transcript-ops offset point read | **HALF PROVEN 2026-08-21** · all nine kinds read back green on the live cluster (8 PASS / 0 FAIL, `bin/r5_readback.clj`); the bounce-and-compare is what remains. See §5. |
+| R5 · full restart + named readback | every written kind reads back after the cluster bounces: unit text / current revision / decisions (`ocr/read-unit`, `read-current-revision`, `read-decision`) · `$$transcript-conversation-projection` cells (the `:episode-turn` cell for `waist-close-turn`, the settled unit geometry cell, `geo:camera`) · wear (`face-arsenal/read-wear-count :outline-face`, pre-restart `nil` → must still be `nil`) · relations (`rk/read-relations-for-targets`, one starter-culture target) · one transcript-ops offset point read | **PASS 2026-08-21** · 8 PASS / 0 FAIL on the live cluster, then the bounce + baseline compare: **0 DRIFT**. See §5. |
 
 R4 receipts: durable address `chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b`;
 unit `du:chat:77088a4f…:episode-native-v0:ep:a2fb6f3d:000000` settled at `(240.0, 180.0)`,
@@ -269,9 +269,15 @@ module sources unchanged · no executable remaining require of a deleted product
 
 ---
 
-## 5. Still open — two things, neither of them code
+## 5. Closed — R5 green, accepted (2026-08-21)
 
-**R5, the restart readback — half proven 2026-08-21.**
+**Both open items closed on 2026-08-21.** R5 ran green and Sid accepted the cut. Under the
+work-package law that is the whole gate — no validation ladder, no second-model sign-off.
+**The road above the waist is open.**
+
+The record of how R5 ran is kept below, because two of its findings outlive it.
+
+**R5, the restart readback — PASS 2026-08-21.**
 
 The runner exists and ran: `bin/r5_readback.clj`, read-only. On the live cluster
 **8 PASS · 0 FAIL**, every named kind present:
@@ -306,10 +312,9 @@ run after. Two commands close R5:
     bin/land down && bin/land up          # see the wedge warning below
     clj -M:dev -e '(load-file "bin/r5_readback.clj")'
 
-Green with `0 DRIFT` is the receipt. **Note the known hazard:** `bin/land down` warns that
-an interrupted shutdown persists its intent in ZK and the next boot wedges
-(`LEADER-FALLING`, conductor never ready); recovery is `bin/land unwedge` then
-`bin/land up`. That is why this last step is Sid's to run, not a session's.
+**Sid ran the bounce on 2026-08-21 and the compare came back 0 DRIFT.** Every written kind
+survives a full cluster restart, as the hard rule required. R5 closed; the baseline file
+stays as the regression instrument for any future bounce.
 
 **The conductor observation, kept for the record.** Observed in the conductor/worker logs (read-only pass,
 2026-08-21): on every boot on 2026-08-20 (10:43 · 10:59 · 11:01) the conductor's state
@@ -344,9 +349,8 @@ projection (turn `waist-close-turn`, geometry, camera cells) · derived units (i
 Hypothesis (b) is what the runner tests directly: it never consults the conductor flag, it
 just asks for the reads. **R5 is not a checkbox — it is the instrument that settles §2f.**
 
-**Sid's acceptance.** Under the work-package law, code-complete is Codex's state; accepted
-is Sid's word. The above-waist (electric-native) road stays queued behind both — the
-deletion commit alone does not open it.
+**Sid's acceptance — GIVEN 2026-08-21.** Under the work-package law, code-complete is
+Codex's state; accepted is Sid's word, and it was given. The above-waist road is open.
 
 ---
 
@@ -480,8 +484,8 @@ surviving routes read through it · **the draft transcript pipeline parks**, its
 functions are live.
 
 The falsification session ran (Codex gate 3, `d507182`) and the execution session ran the
-cuts (`adc30c9`). What remains before building on top — a new act — is R5 and Sid's
-acceptance.
+cuts (`adc30c9`). R5 came back green and Sid accepted on 2026-08-21 — **nothing remains;
+building on top is a new act, and it is open.**
 
 ---
 
