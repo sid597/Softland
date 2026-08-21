@@ -1,0 +1,931 @@
+<title>What the Waist Kept</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #F3F4F2;
+    --ink: #1E2A32;
+    --muted: #5C6B74;
+    --line: #D4DAD7;
+    --waist: #B44A14;
+    --above-bg: #F6F1E4;
+    --above-line: #C9B892;
+    --below-bg: #E7EDF0;
+    --below-line: #A9BCC7;
+    --park-bg: #ECEDEC;
+    --park-line: #B9C0C2;
+    --box: #FDFDFC;
+    --boxline: #7E8F99;
+    --ghost: #98A4AB;
+    --code-bg: #E9ECEA;
+    --v-goes: #BE3B2B;
+    --v-stays: #2F7D4E;
+    --v-park: #98A4AB;
+    --v-custody: #A66A11;
+    --v-dormant: #5F78A8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #131719;
+      --ink: #E4E9EB;
+      --muted: #93A2AA;
+      --line: #2C363B;
+      --waist: #E87B3E;
+      --above-bg: #211D13;
+      --above-line: #6B5C36;
+      --below-bg: #16222A;
+      --below-line: #3E5766;
+      --park-bg: #1A1F21;
+      --park-line: #3B4447;
+      --box: #1B2226;
+      --boxline: #5E707A;
+      --ghost: #566067;
+      --code-bg: #212A2F;
+      --v-goes: #E26A59;
+      --v-stays: #5CB585;
+      --v-park: #566067;
+      --v-custody: #D9A441;
+      --v-dormant: #8EA3CF;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #131719;
+    --ink: #E4E9EB;
+    --muted: #93A2AA;
+    --line: #2C363B;
+    --waist: #E87B3E;
+    --above-bg: #211D13;
+    --above-line: #6B5C36;
+    --below-bg: #16222A;
+    --below-line: #3E5766;
+    --park-bg: #1A1F21;
+    --park-line: #3B4447;
+    --box: #1B2226;
+    --boxline: #5E707A;
+    --ghost: #566067;
+    --code-bg: #212A2F;
+    --v-goes: #E26A59;
+    --v-stays: #5CB585;
+    --v-park: #566067;
+    --v-custody: #D9A441;
+    --v-dormant: #8EA3CF;
+  }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    margin: 0;
+    padding: 40px 20px 80px;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 {
+    font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight: 700;
+    font-size: 40px;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  h2 {
+    font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight: 600;
+    font-size: 21px;
+    margin: 44px 0 10px;
+  }
+  h3 {
+    font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    margin: 26px 0 8px;
+    color: var(--muted);
+  }
+  .kicker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--waist);
+    margin: 0 0 10px;
+  }
+  .lede { color: var(--muted); margin: 0 0 4px; max-width: 78ch; }
+  .stats {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 10px;
+  }
+  code, .mono { font-family: "IBM Plex Mono", monospace; font-size: 0.92em; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px; }
+  figure { margin: 28px 0 0; }
+  figure svg { max-width: 100%; height: auto; display: block; color: var(--ink); }
+  figcaption { color: var(--muted); font-size: 13px; margin-top: 10px; max-width: 90ch; }
+  .figscroll { overflow-x: auto; }
+  .figscroll svg { min-width: 900px; }
+
+  table.def {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 13.5px;
+  }
+  table.def th, table.def td {
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  table.def th {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  table.def td.piece { font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 600; white-space: nowrap; border-left: 4px solid var(--boxline); }
+  table.def td.piece.live { border-left-color: var(--v-stays); }
+  table.def td.piece.dorm { border-left-color: var(--v-dormant); }
+  table.def td.piece.park { border-left-color: var(--v-park); }
+  table.def td.piece.cust { border-left-color: var(--v-custody); }
+  table.def td.files { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--muted); min-width: 150px; }
+  table.def td.why { color: var(--muted); font-size: 13px; }
+  table.def td.state { font-family: "IBM Plex Mono", monospace; font-size: 11px; white-space: nowrap; }
+  .s-live { color: var(--v-stays); } .s-dorm { color: var(--v-dormant); } .s-park { color: var(--v-park); } .s-cust { color: var(--v-custody); }
+  table.def.small { max-width: 860px; }
+  .pieces th:nth-child(3), .pieces td:nth-child(3) { min-width: 220px; }
+  .pieces th:nth-child(4), .pieces td:nth-child(4) { min-width: 220px; }
+  .pieces th:nth-child(5), .pieces td:nth-child(5) { min-width: 200px; }
+  .pieces th:nth-child(6), .pieces td:nth-child(6) { min-width: 160px; }
+  .legend {
+    display: flex; flex-wrap: wrap; gap: 10px 26px;
+    font-size: 13px; color: var(--muted);
+    margin-top: 14px; align-items: center;
+  }
+  .legend .sw {
+    display: inline-block; width: 26px; height: 12px;
+    border: 1.6px solid var(--boxline); background: var(--box);
+    vertical-align: -1px; margin-right: 7px; border-radius: 2px;
+  }
+  .legend .vb {
+    display:inline-block; width:12px; height:12px; border-radius:2px;
+    margin-right:7px; vertical-align:-1px;
+  }
+  .legend .ln {
+    display:inline-block; width:26px; height:0; border-top: 1.6px solid var(--ink);
+    margin-right:7px; vertical-align: 3px;
+  }
+  .legend .ln.dash { border-top-style: dashed; }
+  .factbox {
+    border: 1.5px solid var(--waist);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin-top: 22px;
+    max-width: 88ch;
+  }
+  .factbox .rk {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--waist); margin: 0 0 8px;
+  }
+  .factbox p { margin: 7px 0; }
+  .namesbox {
+    border: 1.5px solid var(--boxline);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin-top: 22px;
+    max-width: 88ch;
+  }
+  .namesbox .rk {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--muted); margin: 0 0 8px;
+  }
+  ul.tight { padding-left: 20px; margin: 8px 0; }
+  ul.tight li { margin: 7px 0; }
+  .notes { color: var(--muted); font-size: 13.5px; max-width: 80ch; }
+  .nums td, .nums th { font-variant-numeric: tabular-nums; }
+  .nums td:not(:first-child), .nums th:not(:first-child) { text-align: right; }
+  .nums tr.total td { font-weight: 500; border-top: 1.5px solid var(--boxline); }
+  .tblwrap { overflow-x: auto; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+  footer { margin-top: 56px; font-size: 12.5px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; max-width: 80ch; }
+</style>
+
+<div class="wrap">
+  <p class="kicker">Softland · below the waist · the kept three, one notch down · drawn 2026-08-21</p>
+  <h1>What the Waist Kept</h1>
+  <p class="lede">The waist cut ruled on what to delete. This page draws what it <em>kept</em> — the shared material rows, the server, the parked render engine — one notch below the editing-waist map's boxes: each area opened into its pieces, and for every piece <strong>what it is · what goes in · what comes out · why it is shaped so · who it talks to · its observed state</strong>. Arrows are drawn only where the code actually calls; islands are shown as islands. Sibling of the waist map, same system — that page's subject was what we cut; this one's is what we kept, so it can be judged by looking.</p>
+  <p class="lede"><strong>This page holds no verdicts.</strong> No box is approved or condemned; the question "is this how I want it architected?" stays open and is Sid's. Not per-function (the three maps under <span class="mono">docs/below-the-waist/</span> hold that grain), not a zoom ladder — one level, fixed. The five cluster modules are not opened: they stay at the waist map's grain, the floor every arrow lands on.</p>
+  <p class="stats">98 surviving source files · ~3.2 MB · shared 18 / 232 KB · server 31 / ~1.34 MB (organs ~0.94 MB · floor ~0.39 MB) · render engine 48 / ~1.60 MB · 10 POST doors · 0 GET · 5 deployed modules · 1 build target (the verifier) · 72 test files</p>
+
+  <div class="factbox">
+    <p class="rk">one fact frames the whole picture</p>
+    <p><strong>Nothing above the waist calls in.</strong> Outside <span class="mono">src/</span>, the only callers of the ten surviving POST doors are two test files (<span class="mono">test/app/material_portal_test.clj</span> → matter-room · <span class="mono">test/app/server/relation_assert_route_test.clj</span> → block-birth). No script, hook, or <span class="mono">bin/</span> entry hits them. The CLI is summoned <em>by</em> the server (<span class="mono">episode.clj</span>); it never calls in. The render engine's only entry is the verifier build, which records <span class="mono">:product-server-used? false</span>. So <span class="s-live">LIVE</span> on this page means "wired to a door or a boot path", never "exercised by a product".</p>
+  </div>
+
+  <h2>The picture</h2>
+  <figure>
+  <div class="figscroll">
+  <svg viewBox="0 0 1180 1450" role="img" aria-label="Map of the code the waist cut kept, in three bands: the shared material rows (six pieces), the server as one JVM (a front door, eight pieces and the cluster handles), the five deployed Rama modules as the floor, and the parked render engine (eight pieces). Solid arrows show calls within an area; dashed lines in the left gutter show the only two bridges across areas; a left bar on each box shows whether it is live, dormant, parked or under custody.">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--ink)"/>
+      </marker>
+      <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/>
+      </marker>
+    </defs>
+
+    <!-- ======== BANDS ======== -->
+    <rect x="76" y="56" width="1088" height="254" rx="6" fill="var(--above-bg)" stroke="var(--above-line)" stroke-width="1"/>
+    <rect x="76" y="346" width="1088" height="484" rx="6" fill="var(--below-bg)" stroke="var(--below-line)" stroke-width="1"/>
+    <rect x="76" y="850" width="1088" height="160" rx="6" fill="var(--below-bg)" stroke="var(--below-line)" stroke-width="1.8"/>
+    <rect x="76" y="1046" width="1088" height="384" rx="6" fill="var(--park-bg)" stroke="var(--park-line)" stroke-width="1"/>
+
+    <!-- ======== BAND 1 — SHARED MATERIAL ROWS ======== -->
+    <text x="92" y="80" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="var(--ink)">SHARED MATERIAL ROWS — src/app/shared · 18 .cljc · 232 KB · born 07-24 → 07-31</text>
+    <text x="1150" y="80" text-anchor="end" font-family="IBM Plex Mono" font-size="10.5" fill="var(--muted)">pure fns over EDN · imported by the server · one client row</text>
+
+    <!-- 1. portal / inspector / reply -->
+    <rect x="92" y="98" width="164" height="194" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="93.5" y="100" width="5" height="190" fill="var(--v-stays)"/>
+    <text x="106" y="118" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">PORTAL · INSPECTOR · REPLY</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="106" y="135">material_portal.cljc 44K</text>
+      <text x="106" y="148">material_inspector 7K</text>
+      <text x="106" y="161">reply_to_block 4K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="106" y="182"><tspan font-style="italic" fill="var(--muted)">in</tspan> served rows · room · stamps</text>
+      <text x="106" y="196"><tspan font-style="italic" fill="var(--muted)">out</tspan> render model · briefing</text>
+      <text x="106" y="209">· a reply request</text>
+      <text x="106" y="226" fill="var(--muted)">→ material_portal.clj</text>
+      <text x="106" y="239" fill="var(--muted)">→ face_projection · jetty</text>
+      <text x="106" y="252" fill="var(--muted)">→ verb_release</text>
+      <text x="106" y="269" fill="var(--ink)">◀ scene_store.cljc reads the</text>
+      <text x="106" y="282" fill="var(--ink)">inspector — the one client row</text>
+    </g>
+
+    <!-- 2. facet grammar -->
+    <rect x="272" y="98" width="164" height="194" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="273.5" y="100" width="5" height="190" fill="var(--v-stays)"/>
+    <text x="286" y="118" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">FACET GRAMMAR</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="286" y="135">facet_material.cljc 24K</text>
+      <text x="286" y="148">facet_masters.cljc 2K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="286" y="169"><tspan font-style="italic" fill="var(--muted)">in</tspan> spec · subject · served rows</text>
+      <text x="286" y="183"><tspan font-style="italic" fill="var(--muted)">out</tspan> compiled table + stamps</text>
+      <text x="286" y="204" fill="var(--muted)">why: furniture is data — served</text>
+      <text x="286" y="217" fill="var(--muted)">rows become behaviour only here</text>
+      <text x="286" y="238" fill="var(--muted)">→ facet_master · material_truth</text>
+      <text x="286" y="251" fill="var(--muted)">→ portal · face_projection</text>
+      <text x="286" y="272" fill="var(--muted)">registry of the nine specs ▶</text>
+    </g>
+
+    <!-- 3. the nine specs -->
+    <rect x="452" y="98" width="164" height="194" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="453.5" y="100" width="5" height="190" fill="var(--v-stays)"/>
+    <text x="466" y="118" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">THE NINE SPECS · 67K</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="466" y="135">attention · positioned</text>
+      <text x="466" y="148">foldable · text_body</text>
+      <text x="466" y="161">threaded · space</text>
+      <text x="466" y="174">provenance · invocation</text>
+      <text x="466" y="187">anatomy 31K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="466" y="206"><tspan font-style="italic" fill="var(--muted)">in</tspan> — (declarations)</text>
+      <text x="466" y="220"><tspan font-style="italic" fill="var(--muted)">out</tspan> spec maps → the registry →</text>
+      <text x="466" y="233">candidate masters in OC at boot</text>
+      <text x="466" y="252" fill="var(--muted)">each = one behaviour of the</text>
+      <text x="466" y="265" fill="var(--muted)">deleted block face, as policy</text>
+      <text x="466" y="282" fill="var(--v-dormant)">text_body · space: no caller</text>
+    </g>
+
+    <!-- 4. binding + verb -->
+    <rect x="632" y="98" width="164" height="194" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="633.5" y="100" width="5" height="190" fill="var(--v-stays)"/>
+    <text x="646" y="118" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">BINDING + VERB GRAMMAR</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="646" y="135">binding_material.cljc 30K</text>
+      <text x="646" y="148">verb_registry.cljc 17K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="646" y="169"><tspan font-style="italic" fill="var(--muted)">in</tspan> gesture · site · tier · rows</text>
+      <text x="646" y="183"><tspan font-style="italic" fill="var(--muted)">out</tspan> the verb to dispatch</text>
+      <text x="646" y="204" fill="var(--muted)">why: material selects machines</text>
+      <text x="646" y="217" fill="var(--muted)">only from a closed registry</text>
+      <text x="646" y="238" fill="var(--muted)">→ 4 specs · face_projection</text>
+      <text x="646" y="251" fill="var(--muted)">→ portal · verb_release</text>
+      <text x="646" y="275" fill="var(--v-dormant)">resolve-binding: tests only</text>
+    </g>
+
+    <!-- 5. activation event -->
+    <rect x="812" y="98" width="164" height="194" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="813.5" y="100" width="5" height="190" fill="var(--v-stays)"/>
+    <text x="826" y="118" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">ACTIVATION EVENT</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="826" y="135">activation_event.cljc 13K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="826" y="156"><tspan font-style="italic" fill="var(--muted)">in</tspan> an act: activate · rollback</text>
+      <text x="826" y="169">· pin · unpin</text>
+      <text x="826" y="183"><tspan font-style="italic" fill="var(--muted)">out</tspan> canonical bytes into OC;</text>
+      <text x="826" y="196">parsed back (two generations,</text>
+      <text x="826" y="209">one read shape)</text>
+      <text x="826" y="228" fill="var(--muted)">why: merges by activation; the</text>
+      <text x="826" y="241" fill="var(--muted)">form is durable bytes</text>
+      <text x="826" y="258" fill="var(--muted)">→ matter_room · material_truth</text>
+      <text x="826" y="271" fill="var(--muted)">→ circulation · portal</text>
+      <text x="826" y="284" fill="var(--muted)">→ projection · facet_master</text>
+    </g>
+
+    <!-- 6. matter room -->
+    <rect x="992" y="98" width="164" height="194" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="993.5" y="100" width="5" height="190" fill="var(--v-stays)"/>
+    <text x="1006" y="118" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">MATTER ROOM</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="1006" y="135">matter_room.cljc 22K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="1006" y="156"><tspan font-style="italic" fill="var(--muted)">in</tspan> room address + act params</text>
+      <text x="1006" y="170"><tspan font-style="italic" fill="var(--muted)">out</tspan> normalized act (open ·</text>
+      <text x="1006" y="183">deviate · activate · rollback</text>
+      <text x="1006" y="196">· say) · resident list</text>
+      <text x="1006" y="217" fill="var(--muted)">why: one conversation per room;</text>
+      <text x="1006" y="230" fill="var(--muted)">a pure core of the room idea</text>
+      <text x="1006" y="251" fill="var(--muted)">→ the 5 room handlers (jetty)</text>
+      <text x="1006" y="264" fill="var(--muted)">→ material_portal.clj</text>
+      <text x="1006" y="277" fill="var(--muted)">→ face_projection</text>
+    </g>
+
+    <!-- band-1 internal arrows -->
+    <line x1="452" y1="200" x2="437" y2="200" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+    <line x1="992" y1="200" x2="977" y2="200" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+
+    <!-- ======== BAND 2 — THE SERVER ======== -->
+    <text x="92" y="370" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="var(--ink)">THE SERVER — one JVM · server_jetty.clj + src/app/server/** · organs ~0.94 MB</text>
+    <text x="1150" y="370" text-anchor="end" font-family="IBM Plex Mono" font-size="10.5" fill="var(--muted)">born 2024-04 · 06-07 · 07-03→07-31 · 08-20</text>
+
+    <!-- imports arrow up to band 1 -->
+    <line x1="300" y1="392" x2="300" y2="312" stroke="var(--ink)" stroke-width="1.4" marker-end="url(#arr)"/>
+    <text x="308" y="328" font-family="IBM Plex Sans" font-size="9.5" font-style="italic" fill="var(--muted)">the material system · the front door · cluster.clj · episode · verb_release import the rows above as pure .cljc</text>
+
+    <!-- front door -->
+    <rect x="92" y="392" width="150" height="408" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="93.5" y="394" width="5" height="404" fill="var(--v-stays)"/>
+    <text x="106" y="412" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">FRONT DOOR</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="106" y="429">server_jetty.clj 80K</text>
+      <text x="106" y="442">born 2024-04-20</text>
+      <text x="106" y="461">wrap-file-api</text>
+      <text x="106" y="474">= the route table</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="106" y="497"><tspan font-style="italic" fill="var(--muted)">in</tspan> HTTP POST</text>
+      <text x="106" y="510" fill="var(--muted)">today: tests · curl</text>
+      <text x="106" y="531">10 POST doors · 0 GET</text>
+      <text x="106" y="551">→ matter-room ×5 · drill</text>
+      <text x="106" y="564" fill="var(--muted)">  (the write half, row A)</text>
+      <text x="106" y="584">→ episode ×3</text>
+      <text x="106" y="597" fill="var(--muted)">  (SSE back on the POST)</text>
+      <text x="106" y="617">→ relation/assert</text>
+      <text x="106" y="630" fill="var(--muted)">  (direct to the kernel)</text>
+      <text x="106" y="653"><tspan font-style="italic" fill="var(--muted)">out</tspan> EDN · one SSE stream</text>
+      <text x="106" y="676" fill="var(--muted)">every handler body lives</text>
+      <text x="106" y="689" fill="var(--muted)">in this file; wrap-params</text>
+      <text x="106" y="702" fill="var(--muted)">sits outside it so EDN</text>
+      <text x="106" y="715" fill="var(--muted)">routes read the raw body</text>
+      <text x="106" y="738" fill="var(--muted)">its docstring still names</text>
+      <text x="106" y="751" fill="var(--muted)">a file explorer and a</text>
+      <text x="106" y="764" fill="var(--muted)">ClojureScript client —</text>
+      <text x="106" y="777" fill="var(--muted)">both deleted</text>
+    </g>
+
+    <!-- door arrows -->
+    <line x1="242" y1="467" x2="266" y2="467" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+    <line x1="242" y1="630" x2="266" y2="630" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+    <line x1="242" y1="759" x2="266" y2="759" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+
+    <!-- row A: write half -->
+    <rect x="268" y="392" width="280" height="150" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="269.5" y="394" width="5" height="146" fill="var(--v-stays)"/>
+    <text x="282" y="412" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">MATERIAL SYSTEM — WRITE HALF</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="282" y="429">facet_master.clj 34K · material_circulation.clj 47K</text>
+      <text x="282" y="442">verb_release.clj 9K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="282" y="462"><tspan font-style="italic" fill="var(--muted)">in</tspan> a room act · drill · a turn receipt · a release</text>
+      <text x="282" y="476"><tspan font-style="italic" fill="var(--muted)">out</tspan> OC rows: masters · instances · pointers ·</text>
+      <text x="282" y="489">activation history · receipts · records · edges</text>
+      <text x="282" y="509" fill="var(--muted)">why: served, revisioned, deviate-able, reversible</text>
+      <text x="282" y="522" fill="var(--muted)">material · the map must not lie (receipts)</text>
+      <text x="282" y="536" fill="var(--v-dormant)">verb_release write half: tests only</text>
+    </g>
+
+    <!-- row A: serve half -->
+    <rect x="572" y="392" width="280" height="150" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="573.5" y="394" width="5" height="146" fill="var(--v-stays)"/>
+    <text x="586" y="412" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">MATERIAL SYSTEM — SERVE HALF</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="586" y="429">face_projection.clj 102K · material_truth.clj 20K</text>
+      <text x="586" y="442">material_portal.clj 55K · block_distiller.clj 86K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="586" y="462"><tspan font-style="italic" fill="var(--muted)">in</tspan> a page request (face id · subject · room) — only</text>
+      <text x="586" y="475">from inside the room handlers (jetty:823 · :999) + seed</text>
+      <text x="586" y="489"><tspan font-style="italic" fill="var(--muted)">out</tspan> an EDN page — 12 face data-contexts</text>
+      <text x="586" y="509" fill="var(--muted)">why: the portal projects material inhabitably;</text>
+      <text x="586" y="522" fill="var(--muted)">briefings assembled from the land's blocks</text>
+      <text x="586" y="536" fill="var(--v-dormant)">4 entries have no caller (see the table)</text>
+    </g>
+
+    <!-- row A: llm seat -->
+    <rect x="876" y="392" width="280" height="150" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="877.5" y="394" width="5" height="146" fill="var(--v-stays)"/>
+    <text x="890" y="412" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">LLM SEAT</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="890" y="429">dogfood/llm.clj 99K · llm-module NOT deployed</text>
+      <text x="890" y="442">runs in-process via delay (jetty:347)</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="890" y="462"><tspan font-style="italic" fill="var(--muted)">in</tspan> a turn-run request (circulation's autotag)</text>
+      <text x="890" y="476"><tspan font-style="italic" fill="var(--muted)">out</tspan> run rows · items · decisions · usage (in memory)</text>
+      <text x="890" y="496" fill="var(--muted)">backend :claude · auth :subscription</text>
+      <text x="890" y="516" fill="var(--muted)">why: "the llm seat already exists" (settled);</text>
+      <text x="890" y="529" fill="var(--muted)">model lanes ride subscriptions, never API keys</text>
+    </g>
+
+    <!-- write <-> serve -->
+    <line x1="550" y1="467" x2="570" y2="467" stroke="var(--ink)" stroke-width="1.2" marker-start="url(#arr)" marker-end="url(#arr)"/>
+    <text x="560" y="483" text-anchor="middle" font-family="IBM Plex Sans" font-size="8.5" font-style="italic" fill="var(--muted)">serve inside</text>
+    <text x="560" y="494" text-anchor="middle" font-family="IBM Plex Sans" font-size="8.5" font-style="italic" fill="var(--muted)">the write path</text>
+
+    <!-- write -> llm (over the top) -->
+    <polyline points="420,392 420,384 1010,384 1010,390" fill="none" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+    <text x="715" y="381" text-anchor="middle" font-family="IBM Plex Sans" font-size="9" font-style="italic" fill="var(--muted)">autotag turn-run: circulation → llm</text>
+
+    <!-- row B: episode lane -->
+    <rect x="268" y="566" width="280" height="128" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="269.5" y="568" width="5" height="124" fill="var(--v-stays)"/>
+    <text x="282" y="586" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">EPISODE LANE</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="282" y="603">episode.clj 50K · dogfood/transcript.clj 71K</text>
+      <text x="282" y="616">(9 helper fns used; its module NOT deployed)</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="282" y="636"><tspan font-style="italic" fill="var(--muted)">in</tspan> utterance · block-birth · geometry cells</text>
+      <text x="282" y="650"><tspan font-style="italic" fill="var(--muted)">out</tspan> OC rows (utterances · turns · cells) + SSE</text>
+      <text x="282" y="664">summons the claude CLI · harvests its jsonl</text>
+      <text x="282" y="684" fill="var(--muted)">why: episodes bound CLI sessions · many conversations</text>
+    </g>
+
+    <!-- row B: cascade -->
+    <rect x="572" y="566" width="140" height="128" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="573.5" y="568" width="5" height="124" fill="var(--v-stays)"/>
+    <text x="586" y="586" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">CASCADE</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="586" y="603">cascade.clj 2K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="586" y="623"><tspan font-style="italic" fill="var(--muted)">in</tspan> a trigger + payload</text>
+      <text x="586" y="637"><tspan font-style="italic" fill="var(--muted)">out</tspan> dispatched rows</text>
+      <text x="586" y="650">(row #1 = autotag)</text>
+      <text x="586" y="670" fill="var(--muted)">why: server acts are</text>
+      <text x="586" y="683" fill="var(--muted)">data (cascade R1)</text>
+    </g>
+
+    <!-- row B: annotators -->
+    <rect x="736" y="566" width="220" height="128" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="737.5" y="568" width="5" height="124" fill="var(--v-dormant)"/>
+    <text x="750" y="586" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">ANNOTATORS + THE EDIT ENTRY</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="750" y="603">machine_cut 55K · code_atoms 62K</text>
+      <text x="750" y="616">block_edit.clj 2K (born 08-20)</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="750" y="632"><tspan font-style="italic" fill="var(--muted)">in</tspan> conversation pairs · git HEAD · an edit</text>
+      <text x="750" y="645"><tspan font-style="italic" fill="var(--muted)">out</tspan> edges · code atoms · a decision</text>
+      <text x="750" y="663" fill="var(--muted)">machine_cut: replay-wal! only</text>
+      <text x="750" y="676" fill="var(--muted)">code_atoms: 3 pure helpers used</text>
+      <text x="750" y="689" fill="var(--v-stays)">block_edit LIVE ← jetty:786</text>
+    </g>
+
+    <!-- row B: ingest -->
+    <rect x="980" y="566" width="176" height="128" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="981.5" y="568" width="5" height="124" fill="var(--v-dormant)"/>
+    <text x="994" y="586" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">INGEST / MIGRATION</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="994" y="603">ingest_watchers 19K</text>
+      <text x="994" y="616">git_spine 33K</text>
+      <text x="994" y="629">transcript_ingest 47K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="994" y="647"><tspan font-style="italic" fill="var(--muted)">in</tspan> files · git · bridge logs</text>
+      <text x="994" y="660"><tspan font-style="italic" fill="var(--muted)">out</tspan> OC imports · relation edges</text>
+      <text x="994" y="677" fill="var(--muted)">bin/land ingest only;</text>
+      <text x="994" y="690" fill="var(--muted)">never on the boot path</text>
+    </g>
+
+    <!-- row B arrows -->
+    <line x1="550" y1="630" x2="570" y2="630" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+    <text x="560" y="648" text-anchor="middle" font-family="IBM Plex Sans" font-size="8.5" font-style="italic" fill="var(--muted)">react!</text>
+    <text x="560" y="659" text-anchor="middle" font-family="IBM Plex Sans" font-size="8.5" font-style="italic" fill="var(--muted)">after durable</text>
+    <line x1="408" y1="564" x2="408" y2="545" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+    <text x="414" y="558" font-family="IBM Plex Sans" font-size="8.5" font-style="italic" fill="var(--muted)">receipt after the turn</text>
+    <polyline points="600,564 600,554 520,554 520,545" fill="none" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+    <text x="606" y="557" font-family="IBM Plex Sans" font-size="8.5" font-style="italic" fill="var(--muted)">row #1 → circulation</text>
+
+    <!-- row C: handles strip -->
+    <rect x="268" y="718" width="888" height="82" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="269.5" y="720" width="5" height="78" fill="var(--v-stays)"/>
+    <text x="282" y="738" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">CLUSTER HANDLES — the one way down</text>
+    <text x="1142" y="738" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">cluster.clj 29K · core.clj 35K · objects.cljc 3K · util_fns.cljc 0.4K</text>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="282" y="758">opens foreign depot / PState / query handles to the five modules by get-module-name (face-projection-runtime · trail-runtime — whose :module-name is</text>
+      <text x="282" y="771">the RELATION kernel's); never launches a module — bin/land does. Everything in this band reaches the cluster only through here; the door's relation/assert</text>
+      <text x="282" y="784">comes in at the left. util_fns is the one surviving atom (!ingest-epoch-atom).</text>
+    </g>
+
+    <!-- handles -> modules -->
+    <line x1="280" y1="800" x2="280" y2="886" stroke="var(--ink)" stroke-width="1.3" marker-end="url(#arr)"/>
+    <line x1="408" y1="800" x2="408" y2="886" stroke="var(--ink)" stroke-width="1.3" marker-end="url(#arr)"/>
+    <line x1="624" y1="800" x2="624" y2="886" stroke="var(--ink)" stroke-width="1.3" marker-end="url(#arr)"/>
+    <line x1="840" y1="800" x2="840" y2="886" stroke="var(--muted)" stroke-width="1.3" stroke-dasharray="3 3" marker-end="url(#arrm)"/>
+    <line x1="1056" y1="800" x2="1056" y2="886" stroke="var(--ink)" stroke-width="1.3" marker-end="url(#arr)"/>
+    <g font-family="IBM Plex Mono" font-size="8.5" fill="var(--muted)">
+      <text x="286" y="822">write: depots</text>
+      <text x="286" y="834">read: PStates · queries</text>
+      <text x="414" y="822">read: runs ·</text>
+      <text x="414" y="834">offsets · lines</text>
+      <text x="630" y="822">assert · edges</text>
+      <text x="630" y="834">· read relations</text>
+      <text x="846" y="822">handles opened;</text>
+      <text x="846" y="834">no reader of its queries</text>
+      <text x="1062" y="822">read-face · list</text>
+      <text x="1062" y="834">· wear-count (no writer)</text>
+    </g>
+
+    <!-- ======== FLOOR — THE CLUSTER ======== -->
+    <text x="92" y="874" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="var(--ink)">THE CLUSTER — five deployed modules (bin/land MODULE_VARS) · not opened here · data as-is under /mnt/data/rama/data</text>
+
+    <rect x="92" y="888" width="200" height="104" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.8"/>
+    <text x="104" y="906" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">OBJECT-CONTAINER</text>
+    <g font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">
+      <text x="104" y="921">2 depots · 26 PStates · 5 queries</text>
+      <text x="104" y="933">object_container.clj 135K</text>
+      <text x="104" y="945">+ runtime.clj (admission road)</text>
+      <text x="104" y="957">+ 5 adapters 121K</text>
+    </g>
+    <text x="104" y="974" font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)"><tspan font-style="italic" fill="var(--muted)">in</tspan> requests on the depot</text>
+    <text x="104" y="987" font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)"><tspan font-style="italic" fill="var(--muted)">out</tspan> decided, keyed truth</text>
+
+    <rect x="308" y="888" width="200" height="104" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.8"/>
+    <text x="320" y="906" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">TRANSCRIPT-OPS</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="320" y="922">2 depots · 3 PStates · 1 mirror</text>
+      <text x="320" y="935">object_container.clj:2608</text>
+    </g>
+    <text x="320" y="961" font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">transcript runs · file offsets</text>
+    <text x="320" y="974" font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">· source lines by file</text>
+
+    <rect x="524" y="888" width="200" height="104" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.8"/>
+    <text x="536" y="906" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">RELATION-KERNEL</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="536" y="922">1 depot · 8 PStates · 3 queries</text>
+      <text x="536" y="935">relation_kernel.clj 55K</text>
+    </g>
+    <text x="536" y="961" font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">typed edges · identity · idempotency</text>
+    <text x="536" y="974" font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">· retraction · history (67 edges)</text>
+
+    <rect x="740" y="888" width="200" height="104" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.8"/>
+    <text x="752" y="906" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">TRAIL-VIEW</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="752" y="922">0 depots · 0 own PStates</text>
+      <text x="752" y="935">13 mirrors · 4 queries</text>
+      <text x="752" y="948">trail_view.clj 45K</text>
+    </g>
+    <text x="752" y="968" font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">a read projection over OC —</text>
+    <text x="752" y="981" font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">owns nothing; "kernel" by name only</text>
+
+    <rect x="956" y="888" width="200" height="104" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.8"/>
+    <text x="968" y="906" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">FACE-ARSENAL</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="968" y="922">1 depot · 4 PStates</text>
+      <text x="968" y="935">face_arsenal.clj 22K</text>
+    </g>
+    <text x="968" y="961" font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">wear events + pointers for faces</text>
+    <text x="968" y="974" font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">(roster 4 · wear 641); no writer left</text>
+
+    <!-- ======== BAND 3 — PARKED RENDER ENGINE ======== -->
+    <text x="92" y="1070" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="var(--ink)">PARKED RENDER ENGINE — src/app/client/** · 48 files · 1.60 MB · one entry: the verifier build</text>
+    <text x="1150" y="1070" text-anchor="end" font-family="IBM Plex Mono" font-size="10.5" fill="var(--muted)">every .cljc tested · all 14 .cljs untested</text>
+
+    <!-- row 1: scene values -->
+    <rect x="92" y="1090" width="200" height="150" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="93.5" y="1092" width="5" height="146" fill="var(--v-park)"/>
+    <text x="106" y="1110" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">SCENE VALUES</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="106" y="1127">scene_store 35K · containers 13K</text>
+      <text x="106" y="1140">rect_tree 35K · scene_tape 33K</text>
+      <text x="106" y="1153">selection 6K · snap 11K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="106" y="1174"><tspan font-style="italic" fill="var(--muted)">in</tspan> slot upserts · transforms · faces</text>
+      <text x="106" y="1188"><tspan font-style="italic" fill="var(--muted)">out</tspan> entries · picks · descriptors</text>
+      <text x="106" y="1208" fill="var(--muted)">why: one render substrate — one store,</text>
+      <text x="106" y="1221" fill="var(--muted)">one pick; order is row data</text>
+    </g>
+
+    <!-- row 1: frame computation -->
+    <rect x="308" y="1090" width="200" height="150" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="309.5" y="1092" width="5" height="146" fill="var(--v-park)"/>
+    <text x="322" y="1110" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">FRAME COMPUTATION</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="322" y="1127">frame_scheduler · graph 42K</text>
+      <text x="322" y="1140">inputs · delta · semantic_state</text>
+      <text x="322" y="1153">effects · effect_view · plan_view</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="322" y="1174"><tspan font-style="italic" fill="var(--muted)">in</tspan> minted deltas · family entries</text>
+      <text x="322" y="1188"><tspan font-style="italic" fill="var(--muted)">out</tspan> frame plan · arrangement views</text>
+      <text x="322" y="1208" fill="var(--muted)">why: recompute ∝ change; no clock as</text>
+      <text x="322" y="1221" fill="var(--muted)">ancestor (render seam, settled 08-03)</text>
+      <text x="322" y="1234" fill="var(--v-custody)">apply-deltas: executed by no guard</text>
+    </g>
+
+    <!-- row 1: webgpu core -->
+    <rect x="524" y="1090" width="200" height="150" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="525.5" y="1092" width="5" height="146" fill="var(--v-park)"/>
+    <text x="538" y="1110" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">WEBGPU CORE</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="538" y="1127">renderer.cljs 203K</text>
+      <text x="538" y="1140">compositor 72K · buffer_pool 22K</text>
+      <text x="538" y="1153">gpu_budget 16K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="538" y="1174"><tspan font-style="italic" fill="var(--muted)">in</tspan> store frame · camera · systems</text>
+      <text x="538" y="1188"><tspan font-style="italic" fill="var(--muted)">out</tspan> GPU commands · the frame</text>
+      <text x="538" y="1208" fill="var(--muted)">why: WebGPU is a contract the applier</text>
+      <text x="538" y="1221" fill="var(--muted)">speaks natively, never a DOM target</text>
+      <text x="538" y="1234" fill="var(--v-custody)">draw-frame!: no caller anywhere</text>
+    </g>
+
+    <!-- verifier (tall, right) -->
+    <rect x="956" y="1090" width="200" height="322" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="957.5" y="1092" width="5" height="318" fill="var(--v-stays)"/>
+    <text x="970" y="1110" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">THE VERIFIER</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="970" y="1127">verifier.cljs 304K</text>
+      <text x="970" y="1140">shadow-cljs :render-verifier</text>
+      <text x="970" y="1153">init start! — the only target</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="970" y="1174"><tspan font-style="italic" fill="var(--muted)">in</tspan> fixtures</text>
+      <text x="970" y="1188"><tspan font-style="italic" fill="var(--muted)">out</tspan> a schema-v2 result:</text>
+      <text x="970" y="1201">152 files · 0 warnings</text>
+      <text x="970" y="1214">goldens base · chrome · Region3D</text>
+      <text x="970" y="1235" fill="var(--muted)">builds the production renderer's</text>
+      <text x="970" y="1248" fill="var(--muted)">systems, runs fences + goldens</text>
+      <text x="970" y="1269" fill="var(--muted)">why: "the verifier build is their</text>
+      <text x="970" y="1282" fill="var(--muted)">guard until their own later ruling"</text>
+      <text x="970" y="1303">:product-server-used? false</text>
+      <text x="970" y="1324" fill="var(--v-custody)">never invokes draw-frame! —</text>
+      <text x="970" y="1337" fill="var(--v-custody)">green = compiles + seams present,</text>
+      <text x="970" y="1350" fill="var(--v-custody)">not "still draws"</text>
+      <text x="970" y="1371" fill="var(--muted)">the area's only live entry;</text>
+      <text x="970" y="1384" fill="var(--muted)">everything else is reached</text>
+      <text x="970" y="1397" fill="var(--muted)">only through it</text>
+    </g>
+
+    <!-- row 2: presentation grammar -->
+    <rect x="92" y="1262" width="200" height="150" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="93.5" y="1264" width="5" height="146" fill="var(--v-custody)"/>
+    <text x="106" y="1282" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">PRESENTATION GRAMMAR ◫</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="106" y="1299">face_assembly.cljc 31K</text>
+      <text x="106" y="1312">face_primitives.cljc 62K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="106" y="1332">the 16-builder block render channel</text>
+      <text x="106" y="1346"><tspan font-style="italic" fill="var(--muted)">in</tspan> an assembly + block data</text>
+      <text x="106" y="1360"><tspan font-style="italic" fill="var(--muted)">out</tspan> a face tree (build-face-tree ▲)</text>
+      <text x="106" y="1380" fill="var(--v-custody)">custody: TrailView · anatomy · goldens</text>
+      <text x="106" y="1393" fill="var(--v-custody)">one-cut deletion debt (Sid 08-20)</text>
+      <text x="106" y="1406" fill="var(--ink)">◀ required by assembly_adapter.clj</text>
+    </g>
+
+    <!-- row 2: scene runtime -->
+    <rect x="308" y="1262" width="200" height="150" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="309.5" y="1264" width="5" height="146" fill="var(--v-park)"/>
+    <text x="322" y="1282" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">SCENE RUNTIME</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="322" y="1297">scene_runtime.cljs 30K</text>
+      <text x="322" y="1309">chrome_runtime 17K</text>
+      <text x="322" y="1321">region3d_runtime 28K</text>
+      <text x="322" y="1333">frame_runtime.cljs 15K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="322" y="1352"><tspan font-style="italic" fill="var(--muted)">in</tspan> scene mutations from a host</text>
+      <text x="322" y="1366"><tspan font-style="italic" fill="var(--muted)">out</tspan> the atoms the renderer reads</text>
+      <text x="322" y="1386" fill="var(--v-custody)">names deleted ns: render · mouse ·</text>
+      <text x="322" y="1399" fill="var(--v-custody)">face_wiring · agent_flow; no callers</text>
+    </g>
+
+    <!-- row 2: shaper -->
+    <rect x="524" y="1262" width="200" height="150" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="525.5" y="1264" width="5" height="146" fill="var(--v-park)"/>
+    <text x="538" y="1282" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">THE SHAPER</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="538" y="1299">text_layout 73K · planes 25K</text>
+      <text x="538" y="1312">text_shaper 14K · fonts 13K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="538" y="1333"><tspan font-style="italic" fill="var(--muted)">in</tspan> text + font + width / layout key</text>
+      <text x="538" y="1347"><tspan font-style="italic" fill="var(--muted)">out</tspan> glyph placements · line geometry</text>
+      <text x="538" y="1367" fill="var(--muted)">why: the floor piece — "text in,</text>
+      <text x="538" y="1380" fill="var(--muted)">placement out; nobody else</text>
+      <text x="538" y="1393" fill="var(--muted)">measures" (Sid, 08-19)</text>
+      <text x="538" y="1406" fill="var(--v-stays)">text-layout 6/32 + shaper green</text>
+    </g>
+
+    <!-- row 2: render families -->
+    <rect x="740" y="1262" width="200" height="150" rx="4" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="741.5" y="1264" width="5" height="146" fill="var(--v-park)"/>
+    <text x="754" y="1282" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">RENDER FAMILIES</text>
+    <g font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">
+      <text x="754" y="1299">chrome · connector · path</text>
+      <text x="754" y="1312">image · region3d (+ rungs)</text>
+      <text x="754" y="1325">material 256K · GPU halves 176K</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.5" fill="var(--ink)">
+      <text x="754" y="1346"><tspan font-style="italic" fill="var(--muted)">in</tspan> family entries from the tape</text>
+      <text x="754" y="1360"><tspan font-style="italic" fill="var(--muted)">out</tspan> draw batches, one per family</text>
+      <text x="754" y="1380" fill="var(--muted)">why: each plugs into the pipeline/</text>
+      <text x="754" y="1393" fill="var(--muted)">frame registries without touching</text>
+      <text x="754" y="1406" fill="var(--muted)">another family</text>
+    </g>
+
+    <!-- band-3 internal arrows -->
+    <line x1="292" y1="1165" x2="306" y2="1165" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+    <line x1="508" y1="1165" x2="522" y2="1165" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+    <line x1="192" y1="1262" x2="192" y2="1242" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+    <polyline points="380,1262 380,1251 260,1251 260,1242" fill="none" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+    <text x="386" y="1256" font-family="IBM Plex Sans" font-size="8.5" font-style="italic" fill="var(--muted)">owns the atoms · mutates</text>
+    <line x1="624" y1="1262" x2="624" y2="1242" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+    <text x="630" y="1256" font-family="IBM Plex Sans" font-size="8.5" font-style="italic" fill="var(--muted)">text geometry</text>
+    <polyline points="840,1262 840,1251 700,1251 700,1242" fill="none" stroke="var(--ink)" stroke-width="1.2" marker-end="url(#arr)"/>
+    <text x="846" y="1256" font-family="IBM Plex Sans" font-size="8.5" font-style="italic" fill="var(--muted)">draw batches</text>
+    <line x1="956" y1="1150" x2="726" y2="1150" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#arrm)"/>
+    <text x="840" y="1143" text-anchor="middle" font-family="IBM Plex Sans" font-size="8.5" font-style="italic" fill="var(--muted)">builds the systems · fences · goldens</text>
+    <line x1="956" y1="1337" x2="942" y2="1337" stroke="var(--muted)" stroke-width="1.2" stroke-dasharray="3 3" marker-end="url(#arrm)"/>
+    <text x="840" y="1424" text-anchor="middle" font-family="IBM Plex Sans" font-size="8.5" font-style="italic" fill="var(--muted)">scene values → frame plan → GPU; the tape (scene_tape) orders the nine families</text>
+
+    <!-- ======== BRIDGES (left gutter) ======== -->
+    <polyline points="92,1165 40,1165 40,328 174,328 174,294" fill="none" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+    <text transform="translate(31,760) rotate(-90)" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="var(--muted)">scene_store.cljc:684 → shared/material_inspector — the one client→shared row</text>
+    <polyline points="92,940 58,940 58,1337 90,1337" fill="none" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+    <text transform="translate(52,1140) rotate(-90)" text-anchor="middle" font-family="IBM Plex Mono" font-size="8.5" fill="var(--muted)">assembly_adapter.clj → face_assembly + face_primitives — the only server→client bridge</text>
+  </svg>
+  </div>
+  <figcaption>The kept code on 2026-08-21, one notch below the waist map. Three areas as bands, the five deployed modules as the floor between them. Each box: a piece (files and bytes), what goes in, what comes out, why it is shaped so, who it talks to. Solid arrows are calls the code makes within an area; the two dashed lines in the left gutter are the only bridges across areas; the dashed arrow into TRAIL-VIEW marks handles that are opened but have no reader. The left bar on each box is its observed state, read from call chains (legend below) — a state, not a verdict.</figcaption>
+  </figure>
+
+  <div class="legend">
+    <span><span class="vb" style="background:var(--v-stays)"></span>LIVE — on a call chain from a door or boot path</span>
+    <span><span class="vb" style="background:var(--v-dormant)"></span>DORMANT — tests · registry · explicit <span class="mono">bin/land</span> only</span>
+    <span><span class="vb" style="background:var(--v-park)"></span>PARKED — Sid's word; verifier-guarded</span>
+    <span><span class="vb" style="background:var(--v-custody)"></span>CUSTODY ◫ — kept for TrailView · anatomy · goldens</span>
+    <span><span class="ln"></span>calls / writes within an area</span>
+    <span><span class="ln dash"></span>bridge across areas · or handles with no reader</span>
+  </div>
+
+  <h2>What each word on this page means</h2>
+  <div class="tblwrap">
+  <table class="def small">
+    <tr><th>word</th><th>meaning</th><th>how it was read</th></tr>
+    <tr><td><strong>in / out</strong></td><td>the data shape crossing the piece's boundary — what a caller hands it, what it hands back or writes durably</td><td>public fns, routes, depots and PStates at the seam — never a docstring alone (names here record the generation that minted them; see the names box)</td></tr>
+    <tr><td><strong>why</strong></td><td>the reason the piece is shaped this way: the settled bullet in <span class="mono">decisions.md</span>, or the ruling that birthed it; when neither exists, what the code itself does</td><td>cited per row in the agent twin; "(code)" where no law was found</td></tr>
+    <tr><td><span class="s-live"><strong>LIVE</strong></span></td><td>on a call chain from a surviving door, a boot path, or a production caller</td><td>route table + ns requires + <span class="mono">cluster.clj</span></td></tr>
+    <tr><td><span class="s-dorm"><strong>DORMANT</strong></span></td><td>reachable only from tests, registry aggregation, or an explicit <span class="mono">bin/land</span> command</td><td>exact-symbol census in <span class="mono">src/</span>, spot-checked</td></tr>
+    <tr><td><span class="s-park"><strong>PARKED</strong></span></td><td>Sid's word (waist task): the scene + GPU machine and the render families — guarded by the verifier build, no product entry</td><td><span class="mono">waist-cleanup-task.md:84-97</span> · <span class="mono">shadow-cljs.edn</span></td></tr>
+    <tr><td><span class="s-cust"><strong>CUSTODY</strong></span></td><td>kept only for TrailView / anatomy / goldens — one-cut deletion debt (Sid, 2026-08-20)</td><td><span class="mono">NOW.md</span> render-custody line</td></tr>
+  </table>
+  </div>
+
+  <h2>The pieces — area by area</h2>
+  <p class="notes">Rows are pieces, not files and not functions. The agent twin (<span class="mono">kept-code-map.md</span>) carries the same rows with every citation spelled out.</p>
+
+  <h3>Shared material rows — <span class="mono">src/app/shared/</span> · 18 files · 231.8 KB · born 07-24 → 07-31</h3>
+  <div class="tblwrap">
+  <table class="def pieces">
+    <tr><th>piece</th><th>files</th><th>what it is</th><th>in → out</th><th>why</th><th>talks to</th><th>state</th></tr>
+    <tr><td class="piece live">Facet grammar</td><td class="files">facet_material.cljc 24.3K<br>facet_masters.cljc 2.3K</td><td>the one compiler for a <em>facet</em> (a served behaviour/appearance policy of a face): floor fallback, wear resolver, stamp maker, contribution composer; plus the ordered registry of the nine specs</td><td>a facet spec (EDN: defaults · fields · form-validators) + a wearer's subject + served rows → a compiled facet table + stamps (which row contributed)</td><td class="why">"Furniture is data" — policies must be served, revisioned, deviate-able; this is the one place served rows become behaviour</td><td>all 9 specs · facet_master · material_truth · material_portal · face_projection · jetty</td><td class="state s-live">LIVE</td></tr>
+    <tr><td class="piece live">The nine specs</td><td class="files">attention 7.8K · positioned 5.4K · foldable 6.8K · text_body 1.8K · threaded 2.9K · space 4.1K · provenance 2.4K · invocation 4.4K · anatomy 31.1K</td><td>each is the data spec of one block-face behaviour: hit areas · placement/reply-birth defaults · fold policy · wrap columns · thread-adoption distance · zoom bounds + bindable place/marquee · provenance tint · model/effort/precontext for a reply · the block's anatomy grammar</td><td>declarations; nothing flows in at runtime → spec maps the registry aggregates; imported as candidate masters into the object container at boot (<span class="mono">cluster.clj:343-457</span>)</td><td class="why">each was a lived friction on the (now deleted) block face during the campaign, written as served policy instead of client code</td><td>facet_masters · cluster.clj · face_projection</td><td class="state"><span class="s-live">LIVE</span> via registry; <span class="s-dorm">text_body · space</span> registry only</td></tr>
+    <tr><td class="piece live">Binding + verb grammar</td><td class="files">binding_material.cljc 29.7K<br>verb_registry.cljc 17.3K</td><td>the closed grammar tying a gesture (tap/drag/key) on a site at a tier to a verb — pure resolver, drills, served tables; the closed verb registry (versions, effects, args, reservations, releases)</td><td>a gesture descriptor + served binding rows + the registry → the verb to dispatch, served tables for faces</td><td class="why">"material may select machines only from a closed registry with declared contracts" (build model); camera gestures structurally uncapturable by material</td><td>4 specs · face_projection · material_portal · verb_release</td><td class="state"><span class="s-live">LIVE</span>; <span class="s-dorm">resolve-binding</span> drill + tests</td></tr>
+    <tr><td class="piece live">Activation event</td><td class="files">activation_event.cljc 13.5K</td><td>the one closed form of an activation / rollback / pin / unpin act, its serializer and the legacy parser (one read shape, two source generations)</td><td>an act map → canonical bytes written into the object container, and parsed back</td><td class="why">"POLICY merges by activation — malformed refused at the gate, one-act rollback"; the form is durable bytes, so it is fixed</td><td>matter_room · material_truth · circulation · portal · face_projection · facet_master</td><td class="state s-live">LIVE</td></tr>
+    <tr><td class="piece live">Matter room</td><td class="files">matter_room.cljc 22.2K</td><td>pure addressing of a <em>room</em> (one entity/master world), normalization of the five acts (open · deviate · activate · rollback · say), deterministic resident projection (which agent seats appear)</td><td>room address + act params → normalized act + resident list (<span class="mono">:resident/time-ms</span> is an ordinal, not a time)</td><td class="why">the portal surface was one conversation per room; the server needed a pure, testable core of the room idea (code)</td><td>the five room handlers (<span class="mono">server_jetty:804-1024</span>) · material_portal.clj · face_projection</td><td class="state s-live">LIVE</td></tr>
+    <tr><td class="piece live">Portal (pure) · inspector · reply-to-block</td><td class="files">material_portal.cljc 44.4K<br>material_inspector.cljc 7.3K<br>reply_to_block.cljc 3.9K</td><td>the pure half of the material portal (questions, anchors, canonical bytes, anatomy composition, render model, briefing); extraction/normalization of contribution stamps + wearer snapshots; the pure addressed-reply request / narrowing / prompt composition</td><td>served rows + room + stamps → a render model · a briefing text · a reply request</td><td class="why">the portal was the x-ray of material (anatomy room, studio arc); "context comes by BRIEFING, assembled from the land's blocks, never by merging transcripts"</td><td>material_portal.clj · face_projection · jetty · verb_release · <strong><span class="mono">scene_store.cljc:684</span></strong> (the one client consumer)</td><td class="state"><span class="s-live">LIVE</span>; <span class="s-dorm">reply/request · wearers-from-scene-store</span> tests only</td></tr>
+  </table>
+  </div>
+
+  <h3>The server — <span class="mono">server_jetty.clj</span> + <span class="mono">src/app/server/**</span> · one JVM · organs ~0.94 MB</h3>
+  <div class="tblwrap">
+  <table class="def pieces">
+    <tr><th>piece</th><th>files</th><th>what it is</th><th>in → out</th><th>why</th><th>talks to</th><th>state</th></tr>
+    <tr><td class="piece live">Front door</td><td class="files">server_jetty.clj 79.5K<br>born 2024-04-20</td><td>the one Jetty middleware <span class="mono">wrap-file-api</span> IS the route table: ten POST doors matched by string on <span class="mono">uri</span>, every handler body in this file; <span class="mono">wrap-params</span> sits outside it so EDN routes read the raw body</td><td>HTTP POST (EDN or form body; today only tests/curl) → EDN response; the episode turn answers with a <span class="mono">text/event-stream</span> body on the same POST</td><td class="why">the 2024 file-explorer API file every generation bolted its doors onto; no GET survives because the read wire was the Electric websocket that went with the client</td><td>every JVM piece · cluster.clj handles</td><td class="state s-live">LIVE (no production caller)</td></tr>
+    <tr><td class="piece live">Episode lane</td><td class="files">episode.clj 49.5K<br>dogfood/transcript.clj 70.8K (9 helper fns; its <span class="mono">transcript-module</span> NOT deployed)<br>run-episode-turn (jetty:439)</td><td>takes an utterance addressed to a lane, records it durably, summons the Claude CLI as a subprocess, streams the reply back, harvests the CLI's jsonl into the container, records turn / birth / geometry cells + an instance registry; then <span class="mono">post-turn-distill!</span></td><td>utterance {text · lane/episode id · source address} · block-birth · geometry (placement + camera cells) → rows in the object container (utterances as imports · turn records · geometry cells · receipts) + SSE events (<span class="mono">:episode-durable</span> …)</td><td class="why">"Episodes bound every CLI session" + "One canvas, many conversations" (settled 07-21/22): the lane is permanent, the session is not; both actors durably recorded; seed by briefing, never jsonl replay</td><td>object container via handles · circulation (receipt after the turn) · <span class="mono">cascade/react!</span> after the durable turn</td><td class="state s-live">LIVE (the canvas that posted is gone)</td></tr>
+    <tr><td class="piece live">Material system — write half</td><td class="files">object_container/facet_master.clj 34.4K<br>material_circulation.clj 46.6K<br>verb_release.clj 8.9K</td><td><strong>facet_master</strong>: the object-container adapter that imports a facet spec as a candidate master, activates / deviates / pins / releases pointer revisions, instance masters, the activation trail. <strong>circulation</strong>: the foreign-client driver writing receipts, semantic edges, machine records, autotag (via the LLM seat), as-of wears, "experience". <strong>verb_release</strong>: the fixed 8-node source-address release chain for the reply verb</td><td>a matter-room act (open / deviate / activate / rollback / say · drill) · a turn receipt · a release request → object-container rows (masters · instances · pointers · activation history · receipts · records) + relation edges</td><td class="why">"served, revisioned, deviate-able, pinnable, previewable, activatable, reversible material" (editable-material, settled) · "the map must not lie" (receipts carry provenance) · autotag rides as cascade row #1</td><td>shared rows (specs · activation_event · verb_registry) · handles → object container + relation kernel · dogfood/llm.clj (<span class="mono">circulation:630-671</span>)</td><td class="state"><span class="s-live">LIVE</span>; <span class="s-dorm">verb_release write half</span> tests</td></tr>
+    <tr><td class="piece live">Material system — serve half</td><td class="files">face_projection.clj 102.2K<br>material_truth.clj 20.1K<br>material_portal.clj 55.3K<br>object_container/block_distiller.clj 85.9K</td><td><strong>face_projection</strong>: the read-only registry of twelve <em>face data-contexts</em> (conversation · assembly · face-list · facet-materials · material-inspector · material-experience · cascade-rows · escape-gauge · interaction-table · material-truth · material-portal · block-truth) and their dispatch. <strong>material_truth</strong>: derived composition over facet_master — owns no truth, despite its name. <strong>material_portal.clj</strong>: the clock-free join that opens one entity/master world by recursively serving six faces. <strong>block_distiller</strong>: distils object-container rows into block-shaped units</td><td>a page request (face id + subject + room) — today only from inside the matter-room handlers (<span class="mono">jetty:823</span> open · <span class="mono">:999</span> rollback) and the conversation seed (<span class="mono">:607</span>) → an EDN page</td><td class="why">the portal "projects the material world inhabitably" (campaign gates); briefings assembled from the land's blocks</td><td>shared rows · handles (reads object container · arsenal · relation kernel) · assembly_adapter</td><td class="state"><span class="s-live">LIVE</span> internally; <span class="s-dorm">assembly · face-list · escape-gauge · block-truth</span> no caller</td></tr>
+    <tr><td class="piece live">Cascade</td><td class="files">cascade.clj 2.0K</td><td>one in-process declaration table of server acts against named triggers + <span class="mono">react!</span>, the one dispatch point (per-row future, isolated failures, declaration-order receipts)</td><td>a trigger (<span class="mono">:episode/turn-durable</span>) + payload → dispatched handlers (row #1 = <span class="mono">server-jetty/run-ambient-autotag!</span>, named as a symbol in the table — the only src pointer back into the front door)</td><td class="why">multi-cascade R1 (settled 07-26): server acts are data; dark capacity proven honest</td><td>front door (<span class="mono">react!</span> at :589) → circulation → LLM seat</td><td class="state s-live">LIVE</td></tr>
+    <tr><td class="piece dorm">Annotators + the edit entry</td><td class="files">machine_cut.clj 55.2K<br>code_atoms.clj 61.8K<br>block_edit.clj 2.0K (born 08-20)</td><td><strong>machine_cut</strong>: conversation-pair annotator — pure core + LLM/WAL/relation shell; only <span class="mono">replay-wal!</span> is called (<span class="mono">bin/land ingest</span>). <strong>code_atoms</strong>: git-backed code ingestion/lineage + HEAD analyzer deriving <span class="mono">:requires</span>/<span class="mono">:calls</span> — only its three pure address helpers are used (verb_release). <strong>block_edit</strong>: the one server object-edit entry (<span class="mono">submit-block-edit!</span> → object-container stream → durable accepted/rejected decision)</td><td>conversation pairs · a git HEAD · an object edit {target · content-text · idempotency-key …} → relation edges · code atoms · a decision map</td><td class="why">"Relations are typed edges" · "External code is a view — address code, never copy it" · the commit artery floor piece (edit in, durable accepted/rejected out)</td><td>relation kernel via handles; block_edit ← <span class="mono">matter-room-refresh!</span> (jetty:779-786)</td><td class="state"><span class="s-live">block_edit LIVE</span> · <span class="s-dorm">machine_cut · code_atoms</span>; machine_cut:546 still holds an <span class="mono">.ednl</span> writer on a path no caller reaches (WAL OFF on the cluster)</td></tr>
+    <tr><td class="piece dorm">Ingest / migration lane</td><td class="files">ingest_watchers.clj 19.2K<br>git_spine.clj 33.2K<br>dogfood/transcript_ingest.clj 47.0K (zero src callers)</td><td>the boot-time sweep + git-spine sequence (assert-log replay → spine-sync → extract) run only by <span class="mono">bin/land ingest</span> → <span class="mono">cluster/ingest!</span>; transcript_ingest is the pre-object-container ingest module kept as a draft</td><td>files on disk · git history · bridge logs (<span class="mono">data/*.ednl</span>, replay only) → object-container imports + relation edges</td><td class="why">"Boot-time ingest is OFF the startup path" · "No hand-rolled journals — the EDN WAL beside Rama is the recorded dead branch; the .ednl logs were bridges, replayed once, retired" (durable ground)</td><td>object container + relation kernel via handles · assembly_adapter</td><td class="state s-dorm">DORMANT (explicit command)</td></tr>
+    <tr><td class="piece live">LLM seat</td><td class="files">dogfood/llm.clj 99.1K<br>llm-module (4 depots · 26 PStates) NOT deployed; in-process via <span class="mono">delay</span> (jetty:347)</td><td>the in-process LLM turn-run runtime: request → claim → stream-json adapter → items / decisions / usage; backend <span class="mono">:claude</span>, auth <span class="mono">:subscription</span></td><td>a turn-run request (from circulation's autotag) → run rows / items / decisions (in memory), the autotag result</td><td class="why">"the server floor (kernels, write organ, echo, llm seat) already exists" · model lanes ride subscriptions, never API keys (Sid)</td><td>material_circulation</td><td class="state s-live">LIVE helper; module not deployed</td></tr>
+    <tr><td class="piece live">Cluster handles</td><td class="files">cluster.clj 29.1K<br>core.clj 35.2K<br>objects.cljc 3.3K<br>util_fns.cljc 0.4K</td><td>opens foreign depot / PState / query handles to the five deployed modules by <span class="mono">get-module-name</span>, memoized, as runtime maps the handlers use (<span class="mono">face-projection-runtime</span> · <span class="mono">trail-runtime</span> — whose <span class="mono">:module-name</span> is the RELATION kernel's, by its own docstring); never launches a module; core = Rama helpers; util_fns = the one <span class="mono">!ingest-epoch-atom</span></td><td>module vars → handle maps</td><td class="why">"Rama is truth" + durable ground: the JVM is a client of a real single-node cluster; <span class="mono">bin/land</span> owns daemon/deploy/backup</td><td>every JVM piece → the five modules</td><td class="state s-live">LIVE</td></tr>
+  </table>
+  </div>
+
+  <h3>The floor — five deployed modules (not opened; the waist map's grain)</h3>
+  <p class="notes"><span class="mono">bin/land:23-28 MODULE_VARS</span> deploys exactly these five; eight <span class="mono">defmodule</span> forms exist in src/ (<span class="mono">transcript-module</span> · <span class="mono">TranscriptIngestModule</span> · <span class="mono">llm-module</span> are not in the list). All five source files byte-identical through the cut; data as-is (R5: 43 turns · 406 geometry cells · wear 641 · roster 4 · 67 relation edges).</p>
+  <div class="tblwrap">
+  <table class="def pieces">
+    <tr><th>module</th><th>source</th><th>owns</th><th>queries</th><th>who reaches it today</th></tr>
+    <tr><td class="piece live">object-container</td><td class="files">object_container.clj:1746 (134.7K)<br>+ object_container/runtime.clj 17.5K — the admission road: depot → validate → decide → revisions → keyed truth<br>+ adapters transcript 32.4K · transcript_identity 1.6K · markdown 26.7K · clojure 33.6K · assembly 26.5K</td><td>2 depots (<span class="mono">*object-container-requests-depot</span> · <span class="mono">*transcript-source-line-completions-depot</span>) · 26 PStates: requests / decisions / events · containers-by-id · revisions-by-id · revision-history · derived-units · graduations · source artifacts/versions/anchors/edges · composition children/parent · outline · transcript projection/tool-calls/audit/last-message/source-lines · edit-order</td><td>5: read-latest-source-by-ref · read-source-by-ref-version · read-unit · read-current-revision · read-common-material-for-source</td><td>writes: episode lane · material write half · block_edit · ingest lane; reads: serve half · trail-view mirrors</td></tr>
+    <tr><td class="piece live">object-container-transcript-ops</td><td class="files">object_container.clj:2608</td><td>2 depots (<span class="mono">*transcript-control-depot</span> · <span class="mono">*transcript-file-state-depot</span>) · 3 PStates (transcript-runs · transcript-file-offsets · transcript-file-source-lines-by-file) + one mirror</td><td>—</td><td>episode lane (transcript helpers)</td></tr>
+    <tr><td class="piece live">relation-kernel</td><td class="files">relation_kernel.clj:634 (54.7K)</td><td>1 depot (<span class="mono">*relation-request-depot</span>) · 8 PStates (decisions by idempotency / id · events · relations-by-id · status-log · relations-by-target · target-descriptors · activity-by-bucket)</td><td>3: relations-for-targets · relation-detail · relation-activity</td><td>writes: <span class="mono">/api/relation/assert</span> · circulation · machine_cut · code_atoms · git_spine · assembly_adapter · block_distiller; reads: serve half</td></tr>
+    <tr><td class="piece dorm">trail-view</td><td class="files">trail_view.clj:284 (44.6K)</td><td>0 depots · 0 own PStates · 13 mirrors over object-container (+1 over transcript-ops)</td><td>4: context-bundle · conversation-trail · recent-file-activity · recent-source-activity</td><td>handles opened (<span class="mono">cluster.clj:169</span>); no reader of its four queries found in src outside tests</td></tr>
+    <tr><td class="piece live">face-arsenal</td><td class="files">face_arsenal.clj:166 (21.7K)</td><td>1 depot (<span class="mono">*face-arsenal-depot</span>) · 4 PStates (faces-by-name · wear-events-by-face · wear-counts-by-face · wear-journal-by-face)</td><td>—</td><td>reads only: serve half (read-face · list-faces · read-wear-count); no wear writer left in src (the client wrote wears); replay-wear-log! at ingest</td></tr>
+  </table>
+  </div>
+
+  <h3>The parked render engine — <span class="mono">src/app/client/**</span> · 48 files · ~1.60 MB</h3>
+  <p class="notes">One build target exists: <span class="mono">shadow-cljs.edn :render-verifier</span>, entries <span class="mono">[app.client.substrate.webgpu.verifier]</span>, init <span class="mono">start!</span>. Every other client namespace is reachable only through it. Every <span class="mono">.cljc</span> here has ≥1 test; all 14 <span class="mono">.cljs</span> files have zero.</p>
+  <div class="tblwrap">
+  <table class="def pieces">
+    <tr><th>piece</th><th>files</th><th>what it is</th><th>in → out</th><th>why</th><th>talks to</th><th>state</th></tr>
+    <tr><td class="piece park">Scene values</td><td class="files">workspace/scene_store.cljc 35.3K · containers.cljc 12.5K · rect_tree.cljc 35.2K · substrate/scene_tape.cljc 33.1K · selection.cljc 6.2K · snap.cljc 11.2K</td><td>the pure scene: slots keyed <span class="mono">(view-instance, address)</span> holding EDN values; container hierarchy + affine registry (effective transforms, point conversion); rect-tree construction / layout / hit-testing; the one ordered tape — nine families, forward paint + reverse pick</td><td>slot upserts/removes + container transforms (+ face trees) → ordered entries for a frame · picks (address + context bundle) · descriptors</td><td class="why">"One render substrate" (ruled 07-12): one store, transforms compose in-shader, one pick over the store; "document order is row data — sort keys, never position" (render seam)</td><td>scene runtime (its mutating caller) · frame computation · families · verifier · <strong>shared/material_inspector</strong> (<span class="mono">scene_store.cljc:684</span>) · presentation grammar (<span class="mono">build-face-tree</span>)</td><td class="state s-park">PARKED</td></tr>
+    <tr><td class="piece park">Scene runtime</td><td class="files">scene_runtime.cljs 29.6K · chrome_runtime.cljs 16.8K · region3d_runtime.cljs 27.5K · frame_runtime.cljs 15.1K</td><td>the CLJS owners of the scene/container atoms, delta journal, face lifecycle, picks, Missionary views, window installers; the chrome and Region3D runtimes; frame_runtime = the W4 browser fixture join (boot / mount / selection→deadline / receipts / PNG export)</td><td>scene mutations from a host → atoms the renderer reads · <span class="mono">globalThis</span> receipts</td><td class="why">"only session truths with no upstream (camera, in-flight gestures) originate client-side" (render seam) — the product loop needed an owner for them (code)</td><td>scene values · frame computation · families</td><td class="state s-park">PARKED; still names deleted ns (render · mouse · face_wiring · agent_flow); installers · views · boot/mount/export have no caller</td></tr>
+    <tr><td class="piece park">Frame computation</td><td class="files">substrate/frame_scheduler 7.9K · frame_graph 41.7K · frame_inputs 9.4K · frame_delta 7.8K · frame_semantic_state 3.0K · frame_effects 14.2K · frame_effect_view 11.7K · frame_plan_view 15.6K</td><td>the render seam as code: scheduler (module clocks/deadlines, encode-or-skip) · graph (resource/pass compiler, structural reuse, validation, oracle, export plan) · inputs (family input declarations, change classification, ledger) · delta (the minted semantic / binding / container / region / viewport deltas) · semantic state (one reducer: batches → arrangement/effect/plan views + generation) · effects + their views</td><td>minted deltas + family entries → a frame plan + arrangement/effect views the renderer applies</td><td class="why">"Recompute proportional to change, at every layer; no execution clock as an ancestor of derivation; the fenced incremental view with its batch oracle" (render seam, settled 08-03)</td><td>scene values → here → WebGPU core · families · verifier</td><td class="state s-park">PARKED; <span class="s-cust">maintain-frame-plan no caller · apply-deltas executed by no guard</span></td></tr>
+    <tr><td class="piece park">The shaper</td><td class="files">workspace/text_layout.cljc 73.0K · text_layout_planes.cljc 25.2K · text_shaper.cljs 13.6K · runtime/fonts.cljs 12.5K</td><td>text in, placement out: shaped block-greedy wrapping as the one break-choosing truth; one material-local layout authority under a declared layout key; font loading</td><td>text + font + width / layout key → glyph placements · line geometry</td><td class="why">the floor piece — "the shaper (text in, placement out; nobody else measures)" (editing waist, Sid 08-19); the shaping correction contract</td><td>WebGPU core (text system) · families · verifier</td><td class="state s-park">PARKED-but-floor; <span class="s-live">text-layout 6/32 + shaper + fence green</span></td></tr>
+    <tr><td class="piece park">Render families</td><td class="files">material halves: chrome_{derive,material} 26.6K · connector_{material,route} 52.3K · path_{material,tessellation} 43.4K · image_material 15.3K · region3d_{material,placement,scene,evaluation} + region_rungs + region3d_pointer 118.5K<br>GPU halves: chrome_gpu 17.2K · connector_gpu 22.2K · path_gpu 18.5K · region3d_gpu 81.4K · region3d_placement_gpu 25.8K · region_bindings 10.6K</td><td>each family = one kind of drawable (chrome · connector · path · image · region3d) as a material half (derive geometry / route / tessellation from slots) + a GPU half (pipelines, buffers), plugged into the tape and frame registries without touching another family</td><td>family entries from the tape → GPU draw batches</td><td class="why">"plug-in render families sit above — each plugs into the pipeline/frame registries without touching another family" (waist map placement) · the spatial model (a space appears inside another as a first-class citizen face — Region3D)</td><td>scene values (tape) · frame computation (inputs) · WebGPU core · verifier</td><td class="state s-park">PARKED; chrome + Region3D goldens green</td></tr>
+    <tr><td class="piece park">WebGPU core</td><td class="files">webgpu/renderer.cljs 202.9K · compositor_gpu.cljs 72.3K · buffer_pool.cljs 21.9K · gpu_budget.cljs 16.2K</td><td>shader/system construction, buffer/texture updates, family entry production, retained state, tape execution, frame encoding (<span class="mono">draw-frame!</span>, renderer.cljs:3678); the multipass compositor; keyed/ordered buffer pools; the budget tracker (reserved vs active bytes, adapter limits)</td><td>a store frame + camera + systems → GPU commands, the frame</td><td class="why">"WebGPU is a contract the applier speaks natively, never a DOM-shaped target; residency is the applier's private business" (render seam)</td><td>frame computation · families · shaper · verifier</td><td class="state s-park">PARKED; <span class="s-cust">draw-frame! / draw-comparison-frame! have no caller</span></td></tr>
+    <tr><td class="piece live">The verifier</td><td class="files">webgpu/verifier.cljs 304.2K</td><td>the standalone browser harness: builds production renderer systems, runs the fences and goldens, publishes a schema-v2 result</td><td>fixtures → the verification result (152 files · 0 warnings · base / chrome / Region3D goldens)</td><td class="why">"the verifier build is their guard until their own later ruling" (waist task, parked exception)</td><td>everything in this area; no server (<span class="mono">:product-server-used? false</span>)</td><td class="state s-live">the area's only LIVE entry</td></tr>
+    <tr><td class="piece cust">Presentation grammar ◫</td><td class="files">workspace/face_assembly.cljc 30.9K · face_primitives.cljc 61.9K</td><td>the 16-builder block render channel: assemblies (arrangement-only data over a primitive vocabulary) + the primitives</td><td>an assembly + block data → a face tree the scene store builds</td><td class="why">"Furniture is data: faces/assemblies are arrangement-only data over a primitive vocabulary" — kept only for TrailView / anatomy / goldens, one-cut deletion debt (Sid 08-20)</td><td><strong>server/rama/object_container/assembly_adapter.clj requires both — the only server→client bridge</strong>; scene_store/build-face-tree</td><td class="state s-cust">CUSTODY</td></tr>
+  </table>
+  </div>
+
+  <div class="namesbox">
+    <p class="rk">names that mislead — read before trusting a label (from the waist map §2f)</p>
+    <ul class="tight">
+      <li><span class="mono">wrap-file-api</span> — the entire front door; its docstring describes a deleted file explorer and a deleted ClojureScript client.</li>
+      <li><strong>"kernel"</strong> — a truth-owning module (object-container · relation-kernel · face-arsenal), a read projection that owns nothing (trail-view), and a deleted prose spec.</li>
+      <li><span class="mono">cluster/trail-runtime</span> — a handle bundle named "trail" whose <span class="mono">:module-name</span> is the RELATION kernel's, by its own docstring.</li>
+      <li><span class="mono">material_truth.clj</span> — says "truth"; owns none (derived composition over facet_master).</li>
+      <li><span class="mono">read-transcript-conversation-projection</span> is keyed by the conversation-container id, not the address; a bare address returns <span class="mono">[]</span>, not an error.</li>
+      <li><span class="mono">positioned</span> (rect_tree) ≠ the Positioned facet; <em>material · stamp · space · canonical</em> mean different things above vs below the waist; <span class="mono">scene-tape</span> is both a fn and an ns alias.</li>
+    </ul>
+  </div>
+
+  <h2>The numbers</h2>
+  <div class="grid2">
+  <div class="tblwrap">
+  <table class="def nums">
+    <tr><th>area</th><th>files</th><th>bytes</th><th>test files</th></tr>
+    <tr><td>shared material rows</td><td>18</td><td>231.8K</td><td>23 (flat, <span class="mono">test/app/</span>)</td></tr>
+    <tr><td>server — JVM organs</td><td>20</td><td>~944K</td><td>21</td></tr>
+    <tr><td>server — the five modules + adapters</td><td>11</td><td>~394K</td><td>OC 25 · runtime 20 · relation 15</td></tr>
+    <tr><td>parked render engine</td><td>48</td><td>~1,600K</td><td>27 (all 14 .cljs: 0)</td></tr>
+    <tr class="total"><td>total surviving source</td><td>98</td><td>~3.2 MB</td><td>72</td></tr>
+  </table>
+  </div>
+  <div class="tblwrap">
+  <table class="def nums">
+    <tr><th>the floor</th><th>depots</th><th>PStates</th><th>queries</th><th>mirrors</th></tr>
+    <tr><td>object-container</td><td>2</td><td>26</td><td>5</td><td>—</td></tr>
+    <tr><td>transcript-ops</td><td>2</td><td>3</td><td>—</td><td>1</td></tr>
+    <tr><td>relation-kernel</td><td>1</td><td>8</td><td>3</td><td>—</td></tr>
+    <tr><td>trail-view</td><td>0</td><td>0</td><td>4</td><td>13</td></tr>
+    <tr><td>face-arsenal</td><td>1</td><td>4</td><td>—</td><td>—</td></tr>
+    <tr class="total"><td>defined, not deployed</td><td colspan="4" style="text-align:left">llm-module 4 / 26 · transcript-module 3 / 5 · TranscriptIngestModule 4 / 12</td></tr>
+  </table>
+  </div>
+  </div>
+  <div class="tblwrap" style="margin-top:18px">
+  <table class="def small nums">
+    <tr><th>the front door</th><th></th></tr>
+    <tr><td>POST doors</td><td style="text-align:left">10 — relation/assert · matter-room/{open, deviate, activate, rollback, say} · material/facet-master/drill · episode/{utterance, block-birth, geometry}</td></tr>
+    <tr><td>GET doors</td><td style="text-align:left">0</td></tr>
+    <tr><td>streaming</td><td style="text-align:left">1 — episode/utterance, SSE body on the POST</td></tr>
+    <tr><td>callers outside src/</td><td style="text-align:left">2 test files; no script, hook, or bin entry</td></tr>
+    <tr><td>middleware</td><td style="text-align:left"><span class="mono">wrap-file-api</span> → <span class="mono">wrap-params</span> → <span class="mono">wrap-content-type</span> → not-found</td></tr>
+  </table>
+  </div>
+
+  <footer>
+    <strong>Where every claim came from.</strong> Call chains and routes: the <span class="mono">server_jetty.clj</span> route table (:1387-1604), ns-form requires across <span class="mono">src/</span> and <span class="mono">test/</span> (reverse-require census, 2026-08-21), <span class="mono">cluster.clj</span>, <span class="mono">bin/land:23-28,136-151</span>, <span class="mono">shadow-cljs.edn</span>; spot-checked by the authoring session: route callers outside src, <span class="mono">.ednl</span> writers, <span class="mono">llm.clj</span> users, trail-view query readers, arsenal and relation writers, <span class="mono">block_edit</span>'s caller. What each piece does: the three descriptive maps (<span class="mono">material-rows-map.md</span> · <span class="mono">map-server-organs.md</span> · <span class="mono">map-scene-gpu.md</span>, read as data, not authority), then the public fn skeletons and depot/PState declarations at the seams. Why: <span class="mono">docs/decisions.md</span> settled bullets, the waist task, <span class="mono">NOW.md</span>; "(code)" where no law was found. Births: <span class="mono">git log --diff-filter=A --follow</span> per file. Bytes: <span class="mono">find src -printf '%s %p'</span>. <strong>What outranks this page:</strong> the code, always; <span class="mono">decisions.md</span> for the why; <span class="mono">editing-waist-map</span> for the cut itself. This page holds no verdicts — the open question ("is this how I want it architected?") is Sid's, and the line that would make it judgeable is not yet settled. Agent-facing twin: <span class="mono">docs/below-the-waist/kept-code-map.md</span>.
+  </footer>
+</div>
