@@ -15,6 +15,14 @@ worktree clean, nothing pushed or merged.
 spot-checked 2026-08-21 (tree census, `git diff d507182 adc30c9`, conductor/worker logs
 read-only). Not re-derived from the code line by line — where that matters below, the
 line says so.
+**Two halves, two grades (amended 2026-08-21).** The *deletion* record (§2a–2b, §6–§9,
+and every number in §7) is diff-backed and mechanically verified — Codex re-checked it
+against the commit and it held. The *survival* record ("what exists now") is read-derived:
+a deletion is a diff, a survival claim is semantic, and names in this tree describe the
+generation that minted them rather than the thing running. Two careful passes (this map,
+then a Codex audit) each got parts of it wrong. Survival rows below are therefore
+**provisional until R5** — the restart readback is the instrument that settles them
+(§5, runner: `bin/r5_readback.clj`).
 
 **Load this when:** building anything above the waist · touching `src/app/client/` or
 `server_jetty.clj` · asked "what was cut / what exists now / what is pending" · cutting the
@@ -90,14 +98,31 @@ through · ★ = quarry: deleted, but a named mechanism inside is dug from git h
 |---|---|---|---|
 | **INPUT SPINE** | GONE | `workspace/events.cljs` ◆ · `runtime.cljs` ◆ · `runtime/{state·keyboard·mouse·touch·scroll}.cljs` · `runtime/render.cljs` 629 | the whole tree is gone — no pump survived; `render.cljs` was boot glue beside `runtime.cljs` and went with the spine (the ruling map had parked it; the task doc was right). `runtime/fonts.cljs` stays — shaper. |
 | **READ WIRE — one Electric websocket** | SPLIT · landed | gone: `src/app/electric_flow.cljc` main 382 · `src/app/file_viewer.cljc` (whole) 411 · `src/global_flow.cljs` · `resources/public/index.html` 149. stays: `server/rama/util_fns.cljc` ✎ (13 lines now: the `!ingest-epoch-atom` only; the dead text-kernel shims removed) | "how is it even acceptable to keep the single atom survives" — went whole; 10 face-ctx sites now use `cluster/face-projection-runtime`, the relation assert route uses `cluster/trail-runtime` ✓. No `file_viewer` IPC boot was moved or copied. |
-| **SERVE REGISTRY** | STAYS ✓ | `server/rama/face_projection.clj` ◆ (registry + entries) · `block_distiller.clj` | dormant during the dark; the material system's server half. |
-| **SIBLING KERNELS** | STAYS ✓ untouched | `relation_kernel.clj` · `face_arsenal.clj` · `trail_view.clj` | trail_view REQUIRED: the cluster runtime builds on it; the assert route reads through `cluster/trail-runtime`. |
-| **EPISODE LANE** | STAYS · edited ✎ | `src/app/server_jetty.clj` ✎ ×2 · `server/episode.clj` · transcript helpers (live, in `dogfood/transcript.clj`) | turns · births · geometry = placement + camera cells · SSE. **THE ONLY write surface now** — agents / curl / CLI. ✎ product EDN routes own the raw body (moved outside `wrap-params`; `curl -d` reaches them) · ✎ source-less top-level turns land durably; birth-receipt / gold / wear lookups run only when a source is addressed. R1 ✓ boots server-only · R4 ✓. |
-| **TRUTH KERNEL — object container** | STAYS ✓ untouched | `object_container.clj` · `object_container/runtime.clj` · `core.clj` · `objects.cljc` · `cluster.clj` · `git_spine.clj`; adapters: transcript_identity · transcript · markdown · assembly · clojure | depot · decide · revisions (whole text) · idempotency. The five deployed module sources are byte-identical after the cut; data as-is under `/mnt/data/rama/data` — nothing migrated. **R5 restart readback: PENDING** (§5). |
+| **SERVE REGISTRY** | STAYS ✓ · **LIVE, not dormant** (corrected 2026-08-21) | `server/rama/face_projection.clj` ◆ (registry + entries) · `block_distiller.clj` | reading did not die in the dark — it was **absorbed into the write path**. `face-projection/serve` is called server-internally at `server_jetty.clj:823` (inside `open-matter-room!`, serving `:material-portal`) and `:999` (the rollback act's recovery offer). What died is the *HTTP/Electric read road*, not the registry. Earlier "dormant during the dark" was wrong; so was the audit's "no consumer". |
+| **TRUTH-OWNING SIBLINGS** | STAYS ✓ untouched | `relation_kernel.clj` · `face_arsenal.clj` | each owns its own depot + PStates: relation-kernel `*relation-request-depot` + 8 PStates; face-arsenal `*face-arsenal-depot` + 4 PStates. |
+| **TRAIL VIEW — a read projection, NOT a kernel** (corrected 2026-08-21) | STAYS ✓ untouched · REQUIRED | `trail_view.clj` | declares **no depot and no PState of its own** — 13 `mirror-pstate` lines over object-container + one `<<query-topology "context-bundle"`. It is a materialized view. The map previously filed it beside the truth-owners; that is a category error the shared word "kernel" hides. Naming landmine: `cluster/trail-runtime` is the handle the assert route uses, and its own docstring says `:module-name = the RELATION kernel name` — a bundle called "trail" whose primary module is the relation kernel. |
+| **EPISODE LANE** | STAYS · edited ✎ | `src/app/server_jetty.clj` ✎ ×2 · `server/episode.clj` · transcript helpers (live, in `dogfood/transcript.clj`) | turns · births · geometry = placement + camera cells · SSE. **One of ten surviving write roads, not the only one** (corrected 2026-08-21) — agents /
+curl / CLI; the full roster is §2f. R4 proved these three; it never established they were
+alone. ✎ product EDN routes own the raw body (moved outside `wrap-params`; `curl -d` reaches them) · ✎ source-less top-level turns land durably; birth-receipt / gold / wear lookups run only when a source is addressed. R1 ✓ boots server-only · R4 ✓. |
+| **TRUTH KERNEL — object container** | STAYS ✓ untouched | `object_container.clj` · `object_container/runtime.clj` · `core.clj` · `objects.cljc` · `cluster.clj` · `git_spine.clj`; adapters: transcript_identity · transcript · markdown · assembly · clojure | depot · decide · revisions (whole text) · idempotency. The **five deployed module definitions live in four source files** (object_container.clj
+holds two: `object-container-module` `:1746` and `object-container-transcript-ops-module`
+`:2608`; then relation_kernel.clj `:634`, trail_view.clj `:284`, face_arsenal.clj `:166`);
+all four files are byte-identical after the cut; data as-is under `/mnt/data/rama/data` — nothing migrated. **R5 restart readback: PENDING** (§5). |
 | **SCENE + GPU MACHINE** | PARKED · guarded ✓ | `workspace/scene_store.cljc` · `scene_runtime.cljs` ✎ · `rect_tree.cljc` · `containers.cljc` · `scene_tape.cljc` · `frame_scheduler.cljc` · `frame_graph.cljc` · `frame_inputs.cljc` · `frame_delta.cljc` · `frame_semantic_state.cljc` · `frame_runtime.cljs` · `substrate/webgpu/renderer.cljs` · `buffer_pool.cljs` · `gpu_budget.cljs` · `verifier.cljs` ✎ (−561: T2 / live-client lanes removed) | live door died with the client. R3 PASS: 152 files · 0 warnings · base/chrome/Region3D goldens green. Its own ruling still comes later. → pixels (later). |
 
-Internal flow below the line (unchanged): read wire → truth kernel "append · :ack";
-truth kernel → serve registry "reads"; serve registry → read wire "serve".
+**Internal flow below the line — as it actually runs now** (corrected 2026-08-21; the
+earlier "unchanged" line drew the deleted Electric read wire and was false):
+
+    HTTP request (agent · curl · CLI)
+      → the one Jetty middleware (`wrap-file-api`)
+      → route handler
+      → cluster runtime handle (`cluster/face-projection-runtime` | `trail-runtime`)
+      → deployed depot  → decide → durable PStates
+      ↳ some handlers also call `face-projection/serve` on the way (an internal read
+        inside the write path — §2d SERVE REGISTRY)
+
+There is no puller and no read road. The only thing that flows *back* is the response
+body of the POST that caused it (the episode turn's SSE stream rides its own POST).
 
 ### 2e. Drafts strip — landed 2026-08-20
 
@@ -117,7 +142,16 @@ modules; the four only ever launched *themselves* in-process through
 `com.rpl.rama.test create-ipc / launch-module!` inside their own tests and probes — no
 cluster PStates, no data, no route. They were the May–June kernel generation (05-13 "split
 text kernel and rename space", 05-19 "identity headers to all 5 kernels", fix sessions to
-06-12) that the deployed ObjectContainer generation superseded. `kernel.clj` was a prose
+06-12). **What superseded what** (corrected 2026-08-21 — the earlier blanket "the
+deployed ObjectContainer generation superseded" them was too broad): `text_kernel.clj` was
+an alternate text/artifact/revision/unit truth store — Object Container **does** supersede
+that ownership. `space.clj` was an alternate Space/turn/object/context truth island — the
+deployed world model supersedes or abandons it. `kernel.clj` was documentation-shaped data,
+not an executable system. `compute.clj` was a Rama-owned OS command executor — **Object
+Container never provided that capability and did not replace it**; compute was deleted as
+an undeployed, uncalled, unchosen execution architecture with no durable cluster state, and
+there is no retained replacement. That distinction keeps the "no migration, no second copy"
+ruling honest without inventing a replacement that does not exist. `kernel.clj` was a prose
 spec + a `defkernel KERNEL-SHAPE` data snapshot ("DATA, not code generation. Nothing in the
 codebase calls it"); its two "requirers" were `;;` comment lines — the comment-match that
 made task v2 rule it alive (Codex caught it, v3 fixed it, task doc `:107–109`, `:348`).
@@ -127,6 +161,56 @@ required `util-fns`, and all 14 uses were `util-fns/!ingest-epoch-atom` — zero
 the delay never fired. The ruling was a dead-code call ("drafts, tree only (git keeps)",
 task doc `:107`), not a waist call — the contrast being `dogfood/transcript.clj`, same
 vintage, **parked not deleted** because its helpers *are* live.
+
+### 2f. What is actually running now (added 2026-08-21 — read-derived, R5 settles it)
+
+Everything in §2a–2e answers *what was cut*. This answers *what a builder would find*. It
+exists because the map's survival claims sent a reader toward rebuilding things that are
+already here — and the cut's own ruling was **no migration, no second copy**. A survival
+map that under-reports is a machine for producing second copies.
+
+**The whole HTTP surface — ten routes, all POST, no read road.** One middleware
+(`wrap-file-api` in `server_jetty.clj`) owns every route:
+
+| road | route | line |
+|---|---|---:|
+| relation assert | `/api/relation/assert` | 1394 |
+| matter room | `/api/matter-room/open` · `deviate` · `activate` · `rollback` · `say` | 1416 · 1435 · 1448 · 1461 · 1474 |
+| material drill | `/api/material/facet-master/drill` | 1488 |
+| episode (R4-proven) | `/api/episode/utterance` · `block-birth` · `geometry` | 1522 · 1542 · 1575 |
+
+No `GET` read endpoint survives. The episode turn's SSE stream is a *response body on a
+POST* (`text/event-stream` at `:468`), not a read road.
+
+**Where the surviving system lives — two places, not one.**
+
+| | what runs there |
+|---|---|
+| **external Rama cluster** | the five deployed module definitions (`bin/land` `MODULE_VARS`): object-container ×2, relation-kernel, trail-view, face-arsenal — four truth-owners + one read view |
+| **the app JVM** | Jetty + `wrap-file-api`; the server material organs (`cascade` · `material-circulation` · `material-truth` · `facet-master` · `face-projection`); episode + transcript **helper fns** (live even though the draft transcript *module* is parked); `server/block_edit.clj`; and the **lazy in-process LLM runtime** (`dogfood/llm.clj`, `delay (llm/start-llm-runtime!)` at `server_jetty.clj:347`) |
+| **absent** | Electric client · every product surface · the read wire · the input pump · the whole client write path |
+
+"Not one of the five deployed modules" does **not** mean dead — the retained LLM runtime
+and the transcript helpers are the counterexamples.
+
+**The naming drift (why this section had to be written).** Names here record the generation
+that minted them, not the thing running. Three found in one pass:
+
+- `wrap-file-api` — the middleware that is the *entire app's front door*. Its docstring:
+  *"Handle /api/\* routes for file explorer sidebar. Returns EDN responses consumable by
+  ClojureScript client."* `file_viewer` is deleted; there is no ClojureScript client.
+- **"kernel"** covers three unlike things: a truth-owning Rama module (object-container,
+  relation-kernel, face-arsenal), a read projection that owns nothing (trail-view), and
+  the deleted `kernel.clj` prose spec.
+- `cluster/trail-runtime` — a bundle named "trail" whose `:module-name` is the **relation**
+  kernel, by its own docstring.
+
+Durable names are **not** free to rename: `mirror-pstate` binds by literal string
+(`"$$containers-by-id"`), so a PState rename is a durable-state migration and collides with
+the preserve-as-is rule. What is free — and what is owed — is a **lexicon**: every name
+recorded next to its role, so the word stops standing in for the thing. It rides R5's
+output (§5).
+
 
 ---
 
@@ -147,8 +231,9 @@ vintage, **parked not deleted** because its helpers *are* live.
    store; the tape ordered them and the GPU machine painted.
    `render.cljs:183–237 · scene_store.cljc:48–95 · renderer.cljs:3678` — **dead**.
 
-After the cut the only crossing left is the episode lane's HTTP writes (turns, births,
-geometry) — proven by R4. No Electric client, no pulls, no wake signal. The anchors are line
+After the cut **no client crossing survives** — that is what R1–R4 proved. What survives
+is a server-only HTTP write surface of ten routes (§2f), of which R4 exercised three
+(turns, births, geometry). "The only write surface is the episode lane" was wrong. No Electric client, no pulls, no wake signal. The anchors are line
 numbers at `d507182`; the files are gone — `git show d507182:<path>` still finds them.
 
 ---
@@ -195,7 +280,22 @@ their PStates were not touched). Hypotheses to kill, cheapest first: (a) the dae
 inherited an environment from the execution session's sandbox (the tmpdir warning) → boot
 once from a plain shell; (b) the reads may not gate on that conductor flag at all → check
 `moduleStatus` RUNNING ×5 and run the five named reads regardless. The data sits under
-`/mnt/data/rama/data` either way. A Codex starter for R5 was handed to Sid on 2026-08-21.
+`/mnt/data/rama/data` either way.
+
+**How to run it (added 2026-08-21).** `bin/r5_readback.clj` — read-only, `read-*` fns only,
+no depot append, no ingest, no migration. Two commands:
+
+    bin/land up                                        # wait for RUNNING x5
+    clj -M:dev -e '(load-file "bin/r5_readback.clj")'
+
+It exits `2` if the cluster is down, `1` if any named read is not green, `0` on a clean
+readback, and prints a PASS/FAIL line per kind: container · current revision · conversation
+projection (turn `waist-close-turn`, geometry, camera cells) · derived units (ids
+*discovered* from the projection, not hardcoded) · wear count for `outline-face` (pre-restart
+`nil` → must still be `nil`) · relations · transcript file offset. Overrides via
+`R5_ADDRESS` · `R5_TURN` · `R5_FACE` · `R5_RELATION_TARGET` · `R5_FILE_KEY`.
+Hypothesis (b) is what the runner tests directly: it never consults the conductor flag, it
+just asks for the reads. **R5 is not a checkbox — it is the instrument that settles §2f.**
 
 **Sid's acceptance.** Under the work-package law, code-complete is Codex's state; accepted
 is Sid's word. The above-waist (electric-native) road stays queued behind both — the
@@ -315,7 +415,9 @@ face and console surface. Nothing waits for a replacement — "no fuck no they g
 Typing AND reading go dark: "removing both read and write … all lights go out i am fine we
 will build things correctly."
 
-The app during the dark is the server: the jetty routes plus the five deployed kernels.
+The app during the dark is the server: the jetty routes plus the five deployed module
+definitions — *and* the app-JVM organs, transcript helpers and lazy LLM runtime that ride
+beside them (§2f).
 Agents and CLI keep writing turns, blocks, and placement — everything acked durable. The
 shaper and the parked render engine survive as test-guarded code (`verify:text-layout`,
 `verify:render-engine` after its repair).
