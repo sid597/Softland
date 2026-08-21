@@ -204,6 +204,13 @@ that minted them, not the thing running. Three found in one pass:
   the deleted `kernel.clj` prose spec.
 - `cluster/trail-runtime` — a bundle named "trail" whose `:module-name` is the **relation**
   kernel, by its own docstring.
+- **`read-transcript-conversation-projection` is not keyed by the address.** Its parameter
+  is a *conversation-container-id* — `oc:chat-conversation:<address>` — and every real
+  caller passes `(tid/chat-conversation-id object-key)`. Passing the bare address returns
+  `[]`, not an error. This cost four false FAILs on the first R5 run: the reader concluded
+  turns and geometry were missing when 43 turns and 406 cells were sitting there. The
+  runner now delegates all key derivation to the app's own accessors (`episode/read-*`)
+  rather than re-deriving it — the general fix for this whole class.
 
 Durable names are **not** free to rename: `mirror-pstate` binds by literal string
 (`"$$containers-by-id"`), so a PState rename is a durable-state migration and collides with
@@ -246,7 +253,7 @@ numbers at `d507182`; the files are gone — `git show d507182:<path>` still fin
 | R2 · `npm run verify:text-layout` | the shaper floor survived the cut intact | **PASS** · 6 tests / 32 assertions |
 | R3 · `npm run verify:render-engine` | the parked machine compiles and every retained guard holds | **PASS** · 152 files · 0 warnings |
 | R4 · the exact contract curls | the only live write road works with no client: block birth, geometry settle, and a turn whose first SSE event is the durable ack (`:episode-durable`) | **PASS** · after two in-session repairs (§6) |
-| R5 · full restart + named readback | every written kind reads back after the cluster bounces: unit text / current revision / decisions (`ocr/read-unit`, `read-current-revision`, `read-decision`) · `$$transcript-conversation-projection` cells (the `:episode-turn` cell for `waist-close-turn`, the settled unit geometry cell, `geo:camera`) · wear (`face-arsenal/read-wear-count :outline-face`, pre-restart `nil` → must still be `nil`) · relations (`rk/read-relations-for-targets`, one starter-culture target) · one transcript-ops offset point read | **PENDING** · processes proven absent (no Rama JVMs; :1973, :8888, :8080 closed), then two bounded `bin/land up` boots: supervisor up, `conductorReady=false` through 12 + 16 polls; the reads were not attempted |
+| R5 · full restart + named readback | every written kind reads back after the cluster bounces: unit text / current revision / decisions (`ocr/read-unit`, `read-current-revision`, `read-decision`) · `$$transcript-conversation-projection` cells (the `:episode-turn` cell for `waist-close-turn`, the settled unit geometry cell, `geo:camera`) · wear (`face-arsenal/read-wear-count :outline-face`, pre-restart `nil` → must still be `nil`) · relations (`rk/read-relations-for-targets`, one starter-culture target) · one transcript-ops offset point read | **HALF PROVEN 2026-08-21** · all nine kinds read back green on the live cluster (8 PASS / 0 FAIL, `bin/r5_readback.clj`); the bounce-and-compare is what remains. See §5. |
 
 R4 receipts: durable address `chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b`;
 unit `du:chat:77088a4f…:episode-native-v0:ep:a2fb6f3d:000000` settled at `(240.0, 180.0)`,
@@ -264,7 +271,47 @@ module sources unchanged · no executable remaining require of a deleted product
 
 ## 5. Still open — two things, neither of them code
 
-**R5, the restart readback.** Observed in the conductor/worker logs (read-only pass,
+**R5, the restart readback — half proven 2026-08-21.**
+
+The runner exists and ran: `bin/r5_readback.clj`, read-only. On the live cluster
+**8 PASS · 0 FAIL**, every named kind present:
+
+| kind | read back |
+|---|---|
+| turns | 43, including `waist-close-turn` with its receipt |
+| placement | 406 geometry cells |
+| camera | `{:x 0.0 :y 0.0 :zoom 1.0}` — exactly R4's recorded value |
+| unit + text | `read-unit` green; content-text is real prose, hash `00da3ad2…` |
+| wear | `outline-face` = **641** |
+| face roster | 4 |
+| relations | 67 edges under a starter-culture target |
+
+Three things this settled:
+
+1. **Hypothesis (b) is CONFIRMED — the conductor flag was a red herring.** The reads
+   never consult `conductorReady`, and they work. The `Unexpectedly missing operation
+   metadata` noise did not block anything. No investigation is owed there unless a read
+   actually fails.
+2. **The map's own R5 spec had a key-type error.** It expected wear for `:outline-face`
+   to be `nil` pre-restart and `nil` after. The PState is keyed by **String** — the
+   keyword read missed, and the miss was recorded as the baseline. The real value is 641.
+   A `nil` in this system is as likely to be a wrong key as an absent fact.
+3. **Nothing was lost.** The 3.5 GB under `/mnt/data/rama/data` is live and intact.
+
+**What remains is the actual bounce.** The runner writes a fact baseline on first run
+(`/mnt/data/rama/r5-baseline.edn`: turn count, geometry cell count, camera, content hash,
+wear count, roster size, relation count, unit id, offset) and compares against it on every
+run after. Two commands close R5:
+
+    bin/land down && bin/land up          # see the wedge warning below
+    clj -M:dev -e '(load-file "bin/r5_readback.clj")'
+
+Green with `0 DRIFT` is the receipt. **Note the known hazard:** `bin/land down` warns that
+an interrupted shutdown persists its intent in ZK and the next boot wedges
+(`LEADER-FALLING`, conductor never ready); recovery is `bin/land unwedge` then
+`bin/land up`. That is why this last step is Sid's to run, not a session's.
+
+**The conductor observation, kept for the record.** Observed in the conductor/worker logs (read-only pass,
 2026-08-21): on every boot on 2026-08-20 (10:43 · 10:59 · 11:01) the conductor's state
 handler runs `[cluster-shutdown-complete]`, then its dispatch loop throws
 `Unexpectedly missing operation metadata` for one module runtime (target `c925595f…`)
