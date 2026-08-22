@@ -31,3 +31,6 @@ snapshots/
 # python bytecode (scripts/ tooling)
 __pycache__/
 *.pyc
+!.claude/settings.json
+!.claude/hooks/
+!.claude/memory/

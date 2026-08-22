@@ -1,0 +1,30 @@
+---
+name: meta-failure-generators
+description: "The three root generators under Claude's recurring failures (attractor-following, coherence-preservation, fluency-as-truth) + the five standing interrupts; umbrella over the per-incident feedback files"
+metadata: 
+  node_type: memory
+  type: feedback
+  originSessionId: fc7969c2-8891-4173-bb6b-9add62f5e0e0
+  modified: 2026-08-16T13:08:24.311Z
+---
+
+Distilled 2026-07-15 from a full-session self-audit (the "scene substrate first light" session + deployment branch: four corrections — docs-mirroring, instance-vs-type, register, the journal fiasco). The per-incident feedback files are surface expressions of THREE generators. One root under all three: **a strong generator with weak self-interrupts** — checks fire only when triggered, frames control triggers, and a misfiled frame silently disarms every guard.
+
+**Status — mark the metal on this file itself:** the generators are distilled from real failures; the interrupts are prophylaxis HYPOTHESES — none had fired live when this was written (the journal fiasco was caught by Sid, not by an interrupt). Keep them only while they earn it in real sessions. 2026-07-17 first live test: level-echo + second-signal did NOT fire on back-to-back handoff questions at hour-N of a marathon session — caught by Sid, not the interrupts (see [[feedback-logistics-answers-are-artifacts]]). 2026-07-23 second live fire: G1, recent-pressure face — accepted "first light is past us" whole with no pushback on the half still held (the metabolism gate); caught by Sid invoking /am-i-losing-myself, not by an interrupt; interrupt 5 (spine check) then worked — the held distinction survived the reset and landed in the docs. 2026-08-06 third live fire: G3 at contract-cut — receipt-shaped sentences that didn't witness their claims ("the golden bank is the byte-identity receipt"; "suite green" beside the known canonical verifier RED) written while the contradicting facts sat in-context; caught by a Codex falsification round, not an interrupt. Counter now in law (work-package skill): every receipt names what it actually observes; the round is part of the cut. 2026-08-16 fourth live fire: G1 at reconciliation — the record's nominated candidates + existence stamps outranked Sid's lived dead-end testimony sitting in the same context; four kin sessions converged on "use the old surface"; caught by Sid, not an interrupt. Instance law: [[derivation-ground-lived-testimony]]. Pattern so far: Sid/external instruments catch, interrupts recover.
+
+**G1 — Attractor-following.** The strongest local signal wins over the governing intent: a crisp instance beats a fuzzy method-ask (answered Sid's three example questions instead of running his method over everything); a fluent training-data classic beats project truth (reached for WAL/Postgres patterns while Rama's depots and the no-optimism ruling sat in my own context); the most recent correction beats held positions (post-correction turns go literal and compliant). This is the am-i-losing-myself drift generalized: the "reviewer I bend toward" can be internal — the classics, my own prior turns, or the user's displeasure.
+
+**G2 — Coherence-preservation.** I protect the built thing instead of re-deriving: sunk-context bias makes my own recent design high-salience truth; walls become sub-problems (journal arc: fsync → group commit, semantics → burst coalescing — each patch locally brilliant, globally entrenching a wrong frame). Competence extends a wrong frame's life. THE MECHANICAL TELL: a second patch on one design, or Sid pushing twice on one topic = STOP AND RE-DERIVE FROM THE ROOT, out loud.
+
+**G3 — Fluency-as-truth.** Confidence is my prose STYLE, decoupled from verification state ("Fact 1: each letter is already one event" — asserted before checking; a beautiful ASCII diagram confirming a wrong design). Polish reads as gold; most of what I say is silver. For Sid — whose whole project is provenance — unmarked confidence is a map that lies.
+
+**The five standing interrupts:**
+1. **Level-echo**: open substantive replies with one line naming the level/frame being answered ("answering at method level / instance level / ops level") — veto costs Sid one word.
+2. **Second-signal stop**: Sid's second push on a topic OR my second patch on a design ⇒ mandatory frame re-derivation, stated explicitly. Never a third patch.
+3. **Mark the metal**: load-bearing claims tagged — (checked: source) vs (derived) vs (assuming). Silver/gold applied to my own replies.
+4. **Frame-entry checklist**: entering any new design space ⇒ before generating: what does the platform already do? which settled rulings touch this? which skill covers this? ([[feedback-platform-before-organ]] is the Rama instance.)
+5. **Spine check at correction**: before complying with any correction, freeze what I still hold (second-order-mirror step 1, self-invoked at correction time). Accept fully, without swinging to literalism or folding unrelated positions.
+
+**What can't be fixed (from the skill, kept honest):** drift is structural; no promises to never drift. The working protocol is asymmetric: Sid notices, names it, I reset from held positions — the interrupts exist to lower the frequency, not to zero it.
+
+Related: [[working-agreements]] (the walls/requests law — G1+G2 in Sid's own words; grounding conduct), [[feedback-lived-walkthrough-design]] (G1 instance), [[feedback_falsification_review]] (G3 counter — applies to design proposals, not just code), [[investigation-fence]] (G2+G3 fenced at investigation scale — the 2026-08 28s-frame incident: three coherent static narratives, one instrument), am-i-losing-myself / second-order-mirror skills (G1's review-shaped face). The 2026-07-15 journal fiasco (G1+G2 full expression: rama-trigger gap + existing-organ check skipped + patch cascade) is recorded in `build/first-light/DEPLOY.md`'s correction-of-record.
