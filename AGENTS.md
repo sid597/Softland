@@ -88,7 +88,7 @@ NOW.md. The 200-line historical body this file once carried is deleted
 
 - NEVER read `src/app/server/env.clj` — API keys; reference as symbols only.
 - Commit freely once work settles — closed-source repo (Sid, 2026-08-10);
-  commits land on `docs/current-mental-model-local`, grouped by concern.
+  commits land on `main`, grouped by concern.
   Never push, never merge (Sid alone), never a Co-Authored-By line.
 - New code goes in its own namespace; big files (`renderer.cljs`,
   `ground.cljs`, `electric_flow.cljc`) get thin hooks only.

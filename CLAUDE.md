@@ -39,7 +39,7 @@ Two registers exist; mis-tuning between them wrecks sessions (example: operation
 
 ## Exploration in Chat, Disk at Settlement
 Exploration lives in the conversation. While a question is live, write nothing under `docs/` or memory — no routing, no landing, no commits: a premature artifact breaks the chain of exploration and anchors the rest of the session around defending it. Disk happens at settlement — Sid's word ("land it", "settled", a yes to "settle this?") — or at session end, where the full write-set (including any board/thread status flip) is previewed in one message so Sid can veto in one line before it lands. Unattended session end: interpretive writes wait for the next attended moment; mechanical, already-settled ones proceed. Carve-outs: Sid's verbatim words may be captured into `vision/LOG.md` any time (append-only; routing still waits), and code probes built to answer a question are exploration, not materialization.
-Commit mechanics once settled: the repo is closed source (Sid, 2026-08-10) — commit freely, code, docs, and law files alike, on `docs/current-mental-model-local`, no approval needed; group commits by concern so bisect stays sharp. Pushing/merging stays Sid's alone (decisions.md "Only Sid decides"); never a Co-Authored-By line.
+Commit mechanics once settled: the repo is closed source (Sid, 2026-08-10) — commit freely, code, docs, and law files alike, on `main`, no approval needed; group commits by concern so bisect stays sharp. Pushing/merging stays Sid's alone (decisions.md "Only Sid decides"); never a Co-Authored-By line.
 
 ## Source Structure (post-refactor)
 Key source files live under `src/app/`:

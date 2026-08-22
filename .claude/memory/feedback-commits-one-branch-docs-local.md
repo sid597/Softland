@@ -1,6 +1,6 @@
 ---
 name: commits-one-branch-docs-local
-description: "All commits — code, docs, law — land freely on docs/current-mental-model-local (closed-source repo), grouped by concern; push is Sid's alone"
+description: "All commits — code, docs, law — land freely on main (closed-source repo), grouped by concern; push is Sid's alone"
 metadata:
   node_type: memory
   type: feedback
@@ -9,7 +9,7 @@ metadata:
 ---
 
 All commits — code, docs, law files — land on
-`docs/current-mental-model-local`. The repo is closed source (Sid,
+`main`. The repo is closed source (Sid,
 2026-08-10): commit freely, no approval, no docs-only/never-mix ceremony;
 group commits by concern so bisect stays sharp. Worktree branches remain
 scaffolding, never commit targets. Pushing/merging stays Sid's alone; never

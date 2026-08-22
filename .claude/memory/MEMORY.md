@@ -110,7 +110,7 @@ in this file and every future memory write.
   consult before ANY git write: shared tree/branch discipline (exact paths,
   foreign-change check, HEAD guards, sibling-commit repair).
 - [commits: one branch, docs-local](feedback-commits-one-branch-docs-local.md)
-  — commit freely on `docs/current-mental-model-local` (closed-source,
+  — commit freely on `main` (closed-source,
   2026-08-10), group by concern; push is Sid's alone; worktree branches are
   scaffolding, never commit targets.
 - [deep-research limits](deep-research-workflow-limits.md) — consult before
