@@ -108,7 +108,8 @@ in this file and every future memory write.
   workaround).
 - [parallel-sessions git](feedback-parallel-sessions-shared-branch-git.md) —
   consult before ANY git write: shared tree/branch discipline (exact paths,
-  foreign-change check, HEAD guards, sibling-commit repair).
+  foreign-change check, HEAD guards, sibling-commit repair; shared file ⇒
+  partial-stage then PLAIN commit — `git commit -- path` sweeps the sibling).
 - [commits: one branch, docs-local](feedback-commits-one-branch-docs-local.md)
   — commit freely on `main` (closed-source,
   2026-08-10), group by concern; push is Sid's alone; worktree branches are

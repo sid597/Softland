@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: feedback
   originSessionId: ce94a3e4-9370-4ba1-9890-2527793d8501
-  modified: 2026-07-21T10:31:10.294Z
+  modified: 2026-08-23T11:11:43.931Z
 ---
 
 Parallel sessions are normal in this repo (the board is built for them). They
@@ -37,3 +37,14 @@ resets don't touch files and the reflog holds everything.
   Repair that worked: save the full file aside → soft-reset (tip was mine)
   → restore HEAD's version → re-apply ONLY own edits → commit → copy the
   saved file back, leaving the sibling's hunks uncommitted as found.
+- **The mechanism behind that failure (re-fired 2026-08-23): `git commit
+  -- <paths>` commits the WORKING-TREE contents of those paths and ignores
+  the index** — so partial staging (`git apply --cached my-hunks.diff`) is
+  silently discarded by a pathspec commit. Correct sequence for a shared
+  file: build `my-hunks.diff` from `git diff <file>` keeping only own hunks
+  → `git apply --cached` → `git diff --cached` shows only mine → **plain
+  `git commit` with NO pathspec** → sibling's hunks stay on disk, unstaged.
+  Faster repair when it happens and the tip is mine: `git reset --soft
+  HEAD~1` → `git reset -- <files>` → `git apply --cached` own hunks → plain
+  commit; disk never changes, so the sibling's hunks are back as found.
+  Coordinate by SendMessage (ListAgents shows local peers) before and after.
