@@ -1,0 +1,620 @@
+<title>The Simpler Engine</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #F3F4F2;
+    --ink: #1E2A32;
+    --muted: #5C6B74;
+    --line: #D4DAD7;
+    --box: #FDFDFC;
+    --boxline: #7E8F99;
+    --ghost: #98A4AB;
+    --code-bg: #E9ECEA;
+    --story-bg: #F7F3EA;
+    --story-line: #D9CBA8;
+    --accent: #6C4FA6;
+    --accent-soft: #EFEAF7;
+    --keep: #2F7D4E;
+    --keep-soft: #E7F0EA;
+    --cut: #BE3B2B;
+    --cut-soft: #F6E8E5;
+    --call: #A66A11;
+    --call-soft: #F5EEDD;
+    --dean: #38678F;
+    --getz: #7A4FA8;
+    --noel: #2F7D6E;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #131719;
+      --ink: #E4E9EB;
+      --muted: #93A2AA;
+      --line: #2C363B;
+      --box: #1B2226;
+      --boxline: #5E707A;
+      --ghost: #566067;
+      --code-bg: #212A2F;
+      --story-bg: #1E1B14;
+      --story-line: #5A4C2C;
+      --accent: #A78BDD;
+      --accent-soft: #251F33;
+      --keep: #5CB585;
+      --keep-soft: #16261D;
+      --cut: #E26A59;
+      --cut-soft: #2E1B18;
+      --call: #D9A441;
+      --call-soft: #2B2415;
+      --dean: #7EA9CE;
+      --getz: #B392DE;
+      --noel: #63B3A2;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #131719;
+    --ink: #E4E9EB;
+    --muted: #93A2AA;
+    --line: #2C363B;
+    --box: #1B2226;
+    --boxline: #5E707A;
+    --ghost: #566067;
+    --code-bg: #212A2F;
+    --story-bg: #1E1B14;
+    --story-line: #5A4C2C;
+    --accent: #A78BDD;
+    --accent-soft: #251F33;
+    --keep: #5CB585;
+    --keep-soft: #16261D;
+    --cut: #E26A59;
+    --cut-soft: #2E1B18;
+    --call: #D9A441;
+    --call-soft: #2B2415;
+    --dean: #7EA9CE;
+    --getz: #B392DE;
+    --noel: #63B3A2;
+  }
+  html { background: var(--paper); }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    margin: 0;
+    padding: 40px 28px 90px;
+  }
+  main { max-width: 1080px; margin: 0 auto; }
+  h1 {
+    font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight: 700; font-size: 42px; line-height: 1.05; margin: 0 0 14px; letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  h2 {
+    font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight: 600; font-size: 24px; margin: 58px 0 10px; padding-top: 18px; border-top: 1px solid var(--line);
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight: 600; font-size: 18px; margin: 30px 0 6px; text-wrap: balance;
+  }
+  p { margin: 0 0 12px; max-width: 74ch; }
+  p.lede { font-size: 16.5px; max-width: 80ch; }
+  ul { margin: 0 0 14px; padding-left: 20px; max-width: 76ch; }
+  li { margin: 0 0 7px; }
+  code, .mono { font-family: "IBM Plex Mono", monospace; font-size: 0.92em; }
+  code { background: var(--code-bg); border-radius: 3px; padding: 1px 4px; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 8px; padding: 16px 18px; overflow-x: auto; font-family: "IBM Plex Mono", monospace; font-size: 12.5px; line-height: 1.55; }
+  pre code { background: none; padding: 0; }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .eyebrow b { color: var(--accent); font-weight: 500; }
+  em { font-style: italic; }
+  a { color: inherit; }
+  a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 2px; }
+  .anchor { font-family: "IBM Plex Mono", monospace; font-size: 0.86em; color: var(--muted); white-space: nowrap; }
+
+  .register {
+    border: 1px solid var(--accent); border-left-width: 4px; background: var(--accent-soft);
+    border-radius: 8px; padding: 14px 18px; margin: 22px 0 6px; max-width: 82ch;
+    font-size: 13.5px;
+  }
+  .register p { margin: 0 0 6px; max-width: none; }
+  .register p:last-child { margin-bottom: 0; }
+
+  .story { background: var(--story-bg); border: 1px solid var(--story-line); border-radius: 8px; padding: 22px 26px 12px; margin: 18px 0 10px; }
+  .story ol { margin: 0; padding-left: 0; list-style: none; counter-reset: s; max-width: 82ch; }
+  .story ol li { counter-increment: s; position: relative; padding-left: 44px; margin: 0 0 12px; font-size: 15.5px; line-height: 1.5; }
+  .story ol li::before { content: counter(s); position: absolute; left: 0; top: 2px; width: 28px; height: 22px; border-radius: 4px; background: var(--box); border: 1px solid var(--story-line); font-family: "IBM Plex Mono", monospace; font-size: 11.5px; text-align: center; line-height: 22px; color: var(--muted); }
+  .story ol li strong { font-weight: 600; }
+
+  .tag { display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; border-radius: 4px; padding: 2px 8px; border: 1px solid; margin-left: 8px; vertical-align: 2px; }
+  .tag.verified { color: var(--keep); border-color: var(--keep); background: var(--keep-soft); }
+  .tag.hypo { color: var(--call); border-color: var(--call); background: var(--call-soft); }
+  .tag.call { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .tag.contra { color: var(--cut); border-color: var(--cut); background: var(--cut-soft); }
+
+  .card { background: var(--box); border: 1px solid var(--line); border-radius: 8px; padding: 18px 22px 12px; margin: 16px 0; }
+  .card.finding { border-left: 4px solid var(--keep); }
+  .card h3 { margin-top: 0; }
+  .card .probe { font-size: 13px; color: var(--muted); border-top: 1px dashed var(--line); margin-top: 10px; padding-top: 8px; max-width: none; }
+  .card .probe b { color: var(--call); font-weight: 600; }
+
+  .lens { margin: 26px 0 10px; }
+  .lenshead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 0 0 4px; }
+  .lensdot { width: 13px; height: 13px; border-radius: 3px; display: inline-block; position: relative; top: 1px; flex: none; }
+  .lens h3 { margin: 0; }
+  .lenssub { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+  .lens.dean { border-left: 3px solid var(--dean); padding-left: 18px; }
+  .lens.getz { border-left: 3px solid var(--getz); padding-left: 18px; }
+  .lens.noel { border-left: 3px solid var(--noel); padding-left: 18px; }
+  .lens.dean .lensdot { background: var(--dean); }
+  .lens.getz .lensdot { background: var(--getz); }
+  .lens.noel .lensdot { background: var(--noel); }
+
+  .tablewrap { overflow-x: auto; margin: 14px 0 18px; }
+  table { border-collapse: collapse; font-size: 13.5px; min-width: 560px; }
+  th { font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 600; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); text-align: left; padding: 6px 14px 6px 0; border-bottom: 1.5px solid var(--boxline); }
+  td { padding: 8px 14px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  td:first-child, th:first-child { padding-left: 2px; }
+  tr:last-child td { border-bottom: none; }
+  td .num { font-variant-numeric: tabular-nums; }
+
+  figure { margin: 22px 0 26px; }
+  figure svg { max-width: 100%; height: auto; display: block; }
+  figcaption { font-size: 12.5px; color: var(--muted); margin-top: 8px; max-width: 80ch; }
+  .figframe { border: 1px solid var(--line); border-radius: 8px; background: var(--box); padding: 14px; overflow-x: auto; }
+
+  .keeplist { columns: 2; column-gap: 40px; max-width: 90ch; }
+  @media (max-width: 720px) { .keeplist { columns: 1; } }
+  .keeplist li { break-inside: avoid; }
+
+  .quiet { color: var(--muted); font-size: 13px; }
+  hr { border: none; border-top: 1px solid var(--line); margin: 40px 0; }
+</style>
+
+<main>
+  <div class="eyebrow">below the waist · <b>fresh-eyes review · four rounds</b> · three lenses → the review turned on itself → the probes ran → held against the destination · 2026-08-23</div>
+  <h1>The Simpler Engine</h1>
+  <p class="lede">An adversarial architecture review of <span class="mono">render-engine-map.md</span> and <span class="mono">engine-two-arrows.md</span>, run through three modeled lenses — Jeff Dean (systems &amp; numbers), Dustin Getz (the compiler &amp; the wire), Léo Noel (the flow algebra) — and then pressed on the hardest question: is this the architecture it should be, and can it be simpler for where Softland wants to be?</p>
+  <p class="lede"><strong>The verdict in one sentence:</strong> the bones are right and earned; the weight sits in the wrong place — the most complex stratum is the least receipt-backed thing in the engine, the real risk lives in a wire that doesn't exist yet, and a simpler engine is available without touching a single settled law except one, named below, which is Sid's call.</p>
+  <p class="lede"><strong>Round two</strong> (the review run adversarially against itself) survived its own attack with one self-caught omission — the optimistic lane is missing from the fill and from this review's first pass alike (H7) — and two sharpenings: proportionality belongs at the wire, not re-solved in the frame middle (H1); and 60&nbsp;Hz gestures never touch the batch road at all, so the batch-first bet rides only on act-cadence work (H1).</p>
+  <p class="lede"><strong>Round three — the probes ran</strong> (this sandbox, Clojure 1.12.4 built from source, the real production fns): P1 <em>killed H1's batch-first proposal by its own pre-registered rule</em>. The batch middle costs 29&nbsp;ms at 300 entries and 67&nbsp;ms at 1k on the JVM — 10–40× over the napkin — while the maintained road handles a one-entry change in ~0.6–0.75&nbsp;ms. <strong>The maintained-view stratum now holds the receipt it lacked; the settled law stands unamended.</strong> What the probes found instead: three population-bound residues in the live road, priced in H8, and a pick that is receipted fine (P3). Full numbers in §7.</p>
+  <p class="lede"><strong>Round four — held against where we want to be</strong> (North · the ladder · the spatial model · DIRECTION · the six conflicts, read primary): the measured ceiling and North <em>compose</em> — semantic zoom is the reconciliation, and conflict 5's "millions exist, hundreds resident" now has its numbers. One self-correction: round two's demand-v1 position drifted from the settled road and is restated as a stage with its replacement named. One new connection: H8's residues are pre-priced suspects for the lived "lag grows and grows" friction, feeding road 1a. Full check in §8.</p>
+
+  <div class="register">
+    <p><strong>Register.</strong> This page holds positions and receipts, not settled ground — contest it. The three lenses are my modeling of these people's published stances, not their actual opinions. Every decision-changing claim carries a <span class="mono">file:line</span> anchor; structural claims were spot-checked against source in one bounded wave (working tree, 2026-08-23). What outranks this page: the code, <span class="mono">decisions.md</span>, Sid's word.</p>
+    <p><strong>Twin:</strong> <span class="mono">docs/below-the-waist/simpler-engine.md</span> (same claims, same anchors; landed at Sid's word, 2026-08-23 — "Do it"). All three — md, html, published artifact — edited together.</p>
+  </div>
+
+  <h2>1 · The verdict in twelve lines</h2>
+  <div class="story">
+    <ol>
+      <li><strong>The bones are right and earned.</strong> Store as one keyed value · order as row data · tape paint-forward / pick-reverse · CPU pick over the very value the GPU was fed · the shaper as sole text authority · families as data with a pure/GPU split · containers composed in-shader · load-time input fences. Each has a receipt or a scar behind it. None should move.</li>
+      <li><strong>The weight distribution is wrong.</strong> The maintained-view stratum — minted-delta consumers, the semantic reducer, effect view, plan view, oracle twins — is the most law-dense code in the engine and the only major stratum with <em>no measured win attached</em>.</li>
+      <li><strong>Every measured win on file came from three cheaper disciplines:</strong> cadence typing (camera at the sink, blink out of the combine), one memoized text authority (the 28&nbsp;s frame), and camera-as-one-uniform — the single best decision in the engine.</li>
+      <li><strong>One doc claim falsified:</strong> the oracle twins are flag-gated, not every-frame (<span class="anchor">renderer.cljs:3554</span>). The double-road cost is carry cost — code weight, goldens, mental load — not frame time. <span class="mono">engine-two-arrows</span> §9 and Figure 4 overclaim it; <span class="mono">render-engine-map</span> §5.E has it right.</li>
+      <li><strong>Dean lens:</strong> proportionality machinery was built before the population was measured — so round three measured it. The napkin was wrong by 10–40×: the batch middle costs 29&nbsp;ms at 300 entries JVM, and the maintained stratum earns its keep at 40–73× over batch (P1, ran 2026-08-23). Numbers beat napkins in both directions — that is the lens's own law working.</li>
+      <li><strong>Getz lens:</strong> Figure 4's own caption admits the hand-wired DAG. The keyed wire is the real product. The SSE-first courier position survives — on the condition that demand v1 is explicit membership and the fence is a conformance suite, not a frozen format.</li>
+      <li><strong>Noel lens:</strong> the scars were continuous/discrete <em>typing</em> errors, not reactivity errors. The crank is ten lines of Missionary; the scheduler should fold into it as the pure <span class="mono">decide</span>, never stand beside it as a second event system.</li>
+      <li><strong>Eight hard questions</strong> (§4): the unreceipted stratum (H1 — since resolved <em>against this review</em> by its own probe) · fork debt · the dead frame function · the custody contradiction between the two docs · Region3D pre-product · the wire with zero receipts · the optimistic lane the first pass missed (H7) · and what the probes found instead: three priced population-bound residues in the live road (H8).</li>
+      <li><strong>The simpler engine</strong> (§5) survives round three at half strength: forks close, the dead surface goes, Region3D freezes, the wire comes first — but the maintained middle <em>stays</em>: P1 killed the batch-first half, and the deletion list shrinks accordingly.</li>
+      <li><strong>The deciding instance is not in the engine.</strong> The Block slice is the courier probe, the engine's re-founding consumer, and <span class="mono">draw-frame!</span>'s first runtime caller. Build it before touching the engine further.</li>
+      <li><strong>The destination check (round four):</strong> the measured ~1–2k-entry ceiling and North compose — semantic zoom band-swaps representations, so "millions exist, hundreds are resident" now carries receipts, and the residency law gets its first number. One drift self-corrected: demand v1 restated as a stage whose named replacement is the settled road's own "cost scales with what you're looking at."</li>
+      <li><strong>The measurements reached back into a lived friction:</strong> Sid's "lag grows and grows as I write more" has the exact signature of the two per-swap O(N) mechanisms round three priced (hop 5 · <span class="mono">effective</span>) — pre-registered suspects handed to road 1a, behind its banked-receipt fence.</li>
+    </ol>
+  </div>
+
+  <h2>2 · One falsification finding first <span class="tag verified">verified against source</span></h2>
+  <div class="card finding">
+    <p><strong><span class="mono">engine-two-arrows</span> overclaims the oracle cost.</strong> §9 says the batch tape compiler runs beside the maintained arrangement <em>"every frame"</em>, and Figure 4 draws it that way. The code disagrees: <span class="mono">compile-frame-tape</span>'s only call site is inside <span class="mono">frame-tape-twin-check!</span> (<span class="anchor">renderer.cljs:3557</span>), and that body — tape twin, effect-view oracle, plan-view oracle, all of it — sits behind a single flag, <span class="mono">__softland_frame_tape_twin_check</span> (<span class="anchor">renderer.cljs:3554</span>), the flag's only occurrence in src and test.</p>
+    <p><strong>Consequence:</strong> the double-road cost is <em>carry</em> cost — code weight, goldens, mental load — not frame-time cost. That recalibrates §9's "wasteful" ledger, and it matters for what "simpler" should mean: the case against the maintained stratum is complexity and receipt-absence, never runtime waste. <span class="mono">render-engine-map</span> §5.E ("behind a flag, the twin check…") is correct; the two-arrows §9 bullet and Figure 4 label should repair in place at the next fresh-eyes round.</p>
+    <p class="quiet" style="margin-bottom:6px;">Also verified in the same wave: <span class="mono">draw-frame!</span> has zero real callers and the verifier never even names it (only the <span class="mono">.mjs</span> fence greps its source text) · <span class="mono">derive-store-frame</span> walks the full slot vector ~15 times per call, one pass per output lane, no memo (<span class="anchor">scene_store.cljc:321-376</span>) · <span class="mono">requestAnimationFrame</span> has zero hits in kept src · <span class="mono">apply-assembly</span>'s sole caller is <span class="mono">scene_store/build-face-tree</span> (<span class="anchor">scene_store.cljc:513</span>), called twice from <span class="mono">scene_runtime</span>.</p>
+  </div>
+
+  <h2>3 · The three lenses</h2>
+  <p class="quiet">Modeled stances — what each discipline's founder would plausibly say, from their published work; not their words.</p>
+
+  <div class="lens dean">
+    <div class="lenshead"><span class="lensdot"></span><h3>Jeff Dean — numbers before machinery</h3><span class="lenssub">systems · latency · napkin math</span></div>
+    <p>What this lens sees immediately: <strong>the two hottest cost claims in the architecture have no measured magnitude, and the docs admit it</strong> (§11 "not settled": <span class="mono">derive-store-frame</span> O(N) cost unknown; pick cost is one swiftshader quote). Yet the most complex stratum exists precisely to make recompute proportional to change. That is optimization ahead of the profile.</p>
+    <p>Read the scars table with a cost-accountant's eye — every <em>measured</em> win came from three cheap disciplines, and not one is attributable to the maintained-view stratum:</p>
+    <div class="tablewrap"><table>
+      <tr><th>Scar</th><th>Measured</th><th>What actually fixed it</th></tr>
+      <tr><td>the camera watch</td><td class="num">8–26 fps → 45–60 fps</td><td>cadence: camera deref'd at the rAF sink only</td></tr>
+      <tr><td>caret-blink reshape</td><td class="num">1440 ms long-task / 530 ms</td><td>cadence: stable → overlay chains, one <span class="mono">m/signal</span></td></tr>
+      <tr><td>cold settle / 28 s frame</td><td class="num">35.7 s settle</td><td>one memoized text-layout authority (the floor)</td></tr>
+      <tr><td>the borrowed mount</td><td class="num">16,750 slots / 100 entities</td><td>own applier for the diff algebra</td></tr>
+      <tr><td>Region3D shape-mint <em>(open)</em></td><td class="num">1974 comparator calls / 1 entry</td><td>unfixed — and it lives <em>inside</em> the incremental machinery</td></tr>
+    </table></div>
+    <p>The napkin: a product canvas is maybe 10²–10³ slots, ops already flattened per slot. A batch re-derive of tape + spans + plan at that population, gated so it only runs when something changed, is plausibly single-digit milliseconds — <em>hypothesis, not verdict</em>; kill-probe P1 below. If it holds, the maintained stratum is a 100× design carried before the 1× product exists.</p>
+    <p>What this lens praises without reservation: the ledger/receipts/replay culture, load-time fences (failing at <em>load</em> for a forbidden input beats any review note), goldens-as-hashes, and camera-as-one-uniform — the common case costs nothing.</p>
+  </div>
+
+  <div class="lens getz">
+    <div class="lenshead"><span class="lensdot"></span><h3>Dustin Getz — you rebuilt the DAG by hand, and the wire is the real product</h3><span class="lenssub">compiler-derived reactivity · network transparency</span></div>
+    <p>Figure 4's own caption is the thesis: <em>"that is the shape Electric builds for you from code. Here every node is hand-wired."</em> Seven touch-sites per new view is the assembly-language tax of a reactive graph without a compiler. Two exits exist — adopt a compiler, or make view registration fully data (families already are <span class="mono">{:contract :inputs :produce :execute!}</span> rows; the semantic views aren't). There is a third exit the doc doesn't name: <strong>stop maintaining, and there is nothing to wire</strong> — see H1.</p>
+    <p>On transport this lens co-signs §7a completely: Electric-as-RPC was the anti-pattern; the keyed wire <em>is</em> the point. Where it contests the doc is the courier POSITION (SSE-first): demand propagation is exactly what the compiler gives you free — hand-rolling feed + broker + watermark + reconnect + backpressure is rebuilding Electric's core competence as an owned lane, and "the courier is a one-file swap" is usually a fiction, because couriers grow semantics (ordering, catch-up, reconnect), and that is where the bugs live.</p>
+    <p><strong>Adjudication:</strong> the SSE-first position survives, on one condition — demand v1 is <em>explicit membership</em> (the containers a lens has open), not renderer-published visibility facts. That collapses the broker to a subscription parameter, defers the thrash-prone part (visibility-driven residency) until a memory or bandwidth receipt demands it, and shrinks the courier surface to something a conformance suite can actually pin. The fence must be that suite — ordering · watermark resume · two-edits-one-tick · tombstone linger, run against <em>any</em> courier — not "the format is frozen". A frozen format doesn't freeze semantics. <em>(Round four correction: the deferral half of this drifted from the settled road's "cost scales with what you're looking at" — restated in §8 as stage 1 with visibility-driven residency as the named replacement; and the suite turns out to re-derive DIRECTION 1c's own stability tests.)</em></p>
+  </div>
+
+  <div class="lens noel">
+    <div class="lenshead"><span class="lensdot"></span><h3>Léo Noel — the scars are typing errors, not reactivity errors</h3><span class="lenssub">missionary · continuous vs discrete · supervision</span></div>
+    <p>The scars table reads as "ambient reactivity is dangerous". The algebra reads it differently: blink, camera, and diamonds were <strong>continuous/discrete typing errors</strong> — a 60&nbsp;Hz or 530&nbsp;ms discrete signal placed as an input to a wide continuous combine. Missionary's whole design is that cadence is typed: continuous (<span class="mono">m/latest</span>/<span class="mono">m/signal</span>, sampled) versus discrete (<span class="mono">m/ap</span>/<span class="mono">m/reduce</span>, backpressured). The architecture discovered "camera at the sink, sample once per frame" empirically; the algebra states it a priori. So this lens <em>blesses</em> the current shape — pure core, atoms at edges, three named <span class="mono">m/latest</span>, sample at rAF is idiomatic — but corrects the moral: the danger was never "everything reactive", it was "cadence untyped".</p>
+    <p>Two sharper pokes. The engine-with-no-crank is not a gap: the crank is ~10 lines (<span class="mono">m/reduce</span> over <span class="mono">m/sample</span> of the world at <span class="mono">&gt;raf</span>), which the deleted host already proved. Don't let the scheduler grow to compensate — its seven causes + deadline registry + replay is a second event system standing beside the flow algebra; small (7.9K) and tested, so keep it, but as the pure <span class="mono">decide</span> <em>inside</em> the host's fold, never a parallel machine. And the delta journal + ack watermark is a hand-built discrete flow with backpressure; when the host returns, delivery is <span class="mono">m/observe → m/reduce</span> — keep the <em>minting</em> at owners (undo and the wire need those values), let the algebra do delivery.</p>
+  </div>
+
+  <h2>4 · The adversarial pass — eight hard questions</h2>
+  <p class="quiet">H1–H6 are round one, against the docs. H7 is round two — the review run against itself. H8 is round three — what the probes found when they ran; H1's resolution block records the reversal.</p>
+
+  <div class="card">
+    <h3>H1 · The maintained stratum has no receipt — and it's the complexity center <span class="tag contra">refuted by P1 · round three</span></h3>
+    <p style="border-left:3px solid var(--keep); padding-left:12px;"><strong>Resolution first, argument after.</strong> P1 ran (round three, §7). The batch middle measured 29&nbsp;ms at 300 entries and 67&nbsp;ms at 1k on the JVM — far past this claim's own pre-registered bar (≤4&nbsp;ms at 2k) — while the maintained road handles a one-entry change in ~0.6–0.75&nbsp;ms with oracle-equality confirmed on every run. <strong>H1-strong is withdrawn; the maintained-view stratum now holds the receipt it lacked; no amendment to the seam law is proposed.</strong> The argument below is kept as the record of what was claimed and why; what survives of it is the wire-population synthesis (round two, ①) — now quantified: with these constants a lens must hold roughly ≤1–2k entries for the engine to breathe, so demand-scoped delivery is load-bearing, not optional. The residues the probe found instead are in H8.</p>
+    <p>The biggest structural claim of this review: <span class="mono">frame_delta</span> consumers + <span class="mono">frame_semantic_state</span> + <span class="mono">frame_effect_view</span> + <span class="mono">frame_plan_view</span> (≈38K of the most law-dense code) plus the renderer's maintained arrangement exist for a proportionality no measurement has yet shown the product needs. The batch siblings — <span class="mono">compile-frame-tape</span>, <span class="mono">derive-effect-spans</span>, <span class="mono">compile-frame-plan</span> — are already written, already trusted (they're the <em>oracles</em>), and already sit behind <span class="mono">changed-families</span> (which stays: cheap and load-fenced).</p>
+    <p><strong>The inversion available: promote the oracle to the only road.</strong> Batch-recompute the frame's small structures whenever the gate says something changed; keep keyed uploads; keep delta minting at owners. Your own law contains this move's mirror — "a batch stage is never deleted when its incremental sibling arrives; it is demoted to that sibling's oracle." The adversarial completion: <em>an incremental sibling is never kept without a receipt that batch fails.</em> Same principle, both directions: batch is truth; incremental pays rent.</p>
+
+    <figure>
+      <div class="figframe">
+      <svg viewBox="0 0 1080 505" role="img" aria-label="Two frame-middle architectures side by side: today's maintained road with its flag-gated oracle twins, and the batch-first road where the ex-oracles become the only road. The gate, producers, uploads and delta minting survive in both; the maintained arrangement, reducer and maintained views are deleted on the right.">
+        <defs>
+          <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+        <line x1="540" y1="14" x2="540" y2="470" stroke="currentColor" stroke-opacity="0.18"/>
+        <text x="30" y="30" font-size="12.5" font-weight="600" fill="currentColor" style="text-transform:uppercase;letter-spacing:0.06em;">Today — the maintained road</text>
+        <text x="580" y="30" font-size="12.5" font-weight="600" fill="currentColor" style="text-transform:uppercase;letter-spacing:0.06em;">Batch-first — the ex-oracles become the road</text>
+
+        <!-- LEFT rail -->
+        <rect x="30" y="52" width="330" height="46" rx="6" fill="none" stroke="currentColor"/>
+        <text x="42" y="71" font-size="12" fill="currentColor">declared inputs · changed-families gate</text>
+        <text x="42" y="87" font-size="10.5" fill="currentColor" fill-opacity="0.65">frame_inputs.cljc · load-fenced — kept</text>
+        <line x1="195" y1="98" x2="195" y2="132" stroke="currentColor" marker-end="url(#arr)"/>
+        <text x="205" y="119" font-size="11" fill="currentColor" fill-opacity="0.65">stale families only</text>
+
+        <rect x="30" y="136" width="330" height="46" rx="6" fill="none" stroke="currentColor"/>
+        <text x="42" y="155" font-size="12" fill="currentColor">produce — only the changed families</text>
+        <text x="42" y="171" font-size="10.5" fill="currentColor" fill-opacity="0.65">per-family producers — kept</text>
+        <line x1="195" y1="182" x2="195" y2="216" stroke="currentColor" marker-end="url(#arr)"/>
+        <text x="205" y="203" font-size="11" fill="currentColor" fill-opacity="0.65">entries</text>
+
+        <rect x="30" y="220" width="330" height="46" rx="6" fill="none" stroke="var(--cut)"/>
+        <text x="42" y="239" font-size="12" fill="currentColor">maintained arrangement — patched by key</text>
+        <text x="42" y="255" font-size="10.5" fill="currentColor" fill-opacity="0.65">old vs new keys → entry deltas</text>
+        <line x1="195" y1="266" x2="195" y2="300" stroke="currentColor" marker-end="url(#arr)"/>
+        <text x="205" y="287" font-size="11" fill="currentColor" fill-opacity="0.65">semantic deltas</text>
+
+        <rect x="30" y="304" width="330" height="46" rx="6" fill="none" stroke="var(--cut)"/>
+        <text x="42" y="323" font-size="12" fill="currentColor">reducer → effect view · plan view (maintained)</text>
+        <text x="42" y="339" font-size="10.5" fill="var(--cut)">≈38K of maintained machinery — no receipt</text>
+        <line x1="195" y1="350" x2="195" y2="384" stroke="currentColor" marker-end="url(#arr)"/>
+
+        <rect x="30" y="388" width="330" height="40" rx="6" fill="none" stroke="currentColor"/>
+        <text x="42" y="412" font-size="12" fill="currentColor">keyed uploads → encode</text>
+
+        <!-- twins side box -->
+        <rect x="378" y="220" width="134" height="130" rx="6" fill="none" stroke="currentColor" stroke-dasharray="5 4" stroke-opacity="0.55"/>
+        <text x="388" y="240" font-size="11" font-weight="600" fill="currentColor" fill-opacity="0.75">flag-gated twins</text>
+        <text x="388" y="257" font-size="10.5" fill="currentColor" fill-opacity="0.65">compile-frame-tape</text>
+        <text x="388" y="272" font-size="10.5" fill="currentColor" fill-opacity="0.65">span &amp; plan oracles</text>
+        <text x="388" y="293" font-size="9.5" fill="currentColor" fill-opacity="0.55">__softland_frame_</text>
+        <text x="388" y="306" font-size="9.5" fill="currentColor" fill-opacity="0.55">tape_twin_check</text>
+        <text x="388" y="325" font-size="9.5" fill="currentColor" fill-opacity="0.55">renderer.cljs:3554</text>
+        <line x1="360" y1="285" x2="378" y2="285" stroke="currentColor" stroke-dasharray="4 3" stroke-opacity="0.55"/>
+
+        <text x="30" y="458" font-size="10.5" fill="currentColor" fill-opacity="0.6">runs inside draw-frame! — which nothing calls today</text>
+
+        <!-- RIGHT rail -->
+        <rect x="580" y="52" width="330" height="46" rx="6" fill="none" stroke="var(--keep)"/>
+        <text x="592" y="71" font-size="12" fill="currentColor">declared inputs · changed-families gate</text>
+        <text x="592" y="87" font-size="10.5" fill="currentColor" fill-opacity="0.65">unchanged</text>
+        <line x1="745" y1="98" x2="745" y2="132" stroke="currentColor" marker-end="url(#arr)"/>
+        <text x="755" y="119" font-size="11" fill="currentColor" fill-opacity="0.65">only when something changed</text>
+
+        <rect x="580" y="136" width="330" height="46" rx="6" fill="none" stroke="var(--keep)"/>
+        <text x="592" y="155" font-size="12" fill="currentColor">produce — only the changed families</text>
+        <text x="592" y="171" font-size="10.5" fill="currentColor" fill-opacity="0.65">unchanged</text>
+        <line x1="745" y1="182" x2="745" y2="216" stroke="currentColor" marker-end="url(#arr)"/>
+
+        <rect x="580" y="220" width="330" height="60" rx="6" fill="none" stroke="var(--keep)" stroke-width="2"/>
+        <text x="592" y="240" font-size="12" font-weight="600" fill="currentColor">batch: compile-frame-tape · derive-effect-spans ·</text>
+        <text x="592" y="256" font-size="12" font-weight="600" fill="currentColor">compile-frame-plan</text>
+        <text x="592" y="272" font-size="10.5" fill="var(--keep)">already written — they were the oracles; now the road</text>
+        <line x1="745" y1="280" x2="745" y2="314" stroke="currentColor" marker-end="url(#arr)"/>
+
+        <rect x="580" y="318" width="330" height="40" rx="6" fill="none" stroke="currentColor"/>
+        <text x="592" y="342" font-size="12" fill="currentColor">keyed uploads → encode</text>
+
+        <rect x="928" y="220" width="134" height="76" rx="6" fill="none" stroke="var(--accent)"/>
+        <text x="938" y="240" font-size="11" font-weight="600" fill="currentColor">deltas still minted</text>
+        <text x="938" y="255" font-size="11" font-weight="600" fill="currentColor">at owners</text>
+        <text x="938" y="273" font-size="10.5" fill="currentColor" fill-opacity="0.65">→ undo · the wire</text>
+        <text x="938" y="288" font-size="10.5" fill="var(--keep)">kept</text>
+
+        <text x="580" y="400" font-size="10.5" fill="var(--cut)">deleted: arrangement upkeep · maintained effect/plan views · twin plumbing</text>
+        <text x="580" y="416" font-size="10.5" fill="var(--cut)">(~38K + renderer glue)</text>
+        <text x="580" y="440" font-size="10.5" fill="var(--call)">P1 ran 2026-08-23: batch = 29 ms @ 300 · 67 ms @ 1k (JVM)</text>
+        <text x="580" y="458" font-size="11" font-weight="700" fill="var(--cut)">REFUTED — maintained wins 40–73× (§7)</text>
+      </svg>
+      </div>
+      <figcaption><strong>Figure 1 — the frame middle, today vs batch-first (kept as the record of a refuted proposal).</strong> The gate, the producers, keyed uploads and delta minting survive unchanged on both sides. Round three ran P1 against the right side and it lost: 29&nbsp;ms at 300 entries, 67&nbsp;ms at 1k JVM, versus sub-millisecond maintained updates — the left side is the receipted road. The twins box on the left is flag-gated — today's double road costs carry, not frame time.</figcaption>
+    </figure>
+
+    <p><strong>One honest cost:</strong> this relaxes the letter of "recompute proportional to change, never to the population" (the batch walks the frame's population below the gate) while keeping its spirit — nothing runs when nothing changed; no read-side rediscovery of write-known facts; deltas still name what changed. That is an amendment to settled ground.</p>
+    <p><strong>Round two — this claim attacked, three results.</strong> ① <em>The population objection dissolves at the wire.</em> The strongest case for the maintained stratum is "where we want to be is unbounded — whole lands, spaces in spaces, not 10³ slots." But the fill already contains the answer: demand-scoped delivery (membership) bounds what enters the client store <em>before</em> the frame ever sees it. The maintained stratum and the demand-scoped feed are the same proportionality promise made at two different layers — duplicate machinery. Solve proportionality once, at the wire, where residency law lives anyway; then batch-first below it is safe by construction, not just by bench. ② <em>Gestures never touch the batch road.</em> A pan is one camera uniform; a container drag is one 32-byte row rewrite, a <span class="mono">:parameter</span> delta by design ("a slider drag never re-plans passes"), and "camera and container motion stay shader values" is the families' own upload law — so the 60&nbsp;Hz path bypasses tape, spans, and plan entirely. The batch road runs at <em>act</em> cadence (a keystroke, an insert), not frame cadence. Structure-from-docs, not measured. ③ <em>The one scar that looks like a receipt for maintained order isn't.</em> The per-frame tape-recompile scar's disease was the tape keyed on <span class="mono">[:frame idx]</span> — the clock as ancestor, recompiling <em>unconditionally</em> every rAF. Batch-first behind the gate never runs on an unchanged frame; and the store-level <span class="mono">:ordered</span> map that fix produced is kept here regardless (pick reads it). The scar indicts clock-keying, not batch-per-change.</p>
+    <p class="probe"><b>Kill-probe P1 — RAN, round three:</b> the pre-registered rule was "under ~2&nbsp;ms at product scale → the stratum moves to LATER; over → the stratum finally has its receipt, and this claim is withdrawn." It measured 29&nbsp;ms at 300 entries. <b>Withdrawn.</b> The Figma corroboration line above is retracted with it — dirty-flags-plus-re-render works there on C++ arrays; Softland's persistent-structure constants (~30&nbsp;μs/entry for spans alone) are two orders heavier, and that difference, not the algorithm, decides the road. Full numbers §7.</p>
+  </div>
+
+  <div class="card">
+    <h3>H2 · Fork debt is the second complexity center <span class="tag call">sid call</span></h3>
+    <p>Two text roads (MSDF + Slug), two render roads (legacy + linear compositor), a legacy monospace layout road, a color seam default-off. Each fork was lawful at birth; jointly they are most of why the engine "reads as tons of code" (§1.14's own words). Several are "off until an activation receipt" — a receipt no product exists to produce, so they are unpriced options with no expiry.</p>
+    <p><strong>Close them by naming the trigger now:</strong> one text road live, the other in git; legacy render road as v1, compositor activates with the first product effect. Goldens thin accordingly.</p>
+    <p><strong>The text-road decision rule, sharpened (round two):</strong> the choice is the spatial model's, not typography's. If text must stay <em>crisp</em> across the ratified zoom envelope (z0.01–z1000) inside nested spaces, Slug is the survivor — exact per-pixel coverage from outlines is the only road that doesn't degrade — and MSDF goes to git. If text at extreme zoom may honestly degrade or fade under residency law like any other material, MSDF is the survivor and Slug's 100-byte glyphs go. One line from Sid decides which world Softland is.</p>
+  </div>
+
+  <div class="card">
+    <h3>H3 · The most integrative function in the engine is dead code guarded by a grep <span class="tag verified">verified</span></h3>
+    <p><span class="mono">draw-frame!</span> (~330 lines — the one place inputs → gate → produce → arrange → reduce → plan → encode composes) has <strong>zero callers</strong>, and the verifier never executes it — it composes its own frame path, with a static <span class="mono">.mjs</span> fence asserting the two roads stay twins <em>textually</em> (<span class="anchor">verify_scene_tape_fence.mjs:50</span> extracts the source as a string; <span class="mono">verifier.cljs</span> has zero hits for it). Every claim about "the frame" is currently structural.</p>
+    <p>Either the verifier drives <span class="mono">draw-frame!</span> directly or the Block host does, soon. Corollary worth saying plainly: the verifier (304K, bigger than the renderer at 203K) is the area's only consumer, so engine shape drifts toward verifiability-at-rest. The counterweight isn't less verifier — it's a product host.</p>
+  </div>
+
+  <div class="card">
+    <h3>H4 · The custody contradiction between the two docs <span class="tag contra">contradiction</span><span class="tag call">sid call</span></h3>
+    <p><span class="mono">render-engine-map</span> marks the presentation grammar (<span class="mono">face_assembly</span> + <span class="mono">face_primitives</span>, 93K) as one-cut deletion debt. <span class="mono">engine-two-arrows</span>' fill (§8, hop 3) <em>builds the face tree per unit "from the served assembly (16 builders now)"</em> — and the spot-check confirms <span class="mono">apply-assembly → build-face-tree → scene_runtime</span> is the <strong>only face→tree path in the tree</strong> (<span class="anchor">scene_store.cljc:513</span> · <span class="anchor">scene_runtime.cljs:285,514</span>). If custody executes before the Block slice, the slice rebuilds the thing that was just deleted.</p>
+    <p><strong>Likely resolution:</strong> the grammar is product — it is the agent-authoring surface and the only path from served data to boxes; the <em>unused primitives</em> are the debt. Either way the two docs currently disagree, and that needs one line from Sid before any cut.</p>
+  </div>
+
+  <div class="card">
+    <h3>H5 · Region3D is engineering carried at interest, pre-product <span class="tag call">sid call</span></h3>
+    <p>≈119K of material + ≈107K of GPU for a family with goldens and no host. Sid's own words on the dossier: <em>"that is not product that is eng."</em> The boundary — a whole 3D scene as one tape row — is genuinely good and costs nothing to keep frozen. <strong>Freeze at goldens; no further investment until a product face needs a region.</strong> The one open perf item (shape-mint, 1974 comparator calls per entry) waits with it — and note it lives inside the incremental machinery H1 questions.</p>
+  </div>
+
+  <div class="card">
+    <h3>H6 · The architecture question can't be answered from the engine side at all <span class="tag hypo">direction</span></h3>
+    <p>Both docs converge on this and the adversarial pass confirms it: every engine piece has goldens; <strong>the wire — demand up, keyed delivery down, act-correlated apply — has zero receipts in either direction</strong>, and it is the layer where the two settled instincts (keyed all the way; one reactive system) actually live or die. Polishing the engine further is attractor-following.</p>
+    <p>The Block slice (§8's "smallest slice", with its three tripwires) is not just the courier probe — it is the engine's re-founding consumer, <span class="mono">draw-frame!</span>'s first runtime caller, and the only instance that can say whether the whole shape is right.</p>
+  </div>
+
+  <div class="card" style="border-left:4px solid var(--cut);">
+    <h3>H7 · The optimistic lane is missing — from the fill, and from this review's first pass <span class="tag contra">self-caught · round two</span></h3>
+    <p>The loop as drawn — in two-arrows Figure 6, in the after-table's hop rows, and in this page's own Figure 2, round one — routes a durable act as: edit → write route → Rama → accepted → the feed → the store → pixels. Read that literally and <strong>every keystroke's pixel waits on a server round-trip.</strong> Road 1a's whole promise was "typing stops lagging"; the fill as written re-creates the lag by construction and none of its three tripwires would catch it — "one edit moves exactly one slot" passes whether the slot moves in 8&nbsp;ms or 300.</p>
+    <p>The repair is a named lane, and the project's own golden rule already mandates its shape: <em>never approve an optimistic-state change without tracing the full write → render → truth-reconciliation → clear lifecycle.</em> Concretely: the client host applies the act locally as a <strong>pending overlay keyed by act-id</strong> — rendered same-frame, carried beside (never inside) the served truth — and the feed's echo, correlated by the same act-id the fill already carries ("correlation = act-id; caps dissolve"), reconciles and clears it. Session-state machinery for gestures already exists; <em>acts</em> have no such lane anywhere in the fill.</p>
+    <p><strong>Consequence for the contract:</strong> the Block-slice contract must decide the optimistic lane explicitly (pending overlay vs server-echo-only typing — the second is a product decision to accept RTT in the keystroke path, which nobody has made), and the slice gains a <strong>fourth tripwire: keystroke-to-pixel is local-frame-fast, and the pending mark clears on the act's echo — never before, never twice.</strong></p>
+  </div>
+
+  <div class="card" style="border-left:4px solid var(--call);">
+    <h3>H8 · What the probes found instead — three priced residues and one heavy truth <span class="tag verified">measured · round three</span></h3>
+    <p><strong>The heavy truth first: the middle's constants are enormous, everywhere.</strong> ~30&nbsp;μs per entry for batch effect spans; ~15&nbsp;μs per entry for tape validate+sort; ~12&nbsp;μs per slot for the store-frame projection; ~28&nbsp;μs per container for <span class="mono">effective</span>; 70–340&nbsp;μs per slot upsert on the write side. This is the price of persistent-structure allocation, and it — not any algorithm — is why batch loses and why every road, maintained included, has a population ceiling. The fused single-walk <span class="mono">derive-store-frame</span> experiment proved it: byte-equal output, <em>not faster</em> (12.4 vs 12.0&nbsp;ms at 1k) — the cost is allocation, not the ~15 walks, so round one's "fused to one, cheap regardless" is retracted; the real fix for hop 5 is the seam ruling's own per-key views.</p>
+    <p><strong>The three population-bound residues in the live, receipted road:</strong></p>
+    <ul>
+      <li><strong><span class="mono">project-spans</span> is O(N) per dirty frame inside the maintained road</strong> — it rebuilds a full index over the arrangement on every call (<span class="anchor">frame_effect_view.cljc:249-252</span>): measured 274&nbsp;μs at 300 entries, 485&nbsp;μs at 1k, 2.33&nbsp;ms at 5k. The docs state the structure ("walked once"); nobody had priced it. At 5k entries the "incremental" road pays real frame budget here — the dominant maintained-road line.</li>
+      <li><strong><span class="mono">containers/effective</span> is a from-scratch batch recompute in the live path</strong> — 28&nbsp;ms at 1k containers, 170&nbsp;ms at 5k, per registry change (the <span class="mono">&lt;effective</span> view is one <span class="mono">m/latest</span> over the registry watch). Since a drag mutates the registry, this is a scaling cliff no doc names: fine at ~100 containers (~3&nbsp;ms), jank at 1k. [Magnitude measured; the drag-cadence link is structure-from-docs, not traced live.]</li>
+      <li><strong><span class="mono">derive-store-frame</span> (hop 5) at 12&nbsp;μs/slot per store swap</strong> — 13.8&nbsp;ms at 1k slots per edit echo, at act cadence. Already named by the seam ruling as the whole-population step; now it has a number, and fusion is proven not to be the fix.</li>
+    </ul>
+    <p><strong>What this adds up to:</strong> the engine's proportionality law is honored by the arrangement and the views (receipted, H1) but leaks at these three points — and the wire-population bound from round two graduates from synthesis to requirement: with these constants, demand-scoped delivery keeping a lens at ≤1–2k entries is what makes the whole engine viable. Board debt, not Sid calls: per-key store views (hop 5), an incremental or memoized <span class="mono">effective</span>, and a maintained span index that doesn't rebuild per frame.</p>
+  </div>
+
+  <h2>5 · Is this the architecture it should be? Can it be simpler?</h2>
+
+  <h3>The bones — right, earned, untouched</h3>
+  <ul class="keeplist">
+    <li>the store as one keyed value; one swap = one generation</li>
+    <li>order as row data; tape paint-forward / pick-reverse</li>
+    <li>CPU pick over the very value the GPU was fed — agents and the mouse share one finger</li>
+    <li>the shaper as the sole text authority (the floor; best-earned piece in the engine)</li>
+    <li>families as data, material/GPU split, no branch in the core walkers</li>
+    <li>containers as one storage table composed in-shader; camera as one uniform</li>
+    <li>load-time input fences — clock and raw camera refused at load</li>
+    <li>delta minting at owners (serves undo and the wire regardless of H1)</li>
+    <li>the goldens + receipts + replay culture (thinned to live roads)</li>
+  </ul>
+  <p>Every one of these has a receipt or a scar behind it. The architecture is not wrong — its <em>weight distribution</em> is: complexity sits in an unmeasured incremental stratum, open forks kept warm, a dead host surface, and one pre-product family, while the actual risk sits in a wire that doesn't exist.</p>
+
+  <h3>The bet underneath, examined and held</h3>
+  <p>Round two also pressed the question every other question stands on, the one round one took as given: <strong>should this be a WebGPU-native substrate at all</strong>, versus DOM + Electric for the 95% (blocks, documents, text) with GPU islands for the rest? The §2 organs table is honest that Softland carries a browser-engine slice of its own — that is the whole cost side. Examined, the bet holds, for a product reason and an economic one: the product <em>is</em> the spatial substrate — one camera over everything, spaces inside spaces as first-class faces, agents picking through the same finger as the mouse, faces as data with no DOM to leak through — and a DOM Softland is a different product, not a cheaper build of this one. Economically, the expensive organ that makes GPU text viable — the shaper, the floor, the best-earned piece in the tree — is already paid for and fenced. Re-litigating the substrate now would discard the one sunk cost that was worth sinking. Held: not assumed, examined.</p>
+
+  <h3>The simpler engine, end to end</h3>
+  <figure>
+    <div class="figframe">
+    <svg viewBox="0 0 980 682" role="img" aria-label="The simpler loop: Rama rows flow down through a new keyed feed and client host into the existing store, sampled once per frame by a ten-line crank into the batch middle and keyed uploads to the GPU and screen. The up arrow runs pointer through camera inverse and a reverse pick over the same store value, splitting into local session atoms and durable acts that return to Rama.">
+      <defs>
+        <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="currentColor"/>
+        </marker>
+      </defs>
+      <!-- legend -->
+      <rect x="60" y="14" width="12" height="12" rx="2" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      <text x="80" y="25" font-size="11" fill="currentColor" fill-opacity="0.75">the fill — built new</text>
+      <rect x="230" y="14" width="12" height="12" rx="2" fill="none" stroke="var(--keep)" stroke-width="2"/>
+      <text x="250" y="25" font-size="11" fill="currentColor" fill-opacity="0.75">receipted road (P1)</text>
+      <rect x="380" y="14" width="12" height="12" rx="2" fill="none" stroke="currentColor"/>
+      <text x="400" y="25" font-size="11" fill="currentColor" fill-opacity="0.75">exists today</text>
+      <text x="620" y="25" font-size="11" font-weight="600" fill="currentColor" style="text-transform:uppercase;letter-spacing:0.06em;">down: truth → pixels · up: pointer → meaning</text>
+
+      <!-- DOWN rail -->
+      <rect x="60" y="48" width="340" height="40" rx="6" fill="none" stroke="currentColor"/>
+      <text x="72" y="72" font-size="12" fill="currentColor">Rama — keyed rows (unit-id · event-id)</text>
+      <line x1="230" y1="88" x2="230" y2="122" stroke="currentColor" marker-end="url(#arr2)"/>
+      <text x="240" y="109" font-size="11" fill="currentColor" fill-opacity="0.65">since-watermark · per accepted act</text>
+
+      <rect x="60" y="126" width="340" height="52" rx="6" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      <text x="72" y="146" font-size="12" font-weight="600" fill="currentColor">keyed feed per lens</text>
+      <text x="72" y="163" font-size="10.5" fill="currentColor" fill-opacity="0.65">act cadence · watermark · demand = explicit membership</text>
+      <line x1="230" y1="178" x2="230" y2="212" stroke="currentColor" marker-end="url(#arr2)"/>
+      <text x="240" y="199" font-size="11" fill="currentColor" fill-opacity="0.65">units by id · tombstones · generation = act</text>
+
+      <rect x="60" y="216" width="340" height="52" rx="6" fill="none" stroke="var(--accent)" stroke-width="2"/>
+      <text x="72" y="236" font-size="12" font-weight="600" fill="currentColor">client host — three namespaces</text>
+      <text x="72" y="253" font-size="10.5" fill="currentColor" fill-opacity="0.65">courier flow → m/reduce apply edge → upsert by key</text>
+      <line x1="230" y1="268" x2="230" y2="302" stroke="currentColor" marker-end="url(#arr2)"/>
+      <text x="240" y="289" font-size="11" fill="currentColor" fill-opacity="0.65">upsert-slot / remove-slot</text>
+
+      <rect x="60" y="306" width="340" height="52" rx="6" fill="none" stroke="currentColor"/>
+      <text x="72" y="326" font-size="12" fill="currentColor">the store — one value, patched by key</text>
+      <text x="72" y="343" font-size="10.5" fill="currentColor" fill-opacity="0.65">:ordered kept — pick reads it</text>
+      <line x1="230" y1="358" x2="230" y2="392" stroke="currentColor" marker-end="url(#arr2)"/>
+      <text x="240" y="379" font-size="11" fill="currentColor" fill-opacity="0.65">sampled once per frame</text>
+
+      <rect x="60" y="396" width="340" height="52" rx="6" fill="none" stroke="currentColor"/>
+      <text x="72" y="416" font-size="12" fill="currentColor">the crank — rAF sample · skip-if-unchanged</text>
+      <text x="72" y="433" font-size="10.5" fill="currentColor" fill-opacity="0.65">≈10 lines of Missionary; scheduler folds in as decide</text>
+      <line x1="230" y1="448" x2="230" y2="482" stroke="currentColor" marker-end="url(#arr2)"/>
+
+      <rect x="60" y="486" width="340" height="52" rx="6" fill="none" stroke="var(--keep)" stroke-width="2"/>
+      <text x="72" y="506" font-size="12" font-weight="600" fill="currentColor">gate → maintained middle → keyed uploads</text>
+      <text x="72" y="523" font-size="10.5" fill="currentColor" fill-opacity="0.65">P1: maintained road receipted — draw-frame!'s first caller</text>
+      <line x1="230" y1="538" x2="230" y2="572" stroke="currentColor" marker-end="url(#arr2)"/>
+      <text x="240" y="559" font-size="11" fill="currentColor" fill-opacity="0.65">encode</text>
+
+      <rect x="60" y="576" width="340" height="40" rx="6" fill="none" stroke="currentColor"/>
+      <text x="72" y="600" font-size="12" fill="currentColor">GPU → screen · nothing is read back</text>
+
+      <!-- UP rail -->
+      <rect x="580" y="576" width="340" height="40" rx="6" fill="none" stroke="currentColor"/>
+      <text x="592" y="600" font-size="12" fill="currentColor">pointer x,y — canvas-relative CSS px</text>
+      <line x1="750" y1="576" x2="750" y2="542" stroke="currentColor" marker-end="url(#arr2)"/>
+
+      <rect x="580" y="490" width="340" height="52" rx="6" fill="none" stroke="currentColor"/>
+      <text x="592" y="510" font-size="12" fill="currentColor">camera inverse — sink-local</text>
+      <text x="592" y="527" font-size="10.5" fill="currentColor" fill-opacity="0.65">px → world; camera never an input upstream</text>
+      <line x1="750" y1="490" x2="750" y2="456" stroke="currentColor" marker-end="url(#arr2)"/>
+      <text x="760" y="477" font-size="11" fill="currentColor" fill-opacity="0.65">topmost first</text>
+
+      <rect x="580" y="404" width="340" height="52" rx="6" fill="none" stroke="currentColor"/>
+      <text x="592" y="424" font-size="12" fill="currentColor">pick — reverse walk over the SAME value</text>
+      <text x="592" y="441" font-size="10.5" fill="currentColor" fill-opacity="0.65">address + context; agents share the finger</text>
+      <line x1="580" y1="430" x2="418" y2="336" stroke="currentColor" stroke-dasharray="5 4" stroke-opacity="0.6" marker-end="url(#arr2)"/>
+      <text x="428" y="382" font-size="10.5" fill="currentColor" fill-opacity="0.6">reads the same value</text>
+      <text x="428" y="396" font-size="10.5" fill="currentColor" fill-opacity="0.6">the GPU was fed</text>
+      <line x1="700" y1="404" x2="660" y2="370" stroke="currentColor" marker-end="url(#arr2)"/>
+      <line x1="800" y1="404" x2="840" y2="370" stroke="currentColor" marker-end="url(#arr2)"/>
+
+      <rect x="560" y="314" width="190" height="52" rx="6" fill="none" stroke="currentColor"/>
+      <text x="572" y="334" font-size="12" fill="currentColor">session atoms — 60 Hz</text>
+      <text x="572" y="351" font-size="10.5" fill="currentColor" fill-opacity="0.65">hover · selection · drag · camera</text>
+      <line x1="560" y1="340" x2="404" y2="418" stroke="currentColor" stroke-dasharray="3 4" stroke-opacity="0.6" marker-end="url(#arr2)"/>
+      <text x="430" y="358" font-size="10.5" fill="currentColor" fill-opacity="0.6">local — meets the frame</text>
+      <text x="430" y="372" font-size="10.5" fill="currentColor" fill-opacity="0.6">at the crank</text>
+
+      <rect x="770" y="314" width="150" height="52" rx="6" fill="none" stroke="currentColor"/>
+      <text x="782" y="334" font-size="12" fill="currentColor">a durable act</text>
+      <text x="782" y="351" font-size="10.5" fill="currentColor" fill-opacity="0.65">edit · settle → routes</text>
+      <path d="M 845 314 L 845 68 L 404 68" fill="none" stroke="currentColor" marker-end="url(#arr2)"/>
+      <text x="620" y="60" font-size="11" fill="currentColor" fill-opacity="0.65">one debounced write → Rama · the echo IS the feed (act-id)</text>
+      <path d="M 770 358 C 620 300 480 268 404 250" fill="none" stroke="var(--cut)" stroke-dasharray="6 4" marker-end="url(#arr2)"/>
+      <text x="470" y="238" font-size="10.5" fill="var(--cut)">H7 — optimistic: pending overlay by act-id,</text>
+      <text x="470" y="252" font-size="10.5" fill="var(--cut)">rendered same-frame · cleared on the echo</text>
+    </svg>
+    </div>
+    <figcaption><strong>Figure 2 — the simpler loop, as it stands after round three.</strong> Down: Rama → keyed feed (new, violet) → client host (new) → store (as-is) → a ten-line crank → the maintained middle (green — receipted by P1; the batch-first substitution originally drawn here is withdrawn) → pixels. Up: pointer → sink-local camera inverse → reverse pick over the same store value → session atoms (local, 60&nbsp;Hz) or a durable act whose echo returns as the feed. The red dashed lane is round two's H7 addition: acts also apply locally as a pending overlay keyed by act-id, cleared on the echo. The wire (violet) is now load-bearing twice over: it is the missing arrow <em>and</em>, per H8's constants, the thing that keeps a lens's population inside the engine's measured budget.</figcaption>
+  </figure>
+
+  <p><strong>Deleted or frozen vs today (revised by round three):</strong> one text road · one render road · scheduler folded into the crank as <span class="mono">decide</span> · Region3D frozen at goldens · the dead host surface's uncalled fns. <del>The maintained arrangement / effect-view / plan-view</del> — struck from the list: P1 receipted them. The fused-hop-5 line is struck too (equal, not faster); hop 5's fix is per-key views (H8).</p>
+  <p><strong>The one law it would have touched:</strong> none, any more. Round one proposed relaxing "recompute proportional to change, never to the population" below the gate; P1 measured why the law is right at product populations on this substrate. The law stands unamended, now with a receipt where it previously had only scars.</p>
+
+  <h2>6 · Where this review contests the docs' landed positions</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Doc position</th><th>This review</th><th>Status</th></tr>
+    <tr><td>Courier POSITION — SSE-first, content frozen, "one-file swap"</td><td>Hold — with demand v1 = explicit container membership plus the per-container cap and the oracle's cap-overflow-reconcile duty so residency stays honest, and the fence upgraded to a courier conformance suite (ordering · watermark resume · two-edits-one-tick · tombstones). Round four: the membership-only deferral is a STAGE, replacement named — visibility-driven residency per DIRECTION road 2 (§8)</td><td>amended, held, staged</td></tr>
+    <tr><td>The fill's act path — edit → route → Rama → feed → store (Figure 6, the hop table)</td><td>Missing the optimistic lane entirely: typing waits on RTT as drawn. Pending overlay keyed by act-id, cleared on echo; fourth tripwire added (H7)</td><td>self-caught, round two</td></tr>
+    <tr><td>Road order inverted — the arrow (1c) is the first act</td><td>Agree, and strengthen: the arrow's host is also H3's answer — <span class="mono">draw-frame!</span>'s first runtime caller</td><td>co-signed</td></tr>
+    <tr><td>§9 "double roads … every frame … defensible"</td><td>Recalibrate per the flag finding — carry cost, not frame cost — and move from "defensible" to "due for closing": the incremental road is the unproven one now</td><td>corrected</td></tr>
+    <tr><td><span class="mono">face_assembly</span> = one-cut deletion debt</td><td>Contest outright — it is the only face→tree path and the fill's hop 3 needs it (H4)</td><td>contested</td></tr>
+    <tr><td>Maintained views + oracle twins as the settled middle</td><td>Round one proposed inverting; <strong>P1 ran and the docs won</strong> — maintained beats batch 40–73× at product populations. Withdrawn; the stratum is receipted (§7)</td><td>refuted, withdrawn</td></tr>
+    <tr><td>This review's own round-one claims (self-contested in round three)</td><td>"Fused hop-5, cheap regardless" — equal output, not faster; retracted. The Figma dirty-flags corroboration — retracted (C++ array constants don't transfer). What the probes surfaced instead: three priced residues, H8</td><td>self-corrected on receipts</td></tr>
+  </table></div>
+
+  <h2>7 · The probes ran — receipts</h2>
+  <p><strong>Method.</strong> Round three, this sandbox, 2026-08-23. Clojure 1.12.4 built from the tagged source (network policy blocks Maven; JDK 21, javac, vendored ASM — real JVM Clojure, not an interpreter), Softland's <span class="mono">src/</span> on the classpath, <strong>production functions unmodified</strong>. Fixtures at the repo's own test grain: one slot = a 7-box face tree, one container per slot (the engine's own lifecycle), 8 effect groups, stack-paths stamped from <span class="mono">containers/effective</span>. Warmup + p50-of-runs, <span class="mono">System/nanoTime</span>, per the in-repo bench idiom. Sanity fence: <span class="mono">effect-view/oracle-equal?</span> returned true at every population — the fixtures drive the real semantics. Probe scripts in the session scratchpad; nothing touched <span class="mono">src/</span> or <span class="mono">docs/</span>.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Measurement (JVM p50)</th><th>n=300</th><th>n=1k</th><th>n=5k</th><th>n=20k</th></tr>
+    <tr><td>batch middle, sum (<span class="mono">derive-store-frame</span> + <span class="mono">compile-tape</span> + spans + plan)</td><td class="num">29 ms</td><td class="num">67 ms</td><td class="num">363 ms</td><td class="num">1.81 s</td></tr>
+    <tr><td>&nbsp;&nbsp;of which <span class="mono">derive-effect-spans</span> (batch)</td><td class="num">7.9–10 ms</td><td class="num">30.6 ms</td><td class="num">192 ms</td><td class="num">951 ms</td></tr>
+    <tr><td>&nbsp;&nbsp;of which <span class="mono">derive-store-frame</span> (hop 5, per store swap)</td><td class="num">5.1 ms</td><td class="num">13.8 ms</td><td class="num">73 ms</td><td class="num">438 ms</td></tr>
+    <tr><td><strong>maintained road, one-entry-change frame</strong> (<span class="mono">apply-deltas</span> + <span class="mono">project-spans</span> + <span class="mono">ordered-insert</span>)</td><td class="num"><strong>0.61 ms</strong></td><td class="num"><strong>0.75 ms</strong></td><td class="num"><strong>2.64 ms</strong></td><td class="num">—</td></tr>
+    <tr><td>&nbsp;&nbsp;of which <span class="mono">project-spans</span> (O(N) residue, H8)</td><td class="num">274 μs</td><td class="num">485 μs</td><td class="num">2.33 ms</td><td class="num">—</td></tr>
+    <tr><td><span class="mono">tape/ordered-insert</span> (maintained write, single)</td><td class="num">84 μs</td><td class="num">93 μs</td><td class="num">104 μs</td><td class="num">—</td></tr>
+    <tr><td><span class="mono">containers/effective</span> (full recompute, live path)</td><td class="num">—</td><td class="num">28 ms</td><td class="num">170 ms</td><td class="num">811 ms</td></tr>
+    <tr><td>store build, per <span class="mono">upsert-slot</span></td><td class="num">81 μs</td><td class="num">336 μs*</td><td class="num">148 μs</td><td class="num">217 μs</td></tr>
+  </table></div>
+  <p class="quiet">* the 1k build ran first in its JVM and carries JIT warmup; the 5k/20k columns are the steadier per-upsert figures.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Pick (P3, JVM p50 per event)</th><th>n=10</th><th>n=200</th><th>n=2000</th></tr>
+    <tr><td>hit, topmost</td><td class="num">23 μs</td><td class="num">31 μs</td><td class="num">268 μs</td></tr>
+    <tr><td>miss, walks all entries</td><td class="num">37 μs</td><td class="num">315 μs</td><td class="num">2.12 ms</td></tr>
+  </table></div>
+  <p><strong>Verdicts.</strong> <span class="mono">P1</span>: H1 refuted — maintained beats batch <strong>40–73×</strong> on the spans line at product populations; the stratum is receipted; the law stands. <span class="mono">P3</span>: pick receipted fine — the 4.5&nbsp;ms swiftshader quote was pessimistic; the miss case is the linear tail and stays sub-frame at product scale. <strong>Fused hop-5</strong>: output equal, speed equal — retracted as a fix. <strong>Fences</strong> (node, no build): scene-tape fence <span style="color:var(--keep)">PASS</span> (families 9, zero draw-frame branches, seeded violations rejected), text-layout fence <span style="color:var(--keep)">PASS</span> (17 owners, seeded violations rejected).</p>
+  <p class="quiet"><strong>Uncertainty band, stated:</strong> this Clojure build lacks direct linking (official jar likely ~1.2–1.5× faster); the browser target is CLJS (likely 1.5–3× slower than JVM). Both shift absolute numbers, neither flips a 40–73× ratio between roads running identical code on the same runtime. First-run p90s carry JIT noise; p50s across runs are stable. <strong>Blocked, not failed:</strong> the proportional-shaper fence (npm policy denies <span class="mono">harfbuzzjs</span>), the browser golden suite (shadow build needs Maven; puppeteer denied), and a native CLJS cross-check (<span class="mono">clojurescript</span>/<span class="mono">nbb</span> denied). <span class="mono">P2</span> — the Block slice with its four tripwires — remains the one probe only real work can run, and it is still the deciding instance for the wire.</p>
+
+  <h2>8 · The destination check — the verdicts held against where we want to be</h2>
+  <p class="quiet">Round four, at Sid's word ("refer where we want to be and all docs if needed"). Read PRIMARY: BETS North + the ladder · the sense-line model · the spatial model (decisions.md §629-690) · electric-native DIRECTION · ARCHITECTURE.md (the six conflicts) · the LOG tail (08-12/13). Each standing verdict held against the destination; three alignments, one self-correction, one new connection.</p>
+
+  <div class="card finding">
+    <h3>The ceiling and North compose — and the residency law gets its first number <span class="tag verified">aligned</span></h3>
+    <p>The strongest possible objection to round three's ~1–2k-entry budget is North itself: "one land at every zoom from the knowledge landscape down to the code." But North's own words dissolve it — "zoomed out, topics are <em>nations</em> … <strong>every zoom level is a level of understanding</strong>" — and conflict 5's law states the mechanism outright: <em>"Millions exist, hundreds are resident, a handful are interactive, ONE is edited."</em> Semantic zoom swaps representation grain at zoom bands; a zoomed-out view is nations, not 10⁶ block entries. The knowledge earth is a representation-ladder problem, not a raw-population problem — so the measured constants don't block North, they <strong>price it</strong>: "hundreds resident" now has receipts (~30&nbsp;μs/entry spans, ~12&nbsp;μs/slot projection), and the ambient space's budget under residency law has its first number, ≈1–2k entries at today's constants. The engine's ceiling and the destination's ladder agree with each other. Near-term this is comfortable twice over: the ladder's ACTIVE bet is H1 (the trail view beats the wall — one inhabitant, trail-view populations), and world-scale H5 is GATED, sequenced after H3+H4 by design.</p>
+  </div>
+
+  <div class="card" style="border-left:4px solid var(--cut);">
+    <h3>Round two's demand position drifted from the settled road — restated as a stage <span class="tag contra">self-corrected · round four</span></h3>
+    <p>DIRECTION road 2, Sid's own board line: <em>"resident cost scales with what you're looking at, not what you own"</em> — renderer publishes visibility facts, a broker turns them into membership subscriptions. Round two's simplification (demand v1 = containers <em>open</em>, defer visibility indefinitely) scales cost with what you've opened — what you own — which is the exact shape the settled road refuses. The membership-grain half was already settled (never position windows, L16) and aligned; the deferral half is lawful only under the staging discipline: <strong>"staged ≠ patchy: a stage names its replacement in the contract."</strong> Restated accordingly: explicit-membership demand is stage 1; visibility-driven residency is its <em>named replacement</em>, trigger = the first lens whose open membership exceeds the priced budget (≈1–2k entries) or the first memory/bandwidth receipt, whichever lands first. The conformance-suite fence, meanwhile, turns out to be DIRECTION 1c's own stability tests re-derived — one-path recovery · tombstones · oracle demotion with duties transferred — so credit moves to the source: the court riders had it first.</p>
+  </div>
+
+  <div class="card" style="border-left:4px solid var(--call);">
+    <h3>New: H8's residues are pre-priced suspects for a lived friction <span class="tag hypo">hypothesis · feeds road 1a</span></h3>
+    <p>LOG 2026-08-12, Sid verbatim: <em>"writing is dog dog slow as i write more and more the lag between what i type and when it appears just grows and grows."</em> <strong>Grows-with-content is the signature of per-keystroke O(N) work</strong> — and round three measured two mechanisms with exactly that shape sitting on the act path: <span class="mono">derive-store-frame</span> at 13.8&nbsp;ms per store swap at 1k slots (hop 5, runs on every edit echo) and <span class="mono">containers/effective</span> at 28&nbsp;ms per registry change at 1k containers. Fence honored: road 1a's contract says the banked shaping receipt is checked FIRST, no fresh blind profile — so these are tagged as candidate mechanisms for whatever the shaping receipt does not cover, with a pre-registered prediction the 1a probe can test cheaply: <em>lag scales with slot/container population, mechanism = per-swap whole-population projections</em>. The probes priced the two best non-shaping suspects three days after the friction was reported, without knowing that was what they were doing.</p>
+  </div>
+
+  <p><strong>The rest of the ledger, briefly.</strong> <strong>H7 is the two-planes law, not a UI trick</strong>: conflict 2 ("nothing discrete waits on a frame"; settlement the only door) plus the QoS hand-first rider are the destination's own words for keeping RTT out of the keystroke path — the pending overlay lives on the BECOMING plane, reconciled at the settlement door by act-id; and it protects road 1a, the road's NEXT ACT, from being re-broken by the fill. <strong>H4 gains its real grounds</strong>: the made-block gate ("the agent MAKES the Block … faces are data all the way") makes the assembly grammar the agent's <em>making-material</em> — custody-deleting it cuts against the gate itself, not just against hop 3. <strong>H5 was never a review opinion</strong>: "machinery arrives by lived want; no recursive space-graph engine ahead of a lived scenario" is the spatial model's own law, applied to the one family that ran ahead of it. <strong>The courier hold sits under a named counter-pressure</strong> — "stand on shoulders, never rebuild" (ruled 08-12) leans toward Electric's machinery; the tree's own 08-23 state holds SSE-first as a POSITION closed by the transfer bench, and this review adds nothing beyond: let the bench decide, not taste. <strong>H2's decider is already on the board</strong>: the destination leans semantic-zoom (block-text crispness at z1000 is not a North requirement — representations band-swap), but Sid <em>felt</em> the MSDF softness ("the text is softer now … did we previously use slug"), and the pinned pixel A/B is board-tracked; the review's rule stands, the A/B and Sid's feel decide. And the frame that holds all four rounds: ARCHITECTURE.md's one-pattern-at-four-altitudes table — an appreciating log · views per reader · a return path — is where this review lands as the bottom altitude measured true: conflict 1's "recompute proportional to change, at every layer" now carries numbers at the render seam, and <em>brief! = draw-frame! for minds</em> means the same attention-budget law the constants priced in pixels will price briefings in tokens.</p>
+
+  <h2>9 · Sid calls, and the starter prompt</h2>
+  <p>Three one-liners wanted, none blocking exploration (H1's call is moot — the law stands, no amendment to decide):</p>
+  <ul>
+    <li><strong>H2</strong> — which text road lives (the decision rule: crisp-at-z1000 → Slug; degradable-under-residency → MSDF).</li>
+    <li><strong>H4</strong> — <span class="mono">face_assembly</span> custody status (the fill needs it; do not cut first).</li>
+    <li><strong>H5</strong> — Region3D freeze at goldens.</li>
+  </ul>
+  <p class="quiet">H8's three residues (per-key views for hop 5 · incremental/memoized <span class="mono">effective</span> · a span index that doesn't rebuild per frame) are board debt under the standing law — LATER items with numbers attached, pulled into NOW whenever they serve what's being built.</p>
+
+  <pre><code>Preflight: toggles set before first prompt.
+Cut the Block-slice contract (strongest model; one document: scope · laws · entry
+points · 3–5 scenarios · MUST-NOTs). Read PRIMARY: engine-two-arrows.md §8 (57KB
+file; §8 only) + decisions.md "The render seam". Direction from the 2026-08-23
+three-round adversarial review (artifact: The Simpler Engine; P1/P3 RAN 2026-08-23):
+- Arrow first; the slice is draw-frame!'s first runtime caller (not the verifier).
+- Courier: SSE-first held; demand v1 = explicit container membership + per-container
+  cap + overflow-reconcile duty; fence = a courier conformance suite (ordering ·
+  watermark resume · two-edits-one-tick · tombstones — DIRECTION 1c's own stability
+  tests), not a frozen format. Round four: membership-only is a STAGE, replacement
+  named = visibility-driven residency ("cost scales with what you're looking at",
+  DIRECTION road 2); trigger = membership past the ~1–2k budget or first
+  memory/bandwidth receipt.
+- Road 1a intersection: the lived "lag grows and grows" (LOG 08-12) has the
+  signature of the two priced per-swap O(N) mechanisms (hop 5 13.8ms@1k ·
+  effective 28ms@1k). Banked shaping receipt checks FIRST (1a's fence); these are
+  the pre-registered non-shaping suspects.
+- H7: the contract DECIDES the optimistic lane (pending overlay keyed by act-id,
+  rendered same-frame, cleared on echo — vs. accepting RTT typing, a product call
+  nobody has made). Fourth tripwire: keystroke-to-pixel local-frame-fast; pending
+  clears on echo, never before, never twice.
+- P1 VERDICT stands under the slice: maintained road receipted (40–73× over batch);
+  seam law unamended; keep the lens's population wire-bounded (≤1–2k entries) —
+  demand-scoping is load-bearing, not an optimization (artifact §7, H8).
+- Engine perf debt register (board, not this slice): per-key store views (hop 5,
+  13.8 ms@1k/swap) · incremental effective (28 ms@1k/change) · span index that
+  doesn't rebuild per frame (project-spans 2.3 ms@5k/frame).
+- Sid one-liners wanted at touch #1: H2 text-road choice (crisp-at-z1000 → Slug,
+  degradable-under-residency → MSDF) · H4 face_assembly custody (the fill needs
+  it — do not cut first) · H5 R3D freeze.
+MUST-NOT: no engine refactor before the slice; no new maintained views.</code></pre>
+
+  <h2>10 · Sources &amp; provenance</h2>
+  <ul>
+    <li><strong>Read primary:</strong> <span class="mono">docs/below-the-waist/render-engine-map.md</span> (68K) and <span class="mono">engine-two-arrows.md</span> (57K), whole, by the composing session — the binding subject of the review.</li>
+    <li><strong>Spot-check wave</strong> (one bounded read-only pass, working tree 2026-08-23): <span class="mono">draw-frame!</span> callers · twin-check gating (<span class="anchor">renderer.cljs:3554,3557</span>) · <span class="mono">derive-store-frame</span> structure (<span class="anchor">scene_store.cljc:321-376</span>) · frame_* byte sizes · <span class="mono">apply-assembly</span> call graph · <span class="mono">requestAnimationFrame</span> zero hits · verifier zero mentions of <span class="mono">draw-frame</span>.</li>
+    <li><strong>Lens framings</strong> are modeled from public work (napkin-math systems discipline; compiler-derived reactive DAGs; typed-cadence flow algebra) — orientation, not testimony.</li>
+    <li><strong>Round two</strong> (same day, at Sid's push — "are you sure? keep going") ran the review adversarially against itself using no new sources: the H7 omission, the wire-proportionality synthesis and the gesture analysis in H1, the H2 decision rule, the substrate-bet examination, and the courier cap note all fall out of material already read primary. Round-two structural claims about gesture paths are from the docs' own laws (<span class="mono">:parameter</span> deltas · "camera and container motion stay shader values"), not from new measurement.</li>
+    <li><strong>Round three</strong> (same day, at Sid's "run sandbox examples, hypothesis-test, whatever it demands"): the probes ran for real. Toolchain: Clojure 1.12.4 compiled from the tagged GitHub source with JDK 21 (the sandbox's network policy blocks Maven/Clojars; npm policy blocks arbitrary packages). Probe scripts live in the session scratchpad and measured the unmodified production fns; fixture shapes were taken from the repo's own JVM tests; <span class="mono">oracle-equal?</span> passed at every population as the probe's sanity fence. Fences run: scene-tape PASS, text-layout PASS; shaper fence and browser goldens blocked by the same network policy, not by the code. Nothing was written to <span class="mono">src/</span>, <span class="mono">docs/</span>, or committed. Everything measured is JVM; the CLJS band is stated in §7 and unmeasured.</li>
+    <li><strong>Corrections owed to the reviewed docs:</strong> two-arrows §9 + Figure 4 (oracle "every frame" → flag-gated); the H4 custody contradiction between the two pages. Both repair in place at the next fresh-eyes round, at Sid's word.</li>
+    <li><strong>Round four</strong> (same day, at Sid's "refer where we want to be and all docs if needed"): destination docs read PRIMARY — <span class="mono">docs/BETS.md</span> North + the ladder (H1 ACTIVE, H5 GATED) · <span class="mono">docs/sense-line-model.md</span> whole · <span class="mono">decisions.md</span> §"The spatial model" + §"Only Sid decides" · <span class="mono">docs/electric-native/DIRECTION.md</span> whole · <span class="mono">docs/ARCHITECTURE.md</span> whole (the six conflicts) · <span class="mono">vision/LOG.md</span> tail (2026-08-12/13 verbatim). No new measurements; §8 is those documents held against rounds one–three.</li>
+    <li><strong>What outranks this page:</strong> the source · <span class="mono">decisions.md</span> · Sid's word. Anything here that disagrees with the code is wrong here.</li>
+  </ul>
+
+</main>
