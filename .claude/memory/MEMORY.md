@@ -122,6 +122,9 @@ in this file and every future memory write.
 - [fix the generator, not the instance](feedback-fix-the-generator-not-the-instance.md)
   — process feedback ⇒ edit the boot files that generate the behavior, same
   turn; prompts only point at law, never restate it.
+- [keep filling, never wait](feedback-keep-filling-never-wait.md) — build-continuation
+  starters + landed positions say keep writing/filling the gaps; no "say cut it" /
+  "awaiting Sid" gates (his touches are the two per atom); exploration register excepted.
 - [options only at real forks](feedback-options-only-at-real-forks.md) —
   before any open-questions list: options only where Sid's word closes the
   item; spec/probe/contract items get a position + "closes by", never a
