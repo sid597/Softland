@@ -1,0 +1,32 @@
+N-slots | build-total-ms | last-upsert-us | pick-last-us | pick-first-us | pick-miss-us | derive-store-frame-ms | edit-upsert-us | [entries]-us | [1 hit-test]-us
+--------|----------------|----------------|--------------|---------------|--------------|-----------------------|----------------|--------------|----------------
+    10 |        13.70 |         834.4 |        14.8 |         38.5 |        23.6 |            0.168 |         463.4 |           1.6 |         2.08
+   200 |       104.36 |         321.3 |        87.9 |        145.2 |       129.0 |            1.406 |         381.6 |          19.2 |         1.16
+  2000 |       658.68 |         273.2 |       277.5 |        447.5 |       451.9 |           16.657 |         308.0 |          71.3 |         0.78
+
+SANITY:
+  N=10    {:hit-last "block-9/line-3", :hit-first "block-0/line-3", :hit-miss nil, :rects 70, :text-vis 10, :ordered 10}
+  N=200   {:hit-last "block-199/line-3", :hit-first "block-0/line-3", :hit-miss nil, :rects 1400, :text-vis 200, :ordered 200}
+  N=2000  {:hit-last "block-1999/line-3", :hit-first "block-0/line-3", :hit-miss nil, :rects 14000, :text-vis 2000, :ordered 2000}
+
+RATIO 200 -> 2000 (10x slots; ~10 = linear, ~1 = constant, ~100 = quadratic):
+  build-ms         6.31x
+  last-upsert-us   0.85x
+  pick-last-us     3.16x
+  pick-first-us    3.08x
+  pick-miss-us     3.50x
+  derive-ms        11.84x
+  edit-upsert-us   0.81x
+  entries-us       3.71x
+  one-hittest-us   0.67x
+
+RATIO 10 -> 200 (20x slots):
+  build-ms         7.62x
+  last-upsert-us   0.39x
+  pick-last-us     5.95x
+  pick-first-us    3.77x
+  pick-miss-us     5.46x
+  derive-ms        8.37x
+  edit-upsert-us   0.82x
+  entries-us       12.15x
+  one-hittest-us   0.56x

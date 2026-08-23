@@ -29,6 +29,11 @@ any contract) · evidence = `RECON.md` beside this file (tree receipts
   `docs/below-the-waist/engine-two-arrows.md` §8 (landed 2026-08-23,
   contestable; POSITIONS HELD — the next session keeps filling: contract,
   probes, atoms; the courier closes by the transfer bench, never by waiting).
+  **CONTRACT CUT 2026-08-23 — `CONTRACT.md` beside this file**: wire · host ·
+  demand; frozen feed format; exact entry points; five scenarios; three atoms;
+  atom 1 (one conversation container, keyed, end to end) handed to Codex
+  (starter CONTRACT §13). The map's §11 probes (verifier→`draw-frame!`, pick,
+  `derive-store-frame`) are receipted (`receipts/2026-08-23-jvm-bench/`).
 - **PROBLEM** — it is the WRONG connection: every change re-sends the whole
   page (~1/sec) as one anonymous value, and the engine's real editing (T2)
   is not wired to real blocks. Every felt bug lives at this seam. (As of
@@ -51,7 +56,10 @@ LOG entry. Don't re-derive it.
 **1 · Electric drives the engine** (the ↓ arrow) — one connection, three
 organs, dependency order:
 
-- **1a — typing stops lagging.** ← NEXT ACT. The shaping correction is
+- **1a — typing stops lagging.** (Order inverted at the waist cut — there
+  is no typing until the arrow exists; 1a's receipt is checked on the first
+  real typing the new host carries. CONTRACT.md §2 "No shaping work".) The
+  shaping correction is
   already contracted with a banked, binding profiling receipt
   (`docs/shaping-correction/CONTRACT.md`; it precedes 1b's close). Check
   Sid's felt lag against that receipt first — fence: no fresh blind
@@ -60,7 +68,9 @@ organs, dependency order:
   predictions.
 - **1b — the screen maintains itself from one source.** SEAM-STEP1
   (landed `5f55cf5`) closes; rides 1a.
-- **1c — edits travel by id.** The keyed wire + store contract:
+- **1c — edits travel by id.** ← NEXT ACT, as `CONTRACT.md` atoms 1–3
+  (the arrow is also the host; courier SSE-first, format frozen, Electric's
+  keyed machinery at the transfer bench). The keyed wire + store contract:
   `e/diff-by :unit-id` server-side / `e/for-by` client-side — our ids on
   top, their machinery inside, feeding the scene store and the stubbed
   buffer-pool bridge; the hand-wired watches collapse into per-key reads.
