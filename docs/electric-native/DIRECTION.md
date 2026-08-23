@@ -27,7 +27,8 @@ any contract) · evidence = `RECON.md` beside this file (tree receipts
   Electric's keyed machinery takes its test at the host probe — feed
   transport is probe-decided per PROBLEM-SPACE) are drawn in
   `docs/below-the-waist/engine-two-arrows.md` §8 (landed 2026-08-23,
-  contestable; not yet ruled — Sid's word or the transfer bench closes).
+  contestable; POSITIONS HELD — the next session keeps filling: contract,
+  probes, atoms; the courier closes by the transfer bench, never by waiting).
 - **PROBLEM** — it is the WRONG connection: every change re-sends the whole
   page (~1/sec) as one anonymous value, and the engine's real editing (T2)
   is not wired to real blocks. Every felt bug lives at this seam. (As of
