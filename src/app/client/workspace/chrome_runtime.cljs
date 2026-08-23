@@ -11,7 +11,6 @@
 
 (defonce ^:private !booted? (atom false))
 (defonce ^:private !derive-state (atom (chrome-derive/empty-state)))
-(defonce ^:private !registrations (atom {}))
 (defonce ^:private !selection-io (atom nil))
 (defonce ^:private !snap-state (atom (snap/empty-state)))
 (defonce ^:private !gesture (atom nil))
@@ -48,51 +47,6 @@
   (when (and (:vi hit) (:address hit))
     {:vi (:vi hit) :address (:address hit)}))
 
-(defn- close-registration! [slot-id]
-  (when-let [{:keys [vi]} (get @!registrations slot-id)]
-    (scene-runtime/close-instance! vi)
-    (swap! !registrations dissoc slot-id)))
-
-(defn- update-registration-tree! [vi tree]
-  (when-let [slot (scene-store/slot (scene-runtime/store-snapshot) vi)]
-    (swap! scene-runtime/!scene-store scene-store/upsert-slot vi
-           {:tree tree
-            :container (:container slot)
-            :container-slot (:container-slot slot)
-            :stack-path (:stack-path slot)
-            :meta (:meta slot)
-            :stratum :overlay})))
-
-(defn- install-slot! [slot-id spec effective]
-  (let [vi [:chrome/slot slot-id]
-        registration
-        (scene-runtime/register-face-instance!
-         vi (:tree spec)
-         {:x 0.0 :y 0.0 :scale 1.0 :layer -1 :sibling-rank -1
-          :stratum :overlay
-          :meta {:chrome? true :material/id slot-id
-                 :material/revision chrome-derive/algorithm-version}})]
-    (when-let [target-effective (get effective (:target-container spec))]
-      (scene-runtime/set-transform! (:container registration)
-                                    {:affine (:affine target-effective)}))
-    (swap! !registrations assoc slot-id
-           {:vi vi :container (:container registration) :spec spec})
-    registration))
-
-(defn- reconcile-slots! [derive-state]
-  (let [desired (:slots derive-state)
-        effective (scene-runtime/effective-transforms)
-        existing @!registrations]
-    (doseq [slot-id (remove #(contains? desired %) (keys existing))]
-      (close-registration! slot-id))
-    (doseq [[slot-id desired-spec] desired]
-      (if-let [{:keys [vi spec]} (get @!registrations slot-id)]
-        (when (not= (:tree spec) (:tree desired-spec))
-          (update-registration-tree! vi (:tree desired-spec))
-          (swap! !registrations assoc-in [slot-id :spec] desired-spec))
-        (install-slot! slot-id desired-spec effective)))
-    derive-state))
-
 (defn- project-legacy! [selection-state]
   (when-let [{:keys [write-legacy! block-unit-ids]} @!selection-io]
     (write-legacy!
@@ -100,7 +54,6 @@
 
 (defn- install-derived! [next-state]
   (reset! !derive-state next-state)
-  (reconcile-slots! next-state)
   (project-legacy! (:selection next-state))
   next-state)
 
@@ -156,12 +109,6 @@
   (when @!booted?
     (let [effective (scene-runtime/effective-transforms)
           next-state (chrome-derive/follow-transforms @!derive-state effective)]
-      (doseq [slot-id (:transform-writes next-state)]
-        (when-let [spec (get-in next-state [:slots slot-id])]
-          (when-let [target-effective (get effective (:target-container spec))]
-            (when-let [chrome-container (get-in @!registrations [slot-id :container])]
-              (scene-runtime/set-transform! chrome-container
-                                            {:affine (:affine target-effective)})))))
       (reset! !derive-state next-state)
       (:frame-receipt next-state))))
 

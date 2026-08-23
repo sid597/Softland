@@ -31,7 +31,6 @@
 (defonce ^:private !booted? (atom false))
 (defonce ^:private !mounted? (atom false))
 (defonce ^:private !pulse-armed? (atom false))
-(defonce ^:private !registrations (atom {}))
 (defonce ^:private !receipt (atom nil))
 
 (defn flag-enabled-search? [search]
@@ -195,69 +194,6 @@
      :clip-text-overhangs (mapv #(get-in % [:bounds :x]) clip-text-nodes)
      :clip-labels (mapv #(get-in % [:text 0 :text]) clip-text-nodes)}))
 
-(defn- register! [vi tree opts]
-  (scene-runtime/close-instance! vi)
-  (let [registration (scene-runtime/register-face-instance!
-                      vi tree
-                      (merge {:scale 1.0 :stratum :world
-                              :meta {:live-atoms? true
-                                     :frame-runtime? true
-                                     :material/id vi
-                                     :material/revision 1}}
-                             opts))]
-    (swap! !registrations assoc vi registration)
-    registration))
-
-(defn install-live-opacity-group!
-  "Mint the common 50% parent used by live-atoms' real image, path, and
-   connector fixtures. Called before those children register and before boot!
-   installs the remaining felt cases."
-  []
-  (when (enabled?)
-    (register! opacity-vi (live-opacity-group-tree)
-               {:x 0.0 :y 0.0 :layer 8 :sibling-rank 8
-                :effects {:opacity 0.5}})))
-
-(defn- install-fixtures! []
-  (let [opacity-underlay
-        (register! opacity-underlay-vi (opacity-underlay-tree)
-                   (merge opacity-underlay-origin
-                          {:layer 7 :sibling-rank 7}))
-        opacity (or (get @!registrations opacity-vi)
-                    (register! opacity-vi (opacity-tree)
-                               {:x 70.0 :y 520.0 :layer 12 :sibling-rank 12
-                                :effects {:opacity 0.5}}))
-        nested-outer (register! nested-outer-vi (nested-outer-tree)
-                                {:x 360.0 :y 520.0 :layer 13 :sibling-rank 13
-                                 :effects {:opacity 0.72 :isolate? true}})
-        nested-inner (register! nested-inner-vi (nested-inner-tree)
-                                {:x 20.0 :y 18.0 :layer 1 :sibling-rank 1
-                                 :parent (:container nested-outer)
-                                 :effects {:opacity 0.55}})
-        mask-group (register! mask-group-vi (mask-group-tree)
-                              {:x 600.0 :y 510.0 :layer 14 :sibling-rank 14
-                               :effects {:mask mask-source-vi}})
-        mask-source (register! mask-source-vi (mask-source-tree)
-                               {:x 0.0 :y 0.0 :layer 1 :sibling-rank 1
-                                :parent (:container mask-group)})
-        backdrop (register! backdrop-vi (backdrop-tree)
-                            ;; Cross the real pressure/self-cross path and the
-                            ;; striped comparison surface: crisp detail remains
-                            ;; visible outside the panel, blurred detail inside.
-                            (merge backdrop-origin
-                                   {:layer 15 :sibling-rank 15
-                             :effects
-                             {:backdrop-blur
-                              {:radius-world 16.0 :max-px 64.0
-                               :algorithm-version
-                               frame-effects/blur-algorithm-version}}}))
-        clip (register! clip-vi (clip-tree)
-                        {:x 850.0 :y 500.0 :layer 16 :sibling-rank 16})]
-    {:opacity-underlay opacity-underlay
-     :opacity opacity :nested-outer nested-outer :nested-inner nested-inner
-     :mask-group mask-group :mask-source mask-source
-     :backdrop backdrop :clip clip}))
-
 (defn- compositor-receipt []
   (when-let [provider (aget js/globalThis "__softlandFrameCompositor")]
     (when-let [receipt-fn (aget provider "receipt")]
@@ -269,7 +205,6 @@
                        (js->clj :keywordize-keys true))
           compositor (compositor-receipt)
           receipt (cond-> (merge {:enabled true
-                                  :fixtures (vec (keys @!registrations))
                                   :color-mode (or (:color-mode plan)
                                                   (:color-mode compositor)
                                                   :legacy)
@@ -345,11 +280,10 @@
   (publish-receipt!))
 
 (defn boot!
-  "Install the W4 felt fixtures after chrome boot. Idempotent across hot reload."
+  "Mark the parked W4 runtime available. Idempotent across hot reload."
   []
   (when (enabled?)
-    (when (compare-and-set! !booted? false true)
-      (install-fixtures!))
+    (compare-and-set! !booted? false true)
     (publish-receipt!)))
 
 (defn receipt []

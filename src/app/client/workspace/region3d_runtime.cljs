@@ -40,7 +40,6 @@
 (defonce ^:private !canvas (atom nil))
 (defonce ^:private !io (atom {}))
 (defonce ^:private !listeners (atom []))
-(defonce ^:private !registrations (atom {}))
 (defonce ^:private !pick-cache (atom {}))
 (defonce ^:private !fixture-hooks (atom {}))
 
@@ -154,25 +153,6 @@
              :x 0.0 :y 0.0 :size 15.0 :type :keyword
              :r 0.88 :g 0.91 :b 0.98 :a 1.0}]
      :data {:address :region3d/fixture-title})]))
-
-(defn- register! [vi tree x y sibling-rank]
-  (scene-runtime/close-instance! vi)
-  (let [registration
-        (scene-runtime/register-face-instance!
-         vi tree {:x x :y y :scale 1.0 :layer sibling-rank
-                  :sibling-rank sibling-rank :stratum :world
-                  :meta {:region3d-fixture? true
-                         :material/id vi :material/revision 1}})]
-    (swap! !registrations assoc vi registration)
-    registration))
-
-(defn install-fixture! []
-  (when (enabled?)
-    (register! fixture-underlay-vi (underlay-tree) 236.0 146.0 40)
-    (register! fixture-region-vi (region-tree) 256.0 166.0 41)
-    (register! fixture-overlay-vi (overlay-tree) 256.0 166.0 42)
-    (swap! !session assoc :panel-position panel-origin)
-    true))
 
 (defn- pick-maintained [region-id region row]
   (let [region (evaluation/session-region-value region row)
@@ -614,9 +594,6 @@
   (doseq [[target event handler opts] @!listeners]
     (.removeEventListener ^js target event handler opts))
   (reset! !listeners [])
-  (doseq [vi [fixture-underlay-vi fixture-region-vi fixture-overlay-vi]]
-    (scene-runtime/close-instance! vi))
-  (reset! !registrations {})
   (reset! !mounted? false)
   (reset! !canvas nil)
   (scene-runtime/install-region-pick-resolver! nil)
@@ -631,7 +608,6 @@
     (reset! !canvas canvas)
     (scene-runtime/install-region-pick-resolver! resolve-region-pick)
     (when (compare-and-set! !mounted? false true)
-      (install-fixture!)
       (doseq [[_ hook] @!fixture-hooks] (hook))
       (let [capture #js {:capture true}]
         (listen! canvas "dblclick" on-dblclick capture)

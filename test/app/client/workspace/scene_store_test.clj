@@ -11,10 +11,8 @@
    - pick: layer ordering, miss → nil, deepest-addressed ancestor fallback."
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.edn :as edn]
-            [clojure.set]
             [app.client.workspace.scene-store :as ss]
             [app.client.workspace.containers :as ctn]
-            [app.client.workspace.face-assembly :as fa]
             [app.client.workspace.rect-tree :as rt]))
 
 ;; ---------------------------------------------------------------------------
@@ -425,90 +423,6 @@
         (is (= [50.0 20.0] (:point-local pa)) "A container-local point")
         (is (= [50.0 20.0] (:point-local pb)) "B container-local point (inverse of the 700 offset)")))))
 
-;; ============================================================================
-;; P3b Rung 1 — per-vi face build fn + despawn/index cleanup (CONTRACT §8 G7)
-;; ============================================================================
-
-(def ^:private p3b-registry
-  "A trivial builder registry (the §6 interface: fn [ctx props children] → rt-node)
-   — enough to exercise build-face-tree JVM-side without the cljs face-primitives."
-  {:box   (fn [ctx _props children]
-            (rt/rt-node (:id ctx) :box {:x 0 :y 0 :w 300 :h 40}
-                        :children (vec children)))
-   :block (fn [ctx _props children]
-            (rt/rt-node (:id ctx) :box {:x 0 :y 0 :w 300 :h 20}
-                        :children (vec children)))})
-
-(def ^:private p3b-assembly
-  "root box → each turn → each block. Block item :id drives the built node id
-   (face_assembly expand-slot seg), which stamp-block-addresses lifts to
-   [:data :address]."
-  {:assembly/name    "p3b-face"
-   :assembly/grammar 0
-   :root {:prim :box
-          :children [{:each [:turns]
-                      :template {:prim :box
-                                 :children [{:each [:blocks]
-                                             :template {:prim :block}}]}}]}})
-
-(def ^:private p3b-projection
-  {:turns [{:blocks [{:id "blk-1"} {:id "blk-2"}]}]
-   :conversation/address "conv/1"})
-
-(defn- tree-addresses [tree]
-  (into #{} (keep #(get-in % [:data :address])) (tree-seq map? :children tree)))
-
-(deftest build-face-tree-stamps-addresses-and-resolves
-  (let [compiled (fa/compile-assembly p3b-registry p3b-assembly)
-        _        (is (not (fa/error? compiled)) "the test assembly compiles clean")
-        uids     (into #{} (comp (mapcat :blocks) (keep :id)) (:turns p3b-projection))
-        vi       [:vi :reader-face 1]
-        view-ctx {:view-instance vi :address "conv/1"
-                  :geom {:content-w 300 :font-size 14 :line-height 20 :char-advance 8}}
-        tree     (ss/build-face-tree compiled p3b-projection view-ctx uids)]
-    (testing "block unit-ids are lifted to [:data :address] for the store index"
-      ;; the root also carries the conversation address (apply-assembly stamp-root)
-      (is (clojure.set/subset? #{"blk-1" "blk-2"} (tree-addresses tree)))
-      (is (= "conv/1" (get-in tree [:data :address])) "root addressed by the conversation"))
-    (testing "the tree is a RESOLVED rt-tree (arrange pass ran — bounds present)"
-      (is (map? (:bounds tree)))
-      (is (number? (get-in tree [:bounds :h]))))
-    (testing "same (compiled, projection, view-ctx, uids) → an EQUAL tree (pure)"
-      (is (= tree (ss/build-face-tree compiled p3b-projection view-ctx uids))))))
-
-(deftest build-face-tree-different-faces-one-projection
-  ;; The MINDBLOW in the pure layer: TWO different compiled faces over the SAME
-  ;; projection produce two DIFFERENT trees that nonetheless carry the SAME block
-  ;; addresses — so an address-level echo fans into both, each keeping its shape.
-  (let [face-a   (fa/compile-assembly p3b-registry p3b-assembly)
-        ;; face B: same data, a DIFFERENT arrangement (blocks wrapped one level
-        ;; deeper) → a structurally different tree, identical addresses.
-        asm-b    (assoc p3b-assembly :assembly/name "p3b-face-b"
-                        :root {:prim :box
-                               :children [{:prim :box
-                                           :children [{:each [:turns]
-                                                       :template {:prim :box
-                                                                  :children [{:each [:blocks]
-                                                                              :template {:prim :block}}]}}]}]})
-        face-b   (fa/compile-assembly p3b-registry asm-b)
-        uids     (into #{} (comp (mapcat :blocks) (keep :id)) (:turns p3b-projection))
-        geom     {:content-w 300 :font-size 14 :line-height 20 :char-advance 8}
-        tree-a   (ss/build-face-tree face-a p3b-projection
-                                     {:view-instance [:vi :reader-face 1] :address "conv/1" :geom geom} uids)
-        tree-b   (ss/build-face-tree face-b p3b-projection
-                                     {:view-instance [:vi :reader-face 2] :address "conv/1" :geom geom} uids)]
-    (is (not= tree-a tree-b) "two faces render the same conversation differently")
-    (is (= (tree-addresses tree-a) (tree-addresses tree-b))
-        "both carry the SAME address set — one edit echoes into both")
-    (is (clojure.set/subset? #{"blk-1" "blk-2"} (tree-addresses tree-a))
-        "both carry the block addresses")
-    (testing "each lands as a store slot; the index fans one address to both vis"
-      (let [store (-> (ss/empty-store)
-                      (ss/upsert-slot [:vi :reader-face 1] {:tree tree-a :container 33})
-                      (ss/upsert-slot [:vi :reader-face 2] {:tree tree-b :container 34}))]
-        (is (= #{[:vi :reader-face 1] [:vi :reader-face 2]}
-               (ss/slots-for-address store "blk-1")))))))
-
 (deftest g8-per-slot-text-identity-survives-sibling-edit
   ;; The store-side guarantee the P3b Rung-2 per-slot text geo skip depends on:
   ;; container-idx is baked at upsert, so a slot's :ops :text is a stable vector
@@ -549,9 +463,8 @@
             "removing a container with a child throws (would orphan)")))))
 
 (deftest despawn-removes-slot-and-container-together
-  ;; close-instance! (cljs) composes ss/remove-slot + ctn/remove-container +
-  ;; !vi-faces dissoc; the two PURE halves are exercised here as one lifecycle.
-  (let [vi    [:vi :reader-face 1]
+  ;; The two PURE removal halves are exercised here as one lifecycle.
+  (let [vi    [:vi :test-slot 1]
         tree  (rt/rt-node :root :box {:x 0 :y 0 :w 10 :h 10} :data {:address "blk-1"})
         store (-> (ss/empty-store) (ss/upsert-slot vi {:tree tree :container 33}))
         reg   (-> (ctn/empty-registry) (ctn/add-container 33 {:x 0 :y 0 :scale 1 :layer 1}))

@@ -22,7 +22,6 @@
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.workspace.rect-tree :as rt]
             [app.client.workspace.containers :as containers]
-            [app.client.workspace.face-assembly :as fa]
             [app.shared.material-inspector :as material-inspector]))
 
 ;; ============================================================================
@@ -100,10 +99,9 @@
    ops are computed on a single code path (trap T5).
 
    `:pre-resolved? true` (first-light P1) skips the resolve pass for trees that
-   ALREADY went through resolve-layout (build-face-tree output — apply-assembly
-   resolves internally). resolve-layout is idempotent on a resolved tree, so
-   the skip changes nothing semantically; it removes a full-tree pass from the
-   per-keystroke main-face rebuild. Opt-in only — mutated trees
+   ALREADY went through resolve-layout. resolve-layout is idempotent on a
+   resolved tree, so the skip changes nothing semantically; it removes a
+   redundant full-tree pass. Opt-in only — mutated trees
    (update-nodes-by-address) still resolve."
   [vi {:keys [tree container container-slot stack-path meta stratum pre-resolved?]}]
   (let [resolved (if pre-resolved? tree (rt/resolve-layout tree))]
@@ -485,33 +483,6 @@
    and every pick consumer resolve identical blocks from one derivation)."
   [ctx]
   (into #{} (comp (mapcat :blocks) (keep :id)) (:turns ctx)))
-
-;; ============================================================================
-;; Per-view-instance face build (P3b Rung 1) — one compiled face, one projection
-;; ============================================================================
-
-(defn build-face-tree
-  "PURE per-view-instance face build (P3b Rung 1, JVM-testable). Run ONE compiled
-   assembly over ONE data projection into a RESOLVED, address-stamped,
-   container-LOCAL rt-tree — the tree a store slot holds. This is the general
-   form P3a lacked: P3a reused the ALREADY-built singleton !face-scene for every
-   spawned instance (so all instances wore the MAIN face); this builds each
-   instance through ITS OWN compiled assembly, so N different arsenal faces can
-   render one live conversation at once (Sid's MINDBLOW).
-
-   `compiled` is a face_assembly/compile-assembly result (holds builder closures —
-   it lives in the runtime's !vi-faces registry, NEVER in a store slot; slots stay
-   serializable, G2). `projection` is the §7 data-context. `view-ctx` is the
-   apply-assembly view context {:view-instance :address :geom}. `unit-ids` are the
-   block unit-ids in the projection — stamp-block-addresses lifts them to
-   [:data :address] so the store's fan-out index (CONTRACT §5) keys blocks.
-
-   apply-assembly is pure + TOTAL (never throws — a bad assembly renders an error
-   card); so is this. Same (compiled, projection, view-ctx) → an EQUAL tree, so
-   an unchanged echo leaves a slot's :ops identical? after upsert (trap T5)."
-  [compiled projection view-ctx unit-ids]
-  (-> (fa/apply-assembly compiled projection view-ctx)
-      (stamp-block-addresses unit-ids)))
 
 ;; ============================================================================
 ;; Context bundle — point-and-say's data half (scene-substrate P4, CONTRACT §5)
