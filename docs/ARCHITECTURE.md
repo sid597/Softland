@@ -147,8 +147,11 @@ makes conflation lossless", `face_projection.clj:1691-95`). **Recovery is
 one path:** boot = reconnect = catch-up = the live apply path replayed
 from a watermark, never a second reconcile; the batch pull demotes to
 oracle — never deleted — WITH its named duties transferred (the
-committed-echo cross-check INV-19, `server_jetty.clj:2301-04`; the
-cap-overflow reconcile, `block_edit_wiring.cljs:187-89`).
+committed-echo cross-check INV-19, `server_jetty.clj:1558-1561` — prior
+anchor :2301-04 drifted; the cap-overflow reconcile — its client site
+`block_edit_wiring.cljs:187-89` was deleted at the waist cut `adc30c9`;
+the duty is re-homed in `docs/keyed-wire/CONTRACT.md` §4, served as a
+birth-shaped feed value through the one apply path).
 
 **Refuses:** anonymous whole-value crossings at truth rate · order as
 position · a second apply path for recovery · deleting the oracle.

@@ -141,7 +141,7 @@ STAGE            MECHANISM (on the arrow)            DATA SHAPE OUT
  3 · the consumer edge · runtime/render.cljs:183,220 → ground/reconcile!
    | m/watch → m/latest → m/reduce, in a coalescing microtask
    |   "store mutations at edges only (T4), NOT the RAF edge"
-   v  out: a rect tree per face · (16 builders; face_assembly/primitives)
+   v  out: a rect tree per face · (36 builders; face_primitives.cljc:1322)
  4 · the store swap · scene_runtime.cljs:186 register-face-instance!
    |   scene_store.cljc:169 upsert-slot (pure)
    | swap! !scene-store (pure fn under the swap)
@@ -465,7 +465,7 @@ AFTER — keyed in motion, demand-scoped
 | --- | --- | --- | --- |
 | 1 | Rama serves a page | Rama rows → a **since-reader** over RevisionRow (time-prefixed order-keys, watermark cursor) → changes since *W*; geometry settles gain their missing notify | rows + cursor reader exist; the since-watermark fn and the geometry bump do not |
 | 2 | mirror atom | **dies** — the feed delivers units by id; no mailbox, no mirror | — |
-| 3 | consumer edge | the **client host**: one flow over the courier → one `m/reduce` edge → per key `ss/upsert-slot` / `remove-slot`; the face tree per *unit* from the served assembly (16 builders now; faces-are-data later) | store fns exist; the host (3 small namespaces) does not |
+| 3 | consumer edge | the **client host**: one flow over the courier → one `m/reduce` edge → per key `ss/upsert-slot` / `remove-slot`; the face tree per *unit* from the served assembly (36 builders now — `face_primitives.cljc:1322-1365`; faces-are-data later) | store fns exist; the host (3 small namespaces) does not |
 | 4 | the store swap | unchanged — already keyed, index never rescanned, tape patched by key | ✓ |
 | 5 | `<store-frame` rebuilds all lanes | **per-key views**: the store contract's slice — per-key reads, write-site dispatch, signals at sharing points; `derive-store-frame` demotes to oracle with a fence | does not; this is the store-contract slice the seam ruling names |
 | 6–7 | world snapshot · frame edge | unchanged — a host must own the rAF sample again (one line in the old host) | pattern exists (deleted); trivially rebuilt |
