@@ -175,7 +175,7 @@ STAGE            MECHANISM (on the arrow)            DATA SHAPE OUT
    | declared inputs → changed families → produce only those
    |   → patch arrangement by key → entry deltas → semantic
    |   reducer (one reset!) → camera enters via scissors (:3635)
-   |   twin check: batch compile-frame-tape as ORACLE, every frame
+   |   twin check: batch compile-frame-tape as ORACLE, flag-gated
    v  out: frame entries (ordered) + {:plan-hash …}
 10 · encode · compositor_gpu.cljs draw-multipass! → renderer.cljs:3057
      setPipeline · setBindGroup · draw — imperative, the sink
@@ -309,7 +309,7 @@ the maintained road (runs inside draw-frame!)
                                                                     |
 the batch twin (kept alive as the oracle, by law)                   |
 +-----------------------------------------------------+            |
-| compile-frame-tape — the whole tape, every frame     |            |
+| compile-frame-tape — the whole tape, flag-gated      |            |
 | renderer.cljs:3545 · keyed on [:frame idx]           |            |
 |   (sink-only)                                        |            |
 +-----------------------------------------------------+            |
@@ -506,7 +506,7 @@ DIRECTION.md's road 1 runs 1a (typing stops lagging) → 1b (the screen maintain
 
 ### Wasteful or over-built — with the receipt
 
-- **Double roads by law.** The batch tape compiler runs beside the maintained arrangement every frame as its oracle (`renderer.cljs:3545,3548`); `maintain-frame-plan` and `maintain-effect-spans` exist with test-only callers; dirty-present (persistent target + scissor + copy) is "fully implemented but OFF" (`PRIMITIVES.md:99`); `gpu-mount` is banned and kept. Defensible while the incremental road is unproven; real weight all the same.
+- **Double roads by law.** The batch tape compiler stands beside the maintained arrangement as its oracle — behind the `__softland_frame_tape_twin_check` flag, so the cost is carry (code weight, goldens, mental load), never frame time (`renderer.cljs:3554,3557`; corrected 2026-08-23 by the simpler-engine review — this page originally said "every frame"); `maintain-frame-plan` and `maintain-effect-spans` exist with test-only callers; dirty-present (persistent target + scissor + copy) is "fully implemented but OFF" (`PRIMITIVES.md:99`); `gpu-mount` is banned and kept. Defensible while the incremental road is unproven; real weight all the same.
 - **Accretion.** Six dead ui-primitive components; three parallel clip implementations; the 0.56 advance constant at ~30 sites; adding a view touches ~7 hand-wired sites with curated watch sets (`render-substrate-retro/RETRO.md:231-249`).
 - **Ten dialects of "watch".** `e/watch` 13 · `add-watch` 21 · `m/watch` 9 · `m/latest` 11 · `m/reduce` 9 · `m/ap` 9 · `m/observe` 9 · `m/relieve` 4 · `m/eduction` 3 · `m/sample` 1 — plus 164 raw `swap!/reset!` in `ground.cljs` alone.
 - **A verifier bigger than the renderer.** `verifier.cljs` 297 KB vs `renderer.cljs` 198 KB — and it is the area's only live entry.
@@ -552,4 +552,4 @@ Every one of these is the read side paying to rediscover what the write side alr
 - [fenced] L16 numbers: raw incseq, snapshot −44 vs claims at −45; "do not credit past that".
 - [not read] `region3d_scene.cljc` pick internals; family narrow-phase predicates (path/connector) — could be hot per candidate; `editing_runtime.cljs` atoms.
 
-Sibling pages: `docs/below-the-waist/kept-code-map.html` (the notch above — pieces); `render-engine-map.html` (the same area by LAYER, a parallel session, same day — its evidence in `render-engine-gather/README.md`); `editing-waist-map.html` (what was cut). Landed under `docs/below-the-waist/` at Sid's word, 2026-08-23 ("land the docs — how else would this be contested?"); twin `engine-two-arrows.md`, edited together. Contestable by construction: every claim carries an anchor; findings go to the next fresh-eyes round and repair in place.
+Sibling pages: `docs/below-the-waist/kept-code-map.html` (the notch above — pieces); `render-engine-map.html` (the same area by LAYER, a parallel session, same day — its evidence in `render-engine-gather/README.md`); `editing-waist-map.html` (what was cut); `simpler-engine.md` (the fresh-eyes round this page invited — four rounds with receipts, landed 2026-08-23: §9's oracle-cost line corrected there and here, §8's positions amended/staged, the H4 custody tension with `render-engine-map` raised for Sid's line). Landed under `docs/below-the-waist/` at Sid's word, 2026-08-23 ("land the docs — how else would this be contested?"); twin `engine-two-arrows.md`, edited together. Contestable by construction: every claim carries an anchor; findings go to the next fresh-eyes round and repair in place.
