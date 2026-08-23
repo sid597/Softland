@@ -155,3 +155,7 @@ in this file and every future memory write.
   docs SAY, plain, in Sid's register; constitution/architecture coinage is
   foreign AI language, vision/ carries his voice; fired 2026-08-18
   ("unreadable … circle jerk … nothing about the actual thing").
+- [recall + persona](reference-recall-prompt-memory.md) — consult before quoting
+  Sid's past words or writing in his register: `recall search` over every prompt
+  he typed (Claude Code + Codex, self-growing), `persona/SID.md` (uuid-anchored),
+  `/ask-as-sid` pre-check. Built 2026-08-23.
