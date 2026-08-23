@@ -1,0 +1,929 @@
+<title>The Engine's Two Arrows</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #F3F4F2;
+    --ink: #1E2A32;
+    --muted: #5C6B74;
+    --line: #D4DAD7;
+    --code-bg: #E9ECEA;
+    --down: #1F6F8B;
+    --down-bg: #E3EEF2;
+    --up: #B8721A;
+    --up-bg: #F5EBDA;
+    --sink: #3E4A52;
+    --sink-bg: #E2E6E8;
+    --dead: #8A949A;
+    --dead-bg: #ECEEEE;
+    --warn: #9A3B1C;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #131719;
+      --ink: #E4E9EB;
+      --muted: #9AA8B0;
+      --line: #2A3237;
+      --code-bg: #1C2226;
+      --down: #5FB3D0;
+      --down-bg: #16272E;
+      --up: #E0A14A;
+      --up-bg: #2B2115;
+      --sink: #B7C2C9;
+      --sink-bg: #1E2529;
+      --dead: #6E7A82;
+      --dead-bg: #1A1F22;
+      --warn: #E08A6A;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #131719;
+    --ink: #E4E9EB;
+    --muted: #9AA8B0;
+    --line: #2A3237;
+    --code-bg: #1C2226;
+    --down: #5FB3D0;
+    --down-bg: #16272E;
+    --up: #E0A14A;
+    --up-bg: #2B2115;
+    --sink: #B7C2C9;
+    --sink-bg: #1E2529;
+    --dead: #6E7A82;
+    --dead-bg: #1A1F22;
+    --warn: #E08A6A;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 15.5px;
+    line-height: 1.55;
+  }
+  main { max-width: 1040px; margin: 0 auto; padding: 40px 28px 96px; }
+  header { border-bottom: 2px solid var(--ink); padding-bottom: 18px; margin-bottom: 28px; }
+  h1 { font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-weight: 700; font-size: 44px; line-height: 1.02; margin: 0 0 10px; letter-spacing: -0.01em; text-wrap: balance; }
+  h2 { font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-weight: 600; font-size: 26px; margin: 56px 0 12px; line-height: 1.15; text-wrap: balance; padding-top: 8px; border-top: 1px solid var(--line); }
+  h3 { font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif; font-weight: 600; font-size: 19px; margin: 28px 0 8px; }
+  p, li { max-width: 72ch; }
+  .lede { font-size: 17px; color: var(--muted); max-width: 78ch; margin: 0; }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .meta { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); margin-top: 12px; }
+  code, .mono { font-family: "IBM Plex Mono", monospace; font-size: 0.9em; }
+  code { background: var(--code-bg); padding: 1px 5px; border-radius: 3px; }
+  a { color: inherit; }
+  nav.toc { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--muted); margin: 18px 0 0; display: flex; flex-wrap: wrap; gap: 6px 18px; }
+  nav.toc a { text-decoration: none; border-bottom: 1px solid var(--line); }
+  nav.toc a:hover, nav.toc a:focus-visible { border-bottom-color: var(--ink); outline: none; }
+
+  ol.story { counter-reset: s; list-style: none; padding: 0; margin: 18px 0 0; display: grid; gap: 10px; }
+  ol.story li { counter-increment: s; position: relative; padding-left: 46px; max-width: 80ch; font-size: 16px; }
+  ol.story li::before { content: counter(s); position: absolute; left: 0; top: 1px; width: 30px; height: 30px; border-radius: 50%; border: 1.5px solid var(--ink); font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 600; font-size: 14px; display: grid; place-items: center; }
+  ol.story li.dn::before { border-color: var(--down); color: var(--down); }
+  ol.story li.up::before { border-color: var(--up); color: var(--up); }
+
+  figure { margin: 22px 0 30px; }
+  figure svg { max-width: 100%; height: auto; display: block; color: var(--ink); }
+  figcaption { font-size: 13.5px; color: var(--muted); margin-top: 10px; max-width: 84ch; }
+  .scroll { overflow-x: auto; }
+  svg text { font-family: "IBM Plex Sans", system-ui, sans-serif; font-size: 12px; fill: currentColor; }
+  svg text.h { font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 600; font-size: 13px; }
+  svg text.m { font-family: "IBM Plex Mono", monospace; font-size: 10.5px; fill: var(--muted); }
+  svg text.lab { font-size: 11px; fill: var(--muted); }
+  svg .box { fill: var(--paper); stroke: currentColor; stroke-width: 1.2; }
+  svg .box-dn { fill: var(--down-bg); stroke: var(--down); stroke-width: 1.4; }
+  svg .box-up { fill: var(--up-bg); stroke: var(--up); stroke-width: 1.4; }
+  svg .box-sink { fill: var(--sink-bg); stroke: var(--sink); stroke-width: 1.4; }
+  svg .box-dead { fill: var(--dead-bg); stroke: var(--dead); stroke-width: 1.2; stroke-dasharray: 4 3; }
+  svg .ln { stroke: currentColor; stroke-width: 1.2; fill: none; }
+  svg .ln-dn { stroke: var(--down); stroke-width: 1.8; fill: none; }
+  svg .ln-up { stroke: var(--up); stroke-width: 1.8; fill: none; }
+  svg .ln-dead { stroke: var(--dead); stroke-width: 1.2; fill: none; stroke-dasharray: 4 3; }
+  svg .ln-thin { stroke: var(--muted); stroke-width: 1; fill: none; stroke-dasharray: 2 3; }
+  svg .t-dn { fill: var(--down); font-weight: 500; }
+  svg .t-up { fill: var(--up); font-weight: 500; }
+  svg .t-dead { fill: var(--dead); }
+  svg .mk-n { fill: currentColor; }
+  svg .mk-dn { fill: var(--down); }
+  svg .mk-up { fill: var(--up); }
+  svg .mk-dead { fill: var(--dead); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; }
+  .scroll table { min-width: 720px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 600; font-size: 13px; letter-spacing: 0.02em; border-bottom: 1.5px solid var(--ink); }
+  td.k { font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 600; white-space: nowrap; }
+  td.m, th.m { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+  td.anchor { font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--muted); }
+  .tag { display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; padding: 1px 6px; border-radius: 3px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .tag.dn { border-color: var(--down); color: var(--down); }
+  .tag.up { border-color: var(--up); color: var(--up); }
+  .tag.dead { border-color: var(--dead); color: var(--dead); }
+  .tag.m { border-color: var(--ink); color: var(--ink); }
+  .tag.warn { border-color: var(--warn); color: var(--warn); }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px 28px; }
+  .callout { border-left: 3px solid var(--ink); padding: 6px 0 6px 16px; margin: 18px 0; max-width: 76ch; }
+  .callout.dn { border-color: var(--down); }
+  .callout.up { border-color: var(--up); }
+  .callout.warn { border-color: var(--warn); }
+  blockquote { margin: 14px 0; padding: 2px 0 2px 16px; border-left: 3px solid var(--line); color: var(--ink); font-style: italic; max-width: 76ch; }
+  blockquote .who { font-style: normal; color: var(--muted); font-size: 13px; display: block; margin-top: 4px; }
+  ul.tight { padding-left: 20px; margin: 8px 0; }
+  ul.tight li { margin: 4px 0; }
+  .small { font-size: 13px; color: var(--muted); }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 40px 0; }
+</style>
+
+<main>
+<header>
+  <div class="eyebrow">Below the waist · Area C · one notch under the kept-code map — hops, not pieces</div>
+  <h1>The Engine's Two Arrows</h1>
+  <p class="lede">How the parked WebGPU render engine moves data: one arrow down (truth → pixels), one arrow up (pointer → meaning), and why each hop is pure, atom, reactive, or imperative. Then the question this page exists for — why it isn't all "the Electric way" — split into the three things that phrase can mean, with receipts; and the gap that leaves, filled (§8).</p>
+  <div class="meta">Twin of <code>engine-two-arrows.md</code> (same claims, same anchors; edited together). Published at https://claude.ai/code/artifact/561d5133-0413-4d01-839a-ccb8c93be7d3. Grain: the hop (function · data in · data out · mechanism on the arrow). Anchors are <code>file:line</code> in the working tree; deleted-host anchors are <code>adc30c9^:path:line</code>. What outranks this page: the code it points at, then the receipts it cites. Sources and unsettled claims: §11.</div>
+  <nav class="toc">
+    <a href="#s1">1 The simple story</a>
+    <a href="#s2">2 What any GPU-drawn UI must build</a>
+    <a href="#s3">3 Arrow down</a>
+    <a href="#s4">4 Arrow up</a>
+    <a href="#s5">5 Where state lives</a>
+    <a href="#s6">6 The paradigm, zone by zone</a>
+    <a href="#s7">7 Why not the Electric way</a>
+    <a href="#s8">8 The gap, filled</a>
+    <a href="#s9">9 Wasteful vs irreducible</a>
+    <a href="#s10">10 The scars</a>
+    <a href="#s11">11 Sources &amp; uncertainties</a>
+  </nav>
+</header>
+
+<section id="s1">
+  <h2>1 · The simple story</h2>
+  <ol class="story">
+    <li>The GPU paints a picture from lists of numbers. It remembers nothing about what the numbers mean, and it cannot tell you what was clicked.</li>
+    <li>So we keep our own copy of "what is on screen": one plain value — the scene store — where each thing on screen is a slot holding its geometry, its address, and its order.</li>
+    <li class="dn">Everything that reaches the screen travels one way: truth in Rama → a served bundle over Electric → that store → an ordered tape → bytes per kind of drawable → GPU buffers → one draw per frame.</li>
+    <li class="up">Everything the user does travels the other way: a pointer position → undone through the camera → walked against the same tape in reverse (topmost first) → "you are on address X, here is its context".</li>
+    <li class="up">That answer goes one of two places: short-lived session state (hover, selection, a drag, the camera) that changes sixty times a second and never leaves the browser — or a real act (an edit, a settled position) that goes to Rama, becomes truth, and comes back down the first arrow.</li>
+    <li>So it is not "two-way": it is a loop. Down for truth, up for meaning, with a short local loop for the things that have no upstream.</li>
+    <li>State lives by who owns it and how fast it changes: truth on the server; the store as a projection of it; session things in their own atoms; GPU buffers as the renderer's private mirror — never truth.</li>
+    <li>The middle is pure functions over values (store, tape, rect trees, the shaper) so it runs on the JVM in tests, replays, and is legible to agents — actions are descriptors, never closures.</li>
+    <li>Mutation happens only at the edges — a user act, a server echo — by swapping an atom; each derived view is one Missionary <code>m/latest</code> over one watch.</li>
+    <li>The GPU part is imperative because the WebGPU API is imperative (make a buffer, write bytes, set a pipeline, draw). It is the sink — the one place effects are allowed.</li>
+    <li>The clock is a single rAF sample: take the latest world value once per frame, skip the frame if nothing changed. The camera and the frame counter may be read at that edge and nowhere upstream — the engine refuses them as inputs at load time.</li>
+    <li>"Why not Electric for all of it" is three questions. As <em>transport</em>: kept — but we used it as an RPC pipe (request atom → server → answer atom, 13 lanes, whole-page bundles) instead of its keyed reactive wire; that is the real hole. As <em>machinery inside the engine</em>: the idea is adopted (keyed diffs, per-item upkeep), the library's applier is not — it is shaped for the DOM and broke measurably on a GPU pool. As <em>the language faces are written in</em>: you ruled it out — faces are data.</li>
+    <li>And the engine already <em>is</em> a dataflow graph — declared inputs per family, changed-families, deltas, a reducer — just hand-wired, with no compiler deriving it from code. That is why adding a view touches seven sites, and why it reads as tons of code.</li>
+    <li>What is genuinely wasteful: double roads kept alive on purpose (batch oracle beside its incremental twin; roads built and never wired), accretion across many atom sessions, a verifier bigger than the renderer, ten dialects of "watch". What is irreducible: store, tape, shaper, families, pools, pick, frame edge.</li>
+    <li>Net: your instinct — one reactive system, recompute proportional to change — is the settled direction. The parked engine is the <em>before</em> picture of it, half migrated, with the hand-wired middle still standing.</li>
+  </ol>
+
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 980 430" role="img" aria-label="The loop: truth flows down from Rama through Electric into the scene store, the tape, bytes and the GPU; pointer events flow up through a reverse pick over the same store, splitting into session-only state that stays local and durable acts that return to Rama.">
+      <defs>
+        <marker id="a-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-n" points="0,0 10,5 0,10"/></marker>
+        <marker id="a-dn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-dn" points="0,0 10,5 0,10"/></marker>
+        <marker id="a-up" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-up" points="0,0 10,5 0,10"/></marker>
+      </defs>
+      <!-- DOWN row -->
+      <text x="20" y="30" class="h t-dn">DOWN — truth to pixels</text>
+      <rect class="box" x="20" y="50" width="150" height="58" rx="3"/>
+      <text class="h" x="95" y="74" text-anchor="middle">Rama</text>
+      <text class="lab" x="95" y="92" text-anchor="middle">the truth</text>
+
+      <line class="ln-dn" x1="170" y1="79" x2="250" y2="79" marker-end="url(#a-dn)"/>
+      <text class="lab t-dn" x="210" y="68" text-anchor="middle">served bundle</text>
+      <text class="lab" x="210" y="100" text-anchor="middle">Electric (RPC)</text>
+
+      <rect class="box-dn" x="250" y="50" width="200" height="58" rx="3"/>
+      <text class="h" x="350" y="74" text-anchor="middle">scene store</text>
+      <text class="lab" x="350" y="92" text-anchor="middle">one value · slots keyed by address</text>
+
+      <line class="ln-dn" x1="450" y1="79" x2="530" y2="79" marker-end="url(#a-dn)"/>
+      <text class="lab t-dn" x="490" y="68" text-anchor="middle">ordered tape</text>
+
+      <rect class="box-dn" x="530" y="50" width="170" height="58" rx="3"/>
+      <text class="h" x="615" y="74" text-anchor="middle">bytes per family</text>
+      <text class="lab" x="615" y="92" text-anchor="middle">rect · text · path · image · 3D</text>
+
+      <line class="ln-dn" x1="700" y1="79" x2="780" y2="79" marker-end="url(#a-dn)"/>
+      <text class="lab t-dn" x="740" y="68" text-anchor="middle">writeBuffer</text>
+
+      <rect class="box-sink" x="780" y="50" width="180" height="58" rx="3"/>
+      <text class="h" x="870" y="74" text-anchor="middle">GPU</text>
+      <text class="lab" x="870" y="92" text-anchor="middle">one draw per frame · stateless</text>
+
+      <!-- screen -->
+      <line class="ln" x1="870" y1="108" x2="870" y2="160" marker-end="url(#a-n)"/>
+      <text class="lab" x="884" y="138">paints</text>
+      <rect class="box" x="780" y="160" width="180" height="44" rx="3"/>
+      <text class="h" x="870" y="187" text-anchor="middle">screen</text>
+
+      <!-- UP row -->
+      <text x="20" y="262" class="h t-up">UP — pointer to meaning</text>
+      <line class="ln-up" x1="870" y1="204" x2="870" y2="275" marker-end="url(#a-up)"/>
+      <text class="lab t-up" x="884" y="244">pointer x,y px</text>
+
+      <rect class="box-up" x="780" y="275" width="180" height="58" rx="3"/>
+      <text class="h" x="870" y="299" text-anchor="middle">camera inverse</text>
+      <text class="lab" x="870" y="317" text-anchor="middle">px → world</text>
+
+      <line class="ln-up" x1="780" y1="304" x2="700" y2="304" marker-end="url(#a-up)"/>
+
+      <rect class="box-up" x="470" y="275" width="230" height="58" rx="3"/>
+      <text class="h" x="585" y="299" text-anchor="middle">pick</text>
+      <text class="lab" x="585" y="317" text-anchor="middle">walk the SAME store, in reverse</text>
+
+      <!-- pick reads the store: dotted up-arrow -->
+      <line class="ln-thin" x1="585" y1="275" x2="400" y2="108"/>
+      <text class="lab" x="500" y="190" text-anchor="middle">reads the same value the GPU was fed</text>
+
+      <line class="ln-up" x1="470" y1="304" x2="390" y2="304" marker-end="url(#a-up)"/>
+      <text class="lab t-up" x="430" y="293" text-anchor="middle">address + context</text>
+
+      <!-- split -->
+      <rect class="box-up" x="200" y="250" width="190" height="48" rx="3"/>
+      <text class="h" x="295" y="270" text-anchor="middle">session state · 60 Hz</text>
+      <text class="lab" x="295" y="287" text-anchor="middle">hover · selection · drag · camera</text>
+
+      <rect class="box-up" x="200" y="312" width="190" height="48" rx="3"/>
+      <text class="h" x="295" y="332" text-anchor="middle">a durable act</text>
+      <text class="lab" x="295" y="349" text-anchor="middle">edit · settled position</text>
+
+      <!-- session loops locally back into the frame -->
+      <path class="ln-up" d="M 200 274 C 150 274, 150 160, 290 130 L 560 118" marker-end="url(#a-up)"/>
+      <text class="lab t-up" x="215" y="160">stays in the browser —</text>
+      <text class="lab t-up" x="215" y="174">read at the frame edge</text>
+
+      <!-- act goes to Rama -->
+      <path class="ln-up" d="M 200 336 L 95 336 L 95 108" marker-end="url(#a-up)"/>
+      <text class="lab t-up" x="105" y="330">one debounced write</text>
+      <text class="lab t-up" x="105" y="344">→ truth → down again</text>
+
+      <!-- legend line -->
+      <text class="m" x="20" y="410">The loop closes through the server for truth, and locally for things that have no upstream. Nothing is read back from the GPU.</text>
+    </svg>
+    </div>
+    <figcaption><strong>Figure 1 — the loop.</strong> Down: truth → store → tape → bytes → GPU. Up: pointer → camera inverse → reverse pick over the same store → address + context → either session state (local, 60 Hz, read at the frame edge) or a durable act (one debounced write to Rama, which comes back down the first arrow). The pick reads the very value the GPU was fed — that is how "what you see" and "what you hit" agree without the GPU saying a word.</figcaption>
+  </figure>
+</section>
+
+<section id="s2">
+  <h2>2 · What any GPU-drawn UI must build (the architecture in general)</h2>
+  <p>The browser gives a DOM app five organs for free: a retained tree, layout, paint, hit-testing, and an event system. Electric-dom is a reactive <em>writer</em> into that tree — it mints diffs and the browser does the rest. WebGPU gives you none of the five. It is a rasterizer with a command queue: you hand it buffers and a shader, it fills pixels, it forgets. So a WebGPU UI has to rebuild, in its own code, exactly the organs the browser would have supplied. That is the first honest answer to "why is there so much code": Softland is carrying a thin browser-engine slice of its own.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Organ</th><th>DOM + Electric-dom</th><th>WebGPU + Softland</th><th class="m">where it lives here</th></tr></thead>
+    <tbody>
+      <tr><td class="k">retained scene</td><td>the DOM tree — browser owns it</td><td>you own it: a value describing every drawable</td><td class="anchor">scene_store.cljc (one atom in scene_runtime.cljs:34)</td></tr>
+      <tr><td class="k">order</td><td>tree order / z-index — browser sorts</td><td>you own it: a sorted tape, paint forward, pick reverse</td><td class="anchor">scene_tape.cljc · scene_store.cljc:155</td></tr>
+      <tr><td class="k">layout + text</td><td>CSS layout, font shaping — browser</td><td>you own it: rect trees, a shaper (text in → glyph placements out)</td><td class="anchor">rect_tree.cljc · text_layout.cljc · text_shaper.cljs</td></tr>
+      <tr><td class="k">paint</td><td>browser's compositor</td><td>you own it: per kind of drawable, a "family" that turns slots into bytes + a pipeline</td><td class="anchor">chrome/connector/path/image/region3d _material + _gpu · renderer.cljs</td></tr>
+      <tr><td class="k">GPU residency</td><td>invisible (browser)</td><td>you own it: buffer pools, glyph atlases, a budget</td><td class="anchor">buffer_pool.cljs · gpu_budget.cljs</td></tr>
+      <tr><td class="k">hit-test</td><td><code>event.target</code> — browser</td><td>you own it: a pick over the scene, in reverse paint order</td><td class="anchor">scene_store.cljc:406 · scene_tape.cljc:757 · rect_tree.cljc:669</td></tr>
+      <tr><td class="k">frame edge</td><td>browser's vsync / style recalc</td><td>you own it: one rAF sample, skip-if-unchanged, uploads, draw</td><td class="anchor">adc30c9^:runtime/render.cljs:629 (deleted host) · frame_scheduler.cljc</td></tr>
+      <tr><td class="k">session state</td><td>mostly DOM state (focus, scroll, :hover)</td><td>you own it: atoms for camera, gesture, hover, selection</td><td class="anchor">chrome_runtime.cljs · region3d_runtime.cljs · (ground.cljs, deleted)</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>The axes you choose on</h3>
+  <ul class="tight">
+    <li><strong>Retained or immediate.</strong> Immediate-mode (ImGui) re-declares the whole UI every frame: simple, cost ∝ population every frame. Retained keeps a scene and patches it: cost ∝ change, but now you own identity, order, and invalidation. Softland is retained.</li>
+    <li><strong>Where proportionality comes from.</strong> A compiler that derives the dependency graph from your code (Electric, Solid, Incremental) — or hand-keyed inputs + dirty sets + reducers. Softland's engine is the second: the graph exists, hand-wired.</li>
+    <li><strong>Where picking happens.</strong> CPU over your scene (Figma, Flutter, browsers) or a GPU id-buffer read back (games). CPU gives you the address, the path, the caret position, synchronously, and the same answer for an agent that has no GPU; readback gives an id, a frame late. Softland is CPU — and has zero readback (§4).</li>
+    <li><strong>State by cadence.</strong> Durable truth (server), served mirrors, session-only (60 Hz), per-frame, GPU residency. Mixing cadences in one atom is the classic way to make a caret blink re-layout a document (§10).</li>
+  </ul>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Reference instance</th><th>scene</th><th>proportionality</th><th>pick</th><th>loop</th></tr></thead>
+    <tbody>
+      <tr><td class="k">DOM + Electric</td><td>browser tree</td><td>compiler-derived DAG; incseq diffs mount into the tree</td><td>browser</td><td>reactive, no frame concept</td></tr>
+      <tr><td class="k">Flutter</td><td>three trees (widget → element → render object)</td><td>rebuild widgets, diff elements, relayout dirty render objects</td><td>CPU, render-tree walk</td><td>vsync-driven</td></tr>
+      <tr><td class="k">Figma</td><td>own C++ scene graph</td><td>dirty flags on the graph, tile re-render</td><td>CPU over the graph</td><td>frame loop; multiplayer edits the graph</td></tr>
+      <tr><td class="k">ImGui</td><td>none (re-declared per frame)</td><td>none — whole UI per frame</td><td>inline, per widget, last frame's rects</td><td>per frame</td></tr>
+      <tr><td class="k">Games / ECS</td><td>entities + component arrays</td><td>systems iterate arrays; dirty masks</td><td>often GPU id-buffer</td><td>fixed tick</td></tr>
+      <tr><td class="k"><strong>Softland (parked)</strong></td><td>one EDN value: slots + sorted tape</td><td>hand-keyed: declared inputs per family → changed families → deltas → reducer; a batch twin as oracle</td><td>CPU, reverse tape</td><td>rAF sample of a Missionary snapshot; skip if unchanged; truth round-trips Rama</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="small">The non-Softland rows are from general knowledge of those systems, not from reading their sources — treat them as orientation, not receipts. Reading across the rows: Softland sits nearest Figma/Flutter (retained scene, CPU pick) with an ECS-shaped paint layer (one family per drawable kind) and an Elm-shaped loop where the server is the reducer for durable acts.</p>
+</section>
+
+<section id="s3">
+  <h2>3 · Arrow down — truth to pixels, hop by hop</h2>
+  <p>This is the path as it was wired in the last living host (deleted at <code>adc30c9</code>, the waist cut) plus the engine that survived. Solid boxes are kept; dashed are deleted. The label on each arrow is the <em>mechanism</em> — that is what answers "declarative, functional, or imperative?" at every hop.</p>
+
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 980 930" role="img" aria-label="Ten hops from Rama to pixels, each with its mechanism on the arrow and its data shape beside it; hops in the deleted host are dashed, kept engine hops are solid.">
+      <defs>
+        <marker id="b-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-n" points="0,0 10,5 0,10"/></marker>
+        <marker id="b-dn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-dn" points="0,0 10,5 0,10"/></marker>
+        <marker id="b-dead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-dead" points="0,0 10,5 0,10"/></marker>
+      </defs>
+      <!-- column headers -->
+      <text class="m" x="40" y="22">STAGE</text>
+      <text class="m" x="420" y="22">MECHANISM (on the arrow)</text>
+      <text class="m" x="700" y="22">DATA SHAPE OUT</text>
+
+      <!-- hop 1 -->
+      <rect class="box-dead" x="40" y="40" width="340" height="52" rx="3"/>
+      <text class="h" x="52" y="61">1 · Rama serves a face bundle</text>
+      <text class="m" x="52" y="80">file_viewer.cljc FacePull → face-projection/serve</text>
+      <text x="420" y="61" class="t-dead">e/watch !face-request → e/server → reset! !face-data</text>
+      <text class="m" x="420" y="80">Electric used as RPC · adc30c9^:electric_flow.cljc:278</text>
+      <text class="m" x="700" y="61">the whole data-context map</text>
+      <text class="m" x="700" y="80">(page-sized, anonymous value)</text>
+      <line class="ln-dead" x1="210" y1="92" x2="210" y2="118" marker-end="url(#b-dead)"/>
+
+      <!-- hop 2 -->
+      <rect class="box-dead" x="40" y="118" width="340" height="52" rx="3"/>
+      <text class="h" x="52" y="139">2 · mirror atom</text>
+      <text class="m" x="52" y="158">face_wiring.cljs:700 "the R4 mirror-atom pattern"</text>
+      <text x="420" y="139" class="t-dead">add-watch !face-data → reset! !face-context</text>
+      <text class="m" x="420" y="158">21 such add-watch mirrors across the old client</text>
+      <text class="m" x="700" y="139">same map, second atom</text>
+      <line class="ln-dead" x1="210" y1="170" x2="210" y2="196" marker-end="url(#b-dead)"/>
+
+      <!-- hop 3 -->
+      <rect class="box-dead" x="40" y="196" width="340" height="52" rx="3"/>
+      <text class="h" x="52" y="217">3 · the consumer edge</text>
+      <text class="m" x="52" y="236">runtime/render.cljs:183,220 → ground/reconcile!</text>
+      <text x="420" y="217" class="t-dead">m/watch → m/latest → m/reduce, in a coalescing microtask</text>
+      <text class="m" x="420" y="236">"store mutations at edges only (T4), NOT the RAF edge"</text>
+      <text class="m" x="700" y="217">a rect tree per face</text>
+      <text class="m" x="700" y="236">(16 builders; face_assembly/primitives)</text>
+      <line class="ln-dn" x1="210" y1="248" x2="210" y2="274" marker-end="url(#b-dn)"/>
+
+      <!-- hop 4 -->
+      <rect class="box-dn" x="40" y="274" width="340" height="70" rx="3"/>
+      <text class="h" x="52" y="295">4 · the store swap</text>
+      <text class="m" x="52" y="314">scene_runtime.cljs:186 register-face-instance!</text>
+      <text class="m" x="52" y="332">scene_store.cljc:169 upsert-slot (pure)</text>
+      <text x="420" y="295" class="t-dn">swap! !scene-store (pure fn under the swap)</text>
+      <text class="m" x="420" y="314">build-slot → ops lanes · patch address index · patch sorted</text>
+      <text class="m" x="420" y="332">tape BY KEY (sorted-map-by entry-key-compare, :155)</text>
+      <text class="m" x="700" y="295">slot {:tree :ops{text rects</text>
+      <text class="m" x="700" y="314">shadows images paths …}</text>
+      <text class="m" x="700" y="332">:addresses :stack-path}</text>
+      <line class="ln-dn" x1="210" y1="344" x2="210" y2="370" marker-end="url(#b-dn)"/>
+
+      <!-- hop 5 -->
+      <rect class="box-dn" x="40" y="370" width="340" height="52" rx="3"/>
+      <text class="h" x="52" y="391">5 · the store-frame view</text>
+      <text class="m" x="52" y="410">scene_runtime.cljs:452 &lt;store-frame</text>
+      <text x="420" y="391" class="t-dn">(m/latest ss/derive-store-frame (m/watch !scene-store))</text>
+      <text class="m" x="420" y="410">ONE sharing point · rebuilds every lane whole per swap (O(N))</text>
+      <text class="m" x="700" y="391">{:rects :text-by-vi :chromes</text>
+      <text class="m" x="700" y="410">:ordered-vis :targets-by-address …}</text>
+      <line class="ln-dead" x1="210" y1="422" x2="210" y2="448" marker-end="url(#b-dead)"/>
+
+      <!-- hop 6 -->
+      <rect class="box-dead" x="40" y="448" width="340" height="52" rx="3"/>
+      <text class="h" x="52" y="469">6 · the world snapshot</text>
+      <text class="m" x="52" y="488">runtime/render.cljs:193 &lt;world-snapshot</text>
+      <text x="420" y="469" class="t-dead">m/latest fan-in of 7 flows — camera deliberately NOT one</text>
+      <text class="m" x="420" y="488">"combined ONCE … no diamond (T3)"</text>
+      <text class="m" x="700" y="469">one snapshot map</text>
+      <line class="ln-dead" x1="210" y1="500" x2="210" y2="526" marker-end="url(#b-dead)"/>
+
+      <!-- hop 7 -->
+      <rect class="box-dead" x="40" y="526" width="340" height="70" rx="3"/>
+      <text class="h" x="52" y="547">7 · the frame edge — the clock</text>
+      <text class="m" x="52" y="566">runtime/render.cljs:629 · events.cljs:180 (&gt;raf)</text>
+      <text class="m" x="52" y="584">frame_scheduler.cljc:165 decide-at! (kept, uncalled)</text>
+      <text x="420" y="547" class="t-dead">(m/sample vector &lt;world-snapshot &gt;raf) → m/reduce fold</text>
+      <text class="m" x="420" y="566">latest value once per vsync · prev-state carried · scheduler</text>
+      <text class="m" x="420" y="584">says encode? or skip · camera deref'd HERE, sink-local</text>
+      <text class="m" x="700" y="547">[world frame-time]</text>
+      <line class="ln-dead" x1="210" y1="596" x2="210" y2="622" marker-end="url(#b-dead)"/>
+
+      <!-- hop 8 -->
+      <rect class="box-dn" x="40" y="622" width="340" height="70" rx="3"/>
+      <text class="h" x="52" y="643">8 · uploads</text>
+      <text class="m" x="52" y="662">buffer_pool.cljs:275 ordered-diff-update-pool!</text>
+      <text class="m" x="52" y="680">renderer write-containers! · text geos (host side deleted)</text>
+      <text x="420" y="643" class="t-dn">identical?-gated; writeBuffer only where the value moved</text>
+      <text class="m" x="420" y="662">containers = one 1024×16 B uniform · rects = keyed pool</text>
+      <text class="m" x="420" y="680">text = per-slot identity fast path</text>
+      <text class="m" x="700" y="643">bytes in GPU buffers</text>
+      <text class="m" x="700" y="662">(container-local f32; store is f64)</text>
+      <line class="ln-dn" x1="210" y1="692" x2="210" y2="718" marker-end="url(#b-dn)"/>
+
+      <!-- hop 9 -->
+      <rect class="box-dn" x="40" y="718" width="340" height="88" rx="3"/>
+      <text class="h" x="52" y="739">9 · draw-frame! — the hand-built DAG</text>
+      <text class="m" x="52" y="758">renderer.cljs:3678 · frame_inputs.cljc:134 changed-families</text>
+      <text class="m" x="52" y="776">renderer.cljs:3470 produce · :3506 arrangement · :3830 reducer</text>
+      <text class="m" x="52" y="794">(no caller in kept src — parked)</text>
+      <text x="420" y="739" class="t-dn">declared inputs → changed families → produce only those</text>
+      <text class="m" x="420" y="758">→ patch arrangement by key → entry deltas → semantic</text>
+      <text class="m" x="420" y="776">reducer (one reset!) → camera enters via scissors (:3635)</text>
+      <text class="m" x="420" y="794">twin check: batch compile-frame-tape as ORACLE, every frame</text>
+      <text class="m" x="700" y="739">frame entries (ordered)</text>
+      <text class="m" x="700" y="758">+ {:plan-hash …}</text>
+      <line class="ln-dn" x1="210" y1="806" x2="210" y2="832" marker-end="url(#b-dn)"/>
+
+      <!-- hop 10 -->
+      <rect class="box-sink" x="40" y="832" width="340" height="52" rx="3"/>
+      <text class="h" x="52" y="853">10 · encode</text>
+      <text class="m" x="52" y="872">compositor_gpu.cljs draw-multipass! → renderer.cljs:3057</text>
+      <text x="420" y="853">setPipeline · setBindGroup · draw — imperative, the sink</text>
+      <text class="m" x="420" y="872">pools resolved at encode time (renderer.cljs:2715)</text>
+      <text class="m" x="700" y="853">pixels</text>
+
+      <!-- side bracket -->
+      <line class="ln-thin" x1="20" y1="40" x2="20" y2="274"/>
+      <text class="m" x="8" y="160" transform="rotate(-90 8 160)" text-anchor="middle">deleted host</text>
+      <line class="ln-thin" x1="20" y1="448" x2="20" y2="596"/>
+      <text class="m" x="8" y="522" transform="rotate(-90 8 522)" text-anchor="middle">deleted</text>
+      <text class="m" x="40" y="912">dashed = deleted at adc30c9 (the host that drove the engine) · solid = kept · the engine keeps the machinery, the host kept the clock.</text>
+    </svg>
+    </div>
+    <figcaption><strong>Figure 2 — arrow down, ten hops.</strong> Read the middle column top to bottom and the paradigm census writes itself: Electric as RPC (1), a hand mirror (2), one Missionary edge whose only job is to coalesce and call (3), a pure swap (4), one <code>m/latest</code> per derived view (5–6), one sample per frame (7), identity-gated uploads (8), a keyed reducer pipeline with its batch twin (9), imperative encode (10). The store is a projection of the served bundle; the GPU is a projection of the store.</figcaption>
+  </figure>
+
+  <div class="callout dn">
+    <strong>Three things worth holding from this arrow.</strong>
+    <ul class="tight">
+      <li>There is exactly one reactive membrane in the kept engine — three <code>m/watch → m/latest</code> views in <code>scene_runtime.cljs:452,463,469</code> — and it computes nothing of its own: it wraps a pure JVM-testable function so the derivation can be shared and sampled. Missionary is the soil at named points, not the material.</li>
+      <li>The clock lived in the host and is gone: <code>requestAnimationFrame</code> has zero hits in kept <code>src/</code>; <code>draw-frame!</code> has no caller. The engine is a machine with no crank — which is what "parked" means physically.</li>
+      <li>The one remaining whole-population step is hop 5: <code>derive-store-frame</code> re-mapcats every slot's ops on any swap. Everything below it is keyed; everything above it is a page-sized anonymous value. That is the seam the electric-native arc names as "keyed at rest, anonymous in motion".</li>
+    </ul>
+  </div>
+</section>
+
+<section id="s4">
+  <h2>4 · Arrow up — pointer to meaning</h2>
+  <p>WebGPU never says what was clicked, so the engine answers it from the thing it already has: the store. A pick is a walk over the maintained tape in the <em>exact reverse</em> of paint order — topmost drawn, first asked. There is no GPU read-back anywhere: <code>mapAsync</code>, <code>copyTextureToBuffer</code>, <code>MAP_READ</code>, <code>getMappedRange</code> have zero hits in the 198 KB renderer. The renderer's <code>:pick</code> field is a declaration on a draw entry (<code>renderer.cljs:2696</code>), never a pass.</p>
+
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 980 520" role="img" aria-label="A pointer event is converted through the camera, then the tape is walked from its last entry to its first; each entry inverse-transforms the point into its container and hit-tests its rect tree; the first hit returns an address and context bundle, which goes to session atoms, action dispatch, or a debounced write to the server.">
+      <defs>
+        <marker id="c-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-n" points="0,0 10,5 0,10"/></marker>
+        <marker id="c-up" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-up" points="0,0 10,5 0,10"/></marker>
+      </defs>
+      <!-- pointer in -->
+      <rect class="box" x="20" y="30" width="190" height="50" rx="3"/>
+      <text class="h" x="115" y="51" text-anchor="middle">DOM pointer event</text>
+      <text class="m" x="115" y="69" text-anchor="middle">canvas-relative CSS px</text>
+      <line class="ln-up" x1="210" y1="55" x2="270" y2="55" marker-end="url(#c-up)"/>
+      <text class="lab t-up" x="240" y="44" text-anchor="middle">m/observe</text>
+
+      <rect class="box-up" x="270" y="30" width="190" height="50" rx="3"/>
+      <text class="h" x="365" y="51" text-anchor="middle">screen → world</text>
+      <text class="m" x="365" y="69" text-anchor="middle">[(sx−x)/zoom (sy−y)/zoom]</text>
+      <line class="ln-up" x1="460" y1="55" x2="520" y2="55" marker-end="url(#c-up)"/>
+      <text class="lab t-up" x="490" y="44" text-anchor="middle">@!camera</text>
+
+      <rect class="box-up" x="520" y="30" width="200" height="50" rx="3"/>
+      <text class="h" x="620" y="51" text-anchor="middle">ss/pick</text>
+      <text class="m" x="620" y="69" text-anchor="middle">{:world [wx wy] :screen [sx sy]}</text>
+
+      <!-- the tape column -->
+      <text class="h" x="620" y="118" text-anchor="middle">the maintained tape (sorted map, patched at writes)</text>
+      <rect class="box-up" x="470" y="130" width="300" height="30" rx="2"/>
+      <text x="485" y="150">entry n — topmost painted</text>
+      <text class="m" x="760" y="150" text-anchor="end">asked 1st</text>
+      <rect class="box" x="470" y="166" width="300" height="30" rx="2"/>
+      <text x="485" y="186">entry n−1</text>
+      <text class="m" x="760" y="186" text-anchor="end">asked 2nd</text>
+      <rect class="box" x="470" y="202" width="300" height="30" rx="2"/>
+      <text x="485" y="222">…  (invisible / :pick :none skipped)</text>
+      <rect class="box" x="470" y="238" width="300" height="30" rx="2"/>
+      <text x="485" y="258">entry 1 — bottom of the paint</text>
+      <text class="m" x="760" y="258" text-anchor="end">asked last</text>
+      <line class="ln-up" x1="620" y1="80" x2="620" y2="130" marker-end="url(#c-up)"/>
+      <text class="lab t-up" x="632" y="104">(rseq entries) — first hit wins</text>
+
+      <!-- per-entry test, to the right -->
+      <rect class="box" x="790" y="130" width="170" height="138" rx="3"/>
+      <text class="h" x="875" y="150" text-anchor="middle">per entry</text>
+      <text class="lab" x="800" y="172">1 inverse-point into</text>
+      <text class="lab" x="800" y="186">  container-local</text>
+      <text class="lab" x="800" y="206">2 rect-tree hit-test</text>
+      <text class="lab" x="800" y="220">  (bounds prune each level)</text>
+      <text class="lab" x="800" y="240">3 family narrow predicate</text>
+      <text class="lab" x="800" y="254">4 deepest addressed node</text>
+      <line class="ln-thin" x1="770" y1="145" x2="790" y2="145"/>
+
+      <!-- result -->
+      <line class="ln-up" x1="620" y1="268" x2="620" y2="310" marker-end="url(#c-up)"/>
+      <rect class="box-up" x="440" y="310" width="360" height="56" rx="3"/>
+      <text class="h" x="620" y="331" text-anchor="middle">the hit</text>
+      <text class="m" x="620" y="350" text-anchor="middle">{:vi :path :address :src-path :actions :point-local}</text>
+
+      <!-- three destinations -->
+      <line class="ln-up" x1="480" y1="366" x2="200" y2="420" marker-end="url(#c-up)"/>
+      <line class="ln-up" x1="620" y1="366" x2="620" y2="420" marker-end="url(#c-up)"/>
+      <line class="ln-up" x1="760" y1="366" x2="860" y2="420" marker-end="url(#c-up)"/>
+
+      <rect class="box-up" x="20" y="420" width="300" height="80" rx="3"/>
+      <text class="h" x="170" y="441" text-anchor="middle">session atoms · 60 Hz · no events</text>
+      <text class="lab" x="32" y="461">!hover (idle moves) · !pointer gesture machine</text>
+      <text class="lab" x="32" y="476">!camera (pan/zoom local) · selection · drag</text>
+      <text class="m" x="32" y="493">settle on release → ONE POST /api/episode/geometry</text>
+
+      <rect class="box-up" x="470" y="420" width="300" height="80" rx="3"/>
+      <text class="h" x="620" y="441" text-anchor="middle">action dispatch</text>
+      <text class="lab" x="482" y="461">the slot's :actions are DESCRIPTORS (data)</text>
+      <text class="lab" x="482" y="476">→ !action-registry handler (never a closure in</text>
+      <text class="lab" x="482" y="491">the store — agents can read the scene)</text>
+
+      <rect class="box-up" x="790" y="420" width="170" height="80" rx="3"/>
+      <text class="h" x="875" y="441" text-anchor="middle">the deictic seat</text>
+      <text class="lab" x="800" y="461">!last-pick keeps the world</text>
+      <text class="lab" x="800" y="476">point; an agent turn re-picks</text>
+      <text class="lab" x="800" y="491">from it at submit time</text>
+    </svg>
+    </div>
+    <figcaption><strong>Figure 3 — arrow up.</strong> Path (with the deleted driver): <code>events.cljs &gt;mouse</code> → <code>mouse.cljs</code> <code>m/reduce</code> → <code>ground/pointer-down!</code> → <code>pick-at</code> → <code>scene_runtime/pick-world:373</code> → <code>scene_store/pick:406</code> → <code>scene_tape/pick-reverse:757</code> → <code>containers/inverse-point:263</code> → <code>rect_tree/hit-test:669</code> → <code>deepest-addressed:249</code>. Region3D is a second stage: the 2D pick lands on a region rect, then a ray is cast inside it (<code>region3d_runtime.cljs:204</code>, <code>region3d_pointer.cljc:36</code>).</figcaption>
+  </figure>
+
+  <h3>Why the pick is CPU-side, over the store</h3>
+  <ul class="tight">
+    <li><strong>One structure serves render and hit.</strong> Trap T8 in the scene contract: hit-testing in screen space against transformed containers made click-space diverge from render-space. The fix is structural — inverse-transform the point into the container, then ask the same tree the painter used. Agreement by construction, not by calibration.</li>
+    <li><strong>The answer must carry meaning, not an id.</strong> A click needs the address, the path, the local point (for a caret), the actions. A GPU id-buffer gives an integer, a frame late (readback is async).</li>
+    <li><strong>Agents and the mouse share one finger.</strong> <code>bundle-for-viewport</code> (<code>scene_runtime.cljs:398</code>) re-picks from <code>!last-pick</code>'s world point when an agent turn is submitted — no GPU, same answer. "Pointing is a click act, never a hover side effect" (<code>adc30c9^:ground.cljs:3817</code>).</li>
+    <li><strong>Cost shape (structure, not measured):</strong> linear over slots, each a bounds-pruned tree descent, first hit short-circuits; no per-event recompile — the pick reads the write-maintained order. The one number on file is ~4.5 ms/event at 189 blocks on a swiftshader dev build (<code>docs/space-as-entity/GATE.md:102</code>) — an environment the doc itself calls unclassifiable.</li>
+  </ul>
+  <div class="callout up">
+    <strong>In-flight gestures never become events.</strong> <code>:camera/pan :move</code> is <code>reset! !camera</code>; only <code>:end</code> arms a settle, and <code>arm-settle!</code> coalesces bursts into one acked write (<code>adc30c9^:ground.cljs:3620–3630, 2112</code>). Trap T10: "committing an event per mousemove — log flood; gesture ≠ assertion." This is the short local loop in Figure 1.
+  </div>
+</section>
+
+<section id="s5">
+  <h2>5 · Where state lives, and why it is split that way</h2>
+  <p>The old client held about 136 atoms. That number is the honest weight of "we own the organs the browser used to own" plus a tax from using Electric as RPC. Grouped by owner and cadence:</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Layer</th><th>What it holds</th><th>Cadence</th><th>Count (old client)</th><th>Why it is its own layer</th></tr></thead>
+    <tbody>
+      <tr><td class="k">truth</td><td>Rama PStates — material, geometry, wear</td><td>per accepted act</td><td class="m">0 client atoms</td><td>"the scene store is a projection, never a second truth-owner"; only session truths with no upstream may originate client-side</td></tr>
+      <tr><td class="k">served mirrors</td><td>24 request/answer atom pairs (Electric lanes) + 13 runtime mirrors (<code>!face-context</code>, trail, overlay)</td><td>per pull (epoch bump)</td><td class="m">37</td><td>Electric as RPC needs a mailbox per lane; each lane then mirrored once more for the Missionary side — this is the 13 + 21 = 34 watches the seam ruling wants collapsed</td></tr>
+      <tr><td class="k">scene store</td><td><code>!scene-store</code>, <code>!containers-registry</code>, delta journal, <code>!last-pick</code>, action registry, cid pools, <code>!vi-faces</code></td><td>per edit echo / per register</td><td class="m">9 (kept)</td><td>one swap = one generation: truths that must be seen together live in one value (T3: no diamond off the store)</td></tr>
+      <tr><td class="k">session-only</td><td>camera, pointer machine, hover, settle queue, selection, drag, snap, Region3D session, viewport, mouse xy, fonts, settings</td><td>60 Hz</td><td class="m">~53 (23 kept in chrome/region3d/frame runtimes)</td><td>independent cadences stay separate and meet at the frame pull; a 60 Hz truth in the store would wake the whole store's derivation</td></tr>
+      <tr><td class="k">renderer-private residency</td><td>buffer pools (capacity, free list, generations, prev-keyed-rects), glyph WeakMaps, <code>!frame-semantic-state</code>, prev-inputs, compositors by device</td><td>per frame</td><td class="m">14</td><td>"residency is the applier's private business — never writes the store"; dropped on device swap</td></tr>
+      <tr><td class="k">derived caches</td><td>layout caches, anatomy compile cache, bindings, probes/stall samples</td><td>varies</td><td class="m">~32 (old ground.cljs)</td><td>the accretion layer — many were probes and counters, never structure</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="small">Counts from a census of <code>adc30c9^</code> plus the kept tree; <code>editing_runtime.cljs</code> (14 defonce) not itemized. The principle underneath: <em>ownership gives consistency; sampling does not.</em> Things that must agree share one atom and one swap; things on different clocks get their own atom and meet once, at the frame edge.</p>
+</section>
+
+<section id="s6">
+  <h2>6 · The paradigm, zone by zone — and why each zone is what it is</h2>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Zone</th><th>Paradigm</th><th>Why (the law or scar behind it)</th><th class="m">anchors</th></tr></thead>
+    <tbody>
+      <tr><td class="k">scene algebra · tape · rect trees · containers · shaper · frame reducers/compilers</td><td><strong>pure functions over values</strong> (<code>.cljc</code>, JVM-tested; no atoms, no GPU objects, no renderer imports)</td><td>testable without a browser; replayable; agent-legible (T1: actions as descriptors, never closures — the store walks itself for <code>fn?</code>); order is data, not position (T2)</td><td class="anchor">scene_store.cljc:5-8 · scene_tape.cljc:6-8 · frame_semantic_state.cljc</td></tr>
+      <tr><td class="k">owners: scene runtime, chrome runtime, region3d runtime</td><td><strong>atoms + swap!/reset!</strong> at the edges</td><td>mutation only at edges — a user act or the server echo — never inside a flow (T4); one swap per entangled truth = one generation</td><td class="anchor">scene_runtime.cljs:9-15,34-36</td></tr>
+      <tr><td class="k">the membrane</td><td><strong>Missionary, at named points</strong>: <code>m/watch → m/latest</code> per derived view; <code>m/sample</code> at rAF; <code>m/reduce</code> as the frame-to-frame fold</td><td>L4: <code>m/latest</code> re-runs only on input change, never on sample — so effects inside it die (T4); L8/T3: two chains combined downstream tear frames — one <code>m/latest</code> per truth; L1/T9: per-slot <code>m/ap</code> forks over a watch crash ("Watch cancelled") — one watch, filter below it</td><td class="anchor">scene_runtime.cljs:452-469 · adc30c9^:render.cljs:193,240,629 · electric-docs SKILL L1/L4/L6/L8</td></tr>
+      <tr><td class="k">the sink: renderer, GPU halves, pools, compositor</td><td><strong>imperative</strong> — <code>set!</code>, <code>reset!</code>, JS objects, <code>writeBuffer</code>, <code>setPipeline</code>, <code>draw</code></td><td>the WebGPU API is a command queue; effects are legal only here and at mutation sites; camera and time are read here and banned upstream (<code>forbidden-declared-inputs</code> enforced at load)</td><td class="anchor">renderer.cljs:3057,3635,3889 · frame_inputs.cljc:25,91 · frame_scheduler.cljc:4</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>In one sentence: <strong>functional core, imperative shell, one reactive membrane at the seams.</strong> It is not "declarative UI" in the React/Electric-dom sense for a structural reason — there is no tree to declare into; the engine <em>is</em> the tree. What it has instead, inside <code>draw-frame!</code>, is a dataflow graph with explicit keys:</p>
+
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 980 300" role="img" aria-label="Inside draw-frame: declared inputs per family flow into changed-families, only changed families produce entries, entries patch a keyed arrangement, deltas feed a semantic reducer that yields plan and effect views, then encode; a batch oracle compiles the whole tape beside it and a fence compares the two every frame.">
+      <defs>
+        <marker id="d-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-n" points="0,0 10,5 0,10"/></marker>
+        <marker id="d-dn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-dn" points="0,0 10,5 0,10"/></marker>
+      </defs>
+      <text class="h t-dn" x="20" y="26">the maintained road (runs inside draw-frame!)</text>
+      <rect class="box-dn" x="20" y="40" width="150" height="56" rx="3"/>
+      <text class="h" x="95" y="62" text-anchor="middle">declared inputs</text>
+      <text class="m" x="95" y="80" text-anchor="middle">per family · frame_inputs</text>
+      <line class="ln-dn" x1="170" y1="68" x2="205" y2="68" marker-end="url(#d-dn)"/>
+      <rect class="box-dn" x="205" y="40" width="150" height="56" rx="3"/>
+      <text class="h" x="280" y="62" text-anchor="middle">changed-families</text>
+      <text class="m" x="280" y="80" text-anchor="middle">identical? → rev → =</text>
+      <line class="ln-dn" x1="355" y1="68" x2="390" y2="68" marker-end="url(#d-dn)"/>
+      <rect class="box-dn" x="390" y="40" width="150" height="56" rx="3"/>
+      <text class="h" x="465" y="62" text-anchor="middle">produce entries</text>
+      <text class="m" x="465" y="80" text-anchor="middle">only changed families</text>
+      <line class="ln-dn" x1="540" y1="68" x2="575" y2="68" marker-end="url(#d-dn)"/>
+      <rect class="box-dn" x="575" y="40" width="150" height="56" rx="3"/>
+      <text class="h" x="650" y="62" text-anchor="middle">arrangement</text>
+      <text class="m" x="650" y="80" text-anchor="middle">sorted map, patched by key</text>
+      <line class="ln-dn" x1="725" y1="68" x2="760" y2="68" marker-end="url(#d-dn)"/>
+      <rect class="box-dn" x="760" y="40" width="200" height="56" rx="3"/>
+      <text class="h" x="860" y="62" text-anchor="middle">deltas → semantic reducer</text>
+      <text class="m" x="860" y="80" text-anchor="middle">plan view · effect view · generation</text>
+      <line class="ln-dn" x1="860" y1="96" x2="860" y2="130" marker-end="url(#d-dn)"/>
+      <rect class="box-sink" x="760" y="130" width="200" height="44" rx="3"/>
+      <text class="h" x="860" y="157" text-anchor="middle">scissor with camera → encode</text>
+
+      <!-- oracle -->
+      <text class="h" x="20" y="216">the batch twin (kept alive as the oracle, by law)</text>
+      <rect class="box" x="20" y="230" width="330" height="50" rx="3"/>
+      <text class="h" x="185" y="251" text-anchor="middle">compile-frame-tape — the whole tape, every frame</text>
+      <text class="m" x="185" y="269" text-anchor="middle">renderer.cljs:3545 · keyed on [:frame idx] (sink-only)</text>
+      <line class="ln-thin" x1="350" y1="255" x2="650" y2="255"/>
+      <line class="ln-thin" x1="650" y1="255" x2="650" y2="96"/>
+      <rect class="box" x="520" y="238" width="260" height="34" rx="3"/>
+      <text x="650" y="260" text-anchor="middle">fence: frame-tape-twin-check! — throws on mismatch</text>
+    </svg>
+    </div>
+    <figcaption><strong>Figure 4 — the engine already is a dataflow graph.</strong> Declared keyed inputs, a change classifier, producers that run only for what changed, a keyed arrangement, deltas, a reducer — that is the shape Electric builds for you from code. Here every node is hand-wired, and by the seam law a whole-batch twin runs beside it as the oracle. Two roads, on purpose — and the second reason the code is big.</figcaption>
+  </figure>
+</section>
+
+<section id="s7">
+  <h2>7 · "Why not just do it the Electric way?" — the three things that phrase means</h2>
+  <p>You asked this on 2026-08-03 and again on 2026-08-12, in your words:</p>
+  <blockquote>electric works for dom .. and i think with render-engine + webgpu we would have same????? so why not we building electric native and equivalent<span class="who">— vision/LOG.md, 2026-08-03</span></blockquote>
+  <blockquote>truly electric should drive the rendering engine and vice versa .. i am also not truly sure what electric-dom means there is no dom previously also we used webgpu<span class="who">— vision/LOG.md, 2026-08-12 (the return sitting)</span></blockquote>
+  <p>The earlier sessions answered in a constitution (<code>decisions.md</code> "The render seam"). In plain words it says: "the Electric way" is three different things, and they got three different answers.</p>
+
+  <h3>7a · Electric as transport (client ↔ server) — kept, but badly used</h3>
+  <p>This is the one place Electric should be doing its real work, and where it is doing the least. The census at <code>adc30c9^</code>: zero <code>e/for</code>, zero <code>e/for-by</code>, zero <code>e/diff-by</code>, zero <code>e/Token</code>, zero <code>dom/*</code> except one <code>&lt;canvas&gt;</code>. Electric's entire job was: 24 plain atoms, <code>e/watch</code> the request half, call an <code>e/server</code> fn, <code>reset!</code> the answer half, then <code>e/Task (start-loop! …)</code> and get out of the way (<code>adc30c9^:electric_flow.cljc:206-382</code>). That is RPC with a reactive trigger. The served value is a page-sized anonymous bundle re-sent on every epoch bump. The electric-native docs name it exactly: "keyed and act-linked at rest, anonymous in motion" — every felt bug lives at this seam. <strong>This is the hole your instinct is pointing at.</strong> The settled repair is not "more Electric in the renderer"; it is the keyed wire — server-side <code>e/diff-by :unit-id</code>, client-side per-key delivery — so a one-block change arrives as a one-block diff. Untested in both directions today (<code>RECON.md:91-97</code>); the Block is the named first probe.</p>
+
+  <h3>7b · Electric's machinery as the scene applier — the idea adopted, the library's applier rejected on receipts</h3>
+  <p>The principle (keyed per-item flows, diffs minted at the write, an item/applier split) <em>is</em> the store contract, re-keyed for a GPU target. The library instance was tried and measured:</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Receipt</th><th>What it showed</th><th>Consequence in the engine</th><th class="m">source</th></tr></thead>
+    <tbody>
+      <tr><td class="k">L15 · the mount contract <span class="tag m">measured</span></td><td>Electric's DOM mount passes existing <em>child handles</em> back through <code>insert-before</code> on a permutation — in the DOM that is a MOVE. A GPU slot pool's "move" is an index update; the bridge allocated on every insert. 100 entities, 91 rotate frames → <strong>16,750 active slots</strong>, 160 ms/frame. The diff algebra stayed correct; the applier shape was wrong.</td><td><code>gpu-mount</code> kept with a "⚠️ DO NOT WIRE AS-IS" banner; the store consumes the six diff ops directly instead</td><td class="anchor">buffer_pool.cljs:449-457 · electric-skill/VERDICTS.md:410-455</td></tr>
+      <tr><td class="k">L16 · diff cost is shape-bound <span class="tag m">measured, fenced</span></td><td>incseq has no cheap no-change path (~2 ms to re-diff an unchanged 10⁴); any reorder falls into the permutation regime (seconds per mint at 10⁴). Cost sits at the producer, so changing transport or consumer does not save it. Fence: raw incseq only, snapshot −44 vs −45.</td><td>order is row data (sort keys), never sequence position; reorders travel as <code>:change</code> on rank fields (T2)</td><td class="anchor">electric-skill/PROBE-EVIDENCE.md:39-70 · SKILL L16</td></tr>
+      <tr><td class="k">L4 · <code>m/latest</code> is demand-driven <span class="tag m">measured</span></td><td>the combine fn re-runs only when an <em>input</em> emits, never because it was sampled — a rAF <code>request!</code> inside it fires once and the loop dies (regression <code>claim-03</code>: 1 call over 5 samples)</td><td>T4: uploads and scheduling live at the reduce/consumer edge, never in a flow</td><td class="anchor">VERDICTS.md:118-140 · scene_runtime.cljs:9-11</td></tr>
+      <tr><td class="k">L6 · coarse invalidation <span class="tag m">measured</span></td><td>one wide <code>m/latest</code> re-runs its whole combine on any input — the editor's 18-input combine had the caret blink as an input, so every 530 ms blink re-shaped the document: 1440 ms long-task per blink on a large file</td><td>split stable → overlay <em>chains</em>; the blink only selects paint; one <code>m/signal</code> at the sharing point</td><td class="anchor">HACKS-LEDGER.md:128 · SEAM-STEP1-CONTRACT-HANDOFF.md:143-165</td></tr>
+      <tr><td class="k">L8 · diamonds glitch <span class="tag m">measured</span></td><td>two <code>m/latest</code> chains off one store combined downstream emit torn frames deterministically (4/4 runs) — no atomic settle at the raw-Missionary layer</td><td>T3: co-varying values derive in ONE <code>m/latest</code>; the world snapshot combines single-source flows once</td><td class="anchor">SKILL L8 · scene-substrate/CONTRACT.md:181</td></tr>
+      <tr><td class="k">L1 · "Watch cancelled" <span class="tag m">measured</span></td><td>multiple <code>m/?&lt;</code> over <code>m/watch</code> nested in one <code>m/ap</code> crash on the first change</td><td>T9: one watch, filter below it — never per-slot subscriptions forked off the store watch</td><td class="anchor">SKILL L1 · CONTRACT.md:200</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 980 250" role="img" aria-label="Left: the DOM mount contract moves an existing child node with insertBefore on a permutation. Right: a GPU slot pool where a move is an index update, and the borrowed bridge allocated a fresh slot per insert, growing the pool without bound.">
+      <defs>
+        <marker id="e-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-n" points="0,0 10,5 0,10"/></marker>
+      </defs>
+      <text class="h" x="20" y="26">DOM target — what Electric's applier assumes</text>
+      <rect class="box" x="20" y="44" width="60" height="34" rx="2"/><text x="50" y="66" text-anchor="middle">A</text>
+      <rect class="box" x="90" y="44" width="60" height="34" rx="2"/><text x="120" y="66" text-anchor="middle">B</text>
+      <rect class="box" x="160" y="44" width="60" height="34" rx="2"/><text x="190" y="66" text-anchor="middle">C</text>
+      <path class="ln" d="M 190 44 C 190 10, 50 10, 50 44" marker-end="url(#e-n)"/>
+      <text class="lab" x="120" y="18" text-anchor="middle">permutation: insertBefore(C, A) = MOVE the node</text>
+      <rect class="box" x="20" y="110" width="60" height="34" rx="2"/><text x="50" y="132" text-anchor="middle">C</text>
+      <rect class="box" x="90" y="110" width="60" height="34" rx="2"/><text x="120" y="132" text-anchor="middle">A</text>
+      <rect class="box" x="160" y="110" width="60" height="34" rx="2"/><text x="190" y="132" text-anchor="middle">B</text>
+      <text class="lab" x="20" y="170">same three nodes; identity travels with the handle.</text>
+      <text class="lab" x="20" y="186">Allocation count: 0.</text>
+
+      <line class="ln-thin" x1="480" y1="20" x2="480" y2="230"/>
+
+      <text class="h" x="510" y="26">GPU slot pool — what the engine actually has</text>
+      <rect class="box-dn" x="510" y="44" width="60" height="34" rx="2"/><text x="540" y="66" text-anchor="middle">slot 0</text>
+      <rect class="box-dn" x="580" y="44" width="60" height="34" rx="2"/><text x="610" y="66" text-anchor="middle">slot 1</text>
+      <rect class="box-dn" x="650" y="44" width="60" height="34" rx="2"/><text x="680" y="66" text-anchor="middle">slot 2</text>
+      <text class="lab" x="720" y="66">bytes sit still; "move" = rewrite an index</text>
+      <text class="lab" x="510" y="108">the borrowed bridge heard "insert" and allocated a fresh slot each time:</text>
+      <rect class="box-dn" x="510" y="120" width="36" height="24" rx="2"/>
+      <rect class="box-dn" x="550" y="120" width="36" height="24" rx="2"/>
+      <rect class="box-dn" x="590" y="120" width="36" height="24" rx="2"/>
+      <rect class="box-dn" x="630" y="120" width="36" height="24" rx="2"/>
+      <rect class="box-dn" x="670" y="120" width="36" height="24" rx="2"/>
+      <rect class="box-dn" x="710" y="120" width="36" height="24" rx="2"/>
+      <rect class="box-dn" x="750" y="120" width="36" height="24" rx="2"/>
+      <rect class="box-dn" x="790" y="120" width="36" height="24" rx="2"/>
+      <text x="836" y="137">… 16,750 slots</text>
+      <text class="lab" x="510" y="170">for 100 entities, after 91 rotate frames; 160 ms/frame.</text>
+      <text class="lab" x="510" y="186">The diffs were right. The applier's contract was the DOM's.</text>
+      <text class="m" x="510" y="216">buffer_pool.cljs:449 — "DO NOT WIRE AS-IS … consume the six diff ops directly"</text>
+    </svg>
+    </div>
+    <figcaption><strong>Figure 5 — the one difference that broke the borrowed applier.</strong> "Borrowed algebra, never borrowed appliers" is the seam ruling's phrase for this picture: take the diff vocabulary, write your own applier whose "move" means what a GPU pool means by it.</figcaption>
+  </figure>
+
+  <h3>7c · Electric as the language faces are written in — ruled out</h3>
+  <blockquote>Face as data yess all way<span class="who">— Sid, vision/LOG.md 2026-08-12; decisions.md: "faces are data all the way — a face's authored form is material for every inhabitant, human and agent, never source code"</span></blockquote>
+  <p>So <code>e/defn</code>-composed faces are dead either way. What stays open is machinery: which host <em>executes</em> a face spec — an Electric generic host or a Missionary host — judged by one real face built both ways (the Block), on container close/reopen, mid-drag teardown, served-source hot-swap. An engineering verdict, not a product fork.</p>
+
+  <div class="callout">
+    <strong>So, to your sentence "we have the principles and the instances to do it all":</strong> the principles — yes, and the engine's keyed layers already embody them. The instance — Electric's DOM applier and its collection machinery — measured against a GPU pool, does not fit; and the reactive primitives underneath it (<code>m/latest</code>) have exact semantics that produced three of the scars in §10 when used "ambiently". The code is the result of learning that twice. What is missing is not more reactivity inside the renderer; it is (a) the keyed wire above it, and (b) a way of declaring the engine's dataflow that isn't seven hand-wired sites per view.
+  </div>
+</section>
+
+<section id="s8">
+  <h2>8 · The gap, filled</h2>
+  <p>§7a named the gap as it stood in the last living host. The waist cut (closed 2026-08-21) changed it, and the electric-native road (<code>docs/electric-native/DIRECTION.md</code>, settled 08-12/13) was written <em>before</em> that cut — so first the gap as it is today, then the fill, then what the cut did to the road's order.</p>
+
+  <h3>The gap, as of today — three layers</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Layer</th><th>What is true now</th><th>Receipt</th></tr></thead>
+    <tbody>
+      <tr><td class="k">G0 · there is no arrow down</td><td>No client host, no product bundle, Electric out of <code>deps.edn</code> (only Missionary remains). The server still serves: twelve face data-contexts (<code>face_projection/serve</code>, EDN pages), the SSE episode door (reply streams back on the POST — no GET wire survives), birth/geometry EDN routes, the ten-route write surface. Nothing consumes any of it. The engine is a machine with no crank.</td><td class="anchor">deps.edn:4 · editing-waist-map.md:399 · kept-code-map.md §3b</td></tr>
+      <tr><td class="k">G1 · the old arrow had the wrong shape</td><td>Whole data-context page re-pulled per epoch bump (~1/s); 24 mailbox atoms + 21 mirrors; one global epoch integer that geometry settles never bump; then <code>derive-store-frame</code> rebuilt every lane. One edit → one page → every slot re-derived. "Keyed and act-linked at rest, anonymous in motion."</td><td class="anchor">PROBLEM-SPACE.md:58-60 · RECON.md §11 · scene_store.cljc:321</td></tr>
+      <tr><td class="k">G2 · the view never told the server what it needed</td><td>Demand was "the page". The server had no notion of what a lens is looking at; residency scaled with what you own, not what you see.</td><td class="anchor">DIRECTION.md "2 · The engine drives Electric"</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>Both ends of the gap are <strong>already keyed</strong>. Rama rows carry <code>unit-id</code> and <code>event-id</code> on every defrecord; <code>RevisionRow</code> history is indexed by time-prefixed order-keys with a cursor-range reader (<code>runtime.clj:363</code>) — "the since-reader is one function". The scene store is <code>{:slots {vi → slot} :index {address → #{vi}}}</code>, patched by key, never rescanned; the pool bridge already has <code>keyed-diff-update-pool!</code> — "the Missionary-side equivalent of what e/for-by would do" (<code>buffer_pool.cljs:214</code>). The middle was anonymous; now the middle is absent. That is the whole gap: <em>the wire between two keyed ends, in both directions.</em></p>
+
+  <h3>The fill — the shape is settled, the courier is probe-decided</h3>
+  <p>In the problem-space doc's words: <strong>demand up hierarchical (membership) · delivery down flat and keyed · applied atomically per accepted act.</strong> Here is the middle, before and after:</p>
+
+  <figure>
+    <div class="scroll">
+    <svg viewBox="0 0 980 560" role="img" aria-label="Before: Rama emits a whole page per epoch into mailbox atoms and mirrors, the store re-derives everything. After: Rama rows feed a keyed feed scoped by the lens's membership, a small client host applies units by key into the store, per-key views feed keyed pools; upward, the renderer publishes visibility that becomes the subscription, and acts go through the write routes and return as keyed changes.">
+      <defs>
+        <marker id="f-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-n" points="0,0 10,5 0,10"/></marker>
+        <marker id="f-dn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-dn" points="0,0 10,5 0,10"/></marker>
+        <marker id="f-up" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-up" points="0,0 10,5 0,10"/></marker>
+        <marker id="f-dead" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><polygon class="mk-dead" points="0,0 10,5 0,10"/></marker>
+      </defs>
+      <!-- BEFORE column -->
+      <text class="h t-dead" x="20" y="26">BEFORE (deleted) — anonymous in motion</text>
+      <rect class="box-dead" x="20" y="40" width="300" height="40" rx="3"/>
+      <text class="h" x="170" y="65" text-anchor="middle">Rama — keyed rows</text>
+      <line class="ln-dead" x1="170" y1="80" x2="170" y2="108" marker-end="url(#f-dead)"/>
+      <text class="m t-dead" x="182" y="98">whole data-context page, per epoch bump (~1/s)</text>
+      <rect class="box-dead" x="20" y="108" width="300" height="40" rx="3"/>
+      <text x="170" y="133" text-anchor="middle">Electric as RPC · 24 mailbox atoms</text>
+      <line class="ln-dead" x1="170" y1="148" x2="170" y2="176" marker-end="url(#f-dead)"/>
+      <text class="m t-dead" x="182" y="166">add-watch mirrors ×21</text>
+      <rect class="box-dead" x="20" y="176" width="300" height="40" rx="3"/>
+      <text x="170" y="201" text-anchor="middle">reconcile the whole page → upsert every slot</text>
+      <line class="ln-dead" x1="170" y1="216" x2="170" y2="244" marker-end="url(#f-dead)"/>
+      <rect class="box-dead" x="20" y="244" width="300" height="40" rx="3"/>
+      <text x="170" y="269" text-anchor="middle">derive-store-frame — every lane, every swap</text>
+      <line class="ln-dead" x1="170" y1="284" x2="170" y2="312" marker-end="url(#f-dead)"/>
+      <rect class="box-sink" x="20" y="312" width="300" height="40" rx="3"/>
+      <text x="170" y="337" text-anchor="middle">keyed pools → GPU</text>
+      <text class="m t-dead" x="20" y="380">one edit → one page → every slot re-derived</text>
+      <text class="m t-dead" x="20" y="396">global epoch integer; geometry settles bump nothing</text>
+      <text class="m t-dead" x="20" y="412">demand = "the page"</text>
+
+      <line class="ln-thin" x1="350" y1="20" x2="350" y2="540"/>
+
+      <!-- AFTER column -->
+      <text class="h t-dn" x="380" y="26">AFTER — keyed in motion, demand-scoped</text>
+      <rect class="box" x="380" y="40" width="280" height="40" rx="3"/>
+      <text class="h" x="520" y="65" text-anchor="middle">Rama — keyed rows (unit-id · event-id)</text>
+      <line class="ln-dn" x1="520" y1="80" x2="520" y2="108" marker-end="url(#f-dn)"/>
+      <text class="m t-dn" x="532" y="98">since-reader over RevisionRow · settles notify</text>
+      <rect class="box-dn" x="380" y="108" width="280" height="58" rx="3"/>
+      <text class="h" x="520" y="129" text-anchor="middle">the keyed feed, per lens</text>
+      <text class="m" x="520" y="146" text-anchor="middle">{:gen act-id :units {id → row | tombstone}</text>
+      <text class="m" x="520" y="160" text-anchor="middle">:order {cid → ranks} :members {cid → #{id}}}</text>
+      <line class="ln-dn" x1="520" y1="166" x2="520" y2="194" marker-end="url(#f-dn)"/>
+      <text class="m t-dn" x="532" y="184">courier: SSE now · e/diff-by at the host probe</text>
+      <rect class="box-dn" x="380" y="194" width="280" height="40" rx="3"/>
+      <text x="520" y="219" text-anchor="middle">client host: one flow → m/reduce edge (T4)</text>
+      <line class="ln-dn" x1="520" y1="234" x2="520" y2="262" marker-end="url(#f-dn)"/>
+      <text class="m t-dn" x="532" y="252">upsert-slot / remove-slot BY KEY (exists)</text>
+      <rect class="box-dn" x="380" y="262" width="280" height="40" rx="3"/>
+      <text x="520" y="287" text-anchor="middle">scene store — patched by key (exists)</text>
+      <line class="ln-dn" x1="520" y1="302" x2="520" y2="330" marker-end="url(#f-dn)"/>
+      <text class="m t-dn" x="532" y="320">per-key views (the 34-watch collapse)</text>
+      <rect class="box-dn" x="380" y="330" width="280" height="40" rx="3"/>
+      <text x="520" y="355" text-anchor="middle">keyed-diff-update-pool! (stub exists) → GPU</text>
+
+      <!-- UP side on the right -->
+      <rect class="box-up" x="700" y="108" width="260" height="58" rx="3"/>
+      <text class="h" x="830" y="129" text-anchor="middle">demand = membership</text>
+      <text class="m" x="830" y="146" text-anchor="middle">broker: visible containers/units</text>
+      <text class="m" x="830" y="160" text-anchor="middle">→ grow/shrink the subscription</text>
+      <line class="ln-up" x1="700" y1="137" x2="660" y2="137" marker-end="url(#f-up)"/>
+      <text class="m t-up" x="672" y="128" text-anchor="end"></text>
+      <rect class="box-up" x="700" y="330" width="260" height="40" rx="3"/>
+      <text x="830" y="355" text-anchor="middle">renderer publishes visibility facts</text>
+      <line class="ln-up" x1="830" y1="330" x2="830" y2="166" marker-end="url(#f-up)"/>
+      <text class="m t-up" x="842" y="250">what the lens is looking at</text>
+
+      <rect class="box-up" x="700" y="420" width="260" height="58" rx="3"/>
+      <text class="h" x="830" y="441" text-anchor="middle">acts</text>
+      <text class="m" x="830" y="458" text-anchor="middle">edit · settle → the ten write routes</text>
+      <text class="m" x="830" y="472" text-anchor="middle">→ Rama → accepted → the feed (echo = feed)</text>
+      <path class="ln-up" d="M 700 449 L 520 449 L 520 80" marker-end="url(#f-up)"/>
+      <text class="m t-up" x="532" y="440">correlation = act-id; caps dissolve</text>
+
+      <text class="m t-dn" x="380" y="500">one edit → one unit → one slot; a pan sends nothing; a second lens sees the move</text>
+      <text class="m" x="380" y="516">generation = the accepted act · tombstones linger until every lens passes</text>
+      <text class="m" x="380" y="532">catch-up rides the live path from a watermark — never a second reconcile</text>
+    </svg>
+    </div>
+    <figcaption><strong>Figure 6 — the middle, before and after.</strong> Left: the deleted shape. Right: the settled shape ("demand up hierarchical, delivery down flat and keyed, applied atomically per accepted act"). Boxes marked "exists" are already in the tree; the feed, the courier, the client host, the broker, and the per-key views are the fill.</figcaption>
+  </figure>
+
+  <h3>The ten hops, after</h3>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>#</th><th>Hop (from §3)</th><th>After</th><th>Exists?</th></tr></thead>
+    <tbody>
+      <tr><td class="m">1</td><td>Rama serves a page</td><td>Rama rows → a <strong>since-reader</strong> over RevisionRow (time-prefixed order-keys, watermark cursor) → changes since <em>W</em>; geometry settles gain their missing notify</td><td>rows + cursor reader exist; the since-watermark fn and the geometry bump do not</td></tr>
+      <tr><td class="m">2</td><td>mirror atom</td><td><strong>dies</strong> — the feed delivers units by id; no mailbox, no mirror</td><td>—</td></tr>
+      <tr><td class="m">3</td><td>consumer edge</td><td>the <strong>client host</strong>: one flow over the courier → one <code>m/reduce</code> edge → per key <code>ss/upsert-slot</code> / <code>remove-slot</code>; the face tree per <em>unit</em> from the served assembly (16 builders now; faces-are-data later)</td><td>store fns exist; the host (3 small namespaces) does not</td></tr>
+      <tr><td class="m">4</td><td>the store swap</td><td>unchanged — already keyed, index never rescanned, tape patched by key</td><td>✓</td></tr>
+      <tr><td class="m">5</td><td><code>&lt;store-frame</code> rebuilds all lanes</td><td><strong>per-key views</strong>: the store contract's slice — per-key reads, write-site dispatch, signals at sharing points; <code>derive-store-frame</code> demotes to oracle with a fence</td><td>does not; this is the store-contract slice the seam ruling names</td></tr>
+      <tr><td class="m">6–7</td><td>world snapshot · frame edge</td><td>unchanged — a host must own the rAF sample again (one line in the old host)</td><td>pattern exists (deleted); trivially rebuilt</td></tr>
+      <tr><td class="m">8</td><td>uploads</td><td>unchanged — <code>keyed-diff-update-pool!</code> is the pre-stubbed receiver</td><td>✓ (stub)</td></tr>
+      <tr><td class="m">9–10</td><td>draw-frame! · encode</td><td>unchanged — already per family, keyed, with the oracle twin</td><td>✓</td></tr>
+      <tr><td class="m">↑</td><td>pointer → acts</td><td>frame-rate stays local (as today); settles go through the geometry route <em>and notify</em>; edits go through the write routes; the echo is the feed, correlated by act-id</td><td>routes exist; notify does not</td></tr>
+      <tr><td class="m">↑↑</td><td>(new) demand</td><td>the renderer's visibility facts → a <strong>broker</strong> → the lens's membership subscription (grow/shrink container sets, never position windows — L16); the feed is scoped by it</td><td>does not</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>What the cut did to the road's order</h3>
+  <p>DIRECTION.md's road 1 runs 1a (typing stops lagging) → 1b (the screen maintains itself from one source) → 1c (edits travel by id). It assumed a living product: "ordinary blocks render through the engine today." They do not, since 2026-08-20. There is no typing to un-lag and no screen to maintain until an arrow exists. So the order inverts: <strong>the arrow (1c's shape) is the first act</strong>, because it is also the host; 1b rides it (the store is already the one source); 1a's shaping receipt is checked on the first real typing the new host carries. This is a forest call on ground you already changed by accepting the cut — stated here as a position, not landed anywhere.</p>
+
+  <h3>The one fork, and a position</h3>
+  <p><strong>The courier.</strong> The settled wording says <code>e/diff-by :unit-id</code> server-side / <code>e/for-by</code> client-side; the problem-space doc classifies feed transport as <em>probe-decided</em> ("Electric keyed machinery vs owned Missionary lanes"); and the tree no longer has Electric. Position: the wire's <em>content</em> is courier-agnostic (flat units-by-id + order/membership indexes + generation per act + tombstones + watermark), so build that content first over the cheapest courier that exists — the kept SSE door grown a long-lived GET stream, Missionary on the client — and let Electric's keyed machinery take its fair test at the host probe, where it returns anyway (the Block built both ways). The replacement trigger is named so this is a stage, not a patch: the transfer bench (PROBLEM-SPACE probe 1 — four algebras × <code>diff-by</code> losslessness × two-edits-one-tick). Risk of this position, stated: an owned lane can entrench; the fence is that the feed's content format is frozen in the contract and the courier is a one-file swap. Counter-position, equally lawful: re-add Electric now and ride <code>e/diff-by</code> from day one — pays the dependency earlier, gets reactive consistency for free, and makes the host probe real sooner; its cost is L16's producer-side comparison-minting (already accepted as the named first stage).</p>
+
+  <h3>The smallest slice that proves the fill</h3>
+  <ul class="tight">
+    <li><strong>One conversation container, keyed, end to end.</strong> A keyed feed for one container over a long-lived stream; a client host of three namespaces (courier flow · apply edge · demand publisher); the store; the verifier-grade draw path; one edit through a write route; the feed echoing it; the store patched by key; the frame drawing only the changed family.</li>
+    <li><strong>Three tripwires, no more:</strong> one edit moves exactly one slot (store diff = 1 key; changed-families = 1); a pan sends zero bytes up and re-derives zero slots; a second lens on the same container sees a geometry settle without an unrelated bump.</li>
+    <li><strong>What it retires on landing:</strong> the whole-page pull as truth (it stays as the oracle, with its two named duties: committed-echo cross-check, cap-overflow reconcile), the epoch integer, the mirror pattern.</li>
+  </ul>
+  <div class="callout dn">
+    This section is a landed position, not a contract — contest it. If it is to be built, the next step is a contract cut (one document: scope · laws · entry points · 3–5 scenarios · MUST-NOTs) with the courier position above as its one open fork — and the Block probe stays the named instance that decides the host.
+  </div>
+</section>
+
+<section id="s9">
+  <h2>9 · What is wasteful, and what is irreducible</h2>
+  <div class="two">
+    <div>
+      <h3>Irreducible — the organs a GPU UI cannot not have</h3>
+      <ul class="tight">
+        <li>a retained scene value (store) — the DOM you no longer have</li>
+        <li>an order (tape): paint forward, pick reverse</li>
+        <li>layout + a shaper — text is the heavy one, by far</li>
+        <li>one painter per drawable kind (families) → bytes + pipeline</li>
+        <li>GPU residency: pools, atlases, a budget</li>
+        <li>a pick over the scene</li>
+        <li>a frame edge: sample once, skip if unchanged, upload, draw</li>
+        <li>session-only atoms on their own clock</li>
+        <li>a truth loop through the server for durable acts</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Wasteful or over-built — with the receipt</h3>
+      <ul class="tight">
+        <li><strong>Double roads by law.</strong> The batch tape compiler runs beside the maintained arrangement every frame as its oracle (<code>renderer.cljs:3545,3548</code>); <code>maintain-frame-plan</code> and <code>maintain-effect-spans</code> exist with test-only callers; dirty-present (persistent target + scissor + copy) is "fully implemented but OFF" (<code>PRIMITIVES.md:99</code>); <code>gpu-mount</code> is banned and kept. Defensible while the incremental road is unproven; real weight all the same.</li>
+        <li><strong>Accretion.</strong> Six dead ui-primitive components; three parallel clip implementations; the 0.56 advance constant at ~30 sites; adding a view touches ~7 hand-wired sites with curated watch sets (<code>render-substrate-retro/RETRO.md:231-249</code>).</li>
+        <li><strong>Ten dialects of "watch".</strong> <code>e/watch</code> 13 · <code>add-watch</code> 21 · <code>m/watch</code> 9 · <code>m/latest</code> 11 · <code>m/reduce</code> 9 · <code>m/ap</code> 9 · <code>m/observe</code> 9 · <code>m/relieve</code> 4 · <code>m/eduction</code> 3 · <code>m/sample</code> 1 — plus 164 raw <code>swap!/reset!</code> in <code>ground.cljs</code> alone.</li>
+        <li><strong>A verifier bigger than the renderer.</strong> <code>verifier.cljs</code> 297 KB vs <code>renderer.cljs</code> 198 KB — and it is the area's only live entry.</li>
+        <li><strong>Unproven claims kept as if proven.</strong> FRAME-RETENTION has no acceptance; its closing receipt's SHA does not match; "speed receipts are not correctness receipts" (<code>PERF-DOSSIER:452-522</code>).</li>
+        <li><strong>The whole-population step that remains.</strong> <code>derive-store-frame</code> rebuilds every lane on any swap (<code>scene_store.cljc:321-379</code>) — the O(N) root the electric-native problem-space names ("neither one-atom-deriving-everything nor per-component sockets").</li>
+        <li><strong>The 16-builder presentation grammar</strong> kept only for TrailView/anatomy/goldens — custody debt you already named (08-20).</li>
+        <li><strong>Region3D at ~200 KB</strong> — in your words on the dossier: "that is not product that is eng."</li>
+      </ul>
+    </div>
+  </div>
+  <p>The honest summary: roughly half the bulk is organs (irreducible for this substrate), a quarter is the second road kept alive on purpose, and a quarter is accretion from many atom sessions each adding a view by hand. The parked engine is the before-picture of the settled direction, with its hand-wired middle still standing.</p>
+</section>
+
+<section id="s10">
+  <h2>10 · The scars — why several shapes are the shape they are</h2>
+  <p>Most of the "why is it built so" questions have a measured failure behind them. Each row: the disease, the mechanism in plain words, the fix that gave the code its current shape.</p>
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Disease</th><th>Measured</th><th>Mechanism</th><th>Shape it left in the code</th><th class="m">source</th></tr></thead>
+    <tbody>
+      <tr><td class="k">cold settle / the 28 s frame</td><td>35.678 s settle; one 28.7 s text interval; 6 s hover stalls (×3)</td><td>shaping filtered whole-glyph per cluster (~O(C×G)); and the host emitted ops without the layout, so the renderer re-derived shaped layout per op</td><td>one material-local layout authority under a declared layout key; shaped block-greedy wrap as the one break-choosing truth (the shaper = "the floor")</td><td class="anchor">shaping-correction/CONTRACT.md:62-121</td></tr>
+      <tr><td class="k">per-frame tape recompile</td><td>structural (no ms banked)</td><td>the tape compiled + validated + sorted every rAF, keyed on the frame index</td><td>the store gained a sorted <code>:ordered</code> map patched at writes; the batch compiler demoted to oracle behind a fence</td><td class="anchor">SEAM-STEP1-CONTRACT.md:33-36</td></tr>
+      <tr><td class="k">per-event pick recompile</td><td>structural</td><td>pick recompiled an unchanged world per event</td><td><code>ss/pick</code> walks <code>(rseq (:ordered store))</code></td><td class="anchor">SEAM-STEP1-CONTRACT.md:36</td></tr>
+      <tr><td class="k">frame counter as ancestor</td><td>structural</td><td>world revision was literally <code>[:frame idx]</code> — the clock sat above derivation</td><td><code>forbidden-declared-inputs</code> throws at load for frame-idx/pan/zoom/pixel-size</td><td class="anchor">frame_inputs.cljc:25,91</td></tr>
+      <tr><td class="k">caret-blink reshape</td><td>1440 ms long-task every 530 ms</td><td>the blink was an input of an 18-input <code>m/latest</code>; every blink re-ran full layout of a document the caret never touched — cost in Missionary propagation outside rAF, so rAF counters looked fine</td><td>stable → overlay chains; overlay only selects paint; <code>m/signal</code> at the one sharing point</td><td class="anchor">HACKS-LEDGER.md:128 · HANDOFF:143-165</td></tr>
+      <tr><td class="k">the camera watch</td><td>produce 35–58 ms, 8–26 fps (iPhone) → produce 0.1 ms, comparator-calls 0, 45–60 fps</td><td><code>!camera</code> was an input of the world snapshot, so every pan re-derived the scene</td><td>camera deref'd at the rAF sink only; pick takes <code>{:world :screen}</code> so the camera→registry edge lost its reason to exist</td><td class="anchor">PERF-DOSSIER:179-211 · adc30c9^:render.cljs:243</td></tr>
+      <tr><td class="k">the borrowed mount</td><td>16,750 slots / 100 entities / 91 frames</td><td>DOM "move" ≠ pool "move" (Figure 5)</td><td>store consumes diff ops directly; <code>gpu-mount</code> banned</td><td class="anchor">buffer_pool.cljs:449</td></tr>
+      <tr><td class="k">open · Region3D shape-mint</td><td>1974 comparator calls for 1 produced entry; 12–20 fps</td><td>a zoom crosses a lease rung → shape key changes → whole arrangement + plan rebuild for a 1-entry delta (dossier's own tag: hypothesis)</td><td>not fixed — the highest-value open probe</td><td class="anchor">PERF-DOSSIER:212-295</td></tr>
+      <tr><td class="k">open · boot</td><td>10.1 s slow reconcile; ~60 consecutive buffer reallocs from 13 KB</td><td>untraced ("reallocation thrash — hypothesis")</td><td>not fixed</td><td class="anchor">PERF-DOSSIER:401-449</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p class="small">Every one of these is the read side paying to rediscover what the write side already knew — the one sentence the render-seam ruling is built on. It is also the strongest argument against "just make everything a reactive value": three of the scars (blink, camera, diamonds) were <em>caused</em> by exactly that, done ambiently.</p>
+</section>
+
+<section id="s11">
+  <h2>11 · Sources, and what is not settled</h2>
+  <h3>Read primary for this page</h3>
+  <ul class="tight">
+    <li><code>docs/decisions.md</code> §"One render substrate" (:302) and §"The render seam" (:450-628) — the binding law; <code>docs/scene-substrate/CONTRACT.md</code> §7 traps T1–T11; <code>vision/LOG.md</code> 2026-08-03 and 2026-08-12 entries (Sid's words, verbatim).</li>
+    <li>Code, by seam (gatherers, anchors spot-checked): <code>scene_store.cljc</code> :97-446 · <code>scene_tape.cljc</code> :641-768 · <code>scene_runtime.cljs</code> :1-470 · <code>rect_tree.cljc</code> :640-693 · <code>containers.cljc</code> :185-277 · <code>frame_inputs.cljc</code> · <code>frame_delta.cljc</code> · <code>frame_scheduler.cljc</code> · <code>frame_semantic_state.cljc</code> · <code>renderer.cljs</code> windows at :2147, :2696-2748, :3057, :3392-3397, :3423-3545, :3635-3922 · <code>buffer_pool.cljs</code> :111-493 · deleted host at <code>adc30c9^</code>: <code>electric_flow.cljc</code>, <code>runtime/render.cljs</code>, <code>runtime.cljs</code>, <code>events.cljs</code>, <code>mouse.cljs</code>, <code>state.cljs</code>, <code>face_wiring.cljs</code> :700, <code>block_edit_wiring.cljs</code>, <code>ground.cljs</code> windows only.</li>
+    <li>Receipts: <code>docs/electric-skill/VERDICTS.md</code>, <code>PROBE-EVIDENCE.md</code>, <code>HACKS-LEDGER.md</code>; <code>docs/render-engine/PERF-DOSSIER-2026-08-09.md</code>; <code>docs/shaping-correction/CONTRACT.md</code>; <code>docs/render-substrate-retro/RETRO.md</code>, <code>PRIMITIVES.md</code>; <code>docs/electric-native/DIRECTION.md</code>, <code>PROBLEM-SPACE.md</code>, <code>RECON.md</code>; the electric-docs skill §2 laws.</li>
+  </ul>
+  <h3>Not settled — structure claimed, magnitude not measured</h3>
+  <ul class="tight">
+    <li><span class="tag warn">structure only</span> pick cost: linear over slots with pruning — the 4.5 ms/189-blocks figure is a swiftshader dev-build quote, not a receipt. Probe: <code>performance.now()</code> around <code>pick-at</code> at 10/200/2000 blocks, headful vulkan.</li>
+    <li><span class="tag warn">structure only</span> <code>derive-store-frame</code> whole-lane rebuild per swap — cost magnitude unknown; the <code>:store-frame-execs</code> counter existed for it in the deleted host.</li>
+    <li><span class="tag warn">unverified</span> whether the verifier build ever reaches <code>draw-frame!</code> at runtime (it builds the systems; grep shows no call).</li>
+    <li><span class="tag warn">one receipt</span> "the mutable-tree applier lesson, proven twice" — one proof on file (gpu-mount); the second is uncited.</li>
+    <li><span class="tag warn">fenced</span> L16 numbers: raw incseq, snapshot −44 vs claims at −45; "do not credit past that".</li>
+    <li><span class="tag warn">not read</span> <code>region3d_scene.cljc</code> pick internals; family narrow-phase predicates (path/connector) — could be hot per candidate; <code>editing_runtime.cljs</code> atoms.</li>
+  </ul>
+  <p class="small">Sibling pages: <code>docs/below-the-waist/kept-code-map.html</code> (the notch above — pieces); <code>render-engine-map.html</code> (the same area by LAYER, a parallel session, same day — its evidence in <code>render-engine-gather/README.md</code>); <code>editing-waist-map.html</code> (what was cut). Landed under <code>docs/below-the-waist/</code> at Sid's word, 2026-08-23 ("land the docs — how else would this be contested?"); twin <code>engine-two-arrows.md</code>, edited together. Contestable by construction: every claim carries an anchor; findings go to the next fresh-eyes round and repair in place.</p>
+</section>
+</main>
