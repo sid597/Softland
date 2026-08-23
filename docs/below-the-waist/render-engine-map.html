@@ -1,0 +1,829 @@
+<title>The Parked Render Engine</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #F3F4F2;
+    --ink: #1E2A32;
+    --muted: #5C6B74;
+    --line: #D4DAD7;
+    --waist: #B44A14;
+    --park-bg: #ECEDEC;
+    --park-line: #B9C0C2;
+    --box: #FDFDFC;
+    --boxline: #7E8F99;
+    --ghost: #98A4AB;
+    --code-bg: #E9ECEA;
+    --story-bg: #F7F3EA;
+    --story-line: #D9CBA8;
+    --v-goes: #BE3B2B;
+    --v-stays: #2F7D4E;
+    --v-park: #98A4AB;
+    --v-custody: #A66A11;
+    --v-dormant: #5F78A8;
+    --v-verifier: #2F7D4E;
+    --chan: #BFD3C4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #131719;
+      --ink: #E4E9EB;
+      --muted: #93A2AA;
+      --line: #2C363B;
+      --waist: #E87B3E;
+      --park-bg: #1A1F21;
+      --park-line: #3B4447;
+      --box: #1B2226;
+      --boxline: #5E707A;
+      --ghost: #566067;
+      --code-bg: #212A2F;
+      --story-bg: #1E1B14;
+      --story-line: #5A4C2C;
+      --v-goes: #E26A59;
+      --v-stays: #5CB585;
+      --v-park: #566067;
+      --v-custody: #D9A441;
+      --v-dormant: #8EA3CF;
+      --v-verifier: #5CB585;
+      --chan: #2E4A38;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #131719;
+    --ink: #E4E9EB;
+    --muted: #93A2AA;
+    --line: #2C363B;
+    --waist: #E87B3E;
+    --park-bg: #1A1F21;
+    --park-line: #3B4447;
+    --box: #1B2226;
+    --boxline: #5E707A;
+    --ghost: #566067;
+    --code-bg: #212A2F;
+    --story-bg: #1E1B14;
+    --story-line: #5A4C2C;
+    --v-goes: #E26A59;
+    --v-stays: #5CB585;
+    --v-park: #566067;
+    --v-custody: #D9A441;
+    --v-dormant: #8EA3CF;
+    --v-verifier: #5CB585;
+    --chan: #2E4A38;
+  }
+  html { background: var(--paper); }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.55;
+    margin: 0;
+    padding: 40px 28px 80px;
+  }
+  main { max-width: 1180px; margin: 0 auto; }
+  h1 {
+    font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight: 700; font-size: 40px; line-height: 1.05; margin: 0 0 14px; letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+  h2 {
+    font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight: 600; font-size: 24px; margin: 56px 0 10px; padding-top: 18px; border-top: 1px solid var(--line);
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight: 600; font-size: 18px; margin: 30px 0 6px;
+  }
+  h4 {
+    font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", sans-serif;
+    font-weight: 600; font-size: 14px; margin: 18px 0 4px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted);
+  }
+  p { margin: 0 0 12px; max-width: 74ch; }
+  p.lede { font-size: 16px; max-width: 82ch; }
+  code, .mono { font-family: "IBM Plex Mono", monospace; font-size: 0.92em; }
+  .eyebrow { font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+  em { font-style: italic; }
+  a { color: inherit; }
+  /* the story */
+  .story { background: var(--story-bg); border: 1px solid var(--story-line); border-radius: 8px; padding: 22px 26px 10px; margin: 18px 0 10px; }
+  .story ol { margin: 0; padding-left: 0; list-style: none; counter-reset: s; max-width: 80ch; }
+  .story ol li { counter-increment: s; position: relative; padding-left: 44px; margin: 0 0 12px; font-size: 15.5px; line-height: 1.5; }
+  .story ol li::before { content: counter(s); position: absolute; left: 0; top: 2px; width: 28px; height: 22px; border-radius: 4px; background: var(--box); border: 1px solid var(--story-line); font-family: "IBM Plex Mono", monospace; font-size: 11.5px; text-align: center; line-height: 22px; color: var(--muted); }
+  .story ol li strong { font-weight: 600; }
+  .story .note { font-size: 12.5px; color: var(--muted); margin: 6px 0 8px 44px; }
+  figure { margin: 18px 0 22px; }
+  figure.tiny { display: inline-block; vertical-align: top; margin: 10px 18px 10px 0; }
+  figure svg { max-width: 100%; height: auto; display: block; }
+  figcaption { font-size: 12.5px; color: var(--muted); margin-top: 6px; max-width: 74ch; }
+  .tinyrow { display: flex; flex-wrap: wrap; gap: 0 18px; align-items: flex-start; }
+  /* the big picture */
+  .picture { border: 1px solid var(--line); border-radius: 8px; background: var(--park-bg); padding: 10px; overflow-x: auto; }
+  .picture svg { min-width: 900px; }
+  /* tables */
+  table { border-collapse: collapse; width: 100%; font-size: 13px; margin: 10px 0 18px; }
+  table.def th, table.def td { text-align: left; vertical-align: top; padding: 9px 10px; border-top: 1px solid var(--line); }
+  table.def th { font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); border-top: none; }
+  table.def td.piece { font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 600; white-space: nowrap; }
+  table.def td.files { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); }
+  table.def td.why { color: var(--muted); font-style: italic; }
+  .tablewrap { overflow-x: auto; }
+  table.map th:nth-child(1), table.map td:nth-child(1) { width: 13%; }
+  table.map th:nth-child(2), table.map td:nth-child(2) { width: 27%; }
+  table.map th:nth-child(3), table.map td:nth-child(3) { width: 20%; }
+  table.map th:nth-child(4), table.map td:nth-child(4) { width: 22%; }
+  table.map th:nth-child(5), table.map td:nth-child(5) { width: 10%; }
+  table.map th:nth-child(6), table.map td:nth-child(6) { width: 8%; }
+  /* status chips */
+  .s { display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: 10.5px; letter-spacing: 0.04em; padding: 1px 6px; border-radius: 3px; border: 1px solid; white-space: nowrap; }
+  .s-park { color: var(--v-park); border-color: var(--v-park); }
+  .s-live { color: var(--v-stays); border-color: var(--v-stays); }
+  .s-cust { color: var(--v-custody); border-color: var(--v-custody); }
+  .s-dorm { color: var(--v-dormant); border-color: var(--v-dormant); }
+  .s-dead { color: var(--v-goes); border-color: var(--v-goes); }
+  /* piece cards */
+  section.piece { margin-top: 34px; padding-top: 8px; }
+  .pbar { display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+  .pbar .files { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); }
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 0 28px; }
+  @media (max-width: 900px) { .twocol { grid-template-columns: 1fr; } }
+  .twocol > div > p { max-width: none; }
+  .plain { font-size: 15px; }
+  pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; font-family: "IBM Plex Mono", monospace; font-size: 11.5px; line-height: 1.45; overflow-x: auto; margin: 8px 0 12px; max-width: 100%; }
+  .anygeneral { border-left: 3px solid var(--story-line); padding: 2px 0 2px 12px; color: var(--muted); font-size: 13.5px; margin: 8px 0 14px; max-width: 74ch; }
+  .anygeneral b { color: var(--ink); font-weight: 600; }
+  .kv { display: grid; grid-template-columns: 9ch 1fr; gap: 4px 12px; font-size: 13.5px; margin: 6px 0 12px; max-width: 80ch; }
+  .kv dt { font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 600; color: var(--muted); text-transform: uppercase; font-size: 11px; letter-spacing: 0.06em; padding-top: 3px; }
+  .kv dd { margin: 0; }
+  .legend { display: grid; grid-template-columns: 12ch 1fr; gap: 6px 14px; font-size: 13.5px; max-width: 86ch; }
+  .legend dt { font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 600; }
+  .legend dd { margin: 0; }
+  ul.tight { margin: 4px 0 12px; padding-left: 20px; max-width: 80ch; }
+  ul.tight li { margin-bottom: 4px; }
+  .toc { font-size: 13.5px; columns: 2; column-gap: 30px; max-width: 80ch; margin: 8px 0 4px; }
+  .toc div { break-inside: avoid; margin-bottom: 3px; }
+  .toc a { text-decoration: none; border-bottom: 1px dotted var(--ghost); }
+  .srcs { font-size: 12.5px; color: var(--muted); max-width: 86ch; }
+  .srcs li { margin-bottom: 3px; }
+</style>
+
+<main>
+  <div class="eyebrow">below the waist · sibling of “What the Waist Kept” · one notch down into AREA C</div>
+  <h1>The Parked Render Engine</h1>
+  <p class="lede">The kept-code map drew the parked render engine as eight boxes. This page opens those eight one notch — each into its pieces — and answers two questions in plain words: <strong>how is an engine like this built at all</strong>, and <strong>how is ours built, and why that way</strong>. Every piece carries what it is · what goes in · what comes out · why it is shaped so · who it talks to · its observed state. Arrows are drawn only where the code actually calls; the one cable nobody plugs in today is drawn as a ghost.</p>
+  <p class="lede"><strong>This page holds no verdicts.</strong> Nothing here is approved or condemned; “is this how I want it?” stays open and is Sid’s. <strong>Grain:</strong> the eight pieces of AREA C, each opened into its sub-pieces (not files, not functions). <strong>Register:</strong> story first; depth is below, in the same words, for the piece you want to look at.</p>
+
+  <div class="toc">
+    <div><a href="#story">1 · The story in fifteen lines</a></div>
+    <div><a href="#shape">2 · The shape every engine like this has → ours</a></div>
+    <div><a href="#words">3 · The words this page uses</a></div>
+    <div><a href="#picture">4 · The picture</a></div>
+    <div><a href="#pieces">5 · The eight pieces, opened</a></div>
+    <div><a href="#waves">6 · How it came to be this shape (the waves)</a></div>
+    <div><a href="#alive">7 · What is alive, what is guarded, what has no caller</a></div>
+    <div><a href="#sources">8 · Sources</a></div>
+  </div>
+
+  <h2 id="story">1 · The story in fifteen lines</h2>
+  <p>Plain words; the engine’s own names for things are in <em>italics</em> on first use and defined in §3. Nothing here needs a file name.</p>
+  <div class="story">
+    <ol>
+      <li>A render engine has one job: take a description of what is on the page, turn it into pixels every time something changes, and say what is under the mouse.</li>
+      <li>Here the description is <strong>one store</strong>. Every visible thing is a <em>slot</em> — a small tree of boxes already laid out, with its text, images, lines and 3D rooms flattened into plain arrays — keyed by <strong>what</strong> it shows (its <em>address</em>) and <strong>where</strong> it appears (its <em>view-instance</em>).</li>
+      <li>Boxes sit in <em>containers</em>. A container is one six-number transform (move, scale, rotate). The transform is never baked into the boxes — it is <strong>one row in one table on the GPU</strong>, applied in the shader — so moving a container rewrites one row, not every box.</li>
+      <li>Text is special. The <em>shaper</em> takes a line of text, a font and a width and decides <strong>once</strong> where every glyph goes (real shaping, word-wrap only at spaces and tabs). Everything downstream reuses that answer; nobody else measures.</li>
+      <li>Everything drawn belongs to one of <strong>ten <em>families</em></strong> — box, shadow, two kinds of text, clip, image, path, connector, chrome (selection furniture), 3D region. Each family is cut in two: a <strong>pure half</strong> that derives geometry from the store (it runs on the JVM in tests) and a <strong>GPU half</strong> that packs bytes and owns its shader.</li>
+      <li>The store’s things become one ordered list — the <em>tape</em> — sorted by document-order <strong>data carried on each row</strong> (layer, pass, nesting path, rank), never by position in an array. Paint walks the tape forward; picking walks it backward, on the CPU, against box bounds.</li>
+      <li>Each frame opens with one question per family: <strong>did any input you declared change since last frame?</strong> Only the families that say yes re-produce their rows; the rows merge into a kept, sorted <em>arrangement</em>.</li>
+      <li>Change arrives as minted <em>deltas</em> — a row inserted or moved, a container changed, a region added, the viewport resized — minted by <strong>whoever made the change</strong>. Nothing scans the scene to discover what changed.</li>
+      <li>One small reducer folds the deltas into the <em>semantic state</em>: which containers carry an <em>effect</em> (opacity, mask, blur) over which row ranges, and the frame <em>plan</em> (which passes draw into which textures). Every maintained view has a from-scratch twin — its <em>oracle</em> — it can be checked against.</li>
+      <li>Then the GPU. <strong>Every drawable is the same unit square, instanced.</strong> Per-instance data (rectangle, color, corner radii, glyph uv, container row index) sits in a buffer; the vertex shader reads the container row and the camera and places the square; the fragment shader computes coverage — a rounded box by distance field, a shadow by a Gaussian, a glyph from an MSDF atlas or solved from its outline curves, an image by sampling.</li>
+      <li>Two roads out. The <em>legacy</em> road opens one pass straight onto the canvas and walks the tape. The <em>linear</em> road goes through the <em>compositor</em>: the scene into a 16-bit-float texture, each effect group into its own texture, blur / mask / composite, then one present pass that converts to sRGB. A target pool leases those textures and <strong>refuses past a budget</strong>; blur degrades instead of dying.</li>
+      <li>A <em>scheduler</em> decides whether a frame needs encoding at all — from causes (world, viewport, interaction, clock…) and registered deadlines — and time is <strong>handed in as a value</strong>, never read inside derivation.</li>
+      <li>A 3D region is a whole 3D scene that appears as <strong>one row on the tape</strong>: its own camera, meshes, lights, shadows and depth, rendered into its own leased texture, then drawn as a quad like anything else; a pointer into it is routed to a resolver that picks inside.</li>
+      <li>The <em>verifier</em> is a browser harness that builds the real systems, renders small cases twice, hashes the bytes against golden manifests, replays the scheduler, and runs source-level fences (“no family gets a private draw path”, “nobody measures text privately”).</li>
+      <li>What is alive today: <strong>only the verifier drives any of it.</strong> The one function that does a whole frame has no caller — the product client that used to call it was cut at the waist — so this is an engine on blocks, proven by its harness, waiting for a host.</li>
+    </ol>
+    <div class="note">Sentences 2–9 are the CPU side (all of it pure, JVM-testable, except the atoms in the runtime). Sentences 10–11 are the GPU side. 12–14 are the edges. Everything here was read from source this session; the gatherer digests and line anchors are in §8.</div>
+  </div>
+
+  <div class="tinyrow">
+    <figure class="tiny">
+      <svg viewBox="0 0 520 120" role="img" aria-label="The frame path: store to tape to frame plan to GPU to pixels, with pick walking the tape in reverse." width="520" height="120">
+        <defs><marker id="ta" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <g font-family="IBM Plex Sans Condensed" font-size="12.5" font-weight="600" fill="currentColor" text-anchor="middle">
+          <rect x="6" y="28" width="88" height="40" rx="5" fill="none" stroke="currentColor"/><text x="50" y="53">the store</text>
+          <rect x="134" y="28" width="88" height="40" rx="5" fill="none" stroke="currentColor"/><text x="178" y="53">the tape</text>
+          <rect x="262" y="28" width="88" height="40" rx="5" fill="none" stroke="currentColor"/><text x="306" y="53">frame plan</text>
+          <rect x="390" y="28" width="88" height="40" rx="5" fill="none" stroke="currentColor"/><text x="434" y="53">GPU → pixels</text>
+        </g>
+        <g stroke="currentColor" stroke-width="1.4" fill="none" marker-end="url(#ta)">
+          <line x1="94" y1="48" x2="132" y2="48"/><line x1="222" y1="48" x2="260" y2="48"/><line x1="350" y1="48" x2="388" y2="48"/>
+        </g>
+        <g font-family="IBM Plex Sans" font-size="10.5" fill="currentColor" text-anchor="middle" opacity="0.75">
+          <text x="113" y="40">slots</text><text x="241" y="40">rows</text><text x="369" y="40">passes</text>
+        </g>
+        <path d="M434,70 L434,96 L50,96 L50,70" stroke="currentColor" stroke-width="1.2" fill="none" stroke-dasharray="4 3" marker-end="url(#ta)"/>
+        <text x="242" y="111" font-family="IBM Plex Sans" font-size="10.5" fill="currentColor" text-anchor="middle" opacity="0.75">pick walks the same tape backward (CPU)</text>
+      </svg>
+      <figcaption>One frame: description → ordered rows → a plan of passes → GPU. Picking is the same tape, walked in reverse, on the CPU.</figcaption>
+    </figure>
+    <figure class="tiny">
+      <svg viewBox="0 0 440 120" role="img" aria-label="One unit square instanced many times; the vertex shader composes the container row and the camera." width="440" height="120">
+        <defs><marker id="tb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <rect x="10" y="22" width="44" height="44" fill="none" stroke="currentColor" stroke-width="1.4"/>
+        <text x="32" y="84" font-family="IBM Plex Sans Condensed" font-size="11.5" font-weight="600" fill="currentColor" text-anchor="middle">unit square</text>
+        <text x="32" y="98" font-family="IBM Plex Sans" font-size="10" fill="currentColor" text-anchor="middle" opacity="0.75">× N instances</text>
+        <line x1="60" y1="44" x2="98" y2="44" stroke="currentColor" stroke-width="1.4" marker-end="url(#tb)"/>
+        <g font-family="IBM Plex Sans" font-size="10.5" fill="currentColor">
+          <rect x="104" y="14" width="150" height="60" rx="5" fill="none" stroke="currentColor"/>
+          <text x="112" y="31" font-weight="600" font-family="IBM Plex Sans Condensed" font-size="12">vertex shader</text>
+          <text x="112" y="47">rect · radii · color · uv …</text>
+          <text x="112" y="61">+ container row + camera</text>
+        </g>
+        <line x1="258" y1="44" x2="296" y2="44" stroke="currentColor" stroke-width="1.4" marker-end="url(#tb)"/>
+        <g font-family="IBM Plex Sans" font-size="10.5" fill="currentColor">
+          <rect x="302" y="14" width="130" height="60" rx="5" fill="none" stroke="currentColor"/>
+          <text x="310" y="31" font-weight="600" font-family="IBM Plex Sans Condensed" font-size="12">fragment shader</text>
+          <text x="310" y="47">coverage: SDF box,</text>
+          <text x="310" y="61">glyph, shadow, image</text>
+        </g>
+        <path d="M160,74 L160,104 L32,104" stroke="currentColor" stroke-width="1" fill="none" stroke-dasharray="3 3"/>
+        <text x="170" y="110" font-family="IBM Plex Sans" font-size="10" fill="currentColor" opacity="0.75">containers[idx] + camera — composed per vertex</text>
+      </svg>
+      <figcaption>The GPU side in one idea: no vertex buffers of geometry — one square, instanced; per-instance bytes + one table of container rows + one camera.</figcaption>
+    </figure>
+    <figure class="tiny">
+      <svg viewBox="0 0 460 120" role="img" aria-label="Proportional recompute: inputs compared per family; only changed families re-produce; the arrangement is kept." width="460" height="120">
+        <defs><marker id="tc" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker></defs>
+        <g font-family="IBM Plex Sans Condensed" font-size="12" font-weight="600" fill="currentColor" text-anchor="middle">
+          <rect x="8" y="30" width="110" height="40" rx="5" fill="none" stroke="currentColor"/><text x="63" y="49">last inputs</text><text x="63" y="63" font-family="IBM Plex Sans" font-weight="400" font-size="10" opacity="0.75">per family</text>
+          <rect x="170" y="30" width="110" height="40" rx="5" fill="none" stroke="currentColor"/><text x="225" y="49">changed?</text><text x="225" y="63" font-family="IBM Plex Sans" font-weight="400" font-size="10" opacity="0.75">declared keys only</text>
+          <rect x="332" y="8" width="118" height="36" rx="5" fill="none" stroke="currentColor"/><text x="391" y="30">re-produce rows</text>
+          <rect x="332" y="60" width="118" height="36" rx="5" fill="none" stroke="currentColor" stroke-dasharray="3 3"/><text x="391" y="82" opacity="0.7">keep last rows</text>
+        </g>
+        <g stroke="currentColor" stroke-width="1.4" fill="none" marker-end="url(#tc)">
+          <line x1="118" y1="50" x2="168" y2="50"/><line x1="280" y1="44" x2="330" y2="28"/><line x1="280" y1="56" x2="330" y2="76"/>
+        </g>
+        <text x="300" y="36" font-family="IBM Plex Sans" font-size="10" fill="currentColor">yes</text>
+        <text x="300" y="74" font-family="IBM Plex Sans" font-size="10" fill="currentColor">no</text>
+        <text x="230" y="112" font-family="IBM Plex Sans" font-size="10.5" fill="currentColor" text-anchor="middle" opacity="0.75">the sorted arrangement is kept between frames; only changed families touch it</text>
+      </svg>
+      <figcaption>“Recompute proportional to change”, as code: a per-family gate on declared inputs in front of everything else.</figcaption>
+    </figure>
+  </div>
+
+  <h2 id="shape">2 · The shape every engine like this has → ours</h2>
+  <p>This part is general knowledge, not read from the repo: the parts any retained-mode 2D canvas renderer ends up having (Figma’s, tldraw’s, Zed’s GPUI, Flutter/Skia, Vello all have a version of each). The right column is where Softland keeps that part. The names on the right are the eight boxes from the kept-code map.</p>
+  <div class="tablewrap">
+  <table class="def">
+    <tr><th style="width:26%">any engine has…</th><th style="width:40%">what it does there</th><th>in Softland it is…</th></tr>
+    <tr><td class="piece">a retained scene (display list / scene graph) + a layout</td><td>the description of what’s on screen, kept between frames; boxes nested in boxes; a layout pass that sizes and positions them</td><td><strong>Scene values</strong> (the store · rect tree · containers · the tape) fed by the <strong>Presentation grammar</strong> (faces as data) and owned at runtime by <strong>Scene runtime</strong></td></tr>
+    <tr><td class="piece">a text engine (shaping + line breaking + glyph raster)</td><td>HarfBuzz-class shaping turns characters into positioned glyphs; a line breaker wraps; glyphs are rasterized into an atlas (bitmap / SDF) or solved from outlines</td><td><strong>The shaper</strong> (HarfBuzz wasm + bidi · one shape per line · whitespace-only cuts · planes) → the renderer’s two text systems (MSDF atlas · Slug outlines)</td></tr>
+    <tr><td class="piece">a damage / invalidation layer</td><td>knowing what changed so you don’t redraw everything: dirty sets, keyed diffs, incremental computation</td><td><strong>Frame computation</strong> — inputs (per-family “did my declared inputs change?”), minted deltas, the one reducer, maintained views with oracles</td></tr>
+    <tr><td class="piece">a render plan (render graph / frame graph)</td><td>which passes draw into which textures, in what order; resources declared, validated, reused</td><td>the plan view + graph inside <strong>Frame computation</strong> (passes · resources · ten laws · export plan · structural reuse)</td></tr>
+    <tr><td class="piece">batching into GPU draws (materials / render features)</td><td>per kind of drawable: a pipeline (shaders), an instance layout, a packer, an executor</td><td><strong>Render families</strong> (material half + GPU half per family) + the six systems inside the <strong>WebGPU core</strong></td></tr>
+    <tr><td class="piece">a compositor</td><td>effects need offscreen targets: groups, blur, masks, color management, one present pass</td><td>the compositor inside the <strong>WebGPU core</strong> (rgba16float targets · leased from a refusing pool · linear → sRGB present)</td></tr>
+    <tr><td class="piece">hit-testing</td><td>CPU reverse walk over the scene, or a GPU id buffer read back</td><td>CPU: the tape walked in reverse against rect-tree bounds + per-family narrow predicates (<strong>Scene values</strong>); regions route to their own resolver</td></tr>
+    <tr><td class="piece">a frame loop / scheduler</td><td>draw only when dirty; animations register deadlines; time enters at the edge</td><td>the scheduler inside <strong>Frame computation</strong> (seven causes · deadlines · pure decide · replay) — present, tested, not wired to a running loop today</td></tr>
+    <tr><td class="piece">a test harness</td><td>golden images, determinism checks, replay</td><td><strong>The verifier</strong> (render twice → hash vs manifest · replay must be byte-identical · static fences over the source)</td></tr>
+  </table>
+  </div>
+  <p>Two things are unusual about ours, and both come from settled law rather than from engine habit: (a) the scene is <strong>keyed values all the way down</strong> — identity never position — because the store contract was mined from Electric’s keyed-diff internals and re-keyed for the GPU (decisions.md, “The render seam”); and (b) <strong>every incremental thing keeps its batch twin alive as an oracle</strong> — the “fenced incremental view” — so the engine can be rebuilt piece by piece while staying checkable.</p>
+
+  <h2 id="words">3 · The words this page uses</h2>
+  <dl class="legend">
+    <dt>slot</dt><dd>one view-instance’s whole render answer, precomputed: its laid-out tree of boxes (container-local), its flattened ops per family, its address index. Keyed by view-instance; a map value.</dd>
+    <dt>address · view-instance</dt><dd>address = <em>what</em> is shown (a block’s id); view-instance = <em>which appearance</em> of it (a face in a reader pane, the main face…). One address can appear in many slots.</dd>
+    <dt>container</dt><dd>a node in a transform hierarchy; one six-number affine <code>[a b c d tx ty]</code>; effective = parent ∘ local; carries a compact <em>transport slot</em> = its row index in the GPU table.</dd>
+    <dt>family</dt><dd>one kind of drawable. Ten: rect · shadow · msdf · slug · clip · image · path · connector · chrome · region-3d. Registered as data; no family gets a branch in the core walkers.</dd>
+    <dt>tape · entry · arrangement</dt><dd>the tape = the one ordered list of entries for a frame; an entry = one row (id · family · order tokens · paint pointer · pick policy · visibility); the arrangement = the tape as a kept sorted map, maintained by insert/remove between frames.</dd>
+    <dt>order tokens</dt><dd>the sort key carried on each row: stratum (world / overlay / region-composite) · pass class · nested stack path · part rank · stable tie. Document order is data, never array position.</dd>
+    <dt>delta</dt><dd>a minted change value: entry insert/move/remove · container (topology vs parameter) · region topology · global · region lease · region payload · viewport size. Minted by whoever made the change.</dd>
+    <dt>effect · span · plan</dt><dd>effect = a container-level compositing declaration (opacity · mask · layer blur · backdrop blur · isolate); span = the entry ranges a container’s effect covers; plan = the passes + resources for this frame.</dd>
+    <dt>maintained view · oracle · fence</dt><dd>maintained = updated incrementally from deltas; oracle = the same answer recomputed from scratch; fence = the check that the two agree (a test, or a flag-on twin check at runtime).</dd>
+    <dt>material half · GPU half</dt><dd>a family’s pure side (grammar, geometry, routing, tessellation — <code>.cljc</code>) vs its GPU side (pipeline, packed bytes, upload gate — <code>.cljs</code>).</dd>
+    <dt>road</dt><dd>the engine’s word for a code path you can choose between: legacy (one pass) vs linear (compositor); MSDF vs Slug for text; shaped vs legacy-monospace for layout.</dd>
+    <dt>receipt · golden · fence (.mjs)</dt><dd>receipt = a published measurement (ledger counters, plan hash, compositor stats on <code>globalThis</code>); golden = a rendered case hashed against a manifest; fence = a static check over the source text that forbids a class of regression.</dd>
+    <dt>PARKED · CUSTODY · LIVE</dt><dd>Sid’s word for this area (parked: guarded by the verifier build, no product entry) · kept only for TrailView / anatomy / goldens, one-cut deletion debt · has a runtime caller today.</dd>
+  </dl>
+
+  <h2 id="picture">4 · The picture</h2>
+  <p>The eight boxes of AREA C, each opened into its sub-pieces. Arrows point the way a value travels and exist only where the code actually calls (a require + a call site). Solid = a call between pieces; <span style="color:var(--v-verifier)">dashed green</span> = the verifier driving production code; dotted grey = the one cable nobody plugs in today. The left bar on each box is its state (grey parked · amber custody · green live). Labels name the value crossing.</p>
+  <div class="picture">
+  <svg viewBox="0 0 1180 1620" role="img" aria-label="Map of the parked render engine opened one notch: Scene runtime and Presentation grammar on top; Scene values and the Shaper below them; Render families; Frame computation; the WebGPU core along the bottom; the Verifier as a tall box on the right driving every other piece with dashed arrows. Solid arrows carry values between pieces: faces into the store, slots and transforms from the runtime, container deltas down a left gutter, the tape and family entries down a middle channel into the WebGPU core, glyph placements down a right gutter. A dotted grey line marks the store-frame cable into draw-frame! that has no caller today.">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--ink)"/></marker>
+      <marker id="arrm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--ghost)"/></marker>
+      <marker id="arrv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--v-verifier)"/></marker>
+    </defs>
+
+    <!-- the channel -->
+    <rect x="676" y="520" width="228" height="720" fill="var(--chan)" opacity="0.35" rx="4"/>
+    <text x="790" y="1228" text-anchor="middle" font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">the channel — what flows into the GPU core</text>
+
+    <!-- ================= B · SCENE RUNTIME ================= -->
+    <rect x="120" y="40" width="510" height="190" rx="6" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="121.5" y="42" width="5" height="186" fill="var(--v-park)"/>
+    <text x="136" y="62" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="var(--ink)">SCENE RUNTIME</text>
+    <text x="614" y="62" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">.cljs · the atoms · 89K · PARKED</text>
+    <g font-family="IBM Plex Sans Condensed" font-weight="600" font-size="11.5" fill="var(--ink)">
+      <rect x="136" y="80" width="112" height="60" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="143" y="96">store + registry atoms</text>
+      <rect x="258" y="80" width="112" height="60" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="265" y="96">face lifecycle</text>
+      <rect x="380" y="80" width="112" height="60" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="387" y="96">picks · context · actions</text>
+      <rect x="502" y="80" width="112" height="60" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="509" y="96">views + window APIs</text>
+      <rect x="136" y="152" width="152" height="64" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="143" y="168">chrome runtime</text>
+      <rect x="299" y="152" width="152" height="64" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="306" y="168">region3d runtime</text>
+      <rect x="462" y="152" width="152" height="64" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="469" y="168">frame runtime</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.6" fill="var(--muted)">
+      <text x="143" y="110">delta journal · cid recycling</text><text x="143" y="122">mutations at edges only</text><text x="143" y="134">(the ! wrappers)</text>
+      <text x="265" y="110">register · close · refresh</text><text x="265" y="122">compiled faces kept out</text><text x="265" y="134">of slots (closures)</text>
+      <text x="387" y="110">pick-world · last-pick</text><text x="387" y="122">context bundle (edn)</text><text x="387" y="134">action registry (fns)</text>
+      <text x="509" y="110">&lt;store-frame · &lt;effective</text><text x="509" y="122">&lt;frame-registry</text><text x="509" y="134">sceneFaces · sceneContext</text>
+      <text x="143" y="182">selection · gesture · snap · drag</text><text x="143" y="194">strangles two verbs · reconciles</text><text x="143" y="206">chrome slots into the store</text>
+      <text x="306" y="182">session camera · listeners</text><text x="306" y="194">gizmo · fixture slots</text><text x="306" y="206">installs the region pick resolver</text>
+      <text x="469" y="182">W4 fixture trees · export chord</text><text x="469" y="194">selection → scheduler deadline</text><text x="469" y="206">receipts · PNG export</text>
+    </g>
+
+    <!-- ================= A · PRESENTATION GRAMMAR ================= -->
+    <rect x="690" y="40" width="460" height="150" rx="6" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="691.5" y="42" width="5" height="146" fill="var(--v-custody)"/>
+    <text x="706" y="62" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="var(--ink)">PRESENTATION GRAMMAR</text>
+    <text x="1134" y="62" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">.cljc · 93K · CUSTODY</text>
+    <g font-family="IBM Plex Sans Condensed" font-weight="600" font-size="11.5" fill="var(--ink)">
+      <rect x="706" y="78" width="206" height="96" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="713" y="94">assembly interpreter</text>
+      <rect x="928" y="78" width="206" height="96" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="935" y="94">primitive vocabulary</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.6" fill="var(--muted)">
+      <text x="713" y="108">a face = pure EDN arrangement (assembly)</text><text x="713" y="120">compile once at wear · apply on data change</text><text x="713" y="132">total: bad input → a visible error card</text><text x="713" y="144">guard: no list, no symbol — arrangement only</text><text x="713" y="156">out: an rt-node tree the store lays out</text>
+      <text x="935" y="108">16 builders (harvested ui-* · text-run ·</text><text x="935" y="120">indent-rail · stack) as a plain registry</text><text x="935" y="132">measure in the primitive, arrange in engine</text><text x="935" y="144">keyword + code-address persist, fns never</text><text x="935" y="156">also required by the server’s assembly_adapter</text>
+    </g>
+
+    <!-- ================= C · SCENE VALUES ================= -->
+    <rect x="120" y="290" width="530" height="210" rx="6" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="121.5" y="292" width="5" height="206" fill="var(--v-park)"/>
+    <text x="136" y="312" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="var(--ink)">SCENE VALUES</text>
+    <text x="634" y="312" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">pure .cljc · 134K · PARKED</text>
+    <g font-family="IBM Plex Sans Condensed" font-weight="600" font-size="11.5" fill="var(--ink)">
+      <rect x="136" y="330" width="160" height="66" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="143" y="346">the store</text>
+      <rect x="305" y="330" width="160" height="66" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="312" y="346">rect tree</text>
+      <rect x="474" y="330" width="160" height="66" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="481" y="346">containers</text>
+      <rect x="136" y="412" width="245" height="70" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="143" y="428">the tape</text>
+      <rect x="389" y="412" width="245" height="70" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="396" y="428">selection · snap</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.6" fill="var(--muted)">
+      <text x="143" y="360">slots keyed by view-instance</text><text x="143" y="372">index address → view-instances</text><text x="143" y="384">ordered (sorted map) · pick</text>
+      <text x="312" y="360">everything is a rect · stack layout</text><text x="312" y="372">8 flatten walks → ops per family</text><text x="312" y="384">bounds hit + narrow predicate + bubble</text>
+      <text x="481" y="360">six-number affine [a b c d tx ty]</text><text x="481" y="372">effective = parent ∘ local, once</text><text x="481" y="384">transport slot = GPU row index</text>
+      <text x="143" y="442">ten families registered as data</text><text x="143" y="454">order tokens on every row · paint → / pick ←</text><text x="143" y="466">ordered-insert (maintained) · compile-tape (oracle)</text>
+      <text x="396" y="442">occurrence ids {vi address} · toggle / marquee</text><text x="396" y="454">snap: alignments · guides · equal-gap ticks</text><text x="396" y="466">minted with the gesture step — paint can’t lie</text>
+    </g>
+
+    <!-- ================= D · THE SHAPER ================= -->
+    <rect x="710" y="290" width="440" height="190" rx="6" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="711.5" y="292" width="5" height="186" fill="var(--v-park)"/>
+    <text x="726" y="312" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="var(--ink)">THE SHAPER</text>
+    <text x="1134" y="312" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">124K · PARKED-but-floor</text>
+    <g font-family="IBM Plex Sans Condensed" font-weight="600" font-size="11.5" fill="var(--ink)">
+      <rect x="726" y="330" width="130" height="62" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="733" y="346">layout</text>
+      <rect x="865" y="330" width="130" height="62" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="872" y="346">planes</text>
+      <rect x="1004" y="330" width="130" height="62" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="1011" y="346">shaper provider</text>
+      <rect x="726" y="406" width="200" height="62" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="733" y="422">fonts</text>
+      <rect x="934" y="406" width="200" height="62" rx="4" fill="var(--code-bg)" stroke="var(--line)"/>
+      <text x="941" y="422">layout key + cache</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.6" fill="var(--muted)">
+      <text x="733" y="360">one shape pass per line</text><text x="733" y="372">cut only at space / tab</text><text x="733" y="384">7 readers echo layout/id</text>
+      <text x="872" y="360">columnar typed arrays</text><text x="872" y="372">derived, not retained</text><text x="872" y="384">(−150 MB measured)</text>
+      <text x="1011" y="360">HarfBuzz wasm + bidi</text><text x="1011" y="372">injected as shape-line</text><text x="1011" y="384">JVM tests: synthetic</text>
+      <text x="733" y="436">manifest · MSDF atlas png+json · slug curve/band</text><text x="733" y="448">TTF bytes → provider · backend msdf|slug</text><text x="733" y="460">(no runtime atlas — prebuilt under resources/)</text>
+      <text x="941" y="436">source + provider + metrics → one key</text><text x="941" y="448">paint/camera/selection deliberately absent</text><text x="941" y="460">one layout per address · oracle mode</text>
+    </g>
+
+    <!-- ================= F · RENDER FAMILIES ================= -->
+    <rect x="120" y="570" width="550" height="330" rx="6" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="121.5" y="572" width="5" height="326" fill="var(--v-park)"/>
+    <text x="136" y="590" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="var(--ink)">RENDER FAMILIES</text>
+    <text x="654" y="590" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">432K · PARKED · chrome + region3d goldens green</text>
+    <text x="136" y="609" font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">MATERIAL HALVES — pure .cljc (grammar · geometry · routing · tessellation) · run on the JVM</text>
+    <g font-family="IBM Plex Sans Condensed" font-weight="600" font-size="11.5" fill="var(--ink)">
+      <rect x="136" y="616" width="98" height="62" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="142" y="631">chrome</text>
+      <rect x="241" y="616" width="98" height="62" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="247" y="631">connector</text>
+      <rect x="346" y="616" width="98" height="62" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="352" y="631">path</text>
+      <rect x="451" y="616" width="98" height="62" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="457" y="631">image</text>
+      <rect x="556" y="616" width="98" height="62" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="562" y="631">region3d</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.4" fill="var(--muted)">
+      <text x="142" y="645">outline · handles</text><text x="142" y="657">marquee · guides</text><text x="142" y="669">session-only truth</text>
+      <text x="247" y="645">references edge</text><text x="247" y="657">straight / elbow</text><text x="247" y="669">heads · label</text>
+      <text x="352" y="645">ink + shape</text><text x="352" y="657">quads + fans</text><text x="352" y="669">bridge + ear-clip</text>
+      <text x="457" y="645">digest → bitmap</text><text x="457" y="657">512² atlas or</text><text x="457" y="669">dedicated texture</text>
+      <text x="562" y="645">its own 3D scene</text><text x="562" y="657">camera · BVH · pick</text><text x="562" y="669">placement · rungs</text>
+    </g>
+    <text x="136" y="697" font-family="IBM Plex Mono" font-size="9" fill="var(--muted)">GPU HALVES — .cljs (pipeline · packed bytes · upload gate) · browser only · no JVM test reaches them</text>
+    <g font-family="IBM Plex Sans Condensed" font-weight="600" font-size="11.5" fill="var(--ink)">
+      <rect x="136" y="704" width="98" height="62" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="142" y="719">chrome gpu</text>
+      <rect x="241" y="704" width="98" height="62" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="247" y="719">connector gpu</text>
+      <rect x="346" y="704" width="98" height="62" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="352" y="719">path gpu</text>
+      <rect x="451" y="704" width="98" height="62" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="457" y="719">region3d gpu</text>
+      <rect x="556" y="704" width="98" height="62" rx="4" fill="none" stroke="var(--ghost)" stroke-dasharray="3 3"/><text x="562" y="719" fill="var(--muted)">rect · shadow ·</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.4" fill="var(--muted)">
+      <text x="142" y="733">anchor + px offset</text><text x="142" y="745">repack only when</text><text x="142" y="757">the mesh set changes</text>
+      <text x="247" y="733">borrows path’s</text><text x="247" y="745">vertex shader</text><text x="247" y="757">label via text sys</text>
+      <text x="352" y="733">one vertex lane</text><text x="352" y="745">upload on mesh or</text><text x="352" y="757">zoom-regime change</text>
+      <text x="457" y="733">8 pipelines · MSAA</text><text x="457" y="745">→ leased texture</text><text x="457" y="757">+ placement · bindings</text>
+      <text x="562" y="733">msdf · slug · clip ·</text><text x="562" y="745">image — these six</text><text x="562" y="757">live inside the renderer</text>
+    </g>
+    <rect x="136" y="782" width="518" height="108" rx="4" fill="none" stroke="var(--boxline)" stroke-dasharray="4 3"/>
+    <text x="143" y="798" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="11.5" fill="var(--ink)">the plug-in contract — four registries, all plain data at namespace load</text>
+    <g font-family="IBM Plex Sans" font-size="9.6" fill="var(--muted)">
+      <text x="143" y="814">① a contract row in the tape’s family registry (grammar · pick policy · provenance · geometry regimes · color tags) — no paint fn, no hit fn</text>
+      <text x="143" y="827">② an input declaration: the set of store-frame keys this family may read (raw camera is forbidden; camera-derived values pass a quantization door)</text>
+      <text x="143" y="840">③ a row in the renderer’s family registry: {contract · inputs · produce (inputs → entries) · execute! (pass, entry → drawn)}</text>
+      <text x="143" y="853">④ optionally a narrow-phase hit predicate in the rect tree (path · connector · chrome have one; everything else = bounds)</text>
+      <text x="143" y="870" fill="var(--ink)">a load-time check throws unless the executor registry covers exactly the ten admitted families — the core walkers hold no family branch;</text>
+      <text x="143" y="883" fill="var(--ink)">two leaks remain: the per-family prepare/upload block in the frame function is hand-written, and six families’ GPU halves sit inside the renderer file.</text>
+    </g>
+
+    <!-- ================= V · THE VERIFIER ================= -->
+    <rect x="910" y="570" width="240" height="560" rx="6" fill="var(--box)" stroke="var(--v-verifier)" stroke-width="1.6"/>
+    <rect x="911.5" y="572" width="5" height="556" fill="var(--v-verifier)"/>
+    <text x="926" y="592" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="var(--ink)">THE VERIFIER</text>
+    <text x="1134" y="592" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--v-verifier)">304K · LIVE</text>
+    <g font-family="IBM Plex Sans Condensed" font-weight="600" font-size="11.5" fill="var(--ink)">
+      <rect x="926" y="610" width="208" height="86" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="933" y="626">start! → result</text>
+      <rect x="926" y="708" width="208" height="86" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="933" y="724">goldens</text>
+      <rect x="926" y="806" width="208" height="86" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="933" y="822">probes · receipts</text>
+      <rect x="926" y="904" width="208" height="86" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="933" y="920">static fences (.mjs)</text>
+      <rect x="926" y="1002" width="208" height="86" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="933" y="1018">the runner</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.6" fill="var(--muted)">
+      <text x="933" y="640">adapter → device → two fonts →</text><text x="933" y="652">the REAL production systems →</text><text x="933" y="664">nine lanes in parallel → one</text><text x="933" y="676">schema-v2 map on window.__render…</text><text x="933" y="688">never substitutes lookalike WGSL</text>
+      <text x="933" y="738">render a 128² case twice → sha256</text><text x="933" y="750">raw + png; must match the manifest</text><text x="933" y="762">AND the on-disk png witness</text><text x="933" y="774">image 3 · path 3 · connector 3 ·</text><text x="933" y="786">chrome 3 · region3d floor 8</text>
+      <text x="933" y="836">7 zoom cases z0.01 → z1000</text><text x="933" y="848">shader digests · Q5 affine edge</text><text x="933" y="860">Q8 transport · T1 layout readers</text><text x="933" y="872">W4: scheduler replay must be</text><text x="933" y="884">byte-identical · color receipts</text>
+      <text x="933" y="934">scene-tape fence: every family via</text><text x="933" y="946">the registry, no private draw path</text><text x="933" y="958">text-layout fence: nobody measures</text><text x="933" y="970">proportional shaper: HarfBuzz in</text><text x="933" y="982">node really kerns / ligates / RTL</text>
+      <text x="933" y="1032">Puppeteer · swiftshader · serves the</text><text x="933" y="1044">release build from a synthetic</text><text x="933" y="1056">localhost origin (no server at all)</text><text x="933" y="1068">→ receipt.json · exit 1 on failure</text><text x="933" y="1080">“152 files” = the compile count</text>
+    </g>
+    <text x="1030" y="1106" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.4" fill="var(--muted)">the only live entry · requires chrome/region3d runtimes,</text>
+    <text x="1030" y="1118" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.4" fill="var(--muted)">calls nothing in them · frame runtime: 2 receipt fns</text>
+
+    <!-- ================= E · FRAME COMPUTATION ================= -->
+    <rect x="120" y="960" width="550" height="220" rx="6" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="121.5" y="962" width="5" height="216" fill="var(--v-park)"/>
+    <text x="136" y="982" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="var(--ink)">FRAME COMPUTATION</text>
+    <text x="654" y="982" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">pure .cljc · 111K · PARKED · called only from the frame function</text>
+    <g font-family="IBM Plex Sans Condensed" font-weight="600" font-size="11.5" fill="var(--ink)">
+      <rect x="136" y="1000" width="166" height="70" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="143" y="1016">inputs</text>
+      <rect x="312" y="1000" width="166" height="70" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="319" y="1016">deltas</text>
+      <rect x="488" y="1000" width="166" height="70" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="495" y="1016">semantic state</text>
+      <rect x="136" y="1082" width="166" height="70" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="143" y="1098">effect view + effects</text>
+      <rect x="312" y="1082" width="166" height="70" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="319" y="1098">plan view + graph</text>
+      <rect x="488" y="1082" width="166" height="70" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="495" y="1098">scheduler</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.6" fill="var(--muted)">
+      <text x="143" y="1030">declared keys per family · changed?</text><text x="143" y="1042">3-tier sameness · no raw camera</text><text x="143" y="1054">quantization doors · the ledger</text><text x="143" y="1066">(work counters → globalThis)</text>
+      <text x="319" y="1030">7 kinds: entry · container · region</text><text x="319" y="1042">topology · global · + 3 binding</text><text x="319" y="1054">container: topology vs parameter</text><text x="319" y="1066">minted by the owner, never scanned</text>
+      <text x="495" y="1030">one 65-line reducer → one</text><text x="495" y="1042">generation for arrangement +</text><text x="495" y="1054">effect view + plan view</text><text x="495" y="1066">empty delta set ⇒ identical state</text>
+      <text x="143" y="1112">opacity · mask · layer/backdrop blur</text><text x="143" y="1124">membership keyed by entry, not index</text><text x="143" y="1136">→ spans for the compositor</text><text x="143" y="1148">oracle: derive-effect-spans</text>
+      <text x="319" y="1112">fragments → passes + resources</text><text x="319" y="1124">validate: the ten laws · export plan</text><text x="319" y="1136">structure reused, ranges rebound</text><text x="319" y="1148">oracle: an independent compiler</text>
+      <text x="495" y="1112">7 causes · deadline registry</text><text x="495" y="1124">pure decide (time passed in)</text><text x="495" y="1136">pulse-alpha · replay · receipt</text><text x="495" y="1148">tested; no live loop calls it</text>
+    </g>
+
+    <!-- ================= G · WEBGPU CORE ================= -->
+    <rect x="120" y="1240" width="1030" height="260" rx="6" fill="var(--box)" stroke="var(--boxline)" stroke-width="1.4"/>
+    <rect x="121.5" y="1242" width="5" height="256" fill="var(--v-park)"/>
+    <text x="136" y="1262" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="var(--ink)">WEBGPU CORE</text>
+    <text x="1134" y="1262" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--muted)">.cljs · 313K · PARKED · draw-frame! has no caller</text>
+    <g font-family="IBM Plex Sans Condensed" font-weight="600" font-size="11.5" fill="var(--ink)">
+      <rect x="136" y="1280" width="242" height="72" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="143" y="1296">systems</text>
+      <rect x="388" y="1280" width="242" height="72" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="395" y="1296">transforms</text>
+      <rect x="640" y="1280" width="242" height="72" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="647" y="1296">the frame function</text>
+      <text x="876" y="1296" text-anchor="end" font-family="IBM Plex Mono" font-size="9" fill="var(--v-goes)">◂ no caller</text>
+      <rect x="892" y="1280" width="242" height="72" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="899" y="1296">tape executor + registry</text>
+      <rect x="136" y="1366" width="326" height="72" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="143" y="1382">compositor</text>
+      <rect x="472" y="1366" width="326" height="72" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="479" y="1382">buffer pool</text>
+      <rect x="808" y="1366" width="326" height="72" rx="4" fill="var(--code-bg)" stroke="var(--line)"/><text x="815" y="1382">budget</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="9.6" fill="var(--muted)">
+      <text x="143" y="1310">one unit quad from vertex_index, instanced</text><text x="143" y="1322">rect (SDF box) · shadow (Gaussian) · msdf ·</text><text x="143" y="1334">slug (analytic curves) · image · clear-quad</text><text x="143" y="1346">one draw per tape entry</text>
+      <text x="395" y="1310">camera = one 6-float uniform</text><text x="395" y="1322">containers = one storage buffer of</text><text x="395" y="1334">32-byte affine rows (16 384), indexed</text><text x="395" y="1346">per instance; composed in the vertex shader</text>
+      <text x="647" y="1310">uploads first → changed families →</text><text x="647" y="1322">arrangement → deltas → reducer → spans +</text><text x="647" y="1334">plan → camera → scissors → twin check →</text><text x="647" y="1346">legacy road | linear road</text>
+      <text x="899" y="1310">entries executed interleaved, in tape</text><text x="899" y="1322">order, pipeline switch per entry;</text><text x="899" y="1334">{contract inputs produce execute!} × 10;</text><text x="899" y="1346">exhaustiveness asserted at load</text>
+      <text x="143" y="1396">linear road: scene → rgba16float target; each effect group → own target;</text><text x="143" y="1408">mask (own coverage texture) · separable blur · backdrop snapshot; ONE present pass</text><text x="143" y="1420">(linear → sRGB); recycling target pool, 512 MB cap, refuses by name; blur degrades</text>
+      <text x="479" y="1396">one growing GPU buffer + CPU slot allocator</text><text x="479" y="1408">keyed (by id) · ordered (z-correct) · batch (positional) updates</text><text x="479" y="1420">freed slots zeroed “to prevent ghost rendering” — editor-era; no outside caller</text>
+      <text x="815" y="1396">bookkeeping only: WeakMap of every buffer/texture</text><text x="815" y="1408">reserved vs active bytes · adapter limits · warns at 80 %</text><text x="815" y="1420">never refuses — the compositor’s target pool does</text>
+    </g>
+    <text x="136" y="1462" font-family="IBM Plex Sans" font-size="10" fill="var(--ink)">two roads out of the same tape: <tspan font-weight="600">legacy</tspan> — one render pass straight onto the swap chain, loadOp “load” with a dirty rect; <tspan font-weight="600">linear</tspan> — the compositor. Both reachable from the frame function; the road is chosen by the plan’s color mode.</text>
+    <text x="136" y="1480" font-family="IBM Plex Sans" font-size="10" fill="var(--muted)">retained between frames: five module atoms (semantic state · previous inputs · device identity · attachment size · compositors-by-device) + every system’s buffers/textures/pipelines + the containers table + the camera buffer + the compositor’s pool.</text>
+
+    <!-- strips -->
+    <rect x="120" y="1550" width="500" height="50" rx="6" fill="var(--paper)" stroke="var(--boxline)" stroke-width="1.2"/>
+    <text x="370" y="1572" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="13" fill="var(--ink)">the canvas — pixels</text>
+    <text x="370" y="1588" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.6" fill="var(--muted)">swap chain (8-bit); rgba16float only inside the compositor</text>
+    <rect x="650" y="1550" width="500" height="50" rx="6" fill="var(--paper)" stroke="var(--boxline)" stroke-width="1.2"/>
+    <text x="900" y="1572" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="13" fill="var(--ink)">globalThis receipts</text>
+    <text x="900" y="1588" text-anchor="middle" font-family="IBM Plex Sans" font-size="9.6" fill="var(--muted)">__softlandFrameLedger · __softlandFramePlanReceipt · compositor · chrome · frame-runtime receipts</text>
+
+    <!-- ================= ARROWS — solid, real calls ================= -->
+    <g stroke="var(--ink)" stroke-width="1.4" fill="none" marker-end="url(#arr)">
+      <!-- A -> C : a face -->
+      <line x1="730" y1="190" x2="616" y2="290"/>
+      <!-- B -> C : slots -->
+      <line x1="375" y1="230" x2="375" y2="290"/>
+      <!-- B -> E : container deltas (gutter x=72) -->
+      <path d="M120,150 L72,150 L72,1070 L120,1070"/>
+      <!-- B -> F : selection / region session (gutter x=96) -->
+      <path d="M120,190 L96,190 L96,735 L120,735"/>
+      <!-- C -> F : ops per family -->
+      <line x1="390" y1="500" x2="390" y2="570"/>
+      <!-- F -> C : contract rows, hit predicates -->
+      <line x1="220" y1="570" x2="220" y2="500"/>
+      <!-- D -> C : line heights -->
+      <line x1="710" y1="380" x2="650" y2="380"/>
+      <!-- D -> F : label layout / placed text -->
+      <path d="M860,480 L860,640 L670,640"/>
+      <!-- C -> G : the tape (channel x=700) -->
+      <path d="M630,500 L630,530 L700,530 L700,1240"/>
+      <!-- F -> G : entries / execute! (channel x=745) -->
+      <path d="M670,800 L745,800 L745,1240"/>
+      <!-- G -> F : prepare per family (channel x=790) -->
+      <path d="M790,1240 L790,820 L670,820"/>
+      <!-- E -> G / G -> E -->
+      <line x1="300" y1="1180" x2="300" y2="1240"/>
+      <line x1="520" y1="1240" x2="520" y2="1180"/>
+      <!-- D -> G : glyph placements (right gutter) -->
+      <path d="M1130,480 L1165,480 L1165,1330 L1150,1330"/>
+      <!-- G -> canvas / receipts -->
+      <line x1="370" y1="1500" x2="370" y2="1550"/>
+      <line x1="900" y1="1500" x2="900" y2="1550"/>
+    </g>
+    <!-- ghost: store frame -> draw-frame! (no caller) -->
+    <path d="M120,110 L48,110 L48,1320 L120,1320" stroke="var(--ghost)" stroke-width="1.4" fill="none" stroke-dasharray="2 4" marker-end="url(#arrm)"/>
+    <!-- verifier: dashed green -->
+    <g stroke="var(--v-verifier)" stroke-width="1.3" fill="none" stroke-dasharray="6 4" marker-end="url(#arrv)">
+      <line x1="1030" y1="570" x2="1030" y2="480"/>
+      <path d="M910,585 L892,585 L892,545 L610,545 L610,500"/>
+      <line x1="910" y1="660" x2="670" y2="660"/>
+      <line x1="910" y1="1040" x2="670" y2="1040"/>
+      <line x1="1030" y1="1130" x2="1030" y2="1240"/>
+    </g>
+
+    <!-- ================= ARROW LABELS ================= -->
+    <g font-family="IBM Plex Sans" font-size="10" fill="var(--ink)">
+      <text x="684" y="236">rt-node tree (a face)</text>
+      <text x="383" y="264">slots · set-transform!</text>
+      <text x="398" y="540">ops per family · tape order</text>
+      <text x="228" y="534">contract rows</text><text x="228" y="546">hit predicates</text>
+      <text x="680" y="372" text-anchor="middle">line heights</text>
+      <text x="308" y="1208">changed families</text><text x="308" y="1222">effect spans · plan</text>
+      <text x="528" y="1208">this frame’s inputs</text><text x="528" y="1222">minted deltas</text>
+      <text x="64" y="620" transform="rotate(-90 64 620)" text-anchor="middle">container deltas (the journal)</text>
+      <text x="88" y="460" transform="rotate(-90 88 460)" text-anchor="middle">selection → chrome slots · region session → region gpu</text>
+      <text x="872" y="560" transform="rotate(-90 872 560)" text-anchor="middle">label · placed text</text>
+      <text x="694" y="1000" transform="rotate(-90 694 1000)" text-anchor="middle">the tape: compile · ordered-insert · paint-forward</text>
+      <text x="739" y="1060" transform="rotate(-90 739 1060)" text-anchor="middle">entries · execute! batches</text>
+      <text x="802" y="1060" transform="rotate(-90 802 1060)" text-anchor="middle">store-frame ops · zoom (prepare per family)</text>
+      <text x="1176" y="900" transform="rotate(-90 1176 900)" text-anchor="middle">glyph placements (layout + readers)</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="10" fill="var(--ghost)">
+      <text x="40" y="760" transform="rotate(-90 40 760)" text-anchor="middle">store frame · effective transforms → draw-frame! — NO CALLER today (the product client was cut)</text>
+    </g>
+    <g font-family="IBM Plex Sans" font-size="10" fill="var(--v-verifier)">
+      <text x="1038" y="530">layout + 7 readers</text>
+      <text x="712" y="558">compile-tape · paint / pick</text>
+      <text x="790" y="676" text-anchor="middle">chrome + region3d gpu builders</text>
+      <text x="906" y="1018" text-anchor="end" font-size="9.5">compile-frame-plan</text>
+      <text x="906" y="1030" text-anchor="end" font-size="9.5">derive-effect-spans</text>
+      <text x="906" y="1054" text-anchor="end" font-size="9.5">decide · replay · pulse</text>
+      <text x="1038" y="1190">real systems · execute-frame-entry!</text>
+    </g>
+  </svg>
+  </div>
+  <p class="srcs" style="margin-top:8px">Arrow provenance: requires graph over all 48 files (gather-skeleton/requires.edn) + call-site census; the dashed verifier arrows from its <code>:require</code> list and the grep of its call sites; the ghost from the zero-caller census of <code>draw-frame!</code>. One simplification: arrows between the big boxes bundle several call pairs (e.g. “the tape” = renderer → scene_tape; “glyph placements” = renderer → text_layout); the per-piece tables below name the exact pairs.</p>
+
+  <h2 id="pieces">5 · The eight pieces, opened</h2>
+  <p>Same order as the flow: what describes the page → who owns it at runtime → text → the families → the frame layer → the GPU → the harness. Each piece: a plain paragraph, then its sub-pieces in one table, then the one line “in any engine this is…”. Code snippets are there only where the snippet explains more than words would.</p>
+
+  <!-- ============ A ============ -->
+  <section class="piece" id="p-grammar">
+    <h3>A · Presentation grammar <span class="s s-cust">CUSTODY</span></h3>
+    <div class="pbar"><span class="files">workspace/face_assembly.cljc 31K · face_primitives.cljc 62K</span></div>
+    <p class="plain"><strong>What it is.</strong> The thing that turns “a face” — a block’s look, written as pure data — into a tree of boxes the scene store can lay out. A face is an <em>assembly</em>: nested maps of <code>{:prim … :props … :children …}</code>, <code>{:each … :template …}</code>, <code>{:bind [...]}</code>; no lists, no symbols, no logic — arrangement only. An <em>interpreter</em> walks it over a registry of 16 primitive builders and returns rect-tree nodes. It is kept only because TrailView, anatomy and the goldens still wear it; Sid has named it one-cut deletion debt.</p>
+    <p class="plain"><strong>How it works here.</strong> Two stages, deliberately: <code>compile-assembly</code> once at wear time (closures over the registry), <code>apply-assembly</code> at data-change time (compiled + data + view context → rt-tree). Frame time does nothing new. Both are total — a malformed assembly, an unknown primitive, a throwing primitive all resolve to a renderable <em>error card</em> carrying the assembly name, grammar version, address and the first five errors, so a bad AI-authored face lands as a card beside the chat, never a black screen. The primitives measure their own bounds bottom-up (“measure in the primitive, arrange in the engine”).</p>
+    <div class="tablewrap"><table class="def map">
+      <tr><th>sub-piece</th><th>what it is · how</th><th>in → out</th><th>why shaped so</th><th>talks to</th><th>state</th></tr>
+      <tr><td class="piece">assembly interpreter</td><td>the two-stage walk (compile at wear · apply at data change) over a builder registry; the guard (no list/symbol); the error-card constructor is registry-independent</td><td>assembly EDN + data projection + view-ctx → an rt-node tree</td><td class="why">“Furniture is data: faces/assemblies are arrangement-only data over a primitive vocabulary” (settled 07-11); interpretation cost on the data-change path, never the frame path</td><td>scene_store/build-face-tree (its one product caller) · the server’s assembly_adapter.clj (the only server→client bridge)</td><td><span class="s s-cust">custody</span></td></tr>
+      <tr><td class="piece">primitive vocabulary</td><td>16 builders as a plain value: harvested <code>ui-*</code> builders from the old workspace, the trail-face omission cards, two new ones (<code>:text-run</code>, <code>:indent-rail</code>) and the bare <code>:stack</code>; each a <code>(fn [ctx props children] → rt-node)</code></td><td>keyword + props + built children → an rt-node with measured bounds</td><td class="why">persisted form is keyword + code-address, never fn values; pure <code>.cljc</code> so the goldens run on the JVM without a browser</td><td>rect_tree · text_layout (text-run measures through the shaper)</td><td><span class="s s-cust">custody</span></td></tr>
+    </table></div>
+    <p class="anygeneral"><b>In any engine</b> this is the UI description language — the widget tree / the “declarative layer” (React elements, Flutter widgets, SwiftUI views) — except that here it is data on purpose: an agent can author it, the server can store it, and nothing in it can run.</p>
+  </section>
+
+  <!-- ============ C ============ -->
+  <section class="piece" id="p-scene">
+    <h3>C · Scene values <span class="s s-park">PARKED</span></h3>
+    <div class="pbar"><span class="files">workspace/scene_store.cljc 35K · rect_tree.cljc 35K · containers.cljc 12K · substrate/scene_tape.cljc 33K · selection.cljc 6K · snap.cljc 11K — all pure .cljc, every one with JVM tests</span></div>
+    <p class="plain"><strong>What it is.</strong> The description of what is on screen, as a value. No atoms, no GPU, no browser — the whole layer loads and runs on the JVM. Four ideas: the <strong>store</strong> (what is shown, where), the <strong>rect tree</strong> (how a thing is laid out into boxes and flattened into per-family arrays), <strong>containers</strong> (the transform hierarchy), and the <strong>tape</strong> (the one ordered list a frame draws from and picks from).</p>
+    <p class="plain"><strong>How it works here.</strong> A slot is one view-instance’s whole render answer, computed once at upsert: its resolved tree (container-local coordinates), eight flat op arrays (text · rects · shadows · images · regions · paths · connectors · chromes) with the container index already baked in, and its <code>address → index-paths</code> map so an address can be found without scanning. The store keeps <code>{:slots :index :ordered}</code>: slots by view-instance, an address→view-instances index maintained incrementally, and a sorted map of tape entries. Upsert/remove maintain the index and the order; nothing recomputes them by scanning at read time. Picking: bounds broad phase, children walked front-to-back, a per-family narrow predicate (path, connector, chrome bring real math; the rest say yes), then the hit path is bubbled leaf-first until a handler answers.</p>
+    <div class="tablewrap"><table class="def map">
+      <tr><th>sub-piece</th><th>what it is · how</th><th>in → out</th><th>why shaped so</th><th>talks to</th><th>state</th></tr>
+      <tr><td class="piece">the store</td><td>pure fns over <code>{:slots {vi→slot} :index {address→#{vi}} :ordered sorted-map}</code>; <code>upsert-slot</code> / <code>remove-slot</code> / <code>update-nodes-by-address</code> (one address → every appearance) / <code>derive-store-frame</code> (the GPU payload) / <code>pick</code> (→ address + context bundle; region hits routed to a resolver)</td><td>a face tree (or pre-resolved tree) + container + stratum → a slot; slots → the store frame · picks · descriptors</td><td class="why">“One render substrate: one client scene store keyed (view-instance, address) — slots are EDN values … action DESCRIPTORS, never closures; one pick over the store returns addresses + a context bundle (agents and the mouse share the same finger)” (settled 07-12)</td><td>scene runtime (its mutating caller) · rect tree · containers · the tape · region3d placement · face_assembly · <strong>shared/material_inspector</strong> (the one client row the server also reads)</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">rect tree</td><td>12-key node <code>{:id :type :bounds :style :actions :children :text :clip? :data :layout …}</code>; layout is a <strong>stack</strong> (column/row · gap · padding · align · auto-height — no flex grow); text height comes from the shaper; eight independent depth-first flatten walks (<code>tree-&gt;rects</code> … <code>tree-&gt;chromes</code>) accumulate absolute coords + an intersected clip; <code>hit-test</code> + <code>dispatch-event</code></td><td>a node tree → laid-out tree → flat per-family ops · a hit path</td><td class="why">“Everything is a rect. The tree replaces scattered compute-*-rects fns with one generic walk that produces flat GPU-compatible vectors” (its own docstring — the oldest idea in the area)</td><td>scene store · frame runtime · the families’ material helpers (flatten + narrow hit) · the shaper</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">containers</td><td>registry <code>{cid → {:parent :affine :camera :layer :sibling-rank :effects :transport-slot}}</code>; <code>effective</code> walks each parent chain once (memo + cycle check): effective = parent ∘ local, inherits camera, builds the nested stack path; point conversion both ways; transport slots allocated dense and recycled; cid 0 / slot 0 = the identity world container</td><td>container declarations → effective rows <code>{cid → {:affine :flags :layer :stack-path :transport-slot}}</code> the GPU table is written from</td><td class="why">“per-container transforms compose in-shader under two cameras (world/screen), so any object in frame pans/zooms independently” (07-12); the transport slot: “sparse material ids do not amplify the 32-byte storage table” (Q8)</td><td>scene runtime · frame effects · region3d placement · families · renderer (<code>write-containers!</code>) · verifier</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">the tape</td><td>ten families registered as <strong>data</strong> (grammar · pick policy · provenance · versioning · zoom-partitioned geometry regimes · color tags — no paint fn, no hit fn); an entry = <code>{:entry/id :material/id :material/revision :instance/id :family/id :order :paint :pick :visibility}</code>; <code>:order</code> = stratum · pass-class · stack-path · part-rank · stable-tie; <code>paint-forward</code> maps an executor over entries in order, <code>pick-reverse</code> walks the same vector backwards; <code>ordered-insert/remove</code> = the maintained sorted map; <code>compile-tape</code> = validate + sort a whole batch = the oracle</td><td>entries + a family registry → one immutable ordered tape · a paint walk · a pick walk</td><td class="why">“Document order is row data — sort keys, identity never position; any GPU batch order is a sink-side view of it, never truth” (render seam); “paint walks forward, pick walks reverse” (the two projections of one compiled tape)</td><td>scene store · frame graph · frame effect view · renderer · the families’ GPU halves · verifier</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">selection · snap</td><td>selection: a pure model over occurrence ids <code>{:vi :address}</code> with a closed transition vocabulary (toggle · marquee-commit · clear · frame-prune) and a census; snap: candidates → best edge/center alignment within a zoom-scaled threshold → position + delta + alignments + guides + equal-gap ticks, minted together by one gesture step</td><td>picks + gestures → selection state · a snap result</td><td class="why">the chrome lane needed session truth without atoms; “paint cannot advertise a snap that the arrangement did not actually take” (snap docstring)</td><td>chrome runtime · chrome derive · containers</td><td><span class="s s-park">parked</span></td></tr>
+    </table></div>
+    <p class="anygeneral"><b>In any engine</b> this is the retained scene graph / display list plus the layout engine — except flat and keyed rather than a mutable tree: the store is a map value you swap, the order is data on each row, and the “tree” exists only inside a slot. That choice is the render-seam law (“keyed vocabulary — no positional permutation class”) made structural.</p>
+    <details><summary style="cursor:pointer;font-size:13px;color:var(--muted)">the store value and a slot, verbatim from the docstring</summary>
+<pre>Store value: {:slots {vi → slot} :index {address → #{vi}}
+              :ordered {[order-token entry-id] → entry}}.
+A slot is one view-instance's resolved tree + flattened ops + its
+address→paths subtree index:
+  {:vi &lt;edn&gt; :container &lt;int&gt; :tree &lt;resolved rt-tree, container-LOCAL&gt;
+   :ops {:text [...] :rects [...] :shadows [...] :images [...] :paths [...]
+         :connectors [...] :regions [...]}
+   :addresses {address → #{index-path}} :meta {...} :stratum :world|:overlay}
+The :index fan-out is maintained incrementally by upsert/remove, NEVER
+recomputed by scanning slots at read time.           — scene_store.cljc:16-26</pre>
+    </details>
+  </section>
+
+  <!-- ============ B ============ -->
+  <section class="piece" id="p-runtime">
+    <h3>B · Scene runtime <span class="s s-park">PARKED</span></h3>
+    <div class="pbar"><span class="files">workspace/scene_runtime.cljs 30K · chrome_runtime.cljs 17K · region3d_runtime.cljs 28K · frame_runtime.cljs 15K — .cljs, no JVM tests, zero callers except among themselves (and two receipt fns from the verifier)</span></div>
+    <p class="plain"><strong>What it is.</strong> The owner of the atoms. Everything in C is a value; somebody has to hold the current one, mutate it at the right moments, and hand derived views to the renderer. That is this layer: one store atom, one container-registry atom, a journal of container deltas, face lifecycle, the last pick, the action registry, and three Missionary views the (now deleted) product loop sampled. The chrome and region3d runtimes are the same idea for their own session truth; the frame runtime is the W4 fixture join.</p>
+    <p class="plain"><strong>How it works here.</strong> Mutations happen only at edges — user actions through a window API, the server echo fan-out — never inside a reactive derivation. Every container mutation mints a delta from the before/after declaration and appends it to a journal with a sequence number; consumers read a snapshot and ack a high-water mark. Face instances get a container id from a recycling pool (a monotonic counter walked into the GPU table’s ceiling after ~992 spawn/despawn cycles and killed the reactor — gate finding F3, 2026-07-13), the container is added first, then the slot. The three views: <code>&lt;store-frame</code> (one <code>m/latest</code> over the store → the GPU payload), <code>&lt;effective</code> (→ effective transforms), <code>&lt;frame-registry</code> (→ plan-layer topology + effects). The file still names its old consumers — <code>render.cljs</code>, <code>mouse.cljs</code>, <code>face_wiring</code>, <code>agent_flow</code> — none of which exist any more.</p>
+    <div class="tablewrap"><table class="def map">
+      <tr><th>sub-piece</th><th>what it is · how</th><th>in → out</th><th>why shaped so</th><th>talks to</th><th>state</th></tr>
+      <tr><td class="piece">store + registry atoms</td><td><code>!scene-store</code> · <code>!containers-registry</code> · <code>!frame-container-delta-journal</code> · cid pool; the <code>!</code>-suffixed wrappers are the only mutation doors (<code>set-transform!</code>, <code>set-effects!</code>, <code>register-face-instance!</code> …)</td><td>host mutations → new store/registry values + a minted container delta</td><td class="why">“only session truths with no upstream (camera, in-flight gestures) originate client-side”; “MUTATIONS happen at edges only … NEVER inside an m/latest” (its docstring, traps T3/T4)</td><td>scene store · containers · frame delta · frame effects</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">face lifecycle</td><td><code>register-face-instance!</code> (alloc cid → add container → assert → upsert slot) · <code>close-instance!</code> · <code>close-all-slots!</code> · <code>refresh-all-slots!</code> (the echo fan-out: stale closed, survivors rebuilt in one swap); compiled faces live in <code>!vi-faces</code>, never in a slot (closures)</td><td>a compiled face + projection → a live slot; an echo → every instance refreshed</td><td class="why">slots must stay serializable; P3b per-instance compiled faces</td><td>face assembly · scene store · containers</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">picks · context · actions</td><td><code>pick-world</code> (store pick + region resolver) · <code>record-pick!</code> / <code>last-pick</code> (deictic memory) · <code>bundle-for-viewport</code> / <code>bundle-at-world-point</code> (the EDN context bundle) · a runtime action registry of fns, kept out of the store</td><td>a world point → address + bundle; an action descriptor → a dispatched fn</td><td class="why">“agents and the mouse share the same finger” — the context bundle is what an agent turn receives</td><td>scene store · region3d runtime</td><td><span class="s s-park">parked</span>; 18 of 25 public fns have no caller</td></tr>
+      <tr><td class="piece">views + window APIs</td><td>three Missionary views (<code>&lt;store-frame</code> · <code>&lt;effective</code> · <code>&lt;frame-registry</code>) and two installers (<code>window.sceneFaces</code>: spawn/close/move/scale/list · <code>window.sceneContext</code>: bundle()/edn())</td><td>atoms → flows the render edge samples; dev affordances</td><td class="why">the product loop sampled these at the frame edge (<code>render.cljs</code>, deleted); “&lt;store-frame is ONE m/latest over the store — no diamond off the store”</td><td>(nobody today)</td><td><span class="s s-dead">no caller</span></td></tr>
+      <tr><td class="piece">chrome runtime</td><td>owns <code>!derive-state</code> (selection + desired chrome slots) · snap · gesture · drag; <code>boot!</code> demands host hooks (camera snapshot, selection hooks, verb registration) and <em>strangles</em> two verbs (<code>:selection/marquee-begin</code>, <code>:placement/drag-group</code>); <code>reconcile-slots!</code> installs/updates/closes chrome slots through the scene runtime; <code>frame-edge!</code> writes only the chrome containers whose target moved</td><td>selection revision + gestures → chrome slots in the store · a published receipt</td><td class="why">chrome is session-only truth; the product loop needed an owner (code)</td><td>chrome derive · snap · selection · scene runtime · scene store</td><td><span class="s s-dead">boot! has no caller</span></td></tr>
+      <tr><td class="piece">region3d runtime</td><td>owns a 3D session <code>{:enabled? :focused-region :regions :panel-position …}</code>, its own pointer/wheel/key capture listeners, gizmo state, fixture slots; installs itself as the scene store’s region pick resolver so a region hit is completed with region-local coords + handles + camera</td><td>pointer/wheel/keys → session camera + focus; a region hit → the resolved pick</td><td class="why">“session values join rendering through the renderer-edge snapshot and never enter store derivation” (its docstring); the spatial model (08-10)</td><td>region3d scene/placement/evaluation · <strong>region3d gpu</strong> (the one runtime that touches a GPU half) · scene runtime</td><td><span class="s s-dead">every public fn has no caller</span></td></tr>
+      <tr><td class="piece">frame runtime</td><td>flag-only (<code>?live-atoms=1</code>): <code>boot!</code> installs eight hand-built fixture trees (opacity group · nested · mask · backdrop · gpu-clip) as ordinary slots; <code>mount!</code> the export chord; <code>sync-pulse-deadline!</code> bridges “selection live” → a 30 Hz scheduler deadline; receipts; PNG export via the compositor’s global provider</td><td>a flag → fixtures + receipts; selection count → a registered deadline</td><td class="why">W4’s product join: “No clock value enters scene derivation” — the deadline is the sink-edge bridge</td><td>frame scheduler · frame effects · rect tree · scene runtime · the compositor (through a global)</td><td><span class="s s-park">parked</span>; verifier calls 2 receipt fns only</td></tr>
+    </table></div>
+    <p class="anygeneral"><b>In any engine</b> this is the “host binding” — the place where the pure scene meets the browser (atoms, events, DOM listeners, the animation-frame edge). It is the layer that was most tightly wired to the product client, which is why it carries the most dead references today.</p>
+  </section>
+
+  <!-- ============ D ============ -->
+  <section class="piece" id="p-shaper">
+    <h3>D · The shaper <span class="s s-park">PARKED-but-floor</span></h3>
+    <div class="pbar"><span class="files">workspace/text_layout.cljc 73K · text_layout_planes.cljc 25K · text_shaper.cljs 14K · runtime/fonts.cljs 13K — text-layout tests + shaping-correction test + two static fences green</span></div>
+    <p class="plain"><strong>What it is.</strong> Text in, placement out. One entry, <code>layout</code>, takes text + font + size + line height + width (or a wrap column) + a layout key and returns one immutable, versioned value: lines, each with its baseline, advance, logical and ink bounds, glyphs (id · position · advance · cluster → source range), clusters, runs; plus metrics, a clip plan, receipts. Seven readers (measure · wrap · paint · caret · selection · clip · hit-test) read from that value and echo its id, so a consumer can prove which layout it read. Nobody else measures — a fence over the source forbids private metric arithmetic anywhere in <code>src/app</code>.</p>
+    <p class="plain"><strong>How it works here.</strong> For each source line the provider shapes the <em>whole line once</em> (HarfBuzz in wasm, with bidi); the layout then walks the clusters left to right accumulating advance until the width is exceeded, remembering the last whitespace run — that run is the cut. Only SPACE and TAB are break opportunities (never a <code>\s</code> class, so NBSP never breaks); if nothing fits, a hard cut at one cluster (an emoji stays whole). The whitespace is consumed (owned by the line, painted as nothing) so copy still returns it and the caret can sit in it. Widths are HarfBuzz advances in font units — never Canvas2D <code>measureText</code>. A wrap <em>column</em> is turned into a width by shaping a single space once and multiplying. The pure layout never measures: the provider is injected as a plain function, so the JVM tests run it with a synthetic one. Results are compacted into <em>planes</em> — columnar typed arrays — and glyph/cluster maps are rebuilt at the accessor boundary: retaining them cost ~150 MB on a 228k-glyph boot (measured 2026-08-08).</p>
+    <div class="tablewrap"><table class="def map">
+      <tr><th>sub-piece</th><th>what it is · how</th><th>in → out</th><th>why shaped so</th><th>talks to</th><th>state</th></tr>
+      <tr><td class="piece">layout</td><td><code>layout</code> → shaped road (a real provider) or legacy monospace road (no provider, byte-exact T0 behaviour kept); <code>scan-wrap-cut</code> linear ≤2C; readers; work counters (glyph visits · cluster index · wrap candidates) with a declared bound</td><td>text + font + width/col + key → the one layout value; readers → measure · wrap · paint ops · caret · selection · clip · hit</td><td class="why">“one material-local layout authority carried by a declared layout key, construction proportional to G+C+R … shaped block-greedy wrapping as the one break-choosing truth” (the shaping correction, banked in decisions.md)</td><td>rect tree (line height) · renderer (<code>position-text-op</code>) · connector route (labels) · region3d placement · verifier (T1 receipt)</td><td><span class="s s-live">floor</span></td></tr>
+      <tr><td class="piece">planes</td><td><code>compact-result</code> writes positions / advances / offsets / ink / span starts / packed glyph-id+flags into typed arrays; lines keep integer ranges; raw arrays private to the namespace; a live-plane census for the memory receipt</td><td>a rich result → a compact retained result; accessors → rich values on demand</td><td class="why">layout retention: “no derived glyph or cluster map is retained in the layout result” (its docstring); the −150 MB measurement</td><td>text layout only (the fence forbids raw plane reads elsewhere)</td><td><span class="s s-live">floor</span></td></tr>
+      <tr><td class="piece">shaper provider</td><td><code>text_shaper.cljs</code>: loads primary + fallback TTF bytes, boots HarfBuzz wasm + bidi-js, exposes <code>{:shape-line …}</code> returning runs · glyphs · clusters · advance in font units</td><td>a string + features/variations/language → shaped glyphs with cluster map</td><td class="why">real typography (kerning, ligatures, combining marks, RTL, variable axes, fallback) — the proportional-shaper fence checks each actually happens</td><td>fonts · text layout (injected)</td><td><span class="s s-live">floor</span></td></tr>
+      <tr><td class="piece">fonts</td><td>a fetch orchestrator: <code>/fonts/manifest.json</code> (hardcoded fallback) → per font: MSDF atlas PNG as ImageBitmap + metrics JSON + slug meta/curve/band binaries + the shaper provider; returns <code>{:layout-provider :bitmap :atlas :slug :backend}</code></td><td>a manifest → one asset map per font</td><td class="why">the glyph atlas is prebuilt under <code>resources/public/fonts/</code>; no runtime atlas, no FontFace API, no opentype.js</td><td>text shaper · renderer (<code>init-text-system</code> uploads the bitmap)</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">layout key + cache</td><td><code>layout-key</code> = source (address + stamp + text) + provider identity + metrics (version · size · line height · wrap · language · direction · tab stops); paint, camera, origin, selection, hover, backend deliberately excluded; <code>layout-cache-acquire</code> swaps atomically, counts hits/misses, optional oracle mode</td><td>a key → the one current layout for that address</td><td class="why">the 28.7 s text interval: ground emitted ops without the result and the renderer re-derived shaped layout per op every frame — one layout per address, keyed</td><td>(the product caller was cut; the fence proves ownership statically)</td><td><span class="s s-park">parked</span></td></tr>
+    </table></div>
+    <p class="anygeneral"><b>In any engine</b> this is the text stack — HarfBuzz (shaping) + a line breaker + a font loader — the part Skia calls SkParagraph and Rust calls cosmic-text. The two unusual choices here: the pure layout never touches a measuring API (provider injected), and everything derived is recomputed on read rather than retained.</p>
+  </section>
+
+  <!-- ============ F ============ -->
+  <section class="piece" id="p-families">
+    <h3>F · Render families <span class="s s-park">PARKED</span> <span class="s s-live">chrome + region3d goldens green</span></h3>
+    <div class="pbar"><span class="files">material halves (.cljc): chrome_{derive,material} 27K · connector_{material,route} 52K · path_{material,tessellation} 43K · image_material 15K · region3d_{material,placement,scene,evaluation} + region_rungs + workspace/region3d_pointer 119K · GPU halves (.cljs): chrome_gpu 17K · connector_gpu 22K · path_gpu 19K · region3d_gpu 81K · region3d_placement_gpu 26K · region_bindings 11K</span></div>
+    <p class="plain"><strong>What it is.</strong> One kind of drawable = one family. Five live as plug-ins in their own namespaces — chrome, connector, path, image, region3d — and five more (rect · shadow · msdf · slug · clip) are systems inside the renderer file. A family is cut in two: the <strong>material half</strong> owns truth and geometry (grammar, validation, routing, tessellation, packing laws — pure, JVM-tested) and the <strong>GPU half</strong> owns only packed bytes and an upload gate (pipeline, vertex buffer, “repack only when the mesh set changed; camera and container motion stay shader values”). Meshes are disposable projections; none of their coordinates become material truth.</p>
+    <p class="plain"><strong>How a family plugs in.</strong> Four registries, all plain data at namespace load, no <code>register!</code> call: ① a contract row in the tape’s family registry — grammar, pick policy, provenance, versioning, zoom-partitioned geometry regimes that must tile [0.01, 1000] with no gap, color tags; no paint fn, no hit fn; ② an input declaration — the set of store-frame keys this family may read (raw camera is forbidden; camera-derived values must pass a registered quantization door, or the namespace throws at load); ③ a row in the renderer’s family registry: <code>{:contract :inputs :produce :execute!}</code> — produce turns inputs into tape entries, execute! draws one entry; ④ optionally a narrow-phase hit predicate in the rect tree. A load-time check throws unless the executor registry covers exactly the ten admitted families. The core walkers hold no family branch: <code>paint-forward</code> maps the executor; <code>execute-frame-entry!</code> looks it up by family id. Two leaks: the per-family <em>prepare/upload</em> sequence in the frame function is a hand-written list, and six families’ GPU halves are inside the renderer file.</p>
+<pre>;; renderer.cljs:3335-3341 — a whole plug-in registration
+:render.family/path
+(family :render.family/path
+        (store-producer path-gpu/path-entries
+                        [:paths :ordered-vis :ops-count-by-vi :order-by-vi])
+        path-gpu/execute-path-batch!)
+;; renderer.cljs:3366-3370 — the load-time fence
+(when-not (= admitted-families executor-families)
+  (throw (ex-info "Frame executor registrations must exactly cover admitted families" …)))</pre>
+    <div class="tablewrap"><table class="def map">
+      <tr><th>family</th><th>what it is · how (material half → GPU half)</th><th>in → out</th><th>why shaped so</th><th>talks to</th><th>state</th></tr>
+      <tr><td class="piece">chrome</td><td>selection furniture: outline · four corner handles · marquee · guide line · gap tick (five forms, one color each). <em>derive</em>: selection revision → desired slot set, gesture → slot, follow transforms, with a full-recompute oracle; <em>material</em>: grammar + quads → triangles → a 10-word vertex <code>[anchor.xy offset_px.xy rgba container_idx pulse]</code>; <em>gpu</em>: one pipeline, vertex shader applies container affine + camera to the <strong>anchor</strong> then adds the <strong>pixel offset</strong> after — so a handle is always 10 screen px and an outline 1 px at any zoom; repack only when the mesh-set key changes; one tape entry per visible container; handle hit uses a 2 000 000-unit broad-phase box so the rect tree never misses a handle, then the true anchor</td><td>selection + store rows → chrome slots → vertex bytes → triangles</td><td class="why">session-only truth (“durable rows: none by design”); the hybrid anchor/metric geometry so zoom never forces a re-derive</td><td>selection · snap · containers · tape · frame inputs · gpu budget · verifier (3 goldens)</td><td><span class="s s-live">goldens green</span></td></tr>
+      <tr><td class="piece">connector</td><td>a durable <code>:references</code> edge between blocks, colored by who asserted it (human vs llm/agent/import/machine). Route: <code>:straight</code> or <code>:elbow/v1</code> (a plain Z at the midpoint) or author waypoints; endpoints start at each shape’s center and are clipped outward to its boundary — no obstacle avoidance, no ports; cross-camera or unresolved endpoints return a status, not geometry; optional triangle heads, trimmed back for the round cap. GPU: <strong>no vertex shader of its own</strong> — borrows path’s; the mesh is made by <em>pretending to be an ink stroke</em> (route points as knots, pressure 1.0) through the path tessellator, plus ear-clipped heads; the label rides the live text system (family id read from the cloned text geo, never hardcoded)</td><td>a relation row + session dress → a resolved route → triangles; the label → text entries</td><td class="why">“a fail-closed merge of a relation-row projection and client-session dress; resolved routes and meshes are disposable readers; none of their coordinates become relation truth”</td><td>path material/tessellation · containers · text layout · tape · frame inputs · path gpu · verifier (3 goldens)</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">path</td><td>two kinds: <code>:ink</code> (pressure-varying freehand: knots with pressure, gesture time, source events) and <code>:shape</code> (filled contours with outer/hole/open roles). Tessellation hand-written in <code>.cljc</code>: ink → a quad per knot pair offset by pressure-width/2 along the normal + round cap/join fans (resolution from the zoom regime); shape → holes bridged into the outer contour, then ear clipping; no JS triangulation dependency. GPU: one vertex lane, a content/version/regime mesh cache, upload only when mesh-set identity or zoom regime changes; its own Sutherland-Hodgman triangle clipper. Hit test runs on the <strong>material</strong> (centerline + width, or contour containment), never the mesh</td><td>a path material + zoom → a mesh; store paths → entries → one draw</td><td class="why">“GPU meshes are disposable projections of this namespace’s centerline/contour authority; no renderer state lives here” (path_material)</td><td>tape · frame inputs · gpu budget · connector (borrows) · region3d placement (ink inside regions) · verifier (3 goldens)</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">image</td><td>material half only in <code>substrate/</code>; GPU half inside the renderer (<code>init-image-system</code> · <code>image-entries</code> · <code>execute-image-batch!</code>). Ingress: bytes → validate (untagged color refused) → sha256 against the declared digest (throws on mismatch) → byte budget → <code>createImageBitmap</code> (premultiplyAlpha none) → dimension re-check → placement plan: ≤128 px per side → a shared 512×512, 2-mip, 2 px-gutter atlas; larger → a dedicated texture. Draw: instanced 13-word rows (rect · uv · tint · container u32), one entry per container, sub-draws as contiguous binding runs — order never regrouped by texture</td><td>bytes + a declared digest → a resident texture placement → instanced draws</td><td class="why">“Source bytes resolve only through the digest-keyed registry; renderer code is a consumer of these values, never a second material authority”; heavy assets ride by id + revision, bytes never enter the scene value (render seam)</td><td>renderer (image system) · tape · frame inputs · verifier (3 goldens + GPU-vs-CPU decode parity)</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">region3d</td><td>a whole 3D scene as <strong>one outer 2D tape row</strong> — “interior objects never enter the tape; depth owns their order”. <em>scene</em> (56K): the region row carries its own object map (parent · transform · mesh · light · camera · text · ink), its own orbit camera (pivot · distance · yaw · pitch · lens), a BVH for ray pick, gizmo handles, a CPU reference PBR shader, the full batch oracle; session camera joined as a separate stamped generation; no clock. <em>evaluation</em>: full rebuild vs transform-only patch vs no-op. <em>placement</em>: text and ink placed inside a region; projects an interior object out through the region camera so a connector can anchor to it. <em>rungs</em>: a texture-budget admission divisor [1 2 4 8] — shrink the target until it fits. <em>pointer</em>: pure math (ray–plane, orbit/dolly, wheel routing). <em>gpu</em> (81K): a real 3D renderer — 8 pipelines (mesh · shadow depth · floor grid · overlay glyph · gizmo · composite · worn · refusal), MSAA color + depth → resolve into a leased compositor target; <em>placement gpu</em>: flat + MSDF pipelines for placed text/ink; <em>bindings</em>: region id → compositor slot + texture lease under a device epoch</td><td>a region row + session camera → instance rows · a pass fragment · one tape entry · a pick; the resolved texture → a quad in the 2D tape</td><td class="why">“a space appears inside another as a first-class citizen face — its own camera, units, picture ontology — never a window or iframe … every other visible space is material under residency law — budgeted, degradable, honestly refusing (the refusal fill stays, as the floor rung)” (spatial model, settled 08-10)</td><td>containers · path material · text layout · tape · frame inputs/delta · compositor · region bindings · region3d runtime · verifier (floor: 8 cases)</td><td><span class="s s-live">goldens green</span></td></tr>
+    </table></div>
+    <p class="anygeneral"><b>In any engine</b> these are the “render features” / materials — Bevy’s render phases, GPUI’s primitive kinds, Skia’s draw ops. The unusual parts: the pure/GPU split runs through every family so geometry is JVM-testable, and registration is data the core cannot branch on — which is how five families landed in six weeks without touching the walkers.</p>
+  </section>
+
+  <!-- ============ E ============ -->
+  <section class="piece" id="p-frame">
+    <h3>E · Frame computation <span class="s s-park">PARKED</span></h3>
+    <div class="pbar"><span class="files">substrate/frame_inputs 9K · frame_delta 8K · frame_semantic_state 3K · frame_effects 14K · frame_effect_view 12K · frame_graph 42K · frame_plan_view 16K · frame_scheduler 8K — all pure .cljc, every one with JVM tests; the only production caller is the frame function</span></div>
+    <p class="plain"><strong>What it is.</strong> The render-seam law as code: the layer between “what is on screen” and “how the GPU draws it” that decides <em>what changed</em>, <em>what that changes</em>, and <em>what passes to run</em> — and keeps every incremental answer checkable against a from-scratch one. Also the scheduler: should this frame be encoded at all.</p>
+    <p class="plain"><strong>How it works here — one frame, in order.</strong> (1) The frame function gathers this frame’s raw values and asks <code>changed-families</code>: compare to last frame, key by key, per family’s declared inputs → only the stale families. (2) Only those families’ producers run; their entries fold into the kept sorted arrangement; old-vs-new keys become entry deltas (insert · move · remove). (3) Container deltas are drained from the runtime’s journal, region-topology deltas from the region bindings, global and viewport deltas minted inline. (4) All <em>semantic</em> deltas go into one call — <code>apply-deltas</code>, a 65-line reducer — which runs the effect view then the plan view and returns state + work counters; an empty delta set returns the <em>identical</em> prior state, zero work. Binding deltas (region lease · region payload · viewport size) bypass the reducer entirely. (5) Out come the effect spans (entry ranges per effect container) and the plan (resources · ordered passes · color mode); the compositor takes both. (6) Behind a flag, the twin check recomputes each maintained view with its oracle and asserts equality. Meanwhile the ledger counted every comparator call, upsert, fragment touched — the measured proof that work was proportional — and publishes to <code>globalThis</code>.</p>
+    <div class="tablewrap"><table class="def map">
+      <tr><th>sub-piece</th><th>what it is · how</th><th>in → out</th><th>why shaped so</th><th>talks to</th><th>state</th></tr>
+      <tr><td class="piece">inputs</td><td>ten families × a set of declared input keys; <code>changed-families</code> (pointer identity → system carrier + shape-rev → value equality); <code>forbidden-declared-inputs</code> = raw camera + frame index — a family that declares <code>:zoom</code> fails to <em>load</em>; camera-derived values pass a versioned quantization door (e.g. a log-zoom rung); the ledger: ~25 work counters reset per frame, published as <code>__softlandFrameLedger</code></td><td>last inputs + this frame’s inputs → the set of stale families; a frame’s work → counters</td><td class="why">“recompute proportional to change … proportional means to the affected set of a change, never to the population”; “no execution clock is ever an ancestor of derivation” — enforced as a load-time throw, not a review note</td><td>renderer · every family’s producer · verifier (ledger receipts)</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">deltas</td><td>seven minted shapes: <code>:entry</code> (insert/move/remove with old/new key) · <code>:container</code> (<code>:class :topology</code> if parent/stack-path/depth/effect kinds/mask changed, else <code>:parameter</code> — a slider drag never re-plans passes) · <code>:region-topology</code> · <code>:global</code> (viewport format · capabilities · color mode) · binding: <code>:region-lease</code> · <code>:region-payload</code> · <code>:viewport-size</code></td><td>a before/after at the owner → one delta value</td><td class="why">“Deltas are minted by the owner that already knows the changed key … never scans a frame to discover that something changed”; “minted diffs are values, kept in one namespace … invertible and serializable before undo and the wire arrive”</td><td>scene runtime (container) · region bindings (region) · renderer (entry · global · viewport)</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">semantic state</td><td>one reducer: prior state + this frame’s semantic deltas (+ arrangement, registry, regions, globals) → <code>{:state :work}</code>; runs effect view then plan view; a monotone generation, +1 per applying call; empty semantic deltas ⇒ identical state</td><td>deltas → one published state with one generation</td><td class="why">“Ownership, not sampling, gives consistency: truths that must be seen together share one generation authority — one swap is one generation”</td><td>effect view · plan view · renderer (the one caller)</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">effect view + effects</td><td>effects = container-level compositing declarations <code>{:opacity :mask :layer-blur :backdrop-blur :isolate?}</code> (no hover; the selection halo is the scheduler’s pulse, consumed by chrome gpu); <em>effects</em> holds the grammar, the full-recompute span oracle and a CPU linear-premultiplied color oracle; <em>effect view</em> holds maintained membership keyed by container id + stable entry keys (never index) and <code>project-spans</code> walks the arrangement once to produce <code>[start end]</code> ranges; <code>oracle-equal?</code> recomputes and compares</td><td>container effects + arrangement → spans for the compositor</td><td class="why">“the fenced incremental view: keyed diffs in, incrementally maintained state, and the batch computation kept alive as the oracle, with a fence asserting the two agree”; “positions never enter maintained truth”</td><td>containers · tape · semantic state · compositor · verifier (batch oracle only)</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">plan view + graph</td><td><em>graph</em>: a resource = <code>{:kind :format :usage :lifetime :budget-owner}</code>, a pass = <code>{:pass/id :pass/kind :topology-rank :reads :attachments …}</code>; <code>compile-plan-structure</code> (index-free, reusable while the structure key is unchanged) + <code>bind-entry-ranges</code> (per frame, the only value that carries indices); <code>validate-plan!</code> fails closed on the ten laws (unique ids, ranks, ordering, exactly one presentation terminal, every resource budgeted, region laws); <code>compile-export-plan</code> = the three-pass PNG road; an <em>independent</em> <code>oracle-compile-frame-plan</code>. <em>plan view</em>: the live road — maintained fragments (one per effect container, one per region, one global) in a sorted order of stable pass ids, materialized to dense ranks; <code>oracle-equal?</code> against the graph’s oracle</td><td>effect spans + regions + capabilities + viewport + color mode → the plan (resources · passes · schedule · hashes)</td><td class="why">“a batch stage is never deleted when its incremental sibling arrives — it is demoted to that sibling’s oracle”; structure reuse “never retains entry indices”</td><td>effects · tape · semantic state · compositor · verifier (<code>compile-frame-plan</code>)</td><td><span class="s s-park">parked</span>; <code>maintain-frame-plan</code> test-only</td></tr>
+      <tr><td class="piece">scheduler</td><td>seven legal causes <code>#{:world :viewport :resource :interaction :clock :readback :device-recovery}</code>; a deadline registry <code>{:next-deadline :cadence :stop-predicate}</code>; <code>decide</code> is pure (state + time + causes + deadlines → encode? + next state + a 64-row causes ring); <code>pulse-alpha</code> = a 30 Hz selection-outline waveform, exactly 1.0 when disarmed; <code>replay</code> re-runs recorded rows through the same decide; <code>decide!</code>/<code>decide-at!</code> = the impure edge with an injected clock</td><td>causes + due deadlines → encode or skip; a recording → the same decisions</td><td class="why">“Frame counters and wall clocks may drive writers or be read at the sink — never inside derivation”; replay rebinds the clock to recorded logical time</td><td>frame runtime (<code>sync-pulse-deadline!</code>) · chrome gpu (pulse) · verifier (decide · replay · pulse-alpha)</td><td><span class="s s-park">parked</span>; <code>decide!</code> has no caller — tested, not looped</td></tr>
+    </table></div>
+    <p class="anygeneral"><b>In any engine</b> this is two things glued: the damage/invalidation layer (React’s reconciler, Flutter’s dirty marking, incremental computation à la Salsa/Adapton) and the render graph (Frostbite’s FrameGraph: declare resources + passes, validate, reuse, cull). The unusual part is the fence discipline — every maintained view ships with a second, independently written compiler whose only job is to disagree.</p>
+  </section>
+
+  <!-- ============ G ============ -->
+  <section class="piece" id="p-gpu">
+    <h3>G · WebGPU core <span class="s s-park">PARKED</span> <span class="s s-dead">draw-frame! has no caller</span></h3>
+    <div class="pbar"><span class="files">webgpu/renderer.cljs 203K (155 defs) · compositor_gpu.cljs 72K · buffer_pool.cljs 22K · gpu_budget.cljs 16K — .cljs, no JVM tests; required only by the verifier</span></div>
+    <p class="plain"><strong>What it is.</strong> The part that speaks WebGPU: builds the pipelines (shaders), owns the buffers and textures, turns tape entries into draw calls, and encodes a frame. Six instanced “systems” for the families that live here (rect · shadow · MSDF text · Slug text · image · a clear quad), one table of container transforms, one camera uniform, the frame function, the tape executor, the compositor, a buffer pool and a budget tracker.</p>
+    <p class="plain"><strong>How it works here.</strong> There are no vertex buffers of geometry at all: every pipeline draws <code>(6, N)</code> — six corners of a unit square from <code>vertex_index</code>, N instances — and the one vertex-buffer slot carries per-instance data (<code>stepMode "instance"</code>). A rect instance is 116 bytes (28 floats + a container u32: geometry · color · corner radii · border widths · border color · gradient); a shadow 84; an MSDF glyph 52 (rect · uv · color · container); a Slug glyph 100 (rect · sample bounds · inverse Jacobian · banding · glyph location · color · container). The vertex shader reads <code>containers[instance.container_idx]</code> — a 32-byte row <code>[axis_x.xy axis_y.xy translation.xy flags pad]</code> from one read-only storage buffer of 16 384 rows — applies the affine, then camera pan/zoom (unless the row’s flag says screen-space), then a half-pixel conservative hull. The fragment shader computes coverage: an Inigo-Quilez rounded-box SDF with an inner ring for borders; a Gaussian CDF via an erf approximation for shadows; the median of three MSDF channels for atlas glyphs; for Slug, exact coverage solved per pixel from Bézier control points read out of two data textures (no glyph pixels on the GPU at all). Both text roads share the shaper’s placements; only coverage differs.</p>
+    <p class="plain"><strong>The frame function</strong> (<code>draw-frame!</code>, ~330 lines): every family’s uploads first (“no queue write is relied on while a pass encoder is live”) → inputs → changed families → produce → arrangement → entry/container/region/global deltas → the reducer → effect spans + plan (a plan change publishes a receipt) → camera uniform → project every entry’s clip to a screen scissor → the twin check → then one of two roads on the plan’s color mode: <strong>linear</strong> = the compositor; <strong>legacy</strong> = one command encoder, one render pass onto the swap chain (loadOp load when a dirty rect exists), <code>execute-scene-tape!</code> walks the entries forward with a pipeline switch per entry, end, optional copy-present, submit. Retained between frames: five module atoms (semantic state · previous inputs · device identity · attachment size · compositors by device), every system’s GPU objects, the containers table, the camera buffer, the compositor’s pool. Rebuilt per frame: only changed families’ entries, the scissor vector, the uniform writes, and leased compositor intermediates.</p>
+<pre>// renderer.cljs:206-221 — transforms composed in the vertex shader
+let c = containers[instance.container_idx];
+let is_screen = (c.flags &amp; 1u) != 0u;
+let zm = select(camera.zoom, 1.0, is_screen);
+let pn = select(camera.pan, vec2&lt;f32&gt;(0.0, 0.0), is_screen);
+let world_pos = c.translation + c.axis_x * local_pos.x + c.axis_y * local_pos.y;
+let panned = world_pos * zm + pn;
+let ndc = (panned / camera.screen_dimensions * 2.0) - vec2&lt;f32&gt;(1.0, 1.0);</pre>
+    <div class="tablewrap"><table class="def map">
+      <tr><th>sub-piece</th><th>what it is · how</th><th>in → out</th><th>why shaped so</th><th>talks to</th><th>state</th></tr>
+      <tr><td class="piece">systems</td><td>rect · shadow · msdf · slug · image · image-mip (a blit that builds mip chains) · clear-quad (partial clears); each a map <code>{pipeline bind-group instance-buffer capacity num-instances family/id !paint-state}</code>; a shared WGSL prelude with the color-space constant textually rewritten per pipeline (sRGB-direct vs linear-premultiplied = the same source compiled twice); one <code>.draw</code> per tape entry</td><td>store-frame ops → packed instances → draws</td><td class="why">“WebGPU is a contract the applier speaks natively, never a DOM-shaped target”; the SDF coverage law frozen since W0-A (“W2-A changes the transport and geometry, not the fragment coverage convention”)</td><td>shaper (text) · image material · tape · buffer pool · budget</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">transforms</td><td>camera = one 6-float uniform <code>{pan zoom pad screen_dimensions}</code>, rewritten every frame (24 bytes); containers = one storage buffer, 32 B × 16 384 rows (Q8 priced 1 024 / 4 096 / 16 384; the largest measured tier became the allocation), written by transport slot; row 0 = identity</td><td>effective transforms → GPU rows; pan/zoom → the uniform</td><td class="why">“transforms compose in-shader … a container move is one transform value, not a subtree rewrite”</td><td>containers · every pipeline</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">the frame function</td><td><code>draw-frame!</code>: the orchestration described above; <code>draw-comparison-frame!</code>: a split-viewport MSDF-vs-Slug text A/B harness (skips rects, shadows, chrome)</td><td>device + context + systems + camera + store frame + effective transforms + deltas → GPU commands · receipts</td><td class="why">the product loop’s single frame sink; “every upload/prepare happens before the first pass opens” (W4)</td><td>everything in E and F · compositor · tape · shaper</td><td><span class="s s-dead">no caller</span> (either)</td></tr>
+      <tr><td class="piece">tape executor + registry</td><td><code>frame-family-registry</code>: ten rows of <code>{:contract :inputs :produce :execute!}</code>; six use the generic <code>execute-gpu-batch!</code>, image/path/connector/chrome/region3d bring their own walker; <code>execute-frame-entry!</code> looks up by family id; entries are executed <em>interleaved in tape order</em> with a pipeline switch per entry — no per-family pass; the load-time exhaustiveness assertion</td><td>the tape → draw calls in document order</td><td class="why">“plug-in render families sit above — each plugs into the pipeline/frame registries without touching another family”; “the central tape executor remains family-blind (IMAGE-ATOM T1)”</td><td>tape · families</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">compositor</td><td>five shaders (fullscreen-triangle vertex · composite: group × opacity, optional mask, optional backdrop mix · blur: separable 5-tap Gaussian run H then V · present: un-premultiply, linear→sRGB, re-premultiply · clip-mask: rasterize an arbitrary quad by four edge cross-products); <code>draw-multipass!</code>: region producers first → the scene into a viewport-sized rgba16float target → each effect group recursively into its own target (layer blur · mask → its own coverage texture · composite) → backdrop snapshot + blur when declared → one present pass → one submit → leases released on <code>onSubmittedWorkDone</code>; a recycling target pool, 512 MB cap, refuses by name after reclaiming stale frees; blur degrades on refusal; async readback for PNG export</td><td>plan + effect spans + arrangement → the composited frame on the swap chain</td><td class="why">“residency — uploads, atlases, eviction, culling — is the applier’s private, usage-driven business”; the spatial model’s residency law (budgeted · degradable · honestly refusing); measured: the backdrop road peaks at six live viewport-sized rgba16 targets (~66 MB each at 4K)</td><td>frame graph · frame effects · frame inputs · region rungs · region bindings · budget · region3d gpu (leases)</td><td><span class="s s-park">parked</span></td></tr>
+      <tr><td class="piece">buffer pool</td><td>one growing GPU buffer (doubles, copies the live prefix) + a CPU slot allocator <code>{buffer capacity free-list active-slots high-water generations pack-fn bytes-per-item}</code>; three update strategies: keyed (by id — z-order not preserved), ordered (slot i = input i — z-correct, ids only to skip writes), batch (positional diff); freed slots zeroed “to prevent ghost rendering”; hands out the pool atom so a retained entry resolves a grown buffer at encode time</td><td>per-frame item lists → O(changed) writes into one buffer</td><td class="why">“the Missionary-side equivalent of what e/for-by would do” (its docstring) — the editor-era differential upload</td><td>budget · (renderer internally)</td><td><span class="s s-park">parked</span>; its whole public API has no outside caller</td></tr>
+      <tr><td class="piece">budget</td><td>a WeakMap from GPU object → <code>{kind label reserved-bytes active-bytes}</code> + a ring of 200 events; reserved (textures price every mip and sample) vs active (set after each upload); compares against adapter limits and <code>console.warn</code>s at 80 %; <strong>never refuses</strong> — the compositor’s target pool does</td><td>allocations + uploads → a console-first report</td><td class="why">“Device limits price today’s rung, never the ceiling”; a tracker, not an authority</td><td>every allocating namespace</td><td><span class="s s-park">parked</span></td></tr>
+    </table></div>
+    <p class="anygeneral"><b>In any engine</b> this is the GPU backend + compositor (Skia/Ganesh, Impeller, GPUI’s renderer, wgpu-based Vello). The three choices worth noticing: one instanced unit quad for everything; one storage array of affine rows composed in the vertex shader instead of a matrix stack; and two complete text backends off one shaper, one of which puts no glyph bitmaps on the GPU.</p>
+  </section>
+
+  <!-- ============ V ============ -->
+  <section class="piece" id="p-verifier">
+    <h3>V · The verifier <span class="s s-live">LIVE — the area’s only entry</span></h3>
+    <div class="pbar"><span class="files">webgpu/verifier.cljs 304K (191 defs) · test/render_engine/run_verifier.mjs · verify_scene_tape_fence.mjs · verify_text_layout_fence.mjs · verify_proportional_shaper.mjs · memory_receipt.mjs · shadow-cljs.edn <code>:render-verifier</code> (the one build target; init <code>start!</code>)</span></div>
+    <p class="plain"><strong>What it is.</strong> A browser harness that is forbidden from cheating: it instantiates the production renderer’s public pipeline/update functions and the repository’s real font assets, owns only capture, comparison inputs, one candidate probe and receipts, and “never substitutes lookalike WGSL”. Its CPU point-in-path probe is explicitly <em>not</em> the product picking path — a sentinel in the receipt keeps those two truths from collapsing. Around it: a Puppeteer runner and three static fences that read the source text.</p>
+    <p class="plain"><strong>How it works here.</strong> <code>start!</code> yields once (so the CDP console marker lands before any synchronous pipeline compile), reads the query (<code>?region3d-floor-only</code> picks the narrow runner), runs a pure in-process assertion, refuses without a secure context + <code>navigator.gpu</code>, then adapter → device → two fonts (DejaVu Sans Mono for MSDF/Slug, Ubuntu Sans Variable for T1 shaping) → builds the real systems (camera buffer, containers buffer, rect system, two text systems, an isolated rect system for the affine-boundary probe) → nine lanes in parallel (zoom cases · shader digests · Q5 affine boundary · image · path · connector · chrome · W4 frame runtime · Region3D floor) → one schema-v2 map on <code>window.__renderVerifierResult</code>. Errors publish as <code>{:fatal …}</code>; the done flag always flips, so the runner never hangs. A <strong>golden</strong> is not a per-pixel diff: the real system renders a 128×128 case <em>twice</em>, both readbacks are sha256’d (determinism), the bytes are also PNG-encoded; in Node the runner requires a three-way agreement — current raw hash = manifest, current PNG hash = manifest, on-disk golden PNG = manifest — for three representative files. Goldens live under <code>test/app/fixtures/render_engine/gpu-goldens/</code> with a manifest; regeneration is deliberate (no write path in the runner). The runner launches Chrome with swiftshader, intercepts every request and serves the release build from a synthetic <code>http://localhost</code> (no server process at all), waits for the flag, evaluates seven lane guards, writes <code>receipt.json</code>, exits 1 on failure. “152 files · 0 warnings” is the shadow-cljs compile line in the same npm script.</p>
+    <div class="tablewrap"><table class="def map">
+      <tr><th>sub-piece</th><th>what it is · how</th><th>in → out</th><th>why shaped so</th><th>drives (production fns called)</th><th>state</th></tr>
+      <tr><td class="piece">start! → result</td><td>the flow above; <code>run-verifier!</code> and <code>run-region3d-floor-verifier!</code> exported</td><td>a page load → the result map</td><td class="why">“Permanent W0-A browser half … It is not a product renderer” (its docstring); the dark-lane law: the guard for parked code</td><td>create-camera-buffer · create-containers-buffer · init-rect-system · init-text-system ×2 · init-image-system · write-containers! · update-camera · update-rects · update-text-data · shape-text</td><td><span class="s s-live">live</span></td></tr>
+      <tr><td class="piece">goldens</td><td>render twice → sha256 raw + PNG; image 3 (opaque · alpha · clipped) · path 3 (pressure ink z0.1 · holed concave z1 · translucent self-crossing z10) · connector 3 (straight + label · elbow + waypoints + heads · provenance pair) · chrome 3 (selection z1 · selection z8 · marquee/guide/gap z0.1) · Region3D floor 8 (sandwich · lit-depth-shadow · gizmo · gizmo-hover · placed-depth-interleave · anchored-edge · seam-demo · worn)</td><td>a case spec → pass/fail per row; <code>(every? :pass? rows)</code></td><td class="why">“the scenarios frozen as tripwires + representative goldens” (atom close law); determinism first, pixels second</td><td>compile-frame-tape · produce-frame-entries · execute-frame-entry! · execute-image-batch! · chrome-gpu prepare/entries/execute · region3d-gpu region3d-entries / region-topology-rows / encode-region-passes! · scene-tape compile-tape · ordered-insert · paint-forward · pick-reverse</td><td><span class="s s-live">green</span></td></tr>
+      <tr><td class="piece">probes · receipts</td><td>7 zoom cases z0.01 → z1000 through rect + msdf + slug; shader digests of the production WGSL; Q5 affine-boundary pinned pixels; Q8 transport rows; the T1 layout receipt (RTL · tab · ligature · combining mark · fallback glyph · variable axis through all seven readers); W4: dark-lane check (flag off ⇒ no receipt, no compositor), a nested mixed case through compile-frame-plan + scheduler decide/replay (replayed pixels byte-identical) + the compositor; color receipts; ledger receipts</td><td>fixtures → typed receipts in the result</td><td class="why">“receipts before verdicts”; the envelope is ratified (z0.01–z1000)</td><td>tl/layout + measure/wrap/paint/caret/selection/clip/hit readers · frame-graph compile-frame-plan · frame-effects derive-effect-spans / composite-group / source-over · frame-scheduler decide · replay · pulse-alpha · receipt · frame-inputs begin-ledger! / ledger-receipt · frame-runtime felt-fixture-receipt</td><td><span class="s s-live">live</span></td></tr>
+      <tr><td class="piece">static fences (.mjs)</td><td><em>scene-tape fence</em>: extracts draw-frame!, execute-scene-tape!, execute-frame-entry!, the twin check, the arrangement updater, image entries, scene_store/pick, rt-node and the registry by paren-matching; asserts every family goes through the registry and forbids a per-family <code>.draw</code> branch in the central executor; pins rt-node’s key shape and no per-node <code>:transform</code>. <em>text-layout fence</em>: 17 production fns must delegate to <code>tl/*</code>; forbids private metric arithmetic (<code>Math/round</code>, ÷ char-w, count × advance, <code>subs</code>, <code>split-lines</code>); repo-wide ban on raw plane reads outside the planes file; seeds two deliberate violations and fails if its detectors miss them. <em>proportional shaper</em>: runs HarfBuzz in Node against the shipped fonts and asserts ligature, kerning, combining, RTL, fallback, <code>wdth</code> axis actually happen</td><td>source text → pass/fail</td><td class="why">“SEAM-STEP1 T7: ownership pins move to maintained names; no assertion or seeded self-test is deleted when the live path changes”; the “by construction — fenced” tier</td><td>(reads source; calls nothing)</td><td><span class="s s-live">green</span></td></tr>
+      <tr><td class="piece">the runner</td><td>Puppeteer + system Chrome (<code>--enable-unsafe-webgpu --use-angle=swiftshader</code>); request interception serves <code>/</code> (inline shell), <code>/js/main.js</code> (the release build), <code>/fonts/*</code>, <code>/images/*</code>; aborts any non-localhost origin; waits ≤600 s for the done flag; seven lane guards; <code>receipt.json</code> with sha256 of seven source inputs, adapter identity, the console log; <code>memory_receipt.mjs</code> separately gates heap ≤100 MB, plane bytes ≤15 MB, ≥60 non-blank frames (drives the product build under <code>resources/public</code> — whether it still runs post-cut was not tested)</td><td>a build → receipt.json · exit code</td><td class="why">no product server participates (“:product-server-used? false”)</td><td>(drives the page)</td><td><span class="s s-live">live</span></td></tr>
+    </table></div>
+    <p class="anygeneral"><b>In any engine</b> this is the golden-image suite + determinism/replay tests. Two things are unusual: the harness may not write its own shaders, and the “fences” are greps over the source that encode ownership law — a lint with opinions.</p>
+  </section>
+
+  <h2 id="waves">6 · How it came to be this shape — the waves</h2>
+  <p>“Why is it implemented this way?” has two answers. The settled laws (one render substrate · the render seam · the spatial model · furniture is data) are the <em>intended</em> shape; they are quoted in the tables above. The <em>actual</em> shape also carries the order things arrived in — five waves in nine months, each under its own contract, each adding a layer and keeping the previous one alive as oracle or fallback. That is why the engine shows three <code>apply-deltas</code>, two text roads, two render roads, a maintained plan and a batch plan, a duplicated <code>legal-causes</code>. The code names the waves by its contract vocabulary; this table puts them in order.</p>
+  <div class="tablewrap"><table class="def">
+    <tr><th style="width:14%">when</th><th style="width:18%">the code calls it</th><th style="width:38%">what arrived</th><th>what it left behind / birthed by</th></tr>
+    <tr><td class="piece">2025-11 → 2026-03</td><td class="files">Phase 5 / 6A / 6D / 6E · Contract-T T0 · buffer pool</td><td>the editor-era renderer: “everything is a rect”, flat GPU vectors, keyed/ordered/batch buffer pools, a persistent render target, partial clears, shadows; monospace text layout as the one seam</td><td>the legacy road inside <code>draw-frame!</code> is still this; <code>buffer_pool</code>’s API has no caller outside the renderer; the legacy monospace layout road still exists behind “no provider”</td></tr>
+    <tr><td class="piece">2026-07-11 → 07-13</td><td class="files">Framework Wave 1 · scene-substrate P1 / P3a / P3b / P4</td><td>faces as data (assembly interpreter + primitives); the one scene store keyed (view-instance, address); containers with per-container affines composed in-shader; the runtime atoms + Missionary views; the context bundle</td><td>“One render substrate” ruled 07-12, built, worn, gate-passed 07-13 (P1–P4); the cid-recycling fix (F3); <code>scene_runtime</code> still describes its deleted consumers</td></tr>
+    <tr><td class="piece">2026-08-02 → 08-03</td><td class="files">W0-A · W0-B (Q1–Q8) · W2-A · W2-B · Contract-O / M / G / C · SEAM-STEP1 · Contract-T T1</td><td>the verifier (W0-A); the road-pricing spike (Q5 conservative hull, Q8 compact affine transport — 16 384 rows); the ordered tape with family registration as data, order tokens, paint-forward / pick-reverse (W2-B); the maintained sorted arrangement beside the batch compiler (SEAM-STEP1); HarfBuzz shaping (T1)</td><td>the render seam settled 08-03 (“the maintained tape — the landing begins”); the color seam present but default-off; the static fences with their “pins move, never delete” rule</td></tr>
+    <tr><td class="piece">2026-08-06 → 08-09</td><td class="files">W4 · IMAGE-ATOM · PATH ATOM · CONNECTOR ATOM · CHROME ATOM · the shaping correction · LAYOUT / FRAME-RETENTION</td><td>the frame layer (scheduler · graph · inputs · effects · compositor · frame runtime); the families as plug-ins (image → path → connector → chrome) each with material + GPU halves, goldens, receipts; the shaping correction (layout key, work bounds, planes)</td><td>the 28 s-frame incident and the caret-blink reshape → “recompute proportional to change, no execution clock as an ancestor”; the perf receipts quoted in comments (the n·log n arrangement rebuild, the per-line glyph-map rebuild at ~23 ms/keystroke)</td></tr>
+    <tr><td class="piece">2026-08-10 → 08-11</td><td class="files">REGION3D s1–s5 · FRAME-VIEW-REGION-BINDING · region rungs · pointer</td><td>Region3D as a family (a 3D scene as one tape row, MSAA render-to-texture, leases, rungs, pointer math); the maintained-view stratum (frame_delta · frame_semantic_state · effect view · plan view) that made the graph’s and effects’ own maintainers test-only</td><td>the spatial model settled 08-10 (born of the fullscreen incident); the live plan’s hash became a generation counter while the batch plan’s stayed a content hash</td></tr>
+    <tr><td class="piece">2026-08-19 → 08-20</td><td class="files">the waist cut</td><td>the product client deleted (<code>render.cljs</code> · <code>mouse.cljs</code> · <code>face_wiring</code> · <code>agent_flow</code> · <code>electric_flow</code> …); one build target left, the verifier</td><td>the engine parked: <code>draw-frame!</code> without a caller, the runtimes without a host, the presentation grammar under custody</td></tr>
+  </table></div>
+  <p>Read as a whole: the bottom (GPU systems, pool) is the oldest and simplest; the middle (store, containers, tape) is the ruled architecture; the top (frame layer, families, regions) is the most recent and the most law-shaped — every namespace there states its keyed inputs · door · ownership · projections · oracle in its docstring. The engine was built upward from the pixels and then re-founded from the store; both are still in the file.</p>
+
+  <h2 id="alive">7 · What is alive, what is guarded, what has no caller</h2>
+  <div class="tablewrap"><table class="def">
+    <tr><th style="width:30%">fact</th><th>receipt</th></tr>
+    <tr><td class="piece"><span class="s s-live">LIVE</span> the verifier build is the only entry</td><td><code>shadow-cljs.edn</code> has one target, <code>:render-verifier</code>, init <code>start!</code>; <code>start!</code> has zero callers in src/test (invoked by the runner’s page)</td></tr>
+    <tr><td class="piece"><span class="s s-dead">NO CALLER</span> <code>draw-frame!</code> · <code>draw-comparison-frame!</code></td><td>zero references outside their defn in src/ and test/ (one comment, one static-fence grep); the verifier composes <code>compile-frame-tape</code> + <code>execute-frame-entry!</code> itself — the scene-tape fence asserts the two roads stay twins statically</td></tr>
+    <tr><td class="piece"><span class="s s-dead">NO CALLER</span> the scheduler’s impure edge</td><td><code>decide!</code> · <code>decide-at!</code> · <code>due-deadlines</code> zero callers; the one production wiring (<code>frame-runtime/sync-pulse-deadline!</code>) itself has none; the pure <code>decide</code>/<code>replay</code>/<code>pulse-alpha</code> are verifier-driven</td></tr>
+    <tr><td class="piece"><span class="s s-dead">NO CALLER</span> the scene runtime’s host surface</td><td>18 of 25 public fns in <code>scene_runtime</code>; every public fn in <code>region3d_runtime</code>; <code>boot!</code>/<code>frame-edge!</code> in <code>chrome_runtime</code>; <code>boot!</code>/<code>mount!</code>/export in <code>frame_runtime</code>; the verifier requires chrome/region3d runtimes and calls nothing in them</td></tr>
+    <tr><td class="piece"><span class="s s-dorm">DORMANT</span> the batch maintainers</td><td><code>frame-graph/maintain-frame-plan</code> and <code>frame-effects/maintain-effect-spans</code> are test-only (the maintained-view stratum replaced them); the compositor allocates two maintained-state atoms nothing reads</td></tr>
+    <tr><td class="piece"><span class="s s-dorm">DORMANT</span> the color seam · the editor pools</td><td>the linear-premultiplied scene color is code-real and default-off (“until a later activation receipt”); <code>buffer_pool</code>’s entire public API has no caller outside the renderer</td></tr>
+    <tr><td class="piece"><span class="s s-live">GUARDED</span> what the verifier actually drives</td><td>the tape (compile · ordered-insert · paint-forward · pick-reverse) · the shaper (layout + 7 readers) · the frame graph’s batch compiler · the scheduler’s pure fns · the effects oracle · the real systems + executors · chrome and region3d GPU builders · the ledger; <strong>not</strong>: <code>draw-frame!</code>, the semantic-state reducer, the maintained views, any scene-runtime lifecycle</td></tr>
+    <tr><td class="piece"><span class="s s-park">UNTESTED ON THE JVM</span> the GPU halves</td><td>all six family GPU namespaces + the four core WebGPU files have zero <code>.clj</code> test files; their only coverage is the browser verifier</td></tr>
+  </table></div>
+  <p>None of this is a verdict. It is the state the engine is in, so that “is this how I want it?” can be asked about a thing that has been looked at.</p>
+
+  <h2 id="sources">8 · Sources — where every claim came from</h2>
+  <ul class="srcs">
+    <li><strong>Binding “why”:</strong> <code>docs/decisions.md</code> — “One render substrate” (:302-327) · “How engine work lands” (:402-449) · “The render seam” (:450-628, incl. the shaping correction) · “The spatial model” (:629-690); <code>docs/engine-terrain.md</code> (the intended whole). Read primary this session.</li>
+    <li><strong>The prior grain:</strong> <code>docs/below-the-waist/kept-code-map.md</code> §5 AREA C (the eight pieces, inherited as-is) and its HTML twin (design system inherited). <strong>Twins of this page:</strong> <code>docs/below-the-waist/render-engine-map.md</code> (the form sessions read — same content, no picture) and <code>render-engine-map.html</code> (this page).</li>
+    <li><strong>Code, read by seam</strong> (skeleton first, scoped windows, line anchors in the tables; tree at commit <code>e48abeb</code>): six read-only gatherer digests landed beside this page at <code>docs/below-the-waist/render-engine-gather/</code> — <code>webgpu.md</code> · <code>scene.md</code> · <code>frame.md</code> · <code>families.md</code> · <code>shaper-verifier.md</code> · the <code>skeleton-*</code> files (requires graph of all 48 files, def counts, every ns docstring, section banners, the verifier skeleton); its <code>README.md</code> says how they were produced. Decision-changing facts (ten families · the two roads in <code>draw-frame!</code> · the registry shape · region-as-one-row · the vertex-shader composition · the store shape) were spot-checked against source by the composing session.</li>
+    <li><strong>General-architecture analogies</strong> (§2 and the “in any engine” lines) are general knowledge, not from the repo — named as such.</li>
+    <li><strong>What outranks this page:</strong> the source; <code>decisions.md</code>; Sid’s word. Anything here that disagrees with the code is wrong here.</li>
+  </ul>
+</main>

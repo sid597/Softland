@@ -1,0 +1,200 @@
+44:(def ^:private canvas-size 128)
+45:(def ^:private color-format "rgba8unorm")
+46:(def ^:private fixture-screen-x 24.0)
+47:(def ^:private fixture-screen-y 24.0)
+48:(def ^:private fixture-screen-size 80.0)
+49:(def ^:private glyph-screen-x 34.0)
+50:(def ^:private glyph-screen-baseline 96.0)
+51:(def ^:private glyph-screen-size 80.0)
+52:(def ^:private rounded-radii [24.0 14.0 30.0 6.0])
+53:(def ^:private q5-angle 0.637)
+54:(def ^:private q5-pinned-pixels [[61 43] [66 84]])
+56:(def ^:private zoom-cases
+65:(def ^:private image-fixtures
+83:(defn- promise-mapv [f xs]
+91:(defn- bytes->hex [^js bytes]
+98:(defn- sha256-bytes [^js bytes]
+102:(defn- sha256-string [s]
+105:(defn- opaque-png-data-url [^js rgba]
+125:(defn- render-system-bytes!
+173:(defn- render-pair! [device system zoom]
+190:(defn- pixel-red [^js rgba x y]
+193:(defn- q8-effective [entry-count]
+206:(defn- run-q8-transport! [device containers-buffer]
+224:(defn- q5-transform []
+233:(defn- run-q5-affine-boundary! [device q5-system q5-effective]
+275:(defn- boundary-pixels [^js rgba]
+292:(defn- rounded-path-inside? [screen-x screen-y]
+312:(defn- quadratic-point [[[x1 y1] [x2 y2] [x3 y3]] t]
+317:(defn- point-in-curves?
+342:(defn- instance-path-probe
+367:(defn- parity-receipt [mode rgba inside? cpu-inverse]
+410:(defn- read-u16 [^js view byte-offset]
+413:(defn- band-entry [^js view width x y]
+417:(defn- band-entry-at-offset [view width origin-x origin-y offset]
+423:(defn- half->float [bits]
+438:(defn- curve-texel [^js view width x y]
+445:(defn- decode-glyph-curves [slug-assets unicode]
+470:(defn- rich-rect [zoom]
+482:(defn- parity-rect [zoom]
+490:(defn- glyph-lines [zoom]
+497:(defn- image-record [mode case-id pair]
+506:(defn- run-case!
+601:(defn- fetch-image-corpus! []
+626:(defn- ingress-corpus! [image-system corpus]
+632:(defn- image-op
+642:(defn- image-store-frame [ops]
+650:(defn- render-image-bytes!
+718:(defn- render-image-pair! [device image-system ops zoom clear-value]
+738:(defn- image-atom-record [mode case-id pair]
+747:(defn- run-image-golden-case!
+787:(defn- image-product-inside? [op zoom screen-x screen-y]
+792:(defn- image-parity-receipt [extent-id op zoom rgba]
+823:(defn- run-image-parity!
+838:(defn- byte-delta [^js left ^js right]
+846:(defn- pixel-rgba [^js bytes x y]
+851:(defn- bitmap-pixel [^js bitmap x y]
+858:(defn- icc-decode-receipt! [corpus]
+894:(defn- srgb->linear [value]
+899:(defn- linear->srgb-byte [value]
+905:(defn- run-color-receipts!
+1074:(defn- run-arrangement-receipt! [image-system corpus]
+1159:(defn- request-replacement-device! []
+1169:(defn- run-lifecycle-receipt!
+1364:(defn- run-image-atom! [device adapter]
+1441:(def ^:private chrome-owner-vi [:chrome-atom :fixture])
+1443:(defn- chrome-bounds [coordinate-zoom [x y w h]]
+1447:(defn- chrome-screen-point [coordinate-zoom [x y]]
+1450:(defn- chrome-material
+1464:(def ^:private chrome-selection-world-bounds [4.0 4.0 14.0 12.0])
+1466:(defn- chrome-selection-ops [_zoom]
+1485:(defn- chrome-gesture-ops [zoom]
+1502:(defn- chrome-store-frame [ops]
+1510:(defn- render-chrome-bytes!
+1566:(defn- render-chrome-pair! [device chrome-system ops zoom pan]
+1584:(defn- chrome-golden-spec [mode]
+1602:(defn- max-white-run-px [^js bytes]
+1613:(defn- chrome-anchor-metric [ops zoom pan bytes]
+1631:(defn- run-chrome-golden! [device chrome-system mode]
+1655:(defn- run-chrome-upload-gate! [chrome-system]
+1666:(defn- run-chrome-color! [device chrome-system]
+1720:(defn- verifier-entry [id family order paint pick]
+1725:(defn- run-chrome-arrangement! []
+1758:(defn- run-chrome-atom! [device adapter]
+1835:(defn- path-paint [color opacity]
+1839:(defn- screen-point [zoom [x y]] [(/ x zoom) (/ y zoom)])
+1841:(defn- path-ink-material [id zoom samples color opacity]
+1856:(defn- path-shape-material [id zoom color opacity]
+1875:(defn- path-rect-material [id zoom color opacity]
+1888:(defn- path-op [id material]
+1892:(defn- path-store-frame [ops]
+1900:(defn- render-path-bytes!
+1958:(defn- render-path-pair! [device path-system ops zoom clear-value]
+1978:(defn- path-image-record [mode case-id pair]
+1987:(defn- path-golden-spec [mode]
+2013:(defn- run-path-golden! [device path-system mode]
+2032:(defn- path-parity-row! [device path-system {:keys [case-id zoom regime]}]
+2087:(defn- run-path-color! [device path-system]
+2115:(defn- receipt-entry [id family part]
+2130:(defn- run-path-arrangement! []
+2147:(defn- run-path-upload-gate! [path-system]
+2162:(defn- run-path-atom! [device adapter]
+2212:(def ^:private connector-owner-vi [:connector-atom :fixture])
+2213:(def ^:private connector-effective
+2217:(defn- connector-bounds [zoom [x y w h]]
+2220:(defn- connector-target [address vi zoom bounds]
+2224:(defn- connector-material
+2253:(defn- connector-op [id material]
+2258:(defn- connector-golden-spec [mode]
+2306:(defn- connector-store-frame [ops]
+2314:(defn- execute-verifier-entry! [^js pass entry]
+2326:(defn- assert-frame-retention-payload-resolution! []
+2372:(defn- render-connector-bytes!
+2432:(defn- render-connector-pair!
+2455:(defn- connector-image-record [mode case-id pair]
+2464:(defn- run-connector-golden!
+2482:(defn- route-boundary-distance [route point]
+2499:(defn- connector-parity-row!
+2558:(defn- run-connector-color!
+2594:(defn- run-connector-arrangement! []
+2615:(defn- run-connector-upload-gate!
+2636:(defn- run-connector-label-road!
+2698:(defn- run-connector-atom!
+2774:(defn- selected-limits [^js limits]
+2782:(defn- adapter-information [^js adapter]
+2803:(defn- shader-digests []
+2820:(defn- load-t1-provider [font-config]
+2832:(defn- t1-layout-receipt [provider]
+2887:(defn- w4-order [registry cid rank id]
+2893:(defn- w4-entry [registry cid rank id system first-instance]
+2903:(defn- w4-read-texture! [^js device ^js texture width height]
+2932:(defn- w4-capture!
+2958:(defn- w4-capture-pair!
+2991:(defn- w4-registry [rows]
+2997:(defn- w4-install-rects!
+3007:(defn- w4-rect [registry cid x y w h rgba & {:as more}]
+3013:(defn- w4-case
+3037:(defn- w4-nested-mask-case [device camera containers-buffer tracker]
+3057:(defn- w4-mixed-nested-case!
+3217:(defn- w4-backdrop-case [device camera containers-buffer tracker]
+3237:(defn- w4-clip-case
+3301:(defn- w4-gradient-case [device camera containers-buffer tracker]
+3311:(defn- w4-group-oracle [bytes]
+3335:(defn- max-byte-delta [left right]
+3343:(defn- straight-alpha-sample [[r g b a]]
+3352:(defn- w4-direct-capture! [^js device entry width height]
+3373:(defn- w4-copy-present-capture! [^js device entry width height]
+3402:(defn- w4-secondary-receipts!
+3623:(defn- w4-case-image [case-id pair & [zoom]]
+3635:(defn- run-w4-frame-runtime! [device adapter font-assets]
+4194:(def ^:private region3d-owner-vi [:region3d-floor :verifier])
+4195:(def ^:private region3d-id :region3d/verifier)
+4197:(defn- region3d-tagged
+4202:(defn- region3d-transform
+4208:(defn- region3d-mesh
+4218:(defn- region3d-light [id kind translation color intensity more]
+4226:(defn- region3d-empty [id translation]
+4231:(defn- region3d-fixture-region
+4268:(defn- region3d-op [region & {:keys [width height]
+4276:(defn- region3d-seam-fixture [font-assets]
+4339:(defn- region3d-store-frame [op]
+4347:(defn- region3d-rect-entry [id system first-instance rank]
+4359:(defn- region3d-frame
+4382:(defn- region3d-pass-producers [region-system]
+4387:(defn- region3d-binding-frame [region-system]
+4391:(defn- region3d-prepare-options [harness]
+4398:(defn- region3d-capture-frame!
+4407:(defn- region3d-capture-prepared!
+4411:(defn- region3d-capture!
+4422:(defn- region3d-capture-pair!
+4440:(defn- region3d-image-record [case-id pair]
+4448:(def ^:private region3d-seam-connector-vi [:region3d-seam :connector])
+4450:(defn- region3d-seam-connector-op []
+4483:(defn- region3d-seam-connector-frame [op]
+4498:(defn- region3d-seam-capture-pair!
+4553:(defn- region3d-seam-receipt [harness seam-op]
+4567:(defn- region3d-lights [maintained]
+4579:(defn- region3d-lit-oracle [region bytes]
+4648:(defn- region3d-overlay-probe [region bytes]
+4692:(defn- region3d-s1-receipt [harness op]
+4757:(defn- region3d-s3-receipt [region]
+4813:(defn- region3d-empty-frame [harness]
+4825:(defn- region3d-s5-lifecycle!
+5024:(def ^:private lower-resolution-pressure-id :region3d/lower-resolution-pressure)
+5026:(defn- pool-holds-free-target?
+5033:(defn- region3d-lower-step!
+5043:(defn- region3d-refusal-leg!
+5066:(defn- region3d-lower-resolution!
+5289:(defn- run-region3d-floor! [device adapter font-assets]
+5465:(defn ^:export run-verifier! []
+5623:(defn ^:export run-region3d-floor-verifier! []
+5667:(defn ^:export start! []
+
+=== golden/fence named defs ===
+747:(defn- run-image-golden-case!
+1584:(defn- chrome-golden-spec [mode]
+1631:(defn- run-chrome-golden! [device chrome-system mode]
+1987:(defn- path-golden-spec [mode]
+2013:(defn- run-path-golden! [device path-system mode]
+2258:(defn- connector-golden-spec [mode]
+2464:(defn- run-connector-golden!

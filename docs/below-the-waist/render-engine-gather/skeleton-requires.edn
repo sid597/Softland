@@ -1,0 +1,146 @@
+{
+ app.client.substrate.chrome-derive
+ {:file "src/app/client/substrate/chrome_derive.cljc" :bytes 13824 :lines 325
+  :requires [app.client.substrate.chrome-material app.client.workspace.selection]}
+ app.client.substrate.chrome-material
+ {:file "src/app/client/substrate/chrome_material.cljc" :bytes 12785 :lines 284
+  :requires [app.client.workspace.containers]}
+ app.client.substrate.connector-material
+ {:file "src/app/client/substrate/connector_material.cljc" :bytes 19117 :lines 450
+  :requires [app.client.substrate.path-material]}
+ app.client.substrate.connector-route
+ {:file "src/app/client/substrate/connector_route.cljc" :bytes 33215 :lines 720
+  :requires [app.client.substrate.connector-material app.client.substrate.path-material app.client.substrate.path-tessellation app.client.workspace.containers app.client.workspace.text-layout]}
+ app.client.substrate.frame-delta
+ {:file "src/app/client/substrate/frame_delta.cljc" :bytes 7834 :lines 197
+  :requires [app.client.substrate.frame-effects]}
+ app.client.substrate.frame-effect-view
+ {:file "src/app/client/substrate/frame_effect_view.cljc" :bytes 11748 :lines 277
+  :requires [app.client.substrate.frame-delta app.client.substrate.frame-effects app.client.substrate.scene-tape]}
+ app.client.substrate.frame-effects
+ {:file "src/app/client/substrate/frame_effects.cljc" :bytes 14194 :lines 317
+  :requires [app.client.workspace.containers]}
+ app.client.substrate.frame-graph
+ {:file "src/app/client/substrate/frame_graph.cljc" :bytes 41742 :lines 828
+  :requires [app.client.substrate.frame-effects app.client.substrate.scene-tape]}
+ app.client.substrate.frame-inputs
+ {:file "src/app/client/substrate/frame_inputs.cljc" :bytes 9431 :lines 249
+  :requires []}
+ app.client.substrate.frame-plan-view
+ {:file "src/app/client/substrate/frame_plan_view.cljc" :bytes 15611 :lines 331
+  :requires [app.client.substrate.frame-graph]}
+ app.client.substrate.frame-scheduler
+ {:file "src/app/client/substrate/frame_scheduler.cljc" :bytes 7915 :lines 202
+  :requires []}
+ app.client.substrate.frame-semantic-state
+ {:file "src/app/client/substrate/frame_semantic_state.cljc" :bytes 2998 :lines 65
+  :requires [app.client.substrate.frame-effect-view app.client.substrate.frame-plan-view]}
+ app.client.substrate.image-material
+ {:file "src/app/client/substrate/image_material.cljc" :bytes 15330 :lines 372
+  :requires []}
+ app.client.substrate.path-material
+ {:file "src/app/client/substrate/path_material.cljc" :bytes 24594 :lines 564
+  :requires []}
+ app.client.substrate.path-tessellation
+ {:file "src/app/client/substrate/path_tessellation.cljc" :bytes 18815 :lines 457
+  :requires [app.client.substrate.path-material]}
+ app.client.substrate.region-rungs
+ {:file "src/app/client/substrate/region_rungs.cljc" :bytes 3952 :lines 93
+  :requires []}
+ app.client.substrate.region3d-evaluation
+ {:file "src/app/client/substrate/region3d_evaluation.cljc" :bytes 3237 :lines 76
+  :requires [app.client.substrate.region3d-scene]}
+ app.client.substrate.region3d-material
+ {:file "src/app/client/substrate/region3d_material.cljc" :bytes 30969 :lines 708
+  :requires []}
+ app.client.substrate.region3d-placement
+ {:file "src/app/client/substrate/region3d_placement.cljc" :bytes 19884 :lines 457
+  :requires [app.client.substrate.path-material app.client.substrate.path-tessellation app.client.substrate.region3d-scene app.client.workspace.containers app.client.workspace.text-layout]}
+ app.client.substrate.region3d-scene
+ {:file "src/app/client/substrate/region3d_scene.cljc" :bytes 55716 :lines 1283
+  :requires [app.client.substrate.region3d-material app.client.workspace.region3d-pointer]}
+ app.client.substrate.scene-tape
+ {:file "src/app/client/substrate/scene_tape.cljc" :bytes 33059 :lines 768
+  :requires [app.client.substrate.chrome-material app.client.substrate.connector-material app.client.substrate.path-material app.client.substrate.region3d-material]}
+ app.client.substrate.snap
+ {:file "src/app/client/substrate/snap.cljc" :bytes 11211 :lines 246
+  :requires [app.client.substrate.chrome-material app.client.workspace.containers app.client.workspace.selection]}
+ app.client.substrate.webgpu.buffer-pool
+ {:file "src/app/client/substrate/webgpu/buffer_pool.cljs" :bytes 21920 :lines 493
+  :requires [app.client.substrate.webgpu.gpu-budget]}
+ app.client.substrate.webgpu.chrome-gpu
+ {:file "src/app/client/substrate/webgpu/chrome_gpu.cljs" :bytes 17226 :lines 342
+  :requires [app.client.substrate.chrome-material app.client.substrate.frame-inputs app.client.substrate.scene-tape app.client.substrate.webgpu.gpu-budget]}
+ app.client.substrate.webgpu.compositor-gpu
+ {:file "src/app/client/substrate/webgpu/compositor_gpu.cljs" :bytes 72274 :lines 1488
+  :requires [app.client.substrate.frame-effects app.client.substrate.frame-graph app.client.substrate.frame-inputs app.client.substrate.region-rungs app.client.substrate.webgpu.gpu-budget app.client.substrate.webgpu.region-bindings]}
+ app.client.substrate.webgpu.connector-gpu
+ {:file "src/app/client/substrate/webgpu/connector_gpu.cljs" :bytes 22248 :lines 446
+  :requires [app.client.substrate.connector-material app.client.substrate.connector-route app.client.substrate.frame-inputs app.client.substrate.path-material app.client.substrate.scene-tape app.client.substrate.webgpu.gpu-budget app.client.substrate.webgpu.path-gpu]}
+ app.client.substrate.webgpu.gpu-budget
+ {:file "src/app/client/substrate/webgpu/gpu_budget.cljs" :bytes 16177 :lines 358
+  :requires []}
+ app.client.substrate.webgpu.path-gpu
+ {:file "src/app/client/substrate/webgpu/path_gpu.cljs" :bytes 18535 :lines 406
+  :requires [app.client.substrate.frame-inputs app.client.substrate.path-material app.client.substrate.path-tessellation app.client.substrate.scene-tape app.client.substrate.webgpu.gpu-budget]}
+ app.client.substrate.webgpu.region-bindings
+ {:file "src/app/client/substrate/webgpu/region_bindings.cljs" :bytes 10635 :lines 238
+  :requires [app.client.substrate.frame-delta]}
+ app.client.substrate.webgpu.region3d-gpu
+ {:file "src/app/client/substrate/webgpu/region3d_gpu.cljs" :bytes 81394 :lines 1628
+  :requires [app.client.substrate.frame-inputs app.client.substrate.region3d-evaluation app.client.substrate.region3d-material app.client.substrate.region3d-placement app.client.substrate.region3d-scene app.client.substrate.webgpu.compositor-gpu app.client.substrate.webgpu.gpu-budget app.client.substrate.webgpu.region-bindings app.client.substrate.webgpu.region3d-placement-gpu]}
+ app.client.substrate.webgpu.region3d-placement-gpu
+ {:file "src/app/client/substrate/webgpu/region3d_placement_gpu.cljs" :bytes 25753 :lines 540
+  :requires [app.client.substrate.region3d-placement app.client.substrate.region3d-scene app.client.substrate.webgpu.gpu-budget]}
+ app.client.substrate.webgpu.renderer
+ {:file "src/app/client/substrate/webgpu/renderer.cljs" :bytes 202877 :lines 4011
+  :requires [app.client.substrate.frame-delta app.client.substrate.frame-effect-view app.client.substrate.frame-graph app.client.substrate.frame-inputs app.client.substrate.frame-plan-view app.client.substrate.frame-semantic-state app.client.substrate.image-material app.client.substrate.path-material app.client.substrate.region3d-placement app.client.substrate.scene-tape app.client.substrate.webgpu.buffer-pool app.client.substrate.webgpu.chrome-gpu app.client.substrate.webgpu.compositor-gpu app.client.substrate.webgpu.connector-gpu app.client.substrate.webgpu.gpu-budget app.client.substrate.webgpu.path-gpu app.client.substrate.webgpu.region3d-gpu app.client.workspace.text-layout]}
+ app.client.substrate.webgpu.verifier
+ {:file "src/app/client/substrate/webgpu/verifier.cljs" :bytes 304177 :lines 5696
+  :requires [app.client.substrate.chrome-material app.client.substrate.connector-material app.client.substrate.connector-route app.client.substrate.frame-effects app.client.substrate.frame-graph app.client.substrate.frame-inputs app.client.substrate.frame-scheduler app.client.substrate.image-material app.client.substrate.path-material app.client.substrate.path-tessellation app.client.substrate.region3d-material app.client.substrate.region3d-placement app.client.substrate.region3d-scene app.client.substrate.scene-tape app.client.substrate.webgpu.chrome-gpu app.client.substrate.webgpu.compositor-gpu app.client.substrate.webgpu.connector-gpu app.client.substrate.webgpu.gpu-budget app.client.substrate.webgpu.path-gpu app.client.substrate.webgpu.region-bindings app.client.substrate.webgpu.region3d-gpu app.client.substrate.webgpu.region3d-placement-gpu app.client.substrate.webgpu.renderer app.client.workspace.chrome-runtime app.client.workspace.containers app.client.workspace.frame-runtime app.client.workspace.region3d-runtime app.client.workspace.runtime.fonts app.client.workspace.text-layout app.client.workspace.text-shaper]}
+ app.client.workspace.chrome-runtime
+ {:file "src/app/client/workspace/chrome_runtime.cljs" :bytes 16815 :lines 413
+  :requires [app.client.substrate.chrome-derive app.client.substrate.snap app.client.workspace.containers app.client.workspace.scene-runtime app.client.workspace.scene-store app.client.workspace.selection]}
+ app.client.workspace.containers
+ {:file "src/app/client/workspace/containers.cljc" :bytes 12458 :lines 311
+  :requires []}
+ app.client.workspace.face-assembly
+ {:file "src/app/client/workspace/face_assembly.cljc" :bytes 30915 :lines 620
+  :requires [app.client.workspace.rect-tree]}
+ app.client.workspace.face-primitives
+ {:file "src/app/client/workspace/face_primitives.cljc" :bytes 61855 :lines 1365
+  :requires [app.client.workspace.rect-tree app.client.workspace.text-layout]}
+ app.client.workspace.frame-runtime
+ {:file "src/app/client/workspace/frame_runtime.cljs" :bytes 15083 :lines 356
+  :requires [app.client.substrate.frame-effects app.client.substrate.frame-scheduler app.client.workspace.rect-tree app.client.workspace.scene-runtime]}
+ app.client.workspace.rect-tree
+ {:file "src/app/client/workspace/rect_tree.cljc" :bytes 35219 :lines 715
+  :requires [app.client.substrate.chrome-derive app.client.substrate.chrome-material app.client.substrate.connector-material app.client.substrate.connector-route app.client.substrate.image-material app.client.substrate.path-material app.client.substrate.region3d-material app.client.workspace.text-layout]}
+ app.client.workspace.region3d-pointer
+ {:file "src/app/client/workspace/region3d_pointer.cljc" :bytes 4740 :lines 121
+  :requires [app.client.substrate.region3d-material]}
+ app.client.workspace.region3d-runtime
+ {:file "src/app/client/workspace/region3d_runtime.cljs" :bytes 27548 :lines 651
+  :requires [app.client.substrate.region3d-evaluation app.client.substrate.region3d-material app.client.substrate.region3d-placement app.client.substrate.region3d-scene app.client.substrate.webgpu.region3d-gpu app.client.workspace.rect-tree app.client.workspace.region3d-pointer app.client.workspace.scene-runtime app.client.workspace.scene-store]}
+ app.client.workspace.runtime.fonts
+ {:file "src/app/client/workspace/runtime/fonts.cljs" :bytes 12503 :lines 275
+  :requires [app.client.workspace.text-shaper]}
+ app.client.workspace.scene-runtime
+ {:file "src/app/client/workspace/scene_runtime.cljs" :bytes 29638 :lines 599
+  :requires [app.client.substrate.frame-delta app.client.substrate.frame-effects app.client.workspace.containers app.client.workspace.scene-store]}
+ app.client.workspace.scene-store
+ {:file "src/app/client/workspace/scene_store.cljc" :bytes 35347 :lines 742
+  :requires [app.client.substrate.region3d-placement app.client.substrate.scene-tape app.client.workspace.containers app.client.workspace.face-assembly app.client.workspace.rect-tree app.shared.material-inspector]}
+ app.client.workspace.selection
+ {:file "src/app/client/workspace/selection.cljc" :bytes 6208 :lines 159
+  :requires [app.client.workspace.containers]}
+ app.client.workspace.text-layout
+ {:file "src/app/client/workspace/text_layout.cljc" :bytes 73038 :lines 1548
+  :requires [app.client.workspace.text-layout-planes]}
+ app.client.workspace.text-layout-planes
+ {:file "src/app/client/workspace/text_layout_planes.cljc" :bytes 25160 :lines 574
+  :requires []}
+ app.client.workspace.text-shaper
+ {:file "src/app/client/workspace/text_shaper.cljs" :bytes 13620 :lines 340
+  :requires []}
+}
