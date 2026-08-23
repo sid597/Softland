@@ -30,5 +30,9 @@ prior map he already accepted and inherit its grain + design system; (2) go one 
 down, not a ladder; (3) per piece: in / out / why / talks-to / state, with the "why"
 cited to the settled bullet or birth ruling; (4) draw arrows from call chains (requires,
 routes, handles), never from names; (5) park the verdict question in the chat, not on the
-page; the page says "no verdicts" in its lede. Companion: [[feedback-lived-walkthrough-design]]
+page; the page says "no verdicts" in its lede. (6) A claims-bearing map/analysis
+(anchors, receipts, positions) is not finished as a scratch artifact: at his word it LANDS
+as `.md` + `.html` twins under `docs/` so it can be contested (Codex/fresh-eyes rounds read
+disk) — 2026-08-23: "land the docs how else would this be contested?" Positions on the page
+are marked POSITION and pointed at from the board/direction doc; the page is never the ruling. Companion: [[feedback-lived-walkthrough-design]]
 (moment-by-moment from his POV), [[feedback-explanations-simple-story-first]].
