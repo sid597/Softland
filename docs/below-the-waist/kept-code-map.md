@@ -31,6 +31,11 @@ maps under `docs/below-the-waist/` hold that grain); not a zoom ladder.
 settled bullet or the birth ruling it came from; where it came from reading what the code
 does, it says so.
 
+**Sibling, one notch under AREA C (2026-08-23):** `engine-two-arrows.md` / `.html` — the parked
+render engine by HOP rather than by piece: the two arrows (truth → pixels · pointer → meaning),
+where state lives and why, the paradigm per zone, why it is not "the Electric way" (with
+receipts), and the gap that leaves, filled (§8).
+
 ---
 
 ## 0. Legend — the five words this page uses

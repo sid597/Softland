@@ -19,9 +19,20 @@ any contract) · evidence = `RECON.md` beside this file (tree receipts
 - **HAVE** — Rama (all truth, face definitions included) · Electric (the
   courier) · the engine (draws everything: text, images, paths, 3D). They
   are already connected: ordinary blocks render through the engine today.
+  **GROUND SHIFTED 2026-08-20 (the waist cut, accepted 08-21):** the product
+  client left the tree whole and Electric with it (`deps.edn` carries
+  Missionary only); the engine is PARKED with no host; nothing renders
+  today. The gap as it now stands, the fill hop by hop, and two POSITIONS
+  (road order inverts — the arrow is the first act; courier SSE-first,
+  Electric's keyed machinery takes its test at the host probe — feed
+  transport is probe-decided per PROBLEM-SPACE) are drawn in
+  `docs/below-the-waist/engine-two-arrows.md` §8 (landed 2026-08-23,
+  contestable; not yet ruled — Sid's word or the transfer bench closes).
 - **PROBLEM** — it is the WRONG connection: every change re-sends the whole
   page (~1/sec) as one anonymous value, and the engine's real editing (T2)
-  is not wired to real blocks. Every felt bug lives at this seam.
+  is not wired to real blocks. Every felt bug lives at this seam. (As of
+  the cut: the wrong connection is DELETED, not repaired — the middle is
+  absent; both ends are already keyed. `engine-two-arrows.md` §8.)
 - **WORK** — make the CORRECT connection. "Correct Electric" means exactly
   two arrows: ↓ changes travel by id (one edit moves one thing, instantly)
   · ↑ the view tells Electric what it needs (pay only for what you look at).
