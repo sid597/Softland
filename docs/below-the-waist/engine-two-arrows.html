@@ -353,7 +353,7 @@
       <text x="420" y="217" class="t-dead">m/watch → m/latest → m/reduce, in a coalescing microtask</text>
       <text class="m" x="420" y="236">"store mutations at edges only (T4), NOT the RAF edge"</text>
       <text class="m" x="700" y="217">a rect tree per face</text>
-      <text class="m" x="700" y="236">(16 builders; face_assembly/primitives)</text>
+      <text class="m" x="700" y="236">(36 builders, 12 block-*; face_primitives/registry)</text>
       <line class="ln-dn" x1="210" y1="248" x2="210" y2="274" marker-end="url(#b-dn)"/>
 
       <!-- hop 4 -->
@@ -547,7 +547,7 @@
     <li><strong>One structure serves render and hit.</strong> Trap T8 in the scene contract: hit-testing in screen space against transformed containers made click-space diverge from render-space. The fix is structural — inverse-transform the point into the container, then ask the same tree the painter used. Agreement by construction, not by calibration.</li>
     <li><strong>The answer must carry meaning, not an id.</strong> A click needs the address, the path, the local point (for a caret), the actions. A GPU id-buffer gives an integer, a frame late (readback is async).</li>
     <li><strong>Agents and the mouse share one finger.</strong> <code>bundle-for-viewport</code> (<code>scene_runtime.cljs:398</code>) re-picks from <code>!last-pick</code>'s world point when an agent turn is submitted — no GPU, same answer. "Pointing is a click act, never a hover side effect" (<code>adc30c9^:ground.cljs:3817</code>).</li>
-    <li><strong>Cost shape (structure, not measured):</strong> linear over slots, each a bounds-pruned tree descent, first hit short-circuits; no per-event recompile — the pick reads the write-maintained order. The one number on file is ~4.5 ms/event at 189 blocks on a swiftshader dev build (<code>docs/space-as-entity/GATE.md:102</code>) — an environment the doc itself calls unclassifiable.</li>
+    <li><strong>Cost shape (measured 2026-08-23, JVM):</strong> linear over slots — <code>maintained-entries</code> (<code>scene_store.cljc:314</code>) rebuilds the O(N) entry vector on EVERY pick before the reverse walk; the walk itself short-circuits at the first hit, the setup does not (topmost hit = 62 % of a miss at 2000 slots). Medians at 10 / 200 / 2000 slots: topmost 15 / 88 / 278 µs · miss 24 / 129 / 452 µs (<code>docs/electric-native/receipts/2026-08-23-jvm-bench/</code>). The ~4.5 ms/event at 189 blocks on a swiftshader dev build (<code>docs/space-as-entity/GATE.md:102</code>) is ~30× this — hypothesis: that cost lives elsewhere (event path / JS bridge); kill-probe: <code>performance.now()</code> around <code>ss/pick</code> alone in the host.</li>
   </ul>
   <div class="callout up">
     <strong>In-flight gestures never become events.</strong> <code>:camera/pan :move</code> is <code>reset! !camera</code>; only <code>:end</code> arms a settle, and <code>arm-settle!</code> coalesces bursts into one acked write (<code>adc30c9^:ground.cljs:3620–3630, 2112</code>). Trap T10: "committing an event per mousemove — log flood; gesture ≠ assertion." This is the short local loop in Figure 1.
@@ -786,7 +786,7 @@
       <line class="ln-dn" x1="520" y1="302" x2="520" y2="330" marker-end="url(#f-dn)"/>
       <text class="m t-dn" x="532" y="320">per-key views (the 34-watch collapse)</text>
       <rect class="box-dn" x="380" y="330" width="280" height="40" rx="3"/>
-      <text x="520" y="355" text-anchor="middle">keyed-diff-update-pool! (stub exists) → GPU</text>
+      <text x="520" y="355" text-anchor="middle">ordered pool diff (exists; keyed twin unwired) → GPU</text>
 
       <!-- UP side on the right -->
       <rect class="box-up" x="700" y="108" width="260" height="58" rx="3"/>
@@ -802,7 +802,7 @@
 
       <rect class="box-up" x="700" y="420" width="260" height="58" rx="3"/>
       <text class="h" x="830" y="441" text-anchor="middle">acts</text>
-      <text class="m" x="830" y="458" text-anchor="middle">edit · settle → the ten write routes</text>
+      <text class="m" x="830" y="458" text-anchor="middle">edit · settle → the write arms (+1 block-edit arm)</text>
       <text class="m" x="830" y="472" text-anchor="middle">→ Rama → accepted → the feed (echo = feed)</text>
       <path class="ln-up" d="M 700 449 L 520 449 L 520 80" marker-end="url(#f-up)"/>
       <text class="m t-up" x="532" y="440">correlation = act-id; caps dissolve</text>
@@ -820,13 +820,13 @@
   <table>
     <thead><tr><th>#</th><th>Hop (from §3)</th><th>After</th><th>Exists?</th></tr></thead>
     <tbody>
-      <tr><td class="m">1</td><td>Rama serves a page</td><td>Rama rows → a <strong>since-reader</strong> over RevisionRow (time-prefixed order-keys, watermark cursor) → changes since <em>W</em>; geometry settles gain their missing notify</td><td>rows + cursor reader exist; the since-watermark fn and the geometry bump do not</td></tr>
+      <tr><td class="m">1</td><td>Rama serves a page</td><td>Rama rows → a <strong>since-reader</strong> over RevisionRow (time-prefixed order-keys, watermark cursor) → changes since <em>W</em>; geometry settles gain their missing notify</td><td>rows + cursor reader exist (text only); the since-watermark fn and the geometry bump do not; geometry has NO time-ordered history (cells overwrite in place) and no push exists — so the producer is notice → re-shape → diff-against-shadow first, the change-log PState at atom 3 (CONTRACT §9.3)</td></tr>
       <tr><td class="m">2</td><td>mirror atom</td><td><strong>dies</strong> — the feed delivers units by id; no mailbox, no mirror</td><td>—</td></tr>
-      <tr><td class="m">3</td><td>consumer edge</td><td>the <strong>client host</strong>: one flow over the courier → one <code>m/reduce</code> edge → per key <code>ss/upsert-slot</code> / <code>remove-slot</code>; the face tree per <em>unit</em> from the served assembly (16 builders now; faces-are-data later)</td><td>store fns exist; the host (3 small namespaces) does not</td></tr>
+      <tr><td class="m">3</td><td>consumer edge</td><td>the <strong>client host</strong>: one flow over the courier → one <code>m/reduce</code> edge → per key <code>ss/upsert-slot</code> / <code>remove-slot</code>; the face tree per <em>unit</em> from the served assembly (36 builders now, no per-unit builder — <code>build-face-tree</code> over a one-unit data-context + one block face as data)</td><td>store fns exist; the host (five small namespaces) does not</td></tr>
       <tr><td class="m">4</td><td>the store swap</td><td>unchanged — already keyed, index never rescanned, tape patched by key</td><td>✓</td></tr>
       <tr><td class="m">5</td><td><code>&lt;store-frame</code> rebuilds all lanes</td><td><strong>per-key views</strong>: the store contract's slice — per-key reads, write-site dispatch, signals at sharing points; <code>derive-store-frame</code> demotes to oracle with a fence</td><td>does not; this is the store-contract slice the seam ruling names</td></tr>
       <tr><td class="m">6–7</td><td>world snapshot · frame edge</td><td>unchanged — a host must own the rAF sample again (one line in the old host)</td><td>pattern exists (deleted); trivially rebuilt</td></tr>
-      <tr><td class="m">8</td><td>uploads</td><td>unchanged — <code>keyed-diff-update-pool!</code> is the pre-stubbed receiver</td><td>✓ (stub)</td></tr>
+      <tr><td class="m">8</td><td>uploads</td><td>unchanged — <code>ordered-diff-update-pool!</code> is the receiver (the per-vi offset math in <code>store-pool-entries</code> is ORDERED); <code>keyed-diff-update-pool!</code> is implemented but unwired and would break those offsets — the keyed swap is the store-contract slice's</td><td>✓ (uncalled)</td></tr>
       <tr><td class="m">9–10</td><td>draw-frame! · encode</td><td>unchanged — already per family, keyed, with the oracle twin</td><td>✓</td></tr>
       <tr><td class="m">↑</td><td>pointer → acts</td><td>frame-rate stays local (as today); settles go through the geometry route <em>and notify</em>; edits go through the write routes; the echo is the feed, correlated by act-id</td><td>routes exist; notify does not</td></tr>
       <tr><td class="m">↑↑</td><td>(new) demand</td><td>the renderer's visibility facts → a <strong>broker</strong> → the lens's membership subscription (grow/shrink container sets, never position windows — L16); the feed is scoped by it</td><td>does not</td></tr>
@@ -847,7 +847,7 @@
     <li><strong>What it retires on landing:</strong> the whole-page pull as truth (it stays as the oracle, with its two named duties: committed-echo cross-check, cap-overflow reconcile), the epoch integer, the mirror pattern.</li>
   </ul>
   <div class="callout dn">
-    This section is a landed position, not a contract — contest it, and keep filling (Sid, 2026-08-23: "just keep writing and filling in the gaps .. instead of waiting for me"). The next step is the contract cut (one document: scope · laws · entry points · 3–5 scenarios · MUST-NOTs) with the courier position above as its one open fork — closed by the transfer bench, not by waiting — and the Block probe stays the named instance that decides the host.
+    This section is a landed position, not a contract — contest it, and keep filling (Sid, 2026-08-23: "just keep writing and filling in the gaps .. instead of waiting for me"). CUT 2026-08-23: <code>docs/electric-native/CONTRACT.md</code> (scope · refusals · laws · exact entry points · five scenarios · MUST-NOTs · the five-things table · three atoms · the atom-1 Codex starter); the courier position above is its §9.1 with the transfer bench as the named trigger; the Block probe stays the named instance that decides the host. Gatherer findings at the cut repaired this section in place (36 builders · ordered pools · no wire edit route · geometry has no time-ordered history).
   </div>
 </section>
 
@@ -917,9 +917,9 @@
   </ul>
   <h3>Not settled — structure claimed, magnitude not measured</h3>
   <ul class="tight">
-    <li><span class="tag warn">structure only</span> pick cost: linear over slots with pruning — the 4.5 ms/189-blocks figure is a swiftshader dev-build quote, not a receipt. Probe: <code>performance.now()</code> around <code>pick-at</code> at 10/200/2000 blocks, headful vulkan.</li>
-    <li><span class="tag warn">structure only</span> <code>derive-store-frame</code> whole-lane rebuild per swap — cost magnitude unknown; the <code>:store-frame-execs</code> counter existed for it in the deleted host.</li>
-    <li><span class="tag warn">unverified</span> whether the verifier build ever reaches <code>draw-frame!</code> at runtime (it builds the systems; grep shows no call).</li>
+    <li><span class="tag m">measured 2026-08-23, JVM</span> pick cost — see §4 "Cost shape": O(N) entry-vector rebuild per pick + short-circuiting walk; 0.28–0.45 ms at 2000 slots. Browser magnitude still owed: <code>performance.now()</code> around <code>ss/pick</code> in the host (CONTRACT atom 2 carries the counter).</li>
+    <li><span class="tag m">measured 2026-08-23, JVM</span> <code>derive-store-frame</code> whole-lane rebuild per swap — 0.17 / 1.41 / 16.66 ms at 10 / 200 / 2000 slots (linear, 11.8× per 10×) against a flat ~0.3 ms <code>upsert-slot</code>: <strong>54× amplification at 2000 slots — a dropped frame per edit</strong>. This is the store-contract slice's numbered trigger (CONTRACT §2, §10 c). Receipt: <code>docs/electric-native/receipts/2026-08-23-jvm-bench/</code>.</li>
+    <li><span class="tag m">resolved 2026-08-23</span> the verifier build never reaches <code>draw-frame!</code>: <code>start!</code> → <code>run-verifier!</code> → <code>run-w4-frame-runtime!</code> → <code>w4-capture!</code> → <code>compositor-gpu/draw-multipass!</code> directly (<code>verifier.cljs:5667, 5465, 3635, 2946</code>); one-shot, no rAF. <code>draw-frame!</code> has zero callers in <code>src/</code> — the new host is its first (CONTRACT §10 a). Build cmd: <code>clj -M:dev -m shadow.cljs.devtools.cli release render-verifier</code>.</li>
     <li><span class="tag warn">one receipt</span> "the mutable-tree applier lesson, proven twice" — one proof on file (gpu-mount); the second is uncited.</li>
     <li><span class="tag warn">fenced</span> L16 numbers: raw incseq, snapshot −44 vs claims at −45; "do not credit past that".</li>
     <li><span class="tag warn">not read</span> <code>region3d_scene.cljc</code> pick internals; family narrow-phase predicates (path/connector) — could be hot per candidate; <code>editing_runtime.cljs</code> atoms.</li>

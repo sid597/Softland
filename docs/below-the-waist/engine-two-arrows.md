@@ -141,7 +141,7 @@ STAGE            MECHANISM (on the arrow)            DATA SHAPE OUT
  3 · the consumer edge · runtime/render.cljs:183,220 → ground/reconcile!
    | m/watch → m/latest → m/reduce, in a coalescing microtask
    |   "store mutations at edges only (T4), NOT the RAF edge"
-   v  out: a rect tree per face · (16 builders; face_assembly/primitives)
+   v  out: a rect tree per face · (36 builders, 12 block-*; face_primitives/registry)
  4 · the store swap · scene_runtime.cljs:186 register-face-instance!
    |   scene_store.cljc:169 upsert-slot (pure)
    | swap! !scene-store (pure fn under the swap)
@@ -256,7 +256,7 @@ WebGPU never says what was clicked, so the engine answers it from the thing it a
 - **One structure serves render and hit.** Trap T8 in the scene contract: hit-testing in screen space against transformed containers made click-space diverge from render-space. The fix is structural — inverse-transform the point into the container, then ask the same tree the painter used. Agreement by construction, not by calibration.
 - **The answer must carry meaning, not an id.** A click needs the address, the path, the local point (for a caret), the actions. A GPU id-buffer gives an integer, a frame late (readback is async).
 - **Agents and the mouse share one finger.** `bundle-for-viewport` (`scene_runtime.cljs:398`) re-picks from `!last-pick`'s world point when an agent turn is submitted — no GPU, same answer. "Pointing is a click act, never a hover side effect" (`adc30c9^:ground.cljs:3817`).
-- **Cost shape (structure, not measured):** linear over slots, each a bounds-pruned tree descent, first hit short-circuits; no per-event recompile — the pick reads the write-maintained order. The one number on file is ~4.5 ms/event at 189 blocks on a swiftshader dev build (`docs/space-as-entity/GATE.md:102`) — an environment the doc itself calls unclassifiable.
+- **Cost shape (measured 2026-08-23, JVM):** linear over slots — `maintained-entries` (`scene_store.cljc:314`) rebuilds the O(N) entry vector on EVERY pick before the reverse walk; the walk itself short-circuits at the first hit, the setup does not (topmost hit = 62 % of a miss at 2000 slots). Medians at 10 / 200 / 2000 slots: topmost 15 / 88 / 278 µs · miss 24 / 129 / 452 µs (`docs/electric-native/receipts/2026-08-23-jvm-bench/`). The ~4.5 ms/event at 189 blocks on a swiftshader dev build (`docs/space-as-entity/GATE.md:102`) is ~30× this — hypothesis: that cost lives elsewhere (event path / JS bridge); kill-probe: `performance.now()` around `ss/pick` alone in the host.
 
 > **In-flight gestures never become events.** `:camera/pan :move` is `reset! !camera`; only `:end` arms a settle, and `arm-settle!` coalesces bursts into one acked write (`adc30c9^:ground.cljs:3620–3630, 2112`). Trap T10: "committing an event per mousemove — log flood; gesture ≠ assertion." This is the short local loop in Figure 1.
 
@@ -438,7 +438,7 @@ AFTER — keyed in motion, demand-scoped
    |  upsert-slot / remove-slot BY KEY (exists)
    v  [ scene store — patched by key (exists) ]
    |  per-key views (the 34-watch collapse)
-   v  [ keyed-diff-update-pool! (stub exists) → GPU ]
+   v  [ ordered pool diff (exists; keyed twin unwired) → GPU ]
 ---------------------------------------------------------------------------------------------
   [ renderer publishes visibility facts ]
    |  what the lens is looking at
@@ -447,7 +447,7 @@ AFTER — keyed in motion, demand-scoped
         → grow/shrink the subscription ]
    +---^ [ the keyed feed, per lens ]
   [ acts
-    edit · settle → the ten write routes
+    edit · settle → the write arms (+1 block-edit arm)
     → Rama → accepted → the feed (echo = feed) ]
    |  correlation = act-id; caps dissolve
    +---^ [ Rama — keyed rows (unit-id · event-id) ]
@@ -463,13 +463,13 @@ AFTER — keyed in motion, demand-scoped
 
 | # | Hop (from §3) | After | Exists? |
 | --- | --- | --- | --- |
-| 1 | Rama serves a page | Rama rows → a **since-reader** over RevisionRow (time-prefixed order-keys, watermark cursor) → changes since *W*; geometry settles gain their missing notify | rows + cursor reader exist; the since-watermark fn and the geometry bump do not |
+| 1 | Rama serves a page | Rama rows → a **since-reader** over RevisionRow (time-prefixed order-keys, watermark cursor) → changes since *W*; geometry settles gain their missing notify | rows + cursor reader exist (text only); the since-watermark fn and the geometry bump do not; geometry has NO time-ordered history (cells overwrite in place) and no push exists — so the producer is notice → re-shape → diff-against-shadow first, the change-log PState at atom 3 (CONTRACT §9.3) |
 | 2 | mirror atom | **dies** — the feed delivers units by id; no mailbox, no mirror | — |
-| 3 | consumer edge | the **client host**: one flow over the courier → one `m/reduce` edge → per key `ss/upsert-slot` / `remove-slot`; the face tree per *unit* from the served assembly (16 builders now; faces-are-data later) | store fns exist; the host (3 small namespaces) does not |
+| 3 | consumer edge | the **client host**: one flow over the courier → one `m/reduce` edge → per key `ss/upsert-slot` / `remove-slot`; the face tree per *unit* from the served assembly (36 builders now, no per-unit builder — `build-face-tree` over a one-unit data-context + one block face as data) | store fns exist; the host (five small namespaces) does not |
 | 4 | the store swap | unchanged — already keyed, index never rescanned, tape patched by key | ✓ |
 | 5 | `<store-frame` rebuilds all lanes | **per-key views**: the store contract's slice — per-key reads, write-site dispatch, signals at sharing points; `derive-store-frame` demotes to oracle with a fence | does not; this is the store-contract slice the seam ruling names |
 | 6–7 | world snapshot · frame edge | unchanged — a host must own the rAF sample again (one line in the old host) | pattern exists (deleted); trivially rebuilt |
-| 8 | uploads | unchanged — `keyed-diff-update-pool!` is the pre-stubbed receiver | ✓ (stub) |
+| 8 | uploads | unchanged — `ordered-diff-update-pool!` is the receiver (the per-vi offset math in `store-pool-entries` is ORDERED); `keyed-diff-update-pool!` is implemented but unwired and would break those offsets — the keyed swap is the store-contract slice's | ✓ (uncalled) |
 | 9–10 | draw-frame! · encode | unchanged — already per family, keyed, with the oracle twin | ✓ |
 | ↑ | pointer → acts | frame-rate stays local (as today); settles go through the geometry route *and notify*; edits go through the write routes; the echo is the feed, correlated by act-id | routes exist; notify does not |
 | ↑↑ | (new) demand | the renderer's visibility facts → a **broker** → the lens's membership subscription (grow/shrink container sets, never position windows — L16); the feed is scoped by it | does not |
@@ -488,7 +488,7 @@ DIRECTION.md's road 1 runs 1a (typing stops lagging) → 1b (the screen maintain
 - **Three tripwires, no more:** one edit moves exactly one slot (store diff = 1 key; changed-families = 1); a pan sends zero bytes up and re-derives zero slots; a second lens on the same container sees a geometry settle without an unrelated bump.
 - **What it retires on landing:** the whole-page pull as truth (it stays as the oracle, with its two named duties: committed-echo cross-check, cap-overflow reconcile), the epoch integer, the mirror pattern.
 
-> This section is a landed position, not a contract — contest it, and keep filling (Sid, 2026-08-23: "just keep writing and filling in the gaps .. instead of waiting for me"). The next step is the contract cut (one document: scope · laws · entry points · 3–5 scenarios · MUST-NOTs) with the courier position above as its one open fork — closed by the transfer bench, not by waiting — and the Block probe stays the named instance that decides the host.
+> This section is a landed position, not a contract — contest it, and keep filling (Sid, 2026-08-23: "just keep writing and filling in the gaps .. instead of waiting for me"). CUT 2026-08-23: `docs/electric-native/CONTRACT.md` (scope · refusals · laws · exact entry points · five scenarios · MUST-NOTs · the five-things table · three atoms · the atom-1 Codex starter); the courier position above is its §9.1 with the transfer bench as the named trigger; the Block probe stays the named instance that decides the host. Gatherer findings at the cut repaired this section in place (36 builders · ordered pools · no wire edit route · geometry has no time-ordered history).
 
 ## 9 · What is wasteful, and what is irreducible
 
@@ -545,9 +545,9 @@ Every one of these is the read side paying to rediscover what the write side alr
 
 ### Not settled — structure claimed, magnitude not measured
 
-- [structure only] pick cost: linear over slots with pruning — the 4.5 ms/189-blocks figure is a swiftshader dev-build quote, not a receipt. Probe: `performance.now()` around `pick-at` at 10/200/2000 blocks, headful vulkan.
-- [structure only] `derive-store-frame` whole-lane rebuild per swap — cost magnitude unknown; the `:store-frame-execs` counter existed for it in the deleted host.
-- [unverified] whether the verifier build ever reaches `draw-frame!` at runtime (it builds the systems; grep shows no call).
+- [measured 2026-08-23, JVM] pick cost — see §4 "Cost shape": O(N) entry-vector rebuild per pick + short-circuiting walk; 0.28–0.45 ms at 2000 slots. Browser magnitude still owed: `performance.now()` around `ss/pick` in the host (CONTRACT atom 2 carries the counter).
+- [measured 2026-08-23, JVM] `derive-store-frame` whole-lane rebuild per swap — 0.17 / 1.41 / 16.66 ms at 10 / 200 / 2000 slots (linear, 11.8× per 10×) against a flat ~0.3 ms `upsert-slot`: **54× amplification at 2000 slots — a dropped frame per edit**. This is the store-contract slice's numbered trigger (CONTRACT §2, §10 c). Receipt: `docs/electric-native/receipts/2026-08-23-jvm-bench/`.
+- [resolved 2026-08-23] the verifier build never reaches `draw-frame!`: `start!` → `run-verifier!` → `run-w4-frame-runtime!` → `w4-capture!` → `compositor-gpu/draw-multipass!` directly (`verifier.cljs:5667, 5465, 3635, 2946`); one-shot, no rAF. `draw-frame!` has zero callers in `src/` — the new host is its first (CONTRACT §10 a). Build cmd: `clj -M:dev -m shadow.cljs.devtools.cli release render-verifier`.
 - [one receipt] "the mutable-tree applier lesson, proven twice" — one proof on file (gpu-mount); the second is uncited.
 - [fenced] L16 numbers: raw incseq, snapshot −44 vs claims at −45; "do not credit past that".
 - [not read] `region3d_scene.cljc` pick internals; family narrow-phase predicates (path/connector) — could be hot per candidate; `editing_runtime.cljs` atoms.
