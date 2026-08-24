@@ -26,8 +26,7 @@
       projection yields the same cards carrying named errors (G9's drill). This
       is why this namespace may not require the server: the floor cannot be
       allowed to depend on anything a revision can reach."
-  (:require [app.shared.anatomy-material :as anatomy]
-            [clojure.string :as str]))
+  (:require [clojure.string :as str]))
 
 (def portal-version 0)
 
@@ -369,83 +368,6 @@
 ;; Composition + recipe — exhaust, described, never gating
 ;; ===========================================================================
 
-(def primitive-source-path
-  "All v0 anatomy primitive builders live behind this registered code address.
-   The amber stratum names the truthful file rather than pretending a material
-   keyword is itself code."
-  "src/app/client/workspace/face_primitives.cljc")
-
-(defn- worn-props
-  [props wears]
-  (into (sorted-map)
-        (keep
-         (fn [[prop value]]
-           (when (and (vector? value)
-                      (= 3 (count value))
-                      (= :wear (first value)))
-             [prop
-              {:wear/ref value
-               :wear/value (get-in wears [(second value) (nth value 2)])
-               :wear/revision-id
-               (get-in wears [(second value)
-                              :facet-master/revision-id])}])))
-        props))
-
-(defn composition-section
-  "The Workshop's standing boundary surface over one resolved anatomy wear.
-
-   Every expanded interpreter row carries all three strata: green material
-   (row, props, and actual worn values), amber registered code address, and the
-   red constitutional floor. Source paths are the same paths emitted by the
-   assembly interpreter, which makes row↔pixel inversion exact."
-  [{:keys [anatomy-wear wears]}]
-  (let [wear (or anatomy-wear anatomy/code-floor)
-        form (anatomy/form-for-wear wear)
-        parts (anatomy/expand-parts
-               (:anatomy/parts wear)
-               (:anatomy/defs wear))
-        candidate (anatomy/invocation-candidate-form form)
-        floor-revision (:facet-master/revision-id anatomy/code-floor)]
-    {:composition/version 0
-     :composition/master-id anatomy/master-id
-     :composition/revision-id (:facet-master/revision-id wear)
-     :composition/source (pr-str form)
-     :composition/invocation-candidate-source (pr-str candidate)
-     :composition/row-count (count parts)
-     :composition/specimen
-     {:specimen/interpreter :face-assembly
-      :specimen/revision-id (:facet-master/revision-id wear)
-      :specimen/live? true}
-     :composition/rows
-     (mapv
-      (fn [i part]
-        (let [source-path (if (zero? i)
-                            [:root]
-                            [:root :children (dec i) :template])]
-          {:part/id (:part/id part)
-           :part/order (:part/order part)
-           :part/source-path source-path
-           :part/row part
-           :part/strata
-           [{:stratum/id :material
-             :stratum/color :green
-             :stratum/label "material"
-             :material/row part
-             :material/props (:part/props part)
-             :material/worn-values (worn-props (:part/props part) wears)}
-            {:stratum/id :softland-code
-             :stratum/color :amber
-             :stratum/label "Softland code"
-             :code/primitive (:part/prim part)
-             :code/src-path primitive-source-path}
-            {:stratum/id :floor
-             :stratum/color :red
-             :stratum/label "code-owned · floored"
-             :floor/revision-id floor-revision
-             :floor/current? (true? (:facet-master/floor? wear))}]}))
-      (range)
-      parts)}))
-
 (defn composition
   "The facet composition ONE wearer's rendered contributions stamped.
 
@@ -472,9 +394,9 @@
 
 (def ^:private worn-block-composition
   "The named block recipe follows the real wear census. P2 explicitly widens
-   P7's historical five with the structural anatomy and visible invocation
-   masters. `:provenance` remains the probe master rather than block type."
-  #{:anatomy :attention :foldable :invocation
+   P7's historical five with the visible invocation master. `:provenance`
+   remains the probe master rather than block type."
+  #{:attention :foldable :invocation
     :positioned :threaded :text-body})
 
 (defn recipe

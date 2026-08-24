@@ -308,27 +308,6 @@
       (println "[CLUSTER-INGEST] git-spine done")
       {:sweep sweep}))))
 
-(defn faces-ingest!
-  "Faces roster ingest + wear-log bridge replay (P4; order per framework §16 —
-   replay before the sweep can matter). The wear bridge reads the EDN WAL once
-   via its default path; new wears on the cluster write no WAL lines."
-  []
-  (let [arsenal (face-arsenal-runtime)
-        oc-rt (object-container-runtime)]
-    (when-not (and arsenal oc-rt)
-      (throw (ex-info "cluster unavailable — run bin/land up first" {})))
-    (let [wear (face-arsenal/replay-wear-log!
-                (assoc arsenal :face-wear-log-path
-                       (face-arsenal/default-wear-log-path {})))
-          sweep (ingest-watchers/initial-sweep!
-                 {:runtime (merge oc-rt arsenal)
-                  :roots ["resources/public/faces"]
-                  :classify-fn ingest-watchers/faces-classify})]
-      (println "[CLUSTER-INGEST] wear bridge:" (:replayed wear) "replayed,"
-               (:failed wear) "failed · faces sweep:" (:imported sweep) "of"
-               (:attempted sweep))
-      {:wear-bridge wear :faces-sweep sweep})))
-
 (defn facet-materials-ingest!
   "Idempotently preserve provenance v0, explicitly activate its composition
    grammar revision, and install every other registered facet master through
@@ -581,45 +560,36 @@
 
 (defn migrate!
   "Migration day (CONTRACT §7 P4), T8 order: corpus ingest (imported bases
-   first) → faces + wear bridge → transcript harvest/distill + block-edit
-   bridge → machine-cut bridge. Returns the G4 receipt map. Idempotent —
+   first) → transcript harvest/distill + block-edit bridge → machine-cut
+   bridge. Returns the G4 receipt map. Idempotent —
    every stage rides deterministic ids + idempotency journals. The one-arity
    form is the `clj -X` entry (`bin/land migrate`) — System/exit for the same
    non-daemon-thread reason as ingest!."
   ([_argmap] (migrate!) (System/exit 0))
   ([]
    (let [corpus (ingest!)
-         faces (faces-ingest!)
          first-light (first-light-ingest!)
          starter-culture (starter-culture-ingest! (:object-key first-light))
          terminal-escape (terminal-escape-report)
          machine-cut (machine-cut-bridge!)]
      (println "[CLUSTER-INGEST] migration receipt:")
      (println {:corpus corpus
-               :faces (dissoc faces :wear-bridge)
                :first-light (select-keys first-light [:object-key :river :debris :block-edit-bridge])
                :starter-culture starter-culture
                :terminal-escape terminal-escape
                :machine-cut machine-cut})
      {:corpus corpus
-      :faces faces
       :first-light first-light
       :starter-culture starter-culture
       :terminal-escape terminal-escape
       :machine-cut machine-cut})))
 
 (defn start-watchers!
-  "Live ingest watchers over the doc roots + faces root (T9: watching resumes
+  "Live ingest watchers over the document roots (T9: watching resumes
    whenever this is called — REPL/dev-time, not startup). Returns the handle
    maps ({:stop! ...})."
   []
-  (let [cfg (ingest-config)
-        arsenal (face-arsenal-runtime)
-        oc-rt (object-container-runtime)]
-    (when-not (and (:runtime cfg) arsenal oc-rt)
+  (let [cfg (ingest-config)]
+    (when-not (:runtime cfg)
       (throw (ex-info "cluster unavailable — run bin/land up first" {})))
-    {:docs (ingest-watchers/start-ingest-watchers! cfg)
-     :faces (ingest-watchers/start-ingest-watchers!
-             {:runtime (merge oc-rt arsenal)
-              :roots ["resources/public/faces"]
-              :classify-fn ingest-watchers/faces-classify})}))
+    {:docs (ingest-watchers/start-ingest-watchers! cfg)}))

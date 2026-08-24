@@ -30,7 +30,6 @@
             [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.rama.relation-kernel :as rk]
             [app.shared.activation-event :as activation-event]
-            [app.shared.anatomy-material :as anatomy]
             [app.shared.attention-material :as attention]
             [app.shared.binding-material :as bm]
             [app.shared.facet-material :as facet-material]
@@ -96,9 +95,9 @@
   (mp/open ctx (fn [req] (fp/serve ctx req)) params))
 
 (def entity-mode-regression-sha
-  "Re-cut by smalltalk-ui-vm P2 when fm:invocation joined the generic master
-   inventory; entity mode itself remains byte-pinned."
-  "ab468646f6ee5cf50accc5f45a2df6d133641db594239dafe52de64a0250b5f7")
+  "Re-cut when the obsolete anatomy master left the generic inventory; entity
+   mode itself remains byte-pinned."
+  "98fe198a8cd880d45d0952d368bf6fb77dbef226bce5e74c87c39aa78c8faa76")
 
 ;; ===========================================================================
 ;; G1 — the portal question list, answered one by one with replayable calls
@@ -197,7 +196,7 @@
         bytes (portal/canonical-edn result)]
     (is (= entity-mode-regression-sha (core/sha-256 bytes))
         "adding :master-id mode must not drift one byte of entity mode")
-    (is (= 24281 (count (.getBytes bytes "UTF-8"))))
+    (is (= 23232 (count (.getBytes bytes "UTF-8"))))
     (is (= bytes (portal/canonical-edn result-with-ignored-master))
         "entity-id wins if both addresses are supplied")))
 
@@ -379,25 +378,6 @@
         (rk/close-relation-runtime! rk-rt)
         (ocr/close-object-container-runtime! oc-rt)))))
 
-(deftest smalltalk-ui-vm-p2-anatomy-anchor-gains-a-composition-section-only
-  (let [rt (ocr/start-object-container-runtime!)]
-    (try
-      (let [result (open! rt {:master-id anatomy/master-id})
-            section (:portal/composition result)]
-        (is (= anatomy/master-id (:composition/master-id section)))
-        (is (= (count anatomy/seed-parts)
-               (:composition/row-count section)))
-        (is (= [:green :amber :red]
-               (mapv :stratum/color
-                     (get-in section [:composition/rows 0 :part/strata]))))
-        (is (= 17 (count (:portal/questions result)))
-            "Workshop is a section; the constitutional card floor is untouched")
-        (is (nil? (:portal/composition
-                   (open! rt {:master-id attention/master-id})))
-            "rooms stay generic; only the anatomy portal owner adds its section"))
-      (finally
-        (ocr/close-object-container-runtime! rt)))))
-
 (deftest smalltalk-ui-vm-p2-send-consult-wears-the-source-instance
   (let [subject "du:block:invocation-source"
         instance-id "fm:invocation~i~fixture"
@@ -553,7 +533,6 @@
                             set)]
             (is (= #{"src/app/server/episode.clj"
                      "src/app/server/rama/material_circulation.clj"
-                     "src/app/server/rama/object_container/assembly_adapter.clj"
                      "src/app/server/rama/object_container/block_distiller.clj"
                      "src/app/server/rama/object_container/clojure_adapter.clj"
                      "src/app/server/rama/object_container/facet_master.clj"
@@ -2100,8 +2079,6 @@
                              :block/user-hit-area :position]
                             ["fm:threaded" "rev:threaded"
                              :block/user-hit-area :column]
-                            [anatomy/master-id "rev:anatomy"
-                             :block/user-hit-area :anatomy]
                             [invocation/master-id "rev:invocation"
                              :block/user-hit-area :invocation]]))]
 

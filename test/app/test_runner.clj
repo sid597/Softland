@@ -29,8 +29,7 @@
            [java.nio.file.attribute FileAttribute]))
 
 (def pure-namespaces
-  '[app.anatomy-test
-    app.client.substrate.image-citizenship-test
+  '[app.client.substrate.image-citizenship-test
     app.client.substrate.image-material-test
     app.client.substrate.connector-material-test
     app.client.substrate.connector-route-test
@@ -58,10 +57,6 @@
     app.client.workspace.text-layout-planes-test
     app.client.workspace.text-layout-test
     app.binding-dispatch-test
-    app.face-assembly-test
-    app.face-integration-test
-    app.face-primitives-test
-    app.face-transcription-test
     app.missionary-claims-test
     app.reply-to-block-test
     app.space-material-test
@@ -161,9 +156,9 @@
      app.server.rama.dogfood-llm-test})
 
 (def full-receipt-floor
-  "The receipt banked before this harness. Full runs may grow but may not drop
-   below it."
-  {:test 397 :assertions 5416})
+  "The receipt floor after the authorized face recipe/compiler retirement.
+   Full runs may grow but may not drop below it."
+  {:test 356 :assertions 4551})
 
 (def ^:private shared-close-vars
   '[app.server.rama.face-arsenal/close-face-arsenal-runtime!

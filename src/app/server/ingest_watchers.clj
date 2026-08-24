@@ -18,9 +18,7 @@
    logged and retried on the next change event; the loop never crashes."
   (:require [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.markdown-adapter :as markdown-adapter]
-            [app.server.rama.object-container.assembly-adapter :as assembly-adapter]
             [app.server.rama.dogfood.transcript :as transcript]
-            [app.server.rama.face-arsenal :as face-arsenal]
             [app.server.rama.git-spine :as git-spine]
             [app.server.rama.util-fns :as util-fns])
   (:import [java.io File]
@@ -59,16 +57,6 @@
       (.endsWith name ".md") :md
       (.endsWith name ".jsonl") :jsonl
       :else nil)))
-
-(defn faces-classify
-  "The FACES watcher's own classify-fn (framework W2, trap T19): `.edn` under
-   the faces root → :assembly; everything else nil. The assembly branch fires
-   ONLY through a watcher constructed with THIS classifier — `.edn` is never
-   classified by bare extension over the shared docs/vision roots, so
-   `deps.edn` / fixture `.edn` / config `.edn` can never ingest as faces."
-  [^Path p]
-  (when (.endsWith (str (.getFileName p)) ".edn")
-    :assembly))
 
 (defn- log
   [level & args]
@@ -110,69 +98,6 @@
   [result]
   (= :accepted (:status result)))
 
-(defn- import-assembly!
-  "Drive one settled assembly `.edn` through the SAME seam (framework W2,
-   CONTRACT §16): assembly-source-import-request -> append ->
-   await-object-container-decision. On the ACCEPTED decision — replays
-   included, which is what makes the T17 gap converge — additionally:
-   (a) append the face-registered event to the arsenal depot (idempotent by
-       import-key: the pointer row overwrite is convergent); a failure here
-       leaves the face wearable-but-unlisted until the next change event /
-       boot sweep — the honest T17 degradation, logged, never a crash;
-   (b) assert the envelope's lineage edges (§17 → EXISTING D-004 kinds only;
-       stable idempotency keys, so re-imports duplicate nothing — G19).
-   The caller (run-import!) keeps the epoch bump — this fn only returns the
-   decision."
-  [runtime ^File file]
-  (let [raw-text (slurp file)
-        source-ref (.getPath file)
-        request (assembly-adapter/assembly-source-import-request raw-text source-ref)
-        payload (:payload request)]
-    (ocr/append-object-container-request! runtime request)
-    (let [decision (ocr/await-object-container-decision runtime request 5000)]
-      (when (import-succeeded? decision)
-        (try
-          (if (:face-arsenal-depot runtime)
-            (let [face-name (:assembly/name payload)]
-              ;; G26 fix (same-name merge, HIGH): a DIFFERENT file already
-              ;; claiming this name is a silent identity merge — warn loudly;
-              ;; last import wins (documented; the conflict FIELD is a named
-              ;; residue pending a row-schema change).
-              (when-let [existing (try (face-arsenal/read-face runtime face-name)
-                                       (catch Throwable _ nil))]
-                (when (and (:source-ref existing)
-                           (not= (:source-ref existing) source-ref))
-                  (log :warn "face NAME CONFLICT: two files claim one identity; last import wins"
-                       {:face face-name :prior (:source-ref existing) :now source-ref})))
-              (face-arsenal/register-face! runtime
-                                           {:face-name face-name
-                                            :object-key (:object-key payload)
-                                            :import-key (:import/key request)
-                                            :status (:assembly/status payload)
-                                            :valid? (:assembly/valid? payload)
-                                            :source-ref source-ref})
-              ;; G26 fix (rename ghost, HIGH): roster entries this FILE minted
-              ;; under an old envelope name no longer back a file — remove them
-              ;; (the OC objects stay; renames remain forks per §17).
-              (doseq [row (try (face-arsenal/list-faces runtime)
-                               (catch Throwable _ nil))]
-                (when (and (= (:source-ref row) source-ref)
-                           (not= (:face-name row) face-name))
-                  (log :info "roster reconcile: unregistering renamed face"
-                       {:old (:face-name row) :new face-name :file source-ref})
-                  (face-arsenal/unregister-face! runtime {:face-name (:face-name row)}))))
-            (log :warn "no arsenal runtime; face import accepted but unregistered (T17 honest gap; wearable by name, unlisted)"
-                 {:file source-ref :face (:assembly/name payload)}))
-          (catch Throwable t
-            (log :warn "arsenal register failed (T17 honest gap; next change event / boot sweep converges)"
-                 {:file source-ref :error (.getMessage t)})))
-        (try
-          (assembly-adapter/assert-envelope-edges! runtime request)
-          (catch Throwable t
-            (log :warn "lineage edge assert failed (stable keys; next accepted import converges)"
-                 {:file source-ref :error (.getMessage t)}))))
-      decision)))
-
 (defn- run-import!
   "Import one settled file. Bounded by try/catch so the loop NEVER crashes: any
    import failure is logged, the epoch is NOT bumped, and the watcher keeps
@@ -181,10 +106,8 @@
    supplied, is called with an event map for every attempt (the sanctioned
    no-poll completion signal for tests).
 
-   4-arity (framework W2, CONTRACT §16): `classify-fn` is the constructing
-   watcher's own classifier; the 3-arity keeps the default `classify` — zero
-   behavior change for existing callers. The :assembly kind keeps the epoch
-   bump AND fires the arsenal register inside import-assembly! (trap T17)."
+   `classify-fn` is the constructing watcher's own classifier; the 3-arity
+   keeps the default `classify` — zero behavior change for existing callers."
   ([runtime ^File file on-import]
    (run-import! runtime file on-import classify))
   ([runtime ^File file on-import classify-fn]
@@ -193,7 +116,6 @@
       (let [result (case kind
                      :md (import-md! runtime file)
                      :jsonl (import-jsonl! runtime file)
-                     :assembly (import-assembly! runtime file)
                      nil)]
         (if (import-succeeded? result)
           (let [epoch (swap! util-fns/!ingest-epoch-atom inc)]
@@ -309,12 +231,10 @@
      :roots        seq of directory paths (String/File/Path) to watch (trees)
      :debounce-ms  per-path settle window, >= 500 (default 500)
      :on-import    optional (fn [event-map]) fired on each import attempt --
-                   {:file File :kind :md|:jsonl|:assembly :status :accepted|:error|... }.
+                   {:file File :kind :md|:jsonl :status :accepted|:error|... }.
                    Tests latch on this callback (no polling).
-     :classify-fn  optional per-WATCHER classifier (framework W2, CONTRACT §16;
-                   trap T19) -- default = the existing `classify`, zero change
-                   for existing callers. The faces watcher passes
-                   `faces-classify`; the assembly branch exists only there.
+     :classify-fn  optional per-watcher classifier; default = the existing
+                   `classify`, zero change for existing callers.
 
    Returns a handle map: {:stop! (fn []) :watch-service ws :roots [...]}."
   [{:keys [runtime roots debounce-ms on-import classify-fn]}]

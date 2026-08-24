@@ -1,29 +1,23 @@
 (ns app.machine-cut-serve-test
-  "Machine-cut Lane B — the SERVE + the FACE (CONTRACT §§4.4, 6, 7).
+  "Machine-cut Lane B — the serve path (CONTRACT §§4.4, 6).
    Gates G4 (grouping pure core), G10 (foreign-asserter isolation, IPC),
-   G12 (serve totality), plus the pairs-aware `boxes-paired-face` compile +
-   golden + anatomy and the fixture↔pure-function parity pin.
+   G12 (serve totality), plus the fixture↔pure-function parity pin.
 
    Run:
      clj -M:test -e \"(require 'app.machine-cut-serve-test)
                       (clojure.test/run-tests 'app.machine-cut-serve-test)\"
 
-   The pure gates (G4/G12-pure + golden/anatomy/parity) need NO cluster. G10 and
+   The pure gates (G4/G12-pure + parity) need NO cluster. G10 and
    the G12 read-throw path boot ONE in-process relation-kernel cluster and seed
    :pairs-with edges BY HAND (rk/assert-request + append-relation-request!, no
    driver dependency) with a materialized-read barrier — microbatch :append-ack
    does NOT imply PState visibility (rama-pitfalls §6; LANES platform duty)."
   (:require [clojure.test :refer [deftest testing is]]
-            [clojure.string :as str]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
-            [clojure.pprint :as pprint]
             [app.server.rama.face-projection :as fp]
             [app.server.rama.relation-kernel :as rk]
-            [app.server.rama.object-container.transcript-identity :as tid]
-            [app.client.workspace.rect-tree :as rt]
-            [app.client.workspace.face-assembly :as fa]
-            [app.client.workspace.face-primitives :as prims]))
+            [app.server.rama.object-container.transcript-identity :as tid]))
 
 ;; ===========================================================================
 ;; Synthetic turns + edges (pure fixtures). Turn :id = the river event-uuid;
@@ -273,84 +267,10 @@
         (finally
           (rk/close-relation-runtime! rt))))))
 
-;; ===========================================================================
-;; The pairs-aware face — compile CLEAN + golden + §7 anatomy (consumer 1).
-;; ===========================================================================
-
 (defn- read-fixture [rel]
   (edn/read-string (slurp (or (io/resource (str "app/fixtures/faces/" rel))
                               (str "test/app/fixtures/faces/" rel)))))
-(defn- read-face [rel]
-  (edn/read-string (slurp (or (io/resource (str "public/faces/" rel))
-                              (str "resources/public/faces/" rel)))))
-
-(def paired-assembly     (delay (read-face "boxes-paired-face.edn")))
 (def paired-conversation (delay (read-fixture "machine-cut-paired-conversation.edn")))
-
-(def geom
-  {:viewport-w 800 :viewport-h 600 :content-w 760
-   :font-size 14 :line-height 20 :char-advance 7.84 :now-ms 0})
-(def paired-ctx {:view-instance :boxes-paired-pane :address "chat:10c22f9b" :geom geom})
-
-(defn build-paired []
-  (fa/apply-assembly (fa/compile-assembly prims/registry @paired-assembly)
-                     @paired-conversation paired-ctx))
-
-(defn regen-paired-golden!
-  "Explicit, diff-reviewed regen act (the block-kernel goldens discipline).
-   Never called by the suite."
-  []
-  (spit "test/app/fixtures/faces/boxes-paired-face.golden.edn"
-        (str ";; GOLDEN — boxes-paired-face.golden.edn rt-tree snapshot (machine-cut\n"
-             ";; CONTRACT §7; the pairs-aware serve worn). Regen is an explicit\n"
-             ";; diff-reviewed act: (app.machine-cut-serve-test/regen-paired-golden!).\n"
-             ";; DO NOT hand-edit.\n"
-             (with-out-str (pprint/pprint (build-paired))))))
-
-;; ---- tree helpers (the lane-A golden discipline) ----
-(defn- walk-nodes [node]
-  (when (map? node) (cons node (mapcat walk-nodes (:children node)))))
-(defn- find-nodes [tree pred] (filter pred (walk-nodes tree)))
-(defn- find-node  [tree pred] (first (find-nodes tree pred)))
-
-(defn- abs-nodes
-  ([tree] (abs-nodes tree 0 0))
-  ([node px py]
-   (let [ax (+ px (get-in node [:bounds :x] 0))
-         ay (+ py (get-in node [:bounds :y] 0))]
-     (cons {:node node :x ax :y ay}
-           (mapcat #(abs-nodes % ax ay) (:children node))))))
-(defn- abs-of [abs node] (first (filter #(identical? node (:node %)) abs)))
-
-(defn- inside?
-  [{cx :x cy :y {{cw :w ch :h} :bounds} :node}
-   {px :x py :y {{pw :w ph :h} :bounds} :node}]
-  (and (>= cx px) (>= cy py) (<= (+ cx cw) (+ px pw)) (<= (+ cy ch) (+ py ph))))
-
-(defn- id-has? [node seg] (and (vector? (:id node)) (some #{seg} (:id node))))
-(defn- frame-label [box] (some-> (first (:children box)) :text first :text))
-
-(deftest paired-face-compiles-clean-and-golden
-  (testing "boxes-paired-face compiles CLEAN against the REAL registry, golden-equal, honest report"
-    (let [compiled (fa/compile-assembly prims/registry @paired-assembly)
-          tree     (build-paired)
-          golden   (read-fixture "boxes-paired-face.golden.edn")]
-      (is (not (fa/error? compiled))
-          "boxes-paired-face.edn compiles clean (V1-V7) — ZERO grammar edits (§7, no stop-clause)")
-      (is (= golden tree) "apply output equals the committed golden (regen is explicit)")
-      (is (= {:items-without-id 0 :binds-missing 0}
-             (get-in tree [:data :assembly/apply-report]))
-          "every item carries :id, every bind resolves (nothing to confess)")
-      (is (pos? (get-in tree [:data :assembly/content-h])))
-      (is (= (get-in tree [:bounds :h]) (get-in tree [:data :assembly/content-h])))
-      (is (seq (rt/tree->rects tree)) "flattens to GPU rects")
-      (is (seq (mapcat identity (rt/tree->text-ops tree))) "flattens to text ops"))))
-
-(deftest paired-face-based-on-boxes
-  (testing "§7 lineage: the envelope carries :assembly/based-on \"boxes-face\" (worn boxes-face untouched)"
-    (is (= "boxes-face" (:assembly/based-on @paired-assembly)))
-    (is (= "boxes-paired-face" (:assembly/name @paired-assembly)))
-    (is (= 0 (:assembly/grammar @paired-assembly)))))
 
 (deftest g4-fixture-parity
   (testing "the golden fixture's pair structure IS derive-pair-structure's output (no drift)"
@@ -362,56 +282,3 @@
       (is (= (:unpaired conv) (:unpaired out)))
       (is (= (:conversation/structure conv) (:conversation/structure out)))
       (is (= (:conversation/structure-line conv) (:conversation/structure-line out))))))
-
-(deftest paired-anatomy
-  (let [tree        (build-paired)
-        abs         (abs-nodes tree)
-        pair-frames (filter (fn [{n :node}]
-                              (and (= :box (:type n)) (= 10 (get-in n [:style :radius]))
-                                   (some? (get-in n [:style :bg]))))
-                            abs)]
-    (testing "P1 · the silver mark: the top header NAMES the machine provenance (§7)"
-      (let [hdr (first (:children tree))]
-        (is (= :header-band (:type hdr)))
-        (is (= "machine-cut v1 · 1 pairs · 1 unpaired" (:text (first (:text hdr)))))))
-    (testing "P2 · one russian-doll PAIR frame per served pair, carrying the prompt id (trap T6)"
-      (is (= 1 (count pair-frames)))
-      (is (some #(id-has? (:node %) "t-sid-1") pair-frames)))
-    (testing "P3 · the pair header names the asserter per pair (the silver mark, per pair)"
-      (let [pf  (:node (first pair-frames))
-            hdr (first (:children pf))]
-        (is (= :header-band (:type hdr)))
-        (is (= ["pair · turn 1" "llm:machine-cut/v1"] (mapv :text (take 2 (:text hdr)))))))
-    (testing "P4 · 4-layer russian doll: block card ⊂ user|response frame ⊂ pair frame"
-      (let [pf      (:node (first pair-frames))
-            pf-a    (abs-of abs pf)
-            role8   (find-nodes tree #(and (= :box (:type %)) (= 8 (get-in % [:style :radius]))))
-            user-fr (first (filter #(= "user 1" (frame-label %)) role8))
-            resp-fr (first (filter #(= "response 2" (frame-label %)) role8))
-            block6  (find-nodes tree #(and (= :box (:type %)) (= 6 (get-in % [:style :radius]))))]
-        (is (some? user-fr) "a user-message frame exists")
-        (is (some? resp-fr) "a response frame exists")
-        (is (inside? (abs-of abs user-fr) pf-a) "the user frame nests inside the pair frame")
-        (is (inside? (abs-of abs resp-fr) pf-a) "the response frame nests inside the pair frame")
-        (let [uf-cards (filter #(inside? (abs-of abs %) (abs-of abs user-fr)) block6)
-              rf-cards (filter #(inside? (abs-of abs %) (abs-of abs resp-fr)) block6)]
-          (is (= 1 (count uf-cards)) "one block card in the user frame (b1)")
-          (is (= 3 (count rf-cards)) "three block cards in the response frame (b2,b3,b4)")
-          (doseq [c (concat uf-cards rf-cards)]
-            (is (inside? (abs-of abs c) pf-a)
-                "every block card sits inside the pair frame — 4-layer containment")))))
-    (testing "P5 · totality on the face: the unpaired turn is SHOWN, never silently dropped"
-      (let [unpaired-fr (find-nodes tree #(and (= :box (:type %)) (= 8 (get-in % [:style :radius]))
-                                               (str/starts-with? (str (frame-label %)) "unpaired")))]
-        (is (= 1 (count unpaired-fr)) "one muted frame for the unpaired turn")
-        (is (= "unpaired · turn 3" (frame-label (first unpaired-fr))))))
-    (testing "P6 · page-end honesty: the view ENDS with the explicit paging answer"
-      (let [tail (last (:children tree))]
-        (is (= :box (:type tail)))
-        (is (some #(str/includes? (str (:text %)) "river-page-has-no-cursor")
-                  (mapcat :text (walk-nodes tail)))
-            "the honest :conversation/paging-lack renders, never a silent cut")))
-    (testing "P7 · geometry honesty: everything visible stays inside the pane width"
-      (doseq [{:keys [node x]} (filter #(get-in % [:node :style :bg]) abs)]
-        (is (<= (+ x (get-in node [:bounds :w])) 760.01)
-            (str (:id node) " stays inside content-w"))))))

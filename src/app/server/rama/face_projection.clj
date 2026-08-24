@@ -35,7 +35,6 @@
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.block-distiller :as bd]
             [app.server.rama.object-container.transcript-identity :as tid]
-            [app.server.rama.object-container.assembly-adapter :as assembly-adapter]
             [app.server.rama.object-container.facet-master :as facet-master]
             [app.server.episode :as episode]
             [app.server.rama.material-circulation :as circulation]
@@ -792,68 +791,10 @@
       (seq errors) (assoc :experience/source-errors errors))))
 
 ;; ===========================================================================
-;; W2 arsenal projections (CONTRACT §16; gates G20/G21). READ-ONLY + TOTAL:
-;; reads go ONLY through named OC query APIs (read-current-revision) + the
-;; arsenal's OWN named read fns (read-face / list-faces / read-wear-count) —
-;; no PState paths here (trap T15: no write can reach serve; G21's law).
-;;
-;; Routing note (worked at lane W2-D): the asm:<name> object-key carries a
-;; colon, so `read-source`/`read-latest-source-by-ref` MISROUTE for assembly
-;; objects (leading-object-key truncates at "asm"). The routing-correct
-;; existing API carrying the same bytes is `read-current-revision` over the
-;; document container `oc:doc:asm:<name>` (extract-object-key's full-remainder
-;; oc:doc: branch; the revision hop is task-local) — the wear-time source read.
+;; W2 arsenal roster projection (CONTRACT §16; gates G20/G21). READ-ONLY +
+;; TOTAL: reads go only through the arsenal's named read fns (list-faces /
+;; read-wear-count); no PState paths here (trap T15: no write can reach serve).
 ;; ===========================================================================
-
-(defn assembly-projection
-  "Wear-time source serve (§16): face NAME → OC source → verdict. The
-   object-key derives from the NAME deterministically (§17), so a face present
-   in OC but missing from the arsenal index is STILL servable — the index gap
-   is named in the data (:assembly/indexed? false), never invented around
-   (G20/T17 honest degradation). The verdict is recomputed with the SAME .cljc
-   compiler + registry the client wears and the adapter used at ingest (trap
-   T18: one compiler, verdicts equal by construction). Total: any read failure
-   or absent face yields an error-shaped data-context, never a throw."
-  [{:keys [oc-rt arsenal-rt]} {:keys [address] :as request}]
-  (let [face-name (some-> address str)
-        now (System/currentTimeMillis)]
-    (if (or (nil? face-name) (not (assembly-adapter/valid-assembly-name? face-name)))
-      {:assembly/name face-name
-       :assembly/found? false
-       :assembly/valid? false
-       :assembly/errors [{:type :assembly/bad-name :value address}]
-       :face/rendered-at-ms now}
-      (let [object-key (assembly-adapter/assembly-object-key face-name)
-            document-id (oc/document-id-for-object-key object-key)
-            row (when arsenal-rt
-                  (try (face-arsenal/read-face arsenal-rt face-name)
-                       (catch Throwable _ nil)))
-            revision (when oc-rt
-                       (try (ocr/read-current-revision oc-rt document-id)
-                            (catch Throwable _ nil)))]
-        (if (nil? revision)
-          {:assembly/name face-name
-           :assembly/object-key object-key
-           :assembly/found? false
-           :assembly/valid? false
-           :assembly/errors [{:type :assembly/not-found :object-key object-key}]
-           ;; T17's gap window named in the data, both directions honest:
-           ;; indexed-but-unreadable and unindexed-and-absent look different.
-           :assembly/indexed? (some? row)
-           :face/rendered-at-ms now}
-          (let [source (:content-text revision)
-                verdict (assembly-adapter/validate-assembly-source source)]
-            {:assembly/name face-name
-             :assembly/object-key object-key
-             :assembly/found? true
-             :assembly/source source
-             :assembly/valid? (:valid? verdict)
-             :assembly/errors (:errors verdict)
-             :assembly/status (:status row)
-             :assembly/indexed? (some? row)
-             :assembly/source-hash (:content-hash revision)
-             :assembly/revised-at-ms (:created-at-ms revision)
-             :face/rendered-at-ms now}))))))
 
 (defn face-list-projection
   "The arsenal roster (§16): names + status + wear counts + last-worn — read
@@ -1836,14 +1777,13 @@
 
 (def projection-registry
   "Plain value: {<projection-kw> → (fn [ctx request] → data-context)}. Wave 1
-   registered ONE projection; W2 adds the two arsenal reads (:assembly wear-time
-   source serve + :face-list roster). Extensible by adding an entry — never by an
+   registered ONE projection; W2 added the :face-list arsenal roster read.
+   Extensible by adding an entry — never by an
    Electric `case`. Persisted form (Wave 2, schema §8) is keyword + code address,
    never fn values (trap T5). block-write INT adds :block-truth (the §5
    single-unit echo read); editable-material P2 adds the read-only, batched
    :material-inspector."
   {:conversation conversation-projection
-   :assembly     assembly-projection
    :face-list    face-list-projection
    :facet-materials facet-materials-projection
    :material-inspector material-inspector-projection
@@ -1865,9 +1805,7 @@
    NOT in Electric (trap T8). W2 (G26 fix, 2026-07-11): faces are no longer
    added HERE — a face registered in the arsenal roster routes to
    :conversation by default (resolve-projection-kind below); this map keeps
-   only the W1 static names + direct projection addressing. A per-face
-   `:assembly/projection` envelope field is the pre-named extension when a
-   face first needs a non-conversation data context."
+   only the W1 static names; direct projection addressing is resolved below."
   {:outline      :conversation
    "outline-face" :conversation
    :conversation :conversation})
@@ -1879,7 +1817,7 @@
    1. the static map;
    2. a face registered in the arsenal roster → :conversation (the roster IS
       the face registry; T14 — Rama decides, never the faces directory);
-   3. the face itself (direct projection addressing: :assembly, :face-list);
+   3. the face itself (direct projection addressing, including :face-list);
    an unregistered, unknown face resolves to itself and misses the registry →
    the honest :unknown-projection error (never a default-to-conversation for
    names the land has never seen)."

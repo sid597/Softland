@@ -3,7 +3,6 @@
    recipe: it names independently revisioned masters and nothing about which
    entities are legal or which combination constitutes a type."
   (:require [app.shared.facet-material :as facet-material]
-            [app.shared.anatomy-material :as anatomy]
             [app.shared.attention-material :as attention]
             [app.shared.foldable-material :as foldable]
             [app.shared.invocation-material :as invocation]
@@ -23,7 +22,6 @@
    text-body/spec
    ;; Order-bearing registry: append Workshop masters so the historical
    ;; drill fallback remains provenance (T11 / CONTRACT §0).
-   anatomy/spec
    invocation/spec])
 
 (def by-id

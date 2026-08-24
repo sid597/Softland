@@ -45,6 +45,13 @@
   (count (foreign-select [(keypath (oc/source-ref-key source-ref)) MAP-VALS]
                          (:source-versions-by-ref runtime))))
 
+(deftest default-classifier-has-no-face-edn-channel
+  (let [classify (ns-resolve 'app.server.ingest-watchers 'classify)]
+    (is (= :md (classify (.toPath (io/file "note.md")))))
+    (is (= :jsonl (classify (.toPath (io/file "session.jsonl")))))
+    (is (nil? (classify (.toPath (io/file "face.edn")))))
+    (is (nil? (classify (.toPath (io/file "deps.edn")))))))
+
 (deftest watcher-loop-md-import-and-idempotent-reimport-test
   (let [runtime (ocr/start-object-container-runtime!)
         root (temp-dir!)
