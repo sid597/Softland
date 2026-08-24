@@ -1,6 +1,25 @@
 ## Settled Ground — BINDING
 `docs/decisions.md` is the latest settled-ground briefing: what we're building, the architecture that's already settled, how we work, and the short list of things only Sid decides. It holds current state only — plain language, no case numbers or statuses; amendments edit it in place, git keeps history . Everything is approved by default; only "forever consequences / huge irreversible cost" (spend, docs-branch push, env.clj, North, irreversible forks) stops for Sid. Nothing is parked — there is NOW (the board) and LATER; pull LATER into NOW whenever it serves what Sid asked. Usually the active work handoff is `docs/next-prompt.md`, note active implementation work. 
 
+## Durable Block Archive — BINDING (Sid, 2026-08-24)
+The completed data snapshot is
+`/mnt/data/projects/Softland-archive-20260824T105543Z-497e11e` (source HEAD
+`497e11ecdce834ea69a76f45b2a85f1bc352353a`). It stores all 44 truth-owner
+PStates as record-free plain EDN maps in EDNL files: 491,561 top-level entries
+and 866,865 leaves. `manifest.edn` records the inventory and counts;
+`verification.edn` records exact reread verification; `SHA256SUMS` authenticates
+the 44 PState files plus the manifest. A second fresh live scan matched 44/44
+serialized PState hashes with zero metadata mismatch.
+
+The archive and the original `/mnt/data/rama` durable state are data custody,
+independent of source-code custody. Obsolete source may be deleted in its own
+authorized pass; neither that deletion nor a later parser/reimport may delete,
+overwrite, or mutate the saved data. Never confuse the completed directory with
+the three sibling `.incomplete` attempts. This is currently one local logical
+snapshot, not a raw Rama disaster-recovery image or protection from physical
+disk loss; every copy must pass `SHA256SUMS`, and off-machine backup exists only
+after a second-device copy passes it.
+
 ## Contract & Execution — BINDING (Sid, 2026-08-06)
 Contract = the hard thinking; everything after is execution. One pass, one
 session, one document — size OPEN, no screen cap (Sid, 2026-08-06): scope · laws · exact entry points

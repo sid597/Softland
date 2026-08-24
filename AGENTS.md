@@ -84,6 +84,23 @@ NOW.md. The 200-line historical body this file once carried is deleted
 - Package mechanics: `.agents/skills/work-package/SKILL.md` (bridge to the
   canonical one-pass law in `.claude/skills/work-package/SKILL.md`).
 
+## Durable Preservation Archive — BINDING
+
+- Completed snapshot: `/mnt/data/projects/Softland-archive-20260824T105543Z-497e11e`
+  at source HEAD `497e11ecdce834ea69a76f45b2a85f1bc352353a`. It holds all
+  44 truth-owner PStates as record-free EDNL maps (491,561 top-level entries /
+  866,865 leaves), with inventory in `manifest.edn`, reread proof in
+  `verification.edn`, and checksums in `SHA256SUMS`. The independent live
+  comparison matched 44/44 serialized PState hashes.
+- Data custody and source custody are separate: obsolete code may be deleted by
+  its own authorized pass; the completed archive and `/mnt/data/rama` data are
+  never deleted, overwritten, or mutated by that source cut or later reimport.
+  Never mistake a sibling `.incomplete` directory for the completed snapshot.
+- This is one local logical snapshot, not a raw Rama disaster-recovery image or
+  disk-loss protection. Every copy must pass `SHA256SUMS`; only then may a
+  second-device copy be called an off-machine backup. Never commit the 3.3GB
+  payload into Git.
+
 ## Hard rules
 
 - NEVER read `src/app/server/env.clj` — API keys; reference as symbols only.
