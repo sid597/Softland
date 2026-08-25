@@ -102,6 +102,14 @@
     tr, .card, .lede, .waist { page-break-inside: avoid; } h2 { page-break-after: avoid; }
     a { color: inherit; text-decoration: none; }
   }
+  .figscroll { overflow-x: auto; margin: 1.6rem 0 .5rem; }
+  .figscroll svg { min-width: 980px; max-width: 100%; height: auto; display: block; }
+  figcaption { color: var(--muted); font-size: .85rem; margin: .6rem 0 0; max-width: 90ch; }
+  @media print {
+    .figscroll { overflow: visible; page: portrait-page; break-before: page; break-after: page; }
+    .figscroll svg { min-width: 0; width: 100%; max-height: 268mm; }
+    @page portrait-page { size: A4 portrait; margin: 10mm; }
+  }
 </style>
 </head>
 <body>
@@ -115,14 +123,356 @@
 <p><span class="k">Above the waist:</span> the pointer system puts <code>:selected</code> on the card entity; a recipe — data — says <em>selected things wear a 1 px blue outline and four 10 px corner marks</em>; the floor draws any <code>:mark</code> it is handed. No file knows the word selection. The blue is yours to change in-land, and a caret, a hover halo, a focus ring are the same recipe with different numbers.</p>
 </div>
 
+<figure class="figscroll">
+<svg viewBox="0 0 1180 1640" role="img" aria-label="The render engine at the waist: above the line, the old page's instances that go; on the line, the crossing items; below the line, the render floor in three rows — shapers, pipelines, custody — and the guard.">
+<defs>
+  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--ink)"/></marker>
+</defs>
+
+<!-- ABOVE -->
+<rect x="16" y="40" width="1148" height="480" rx="6" fill="var(--up-bg)" stroke="var(--up)" stroke-width="1"/>
+<text x="32" y="66" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="var(--ink)">ABOVE THE WAIST — the old page's instances · every box here goes · reborn above as recipes (data) + systems (code over facets)</text>
+<text x="1148" y="66" text-anchor="end" font-family="IBM Plex Mono" font-size="10.5" fill="var(--muted)">git keeps the geometry</text>
+
+<!-- A1 THE TREE -->
+<rect x="32" y="84" width="360" height="200" rx="4" fill="var(--paper)" stroke="var(--dead)" stroke-width="1.4" stroke-dasharray="3 4"/>
+<text x="44" y="106" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="13.5" fill="var(--ink)">THE TREE — "everything is a rect"</text>
+<text x="380" y="106" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="var(--dead)">goes · your ruling</text>
+<g font-family="IBM Plex Mono" font-size="11" fill="var(--ink)">
+<text x="44" y="130">rect_tree.cljc · scene_store.cljc</text>
+<text x="44" y="146">scene_runtime.cljs · selection.cljc</text>
+</g>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="44" y="172">one node, a :data slot per kind, eight walkers;</text>
+<text x="44" y="186">pick by bounds; store slots by vi; "rect = blocks".</text>
+<text x="44" y="210">reborn as: entities wearing :bounds; layout = a system</text>
+<text x="44" y="224">(80 lines, shape-blind, re-derived over facets).</text>
+</g>
+
+<!-- A2 MARKS -->
+<rect x="410" y="84" width="360" height="200" rx="4" fill="var(--paper)" stroke="var(--dead)" stroke-width="1.4" stroke-dasharray="3 4"/>
+<text x="422" y="106" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="13.5" fill="var(--ink)">MARKS VOCABULARY — the code says "chrome"</text>
+<text x="758" y="106" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="var(--dead)">goes</text>
+<g font-family="IBM Plex Mono" font-size="11" fill="var(--ink)">
+<text x="422" y="130">chrome_material forms · chrome_derive.cljc</text>
+<text x="422" y="146">snap.cljc · chrome_runtime.cljs</text>
+</g>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="422" y="172">five forms + px constants; selection + gesture → marks;</text>
+<text x="422" y="186">two providers set by mutation; runtime dead without a host.</text>
+<text x="422" y="210">reborn as: a recipe — "selected wears a 1 px outline</text>
+<text x="422" y="224">and four 10 px corners"; the blue is a number in data.</text>
+</g>
+
+<!-- A3 ARROWS -->
+<rect x="788" y="84" width="360" height="200" rx="4" fill="var(--paper)" stroke="var(--dead)" stroke-width="1.4" stroke-dasharray="3 4"/>
+<text x="800" y="106" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="13.5" fill="var(--ink)">ARROWS — connector family</text>
+<text x="1136" y="106" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="var(--dead)">goes · position, vetoable</text>
+<g font-family="IBM Plex Mono" font-size="11" fill="var(--ink)">
+<text x="800" y="130">connector_material.cljc · connector_route.cljc</text>
+<text x="800" y="146">connector_gpu.cljs</text>
+</g>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="800" y="172">elbow Z-route, heads, boundary clip, a live pick mirror;</text>
+<text x="800" y="186">clones a text system for its label — the facet receipt.</text>
+<text x="800" y="210">reborn as: a route system that emits a :contour facet;</text>
+<text x="800" y="224">the pure geometry is listed by anchor for lifting.</text>
+</g>
+
+<!-- A4 SMALL BLENDER -->
+<rect x="32" y="300" width="360" height="200" rx="4" fill="var(--paper)" stroke="var(--dead)" stroke-width="1.4" stroke-dasharray="3 4"/>
+<text x="44" y="322" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="13.5" fill="var(--ink)">THE SMALL BLENDER — the 3D editor</text>
+<text x="380" y="322" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="var(--dead)">goes · either way</text>
+<g font-family="IBM Plex Mono" font-size="11" fill="var(--ink)">
+<text x="44" y="346">region3d_runtime.cljs · region3d_pointer.cljc</text>
+<text x="44" y="362">_scene: orbit · gizmo · handle picks</text>
+<text x="44" y="378">_material: kind menus · 9 edit ops</text>
+<text x="44" y="394">_gpu: gizmo + grid shaders · !pick-state</text>
+</g>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="44" y="420">a draggable panel with orbit, gizmo, lights menu, grid.</text>
+<text x="44" y="444">reborn as: recipes + systems over :mesh / :transform;</text>
+<text x="44" y="458">the kernel under it (below) waits on your one question.</text>
+</g>
+
+<!-- A5 DEMOS ORPHANS AMBIENT -->
+<rect x="410" y="300" width="360" height="200" rx="4" fill="var(--paper)" stroke="var(--dead)" stroke-width="1.4" stroke-dasharray="3 4"/>
+<text x="422" y="322" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="13.5" fill="var(--ink)">DEMOS · ORPHANS · AMBIENT STATE</text>
+<text x="758" y="322" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="var(--dead)">goes</text>
+<g font-family="IBM Plex Mono" font-size="11" fill="var(--ink)">
+<text x="422" y="346">frame_runtime.cljs (8 demo trees, PNG chord)</text>
+<text x="422" y="362">region3d fixture · ?live-atoms ?region3d readers</text>
+<text x="422" y="378">public/faces/ · gpu-mount ("DO NOT WIRE")</text>
+<text x="422" y="394">maintain-frame-plan · maintain-effect-spans</text>
+<text x="422" y="410">!effective-provider · !live-camera-provider</text>
+<text x="422" y="426">__softlandFrameLedger (js/globalThis)</text>
+<text x="422" y="442">window.region3d · window.sceneContext</text>
+</g>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="422" y="464">the old page's eyes; maintained twins that lost to</text>
+<text x="422" y="478">the *_view namespaces; providers set by mutation;</text>
+<text x="422" y="492">browser globals. (Oracles are not orphans — they stay.)</text>
+</g>
+
+<!-- A6 RENDERER LEFTOVERS -->
+<rect x="788" y="300" width="360" height="200" rx="4" fill="var(--paper)" stroke="var(--dead)" stroke-width="1.4" stroke-dasharray="3 4"/>
+<text x="800" y="322" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="13.5" fill="var(--ink)">EDITOR LEFTOVERS inside renderer.cljs</text>
+<text x="1136" y="322" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="var(--dead)">goes</text>
+<g font-family="IBM Plex Mono" font-size="11" fill="var(--ink)">
+<text x="800" y="346">calculate-bracket-rects · hit-test</text>
+<text x="800" y="362">make-snapper · draw-comparison-frame!</text>
+<text x="800" y="378">create-editor-state (50 000 rects)</text>
+</g>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="800" y="404">the old editor's hands left inside the GPU file:</text>
+<text x="800" y="418">bracket highlight, mouse → line/col, grid snapping.</text>
+<text x="800" y="442">renderer.cljs itself stays — it is the conductor,</text>
+<text x="800" y="456">below.</text>
+</g>
+
+<!-- THE WAIST -->
+<text x="32" y="548" font-family="IBM Plex Sans Condensed" font-weight="700" font-size="14" fill="var(--up)">THE WAIST</text>
+<line x1="16" y1="566" x2="1164" y2="566" stroke="var(--up)" stroke-width="4"/>
+<g font-family="IBM Plex Mono" font-size="10.5" fill="var(--muted)" text-anchor="middle">
+<rect x="323" y="559" width="14" height="14" transform="rotate(45 330 566)" fill="var(--up)"/>
+<text x="330" y="552">render packet: road id + resource key ✓</text>
+<rect x="513" y="559" width="14" height="14" transform="rotate(45 520 566)" fill="var(--warn)"/>
+<text x="520" y="592">:paint/source carries a live handle ✗</text>
+<rect x="703" y="559" width="14" height="14" transform="rotate(45 710 566)" fill="var(--warn)"/>
+<text x="710" y="552">family key → facet key · build stage</text>
+<rect x="893" y="559" width="14" height="14" transform="rotate(45 900 566)" fill="var(--warn)"/>
+<text x="900" y="592">placement reads the old slot ✗ · chrome_gpu wants a form-free input ✗</text>
+</g>
+<!-- arrows ① ③ -->
+<circle cx="24" cy="566" r="11" fill="var(--up)"/>
+<text x="24" y="570" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-weight="700" font-size="11" fill="var(--paper)">1</text>
+<path d="M24,580 V748" stroke="var(--ink)" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+<text x="40" y="592" font-family="IBM Plex Mono" font-size="10.5" fill="var(--muted)">recipes + facets → packets ↓</text>
+<circle cx="1156" cy="566" r="11" fill="var(--up)"/>
+<text x="1156" y="570" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-weight="700" font-size="11" fill="var(--paper)">2</text>
+<path d="M1156,750 V582" stroke="var(--ink)" stroke-width="1.6" fill="none" marker-end="url(#arr)"/>
+<text x="1140" y="552" text-anchor="end" font-family="IBM Plex Mono" font-size="10.5" fill="var(--muted)">pick walks the tape backward ↑</text>
+
+<!-- BELOW -->
+<rect x="16" y="612" width="1148" height="980" rx="6" fill="var(--down-bg)" stroke="var(--down)" stroke-width="1"/>
+<text x="32" y="638" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="var(--ink)">BELOW THE WAIST — the render floor · what has to exist as code · never editor code</text>
+<text x="1148" y="638" text-anchor="end" font-family="IBM Plex Mono" font-size="10.5" fill="var(--muted)">pure .cljc runs on the JVM · .cljs owns the GPU</text>
+
+<!-- KEY band -->
+<rect x="32" y="654" width="1116" height="64" rx="4" fill="var(--warn-bg)" stroke="var(--warn)" stroke-width="1.6"/>
+<text x="44" y="676" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="13" fill="var(--ink)">THE KEY — today: ten families  <tspan font-family="IBM Plex Mono" font-weight="400" font-size="10">rect · shadow · msdf · slug · clip · image · path · connector · chrome · region-3d</tspan>   ·   wanted: facets, several per entity</text>
+<text x="44" y="700" font-family="IBM Plex Mono" font-size="10" fill="var(--muted)">lives in: scene_tape registrations · frame_inputs table · renderer registry + buckets · scene_store · rect_tree walkers · selection / chrome_derive</text>
+<text x="1136" y="700" text-anchor="end" font-family="IBM Plex Mono" font-size="10" fill="var(--warn)">build stage — not a cut</text>
+
+<!-- SHAPERS row -->
+<text x="32" y="744" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="13" fill="var(--down)">SHAPERS — said → geometry  <tspan fill="var(--muted)" font-weight="400" font-size="11">· pure · JVM-tested · the yardstick is text</tspan></text>
+
+<rect x="32" y="754" width="212" height="200" rx="4" fill="var(--paper)" stroke="var(--down)" stroke-width="1.4"/>
+<text x="42" y="774" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">TEXT — the yardstick</text>
+<text x="236" y="774" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--down)">floor</text>
+<g font-family="IBM Plex Mono" font-size="10.5" fill="var(--ink)">
+<text x="42" y="796">text_shaper.cljs</text>
+<text x="42" y="811">text_layout.cljc</text>
+<text x="42" y="826">text_layout_planes.cljc</text>
+<text x="42" y="841">runtime/fonts.cljs</text>
+</g>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="42" y="864">string → glyph runs (font units)</text>
+<text x="42" y="878">→ lines + positions, material-local;</text>
+<text x="42" y="892">the cache is a value; caret / hit</text>
+<text x="42" y="906">readers stay — nobody else measures.</text>
+<text x="42" y="928" fill="var(--warn)">open: legacy grid road (a JVM test).</text>
+</g>
+
+<rect x="258" y="754" width="212" height="200" rx="4" fill="var(--paper)" stroke="var(--down)" stroke-width="1.4"/>
+<text x="268" y="774" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">STROKE / SHAPE</text>
+<text x="462" y="774" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--down)">floor</text>
+<g font-family="IBM Plex Mono" font-size="10.5" fill="var(--ink)">
+<text x="268" y="796">path_material.cljc</text>
+<text x="268" y="811">path_tessellation.cljc</text>
+</g>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="268" y="838">contours, or centerline + pressure,</text>
+<text x="268" y="852">→ triangles. No editor code at all.</text>
+<text x="268" y="866">You named this road yourself:</text>
+<text x="268" y="880">"stroke shape → tessellator →</text>
+<text x="268" y="894">triangles".</text>
+<text x="268" y="916">small: point-edit verbs in the</text>
+<text x="268" y="930">description ns (move-knot …).</text>
+</g>
+
+<rect x="484" y="754" width="212" height="200" rx="4" fill="var(--paper)" stroke="var(--down)" stroke-width="1.4"/>
+<text x="494" y="774" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">IMAGE · TRANSFORM</text>
+<text x="688" y="774" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--down)">floor</text>
+<g font-family="IBM Plex Mono" font-size="10.5" fill="var(--ink)">
+<text x="494" y="796">image_material.cljc</text>
+<text x="494" y="811">containers.cljc</text>
+</g>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="494" y="838">digest + size → atlas quad; the</text>
+<text x="494" y="852">registry and atlas are values in,</text>
+<text x="494" y="866">values out; no per-node transform.</text>
+<text x="494" y="888">spec → one affine, composed through</text>
+<text x="494" y="902">parents; forward / inverse point;</text>
+<text x="494" y="916">feeds every pipeline.</text>
+</g>
+
+<rect x="710" y="754" width="212" height="200" rx="4" fill="var(--paper)" stroke="var(--warn)" stroke-width="1.6"/>
+<text x="720" y="774" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">3D KERNEL</text>
+<text x="914" y="774" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--warn)">open — yours</text>
+<g font-family="IBM Plex Mono" font-size="10.5" fill="var(--ink)">
+<text x="720" y="796">region3d_scene.cljc</text>
+<text x="720" y="811">region3d_placement.cljc</text>
+<text x="720" y="826">region_rungs.cljc</text>
+</g>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="720" y="852">primitive → mesh; parent table →</text>
+<text x="720" y="866">matrices; triangles → BVH; ray →</text>
+<text x="720" y="880">object; text / ink onto a plane.</text>
+<text x="720" y="902">stays iff an entity may wear :mesh.</text>
+<text x="720" y="924" fill="var(--warn)">✗ placement reads the old slot shape.</text>
+</g>
+
+<rect x="936" y="754" width="212" height="200" rx="4" fill="var(--paper)" stroke="var(--down)" stroke-width="1.4"/>
+<text x="946" y="774" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">EFFECTS · ORDER</text>
+<text x="1140" y="774" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--down)">floor</text>
+<g font-family="IBM Plex Mono" font-size="10.5" fill="var(--ink)">
+<text x="946" y="796">scene_tape.cljc</text>
+<text x="946" y="811">frame_effects.cljc</text>
+<text x="946" y="826">frame_plan_view · frame_delta</text>
+<text x="946" y="841">frame_semantic_state.cljc</text>
+<text x="946" y="856">frame_graph.cljc = the oracle</text>
+</g>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="946" y="880">decls + order → spans → passes;</text>
+<text x="946" y="894">the tape: one ordered list — paint</text>
+<text x="946" y="908">walks forward, pick backward,</text>
+<text x="946" y="922">"no family branch".</text>
+</g>
+
+<!-- PIPELINES row -->
+<text x="32" y="984" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="13" fill="var(--down)">PIPELINES — geometry → pixels  <tspan fill="var(--muted)" font-weight="400" font-size="11">· nine, as-is · they do not change</tspan></text>
+<g font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12" fill="var(--ink)">
+<rect x="32" y="994" width="176" height="104" rx="4" fill="var(--paper)" stroke="var(--down)" stroke-width="1.4"/>
+<text x="42" y="1013">GLYPHS — msdf · slug</text>
+<rect x="220" y="994" width="176" height="104" rx="4" fill="var(--paper)" stroke="var(--down)" stroke-width="1.4"/>
+<text x="230" y="1013">CONTOUR</text>
+<rect x="408" y="994" width="176" height="104" rx="4" fill="var(--paper)" stroke="var(--down)" stroke-width="1.4"/>
+<text x="418" y="1013">BOX · SHADOW · IMAGE</text>
+<rect x="596" y="994" width="176" height="104" rx="4" fill="var(--paper)" stroke="var(--warn)" stroke-width="1.6"/>
+<text x="606" y="1013">3D PASSES</text>
+<rect x="784" y="994" width="176" height="104" rx="4" fill="var(--paper)" stroke="var(--down)" stroke-width="1.4"/>
+<text x="794" y="1013">MARKS — hybrid metric</text>
+<rect x="972" y="994" width="176" height="104" rx="4" fill="var(--paper)" stroke="var(--down)" stroke-width="1.4"/>
+<text x="982" y="1013">COMPOSITOR + CLIP</text>
+</g>
+<g font-family="IBM Plex Mono" font-size="10" fill="var(--ink)">
+<text x="42" y="1032">inside renderer.cljs</text>
+<text x="230" y="1032">path_gpu.cljs</text>
+<text x="418" y="1032">inside renderer.cljs</text>
+<text x="606" y="1032">region3d_gpu.cljs</text>
+<text x="606" y="1046">region3d_placement_gpu.cljs</text>
+<text x="794" y="1032">chrome_gpu.cljs</text>
+<text x="982" y="1032">compositor_gpu.cljs</text>
+</g>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10" fill="var(--muted)">
+<text x="42" y="1054">two backends, one facet;</text>
+<text x="42" y="1068">chosen downstream by the font.</text>
+<text x="230" y="1054">pure prepared-op → pack-vertices;</text>
+<text x="230" y="1068">one case only — the clipper.</text>
+<text x="418" y="1054">formula roads (a rounded box is</text>
+<text x="418" y="1068">a per-pixel distance) + the quad.</text>
+<text x="606" y="1064">depth · shading · placed glyphs;</text>
+<text x="606" y="1078">→ a compositor lease. Grid +</text>
+<text x="606" y="1092">gizmo overlays go (above).</text>
+<text x="794" y="1054">anchor in world + offset in px —</text>
+<text x="794" y="1068">a mark that never scales with zoom.</text>
+<text x="794" y="1086" fill="var(--warn)">✗ takes the five forms today.</text>
+<text x="982" y="1054">passes · targets · blur / mask /</text>
+<text x="982" y="1068">opacity · scissor.</text>
+<text x="982" y="1088" fill="var(--down)" font-style="normal" font-family="IBM Plex Mono">→ pixels</text>
+</g>
+
+<!-- CUSTODY row -->
+<text x="32" y="1134" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="13" fill="var(--down)">CUSTODY — the machine that owns GPU memory and order</text>
+<rect x="32" y="1144" width="270" height="160" rx="4" fill="var(--paper)" stroke="var(--down)" stroke-width="1.4"/>
+<text x="42" y="1164" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">THE CONDUCTOR</text>
+<text x="294" y="1164" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--down)">floor</text>
+<text x="42" y="1186" font-family="IBM Plex Mono" font-size="10.5" fill="var(--ink)">renderer.cljs (203 KB)</text>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="42" y="1210">frame compile / execute · the registry +</text>
+<text x="42" y="1224">fence · shape-text (a real shaper) ·</text>
+<text x="42" y="1238">shaders ≈ 18 % of the file.</text>
+<text x="42" y="1260">the editor leftovers go (above); the</text>
+<text x="42" y="1274">registry's key changes at build stage.</text>
+</g>
+
+<rect x="314" y="1144" width="270" height="160" rx="4" fill="var(--paper)" stroke="var(--down)" stroke-width="1.4"/>
+<text x="324" y="1164" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">POOL · BUDGET · LEASES</text>
+<text x="576" y="1164" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--down)">floor</text>
+<g font-family="IBM Plex Mono" font-size="10.5" fill="var(--ink)">
+<text x="324" y="1186">buffer_pool.cljs · gpu_budget.cljs</text>
+<text x="324" y="1201">region_bindings.cljs</text>
+</g>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="324" y="1226">slots + generations · bytes accounted ·</text>
+<text x="324" y="1240">region leases with epochs. Device-owned</text>
+<text x="324" y="1254">state that must exist somewhere — stays.</text>
+<text x="324" y="1276">gpu-mount ("DO NOT WIRE") goes.</text>
+</g>
+
+<rect x="596" y="1144" width="270" height="160" rx="4" fill="var(--paper)" stroke="var(--warn)" stroke-width="1.6"/>
+<text x="606" y="1164" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">DECLARATIONS</text>
+<text x="858" y="1164" text-anchor="end" font-family="IBM Plex Mono" font-size="9.5" fill="var(--warn)">changes with the key</text>
+<text x="606" y="1186" font-family="IBM Plex Mono" font-size="10.5" fill="var(--ink)">frame_inputs.cljc</text>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="606" y="1210">per-family input table + entry deltas;</text>
+<text x="606" y="1224">the quantized camera rungs.</text>
+<text x="606" y="1246" fill="var(--warn)">✗ the ledger written to js/globalThis</text>
+<text x="606" y="1260" fill="var(--warn)">goes.</text>
+</g>
+
+<rect x="878" y="1144" width="270" height="160" rx="4" fill="var(--paper)" stroke="var(--down)" stroke-width="1.4"/>
+<text x="888" y="1164" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="12.5" fill="var(--ink)">STATICS — sorted, not lumped</text>
+<g font-family="IBM Plex Sans" font-size="10.5" fill="var(--ink)">
+<text x="888" y="1188" font-weight="600">stay:</text>
+<text x="888" y="1204" font-style="italic" fill="var(--muted)">device WeakMaps · buffers + capacity ·</text>
+<text x="888" y="1218" font-style="italic" fill="var(--muted)">bounded caches · leases · frame history</text>
+<text x="888" y="1244" font-weight="600">go:</text>
+<text x="888" y="1260" font-style="italic" fill="var(--muted)">providers set by mutation · browser</text>
+<text x="888" y="1274" font-style="italic" fill="var(--muted)">globals · the runtimes' session atoms</text>
+</g>
+
+<!-- GUARD -->
+<text x="32" y="1340" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="13" fill="var(--down)">THE GUARD — receipts for the pipelines</text>
+<rect x="32" y="1350" width="1116" height="110" rx="4" fill="var(--paper)" stroke="var(--down)" stroke-width="1.4"/>
+<text x="44" y="1372" font-family="IBM Plex Mono" font-size="10.5" fill="var(--ink)">verifier.cljs (304 KB) · test/render_engine/run_verifier.mjs · gpu-goldens/ (67 files) — its own shadow-cljs module; the only thing that boots the engine today</text>
+<g font-family="IBM Plex Sans" font-style="italic" font-size="10.5" fill="var(--muted)">
+<text x="44" y="1396">CPU oracles stay — reference geometry for the pipelines (region3d-lit-oracle · point-in-curves? · route-boundary-distance) — with the pipeline goldens.</text>
+<text x="44" y="1412">Fixture atoms of a cut family go with it (an estimated 60–70 % of the file is scene construction — sampled, not counted); the W4 receipt is rehomed.</text>
+<text x="44" y="1436">draw-frame! has no caller in src/; the verifier reaches the GPU by composing compile-frame-tape + execute-frame-entry! itself.</text>
+</g>
+
+<!-- legend -->
+<g font-family="IBM Plex Mono" font-size="10.5" fill="var(--muted)">
+<rect x="32" y="1494" width="26" height="12" rx="2" fill="var(--paper)" stroke="var(--down)" stroke-width="1.4"/><text x="66" y="1504">floor — stays as code</text>
+<rect x="240" y="1494" width="26" height="12" rx="2" fill="var(--paper)" stroke="var(--dead)" stroke-width="1.4" stroke-dasharray="3 4"/><text x="274" y="1504">goes — cut now, reborn above</text>
+<rect x="500" y="1494" width="26" height="12" rx="2" fill="var(--paper)" stroke="var(--warn)" stroke-width="1.6"/><text x="534" y="1504">open — yours, or build stage</text>
+<circle cx="768" cy="1500" r="7" fill="var(--up)"/><text x="782" y="1504">1 packets down · 2 pick back up</text>
+<text x="32" y="1526">KB are file sizes; splits inside files are estimates; nothing here is a ruling</text>
+</g>
+</svg>
+<figcaption>The engine at one grain. Above the line: the old page's instances, every box goes and is reborn above as data or as a system over facets. On the line: what crosses it today and what must not. Below: the render floor in three rows — shapers, pipelines, custody — and the guard.</figcaption>
+</figure>
+
 <h2>The story</h2>
 <ol class="story">
 <li>The engine is 46 files, about 1.48 MB, and it is <strong>dark</strong>: the only thing that boots it is the verifier's own shadow-cljs module <span class="a">shadow-cljs.edn:15-16</span>; <code>draw-frame!</code> has no caller in <code>src/</code> <span class="a">renderer.cljs:3678</span>. Every call on this page is on <em>shape</em>, not liveness — your criterion.</li>
 <li>Your test for the waist (08-19): <em>"something that has to exist as code vs what can and should be built on top, ecs or whatever style."</em> Smallest version: <em>"text in placement out."</em></li>
 <li>One refinement both reviews forced, and it matches your three strata (LOG 07-30: material · Softland code · host floor): <strong>"has to exist as code" is not the same as "below the waist."</strong> ECS systems are code too — a route solver, a layout rule, selection → marks can all be code <em>above</em> the waist. The floor is narrower: what is reusable without knowing Softland's meanings or gestures, takes and gives stable geometric values, or owns GPU resources.</li>
-<li>Every family in the engine has three bands: <strong>what may be said</strong> (<code>*_material.cljc</code>) · <strong>said → geometry</strong> (a shaper: pure, runs on the JVM, has tests) · <strong>geometry → pixels</strong> (<code>*_gpu.cljs</code>, stateful).</li>
-<li>The middle band exists today, family by family: text (your yardstick), stroke → triangles, image → atlas quad, mesh + parent table → world triangles + ray hit, text/ink placed on a 3D plane, effects → spans, entries → one ordered list, transform spec → one affine. Not all of it is floor (see 3); the table sorts it.</li>
-<li>The GPU side has <strong>nine pipelines</strong> as-is: rounded box, shadow, msdf glyphs, slug glyphs, image, contour (path), marks (the code says chrome), the 3D region (several passes), and the compositor with clip. They do not change in anything below.</li>
+<li>The picture above is the engine at one grain. Below the line, three rows: <strong>shapers</strong> (said → geometry — pure <code>.cljc</code>, runs on the JVM, has tests), <strong>pipelines</strong> (geometry → pixels — <code>.cljs</code>, stateful), <strong>custody</strong> (the machine that owns GPU memory and order). Above the line: the old page's instances — every box marked <em>goes</em>.</li>
+<li>Read the shapers row: it exists today, family by family — text (your yardstick), stroke, image + transform, the 3D kernel, effects + order. Not all of it is floor (see 3); the table below sorts it.</li>
+<li>Read the pipelines row: <strong>nine, as-is</strong> — glyphs (msdf, slug), contour, box / shadow / image, the 3D passes, marks (the code says chrome), the compositor with clip. They do not change in anything below.</li>
 <li>Here is the old world: the engine is <strong>keyed by family</strong> — ten nouns, a closed menu, the same ten words at every layer. A family fuses <em>a kind of thing</em> with <em>a pipeline</em> and <em>a grammar</em> (pick modalities, edit operations, hit tolerance, zoom regimes). An entry belongs to exactly one.</li>
 <li>The fence that throws at load <span class="a">renderer.cljs:3364</span> is <em>not</em> the class system — it is a completeness law any registry needs (every facet an entity may wear must have a road). What closes the world is the <strong>key</strong>. Keep the fence, change the key.</li>
 <li>The receipt that the key is wrong: a labelled arrow is a connector family that <strong>clones a text system</strong> <span class="a">connector_gpu.cljs:185-226</span>, because one entry can be one family only. In your ECS words an entity wears several facets at once — <code>:text</code> and <code>:contour</code> and <code>:mark</code> — and each road takes its own.</li>

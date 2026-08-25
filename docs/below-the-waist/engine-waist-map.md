@@ -9,14 +9,48 @@ Nouns above, roads below. What in the parked render engine has to exist as code,
 >
 > **Above the waist:** the pointer system puts `:selected` on the card entity; a recipe — data — says *selected things wear a 1 px blue outline and four 10 px corner marks*; the floor draws any `:mark` it is handed. No file knows the word selection. The blue is yours to change in-land, and a caret, a hover halo, a focus ring are the same recipe with different numbers.
 
+## The picture
+
+*The drawn version is in the `.html` / `.pdf` twins — one SVG at one grain. This is its shape in text.*
+
+```
+ABOVE THE WAIST — the old page's instances · every box goes · reborn above as recipes (data) + systems (code over facets)
+ ┌ THE TREE ────────────────┐ ┌ MARKS VOCABULARY ────────┐ ┌ ARROWS ──────────────────┐
+ │ rect_tree · scene_store  │ │ chrome_material forms    │ │ connector_material       │
+ │ scene_runtime · selection│ │ chrome_derive · snap     │ │ connector_route          │
+ │ goes · your ruling       │ │ chrome_runtime   goes    │ │ connector_gpu  goes·pos. │
+ └──────────────────────────┘ └──────────────────────────┘ └──────────────────────────┘
+ ┌ THE SMALL BLENDER ───────┐ ┌ DEMOS·ORPHANS·AMBIENT ───┐ ┌ EDITOR LEFTOVERS ────────┐
+ │ region3d_runtime/pointer │ │ frame_runtime · fixtures │ │ inside renderer.cljs:    │
+ │ orbit · gizmo · menus    │ │ maintain-* · gpu-mount   │ │ bracket-rects · hit-test │
+ │ gizmo+grid shaders ·pick │ │ providers · globals      │ │ snapper · editor-state   │
+ │ goes · either way        │ │ goes                     │ │ goes                     │
+ └──────────────────────────┘ └──────────────────────────┘ └──────────────────────────┘
+━━━━ THE WAIST ━━ ◆ render packet: road id + resource key ✓ ━━ ◆ :paint/source live handle ✗ ━━━━━━━━━━━━━━
+              ━━ ◆ family key → facet key (build stage) ━━ ◆ placement's slot input ✗ · chrome_gpu form input ✗
+ ① recipes + facets → packets ↓                                            ② pick walks the tape backward ↑
+BELOW THE WAIST — the render floor · what has to exist as code · never editor code
+ [THE KEY — today: ten families · wanted: facets, several per entity · the fence stays, the key changes — build stage]
+ SHAPERS — said → geometry (pure .cljc, JVM)
+  TEXT (floor)        STROKE/SHAPE (floor)   IMAGE·TRANSFORM (floor)  3D KERNEL (open — yours)   EFFECTS·ORDER (floor)
+  text_shaper         path_material          image_material           region3d_scene             scene_tape · frame_effects
+  text_layout         path_tessellation      containers               region3d_placement ✗ slot  frame_plan_view · delta
+  planes · fonts                                                      region_rungs               semantic_state · graph=oracle
+ PIPELINES — geometry → pixels (nine, as-is)
+  GLYPHS msdf·slug | CONTOUR path_gpu | BOX·SHADOW·IMAGE (renderer) | 3D PASSES region3d_gpu+placement_gpu | MARKS chrome_gpu ✗ forms | COMPOSITOR+CLIP → pixels
+ CUSTODY — the machine that owns GPU memory and order
+  CONDUCTOR renderer.cljs | POOL·BUDGET·LEASES buffer_pool · gpu_budget · region_bindings | DECLARATIONS frame_inputs (✗ ledger) | STATICS sorted: stay / go
+ THE GUARD — verifier.cljs oracles + goldens stay · fixture atoms of a cut family go · W4 receipt rehomed
+```
+
 ## The story
 
 1. The engine is 46 files, about 1.48 MB, and it is **dark**: the only thing that boots it is the verifier's own shadow-cljs module (`shadow-cljs.edn:15-16`); `draw-frame!` has no caller in `src/` (`renderer.cljs:3678`). Every call on this page is on *shape*, not liveness — your criterion.
 2. Your test for the waist (08-19): *"something that has to exist as code vs what can and should be built on top, ecs or whatever style."* Smallest version: *"text in placement out."*
 3. One refinement both reviews forced, and it matches your three strata (LOG 07-30: material · Softland code · host floor): **"has to exist as code" is not the same as "below the waist."** ECS systems are code too — a route solver, a layout rule, selection → marks can all be code *above* the waist. The floor is narrower: what is reusable without knowing Softland's meanings or gestures, takes and gives stable geometric values, or owns GPU resources.
-4. Every family in the engine has three bands: **what may be said** (`*_material.cljc`) · **said → geometry** (a shaper: pure, runs on the JVM, has tests) · **geometry → pixels** (`*_gpu.cljs`, stateful).
-5. The middle band exists today, family by family: text (your yardstick), stroke → triangles, image → atlas quad, mesh + parent table → world triangles + ray hit, text/ink placed on a 3D plane, effects → spans, entries → one ordered list, transform spec → one affine. Not all of it is floor (see 3); the table sorts it.
-6. The GPU side has **nine pipelines** as-is: rounded box, shadow, msdf glyphs, slug glyphs, image, contour (path), marks (the code says chrome), the 3D region (several passes), and the compositor with clip. They do not change in anything below.
+4. The picture above is the engine at one grain. Below the line, three rows: **shapers** (said → geometry — pure `.cljc`, runs on the JVM, has tests), **pipelines** (geometry → pixels — `.cljs`, stateful), **custody** (the machine that owns GPU memory and order). Above the line: the old page's instances — every box marked *goes*.
+5. Read the shapers row: it exists today, family by family — text (your yardstick), stroke, image + transform, the 3D kernel, effects + order. Not all of it is floor (see 3); the table below sorts it.
+6. Read the pipelines row: **nine, as-is** — glyphs (msdf, slug), contour, box / shadow / image, the 3D passes, marks (the code says chrome), the compositor with clip. They do not change in anything below.
 7. Here is the old world: the engine is **keyed by family** — ten nouns, a closed menu, the same ten words at every layer. A family fuses *a kind of thing* with *a pipeline* and *a grammar* (pick modalities, edit operations, hit tolerance, zoom regimes). An entry belongs to exactly one.
 8. The fence that throws at load (`renderer.cljs:3364`) is *not* the class system — it is a completeness law any registry needs (every facet an entity may wear must have a road). What closes the world is the **key**. Keep the fence, change the key.
 9. The receipt that the key is wrong: a labelled arrow is a connector family that **clones a text system** (`connector_gpu.cljs:185-226`), because one entry can be one family only. In your ECS words an entity wears several facets at once — `:text` and `:contour` and `:mark` — and each road takes its own.
