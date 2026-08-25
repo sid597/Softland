@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Engine at the Waist</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  *, *::before, *::after { box-sizing: border-box; }
+  :root {
+    --paper: #F3F4F2; --ink: #1E2A32; --muted: #5C6B74; --line: #D4DAD7; --code-bg: #E9ECEA;
+    --down: #1F6F8B; --down-bg: #E3EEF2;
+    --up: #B8721A; --up-bg: #F5EBDA;
+    --sink: #3E4A52; --sink-bg: #E2E6E8;
+    --dead: #8A949A; --dead-bg: #ECEEEE;
+    --warn: #9A3B1C; --warn-bg: #F6E4DE;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #131719; --ink: #E4E9EB; --muted: #9AA8B0; --line: #2A3237; --code-bg: #1C2226;
+      --down: #5FB3D0; --down-bg: #16272E;
+      --up: #E0A14A; --up-bg: #2B2115;
+      --sink: #B7C2C9; --sink-bg: #1E2529;
+      --dead: #6E7A82; --dead-bg: #1A1F22;
+      --warn: #E08A6A; --warn-bg: #2E1B15;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #131719; --ink: #E4E9EB; --muted: #9AA8B0; --line: #2A3237; --code-bg: #1C2226;
+    --down: #5FB3D0; --down-bg: #16272E;
+    --up: #E0A14A; --up-bg: #2B2115;
+    --sink: #B7C2C9; --sink-bg: #1E2529;
+    --dead: #6E7A82; --dead-bg: #1A1F22;
+    --warn: #E08A6A; --warn-bg: #2E1B15;
+  }
+  html { background: var(--paper); }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    font-size: 16px; line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 74rem; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; }
+  h1, h2, h3 { font-family: "IBM Plex Sans Condensed", "IBM Plex Sans", system-ui, sans-serif; text-wrap: balance; line-height: 1.1; margin: 0; }
+  h1 { font-size: clamp(2.2rem, 5vw, 3.4rem); font-weight: 700; letter-spacing: -0.01em; }
+  h2 { font-size: 1.6rem; font-weight: 600; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+  h3 { font-size: 1.12rem; font-weight: 600; margin-top: 1.6rem; }
+  .eyebrow { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: .75rem; }
+  .sub { color: var(--muted); font-size: 1.05rem; margin-top: .75rem; max-width: 68ch; }
+  p, li, dd { max-width: 70ch; }
+  p { margin: .8rem 0; }
+  ol, ul { padding-left: 1.4rem; }
+  li { margin: .35rem 0; }
+  ol.story { padding-left: 1.8rem; }
+  ol.story li { margin: .55rem 0; padding-left: .25rem; }
+  ol.story li::marker { font-family: "IBM Plex Mono", monospace; color: var(--muted); font-size: .85em; }
+  .lede { border-left: 4px solid var(--up); background: var(--up-bg); padding: 1.1rem 1.4rem; margin: 1.75rem 0 1.25rem; border-radius: 0 6px 6px 0; }
+  .lede p { margin: .5rem 0; max-width: 78ch; }
+  .lede .k { font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 600; letter-spacing: .02em; }
+  code, pre { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  code { font-size: .86em; background: var(--code-bg); padding: .06em .3em; border-radius: 3px; }
+  pre { background: var(--code-bg); padding: 1rem 1.25rem; overflow-x: auto; font-size: .8rem; line-height: 1.45; border-radius: 4px; max-width: 100%; margin: 1rem 0; }
+  pre code { background: none; padding: 0; font-size: inherit; }
+  .a { font-family: "IBM Plex Mono", monospace; font-size: .78em; color: var(--muted); white-space: nowrap; }
+  .waist { display: grid; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin: 1.5rem 0; }
+  .waist > div { padding: 1.1rem 1.4rem; }
+  .waist .above { background: var(--up-bg); border-left: 4px solid var(--up); }
+  .waist .below { background: var(--down-bg); border-left: 4px solid var(--down); }
+  .waist .seam { background: var(--paper); border-top: 1px dashed var(--line); border-bottom: 1px dashed var(--line); font-family: "IBM Plex Mono", monospace; font-size: .8rem; color: var(--muted); padding: .6rem 1.4rem; }
+  .waist .label { font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; font-size: .8rem; margin-bottom: .3rem; }
+  .waist .above .label { color: var(--up); } .waist .below .label { color: var(--down); }
+  .waist p { margin: .25rem 0; max-width: none; }
+  .table-wrap { overflow-x: auto; margin: 1.25rem 0; border: 1px solid var(--line); border-radius: 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: .86rem; min-width: 60rem; }
+  th, td { text-align: left; vertical-align: top; padding: .6rem .75rem; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: none; }
+  th { font-family: "IBM Plex Sans Condensed", sans-serif; font-weight: 600; font-size: .76rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); background: var(--code-bg); }
+  td.fam { font-weight: 600; white-space: nowrap; }
+  td.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .pill { display: inline-block; font-family: "IBM Plex Mono", monospace; font-size: .68rem; letter-spacing: .05em; text-transform: uppercase; padding: .15em .5em; border-radius: 3px; white-space: nowrap; margin: .1em .2em .1em 0; }
+  .pill.down { color: var(--down); background: var(--down-bg); }
+  .pill.up { color: var(--up); background: var(--up-bg); }
+  .pill.dead { color: var(--dead); background: var(--dead-bg); }
+  .pill.warn { color: var(--warn); background: var(--warn-bg); }
+  .pill.sink { color: var(--sink); background: var(--sink-bg); }
+  .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); gap: 1rem; margin: 1.25rem 0; }
+  .card { border: 1px solid var(--line); border-radius: 6px; padding: 1rem 1.15rem; background: var(--paper); }
+  .card h3 { margin-top: 0; font-size: 1rem; }
+  .card.down { border-top: 4px solid var(--down); } .card.up { border-top: 4px solid var(--up); }
+  .card.warn { border-top: 4px solid var(--warn); } .card.dead { border-top: 4px solid var(--dead); }
+  .card ul { padding-left: 1.1rem; margin: .5rem 0 0; } .card li { font-size: .92rem; margin: .25rem 0; }
+  blockquote { margin: 1rem 0; padding: .2rem 1rem; border-left: 3px solid var(--line); color: var(--muted); font-style: italic; max-width: 70ch; }
+  dl.words { display: grid; grid-template-columns: max-content 1fr; gap: .45rem 1.25rem; margin: 1rem 0; }
+  dl.words dt { font-weight: 600; } dl.words dd { margin: 0; color: var(--muted); max-width: none; }
+  .note { font-size: .92rem; color: var(--muted); }
+  footer { margin-top: 3rem; border-top: 1px solid var(--line); padding-top: 1rem; font-size: .85rem; color: var(--muted); }
+  a { color: var(--down); } a:focus-visible { outline: 2px solid var(--up); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  @media print {
+    @page { size: A4 landscape; margin: 12mm; }
+    body { font-size: 10.5pt; } .page { max-width: none; padding: 0; }
+    .table-wrap { overflow: visible; border: none; } table { min-width: 0; font-size: 8.5pt; }
+    tr, .card, .lede, .waist { page-break-inside: avoid; } h2 { page-break-after: avoid; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+</head>
+<body>
+<main class="page">
+<div class="eyebrow">below the waist · the render engine · 2026-08-25 · a map with positions — nothing on this page is a ruling</div>
+<h1>The Engine at the Waist</h1>
+<p class="sub">Nouns above, roads below. What in the parked render engine has to exist as code, what should be worn as facets in ECS land — and the old-world instance sitting on each class that still holds.</p>
+
+<div class="lede">
+<p><span class="k">You click a card.</span> Today: <code>selection/transition</code> (a <code>case</code> on <code>:toggle</code>) → <code>chrome_derive/apply-selection</code> → five form-nodes → <code>chrome_material/material-quads</code> (a <code>case</code> on <code>:selection-outline</code>) → <code>chrome_gpu</code> vertices → tape entries carrying <code>:pick {:chrome-form …}</code>. Six files know the words <em>selection-outline</em> and <em>blue</em>.</p>
+<p><span class="k">Above the waist:</span> the pointer system puts <code>:selected</code> on the card entity; a recipe — data — says <em>selected things wear a 1 px blue outline and four 10 px corner marks</em>; the floor draws any <code>:mark</code> it is handed. No file knows the word selection. The blue is yours to change in-land, and a caret, a hover halo, a focus ring are the same recipe with different numbers.</p>
+</div>
+
+<h2>The story</h2>
+<ol class="story">
+<li>The engine is 46 files, about 1.48 MB, and it is <strong>dark</strong>: the only thing that boots it is the verifier's own shadow-cljs module <span class="a">shadow-cljs.edn:15-16</span>; <code>draw-frame!</code> has no caller in <code>src/</code> <span class="a">renderer.cljs:3678</span>. Every call on this page is on <em>shape</em>, not liveness — your criterion.</li>
+<li>Your test for the waist (08-19): <em>"something that has to exist as code vs what can and should be built on top, ecs or whatever style."</em> Smallest version: <em>"text in placement out."</em></li>
+<li>One refinement both reviews forced, and it matches your three strata (LOG 07-30: material · Softland code · host floor): <strong>"has to exist as code" is not the same as "below the waist."</strong> ECS systems are code too — a route solver, a layout rule, selection → marks can all be code <em>above</em> the waist. The floor is narrower: what is reusable without knowing Softland's meanings or gestures, takes and gives stable geometric values, or owns GPU resources.</li>
+<li>Every family in the engine has three bands: <strong>what may be said</strong> (<code>*_material.cljc</code>) · <strong>said → geometry</strong> (a shaper: pure, runs on the JVM, has tests) · <strong>geometry → pixels</strong> (<code>*_gpu.cljs</code>, stateful).</li>
+<li>The middle band exists today, family by family: text (your yardstick), stroke → triangles, image → atlas quad, mesh + parent table → world triangles + ray hit, text/ink placed on a 3D plane, effects → spans, entries → one ordered list, transform spec → one affine. Not all of it is floor (see 3); the table sorts it.</li>
+<li>The GPU side has <strong>nine pipelines</strong> as-is: rounded box, shadow, msdf glyphs, slug glyphs, image, contour (path), marks (the code says chrome), the 3D region (several passes), and the compositor with clip. They do not change in anything below.</li>
+<li>Here is the old world: the engine is <strong>keyed by family</strong> — ten nouns, a closed menu, the same ten words at every layer. A family fuses <em>a kind of thing</em> with <em>a pipeline</em> and <em>a grammar</em> (pick modalities, edit operations, hit tolerance, zoom regimes). An entry belongs to exactly one.</li>
+<li>The fence that throws at load <span class="a">renderer.cljs:3364</span> is <em>not</em> the class system — it is a completeness law any registry needs (every facet an entity may wear must have a road). What closes the world is the <strong>key</strong>. Keep the fence, change the key.</li>
+<li>The receipt that the key is wrong: a labelled arrow is a connector family that <strong>clones a text system</strong> <span class="a">connector_gpu.cljs:185-226</span>, because one entry can be one family only. In your ECS words an entity wears several facets at once — <code>:text</code> and <code>:contour</code> and <code>:mark</code> — and each road takes its own.</li>
+<li>The engine half-knows this: the tape's <code>paint-forward</code> "contains no family branch" <span class="a">scene_tape.cljc:749</span>; the renderer's per-family path is a data table, not a <code>cond</code> <span class="a">renderer.cljs:3297</span>. What is left of the class system is the key, the grammar per family, and the frame description bucketed by family.</li>
+<li>The instances sitting on it: the box tree (you ruled: goes), the five mark forms + snapping + marquee + selection, the elbow-arrow conventions, the small Blender inside the 3D window, the demos — and, cross-cutting, ambient providers set by mutation, browser globals, and kind menus guarded by refusing validators.</li>
+<li>The move, at its real size: <strong>connector stops being a family</strong> and becomes a system above; <strong>the registry key goes from family to facet</strong>; <strong>an entity can wear several facets</strong>. The pipelines stay. The named roads (<code>:text :contour :formula :image :mesh :mark</code>) are a target vocabulary, not a source fact — each needs a small contract before the registry changes.</li>
+<li>So: what we need from the engine = the floor shapers, the pipelines, the order / passes / upload / budget custody, the guard's oracles. What we don't = every named kind and the key that names them. What waits = the key change — until the instances are gone and the renderer can be seen at its own grain.</li>
+</ol>
+
+<h2>The waist, drawn</h2>
+<div class="waist">
+  <div class="above">
+    <div class="label">Above — the open world</div>
+    <p>entities · facets · recipes · ECS systems · what a gesture means · arbitrary new combinations</p>
+    <p class="note">Material is data. Systems are code — keyed by the facet they serve, never by what a thing <em>is</em>.</p>
+  </div>
+  <div class="seam">↓ value-only render packets — a road id + a resource key, never a live handle ↓</div>
+  <div class="below">
+    <div class="label">Below — the finite machine</div>
+    <p>road registry (exhaustive, fenced) · geometry and coverage preparation · GPU resource ownership · order, passes, composition · buffers, upload, execution</p>
+    <p class="note">Reusable without Softland's meanings; stable geometric values in and out; the GPU is never handed invalid data.</p>
+  </div>
+</div>
+<p>Three strata, in your words (LOG 07-30, "the code editor is Softland at zoom 100"): <strong>material</strong> — data · <strong>Softland code</strong> — the systems, code above the waist · <strong>host floor</strong> — what must remain outside the land. In this phase the systems stratum has no home of its own yet, so the cut is still binary: floor code stays in the repo as engine; family-shaped code goes; git keeps whatever pure geometry is worth lifting later.</p>
+
+<h2>What the old world is here</h2>
+<pre><code>TODAY — keyed by family (10 nouns; each = kind + pipeline + grammar)      WANTED — keyed by facet
+  :rect       → rounded-box pipeline                                        entity wears several facets;
+  :shadow     → shadow pipeline                                             each road takes one:
+  :msdf       → glyph pipeline (atlas)     ┐ one facet,                        :text     → glyph road
+  :slug       → glyph pipeline (curves)    ┘ two backends                      :contour  → triangle road
+  :image      → image pipeline                                                 :formula  → formula road
+  :path       → contour pipeline                                               :image    → image road
+  :connector  → (a route SYSTEM, above) → contour pipeline                     :mesh     → mesh road
+  :chrome     → marks pipeline                                                 :mark     → mark road
+  :region-3d  → 3D passes → compositor lease                                   :effects  → compositor
+  :clip       → scissor                                                        :order    → the tape
+  one entry = one family · grammar per family · fenced                     recipes (data): card · arrow · outline · 3D window</code></pre>
+<p>Where the key lives — the places a facet key would replace it: <span class="a">scene_tape.cljc:14</span> (<code>family-ids</code>) and <span class="a">:480</span> (ten registrations carrying pick modalities and edit operations) · <span class="a">frame_inputs.cljc:28-69</span> (the declaration table) · <span class="a">renderer.cljs:3297</span> (the executor registry) and <span class="a">:3418</span> (the frame description's buckets: <code>:rects :shadows :images :paths :connectors :chromes :regions</code>) · <span class="a">scene_store.cljc:319</span> (<code>derive-store-frame</code> fills the buckets) · <span class="a">rect_tree.cljc:205-611</span> (eight walkers, one per kind) · <span class="a">selection.cljc:12,145</span> and <span class="a">chrome_derive.cljc:17-20</span> (family sets deciding behaviour) · the verifier's per-family atoms.</p>
+<p>The one waist violation inside the tape itself: an entry's <code>:paint/source</code> carries a <strong>live JS system object</strong> <span class="a">path_gpu.cljs:367-368 · region3d_gpu.cljs:1401</span>. Data holding a mutable handle — an entry cannot cross the waist as a value today. The future packet names a road and a resource key; runtime-owned state is resolved below.</p>
+
+<h2>Every family, three bands</h2>
+<p class="note">KB are file sizes (fact). Splits inside a file are estimates. Pills: <span class="pill down">floor</span> stays as code below · <span class="pill up">system ↑</span> / <span class="pill up">recipe ↑</span> belongs above (code or data) · <span class="pill dead">goes</span> cut now · <span class="pill warn">open</span> not yet closable.</p>
+<div class="table-wrap">
+<table>
+<thead><tr><th>family</th><th>said → geometry (the shaper)</th><th>pipeline</th><th>the old-world instance on it</th><th>where it sorts</th><th>KB</th></tr></thead>
+<tbody>
+<tr><td class="fam">text</td>
+<td><code>text_shaper</code> — one shaper (HarfBuzz wasm <span class="a">:13</span>): string + features → glyph runs in font units <span class="a">:268-290</span>. <code>text_layout</code> — + size, width, wrap → lines, glyph positions, metrics in material-local space <span class="a">:682-1000</span>; the cache is a value the caller threads <span class="a">:1029-1084</span>. <code>planes</code> — typed-array storage <span class="a">:290-304</span>. The caret / selection / hit <em>readers</em> <span class="a">:1304, :1513</span> stay with it — nobody else measures.</td>
+<td>msdf or slug, chosen downstream <span class="a">fonts.cljs:203-207</span></td>
+<td>A second layout road, <code>legacy-layout</code> (monospace grid, 138 lines <span class="a">:174-311</span>) — but at least one JVM test asserts it <span class="a">text_layout_test.clj:151</span>: it is the JVM's stand-in shaper. A closed 16-keyword <code>ground-op-roles</code> <span class="a">:23-27</span>.</td>
+<td><span class="pill down">floor</span> <span class="pill warn">open</span> legacy road</td><td class="num">125</td></tr>
+
+<tr><td class="fam">box</td>
+<td><code>rect_tree/layout-children</code> — children + direction / gap / padding / align → bounds; a pure pre-pass <span class="a">:38, :54-132</span>, shape-blind, ~80 lines.</td>
+<td>rounded box + shadow, inside the renderer</td>
+<td><strong>The tree</strong>: node <code>{:id :type :bounds :style :children :data …}</code> <span class="a">rect_tree.cljc:19-32</span> with one <code>:data</code> slot per kind and eight walkers; store slots by <code>vi</code> <span class="a">scene_store.cljc:96-126</span>; pick by bounds <span class="a">:404</span>; <code>selection</code> bound to <code>vi</code>/address with "rect = blocks" <span class="a">selection.cljc:145</span>.</td>
+<td><span class="pill dead">goes</span> the tree (your ruling) · <span class="pill up">system ↑</span> layout — goes with the tree now; 80 lines to re-derive over facets</td><td class="num">79</td></tr>
+
+<tr><td class="fam">stroke / shape</td>
+<td><code>path_material</code> — contours, or centerline + pressure <span class="a">:8-10, :81</span> → <code>path_tessellation/tessellate [material zoom]</code> → triangles <span class="a">:383-402</span>. Pure. <strong>No editor code.</strong> You named this road yourself.</td>
+<td>contour — <code>path_gpu</code>, pure <code>prepared-op</code> → <code>pack-vertices</code> <span class="a">:217-252</span>; its one <code>case</code> is a clipping algorithm <span class="a">:154</span></td>
+<td>Point-edit verbs inside the description ns (<code>move-knot</code>, <code>move-contour-point</code> <span class="a">:288, :336</span>) — small. The live handle in <code>:paint/source</code> <span class="a">path_gpu.cljs:367</span>.</td>
+<td><span class="pill down">floor</span></td><td class="num">63</td></tr>
+
+<tr><td class="fam">image</td>
+<td><code>image_material</code> — digest + size → atlas placement + a 13-word quad <span class="a">:257, :325</span>; registry and atlas are values in, values out <span class="a">:67, :250</span>.</td>
+<td>image, inside the renderer</td>
+<td>Almost none — the packer refuses per-node transforms by design <span class="a">:326-327</span>.</td>
+<td><span class="pill down">floor</span></td><td class="num">15</td></tr>
+
+<tr><td class="fam">transform</td>
+<td><code>containers</code> — spec → one affine composed through parents; forward / inverse point <span class="a">:87, :232-253</span>. Pure; highest fan-in in the tree.</td>
+<td>feeds every pipeline</td>
+<td>none</td>
+<td><span class="pill down">floor</span></td><td class="num">12</td></tr>
+
+<tr><td class="fam">marks <span class="note">(code: chrome)</span></td>
+<td><code>chrome_material/material-quads</code> — world anchor + px offset → quads <span class="a">:241-257</span> — but it switches over the five forms, and <code>chrome_gpu</code> calls it <span class="a">chrome_gpu.cljs:169</span>.</td>
+<td>the hybrid-metric vertex: anchor in world, offset in px <span class="a">chrome_gpu.cljs:182-204</span></td>
+<td>The five forms <code>#{:selection-outline :handle :marquee :guide-line :gap-tick}</code> <span class="a">chrome_material.cljc:16</span>; px constants (snap 8, handle 10, slop 6 <span class="a">:10-14</span>); <code>snap</code> (guides, gap ticks); <code>chrome_derive</code> (selection + gesture → marks; two <code>defonce</code> providers <span class="a">:23-24</span>); <code>chrome_runtime</code> (dead; throws without host hooks <span class="a">:330-333</span>).</td>
+<td><span class="pill down">floor</span> the hybrid-metric pipeline · <span class="pill warn">open</span> a form-free mark road is new work · <span class="pill dead">goes</span> the rest, now</td><td class="num">75</td></tr>
+
+<tr><td class="fam">arrows</td>
+<td>No shaper — <code>connector_route</code> is a <strong>system</strong>: bound thing → its boundary quad → clip from center <span class="a">:173</span> → elbow Z-route <span class="a">:185-195</span> → trim for heads <span class="a">:207, :218</span> → label at <em>t</em> <span class="a">:390</span> → synthesize a path material <span class="a">:334</span> → tessellate <span class="a">:360</span>.</td>
+<td>contour (borrowed) + its own buffer + a cloned text system <span class="a">connector_gpu.cljs:185-226</span></td>
+<td>The whole family: <code>:elbow/v1</code>, triangle heads <span class="a">connector_material.cljc:14-17</span>, a live pick mirror + provider by mutation <span class="a">connector_route.cljc:18-21</span>, a 142-line per-edge cache <span class="a">:544-685</span>, twelve system atoms <span class="a">connector_gpu.cljs:115-126</span>.</td>
+<td><span class="pill up">system ↑</span> · <strong>position</strong>: cut the family whole now; the pure geometry above is listed for lifting from git when arrows are rebuilt over facets. Codex holds this open; one line from you vetoes it.</td><td class="num">74</td></tr>
+
+<tr><td class="fam">3D</td>
+<td><code>region3d_scene</code> — primitive → mesh <span class="a">:325</span>, parent table → matrices <span class="a">:140-160</span>, triangles → BVH <span class="a">:394</span>, ray → object <span class="a">:516, :947</span>. <code>region3d_placement</code> — 2D text / ink onto a plane, reusing the text shaper <span class="a">:180, :334</span> — but it reads the old slot shape <span class="a">:22, :41, :60, :72, :78</span>. <code>region_rungs</code> — texture budget grant <span class="a">:50-93</span>.</td>
+<td>region passes (depth, shading, placement glyphs / ink, grid, gizmo overlays) → compositor lease <span class="a">region3d_gpu.cljs:1122-1387</span></td>
+<td><strong>The small Blender</strong>: kind menus <span class="a">region3d_material.cljc:18-22</span>, nine edit ops by <code>:op/id</code> <span class="a">:82-86, :511</span>, orbit / gizmo / handle picks <span class="a">region3d_scene.cljc:616, :696, :932</span>, gizmo + grid shaders <span class="a">region3d_gpu.cljs:257-378, :206</span>, a global <code>!pick-state</code> + device WeakMap <span class="a">:705-706</span>, <code>region3d_runtime</code> (panel at <code>[236 146]</code>, fixture scene, <code>window.region3d</code> <span class="a">:23, :78-118, :602-620</span>), <code>region3d_pointer</code> (dolly / wheel), a CPU PBR reference only the verifier calls <span class="a">region3d_scene.cljc:1141 · verifier.cljs:4587</span>.</td>
+<td><span class="pill warn">open</span> the kernel (mesh · hierarchy · BVH · ray · placement) — your question · <span class="pill dead">goes</span> the small Blender, either way · <span class="pill warn">open</span> placement's input after the store goes</td><td class="num">~260</td></tr>
+
+<tr><td class="fam">effects + order</td>
+<td><code>frame_effects/derive-effect-spans</code> <span class="a">:204-227</span>; <code>scene_tape/compile-tape</code> <span class="a">:724</span> + <code>paint-forward</code> / <code>pick-reverse</code> <span class="a">:748, :757</span>; <code>frame_plan_view</code> (the incremental plan <span class="a">:232, :315</span>); <code>frame_delta</code>, <code>frame_semantic_state</code>; <code>frame_graph</code> = the verifier's plan <em>oracle</em> <span class="a">:668, :692-764</span>.</td>
+<td>compositor — passes, targets, blur / mask / opacity / clip <span class="a">compositor_gpu.cljs:1303</span></td>
+<td>The family declaration table <span class="a">frame_inputs.cljc:28-69</span> with <code>:editor-pool-info</code> in the rect row; the ledger written to <code>js/globalThis</code> <span class="a">:242-248</span>; two orphaned maintained twins — <code>maintain-frame-plan</code> <span class="a">frame_graph.cljc:677</span> and <code>maintain-effect-spans</code> <span class="a">frame_effects.cljc:250</span>, test-only.</td>
+<td><span class="pill down">floor</span> · <span class="pill dead">goes</span> the two orphans, the ledger · the table changes with the key</td><td class="num">145</td></tr>
+
+<tr><td class="fam">GPU core</td>
+<td><code>renderer/shape-text</code> — a real shaper: text ops + fonts → placed paint rects, placement backend-independent <span class="a">:2345-2353, :2277-2279</span>.</td>
+<td>shaders (≈18 % of the file), systems, frame compile / execute <span class="a">:3470-3677</span>; <code>compositor</code>; <code>buffer_pool</code> (slot / generation <span class="a">:120-141</span>); <code>gpu_budget</code>; <code>region_bindings</code></td>
+<td>The family registry <span class="a">:3297</span> + fence <span class="a">:3364</span> + buckets <span class="a">:3418</span>; editor leftovers — <code>calculate-bracket-rects</code> <span class="a">:730</span>, <code>hit-test</code> <span class="a">:750</span>, <code>make-snapper</code> <span class="a">:2134</span>, <code>create-editor-state</code> at 50 000 rects <span class="a">:2077</span>, <code>draw-comparison-frame!</code> <span class="a">:2637</span>; <code>gpu-mount</code> with its "DO NOT WIRE AS-IS" banner <span class="a">buffer_pool.cljs:448-457</span>.</td>
+<td><span class="pill down">floor</span> · <span class="pill dead">goes</span> the leftovers, <code>gpu-mount</code> · <span class="pill warn">open</span> the key change</td><td class="num">313</td></tr>
+
+<tr><td class="fam">the guard</td>
+<td>CPU oracles — reference geometry for the pipelines: <code>region3d-lit-oracle</code> <span class="a">verifier.cljs:4579-4648</span>, <code>point-in-curves?</code> <span class="a">:317</span>, <code>route-boundary-distance</code> <span class="a">:2482</span>.</td>
+<td>67 golden files, headless puppeteer <span class="a">test/render_engine/run_verifier.mjs</span></td>
+<td>Per-family fixture atoms — image 14 %, W4 frame 27 %, 3D 18 %, marks 6.5 %, arrows 9 % of the file; an estimated 60–70 % of it is scene construction (sampled, not counted).</td>
+<td><span class="pill down">floor</span> oracles + pipeline goldens · <span class="pill dead">goes</span> the fixture atoms of whatever family goes; the W4 receipt rehomed</td><td class="num">304</td></tr>
+
+<tr><td class="fam">demos</td>
+<td>—</td><td>—</td>
+<td><code>frame_runtime</code>: eight fixed trees at hard-coded coordinates + a PNG export chord <span class="a">:61-163, :268-274</span>; the 3D runtime's fixture; the <code>?live-atoms</code> / <code>?region3d</code> readers nobody calls; <code>resources/public/faces/</code>.</td>
+<td><span class="pill dead">goes</span></td><td class="num">12+</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>The cross-cutting instances</h2>
+
+<h3>Statics — three kinds, not one</h3>
+<div class="cols">
+  <div class="card dead"><h3>Go</h3><ul>
+    <li>Providers set by mutation: <code>!effective-provider</code>, <code>!live-route-cache</code> <span class="a">connector_route.cljc:18-21</span>; <code>!live-camera-provider</code>, <code>!live-effective-provider</code> <span class="a">chrome_derive.cljc:23-24</span></li>
+    <li>Browser globals: <code>__softlandFrameLedger</code> <span class="a">frame_inputs.cljc:242-248</span>, <code>window.region3d</code> <span class="a">region3d_runtime.cljs:602-620</span>, <code>window.sceneContext</code> <span class="a">scene_runtime.cljs:216</span></li>
+    <li>The runtimes' session atoms (19 across three files) — free, they go with the runtimes; the one store atom <span class="a">scene_runtime.cljs:25</span></li>
+    <li>The 3D global <code>!pick-state</code> <span class="a">region3d_gpu.cljs:706</span> — a cross-family mutable mirror</li>
+  </ul></div>
+  <div class="card down"><h3>Stay below</h3><ul>
+    <li>Device-owned resources: <code>!systems-by-device</code> <span class="a">region3d_gpu.cljs:705</span>, <code>!compositors-by-device</code> <span class="a">renderer.cljs:3397</span></li>
+    <li>System-local buffers and capacities (<code>buffer_pool</code>; every <code>!buffer</code> / <code>!capacity</code>)</li>
+    <li>Bounded derived caches (glyph maps <span class="a">renderer.cljs:2147-2148</span>, mesh caches); budget accounting (<code>gpu_budget</code>); compositor leases</li>
+    <li>Explicitly owned frame history where incremental rendering needs it (<code>frame_plan_view</code> state, <code>region_bindings</code>)</li>
+  </ul></div>
+</div>
+<p>Only the <em>go</em> column is a build-stage item. "Thread every atom through as values" is a style choice with a per-call cost, not a ruling.</p>
+
+<h3>Gates — where "describe, never gate" applies</h3>
+<p>The law is about product descriptions, and it carves out the floor itself — <em>"Totality gates on the meta-material's OWN form (error cards) are the dull floor, not a violation"</em> <span class="a">docs/editable-material/DIRECTION.md:94</span>. So: <strong>above</strong>, an unknown facet still exists and gets an error / fallback projection — an untyped block renders, forever. <strong>Below</strong>, a road refuses a malformed packet (NaN, a bad index, an oversize mesh, a cyclic parent) and shows the fallback; the GPU is never handed invalid data.</p>
+<div class="cols">
+  <div class="card dead"><h3>Go — kind menus that are product vocabulary</h3><ul>
+    <li><code>legal-forms</code> <span class="a">chrome_material.cljc:16</span></li>
+    <li><code>legal-object-kinds</code> · <code>-primitive-</code> · <code>-light-</code> · <code>-camera-</code> <span class="a">region3d_material.cljc:18-22</span></li>
+    <li><code>legal-route-policies</code> · <code>legal-heads</code> <span class="a">connector_material.cljc:14-17</span></li>
+  </ul></div>
+  <div class="card down"><h3>Stay — shape and totality checks</h3><ul>
+    <li><code>validate-region!</code> (finite vectors, indices, caps, acyclic parents) <span class="a">region3d_material.cljc:432-464</span></li>
+    <li>contour / knot validation <span class="a">path_material.cljc:156</span>; entry shape <span class="a">scene_tape.cljc:653-688</span></li>
+    <li>the exhaustiveness fence <span class="a">renderer.cljs:3364</span></li>
+  </ul></div>
+</div>
+
+<h3>Twins — maintained view + oracle</h3>
+<p>The guard's pattern everywhere is an incremental view checked against a full recompute. An oracle is off the live path <em>by design</em> — it is not dead. Keep: <code>frame_graph</code> (the verifier's plan oracle, called six times from <code>verifier.cljs</code>), <code>frame_effects/derive-effect-spans</code>, <code>chrome_derive/full-recompute-oracle</code> <span class="a">:231</span>, the scheduler's <code>decide</code> (the verifier's <span class="a">verifier.cljs:4986</span>). Orphaned — only tests call them: <code>maintain-frame-plan</code> <span class="a">frame_graph.cljc:677 · frame_graph_test.clj:44-56</span>, <code>maintain-effect-spans</code> <span class="a">frame_effects.cljc:250 · frame_effects_test.clj:67-71</span>, and <code>gpu-mount</code> <span class="a">buffer_pool.cljs:442-493</span>. Position: the three orphans go; the oracles stay with the guard.</p>
+
+<h2>Where this leaves the board</h2>
+<div class="cols">
+  <div class="card dead"><h3>Cut — convergent, contract-ready at your word</h3>
+  <p class="note">Two independent reads, one list.</p><ul>
+    <li>the tree — <code>rect_tree</code> · <code>scene_store</code> · <code>scene_runtime</code>; <code>selection</code> with it</li>
+    <li>the demos — <code>frame_runtime</code>, the 3D runtime's fixture, the two flag readers, <code>resources/public/faces/</code>; the W4 receipt rehomed into the verifier</li>
+    <li>the marks vocabulary — five forms, px constants, <code>snap</code>, <code>chrome_derive</code>, <code>chrome_runtime</code></li>
+    <li>the small Blender — <code>region3d_runtime</code>, <code>region3d_pointer</code>, orbit / gizmo / handle picks + edit ops + kind menus in <code>_scene</code> / <code>_material</code>, gizmo + grid shaders, the global pick state — <strong>regardless of the 3D answer</strong></li>
+    <li>the three orphans; the ambient providers; the browser globals; the renderer's editor leftovers</li>
+    <li><em>position, vetoable:</em> the arrow family whole, with the lift list</li>
+  </ul></div>
+  <div class="card down"><h3>Keep — floor candidates</h3><ul>
+    <li>text shaping + layout + planes (+ the fonts loader)</li>
+    <li>path authority + tessellation + the contour pipeline</li>
+    <li>image preparation · <code>containers</code></li>
+    <li>scene ordering (the tape) · effects + plan + deltas</li>
+    <li>compositor · pool · budget · region bindings</li>
+    <li>the renderer's shaders, systems and frame execution</li>
+    <li>road-level oracles + goldens</li>
+    <li>the 3D kernel (mesh · hierarchy · BVH · ray · placement) — <em>if</em> a 3D facet is possible</li>
+  </ul></div>
+  <div class="card warn"><h3>Not yet contractable — build stage</h3>
+  <p class="note">Seen at the renderer's own grain, after the cuts.</p><ul>
+    <li>family key → facet key, with multi-facet entities (registry, declaration table, buckets, the per-family prepare / upload in <code>draw-frame!</code>)</li>
+    <li>the render packet: road id + resource key; no live handle in <code>:paint/source</code></li>
+    <li>a form-free mark road (a neutral vertex input for <code>chrome_gpu</code>)</li>
+    <li><code>region3d_placement</code>'s input once the store is gone</li>
+    <li>validator sorting — kind menus out, shape checks in</li>
+    <li>the <em>go</em> statics · the legacy text road (needs a JVM shaped provider first) · the connector lift list, if the whole-family cut is vetoed</li>
+  </ul></div>
+  <div class="card up"><h3>Only Sid</h3>
+    <p><strong>Can an entity wear a 3D mesh / material facet that needs depth-aware rendering and spatial queries?</strong></p>
+    <p>Yes — the mesh road and the pure scene geometry stay. No — the 3D kernel goes too. The small Blender goes either way.</p>
+    <p class="note">Position withheld on purpose: this one is yours, and dressing it in your past words was the thing you'd catch.</p>
+  </div>
+</div>
+<p><strong>Sequence</strong> (both reviews, and I agree): rule the 3D facet → land this page → cut the instances → then look at the key change at the renderer's grain, with about 40 % less code to see through.</p>
+
+<h2>What is not sure</h2>
+<ul>
+  <li>Magnitudes — 60–70 % fixtures in the verifier, ~180 editor lines in <code>region3d_scene</code>, ≈18 % shader text in the renderer — are sampled estimates, not counts.</li>
+  <li>The legacy text road: one JVM test asserts it; whether it is the <em>only</em> JVM road for layout is unchecked.</li>
+  <li><code>apply-variations!</code> <span class="a">text_shaper.cljs:261</span> mutates HarfBuzz faces per call — variation axes may be order-dependent (a structure claim from reading, not a measured fault).</li>
+  <li>The numerical checks Codex cites near <span class="a">region3d_material.cljc:252</span> were not re-read here; <code>validate-region!</code> <span class="a">:432-464</span> was.</li>
+  <li>Whether the connector's pure geometry is worth lifting or cheaper to rebuild is a build-stage call, not a shape fact.</li>
+</ul>
+
+<h2>Words</h2>
+<dl class="words">
+  <dt>waist</dt><dd>your test (08-19): what has to exist as code vs what can be built on top, ECS or whatever style. The name is not yours — you asked why it was called that — the test is.</dd>
+  <dt>floor</dt><dd>the code under the waist; here, the render floor. Narrower than "must be code": reusable without Softland's meanings, stable geometric values, GPU custody.</dd>
+  <dt>facet · entity · recipe · system · binding · verb</dt><dd>your July words for ECS: a facet is one attached piece of data saying one true thing about an entity; a recipe is the list of facets a kind of thing wears; a system is code doing one job for everything wearing a facet.</dd>
+  <dt>family</dt><dd>the engine's own word for its ten kinds (<code>:render.family/*</code>) — the key this page says is the old world.</dd>
+  <dt>road · pipeline</dt><dd>session words. A pipeline is what exists on the GPU today (nine). A road is the target: one way to pixels keyed by one facet. Your phrases: "text in placement out"; "stroke shape → tessellator → triangles".</dd>
+  <dt>marks</dt><dd>your March word; the code says "chrome"; in the felt pass you said "the blue box", "bounding box".</dd>
+  <dt>the tape</dt><dd>session word (2026-08): the one ordered list of entries for a frame; paint walks it forward, pick walks it backward.</dd>
+  <dt>the small Blender</dt><dd>this page's phrase for the 3D window's editor — orbit, gizmo, lights menu, grid, edit ops, the draggable panel.</dd>
+  <dt>maintained view · oracle</dt><dd>the guard's pattern: an incremental computation and its from-scratch twin, checked against each other.</dd>
+</dl>
+
+<h2>Evidence</h2>
+<p>Built from code, not from the prior maps: six Opus read-only gatherers by seam (GPU core · GPU families + verifier · frame machine · material families · workspace + the shaper yardstick · a docs-vs-code check), one gatherer indexing your own words (recall over every prompt you typed + <code>vision/LOG.md</code>), parent spot-checks on every decision-changing fact. Two independent reviews were folded in — a sibling Claude session and Codex — on: the fence is not the class system · the move stated at its real size · quotes withdrawn where they carried a position · statics classified · gates re-scoped · twins made precise · the placement coupling · layout's purity · the 3D question restated · pick split into ray-hit and gizmo-hit.</p>
+<p>The prior maps — <code>render-engine-map.md</code>, <code>engine-two-arrows.md</code>, <code>kept-code-map.md</code> — are evidence strata, not the current map: their relationship claims hold (eight of nine checked), their counts went stale within a day, and they rule while saying they don't ("leaks", CUSTODY as a delete). Your own words this page leans on: the waist test and "text in placement out" (08-19), "what should exist as code committed … versus the ECS or small talk VM layer" (08-16), "i hate using the word type … what we want is ecs style" (LOG 08-12), "a minimal VM-like floor beneath it" and the three strata (LOG 07-30), "why is box below the waist?? can it not be defined above the waist in ecs??" and the rect ruling (08-25).</p>
+
+<footer>The Engine at the Waist · docs/below-the-waist/engine-waist-map.md is the contestable twin of this page · sources: HEAD at ed84a6e, 2026-08-25 · positions are marked as positions; rulings are Sid's.</footer>
+</main>
+</body>
+</html>
