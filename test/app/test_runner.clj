@@ -34,13 +34,11 @@
     app.client.substrate.connector-material-test
     app.client.substrate.connector-route-test
     app.client.substrate.chrome-material-test
-    app.client.substrate.chrome-derive-test
     app.client.substrate.frame-effects-test
     app.client.substrate.frame-inputs-test
     app.client.substrate.frame-graph-test
     app.client.substrate.frame-view-region-binding-test
     app.client.substrate.frame-scheduler-test
-    app.client.substrate.maintained-view-test
     app.client.substrate.path-material-test
     app.client.substrate.path-tessellation-test
     app.client.substrate.region3d-evaluation-test
@@ -50,9 +48,6 @@
     app.client.substrate.region-rungs-test
     app.client.workspace.region3d-pointer-test
     app.client.substrate.scene-tape-test
-    app.client.substrate.snap-test
-    app.client.workspace.scene-store-test
-    app.client.workspace.selection-test
     app.client.workspace.shaping-correction-test
     app.client.workspace.text-layout-planes-test
     app.client.workspace.text-layout-test

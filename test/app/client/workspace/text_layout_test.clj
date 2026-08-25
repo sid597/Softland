@@ -1,6 +1,5 @@
 (ns app.client.workspace.text-layout-test
   (:require [clojure.test :refer [deftest is testing]]
-            [app.client.workspace.rect-tree :as rt]
             [app.client.workspace.text-layout :as tl]))
 
 (defn- corpus-layout []
@@ -215,19 +214,3 @@
                                     :provider shaped-provider
                                     :font-size 10 :line-height 12
                                     :zoom 1000.01}))))
-
-(deftest t1-tree-translation-and-clip-reuse-the-positioned-result
-  (let [layout-result (tl/layout {:text "office"
-                                  :provider shaped-provider
-                                  :font-size 10 :line-height 14
-                                  :origin [2 3] :baseline-offset 10})
-        op (first (tl/line-paint-ops layout-result {:size 10}))
-        node (rt/rt-node :shaped :text {:x 0 :y 0 :w 80 :h 14}
-                         :text [op])
-        flattened (rt/tree->text-ops node 100 50
-                                     {:x 100 :y 50 :w 80 :h 14})
-        painted-op (ffirst flattened)]
-    (is (= (:layout/id layout-result)
-           (get-in painted-op [:layout-result :layout/id])))
-    (is (= (+ 100 (:x op)) (:x painted-op)))
-    (is (= (+ 50 (:y op)) (:y painted-op)))))

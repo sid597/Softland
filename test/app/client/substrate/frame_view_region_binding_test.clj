@@ -10,7 +10,7 @@
             [app.client.workspace.containers :as containers]))
 
 (defn- entry [id path pass-class]
-  {:entry/id id :family/id :render.family/rect
+  {:entry/id id :family/id :render.family/path
    :order {:stratum :world :pass-class pass-class :stack-path path
            :part-rank 0 :stable-tie id}})
 

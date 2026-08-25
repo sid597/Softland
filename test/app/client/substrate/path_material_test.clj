@@ -1,10 +1,6 @@
 (ns app.client.substrate.path-material-test
   (:require [clojure.test :refer [deftest is testing]]
-            [app.client.substrate.path-material :as path-material]
-            [app.client.substrate.scene-tape :as scene-tape]
-            [app.client.workspace.containers :as containers]
-            [app.client.workspace.rect-tree :as rt]
-            [app.client.workspace.scene-store :as scene-store]))
+            [app.client.substrate.path-material :as path-material]))
 
 (defn ink-material
   ([] (ink-material :ink/rev-1 [[0.0 0.0 0.2] [20.0 0.0 0.6]
@@ -103,32 +99,3 @@
     (is (= :shape/rev-2 (:path/revision edited-shape)))
     (is (= [-1.0 0.0]
            (get-in edited-shape [:path/geometry :contours 0 :points 0])))))
-
-(deftest tape-store-and-product-pick-citizenship-tripwire
-  (let [material (holed-shape)
-        tree (rt/rt-node
-              :root :group {:x 0.0 :y 0.0 :w 60.0 :h 60.0}
-              :children
-              [(rt/rt-node :path :path {:x 5.0 :y 5.0 :w 45.0 :h 45.0}
-                           :data {:address :path/address
-                                  :path/material material})])
-        registry (-> (containers/empty-registry)
-                     (containers/add-container 1
-                                               {:x 100.0 :y 50.0
-                                                :scale 1.0 :layer 1}))
-        effective (containers/effective registry)
-        container-slot (containers/transport-slot registry 1)
-        stack-path (:stack-path (get effective 1))
-        store (scene-store/upsert-slot
-               (scene-store/empty-store) :path/vi
-               {:tree tree :container 1 :container-slot container-slot
-                :stack-path stack-path})
-        frame (scene-store/derive-store-frame store)]
-    (is (some? (get scene-tape/default-family-registry :render.family/path))
-        "the admitted family carries a non-nil declarative contract")
-    (is (= 1 (count (:paths frame))))
-    (is (= 1 (get-in frame [:ops-count-by-vi :path/vi :paths])))
-    (is (= :path/address
-           (:address (scene-store/pick store effective [107.0 75.0]))))
-    (is (nil? (scene-store/pick store effective [113.0 63.0]))
-        "bounds broad phase does not turn the explicit hole into a hit")))

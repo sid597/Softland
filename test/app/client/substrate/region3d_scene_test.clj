@@ -3,10 +3,7 @@
             [app.client.substrate.region3d-material :as material]
             [app.client.substrate.region3d-scene :as region]
             [app.client.substrate.scene-tape :as tape]
-            [app.client.substrate.region3d-material-test :as fixture]
-            [app.client.workspace.containers :as containers]
-            [app.client.workspace.rect-tree :as rt]
-            [app.client.workspace.scene-store :as store]))
+            [app.client.substrate.region3d-material-test :as fixture]))
 
 (defn fixture-region
   ([] (fixture-region {}))
@@ -56,40 +53,6 @@
            (mapv :entry/id (:entries compiled-b))))
     (is (= [:path :text [:frame/region3d :region/a]]
            (mapv :entry/id (:entries moved-tape))))))
-
-(deftest region-store-lane-and-pick-terminal-stay-session-free
-  (let [region-value (fixture-region)
-        tree (rt/rt-node
-              :root :group {:x 10.0 :y 20.0 :w 500.0 :h 300.0}
-              :children
-              [(rt/rt-node :viewport :region3d
-                           {:x 30.0 :y 40.0 :w 320.0 :h 180.0}
-                           :data {:address :region/address
-                                  :region3d/id :region/a
-                                  :region3d/scene region-value})])
-        registry (-> (containers/empty-registry)
-                     (containers/add-container
-                      :world {:x 100.0 :y 50.0 :scale 1.0
-                              :layer 1 :sibling-rank 1}))
-        effective (containers/effective registry)
-        slot-index (containers/transport-slot registry :world)
-        scene-store (store/upsert-slot
-                     (store/empty-store) :region/vi
-                     {:tree tree :container :world
-                      :container-slot slot-index
-                      :stack-path (:stack-path (get effective :world))})
-        frame (store/derive-store-frame scene-store)
-        hit (store/pick scene-store effective [145.0 115.0])]
-    (is (= 1 (count (:regions frame))))
-    (is (= 1 (get-in frame [:ops-count-by-vi :region/vi :regions])))
-    (is (= :region/a (get-in frame [:regions 0 :region-id])))
-    (is (= :region3d (:route hit)))
-    (is (= :region/a (:region-id hit)))
-    (is (= [5.0 5.0] (:region-local hit)))
-    (is (= [145.0 115.0] (:css-point hit)))
-    (is (= 1.0 (:region-scale hit)))
-    (is (not (contains? hit :camera))
-        "the scene store never sees session camera state")))
 
 (deftest s2-depth-ray-pick-returns-nearest-identity-and-t-not-painter-order
   (let [maintained (assoc (region/derive-scene (fixture-region))

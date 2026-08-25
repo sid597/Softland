@@ -26,15 +26,7 @@
   #{:frame-idx :pan-x :pan-y :zoom :pixel-size})
 
 (def family-input-declarations
-  {:render.family/rect
-   #{:rects :ordered-vis :ops-count-by-vi :order-by-vi :rect-clips-by-vi
-     :editor-pool-info :editor-rect-count}
-
-   :render.family/shadow
-   #{:shadows :ordered-vis :ops-count-by-vi :order-by-vi
-     :editor-shadow-pool-info :editor-shadow-count}
-
-   :render.family/msdf
+  {:render.family/msdf
    #{:text-sys :text-sys-token :extra-text-geos
      :chrome-text-sys :chrome-text-sys-token :chrome-base-line-count
      :diagnostics-visible :diagnostics-line-index :font-provider-token}

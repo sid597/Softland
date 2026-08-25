@@ -40,9 +40,7 @@ function findForm(source, name) {
 }
 
 const renderer = read("src/app/client/substrate/webgpu/renderer.cljs");
-const store = read("src/app/client/workspace/scene_store.cljc");
 const contracts = read("src/app/client/substrate/scene_tape.cljc");
-const rectTree = read("src/app/client/workspace/rect_tree.cljc");
 const frameEffects = read("src/app/client/substrate/frame_effects.cljc");
 const frameGraph = read("src/app/client/substrate/frame_graph.cljc");
 const compositor = read("src/app/client/substrate/webgpu/compositor_gpu.cljs");
@@ -55,8 +53,6 @@ const arrangementUpdate = findForm(renderer, "update-frame-arrangement");
 const imageProducer = findForm(renderer, "image-entries");
 const imageExecutor = findForm(renderer, "execute-image-batch!");
 const imageResolver = findForm(renderer, "resolve-image-paint");
-const pick = findForm(store, "pick");
-const rtNode = findForm(rectTree, "rt-node");
 const registryStart = renderer.indexOf("(def frame-family-registry");
 const registryEnd = renderer.indexOf("(def ^:private frame-contract-registry", registryStart);
 if (registryStart < 0 || registryEnd < 0) {
@@ -65,8 +61,6 @@ if (registryStart < 0 || registryEnd < 0) {
 const registry = renderer.slice(registryStart, registryEnd);
 
 const families = [
-  ":render.family/rect",
-  ":render.family/shadow",
   ":render.family/msdf",
   ":render.family/slug",
   ":render.family/clip",
@@ -74,6 +68,7 @@ const families = [
   ":render.family/path",
   ":render.family/connector",
   ":render.family/chrome",
+  ":render.family/region-3d",
 ];
 const effectDeclarations = [
   ":opacity",
@@ -135,19 +130,6 @@ requireToken("twin-check", twinCheck, "compile-frame-tape");
 forbid("arrangement-update", arrangementUpdate, /frame-idx/,
   "execution frame counter entered maintained order derivation");
 
-requireToken("pick", pick, "scene-tape/pick-reverse");
-requireToken("pick", pick, "containers/inverse-point");
-requireToken("pick", pick, "maintained-entries");
-forbid("pick", pick, /sort-by/, "independent pick sort");
-forbid("pick", pick, /#\(-\s*\(:layer/, "legacy layer-descending truth");
-forbid("pick", pick, /\(case\s+/, "geometry-keyed pick branch");
-forbid("pick", pick, /\(case[^)]*:geometry/s, "central :geometry pick dispatch");
-
-// IMAGE-ATOM T14: equality-by-construction depends on rt-node retaining the
-// pinned ten-key shape with no per-node transform representation.
-forbid("rt-node", rtNode, /:transform(?:\s|\]|\})/,
-  "per-node transform key breaks image pick equality");
-
 for (const family of families) {
   requireToken("family contracts", contracts, family);
   requireToken("frame executor registry", registry, family);
@@ -167,7 +149,7 @@ forbid("draw-frame effects", drawFrame,
 
 requireToken("color seam", contracts, ":scene-color/linear-premultiplied-srgb");
 requireToken("color seam", contracts, ":default-off? true");
-requireToken("renderer default", renderer, ":or {scene-color-enabled? false}");
+requireToken("renderer default", renderer, "scene-color scene-tape/legacy-direct-color");
 
 // IMAGE-ATOM T12: seed violations into the ACTUAL extracted production slice,
 // so this self-test exercises both form extraction and the real forbids.
@@ -188,11 +170,10 @@ if (!seededEffectRejected) {
 }
 
 const receipt = {
-  contract: "W2-B/O-G-M-C+IMAGE/PATH/CONNECTOR/CHROME+W4-FRAME-RUNTIME",
+  contract: "W2-B/O-G-M-C+IMAGE/PATH/CONNECTOR/CHROME/REGION3D",
   families: families.length,
   effectDeclarations: effectDeclarations.length,
   drawFrameBranches: 0,
-  reversePick: pick.includes("scene-tape/pick-reverse"),
   linearPremultipliedDefaultOff:
     contracts.includes(":scene-color/linear-premultiplied-srgb") &&
     contracts.includes(":default-off? true"),
@@ -201,7 +182,6 @@ const receipt = {
   imageProducerPure:
     !/createImageBitmap|register-image-source!|copyExternalImageToTexture|writeTexture|\bPromise\b|\.then\s*\(|\bawait\b|\bfetch\b/.test(imageProducer),
   imageExecutorRegistered: imageExecutorBound,
-  rtNodeTransformAbsent: !/:transform(?:\s|\]|\})/.test(rtNode),
   productionFailures: failures,
   pass: failures.length === 0,
 };

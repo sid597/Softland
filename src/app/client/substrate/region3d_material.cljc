@@ -1,7 +1,7 @@
 (ns app.client.substrate.region3d-material
   "Pure, fail-closed material grammars for Region3D.
 
-   Region rows are ordinary EDN scene-store payloads. This namespace owns
+   Region rows are ordinary EDN render payloads. This namespace owns
    versioned defaults, canonical validation, semantic edit values, and the
    Contract-M citizenship descriptors. GPU resources and session state never
    enter this grammar. Unknown fields are preserved so later sculpting and

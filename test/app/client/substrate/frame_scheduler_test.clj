@@ -1,8 +1,7 @@
 (ns app.client.substrate.frame-scheduler-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [clojure.string :as str]
-            [app.client.substrate.frame-scheduler :as scheduler]
-            [app.client.workspace.scene-store :as scene-store]))
+            [app.client.substrate.frame-scheduler :as scheduler]))
 
 (use-fixtures :each
   (fn [test-fn]
@@ -56,18 +55,6 @@
     (is (= 123.0 (scheduler/clock-time 999.0)))
     (is (= 1.0 (scheduler/pulse-alpha 123.0 false)))
     (is (<= 0.4 (scheduler/pulse-alpha 123.0 true) 1.0))))
-
-(deftest injected-clock-is-not-a-store-derivation-ancestor
-  (let [store (scene-store/empty-store)
-        !time (atom 10.0)]
-    (scheduler/set-clock-source! (fn [_] @!time))
-    (let [before (scene-store/derive-store-frame store)
-          _ (scheduler/clock-time 0.0)
-          _ (reset! !time 9000.0)
-          _ (scheduler/clock-time 0.0)
-          after (scene-store/derive-store-frame store)]
-      (is (= before after))
-      (is (= (pr-str before) (pr-str after))))))
 
 (deftest pure-frame-namespaces-have-no-wall-clock-or-loop-source
   (doseq [path ["src/app/client/substrate/frame_graph.cljc"

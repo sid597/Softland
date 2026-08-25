@@ -1,8 +1,6 @@
 (ns app.client.substrate.connector-route-test
   (:require [app.client.substrate.connector-material-test :as fixture]
             [app.client.substrate.connector-route :as route]
-            [app.client.workspace.rect-tree :as rt]
-            [app.client.workspace.scene-store :as scene-store]
             [clojure.test :refer [deftest is testing]]))
 
 (def identity-effective
@@ -53,24 +51,6 @@
     (is (= #{[:relation/multi :a/one :b/one]
              [:relation/multi :a/two :b/one]}
            (set (map :connector/edge-instance-id expanded))))))
-
-(deftest target-index-collapses-address-stamped-descendants-per-instance
-  (let [tree-a
-        (rt/rt-node
-         :a/root :group {:x 0 :y 0 :w 80 :h 60}
-         :data {:address :a}
-         :children [(rt/rt-node
-                     :a/child :rect {:x 4 :y 4 :w 12 :h 10}
-                     :data {:address :a})])
-        tree-b (rt/rt-node :b/root :rect {:x 0 :y 0 :w 30 :h 20}
-                           :data {:address :a})
-        index (scene-store/targets-by-address
-               [{:vi :vi/a :container 1 :container-slot 1 :tree tree-a}
-                {:vi :vi/b :container 2 :container-slot 2 :tree tree-b}])]
-    (is (= 2 (count (:a index)))
-        "one stamped block occurrence survives per view-instance")
-    (is (= {:x 0 :y 0 :w 80 :h 60}
-           (:bounds (first (:a index)))))))
 
 (deftest straight-boundary-clipping-covers-four-quadrants
   (doseq [[label to-bounds expected-from expected-to]
@@ -295,35 +275,6 @@
         "refreshing one edge cannot mark a sibling's cached anchors current")
     (is (not (route/live-hit? b-id [35.0 25.0])))
     (route/set-live-effective-provider! nil)))
-
-(deftest rect-tree-registered-predicate-uses-live-route-not-spanning-bounds
-  (let [material (fixture/connector :pick/registered)
-        target-map (targets {:x 0 :y 0 :w 10 :h 10}
-                            {:x 60 :y 0 :w 10 :h 10})
-        !effective (atom {0 identity-effective
-                          1 (effective 0 0 1)
-                          2 (effective 0 0 2)})
-        _ (route/derive-route-set nil [(edge :pick/registered material)]
-                                  target-map @!effective 1.0 {})
-        edge-id [:pick/registered :vi/a :vi/b]
-        tree (rt/rt-node
-              :connector :connector {:x 0 :y 0 :w 100 :h 100}
-              :data {:address edge-id
-                     :connector/edge-instance-id edge-id
-                     :connector/from-vi :vi/a
-                     :connector/to-vi :vi/b
-                     :connector/material material})]
-    (route/set-live-effective-provider! #(deref !effective))
-    (try
-      (is (nil? (rt/hit-test tree 35.0 20.0))
-          "broad-phase inclusion cannot turn an off-stroke point into a hit")
-      (is (= :connector (:id (peek (rt/hit-test tree 35.0 5.0)))))
-      (swap! !effective assoc 1 (effective 0 30 1))
-      (is (nil? (rt/hit-test tree 35.0 5.0)))
-      (is (= :connector (:id (peek (rt/hit-test tree 35.0 20.0))))
-          "the unchanged tree picks the lazily refreshed route")
-      (finally
-        (route/set-live-effective-provider! nil)))))
 
 (deftest deterministic-mesh-and-key-cover-version-provider-and-regime
   (let [labeled (assoc (fixture/connector)

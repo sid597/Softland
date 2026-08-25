@@ -12,11 +12,9 @@
             [app.client.substrate.region3d-material :as region3d-material]))
 
 (def family-ids
-  "The complete pre-W2-B family set.  Adding image/path changes this registry;
-   it never adds a branch to the frame executor."
-  [:render.family/rect
-   :render.family/shadow
-   :render.family/msdf
+  "The complete render-family set. Adding a road changes this registry; it
+   never adds a branch to the frame executor."
+  [:render.family/msdf
    :render.family/slug
    :render.family/clip
    :render.family/image
@@ -115,58 +113,6 @@
             :pick pick-bounds}
    :derivations derivations
    :regimes regimes})
-
-(def ^:private rect-geometry
-  (geometry
-   {:kind :rounded-box
-    :algorithm :rich-rect-sdf-v1
-    :local-space :container-local-f32
-    :fill-rule :nonzero
-    :coverage-operator :aa-filter
-    :boundary-relation :isocontour-0.5
-    :visual-factors [:material-alpha :gradient :border :effective-opacity]
-    :pick-policy :interior
-    :hit-slop 0.0
-    :owner :scene-entry/instance-id
-    :math-bounds :authority-rounded-box
-    :paint-bounds :half-pixel-conservative-support
-    :pick-bounds :authority-plus-declared-slop
-    :derivations [{:kind :sdf
-                   :source-revision :scene-entry/material-revision
-                   :algorithm-version :rich-rect-sdf-v1
-                   :tolerance-lod :screen-half-pixel
-                   :normalization :container-local
-                   :precision :f32
-                   :backend :webgpu-wgsl
-                   :regime :legal-zoom}]
-    :regimes [(regime :webgpu-wgsl :f32 :container-local
-                      :finite-f32-rounded-box :measured-production)]}))
-
-(def ^:private shadow-geometry
-  (geometry
-   {:kind :rounded-box
-    :algorithm :gaussian-shadow-v1
-    :local-space :container-local-f32
-    :fill-rule :nonzero
-    :coverage-operator :gaussian-blur
-    :boundary-relation :derived-effect
-    :visual-factors [:source-geometry :blur :spread :offset :material-alpha]
-    :pick-policy :none
-    :hit-slop 0.0
-    :owner :none
-    :math-bounds :source-rounded-box
-    :paint-bounds :finite-gaussian-support
-    :pick-bounds :none
-    :derivations [{:kind :effect-support
-                   :source-revision :scene-entry/material-revision
-                   :algorithm-version :gaussian-shadow-v1
-                   :tolerance-lod :declared-blur-support
-                   :normalization :container-local
-                   :precision :f32
-                   :backend :webgpu-wgsl
-                   :regime :legal-zoom}]
-    :regimes [(regime :webgpu-wgsl :f32 :container-local
-                      :finite-f32-effect-support :measured-production)]}))
 
 (def ^:private msdf-geometry
   (geometry
@@ -296,8 +242,8 @@
               :tie-token :half
               :quantization :rgba8unorm}
    :time-sample :none-static
-   ;; IMAGE-ATOM T6/T14: product pick is the existing half-open rect-tree
-   ;; interior with zero slop; per-node transforms would invalidate this row.
+   ;; IMAGE-ATOM T6/T14: image picking uses the half-open quad interior with
+   ;; zero slop; per-image transforms would invalidate this row.
    :pick {:policy :interior
           :boundary :half-open-interior
           :hit-slop {:metric :screen-px :radius 0.0}
@@ -478,11 +424,7 @@
    (assoc-in [:grammar :entry-paint-required-keys] [:vertex-count])))
 
 (def family-contracts
-  [(registration :render.family/rect rect-geometry
-                 [:w2-a/q5 :w0-a/sdf :w2-b/ordered-executor])
-   (registration :render.family/shadow shadow-geometry
-                 [:w2-b/unconditional-effect-geometry])
-   (registration :render.family/msdf msdf-geometry
+  [(registration :render.family/msdf msdf-geometry
                  [:w0-a/msdf-47-mismatch-counterexample])
    (registration :render.family/slug slug-geometry
                  [:w0-a/slug :w2-a/q8])

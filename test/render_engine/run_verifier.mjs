@@ -159,10 +159,7 @@ const laneGuards = (result) => [
       allDeterministic(result.cases) &&
       result.q8Transport?.pass === true &&
       result.q8Transport?.rows?.length === 3 &&
-      result.q8Transport.rows.every((row) => row.pass === true) &&
-      result.q5AffineBoundary?.pass === true &&
-      result.q5AffineBoundary?.rows?.length === 2 &&
-      result.q5AffineBoundary.rows.every((row) => row.pass === true),
+      result.q8Transport.rows.every((row) => row.pass === true),
   },
   {
     name: "image",
@@ -201,12 +198,6 @@ const laneGuards = (result) => [
       allDeterministic(result.chromeAtom?.cases),
   },
   {
-    name: "frame-runtime",
-    pass:
-      result.w4FrameRuntime?.pass === true &&
-      allDeterministic(result.w4FrameRuntime?.cases),
-  },
-  {
     name: "region3d",
     pass:
       result.region3dFloor?.pass === true &&
@@ -215,16 +206,16 @@ const laneGuards = (result) => [
 ];
 
 const representativeSpecs = [
-  { manifestKey: "images", resultKey: "cases", file: "gpu-sdf-rich-rect-legal-min-z0p01.png" },
+  { manifestKey: "images", resultKey: "cases", file: "gpu-msdf-legal-min-z0p01.png" },
   {
     manifestKey: "chromeAtomCases",
     resultKey: "chromeAtom",
     file: "gpu-chrome-selection-outline-handles-selection-outline-handles-default-unit-z1.png",
   },
   {
-    manifestKey: "region3dFloorCases",
-    resultKey: "region3dFloor",
-    file: "gpu-region3d-floor-sandwich.png",
+    manifestKey: "pathAtomCases",
+    resultKey: "pathAtom",
+    file: "gpu-path-holed-concave-holed-concave-default-unit-z1.png",
   },
 ];
 
@@ -261,9 +252,9 @@ const sourceInputs = () =>
     "src/app/client/substrate/webgpu/renderer.cljs",
     "src/app/client/substrate/webgpu/verifier.cljs",
     "src/app/client/substrate/scene_tape.cljc",
-    "src/app/client/workspace/scene_store.cljc",
-    "src/app/client/workspace/chrome_runtime.cljs",
-    "src/app/client/workspace/region3d_runtime.cljs",
+    "src/app/client/substrate/frame_inputs.cljc",
+    "src/app/client/substrate/webgpu/path_gpu.cljs",
+    "src/app/client/substrate/webgpu/region3d_gpu.cljs",
     "test/render_engine/run_verifier.mjs",
   ].map(sha256File);
 

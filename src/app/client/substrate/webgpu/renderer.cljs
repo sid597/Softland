@@ -162,297 +162,6 @@
     return textureSample(mip_source, mip_sampler, uv);
   }")
 
-;; --- 1. SHADERS ---
-;; Rich quads: 28 floats/rect, SDF-based rounded corners, borders, gradients
-(def rect-vertex-shader "
-  struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
-  @group(0) @binding(0) var<uniform> camera: Camera;
-  // W2-A/Q8: compact 32-byte affine entries in read-only storage.
-  struct ContainerTransform {
-    axis_x: vec2<f32>, axis_y: vec2<f32>, translation: vec2<f32>,
-    flags: u32, padding: u32,
-  };
-  @group(0) @binding(1) var<storage, read> containers: array<ContainerTransform>;
-  struct InstanceInput {
-    @location(0) rect_geometry: vec4<f32>,
-    @location(1) color: vec4<f32>,
-    @location(2) corner_radii: vec4<f32>,
-    @location(3) border_widths: vec4<f32>,
-    @location(4) border_color: vec4<f32>,
-    @location(5) gradient: vec4<f32>,
-    @location(6) gradient_color2: vec4<f32>,
-    @location(7) container_idx: u32,
-  };
-  struct VertexOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) color: vec4<f32>,
-    @location(1) local_pos: vec2<f32>,
-    @location(2) rect_size: vec2<f32>,
-    @location(3) corner_radii: vec4<f32>,
-    @location(4) border_widths: vec4<f32>,
-    @location(5) border_color: vec4<f32>,
-    @location(6) gradient: vec4<f32>,
-    @location(7) gradient_color2: vec4<f32>,
-  };
-
-  @vertex
-  fn main(@builtin(vertex_index) v_index: u32, instance: InstanceInput) -> VertexOutput {
-      var output: VertexOutput;
-      var pos = vec2<f32>(0.0, 0.0);
-      switch(v_index) {
-          case 0u: { pos = vec2<f32>(0.0, 0.0); } case 1u: { pos = vec2<f32>(1.0, 0.0); }
-          case 2u: { pos = vec2<f32>(0.0, 1.0); } case 3u: { pos = vec2<f32>(1.0, 0.0); }
-          case 4u: { pos = vec2<f32>(1.0, 1.0); } default: { pos = vec2<f32>(0.0, 1.0); }
-      }
-      let c = containers[instance.container_idx];
-      let is_screen = (c.flags & 1u) != 0u;
-      let zm = select(camera.zoom, 1.0, is_screen);
-      let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
-      let axis_scale = max(vec2<f32>(length(c.axis_x), length(c.axis_y)) * zm,
-                           vec2<f32>(0.0001, 0.0001));
-      let sign = pos * 2.0 - vec2<f32>(1.0, 1.0);
-      // A half-screen-pixel conservative raster hull prevents an analytically
-      // inside sample from being lost to triangle top-left ownership (Q5).
-      let local_delta = sign * vec2<f32>(0.5, 0.5) / axis_scale;
-      let local_pos = instance.rect_geometry.xy
-                    + pos * instance.rect_geometry.zw + local_delta;
-      let world_pos = c.translation + c.axis_x * local_pos.x + c.axis_y * local_pos.y;
-      let panned = world_pos * zm + pn;
-      let ndc = (panned / camera.screen_dimensions * 2.0) - vec2<f32>(1.0, 1.0);
-      output.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
-      output.color = instance.color;
-      // Preserve existing screen-metric corner/border behavior while carrying
-      // independent affine axis scales. Identity/uniform cases are byte-stable.
-      output.local_pos = (pos * instance.rect_geometry.zw + local_delta) * axis_scale;
-      output.rect_size = instance.rect_geometry.zw * axis_scale;
-      output.corner_radii = instance.corner_radii;
-      output.border_widths = instance.border_widths;
-      output.border_color = instance.border_color;
-      output.gradient = instance.gradient;
-      output.gradient_color2 = instance.gradient_color2;
-      return output;
-  }")
-
-(def rect-fragment-shader (str scene-color-wgsl "
-  // Rect gradients decode their stops before interpolation on the linear
-  // road, so their result is already prepared in the target color space.
-  // Keep this helper local to the rect source: W4's one-shot shader-digest
-  // amendment is intentionally rect-only.
-  fn scene_color_prepared(prepared: vec4<f32>, coverage: f32) -> vec4<f32> {
-      if (!kSceneColorLinearPremultiplied) {
-          return vec4<f32>(prepared.rgb, prepared.a * coverage);
-      }
-      let alpha = clamp(prepared.a * coverage, 0.0, 1.0);
-      return vec4<f32>(prepared.rgb * alpha, alpha);
-  }
-
-  // Inigo Quilez SDF rounded box with per-corner radii
-  fn sd_rounded_box(p: vec2<f32>, half_size: vec2<f32>, radii: vec4<f32>) -> f32 {
-      // radii: tl, tr, br, bl → select based on quadrant
-      var r: vec2<f32>;
-      if (p.x > 0.0) {
-          r = vec2<f32>(radii.y, radii.z);  // tr, br
-      } else {
-          r = vec2<f32>(radii.x, radii.w);  // tl, bl
-      }
-      if (p.y > 0.0) {
-          r.x = r.y;  // bottom row
-      }
-      let q = abs(p) - half_size + vec2<f32>(r.x, r.x);
-      return min(max(q.x, q.y), 0.0) + length(max(q, vec2<f32>(0.0, 0.0))) - r.x;
-  }
-
-  @fragment
-  fn main(
-    @location(0) color: vec4<f32>,
-    @location(1) local_pos: vec2<f32>,
-    @location(2) rect_size: vec2<f32>,
-    @location(3) corner_radii: vec4<f32>,
-    @location(4) border_widths: vec4<f32>,
-    @location(5) border_color: vec4<f32>,
-    @location(6) gradient: vec4<f32>,
-    @location(7) gradient_color2: vec4<f32>,
-  ) -> @location(0) vec4<f32> {
-      let half_size = rect_size * 0.5;
-      // p in centered coordinates: (0,0) = center of rect
-      let p = local_pos - half_size;
-
-      // Clamp radii so they don't exceed half the smallest dimension
-      let max_r = min(half_size.x, half_size.y);
-      let radii = min(corner_radii, vec4<f32>(max_r, max_r, max_r, max_r));
-
-      let dist = sd_rounded_box(p, half_size, radii);
-
-      // Preserve the settled rich-rect raster law exactly. W2-A changes the
-      // transport and geometry, not the fragment coverage convention.
-      let aa = clamp(0.5 - dist, 0.0, 1.0);
-
-      // --- Fill color (with optional gradient) ---
-      var fill = color;
-      if (kSceneColorLinearPremultiplied) {
-          fill = vec4<f32>(srgb_channel_to_linear(color.r),
-                           srgb_channel_to_linear(color.g),
-                           srgb_channel_to_linear(color.b), color.a);
-      }
-      let t_stop = gradient.y;
-      if (t_stop > 0.0) {
-          // Linear gradient: angle in radians, t_stop = blend position
-          let angle = gradient.x;
-          let cs = cos(angle);
-          let sn = sin(angle);
-          // Project centered UV onto gradient axis
-          let uv_norm = local_pos / rect_size;
-          let t = clamp(uv_norm.x * cs + uv_norm.y * sn, 0.0, 1.0);
-          var stop2 = gradient_color2;
-          if (kSceneColorLinearPremultiplied) {
-              stop2 = vec4<f32>(srgb_channel_to_linear(gradient_color2.r),
-                                srgb_channel_to_linear(gradient_color2.g),
-                                srgb_channel_to_linear(gradient_color2.b),
-                                gradient_color2.a);
-          }
-          fill = mix(fill, stop2, smoothstep(0.0, t_stop, t));
-      }
-
-      // --- Border ---
-      let has_border = (border_widths.x + border_widths.y + border_widths.z + border_widths.w) > 0.0;
-      if (has_border) {
-          // Use max border width for SDF shrink (uniform-ish approach)
-          let bw = max(max(border_widths.x, border_widths.y), max(border_widths.z, border_widths.w));
-          let inner_half = half_size - vec2<f32>(bw, bw);
-          let inner_radii = max(radii - vec4<f32>(bw, bw, bw, bw), vec4<f32>(0.0, 0.0, 0.0, 0.0));
-          let inner_dist = sd_rounded_box(p, inner_half, inner_radii);
-          let inner_aa = clamp(0.5 - inner_dist, 0.0, 1.0);
-          // Composite: border color in the ring, fill inside
-          var prepared_border = border_color;
-          if (kSceneColorLinearPremultiplied) {
-              prepared_border = vec4<f32>(srgb_channel_to_linear(border_color.r),
-                                          srgb_channel_to_linear(border_color.g),
-                                          srgb_channel_to_linear(border_color.b),
-                                          border_color.a);
-          }
-          let result = mix(prepared_border, fill, inner_aa);
-          return scene_color_prepared(result, aa);
-      }
-
-      return scene_color_prepared(fill, aa);
-  }"))
-
-;; --- Shadow shaders ---
-;; 20 floats/shadow (80 bytes): expanded_rect, shadow_color, corner_radii, blur_params, inner_rect
-(def shadow-vertex-shader "
-  struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
-  @group(0) @binding(0) var<uniform> camera: Camera;
-  struct ContainerTransform {
-    axis_x: vec2<f32>, axis_y: vec2<f32>, translation: vec2<f32>,
-    flags: u32, padding: u32,
-  };
-  @group(0) @binding(1) var<storage, read> containers: array<ContainerTransform>;
-  struct InstanceInput {
-    @location(0) expanded_rect: vec4<f32>,
-    @location(1) shadow_color: vec4<f32>,
-    @location(2) corner_radii: vec4<f32>,
-    @location(3) blur_params: vec4<f32>,
-    @location(4) inner_rect: vec4<f32>,
-    @location(5) container_idx: u32,
-  };
-  struct VertexOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) shadow_color: vec4<f32>,
-    @location(1) local_pos: vec2<f32>,
-    @location(2) rect_size: vec2<f32>,
-    @location(3) corner_radii: vec4<f32>,
-    @location(4) blur_params: vec4<f32>,
-    @location(5) inner_rect: vec4<f32>,
-  };
-
-  @vertex
-  fn main(@builtin(vertex_index) v_index: u32, instance: InstanceInput) -> VertexOutput {
-      var output: VertexOutput;
-      var pos = vec2<f32>(0.0, 0.0);
-      switch(v_index) {
-          case 0u: { pos = vec2<f32>(0.0, 0.0); } case 1u: { pos = vec2<f32>(1.0, 0.0); }
-          case 2u: { pos = vec2<f32>(0.0, 1.0); } case 3u: { pos = vec2<f32>(1.0, 0.0); }
-          case 4u: { pos = vec2<f32>(1.0, 1.0); } default: { pos = vec2<f32>(0.0, 1.0); }
-      }
-      let local_pos = instance.expanded_rect.xy + pos * instance.expanded_rect.zw;
-      let c = containers[instance.container_idx];
-      let is_screen = (c.flags & 1u) != 0u;
-      let zm = select(camera.zoom, 1.0, is_screen);
-      let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
-      let axis_scale = max(vec2<f32>(length(c.axis_x), length(c.axis_y)) * zm,
-                           vec2<f32>(0.0001, 0.0001));
-      let world_pos = c.translation + c.axis_x * local_pos.x + c.axis_y * local_pos.y;
-      let panned = world_pos * zm + pn;
-      let ndc = (panned / camera.screen_dimensions * 2.0) - vec2<f32>(1.0, 1.0);
-      output.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
-      output.shadow_color = instance.shadow_color;
-      output.local_pos = pos * instance.expanded_rect.zw * axis_scale;
-      output.rect_size = instance.expanded_rect.zw * axis_scale;
-      output.corner_radii = instance.corner_radii;
-      output.blur_params = instance.blur_params;
-      // Scale inner_rect to match the effective-scaled local_pos
-      output.inner_rect = vec4<f32>(instance.inner_rect.xy * axis_scale,
-                                    instance.inner_rect.zw * axis_scale);
-      return output;
-  }")
-
-(def shadow-fragment-shader (str scene-color-wgsl "
-  // Approximate erf for Gaussian CDF shadow falloff
-  fn erf_approx(x: f32) -> f32 {
-      let a = abs(x);
-      // Abramowitz & Stegun approximation (max error ~1.5e-7)
-      let t = 1.0 / (1.0 + 0.3275911 * a);
-      let poly = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
-      let result = 1.0 - poly * exp(-a * a);
-      return select(-result, result, x >= 0.0);
-  }
-
-  // SDF rounded box (same as rect shader)
-  fn sd_rounded_box(p: vec2<f32>, half_size: vec2<f32>, radii: vec4<f32>) -> f32 {
-      var r: vec2<f32>;
-      if (p.x > 0.0) {
-          r = vec2<f32>(radii.y, radii.z);
-      } else {
-          r = vec2<f32>(radii.x, radii.w);
-      }
-      if (p.y > 0.0) {
-          r.x = r.y;
-      }
-      let q = abs(p) - half_size + vec2<f32>(r.x, r.x);
-      return min(max(q.x, q.y), 0.0) + length(max(q, vec2<f32>(0.0, 0.0))) - r.x;
-  }
-
-  @fragment
-  fn main(
-    @location(0) shadow_color: vec4<f32>,
-    @location(1) local_pos: vec2<f32>,
-    @location(2) rect_size: vec2<f32>,
-    @location(3) corner_radii: vec4<f32>,
-    @location(4) blur_params: vec4<f32>,
-    @location(5) inner_rect: vec4<f32>,
-  ) -> @location(0) vec4<f32> {
-      let blur = blur_params.x;
-      let offset = blur_params.yz;
-      let spread = blur_params.w;
-
-      // Inner rect center and half-size (in zoom-scaled pixels, relative to expanded quad)
-      let inner_center = (inner_rect.xy + inner_rect.zw * 0.5) + offset;
-      let inner_half = inner_rect.zw * 0.5 + vec2<f32>(spread, spread);
-
-      let max_r = min(inner_half.x, inner_half.y);
-      let radii = min(corner_radii, vec4<f32>(max_r, max_r, max_r, max_r));
-
-      // Pixel position relative to inner rect center
-      let p = local_pos - inner_center;
-      let dist = sd_rounded_box(p, inner_half, radii);
-
-      // Gaussian CDF falloff
-      let sigma = max(blur * 0.5, 0.001);
-      let alpha = 0.5 - 0.5 * erf_approx(dist / (sigma * 1.4142135));
-
-      return scene_color(shadow_color, alpha);
-  }"))
-
 (def text-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(2) var<uniform> camera: Camera;
@@ -726,41 +435,8 @@
     return scene_color(color, saturate(coverage + params.sharpness));
   }"))
 
-;; Calculate bracket highlight rectangles
-(defn calculate-bracket-rects [bracket-match font-size start-x start-y line-h]
-  (when bracket-match
-    (let [{:keys [open close]} bracket-match
-          max-line (max (:line open) (:line close))
-          max-col (max (:col open) (:col close))
-          source-lines (assoc (vec (repeat (inc max-line) "")) max-line
-                              (apply str (repeat (inc max-col) " ")))
-          layout-result (tl/layout {:text (apply str (interpose "\n" source-lines))
-                                    :source-lines source-lines
-                                    :font-size font-size
-                                    :char-advance (tl/legacy-char-advance font-size 0.56)
-                                    :line-height line-h
-                                    :origin [start-x start-y]})
-          make-rect (fn [{:keys [line col]}]
-                      (merge (:rect (tl/selection-result layout-result line col (inc col)))
-                             ;; Golden/yellow highlight for matching brackets
-                             {:r 0.8 :g 0.6 :b 0.2 :a 0.4}))]
-      [(make-rect open) (make-rect close)])))
-
-;; Updated hit-test: clamps column to actual line length
-(defn hit-test [x y font-size start-x start-y line-h line-lengths]
-  (let [source-lines (mapv #(apply str (repeat % " ")) line-lengths)
-        layout-result (tl/layout {:text (apply str (interpose "\n" source-lines))
-                                  :source-lines source-lines
-                                  :font-size font-size
-                                  :char-advance (tl/legacy-char-advance font-size 0.56)
-                                  :line-height line-h
-                                  :origin [start-x start-y]})
-        hit (tl/hit-test-result layout-result [x y])]
-    (select-keys hit [:line :col])))
-
 ;; --- 2. INITIALIZATION ---
 
-(def rect-stride 116)  ;; 28 floats + container u32, × 4 bytes (scene-substrate P2)
 (def image-instance-stride image-material/image-instance-stride)
 (def msdf-text-instance-stride 52)  ;; 12 floats + container u32
 (def slug-text-instance-stride 100) ;; 24 words + container u32
@@ -843,55 +519,6 @@
      :bytes (* entry-count affine-entry-bytes)
      :max-slot max-slot
      :capacity max-transform-nodes}))
-
-(defn init-rect-system
-  [^js/GPUDevice device fformat camera-buffer
-   & {:keys [initial-capacity tracker label containers-buffer scene-color]
-      :or {initial-capacity 1000
-           label "rect/shared-system"
-           scene-color scene-tape/legacy-direct-color}}]
-  (assert containers-buffer "init-rect-system requires :containers-buffer (scene-substrate P2)")
-  (let [v-module (.createShaderModule device (clj->js {:code rect-vertex-shader}))
-        f-module (.createShaderModule device
-                                     (clj->js {:code (configure-scene-color-shader
-                                                      rect-fragment-shader scene-color)}))
-        buf-size (* initial-capacity rect-stride)
-        instance-buffer (.createBuffer device (clj->js {:size buf-size :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
-        _ (gpu-budget/register-buffer! tracker instance-buffer label buf-size :active-bytes 0)
-        bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility (bit-or js/GPUShaderStage.VERTEX js/GPUShaderStage.FRAGMENT) :buffer {:type "uniform"}}
-                                                                     {:binding 1 :visibility js/GPUShaderStage.VERTEX :buffer {:type "read-only-storage"}}]}))
-        pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
-        pipeline (.createRenderPipeline device
-                   (clj->js {:layout pipeline-layout
-                              :vertex {:module v-module :entryPoint "main"
-                                       :buffers [{:arrayStride rect-stride :stepMode "instance"
-                                                  :attributes [{:shaderLocation 0 :offset 0  :format "float32x4"}   ;; rect_geometry
-                                                               {:shaderLocation 1 :offset 16 :format "float32x4"}   ;; color
-                                                               {:shaderLocation 2 :offset 32 :format "float32x4"}   ;; corner_radii
-                                                               {:shaderLocation 3 :offset 48 :format "float32x4"}   ;; border_widths
-                                                               {:shaderLocation 4 :offset 64 :format "float32x4"}   ;; border_color
-                                                               {:shaderLocation 5 :offset 80 :format "float32x4"}   ;; gradient
-                                                               {:shaderLocation 6 :offset 96 :format "float32x4"}   ;; gradient_color2
-                                                               {:shaderLocation 7 :offset 112 :format "uint32"}]}]}  ;; container_idx
-                              :fragment {:module f-module :entryPoint "main"
-                                         :targets [{:format fformat
-                                                    :blend (scene-color-blend scene-color)}]}
-                              :primitive {:topology "triangle-list"}}))
-        bind-group (.createBindGroup device (clj->js {:layout bg-layout :entries [{:binding 0 :resource {:buffer camera-buffer}}
-                                                                                  {:binding 1 :resource {:buffer containers-buffer}}]}))]
-    {:pipeline pipeline
-     :bind-group bind-group
-     :instance-buffer instance-buffer
-     :capacity initial-capacity
-     :num-instances 0
-     :family/id :render.family/rect
-     :scene-color scene-color
-     :frame-input/identity (js-obj)
-     :!shape-rev (atom 0)
-     :!paint-state (atom {:pipeline pipeline :bind-group bind-group
-                          :buffer instance-buffer :instance-count 0})
-     :gpu-tracker tracker
-     :gpu-label label}))
 
 ;; --- Image atom resource system --------------------------------------------
 
@@ -1850,130 +1477,6 @@
            :owns-font-resources? false
            :owns-sizing-buffer? false)))
 
-;; --- Shadow system ---
-(def shadow-stride 84)  ;; 20 floats + container u32, × 4 bytes (scene-substrate P2)
-
-(defn init-shadow-system
-  [^js/GPUDevice device fformat camera-buffer
-   & {:keys [initial-capacity tracker label containers-buffer scene-color]
-      :or {initial-capacity 256
-           label "shadow/shared-system"
-           scene-color scene-tape/legacy-direct-color}}]
-  (assert containers-buffer "init-shadow-system requires :containers-buffer (scene-substrate P2)")
-  (let [v-module (.createShaderModule device (clj->js {:code shadow-vertex-shader}))
-        f-module (.createShaderModule device
-                                     (clj->js {:code (configure-scene-color-shader
-                                                      shadow-fragment-shader scene-color)}))
-        buf-size (* initial-capacity shadow-stride)
-        instance-buffer (.createBuffer device (clj->js {:size buf-size :usage (bit-or js/GPUBufferUsage.VERTEX js/GPUBufferUsage.COPY_DST)}))
-        _ (gpu-budget/register-buffer! tracker instance-buffer label buf-size :active-bytes 0)
-        bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility (bit-or js/GPUShaderStage.VERTEX js/GPUShaderStage.FRAGMENT) :buffer {:type "uniform"}}
-                                                                     {:binding 1 :visibility js/GPUShaderStage.VERTEX :buffer {:type "read-only-storage"}}]}))
-        pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
-        pipeline (.createRenderPipeline device
-                   (clj->js {:layout pipeline-layout
-                              :vertex {:module v-module :entryPoint "main"
-                                       :buffers [{:arrayStride shadow-stride :stepMode "instance"
-                                                  :attributes [{:shaderLocation 0 :offset 0  :format "float32x4"}   ;; expanded_rect
-                                                               {:shaderLocation 1 :offset 16 :format "float32x4"}   ;; shadow_color
-                                                               {:shaderLocation 2 :offset 32 :format "float32x4"}   ;; corner_radii
-                                                               {:shaderLocation 3 :offset 48 :format "float32x4"}   ;; blur_params
-                                                               {:shaderLocation 4 :offset 64 :format "float32x4"}   ;; inner_rect
-                                                               {:shaderLocation 5 :offset 80 :format "uint32"}]}]}  ;; container_idx
-                              :fragment {:module f-module :entryPoint "main"
-                                         :targets [{:format fformat
-                                                    :blend (scene-color-blend scene-color)}]}
-                              :primitive {:topology "triangle-list"}}))
-        bind-group (.createBindGroup device (clj->js {:layout bg-layout :entries [{:binding 0 :resource {:buffer camera-buffer}}
-                                                                                  {:binding 1 :resource {:buffer containers-buffer}}]}))]
-    {:pipeline pipeline
-     :bind-group bind-group
-     :instance-buffer instance-buffer
-     :capacity initial-capacity
-     :num-instances 0
-     :family/id :render.family/shadow
-     :scene-color scene-color
-     :frame-input/identity (js-obj)
-     :!shape-rev (atom 0)
-     :!paint-state (atom {:pipeline pipeline :bind-group bind-group
-                          :buffer instance-buffer :instance-count 0})
-     :gpu-tracker tracker
-     :gpu-label label}))
-
-(defn update-shadows [^js device shadow-system shadows]
-  (let [n (count shadows)
-        floats-per-shadow 21 ;; 20 + container u32 (scene-substrate P2)
-        data (js/Float32Array. (* n floats-per-shadow))
-        u32-view (js/Uint32Array. (.-buffer data))
-        required-bytes (.-byteLength data)
-        current-buffer (:instance-buffer shadow-system)
-        current-size (.-size ^js current-buffer)
-        needs-resize? (> required-bytes current-size)
-        new-size (max required-bytes (* n shadow-stride))
-        new-buffer (if needs-resize?
-                     (.createBuffer device (clj->js {:size new-size
-                                                     :usage (bit-or js/GPUBufferUsage.VERTEX
-                                                                    js/GPUBufferUsage.COPY_DST)}))
-                     current-buffer)]
-    (when needs-resize?
-      (gpu-budget/replace-buffer! (:gpu-tracker shadow-system) current-buffer new-buffer (:gpu-label shadow-system)
-                                  new-size
-                                  :active-bytes (* n shadow-stride)
-                                  :reason :shadow-resize)
-      (.destroy ^js current-buffer))
-    (loop [i 0 ss shadows]
-      (when (seq ss)
-        (let [s (first ss)
-              {:keys [x y w h blur offset-x offset-y spread color corner-radii radius]} s
-              blur   (or blur 8.0)
-              ox     (or offset-x 0.0)
-              oy     (or offset-y 0.0)
-              spread (or spread 0.0)
-              sc     (or color [0 0 0 0.25])
-              expand (* 3.0 blur)
-              ;; Expanded quad (captures Gaussian tail)
-              ex     (- x expand (max ox 0))
-              ey     (- y expand (max oy 0))
-              ew     (+ w (* 2 expand) (Math/abs ox))
-              eh     (+ h (* 2 expand) (Math/abs oy))
-              ;; Inner rect relative to expanded quad origin
-              ix     (- x ex)
-              iy     (- y ey)
-              ;; Corner radii
-              cr     corner-radii
-              ur     (or radius 0.0)
-              base   (* i floats-per-shadow)]
-          ;; Slot 0: expanded_rect
-          (aset data (+ base 0) ex)  (aset data (+ base 1) ey)
-          (aset data (+ base 2) ew)  (aset data (+ base 3) eh)
-          ;; Slot 1: shadow_color
-          (aset data (+ base 4) (nth sc 0))  (aset data (+ base 5) (nth sc 1))
-          (aset data (+ base 6) (nth sc 2))  (aset data (+ base 7) (nth sc 3))
-          ;; Slot 2: corner_radii
-          (if cr
-            (do (aset data (+ base 8)  (nth cr 0))
-                (aset data (+ base 9)  (nth cr 1))
-                (aset data (+ base 10) (nth cr 2))
-                (aset data (+ base 11) (nth cr 3)))
-            (do (aset data (+ base 8)  ur) (aset data (+ base 9)  ur)
-                (aset data (+ base 10) ur) (aset data (+ base 11) ur)))
-          ;; Slot 3: blur_params [blur, offset_x, offset_y, spread]
-          (aset data (+ base 12) blur)   (aset data (+ base 13) ox)
-          (aset data (+ base 14) oy)     (aset data (+ base 15) spread)
-          ;; Slot 4: inner_rect (relative to expanded quad, in zoom-scaled space)
-          (aset data (+ base 16) ix)  (aset data (+ base 17) iy)
-          (aset data (+ base 18) w)   (aset data (+ base 19) h)
-          ;; Slot 5: container_idx (u32 view over the same buffer; trap T6 default 0)
-          (aset u32-view (+ base 20) (or (:container-idx s) 0))
-          (recur (inc i) (next ss)))))
-    (when (pos? n)
-      (.writeBuffer (.-queue device) new-buffer 0 data))
-    (gpu-budget/set-active-bytes! (:gpu-tracker shadow-system) new-buffer (* n shadow-stride))
-    (when (not= n (:num-instances shadow-system))
-      (frame-inputs/bump-shape-rev! shadow-system))
-    (sync-paint-state!
-     (assoc shadow-system :instance-buffer new-buffer :num-instances n))))
-
 ;; --- Clear-quad system (Phase 6E: dirty-present) ---
 (def clear-quad-shader "
   @vertex
@@ -2073,62 +1576,6 @@
    :view (if render-target (:view render-target) swap-view)
    :format (:format render-target)
    :color color})
-
-(defn create-editor-state
-  [{:keys [device format font-assets gpu-budget scene-color-enabled?]
-    :or {scene-color-enabled? false}}]
-  (let [scene-color (scene-tape/scene-color scene-color-enabled?)
-        camera-buffer (create-camera-buffer device gpu-budget)
-        containers-buffer (create-containers-buffer device gpu-budget)
-        text-sys (init-text-system device format camera-buffer font-assets
-                                   ;; Startup demand is unknown at device creation;
-                                   ;; seed one bounded growth step and let the
-                                   ;; existing 1.5x policy follow live demand.
-                                   :initial-capacity 4096
-                                   :tracker gpu-budget
-                                   :label "text/content"
-                                   :containers-buffer containers-buffer
-                                   :scene-color scene-color)
-        rect-sys (init-rect-system device format (:camera-uniform-buffer text-sys)
-                                   :initial-capacity 50000
-                                   :tracker gpu-budget
-                                   :label "rect/shared-system"
-                                   :containers-buffer containers-buffer
-                                   :scene-color scene-color)
-        shadow-sys (init-shadow-system device format (:camera-uniform-buffer text-sys)
-                                       :initial-capacity 256
-                                       :tracker gpu-budget
-                                       :label "shadow/shared-system"
-                                       :containers-buffer containers-buffer
-                                       :scene-color scene-color)
-        clear-quad (init-clear-quad device format :scene-color scene-color)
-
-        camera-floats (js/Float32Array. 6)
-
-        pass-descriptor (clj->js {:colorAttachments [{:view nil
-                                                      :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 0.0}
-                                                      :loadOp "clear"
-                                                      :storeOp "store"}]})]
-    (js/console.log "[RENDERER] Create editor state"
-                    {:format format
-                     :font-id (:id font-assets)
-                     :font-backend (:backend font-assets)
-                     :camera-buffer-bytes 24
-                     :containers-buffer-bytes (* max-transform-nodes affine-entry-bytes)
-                     :containers-transport :compact-affine-storage
-                     :scene-color (:scene-color/id scene-color)
-                     :scene-color-enabled? (:enabled? scene-color)})
-
-    {:text-sys text-sys
-     :rect-sys rect-sys
-     :shadow-sys shadow-sys
-     :clear-quad clear-quad
-     :format format
-     :camera-floats camera-floats
-     :containers-buffer containers-buffer
-     :family-registry scene-tape/default-family-registry
-     :scene-color scene-color
-     :pass-descriptor pass-descriptor}))
 
 ;; --- 3. UPDATES (CPU -> GPU) ---
 (defn- make-snapper [snap-step]
@@ -2534,97 +1981,6 @@
                 :line-height line-h))))))
 
 
-(defn update-rects [^js device rect-system rects]
-  (let [n (count rects)
-        floats-per-rect 29 ;; 28 + container u32 (scene-substrate P2)
-        data (js/Float32Array. (* n floats-per-rect))
-        u32-view (js/Uint32Array. (.-buffer data))
-        required-bytes (.-byteLength data)
-        current-buffer (:instance-buffer rect-system)
-        current-size (.-size ^js current-buffer)
-        needs-resize? (> required-bytes current-size)
-        new-size (max required-bytes (* n rect-stride))
-        new-buffer (if needs-resize?
-                     (.createBuffer device (clj->js {:size new-size
-                                                     :usage (bit-or js/GPUBufferUsage.VERTEX
-                                                                    js/GPUBufferUsage.COPY_DST)}))
-                     current-buffer)]
-    (when needs-resize?
-      (gpu-budget/replace-buffer! (:gpu-tracker rect-system) current-buffer new-buffer (:gpu-label rect-system)
-                                  new-size
-                                  :active-bytes (* n rect-stride)
-                                  :reason :rect-resize)
-      (.destroy ^js current-buffer))
-    (loop [i 0 rs rects]
-      (when (seq rs)
-        (let [rect (first rs)
-              {:keys [x y w h r g b a]} rect
-              base (* i floats-per-rect)
-              ;; Corner radii: uniform :radius or per-corner :corner-radii [tl tr br bl]
-              cr (:corner-radii rect)
-              uniform-r (or (:radius rect) 0.0)
-              ;; Border widths: uniform :border-width or per-side :border-widths [t r b l]
-              bw (:border-widths rect)
-              uniform-bw (or (:border-width rect) 0.0)
-              ;; Border color
-              bc (or (:border-color rect) [0 0 0 0])
-              ;; Gradient: [angle t-stop 0 0]
-              gr (or (:gradient rect) [0 0 0 0])
-              ;; Gradient color 2
-              gc2 (or (:gradient-color2 rect) [0 0 0 0])]
-          ;; Slot 0: rect_geometry [x y w h]
-          (aset data (+ base 0) x)  (aset data (+ base 1) y)
-          (aset data (+ base 2) w)  (aset data (+ base 3) h)
-          ;; Slot 1: color [r g b a]
-          (aset data (+ base 4) r)  (aset data (+ base 5) g)
-          (aset data (+ base 6) b)  (aset data (+ base 7) a)
-          ;; Slot 2: corner_radii [tl tr br bl]
-          (if cr
-            (do (aset data (+ base 8)  (nth cr 0))
-                (aset data (+ base 9)  (nth cr 1))
-                (aset data (+ base 10) (nth cr 2))
-                (aset data (+ base 11) (nth cr 3)))
-            (do (aset data (+ base 8)  uniform-r)
-                (aset data (+ base 9)  uniform-r)
-                (aset data (+ base 10) uniform-r)
-                (aset data (+ base 11) uniform-r)))
-          ;; Slot 3: border_widths [top right bottom left]
-          (if bw
-            (do (aset data (+ base 12) (nth bw 0))
-                (aset data (+ base 13) (nth bw 1))
-                (aset data (+ base 14) (nth bw 2))
-                (aset data (+ base 15) (nth bw 3)))
-            (do (aset data (+ base 12) uniform-bw)
-                (aset data (+ base 13) uniform-bw)
-                (aset data (+ base 14) uniform-bw)
-                (aset data (+ base 15) uniform-bw)))
-          ;; Slot 4: border_color [r g b a]
-          (aset data (+ base 16) (nth bc 0))
-          (aset data (+ base 17) (nth bc 1))
-          (aset data (+ base 18) (nth bc 2))
-          (aset data (+ base 19) (nth bc 3))
-          ;; Slot 5: gradient [angle t_stop 0 0]
-          (aset data (+ base 20) (nth gr 0))
-          (aset data (+ base 21) (nth gr 1))
-          (aset data (+ base 22) (nth gr 2))
-          (aset data (+ base 23) (nth gr 3))
-          ;; Slot 6: gradient_color2 [r g b a]
-          (aset data (+ base 24) (nth gc2 0))
-          (aset data (+ base 25) (nth gc2 1))
-          (aset data (+ base 26) (nth gc2 2))
-          (aset data (+ base 27) (nth gc2 3))
-          ;; Slot 7: container_idx (u32 view over the same buffer; trap T6 default 0)
-          (aset u32-view (+ base 28) (or (:container-idx rect) 0))
-          (recur (inc i) (next rs)))))
-    (when (pos? n)
-      (.writeBuffer (.-queue device) new-buffer 0 data))
-    (gpu-budget/set-active-bytes! (:gpu-tracker rect-system) new-buffer (* n rect-stride))
-    (when (not= n (:num-instances rect-system))
-      (frame-inputs/bump-shape-rev! rect-system))
-    (sync-paint-state!
-     (assoc rect-system :instance-buffer new-buffer :num-instances n))))
-
-
 (defn update-camera [^js device camera-buffer ^js floats pan-x pan-y zoom w h]
   (aset floats 0 pan-x)
   (aset floats 1 pan-y)
@@ -2633,84 +1989,6 @@
   (aset floats 4 w)
   (aset floats 5 h)
   (.writeBuffer (.-queue device) camera-buffer 0 floats))
-
-(defn draw-comparison-frame!
-  "Draw two text systems side-by-side: left = primary backend, right = comparison backend.
-   Each half gets screen_dimensions = (w/2, h) so text renders at full scale.
-   Rects, shadows, chrome are skipped — this is a pure text rendering comparison."
-  [^js device ^js context primary-sys comparison-sys ^js camera-floats pan-x pan-y w h]
-  (let [half-w (/ w 2.0)
-        dpr (or (.-devicePixelRatio js/window) 1)
-        phys-w (Math/floor (* w dpr))
-        phys-h (Math/floor (* h dpr))
-        phys-half-w (Math/floor (* half-w dpr))
-        ;; Scratch buffer for comparison camera (avoid mutating camera-floats twice for same buffer)
-        comp-floats (js/Float32Array. 6)]
-    ;; Update both cameras — each sees half-width viewport
-    (update-camera device (:camera-uniform-buffer primary-sys) camera-floats pan-x pan-y 1.0 half-w h)
-    (update-camera device (:camera-uniform-buffer comparison-sys) comp-floats pan-x pan-y 1.0 half-w h)
-
-    (let [encoder (.createCommandEncoder device)
-          swap-texture (.getCurrentTexture context)
-          swap-view (.createView swap-texture)
-          pass (.beginRenderPass encoder
-                 (clj->js {:colorAttachments [{:view swap-view
-                                               :clearValue {:r 0.06 :g 0.06 :b 0.06 :a 1.0}
-                                               :loadOp "clear"
-                                               :storeOp "store"}]}))]
-
-      ;; Left half — primary backend
-      (.setViewport pass 0 0 phys-half-w phys-h 0 1)
-      (when (and primary-sys (> (:num-instances primary-sys) 0))
-        (.setPipeline pass (:pipeline primary-sys))
-        (.setBindGroup pass 0 (:bind-group primary-sys))
-        (.setVertexBuffer pass 0 (:instance-buffer primary-sys))
-        (.draw pass 6 (:num-instances primary-sys) 0 0))
-
-      ;; Right half — comparison backend
-      (.setViewport pass phys-half-w 0 (- phys-w phys-half-w) phys-h 0 1)
-      (when (and comparison-sys (> (:num-instances comparison-sys) 0))
-        (.setPipeline pass (:pipeline comparison-sys))
-        (.setBindGroup pass 0 (:bind-group comparison-sys))
-        (.setVertexBuffer pass 0 (:instance-buffer comparison-sys))
-        (.draw pass 6 (:num-instances comparison-sys) 0 0))
-
-      (.end pass)
-      (.submit (.-queue device) #js [(.finish encoder)]))))
-
-(defn- frame-order
-  ([stratum rank stable-tie]
-   (frame-order stratum rank stable-tie nil 0))
-  ([stratum rank stable-tie nested-stack-path]
-   (frame-order stratum rank stable-tie nested-stack-path 0))
-  ([stratum rank stable-tie nested-stack-path part-rank]
-   {:stratum stratum
-    :pass-class :direct
-    :stack-path (into [[:frame/root rank rank]] (or nested-stack-path []))
-    :part-rank part-rank
-    :stable-tie stable-tie}))
-
-(defn- frame-entry
-  ([entry-id family-id order paint]
-   (frame-entry entry-id family-id order paint :none))
-  ([entry-id family-id order paint pick]
-   {:entry/id entry-id
-    :material/id entry-id
-    :material/revision 0
-    :instance/id entry-id
-    :family/id family-id
-    :order order
-    :paint paint
-    :pick pick
-    :visibility {:visible? true :clip :frame-shared}}))
-
-(defn- gpu-paint [source source-type instance-count first-instance]
-  {:paint/source source
-   :paint/source-type source-type
-   :vertex-count 6
-   :instance-count instance-count
-   :first-vertex 0
-   :first-instance (or first-instance 0)})
 
 (defn resolve-gpu-paint
   "Resolve prepare-mutable payload through the retained source reference.
@@ -2855,6 +2133,40 @@
         {:identity-changed? true :writes writes
          :instances (count prepared)}))))
 
+(defn- frame-order
+  ([stratum rank stable-tie]
+   (frame-order stratum rank stable-tie nil 0))
+  ([stratum rank stable-tie nested-stack-path]
+   (frame-order stratum rank stable-tie nested-stack-path 0))
+  ([stratum rank stable-tie nested-stack-path part-rank]
+   {:stratum stratum
+    :pass-class :direct
+    :stack-path (into [[:frame/root rank rank]] (or nested-stack-path []))
+    :part-rank part-rank
+    :stable-tie stable-tie}))
+
+(defn- frame-entry
+  ([entry-id family-id order paint]
+   (frame-entry entry-id family-id order paint :none))
+  ([entry-id family-id order paint pick]
+   {:entry/id entry-id
+    :material/id entry-id
+    :material/revision 0
+    :instance/id entry-id
+    :family/id family-id
+    :order order
+    :paint paint
+    :pick pick
+    :visibility {:visible? true :clip :frame-shared}}))
+
+(defn- gpu-paint [source source-type instance-count first-instance]
+  {:paint/source source
+   :paint/source-type source-type
+   :vertex-count 6
+   :instance-count instance-count
+   :first-vertex 0
+   :first-instance (or first-instance 0)})
+
 (defn image-entries
   "Mint exactly one image tape entry per (vi, :images).  Its ordered sub-draw
    vector is the explicit binding indirection; no texture grouping may reorder
@@ -2886,42 +2198,6 @@
                                   :boundary :half-open :hit-slop 0.0})))]
             (recur (next vis) next-offset entries))
           entries)))))
-
-(defn- pool-entry [entry-id family-id order pool-info]
-  (when (and pool-info (pos? (:draw-count pool-info)))
-    (frame-entry entry-id family-id order
-                 (gpu-paint (or (:pool pool-info) pool-info) :pool
-                            ::system
-                            0))))
-
-(defn- store-pool-entries
-  [store-frame pool-info count-key family-id part-rank pickable? base-offset]
-  (loop [vis (:ordered-vis store-frame)
-         offset (or base-offset 0)
-         entries []]
-    (if-let [vi (first vis)]
-      (let [instance-count (get-in store-frame [:ops-count-by-vi vi count-key] 0)
-            source-order (get-in store-frame [:order-by-vi vi])
-            entry-id [:frame/store vi count-key]
-            order (frame-order (or (:stratum source-order) :world)
-                               25 entry-id (:stack-path source-order) part-rank)
-            clip-rows (when (= :rects count-key)
-                        (get-in store-frame [:rect-clips-by-vi vi]))
-            paint (when pool-info
-                    (cond-> (gpu-paint (or (:pool pool-info) pool-info) :pool
-                                      instance-count offset)
-                      (seq clip-rows)
-                      (add-instance-clip-runs clip-rows offset)))
-            entries (cond-> entries
-                      (and pool-info (pos? instance-count))
-                      (conj (frame-entry
-                             entry-id family-id order
-                             paint
-                             (if pickable?
-                               {:geometry :rect-tree-bounds :owner vi}
-                               :none))))]
-        (recur (next vis) (+ offset instance-count) entries))
-      entries)))
 
 (defn- system-entry
   ([entry-id family-id order system]
@@ -2955,25 +2231,6 @@
                           :instance-count 1
                           :first-vertex 0
                           :first-instance 0}))))))
-
-(defn- shadow-entries
-  [{:keys [editor-shadow-pool-info store-frame editor-shadow-count]}]
-  (into
-   (store-pool-entries store-frame editor-shadow-pool-info :shadows
-                       :render.family/shadow 0 false editor-shadow-count)
-        (keep identity)
-        [(pool-entry :frame/editor-shadows :render.family/shadow
-                     (frame-order :world 0 :frame/editor-shadows)
-                     editor-shadow-pool-info)]))
-
-(defn- rect-entries
-  [{:keys [editor-pool-info store-frame editor-rect-count]}]
-  (into (store-pool-entries store-frame editor-pool-info :rects
-                            :render.family/rect 1 true editor-rect-count)
-        (keep identity)
-        [(pool-entry :frame/editor-rects :render.family/rect
-                     (frame-order :world 20 :frame/editor-rects)
-                     editor-pool-info)]))
 
 (defn- text-system-family [system]
   (or (:family/id system)
@@ -3162,20 +2419,6 @@
                       text-sys image-system path-system connector-system
                       chrome-system]}]
   (let [linear scene-tape/linear-premultiplied-color
-        rect (init-rect-system device "rgba16float" camera-buffer
-                               :initial-capacity 1 :tracker tracker
-                               :label "frame-variant/rect-transient"
-                               :containers-buffer containers-buffer
-                               :scene-color linear)
-        _ (destroy-variant-buffer! tracker (:instance-buffer rect)
-                                   :frame-variant-transient)
-        shadow (init-shadow-system device "rgba16float" camera-buffer
-                                   :initial-capacity 1 :tracker tracker
-                                   :label "frame-variant/shadow-transient"
-                                   :containers-buffer containers-buffer
-                                   :scene-color linear)
-        _ (destroy-variant-buffer! tracker (:instance-buffer shadow)
-                                   :frame-variant-transient)
         text-created (when (and text-sys font-assets)
                        (init-text-system device "rgba16float" camera-buffer
                                          font-assets :initial-capacity 1
@@ -3230,11 +2473,7 @@
                                      :frame-variant-transient))
         image (create-linear-image-variant device image-system)
         text-family (when text-sys (text-system-family text-sys))
-        families (cond->
-                   {:render.family/rect
-                    {:pipeline (:pipeline rect) :bind-group (:bind-group rect)}
-                    :render.family/shadow
-                    {:pipeline (:pipeline shadow) :bind-group (:bind-group shadow)}}
+        families (cond-> {}
                    text-family
                    (assoc text-family {:pipeline (:pipeline text-created)
                                        :bind-group text-bind-group})
@@ -3302,19 +2541,7 @@
                   :execute! execute!})
         generic (fn [family-id produce]
                   (family family-id produce execute-gpu-batch!))]
-    {:render.family/rect
-     (generic :render.family/rect
-              (store-producer rect-entries
-                              [:rects :ordered-vis :ops-count-by-vi
-                               :order-by-vi :rect-clips-by-vi]))
-
-     :render.family/shadow
-     (generic :render.family/shadow
-              (store-producer shadow-entries
-                              [:shadows :ordered-vis :ops-count-by-vi
-                               :order-by-vi]))
-
-     :render.family/msdf
+    {:render.family/msdf
      (generic :render.family/msdf
               #(text-entries-for-family :render.family/msdf %))
 
@@ -3416,9 +2643,8 @@
     compositor))
 
 (def ^:private store-input-keys
-  [:rects :shadows :images :paths :connectors :chromes :regions
-   :ordered-vis :ops-count-by-vi :order-by-vi :rect-clips-by-vi
-   :text-clips-by-vi])
+  [:images :paths :connectors :chromes :regions
+   :ordered-vis :ops-count-by-vi :order-by-vi :text-clips-by-vi])
 
 (defn frame-input-map [device frame]
   (let [store-frame (:store-frame frame)
@@ -3675,23 +2901,19 @@
                 (let [o (js-obj)] (aset js/globalThis "__sfDraw" o) o)))]
     (aset o k (js/performance.now))))
 
-(defn draw-frame! [^js device ^js context text-sys editor-pool-info camera-floats _ignored-pass-descriptor pan-x pan-y w h
+(defn draw-frame! [^js device ^js context text-sys camera-floats _ignored-pass-descriptor pan-x pan-y w h
                    & {:keys [chrome-text-sys chrome-base-line-count
                              diagnostics-visible diagnostics-line-index
-                             editor-shadow-pool-info
                              dirty-rect render-target clear-quad frame-idx zoom
-                             extra-text-geos store-frame editor-rect-count
-                             editor-shadow-count image-system path-system
+                             extra-text-geos store-frame image-system path-system
                              connector-system chrome-system effective-transforms
                              container-registry container-delta-snapshot
                              container-delta-ack! font-assets frame-format
                              capabilities forced-color-mode pulse-alpha
                              region3d-session session-layout-snapshot dpr]
                       :or {chrome-text-sys nil chrome-base-line-count 0
-                           editor-shadow-pool-info nil
                            dirty-rect nil render-target nil clear-quad nil frame-idx 0
                            zoom 1.0 extra-text-geos nil store-frame nil
-                           editor-rect-count 0 editor-shadow-count 0
                            image-system nil path-system nil connector-system nil
                            chrome-system nil effective-transforms nil
                            container-registry nil
@@ -3776,19 +2998,17 @@
         partial? (and use-rt? dirty-rect)
         frame {:frame-idx frame-idx :partial? partial?
                :dirty-rect dirty-rect :clear-quad clear-quad
-               :text-sys text-sys :editor-pool-info editor-pool-info
+               :text-sys text-sys
                :chrome-text-sys chrome-text-sys
                :chrome-base-line-count chrome-base-line-count
                :diagnostics-visible diagnostics-visible
                :diagnostics-line-index diagnostics-line-index
-               :editor-shadow-pool-info editor-shadow-pool-info
                :image-system image-system :path-system path-system
                :connector-system connector-system :chrome-system chrome-system
                :region3d-system region3d-system
                :region3d-session region3d-session :zoom zoom :dpr dpr
                :font-assets font-assets
-               :store-frame store-frame :editor-rect-count editor-rect-count
-               :editor-shadow-count editor-shadow-count
+               :store-frame store-frame
                :extra-text-geos extra-text-geos}
         inputs (frame-input-map device frame)
         changed-families (frame-inputs/changed-families

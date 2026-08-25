@@ -19,17 +19,12 @@
          clojure.lang.ExceptionInfo #"Raw camera input"
          (frame-inputs/validate-declarations!
           (update frame-inputs/family-input-declarations
-                  :render.family/rect conj :zoom)
+                  :render.family/path conj :zoom)
           frame-inputs/quantization-doors)))))
 
 (deftest retired-overlay-plumbing-is-not-a-frame-input
   (let [retired-inputs #{:sidebar-pool-info
-                         :sidebar-shadow-pool-info
-                         :cmd-rect-sys
-                         :cmd-rect-sys-token
                          :cmd-panel-visible
-                         :settings-rect-sys
-                         :settings-rect-sys-token
                          :settings-line-count
                          :settings-visible
                          :agent-visible}
@@ -39,24 +34,24 @@
 
 (deftest s2-change-is-family-scoped-and-same-frame
   (let [device (Object.)
-        prior {:device device :rects [:old] :text-sys-token [:text 2]}
+        prior {:device device :paths [:old] :text-sys-token [:text 2]}
         current (assoc prior :text-sys-token [:text 3])]
     (is (= #{:render.family/msdf :render.family/slug}
            (frame-inputs/changed-families prior current)))))
 
 (deftest family-scoped-maintenance-does-not-visit-unchanged-families
-  (let [rect-old {:family/id :render.family/rect :entry/id :rect-old}
+  (let [path-old {:family/id :render.family/path :entry/id :path-old}
         text-old {:family/id :render.family/msdf :entry/id :text-old}
         text-new {:family/id :render.family/msdf :entry/id :text-new}
         key-fn (juxt :family/id :entry/id)
         delta (frame-inputs/family-entry-delta
-               {:render.family/rect #{(key-fn rect-old)}
+               {:render.family/path #{(key-fn path-old)}
                 :render.family/msdf #{(key-fn text-old)}}
                [text-new] #{:render.family/msdf} key-fn)]
     (is (= #{(key-fn text-old)} (:remove delta)))
     (is (= [text-new] (:insert delta)))
-    (is (= #{(key-fn rect-old)}
-           (get-in delta [:next-keys :render.family/rect])))))
+    (is (= #{(key-fn path-old)}
+           (get-in delta [:next-keys :render.family/path])))))
 
 (deftest cross-family-entries-live-and-die-with-their-producer
   ;; Twin receipt 2026-08-09: connector-minted label entries carry the text

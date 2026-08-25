@@ -1380,7 +1380,7 @@
   "Clip one existing text op through the layout's declared clip geometry.
    `range-mode` preserves the two legacy adapters exactly: `:left-right`
    rewrites :from/:to after substring clipping; `:right-only` preserves :from
-   and only updates :to, matching rect-tree's old path."
+   and only updates :to, matching the prior layout path."
   [layout-result op & {:keys [range-mode] :or {range-mode :left-right}}]
   (if (shaped-result? layout-result)
     (let [{:keys [left right top bottom]} (get-in layout-result [:constraints :clip])

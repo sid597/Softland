@@ -6,9 +6,8 @@
    comparison inputs, a candidate geometry-contract probe, and receipts. It is
    not a product renderer and it never substitutes lookalike WGSL.
 
-   The CPU point-in-path probe is NOT today's product picking path. Product
-   picking remains axis-aligned rect-tree bounds; the receipt carries an
-  explicit rounded-corner divergence sentinel so those truths cannot collapse."
+   CPU geometry probes are independent readers of the production path and
+   glyph pipelines."
   (:require [clojure.string :as str]
             [app.client.substrate.chrome-material :as chrome-material]
             [app.client.substrate.connector-material :as connector-material]
@@ -34,24 +33,15 @@
             [app.client.substrate.webgpu.region3d-placement-gpu :as region3d-placement-gpu]
             [app.client.substrate.webgpu.renderer :as renderer]
             [app.client.workspace.containers :as containers]
-            [app.client.workspace.chrome-runtime :as chrome-runtime]
-            [app.client.workspace.frame-runtime :as frame-runtime]
-            [app.client.workspace.region3d-runtime :as region3d-runtime]
             [app.client.workspace.runtime.fonts :as fonts]
             [app.client.workspace.text-layout :as tl]
             [app.client.workspace.text-shaper :as text-shaper]))
 
 (def ^:private canvas-size 128)
 (def ^:private color-format "rgba8unorm")
-(def ^:private fixture-screen-x 24.0)
-(def ^:private fixture-screen-y 24.0)
-(def ^:private fixture-screen-size 80.0)
 (def ^:private glyph-screen-x 34.0)
 (def ^:private glyph-screen-baseline 96.0)
 (def ^:private glyph-screen-size 80.0)
-(def ^:private rounded-radii [24.0 14.0 30.0 6.0])
-(def ^:private q5-angle 0.637)
-(def ^:private q5-pinned-pixels [[61 43] [66 84]])
 
 (def ^:private zoom-cases
   [{:case-id "legal-min-z0p01" :zoom 0.01 :regime "legal-envelope-sentinel"}
@@ -221,57 +211,6 @@
      :rows rows
      :pass? (every? :pass? rows)}))
 
-(defn- q5-transform []
-  (let [ct (js/Math.cos q5-angle)
-        st (js/Math.sin q5-angle)]
-    {:affine [ct st (- st) ct 64.0 64.0]
-     :flags 0
-     :layer 1
-     :stack-path [[17 1]]
-     :transport-slot 1}))
-
-(defn- run-q5-affine-boundary! [device q5-system q5-effective]
-  (-> (render-system-bytes! device q5-system 1.0)
-      (.then
-       (fn [bytes]
-         (let [covered
-               (for [y (range canvas-size)
-                     x (range canvas-size)
-                     :let [coverage (pixel-red bytes x y)]
-                     :when (pos? coverage)]
-                 [x y coverage])
-               xs (map first covered)
-               ys (map second covered)
-               rows
-               (mapv (fn [[x y :as pixel]]
-                       (let [sample [(+ x 0.5) (+ y 0.5)]
-                             [lx ly] (containers/inverse-point q5-effective sample)
-                             cpu-class (if (and (< (js/Math.abs lx) 27.0)
-                                                (< (js/Math.abs ly) 15.0))
-                                         "inside"
-                                         "outside")
-                             coverage (pixel-red bytes x y)]
-                         {:pixel pixel
-                          :sample-center sample
-                          :local-point [lx ly]
-                          :cpu-class cpu-class
-                          :gpu-coverage-byte coverage
-                          :pass? (and (= "inside" cpu-class) (pos? coverage))}))
-                     q5-pinned-pixels)]
-           {:extent "128x128-target/54x30-local-quad"
-            :normalization "centered-local-coordinates"
-            :zoom 1.0
-            :backend "production-rich-rect-affine-storage"
-            :regime "hand"
-            :rotation-radians q5-angle
-            :boundary-rule "canonical-inside-must-not-emit-zero"
-            :coverage-bounds (when (seq covered)
-                               [(apply min xs) (apply min ys)
-                                (apply max xs) (apply max ys)])
-            :covered-pixel-count (count covered)
-            :rows rows
-            :pass? (every? :pass? rows)})))))
-
 (defn- boundary-pixels [^js rgba]
   (persistent!
    (loop [y 0
@@ -288,26 +227,6 @@
                            (if (and (> coverage 8) (< coverage 247))
                              (conj! acc [x y coverage])
                              acc))))))))))
-
-(defn- rounded-path-inside? [screen-x screen-y]
-  ;; Exact CPU transcription of the production rich-rect SDF's mathematical
-  ;; boundary, evaluated at a screen pixel center. Paint/border are irrelevant.
-  (let [half (/ fixture-screen-size 2.0)
-        px (- screen-x (+ fixture-screen-x half))
-        py (- screen-y (+ fixture-screen-y half))
-        [tl tr br bl] rounded-radii
-        r (cond
-            (and (> px 0.0) (> py 0.0)) br
-            (> px 0.0) tr
-            (> py 0.0) bl
-            :else tl)
-        r (min r half)
-        qx (+ (- (js/Math.abs px) half) r)
-        qy (+ (- (js/Math.abs py) half) r)
-        outside (js/Math.sqrt (+ (* (max qx 0.0) (max qx 0.0))
-                                 (* (max qy 0.0) (max qy 0.0))))
-        distance (- (+ (min (max qx qy) 0.0) outside) r)]
-    (<= distance 0.0)))
 
 (defn- quadratic-point [[[x1 y1] [x2 y2] [x3 y3]] t]
   (let [u (- 1.0 t)]
@@ -467,26 +386,6 @@
               [[p1x p1y] [p2x p2y] [p3x p3y]]))
           (sort-by (juxt second first) @!locations))))
 
-(defn- rich-rect [zoom]
-  {:x (/ fixture-screen-x zoom)
-   :y (/ fixture-screen-y zoom)
-   :w (/ fixture-screen-size zoom)
-   :h (/ fixture-screen-size zoom)
-   :r 0.12 :g 0.52 :b 0.92 :a 1.0
-   :corner-radii rounded-radii
-   :border-widths [2.0 5.0 8.0 3.0]
-   :border-color [0.96 0.32 0.18 1.0]
-   :gradient [0.55 0.78 0.0 0.0]
-   :gradient-color2 [0.62 0.18 0.86 1.0]})
-
-(defn- parity-rect [zoom]
-  {:x (/ fixture-screen-x zoom)
-   :y (/ fixture-screen-y zoom)
-   :w (/ fixture-screen-size zoom)
-   :h (/ fixture-screen-size zoom)
-   :r 1.0 :g 1.0 :b 1.0 :a 1.0
-   :corner-radii rounded-radii})
-
 (defn- glyph-lines [zoom]
   [[{:text "o"
      :x (/ glyph-screen-x zoom)
@@ -504,11 +403,9 @@
                  :byte-identical? (:byte-identical? pair)}})
 
 (defn- run-case!
-  [{:keys [device rect-system msdf-system slug-system msdf-assets slug-assets curves]}
+  [{:keys [device msdf-system slug-system msdf-assets slug-assets curves]}
    {:keys [case-id zoom regime]}]
-  (let [world-extent (/ fixture-screen-size zoom)
-        rect-rich-system (renderer/update-rects device rect-system [(rich-rect zoom)])
-        lines (glyph-lines zoom)
+  (let [lines (glyph-lines zoom)
         font-size (/ glyph-screen-size zoom)
         msdf-glyph (first (filter #(= 111 (:unicode %))
                                   (get-in msdf-assets [:atlas :glyphs])))
@@ -530,24 +427,12 @@
         slug-system (renderer/update-text-data device slug-system lines slug-assets font-size
                                                :char-width 0.60)]
     (js/console.log "[W0-A] case-start" case-id "zoom" zoom)
-    (-> (render-pair! device rect-rich-system zoom)
-        (.then (fn [rich-pair]
-                 (js/console.log "[W0-A] case-stage" case-id "sdf-rich")
-                 {:rich-pair rich-pair}))
+    (->
+        (render-pair! device msdf-system zoom)
         (.then
          (fn [capture]
-           (let [rect-parity-system (renderer/update-rects device rect-rich-system
-                                                           [(parity-rect zoom)])]
-             (-> (render-system-bytes! device rect-parity-system zoom)
-                 (.then (fn [bytes]
-                          (js/console.log "[W0-A] case-stage" case-id "sdf-parity")
-                          (assoc capture :rect-parity-bytes bytes)))))))
-        (.then
-         (fn [capture]
-           (-> (render-pair! device msdf-system zoom)
-               (.then (fn [pair]
-                        (js/console.log "[W0-A] case-stage" case-id "msdf")
-                        (assoc capture :msdf-pair pair))))))
+           (js/console.log "[W0-A] case-stage" case-id "msdf")
+           {:msdf-pair capture}))
         (.then
          (fn [capture]
            (-> (render-pair! device slug-system zoom)
@@ -555,46 +440,28 @@
                         (js/console.log "[W0-A] case-stage" case-id "slug")
                         (assoc capture :slug-pair pair))))))
         (.then
-         (fn [{:keys [rich-pair rect-parity-bytes msdf-pair slug-pair]}]
-           (let [corner-x 24
-                 corner-y 24
-                 corner-gpu (pixel-red rect-parity-bytes corner-x corner-y)
-                 corner-cpu (rounded-path-inside? (+ corner-x 0.5)
-                                                  (+ corner-y 0.5))]
-             (js/console.log "[W0-A] case-complete" case-id)
-             {:case-id case-id
-              :zoom zoom
-              :regime regime
-              :normalization "screen-constant"
-              :shape-extent-world world-extent
-              :canvas {:width canvas-size
-                       :height canvas-size
-                       :format color-format
-                       :device-pixel-ratio (.-devicePixelRatio js/window)}
-              :images [(image-record "sdf-rich-rect" case-id rich-pair)
-                       (image-record "msdf" case-id msdf-pair)
-                       (image-record "slug" case-id slug-pair)]
-              :pick-parity
-              [(parity-receipt "sdf-rounded-path"
-                               rect-parity-bytes rounded-path-inside?
-                               {:source "production-rich-rect-analytic-boundary"
-                                :mapping "screen-pixel-center->rounded-rect-SDF"})
-               (parity-receipt "msdf-dejavu-o-path"
+         (fn [{:keys [msdf-pair slug-pair]}]
+           (js/console.log "[W0-A] case-complete" case-id)
+           {:case-id case-id
+            :zoom zoom
+            :regime regime
+            :normalization "screen-constant"
+            :shape-extent-world (/ glyph-screen-size zoom)
+            :canvas {:width canvas-size
+                     :height canvas-size
+                     :format color-format
+                     :device-pixel-ratio (.-devicePixelRatio js/window)}
+            :images [(image-record "msdf" case-id msdf-pair)
+                     (image-record "slug" case-id slug-pair)]
+            :pick-parity
+            [(parity-receipt "msdf-dejavu-o-path"
                                (:bytes msdf-pair)
                                (:inside? msdf-probe)
                                (:receipt msdf-probe))
-               (parity-receipt "slug-dejavu-o-path"
+             (parity-receipt "slug-dejavu-o-path"
                                (:bytes slug-pair)
                                (:inside? slug-probe)
-                               (:receipt slug-probe))]
-              :current-product-pick-sentinel
-              {:kind "axis-aligned-bounds-vs-rounded-visible-coverage"
-               :pixel [corner-x corner-y]
-               :product-bounds-pick? true
-               :candidate-cpu-point-in-path? corner-cpu
-               :gpu-coverage-byte corner-gpu
-               :expected-divergence?
-               (and (not corner-cpu) (< corner-gpu 128))}}))))))
+                               (:receipt slug-probe))]})))))
 
 ;; --- IMAGE-ATOM Package 2 ---------------------------------------------------
 
@@ -815,7 +682,7 @@
      :half-count (- (count rows) (count decisive))
      :mismatch-count (count mismatches)
      :hit-slop 0.0 :slop-path-ran? false
-     :product-route "scene-store image rt-node half-open quad"
+     :product-route "image half-open quad"
      :candidate-route "production image ramped quad"
      :agreement? pass? :pass? pass?
      :first-mismatches (subvec mismatches 0 (min 16 (count mismatches)))}))
@@ -1082,15 +949,11 @@
              (image-op :order/c clip-digest 20 0 10 10)]
         _ (renderer/prepare-image-frame! image-system ops)
         image-store {:images ops :ordered-vis [vi]
-                     :ops-count-by-vi {vi {:images 3 :shadows 1 :rects 1}}
+                     :ops-count-by-vi {vi {:images 3}}
                      :order-by-vi {vi order}}
-        fake-pool {:draw-count 1 :pipeline #js {} :bind-group #js {}
-                   :buffer #js {}}
         fake-text {:family/id :render.family/msdf :num-instances 1
                    :pipeline #js {} :bind-group #js {} :instance-buffer #js {}}
         frame {:store-frame image-store :image-system image-system
-               :editor-shadow-pool-info fake-pool :editor-shadow-count 0
-               :editor-pool-info fake-pool :editor-rect-count 0
                :extra-text-geos [{:geo fake-text :vi vi :order order}]}
         inputs (renderer/frame-input-map nil frame)
         batch (renderer/compile-frame-tape inputs)
@@ -1101,9 +964,7 @@
                      (renderer/empty-frame-arrangement)
                      produced frame-inputs/family-ids)
         maintained (into [] (map val) (:ordered arrangement))
-        lane-ids [[:frame/store vi :shadows]
-                  [:frame/store vi :rects]
-                  [:frame/slot-text vi]
+        lane-ids [[:frame/slot-text vi]
                   [:frame/store vi :images]]
         ordered-ids (mapv :entry/id (:entries batch))
         lane-positions (mapv #(.indexOf ordered-ids %) lane-ids)
@@ -1732,12 +1593,12 @@
         product-order {:stratum :overlay :pass-class :direct
                        :stack-path [[:frame/root 0 0]]
                        :part-rank 0 :stable-tie :product}
-        entries [(verifier-entry :world :render.family/rect world-order
-                                 {:instance-count 1} {:geometry :rect})
+        entries [(verifier-entry :world :render.family/path world-order
+                                 {:vertex-count 3} {:geometry :path})
                  (verifier-entry :chrome :render.family/chrome chrome-order
                                  {:vertex-count 6} {:geometry :chrome-handle})
-                 (verifier-entry :product :render.family/rect product-order
-                                 {:instance-count 1} :none)]
+                 (verifier-entry :product :render.family/path product-order
+                                 {:vertex-count 3} :none)]
         maintained (reduce
                     (partial scene-tape/ordered-insert
                              scene-tape/default-family-registry)
@@ -1872,18 +1733,23 @@
    :path/paint (path-paint color opacity)
    :path/provenance {:actor :render-verifier :act :fixture}})
 
-(defn- path-rect-material [id zoom color opacity]
+(defn- path-polygon-material [id points color opacity]
   {:path/material-id id
    :path/revision 1
    :path/kind :shape
    :path/geometry
-   {:open-width (/ 2.0 zoom)
+   {:open-width 2.0
     :contours [{:contour/id [id :outer] :role :outer
-                :points (mapv (partial screen-point zoom)
-                              [[24.0 24.0] [104.0 24.0]
-                               [104.0 104.0] [24.0 104.0]])}]}
+                :points points}]}
    :path/paint (path-paint color opacity)
    :path/provenance {:actor :render-verifier :act :fixture}})
+
+(defn- path-quad-material [id zoom color opacity]
+  (path-polygon-material
+   id
+   (mapv (partial screen-point zoom)
+         [[24.0 24.0] [104.0 24.0] [104.0 104.0] [24.0 104.0]])
+   color opacity))
 
 (defn- path-op [id material]
   {:id id :x 0.0 :y 0.0
@@ -2087,7 +1953,7 @@
 (defn- run-path-color! [device path-system]
   (let [clear {:r 0.04 :g 0.18 :b 0.35 :a 1.0}
         color [(/ 200.0 255.0) (/ 80.0 255.0) (/ 40.0 255.0) 0.5]
-        material (path-rect-material :path-color/source-over 1.0 color 1.0)]
+        material (path-quad-material :path-color/source-over 1.0 color 1.0)]
     (-> (render-path-bytes! device path-system
                             [(path-op :path-color material)] 1.0
                             :clear-value clear)
@@ -2128,8 +1994,7 @@
    :visibility {:visible? true}})
 
 (defn- run-path-arrangement! []
-  (let [entries [(receipt-entry :rect :render.family/rect 1)
-                 (receipt-entry :text :render.family/msdf 2)
+  (let [entries [(receipt-entry :text :render.family/msdf 2)
                  (receipt-entry :image :render.family/image 3)
                  (receipt-entry :path :render.family/path 4)]
         tape (scene-tape/compile-tape :path-arrangement entries)
@@ -2139,13 +2004,13 @@
      :reverse-first (get-in picked [:entry :entry/id])
      :path-contract-present?
      (some? (get scene-tape/default-family-registry :render.family/path))
-     :pass? (and (= [:rect :text :image :path] forward)
+     :pass? (and (= [:text :image :path] forward)
                  (= :path (get-in picked [:entry :entry/id]))
                  (some? (get scene-tape/default-family-registry
                              :render.family/path)))}))
 
 (defn- run-path-upload-gate! [path-system]
-  (let [material (path-rect-material :path-upload-gate 1.0
+  (let [material (path-quad-material :path-upload-gate 1.0
                                      [0.3 0.7 0.4 1.0] 1.0)
         first-ops [(path-op :path-upload-gate material)]
         first-write (path-gpu/prepare-path-frame! path-system first-ops 1.0)
@@ -2324,12 +2189,12 @@
              (or first-vertex 0) (or first-instance 0)))))
 
 (defn- assert-frame-retention-payload-resolution! []
-  (let [pipeline #js {:kind "runtime-rect-pipeline"}
-        bind-group #js {:kind "runtime-rect-bind-group"}
-        instance-buffer #js {:kind "runtime-rect-instance-buffer"}
+  (let [pipeline #js {:kind "runtime-system-pipeline"}
+        bind-group #js {:kind "runtime-system-bind-group"}
+        instance-buffer #js {:kind "runtime-system-instance-buffer"}
         calls (atom [])
         pass #js {}
-        entry {:family/id :render.family/rect
+        entry {:family/id :render.family/msdf
                :paint {:paint/source {:pipeline pipeline
                                       :bind-group bind-group
                                       :instance-buffer instance-buffer
@@ -2361,7 +2226,7 @@
                    (identical? instance-buffer
                                (get-in resolved-clipped
                                        [:sub-draws 0 :buffer])))
-      (throw (ex-info "Retained runtime rect payload lost its instance buffer"
+      (throw (ex-info "Retained runtime payload lost its instance buffer"
                       {:expected expected :actual @calls
                        :clipped-buffer-resolved?
                        (identical? instance-buffer
@@ -2592,8 +2457,7 @@
                                      [:render :color-alpha :scene])))}))))))
 
 (defn- run-connector-arrangement! []
-  (let [entries [(receipt-entry :rect :render.family/rect 1)
-                 (receipt-entry :text :render.family/msdf 2)
+  (let [entries [(receipt-entry :text :render.family/msdf 2)
                  (receipt-entry :image :render.family/image 3)
                  (receipt-entry :path :render.family/path 4)
                  (receipt-entry :connector-label :render.family/slug 4)
@@ -2606,7 +2470,7 @@
      :connector-contract-present?
      (some? (get scene-tape/default-family-registry
                  :render.family/connector))
-     :pass? (and (= [:rect :text :image :connector-label
+     :pass? (and (= [:text :image :connector-label
                      :path :connector] forward)
                  (= :connector (get-in picked [:entry :entry/id]))
                  (some? (get scene-tape/default-family-registry
@@ -2801,9 +2665,7 @@
      :limits (selected-limits (.-limits adapter))}))
 
 (defn- shader-digests []
-  (let [entries [["rect-vertex" renderer/rect-vertex-shader]
-                 ["rect-fragment" renderer/rect-fragment-shader]
-                 ["msdf-vertex" renderer/text-vertex-shader]
+  (let [entries [["msdf-vertex" renderer/text-vertex-shader]
                  ["msdf-fragment" renderer/text-fragment-shader]
                  ["slug-vertex" renderer/slug-vertex-shader]
                  ["slug-fragment" renderer/slug-fragment-shader]
@@ -2884,21 +2746,7 @@
 ;; W4 frame runtime — compositor, clip, export, and scheduler machine receipts
 ;; ---------------------------------------------------------------------------
 
-(defn- w4-order [registry cid rank id]
-  {:stratum :world :pass-class :direct
-   :stack-path (into [[:frame/root rank rank]]
-                     (:stack-path (get (containers/effective registry) cid)))
-   :part-rank 0 :stable-tie id})
-
-(defn- w4-entry [registry cid rank id system first-instance]
-  {:entry/id id :material/id id :material/revision 1 :instance/id id
-   :family/id :render.family/rect
-   :order (w4-order registry cid rank id)
-   :paint {:pipeline (:pipeline system) :bind-group (:bind-group system)
-           :buffer (:instance-buffer system) :vertex-count 6
-           :instance-count 1 :first-vertex 0 :first-instance first-instance}
-   :pick {:geometry :rect-tree-bounds :owner id}
-   :visibility {:visible? true :clip :frame-shared}})
+;; Rect-backed W4 fixture entries were removed with the rect render family.
 
 (defn- w4-read-texture! [^js device ^js texture width height]
   (let [row-bytes (* width 4)
@@ -2988,1204 +2836,7 @@
                         :byte-identical? (= (aget hashes 0)
                                             (aget hashes 1))}))))))))))
 
-(defn- w4-registry [rows]
-  (reduce (fn [registry [cid spec]]
-            (containers/add-container registry cid spec))
-          (containers/empty-registry)
-          rows))
-
-(defn- w4-install-rects!
-  [device camera containers-buffer tracker registry rects]
-  (renderer/write-containers! device containers-buffer
-                              (containers/effective registry))
-  (let [system (renderer/init-rect-system
-                device color-format camera
-                :initial-capacity (max 1 (count rects))
-                :tracker tracker :containers-buffer containers-buffer)]
-    (renderer/update-rects device system rects)))
-
-(defn- w4-rect [registry cid x y w h rgba & {:as more}]
-  (merge {:x x :y y :w w :h h
-          :r (nth rgba 0) :g (nth rgba 1) :b (nth rgba 2) :a (nth rgba 3)
-          :container-idx (containers/transport-slot registry cid)}
-         more))
-
-(defn- w4-case
-  [device camera containers-buffer tracker case-id rows rect-specs entry-specs
-   & {:keys [forced-color-mode]}]
-  (let [registry (w4-registry rows)
-        rects (mapv (fn [[cid x y w h rgba more]]
-                      (apply w4-rect registry cid x y w h rgba
-                             (mapcat identity more)))
-                    rect-specs)
-        system (w4-install-rects! device camera containers-buffer tracker
-                                  registry rects)
-        arrangement
-        (mapv (fn [index [cid rank id entry-opts]]
-                (merge (w4-entry registry cid rank id system index)
-                       entry-opts))
-              (range) entry-specs)
-        spans (frame-effects/derive-effect-spans registry arrangement)
-        plan (frame-graph/compile-frame-plan
-              {:arrangement arrangement :effect-spans spans
-               :forced-color-mode forced-color-mode
-               :viewport {:width canvas-size :height canvas-size
-                          :format color-format}})]
-    {:case-id case-id :registry registry :system system :rects rects
-     :arrangement arrangement :effect-spans spans :plan plan}))
-
-(defn- w4-nested-mask-case [device camera containers-buffer tracker]
-  (w4-case
-   device camera containers-buffer tracker "nested-groups-alpha-mask"
-   [[:group {:layer 1 :sibling-rank 1 :effects {:opacity 0.5}}]
-    [:inner {:parent :group :layer 1 :sibling-rank 1
-             :effects {:opacity 0.65 :isolate? true}}]
-    [:mask-group {:layer 2 :sibling-rank 2
-                  :effects {:mask :mask-source}}]
-    [:mask-source {:parent :mask-group :layer 1 :sibling-rank 1}]]
-   [[:group 8.0 8.0 64.0 64.0 [1.0 0.0 0.0 0.5] {:radius 14.0}]
-    [:group 38.0 8.0 64.0 64.0 [0.0 0.0 1.0 0.5] {:radius 14.0}]
-    [:inner 18.0 78.0 84.0 36.0 [1.0 0.72 0.0 1.0] {:radius 12.0}]
-    [:mask-group 82.0 18.0 42.0 52.0 [0.14 0.90 0.62 1.0] {:radius 4.0}]
-    [:mask-source 94.0 26.0 26.0 36.0 [1.0 1.0 1.0 0.78] {:radius 13.0}]]
-   [[:group 1 :group-red nil]
-    [:group 1 :group-blue nil]
-    [:inner 2 :nested-inner nil]
-    [:mask-group 3 :mask-content nil]
-    [:mask-source 4 :mask-source nil]]))
-
-(defn- w4-mixed-nested-case!
-  "Build the written mixed-family golden on the production family systems.
-   Image ingress deliberately completes on the legacy system before the lazy
-   linear variant is minted; the variant must therefore share its registry and
-   resources rather than create an empty second image system."
-  [device camera containers-buffer tracker font-assets text-system compositor]
-  (let [base (w4-nested-mask-case device camera containers-buffer tracker)
-        registry (:registry base)
-        effective (containers/effective registry)
-        group-slot (containers/transport-slot registry :group)
-        image-system
-        (renderer/init-image-system
-         device color-format camera containers-buffer
-         :tracker tracker :scene-color scene-tape/legacy-direct-color)
-        path-system
-        (path-gpu/init-path-system
-         device color-format camera containers-buffer
-         :tracker tracker :scene-color scene-tape/legacy-direct-color)
-        text-api {:clone renderer/clone-text-system
-                  :update renderer/update-text-data
-                  :destroy renderer/destroy-text-system!}
-        connector-system
-        (connector-gpu/init-connector-system
-         device color-format camera containers-buffer
-         :tracker tracker :scene-color scene-tape/legacy-direct-color
-         :text-api text-api)
-        path-material
-        {:path/material-id :w4/mixed-path
-         :path/revision 1
-         :path/kind :shape
-         :path/geometry
-         {:open-width 2.0
-          :contours [{:contour/id [:w4/mixed-path :outer] :role :outer
-                      :points [[6.0 88.0] [46.0 88.0]
-                               [42.0 122.0] [10.0 118.0]]}]}
-         :path/paint (path-paint [0.94 0.28 0.86 0.92] 1.0)
-         :path/provenance {:actor :render-verifier :act :w4-mixed-golden}}
-        path-op* (assoc (path-op :w4/mixed-path path-material)
-                        :container-idx group-slot)
-        connector-vi [:w4 :mixed-connector]
-        connector-material*
-        (connector-material :w4/mixed-connector 1.0 :a :b
-                            "render-verifier" :human
-                            :color [0.16 0.96 0.88 1.0]
-                            :width 4.0)
-        connector-op* (assoc (connector-op :w4/mixed-connector
-                                           connector-material*)
-                             :container :group
-                             :container-idx group-slot
-                             :owner-vi connector-vi)
-        target-row (fn [vi bounds]
-                     {:vi vi :container :group :container-idx group-slot
-                      :bounds bounds})
-        targets {:a [(target-row [:w4 :target-a]
-                                 {:x 62.0 :y 86.0 :w 12.0 :h 12.0})]
-                 :b [(target-row [:w4 :target-b]
-                                 {:x 110.0 :y 108.0 :w 12.0 :h 12.0})]}]
-    (renderer/write-containers! device containers-buffer effective)
-    (-> (fetch-image-corpus!)
-        (.then
-         (fn [corpus]
-           (let [row (get corpus "atlas-opaque-srgb.png")]
-             (-> (renderer/register-image-source! image-system
-                                                  (:source row) (:bytes row))
-                 (.then (fn [_] row))))))
-        (.then
-         (fn [image-row]
-           (let [image-vi [:w4 :mixed-image]
-                 image-op* (assoc (image-op :w4/mixed-image
-                                            (:digest image-row)
-                                            72.0 78.0 34.0 26.0)
-                                  :container-idx group-slot)
-                 image-store {:images [image-op*]
-                              :ordered-vis [image-vi]
-                              :ops-count-by-vi {image-vi {:images 1}}
-                              :order-by-vi
-                              {image-vi {:stratum :world
-                                         :stack-path
-                                         (:stack-path (get effective :group))}}}
-                 path-vi [:w4 :mixed-path]
-                 path-store {:paths [path-op*]
-                             :ordered-vis [path-vi]
-                             :ops-count-by-vi {path-vi {:paths 1}}
-                             :order-by-vi
-                             {path-vi {:stratum :world
-                                       :stack-path
-                                       (:stack-path (get effective :group))}}}
-                 connector-store
-                 {:connectors [connector-op*]
-                  :ordered-vis [connector-vi]
-                  :ops-count-by-vi {connector-vi {:connectors 1}}
-                  :order-by-vi
-                  {connector-vi {:stratum :world
-                                 :stack-path
-                                 (:stack-path (get effective :group))}}}
-                 _ (renderer/prepare-image-frame! image-system [image-op*])
-                 _ (path-gpu/prepare-path-frame! path-system [path-op*] 1.0)
-                 _ (connector-gpu/prepare-connector-frame!
-                    connector-system [connector-op*] targets effective 1.0
-                    font-assets text-system)
-                 image-entry
-                 (-> (renderer/image-entries
-                      {:image-system image-system :store-frame image-store})
-                     first
-                     (assoc :entry/id :w4/mixed-image
-                            :material/id :w4/mixed-image
-                            :instance/id :w4/mixed-image
-                            :order (w4-order registry :group 1
-                                             :w4/mixed-image)))
-                 path-entry
-                 (-> (path-gpu/path-entries
-                      {:path-system path-system :store-frame path-store})
-                     first
-                     (assoc :entry/id :w4/mixed-path
-                            :material/id :w4/mixed-path
-                            :instance/id :w4/mixed-path
-                            :order (w4-order registry :group 1
-                                             :w4/mixed-path)))
-                 connector-entry
-                 (->> (connector-gpu/connector-entries
-                       {:store-frame connector-store
-                        :connector-system connector-system
-                        :connector-label-entry renderer/connector-label-entry})
-                      (filter #(= :render.family/connector (:family/id %)))
-                      first
-                      (#(assoc % :entry/id :w4/mixed-connector
-                                 :material/id :w4/mixed-connector
-                                 :instance/id :w4/mixed-connector
-                                 :order (w4-order registry :group 1
-                                                  :w4/mixed-connector))))
-                 base-arrangement (:arrangement base)
-                 arrangement (into (subvec base-arrangement 0 2)
-                                   (concat [image-entry path-entry connector-entry]
-                                           (subvec base-arrangement 2)))
-                 spans (frame-effects/derive-effect-spans registry arrangement)
-                 plan (frame-graph/compile-frame-plan
-                       {:arrangement arrangement :effect-spans spans
-                        :viewport {:width canvas-size :height canvas-size
-                                   :format color-format}})
-                 variant (compositor-gpu/ensure-variant-layer!
-                          compositor renderer/build-linear-variant-layer!
-                          {:format color-format :tracker tracker
-                           :camera-buffer camera
-                           :containers-buffer containers-buffer
-                           :font-assets font-assets :text-sys text-system
-                           :image-system image-system :path-system path-system
-                           :connector-system connector-system
-                           :chrome-system nil})
-                 family-census (set (map :family/id arrangement))]
-             {:nested (assoc base :arrangement arrangement
-                                  :effect-spans spans :plan plan
-                                  :mixed-family-census family-census
-                                  :image-ingress-before-variant
-                                  (get-in (renderer/image-ingress-receipt
-                                           image-system)
-                                          [:rows (:digest image-row)])
-                                  :systems {:image image-system :path path-system
-                                            :connector connector-system})
-              :variant variant}))))))
-
-(defn- w4-backdrop-case [device camera containers-buffer tracker]
-  (w4-case
-   device camera containers-buffer tracker "backdrop-blur-z0p1"
-   [[:base {:layer 0 :sibling-rank 0}]
-    [:glass {:layer 1 :sibling-rank 1
-             :effects {:backdrop-blur
-                       {:radius-world 18.0 :max-px 64.0
-                        :algorithm-version
-                        frame-effects/blur-algorithm-version}}}]]
-   [[:base 4.0 4.0 120.0 120.0 [0.08 0.18 0.42 1.0]
-     {:gradient [0.0 1.0 0.0 0.0]
-      :gradient-color2 [0.96 0.32 0.12 1.0]}]
-    [:base 14.0 16.0 28.0 96.0 [0.95 0.92 0.25 1.0] {:radius 10.0}]
-    [:base 84.0 12.0 30.0 100.0 [0.18 0.86 0.72 1.0] {:radius 10.0}]
-    [:glass 28.0 28.0 72.0 72.0 [0.82 0.92 1.0 0.28] {:radius 18.0}]]
-   [[:base 0 :backdrop-base nil]
-    [:base 0 :backdrop-stripe-a nil]
-    [:base 0 :backdrop-stripe-b nil]
-    [:glass 1 :backdrop-glass nil]]))
-
-(defn- w4-clip-case
-  [device camera containers-buffer tracker text-system font-assets]
-  (let [base (w4-case
-              device camera containers-buffer tracker "gpu-clip-rounded-text"
-              [[:clip {:layer 0 :sibling-rank 0}]
-               [:full {:layer 1 :sibling-rank 1}]]
-              [[:clip -22.0 12.0 78.0 66.0 [0.96 0.38 0.16 1.0]
-                {:radius 28.0}]
-               [:clip 72.0 12.0 78.0 66.0 [0.18 0.66 0.96 1.0]
-                {:radius 28.0}]
-               [:full 0.0 106.0 128.0 18.0 [0.28 0.88 0.48 1.0] {}]]
-              [[:clip 0 :two-clips nil]
-               [:clip 0 :clip-second-placeholder nil]
-               [:full 1 :full-after-scissor nil]]
-              :forced-color-mode :scene-color/linear)
-        system (:system base)
-        two (-> (first (:arrangement base))
-                (assoc-in [:paint :instance-count] 2)
-                (assoc-in [:paint :sub-draws]
-                          [{:clip {:x 0 :y 12 :w 42 :h 66}
-                            :container :clip :buffer (:instance-buffer system)
-                            :vertex-count 6 :instance-count 1
-                            :first-vertex 0 :first-instance 0}
-                           {:clip {:mode :mask
-                                   :points [[88.0 18.0] [128.0 28.0]
-                                            [118.0 78.0] [78.0 68.0]]}
-                            :container :clip :buffer (:instance-buffer system)
-                            :vertex-count 6 :instance-count 1
-                            :first-vertex 0 :first-instance 1}]))
-        full (nth (:arrangement base) 2)
-        text-system
-        (renderer/update-text-data
-         device text-system
-         [[{:text "smooth clipping edge" :x 36.0 :y 96.0
-            :r 1.0 :g 1.0 :b 1.0 :a 1.0
-            :container-idx (containers/transport-slot (:registry base) :clip)}]]
-         font-assets 22.0 :char-width 0.56)
-        text-entry
-        {:entry/id :clip-text :material/id :clip-text :material/revision 1
-         :instance/id :clip-text
-         :family/id (scene-tape/text-family-id (:backend text-system))
-         :order (w4-order (:registry base) :clip 0 :clip-text)
-         :paint {:pipeline (:pipeline text-system)
-                 :bind-group (:bind-group text-system)
-                 :buffer (:instance-buffer text-system)
-                 :vertex-count 6 :instance-count (:num-instances text-system)
-                 :first-vertex 0 :first-instance 0
-                 :sub-draws [{:clip {:x 0 :y 78 :w 64 :h 28}
-                              :container :clip
-                              :buffer (:instance-buffer text-system)
-                              :vertex-count 6
-                              :instance-count (:num-instances text-system)
-                              :first-vertex 0 :first-instance 0}]}
-         :pick {:geometry :layout-cluster :owner :clip-text}
-         :visibility {:visible? true :clip :frame-shared}}
-        arrangement [two text-entry full]
-        plan (frame-graph/compile-frame-plan
-              {:arrangement arrangement :effect-spans []
-               :forced-color-mode :scene-color/linear
-               :viewport {:width canvas-size :height canvas-size
-                          :format color-format}})]
-    (assoc base :arrangement arrangement :plan plan
-                :text-system text-system)))
-
-(defn- w4-gradient-case [device camera containers-buffer tracker]
-  (w4-case
-   device camera containers-buffer tracker "linear-gradient-midpoint"
-   [[:gradient {:layer 0 :sibling-rank 0}]]
-   [[:gradient 0.0 0.0 128.0 128.0 [0.0 0.0 0.0 1.0]
-     {:gradient [0.0 1.0 0.0 0.0]
-      :gradient-color2 [1.0 1.0 1.0 1.0]}]]
-   [[:gradient 0 :gradient nil]]
-   :forced-color-mode :scene-color/linear))
-
-(defn- w4-group-oracle [bytes]
-  (let [[r g b a-byte] (pixel-rgba bytes 52 36)
-        alpha (/ a-byte 255.0)
-        decode (fn [byte]
-                 (if (pos? alpha)
-                   (* alpha (srgb->linear
-                             (min 255 (js/Math.round (/ byte alpha)))))
-                   0.0))
-        actual [(decode r) (decode g) (decode b) alpha]
-        correct (frame-effects/composite-group
-                 [[0.5 0.0 0.0 0.5] [0.0 0.0 0.5 0.5]]
-                 {:opacity 0.5})
-        wrong (frame-effects/source-over
-               (frame-effects/apply-group-opacity [0.0 0.0 0.5 0.5] 0.5)
-               (frame-effects/apply-group-opacity [0.5 0.0 0.0 0.5] 0.5))
-        deltas (mapv #(js/Math.abs (- %1 %2)) actual correct)
-        epsilon (/ 2.0 255.0)
-        wrong-margin (apply max (map #(js/Math.abs (- %1 %2)) correct wrong))]
-    {:sample [52 36] :actual-linear-premult actual :reference correct
-     :max-channel-delta (apply max deltas) :epsilon epsilon
-     :per-child-wrong-margin wrong-margin
-     :pass? (and (<= (apply max deltas) epsilon)
-                 (> wrong-margin (* 4.0 epsilon)))}))
-
-(defn- max-byte-delta [left right]
-  (loop [index 0 maximum 0]
-    (if (< index (min (.-length left) (.-length right)))
-      (recur (inc index)
-             (max maximum
-                  (js/Math.abs (- (aget left index) (aget right index)))))
-      maximum)))
-
-(defn- straight-alpha-sample [[r g b a]]
-  (if (zero? a)
-    [0 0 0 0]
-    (let [scale (/ 255.0 a)]
-      [(min 255 (js/Math.round (* r scale)))
-       (min 255 (js/Math.round (* g scale)))
-       (min 255 (js/Math.round (* b scale)))
-       a])))
-
-(defn- w4-direct-capture! [^js device entry width height]
-  (let [^js texture (.createTexture
-                 device
-                 (clj->js {:size {:width width :height height
-                                  :depthOrArrayLayers 1}
-                           :format color-format
-                           :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
-                                          js/GPUTextureUsage.COPY_SRC)}))
-        ^js encoder (.createCommandEncoder device)
-        ^js pass (.beginRenderPass
-              encoder
-              (clj->js {:colorAttachments
-                        [{:view (.createView texture)
-                          :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 0.0}
-                          :loadOp "clear" :storeOp "store"}]}))]
-    (renderer/execute-frame-entry! pass entry [width height])
-    (.end pass)
-    (.submit (.-queue device) #js [(.finish encoder)])
-    (-> (w4-read-texture! device texture width height)
-        (.then (fn [bytes] (.destroy texture) bytes)))))
-
-(defn- w4-copy-present-capture! [^js device entry width height]
-  (let [size {:width width :height height :depthOrArrayLayers 1}
-        ^js source (.createTexture
-                    device
-                    (clj->js {:size size :format color-format
-                              :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
-                                             js/GPUTextureUsage.COPY_SRC)}))
-        ^js destination (.createTexture
-                         device
-                         (clj->js {:size size :format color-format
-                                   :usage (bit-or js/GPUTextureUsage.COPY_DST
-                                                  js/GPUTextureUsage.COPY_SRC)}))
-        ^js encoder (.createCommandEncoder device)
-        ^js pass (.beginRenderPass
-                  encoder
-                  (clj->js {:colorAttachments
-                            [{:view (.createView source)
-                              :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 0.0}
-                              :loadOp "clear" :storeOp "store"}]}))]
-    (renderer/execute-frame-entry! pass entry [width height])
-    (.end pass)
-    (compositor-gpu/copy-present! device encoder source destination width height)
-    (.submit (.-queue device) #js [(.finish encoder)])
-    (-> (w4-read-texture! device destination width height)
-        (.then (fn [bytes]
-                 (.destroy source)
-                 (.destroy destination)
-                 bytes)))))
-
-(defn- w4-secondary-receipts!
-  [device compositor variant camera containers-buffer tracker]
-  (let [rgba [0.20 0.60 0.90 1.0]
-        direct (w4-case
-                device camera containers-buffer tracker "direct-linear"
-                [[:solid {:layer 0 :sibling-rank 0}]]
-                [[:solid 20.0 20.0 88.0 88.0 rgba {:radius 12.0}]]
-                [[:solid 0 :solid nil]]
-                :forced-color-mode :scene-color/linear)
-        isolate (w4-case
-                 device camera containers-buffer tracker "isolated-one"
-                 [[:solid {:layer 0 :sibling-rank 0
-                            :effects {:isolate? true :opacity 1.0}}]]
-                 [[:solid 20.0 20.0 88.0 88.0 rgba {:radius 12.0}]]
-                 [[:solid 0 :solid nil]])
-        zero (w4-case
-              device camera containers-buffer tracker "opacity-zero"
-              [[:zero {:layer 0 :sibling-rank 0 :effects {:opacity 0.0}}]]
-              [[:zero 20.0 20.0 88.0 88.0 rgba {:radius 12.0}]]
-              [[:zero 0 :zero nil]])
-        split (w4-case
-               device camera containers-buffer tracker "split-span"
-               [[:split {:layer 0 :sibling-rank 0
-                         :effects {:opacity 0.5}}]
-                [:between {:layer 1 :sibling-rank 1}]]
-               [[:split 20.0 20.0 88.0 88.0 [0.90 0.12 0.18 1.0] {}]
-                [:between 20.0 20.0 88.0 88.0 [0.12 0.86 0.26 1.0] {}]
-                [:split 20.0 20.0 88.0 88.0 [0.12 0.28 0.96 1.0] {}]]
-               [[:split 0 :split-a nil]
-                [:between 1 :between nil]
-                [:split 2 :split-b nil]])
-        split-reference
-        (w4-case
-         device camera containers-buffer tracker "split-span-reference"
-         [[:split-a {:layer 0 :sibling-rank 0 :effects {:opacity 0.5}}]
-          [:between {:layer 1 :sibling-rank 1}]
-          [:split-b {:layer 2 :sibling-rank 2 :effects {:opacity 0.5}}]]
-         [[:split-a 20.0 20.0 88.0 88.0 [0.90 0.12 0.18 1.0] {}]
-          [:between 20.0 20.0 88.0 88.0 [0.12 0.86 0.26 1.0] {}]
-          [:split-b 20.0 20.0 88.0 88.0 [0.12 0.28 0.96 1.0] {}]]
-         [[:split-a 0 :split-a nil]
-          [:between 1 :between nil]
-          [:split-b 2 :split-b nil]])
-        export-case
-        (w4-case
-         device camera containers-buffer tracker "world-with-overlay"
-         [[:export {:layer 0 :sibling-rank 0}]]
-         [[:export 20.0 20.0 88.0 88.0 rgba {:radius 12.0}]
-          [:export 20.0 20.0 88.0 88.0 [1.0 0.0 0.0 1.0] {:radius 12.0}]]
-         [[:export 0 :export-world nil]
-          [:export 1 :export-overlay
-           {:order (assoc (w4-order (:registry direct) :solid 1 :export-overlay)
-                          :stratum :overlay)}]]
-         :forced-color-mode :scene-color/linear)
-        direct-effective (containers/effective (:registry direct))
-        isolate-effective (containers/effective (:registry isolate))
-        zero-effective (containers/effective (:registry zero))
-        split-effective (containers/effective (:registry split))
-        split-reference-effective
-        (containers/effective (:registry split-reference))
-        export-effective (containers/effective (:registry export-case))]
-    (-> (w4-direct-capture! device (first (:arrangement direct))
-                             canvas-size canvas-size)
-        (.then
-         (fn [legacy-bytes]
-           (-> (js/Promise.all
-                #js [(w4-copy-present-capture!
-                      device (first (:arrangement direct))
-                      canvas-size canvas-size)
-                     (w4-capture! device compositor variant (:arrangement direct)
-                                  (:effect-spans direct) (:plan direct)
-                                  canvas-size canvas-size
-                                  :effective-transforms direct-effective)
-                     (w4-capture! device compositor variant (:arrangement split)
-                                  (:effect-spans split) (:plan split)
-                                  canvas-size canvas-size
-                                  :effective-transforms split-effective)
-                     (w4-capture! device compositor variant
-                                  (:arrangement split-reference)
-                                  (:effect-spans split-reference)
-                                  (:plan split-reference)
-                                  canvas-size canvas-size
-                                  :effective-transforms
-                                  split-reference-effective)])
-               (.then
-                (fn [direct-values]
-                  (let [copy-bytes (aget direct-values 0)
-                        linear-bytes (aget direct-values 1)
-                        split-bytes (aget direct-values 2)
-                        split-reference-bytes (aget direct-values 3)
-                        split-delta (max-byte-delta split-bytes
-                                                    split-reference-bytes)]
-                    (-> (w4-capture! device compositor variant
-                                   (:arrangement isolate)
-                                   (:effect-spans isolate) (:plan isolate)
-                                   canvas-size canvas-size
-                                   :effective-transforms isolate-effective)
-                      (.then
-                       (fn [isolate-bytes]
-                         (-> (w4-capture! device compositor variant
-                                          (:arrangement zero)
-                                          (:effect-spans zero) (:plan zero)
-                                          canvas-size canvas-size
-                                          :effective-transforms zero-effective)
-                             (.then
-                              (fn [zero-bytes]
-                                (-> (compositor-gpu/export-viewport!
-                                     compositor
-                                     {:arrangement (:arrangement export-case)
-                                      :effect-spans (:effect-spans export-case)
-                                      :variant variant
-                                      :execute-entry!
-                                      renderer/execute-frame-entry!
-                                      :width canvas-size :height canvas-size
-                                      :effective-transforms export-effective})
-                                    (.then
-                                     (fn [export-result]
-                                       (let [equivalence-delta
-                                             (max-byte-delta linear-bytes
-                                                             isolate-bytes)
-                                             legacy-sample
-                                             (pixel-rgba legacy-bytes 64 64)
-                                             linear-sample
-                                             (pixel-rgba linear-bytes 64 64)
-                                             export-sample
-                                             (pixel-rgba (:rgba export-result)
-                                                         64 64)
-                                             transfer-delta
-                                             (apply max
-                                                    (map #(js/Math.abs (- %1 %2))
-                                                         legacy-sample
-                                                         linear-sample))
-                                             copy-delta
-                                             (max-byte-delta legacy-bytes copy-bytes)
-                                             export-delta
-                                             (apply max
-                                                    (map #(js/Math.abs (- %1 %2))
-                                                         (straight-alpha-sample
-                                                          legacy-sample)
-                                                         export-sample))
-                                             zero-sample
-                                             (pixel-rgba zero-bytes 64 64)
-                                             pick-count
-                                             (count (filter :pick
-                                                            (:arrangement zero)))
-                                             refusal-pool
-                                             (compositor-gpu/create-target-pool
-                                              device tracker
-                                              :budget-cap-bytes 1)
-                                             refused?
-                                             (try
-                                               (compositor-gpu/acquire-target!
-                                                refusal-pool "rgba16float" 2 2
-                                                "w4/budget-refusal-probe")
-                                               false
-                                               (catch :default _ true))
-                                             refusal-receipt
-                                             (compositor-gpu/target-pool-receipt
-                                              refusal-pool)
-                                             _ (compositor-gpu/destroy-target-pool!
-                                                refusal-pool)
-                                             epsilon 2]
-                                         {:group-equivalence
-                                          {:max-byte-delta equivalence-delta
-                                           :epsilon epsilon
-                                           :pass? (<= equivalence-delta epsilon)}
-                                          :transfer
-                                          {:legacy-sample legacy-sample
-                                           :linear-sample linear-sample
-                                           :legacy-straight-sample
-                                           (straight-alpha-sample legacy-sample)
-                                           :export-straight-sample export-sample
-                                           :legacy-to-linear-max-byte-delta
-                                           transfer-delta
-                                           :direct-to-copy-present-max-byte-delta
-                                           copy-delta
-                                           :legacy-to-export-sample-delta
-                                           export-delta
-                                           :epsilon epsilon
-                                           :pass? (and (<= transfer-delta epsilon)
-                                                       (zero? copy-delta)
-                                                       (<= export-delta epsilon))}
-                                          :opacity-zero
-                                          {:paint-sample zero-sample
-                                           :pickable-census pick-count
-                                           :pass? (and (= [0 0 0 0] zero-sample)
-                                                       (= 1 pick-count))}
-                                          :split-span-forward-order
-                                          {:ranges (get-in split
-                                                           [:effect-spans 0
-                                                            :entry-ranges])
-                                           :reference :two-independent-groups
-                                           :max-byte-delta split-delta
-                                           :pass? (zero? split-delta)}
-                                          :export-overlay
-                                          {:metadata (:metadata export-result)
-                                           :world-sample (pixel-rgba
-                                                          (:rgba export-result)
-                                                          64 64)
-                                           :pass? (and (= 1
-                                                          (get-in export-result
-                                                                  [:metadata
-                                                                   :entry-count]))
-                                                       (<= export-delta epsilon))}
-                                          :budget-refusal
-                                          {:receipt refusal-receipt
-                                           :pass? (and refused?
-                                                       (= "w4/budget-refusal-probe"
-                                                          (get-in refusal-receipt
-                                                                  [:refusals 0
-                                                                   :requested-by])))}
-                                          :pass?
-                                          (and (<= equivalence-delta epsilon)
-                                               (<= transfer-delta epsilon)
-                                               (zero? copy-delta)
-                                               (<= export-delta epsilon)
-                                               (zero? split-delta)
-                                               (= [0 0 0 0] zero-sample)
-                                               (= 1 pick-count)
-                                               refused?)})))))))))))))))))))
-
-(defn- w4-case-image [case-id pair & [zoom]]
-  {:case-id case-id :zoom (or zoom 1.0) :regime "swiftshader-verifier"
-   :normalization "linear-premultiplied-group-frame"
-   :shape-extent-world 128.0
-   :images [{:mode case-id
-             :file (str "gpu-w4-frame-" case-id ".png")
-             :raw-sha256 (:first-sha256 pair)
-             :png-data-url (opaque-png-data-url (:bytes pair))
-             :determinism {:first-raw-sha256 (:first-sha256 pair)
-                           :second-raw-sha256 (:second-sha256 pair)
-                           :byte-identical? (:byte-identical? pair)}}]})
-
-(defn- run-w4-frame-runtime! [device adapter font-assets]
-  (let [runtime-before (aget js/globalThis "__softlandFrameRuntimeReceipt")
-        dark-lane {:flag-off? (not (frame-runtime/flag-enabled-search? ""))
-                   :no-receipt-before? (nil? runtime-before)
-                   :no-export-provider-before?
-                   (nil? (aget js/globalThis "__softlandFrameCompositor"))}
-        felt-fixtures (frame-runtime/felt-fixture-receipt)
-        felt-fixtures-pass?
-        (and (= 14 (:opacity-underlay-stripes felt-fixtures))
-             (= 2 (:opacity-underlay-colors felt-fixtures))
-             (:backdrop-overlaps-detail? felt-fixtures)
-             (<= 2 (count (:backdrop-detail-boundaries felt-fixtures)))
-             (every? #(< -10.0 % -1.0)
-                     (:clip-text-overhangs felt-fixtures))
-             (= ["partial glyph" "second clip"]
-                (:clip-labels felt-fixtures)))
-        tracker (gpu-budget/create-tracker
-                 (gpu-budget/snapshot-adapter-limits adapter))
-        camera (renderer/create-camera-buffer device tracker)
-        containers-buffer (renderer/create-containers-buffer device tracker)
-        compositor (compositor-gpu/create-compositor!
-                    device color-format tracker)
-        text-system (renderer/init-text-system
-                     device color-format camera font-assets
-                     :initial-capacity 64 :tracker tracker
-                     :containers-buffer containers-buffer)]
-    (-> (w4-mixed-nested-case!
-         device camera containers-buffer tracker font-assets text-system
-         compositor)
-        (.then
-         (fn [{:keys [nested variant]}]
-           (renderer/update-camera device camera (js/Float32Array. 6)
-                                   0.0 0.0 1.0 canvas-size canvas-size)
-           (-> (w4-capture-pair! device compositor variant (:arrangement nested)
-                           (:effect-spans nested) (:plan nested)
-                           :effective-transforms
-                           (containers/effective (:registry nested)))
-        (.then
-         (fn [nested-pair]
-           (let [backdrop (w4-backdrop-case device camera containers-buffer tracker)
-                 backdrop-start (js/performance.now)]
-             (renderer/update-camera device camera (js/Float32Array. 6)
-                                     0.0 0.0 0.1 canvas-size canvas-size)
-             (-> (w4-capture-pair! device compositor variant
-                                    (:arrangement backdrop)
-                                    (:effect-spans backdrop) (:plan backdrop)
-                                    :zoom 0.1
-                                    :effective-transforms
-                                    (containers/effective (:registry backdrop)))
-                 (.then
-                  (fn [backdrop-pair]
-                    (let [backdrop-receipt
-                          (compositor-gpu/compositor-receipt compositor)
-                          backdrop-elapsed-ms (- (js/performance.now)
-                                                 backdrop-start)
-                          _ (renderer/update-camera
-                             device camera (js/Float32Array. 6)
-                             0.0 0.0 1.0 canvas-size canvas-size)
-                          clip (w4-clip-case device camera containers-buffer tracker
-                                             text-system font-assets)]
-                      (-> (w4-capture-pair! device compositor variant
-                                            (:arrangement clip)
-                                            (:effect-spans clip) (:plan clip)
-                                            :effective-transforms
-                                            (containers/effective (:registry clip)))
-                          (.then
-                           (fn [clip-pair]
-                             (let [gradient (w4-gradient-case
-                                             device camera containers-buffer tracker)]
-                               (-> (w4-capture! device compositor variant
-                                                (:arrangement gradient)
-                                                (:effect-spans gradient)
-                                                (:plan gradient)
-                                                canvas-size canvas-size
-                                                :effective-transforms
-                                                (containers/effective
-                                                 (:registry gradient)))
-                                   (.then
-                                    (fn [gradient-bytes]
-                                      (let [gradient-rgba
-                                            (pixel-rgba gradient-bytes 64 64)
-                                            gradient-expected
-                                            (linear->srgb-byte 0.5)
-                                            gradient-delta
-                                            (js/Math.abs
-                                             (- (first gradient-rgba)
-                                                gradient-expected))
-                                            scissor-full
-                                            (pixel-rgba (:bytes clip-pair) 12 114)
-                                            general-mask-inside
-                                            (pixel-rgba (:bytes clip-pair) 105 50)
-                                            general-mask-outside
-                                            (pixel-rgba (:bytes clip-pair) 125 60)
-                                            glyph-probe
-                                            (apply max
-                                                   (for [y (range 80 105)
-                                                         x (range 58 64)]
-                                                     (apply max
-                                                            (take 3
-                                                                  (pixel-rgba
-                                                                   (:bytes clip-pair)
-                                                                   x y)))))
-                                            scissor-pass?
-                                            (and (> (nth scissor-full 1) 150)
-                                                 (> glyph-probe 150)
-                                                 (> (nth general-mask-inside 2) 120)
-                                                 (< (apply max general-mask-outside) 10))
-                                            mask-inside
-                                            (pixel-rgba (:bytes nested-pair) 107 44)
-                                            mask-outside
-                                            (pixel-rgba (:bytes nested-pair) 118 20)
-                                            mask-soft-alpha
-                                            (apply max
-                                                   (for [y (range 26 42)
-                                                         x (range 94 108)
-                                                         :let [alpha (nth
-                                                                      (pixel-rgba
-                                                                       (:bytes
-                                                                        nested-pair)
-                                                                       x y)
-                                                                      3)]
-                                                         :when (< 0 alpha
-                                                                  (nth mask-inside 3))]
-                                                     alpha))
-                                            mask-pass?
-                                            (and (<= (js/Math.abs
-                                                      (- 199
-                                                         (nth mask-inside 3)))
-                                                     4)
-                                                 (> (nth mask-inside 1)
-                                                    (nth mask-inside 0))
-                                                 (= [0 0 0 0] mask-outside)
-                                                 (< 0 mask-soft-alpha
-                                                    (nth mask-inside 3)))
-                                            pool (:target-pool compositor)
-                                            pool-before
-                                            (compositor-gpu/target-pool-receipt pool)]
-                                        (dotimes [_ 100]
-                                          (let [target
-                                                (compositor-gpu/acquire-target!
-                                                 pool "rgba16float" 17 19
-                                                 "w4/recycle-probe")]
-                                            (compositor-gpu/release-target! pool target)))
-                                        (let [pool-after
-                                              (compositor-gpu/target-pool-receipt pool)
-                                              four-k-live-bytes
-                                              (* (:high-water-leased pool-after)
-                                                 3840 2160 8)
-                                              four-k-bounded?
-                                              (and (<= (:high-water-leased
-                                                        pool-after)
-                                                       5)
-                                                   (<= four-k-live-bytes
-                                                       (:budget-cap-bytes
-                                                        pool-after)))
-                                              region-reserve-pool
-                                              (compositor-gpu/create-target-pool
-                                               device tracker
-                                               :budget-cap-bytes
-                                               (* 4 1024 1024))
-                                              region-reserve-compositor
-                                              {:target-pool region-reserve-pool
-                                               :!region-leases (atom {})
-                                               :!retired-region-targets (atom [])
-                                               :!receipt (atom {})}
-                                              frame-reserve
-                                              (compositor-gpu/acquire-target!
-                                               region-reserve-pool
-                                               "rgba16float" 512 256
-                                               "frame/group-output/reserve-probe")
-                                              _frame-reserve-released
-                                              (compositor-gpu/release-target!
-                                               region-reserve-pool frame-reserve)
-                                              _reserve-epoch
-                                              (compositor-gpu/bump-frame-epoch!
-                                               region-reserve-pool)
-                                              region-refusal
-                                              (compositor-gpu/acquire-region-lease!
-                                               region-reserve-compositor
-                                               "reserve-probe" 256 256 false)
-                                              reserve-after-refusal
-                                              (compositor-gpu/target-pool-receipt
-                                               region-reserve-pool)
-                                              optional-refused?
-                                              (try
-                                                (compositor-gpu/acquire-target!
-                                                 region-reserve-pool
-                                                 "rgba16float" 1024 385
-                                                 "frame/optional-reserve-probe"
-                                                 :reclaim-free? false)
-                                                false
-                                                (catch :default _ true))
-                                              reserve-after-optional
-                                              (compositor-gpu/target-pool-receipt
-                                               region-reserve-pool)
-                                              frame-reserve-reused
-                                              (compositor-gpu/acquire-target!
-                                               region-reserve-pool
-                                               "rgba16float" 512 256
-                                               "frame/group-output/reserve-probe")
-                                              reserve-after-reuse
-                                              (compositor-gpu/target-pool-receipt
-                                               region-reserve-pool)
-                                              region-reserve-preserved?
-                                              (and (:refused? region-refusal)
-                                                   optional-refused?
-                                                   (= (* 512 256 8)
-                                                      (:reserved-bytes
-                                                       reserve-after-refusal))
-                                                   (= (:reserved-bytes
-                                                       reserve-after-refusal)
-                                                      (:reserved-bytes
-                                                       reserve-after-optional))
-                                                   (= 1 (:free
-                                                         reserve-after-refusal))
-                                                   (= 1 (:reuses
-                                                         reserve-after-reuse))
-                                                   (zero? (:destroyed
-                                                            reserve-after-reuse))
-                                                   (= "region3d/reserve-probe/lease"
-                                                      (get-in reserve-after-refusal
-                                                              [:refusals 0
-                                                               :requested-by]))
-                                                   (= "frame/optional-reserve-probe"
-                                                      (get-in reserve-after-optional
-                                                              [:refusals 1
-                                                               :requested-by])))
-                                              _frame-reserve-reused-released
-                                              (compositor-gpu/release-target!
-                                               region-reserve-pool
-                                               frame-reserve-reused)
-                                              _region-reserve-pool-destroyed
-                                              (compositor-gpu/destroy-target-pool!
-                                               region-reserve-pool)
-                                              resize-pool
-                                              (compositor-gpu/create-target-pool
-                                               device tracker
-                                               :budget-cap-bytes 80)
-                                              resize-old
-                                              (compositor-gpu/acquire-target!
-                                               resize-pool "rgba16float" 2 2
-                                               "w4/resize-old")
-                                              _resize-old-released
-                                              (compositor-gpu/release-target!
-                                               resize-pool resize-old)
-                                              resize-new
-                                              (compositor-gpu/acquire-target!
-                                               resize-pool "rgba16float" 3 3
-                                               "w4/resize-new")
-                                              resize-receipt
-                                              (compositor-gpu/target-pool-receipt
-                                               resize-pool)
-                                              resize-reclaimed?
-                                              (and (= 1 (:destroyed
-                                                         resize-receipt))
-                                                   (= 72 (:reserved-bytes
-                                                          resize-receipt))
-                                                   (empty? (:refusals
-                                                            resize-receipt)))
-                                              _resize-new-released
-                                              (compositor-gpu/release-target!
-                                               resize-pool resize-new)
-                                              _resize-pool-destroyed
-                                              (compositor-gpu/destroy-target-pool!
-                                               resize-pool)
-                                              pool-pass?
-                                              (and
-                                               (= (inc (:allocations pool-before))
-                                                  (:allocations pool-after))
-                                               four-k-bounded?
-                                               region-reserve-preserved?
-                                               resize-reclaimed?)
-                                              export-once
-                                              #(compositor-gpu/export-viewport!
-                                                compositor
-                                                {:arrangement (:arrangement clip)
-                                                 :effect-spans [] :variant variant
-                                                 :execute-entry!
-                                                 renderer/execute-frame-entry!
-                                                 :width 127 :height 73})]
-                                          (-> (export-once)
-                                              (.then
-                                               (fn [export-a]
-                                                 (-> (export-once)
-                                                     (.then
-                                                      (fn [export-b]
-                                                        (-> (js/Promise.all
-                                                             #js [(sha256-bytes
-                                                                   (:bytes export-a))
-                                                                  (sha256-bytes
-                                                                   (:bytes export-b))
-                                                                  (w4-secondary-receipts!
-                                                                   device compositor variant
-                                                                   camera containers-buffer
-                                                                   tracker)])
-                                                            (.then
-                                                             (fn [hashes]
-                                                               (let [export
-                                                                     {:first-sha256
-                                                                      (aget hashes 0)
-                                                                      :second-sha256
-                                                                      (aget hashes 1)
-                                                                      :byte-identical?
-                                                                      (= (aget hashes 0)
-                                                                         (aget hashes 1))
-                                                                      :metadata
-                                                                      (:metadata export-a)
-                                                                      :pass?
-                                                                      (and (= (aget hashes 0)
-                                                                              (aget hashes 1))
-                                                                           (= 512
-                                                                              (get-in export-a
-                                                                                      [:metadata :bytes-per-row])))}
-                                                                     secondary
-                                                                     (aget hashes 2)
-                                                                     scheduler-rows
-                                                                     [{:time 0 :causes [:world]
-                                                                       :plan-hash
-                                                                       (get-in nested
-                                                                               [:plan :plan/hash])}
-                                                                      {:time 16 :causes []
-                                                                       :plan-hash
-                                                                       (get-in nested
-                                                                               [:plan :plan/hash])}
-                                                                      {:time 34 :causes [:clock]
-                                                                       :plan-hash
-                                                                       (get-in nested
-                                                                               [:plan :plan/hash])}]
-                                                                     replay-a
-                                                                     (frame-scheduler/replay
-                                                                      scheduler-rows {})
-                                                                     replay-b
-                                                                     (frame-scheduler/replay
-                                                                      scheduler-rows {})
-                                                                     scheduler
-                                                                     (let [replay-time
-                                                                           (:time
-                                                                            (last
-                                                                             (:decisions
-                                                                              replay-a)))
-                                                                           pulse-a
-                                                                           (js/Math.round
-                                                                            (* 255
-                                                                               (frame-scheduler/pulse-alpha
-                                                                                replay-time true)))
-                                                                           pulse-b
-                                                                           (js/Math.round
-                                                                            (* 255
-                                                                               (frame-scheduler/pulse-alpha
-                                                                                replay-time true)))]
-                                                                       {:replay-identical?
-                                                                      (= replay-a replay-b)
-                                                                      :decisions
-                                                                      (mapv :encode?
-                                                                            (:decisions replay-a))
-                                                                      :replayed-pulse-bytes
-                                                                      [pulse-a pulse-b]
-                                                                      :replayed-pixels-identical?
-                                                                      (= pulse-a pulse-b)
-                                                                      :pass?
-                                                                      (and (= replay-a replay-b)
-                                                                           (= pulse-a pulse-b)
-                                                                           (= [true false true]
-                                                                              (mapv :encode?
-                                                                                    (:decisions replay-a))))})
-                                                                     alias-pass?
-                                                                     (every?
-                                                                      (fn [pass]
-                                                                        (empty?
-                                                                         (clojure.set/intersection
-                                                                          (set (map :resource (:reads pass)))
-                                                                          (set (keep :resource
-                                                                                     (vals (:attachments pass)))))))
-                                                                      (:passes (:plan backdrop)))
-                                                                     oracle
-                                                                     (w4-group-oracle
-                                                                      (:bytes nested-pair))
-                                                                     blur-projections
-                                                                     (:blur-projections
-                                                                      backdrop-receipt)
-                                                                     blur-pass?
-                                                                     (and (= 1
-                                                                             (count
-                                                                              blur-projections))
-                                                                          (<= (js/Math.abs
-                                                                               (- 1.8
-                                                                                  (:radius-px
-                                                                                   (first
-                                                                                    blur-projections))))
-                                                                              0.0001)
-                                                                          (= :projected-world-radius
-                                                                             (:regime
-                                                                              (first
-                                                                               blur-projections))))
-                                                                     mixed-family-pass?
-                                                                     (and (= #{:render.family/rect
-                                                                               :render.family/image
-                                                                               :render.family/path
-                                                                               :render.family/connector}
-                                                                             (:mixed-family-census
-                                                                              nested))
-                                                                          (= :ok
-                                                                             (get-in nested
-                                                                                     [:image-ingress-before-variant
-                                                                                      :status])))
-                                                                     cases
-                                                                     [(w4-case-image
-                                                                       (:case-id nested)
-                                                                       nested-pair)
-                                                                      (w4-case-image
-                                                                       (:case-id backdrop)
-                                                                       backdrop-pair 0.1)
-                                                                      (w4-case-image
-                                                                       (:case-id clip)
-                                                                       clip-pair)]
-                                                                     receipt-before-destroy
-                                                                     (compositor-gpu/compositor-receipt
-                                                                      compositor)
-                                                                     pass?
-                                                                     (and (every?
-                                                                           :byte-identical?
-                                                                           [nested-pair backdrop-pair
-                                                                            clip-pair])
-                                                                          (:pass? oracle)
-                                                                          mask-pass?
-                                                                          (<= gradient-delta 4)
-                                                                          scissor-pass?
-                                                                          pool-pass?
-                                                                          (:pass? export)
-                                                                          (:pass? scheduler)
-                                                                          (:pass? secondary)
-                                                                          blur-pass?
-                                                                          mixed-family-pass?
-                                                                          felt-fixtures-pass?
-                                                                          (every? true?
-                                                                                  (vals dark-lane))
-                                                                          alias-pass?)]
-                                                                 (compositor-gpu/destroy-compositor!
-                                                                  compositor)
-                                                                 {:cases cases
-                                                                  :adapter
-                                                                  (adapter-information adapter)
-                                                                  :composite oracle
-                                                                  :mixed-content
-                                                                  {:families
-                                                                   (:mixed-family-census nested)
-                                                                   :image-ingress-before-variant
-                                                                   (:image-ingress-before-variant nested)
-                                                                   :pass? mixed-family-pass?}
-                                                                  :felt-fixtures
-                                                                  (assoc felt-fixtures
-                                                                         :pass?
-                                                                         felt-fixtures-pass?)
-                                                                  :mask
-                                                                  {:inside mask-inside
-                                                                   :outside mask-outside
-                                                                   :soft-edge-alpha
-                                                                   mask-soft-alpha
-                                                                   :expected-inside-alpha 199
-                                                                   :mask-source-normal-paint?
-                                                                   false
-                                                                   :pass? mask-pass?}
-                                                                  :gradient
-                                                                  {:sample [64 64]
-                                                                   :actual gradient-rgba
-                                                                   :expected-encoded
-                                                                   gradient-expected
-                                                                   :decode-after-mix-sentinel 128
-                                                                   :max-byte-delta
-                                                                   gradient-delta
-                                                                   :pass? (<= gradient-delta 4)}
-                                                                  :clip
-                                                                  {:full-after-scissor
-                                                                   scissor-full
-                                                                   :partial-glyph-probe
-                                                                   glyph-probe
-                                                                   :general-mask-inside
-                                                                   general-mask-inside
-                                                                   :general-mask-outside
-                                                                   general-mask-outside
-                                                                   :per-op-clips 2
-                                                                   :pass? scissor-pass?}
-                                                                  :aliasing
-                                                                  {:declared-snapshot-edge? true
-                                                                   :no-read-write-alias?
-                                                                   alias-pass?
-                                                                   :pass? alias-pass?}
-                                                                  :blur
-                                                                  {:zoom 0.1
-                                                                   :regime :swiftshader-verifier
-                                                                   :elapsed-ms
-                                                                   backdrop-elapsed-ms
-                                                                   :adapter (adapter-information
-                                                                             adapter)
-                                                                   :projections blur-projections
-                                                                   :pass? blur-pass?}
-                                                                  :pool
-                                                                  (assoc pool-after
-                                                                         :steady-100?
-                                                                         (= (inc (:allocations
-                                                                                   pool-before))
-                                                                            (:allocations
-                                                                             pool-after))
-                                                                         :four-k-live-bytes
-                                                                         four-k-live-bytes
-                                                                         :four-k-bounded?
-                                                                         four-k-bounded?
-                                                                         :region-reserve-receipt
-                                                                         reserve-after-refusal
-                                                                         :optional-reserve-receipt
-                                                                         reserve-after-optional
-                                                                         :region-reserve-preserved?
-                                                                         region-reserve-preserved?
-                                                                         :resize-receipt
-                                                                         resize-receipt
-                                                                         :resize-reclaimed?
-                                                                         resize-reclaimed?
-                                                                         :destroyed-receipt
-                                                                         (compositor-gpu/target-pool-receipt
-                                                                          pool)
-                                                                         :pass? pool-pass?)
-                                                                  :formats
-                                                                  {:intermediate "rgba16float"
-                                                                   :present color-format
-                                                                   :transfer :linear-to-srgb-once
-                                                                   :alpha-association
-                                                                   :premultiplied
-                                                                   :regime :swiftshader-verifier
-                                                                   :adapter (adapter-information
-                                                                             adapter)
-                                                                   :resource-contracts
-                                                                   (into {}
-                                                                         (map (fn [[id row]]
-                                                                                [id (select-keys
-                                                                                     row
-                                                                                     [:format
-                                                                                      :working-space
-                                                                                      :alpha-association
-                                                                                      :lifetime
-                                                                                      :budget-owner])]))
-                                                                         (get-in backdrop
-                                                                                 [:plan
-                                                                                  :resources]))
-                                                                   :pass? true}
-                                                                  :export export
-                                                                  :scheduler scheduler
-                                                                  :secondary secondary
-                                                                  :dark-lane
-                                                                  (assoc dark-lane :pass?
-                                                                         (every? true?
-                                                                                 (vals dark-lane)))
-                                                                  :compositor
-                                                                  receipt-before-destroy
-                                                                  :pass pass?}))))))))))))))))))))))))))))))))
+;; The rect-backed W4 runtime receipt was removed with the rect render family.
 
 ;; ---------------------------------------------------------------------------
 ;; REGION3D FLOOR — held interior/depth/shadow targets inside the 2D tape
@@ -4344,27 +2995,30 @@
    {region3d-owner-vi
     {:stratum :world :stack-path [[:region3d-verifier 1 1]]}}})
 
-(defn- region3d-rect-entry [id system first-instance rank]
-  {:entry/id id :material/id id :material/revision 1 :instance/id id
-   :family/id :render.family/rect
-   :order {:stratum :world :pass-class :direct
-           :stack-path [[:region3d-verifier rank rank]]
-           :part-rank 0 :stable-tie id}
-   :paint {:pipeline (:pipeline system) :bind-group (:bind-group system)
-           :buffer (:instance-buffer system) :vertex-count 6
-           :instance-count 1 :first-vertex 0 :first-instance first-instance}
-   :pick {:geometry :rect-tree-bounds :owner id}
-   :visibility {:visible? true :clip :none}})
+(defn- region3d-surround-entry [id system op-index rank]
+  (let [{:keys [first-vertex vertex-count]}
+        (nth @(:!prepared system) op-index)]
+    {:entry/id id :material/id id :material/revision 1 :instance/id id
+     :family/id :render.family/path
+     :order {:stratum :world :pass-class :direct
+             :stack-path [[:region3d-verifier rank rank]]
+             :part-rank 0 :stable-tie id}
+     :paint {:paint/source system :paint/source-type :path-system
+             :vertex-count vertex-count :first-vertex first-vertex}
+     :pick {:geometry :path-material-authority :owner id}
+     :visibility {:visible? true :clip :none}}))
 
 (defn- region3d-frame
-  [{:keys [region-system rect-system]} op sides]
+  [{:keys [region-system surround-path-system]} op sides]
   (let [store-frame (region3d-store-frame op)
         region-entry (first (region3d-gpu/region3d-entries
                              {:store-frame store-frame
                               :region3d-system region-system
                               :zoom 1.0 :dpr 1.0}))
-        below (region3d-rect-entry :region3d/below rect-system 0 0)
-        above (region3d-rect-entry :region3d/above rect-system 1 2)
+        below (region3d-surround-entry :region3d/below
+                                       surround-path-system 0 0)
+        above (region3d-surround-entry :region3d/above
+                                       surround-path-system 1 2)
         entries (case sides
                   :sandwich [above region-entry below]
                   :below [region-entry below]
@@ -4526,11 +3180,11 @@
             (connector-gpu/connector-entries
              {:store-frame store-frame :connector-system connector-system
               :connector-label-entry renderer/connector-label-entry})
-            below (region3d-rect-entry :region3d/below
-                                       (:rect-system harness) 0 0)
+            below (region3d-surround-entry :region3d/below
+                                       (:surround-path-system harness) 0 0)
             above (when broad?
-                    (region3d-rect-entry :region3d/above
-                                         (:rect-system harness) 1 2))
+                    (region3d-surround-entry :region3d/above
+                                         (:surround-path-system harness) 1 2))
             arrangement
             (:entries
              (scene-tape/compile-tape
@@ -4693,8 +3347,8 @@
   (region3d-gpu/prepare-region3d-frame!
    (:region-system harness) (region3d-store-frame op) {} {:zoom 1.0 :dpr 1.0})
   (let [{:keys [region-entry]} (region3d-frame harness op :region)
-        below (region3d-rect-entry :region3d/below (:rect-system harness) 0 0)
-        above (region3d-rect-entry :region3d/above (:rect-system harness) 1 2)
+        below (region3d-surround-entry :region3d/below (:surround-path-system harness) 0 0)
+        above (region3d-surround-entry :region3d/above (:surround-path-system harness) 1 2)
         shuffled-tape (scene-tape/compile-tape
                        :region3d/s1-shuffle [above below region-entry])
         shuffled (:entries shuffled-tape)
@@ -4811,8 +3465,8 @@
                  reparent-preserved?)}))
 
 (defn- region3d-empty-frame [harness]
-  (let [below (region3d-rect-entry :region3d/below
-                                    (:rect-system harness) 0 0)
+  (let [below (region3d-surround-entry :region3d/below
+                                    (:surround-path-system harness) 0 0)
         arrangement [below]
         plan (frame-graph/compile-frame-plan
               {:arrangement arrangement :effect-spans []
@@ -5297,19 +3951,25 @@
            device containers-buffer
            {0 {:affine containers/identity-affine :flags 0 :layer 0
                :stack-path [[0 0]] :transport-slot 0}})
-        rect-base (renderer/init-rect-system
-                   device "rgba16float" camera :initial-capacity 2
-                   :tracker tracker :label "region3d/verifier-rects"
-                   :containers-buffer containers-buffer
-                   :scene-color (scene-tape/scene-color true))
-        rect-system (renderer/update-rects
-                     device rect-base
-                     [{:x 8.0 :y 8.0 :w 112.0 :h 112.0
-                       :r 0.04 :g 0.07 :b 0.15 :a 1.0 :radius 15.0
-                       :container-idx 0}
-                      {:x 10.0 :y 58.0 :w 108.0 :h 12.0
-                       :r 0.98 :g 0.72 :b 0.12 :a 0.88 :radius 4.0
-                       :container-idx 0}])
+        surround-path-system
+        (path-gpu/init-path-system
+         device "rgba16float" camera containers-buffer
+         :initial-capacity 16 :tracker tracker
+         :scene-color (scene-tape/scene-color true))
+        surround-ops
+        [(path-op
+          :region3d/below
+          (path-polygon-material
+           :region3d/below
+           [[8.0 8.0] [120.0 8.0] [120.0 120.0] [8.0 120.0]]
+           [0.04 0.07 0.15 1.0] 1.0))
+         (path-op
+          :region3d/above
+          (path-polygon-material
+           :region3d/above
+           [[10.0 58.0] [118.0 58.0] [118.0 70.0] [10.0 70.0]]
+           [0.98 0.72 0.12 0.88] 1.0))]
+        _ (path-gpu/prepare-path-frame! surround-path-system surround-ops 1.0)
         region-system (region3d-gpu/ensure-region3d-system!
                        device tracker camera containers-buffer)
         placement-text-system
@@ -5334,7 +3994,8 @@
                     device color-format tracker)
         harness {:device device :tracker tracker :camera camera
                  :containers-buffer containers-buffer
-                 :rect-system rect-system :region-system region-system
+                 :surround-path-system surround-path-system
+                 :region-system region-system
                  :placement-text-system placement-text-system
                  :path-system path-system :connector-system connector-system
                  :font-assets font-assets :compositor compositor}
@@ -5458,6 +4119,7 @@
              (compositor-gpu/destroy-compositor! compositor)
              (connector-gpu/destroy-connector-system! connector-system)
              (path-gpu/destroy-path-system! path-system)
+             (path-gpu/destroy-path-system! surround-path-system)
              (region3d-gpu/destroy-region3d-system! region-system)
              (renderer/destroy-text-system! placement-text-system)
              result))))))
@@ -5510,39 +4172,6 @@
                                       containers-buffer (renderer/create-containers-buffer device nil)
                                       q8-transport (run-q8-transport! device containers-buffer)
                                       _ (js/console.log "[W0-A] init-shared-buffers")
-                                      rect-system (do
-                                                    (js/console.log "[W0-A] init-rect-pipeline-start")
-                                                    (let [system
-                                                          (renderer/init-rect-system
-                                                           device color-format camera-buffer
-                                                           :initial-capacity 1
-                                                           :containers-buffer containers-buffer)]
-                                                      (js/console.log "[W0-A] init-rect-pipeline-complete")
-                                                      ;; Text systems expose the shared camera on their
-                                                      ;; state map; the rect system only captures it in
-                                                      ;; its bind group. Carry the same production buffer
-                                                      ;; as verifier metadata so capture can update it.
-                                                      (assoc system :camera-uniform-buffer camera-buffer)))
-                                      q5-camera-buffer (renderer/create-camera-buffer device nil)
-                                      q5-buffer (renderer/create-containers-buffer device nil)
-                                      q5-effective (q5-transform)
-                                      _ (renderer/write-containers!
-                                         device q5-buffer
-                                         {0 {:affine containers/identity-affine
-                                             :flags 0 :layer 0 :stack-path [[0 0]]
-                                             :transport-slot 0}
-                                          17 q5-effective})
-                                      q5-base (-> (renderer/init-rect-system
-                                                   device color-format q5-camera-buffer
-                                                   :initial-capacity 1
-                                                   :containers-buffer q5-buffer)
-                                                  (assoc :camera-uniform-buffer q5-camera-buffer))
-                                      q5-system (renderer/update-rects
-                                                 device q5-base
-                                                 [{:x -27.0 :y -15.0 :w 54.0 :h 30.0
-                                                   :r 1.0 :g 1.0 :b 1.0 :a 1.0
-                                                   :corner-radii [0.0 0.0 0.0 0.0]
-                                                   :container-idx 1}])
                                       msdf-system (do
                                                     (js/console.log "[W0-A] init-msdf-pipeline-start")
                                                     (let [system
@@ -5568,7 +4197,6 @@
                                                                  (count decoded))
                                                  decoded))
                                       harness {:device device
-                                               :rect-system rect-system
                                                :msdf-system msdf-system
                                                :slug-system slug-system
                                                :msdf-assets msdf-assets
@@ -5577,7 +4205,6 @@
                                   (-> (js/Promise.all
                                        #js [(promise-mapv (partial run-case! harness) zoom-cases)
                                             (shader-digests)
-                                            (run-q5-affine-boundary! device q5-system q5-effective)
                                             (run-image-atom! device adapter)
                                             (run-path-atom! device adapter)
                                             (run-connector-atom!
@@ -5585,8 +4212,6 @@
                                              camera-buffer
                                              containers-buffer)
                                             (run-chrome-atom! device adapter)
-                                            (run-w4-frame-runtime! device adapter
-                                                                   slug-assets)
                                             (run-region3d-floor! device adapter
                                                                  t1-assets)])
                                       (.then
@@ -5611,13 +4236,11 @@
                                           :shader-digests (aget values 1)
                                           :q8-transport q8-transport
                                           :t1-layout t1-receipt
-                                          :q5-affine-boundary (aget values 2)
-                                          :image-atom (aget values 3)
-                                          :path-atom (aget values 4)
-                                          :connector-atom (aget values 5)
-                                          :chrome-atom (aget values 6)
-                                          :w4-frame-runtime (aget values 7)
-                                          :region3d-floor (aget values 8)
+                                          :image-atom (aget values 2)
+                                          :path-atom (aget values 3)
+                                          :connector-atom (aget values 4)
+                                          :chrome-atom (aget values 5)
+                                          :region3d-floor (aget values 6)
                                           :cases (aget values 0)})))))))))))))))))))
 
 (defn ^:export run-region3d-floor-verifier! []

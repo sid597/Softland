@@ -13,10 +13,8 @@
             [app.shared.attention-material :as attention]
             [app.shared.binding-material :as bm]
             [app.shared.facet-material :as facet-material]
-            [app.client.workspace.rect-tree :as rt]
             [app.shared.facet-masters :as facet-masters]
             [app.shared.foldable-material :as foldable]
-            [app.shared.material-inspector :as material-inspector]
             [app.shared.positioned-material :as positioned]
             [app.shared.verb-registry :as verbs]))
 
@@ -951,115 +949,7 @@
              :block/fold-header :space/ground}
            bm/sites))))
 
-;; ===========================================================================
-;; The containment path got finer at ZERO pixels
-;;
-;; P5 makes claims resolvable by giving the fold headers their own nodes. The
-;; byte-identical-render stop is therefore not a screenshot question but a
-;; structural one: a hit-only node must contribute nothing to ANY of the three
-;; GPU walks, at every camera, forever. That is what is proven here — over the
-;; real `rect-tree` walks, with the real node shapes.
-;; ===========================================================================
-
-(def ^:private line-h 27.0)
-(def ^:private pad 8.0)
-
-(defn- ground-block-tree
-  "The shape `block-tree` builds: text ops on the root, a decoration child
-   covering the whole block, and (when `headers?`) one hit-only node per header
-   row appended LAST."
-  [headers?]
-  (let [w 400.0
-        h (+ (* 5 line-h) (* 2 pad))]
-    (rt/resolve-layout
-     (rt/rt-node
-      :ground-block :text-run
-      {:x 0 :y 0 :w w :h h}
-      :text [{:text "▾ thinking+tools — click to hide" :type :text
-              :from 0 :to 31 :x 0 :y 19.0 :size 19.0
-              :r 0.62 :g 0.66 :b 0.76 :a 0.6}
-             {:text "▾ reply — click to hide" :type :text
-              :from 0 :to 22 :x 0 :y (+ line-h 19.0) :size 19.0
-              :r 0.62 :g 0.66 :b 0.76 :a 0.6}]
-      :data {:address subject
-             :material/claim {:claim/subject subject
-                              :claim/site :block/machine-hit-area
-                              :claim/facets bm/block-claim-facets
-                              :claim/args {}}}
-      :children
-      (cond-> [(rt/rt-node :ground-box :rect
-                           {:x (- pad) :y (- pad) :w w :h h}
-                           :style {:border-width 1.0
-                                   :border-color [0.45 0.52 0.66 0.55]
-                                   :bg [0.0 0.0 0.0 0.0]})]
-        headers?
-        (into
-         (mapv
-          (fn [i {:keys [section fold-key]}]
-            (rt/rt-node
-             (keyword (str "ground-fold-header-hit-" (name section)))
-             :hit-area
-             {:x 0 :y (* i line-h) :w w :h line-h}
-             :data {:address subject
-                    :material/claim
-                    {:claim/subject subject
-                     :claim/site :block/fold-header
-                     :claim/facets [:foldable]
-                     :claim/args {:section section :fold-key fold-key}}}))
-          (range)
-          [{:section :noise :fold-key :noise?}
-           {:section :prose :fold-key :prose?}])))))))
-
-(deftest hit-only-claim-nodes-contribute-exactly-zero-pixels
-  (let [without (ground-block-tree false)
-        with (ground-block-tree true)]
-    (testing "the root's bounds are untouched — width and height are the
-              block's own text metrics, so no position or wrap can move"
-      (is (= (:bounds without) (:bounds with))))
-
-    (testing "every GPU walk yields IDENTICAL output"
-      (is (= (rt/tree->rects without) (rt/tree->rects with))
-          "no :bg ⇒ no rect")
-      (is (= (rt/tree->text-ops without) (rt/tree->text-ops with))
-          "no :text ⇒ no glyph")
-      (is (= (rt/tree->shadows without) (rt/tree->shadows with))
-          "no :shadow ⇒ no shadow"))
-
-    (testing "and identical under a clip, at any offset"
-      (doseq [[px py clip]
-              [[0 0 nil]
-               [137.5 -42.25 nil]
-               [0 0 {:x 10 :y 10 :w 100 :h 100}]
-               [-500 800 {:x 0 :y 0 :w 50 :h 20}]]]
-        (is (= (rt/tree->rects without px py clip)
-               (rt/tree->rects with px py clip)))
-        (is (= (rt/tree->text-ops without px py clip)
-               (rt/tree->text-ops with px py clip)))))
-
-    (testing "the pick, by contrast, DOES see them — appended last, so
-              hit-test's reverse child walk reaches a header before the
-              attention box that covers the same pixels"
-      (let [header-hit (rt/hit-test with 200.0 (* 0.5 line-h))
-            prose-hit (rt/hit-test with 200.0 (* 1.5 line-h))
-            body-hit (rt/hit-test with 200.0 (* 3.5 line-h))]
-        (is (= :ground-fold-header-hit-noise (:id (peek header-hit))))
-        (is (= :ground-fold-header-hit-prose (:id (peek prose-hit))))
-        (is (= :ground-box (:id (peek body-hit)))
-            "a body row still resolves to the block, whose claim is the
-             block-grain one")
-        (is (= subject (get-in (peek header-hit) [:data :address]))
-            "the header stays block-addressed, so the deictic pick and the
-             material inspector are unaffected")))
-
-    (testing "without the header nodes the same points resolve to the box —
-              i.e. the geometry the deleted `row` arithmetic used to compute
-              is exactly what containment now answers"
-      (is (= :ground-box
-             (:id (peek (rt/hit-test without 200.0 (* 0.5 line-h)))))))
-
-    (testing "a claim map is never mistaken for a contribution stamp"
-      (is (empty? (material-inspector/contribution-stamps
-                   (get-in with [:data :material/claim])))))))
+;; The retired scene renderer's pixel equivalence receipt left with it.
 
 (deftest no-side-effect-can-reach-the-resolution-path
   (testing "the law's whole output is data — nothing in a decision is callable"
@@ -1078,4 +968,4 @@
                           :bindings bm/space-floor-bindings}]))))
         (is (not (fns? master-rows))
             "binding rows are DATA — a closure in material would be
-             unserializable and agent-illegible (the scene-store G2 rule)")))))
+             unserializable and agent-illegible (the durable-data G2 rule)")))))

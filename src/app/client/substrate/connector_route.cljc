@@ -3,7 +3,7 @@
 
    Cache state is explicit state-in/state-out. The only ambient value is the
    product pick mirror, which holds disposable route projections and a provider
-   for the current effective-transform map; it never enters scene-store data."
+   for the current effective-transform map; it never enters durable data."
   (:require [app.client.substrate.connector-material :as connector-material]
             [app.client.substrate.path-material :as path-material]
             [app.client.substrate.path-tessellation :as path-tessellation]

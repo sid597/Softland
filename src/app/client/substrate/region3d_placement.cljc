@@ -18,67 +18,6 @@
 (def placement-zoom 1.0)
 (def plane-epsilon 1.0e-9)
 
-(defn- address-node [slot path]
-  (if (seq path) (get-in (:tree slot) path) (:tree slot)))
-
-(defn- text-node-ops [node]
-  ;; Rect-tree accepts both the legacy nested [[op ...] ...] spelling and
-  ;; Contract T's carried line-paint vector [op ...].  Flatten only the former:
-  ;; mapcat over a flat vector of maps would turn each op into map entries and
-  ;; silently lose its :layout-result.
-  (let [ops (vec (:text node))]
-    (if (vector? (first ops))
-      (vec (mapcat identity ops))
-      ops)))
-
-(defn- text-owner-row [slot address path]
-  (let [node (address-node slot path)
-        ops (text-node-ops node)
-        first-op (first ops)
-        layout (:layout-result first-op)]
-    (when (and (= :text (:type node)) layout)
-      {:owner/kind :text
-       :vi (:vi slot)
-       :address address
-       :path path
-       :node-id (:id node)
-       :layout layout
-       :style (select-keys first-op [:size :r :g :b :a])})))
-
-(defn- text-owners [ordered-slots]
-  (reduce
-   (fn [index slot]
-     (reduce-kv
-      (fn [index address paths]
-        (reduce (fn [index path]
-                  (if-let [owner (text-owner-row slot address path)]
-                    (update index address (fnil conj []) owner)
-                    index))
-                index
-                (sort-by pr-str paths)))
-      index
-      (:addresses slot)))
-   {}
-   ordered-slots))
-
-(defn- ink-owners [ordered-slots]
-  (reduce
-   (fn [index slot]
-     (reduce
-      (fn [index op]
-        (if (and (:address op) (:path/material op))
-          (update index (:address op) (fnil conj [])
-                  {:owner/kind :ink
-                   :vi (:vi slot)
-                   :address (:address op)
-                   :op-id (:id op)
-                   :material (:path/material op)})
-          index))
-      index
-      (get-in slot [:ops :paths])))
-   {}
-   ordered-slots))
-
 (defn adapt-legacy-color
   "Adapt the existing flat [r g b a] text/path paint into Contract-C ingress.
    Already-tagged colors pass through unchanged."
@@ -206,34 +145,6 @@
       :source-id (:address placement)
       :source-revision (:content-revision placement)
       :zoom placement-zoom})))
-
-(defn resolve-placed-refs
-  "Resolve every region op's text/ink objects from the ordered store slots.
-   The result stays pure store data and never joins session state."
-  [ordered-slots]
-  (let [text-index (text-owners ordered-slots)
-        ink-index (ink-owners ordered-slots)]
-    (into []
-          (mapcat
-           (fn [slot]
-             (mapv
-              (fn [region-op]
-                (let [scene (get-in region-op [:region3d/scene :scene])
-                      placements
-                      (mapv (fn [object-id]
-                              (resolve-placed-object (get scene object-id)
-                                                     text-index ink-index))
-                            (sort-by pr-str
-                                     (for [[object-id object] scene
-                                           :when (contains? #{:text :ink}
-                                                            (:object/kind object))]
-                                       object-id)))]
-                  (assoc region-op
-                         :region3d/resolved-placements placements
-                         :region3d/placement-census
-                         (placement-census placements))))
-              (get-in slot [:ops :regions])))
-           ordered-slots))))
 
 (defn material->object-local [[x y]] [(double x) (- (double y)) 0.0])
 (defn object->material-local [[x y _z]] [(double x) (- (double y))])

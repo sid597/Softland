@@ -1,7 +1,7 @@
 (ns app.client.substrate.frame-effects
   "Pure W4 container-effect grammar and span derivation.
 
-   Effects are session/arrangement facts. They never enter scene-store
+   Effects are session/arrangement facts. They never enter durable
    derivation. Keyed inputs are the container registry's effect declarations
    and the ordered arrangement's semantic order tokens; mutation enters through
    set-effects!; this namespace owns validation, effect-chain projection, and
