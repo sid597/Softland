@@ -9,13 +9,12 @@
   )
 
 (def schema-version 2)
-(def primitive-algorithm-version :region3d/primitives-v1)
 (def shadow-algorithm-version :region3d/shadow-v1)
 (def quaternion-tolerance 1.0e-3)
 (def extent-max 1.0e4)
 (def mesh-vertex-max 65536)
 (def mesh-triangle-max 131072)
-(def legal-object-kinds #{:mesh :light :camera :empty :text :ink})
+(def legal-object-kinds #{:mesh :light :empty :text :ink})
 (def legal-primitive-kinds #{:box :sphere :cylinder :plane :cone :torus})
 (def legal-light-kinds #{:directional :point :spot})
 (def legal-camera-kinds #{:perspective :ortho})
@@ -365,7 +364,6 @@
                 (update :mesh canonical-mesh)
                 (update :material canonical-material))
       :light (update object :light canonical-light)
-      :camera (update object :camera canonical-lens)
       :text (update object :text canonical-placed-text)
       :ink (update object :ink canonical-placed-ink)
       :empty object)))
@@ -455,23 +453,3 @@
                       (assoc :scene canonical-scene))]
     (validate-parent-graph! canonical-scene)
     canonical)))
-
-(defn canonical-region [region]
-  (letfn [(canonical [value]
-            (cond
-              (map? value) (into (sorted-map)
-                                 (map (fn [[key nested]]
-                                        [key (canonical nested)]))
-                                 value)
-              (vector? value) (mapv canonical value)
-              (set? value) (into (sorted-set) (map canonical) value)
-              :else value))]
-    (canonical (validate-region! region))))
-
-(defn primitive-cache-key [object revision]
-  (let [object (canonical-object object)]
-    [primitive-algorithm-version
-     (:object/id object)
-     revision
-     (get-in object [:mesh :kind])
-     (get-in object [:mesh :params])]))

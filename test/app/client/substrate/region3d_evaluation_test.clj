@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest is testing]]
             [app.client.substrate.region3d-evaluation :as evaluation]
             [app.client.substrate.region3d-material-test :as fixture]
-            [app.client.substrate.region3d-scene :as scene]))
+            [app.client.substrate.region3d-oracle :as oracle]))
 
 (deftest transient-transform-is-a-retained-component-update
   (let [moving (fixture/mesh-object :moving nil [0.0 0.0 0.0])
@@ -36,14 +36,14 @@
                          [:maintained :receipt :bvh-build-triangles])))
       (is (= 2 (get-in next-preview
                        [:maintained :receipt :instance-uploads])))
-      (is (scene/scene-equivalent? (:maintained next-preview))))
+      (is (oracle/scene-equivalent? (:maintained next-preview))))
     (testing "settle is identity and cancel is an incremental inverse"
       (is (= :none (:update-kind settled)))
       (is (identical? (:maintained next-preview) (:maintained settled)))
       (is (= :transform (:update-kind canceled)))
       (is (= (get-in initial [:maintained :region])
              (get-in canceled [:maintained :region])))
-      (is (scene/scene-equivalent? (:maintained canceled))))))
+      (is (oracle/scene-equivalent? (:maintained canceled))))))
 
 (deftest transform-cost-is-affected-set-not-scene-population
   (let [moving (fixture/mesh-object :moving nil [0.0 0.0 0.0])
@@ -63,7 +63,7 @@
     (is (= #{:moving} (:affected-object-ids preview)))
     (is (= 1 (get-in preview [:maintained :receipt :instance-uploads])))
     (is (zero? (get-in preview [:maintained :receipt :full-rebuilds])))
-    (is (scene/scene-equivalent? (:maintained preview)))))
+    (is (oracle/scene-equivalent? (:maintained preview)))))
 
 (deftest material-change-keeps-the-full-oracle-door
   (let [moving (fixture/mesh-object :moving nil [0.0 0.0 0.0])
@@ -74,7 +74,7 @@
                 (:maintained initial) (:evaluation-key initial) changed {})]
     (is (= :full (:update-kind result)))
     (is (= 1 (get-in result [:maintained :receipt :full-rebuilds])))
-    (is (scene/scene-equivalent? (:maintained result)))))
+    (is (oracle/scene-equivalent? (:maintained result)))))
 
 (deftest session-transform-cannot-mint-an-object
   (let [region (fixture/region

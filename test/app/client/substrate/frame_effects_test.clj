@@ -33,7 +33,6 @@
     (is (= 0.5 (:opacity normalized)))
     (is (= #{:alpha-mask :backdrop-blur :group-composite}
            (set (map :kind declarations))))
-    (is (every? #(= :none (:pick %)) declarations))
     (is (= {:radius-px 64.0 :raw-radius-px 160.0 :clamped? true
             :regime :max-px-clamped
             :algorithm-version effects/blur-algorithm-version

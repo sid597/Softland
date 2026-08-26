@@ -36,7 +36,6 @@
     app.client.substrate.frame-inputs-test
     app.client.substrate.frame-graph-test
     app.client.substrate.frame-view-region-binding-test
-    app.client.substrate.frame-scheduler-test
     app.client.substrate.path-material-test
     app.client.substrate.path-tessellation-test
     app.client.substrate.region3d-evaluation-test

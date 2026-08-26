@@ -262,7 +262,6 @@
                                        :paint/source-type :chrome-system
                                        :vertex-count vertex-count
                                        :first-vertex first-vertex}
-                               :pick :none
                                :visibility {:visible? true :clip :none}}))]
           (recur (next vis) next-op-offset entries))
         entries))))

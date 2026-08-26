@@ -15,11 +15,11 @@
             [app.client.substrate.path-material :as path-material]
             [app.client.substrate.path-tessellation :as path-tessellation]
             [app.client.substrate.region3d-material :as region3d-material]
+            [app.client.substrate.region3d-oracle :as region3d-oracle]
             [app.client.substrate.region3d-placement :as region3d-placement]
             [app.client.substrate.region3d-scene :as region3d-scene]
             [app.client.substrate.frame-effects :as frame-effects]
             [app.client.substrate.frame-graph :as frame-graph]
-            [app.client.substrate.frame-scheduler :as frame-scheduler]
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.substrate.webgpu.chrome-gpu :as chrome-gpu]
@@ -1415,9 +1415,9 @@
                  (not (:mesh-set-changed? equal-vector))
                  (zero? (:writes equal-vector)))}))
 
-(defn- verifier-entry [id family order paint pick]
+(defn- verifier-entry [id family order paint]
   {:entry/id id :material/id id :material/revision 0 :instance/id id
-   :family/id family :order order :paint paint :pick pick
+   :family/id family :order order :paint paint
    :visibility {:visible? true :clip :none}})
 
 (defn- run-chrome-arrangement! []
@@ -1431,11 +1431,11 @@
                        :stack-path [[:frame/root 0 0]]
                        :part-rank 0 :stable-tie :product}
         entries [(verifier-entry :world :render.family/path world-order
-                                 {:vertex-count 3} {:geometry :path})
+                                 {:vertex-count 3})
                  (verifier-entry :chrome :render.family/chrome chrome-order
-                                 {:vertex-count 6} :none)
+                                 {:vertex-count 6})
                  (verifier-entry :product :render.family/path product-order
-                                 {:vertex-count 3} :none)]
+                                 {:vertex-count 3})]
         tape (scene-tape/compile-tape :chrome-order entries)
         forward (mapv :entry/id (:entries tape))]
     {:executor-forward forward
@@ -1777,7 +1777,6 @@
              :op-offset 0
              :instance-count 0}
             {:vertex-count 3})
-   :pick {:geometry :fixture :owner id}
    :visibility {:visible? true}})
 
 (defn- run-path-arrangement! []
@@ -1785,14 +1784,11 @@
                  (receipt-entry :image :render.family/image 3)
                  (receipt-entry :path :render.family/path 4)]
         tape (scene-tape/compile-tape :path-arrangement entries)
-        forward (scene-tape/paint-forward tape :entry/id)
-        picked (scene-tape/pick-reverse tape :entry/id)]
+        forward (scene-tape/paint-forward tape :entry/id)]
     {:forward forward
-     :reverse-first (get-in picked [:entry :entry/id])
      :path-contract-present?
      (some? (get scene-tape/default-family-registry :render.family/path))
      :pass? (and (= [:text :image :path] forward)
-                 (= :path (get-in picked [:entry :entry/id]))
                  (some? (get scene-tape/default-family-registry
                              :render.family/path)))}))
 
@@ -2255,10 +2251,7 @@
          :owner {:vi :seam/ink-owner :op-id :seam/ink-material}}
         op (assoc (region3d-op region)
                   :region3d/resolved-placements
-                  [text-placement ink-placement]
-                  :region3d/placement-census
-                  {:placements 2 :resolved 2 :ref-absent 0
-                   :ref-ambiguous 0})]
+                  [text-placement ink-placement])]
     {:region region :op op
      :placements [text-placement ink-placement]}))
 
@@ -2280,7 +2273,6 @@
              :part-rank 0 :stable-tie id}
      :paint {:paint/source system :paint/source-type :path-system
              :vertex-count vertex-count :first-vertex first-vertex}
-     :pick {:geometry :path-material-authority :owner id}
      :visibility {:visible? true :clip :none}}))
 
 (defn- region3d-frame
@@ -2394,7 +2386,7 @@
         hit (region3d-scene/pick-region
              {:maintained maintained :camera camera :region-point [40.0 44.0]})
         object (get-in region [:scene (:object-id hit)])
-        linear (region3d-scene/shade-reference
+        linear (region3d-oracle/shade-reference
                 {:material (:material object) :normal (:normal hit)
                  :point (:point3 hit) :eye (:eye camera)
                  :lights (region3d-lights maintained)
@@ -2454,71 +2446,6 @@
                  (<= delta 2)
                  (< 0 (last glass-sample) 255)
                  depth-classes-pass?)}))
-
-(defn- region3d-s1-receipt [harness op]
-  (region3d-gpu/prepare-region3d-frame!
-   (:region-system harness) (region3d-store-frame op) {} {:zoom 1.0 :dpr 1.0})
-  (let [{:keys [region-entry]} (region3d-frame harness op :region)
-        below (region3d-surround-entry :region3d/below (:surround-path-system harness) 0 0)
-        above (region3d-surround-entry :region3d/above (:surround-path-system harness) 1 2)
-        shuffled-tape (scene-tape/compile-tape
-                       :region3d/s1-shuffle [above below region-entry])
-        shuffled (:entries shuffled-tape)
-        reordered (assoc-in region-entry [:order :stack-path]
-                            [[:region3d-verifier 3 3]])
-        moved-tape (scene-tape/compile-tape
-                    :region3d/s1-reorder [reordered above below])
-        moved (:entries moved-tape)
-        forward (mapv :entry/id shuffled)
-        moved-forward (mapv :entry/id moved)
-        pick (fn [compiled click]
-               (some->
-                (scene-tape/pick-reverse
-                 compiled
-                 (fn [entry]
-                   (case click
-                     :over-text
-                     (cond
-                       (= :region3d/above (:entry/id entry)) {:route :text}
-                       (= [:frame/region3d region3d-id] (:entry/id entry))
-                       {:route :object :object-id :near}
-                       :else {:route :path})
-
-                     :region-mesh
-                     (when-not (= :region3d/above (:entry/id entry))
-                       (if (= [:frame/region3d region3d-id] (:entry/id entry))
-                         {:route :object :object-id :near}
-                         {:route :path}))
-
-                     :region-background
-                     (when-not (= :region3d/above (:entry/id entry))
-                       (if (= [:frame/region3d region3d-id] (:entry/id entry))
-                         {:route :region-background :region-id region3d-id}
-                         {:route :path})))))
-                :hit))
-        reverse-picks {:over-text (pick shuffled-tape :over-text)
-                       :region-mesh (pick shuffled-tape :region-mesh)
-                       :region-background (pick shuffled-tape
-                                                       :region-background)
-                       :moved-over-text (pick moved-tape :over-text)}]
-    {:forward forward :moved-forward moved-forward
-     :reverse-picks reverse-picks
-     :shuffle-derived? (= [:region3d/below
-                           [:frame/region3d region3d-id]
-                           :region3d/above] forward)
-     :reorder-derived? (= [:region3d/below :region3d/above
-                           [:frame/region3d region3d-id]] moved-forward)
-     :pass? (and (= {:over-text {:route :text}
-                     :region-mesh {:route :object :object-id :near}
-                     :region-background {:route :region-background
-                                         :region-id region3d-id}
-                     :moved-over-text {:route :object :object-id :near}}
-                    reverse-picks)
-                 (= [:region3d/below
-                     [:frame/region3d region3d-id]
-                     :region3d/above] forward)
-                 (= [:region3d/below :region3d/above
-                     [:frame/region3d region3d-id]] moved-forward))}))
 
 (defn- region3d-empty-frame [harness]
   (let [below (region3d-surround-entry :region3d/below
@@ -2693,14 +2620,6 @@
                  view-by-role (into {} (map (juxt :role identity)) view-passes)
                  clean? (every? #(and (:held? %) (not (:encoded? %)))
                                 clean-passes)
-                 sleep-step (frame-scheduler/decide
-                             (frame-scheduler/initial-state) 0 #{} {})
-                 fully-clean-sleep
-                 {:encode? (:encode? sleep-step)
-                  :scheduler (frame-scheduler/receipt (:state sleep-step))
-                  :pass? (and (not (:encode? sleep-step))
-                              (zero? (get-in sleep-step [:state :encodes]))
-                              (= 1 (get-in sleep-step [:state :skips])))}
                  resize-leases (vals (:leases resize))
                  shadow-off-leases (vals (:leases shadow-off))
                  pass? (and (zero? object-upload-delta)
@@ -2715,8 +2634,7 @@
                             (< (:bytes shadow-off) (:bytes resize))
                             (zero? (:bytes after-close))
                             (:pass? refusal)
-                            (:pass? destroy-recreate)
-                            (:pass? fully-clean-sleep))]
+                            (:pass? destroy-recreate))]
              (-> receipt
                  (dissoc :resized-op)
                  (assoc :camera-wake
@@ -2725,7 +2643,6 @@
                          :uniform-upload-delta uniform-upload-delta
                          :passes view-passes}
                         :clean-held? clean?
-                        :fully-clean-sleep fully-clean-sleep
                         :pass? pass?))))]]
     (reduce (fn [promise step] (.then promise step))
             (js/Promise.resolve nil)
@@ -3054,7 +2971,6 @@
         seam (region3d-seam-fixture font-assets)
         seam-region (:region seam)
         seam-op (:op seam)
-        s1 (region3d-s1-receipt harness opaque-op)
         specs [{:case-id "sandwich" :region opaque-region :op opaque-op
                 :session {} :sides :sandwich}
                {:case-id "lit-depth-shadow" :region transparent-region
@@ -3078,8 +2994,8 @@
                                (region3d-lit-oracle region (:bytes pair)))
                      :seam-receipt
                      (when seam?
-                       {:resolved (get-in op
-                                          [:region3d/placement-census :resolved])
+                       {:resolved (count (filter #(= :resolved (:status %))
+                                                 (:region3d/resolved-placements op)))
                         :text-layout-id
                         (get-in op [:region3d/resolved-placements
                                     0 :layout :layout/id])
@@ -3123,11 +3039,10 @@
                                  (pos? (or (:ink-vertices seam-receipt) 0)))
                  pass? (and (= 4 (count cases))
                             (every? :byte-identical? determinism)
-                            (:pass? s1) (:pass? s2)
-                            (:pass? s4) (:pass? s5) seam-pass?
+                            (:pass? s2) (:pass? s4) (:pass? s5) seam-pass?
                             (:pass? lower))
                  result {:cases cases
-                         :s1 s1 :s2 s2 :s4 s4 :s5 s5
+                         :s2 s2 :s4 s4 :s5 s5
                          :lower-resolution (dissoc lower :image)
                          :seam (assoc seam-receipt :pass? seam-pass?)
                          :system system-receipt

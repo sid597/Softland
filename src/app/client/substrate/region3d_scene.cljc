@@ -17,7 +17,6 @@
 (def tone-map-algorithm-version :khronos-pbr-neutral-v1)
 (def ray-epsilon 1.0e-7)
 (def bvh-leaf-size 8)
-(def brdf-readback-error (/ 2.0 255.0))
 
 (defn v+ [& vectors] (apply mapv + vectors))
 (defn v- [left right] (mapv - left right))
@@ -612,7 +611,6 @@
    :matrix effective-matrix
    :material (:material object)
    :light (:light object)
-   :camera (:camera object)
    :placement (case (:object/kind object)
                 :text (:text object)
                 :ink (:ink object)
@@ -749,35 +747,6 @@
                          (keys changed)))]
         (maintain-affected maintained next-region affected)))))
 
-(defn- bvh-triangle-receipt [bvh]
-  (letfn [(walk [node]
-            (case (:kind node)
-              :leaf (:triangles node)
-              :branch (concat (walk (:left node)) (walk (:right node)))
-              []))]
-    (->> (walk bvh)
-         (sort-by (juxt (comp pr-str :object-id) :triangle-index))
-         vec)))
-
-(defn scene-equivalent? [maintained]
-  (let [oracle (derive-scene (:region maintained))]
-    (and (= (select-keys maintained
-                         [:effective-transforms :instances
-                          :triangles-by-object])
-            (select-keys oracle
-                         [:effective-transforms :instances
-                          :triangles-by-object]))
-         (= (get-in maintained [:bvh :bounds])
-            (get-in oracle [:bvh :bounds]))
-         (= (bvh-triangle-receipt (:bvh maintained))
-            (bvh-triangle-receipt (:bvh oracle))))))
-
-(defn maintain-camera [maintained view]
-  {:scene maintained
-   :view (material/canonical-view view)
-   :receipt {:region-encodes 1 :instance-uploads 0
-             :bvh-refits 0 :two-d-uploads 0}})
-
 (defn pick-region
   "Pick the nearest BVH surface, otherwise the region background."
   [{:keys [maintained camera region-point]}]
@@ -793,141 +762,6 @@
                     :triangle-index :boundary?])
       {:route :region-background
        :region-id (:region/id region)})))
-
-(defn- rgba-linear [tagged]
-  (let [[r g b a] (:rgba tagged)
-        decode (fn [value]
-                 (if (<= value 0.04045)
-                   (/ value 12.92)
-                   (Math/pow (/ (+ value 0.055) 1.055) 2.4)))]
-    [(decode r) (decode g) (decode b) a]))
-
-(defn fresnel-schlick [f0 view-dot-half]
-  (mapv (fn [base]
-          (+ base (* (- 1.0 base)
-                     (Math/pow (- 1.0 view-dot-half) 5.0))))
-        f0))
-
-(defn pbr-brdf
-  "glTF metallic-roughness reference for one incident radiance sample."
-  [{:keys [base-color metallic roughness normal view light radiance]}]
-  (let [[r g b _] (rgba-linear base-color)
-        base [r g b]
-        n (normalize normal)
-        v (normalize view)
-        l (normalize light)
-        h (normalize (v+ v l))
-        ndotl (max 0.0 (dot n l))
-        ndotv (max ray-epsilon (dot n v))
-        ndoth (max 0.0 (dot n h))
-        vdoth (max 0.0 (dot v h))
-        alpha (max 0.0025 (* roughness roughness))
-        alpha2 (* alpha alpha)
-        denominator (+ (* ndoth ndoth (- alpha2 1.0)) 1.0)
-        distribution (/ alpha2 (* Math/PI denominator denominator))
-        visibility-denominator
-        (+ (* ndotl (Math/sqrt (+ (* ndotv ndotv (- 1.0 alpha2)) alpha2)))
-           (* ndotv (Math/sqrt (+ (* ndotl ndotl (- 1.0 alpha2)) alpha2))))
-        visibility (if (pos? visibility-denominator)
-                     (/ 0.5 visibility-denominator) 0.0)
-        f0 (mapv #(mix 0.04 % metallic) base)
-        fresnel (fresnel-schlick f0 vdoth)
-        specular (mapv #(* distribution visibility %) fresnel)
-        diffuse (mapv (fn [channel f]
-                        (* (/ channel Math/PI) (- 1.0 metallic) (- 1.0 f)))
-                      base fresnel)]
-    (mapv (fn [d s incoming]
-            (* (+ d s) incoming ndotl))
-          diffuse specular radiance)))
-
-(defn punctual-radiance
-  [{:keys [kind intensity range cone color]} light-position point light-dir]
-  (let [[r g b _] (rgba-linear color)
-        distance (length (v- light-position point))
-        attenuation
-        (case kind
-          :directional 1.0
-          (let [inverse-square (/ 1.0 (max ray-epsilon (* distance distance)))
-                cutoff (Math/pow
-                        (clamp 0.0 (- 1.0 (Math/pow (/ distance range) 4.0)) 1.0)
-                        2.0)]
-            (* inverse-square cutoff)))
-        spot
-        (if (= :spot kind)
-          (let [cos-angle (dot (normalize (v- point light-position))
-                               (normalize light-dir))
-                inner (Math/cos (* (:inner-deg cone) (/ Math/PI 180.0)))
-                outer (Math/cos (* (:outer-deg cone) (/ Math/PI 180.0)))]
-            (clamp 0.0 (/ (- cos-angle outer)
-                          (max ray-epsilon (- inner outer))) 1.0))
-          1.0)]
-    (mapv #(* % intensity attenuation spot) [r g b])))
-
-(defn khronos-neutral-tone-map [color]
-  (let [start-compression 0.76
-        desaturation 0.15
-        color (mapv (fn [channel]
-                      (let [x (min channel 0.08)
-                            offset (- x (* 6.25 x x))]
-                        (- channel offset)))
-                    color)
-        peak (apply max color)]
-    (if (< peak start-compression)
-      color
-      (let [distance (- 1.0 start-compression)
-            new-peak (- 1.0
-                        (/ (* distance distance)
-                           (+ peak distance (- start-compression))))
-            color (mapv #(* % (/ new-peak peak)) color)
-            amount (- 1.0 (/ 1.0 (+ (* desaturation (- peak new-peak)) 1.0)))]
-        (mapv #(mix % new-peak amount) color)))))
-
-(defn shadowed?
-  "CPU shadow oracle. The source object is ignored to prevent self hits at
-   the origin epsilon; pinned S4 samples live away from PCF boundaries."
-  [bvh point normal direction max-distance source-object-id]
-  (let [origin (v+ point (v* normal 1.0e-4))
-        hit (query-bvh bvh {:origin origin :direction (normalize direction)})]
-    (boolean (and hit
-                  (not= source-object-id (:object-id hit))
-                  (< (:t hit) (or max-distance ##Inf))))))
-
-(defn shade-reference
-  "CPU S4 oracle: glTF core + punctual lights + flat ambient + emissive,
-   then Khronos PBR Neutral. Returns linear premultiplied RGBA."
-  [{:keys [material normal point eye lights ambient bvh object-id]
-    :or {lights []}}]
-  (let [[br bg bb alpha] (rgba-linear (:base-color material))
-        base [br bg bb]
-        view (v- eye point)
-        direct
-        (reduce
-         (fn [sum {:keys [light position direction]}]
-           (let [to-light (if (= :directional (:kind light))
-                            (v* (normalize direction) -1.0)
-                            (v- position point))
-                 distance (when-not (= :directional (:kind light))
-                            (length to-light))
-                 shadow? (and (:cast-shadow light)
-                              (shadowed? bvh point normal to-light distance
-                                         object-id))
-                 radiance (if shadow?
-                            [0.0 0.0 0.0]
-                            (punctual-radiance light position point direction))]
-             (v+ sum
-                 (pbr-brdf {:base-color (:base-color material)
-                            :metallic (:metallic material)
-                            :roughness (:roughness material)
-                            :normal normal :view view :light to-light
-                            :radiance radiance}))))
-         [0.0 0.0 0.0] lights)
-        [ar ag ab _] (rgba-linear (:color ambient))
-        ambient-term (hadamard base
-                               (v* [ar ag ab] (:intensity ambient)))
-        [er eg eb _] (rgba-linear (:emissive material))
-        linear (khronos-neutral-tone-map
-                (v+ direct ambient-term [er eg eb]))]
-    (conj (mapv #(* % alpha) linear) alpha)))
 
 (defn shadow-light-space
   "Pinned :region3d/shadow v1 facts for the first shadow-casting directional
@@ -989,7 +823,7 @@
 (defn tape-entry
   "Produce the one outer 2D tape citizen. Interior objects never enter the
    tape; depth owns their order."
-  [{:keys [region-id revision source-order resolve-view rect]}]
+  [{:keys [region-id revision source-order rect]}]
   (let [entry-id [:frame/region3d region-id]]
     {:entry/id entry-id
      :material/id [:region3d/material region-id]
@@ -997,41 +831,5 @@
      :instance/id region-id
      :family/id :render.family/region-3d
      :order (region-order source-order entry-id)
-     :paint {:region-id region-id :resolve-view resolve-view :rect rect}
-     :pick {:geometry :region-router :owner region-id :boundary :hit}
-     :visibility {:visible? true :clip :shared-tree-clip}
-     :region-router region-id}))
-
-(defn region-pass-fragment
-  [{:keys [region-id size shadow?]}]
-  (let [[width height] size
-        resolve-id [:region3d/resolve region-id]
-        interior-id [:region3d/interior region-id]
-        shadow-id [:region3d/shadow region-id]]
-    {:region/id region-id
-     :size [width height]
-     :resources
-     (cond->
-      {[:region3d/color-msaa region-id]
-       {:kind :color :format "rgba16float" :sample-count 4
-        :lifetime :held :budget-owner :compositor/region-leases}
-       [:region3d/depth region-id]
-       {:kind :depth :format "depth24plus" :sample-count 4
-        :lifetime :held :budget-owner :compositor/region-leases}
-       resolve-id
-       {:kind :color :format "rgba16float" :sample-count 1
-        :lifetime :held :budget-owner :compositor/region-leases}}
-       shadow?
-       (assoc shadow-id
-              {:kind :depth :format "depth32float" :sample-count 1
-               :lifetime :held :budget-owner :compositor/region-leases}))
-     :passes
-     (cond-> []
-       shadow?
-       (conj {:pass/id shadow-id :pass/kind :region :region/id region-id
-              :region/role :shadow :producer-edges []})
-       true
-       (conj {:pass/id interior-id :pass/kind :region :region/id region-id
-              :region/role :interior
-              :producer-edges (cond-> [] shadow? (conj shadow-id))
-              :produces resolve-id}))}))
+     :paint {:region-id region-id :rect rect}
+     :visibility {:visible? true :clip :shared-tree-clip}}))

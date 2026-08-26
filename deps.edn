@@ -22,7 +22,7 @@
 
              
  
- :aliases  {:dev   {:extra-paths ["src-dev"]
+ :aliases  {:dev   {:extra-paths ["src-dev" "test"]
                     :extra-deps {io.github.clojure/tools.build {:mvn/version "0.9.6"
                                                                  :exclusions  [com.google.guava/guava  ; Guava version conflict between tools.build and clojurescript.
                                                                                org.slf4j/slf4j-nop]}   ; clashes with app logger}

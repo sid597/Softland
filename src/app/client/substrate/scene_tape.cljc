@@ -2,8 +2,8 @@
   "Pure render-family admission and ordered-scene-tape core.
 
    Family registration carries only the paint shape consumed by entry
-   validation. Scene entries own semantic order. Paint and pick are projections
-   of the same compiled tape: paint walks forward, pick walks exact reverse.")
+   validation. Scene entries own semantic order and paint walks the compiled
+   tape forward.")
 
 (def family-ids
   "The complete render-family set. Adding a road changes this registry; it
@@ -76,7 +76,7 @@
                  [:paint/source :paint/source-type :op-offset :instance-count])
    (registration :render.family/path [:vertex-count])
    (registration :render.family/chrome [:vertex-count])
-   (registration :render.family/region-3d [:region-id :resolve-view])])
+   (registration :render.family/region-3d [:region-id])])
 
 (def ^:private required-family-keys
   [:family/id :entry-paint-required-keys])
@@ -127,10 +127,10 @@
   (register-families family-contracts))
 
 (def ^:private stratum-rank
-  {:world 0 :overlay 1 :region-composite 2})
+  {:world 0 :overlay 1})
 
 (def ^:private pass-rank
-  {:frame-policy 0 :direct 1 :intermediate 2 :region 3 :present 4})
+  {:frame-policy 0 :direct 1 :intermediate 2 :present 3})
 
 ;; W4 additive plan vocabulary. These are data declarations consumed by the
 ;; frame compiler and verifier; they do not dispatch families or effects.
@@ -195,7 +195,7 @@
 (defn validate-entry! [registry entry]
   (require-keys! "scene entry" entry
                  [:entry/id :material/id :material/revision :instance/id
-                  :family/id :order :paint :pick :visibility])
+                  :family/id :order :paint :visibility])
   (let [family-id (:family/id entry)
         family (get registry family-id)
         required-paint-keys (:entry-paint-required-keys family)
@@ -291,19 +291,3 @@
    family executor dispatch; this function contains no family branch."
   [tape execute!]
   (mapv execute! (:entries tape)))
-
-(defn- effectively-visible? [entry]
-  (not (false? (get-in entry [:visibility :visible?] true))))
-
-(defn pick-reverse
-  "Filter to visible, pickable entries and traverse the exact reverse tape.
-   `hit` returns nil for a miss or any resolved hit value for a hit."
-  [tape hit]
-  (loop [entries (rseq (:entries tape))]
-    (when-let [entry (first entries)]
-      (if (and (effectively-visible? entry)
-               (not= :none (:pick entry)))
-        (if-let [resolved (hit entry)]
-          {:entry entry :hit resolved}
-          (recur (next entries)))
-        (recur (next entries))))))

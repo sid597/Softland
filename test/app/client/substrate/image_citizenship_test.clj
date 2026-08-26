@@ -28,7 +28,6 @@
             {:vertex-count 3}
 
             {:batch id})
-   :pick :none
    :visibility {:visible? true}})
 
 (deftest g1-image-admission-and-paint-shape-stay-fail-closed

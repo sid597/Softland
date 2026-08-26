@@ -592,8 +592,8 @@
     (throw (ex-info "Duplicate frame family ids" {:duplicates duplicates})))
   (doseq [family families]
     (when (and (:drawable? family true)
-               (or (nil? (:geometry family)) (nil? (:pick family))))
-      (throw (ex-info "Drawable family lacks geometry/pick ownership"
+               (nil? (:geometry family)))
+      (throw (ex-info "Drawable family lacks geometry ownership"
                       {:family/id (:family/id family)})))
     (when (and (= :overlay (:pass-class family))
                (not-every? #(contains? family %)
@@ -603,9 +603,6 @@
     (when (and (:clocked? family)
                (or (nil? (:clock family)) (nil? (:stop-predicate family))))
       (throw (ex-info "Clocked family lacks injected clock or stop condition"
-                      {:family/id (:family/id family)})))
-    (when (false? (:pick-order-derived? family true))
-      (throw (ex-info "Family pick order is not derived from scene order"
                       {:family/id (:family/id family)})))
     (when (and (:hand-path? family) (:readback? family)
                (not (:declared-readback? family)))

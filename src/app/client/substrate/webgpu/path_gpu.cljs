@@ -368,9 +368,6 @@
                                   :paint/source-type :path-system
                                   :vertex-count vertex-count
                                   :first-vertex first-vertex}
-                          :pick {:geometry :path-material-authority
-                                 :owner vi :boundary :hit
-                                 :hit-slop path-material/hit-slop-screen-px}
                           :visibility {:visible? true :clip :shared-tree-clip}}))]
           (recur (next vis) next-op-offset entries))
         entries))))

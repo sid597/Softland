@@ -19,7 +19,7 @@
 (def placed-flat-shader
   "struct Region {
      view_proj: mat4x4<f32>, eye: vec4<f32>, ambient: vec4<f32>,
-     settings: vec4<f32>, camera_info: vec4<f32>,
+     settings: vec3<f32>,
    };
    @group(0) @binding(0) var<uniform> region: Region;
    struct In {
@@ -45,7 +45,7 @@
 (def placed-msdf-shader
   "struct Region {
      view_proj: mat4x4<f32>, eye: vec4<f32>, ambient: vec4<f32>,
-     settings: vec4<f32>, camera_info: vec4<f32>,
+     settings: vec3<f32>,
    };
    struct Atlas { distance_range: f32, width: f32, height: f32, pad: f32, };
    @group(0) @binding(0) var<uniform> region: Region;

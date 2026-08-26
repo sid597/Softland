@@ -16,6 +16,7 @@ const deleted = [
   "src/app/client/substrate/connector_route.cljc",
   "src/app/client/substrate/webgpu/connector_gpu.cljs",
   "src/app/client/workspace/region3d_pointer.cljc",
+  "src/app/client/substrate/frame_scheduler.cljc",
 ];
 for (const relative of deleted) {
   assert.equal(fs.existsSync(path.join(root, relative)), false, `${relative} survived`);
@@ -50,13 +51,26 @@ absent(regionGpu, /\b(?:grid-shader|overlay-glyph-shader|gizmo-shader|prepared-p
 const editAndPulseSources = [
   "src/app/client/substrate/path_material.cljc",
   "src/app/client/substrate/region3d_material.cljc",
-  "src/app/client/substrate/frame_scheduler.cljc",
   "src/app/client/substrate/webgpu/chrome_gpu.cljs",
   "src/app/client/substrate/webgpu/renderer.cljs",
 ].map(read).join("\n");
 absent(editAndPulseSources,
   /\b(?:revisioned-edit|move-knot|set-knot-pressure|move-contour-point|replace-contours|edit-diff|apply-edit|pulse-alpha)\b/,
   "retired edit or pulse closure survived");
+
+const sceneContractSources = [
+  "src/app/client/substrate/scene_tape.cljc",
+  "src/app/client/substrate/frame_graph.cljc",
+  "src/app/client/substrate/region3d_scene.cljc",
+  "src/app/client/substrate/webgpu/renderer.cljs",
+  "src/app/client/substrate/webgpu/path_gpu.cljs",
+  "src/app/client/substrate/webgpu/chrome_gpu.cljs",
+].map(read).join("\n");
+absent(sceneContractSources,
+  /\bpick-reverse\b|:region-router\b|:pick-order-derived\?|:resolve-view\b|:region-composite\b|:pass-class\s+:region\b/,
+  "retired tape click/order vocabulary survived");
+absent(sceneContractSources, /:pick\b/,
+  "scene entries still carry per-entry pick data");
 
 const gpuDir = path.join(root, "src/app/client/substrate/webgpu");
 const painterFiles = fs.readdirSync(gpuDir)

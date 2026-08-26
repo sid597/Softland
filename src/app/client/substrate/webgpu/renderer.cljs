@@ -2144,19 +2144,15 @@
     :part-rank part-rank
     :stable-tie stable-tie}))
 
-(defn- frame-entry
-  ([entry-id family-id order paint]
-   (frame-entry entry-id family-id order paint :none))
-  ([entry-id family-id order paint pick]
-   {:entry/id entry-id
-    :material/id entry-id
-    :material/revision 0
-    :instance/id entry-id
-    :family/id family-id
-    :order order
-    :paint paint
-    :pick pick
-    :visibility {:visible? true :clip :frame-shared}}))
+(defn- frame-entry [entry-id family-id order paint]
+  {:entry/id entry-id
+   :material/id entry-id
+   :material/revision 0
+   :instance/id entry-id
+   :family/id family-id
+   :order order
+   :paint paint
+   :visibility {:visible? true :clip :frame-shared}})
 
 (defn- gpu-paint [source source-type instance-count first-instance]
   {:paint/source source
@@ -2192,9 +2188,7 @@
                                  {:paint/source image-system
                                   :paint/source-type :image-system
                                   :op-offset offset
-                                  :instance-count instance-count}
-                                 {:geometry :image-quad :owner vi
-                                  :boundary :half-open :hit-slop 0.0})))]
+                                  :instance-count instance-count})))]
             (recur (next vis) next-offset entries))
           entries)))))
 
@@ -2202,14 +2196,11 @@
   ([entry-id family-id order system]
    (system-entry entry-id family-id order system ::system 0))
   ([entry-id family-id order system instance-count first-instance]
-   (system-entry entry-id family-id order system instance-count first-instance :none))
-  ([entry-id family-id order system instance-count first-instance pick]
    (when (and system (or (= ::system instance-count)
                          (pos? (or instance-count 0))))
      (frame-entry entry-id family-id order
                   (gpu-paint system :system instance-count
-                             first-instance)
-                  pick))))
+                             first-instance)))))
 
 (defn- clip-entries [{:keys [clip-semantic-input]}]
   (let [{:keys [clear-quad dirty-rect]} clip-semantic-input]
@@ -2256,8 +2247,7 @@
                             (frame-order (or (:stratum source-order) :world)
                                          25 [:frame/slot-text vi]
                                          (:stack-path source-order) 2)
-                            geo ::system 0
-                            {:geometry :layout-cluster :owner vi})
+                            geo ::system 0)
                      runs (when (and entry (seq line-clips))
                             (text-clip-runs geo line-clips))]
                  (if (some :clip runs)

@@ -107,13 +107,12 @@
     (is (= (graph/compile-frame-plan (inputs reg-ab))
            (graph/compile-frame-plan (inputs reg-ba))))))
 
-(deftest ten-validation-laws-reject-their-named-wrong-builds
+(deftest remaining-frame-plan-validation-laws-reject-their-wrong-builds
   (let [valid (graph/compile-frame-plan
                {:arrangement [] :effect-spans []
                 :viewport {:width 10 :height 10 :format "bgra8unorm"}})
         valid-family {:family/id :family/ok :drawable? true
-                      :geometry :owned :pick :owned
-                      :pick-order-derived? true}
+                      :geometry :owned}
         cycle-resource {:kind :color :format "bgra8unorm"
                         :usage #{:render-attachment :texture-binding}
                         :lifetime :frame :budget-owner :test}
@@ -155,14 +154,12 @@
          (assoc valid :families [(assoc valid-family :pass-class :overlay)])
          ;; 7 clock injection/stop
          (assoc valid :families [(assoc valid-family :clocked? true)])
-         ;; 8 pick order derivation
-         (assoc valid :families [(assoc valid-family :pick-order-derived? false)])
-         ;; 9 undeclared hand readback
+         ;; 8 undeclared hand readback
          (assoc valid :families [(assoc valid-family :hand-path? true
                                         :readback? true)])
-         ;; 10 lifetime/budget ownership
+         ;; 9 lifetime/budget ownership
          (assoc-in valid [:resources :present :budget-owner] nil)]]
-    (is (= 11 (count invalids)))
+    (is (= 10 (count invalids)))
     (doseq [invalid invalids]
       (is (thrown? clojure.lang.ExceptionInfo (graph/validate-plan! invalid))))))
 
@@ -174,7 +171,7 @@
         (region3d/tape-entry
          {:region-id :region/test :revision 1
           :source-order {:stack-path [[:root 1 1]]}
-          :resolve-view :held :rect [0 0 320 200]})
+          :rect [0 0 320 200]})
         region-plan (graph/compile-frame-plan
                      {:arrangement [region-entry]
                       :effect-spans []

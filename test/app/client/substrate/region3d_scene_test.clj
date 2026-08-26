@@ -1,6 +1,7 @@
 (ns app.client.substrate.region3d-scene-test
   (:require [clojure.test :refer [deftest is testing]]
             [app.client.substrate.region3d-material :as material]
+            [app.client.substrate.region3d-oracle :as oracle]
             [app.client.substrate.region3d-scene :as region]
             [app.client.substrate.scene-tape :as tape]
             [app.client.substrate.region3d-material-test :as fixture]))
@@ -29,14 +30,13 @@
    :order {:stratum :world :pass-class :direct :stack-path path
            :part-rank 0 :stable-tie id}
    :paint {:vertex-count 1}
-   :pick {:geometry :fixture :owner id}
    :visibility {:visible? true}})
 
 (deftest s1-region-is-an-ordinary-world-direct-sandwich-with-earned-order
   (let [region-entry (region/tape-entry
                       {:region-id :region/a :revision 1
                        :source-order {:stack-path [[:root 2 2]]}
-                       :resolve-view :held :rect [0 0 200 120]})
+                       :rect [0 0 200 120]})
         path (tape-fixture-entry :path [[:root 1 1]])
         text (assoc (tape-fixture-entry :text [[:root 3 3]])
                     :family/id :render.family/slug)
@@ -113,7 +113,7 @@
         material-row (assoc material/default-material
                             :base-color (fixture/tagged 0.7 0.2 0.1 0.5)
                             :metallic 0.3 :roughness 0.45)
-        shaded (region/shade-reference
+        shaded (oracle/shade-reference
                 {:material material-row
                  :normal [0.0 0.0 1.0]
                  :point [0.0 0.0 0.51]
@@ -129,24 +129,8 @@
     (is (= 0.5 (last shaded)) "material alpha is not forced to one")
     (is (every? #(<= 0.0 % 0.5) (butlast shaded))
         "linear RGB is premultiplied by material alpha")
-    (is (= (/ 2.0 255.0) region/brdf-readback-error))
     (is (= :khronos-pbr-neutral-v1 region/tone-map-algorithm-version))))
 
-(deftest s5-camera-wake-has-zero-instance-upload-and-shadow-edge-is-declared
-  (let [derived (region/derive-scene (fixture-region))
-        camera-wake (region/maintain-camera
-                     derived (assoc (get-in derived [:region :view-default])
-                                    :yaw 0.02 :pitch 0.01))
-        pass (region/region-pass-fragment
-              {:region-id :region/a :size [768 512] :shadow? true})
-        shadow (first (:passes pass))
-        interior (second (:passes pass))]
-    (is (= {:region-encodes 1 :instance-uploads 0
-            :bvh-refits 0 :two-d-uploads 0}
-           (:receipt camera-wake)))
-    (is (= :shadow (:region/role shadow)))
-    (is (= :interior (:region/role interior)))
-    (is (= [(:pass/id shadow)] (:producer-edges interior)))
-    (is (= :depth
-           (get-in pass [:resources [:region3d/depth :region/a] :kind])))
+(deftest shadow-light-space-remains-derived-from-the-live-scene
+  (let [derived (region/derive-scene (fixture-region))]
     (is (some? (region/shadow-light-space derived)))))

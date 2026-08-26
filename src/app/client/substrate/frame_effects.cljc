@@ -105,31 +105,27 @@
              :coverage {:boundary-relation :derived-effect
                         :geometry-operator :coverage-alpha-multiply
                         :operator-version effect-grammar-version
-                        :support :designated-mask-subtree}
-             :pick :none})
+                        :support :designated-mask-subtree}})
       layer-blur
       (conj {:kind :layer-blur
              :coverage {:boundary-relation :derived-effect
                         :geometry-operator :separable-gaussian
                         :operator-version (:algorithm-version layer-blur)
                         :support {:radius-world (:radius-world layer-blur)
-                                  :max-px (:max-px layer-blur)}}
-             :pick :none})
+                                  :max-px (:max-px layer-blur)}}})
       backdrop-blur
       (conj {:kind :backdrop-blur
              :coverage {:boundary-relation :derived-effect
                         :geometry-operator :scene-snapshot-separable-gaussian
                         :operator-version (:algorithm-version backdrop-blur)
                         :support {:radius-world (:radius-world backdrop-blur)
-                                  :max-px (:max-px backdrop-blur)}}
-             :pick :none})
+                                  :max-px (:max-px backdrop-blur)}}})
       (effectful? normalized)
       (conj {:kind :group-composite
              :coverage {:boundary-relation :derived-effect
                         :geometry-operator :premultiplied-group-composite
                         :operator-version effect-grammar-version
-                        :support :group-span}
-             :pick :none}))))
+                        :support :group-span}}))))
 
 (defn projected-blur
   "Project a world-space blur declaration to pixels and name its clamp regime."

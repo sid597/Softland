@@ -22,13 +22,13 @@
 (def mesh-instance-stride 112)
 (def light-instance-stride 80)
 (def composite-instance-stride 20)
-(def region-uniform-bytes 128)
+(def region-uniform-bytes 112)
 (def shadow-uniform-bytes 64)
 
 (def mesh-vertex-shader
   "struct Region {
      view_proj: mat4x4<f32>, eye: vec4<f32>, ambient: vec4<f32>,
-     settings: vec4<f32>, camera_info: vec4<f32>,
+     settings: vec3<f32>,
    };
    @group(0) @binding(0) var<uniform> region: Region;
    struct VertexIn {
@@ -65,7 +65,7 @@
 (def mesh-fragment-common
   "struct Region {
      view_proj: mat4x4<f32>, eye: vec4<f32>, ambient: vec4<f32>,
-     settings: vec4<f32>, camera_info: vec4<f32>,
+     settings: vec3<f32>,
    };
    struct Light {
      kind: f32, intensity: f32, range: f32, casts_shadow: f32,
@@ -631,24 +631,15 @@
 (defn- display-mode-number [mode]
   (case mode :flat 1.0 :normal 2.0 0.0))
 
-(defn- camera-info [camera]
-  (let [[width height] (:viewport camera)
-        lens (:lens camera)]
-    [(if (= :perspective (:kind lens))
-       (* (:fov-y-deg lens) (/ js/Math.PI 180.0)) 0.0)
-     width height (or (:ortho-scale lens) 0.0)]))
-
 (defn- region-uniform-values [maintained camera display-mode shadow-space]
   (let [[ar ag ab _] (tagged-linear (get-in maintained [:region :ambient :color]))
         intensity (get-in maintained [:region :ambient :intensity])
-        light-count (:count (light-values maintained))
-        ortho? (= :ortho (get-in camera [:lens :kind]))]
+        light-count (:count (light-values maintained))]
     (concat (column-major (:view-projection camera))
             (:eye camera) [1.0]
             [ar ag ab intensity]
             [light-count (display-mode-number display-mode)
-             (if shadow-space 1.0 0.0) (if ortho? 1.0 0.0)]
-            (camera-info camera))))
+             (if shadow-space 1.0 0.0)])))
 
 (defn- session-region [session region-id]
   (get-in session [:regions region-id] {}))
@@ -960,7 +951,6 @@
                          :shadow? (boolean shadow-space)
                          :gpu gpu3 :draw-order mesh-draw-order
                          :placements (:placements placement-result)
-                         :placement-census (:census placement-result)
                          :dirty-by-role dirty-by-role
                          :scene-update-kind update-kind
                          :affected-object-ids

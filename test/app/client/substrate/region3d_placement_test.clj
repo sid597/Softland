@@ -43,7 +43,7 @@
     (is (= [0.0 1.0 6.0 10.0] (:rect quad)))
     (is (= [0.0 1.0 0.25 0.75] (:uv quad)))))
 
-(deftest s5-settled-layout-key-is-a-value-door-through-the-one-seam
+(deftest s5-placed-layout-keeps-the-one-glyph-accessor-seam
   (let [placement {:address :text/shared
                    :content-revision [:content 1]
                    :text "ABC"
@@ -53,8 +53,6 @@
                              :line-height 12.0 :origin [0.0 0.0]})}
         font-assets {:layout-provider nil}
         layout (placement/layout-placed-text placement font-assets)]
-    (is (= [:text/shared [:content 1] {}]
-           (placement/settled-layout-key placement font-assets)))
     (is (= "ABC" (get-in layout [:source :text])))
     ;; Contract-T §7.5: glyph data reads exclusively through the accessor
     ;; seam — the raw :glyphs path is the named crime, not a missing field.

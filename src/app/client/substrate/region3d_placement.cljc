@@ -1,8 +1,8 @@
 (ns app.client.substrate.region3d-placement
   "Pure Region3D placement derivations.
 
-   This namespace owns material-reference resolution, flat-plane math, text
-   and ink packing, placed pick readers, and region-object anchor projection.
+   This namespace owns flat-plane math, text and ink packing, and region-object
+   anchor projection.
    Store values and explicit cache values enter as data; there is no ambient
    state and no execution clock."
   (:require [app.client.substrate.path-material :as path-material]
@@ -33,85 +33,12 @@
     (throw (ex-info "Placed color must be tagged or legacy flat RGBA"
                     {:color color :adapter placed-color-adapter-version}))))
 
-(defn- text-resolution [object owner]
-  (let [layout (:layout owner)
-        params (get-in object [:text :params])
-        legacy-style (:style owner)
-        material-color (adapt-legacy-color
-                        [(:r legacy-style 1.0) (:g legacy-style 1.0)
-                         (:b legacy-style 1.0) (:a legacy-style 1.0)])
-        color (or (:color params) material-color)
-        max-inline-size (or (:max-inline-size params)
-                            (get-in layout [:constraints :inline-size]))
-        text (get-in layout [:source :text] "")
-        style {:font-size (double (or (:size legacy-style)
-                                     (get-in layout [:font :size]) 14.0))
-               :color color
-               :max-inline-size max-inline-size
-               :color-adapter placed-color-adapter-version}
-        content-revision
-        [:region3d/text-content-v1 (:address owner) text style
-         (select-keys (:constraints layout)
-                      [:wrap :line-height :alignment :tab-stops :clip])]]
-    {:status :resolved
-     :kind :text
-     :address (:address owner)
-     :owner (select-keys owner [:vi :path :node-id])
-     :content-revision content-revision
-     :text text
-     :style style
-     :layout layout}))
-
-(defn- ink-resolution [owner]
-  (let [material (path-material/validate-material! (:material owner))]
-    {:status :resolved
-     :kind :ink
-     :address (:address owner)
-     :owner (select-keys owner [:vi :op-id])
-     :content-revision (path-material/material-content-key material)
-     :cache-key (path-material/material-cache-key material placement-zoom)
-     :material material}))
-
-(defn resolve-placed-object
-  "Resolve one placed object against deterministic occurrence-owner indexes.
-   Zero/many owners are declared non-paint states."
-  [object text-index ink-index]
-  (let [kind (:object/kind object)
-        address (get-in object [kind :ref :address])
-        owners (case kind
-                 :text (get text-index address [])
-                 :ink (get ink-index address [])
-                 [])
-        base {:object-id (:object/id object)
-              :object object
-              :kind kind
-              :address address}]
-    (cond
-      (empty? owners) (assoc base :status :ref-absent)
-      (< 1 (count owners)) (assoc base :status :ref-ambiguous
-                                  :owner-count (count owners))
-      :else (merge base
-                   (case kind
-                     :text (text-resolution object (first owners))
-                     :ink (ink-resolution (first owners)))))))
-
-(defn placement-census [placements]
-  (let [statuses (frequencies (map :status placements))]
-    {:placements (count placements)
-     :resolved (get statuses :resolved 0)
-     :ref-absent (get statuses :ref-absent 0)
-     :ref-ambiguous (get statuses :ref-ambiguous 0)}))
-
 (defn provider-identity
   "Return the shaping identity which joins a settled placement packing key."
   [font-assets]
   (select-keys (:layout-provider font-assets)
                [:face-id :face-revision :shaper-id :shaper-version
                 :features :variations :axes :fallback-chain :upem :metrics]))
-
-(defn settled-layout-key [placement font-assets]
-  [(:address placement) (:content-revision placement)
-   (provider-identity font-assets)])
 
 (defn session-layout-key [session-snapshot]
   [:session (:address session-snapshot) (:revision session-snapshot)])
@@ -146,7 +73,6 @@
       :source-revision (:content-revision placement)
       :zoom placement-zoom})))
 
-(defn material->object-local [[x y]] [(double x) (- (double y)) 0.0])
 (defn object->material-local [[x y _z]] [(double x) (- (double y))])
 
 (defn ray->placement-plane
@@ -174,38 +100,6 @@
                :point3 region-point
                :object-local local-point
                :material-local (object->material-local local-point)})))))))
-
-(defn- contains-point? [{:keys [x y w h]} [px py]]
-  (and (<= x px (+ x w)) (<= y py (+ y h))))
-
-(defn pick-placed-text [placement ray]
-  (when (and (= :resolved (:status placement)) (:layout placement))
-    (when-let [plane (ray->placement-plane ray (:matrix placement))]
-      (when (contains-point? (get-in placement [:layout :metrics :logical-bounds])
-                             (:material-local plane))
-        (merge {:route :placed-text
-                :object-id (:object-id placement)
-                :address (:address placement)
-                :layout/id (get-in placement [:layout :layout/id])}
-               (select-keys plane [:t :point3 :material-local])
-               {:text-hit (text-layout/hit-test-result
-                           (:layout placement) (:material-local plane))})))))
-
-(defn pick-placed-ink [placement ray]
-  (when (and (= :resolved (:status placement)) (:material placement))
-    (when-let [plane (ray->placement-plane ray (:matrix placement))]
-      (when (path-material/hit? (:material placement)
-                                (:material-local plane))
-        (merge {:route :placed-ink
-                :object-id (:object-id placement)
-                :address (:address placement)}
-               (select-keys plane [:t :point3 :material-local]))))))
-
-(defn pick-placement [placement ray]
-  (case (:kind placement)
-    :text (pick-placed-text placement ray)
-    :ink (pick-placed-ink placement ray)
-    nil))
 
 (defn- glyph-map [glyphs]
   (reduce (fn [index glyph]
@@ -349,20 +243,3 @@
              :object object-id
              :point3 point3
              :anchor-clamped clamped?}))))))
-
-(defn region-anchor-resolver
-  "Build the injected connector resolver from same-frame prepared region data.
-   `prepared-by-region` maps region-id to a maintained scene + camera."
-  [{:keys [regions prepared-by-region effective-transforms]}]
-  (let [regions-by-address (into {} (map (juxt :address identity)) regions)]
-    (fn [binding anchor-container & [effective]]
-      (when-let [region-op (get regions-by-address (:region binding))]
-        (let [{:keys [maintained camera]}
-              (get prepared-by-region (:region-id region-op))]
-          (project-region-anchor
-           {:binding binding
-            :region-op region-op
-            :maintained maintained
-            :camera camera
-            :effective-transforms (or effective effective-transforms)
-            :anchor-container anchor-container}))))))
