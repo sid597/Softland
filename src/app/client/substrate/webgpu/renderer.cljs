@@ -2482,8 +2482,7 @@
 
 (def frame-family-registry
   (let [family (fn [family-id produce execute!]
-                 {:contract (get scene-tape/default-family-registry family-id)
-                  :inputs (get frame-inputs/family-input-declarations family-id)
+                 {:inputs (get frame-inputs/family-input-declarations family-id)
                   :produce produce
                   :execute! execute!})
         generic (fn [family-id produce]
@@ -2533,16 +2532,7 @@
       (throw (ex-info "Frame executor registrations must exactly cover admitted families"
                       {:admitted admitted-families
                        :executors executor-families})))
-    (when-let [nil-contracts
-               (seq (keep (fn [[family-id registration]]
-                            (when (nil? (:contract registration)) family-id))
-                          frame-family-registry))]
-      (throw (ex-info "Frame executor registration has no declarative contract"
-                      {:families (vec nil-contracts)})))
-    (into {}
-          (map (fn [[family-id registration]]
-                 [family-id (:contract registration)]))
-          frame-family-registry)))
+    scene-tape/default-family-registry))
 
 ;; SEAM-STEP1 T8: frame vocabulary and its maintained arrangement stay owned
 ;; at the renderer edge; the scene store never learns these transient entries.

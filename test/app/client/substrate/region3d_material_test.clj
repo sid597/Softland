@@ -41,11 +41,6 @@
         "unknown fields are preserved, never silently dropped")
     (is (= [0.0 0.0 0.0 1.0]
            (get-in canonical [:scene :parent :transform :rotation])))
-    (is (= :preserve
-           (get-in material/region-family-registration
-                   [:versioning :unknown-field-policy])))
-    (is (= :via-router
-           (get-in material/object-family-citizenship [:render :order])))
     (testing "quaternion normalization is exact inside the pinned tolerance"
       (let [accepted (assoc-in input [:scene :parent :transform :rotation]
                                [0.0 0.0 0.0 1.0005])]
@@ -93,10 +88,7 @@
          clojure.lang.ExceptionInfo #"requires :ref and :params"
          (material/validate-region!
           (assoc-in v2 [:scene :placed-text :text]
-                    {:ref {:address :text/shared}}))))
-    (is (= [:region3d/v1-base :region3d/v2-placements]
-           (get-in material/object-family-citizenship
-                   [:versioning :migration])))))
+                    {:ref {:address :text/shared}}))))))
 
 (deftest primitive-generators-are-deterministic-general-triangle-projections
   (doseq [[kind params] material/primitive-defaults]

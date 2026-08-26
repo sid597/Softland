@@ -43,41 +43,6 @@
     :backend :webgpu-triangle-list
     :verdict :measured-path-parity}])
 
-(def geometry-declaration
-  {:geometry/version 1
-   :authority {:kind :centerline-pressure-or-explicit-contours
-               :source-id :scene-entry/material-id
-               :source-revision :scene-entry/material-revision
-               :algorithm-version algorithm-version
-               :local-space :container-local-f64-authority}
-   :classify {:result #{:inside :boundary :outside}
-              :fill-rule :explicit-outer-minus-holes
-              :boundary-rule :boundary-is-hit}
-   :coverage {:geometry-operator :direct-tessellation
-              :operator-version algorithm-version
-              :boundary-relation :aliased-triangle-edge-v1
-              :reference-isocontour :not-applicable
-              :visual-factors [:solid-color :material-alpha :effective-opacity]
-              :tie-token :mathematical-boundary
-              :quantization :measured-f32-screen-error-per-regime}
-   :pick {:policy :interior-or-centerline-width
-          :boundary :hit
-          :hit-slop {:metric :screen-px :radius hit-slop-screen-px}
-          :owner :path-node/address}
-   :bounds {:math :derived-from-authority
-            :paint :tessellated-mesh-bounds
-            :pick :authority-plus-declared-slop}
-   :derivations [{:kind :outline-and-triangle-mesh
-                  :source-revision :scene-entry/material-revision
-                  :algorithm-version algorithm-version
-                  :tolerance-lod :zoom-regime-fan-resolution
-                  :normalization :shape-local-origin-scale
-                  :precision :container-local-f32
-                  :backend :webgpu-triangle-list
-                  :regime :path-zoom-regime}]
-   :regimes (mapv #(dissoc % :regime/id :fan-resolution)
-                  legal-zoom-regimes)})
-
 (def material-required-keys
   #{:path/material-id :path/revision :path/kind :path/geometry
     :path/paint :path/provenance})

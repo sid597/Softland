@@ -671,24 +671,6 @@
                                 (:effect-spans inputs))]
     (validate-plan! plan)))
 
-(defn empty-maintained-state []
-  {:structure-key nil :structure nil :structure-compiles 0 :structure-reuses 0})
-
-(defn maintain-frame-plan [state inputs]
-  (let [state (or state (empty-maintained-state))
-        key (structure-input inputs)
-        reuse? (= key (:structure-key state))
-        structure (if reuse? (:structure state) (compile-plan-structure key))
-        plan (-> (bind-entry-ranges structure (:arrangement inputs)
-                                    (:effect-spans inputs))
-                 validate-plan!)]
-    {:structure-key key
-     :structure structure
-     :plan plan
-     :structure-compiles (+ (:structure-compiles state 0) (if reuse? 0 1))
-     :structure-reuses (+ (:structure-reuses state 0) (if reuse? 1 0))
-     :reused? reuse?}))
-
 (defn- oracle-plan-structure
   "Fresh batch expansion kept separate from compile-plan-structure. Shared leaf
    constructors define vocabulary, while this independent orchestration is the
@@ -763,9 +745,9 @@
     (assoc structure :structure/hash (stable-hash structure))))
 
 (defn oracle-compile-frame-plan
-  "Independent batch compiler used only as the maintained road's executable
-   oracle. It constructs a fresh structure from raw inputs and binds ranges;
-   it does not call compile-plan-structure or maintain-frame-plan."
+  "Independent batch compiler used as the frame-plan view's executable oracle.
+   It constructs a fresh structure from raw inputs and binds ranges without
+   calling compile-plan-structure."
   [inputs]
   (let [key (structure-input inputs)
         fresh (oracle-plan-structure key)

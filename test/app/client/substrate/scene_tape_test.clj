@@ -27,26 +27,16 @@
     (is (= tape/default-family-registry
            (tape/register-families (reverse tape/family-contracts)))
         "registration order is not scene order"))
-  (testing "every family unconditionally declares geometry, Q2 regimes, and color"
+  (testing "registrations carry exactly the two fields consumed at runtime"
     (doseq [[family-id family] tape/default-family-registry]
-      (let [geometry (get-in family [:render :geometry])
-            regimes (:regimes geometry)]
-        (is (= family-id (:family/id family)))
-        (is (map? (:authority geometry)))
-        (is (map? (:classify geometry)))
-        (is (map? (:coverage geometry)))
-        (is (map? (:pick geometry)))
-        (is (map? (:bounds geometry)))
-        (is (seq regimes))
-        (is (= 0.01 (get-in (first regimes) [:zoom :min])))
-        (is (= 1000.0 (get-in (last regimes) [:zoom :max])))
-        (is (= :scene-color/linear-premultiplied-srgb
-               (get-in family [:render :color-alpha :scene]))))))
-  (testing "missing geometry and undeclared family ids fail before a frame exists"
+      (is (= family-id (:family/id family)))
+      (is (= #{:family/id :entry-paint-required-keys} (set (keys family))))
+      (is (vector? (:entry-paint-required-keys family)))))
+  (testing "unread registration fields and undeclared family ids fail closed"
     (is (thrown? clojure.lang.ExceptionInfo
                  (tape/register-family
                   {}
-                  (update (first tape/family-contracts) :render dissoc :geometry))))
+                  (assoc (first tape/family-contracts) :receipts [:paper]))))
     (is (thrown? clojure.lang.ExceptionInfo
                  (tape/compile-tape
                   :bad-family
@@ -92,11 +82,3 @@
     (is (= (:order-hash compiled) (:order-hash compiled-again)))
     (is (= (mapv :entry/id (:entries compiled))
            (mapv :entry/id (:entries compiled-again))))))
-
-(deftest w2b-msdf-counterexample-remains-declared-not-blessed
-  (is (= :falsified-47-isocontour-mismatches-per-regime
-         (get-in tape/default-family-registry
-                 [:render.family/msdf :render :geometry :regimes 0 :verdict])))
-  (is (= [:w0-a/msdf-47-mismatch-counterexample]
-         (get-in tape/default-family-registry
-                 [:render.family/msdf :receipts]))))

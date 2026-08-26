@@ -59,6 +59,12 @@ if (registryStart < 0 || registryEnd < 0) {
   throw new Error("missing frame-family-registry slice");
 }
 const registry = renderer.slice(registryStart, registryEnd);
+const registrationsStart = contracts.indexOf("(defn- registration");
+const registrationsEnd = contracts.indexOf("(defn- require-keys!", registrationsStart);
+if (registrationsStart < 0 || registrationsEnd < 0) {
+  throw new Error("missing minimal family-registration slice");
+}
+const registrations = contracts.slice(registrationsStart, registrationsEnd);
 
 const families = [
   ":render.family/msdf",
@@ -134,6 +140,25 @@ for (const family of families) {
   requireToken("frame executor registry", registry, family);
 }
 
+for (const [label, source, pattern] of [
+  ["frame-plan orphan", frameGraph, /\(defn\s+maintain-frame-plan\b/],
+  ["frame-plan state", frameGraph, /\(defn\s+empty-maintained-state\b/],
+  ["effect-spans orphan", frameEffects, /\(defn\s+maintain-effect-spans\b/],
+  ["effect-spans state", frameEffects, /\(defn\s+empty-maintained-state\b/],
+  ["effect declarations helper", frameEffects, /\(defn-\s+declarations\b/],
+  ["effect order-token helper", frameEffects, /\(defn-\s+arrangement-token\b/],
+]) {
+  forbid(label, source, pattern, "retired maintained twin closure returned");
+}
+for (const token of [
+  ":family/version", ":grammar", ":provenance", ":versioning", ":receipts",
+  ":edit-operations", ":serialization", ":migration",
+]) {
+  if (registrations.includes(token)) {
+    failures.push(`family registration paper returned: ${token}`);
+  }
+}
+
 for (const effect of effectDeclarations) {
   requireToken("effect grammar", frameEffects, effect);
 }
@@ -169,8 +194,9 @@ if (!seededEffectRejected) {
 }
 
 const receipt = {
-  contract: "W2-B/O-G-M-C+IMAGE/PATH/CHROME/REGION3D",
+  contract: "W2-B/admission+order+IMAGE/PATH/CHROME/REGION3D",
   families: families.length,
+  registrationFields: 2,
   effectDeclarations: effectDeclarations.length,
   drawFrameBranches: 0,
   linearPremultipliedDefaultOff:

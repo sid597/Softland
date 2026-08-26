@@ -5,10 +5,9 @@
    derivation. Keyed inputs are the container registry's effect declarations
    and the ordered arrangement's semantic order tokens; mutation enters through
    set-effects!; this namespace owns validation, effect-chain projection, and
-   the independent CPU color oracle. The maintained door re-derives only
-   changed containers while derive-effect-spans is its full-recompute oracle."
-  (:require [clojure.set :as set]
-            [app.client.workspace.containers :as containers]))
+   the independent CPU color oracle. `frame-effect-view` owns incremental
+   maintenance; derive-effect-spans is its full-recompute oracle."
+  (:require [app.client.workspace.containers :as containers]))
 
 (def effect-grammar-version 1)
 (def blur-algorithm-version :gaussian-9tap-downsample-v1)
@@ -232,61 +231,6 @@
                        entry-ranges)))
        (sort-by :depth)
        (mapv #(select-keys % [:container/id :effects :depth]))))
-
-(defn empty-maintained-state []
-  {:declarations {} :order-token nil :spans-by-container {}
-   :last-derivation {:containers 0 :siblings 0 :full? true}
-   :total-derivations 0})
-
-(defn- declarations [registry]
-  (into {}
-        (map (fn [{:keys [container/id stack-path effects depth]}]
-               [id {:stack-path stack-path :effects effects :depth depth}]))
-        (effect-container-rows registry)))
-
-(defn- arrangement-token [arrangement]
-  (mapv (fn [entry] [(:entry/id entry) (:order entry)]) arrangement))
-
-(defn maintain-effect-spans
-  "Incremental maintained door. When order is unchanged, only containers whose
-   normalized declaration changed are recomputed; untouched sibling spans keep
-   value identity. The full oracle remains derive-effect-spans."
-  [state registry arrangement]
-  (let [state (or state (empty-maintained-state))
-        current-declarations (declarations registry)
-        order-token (arrangement-token arrangement)
-        full? (not= order-token (:order-token state))
-        changed (if full?
-                  (set/union (set (keys (:declarations state)))
-                             (set (keys current-declarations)))
-                  (set (for [cid (set/union (set (keys (:declarations state)))
-                                           (set (keys current-declarations)))
-                             :when (not= (get (:declarations state) cid)
-                                         (get current-declarations cid))]
-                         cid)))
-        full-spans (when (or full? (seq changed))
-                     (derive-effect-spans registry arrangement))
-        fresh-by-id (into {} (map (juxt :container/id identity)) full-spans)
-        next-by-id (if full?
-                     fresh-by-id
-                     (reduce (fn [rows cid]
-                               (if-let [span (get fresh-by-id cid)]
-                                 (assoc rows cid span)
-                                 (dissoc rows cid)))
-                             (:spans-by-container state)
-                             changed))
-        ordered (->> next-by-id vals
-                     (sort-by (juxt (comp - :depth)
-                                    (comp pr-str :container/id))) vec)]
-    {:declarations current-declarations
-     :order-token order-token
-     :spans-by-container next-by-id
-     :spans ordered
-     :last-derivation {:containers (count changed)
-                       :siblings (if full? (max 0 (- (count current-declarations)
-                                                     (count changed))) 0)
-                       :full? full?}
-     :total-derivations (+ (:total-derivations state 0) (count changed))}))
 
 (defn source-over
   "CPU linear-premultiplied source-over oracle."

@@ -910,17 +910,8 @@
                     (assoc receipt
                            :icc-decode icc
                            :candidate-transfer-counts
-                           {:ingress 1 :presentation 1 :rows-pass? counts-ok?}
-                           :one-family-color-declaration
-                           {:scene (get-in scene-tape/image-registration
-                                           [:render :color-alpha :scene])
-                            :seam-state-separate? true
-                            :zero-transfer-family-row? false
-                            :pass? (and counts-ok?
-                                        (= :scene-color/linear-premultiplied-srgb
-                                           (get-in scene-tape/image-registration
-                                                   [:render :color-alpha
-                                                    :scene])))})))))))
+                           {:ingress 1 :presentation 1
+                            :rows-pass? counts-ok?})))))))
         (.then
          (fn [receipt]
            (assoc receipt :pass?
@@ -932,8 +923,7 @@
                            (:mistagged-alpha receipt)
                            (:seam-off receipt)
                            (:seam-off-profile receipt)
-                           (:icc-decode receipt)
-                           (:one-family-color-declaration receipt)])))))))
+                           (:icc-decode receipt)])))))))
 
 (defn- run-arrangement-receipt! [image-system corpus]
   (let [vi [:image-atom :arrangement]
@@ -1773,12 +1763,7 @@
              {:expected expected :actual actual
               :max-byte-delta delta
               :non-black-background true
-              :scene-color (get-in scene-tape/path-registration
-                                   [:render :color-alpha :scene])
-              :pass? (and (<= delta 3)
-                          (= :scene-color/linear-premultiplied-srgb
-                             (get-in scene-tape/path-registration
-                                     [:render :color-alpha :scene])))}))))))
+              :pass? (<= delta 3)}))))))
 
 (defn- receipt-entry [id family part]
   {:entry/id id :material/id id :material/revision 0 :instance/id id

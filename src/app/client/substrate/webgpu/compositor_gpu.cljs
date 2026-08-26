@@ -486,8 +486,6 @@
    :!region-leases (atom {})
    :!retired-region-targets (atom [])
    :!retiring-region-keys (atom #{})
-   :!plan-state (atom (frame-graph/empty-maintained-state))
-   :!effect-state (atom (frame-effects/empty-maintained-state))
    :!receipt (atom {:frames 0 :linear-frames 0 :copy-present-frames 0
                     :exports 0 :passes [] :color-mode :legacy})})
 

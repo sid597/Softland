@@ -1,14 +1,9 @@
 (ns app.client.substrate.scene-tape
-  "W2-B's pure render contract and ordered-scene-tape core.
+  "Pure render-family admission and ordered-scene-tape core.
 
-   Family registration owns citizenship, geometry, and color declarations.
-   Scene entries own semantic order.  Paint and pick are projections of the
-   same compiled tape: paint walks forward, pick walks exact reverse.  This
-   namespace is data-only and has no GPU objects, atoms, renderer imports, or
-   family-specific ordering branches."
-  (:require [app.client.substrate.chrome-material :as chrome-material]
-            [app.client.substrate.path-material :as path-material]
-            [app.client.substrate.region3d-material :as region3d-material]))
+   Family registration carries only the paint shape consumed by entry
+   validation. Scene entries own semantic order. Paint and pick are projections
+   of the same compiled tape: paint walks forward, pick walks exact reverse.")
 
 (def family-ids
   "The complete render-family set. Adding a road changes this registry; it
@@ -69,347 +64,22 @@
     :slug :render.family/slug
     (throw (ex-info "Unregistered text backend" {:backend backend}))))
 
-(defn- regime
-  [backend precision normalization extent verdict]
-  {:zoom {:min 0.01 :max 1000.0}
-   :extent extent
-   :normalization normalization
-   :coordinate-precision precision
-   :coverage-precision precision
-   :lifecycle :live
-   :backend backend
-   :verdict verdict})
-
-(defn- geometry
-  [{:keys [kind algorithm local-space fill-rule coverage-operator
-           boundary-relation visual-factors pick-policy hit-slop owner
-           math-bounds paint-bounds pick-bounds derivations regimes]}]
-  {:geometry/version 1
-   :authority {:kind kind
-               :source-id :scene-entry/material-id
-               :source-revision :scene-entry/material-revision
-               :algorithm-version algorithm
-               :local-space local-space}
-   :classify {:result #{:inside :boundary :outside}
-              :fill-rule fill-rule
-              :boundary-rule :explicit}
-   :coverage {:geometry-operator coverage-operator
-              :operator-version algorithm
-              :boundary-relation boundary-relation
-              :reference-isocontour (if (= :isocontour-0.5 boundary-relation)
-                                      0.5
-                                      :not-applicable)
-              :visual-factors visual-factors
-              :tie-token :half
-              :quantization :declared-per-regime}
-   :pick {:policy pick-policy
-          :boundary (if (= :none pick-policy) :not-applicable :hit)
-          :hit-slop {:metric :screen-px :radius hit-slop}
-          :owner owner}
-   :bounds {:math math-bounds
-            :paint paint-bounds
-            :pick pick-bounds}
-   :derivations derivations
-   :regimes regimes})
-
-(def ^:private msdf-geometry
-  (geometry
-   {:kind :glyph-outline
-    :algorithm :dejavu-msdf-atlas-v1
-    :local-space :font-outline-positioned-by-layout-result
-    :fill-rule :nonzero
-    :coverage-operator :msdf-atlas-sample
-    :boundary-relation :isocontour-0.5
-    :visual-factors [:atlas-sample :material-alpha :effective-opacity]
-    :pick-policy :layout-cluster
-    :hit-slop 0.0
-    :owner :layout-result/cluster-owner
-    :math-bounds :font-outline
-    :paint-bounds :atlas-plane-bounds
-    :pick-bounds :layout-cluster
-    :derivations [{:kind :atlas
-                   :source-revision :font-asset/digest
-                   :algorithm-version :dejavu-msdf-atlas-v1
-                   :tolerance-lod :screen-constant
-                   :normalization :atlas-plane-bounds
-                   :precision :rgba8unorm
-                   :backend :webgpu-filtered-msdf
-                   :regime :known-negative-provenance}]
-    ;; The declaration is unconditional and honest: the existing road remains
-    ;; registered while its permanent 47-mismatch counterexample stays RED.
-    :regimes [(regime :webgpu-filtered-msdf :rgba8unorm
-                      :atlas-plane-bounds :font-glyph-atlas
-                      :falsified-47-isocontour-mismatches-per-regime)]}))
-
-(def ^:private slug-geometry
-  (geometry
-   {:kind :glyph-outline
-    :algorithm :slug-bands-v1
-    :local-space :font-outline-positioned-by-layout-result
-    :fill-rule :nonzero
-    :coverage-operator :analytic-band-coverage
-    :boundary-relation :isocontour-0.5
-    :visual-factors [:analytic-coverage :material-alpha :effective-opacity]
-    :pick-policy :layout-cluster
-    :hit-slop 0.0
-    :owner :layout-result/cluster-owner
-    :math-bounds :font-outline
-    :paint-bounds :slug-sample-bounds
-    :pick-bounds :layout-cluster
-    :derivations [{:kind :bands
-                   :source-revision :font-asset/digest
-                   :algorithm-version :slug-bands-v1
-                   :tolerance-lod :font-asset-version
-                   :normalization :glyph-bbox-centered
-                   :precision :rgba16float
-                   :backend :webgpu-unfilterable-float
-                   :regime :measured-font-corpus}]
-    :regimes [(regime :webgpu-unfilterable-float :rgba16float
-                      :glyph-bbox-centered :font-glyph-bounds
-                      :measured-corpus-only-q2-boundary-retained)]}))
-
-(def ^:private clip-geometry
-  (geometry
-   {:kind :quad
-    :algorithm :clip-intersection-v1
-    :local-space :declared-screen-or-container-space
-    :fill-rule :not-applicable
-    :coverage-operator :scissor-intersection
-    :boundary-relation :not-applicable
-    :visual-factors [:shared-visibility :load-op :clear-value]
-    :pick-policy :none
-    :hit-slop 0.0
-    :owner :none
-    :math-bounds :clip-quad
-    :paint-bounds :clip-intersection
-    :pick-bounds :none
-    :derivations [{:kind :clip-intersection
-                   :source-revision :scene-entry/material-revision
-                   :algorithm-version :clip-intersection-v1
-                   :tolerance-lod :exact-axis-aligned
-                   :normalization :target-pixels
-                   :precision :u32-scissor
-                   :backend :webgpu-render-pass
-                   :regime :legal-zoom}]
-    :regimes [(regime :webgpu-render-pass :u32-scissor :target-pixels
-                      :render-target :measured-production)]}))
-
-(def ^:private image-regimes
-  ;; IMAGE-ATOM T8: the image family consumes the existing f32 affine transport;
-  ;; these rows describe that road rather than minting a second transform path.
-  [{:zoom {:min 0.01 :max 0.1}
-    :extent [:standard-fixture :world-256]
-    :normalization :screen-constant
-    :coordinate-precision :f32
-    :coverage-precision :rgba8unorm
-    :lifecycle :settle-to-scene
-    :backend :webgpu-sampled-image
-    :verdict :asserted-image-parity}
-   {:zoom {:min 0.1 :max 8.0}
-    :extent [:standard-fixture :world-256]
-    :normalization :screen-constant
-    :coordinate-precision :f32
-    :coverage-precision :rgba8unorm
-    :lifecycle :settle-to-scene
-    :backend :webgpu-sampled-image
-    :verdict :asserted-image-parity}
-   {:zoom {:min 8.0 :max 1000.0}
-    :extent [:standard-fixture :world-256]
-    :normalization :screen-constant
-    :coordinate-precision :f32
-    :coverage-precision :rgba8unorm
-    :lifecycle :settle-to-scene
-    :backend :webgpu-sampled-image
-    :verdict :asserted-image-parity}])
-
-(def ^:private image-geometry
-  {:geometry/version 1
-   :authority {:kind :image-quad
-               :source-id :scene-entry/material-id
-               :source-revision :scene-entry/material-revision
-               :algorithm-version :image-quad-crop-v1
-               :local-space :container-local-f32}
-   :classify {:result #{:inside :boundary :outside}
-              :fill-rule :not-applicable
-              :boundary-rule :explicit}
-   :coverage {:geometry-operator :aa-filter
-              :operator-version :image-quad-ramped-edge-v1
-              :boundary-relation :isocontour-0.5
-              :reference-isocontour 0.5
-              :visual-factors [:texture-alpha :effective-opacity]
-              :tie-token :half
-              :quantization :rgba8unorm}
-   :time-sample :none-static
-   ;; IMAGE-ATOM T6/T14: image picking uses the half-open quad interior with
-   ;; zero slop; per-image transforms would invalidate this row.
-   :pick {:policy :interior
-          :boundary :half-open-interior
-          :hit-slop {:metric :screen-px :radius 0.0}
-          :owner :image-node/address}
-   :bounds {:math :crop-quad
-            :paint :half-pixel-conservative-support
-            :pick :crop-quad-half-open}
-   ;; IMAGE-ATOM T4/T5: mips are linear-filtered derivations and atlas identity
-   ;; includes the source revision, algorithm, and declared regime.
-   :derivations [{:kind :mips
-                  :source-revision :image-source/digest
-                  :algorithm-version :linear-box-mips-v1
-                  :tolerance-lod :declared-per-placement-tier
-                  :normalization :image-local-pixels
-                  :precision :rgba8unorm
-                  :backend :webgpu-render-pass
-                  :regime :image-regime}
-                 {:kind :atlas
-                  :source-revision :image-source/digest
-                  :algorithm-version :shelf-atlas-v1
-                  :tolerance-lod :two-pixel-gutter-lod1
-                  :normalization :atlas-uv-inset
-                  :precision :f32
-                  :backend :webgpu-sampled-image
-                  :regime :image-regime}]
-   :regimes image-regimes})
-
-(defn- registration
-  ([family-id geometry receipts]
-   ;; Keep the historical three-argument result byte-for-value identical for
-   ;; the five admitted W2-B families (IMAGE-ATOM G1/Q5).
-   (registration family-id geometry receipts {}))
-  ([family-id geometry receipts
-    {:keys [material-fields instance-fields validation defaults
-            edit-operations serialization export-projections resources]
-     :or {material-fields :legacy-family-adapter
-          instance-fields [:instance/id :container-slot :paint-reference]
-          validation :scene-tape/fail-closed-v1
-          defaults :versioned-explicit
-          edit-operations :existing-semantic-operations
-          serialization :edn-v1
-          export-projections :declared-by-future-exporter
-          resources :registered-executor-owned}}]
-   {:family/id family-id
-   :family/version 1
-   :grammar {:schema/version 1
-             :material-fields material-fields
-             :instance-fields instance-fields
-             :validation validation
-             :defaults defaults
-             :edit-operations edit-operations
-             :serialization serialization
-             :export-projections export-projections}
-   :pick {:geometry :render/geometry
-          :scene-order :scene-order/v1
-          :visibility :scene-entry/visibility
-          :modalities [:pointer :pen :touch :accessibility]
-          :result :stable-semantic-identity}
-   :provenance {:material-id :scene-entry/material-id
-                :revision :scene-entry/material-revision
-                :parents :scene-entry/provenance-parents
-                :author/actor :scene-entry/provenance-actor
-                :act :scene-entry/provenance-act
-                :source-assets :scene-entry/source-assets
-                :derivations :render/geometry
-                :draft-settle :scene-entry/lifecycle}
-   :versioning {:schema-version 1
-                :algorithm-versions :render/geometry
-                :migration :explicit-family-migration-chain
-                :unknown-field-policy :reject
-                :cache-invalidation :source+algorithm+regime
-                :compatibility {:reader-min 1 :reader-max 1}}
-   :render {:order :scene-order/v1
-            :geometry geometry
-            :color-alpha {:material {:color-space :srgb
-                                     :alpha-association :straight}
-                          :scene (:scene-color/id linear-premultiplied-color)
-                          :seam scene-color-seam}
-            :resources resources
-            :regimes (:regimes geometry)}
-   :receipts receipts}))
-
-(def image-registration
-  (assoc-in
-   (registration
-    :render.family/image image-geometry
-    [:image-atom/admission :image-atom/geometry :image-atom/color
-     :image-atom/resources :image-atom/store-lane]
-    {:material-fields [:image/material-id :image/revision :image/source-digest
-                       :image/color-tag :image/intrinsic-size :image/provenance]
-     :instance-fields [:instance/id :container-slot :image/crop :opacity
-                       :paint-reference]
-     :validation :image-material/fail-closed-v1
-     :defaults :image-material/explicit-v1
-     :edit-operations [:image/crop :image/replace-source]
-     :serialization :canonical-edn-v1
-     :export-projections :none-promised
-     :resources :image-system/digest-keyed-lifecycle-v1})
-   [:grammar :entry-paint-required-keys]
-   [:paint/source :paint/source-type :op-offset :instance-count]))
-
-(def path-registration
-  (assoc-in
-   (registration
-    :render.family/path path-material/geometry-declaration
-    [:path-atom/admission :path-atom/geometry :path-atom/color
-     :path-atom/resources :path-atom/store-lane :path-atom/product-pick]
-    {:material-fields [:path/material-id :path/revision :path/kind
-                       :path/geometry :path/paint :path/provenance]
-     :instance-fields [:instance/id :container-slot :path/material
-                       :path/local-origin]
-     :validation :path-material/fail-closed-v1
-     :defaults :path-material/explicit-v1
-     :edit-operations []
-     :serialization :canonical-edn-v1
-     :export-projections :none-promised
-     :resources :path-system/content-keyed-mesh-lifecycle-v1})
-   [:grammar :entry-paint-required-keys]
-   [:vertex-count]))
-
-(def chrome-registration
-  (->
-   (registration
-    :render.family/chrome chrome-material/geometry-declaration
-    [:chrome-neutral/admission :chrome-neutral/geometry :chrome-neutral/color
-     :chrome-neutral/resources :chrome-neutral/store-lane]
-    {:material-fields [:anchors :offsets-px :color]
-     :instance-fields [:instance/id :container-slot :stratum]
-     :validation :chrome-material/fail-closed-v1
-     :defaults :chrome-material/explicit-v1
-     :edit-operations []
-     :serialization :none-session-truth
-     :export-projections :none-by-design
-     :resources :chrome-system/value-keyed-buffer-lifecycle-v1})
-   (assoc :provenance {:kind :neutral-session-marks
-                       :source :opaque-quad-values
-                       :durable-rows :none-by-design}
-          :versioning {:schema-version 1
-                       :algorithm-versions chrome-material/algorithm-version
-                       :migration :none-ephemeral
-                       :unknown-field-policy :reject
-                       :cache-invalidation :source+algorithm
-                       :compatibility {:reader-min 1 :reader-max 1}})
-   (assoc-in [:grammar :entry-paint-required-keys] [:vertex-count])))
+(defn- registration [family-id required-paint-keys]
+  {:family/id family-id
+   :entry-paint-required-keys required-paint-keys})
 
 (def family-contracts
-  [(registration :render.family/msdf msdf-geometry
-                 [:w0-a/msdf-47-mismatch-counterexample])
-   (registration :render.family/slug slug-geometry
-                 [:w0-a/slug :w2-a/q8])
-   (registration :render.family/clip clip-geometry
-                 [:w2-b/shared-visibility])
-   image-registration
-   path-registration
-   chrome-registration
-   region3d-material/region-family-registration])
+  [(registration :render.family/msdf [])
+   (registration :render.family/slug [])
+   (registration :render.family/clip [])
+   (registration :render.family/image
+                 [:paint/source :paint/source-type :op-offset :instance-count])
+   (registration :render.family/path [:vertex-count])
+   (registration :render.family/chrome [:vertex-count])
+   (registration :render.family/region-3d [:region-id :resolve-view])])
 
 (def ^:private required-family-keys
-  [:family/id :family/version :grammar :pick :provenance :versioning :render
-   :receipts])
-
-(def ^:private required-geometry-keys
-  [:geometry/version :authority :classify :coverage :pick :bounds :derivations
-   :regimes])
-
-(def ^:private required-regime-keys
-  [:zoom :extent :normalization :coordinate-precision :coverage-precision
-   :lifecycle :backend :verdict])
+  [:family/id :entry-paint-required-keys])
 
 (defn- require-keys! [label m ks]
   (let [missing (filterv #(not (contains? m %)) ks)]
@@ -418,58 +88,25 @@
                       {:label label :missing missing :value m}))))
   m)
 
-(defn- validate-regimes! [family-id regimes]
-  (when-not (seq regimes)
-    (throw (ex-info "Geometry must declare at least one legal regime"
-                    {:family/id family-id})))
-  (doseq [r regimes]
-    (require-keys! "geometry regime" r required-regime-keys)
-    (let [{:keys [min max]} (:zoom r)]
-      (when-not (and (number? min) (number? max) (< min max))
-        (throw (ex-info "Geometry regime has an invalid zoom interval"
-                        {:family/id family-id :regime r})))))
-  (let [ordered (sort-by #(get-in % [:zoom :min]) regimes)
-        first-min (get-in (first ordered) [:zoom :min])
-        last-max (get-in (last ordered) [:zoom :max])]
-    (when-not (= 0.01 first-min)
-      (throw (ex-info "Geometry regimes must begin at legal zoom 0.01"
-                      {:family/id family-id :first-min first-min})))
-    (when-not (= 1000.0 last-max)
-      (throw (ex-info "Geometry regimes must end at legal zoom 1000"
-                      {:family/id family-id :last-max last-max})))
-    (doseq [[left right] (partition 2 1 ordered)]
-      (when-not (= (get-in left [:zoom :max])
-                   (get-in right [:zoom :min]))
-        (throw (ex-info "Geometry regimes leave a gap or overlap"
-                        {:family/id family-id :left left :right right})))))
-  regimes)
-
 (defn validate-family!
-  "Fail closed unless a family unconditionally supplies Contract-M citizenship,
-   Contract-G geometry (including Q2 regimes), and Contract-C tags."
+  "Fail closed unless a registration contains exactly the fields read at run
+   time: its admitted family id and the required entry-paint keys."
   [family]
   (require-keys! "family registration" family required-family-keys)
   (let [family-id (:family/id family)
-        geometry (get-in family [:render :geometry])
-        color-alpha (get-in family [:render :color-alpha])]
+        unknown (seq (remove (set required-family-keys) (keys family)))]
     (when-not (some #{family-id} family-ids)
       (throw (ex-info "Family is outside the W2-B admission set"
                       {:family/id family-id :admitted family-ids})))
-    (require-keys! "geometry declaration" geometry required-geometry-keys)
-    (require-keys! "geometry authority" (:authority geometry)
-                   [:kind :source-id :source-revision :algorithm-version
-                    :local-space])
-    (require-keys! "geometry coverage" (:coverage geometry)
-                   [:geometry-operator :operator-version :boundary-relation
-                    :reference-isocontour :visual-factors :tie-token
-                    :quantization])
-    (require-keys! "geometry pick" (:pick geometry)
-                   [:policy :boundary :hit-slop :owner])
-    (validate-regimes! family-id (:regimes geometry))
-    (when-not (= (:scene-color/id linear-premultiplied-color)
-                 (:scene color-alpha))
-      (throw (ex-info "Family lacks the tagged linear-premultiplied scene-color seam"
-                      {:family/id family-id :color-alpha color-alpha}))))
+    (when unknown
+      (throw (ex-info "Family registration contains unread fields"
+                      {:family/id family-id :unknown (vec unknown)})))
+    (when-not (and (vector? (:entry-paint-required-keys family))
+                   (every? keyword? (:entry-paint-required-keys family)))
+      (throw (ex-info "Family paint requirements must be a keyword vector"
+                      {:family/id family-id
+                       :entry-paint-required-keys
+                       (:entry-paint-required-keys family)}))))
   family)
 
 (defn register-family
@@ -561,8 +198,7 @@
                   :family/id :order :paint :pick :visibility])
   (let [family-id (:family/id entry)
         family (get registry family-id)
-        required-paint-keys (get-in family
-                                    [:grammar :entry-paint-required-keys])
+        required-paint-keys (:entry-paint-required-keys family)
         {:keys [stratum pass-class stack-path part-rank stable-tie]}
         (:order entry)]
     (when-not (contains? registry (:family/id entry))

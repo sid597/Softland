@@ -1,14 +1,15 @@
-# Below the waist — NOW (2026-08-24)
+# Below the waist — NOW (2026-08-26)
 
-Status: **CLOSED — original waist accepted 2026-08-21; follow-on face recipe/compiler cut complete, Sid acceptance pending.**
-Prior cut: Ground/Electric product client and its write roads remain gone; the five deployed Rama modules and their durable PStates remain.
-Follow-on cut: browser face assembly + primitive builders, shared anatomy material, the plain assembly importer, assembly projection, face-file classifier/import/watcher, and anatomy portal composition are gone; no replacement or stub survives.
-Server custody: only callers of that obsolete source channel changed; `face_arsenal.clj`, Object Container module sources, TrailView, relation kernel, transcript ops, and dogfood remain byte-unchanged.
-Data custody: no `.edn`/`.ednl`, PState, depot, journal, or `/mnt/data/rama` path changed; the completed sibling archive remains immutable.
-Archive receipt: `/mnt/data/projects/Softland-archive-20260824T105543Z-497e11e` — `SHA256SUMS` 45/45 OK.
-Server-only R1: exact `clj -M:dev -m dev` bound `:8080` after ~67s; only the launched process was stopped and the port reread closed.
-Render receipt: 151 files / 0 warnings; T1 shaper + ownership fence, scene-tape fence, all 7 render guards, and 3 representative goldens green.
-JVM receipt: affected focus 29 tests / 330 assertions / 0 failures / 0 errors; product-client absence 1 test / 6 assertions green; edited server/shared namespaces load.
-Static receipt: obsolete namespace/symbol search 0; `git diff --check` clean; 22 source/test/tooling paths before this NOW receipt, +186/−6213.
-Foreign debt, not repaired: `app.tools.export-current-data-test` is unclassified in the pre-existing runner inventory; two older material-portal source-pin tests still name already-deleted `face_wiring.cljs`/`ground.cljs`.
-Custody: no deploy, migration, Rama CLI mutation, module build, cluster restart/bounce, push, or durable write occurred in this cut.
+Status: **ORPHAN/CLASS-PAPER CUT BUILT + RECEIPTED; SID ACCEPTANCE PENDING.** Original waist remains accepted; the face recipe/compiler follow-on remains closed with acceptance pending.
+Authority: Sid's direct 2026-08-26 removal cut; no replacement, re-key, packet, or 3D ruling entered this atom.
+Removed twins: `maintain-frame-plan`, `maintain-effect-spans`, their owned state/private helpers, two unread compositor atoms, and coupled assertions.
+Removed paper: unread geometry/regime/citizenship/provenance/versioning/receipt declarations from scene-tape and chrome/path/Region3D material, plus declaration-only verifier rows.
+Minimal registry: all 7 family rows contain exactly `:family/id` + `:entry-paint-required-keys`; executor buckets, order, and malformed-paint refusal remain.
+Protected: the family key, entry material/instance/family ids, scene-color seam, shapers/painters, and the live 3D kernel remain; only Sid may flip “no mesh facet ever.”
+Tripwires: 4 scenarios green — both orphan closures absent; paper fields rejected/absent; seven-family executor coverage exact; malformed image paint fails closed.
+JVM receipt: 26 tests / 224 assertions / 0 failures / 0 errors; `git diff --check` and Node syntax green.
+Render receipt: text layout 5/29 green; scene + instance fences green; CLJS 90 files / 0 warnings; 5 guards + 3 representative goldens green.
+Size: source code 10,196→9,528; tests/tools 716→704; 15 task paths, +107/−824.
+Finding: the public maintainer census was right; its helper scan exposed two constructor calls whose compositor atoms had no readers, so that dead tail went too.
+Custody: no task path under `src/app/server`; no Rama, durable data, archive, deploy, migration, cluster, push, or foreign-dirty-file mutation.
+Acceptance: pending Sid's word; this atom is otherwise closed.

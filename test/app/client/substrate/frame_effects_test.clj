@@ -51,7 +51,7 @@
       (is (thrown? clojure.lang.ExceptionInfo
                    (effects/validate-effects! bad))))))
 
-(deftest split-spans-nest-inner-first-and-maintain-proportionally
+(deftest split-spans-nest-inner-first-and-project-effect-chains
   (let [reg (registry)
         paths (containers/effective reg)
         group-path (:stack-path (get paths :group))
@@ -63,23 +63,19 @@
                      ;; can bind a second disjoint range.
                      (entry :group-b group-path :intermediate)]
         spans (effects/derive-effect-spans reg arrangement)
-        by-id (into {} (map (juxt :container/id identity)) spans)
-        state-1 (effects/maintain-effect-spans nil reg arrangement)
-        sibling-span (get-in state-1 [:spans-by-container :inner])
-        reg-2 (assoc-in reg [:containers :group :effects :opacity] 0.4)
-        state-2 (effects/maintain-effect-spans state-1 reg-2 arrangement)
-        state-3 (effects/maintain-effect-spans state-2 reg-2 arrangement)]
+        by-id (into {} (map (juxt :container/id identity)) spans)]
     (is (= [:inner :group] (mapv :container/id spans)))
     (is (= [[0 2] [3 4]] (get-in by-id [:group :entry-ranges])))
     (is (= :group (get-in by-id [:inner :parent/container-id])))
     (is (= [:group :inner]
            (mapv :container/id (effects/entry-effect-chain spans 1))))
-    (is (= {:containers 1 :siblings 0 :full? false}
-           (:last-derivation state-2)))
-    (is (= {:containers 0 :siblings 0 :full? false}
-           (:last-derivation state-3)))
-    (is (identical? sibling-span (get-in state-2 [:spans-by-container :inner])))
     (is (= spans (effects/derive-effect-spans reg arrangement)))))
+
+(deftest retired-maintained-effect-spans-stays-absent
+  (doseq [symbol '[maintain-effect-spans empty-maintained-state
+                   declarations arrangement-token]]
+    (is (nil? (ns-resolve 'app.client.substrate.frame-effects symbol))
+        (str symbol " must stay absent"))))
 
 (deftest group-opacity-is-applied-once-after-sibling-composition
   (let [left [0.5 0.0 0.0 0.5]

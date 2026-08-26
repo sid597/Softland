@@ -31,21 +31,14 @@
    :pick :none
    :visibility {:visible? true}})
 
-(deftest g1-image-registration-is-total-and-existing-values-stay-pinned
-  (is (= :render.family/image (:family/id tape/image-registration)))
-  (is (= tape/image-registration
-         (get tape/default-family-registry :render.family/image)))
-  (is (= 8 (count tape/family-ids)))
-  (is (= :none-promised
-         (get-in tape/image-registration [:grammar :export-projections])))
-  (is (= :none-static
-         (get-in tape/image-registration [:render :geometry :time-sample])))
-  (is (= [:paint/source :paint/source-type :op-offset :instance-count]
-         (get-in tape/image-registration
-                 [:grammar :entry-paint-required-keys])))
-  (is (= [[0.01 0.1] [0.1 8.0] [8.0 1000.0]]
-         (mapv (juxt #(get-in % [:zoom :min]) #(get-in % [:zoom :max]))
-               (get-in tape/image-registration [:render :geometry :regimes]))))
+(deftest g1-image-admission-and-paint-shape-stay-fail-closed
+  (let [registration (get tape/default-family-registry :render.family/image)]
+    (is (= :render.family/image (:family/id registration)))
+    (is (= (set tape/family-ids) (set (keys tape/default-family-registry))))
+    (is (= #{:family/id :entry-paint-required-keys}
+           (set (keys registration))))
+    (is (= [:paint/source :paint/source-type :op-offset :instance-count]
+           (:entry-paint-required-keys registration))))
   (is (thrown? clojure.lang.ExceptionInfo
                (tape/compile-tape
                 :invalid-image-paint

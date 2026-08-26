@@ -2,56 +2,6 @@
   "Neutral world-anchor/screen-metric quad geometry for the chrome render road."
   (:require [app.client.workspace.containers :as containers]))
 
-(def schema-version 1)
-(def algorithm-version :chrome-neutral-quads-v1)
-
-(def legal-zoom-regimes
-  [{:zoom {:min 0.01 :max 0.1}
-    :extent :normalized-arbitrary :normalization :container-local-anchor
-    :coordinate-precision :f32 :coverage-precision :rgba8unorm
-    :lifecycle :session :backend :webgpu-triangle-list
-    :verdict :hybrid-anchor-metric-twin}
-   {:zoom {:min 0.1 :max 8.0}
-    :extent :normalized-arbitrary :normalization :container-local-anchor
-    :coordinate-precision :f32 :coverage-precision :rgba8unorm
-    :lifecycle :session :backend :webgpu-triangle-list
-    :verdict :hybrid-anchor-metric-twin}
-   {:zoom {:min 8.0 :max 1000.0}
-    :extent :normalized-arbitrary :normalization :container-local-anchor
-    :coordinate-precision :f32 :coverage-precision :rgba8unorm
-    :lifecycle :session :backend :webgpu-triangle-list
-    :verdict :hybrid-anchor-metric-twin}])
-
-(def geometry-declaration
-  {:geometry/version 1
-   :authority {:kind :neutral-screen-metric-quads
-               :source-id :scene-entry/material-id
-               :source-revision :scene-entry/material-revision
-               :algorithm-version algorithm-version
-               :local-space :hybrid-container-anchor+screen-px-metric}
-   :classify {:result #{:inside :boundary :outside}
-              :fill-rule :not-applicable
-              :boundary-rule :explicit}
-   :coverage {:geometry-operator :aliased-v1
-              :operator-version algorithm-version
-              :boundary-relation :aliased-v1
-              :reference-isocontour :not-applicable
-              :visual-factors [:straight-srgb-color :effective-opacity]
-              :tie-token :mathematical-boundary
-              :quantization :rgba8unorm-per-regime}
-   :pick {:policy :none :boundary :not-applicable
-          :hit-slop {:metric :screen-px :radius 0.0} :owner :none}
-   :bounds {:math :declared-quad :paint :declared-quad :pick :none}
-   :derivations [{:kind :screen-offset-triangle-quads
-                  :source-revision :scene-entry/material-revision
-                  :algorithm-version algorithm-version
-                  :tolerance-lod :constant-screen-px
-                  :normalization :container-local-anchor
-                  :precision :f32
-                  :backend :webgpu-triangle-list
-                  :regime :chrome-legal-zoom}]
-   :regimes legal-zoom-regimes})
-
 (defn finite-number? [x]
   (and (number? x)
        #?(:clj (Double/isFinite (double x))

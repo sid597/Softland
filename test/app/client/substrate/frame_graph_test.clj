@@ -41,19 +41,18 @@
                    {:arrangement (:arrangement fixture) :effect-spans []
                     :capabilities #{:copy-present}
                     :viewport (:viewport fixture)})
-        maintained-1 (graph/maintain-frame-plan nil fixture)
         inserted (update fixture :arrangement
                          #(vec (concat [(entry :before :world :direct
                                               [[:before -1 -1]])] %)))
         inserted (assoc inserted :effect-spans
                         (effects/derive-effect-spans (:registry fixture)
                                                      (:arrangement inserted)))
-        maintained-2 (graph/maintain-frame-plan maintained-1 inserted)
+        inserted-plan (graph/compile-frame-plan inserted)
         oracle (graph/oracle-compile-frame-plan inserted)
         removed (-> inserted
                     (update :arrangement #(vec (rest %)))
                     (assoc :effect-spans (:effect-spans fixture)))
-        maintained-3 (graph/maintain-frame-plan maintained-2 removed)
+        removed-plan (graph/compile-frame-plan removed)
         removed-oracle (graph/oracle-compile-frame-plan removed)]
     (is (= plan-a plan-b))
     (is (= (:passes plan-a)
@@ -66,14 +65,10 @@
     (is (= :legacy (:color-mode effectless)))
     (is (= [:direct/main] (mapv :pass/id (:passes effectless))))
     (is (= [:direct/main :present] (mapv :pass/id (:passes copy-plan))))
-    (is (:reused? maintained-2))
-    (is (= (:structure/hash (:plan maintained-1))
-           (:structure/hash (:plan maintained-2))))
-    (is (not= (get-in maintained-1 [:plan :binding])
-              (get-in maintained-2 [:plan :binding])))
-    (is (graph/plan-equivalent? (:plan maintained-2) oracle))
-    (is (:reused? maintained-3))
-    (is (graph/plan-equivalent? (:plan maintained-3) removed-oracle))
+    (is (= (:structure/hash plan-a) (:structure/hash inserted-plan)))
+    (is (not= (:binding plan-a) (:binding inserted-plan)))
+    (is (graph/plan-equivalent? inserted-plan oracle))
+    (is (graph/plan-equivalent? removed-plan removed-oracle))
     (is (= [:inner :outer]
            (->> (:passes plan-a)
                 (filter #(and (:group/container-id %)
@@ -81,6 +76,12 @@
                               (re-find #"render" (name (:pass/id %)))))
                 (map :group/container-id)
                 distinct vec)))))
+
+(deftest retired-maintained-frame-plan-stays-absent
+  (is (nil? (ns-resolve 'app.client.substrate.frame-graph
+                        'maintain-frame-plan)))
+  (is (nil? (ns-resolve 'app.client.substrate.frame-graph
+                        'empty-maintained-state))))
 
 (deftest clip-mode-fails-closed-to-the-mask-road
   (is (= :scissor (graph/clip-execution-mode [2.0 0.0 0.0 2.0 4.0 5.0])))
