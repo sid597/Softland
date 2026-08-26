@@ -15,8 +15,10 @@
         first-pass (tessellation/derive-mesh-set {} [left right] 1.0)
         replay (tessellation/derive-mesh-set (:cache first-pass)
                                              [left right] 1.0)
-        edited-left (path-material/move-knot
-                     left [:knot 1] [21.0 1.0] :left/rev-2)
+        edited-left (-> left
+                        (assoc :path/revision :left/rev-2)
+                        (assoc-in [:path/geometry :knots 1 :position]
+                                  [21.0 1.0]))
         edit-pass (tessellation/derive-mesh-set (:cache replay)
                                                 [edited-left right] 1.0)
         left-mesh (first (:meshes first-pass))

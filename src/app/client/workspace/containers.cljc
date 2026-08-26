@@ -122,49 +122,15 @@
   [reg cid]
   (get-in reg [:containers cid :transport-slot]))
 
-(defn- conformal-scale
-  "Return the uniform scale of an orthogonal equal-length matrix, else nil.
-   The legacy :scale mutator is intentionally fail-closed on a general affine:
-   callers must then supply the exact replacement :affine."
-  [[a b c d _tx _ty]]
-  (let [sx (sqrt (+ (* a a) (* b b)))
-        sy (sqrt (+ (* c c) (* d d)))
-        dot (+ (* a c) (* b d))]
-    (when (and (> sx affine-epsilon)
-               (> sy affine-epsilon)
-               (< (abs (- sx sy)) affine-epsilon)
-               (< (abs dot) affine-epsilon))
-      sx)))
-
-(defn- update-legacy-transform [affine {:keys [x y scale]}]
-  (let [[a b c d tx ty] affine
-        [a b c d]
-        (if (some? scale)
-          (let [old-scale (conformal-scale affine)]
-            (when-not old-scale
-              (throw (ex-info "legacy :scale is ambiguous for a non-conformal affine; supply :affine"
-                              {:affine affine :scale scale})))
-            (let [ratio (/ (double scale) old-scale)]
-              [(* a ratio) (* b ratio) (* c ratio) (* d ratio)]))
-          [a b c d])]
-    (validate-affine [a b c d
-                      (if (some? x) (double x) tx)
-                      (if (some? y) (double y) ty)])))
-
 (defn set-transform
-  "Partially update a transform. :affine replaces the canonical value.  The
-   legacy :x/:y/:scale adapter remains for existing drag/zoom callers; scaling
-   a sheared or non-uniform matrix is rejected as ambiguous."
+  "Replace a container transform with one canonical affine value."
   [reg cid t]
   (when (= cid 0)
     (throw (ex-info "cid 0 is reserved and cannot be mutated" {:cid cid})))
   (when-not (contains? (:containers reg) cid)
     (throw (ex-info "unknown container" {:cid cid})))
-  (let [old (get-in reg [:containers cid :affine])
-        affine (if (contains? t :affine)
-                 (validate-affine (:affine t))
-                 (update-legacy-transform old t))]
-    (assoc-in reg [:containers cid :affine] affine)))
+  (assoc-in reg [:containers cid :affine]
+            (validate-affine (:affine t))))
 
 (defn remove-container
   "Drop a childless container and return its compact transport slot to the

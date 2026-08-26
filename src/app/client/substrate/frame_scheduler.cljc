@@ -176,16 +176,6 @@
   [state host-frame-time causes plan-hash]
   (decide-at! state (clock-time host-frame-time) causes plan-hash))
 
-(defn pulse-alpha
-  "Sink-only selection-outline waveform: 30 Hz cadence, alpha 1.0 to 0.4.
-   Disarmed returns exactly 1.0 so existing chrome bytes remain unchanged."
-  [logical-time armed?]
-  (if-not armed?
-    1.0
-    (let [phase (* 2.0 Math/PI (/ (double logical-time) 1000.0))]
-      (+ 0.7 (* 0.3 #?(:clj (Math/sin phase)
-                       :cljs (js/Math.sin phase)))))))
-
 (defn replay
   "Replay recorded cause/time rows through the pure decide step."
   [rows deadline-map]

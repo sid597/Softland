@@ -232,17 +232,17 @@
                                                (tl/tagged-index 8)])))))))
 
 (def pinned-key-input
-  {:subject-id [:vi :ground-block "g1-root"]
-   :op-role :block-root :occurrence 0 :stamp "rev-7"
+  {:address [:opaque-text :g1-root]
+   :stamp "rev-7"
    :body-text "abc" :header-texts ["noise" "prose"]
    :provider (synthetic-provider)
    :font-size 14 :line-height 20 :baseline-offset 14
    :wrap-policy :block-greedy :wrap-col 40})
 
 (def pinned-key
-  [[[ :ground-text [:vi :ground-block "g1-root"] :block-root 0]
+  [[[:opaque-text :g1-root]
     [:stamped "rev-7"]
-    ["abc" ["noise" "prose"] :block-root]]
+    ["abc" ["noise" "prose"]]]
    [:mock/proportional "mock-variable-v1" :mock/harfbuzz "8.3"
     ["kern" "liga" "clig"] {:wght 425 :wdth 92}
     {:wght {:min 100 :default 400 :max 800}
@@ -251,37 +251,15 @@
    [2 14 20 14 :block-greedy [:columns 40] "und" :bidi {:columns 4}
     [:utf-16-code-unit 1]]])
 
-(deftest exact-layout-key-and-ground-census
+(deftest exact-layout-key-uses-an-opaque-address
   (is (= pinned-key (tl/layout-key pinned-key-input)))
   (is (= [:unstamped]
          (get-in (tl/layout-key (dissoc pinned-key-input :stamp)) [0 1])))
-  (let [roles [{:owner-id :ground-halo :expected :halo}
-               {:owner-id :ground-workshop :expected :workshop}
-               {:owner-id :ground-material-error :expected :material-error}
-               {:owner-id :ground-binding-lint :expected :binding-lint}
-               {:node-id :ground-activity :expected :provisional-activity}
-               {:node-id :ground-stream :expected :provisional-stream}
-               {:node-id :ground-turn-error :expected :provisional-error}
-               {:primitive :block-root :expected :block-root}
-               {:part-id :invocation-heading :expected :invocation}
-               {:part-id :refusal :expected :refusal}
-               {:part-id :notice :expected :notice}
-               {:part-id :boundary :expected :boundary}
-               {:part-id :conflict-lint :expected :conflict-lint}
-               {:part-id :gold-mark :expected :gold-mark}
-               {:part-id :silver-mark :expected :silver-mark}
-               {:primitive :sub-anatomy :expected :sub-anatomy}
-               {:primitive :label :expected :anatomy}]
-        actual (mapv #(tl/ground-op-role %) roles)]
-    (is (= tl/ground-op-roles (set actual)))
-    (doseq [[occurrence role] (map-indexed vector actual)]
-      (is (= [:ground-text :subject role occurrence]
-             (tl/ground-text-address :subject role occurrence)))))
   (testing "only declared semantic inputs affect identity"
     (is (not= (tl/layout-key pinned-key-input)
               (tl/layout-key (assoc pinned-key-input :body-text "abd"))))
     (is (not= (tl/layout-key pinned-key-input)
-              (tl/layout-key (assoc pinned-key-input :subject-id :other))))
+              (tl/layout-key (assoc pinned-key-input :address :other))))
     (is (= (tl/layout-key pinned-key-input)
            (tl/layout-key (assoc pinned-key-input :bindings {:x 1}
                                  :contribution-stamp 9 :attention :hot

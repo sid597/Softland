@@ -7,7 +7,6 @@
    namespace is data-only and has no GPU objects, atoms, renderer imports, or
    family-specific ordering branches."
   (:require [app.client.substrate.chrome-material :as chrome-material]
-            [app.client.substrate.connector-material :as connector-material]
             [app.client.substrate.path-material :as path-material]
             [app.client.substrate.region3d-material :as region3d-material]))
 
@@ -19,7 +18,6 @@
    :render.family/clip
    :render.family/image
    :render.family/path
-   :render.family/connector
    :render.family/chrome
    :render.family/region-3d])
 
@@ -357,38 +355,10 @@
                        :path/local-origin]
      :validation :path-material/fail-closed-v1
      :defaults :path-material/explicit-v1
-     :edit-operations [:path/move-knot :path/set-knot-pressure
-                       :path/move-contour-point :path/set-paint
-                       :path/replace-contours]
+     :edit-operations []
      :serialization :canonical-edn-v1
      :export-projections :none-promised
      :resources :path-system/content-keyed-mesh-lifecycle-v1})
-   [:grammar :entry-paint-required-keys]
-   [:vertex-count]))
-
-(def connector-registration
-  (assoc-in
-   (registration
-    :render.family/connector connector-material/geometry-declaration
-    [:connector-atom/admission :connector-atom/geometry
-     :connector-atom/color :connector-atom/resources
-     :connector-atom/store-lane :connector-atom/product-pick
-     :connector-atom/durable-r1-read]
-    {:material-fields [:connector/relation-id :connector/row-stamp
-                       :connector/dress-revision :connector/kind
-                       :connector/from :connector/to :connector/route
-                       :connector/heads :connector/label :connector/paint
-                       :connector/status :connector/provenance]
-     :instance-fields [:instance/id :container-slot
-                       :connector/edge-instance-id]
-     :validation :connector-material/fail-closed-v1
-     :defaults :connector-material/relation-row-plus-session-dress-v1
-     :edit-operations [:connector/set-binding :connector/set-route
-                       :connector/set-waypoints :connector/set-heads
-                       :connector/set-label :connector/set-paint]
-     :serialization :canonical-edn-v1
-     :export-projections :none-promised
-     :resources :connector-system/bounded-current-route-lifecycle-v1})
    [:grammar :entry-paint-required-keys]
    [:vertex-count]))
 
@@ -396,30 +366,24 @@
   (->
    (registration
     :render.family/chrome chrome-material/geometry-declaration
-    [:chrome-atom/admission :chrome-atom/geometry :chrome-atom/color
-     :chrome-atom/resources :chrome-atom/store-lane
-     :chrome-atom/session-only-absence]
-    {:material-fields [:chrome/form :chrome/anchor-bounds
-                       :chrome/derived-from :chrome/selection-rev
-                       :chrome/pick :chrome/corner :chrome/gesture-id]
-     :instance-fields [:instance/id :container-slot :stratum
-                       :chrome/form-identity]
+    [:chrome-neutral/admission :chrome-neutral/geometry :chrome-neutral/color
+     :chrome-neutral/resources :chrome-neutral/store-lane]
+    {:material-fields [:anchors :offsets-px :color]
+     :instance-fields [:instance/id :container-slot :stratum]
      :validation :chrome-material/fail-closed-v1
      :defaults :chrome-material/explicit-v1
-     :edit-operations [:selection/toggle :selection/marquee-commit
-                       :selection/clear :arrangement/translate
-                       :arrangement/uniform-scale]
+     :edit-operations []
      :serialization :none-session-truth
      :export-projections :none-by-design
      :resources :chrome-system/value-keyed-buffer-lifecycle-v1})
-   (assoc :provenance {:kind :derived-session-chrome
-                       :source :target-identity+bounds+selection-revision
+   (assoc :provenance {:kind :neutral-session-marks
+                       :source :opaque-quad-values
                        :durable-rows :none-by-design}
           :versioning {:schema-version 1
                        :algorithm-versions chrome-material/algorithm-version
                        :migration :none-ephemeral
                        :unknown-field-policy :reject
-                       :cache-invalidation :source+algorithm+selection-revision
+                       :cache-invalidation :source+algorithm
                        :compatibility {:reader-min 1 :reader-max 1}})
    (assoc-in [:grammar :entry-paint-required-keys] [:vertex-count])))
 
@@ -432,7 +396,6 @@
                  [:w2-b/shared-visibility])
    image-registration
    path-registration
-   connector-registration
    chrome-registration
    region3d-material/region-family-registration])
 

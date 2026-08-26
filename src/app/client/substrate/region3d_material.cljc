@@ -79,12 +79,6 @@
    :pipeline-depth-bias-slope-scale 2.0
    :shader-comparison-offset 0.0015})
 
-(def edit-operation-ids
-  #{:region3d/add-object :region3d/remove-object
-    :region3d/set-transform :region3d/set-parent
-    :region3d/set-material :region3d/set-light
-    :region3d/set-camera :region3d/set-region :region3d/set-placed})
-
 (defn finite-number? [value]
   (and (number? value)
        #?(:clj (Double/isFinite (double value))
@@ -482,73 +476,6 @@
      (get-in object [:mesh :kind])
      (get-in object [:mesh :params])]))
 
-(defn edit-diff
-  "Mint one invertible per-object/region edit value. Before/after contain only
-   the named sub-map; a scene replacement is deliberately unrepresentable."
-  [{:keys [op region-id object-id before after asserted-by]
-    :or {asserted-by :sid}}]
-  (when-not (contains? edit-operation-ids op)
-    (throw-field! "Region3D edit operation is not declared"
-                  {:op op :legal edit-operation-ids}))
-  (when (nil? region-id)
-    (throw-field! "Region3D edit requires :region-id" {:op op}))
-  (when (and (not= op :region3d/set-region) (nil? object-id))
-    (throw-field! "Region3D object edit requires :object-id" {:op op}))
-  (when (or (and (map? before) (contains? before :scene))
-            (and (map? after) (contains? after :scene)))
-    (throw-field! "Region3D edit payload cannot replace the scene"
-                  {:op op}))
-  {:diff/version 1
-   :op/id op
-   :key [region-id object-id]
-   :payload {:region-id region-id
-             :object-id object-id
-             :before before
-             :after after}
-   :provenance {:asserted-by asserted-by
-                :draft-settle :settled}})
-
-(defn apply-edit
-  "Pure semantic application used by replay and the maintained-view oracle."
-  [region {:keys [op/id payload] :as diff}]
-  (let [region (validate-region! region)
-        {:keys [object-id after]} payload]
-    (when-not (= 1 (:diff/version diff))
-      (throw-field! "Region3D diff version is unsupported" {:diff diff}))
-    (case id
-      :region3d/add-object
-      (validate-region! (assoc-in region [:scene object-id]
-                                  (canonical-object after)))
-      :region3d/remove-object
-      (validate-region! (update region :scene dissoc object-id))
-      :region3d/set-transform
-      (validate-region! (assoc-in region [:scene object-id :transform]
-                                  (canonical-transform after)))
-      :region3d/set-parent
-      (validate-region! (assoc-in region [:scene object-id :parent] after))
-      :region3d/set-material
-      (validate-region! (assoc-in region [:scene object-id :material]
-                                  (canonical-material after)))
-      :region3d/set-light
-      (validate-region! (assoc-in region [:scene object-id :light]
-                                  (canonical-light after)))
-      :region3d/set-camera
-      (validate-region! (assoc-in region [:scene object-id :camera]
-                                  (canonical-lens after)))
-      :region3d/set-placed
-      (let [kind (get-in region [:scene object-id :object/kind])]
-        (when-not (contains? #{:text :ink} kind)
-          (throw-field! "Region3D placed edit requires a text or ink object"
-                        {:object-id object-id :kind kind}))
-        (validate-region!
-         (assoc-in region [:scene object-id kind]
-                   (case kind
-                     :text (canonical-placed-text after)
-                     :ink (canonical-placed-ink after)))))
-      :region3d/set-region
-      (validate-region! (merge region after))
-      (throw-field! "Region3D edit operation is not declared" {:op id}))))
-
 (def legal-zoom-regimes
   [{:zoom {:min 0.01 :max 0.1}
     :extent {:max extent-max}
@@ -652,7 +579,7 @@
              :instance-fields instance-fields
              :validation :region3d-material/fail-closed-v2
              :defaults :region3d-material/explicit-v2
-             :edit-operations (vec (sort edit-operation-ids))
+             :edit-operations []
              :serialization :canonical-edn-v1
              :export-projections :none-promised
              :entry-paint-required-keys [:region-id :resolve-view]}
@@ -685,8 +612,7 @@
              :seam :region3d/always-linear}
             :resources :region3d/compositor-owned-held-leases-v1
             :regimes (:regimes geometry)}
-   :receipts [:region3d/s1-order :region3d/s2-depth
-              :region3d/s3-edit :region3d/s4-color
+   :receipts [:region3d/s1-order :region3d/s2-depth :region3d/s4-color
               :region3d/s5-resources]})
 
 (def region-family-registration

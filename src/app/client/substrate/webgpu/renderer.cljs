@@ -12,7 +12,6 @@
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.buffer-pool :as buffer-pool]
             [app.client.substrate.webgpu.chrome-gpu :as chrome-gpu]
-            [app.client.substrate.webgpu.connector-gpu :as connector-gpu]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.substrate.webgpu.compositor-gpu :as compositor-gpu]
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
@@ -1692,18 +1691,18 @@
         [anchor-x anchor-y] (or (:layout-anchor txt) (:baseline line))
         dx (if existing (- (:x txt anchor-x) anchor-x) 0)
         dy (if existing (- (:y txt anchor-y) anchor-y) 0)
-        selection (tl/glyphs-in-source-range
-                   line
-                   (if (= :header (first (:source-range line)))
-                     [:header (second (:source-range line))
-                      [range-start range-end]]
-                     [(tl/tagged-index range-start) (tl/tagged-index range-end)])
-                   dx dy)]
+        range-result (tl/glyphs-in-source-range
+                      line
+                      (if (= :header (first (:source-range line)))
+                        [:header (second (:source-range line))
+                         [range-start range-end]]
+                        [(tl/tagged-index range-start) (tl/tagged-index range-end)])
+                      dx dy)]
     {:layout/id (:layout/id layout-result)
      :style txt
      :font-size fsize
-     :span-receipt (select-keys selection [:glyph-span :visited-glyphs])
-     :glyphs (:glyphs selection)}))
+     :span-receipt (select-keys range-result [:glyph-span :visited-glyphs])
+     :glyphs (:glyphs range-result)}))
 
 (defn- position-text
   [texts global-fsize font-assets char-width snap-step surface]
@@ -2236,24 +2235,10 @@
   (or (:family/id system)
       (scene-tape/text-family-id (:backend system))))
 
-(defn connector-label-entry
-  "The connector label paint door. Family identity is read from the live
-   cloned text geo; connector code never hardcodes an MSDF or Slug family."
-  [{:keys [entry-id order system instance-count first-instance pick]}]
-  (system-entry entry-id (text-system-family system) order system
-                instance-count first-instance pick))
-
 (defn- text-entries-for-family
   [family-id
-   {:keys [text-sys extra-text-geos chrome-text-sys chrome-base-line-count
-           diagnostics-visible diagnostics-line-index]}]
+   {:keys [text-sys extra-text-geos]}]
   (let [content-family (when text-sys (text-system-family text-sys))
-        chrome-family (when chrome-text-sys (text-system-family chrome-text-sys))
-        chrome-ready? (and (= family-id chrome-family)
-                           (pos? (:num-instances chrome-text-sys)))
-        chrome-offsets (:line-offsets chrome-text-sys)
-        chrome-lines (when chrome-offsets (count chrome-offsets))
-        chrome-base chrome-base-line-count
         content-entry (when (= family-id content-family)
                         (system-entry :frame/content-text family-id
                                       (frame-order :world 30 :frame/content-text)
@@ -2284,32 +2269,10 @@
                                       :first-vertex 0 :vertex-count 6})
                                    runs))
                    entry)))))
-         extra-text-geos)
-        chrome-base-entry
-        (when chrome-ready?
-          (let [base-end (if (and chrome-offsets (< chrome-base chrome-lines))
-                           (nth chrome-offsets chrome-base)
-                           (:num-instances chrome-text-sys))]
-            (system-entry :frame/chrome-base-text family-id
-                          (frame-order :overlay 20 :frame/chrome-base-text)
-                          chrome-text-sys base-end 0)))
-        diagnostics-entry
-        (when (and diagnostics-visible diagnostics-line-index
-                   chrome-ready? chrome-offsets
-                   (< diagnostics-line-index chrome-lines))
-          (let [start-inst (nth chrome-offsets diagnostics-line-index)
-                next-line (inc diagnostics-line-index)
-                end-inst (if (< next-line chrome-lines)
-                           (nth chrome-offsets next-line)
-                           (:num-instances chrome-text-sys))]
-            (system-entry :frame/diagnostics-text family-id
-                          (frame-order :overlay 70 :frame/diagnostics-text)
-                          chrome-text-sys (- end-inst start-inst) start-inst)))]
+         extra-text-geos)]
     (into []
           (keep identity)
-          (concat [content-entry]
-                  extra-entries
-                  [chrome-base-entry diagnostics-entry]))))
+          (concat [content-entry] extra-entries))))
 
 (defn- execute-gpu-batch! [^js pass entry]
   (let [{:keys [pipeline bind-group buffer vertex-count instance-count
@@ -2416,8 +2379,7 @@
   "Create W4's lazy pipeline/view layer over existing family systems. No source
    registry, atlas, instance buffer, or decoded byte is duplicated."
   [^js device {:keys [format tracker camera-buffer containers-buffer font-assets
-                      text-sys image-system path-system connector-system
-                      chrome-system]}]
+                      text-sys image-system path-system chrome-system]}]
   (let [linear scene-tape/linear-premultiplied-color
         text-created (when (and text-sys font-assets)
                        (init-text-system device "rgba16float" camera-buffer
@@ -2453,21 +2415,10 @@
         _ (when path
             (destroy-variant-buffer! tracker @(:!buffer path)
                                      :frame-variant-transient))
-        connector (when connector-system
-                    (connector-gpu/init-connector-system
-                     device "rgba16float" camera-buffer containers-buffer
-                     :initial-capacity 1 :tracker tracker :scene-color linear
-                     :text-api {:clone (fn [& _] nil)
-                                :update (fn [& _] nil)
-                                :destroy (fn [& _] nil)}))
-        _ (when connector
-            (destroy-variant-buffer! tracker @(:!buffer connector)
-                                     :frame-variant-transient))
         chrome (when chrome-system
                  (chrome-gpu/init-chrome-system
                   device "rgba16float" camera-buffer containers-buffer
-                  :initial-capacity 1 :tracker tracker :scene-color linear
-                  :pulse-buffer (:pulse-buffer chrome-system)))
+                  :initial-capacity 1 :tracker tracker :scene-color linear))
         _ (when chrome
             (destroy-variant-buffer! tracker @(:!buffer chrome)
                                      :frame-variant-transient))
@@ -2480,10 +2431,6 @@
                    path
                    (assoc :render.family/path
                           {:pipeline (:pipeline path) :bind-group (:bind-group path)})
-                   connector
-                   (assoc :render.family/connector
-                          {:pipeline (:pipeline connector)
-                           :bind-group (:bind-group connector)})
                    chrome
                    (assoc :render.family/chrome
                           {:pipeline (:pipeline chrome) :bind-group (:bind-group chrome)})
@@ -2566,14 +2513,6 @@
                               :order-by-vi])
              path-gpu/execute-path-batch!)
 
-     :render.family/connector
-     (family :render.family/connector
-             (store-producer
-              #(connector-gpu/connector-entries
-                (assoc % :connector-label-entry connector-label-entry))
-              [:connectors :ordered-vis :order-by-vi])
-             connector-gpu/execute-connector-batch!)
-
      :render.family/chrome
      (family :render.family/chrome
              (store-producer chrome-gpu/chrome-entries
@@ -2643,7 +2582,7 @@
     compositor))
 
 (def ^:private store-input-keys
-  [:images :paths :connectors :chromes :regions
+  [:images :paths :chromes :regions
    :ordered-vis :ops-count-by-vi :order-by-vi :text-clips-by-vi])
 
 (defn frame-input-map [device frame]
@@ -2667,14 +2606,10 @@
               {:dirty-rect (:dirty-rect frame)
                :clear-quad (:clear-quad frame)})
             :text-sys-token (frame-inputs/system-token (:text-sys frame))
-            :chrome-text-sys-token
-            (frame-inputs/system-token (:chrome-text-sys frame))
             :image-system-token
             (frame-inputs/system-token (:image-system frame))
             :path-system-token
             (frame-inputs/system-token (:path-system frame))
-            :connector-system-token
-            (frame-inputs/system-token (:connector-system frame))
             :chrome-system-token
             (frame-inputs/system-token (:chrome-system frame))
             :region3d-system-token
@@ -2682,8 +2617,6 @@
             :font-provider-token
             (region3d-placement/provider-identity font-assets)
             :path-zoom-regime
-            (:regime/id (path-material/zoom-regime zoom))
-            :connector-zoom-regime
             (:regime/id (path-material/zoom-regime zoom))})))
 
 (defn- reset-frame-retention! [device]
@@ -2704,13 +2637,9 @@
                             (if-not (contains? families family-id)
                               []
                             (let [t0 (js/performance.now)
-                                  ;; :frame/producer — cross-family entries
-                                  ;; (connector labels ride the text family's
-                                  ;; :family/id) must be maintained under the
-                                  ;; family that PRODUCED them, or the
-                                  ;; family-scoped delta removes them on any
-                                  ;; text produce and drops them on any
-                                  ;; connector produce (twin receipt 2026-08-09).
+                                  ;; Maintain cross-family entries under the
+                                  ;; family that produced them, not the family
+                                  ;; whose pipeline draws them.
                                   entries (mapv
                                            #(assoc % :frame/producer family-id)
                                            ((:produce registration)
@@ -2902,24 +2831,21 @@
     (aset o k (js/performance.now))))
 
 (defn draw-frame! [^js device ^js context text-sys camera-floats _ignored-pass-descriptor pan-x pan-y w h
-                   & {:keys [chrome-text-sys chrome-base-line-count
-                             diagnostics-visible diagnostics-line-index
-                             dirty-rect render-target clear-quad frame-idx zoom
+                   & {:keys [dirty-rect render-target clear-quad frame-idx zoom
                              extra-text-geos store-frame image-system path-system
-                             connector-system chrome-system effective-transforms
+                             chrome-system effective-transforms
                              container-registry container-delta-snapshot
                              container-delta-ack! font-assets frame-format
-                             capabilities forced-color-mode pulse-alpha
+                             capabilities forced-color-mode
                              region3d-session session-layout-snapshot dpr]
-                      :or {chrome-text-sys nil chrome-base-line-count 0
-                           dirty-rect nil render-target nil clear-quad nil frame-idx 0
+                      :or {dirty-rect nil render-target nil clear-quad nil frame-idx 0
                            zoom 1.0 extra-text-geos nil store-frame nil
-                           image-system nil path-system nil connector-system nil
+                           image-system nil path-system nil
                            chrome-system nil effective-transforms nil
                            container-registry nil
                            container-delta-snapshot {:high-water 0 :deltas []}
                            container-delta-ack! nil font-assets nil
-                           frame-format "bgra8unorm" pulse-alpha 1.0
+                           frame-format "bgra8unorm"
                            capabilities #{} forced-color-mode nil
                            region3d-session {} session-layout-snapshot nil dpr 1.0}}]
   (mark-draw! "t0")
@@ -2943,8 +2869,7 @@
       (path-gpu/prepare-path-frame! path-system (:paths store-frame) zoom))
     (mark-draw! "path")
     (when chrome-system
-      (chrome-gpu/prepare-chrome-frame! chrome-system (:chromes store-frame)
-                                        {:pulse-alpha pulse-alpha}))
+      (chrome-gpu/prepare-chrome-frame! chrome-system (:chromes store-frame)))
     (mark-draw! "chrome")
     (when region3d-system
       (let [canvas (.-canvas context)
@@ -2959,37 +2884,6 @@
           :path-system path-system
           :max-lease-size max-lease})))
     (mark-draw! "region")
-    (let [prepared-by-region (when region3d-system
-                               @(:!prepared region3d-system))
-          region-anchor-resolver
-          (when region3d-system
-            (region3d-placement/region-anchor-resolver
-             {:regions (:regions store-frame)
-              :prepared-by-region prepared-by-region
-              :effective-transforms effective-transforms}))
-          region-doors
-          (into {}
-                (map (fn [op]
-                       (let [prepared (get prepared-by-region (:region-id op))
-                             session-row (:session prepared)]
-                         [(:address op)
-                          [(or (:view session-row)
-                               (get-in prepared
-                                       [:maintained :region :view-default]))
-                           (:preview-transform session-row)
-                           (:settled-transforms session-row)
-                           (get effective-transforms (:container op))]])))
-                (:regions store-frame))]
-      (when connector-system
-        (connector-gpu/prepare-connector-frame!
-         connector-system (:connectors store-frame)
-         (:targets-by-address store-frame) effective-transforms zoom
-         font-assets text-sys
-         {:region-anchor-resolver region-anchor-resolver
-          :region-anchor-resolver-token
-          [(:regions store-frame) prepared-by-region effective-transforms]
-          :region-doors region-doors})))
-    (mark-draw! "conn")
 
     (let [canvas (.-canvas context)
         attachment-size [(max 1 (or (some-> canvas .-width) (int w)))
@@ -2999,12 +2893,8 @@
         frame {:frame-idx frame-idx :partial? partial?
                :dirty-rect dirty-rect :clear-quad clear-quad
                :text-sys text-sys
-               :chrome-text-sys chrome-text-sys
-               :chrome-base-line-count chrome-base-line-count
-               :diagnostics-visible diagnostics-visible
-               :diagnostics-line-index diagnostics-line-index
                :image-system image-system :path-system path-system
-               :connector-system connector-system :chrome-system chrome-system
+               :chrome-system chrome-system
                :region3d-system region3d-system
                :region3d-session region3d-session :zoom zoom :dpr dpr
                :font-assets font-assets
@@ -3110,11 +3000,6 @@
         ;; retained semantic entries 1:1. Camera work is never a gate ancestor.
         _ (update-camera device (:camera-uniform-buffer text-sys)
                          camera-floats pan-x pan-y zoom w h)
-        _ (when (and chrome-text-sys
-                     (not= (:camera-uniform-buffer chrome-text-sys)
-                           (:camera-uniform-buffer text-sys)))
-            (update-camera device (:camera-uniform-buffer chrome-text-sys)
-                           camera-floats pan-x pan-y zoom w h))
         _ (mark-draw! "cam")
         ;; arrangement-raw already iterates in tape order (sorted map); every
         ;; consumer flattens to entries, so project straight into a vector —
@@ -3150,7 +3035,7 @@
                      :containers-buffer (:containers-uniform-buffer text-sys)
                      :font-assets font-assets :text-sys text-sys
                      :image-system image-system :path-system path-system
-                     :connector-system connector-system :chrome-system chrome-system}
+                     :chrome-system chrome-system}
             variant (compositor-gpu/ensure-variant-layer!
                      compositor build-linear-variant-layer! systems)
             result (compositor-gpu/draw-multipass!
@@ -3187,9 +3072,6 @@
         (when region3d-system
           (aset js/globalThis "__softlandRegion3DReceipt"
                 (clj->js (region3d-gpu/region3d-receipt region3d-system))))
-        (when connector-system
-          (aset js/globalThis "__softlandConnectorReceipt"
-                (clj->js (connector-gpu/connector-receipt connector-system))))
         result)
       (let [encoder (.createCommandEncoder device)
             swap-texture (.getCurrentTexture context)
@@ -3215,7 +3097,6 @@
                                ",\"useRenderTarget\":" (if use-rt? "true" "false")
                                ",\"sceneColor\":\"" (name (:scene-color/id scene-color)) "\""
                                ",\"contentInstances\":" (:num-instances text-sys)
-                               ",\"chromeInstances\":" (or (:num-instances chrome-text-sys) 0)
                                "}")))
         (execute-scene-tape! pass arrangement attachment-size)
         (.end pass)

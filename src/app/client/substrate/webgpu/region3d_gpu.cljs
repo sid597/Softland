@@ -20,12 +20,10 @@
 (def max-lights 8)
 (def mesh-vertex-stride 24)
 (def mesh-instance-stride 112)
-(def glyph-instance-stride 32)
 (def light-instance-stride 80)
 (def composite-instance-stride 20)
 (def region-uniform-bytes 128)
 (def shadow-uniform-bytes 64)
-(def gizmo-uniform-bytes 32)
 
 (def mesh-vertex-shader
   "struct Region {
@@ -203,179 +201,6 @@
      return light_view_proj * model * vec4<f32>(input.position, 1.0);
    }")
 
-(def grid-shader
-  "struct Region {
-     view_proj: mat4x4<f32>, eye: vec4<f32>, ambient: vec4<f32>,
-     settings: vec4<f32>, camera_info: vec4<f32>,
-   };
-   @group(0) @binding(0) var<uniform> region: Region;
-   struct Out { @builtin(position) position: vec4<f32>,
-                @location(0) world: vec3<f32>, };
-   @vertex fn vs(@builtin(vertex_index) index: u32) -> Out {
-     var corners = array<vec3<f32>, 6>(
-       vec3<f32>(-50.0, 0.0, -50.0), vec3<f32>(50.0, 0.0, -50.0),
-       vec3<f32>(-50.0, 0.0, 50.0), vec3<f32>(50.0, 0.0, -50.0),
-       vec3<f32>(50.0, 0.0, 50.0), vec3<f32>(-50.0, 0.0, 50.0));
-     var out: Out; out.world = corners[index];
-     out.position = region.view_proj * vec4<f32>(out.world, 1.0); return out;
-   }
-   @fragment fn fs(@location(0) world: vec3<f32>) -> @location(0) vec4<f32> {
-     let coord = world.xz;
-     let derivative = max(fwidth(coord), vec2<f32>(0.0001));
-     let distance_to_line = abs(fract(coord - 0.5) - 0.5) / derivative;
-     let line = 1.0 - min(min(distance_to_line.x, distance_to_line.y), 1.0);
-     let axis = select(0.0, 1.0, abs(world.x) < derivative.x * 1.5 ||
-                                     abs(world.z) < derivative.y * 1.5);
-     let alpha = max(line * 0.18, axis * 0.42);
-     return vec4<f32>(vec3<f32>(0.42, 0.46, 0.52) * alpha, alpha);
-   }")
-
-(def overlay-glyph-shader
-  "struct Region {
-     view_proj: mat4x4<f32>, eye: vec4<f32>, ambient: vec4<f32>,
-     settings: vec4<f32>, camera_info: vec4<f32>,
-   };
-   @group(0) @binding(0) var<uniform> region: Region;
-   struct In { @location(0) anchor: vec4<f32>, @location(1) color: vec4<f32>, };
-   struct Out { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>,
-                @location(1) color: vec4<f32>, };
-   @vertex fn vs(@builtin(vertex_index) index: u32, input: In) -> Out {
-     var corners = array<vec2<f32>, 6>(vec2<f32>(-1.0,-1.0), vec2<f32>(1.0,-1.0),
-       vec2<f32>(-1.0,1.0), vec2<f32>(1.0,-1.0), vec2<f32>(1.0,1.0), vec2<f32>(-1.0,1.0));
-     var out: Out; let clip = region.view_proj * vec4<f32>(input.anchor.xyz, 1.0);
-     let pixel = corners[index] * 7.0 * vec2<f32>(2.0 / region.camera_info.y,
-                                                  2.0 / region.camera_info.z);
-     out.position = clip + vec4<f32>(pixel * clip.w, 0.0, 0.0);
-     out.uv = corners[index]; out.color = input.color; return out;
-   }
-   @fragment fn fs(@location(0) uv: vec2<f32>, @location(1) color: vec4<f32>)
-       -> @location(0) vec4<f32> {
-     let coverage = 1.0 - smoothstep(0.72, 1.0, length(uv));
-     let alpha = color.a * coverage; return vec4<f32>(color.rgb * alpha, alpha);
-   }")
-
-(def gizmo-shader
-  "struct Region {
-     view_proj: mat4x4<f32>, eye: vec4<f32>, ambient: vec4<f32>,
-     settings: vec4<f32>, camera_info: vec4<f32>,
-   };
-   struct Gizmo { pivot: vec4<f32>, state: vec4<f32>, };
-   @group(0) @binding(0) var<uniform> region: Region;
-   @group(0) @binding(1) var<uniform> gizmo: Gizmo;
-   struct Out { @builtin(position) position: vec4<f32>, @location(0) color: vec4<f32>, };
-   fn axis(index: u32) -> vec3<f32> {
-     if (index == 0u) { return vec3<f32>(1.0,0.0,0.0); }
-     if (index == 1u) { return vec3<f32>(0.0,1.0,0.0); }
-     return vec3<f32>(0.0,0.0,1.0);
-   }
-   fn axis_color(index: u32) -> vec4<f32> {
-     if (index == 0u) { return vec4<f32>(1.0,0.18,0.12,1.0); }
-     if (index == 1u) { return vec4<f32>(0.22,0.92,0.28,1.0); }
-     return vec4<f32>(0.24,0.48,1.0,1.0);
-   }
-   struct Segment { a: vec3<f32>, b: vec3<f32>, color: vec4<f32>, };
-   fn translate_segment(index: u32, scale: f32) -> Segment {
-     if (index < 3u) {
-       let a = axis(index);
-       return Segment(gizmo.pivot.xyz, gizmo.pivot.xyz + a * scale,
-                      axis_color(index));
-     }
-     let plane = (index - 3u) / 2u;
-     let side = (index - 3u) % 2u;
-     let u = axis(plane); let v = axis((plane + 1u) % 3u);
-     let corner = gizmo.pivot.xyz + (u + v) * scale * 0.28;
-     let endpoint = corner + select(u, v, side == 1u) * scale * 0.19;
-     let color = (axis_color(plane) + axis_color((plane + 1u) % 3u)) * 0.5;
-     return Segment(corner, endpoint, vec4<f32>(color.rgb, 1.0));
-   }
-   fn rotate_segment(index: u32, scale: f32) -> Segment {
-     let ring = index / 64u; let step = index % 64u;
-     let angle_a = f32(step) / 64.0 * 6.28318530718;
-     let angle_b = f32(step + 1u) / 64.0 * 6.28318530718;
-     var a = vec3<f32>(0.0); var b = vec3<f32>(0.0);
-     if (ring == 0u) {
-       a = vec3<f32>(0.0, cos(angle_a), sin(angle_a));
-       b = vec3<f32>(0.0, cos(angle_b), sin(angle_b));
-     } else if (ring == 1u) {
-       a = vec3<f32>(cos(angle_a), 0.0, sin(angle_a));
-       b = vec3<f32>(cos(angle_b), 0.0, sin(angle_b));
-     } else if (ring == 2u) {
-       a = vec3<f32>(cos(angle_a), sin(angle_a), 0.0);
-       b = vec3<f32>(cos(angle_b), sin(angle_b), 0.0);
-     } else {
-       let normal = normalize(region.eye.xyz - gizmo.pivot.xyz);
-       let seed = select(vec3<f32>(0.0, 1.0, 0.0),
-                         vec3<f32>(1.0, 0.0, 0.0), abs(normal.y) > 0.9);
-       let u = normalize(cross(seed, normal)); let v = cross(normal, u);
-       a = (u * cos(angle_a) + v * sin(angle_a)) * 1.12;
-       b = (u * cos(angle_b) + v * sin(angle_b)) * 1.12;
-     }
-     let color = select(axis_color(min(ring, 2u)), vec4<f32>(1.0), ring == 3u);
-     return Segment(gizmo.pivot.xyz + a * scale,
-                    gizmo.pivot.xyz + b * scale, color);
-   }
-   fn scale_segment(index: u32, scale: f32) -> Segment {
-     if (index < 3u) {
-       let a = axis(index);
-       return Segment(gizmo.pivot.xyz, gizmo.pivot.xyz + a * scale,
-                      axis_color(index));
-     }
-     let normal = normalize(region.eye.xyz - gizmo.pivot.xyz);
-     let seed = select(vec3<f32>(0.0, 1.0, 0.0),
-                       vec3<f32>(1.0, 0.0, 0.0), abs(normal.y) > 0.9);
-     let u = normalize(cross(seed, normal)); let v = cross(normal, u);
-     let corner = index - 3u;
-     let signs = array<vec2<f32>, 4>(vec2<f32>(-1.0,-1.0),
-       vec2<f32>(1.0,-1.0), vec2<f32>(1.0,1.0), vec2<f32>(-1.0,1.0));
-     let sa = signs[corner]; let sb = signs[(corner + 1u) % 4u];
-     let radius = scale * 0.095;
-     return Segment(gizmo.pivot.xyz + (u * sa.x + v * sa.y) * radius,
-                    gizmo.pivot.xyz + (u * sb.x + v * sb.y) * radius,
-                    vec4<f32>(1.0));
-   }
-   fn handle_code(mode: u32, segment_index: u32) -> u32 {
-     if (mode == 0u) {
-       if (segment_index < 3u) { return segment_index + 1u; }
-       return ((segment_index - 3u) / 2u) + 4u;
-     }
-     if (mode == 1u) { return (segment_index / 64u) + 1u; }
-     if (segment_index < 3u) { return segment_index + 1u; }
-     return 4u;
-   }
-   @vertex fn vs(@builtin(vertex_index) index: u32) -> Out {
-     let mode = u32(gizmo.state.x);
-     let distance_scale = distance(region.eye.xyz, gizmo.pivot.xyz)
-                          * tan(region.camera_info.x * 0.5) * 0.32;
-     let ortho_scale = region.camera_info.w * 0.32;
-     let scale = select(distance_scale, ortho_scale, region.settings.w > 0.5);
-     let segment_index = index / 6u; let corner = index % 6u;
-     var segment = translate_segment(segment_index, scale);
-     if (mode == 1u) { segment = rotate_segment(segment_index, scale); }
-     if (mode == 2u) { segment = scale_segment(segment_index, scale); }
-     let clip_a = region.view_proj * vec4<f32>(segment.a, 1.0);
-     let clip_b = region.view_proj * vec4<f32>(segment.b, 1.0);
-     let ndc_a = clip_a.xy / clip_a.w; let ndc_b = clip_b.xy / clip_b.w;
-     let viewport = max(region.camera_info.yz, vec2<f32>(1.0));
-     let delta_px = (ndc_b - ndc_a) * viewport * 0.5;
-     let direction = normalize(delta_px);
-     let normal_ndc = vec2<f32>(-direction.y, direction.x) * 3.0 / viewport;
-     let endpoint_b = corner == 1u || corner == 2u || corner == 4u;
-     let positive = corner == 1u || corner == 3u || corner == 4u;
-     let clip = select(clip_a, clip_b, endpoint_b);
-     let ndc = select(ndc_a, ndc_b, endpoint_b)
-             + select(-normal_ndc, normal_ndc, positive);
-     var color = segment.color;
-     if (gizmo.state.z == f32(handle_code(mode, segment_index))) {
-       color = vec4<f32>(mix(color.rgb, vec3<f32>(1.0), 0.45), color.a);
-     }
-     var out: Out;
-     out.position = vec4<f32>(ndc * clip.w, clip.z, clip.w);
-     out.color = color; return out;
-   }
-   @fragment fn fs(@location(0) color: vec4<f32>) -> @location(0) vec4<f32> {
-     return vec4<f32>(color.rgb * color.a, color.a);
-   }")
-
 (def composite-vertex-shader
   "struct Camera { pan: vec2<f32>, zoom: f32, padding: f32,
                    screen_dimensions: vec2<f32>, };
@@ -450,9 +275,6 @@
   (let [mesh-vertex (shader-module device mesh-vertex-shader)
         mesh-fragment (shader-module device mesh-fragment-shader)
         shadow-module (shader-module device shadow-depth-shader)
-        grid-module (shader-module device grid-shader)
-        glyph-module (shader-module device overlay-glyph-shader)
-        gizmo-module (shader-module device gizmo-shader)
         composite-vertex (shader-module device composite-vertex-shader)
         composite-fragment (shader-module device composite-fragment-shader)
         worn-fragment (shader-module device worn-fragment-shader)
@@ -474,18 +296,6 @@
         shadow-layout
         (.createBindGroupLayout
          ^js device (clj->js {:entries [{:binding 0 :visibility js/GPUShaderStage.VERTEX
-                                         :buffer {:type "uniform"}}]}))
-        single-region-layout
-        (.createBindGroupLayout
-         ^js device (clj->js {:entries [{:binding 0
-                                         :visibility (bit-or js/GPUShaderStage.VERTEX
-                                                             js/GPUShaderStage.FRAGMENT)
-                                         :buffer {:type "uniform"}}]}))
-        gizmo-layout
-        (.createBindGroupLayout
-         ^js device (clj->js {:entries [{:binding 0 :visibility js/GPUShaderStage.VERTEX
-                                         :buffer {:type "uniform"}}
-                                        {:binding 1 :visibility js/GPUShaderStage.VERTEX
                                          :buffer {:type "uniform"}}]}))
         composite-layout
         (.createBindGroupLayout
@@ -532,45 +342,6 @@
                    :depthStencil {:format "depth32float" :depthWriteEnabled true
                                   :depthCompare "less" :depthBias 2
                                   :depthBiasSlopeScale 2.0}}))
-        grid-pipeline
-        (.createRenderPipeline
-         ^js device
-         (clj->js {:layout (pipeline-layout [single-region-layout])
-                   :vertex {:module grid-module :entryPoint "vs"}
-                   :fragment {:module grid-module :entryPoint "fs"
-                              :targets [{:format "rgba16float" :blend (blend-state)}]}
-                   :primitive {:topology "triangle-list"}
-                   :depthStencil {:format "depth24plus" :depthWriteEnabled false
-                                  :depthCompare "less-equal"}
-                   :multisample {:count 4}}))
-        glyph-pipeline
-        (.createRenderPipeline
-         ^js device
-         (clj->js {:layout (pipeline-layout [single-region-layout])
-                   :vertex {:module glyph-module :entryPoint "vs"
-                            :buffers [{:arrayStride glyph-instance-stride
-                                       :stepMode "instance"
-                                       :attributes [{:shaderLocation 0 :offset 0
-                                                     :format "float32x4"}
-                                                    {:shaderLocation 1 :offset 16
-                                                     :format "float32x4"}]}]}
-                   :fragment {:module glyph-module :entryPoint "fs"
-                              :targets [{:format "rgba16float" :blend (blend-state)}]}
-                   :primitive {:topology "triangle-list"}
-                   :depthStencil {:format "depth24plus" :depthWriteEnabled false
-                                  :depthCompare "always"}
-                   :multisample {:count 4}}))
-        gizmo-pipeline
-        (.createRenderPipeline
-         ^js device
-         (clj->js {:layout (pipeline-layout [gizmo-layout])
-                   :vertex {:module gizmo-module :entryPoint "vs"}
-                   :fragment {:module gizmo-module :entryPoint "fs"
-                              :targets [{:format "rgba16float" :blend (blend-state)}]}
-                   :primitive {:topology "triangle-list"}
-                   :depthStencil {:format "depth24plus" :depthWriteEnabled false
-                                  :depthCompare "always"}
-                   :multisample {:count 4}}))
         composite-pipeline
         (.createRenderPipeline
          ^js device
@@ -614,11 +385,9 @@
                               :targets [{:format "rgba16float" :blend (blend-state)}]}
                    :primitive {:topology "triangle-list"}}))]
     {:interior-layout interior-layout :shadow-layout shadow-layout
-     :single-region-layout single-region-layout :gizmo-layout gizmo-layout
      :composite-layout composite-layout :refusal-layout refusal-layout
      :opaque (mesh-pipeline false) :transparent (mesh-pipeline true)
-     :shadow shadow-pipeline :grid grid-pipeline :glyph glyph-pipeline
-     :gizmo gizmo-pipeline :composite composite-pipeline
+     :shadow shadow-pipeline :composite composite-pipeline
      :worn worn-pipeline
      :refusal refusal-pipeline}))
 
@@ -698,15 +467,11 @@
                       :scene-transform-updates 0
                       :region-encodes 0
                       :held-passes 0 :object-instance-uploads 0
-                      :mesh-vertex-uploads 0 :glyph-instance-uploads 0
+                      :mesh-vertex-uploads 0
                       :light-uploads 0 :uniform-uploads 0
                       :composite-uploads 0 :regions {}})}))
 
 (defonce ^:private !systems-by-device (js/WeakMap.))
-(defonce ^:private !pick-state (atom {}))
-
-(defn prepared-pick-state [region-id]
-  (get @!pick-state region-id))
 
 (defn binding-owner [system] (:binding-owner system))
 
@@ -811,32 +576,6 @@
   (into {} (map-indexed (fn [index row] [(:object-id row) index])
                         (:instances maintained))))
 
-(defn- glyph-rows [maintained]
-  (->> (get-in maintained [:region :scene])
-       (filter (fn [[_ object]]
-                 (contains? #{:light :camera :empty} (:object/kind object))))
-       (sort-by (comp pr-str key))
-       vec))
-
-(defn- glyph-index [maintained]
-  (into {} (map-indexed (fn [index [object-id _]] [object-id index])
-                        (glyph-rows maintained))))
-
-(defn- glyph-row-values [maintained object-id object]
-  (let [origin (scene/transform-point
-                (get-in maintained [:effective-transforms object-id])
-                [0.0 0.0 0.0])
-        color (case (:object/kind object)
-                :light [1.0 0.72 0.18 1.0]
-                :camera [0.22 0.68 1.0 1.0]
-                [0.72 0.72 0.78 1.0])]
-    (vec (concat origin [1.0] color))))
-
-(defn- glyph-values [maintained]
-  (vec (mapcat (fn [[object-id object]]
-                 (glyph-row-values maintained object-id object))
-               (glyph-rows maintained))))
-
 (defn- light-rows [maintained]
   (->> (get-in maintained [:region :scene])
        (filter (fn [[_ object]] (= :light (:object/kind object))))
@@ -914,17 +653,6 @@
 (defn- session-region [session region-id]
   (get-in session [:regions region-id] {}))
 
-(defn- gizmo-hover-number [mode handle-id]
-  (let [[handle-mode handle] handle-id]
-    (if (not= mode handle-mode)
-      0.0
-      (double
-       (case mode
-         :translate ({:x 1 :y 2 :z 3 :xy 4 :yz 5 :xz 6} handle 0)
-         :rotate ({:x 1 :y 2 :z 3 :view 4} handle 0)
-         :scale ({:x 1 :y 2 :z 3 :uniform 4} handle 0)
-         0)))))
-
 (defn- create-region-gpu [system region-id]
   (let [usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.VERTEX)
         uniform-usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.UNIFORM)
@@ -933,8 +661,6 @@
                              (str "region3d/" region-id "/vertices") 256 usage)
      :instances (create-buffer! (:device system) (:tracker system)
                                 (str "region3d/" region-id "/instances") 256 usage)
-     :glyphs (create-buffer! (:device system) (:tracker system)
-                             (str "region3d/" region-id "/glyphs") 256 usage)
      :lights (create-buffer! (:device system) (:tracker system)
                              (str "region3d/" region-id "/lights") 640 storage-usage)
      :uniform (create-buffer! (:device system) (:tracker system)
@@ -943,9 +669,6 @@
      :shadow-uniform (create-buffer! (:device system) (:tracker system)
                                      (str "region3d/" region-id "/shadow-uniform")
                                      shadow-uniform-bytes uniform-usage)
-     :gizmo-uniform (create-buffer! (:device system) (:tracker system)
-                                    (str "region3d/" region-id "/gizmo-uniform")
-                                    gizmo-uniform-bytes uniform-usage)
      :placement (placement-gpu/create-region-gpu!
                  (:placement-system system) region-id)}))
 
@@ -953,7 +676,6 @@
   (let [{:keys [vertices draws]} (mesh-upload maintained)
         vertex-data (typed-f32 vertices)
         instance-data (typed-f32 (instance-values maintained))
-        glyph-data (typed-f32 (glyph-values maintained))
         {:keys [count values]} (light-values maintained)
         light-data (typed-f32 values)
         vertex-buffer (ensure-buffer! system (:vertex gpu)
@@ -965,49 +687,36 @@
                                         (str "region3d/" region-id "/instances")
                                         (.-byteLength instance-data)
                                         (bit-or js/GPUBufferUsage.COPY_DST
-                                                js/GPUBufferUsage.VERTEX))
-        glyph-buffer (ensure-buffer! system (:glyphs gpu)
-                                     (str "region3d/" region-id "/glyphs")
-                                     (.-byteLength glyph-data)
-                                     (bit-or js/GPUBufferUsage.COPY_DST
-                                             js/GPUBufferUsage.VERTEX))]
+                                                js/GPUBufferUsage.VERTEX))]
     (write-buffer! system vertex-buffer vertex-data (.-byteLength vertex-data))
     (write-buffer! system instance-buffer instance-data (.-byteLength instance-data))
-    (write-buffer! system glyph-buffer glyph-data (.-byteLength glyph-data))
     (write-buffer! system (:lights gpu) light-data (.-byteLength light-data))
     (assoc gpu :vertex vertex-buffer :instances instance-buffer
-           :glyphs glyph-buffer :draws draws :object-index (object-index maintained)
-           :glyph-index (glyph-index maintained) :light-index (light-index maintained)
-           :glyph-count (quot (.-length glyph-data) 8) :light-count count)))
+           :draws draws :object-index (object-index maintained)
+           :light-index (light-index maintained) :light-count count)))
 
 (defn- write-transform-gpu!
   "Write only evaluated transform dependents. Mesh vertices and draw topology
-  stay retained; instance, glyph, and light rows use their stable offsets."
+  stay retained; instance and light rows use their stable offsets."
   [system gpu maintained affected-object-ids]
   (reduce
    (fn [receipt object-id]
      (let [object (get-in maintained [:region :scene object-id])
            instance-index (get-in gpu [:object-index object-id])
-           glyph-index (get-in gpu [:glyph-index object-id])
            light-index (get-in gpu [:light-index object-id])]
        (when (some? instance-index)
          (write-buffer-range!
           system (:instances gpu) (* instance-index mesh-instance-stride)
           (instance-row-values
            (get-in maintained [:instances-by-object object-id]))))
-       (when (some? glyph-index)
-         (write-buffer-range!
-          system (:glyphs gpu) (* glyph-index glyph-instance-stride)
-          (glyph-row-values maintained object-id object)))
        (when (some? light-index)
          (write-buffer-range!
           system (:lights gpu) (* light-index light-instance-stride)
           (light-row-values maintained object-id object)))
        (cond-> receipt
          (some? instance-index) (update :instance-uploads inc)
-         (some? glyph-index) (update :glyph-uploads inc)
          (some? light-index) (update :light-uploads inc))))
-   {:instance-uploads 0 :glyph-uploads 0 :light-uploads 0}
+   {:instance-uploads 0 :light-uploads 0}
    (sort-by pr-str affected-object-ids)))
 
 (defn- object-depth [camera maintained object-id]
@@ -1036,24 +745,10 @@
   (let [display-mode (or (:display-mode session-row) :lit)
         uniform (typed-f32 (region-uniform-values maintained camera display-mode
                                                    shadow-space))
-        shadow (typed-f32 (column-major (shadow-matrix shadow-space)))
-        selection (:selection session-row)
-        pivot (if selection
-                (scene/transform-point
-                 (get-in maintained [:effective-transforms selection])
-                 [0.0 0.0 0.0])
-                [0.0 0.0 0.0])
-        gizmo-mode (case (or (:gizmo-mode session-row) :translate)
-                     :rotate 1.0 :scale 2.0 0.0)
-        hover (gizmo-hover-number (or (:gizmo-mode session-row) :translate)
-                                   (:gizmo-hover session-row))
-        gizmo (typed-f32 (concat pivot [1.0]
-                                 [gizmo-mode (if selection 1.0 0.0)
-                                  hover 0.0]))]
+        shadow (typed-f32 (column-major (shadow-matrix shadow-space)))]
     (write-buffer! system (:uniform gpu) uniform (.-byteLength uniform))
     (write-buffer! system (:shadow-uniform gpu) shadow (.-byteLength shadow))
-    (write-buffer! system (:gizmo-uniform gpu) gizmo (.-byteLength gizmo))
-    (assoc gpu :selection selection :gizmo-mode gizmo-mode)))
+    gpu))
 
 (defn- destroy-buffer! [system row reason]
   (when-let [buffer (:buffer row)]
@@ -1061,8 +756,7 @@
     (.destroy ^js buffer)))
 
 (defn- destroy-region-gpu! [system gpu]
-  (doseq [key [:vertex :instances :glyphs :lights :uniform :shadow-uniform
-               :gizmo-uniform]]
+  (doseq [key [:vertex :instances :lights :uniform :shadow-uniform]]
     (destroy-buffer! system (get gpu key) :region3d-region-close))
   (placement-gpu/destroy-region-gpu! (:placement-system system)
                                      (:placement gpu)))
@@ -1184,10 +878,7 @@
                                       (:shadow-space old))
                        view (or (:view session-row)
                                 (get-in maintained [:region :view-default]))
-                       view-key [view (:display-mode session-row)
-                                 (:selection session-row) encode-rung
-                                 (:gizmo-mode session-row)
-                                 (:gizmo-hover session-row)
+                       view-key [view (:display-mode session-row) encode-rung
                                  shadow-space]
                        view-changed? (or scene-changed? (nil? old)
                                          (not= view-key (:view-key old)))
@@ -1214,7 +905,6 @@
                                                         maintained)
                               :instance-uploads (count (:instances maintained))
                               :mesh-vertex-uploads 1
-                              :glyph-uploads (count (glyph-rows maintained))
                               :light-uploads (count (light-rows maintained))}
 
                              :transform
@@ -1224,7 +914,7 @@
                                     :gpu gpu0 :mesh-vertex-uploads 0)
 
                              {:gpu gpu0 :instance-uploads 0
-                              :mesh-vertex-uploads 0 :glyph-uploads 0
+                              :mesh-vertex-uploads 0
                               :light-uploads 0})
                            gpu1 (:gpu upload-receipt)
                            gpu2 (if view-changed?
@@ -1324,13 +1014,7 @@
     (doseq [region-id closed]
       (destroy-region-gpu! system (:gpu (get prior region-id))))
     (when prepared-changed?
-      (reset! (:!prepared system) next)
-      (reset! !pick-state
-              (into {} (map (fn [[region-id row]]
-                              [region-id
-                               (select-keys row [:maintained :camera
-                                                 :placements])]))
-                    next)))
+      (reset! (:!prepared system) next))
     (when entry-shape-changed?
       (reset! (:!entry-shape-key system) entry-shape-key)
       (frame-inputs/bump-shape-rev! system))
@@ -1355,11 +1039,6 @@
                            (reduce + 0
                                    (map #(get-in % [:upload-receipt
                                                     :mesh-vertex-uploads] 0)
-                                        changed-rows)))
-                   (update :glyph-instance-uploads +
-                           (reduce + 0
-                                   (map #(get-in % [:upload-receipt
-                                                    :glyph-uploads] 0)
                                         changed-rows)))
                    (update :light-uploads +
                            (reduce + 0
@@ -1473,42 +1152,14 @@
                         {:view (get-in lease [:depth :view])
                          :depthClearValue 1.0 :depthLoadOp "clear"
                          :depthStoreOp "store"}}))
-        mesh-bind (region-bind-group system prepared lease)
-        region-bind (one-buffer-bind-group
-                     system (get-in system [:pipelines :single-region-layout])
-                     (:uniform gpu))]
+        mesh-bind (region-bind-group system prepared lease)]
     (draw-mesh-rows! pass system prepared (get-in prepared [:draw-order :opaque])
                      (get-in system [:pipelines :opaque]) mesh-bind)
-    (.setPipeline pass (get-in system [:pipelines :grid]))
-    (.setBindGroup pass 0 region-bind)
-    (.draw pass 6 1 0 0)
     (draw-mesh-rows! pass system prepared
                      (get-in prepared [:draw-order :transparent])
                      (get-in system [:pipelines :transparent]) mesh-bind)
     (placement-gpu/draw-placements! pass (:placement-system system)
                                     (:placement gpu) (:uniform gpu))
-    (when (pos? (get-in gpu [:glyph-count] 0))
-      (.setPipeline pass (get-in system [:pipelines :glyph]))
-      (.setBindGroup pass 0 region-bind)
-      (.setVertexBuffer pass 0 (:buffer (:glyphs gpu)))
-      (.draw pass 6 (:glyph-count gpu) 0 0))
-    (when (get-in prepared [:session :selection])
-      (let [gizmo-bind
-            (.createBindGroup
-             ^js (:device system)
-             (clj->js {:layout (get-in system [:pipelines :gizmo-layout])
-                       :entries [{:binding 0
-                                  :resource {:buffer (:buffer (:uniform gpu))}}
-                                 {:binding 1
-                                  :resource {:buffer (:buffer (:gizmo-uniform gpu))}}]}))
-            vertices (case (:gizmo-mode gpu)
-                       0.0 54
-                       1.0 1536
-                       2.0 42
-                       6)]
-        (.setPipeline pass (get-in system [:pipelines :gizmo]))
-        (.setBindGroup pass 0 gizmo-bind)
-        (.draw pass vertices 1 0 0)))
     (.end pass)))
 
 (defn encode-region-passes!
@@ -1623,6 +1274,5 @@
     (.destroy ^js texture))
   (placement-gpu/destroy-placement-system! (:placement-system system))
   (reset! (:!prepared system) {})
-  (reset! !pick-state {})
-  (.delete !systems-by-device (:device system))
+    (.delete !systems-by-device (:device system))
   true)

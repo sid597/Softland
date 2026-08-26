@@ -85,3 +85,19 @@ The px-anchored quad (anchor in world, size in screen px, crisp at any zoom with
 **Commit discipline:** memory laws — parallel-sessions git (foreign-change check, exact paths, plain `git commit`, never `git commit -- path`), never Co-Authored-By in any form, commit on `main` grouped by concern, push is Sid's alone. Sid's dirty files (`CLAUDE.md` deleted, `CLAUDE-1.md`, the memory note) are his — never stage them.
 
 **Sequence after this:** the packet contract (§6) as one hard-thinking document, then one execution that re-keys. Done means `scene_tape:597` requires `:road :resource-key :pick-token` and nothing named material, instance, or family.
+
+## Closed — 2026-08-26
+
+- Cut: `connector_material.cljc` (route material), `connector_route.cljc` (router), `connector_gpu.cljs` (executor), and `region3d_pointer.cljc` (input adapter), plus their three focused test namespaces; 1,583 source code lines → 0.
+- Neutralized: chrome accepts only opaque world anchors, screen-pixel offsets, and RGBA quads; form, selection, pick, pulse, HUD, grid, gizmo, object-glyph, and edit-delta machinery no longer enters the painter.
+- Trimmed: path/Region3D edit operations, ground text vocabulary, the legacy container transform arm, connector verifier/input/registration lanes, and coupled assertions/receipts.
+- Goldens: six chrome/connector PNGs removed; `gpu-chrome-neutral-point-line-z1.png` and `gpu-chrome-neutral-point-line-z4.png` baked and manifest-pinned.
+- Tripwires: 5/5 scenarios pass, including four-file and registration absence, old-form/selection/pulse/edit/3D-symbol absence, and the six-file painter fence.
+- Close receipt: 61 JVM tests / 543 assertions / 0 failures / 0 errors; CLJS 0 warnings; base, image, path, chrome, and Region3D guards pass; msdf, neutral-chrome, and path representative goldens pass.
+- Source lines A (comments off): chrome_material 254→118; frame_inputs 199→186; frame_scheduler 178→169; path_material 522→417; region3d_material 658→587; region3d_scene 1201→976; scene_tape 635→599; chrome_gpu 320→275; region3d_gpu 1535→1194.
+- Source lines B: renderer 2967→2854; verifier 4111→3178; containers 278→246; text_layout 1439→1404; connector_material 399→0; connector_route 656→0; connector_gpu 422→0; region3d_pointer 106→0. Total source 15,880→12,203.
+- Test/tool lines A: chrome_material_test 70→47; connector_material_test 120→0; connector_route_test 286→0; frame_inputs_test 113→96; frame_scheduler_test 61→59; frame_view_region_binding_test 200→197; path_material_test 97→92; path_tessellation_test 55→57; region3d_material_test 162→118.
+- Test/tool lines B: region3d_scene_test 257→145; region3d_pointer_test 170→0; shaping_correction_test 610→588; test_runner 574→571; run_verifier 329→341; scene_tape_fence 158→157; text_layout_fence 126→125; instance_cut tripwire 0→68. Total 3,388→2,661.
+- Custody: no task write under `src/app/server`, `/mnt/data/rama`, or the completed archive; §5 roads and Sid's foreign dirty files remain untouched.
+- Contradiction/debt: none; the close runner found one stale deleted connector-route owner in the text-layout fence, that row was removed, and the failed npm receipt replayed green.
+- Acceptance: Sid accepts at this Closed append; this atom stops here.

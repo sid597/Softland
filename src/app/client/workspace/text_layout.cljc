@@ -20,12 +20,6 @@
 
 (def index-space-token [:utf-16-code-unit 1])
 
-(def ground-op-roles
-  #{:block-root :anatomy :invocation :sub-anatomy :refusal :notice
-    :boundary :conflict-lint :gold-mark :silver-mark :halo :workshop
-    :material-error :provisional-activity :provisional-stream
-    :provisional-error :binding-lint})
-
 (def legacy-provider
   {:face-id :legacy/monospace
    :face-revision "t0-v1"
@@ -317,56 +311,24 @@
                          :features :variations :axes :fallback-chain :upem
                          :metrics]))
 
-(defn ground-op-role
-  "Closed, content-independent role assignment for the ground text census."
-  [{:keys [owner-id primitive part-id node-id]}]
-  (let [role
-        (cond
-          (= owner-id :ground-halo) :halo
-          (= owner-id :ground-workshop) :workshop
-          (= owner-id :ground-material-error) :material-error
-          (= owner-id :ground-binding-lint) :binding-lint
-          (= node-id :ground-activity) :provisional-activity
-          (= node-id :ground-stream) :provisional-stream
-          (= node-id :ground-turn-error) :provisional-error
-          (= primitive :block-root) :block-root
-          (#{:invocation-heading :invocation-model :invocation-effort
-             :invocation-precontext} part-id) :invocation
-          (#{:refusal :notice :boundary :conflict-lint :gold-mark :silver-mark}
-           part-id) part-id
-          (= primitive :sub-anatomy) :sub-anatomy
-          :else :anatomy)]
-    (when-not (ground-op-roles role)
-      (throw (ex-info "Ground text op has no contracted role."
-                      {:role role :input {:owner-id owner-id
-                                          :primitive primitive
-                                          :part-id part-id :node-id node-id}})))
-    role))
-
-(defn ground-text-address [subject-id op-role occurrence]
-  (when-not (ground-op-roles op-role)
-    (throw (ex-info "Ground text address uses an uncontracted op role."
-                    {:op-role op-role})))
-  [:ground-text subject-id op-role (long (or occurrence 0))])
-
 (defn layout-key
   "The shaping-correction keying source. Only full visible projection,
    stable address/revision, provider identity, and layout metrics enter.
    Paint, camera, origin, selection, hover, backend, and broad rebuild `sig`
    are deliberately absent (T6/T7/T8)."
-  [{:keys [subject-id op-role occurrence stamp body-text header-texts
+  [{:keys [address stamp body-text header-texts
            provider font-size line-height baseline-offset wrap-policy wrap-col
            language direction tab-stops]}]
-  (let [op-role (or op-role :block-root)
-        address (ground-text-address subject-id op-role occurrence)
-        body-text (str (or body-text ""))
+  (when (nil? address)
+    (throw (ex-info "Text layout identity requires an opaque :address." {})))
+  (let [body-text (str (or body-text ""))
         header-texts (mapv str (or header-texts []))
         features (or (:effective-features provider) (:features provider) [])
         variations (or (:effective-variations provider) (:variations provider) {})
         metrics (:metrics provider)
         source-token [address
                       (if (some? stamp) [:stamped stamp] [:unstamped])
-                      [body-text header-texts op-role]]
+                      [body-text header-texts]]
         provider-token [(:face-id provider) (:face-revision provider)
                         (:shaper-id provider) (:shaper-version provider)
                         features variations (:axes provider)

@@ -1,16 +1,15 @@
 (ns app.client.substrate.region3d-scene
   "Pure Region3D scene derivation.
 
-   Keyed inputs: a canonical region row plus session camera/selection/gizmo
-   values joined at the renderer edge. Door: event causes only. Ownership:
+   Keyed inputs: a canonical region row plus session camera values joined at
+   the renderer edge. Door: event causes only. Ownership:
    the region row is one generation; session camera is a separate stamped
    generation. Projections: instance rows, BVH/ray pick, tape entry, pass
    fragment, inspector rows, and the full batch oracle. The maintained view
    keeps the full derivation as its equivalence fence and refits only the
    affected hierarchy subtree for transform edits. No clock exists here."
   (:require [clojure.set :as set]
-            [app.client.substrate.region3d-material :as material]
-            [app.client.workspace.region3d-pointer :as pointer]))
+            [app.client.substrate.region3d-material :as material]))
 
 (def scene-algorithm-version :region3d/scene-v1)
 (def bvh-algorithm-version :region3d/bvh-v1)
@@ -18,12 +17,6 @@
 (def tone-map-algorithm-version :khronos-pbr-neutral-v1)
 (def ray-epsilon 1.0e-7)
 (def bvh-leaf-size 8)
-(def glyph-hit-radius-px 8.0)
-(def gizmo-hit-radius-px 10.0)
-(def gizmo-size-factor 0.32)
-(def gizmo-ring-sample-count 64)
-(def orbit-radians-per-pixel 0.005)
-(def orbit-pitch-limit (- (/ Math/PI 2.0) 0.12))
 (def brdf-readback-error (/ 2.0 255.0))
 
 (defn v+ [& vectors] (apply mapv + vectors))
@@ -613,107 +606,6 @@
                   (* (- 1.0 ndc-y) 0.5 height)]
          :depth (/ (nth clip 2) w)}))))
 
-(defn orbit [view delta-x delta-y]
-  (-> (material/canonical-view view)
-      (update :yaw + (* delta-x orbit-radians-per-pixel))
-      (update :pitch #(clamp (- orbit-pitch-limit)
-                             (+ % (* delta-y orbit-radians-per-pixel))
-                             orbit-pitch-limit))))
-
-(defn- object-origin [effective object-id]
-  (transform-point (get effective object-id) [0.0 0.0 0.0]))
-
-(defn gizmo-world-scale
-  "World-space gizmo scale matching the GPU's screen-constant sizing law."
-  [camera origin]
-  (case (get-in camera [:lens :kind])
-    :ortho (* (get-in camera [:lens :ortho-scale]) gizmo-size-factor)
-    :perspective
-    (* (length (v- (:eye camera) origin))
-       (Math/tan (/ (* (get-in camera [:lens :fov-y-deg]) Math/PI) 360.0))
-       gizmo-size-factor)))
-
-(defn- line-samples [start end sample-count]
-  (mapv (fn [index]
-          (let [amount (/ (double index) (double (dec sample-count)))]
-            (v+ start (v* (v- end start) amount))))
-        (range sample-count)))
-
-(defn- sampled-handles [handle positions]
-  (mapv #(assoc handle :position %) positions))
-
-(defn- axis-handles [origin scale object-id mode radius]
-  (mapv
-   (fn [[axis direction]]
-     {:handle/id [mode axis] :object-id object-id :pivot origin
-      :axis direction :screen-radius-px radius
-      :segment [origin (v+ origin (v* direction scale))]})
-   [[:x [1.0 0.0 0.0]]
-    [:y [0.0 1.0 0.0]]
-    [:z [0.0 0.0 1.0]]]))
-
-(defn- translate-plane-handles [origin scale object-id radius]
-  (mapcat
-   (fn [[plane u v normal]]
-     (let [corner (v+ origin (v* (v+ u v) (* scale 0.28)))
-           u-end (v+ corner (v* u (* scale 0.19)))
-           v-end (v+ corner (v* v (* scale 0.19)))
-           handle {:handle/id [:translate plane] :object-id object-id
-                   :pivot origin :plane-normal normal
-                   :screen-radius-px radius}]
-       (concat (sampled-handles handle (line-samples corner u-end 5))
-               (sampled-handles handle (line-samples corner v-end 5)))))
-   [[:xy [1.0 0.0 0.0] [0.0 1.0 0.0] [0.0 0.0 1.0]]
-    [:yz [0.0 1.0 0.0] [0.0 0.0 1.0] [1.0 0.0 0.0]]
-    [:xz [0.0 0.0 1.0] [1.0 0.0 0.0] [0.0 1.0 0.0]]]))
-
-(defn- ring-handles [origin scale camera object-id radius]
-  (let [view-axis (normalize (v- (:eye camera) origin))
-        seed (if (> (Math/abs (double (second view-axis))) 0.9)
-               [1.0 0.0 0.0]
-               [0.0 1.0 0.0])
-        view-u (normalize (cross seed view-axis))
-        view-v (cross view-axis view-u)]
-    (mapcat
-     (fn [[axis-name u v axis radius-multiplier]]
-       (let [positions
-             (mapv (fn [index]
-                     (let [angle (* 2.0 Math/PI
-                                    (/ index gizmo-ring-sample-count))]
-                       (v+ origin
-                           (v* (v+ (v* u (Math/cos angle))
-                                   (v* v (Math/sin angle)))
-                               (* scale radius-multiplier)))))
-                   (range gizmo-ring-sample-count))]
-         [{:handle/id [:rotate axis-name] :object-id object-id
-           :pivot origin :axis axis :screen-radius-px radius
-           :polyline (conj positions (first positions))}]))
-     [[:x [0.0 1.0 0.0] [0.0 0.0 1.0] [1.0 0.0 0.0] 1.0]
-      [:y [1.0 0.0 0.0] [0.0 0.0 1.0] [0.0 1.0 0.0] 1.0]
-      [:z [1.0 0.0 0.0] [0.0 1.0 0.0] [0.0 0.0 1.0] 1.0]
-      [:view view-u view-v view-axis 1.12]])))
-
-(defn gizmo-handles
-  "Screen-metric pick geometry matching the complete segments painted by GPU."
-  ([effective camera object-id mode]
-   (gizmo-handles effective camera object-id mode 1.0))
-  ([effective camera object-id mode dpr]
-   (when object-id
-     (let [origin (object-origin effective object-id)
-           scale (gizmo-world-scale camera origin)
-           radius (pointer/slop-device gizmo-hit-radius-px dpr)
-           axes (axis-handles origin scale object-id mode radius)]
-       (case mode
-         :translate (vec (concat axes
-                                 (translate-plane-handles origin scale
-                                                          object-id radius)))
-         :rotate (vec (ring-handles origin scale camera object-id radius))
-         :scale (conj (vec axes)
-                      {:handle/id [:scale :uniform] :object-id object-id
-                       :pivot origin :position origin
-                       :screen-radius-px (pointer/slop-device 14.0 dpr)})
-         (vec axes))))))
-
 (defn derive-instance-row [object effective-matrix]
   {:object-id (:object/id object)
    :kind (:object/kind object)
@@ -857,28 +749,6 @@
                          (keys changed)))]
         (maintain-affected maintained next-region affected)))))
 
-(defn maintain-scene
-  "Apply one settled edit. Transform and parent edits update only the affected
-  hierarchy subtree and refit retained BVH leaves. Topology/material changes
-  take the full oracle road because their affected set is structurally new."
-  [maintained diff]
-  (if-not maintained
-    (throw (ex-info "Region3D incremental maintenance requires a derived scene"
-                    {:diff diff}))
-    (let [op (:op/id diff)
-          object-id (get-in diff [:payload :object-id])]
-      (case op
-        :region3d/set-transform
-        (maintain-transforms maintained
-                             {object-id (get-in diff [:payload :after])})
-
-        :region3d/set-parent
-        (let [next-region (material/apply-edit (:region maintained) diff)
-              affected (affected-descendants (:scene next-region) object-id)]
-          (maintain-affected maintained next-region affected))
-
-        (derive-scene (material/apply-edit (:region maintained) diff))))))
-
 (defn- bvh-triangle-receipt [bvh]
   (letfn [(walk [node]
             (case (:kind node)
@@ -908,137 +778,21 @@
    :receipt {:region-encodes 1 :instance-uploads 0
              :bvh-refits 0 :two-d-uploads 0}})
 
-(defn- squared-distance [[ax ay] [bx by]]
-  (+ (* (- ax bx) (- ax bx)) (* (- ay by) (- ay by))))
-
-(defn- projected-handle-distance2 [camera point handle]
-  (cond
-    (:segment handle)
-    (let [[start end] (mapv #(some-> (project-point camera %) :screen)
-                            (:segment handle))]
-      (when (and start end)
-        (pointer/point-segment-distance2 point start end)))
-
-    (:polyline handle)
-    (let [points (mapv #(some-> (project-point camera %) :screen)
-                       (:polyline handle))]
-      (when (every? some? points)
-        (pointer/point-polyline-distance2 point points)))
-
-    :else
-    (when-let [projected (project-point camera (:position handle))]
-      (squared-distance point (:screen projected)))))
-
-(defn- pick-screen-handles [camera point handles default-radius route]
-  (->> handles
-       (keep (fn [handle]
-               (when-let [distance2 (projected-handle-distance2
-                                     camera point handle)]
-                 (let [radius (double (or (:screen-radius-px handle)
-                                          default-radius))]
-                   (when (<= distance2 (* radius radius))
-                     (assoc handle :route route :screen-distance2 distance2))))))
-       (sort-by (juxt :screen-distance2 (comp pr-str :handle/id)))
-       first))
-
-(defn- nearest-surface-hit [hits]
-  (first (sort-by (juxt :t (comp pr-str :object-id)) (remove nil? hits))))
-
 (defn pick-region
-  "Gizmo -> {mesh + placed plane} by nearest t -> object glyph -> background.
-   The placement picker is the region3d-placement reader injected by the
-   workspace/GPU edge, avoiding a second region-scene authority."
-  [{:keys [maintained camera region-point gizmo-handles dpr
-           placements placement-picker]}]
+  "Pick the nearest BVH surface, otherwise the region background."
+  [{:keys [maintained camera region-point]}]
   (let [region (:region maintained)
         camera (or camera
                    (camera-matrices (:view-default region)
                                     [(get-in region [:extent :width])
                                      (get-in region [:extent :height])]))
-        gizmo-hit (pick-screen-handles camera region-point gizmo-handles
-                                       gizmo-hit-radius-px :gizmo)]
-    (if gizmo-hit
-      (merge
-       {:route :gizmo
-        :object-id (:object-id gizmo-hit)
-        :handle-id (:handle/id gizmo-hit)
-        :point3 (:position gizmo-hit)}
-       (select-keys gizmo-hit [:pivot :axis :plane-normal]))
-      (let [ray (ray-from-region-point camera region-point)
-            mesh-hit (query-bvh (:bvh maintained) ray)
-            placement-hit (when placement-picker
-                            (nearest-surface-hit
-                             (map #(placement-picker % ray) placements)))
-            surface-hit
-            (nearest-surface-hit
-             [(when mesh-hit
-                (select-keys (assoc mesh-hit :route :object)
-                             [:route :object-id :point3 :normal :t
-                              :triangle-index :boundary?]))
-              placement-hit])
-            glyph-handles
-            (for [[object-id object] (:scene region)
-                  :when (contains? #{:light :camera :empty}
-                                   (:object/kind object))]
-              {:handle/id [:glyph object-id]
-               :object-id object-id
-               :position (object-origin (:effective-transforms maintained)
-                                        object-id)
-               :screen-radius-px glyph-hit-radius-px})
-            glyph-hit (pick-screen-handles
-                       camera region-point glyph-handles
-                       (pointer/slop-device glyph-hit-radius-px (or dpr 1.0))
-                       :object-glyph)]
-        (cond
-          (and surface-hit glyph-hit)
-          (let [glyph-ray-distance
-                (length (v- (:position glyph-hit) (:origin ray)))]
-            (if (< glyph-ray-distance (:t surface-hit))
-              {:route :object-glyph
-               :object-id (:object-id glyph-hit)
-               :point3 (:position glyph-hit)
-               :normal nil :t glyph-ray-distance}
-              surface-hit))
-          surface-hit surface-hit
-          glyph-hit
-          {:route :object-glyph
-           :object-id (:object-id glyph-hit)
-           :point3 (:position glyph-hit) :normal nil :t nil}
-          :else
-          {:route :region-background
-           :region-id (:region-id maintained)})))))
-
-(defn translate-delta
-  "Axis/plane gizmo translation from two ray-plane intersections."
-  [start-ray current-ray plane-point plane-normal axis]
-  (letfn [(plane-hit [{:keys [origin direction]}]
-            (let [denominator (dot direction plane-normal)]
-              (when (> (Math/abs (double denominator)) ray-epsilon)
-                (let [t (/ (dot (v- plane-point origin) plane-normal)
-                           denominator)]
-                  (when (pos? t) (v+ origin (v* direction t)))))))]
-    (let [start (plane-hit start-ray)
-          current (plane-hit current-ray)]
-      (when (and start current)
-        (let [delta (v- current start)]
-          (if axis
-            (v* (normalize axis) (dot delta (normalize axis)))
-            delta))))))
-
-(defn rotate-delta
-  "Signed ray-ring angle delta in radians."
-  [start-point current-point pivot axis]
-  (let [axis (normalize axis)
-        start (normalize (v- start-point pivot))
-        current (normalize (v- current-point pivot))]
-    (Math/atan2 (dot axis (cross start current))
-                (clamp -1.0 (dot start current) 1.0))))
-
-(defn scale-ratio [start-point current-point pivot]
-  (let [start-distance (length (v- start-point pivot))]
-    (if (< start-distance ray-epsilon)
-      1.0
-      (/ (length (v- current-point pivot)) start-distance))))
+        ray (ray-from-region-point camera region-point)]
+    (if-let [hit (query-bvh (:bvh maintained) ray)]
+      (select-keys (assoc hit :route :object)
+                   [:route :object-id :point3 :normal :t
+                    :triangle-index :boundary?])
+      {:route :region-background
+       :region-id (:region/id region)})))
 
 (defn- rgba-linear [tagged]
   (let [[r g b a] (:rgba tagged)

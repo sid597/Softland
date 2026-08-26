@@ -14,9 +14,6 @@
   {:path-zoom-regime
    {:version :frame-input/path-zoom-regime-v1
     :input-key :path-zoom-regime}
-   :connector-zoom-regime
-   {:version :frame-input/connector-zoom-regime-v1
-    :input-key :connector-zoom-regime}
    :region-interior-encode
    {:version :frame-input/region-interior-encode-v1
     :input-key :region-encode-scale
@@ -27,14 +24,10 @@
 
 (def family-input-declarations
   {:render.family/msdf
-   #{:text-sys :text-sys-token :extra-text-geos
-     :chrome-text-sys :chrome-text-sys-token :chrome-base-line-count
-     :diagnostics-visible :diagnostics-line-index :font-provider-token}
+   #{:text-sys :text-sys-token :extra-text-geos :font-provider-token}
 
    :render.family/slug
-   #{:text-sys :text-sys-token :extra-text-geos
-     :chrome-text-sys :chrome-text-sys-token :chrome-base-line-count
-     :diagnostics-visible :diagnostics-line-index :font-provider-token}
+   #{:text-sys :text-sys-token :extra-text-geos :font-provider-token}
 
    :render.family/clip
    #{:clip-semantic-input}
@@ -47,14 +40,9 @@
    #{:paths :ordered-vis :ops-count-by-vi :order-by-vi
      :path-system :path-system-token :path-zoom-regime}
 
-   :render.family/connector
-   #{:connectors :ordered-vis :order-by-vi
-     :connector-system :connector-system-token :connector-zoom-regime}
-
    :render.family/chrome
    #{:chromes :ordered-vis :ops-count-by-vi :order-by-vi
-     :chrome-system :chrome-system-token
-     :diagnostics-visible}
+     :chrome-system :chrome-system-token}
 
    :render.family/region-3d
    #{:regions :order-by-vi :region3d-system :region3d-system-token}})
@@ -69,7 +57,6 @@
          door-inputs (set (map :input-key (vals doors)))
          camera-door-inputs (set/intersection declared
                                               #{:path-zoom-regime
-                                                :connector-zoom-regime
                                                 :region-encode-scale})
          unregistered (set/difference camera-door-inputs door-inputs)]
      (when (seq raw-camera)
@@ -170,9 +157,8 @@
   "Pure family-index delta used by the renderer's sorted-map maintenance.
    Current keys come only from produced families; unchanged families are not
    inspected. Entries bucket by the family that PRODUCED them
-   (:frame/producer, falling back to :family/id) — a cross-family entry such
-   as a connector-minted text-family label must live and die with its
-   producer, never with the family whose pipeline draws it."
+   (:frame/producer, falling back to :family/id), never by the pipeline that
+   draws them."
   [keys-by-family entries produced-families entry-key]
   (let [entries-by-family (group-by #(or (:frame/producer %) (:family/id %))
                                     entries)]

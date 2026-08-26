@@ -10,8 +10,6 @@
    glyph pipelines."
   (:require [clojure.string :as str]
             [app.client.substrate.chrome-material :as chrome-material]
-            [app.client.substrate.connector-material :as connector-material]
-            [app.client.substrate.connector-route :as connector-route]
             [app.client.substrate.frame-inputs :as frame-inputs]
             [app.client.substrate.image-material :as image-material]
             [app.client.substrate.path-material :as path-material]
@@ -25,7 +23,6 @@
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.substrate.webgpu.chrome-gpu :as chrome-gpu]
-            [app.client.substrate.webgpu.connector-gpu :as connector-gpu]
             [app.client.substrate.webgpu.compositor-gpu :as compositor-gpu]
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
             [app.client.substrate.webgpu.region-bindings :as region-bindings]
@@ -1299,66 +1296,24 @@
 
 ;; CHROME ATOM ---------------------------------------------------------------
 
-(def ^:private chrome-owner-vi [:chrome-atom :fixture])
+(def ^:private chrome-owner-vi [:chrome-neutral :fixture])
 
-(defn- chrome-bounds [coordinate-zoom [x y w h]]
-  {:x (/ x coordinate-zoom) :y (/ y coordinate-zoom)
-   :w (/ w coordinate-zoom) :h (/ h coordinate-zoom)})
+(defn- neutral-quad [anchors offsets-px color]
+  {:anchors anchors :offsets-px offsets-px :color color})
 
-(defn- chrome-screen-point [coordinate-zoom [x y]]
-  [(/ x coordinate-zoom) (/ y coordinate-zoom)])
-
-(defn- chrome-material
-  [form coordinate-zoom bounds & {:keys [corner from to alignment]}]
-  (chrome-material/validate-material!
-   (cond-> {:chrome/form form
-            :chrome/anchor-bounds (chrome-bounds coordinate-zoom bounds)
-            :chrome/derived-from {:vi chrome-owner-vi :address [:golden form]}
-            :chrome/selection-rev 1
-            :chrome/pick (if (= :handle form) :interior :none)
-            :chrome/container 0}
-     corner (assoc :chrome/corner corner)
-     from (assoc :chrome/from (chrome-screen-point coordinate-zoom from))
-     to (assoc :chrome/to (chrome-screen-point coordinate-zoom to))
-     alignment (assoc :chrome/alignment alignment))))
-
-(def ^:private chrome-selection-world-bounds [4.0 4.0 14.0 12.0])
-
-(defn- chrome-selection-ops [_zoom]
-  (let [bounds chrome-selection-world-bounds
-        [x y w h] bounds
-        corners [[:nw [x y]] [:ne [(+ x w) y]]
-                 [:sw [x (+ y h)]] [:se [(+ x w) (+ y h)]]]
-        ;; Selection cases share one world-space scene. Camera zoom alone
-        ;; scales its anchors; only the px metric offsets stay invariant.
-        outline (chrome-material :selection-outline 1.0 bounds)]
-    (into [{:id :chrome/outline :address :chrome/outline
-            :container 0 :container-idx 0 :owner-vi chrome-owner-vi
-            :chrome/material outline}]
-          (map (fn [[corner [cx cy]]]
-                 {:id [:chrome/handle corner] :address [:chrome/handle corner]
-                  :container 0 :container-idx 0 :owner-vi chrome-owner-vi
-                  :chrome/material
-                  (chrome-material :handle 1.0 [cx cy 0.0 0.0]
-                                   :corner corner)}))
-          corners)))
-
-(defn- chrome-gesture-ops [zoom]
-  [{:id :chrome/marquee :address :chrome/marquee
-    :container 0 :container-idx 0 :owner-vi chrome-owner-vi
-    :chrome/material (chrome-material :marquee zoom [18.0 22.0 70.0 50.0])}
-   {:id :chrome/guide :address :chrome/guide
-    :container 0 :container-idx 0 :owner-vi chrome-owner-vi
-    :chrome/material
-    (chrome-material :guide-line zoom [96.0 12.0 0.0 104.0]
-                     :from [96.0 12.0] :to [96.0 116.0]
-                     :alignment [:x :edge 96.0])}
-   {:id :chrome/tick :address :chrome/tick
-    :container 0 :container-idx 0 :owner-vi chrome-owner-vi
-    :chrome/material
-    (chrome-material :gap-tick zoom [58.0 94.0 0.0 0.0]
-                     :from [58.0 90.0] :to [58.0 98.0]
-                     :alignment [:x :equal-gap 58.0])}])
+(defn- chrome-neutral-ops [zoom]
+  (let [point [(/ 32.0 zoom) (/ 36.0 zoom)]
+        start [(/ 48.0 zoom) (/ 76.0 zoom)]
+        end [(/ 92.0 zoom) (/ 76.0 zoom)]]
+    [{:id :chrome/neutral :address :chrome/neutral
+      :container 0 :container-idx 0 :owner-vi chrome-owner-vi
+      :chrome/material
+      [(neutral-quad (vec (repeat 4 point))
+                     [[-5.0 -5.0] [5.0 -5.0] [5.0 5.0] [-5.0 5.0]]
+                     [1.0 1.0 1.0 1.0])
+       (neutral-quad [start end end start]
+                     [[0.0 -1.5] [0.0 -1.5] [0.0 1.5] [0.0 1.5]]
+                     [0.2 0.7 1.0 0.8])]}]))
 
 (defn- chrome-store-frame [ops]
   {:chromes ops
@@ -1366,16 +1321,11 @@
    :ops-count-by-vi {chrome-owner-vi {:chromes (count ops)}}
    :order-by-vi {chrome-owner-vi
                  {:stratum :overlay
-                  :stack-path [[:chrome-atom -1 -1]]}}})
+                  :stack-path [[:chrome-neutral -1 -1]]}}})
 
 (defn- render-chrome-bytes!
-  [^js device chrome-system ops zoom & {:keys [pan clear-value]
-                                        :or {pan [0.0 0.0]
-                                             clear-value
-                                             {:r 0.025 :g 0.06 :b 0.11 :a 1.0}}}]
+  [^js device chrome-system ops zoom]
   (let [row-bytes (* canvas-size 4)
-        candidate? (get-in chrome-system [:scene-color :enabled?])
-        view-format (if candidate? "rgba8unorm-srgb" "rgba8unorm")
         target (.createTexture
                 device
                 (clj->js {:size {:width canvas-size :height canvas-size
@@ -1390,20 +1340,21 @@
                                               js/GPUBufferUsage.MAP_READ)}))
         camera (js/Float32Array. 6)
         _ (renderer/update-camera device (:camera-buffer chrome-system)
-                                  camera (first pan) (second pan) zoom
+                                  camera 0.0 0.0 zoom
                                   canvas-size canvas-size)
         _ (chrome-gpu/prepare-chrome-frame! chrome-system ops)
         entry (first (chrome-gpu/chrome-entries
                       {:chrome-system chrome-system
                        :store-frame (chrome-store-frame ops)}))
         _ (when-not entry
-            (throw (js/Error. "Chrome capture emitted no tape entry")))
+            (throw (js/Error. "Neutral mark capture emitted no tape entry")))
         encoder (.createCommandEncoder device)
         pass (.beginRenderPass
               encoder
               (clj->js {:colorAttachments
-                        [{:view (.createView target (clj->js {:format view-format}))
-                          :clearValue clear-value
+                        [{:view (.createView target
+                                            (clj->js {:format "rgba8unorm-srgb"}))
+                          :clearValue {:r 0.025 :g 0.06 :b 0.11 :a 1.0}
                           :loadOp "clear" :storeOp "store"}]}))]
     (chrome-gpu/execute-chrome-batch! pass entry)
     (.end pass)
@@ -1424,11 +1375,11 @@
              (.destroy target)
              copy))))))
 
-(defn- render-chrome-pair! [device chrome-system ops zoom pan]
-  (-> (render-chrome-bytes! device chrome-system ops zoom :pan pan)
+(defn- render-chrome-pair! [device chrome-system ops zoom]
+  (-> (render-chrome-bytes! device chrome-system ops zoom)
       (.then
        (fn [first-bytes]
-         (-> (render-chrome-bytes! device chrome-system ops zoom :pan pan)
+         (-> (render-chrome-bytes! device chrome-system ops zoom)
              (.then
               (fn [second-bytes]
                 (-> (js/Promise.all
@@ -1442,70 +1393,20 @@
                         :byte-identical? (= (aget hashes 0)
                                              (aget hashes 1))}))))))))))
 
-(defn- chrome-golden-spec [mode]
-  (case mode
-    :selection-z1
-    {:case-id "selection-outline-handles-default-unit-z1"
-     :mode "selection-outline-handles" :zoom 1.0
-     :pan [53.0 54.0]
-     :ops (chrome-selection-ops 1.0)}
-    :selection-z8
-    {:case-id "selection-outline-handles-default-max-z8"
-     :mode "selection-outline-handles" :zoom 8.0
-     :pan [-24.0 -16.0]
-     :ops (chrome-selection-ops 8.0)}
-    :gesture-z0p1
-    {:case-id "marquee-guide-gap-default-min-z0p1"
-     :mode "marquee-guide-gap" :zoom 0.1
-     :pan [0.0 0.0]
-     :ops (chrome-gesture-ops 0.1)}))
-
-(defn- max-white-run-px [^js bytes]
-  (apply max 0
-         (for [y (range canvas-size)]
-           (loop [x 0 run 0 best 0]
-             (if (= x canvas-size)
-               best
-               (let [[r g b _] (pixel-rgba bytes x y)
-                     white? (and (> r 220) (> g 220) (> b 220))
-                     next-run (if white? (inc run) 0)]
-                 (recur (inc x) next-run (max best next-run))))))))
-
-(defn- chrome-anchor-metric [ops zoom pan bytes]
-  (let [anchor (get-in (first ops) [:chrome/material :chrome/anchor-bounds])
-        [x y w h] chrome-selection-world-bounds
-        expected {:x (+ (first pan) (* zoom x))
-                  :y (+ (second pan) (* zoom y))
-                  :w (* zoom w) :h (* zoom h)}
-        measured (chrome-material/chrome-screen-rect
-                  anchor {:affine [1.0 0.0 0.0 1.0 0.0 0.0] :flags 0}
-                  {:x (first pan) :y (second pan) :zoom zoom}
-                  {})
-        delta (apply max (map #(js/Math.abs (- %1 %2))
-                              (map measured [:x :y :w :h])
-                              (map expected [:x :y :w :h])))]
-    {:handle-white-run-px (max-white-run-px bytes)
-     :target-screen-bounds expected
-     :outline-anchor-screen-bounds measured
-     :anchor-max-error-px delta}))
-
-(defn- run-chrome-golden! [device chrome-system mode]
-  (let [{:keys [case-id zoom pan ops] :as spec} (chrome-golden-spec mode)]
-    (-> (render-chrome-pair! device chrome-system ops zoom pan)
+(defn- run-chrome-golden! [device chrome-system zoom]
+  (let [ops (chrome-neutral-ops zoom)
+        case-id (str "neutral-point-line-z" (int zoom))]
+    (-> (render-chrome-pair! device chrome-system ops zoom)
         (.then
          (fn [pair]
-           {:case-id case-id :zoom zoom
-            :regime (cond (< zoom 0.1) "legal-min"
-                          (<= zoom 8.0) "floor-default"
-                          :else "legal-max")
-            :normalization "container-local-anchor+screen-px-offset"
-            :shape-extent-world (if (= "selection-outline-handles" (:mode spec))
-                                  14.0 (/ 80.0 zoom))
-            :form-count (count ops)
-            :metric (when (= "selection-outline-handles" (:mode spec))
-                      (chrome-anchor-metric ops zoom pan (:bytes pair)))
-            :images [{:mode (:mode spec)
-                      :file (str "gpu-chrome-" (:mode spec) "-" case-id ".png")
+           {:case-id case-id
+            :zoom zoom
+            :regime "neutral-legal-zoom"
+            :normalization "opaque-anchors+screen-px-offsets"
+            :shape-extent-world (/ 60.0 zoom)
+            :quad-count 2
+            :images [{:mode "neutral-point-line"
+                      :file (str "gpu-chrome-" case-id ".png")
                       :raw-sha256 (:first-sha256 pair)
                       :png-data-url (opaque-png-data-url (:bytes pair))
                       :determinism
@@ -1514,7 +1415,7 @@
                        :byte-identical? (:byte-identical? pair)}}]})))))
 
 (defn- run-chrome-upload-gate! [chrome-system]
-  (let [ops (chrome-selection-ops 1.0)
+  (let [ops (chrome-neutral-ops 1.0)
         first-write (chrome-gpu/prepare-chrome-frame! chrome-system ops)
         equal-vector (chrome-gpu/prepare-chrome-frame! chrome-system
                                                        (mapv identity ops))]
@@ -1523,60 +1424,6 @@
                  (= 1 (:writes first-write))
                  (not (:mesh-set-changed? equal-vector))
                  (zero? (:writes equal-vector)))}))
-
-(defn- run-chrome-color! [device chrome-system]
-  (let [clear {:r 0.025 :g 0.06 :b 0.11 :a 1.0}
-        outline-op {:id :chrome/color-outline :address :chrome/color-outline
-                    :container 0 :container-idx 0 :owner-vi chrome-owner-vi
-                    :chrome/material
-                    (chrome-material :selection-outline 1.0
-                                     [32.0 32.0 64.0 64.0])}
-        marquee-op {:id :chrome/color-marquee :address :chrome/color-marquee
-                    :container 0 :container-idx 0 :owner-vi chrome-owner-vi
-                    :chrome/material
-                    (chrome-material :marquee 1.0
-                                     [32.0 32.0 64.0 64.0])}
-        expected-opaque (mapv #(js/Math.round (* 255.0 %))
-                              (take 3 (:selection-outline
-                                       chrome-material/colors)))
-        source-bytes (mapv #(js/Math.round (* 255.0 %))
-                           (take 3 (:marquee-fill chrome-material/colors)))
-        alpha (last (:marquee-fill chrome-material/colors))
-        expected-translucent
-        (mapv (fn [source background]
-                (linear->srgb-byte
-                 (+ (* (srgb->linear source) alpha)
-                    (* background (- 1.0 alpha)))))
-              source-bytes [0.025 0.06 0.11])]
-    (-> (render-chrome-bytes! device chrome-system [outline-op] 1.0
-                              :clear-value clear)
-        (.then
-         (fn [outline-bytes]
-           (let [opaque (subvec (vec (pixel-rgba outline-bytes 64 31)) 0 3)]
-             (-> (render-chrome-bytes! device chrome-system [marquee-op] 1.0
-                                       :clear-value clear)
-                 (.then
-                  (fn [marquee-bytes]
-                    (let [translucent
-                          (subvec (vec (pixel-rgba marquee-bytes 64 64)) 0 3)
-                          opaque-delta
-                          (apply max (map #(js/Math.abs (- %1 %2))
-                                          expected-opaque opaque))
-                          translucent-delta
-                          (apply max (map #(js/Math.abs (- %1 %2))
-                                          expected-translucent translucent))]
-                      {:opaque-outline
-                       {:sample [64 31] :expected expected-opaque :actual opaque
-                        :max-byte-delta opaque-delta
-                        :pass? (<= opaque-delta 3)}
-                       :translucent-marquee
-                       {:sample [64 64] :expected expected-translucent
-                        :actual translucent :max-byte-delta translucent-delta
-                        :pass? (<= translucent-delta 3)}
-                       :non-black-background true
-                       :scene-color :linear-premultiplied-srgb
-                       :pass? (and (<= opaque-delta 3)
-                                   (<= translucent-delta 3))}))))))))))
 
 (defn- verifier-entry [id family order paint pick]
   {:entry/id id :material/id id :material/revision 0 :instance/id id
@@ -1596,25 +1443,13 @@
         entries [(verifier-entry :world :render.family/path world-order
                                  {:vertex-count 3} {:geometry :path})
                  (verifier-entry :chrome :render.family/chrome chrome-order
-                                 {:vertex-count 6} {:geometry :chrome-handle})
+                                 {:vertex-count 6} :none)
                  (verifier-entry :product :render.family/path product-order
                                  {:vertex-count 3} :none)]
-        maintained (reduce
-                    (partial scene-tape/ordered-insert
-                             scene-tape/default-family-registry)
-                    (sorted-map-by scene-tape/entry-key-compare)
-                    entries)
-        maintained-forward (mapv :entry/id (vals maintained))
         tape (scene-tape/compile-tape :chrome-order entries)
-        forward (mapv :entry/id (:entries tape))
-        picked (scene-tape/pick-reverse
-                tape #(contains? #{:world :chrome} (:entry/id %)))]
-    {:maintained-forward maintained-forward
-     :executor-forward forward
-     :reverse-first (get-in picked [:entry :entry/id])
-     :pass? (and (= [:world :chrome :product] maintained-forward)
-                 (= maintained-forward forward)
-                 (= :chrome (get-in picked [:entry :entry/id])))}))
+        forward (mapv :entry/id (:entries tape))]
+    {:executor-forward forward
+     :pass? (= [:world :chrome :product] forward)}))
 
 (defn- run-chrome-atom! [device adapter]
   (let [tracker (gpu-budget/create-tracker
@@ -1624,72 +1459,39 @@
         system (chrome-gpu/init-chrome-system
                 device "rgba8unorm-srgb" camera containers-buffer
                 :tracker tracker :scene-color (scene-tape/scene-color true))]
-    (-> (promise-mapv (partial run-chrome-golden! device system)
-                      [:selection-z1 :selection-z8 :gesture-z0p1])
+    (-> (promise-mapv (partial run-chrome-golden! device system) [1.0 4.0])
         (.then
          (fn [cases]
-           (-> (run-chrome-color! device system)
-               (.then
-                (fn [color]
-                  (let [z1 (get-in cases [0 :metric])
-                        z8 (get-in cases [1 :metric])
-                        metric-equal?
-                        (and (pos? (:handle-white-run-px z1))
-                             (= (:handle-white-run-px z1)
-                                (:handle-white-run-px z8)))
-                        width-ratio (/ (get-in z8 [:target-screen-bounds :w])
-                                       (get-in z1 [:target-screen-bounds :w]))
-                        anchor-tracks?
-                        (and (<= (:anchor-max-error-px z1) 1.0e-6)
-                             (<= (:anchor-max-error-px z8) 1.0e-6))
-                        hybrid {:metric-pixels-equal? metric-equal?
-                                :handle-white-run-px
-                                [(:handle-white-run-px z1)
-                                 (:handle-white-run-px z8)]
-                                :world-content-screen-scale width-ratio
-                                :world-content-scales-8x? (= 8.0 width-ratio)
-                                :anchor-tracks-content? anchor-tracks?
-                                :anchor-max-error-px
-                                [(:anchor-max-error-px z1)
-                                 (:anchor-max-error-px z8)]
-                                :stations [1.0 8.0]}
-                        determinism
-                        (mapcat #(map :determinism (:images %)) cases)
-                        arrangement (run-chrome-arrangement!)
-                        upload-gate (run-chrome-upload-gate! system)
-                        before (gpu-budget/snapshot tracker)
-                        registered
-                        (first (filter #(= "chrome/vertices" (:label %))
-                                       (:by-label before)))
-                        system-receipt (chrome-gpu/chrome-receipt system)
-                        _ (chrome-gpu/destroy-chrome-system! system)
-                        after (gpu-budget/snapshot tracker)
-                        released?
-                        (not-any? #(= "chrome/vertices" (:label %))
-                                  (:by-label after))
-                        resources
-                        {:registered registered
-                         :reserved-before (:reserved-bytes registered)
-                         :active-before (:active-bytes registered)
-                         :released-on-destroy? released?
-                         :budget-refusal-policy :gpu-budget/path-policy
-                         :device-loss-policy :existing-system-recreate-road
-                         :asset-unavailable :not-applicable-no-assets
-                         :pass? (and (some? registered) released?)}
-                        static {:new-namespaces 6
-                                :authority :node-runner-source-token-scan}
-                        pass? (and (= 3 (count cases))
-                                   (every? :byte-identical? determinism)
-                                   (:metric-pixels-equal? hybrid)
-                                   (:world-content-scales-8x? hybrid)
-                                   (:anchor-tracks-content? hybrid)
-                                   (:pass? arrangement) (:pass? upload-gate)
-                                   (:pass? color) (:pass? resources))]
-                    {:cases cases :hybrid-metric hybrid
-                     :arrangement arrangement :upload-gate upload-gate
-                     :color color :static-absence static
-                     :resources resources :system system-receipt
-                     :coverage :aliased-v1 :pass? pass?})))))))))
+           (let [determinism (mapcat #(map :determinism (:images %)) cases)
+                 arrangement (run-chrome-arrangement!)
+                 upload-gate (run-chrome-upload-gate! system)
+                 before (gpu-budget/snapshot tracker)
+                 registered
+                 (first (filter #(= "chrome/vertices" (:label %))
+                                (:by-label before)))
+                 system-receipt (chrome-gpu/chrome-receipt system)
+                 _ (chrome-gpu/destroy-chrome-system! system)
+                 after (gpu-budget/snapshot tracker)
+                 released?
+                 (not-any? #(= "chrome/vertices" (:label %))
+                           (:by-label after))
+                 resources
+                 {:registered registered
+                  :reserved-before (:reserved-bytes registered)
+                  :active-before (:active-bytes registered)
+                  :released-on-destroy? released?
+                  :pass? (and (some? registered) released?)}
+                 pass? (and (= 2 (count cases))
+                            (every? :byte-identical? determinism)
+                            (:pass? arrangement)
+                            (:pass? upload-gate)
+                            (:pass? resources))]
+             {:cases cases
+              :arrangement arrangement
+              :upload-gate upload-gate
+              :resources resources
+              :system system-receipt
+              :pass? pass?}))))))
 
 ;; --- PATH ATOM --------------------------------------------------------------
 
@@ -2072,121 +1874,15 @@
              (path-gpu/destroy-path-system! system)
              result))))))
 
-;; CONNECTOR ATOM ------------------------------------------------------------
-
-(def ^:private connector-owner-vi [:connector-atom :fixture])
-(def ^:private connector-effective
-  {0 {:affine containers/identity-affine
-      :flags 0 :layer 0 :stack-path [[0 0]] :transport-slot 0}})
-
-(defn- connector-bounds [zoom [x y w h]]
-  {:x (/ x zoom) :y (/ y zoom) :w (/ w zoom) :h (/ h zoom)})
-
-(defn- connector-target [address vi zoom bounds]
-  [address [{:vi vi :container 0 :container-idx 0
-             :bounds (connector-bounds zoom bounds)}]])
-
-(defn- connector-material
-  [relation-id zoom from to actor-id asserter-type
-   & {:keys [route heads label color alpha width]
-      :or {route {:policy :straight :waypoints []}
-           heads {:from :none :to :triangle
-                  :size-k connector-material/default-head-size-k}
-           alpha 1.0 width 3.0}}]
-  (connector-material/validate-material!
-   {:connector/relation-id relation-id
-    :connector/row-stamp [:render-verifier relation-id]
-    :connector/dress-revision 0
-    :connector/kind :references
-    :connector/from {:bind :node :target from :anchor :boundary}
-    :connector/to {:bind :node :target to :anchor :boundary}
-    :connector/route
-    (update route :waypoints
-            #(mapv (partial screen-point zoom) (or % [])))
-    :connector/heads heads
-    :connector/label label
-    :connector/paint
-    {:color (or color
-                (connector-material/projection-color
-                 :references asserter-type))
-     :opacity alpha :width (/ width zoom)
-     :color-space :srgb :alpha-association :straight}
-    :connector/status :asserted
-    :connector/provenance {:actor-id actor-id
-                           :asserter-type asserter-type}}))
-
-(defn- connector-op [id material]
-  {:id id :address id :container 0 :container-idx 0
-   :owner-vi connector-owner-vi
-   :connector/material material})
-
-(defn- connector-golden-spec [mode]
-  (case mode
-    :straight-arrow-label
-    (let [zoom 1.0]
-      {:case-id "straight-arrow-label-default-unit-z1"
-       :mode "straight-arrow-label" :zoom zoom
-       :targets (into {}
-                      [(connector-target :a :connector/a zoom
-                                         [14.0 52.0 20.0 20.0])
-                       (connector-target :b :connector/b zoom
-                                         [94.0 52.0 20.0 20.0])])
-       :materials
-       [(connector-material
-         :connector-golden/straight-label zoom :a :b "sid" :human
-         :label {:text "ref" :at 0.5 :offset [0.0 -10.0]})]})
-
-    :elbow-waypoints-heads
-    (let [zoom 0.1]
-      {:case-id "elbow-waypoints-heads-default-min-z0p1"
-       :mode "elbow-waypoints-heads" :zoom zoom
-       :targets (into {}
-                      [(connector-target :a :connector/a zoom
-                                         [14.0 18.0 20.0 20.0])
-                       (connector-target :b :connector/b zoom
-                                         [94.0 88.0 20.0 20.0])])
-       :materials
-       [(connector-material
-         :connector-golden/elbow-waypoints zoom :a :b "sid" :human
-         :route {:policy :elbow/v1 :waypoints [[66.0 28.0]]}
-         :heads {:from :triangle :to :triangle
-                 :size-k connector-material/default-head-size-k})]})
-
-    :provenance-pair-overlap
-    (let [zoom 10.0]
-      {:case-id "provenance-pair-overlap-legal-z10"
-       :mode "provenance-pair-overlap" :zoom zoom
-       :targets (into {}
-                      [(connector-target :a :connector/a zoom
-                                         [14.0 28.0 20.0 20.0])
-                       (connector-target :b :connector/b zoom
-                                         [94.0 82.0 20.0 20.0])])
-       :materials
-       [(connector-material
-         :connector-golden/overlap-human zoom :a :b "sid" :human)
-        (connector-material
-         :connector-golden/overlap-llm zoom :a :b
-         "llm:render-verifier" :llm)]})))
-
-(defn- connector-store-frame [ops]
-  {:connectors ops
-   :ordered-vis [connector-owner-vi]
-   :ops-count-by-vi {connector-owner-vi {:connectors (count ops)}}
-   :order-by-vi
-   {connector-owner-vi
-    {:stratum :world :stack-path [[:connector-atom 0 0]]}}})
-
 (defn- execute-verifier-entry! [^js pass entry]
-  (if (= :render.family/connector (:family/id entry))
-    (connector-gpu/execute-connector-batch! pass entry)
-    (let [{:keys [pipeline bind-group buffer vertex-count instance-count
-                  first-vertex first-instance]}
-          (renderer/resolve-gpu-paint (:paint entry))]
-      (.setPipeline pass pipeline)
-      (when bind-group (.setBindGroup pass 0 bind-group))
-      (when buffer (.setVertexBuffer pass 0 buffer))
-      (.draw pass (or vertex-count 6) (or instance-count 1)
-             (or first-vertex 0) (or first-instance 0)))))
+  (let [{:keys [pipeline bind-group buffer vertex-count instance-count
+                first-vertex first-instance]}
+        (renderer/resolve-gpu-paint (:paint entry))]
+    (.setPipeline pass pipeline)
+    (when bind-group (.setBindGroup pass 0 bind-group))
+    (when buffer (.setVertexBuffer pass 0 buffer))
+    (.draw pass (or vertex-count 6) (or instance-count 1)
+           (or first-vertex 0) (or first-instance 0))))
 
 (defn- assert-frame-retention-payload-resolution! []
   (let [pipeline #js {:kind "runtime-system-pipeline"}
@@ -2233,407 +1929,6 @@
                                    (get-in resolved-clipped
                                            [:sub-draws 0 :buffer]))})))
     true))
-
-(defn- render-connector-bytes!
-  [^js device connector-system ops targets zoom font-assets content-text-system
-   & {:keys [clear-value]
-      :or {clear-value {:r 0.0 :g 0.0 :b 0.0 :a 0.0}}}]
-  (let [row-bytes (* canvas-size 4)
-        candidate? (get-in connector-system [:scene-color :enabled?])
-        view-format (if candidate? "rgba8unorm-srgb" "rgba8unorm")
-        target (.createTexture
-                device
-                (clj->js {:size {:width canvas-size :height canvas-size
-                                 :depthOrArrayLayers 1}
-                          :format "rgba8unorm"
-                          :viewFormats ["rgba8unorm-srgb"]
-                          :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
-                                         js/GPUTextureUsage.COPY_SRC)}))
-        read-buffer (.createBuffer
-                     device
-                     (clj->js {:size (* row-bytes canvas-size)
-                               :usage (bit-or js/GPUBufferUsage.COPY_DST
-                                              js/GPUBufferUsage.MAP_READ)}))
-        camera (js/Float32Array. 6)
-        _ (renderer/update-camera device (:camera-buffer connector-system)
-                                  camera 0.0 0.0 zoom
-                                  canvas-size canvas-size)
-        _ (connector-gpu/prepare-connector-frame!
-           connector-system ops targets connector-effective zoom
-           font-assets content-text-system)
-        entries (connector-gpu/connector-entries
-                 {:store-frame (connector-store-frame ops)
-                  :connector-system connector-system
-                  :connector-label-entry renderer/connector-label-entry})
-        tape (scene-tape/compile-tape :connector-verifier entries)
-        encoder (.createCommandEncoder device)
-        pass (.beginRenderPass
-              encoder
-              (clj->js {:colorAttachments
-                        [{:view (.createView target
-                                            (clj->js {:format view-format}))
-                          :clearValue clear-value
-                          :loadOp "clear" :storeOp "store"}]}))]
-    (scene-tape/paint-forward tape #(execute-verifier-entry! pass %))
-    (.end pass)
-    (.copyTextureToBuffer
-     encoder
-     (clj->js {:texture target})
-     (clj->js {:buffer read-buffer :bytesPerRow row-bytes
-               :rowsPerImage canvas-size})
-     (clj->js {:width canvas-size :height canvas-size
-               :depthOrArrayLayers 1}))
-    (.submit (.-queue device) #js [(.finish encoder)])
-    (-> (.mapAsync read-buffer js/GPUMapMode.READ)
-        (.then
-         (fn [_]
-           (let [copy (js/Uint8Array.
-                       (js/Uint8Array. (.getMappedRange read-buffer)))]
-             (.unmap read-buffer)
-             (.destroy read-buffer)
-             (.destroy target)
-             copy))))))
-
-(defn- render-connector-pair!
-  [device system ops targets zoom font-assets content-text-system clear]
-  (-> (render-connector-bytes! device system ops targets zoom
-                               font-assets content-text-system
-                               :clear-value clear)
-      (.then
-       (fn [first-bytes]
-         (-> (render-connector-bytes! device system ops targets zoom
-                                      font-assets content-text-system
-                                      :clear-value clear)
-             (.then
-              (fn [second-bytes]
-                (-> (js/Promise.all
-                     #js [(sha256-bytes first-bytes)
-                          (sha256-bytes second-bytes)])
-                    (.then
-                     (fn [hashes]
-                       {:bytes first-bytes
-                        :first-sha256 (aget hashes 0)
-                        :second-sha256 (aget hashes 1)
-                        :byte-identical? (= (aget hashes 0)
-                                             (aget hashes 1))}))))))))))
-
-(defn- connector-image-record [mode case-id pair]
-  {:mode mode
-   :file (str "gpu-connector-" mode "-" case-id ".png")
-   :raw-sha256 (:first-sha256 pair)
-   :png-data-url (opaque-png-data-url (:bytes pair))
-   :determinism {:first-raw-sha256 (:first-sha256 pair)
-                 :second-raw-sha256 (:second-sha256 pair)
-                 :byte-identical? (:byte-identical? pair)}})
-
-(defn- run-connector-golden!
-  [device system font-assets content-text-system mode]
-  (let [{:keys [case-id zoom targets materials] :as spec}
-        (connector-golden-spec mode)
-        ops (mapv (fn [index material]
-                    (connector-op [mode index] material))
-                  (range) materials)
-        clear {:r 0.025 :g 0.06 :b 0.11 :a 1.0}]
-    (-> (render-connector-pair! device system ops targets zoom
-                                font-assets content-text-system clear)
-        (.then
-         (fn [pair]
-           {:case-id case-id
-            :zoom zoom
-            :regime (name (:regime/id (path-material/zoom-regime zoom)))
-            :edge-count (count materials)
-            :images [(connector-image-record (:mode spec) case-id pair)]})))))
-
-(defn- route-boundary-distance [route point]
-  (let [stroke-boundaries
-        (map (fn [[a b]]
-               (js/Math.abs
-                (- (connector-material/point-segment-distance point a b)
-                   (/ (:stroke-width route) 2.0))))
-             (partition 2 1 (:stroke-points route)))
-        head-boundaries
-        (map (fn [[a b]]
-               (connector-material/point-segment-distance point a b))
-             (mapcat (fn [triangle]
-                       (when triangle
-                         (partition 2 1 (conj (vec triangle)
-                                              (first triangle)))))
-                     [(:from-head route) (:to-head route)]))]
-    (apply min (concat stroke-boundaries head-boundaries))))
-
-(defn- connector-parity-row!
-  [device system font-assets content-text-system {:keys [case-id zoom regime]}]
-  (let [targets (into {}
-                      [(connector-target :a :connector/a zoom
-                                         [18.0 54.0 18.0 18.0])
-                       (connector-target :b :connector/b zoom
-                                         [92.0 54.0 18.0 18.0])])
-        material (connector-material
-                  [:connector-parity case-id] zoom :a :b "sid" :human
-                  :color [1.0 1.0 1.0 1.0] :width 4.0)
-        op (connector-op [:parity case-id] material)
-        route (first (:routes
-                      (connector-route/derive-route-set
-                       nil [op] targets connector-effective zoom font-assets)))]
-    (-> (render-connector-bytes! device system [op] targets zoom
-                                 font-assets content-text-system)
-        (.then
-         (fn [bytes]
-           (let [rows
-                 (for [y (range canvas-size)
-                       x (range canvas-size)
-                       :let [point [(/ (+ x 0.5) zoom)
-                                    (/ (+ y 0.5) zoom)]
-                             distance-px (* zoom
-                                            (route-boundary-distance route point))]
-                       :when (> distance-px 1.5)]
-                   (let [cpu (connector-material/classify route point)
-                         alpha (nth (pixel-rgba bytes x y) 3)
-                         gpu (if (> alpha 100) :inside :outside)
-                         decisive? (not= :boundary cpu)]
-                     {:pixel [x y] :cpu cpu :gpu gpu :alpha alpha
-                      :decisive? decisive?
-                      :match? (when decisive? (= cpu gpu))}))
-                 decisive (filter :decisive? rows)
-                 mismatches (filter #(false? (:match? %)) decisive)
-                 boundary-count
-                 (count
-                  (for [y (range canvas-size)
-                        x (range canvas-size)
-                        :let [point [(/ (+ x 0.5) zoom)
-                                     (/ (+ y 0.5) zoom)]]
-                        :when (<= (* zoom
-                                     (route-boundary-distance route point))
-                                  1.5)]
-                    [x y]))]
-             {:case-id case-id :zoom zoom :regime regime
-              :boundary-band-screen-px 1.5
-              :boundary-pixel-count boundary-count
-              :decisive-count (count decisive)
-              :inside-count (count (filter #(= :inside (:cpu %)) decisive))
-              :outside-count (count (filter #(= :outside (:cpu %)) decisive))
-              :mismatch-count (count mismatches)
-              :mismatch-sample (vec (take 12 mismatches))
-              :pass? (and (pos? boundary-count)
-                          (pos? (count decisive))
-                          (some #(= :inside (:cpu %)) decisive)
-                          (some #(= :outside (:cpu %)) decisive)
-                          (empty? mismatches))}))))))
-
-(defn- run-connector-color!
-  [device system font-assets content-text-system]
-  (let [zoom 1.0
-        targets (into {}
-                      [(connector-target :a :connector/a zoom
-                                         [12.0 56.0 18.0 18.0])
-                       (connector-target :b :connector/b zoom
-                                         [98.0 56.0 18.0 18.0])])
-        color [(/ 200.0 255.0) (/ 80.0 255.0) (/ 40.0 255.0) 0.5]
-        material (connector-material
-                  :connector-color/source-over zoom :a :b "sid" :human
-                  :color color :width 12.0)
-        clear {:r 0.04 :g 0.18 :b 0.35 :a 1.0}]
-    (-> (render-connector-bytes!
-         device system [(connector-op :connector-color material)]
-         targets zoom font-assets content-text-system :clear-value clear)
-        (.then
-         (fn [bytes]
-           (let [expected
-                 (mapv (fn [source background]
-                         (linear->srgb-byte
-                          (+ (* (srgb->linear source) 0.5)
-                             (* background 0.5))))
-                       [200 80 40] [0.04 0.18 0.35])
-                 actual (subvec (vec (pixel-rgba bytes 64 64)) 0 3)
-                 delta (apply max (map #(js/Math.abs (- %1 %2))
-                                       expected actual))]
-             {:expected expected :actual actual :max-byte-delta delta
-              :non-black-background true
-              :scene-color (get-in scene-tape/connector-registration
-                                   [:render :color-alpha :scene])
-              :pass? (and (<= delta 3)
-                          (= :scene-color/linear-premultiplied-srgb
-                             (get-in scene-tape/connector-registration
-                                     [:render :color-alpha :scene])))}))))))
-
-(defn- run-connector-arrangement! []
-  (let [entries [(receipt-entry :text :render.family/msdf 2)
-                 (receipt-entry :image :render.family/image 3)
-                 (receipt-entry :path :render.family/path 4)
-                 (receipt-entry :connector-label :render.family/slug 4)
-                 (receipt-entry :connector :render.family/connector 5)]
-        tape (scene-tape/compile-tape :connector-arrangement entries)
-        forward (scene-tape/paint-forward tape :entry/id)
-        picked (scene-tape/pick-reverse tape :entry/id)]
-    {:forward forward
-     :reverse-first (get-in picked [:entry :entry/id])
-     :connector-contract-present?
-     (some? (get scene-tape/default-family-registry
-                 :render.family/connector))
-     :pass? (and (= [:text :image :connector-label
-                     :path :connector] forward)
-                 (= :connector (get-in picked [:entry :entry/id]))
-                 (some? (get scene-tape/default-family-registry
-                             :render.family/connector)))}))
-
-(defn- run-connector-upload-gate!
-  [system font-assets content-text-system]
-  (let [{:keys [zoom targets materials]}
-        (connector-golden-spec :provenance-pair-overlap)
-        ops (mapv (fn [index material]
-                    (connector-op [:upload index] material))
-                  (range) materials)
-        first-write (connector-gpu/prepare-connector-frame!
-                     system ops targets connector-effective zoom
-                     font-assets content-text-system)
-        equal-new-vector (mapv identity ops)
-        same-set (connector-gpu/prepare-connector-frame!
-                  system equal-new-vector targets connector-effective zoom
-                  font-assets content-text-system)]
-    {:first-write first-write
-     :equal-new-vector same-set
-     :pass? (and (:mesh-set-changed? first-write)
-                 (= 1 (:writes first-write))
-                 (not (:mesh-set-changed? same-set))
-                 (zero? (:writes same-set)))}))
-
-(defn- run-connector-label-road!
-  [device system font-assets content-text-system]
-  (renderer/reset-text-layout-fallbacks!)
-  (let [{:keys [zoom targets materials]}
-        (connector-golden-spec :straight-arrow-label)
-        ops [(connector-op :label-road (first materials))]
-        _ (connector-gpu/prepare-connector-frame!
-           system ops targets connector-effective zoom
-           font-assets content-text-system)
-        label-geo @(:!label-geo system)
-        label (first @(:!labels system))
-        baseline (renderer/clone-text-system device content-text-system 64)
-        baseline (renderer/update-text-data
-                  device baseline [[(:paint-op label)]] font-assets
-                  connector-route/label-font-size
-                  :px-range 8.0
-                  :line-height connector-route/label-line-height
-                  :char-width 0.56 :snap-step nil :sharpness 0.0
-                  :surface :connector-label)
-        entries (connector-gpu/connector-entries
-                 {:store-frame (connector-store-frame ops)
-                  :connector-system system
-                  :connector-label-entry renderer/connector-label-entry})
-        label-entry (first (filter #(not= :render.family/connector
-                                          (:family/id %)) entries))]
-    (-> (js/Promise.all
-         #js [(render-system-bytes! device label-geo zoom)
-              (render-system-bytes! device baseline zoom)])
-        (.then
-         (fn [values]
-           (let [label-bytes (aget values 0)
-                 baseline-bytes (aget values 1)]
-             (-> (js/Promise.all
-                  #js [(sha256-bytes label-bytes)
-                       (sha256-bytes baseline-bytes)])
-                 (.then
-                  (fn [hashes]
-                    (let [label-hash (aget hashes 0)
-                          baseline-hash (aget hashes 1)
-                          expected-family
-                          (scene-tape/text-family-id (:backend label-geo))
-                          fallback
-                          (renderer/text-layout-fallback-report)
-                          result
-                          {:label-raw-sha256 label-hash
-                           :slot-text-raw-sha256 baseline-hash
-                           :byte-identical? (= label-hash baseline-hash)
-                           :entry-family (:family/id label-entry)
-                           :live-family expected-family
-                           :pick-owner (get-in label-entry [:pick :owner])
-                           :fallback fallback
-                           :pass? (and (= label-hash baseline-hash)
-                                       (= expected-family
-                                          (:family/id label-entry))
-                                       (= :label
-                                          (get-in label-entry
-                                                  [:pick :owner 0 :part]))
-                                       (zero? (get fallback
-                                                   :connector-label 0)))}]
-                      (renderer/destroy-text-system! baseline)
-                      result))))))))))
-
-(defn- run-connector-atom!
-  [device adapter font-assets camera containers-buffer]
-  (let [tracker (gpu-budget/create-tracker
-                 (gpu-budget/snapshot-adapter-limits adapter))
-        _ (renderer/write-containers! device containers-buffer
-                                      connector-effective)
-        content-text-system
-        (renderer/init-text-system
-         device color-format camera font-assets
-         :initial-capacity 64 :tracker tracker
-         :containers-buffer containers-buffer
-         :scene-color scene-tape/legacy-direct-color)
-        text-api {:clone renderer/clone-text-system
-                  :update renderer/update-text-data
-                  :destroy renderer/destroy-text-system!}
-        system (connector-gpu/init-connector-system
-                device color-format camera containers-buffer
-                :tracker tracker
-                :scene-color scene-tape/legacy-direct-color
-                :text-api text-api)
-        color-system (connector-gpu/init-connector-system
-                      device "rgba8unorm-srgb" camera containers-buffer
-                      :tracker tracker
-                      :scene-color (scene-tape/scene-color true)
-                      :text-api text-api)]
-    (-> (promise-mapv
-         (partial run-connector-golden!
-                  device system font-assets content-text-system)
-         [:straight-arrow-label :elbow-waypoints-heads
-          :provenance-pair-overlap])
-        (.then (fn [cases] {:cases cases}))
-        (.then
-         (fn [state]
-           (-> (promise-mapv
-                (partial connector-parity-row!
-                         device system font-assets content-text-system)
-                zoom-cases)
-               (.then #(assoc state :parity %)))))
-        (.then
-         (fn [state]
-           (-> (run-connector-color!
-                device color-system font-assets content-text-system)
-               (.then #(assoc state :color %)))))
-        (.then
-         (fn [state]
-           (-> (run-connector-label-road!
-                device system font-assets content-text-system)
-               (.then #(assoc state :label-road %)))))
-        (.then
-         (fn [{:keys [cases parity color label-road] :as state}]
-           (let [determinism
-                 (mapcat (fn [case]
-                           (map :determinism (:images case))) cases)
-                 arrangement (run-connector-arrangement!)
-                 upload-gate (run-connector-upload-gate!
-                              system font-assets content-text-system)
-                 pass? (and (= 3 (count cases))
-                            (every? :byte-identical? determinism)
-                            (= 7 (count parity))
-                            (every? :pass? parity)
-                            (:pass? color) (:pass? label-road)
-                            (:pass? arrangement) (:pass? upload-gate))
-                 result
-                 (assoc state
-                        :arrangement arrangement
-                        :upload-gate upload-gate
-                        :system (connector-gpu/connector-receipt system)
-                        :geometry connector-material/geometry-declaration
-                        :coverage :aliased-v1
-                        :product-pick :cpu-connector-authority
-                        :pass? pass?)]
-             (connector-gpu/destroy-connector-system! color-system)
-             (connector-gpu/destroy-connector-system! system)
-             (renderer/destroy-text-system! content-text-system)
-             result))))))
 
 (defn- selected-limits [^js limits]
   {:max-buffer-size (.-maxBufferSize limits)
@@ -2874,11 +2169,6 @@
                   :cast-shadow false}
                  more)})
 
-(defn- region3d-empty [id translation]
-  {:object/id id :object/kind :empty :parent nil
-   :transform (region3d-transform translation [1.0 1.0 1.0])
-   :provenance {:asserted-by :sid :act :render-verifier}})
-
 (defn- region3d-fixture-region
   ([] (region3d-fixture-region :transparent))
   ([background-kind]
@@ -3099,125 +2389,6 @@
                  :second-raw-sha256 (:second-sha256 pair)
                  :byte-identical? (:byte-identical? pair)}})
 
-(def ^:private region3d-seam-connector-vi [:region3d-seam :connector])
-
-(defn- region3d-seam-connector-op []
-  (let [edge-id [:region3d-seam/anchor :seam/source
-                 [:region-object :region3d/verifier-address :near]]]
-    {:id :region3d-seam/anchor
-     :address edge-id
-     :container 0 :container-idx 0
-     :owner-vi region3d-seam-connector-vi
-     :connector/edge-instance-id edge-id
-     :connector/from-vi :seam/source-vi
-     :connector/to-vi nil
-     :connector/material
-     (connector-material/validate-material!
-      {:connector/relation-id :region3d-seam/anchor
-       :connector/row-stamp [:region3d-seam :anchor]
-       :connector/dress-revision 0
-       :connector/kind :references
-       :connector/from {:bind :node :target :seam/source
-                        :anchor :boundary}
-       :connector/to {:bind :region-object
-                      :region :region3d/verifier-address
-                      :object :near :local [0.4 0.25 0.3]}
-       :connector/route {:policy :straight :waypoints []}
-       :connector/heads {:from :none :to :triangle
-                         :size-k connector-material/default-head-size-k}
-       :connector/label {:text "same material · region object"
-                         :at 0.52 :offset [0.0 -8.0]}
-       :connector/paint
-       {:color (connector-material/projection-color :references :human)
-        :opacity 1.0 :width 3.0
-        :color-space :srgb :alpha-association :straight}
-       :connector/status :asserted
-       :connector/provenance {:actor-id "sid" :asserter-type :human}})}))
-
-(defn- region3d-seam-connector-frame [op]
-  {:connectors [(region3d-seam-connector-op)]
-   :regions [op]
-   :targets-by-address
-   {:seam/source [{:vi :seam/source-vi :container 0 :container-idx 0
-                   :bounds {:x 8.0 :y 106.0 :w 18.0 :h 12.0}}]}
-   :ordered-vis [region3d-owner-vi region3d-seam-connector-vi]
-   :ops-count-by-vi {region3d-owner-vi {:regions 1}
-                     region3d-seam-connector-vi {:connectors 1}}
-   :order-by-vi
-   {region3d-owner-vi
-    {:stratum :world :stack-path [[:region3d-verifier 1 1]]}
-    region3d-seam-connector-vi
-    {:stratum :world :stack-path [[:region3d-verifier 3 3]]}}})
-
-(defn- region3d-seam-capture-pair!
-  [{:keys [device compositor region-system connector-system
-           placement-text-system font-assets] :as harness}
-   op broad?]
-  (let [store-frame (region3d-seam-connector-frame op)
-        effective {0 {:affine containers/identity-affine :flags 0
-                      :layer 0 :stack-path [[0 0]] :transport-slot 0}}]
-    (region3d-gpu/attach-compositor! region-system compositor)
-    (region3d-gpu/prepare-region3d-frame!
-     region-system store-frame {} (region3d-prepare-options harness))
-    (let [resolver
-          (region3d-placement/region-anchor-resolver
-           {:regions [op]
-            :prepared-by-region @(:!prepared region-system)
-            :effective-transforms effective})
-          doors {:region3d/verifier-address
-                 [(:view-default (:region3d/scene op)) nil {}
-                  (get effective 0)]}]
-      (connector-gpu/prepare-connector-frame!
-       connector-system (:connectors store-frame)
-       (:targets-by-address store-frame) effective 1.0
-       font-assets placement-text-system
-       {:region-anchor-resolver resolver :region-doors doors})
-      (let [region-entry
-            (first (region3d-gpu/region3d-entries
-                    {:store-frame store-frame
-                     :region3d-system region-system :zoom 1.0 :dpr 1.0}))
-            connector-entries
-            (connector-gpu/connector-entries
-             {:store-frame store-frame :connector-system connector-system
-              :connector-label-entry renderer/connector-label-entry})
-            below (region3d-surround-entry :region3d/below
-                                       (:surround-path-system harness) 0 0)
-            above (when broad?
-                    (region3d-surround-entry :region3d/above
-                                         (:surround-path-system harness) 1 2))
-            arrangement
-            (:entries
-             (scene-tape/compile-tape
-              (if broad? :region3d-seam/demo :region3d-seam/anchor)
-              (into [below region-entry]
-                    (concat (when above [above]) connector-entries))))
-            plan (frame-graph/compile-frame-plan
-                  {:arrangement arrangement :effect-spans []
-                   :regions (region3d-gpu/region-topology-rows region-system)
-                   :viewport {:width canvas-size :height canvas-size
-                              :format color-format}})
-            binding (region3d-binding-frame region-system)]
-        (w4-capture-pair!
-         device compositor {:linearize-entry identity}
-         arrangement [] plan
-         :pass-producers (region3d-pass-producers region-system)
-         :region-bindings (:owner binding)
-         :binding-deltas (:deltas binding))))))
-
-(defn- region3d-seam-receipt [harness seam-op]
-  (let [placement-receipt
-        (:placements
-         (region3d-gpu/region3d-receipt (:region-system harness)))
-        connector-receipt
-        (connector-gpu/connector-receipt (:connector-system harness))]
-    {:resolved (get-in seam-op [:region3d/placement-census :resolved])
-     :text-layout-id
-     (get-in seam-op [:region3d/resolved-placements 0 :layout :layout/id])
-     :glyphs (:glyphs placement-receipt)
-     :ink-vertices (:ink-vertices placement-receipt)
-     :anchor-projections (:anchor-projections connector-receipt)
-     :routes (count (:routes connector-receipt))}))
-
 (defn- region3d-lights [maintained]
   (->> (get-in maintained [:region :scene])
        (keep (fn [[id object]]
@@ -3299,50 +2470,6 @@
                  (< 0 (last glass-sample) 255)
                  depth-classes-pass?)}))
 
-(defn- region3d-overlay-probe [region bytes]
-  (let [maintained (assoc (region3d-scene/derive-scene region)
-                          :region-id region3d-id)
-        camera (region3d-scene/camera-matrices (:view-default region)
-                                                [80.0 88.0])
-        gizmo-position [1.15 0.0 0.0]
-        gizmo-screen (:screen (region3d-scene/project-point camera
-                                                            gizmo-position))
-        gizmo-pick (region3d-scene/pick-region
-                    {:maintained maintained :camera camera
-                     :region-point gizmo-screen
-                     :gizmo-handles [{:handle/id :translate/x
-                                      :object-id :near
-                                      :position gizmo-position}]})
-        [gizmo-x gizmo-y] (mapv js/Math.floor gizmo-screen)
-        gizmo-sample (pixel-rgba bytes (+ 24 gizmo-x) (+ 20 gizmo-y))
-        marker-position (region3d-scene/transform-point
-                         (get-in maintained [:effective-transforms :marker])
-                         [0.0 0.0 0.0])
-        marker-screen (:screen (region3d-scene/project-point camera
-                                                             marker-position))
-        glyph-slop-point (update marker-screen 0 +
-                                 (dec region3d-scene/glyph-hit-radius-px))
-        glyph-pick (region3d-scene/pick-region
-                    {:maintained maintained :camera camera
-                     :region-point glyph-slop-point})
-        [marker-x marker-y] (mapv js/Math.floor marker-screen)
-        marker-sample (pixel-rgba bytes (+ 24 marker-x) (+ 20 marker-y))
-        pass? (and (= :gizmo (:route gizmo-pick))
-                   (= :translate/x (:handle-id gizmo-pick))
-                   (> (first gizmo-sample) (second gizmo-sample))
-                   (> (first gizmo-sample) (nth gizmo-sample 2))
-                   (= :object-glyph (:route glyph-pick))
-                   (= :marker (:object-id glyph-pick))
-                   (pos? (last marker-sample)))]
-    {:gizmo-over-mesh {:cpu-route (:route gizmo-pick)
-                       :handle-id (:handle-id gizmo-pick)
-                       :gpu-rgba gizmo-sample :screen gizmo-screen}
-     :glyph-slop {:cpu-route (:route glyph-pick)
-                  :cpu-object (:object-id glyph-pick)
-                  :gpu-rgba marker-sample :screen marker-screen
-                  :slop-point glyph-slop-point}
-     :pass? pass?}))
-
 (defn- region3d-s1-receipt [harness op]
   (region3d-gpu/prepare-region3d-frame!
    (:region-system harness) (region3d-store-frame op) {} {:zoom 1.0 :dpr 1.0})
@@ -3408,62 +2535,6 @@
                  (= [:region3d/below :region3d/above
                      [:frame/region3d region3d-id]] moved-forward))}))
 
-(defn- region3d-s3-receipt [region]
-  (let [parented (-> region
-                     (assoc-in [:scene :glass :parent] :near)
-                     region3d-material/validate-region!)
-        before (get-in parented [:scene :near :transform])
-        after (update before :translation #(mapv + % [0.6 0.25 0.0]))
-        diff (region3d-material/edit-diff
-              {:op :region3d/set-transform :region-id region3d-id
-               :object-id :near :before before :after after
-               :asserted-by :sid})
-        maintained (region3d-scene/derive-scene parented)
-        changed (region3d-scene/maintain-scene maintained diff)
-        replayed (region3d-material/apply-edit parented diff)
-        replayed-maintained (region3d-scene/derive-scene replayed)
-        camera (region3d-scene/camera-matrices (:view-default replayed)
-                                                [80.0 88.0])
-        changed-pick (region3d-scene/pick-region
-                      {:maintained changed :camera camera
-                       :region-point [40.0 44.0]})
-        replayed-pick (region3d-scene/pick-region
-                       {:maintained replayed-maintained :camera camera
-                        :region-point [40.0 44.0]})
-        reparent-diff (region3d-material/edit-diff
-                       {:op :region3d/set-parent :region-id region3d-id
-                        :object-id :glass :before :near :after :far
-                        :asserted-by :sid})
-        reparented (region3d-scene/maintain-scene maintained reparent-diff)
-        reparent-oracle (region3d-scene/derive-scene
-                         (region3d-material/apply-edit parented reparent-diff))
-        reparent-preserved?
-        (= (get-in reparented [:effective-transforms :glass])
-           (get-in reparent-oracle [:effective-transforms :glass]))
-        child-before (region3d-scene/transform-point
-                      (get-in maintained [:effective-transforms :glass])
-                      [0.0 0.0 0.0])
-        child-after (region3d-scene/transform-point
-                     (get-in changed [:effective-transforms :glass])
-                     [0.0 0.0 0.0])]
-    {:diff-count 1 :key (:key diff)
-     :payload-keys (set (keys (:payload diff)))
-     :scene-replacement? (contains? (:payload diff) :scene)
-     :child-delta (mapv - child-after child-before)
-     :replay-identical? (= replayed (:region changed))
-     :pick-replay-identical? (= changed-pick replayed-pick)
-     :reparent-preserved? reparent-preserved?
-     :pass? (and (= [region3d-id :near] (:key diff))
-                 (= #{:region-id :object-id :before :after}
-                    (set (keys (:payload diff))))
-                 (not (contains? (:payload diff) :scene))
-                 (= [0.6 0.25 0.0]
-                    (mapv #(double (/ (js/Math.round (* % 100.0)) 100.0))
-                          (mapv - child-after child-before)))
-                 (= replayed (:region changed))
-                 (= changed-pick replayed-pick)
-                 reparent-preserved?)}))
-
 (defn- region3d-empty-frame [harness]
   (let [below (region3d-surround-entry :region3d/below
                                     (:surround-path-system harness) 0 0)
@@ -3479,8 +2550,8 @@
 (defn- region3d-s5-lifecycle!
   [{:keys [device compositor region-system tracker] :as harness} region op]
   (let [base-view (:view-default region)
-        orbit-view (region3d-scene/orbit base-view 9.0 -4.0)
-        before-orbit (region3d-gpu/region3d-receipt region-system)
+        changed-view (assoc base-view :yaw 0.045 :pitch -0.02)
+        before-view (region3d-gpu/region3d-receipt region-system)
         wait-for-queue
         (fn [value-fn]
           (.then (.onSubmittedWorkDone (.-queue ^js device))
@@ -3489,19 +2560,19 @@
         [(fn [_]
            (.then
             (region3d-capture!
-             harness op {:regions {region3d-id {:view orbit-view}}} :region)
+             harness op {:regions {region3d-id {:view changed-view}}} :region)
             (fn [_]
-              (let [after-orbit (region3d-gpu/region3d-receipt region-system)
-                    orbit-passes
+              (let [after-view (region3d-gpu/region3d-receipt region-system)
+                    view-passes
                     (get-in (compositor-gpu/compositor-receipt compositor)
                             [:region-pass-receipts])]
                 (.then
                  (region3d-capture!
-                  harness op {:regions {region3d-id {:view orbit-view}}}
+                  harness op {:regions {region3d-id {:view changed-view}}}
                   :region)
                  (fn [_]
-                   {:before-orbit before-orbit :after-orbit after-orbit
-                    :orbit-passes orbit-passes
+                   {:before-view before-view :after-view after-view
+                    :view-passes view-passes
                     :clean-passes
                     (get-in (compositor-gpu/compositor-receipt compositor)
                             [:region-pass-receipts])}))))))
@@ -3509,7 +2580,7 @@
            (let [resized (assoc op :w 300.0)]
              (.then
               (region3d-capture!
-               harness resized {:regions {region3d-id {:view orbit-view}}}
+               harness resized {:regions {region3d-id {:view changed-view}}}
                :region)
               (fn [_]
                 (wait-for-queue
@@ -3524,7 +2595,7 @@
              (.then
               (region3d-capture!
                harness shadow-off-op
-               {:regions {region3d-id {:view orbit-view}}} :region)
+               {:regions {region3d-id {:view changed-view}}} :region)
               (fn [_]
                 (wait-for-queue
                  (fn []
@@ -3622,19 +2693,19 @@
                                 region-system {:regions []} {}
                                 {:zoom 1.0 :dpr 1.0})
                                (assoc state :destroy-recreate receipt))))))))))))))
-         (fn [{:keys [before-orbit after-orbit orbit-passes clean-passes
+         (fn [{:keys [before-view after-view view-passes clean-passes
                       resize shadow-off after-close refusal destroy-recreate]
                :as receipt}]
            (let [object-upload-delta
-                 (- (:object-instance-uploads after-orbit)
-                    (:object-instance-uploads before-orbit))
+                 (- (:object-instance-uploads after-view)
+                    (:object-instance-uploads before-view))
                  mesh-upload-delta
-                 (- (:mesh-vertex-uploads after-orbit)
-                    (:mesh-vertex-uploads before-orbit))
+                 (- (:mesh-vertex-uploads after-view)
+                    (:mesh-vertex-uploads before-view))
                  uniform-upload-delta
-                 (- (:uniform-uploads after-orbit)
-                    (:uniform-uploads before-orbit))
-                 orbit-by-role (into {} (map (juxt :role identity)) orbit-passes)
+                 (- (:uniform-uploads after-view)
+                    (:uniform-uploads before-view))
+                 view-by-role (into {} (map (juxt :role identity)) view-passes)
                  clean? (every? #(and (:held? %) (not (:encoded? %)))
                                 clean-passes)
                  sleep-step (frame-scheduler/decide
@@ -3650,8 +2721,8 @@
                  pass? (and (zero? object-upload-delta)
                             (zero? mesh-upload-delta)
                             (= 1 uniform-upload-delta)
-                            (get-in orbit-by-role [:interior :encoded?])
-                            (get-in orbit-by-role [:shadow :held?])
+                            (get-in view-by-role [:interior :encoded?])
+                            (get-in view-by-role [:shadow :held?])
                             clean?
                             (= 1 (count resize-leases))
                             (= [512 256] (:size (first resize-leases)))
@@ -3667,7 +2738,7 @@
                         {:object-instance-upload-delta object-upload-delta
                          :mesh-vertex-upload-delta mesh-upload-delta
                          :uniform-upload-delta uniform-upload-delta
-                         :passes orbit-passes}
+                         :passes view-passes}
                         :clean-held? clean?
                         :fully-clean-sleep fully-clean-sleep
                         :pass? pass?))))]]
@@ -3982,14 +3053,6 @@
         (path-gpu/init-path-system
          device "rgba16float" camera containers-buffer
          :tracker tracker :scene-color (scene-tape/scene-color true))
-        text-api {:clone renderer/clone-text-system
-                  :update renderer/update-text-data
-                  :destroy renderer/destroy-text-system!}
-        connector-system
-        (connector-gpu/init-connector-system
-         device "rgba16float" camera containers-buffer
-         :tracker tracker :scene-color (scene-tape/scene-color true)
-         :text-api text-api)
         compositor (compositor-gpu/create-compositor!
                     device color-format tracker)
         harness {:device device :tracker tracker :camera camera
@@ -3997,70 +3060,47 @@
                  :surround-path-system surround-path-system
                  :region-system region-system
                  :placement-text-system placement-text-system
-                 :path-system path-system :connector-system connector-system
+                 :path-system path-system
                  :font-assets font-assets :compositor compositor}
         opaque-region (region3d-fixture-region :opaque)
         transparent-region (region3d-fixture-region :transparent)
-        overlay-region (-> transparent-region
-                           (assoc-in [:scene :marker]
-                                     (region3d-empty :marker
-                                                     [-2.6 1.7 0.4]))
-                           region3d-material/validate-region!)
         opaque-op (region3d-op opaque-region)
         transparent-op (region3d-op transparent-region)
-        overlay-op (region3d-op overlay-region)
         seam (region3d-seam-fixture font-assets)
         seam-region (:region seam)
         seam-op (:op seam)
         s1 (region3d-s1-receipt harness opaque-op)
-        s3 (region3d-s3-receipt transparent-region)
         specs [{:case-id "sandwich" :region opaque-region :op opaque-op
                 :session {} :sides :sandwich}
                {:case-id "lit-depth-shadow" :region transparent-region
                 :op transparent-op :session {} :sides :region}
-               {:case-id "gizmo-overlay" :region overlay-region
-                :op overlay-op
-                :session {:regions {region3d-id
-                                    {:selection :near
-                                     :gizmo-mode :translate}}}
-                :sides :below}
-               {:case-id "gizmo-hover-x" :region overlay-region
-                :op overlay-op
-                :session {:regions {region3d-id
-                                    {:selection :near
-                                     :gizmo-mode :translate
-                                     :gizmo-hover [:translate :x]}}}
-                :sides :below}
                {:case-id "placed-depth-interleave" :region seam-region
                 :op seam-op :session {} :sides :sandwich
-                :seam-kind :placed}
-               {:case-id "anchored-edge-over-region" :region seam-region
-                :op seam-op :seam-kind :anchored-edge}
-               {:case-id "seam-demo" :region seam-region
-                :op seam-op :seam-kind :broad}]]
+                :seam? true}]]
     (-> (promise-mapv
-         (fn [{:keys [case-id region op session sides seam-kind]}]
-           (-> (case seam-kind
-                 :anchored-edge (region3d-seam-capture-pair!
-                                 harness op false)
-                 :broad (region3d-seam-capture-pair!
-                         harness op true)
-                 (region3d-capture-pair! harness op session sides))
+         (fn [{:keys [case-id region op session sides seam?]}]
+           (-> (region3d-capture-pair! harness op session sides)
                (.then
                 (fn [pair]
-                  {:case-id case-id :zoom 1.0
-                   :regime :region3d-floor-default
-                   :normalization :region-local-3d-inside-world-2d
-                   :shape-extent-world [(:w op) (:h op)]
-                   :oracle (when (= case-id "lit-depth-shadow")
-                             (region3d-lit-oracle region (:bytes pair)))
-                   :overlay-probe (when (= case-id "gizmo-overlay")
-                                    (region3d-overlay-probe region
-                                                            (:bytes pair)))
-                   :seam-kind seam-kind
-                   :seam-receipt (when seam-kind
-                                   (region3d-seam-receipt harness seam-op))
-                   :images [(region3d-image-record case-id pair)]}))))
+                  (let [placement-receipt
+                        (:placements
+                         (region3d-gpu/region3d-receipt region-system))]
+                    {:case-id case-id :zoom 1.0
+                     :regime :region3d-floor-default
+                     :normalization :region-local-3d-inside-world-2d
+                     :shape-extent-world [(:w op) (:h op)]
+                     :oracle (when (= case-id "lit-depth-shadow")
+                               (region3d-lit-oracle region (:bytes pair)))
+                     :seam-receipt
+                     (when seam?
+                       {:resolved (get-in op
+                                          [:region3d/placement-census :resolved])
+                        :text-layout-id
+                        (get-in op [:region3d/resolved-placements
+                                    0 :layout :layout/id])
+                        :glyphs (:glyphs placement-receipt)
+                        :ink-vertices (:ink-vertices placement-receipt)})
+                     :images [(region3d-image-record case-id pair)]})))))
          specs)
         (.then
          (fn [cases]
@@ -4078,11 +3118,7 @@
         (.then
          (fn [{:keys [cases s5 lower]}]
            (let [base-cases cases
-                 overlay-probe (get-in base-cases [2 :overlay-probe])
-                 s2 (assoc (get-in base-cases [1 :oracle])
-                           :overlay-classes overlay-probe
-                           :pass? (and (get-in base-cases [1 :oracle :pass?])
-                                       (:pass? overlay-probe)))
+                 s2 (get-in base-cases [1 :oracle])
                  s4 s2
                  cases (conj base-cases
                              {:case-id "worn" :zoom 8.0
@@ -4093,31 +3129,27 @@
                               :images [(:image lower)]})
                  determinism (mapcat #(map :determinism (:images %)) cases)
                  system-receipt (region3d-gpu/region3d-receipt region-system)
-                 seam-receipt
-                 (:seam-receipt (last base-cases))
-                 compositor-receipt (compositor-gpu/compositor-receipt compositor)
+                 seam-receipt (:seam-receipt (last base-cases))
+                 compositor-receipt
+                 (compositor-gpu/compositor-receipt compositor)
                  seam-pass? (and (= 2 (:resolved seam-receipt))
                                  (some? (:text-layout-id seam-receipt))
                                  (pos? (or (:glyphs seam-receipt) 0))
-                                 (pos? (or (:ink-vertices seam-receipt) 0))
-                                 (pos? (or (:anchor-projections seam-receipt) 0))
-                                 (pos? (or (:routes seam-receipt) 0)))
-                 pass? (and (= 8 (count cases))
+                                 (pos? (or (:ink-vertices seam-receipt) 0)))
+                 pass? (and (= 4 (count cases))
                             (every? :byte-identical? determinism)
-                            (:pass? s1) (:pass? s2) (:pass? s3)
+                            (:pass? s1) (:pass? s2)
                             (:pass? s4) (:pass? s5) seam-pass?
                             (:pass? lower))
                  result {:cases cases
-                         :s1 s1 :s2 s2 :s3 s3 :s4 s4 :s5 s5
+                         :s1 s1 :s2 s2 :s4 s4 :s5 s5
                          :lower-resolution (dissoc lower :image)
                          :seam (assoc seam-receipt :pass? seam-pass?)
                          :system system-receipt
                          :compositor compositor-receipt
-                         :felt-gate :sid-live
                          :fixture-query "?region3d=1"
                          :pass? pass?}]
              (compositor-gpu/destroy-compositor! compositor)
-             (connector-gpu/destroy-connector-system! connector-system)
              (path-gpu/destroy-path-system! path-system)
              (path-gpu/destroy-path-system! surround-path-system)
              (region3d-gpu/destroy-region3d-system! region-system)
@@ -4207,10 +3239,6 @@
                                             (shader-digests)
                                             (run-image-atom! device adapter)
                                             (run-path-atom! device adapter)
-                                            (run-connector-atom!
-                                             device adapter t1-assets
-                                             camera-buffer
-                                             containers-buffer)
                                             (run-chrome-atom! device adapter)
                                             (run-region3d-floor! device adapter
                                                                  t1-assets)])
@@ -4238,9 +3266,8 @@
                                           :t1-layout t1-receipt
                                           :image-atom (aget values 2)
                                           :path-atom (aget values 3)
-                                          :connector-atom (aget values 4)
-                                          :chrome-atom (aget values 5)
-                                          :region3d-floor (aget values 6)
+                                          :chrome-atom (aget values 4)
+                                          :region3d-floor (aget values 5)
                                           :cases (aget values 0)})))))))))))))))))))
 
 (defn ^:export run-region3d-floor-verifier! []

@@ -80,9 +80,7 @@
 
 (deftest pressure-width-and-cpu-interior-truth-tripwire
   (let [ink (ink-material)
-        shape (holed-shape)
-        edited-shape (path-material/move-contour-point
-                      shape :outer 0 [-1.0 0.0] :shape/rev-2)]
+        shape (holed-shape)]
     (is (= [2.0 6.0 10.0]
            (mapv #(path-material/pressure-width 10.0 %)
                  [0.2 0.6 1.0]))
@@ -95,7 +93,4 @@
         "explicit hole subtracts from the outer interior")
     (is (= :boundary (path-material/classify shape [4.0 8.0]))
         "mathematical boundary is a named pick hit")
-    (is (path-material/hit? shape [4.0 8.0]))
-    (is (= :shape/rev-2 (:path/revision edited-shape)))
-    (is (= [-1.0 0.0]
-           (get-in edited-shape [:path/geometry :contours 0 :points 0])))))
+    (is (path-material/hit? shape [4.0 8.0]))))

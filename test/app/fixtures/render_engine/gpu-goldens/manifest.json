@@ -437,74 +437,30 @@
       "pngSha256": "0467c22c1154065568da9a2a1ad8da56ccf73f9f41aefb02ad86a3cfc45084ed"
     }
   ],
-  "connectorAtomCases": [
-    {
-      "caseId": "straight-arrow-label-default-unit-z1",
-      "zoom": 1,
-      "regime": "floor-default",
-      "edgeCount": 1,
-      "mode": "straight-arrow-label",
-      "file": "gpu-connector-straight-arrow-label-straight-arrow-label-default-unit-z1.png",
-      "rawSha256": "f47a8f6d1ece19b6ee81f126e17f73e72778620362ca669e87a6d7ac4223577f",
-      "pngSha256": "5c04728cd4a103430297656e2946bb52392ea278d9ff83eec741c56d2ce5885c"
-    },
-    {
-      "caseId": "elbow-waypoints-heads-default-min-z0p1",
-      "zoom": 0.1,
-      "regime": "floor-default",
-      "edgeCount": 1,
-      "mode": "elbow-waypoints-heads",
-      "file": "gpu-connector-elbow-waypoints-heads-elbow-waypoints-heads-default-min-z0p1.png",
-      "rawSha256": "bc52aef365577a4718decf081f1a322c46fa1a9af3e952cdac6f39030480449a",
-      "pngSha256": "3f94baf4a8095c212df36dc06d8334c0515b3dab88aca26c701fd6034d63622a"
-    },
-    {
-      "caseId": "provenance-pair-overlap-legal-z10",
-      "zoom": 10,
-      "regime": "legal-max",
-      "edgeCount": 2,
-      "mode": "provenance-pair-overlap",
-      "file": "gpu-connector-provenance-pair-overlap-provenance-pair-overlap-legal-z10.png",
-      "rawSha256": "404fc088a522999ff68f811a1251419c56b0bccf104e0d4bd72a0869e44e4299",
-      "pngSha256": "2bb599a720ca3522cf16f357b17e7493d04ab27851b8b69c39c6ac55b4259240"
-    }
-  ],
   "chromeAtomCases": [
     {
-      "caseId": "selection-outline-handles-default-unit-z1",
+      "caseId": "neutral-point-line-z1",
       "zoom": 1,
-      "regime": "floor-default",
-      "normalization": "container-local-anchor+screen-px-offset",
-      "shapeExtentWorld": 14,
-      "formCount": 5,
-      "mode": "selection-outline-handles",
-      "file": "gpu-chrome-selection-outline-handles-selection-outline-handles-default-unit-z1.png",
-      "rawSha256": "216c25ab2eb6de2cfa29ebd74457f98a9d20c13628fed1a316d2415358fd9d6c",
-      "pngSha256": "8ffc8d06b0a662962994f9d07f20490efce483d0c0273425acba2ba63fd2bb8e"
+      "regime": "neutral-legal-zoom",
+      "normalization": "opaque-anchors+screen-px-offsets",
+      "shapeExtentWorld": 60,
+      "quadCount": 2,
+      "mode": "neutral-point-line",
+      "file": "gpu-chrome-neutral-point-line-z1.png",
+      "rawSha256": "d1c01e1491eeda4f6488da3b86146fe05b4784bff205d49274fc5b0915a81c1b",
+      "pngSha256": "642a9348c8078f73fefddbc5b787ac44e05772bd1b937eddc625f7b38e12e957"
     },
     {
-      "caseId": "selection-outline-handles-default-max-z8",
-      "zoom": 8,
-      "regime": "floor-default",
-      "normalization": "container-local-anchor+screen-px-offset",
-      "shapeExtentWorld": 14,
-      "formCount": 5,
-      "mode": "selection-outline-handles",
-      "file": "gpu-chrome-selection-outline-handles-selection-outline-handles-default-max-z8.png",
-      "rawSha256": "805535de4f6ead97b7050394e8917cc9bfef54ec883c2ca2e8f32d1c834a21e4",
-      "pngSha256": "02c6e3d7b124e577bb1c0e7b45bfd78f067af4fb5e9815d71b11ddef133d3eb8"
-    },
-    {
-      "caseId": "marquee-guide-gap-default-min-z0p1",
-      "zoom": 0.1,
-      "regime": "floor-default",
-      "normalization": "container-local-anchor+screen-px-offset",
-      "shapeExtentWorld": 800,
-      "formCount": 3,
-      "mode": "marquee-guide-gap",
-      "file": "gpu-chrome-marquee-guide-gap-marquee-guide-gap-default-min-z0p1.png",
-      "rawSha256": "d4d783e293542a95349b4821851d96996e658d38758cf5c71b6a608430752783",
-      "pngSha256": "2150ae5b9449b9eef5048524fe11b54dac7d1ff93a2bc9b8498412c7059426a1"
+      "caseId": "neutral-point-line-z4",
+      "zoom": 4,
+      "regime": "neutral-legal-zoom",
+      "normalization": "opaque-anchors+screen-px-offsets",
+      "shapeExtentWorld": 15,
+      "quadCount": 2,
+      "mode": "neutral-point-line",
+      "file": "gpu-chrome-neutral-point-line-z4.png",
+      "rawSha256": "d1c01e1491eeda4f6488da3b86146fe05b4784bff205d49274fc5b0915a81c1b",
+      "pngSha256": "642a9348c8078f73fefddbc5b787ac44e05772bd1b937eddc625f7b38e12e957"
     }
   ],
   "t2InputFloorCases": [

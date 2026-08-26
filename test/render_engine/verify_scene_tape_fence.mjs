@@ -66,7 +66,6 @@ const families = [
   ":render.family/clip",
   ":render.family/image",
   ":render.family/path",
-  ":render.family/connector",
   ":render.family/chrome",
   ":render.family/region-3d",
 ];
@@ -170,7 +169,7 @@ if (!seededEffectRejected) {
 }
 
 const receipt = {
-  contract: "W2-B/O-G-M-C+IMAGE/PATH/CONNECTOR/CHROME/REGION3D",
+  contract: "W2-B/O-G-M-C+IMAGE/PATH/CHROME/REGION3D",
   families: families.length,
   effectDeclarations: effectDeclarations.length,
   drawFrameBranches: 0,

@@ -176,22 +176,6 @@ const laneGuards = (result) => [
       result.pathAtom?.parity?.every((row) => row.pass === true),
   },
   {
-    name: "connector",
-    pass:
-      result.connectorAtom?.pass === true &&
-      allDeterministic(result.connectorAtom?.cases) &&
-      result.connectorAtom?.parity?.every((row) => row.pass === true),
-    details: {
-      lanePass: result.connectorAtom?.pass === true,
-      deterministic: allDeterministic(result.connectorAtom?.cases),
-      parity: result.connectorAtom?.parity?.every((row) => row.pass === true),
-      color: result.connectorAtom?.color?.pass === true,
-      labelRoad: result.connectorAtom?.labelRoad?.pass === true,
-      arrangement: result.connectorAtom?.arrangement?.pass === true,
-      uploadGate: result.connectorAtom?.uploadGate?.pass === true,
-    },
-  },
-  {
     name: "chrome",
     pass:
       result.chromeAtom?.pass === true &&
@@ -210,7 +194,7 @@ const representativeSpecs = [
   {
     manifestKey: "chromeAtomCases",
     resultKey: "chromeAtom",
-    file: "gpu-chrome-selection-outline-handles-selection-outline-handles-default-unit-z1.png",
+    file: "gpu-chrome-neutral-point-line-z1.png",
   },
   {
     manifestKey: "pathAtomCases",
@@ -253,10 +237,38 @@ const sourceInputs = () =>
     "src/app/client/substrate/webgpu/verifier.cljs",
     "src/app/client/substrate/scene_tape.cljc",
     "src/app/client/substrate/frame_inputs.cljc",
+    "src/app/client/substrate/chrome_material.cljc",
+    "src/app/client/substrate/webgpu/chrome_gpu.cljs",
     "src/app/client/substrate/webgpu/path_gpu.cljs",
     "src/app/client/substrate/webgpu/region3d_gpu.cljs",
+    "test/render_engine/verify_instance_cut.mjs",
     "test/render_engine/run_verifier.mjs",
   ].map(sha256File);
+
+const recordNeutralGoldens = (result, manifest) => {
+  const rows = result.chromeAtom.cases.flatMap((renderCase) =>
+    renderCase.images.map((image) => {
+      const bytes = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+      fs.writeFileSync(path.join(goldenDir, image.file), bytes);
+      return {
+        caseId: renderCase.caseId,
+        zoom: renderCase.zoom,
+        regime: renderCase.regime,
+        normalization: renderCase.normalization,
+        shapeExtentWorld: renderCase.shapeExtentWorld,
+        quadCount: renderCase.quadCount,
+        mode: image.mode,
+        file: image.file,
+        rawSha256: image.rawSha256,
+        pngSha256: sha256(bytes),
+      };
+    }),
+  );
+  if (rows.length !== 2) throw new Error(`Expected two neutral goldens, got ${rows.length}`);
+  manifest.chromeAtomCases = rows;
+  fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+  return rows;
+};
 
 const runBrowser = async () => {
   const browser = await puppeteer.launch({
@@ -308,11 +320,12 @@ const main = async () => {
     );
   }
 
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+  if (process.env.RENDER_VERIFIER_RECORD_NEUTRAL === "1") {
+    recordNeutralGoldens(result, manifest);
+  }
   const guards = laneGuards(result);
-  const goldens = representativeGoldens(
-    result,
-    JSON.parse(fs.readFileSync(manifestFile, "utf8")),
-  );
+  const goldens = representativeGoldens(result, manifest);
   const pass = guards.every((guard) => guard.pass) && goldens.every((row) => row.pass);
   const receipt = {
     schemaVersion: 1,

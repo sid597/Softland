@@ -31,8 +31,6 @@
 (def pure-namespaces
   '[app.client.substrate.image-citizenship-test
     app.client.substrate.image-material-test
-    app.client.substrate.connector-material-test
-    app.client.substrate.connector-route-test
     app.client.substrate.chrome-material-test
     app.client.substrate.frame-effects-test
     app.client.substrate.frame-inputs-test
@@ -46,7 +44,6 @@
     app.client.substrate.region3d-placement-test
     app.client.substrate.region3d-scene-test
     app.client.substrate.region-rungs-test
-    app.client.workspace.region3d-pointer-test
     app.client.substrate.scene-tape-test
     app.client.workspace.shaping-correction-test
     app.client.workspace.text-layout-planes-test

@@ -42,7 +42,7 @@
       (is (= [:pulse] (:retired-deadlines stopped)))
       (is (empty? (:deadlines stopped))))))
 
-(deftest replay-clock-rebinding-and-sink-pulse-are-deterministic
+(deftest replay-and-clock-rebinding-are-deterministic
   (let [rows [{:time 0 :causes [:world] :plan-hash :a}
               {:time 16 :causes [] :plan-hash :a}
               {:time 34 :causes [:clock] :plan-hash :a}]
@@ -52,9 +52,7 @@
     (is (= [true false true]
            (mapv :encode? (:decisions replay-a))))
     (scheduler/set-clock-source! (constantly 123.0))
-    (is (= 123.0 (scheduler/clock-time 999.0)))
-    (is (= 1.0 (scheduler/pulse-alpha 123.0 false)))
-    (is (<= 0.4 (scheduler/pulse-alpha 123.0 true) 1.0))))
+    (is (= 123.0 (scheduler/clock-time 999.0)))))
 
 (deftest pure-frame-namespaces-have-no-wall-clock-or-loop-source
   (doseq [path ["src/app/client/substrate/frame_graph.cljc"

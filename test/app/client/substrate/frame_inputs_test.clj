@@ -8,7 +8,6 @@
         stable (Object.)
         inputs {:device device :text-sys stable :text-sys-token [stable 3]
                 :path-zoom-regime :path/normal
-                :connector-zoom-regime :path/normal
                 :region-lease-size [512 512] :region-encode-scale 1.12}]
     (is (= #{} (frame-inputs/changed-families inputs inputs)))
     (is (empty? (set/intersection
@@ -27,7 +26,12 @@
                          :cmd-panel-visible
                          :settings-line-count
                          :settings-visible
-                         :agent-visible}
+                         :agent-visible
+                         :chrome-text-sys
+                         :chrome-text-sys-token
+                         :chrome-base-line-count
+                         :diagnostics-visible
+                         :diagnostics-line-index}
         declared-inputs (reduce set/union #{}
                                 (vals frame-inputs/family-input-declarations))]
     (is (empty? (set/intersection retired-inputs declared-inputs)))))
@@ -52,32 +56,6 @@
     (is (= [text-new] (:insert delta)))
     (is (= #{(key-fn path-old)}
            (get-in delta [:next-keys :render.family/path])))))
-
-(deftest cross-family-entries-live-and-die-with-their-producer
-  ;; Twin receipt 2026-08-09: connector-minted label entries carry the text
-  ;; family's :family/id (the label paint door). Bucketing by :family/id
-  ;; removed them on every text produce and dropped them on every connector
-  ;; produce. The delta buckets by :frame/producer, falling back to :family/id.
-  (let [label {:family/id :render.family/msdf :entry/id :conn-label
-               :frame/producer :render.family/connector}
-        text-old {:family/id :render.family/msdf :entry/id :text-old}
-        text-new {:family/id :render.family/msdf :entry/id :text-new}
-        mesh {:family/id :render.family/connector :entry/id :conn-mesh
-              :frame/producer :render.family/connector}
-        key-fn (juxt :family/id :entry/id)
-        index {:render.family/msdf #{(key-fn text-old)}
-               :render.family/connector #{(key-fn label) (key-fn mesh)}}]
-    (testing "a text-only produce never removes the connector-produced label"
-      (let [delta (frame-inputs/family-entry-delta
-                   index [text-new] #{:render.family/msdf} key-fn)]
-        (is (= #{(key-fn text-old)} (:remove delta)))
-        (is (= #{(key-fn label) (key-fn mesh)}
-               (get-in delta [:next-keys :render.family/connector])))))
-    (testing "a connector-only produce carries its cross-family label"
-      (let [delta (frame-inputs/family-entry-delta
-                   index [label mesh] #{:render.family/connector} key-fn)]
-        (is (= #{} (:remove delta)))
-        (is (= [label mesh] (:insert delta)))))))
 
 (deftest s3-camera-doors-are-versioned-and-quantized
   (testing "within one geometric step retains the same encode rung"

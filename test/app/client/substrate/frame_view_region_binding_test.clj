@@ -63,9 +63,6 @@
     (is (= {:path-zoom-regime
             {:version :frame-input/path-zoom-regime-v1
              :input-key :path-zoom-regime}
-            :connector-zoom-regime
-            {:version :frame-input/connector-zoom-regime-v1
-             :input-key :connector-zoom-regime}
             :region-interior-encode
             {:version :frame-input/region-interior-encode-v1
              :input-key :region-encode-scale
