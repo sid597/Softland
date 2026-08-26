@@ -68,7 +68,6 @@ const registrations = contracts.slice(registrationsStart, registrationsEnd);
 
 const families = [
   ":render.family/msdf",
-  ":render.family/slug",
   ":render.family/clip",
   ":render.family/image",
   ":render.family/path",

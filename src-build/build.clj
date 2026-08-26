@@ -1,6 +1,5 @@
 (ns build
-  (:require [build.slug-font :as slug-font]
-            [clojure.edn :as edn]
+  (:require [clojure.edn :as edn]
             [clojure.tools.build.api :as b]
             [clojure.tools.logging :as log]))
 
@@ -40,13 +39,6 @@
              :uber-file "target/land-modules.jar"
              :basis (b/create-basis {:project deps})})
     (log/info "module jar: target/land-modules.jar")))
-
-(defn build-slug-font
-  "Generate Slug assets for the default DejaVu Sans Mono font bundle."
-  [_argmap]
-  (let [result (slug-font/write-font-assets! (slug-font/default-config))]
-    (log/info "Slug font assets generated:" (pr-str result))
-    result))
 
 ;; clj -X:build:prod uberjar :build/jar-name "app.jar"
 ;; java -cp app.jar clojure.main -m prod

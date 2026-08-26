@@ -26,9 +26,6 @@
   {:render.family/msdf
    #{:text-sys :text-sys-token :extra-text-geos :font-provider-token}
 
-   :render.family/slug
-   #{:text-sys :text-sys-token :extra-text-geos :font-provider-token}
-
    :render.family/clip
    #{:clip-semantic-input}
 

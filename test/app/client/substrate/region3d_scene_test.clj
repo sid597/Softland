@@ -39,7 +39,7 @@
                        :rect [0 0 200 120]})
         path (tape-fixture-entry :path [[:root 1 1]])
         text (assoc (tape-fixture-entry :text [[:root 3 3]])
-                    :family/id :render.family/slug)
+                    :family/id :render.family/msdf)
         compiled-a (tape/compile-tape :sandwich [text region-entry path])
         compiled-b (tape/compile-tape :sandwich [path text region-entry])
         moved (assoc-in region-entry [:order :stack-path] [[:root 4 4]])
