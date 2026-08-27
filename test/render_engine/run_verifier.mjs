@@ -190,7 +190,7 @@ const laneGuards = (result) => [
 ];
 
 const representativeSpecs = [
-  { manifestKey: "images", resultKey: "cases", file: "gpu-msdf-legal-min-z0p01.png" },
+  { manifestKey: "images", resultKey: "cases", file: "gpu-slug-legal-min-z0p01.png" },
   {
     manifestKey: "chromeAtomCases",
     resultKey: "chromeAtom",

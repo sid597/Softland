@@ -12,7 +12,6 @@
             [app.client.workspace.text-layout :as text-layout]))
 
 (def placed-color-adapter-version :region3d/placed-color-v1)
-(def placed-msdf-version :region3d/placed-msdf-v1)
 (def placed-ink-version :region3d/placed-ink-v1)
 (def placement-pack-version :region3d/placement-pack-v1)
 (def placement-zoom 1.0)
@@ -100,72 +99,6 @@
                :point3 region-point
                :object-local local-point
                :material-local (object->material-local local-point)})))))))
-
-(defn- glyph-map [glyphs]
-  (reduce (fn [index glyph]
-            (cond-> index
-              (some? (:unicode glyph))
-              (assoc [:unicode (:unicode glyph)] glyph)
-              (some? (:index glyph))
-              (assoc [:index (:index glyph)] glyph)
-              (and (:fontId glyph) (some? (:unicode glyph)))
-              (assoc [(:fontId glyph) :unicode (:unicode glyph)] glyph)
-              (and (:fontId glyph) (some? (:index glyph)))
-              (assoc [(:fontId glyph) :index (:index glyph)] glyph)))
-          {}
-          glyphs))
-
-(defn atlas-glyph-map [font-assets]
-  (let [atlas (:atlas font-assets)]
-    (if-let [variants (:variants atlas)]
-      (reduce (fn [result [font-id variant]]
-                (reduce-kv (fn [index [kind glyph-id] glyph]
-                             (assoc index [font-id kind glyph-id] glyph))
-                           result
-                           (glyph-map (:glyphs variant))))
-              {}
-              (map vector (:atlas-faces font-assets) variants))
-      (glyph-map (:glyphs atlas)))))
-
-(defn- painted-glyph [paint-map {:keys [glyph-id glyph-id-kind font-id]}]
-  (let [kind (if (= glyph-id-kind :font-glyph-index) :index :unicode)]
-    (or (get paint-map [font-id kind glyph-id])
-        (get paint-map [kind glyph-id])
-        (get paint-map [font-id :unicode 0xFFFD])
-        (get paint-map [:unicode 0xFFFD])
-        (get paint-map [font-id :index 0])
-        (get paint-map [:index 0]))))
-
-(defn pack-glyph-quads
-  "Pack Contract-T positioned glyphs with atlas coverage metadata only."
-  [placement layout font-assets]
-  (let [atlas-width (double (or (get-in font-assets [:atlas :atlas :width]) 1))
-        atlas-height (double (or (get-in font-assets [:atlas :atlas :height]) 1))
-        paint-map (atlas-glyph-map font-assets)
-        font-size (double (get-in placement [:style :font-size] 14.0))
-        color (get-in placement [:style :color])]
-    (into []
-          (keep
-           (fn [{:keys [character position glyph-id-kind] :as glyph}]
-             (when-not (or (= character " ") (= glyph-id-kind :virtual/tab))
-               (when-let [atlas-glyph (painted-glyph paint-map glyph)]
-                 (let [[x baseline-y] position
-                       plane (:planeBounds atlas-glyph)
-                       atlas (:atlasBounds atlas-glyph)
-                       left (+ x (* font-size (or (:left plane) 0.0)))
-                       right (+ x (* font-size (or (:right plane) 0.0)))
-                       top (- baseline-y (* font-size (or (:top plane) 0.0)))
-                       bottom (- baseline-y (* font-size (or (:bottom plane) 0.0)))]
-                   {:object-id (:object-id placement)
-                    :address (:address placement)
-                    :layout/id (:layout/id layout)
-                    :rect [left top (- right left) (- bottom top)]
-                    :uv [(/ (:left atlas) atlas-width)
-                         (- 1.0 (/ (:top atlas) atlas-height))
-                         (/ (:right atlas) atlas-width)
-                         (- 1.0 (/ (:bottom atlas) atlas-height))]
-                    :color color}))))
-           (mapcat :glyphs (:lines (text-layout/paint-result layout)))))))
 
 (defn pack-placed-ink
   "Derive one placed ink mesh through the caller-owned path cache value."

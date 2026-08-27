@@ -46,7 +46,7 @@
 
 (deftest image-layer-order-is-unique-and-shuffle-deterministic
   (let [lane-specs [[:clip :render.family/clip 0]
-                    [:slot-text :render.family/msdf 1]
+                    [:slot-text :render.family/slug 1]
                     [:image :render.family/image 2]
                     [:path :render.family/path 3]]
         part-ranks (mapv #(nth % 2) lane-specs)

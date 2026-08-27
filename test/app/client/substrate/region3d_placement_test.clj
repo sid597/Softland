@@ -24,25 +24,6 @@
    :view-default region-material/default-view
    :scene objects})
 
-(deftest s2-glyph-packing-uses-positioned-layout-and-atlas-metadata
-  (let [layout (text-layout/layout
-                {:text "A" :source-id :a :source-revision 1
-                 :font-size 10.0 :char-advance 6.0 :line-height 12.0
-                 :baseline-offset 9.0 :origin [0.0 0.0]})
-        placement {:object-id :text/a :address :text/shared
-                   :style {:font-size 10.0
-                           :color (placement/adapt-legacy-color [1 1 1 1])}}
-        font-assets {:atlas {:atlas {:width 64 :height 64}
-                             :glyphs [{:unicode 65
-                                       :planeBounds {:left 0.0 :right 0.6
-                                                     :top 0.8 :bottom -0.2}
-                                       :atlasBounds {:left 0.0 :right 16.0
-                                                     :top 0.0 :bottom 16.0}}]}}
-        [quad] (placement/pack-glyph-quads placement layout font-assets)]
-    (is (= (:layout/id layout) (:layout/id quad)))
-    (is (= [0.0 1.0 6.0 10.0] (:rect quad)))
-    (is (= [0.0 1.0 0.25 0.75] (:uv quad)))))
-
 (deftest s5-placed-layout-keeps-the-one-glyph-accessor-seam
   (let [placement {:address :text/shared
                    :content-revision [:content 1]

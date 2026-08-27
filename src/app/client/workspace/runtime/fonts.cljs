@@ -15,8 +15,6 @@
                       (or (get-in manifest-settings [k :default]) fallback))]
     {:font-size (get-default :fontSize 19)
      :line-height (get-default :lineHeight 1.2)
-     :px-range (get-default :pxRange 8)
-     :sharpness (get-default :sharpness 0.0)
      :snap-to-pixel? (get-default :snapToPixel true)
      :show-diagnostics? (get-default :showDiagnostics false)}))
 
@@ -28,8 +26,6 @@
       (compact-map
         {:font-size (or (:fontSize defaults) (:font-size defaults))
          :line-height (or (:lineHeight defaults) (:line-height defaults))
-         :px-range (or (:pxRange defaults) (:px-range defaults))
-         :sharpness (or (:sharpness defaults) (:sharpness defaults))
          :snap-to-pixel? (or (:snapToPixel defaults) (:snap-to-pixel? defaults))
          :show-diagnostics? (or (:showDiagnostics defaults) (:show-diagnostics? defaults))}))))
 
@@ -47,22 +43,19 @@
       (.catch
         (fn [e]
           (js/console.error "[FONT] Manifest load failed, using fallback manifest" e)
-          {:fonts [{:name "Ubuntu Sans Mono"
-                    :id "ubuntu-sans-mono"
-                    :atlas "ubuntu_sans_mono_atlas.png"
-                    :metrics "ubuntu_sans_mono_atlas.json"
-                    :charWidth 0.56
+          {:fonts [{:name "DejaVu Sans Mono"
+                    :id "dejavu-sans-mono"
+                    :slug {:meta "dejavu_sans_mono_slug_meta.json"
+                           :curve "dejavu_sans_mono_slug_curve.bin"
+                           :band "dejavu_sans_mono_slug_band.bin"}
+                    :charWidth 0.60
                     :default true
                     :defaults {:fontSize 19
                                :lineHeight 1.2
-                               :pxRange 8
-                               :sharpness 0.0
                                :snapToPixel true
                                :showDiagnostics false}}]
            :settings {:fontSize {:default 19}
                       :lineHeight {:default 1.2}
-                      :pxRange {:default 8}
-                      :sharpness {:default 0.0}
                       :snapToPixel {:default true}
                       :showDiagnostics {:default false}}}))))
 
@@ -123,13 +116,6 @@
                 (.then (fn [r] (.json r)))
                 (.then (fn [j] (js->clj j :keywordize-keys true)))))))
 
-(defn- fetch-bitmap [url]
-  (-> (probe (str "blob " url)
-             (with-retry url
-               #(-> (fetch-ok url) (.then (fn [r] (.blob r))))))
-      (.then (fn [blob]
-               (probe (str "decode " url) (js/createImageBitmap blob))))))
-
 (defn- fetch-bytes [url]
   (probe (str "bytes " url)
          (with-retry url
@@ -153,16 +139,9 @@
         (:fallbacks font-config)))
 
 (defn load-font-assets
-  "Load the runtime assets for a font config. Slug-enabled fonts still load
-   their MSDF bundle so the old path remains available as a fallback."
+  "Load the Slug and shared shaping assets for a font config."
   [font-config]
-  (let [msdf-promises (cond-> []
-                        (:atlas font-config)
-                        (conj (fetch-bitmap (str base-path (:atlas font-config))))
-
-                        (:metrics font-config)
-                        (conj (fetch-json (str base-path (:metrics font-config)))))
-        slug-config (:slug font-config)
+  (let [slug-config (:slug font-config)
         slug-promises (cond-> []
                         (:meta slug-config)
                         (conj (fetch-json (str base-path (:meta slug-config))))
@@ -182,45 +161,29 @@
                                    :language (or (:language font-config) "und")
                                    :tab-columns (or (:tabColumns font-config) 4)}))
                          (js/Promise.resolve nil))
-        asset-promises (vec (concat msdf-promises slug-promises
-                                    [shaper-promise]))]
+        asset-promises (conj (vec slug-promises) shaper-promise)]
     (-> (js/Promise.all (clj->js asset-promises))
         (.then
           (fn [assets]
-            (let [msdf-asset-count (count msdf-promises)
-                  bitmap (when (:atlas font-config) (aget assets 0))
-                  atlas (when (:metrics font-config)
-                          (aget assets (if (:atlas font-config) 1 0)))
-                  slug-start msdf-asset-count
-                  slug-meta (when (:meta slug-config) (aget assets slug-start))
-                  slug-curve (when (:curve slug-config) (aget assets (+ slug-start (if (:meta slug-config) 1 0))))
+            (let [slug-meta (when (:meta slug-config) (aget assets 0))
+                  slug-curve (when (:curve slug-config)
+                               (aget assets (if (:meta slug-config) 1 0)))
                   slug-band (when (:band slug-config)
-                              (aget assets (+ slug-start
-                                              (count (filter some? [(:meta slug-config) (:curve slug-config)]))))
-                              )
+                              (aget assets
+                                    (count (filter some? [(:meta slug-config)
+                                                          (:curve slug-config)]))))
                   slug-ready? (and slug-meta slug-curve slug-band)
-                  layout-provider (aget assets (dec (count asset-promises)))
-                  preferred-backend (keyword (or (:preferredBackend font-config) "msdf"))
-                  active-backend (if (and (= preferred-backend :slug) slug-ready?)
-                                   :slug
-                                   :msdf)]
+                  layout-provider (aget assets (dec (count asset-promises)))]
               (js/console.log "[FONT] Asset resolution"
                               {:id (:id font-config)
-                               :preferred-backend preferred-backend
-                               :active-backend active-backend
+                               :backend :slug
                                :shaper (some-> layout-provider :shaper-id)
-                               :has-msdf? (boolean (and bitmap atlas))
                                :has-slug-config? (boolean slug-config)
                                :slug-ready? (boolean slug-ready?)})
               {:id (:id font-config)
                :name (:name font-config)
-               :backend active-backend
+               :backend :slug
                :layout-provider layout-provider
-               :atlas-faces (:atlasFaces font-config)
-               :bitmap bitmap
-               :atlas atlas
-               :msdf (when (and bitmap atlas)
-                       {:bitmap bitmap :atlas atlas})
                :slug (when slug-ready?
                        {:meta slug-meta
                         :curve-bytes slug-curve
@@ -233,8 +196,7 @@
           (let [font-config (resolve-default-font-config manifest)]
             (js/console.log "[FONT] Loading default font"
                             {:id (:id font-config)
-                             :name (:name font-config)
-                             :preferred-backend (:preferredBackend font-config)})
+                             :name (:name font-config)})
             (-> (load-font-assets font-config)
                 (.then
                   (fn [font-assets]

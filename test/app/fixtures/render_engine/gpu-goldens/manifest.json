@@ -6,25 +6,11 @@
   "environmentFingerprintSha256": "5ced2482f3d0b8e9a14465bba06808a04d3a5a9b7d386fcf71f40a30f557343e",
   "replayCommand": "npm run verify:render-engine",
   "shaderDigests": {
-    "msdfVertex": "08ca903ea58064cb3f8180b80a32d1033a0369b0632a25fc9b8a832ce118d204",
-    "msdfFragment": "fce056017e45c9e1e35b54683408be2573ea22a8d911ab51493751ae2a79115b",
     "slugVertex": "374f5ebdff8ed10efddeca744428acfceb6e04cf71b43fa701107f5aab5aee9d",
     "slugFragment": "9bcb7e8b32c4c92479c1c7cb8344d45b0230f3aaab8fed5bb16718d764efe190",
-    "region3dPlacedFlat": "1515d54b249887bea0565899c821e72b7255e66cf674bcb298f8de2bd9183989",
-    "region3dPlacedMsdf": "bd9970ab88096daa18d4249bd9e944e1a431d8f218902a32e4551ec9d7a32d73"
+    "region3dPlacedFlat": "1515d54b249887bea0565899c821e72b7255e66cf674bcb298f8de2bd9183989"
   },
   "images": [
-    {
-      "caseId": "legal-min-z0p01",
-      "zoom": 0.01,
-      "regime": "legal-envelope-sentinel",
-      "normalization": "screen-constant",
-      "shapeExtentWorld": 8000,
-      "mode": "msdf",
-      "file": "gpu-msdf-legal-min-z0p01.png",
-      "rawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
-      "pngSha256": "0b4c472431168be024826481fc7e779e6e2d0fcf7e96f872e2f838fa81c862cc"
-    },
     {
       "caseId": "legal-min-z0p01",
       "zoom": 0.01,
@@ -35,17 +21,6 @@
       "file": "gpu-slug-legal-min-z0p01.png",
       "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
       "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
-    },
-    {
-      "caseId": "default-min-z0p1",
-      "zoom": 0.1,
-      "regime": "floor-default-clamp",
-      "normalization": "screen-constant",
-      "shapeExtentWorld": 800,
-      "mode": "msdf",
-      "file": "gpu-msdf-default-min-z0p1.png",
-      "rawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
-      "pngSha256": "0b4c472431168be024826481fc7e779e6e2d0fcf7e96f872e2f838fa81c862cc"
     },
     {
       "caseId": "default-min-z0p1",
@@ -64,32 +39,10 @@
       "regime": "floor-default-clamp",
       "normalization": "screen-constant",
       "shapeExtentWorld": 80,
-      "mode": "msdf",
-      "file": "gpu-msdf-default-unit-z1.png",
-      "rawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
-      "pngSha256": "0b4c472431168be024826481fc7e779e6e2d0fcf7e96f872e2f838fa81c862cc"
-    },
-    {
-      "caseId": "default-unit-z1",
-      "zoom": 1,
-      "regime": "floor-default-clamp",
-      "normalization": "screen-constant",
-      "shapeExtentWorld": 80,
       "mode": "slug",
       "file": "gpu-slug-default-unit-z1.png",
       "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
       "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
-    },
-    {
-      "caseId": "default-max-z8",
-      "zoom": 8,
-      "regime": "floor-default-clamp",
-      "normalization": "screen-constant",
-      "shapeExtentWorld": 10,
-      "mode": "msdf",
-      "file": "gpu-msdf-default-max-z8.png",
-      "rawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
-      "pngSha256": "0b4c472431168be024826481fc7e779e6e2d0fcf7e96f872e2f838fa81c862cc"
     },
     {
       "caseId": "default-max-z8",
@@ -108,17 +61,6 @@
       "regime": "legal-envelope-sentinel",
       "normalization": "screen-constant",
       "shapeExtentWorld": 8,
-      "mode": "msdf",
-      "file": "gpu-msdf-legal-log-z10.png",
-      "rawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
-      "pngSha256": "0b4c472431168be024826481fc7e779e6e2d0fcf7e96f872e2f838fa81c862cc"
-    },
-    {
-      "caseId": "legal-log-z10",
-      "zoom": 10,
-      "regime": "legal-envelope-sentinel",
-      "normalization": "screen-constant",
-      "shapeExtentWorld": 8,
       "mode": "slug",
       "file": "gpu-slug-legal-log-z10.png",
       "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
@@ -130,32 +72,10 @@
       "regime": "legal-envelope-sentinel",
       "normalization": "screen-constant",
       "shapeExtentWorld": 0.8,
-      "mode": "msdf",
-      "file": "gpu-msdf-legal-log-z100.png",
-      "rawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
-      "pngSha256": "0b4c472431168be024826481fc7e779e6e2d0fcf7e96f872e2f838fa81c862cc"
-    },
-    {
-      "caseId": "legal-log-z100",
-      "zoom": 100,
-      "regime": "legal-envelope-sentinel",
-      "normalization": "screen-constant",
-      "shapeExtentWorld": 0.8,
       "mode": "slug",
       "file": "gpu-slug-legal-log-z100.png",
       "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
       "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
-    },
-    {
-      "caseId": "legal-max-z1000",
-      "zoom": 1000,
-      "regime": "legal-envelope-sentinel",
-      "normalization": "screen-constant",
-      "shapeExtentWorld": 0.08,
-      "mode": "msdf",
-      "file": "gpu-msdf-legal-max-z1000.png",
-      "rawSha256": "153ad9a78e9e61cc40323c7297652de077d1be6f43b5bef5d7f39f53ece38cde",
-      "pngSha256": "0b4c472431168be024826481fc7e779e6e2d0fcf7e96f872e2f838fa81c862cc"
     },
     {
       "caseId": "legal-max-z1000",
@@ -461,41 +381,6 @@
       "file": "gpu-chrome-neutral-point-line-z4.png",
       "rawSha256": "d1c01e1491eeda4f6488da3b86146fe05b4784bff205d49274fc5b0915a81c1b",
       "pngSha256": "642a9348c8078f73fefddbc5b787ac44e05772bd1b937eddc625f7b38e12e957"
-    }
-  ],
-  "t2InputFloorCases": [
-    {
-      "caseId": "paragraph-selection",
-      "zoom": 1,
-      "regime": "session-world-subtree",
-      "normalization": "production-msdf",
-      "shapeExtentWorld": 128,
-      "mode": "paragraph-selection",
-      "file": "gpu-t2-input-floor-paragraph-selection.png",
-      "rawSha256": "762940af8030143d7e7014ffe62b1c7df627b29e7642e7a57c8d58fdbfecf1cd",
-      "pngSha256": "ad2578b42d450d3b97f934d2bba861d7f7699e324ca21a3cdf61d2b15c95192e"
-    },
-    {
-      "caseId": "clipped-card",
-      "zoom": 1,
-      "regime": "session-world-subtree",
-      "normalization": "production-msdf",
-      "shapeExtentWorld": 128,
-      "mode": "clipped-card",
-      "file": "gpu-t2-input-floor-clipped-card.png",
-      "rawSha256": "66c7a0529e3d65d6fd2733b5d1f1cb1ac2e6545cb47b7336fa9892b9b54c1f71",
-      "pngSha256": "2aa7186ac8d1a1aa387e87a19470fc7cc4797353ced6fd1569990eab081c9b6e"
-    },
-    {
-      "caseId": "composition-preedit",
-      "zoom": 1,
-      "regime": "session-world-subtree",
-      "normalization": "production-msdf",
-      "shapeExtentWorld": 128,
-      "mode": "composition-preedit",
-      "file": "gpu-t2-input-floor-composition-preedit.png",
-      "rawSha256": "71a1d88fdf8c2d2c6b46ac8ee55214d491f809050efb83999572d0caae851e63",
-      "pngSha256": "fce6f026112f46bdef89cfe76935be81fc70142405210b5467457d20094e3b6b"
     }
   ]
 }

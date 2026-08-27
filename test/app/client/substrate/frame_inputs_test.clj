@@ -40,18 +40,18 @@
   (let [device (Object.)
         prior {:device device :paths [:old] :text-sys-token [:text 2]}
         current (assoc prior :text-sys-token [:text 3])]
-    (is (= #{:render.family/msdf :render.family/slug}
+    (is (= #{:render.family/slug}
            (frame-inputs/changed-families prior current)))))
 
 (deftest family-scoped-maintenance-does-not-visit-unchanged-families
   (let [path-old {:family/id :render.family/path :entry/id :path-old}
-        text-old {:family/id :render.family/msdf :entry/id :text-old}
-        text-new {:family/id :render.family/msdf :entry/id :text-new}
+        text-old {:family/id :render.family/slug :entry/id :text-old}
+        text-new {:family/id :render.family/slug :entry/id :text-new}
         key-fn (juxt :family/id :entry/id)
         delta (frame-inputs/family-entry-delta
                {:render.family/path #{(key-fn path-old)}
-                :render.family/msdf #{(key-fn text-old)}}
-               [text-new] #{:render.family/msdf} key-fn)]
+                :render.family/slug #{(key-fn text-old)}}
+               [text-new] #{:render.family/slug} key-fn)]
     (is (= #{(key-fn text-old)} (:remove delta)))
     (is (= [text-new] (:insert delta)))
     (is (= #{(key-fn path-old)}

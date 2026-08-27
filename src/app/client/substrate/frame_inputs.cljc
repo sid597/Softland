@@ -23,10 +23,7 @@
   #{:frame-idx :pan-x :pan-y :zoom :pixel-size})
 
 (def family-input-declarations
-  {:render.family/msdf
-   #{:text-sys :text-sys-token :extra-text-geos :font-provider-token}
-
-   :render.family/slug
+  {:render.family/slug
    #{:text-sys :text-sys-token :extra-text-geos :font-provider-token}
 
    :render.family/clip

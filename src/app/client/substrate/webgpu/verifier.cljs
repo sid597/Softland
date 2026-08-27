@@ -400,44 +400,25 @@
                  :byte-identical? (:byte-identical? pair)}})
 
 (defn- run-case!
-  [{:keys [device msdf-system slug-system msdf-assets slug-assets curves]}
+  [{:keys [device slug-system slug-assets curves]}
    {:keys [case-id zoom regime]}]
   (let [lines (glyph-lines zoom)
         font-size (/ glyph-screen-size zoom)
-        msdf-glyph (first (filter #(= 111 (:unicode %))
-                                  (get-in msdf-assets [:atlas :glyphs])))
         slug-glyph (first (filter #(= 111 (:unicode %))
                                   (get-in slug-assets [:slug :meta :glyphs])))
-        msdf-instance (first (renderer/shape-text (first lines) font-size msdf-assets
-                                                  :char-width 0.60))
         slug-instance (first (renderer/shape-text (first lines) font-size slug-assets
                                                   :char-width 0.60))
-        msdf-probe (instance-path-probe curves msdf-instance (:planeBounds msdf-glyph)
-                                        zoom "production-msdf-planeBounds")
         slug-probe (instance-path-probe curves slug-instance
                                         (or (:sampleBounds slug-glyph)
                                             (:planeBounds slug-glyph))
                                         zoom "production-slug-sampleBounds")
-        msdf-system (renderer/update-text-data device msdf-system lines msdf-assets font-size
-                                               :px-range 16.0 :sharpness 0.0
-                                               :char-width 0.60)
         slug-system (renderer/update-text-data device slug-system lines slug-assets font-size
                                                :char-width 0.60)]
     (js/console.log "[W0-A] case-start" case-id "zoom" zoom)
     (->
-        (render-pair! device msdf-system zoom)
+        (render-pair! device slug-system zoom)
         (.then
-         (fn [capture]
-           (js/console.log "[W0-A] case-stage" case-id "msdf")
-           {:msdf-pair capture}))
-        (.then
-         (fn [capture]
-           (-> (render-pair! device slug-system zoom)
-               (.then (fn [pair]
-                        (js/console.log "[W0-A] case-stage" case-id "slug")
-                        (assoc capture :slug-pair pair))))))
-        (.then
-         (fn [{:keys [msdf-pair slug-pair]}]
+         (fn [slug-pair]
            (js/console.log "[W0-A] case-complete" case-id)
            {:case-id case-id
             :zoom zoom
@@ -448,14 +429,9 @@
                      :height canvas-size
                      :format color-format
                      :device-pixel-ratio (.-devicePixelRatio js/window)}
-            :images [(image-record "msdf" case-id msdf-pair)
-                     (image-record "slug" case-id slug-pair)]
+            :images [(image-record "slug" case-id slug-pair)]
             :pick-parity
-            [(parity-receipt "msdf-dejavu-o-path"
-                               (:bytes msdf-pair)
-                               (:inside? msdf-probe)
-                               (:receipt msdf-probe))
-             (parity-receipt "slug-dejavu-o-path"
+            [(parity-receipt "slug-dejavu-o-path"
                                (:bytes slug-pair)
                                (:inside? slug-probe)
                                (:receipt slug-probe))]})))))
@@ -938,7 +914,7 @@
         image-store {:images ops :ordered-vis [vi]
                      :ops-count-by-vi {vi {:images 3}}
                      :order-by-vi {vi order}}
-        fake-text {:family/id :render.family/msdf :num-instances 1
+        fake-text {:family/id :render.family/slug :num-instances 1
                    :pipeline #js {} :bind-group #js {} :instance-buffer #js {}}
         frame {:store-frame image-store :image-system image-system
                :extra-text-geos [{:geo fake-text :vi vi :order order}]}
@@ -1780,7 +1756,7 @@
    :visibility {:visible? true}})
 
 (defn- run-path-arrangement! []
-  (let [entries [(receipt-entry :text :render.family/msdf 2)
+  (let [entries [(receipt-entry :text :render.family/slug 2)
                  (receipt-entry :image :render.family/image 3)
                  (receipt-entry :path :render.family/path 4)]
         tape (scene-tape/compile-tape :path-arrangement entries)
@@ -1871,7 +1847,7 @@
         instance-buffer #js {:kind "runtime-system-instance-buffer"}
         calls (atom [])
         pass #js {}
-        entry {:family/id :render.family/msdf
+        entry {:family/id :render.family/slug
                :paint {:paint/source {:pipeline pipeline
                                       :bind-group bind-group
                                       :instance-buffer instance-buffer
@@ -1941,14 +1917,10 @@
      :limits (selected-limits (.-limits adapter))}))
 
 (defn- shader-digests []
-  (let [entries [["msdf-vertex" renderer/text-vertex-shader]
-                 ["msdf-fragment" renderer/text-fragment-shader]
-                 ["slug-vertex" renderer/slug-vertex-shader]
+  (let [entries [["slug-vertex" renderer/slug-vertex-shader]
                  ["slug-fragment" renderer/slug-fragment-shader]
                  ["region3d-placed-flat"
-                  region3d-placement-gpu/placed-flat-shader]
-                 ["region3d-placed-msdf"
-                  region3d-placement-gpu/placed-msdf-shader]]]
+                  region3d-placement-gpu/placed-flat-shader]]]
     (-> (promise-mapv (fn [[label source]]
                         (.then (sha256-string source)
                                (fn [digest] [label digest])))
@@ -2195,17 +2167,8 @@
    :x 24.0 :y 20.0 :w width :h height
    :region3d/scene region})
 
-(defn- region3d-seam-fixture [font-assets]
-  (let [text-value "one material · two spaces"
-        text-object
-        {:object/id :seam/text :object/kind :text :parent nil
-         :transform (region3d-transform
-                     [-2.9 1.25 0.35] [0.018 0.018 0.018]
-                     [0.0 0.300706 0.0 0.953717])
-         :provenance {:asserted-by :sid :act :render-verifier}
-         :text {:ref {:address :seam/text-material}
-                :params {:color nil :max-inline-size 310.0}}}
-        ink-object
+(defn- region3d-seam-fixture []
+  (let [ink-object
         {:object/id :seam/ink :object/kind :ink :parent nil
          :transform (region3d-transform
                      [-2.7 -0.95 0.4] [0.018 0.018 0.018]
@@ -2214,28 +2177,8 @@
          :ink {:ref {:address :seam/ink-material}}}
         region (-> (region3d-fixture-region :opaque)
                    (assoc :region3d/version 2)
-                   (assoc-in [:scene :seam/text] text-object)
                    (assoc-in [:scene :seam/ink] ink-object)
                    region3d-material/validate-region!)
-        layout (tl/layout {:text text-value
-                           :provider (:layout-provider font-assets)
-                           :font-size 24.0 :line-height 30.0
-                           :baseline-offset 22.0 :origin [0.0 0.0]
-                           :inline-size 310.0 :wrap-policy :block-greedy
-                           :source-id :seam/text-material
-                           :source-revision 1 :zoom 1.0})
-        text-color (region3d-placement/adapt-legacy-color
-                    [0.96 0.97 1.0 1.0])
-        text-placement
-        {:object-id :seam/text :object text-object :kind :text
-         :address :seam/text-material :status :resolved
-         :content-revision [:region3d-seam/text-v1 text-value 24.0 310.0]
-         :text text-value
-         :style {:font-size 24.0 :max-inline-size 310.0
-                 :color text-color
-                 :color-adapter region3d-placement/placed-color-adapter-version}
-         :layout layout
-         :owner {:vi :seam/text-owner :node-id :seam/text-material}}
         ink-material (path-ink-material
                       :seam/ink-material 1.0
                       [[0.0 8.0 0.45] [54.0 2.0 0.9]
@@ -2251,9 +2194,9 @@
          :owner {:vi :seam/ink-owner :op-id :seam/ink-material}}
         op (assoc (region3d-op region)
                   :region3d/resolved-placements
-                  [text-placement ink-placement])]
+                  [ink-placement])]
     {:region region :op op
-     :placements [text-placement ink-placement]}))
+     :placements [ink-placement]}))
 
 (defn- region3d-store-frame [op]
   {:regions [op]
@@ -2312,8 +2255,6 @@
 (defn- region3d-prepare-options [harness]
   {:zoom 1.0 :dpr 1.0
    :font-assets (:font-assets harness)
-   :atlas-view (get-in harness [:placement-text-system :font-texture-view])
-   :atlas-sampler (get-in harness [:placement-text-system :font-sampler])
    :path-system (:path-system harness)})
 
 (defn- region3d-capture-frame!
@@ -2945,12 +2886,6 @@
         _ (path-gpu/prepare-path-frame! surround-path-system surround-ops 1.0)
         region-system (region3d-gpu/ensure-region3d-system!
                        device tracker camera containers-buffer)
-        placement-text-system
-        (renderer/init-text-system
-         device "rgba16float" camera font-assets
-         :initial-capacity 64 :tracker tracker
-         :containers-buffer containers-buffer
-         :scene-color (scene-tape/scene-color true))
         path-system
         (path-gpu/init-path-system
          device "rgba16float" camera containers-buffer
@@ -2961,14 +2896,13 @@
                  :containers-buffer containers-buffer
                  :surround-path-system surround-path-system
                  :region-system region-system
-                 :placement-text-system placement-text-system
                  :path-system path-system
                  :font-assets font-assets :compositor compositor}
         opaque-region (region3d-fixture-region :opaque)
         transparent-region (region3d-fixture-region :transparent)
         opaque-op (region3d-op opaque-region)
         transparent-op (region3d-op transparent-region)
-        seam (region3d-seam-fixture font-assets)
+        seam (region3d-seam-fixture)
         seam-region (:region seam)
         seam-op (:op seam)
         specs [{:case-id "sandwich" :region opaque-region :op opaque-op
@@ -2996,10 +2930,6 @@
                      (when seam?
                        {:resolved (count (filter #(= :resolved (:status %))
                                                  (:region3d/resolved-placements op)))
-                        :text-layout-id
-                        (get-in op [:region3d/resolved-placements
-                                    0 :layout :layout/id])
-                        :glyphs (:glyphs placement-receipt)
                         :ink-vertices (:ink-vertices placement-receipt)})
                      :images [(region3d-image-record case-id pair)]})))))
          specs)
@@ -3033,9 +2963,7 @@
                  seam-receipt (:seam-receipt (last base-cases))
                  compositor-receipt
                  (compositor-gpu/compositor-receipt compositor)
-                 seam-pass? (and (= 2 (:resolved seam-receipt))
-                                 (some? (:text-layout-id seam-receipt))
-                                 (pos? (or (:glyphs seam-receipt) 0))
+                 seam-pass? (and (= 1 (:resolved seam-receipt))
                                  (pos? (or (:ink-vertices seam-receipt) 0)))
                  pass? (and (= 4 (count cases))
                             (every? :byte-identical? determinism)
@@ -3053,7 +2981,6 @@
              (path-gpu/destroy-path-system! path-system)
              (path-gpu/destroy-path-system! surround-path-system)
              (region3d-gpu/destroy-region3d-system! region-system)
-             (renderer/destroy-text-system! placement-text-system)
              result))))))
 
 (defn ^:export run-verifier! []
@@ -3099,20 +3026,10 @@
                                                  :foreign-failure
                                                  "T1 browser layout receipt failed.")))]
                                 (js/console.log "[W0-A] init-font-assets")
-                                (let [msdf-assets (assoc slug-assets :backend :msdf)
-                                      camera-buffer (renderer/create-camera-buffer device nil)
+                                (let [camera-buffer (renderer/create-camera-buffer device nil)
                                       containers-buffer (renderer/create-containers-buffer device nil)
                                       q8-transport (run-q8-transport! device containers-buffer)
                                       _ (js/console.log "[W0-A] init-shared-buffers")
-                                      msdf-system (do
-                                                    (js/console.log "[W0-A] init-msdf-pipeline-start")
-                                                    (let [system
-                                                          (renderer/init-text-system
-                                                           device color-format camera-buffer msdf-assets
-                                                           :initial-capacity 1
-                                                           :containers-buffer containers-buffer)]
-                                                      (js/console.log "[W0-A] init-msdf-pipeline-complete")
-                                                      system))
                                       slug-system (do
                                                     (js/console.log "[W0-A] init-slug-pipeline-start")
                                                     (let [system
@@ -3129,9 +3046,7 @@
                                                                  (count decoded))
                                                  decoded))
                                       harness {:device device
-                                               :msdf-system msdf-system
                                                :slug-system slug-system
-                                               :msdf-assets msdf-assets
                                                :slug-assets slug-assets
                                                :curves curves}]
                                   (-> (js/Promise.all
@@ -3157,8 +3072,6 @@
                                                    :device-pixel-ratio (.-devicePixelRatio js/window)
                                                    :color-format color-format}
                                           :font {:id (:id font-config)
-                                                 :msdf-atlas (:atlas font-config)
-                                                 :msdf-metrics (:metrics font-config)
                                                  :slug (:slug font-config)}
                                           :decoded-slug-curve-count (count curves)
                                           :shader-digests (aget values 1)

@@ -793,9 +793,7 @@
     (count changed)))
 
 (defn- font-input-token [font-assets]
-  [(placement/provider-identity font-assets)
-   (select-keys (get-in font-assets [:atlas :atlas])
-                [:distanceRange :width :height])])
+  (placement/provider-identity font-assets))
 
 (defn- region-entry-shape-key [store-frame regions prepared]
   (mapv (fn [{:keys [region-id]}]
@@ -808,8 +806,8 @@
   "Upload region material/session projections before any pass opens. Returns a
    receipt; it never creates a command encoder or requests a target lease."
   [system store-frame session
-   {:keys [zoom dpr font-assets session-layout-snapshot atlas-view
-           atlas-sampler path-system max-lease-size]
+   {:keys [zoom dpr font-assets session-layout-snapshot path-system
+           max-lease-size]
     :or {zoom 1.0 dpr 1.0}}]
   (let [regions (vec (or (:regions store-frame) []))
         prior @(:!prepared system)
@@ -884,7 +882,6 @@
                         :font (font-input-token font-assets)
                         :session-layout
                         (placement/session-layout-key session-layout-snapshot)
-                        :atlas-view atlas-view :atlas-sampler atlas-sampler
                         :path-system (frame-inputs/system-token path-system)
                         :max-lease-size max-lease-size}]
                    (let [gpu0 (or (:gpu old)
@@ -918,8 +915,7 @@
                             (:region3d/resolved-placements op) maintained camera
                             (if path-system @(:!mesh-cache path-system) {})
                             {:font-assets font-assets
-                             :session-layout-snapshot session-layout-snapshot
-                             :atlas-view atlas-view :atlas-sampler atlas-sampler})
+                             :session-layout-snapshot session-layout-snapshot})
                            _ (when path-system
                                (reset! (:!mesh-cache path-system)
                                        (:path-cache placement-result)))

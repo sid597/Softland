@@ -1,18 +1,14 @@
 (ns app.client.substrate.webgpu.region3d-placement-gpu
-  "WebGPU packing and paint for Region3D text/ink placements.
+  "WebGPU packing and paint for Region3D ink placements.
 
-   Packing is content/session keyed and owns no source material, atlas, or
-   tessellation authority. The caller threads the path cache value through and
-   supplies the current text-system atlas handles for each frame."
+   Packing is content keyed and owns no source material or tessellation
+   authority. The caller threads the path cache value through each frame."
   (:require [app.client.substrate.region3d-placement :as placement]
             [app.client.substrate.region3d-scene :as scene]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]))
 
 (def placement-gpu-version 1)
-(def max-placed-glyphs 16384)
 (def flat-vertex-stride 88)
-(def glyph-instance-stride 112)
-(def atlas-uniform-bytes 16)
 (def placement-depth-bias -1)
 (def placement-depth-bias-slope-scale -1.0)
 
@@ -42,51 +38,6 @@
      return input.color;
    }")
 
-(def placed-msdf-shader
-  "struct Region {
-     view_proj: mat4x4<f32>, eye: vec4<f32>, ambient: vec4<f32>,
-     settings: vec3<f32>,
-   };
-   struct Atlas { distance_range: f32, width: f32, height: f32, pad: f32, };
-   @group(0) @binding(0) var<uniform> region: Region;
-   @group(0) @binding(1) var font_texture: texture_2d<f32>;
-   @group(0) @binding(2) var font_sampler: sampler;
-   @group(0) @binding(3) var<uniform> atlas: Atlas;
-   struct In {
-     @location(0) rect: vec4<f32>, @location(1) atlas_rect: vec4<f32>,
-     @location(2) m0: vec4<f32>, @location(3) m1: vec4<f32>,
-     @location(4) m2: vec4<f32>, @location(5) m3: vec4<f32>,
-     @location(6) color: vec4<f32>,
-   };
-   struct Out { @builtin(position) position: vec4<f32>,
-                @location(0) uv: vec2<f32>, @location(1) color: vec4<f32>, };
-   @vertex fn vs(@builtin(vertex_index) index: u32, input: In) -> Out {
-     var corners = array<vec2<f32>, 6>(
-       vec2<f32>(0.0,0.0), vec2<f32>(1.0,0.0), vec2<f32>(0.0,1.0),
-       vec2<f32>(1.0,0.0), vec2<f32>(1.0,1.0), vec2<f32>(0.0,1.0));
-     let corner = corners[index];
-     let local = input.rect.xy + corner * input.rect.zw;
-     let model = mat4x4<f32>(input.m0, input.m1, input.m2, input.m3);
-     var out: Out;
-     out.position = region.view_proj * model
-                  * vec4<f32>(local.x, -local.y, 0.0, 1.0);
-     out.uv = mix(input.atlas_rect.xy, input.atlas_rect.zw, corner);
-     out.color = input.color;
-     return out;
-   }
-   fn median3(value: vec3<f32>) -> f32 {
-     return max(min(value.r, value.g), min(max(value.r, value.g), value.b));
-   }
-   @fragment fn fs(input: Out) -> @location(0) vec4<f32> {
-     let sample = textureSample(font_texture, font_sampler, input.uv);
-     let signed_distance = median3(sample.rgb) - 0.5;
-     let atlas_size = vec2<f32>(atlas.width, atlas.height);
-     let screenPxRange = max(0.5 * dot(vec2<f32>(atlas.distance_range) / atlas_size,
-                                      1.0 / fwidth(input.uv)), 1.0);
-     let coverage = clamp(signed_distance * screenPxRange + 0.5, 0.0, 1.0);
-     return vec4<f32>(input.color.rgb * coverage, input.color.a * coverage);
-   }")
-
 (defn- shader-module [device code]
   (.createShaderModule ^js device (clj->js {:code code})))
 
@@ -99,22 +50,10 @@
 
 (defn- create-pipelines! [device]
   (let [flat-module (shader-module device placed-flat-shader)
-        text-module (shader-module device placed-msdf-shader)
         flat-layout
         (.createBindGroupLayout
          ^js device
          (clj->js {:entries [{:binding 0 :visibility js/GPUShaderStage.VERTEX
-                              :buffer {:type "uniform"}}]}))
-        text-layout
-        (.createBindGroupLayout
-         ^js device
-         (clj->js {:entries [{:binding 0 :visibility js/GPUShaderStage.VERTEX
-                              :buffer {:type "uniform"}}
-                             {:binding 1 :visibility js/GPUShaderStage.FRAGMENT
-                              :texture {:sampleType "float"}}
-                             {:binding 2 :visibility js/GPUShaderStage.FRAGMENT
-                              :sampler {:type "filtering"}}
-                             {:binding 3 :visibility js/GPUShaderStage.FRAGMENT
                               :buffer {:type "uniform"}}]}))
         depth {:format "depth24plus" :depthWriteEnabled false
                :depthCompare "less-equal" :depthBias placement-depth-bias
@@ -143,34 +82,8 @@
                    :fragment {:module flat-module :entryPoint "fs"
                               :targets [target]}
                    :primitive {:topology "triangle-list" :cullMode "none"}
-                   :depthStencil depth :multisample {:count 4}}))
-        text
-        (.createRenderPipeline
-         ^js device
-         (clj->js {:layout (pipeline-layout device [text-layout])
-                   :vertex {:module text-module :entryPoint "vs"
-                            :buffers [{:arrayStride glyph-instance-stride
-                                       :stepMode "instance"
-                                       :attributes
-                                       [{:shaderLocation 0 :offset 0
-                                         :format "float32x4"}
-                                        {:shaderLocation 1 :offset 16
-                                         :format "float32x4"}
-                                        {:shaderLocation 2 :offset 32
-                                         :format "float32x4"}
-                                        {:shaderLocation 3 :offset 48
-                                         :format "float32x4"}
-                                        {:shaderLocation 4 :offset 64
-                                         :format "float32x4"}
-                                        {:shaderLocation 5 :offset 80
-                                         :format "float32x4"}
-                                        {:shaderLocation 6 :offset 96
-                                         :format "float32x4"}]}]}
-                   :fragment {:module text-module :entryPoint "fs"
-                              :targets [target]}
-                   :primitive {:topology "triangle-list" :cullMode "none"}
                    :depthStencil depth :multisample {:count 4}}))]
-    {:flat-layout flat-layout :text-layout text-layout :flat flat :text text}))
+    {:flat-layout flat-layout :flat flat}))
 
 (defn- create-buffer! [system label size usage]
   (let [size (max 4 (int size))
@@ -207,27 +120,17 @@
     bytes))
 
 (defn init-placement-system! [device tracker]
-  (let [uniform-usage (bit-or js/GPUBufferUsage.COPY_DST
-                              js/GPUBufferUsage.UNIFORM)
-        system {:placement-gpu/version placement-gpu-version
-                :device device :tracker tracker
-                :pipelines (create-pipelines! device)}
-        atlas-uniform (create-buffer! system "region3d/placement-atlas"
-                                      atlas-uniform-bytes uniform-usage)]
-    (assoc system
-           :atlas-uniform atlas-uniform
-           :!atlas-key (atom nil)
-           :!atlas-handles (atom nil)
-           :!receipt (atom {:version placement-gpu-version :packs 0
-                            :uploads 0 :draws 0 :layout-calls 0
-                            :glyphs 0 :ink-vertices 0 :over-budget 0}))))
+  {:placement-gpu/version placement-gpu-version
+   :device device :tracker tracker
+   :pipelines (create-pipelines! device)
+   :!receipt (atom {:version placement-gpu-version :packs 0
+                    :uploads 0 :draws 0
+                    :ink-vertices 0 :over-budget 0})})
 
 (defn create-region-gpu! [system region-id]
   (let [usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.VERTEX)]
     {:flat (create-buffer! system (str "region3d/" region-id "/placed-flat")
                            256 usage)
-     :glyphs (create-buffer! system (str "region3d/" region-id "/placed-glyphs")
-                             256 usage)
      :pack-cache {}
      :pack-key ::never
      :draw-order []
@@ -237,39 +140,6 @@
 (defn- column-major [matrix]
   (mapv #(nth matrix %) [0 4 8 12 1 5 9 13 2 6 10 14 3 7 11 15]))
 
-(defn- live-layout [placed session-snapshot]
-  (when (and session-snapshot
-             (= (:address placed) (:address session-snapshot)))
-    (:layout session-snapshot)))
-
-(defn- atlas-key [font-assets]
-  (let [atlas (get-in font-assets [:atlas :atlas])]
-    [(:distanceRange atlas) (:width atlas) (:height atlas)]))
-
-(defn- update-atlas! [system font-assets atlas-view atlas-sampler]
-  (let [[distance-range width height :as key] (atlas-key font-assets)]
-    (reset! (:!atlas-handles system)
-            (when (and atlas-view atlas-sampler width height)
-              {:view atlas-view :sampler atlas-sampler}))
-    (when (and width height (not= key @(:!atlas-key system)))
-      (write-buffer! system (:atlas-uniform system)
-                     [(double (or distance-range 1.0))
-                      (double width) (double height) 0.0])
-      (reset! (:!atlas-key system) key))))
-
-(defn- text-pack [placed matrix font-assets session-snapshot]
-  (if-not (get-in font-assets [:atlas :atlas])
-    {:status :no-msdf-atlas :kind :text :matrix matrix}
-    (let [live (live-layout placed session-snapshot)
-          layout (or live (placement/layout-placed-text placed font-assets))
-          glyphs (placement/pack-glyph-quads placed layout font-assets)]
-      (if (> (count glyphs) max-placed-glyphs)
-        {:status :over-budget :kind :text :matrix matrix :layout layout
-         :glyph-count (count glyphs)}
-        {:status :resolved :kind :text :matrix matrix :layout layout
-         :glyphs glyphs :glyph-count (count glyphs)
-         :layout-call? (nil? live)}))))
-
 (defn- ink-pack [cache placed matrix]
   (let [{next-cache :cache pack :pack} (placement/pack-placed-ink cache placed)]
     {:cache next-cache
@@ -277,19 +147,13 @@
               :vertices (:vertices pack) :color (:color pack)
               :vertex-count (count (:vertices pack))}}))
 
-(defn- placement-key [placed matrix font-assets session-snapshot]
-  (let [live? (= (:address placed) (:address session-snapshot))]
-    [(:object-id placed) (:kind placed) (:status placed)
-     (if live?
-       (placement/session-layout-key session-snapshot)
-       (:content-revision placed))
-     (when (= :text (:kind placed))
-       [(placement/provider-identity font-assets) (atlas-key font-assets)])
-     matrix]))
+(defn- placement-key [placed matrix]
+  [(:object-id placed) (:kind placed) (:status placed)
+   (:content-revision placed) matrix])
 
-(defn- pack-one [cache old placed maintained font-assets session-snapshot]
+(defn- pack-one [cache old placed maintained]
   (let [matrix (get-in maintained [:effective-transforms (:object-id placed)])
-        key (placement-key placed matrix font-assets session-snapshot)]
+        key (placement-key placed matrix)]
     (cond
       (= key (:key old)) {:cache cache :row old :packed? false}
       (not= :resolved (:status placed))
@@ -297,12 +161,6 @@
        :row {:key key :placed (assoc placed :matrix matrix)
              :packed {:status (:status placed) :kind (:kind placed)
                       :matrix matrix}}}
-      (= :text (:kind placed))
-      (let [packed (text-pack placed matrix font-assets session-snapshot)]
-        {:cache cache :packed? true
-         :row {:key key :placed (assoc placed :matrix matrix
-                                      :layout (:layout packed))
-               :packed packed}})
       (= :ink (:kind placed))
       (let [{next-cache :cache packed :packed} (ink-pack cache placed matrix)]
         {:cache next-cache :packed? true
@@ -321,42 +179,36 @@
 
 (defn- enforce-region-budgets [system rows]
   (loop [remaining (sort-by (comp pr-str :object-id :placed) rows)
-         glyphs 0 ink-vertices 0 result []]
+         ink-vertices 0 result []]
     (if-let [row (first remaining)]
       (let [packed (:packed row)
-            next-glyphs (+ glyphs (or (:glyph-count packed) 0))
             next-ink (+ ink-vertices (or (:vertex-count packed) 0))
-            over? (or (> next-glyphs max-placed-glyphs)
-                      (> next-ink (device-ink-vertex-limit system)))
+            over? (> next-ink (device-ink-vertex-limit system))
             row (if (and (= :resolved (:status packed)) over?)
                   (-> row
                       (assoc-in [:packed :status] :over-budget)
-                      (assoc-in [:packed :glyphs] [])
                       (assoc-in [:packed :vertices] []))
                   row)]
         (recur (next remaining)
-               (if over? glyphs next-glyphs)
                (if over? ink-vertices next-ink)
                (conj result row)))
       result)))
 
 (defn- build-uploads [rows maintained camera]
   (reduce
-   (fn [{:keys [flat glyphs draws placements] :as result} row]
+   (fn [{:keys [flat] :as result} row]
      (let [{:keys [placed packed]} row
            kind (:kind packed)
            status (:status packed)
            matrix (:matrix packed)
            color (when (= :resolved status)
                    (placement/linear-premultiplied
-                    (if (= :text kind)
-                      (get-in placed [:style :color])
-                      (:color packed)) 1.0 1.0))
+                    (:color packed) 1.0 1.0))
            depth (when matrix
                    (scene/length
                     (scene/v- (scene/transform-point matrix [0.0 0.0 0.0])
                               (:eye camera))))
-           placed (assoc placed :status status :layout (:layout packed))]
+           placed (assoc placed :status status)]
        (cond
          (and (= :resolved status) (= :ink kind))
          (let [first-vertex (quot (count flat) 22)
@@ -370,20 +222,8 @@
                                     :count (:vertex-count packed) :depth depth})
                (update :placements conj placed)))
 
-         (and (= :resolved status) (= :text kind))
-         (let [first-instance (quot (count glyphs) 28)
-               values (vec (mapcat (fn [{:keys [rect uv]}]
-                                     (concat rect uv (column-major matrix) color))
-                                   (:glyphs packed)))]
-           (-> result
-               (update :glyphs into values)
-               (update :draws conj {:kind :text :object-id (:object-id placed)
-                                    :first first-instance
-                                    :count (:glyph-count packed) :depth depth})
-               (update :placements conj placed)))
-
          :else (update result :placements conj placed))))
-   {:flat [] :glyphs [] :draws [] :placements []}
+   {:flat [] :draws [] :placements []}
    rows))
 
 (defn- sort-draws [draws maintained camera]
@@ -402,27 +242,17 @@
 (defn prepare-placements!
   "Pack changed placements and upload only when the aggregate packing key
    changes. Returns the caller-owned path cache value after ink derivation."
-  [system region-gpu placements maintained camera path-cache
-   {:keys [font-assets session-layout-snapshot atlas-view atlas-sampler]}]
-  (update-atlas! system font-assets atlas-view atlas-sampler)
-  (let [paint-font-assets (if (and atlas-view atlas-sampler)
-                            font-assets
-                            (dissoc font-assets :atlas))
-        old-cache (:pack-cache region-gpu)
+  [system region-gpu placements maintained camera path-cache _options]
+  (let [old-cache (:pack-cache region-gpu)
         packed
         (reduce
-         (fn [{:keys [path-cache rows packs layout-calls]} placed]
+         (fn [{:keys [path-cache rows packs]} placed]
            (let [result (pack-one path-cache (get old-cache (:object-id placed))
-                                  placed maintained paint-font-assets
-                                  session-layout-snapshot)]
+                                  placed maintained)]
              {:path-cache (:cache result)
               :rows (conj rows (:row result))
-              :packs (+ packs (if (:packed? result) 1 0))
-              :layout-calls
-              (+ layout-calls
-                 (if (and (:packed? result)
-                          (get-in result [:row :packed :layout-call?])) 1 0))}))
-         {:path-cache (or path-cache {}) :rows [] :packs 0 :layout-calls 0}
+              :packs (+ packs (if (:packed? result) 1 0))}))
+         {:path-cache (or path-cache {}) :rows [] :packs 0}
          placements)
         rows (enforce-region-budgets system (:rows packed))
         ;; The cache value is the whole row: `pack-one` compares its :key and
@@ -433,38 +263,28 @@
                                 [(get-in row [:placed :object-id]) row]))
                          rows)
         pack-key (mapv (fn [{:keys [key packed]}]
-                         [key (:status packed) (:glyph-count packed)
-                          (:vertex-count packed)]) rows)
+                         [key (:status packed) (:vertex-count packed)]) rows)
         changed? (not= pack-key (:pack-key region-gpu))
         upload (if changed? (build-uploads rows maintained camera)
                    {:placements (:placements region-gpu)})
         flat-data (when changed? (:flat upload))
-        glyph-data (when changed? (:glyphs upload))
         flat-buffer (if changed?
                       (ensure-buffer! system (:flat region-gpu)
                                       (:label (:flat region-gpu))
                                       (* 4 (count flat-data)))
                       (:flat region-gpu))
-        glyph-buffer (if changed?
-                       (ensure-buffer! system (:glyphs region-gpu)
-                                       (:label (:glyphs region-gpu))
-                                       (* 4 (count glyph-data)))
-                       (:glyphs region-gpu))
         uploads (if changed?
-                  (+ (if (pos? (write-buffer! system flat-buffer flat-data)) 1 0)
-                     (if (pos? (write-buffer! system glyph-buffer glyph-data)) 1 0))
+                  (if (pos? (write-buffer! system flat-buffer flat-data)) 1 0)
                   0)
         statuses (frequencies (map (comp :status :packed) rows))
         next-gpu (cond-> (assoc region-gpu :pack-cache next-cache
                                 :pack-key pack-key :flat flat-buffer
-                                :glyphs glyph-buffer :census statuses
+                                :census statuses
                                 :draw-order
                                 (if changed?
                                   (sort-draws (:draws upload) maintained camera)
                                   (:draw-order region-gpu)))
                    changed? (assoc :placements (:placements upload)))
-        glyph-count (reduce + 0 (map #(or (get-in % [:packed :glyph-count]) 0)
-                                         rows))
         ink-count (reduce + 0 (map #(or (get-in % [:packed :vertex-count]) 0)
                                        rows))]
     (swap! (:!receipt system)
@@ -472,8 +292,7 @@
              (-> receipt
                  (update :packs + (:packs packed))
                  (update :uploads + uploads)
-                 (update :layout-calls + (:layout-calls packed))
-                 (assoc :glyphs glyph-count :ink-vertices ink-count
+                 (assoc :ink-vertices ink-count
                         :over-budget (get statuses :over-budget 0)
                         :last-census statuses))))
     {:gpu next-gpu :path-cache (:path-cache packed)
@@ -487,21 +306,8 @@
              :entries [{:binding 0
                         :resource {:buffer (:buffer region-uniform)}}]})))
 
-(defn- text-bind-group [system region-uniform]
-  (when-let [{:keys [view sampler]} @(:!atlas-handles system)]
-    (.createBindGroup
-     ^js (:device system)
-     (clj->js {:layout (get-in system [:pipelines :text-layout])
-               :entries [{:binding 0
-                          :resource {:buffer (:buffer region-uniform)}}
-                         {:binding 1 :resource view}
-                         {:binding 2 :resource sampler}
-                         {:binding 3
-                          :resource {:buffer (:buffer (:atlas-uniform system))}}]}))))
-
 (defn draw-placements! [pass system region-gpu region-uniform]
   (let [flat-bind (delay (flat-bind-group system region-uniform))
-        text-bind (delay (text-bind-group system region-uniform))
         draws (atom 0)]
     (doseq [{:keys [kind first count]} (:draw-order region-gpu)
             :when (pos? count)]
@@ -512,13 +318,6 @@
             (.setVertexBuffer ^js pass 0 (:buffer (:flat region-gpu)))
             (.draw ^js pass count 1 first 0)
             (swap! draws inc))
-        :text
-        (when-let [bind @text-bind]
-          (.setPipeline ^js pass (get-in system [:pipelines :text]))
-          (.setBindGroup ^js pass 0 bind)
-          (.setVertexBuffer ^js pass 0 (:buffer (:glyphs region-gpu)))
-          (.draw ^js pass 6 count 0 first)
-          (swap! draws inc))
         nil))
     (swap! (:!receipt system) update :draws + @draws)
     @draws))
@@ -531,10 +330,6 @@
     (.destroy ^js buffer)))
 
 (defn destroy-region-gpu! [system region-gpu]
-  (destroy-buffer! system (:flat region-gpu) :region3d-placement-region-close)
-  (destroy-buffer! system (:glyphs region-gpu) :region3d-placement-region-close))
+  (destroy-buffer! system (:flat region-gpu) :region3d-placement-region-close))
 
-(defn destroy-placement-system! [system]
-  (destroy-buffer! system (:atlas-uniform system) :region3d-placement-close)
-  (reset! (:!atlas-handles system) nil)
-  true)
+(defn destroy-placement-system! [_system] true)

@@ -6,13 +6,11 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 
 const owners = [
   ["src/app/client/substrate/region3d_placement.cljc", "layout-placed-text", ["text-layout/layout"]],
-  ["src/app/client/substrate/region3d_placement.cljc", "pack-glyph-quads", ["text-layout/paint-result"]],
   ["src/app/client/substrate/webgpu/renderer.cljs", "position-text-op", ["tl/layout", ":layout-result", ":glyphs", "line-index-for-layout"]],
-  ["src/app/client/substrate/webgpu/renderer.cljs", "paint-msdf-line", ["painted-glyph"]],
   ["src/app/client/substrate/webgpu/renderer.cljs", "paint-slug-line", ["painted-glyph"]],
 ];
 
-const paintConsumers = ["paint-msdf-line", "paint-slug-line"];
+const paintConsumers = ["paint-slug-line"];
 const forbiddenPaintOwnership = ["tl/layout", "tl/legacy-char-advance", "tl/measure-result", "tl/hit-test-result"];
 
 const privateMetricPatterns = [

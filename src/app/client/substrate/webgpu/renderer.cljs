@@ -161,67 +161,6 @@
     return textureSample(mip_source, mip_sampler, uv);
   }")
 
-(def text-vertex-shader "
-  struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
-  @group(0) @binding(2) var<uniform> camera: Camera;
-  struct ContainerTransform {
-    axis_x: vec2<f32>, axis_y: vec2<f32>, translation: vec2<f32>,
-    flags: u32, padding: u32,
-  };
-  @group(0) @binding(4) var<storage, read> containers: array<ContainerTransform>;
-  // Per-instance: rect (vec4), uv_bounds (vec4), color (vec4), container_idx (u32) = 13 words
-  struct InstanceInput { @location(0) rect: vec4<f32>, @location(1) uv_bounds: vec4<f32>, @location(2) color: vec4<f32>, @location(3) container_idx: u32, };
-  struct VertexOutput { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, @location(1) v_visual_size: f32, @location(2) color: vec4<f32>, };
-
-  @vertex
-  fn main(@builtin(vertex_index) v_index: u32, instance: InstanceInput) -> VertexOutput {
-      var output: VertexOutput;
-      var pos = vec2<f32>(0.0, 0.0);
-      switch(v_index) {
-          case 0u: { pos = vec2<f32>(0.0, 0.0); } case 1u: { pos = vec2<f32>(1.0, 0.0); }
-          case 2u: { pos = vec2<f32>(0.0, 1.0); } case 3u: { pos = vec2<f32>(1.0, 0.0); }
-          case 4u: { pos = vec2<f32>(1.0, 1.0); } default: { pos = vec2<f32>(0.0, 1.0); }
-      }
-      let world_pos = vec2<f32>(instance.rect.x + (pos.x * instance.rect.z),
-                                instance.rect.y + (pos.y * instance.rect.w));
-      let u = mix(instance.uv_bounds.x, instance.uv_bounds.z, pos.x);
-      let v = mix(instance.uv_bounds.y, instance.uv_bounds.w, pos.y);
-      let c = containers[instance.container_idx];
-      let is_screen = (c.flags & 1u) != 0u;
-      let zm = select(camera.zoom, 1.0, is_screen);
-      let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
-      let transformed = c.translation + c.axis_x * world_pos.x + c.axis_y * world_pos.y;
-      let panned = transformed * zm + pn;
-      let ndc = (panned / camera.screen_dimensions * 2.0) - vec2<f32>(1.0, 1.0);
-      output.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
-      output.uv = vec2<f32>(u, v);
-      let axis_scale = vec2<f32>(length(c.axis_x), length(c.axis_y)) * zm;
-      output.v_visual_size = max(instance.rect.z * axis_scale.x,
-                                 instance.rect.w * axis_scale.y);
-      output.color = instance.color;
-      return output;
-  }")
-
-(def text-fragment-shader (str scene-color-wgsl "
-  @group(0) @binding(0) var sampler0: sampler;
-  @group(0) @binding(1) var texture0: texture_2d<f32>;
-  // Sizing uniform: pxRange, atlasEmSize, sharpness (color now per-instance)
-  struct Sizing { pxRange: f32, atlasEmSize: f32, sharpness: f32, padding: f32, };
-  @group(0) @binding(3) var<uniform> params: Sizing;
-  fn median(a: f32, b: f32, c: f32) -> f32 { return max(min(a, b), min(max(a, b), c)); }
-
-  @fragment
-  fn main(@location(0) uv: vec2<f32>, @location(1) visual_size: f32, @location(2) color: vec4<f32>) -> @location(0) vec4<f32> {
-       let msd = textureSample(texture0, sampler0, uv).rgb;
-       let sd = median(msd.r, msd.g, msd.b);
-       let screenPxRange = max(params.pxRange * (visual_size / params.atlasEmSize), 1.0);
-       // sharpness: negative = sharper edges, positive = softer edges, 0 = standard MSDF
-       let dist = sd - 0.5 + params.sharpness;
-       let opacity = clamp(dist * screenPxRange + 0.5, 0.0, 1.0);
-       // Use per-instance color instead of uniform color
-       return scene_color(color, opacity);
-  }"))
-
 (def slug-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(2) var<uniform> camera: Camera;
@@ -437,7 +376,6 @@
 ;; --- 2. INITIALIZATION ---
 
 (def image-instance-stride image-material/image-instance-stride)
-(def msdf-text-instance-stride 52)  ;; 12 floats + container u32
 (def slug-text-instance-stride 100) ;; 24 words + container u32
 
 ;; --- W2-A/Q8: shared compact affine transport ------------------------------
@@ -1088,15 +1026,6 @@
     (gpu-budget/register-buffer! tracker buffer label size :active-bytes 0)
     buffer))
 
-(defn- create-msdf-bind-group [^js/GPUDevice device layout sampler texture-view camera-buffer sizes-buffer containers-buffer]
-  (.createBindGroup device
-    (clj->js {:layout layout
-              :entries [{:binding 0 :resource sampler}
-                        {:binding 1 :resource texture-view}
-                        {:binding 2 :resource {:buffer camera-buffer}}
-                        {:binding 3 :resource {:buffer sizes-buffer}}
-                        {:binding 4 :resource {:buffer containers-buffer}}]})))
-
 (defn- create-slug-bind-group [^js/GPUDevice device layout curve-view band-view camera-buffer sizes-buffer containers-buffer]
   (.createBindGroup device
     (clj->js {:layout layout
@@ -1105,32 +1034,6 @@
                         {:binding 2 :resource {:buffer camera-buffer}}
                         {:binding 3 :resource {:buffer sizes-buffer}}
                         {:binding 4 :resource {:buffer containers-buffer}}]})))
-
-(defn- create-msdf-font-resources [^js/GPUDevice device tracker font-bitmap texture-label]
-  (let [texture (.createTexture device (clj->js {:size {:width (.-width font-bitmap)
-                                                        :height (.-height font-bitmap)
-                                                        :depthOrArrayLayers 1}
-                                                 :format "rgba8unorm"
-                                                 :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
-                                                                js/GPUTextureUsage.TEXTURE_BINDING
-                                                                js/GPUTextureUsage.COPY_DST)}))
-        sampler (.createSampler device (clj->js {:minFilter "linear"
-                                                 :magFilter "linear"
-                                                 :mipmapFilter "linear"}))
-        _ (.copyExternalImageToTexture (.-queue device)
-                                       (clj->js {:source font-bitmap})
-                                       (clj->js {:texture texture})
-                                       (clj->js {:width (.-width font-bitmap)
-                                                 :height (.-height font-bitmap)}))]
-    (gpu-budget/register-texture! tracker texture texture-label
-                                  :format "rgba8unorm"
-                                  :width (.-width font-bitmap)
-                                  :height (.-height font-bitmap))
-    {:font-texture texture
-     :font-texture-view (.createView texture)
-     :font-sampler sampler
-     :font-texture-label texture-label
-     :font-resource-kind :msdf}))
 
 (defn- create-slug-texture [^js/GPUDevice device tracker label format width height bytes bytes-per-row]
   (let [texture (.createTexture device (clj->js {:size {:width width
@@ -1178,13 +1081,6 @@
      :band-texture-label "text/slug-band"
      :font-resource-kind :slug}))
 
-(defn- destroy-msdf-font-resources! [text-sys]
-  (when-let [tracker (:gpu-tracker text-sys)]
-    (when-let [texture (:font-texture text-sys)]
-      (gpu-budget/destroy-resource! tracker texture :reason :text-font-destroy)))
-  (when-let [^js texture (:font-texture text-sys)]
-    (.destroy texture)))
-
 (defn- destroy-slug-font-resources! [text-sys]
   (when-let [tracker (:gpu-tracker text-sys)]
     (when-let [curve-texture (:curve-texture text-sys)]
@@ -1207,78 +1103,7 @@
   (when (and (:owns-sizing-buffer? text-sys) (:sizes-uniform-buffer text-sys))
     (.destroy ^js (:sizes-uniform-buffer text-sys)))
   (when (:owns-font-resources? text-sys)
-    (case (:backend text-sys)
-      :msdf (destroy-msdf-font-resources! text-sys)
-      :slug (destroy-slug-font-resources! text-sys)
-      nil)))
-
-(defn- init-msdf-text-system
-  [^js/GPUDevice device fformat camera-buffer font-assets
-   & {:keys [initial-capacity tracker label containers-buffer scene-color]
-      :or {initial-capacity 10000
-           label "text/content"
-           scene-color scene-tape/legacy-direct-color}}]
-  (assert containers-buffer "init-msdf-text-system requires :containers-buffer (scene-substrate P2)")
-  (let [font-bitmap (:bitmap font-assets)
-        vertex-module (.createShaderModule device (clj->js {:code text-vertex-shader}))
-        fragment-module (.createShaderModule device
-                                             (clj->js {:code (configure-scene-color-shader
-                                                              text-fragment-shader scene-color)}))
-        font-resources (create-msdf-font-resources device tracker font-bitmap "text/atlas")
-        instance-buffer (create-instance-buffer device tracker label initial-capacity msdf-text-instance-stride)
-        sizes-buffer (.createBuffer device (clj->js {:size 16
-                                                     :usage (bit-or js/GPUBufferUsage.UNIFORM
-                                                                    js/GPUBufferUsage.COPY_DST)}))
-        _ (gpu-budget/register-buffer! tracker sizes-buffer "text/shared-sizing" 16 :active-bytes 16)
-        bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility js/GPUShaderStage.FRAGMENT :sampler {:type "filtering"}}
-                                                                     {:binding 1 :visibility js/GPUShaderStage.FRAGMENT :texture {:sampleType "float"}}
-                                                                     {:binding 2 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}
-                                                                     {:binding 3 :visibility js/GPUShaderStage.FRAGMENT :buffer {:type "uniform"}}
-                                                                     {:binding 4 :visibility js/GPUShaderStage.VERTEX :buffer {:type "read-only-storage"}}]}))
-        pipeline-layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [bg-layout]}))
-        pipeline (.createRenderPipeline device
-                   (clj->js {:layout pipeline-layout
-                             :vertex {:module vertex-module
-                                      :entryPoint "main"
-                                      :buffers [{:arrayStride msdf-text-instance-stride
-                                                 :stepMode "instance"
-                                                 :attributes [{:shaderLocation 0 :offset 0 :format "float32x4"}
-                                                              {:shaderLocation 1 :offset 16 :format "float32x4"}
-                                                              {:shaderLocation 2 :offset 32 :format "float32x4"}
-                                                              {:shaderLocation 3 :offset 48 :format "uint32"}]}]}
-                             :fragment {:module fragment-module
-                                        :entryPoint "main"
-                                        :targets [{:format fformat
-                                                   :blend (scene-color-blend scene-color)}]}
-                             :primitive {:topology "triangle-list"}}))
-        bind-group (create-msdf-bind-group device bg-layout (:font-sampler font-resources) (:font-texture-view font-resources) camera-buffer sizes-buffer containers-buffer)]
-    (js/console.log "[RENDERER] Init text system"
-                    {:backend :msdf
-                     :label label
-                     :initial-capacity initial-capacity
-                     :instance-stride msdf-text-instance-stride
-                     :atlas-size [(.-width font-bitmap) (.-height font-bitmap)]})
-    (merge font-resources
-           {:backend :msdf
-            :family/id :render.family/msdf
-            :scene-color scene-color
-            :pipeline pipeline
-            :bind-group bind-group
-            :bind-group-layout bg-layout
-            :camera-uniform-buffer camera-buffer
-            :containers-uniform-buffer containers-buffer
-            :sizes-uniform-buffer sizes-buffer
-            :instance-buffer instance-buffer
-            :instance-stride msdf-text-instance-stride
-            :num-instances 0
-            :frame-input/identity (js-obj)
-            :!shape-rev (atom 0)
-            :!paint-state (atom {:pipeline pipeline :bind-group bind-group
-                                 :buffer instance-buffer :instance-count 0})
-            :gpu-tracker tracker
-            :gpu-label label
-            :owns-font-resources? true
-            :owns-sizing-buffer? true})))
+    (destroy-slug-font-resources! text-sys)))
 
 (defn- init-slug-text-system
   [^js/GPUDevice device fformat camera-buffer font-assets
@@ -1351,85 +1176,48 @@
 
 (defn init-text-system
   [^js/GPUDevice device fformat camera-buffer font-assets & {:as opts}]
-  (if (= :slug (:backend font-assets))
-    (apply init-slug-text-system device fformat camera-buffer font-assets (mapcat identity opts))
-    (apply init-msdf-text-system device fformat camera-buffer font-assets (mapcat identity opts))))
+  (apply init-slug-text-system device fformat camera-buffer font-assets
+         (mapcat identity opts)))
 
 (defn update-font-assets [^js/GPUDevice device text-sys font-assets]
   (js/console.log "[RENDERER] Update font assets"
-                  {:current-backend (:backend text-sys)
-                   :requested-backend (:backend font-assets)
-                   :font-id (:id font-assets)})
-  (if (not= (:backend text-sys) (:backend font-assets))
-    (throw (ex-info "Text backend mismatch during font update."
-                    {:current (:backend text-sys)
-                     :requested (:backend font-assets)}))
-    (sync-paint-state!
-     (case (:backend text-sys)
-       :msdf
-       (let [tracker (:gpu-tracker text-sys)
-             old-texture (:font-texture text-sys)
-             font-resources (create-msdf-font-resources device tracker (:bitmap font-assets) (or (:font-texture-label text-sys) "text/atlas"))]
-         (when (and tracker old-texture (:owns-font-resources? text-sys))
-           (gpu-budget/destroy-resource! tracker old-texture :reason :font-update))
-         (when (and old-texture (:owns-font-resources? text-sys))
-           (.destroy ^js old-texture))
-         (merge text-sys
-                font-resources
-                {:bind-group (create-msdf-bind-group device
-                                                     (:bind-group-layout text-sys)
-                                                     (:font-sampler font-resources)
-                                                     (:font-texture-view font-resources)
-                                                     (:camera-uniform-buffer text-sys)
-                                                     (:sizes-uniform-buffer text-sys)
-                                                     (:containers-uniform-buffer text-sys))
-                 :owns-font-resources? true}))
-
-       :slug
-       (let [tracker (:gpu-tracker text-sys)
-             old-curve (:curve-texture text-sys)
-             old-band (:band-texture text-sys)
-             font-resources (create-slug-font-resources device tracker (:slug font-assets))]
-         (when (and tracker old-curve (:owns-font-resources? text-sys))
-           (gpu-budget/destroy-resource! tracker old-curve :reason :slug-curve-update))
-         (when (and tracker old-band (:owns-font-resources? text-sys))
-           (gpu-budget/destroy-resource! tracker old-band :reason :slug-band-update))
-         (when (and old-curve (:owns-font-resources? text-sys))
-           (.destroy ^js old-curve))
-         (when (and old-band (:owns-font-resources? text-sys))
-           (.destroy ^js old-band))
-         (merge text-sys
-                font-resources
-                {:bind-group (create-slug-bind-group device
-                                                     (:bind-group-layout text-sys)
-                                                     (:curve-texture-view font-resources)
-                                                     (:band-texture-view font-resources)
-                                                     (:camera-uniform-buffer text-sys)
-                                                     (:sizes-uniform-buffer text-sys)
-                                                     (:containers-uniform-buffer text-sys))
-                 :owns-font-resources? true}))))))
+                  {:font-id (:id font-assets)})
+  (sync-paint-state!
+   (let [tracker (:gpu-tracker text-sys)
+         old-curve (:curve-texture text-sys)
+         old-band (:band-texture text-sys)
+         font-resources (create-slug-font-resources device tracker (:slug font-assets))]
+     (when (and tracker old-curve (:owns-font-resources? text-sys))
+       (gpu-budget/destroy-resource! tracker old-curve :reason :slug-curve-update))
+     (when (and tracker old-band (:owns-font-resources? text-sys))
+       (gpu-budget/destroy-resource! tracker old-band :reason :slug-band-update))
+     (when (and old-curve (:owns-font-resources? text-sys))
+       (.destroy ^js old-curve))
+     (when (and old-band (:owns-font-resources? text-sys))
+       (.destroy ^js old-band))
+     (merge text-sys
+            font-resources
+            {:bind-group (create-slug-bind-group device
+                                                 (:bind-group-layout text-sys)
+                                                 (:curve-texture-view font-resources)
+                                                 (:band-texture-view font-resources)
+                                                 (:camera-uniform-buffer text-sys)
+                                                 (:sizes-uniform-buffer text-sys)
+                                                 (:containers-uniform-buffer text-sys))
+             :owns-font-resources? true}))))
 
 (defn share-font-resources
   "Point a secondary text system at a primary text system's shared font resources."
   [target-state source-state]
-  (when (and (:owns-font-resources? target-state)
-             (not= (:backend target-state) (:backend source-state)))
-    (throw (ex-info "Cannot share font resources across different text backends."
-                    {:source (:backend source-state)
-                     :target (:backend target-state)})))
   (when (:owns-font-resources? target-state)
-    (case (:backend target-state)
-      :msdf (destroy-msdf-font-resources! target-state)
-      :slug (destroy-slug-font-resources! target-state)
-      nil))
+    (destroy-slug-font-resources! target-state))
   (sync-paint-state!
    (-> target-state
        (assoc :bind-group (:bind-group source-state)
               :owns-font-resources? false)
        (merge
         (select-keys source-state
-                     [:font-texture :font-texture-view :font-sampler :font-texture-label
-                      :curve-texture :curve-texture-view :curve-texture-label
+                     [:curve-texture :curve-texture-view :curve-texture-label
                       :band-texture :band-texture-view :band-texture-label
                       :font-resource-kind])))))
 
@@ -1443,9 +1231,7 @@
         containers-buffer (:containers-uniform-buffer old-text-sys)
         scene-color (:scene-color old-text-sys scene-tape/legacy-direct-color)]
     (js/console.log "[RENDERER] Recreate text system"
-                    {:old-backend (:backend old-text-sys)
-                     :new-backend (:backend font-assets)
-                     :label label
+                    {:label label
                      :capacity capacity
                      :font-id (:id font-assets)})
     (destroy-text-system! old-text-sys)
@@ -1585,13 +1371,12 @@
   [(or r 1.0) (or g 1.0) (or b 1.0) (or a 1.0)])
 
 ;; first-light P1 (G1 drill finding): glyph-map is rebuilt PER LINE by
-;; shape-msdf-line/shape-slug-line — a whole-conversation reshape rebuilt the
+;; paint-slug-line — a whole-conversation reshape rebuilt the
 ;; full unicode→glyph map hundreds of times per keystroke (~23ms/keystroke,
 ;; CPU-profiled). The map is a pure derivation of the font's glyphs vector,
-;; which only changes identity on a font/backend swap — cache per vector
+;; which only changes identity on a font swap — cache per vector
 ;; identity (WeakMap: no leak, old fonts' entries die with their vectors).
 (defonce ^:private glyph-map-cache (js/WeakMap.))
-(defonce ^:private atlas-glyph-map-cache (js/WeakMap.))
 
 (defn- glyph-map [glyphs]
   (or (.get glyph-map-cache glyphs)
@@ -1612,22 +1397,6 @@
         (when glyphs (.set glyph-map-cache glyphs m))
         m)))
 
-(defn- atlas-glyph-map [font-assets]
-  (let [atlas (:atlas font-assets)]
-    (or (.get atlas-glyph-map-cache atlas)
-        (let [m (if-let [variants (:variants atlas)]
-                  (reduce
-                    (fn [result [font-id variant]]
-                      (reduce-kv (fn [acc [kind glyph-id] glyph]
-                                   (assoc acc [font-id kind glyph-id] glyph))
-                                 result
-                                 (glyph-map (:glyphs variant))))
-                    {}
-                    (map vector (:atlas-faces font-assets) variants))
-                  (glyph-map (:glyphs atlas)))]
-          (when atlas (.set atlas-glyph-map-cache atlas m))
-          m))))
-
 (defn- painted-glyph [glyphs {:keys [glyph-id glyph-id-kind font-id]}]
   (let [kind (if (= glyph-id-kind :font-glyph-index) :index :unicode)]
     (or (get glyphs [font-id kind glyph-id])
@@ -1638,9 +1407,7 @@
         (get glyphs [:index 0]))))
 
 (defn- font-line-height [font-assets]
-  (or (get-in font-assets [:atlas :metrics :lineHeight])
-      (get-in font-assets [:atlas :variants 0 :metrics :lineHeight])
-      (get-in font-assets [:slug :meta :metrics :lineHeight])
+  (or (get-in font-assets [:slug :meta :metrics :lineHeight])
       1.2))
 
 (defonce ^:private !text-layout-fallbacks (atom {}))
@@ -1709,42 +1476,6 @@
   (mapv #(position-text-op % global-fsize font-assets char-width snap-step surface)
         texts))
 
-(defn- paint-msdf-line
-  [positioned font-assets]
-  (let [atlas-w (or (get-in font-assets [:atlas :atlas :width]) 1)
-        atlas-h (or (get-in font-assets [:atlas :atlas :height]) 1)
-        paint-map (atlas-glyph-map font-assets)
-        res (atom [])]
-    (doseq [{:keys [style font-size] :as positioned-op} positioned]
-      (let [txt style
-            [cr cg cb ca] (token-color txt)
-            fsize font-size
-            positioned-glyphs (:glyphs positioned-op)]
-        (doseq [{:keys [character position glyph-id-kind] :as positioned-glyph}
-                positioned-glyphs]
-          (when-not (or (= character " ") (= glyph-id-kind :virtual/tab))
-            ;; Placement/advance came from Contract T. MSDF selects coverage
-            ;; metadata only; a missing glyph never changes placement.
-            (let [g (painted-glyph paint-map positioned-glyph)
-                    [x0 baseline-y] position]
-                (when g
-                  (let [pb (:planeBounds g)
-                        ab (:atlasBounds g)
-                        sl (+ x0 (* fsize (or (:left pb) 0)))
-                        sr (+ x0 (* fsize (or (:right pb) 0)))
-                        st (- baseline-y (* fsize (or (:top pb) 0)))
-                        sb (- baseline-y (* fsize (or (:bottom pb) 0)))
-                        ul (/ (:left ab) atlas-w)
-                        ur (/ (:right ab) atlas-w)
-                        vt (- 1.0 (/ (:top ab) atlas-h))
-                        vb (- 1.0 (/ (:bottom ab) atlas-h))]
-                    (swap! res conj {:rect [sl st (- sr sl) (- sb st)]
-                                     :uv [ul vt ur vb]
-                                     :color [cr cg cb ca]
-                                     :layout/id (:layout/id positioned-op)
-                                     :container (or (:container-idx txt) 0)}))))))))
-    @res))
-
 (defn- paint-slug-line
   [positioned font-assets]
   (let [paint-map (glyph-map (get-in font-assets [:slug :meta :glyphs]))
@@ -1758,7 +1489,7 @@
         (doseq [{:keys [character position glyph-id-kind] :as positioned-glyph}
                 positioned-glyphs]
           (when-not (or (= character " ") (= glyph-id-kind :virtual/tab))
-            ;; Slug is the other coverage consumer of the same positions.
+            ;; Slug consumes the positioned glyphs without owning layout.
             (let [g (painted-glyph paint-map positioned-glyph)
                     [x0 baseline-y] position]
                 (when g
@@ -1793,9 +1524,7 @@
         snap-step (:snap-step opts)
         positioned (position-text texts global-fsize font-assets char-width snap-step
                                   (:surface opts))]
-    (if (= :slug (:backend font-assets))
-      (paint-slug-line positioned font-assets)
-      (paint-msdf-line positioned font-assets))))
+    (paint-slug-line positioned font-assets)))
 
 (defn- line-offsets-for [lines]
   (loop [remaining lines
@@ -1831,35 +1560,6 @@
                                   :reason :text-resize)
       (.destroy ^js current-buffer))
     new-buffer))
-
-(defn- pack-msdf-instances! [^js float-view ^js uint-view shaped-lines]
-  (loop [lines shaped-lines
-         global-i 0]
-    (when (seq lines)
-      (let [instances (:instances (first lines))]
-        (loop [remaining instances
-               sub-i 0]
-          (when (seq remaining)
-            (let [{:keys [rect uv color container]} (first remaining)
-                  [x y w h] rect
-                  [u-min v-min u-max v-max] uv
-                  [cr cg cb ca] color
-                  base (* (+ global-i sub-i) 13)]
-              (aset float-view (+ base 0) x)
-              (aset float-view (+ base 1) y)
-              (aset float-view (+ base 2) w)
-              (aset float-view (+ base 3) h)
-              (aset float-view (+ base 4) u-min)
-              (aset float-view (+ base 5) v-min)
-              (aset float-view (+ base 6) u-max)
-              (aset float-view (+ base 7) v-max)
-              (aset float-view (+ base 8) cr)
-              (aset float-view (+ base 9) cg)
-              (aset float-view (+ base 10) cb)
-              (aset float-view (+ base 11) ca)
-              (aset uint-view (+ base 12) (or container 0))
-              (recur (next remaining) (inc sub-i)))))
-        (recur (next lines) (+ global-i (:count (first lines))))))))
 
 (defn- pack-slug-instances! [^js float-view ^js uint-view shaped-lines]
   (loop [lines shaped-lines
@@ -1907,12 +1607,8 @@
 
 (defn update-text-data
   [^js/GPUDevice device renderer-state texts font-assets font-size
-   & {:keys [px-range line-height-factor line-height sharpness char-width snap-step surface]
-      :or {px-range 8.0 line-height-factor 1.0 sharpness 0.0 char-width 0.56}}]
-  (when (not= (:backend renderer-state) (:backend font-assets))
-    (throw (ex-info "Text backend mismatch during text upload."
-                    {:renderer-backend (:backend renderer-state)
-                     :font-backend (:backend font-assets)})))
+   & {:keys [line-height-factor line-height char-width snap-step surface]
+      :or {line-height-factor 1.0 char-width 0.56}}]
   (let [line-h (or line-height (* font-size line-height-factor))
         shaped-lines (mapv (fn [tokens-in-line]
                              (let [instances (shape-text tokens-in-line font-size font-assets
@@ -1927,57 +1623,30 @@
         stride (:instance-stride renderer-state)
         line-offsets (line-offsets-for shaped-lines)
         active-bytes (* actual-instances stride)]
-    (case (:backend renderer-state)
-      :msdf
-      (let [raw-buffer (js/ArrayBuffer. (* buffer-instance-count stride))
-            float-view (js/Float32Array. raw-buffer)
-            uint-view (js/Uint32Array. raw-buffer)
-            upload-view (js/Uint8Array. raw-buffer)
-            required-size (.-byteLength upload-view)
-            new-buffer (ensure-text-instance-buffer device renderer-state required-size active-bytes)
-            atlas-em (or (get-in font-assets [:atlas :atlas :size]) 64.0)]
-        (pack-msdf-instances! float-view uint-view shaped-lines)
-        (.writeBuffer (.-queue device) new-buffer 0 upload-view)
-        (when-let [sizes-buffer (:sizes-uniform-buffer renderer-state)]
-          (let [sizes (js/Float32Array. #js [(float px-range) (float atlas-em) (float sharpness) 0.0])]
-            (.writeBuffer (.-queue device) sizes-buffer 0 sizes)))
-        (gpu-budget/set-active-bytes! (:gpu-tracker renderer-state) new-buffer active-bytes)
-        (when (or (not= line-offsets (:line-offsets renderer-state))
-                  (not= (pos? actual-instances)
-                        (pos? (:num-instances renderer-state 0))))
-          (frame-inputs/bump-shape-rev! renderer-state))
-        (sync-paint-state!
-         (assoc renderer-state
-                :instance-buffer new-buffer
-                :num-instances actual-instances
-                :line-offsets line-offsets
-                :line-height line-h)))
-
-      :slug
-      (let [raw-buffer (js/ArrayBuffer. (* buffer-instance-count stride))
-            float-view (js/Float32Array. raw-buffer)
-            uint-view (js/Uint32Array. raw-buffer)
-            upload-view (js/Uint8Array. raw-buffer)
-            required-size (.-byteLength upload-view)
-            new-buffer (ensure-text-instance-buffer device renderer-state required-size active-bytes)]
-        (pack-slug-instances! float-view uint-view shaped-lines)
-        (.writeBuffer (.-queue device) new-buffer 0 upload-view)
-        ;; Slug renders raw mathematical coverage — no sharpness bias.
-        ;; The uniform exists (pipeline expects binding 3) but stays at 0.
-        (when-let [sizes-buffer (:sizes-uniform-buffer renderer-state)]
-          (let [sizes (js/Float32Array. #js [0.0 0.0 0.0 0.0])]
-            (.writeBuffer (.-queue device) sizes-buffer 0 sizes)))
-        (gpu-budget/set-active-bytes! (:gpu-tracker renderer-state) new-buffer active-bytes)
-        (when (or (not= line-offsets (:line-offsets renderer-state))
-                  (not= (pos? actual-instances)
-                        (pos? (:num-instances renderer-state 0))))
-          (frame-inputs/bump-shape-rev! renderer-state))
-        (sync-paint-state!
-         (assoc renderer-state
-                :instance-buffer new-buffer
-                :num-instances actual-instances
-                :line-offsets line-offsets
-                :line-height line-h))))))
+    (let [raw-buffer (js/ArrayBuffer. (* buffer-instance-count stride))
+          float-view (js/Float32Array. raw-buffer)
+          uint-view (js/Uint32Array. raw-buffer)
+          upload-view (js/Uint8Array. raw-buffer)
+          required-size (.-byteLength upload-view)
+          new-buffer (ensure-text-instance-buffer device renderer-state required-size active-bytes)]
+      (pack-slug-instances! float-view uint-view shaped-lines)
+      (.writeBuffer (.-queue device) new-buffer 0 upload-view)
+      ;; Slug renders raw mathematical coverage — no sharpness bias.
+      ;; The uniform exists (pipeline expects binding 3) but stays at 0.
+      (when-let [sizes-buffer (:sizes-uniform-buffer renderer-state)]
+        (let [sizes (js/Float32Array. #js [0.0 0.0 0.0 0.0])]
+          (.writeBuffer (.-queue device) sizes-buffer 0 sizes)))
+      (gpu-budget/set-active-bytes! (:gpu-tracker renderer-state) new-buffer active-bytes)
+      (when (or (not= line-offsets (:line-offsets renderer-state))
+                (not= (pos? actual-instances)
+                      (pos? (:num-instances renderer-state 0))))
+        (frame-inputs/bump-shape-rev! renderer-state))
+      (sync-paint-state!
+       (assoc renderer-state
+              :instance-buffer new-buffer
+              :num-instances actual-instances
+              :line-offsets line-offsets
+              :line-height line-h)))))
 
 
 (defn update-camera [^js device camera-buffer ^js floats pan-x pan-y zoom w h]
@@ -2382,17 +2051,11 @@
                       (share-font-resources text-created text-sys))
         text-bind-group
         (when text-shared
-          (case (:backend text-sys)
-            :slug (create-slug-bind-group
-                   device (:bind-group-layout text-created)
-                   (:curve-texture-view text-sys) (:band-texture-view text-sys)
-                   camera-buffer (:sizes-uniform-buffer text-sys)
-                   containers-buffer)
-            :msdf (create-msdf-bind-group
-                   device (:bind-group-layout text-created)
-                   (:font-sampler text-sys) (:font-texture-view text-sys)
-                   camera-buffer (:sizes-uniform-buffer text-sys)
-                   containers-buffer)))
+          (create-slug-bind-group
+           device (:bind-group-layout text-created)
+           (:curve-texture-view text-sys) (:band-texture-view text-sys)
+           camera-buffer (:sizes-uniform-buffer text-sys)
+           containers-buffer))
         _ (when text-created
             (destroy-variant-buffer! tracker (:instance-buffer text-created)
                                      :frame-variant-transient)
@@ -2477,11 +2140,7 @@
                   :execute! execute!})
         generic (fn [family-id produce]
                   (family family-id produce execute-gpu-batch!))]
-    {:render.family/msdf
-     (generic :render.family/msdf
-              #(text-entries-for-family :render.family/msdf %))
-
-     :render.family/slug
+    {:render.family/slug
      (generic :render.family/slug
               #(text-entries-for-family :render.family/slug %))
 
@@ -2855,12 +2514,10 @@
       (let [canvas (.-canvas context)
             max-lease [(max 1 (or (some-> canvas .-width) (int w)))
                        (max 1 (or (some-> canvas .-height) (int h)))]]
-        (region3d-gpu/prepare-region3d-frame!
+         (region3d-gpu/prepare-region3d-frame!
          region3d-system store-frame region3d-session
          {:zoom zoom :dpr dpr :font-assets font-assets
           :session-layout-snapshot session-layout-snapshot
-          :atlas-view (:font-texture-view text-sys)
-          :atlas-sampler (:font-sampler text-sys)
           :path-system path-system
           :max-lease-size max-lease})))
     (mark-draw! "region")
