@@ -225,6 +225,164 @@
                              (conj! acc [x y coverage])
                              acc))))))))))
 
+(defn- quadratic-point [[[x1 y1] [x2 y2] [x3 y3]] t]
+  (let [u (- 1.0 t)]
+    [(+ (* u u x1) (* 2.0 u t x2) (* t t x3))
+     (+ (* u u y1) (* 2.0 u t y2) (* t t y3))]))
+
+(defn- point-in-curves?
+  "Even-odd point-in-path over the actual half-float Slug curve asset. Curves
+   are flattened only for this independent CPU reader; GPU coverage continues
+   to use the live quadratic evaluator."
+  [curves px py]
+  (odd?
+   (reduce
+    (fn [crossings curve]
+      (loop [i 1
+             [x1 y1] (first curve)
+             crossings crossings]
+        (if (> i 48)
+          crossings
+          (let [[x2 y2 :as p2] (quadratic-point curve (/ i 48.0))
+                crosses-y? (not= (> y1 py) (> y2 py))
+                intersection-x (when crosses-y?
+                                 (+ x1 (* (/ (- py y1) (- y2 y1))
+                                          (- x2 x1))))
+                crossings (if (and crosses-y? (< px intersection-x))
+                            (inc crossings)
+                            crossings)]
+            (recur (inc i) p2 crossings)))))
+    0
+    curves)))
+
+(defn- instance-path-probe
+  "Build the CPU inverse from the exact shaped quad and glyph bounds used by
+   the selected production backend. This deliberately records, rather than
+   assumes, the bearing/plane transform at the comparison seam."
+  [curves instance bounds zoom source]
+  (let [[rx ry rw rh] (:rect instance)
+        left (:left bounds)
+        right (:right bounds)
+        top (:top bounds)
+        bottom (:bottom bounds)]
+    {:inside?
+     (fn [screen-x screen-y]
+       (let [world-x (/ screen-x zoom)
+             world-y (/ screen-y zoom)
+             u (/ (- world-x rx) rw)
+             v (/ (- world-y ry) rh)
+             path-x (+ left (* u (- right left)))
+             path-y (+ top (* v (- bottom top)))]
+         (point-in-curves? curves path-x path-y)))
+     :receipt {:source source
+               :shaped-rect-world [rx ry rw rh]
+               :glyph-bounds bounds
+               :zoom zoom
+               :mapping "screen->world->shaped-quad->glyph-path"}}))
+
+(defn- parity-receipt [mode rgba inside? cpu-inverse]
+  (let [boundary (boundary-pixels rgba)
+        rows (mapv (fn [[x y coverage]]
+                     (let [sx (+ x 0.5)
+                           sy (+ y 0.5)
+                           cpu-inside? (boolean (inside? sx sy))
+                           ;; rgba8unorm encodes exact half coverage as byte
+                           ;; 128 (128/255). That is a declared boundary tie,
+                           ;; not a Boolean inside vote. W0-B Q6 found this
+                           ;; ambiguity independently; do not threshold it away.
+                           gpu-class (cond
+                                       (< coverage 128) "outside"
+                                       (> coverage 128) "inside"
+                                       :else "boundary-tie")
+                           decisive? (not= gpu-class "boundary-tie")
+                           match? (when decisive?
+                                    (= cpu-inside? (= gpu-class "inside")))]
+                       {:pixel [x y]
+                        :gpu-coverage-byte coverage
+                        :cpu-inside? cpu-inside?
+                        :gpu-class gpu-class
+                        :decisive? decisive?
+                        :match? match?}))
+                   boundary)
+        ties (filterv #(= "boundary-tie" (:gpu-class %)) rows)
+        mismatches (filterv #(and (:decisive? %) (not (:match? %))) rows)]
+    {:mode mode
+     :contract "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie"
+     :current-product-pick? false
+     :cpu-inverse cpu-inverse
+     :boundary-pixel-count (count rows)
+     :decisive-count (- (count rows) (count ties))
+     :match-count (- (count rows) (count ties) (count mismatches))
+     :boundary-tie-count (count ties)
+     :mismatch-count (count mismatches)
+     :pass? (zero? (count mismatches))
+     :verdict (cond
+                (seq mismatches) "decisive-mismatch"
+                (seq ties) "decisive-parity-with-declared-boundary-ties"
+                :else "decisive-parity")
+     :first-boundary-ties (subvec ties 0 (min 24 (count ties)))
+     :first-mismatches (subvec mismatches 0 (min 24 (count mismatches)))}))
+
+(defn- read-u16 [^js view byte-offset]
+  (.getUint16 view byte-offset true))
+
+(defn- band-entry [^js view width x y]
+  (let [offset (* 4 (+ x (* y width)))]
+    [(read-u16 view offset) (read-u16 view (+ offset 2))]))
+
+(defn- band-entry-at-offset [view width origin-x origin-y offset]
+  (let [linear (+ origin-x offset)
+        x (mod linear width)
+        y (+ origin-y (js/Math.floor (/ linear width)))]
+    (band-entry view width x y)))
+
+(defn- half->float [bits]
+  (let [sign (if (zero? (bit-and bits 0x8000)) 1.0 -1.0)
+        exponent (bit-and (unsigned-bit-shift-right bits 10) 0x1f)
+        fraction (bit-and bits 0x03ff)]
+    (cond
+      (zero? exponent)
+      (* sign (js/Math.pow 2.0 -14.0) (/ fraction 1024.0))
+
+      (= exponent 31)
+      (if (zero? fraction) (* sign js/Infinity) js/NaN)
+
+      :else
+      (* sign (js/Math.pow 2.0 (- exponent 15.0))
+         (+ 1.0 (/ fraction 1024.0))))))
+
+(defn- curve-texel [^js view width x y]
+  (let [offset (* 8 (+ x (* y width)))]
+    [(half->float (read-u16 view offset))
+     (half->float (read-u16 view (+ offset 2)))
+     (half->float (read-u16 view (+ offset 4)))
+     (half->float (read-u16 view (+ offset 6)))]))
+
+(defn- decode-glyph-curves [slug-assets unicode]
+  (let [meta (get-in slug-assets [:slug :meta])
+        glyph (first (filter #(= unicode (:unicode %)) (:glyphs meta)))
+        band-width (get-in meta [:bandTexture :width])
+        curve-width (get-in meta [:curveTexture :width])
+        band-view (js/DataView. (get-in slug-assets [:slug :band-bytes]))
+        curve-view (js/DataView. (get-in slug-assets [:slug :curve-bytes]))
+        gx (get-in glyph [:slug :glyphLoc :x])
+        gy (get-in glyph [:slug :glyphLoc :y])
+        horizontal-count (inc (get-in glyph [:slug :bandMax :y]))
+        vertical-count (inc (get-in glyph [:slug :bandMax :x]))
+        !locations (atom #{})]
+    (dotimes [header-index (+ horizontal-count vertical-count)]
+      (let [[curve-count offset] (band-entry band-view band-width
+                                             (+ gx header-index) gy)]
+        (dotimes [curve-index curve-count]
+          (swap! !locations conj
+                 (band-entry-at-offset band-view band-width gx gy
+                                       (+ offset curve-index))))))
+    (mapv (fn [[x y]]
+            (let [[p1x p1y p2x p2y] (curve-texel curve-view curve-width x y)
+                  [p3x p3y _ _] (curve-texel curve-view curve-width (inc x) y)]
+              [[p1x p1y] [p2x p2y] [p3x p3y]]))
+          (sort-by (juxt second first) @!locations))))
+
 (defn- glyph-lines [zoom]
   [[{:text "o"
      :x (/ glyph-screen-x zoom)
@@ -242,17 +400,44 @@
                  :byte-identical? (:byte-identical? pair)}})
 
 (defn- run-case!
-  [{:keys [device msdf-system msdf-assets]}
+  [{:keys [device msdf-system slug-system msdf-assets slug-assets curves]}
    {:keys [case-id zoom regime]}]
   (let [lines (glyph-lines zoom)
         font-size (/ glyph-screen-size zoom)
+        msdf-glyph (first (filter #(= 111 (:unicode %))
+                                  (get-in msdf-assets [:atlas :glyphs])))
+        slug-glyph (first (filter #(= 111 (:unicode %))
+                                  (get-in slug-assets [:slug :meta :glyphs])))
+        msdf-instance (first (renderer/shape-text (first lines) font-size msdf-assets
+                                                  :char-width 0.60))
+        slug-instance (first (renderer/shape-text (first lines) font-size slug-assets
+                                                  :char-width 0.60))
+        msdf-probe (instance-path-probe curves msdf-instance (:planeBounds msdf-glyph)
+                                        zoom "production-msdf-planeBounds")
+        slug-probe (instance-path-probe curves slug-instance
+                                        (or (:sampleBounds slug-glyph)
+                                            (:planeBounds slug-glyph))
+                                        zoom "production-slug-sampleBounds")
         msdf-system (renderer/update-text-data device msdf-system lines msdf-assets font-size
                                                :px-range 16.0 :sharpness 0.0
+                                               :char-width 0.60)
+        slug-system (renderer/update-text-data device slug-system lines slug-assets font-size
                                                :char-width 0.60)]
     (js/console.log "[W0-A] case-start" case-id "zoom" zoom)
-    (-> (render-pair! device msdf-system zoom)
+    (->
+        (render-pair! device msdf-system zoom)
         (.then
-         (fn [msdf-pair]
+         (fn [capture]
+           (js/console.log "[W0-A] case-stage" case-id "msdf")
+           {:msdf-pair capture}))
+        (.then
+         (fn [capture]
+           (-> (render-pair! device slug-system zoom)
+               (.then (fn [pair]
+                        (js/console.log "[W0-A] case-stage" case-id "slug")
+                        (assoc capture :slug-pair pair))))))
+        (.then
+         (fn [{:keys [msdf-pair slug-pair]}]
            (js/console.log "[W0-A] case-complete" case-id)
            {:case-id case-id
             :zoom zoom
@@ -263,7 +448,17 @@
                      :height canvas-size
                      :format color-format
                      :device-pixel-ratio (.-devicePixelRatio js/window)}
-            :images [(image-record "msdf" case-id msdf-pair)]})))))
+            :images [(image-record "msdf" case-id msdf-pair)
+                     (image-record "slug" case-id slug-pair)]
+            :pick-parity
+            [(parity-receipt "msdf-dejavu-o-path"
+                               (:bytes msdf-pair)
+                               (:inside? msdf-probe)
+                               (:receipt msdf-probe))
+             (parity-receipt "slug-dejavu-o-path"
+                               (:bytes slug-pair)
+                               (:inside? slug-probe)
+                               (:receipt slug-probe))]})))))
 
 ;; --- IMAGE-ATOM Package 2 ---------------------------------------------------
 
@@ -1748,6 +1943,8 @@
 (defn- shader-digests []
   (let [entries [["msdf-vertex" renderer/text-vertex-shader]
                  ["msdf-fragment" renderer/text-fragment-shader]
+                 ["slug-vertex" renderer/slug-vertex-shader]
+                 ["slug-fragment" renderer/slug-fragment-shader]
                  ["region3d-placed-flat"
                   region3d-placement-gpu/placed-flat-shader]
                  ["region3d-placed-msdf"
@@ -2888,9 +3085,9 @@
                          (-> (js/Promise.all
                                #js [(fonts/load-font-assets font-config)
                                     (fonts/load-font-assets t1-font-config)])
-                              (.then
+                             (.then
                               (fn [font-values]
-                                (let [msdf-assets (aget font-values 0)
+                                (let [slug-assets (aget font-values 0)
                                       t1-assets (aget font-values 1)
                                       t1-receipt
                                       (try
@@ -2902,7 +3099,8 @@
                                                  :foreign-failure
                                                  "T1 browser layout receipt failed.")))]
                                 (js/console.log "[W0-A] init-font-assets")
-                                (let [camera-buffer (renderer/create-camera-buffer device nil)
+                                (let [msdf-assets (assoc slug-assets :backend :msdf)
+                                      camera-buffer (renderer/create-camera-buffer device nil)
                                       containers-buffer (renderer/create-containers-buffer device nil)
                                       q8-transport (run-q8-transport! device containers-buffer)
                                       _ (js/console.log "[W0-A] init-shared-buffers")
@@ -2915,9 +3113,27 @@
                                                            :containers-buffer containers-buffer)]
                                                       (js/console.log "[W0-A] init-msdf-pipeline-complete")
                                                       system))
+                                      slug-system (do
+                                                    (js/console.log "[W0-A] init-slug-pipeline-start")
+                                                    (let [system
+                                                          (renderer/init-text-system
+                                                           device color-format camera-buffer slug-assets
+                                                           :initial-capacity 1
+                                                           :containers-buffer containers-buffer)]
+                                                      (js/console.log "[W0-A] init-slug-pipeline-complete")
+                                                      system))
+                                      curves (do
+                                               (js/console.log "[W0-A] init-curve-decode-start")
+                                               (let [decoded (decode-glyph-curves slug-assets 111)]
+                                                 (js/console.log "[W0-A] init-curve-decode-complete"
+                                                                 (count decoded))
+                                                 decoded))
                                       harness {:device device
                                                :msdf-system msdf-system
-                                               :msdf-assets msdf-assets}]
+                                               :slug-system slug-system
+                                               :msdf-assets msdf-assets
+                                               :slug-assets slug-assets
+                                               :curves curves}]
                                   (-> (js/Promise.all
                                        #js [(promise-mapv (partial run-case! harness) zoom-cases)
                                             (shader-digests)
@@ -2942,7 +3158,9 @@
                                                    :color-format color-format}
                                           :font {:id (:id font-config)
                                                  :msdf-atlas (:atlas font-config)
-                                                 :msdf-metrics (:metrics font-config)}
+                                                 :msdf-metrics (:metrics font-config)
+                                                 :slug (:slug font-config)}
+                                          :decoded-slug-curve-count (count curves)
                                           :shader-digests (aget values 1)
                                           :q8-transport q8-transport
                                           :t1-layout t1-receipt

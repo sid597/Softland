@@ -54,7 +54,7 @@
 
 (deftest w2b-one-tape-paints-forward-in-stable-semantic-order
   (let [entries [(entry :msdf :render.family/msdf 10)
-                 (entry :text :render.family/msdf 20)
+                 (entry :slug :render.family/slug 20)
                  (entry :clip :render.family/clip 0)]
         compiled (tape/compile-tape :world-r1 (reverse entries))
         compiled-again (tape/compile-tape :world-r1 entries)
@@ -63,7 +63,7 @@
            compiled
            (fn [scene-entry]
              (swap! !painted conj (:entry/id scene-entry))))]
-    (is (= [:clip :msdf :text] @!painted))
+    (is (= [:clip :msdf :slug] @!painted))
     (is (= (:order-hash compiled) (:order-hash compiled-again)))
     (is (= (mapv :entry/id (:entries compiled))
            (mapv :entry/id (:entries compiled-again))))))

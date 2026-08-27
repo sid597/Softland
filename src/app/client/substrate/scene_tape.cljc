@@ -9,6 +9,7 @@
   "The complete render-family set. Adding a road changes this registry; it
    never adds a branch to the frame executor."
   [:render.family/msdf
+   :render.family/slug
    :render.family/clip
    :render.family/image
    :render.family/path
@@ -60,6 +61,7 @@
 (defn text-family-id [backend]
   (case backend
     :msdf :render.family/msdf
+    :slug :render.family/slug
     (throw (ex-info "Unregistered text backend" {:backend backend}))))
 
 (defn- registration [family-id required-paint-keys]
@@ -68,6 +70,7 @@
 
 (def family-contracts
   [(registration :render.family/msdf [])
+   (registration :render.family/slug [])
    (registration :render.family/clip [])
    (registration :render.family/image
                  [:paint/source :paint/source-type :op-offset :instance-count])

@@ -130,6 +130,11 @@
       (.then (fn [blob]
                (probe (str "decode " url) (js/createImageBitmap blob))))))
 
+(defn- fetch-bytes [url]
+  (probe (str "bytes " url)
+         (with-retry url
+           #(-> (fetch-ok url) (.then (fn [r] (.arrayBuffer r)))))))
+
 (defn- shaper-source [font-config]
   (when-let [font-file (:font font-config)]
     {:id (:id font-config)
@@ -148,7 +153,8 @@
         (:fallbacks font-config)))
 
 (defn load-font-assets
-  "Load the runtime MSDF and shaping assets for a font config."
+  "Load the runtime assets for a font config. Slug-enabled fonts still load
+   their MSDF bundle so the old path remains available as a fallback."
   [font-config]
   (let [msdf-promises (cond-> []
                         (:atlas font-config)
@@ -156,6 +162,16 @@
 
                         (:metrics font-config)
                         (conj (fetch-json (str base-path (:metrics font-config)))))
+        slug-config (:slug font-config)
+        slug-promises (cond-> []
+                        (:meta slug-config)
+                        (conj (fetch-json (str base-path (:meta slug-config))))
+
+                        (:curve slug-config)
+                        (conj (fetch-bytes (str base-path (:curve slug-config))))
+
+                        (:band slug-config)
+                        (conj (fetch-bytes (str base-path (:band slug-config)))))
         sources (shaper-sources font-config)
         shaper-promise (if (seq sources)
                          (probe "shaper load-provider!"
@@ -166,28 +182,49 @@
                                    :language (or (:language font-config) "und")
                                    :tab-columns (or (:tabColumns font-config) 4)}))
                          (js/Promise.resolve nil))
-        asset-promises (conj (vec msdf-promises) shaper-promise)]
+        asset-promises (vec (concat msdf-promises slug-promises
+                                    [shaper-promise]))]
     (-> (js/Promise.all (clj->js asset-promises))
         (.then
           (fn [assets]
-            (let [bitmap (when (:atlas font-config) (aget assets 0))
+            (let [msdf-asset-count (count msdf-promises)
+                  bitmap (when (:atlas font-config) (aget assets 0))
                   atlas (when (:metrics font-config)
                           (aget assets (if (:atlas font-config) 1 0)))
-                  layout-provider (aget assets (dec (count asset-promises)))]
+                  slug-start msdf-asset-count
+                  slug-meta (when (:meta slug-config) (aget assets slug-start))
+                  slug-curve (when (:curve slug-config) (aget assets (+ slug-start (if (:meta slug-config) 1 0))))
+                  slug-band (when (:band slug-config)
+                              (aget assets (+ slug-start
+                                              (count (filter some? [(:meta slug-config) (:curve slug-config)]))))
+                              )
+                  slug-ready? (and slug-meta slug-curve slug-band)
+                  layout-provider (aget assets (dec (count asset-promises)))
+                  preferred-backend (keyword (or (:preferredBackend font-config) "msdf"))
+                  active-backend (if (and (= preferred-backend :slug) slug-ready?)
+                                   :slug
+                                   :msdf)]
               (js/console.log "[FONT] Asset resolution"
                               {:id (:id font-config)
-                               :active-backend :msdf
+                               :preferred-backend preferred-backend
+                               :active-backend active-backend
                                :shaper (some-> layout-provider :shaper-id)
-                               :has-msdf? (boolean (and bitmap atlas))})
+                               :has-msdf? (boolean (and bitmap atlas))
+                               :has-slug-config? (boolean slug-config)
+                               :slug-ready? (boolean slug-ready?)})
               {:id (:id font-config)
                :name (:name font-config)
-               :backend :msdf
+               :backend active-backend
                :layout-provider layout-provider
                :atlas-faces (:atlasFaces font-config)
                :bitmap bitmap
                :atlas atlas
                :msdf (when (and bitmap atlas)
-                       {:bitmap bitmap :atlas atlas})}))))))
+                       {:bitmap bitmap :atlas atlas})
+               :slug (when slug-ready?
+                       {:meta slug-meta
+                        :curve-bytes slug-curve
+                        :band-bytes slug-band})}))))))
 
 (defn load-default-font-data-async []
   (-> (load-font-manifest-async)

@@ -16,6 +16,11 @@
       "atlas": "ubuntu_sans_variable_atlas.png",
       "metrics": "ubuntu_sans_variable_atlas.json",
       "preferredBackend": "msdf",
+      "slug": {
+        "meta": "ubuntu_sans_variable_slug_meta.json",
+        "curve": "ubuntu_sans_variable_slug_curve.bin",
+        "band": "ubuntu_sans_variable_slug_band.bin"
+      },
       "charWidth": 0.52,
       "variations": {"wght": 400, "wdth": 100},
       "features": ["kern", "liga", "clig", "calt"],
@@ -82,7 +87,12 @@
       "id": "dejavu-sans-mono",
       "atlas": "dejavu_sans_mono_atlas.png",
       "metrics": "dejavu_sans_mono_atlas.json",
-      "preferredBackend": "msdf",
+      "preferredBackend": "slug",
+      "slug": {
+        "meta": "dejavu_sans_mono_slug_meta.json",
+        "curve": "dejavu_sans_mono_slug_curve.bin",
+        "band": "dejavu_sans_mono_slug_band.bin"
+      },
       "charWidth": 0.60,
       "defaults": {
         "fontSize": 19,

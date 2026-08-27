@@ -40,7 +40,7 @@
   (let [device (Object.)
         prior {:device device :paths [:old] :text-sys-token [:text 2]}
         current (assoc prior :text-sys-token [:text 3])]
-    (is (= #{:render.family/msdf}
+    (is (= #{:render.family/msdf :render.family/slug}
            (frame-inputs/changed-families prior current)))))
 
 (deftest family-scoped-maintenance-does-not-visit-unchanged-families

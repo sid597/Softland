@@ -54,7 +54,7 @@ const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, "resources/publi
 const config = manifest.fonts.find((font) => font.id === "ubuntu-sans-variable");
 requireReceipt(config?.default === true, "proportional face is not the live default");
 requireReceipt(config?.preferredBackend === "msdf",
-  "T1 must retain the live MSDF road", { preferredBackend: config?.preferredBackend });
+  "T1 must not retire the live MSDF road for Slug-direct", { preferredBackend: config?.preferredBackend });
 
 const primaryPath = `resources/public/fonts/${config.font}`;
 const fallbackPath = `resources/public/fonts/${config.fallbacks[0].font}`;
@@ -96,8 +96,10 @@ requireReceipt(narrow !== wide, "width axis did not alter positioned advances", 
 primary.font.setVariations(config.variations);
 
 const atlas = JSON.parse(fs.readFileSync(path.join(repoRoot, `resources/public/fonts/${config.metrics}`), "utf8"));
+const slug = JSON.parse(fs.readFileSync(path.join(repoRoot, `resources/public/fonts/${config.slug.meta}`), "utf8"));
 const primaryAtlas = new Set(atlas.variants[0].glyphs.map((glyph) => glyph.index));
 const fallbackAtlas = new Set(atlas.variants[1].glyphs.map((glyph) => glyph.index));
+const slugGlyphs = new Set(slug.glyphs.map((glyph) => `${glyph.fontId}:${glyph.index}`));
 const primaryGlyphIds = new Set([
   ...ligature.map((glyph) => glyph.codepoint),
   ...bidi.map((glyph) => glyph.codepoint),
@@ -105,8 +107,12 @@ const primaryGlyphIds = new Set([
 ]);
 requireReceipt([...primaryGlyphIds].every((glyphId) => primaryAtlas.has(glyphId)),
   "MSDF atlas lacks a primary shaped glyph", { primaryGlyphIds: [...primaryGlyphIds] });
+requireReceipt([...primaryGlyphIds].every((glyphId) => slugGlyphs.has(`${config.id}:${glyphId}`)),
+  "Slug metadata lacks a primary shaped glyph", { primaryGlyphIds: [...primaryGlyphIds] });
 requireReceipt(fallbackGlyphs.every((glyph) => fallbackAtlas.has(glyph.codepoint)),
   "MSDF atlas lacks the fallback shaped glyph", { fallbackGlyphs });
+requireReceipt(fallbackGlyphs.every((glyph) => slugGlyphs.has(`${config.fallbacks[0].id}:${glyph.codepoint}`)),
+  "Slug metadata lacks the fallback shaped glyph", { fallbackGlyphs });
 
 const receipt = {
   contract: "T1-1/T1-2/proportional-shaper-assets",
@@ -126,6 +132,7 @@ const receipt = {
   },
   paintConsumers: {
     msdfVariants: atlas.variants.length,
+    slugFaces: [...new Set(slug.glyphs.map((glyph) => glyph.fontId))],
   },
   pass: true,
 };
