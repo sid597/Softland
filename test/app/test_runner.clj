@@ -38,6 +38,7 @@
     app.client.substrate.region3d-placement-test
     app.client.substrate.region3d-scene-test
     app.client.substrate.region-rungs-test
+    app.client.workspace.containers-test
     app.client.workspace.shaping-correction-test
     app.client.workspace.text-layout-planes-test
     app.client.workspace.text-layout-test

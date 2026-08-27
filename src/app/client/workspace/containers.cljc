@@ -275,3 +275,12 @@
      :y (min y0 y1)
      :w (abs (- x1 x0))
      :h (abs (- y1 y0))}))
+
+(defn anchored-screen-rect
+  "Project local bounds through a container and camera, then add px offsets."
+  [anchor-bounds effective camera offset]
+  (let [{:keys [x y w h]} (screen-bounds effective anchor-bounds camera)]
+    {:x (+ x (double (or (:x offset) 0.0)))
+     :y (+ y (double (or (:y offset) 0.0)))
+     :w (+ w (double (or (:w offset) 0.0)))
+     :h (+ h (double (or (:h offset) 0.0)))}))

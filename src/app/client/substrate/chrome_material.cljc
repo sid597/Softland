@@ -1,6 +1,5 @@
 (ns app.client.substrate.chrome-material
-  "Neutral world-anchor/screen-metric quad geometry for the chrome render road."
-  (:require [app.client.workspace.containers :as containers]))
+  "Neutral world-anchor/screen-metric quad geometry for the chrome render road.")
 
 (defn finite-number? [x]
   (and (number? x)
@@ -9,33 +8,6 @@
 
 (defn- point? [point]
   (and (vector? point) (= 2 (count point)) (every? finite-number? point)))
-
-(defn- camera-project [effective camera point]
-  (let [[wx wy] (containers/forward-point effective point)
-        screen? (= 1 (:flags effective))
-        zoom (if screen? 1.0 (double (or (:zoom camera) (:scale camera) 1.0)))
-        pan-x (if screen? 0.0 (double (or (:x camera) 0.0)))
-        pan-y (if screen? 0.0 (double (or (:y camera) 0.0)))]
-    [(+ (* wx zoom) pan-x) (+ (* wy zoom) pan-y)]))
-
-(defn chrome-screen-rect
-  "Project local bounds through a container and camera, then add px offsets."
-  [anchor-bounds effective camera offset]
-  (let [{:keys [x y w h]} anchor-bounds
-        points [(camera-project effective camera [x y])
-                (camera-project effective camera [(+ x w) y])
-                (camera-project effective camera [x (+ y h)])
-                (camera-project effective camera [(+ x w) (+ y h)])]
-        xs (map first points)
-        ys (map second points)
-        x0 (apply min xs)
-        y0 (apply min ys)
-        x1 (apply max xs)
-        y1 (apply max ys)]
-    {:x (+ x0 (double (or (:x offset) 0.0)))
-     :y (+ y0 (double (or (:y offset) 0.0)))
-     :w (+ (- x1 x0) (double (or (:w offset) 0.0)))
-     :h (+ (- y1 y0) (double (or (:h offset) 0.0)))}))
 
 (defn- vertex [anchor offset color]
   {:anchor anchor :offset-px offset :color color})
