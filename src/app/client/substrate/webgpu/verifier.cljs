@@ -9,7 +9,6 @@
    CPU geometry probes are independent readers of the production path and
    glyph pipelines."
   (:require [clojure.string :as str]
-            [app.client.substrate.chrome-material :as chrome-material]
             [app.client.substrate.image-material :as image-material]
             [app.client.substrate.path-material :as path-material]
             [app.client.substrate.path-tessellation :as path-tessellation]
@@ -19,7 +18,6 @@
             [app.client.substrate.region3d-scene :as region3d-scene]
             [app.client.substrate.scene-color :as scene-color]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
-            [app.client.substrate.webgpu.chrome-gpu :as chrome-gpu]
             [app.client.substrate.webgpu.compositor-gpu :as compositor-gpu]
             [app.client.substrate.webgpu.path-gpu :as path-gpu]
             [app.client.substrate.webgpu.region-bindings :as region-bindings]
@@ -1202,163 +1200,6 @@
              (renderer/destroy-image-system! candidate-system)
              (renderer/destroy-image-system! seam-system)
              result))))))
-
-;; CHROME ATOM ---------------------------------------------------------------
-
-(def ^:private chrome-owner-vi [:chrome-neutral :fixture])
-
-(defn- neutral-quad [anchors offsets-px color]
-  {:anchors anchors :offsets-px offsets-px :color color})
-
-(defn- chrome-neutral-ops [zoom]
-  (let [point [(/ 32.0 zoom) (/ 36.0 zoom)]
-        start [(/ 48.0 zoom) (/ 76.0 zoom)]
-        end [(/ 92.0 zoom) (/ 76.0 zoom)]]
-    [{:id :chrome/neutral :address :chrome/neutral
-      :container 0 :container-idx 0 :owner-vi chrome-owner-vi
-      :chrome/material
-      [(neutral-quad (vec (repeat 4 point))
-                     [[-5.0 -5.0] [5.0 -5.0] [5.0 5.0] [-5.0 5.0]]
-                     [1.0 1.0 1.0 1.0])
-       (neutral-quad [start end end start]
-                     [[0.0 -1.5] [0.0 -1.5] [0.0 1.5] [0.0 1.5]]
-                     [0.2 0.7 1.0 0.8])]}]))
-
-(defn- render-chrome-bytes!
-  [^js device chrome-system ops zoom]
-  (let [row-bytes (* canvas-size 4)
-        target (.createTexture
-                device
-                (clj->js {:size {:width canvas-size :height canvas-size
-                                 :depthOrArrayLayers 1}
-                          :format "rgba8unorm" :viewFormats ["rgba8unorm-srgb"]
-                          :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
-                                         js/GPUTextureUsage.COPY_SRC)}))
-        read-buffer (.createBuffer
-                     device
-                     (clj->js {:size (* row-bytes canvas-size)
-                               :usage (bit-or js/GPUBufferUsage.COPY_DST
-                                              js/GPUBufferUsage.MAP_READ)}))
-        camera (js/Float32Array. 6)
-        _ (renderer/update-camera device (:camera-buffer chrome-system)
-                                  camera 0.0 0.0 zoom
-                                  canvas-size canvas-size)
-        {:keys [vertices]} (chrome-gpu/prepare-chrome-frame! chrome-system ops)
-        encoder (.createCommandEncoder device)
-        pass (.beginRenderPass
-              encoder
-              (clj->js {:colorAttachments
-                        [{:view (.createView target
-                                            (clj->js {:format "rgba8unorm-srgb"}))
-                          :clearValue {:r 0.025 :g 0.06 :b 0.11 :a 1.0}
-                          :loadOp "clear" :storeOp "store"}]}))]
-    (chrome-gpu/draw-chrome-range! pass chrome-system 0 vertices)
-    (.end pass)
-    (.copyTextureToBuffer
-     encoder (clj->js {:texture target})
-     (clj->js {:buffer read-buffer :bytesPerRow row-bytes
-               :rowsPerImage canvas-size})
-     (clj->js {:width canvas-size :height canvas-size
-               :depthOrArrayLayers 1}))
-    (.submit (.-queue device) #js [(.finish encoder)])
-    (-> (.mapAsync read-buffer js/GPUMapMode.READ)
-        (.then
-         (fn [_]
-           (let [copy (js/Uint8Array.
-                       (js/Uint8Array. (.getMappedRange read-buffer)))]
-             (.unmap read-buffer)
-             (.destroy read-buffer)
-             (.destroy target)
-             copy))))))
-
-(defn- render-chrome-pair! [device chrome-system ops zoom]
-  (-> (render-chrome-bytes! device chrome-system ops zoom)
-      (.then
-       (fn [first-bytes]
-         (-> (render-chrome-bytes! device chrome-system ops zoom)
-             (.then
-              (fn [second-bytes]
-                (-> (js/Promise.all
-                     #js [(sha256-bytes first-bytes)
-                          (sha256-bytes second-bytes)])
-                    (.then
-                     (fn [hashes]
-                       {:bytes first-bytes
-                        :first-sha256 (aget hashes 0)
-                        :second-sha256 (aget hashes 1)
-                        :byte-identical? (= (aget hashes 0)
-                                             (aget hashes 1))}))))))))))
-
-(defn- run-chrome-golden! [device chrome-system zoom]
-  (let [ops (chrome-neutral-ops zoom)
-        case-id (str "neutral-point-line-z" (int zoom))]
-    (-> (render-chrome-pair! device chrome-system ops zoom)
-        (.then
-         (fn [pair]
-           {:case-id case-id
-            :zoom zoom
-            :regime "neutral-legal-zoom"
-            :normalization "opaque-anchors+screen-px-offsets"
-            :shape-extent-world (/ 60.0 zoom)
-            :quad-count 2
-            :images [{:mode "neutral-point-line"
-                      :file (str "gpu-chrome-" case-id ".png")
-                      :raw-sha256 (:first-sha256 pair)
-                      :png-data-url (opaque-png-data-url (:bytes pair))
-                      :determinism
-                      {:first-raw-sha256 (:first-sha256 pair)
-                       :second-raw-sha256 (:second-sha256 pair)
-                       :byte-identical? (:byte-identical? pair)}}]})))))
-
-(defn- run-chrome-upload-gate! [chrome-system]
-  (let [ops (chrome-neutral-ops 1.0)
-        first-write (chrome-gpu/prepare-chrome-frame! chrome-system ops)
-        equal-vector (chrome-gpu/prepare-chrome-frame! chrome-system
-                                                       (mapv identity ops))]
-    {:first-write first-write :equal-new-vector equal-vector
-     :pass? (and (:mesh-set-changed? first-write)
-                 (= 1 (:writes first-write))
-                 (not (:mesh-set-changed? equal-vector))
-                 (zero? (:writes equal-vector)))}))
-
-(defn- run-chrome-atom! [device adapter]
-  (let [tracker (gpu-budget/create-tracker
-                 (gpu-budget/snapshot-adapter-limits adapter))
-        camera (renderer/create-camera-buffer device tracker)
-        containers-buffer (renderer/create-containers-buffer device tracker)
-        system (chrome-gpu/init-chrome-system
-                device "rgba8unorm-srgb" camera containers-buffer
-                :tracker tracker :scene-color (scene-color/scene-color true))]
-    (-> (promise-mapv (partial run-chrome-golden! device system) [1.0 4.0])
-        (.then
-         (fn [cases]
-           (let [determinism (mapcat #(map :determinism (:images %)) cases)
-                 upload-gate (run-chrome-upload-gate! system)
-                 before (gpu-budget/snapshot tracker)
-                 registered
-                 (first (filter #(= "chrome/vertices" (:label %))
-                                (:by-label before)))
-                 system-receipt (chrome-gpu/chrome-receipt system)
-                 _ (chrome-gpu/destroy-chrome-system! system)
-                 after (gpu-budget/snapshot tracker)
-                 released?
-                 (not-any? #(= "chrome/vertices" (:label %))
-                           (:by-label after))
-                 resources
-                 {:registered registered
-                  :reserved-before (:reserved-bytes registered)
-                  :active-before (:active-bytes registered)
-                  :released-on-destroy? released?
-                  :pass? (and (some? registered) released?)}
-                 pass? (and (= 2 (count cases))
-                            (every? :byte-identical? determinism)
-                            (:pass? upload-gate)
-                            (:pass? resources))]
-             {:cases cases
-              :upload-gate upload-gate
-              :resources resources
-              :system system-receipt
-              :pass? pass?}))))))
 
 ;; --- PATH ATOM --------------------------------------------------------------
 
@@ -2776,7 +2617,6 @@
                                             (shader-digests)
                                             (run-image-atom! device adapter)
                                             (run-path-atom! device adapter)
-                                            (run-chrome-atom! device adapter)
                                             (run-region3d-floor! device adapter
                                                                  t1-assets)])
                                       (.then
@@ -2802,8 +2642,7 @@
                                           :ubuntu-slug (aget values 1)
                                           :image-atom (aget values 3)
                                           :path-atom (aget values 4)
-                                          :chrome-atom (aget values 5)
-                                          :region3d-floor (aget values 6)
+                                          :region3d-floor (aget values 5)
                                           :cases (aget values 0)})))))))))))))))))))
 
 (defn ^:export run-region3d-floor-verifier! []

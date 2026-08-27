@@ -28,15 +28,6 @@ const registrationSources = [
 absent(registrationSources, /render\.family\/connector|connector-registration/,
   "retired family is still registered");
 
-const neutralSources = [
-  "src/app/client/substrate/chrome_material.cljc",
-  "src/app/client/substrate/webgpu/renderer.cljs",
-].map(read).join("\n");
-for (const form of [":selection-outline", ":handle", ":marquee", ":guide-line", ":gap-tick"]) {
-  assert.equal(neutralSources.includes(form), false, `${form} survived neutralization`);
-}
-absent(neutralSources, /:chrome\/selection\b/, "mark input still carries identity");
-
 const scene = read("src/app/client/substrate/region3d_scene.cljc");
 const regionGpu = read("src/app/client/substrate/webgpu/region3d_gpu.cljs");
 absent(scene, /\b(?:gizmo-handles|translate-delta|rotate-delta|scale-ratio|maintain-scene)\b/,
@@ -47,7 +38,6 @@ absent(regionGpu, /\b(?:grid-shader|overlay-glyph-shader|gizmo-shader|prepared-p
 const editAndPulseSources = [
   "src/app/client/substrate/path_material.cljc",
   "src/app/client/substrate/region3d_material.cljc",
-  "src/app/client/substrate/webgpu/chrome_gpu.cljs",
   "src/app/client/substrate/webgpu/renderer.cljs",
 ].map(read).join("\n");
 absent(editAndPulseSources,
@@ -58,7 +48,6 @@ const sceneContractSources = [
   "src/app/client/substrate/region3d_scene.cljc",
   "src/app/client/substrate/webgpu/renderer.cljs",
   "src/app/client/substrate/webgpu/path_gpu.cljs",
-  "src/app/client/substrate/webgpu/chrome_gpu.cljs",
 ].map(read).join("\n");
 absent(sceneContractSources,
   /\bpick-reverse\b|:region-router\b|:pick-order-derived\?|:resolve-view\b|:region-composite\b|:pass-class\s+:region\b/,

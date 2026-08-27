@@ -184,12 +184,6 @@ const laneGuards = (result) => [
       result.pathAtom?.parity?.every((row) => row.pass === true),
   },
   {
-    name: "chrome",
-    pass:
-      result.chromeAtom?.pass === true &&
-      allDeterministic(result.chromeAtom?.cases),
-  },
-  {
     name: "region3d",
     pass:
       result.region3dFloor?.pass === true &&
@@ -203,11 +197,6 @@ const representativeSpecs = [
     manifestKey: "images",
     resultKey: "ubuntuSlug",
     file: "gpu-slug-ubuntu-mixed-face.png",
-  },
-  {
-    manifestKey: "chromeAtomCases",
-    resultKey: "chromeAtom",
-    file: "gpu-chrome-neutral-point-line-z1.png",
   },
   {
     manifestKey: "pathAtomCases",
@@ -266,38 +255,11 @@ const sourceInputs = () =>
   [
     "src/app/client/substrate/webgpu/renderer.cljs",
     "src/app/client/substrate/webgpu/verifier.cljs",
-    "src/app/client/substrate/chrome_material.cljc",
-    "src/app/client/substrate/webgpu/chrome_gpu.cljs",
     "src/app/client/substrate/webgpu/path_gpu.cljs",
     "src/app/client/substrate/webgpu/region3d_gpu.cljs",
     "test/render_engine/verify_instance_cut.mjs",
     "test/render_engine/run_verifier.mjs",
   ].map(sha256File);
-
-const recordNeutralGoldens = (result, manifest) => {
-  const rows = result.chromeAtom.cases.flatMap((renderCase) =>
-    renderCase.images.map((image) => {
-      const bytes = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
-      fs.writeFileSync(path.join(goldenDir, image.file), bytes);
-      return {
-        caseId: renderCase.caseId,
-        zoom: renderCase.zoom,
-        regime: renderCase.regime,
-        normalization: renderCase.normalization,
-        shapeExtentWorld: renderCase.shapeExtentWorld,
-        quadCount: renderCase.quadCount,
-        mode: image.mode,
-        file: image.file,
-        rawSha256: image.rawSha256,
-        pngSha256: sha256(bytes),
-      };
-    }),
-  );
-  if (rows.length !== 2) throw new Error(`Expected two neutral goldens, got ${rows.length}`);
-  manifest.chromeAtomCases = rows;
-  fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
-  return rows;
-};
 
 const recordUbuntuSlugGolden = (result, manifest) => {
   const cases = result.ubuntuSlug?.cases || [];
@@ -380,9 +342,6 @@ const main = async () => {
   }
 
   const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-  if (process.env.RENDER_VERIFIER_RECORD_NEUTRAL === "1") {
-    recordNeutralGoldens(result, manifest);
-  }
   if (process.env.RENDER_VERIFIER_RECORD_UBUNTU_SLUG === "1") {
     recordUbuntuSlugGolden(result, manifest);
   }

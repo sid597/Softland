@@ -30,7 +30,6 @@
 
 (def pure-namespaces
   '[app.client.substrate.image-material-test
-    app.client.substrate.chrome-material-test
     app.client.substrate.path-material-test
     app.client.substrate.path-tessellation-test
     app.client.substrate.region3d-evaluation-test

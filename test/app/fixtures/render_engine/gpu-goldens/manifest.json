@@ -367,31 +367,5 @@
       "rawSha256": "5bf612e2e8ab6a6f93f15c36db2a24391ab69a709b8ccd29f50f6a28705cea79",
       "pngSha256": "0467c22c1154065568da9a2a1ad8da56ccf73f9f41aefb02ad86a3cfc45084ed"
     }
-  ],
-  "chromeAtomCases": [
-    {
-      "caseId": "neutral-point-line-z1",
-      "zoom": 1,
-      "regime": "neutral-legal-zoom",
-      "normalization": "opaque-anchors+screen-px-offsets",
-      "shapeExtentWorld": 60,
-      "quadCount": 2,
-      "mode": "neutral-point-line",
-      "file": "gpu-chrome-neutral-point-line-z1.png",
-      "rawSha256": "d1c01e1491eeda4f6488da3b86146fe05b4784bff205d49274fc5b0915a81c1b",
-      "pngSha256": "642a9348c8078f73fefddbc5b787ac44e05772bd1b937eddc625f7b38e12e957"
-    },
-    {
-      "caseId": "neutral-point-line-z4",
-      "zoom": 4,
-      "regime": "neutral-legal-zoom",
-      "normalization": "opaque-anchors+screen-px-offsets",
-      "shapeExtentWorld": 15,
-      "quadCount": 2,
-      "mode": "neutral-point-line",
-      "file": "gpu-chrome-neutral-point-line-z4.png",
-      "rawSha256": "d1c01e1491eeda4f6488da3b86146fe05b4784bff205d49274fc5b0915a81c1b",
-      "pngSha256": "642a9348c8078f73fefddbc5b787ac44e05772bd1b937eddc625f7b38e12e957"
-    }
   ]
 }
