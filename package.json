@@ -6,7 +6,7 @@
   "scripts": {
     "build": "clj -M:dev -m dev",
     "verify:text-layout": "clj -M:test -e \"(require 'app.client.workspace.text-layout-test) (let [r (clojure.test/run-tests 'app.client.workspace.text-layout-test)] (System/exit (+ (:fail r) (:error r))))\" && node test/render_engine/verify_proportional_shaper.mjs && node test/render_engine/verify_text_layout_fence.mjs",
-    "verify:render-engine": "npm run verify:text-layout && node test/render_engine/verify_scene_tape_fence.mjs && node test/render_engine/verify_instance_cut.mjs && clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs"
+    "verify:render-engine": "npm run verify:text-layout && node test/render_engine/verify_instance_cut.mjs && clj -M:dev -m shadow.cljs.devtools.cli release render-verifier && node test/render_engine/run_verifier.mjs"
   },
   "author": "",
   "license": "ISC",

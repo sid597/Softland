@@ -9,6 +9,7 @@
             [app.client.substrate.image-material :as image-material]
             [app.client.substrate.path-material :as path-material]
             [app.client.substrate.region3d-placement :as region3d-placement]
+            [app.client.substrate.scene-color :as scene-color]
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.buffer-pool :as buffer-pool]
             [app.client.substrate.webgpu.chrome-gpu :as chrome-gpu]
@@ -707,7 +708,7 @@
   [^js device fformat camera-buffer containers-buffer
    & {:keys [initial-capacity tracker scene-color budget-cap-bytes]
       :or {initial-capacity 256
-           scene-color scene-tape/legacy-direct-color}}]
+           scene-color scene-color/legacy-direct-color}}]
   (assert containers-buffer "init-image-system requires :containers-buffer")
   (let [bind-layout (.createBindGroupLayout
                      device
@@ -1110,7 +1111,7 @@
    & {:keys [initial-capacity tracker label containers-buffer scene-color]
       :or {initial-capacity 10000
            label "text/content"
-           scene-color scene-tape/legacy-direct-color}}]
+           scene-color scene-color/legacy-direct-color}}]
   (assert containers-buffer "init-slug-text-system requires :containers-buffer (scene-substrate P2)")
   (let [vertex-module (.createShaderModule device (clj->js {:code slug-vertex-shader}))
         fragment-module (.createShaderModule device
@@ -1229,7 +1230,7 @@
         tracker (:gpu-tracker old-text-sys)
         camera-buffer (:camera-uniform-buffer old-text-sys)
         containers-buffer (:containers-uniform-buffer old-text-sys)
-        scene-color (:scene-color old-text-sys scene-tape/legacy-direct-color)]
+        scene-color (:scene-color old-text-sys scene-color/legacy-direct-color)]
     (js/console.log "[RENDERER] Recreate text system"
                     {:label label
                      :capacity capacity
@@ -1288,7 +1289,7 @@
 
 (defn init-clear-quad
   [^js/GPUDevice device fformat & {:keys [scene-color]
-                                   :or {scene-color scene-tape/legacy-direct-color}}]
+                                   :or {scene-color scene-color/legacy-direct-color}}]
   (let [module (.createShaderModule device
                                    (clj->js {:code (configure-clear-quad-shader
                                                     scene-color)}))
@@ -1309,7 +1310,7 @@
 (defn create-render-target
   [^js device width height fformat & {:keys [tracker label previous scene-color]
                                       :or {label "render-target/persistent"
-                                           scene-color scene-tape/legacy-direct-color}}]
+                                           scene-color scene-color/legacy-direct-color}}]
   (let [safe-width (max 1 width)
         safe-height (max 1 height)
         tex (.createTexture device
@@ -1640,7 +1641,7 @@
       (when (or (not= line-offsets (:line-offsets renderer-state))
                 (not= (pos? actual-instances)
                       (pos? (:num-instances renderer-state 0))))
-        (frame-inputs/bump-shape-rev! renderer-state))
+        (swap! (:!shape-rev renderer-state) inc))
       (sync-paint-state!
        (assoc renderer-state
               :instance-buffer new-buffer
@@ -1782,10 +1783,7 @@
   (let [images (or images [])
         !last-images (:!last-images image-system)
         prepare-key {:images images :resources @(:!resources image-system)}]
-    (if (and (map? @(:!last-prepare-key image-system))
-             (frame-inputs/inputs-same? (keys prepare-key)
-                                        @(:!last-prepare-key image-system)
-                                        prepare-key))
+    (if (= prepare-key @(:!last-prepare-key image-system))
       {:identity-changed? false :writes 0
        :instances (count @(:!prepared-images image-system))}
       (let [prepared (mapv #(resolve-image-op image-system %) images)
@@ -2011,7 +2009,7 @@
                        {:binding 3 :visibility js/GPUShaderStage.VERTEX
                         :buffer {:type "read-only-storage"}}]}))
           pipeline (create-image-pipeline device "rgba16float" bind-layout
-                                          scene-tape/linear-premultiplied-color)
+                                          scene-color/linear-premultiplied-color)
           binding-map (js/WeakMap.)
           install!
           (fn [{:keys [texture bind-group]}]
@@ -2039,7 +2037,7 @@
    registry, atlas, instance buffer, or decoded byte is duplicated."
   [^js device {:keys [format tracker camera-buffer containers-buffer font-assets
                       text-sys image-system path-system chrome-system]}]
-  (let [linear scene-tape/linear-premultiplied-color
+  (let [linear scene-color/linear-premultiplied-color
         text-created (when (and text-sys font-assets)
                        (init-text-system device "rgba16float" camera-buffer
                                          font-assets :initial-capacity 1
@@ -2715,7 +2713,7 @@
             swap-view (.createView swap-texture)
             scene-color (or (:scene-color render-target)
                             (:scene-color text-sys)
-                            scene-tape/legacy-direct-color)
+                            scene-color/legacy-direct-color)
             scene-resource (scene-color-resource swap-view render-target
                                                  scene-color)
             target-view (:view scene-resource)

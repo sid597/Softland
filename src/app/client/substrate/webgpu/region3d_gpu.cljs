@@ -792,6 +792,29 @@
     (reset! (:!composite-rows system) rows)
     (count changed)))
 
+(defn- system-identity [system]
+  (when system (or (:frame-input/identity system) system)))
+
+(defn- shape-rev [system]
+  (if-let [revision (:!shape-rev system)] @revision 0))
+
+(defn- system-token
+  "Identity plus shape revision of a painter system, for prepare cache keys."
+  [system]
+  (when system [(system-identity system) (shape-rev system)]))
+
+(def ^:private region-encode-step 1.12)
+
+(defn- region-encode-rung
+  "Versioned geometric camera door.  The rung, not raw scale, is semantic."
+  [scale]
+  (let [scale (max 1.0e-9 (double (or scale 1.0)))]
+    (long (js/Math.floor (/ (js/Math.log scale)
+                            (js/Math.log region-encode-step))))))
+
+(defn- quantize-region-encode-scale [scale]
+  (js/Math.pow region-encode-step (region-encode-rung scale)))
+
 (defn- font-input-token [font-assets]
   (placement/provider-identity font-assets))
 
@@ -834,8 +857,8 @@
                                           (mapv min pixel-size max-lease-size)
                                           pixel-size))
                        encode-scale
-                       (frame-inputs/quantize-region-encode-scale (* zoom dpr))
-                       encode-rung (frame-inputs/region-encode-rung (* zoom dpr))
+                       (quantize-region-encode-scale (* zoom dpr))
+                       encode-rung (region-encode-rung (* zoom dpr))
                        encode-pixel-size
                        [(max 1 (js/Math.ceil (* (:w op) encode-scale)))
                         (max 1 (js/Math.ceil (* (:h op) encode-scale)))]
@@ -882,7 +905,7 @@
                         :font (font-input-token font-assets)
                         :session-layout
                         (placement/session-layout-key session-layout-snapshot)
-                        :path-system (frame-inputs/system-token path-system)
+                        :path-system (system-token path-system)
                         :max-lease-size max-lease-size}]
                    (let [gpu0 (or (:gpu old)
                                     (create-region-gpu system region-id))
@@ -1003,7 +1026,7 @@
       (reset! (:!prepared system) next))
     (when entry-shape-changed?
       (reset! (:!entry-shape-key system) entry-shape-key)
-      (frame-inputs/bump-shape-rev! system))
+      (swap! (:!shape-rev system) inc))
     (when (or prepared-changed? (seq closed) (pos? composite-uploads))
       (swap! (:!receipt system)
              (fn [receipt]

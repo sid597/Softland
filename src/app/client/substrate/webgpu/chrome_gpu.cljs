@@ -4,8 +4,7 @@
    container motion remain shader values."
   (:require [clojure.string :as str]
             [app.client.substrate.chrome-material :as chrome-material]
-            [app.client.substrate.frame-inputs :as frame-inputs]
-            [app.client.substrate.scene-tape :as scene-tape]
+            [app.client.substrate.scene-color :as scene-color]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]))
 
 (def chrome-color-mode-declaration
@@ -86,7 +85,7 @@
   [^js device fformat camera-buffer containers-buffer
    & {:keys [initial-capacity tracker scene-color]
       :or {initial-capacity 2048
-           scene-color scene-tape/legacy-direct-color}}]
+           scene-color scene-color/legacy-direct-color}}]
   (assert camera-buffer "init-chrome-system requires :camera-buffer")
   (assert containers-buffer "init-chrome-system requires :containers-buffer")
   (let [vertex-module (.createShaderModule
@@ -196,8 +195,7 @@
 
 (defn prepare-chrome-frame! [chrome-system chromes]
   (let [chromes (or chromes [])]
-    (if (frame-inputs/input-value-same? chromes
-                                        @(:!last-chromes chrome-system))
+    (if (= chromes @(:!last-chromes chrome-system))
       {:mesh-set-changed? false :writes 0
        :vertices (reduce + (map :vertex-count @(:!prepared chrome-system)))}
       (let [mesh-set-key (mapv (fn [op]
@@ -219,7 +217,7 @@
              (* vertices chrome-material/vertex-stride))
             (reset! (:!prepared chrome-system) prepared)
             (reset! (:!last-mesh-set-key chrome-system) mesh-set-key)
-            (frame-inputs/bump-shape-rev! chrome-system)
+            (swap! (:!shape-rev chrome-system) inc)
             (swap! (:!receipt chrome-system)
                    #(-> % (update :uploads inc)
                         (assoc :vertices vertices

@@ -1072,10 +1072,59 @@
         sy (js/Math.sqrt (+ (* c c) (* d d)))]
     (max sx sy)))
 
+(def blur-algorithm-version :gaussian-9tap-downsample-v1)
+(def default-max-blur-px 64.0)
+
+(defn- finite-number? [x]
+  (and (number? x) (js/Number.isFinite x)))
+
+(defn- validate-blur! [kind blur]
+  (when-not (map? blur)
+    (throw (ex-info "Blur declaration must be a map"
+                    {:effect kind :value blur})))
+  (let [unknown (seq (remove #{:radius-world :max-px :algorithm-version}
+                             (keys blur)))
+        radius (:radius-world blur)
+        max-px (get blur :max-px default-max-blur-px)
+        algorithm (:algorithm-version blur)]
+    (when unknown
+      (throw (ex-info "Blur declaration has unknown fields"
+                      {:effect kind :unknown (vec unknown)})))
+    (when-not (and (finite-number? radius) (not (neg? radius)))
+      (throw (ex-info "Blur radius must be a finite non-negative world value"
+                      {:effect kind :radius-world radius})))
+    (when-not (and (finite-number? max-px) (pos? max-px))
+      (throw (ex-info "Blur max-px must be finite and positive"
+                      {:effect kind :max-px max-px})))
+    (when-not (= blur-algorithm-version algorithm)
+      (throw (ex-info "Blur algorithm-version is absent or unsupported"
+                      {:effect kind :algorithm-version algorithm
+                       :required blur-algorithm-version})))
+    (assoc blur :max-px (double max-px)
+                :radius-world (double radius))))
+
+(defn projected-blur
+  "Project a world-space blur declaration to pixels and name its clamp regime."
+  [blur effective-scale camera-zoom]
+  (let [{:keys [radius-world max-px algorithm-version]}
+        (validate-blur! :blur blur)
+        raw (* radius-world (double effective-scale) (double camera-zoom))
+        px (min max-px raw)]
+    {:radius-px px
+     :raw-radius-px raw
+     :clamped? (> raw max-px)
+     :regime (if (> raw max-px) :max-px-clamped :projected-world-radius)
+     :algorithm-version algorithm-version
+     :downsample-levels
+     (loop [radius px levels 0]
+       (if (and (> radius 8.0) (< levels 3))
+         (recur (/ radius 2.0) (inc levels))
+         levels))}))
+
 (defn- project-blur!
   [!projections effective-transforms zoom span kind blur]
   (let [projection
-        (assoc (frame-effects/projected-blur
+        (assoc (projected-blur
                 blur (effective-scale effective-transforms
                                       (:container/id span)) zoom)
                :container/id (:container/id span)

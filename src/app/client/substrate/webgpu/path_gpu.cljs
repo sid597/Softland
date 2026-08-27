@@ -4,10 +4,9 @@
    mesh-set identity or zoom regime changes; camera/container motion remains a
    shader value."
   (:require [clojure.string :as str]
-            [app.client.substrate.frame-inputs :as frame-inputs]
             [app.client.substrate.path-material :as path-material]
             [app.client.substrate.path-tessellation :as tessellation]
-            [app.client.substrate.scene-tape :as scene-tape]
+            [app.client.substrate.scene-color :as scene-color]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]))
 
 (def path-color-mode-declaration
@@ -86,7 +85,7 @@
   [^js device fformat camera-buffer containers-buffer
    & {:keys [initial-capacity tracker scene-color]
       :or {initial-capacity 2048
-           scene-color scene-tape/legacy-direct-color}}]
+           scene-color scene-color/legacy-direct-color}}]
   (assert camera-buffer "init-path-system requires :camera-buffer")
   (assert containers-buffer "init-path-system requires :containers-buffer")
   (let [vertex-module (.createShaderModule
@@ -276,8 +275,7 @@
   [path-system paths zoom]
   (let [paths (or paths [])
         regime (:regime/id (path-material/zoom-regime zoom))]
-    (if (and (frame-inputs/input-value-same?
-              paths @(:!last-paths path-system))
+    (if (and (= paths @(:!last-paths path-system))
              (= regime @(:!last-regime path-system)))
       {:mesh-set-changed? false :writes 0
        :vertices (reduce + (map :vertex-count @(:!prepared path-system)))}
@@ -316,7 +314,7 @@
              (* vertices path-material/vertex-stride))
             (reset! (:!prepared path-system) prepared)
             (reset! (:!last-mesh-set-key path-system) mesh-set-key)
-            (frame-inputs/bump-shape-rev! path-system)
+            (swap! (:!shape-rev path-system) inc)
             (swap! (:!receipt path-system)
                    (fn [receipt]
                      (-> receipt

@@ -20,6 +20,7 @@
             [app.client.substrate.region3d-scene :as region3d-scene]
             [app.client.substrate.frame-effects :as frame-effects]
             [app.client.substrate.frame-graph :as frame-graph]
+            [app.client.substrate.scene-color :as scene-color]
             [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.substrate.webgpu.chrome-gpu :as chrome-gpu]
@@ -860,7 +861,7 @@
                  system (renderer/init-image-system
                          device "rgba8unorm-srgb" camera containers-buffer
                          :tracker tracker
-                         :scene-color (scene-tape/scene-color true))
+                         :scene-color (scene-color/scene-color true))
                  row (get corpus "dedicated-alpha-premultiplied.png")
                  mistagged-source (assoc (:source row)
                                          :image/alpha-association :straight)]
@@ -1060,7 +1061,7 @@
         tiny-system (renderer/init-image-system
                      device "rgba8unorm-srgb" tiny-camera tiny-containers
                      :tracker tiny-tracker :budget-cap-bytes 1
-                     :scene-color (scene-tape/scene-color true))
+                     :scene-color (scene-color/scene-color true))
         atlas-row (get corpus "atlas-opaque-srgb.png")
         atlas-digest (:digest atlas-row)
         registered-digests
@@ -1126,7 +1127,7 @@
                          replacement-device "rgba8unorm-srgb"
                          replacement-camera replacement-containers
                          :tracker replacement-tracker
-                         :scene-color (scene-tape/scene-color true))]
+                         :scene-color (scene-color/scene-color true))]
                     (-> (renderer/rebuild-image-resources! candidate-system
                                                           replacement-system)
                         (.then
@@ -1237,7 +1238,7 @@
         (renderer/init-image-system
          device "rgba8unorm-srgb" candidate-camera candidate-containers
          :tracker candidate-tracker
-         :scene-color (scene-tape/scene-color true))
+         :scene-color (scene-color/scene-color true))
         seam-tracker
         (gpu-budget/create-tracker (gpu-budget/snapshot-adapter-limits adapter))
         seam-camera (renderer/create-camera-buffer device seam-tracker)
@@ -1246,7 +1247,7 @@
         (renderer/init-image-system
          device "rgba8unorm" seam-camera seam-containers
          :tracker seam-tracker
-         :scene-color (scene-tape/scene-color false))]
+         :scene-color (scene-color/scene-color false))]
     (-> (fetch-image-corpus!)
         (.then
          (fn [corpus]
@@ -1466,7 +1467,7 @@
         containers-buffer (renderer/create-containers-buffer device tracker)
         system (chrome-gpu/init-chrome-system
                 device "rgba8unorm-srgb" camera containers-buffer
-                :tracker tracker :scene-color (scene-tape/scene-color true))]
+                :tracker tracker :scene-color (scene-color/scene-color true))]
     (-> (promise-mapv (partial run-chrome-golden! device system) [1.0 4.0])
         (.then
          (fn [cases]
@@ -1832,7 +1833,7 @@
         containers-buffer (renderer/create-containers-buffer device tracker)
         system (path-gpu/init-path-system
                 device "rgba8unorm-srgb" camera containers-buffer
-                :tracker tracker :scene-color (scene-tape/scene-color true))]
+                :tracker tracker :scene-color (scene-color/scene-color true))]
     (-> (promise-mapv (partial run-path-golden! device system)
                       [:pressure-ink :holed-concave
                        :translucent-self-crossing])
@@ -2911,7 +2912,7 @@
         (path-gpu/init-path-system
          device "rgba16float" camera containers-buffer
          :initial-capacity 16 :tracker tracker
-         :scene-color (scene-tape/scene-color true))
+         :scene-color (scene-color/scene-color true))
         surround-ops
         [(path-op
           :region3d/below
@@ -2931,7 +2932,7 @@
         path-system
         (path-gpu/init-path-system
          device "rgba16float" camera containers-buffer
-         :tracker tracker :scene-color (scene-tape/scene-color true))
+         :tracker tracker :scene-color (scene-color/scene-color true))
         compositor (compositor-gpu/create-compositor!
                     device color-format tracker)
         harness {:device device :tracker tracker :camera camera

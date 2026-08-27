@@ -1,5 +1,6 @@
 (ns app.client.substrate.scene-tape-test
   (:require [clojure.test :refer [deftest is testing]]
+            [app.client.substrate.scene-color :as color]
             [app.client.substrate.scene-tape :as tape]))
 
 (defn- entry [entry-id family-id layer]
@@ -39,18 +40,18 @@
                   [(entry :image :render.family/image 0)])))))
 
 (deftest w2b-color-seam-is-tagged-linear-premultiplied-and-default-off
-  (is (false? (:enabled? (tape/scene-color false))))
+  (is (false? (:enabled? (color/scene-color false))))
   (is (= :scene-color/legacy-direct
-         (:scene-color/id (tape/scene-color nil))))
+         (:scene-color/id (color/scene-color nil))))
   (is (= {:color [:src-alpha :one-minus-src-alpha]
           :alpha [:src-alpha :one-minus-src-alpha]}
-         (:blend (tape/scene-color false))))
-  (is (= :linear-srgb (:working-space (tape/scene-color true))))
-  (is (= :premultiplied (:alpha-association (tape/scene-color true))))
+         (:blend (color/scene-color false))))
+  (is (= :linear-srgb (:working-space (color/scene-color true))))
+  (is (= :premultiplied (:alpha-association (color/scene-color true))))
   (is (= {:color [:one :one-minus-src-alpha]
           :alpha [:one :one-minus-src-alpha]}
-         (:blend (tape/scene-color true))))
-  (is (true? (:default-off? tape/scene-color-seam))))
+         (:blend (color/scene-color true))))
+  (is (true? (:default-off? color/scene-color-seam))))
 
 (deftest w2b-one-tape-paints-forward-in-stable-semantic-order
   (let [entries [(entry :slug :render.family/slug 20)
