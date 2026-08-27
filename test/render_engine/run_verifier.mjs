@@ -162,6 +162,14 @@ const laneGuards = (result) => [
       result.q8Transport.rows.every((row) => row.pass === true),
   },
   {
+    name: "ubuntu-slug",
+    pass:
+      result.ubuntuSlug?.pass === true &&
+      allDeterministic(result.ubuntuSlug?.cases) &&
+      result.ubuntuSlug?.faceIds?.join(",") ===
+        "noto-sans-regular,ubuntu-sans-variable",
+  },
+  {
     name: "image",
     pass:
       result.imageAtom?.pass === true &&
@@ -191,6 +199,11 @@ const laneGuards = (result) => [
 
 const representativeSpecs = [
   { manifestKey: "images", resultKey: "cases", file: "gpu-slug-legal-min-z0p01.png" },
+  {
+    manifestKey: "images",
+    resultKey: "ubuntuSlug",
+    file: "gpu-slug-ubuntu-mixed-face.png",
+  },
   {
     manifestKey: "chromeAtomCases",
     resultKey: "chromeAtom",
@@ -288,6 +301,36 @@ const recordNeutralGoldens = (result, manifest) => {
   return rows;
 };
 
+const recordUbuntuSlugGolden = (result, manifest) => {
+  const cases = result.ubuntuSlug?.cases || [];
+  const images = cases.flatMap((renderCase) =>
+    renderCase.images.map((image) => ({ renderCase, image })),
+  );
+  if (images.length !== 1) {
+    throw new Error(`Expected one Ubuntu Slug golden, got ${images.length}`);
+  }
+  const { renderCase, image } = images[0];
+  const bytes = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+  fs.writeFileSync(path.join(goldenDir, image.file), bytes);
+  const row = {
+    caseId: renderCase.caseId,
+    zoom: renderCase.zoom,
+    regime: renderCase.regime,
+    normalization: renderCase.normalization,
+    shapeExtentWorld: renderCase.shapeExtentWorld,
+    mode: image.mode,
+    file: image.file,
+    rawSha256: image.rawSha256,
+    pngSha256: sha256(bytes),
+  };
+  manifest.images = [
+    ...(manifest.images || []).filter((entry) => entry.file !== image.file),
+    row,
+  ];
+  fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+  return row;
+};
+
 const runBrowser = async () => {
   const browser = await puppeteer.launch({
     executablePath: chromeExecutable,
@@ -342,6 +385,9 @@ const main = async () => {
   if (process.env.RENDER_VERIFIER_RECORD_NEUTRAL === "1") {
     recordNeutralGoldens(result, manifest);
   }
+  if (process.env.RENDER_VERIFIER_RECORD_UBUNTU_SLUG === "1") {
+    recordUbuntuSlugGolden(result, manifest);
+  }
   const guards = laneGuards(result);
   const goldens = representativeGoldens(result, manifest);
   const dejavuSlugGoldens = slugGoldens(result, manifest);
@@ -358,6 +404,12 @@ const main = async () => {
     pass,
     guards,
     dejavuSlugGoldens,
+    ubuntuSlug: {
+      text: result.ubuntuSlug?.text,
+      faceIds: result.ubuntuSlug?.faceIds,
+      faceRevisions: result.ubuntuSlug?.faceRevisions,
+      pass: result.ubuntuSlug?.pass === true,
+    },
     representativeGoldens: goldens,
     sourceInputs: sourceInputs(),
     adapter: result.adapter,
@@ -370,6 +422,7 @@ const main = async () => {
       pass,
       guards,
       dejavuSlugGoldens,
+      ubuntuSlug: receipt.ubuntuSlug,
       representativeGoldens: goldens.map(({ family, file, pass: rowPass }) => ({
         family,
         file,

@@ -436,6 +436,48 @@
                                (:inside? slug-probe)
                                (:receipt slug-probe))]})))))
 
+(defn- run-ubuntu-mixed-case!
+  [device ubuntu-system ubuntu-assets]
+  (let [text "Aɐ"
+        font-size 56.0
+        line-height 68.0
+        layout-result (tl/layout {:text text
+                                  :provider (:layout-provider ubuntu-assets)
+                                  :font-size font-size
+                                  :line-height line-height
+                                  :origin [24.0 18.0]
+                                  :baseline-offset font-size
+                                  :source-id :verifier/ubuntu-slug-mixed-face
+                                  :source-revision 1})
+        glyphs (:glyphs (tl/paint-result layout-result))
+        face-ids (->> glyphs (map :font-id) distinct sort vec)
+        face-revisions (->> glyphs (map :font-revision) distinct sort vec)
+        expected-faces ["noto-sans-regular" "ubuntu-sans-variable"]
+        _ (when-not (= expected-faces face-ids)
+            (throw (ex-info "Ubuntu Slug golden did not shape through both faces."
+                            {:text text :expected expected-faces :actual face-ids})))
+        lines (->> (tl/line-paint-ops
+                     layout-result
+                     {:size font-size :r 1.0 :g 1.0 :b 1.0 :a 1.0})
+                   (mapv vector))
+        ubuntu-system (renderer/update-text-data
+                        device ubuntu-system lines ubuntu-assets font-size
+                        :line-height line-height)]
+    (-> (render-pair! device ubuntu-system 1.0)
+        (.then
+         (fn [pair]
+           {:pass true
+            :text text
+            :face-ids face-ids
+            :face-revisions face-revisions
+            :cases
+            [{:case-id "ubuntu-mixed-face"
+              :zoom 1.0
+              :regime "default-font-mixed-face"
+              :normalization "material-fixed"
+              :shape-extent-world font-size
+              :images [(image-record "slug" "ubuntu-mixed-face" pair)]}]})))))
+
 ;; --- IMAGE-ATOM Package 2 ---------------------------------------------------
 
 (defn- fetch-image-corpus! []
@@ -3039,6 +3081,11 @@
                                                            :containers-buffer containers-buffer)]
                                                       (js/console.log "[W0-A] init-slug-pipeline-complete")
                                                       system))
+                                      ubuntu-system
+                                      (renderer/init-text-system
+                                       device color-format camera-buffer t1-assets
+                                       :initial-capacity 2
+                                       :containers-buffer containers-buffer)
                                       curves (do
                                                (js/console.log "[W0-A] init-curve-decode-start")
                                                (let [decoded (decode-glyph-curves slug-assets 111)]
@@ -3051,6 +3098,7 @@
                                                :curves curves}]
                                   (-> (js/Promise.all
                                        #js [(promise-mapv (partial run-case! harness) zoom-cases)
+                                            (run-ubuntu-mixed-case! device ubuntu-system t1-assets)
                                             (shader-digests)
                                             (run-image-atom! device adapter)
                                             (run-path-atom! device adapter)
@@ -3074,13 +3122,14 @@
                                           :font {:id (:id font-config)
                                                  :slug (:slug font-config)}
                                           :decoded-slug-curve-count (count curves)
-                                          :shader-digests (aget values 1)
+                                          :shader-digests (aget values 2)
                                           :q8-transport q8-transport
                                           :t1-layout t1-receipt
-                                          :image-atom (aget values 2)
-                                          :path-atom (aget values 3)
-                                          :chrome-atom (aget values 4)
-                                          :region3d-floor (aget values 5)
+                                          :ubuntu-slug (aget values 1)
+                                          :image-atom (aget values 3)
+                                          :path-atom (aget values 4)
+                                          :chrome-atom (aget values 5)
+                                          :region3d-floor (aget values 6)
                                           :cases (aget values 0)})))))))))))))))))))
 
 (defn ^:export run-region3d-floor-verifier! []

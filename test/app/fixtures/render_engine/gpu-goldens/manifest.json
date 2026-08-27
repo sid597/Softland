@@ -87,6 +87,17 @@
       "file": "gpu-slug-legal-max-z1000.png",
       "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
       "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+    },
+    {
+      "caseId": "ubuntu-mixed-face",
+      "zoom": 1,
+      "regime": "default-font-mixed-face",
+      "normalization": "material-fixed",
+      "shapeExtentWorld": 56,
+      "mode": "slug",
+      "file": "gpu-slug-ubuntu-mixed-face.png",
+      "rawSha256": "ac7134966143ef1a74a58425e70260e830baeabd69eee09f9fa18ba18834897d",
+      "pngSha256": "085374f871721bc132804d9de10d0a16dc645d98473e32d5235368955b4bb6a3"
     }
   ],
   "imageAtomCases": [
