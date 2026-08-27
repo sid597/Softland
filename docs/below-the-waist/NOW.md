@@ -1,15 +1,15 @@
-# Below the waist — NOW (2026-08-26)
+# Below the waist — NOW (2026-08-28)
 
-Status: **§1/SLUG/DESIGN-TOKENS CUT CLOSED + SID-ACCEPTED 2026-08-26.** The original waist and instance cut remain accepted; §2 and §3 were not opened.
-Authority: Sid's direct 2026-08-26 closed removal contract; no replacement, six-kind, row-door, contained-space, display-mode, or shadow ruling entered this atom.
+Status: **§1/DESIGN-TOKENS CUT REMAINS CLOSED; TEXT-ROAD CORRECTION CLOSED + RECEIPTED 2026-08-28.** The original waist and instance cuts remain accepted; §2 and §3 were not opened.
+Authority: Sid's direct 2026-08-28 ruling that Slug is the one text road and MSDF is removed; no fallback, backend selector, replacement 3D text painter, or unrelated cleanup entered this correction.
 §1 (`8640d86`): removed the dead camera object, placement/address/pick/anchor wrappers, duplicate region fragment, tape click road, scheduler, unread uniform tails, dead order vocabulary, and coupled receipts.
 Oracle move: `scene-equivalent?`, `shade-reference`, and their private CPU helpers now live once in `test/app/client/substrate/region3d_oracle.cljc`; production callers are gone and test/verifier callers use it.
-Text (`e664b40`): removed Slug admission, producer/dispatch, shaders/pipeline/resources, generator, four GPU blobs, two metadata files, seven goldens, and Slug-only tests/verifier rows; MSDF is sole text road.
+Text (`827d2ab`, `dbf6c81`): reverted `e664b40` because “and slug goes” was mis-read as a ruling against Slug; then removed MSDF admission, shaders/pipeline/resources, text atlases, goldens, verifier rows, and the atlas-coupled build hook. Slug is the sole text road.
 Tokens: removed unreferenced `src/components/design_tokens.cljc` / `components.design-tokens/dt`; no other design-system cleanup entered.
-Protected: ray/plane and anchor projection, path/text hits, `pick-region`, order comparison, live region passes, shadows, PBR/flat/normal, Region3D composite, binding deltas, and shared text shaping/layout remain.
-Tripwires: five decisive scenarios green; negative guards confirm the scheduler, tape click vocabulary, Slug, design tokens, and named §1 APIs remain absent.
-JVM receipt: 41 tests / 209 assertions / 0 failures / 0 errors.
-Render receipt: text layout 5/29; six-family scene fence; CLJS 90 files / 2 compiled / 0 warnings; 5 browser guards + MSDF/chrome/path representative goldens green.
-Absence/diff receipt: guard-aware scoped searches and `git diff --check` green; no golden rebake was needed because retained MSDF output stayed byte-valid.
-Custody: no genuine fork or foreign failure; no server/Rama/data/archive/deploy/migration/push/merge or foreign-dirty-file mutation.
-Acceptance: Sid accepted 2026-08-26; atom closed.
+3D boundary: the placed MSDF painter left with its atlas; Region3D placement/layout math remains, and a Slug 3D painter is later scene-model work.
+Protected: shared shaping/layout/metrics, TTFs, HarfBuzz, ray/plane and anchor projection, path/text hits, `pick-region`, order comparison, shadows, Region3D composite, binding deltas, and archive/data custody remain.
+JVM receipt: 21 tests / 96 assertions / 0 failures / 0 errors.
+Render receipt: text layout 5/29; six-family scene fence; CLJS 90 files / 2 compiled / 0 warnings; all 5 browser guards and Slug/chrome/path representative goldens green.
+Asset receipt: all seven restored `gpu-slug-*` hashes match the manifest; DejaVu Sans Mono and Ubuntu Sans Variable curve/band assets are present and production-loaded through Slug.
+Absence/diff receipt: zero MSDF or text-atlas source/resource survivors; `git diff dbf6c81^ dbf6c81 --check` green; code custody is 44 files.
+Custody: no server/Rama/data/archive/deploy/migration/push/merge or foreign-dirty-file mutation; the correction is Sid's direct 2026-08-28 ruling, with no separate acceptance claim added here.
