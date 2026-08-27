@@ -231,6 +231,24 @@ const representativeGoldens = (result, manifest) =>
     };
   });
 
+const slugGoldens = (result, manifest) =>
+  imageRows(result.cases).map((current) => {
+    const expected = manifest.images?.find((row) => row.file === current.file);
+    const goldenFile = path.join(goldenDir, current.file);
+    const goldenPngSha256 = fs.existsSync(goldenFile)
+      ? sha256(fs.readFileSync(goldenFile))
+      : null;
+    return {
+      file: current.file,
+      pass: Boolean(
+        expected &&
+          current.rawSha256 === expected.rawSha256 &&
+          current.pngSha256 === expected.pngSha256 &&
+          goldenPngSha256 === expected.pngSha256,
+      ),
+    };
+  });
+
 const sourceInputs = () =>
   [
     "src/app/client/substrate/webgpu/renderer.cljs",
@@ -326,7 +344,12 @@ const main = async () => {
   }
   const guards = laneGuards(result);
   const goldens = representativeGoldens(result, manifest);
-  const pass = guards.every((guard) => guard.pass) && goldens.every((row) => row.pass);
+  const dejavuSlugGoldens = slugGoldens(result, manifest);
+  const pass =
+    guards.every((guard) => guard.pass) &&
+    goldens.every((row) => row.pass) &&
+    dejavuSlugGoldens.length === 7 &&
+    dejavuSlugGoldens.every((row) => row.pass);
   const receipt = {
     schemaVersion: 1,
     verifier: result.verifier,
@@ -334,6 +357,7 @@ const main = async () => {
     replayCommand: "npm run verify:render-engine",
     pass,
     guards,
+    dejavuSlugGoldens,
     representativeGoldens: goldens,
     sourceInputs: sourceInputs(),
     adapter: result.adapter,
@@ -345,6 +369,7 @@ const main = async () => {
     JSON.stringify({
       pass,
       guards,
+      dejavuSlugGoldens,
       representativeGoldens: goldens.map(({ family, file, pass: rowPass }) => ({
         family,
         file,
