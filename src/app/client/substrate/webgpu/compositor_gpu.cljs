@@ -6,10 +6,7 @@
    presentation transfer, per-draw scissor state, and asynchronous raster
    readback. Family pipelines arrive through a lazy variant-layer builder so
    textures/registries/instance bytes remain owned by their existing systems."
-  (:require [app.client.substrate.frame-effects :as frame-effects]
-            [app.client.substrate.frame-graph :as frame-graph]
-            [app.client.substrate.frame-inputs :as frame-inputs]
-            [app.client.substrate.region-rungs :as region-rungs]
+  (:require [app.client.substrate.region-rungs :as region-rungs]
             [app.client.substrate.webgpu.region-bindings :as region-bindings]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]))
 
@@ -482,12 +479,10 @@
                                    (or budget-cap-bytes
                                        default-pool-budget-bytes))
    :pipelines (create-pipelines! device output-format)
-   :!variant-layer (atom nil)
    :!region-leases (atom {})
    :!retired-region-targets (atom [])
    :!retiring-region-keys (atom #{})
-   :!receipt (atom {:frames 0 :linear-frames 0 :copy-present-frames 0
-                    :exports 0 :passes [] :color-mode :legacy})})
+   :!receipt (atom {})})
 
 (defn quantize-region-size [value]
   (-> (/ (max 1 (double value)) region-lease-quant)
@@ -697,24 +692,9 @@
                  @(:!region-leases compositor))
    :bytes (reduce + 0 (map :bytes (vals @(:!region-leases compositor))))})
 
-(defn ensure-variant-layer!
-  "Lazy constructor. The callback must mint only mode-specific pipelines,
-   views, and bind groups over the supplied existing systems."
-  [compositor build-variant-layer! systems]
-  (or @(:!variant-layer compositor)
-      (let [variant (build-variant-layer! (:device compositor) systems)]
-        (when-not (and (:families variant) (:linearize-entry variant))
-          (throw (ex-info "Linear variant layer is incomplete"
-                          {:keys (keys variant)})))
-        (reset! (:!variant-layer compositor) variant)
-        variant)))
-
 (defn destroy-compositor! [compositor]
-  (when-let [destroy! (:destroy! @(:!variant-layer compositor))]
-    (destroy!))
   (release-all-region-leases! compositor)
   (destroy-target-pool! (:target-pool compositor))
-  (reset! (:!variant-layer compositor) nil)
   nil)
 
 (defn apply-scissor!
@@ -745,7 +725,7 @@
     (.unmap buffer)
     buffer))
 
-(defn- begin-target-pass! [encoder target load-op]
+(defn begin-target-pass! [encoder target load-op]
   (.beginRenderPass
    ^js encoder
    (clj->js {:colorAttachments
@@ -850,89 +830,6 @@
                   (release-target! (:target-pool compositor) horizontal)
                   (recur vertical (inc level) true))))))))))
 
-(defn- index-in-ranges? [ranges index]
-  (some (fn [[start end]] (<= start index (dec end))) ranges))
-
-(defn- group-for-index [spans index]
-  (->> spans
-       (filter #(index-in-ranges? (:entry-ranges %) index))
-       (sort-by :depth >) first :container/id))
-
-(defn- mask-source-entry? [selector entry]
-  (or (= selector (:instance/id entry))
-      (= selector (:entry/id entry))
-      (= selector (:material/id entry))
-      (and (sequential? (:entry/id entry))
-           (some #(= selector %) (:entry/id entry)))))
-
-(defn- expand-execution-spans
-  "A split span is executed as one compositor action per contiguous range.
-   This preserves forward tape order if a future pass-class interleaving makes
-   the normally-contiguous stack path split. The full range set remains on the
-   row so a designated mask source is shared by every action."
-  [spans]
-  (into []
-        (mapcat (fn [span]
-                  (map (fn [entry-range]
-                         (assoc span
-                                :all-entry-ranges (:entry-ranges span)
-                                :entry-ranges [entry-range]
-                                :execution/key
-                                [(:container/id span) entry-range]))
-                       (:entry-ranges span))))
-        spans))
-
-(defn- group-min-index [span]
-  (ffirst (:entry-ranges span)))
-
-(defn- child-groups [spans parent-id]
-  (filter #(= parent-id (:parent/container-id %)) spans))
-
-(defn- sequence-actions [arrangement spans owner]
-  (let [owner-id (:container/id owner)
-        owner-ranges (:entry-ranges owner)
-        children (->> (child-groups spans owner-id)
-                      (filter (fn [child]
-                                (or (nil? owner)
-                                    (some (fn [[start _end]]
-                                            (index-in-ranges? owner-ranges start))
-                                          (:entry-ranges child)))))
-                      vec)
-        child-at (into {} (keep (fn [child]
-                                  (when-let [index (group-min-index child)]
-                                    [index child]))) children)
-        child-indices (set (mapcat (fn [child]
-                                    (mapcat (fn [[start end]] (range start end))
-                                            (:entry-ranges child)))
-                                  children))
-        mask-selector (get-in owner [:effects :mask])]
-    (->> arrangement
-         (map-indexed vector)
-         (keep (fn [[index entry]]
-                 (cond
-                   (contains? child-at index)
-                   {:action :group :index index :group (get child-at index)}
-
-                   (contains? child-indices index) nil
-
-                   (and (index-in-ranges? owner-ranges index)
-                        (= owner-id (group-for-index spans index))
-                        (not (mask-source-entry? mask-selector entry)))
-                   {:action :entry :index index :entry entry}
-
-                   (and (nil? owner) (nil? (group-for-index spans index)))
-                   {:action :entry :index index :entry entry}
-
-                   :else nil)))
-         vec)))
-
-(defn- render-direct-entry!
-  [encoder target entry execute-entry! linearize-entry]
-  (let [pass (begin-target-pass! encoder target "load")]
-    (execute-entry! pass (linearize-entry entry)
-                    [(:width target) (:height target)])
-    (.end pass)))
-
 (defn- clear-target! [encoder target]
   (let [pass (begin-target-pass! encoder target "clear")]
     (.end pass)))
@@ -959,113 +856,7 @@
       (.draw pass 3 1 0 0)
       (.end pass))))
 
-(defn- mask-clip? [clip]
-  (= :mask (:mode clip)))
-
-(defn- render-masked-sub-draw!
-  [compositor encoder target entry sub-draw execute-entry! linearize-entry
-   acquired transient-buffers]
-  (let [cid (or (:entry/id entry) (:instance/id entry))
-        content (acquire-target! (:target-pool compositor) "rgba16float"
-                                 (:width target) (:height target)
-                                 (str "frame/clip-content/" cid))
-        mask (acquire-target! (:target-pool compositor) "rgba16float"
-                              (:width target) (:height target)
-                              (str "frame/clip-mask/" cid))
-        unclipped (assoc-in entry [:paint :sub-draws]
-                            [(assoc sub-draw :clip nil)])]
-    (swap! acquired into [content mask])
-    (clear-target! encoder content)
-    (render-direct-entry! encoder content unclipped execute-entry! linearize-entry)
-    (draw-clip-mask! compositor encoder mask (get-in sub-draw [:clip :points])
-                     transient-buffers)
-    (draw-composite! compositor encoder target content mask nil nil
-                     1.0 false transient-buffers "load")
-    (release-target! (:target-pool compositor) content)
-    (release-target! (:target-pool compositor) mask)))
-
-(defn- render-entry-action!
-  [compositor encoder target entry execute-entry! linearize-entry
-   acquired transient-buffers]
-  (let [sub-draws (get-in entry [:paint :sub-draws])]
-    (if (some (comp mask-clip? :clip) sub-draws)
-      ;; Preserve per-operation order whenever one sub-draw takes the general
-      ;; mask road; neighboring scissor and unclipped operations stay distinct.
-      (doseq [sub-draw sub-draws]
-        (if (mask-clip? (:clip sub-draw))
-          (render-masked-sub-draw! compositor encoder target entry sub-draw
-                                   execute-entry! linearize-entry acquired
-                                   transient-buffers)
-          (render-direct-entry!
-           encoder target (assoc-in entry [:paint :sub-draws] [sub-draw])
-           execute-entry! linearize-entry)))
-      (render-direct-entry! encoder target entry execute-entry! linearize-entry))))
-
-(defn- render-actions!
-  [compositor encoder target actions render-group! execute-entry!
-   linearize-entry acquired transient-buffers project-blur-fn]
-  (clear-target! encoder target)
-  (doseq [{:keys [action entry group]} actions]
-    (case action
-      :entry
-      (render-entry-action! compositor encoder target entry execute-entry!
-                            linearize-entry acquired transient-buffers)
-
-      :group
-      (let [cid (:container/id group)
-            {:keys [output mask]} (render-group! group)
-            {:keys [opacity backdrop-blur]} (:effects group)]
-        (if-let [snapshot (when backdrop-blur
-                            (try-acquire-target!
-                             compositor (:width target) (:height target)
-                             (str "frame/backdrop-snapshot/" cid)))]
-          (let [projection (project-blur-fn group :backdrop-blur backdrop-blur)
-                _ (swap! acquired conj snapshot)
-                _ (.copyTextureToTexture
-                   ^js encoder
-                   (clj->js {:texture (:texture target)})
-                   (clj->js {:texture (:texture snapshot)})
-                   (clj->js {:width (:width target) :height (:height target)}))
-                blurred (blur-target! compositor encoder snapshot
-                                      projection
-                                      acquired transient-buffers
-                                      (str "frame/backdrop/" cid) false)]
-            (draw-composite! compositor encoder target output mask snapshot
-                             blurred opacity true transient-buffers "load")
-            (release-target! (:target-pool compositor) snapshot)
-            (release-target! (:target-pool compositor) blurred))
-          ;; No backdrop declared, or its snapshot refused under budget
-          ;; pressure — composite without the backdrop road.
-          (draw-composite! compositor encoder target output mask nil nil
-                           opacity false transient-buffers "load"))
-        (release-target! (:target-pool compositor) output)
-        (release-target! (:target-pool compositor) mask))
-      nil)))
-
-(defn- render-mask!
-  [compositor encoder arrangement span variant execute-entry! acquired
-   transient-buffers]
-  (when-let [selector (get-in span [:effects :mask])]
-    (let [target (acquire-target! (:target-pool compositor) "rgba16float"
-                                  (:width variant) (:height variant)
-                                  (str "frame/mask/" (:container/id span)))
-          mask-ranges (or (:all-entry-ranges span) (:entry-ranges span))
-          entries (->> arrangement
-                       (map-indexed vector)
-                       (keep (fn [[index entry]]
-                               (when (and (index-in-ranges? mask-ranges
-                                                            index)
-                                          (mask-source-entry? selector entry))
-                                 entry))))]
-      (swap! acquired conj target)
-      (clear-target! encoder target)
-      (doseq [entry entries]
-        (render-entry-action! compositor encoder target entry execute-entry!
-                              (:linearize-entry variant) acquired
-                              transient-buffers))
-      target)))
-
-(defn- effective-scale [effective-transforms container-id]
+(defn effective-scale [effective-transforms container-id]
   (let [[a b c d] (or (get-in effective-transforms [container-id :affine])
                       [1.0 0.0 0.0 1.0])
         sx (js/Math.sqrt (+ (* a a) (* b b)))
@@ -1121,88 +912,7 @@
          (recur (/ radius 2.0) (inc levels))
          levels))}))
 
-(defn- project-blur!
-  [!projections effective-transforms zoom span kind blur]
-  (let [projection
-        (assoc (projected-blur
-                blur (effective-scale effective-transforms
-                                      (:container/id span)) zoom)
-               :container/id (:container/id span)
-               :effect kind)]
-    (swap! !projections conj projection)
-    projection))
-
-(defn- encode-linear-scene!
-  [compositor encoder arrangement effect-spans variant execute-entry! width height
-   zoom effective-transforms]
-  (let [acquired (atom [])
-        transient-buffers (atom [])
-        blur-projections (atom [])
-        variant (assoc variant :width width :height height)
-        linearize-entry (:linearize-entry variant)
-        execution-spans (expand-execution-spans effect-spans)
-        project-blur-fn #(project-blur! blur-projections effective-transforms
-                                        zoom %1 %2 %3)]
-    (try
-      (letfn [(render-group! [span]
-                (let [cid (:container/id span)
-                      content
-                      (acquire-target! (:target-pool compositor) "rgba16float"
-                                       width height
-                                       (str "frame/group-content/" cid))
-                      _ (swap! acquired conj content)
-                      actions (sequence-actions arrangement execution-spans span)
-                      _ (render-actions! compositor encoder content actions
-                                         render-group! execute-entry!
-                                         linearize-entry acquired
-                                         transient-buffers project-blur-fn)
-                      layer-blur (get-in span [:effects :layer-blur])
-                      source
-                      (if layer-blur
-                        (blur-target! compositor encoder content
-                                      (project-blur-fn span :layer-blur
-                                                       layer-blur)
-                                      acquired transient-buffers
-                                      (str "frame/layer/" cid) true)
-                        content)
-                      mask (render-mask! compositor encoder arrangement span
-                                         variant execute-entry! acquired
-                                         transient-buffers)
-                      output
-                      (acquire-target! (:target-pool compositor) "rgba16float"
-                                       width height
-                                       (str "frame/group-output/" cid))]
-                  (swap! acquired conj output)
-                  (clear-target! encoder output)
-                  (draw-composite! compositor encoder output source mask nil nil
-                                   1.0 false transient-buffers "load")
-                  (release-target! (:target-pool compositor) content)
-                  (when-not (identical? source content)
-                    (release-target! (:target-pool compositor) source))
-                  (release-target! (:target-pool compositor) mask)
-                  ;; Mask coverage is resolved into the output exactly once.
-                  {:output output :mask nil}))]
-        (let [scene (acquire-target! (:target-pool compositor) "rgba16float"
-                                     width height "frame/scene-color")
-              _ (swap! acquired conj scene)
-              root-actions (sequence-actions arrangement execution-spans nil)]
-          (render-actions! compositor encoder scene root-actions render-group!
-                           execute-entry! linearize-entry acquired
-                           transient-buffers project-blur-fn)
-          {:scene scene :acquired @acquired
-           :transient-buffers @transient-buffers
-           :blur-projections @blur-projections
-           :group-results {}}))
-      (catch :default error
-        ;; Nothing from this encoder was submitted, so every lease and mapped
-        ;; uniform can be retired immediately on the failed encode road.
-        (doseq [target @acquired]
-          (release-target! (:target-pool compositor) target))
-        (doseq [buffer @transient-buffers]
-          (.destroy ^js buffer))
-        (throw error)))))
-
-(defn- draw-present!
+(defn draw-present!
   [compositor encoder scene output-view output-format]
   (let [{:keys [sampler present-layout present-pipelines]} (:pipelines compositor)
         present-pipeline (get present-pipelines output-format)]
@@ -1226,7 +936,7 @@
       (.draw pass 3 1 0 0)
       (.end pass))))
 
-(defn- release-after-submit!
+(defn release-after-submit!
   [compositor acquired transient-buffers stale-region-leases]
   (bump-frame-epoch! (:target-pool compositor))
   (doseq [target acquired]
@@ -1247,11 +957,19 @@
                                   :region3d-shadow-mode-change))))
       (.catch (fn [_] nil)))))
 
-(defn- active-region-leases! [compositor binding-owner _binding-deltas]
+(defn active-region-leases!
+  "Acquire this frame's region leases from the binding owner's desired rows,
+   retiring every lease those rows no longer name. Records the rung receipts
+   and the frame's lease activity on the compositor receipt."
+  [compositor binding-owner]
   (let [regions (if binding-owner
                   (region-bindings/desired-rows binding-owner)
                   [])
         desired-region-ids (into #{} (map :region/id) regions)
+        activity (atom {:leases-retired 0 :region-binding-updates 0
+                        :leases-acquired 0 :region-rungs-worn 0
+                        :region-rung-recoveries 0})
+        note! (fn [key] (swap! activity update key inc))
         _ (swap! (:!receipt compositor) dissoc :last-region-refusal)
         ;; Old-generation leases die BEFORE the new generation is acquired:
         ;; only submitted (or abandoned, never-submitted) encoders can still
@@ -1261,7 +979,7 @@
         ;; succeeds, which budget refusal can make unreachable.
         _ (doseq [[key lease] @(:!region-leases compositor)
                   :when (not (contains? desired-region-ids (first key)))]
-            (frame-inputs/increment-ledger! :leases-retired)
+            (note! :leases-retired)
             (release-region-lease! compositor key lease))
         {:keys [active rung-receipts]}
         (reduce
@@ -1288,7 +1006,7 @@
                                                (not= selected-key key))))
                                 @(:!region-leases compositor))
                  _ (doseq [[key lease] retiring]
-                     (frame-inputs/increment-ledger! :leases-retired)
+                     (note! :leases-retired)
                      (release-region-lease! compositor key lease))
                  prior (when binding-owner
                          (region-bindings/lease binding-owner region-id))
@@ -1309,14 +1027,14 @@
                  prior-divisor (:rung-divisor prior)
                  granted-divisor (:rung-divisor grant)]
              (when update?
-               (frame-inputs/increment-ledger! :region-binding-updates)
+               (note! :region-binding-updates)
                (when-not (:refused? lease)
-                 (frame-inputs/increment-ledger! :leases-acquired)
+                 (note! :leases-acquired)
                  (when (> granted-divisor 1)
-                   (frame-inputs/increment-ledger! :region-rungs-worn))
+                   (note! :region-rungs-worn))
                  (when (and prior-divisor
                             (< granted-divisor prior-divisor))
-                   (frame-inputs/increment-ledger! :region-rung-recoveries))))
+                   (note! :region-rung-recoveries))))
              (when binding-owner
                (region-bindings/record-lease! binding-owner region-id lease))
              {:active (assoc active region-id lease)
@@ -1331,65 +1049,11 @@
         stale (into []
                     (remove (fn [[key _lease]] (contains? active-keys key)))
                     @(:!region-leases compositor))]
+    (swap! (:!receipt compositor) assoc
+           :region-rung-receipts rung-receipts
+           :lease-activity @activity)
     {:active active :active-keys active-keys :stale stale
-     :rung-receipts rung-receipts}))
-
-(defn- encode-region-pass-producers!
-  [encoder plan pass-producers active-leases]
-  (mapv
-   (fn [pass]
-     (let [producer (get pass-producers :region)
-           lease (get active-leases (:region/id pass))]
-       (when-not producer
-         (throw (ex-info "Region plan has no registered pass producer"
-                         {:pass/id (:pass/id pass)
-                          :region/id (:region/id pass)})))
-       (producer encoder pass lease)))
-   (filter #(= :region (:pass/kind %)) (:passes plan))))
-
-(defn draw-multipass!
-  "Encode one linear effect frame, submit once, and present once."
-  [compositor {:keys [context arrangement effect-spans variant execute-entry!
-                      pass-producers width height plan zoom effective-transforms
-                      region-bindings binding-deltas]
-               :or {zoom 1.0 effective-transforms {}}}]
-  (let [device (:device compositor)
-        {:keys [active stale rung-receipts]}
-        (active-region-leases! compositor region-bindings binding-deltas)]
-    (try
-      (let [encoder (.createCommandEncoder ^js device)
-            region-pass-receipts
-            (encode-region-pass-producers! encoder plan pass-producers active)
-            swap-texture (.getCurrentTexture ^js context)
-            swap-view (.createView swap-texture)
-            {:keys [scene acquired transient-buffers blur-projections]}
-            (encode-linear-scene! compositor encoder arrangement effect-spans
-                                  variant execute-entry! width height zoom
-                                  effective-transforms)]
-        (draw-present! compositor encoder scene swap-view (:format compositor))
-        (.submit (.-queue ^js device) #js [(.finish encoder)])
-        (release-after-submit! compositor acquired transient-buffers stale)
-        (swap! (:!receipt compositor)
-               (fn [receipt]
-                 (-> receipt (update :frames inc) (update :linear-frames inc)
-                     (assoc :color-mode :scene-color/linear
-                            :passes (mapv :pass/id (:passes plan))
-                            :region-pass-receipts region-pass-receipts
-                            :region-rung-receipts rung-receipts
-                            :region-leases (region-leases-receipt compositor)
-                            :plan-hash (:plan/hash plan)
-                            :blur-projections blur-projections
-                            :pool (target-pool-receipt
-                                   (:target-pool compositor))))))
-        {:submitted? true :color-mode :scene-color/linear
-         :plan-hash (:plan/hash plan)})
-      (catch :default error
-        ;; A failed encode submits nothing, so its released targets are only
-        ;; namable by the abandoned encoder; without this bump they stay
-        ;; same-epoch forever (release-after-submit! never ran) and the pool
-        ;; wedges — refusing every later frame on bytes the failure holds.
-        (bump-frame-epoch! (:target-pool compositor))
-        (throw error)))))
+     :rung-receipts rung-receipts :lease-activity @activity}))
 
 (defn copy-present!
   "Legacy COPY-PRESENT executor primitive used by the effectless verifier row."
@@ -1434,100 +1098,6 @@
     (-> (.convertToBlob canvas #js {:type "image/png"})
         (.then #(.arrayBuffer %))
         (.then #(js/Uint8Array. %)))))
-
-(defn- world-export-projection [arrangement effect-spans]
-  (let [indexed (->> arrangement
-                     (map-indexed vector)
-                     (filter (fn [[_ entry]]
-                               (= :world (get-in entry [:order :stratum]))))
-                     vec)
-        arrangement (mapv second indexed)
-        old->new (into {} (map-indexed (fn [new-index [old-index _]]
-                                        [old-index new-index]) indexed))
-        spans
-        (->> effect-spans
-             (keep (fn [span]
-                     (let [new-indices
-                           (keep old->new
-                                 (mapcat (fn [[start end]] (range start end))
-                                         (:entry-ranges span)))]
-                       (when (seq new-indices)
-                         (assoc span
-                                :entry-ranges
-                                (vec (frame-effects/contiguous-ranges new-indices))
-                                :entry-count (count new-indices))))))
-             vec)]
-    {:arrangement arrangement :effect-spans spans}))
-
-(defn export-viewport!
-  "Render the declared world-only export plan and asynchronously return PNG
-   bytes plus the C7/M11 loss/profile receipt. No mapping occurs in encode."
-  [compositor {:keys [arrangement effect-spans variant execute-entry!
-                      width height zoom effective-transforms]
-               :or {zoom 1.0 effective-transforms {}}}]
-  (let [{world-arrangement :arrangement world-spans :effect-spans}
-        (world-export-projection arrangement effect-spans)
-        device (:device compositor)
-        encoder (.createCommandEncoder ^js device)
-        export-plan (frame-graph/compile-export-plan
-                     {:arrangement world-arrangement
-                      :viewport {:width width :height height
-                                 :format "rgba8unorm"}})
-        {:keys [scene acquired transient-buffers blur-projections]}
-        (encode-linear-scene! compositor encoder world-arrangement world-spans
-                              variant execute-entry! width height zoom
-                              effective-transforms)
-        output (acquire-target! (:target-pool compositor) "rgba8unorm"
-                                width height "frame/export-output")
-        padded-bytes-per-row (* 256 (js/Math.ceil (/ (* width 4) 256)))
-        buffer-size (* padded-bytes-per-row height)
-        read-buffer (.createBuffer ^js device
-                                   (clj->js {:size buffer-size
-                                             :usage (bit-or js/GPUBufferUsage.COPY_DST
-                                                            js/GPUBufferUsage.MAP_READ)}))
-        _ (draw-present! compositor encoder scene (:view output) "rgba8unorm")
-        _ (.copyTextureToBuffer
-           encoder (clj->js {:texture (:texture output)})
-           (clj->js {:buffer read-buffer
-                     :bytesPerRow padded-bytes-per-row :rowsPerImage height})
-           (clj->js {:width width :height height}))
-        _ (.submit (.-queue ^js device) #js [(.finish encoder)])
-        all-targets (conj (vec acquired) output)
-        metadata {:output-profile :srgb :alpha-association :straight
-                  :strata #{:world}
-                  :intentional-losses
-                  [:structured-identity :material-provenance
-                   :family-export-projection :authoring-overlay]
-                  :bytes-per-row padded-bytes-per-row
-                  :async-only true :plan-hash (:plan/hash export-plan)
-                  :entry-count (count world-arrangement)
-                  :blur-projections blur-projections}]
-    (-> (.mapAsync read-buffer js/GPUMapMode.READ)
-        (.then
-         (fn []
-           (let [copy (js/Uint8Array. buffer-size)]
-             (.set copy (js/Uint8Array. (.getMappedRange read-buffer)))
-             (.unmap read-buffer)
-             (.destroy read-buffer)
-             (unpremultiply!
-              (strip-padded-rows (.-buffer copy) width height
-                                 padded-bytes-per-row)))))
-        (.then (fn [rgba]
-                 (-> (png-bytes! rgba width height)
-                     (.then (fn [bytes]
-                              (doseq [target all-targets]
-                                (release-target! (:target-pool compositor) target))
-                              (doseq [buffer transient-buffers]
-                                (.destroy ^js buffer))
-                              (swap! (:!receipt compositor)
-                                     #(-> % (update :exports inc)
-                                          (assoc :last-export metadata)))
-                              {:bytes bytes :rgba rgba :metadata metadata})))))
-        (.catch (fn [error]
-                  (.destroy read-buffer)
-                  (doseq [target all-targets]
-                    (release-target! (:target-pool compositor) target))
-                  (throw error))))))
 
 (defn compositor-receipt [compositor]
   (assoc @(:!receipt compositor)

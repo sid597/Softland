@@ -812,24 +812,3 @@
                             (nth maximum 2)]}
              :texel-world texel
              :constants material/shadow-constants}))))))
-
-(defn region-order [source-order entry-id]
-  {:stratum :world
-   :pass-class :direct
-   :stack-path (or (:stack-path source-order) [])
-   :part-rank 0
-   :stable-tie entry-id})
-
-(defn tape-entry
-  "Produce the one outer 2D tape citizen. Interior objects never enter the
-   tape; depth owns their order."
-  [{:keys [region-id revision source-order rect]}]
-  (let [entry-id [:frame/region3d region-id]]
-    {:entry/id entry-id
-     :material/id [:region3d/material region-id]
-     :material/revision (or revision 0)
-     :instance/id region-id
-     :family/id :render.family/region-3d
-     :order (region-order source-order entry-id)
-     :paint {:region-id region-id :rect rect}
-     :visibility {:visible? true :clip :shared-tree-clip}}))

@@ -3,7 +3,6 @@
             [app.client.substrate.region3d-material :as material]
             [app.client.substrate.region3d-oracle :as oracle]
             [app.client.substrate.region3d-scene :as region]
-            [app.client.substrate.scene-tape :as tape]
             [app.client.substrate.region3d-material-test :as fixture]))
 
 (defn fixture-region
@@ -23,36 +22,6 @@
             :view-default {:pivot [0.0 0.0 0.0] :distance 8.0
                            :yaw 0.0 :pitch 0.0
                            :lens material/default-perspective-lens}))))
-
-(defn tape-fixture-entry [id path]
-  {:entry/id id :material/id id :material/revision 1 :instance/id id
-   :family/id :render.family/path
-   :order {:stratum :world :pass-class :direct :stack-path path
-           :part-rank 0 :stable-tie id}
-   :paint {:vertex-count 1}
-   :visibility {:visible? true}})
-
-(deftest s1-region-is-an-ordinary-world-direct-sandwich-with-earned-order
-  (let [region-entry (region/tape-entry
-                      {:region-id :region/a :revision 1
-                       :source-order {:stack-path [[:root 2 2]]}
-                       :rect [0 0 200 120]})
-        path (tape-fixture-entry :path [[:root 1 1]])
-        text (assoc (tape-fixture-entry :text [[:root 3 3]])
-                    :family/id :render.family/slug)
-        compiled-a (tape/compile-tape :sandwich [text region-entry path])
-        compiled-b (tape/compile-tape :sandwich [path text region-entry])
-        moved (assoc-in region-entry [:order :stack-path] [[:root 4 4]])
-        moved-tape (tape/compile-tape :moved [text moved path])]
-    (is (= :world (get-in region-entry [:order :stratum])))
-    (is (= :direct (get-in region-entry [:order :pass-class])))
-    (is (= [:path [:frame/region3d :region/a] :text]
-           (mapv :entry/id (:entries compiled-a))))
-    (is (= (:order-hash compiled-a) (:order-hash compiled-b)))
-    (is (= (mapv :entry/id (:entries compiled-a))
-           (mapv :entry/id (:entries compiled-b))))
-    (is (= [:path :text [:frame/region3d :region/a]]
-           (mapv :entry/id (:entries moved-tape))))))
 
 (deftest s2-depth-ray-pick-returns-nearest-identity-and-t-not-painter-order
   (let [maintained (assoc (region/derive-scene (fixture-region))

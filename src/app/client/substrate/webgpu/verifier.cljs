@@ -10,7 +10,6 @@
    glyph pipelines."
   (:require [clojure.string :as str]
             [app.client.substrate.chrome-material :as chrome-material]
-            [app.client.substrate.frame-inputs :as frame-inputs]
             [app.client.substrate.image-material :as image-material]
             [app.client.substrate.path-material :as path-material]
             [app.client.substrate.path-tessellation :as path-tessellation]
@@ -18,10 +17,7 @@
             [app.client.substrate.region3d-oracle :as region3d-oracle]
             [app.client.substrate.region3d-placement :as region3d-placement]
             [app.client.substrate.region3d-scene :as region3d-scene]
-            [app.client.substrate.frame-effects :as frame-effects]
-            [app.client.substrate.frame-graph :as frame-graph]
             [app.client.substrate.scene-color :as scene-color]
-            [app.client.substrate.scene-tape :as scene-tape]
             [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
             [app.client.substrate.webgpu.chrome-gpu :as chrome-gpu]
             [app.client.substrate.webgpu.compositor-gpu :as compositor-gpu]
@@ -522,14 +518,6 @@
    :image/opacity opacity :image/tint tint
    :container-idx 0})
 
-(defn- image-store-frame [ops]
-  (let [vi [:image-atom :fixture]]
-    {:images ops
-     :ordered-vis [vi]
-     :ops-count-by-vi {vi {:images (count ops)}}
-     :order-by-vi {vi {:stratum :world
-                       :stack-path [[:image-atom 0 0]]}}}))
-
 (defn- render-image-bytes!
   [^js device image-system ops zoom
    & {:keys [clear-value intermediate-copy?]
@@ -558,11 +546,6 @@
                                   camera 0.0 0.0 zoom
                                   canvas-size canvas-size)
         _ (renderer/prepare-image-frame! image-system ops)
-        entry (first (renderer/image-entries
-                      {:image-system image-system
-                       :store-frame (image-store-frame ops)}))
-        _ (when-not entry
-            (throw (js/Error. "Image capture emitted no tape entry")))
         encoder (.createCommandEncoder device)
         pass (.beginRenderPass
               encoder
@@ -571,7 +554,7 @@
                                             (clj->js {:format view-format}))
                           :clearValue clear-value
                           :loadOp "clear" :storeOp "store"}]}))]
-    (renderer/execute-image-batch! pass entry)
+    (renderer/draw-image-runs! pass image-system 0 (count ops))
     (.end pass)
     (when intermediate-copy?
       (.copyTextureToTexture encoder
@@ -944,85 +927,6 @@
                            (:seam-off-profile receipt)
                            (:icc-decode receipt)])))))))
 
-(defn- run-arrangement-receipt! [image-system corpus]
-  (let [vi [:image-atom :arrangement]
-        order {:stratum :world :stack-path [[:slot 7 7]]}
-        atlas-digest (:digest (get corpus "atlas-opaque-srgb.png"))
-        dedicated-digest (:digest (get corpus "alpha-reference-straight.png"))
-        clip-digest (:digest (get corpus "clip-stripes-srgb.png"))
-        ops [(image-op :order/a atlas-digest 0 0 10 10)
-             (image-op :order/b dedicated-digest 10 0 10 10)
-             (image-op :order/c clip-digest 20 0 10 10)]
-        _ (renderer/prepare-image-frame! image-system ops)
-        image-store {:images ops :ordered-vis [vi]
-                     :ops-count-by-vi {vi {:images 3}}
-                     :order-by-vi {vi order}}
-        fake-text {:family/id :render.family/slug :num-instances 1
-                   :pipeline #js {} :bind-group #js {} :instance-buffer #js {}}
-        frame {:store-frame image-store :image-system image-system
-               :extra-text-geos [{:geo fake-text :vi vi :order order}]}
-        inputs (renderer/frame-input-map nil frame)
-        batch (renderer/compile-frame-tape inputs)
-        produced (renderer/produce-frame-entries
-                  inputs frame-inputs/family-ids
-                  {:receipt? false :instrument? false})
-        arrangement (renderer/update-frame-arrangement
-                     (renderer/empty-frame-arrangement)
-                     produced frame-inputs/family-ids)
-        maintained (into [] (map val) (:ordered arrangement))
-        lane-ids [[:frame/slot-text vi]
-                  [:frame/store vi :images]]
-        ordered-ids (mapv :entry/id (:entries batch))
-        lane-positions (mapv #(.indexOf ordered-ids %) lane-ids)
-        image-entry (first (filter #(= [:frame/store vi :images]
-                                      (:entry/id %))
-                                   (:entries batch)))
-        sub-draws (:sub-draws
-                   (renderer/resolve-image-paint (:paint image-entry)))
-        calls (atom [])
-        fake-pass #js {}
-        _ (aset fake-pass "setPipeline"
-                (fn [_] (swap! calls conj [:pipeline])))
-        _ (aset fake-pass "setBindGroup"
-                (fn [_ group] (swap! calls conj [:bind group])))
-        _ (aset fake-pass "setVertexBuffer"
-                (fn [_ buffer] (swap! calls conj [:buffer buffer])))
-        _ (aset fake-pass "draw"
-                (fn [_ instances _ first-instance]
-                  (swap! calls conj [:draw instances first-instance])))
-        _ (renderer/execute-image-batch! fake-pass image-entry)
-        duplicate-op (assoc (first ops) :id :order/duplicate)
-        _ (renderer/prepare-image-frame! image-system [(first ops) duplicate-op])
-        duplicate-frame {:image-system image-system
-                         :store-frame
-                         {:images [(first ops) duplicate-op]
-                          :ordered-vis [vi vi]
-                          :ops-count-by-vi {vi {:images 1}}
-                          :order-by-vi {vi order}}}
-        duplicate-rejected?
-        (try (renderer/compile-frame-tape
-              (renderer/frame-input-map nil duplicate-frame)) false
-             (catch :default _ true))]
-    (renderer/prepare-image-frame! image-system ops)
-    {:maintained-equals-batch? (= maintained (:entries batch))
-     :duplicate-id-rejected? duplicate-rejected?
-     :lane-ids lane-ids :lane-positions lane-positions
-     :lane-order-pass? (= lane-positions (vec (sort lane-positions)))
-     :sub-draw-binding-keys
-     (mapv :image/binding-key @(:!prepared-images image-system))
-     :sub-draw-first-instances (mapv :first-instance sub-draws)
-     :sub-draw-instance-counts (mapv :instance-count sub-draws)
-     :executor-draw-order (mapv #(nth % 2)
-                                (filter #(= :draw (first %)) @calls))
-     :one-entry-per-vi? (= 1 (count (filter #(= :render.family/image
-                                                (:family/id %))
-                                           (:entries batch))))
-     :pass? (and (= maintained (:entries batch)) duplicate-rejected?
-                 (= lane-positions (vec (sort lane-positions)))
-                 (= [0 1 2] (mapv :first-instance sub-draws))
-                 (= [0 1 2] (mapv #(nth % 2)
-                                   (filter #(= :draw (first %)) @calls))))}))
-
 (defn- request-replacement-device! []
   ;; Dawn consumes an adapter after its first device.  A fresh adapter request
   ;; is therefore part of the real replacement-device lifecycle receipt.
@@ -1271,24 +1175,20 @@
                (.then #(assoc state :color %)))))
         (.then
          (fn [{:keys [corpus] :as state}]
-           (assoc state :arrangement
-                  (run-arrangement-receipt! candidate-system corpus))))
-        (.then
-         (fn [{:keys [corpus] :as state}]
            (-> (run-lifecycle-receipt! device candidate-system corpus)
                (.then #(assoc state :lifecycle %)))))
         (.then
-         (fn [{:keys [corpus cases parity color arrangement lifecycle]}]
+         (fn [{:keys [corpus cases parity color lifecycle]}]
            (let [fixture-digests
                  (into {} (map (fn [[filename row]]
                                  [filename (:digest row)])) corpus)
                  pass? (and (= 21 (reduce + (map #(count (:images %)) cases)))
                             (= 14 (count parity))
                             (every? :pass? parity)
-                            (:pass? color) (:pass? arrangement)
+                            (:pass? color)
                             (:pass? lifecycle))
                  result {:cases cases :parity parity :color color
-                         :arrangement arrangement :lifecycle lifecycle
+                         :lifecycle lifecycle
                          :fixture-digests fixture-digests
                          :candidate-ingress
                          (renderer/image-ingress-receipt candidate-system)
@@ -1324,14 +1224,6 @@
                      [[0.0 -1.5] [0.0 -1.5] [0.0 1.5] [0.0 1.5]]
                      [0.2 0.7 1.0 0.8])]}]))
 
-(defn- chrome-store-frame [ops]
-  {:chromes ops
-   :ordered-vis [chrome-owner-vi]
-   :ops-count-by-vi {chrome-owner-vi {:chromes (count ops)}}
-   :order-by-vi {chrome-owner-vi
-                 {:stratum :overlay
-                  :stack-path [[:chrome-neutral -1 -1]]}}})
-
 (defn- render-chrome-bytes!
   [^js device chrome-system ops zoom]
   (let [row-bytes (* canvas-size 4)
@@ -1351,12 +1243,7 @@
         _ (renderer/update-camera device (:camera-buffer chrome-system)
                                   camera 0.0 0.0 zoom
                                   canvas-size canvas-size)
-        _ (chrome-gpu/prepare-chrome-frame! chrome-system ops)
-        entry (first (chrome-gpu/chrome-entries
-                      {:chrome-system chrome-system
-                       :store-frame (chrome-store-frame ops)}))
-        _ (when-not entry
-            (throw (js/Error. "Neutral mark capture emitted no tape entry")))
+        {:keys [vertices]} (chrome-gpu/prepare-chrome-frame! chrome-system ops)
         encoder (.createCommandEncoder device)
         pass (.beginRenderPass
               encoder
@@ -1365,7 +1252,7 @@
                                             (clj->js {:format "rgba8unorm-srgb"}))
                           :clearValue {:r 0.025 :g 0.06 :b 0.11 :a 1.0}
                           :loadOp "clear" :storeOp "store"}]}))]
-    (chrome-gpu/execute-chrome-batch! pass entry)
+    (chrome-gpu/draw-chrome-range! pass chrome-system 0 vertices)
     (.end pass)
     (.copyTextureToBuffer
      encoder (clj->js {:texture target})
@@ -1434,32 +1321,6 @@
                  (not (:mesh-set-changed? equal-vector))
                  (zero? (:writes equal-vector)))}))
 
-(defn- verifier-entry [id family order paint]
-  {:entry/id id :material/id id :material/revision 0 :instance/id id
-   :family/id family :order order :paint paint
-   :visibility {:visible? true :clip :none}})
-
-(defn- run-chrome-arrangement! []
-  (let [world-order {:stratum :world :pass-class :direct
-                     :stack-path [[:frame/root 100 100]]
-                     :part-rank 0 :stable-tie :world}
-        chrome-order {:stratum :overlay :pass-class :direct
-                      :stack-path [[:frame/root -1 -1]]
-                      :part-rank 0 :stable-tie :chrome}
-        product-order {:stratum :overlay :pass-class :direct
-                       :stack-path [[:frame/root 0 0]]
-                       :part-rank 0 :stable-tie :product}
-        entries [(verifier-entry :world :render.family/path world-order
-                                 {:vertex-count 3})
-                 (verifier-entry :chrome :render.family/chrome chrome-order
-                                 {:vertex-count 6})
-                 (verifier-entry :product :render.family/path product-order
-                                 {:vertex-count 3})]
-        tape (scene-tape/compile-tape :chrome-order entries)
-        forward (mapv :entry/id (:entries tape))]
-    {:executor-forward forward
-     :pass? (= [:world :chrome :product] forward)}))
-
 (defn- run-chrome-atom! [device adapter]
   (let [tracker (gpu-budget/create-tracker
                  (gpu-budget/snapshot-adapter-limits adapter))
@@ -1472,7 +1333,6 @@
         (.then
          (fn [cases]
            (let [determinism (mapcat #(map :determinism (:images %)) cases)
-                 arrangement (run-chrome-arrangement!)
                  upload-gate (run-chrome-upload-gate! system)
                  before (gpu-budget/snapshot tracker)
                  registered
@@ -1492,11 +1352,9 @@
                   :pass? (and (some? registered) released?)}
                  pass? (and (= 2 (count cases))
                             (every? :byte-identical? determinism)
-                            (:pass? arrangement)
                             (:pass? upload-gate)
                             (:pass? resources))]
              {:cases cases
-              :arrangement arrangement
               :upload-gate upload-gate
               :resources resources
               :system system-receipt
@@ -1566,14 +1424,6 @@
   {:id id :x 0.0 :y 0.0
    :path/material material :path/clip nil :container-idx 0})
 
-(defn- path-store-frame [ops]
-  (let [vi [:path-atom :fixture]]
-    {:paths ops
-     :ordered-vis [vi]
-     :ops-count-by-vi {vi {:paths (count ops)}}
-     :order-by-vi {vi {:stratum :world
-                       :stack-path [[:path-atom 0 0]]}}}))
-
 (defn- render-path-bytes!
   [^js device path-system ops zoom
    & {:keys [clear-value]
@@ -1598,12 +1448,7 @@
         _ (renderer/update-camera device (:camera-buffer path-system)
                                   camera 0.0 0.0 zoom
                                   canvas-size canvas-size)
-        _ (path-gpu/prepare-path-frame! path-system ops zoom)
-        entry (first (path-gpu/path-entries
-                      {:path-system path-system
-                       :store-frame (path-store-frame ops)}))
-        _ (when-not entry
-            (throw (js/Error. "Path capture emitted no tape entry")))
+        {:keys [vertices]} (path-gpu/prepare-path-frame! path-system ops zoom)
         encoder (.createCommandEncoder device)
         pass (.beginRenderPass
               encoder
@@ -1612,7 +1457,7 @@
                                             (clj->js {:format view-format}))
                           :clearValue clear-value
                           :loadOp "clear" :storeOp "store"}]}))]
-    (path-gpu/execute-path-batch! pass entry)
+    (path-gpu/draw-path-range! pass path-system 0 vertices)
     (.end pass)
     (.copyTextureToBuffer
      encoder
@@ -1784,33 +1629,6 @@
               :non-black-background true
               :pass? (<= delta 3)}))))))
 
-(defn- receipt-entry [id family part]
-  {:entry/id id :material/id id :material/revision 0 :instance/id id
-   :family/id family
-   :order {:stratum :world :pass-class :direct
-           :stack-path [[:frame/root 25 25] [:path-order 0 0]]
-           :part-rank part :stable-tie id}
-   :paint (if (= family :render.family/image)
-            {:paint/source ::image-system
-             :paint/source-type :image-system
-             :op-offset 0
-             :instance-count 0}
-            {:vertex-count 3})
-   :visibility {:visible? true}})
-
-(defn- run-path-arrangement! []
-  (let [entries [(receipt-entry :text :render.family/slug 2)
-                 (receipt-entry :image :render.family/image 3)
-                 (receipt-entry :path :render.family/path 4)]
-        tape (scene-tape/compile-tape :path-arrangement entries)
-        forward (scene-tape/paint-forward tape :entry/id)]
-    {:forward forward
-     :path-contract-present?
-     (some? (get scene-tape/default-family-registry :render.family/path))
-     :pass? (and (= [:text :image :path] forward)
-                 (some? (get scene-tape/default-family-registry
-                             :render.family/path)))}))
-
 (defn- run-path-upload-gate! [path-system]
   (let [material (path-quad-material :path-upload-gate 1.0
                                      [0.3 0.7 0.4 1.0] 1.0)
@@ -1856,15 +1674,13 @@
                  (mapcat (fn [case]
                            (map :determinism (:images case)))
                          cases)
-                 arrangement (run-path-arrangement!)
                  pass? (and (= 3 (count cases))
                             (every? :byte-identical? determinism)
                             (= 7 (count parity))
                             (every? :pass? parity)
-                            (:pass? color) (:pass? arrangement)
+                            (:pass? color)
                             (:pass? upload-gate))
                  result (assoc state
-                               :arrangement arrangement
                                :system (path-gpu/path-receipt system)
                                :coverage :aliased-v1
                                :product-pick :cpu-path-authority
@@ -1873,62 +1689,6 @@
                                :pass? pass?)]
              (path-gpu/destroy-path-system! system)
              result))))))
-
-(defn- execute-verifier-entry! [^js pass entry]
-  (let [{:keys [pipeline bind-group buffer vertex-count instance-count
-                first-vertex first-instance]}
-        (renderer/resolve-gpu-paint (:paint entry))]
-    (.setPipeline pass pipeline)
-    (when bind-group (.setBindGroup pass 0 bind-group))
-    (when buffer (.setVertexBuffer pass 0 buffer))
-    (.draw pass (or vertex-count 6) (or instance-count 1)
-           (or first-vertex 0) (or first-instance 0))))
-
-(defn- assert-frame-retention-payload-resolution! []
-  (let [pipeline #js {:kind "runtime-system-pipeline"}
-        bind-group #js {:kind "runtime-system-bind-group"}
-        instance-buffer #js {:kind "runtime-system-instance-buffer"}
-        calls (atom [])
-        pass #js {}
-        entry {:family/id :render.family/slug
-               :paint {:paint/source {:pipeline pipeline
-                                      :bind-group bind-group
-                                      :instance-buffer instance-buffer
-                                      :num-instances 4}
-                       :paint/source-type :system
-                       :vertex-count 6 :instance-count 1
-                       :first-vertex 0 :first-instance 3}}
-        _ (aset pass "setPipeline"
-                (fn [value] (swap! calls conj [:pipeline value])))
-        _ (aset pass "setBindGroup"
-                (fn [slot value] (swap! calls conj [:bind-group slot value])))
-        _ (aset pass "setVertexBuffer"
-                (fn [slot value] (swap! calls conj [:vertex-buffer slot value])))
-        _ (aset pass "draw"
-                (fn [vertices instances first-vertex first-instance]
-                  (swap! calls conj [:draw vertices instances
-                                     first-vertex first-instance])))
-        resolved-clipped
-        (renderer/resolve-gpu-paint
-         (assoc-in (:paint entry) [:sub-draws]
-                   [{:vertex-count 6 :instance-count 1
-                     :first-vertex 0 :first-instance 3}]))
-        _ (execute-verifier-entry! pass entry)
-        expected [[:pipeline pipeline]
-                  [:bind-group 0 bind-group]
-                  [:vertex-buffer 0 instance-buffer]
-                  [:draw 6 1 0 3]]]
-    (when-not (and (= expected @calls)
-                   (identical? instance-buffer
-                               (get-in resolved-clipped
-                                       [:sub-draws 0 :buffer])))
-      (throw (ex-info "Retained runtime payload lost its instance buffer"
-                      {:expected expected :actual @calls
-                       :clipped-buffer-resolved?
-                       (identical? instance-buffer
-                                   (get-in resolved-clipped
-                                           [:sub-draws 0 :buffer]))})))
-    true))
 
 (defn- selected-limits [^js limits]
   {:max-buffer-size (.-maxBufferSize limits)
@@ -2068,65 +1828,6 @@
              (.destroy buffer)
              tight))))))
 
-(defn- w4-capture!
-  [device compositor variant arrangement effect-spans plan width height
-   & {:keys [zoom effective-transforms pass-producers
-             region-bindings binding-deltas]
-      :or {zoom 1.0 effective-transforms {} pass-producers {}
-           binding-deltas []}}]
-  (let [texture (.createTexture
-                 device
-                 (clj->js {:size {:width width :height height
-                                  :depthOrArrayLayers 1}
-                           :format color-format
-                           :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
-                                          js/GPUTextureUsage.COPY_SRC)}))
-        context #js {:getCurrentTexture (fn [] texture)}]
-    (compositor-gpu/draw-multipass!
-     compositor {:context context :arrangement arrangement
-                 :effect-spans effect-spans :variant variant
-                 :execute-entry! renderer/execute-frame-entry!
-                 :pass-producers pass-producers
-                 :region-bindings region-bindings
-                 :binding-deltas binding-deltas
-                 :width width :height height :zoom zoom
-                 :effective-transforms effective-transforms :plan plan})
-    (-> (w4-read-texture! device texture width height)
-        (.then (fn [bytes] (.destroy texture) bytes)))))
-
-(defn- w4-capture-pair!
-  [device compositor variant arrangement effect-spans plan
-   & {:keys [zoom effective-transforms pass-producers
-             region-bindings binding-deltas]
-      :or {zoom 1.0 effective-transforms {} pass-producers {}
-           binding-deltas []}}]
-  (-> (w4-capture! device compositor variant arrangement effect-spans plan
-                    canvas-size canvas-size :zoom zoom
-                    :effective-transforms effective-transforms
-                    :pass-producers pass-producers
-                    :region-bindings region-bindings
-                    :binding-deltas binding-deltas)
-      (.then
-       (fn [first-bytes]
-         (-> (w4-capture! device compositor variant arrangement effect-spans plan
-                           canvas-size canvas-size :zoom zoom
-                           :effective-transforms effective-transforms
-                           :pass-producers pass-producers
-                           :region-bindings region-bindings
-                           :binding-deltas [])
-             (.then
-              (fn [second-bytes]
-                (-> (js/Promise.all
-                     #js [(sha256-bytes first-bytes)
-                          (sha256-bytes second-bytes)])
-                    (.then
-                     (fn [hashes]
-                       {:bytes first-bytes
-                        :first-sha256 (aget hashes 0)
-                        :second-sha256 (aget hashes 1)
-                        :byte-identical? (= (aget hashes 0)
-                                            (aget hashes 1))}))))))))))
-
 ;; The rect-backed W4 runtime receipt was removed with the rect render family.
 
 ;; ---------------------------------------------------------------------------
@@ -2241,106 +1942,110 @@
     {:region region :op op
      :placements [ink-placement]}))
 
-(defn- region3d-store-frame [op]
-  {:regions [op]
-   :ordered-vis [region3d-owner-vi]
-   :ops-count-by-vi {region3d-owner-vi {:regions 1}}
-   :order-by-vi
-   {region3d-owner-vi
-    {:stratum :world :stack-path [[:region3d-verifier 1 1]]}}})
+(defn- region3d-regions [op]
+  {:regions [op]})
 
-(defn- region3d-surround-entry [id system op-index rank]
-  (let [{:keys [first-vertex vertex-count]}
-        (nth @(:!prepared system) op-index)]
-    {:entry/id id :material/id id :material/revision 1 :instance/id id
-     :family/id :render.family/path
-     :order {:stratum :world :pass-class :direct
-             :stack-path [[:region3d-verifier rank rank]]
-             :part-rank 0 :stable-tie id}
-     :paint {:paint/source system :paint/source-type :path-system
-             :vertex-count vertex-count :first-vertex first-vertex}
-     :visibility {:visible? true :clip :none}}))
+(defn- region3d-painters
+  "The painters of one floor frame, back to front: the prepared surround
+   paths (op 0 below, op 1 above) bracket the region composite."
+  [{:keys [region-system surround-path-system]} sides]
+  (let [surround (fn [op-index]
+                   (let [{:keys [first-vertex vertex-count]}
+                         (nth @(:!prepared surround-path-system) op-index)]
+                     (fn [pass]
+                       (path-gpu/draw-path-range! pass surround-path-system
+                                                  first-vertex vertex-count))))
+        region (fn [pass]
+                 (region3d-gpu/composite-region! pass region-system
+                                                 region3d-id))]
+    (case sides
+      :sandwich [(surround 0) region (surround 1)]
+      :region [region]
+      :empty [(surround 0)])))
 
-(defn- region3d-frame
-  [{:keys [region-system surround-path-system]} op sides]
-  (let [store-frame (region3d-store-frame op)
-        region-entry (first (region3d-gpu/region3d-entries
-                             {:store-frame store-frame
-                              :region3d-system region-system
-                              :zoom 1.0 :dpr 1.0}))
-        below (region3d-surround-entry :region3d/below
-                                       surround-path-system 0 0)
-        above (region3d-surround-entry :region3d/above
-                                       surround-path-system 1 2)
-        entries (case sides
-                  :sandwich [above region-entry below]
-                  :below [region-entry below]
-                  :region [region-entry])
-        arrangement (:entries (scene-tape/compile-tape
-                               :region3d-verifier entries))
-        plan (frame-graph/compile-frame-plan
-              {:arrangement arrangement :effect-spans []
-               :regions (region3d-gpu/region-topology-rows region-system)
-               :viewport {:width canvas-size :height canvas-size
-                          :format color-format}})]
-    {:store-frame store-frame :arrangement arrangement :plan plan
-     :region-entry region-entry}))
-
-(defn- region3d-pass-producers [region-system]
-  {:region (fn [encoder pass lease]
-             (region3d-gpu/encode-region-passes!
-              region-system encoder pass lease))})
-
-(defn- region3d-binding-frame [region-system]
-  {:owner (region3d-gpu/binding-owner region-system)
-   :deltas (:binding (region3d-gpu/drain-binding-deltas! region-system))})
+(defn- region3d-direct-frame!
+  "Direct driver, no order model: lease every desired region, encode the
+   shadow and interior of each one the region painter has prepared, paint the
+   painters back to front into one linear scene target, present it, and read
+   the pixels back."
+  [{:keys [device compositor region-system]} painters]
+  (let [^js device device
+        ^js texture (.createTexture
+                     device
+                     (clj->js {:size {:width canvas-size :height canvas-size
+                                      :depthOrArrayLayers 1}
+                               :format color-format
+                               :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
+                                              js/GPUTextureUsage.COPY_SRC)}))
+        owner (region3d-gpu/binding-owner region-system)
+        {:keys [active stale]}
+        (compositor-gpu/active-region-leases! compositor owner)
+        encoder (.createCommandEncoder device)
+        prepared (:prepared (region3d-gpu/region3d-receipt region-system))
+        passes (vec (for [{region-id :region/id shadow? :shadow?}
+                          (region-bindings/desired-rows owner)
+                          :when (contains? prepared region-id)
+                          role (if shadow? [:shadow :interior] [:interior])]
+                      (region3d-gpu/encode-region-pass!
+                       region-system encoder region-id role
+                       (get active region-id))))
+        scene (compositor-gpu/acquire-target!
+               (:target-pool compositor) "rgba16float"
+               canvas-size canvas-size "frame/scene-color")
+        pass (compositor-gpu/begin-target-pass! encoder scene "clear")]
+    (doseq [paint! painters] (paint! pass))
+    (.end pass)
+    (compositor-gpu/draw-present! compositor encoder scene
+                                  (.createView texture) color-format)
+    (.submit (.-queue device) #js [(.finish encoder)])
+    (compositor-gpu/release-after-submit! compositor [scene] [] stale)
+    (-> (w4-read-texture! device texture canvas-size canvas-size)
+        (.then (fn [bytes]
+                 (.destroy texture)
+                 {:bytes bytes :passes passes})))))
 
 (defn- region3d-prepare-options [harness]
   {:zoom 1.0 :dpr 1.0
    :font-assets (:font-assets harness)
    :path-system (:path-system harness)})
 
-(defn- region3d-capture-frame!
-  [{:keys [device compositor region-system]} {:keys [arrangement plan]}]
-  (let [binding (region3d-binding-frame region-system)]
-    (w4-capture! device compositor {:linearize-entry identity}
-                 arrangement [] plan canvas-size canvas-size
-                 :pass-producers (region3d-pass-producers region-system)
-                 :region-bindings (:owner binding)
-                 :binding-deltas (:deltas binding))))
-
-(defn- region3d-capture-prepared!
-  [harness op sides]
-  (region3d-capture-frame! harness (region3d-frame harness op sides)))
-
 (defn- region3d-capture!
   ([harness op session sides]
    (region3d-capture! harness op session sides {}))
   ([{:keys [compositor region-system] :as harness}
     op session sides prepare-overrides]
-  (region3d-gpu/attach-compositor! region-system compositor)
-  (region3d-gpu/prepare-region3d-frame!
-   region-system (region3d-store-frame op) session
-   (merge (region3d-prepare-options harness) prepare-overrides))
-   (region3d-capture-prepared! harness op sides)))
+   (region3d-gpu/attach-compositor! region-system compositor)
+   (region3d-gpu/prepare-region3d-frame!
+    region-system (region3d-regions op) session
+    (merge (region3d-prepare-options harness) prepare-overrides))
+   (region3d-direct-frame! harness (region3d-painters harness sides))))
 
 (defn- region3d-capture-pair!
   ([harness op session sides]
    (region3d-capture-pair! harness op session sides {}))
-  ([{:keys [device compositor region-system] :as harness}
+  ([{:keys [compositor region-system] :as harness}
     op session sides prepare-overrides]
-  (region3d-gpu/attach-compositor! region-system compositor)
-  (region3d-gpu/prepare-region3d-frame!
-   region-system (region3d-store-frame op) session
-   (merge (region3d-prepare-options harness) prepare-overrides))
-  (let [{:keys [arrangement plan]} (region3d-frame harness op sides)
-        binding (region3d-binding-frame region-system)]
-    (w4-capture-pair! device compositor {:linearize-entry identity}
-                       arrangement [] plan
-                       :pass-producers
-                       (region3d-pass-producers region-system)
-                       :region-bindings (:owner binding)
-                       :binding-deltas (:deltas binding)))))
+   (region3d-gpu/attach-compositor! region-system compositor)
+   (region3d-gpu/prepare-region3d-frame!
+    region-system (region3d-regions op) session
+    (merge (region3d-prepare-options harness) prepare-overrides))
+   (let [painters (region3d-painters harness sides)]
+     (-> (region3d-direct-frame! harness painters)
+         (.then
+          (fn [{first-bytes :bytes}]
+            (-> (region3d-direct-frame! harness painters)
+                (.then
+                 (fn [{second-bytes :bytes}]
+                   (-> (js/Promise.all
+                        #js [(sha256-bytes first-bytes)
+                             (sha256-bytes second-bytes)])
+                       (.then
+                        (fn [hashes]
+                          {:bytes first-bytes
+                           :first-sha256 (aget hashes 0)
+                           :second-sha256 (aget hashes 1)
+                           :byte-identical? (= (aget hashes 0)
+                                               (aget hashes 1))}))))))))))))
 
 (defn- region3d-image-record [case-id pair]
   {:mode case-id :file (str "gpu-region3d-floor-" case-id ".png")
@@ -2431,18 +2136,6 @@
                  (< 0 (last glass-sample) 255)
                  depth-classes-pass?)}))
 
-(defn- region3d-empty-frame [harness]
-  (let [below (region3d-surround-entry :region3d/below
-                                    (:surround-path-system harness) 0 0)
-        arrangement [below]
-        plan (frame-graph/compile-frame-plan
-              {:arrangement arrangement :effect-spans []
-               :regions []
-               :forced-color-mode :scene-color/linear
-               :viewport {:width canvas-size :height canvas-size
-                          :format color-format}})]
-    {:arrangement arrangement :plan plan}))
-
 (defn- region3d-s5-lifecycle!
   [{:keys [device compositor region-system tracker] :as harness} region op]
   (let [base-view (:view-default region)
@@ -2457,21 +2150,16 @@
            (.then
             (region3d-capture!
              harness op {:regions {region3d-id {:view changed-view}}} :region)
-            (fn [_]
-              (let [after-view (region3d-gpu/region3d-receipt region-system)
-                    view-passes
-                    (get-in (compositor-gpu/compositor-receipt compositor)
-                            [:region-pass-receipts])]
+            (fn [{view-passes :passes}]
+              (let [after-view (region3d-gpu/region3d-receipt region-system)]
                 (.then
                  (region3d-capture!
                   harness op {:regions {region3d-id {:view changed-view}}}
                   :region)
-                 (fn [_]
+                 (fn [{clean-passes :passes}]
                    {:before-view before-view :after-view after-view
                     :view-passes view-passes
-                    :clean-passes
-                    (get-in (compositor-gpu/compositor-receipt compositor)
-                            [:region-pass-receipts])}))))))
+                    :clean-passes clean-passes}))))))
          (fn [state]
            (let [resized (assoc op :w 300.0)]
              (.then
@@ -2500,15 +2188,10 @@
          (fn [state]
            (region3d-gpu/prepare-region3d-frame!
             region-system {:regions []} {} {:zoom 1.0 :dpr 1.0})
-           (let [{:keys [arrangement plan]} (region3d-empty-frame harness)
-                 binding (region3d-binding-frame region-system)]
+           (let [frame (region3d-direct-frame!
+                        harness (region3d-painters harness :empty))]
              (.then
-              (w4-capture! device compositor {:linearize-entry identity}
-                           arrangement [] plan canvas-size canvas-size
-                           :pass-producers
-                           (region3d-pass-producers region-system)
-                           :region-bindings (:owner binding)
-                           :binding-deltas (:deltas binding))
+              frame
               (fn [_]
                 (wait-for-queue
                  (fn []
@@ -2522,7 +2205,7 @@
                  refusal-harness (assoc harness :compositor refusal-compositor)]
              (.then
               (region3d-capture! refusal-harness op {} :region)
-              (fn [bytes]
+              (fn [{:keys [bytes]}]
                 (wait-for-queue
                  (fn []
                    (let [receipt
@@ -2562,16 +2245,12 @@
                                                       :compositor recreated)]
                        (.then
                         (region3d-capture! recreated-harness op {} :region)
-                        (fn [_]
+                        (fn [{:keys [passes]}]
                           (wait-for-queue
                            (fn []
                              (let [after-recreate
                                    (compositor-gpu/region-leases-receipt
                                     recreated)
-                                   passes
-                                   (get-in
-                                    (compositor-gpu/compositor-receipt recreated)
-                                    [:region-pass-receipts])
                                    receipt
                                    {:before-destroy before-destroy
                                     :after-destroy after-destroy
@@ -2642,14 +2321,12 @@
            (mapcat val (:free @(:!state pool)))))))
 
 (defn- region3d-lower-step!
-  [harness frame]
-  (frame-inputs/begin-ledger!)
-  (-> (region3d-capture-frame! harness frame)
-      (.then (fn [bytes]
-               {:bytes bytes
+  [harness painters]
+  (-> (region3d-direct-frame! harness painters)
+      (.then (fn [{:keys [bytes passes]}]
+               {:bytes bytes :passes passes
                 :receipt (compositor-gpu/compositor-receipt
-                          (:compositor harness))
-                :ledger (frame-inputs/ledger-receipt)}))))
+                          (:compositor harness))}))))
 
 (defn- region3d-refusal-leg!
   [{:keys [device tracker region-system] :as harness}
@@ -2658,15 +2335,13 @@
                     device color-format tracker
                     :budget-cap-bytes budget-cap-bytes)
         refusal-harness (assoc harness :compositor compositor)]
-    (frame-inputs/begin-ledger!)
     (-> (region3d-capture! refusal-harness op {} :region {:zoom 8.0})
         (.then
-         (fn [bytes]
+         (fn [{:keys [bytes]}]
            (let [receipt (compositor-gpu/compositor-receipt compositor)
                  result {:bytes bytes
                          :receipt receipt
                          :sample (pixel-rgba bytes 64 64)
-                         :ledger (frame-inputs/ledger-receipt)
                          :pass? (and (some? (:last-region-refusal receipt))
                                      (pos? (apply max (pixel-rgba bytes 64 64))))}]
              (compositor-gpu/destroy-compositor! compositor)
@@ -2698,9 +2373,9 @@
         (fn [current-op zoom]
           (region3d-gpu/attach-compositor! region-system lower-compositor)
           (region3d-gpu/prepare-region3d-frame!
-           region-system (region3d-store-frame current-op) {}
+           region-system (region3d-regions current-op) {}
            (merge (region3d-prepare-options lower-harness) {:zoom zoom}))
-          (region3d-frame lower-harness current-op :region))
+          (region3d-painters lower-harness :region))
         install-pressure!
         (fn []
           (let [owner (region3d-gpu/binding-owner region-system)
@@ -2783,9 +2458,8 @@
                                                  [:receipt :region-leases
                                                   :leases])))))
                         worn-lease (primary-lease worn)
-                        mutated-passes (get-in mutated
-                                               [:receipt :region-pass-receipts])
-                        held-passes (get-in held [:receipt :region-pass-receipts])
+                        mutated-passes (:passes mutated)
+                        held-passes (:passes held)
                         recovered-lease (primary-lease recovered)
                         wear-sample (pixel-rgba (:bytes mutated) 100 24)
                         maintained (assoc (region3d-scene/derive-scene
@@ -2805,19 +2479,19 @@
                         reserve-preserved?
                         (pool-holds-free-target? pool reserve-target)
                         physical-crossing?
-                        (and (= 1 (get-in worn [:ledger
+                        (and (= 1 (get-in worn [:receipt :lease-activity
                                                :region-binding-updates]))
-                             (= 1 (get-in worn [:ledger :leases-acquired]))
-                             (= 1 (get-in worn [:ledger :leases-retired]))
-                             (= 1 (get-in worn [:ledger :region-rungs-worn])))
+                             (= 1 (get-in worn [:receipt :lease-activity :leases-acquired]))
+                             (= 1 (get-in worn [:receipt :lease-activity :leases-retired]))
+                             (= 1 (get-in worn [:receipt :lease-activity :region-rungs-worn])))
                         current-content?
                         (and (> (byte-delta bytes (:bytes mutated)) 2)
                              (every? :encoded? mutated-passes))
                         held-stable?
-                        (and (zero? (get-in held [:ledger
+                        (and (zero? (get-in held [:receipt :lease-activity
                                                  :region-binding-updates]))
-                             (zero? (get-in held [:ledger :leases-acquired]))
-                             (zero? (get-in held [:ledger :leases-retired]))
+                             (zero? (get-in held [:receipt :lease-activity :leases-acquired]))
+                             (zero? (get-in held [:receipt :lease-activity :leases-retired]))
                              (every? #(and (:held? %) (not (:encoded? %)))
                                      held-passes))
                         honest-counter?
@@ -2826,20 +2500,20 @@
                                         [:receipt :region-leases :leases
                                          [:region3d/verifier 512 512] :size]))
                              (zero? (get-in honest-counter
-                                            [:ledger :region-binding-updates]))
+                                            [:receipt :lease-activity :region-binding-updates]))
                              (zero? (get-in honest-counter
-                                            [:ledger :leases-acquired]))
+                                            [:receipt :lease-activity :leases-acquired]))
                              (zero? (get-in honest-counter
-                                            [:ledger :leases-retired])))
+                                            [:receipt :lease-activity :leases-retired])))
                         recovery?
                         (and (= 1 (:rung-divisor recovered-lease))
                              (= [768 768] (:size recovered-lease))
                              (= 1 (get-in recovered
-                                          [:ledger :region-binding-updates]))
-                             (= 1 (get-in recovered [:ledger :leases-acquired]))
-                             (= 1 (get-in recovered [:ledger :leases-retired]))
+                                          [:receipt :lease-activity :region-binding-updates]))
+                             (= 1 (get-in recovered [:receipt :lease-activity :leases-acquired]))
+                             (= 1 (get-in recovered [:receipt :lease-activity :leases-retired]))
                              (= 1 (get-in recovered
-                                          [:ledger :region-rung-recoveries])))
+                                          [:receipt :lease-activity :region-rung-recoveries])))
                         floor-identical? (= (aget hashes 2) (aget hashes 3))
                         pick? (and (= :near (:object-id object-pick))
                                    (= :region-background
@@ -2865,8 +2539,8 @@
                               :byte-identical? deterministic?}
                         result {:image (region3d-image-record "worn" pair)
                                 :sharp {:lease (primary-lease sharp)
-                                        :ledger (:ledger sharp)}
-                                :worn {:lease worn-lease :ledger (:ledger worn)
+                                        :lease-activity (get-in sharp [:receipt :lease-activity])}
+                                :worn {:lease worn-lease :lease-activity (get-in worn [:receipt :lease-activity])
                                        :rung-receipts
                                        (get-in worn [:receipt
                                                      :region-rung-receipts])}
@@ -2875,7 +2549,7 @@
                                 :held-stable? held-stable?
                                 :honest-counter? honest-counter?
                                 :recovery {:lease recovered-lease
-                                           :ledger (:ledger recovered)
+                                           :lease-activity (get-in recovered [:receipt :lease-activity])
                                            :pass? recovery?}
                                 :reserve-preserved? reserve-preserved?
                                 :pick {:object (:object-id object-pick)
@@ -3028,7 +2702,6 @@
 
 (defn ^:export run-verifier! []
   (js/console.log "[W0-A] init-start")
-  (assert-frame-retention-payload-resolution!)
   (when-not (and (.-isSecureContext js/window)
                  (exists? js/navigator.gpu))
     (throw (js/Error. "W0-A requires a secure origin with WebGPU")))

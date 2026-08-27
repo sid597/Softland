@@ -226,59 +226,13 @@
             {:mesh-set-changed? true :writes (if (pos? vertices) 1 0)
              :vertices vertices}))))))
 
-(defn- frame-order [source-order entry-id]
-  {:stratum :overlay
-   :pass-class :direct
-   ;; -1 is above every :world entry by stratum, but below the product chrome
-   ;; ladder whose first overlay token is [:frame/root 0 0].
-   :stack-path (into [[:frame/root -1 -1]]
-                     (or (:stack-path source-order) []))
-   :part-rank 0
-   :stable-tie entry-id})
-
-(defn chrome-entries [{:keys [store-frame chrome-system]}]
-  (if-not (and store-frame chrome-system)
-    []
-    (loop [vis (:ordered-vis store-frame) op-offset 0 entries []]
-      (if-let [vi (first vis)]
-        (let [op-count (get-in store-frame [:ops-count-by-vi vi :chromes] 0)
-              next-op-offset (+ op-offset op-count)
-              rows (subvec @(:!prepared chrome-system) op-offset next-op-offset)
-              vertex-count (reduce + (map :vertex-count rows))
-              first-vertex (or (:first-vertex (first rows)) 0)
-              entry-id [:frame/store vi :chromes]
-              source-order (get-in store-frame [:order-by-vi vi])
-              entries (cond-> entries
-                        (pos? vertex-count)
-                        (conj {:entry/id entry-id
-                               :material/id entry-id
-                               :material/revision 0
-                               :instance/id entry-id
-                               :family/id :render.family/chrome
-                               :order (frame-order source-order entry-id)
-                               :paint {:paint/source chrome-system
-                                       :paint/source-type :chrome-system
-                                       :vertex-count vertex-count
-                                       :first-vertex first-vertex}
-                               :visibility {:visible? true :clip :none}}))]
-          (recur (next vis) next-op-offset entries))
-        entries))))
-
-(defn execute-chrome-batch! [^js pass entry]
-  (let [paint (:paint entry)
-        chrome-system (:paint/source paint)
-        {:keys [vertex-count first-vertex]} paint
-        ;; Explicit paint wins (same law as resolve-gpu-paint): the linear
-        ;; variant's linearize-entry overrides pipeline/bind-group for the
-        ;; rgba16float pass; only the buffer resolves through the source.
-        pipeline (or (:pipeline paint) (:pipeline chrome-system))
-        bind-group (or (:bind-group paint) (:bind-group chrome-system))
-        buffer @(:!buffer chrome-system)]
-    (.setPipeline pass pipeline)
-    (.setBindGroup pass 0 bind-group)
-    (.setVertexBuffer pass 0 buffer)
-    (.draw pass vertex-count 1 first-vertex 0)
-    (:entry/id entry)))
+(defn draw-chrome-range!
+  "Paint one contiguous run of the prepared chrome vertices on an open pass."
+  [^js pass chrome-system first-vertex vertex-count]
+  (.setPipeline pass (:pipeline chrome-system))
+  (.setBindGroup pass 0 (:bind-group chrome-system))
+  (.setVertexBuffer pass 0 @(:!buffer chrome-system))
+  (.draw pass vertex-count 1 first-vertex 0))
 
 (defn chrome-receipt [chrome-system]
   @(:!receipt chrome-system))

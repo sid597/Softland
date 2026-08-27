@@ -29,13 +29,8 @@
            [java.nio.file.attribute FileAttribute]))
 
 (def pure-namespaces
-  '[app.client.substrate.image-citizenship-test
-    app.client.substrate.image-material-test
+  '[app.client.substrate.image-material-test
     app.client.substrate.chrome-material-test
-    app.client.substrate.frame-effects-test
-    app.client.substrate.frame-inputs-test
-    app.client.substrate.frame-graph-test
-    app.client.substrate.frame-view-region-binding-test
     app.client.substrate.path-material-test
     app.client.substrate.path-tessellation-test
     app.client.substrate.region3d-evaluation-test
@@ -43,7 +38,6 @@
     app.client.substrate.region3d-placement-test
     app.client.substrate.region3d-scene-test
     app.client.substrate.region-rungs-test
-    app.client.substrate.scene-tape-test
     app.client.workspace.shaping-correction-test
     app.client.workspace.text-layout-planes-test
     app.client.workspace.text-layout-test
@@ -147,9 +141,10 @@
      app.server.rama.dogfood-llm-test})
 
 (def full-receipt-floor
-  "The receipt floor after the authorized face recipe/compiler retirement.
+  "The receipt floor after the conductor cut (scene tape, frame graph, delta
+   spine) retired 30 tests / 172 assertions.
    Full runs may grow but may not drop below it."
-  {:test 356 :assertions 4551})
+  {:test 326 :assertions 4379})
 
 (def ^:private shared-close-vars
   '[app.server.rama.face-arsenal/close-face-arsenal-runtime!

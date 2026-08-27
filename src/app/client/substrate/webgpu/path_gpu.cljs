@@ -328,63 +328,13 @@
              :vertices vertices
              :derived (count (:derived-keys derivation))}))))))
 
-(defn- frame-order [source-order entry-id]
-  {:stratum (or (:stratum source-order) :world)
-   :pass-class :direct
-   :stack-path (into [[:frame/root 25 25]]
-                     (or (:stack-path source-order) []))
-   :part-rank 4
-   :stable-tie entry-id})
-
-(defn path-entries
-  "Mint one path tape entry per `(vi, :paths)` in store order. Variable mesh
-   sizes are represented by first-vertex/vertex-count, never family sorting."
-  [{:keys [store-frame path-system]}]
-  (if-not (and store-frame path-system)
-    []
-    (loop [vis (:ordered-vis store-frame)
-           op-offset 0 entries []]
-      (if-let [vi (first vis)]
-        (let [op-count (get-in store-frame [:ops-count-by-vi vi :paths] 0)
-              next-op-offset (+ op-offset op-count)
-              rows (subvec @(:!prepared path-system)
-                           op-offset next-op-offset)
-              vertex-count (reduce + (map :vertex-count rows))
-              first-vertex (or (:first-vertex (first rows)) 0)
-              entry-id [:frame/store vi :paths]
-              source-order (get-in store-frame [:order-by-vi vi])
-              entries (cond-> entries
-                        (pos? vertex-count)
-                        (conj
-                         {:entry/id entry-id
-                          :material/id entry-id
-                          :material/revision 0
-                          :instance/id entry-id
-                          :family/id :render.family/path
-                          :order (frame-order source-order entry-id)
-                          :paint {:paint/source path-system
-                                  :paint/source-type :path-system
-                                  :vertex-count vertex-count
-                                  :first-vertex first-vertex}
-                          :visibility {:visible? true :clip :shared-tree-clip}}))]
-          (recur (next vis) next-op-offset entries))
-        entries))))
-
-(defn execute-path-batch! [^js pass entry]
-  (let [paint (:paint entry)
-        path-system (:paint/source paint)
-        {:keys [vertex-count first-vertex]} paint
-        ;; Explicit paint wins (same law as resolve-gpu-paint): the linear
-        ;; variant's linearize-entry overrides pipeline/bind-group for the
-        ;; rgba16float pass; only the buffer resolves through the source.
-        pipeline (or (:pipeline paint) (:pipeline path-system))
-        bind-group (or (:bind-group paint) (:bind-group path-system))
-        buffer @(:!buffer path-system)]
-    (.setPipeline pass pipeline)
-    (.setBindGroup pass 0 bind-group)
-    (.setVertexBuffer pass 0 buffer)
-    (.draw pass vertex-count 1 first-vertex 0)
-    (:entry/id entry)))
+(defn draw-path-range!
+  "Paint one contiguous run of the prepared path vertices on an open pass."
+  [^js pass path-system first-vertex vertex-count]
+  (.setPipeline pass (:pipeline path-system))
+  (.setBindGroup pass 0 (:bind-group path-system))
+  (.setVertexBuffer pass 0 @(:!buffer path-system))
+  (.draw pass vertex-count 1 first-vertex 0))
 
 (defn path-receipt [path-system]
   @(:!receipt path-system))

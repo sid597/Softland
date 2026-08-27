@@ -2,11 +2,10 @@
   "Atom A's WebGPU region family.
 
    `prepare-region3d-frame!` is the only CPU->GPU upload door and never mints
-   an encoder. `encode-region-passes!` is the compositor-owned plan producer;
-   `execute-region3d-batch!` is the ordinary scene-tape composite executor.
+   an encoder. `encode-region-pass!` encodes one role of one region into its lease;
+   `composite-region!` paints a held region onto an open pass.
    Region attachment bytes remain compositor target-pool leases throughout."
-  (:require [app.client.substrate.frame-inputs :as frame-inputs]
-            [app.client.substrate.region3d-evaluation :as evaluation]
+  (:require [app.client.substrate.region3d-evaluation :as evaluation]
             [app.client.substrate.region3d-material :as material]
             [app.client.substrate.region3d-placement :as placement]
             [app.client.substrate.region3d-scene :as scene]
@@ -462,7 +461,6 @@
      :!composite-rows (atom {})
      :!last-composite-key (atom nil)
      :!last-regions (atom ::never)
-     :!entry-shape-key (atom ::never)
      :!receipt (atom {:version 1 :prepare-calls 0 :scene-derives 0
                       :scene-transform-updates 0
                       :region-encodes 0
@@ -474,9 +472,6 @@
 (defonce ^:private !systems-by-device (js/WeakMap.))
 
 (defn binding-owner [system] (:binding-owner system))
-
-(defn drain-binding-deltas! [system]
-  (region-bindings/drain-deltas! (:binding-owner system)))
 
 (defn region-topology-rows [system]
   (region-bindings/topology-rows (:binding-owner system)))
@@ -818,28 +813,20 @@
 (defn- font-input-token [font-assets]
   (placement/provider-identity font-assets))
 
-(defn- region-entry-shape-key [store-frame regions prepared]
-  (mapv (fn [{:keys [region-id]}]
-          (let [op (:op (get prepared region-id))]
-            [region-id
-             (get-in store-frame [:order-by-vi (:owner-vi op)])]))
-        regions))
-
 (defn prepare-region3d-frame!
   "Upload region material/session projections before any pass opens. Returns a
    receipt; it never creates a command encoder or requests a target lease."
-  [system store-frame session
+  [system {:keys [regions]} session
    {:keys [zoom dpr font-assets session-layout-snapshot path-system
            max-lease-size]
     :or {zoom 1.0 dpr 1.0}}]
-  (let [regions (vec (or (:regions store-frame) []))
+  (let [regions (vec (or regions []))
         prior @(:!prepared system)
         live-ids (set (map :region-id regions))
         computed
         (into {}
               (map
                (fn [op]
-                 (frame-inputs/increment-ledger! :region-prepared)
                  (let [region-id (:region-id op)
                        session-row (session-region session region-id)
                        pixel-size [(max 1 (js/Math.ceil (* (:w op) zoom dpr)))
@@ -1016,17 +1003,11 @@
                              (when-not (identical? row (get prior region-id))
                                row))
                            computed)
-        prepared-changed? (not (identical? prior next))
-        entry-shape-key (region-entry-shape-key store-frame regions next)
-        entry-shape-changed?
-        (not= entry-shape-key @(:!entry-shape-key system))]
+        prepared-changed? (not (identical? prior next))]
     (doseq [region-id closed]
       (destroy-region-gpu! system (:gpu (get prior region-id))))
     (when prepared-changed?
       (reset! (:!prepared system) next))
-    (when entry-shape-changed?
-      (reset! (:!entry-shape-key system) entry-shape-key)
-      (swap! (:!shape-rev system) inc))
     (when (or prepared-changed? (seq closed) (pos? composite-uploads))
       (swap! (:!receipt system)
              (fn [receipt]
@@ -1072,22 +1053,6 @@
                                  next)
                            :composite-uploads composite-uploads})))))
     @(:!receipt system)))
-
-(defn region3d-entries
-  [{:keys [store-frame region3d-system]}]
-  (if-not (and region3d-system store-frame)
-    []
-    (mapv
-     (fn [op]
-       (let [region-id (:region-id op)
-             source-order (get-in store-frame [:order-by-vi (:owner-vi op)])
-             entry (scene/tape-entry
-                    {:region-id region-id
-                     :revision (get-in op [:region3d/scene :region3d/version])
-                     :source-order source-order
-                     :rect [(:x op) (:y op) (:w op) (:h op)]})]
-         (assoc-in entry [:paint :region-system] region3d-system)))
-     (:regions store-frame))))
 
 (defn- region-bind-group [system prepared lease]
   (let [gpu (:gpu prepared)
@@ -1171,13 +1136,12 @@
                                     (:placement gpu) (:uniform gpu))
     (.end pass)))
 
-(defn encode-region-passes!
-  "Compositor pass producer. Clean regions retain the declared pass but encode
-   nothing; a new lease key forces one encode before it can be sampled."
-  [system encoder pass lease]
-  (let [region-id (:region/id pass)
-        role (:region/role pass)
-        prepared (get @(:!prepared system) region-id)
+(defn encode-region-pass!
+  "Encode one role (:shadow or :interior) of one region into its lease. Clean
+   regions hold their encode; a new lease key forces one encode before it can
+   be sampled."
+  [system encoder region-id role lease]
+  (let [prepared (get @(:!prepared system) region-id)
         encode? (and prepared lease (not (:refused? lease))
                      (or (get-in prepared [:dirty-by-role role])
                          (not= (:key lease)
@@ -1192,8 +1156,7 @@
        :held? false :refusal (:refusal lease)}
 
       (not encode?)
-      (do (frame-inputs/increment-ledger! :region-held)
-          (swap! (:!receipt system) update :held-passes inc)
+      (do (swap! (:!receipt system) update :held-passes inc)
           {:region-id region-id :role role
            :encoded? false :held? true :lease-key (:key lease)})
 
@@ -1204,7 +1167,6 @@
                     (encode-shadow! system encoder prepared lease))
           :interior (encode-interior! system encoder prepared lease)
           nil)
-        (frame-inputs/increment-ledger! :region-encoded)
         (swap! (:!receipt system) update :region-encodes inc)
         (swap! (:!prepared system) update region-id
                (fn [row]
@@ -1230,10 +1192,11 @@
              :entries [{:binding 2 :resource {:buffer (:camera-buffer system)}}
                        {:binding 3 :resource {:buffer (:containers-buffer system)}}]})))
 
-(defn execute-region3d-batch! [pass entry]
-  (let [{:keys [region-system region-id]}
-        (:paint entry)
-        owner (:binding-owner region-system)
+(defn composite-region!
+  "Composite one region's held lease onto an open pass at its stable slot, or
+   its refusal placeholder when no lease is held."
+  [pass region-system region-id]
+  (let [owner (:binding-owner region-system)
         lease (region-bindings/lease owner region-id)
         composite-slot (region-bindings/slot owner region-id)
         refused? (or (nil? lease) (:refused? lease))
@@ -1247,8 +1210,7 @@
                                 (refusal-bind-group region-system)
                                 (composite-bind-group region-system lease)))
     (.setVertexBuffer ^js pass 0 (:buffer @(:!composite-buffer region-system)))
-    (.draw ^js pass 6 1 0 composite-slot)
-    (:entry/id entry)))
+    (.draw ^js pass 6 1 0 composite-slot)))
 
 (defn region3d-receipt [system]
   (assoc @(:!receipt system)

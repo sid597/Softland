@@ -23,8 +23,6 @@ for (const relative of deleted) {
 }
 
 const registrationSources = [
-  "src/app/client/substrate/scene_tape.cljc",
-  "src/app/client/substrate/frame_inputs.cljc",
   "src/app/client/substrate/webgpu/renderer.cljs",
 ].map(read).join("\n");
 absent(registrationSources, /render\.family\/connector|connector-registration/,
@@ -32,8 +30,6 @@ absent(registrationSources, /render\.family\/connector|connector-registration/,
 
 const neutralSources = [
   "src/app/client/substrate/chrome_material.cljc",
-  "src/app/client/substrate/scene_tape.cljc",
-  "src/app/client/substrate/frame_inputs.cljc",
   "src/app/client/substrate/webgpu/renderer.cljs",
 ].map(read).join("\n");
 for (const form of [":selection-outline", ":handle", ":marquee", ":guide-line", ":gap-tick"]) {
@@ -59,8 +55,6 @@ absent(editAndPulseSources,
   "retired edit or pulse closure survived");
 
 const sceneContractSources = [
-  "src/app/client/substrate/scene_tape.cljc",
-  "src/app/client/substrate/frame_graph.cljc",
   "src/app/client/substrate/region3d_scene.cljc",
   "src/app/client/substrate/webgpu/renderer.cljs",
   "src/app/client/substrate/webgpu/path_gpu.cljs",

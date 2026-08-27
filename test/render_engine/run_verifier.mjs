@@ -266,8 +266,6 @@ const sourceInputs = () =>
   [
     "src/app/client/substrate/webgpu/renderer.cljs",
     "src/app/client/substrate/webgpu/verifier.cljs",
-    "src/app/client/substrate/scene_tape.cljc",
-    "src/app/client/substrate/frame_inputs.cljc",
     "src/app/client/substrate/chrome_material.cljc",
     "src/app/client/substrate/webgpu/chrome_gpu.cljs",
     "src/app/client/substrate/webgpu/path_gpu.cljs",
