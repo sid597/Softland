@@ -14,7 +14,7 @@
             [app.server.page.face-projection :as fp]
             [app.server.episode.material-circulation :as circulation]
             [app.server.rama.object-container.runtime :as ocr]
-            [app.server.ingest.block-distiller :as bd]
+            [app.server.ingest.transcript-import :as bd]
             [app.server.ingest.transcript :as tr]))
 
 ;; ===========================================================================

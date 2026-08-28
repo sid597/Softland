@@ -1,4 +1,4 @@
-(ns app.server.ingest.block-distiller-test
+(ns app.server.ingest.transcript-import-test
   "block-distiller Phase 0 — PURE tests: free cut (G3), actor resolution
    (G1/§16.1), span property + anchor honesty (G11/G6), id determinism, fence
    atomicity (N2), NUL round-trip (T8), and the F1 read-string spike over both
@@ -15,7 +15,7 @@
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.ingest.transcript-adapter :as tra]
-            [app.server.ingest.block-distiller :as bd]
+            [app.server.ingest.transcript-import :as bd]
             [app.server.rama.relation-kernel :as rk]
             [app.server.ingest.transcript :as tr]
             [com.rpl.rama :refer :all]

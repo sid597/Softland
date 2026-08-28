@@ -1,4 +1,4 @@
-(ns app.server.ingest.git-spine-gate-test
+(ns app.server.ingest.git-import-gate-test
   "REVIEWER-AUTHORED final-phase gate (HQ/Fable, 2026-07-05; WP1-gate
    precedent for test-only blocks at gate).
 
@@ -15,7 +15,7 @@
             [clojure.string :as str]
             [clojure.java.io :as io]
             [app.server.door.server-jetty :as sj]
-            [app.server.ingest.git-spine :as gs]
+            [app.server.ingest.git-import :as gs]
             [app.server.rama.relation-kernel :as rk]))
 
 (defn- tmp-log-path []

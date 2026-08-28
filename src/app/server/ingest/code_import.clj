@@ -1,4 +1,4 @@
-(ns app.server.ingest.code-atoms
+(ns app.server.ingest.code-import
   "Historical Clojure blobs imported with lineage and analyzer relations.
    Takes: git commits, blob ids, changed paths, analyzer output, and kernel runtimes.
    Gives: import requests and :supersedes, :requires, and :calls relations.

@@ -21,8 +21,8 @@
             [app.server.page.face-projection :as fp]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.runtime :as ocr]
-            [app.server.ingest.block-distiller :as bd]
-            [app.server.ingest.block-distiller-test :as bdt]
+            [app.server.ingest.transcript-import :as bd]
+            [app.server.ingest.transcript-import-test :as bdt]
             [com.rpl.rama :refer :all]
             [com.rpl.rama.path :refer :all]))
 

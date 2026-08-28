@@ -1,4 +1,4 @@
-(ns app.server.ingest.block-distiller
+(ns app.server.ingest.transcript-import
   "Stored transcript payloads cut into blocks and typed relations.
    Takes: stored source rows, transcript events, object-container and relation runtimes, and page limits.
    Gives: block rows, edge specifications, import results, and river-page values.

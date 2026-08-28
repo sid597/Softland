@@ -6,7 +6,7 @@
   (:require [app.server.rama.object-container.runtime :as ocr]
             [app.server.ingest.markdown-adapter :as markdown-adapter]
             [app.server.ingest.transcript :as transcript]
-            [app.server.ingest.git-spine :as git-spine]
+            [app.server.ingest.git-import :as git-import]
             [app.server.rama.util-fns :as util-fns])
   (:import [java.io File]
            [java.nio.file FileSystems Files LinkOption Path Paths
@@ -196,9 +196,9 @@
    :repo-root :transcript-roots :spine-cursor-path :assert-log-path. Runs
    fire-and-forget wrt the relation microbatch (edges materialize async)."
   [cfg]
-  (doseq [[label f] [[:replay git-spine/replay-assert-log!]
-                     [:spine-sync git-spine/spine-sync!]
-                     [:extract git-spine/extract-session-joins!]]]
+  (doseq [[label f] [[:replay git-import/replay-assert-log!]
+                     [:spine-sync git-import/spine-sync!]
+                     [:extract git-import/extract-session-joins!]]]
     (try
       ;; Stats line stays counts-only (t4-spine seam 3): :edge-relation-ids is
       ;; a per-edge id VECTOR (one entry per parent edge — hundreds over the

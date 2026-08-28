@@ -1,4 +1,4 @@
-(ns app.server.ingest.git-spine
+(ns app.server.ingest.git-import
   "Git history imported as commit documents and typed relations.
    Takes: repository paths, commit metadata, transcript joins, assertion lines, and kernel runtimes.
    Gives: commit import results, :based-on and :produced relations, and replay results.

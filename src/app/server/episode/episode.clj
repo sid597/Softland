@@ -5,7 +5,7 @@
    Holds: !episode-chains."
   (:require [app.server.rama.core :as core]
             [app.server.rama.object-container :as oc]
-            [app.server.ingest.block-distiller :as bd]
+            [app.server.ingest.transcript-import :as bd]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.ingest.transcript :as transcript]

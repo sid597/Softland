@@ -504,7 +504,7 @@
    relation_kernel + llm; block material is injected). Returns
    {:blocks [...] :read-plan {...}} shaped like river-page + its metadata."
   [oc-rt address limit]
-  (let [river-page (requiring-resolve 'app.server.ingest.block-distiller/river-page)
+  (let [river-page (requiring-resolve 'app.server.ingest.transcript-import/river-page)
         page       (river-page {:oc-rt oc-rt :object-key address} limit)]
     {:blocks (vec page)
      :read-plan (:river-page/read-plan (meta page))}))

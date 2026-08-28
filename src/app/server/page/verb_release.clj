@@ -3,7 +3,7 @@
    Takes: committed blob ids, source paths, anchors, and release metadata.
    Gives: ordered release nodes and an object-container import request.
    Holds nothing."
-  (:require [app.server.ingest.code-atoms :as code-atoms]
+  (:require [app.server.ingest.code-import :as code-import]
             [app.server.rama.object-container :as oc]
             [app.server.ingest.clojure-adapter :as clj-adapter]
             [app.server.rama.object-container.runtime :as ocr]
@@ -25,12 +25,12 @@
    stores. Throws when the path or form does not exist; a release may never
    carry a best-effort anchor."
   [repo-root head path block-path]
-  (let [blob-sha (code-atoms/head-blob-sha repo-root head path)
+  (let [blob-sha (code-import/head-blob-sha repo-root head path)
         _ (when (str/blank? blob-sha)
             (throw (ex-info "release path absent at commit"
                             {:head head :path path})))
-        cut (code-atoms/cut-named-units
-             blob-sha (code-atoms/blob-text repo-root blob-sha))
+        cut (code-import/cut-named-units
+             blob-sha (code-import/blob-text repo-root blob-sha))
         unit (get-in cut [:units block-path])]
     (when-not unit
       (throw (ex-info "release form anchor absent at commit"

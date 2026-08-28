@@ -6,10 +6,10 @@
   (:require [clojure.string :as str]
             [clojure.edn :as edn]
             [app.server.episode.cascade :as cascade]
-            [app.server.ingest.git-spine :as git-spine]
+            [app.server.ingest.git-import :as git-import]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.runtime :as ocr]
-            [app.server.ingest.block-distiller :as bd]
+            [app.server.ingest.transcript-import :as bd]
             [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.worn.facet-master :as facet-master]
             [app.server.episode.episode :as episode]
@@ -1578,14 +1578,14 @@
   ([ctx request]
    (escape-gauge-projection
     {:state escape-gauge-state
-     :read-commits git-spine/read-commits
+     :read-commits git-import/read-commits
      :read-revision-history ocr/read-revision-history}
     ctx
     request))
   ([{:keys [state read-commits read-revision-history] :as deps} ctx request]
    (let [state (or state escape-gauge-state)
          deps (assoc deps
-                     :read-commits (or read-commits git-spine/read-commits)
+                     :read-commits (or read-commits git-import/read-commits)
                      :read-revision-history
                      (or read-revision-history ocr/read-revision-history))
          master-id (get-in request [:params :master-id])

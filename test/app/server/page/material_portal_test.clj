@@ -21,7 +21,7 @@
             [app.server.episode.episode :as episode]
             [app.server.rama.core :as core]
             [app.server.page.face-projection :as fp]
-            [app.server.ingest.git-spine :as git-spine]
+            [app.server.ingest.git-import :as git-import]
             [app.server.episode.material-circulation :as circulation]
             [app.server.page.material-portal :as mp]
             [app.server.worn.material-truth :as material-truth]
@@ -533,7 +533,7 @@
                             set)]
             (is (= #{"src/app/server/episode/episode.clj"
                      "src/app/server/episode/material_circulation.clj"
-                     "src/app/server/ingest/block_distiller.clj"
+                     "src/app/server/ingest/transcript_import.clj"
                      "src/app/server/ingest/clojure_adapter.clj"
                      "src/app/server/worn/facet_master.clj"
                      "src/app/server/ingest/markdown_adapter.clj"
@@ -1291,7 +1291,7 @@
         git-calls (atom 0)]
     (try
       (boot! rt)
-      (with-redefs [git-spine/read-commits
+      (with-redefs [git-import/read-commits
                     (fn [_]
                       (swap! git-calls inc)
                       (throw (ex-info "git must not run in portal open" {})))]

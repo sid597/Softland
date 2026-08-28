@@ -8,8 +8,8 @@
 ;; a negative). Ground truth was derived ONCE at phase time from the REAL adapter
 ;; cut + git diffs and is quoted verbatim below; it == the driver's pure
 ;; commit-lineage (cross-checked in PHASE_P2.md).
-(ns app.server.ingest.code-atoms-test
-  (:require [app.server.ingest.code-atoms :as ca]
+(ns app.server.ingest.code-import-test
+  (:require [app.server.ingest.code-import :as ca]
             [app.server.rama.trail-view :as tv]
             [app.server.rama.relation-kernel :as rk]
             [app.server.rama.object-container :as oc]

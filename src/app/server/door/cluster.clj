@@ -7,11 +7,11 @@
   (:require [app.server.ingest.ingest-watchers :as ingest-watchers]
             [app.server.rama.core :as core]
             [app.server.rama.face-arsenal :as face-arsenal]
-            [app.server.ingest.git-spine :as git-spine]
+            [app.server.ingest.git-import :as git-import]
             [app.server.episode.machine-cut :as machine-cut]
             [app.server.episode.material-circulation :as circulation]
             [app.server.rama.object-container :as oc]
-            [app.server.ingest.block-distiller :as block-distiller]
+            [app.server.ingest.transcript-import :as transcript-import]
             [app.server.worn.facet-master :as facet-master]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.transcript-identity :as tid]
@@ -476,7 +476,7 @@
           harvest (transcript/harvest-transcripts-into-object-container! oc-rt req)
           _ (when-not (= :complete (:status harvest))
               (throw (ex-info "harvest did not complete" {:harvest harvest})))
-          summary (block-distiller/distill-conversation!
+          summary (transcript-import/distill-conversation!
                    {:oc-rt oc-rt
                     :source :claude-code
                     :conversation-id (default-conversation-id)})
@@ -516,9 +516,9 @@
         rk-rt (trail-runtime)]
     (when-not (and oc-rt rk-rt)
       (throw (ex-info "cluster unavailable — run bin/land up first" {})))
-    (let [page (block-distiller/river-page
+    (let [page (transcript-import/river-page
                 {:oc-rt oc-rt :object-key object-key}
-                block-distiller/max-river-page-size)
+                transcript-import/max-river-page-size)
           read-plan (:river-page/read-plan (meta page))
           result (circulation/seed-starter-culture!
                   rk-rt (vec page) (System/currentTimeMillis))
@@ -538,7 +538,7 @@
     (when-not oc-rt
       (throw (ex-info "cluster unavailable — run bin/land up first" {})))
     (circulation/terminal-escape-report
-     (git-spine/read-commits (repo-root))
+     (git-import/read-commits (repo-root))
      (ocr/read-revision-history
       oc-rt
       (facet-master/active-pointer-container-id provenance-material/spec)

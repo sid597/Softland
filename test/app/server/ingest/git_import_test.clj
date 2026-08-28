@@ -6,8 +6,8 @@
 ;; fake sha. Relation asserts settle on the microbatch processed-count barrier
 ;; (implementation-quirks discipline — never polling as proof of a negative).
 
-(ns app.server.ingest.git-spine-test
-  (:require [app.server.ingest.git-spine :as gs]
+(ns app.server.ingest.git-import-test
+  (:require [app.server.ingest.git-import :as gs]
             [app.server.rama.trail-view :as tv]
             [app.server.rama.relation-kernel :as rk]
             [app.server.rama.object-container :as oc]
@@ -615,8 +615,8 @@
 ;; =============================================================================
 (deftest g12-files-are-text
   (let [root (System/getProperty "user.dir")
-        files ["src/app/server/ingest/git_spine.clj"
-               "test/app/server/ingest/git_spine_test.clj"
+        files ["src/app/server/ingest/git_import.clj"
+               "test/app/server/ingest/git_import_test.clj"
                "src/app/server/ingest/ingest_watchers.clj"
                "docs/current-mental-model/build/git-spine/PHASE_P1P2.md"]]
     (doseq [rel files]

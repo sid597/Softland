@@ -9,7 +9,7 @@
             [app.server.episode.episode :as ep]
             [app.server.page.face-projection :as fp]
             [app.server.rama.object-container :as oc]
-            [app.server.ingest.block-distiller :as bd]))
+            [app.server.ingest.transcript-import :as bd]))
 
 ;; ===========================================================================
 ;; G18-family · imp:ep: routing unit (the §5.1 foreign-read gate, pure half)

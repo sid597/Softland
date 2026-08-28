@@ -94,7 +94,7 @@
     app.server.ingest.ingest-watchers-test
     "File-watcher recovery mutates the process-global ingest epoch; it is also a registered port-conflict flake."
 
-    app.server.ingest.code-atoms-test
+    app.server.ingest.code-import-test
     "Git-history receipts use randomized task counts and independently launched composite runtimes."
 
     app.server.episode.dogfood-llm-probe-test
@@ -106,16 +106,16 @@
     app.server.rama.transcript-ingest-test
     "Watch resume, file-offset restart, and terminal-state tests repeatedly assume a clean ingest runtime."
 
-    app.server.ingest.git-spine-gate-test
+    app.server.ingest.git-import-gate-test
     "The gate compares two intentionally fresh relation runtimes across a replay boundary."
 
-    app.server.ingest.git-spine-test
+    app.server.ingest.git-import-test
     "WAL replay and restart gates open multiple fresh randomized-task runtimes."
 
     app.server.rama.object-container-test
     "Physical negative reads and exact empty-state assertions use direct with-open clusters."
 
-    app.server.ingest.block-distiller-test
+    app.server.ingest.transcript-import-test
     "Exact corpus counts and the intentional OC/RK two-cluster boundary span several clean launches."
 
     app.server.rama.block-write-test
@@ -159,7 +159,7 @@
    launches a clean runtime for each integration test. Keep both minutes-long
    receipts on their own shards."
   '{app.server.page.face-projection-test 24000
-    app.server.ingest.block-distiller-test 1600
+    app.server.ingest.transcript-import-test 1600
     app.server.rama.transcript-ingest-test 900})
 
 (def ^:private minimum-shard-port-span
