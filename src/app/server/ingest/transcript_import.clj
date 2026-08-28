@@ -3,7 +3,7 @@
    Takes: stored source rows, transcript events, object-container and relation runtimes, and page limits.
    Gives: block rows, edge specifications, import results, and river-page values.
    Holds nothing."
-  (:require [app.server.rama.core :as core]
+  (:require [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
             [app.server.ingest.markdown-adapter :as md]
             [app.server.rama.object-container.transcript-identity :as tid]
@@ -45,7 +45,7 @@
    The hash discriminates (event-uuid, part-path) from the transcript adapter's
    own src:tr: line surfaces (disjoint hash inputs), so no collision."
   [object-key event-uuid part-path]
-  (str "src:tr:" object-key ":" (core/sha-256 (str "part " event-uuid " " part-path))))
+  (str "src:tr:" object-key ":" (envelope/sha-256 (str "part " event-uuid " " part-path))))
 
 (defn import-key
   "imp:tr:<object-key>:sb:<hash> — REUSES the handled `imp:tr:` prefix so
@@ -60,13 +60,13 @@
    the old bare `imp:sense-block:` prefix fell through extract-object-key to :else
    → whole-string partition → a foreign read mis-routed to nil; CONTRACT T4.)"
   [object-key event-uuid]
-  (str "imp:tr:" object-key ":sb:" (core/sha-256 (str event-uuid))))
+  (str "imp:tr:" object-key ":sb:" (envelope/sha-256 (str event-uuid))))
 
 (defn edge-idempotency-key
   "sha256(unit-id ∥ kind ∥ target-id) — relation-scoped idempotency (T11 /
    CONTRACT §4 last row)."
   [from-id kind to-id]
-  (core/sha-256 (str from-id " " (name kind) " " to-id)))
+  (envelope/sha-256 (str from-id " " (name kind) " " to-id)))
 
 ;; ===========================================================================
 ;; small readers over a parsed (redacted) transcript payload
@@ -653,7 +653,7 @@
   "Deterministic per-event request-id (shared by import-request and the class
    projection hint so their provenance agrees)."
   [object-key event-uuid]
-  (str "req:sense-block:" object-key ":" (core/sha-256 (str event-uuid))))
+  (str "req:sense-block:" object-key ":" (envelope/sha-256 (str event-uuid))))
 
 (defn class-projection-hint
   "A river/debris class-ledger entry for the conversation projection (SPEC §3.2:
@@ -685,7 +685,7 @@
         request-id (request-id-for object-key event-uuid)
         now        (long (or time-ms 0))
         fingerprint (oc/import-material-fingerprint object-key imp-key payload)]
-    (assoc (core/action-request
+    (assoc (envelope/action-request
             {:request-id   request-id
              :request-type :object-container/import-material
              :time-ms      now
@@ -729,8 +729,8 @@
   (let [event-uuid (:event-key distilled)]
     {:object-key            object-key
      :event-uuid            event-uuid
-     :document-container-id (tid/chat-message-id object-key (core/sha-256 (str event-uuid)))
-     :event-id             (str "evt:" object-key ":" (core/sha-256 (str "sense-block " event-uuid)))
+     :document-container-id (tid/chat-message-id object-key (envelope/sha-256 (str event-uuid)))
+     :event-id             (str "evt:" object-key ":" (envelope/sha-256 (str "sense-block " event-uuid)))
      :created-at-ms        (or (get-in distilled [:production-event :production/time-ms]) 0)
      :production-event     (:production-event distilled)}))
 
@@ -993,7 +993,7 @@
    of (surface-id, span), a second refine of the SAME sub-span over the SAME surface
    resolves to the SAME unit-id (SPEC §6.1 identity-by-construction; R3 span identity)."
   [surface-id start end]
-  (str "refine:" (core/sha-256 (str surface-id)) ":"
+  (str "refine:" (envelope/sha-256 (str surface-id)) ":"
        (format "%010d" (long start)) "-" (format "%010d" (long end))))
 
 (defn composition-edge-request
@@ -1169,7 +1169,7 @@
    Deterministic from the ordered source blocks ⇒ re-assembling the same blocks in the
    same order resolves to the same surface (idempotent)."
   [object-key block-ids]
-  (str "src:tr:" object-key ":" (core/sha-256 (str "assembled " (str/join "|" block-ids)))))
+  (str "src:tr:" object-key ":" (envelope/sha-256 (str "assembled " (str/join "|" block-ids)))))
 
 (defn assemble!
   "SPEC §8.1 (gate G10). Assemble `:block-ids` (source block unit-ids, in order) into a
@@ -1195,11 +1195,11 @@
         _ (when (str/blank? asm-text)
             (throw (ex-info "assemble!: assembled material is empty (G11 non-empty)" {:block-ids block-ids})))
         asm-src-id   (assembled-source-id object-key block-ids)
-        bpath        (str "assembled:" (core/sha-256 (str/join "|" block-ids)))
+        bpath        (str "assembled:" (envelope/sha-256 (str/join "|" block-ids)))
         asm-uid      (derived-unit-id object-key bpath)
         asm-ref      (str "assembled:" bpath)
-        dci          (tid/chat-message-id object-key (core/sha-256 asm-src-id))
-        event-id     (str "evt:" object-key ":" (core/sha-256 (str "assembled " asm-src-id)))
+        dci          (tid/chat-message-id object-key (envelope/sha-256 asm-src-id))
+        event-id     (str "evt:" object-key ":" (envelope/sha-256 (str "assembled " asm-src-id)))
         content-hash (oc/source-hash asm-text)
         time-ms      (long (or asserted-at-ms 0))
         anchor-id    (oc/source-anchor-id asm-uid)

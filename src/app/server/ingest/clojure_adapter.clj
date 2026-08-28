@@ -3,7 +3,7 @@
    Takes: source text, blob and path metadata, actor data, and claimed time.
    Gives: form units, source anchors, material rows, and import requests.
    Holds nothing."
-  (:require [app.server.rama.core :as core]
+  (:require [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
             [clojure.string :as str]
             [rewrite-clj.node :as node]
@@ -508,7 +508,7 @@
          source-ref-key  (oc/source-ref-key source-ref)
          object-key      (oc/object-key-for source-ref source-hash)
          source-id       (oc/source-id-for-object-key object-key)
-         request-id      (or (:request/id opts) (:request-id opts) (core/random-id "req"))
+         request-id      (or (:request/id opts) (:request-id opts) (envelope/random-id "req"))
          idempotency-key (or (:idempotency/key opts)
                              (:idempotency-key opts)
                              (str "source/ingest:" source-ref-key ":" source-hash))
@@ -518,7 +518,7 @@
                                                    :clojure
                                                    clojure-distiller-id
                                                    clojure-distiller-version)]
-     (assoc (core/action-request
+     (assoc (envelope/action-request
              {:request-id request-id
               :request-type :source/ingest
               ;; T4: caller-supplied clock only; never a wall-clock stamp here.
@@ -549,7 +549,7 @@
 
 (defn clojure-import-key
   [object-key source-ref-key source-hash]
-  (str "imp:clj:" object-key ":" (core/sha-256 (str source-ref-key ":" source-hash))))
+  (str "imp:clj:" object-key ":" (envelope/sha-256 (str source-ref-key ":" source-hash))))
 
 (defn clojure-import-payload
   [materialization]
@@ -596,7 +596,7 @@
                     :actor/capabilities #{:object-container/import-material
                                           :source/ingest
                                           :object/edit}})]
-     (assoc (core/action-request
+     (assoc (envelope/action-request
              {:request-id (oc/request-id legacy-request)
               :request-type :object-container/import-material
               :time-ms (:request/time-ms legacy-request)

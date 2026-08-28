@@ -3,7 +3,7 @@
    Takes: a parsed JSONL event, source identity, actor data, and claimed time.
    Gives: container, projection, edge, anchor, artifact, tool-call, and audit rows.
    Holds nothing."
-  (:require [app.server.rama.core :as core]
+  (:require [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.transcript-identity :as transcript-identity]
             [clojure.string :as str]))
@@ -145,8 +145,8 @@
   [object-key source-id source-ref source-hash target-kind target-id obs event-id]
   (let [offset (long (or (:source/byte-offset obs) 0))
         byte-length (long (or (:source/byte-length obs) 0))
-        anchor-hash (core/sha-256 (str source-id ":" target-id ":" (:source/line-hash obs)))]
-    (oc/->SourceAnchorRow (str "sa:" object-key ":" (core/sha-256 target-id) ":" anchor-hash)
+        anchor-hash (envelope/sha-256 (str source-id ":" target-id ":" (:source/line-hash obs)))]
+    (oc/->SourceAnchorRow (str "sa:" object-key ":" (envelope/sha-256 target-id) ":" anchor-hash)
                           target-kind
                           target-id
                           source-id
@@ -191,7 +191,7 @@
   [object-key edge-kind parent-kind parent-id child-kind child-id order-key source-id
    anchor-id event-id]
   (oc/->CompositionEdgeRow (str "ce:" object-key ":" (name edge-kind) ":"
-                                (core/sha-256 parent-id) ":" (core/sha-256 child-id))
+                                (envelope/sha-256 parent-id) ":" (envelope/sha-256 child-id))
                            object-key
                            parent-id
                            parent-id
@@ -214,13 +214,13 @@
               str)
       (when-let [previous-uuid (or (:transcript/previous-message-uuid obs)
                                    (:transcript/previous-message-uuid opts))]
-        (transcript-identity/chat-message-id object-key (core/sha-256 (str previous-uuid))))
+        (transcript-identity/chat-message-id object-key (envelope/sha-256 (str previous-uuid))))
       (when-let [previous-line-key (or (:transcript/previous-source-line-key obs)
                                        (:transcript/previous-source-line-key opts)
                                        (:source/previous-line-key obs)
                                        (:source/previous-line-key opts))]
         (transcript-identity/chat-message-id object-key
-                                             (core/sha-256 (str previous-line-key))))))
+                                             (envelope/sha-256 (str previous-line-key))))))
 
 (defn transcript-observation-import-request
   ([obs]
@@ -230,11 +230,11 @@
          conversation-id (:transcript/conversation-id obs)
          object-key (transcript-identity/transcript-object-key source conversation-id)
          source-line-key (transcript-identity/transcript-source-line-key obs)
-         source-line-key-hash (core/sha-256 source-line-key)
+         source-line-key-hash (envelope/sha-256 source-line-key)
          source-id (transcript-identity/transcript-source-id object-key source-line-key)
          source-ref (str (:source/file-path obs) "#" (:source/byte-offset obs))
          source-hash-value (or (:source/line-hash obs)
-                               (core/sha-256 (pr-str (:transcript/redacted-payload obs))))
+                               (envelope/sha-256 (pr-str (:transcript/redacted-payload obs))))
          request-id (or (:request/id opts)
                         (:request-id opts)
                         (str "import-tr:" source-line-key-hash))
@@ -242,7 +242,7 @@
          idempotency-key (or (:idempotency/key opts)
                              (:idempotency-key opts)
                              import-key)
-         now (long (or (:time-ms opts) (core/now-ms)))
+         now (long (or (:time-ms opts) (envelope/now-ms)))
          actor (or (:actor opts)
                    {:actor/id "system"
                     :actor/type :system
@@ -287,7 +287,7 @@
                                             conv-content conv-hash now actor-id event-id)
          conv-rev (transcript-revision-row conv-rev-id conv-id conv-content conv-hash
                                            order-key now actor-id event-id)
-         message-key (core/sha-256 (str (or (:transcript/message-uuid obs) source-line-key)))
+         message-key (envelope/sha-256 (str (or (:transcript/message-uuid obs) source-line-key)))
          message-id (transcript-identity/chat-message-id object-key message-key)
          previous-message-id (transcript-previous-message-container-id object-key obs opts)
          message-content (transcript-text-content (:transcript/redacted-payload obs))
@@ -304,7 +304,7 @@
          (vec
           (for [block (transcript-tool-use-blocks (:transcript/redacted-payload obs))
                 :let [tool-use-id (or (:id block) (:tool_use_id block) (:tool-use-id block))
-                      tool-key (core/sha-256 (str tool-use-id))
+                      tool-key (envelope/sha-256 (str tool-use-id))
                       container-id (transcript-identity/tool-call-id object-key tool-key)
                       content-text (pr-str (select-keys block [:name :input]))
                       content-hash (oc/source-hash content-text)
@@ -338,8 +338,8 @@
                                        (or (get tool-use-container-id-by-source-id tool-use-id-str)
                                            (transcript-identity/tool-call-id
                                             object-key
-                                            (core/sha-256 tool-use-id-str))))
-                      result-key (core/sha-256 (str tool-use-id ":" source-line-key))
+                                            (envelope/sha-256 tool-use-id-str))))
+                      result-key (envelope/sha-256 (str tool-use-id ":" source-line-key))
                       container-id (transcript-identity/tool-result-id object-key result-key)
                       content-text (str (or (:content block) (:text block) ""))
                       content-hash (oc/source-hash content-text)
@@ -533,7 +533,7 @@
                   :source-versions [source-version-row]
                   :projection-hints projection-hints
                   :source-line-statuses source-line-status-hints}
-         fingerprint (core/sha-256
+         fingerprint (envelope/sha-256
                       (pr-str
                        {:object-key object-key
                         :import-key import-key
@@ -603,7 +603,7 @@
                         :source-line-statuses
                         (mapv oc/source-line-status-fingerprint
                               source-line-status-hints)}))]
-     (assoc (core/action-request
+     (assoc (envelope/action-request
              {:request-id request-id
               :request-type :object-container/import-material
               :time-ms now

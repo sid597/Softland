@@ -1,4 +1,4 @@
-(ns app.server.episode.objects
+(ns app.server.episode.claude-cli
   "Claude command construction and response parsing.
    Takes: prompts, session ids, model settings, and Claude JSON output.
    Gives: command argument vectors and normalized response maps.

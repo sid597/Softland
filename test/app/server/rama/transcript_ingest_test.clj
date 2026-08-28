@@ -1,7 +1,7 @@
 (ns app.server.rama.transcript-ingest-test
   (:require [app.server.rama.transcript-ingest :as ti]
             [app.server.ingest.transcript :as t]
-            [app.server.rama.core :as core]
+            [app.server.rama.envelope :as envelope]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]])
@@ -170,10 +170,10 @@
 
               ;; Read containers
               conv-container (ti/read-container runtime conv-id)
-              msg1-hash (core/sha-256 "msg-1")
+              msg1-hash (envelope/sha-256 "msg-1")
               msg1-id (ti/message-container-id ck msg1-hash)
               msg1-container (ti/read-container runtime msg1-id)
-              tc-hash (core/sha-256 "tu-1")
+              tc-hash (envelope/sha-256 "tu-1")
               tc-id (ti/tool-call-container-id ck tc-hash)
               tc-container (ti/read-container runtime tc-id)
               tr-id (ti/tool-result-container-id ck tc-hash)
@@ -234,7 +234,7 @@
               source :claude-code
               ck (ti/conv-key source "conv-C")
               conv-id (ti/conversation-container-id ck)
-              msg-hash (core/sha-256 "msg-dedup")
+              msg-hash (envelope/sha-256 "msg-dedup")
               msg-id (ti/message-container-id ck msg-hash)
 
               ;; Manually re-append the same observation
@@ -369,7 +369,7 @@
               _ (ti/harvest-ingest! runtime request)
               source :claude-code
               ck (ti/conv-key source "conv-G")
-              msg-hash (core/sha-256 "msg-secret")
+              msg-hash (envelope/sha-256 "msg-secret")
               msg-id (ti/message-container-id ck msg-hash)
               container (ti/read-container runtime msg-id)]
 
@@ -389,18 +389,18 @@
 
               ck (ti/conv-key source conv-id)
               conv-container-id (ti/conversation-container-id ck)
-              msg-hash (core/sha-256 msg-uuid)
+              msg-hash (envelope/sha-256 msg-uuid)
               msg-container-id (ti/message-container-id ck msg-hash)
-              tc-hash (core/sha-256 tool-use-id)
+              tc-hash (envelope/sha-256 tool-use-id)
               tc-container-id (ti/tool-call-container-id ck tc-hash)
               tr-container-id (ti/tool-result-container-id ck tc-hash)
 
               ;; Compute again with same inputs
               ck2 (ti/conv-key source conv-id)
               conv-container-id2 (ti/conversation-container-id ck2)
-              msg-hash2 (core/sha-256 msg-uuid)
+              msg-hash2 (envelope/sha-256 msg-uuid)
               msg-container-id2 (ti/message-container-id ck2 msg-hash2)
-              tc-hash2 (core/sha-256 tool-use-id)
+              tc-hash2 (envelope/sha-256 tool-use-id)
               tc-container-id2 (ti/tool-call-container-id ck2 tc-hash2)
               tr-container-id2 (ti/tool-result-container-id ck2 tc-hash2)]
 
@@ -428,9 +428,9 @@
               source :claude-code
               ck (ti/conv-key source "conv-H")
               conv-id (ti/conversation-container-id ck)
-              msg-hash (core/sha-256 "msg-1")
+              msg-hash (envelope/sha-256 "msg-1")
               msg-id (ti/message-container-id ck msg-hash)
-              tc-hash (core/sha-256 "tu-edges")
+              tc-hash (envelope/sha-256 "tu-edges")
               tc-id (ti/tool-call-container-id ck tc-hash)
               tr-id (ti/tool-result-container-id ck tc-hash)
 
@@ -474,7 +474,7 @@
               _ (ti/harvest-ingest! runtime request)
               source :claude-code
               ck (ti/conv-key source "conv-I")
-              msg-hash (core/sha-256 "msg-anchor")
+              msg-hash (envelope/sha-256 "msg-anchor")
               msg-id (ti/message-container-id ck msg-hash)
 
               ;; Read source anchor
@@ -974,7 +974,7 @@
               _ (ti/harvest-ingest! runtime request)
               source :claude-code
               ck (ti/conv-key source "conv-tr-standalone")
-              tc-hash (core/sha-256 "tu-standalone-1")
+              tc-hash (envelope/sha-256 "tu-standalone-1")
               tr-id (ti/tool-result-container-id ck tc-hash)
               tr-container (ti/read-container runtime tr-id)]
 
@@ -1468,7 +1468,7 @@
               _ (ti/harvest-ingest! runtime request)
               source :claude-code
               ck (ti/conv-key source "conv-utf8-h")
-              msg-hash (core/sha-256 "msg-utf8")
+              msg-hash (envelope/sha-256 "msg-utf8")
               msg-id (ti/message-container-id ck msg-hash)
               container (ti/read-container runtime msg-id)
               anchor (com.rpl.rama/foreign-select-one

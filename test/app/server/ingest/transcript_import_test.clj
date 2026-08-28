@@ -10,7 +10,7 @@
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.pprint :as pprint]
-            [app.server.rama.core :as core]
+            [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.transcript-identity :as tid]
@@ -324,7 +324,7 @@
                           :delegation/parent-uuid "a-1"}
               ctx {:object-key object-key
                    :event-uuid event-uuid
-                   :document-container-id (tid/chat-message-id object-key (core/sha-256 event-uuid))
+                   :document-container-id (tid/chat-message-id object-key (envelope/sha-256 event-uuid))
                    :event-id (str "evt:" object-key ":f2")
                    :created-at-ms 123
                    :production-event prod-event}
@@ -533,7 +533,7 @@
                 test-uid (str "du:" object-key ":" test-distiller ":" bp)
                 test-src (bd/per-part-source-id object-key "test-stratum" "content/0")
                 text "stratum two"
-                dci (tid/chat-message-id object-key (core/sha-256 "test-stratum"))
+                dci (tid/chat-message-id object-key (envelope/sha-256 "test-stratum"))
                 surface (oc/->SourceArtifactRow test-src (bd/per-part-source-ref "test-stratum" "content/0")
                                                 (oc/source-hash text) :transcript text dci
                                                 (long (count (.getBytes text "UTF-8"))) 0 "tool" "evt:test")

@@ -3,14 +3,14 @@
    Takes: utterance and turn ids, conversation context, text, runtime handles, and model settings.
    Gives: durable import or edit results, summon argument vectors, and transcript harvest results.
    Holds: !episode-chains."
-  (:require [app.server.rama.core :as core]
+  (:require [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
             [app.server.ingest.transcript-import :as bd]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.ingest.transcript :as transcript]
             [app.server.episode.material-circulation :as circulation]
-            [app.server.rama.util-fns :as util-fns]
+            [app.server.rama.ingest-epoch :as ingest-epoch]
             [clojure.java.io :as io]
             [clojure.string :as str]))
 
@@ -54,7 +54,7 @@
    completion (|hash *object-key). Deterministic on turn-id: an HTTP retry of
    the same turn re-mints NOTHING (journaled no-op)."
   [object-key turn-id]
-  (str "imp:ep:" object-key ":" (core/sha-256 (str turn-id))))
+  (str "imp:ep:" object-key ":" (envelope/sha-256 (str turn-id))))
 
 (defn utterance-source-id
   "src:tr:<object-key>:<sha(\"episode-utterance \" turn-id)> — REUSES the
@@ -62,7 +62,7 @@
    prefix buys; the namespaced hash input keeps it collision-disjoint from
    line surfaces and per-part surfaces)."
   [object-key turn-id]
-  (str "src:tr:" object-key ":" (core/sha-256 (str "episode-utterance " turn-id))))
+  (str "src:tr:" object-key ":" (envelope/sha-256 (str "episode-utterance " turn-id))))
 
 (defn utterance-unit-id
   "du:<object-key>:episode-native-v0:ep:<sha8(turn-id)>:<block-index> — the
@@ -70,7 +70,7 @@
    the %06d tail preserves cut order within the utterance's one surface."
   [object-key turn-id block-index]
   (str "du:" object-key ":" episode-distiller-id ":ep:"
-       (subs (core/sha-256 (str turn-id)) 0 8) ":"
+       (subs (envelope/sha-256 (str turn-id)) 0 8) ":"
        (format "%06d" (long block-index))))
 
 (defn utterance-order-key
@@ -80,11 +80,11 @@
    (class ledger) co-tenants."
   [time-ms turn-id]
   (str "ep:" (format "%020d" (long time-ms)) ":"
-       (subs (core/sha-256 (str turn-id)) 0 8)))
+       (subs (envelope/sha-256 (str turn-id)) 0 8)))
 
 (defn utterance-request-id
   [object-key turn-id]
-  (str "req:episode:" object-key ":" (core/sha-256 (str turn-id))))
+  (str "req:episode:" object-key ":" (envelope/sha-256 (str turn-id))))
 
 (defn utterance-actor
   "asserted-by: sid — an honest :human actor CARRYING the import capability
@@ -131,8 +131,8 @@
         source-ref (str "ep-utterance:" turn-id)
         text       (str text)
         text-hash  (oc/source-hash text)
-        event-id   (str "evt:" object-key ":" (core/sha-256 (str "episode " turn-id)))
-        doc-id     (tid/chat-message-id object-key (core/sha-256 (str turn-id)))
+        event-id   (str "evt:" object-key ":" (envelope/sha-256 (str "episode " turn-id)))
+        doc-id     (tid/chat-message-id object-key (envelope/sha-256 (str turn-id)))
         blocks     (vec (map-indexed vector (bd/free-cut-part {:part-type part-type :text text})))
         production {:production/class         :river
                     :production/classifier-id episode-distiller-id
@@ -154,7 +154,7 @@
                              (assoc
                               (oc/->DerivedUnitRow
                                unit-id doc-id source-id (:unit-kind b)
-                               (str "ep:" (subs (core/sha-256 (str turn-id)) 0 8) ":"
+                               (str "ep:" (subs (envelope/sha-256 (str turn-id)) 0 8) ":"
                                     (format "%06d" (long i)))
                                nil
                                (oc/source-anchor-id unit-id)
@@ -168,7 +168,7 @@
                               (oc/source-anchor-id unit-id) :derived-unit unit-id
                               source-id source-ref text-hash
                               (long (:start-offset b)) (long (:end-offset b))
-                              (str "ep:" (subs (core/sha-256 (str turn-id)) 0 8) ":"
+                              (str "ep:" (subs (envelope/sha-256 (str turn-id)) 0 8) ":"
                                    (format "%06d" (long i)))
                               event-id)))
                          blocks)]
@@ -232,7 +232,7 @@
 (defn geometry-order-key
   "geo:unit:<sha8(unit-id)> — ONE settled cell per unit (upsert-in-place)."
   [unit-id]
-  (str "geo:unit:" (subs (core/sha-256 (str unit-id)) 0 8)))
+  (str "geo:unit:" (subs (envelope/sha-256 (str unit-id)) 0 8)))
 
 (def camera-order-key "geo:camera")
 
@@ -241,7 +241,7 @@
    ({:world-id :unit-id :x :y} or camera {:world-id :x :y :zoom})."
   [object-key order-key entry-kind value settle-id imp-key request-id]
   (let [event-id (str "evt:" object-key ":"
-                      (core/sha-256 (str "geo " settle-id " " order-key)))]
+                      (envelope/sha-256 (str "geo " settle-id " " order-key)))]
     (assoc (oc/->TranscriptConversationProjectionRow
             :transcript-conversation-projection
             (tid/chat-conversation-id object-key)
@@ -262,9 +262,9 @@
    (the G4b forced-stale drill's mechanism)."
   [{:keys [object-key cells camera settle-id time-ms]}]
   (let [imp-key    (str "imp:ep:" object-key ":"
-                        (core/sha-256 (str "geometry-settle " settle-id)))
+                        (envelope/sha-256 (str "geometry-settle " settle-id)))
         request-id (str "req:episode-geo:" object-key ":"
-                        (core/sha-256 (str settle-id)))
+                        (envelope/sha-256 (str settle-id)))
         wid        (world-id object-key)
         cell-hints (mapv (fn [{:keys [unit-id x y deleted?]}]
                            (geometry-cell-hint
@@ -297,7 +297,7 @@
                     :projection-hints     hints
                     :source-line-statuses []}
         fingerprint (oc/import-material-fingerprint object-key imp-key payload)]
-    (assoc (core/action-request
+    (assoc (envelope/action-request
             {:request-id   request-id
              :request-type :object-container/import-material
              :time-ms      (long time-ms)
@@ -368,18 +368,18 @@
    duplicate."
   [facet subject-uid]
   (str "fmi:" (name facet) ":"
-       (subs (core/sha-256 (str subject-uid)) 0 8)))
+       (subs (envelope/sha-256 (str subject-uid)) 0 8)))
 
 (defn instance-registry-request
   "ONE hint-only import registering (or re-registering) instance masters.
    `entries` are {:facet :subject :instance-master-id :parent-id}."
   [{:keys [object-key entries time-ms]}]
   (let [entries (vec entries)
-        digest (core/sha-256 (pr-str (mapv (juxt :facet :subject
+        digest (envelope/sha-256 (pr-str (mapv (juxt :facet :subject
                                                  :instance-master-id)
                                            entries)))
         imp-key (str "imp:ep:" object-key ":"
-                     (core/sha-256 (str "fm-instance-registry " digest)))
+                     (envelope/sha-256 (str "fm-instance-registry " digest)))
         request-id (str "req:episode-fmi:" object-key ":" (subs digest 0 32))
         wid (world-id object-key)
         hints (mapv
@@ -406,10 +406,10 @@
                  :projection-hints hints
                  :source-line-statuses []}
         fingerprint (oc/import-material-fingerprint object-key imp-key payload)]
-    (assoc (core/action-request
+    (assoc (envelope/action-request
             {:request-id request-id
              :request-type :object-container/import-material
-             :time-ms (long (or time-ms (core/now-ms)))
+             :time-ms (long (or time-ms (envelope/now-ms)))
              :actor (utterance-actor)
              :target {:target/kind :object-container-import
                       :target/id imp-key
@@ -460,7 +460,7 @@
    overwrite it (open → complete/failed). Disjoint from every co-tenant."
   [time-ms turn-id]
   (str "ep-turn:" (format "%020d" (long time-ms)) ":"
-       (subs (core/sha-256 (str turn-id)) 0 8)))
+       (subs (envelope/sha-256 (str turn-id)) 0 8)))
 
 (defn turn-record-request
   "The revision-pinned turn record (P2b addressing): source-block-id + the
@@ -478,9 +478,9 @@
   [{:keys [object-key turn-id source-unit-id content-text position
            time-ms prev-turn-id status thread-id episode-id scene-context]}]
   (let [imp-key    (str "imp:ep:" object-key ":"
-                        (core/sha-256 (str "turn-record " turn-id " " (name status))))
+                        (envelope/sha-256 (str "turn-record " turn-id " " (name status))))
         request-id (str "req:episode-turn:" object-key ":"
-                        (core/sha-256 (str turn-id " " (name status))))
+                        (envelope/sha-256 (str turn-id " " (name status))))
         receipt    (circulation/receipt-from-context
                     {:created-during
                      {:conversation/address object-key
@@ -503,7 +503,7 @@
                     :episode-id     (some-> episode-id str)
                     :receipt        receipt}
         event-id   (str "evt:" object-key ":"
-                        (core/sha-256 (str "turn " turn-id " " (name status))))
+                        (envelope/sha-256 (str "turn " turn-id " " (name status))))
         hint       (assoc (oc/->TranscriptConversationProjectionRow
                            :transcript-conversation-projection
                            (tid/chat-conversation-id object-key)
@@ -534,7 +534,7 @@
                     :projection-hints     [hint]
                     :source-line-statuses []}
         fingerprint (oc/import-material-fingerprint object-key imp-key payload)]
-    (assoc (core/action-request
+    (assoc (envelope/action-request
             {:request-id   request-id
              :request-type :object-container/import-material
              :time-ms      (long time-ms)
@@ -669,7 +669,7 @@
                      :projection-hints     (into [hint] geo-hints)
                      :source-line-statuses []}
         fingerprint (oc/import-material-fingerprint object-key imp-key payload)]
-    (assoc (core/action-request
+    (assoc (envelope/action-request
             {:request-id   request-id
              :request-type :object-container/import-material
              :time-ms      (long time-ms)
@@ -923,7 +923,7 @@
                           :source episode-source
                           :conversation-id conv-id
                           :skip-event? native-turn-event?})]
-            (swap! util-fns/!ingest-epoch-atom inc)
+            (swap! ingest-epoch/!ingest-epoch-atom inc)
             (assoc summary
                    :status :distilled
                    :harvest-new-lines (:new-lines harvest))))))))

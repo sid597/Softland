@@ -5,7 +5,7 @@
    Holds: !memo, !default-address, and !first-light-failed."
   (:use [com.rpl.rama])
   (:require [app.server.ingest.ingest-watchers :as ingest-watchers]
-            [app.server.rama.core :as core]
+            [app.server.rama.envelope :as envelope]
             [app.server.rama.face-arsenal :as face-arsenal]
             [app.server.ingest.git-import :as git-import]
             [app.server.episode.machine-cut :as machine-cut]
@@ -378,7 +378,7 @@
                  {:request-id (str "facet-master-" slug "-v2")
                   :activation-request-id
                   (str "facet-master-" slug "-activate-v2")
-                  :time-ms (core/now-ms)})]))
+                  :time-ms (envelope/now-ms)})]))
             [[attention-material/spec
               attention-material/strict-bindings-source "attention"]
              [foldable-material/spec
@@ -401,7 +401,7 @@
                  {:request-id (str "facet-master-" slug "-v1")
                   :activation-request-id
                   (str "facet-master-" slug "-activate-v1")
-                  :time-ms (core/now-ms)})]))
+                  :time-ms (envelope/now-ms)})]))
             [[threaded-material/spec
               threaded-material/thread-edge-source
               "threaded"]])
@@ -416,7 +416,7 @@
              foldable-material/paste-clamp-source
              {:request-id "facet-master-foldable-v3"
               :activation-request-id "facet-master-foldable-activate-v3"
-              :time-ms (core/now-ms)})}
+              :time-ms (envelope/now-ms)})}
            results
            (into
             (into

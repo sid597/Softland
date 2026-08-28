@@ -4,10 +4,10 @@
    Gives: import, activation, instance-master, pointer, and history results.
    Holds nothing."
   (:require [clojure.string :as str]
-            [app.server.rama.core :as core]
+            [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.runtime :as ocr]
-            [app.server.rama.util-fns :as util-fns]
+            [app.server.rama.ingest-epoch :as ingest-epoch]
             [app.server.worn.activation-event :as activation-event]
             [app.server.worn.binding-material :as binding-material]
             [app.server.worn.facet-material :as facet-material]))
@@ -78,8 +78,8 @@
         source-ref-key (oc/source-ref-key source-ref)
         import-key (import-key spec source-hash)
         source-id (oc/source-id-for-object-key master-id)
-        request-id (or (:request/id opts) (core/random-id "req"))
-        created-at (long (or (:time-ms opts) (core/now-ms)))
+        request-id (or (:request/id opts) (envelope/random-id "req"))
+        created-at (long (or (:time-ms opts) (envelope/now-ms)))
         created-by (or (get-in opts [:actor :actor/id]) "system")
         event-id (str "evt:" master-id ":" request-id)
         order-key (oc/fixed-width-order-key created-at request-id)
@@ -178,7 +178,7 @@
                       master-id (:import-key m) payload)
          actor (normalize-actor (:actor opts) import-capabilities)]
      (assoc
-      (core/action-request
+      (envelope/action-request
        {:request-id (:request-id m)
         :request-type :object-container/import-material
         :time-ms (:created-at m)
@@ -217,7 +217,7 @@
          {:keys [decision replay?]} (append-and-read! runtime request)
          accepted? (oc/decision-accepted? decision)]
      (when (and accepted? (not replay?))
-       (swap! util-fns/!ingest-epoch-atom inc))
+       (swap! ingest-epoch/!ingest-epoch-atom inc))
      {:request request
       :decision decision
       :accepted? accepted?
@@ -281,7 +281,7 @@
         :revision-id revision-id}
        (let [request-id (or (:request/id opts)
                             (:request-id opts)
-                            (core/random-id "req"))
+                            (envelope/random-id "req"))
              ;; R3 — the HONEST wall clock of the requesting act. A caller may
              ;; pass `:time-ms` (the client's `Date.now()` through the write
              ;; path, or a test's explicit constant); absent that, the request
@@ -289,7 +289,7 @@
              ;; constants in a shipped write path are what made P1/P3/P5's
              ;; activation history non-monotone; G11 keeps a fourth from
              ;; joining them.
-             time-ms (long (or (:time-ms opts) (core/now-ms)))
+             time-ms (long (or (:time-ms opts) (envelope/now-ms)))
              ;; R4 — the pointer's source is a CLOSED activation event. The
              ;; default scope follows the master: an instance master can only
              ;; ever move its own subject, a shared master reaches every
@@ -316,7 +316,7 @@
                :time-ms time-ms
                :revision/id
                (str "rev:" master-id ":active:"
-                    (core/sha-256 request-id))
+                    (envelope/sha-256 request-id))
                :edit/client-id (str "facet-master-activation:" request-id)
                :edit/seq 0
                :edit/lineage-key pointer-container-id
@@ -333,7 +333,7 @@
              {:keys [decision replay?]} (append-and-read! runtime request)
              accepted? (oc/decision-accepted? decision)]
          (when (and accepted? (not replay?))
-           (swap! util-fns/!ingest-epoch-atom inc))
+           (swap! ingest-epoch/!ingest-epoch-atom inc))
          {:request request
           :decision decision
           :accepted? accepted?
@@ -416,7 +416,7 @@
                     runtime spec (:revision-id imported)
                     {:request/id
                      (str "facet-master-" slug "-drill-activate-"
-                          (core/sha-256 drill-id))
+                          (envelope/sha-256 drill-id))
                      :idempotency/key
                      (str "facet-master/activate:" master-id ":"
                           (:revision-id imported) ":drill:" drill-id)})]
@@ -447,7 +447,7 @@
   "Short, stable digest of a subject uid. The FULL uid lives inside the form
    (`:facet-master/subject`), so identity stays exact while ids stay short."
   [subject-uid]
-  (subs (core/sha-256 (str subject-uid)) 0 8))
+  (subs (envelope/sha-256 (str subject-uid)) 0 8))
 
 (defn instance-master-id
   [parent-spec subject-uid]
@@ -552,7 +552,7 @@
                    % (:facet-master/facet parent-spec))
                  (keys (:facet-master/bindings form))))
         compiled (facet-material/compile-form spec form)
-        time-ms (long (or time-ms (core/now-ms)))]
+        time-ms (long (or time-ms (envelope/now-ms)))]
     (cond
       (seq illegal-sites)
       {:accepted? false
@@ -587,7 +587,7 @@
             pointer-tip (get-in state [:active-pointer :revision-id] "genesis")
             act-id (or activation-request-id
                        (str req-id ":activate:"
-                            (subs (core/sha-256 (str pointer-tip)) 0 8)))
+                            (subs (envelope/sha-256 (str pointer-tip)) 0 8)))
             event (activation-event/event
                    {:revision-id revision-id
                     :kind kind

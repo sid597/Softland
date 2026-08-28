@@ -7,11 +7,11 @@
             [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.data.json :as json]
-            [app.server.rama.core :as core]
+            [app.server.rama.envelope :as envelope]
             [app.server.rama.relation-kernel :as rk]
             [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.episode.llm :as llm]
-            [app.server.rama.util-fns :as util-fns]))
+            [app.server.rama.ingest-epoch :as ingest-epoch]))
 
 ;; ════════════════════════════════════════════════════════════════════════════
 ;;  Constants — the annotator's identity is VERSIONED, never run-scoped (MC-T1).
@@ -117,12 +117,12 @@
    what makes re-annotation of identical input a total no-op (MC-T9 / §3). One
    changed block text → a different hash → a different run (G1)."
   [blocks]
-  (core/sha-256
+  (envelope/sha-256
     (str/join id-part-separator
               (mapcat (fn [b]
                         [(str (:event-uuid b))
                          (str (:unit-id b))
-                         (core/sha-256 (str (:text b)))])
+                         (envelope/sha-256 (str (:text b)))])
                       blocks))))
 
 (defn window-record
@@ -164,7 +164,7 @@
    (CONTRACT §3). A deliberate re-guess over identical input takes an explicit
    non-empty `salt`; default salt \"\" makes re-submission a no-op."
   [address input-hash* salt]
-  (core/sha-256 (str/join id-part-separator
+  (envelope/sha-256 (str/join id-part-separator
                           [(str address) (str input-hash*)
                            annotator-version (str (or salt ""))])))
 
@@ -590,7 +590,7 @@
         (let [{:keys [asserted retracted unmaterialized]}
               (reconcile-from-wal-line! rk-rt line)
               wrote? (pos? (+ (long asserted) (long retracted)))
-              epoch  (when wrote? (swap! util-fns/!ingest-epoch-atom inc))]
+              epoch  (when wrote? (swap! ingest-epoch/!ingest-epoch-atom inc))]
           {:status :noop-complete :run-id run-id :address address :window window
            :input-hash ih :terminal-status :succeeded
            :edges-asserted asserted :edges-retracted retracted
@@ -645,7 +645,7 @@
                     {:llm-turn-run-id   run-id
                      :llm-thread-id     (:llm-thread-id ids)
                      :request-id        (str "mc-req:" (:run-hash ids))
-                     :time-ms           (core/now-ms)
+                     :time-ms           (envelope/now-ms)
                      :llm/backend       :claude
                      :llm/auth-mode     :subscription
                      :executor-task-id  llm/pending-task-id})
@@ -709,7 +709,7 @@
                                     (get-in % [:raw/json :model]))
                                  obss)
                            (get-in run-row [:token-usage :model]))
-        asserted-at-ms (or (finished-at-of run-row) (core/now-ms))
+        asserted-at-ms (or (finished-at-of run-row) (envelope/now-ms))
         ;; ── §5.2/§5.3 parse + validate.
         parse     (when (and succeeded? (some? result-text)) (parse-output result-text))
         valid     (when (:ok? parse) (validate-output (:parsed parse) input))]
@@ -780,7 +780,7 @@
             ;; §5.6 completion side-effect: bump the ingest epoch AFTER
             ;; materialization so INV-19 re-pulls fire and worn faces re-render
             ;; (MC-T6). ONLY when at least one transition materialized (G9).
-            epoch (when wrote? (swap! util-fns/!ingest-epoch-atom inc))]
+            epoch (when wrote? (swap! ingest-epoch/!ingest-epoch-atom inc))]
         {:status (if (zero? (long unmat)) :completed :incomplete-writes)
          :run-id run-id :address address :window window
          :input-hash ih :terminal-status terminal-status
@@ -883,7 +883,7 @@
                        (filter #(in-window-scope? scope-ids %))
                        vec)
         plan      (reconcile-plan desired existing)
-        ts        (or (get-in line [:mc/run :asserted-at-ms]) (core/now-ms))]
+        ts        (or (get-in line [:mc/run :asserted-at-ms]) (envelope/now-ms))]
     (apply-transitions! rk-rt plan ts)))
 
 (defn replay-wal!

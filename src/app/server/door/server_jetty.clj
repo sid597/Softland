@@ -13,7 +13,7 @@
     [app.server.page.block-edit :as block-edit]
     [app.server.episode.cascade :as cascade]
     [app.server.episode.episode :as episode]
-    [app.server.rama.core :as rama-core]
+    [app.server.rama.envelope :as rama-core]
     [app.server.episode.material-circulation :as circulation]
     [app.server.page.face-projection :as face-projection]
     [app.server.worn.material-truth :as material-truth]
@@ -26,8 +26,7 @@
     [app.server.worn.facet-masters :as facet-masters]
     [app.server.worn.invocation-material :as invocation-material]
     [app.server.page.matter-room :as matter-room]
-    [app.server.rama.util-fns :as util-fns]
-    [app.server.episode.objects :as rama-objects]
+    [app.server.rama.ingest-epoch :as ingest-epoch]
     [app.server.rama.relation-kernel :as rk]
     [app.server.page.reply-to-block :as reply-to-block]
     [app.server.env :as env]
@@ -1561,7 +1560,7 @@
                 (when (= :accepted (:status r))
                   ;; the mint IS an ingest (INV-19) — the face re-pull is the
                   ;; committed-echo cross-check channel
-                  (swap! util-fns/!ingest-epoch-atom inc))
+                  (swap! ingest-epoch/!ingest-epoch-atom inc))
                 (edn-response (if (= :accepted (:status r)) 200 409)
                               (dissoc r :decision)))))
           (catch Exception e
@@ -1594,7 +1593,7 @@
                 ;; bump the epoch so faces re-pull without waiting for the
                 ;; next content act
                 (when (and (= :accepted (:status r)) (some :deleted? cells))
-                  (swap! util-fns/!ingest-epoch-atom inc))
+                  (swap! ingest-epoch/!ingest-epoch-atom inc))
                 (edn-response (if (= :accepted (:status r)) 200 409)
                               (dissoc r :decision)))))
           (catch Exception e

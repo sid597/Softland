@@ -6,7 +6,7 @@
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
-  (:require [app.server.rama.core :as core]
+  (:require [app.server.rama.envelope :as envelope]
             [clojure.data.json :as json]
             [clojure.string :as str]
             [com.rpl.rama.test :refer [create-ipc launch-module!]])
@@ -106,8 +106,8 @@
   #{"api_key" "apikey" "api-key" "token" "auth_token" "auth-token"
     "oauth_token" "oauth-token" "password" "secret" "authorization"})
 
-(defn now-ms [] (core/now-ms))
-(defn random-id [prefix] (core/random-id prefix))
+(defn now-ms [] (envelope/now-ms))
+(defn random-id [prefix] (envelope/random-id prefix))
 
 (defn llm-routing-key
   [run-id]
@@ -839,7 +839,7 @@
      :item/type (or (:item/type obs) :assistant-message)
      :item/order (:sequence obs)
      :content/text text
-     :content/hash (or (:content/hash obs) (str "sha256:" (core/sha-256 text)))
+     :content/hash (or (:content/hash obs) (str "sha256:" (envelope/sha-256 text)))
      :source (item-source obs)
      :created-at-ms (:received-at-ms obs)}))
 
@@ -1157,7 +1157,7 @@
 
      1. absent row    → nil; the topology dead-letters the record instead
                         (never-drop), and no state is invented for unknown ids.
-     2. authorization → core/authorize-mutation: a claim must have been granted
+     2. authorization → envelope/authorize-mutation: a claim must have been granted
                         (row token non-nil) AND the observation's token must
                         match AND the sequence must be a number. Failure folds
                         a token-free :observation/not-authorized (or
@@ -1180,7 +1180,7 @@
   [run-row obs]
   (if (nil? run-row)
     nil
-    (let [auth (core/authorize-mutation run-row obs
+    (let [auth (envelope/authorize-mutation run-row obs
                                         {:claim-token-key :claim/token
                                          :record-token-key :claim/token
                                          :seq-key :sequence
@@ -1279,12 +1279,12 @@
 
 (defn observation-dead-letter
   [run-id obs]
-  (core/bounded-dead-letter :observation/unknown-run obs
+  (envelope/bounded-dead-letter :observation/unknown-run obs
                             {:context {:llm-turn-run/id run-id}}))
 
 (defn control-dead-letter
   [run-id control]
-  (core/bounded-dead-letter :control/unknown-run control
+  (envelope/bounded-dead-letter :control/unknown-run control
                             {:context {:llm-turn-run/id run-id}}))
 
 (defn item-row-id
@@ -1507,11 +1507,11 @@
       (request-run-id *request :> *run-id)
       (filter> (not (blank-string? *run-id)))
       (local-select> [(keypath *run-id)] $$llm-decisions-by-run-id :> *stored-decision)
-      (core/decision-dedup-gate *stored-decision *request :> *gate)
+      (envelope/decision-dedup-gate *stored-decision *request :> *gate)
       (get *gate :gate/status :> *gate-status)
       (filter> (= :proceed *gate-status))
       (interpret-turn-run-request *request :> *interpreted)
-      (core/with-request-fingerprint *interpreted *request :> *decision)
+      (envelope/with-request-fingerprint *interpreted *request :> *decision)
       (local-transform> [(keypath *run-id) (termval *decision)] $$llm-decisions-by-run-id)
       (<<if (decision-accepted? *decision)
         (initial-turn-run-row *decision :> *run-row)

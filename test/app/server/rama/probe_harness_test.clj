@@ -3,7 +3,7 @@
    gets its own proof: each probe must pass against a guarded (atom-simulated)
    kernel AND fail against an unguarded one. A probe that cannot fail proves
    nothing."
-  (:require [app.server.rama.core :as core]
+  (:require [app.server.rama.envelope :as envelope]
             [app.server.rama.probe-harness :as probe]
             [clojure.test :refer [deftest is testing]]))
 
@@ -30,7 +30,7 @@
                      (merge fast
                             {:read-state #(get @!rows "run_1")
                              :append! #(swap! !rows update "run_1"
-                                              (fn [row] (core/write-if-absent row request)))}))]
+                                              (fn [row] (envelope/write-if-absent row request)))}))]
         (is (true? (:pass? result)))
         (is (= :running (get-in result [:after :status])))))
     (testing "fails against a kernel whose replay resets the row"
@@ -82,7 +82,7 @@
                      (merge fast
                             {:read-state #(get @!rows "run_orphan")
                              :append-obs! #(let [{:auth/keys [status dead-letter]}
-                                                 (core/authorize-mutation
+                                                 (envelope/authorize-mutation
                                                    (get @!rows "run_orphan") orphan-obs
                                                    {:status-key :status})]
                                              (if (= :accepted status)
@@ -116,7 +116,7 @@
                      (merge fast
                             {:read-state #(get @!rows "run_1")
                              :append-obs! #(when (= :accepted
-                                                    (:auth/status (core/authorize-mutation
+                                                    (:auth/status (envelope/authorize-mutation
                                                                     (get @!rows "run_1")
                                                                     wrong-obs auth-opts)))
                                              (swap! !rows update "run_1" merge wrong-obs))}))]
@@ -144,7 +144,7 @@
                             {:read-state #(get @!rows "run_1")
                              :append-late! #(swap! !rows update "run_1"
                                                    (fn [row]
-                                                     (core/sticky-terminal-fence
+                                                     (envelope/sticky-terminal-fence
                                                        terminal :status row late)))}))]
         (is (true? (:pass? result)))
         (is (= :succeeded (get-in result [:after :status])))))

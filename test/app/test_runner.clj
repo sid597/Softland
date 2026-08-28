@@ -46,7 +46,7 @@
     app.server.worn.space-material-test
     app.server.tools.export-current-data-test
     app.server.door.parser-test
-    app.server.rama.core-guards-test
+    app.server.rama.envelope-guards-test
     app.server.rama.probe-harness-test])
 
 (def shared-cluster-namespaces

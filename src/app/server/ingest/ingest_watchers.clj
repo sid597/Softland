@@ -7,7 +7,7 @@
             [app.server.ingest.markdown-adapter :as markdown-adapter]
             [app.server.ingest.transcript :as transcript]
             [app.server.ingest.git-import :as git-import]
-            [app.server.rama.util-fns :as util-fns])
+            [app.server.rama.ingest-epoch :as ingest-epoch])
   (:import [java.io File]
            [java.nio.file FileSystems Files LinkOption Path Paths
             StandardWatchEventKinds WatchKey WatchService]
@@ -105,7 +105,7 @@
                      :jsonl (import-jsonl! runtime file)
                      nil)]
         (if (import-succeeded? result)
-          (let [epoch (swap! util-fns/!ingest-epoch-atom inc)]
+          (let [epoch (swap! ingest-epoch/!ingest-epoch-atom inc)]
             (when on-import
               (on-import {:file file :kind kind :status :accepted
                           :decision result :epoch epoch}))

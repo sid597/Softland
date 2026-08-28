@@ -9,7 +9,7 @@
   (:require [app.server.ingest.ingest-watchers :as watchers]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.runtime :as ocr]
-            [app.server.rama.util-fns :as util-fns]
+            [app.server.rama.ingest-epoch :as ingest-epoch]
             [clojure.java.io :as io]
             [clojure.test :refer [deftest is testing]]
             [com.rpl.rama :refer [foreign-select]]
@@ -67,7 +67,7 @@
             source-ref (.getPath md-file)]
 
         (testing "a settled .md write fires the existing import seam; epoch +1"
-          (let [epoch-before @util-fns/!ingest-epoch-atom]
+          (let [epoch-before @ingest-epoch/!ingest-epoch-atom]
             (drain! q)
             (spit md-file content)
             (let [ev (await-import! q)]
@@ -75,12 +75,12 @@
               (is (= :md (:kind ev)))
               (is (= :accepted (:status ev)) "the OC decision was accepted")
               (is (= (inc epoch-before) (:epoch ev)) "epoch bumped by exactly 1")
-              (is (= (inc epoch-before) @util-fns/!ingest-epoch-atom))
+              (is (= (inc epoch-before) @ingest-epoch/!ingest-epoch-atom))
               (is (= 1 (source-version-count runtime source-ref))
                   "exactly one source version after first import"))))
 
         (testing "byte-identical rewrite converges: no new source version, epoch bumps again"
-          (let [epoch-before @util-fns/!ingest-epoch-atom]
+          (let [epoch-before @ingest-epoch/!ingest-epoch-atom]
             (drain! q)
             (spit md-file content)
             (let [ev (await-import! q)]
@@ -127,7 +127,7 @@
 
       (testing "a subsequent good write still imports (loop survived)"
         (let [good-file (io/file root "good.md")
-              epoch-before @util-fns/!ingest-epoch-atom]
+              epoch-before @ingest-epoch/!ingest-epoch-atom]
           (drain! q)
           (spit good-file "# Recovered\nthe loop kept running\n")
           (let [ev (await-import! q)]

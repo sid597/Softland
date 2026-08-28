@@ -22,7 +22,7 @@
             [app.server.rama.relation-kernel :as rk]
             [app.server.rama.object-container.transcript-identity :as tid]
             [app.server.episode.llm :as llm]
-            [app.server.rama.util-fns :as util-fns]))
+            [app.server.rama.ingest-epoch :as ingest-epoch]))
 
 ;; ════════════════════════════════════════════════════════════════════════════
 ;;  Fixtures — synthetic river-page blocks (the SAME shape river-page emits;
@@ -357,16 +357,16 @@
 
         ;; ── G9 epoch ────────────────────────────────────────────────────────
         (testing "G9 — epoch bumps by 1 after edge acks; no bump on a failed run"
-          (let [before @util-fns/!ingest-epoch-atom
+          (let [before @ingest-epoch/!ingest-epoch-atom
                 ok  (mc/annotate-conversation!
                       ctx conv2-address
                       {:lines (canned-lines {:pairs [{:prompt "f1" :responses ["f2"]}]
                                              :unpaired []})})
-                after-ok @util-fns/!ingest-epoch-atom
+                after-ok @ingest-epoch/!ingest-epoch-atom
                 fail (mc/annotate-conversation!
                        ctx conv2-address
                        {:salt "malformed" :lines (canned-malformed-lines)})
-                after-fail @util-fns/!ingest-epoch-atom]
+                after-fail @ingest-epoch/!ingest-epoch-atom]
             (is (= :completed (:status ok)))
             (is (true? (:epoch-bumped? ok)))
             (is (= (inc before) after-ok) "exactly +1 after a successful write")
@@ -520,7 +520,7 @@
                 _   (rk/await-relation
                       #(rk/read-relation-detail rk-rt rid-e2-e1)
                       #(= :retracted (:relation-status (:row %))))
-                epoch-before @util-fns/!ingest-epoch-atom
+                epoch-before @ingest-epoch/!ingest-epoch-atom
                 res (mc/annotate-conversation! ctx conv1-address
                       {:salt "back" :lines (canned-lines pairing-a)})]
             (is (= :noop-complete (:status res)) "prior succeeded run → noop path")
@@ -528,7 +528,7 @@
             (is (= :asserted (status-of rid-e2-e1))
                 "THE F1 KILL: pre-fix noop-complete never looked at the edges")
             (is (true? (:epoch-bumped? res)))
-            (is (= (inc epoch-before) @util-fns/!ingest-epoch-atom))))
+            (is (= (inc epoch-before) @ingest-epoch/!ingest-epoch-atom))))
 
         (testing "F1 — a succeeded run with NO WAL line is honest stale, never silent"
           (let [res (mc/annotate-conversation!
@@ -547,14 +547,14 @@
                                       ;; the rebuild sees CHANGED material
                                       {:blocks (assoc-in conv2-blocks [0 :text] "CHANGED")
                                        :read-plan read-plan-2})))
-                epoch-before @util-fns/!ingest-epoch-atom
+                epoch-before @ingest-epoch/!ingest-epoch-atom
                 res (mc/annotate-conversation!
                       (assoc ctx :load-river-blocks shifting-loader)
                       conv2-address {:lines (canned-lines {:pairs [] :unpaired ["f1" "f2"]})})]
             (is (= :failed (:status res)) "returned, not thrown")
             (is (= :bundle-hash-mismatch (:reason res)))
             (is (= 0 (:edges-asserted res)))
-            (is (= epoch-before @util-fns/!ingest-epoch-atom) "no epoch bump")))
+            (is (= epoch-before @ingest-epoch/!ingest-epoch-atom) "no epoch bump")))
 
         (testing "F6 — WAL replay is WINDOW-scoped: out-of-window edges survive"
           ;; Seed a machine-cut edge whose events are NOT in any WAL line's

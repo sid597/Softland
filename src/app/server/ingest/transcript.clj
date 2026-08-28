@@ -7,7 +7,7 @@
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
-  (:require [app.server.rama.core :as core]
+  (:require [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
             [app.server.ingest.transcript-adapter :as transcript-adapter]
             [app.server.rama.object-container.transcript-identity :as transcript-identity]
@@ -65,8 +65,8 @@
 (def terminal-statuses
   #{:complete :failed :cancelled})
 
-(defn now-ms [] (core/now-ms))
-(defn random-id [prefix] (core/random-id prefix))
+(defn now-ms [] (envelope/now-ms))
+(defn random-id [prefix] (envelope/random-id prefix))
 
 (defn transcript-routing-key
   [request-id]
@@ -195,7 +195,7 @@
 
 (defn fold-run-status
   "Apply one authorized claim to a run row. Status moves through
-   core/sticky-status so a terminal status can never regress even if a claim
+   envelope/sticky-status so a terminal status can never regress even if a claim
    slips past the authorization fence. The line counters are topology-owned
    (incremented per novel line on the run task) — claim :counts may add other
    fields but can never clobber them."
@@ -204,7 +204,7 @@
         counts (dissoc (or (:counts claim) {})
                        :observed-line-count :parse-error-count)]
     (-> run-row
-        (assoc :status (core/sticky-status terminal-statuses
+        (assoc :status (envelope/sticky-status terminal-statuses
                                            (:status run-row)
                                            (:status claim))
                :updated-at-ms t)
@@ -221,7 +221,7 @@
    re-minted by transcript-request on every build, so it is excluded — a client
    resubmitting the same intent must fingerprint identically."
   [request]
-  (core/request-fingerprint (dissoc request :request/time-ms)))
+  (envelope/request-fingerprint (dissoc request :request/time-ms)))
 
 (defn fold-request
   "Guarded request fold: first write wins (a duplicate submit can never reset a
@@ -251,7 +251,7 @@
      1. replay   → a :claim/id already folded (accepted OR rejected) is a
                    total no-op, so redelivered claims never duplicate progress
                    entries or audit errors.
-     2. authorize → core/authorize-mutation: terminal statuses are sticky
+     2. authorize → envelope/authorize-mutation: terminal statuses are sticky
                    (late/duplicate terminals and stale heartbeats are rejected,
                    never folded); only :pending/:running rows accept claims;
                    once an owner exists, every claim must present the matching
@@ -267,7 +267,7 @@
   (let [claim-id (:claim/id claim)]
     (if (and claim-id (some #(= claim-id %) (:applied-claim-ids run-row)))
       run-row
-      (let [auth (core/authorize-mutation
+      (let [auth (envelope/authorize-mutation
                    run-row claim
                    {:status-key :status
                     :accepting-statuses #{:pending :running}
@@ -299,7 +299,7 @@
 
 (defn line-hash
   [line]
-  (str "sha256:" (core/sha-256 line)))
+  (str "sha256:" (envelope/sha-256 line)))
 
 (defn line-hash-bytes
   "Byte-correct source-identity hash of a line's raw content bytes (terminator
@@ -307,7 +307,7 @@
    how the line decodes — the basis for dedup key (source, file-id, byte-offset,
    line-hash)."
   [^bytes content-bytes]
-  (str "sha256:" (core/sha-256-bytes content-bytes)))
+  (str "sha256:" (envelope/sha-256-bytes content-bytes)))
 
 (defn file-id
   [^File file]
@@ -680,7 +680,7 @@
 (defn fold-source-file-state
   "File cursor rows only advance: keep whichever row has the higher
    :source/last-byte-offset (a row-level monotonic watermark, see
-   core/monotonic-watermark). Replays and cross-task reorders of a file's
+   envelope/monotonic-watermark). Replays and cross-task reorders of a file's
    observations can never rewind the durable cursor below a consumed newline."
   [existing entry]
   (if (or (nil? existing)
@@ -788,7 +788,7 @@
       (source-file-state-entry *obs :> *file-state-entry)
       (|hash *line-key)
       (local-select> [(keypath *line-key)] $$transcript-source-ledger :> *existing-line)
-      (core/write-if-absent *existing-line *obs :> *ledger-row)
+      (envelope/write-if-absent *existing-line *obs :> *ledger-row)
       ;; <<if, NOT filter>: a duplicate must skip THIS write yet still flow to
       ;; every later write site (the old front gate dropped it here, which is
       ;; what made a half-committed first attempt unrepairable).
@@ -933,7 +933,7 @@
   [obs]
   (format "%020d:%s"
           (long (or (:source/byte-offset obs) 0))
-          (core/sha-256 (transcript-identity/transcript-source-line-key obs))))
+          (envelope/sha-256 (transcript-identity/transcript-source-line-key obs))))
 
 (defn common-transcript-source-line
   [obs import-request]

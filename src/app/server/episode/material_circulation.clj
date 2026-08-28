@@ -4,13 +4,13 @@
    Gives: gold :references relations, silver :felt-at and :instance-of proposals, and run requests.
    Holds nothing."
   (:require [app.server.worn.activation-event :as activation-event]
-            [app.server.rama.core :as core]
+            [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
             [app.server.worn.facet-master :as facet-master]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.relation-kernel :as rk]
             [app.server.episode.llm :as llm]
-            [app.server.rama.util-fns :as util-fns]
+            [app.server.rama.ingest-epoch :as ingest-epoch]
             [app.server.worn.facet-masters :as facet-masters]
             [clojure.data.json :as json]
             [clojure.edn :as edn]
@@ -277,7 +277,7 @@
 (defn circulation-order-key
   "One stable projection cell per calibrated machine run/association."
   [record-id]
-  (str "circulation:" (core/sha-256 (str record-id))))
+  (str "circulation:" (envelope/sha-256 (str record-id))))
 
 (defn circulation-record-request
   "Hint-only OC import for a machine observation/interpretation/proposal record.
@@ -286,11 +286,11 @@
    durable fact instead of inflaming the record."
   [{:keys [object-key record-id time-ms record]}]
   (let [imp-key (str "imp:ep:" object-key ":"
-                     (core/sha-256 (str "circulation " record-id)))
+                     (envelope/sha-256 (str "circulation " record-id)))
         request-id (str "req:circulation:" object-key ":"
-                        (core/sha-256 (str record-id)))
+                        (envelope/sha-256 (str record-id)))
         event-id (str "evt:" object-key ":"
-                      (core/sha-256 (str "circulation " record-id)))
+                      (envelope/sha-256 (str "circulation " record-id)))
         ;; OC's custody vocabulary names the process as :agent; the record and
         ;; proposed RelationEdge retain :llm as the epistemic asserter type.
         actor {:actor/id autotag-actor-id
@@ -323,7 +323,7 @@
                  :source-line-statuses []}
         fingerprint (oc/import-material-fingerprint object-key imp-key payload)]
     (assoc
-     (core/action-request
+     (envelope/action-request
       {:request-id request-id
        :request-type :object-container/import-material
        :time-ms (long time-ms)
@@ -509,12 +509,12 @@
         input {:record-unit-id record-unit-id
                :record-text (str record-text)
                :candidates candidates}]
-    (assoc input :input-hash (core/sha-256 (pr-str input)))))
+    (assoc input :input-hash (envelope/sha-256 (pr-str input)))))
 
 (defn autotag-run-id
   [object-key input-hash salt]
   (str "llm-run-material-autotag:"
-       (core/sha-256
+       (envelope/sha-256
         (str/join "\u0000" [object-key input-hash autotag-version
                               (str (or salt ""))]))))
 
@@ -646,7 +646,7 @@
              {:llm-turn-run-id run-id
               :llm-thread-id (str "material-autotag-thread:" object-key)
               :request-id (str "material-autotag-request:" run-id)
-              :time-ms (core/now-ms)
+              :time-ms (envelope/now-ms)
               :llm/backend :claude
               :llm/auth-mode :subscription
               :executor-task-id llm/pending-task-id})
@@ -693,14 +693,14 @@
                      (parse-autotag-output result-text))
             valid (when (:ok? parsed)
                     (validate-autotag-output input (:parsed parsed)))
-            recorded-at-ms (long (or (:finished-at run-row) (core/now-ms)))
+            recorded-at-ms (long (or (:finished-at run-row) (envelope/now-ms)))
             success? (and granted?
                           (= :succeeded (:status run-row))
                           (:ok? parsed)
                           (:ok? valid))
             failure-signature
             (when-not success?
-              (core/sha-256
+              (envelope/sha-256
                (pr-str
                 {:claim-state (:claim-state claim)
                  :terminal-status (:status run-row)
@@ -742,7 +742,7 @@
               (assert-autotag-proposal! rk-rt record))
             epoch
             (when (= :materialized (:status edge))
-              (swap! util-fns/!ingest-epoch-atom inc))]
+              (swap! ingest-epoch/!ingest-epoch-atom inc))]
         {:status (cond
                    (not= :accepted (:status durable)) :record-rejected
                    (not success?) :failed

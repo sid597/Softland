@@ -15,7 +15,7 @@
             [app.server.rama.object-container :as oc]
             [app.server.worn.facet-master :as adapter]
             [app.server.rama.object-container.runtime :as ocr]
-            [app.server.rama.util-fns :as util-fns]
+            [app.server.rama.ingest-epoch :as ingest-epoch]
             [app.server.worn.activation-event :as activation-event]
             [app.server.worn.attention-material :as attention]
             [app.server.worn.binding-material :as binding-material]
@@ -245,7 +245,7 @@
 
         (testing "G4 — a subject BORN AFTER the activation wears the new
                   revision without anything being copied to it"
-          (let [epoch-before @util-fns/!ingest-epoch-atom
+          (let [epoch-before @ingest-epoch/!ingest-epoch-atom
                 _ (adapter/ensure-active-source!
                    rt attention/spec
                    (pr-str (assoc attention/strict-bindings-form
@@ -253,7 +253,7 @@
                    {:request-id "gate-att-v3b"
                     :activation-request-id "gate-att-activate-v3b"
                     :time-ms (now)})
-                epoch-after @util-fns/!ingest-epoch-atom
+                epoch-after @ingest-epoch/!ingest-epoch-atom
                 newborn "du:block:born-after"]
             (is (= 12.0 (:attention/hit-padding (worn rt newborn)))
                 "a subject that did not exist at activation time")

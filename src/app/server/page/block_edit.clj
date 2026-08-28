@@ -5,12 +5,12 @@
    Holds nothing."
   (:require [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.runtime :as ocr]
-            [app.server.rama.util-fns :as util-fns]))
+            [app.server.rama.ingest-epoch :as ingest-epoch]))
 
 (defn submit-block-edit!
   "Append one object edit through the existing ObjectContainer stream and return
    its durable accepted/rejected decision as a plain map."
-  ([oc-rt env] (submit-block-edit! oc-rt env util-fns/!ingest-epoch-atom))
+  ([oc-rt env] (submit-block-edit! oc-rt env ingest-epoch/!ingest-epoch-atom))
   ([oc-rt env !epoch]
    (let [{:keys [request-id idempotency-key edit-client-id edit-seq actor time-ms
                  target payload]} env

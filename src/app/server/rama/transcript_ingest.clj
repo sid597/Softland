@@ -6,7 +6,7 @@
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
-  (:require [app.server.rama.core :as core]
+  (:require [app.server.rama.envelope :as envelope]
             [app.server.ingest.transcript :as t]
             [clojure.string :as str]
             [com.rpl.rama.test :refer [create-ipc launch-module!]])
@@ -31,7 +31,7 @@
 (defn conv-key
   "Deterministic conversation key: sha256(source-family + \":\" + conversation-id)"
   [source conversation-id]
-  (core/sha-256 (str (name source) ":" conversation-id)))
+  (envelope/sha-256 (str (name source) ":" conversation-id)))
 
 (defn conversation-container-id
   [ck]
@@ -58,8 +58,8 @@
   [obs]
   (let [uuid (:transcript/message-uuid obs)]
     (if (and uuid (not (str/blank? (str uuid))))
-      (core/sha-256 (str uuid))
-      (core/sha-256 (str (pr-str (:source/file-id obs)) ":" (:source/byte-offset obs))))))
+      (envelope/sha-256 (str uuid))
+      (envelope/sha-256 (str (pr-str (:source/file-id obs)) ":" (:source/byte-offset obs))))))
 
 (defn message-order-key
   "Zero-padded byte offset for sort ordering."
@@ -316,14 +316,14 @@
       (update :observed-line-count inc)
       (cond-> (is-parse-error obs)
         (update :parse-error-count inc))
-      (assoc :updated-at-ms (core/now-ms))))
+      (assoc :updated-at-ms (envelope/now-ms))))
 
 (defn increment-run-containers
   "Increment container-created count on the run row."
   [run-row n]
   (-> run-row
       (update :containers-created-count + n)
-      (assoc :updated-at-ms (core/now-ms))))
+      (assoc :updated-at-ms (envelope/now-ms))))
 
 (defn make-source-anchor-row
   [container-id obs]
@@ -380,7 +380,7 @@
           request-id (obs-ingest-request-id obs)
           source (obs-source obs)
           content (content-text-from-payload obs)
-          content-hash (when content (core/sha-256 content))
+          content-hash (when content (envelope/sha-256 content))
           role (role-from-payload obs)
           anchor (make-source-anchor-row msg-id obs)
           tool-blocks (t/parsed-tool-use-blocks (or (obs-redacted-payload obs) {}))
@@ -392,7 +392,7 @@
                   :let [tool-use-id (or (:id block) (:tool_use_id block) (:tool-use-id block))
                         tool-name (:name block)]
                   :when (and tool-use-id (seq (str tool-use-id)))]
-              (let [tuid-hash (core/sha-256 (str tool-use-id))
+              (let [tuid-hash (envelope/sha-256 (str tool-use-id))
                     tc-id (tool-call-container-id ck tuid-hash)
                     tr-id (tool-result-container-id ck tuid-hash)
                     tc-container (->TranscriptContainerRow
@@ -600,7 +600,7 @@
         (<<if (nil? *existing)
           ;; New source record with accepted request — process it
           (local-transform> [(keypath *line-key) (termval true)] $$source-ledger)
-          (core/now-ms :> *now)
+          (envelope/now-ms :> *now)
           (build-obs-materials *obs *ck *now :> *materials)
           (obs-conversation-id *obs :> *conversation-id)
           (conversation-container-id *ck :> *conv-container-id)
@@ -734,7 +734,7 @@
       ;; For empty files: create source artifact and audit entry on conv partition
       (<<if (file-state-is-empty *fs)
         (|hash *fs-ck)
-        (core/now-ms :> *fs-now)
+        (envelope/now-ms :> *fs-now)
         (make-source-artifact-row
           *fs-conv-id *fs-ck (file-state-source *fs) (file-state-file-id *fs)
           (file-state-file-path *fs) :unknown *fs-request-id *fs-now :> *fs-sa-row)
@@ -911,7 +911,7 @@
                                            0)
                 :source/line-count (count observations)
                 :source/is-empty (empty? observations)
-                :time-ms (core/now-ms)}))))
+                :time-ms (envelope/now-ms)}))))
         (t/await-materialized
          #(read-ingest-run runtime request-id)
          #(>= (long (or (:observed-line-count %) 0)) @observation-count))
@@ -994,7 +994,7 @@
                           :source/last-byte-offset next-offset
                           :source/line-count (count observations)
                           :source/is-empty false
-                          :time-ms (core/now-ms)})))))))]
+                          :time-ms (envelope/now-ms)})))))))]
         (let [thread (doto (Thread.
                              ^Runnable
                              (reify Runnable

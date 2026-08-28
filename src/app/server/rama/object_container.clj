@@ -12,7 +12,7 @@
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
-  (:require [app.server.rama.core :as core]
+  (:require [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container.transcript-identity :as transcript-identity]
             [clojure.set :as set]
             [clojure.string :as str]))
@@ -205,11 +205,11 @@
 
 (defn source-ref-key
   [source-ref]
-  (core/sha-256 source-ref))
+  (envelope/sha-256 source-ref))
 
 (defn object-key-for
   [source-ref source-hash]
-  (core/sha-256 (str source-ref object-key-separator source-hash)))
+  (envelope/sha-256 (str source-ref object-key-separator source-hash)))
 
 (defn source-id-for-object-key
   [object-key]
@@ -238,7 +238,7 @@
 
 (defn import-revision-id
   [object-key target-id import-key]
-  (str "rev:" object-key ":" (core/sha-256 target-id) ":" (core/sha-256 import-key)))
+  (str "rev:" object-key ":" (envelope/sha-256 target-id) ":" (envelope/sha-256 import-key)))
 
 (defn event-id-for-request
   [object-key request]
@@ -266,7 +266,7 @@
 
 (defn source-hash
   [raw-text]
-  (core/sha-256 (str raw-text)))
+  (envelope/sha-256 (str raw-text)))
 
 (defn leading-object-key
   [s]
@@ -484,7 +484,7 @@
                                   (request-material-fingerprint request)
                                   (request-import-key request)
                                   nil
-                                  (core/now-ms)
+                                  (envelope/now-ms)
                                   nil)))
 
 (defn rejected-decision-row
@@ -504,7 +504,7 @@
                                   (request-material-fingerprint request)
                                   (request-import-key request)
                                   nil
-                                  (core/now-ms)
+                                  (envelope/now-ms)
                                   nil)))
 
 (defn conflict-decision-row
@@ -523,7 +523,7 @@
            :request-type (request-type request)
            :idempotency-key (request-idempotency-key request)
            :material-fingerprint (request-material-fingerprint request)
-           :decided-at-ms (core/now-ms)
+           :decided-at-ms (envelope/now-ms)
            :replayed-from-decision-id (:decision-id prior-decision))))
 
 (defn decision-accepted?
@@ -582,7 +582,7 @@
         expected-hash (source-hash content)
         target-kind (get-in request [:target :target/kind])
         target-id (get-in request [:target :target/id])]
-    (cond-> (vec (core/request-validation-errors request))
+    (cond-> (vec (envelope/request-validation-errors request))
       (not= :object/edit (request-type request))
       (conj {:type :request/type-invalid :value (request-type request)})
 
@@ -622,7 +622,7 @@
       (not (integer? (payload-edit-seq payload)))
       (conj {:type :edit/seq-invalid :value (payload-edit-seq payload)})
 
-      (not (core/authorized-request? request))
+      (not (envelope/authorized-request? request))
       (conj {:type :actor-not-authorized}))))
 
 (defn request-import-key [request] (:import/key request))
@@ -649,7 +649,7 @@
                            (count anchor-rows)
                            (count edge-rows)
                            (count projection-hints)
-	                           (core/now-ms)
+	                           (envelope/now-ms)
 	                           (request-id request))))
 
 (defn source-ingest-completion-row
@@ -662,7 +662,7 @@
                                 (:document-container-id source-version-row)
                                 (count (payload-derived-units payload))
                                 (count (payload-composition-edges payload))
-                                (core/now-ms)
+                                (envelope/now-ms)
                                 (request-id request)
                                 (:event-id event)
                                 ;; material-claimed clock, nil-honest (see record)
@@ -794,7 +794,7 @@
 	        duplicate-native-conflicts (duplicate-native-claim-conflicts request container-rows)
 	        missing-current-revisions (seq (remove #(contains? revision-ids (:current-revision-id %))
 	                                               container-rows))]
-    (cond-> (vec (core/request-validation-errors request))
+    (cond-> (vec (envelope/request-validation-errors request))
       (not= :object-container/import-material (request-type request))
       (conj {:type :request/type-invalid :value (request-type request)})
 
@@ -814,7 +814,7 @@
       (conj {:type :material/fingerprint-invalid
              :value (request-material-fingerprint request)})
 
-      (not (core/authorized-request? request))
+      (not (envelope/authorized-request? request))
       (conj {:type :actor-not-authorized})
 
 	      ;; F3 (Sid ruled A, 2026-07-10): accept a projection-hint-ONLY import
@@ -932,7 +932,7 @@
 
 (defn transcript-initial-run-row
   [request]
-  (let [now (long (or (:request/time-ms request) (:time-ms request) (core/now-ms)))]
+  (let [now (long (or (:request/time-ms request) (:time-ms request) (envelope/now-ms)))]
     (->TranscriptRunRow (transcript-control-request-id request)
                         (transcript-control-request-type request)
                         :accepted-running
@@ -950,7 +950,7 @@
 
 (defn transcript-rejected-run-row
   [request errors]
-  (let [now (long (or (:request/time-ms request) (:time-ms request) (core/now-ms)))]
+  (let [now (long (or (:request/time-ms request) (:time-ms request) (envelope/now-ms)))]
     (->TranscriptRunRow (transcript-control-request-id request)
                         (transcript-control-request-type request)
                         :failed
@@ -970,7 +970,7 @@
   [existing request]
   (if (terminal-transcript-run? existing)
     existing
-    (let [now (long (or (:time-ms request) (:request/time-ms request) (core/now-ms)))
+    (let [now (long (or (:time-ms request) (:request/time-ms request) (envelope/now-ms)))
           counts (:counts request)
           base (or existing
                    (->TranscriptRunRow (transcript-control-request-id request)
@@ -1067,7 +1067,7 @@
 
 (defn transcript-file-offset-row
   [file-state existing errors]
-  (let [now (long (or (:time-ms file-state) (:request/time-ms file-state) (core/now-ms)))
+  (let [now (long (or (:time-ms file-state) (:request/time-ms file-state) (envelope/now-ms)))
         rejected? (seq errors)
         stale? (and (not rejected?) (transcript-file-state-stale? existing file-state))
         requested-last-offset (long (or (:source/last-byte-offset file-state) 0))
@@ -1195,7 +1195,7 @@
         line-hash (:source/line-hash line)
         order-key (or (:source-line/order-key line)
                       (:order-key line)
-                      (format "%020d:%s" offset (core/sha-256 (str line-hash))))
+                      (format "%020d:%s" offset (envelope/sha-256 (str line-hash))))
         source-line-key (or (:source-line/key line)
                             (:source-line-key line)
                             (:source/line-key line)
@@ -1203,7 +1203,7 @@
         now (long (or (:time-ms line)
                       (:time-ms file-state)
                       (:request/time-ms file-state)
-                      (core/now-ms)))]
+                      (envelope/now-ms)))]
     (->TranscriptSourceLineStatusRow file-key
                                      order-key
                                      (or (:status line) :observed)
@@ -1304,7 +1304,7 @@
                             (request-import-key request)
                             :accepted
                             (:event-id container-row)
-                            (core/now-ms)))
+                            (envelope/now-ms)))
 
 (defn native-claim-compatible?
   [incoming existing]
@@ -1581,7 +1581,7 @@
 
 (defn import-material-fingerprint
   [object-key import-key payload]
-  (core/sha-256
+  (envelope/sha-256
    (pr-str
 	    {:request/type :object-container/import-material
 	     :object-key object-key
@@ -1688,7 +1688,7 @@
                          (document-id-for-object-key object-key))
          request-id (or (:request/id opts)
                         (:request-id opts)
-                        (core/random-id "req"))
+                        (envelope/random-id "req"))
          payload (->ObjectEditPayload document-id
                                       object-key
                                       content-text
@@ -1708,7 +1708,7 @@
          idempotency-key (or (:idempotency/key opts)
                              (:idempotency-key opts)
                              (str "object/edit:" object-key ":" target-id ":" request-id))
-         material-fingerprint (core/sha-256
+         material-fingerprint (envelope/sha-256
                                (pr-str {:request/type :object/edit
                                         :partition/key object-key
                                         :object/key object-key
@@ -1719,7 +1719,7 @@
                                         :edit/client-id (:edit-client-id payload)
                                         :edit/seq (:edit-seq payload)
                                         :edit/lineage-key (:edit-lineage-key payload)}))]
-     (assoc (core/action-request
+     (assoc (envelope/action-request
               {:request-id request-id
                :request-type :object/edit
                :time-ms (:time-ms opts)

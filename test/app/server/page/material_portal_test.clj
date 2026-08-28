@@ -19,7 +19,7 @@
             [app.server.episode.cascade :as cascade]
             [app.server.door.server-jetty :as sj]
             [app.server.episode.episode :as episode]
-            [app.server.rama.core :as core]
+            [app.server.rama.envelope :as envelope]
             [app.server.page.face-projection :as fp]
             [app.server.ingest.git-import :as git-import]
             [app.server.episode.material-circulation :as circulation]
@@ -194,7 +194,7 @@
         result-with-ignored-master
         (mp/open ctx serve-fn (assoc params :master-id attention/master-id))
         bytes (portal/canonical-edn result)]
-    (is (= entity-mode-regression-sha (core/sha-256 bytes))
+    (is (= entity-mode-regression-sha (envelope/sha-256 bytes))
         "adding :master-id mode must not drift one byte of entity mode")
     (is (= 23232 (count (.getBytes bytes "UTF-8"))))
     (is (= bytes (portal/canonical-edn result-with-ignored-master))
@@ -372,7 +372,7 @@
                    (portal/canonical-edn
                     (open-with-context! ctx params)))))
           (println "MATTER_ROOM_P1_CANONICAL_SHA"
-                   (core/sha-256 canonical))
+                   (envelope/sha-256 canonical))
           (println "MATTER_ROOM_P1_ROOM_ID" derived-room-id)))
       (finally
         (rk/close-relation-runtime! rk-rt)
@@ -641,7 +641,7 @@
         (testing "the edit seq is durable-read monotone, never a content hash"
           (let [a "ZZZZ later-in-hash-order"
                 b "AAAA earlier-in-hash-order"
-                _ (is (not= (compare (core/sha-256 a) (core/sha-256 b))
+                _ (is (not= (compare (envelope/sha-256 a) (envelope/sha-256 b))
                             (compare 1 2))
                       "the fixtures invert content-hash order on purpose")
                 seq-before (sj/matter-room-next-edit-seq oc-rt head-unit)
@@ -1243,9 +1243,9 @@
     (testing "the standing composition pins remain byte exact"
       ;; P2's first legitimate episode.clj touch threads worn invocation flags.
       (is (= "7fce46b21976a981cb85f71bb51eb7285fc841ac318687f0341e4cf41096a5bc"
-             (core/sha-256 (slurp "src/app/server/episode/episode.clj"))))
+             (envelope/sha-256 (slurp "src/app/server/episode/episode.clj"))))
       (is (= "ab283b47ae273aa9a0a42b2e14a690a3804c054a7370ef3fb06ee910a2772ca2"
-             (core/sha-256
+             (envelope/sha-256
               (slurp "src/app/server/rama/relation_kernel.clj")))))))
 
 ;; ===========================================================================

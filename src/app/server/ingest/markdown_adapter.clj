@@ -3,7 +3,7 @@
    Takes: markdown text, source metadata, actor data, and claimed time.
    Gives: block units, outline relations, material rows, and import requests.
    Holds nothing."
-  (:require [app.server.rama.core :as core]
+  (:require [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
             [clojure.string :as str]))
 
@@ -397,7 +397,7 @@
          source-id (oc/source-id-for-object-key object-key)
          request-id (or (:request/id opts)
                         (:request-id opts)
-                        (core/random-id "req"))
+                        (envelope/random-id "req"))
          idempotency-key (or (:idempotency/key opts)
                              (:idempotency-key opts)
                              (str "source/ingest:" source-ref-key ":" source-hash))
@@ -407,7 +407,7 @@
                                            :markdown
                                            markdown-distiller-id
                                            markdown-distiller-version)
-         material-fingerprint (core/sha-256
+         material-fingerprint (envelope/sha-256
                                (pr-str {:request/type :source/ingest
                                         :partition/key source-ref-key
                                         :object/key object-key
@@ -416,7 +416,7 @@
                                         :source/format :markdown
                                         :distiller/id markdown-distiller-id
                                         :distiller/version markdown-distiller-version}))]
-     (assoc (core/action-request
+     (assoc (envelope/action-request
              {:request-id request-id
               :request-type :source/ingest
               :time-ms (:time-ms opts)
@@ -446,7 +446,7 @@
 
 (defn markdown-import-key
   [object-key source-ref-key source-hash]
-  (str "imp:md:" object-key ":" (core/sha-256 (str source-ref-key ":" source-hash))))
+  (str "imp:md:" object-key ":" (envelope/sha-256 (str source-ref-key ":" source-hash))))
 
 (defn markdown-import-payload
   [materialization]
@@ -490,7 +490,7 @@
                     :actor/capabilities #{:object-container/import-material
                                           :source/ingest
                                           :object/edit}})]
-     (assoc (core/action-request
+     (assoc (envelope/action-request
              {:request-id (oc/request-id legacy-request)
               :request-type :object-container/import-material
               :time-ms (:request/time-ms legacy-request)

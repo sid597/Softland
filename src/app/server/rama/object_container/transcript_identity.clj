@@ -3,17 +3,17 @@
    Takes: transcript source names, session ids, file paths, line numbers, and event data.
    Gives: object keys, container ids, source ids, tool-call ids, and completion statuses.
    Holds nothing."
-  (:require [app.server.rama.core :as core]))
+  (:require [app.server.rama.envelope :as envelope]))
 
 (def transcript-source-line-complete-statuses #{:import-complete :parse-error-complete})
 
 (defn transcript-object-key
   [source conversation-id]
-  (str "chat:" (core/sha-256 (str (name source) ":" conversation-id))))
+  (str "chat:" (envelope/sha-256 (str (name source) ":" conversation-id))))
 
 (defn transcript-source-id
   [object-key source-line-key]
-  (str "src:tr:" object-key ":" (core/sha-256 source-line-key)))
+  (str "src:tr:" object-key ":" (envelope/sha-256 source-line-key)))
 
 (defn chat-conversation-id
   [object-key]
@@ -50,5 +50,5 @@
   (or (:source/file-generation-key m)
       (:source/file-generation m)
       (when-let [file-key (transcript-source-file-key m)]
-        (str file-key ":" (core/sha-256 (pr-str {:file-id (:source/file-id m)
+        (str file-key ":" (envelope/sha-256 (pr-str {:file-id (:source/file-id m)
                                                  :path (:source/file-path m)}))))))
