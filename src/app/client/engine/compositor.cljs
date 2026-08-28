@@ -1,7 +1,9 @@
 (ns app.client.engine.compositor
   "The compositor: offscreen render targets and how they reach the screen. Owns
    a recycling pool of GPU textures, region leases, blur and mask passes, the
-   single present to the canvas, and raster readback.
+   single present to the canvas, and raster readback. Today the pool, the
+   region leases, and the present run; the blur, mask, clear, and blend
+   passes have no caller since the plan-walk was removed.
    Takes: a device, an output format, and a byte tracker; lease requests by
    region; a target pass to begin, draw into, and release.
    Gives: a compositor with its pool and pipelines; leased targets; one

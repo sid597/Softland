@@ -1,6 +1,8 @@
 (ns app.client.region3d.scene
   "Derives and re-evaluates everything the 3D painter needs: object transforms,
-   instances, triangles by object, and a BVH for picking.
+   instances, triangles by object, and a BVH for picking. \"Scene\" names
+   three things here: a region's :scene key (its objects by id), what
+   derive-scene returns, and this namespace.
    Takes: a canonical region and session transforms; a prior evaluated scene
    and its key; a view and viewport for camera matrices; a point to pick.
    Gives: a derived or maintained scene with its update kind; camera matrices;
