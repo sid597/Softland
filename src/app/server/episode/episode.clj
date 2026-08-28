@@ -184,7 +184,7 @@
 
    matter-room P2: the `role` slot is the ONE field the render's machine
    classification actually reads (`ground.cljs` `machine? (not= speaker
-   \"sid\")` ← `face_projection.clj` turn `:speaker` ← `block_distiller.clj`
+   \"sid\")` ← `face_projection.clj` turn `:speaker` ← `transcript_import.clj`
    `:actor (:role row)` ← here). Parameterizing the actor WITHOUT this slot
    would land a machine resident that renders as Sid — R2 finding 2. Default
    (`nil`) is `utterance-actor-id`, byte-identical to the pre-P2 row."

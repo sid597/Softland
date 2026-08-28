@@ -1,5 +1,5 @@
 (ns app.server.rama.ingest-epoch
-  "The shared ingest-epoch counter.
+  "Shared ingest epoch counter.
    Takes: increments from accepted imports and watcher activity.
    Gives: the current ingest epoch to readers that refresh derived views.
    Holds: !ingest-epoch-atom.")

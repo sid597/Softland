@@ -1,5 +1,5 @@
 (ns app.server.worn.facet-engine
-  "Compilation, wear resolution, and stamping shared by facet masters.
+  "Facet engine for compiling sources, validating grammar, resolving what subjects wear, and stamping contributions.
    Takes: master specifications, source forms, active revisions, instance revisions, and subjects.
    Gives: compiled forms, worn values, contribution stamps, collisions, and validation errors.
    Holds nothing."

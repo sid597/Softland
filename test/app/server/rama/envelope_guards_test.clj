@@ -1,6 +1,6 @@
 (ns app.server.rama.envelope-guards-test
   "Unit tests for the shared guarded-fold and observation/control authorization
-   helpers in app.server.rama.core. Assertions target semantic payloads
+   helpers in app.server.rama.envelope. Assertions target semantic payloads
    (statuses, reasons, fingerprints, dead-letter contents), not just presence."
   (:require [app.server.rama.envelope :as envelope]
             [clojure.string :as str]

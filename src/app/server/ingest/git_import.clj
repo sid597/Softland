@@ -1,5 +1,5 @@
 (ns app.server.ingest.git-import
-  "Git history imported as commit documents and typed relations.
+  "Git importer that calls a cutter, then writes rows and typed relations into the store.
    Takes: repository paths, commit metadata, transcript joins, assertion lines, and kernel runtimes.
    Gives: commit import results, :based-on and :produced relations, and replay results.
    Holds: data/relation-assert-log.ednl."

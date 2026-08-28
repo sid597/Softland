@@ -1,5 +1,5 @@
 (ns app.server.ingest.code-import
-  "Historical Clojure blobs imported with lineage and analyzer relations.
+  "Code importer that calls a cutter, then writes rows and typed relations into the store.
    Takes: git commits, blob ids, changed paths, analyzer output, and kernel runtimes.
    Gives: import requests and :supersedes, :requires, and :calls relations.
    Holds: kondo-config-dir."

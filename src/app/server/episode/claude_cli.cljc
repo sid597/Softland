@@ -1,5 +1,5 @@
 (ns app.server.episode.claude-cli
-  "Claude command construction and response parsing.
+  "Claude CLI command builder and response parser.
    Takes: prompts, session ids, model settings, and Claude JSON output.
    Gives: command argument vectors and normalized response maps.
    Holds nothing."

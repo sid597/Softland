@@ -1,5 +1,5 @@
 (ns app.server.ingest.transcript-import
-  "Stored transcript payloads cut into blocks and typed relations.
+  "Transcript importer that calls a cutter, then writes rows and typed relations into the store.
    Takes: stored source rows, transcript events, object-container and relation runtimes, and page limits.
    Gives: block rows, edge specifications, import results, and river-page values.
    Holds nothing."

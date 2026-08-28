@@ -1,5 +1,5 @@
 (ns app.server.rama.envelope
-  "Request envelopes, event envelopes, validation, and replay guards.
+  "Request and event envelope helpers.
    Takes: request, event, actor, target, payload, and error maps.
    Gives: normalized envelopes, stable ids, validation results, and replay decisions.
    Holds nothing."

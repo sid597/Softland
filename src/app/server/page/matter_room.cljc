@@ -254,15 +254,15 @@
   "The room's machine actor. It is NOT \"sid\", which is the whole point: the
    render's machine classification reads the projection hint's role slot and
    asks `(not= speaker \"sid\")` (ground.cljs ← face_projection ←
-   block_distiller ← episode's hint)."
+   transcript_import ← episode's hint)."
   "softland:matter-room")
 
 (def resident-actor
   "The birth/refresh actor.
 
-   `:actor/type` is `:agent`, NOT `:machine`: `core/actor-types` is
+   `:actor/type` is `:agent`, NOT `:machine`: `envelope/actor-types` is
    `#{:human :agent :system :bot}` and `:machine` is RK-only — the same trap
-   `block-distiller/import-actor` names in its own docstring. `:agent` is
+   `transcript-import/import-actor` names in its own docstring. `:agent` is
    also not `:system`, so `authorized-request?` genuinely checks the
    capabilities below instead of waving the write through."
   {:actor/id resident-actor-id
