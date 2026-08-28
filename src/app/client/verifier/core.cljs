@@ -13,18 +13,17 @@
             [app.client.path.tessellation :as path-tessellation]
             [app.client.region3d.material :as region3d-material]
             [app.client.region3d.oracle :as region3d-oracle]
-            [app.client.region3d.placement :as region3d-placement]
             [app.client.region3d.scene :as region3d-scene]
             [app.client.engine.color :as scene-color]
             [app.client.engine.budget :as gpu-budget]
             [app.client.engine.compositor :as compositor-gpu]
-            [app.client.path.path-gpu :as path-gpu]
+            [app.client.path.painter :as path-painter]
             [app.client.engine.leases :as region-bindings]
-            [app.client.region3d.region3d-gpu :as region3d-gpu]
-            [app.client.region3d.placement-gpu :as region3d-placement-gpu]
+            [app.client.region3d.painter :as region3d-painter]
+            [app.client.region3d.on-plane-painter :as on-plane-painter]
             [app.client.engine.device :as device]
-            [app.client.image.image-gpu :as image-gpu]
-            [app.client.text.slug-gpu :as slug-gpu]
+            [app.client.image.painter :as image-painter]
+            [app.client.text.painter :as text-painter]
             [app.client.engine.placement :as containers]
             [app.client.text.fonts :as fonts]
             [app.client.text.layout :as tl]
@@ -402,13 +401,13 @@
         font-size (/ glyph-screen-size zoom)
         slug-glyph (first (filter #(= 111 (:unicode %))
                                   (get-in slug-assets [:slug :meta :glyphs])))
-        slug-instance (first (slug-gpu/shape-text (first lines) font-size slug-assets
+        slug-instance (first (text-painter/shape-text (first lines) font-size slug-assets
                                                   :char-width 0.60))
         slug-probe (instance-path-probe curves slug-instance
                                         (or (:sampleBounds slug-glyph)
                                             (:planeBounds slug-glyph))
                                         zoom "production-slug-sampleBounds")
-        slug-system (slug-gpu/update-text-data device slug-system lines slug-assets font-size
+        slug-system (text-painter/update-text-data device slug-system lines slug-assets font-size
                                                :char-width 0.60)]
     (js/console.log "[W0-A] case-start" case-id "zoom" zoom)
     (->
@@ -456,7 +455,7 @@
                      layout-result
                      {:size font-size :r 1.0 :g 1.0 :b 1.0 :a 1.0})
                    (mapv vector))
-        ubuntu-system (slug-gpu/update-text-data
+        ubuntu-system (text-painter/update-text-data
                         device ubuntu-system lines ubuntu-assets font-size
                         :line-height line-height)]
     (-> (render-pair! device ubuntu-system 1.0)
@@ -504,7 +503,7 @@
 (defn- ingress-corpus! [image-system corpus]
   (promise-mapv
    (fn [{:keys [source bytes]}]
-     (image-gpu/register-image-source! image-system source bytes))
+     (image-painter/register-image-source! image-system source bytes))
    (mapv corpus (map :filename image-fixtures))))
 
 (defn- image-op
@@ -544,7 +543,7 @@
         _ (device/update-camera device (:camera-buffer image-system)
                                   camera 0.0 0.0 zoom
                                   canvas-size canvas-size)
-        _ (image-gpu/prepare-image-frame! image-system ops)
+        _ (image-painter/prepare-image-frame! image-system ops)
         encoder (.createCommandEncoder device)
         pass (.beginRenderPass
               encoder
@@ -553,7 +552,7 @@
                                             (clj->js {:format view-format}))
                           :clearValue clear-value
                           :loadOp "clear" :storeOp "store"}]}))]
-    (image-gpu/draw-image-runs! pass image-system 0 (count ops))
+    (image-painter/draw-image-runs! pass image-system 0 (count ops))
     (.end pass)
     (when intermediate-copy?
       (.copyTextureToTexture encoder
@@ -840,14 +839,14 @@
                  camera (device/create-camera-buffer device tracker)
                  containers-buffer (device/create-containers-buffer
                                     device tracker)
-                 system (image-gpu/init-image-system
+                 system (image-painter/init-image-system
                          device "rgba8unorm-srgb" camera containers-buffer
                          :tracker tracker
                          :scene-color (scene-color/scene-color true))
                  row (get corpus "dedicated-alpha-premultiplied.png")
                  mistagged-source (assoc (:source row)
                                          :image/alpha-association :straight)]
-             (-> (image-gpu/register-image-source! system mistagged-source
+             (-> (image-painter/register-image-source! system mistagged-source
                                                   (:bytes row))
                  (.then (fn [_]
                           (render-image-bytes! device system
@@ -857,7 +856,7 @@
                     (let [delta (byte-delta
                                  (:alpha-association-bytes receipt)
                                  mistagged)]
-                      (image-gpu/destroy-image-system! system)
+                      (image-painter/destroy-image-system! system)
                       (-> receipt
                           (dissoc :alpha-association-bytes)
                           (assoc :mistagged-alpha
@@ -880,7 +879,7 @@
                 (fn [seam-bytes]
                   (let [actual (subvec (vec (pixel-rgba seam-bytes 25 25))
                                        0 3)
-                        row (get-in (image-gpu/image-ingress-receipt seam-system)
+                        row (get-in (image-painter/image-ingress-receipt seam-system)
                                     [:rows profile-digest])]
                     (assoc receipt :seam-off-profile
                            {:fixture "profiled-linear-rgb.png"
@@ -901,7 +900,7 @@
            (-> (icc-decode-receipt! corpus)
                (.then
                 (fn [icc]
-                  (let [rows (:rows (image-gpu/image-ingress-receipt
+                  (let [rows (:rows (image-painter/image-ingress-receipt
                                      candidate-system))
                         transfer-rows (vals rows)
                         counts-ok? (every?
@@ -961,7 +960,7 @@
         tiny-tracker (gpu-budget/create-tracker nil)
         tiny-camera (device/create-camera-buffer device tiny-tracker)
         tiny-containers (device/create-containers-buffer device tiny-tracker)
-        tiny-system (image-gpu/init-image-system
+        tiny-system (image-painter/init-image-system
                      device "rgba8unorm-srgb" tiny-camera tiny-containers
                      :tracker tiny-tracker :budget-cap-bytes 1
                      :scene-color (scene-color/scene-color true))
@@ -979,7 +978,7 @@
     (-> (render-image-bytes! device candidate-system [unavailable-op] 1.0)
         (.then
          (fn [unavailable-bytes]
-           (-> (image-gpu/register-image-source! tiny-system
+           (-> (image-painter/register-image-source! tiny-system
                                                 (:source atlas-row)
                                                 (:bytes atlas-row))
                (.then
@@ -1001,8 +1000,8 @@
         (.then
          (fn [receipt]
            (let [tiny-before (gpu-budget/snapshot tiny-tracker)
-                 tiny-receipt (image-gpu/image-ingress-receipt tiny-system)]
-             (image-gpu/destroy-image-system! tiny-system)
+                 tiny-receipt (image-painter/image-ingress-receipt tiny-system)]
+             (image-painter/destroy-image-system! tiny-system)
              (doseq [buffer [tiny-camera tiny-containers]]
                (gpu-budget/destroy-resource! tiny-tracker buffer
                                              :reason :image-verifier-destroy)
@@ -1026,12 +1025,12 @@
                         (device/create-containers-buffer replacement-device
                                                            replacement-tracker)
                         replacement-system
-                        (image-gpu/init-image-system
+                        (image-painter/init-image-system
                          replacement-device "rgba8unorm-srgb"
                          replacement-camera replacement-containers
                          :tracker replacement-tracker
                          :scene-color (scene-color/scene-color true))]
-                    (-> (image-gpu/rebuild-image-resources! candidate-system
+                    (-> (image-painter/rebuild-image-resources! candidate-system
                                                           replacement-system)
                         (.then
                          (fn [rebuild]
@@ -1048,13 +1047,13 @@
                                            (= :ok (last statuses)))))
                                   registered-digests)
                                  lost-receipt
-                                 (image-gpu/image-ingress-receipt
+                                 (image-painter/image-ingress-receipt
                                   candidate-system)
                                  rebuild-receipt
                                  {:replacement-receipt replacement-receipt
                                   :lost-receipt lost-receipt
                                   :history-pass? history-pass?}]
-                             (image-gpu/destroy-image-system!
+                             (image-painter/destroy-image-system!
                               replacement-system)
                              (doseq [buffer [replacement-camera
                                              replacement-containers]]
@@ -1071,7 +1070,7 @@
            (.destroy first-texture)
            (.destroy second-texture)
            (let [unavailable (get-in
-                              (image-gpu/image-ingress-receipt candidate-system)
+                              (image-painter/image-ingress-receipt candidate-system)
                               [:rows unknown-digest])
                  over-budget (get-in receipt [:tiny-receipt :rows atlas-digest])
                  replacement-receipt
@@ -1138,7 +1137,7 @@
         candidate-containers
         (device/create-containers-buffer device candidate-tracker)
         candidate-system
-        (image-gpu/init-image-system
+        (image-painter/init-image-system
          device "rgba8unorm-srgb" candidate-camera candidate-containers
          :tracker candidate-tracker
          :scene-color (scene-color/scene-color true))
@@ -1147,7 +1146,7 @@
         seam-camera (device/create-camera-buffer device seam-tracker)
         seam-containers (device/create-containers-buffer device seam-tracker)
         seam-system
-        (image-gpu/init-image-system
+        (image-painter/init-image-system
          device "rgba8unorm" seam-camera seam-containers
          :tracker seam-tracker
          :scene-color (scene-color/scene-color false))]
@@ -1190,16 +1189,16 @@
                          :lifecycle lifecycle
                          :fixture-digests fixture-digests
                          :candidate-ingress
-                         (image-gpu/image-ingress-receipt candidate-system)
+                         (image-painter/image-ingress-receipt candidate-system)
                          :seam-off-ingress
-                         (image-gpu/image-ingress-receipt seam-system)
+                         (image-painter/image-ingress-receipt seam-system)
                          :product-loop-claim :parked-verifier-only
                          :product-loop-join :none
                          :image-above-text-kind-layer true
                          :default-dark true :felt-gate :sid-live
                          :pass? pass?}]
-             (image-gpu/destroy-image-system! candidate-system)
-             (image-gpu/destroy-image-system! seam-system)
+             (image-painter/destroy-image-system! candidate-system)
+             (image-painter/destroy-image-system! seam-system)
              result))))))
 
 ;; --- PATH ATOM --------------------------------------------------------------
@@ -1290,7 +1289,7 @@
         _ (device/update-camera device (:camera-buffer path-system)
                                   camera 0.0 0.0 zoom
                                   canvas-size canvas-size)
-        {:keys [vertices]} (path-gpu/prepare-path-frame! path-system ops zoom)
+        {:keys [vertices]} (path-painter/prepare-path-frame! path-system ops zoom)
         encoder (.createCommandEncoder device)
         pass (.beginRenderPass
               encoder
@@ -1299,7 +1298,7 @@
                                             (clj->js {:format view-format}))
                           :clearValue clear-value
                           :loadOp "clear" :storeOp "store"}]}))]
-    (path-gpu/draw-path-range! pass path-system 0 vertices)
+    (path-painter/draw-path-range! pass path-system 0 vertices)
     (.end pass)
     (.copyTextureToBuffer
      encoder
@@ -1475,9 +1474,9 @@
   (let [material (path-quad-material :path-upload-gate 1.0
                                      [0.3 0.7 0.4 1.0] 1.0)
         first-ops [(path-op :path-upload-gate material)]
-        first-write (path-gpu/prepare-path-frame! path-system first-ops 1.0)
+        first-write (path-painter/prepare-path-frame! path-system first-ops 1.0)
         equal-new-vector (mapv identity first-ops)
-        same-mesh-set (path-gpu/prepare-path-frame!
+        same-mesh-set (path-painter/prepare-path-frame!
                        path-system equal-new-vector 1.0)]
     {:first-write first-write
      :equal-new-vector same-mesh-set
@@ -1491,7 +1490,7 @@
                  (gpu-budget/snapshot-adapter-limits adapter))
         camera (device/create-camera-buffer device tracker)
         containers-buffer (device/create-containers-buffer device tracker)
-        system (path-gpu/init-path-system
+        system (path-painter/init-path-system
                 device "rgba8unorm-srgb" camera containers-buffer
                 :tracker tracker :scene-color (scene-color/scene-color true))]
     (-> (promise-mapv (partial run-path-golden! device system)
@@ -1523,13 +1522,13 @@
                             (:pass? color)
                             (:pass? upload-gate))
                  result (assoc state
-                               :system (path-gpu/path-receipt system)
+                               :system (path-painter/path-receipt system)
                                :coverage :aliased-v1
                                :product-pick :cpu-path-authority
                                :self-overlap-alpha
                                :direct-triangle-double-blend-declared
                                :pass? pass?)]
-             (path-gpu/destroy-path-system! system)
+             (path-painter/destroy-path-system! system)
              result))))))
 
 (defn- selected-limits [^js limits]
@@ -1562,10 +1561,10 @@
      :limits (selected-limits (.-limits adapter))}))
 
 (defn- shader-digests []
-  (let [entries [["slug-vertex" slug-gpu/slug-vertex-shader]
-                 ["slug-fragment" slug-gpu/slug-fragment-shader]
+  (let [entries [["slug-vertex" text-painter/slug-vertex-shader]
+                 ["slug-fragment" text-painter/slug-fragment-shader]
                  ["region3d-placed-flat"
-                  region3d-placement-gpu/placed-flat-shader]]]
+                  on-plane-painter/placed-flat-shader]]]
     (-> (promise-mapv (fn [[label source]]
                         (.then (sha256-string source)
                                (fn [digest] [label digest])))
@@ -1795,10 +1794,10 @@
                    (let [{:keys [first-vertex vertex-count]}
                          (nth @(:!prepared surround-path-system) op-index)]
                      (fn [pass]
-                       (path-gpu/draw-path-range! pass surround-path-system
+                       (path-painter/draw-path-range! pass surround-path-system
                                                   first-vertex vertex-count))))
         region (fn [pass]
-                 (region3d-gpu/composite-region! pass region-system
+                 (region3d-painter/composite-region! pass region-system
                                                  region3d-id))]
     (case sides
       :sandwich [(surround 0) region (surround 1)]
@@ -1819,16 +1818,16 @@
                                :format color-format
                                :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
                                               js/GPUTextureUsage.COPY_SRC)}))
-        owner (region3d-gpu/binding-owner region-system)
+        owner (region3d-painter/binding-owner region-system)
         {:keys [active stale]}
         (compositor-gpu/active-region-leases! compositor owner)
         encoder (.createCommandEncoder device)
-        prepared (:prepared (region3d-gpu/region3d-receipt region-system))
+        prepared (:prepared (region3d-painter/region3d-receipt region-system))
         passes (vec (for [{region-id :region/id shadow? :shadow?}
                           (region-bindings/desired-rows owner)
                           :when (contains? prepared region-id)
                           role (if shadow? [:shadow :interior] [:interior])]
-                      (region3d-gpu/encode-region-pass!
+                      (region3d-painter/encode-region-pass!
                        region-system encoder region-id role
                        (get active region-id))))
         scene (compositor-gpu/acquire-target!
@@ -1856,8 +1855,8 @@
    (region3d-capture! harness op session sides {}))
   ([{:keys [compositor region-system] :as harness}
     op session sides prepare-overrides]
-   (region3d-gpu/attach-compositor! region-system compositor)
-   (region3d-gpu/prepare-region3d-frame!
+   (region3d-painter/attach-compositor! region-system compositor)
+   (region3d-painter/prepare-region3d-frame!
     region-system (region3d-regions op) session
     (merge (region3d-prepare-options harness) prepare-overrides))
    (region3d-direct-frame! harness (region3d-painters harness sides))))
@@ -1867,8 +1866,8 @@
    (region3d-capture-pair! harness op session sides {}))
   ([{:keys [compositor region-system] :as harness}
     op session sides prepare-overrides]
-   (region3d-gpu/attach-compositor! region-system compositor)
-   (region3d-gpu/prepare-region3d-frame!
+   (region3d-painter/attach-compositor! region-system compositor)
+   (region3d-painter/prepare-region3d-frame!
     region-system (region3d-regions op) session
     (merge (region3d-prepare-options harness) prepare-overrides))
    (let [painters (region3d-painters harness sides)]
@@ -1982,7 +1981,7 @@
   [{:keys [device compositor region-system tracker] :as harness} region op]
   (let [base-view (:view-default region)
         changed-view (assoc base-view :yaw 0.045 :pitch -0.02)
-        before-view (region3d-gpu/region3d-receipt region-system)
+        before-view (region3d-painter/region3d-receipt region-system)
         wait-for-queue
         (fn [value-fn]
           (.then (.onSubmittedWorkDone (.-queue ^js device))
@@ -1993,7 +1992,7 @@
             (region3d-capture!
              harness op {:regions {region3d-id {:view changed-view}}} :region)
             (fn [{view-passes :passes}]
-              (let [after-view (region3d-gpu/region3d-receipt region-system)]
+              (let [after-view (region3d-painter/region3d-receipt region-system)]
                 (.then
                  (region3d-capture!
                   harness op {:regions {region3d-id {:view changed-view}}}
@@ -2028,7 +2027,7 @@
                    (assoc state :shadow-off
                           (compositor-gpu/region-leases-receipt compositor))))))))
          (fn [state]
-           (region3d-gpu/prepare-region3d-frame!
+           (region3d-painter/prepare-region3d-frame!
             region-system {:regions []} {} {:zoom 1.0 :dpr 1.0})
            (let [frame (region3d-direct-frame!
                         harness (region3d-painters harness :empty))]
@@ -2059,8 +2058,8 @@
                                  :pass? (and (some? (:last-region-refusal receipt))
                                              (pos? (apply max sample)))})]
                      (compositor-gpu/destroy-compositor! refusal-compositor)
-                     (region3d-gpu/attach-compositor! region-system compositor)
-                     (region3d-gpu/prepare-region3d-frame!
+                     (region3d-painter/attach-compositor! region-system compositor)
+                     (region3d-painter/prepare-region3d-frame!
                       region-system {:regions []} {} {:zoom 1.0 :dpr 1.0})
                      next-state)))))))
          (fn [state]
@@ -2104,9 +2103,9 @@
                                          (pos? (:bytes after-recreate))
                                          (every? :encoded? passes))}]
                                (compositor-gpu/destroy-compositor! recreated)
-                               (region3d-gpu/attach-compositor!
+                               (region3d-painter/attach-compositor!
                                 region-system compositor)
-                               (region3d-gpu/prepare-region3d-frame!
+                               (region3d-painter/prepare-region3d-frame!
                                 region-system {:regions []} {}
                                 {:zoom 1.0 :dpr 1.0})
                                (assoc state :destroy-recreate receipt))))))))))))))
@@ -2187,7 +2186,7 @@
                          :pass? (and (some? (:last-region-refusal receipt))
                                      (pos? (apply max (pixel-rgba bytes 64 64))))}]
              (compositor-gpu/destroy-compositor! compositor)
-             (region3d-gpu/prepare-region3d-frame!
+             (region3d-painter/prepare-region3d-frame!
               region-system {:regions []} {} {:zoom 1.0 :dpr 1.0})
              result))))))
 
@@ -2213,14 +2212,14 @@
                                   :container-idx 0}}
         prepare-frame
         (fn [current-op zoom]
-          (region3d-gpu/attach-compositor! region-system lower-compositor)
-          (region3d-gpu/prepare-region3d-frame!
+          (region3d-painter/attach-compositor! region-system lower-compositor)
+          (region3d-painter/prepare-region3d-frame!
            region-system (region3d-regions current-op) {}
            (merge (region3d-prepare-options lower-harness) {:zoom zoom}))
           (region3d-painters lower-harness :region))
         install-pressure!
         (fn []
-          (let [owner (region3d-gpu/binding-owner region-system)
+          (let [owner (region3d-painter/binding-owner region-system)
                 primary (first (filter #(= region3d-id (:region/id %))
                                        (region-bindings/desired-rows owner)))
                 physical (compositor-gpu/region-lease
@@ -2260,7 +2259,7 @@
                     #(assoc state :honest-counter %))))
          (fn [state]
            (let [frame (prepare-frame mutated-op 8.0)
-                 owner (region3d-gpu/binding-owner region-system)
+                 owner (region3d-painter/binding-owner region-system)
                  primary (first (region-bindings/desired-rows owner))]
              (region-bindings/reconcile-desired! owner [primary])
              (compositor-gpu/release-region-lease!
@@ -2405,8 +2404,8 @@
                                 :deterministic? deterministic?
                                 :pass? pass?}]
                     (compositor-gpu/destroy-compositor! lower-compositor)
-                    (region3d-gpu/attach-compositor! region-system compositor)
-                    (region3d-gpu/prepare-region3d-frame!
+                    (region3d-painter/attach-compositor! region-system compositor)
+                    (region3d-painter/prepare-region3d-frame!
                      region-system {:regions []} {} {:zoom 1.0 :dpr 1.0})
                     result)))))]]
     (reduce (fn [promise step] (.then promise step))
@@ -2425,7 +2424,7 @@
            {0 {:affine containers/identity-affine :flags 0 :layer 0
                :stack-path [[0 0]] :transport-slot 0}})
         surround-path-system
-        (path-gpu/init-path-system
+        (path-painter/init-path-system
          device "rgba16float" camera containers-buffer
          :initial-capacity 16 :tracker tracker
          :scene-color (scene-color/scene-color true))
@@ -2442,11 +2441,11 @@
            :region3d/above
            [[10.0 58.0] [118.0 58.0] [118.0 70.0] [10.0 70.0]]
            [0.98 0.72 0.12 0.88] 1.0))]
-        _ (path-gpu/prepare-path-frame! surround-path-system surround-ops 1.0)
-        region-system (region3d-gpu/ensure-region3d-system!
+        _ (path-painter/prepare-path-frame! surround-path-system surround-ops 1.0)
+        region-system (region3d-painter/ensure-region3d-system!
                        device tracker camera containers-buffer)
         path-system
-        (path-gpu/init-path-system
+        (path-painter/init-path-system
          device "rgba16float" camera containers-buffer
          :tracker tracker :scene-color (scene-color/scene-color true))
         compositor (compositor-gpu/create-compositor!
@@ -2478,7 +2477,7 @@
                 (fn [pair]
                   (let [placement-receipt
                         (:placements
-                         (region3d-gpu/region3d-receipt region-system))]
+                         (region3d-painter/region3d-receipt region-system))]
                     {:case-id case-id :zoom 1.0
                      :regime :region3d-floor-default
                      :normalization :region-local-3d-inside-world-2d
@@ -2518,7 +2517,7 @@
                                                    (:h transparent-op)]
                               :images [(:image lower)]})
                  determinism (mapcat #(map :determinism (:images %)) cases)
-                 system-receipt (region3d-gpu/region3d-receipt region-system)
+                 system-receipt (region3d-painter/region3d-receipt region-system)
                  seam-receipt (:seam-receipt (last base-cases))
                  compositor-receipt
                  (compositor-gpu/compositor-receipt compositor)
@@ -2537,9 +2536,9 @@
                          :fixture-query "?region3d=1"
                          :pass? pass?}]
              (compositor-gpu/destroy-compositor! compositor)
-             (path-gpu/destroy-path-system! path-system)
-             (path-gpu/destroy-path-system! surround-path-system)
-             (region3d-gpu/destroy-region3d-system! region-system)
+             (path-painter/destroy-path-system! path-system)
+             (path-painter/destroy-path-system! surround-path-system)
+             (region3d-painter/destroy-region3d-system! region-system)
              result))))))
 
 (defn ^:export run-verifier! []
@@ -2591,14 +2590,14 @@
                                       slug-system (do
                                                     (js/console.log "[W0-A] init-slug-pipeline-start")
                                                     (let [system
-                                                          (slug-gpu/init-text-system
+                                                          (text-painter/init-text-system
                                                            device color-format camera-buffer slug-assets
                                                            :initial-capacity 1
                                                            :containers-buffer containers-buffer)]
                                                       (js/console.log "[W0-A] init-slug-pipeline-complete")
                                                       system))
                                       ubuntu-system
-                                      (slug-gpu/init-text-system
+                                      (text-painter/init-text-system
                                        device color-format camera-buffer t1-assets
                                        :initial-capacity 2
                                        :containers-buffer containers-buffer)

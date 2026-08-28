@@ -1,4 +1,4 @@
-(ns app.client.path.path-gpu
+(ns app.client.path.painter
   "The path painter: one repacked vertex lane and a mesh cache keyed by
    content, version, and zoom regime.
    Takes: a device, a format, and the shared buffers to build the system; the

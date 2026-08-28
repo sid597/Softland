@@ -1,4 +1,4 @@
-(ns app.client.image.image-gpu
+(ns app.client.image.painter
   "The image painter: quads sampling an atlas or a dedicated texture, with mip
    levels for zooming out.
    Takes: a device, a format, and the shared camera and containers buffers to

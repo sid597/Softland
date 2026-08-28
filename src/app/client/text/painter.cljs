@@ -1,4 +1,4 @@
-(ns app.client.text.slug-gpu
+(ns app.client.text.painter
   "The text painter: Slug. Glyph outlines are evaluated per pixel in the
    fragment shader from curve and band textures; no atlas, exact at any zoom.
    Takes: a device and a font's curve, band, and meta data to build the system;

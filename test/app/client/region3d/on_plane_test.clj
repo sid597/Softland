@@ -1,6 +1,6 @@
-(ns app.client.region3d.placement-test
+(ns app.client.region3d.on-plane-test
   (:require [app.client.region3d.material :as region-material]
-            [app.client.region3d.placement :as placement]
+            [app.client.region3d.on-plane :as on-plane]
             [app.client.region3d.scene :as region-scene]
             [app.client.engine.placement :as containers]
             [app.client.text.layout :as text-layout]
@@ -33,7 +33,7 @@
                             {:text "ABC" :font-size 10.0 :char-advance 6.0
                              :line-height 12.0 :origin [0.0 0.0]})}
         font-assets {:layout-provider nil}
-        layout (placement/layout-placed-text placement font-assets)]
+        layout (on-plane/layout-placed-text placement font-assets)]
     (is (= "ABC" (get-in layout [:source :text])))
     ;; Contract-T §7.5: glyph data reads exclusively through the accessor
     ;; seam — the raw :glyphs path is the named crime, not a missing field.
@@ -51,7 +51,7 @@
         region-op {:address :region/shared :region-id :region/a
                    :container 0 :x 20.0 :y 30.0 :w 400.0 :h 240.0
                    :region3d/scene scene}
-        result (placement/project-region-anchor
+        result (on-plane/project-region-anchor
                 {:binding {:bind :region-object :region :region/shared
                            :object :mesh/a :local [0.4 0.25 0.3]}
                  :region-op region-op :maintained maintained :camera camera

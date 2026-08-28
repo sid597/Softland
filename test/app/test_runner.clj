@@ -32,9 +32,8 @@
   '[app.client.image.material-test
     app.client.path.material-test
     app.client.path.tessellation-test
-    app.client.region3d.evaluation-test
     app.client.region3d.material-test
-    app.client.region3d.placement-test
+    app.client.region3d.on-plane-test
     app.client.region3d.scene-test
     app.client.engine.rungs-test
     app.client.engine.placement-test

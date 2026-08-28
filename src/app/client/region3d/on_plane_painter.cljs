@@ -1,4 +1,4 @@
-(ns app.client.region3d.placement-gpu
+(ns app.client.region3d.on-plane-painter
   "Packs and draws ink placed inside a 3D region.
    Takes: the region system, a region's GPU state, placements, the maintained
    scene, a camera, and a path cache; a render pass and a region uniform to
@@ -6,7 +6,7 @@
    Gives: the caller's path cache plus packed rows in a flat vertex buffer; ink
    draw calls.
    Holds: a receipt atom per system."
-  (:require [app.client.region3d.placement :as placement]
+  (:require [app.client.region3d.on-plane :as on-plane]
             [app.client.region3d.scene :as scene]
             [app.client.engine.budget :as gpu-budget]))
 
@@ -144,7 +144,7 @@
   (mapv #(nth matrix %) [0 4 8 12 1 5 9 13 2 6 10 14 3 7 11 15]))
 
 (defn- ink-pack [cache placed matrix]
-  (let [{next-cache :cache pack :pack} (placement/pack-placed-ink cache placed)]
+  (let [{next-cache :cache pack :pack} (on-plane/pack-placed-ink cache placed)]
     {:cache next-cache
      :packed {:status :resolved :kind :ink :matrix matrix
               :vertices (:vertices pack) :color (:color pack)
@@ -205,7 +205,7 @@
            status (:status packed)
            matrix (:matrix packed)
            color (when (= :resolved status)
-                   (placement/linear-premultiplied
+                   (on-plane/linear-premultiplied
                     (:color packed) 1.0 1.0))
            depth (when matrix
                    (scene/length

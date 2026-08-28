@@ -1,4 +1,4 @@
-(ns app.client.region3d.placement
+(ns app.client.region3d.on-plane
   "Puts 2D marks on 3D planes: text laid out with the text preparer, ink
    tessellated with the path preparer, then packed and anchored on a region's
    plane. The one place two kinds meet.

@@ -254,11 +254,11 @@ const slugGoldens = (result, manifest) =>
 const sourceInputs = () =>
   [
     "src/app/client/engine/device.cljs",
-    "src/app/client/text/slug_gpu.cljs",
-    "src/app/client/image/image_gpu.cljs",
+    "src/app/client/text/painter.cljs",
+    "src/app/client/image/painter.cljs",
     "src/app/client/verifier/core.cljs",
-    "src/app/client/path/path_gpu.cljs",
-    "src/app/client/region3d/region3d_gpu.cljs",
+    "src/app/client/path/painter.cljs",
+    "src/app/client/region3d/painter.cljs",
     "test/render_engine/verify_instance_cut.mjs",
     "test/render_engine/run_verifier.mjs",
   ].map(sha256File);

@@ -24,14 +24,14 @@ for (const relative of deleted) {
 
 const registrationSources = [
   "src/app/client/engine/device.cljs",
-  "src/app/client/text/slug_gpu.cljs",
-  "src/app/client/image/image_gpu.cljs",
+  "src/app/client/text/painter.cljs",
+  "src/app/client/image/painter.cljs",
 ].map(read).join("\n");
 absent(registrationSources, /render\.family\/connector|connector-registration/,
   "retired family is still registered");
 
 const scene = read("src/app/client/region3d/scene.cljc");
-const regionGpu = read("src/app/client/region3d/region3d_gpu.cljs");
+const regionGpu = read("src/app/client/region3d/painter.cljs");
 absent(scene, /\b(?:gizmo-handles|translate-delta|rotate-delta|scale-ratio|maintain-scene)\b/,
   "retired Region3D interaction closure survived");
 absent(regionGpu, /\b(?:grid-shader|overlay-glyph-shader|gizmo-shader|prepared-pick-state)\b/,
@@ -41,8 +41,8 @@ const editAndPulseSources = [
   "src/app/client/path/material.cljc",
   "src/app/client/region3d/material.cljc",
   "src/app/client/engine/device.cljs",
-  "src/app/client/text/slug_gpu.cljs",
-  "src/app/client/image/image_gpu.cljs",
+  "src/app/client/text/painter.cljs",
+  "src/app/client/image/painter.cljs",
 ].map(read).join("\n");
 absent(editAndPulseSources,
   /\b(?:revisioned-edit|move-knot|set-knot-pressure|move-contour-point|replace-contours|edit-diff|apply-edit|pulse-alpha)\b/,
@@ -51,9 +51,9 @@ absent(editAndPulseSources,
 const sceneContractSources = [
   "src/app/client/region3d/scene.cljc",
   "src/app/client/engine/device.cljs",
-  "src/app/client/text/slug_gpu.cljs",
-  "src/app/client/image/image_gpu.cljs",
-  "src/app/client/path/path_gpu.cljs",
+  "src/app/client/text/painter.cljs",
+  "src/app/client/image/painter.cljs",
+  "src/app/client/path/painter.cljs",
 ].map(read).join("\n");
 absent(sceneContractSources,
   /\bpick-reverse\b|:region-router\b|:pick-order-derived\?|:resolve-view\b|:region-composite\b|:pass-class\s+:region\b/,
@@ -64,11 +64,11 @@ absent(sceneContractSources, /:pick\b/,
 const painterFiles = [
   "src/app/client/engine/device.cljs",
   "src/app/client/engine/compositor.cljs",
-  "src/app/client/text/slug_gpu.cljs",
-  "src/app/client/image/image_gpu.cljs",
-  "src/app/client/path/path_gpu.cljs",
-  "src/app/client/region3d/region3d_gpu.cljs",
-  "src/app/client/region3d/placement_gpu.cljs",
+  "src/app/client/text/painter.cljs",
+  "src/app/client/image/painter.cljs",
+  "src/app/client/path/painter.cljs",
+  "src/app/client/region3d/painter.cljs",
+  "src/app/client/region3d/on_plane_painter.cljs",
 ].map((relative) => path.join(root, relative));
 const painterFence = /\b(?:selection|marquee|gizmo|orbit|elbow|arrowhead|connector)\b/i;
 for (const absolute of [...new Set(painterFiles)]) {

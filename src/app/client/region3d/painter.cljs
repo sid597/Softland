@@ -1,4 +1,4 @@
-(ns app.client.region3d.region3d-gpu
+(ns app.client.region3d.painter
   "The 3D painter: uploads a region's evaluated scene and session, encodes its
    shadow and interior passes into a lease, and composites the result into the
    2D frame. Also attaches the compositor per device.
@@ -9,15 +9,14 @@
    region.
    Holds: one system per device and the compositor per device (WeakMaps), plus
    per-system atoms for prepared scenes and composite rows."
-  (:require [app.client.region3d.evaluation :as evaluation]
-            [app.client.region3d.material :as material]
-            [app.client.region3d.placement :as placement]
+  (:require [app.client.region3d.material :as material]
+            [app.client.region3d.on-plane :as on-plane]
             [app.client.region3d.scene :as scene]
             [app.client.engine.compositor :as compositor]
             [app.client.engine.budget :as gpu-budget]
             [app.client.engine.leases :as region-bindings]
-            [app.client.region3d.placement-gpu
-             :as placement-gpu]))
+            [app.client.region3d.on-plane-painter
+             :as on-plane-painter]))
 
 (def region3d-gpu-version 1)
 (def max-lights 8)
@@ -450,7 +449,7 @@
     {:region3d-gpu/version region3d-gpu-version
      :device device :tracker tracker :camera-buffer camera-buffer
      :containers-buffer containers-buffer :pipelines (create-pipelines! device)
-     :placement-system (placement-gpu/init-placement-system! device tracker)
+     :placement-system (on-plane-painter/init-placement-system! device tracker)
      :sampler (.createSampler ^js device (clj->js {:minFilter "linear"
                                                    :magFilter "linear"}))
      :shadow-sampler (.createSampler ^js device
@@ -659,7 +658,7 @@
      :shadow-uniform (create-buffer! (:device system) (:tracker system)
                                      (str "region3d/" region-id "/shadow-uniform")
                                      shadow-uniform-bytes uniform-usage)
-     :placement (placement-gpu/create-region-gpu!
+     :placement (on-plane-painter/create-region-gpu!
                  (:placement-system system) region-id)}))
 
 (defn- write-material-gpu! [system region-id gpu maintained]
@@ -748,7 +747,7 @@
 (defn- destroy-region-gpu! [system gpu]
   (doseq [key [:vertex :instances :lights :uniform :shadow-uniform]]
     (destroy-buffer! system (get gpu key) :region3d-region-close))
-  (placement-gpu/destroy-region-gpu! (:placement-system system)
+  (on-plane-painter/destroy-region-gpu! (:placement-system system)
                                      (:placement gpu)))
 
 (defn- composite-row-bytes [{:keys [x y w h container-idx]}]
@@ -815,7 +814,7 @@
   (js/Math.pow region-encode-step (region-encode-rung scale)))
 
 (defn- font-input-token [font-assets]
-  (placement/provider-identity font-assets))
+  (on-plane/provider-identity font-assets))
 
 (defn prepare-region3d-frame!
   "Upload region material/session projections before any pass opens. Returns a
@@ -860,7 +859,7 @@
                        (or (nil? old)
                            (not= background-key (:background-key old)))
                        evaluation-result
-                       (evaluation/evaluate-scene
+                       (scene/evaluate-scene
                         (:maintained old) (:evaluation-key old)
                         raw-region session-row)
                        update-kind (:update-kind evaluation-result)
@@ -895,7 +894,7 @@
                         :placements (:region3d/resolved-placements op)
                         :font (font-input-token font-assets)
                         :session-layout
-                        (placement/session-layout-key session-layout-snapshot)
+                        (on-plane/session-layout-key session-layout-snapshot)
                         :path-system (system-token path-system)
                         :max-lease-size max-lease-size}]
                    (let [gpu0 (or (:gpu old)
@@ -924,7 +923,7 @@
                                                    session-row shadow-space)
                                   gpu1)
                            placement-result
-                           (placement-gpu/prepare-placements!
+                           (on-plane-painter/prepare-placements!
                             (:placement-system system) (:placement gpu2)
                             (:region3d/resolved-placements op) maintained camera
                             (if path-system @(:!mesh-cache path-system) {})
@@ -1136,7 +1135,7 @@
     (draw-mesh-rows! pass system prepared
                      (get-in prepared [:draw-order :transparent])
                      (get-in system [:pipelines :transparent]) mesh-bind)
-    (placement-gpu/draw-placements! pass (:placement-system system)
+    (on-plane-painter/draw-placements! pass (:placement-system system)
                                     (:placement gpu) (:uniform gpu))
     (.end pass)))
 
@@ -1219,7 +1218,7 @@
 (defn region3d-receipt [system]
   (assoc @(:!receipt system)
          :bindings (region-bindings/receipt (:binding-owner system))
-         :placements (placement-gpu/placement-receipt
+         :placements (on-plane-painter/placement-receipt
                       (:placement-system system))
          :prepared
          (into {} (map (fn [[id row]]
@@ -1247,7 +1246,7 @@
     (gpu-budget/destroy-resource! (:tracker system) texture
                                   :reason :region3d-system-destroy)
     (.destroy ^js texture))
-  (placement-gpu/destroy-placement-system! (:placement-system system))
+  (on-plane-painter/destroy-placement-system! (:placement-system system))
   (reset! (:!prepared system) {})
     (.delete !systems-by-device (:device system))
   true)
