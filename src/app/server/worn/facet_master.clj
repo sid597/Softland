@@ -10,7 +10,7 @@
             [app.server.rama.ingest-epoch :as ingest-epoch]
             [app.server.worn.activation-event :as activation-event]
             [app.server.worn.binding-material :as binding-material]
-            [app.server.worn.facet-material :as facet-material]))
+            [app.server.worn.facet-engine :as facet-engine]))
 
 (defn master-id
   [spec]
@@ -257,7 +257,7 @@
          pointer-container-id (active-pointer-container-id spec)
          candidate (ocr/read-revision runtime revision-id)
          compiled (when candidate
-                    (facet-material/compile-source
+                    (facet-engine/compile-source
                      spec (:content-text candidate)))
          errors (cond-> []
                   (nil? candidate)
@@ -350,7 +350,7 @@
         imported (when (nil? (:latest-revision before))
                    (import-candidate!
                     runtime spec
-                    (facet-material/source-for
+                    (facet-engine/source-for
                      (:facet-master/default-form spec))
                     {:request/id (str "facet-master-" slug "-v0")
                      :time-ms 0
@@ -451,12 +451,12 @@
 
 (defn instance-master-id
   [parent-spec subject-uid]
-  (facet-material/instance-master-id
+  (facet-engine/instance-master-id
    (master-id parent-spec) (subject-digest subject-uid)))
 
 (defn instance-spec
   [parent-spec subject-uid]
-  (facet-material/instance-spec
+  (facet-engine/instance-spec
    parent-spec (instance-master-id parent-spec subject-uid) subject-uid))
 
 (defn candidate-revision-id
@@ -472,7 +472,7 @@
   [runtime spec]
   (let [{:keys [active-revision]} (read-master runtime spec)]
     (when active-revision
-      (assoc (facet-material/compile-source
+      (assoc (facet-engine/compile-source
               spec (:content-text active-revision))
              :revision-id (:revision-id active-revision)))))
 
@@ -484,7 +484,7 @@
   (let [compiled (compiled-active runtime parent-spec)]
     (if (:valid? compiled)
       {:grammar (:grammar compiled) :material (:material compiled)}
-      (let [floor (facet-material/code-floor parent-spec)]
+      (let [floor (facet-engine/code-floor parent-spec)]
         {:grammar (:facet-master/grammar floor)
          :material (dissoc floor
                            :facet-master/id :facet-master/facet
@@ -498,7 +498,7 @@
   (let [ispec (instance-spec parent-spec subject-uid)
         state (read-master runtime ispec)
         compiled (when (:active-revision state)
-                   (facet-material/compile-source
+                   (facet-engine/compile-source
                     ispec (:content-text (:active-revision state))))]
     {:spec ispec
      :instance-master-id (master-id ispec)
@@ -508,7 +508,7 @@
      :compiled compiled
      :material (when (:valid? compiled) (:material compiled))
      :holds (when (:valid? compiled)
-              (facet-material/instance-holds (:material compiled)))
+              (facet-engine/instance-holds (:material compiled)))
      :pin (when (:valid? compiled)
             (:facet-master/pin (:material compiled)))
      :deviates? (when (:valid? compiled)
@@ -535,7 +535,7 @@
                                                runtime parent-spec subject-uid)
         iid (master-id spec)
         {:keys [grammar material]} (inherited-material runtime parent-spec)
-        form (facet-material/instance-form
+        form (facet-engine/instance-form
               parent-spec iid subject-uid
               {:grammar grammar
                :material material
@@ -551,7 +551,7 @@
          (remove #(binding-material/instance-site-legal?
                    % (:facet-master/facet parent-spec))
                  (keys (:facet-master/bindings form))))
-        compiled (facet-material/compile-form spec form)
+        compiled (facet-engine/compile-form spec form)
         time-ms (long (or time-ms (envelope/now-ms)))]
     (cond
       (seq illegal-sites)
@@ -570,7 +570,7 @@
        :subject subject-uid}
 
       :else
-      (let [source (facet-material/source-for form)
+      (let [source (facet-engine/source-for form)
             revision-id (candidate-revision-id spec source)
             req-id (or request-id
                        (str "fm-instance-" (subject-digest subject-uid) "-"

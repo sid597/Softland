@@ -3,7 +3,7 @@
    Takes: served text-body forms.
    Gives: compiled wrap-column values and contribution rows.
    Holds: spec."
-  (:require [app.server.worn.facet-material :as facet-material]))
+  (:require [app.server.worn.facet-engine :as facet-engine]))
 
 (def master-id "fm:text-body")
 (def grammar-version 0)
@@ -20,7 +20,7 @@
 
 (defn- positive-integer?
   [x]
-  (and (facet-material/integer-number? x) (pos? x)))
+  (and (facet-engine/integer-number? x) (pos? x)))
 
 (def spec
   {:facet-master/id master-id
@@ -44,19 +44,19 @@
 
 (defn compile-form
   [form]
-  (facet-material/compile-form spec form))
+  (facet-engine/compile-form spec form))
 
 (defn compile-source
   [source]
-  (facet-material/compile-source spec source))
+  (facet-engine/compile-source spec source))
 
 (def code-floor
-  (facet-material/code-floor spec))
+  (facet-engine/code-floor spec))
 
 (defn resolved-wear
   [served]
-  (facet-material/resolved-wear spec served))
+  (facet-engine/resolved-wear spec served))
 
 (defn contribution-stamp
   [wear subject site role slot]
-  (facet-material/contribution-stamp wear subject site role slot))
+  (facet-engine/contribution-stamp wear subject site role slot))

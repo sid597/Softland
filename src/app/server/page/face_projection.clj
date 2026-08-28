@@ -24,7 +24,7 @@
             [app.server.rama.face-arsenal :as face-arsenal]
             [app.server.worn.activation-event :as activation-event]
             [app.server.worn.binding-material :as binding-material]
-            [app.server.worn.facet-material :as facet-material]
+            [app.server.worn.facet-engine :as facet-engine]
             [app.server.worn.facet-masters :as facet-masters]
             [app.server.page.matter-room :as matter-room]
             [app.server.page.material-inspector :as material-inspector]
@@ -814,7 +814,7 @@
    by the drill scope and never replaces the active revision."
   [oc-rt request spec]
   (let [drill? (true? (get-in request [:params :drill?]))
-        floor-wear (facet-material/code-floor spec)
+        floor-wear (facet-engine/code-floor spec)
         floor-material
         (dissoc floor-wear
                 :facet-master/id
@@ -839,10 +839,10 @@
         (let [{:keys [latest-revision active-pointer active-revision]}
               (facet-master/read-master oc-rt spec)
               latest-compiled (when latest-revision
-                                (facet-material/compile-source
+                                (facet-engine/compile-source
                                  spec (:content-text latest-revision)))
               active-compiled (when active-revision
-                                (facet-material/compile-source
+                                (facet-engine/compile-source
                                  spec (:content-text active-revision)))
               active-valid? (true? (:valid? active-compiled))
               active-id (:revision-id active-revision)
@@ -960,7 +960,7 @@
         (into []
               (keep
                (fn [spec]
-                 (let [wear (facet-material/resolved-wear
+                 (let [wear (facet-engine/resolved-wear
                              spec (get by-id (:facet-master/id spec)))
                        rows (:facet-master/bindings wear)]
                    ;; a FLOORED wear already IS the floor tier below — listing
@@ -980,7 +980,7 @@
          (fn [m spec]
            (let [facet (:facet-master/facet spec)
                  rows (:facet-master/bindings
-                       (facet-material/code-floor spec))]
+                       (facet-engine/code-floor spec))]
              (if (seq rows)
                (update m facet
                        (fn [current]
@@ -1096,7 +1096,7 @@
                           (into (sorted-map)
                                 (map (fn [[subject inst]]
                                        [subject
-                                        (facet-material/deviation-diff
+                                        (facet-engine/deviation-diff
                                          spec shared inst)]))
                                 m)]))))
              specs)
@@ -1150,7 +1150,7 @@
 
 (defn- candidate-trail-entry
   [spec revision active-id latest-id]
-  (let [compiled (facet-material/compile-source
+  (let [compiled (facet-engine/compile-source
                   spec (:content-text revision))
         revision-id (:revision-id revision)]
     {:trail/kind :candidate

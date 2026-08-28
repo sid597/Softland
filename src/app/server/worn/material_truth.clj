@@ -7,7 +7,7 @@
             [app.server.worn.facet-master :as facet-master]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.worn.activation-event :as activation-event]
-            [app.server.worn.facet-material :as facet-material]
+            [app.server.worn.facet-engine :as facet-engine]
             [app.server.worn.facet-masters :as facet-masters]))
 
 ;; ===========================================================================
@@ -97,7 +97,7 @@
       (if (nil? rev)
         {:valid? false :revision-id pinned-revision-id
          :errors [{:type :facet-master/pinned-revision-missing}]}
-        (assoc (facet-material/compile-source parent-spec (:content-text rev))
+        (assoc (facet-engine/compile-source parent-spec (:content-text rev))
                :revision-id pinned-revision-id)))))
 
 (defn served-instance

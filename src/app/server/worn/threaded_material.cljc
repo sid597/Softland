@@ -3,7 +3,7 @@
    Takes: served thread-distance and edge forms.
    Gives: compiled thread adoption values, edge values, and contribution rows.
    Holds: spec."
-  (:require [app.server.worn.facet-material :as facet-material]))
+  (:require [app.server.worn.facet-engine :as facet-engine]))
 
 (def master-id "fm:threaded")
 (def grammar-version 0)
@@ -33,7 +33,7 @@
    #{:threaded/column-adoption-reach-lines}
    :validators
    {:threaded/column-adoption-reach-lines
-    {:valid? facet-material/non-negative-number?
+    {:valid? facet-engine/non-negative-number?
      :error-type :threaded/column-adoption-reach-lines-invalid}}})
 
 (def spec
@@ -58,30 +58,30 @@
      (merge
       (:validators v0-grammar)
       {:threaded/edge-rail-width
-       {:valid? facet-material/non-negative-number?
+       {:valid? facet-engine/non-negative-number?
         :error-type :threaded/edge-rail-width-invalid}
        :threaded/edge-rail-color
-       {:valid? facet-material/valid-rgba?
+       {:valid? facet-engine/valid-rgba?
         :error-type :threaded/edge-rail-color-invalid}
        :threaded/edge-indent
-       {:valid? facet-material/non-negative-number?
+       {:valid? facet-engine/non-negative-number?
         :error-type :threaded/edge-indent-invalid}})}}})
 
 (defn compile-form
   [form]
-  (facet-material/compile-form spec form))
+  (facet-engine/compile-form spec form))
 
 (defn compile-source
   [source]
-  (facet-material/compile-source spec source))
+  (facet-engine/compile-source spec source))
 
 (def code-floor
-  (facet-material/code-floor spec))
+  (facet-engine/code-floor spec))
 
 (defn resolved-wear
   [served]
-  (facet-material/resolved-wear spec served))
+  (facet-engine/resolved-wear spec served))
 
 (defn contribution-stamp
   [wear subject site role slot]
-  (facet-material/contribution-stamp wear subject site role slot))
+  (facet-engine/contribution-stamp wear subject site role slot))

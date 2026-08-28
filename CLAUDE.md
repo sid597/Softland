@@ -66,7 +66,7 @@ No-GPU rows are `.cljc` and run under the JVM suite; painters are `.cljs` and ru
 `src/app/server/` — the land, folded by what the code is about:
 - `rama/` — the kernels: `object_container` (+ `object_container/runtime`, `transcript_identity`) · `relation_kernel` · `envelope` · `ingest_epoch` · `transcript_ingest`; and `trail_view`, `face_arsenal`, pinned here because a Rama module's name is `namespace/var` and the cluster and the archive key on it
 - `ingest/` — the world into rows: `markdown_adapter` · `transcript_adapter` · `transcript` · `clojure_adapter` · `git_import` · `ingest_watchers` · `transcript_import` · `code_import`
-- `worn/` — revisioned material and its pointer: `facet_material` · `facet_masters` · the facet specs · `activation_event` · `binding_material` · `facet_master` · `material_truth`
+- `worn/` — revisioned material and its pointer: `facet_engine` · `facet_masters` · the facet specs · `activation_event` · `binding_material` · `facet_master` · `material_truth`
 - `episode/` — a typed turn and the model it summons: `episode` · `llm` · `cascade` · `material_circulation` · `machine_cut` · `claude_cli`
 - `page/` — what the page asked for: `face_projection` · `material_portal` · `portal_questions` · `verb_release` · `verb_registry` · `matter_room` · `material_inspector` · `reply_to_block` · `block_edit`
 - `door/` — `server_jetty` (HTTP) · `cluster` (the cluster seam); `tools/export_current_data` (the archive); `env.clj` (never read)

@@ -8,7 +8,7 @@
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.worn.attention-material :as attention]
             [app.server.worn.binding-material :as binding-material]
-            [app.server.worn.facet-material :as facet-material]
+            [app.server.worn.facet-engine :as facet-engine]
             [app.server.worn.facet-masters :as facet-masters]
             [app.server.worn.space-material :as space]))
 
@@ -52,7 +52,7 @@
    (into {}
          (map (fn [spec]
                 [(:facet-master/facet spec)
-                 (:facet-master/bindings (facet-material/code-floor spec))]))
+                 (:facet-master/bindings (facet-engine/code-floor spec))]))
          facet-masters/specs)
    binding-material/space-facet binding-material/space-floor-bindings))
 
@@ -69,7 +69,7 @@
         instance (get-in s [:facet-materials/instances
                             :space space/space-subject])
         shared-wear (space/resolved-wear shared)
-        wear (facet-material/wear-for-subject space/spec shared instance)
+        wear (facet-engine/wear-for-subject space/spec shared instance)
         interaction
         (face-projection/interaction-table-projection
          {:oc-rt runtime}
@@ -88,7 +88,7 @@
         (into {}
               (map (fn [spec]
                      [(:facet-master/facet spec)
-                      (facet-material/resolved-wear
+                      (facet-engine/resolved-wear
                        spec (get by-id (:facet-master/id spec)))]))
               facet-masters/specs)
         facet-rows

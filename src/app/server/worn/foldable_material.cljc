@@ -4,7 +4,7 @@
    Gives: compiled fold values, header copy, interaction claims, and contribution rows.
    Holds: spec."
   (:require [app.server.worn.binding-material :as binding-material]
-            [app.server.worn.facet-material :as facet-material]))
+            [app.server.worn.facet-engine :as facet-engine]))
 
 (def master-id "fm:foldable")
 (def grammar-version 0)
@@ -105,7 +105,7 @@
   [x]
   (and (map? x)
        (= #{:threshold-chars :max-share :header-copy} (set (keys x)))
-       (facet-material/integer-number? (:threshold-chars x))
+       (facet-engine/integer-number? (:threshold-chars x))
        (pos? (:threshold-chars x))
        (number? (:max-share x))
        (pos? (:max-share x))
@@ -170,19 +170,19 @@
 
 (defn compile-form
   [form]
-  (facet-material/compile-form spec form))
+  (facet-engine/compile-form spec form))
 
 (defn compile-source
   [source]
-  (facet-material/compile-source spec source))
+  (facet-engine/compile-source spec source))
 
 (def code-floor
-  (facet-material/code-floor spec))
+  (facet-engine/code-floor spec))
 
 (defn resolved-wear
   [served]
-  (facet-material/resolved-wear spec served))
+  (facet-engine/resolved-wear spec served))
 
 (defn contribution-stamp
   [wear subject site role slot]
-  (facet-material/contribution-stamp wear subject site role slot))
+  (facet-engine/contribution-stamp wear subject site role slot))

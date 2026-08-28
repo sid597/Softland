@@ -32,7 +32,7 @@
             [app.server.worn.activation-event :as activation-event]
             [app.server.worn.attention-material :as attention]
             [app.server.worn.binding-material :as bm]
-            [app.server.worn.facet-material :as facet-material]
+            [app.server.worn.facet-engine :as facet-engine]
             [app.server.worn.facet-masters :as facet-masters]
             [app.server.worn.foldable-material :as foldable]
             [app.server.worn.invocation-material :as invocation]
@@ -247,7 +247,7 @@
                  (get-in registered [:portal/identity :entity/kind])))
           (is (= :attention
                  (get-in registered [:portal/identity :entity/facet])))
-          (is (= (facet-material/floor-master-id attention/spec)
+          (is (= (facet-engine/floor-master-id attention/spec)
                  (get-in registered
                          [:portal/identity :entity/floor-master-id])))
           (is (= [master-id] (vec (keys (:portal/masters registered)))))
@@ -381,9 +381,9 @@
 (deftest smalltalk-ui-vm-p2-send-consult-wears-the-source-instance
   (let [subject "du:block:invocation-source"
         instance-id "fm:invocation~i~fixture"
-        ispec (facet-material/instance-spec
+        ispec (facet-engine/instance-spec
                invocation/spec instance-id subject)
-        form (facet-material/instance-form
+        form (facet-engine/instance-form
               invocation/spec instance-id subject
               {:grammar invocation/grammar-version
                :material (:material
@@ -391,7 +391,7 @@
                :deviates? true
                :overrides {:invocation/model "haiku"
                            :invocation/effort "high"}})
-        compiled (facet-material/compile-form ispec form)
+        compiled (facet-engine/compile-form ispec form)
         shared {:valid? true
                 :grammar invocation/grammar-version
                 :material (:material
@@ -445,7 +445,7 @@
                 (map (fn [spec]
                        [(:facet-master/facet spec)
                         (:facet-master/bindings
-                         (facet-material/code-floor spec))]))
+                         (facet-engine/code-floor spec))]))
                 facet-masters/specs)
           bm/space-facet bm/space-floor-bindings)))
 

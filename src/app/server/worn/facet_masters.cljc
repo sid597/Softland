@@ -3,7 +3,7 @@
    Takes: master ids and facet keywords.
    Gives: specifications, master ids, facet lookups, and default master ids.
    Holds: specs, by-id, and by-facet."
-  (:require [app.server.worn.facet-material :as facet-material]
+  (:require [app.server.worn.facet-engine :as facet-engine]
             [app.server.worn.attention-material :as attention]
             [app.server.worn.foldable-material :as foldable]
             [app.server.worn.invocation-material :as invocation]
@@ -55,7 +55,7 @@
    Cosmetic, but the whole point of the served table is that it answers
    `who decided that?`. Both sides now read the label from here."
   (into {}
-        (map (juxt :facet-master/facet facet-material/floor-master-id))
+        (map (juxt :facet-master/facet facet-engine/floor-master-id))
         specs))
 
 (defn floor-master-id

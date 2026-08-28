@@ -4,7 +4,7 @@
   (:require [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
             [app.server.worn.binding-material :as binding-material]
-            [app.server.worn.facet-material :as facet-material]
+            [app.server.worn.facet-engine :as facet-engine]
             [app.server.worn.facet-masters :as facet-masters]
             [app.server.worn.space-material :as space]))
 
@@ -15,7 +15,7 @@
     (into {}
           (map (fn [spec]
                  [(:facet-master/facet spec)
-                  (:facet-master/bindings (facet-material/code-floor spec))]))
+                  (:facet-master/bindings (facet-engine/code-floor spec))]))
           facet-masters/specs)
     binding-material/space-facet binding-material/space-floor-bindings)))
 
@@ -150,7 +150,7 @@
 (deftest g9-space-floor-label-is-spec-derived-and-coherent
   (is (= space/code-floor-revision-id
          binding-material/space-floor-master-id
-         (facet-material/floor-master-id space/spec)
+         (facet-engine/floor-master-id space/spec)
          (facet-masters/floor-master-id :space)))
   (is (not (str/includes?
             (slurp "test/app/server/worn/binding_dispatch_test.clj")
@@ -204,8 +204,8 @@
           form (:facet-master/default-form probe-spec)]
       (is (= {:valid? true :errors [] :grammar 0
               :material {:probe/value 7}}
-             (facet-material/compile-form probe-spec form)))
-      (is (true? (facet-material/valid-material?
+             (facet-engine/compile-form probe-spec form)))
+      (is (true? (facet-engine/valid-material?
                   probe-spec 0 {:probe/value 7})))))
 
   (testing "candidate min>=max refuses with the declared error"
@@ -232,20 +232,20 @@
 
   (testing "instance projections carry extra keys without breaking the predicate"
     (let [subject "du:space-form-validator"
-          iid (facet-material/instance-master-id
+          iid (facet-engine/instance-master-id
                space/master-id "spaceform")
-          ispec (facet-material/instance-spec space/spec iid subject)
+          ispec (facet-engine/instance-spec space/spec iid subject)
           shared (:material (space/compile-form space/default-form))
-          form (facet-material/instance-form
+          form (facet-engine/instance-form
                 space/spec iid subject
                 {:grammar space/bindings-grammar-version
                  :material shared
                  :overrides {}
                  :deviates? true
                  :pin nil})
-          compiled (facet-material/compile-form ispec form)
+          compiled (facet-engine/compile-form ispec form)
           malformed
-          (facet-material/compile-form
+          (facet-engine/compile-form
            ispec (assoc form :space/zoom-min 5.0 :space/zoom-max 4.0))]
       (is (true? (:valid? compiled)))
       (is (false? (:valid? malformed)))

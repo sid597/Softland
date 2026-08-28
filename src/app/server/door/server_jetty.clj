@@ -22,7 +22,7 @@
     [app.server.rama.object-container.runtime :as ocr]
     [app.server.episode.llm :as llm]
     [app.server.door.cluster :as cluster]
-    [app.server.worn.facet-material :as facet-material]
+    [app.server.worn.facet-engine :as facet-engine]
     [app.server.worn.facet-masters :as facet-masters]
     [app.server.worn.invocation-material :as invocation-material]
     [app.server.page.matter-room :as matter-room]
@@ -411,7 +411,7 @@
                   :facet-master/active-revision-id (:revision-id compiled)}
           instance (material-truth/served-instance
                     oc-rt invocation-material/spec source-unit-id)]
-      (facet-material/wear-for-subject
+      (facet-engine/wear-for-subject
        invocation-material/spec shared instance))
     (catch Exception e
       (log/warn e "[INVOCATION] source wear read failed; using code floor"

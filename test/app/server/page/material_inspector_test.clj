@@ -6,13 +6,13 @@
             [app.server.ingest.markdown-adapter :as markdown]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.worn.attention-material :as attention]
-            [app.server.worn.facet-material :as facet-material]
+            [app.server.worn.facet-engine :as facet-engine]
             [app.server.page.material-inspector :as inspector]
             [app.server.worn.provenance-material :as provenance]))
 
 (defn- stamp
   [master-id facet revision subject site role slot]
-  (facet-material/contribution-stamp
+  (facet-engine/contribution-stamp
    {:facet-master/id master-id
     :facet-master/facet facet
     :facet-master/revision-id revision}

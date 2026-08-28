@@ -19,7 +19,7 @@
             [app.server.worn.activation-event :as activation-event]
             [app.server.worn.attention-material :as attention]
             [app.server.worn.binding-material :as binding-material]
-            [app.server.worn.facet-material :as facet-material]
+            [app.server.worn.facet-engine :as facet-engine]
             [app.server.worn.facet-masters :as facet-masters]
             [app.server.worn.foldable-material :as foldable]
             [app.server.worn.positioned-material :as positioned]
@@ -56,7 +56,7 @@
                 {:oc-rt rt} {:params {:subjects wearers}})
         shared (get-in served [:facet-materials/by-id attention/master-id])
         inst (get-in served [:facet-materials/instances :attention subject])]
-    (facet-material/wear-for-subject attention/spec shared inst)))
+    (facet-engine/wear-for-subject attention/spec shared inst)))
 
 ;; ===========================================================================
 ;; G1 — instance deviation end to end
@@ -109,7 +109,7 @@
         (testing "the diff vs inherited is served, and is a projection"
           (let [served (face-projection/facet-materials-projection
                         {:oc-rt rt} {:params {:subjects wearers}})
-                diff (facet-material/deviation-diff
+                diff (facet-engine/deviation-diff
                       attention/spec
                       (get-in served [:facet-materials/by-id
                                       attention/master-id])
@@ -198,11 +198,11 @@
                                        attention/master-id])
                 ispec (adapter/instance-spec attention/spec delta)
                 iid (adapter/master-id ispec)
-                form (facet-material/instance-form
+                form (facet-engine/instance-form
                       attention/spec iid delta
                       {:grammar 2 :material attention/strict-bindings-form
                        :pin {:pinned-revision-id "rev:does-not-exist"}})
-                compiled (facet-material/compile-form ispec form)
+                compiled (facet-engine/compile-form ispec form)
                 broken {:facet-master/id iid
                         :facet-master/subject delta
                         :facet-master/grammar 2
@@ -210,7 +210,7 @@
                         :facet-master/material (:material compiled)
                         :facet-master/pinned
                         {:valid? false :revision-id "rev:does-not-exist"}}
-                w (facet-material/wear-for-subject
+                w (facet-engine/wear-for-subject
                    attention/spec shared broken)]
             (is (true? (:valid? compiled))
                 "the instance form itself is well-formed; only its TARGET is not")
@@ -469,11 +469,11 @@
                       :floor? false :bindings (:facet-master/bindings f)})
                    (for [spec facet-masters/specs
                          :let [b (:facet-master/bindings
-                                  (facet-material/code-floor spec))]
+                                  (facet-engine/code-floor spec))]
                          :when (seq b)]
                      {:tier :floor :facet (:facet-master/facet spec)
-                      :master-id (facet-material/floor-master-id spec)
-                      :revision-id (facet-material/floor-master-id spec)
+                      :master-id (facet-engine/floor-master-id spec)
+                      :revision-id (facet-engine/floor-master-id spec)
                       :floor? true :bindings b})
                    [{:tier :floor :facet binding-material/space-facet
                      :master-id binding-material/space-floor-master-id
@@ -756,7 +756,7 @@
 (deftest g14-floor-label-parity
   (testing "one map answers for both sides"
     (doseq [spec facet-masters/specs]
-      (is (= (facet-material/floor-master-id spec)
+      (is (= (facet-engine/floor-master-id spec)
              (facet-masters/floor-master-id (:facet-master/facet spec)))
           (:facet-master/id spec))))
   (testing "the space's floor label is named once and read from there"
@@ -766,7 +766,7 @@
            (facet-masters/floor-master-id :space))))
   (testing "every floor row's master-id and revision-id agree"
     (doseq [spec facet-masters/specs
-            :let [label (facet-material/floor-master-id spec)]]
+            :let [label (facet-engine/floor-master-id spec)]]
       (is (string? label))
       (is (str/starts-with? label "code-floor:"))))
   (testing "P8 moves attention alone to v3; the other v2 floors stand"

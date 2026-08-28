@@ -9,7 +9,7 @@
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.worn.activation-event :as activation-event]
             [app.server.worn.binding-material :as binding-material]
-            [app.server.worn.facet-material :as facet-material]
+            [app.server.worn.facet-engine :as facet-engine]
             [app.server.worn.facet-masters :as facet-masters]
             [app.server.page.matter-room :as matter-room]
             [app.server.page.material-inspector :as material-inspector]
@@ -161,7 +161,7 @@
              (let [facet (:facet-master/facet spec)
                    shared (get-in served [:facet-materials/by-id master-id])
                    inst (get-in instances [facet subject])
-                   wear (facet-material/wear-for-subject spec shared inst)
+                   wear (facet-engine/wear-for-subject spec shared inst)
                    active-id (:facet-master/active-revision-id shared)
                    latest-id (:facet-master/latest-revision-id shared)
                    candidate? (and (string? latest-id)
@@ -214,7 +214,7 @@
                    :invalid-active-material
                    (:facet-master/floor? wear) :wear-floored
                    :else nil)
-                 :master/floor-revision-id (facet-material/floor-master-id spec)
+                 :master/floor-revision-id (facet-engine/floor-master-id spec)
                  :master/instance-id (:facet-master/id inst)
                  :master/holds-here (:facet-master/holds inst)}])
              ;; A stamp can name a master this build has never heard of — an
@@ -431,7 +431,7 @@
      (into (sorted-map)
            (keep (fn [master-id]
                    (when-let [spec (facet-masters/spec master-id)]
-                     [master-id (facet-material/floor-master-id spec)])))
+                     [master-id (facet-engine/floor-master-id spec)])))
            master-ids)}))
 
 ;; ===========================================================================
@@ -532,7 +532,7 @@
                                              (:facet-master/id spec)])
                       ;; no instance master: the portal deviates from nothing,
                       ;; which is what makes it a plain wearer of the land
-                      wear (facet-material/wear-for-subject spec shared nil)]
+                      wear (facet-engine/wear-for-subject spec shared nil)]
                   [facet
                    {:chrome/master-id (:facet-master/id wear)
                     :chrome/revision-id (:facet-master/revision-id wear)
@@ -559,7 +559,7 @@
               (when-let [spec (facet-masters/spec-for-facet facet)]
                 (let [shared (get-in served [:facet-materials/by-id
                                              (:facet-master/id spec)])
-                      wear (facet-material/wear-for-subject spec shared nil)]
+                      wear (facet-engine/wear-for-subject spec shared nil)]
                   (or (:facet-master/floor? wear)
                       (not (true? (:facet-master/valid? shared)))))))
             chrome-facets))}))
@@ -762,7 +762,7 @@
                             master-id
                             anchor-spec
                             (when anchor-spec
-                              (facet-material/floor-master-id anchor-spec)))
+                              (facet-engine/floor-master-id anchor-spec)))
                            (identity-of oc-rt entity-id)))
         placement (sect :placement {:placement/found? false}
                         #(if anchor?

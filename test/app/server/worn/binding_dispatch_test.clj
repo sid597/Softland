@@ -12,7 +12,7 @@
             [clojure.test :refer [deftest is testing]]
             [app.server.worn.attention-material :as attention]
             [app.server.worn.binding-material :as bm]
-            [app.server.worn.facet-material :as facet-material]
+            [app.server.worn.facet-engine :as facet-engine]
             [app.server.worn.facet-masters :as facet-masters]
             [app.server.worn.foldable-material :as foldable]
             [app.server.worn.positioned-material :as positioned]
@@ -29,7 +29,7 @@
     (into {}
           (map (fn [spec]
                  [(:facet-master/facet spec)
-                  (:facet-master/bindings (facet-material/code-floor spec))]))
+                  (:facet-master/bindings (facet-engine/code-floor spec))]))
           facet-masters/specs)
     bm/space-facet bm/space-floor-bindings)))
 
@@ -585,10 +585,10 @@
 (defn- served-material
   "One served entry as `facet-master-projection` would hand it over."
   [spec bindings]
-  (let [grammar (:facet-master/grammar (facet-material/code-floor spec))
+  (let [grammar (:facet-master/grammar (facet-engine/code-floor spec))
         material-keys (get-in spec [:facet-master/grammars grammar
                                     :material-keys])
-        floor-material (select-keys (facet-material/code-floor spec)
+        floor-material (select-keys (facet-engine/code-floor spec)
                                     material-keys)]
     {:facet-master/id (:facet-master/id spec)
      :facet-master/facet (:facet-master/facet spec)
@@ -606,7 +606,7 @@
   [by-id]
   (into {}
         (map (fn [spec]
-               (let [wear (facet-material/resolved-wear
+               (let [wear (facet-engine/resolved-wear
                            spec (get by-id (:facet-master/id spec)))]
                  [(:facet-master/facet spec)
                   (when-not (:facet-master/floor? wear)
@@ -616,7 +616,7 @@
 (deftest the-code-floor-survives-any-data-revision
   (let [bindings-specs (filterv
                         #(seq (:facet-master/bindings
-                               (facet-material/code-floor %)))
+                               (facet-engine/code-floor %)))
                         facet-masters/specs)
         baseline (bm/drill-report {:facet-rows (rows-under {})
                                    :floor-rows floor-rows
@@ -705,7 +705,7 @@
                                         rows)]
                               (when (seq kept) [site kept]))))
                     (:facet-master/bindings
-                     (facet-material/code-floor spec)))))]
+                     (facet-engine/code-floor spec)))))]
         (testing (str mid " — a served revision, absent, malformed, and a
                        VALID revision with every tap row removed all resolve
                        identically")
@@ -765,7 +765,7 @@
                               :facet-master/active-revision-id "rev:v0"
                               :facet-master/material
                               (:material
-                               (facet-material/compile-form
+                               (facet-engine/compile-form
                                 spec
                                 (:facet-master/default-form spec)))}]))
                      facet-masters/specs)
@@ -833,14 +833,14 @@
             positioned/bindings-form positioned/strict-bindings-form]]]
     (let [mid (:facet-master/id spec)]
       (testing (str mid " — v0 bytes still compile under their OWN grammar")
-        (let [c (facet-material/compile-form spec v0-form)]
+        (let [c (facet-engine/compile-form spec v0-form)]
           (is (:valid? c))
           (is (= 0 (:grammar c)))
           (is (not (contains? (:material c) :facet-master/bindings))
               "v0 material is never backfilled with row meaning")))
 
       (testing (str mid " — v1 adds exactly the bindings key")
-        (let [c (facet-material/compile-form spec v1-form)]
+        (let [c (facet-engine/compile-form spec v1-form)]
           (is (:valid? c))
           (is (= 1 (:grammar c)))
           (is (bm/valid-bindings? (:facet-master/bindings (:material c))))
@@ -872,7 +872,7 @@
                                 ":v3"
                                 ":v2")]
         (is (= expected-floor (:facet-master/floor-form spec)))
-        (is (seq (:facet-master/bindings (facet-material/code-floor spec))))
+        (is (seq (:facet-master/bindings (facet-engine/code-floor spec))))
         (is (str/ends-with? (:facet-master/code-floor-revision-id spec)
                             expected-suffix))
         (cond
@@ -903,12 +903,12 @@
           (is (= (:facet-master/bindings v1-form)
                  (:facet-master/bindings v2-form))
               "v2 changes the grammar version and NOTHING about the rows"))
-        (is (:valid? (facet-material/compile-form spec v1-form))
+        (is (:valid? (facet-engine/compile-form spec v1-form))
             "a durable v1 revision stays rewearable under v1 forever")))
 
       (testing (str mid " — a malformed row set is refused, not accepted")
         (is (not (:valid?
-                  (facet-material/compile-form
+                  (facet-engine/compile-form
                    spec
                    (assoc v1-form :facet-master/bindings
                           {:block/user-hit-area
@@ -925,7 +925,7 @@
             :when (not (contains? #{"fm:attention" "fm:foldable"
                                     "fm:positioned"}
                                   (:facet-master/id spec)))]
-      (is (nil? (:facet-master/bindings (facet-material/code-floor spec)))
+      (is (nil? (:facet-master/bindings (facet-engine/code-floor spec)))
           (str (:facet-master/id spec) " must stay row-free")))))
 
 ;; ===========================================================================

@@ -8,7 +8,7 @@
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.worn.activation-event :as activation-event]
             [app.server.worn.attention-material :as attention]
-            [app.server.worn.facet-material :as facet-material]
+            [app.server.worn.facet-engine :as facet-engine]
             [app.server.worn.facet-masters :as facet-masters]
             [app.server.worn.foldable-material :as foldable]
             [app.server.worn.positioned-material :as positioned]
@@ -351,7 +351,7 @@
                  provenance-wear "du:test" :machine-rail
                  :provenance-marker :block/decorations)
                 composition
-                (facet-material/compose
+                (facet-engine/compose
                  [{:wear wear
                    :stamp attention-stamp
                    :value :attention}
@@ -391,7 +391,7 @@
                      (mapv :value (:contributions composition))))
               (is (empty? (:conflicts composition)))
               (is (= :material-composition/priority-tie
-                     (-> (facet-material/compose
+                     (-> (facet-engine/compose
                           [{:wear
                             (assoc wear :facet-master/priority 10)
                             :stamp attention-stamp
@@ -538,7 +538,7 @@
             (is (= candidate-id
                    (:facet-master/active-revision-id active-served)))
             (is (= (:material
-                    (facet-material/compile-source spec candidate-source))
+                    (facet-engine/compile-source spec candidate-source))
                    (:facet-master/material active-served)))
             (is (:accepted? rollback))
             (is (= original-id

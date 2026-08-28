@@ -5,7 +5,7 @@
    Holds: spec."
   (:require #?(:clj [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])
-            [app.server.worn.facet-material :as facet-material]))
+            [app.server.worn.facet-engine :as facet-engine]))
 
 (def master-id "fm:invocation")
 (def grammar-version 0)
@@ -88,7 +88,7 @@
 
 (defn compile-form
   [form]
-  (let [compiled (facet-material/compile-form spec form)]
+  (let [compiled (facet-engine/compile-form spec form)]
     (if (:valid? compiled)
       compiled
       (update compiled :errors
@@ -109,11 +109,11 @@
        :material nil})))
 
 (def code-floor
-  (facet-material/code-floor spec))
+  (facet-engine/code-floor spec))
 
 (defn resolved-wear
   [served]
-  (facet-material/resolved-wear spec served))
+  (facet-engine/resolved-wear spec served))
 
 (defn precontext-depth
   "Decode one already-validated `thread+N` setting. Invalid values narrow to
@@ -126,4 +126,4 @@
 
 (defn contribution-stamp
   [wear subject site role slot]
-  (facet-material/contribution-stamp wear subject site role slot))
+  (facet-engine/contribution-stamp wear subject site role slot))
