@@ -1,46 +1,8 @@
 (ns app.server.worn.activation-event
-  "editable-material P6 · R4 — activation events are DECLARED FORMS.
-
-   Before P6 the active-pointer revision's source was a bare revision-id
-   string: it named WHAT is worn and nothing about who moved it, over which
-   wearers, or why. A case report derived from that trail could only guess,
-   and a guess dressed as a claim is exactly what DIRECTION forbids.
-
-   So the pointer source grows into a CLOSED edn form:
-
-     {:activation/revision-id \"rev:…\"
-      :activation/kind        :activate | :rollback | :pin | :unpin
-      :activation/scope       [:scope/all-unpinned] | [:scope/subject uid]
-      :activation/actor       {:actor/id … :actor/type …}
-      :activation/time-ms     <honest wall clock of the requesting act>
-      :activation/grounds     [<ground> …]}
-
-   CLOSED means every key is required, every value comes from an enumerated
-   set or a declared reference, and `valid-event?` is total — a hostile or
-   truncated form becomes an error, never an exception and never a silently
-   half-read event (T8).
-
-   GROUNDS may only name DECLARED things. `ungrounded` (an empty vector) is
-   legal and renders as ungrounded; what is illegal is a case report claiming
-   a reason the event never carried. Each ground is
-
-     {:ground/relation :grounded-in | :responds-to
-      :ground/kind     :experience | :deviation | :conflict
-      :ground/id       \"<the declared thing's id>\"}
-
-   V0 COMPATIBILITY (R4, verbatim): the old bare-string pointer sources remain
-   valid history. They are never reinterpreted and never rewritten. `parse`
-   reads one as `{:activation/kind :activate}` with UNKNOWN grounds, and marks
-   it `:activation/v0? true` + `:activation/grounds-known? false` so every
-   reader — inspector trail, case report, weather row — can say \"unknown\"
-   instead of inventing `[]` and calling it ungrounded. Absence of a claim and
-   a claim of absence are different facts.
-
-   TIME (R3): `:activation/time-ms` is the wall clock of the REQUESTING act.
-   It is a display and ordering HINT only. History reconstruction is CAUSAL —
-   the pointer revisions' parent chain — because deploy-time migrations minted
-   deterministic stamps (0/1/2) that make clock order lie (quirks registry,
-   proven in P4). Readers expose clock regressions; they never sort them away."
+  "Declared activation, rollback, pin, and unpin event forms.
+   Takes: pointer revision ids, kinds, scopes, actors, times, and grounds.
+   Gives: validated event maps, parsed pointer-source bytes, and compatibility reads for prior strings.
+   Holds nothing."
   (:require [clojure.string :as str]
             #?(:clj [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])))

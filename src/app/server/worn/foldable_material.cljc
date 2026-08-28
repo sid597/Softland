@@ -1,11 +1,8 @@
 (ns app.server.worn.foldable-material
-  "Facet 3: revisioned policy for the two run-section headers and their
-   initial fold state. Per-appearance toggles remain ephemeral client state;
-   this master supplies only the shared defaults and visible header copy.
-
-   P5 adds grammar v1: the header rows' MEANING joins their copy. Foldable
-   already owned the header vocabulary, so it owns the gesture that folds
-   them — the tap row lives here, not in the kernel."
+  "The fold-state and section-header facet specification.
+   Takes: served forms and binding rows for run-section headers.
+   Gives: compiled fold values, header copy, interaction claims, and contribution rows.
+   Holds: spec."
   (:require [app.server.worn.binding-material :as binding-material]
             [app.server.worn.facet-material :as facet-material]))
 

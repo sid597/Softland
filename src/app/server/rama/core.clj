@@ -1,4 +1,8 @@
 (ns app.server.rama.core
+  "Request envelopes, event envelopes, validation, and replay guards.
+   Takes: request, event, actor, target, payload, and error maps.
+   Gives: normalized envelopes, stable ids, validation results, and replay decisions.
+   Holds nothing."
   (:require [clojure.string :as str])
   (:import (java.security MessageDigest)))
 

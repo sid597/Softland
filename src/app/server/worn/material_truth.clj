@@ -1,23 +1,8 @@
 (ns app.server.worn.material-truth
-  "editable-material P6 — the truth loop, composed.
-
-   `object-container.facet-master` owns the MECHANISM (revisions, pointers,
-   instance masters, activation events, the causal trail). `face_projection`
-   owns SERVING. This namespace is the thin layer between: it composes a
-   deviation with its index upkeep, derives blast radius before a flip, and
-   projects announcements, case reports and standable history off the event
-   trail.
-
-   Everything here is DERIVED. No new Rama module, PState, depot or topology
-   (R1); no truth of its own. If this namespace were deleted, every deviation,
-   pin and activation would still resolve correctly — readers would just have
-   to walk the trail themselves.
-
-   The load-bearing refusal is T1: activation NEVER fans out. A scoped
-   activation moves ONE pointer, and every wearer — including wearers that do
-   not exist yet — re-resolves by reference. `blast-radius` therefore names a
-   set it is NOT going to write to, which is the whole point: it tells you what
-   the one pointer flip will be felt by, before you flip it."
+  "Reads over facet-masters: served instances, the blast radius of a pointer move, announcements, case reports, and the world at a cut.
+   Takes: an object-container runtime, a facet-master spec, a subject id, and an optional cut {master-id → revision-id}.
+   Gives: plain maps under :facet-master/*, :blast/*, :announce/*, :case/*, :history/*; writes only through facet-master.
+   Holds nothing."
   (:require [app.server.episode.episode :as episode]
             [app.server.worn.facet-master :as facet-master]
             [app.server.rama.object-container.runtime :as ocr]

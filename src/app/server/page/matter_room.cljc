@@ -1,52 +1,8 @@
 (ns app.server.page.matter-room
-  "matter-room P1/P2/P3/P4 — deterministic addresses, resident composition, and
-   pure act/briefing parameters for
-   facet-master rooms.
-
-   P1: the JVM derives room ids. CLJS consumes the served `:portal/room`
-   mapping and must never mint an address independently (matter-room R2-7).
-
-   P2: a master's ROOM is a real conversation container whose machine
-   residents are ORDINARY DURABLE BLOCKS (L3). This namespace is the PURE
-   half of that — it derives each resident's identity, its content, and the
-   act the driver must perform (birth / refresh / nothing). It performs no
-   I/O, holds no clock, and builds no request: the driver
-   (`server_jetty/open-matter-room!`) rides the EXISTING episode import path
-   for birth (G5 — no new import family, no bespoke import composer) and the
-   EXISTING `:object/edit` lane for refresh (T1 — no second write artery).
-
-   P3: this remains a PURE seam. It normalizes parameters for the named matter
-   act lane and derives the master-anchored room briefing from the
-   server-authoritative reverse table. It does NOT build an ActionRequest,
-   append anything, or expose preview over HTTP. Jetty hands the normalized
-   parameters to the existing P6 functions; preview remains the client
-   membrane.
-
-   P4: the gauge is another ordinary room resident. Standard room opening
-   births its stable identity with an unmeasured placeholder but never
-   overwrites a later report. The explicitly on-demand face composes the SAME
-   identity with the verbatim last computed report and marks it refreshable;
-   the existing P2 `:object/edit` lane is the only driver that may land it.
-
-   THE LIFECYCLE, pinned (PLAN §P2, F5):
-   - BIRTH ONCE per resident, at an identity-only turn-id
-     `mr:<master-id>:<section>[:<revision-id>]` — NEVER a content hash in the
-     id. A replayed birth (same id, same payload) converges; changed content
-     must NEVER re-import, because the kernel's import fingerprint is strict
-     (`import-material-fingerprint-conflict-error`).
-   - REFRESH through the edit lane, so changed content lands as a revision on
-     the SAME unit instead of a duplicate resident.
-   - APPEND-ONLY TRAIL: one resident per pointer revision; a new revision
-     births exactly ONE new resident and edits nothing — historically honest.
-
-   TIME (T10 + PLAN F5): no clock enters a resident. `:resident/time-ms` is
-   the COMPOSITION ORDINAL — the room's order-key encodes composition order
-   (head · bindings · gauge · trail oldest→newest), not a moment. This is a ruling,
-   not an oversight: the birth payload is FINGERPRINTED, so a serve-time
-   clock would make an honest replay a durable
-   `import-material-fingerprint-conflict-error`, and the anchor projection
-   carries no claimed birth time for a composed resident. Claimed times from
-   durable truth ride the resident TEXT, where they are labelled as claimed."
+  "Facet-master room identities, resident text, and action parameters.
+   Takes: master ids, revisions, portal rows, reports, and action parameters.
+   Gives: room ids, resident descriptions, birth or refresh actions, and briefing parameters.
+   Holds: room-id-by-master, master-id-by-room, registered-master-ids, and resident constants."
   (:require [app.server.worn.activation-event :as activation-event]
             [app.server.worn.facet-masters :as facet-masters]
             [clojure.string :as str])

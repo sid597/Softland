@@ -1,31 +1,8 @@
 (ns app.server.page.portal-questions
-  "editable-material P7 — the portal, pure half.
-
-   The portal is a DETERMINISTIC, TOTAL, BATCHED PROJECTION of one pick. This
-   namespace holds everything about it that needs no runtime: the question list
-   (as DATA, so `answered` is checkable instead of claimed), recipe resolution
-   from observed composition, why-this-pixel, the truncation roll-up, the
-   resident briefing, and the CODE FLOOR rendering.
-
-   Three laws are structural here, not aspirational:
-
-   1. **No LLM in the projection path, ever.** Nothing in this namespace or its
-      server half calls a model. The briefing a summoned resident receives is
-      `briefing`, a pure function of the projection — the resident reads exactly
-      what the human reads, byte for byte (G7).
-
-   2. **Describe, never gate** (DIRECTION §Paradigm rulings, THE GATE TEST). No
-      function here refuses an entity. An untyped, unknown, absent or malformed
-      subject projects — with named absences instead of an error. `recipe` is
-      the sharp end: it is exhaust, it describes what has recurred, and no
-      rendering, dispatch or write consults it.
-
-   3. **The floor is code.** `render-model` derives its card set and card ORDER
-      from `questions` — a compile-time value — so no data revision can change
-      how many cards the portal has or which order they come in. A garbage
-      projection yields the same cards carrying named errors (G9's drill). This
-      is why this namespace may not require the server: the floor cannot be
-      allowed to depend on anything a revision can reach."
+  "The seventeen material-portal questions and their pure presentation model.
+   Takes: one portal projection and optional why, scope, or history inputs.
+   Gives: question answers, card models, truncation summaries, and resident briefings.
+   Holds: questions, question-ids, and question-by-id."
   (:require [clojure.string :as str]))
 
 (def portal-version 0)

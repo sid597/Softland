@@ -1,4 +1,8 @@
 (ns app.server.rama.object-container.transcript-identity
+  "Deterministic identities for transcript conversations, sources, tools, and audits.
+   Takes: transcript source names, session ids, file paths, line numbers, and event data.
+   Gives: object keys, container ids, source ids, tool-call ids, and completion statuses.
+   Holds nothing."
   (:require [app.server.rama.core :as core]))
 
 (def transcript-source-line-complete-statuses #{:import-complete :parse-error-complete})

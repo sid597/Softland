@@ -1,60 +1,8 @@
 (ns app.server.page.material-portal
-  "editable-material P7 — the portal, server half: the material world as an
-   inhabitable place, opened from one pick.
-
-   ARCHITECTURE — the portal owns no truth and adds no organ. Every fact it
-   shows already has a durable owner (P1's revisioned masters, P4's circulation,
-   P5's binding table, P6's truth loop), so this namespace is a JOIN and nothing
-   else. Zero Rama modules, PStates, depots, topologies or routing branches were
-   added for it; if this file were deleted, every fact it serves would still
-   resolve — a reader would just have to open five queries instead of one.
-
-   THE SERVE SEAM — `open` takes the module's own `serve` as an argument rather
-   than requiring `face-projection`. Two things fall out of that, and both are
-   the point:
-
-     * no namespace cycle (`face-projection` registers this projection);
-     * the portal reads the land through the SAME artery every other consumer
-       reads it through — P7's fence `portal renders through the layer's own
-       machinery wherever possible`, made structural. A gate cannot pass here by
-       reading something the land itself cannot see (the P6 suite's `worn`
-       helper established this discipline).
-
-   BATCHED — one client roundtrip. Five sub-projections run inside this one
-   serve, server-side, where the data lives. P7's STOP `any query needing client
-   N+1 joins` cannot fire: the client sends one request and receives every
-   answer. `:portal/query-plan` states the read plan out loud, including its one
-   known duplicate read, rather than letting the reader assume.
-
-   DETERMINISM — no wall clock enters `:portal/result`. Every embedded
-   sub-projection's `:face/rendered-at-ms` is stripped (T-P7-1 below), so two
-   equal worlds produce byte-equal portals. The clock lives on the transport
-   envelope only, exactly as P2's inspector token does.
-
-   NO LLM, EVER — nothing in this file or its pure half calls a model. The
-   briefing a summoned resident receives is a pure function of this projection.
-
-   Traps this file is written against:
-
-     T-P7-1  Embedded projections carry `:face/rendered-at-ms`. Left in, the
-             portal's bytes change every millisecond and both the determinism
-             gate and the briefing-identity gate become untestable. Stripped at
-             every embedding site by `without-clock`.
-     T-P7-2  A section that throws must not remove itself. A missing key is
-             indistinguishable from `nothing to report`, so a failed read yields
-             a PRESENT section carrying `:section/error` (the error-card floor).
-     T-P7-3  `blast-radius` and `master-announcements` cost a read per master.
-             Pricing all six masters for a block that wears three is waste, so
-             the truth call is narrowed to the masters actually stamped on the
-             pick — and widens to all masters when the pick stamps none, so an
-             untyped entity still gets a whole world description.
-     T-P7-4  `worn-at` answers `found? false` for a cut nobody can name. The
-             portal therefore serves `:history/available-cuts` — standable
-             history is unstandable if the reader has to guess pointer revision
-             ids.
-     T-P7-5  Recovery must name a REVISION, never `undo`. Rollback here is the
-             activation of a prior revision, so every offer carries the target
-             revision id and the exact replayable call."
+  "A batched material-world join around one picked entity.
+   Takes: a page-serving function, runtime context, entity ids, wearer stamps, and optional history cuts.
+   Gives: one portal result with identity, materials, bindings, wearers, history, recovery, and briefing data.
+   Holds nothing."
   (:require [app.server.episode.episode :as episode]
             [app.server.worn.material-truth :as material-truth]
             [app.server.worn.facet-master :as facet-master]

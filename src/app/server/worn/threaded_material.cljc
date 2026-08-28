@@ -1,7 +1,8 @@
 (ns app.server.worn.threaded-material
-  "Facet 5: revisioned policy for how far below a conversation column a fresh
-   block may stand and still adopt that thread. Thread identity and turn truth
-   remain durable instance data."
+  "The conversation-thread placement facet specification.
+   Takes: served thread-distance and edge forms.
+   Gives: compiled thread adoption values, edge values, and contribution rows.
+   Holds: spec."
   (:require [app.server.worn.facet-material :as facet-material]))
 
 (def master-id "fm:threaded")

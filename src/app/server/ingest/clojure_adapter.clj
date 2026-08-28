@@ -1,15 +1,8 @@
 (ns app.server.ingest.clojure-adapter
-  "Pure distiller for the clojure-code family: git-blob text -> top-level form
-   atoms + span anchors, materialized onto the EXISTING object-container rows.
-   Sibling of `markdown_adapter.clj` and mirror of its three-stage shape:
-     1. `clojure-form-v0`            — pure free cut (no I/O, no git)
-     2. `source-materialization`     — all typed rows over the cut's units
-     3. `clojure-source-import-request` — the import-material request builder
-   Contract: docs/current-mental-model/build/sense-line-mvp/code-atom/CONTRACT.md
-   (R1 store raw+atoms, R2 two lanes/code-only, R6 deny-list, R7 block-paths).
-   Spec: same folder SPEC.md (§2 material model, §3 free cut, §4.2 form-text
-   hash). Parse tool ruled in P0_PARSE_SPIKE.md §(a): rewrite-clj 1.1.47, offsets
-   by accumulating node/string lengths in UTF-16 code units (SPEC §2.3)."
+  "Clojure source cut into top-level form units.
+   Takes: source text, blob and path metadata, actor data, and claimed time.
+   Gives: form units, source anchors, material rows, and import requests.
+   Holds nothing."
   (:require [app.server.rama.core :as core]
             [app.server.rama.object-container :as oc]
             [clojure.string :as str]

@@ -1,4 +1,8 @@
 (ns app.server.episode.llm
+  "An in-process turn-run and model-execution module.
+   Takes: turn-run requests, claims, observations, approvals, controls, and executor events.
+   Gives: run, item, approval, control, token, cost, and error rows; spawns `claude`.
+   Holds: depots *llm-depot *llm-claim-depot *llm-obs-depot *llm-control-depot; 23 declared PStates."
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])

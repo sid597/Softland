@@ -1,7 +1,8 @@
 (ns app.server.worn.facet-masters
-  "The worn facet-master registry. This is a compiler/serve registry, not a
-   recipe: it names independently revisioned masters and nothing about which
-   entities are legal or which combination constitutes a type."
+  "The ordered registry of served facet-master specifications.
+   Takes: master ids and facet keywords.
+   Gives: specifications, master ids, facet lookups, and default master ids.
+   Holds: specs, by-id, and by-facet."
   (:require [app.server.worn.facet-material :as facet-material]
             [app.server.worn.attention-material :as attention]
             [app.server.worn.foldable-material :as foldable]

@@ -1,5 +1,8 @@
 (ns app.server.door.server-jetty
-  "Server-only Ring + Jetty application."
+  "HTTP and SSE entry point for the land.
+   Takes: Ring requests for ten POST routes, turn streams, assertions, edits, activations, and room actions.
+   Gives: Ring responses, SSE events, and durable request results; spawns `claude`.
+   Holds: ambient-autotag-runtime and data/relation-assert-log.ednl."
   (:require
     [clojure.edn :as edn]
     [clojure.java.io :as io]

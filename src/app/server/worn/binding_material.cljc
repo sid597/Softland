@@ -1,48 +1,8 @@
 (ns app.server.worn.binding-material
-  "editable-material P5 — binding rows as material, and the ONE dispatch law.
-
-   DIRECTION §Four stations of input: gesture (kernel) → one pick over the
-   containment path (kernel) → innermost matching material claim (binding rows,
-   material) → named verb (code registry). This namespace owns stations three
-   and four as a PURE function: `resolve-binding` reads data and returns a
-   decision. It never touches an atom, never renders, never effects. The single
-   side-effecting site is the client applier, which is why `no side effects in
-   reactive queries` holds structurally rather than by inspection.
-
-   THE ROW GRAMMAR IS CLOSED — exactly five keys, every value from an
-   enumerated set or the verb registry:
-
-     {:binding/gesture   :pointer/press | :pointer/tap | :pointer/meta |
-                         :wheel | :key/eval
-      :binding/phase     :begin | :threshold | :complete
-      :binding/modifiers #{:shift} | :any
-      :binding/verb      {:verb/name … :verb/version …}
-      :binding/priority  <integer>}
-
-   Rows are filed by SITE — the same contribution-site vocabulary P3 already
-   stamps on contributions. A site is a map key, not a sixth row field: the
-   claim the kernel builds at a rendered node names the site, so a row for
-   `:block/fold-header` can never fire on a body pixel.
-
-   LOCALITY TIERS, innermost precedence first:
-     :instance — rows attached to ONE subject (locality: this block only)
-     :master   — the served facet-master's shared rows (locality: every wearer)
-     :floor    — that facet's CODE FLOOR rows
-
-   The floor tier is derived from the facet SPEC, never from served data, and it
-   is always present. So a valid revision may REBIND a gesture (that is the
-   whole point of P5) but can never LOSE one: drop the row and the floor row
-   underneath it fires. A malformed revision resolves to the code floor whole
-   (P3 totality), which is the same answer by a shorter road.
-
-   CONTAINMENT beats every tier: the law walks the pick path innermost →
-   outermost and stops at the first depth that matches. A gesture the innermost
-   claim does not name falls OUTWARD — that fallthrough is what lets a fold
-   header claim the tap while its block still claims the drag.
-
-   SAME-DEPTH, SAME-TIER, SAME-PRIORITY ties are conflicts: the winner is
-   deterministic (`row-order` below) and the tie is REPORTED so the land can
-   render it as lint. Never silent."
+  "Binding rows resolved from gesture, pick path, site, and material tier.
+   Takes: gesture maps, containment paths, facet claims, instance rows, and master rows.
+   Gives: deterministic binding decisions, conflicts, validators, and interaction tables.
+   Holds: gesture-kinds, sites, tier-order, and binding tables."
   (:require [app.server.page.verb-registry :as verb-registry]))
 
 ;; ===========================================================================

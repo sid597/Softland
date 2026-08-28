@@ -17,6 +17,10 @@
 ;;     recent-activity feed (§6).
 
 (ns app.server.rama.relation-kernel
+  "Durable typed relations across eighteen relation kinds.
+   Takes: relation assertion and retraction requests with targets, actors, and idempotency keys.
+   Gives: relation decisions, events, detail reads, target indexes, descriptors, and activity buckets.
+   Holds: depot *relation-request-depot; PStates $$relation-decisions-by-idempotency $$relation-decisions-by-id $$relation-events-by-id $$relations-by-id $$relation-status-log-by-relation $$relations-by-target $$relation-target-descriptors $$relation-activity-by-bucket."
   (:use [com.rpl.rama]
         [com.rpl.rama.path])
   (:require [com.rpl.rama.ops :as ops]

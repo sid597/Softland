@@ -1,34 +1,8 @@
 (ns app.server.page.verb-registry
-  "editable-material P5 — the named-verb registry (DIRECTION §The architecture,
-   station four).
-
-   Binding material names a verb; it never names code. This registry is the
-   ONLY vocabulary a binding row may reach for: a row naming anything absent
-   here fails its grammar and the facet falls to its code floor. That is the
-   structural form of `material never names arbitrary code` — not a convention
-   the kernel remembers to check.
-
-   Every entry declares its EFFECT CLASS, so the effect a gesture will have on
-   the world is legible from the row alone, before any code runs:
-
-   - `:pure-projection`            — moves appearance/attention only. Nothing
-                                     durable, nothing leaves the client.
-   - `:durable-via-request`        — ends in an acked request→decision→event
-                                     (the settle or named matter-act lane).
-                                     Durable truth may move.
-   - `:external-via-derived-worker` — reaches outside the land through a
-                                     derived worker. No verb wears this class
-                                     yet; the class exists because the closed
-                                     grammar must be able to SAY it before a
-                                     verb needs it.
-
-   `:verb/extracted-from` is an honesty field, not documentation: a strangler
-   migration names the exact pre-registry branch it was lifted out of. P8 adds
-   the first post-P5 extraction: Ctrl+Enter's already-durable reply path.
-
-   `:verb/floor-reserved?` marks the two verbs the code floor keeps forever
-   (space pan and pointer-anchored zoom). `bindable?` refuses them, so no data
-   revision — valid or malformed — can bind, rebind, or shadow the camera."
+  "The closed vocabulary of named verbs and effect classes.
+   Takes: verb names and versions.
+   Gives: verb definitions, effect classes, continuation data, and bindability answers.
+   Holds: verbs, names, effect-classes, and continuations."
   (:require [clojure.string :as str]))
 
 (def effect-classes

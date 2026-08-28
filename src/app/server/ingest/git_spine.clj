@@ -1,28 +1,8 @@
 (ns app.server.ingest.git-spine
-  "git-spine WP2 (CONTRACT v1.2, components A/B/C). NOT a Rama module — no depots,
-   topologies, or PStates. Pure adapter fns + a sync driver + a transcript
-   extractor + a replay fn, all over the EXISTING object-container and
-   relation-kernel public APIs, run in-process on the live trail-view runtime
-   (§2.5 — everything is an IPC inside the app JVM; a CLI agent reaches the land
-   via /assert curl, never its own cluster).
-
-   A — adapter half (pure): git commit metadata -> canonical text (a byte-stable
-       cross-builder interface, §3.A) -> md-adapter import request + document-id.
-   B — sync + extractor: spine-sync! (batch commit ingest + parent :based-on
-       edges) and extract-session-joins! (transcript -> commit/doc :produced
-       edges, repo-verified shas only).
-   C — durability: replay-assert-log! re-appends the /assert write-ahead log
-       (plain-map serialization, §3.C; typed payload reconstruction, duty §8.7).
-
-   Adjudications honored: durable edges join RENDERED objects (§2.3 v1.1) — commit
-   and doc endpoints target :container with the object's `oc:doc:<object-key>` id
-   (the SAME id the md path mints), conversation endpoints target :conversation
-   with the `oc:chat-conversation:chat:<sha>` container id (duty §8.2: derivable
-   from the source constant :claude-code + the session-id, so joinable). Import
-   actor is version-free `import:git-spine` / :import (§2.4); exactness rides
-   `note = \"spine-v1|<basis>\"` (§2.2). Idempotency is a STABLE key
-   `\"spine:\"+relation-id+\":\"+basis` (trap 4); a read-relation-detail pre-check
-   is a cost guard on top. Canonical text is UTC + sorted + locale-free (trap 6)."
+  "Git history imported as commit documents and typed relations.
+   Takes: repository paths, commit metadata, transcript joins, assertion lines, and kernel runtimes.
+   Gives: commit import results, :based-on and :produced relations, and replay results.
+   Holds: data/relation-assert-log.ednl."
   (:require [app.server.rama.object-container :as oc]
             [app.server.ingest.markdown-adapter :as md]
             [app.server.rama.object-container.runtime :as ocr]

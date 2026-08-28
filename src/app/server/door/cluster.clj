@@ -1,21 +1,8 @@
 (ns app.server.door.cluster
-  "durable-ground CONTRACT §2/§3 — the ONE cluster seam.
-
-   The land's product runtimes ride the REAL single-node Rama cluster
-   (bin/land up) instead of the in-memory test cluster. This namespace owns:
-   the cluster-manager connection, cluster-backed handle bundles shaped
-   IDENTICALLY to the IPC runtime maps (trail_view.clj / object_container/
-   runtime.clj / face_arsenal.clj constructors), and the EXPLICIT ingest +
-   migration entrypoints (T9: sweep/watchers/git-spine are never on the
-   startup path here — `bin/land ingest` or a REPL call runs them).
-
-   T5: modules deploy via CLI only — com.rpl.rama.test is deliberately NOT
-   required; this namespace cannot launch modules.
-   T6: every accessor is total-with-retry — a down cluster yields nil
-   bundles (the projections' honest-degrade vocabulary takes over), never a
-   cached throw; the next call retries the connect.
-   §3 unification: ONE object-container deployment; the trail bundle and the
-   face bundle both open foreign handles to the SAME modules."
+  "Cluster-backed runtime handles and explicit import controls.
+   Takes: cluster-manager coordinates, module names, and ingest or migration requests.
+   Gives: runtime handle maps, ingest and migration results, and watcher controllers.
+   Holds: !memo, !default-address, and !first-light-failed."
   (:use [com.rpl.rama])
   (:require [app.server.ingest.ingest-watchers :as ingest-watchers]
             [app.server.rama.core :as core]

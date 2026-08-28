@@ -1,32 +1,8 @@
 (ns app.server.page.face-projection
-  "Faces-as-assemblies · the projection layer + the projection registry (CONTRACT §7).
-
-   ONE generic artery, dispatched server-side. This namespace is READ-ONLY over the
-   block kernel's EXISTING query surface: it declares NO depots, NO topologies, NO
-   PStates, and performs NO writes — it physically cannot mutate durable state (G12;
-   trap T12). Its precedent is `trail_view.clj`: plain Clojure over kernel query APIs,
-   same level (CONTRACT §2 placement ruling).
-
-   Face dispatch lives HERE (trap T8): the Electric artery in electric_flow/file_viewer
-   is generic and never grows per face — a new face registers a projection in the map
-   below, it never adds a `case` branch on the client. The registry is a plain value
-   `{<projection-kw> → (fn [ctx request] → data-context)}`, unit-testable without
-   Electric and without IPC for its pure core (G13).
-
-   Read discipline (block-kernel CONTRACT §8 F3/G13 split, inherited):
-   - Block MATERIAL (form/text/kind/order) comes ONLY through the named block-kernel
-     query composition `river-page` (which itself fans out over the query topologies
-     read-common-material-for-source + read-unit). No PState paths, no new indexes.
-   - The `:until-ms` SCRUB filter needs a per-block wall time, and NO block-material
-     query API surfaces one (block-distiller units do not graduate → read-unit carries
-     no timestamp; DerivedUnitRow has no time field). The honest, bounded source is the
-     per-part `SourceArtifactRow.created-at-ms` (= the message production time, since the
-     import request carries `:time-ms (:created-at-ms ctx)`), read via `ocr/read-source`
-     — one point-read per DISTINCT rendered source (≤ page surfaces ≤ :limit). This is a
-     FILTER/enumeration-grade read (block-kernel F3 input class), not block material, and
-     it is neither a kernel edit nor a new index — so it stays inside G12 and the
-     stop-clause is not triggered. Verified empirically monotone-nondecreasing across a
-     real river page ⇒ `:until-ms` cuts are prefix-consistent (G11)."
+  "Registered page projections over kernel reads.
+   Takes: runtime context and a request map containing :face, :address, and :params.
+   Gives: data-context maps for conversation, material, relation, and page views.
+   Holds: projection-registry and escape-gauge-state."
   (:require [clojure.string :as str]
             [clojure.edn :as edn]
             [app.server.episode.cascade :as cascade]

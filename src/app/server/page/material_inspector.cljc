@@ -1,8 +1,8 @@
 (ns app.server.page.material-inspector
-  "Deterministic, both-sides helpers for the read-only material inspector.
-   The client derives current wearers from causal rendered stamps; the server
-   canonicalizes that snapshot before joining each stamped master to durable
-   Object Container truth."
+  "Wearer rows derived from a client scene snapshot.
+   Takes: rendered stamps, wearer ids, and master metadata.
+   Gives: canonical wearer and material-inspector maps.
+   Holds nothing."
   (:require [clojure.string :as str]))
 
 (def ^:private stamp-keys

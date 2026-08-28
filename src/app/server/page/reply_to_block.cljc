@@ -1,12 +1,8 @@
 (ns app.server.page.reply-to-block
-  "Pure P8 seam for the resident verb born from the BANKED
-   `reply to just this block` wish.
-
-   This namespace owns no effects. It freezes the addressed subject into the
-   durable request, narrows the portal OPEN to evidence worn by that subject,
-   and composes the resident prompt from deterministic projections. The client
-   and server both call the same narrowing law; a forged or stale client
-   `:entity-id` therefore cannot widen the server-side briefing."
+  "A resident reply narrowed to one addressed block.
+   Takes: an addressed block id, portal data, and resident context.
+   Gives: a narrowed durable request and deterministic resident prompt.
+   Holds nothing."
   (:require [app.server.worn.invocation-material :as invocation-material]
             [clojure.string :as str]))
 

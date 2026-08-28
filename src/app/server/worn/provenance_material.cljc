@@ -1,4 +1,8 @@
 (ns app.server.worn.provenance-material
+  "The provenance facet specification.
+   Takes: served provenance and composition forms.
+   Gives: compiled provenance channels, composition values, and contribution rows.
+   Holds: spec."
   (:require [app.server.worn.facet-material :as facet-material]))
 
 (def master-id "fm:provenance")

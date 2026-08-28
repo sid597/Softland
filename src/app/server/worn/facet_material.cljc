@@ -1,8 +1,8 @@
 (ns app.server.worn.facet-material
-  "Shared, total conventions for one served facet-master. A facet namespace
-   supplies its identities, grammar declarations, and default/floor forms;
-   this namespace supplies the reusable compile, resolve, stamp, and minimal
-   collision rules proven by the second wearer."
+  "Compilation, wear resolution, and stamping shared by facet masters.
+   Takes: master specifications, source forms, active revisions, instance revisions, and subjects.
+   Gives: compiled forms, worn values, contribution stamps, collisions, and validation errors.
+   Holds nothing."
   (:require #?(:clj [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])))
 

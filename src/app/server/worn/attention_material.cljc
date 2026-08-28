@@ -1,13 +1,8 @@
 (ns app.server.worn.attention-material
-  "Facet 2: revisioned policy for the block's hit box and attention-only
-   interaction border. Hover/focus remain ephemeral mechanism; these values
-   are the shared material policy they reveal.
-
-   P5 adds grammar v1: attention already owned the hit box, so it owns what
-   landing attention on that box MEANS. Its rows are filed under two sites —
-   a user block and a machine block are different hit areas, and the kernel
-   decides which one a rendered block claims at build time, so the dispatch
-   function carries no machine?/user? branch at all."
+  "The attention and hit-area facet specification.
+   Takes: served forms and binding rows for block hit areas.
+   Gives: compiled attention values, interaction claims, and contribution rows.
+   Holds: spec."
   (:require [app.server.worn.binding-material :as binding-material]
             [app.server.worn.facet-material :as facet-material]))
 

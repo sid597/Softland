@@ -1,13 +1,8 @@
 (ns app.server.worn.positioned-material
-  "Facet 4: revisioned shared policy for derived placement and reply birth.
-   Settled geometry cells remain per-instance durable truth; this master owns
-   only the defaults used before a cell exists.
-
-   P5 adds grammar v1: positioned owns placement, so it owns the gesture that
-   moves a block. Its row sits at BOTH block hit areas and claims only the
-   press threshold — a tap falls through to attention, and a shift-press falls
-   through to attention's selection rows. That fallthrough is the containment
-   walk doing the work the old `:else` branch used to do."
+  "The placement and reply-birth facet specification.
+   Takes: served placement forms and drag binding rows.
+   Gives: compiled placement defaults, anchor rules, interaction claims, and contribution rows.
+   Holds: spec."
   (:require [app.server.worn.binding-material :as binding-material]
             [app.server.worn.facet-material :as facet-material]))
 

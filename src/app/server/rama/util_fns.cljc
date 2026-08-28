@@ -1,4 +1,8 @@
-(ns app.server.rama.util-fns)
+(ns app.server.rama.util-fns
+  "The shared ingest-epoch counter.
+   Takes: increments from accepted imports and watcher activity.
+   Gives: the current ingest epoch to readers that refresh derived views.
+   Holds: !ingest-epoch-atom.")
 
 ;; Session-local notification only. Durable truth remains in Rama; this atom
 ;; carries no values, resets on restart, and has no rebuild obligation.

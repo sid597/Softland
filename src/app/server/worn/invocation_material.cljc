@@ -1,10 +1,8 @@
 (ns app.server.worn.invocation-material
-  "The revisioned Ctrl+Enter invocation policy worn by every block.
-
-   The master owns three values only: the Claude model alias/id, the installed
-   CLI effort level, and a bounded `thread+N` precontext setting. Per-block
-   stickiness is the existing instance-master tier; no invocation-specific
-   persistence or transport exists."
+  "The block invocation facet specification.
+   Takes: served model, effort, and precontext values.
+   Gives: compiled invocation settings and contribution rows.
+   Holds: spec."
   (:require #?(:clj [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])
             [app.server.worn.facet-material :as facet-material]))

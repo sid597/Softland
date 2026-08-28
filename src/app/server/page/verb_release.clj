@@ -1,14 +1,8 @@
 (ns app.server.page.verb-release
-  "P8 driver over the existing Object Container public API.
-
-   A verb release is ordinary addressable material: eight ordered EDN nodes
-   imported through the already-shipped Clojure adapter. Source code and test
-   bodies are NEVER copied into the release. They are named by committed git
-   blob, repo path, derived unit, and source anchor. The stable source ref has
-   versioned verb identity; importing different release bytes advances normal
-   OC source history while an identical retry converges.
-
-   This is deliberately not a Rama module, topology, depot, or PState."
+  "An eight-node EDN release chain imported as material.
+   Takes: committed blob ids, source paths, anchors, and release metadata.
+   Gives: ordered release nodes and an object-container import request.
+   Holds nothing."
   (:require [app.server.ingest.code-atoms :as code-atoms]
             [app.server.rama.object-container :as oc]
             [app.server.ingest.clojure-adapter :as clj-adapter]

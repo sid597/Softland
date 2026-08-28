@@ -1,19 +1,8 @@
 (ns app.server.episode.material-circulation
-  "Editable-material P4 circulation, as a plain foreign-client driver over the
-   EXISTING object-container, relation-kernel, and llm-module APIs.
-
-   This namespace declares no module, depot, topology, or PState. Durable truth
-   remains split at the already-ratified owners:
-
-   - mechanical receipts and calibrated machine-run records are ordinary OC
-     projection hints;
-   - semantic associations are relation-kernel edges;
-   - LLM intent/claim/observation lifecycle stays in the existing llm-module.
-
-   The epistemic ladder is deliberately orthogonal to relation meaning:
-   receipts are co-presence only, :felt-at/:instance-of proposals are silver,
-   and a Sid-authored :references assertion is gold. In particular, this file
-   does not mint a Wish kind (binding FLAG-A ruling, 2026-07-24)."
+  "Epistemic relations derived from material activity.
+   Takes: mechanical evidence maps, activation context, wearer facts, and model results.
+   Gives: gold :references relations, silver :felt-at and :instance-of proposals, and run requests.
+   Holds nothing."
   (:require [app.server.worn.activation-event :as activation-event]
             [app.server.rama.core :as core]
             [app.server.rama.object-container :as oc]

@@ -1,21 +1,8 @@
 (ns app.server.ingest.ingest-watchers
-  "Near-live ingest watchers (view-MVP WP-B2 sec 2.4/6, OP-36..OP-39).
-
-   OUTSIDE every Rama module by construction: a plain namespace with no depots
-   and no topologies. It is an OS-side trigger layer that watches configured
-   filesystem roots and calls the EXISTING object-container import seam only --
-   it introduces NO new ingestor and NO new truth (trap 2). Convergent
-   re-import is the safety net: deterministic content-addressed ids +
-   idempotency journals (D-008.3) make a byte-identical rewrite replay the
-   accepted decision without writing new rows.
-
-   Event-driven, never polled (quirks INV-19): a java.nio.file.WatchService
-   (inotify on Linux) blocks on `.take`, so no check-and-sleep loop exists
-   anywhere. Per-path debounce (>= 500 ms) coalesces the create/modify burst of
-   a single save; imports are serialized on one thread. On the DETERMINISTIC
-   decision latch (append + await-decision -- never a filesystem poll) the
-   monotonic ingest-epoch counter is bumped by exactly one. Import failures are
-   logged and retried on the next change event; the loop never crashes."
+  "Filesystem change watchers that call the existing import adapters.
+   Takes: watched roots, import functions, debounce settings, and runtime handles.
+   Gives: a watcher controller with stop and running operations; starts watcher and worker threads.
+   Holds nothing."
   (:require [app.server.rama.object-container.runtime :as ocr]
             [app.server.ingest.markdown-adapter :as markdown-adapter]
             [app.server.ingest.transcript :as transcript]

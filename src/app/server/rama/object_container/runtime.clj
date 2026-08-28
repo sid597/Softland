@@ -1,4 +1,8 @@
 (ns app.server.rama.object-container.runtime
+  "Foreign handles and append or read wrappers for object-container modules.
+   Takes: cluster or in-process clients, module names, request maps, and query keys.
+   Gives: runtime maps with 44 handles, append results, decisions, events, and material reads.
+   Holds: data/block-edit-log.ednl."
   (:use [com.rpl.rama]
         [com.rpl.rama.path])
   (:require [app.server.rama.object-container :as oc]

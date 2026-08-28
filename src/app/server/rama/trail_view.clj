@@ -30,6 +30,10 @@
 ;;   render-bundle-text) — never PStates, never raw foreign-select.
 
 (ns app.server.rama.trail-view
+  "Mirror-only page bundles over object-container and relation reads.
+   Takes: object-container and relation module names, addresses, cursors, and page limits.
+   Gives: trail pages, relation bundles, and combined read plans.
+   Holds nothing."
   (:use [com.rpl.rama]
         [com.rpl.rama.path])
   (:require [com.rpl.rama.ops :as ops]

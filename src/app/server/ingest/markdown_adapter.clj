@@ -1,4 +1,8 @@
 (ns app.server.ingest.markdown-adapter
+  "Markdown text cut into headings, list items, paragraphs, and outline rows.
+   Takes: markdown text, source metadata, actor data, and claimed time.
+   Gives: block units, outline relations, material rows, and import requests.
+   Holds nothing."
   (:require [app.server.rama.core :as core]
             [app.server.rama.object-container :as oc]
             [clojure.string :as str]))

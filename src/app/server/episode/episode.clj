@@ -1,43 +1,8 @@
 (ns app.server.episode.episode
-  "first-light A · P2 — the episode seam (CONTRACT §2: the ONE sanctioned new
-   server ns). The genesis conversation is a NATIVE source whose material
-   accretes turn by turn (CONTRACT §3): Sid's typed utterance lands in
-   object-container as addressable material `asserted-by: sid` BEFORE any
-   agent sees it, riding the EXISTING import family under the new `imp:ep:`
-   prefix (§5.1 — the extract-object-key branch is the package's one
-   sanctioned kernel edit); the resident agent is the existing CLI lane
-   (subscription auth, NO API keys — hard rule); its responses become durable
-   via post-turn harvest+distill of the episode's own jsonl (the proven
-   transcript organ, T8-idempotent).
-
-   NOT a Rama module: pure row builders + a foreign-client driver over the
-   deployed object-container module — the block_distiller adapter shape.
-
-   Identity design (the P2 adjudication of P0 flags C/D — receipts in the
-   phase record):
-   - conversation-id = `genesis-conversation-id`, a fixed UUID: passed to the
-     CLI as --session-id on turn 1 and --resume after (no --fork-session, so
-     the id and the jsonl file stay stable), and harvest derives conv-id from
-     each jsonl line's OWN sessionId — so native utterances and distilled
-     agent material share ONE object-key, one conversation container, one
-     face address. Boot COMPUTES the address (the durable-ground
-     default-address pattern); birth-blankness = the container being empty,
-     never a state flag. A-scoped: first-light A's episode is a singleton by
-     design (world-state-zero happens once); B/worlds mint real ids.
-   - the utterance's projection rows use entry-kind :episode-utterance with
-     `ep:`-namespaced order-keys — NEVER :message (river-page indexes the
-     sb: class ledger into the ordered :message rows POSITIONALLY; a foreign
-     :message row would shift every ledger order) and NEVER the distiller's
-     sb: namespace. Surface ids reuse the routed `src:tr:` prefix with a
-     disjoint hash input (the distiller's own N1b precedent) so no new
-     source-id routing branch is needed.
-   - post-turn distill SKIPS user-role plain-text river events (flag D): at
-     genesis the utterance lane is the ONLY input surface (T9 bare ground),
-     so every such event is already durable natively; each skipped event
-     still gets its durable class-ledger row (entry-kind :native) through
-     the distiller's class-hint path — deterministic keys, re-runs converge
-     (T8/G4). Tool-result-bearing user events distill normally (they are the
-     agent's turn material, T1 at event grain)."
+  "A typed conversation turn from utterance through post-turn harvest.
+   Takes: utterance and turn ids, conversation context, text, runtime handles, and model settings.
+   Gives: durable import or edit results, summon argument vectors, and transcript harvest results.
+   Holds: !episode-chains."
   (:require [app.server.rama.core :as core]
             [app.server.rama.object-container :as oc]
             [app.server.ingest.block-distiller :as bd]

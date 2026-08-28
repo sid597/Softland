@@ -1,21 +1,8 @@
 (ns app.server.ingest.block-distiller
-  "sense-block-v0 — the block layer over the container kernel.
-
-   NOT a Rama module: pure adapter fns + a driver (git_spine.clj shape) over
-   the EXISTING object-container-module and relation-kernel-module public APIs.
-   Realizes SPEC.md (block layer v0) + CONTRACT.md (v2, adapter shape).
-
-   This file is built in the CONTRACT's phase order. Phase 0 is the PURE layer:
-   §A ids, §B classification, §C actor resolution, §D production events, §E part
-   extraction, §F the free cut, §H mechanical-edge specs — plus `distill-event`,
-   the pure per-event assembler the golden is taken over. Phase 1 (this pass)
-   adds §G row builders (SPEC nouns → container-kernel rows) and §I the driver
-   (foreign client: read stored sources → distill river events → submit OC import
-   requests), plus the F2 delegation-home decision (option A: :production-event as
-   an extra record key on the per-part surface, proven by the F2 spike).
-
-   Traps cited by number are CONTRACT §7. Rulings (R*, SC*) are CONTRACT §3 /
-   PLAN §0. Forms are SPEC §4.6 (a CLOSED vocabulary)."
+  "Stored transcript payloads cut into blocks and typed relations.
+   Takes: stored source rows, transcript events, object-container and relation runtimes, and page limits.
+   Gives: block rows, edge specifications, import results, and river-page values.
+   Holds nothing."
   (:require [app.server.rama.core :as core]
             [app.server.rama.object-container :as oc]
             [app.server.ingest.markdown-adapter :as md]

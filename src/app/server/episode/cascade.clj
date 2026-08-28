@@ -1,5 +1,8 @@
 (ns app.server.episode.cascade
-  "In-process cascade declarations and best-effort dispatch."
+  "An in-process table of trigger-to-handler declarations.
+   Takes: a context map, a trigger keyword, and a payload map.
+   Gives: ordered dispatch maps and one best-effort future per matching handler.
+   Holds: declared-rows."
   (:require [clojure.tools.logging :as log]))
 
 ;; CONTRACT T2/T5: declarations are inert data. Trigger names identify

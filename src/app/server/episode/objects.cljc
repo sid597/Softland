@@ -1,4 +1,8 @@
 (ns app.server.episode.objects
+  "Claude command construction and response parsing.
+   Takes: prompts, session ids, model settings, and Claude JSON output.
+   Gives: command argument vectors and normalized response maps.
+   Holds nothing."
   (:require [clojure.string :as str]
             [cheshire.core :as json]))
 

@@ -1,7 +1,8 @@
 (ns app.server.worn.text-body-material
-  "Facet 6: the narrow revisioned text-body policy slice used to choose a
-   machine reply's wrap column. The raw text and source relationship remain
-   durable entity truth."
+  "The text-body wrapping facet specification.
+   Takes: served text-body forms.
+   Gives: compiled wrap-column values and contribution rows.
+   Holds: spec."
   (:require [app.server.worn.facet-material :as facet-material]))
 
 (def master-id "fm:text-body")

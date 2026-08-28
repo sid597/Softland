@@ -1,33 +1,8 @@
 (ns app.server.ingest.code-atoms
-  "Code-atom DRIVER + lineage lane (CONTRACT §12 P2). NOT a Rama module — no
-   depots, topologies, or PStates. Pure enumeration/cut fns + a sync driver over
-   the EXISTING clojure-adapter, object-container.runtime and relation-kernel
-   public APIs, run in-process (git_spine shape: `src/app/server/rama/git_spine.clj`).
-
-   Two lanes over one git pass:
-     A — ENUMERATION + INGEST: every NEW `.clj/.cljc/.cljs` blob under src/+test/
-         becomes a stored surface via `adapter/clojure-source-import-request`
-         (source-ref \"git-blob:<sha>\", R1). Deny-list applied by PATH BEFORE any
-         cat-file (R6, T10). Batch-append-then-batch-await (T9; git_spine.clj:244-256).
-     B — LINEAGE (R3, SPEC §4.3): per (parent-commit, commit, changed path) the
-         two blobs' name->hash maps decide: re-addressed (name+hash equal → mint
-         NOTHING, T2), superseded (name equal, hash differs → mechanical
-         :supersedes new→old), break (name vanished/appeared, matched hash-exact
-         across the block → SILVER move proposal). Merges evaluate per parent.
-
-   Deriver actor is VERSION-FREE (R4, T1: a versioned asserter forks every edge id
-   AND loses retraction rights, relation_kernel.clj:441-448); the deriver version
-   rides `note` (\"clj-atoms-v1|<basis>\", git_spine §2.4 precedent). Idempotency is
-   a STABLE relation-scoped key \"code:\"+relation-id+\":\"+child-sha (git_spine
-   trap-4 pattern); a read-relation-detail pre-check is a cost guard on top. All
-   times come from commit clocks, never the wall clock (T4).
-
-   :supersedes is ALREADY registered (relation_kernel.clj:58-65); P2 makes NO
-   registry edit (that is P3's job, for :requires/:calls).
-
-   Contract: docs/current-mental-model/build/sense-line-mvp/code-atom/CONTRACT.md
-   Spec:     same folder SPEC.md (§4.3 three-outcome lineage law).
-   Parse/enumeration ruled in P0_PARSE_SPIKE.md §c (the B-full one-pass command)."
+  "Historical Clojure blobs imported with lineage and analyzer relations.
+   Takes: git commits, blob ids, changed paths, analyzer output, and kernel runtimes.
+   Gives: import requests and :supersedes, :requires, and :calls relations.
+   Holds: kondo-config-dir."
   (:require [app.server.rama.object-container :as oc]
             [app.server.ingest.clojure-adapter :as adapter]
             [app.server.rama.object-container.runtime :as ocr]

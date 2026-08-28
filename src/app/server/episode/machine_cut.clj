@@ -1,34 +1,8 @@
 (ns app.server.episode.machine-cut
-  "Machine-cut driver (machine-cut CONTRACT §§3-5): an LLM annotator asserts
-   CONVERSATION STRUCTURE as D-004 RelationEdges of kind `:pairs-with`, with
-   `asserted-by` first-class. Machine-guessed pair bindings land as SILVER marks
-   (asserter-type :llm), visibly distinct from anything a human asserts, and
-   resolvable back to the run that produced them.
-
-   Placement (CONTRACT §2): a plain-Clojure driver over EXISTING kernel APIs —
-   sibling of git_spine.clj (stable-key import edges) and code_atoms.clj
-   (assert/retract reconcile over a desired set). It declares NO new module, NO
-   depots, NO topologies, NO PStates. It is a FOREIGN CLIENT to two runtimes:
-   the llm-module (the annotation RUN rides its intent→executor lifecycle,
-   CONTRACT §3, no llm-module code changes) and the relation-kernel (the edges,
-   CONTRACT §4). Truth lives in those kernels; durable annotations survive the
-   ephemeral dev cluster via a WAL (§5.5).
-
-   Structure — pure core separable from the IPC shell (CONTRACT §2), so the
-   goldens run JVM-side with NO LLM and NO cluster:
-     PURE CORE : input build + input-hash (§5.1); run-hash + synthetic ids (§3);
-                 prompt render + strict output contract (§5.2); validation
-                 totality (§5.3); pair→edge specs (§4); pair-plan diff (§5.4).
-     IPC SHELL : annotate-conversation! (§5.7) — the llm-module ride with
-                 synthetic deterministic ids, WAL-first (§5.5), reconcile append
-                 (§5.4), epoch bump (§5.6); replay-wal! (§5.5).
-
-   Trap ledger: CONTRACT §8 (MC-T1..MC-T15). Cited at the exact sites.
-
-   Side-effect law (feedback_rama_side_effects.md; MC-T5): the LLM process spawn
-   happens in THIS driver, never inside a topology event. llm-module rows are
-   the intent/lifecycle record; relation writes are foreign appends AFTER
-   validation. Nothing here re-forks on a topology retry."
+  "A model-driven annotator for :pairs-with relations.
+   Takes: object-container and relation runtimes, an address, block limits, and model output.
+   Gives: validated pair plans, relation writes, run results, and replay results.
+   Holds: data/machine-cut-log.ednl."
   (:require [clojure.string :as str]
             [clojure.edn :as edn]
             [clojure.java.io :as io]

@@ -1,8 +1,8 @@
 (ns app.server.worn.facet-master
-  "Shared second-wearer adapter for revisioned facet material. Every master
-   uses the same existing object-container import, immutable revision, and
-   explicit revisioned active-pointer conventions; no facet owns a parallel
-   truth or activation path."
+  "Revision import and active-pointer operations for facet masters.
+   Takes: an object-container runtime, a master spec, source bytes or revision ids, actors, and scopes.
+   Gives: import, activation, instance-master, pointer, and history results.
+   Holds nothing."
   (:require [clojure.string :as str]
             [app.server.rama.core :as core]
             [app.server.rama.object-container :as oc]

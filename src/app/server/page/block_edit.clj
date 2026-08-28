@@ -1,5 +1,8 @@
 (ns app.server.page.block-edit
-  "Server-only object edit entry point retained while the product client is dark."
+  "The server entry point for one :object/edit request.
+   Takes: an object-container runtime and an edit request map.
+   Gives: the accepted or rejected edit decision.
+   Holds nothing."
   (:require [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.util-fns :as util-fns]))

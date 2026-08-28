@@ -5,6 +5,10 @@
 ;; Adhere to all previously decided design decisions.
 
 (ns app.server.rama.object-container
+  "Durable containers, revisions, source material, edits, and transcript operations.
+   Takes: object-container requests and transcript control, file-state, and source-line records.
+   Gives: decisions, events, material rows, indexes, edit results, and transcript-operation results.
+   Holds: depots *object-container-requests-depot *transcript-control-depot *transcript-file-state-depot *transcript-source-line-completions-depot; 32 PStates from $$requests-by-audit-id through $$edit-order-by-target plus the three $$transcript-* PStates."
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])

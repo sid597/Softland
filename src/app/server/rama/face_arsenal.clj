@@ -1,37 +1,8 @@
 (ns app.server.rama.face-arsenal
-  "Faces-as-assemblies Wave 2 · the face-arsenal micro-kernel (framework
-   CONTRACT §16; lane W2-D). INTENT-ONLY kernel per the KERNEL-SHAPE taxonomy
-   (`kernel.clj`; text/space are the precedents): ONE depot (wear events +
-   face-registered events), one stream topology, pointer/usage PStates.
-
-   THE PLACEMENT RULING (§16): OC has no by-family enumeration and reading the
-   faces DIRECTORY for the face list would violate the back-arrow (trap T14:
-   the map lies — a failed import would list as wearable). The index + wearing
-   log live here. §8 carve-out, enforced by gate G20: this kernel holds USAGE
-   EVENTS and POINTERS only — never assembly material (trap T16); assemblies,
-   their revisions, their lineage live ONLY in OC + the relation kernel.
-
-   Durability (§16 ruling): the dev runtime is in-memory IPC. Faces re-enter
-   via the watcher's initial-sweep!; wear events get the /assert WAL treatment
-   (`git_spine.clj:47-55,:582-655` precedent): every accepted wear appends one
-   pure-edn line to `data/face-wear-log.ednl` BEFORE the depot append, and
-   boot replays the log idempotently (wear-id journal). The wearing log is the
-   desire-path instrument — losing it at reboot would defeat it.
-
-   Event-boundary map (rama-pitfalls §1): a wear event's writes (journal +
-   events + counts) all execute between the same partitioners on
-   hash(:face/name) — atomic together. A registered event hops to the roster
-   task and does its single write there. The OC-accept → arsenal-register dual
-   append is NOT atomic (trap T17): the register is idempotent by import-key
-   (row overwrite converges) and every accepted decision — replays included —
-   re-fires it, so the gap window is honest degradation that converges on the
-   next change event / boot sweep.
-
-   Write path (§16): `record-wear!` is called by the codebase's FIRST write
-   e/defn at W2-INT; the CLIENT mints the wear-id at the outbox (ids before
-   append — the Rama event-boundary law); THIS fn stamps `worn-at-ms` with the
-   honest server clock, never the client's. It must NOT ride `FacePull`/serve
-   (trap T15: the read artery stays read-only; an epoch re-pull is not a wear)."
+  "A durable face roster and wear-event log.
+   Takes: face registration and wear records keyed by face name.
+   Gives: roster, current-wear, wear-count, and wear-history query results.
+   Holds: depot *face-arsenal-depot; PStates $$faces-by-name $$wear-events-by-face $$wear-counts-by-face $$wear-journal-by-face; data/face-wear-log.ednl."
   (:use [com.rpl.rama]
         [com.rpl.rama.path])
   (:require [app.server.rama.object-container :as oc]

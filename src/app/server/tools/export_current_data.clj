@@ -1,9 +1,8 @@
 (ns app.server.tools.export-current-data
-  "Read-only, partition-complete EDN snapshot of Softland's durable Rama PStates.
-
-   This namespace declares no module, depot, topology, or PState and contains no
-   append API. It connects as a foreign reader, scans each physical task once,
-   and writes plain EDN outside both the repository and /mnt/data/rama."
+  "A read-only archive writer for all 44 durable PStates.
+   Takes: an output directory and foreign handles to the five pinned Rama modules.
+   Gives: EDNL PState files, manifest.edn, verification.edn, and SHA256SUMS.
+   Holds nothing."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.java.shell :as shell]

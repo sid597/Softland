@@ -1,4 +1,8 @@
 (ns app.server.ingest.transcript-adapter
+  "One redacted transcript line converted into container rows.
+   Takes: a parsed JSONL event, source identity, actor data, and claimed time.
+   Gives: container, projection, edge, anchor, artifact, tool-call, and audit rows.
+   Holds nothing."
   (:require [app.server.rama.core :as core]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.transcript-identity :as transcript-identity]

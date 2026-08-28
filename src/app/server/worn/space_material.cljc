@@ -1,10 +1,8 @@
 (ns app.server.worn.space-material
-  "The outer space's first served facet-master.
-
-   Zoom bounds are shared, revisioned form. Tap and Shift-drag meanings are
-   bindable master material; camera gestures remain only in
-   `binding-material/space-floor-bindings`, structurally uncapturable by any
-   material tier."
+  "The outer-space zoom and binding facet specification.
+   Takes: served zoom forms and space binding rows.
+   Gives: compiled zoom bounds, interaction claims, and contribution rows.
+   Holds: spec."
   (:require [app.server.worn.binding-material :as binding-material]
             [app.server.worn.facet-material :as facet-material]))
 

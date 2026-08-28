@@ -1,4 +1,8 @@
 (ns app.server.rama.transcript-ingest
+  "An in-process transcript container store.
+   Takes: transcript requests, claims, observations, file-state records, and source-line completions.
+   Gives: ingest runs, container projections, composition edges, anchors, artifacts, tool calls, and audit rows.
+   Holds: depots *transcript-ingest-depot *transcript-claim-depot *transcript-obs-depot *transcript-file-state-depot; PStates $$ingest-runs $$source-ledger $$files-handled $$file-offsets $$last-msg-per-conv $$containers-by-id $$conversation-projection $$composition-edges-by-parent $$source-anchors-by-container $$source-artifacts $$tool-calls-by-name $$audit-entries."
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])

@@ -1,4 +1,9 @@
 (ns app.server.ingest.transcript
+  "Reads Claude Code and Codex session files: walks *.jsonl under ~/.claude/projects and ~/.codex/sessions,
+   parses and redacts each line into observations, and imports them into the object container.
+   Takes: a transcript request {:request/type :transcript/harvest | :transcript/watch, :transcript/source, :transcript/paths}.
+   Gives: observation maps; import results {:status :counts :source-lines}; a daemon thread per watch.
+   Holds: depots *transcript-depot *transcript-claim-depot *transcript-obs-depot; PStates $$transcript-runs $$transcript-source-ledger $$transcript-observed-conversations $$transcript-tool-call-index $$transcript-run-seen-lines (in-process module)."
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
