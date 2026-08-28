@@ -16,13 +16,13 @@
 ;;
 ;; Overrides: R5_ADDRESS  R5_TURN  R5_FACE  R5_RELATION_TARGET  R5_BASELINE
 
-(require '[app.server.rama.cluster :as cluster]
+(require '[app.server.door.cluster :as cluster]
          '[app.server.rama.object-container.runtime :as ocr]
          '[app.server.rama.relation-kernel :as rk]
          '[app.server.rama.face-arsenal :as fa]
-         '[app.server.episode :as episode]
+         '[app.server.episode.episode :as episode]
          '[app.server.rama.object-container.transcript-identity :as tid]
-         '[app.server.rama.dogfood.transcript :as transcript]
+         '[app.server.ingest.transcript :as transcript]
          '[clojure.string :as str]
          '[clojure.java.io :as io]
          '[clojure.edn :as edn])

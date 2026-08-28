@@ -15,15 +15,12 @@
    row existence. Per-module probe suites come in the per-kernel fix sessions;
    this namespace only provides the shared machinery.
 
-   Typical wiring (compute-style runtime helpers):
+   Typical wiring with runtime helpers supplied by a module test:
 
-     (require '[app.server.rama.dogfood.compute :as compute]
-              '[app.server.rama.probe-harness :as probe])
-
-     (let [runtime (compute/start-compute-runtime!)]
+     (let [runtime (start-runtime!)]
        (probe/probe-duplicate-id-same-payload!
-         {:read-state #(compute/read-run runtime run-id)
-          :append!    #(compute/append-run-command! runtime request)}))"
+         {:read-state #(read-run runtime run-id)
+          :append!    #(append-run-command! runtime request)}))"
   (:require [clojure.test :refer [do-report]]))
 
 ;; ── Polling ─────────────────────────────────────────────────────────────────

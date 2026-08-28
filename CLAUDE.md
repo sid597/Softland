@@ -61,13 +61,16 @@ Exploration lives in the conversation. While a question is live, write nothing u
 Commit mechanics once settled: the repo is closed source (Sid, 2026-08-10) — commit freely, code, docs, and law files alike, on `main`, no approval needed; group commits by concern so bisect stays sharp. Pushing/merging stays Sid's alone (decisions.md "Only Sid decides"); never a Co-Authored-By line.
 
 ## Source Structure
-`src/app/client/` is the render engine and nothing else — folded by KIND of mark (Sid, 2026-08-28):
-- `engine/` — what every kind shares: `device` (buffers, targets, clear quad, clip projection), `placement` (the container affine math + anchored screen rects), `color`, `compositor`, `leases`, `rungs`, `budget`, `buffer_pool`
-- `text/` — `shaper` (HarfBuzz) · `layout` · `layout_planes` · `fonts` · `slug_gpu` (the text painter)
-- `image/` — `material` · `image_gpu` · `path/` — `material` · `tessellation` · `path_gpu` · `region3d/` — `material` · `scene` · `evaluation` · `placement` (the one file that crosses kinds: 2D marks on 3D planes) · `region3d_gpu` · `placement_gpu`
-- `verifier/core.cljs` — the render-engine test harness; the only compiled CLJS entry (`shadow-cljs.edn`), driven by `test/render_engine/run_verifier.mjs`
-- Dependencies point one way: kind → engine; never engine → kind; never kind → kind except `region3d/placement`. Every namespace docstring reads: what it is · Takes · Gives · Holds.
-- `server/` — Rama modules + ingestion (`rama/`, `episode.clj`, `ingest_watchers.clj`); `shared/` — server-side facet/material/verb vocabulary (the client requires none of it; the name is stale). Both unmapped by the kind sort; next.
+`src/app/client/` — the render engine, folded by kind of mark: `engine/` (what every kind shares) · `text/` · `image/` · `path/` · `region3d/` · `verifier/core.cljs` (the only compiled CLJS entry). kind → engine, never engine → kind, never kind → kind except `region3d/placement`.
+`src/app/server/` — the land, folded by what the code is about:
+- `rama/` — the kernels: `object_container` (+ `object_container/runtime`, `transcript_identity`) · `relation_kernel` · `core` · `util_fns` · `transcript_ingest`; and `trail_view`, `face_arsenal`, pinned here because a Rama module's name is `namespace/var` and the cluster and the archive key on it
+- `ingest/` — the world into rows: `markdown_adapter` · `transcript_adapter` · `transcript` · `clojure_adapter` · `git_spine` · `ingest_watchers` · `block_distiller` · `code_atoms`
+- `worn/` — revisioned material and its pointer: `facet_material` · `facet_masters` · the facet specs · `activation_event` · `binding_material` · `facet_master` · `material_truth`
+- `episode/` — a typed turn and the model it summons: `episode` · `llm` · `cascade` · `material_circulation` · `machine_cut` · `objects`
+- `page/` — what the page asked for: `face_projection` · `material_portal` · `portal_questions` · `verb_release` · `verb_registry` · `matter_room` · `material_inspector` · `reply_to_block` · `block_edit`
+- `door/` — `server_jetty` (HTTP) · `cluster` (the cluster seam); `tools/export_current_data` (the archive); `env.clj` (never read)
+- Every namespace docstring reads: what it is · Takes · Gives · Holds.
+- Dependencies point one way: door → page → episode → worn → ingest → rama; the check and its five standing exceptions: `bin/server_tiers.clj`.
 
 ## Critical Missionary/Electric Patterns — see the electric-docs skill
 Verified laws + recipes: `.claude/skills/electric-docs/SKILL.md`

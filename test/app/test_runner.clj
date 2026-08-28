@@ -41,12 +41,12 @@
     app.client.text.shaping-correction-test
     app.client.text.layout-planes-test
     app.client.text.layout-test
-    app.binding-dispatch-test
+    app.server.worn.binding-dispatch-test
     app.missionary-claims-test
-    app.reply-to-block-test
-    app.space-material-test
-    app.tools.export-current-data-test
-    app.server.parser-test
+    app.server.page.reply-to-block-test
+    app.server.worn.space-material-test
+    app.server.tools.export-current-data-test
+    app.server.door.parser-test
     app.server.rama.core-guards-test
     app.server.rama.probe-harness-test])
 
@@ -55,91 +55,91 @@
    All runtime constructors request the same 4-task/2-thread launch for any
    module they share. The launch-once guard below enforces that proof at run
    time."
-  '[app.face-gate-fixes-test
-    app.machine-cut-serve-test
-    app.material-inspector-test
-    app.server.rama.dogfood-transcript-probe-test
-    app.server.rama.dogfood-transcript-test])
+  '[app.server.worn.face-gate-fixes-test
+    app.server.page.machine-cut-serve-test
+    app.server.page.material-inspector-test
+    app.server.ingest.dogfood-transcript-probe-test
+    app.server.ingest.dogfood-transcript-test])
 
 (def isolation-exceptions
   "Namespaces whose semantics still require the historical private-cluster
    lifecycle. These remain in `full`; only the inner-loop `fast` lane omits
    them."
-  '{app.cascade-table-test
+  '{app.server.episode.cascade-table-test
     "Boots fresh OC, relation, and LLM runtimes for the behavior-identity cut."
 
-    app.face-arsenal-test
+    app.server.worn.face-arsenal-test
     "Mutates the process-global ingest epoch and opens a second cluster for WAL boot replay."
 
-    app.face-projection-test
+    app.server.page.face-projection-test
     "The guarded 6.9MB real-corpus receipt asserts exact clean-cluster durable counts."
 
-    app.machine-cut-test
+    app.server.episode.machine-cut-test
     "Mutates the process-global ingest epoch and opens a fresh relation cluster for WAL replay."
 
-    app.material-circulation-test
+    app.server.episode.material-circulation-test
     "Cross-module activation and circulation mutate fixed facet-master and relation identities."
 
-    app.material-truth-test
+    app.server.worn.material-truth-test
     "P6 gates mint instance masters, move shared activation pointers, upsert the episode registry index, and assert the process-global ingest epoch."
 
-    app.material-portal-test
+    app.server.page.material-portal-test
     "P7 gates deviate, pin and activate fixed facet-master identities and run the malformed drill; the recovery gate rolls a shared activation pointer back."
 
-    app.provenance-material-test
+    app.server.worn.provenance-material-test
     "Activation, malformed-candidate, and rollback gates mutate fixed facet-master pointers."
 
-    app.server.episode-test
+    app.server.episode.episode-test
     "Restart-adoption and durable episode-cell assertions require a clean object-container history."
 
-    app.server.ingest-watchers-test
+    app.server.ingest.ingest-watchers-test
     "File-watcher recovery mutates the process-global ingest epoch; it is also a registered port-conflict flake."
 
-    app.server.rama.code-atoms-test
+    app.server.ingest.code-atoms-test
     "Git-history receipts use randomized task counts and independently launched composite runtimes."
 
-    app.server.rama.dogfood-llm-probe-test
+    app.server.episode.dogfood-llm-probe-test
     "Registered suite-order flake; fixed thread ids overlap the space probe, so shared-state safety is unproven."
 
-    app.server.rama.dogfood-llm-test
+    app.server.episode.dogfood-llm-test
     "Executor-death and stale-approval recovery mutate shared executor indexes; registered flake semantics stay unchanged."
 
-    app.server.rama.dogfood.transcript-ingest-test
+    app.server.rama.transcript-ingest-test
     "Watch resume, file-offset restart, and terminal-state tests repeatedly assume a clean ingest runtime."
 
-    app.server.rama.git-spine-gate-test
+    app.server.ingest.git-spine-gate-test
     "The gate compares two intentionally fresh relation runtimes across a replay boundary."
 
-    app.server.rama.git-spine-test
+    app.server.ingest.git-spine-test
     "WAL replay and restart gates open multiple fresh randomized-task runtimes."
 
     app.server.rama.object-container-test
     "Physical negative reads and exact empty-state assertions use direct with-open clusters."
 
-    app.server.rama.object-container.block-distiller-test
+    app.server.ingest.block-distiller-test
     "Exact corpus counts and the intentional OC/RK two-cluster boundary span several clean launches."
 
-    app.server.rama.object-container.block-write-test
+    app.server.rama.block-write-test
     "The WAL survival gate requires a real runtime close followed by a fresh cluster."
 
-    app.server.rama.object-container.clojure-adapter-test
+    app.server.ingest.clojure-adapter-test
     "Pinned whole-corpus enumeration and physical reads share one directly owned clean fixture cluster."
 
     app.server.rama.relation-kernel-test
     "Randomized partition sweeps plus pause/resume deliberately control the whole microbatch topology."
 
-    app.server.rama.trail-view-test
+    app.server.page.trail-view-test
     "Randomized task-count and no-source module launches are distinct topology-shape proofs."
 
-    app.server.relation-assert-route-test
+    app.server.door.relation-assert-route-test
     "Two-task WAL route tests own scratch logs and require independently clean relation runtimes."})
 
 (def flake-registry-namespaces
   "The existing registered environment/order-sensitive namespaces. The harness
    does not modify their tests or retry protocol, and keeps all three isolated."
-  '#{app.server.ingest-watchers-test
-     app.server.rama.dogfood-llm-probe-test
-     app.server.rama.dogfood-llm-test})
+  '#{app.server.ingest.ingest-watchers-test
+     app.server.episode.dogfood-llm-probe-test
+     app.server.episode.dogfood-llm-test})
 
 (def full-receipt-floor
   "The receipt floor after the conductor cut (scene tape, frame graph, delta
@@ -151,7 +151,7 @@
   '[app.server.rama.face-arsenal/close-face-arsenal-runtime!
     app.server.rama.relation-kernel/close-relation-runtime!
     app.server.rama.object-container.runtime/close-object-container-runtime!
-    app.server.rama.dogfood.transcript/close-transcript-runtime!])
+    app.server.ingest.transcript/close-transcript-runtime!])
 
 (def ^:private slow-namespace-cost
   "Extra sharding weights for work whose cost is not represented by source
@@ -159,9 +159,9 @@
    one shared harvest/distill over the guarded 6.9MB corpus; dogfood-space
    launches a clean runtime for each integration test. Keep both minutes-long
    receipts on their own shards."
-  '{app.face-projection-test 24000
-    app.server.rama.object-container.block-distiller-test 1600
-    app.server.rama.dogfood.transcript-ingest-test 900})
+  '{app.server.page.face-projection-test 24000
+    app.server.ingest.block-distiller-test 1600
+    app.server.rama.transcript-ingest-test 900})
 
 (def ^:private minimum-shard-port-span
   "One Rama IPC reserves a 1,000-port supervisor range plus conductor/client

@@ -1,5 +1,5 @@
 (ns prod
-  (:require [app.server-jetty :as jetty]
+  (:require [app.server.door.server-jetty :as jetty]
             [clojure.tools.logging :as log]))
 
 (def config

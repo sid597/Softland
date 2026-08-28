@@ -155,13 +155,13 @@ case "${1:-help}" in
   ingest)
     # T9: sweep + git-spine, EXPLICIT (never on the app startup path). Safe to
     # re-run — deterministic ids + idempotency journals converge.
-    (cd "$REPO_DIR" && clj -X:test app.server.rama.cluster/ingest!)
+    (cd "$REPO_DIR" && clj -X:test app.server.door.cluster/ingest!)
     ;;
   migrate)
     # CONTRACT §7 P4 — migration day, one-shot: corpus ingest → faces + wear
     # bridge → default-conversation harvest/distill + block-edit bridge →
     # machine-cut bridge. Prints the G4 receipt map.
-    (cd "$REPO_DIR" && clj -X:test app.server.rama.cluster/migrate!)
+    (cd "$REPO_DIR" && clj -X:test app.server.door.cluster/migrate!)
     ;;
   backup)
     # CONTRACT §5 — free-tier COLD backup: shutdown → copy → restart → vault.

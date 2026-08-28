@@ -1,10 +1,10 @@
 (ns app.server.rama.object-container-test
   (:require [app.server.rama.object-container :as oc]
-            [app.server.rama.object-container.markdown-adapter :as markdown-adapter]
+            [app.server.ingest.markdown-adapter :as markdown-adapter]
             [app.server.rama.object-container.runtime :as ocr]
-            [app.server.rama.object-container.transcript-adapter :as transcript-adapter]
+            [app.server.ingest.transcript-adapter :as transcript-adapter]
             [app.server.rama.object-container.transcript-identity :as transcript-identity]
-            [app.server.rama.dogfood.transcript :as transcript]
+            [app.server.ingest.transcript :as transcript]
             [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.test :refer [deftest is testing]]
