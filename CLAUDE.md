@@ -60,13 +60,14 @@ Two registers exist; mis-tuning between them wrecks sessions (example: operation
 Exploration lives in the conversation. While a question is live, write nothing under `docs/` or memory — no routing, no landing, no commits: a premature artifact breaks the chain of exploration and anchors the rest of the session around defending it. Disk happens at settlement — Sid's word ("land it", "settled", a yes to "settle this?") — or at session end, where the full write-set (including any board/thread status flip) is previewed in one message so Sid can veto in one line before it lands. Unattended session end: interpretive writes wait for the next attended moment; mechanical, already-settled ones proceed. Carve-outs: Sid's verbatim words may be captured into `vision/LOG.md` any time (append-only; routing still waits), and code probes built to answer a question are exploration, not materialization.
 Commit mechanics once settled: the repo is closed source (Sid, 2026-08-10) — commit freely, code, docs, and law files alike, on `main`, no approval needed; group commits by concern so bisect stays sharp. Pushing/merging stays Sid's alone (decisions.md "Only Sid decides"); never a Co-Authored-By line.
 
-## Source Structure (post-refactor)
-Key source files live under `src/app/`:
-- `electric_flow.cljc` — Electric reactive UI (layout, text rendering, DOM)
-- `client/substrate/webgpu/renderer.cljs` — WebGPU render loop, GPU pipeline
-- `client/workspace/` — the land runtime: loop modules (`runtime/`, `runtime.cljs`, `events.cljs`), ground + faces (`ground.cljs`, `face_*`), `trail_face/`, scene/editing/frame runtimes, text pipeline (`text_*`, `rect_tree.cljc`)
-- `shared/` — `.cljc` consumed by BOTH server and client (P1 gate ruling 2026-07-24; `face_assembly.cljc` is grandfathered under `client/workspace/` and migrates at a natural touchpoint)
-
+## Source Structure
+`src/app/client/` is the render engine and nothing else — folded by KIND of mark (Sid, 2026-08-28):
+- `engine/` — what every kind shares: `device` (buffers, targets, clear quad, clip projection), `placement` (the container affine math + anchored screen rects), `color`, `compositor`, `leases`, `rungs`, `budget`, `buffer_pool`
+- `text/` — `shaper` (HarfBuzz) · `layout` · `layout_planes` · `fonts` · `slug_gpu` (the text painter)
+- `image/` — `material` · `image_gpu` · `path/` — `material` · `tessellation` · `path_gpu` · `region3d/` — `material` · `scene` · `evaluation` · `placement` (the one file that crosses kinds: 2D marks on 3D planes) · `region3d_gpu` · `placement_gpu`
+- `verifier/core.cljs` — the render-engine test harness; the only compiled CLJS entry (`shadow-cljs.edn`), driven by `test/render_engine/run_verifier.mjs`
+- Dependencies point one way: kind → engine; never engine → kind; never kind → kind except `region3d/placement`. Every namespace docstring reads: what it is · Takes · Gives · Holds.
+- `server/` — Rama modules + ingestion (`rama/`, `episode.clj`, `ingest_watchers.clj`); `shared/` — server-side facet/material/verb vocabulary (the client requires none of it; the name is stale). Both unmapped by the kind sort; next.
 
 ## Critical Missionary/Electric Patterns — see the electric-docs skill
 Verified laws + recipes: `.claude/skills/electric-docs/SKILL.md`
@@ -90,6 +91,14 @@ test/app/missionary_claims_test.clj after any Electric SNAPSHOT bump).
   contract-local status; it never selects the next board item unless Sid names
   the new scope (corpse: `019fef0a` nominated viewport-residency after an
   accepted correction; expiry: five accepted atoms end contract-local).
+- **Rulings quote Sid verbatim (Sid/Fable, 2026-08-28 — the Slug reversal).** A
+  ruling attributed to Sid in any list, contract, or NOW carries his exact words
+  with a timestamp, never a paraphrase. A one-line answer that reverses a
+  standing on-disk ruling or a parallel session's reading is asked back ONCE, in
+  one line, before it is recorded. Items on a "Sid decides" list never move to
+  "stays" by omission — they stay listed until his word, or are named as a
+  default with the reason. (Corpse: "and slug goes" read two ways in two windows
+  three minutes apart; the contract carried the wrong one; nobody asked.)
 - **Gathering rides bounded read-only subagents; strongest tokens are for
   sensemaking.** (Sid, standing; routing amended 2026-08-10) Any collection
   batch — reading files/diffs/docs for a review, greps, suite runs, data
