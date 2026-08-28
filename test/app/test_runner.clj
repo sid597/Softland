@@ -45,6 +45,7 @@
     app.missionary-claims-test
     app.reply-to-block-test
     app.space-material-test
+    app.tools.export-current-data-test
     app.server.parser-test
     app.server.rama.core-guards-test
     app.server.rama.probe-harness-test])
