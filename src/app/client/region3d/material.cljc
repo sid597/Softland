@@ -1,11 +1,10 @@
 (ns app.client.region3d.material
-  "Pure, fail-closed material grammars for Region3D.
-
-   Region rows are ordinary EDN render payloads. This namespace owns
-   versioned defaults, canonical validation, and semantic material values. GPU
-   resources and session state never enter this grammar. Unknown fields are
-   preserved so later sculpting and node-authoring extensions can enter without
-   silently losing meaning."
+  "What a 3D region is: a whole scene as plain data (extent, objects by id,
+   materials, lights, view), validated fail-closed and migrated to the current
+   version. Unknown fields are kept.
+   Takes: a region map; a view map.
+   Gives: the canonical region; the canonical view; the default material.
+   Holds nothing."
   )
 
 (def schema-version 2)

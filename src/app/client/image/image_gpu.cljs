@@ -1,4 +1,13 @@
 (ns app.client.image.image-gpu
+  "The image painter: quads sampling an atlas or a dedicated texture, with mip
+   levels for zooming out.
+   Takes: a device, a format, and the shared camera and containers buffers to
+   build the system; image sources to register; the frame's image ops to
+   prepare; a render pass to draw into.
+   Gives: an image system with atlas, pipelines, and mip generator; packed
+   instances in a pool; draw calls.
+   Holds: per-system atoms for the buffer, capacity, prepared state, last
+   images, and resources."
   (:require [clojure.string :as str]
             [app.client.engine.buffer-pool :as buffer-pool]
             [app.client.engine.budget :as gpu-budget]

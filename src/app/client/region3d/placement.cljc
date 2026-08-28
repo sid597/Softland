@@ -1,10 +1,11 @@
 (ns app.client.region3d.placement
-  "Pure Region3D placement derivations.
-
-   This namespace owns flat-plane math, text and ink packing, and region-object
-   anchor projection.
-   Store values and explicit cache values enter as data; there is no ambient
-   state and no execution clock."
+  "Puts 2D marks on 3D planes: text laid out with the text preparer, ink
+   tessellated with the path preparer, then packed and anchored on a region's
+   plane. The one place two kinds meet.
+   Takes: a placed text or ink row and font assets; a path-mesh cache; a
+   placement's anchor to project.
+   Gives: a layout; a packed ink mesh; a projected anchor.
+   Holds nothing."
   (:require [app.client.path.material :as path-material]
             [app.client.path.tessellation :as path-tessellation]
             [app.client.region3d.scene :as region3d-scene]

@@ -1,13 +1,10 @@
 (ns app.client.region3d.scene
-  "Pure Region3D scene derivation.
-
-   Keyed inputs: a canonical region row plus session camera values joined at
-   the renderer edge. Door: event causes only. Ownership:
-   the region row is one generation; session camera is a separate stamped
-   generation. Projections: instance rows, BVH/ray pick, tape entry, pass
-   fragment, inspector rows, and the full batch oracle. The maintained view
-   keeps the full derivation as its equivalence fence and refits only the
-   affected hierarchy subtree for transform edits. No clock exists here."
+  "Derives everything the 3D painter needs from a canonical region: object
+   transforms, instances, triangles by object, and a BVH for picking.
+   Takes: a canonical region; a view and viewport for camera matrices; an
+   evaluated scene, a camera, and a point to pick.
+   Gives: the derived scene; camera matrices; the picked object.
+   Holds nothing."
   (:require [clojure.set :as set]
             [app.client.region3d.material :as material]))
 

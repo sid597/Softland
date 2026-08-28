@@ -1,7 +1,11 @@
 (ns app.client.engine.budget
-  "Console-first GPU resource tracker for WebGPU buffers/textures.
-   Tracks reserved bytes by subsystem, plus optional active bytes where the
-   runtime knows how much of a reservation is currently populated."
+  "A byte ledger for GPU buffers and textures, by label and kind, reported to
+   the console.
+   Takes: adapter limits to create a tracker; a GPU object with its label and
+   reserved or active bytes; an object to destroy.
+   Gives: a snapshot of bytes per label and kind; a summary line; a startup
+   report.
+   Holds: the tracker's state atom and a WeakMap from GPU object to id."
   (:require [clojure.string :as str]))
 
 (def ^:private max-events 200)

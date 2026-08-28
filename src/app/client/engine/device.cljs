@@ -1,4 +1,12 @@
 (ns app.client.engine.device
+  "The GPU pieces every kind of mark shares: the camera and containers buffers,
+   render targets, the clear quad, the shared color-mode shader text, and clip-
+   rect projection.
+   Takes: a WebGPU device and a byte tracker; camera pan, zoom, and viewport
+   size; the container table; a container-local clip rect.
+   Gives: GPU buffers, textures, and render targets the painters draw into; a
+   scissor or mask for a clip.
+   Holds nothing."
   (:require [clojure.string :as str]
             [app.client.engine.budget :as gpu-budget]
             [app.client.engine.color :as scene-color]))

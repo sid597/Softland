@@ -1,9 +1,11 @@
 (ns app.client.text.layout-planes
-  "Columnar retained storage and derived views for Contract-T layout results.
-
-   Raw arrays are private to this namespace.  Callers receive line/result
-   handles and rich values reconstructed at the accessor boundary; no derived
-   glyph or cluster map is retained in the layout result."
+  "Columnar storage for layout results: the same lines and glyphs kept as typed
+   arrays, with rich maps rebuilt at the accessor boundary. Internal to text
+   layout.
+   Takes: a fully built layout result.
+   Gives: the result compacted onto planes; accessors that rebuild glyphs and
+   lines on demand.
+   Holds: a capped list of weak references to live planes, for receipts only."
   )
 
 (def ^:private id-mask 0x3fffffff)

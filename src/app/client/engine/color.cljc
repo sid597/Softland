@@ -1,7 +1,10 @@
 (ns app.client.engine.color
-  "The scene-color resource seam: the byte-identical legacy direct-present
-   route and the linear-premultiplied candidate that painter pipelines and
-   blend states are configured from.")
+  "Color conversion shared by every painter: a color as written, or converted
+   to linear premultiplied for the linear scene mode.
+   Takes: a color and the scene color mode.
+   Gives: the RGBA a shader should receive, and the mode the pipelines are
+   configured from.
+   Holds nothing.")
 
 (def legacy-direct-color
   {:scene-color/version 1

@@ -1,9 +1,13 @@
 (ns app.client.image.material
-  "Pure material, geometry, allocation, and packing laws for the image atom.
-
-   This namespace owns no GPU objects and emits no scene-tape entries.  Source
-   bytes resolve only through the digest-keyed registry below; renderer code is
-   a consumer of these values, never a second material authority."
+  "What an image is: a verified source (digest, color tag, size, alpha
+   association), its place in the atlas, and the 13 floats one image quad packs
+   to.
+   Takes: an image's provenance record; a registry and a computed digest; an
+   atlas, a content key, and dimensions; one quad's rect, uv, tint, and
+   container slot.
+   Gives: a validated source; an atlas placement plan; 13 floats per instance;
+   contiguous draw runs.
+   Holds nothing; owns no GPU objects."
   )
 
 ;; Contract C ingress ---------------------------------------------------------

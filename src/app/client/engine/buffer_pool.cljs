@@ -1,7 +1,10 @@
 (ns app.client.engine.buffer-pool
-  "Slot-based GPU buffer pool for differential rendering.
-   Callers supply the item width and packer explicitly. Supports per-slot
-   writes and batch updates proportional to changed items."
+  "A slot pool for GPU instance buffers that writes only the items that changed
+   since last time.
+   Takes: a device, a capacity, the pipeline and bind group the items draw
+   with, an item width and a pack function; then a new item list each frame.
+   Gives: the number of GPU writes made; draw parameters for the pool.
+   Holds: the pool atom (items, capacity, shape revision)."
   (:require [clojure.set]
             [app.client.engine.budget :as gpu-budget]))
 

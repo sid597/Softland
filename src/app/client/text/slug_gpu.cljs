@@ -1,4 +1,13 @@
 (ns app.client.text.slug-gpu
+  "The text painter: Slug. Glyph outlines are evaluated per pixel in the
+   fragment shader from curve and band textures; no atlas, exact at any zoom.
+   Takes: a device and a font's curve, band, and meta data to build the system;
+   a text op with its layout to position and pack glyphs; a render pass to draw
+   into.
+   Gives: a text system with its pipeline, instance buffer, and font textures;
+   one instance per glyph in a GPU buffer; draw calls.
+   Holds: a cache from a font's glyph list to its unicode lookup, and a counter
+   of layout fallbacks."
   (:require [clojure.string :as str]
             [app.client.engine.budget :as gpu-budget]
             [app.client.engine.color :as scene-color]

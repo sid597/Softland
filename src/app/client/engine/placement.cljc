@@ -1,17 +1,12 @@
 (ns app.client.engine.placement
-  "Pure container registry and W2-A affine composition.
-
-   A container owns one canonical six-number affine in SVG/CSS order:
-   [a b c d tx ty], where x' = a*x + c*y + tx and
-   y' = b*x + d*y + ty.  Container transforms compose through the parent
-   chain once; the resulting value is shared by GPU paint, CPU pick, bounds,
-   clipping/culling projections, and context receipts.
-
-   Semantic container ids never index the GPU table.  Each live container has
-   a compact, stable :transport-slot.  That indirection is the Q8 transport
-   seam: sparse material ids do not amplify the 32-byte storage table.  cid 0
-   and transport slot 0 are permanently reserved for the identity world
-   container.")
+  "Where things sit: the container tree's transform math. A container is a node
+   with one six-number affine [a b c d tx ty], composed once through its
+   parents; every kind positions itself through the result.
+   Takes: a container registry; a container id; a point; local bounds plus a
+   camera and a pixel offset (anchored-screen-rect).
+   Gives: one absolute affine per container with its compact GPU slot; points
+   mapped in and out; a world-anchored, screen-pixel-sized rect.
+   Holds nothing; the registry is a value passed in and returned.")
 
 (def identity-affine
   "Canonical identity [a b c d tx ty]."

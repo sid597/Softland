@@ -1,8 +1,11 @@
 (ns app.client.engine.leases
-  "Device-local Region3D binding owner.
-
-   Semantic ids address desired leases and stable composite slots.  GPU lease
-   objects stay here and are stamped by the compositor identity epoch."
+  "Which offscreen regions are live: desired region rows reconciled to stable
+   slots and GPU leases, stamped by the compositor's identity.
+   Takes: an owner; desired region rows (id and size); a region id and a
+   physical lease to record; a compositor to attach.
+   Gives: the desired map, a region's slot, its lease, a receipt.
+   Holds: one state atom per owner (device epoch, compositor, desired rows,
+   slots, leases)."
   (:require [clojure.set :as set]))
 
 (defn create-owner [device]

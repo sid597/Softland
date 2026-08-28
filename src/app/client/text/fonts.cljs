@@ -1,5 +1,9 @@
 (ns app.client.text.fonts
-  "Font manifest helpers and runtime font asset loading."
+  "Font manifest and font asset loading: reads the manifest, then loads a
+   font's Slug curve and band data and its shaping sources.
+   Takes: nothing (the manifest url), or one font config from the manifest.
+   Gives: a promise of font assets, including the layout provider.
+   Holds nothing."
   (:require [app.client.text.shaper :as text-shaper]))
 
 (def ^:private base-path "/fonts/")

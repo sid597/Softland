@@ -1,7 +1,11 @@
 (ns app.client.region3d.evaluation
-  "Retained Region3D evaluation across authoritative material and transient
-  session transforms. Transform dirtiness is a component, not a material
-  invalidation: topology/material changes derive; transform changes maintain."
+  "Re-evaluates a 3D scene between frames without redoing everything: material
+   and topology changes derive, transform changes only maintain.
+   Takes: the prior evaluated scene and its key, the canonical region, and a
+   session row with settled and preview transforms.
+   Gives: the retained scene, its key, which kind of update happened (full,
+   transform, none), and the affected object ids.
+   Holds nothing."
   (:require [app.client.region3d.scene :as scene]))
 
 (defn session-transform-map

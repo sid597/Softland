@@ -1,8 +1,11 @@
 (ns app.client.region3d.placement-gpu
-  "WebGPU packing and paint for Region3D ink placements.
-
-   Packing is content keyed and owns no source material or tessellation
-   authority. The caller threads the path cache value through each frame."
+  "Packs and draws ink placed inside a 3D region.
+   Takes: the region system, a region's GPU state, placements, the maintained
+   scene, a camera, and a path cache; a render pass and a region uniform to
+   draw.
+   Gives: the caller's path cache plus packed rows in a flat vertex buffer; ink
+   draw calls.
+   Holds: a receipt atom per system."
   (:require [app.client.region3d.placement :as placement]
             [app.client.region3d.scene :as scene]
             [app.client.engine.budget :as gpu-budget]))

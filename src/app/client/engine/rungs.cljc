@@ -1,4 +1,11 @@
-(ns app.client.engine.rungs)
+(ns app.client.engine.rungs
+  "Which size an offscreen region gets: the sharpest rung (full, half, quarter,
+   eighth) that fits the byte budget. Pure arithmetic, no GPU.
+   Takes: a size request with the region id, desired size, held lease, reserved
+   bytes, and budget cap, plus injected quantize and lease-bytes functions.
+   Gives: admitted or not, the granted size key, the rung divisor, and a
+   receipt.
+   Holds nothing.")
 
 (def admission-divisors [1 2 4 8])
 

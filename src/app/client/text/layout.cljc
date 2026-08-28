@@ -1,11 +1,13 @@
 (ns app.client.text.layout
-  "Contract-T's single text-layout seam.
-
-   T0 deliberately keeps the shipped monospace behavior. The value returned by
-   `layout` is nevertheless the one immutable, versioned owner of wrap,
-   measurement, positioned glyphs, caret stops, selection geometry, clipping,
-   and hit testing. T1 replaces this provider with shaping; readers do not
-   acquire another metric route."
+  "Text layout: wraps and measures text into lines of positioned glyphs, with
+   caret stops, selection geometry, clipping, and hit testing, as one immutable
+   result.
+   Takes: raw text, a shaping provider, font size, character advance, line
+   height, an origin; optionally inline size, wrap policy, headers, clip,
+   source id and revision, zoom, tab stops.
+   Gives: the layout result (lines, glyph positions, planes) plus accessors to
+   read lines and glyph ranges back.
+   Holds nothing; the retained arrays live in layout-planes."
   (:require [clojure.string :as str]
             [app.client.text.layout-planes :as planes]
             #?(:cljs [goog.crypt :as gcrypt])

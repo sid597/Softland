@@ -1,9 +1,10 @@
 (ns app.client.text.shaper
-  "HarfBuzz + Unicode-bidi provider for Contract T.
-
-   This namespace owns font-program interpretation only. It returns glyph IDs,
-   clusters, advances, offsets, extents, directions, and font provenance in
-   font units. `text-layout` is the sole owner of material-space placement."
+  "Text shaping with HarfBuzz: turns a string plus font programs into glyph
+   ids, clusters, advances, and offsets in font units, with bidi direction.
+   Takes: ordered font sources (primary and fallbacks, with variations) and
+   shaping options.
+   Gives: a promise of a provider, the handle text layout calls to shape runs.
+   Holds: the loaded HarfBuzz wasm module and its in-flight load promise."
   (:require [clojure.string :as str]
             ["harfbuzzjs/hb.js" :as hb-module]
             ["harfbuzzjs/hbjs.js" :as hbjs-module]

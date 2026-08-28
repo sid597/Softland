@@ -1,13 +1,12 @@
 (ns app.client.verifier.core
-  "Permanent W0-A browser half.
-
-   This harness deliberately instantiates the production renderer's public
-   pipeline/update functions and repository font assets. It owns only capture,
-   comparison inputs, a candidate geometry-contract probe, and receipts. It is
-   not a product renderer and it never substitutes lookalike WGSL.
-
-   CPU geometry probes are independent readers of the production path and
-   glyph pipelines."
+  "The render-engine verifier: a test harness that runs the real painters in a
+   real browser and compares pixels to goldens. The only compiled entry point
+   in the client today.
+   Takes: nothing; it acquires an adapter, a device, and the fonts itself,
+   driven by test/render_engine/run_verifier.mjs.
+   Gives: window.__renderVerifierResult with receipts, goldens, and shader
+   digests.
+   Holds: three local probe atoms."
   (:require [clojure.string :as str]
             [app.client.image.material :as image-material]
             [app.client.path.material :as path-material]

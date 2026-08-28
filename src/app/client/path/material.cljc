@@ -1,7 +1,11 @@
 (ns app.client.path.material
-  "Pure grammar, Contract-G truth, cache identity, normalization, and packing
-   laws for the path atom. GPU meshes are disposable projections of this
-   namespace's centerline/contour authority; no renderer state lives here.")
+  "What a path is, and the four things everyone needs from one. A path is ink
+   (a stroke of pressure-tagged points, round caps) or a shape (filled outer
+   contours with holes), straight segments only, with a paint.
+   Takes: a path map; a point; a zoom.
+   Gives: a validated path; inside, boundary, or outside; a cache key; 7 floats
+   per vertex.
+   Holds nothing.")
 
 (def schema-version 1)
 (def algorithm-version :path-tessellation-v1)

@@ -1,8 +1,12 @@
 (ns app.client.path.path-gpu
-  "WebGPU projection for the path family. The system owns one repacked vertex
-   lane and a content/version/regime mesh cache. Uploads occur only when the
-   mesh-set identity or zoom regime changes; camera/container motion remains a
-   shader value."
+  "The path painter: one repacked vertex lane and a mesh cache keyed by
+   content, version, and zoom regime.
+   Takes: a device, a format, and the shared buffers to build the system; the
+   frame's path ops and zoom to prepare; a render pass and a vertex range to
+   draw.
+   Gives: a path system; a written vertex buffer; draw calls.
+   Holds: per-system atoms for the buffer, capacity, mesh cache, prepared
+   state, last paths, and last regime."
   (:require [clojure.string :as str]
             [app.client.path.material :as path-material]
             [app.client.path.tessellation :as tessellation]

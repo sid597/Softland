@@ -1,11 +1,13 @@
 (ns app.client.engine.compositor
-  "W4's generic WebGPU compositor capability.
-
-   The frame graph names resources and producer edges; this namespace owns the
-   recycling target pool, linear group/mask/blur composition, exactly-one
-   presentation transfer, per-draw scissor state, and asynchronous raster
-   readback. Family pipelines arrive through a lazy variant-layer builder so
-   textures/registries/instance bytes remain owned by their existing systems."
+  "The compositor: offscreen render targets and how they reach the screen. Owns
+   a recycling pool of GPU textures, region leases, blur and mask passes, the
+   single present to the canvas, and raster readback.
+   Takes: a device, an output format, and a byte tracker; lease requests by
+   region; a target pass to begin, draw into, and release.
+   Gives: a compositor with its pool and pipelines; leased targets; one
+   presented frame; pixels read back for receipts.
+   Holds: the pool state (free and leased targets) and the current region
+   leases."
   (:require [app.client.engine.rungs :as region-rungs]
             [app.client.engine.leases :as region-bindings]
             [app.client.engine.budget :as gpu-budget]))

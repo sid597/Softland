@@ -1,10 +1,14 @@
 (ns app.client.region3d.region3d-gpu
-  "Atom A's WebGPU region family.
-
-   `prepare-region3d-frame!` is the only CPU->GPU upload door and never mints
-   an encoder. `encode-region-pass!` encodes one role of one region into its lease;
-   `composite-region!` paints a held region onto an open pass.
-   Region attachment bytes remain compositor target-pool leases throughout."
+  "The 3D painter: uploads a region's evaluated scene and session, encodes its
+   shadow and interior passes into a lease, and composites the result into the
+   2D frame. Also attaches the compositor per device.
+   Takes: a device and format to build the system; regions with zoom, dpr, and
+   font assets to prepare; an encoder, a region id, a role, and a lease to
+   encode a pass; a render pass to composite.
+   Gives: a region system; a prepare receipt; encoded passes; the composited
+   region.
+   Holds: one system per device and the compositor per device (WeakMaps), plus
+   per-system atoms for prepared scenes and composite rows."
   (:require [app.client.region3d.evaluation :as evaluation]
             [app.client.region3d.material :as material]
             [app.client.region3d.placement :as placement]

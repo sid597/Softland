@@ -1,9 +1,11 @@
 (ns app.client.path.tessellation
-  "Deterministic, pure `.cljc` tessellation for path materials.
-
-   Ink expands directly to segment quads plus round cap/join fans. Shapes use
-   explicit hole bridging followed by ear clipping. Neither road promotes its
-   mesh to material truth or routes through a JS triangulation dependency."
+  "Turns a path into triangles. Ink expands to segment quads with round caps
+   and joins; shapes bridge their holes and ear-clip. Deterministic and pure.
+   Takes: a path material and a zoom; or a content-keyed cache plus many
+   materials.
+   Gives: a mesh (vertices, triangles, coverage, cache key); untouched
+   materials return their old mesh by identity.
+   Holds nothing; the cache is a value the caller owns."
   (:require [app.client.path.material :as path-material]))
 
 (def algorithm-version path-material/algorithm-version)
