@@ -14,7 +14,7 @@
    analysis time, all frames recorded."
   (:require [render-probe.mixes :as mixes]
             [render-probe.consumers :as c]
-            [app.client.substrate.webgpu.buffer-pool :as pool]
+            [app.client.engine.buffer-pool :as pool]
             [hyperfiddle.incseq :as i]))
 
 (def warmup-frames 20)

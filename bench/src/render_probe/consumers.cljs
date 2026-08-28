@@ -1,6 +1,6 @@
 (ns render-probe.consumers
   "The three scene-store consumers for the NORTH.md §9 probe, all over the
-   REAL product buffer pool (app.client.substrate.webgpu.buffer-pool) —
+   REAL product buffer pool (app.client.engine.buffer-pool) —
    read-only use, no product code modified.
 
    C1 :mount     — the as-built dormant gpu-mount bridge driven by
@@ -24,7 +24,7 @@
    C3 :recollect — keyed-diff-update-pool! fed whole collections: the
                    pre-registered FALLBACK transport (windowed rows re-diffed
                    client-side) behind the same store."
-  (:require [app.client.substrate.webgpu.buffer-pool :as pool]
+  (:require [app.client.engine.buffer-pool :as pool]
             [hyperfiddle.incseq :as i]
             [hyperfiddle.incseq.perm-impl :as perm]
             [hyperfiddle.incseq.mount-impl :as mi]))

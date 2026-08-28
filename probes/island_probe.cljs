@@ -24,7 +24,7 @@
      __island.snapshotDone() ;; resolves the pending onSubmittedWorkDone probe
 
    Scene-as-data, picking, faces integration are CONTRACT work — NOT built here."
-  (:require [app.client.substrate.webgpu.gpu-budget :as gpu-budget]))
+  (:require [app.client.engine.budget :as gpu-budget]))
 
 ;; ─────────────────────────────────────────────────────────────────────────
 ;; Config + stats (all console/harness-settable)

@@ -29,18 +29,18 @@
            [java.nio.file.attribute FileAttribute]))
 
 (def pure-namespaces
-  '[app.client.substrate.image-material-test
-    app.client.substrate.path-material-test
-    app.client.substrate.path-tessellation-test
-    app.client.substrate.region3d-evaluation-test
-    app.client.substrate.region3d-material-test
-    app.client.substrate.region3d-placement-test
-    app.client.substrate.region3d-scene-test
-    app.client.substrate.region-rungs-test
-    app.client.workspace.containers-test
-    app.client.workspace.shaping-correction-test
-    app.client.workspace.text-layout-planes-test
-    app.client.workspace.text-layout-test
+  '[app.client.image.material-test
+    app.client.path.material-test
+    app.client.path.tessellation-test
+    app.client.region3d.evaluation-test
+    app.client.region3d.material-test
+    app.client.region3d.placement-test
+    app.client.region3d.scene-test
+    app.client.engine.rungs-test
+    app.client.engine.placement-test
+    app.client.text.shaping-correction-test
+    app.client.text.layout-planes-test
+    app.client.text.layout-test
     app.binding-dispatch-test
     app.missionary-claims-test
     app.reply-to-block-test

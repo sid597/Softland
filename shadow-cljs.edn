@@ -12,5 +12,5 @@
    ;; the exported asynchronous entrypoint explicit for browser automation and
    ;; avoids advanced-DCE turning that callback into `void 0`.
    :compiler-options {:optimizations :simple}
-   :modules {:main {:entries [app.client.substrate.webgpu.verifier]
-                    :init-fn app.client.substrate.webgpu.verifier/start!}}}}}
+   :modules {:main {:entries [app.client.verifier.core]
+                    :init-fn app.client.verifier.core/start!}}}}}

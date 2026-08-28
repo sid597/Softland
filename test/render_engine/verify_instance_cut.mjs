@@ -23,31 +23,37 @@ for (const relative of deleted) {
 }
 
 const registrationSources = [
-  "src/app/client/substrate/webgpu/renderer.cljs",
+  "src/app/client/engine/device.cljs",
+  "src/app/client/text/slug_gpu.cljs",
+  "src/app/client/image/image_gpu.cljs",
 ].map(read).join("\n");
 absent(registrationSources, /render\.family\/connector|connector-registration/,
   "retired family is still registered");
 
-const scene = read("src/app/client/substrate/region3d_scene.cljc");
-const regionGpu = read("src/app/client/substrate/webgpu/region3d_gpu.cljs");
+const scene = read("src/app/client/region3d/scene.cljc");
+const regionGpu = read("src/app/client/region3d/region3d_gpu.cljs");
 absent(scene, /\b(?:gizmo-handles|translate-delta|rotate-delta|scale-ratio|maintain-scene)\b/,
   "retired Region3D interaction closure survived");
 absent(regionGpu, /\b(?:grid-shader|overlay-glyph-shader|gizmo-shader|prepared-pick-state)\b/,
   "retired Region3D GPU closure survived");
 
 const editAndPulseSources = [
-  "src/app/client/substrate/path_material.cljc",
-  "src/app/client/substrate/region3d_material.cljc",
-  "src/app/client/substrate/webgpu/renderer.cljs",
+  "src/app/client/path/material.cljc",
+  "src/app/client/region3d/material.cljc",
+  "src/app/client/engine/device.cljs",
+  "src/app/client/text/slug_gpu.cljs",
+  "src/app/client/image/image_gpu.cljs",
 ].map(read).join("\n");
 absent(editAndPulseSources,
   /\b(?:revisioned-edit|move-knot|set-knot-pressure|move-contour-point|replace-contours|edit-diff|apply-edit|pulse-alpha)\b/,
   "retired edit or pulse closure survived");
 
 const sceneContractSources = [
-  "src/app/client/substrate/region3d_scene.cljc",
-  "src/app/client/substrate/webgpu/renderer.cljs",
-  "src/app/client/substrate/webgpu/path_gpu.cljs",
+  "src/app/client/region3d/scene.cljc",
+  "src/app/client/engine/device.cljs",
+  "src/app/client/text/slug_gpu.cljs",
+  "src/app/client/image/image_gpu.cljs",
+  "src/app/client/path/path_gpu.cljs",
 ].map(read).join("\n");
 absent(sceneContractSources,
   /\bpick-reverse\b|:region-router\b|:pick-order-derived\?|:resolve-view\b|:region-composite\b|:pass-class\s+:region\b/,
@@ -55,11 +61,15 @@ absent(sceneContractSources,
 absent(sceneContractSources, /:pick\b/,
   "scene entries still carry per-entry pick data");
 
-const gpuDir = path.join(root, "src/app/client/substrate/webgpu");
-const painterFiles = fs.readdirSync(gpuDir)
-  .filter((name) => name.endsWith("_gpu.cljs"))
-  .map((name) => path.join(gpuDir, name));
-painterFiles.push(path.join(gpuDir, "renderer.cljs"), path.join(gpuDir, "compositor_gpu.cljs"));
+const painterFiles = [
+  "src/app/client/engine/device.cljs",
+  "src/app/client/engine/compositor.cljs",
+  "src/app/client/text/slug_gpu.cljs",
+  "src/app/client/image/image_gpu.cljs",
+  "src/app/client/path/path_gpu.cljs",
+  "src/app/client/region3d/region3d_gpu.cljs",
+  "src/app/client/region3d/placement_gpu.cljs",
+].map((relative) => path.join(root, relative));
 const painterFence = /\b(?:selection|marquee|gizmo|orbit|elbow|arrowhead|connector)\b/i;
 for (const absolute of [...new Set(painterFiles)]) {
   absent(fs.readFileSync(absolute, "utf8"), painterFence,

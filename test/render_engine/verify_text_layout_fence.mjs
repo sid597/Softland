@@ -5,9 +5,9 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 
 const owners = [
-  ["src/app/client/substrate/region3d_placement.cljc", "layout-placed-text", ["text-layout/layout"]],
-  ["src/app/client/substrate/webgpu/renderer.cljs", "position-text-op", ["tl/layout", ":layout-result", ":glyphs", "line-index-for-layout"]],
-  ["src/app/client/substrate/webgpu/renderer.cljs", "paint-slug-line", ["painted-glyph"]],
+  ["src/app/client/region3d/placement.cljc", "layout-placed-text", ["text-layout/layout"]],
+  ["src/app/client/text/slug_gpu.cljs", "position-text-op", ["tl/layout", ":layout-result", ":glyphs", "line-index-for-layout"]],
+  ["src/app/client/text/slug_gpu.cljs", "paint-slug-line", ["painted-glyph"]],
 ];
 
 const paintConsumers = ["paint-slug-line"];
@@ -105,7 +105,7 @@ const walkSources = (dir) => {
 walkSources(sourceRoot);
 for (const absolute of sourceFiles) {
   const relative = path.relative(repoRoot, absolute);
-  if (relative.endsWith("text_layout_planes.cljc")) continue;
+  if (relative === "src/app/client/text/layout_planes.cljc") continue;
   const source = fs.readFileSync(absolute, "utf8");
   for (const token of rawPlaneTokens) {
     if (source.includes(token)) failures.push(`${relative}: raw plane read ${token}`);

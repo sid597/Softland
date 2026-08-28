@@ -30,7 +30,7 @@
 (defn row
   "One drawable entity. :id is the stable address; :i the numeric index it
    was minted from; :gen bumps on every change so value inequality is real.
-   Geometry keys match app.client.substrate.webgpu.buffer-pool/pack-rect."
+   Geometry keys match app.client.engine.buffer-pool/pack-rect."
   [i gen]
   (let [lane (mod i lanes)
         line (quot i lanes)]

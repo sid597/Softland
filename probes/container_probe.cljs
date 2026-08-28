@@ -14,7 +14,8 @@
      ctProbe.set(cid, x, y, scale) — place a container by hand
      ctProbe.stats()    — writes/frames counters (G4 receipt)
      ctProbe.stop()     — freeze (systems stay; start() reuses them)"
-  (:require [app.client.substrate.webgpu.renderer :as renderer]))
+  (:require [app.client.engine.device :as renderer]
+            [app.client.text.slug-gpu :as slug-gpu]))
 
 (defonce !state (atom nil)) ;; nil = never started; {:active? bool ...}
 
@@ -77,7 +78,7 @@
             format (:format pipelines)
             tracker (:gpu-tracker (:text-sys pipelines))
             camera-buffer (renderer/create-camera-buffer device tracker)
-            text-sys (renderer/init-text-system device format camera-buffer font-assets
+            text-sys (slug-gpu/init-text-system device format camera-buffer font-assets
                                                 :initial-capacity (* n lines-per-container line-chars)
                                                 :tracker tracker
                                                 :label "ct-probe/text"
@@ -101,7 +102,7 @@
   [^js device geometry font-assets n]
   (let [n (or n 16)
         st (ensure-systems! device geometry font-assets n)
-        text-sys (renderer/update-text-data device (:text-sys st)
+        text-sys (slug-gpu/update-text-data device (:text-sys st)
                                             (probe-text-ops n) font-assets 13
                                             :char-width 0.56)
         rect-sys (renderer/update-rects device (:rect-sys st) (probe-rects n))]

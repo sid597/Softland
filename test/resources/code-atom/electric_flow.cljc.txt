@@ -4,9 +4,10 @@
             [hyperfiddle.electric-dom3 :as dom]
             [app.client.workspace.themes :as themes]
             [app.file-viewer :as fv]
-            #?@(:cljs [[app.client.substrate.webgpu.renderer :as editor]
-                       [app.client.substrate.webgpu.gpu-budget :as gpu-budget]
-                       [app.client.workspace.runtime.fonts :as runtime-fonts]
+            #?@(:cljs [[app.client.engine.device :as editor]
+                       [app.client.engine.budget :as gpu-budget]
+                       [app.client.text.fonts :as runtime-fonts]
+                       [app.client.text.slug-gpu :as slug-gpu]
                        [app.client.workspace.runtime :as loop]
                        [global-flow :refer [await-promise]]
                        ["@lezer/lr" :as lr]
@@ -435,7 +436,7 @@
                        :px-range px-range
                        :line-height line-h
                        :dpr dpr})
-      {:text (editor/update-text-data device (:text-sys pipelines) render-ops font-assets font-size
+      {:text (slug-gpu/update-text-data device (:text-sys pipelines) render-ops font-assets font-size
                                       :px-range px-range
                                       :line-height line-h
                                       :char-width char-width
