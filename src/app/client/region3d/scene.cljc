@@ -1,9 +1,10 @@
 (ns app.client.region3d.scene
-  "Derives everything the 3D painter needs from a canonical region: object
-   transforms, instances, triangles by object, and a BVH for picking.
-   Takes: a canonical region; a view and viewport for camera matrices; an
-   evaluated scene, a camera, and a point to pick.
-   Gives: the derived scene; camera matrices; the picked object.
+  "Derives and re-evaluates everything the 3D painter needs: object transforms,
+   instances, triangles by object, and a BVH for picking.
+   Takes: a canonical region and session transforms; a prior evaluated scene
+   and its key; a view and viewport for camera matrices; a point to pick.
+   Gives: a derived or maintained scene with its update kind; camera matrices;
+   the picked object.
    Holds nothing."
   (:require [clojure.set :as set]
             [app.client.region3d.material :as material]))

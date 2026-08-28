@@ -1,5 +1,5 @@
 (ns app.client.verifier.core
-  "The render-engine verifier: a test harness that runs the real painters in a
+  "The client verifier: a test harness that runs the real painters in a
    real browser and compares pixels to goldens. The only compiled entry point
    in the client today.
    Takes: nothing; it acquires an adapter, a device, and the fonts itself,

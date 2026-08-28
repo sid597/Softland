@@ -1,5 +1,5 @@
 (ns app.client.region3d.on-plane-painter
-  "Packs and draws ink placed inside a 3D region.
+  "The on-plane painter: packs and draws ink placed inside a 3D region.
    Takes: the region system, a region's GPU state, placements, the maintained
    scene, a camera, and a path cache; a render pass and a region uniform to
    draw.
