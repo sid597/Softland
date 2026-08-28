@@ -372,7 +372,7 @@
 (deftest g8-declared-kinds-over-REAL-durable-pointer-rows
   "G8's classification, proven over the actual rows a cluster holds — both
    generations at once. The inspector's INTEGRATION of this is proven in
-   `app.material-inspector-test`, which drives a real durable entity; what is
+   `app.server.page.material-inspector-test`, which drives a real durable entity; what is
    proven here is that the classification is right about real bytes."
   (let [rt (ocr/start-object-container-runtime!)]
     (try

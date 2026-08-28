@@ -323,7 +323,7 @@
 
       (do
         (println
-         "usage: clj -M:test -m app.space-as-entity-receipt g2|g6-start|g6-finish")
+         "usage: clj -M:test -m app.server.worn.space-as-entity-receipt g2|g6-start|g6-finish")
         (System/exit 64)))
     (catch Throwable t
       (binding [*out* *err*]

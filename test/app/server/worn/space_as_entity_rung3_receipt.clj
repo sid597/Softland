@@ -505,7 +505,7 @@
       "g5" (emit! (g5))
       (do
         (println
-         (str "usage: clj -M:test -m app.space-as-entity-rung3-receipt "
+         (str "usage: clj -M:test -m app.server.worn.space-as-entity-rung3-receipt "
               "g1|g3-start|g3-finish|g4-start|g4-unpin|"
               "g4-finish <base-revision-id>|g5"))
         (System/exit 64)))

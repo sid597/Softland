@@ -288,13 +288,13 @@
           fixture
           [(fixture-row :cascade/test-throw
                         :test/two-row-trigger
-                        'app.cascade-table-test/throwing-fixture-handler!)
+                        'app.server.episode.cascade-table-test/throwing-fixture-handler!)
            (fixture-row :cascade/test-record
                         :test/two-row-trigger
-                        'app.cascade-table-test/recording-fixture-handler!)
+                        'app.server.episode.cascade-table-test/recording-fixture-handler!)
            (fixture-row :cascade/test-dark
                         :test/never-emitted
-                        'app.cascade-table-test/dark-fixture-handler!)]
+                        'app.server.episode.cascade-table-test/dark-fixture-handler!)]
           ctx {:throwing-started throwing-started
                :recording-started recording-started
                :release-recording release-recording
