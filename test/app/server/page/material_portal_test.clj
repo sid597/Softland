@@ -1161,9 +1161,9 @@
         (ocr/close-object-container-runtime! rt)))))
 
 (deftest matter-room-p3-invocation-and-read-only-disclosures-are-exact
-  (let [server-src (slurp (io/resource "app/server_jetty.clj"))
+  (let [server-src (slurp (io/resource "app/server/door/server_jetty.clj"))
         client-src (slurp (io/resource "app/client/workspace/face_wiring.cljs"))
-        briefing-src (slurp (io/resource "app/shared/material_portal.cljc"))
+        briefing-src (slurp (io/resource "app/server/page/portal_questions.cljc"))
         endpoint-names
         (set (map second
                   (re-seq
@@ -1821,8 +1821,8 @@
           (is (= 0 (get-in r [:portal/query-plan :plan/llm-calls]))))
 
         (testing "and the source agrees — no model namespace is reachable"
-          (doseq [path ["app/shared/material_portal.cljc"
-                        "app/server/rama/material_portal.clj"]]
+          (doseq [path ["app/server/page/portal_questions.cljc"
+                        "app/server/page/material_portal.clj"]]
             (let [src (slurp (io/resource path))
                   ;; a require of the llm module, an anthropic/openai call, or a
                   ;; prompt render would all show up as a symbol reference
@@ -2189,8 +2189,8 @@
 
 (deftest g14-portal-cannot-write
   (testing "no write verb is CALLED in either portal namespace"
-    (doseq [path ["app/shared/material_portal.cljc"
-                  "app/server/rama/material_portal.clj"]]
+    (doseq [path ["app/server/page/portal_questions.cljc"
+                  "app/server/page/material_portal.clj"]]
       (let [src (code-without-strings (slurp (io/resource path)))
             ;; the layer's write verbs, as CALL forms. A portal that could reach
             ;; any of these would be P8 arriving early, without its fences.

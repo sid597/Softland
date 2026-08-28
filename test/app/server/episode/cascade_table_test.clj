@@ -100,7 +100,7 @@
         (require 'app.server.episode.cascade :reload))
       (is (zero? @llm-boots)
           "fresh namespace evaluation must not start the LLM module"))
-    (let [source (slurp (io/file "src/app/server/cascade.clj"))
+    (let [source (slurp (io/file "src/app/server/episode/cascade.clj"))
           forms (read-top-level-forms source)
           heads (mapv first (filter seq? forms))
           declared (var-get (ns-resolve 'app.server.episode.cascade 'declared-rows))]
