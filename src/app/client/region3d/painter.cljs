@@ -13,7 +13,6 @@
             [app.client.region3d.on-plane :as on-plane]
             [app.client.region3d.scene :as scene]
             [app.client.engine.compositor :as compositor]
-            [app.client.engine.budget :as gpu-budget]
             [app.client.engine.leases :as region-bindings]
             [app.client.region3d.on-plane-painter
              :as on-plane-painter]))
@@ -393,10 +392,9 @@
      :worn worn-pipeline
      :refusal refusal-pipeline}))
 
-(defn- create-buffer! [device tracker label size usage]
+(defn- create-buffer! [device label size usage]
   (let [size (max 4 (int size))
         buffer (.createBuffer ^js device (clj->js {:size size :usage usage}))]
-    (gpu-budget/register-buffer! tracker buffer label size :active-bytes 0)
     {:buffer buffer :capacity size :label label}))
 
 (defn- ensure-buffer! [system current label required usage]
@@ -410,24 +408,17 @@
                    (let [buffer (.createBuffer
                                  ^js (:device system)
                                  (clj->js {:size capacity :usage usage}))]
-                     (gpu-budget/replace-buffer! (:tracker system)
-                                                 (:buffer current) buffer
-                                                 label capacity
-                                                 :active-bytes required
-                                                 :reason :region3d-grow)
                      (.destroy ^js (:buffer current))
                      {:buffer buffer :capacity capacity :label label})
-                   (create-buffer! (:device system) (:tracker system)
-                                   label capacity usage))]
+                   (create-buffer! (:device system) label capacity usage))]
         next))))
 
 (defn- write-buffer! [system buffer data active-bytes]
   (when (pos? active-bytes)
     (.writeBuffer (.-queue ^js (:device system)) (:buffer buffer) 0 data))
-  (gpu-budget/set-active-bytes! (:tracker system) (:buffer buffer) active-bytes)
   buffer)
 
-(defn- depth-fallback! [device tracker]
+(defn- depth-fallback! [device]
   (let [texture (.createTexture ^js device
                                 (clj->js {:label "region3d/shadow-fallback"
                                           :size {:width 1 :height 1
@@ -435,21 +426,19 @@
                                           :format "depth32float"
                                           :usage (bit-or js/GPUTextureUsage.TEXTURE_BINDING
                                                          js/GPUTextureUsage.RENDER_ATTACHMENT)}))]
-    (gpu-budget/register-texture! tracker texture "region3d/shadow-fallback"
-                                  :format "depth32float" :width 1 :height 1)
     {:texture texture :view (.createView texture)}))
 
 (defn init-region3d-system!
-  [device tracker camera-buffer containers-buffer]
-  (let [fallback (depth-fallback! device tracker)
+  [device camera-buffer containers-buffer]
+  (let [fallback (depth-fallback! device)
         composite-buffer (create-buffer!
-                          device tracker "region3d/composite-instances" 256
+                          device "region3d/composite-instances" 256
                           (bit-or js/GPUBufferUsage.VERTEX
                                   js/GPUBufferUsage.COPY_DST))]
     {:region3d-gpu/version region3d-gpu-version
-     :device device :tracker tracker :camera-buffer camera-buffer
+     :device device :camera-buffer camera-buffer
      :containers-buffer containers-buffer :pipelines (create-pipelines! device)
-     :placement-system (on-plane-painter/init-placement-system! device tracker)
+     :placement-system (on-plane-painter/init-placement-system! device)
      :sampler (.createSampler ^js device (clj->js {:minFilter "linear"
                                                    :magFilter "linear"}))
      :shadow-sampler (.createSampler ^js device
@@ -486,10 +475,9 @@
   (.get !systems-by-device device))
 
 (defn ensure-region3d-system!
-  [device tracker camera-buffer containers-buffer]
+  [device camera-buffer containers-buffer]
   (or (.get !systems-by-device device)
-      (let [system (init-region3d-system! device tracker camera-buffer
-                                          containers-buffer)]
+      (let [system (init-region3d-system! device camera-buffer containers-buffer)]
         (.set !systems-by-device device system)
         system)))
 
@@ -646,16 +634,16 @@
   (let [usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.VERTEX)
         uniform-usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.UNIFORM)
         storage-usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.STORAGE)]
-    {:vertex (create-buffer! (:device system) (:tracker system)
+    {:vertex (create-buffer! (:device system)
                              (str "region3d/" region-id "/vertices") 256 usage)
-     :instances (create-buffer! (:device system) (:tracker system)
+     :instances (create-buffer! (:device system)
                                 (str "region3d/" region-id "/instances") 256 usage)
-     :lights (create-buffer! (:device system) (:tracker system)
+     :lights (create-buffer! (:device system)
                              (str "region3d/" region-id "/lights") 640 storage-usage)
-     :uniform (create-buffer! (:device system) (:tracker system)
+     :uniform (create-buffer! (:device system)
                               (str "region3d/" region-id "/uniform")
                               region-uniform-bytes uniform-usage)
-     :shadow-uniform (create-buffer! (:device system) (:tracker system)
+     :shadow-uniform (create-buffer! (:device system)
                                      (str "region3d/" region-id "/shadow-uniform")
                                      shadow-uniform-bytes uniform-usage)
      :placement (on-plane-painter/create-region-gpu!
@@ -739,16 +727,14 @@
     (write-buffer! system (:shadow-uniform gpu) shadow (.-byteLength shadow))
     gpu))
 
-(defn- destroy-buffer! [system row reason]
+(defn- destroy-buffer! [row]
   (when-let [buffer (:buffer row)]
-    (gpu-budget/destroy-resource! (:tracker system) buffer :reason reason)
     (.destroy ^js buffer)))
 
-(defn- destroy-region-gpu! [system gpu]
+(defn- destroy-region-gpu! [gpu]
   (doseq [key [:vertex :instances :lights :uniform :shadow-uniform]]
-    (destroy-buffer! system (get gpu key) :region3d-region-close))
-  (on-plane-painter/destroy-region-gpu! (:placement-system system)
-                                     (:placement gpu)))
+    (destroy-buffer! (get gpu key)))
+  (on-plane-painter/destroy-region-gpu! (:placement gpu)))
 
 (defn- composite-row-bytes [{:keys [x y w h container-idx]}]
   (let [raw (js/ArrayBuffer. composite-instance-stride)
@@ -784,8 +770,6 @@
       (.writeBuffer (.-queue ^js (:device system)) (:buffer buffer)
                     (* slot composite-instance-stride)
                     (composite-row-bytes row)))
-    (gpu-budget/set-active-bytes! (:tracker system) (:buffer buffer)
-                                  active-bytes)
     (reset! (:!composite-buffer system) buffer)
     (reset! (:!composite-rows system) rows)
     (count changed)))
@@ -838,7 +822,7 @@
                        ;; screen rect, so texels past the attachment size can
                        ;; never reach the screen; capping here also keeps one
                        ;; lease (56 bytes/px across its four targets) inside
-                       ;; the frame-target budget at any zoom — unclamped, the
+                       ;; the frame-target cap at any zoom — unclamped, the
                        ;; 4096-quant MSAA color target alone equals the whole
                        ;; 512MB pool. Camera aspect and picking stay on the
                        ;; unclamped pixel-size.
@@ -1008,7 +992,7 @@
                            computed)
         prepared-changed? (not (identical? prior next))]
     (doseq [region-id closed]
-      (destroy-region-gpu! system (:gpu (get prior region-id))))
+      (destroy-region-gpu! (:gpu (get prior region-id))))
     (when prepared-changed?
       (reset! (:!prepared system) next))
     (when (or prepared-changed? (seq closed) (pos? composite-uploads))
@@ -1239,12 +1223,9 @@
 
 (defn destroy-region3d-system! [system]
   (doseq [[_ row] @(:!prepared system)]
-    (destroy-region-gpu! system (:gpu row)))
-  (destroy-buffer! system @(:!composite-buffer system)
-                   :region3d-system-destroy)
+    (destroy-region-gpu! (:gpu row)))
+  (destroy-buffer! @(:!composite-buffer system))
   (when-let [texture (get-in system [:shadow-fallback :texture])]
-    (gpu-budget/destroy-resource! (:tracker system) texture
-                                  :reason :region3d-system-destroy)
     (.destroy ^js texture))
   (on-plane-painter/destroy-placement-system! (:placement-system system))
   (reset! (:!prepared system) {})
@@ -1253,20 +1234,20 @@
 
 (defonce ^:private !compositors-by-device (js/WeakMap.))
 
-(defn- ensure-frame-compositor! [device format tracker]
+(defn- ensure-frame-compositor! [device format]
   (or (.get !compositors-by-device device)
       (let [compositor (compositor/create-compositor!
-                        device format tracker)]
+                        device format)]
         (.set !compositors-by-device device compositor)
         compositor)))
 
 (defn replace-frame-compositor!
   "The sole same-device compositor epoch producer.  Semantic frame state is
    deliberately retained; Region3D reattaches to the new binding epoch."
-  [device format tracker]
+  [device format]
   (when-let [old (.get !compositors-by-device device)]
     (compositor/destroy-compositor! old))
-  (let [compositor (compositor/create-compositor! device format tracker)]
+  (let [compositor (compositor/create-compositor! device format)]
     (.set !compositors-by-device device compositor)
     (when-let [region-system (region3d-system-for-device device)]
       (attach-compositor! region-system compositor))

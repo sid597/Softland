@@ -9,7 +9,6 @@
    Holds: a cache from a font's glyph list to its unicode lookup, and a counter
    of layout fallbacks."
   (:require [clojure.string :as str]
-            [app.client.engine.budget :as gpu-budget]
             [app.client.engine.color :as scene-color]
             [app.client.engine.compositor :as compositor-gpu]
             [app.client.engine.device :as device]
@@ -229,12 +228,11 @@
 
 (def slug-text-instance-stride 100) ;; 24 words + container u32
 
-(defn- create-instance-buffer [^js/GPUDevice device tracker label initial-capacity stride]
+(defn- create-instance-buffer [^js/GPUDevice device initial-capacity stride]
   (let [size (* initial-capacity stride)
         buffer (.createBuffer device (clj->js {:size size
                                                :usage (bit-or js/GPUBufferUsage.VERTEX
                                                               js/GPUBufferUsage.COPY_DST)}))]
-    (gpu-budget/register-buffer! tracker buffer label size :active-bytes 0)
     buffer))
 
 (defn- create-slug-bind-group [^js/GPUDevice device layout curve-view band-view camera-buffer sizes-buffer containers-buffer]
@@ -246,7 +244,7 @@
                         {:binding 3 :resource {:buffer sizes-buffer}}
                         {:binding 4 :resource {:buffer containers-buffer}}]})))
 
-(defn- create-slug-texture [^js/GPUDevice device tracker label format width height bytes bytes-per-row]
+(defn- create-slug-texture [^js/GPUDevice device format width height bytes bytes-per-row]
   (let [texture (.createTexture device (clj->js {:size {:width width
                                                         :height height
                                                         :depthOrArrayLayers 1}
@@ -260,24 +258,18 @@
                    (clj->js {:bytesPerRow bytes-per-row
                              :rowsPerImage height})
                    (clj->js {:width width :height height :depthOrArrayLayers 1}))
-    (gpu-budget/register-texture! tracker texture label
-                                  :format format
-                                  :width width
-                                  :height height)
     texture))
 
-(defn- create-slug-font-resources [^js/GPUDevice device tracker slug-assets]
+(defn- create-slug-font-resources [^js/GPUDevice device slug-assets]
   (let [curve-width (get-in slug-assets [:meta :curveTexture :width])
         curve-height (get-in slug-assets [:meta :curveTexture :height])
         band-width (get-in slug-assets [:meta :bandTexture :width])
         band-height (get-in slug-assets [:meta :bandTexture :height])
-        curve-texture (create-slug-texture device tracker "text/slug-curve"
-                                           "rgba16float"
+        curve-texture (create-slug-texture device "rgba16float"
                                            curve-width curve-height
                                            (:curve-bytes slug-assets)
                                            (* curve-width 8))
-        band-texture (create-slug-texture device tracker "text/slug-band"
-                                          "rg16uint"
+        band-texture (create-slug-texture device "rg16uint"
                                           band-width band-height
                                           (:band-bytes slug-assets)
                                           (* band-width 4))]
@@ -293,22 +285,12 @@
      :font-resource-kind :slug}))
 
 (defn- destroy-slug-font-resources! [text-sys]
-  (when-let [tracker (:gpu-tracker text-sys)]
-    (when-let [curve-texture (:curve-texture text-sys)]
-      (gpu-budget/destroy-resource! tracker curve-texture :reason :slug-curve-destroy))
-    (when-let [band-texture (:band-texture text-sys)]
-      (gpu-budget/destroy-resource! tracker band-texture :reason :slug-band-destroy)))
   (when-let [^js curve-texture (:curve-texture text-sys)]
     (.destroy curve-texture))
   (when-let [^js band-texture (:band-texture text-sys)]
     (.destroy band-texture)))
 
 (defn destroy-text-system! [text-sys]
-  (when-let [tracker (:gpu-tracker text-sys)]
-    (when-let [instance-buffer (:instance-buffer text-sys)]
-      (gpu-budget/destroy-resource! tracker instance-buffer :reason :text-instance-destroy))
-    (when (and (:owns-sizing-buffer? text-sys) (:sizes-uniform-buffer text-sys))
-      (gpu-budget/destroy-resource! tracker (:sizes-uniform-buffer text-sys) :reason :text-sizing-destroy)))
   (when-let [^js instance-buffer (:instance-buffer text-sys)]
     (.destroy instance-buffer))
   (when (and (:owns-sizing-buffer? text-sys) (:sizes-uniform-buffer text-sys))
@@ -318,7 +300,7 @@
 
 (defn- init-slug-text-system
   [^js/GPUDevice device fformat camera-buffer font-assets
-   & {:keys [initial-capacity tracker label containers-buffer scene-color]
+   & {:keys [initial-capacity label containers-buffer scene-color]
       :or {initial-capacity 10000
            label "text/content"
            scene-color scene-color/legacy-direct-color}}]
@@ -327,12 +309,11 @@
         fragment-module (.createShaderModule device
                                              (clj->js {:code (device/configure-scene-color-shader
                                                               slug-fragment-shader scene-color)}))
-        font-resources (create-slug-font-resources device tracker (:slug font-assets))
-        instance-buffer (create-instance-buffer device tracker label initial-capacity slug-text-instance-stride)
+        font-resources (create-slug-font-resources device (:slug font-assets))
+        instance-buffer (create-instance-buffer device initial-capacity slug-text-instance-stride)
         sizes-buffer (.createBuffer device (clj->js {:size 16
                                                      :usage (bit-or js/GPUBufferUsage.UNIFORM
                                                                     js/GPUBufferUsage.COPY_DST)}))
-        _ (gpu-budget/register-buffer! tracker sizes-buffer "text/slug-params" 16 :active-bytes 16)
         bg-layout (.createBindGroupLayout device (clj->js {:entries [{:binding 0 :visibility js/GPUShaderStage.FRAGMENT :texture {:sampleType "unfilterable-float"}}
                                                                      {:binding 1 :visibility js/GPUShaderStage.FRAGMENT :texture {:sampleType "uint"}}
                                                                      {:binding 2 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}
@@ -377,7 +358,6 @@
             :num-instances 0
             :frame-input/identity (js-obj)
             :!shape-rev (atom 0)
-            :gpu-tracker tracker
             :gpu-label label
             :owns-font-resources? true
             :owns-sizing-buffer? true})))
@@ -390,14 +370,9 @@
 (defn update-font-assets [^js/GPUDevice device text-sys font-assets]
   (js/console.log "[RENDERER] Update font assets"
                   {:font-id (:id font-assets)})
-  (let [tracker (:gpu-tracker text-sys)
-         old-curve (:curve-texture text-sys)
+  (let [old-curve (:curve-texture text-sys)
          old-band (:band-texture text-sys)
-         font-resources (create-slug-font-resources device tracker (:slug font-assets))]
-     (when (and tracker old-curve (:owns-font-resources? text-sys))
-       (gpu-budget/destroy-resource! tracker old-curve :reason :slug-curve-update))
-     (when (and tracker old-band (:owns-font-resources? text-sys))
-       (gpu-budget/destroy-resource! tracker old-band :reason :slug-band-update))
+         font-resources (create-slug-font-resources device (:slug font-assets))]
      (when (and old-curve (:owns-font-resources? text-sys))
        (.destroy ^js old-curve))
      (when (and old-band (:owns-font-resources? text-sys))
@@ -432,7 +407,6 @@
   (let [capacity (max 1 (quot (.-size ^js (:instance-buffer old-text-sys))
                               (:instance-stride old-text-sys)))
         label (:gpu-label old-text-sys)
-        tracker (:gpu-tracker old-text-sys)
         camera-buffer (:camera-uniform-buffer old-text-sys)
         containers-buffer (:containers-uniform-buffer old-text-sys)
         scene-color (:scene-color old-text-sys scene-color/legacy-direct-color)]
@@ -443,7 +417,6 @@
     (destroy-text-system! old-text-sys)
     (init-text-system device fformat camera-buffer font-assets
                       :initial-capacity capacity
-                      :tracker tracker
                       :label label
                       :containers-buffer containers-buffer
                       :scene-color scene-color)))
@@ -453,7 +426,7 @@
    and font resources with the parent. Only the instance buffer is new."
   [^js/GPUDevice device parent-text-sys initial-capacity]
   (let [stride (:instance-stride parent-text-sys)
-        ib (create-instance-buffer device (:gpu-tracker parent-text-sys) "text/chrome" initial-capacity stride)]
+        ib (create-instance-buffer device initial-capacity stride)]
     (assoc parent-text-sys
            :instance-buffer ib
            :instance-stride stride
@@ -640,7 +613,7 @@
       (vec offsets))))
 
 (defn- ensure-text-instance-buffer
-  [^js/GPUDevice device renderer-state required-size active-bytes]
+  [^js/GPUDevice device renderer-state required-size]
   (let [current-buffer (:instance-buffer renderer-state)
         current-size (.-size ^js current-buffer)
         needs-resize? (> required-size current-size)
@@ -658,10 +631,6 @@
                                                                     js/GPUBufferUsage.COPY_DST)}))
                      current-buffer)]
     (when needs-resize?
-      (gpu-budget/replace-buffer! (:gpu-tracker renderer-state) current-buffer new-buffer (:gpu-label renderer-state)
-                                  alloc-size
-                                  :active-bytes active-bytes
-                                  :reason :text-resize)
       (.destroy ^js current-buffer))
     new-buffer))
 
@@ -725,14 +694,13 @@
         actual-instances (reduce + (map :count shaped-lines))
         buffer-instance-count (max actual-instances 1)
         stride (:instance-stride renderer-state)
-        line-offsets (line-offsets-for shaped-lines)
-        active-bytes (* actual-instances stride)]
+        line-offsets (line-offsets-for shaped-lines)]
     (let [raw-buffer (js/ArrayBuffer. (* buffer-instance-count stride))
           float-view (js/Float32Array. raw-buffer)
           uint-view (js/Uint32Array. raw-buffer)
           upload-view (js/Uint8Array. raw-buffer)
           required-size (.-byteLength upload-view)
-          new-buffer (ensure-text-instance-buffer device renderer-state required-size active-bytes)]
+          new-buffer (ensure-text-instance-buffer device renderer-state required-size)]
       (pack-slug-instances! float-view uint-view shaped-lines)
       (.writeBuffer (.-queue device) new-buffer 0 upload-view)
       ;; Slug renders raw mathematical coverage — no sharpness bias.
@@ -740,7 +708,6 @@
       (when-let [sizes-buffer (:sizes-uniform-buffer renderer-state)]
         (let [sizes (js/Float32Array. #js [0.0 0.0 0.0 0.0])]
           (.writeBuffer (.-queue device) sizes-buffer 0 sizes)))
-      (gpu-budget/set-active-bytes! (:gpu-tracker renderer-state) new-buffer active-bytes)
       (when (or (not= line-offsets (:line-offsets renderer-state))
                 (not= (pos? actual-instances)
                       (pos? (:num-instances renderer-state 0))))

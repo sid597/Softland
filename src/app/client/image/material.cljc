@@ -208,7 +208,7 @@
    (/ (+ x w) (double intrinsic-width))
    (/ (+ y h) (double intrinsic-height))])
 
-;; Mip and budget truth -------------------------------------------------------
+;; Mip and allocation truth --------------------------------------------------
 
 (defn mip-level-count
   [width height]

@@ -6,11 +6,10 @@
    prepare; a render pass to draw into.
    Gives: an image system with atlas, pipelines, and mip generator; packed
    instances in a pool; draw calls.
-   Holds: per-system atoms for the buffer, capacity, prepared state, last
-   images, and resources."
+   Holds: per-system atoms for prepared state, image sources, atlas placement,
+   and resources."
   (:require [clojure.string :as str]
             [app.client.engine.buffer-pool :as buffer-pool]
-            [app.client.engine.budget :as gpu-budget]
             [app.client.engine.color :as scene-color]
             [app.client.engine.device :as device]
             [app.client.image.material :as image-material]))
@@ -376,9 +375,9 @@
 (defn init-image-system
   "Own the image pipeline, digest registry, atlas/dedicated resources, and the
    one shared 13-word instance pool.  Product activation remains staged; the
-   verifier creates this system directly."
+  verifier creates this system directly."
   [^js device fformat camera-buffer containers-buffer
-   & {:keys [initial-capacity tracker scene-color budget-cap-bytes]
+   & {:keys [initial-capacity scene-color]
       :or {initial-capacity 256
            scene-color scene-color/legacy-direct-color}}]
   (assert containers-buffer "init-image-system requires :containers-buffer")
@@ -414,20 +413,12 @@
                          placeholder-bytes
                          (clj->js {:bytesPerRow 8 :rowsPerImage 2})
                          (clj->js {:width 2 :height 2}))
-        _ (gpu-budget/register-texture! tracker placeholder-texture
-                                        "image/placeholder"
-                                        :format "rgba8unorm" :width 2 :height 2
-                                        :mip-level-count 1)
         placeholder-view (image-view placeholder-texture scene-color)
         placeholder-bind-group (create-image-bind-group
                                 device bind-layout sampler placeholder-view
                                 camera-buffer containers-buffer)
         {:keys [width height mip-level-count]} image-material/atlas-config
         atlas-texture (image-texture device width height mip-level-count)
-        _ (gpu-budget/register-texture! tracker atlas-texture "image/atlas"
-                                        :format "rgba8unorm"
-                                        :width width :height height
-                                        :mip-level-count mip-level-count)
         atlas-view (image-view atlas-texture scene-color)
         atlas-bind-group (create-image-bind-group
                           device bind-layout sampler atlas-view
@@ -435,14 +426,12 @@
         pool (buffer-pool/create-pool
               device initial-capacity pipeline nil
               :floats-per-item image-material/image-instance-words
-              :pack-fn pack-image-instance
-              :tracker tracker :label "image/instances")
+              :pack-fn pack-image-instance)
         image-system
         {:device device :pipeline pipeline :bind-layout bind-layout
          :sampler sampler :mip-system mip-system :pool pool
          :camera-buffer camera-buffer :containers-buffer containers-buffer
-         :scene-color scene-color :gpu-tracker tracker
-         :budget-cap-bytes budget-cap-bytes
+         :scene-color scene-color
          :placeholder {:texture placeholder-texture
                        :bind-group placeholder-bind-group
                        :binding-key :image/placeholder
@@ -490,11 +479,6 @@
            (clj->js {:width width :height height}))
         _ (generate-image-mips! device (:mip-system image-system) texture
                                 mip-level-count)
-        _ (gpu-budget/register-texture! (:gpu-tracker image-system) texture
-                                        (str "image/dedicated/" digest)
-                                        :format "rgba8unorm"
-                                        :width width :height height
-                                        :mip-level-count mip-level-count)
         view (image-view texture (:scene-color image-system))
         bind-group (create-image-bind-group
                     device (:bind-layout image-system) (:sampler image-system)
@@ -526,30 +510,18 @@
                               :declared digest :computed computed-digest})))
            (let [registry (image-material/register-verified-source
                            @(:!source-registry image-system)
-                           source computed-digest)
-                 width (:image/width source)
-                 height (:image/height source)
-                 planned-bytes (image-material/texture-bytes width height)
-                 cap (:budget-cap-bytes image-system)]
+                           source computed-digest)]
              (reset! (:!source-registry image-system) registry)
              (swap! (:!source-bytes image-system) assoc digest
                     {:source source :bytes bytes})
-             (if (and cap (> planned-bytes cap))
-               (do
-                 ;; IMAGE-ATOM T11: refusal uses full-chain bytes; level zero
-                 ;; can never sneak through an injected budget cap.
-                 (record-image-receipt!
-                  image-system digest :refused :over-budget
-                  {:planned-bytes planned-bytes :budget-cap-bytes cap})
-                 nil)
-               (let [blob (js/Blob. #js [bytes] #js {:type "image/png"})]
-                 (js/createImageBitmap
-                  blob
-                  #js {:colorSpaceConversion
-                       (if (get-in image-system [:scene-color :enabled?])
-                         "default"
-                         "none")
-                       :premultiplyAlpha "none"}))))))
+             (let [blob (js/Blob. #js [bytes] #js {:type "image/png"})]
+               (js/createImageBitmap
+                blob
+                #js {:colorSpaceConversion
+                     (if (get-in image-system [:scene-color :enabled?])
+                       "default"
+                       "none")
+                     :premultiplyAlpha "none"})))))
         (.then (fn [bitmap]
                  (if bitmap
                    (normalize-image-alpha! source bitmap)
@@ -617,8 +589,6 @@
   (doseq [[_ resource] @(:!resources image-system)
           :when (= :dedicated (:tier resource))]
     (when-let [texture (:texture resource)]
-      (gpu-budget/destroy-resource! (:gpu-tracker image-system) texture
-                                    :reason :image-resource-destroy)
       (.destroy ^js texture))))
 
 (defn rebuild-image-resources!
@@ -671,13 +641,9 @@
   (doseq [texture [(get-in image-system [:placeholder :texture])
                    (:texture @(:!atlas-resource image-system))]]
     (when texture
-      (gpu-budget/destroy-resource! (:gpu-tracker image-system) texture
-                                    :reason :image-system-destroy)
       (.destroy ^js texture)))
   (when-let [pool (:pool image-system)]
     (let [buffer (:buffer @pool)]
-      (gpu-budget/destroy-resource! (:gpu-tracker image-system) buffer
-                                    :reason :image-system-destroy)
       (.destroy ^js buffer)))
   (reset! (:!resources image-system) {})
   (reset! (:!prepared-images image-system) [])

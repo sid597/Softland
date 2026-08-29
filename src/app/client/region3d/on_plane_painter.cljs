@@ -7,8 +7,7 @@
    draw calls.
    Holds: a receipt atom per system."
   (:require [app.client.region3d.on-plane :as on-plane]
-            [app.client.region3d.scene :as scene]
-            [app.client.engine.budget :as gpu-budget]))
+            [app.client.region3d.scene :as scene]))
 
 (def placement-gpu-version 1)
 (def flat-vertex-stride 88)
@@ -92,8 +91,6 @@
   (let [size (max 4 (int size))
         buffer (.createBuffer ^js (:device system)
                               (clj->js {:label label :size size :usage usage}))]
-    (gpu-budget/register-buffer! (:tracker system) buffer label size
-                                 :active-bytes 0)
     {:buffer buffer :capacity size :label label}))
 
 (defn- ensure-buffer! [system current label required]
@@ -108,9 +105,6 @@
                   (clj->js {:label label :size capacity
                             :usage (bit-or js/GPUBufferUsage.COPY_DST
                                            js/GPUBufferUsage.VERTEX)}))]
-        (gpu-budget/replace-buffer! (:tracker system) (:buffer current) next
-                                    label capacity :active-bytes required
-                                    :reason :region3d-placement-grow)
         (.destroy ^js (:buffer current))
         {:buffer next :capacity capacity :label label}))))
 
@@ -119,16 +113,15 @@
         bytes (.-byteLength data)]
     (when (pos? bytes)
       (.writeBuffer (.-queue ^js (:device system)) (:buffer row) 0 data))
-    (gpu-budget/set-active-bytes! (:tracker system) (:buffer row) bytes)
     bytes))
 
-(defn init-placement-system! [device tracker]
+(defn init-placement-system! [device]
   {:placement-gpu/version placement-gpu-version
-   :device device :tracker tracker
+   :device device
    :pipelines (create-pipelines! device)
    :!receipt (atom {:version placement-gpu-version :packs 0
                     :uploads 0 :draws 0
-                    :ink-vertices 0 :over-budget 0})})
+                    :ink-vertices 0 :over-limit 0})})
 
 (defn create-region-gpu! [system region-id]
   (let [usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.VERTEX)]
@@ -180,7 +173,7 @@
         max-bytes (or (some-> device .-limits .-maxBufferSize) 268435456)]
     (long (/ max-bytes flat-vertex-stride))))
 
-(defn- enforce-region-budgets [system rows]
+(defn- enforce-region-limits [system rows]
   (loop [remaining (sort-by (comp pr-str :object-id :placed) rows)
          ink-vertices 0 result []]
     (if-let [row (first remaining)]
@@ -189,7 +182,7 @@
             over? (> next-ink (device-ink-vertex-limit system))
             row (if (and (= :resolved (:status packed)) over?)
                   (-> row
-                      (assoc-in [:packed :status] :over-budget)
+                      (assoc-in [:packed :status] :over-limit)
                       (assoc-in [:packed :vertices] []))
                   row)]
         (recur (next remaining)
@@ -257,7 +250,7 @@
               :packs (+ packs (if (:packed? result) 1 0))}))
          {:path-cache (or path-cache {}) :rows [] :packs 0}
          placements)
-        rows (enforce-region-budgets system (:rows packed))
+        rows (enforce-region-limits system (:rows packed))
         ;; The cache value is the whole row: `pack-one` compares its :key and
         ;; reuses its packed payload.  Storing only :placed here erases both,
         ;; turning every otherwise-idle prepare into a layout + pack.
@@ -296,7 +289,7 @@
                  (update :packs + (:packs packed))
                  (update :uploads + uploads)
                  (assoc :ink-vertices ink-count
-                        :over-budget (get statuses :over-budget 0)
+                        :over-limit (get statuses :over-limit 0)
                         :last-census statuses))))
     {:gpu next-gpu :path-cache (:path-cache packed)
      :changed? changed? :packs (:packs packed)
@@ -327,12 +320,11 @@
 
 (defn placement-receipt [system] @(:!receipt system))
 
-(defn- destroy-buffer! [system row reason]
+(defn- destroy-buffer! [row]
   (when-let [buffer (:buffer row)]
-    (gpu-budget/destroy-resource! (:tracker system) buffer :reason reason)
     (.destroy ^js buffer)))
 
-(defn destroy-region-gpu! [system region-gpu]
-  (destroy-buffer! system (:flat region-gpu) :region3d-placement-region-close))
+(defn destroy-region-gpu! [region-gpu]
+  (destroy-buffer! (:flat region-gpu)))
 
 (defn destroy-placement-system! [_system] true)

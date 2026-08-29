@@ -10,8 +10,7 @@
   (:require [clojure.string :as str]
             [app.client.path.material :as path-material]
             [app.client.path.tessellation :as tessellation]
-            [app.client.engine.color :as scene-color]
-            [app.client.engine.budget :as gpu-budget]))
+            [app.client.engine.color :as scene-color]))
 
 (def path-color-mode-declaration
   "const kPathLinearPremultiplied: bool = false;")
@@ -87,7 +86,7 @@
 
 (defn init-path-system
   [^js device fformat camera-buffer containers-buffer
-   & {:keys [initial-capacity tracker scene-color]
+   & {:keys [initial-capacity scene-color]
       :or {initial-capacity 2048
            scene-color scene-color/legacy-direct-color}}]
   (assert camera-buffer "init-path-system requires :camera-buffer")
@@ -139,12 +138,9 @@
                                         {:binding 1
                                          :resource {:buffer containers-buffer}}]}))
         buffer (create-vertex-buffer device initial-capacity)]
-    (gpu-budget/register-buffer! tracker buffer "path/vertices"
-                                 (* initial-capacity path-material/vertex-stride)
-                                 :active-bytes 0)
     {:device device :pipeline pipeline :bind-group bind-group
      :camera-buffer camera-buffer :containers-buffer containers-buffer
-     :scene-color scene-color :gpu-tracker tracker
+     :scene-color scene-color
      :frame-input/identity (js-obj) :!shape-rev (atom 0)
      :!buffer (atom buffer) :!capacity (atom initial-capacity)
      :!mesh-cache (atom {}) :!prepared (atom [])
@@ -263,11 +259,6 @@
             old-buffer @(:!buffer path-system)
             new-buffer (create-vertex-buffer (:device path-system)
                                              next-capacity)]
-        (gpu-budget/replace-buffer!
-         (:gpu-tracker path-system) old-buffer new-buffer "path/vertices"
-         (* next-capacity path-material/vertex-stride)
-         :active-bytes (* required path-material/vertex-stride)
-         :reason :path-capacity-growth)
         (.destroy old-buffer)
         (reset! (:!buffer path-system) new-buffer)
         (reset! (:!capacity path-system) next-capacity)))
@@ -313,9 +304,6 @@
                 ^js device (:device path-system)]
             (when (pos? vertices)
               (.writeBuffer (.-queue device) buffer 0 packed))
-            (gpu-budget/set-active-bytes!
-             (:gpu-tracker path-system) buffer
-             (* vertices path-material/vertex-stride))
             (reset! (:!prepared path-system) prepared)
             (reset! (:!last-mesh-set-key path-system) mesh-set-key)
             (swap! (:!shape-rev path-system) inc)
@@ -345,8 +333,6 @@
 
 (defn destroy-path-system! [path-system]
   (when-let [buffer @(:!buffer path-system)]
-    (gpu-budget/destroy-resource! (:gpu-tracker path-system) buffer
-                                  :reason :path-system-destroy)
     (.destroy buffer))
   (reset! (:!prepared path-system) [])
   (reset! (:!mesh-cache path-system) {})
