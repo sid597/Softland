@@ -15,7 +15,6 @@
             [app.client.region3d.oracle :as region3d-oracle]
             [app.client.region3d.scene :as region3d-scene]
             [app.client.engine.color :as scene-color]
-            [app.client.engine.budget :as gpu-budget]
             [app.client.engine.compositor :as compositor-gpu]
             [app.client.path.painter :as path-painter]
             [app.client.engine.leases :as region-bindings]
@@ -835,13 +834,10 @@
                                 :alpha-association-bytes premultiplied)))))))))
         (.then
          (fn [receipt]
-           (let [tracker (gpu-budget/create-tracker nil)
-                 camera (device/create-camera-buffer device tracker)
-                 containers-buffer (device/create-containers-buffer
-                                    device tracker)
+           (let [camera (device/create-camera-buffer device)
+                 containers-buffer (device/create-containers-buffer device)
                  system (image-painter/init-image-system
                          device "rgba8unorm-srgb" camera containers-buffer
-                         :tracker tracker
                          :scene-color (scene-color/scene-color true))
                  row (get corpus "dedicated-alpha-premultiplied.png")
                  mistagged-source (assoc (:source row)
@@ -937,98 +933,30 @@
 
 (defn- run-lifecycle-receipt!
   [device candidate-system corpus]
-  (let [tracker (gpu-budget/create-tracker nil)
-        first-texture (.createTexture
-                       device
-                       (clj->js {:size {:width 8 :height 4}
-                                 :mipLevelCount 4 :format "rgba8unorm"
-                                 :usage js/GPUTextureUsage.TEXTURE_BINDING}))
-        second-texture (.createTexture
-                        device
-                        (clj->js {:size {:width 8 :height 4}
-                                  :mipLevelCount 4 :format "rgba8unorm"
-                                  :usage js/GPUTextureUsage.TEXTURE_BINDING}))
-        registered (gpu-budget/register-texture!
-                    tracker first-texture "image/budget-probe"
-                    :width 8 :height 4 :format "rgba8unorm"
-                    :mip-level-count 4)
-        replaced (gpu-budget/replace-texture!
-                  tracker first-texture second-texture "image/budget-probe"
-                  :width 8 :height 4 :format "rgba8unorm"
-                  :mip-level-count 4 :reason :image-budget-probe)
-        expected-bytes (image-material/texture-bytes 8 4)
-        tiny-tracker (gpu-budget/create-tracker nil)
-        tiny-camera (device/create-camera-buffer device tiny-tracker)
-        tiny-containers (device/create-containers-buffer device tiny-tracker)
-        tiny-system (image-painter/init-image-system
-                     device "rgba8unorm-srgb" tiny-camera tiny-containers
-                     :tracker tiny-tracker :budget-cap-bytes 1
-                     :scene-color (scene-color/scene-color true))
-        atlas-row (get corpus "atlas-opaque-srgb.png")
-        atlas-digest (:digest atlas-row)
-        registered-digests
+  (let [registered-digests
         (mapv :digest (mapv corpus (map :filename image-fixtures)))
         unknown-digest (apply str (repeat 64 "f"))
         unavailable-op (image-op :lifecycle/unavailable unknown-digest
-                                 0 0 8 8)
-        over-budget-op (image-op :lifecycle/over-budget atlas-digest
-                                0 0 8 8)]
-    ;; IMAGE-ATOM T10/T11: both placeholder reasons are driven through the
-    ;; actual executor and byte-compared; painting cannot erase refusal cause.
+                                 0 0 8 8)]
     (-> (render-image-bytes! device candidate-system [unavailable-op] 1.0)
         (.then
          (fn [unavailable-bytes]
-           (-> (image-painter/register-image-source! tiny-system
-                                                (:source atlas-row)
-                                                (:bytes atlas-row))
-               (.then
-                (fn [_]
-                  (render-image-bytes! device tiny-system
-                                       [over-budget-op] 1.0)))
-               (.then
-                (fn [over-budget-bytes]
-                  (-> (js/Promise.all
-                       #js [(sha256-bytes unavailable-bytes)
-                            (sha256-bytes over-budget-bytes)])
-                      (.then
-                       (fn [hashes]
-                         {:placeholder
-                          {:unavailable-sha256 (aget hashes 0)
-                           :over-budget-sha256 (aget hashes 1)
-                           :byte-identical?
-                           (= (aget hashes 0) (aget hashes 1))}}))))))))
-        (.then
-         (fn [receipt]
-           (let [tiny-before (gpu-budget/snapshot tiny-tracker)
-                 tiny-receipt (image-painter/image-ingress-receipt tiny-system)]
-             (image-painter/destroy-image-system! tiny-system)
-             (doseq [buffer [tiny-camera tiny-containers]]
-               (gpu-budget/destroy-resource! tiny-tracker buffer
-                                             :reason :image-verifier-destroy)
-               (.destroy buffer))
-             (assoc receipt
-                    :tiny-before tiny-before
-                    :tiny-after (gpu-budget/snapshot tiny-tracker)
-                    :tiny-receipt tiny-receipt))))
+           (-> (sha256-bytes unavailable-bytes)
+               (.then (fn [hash]
+                        {:placeholder {:unavailable-sha256 hash}})))))
         (.then
          (fn [receipt]
            (-> (request-replacement-device!)
                (.then
                 (fn [replacement-device]
-                  (let [replacement-tracker
-                        (gpu-budget/create-tracker
-                         nil)
-                        replacement-camera
-                        (device/create-camera-buffer replacement-device
-                                                       replacement-tracker)
+                  (let [replacement-camera
+                        (device/create-camera-buffer replacement-device)
                         replacement-containers
-                        (device/create-containers-buffer replacement-device
-                                                           replacement-tracker)
+                        (device/create-containers-buffer replacement-device)
                         replacement-system
                         (image-painter/init-image-system
                          replacement-device "rgba8unorm-srgb"
                          replacement-camera replacement-containers
-                         :tracker replacement-tracker
                          :scene-color (scene-color/scene-color true))]
                     (-> (image-painter/rebuild-image-resources! candidate-system
                                                           replacement-system)
@@ -1057,42 +985,23 @@
                               replacement-system)
                              (doseq [buffer [replacement-camera
                                              replacement-containers]]
-                               (gpu-budget/destroy-resource!
-                                replacement-tracker buffer
-                                :reason :image-verifier-destroy)
                                (.destroy buffer))
                              (.destroy replacement-device)
                              (assoc receipt :rebuild rebuild-receipt)))))))))))
         (.then
          (fn [receipt]
-           (gpu-budget/destroy-resource! tracker second-texture
-                                         :reason :image-budget-probe)
-           (.destroy first-texture)
-           (.destroy second-texture)
            (let [unavailable (get-in
                               (image-painter/image-ingress-receipt candidate-system)
                               [:rows unknown-digest])
-                 over-budget (get-in receipt [:tiny-receipt :rows atlas-digest])
                  replacement-receipt
                  (get-in receipt [:rebuild :replacement-receipt])
                  lost-receipt (get-in receipt [:rebuild :lost-receipt])
                  device-loss (:device-loss replacement-receipt)
-                 destroyed? (zero? (:total-reserved-bytes
-                                     (:tiny-after receipt)))
-                 budget-pass? (and (= expected-bytes
-                                      (:reserved-bytes registered))
-                                   (= expected-bytes
-                                      (:reserved-bytes replaced)))
                  placeholder-sha256
                  "aab20b3aa071f60cd29cbcbc44271364792aa800eb6186042eb0d0ab7e4915e8"
                  placeholder-pass?
-                 (and (get-in receipt [:placeholder :byte-identical?])
-                      (= placeholder-sha256
-                         (get-in receipt
-                                 [:placeholder :unavailable-sha256]))
-                      (= placeholder-sha256
-                         (get-in receipt
-                                 [:placeholder :over-budget-sha256])))
+                 (= placeholder-sha256
+                    (get-in receipt [:placeholder :unavailable-sha256]))
                  device-loss-pass?
                  (and (= (count registered-digests)
                          (:rebuilt-count device-loss))
@@ -1103,52 +1012,32 @@
                       (= (count registered-digests)
                          (get-in replacement-receipt [:counts :ok]))
                       (get-in receipt [:rebuild :history-pass?]))]
-             {:budget {:expected-bytes expected-bytes
-                       :registered-bytes (:reserved-bytes registered)
-                       :replacement-bytes (:reserved-bytes replaced)
-                       :pass? budget-pass?}
-              :placeholder (assoc (:placeholder receipt)
+             {:placeholder (assoc (:placeholder receipt)
                                   :expected-sha256 placeholder-sha256
                                   :pass? placeholder-pass?)
               :unavailable unavailable
-              :over-budget over-budget
               :device-loss device-loss
               :replacement-history-pass?
               (get-in receipt [:rebuild :history-pass?])
               :lost-device-counts (:counts lost-receipt)
               :replacement-counts (:counts replacement-receipt)
-              :destroy {:reserved-before
-                        (:total-reserved-bytes (:tiny-before receipt))
-                        :reserved-after
-                        (:total-reserved-bytes (:tiny-after receipt))
-                        :pass? destroyed?}
-              :pass? (and budget-pass? placeholder-pass?
+              :pass? (and placeholder-pass?
                           (= :unavailable (:status unavailable))
                           (:placeholder-rendered unavailable)
-                          (= :refused (:status over-budget))
-                          (= :over-budget (:reason over-budget))
-                          (:placeholder-rendered over-budget)
-                          device-loss-pass? destroyed?)}))))))
+                          device-loss-pass?)}))))))
 
-(defn- run-image-atom! [device adapter]
-  (let [candidate-tracker
-        (gpu-budget/create-tracker (gpu-budget/snapshot-adapter-limits adapter))
-        candidate-camera (device/create-camera-buffer device candidate-tracker)
-        candidate-containers
-        (device/create-containers-buffer device candidate-tracker)
+(defn- run-image-atom! [device _adapter]
+  (let [candidate-camera (device/create-camera-buffer device)
+        candidate-containers (device/create-containers-buffer device)
         candidate-system
         (image-painter/init-image-system
          device "rgba8unorm-srgb" candidate-camera candidate-containers
-         :tracker candidate-tracker
          :scene-color (scene-color/scene-color true))
-        seam-tracker
-        (gpu-budget/create-tracker (gpu-budget/snapshot-adapter-limits adapter))
-        seam-camera (device/create-camera-buffer device seam-tracker)
-        seam-containers (device/create-containers-buffer device seam-tracker)
+        seam-camera (device/create-camera-buffer device)
+        seam-containers (device/create-containers-buffer device)
         seam-system
         (image-painter/init-image-system
          device "rgba8unorm" seam-camera seam-containers
-         :tracker seam-tracker
          :scene-color (scene-color/scene-color false))]
     (-> (fetch-image-corpus!)
         (.then
@@ -1485,14 +1374,12 @@
                  (not (:mesh-set-changed? same-mesh-set))
                  (zero? (:writes same-mesh-set)))}))
 
-(defn- run-path-atom! [device adapter]
-  (let [tracker (gpu-budget/create-tracker
-                 (gpu-budget/snapshot-adapter-limits adapter))
-        camera (device/create-camera-buffer device tracker)
-        containers-buffer (device/create-containers-buffer device tracker)
+(defn- run-path-atom! [device _adapter]
+  (let [camera (device/create-camera-buffer device)
+        containers-buffer (device/create-containers-buffer device)
         system (path-painter/init-path-system
                 device "rgba8unorm-srgb" camera containers-buffer
-                :tracker tracker :scene-color (scene-color/scene-color true))]
+                :scene-color (scene-color/scene-color true))]
     (-> (promise-mapv (partial run-path-golden! device system)
                       [:pressure-ink :holed-concave
                        :translucent-self-crossing])
@@ -1978,7 +1865,7 @@
                  depth-classes-pass?)}))
 
 (defn- region3d-s5-lifecycle!
-  [{:keys [device compositor region-system tracker] :as harness} region op]
+  [{:keys [device compositor region-system] :as harness} region op]
   (let [base-view (:view-default region)
         changed-view (assoc base-view :yaw 0.045 :pitch -0.02)
         before-view (region3d-painter/region3d-receipt region-system)
@@ -2041,7 +1928,7 @@
          (fn [state]
            (let [refusal-compositor
                  (compositor-gpu/create-compositor!
-                  device color-format tracker
+                  device color-format
                   :budget-cap-bytes (* 5 1024 1024))
                  refusal-harness (assoc harness :compositor refusal-compositor)]
              (.then
@@ -2065,7 +1952,7 @@
          (fn [state]
            (let [first-compositor
                  (compositor-gpu/create-compositor!
-                  device color-format tracker)
+                  device color-format)
                  first-harness (assoc harness :compositor first-compositor)]
              (.then
               (region3d-capture! first-harness op {} :region)
@@ -2081,7 +1968,7 @@
                             first-compositor)
                            recreated
                            (compositor-gpu/create-compositor!
-                            device color-format tracker)
+                            device color-format)
                            recreated-harness (assoc harness
                                                       :compositor recreated)]
                        (.then
@@ -2170,10 +2057,10 @@
                           (:compositor harness))}))))
 
 (defn- region3d-refusal-leg!
-  [{:keys [device tracker region-system] :as harness}
+  [{:keys [device region-system] :as harness}
    region op budget-cap-bytes]
   (let [compositor (compositor-gpu/create-compositor!
-                    device color-format tracker
+                    device color-format
                     :budget-cap-bytes budget-cap-bytes)
         refusal-harness (assoc harness :compositor compositor)]
     (-> (region3d-capture! refusal-harness op {} :region {:zoom 8.0})
@@ -2191,10 +2078,10 @@
              result))))))
 
 (defn- region3d-lower-resolution!
-  [{:keys [device tracker region-system compositor] :as harness} region op]
+  [{:keys [device region-system compositor] :as harness} region op]
   (let [lower-compositor
         (compositor-gpu/create-compositor!
-         device color-format tracker :budget-cap-bytes (* 64 1024 1024))
+         device color-format :budget-cap-bytes (* 64 1024 1024))
         lower-harness (assoc harness :compositor lower-compositor)
         pool (:target-pool lower-compositor)
         reserve-target
@@ -2412,11 +2299,9 @@
             (js/Promise.resolve nil)
             steps)))
 
-(defn- run-region3d-floor! [device adapter font-assets]
-  (let [tracker (gpu-budget/create-tracker
-                 (gpu-budget/snapshot-adapter-limits adapter))
-        camera (device/create-camera-buffer device tracker)
-        containers-buffer (device/create-containers-buffer device tracker)
+(defn- run-region3d-floor! [device _adapter font-assets]
+  (let [camera (device/create-camera-buffer device)
+        containers-buffer (device/create-containers-buffer device)
         _ (device/update-camera device camera (js/Float32Array. 6)
                                   0.0 0.0 1.0 canvas-size canvas-size)
         _ (device/write-containers!
@@ -2426,7 +2311,7 @@
         surround-path-system
         (path-painter/init-path-system
          device "rgba16float" camera containers-buffer
-         :initial-capacity 16 :tracker tracker
+         :initial-capacity 16
          :scene-color (scene-color/scene-color true))
         surround-ops
         [(path-op
@@ -2443,14 +2328,14 @@
            [0.98 0.72 0.12 0.88] 1.0))]
         _ (path-painter/prepare-path-frame! surround-path-system surround-ops 1.0)
         region-system (region3d-painter/ensure-region3d-system!
-                       device tracker camera containers-buffer)
+                       device camera containers-buffer)
         path-system
         (path-painter/init-path-system
          device "rgba16float" camera containers-buffer
-         :tracker tracker :scene-color (scene-color/scene-color true))
+         :scene-color (scene-color/scene-color true))
         compositor (compositor-gpu/create-compositor!
-                    device color-format tracker)
-        harness {:device device :tracker tracker :camera camera
+                    device color-format)
+        harness {:device device :camera camera
                  :containers-buffer containers-buffer
                  :surround-path-system surround-path-system
                  :region-system region-system
@@ -2583,8 +2468,8 @@
                                                  :foreign-failure
                                                  "T1 browser layout receipt failed.")))]
                                 (js/console.log "[W0-A] init-font-assets")
-                                (let [camera-buffer (device/create-camera-buffer device nil)
-                                      containers-buffer (device/create-containers-buffer device nil)
+                                (let [camera-buffer (device/create-camera-buffer device)
+                                      containers-buffer (device/create-containers-buffer device)
                                       q8-transport (run-q8-transport! device containers-buffer)
                                       _ (js/console.log "[W0-A] init-shared-buffers")
                                       slug-system (do

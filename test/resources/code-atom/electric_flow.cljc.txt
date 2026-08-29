@@ -5,7 +5,7 @@
             [app.client.workspace.themes :as themes]
             [app.file-viewer :as fv]
             #?@(:cljs [[app.client.engine.device :as editor]
-                       [app.client.engine.budget :as gpu-budget]
+                       [app.client.engine.limits :as engine-limits]
                        [app.client.text.fonts :as runtime-fonts]
                        [app.client.text.slug-gpu :as slug-gpu]
                        [app.client.workspace.runtime :as loop]
@@ -401,8 +401,7 @@
           initial-font-data (e/Task (await-promise (runtime-fonts/load-default-font-data-async)))]
       (when (and adapter device initial-font-data)
         (let [format (.getPreferredCanvasFormat ^js gpu)
-              adapter-limits (gpu-budget/snapshot-adapter-limits adapter)
-              tracker (gpu-budget/create-tracker adapter-limits)]
+              adapter-limits (engine-limits/snapshot-adapter-limits adapter)]
           (install-webgpu-debug-hooks! device)
           (js/console.log "[BOOT] WebGPU ready"
                           {:format format
@@ -412,8 +411,7 @@
           (merge initial-font-data
                  {:device device
                   :format format
-                  :adapter-limits adapter-limits
-                  :gpu-budget tracker}))))))
+                  :adapter-limits adapter-limits}))))))
 
 (e/defn Prepare-Geometry [device pipelines render-ops font-assets font-config]
   (e/client
@@ -590,7 +588,6 @@
                                                     find-matching-bracket detect-fold-regions
                                                     find-form-at-cursor sci-eval-form font-assets
                                                     :font-manifest font-manifest
-                                                    :gpu-budget (:gpu-budget resources)
                                                     :!sidebar-visible !sidebar-visible
                                                     :!file-load-request !file-load-request
                                                     :!preview-el preview-el-atom
