@@ -2,13 +2,12 @@
   "The GPU pieces every kind of mark shares: the camera and containers buffers,
    render targets, the clear quad, the shared color-mode shader text, and clip-
    rect projection.
-   Takes: a WebGPU device and a byte tracker; camera pan, zoom, and viewport
-   size; the container table; a container-local clip rect.
+   Takes: a WebGPU device; camera pan, zoom, and viewport size; the container
+   table; a container-local clip rect.
    Gives: GPU buffers, textures, and render targets the painters draw into; a
    scissor or mask for a clip.
-   Holds nothing."
+  Holds nothing."
   (:require [clojure.string :as str]
-            [app.client.engine.budget :as gpu-budget]
             [app.client.engine.color :as scene-color]))
 
 (def ^:private scene-color-mode-declaration
@@ -57,14 +56,12 @@
 (defn create-containers-buffer
   "Create the shared Q8 affine storage buffer and write identity slot 0.
    Shared across all four transform-consuming pipelines like the camera."
-  [^js/GPUDevice device tracker]
+  [^js/GPUDevice device]
   (let [size (* max-transform-nodes affine-entry-bytes)
         buffer (.createBuffer device (clj->js {:size size
                                                :usage (bit-or js/GPUBufferUsage.STORAGE
                                                               js/GPUBufferUsage.COPY_DST)}))
         identity0 (js/Float32Array. #js [1.0 0.0 0.0 1.0 0.0 0.0 0.0 0.0])]
-    (gpu-budget/register-buffer! tracker buffer "containers/affine-storage" size
-                                 :active-bytes affine-entry-bytes)
     (.writeBuffer (.-queue device) buffer 0 identity0)
     buffer))
 
@@ -116,11 +113,10 @@
      :capacity max-transform-nodes}))
 
 (defn create-camera-buffer
-  [^js/GPUDevice device tracker]
+  [^js/GPUDevice device]
   (let [camera-buffer (.createBuffer device (clj->js {:size 24
                                                       :usage (bit-or js/GPUBufferUsage.UNIFORM
                                                                      js/GPUBufferUsage.COPY_DST)}))]
-    (gpu-budget/register-buffer! tracker camera-buffer "text/shared-camera" 24 :active-bytes 24)
     camera-buffer))
 
 ;; --- Clear-quad system (Phase 6E: dirty-present) ---
@@ -167,7 +163,7 @@
 ;; --- Persistent render target (Phase 6E: survives swap chain double-buffering) ---
 
 (defn create-render-target
-  [^js device width height fformat & {:keys [tracker label previous scene-color]
+  [^js device width height fformat & {:keys [label previous scene-color]
                                       :or {label "render-target/persistent"
                                            scene-color scene-color/legacy-direct-color}}]
   (let [safe-width (max 1 width)
@@ -184,16 +180,6 @@
                      :height safe-height
                      :format fformat
                      :replacing? (boolean old-texture)})
-    (if old-texture
-      (gpu-budget/replace-texture! tracker old-texture tex label
-                                   :format fformat
-                                   :width safe-width
-                                   :height safe-height
-                                   :reason :render-target-resize)
-      (gpu-budget/register-texture! tracker tex label
-                                    :format fformat
-                                    :width safe-width
-                                    :height safe-height))
     (when old-texture
       (.destroy ^js old-texture))
     {:texture tex
@@ -201,13 +187,10 @@
      :width safe-width
      :height safe-height
      :resource/id :scene-color/main
-     :scene-color scene-color
-     :gpu-tracker tracker
-     :gpu-label label}))
+     :scene-color scene-color}))
 
-(defn destroy-render-target! [{:keys [^js texture gpu-tracker]}]
+(defn destroy-render-target! [{:keys [^js texture]}]
   (when texture
-    (gpu-budget/destroy-resource! gpu-tracker texture :reason :render-target-destroy)
     (.destroy texture)))
 
 (defn- scene-color-resource

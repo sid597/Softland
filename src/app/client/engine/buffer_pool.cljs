@@ -5,8 +5,7 @@
    with, an item width and a pack function; then a new item list each frame.
    Gives: the number of GPU writes made; draw parameters for the pool.
    Holds: the pool atom (items, capacity, shape revision)."
-  (:require [clojure.set]
-            [app.client.engine.budget :as gpu-budget]))
+  (:require [clojure.set]))
 
 (defn- make-buffer [^js device capacity bytes-per-item]
   (.createBuffer device
@@ -19,17 +18,14 @@
   "Create a slot-based GPU buffer pool. Returns an atom.
    pipeline/bind-group are shared with the rendering system (same shader, same camera).
    :floats-per-item and :pack-fn are required so the floor carries no implicit
-   product geometry."
+  product geometry."
   [device initial-capacity pipeline bind-group
-   & {:keys [floats-per-item pack-fn tracker label] :as options}]
+   & {:keys [floats-per-item pack-fn] :as options}]
   (when-not (and (pos-int? floats-per-item) (fn? pack-fn))
     (throw (ex-info "Buffer pool requires :floats-per-item and :pack-fn"
                     {:options (keys options)})))
   (let [bytes-per-item (* floats-per-item 4)]
     (atom (let [buffer (make-buffer device initial-capacity bytes-per-item)]
-            (gpu-budget/register-buffer! tracker buffer (or label "pool/unnamed")
-                                         (* initial-capacity bytes-per-item)
-                                         :active-bytes 0)
             {:device device
            :frame-input/identity (js-obj)
            :!shape-rev (atom 0)
@@ -43,8 +39,6 @@
            :floats-per-item floats-per-item
            :bytes-per-item bytes-per-item
            :pack-fn pack-fn
-            :gpu-tracker tracker
-            :gpu-label (or label "pool/unnamed")
            :generations (vec (repeat initial-capacity 0))
            :prev-items nil}))))
 
@@ -55,7 +49,7 @@
 (defn- grow-pool!
   "Double the pool's buffer capacity, copying existing data via command encoder."
   [pool]
-  (let [{:keys [^js device ^js buffer capacity high-water-mark bytes-per-item gpu-tracker gpu-label]} @pool
+  (let [{:keys [^js device ^js buffer capacity high-water-mark bytes-per-item]} @pool
         new-capacity (* capacity 2)
         new-buffer (make-buffer device new-capacity bytes-per-item)
         copy-bytes (* high-water-mark bytes-per-item)]
@@ -63,10 +57,6 @@
       (let [encoder (.createCommandEncoder device)]
         (.copyBufferToBuffer ^js encoder buffer 0 new-buffer 0 copy-bytes)
         (.submit (.-queue device) #js [(.finish ^js encoder)])))
-    (gpu-budget/replace-buffer! gpu-tracker buffer new-buffer gpu-label
-                                (* new-capacity bytes-per-item)
-                                :active-bytes copy-bytes
-                                :reason :pool-grow)
     (.destroy buffer)
     (swap! pool #(-> %
                      (assoc :buffer new-buffer :capacity new-capacity)
@@ -173,7 +163,6 @@
            :prev-keyed-items new-keyed
            :high-water-mark (max (:high-water-mark @pool)
                                  (count (:active-slots @pool))))
-    (gpu-budget/set-active-bytes! (:gpu-tracker @pool) (:buffer @pool) (* (count new-items) (:bytes-per-item @pool)))
     {:added @added :updated @updated :freed @freed
      :total-writes (+ @added @updated @freed)}))
 
@@ -226,7 +215,6 @@
            :ordered-ids new-ids
            :prev-keyed-items new-keyed
            :high-water-mark new-n)
-    (gpu-budget/set-active-bytes! (:gpu-tracker @pool) (:buffer @pool) (* new-n bytes-per-item))
     {:added @added :updated @updated :freed @freed
      :total-writes (+ @added @updated @freed)}))
 
@@ -267,7 +255,6 @@
     (swap! pool assoc
            :prev-items new-items
            :high-water-mark new-n)
-    (gpu-budget/set-active-bytes! (:gpu-tracker @pool) (:buffer @pool) (* new-n bytes-per-item))
     @writes))
 
 (defn pool-draw-info
