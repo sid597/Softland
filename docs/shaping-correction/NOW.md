@@ -280,8 +280,16 @@ judgment calls, diff-derived file list sum-checked vs §12) + NOW entry
   :637–720 · `verifier/shaper_border_probe.cljs` (to RETIRE, not extend).
   Cut ONE document, then execute straight through: flat typed arrays per
   run (advance · offset · cluster · extents), one crossing in / one out,
-  viewed into GPU bytes; layout + painter re-keyed; batch path kept as
-  oracle; I1/I2 carried; never a cache. The cut STATES: (1) order vs
+  viewed into GPU bytes. SCOPE CORRECTION (2026-08-30, checked in code):
+  layout already speaks typed columns (`shaped_line.cljc`, since the
+  08-08 layout-retention landing) and `sl/from-maps` (:195) coerces the
+  shaper's maps BACK into them — hashing each 11-key glyph map to find
+  its run, then copying 15 fields per glyph. So the cut is: the shaper
+  emits shaped-line columns directly (`sl/make-line` + the u32/i32
+  setters) and `from-maps` becomes identity; painter unaffected; the
+  legacy code-unit-grid provider (layout.cljc :224–292) is the other
+  map producer to fold. Batch path kept as oracle; I1/I2 carried; never
+  a cache. The cut STATES: (1) order vs
   union_bounds/I1–I2 — position: ONE pass over the text organ, both fixes;
   (2) whether layout-side 3.77 s (L6−L5) needs its own ladder first; (3)
   probe retirement at close; (4) founding-scale numbers are derived. Sid's
