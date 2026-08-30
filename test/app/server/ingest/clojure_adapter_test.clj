@@ -13,7 +13,11 @@
        > test/resources/code-atom/electric_flow.cljc.txt
    Fixture sha-256 (recorded for tamper-detection):
      relation_kernel.clj.txt 808f00f412fdf2d2ba16943738bedeb517d74e7f5b4485fd370804c35184e929
-     electric_flow.cljc.txt  f5a87f31b5b9d789b6b047f104b2bfb46e106446e0548e06f94129c9a9725c27
+     electric_flow.cljc.txt  136050fac8bfaaa94a2a139006ce905149cb0f0d77f728412e400c4532b9b84d
+   The electric-flow specimen has been edited in place since it was pinned
+   (the 2026-08-28 namespace-rename sweeps, then the 2026-08-29 GPU-ledger
+   cut); its form census is unchanged, and its sha and utf16-len are
+   re-pinned to the bytes on disk.
    Tests read the .txt fixtures ONLY — never the live src/ paths (T3 discipline)."
   (:require [app.server.rama.object-container :as oc]
             [app.server.ingest.clojure-adapter :as ca]
@@ -148,7 +152,7 @@
 ;; Expected from the pinned electric_flow fixture: 21 units = 11 :list + 10
 ;; top-level #? reader-conditionals; head-freq of lists {ns 1, def 4, defn 3,
 ;; e/defn 3}. Normalized: ns 1, def 4, fn 3, electric-fn 3, reader-cond 10.
-;; utf16-len 32009. (P0's prose said "3 #? blocks"; the pinned fixture and P0's
+;; utf16-len 31850. (P0's prose said "3 #? blocks"; the pinned fixture and P0's
 ;; own tools.reader row both show 10 — the fixture count governs.)
 (deftest g2-electric-flow-reader-conditionals-and-fidelity
   (let [src (read-fixture electric-flow-fixture)
@@ -165,7 +169,7 @@
     (testing "whole normalized histogram"
       (is (= {:clj/ns 1 :clj/def 4 :clj/fn 3 :clj/electric-fn 3 :clj/reader-cond 10} freq)))
     (testing "reassembly exact"
-      (is (= 32009 (.length src)))
+      (is (= 31850 (.length src)))
       (is (every? #(= (:text %) (subs src (:start-offset %) (:end-offset %))) units))
       (is (= src (reassemble src units comment-spans))))))
 
