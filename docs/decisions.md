@@ -485,6 +485,26 @@ signals — the 34-watch / nine-dialect collapse) → the host probe at the
 first real face worth building twice. Briefings of this area carry BOTH
 vocabularies; renaming the arc makes it invisible to Sid.
 
+**Amendment 2026-08-30 — the reference implementation left; the four
+dispositions hold.** Hyperfiddle announced it is leaving Clojure: Electric
+v4 is a JavaScript-embedded language with a low-level kernel compiled to
+WebAssembly and a portable WASM server runtime; v3 (Clojure) is a frozen
+alpha under a proprietary license. Electric had already left this tree at
+the waist cut (`adc30c9`, 2026-08-20). Read against the dispositions:
+*transport* — the Electric wire is deleted, not kept; the owned courier
+(SSE + Missionary, frozen courier-agnostic feed —
+`docs/electric-native/CONTRACT.md`) IS the transport, and both Electric
+arms — the "Electric generic host" of the composition-host probe and the
+`e/diff-by` arm of the transfer bench — are struck; *runtime internals* —
+still mined, now from source as reading reference only; *language as face
+host* — unchanged, faces are data; *Missionary* — pinned directly, engaged
+at named points. The semantics stay: Hyperfiddle's own reasons (the kernel
+wants low-level code decoupled from the authoring language; whole-program
+macro analysis too heavy; the DOM applier as the cost center) are the split
+this section already made. Sid, 2026-08-30, verbatim: "for existing electric i think they can be used as reference on how to do things reactive way in missionary and clojure so that is useful part imo … i think we have move past that we are going to copy electric blindly because its for dom ours is multi-engine softland target".
+"Electric" in the arc's name and in North names the shape — two arrows —
+never the library.
+
 - **The law: recompute proportional to change, at every layer.** Change is
   minted once, as a value, at the site that knows it — user action, server
   applier, animation tick. Everything downstream — store, derivations, the
@@ -584,7 +604,10 @@ vocabularies; renaming the arc makes it invisible to Sid.
   on the contract's shape — its first real face is NAMED (2026-08-12):
   the Block, rebuilt as material for the made-block gate
   (`docs/electric-native/DIRECTION.md`); authoring-in-Electric's-language
-  is dead either way (faces are data, ruled above). Where view-dependence lives (walk-time filter
+  is dead either way (faces are data, ruled above) (2026-08-30: the
+  Electric arm is struck — the amendment above; the probe still judges
+  the Missionary host on the same three tests, and any future second
+  host enters through it). Where view-dependence lives (walk-time filter
   now; maintained visible-set / spatial index / GPU cull later): the
   walk-cost profile at scale decides. The patch-driven executor: exists
   only if frame profiles summon it; today's walk waits as its oracle.
