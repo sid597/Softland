@@ -13,4 +13,14 @@
    ;; avoids advanced-DCE turning that callback into `void 0`.
    :compiler-options {:optimizations :simple}
    :modules {:main {:entries [app.client.verifier.core]
-                    :init-fn app.client.verifier.core/start!}}}}}
+                    :init-fn app.client.verifier.core/start!}}}
+  :shaper-border-probe
+  ;; The shaper WASM-border receipt probe (docs/shaping-correction). Same
+  ;; :simple road as the verifier; driven headful by
+  ;; test/render_engine/profile_shaper_border.mjs. Never a shipped bundle.
+  {:target :browser
+   :output-dir "target/shaper-border-probe/js"
+   :asset-path "/js"
+   :compiler-options {:optimizations :simple}
+   :modules {:main {:entries [app.client.verifier.shaper-border-probe]
+                    :init-fn app.client.verifier.shaper-border-probe/start!}}}}}
