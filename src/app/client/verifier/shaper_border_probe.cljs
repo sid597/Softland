@@ -314,7 +314,10 @@
       :what "the REAL provider: ((:shape-line provider) line opts) — bidi · runs · shape-run · position-runs · cluster-records (shaper.cljs:269–290)"
       :unit :line :items lines
       :f (fn [line]
-           (count (:glyphs ((:shape-line provider) line shape-opts))))}
+           ;; flat road (SHAPER-BORDER.md §2(3)): the provider returns a
+           ;; shaped line; its glyph count is a scalar, not a vector length.
+           (let [shaped ((:shape-line provider) line shape-opts)]
+             (or (:glyph-count shaped) (count (:glyphs shaped)))))}
      {:id "L6-layout-per-block"
       :what "the REAL tl/layout per block, wrap-policy :none (layout.cljc shaped-layout)"
       :unit :block :items blocks

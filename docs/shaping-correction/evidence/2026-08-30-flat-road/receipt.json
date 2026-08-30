@@ -1,0 +1,1324 @@
+{
+  "schemaVersion": 1,
+  "question": "shaping-correction · shaper WASM border: ms at the border (getGlyphInfosAndPositions→js->clj per-glyph maps; per-glyph glyphExtents round trip) versus HarfBuzz's own shape() at the founding corpus",
+  "adapter": {
+    "is-fallback-adapter": false,
+    "fallback-attestation-source": "GPUAdapterInfo.isFallbackAdapter",
+    "vendor": "amd",
+    "architecture": "rdna-3",
+    "device": "",
+    "description": "",
+    "feature-count": 23
+  },
+  "capture": {
+    "startedAt": "2026-08-30T09:05:58.293Z",
+    "finishedAt": "2026-08-30T09:06:29.957Z",
+    "hostname": "sid-System-Product-Name",
+    "cpu": "AMD Ryzen 9 9900X 12-Core Processor",
+    "cores": 24,
+    "os": "Linux 7.0.0-30-generic",
+    "chrome": "Chrome/150.0.7871.46",
+    "chromeExecutable": "/usr/bin/google-chrome",
+    "puppeteer": "15.2.0",
+    "node": "v20.20.2",
+    "display": ":0",
+    "headless": false,
+    "launchArgs": [
+      "--no-sandbox",
+      "--enable-unsafe-webgpu",
+      "--use-angle=vulkan",
+      "--enable-features=Vulkan,WebGPU,UnsafeWebGPU",
+      "--ignore-gpu-blocklist",
+      "--enable-precise-memory-info",
+      "--js-flags=--expose-gc",
+      "--window-size=800,601"
+    ],
+    "viewport": {
+      "width": 800,
+      "height": 601,
+      "deviceScaleFactor": 1.046875
+    },
+    "gitHead": "204cc34dd72b8dc7e351e3fe3d503898023a6d5a",
+    "gitDirty": [
+      "M src/app/client/text/layout.cljc",
+      " M src/app/client/text/layout_planes.cljc",
+      " M src/app/client/text/painter.cljs",
+      " M src/app/client/text/shaper.cljs",
+      " M src/app/client/verifier/core.cljs",
+      " M src/app/client/verifier/shaper_border_probe.cljs",
+      " M test/render_engine/run_verifier.mjs",
+      " M test/render_engine/verify_text_layout_fence.mjs",
+      "?? docs/shaping-correction/SHAPER-BORDER.md",
+      "?? src/app/client/text/glyph_pack.cljs",
+      "?? src/app/client/text/layout_oracle.cljc",
+      "?? src/app/client/text/shaped_line.cljc",
+      "?? src/app/client/text/shaper_oracle.cljs",
+      "?? test/app/client/text/flat_road_test.clj"
+    ],
+    "build": {
+      "path": "target/shaper-border-probe/js/main.js",
+      "bytes": 1353669,
+      "sha256": "c5cbea11f339f084e1fb86dffc6f01e1b8eb99d4db42562fbbd118a032178b6d"
+    },
+    "corpus": {
+      "path": "/tmp/claude-1000/-mnt-data-projects-Softland/932f5b3b-ce08-417c-8edc-11a0da42f6dd/scratchpad/corpus.json",
+      "bytes": 383882,
+      "sha256": "edfed32c1a0bbf9d4f73e00c87f945d7b001bf622cae1564086890fc530ebd63"
+    },
+    "sources": [
+      {
+        "path": "src/app/client/text/shaper.cljs",
+        "bytes": 17850,
+        "sha256": "60646b698ecf3f4c80ac52151ef5f40c8300a6236365dabc7bcdf01bbefacfd3"
+      },
+      {
+        "path": "src/app/client/text/layout.cljc",
+        "bytes": 78288,
+        "sha256": "29881c63aad358863c47815fef5b1cb57cd9d69036fa84d958ba52aefdd46e68"
+      },
+      {
+        "path": "src/app/client/verifier/shaper_border_probe.cljs",
+        "bytes": 23549,
+        "sha256": "06546dd804dea7a5163f29344036603af66675c8c8579eadcb553139e5c60043"
+      },
+      {
+        "path": "test/render_engine/profile_shaper_border.mjs",
+        "bytes": 8525,
+        "sha256": "4b22c02f5c7d2eb13617996d12be0fc9e9c74d66cc9771b41f3fe7d09ccdc463"
+      },
+      {
+        "path": "node_modules/harfbuzzjs/hbjs.js",
+        "bytes": 54213,
+        "sha256": "56f84ea44d70fb881d3fee642c7d4a5ec284e3d84aa2d8555741e4e3265b8ef2"
+      },
+      {
+        "path": "resources/public/fonts/harfbuzz-0.10.3.wasm",
+        "bytes": 397190,
+        "sha256": "ea319787a8efdf90599ade77e33d1f245d61da390380f6c8299ab3195ff00d6d"
+      },
+      {
+        "path": "resources/public/fonts/ubuntu_sans_variable.ttf",
+        "bytes": 1080900,
+        "sha256": "37e90bba45a2a1172d9f6078e45daebaa1b4e537943205cc1309f142a254fe40"
+      },
+      {
+        "path": "resources/public/fonts/noto_sans_regular.ttf",
+        "bytes": 512672,
+        "sha256": "89c3c497f618fdaa0b2d1e98fef93582f28c71debd2c4a8cdf41f190ced2909d"
+      }
+    ]
+  },
+  "environment": {
+    "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36",
+    "hardware-concurrency": 24,
+    "device-pixel-ratio": 1.046875,
+    "viewport": [
+      800,
+      602
+    ],
+    "cross-origin-isolated": false,
+    "clock-resolution-ms": 0.09999999962747097,
+    "gc-exposed": true,
+    "memory-api": true
+  },
+  "provider": {
+    "shaper-id": ":harfbuzz/wasm",
+    "shaper-version": "14.0.0",
+    "face-id": "ubuntu-sans-variable",
+    "face-revision": "ubuntu-sans-variable-0.869-wght400-wdth100",
+    "fallback-chain": [
+      {
+        "id": "noto-sans-regular",
+        "revision": "noto-sans-regular-2.011"
+      }
+    ],
+    "features": [
+      "kern",
+      "liga",
+      "clig",
+      "calt"
+    ],
+    "variations": {
+      "wght": 400,
+      "wdth": 100
+    },
+    "upem": 1000
+  },
+  "corpus": {
+    "blocks": 144,
+    "lines": 3511,
+    "chars-utf16": 334537,
+    "max-block-chars": 96727,
+    "machine-blocks": 0
+  },
+  "passes": 3,
+  "layout": {
+    "font-size": 19,
+    "line-height": 22.8,
+    "wrap-policy": "none"
+  },
+  "ladder": [
+    {
+      "min-ms": 48.40000000037253,
+      "unit": "line",
+      "per-item": null,
+      "pass-ms": [
+        48.90000000037253,
+        48.40000000037253,
+        49
+      ],
+      "median-ms": 48.90000000037253,
+      "id": "L0-hb-shape",
+      "warmup-ms": 59.79999999888241,
+      "count": 330254,
+      "items": 3511,
+      "heap-delta-bytes": [
+        1039276,
+        1000216,
+        1000216
+      ],
+      "what": "createBuffer·addText·setClusterLevel·setDirection·setLanguage·guessSegmentProperties·hb.shape·getLength·destroy"
+    },
+    {
+      "min-ms": 119.09999999962747,
+      "unit": "line",
+      "per-item": null,
+      "pass-ms": [
+        119.09999999962747,
+        120,
+        119.69999999925494
+      ],
+      "median-ms": 119.69999999925494,
+      "id": "L1-+getGlyphInfosAndPositions",
+      "warmup-ms": 121.80000000074506,
+      "count": 330254,
+      "items": 3511,
+      "heap-delta-bytes": [
+        1680280,
+        2144708,
+        1722404
+      ],
+      "what": "L0 + buffer.getGlyphInfosAndPositions() (raw JS objects; hbjs.js:1186)"
+    },
+    {
+      "min-ms": 406.09999999962747,
+      "unit": "line",
+      "per-item": null,
+      "pass-ms": [
+        407,
+        411.30000000074506,
+        406.09999999962747
+      ],
+      "median-ms": 407,
+      "id": "L2-+js->clj",
+      "warmup-ms": 422.80000000074506,
+      "count": 330254,
+      "items": 3511,
+      "heap-delta-bytes": [
+        5083988,
+        12005812,
+        2067996
+      ],
+      "what": "L1 + (js->clj raw :keywordize-keys true) (shaper.cljs:178)"
+    },
+    {
+      "min-ms": 427,
+      "unit": "line",
+      "per-item": null,
+      "pass-ms": [
+        442.69999999925494,
+        427,
+        427.09999999962747
+      ],
+      "median-ms": 427.09999999962747,
+      "id": "L3-+glyphExtents-raw",
+      "warmup-ms": 432.30000000074506,
+      "count": 330254,
+      "items": 3511,
+      "heap-delta-bytes": [
+        14317096,
+        14166956,
+        13973232
+      ],
+      "what": "L2 + font.glyphExtents(gid) per glyph, raw JS object kept (hbjs.js:594)"
+    },
+    {
+      "min-ms": 700,
+      "unit": "line",
+      "per-item": null,
+      "pass-ms": [
+        702.5,
+        700,
+        702.9000000003725
+      ],
+      "median-ms": 702.5,
+      "id": "L4-+glyphExtents-js->clj",
+      "warmup-ms": 701.7999999988824,
+      "count": 330254,
+      "items": 3511,
+      "heap-delta-bytes": [
+        28003040,
+        8278796,
+        8266060
+      ],
+      "what": "L3 + (js->clj extents :keywordize-keys true) per glyph (shaper.cljs:156–158)"
+    },
+    {
+      "min-ms": 1061.5,
+      "unit": "line",
+      "per-item": null,
+      "pass-ms": [
+        1061.5,
+        1062.5,
+        1067.0999999996275
+      ],
+      "median-ms": 1062.5,
+      "id": "L4b-+glyph-maps",
+      "warmup-ms": 1063.699999999255,
+      "count": 330254,
+      "items": 3511,
+      "heap-delta-bytes": [
+        7461576,
+        7423056,
+        7428220
+      ],
+      "what": "L2 + shaper.cljs:180–194 verbatim: update :cluster · cluster-end-map · the 11-key glyph map per glyph (extents inside)"
+    },
+    {
+      "min-ms": 1056.5,
+      "unit": "line",
+      "per-item": null,
+      "pass-ms": [
+        1072.5999999996275,
+        1056.5,
+        1057.199999999255
+      ],
+      "median-ms": 1057.199999999255,
+      "id": "L4c-+setVariations-per-line",
+      "warmup-ms": 1069.800000000745,
+      "count": 330254,
+      "items": 3511,
+      "heap-delta-bytes": [
+        7497120,
+        7486716,
+        7425980
+      ],
+      "what": "L4b + font.setVariations({wght 400, wdth 100}) before each line (apply-variations!, shaper.cljs:262–267 — bumps HarfBuzz's coord serial per line)"
+    },
+    {
+      "min-ms": 1272.7000000011176,
+      "unit": "line",
+      "per-item": null,
+      "pass-ms": [
+        1297.5999999996275,
+        1280.5999999996275,
+        1272.7000000011176
+      ],
+      "median-ms": 1280.5999999996275,
+      "id": "L4d-+bidi+run-split",
+      "warmup-ms": 1300.7000000011176,
+      "count": 332834,
+      "items": 3511,
+      "heap-delta-bytes": [
+        23485508,
+        23390824,
+        23446048
+      ],
+      "what": "L4c + per line: bidi getEmbeddingLevels · codepoint-spans · faces-by-offset · logical-runs · getReorderedIndices/visually-order-runs (shaper.cljs:102–154, :274–277), then shape as one run"
+    },
+    {
+      "min-ms": 1892.5,
+      "unit": "line",
+      "per-item": null,
+      "pass-ms": [
+        1964.5999999996275,
+        1892.5,
+        1910.1000000014901
+      ],
+      "median-ms": 1910.1000000014901,
+      "id": "L4e-+position-runs+cluster-records",
+      "warmup-ms": 1918.699999999255,
+      "count": 663088,
+      "items": 3511,
+      "heap-delta-bytes": [
+        27033188,
+        24909457,
+        24908468
+      ],
+      "what": "L4d + position-runs (assoc :position per glyph) · cluster-records (group-by juxt per glyph, sort-by) · (vec (mapcat :glyphs runs)) (shaper.cljs:221–260, :283–286)"
+    },
+    {
+      "min-ms": 184.40000000037253,
+      "unit": "line",
+      "per-item": null,
+      "pass-ms": [
+        200.80000000074506,
+        187.80000000074506,
+        184.40000000037253
+      ],
+      "median-ms": 187.80000000074506,
+      "id": "L5-shape-line",
+      "warmup-ms": 190.30000000074506,
+      "count": 330254,
+      "items": 3511,
+      "heap-delta-bytes": [
+        9806985,
+        8331626,
+        8723186
+      ],
+      "what": "the REAL provider: ((:shape-line provider) line opts) — bidi · runs · shape-run · position-runs · cluster-records (shaper.cljs:269–290)"
+    },
+    {
+      "min-ms": 547.9000000003725,
+      "unit": "block",
+      "per-item": [
+        {
+          "uid": "du:chat:10c22f9b6ccc059e397f065a7bd95ee6f19dce7260b0a1def19dccf195048a56:sense-block-v0:000005:00:000000",
+          "chars": 4955,
+          "ms": 18.59999999962747,
+          "count": 4863
+        },
+        {
+          "uid": "du:chat:10c22f9b6ccc059e397f065a7bd95ee6f19dce7260b0a1def19dccf195048a56:sense-block-v0:000005:00:000001",
+          "chars": 216,
+          "ms": 1,
+          "count": 214
+        },
+        {
+          "uid": "du:chat:5423158571b75574e4a8327266b84319c1f4bb958ec0584c00bc4d74fd9eaeb7:episode-native-v0:ep:fa27902a:000000",
+          "chars": 5,
+          "ms": 0.2000000011175871,
+          "count": 5
+        },
+        {
+          "uid": "du:chat:bd3acd6c9c3df66d2512d9d9c567c785ca0395e2546e1980bf09d3a73a5f3c09:episode-native-v0:ep:6add9a7f:000000",
+          "chars": 20,
+          "ms": 0.19999999925494194,
+          "count": 20
+        },
+        {
+          "uid": "du:chat:df14fdbbc77f241b6fd2602748d3413035bd8e8ae5e2732e20fb81245e7391cf:episode-native-v0:ep:37f16540:000000",
+          "chars": 17,
+          "ms": 0.19999999925494194,
+          "count": 17
+        },
+        {
+          "uid": "du:chat:f9a420c6217b4e1d7841a3c2c325963571c24314c918073babcca58224197c9e:episode-native-v0:ep:2f2f8a87:000000",
+          "chars": 30,
+          "ms": 0.30000000074505806,
+          "count": 28
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:059aa6f8:000000",
+          "chars": 295,
+          "ms": 1.099999999627471,
+          "count": 290
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:076f89e9:000000",
+          "chars": 6842,
+          "ms": 22.300000000745058,
+          "count": 6736
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:0c1290f7:000000",
+          "chars": 6413,
+          "ms": 18.199999999254942,
+          "count": 6346
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:0cee4f72:000000",
+          "chars": 134,
+          "ms": 0.6000000014901161,
+          "count": 132
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:100a27cc:000000",
+          "chars": 445,
+          "ms": 1.299999998882413,
+          "count": 437
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:11a16fe3:000000",
+          "chars": 0,
+          "ms": 0.2000000011175871,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:12bb1665:000000",
+          "chars": 0,
+          "ms": 0.09999999962747097,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:149d8737:000000",
+          "chars": 9538,
+          "ms": 18.59999999962747,
+          "count": 9416
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:165bd2e8:000000",
+          "chars": 96727,
+          "ms": 147.40000000037253,
+          "count": 95653
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:17520aea:000000",
+          "chars": 0,
+          "ms": 0.19999999925494194,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:17a8a72d:000000",
+          "chars": 3980,
+          "ms": 6.5,
+          "count": 3917
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:18b0ce37:000000",
+          "chars": 67,
+          "ms": 0.2000000011175871,
+          "count": 67
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:1ce7a493:000000",
+          "chars": 126,
+          "ms": 0.3999999985098839,
+          "count": 123
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:1d2e7e96:000000",
+          "chars": 251,
+          "ms": 0.6000000014901161,
+          "count": 248
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:1fc22c63:000000",
+          "chars": 17,
+          "ms": 0,
+          "count": 16
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:2924c56d:000000",
+          "chars": 201,
+          "ms": 0.7999999988824129,
+          "count": 198
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:2a8cb631:000000",
+          "chars": 0,
+          "ms": 0.09999999962747097,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:2b9ca288:000000",
+          "chars": 637,
+          "ms": 1,
+          "count": 623
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:2d90d2e1:000000",
+          "chars": 0,
+          "ms": 0.10000000149011612,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:2eddb2b1:000000",
+          "chars": 219,
+          "ms": 0.3999999985098839,
+          "count": 215
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:302887cc:000000",
+          "chars": 802,
+          "ms": 1.400000000372529,
+          "count": 786
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:33dbfa0c:000000",
+          "chars": 129,
+          "ms": 0.30000000074505806,
+          "count": 127
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3405ac6d:000000",
+          "chars": 66,
+          "ms": 0.19999999925494194,
+          "count": 65
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:34c91afe:000000",
+          "chars": 38,
+          "ms": 0.09999999962747097,
+          "count": 36
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:39790c47:000000",
+          "chars": 99,
+          "ms": 0.30000000074505806,
+          "count": 98
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:39d369c1:000000",
+          "chars": 9,
+          "ms": 0.19999999925494194,
+          "count": 7
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:39f85850:000000",
+          "chars": 905,
+          "ms": 1.5,
+          "count": 888
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3c6512e2:000000",
+          "chars": 24891,
+          "ms": 32.90000000037253,
+          "count": 24661
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3de1200f:000000",
+          "chars": 1546,
+          "ms": 2.599999999627471,
+          "count": 1523
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3f0d75ff:000000",
+          "chars": 17044,
+          "ms": 25.40000000037253,
+          "count": 16811
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3fd415e4:000000",
+          "chars": 1758,
+          "ms": 2.700000001117587,
+          "count": 1738
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:409568e7:000000",
+          "chars": 1197,
+          "ms": 2.099999999627471,
+          "count": 1174
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:40dd0d12:000000",
+          "chars": 200,
+          "ms": 0.40000000037252903,
+          "count": 196
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:41cb175b:000000",
+          "chars": 68,
+          "ms": 0.19999999925494194,
+          "count": 68
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:4470a888:000000",
+          "chars": 2264,
+          "ms": 3.599999999627471,
+          "count": 2234
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:4dc042b6:000000",
+          "chars": 3414,
+          "ms": 5.400000000372529,
+          "count": 3374
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:4df46b3a:000000",
+          "chars": 49,
+          "ms": 0.19999999925494194,
+          "count": 49
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:50cddf61:000000",
+          "chars": 290,
+          "ms": 0.5,
+          "count": 285
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:54ec72c7:000000",
+          "chars": 239,
+          "ms": 0.5,
+          "count": 237
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:55757c02:000000",
+          "chars": 95,
+          "ms": 0.10000000149011612,
+          "count": 93
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:558d53e2:000000",
+          "chars": 0,
+          "ms": 0.09999999962747097,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:59de1021:000000",
+          "chars": 146,
+          "ms": 0.2999999988824129,
+          "count": 145
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:5a28b15a:000000",
+          "chars": 4251,
+          "ms": 5.300000000745058,
+          "count": 4220
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:5c962bf4:000000",
+          "chars": 2506,
+          "ms": 4.5,
+          "count": 2451
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:5e23e99c:000000",
+          "chars": 1956,
+          "ms": 2.699999999254942,
+          "count": 1937
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:60319194:000000",
+          "chars": 0,
+          "ms": 0.10000000149011612,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:62584429:000000",
+          "chars": 166,
+          "ms": 0.3999999985098839,
+          "count": 163
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:64642424:000000",
+          "chars": 18984,
+          "ms": 25.700000001117587,
+          "count": 18788
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:64642424:000045",
+          "chars": 554,
+          "ms": 0.900000000372529,
+          "count": 549
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:64aa4890:000000",
+          "chars": 186,
+          "ms": 0.3999999985098839,
+          "count": 181
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:65639231:000000",
+          "chars": 572,
+          "ms": 1.1000000014901161,
+          "count": 561
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:65751d4e:000000",
+          "chars": 203,
+          "ms": 0.3999999985098839,
+          "count": 201
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:6feafe07:000000",
+          "chars": 1239,
+          "ms": 1.900000000372529,
+          "count": 1221
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7173a868:000000",
+          "chars": 168,
+          "ms": 0.30000000074505806,
+          "count": 166
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:73c2d664:000000",
+          "chars": 5850,
+          "ms": 9.199999999254942,
+          "count": 5757
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:74ce3274:000000",
+          "chars": 1495,
+          "ms": 2.900000000372529,
+          "count": 1459
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:753dbc60:000000",
+          "chars": 3678,
+          "ms": 5.400000000372529,
+          "count": 3635
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7b439e22:000000",
+          "chars": 0,
+          "ms": 0.09999999962747097,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7e104a43:000000",
+          "chars": 78,
+          "ms": 0.19999999925494194,
+          "count": 77
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7e4b5633:000000",
+          "chars": 171,
+          "ms": 0.40000000037252903,
+          "count": 165
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7f6ab4d4:000000",
+          "chars": 816,
+          "ms": 1.300000000745058,
+          "count": 803
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:801a6edc:000000",
+          "chars": 170,
+          "ms": 0.40000000037252903,
+          "count": 166
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:835717af:000000",
+          "chars": 0,
+          "ms": 0,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:84159b68:000000",
+          "chars": 1943,
+          "ms": 3.099999999627471,
+          "count": 1905
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:8609c0b3:000000",
+          "chars": 69,
+          "ms": 0.2999999988824129,
+          "count": 65
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:86e06d1d:000000",
+          "chars": 2,
+          "ms": 0.10000000149011612,
+          "count": 2
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:87454fe4:000000",
+          "chars": 390,
+          "ms": 0.6999999992549419,
+          "count": 385
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:88f2cf5b:000000",
+          "chars": 3,
+          "ms": 0.09999999962747097,
+          "count": 3
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:8c21330e:000000",
+          "chars": 234,
+          "ms": 0.40000000037252903,
+          "count": 232
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:904632ae:000000",
+          "chars": 3658,
+          "ms": 6.099999999627471,
+          "count": 3583
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:90611add:000000",
+          "chars": 121,
+          "ms": 0.30000000074505806,
+          "count": 117
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:972dbbc5:000000",
+          "chars": 217,
+          "ms": 0.5,
+          "count": 212
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9917828e:000000",
+          "chars": 5329,
+          "ms": 8,
+          "count": 5246
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9a860a21:000000",
+          "chars": 243,
+          "ms": 0.5,
+          "count": 239
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9bb70d3e:000000",
+          "chars": 213,
+          "ms": 0.40000000037252903,
+          "count": 211
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9d5ac128:000000",
+          "chars": 239,
+          "ms": 0.3999999985098839,
+          "count": 238
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9ef4ee4a:000000",
+          "chars": 3,
+          "ms": 0.10000000149011612,
+          "count": 3
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9f7de6d7:000000",
+          "chars": 5417,
+          "ms": 8.5,
+          "count": 5330
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a039963a:000000",
+          "chars": 278,
+          "ms": 0.5,
+          "count": 272
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a5d16fc6:000000",
+          "chars": 10,
+          "ms": 0.19999999925494194,
+          "count": 10
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a6f09cb7:000000",
+          "chars": 7357,
+          "ms": 9.5,
+          "count": 7302
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a891aab8:000000",
+          "chars": 502,
+          "ms": 0.8000000007450581,
+          "count": 493
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a8e617a8:000000",
+          "chars": 95,
+          "ms": 0.2999999988824129,
+          "count": 94
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a95bfd3f:000000",
+          "chars": 201,
+          "ms": 0.30000000074505806,
+          "count": 198
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:ac8f5c34:000000",
+          "chars": 125,
+          "ms": 0.40000000037252903,
+          "count": 122
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:ace830f3:000000",
+          "chars": 716,
+          "ms": 1.099999999627471,
+          "count": 701
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:ae5696e6:000000",
+          "chars": 3036,
+          "ms": 4.400000000372529,
+          "count": 2996
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:b0b650cc:000000",
+          "chars": 186,
+          "ms": 0.5,
+          "count": 182
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:b15f2fc9:000000",
+          "chars": 175,
+          "ms": 0.19999999925494194,
+          "count": 175
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:b38f2276:000000",
+          "chars": 61,
+          "ms": 0.30000000074505806,
+          "count": 57
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:b4333710:000000",
+          "chars": 0,
+          "ms": 0,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:b653377e:000000",
+          "chars": 55,
+          "ms": 0.19999999925494194,
+          "count": 54
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:be863fe0:000000",
+          "chars": 0,
+          "ms": 0,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:beb021bd:000000",
+          "chars": 3475,
+          "ms": 5.5,
+          "count": 3418
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:c060ce46:000000",
+          "chars": 9760,
+          "ms": 14.300000000745058,
+          "count": 9637
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:c3c8c201:000000",
+          "chars": 3,
+          "ms": 0.19999999925494194,
+          "count": 3
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:c69491bc:000000",
+          "chars": 952,
+          "ms": 1.400000000372529,
+          "count": 937
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:cbad7e52:000000",
+          "chars": 0,
+          "ms": 0.19999999925494194,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:cde222d8:000000",
+          "chars": 522,
+          "ms": 0.900000000372529,
+          "count": 508
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:ceff0332:000000",
+          "chars": 153,
+          "ms": 0.40000000037252903,
+          "count": 151
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d218ca5b:000000",
+          "chars": 12115,
+          "ms": 19.799999998882413,
+          "count": 11878
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d3c9f4a0:000000",
+          "chars": 212,
+          "ms": 0.5,
+          "count": 208
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d49fba2f:000000",
+          "chars": 9337,
+          "ms": 11.800000000745058,
+          "count": 9275
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d4b5dab9:000000",
+          "chars": 542,
+          "ms": 0.900000000372529,
+          "count": 532
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d5756a4a:000000",
+          "chars": 1631,
+          "ms": 2.5,
+          "count": 1609
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d9a1200e:000000",
+          "chars": 551,
+          "ms": 1.099999999627471,
+          "count": 536
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:dcc61dd4:000000",
+          "chars": 2311,
+          "ms": 3.699999999254942,
+          "count": 2284
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:e4d54eb8:000000",
+          "chars": 288,
+          "ms": 0.6000000014901161,
+          "count": 285
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:e88a124b:000000",
+          "chars": 9003,
+          "ms": 14.5,
+          "count": 8834
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:eaa14328:000000",
+          "chars": 4467,
+          "ms": 6.799999998882413,
+          "count": 4413
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:eb1057e7:000000",
+          "chars": 192,
+          "ms": 0.30000000074505806,
+          "count": 190
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:f0ef85ab:000000",
+          "chars": 7454,
+          "ms": 10.599999999627471,
+          "count": 7360
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:f13a0748:000000",
+          "chars": 193,
+          "ms": 0.40000000037252903,
+          "count": 191
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:f66ad40a:000000",
+          "chars": 522,
+          "ms": 0.7999999988824129,
+          "count": 517
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:f93c1873:000000",
+          "chars": 2715,
+          "ms": 3.600000001490116,
+          "count": 2688
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:fa570f59:000000",
+          "chars": 1369,
+          "ms": 2.399999998509884,
+          "count": 1332
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:fb58037d:000000",
+          "chars": 0,
+          "ms": 0,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:fb80fc3e:000000",
+          "chars": 4539,
+          "ms": 6.700000001117587,
+          "count": 4485
+        },
+        {
+          "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:ff018d87:000000",
+          "chars": 258,
+          "ms": 0.5,
+          "count": 255
+        },
+        {
+          "uid": "du:chat:91431ec95e49f368b4c9f8192585330da5f5604ace878da2a72fca951ec26ed5:episode-native-v0:ep:355be683:000000",
+          "chars": 38,
+          "ms": 0.09999999962747097,
+          "count": 36
+        },
+        {
+          "uid": "du:chat:4baee84ed2c72cf3a09325f57cd6487c3c00a30dceefa0308346aef4a8345cd0:episode-native-v0:ep:07855019:000000",
+          "chars": 31,
+          "ms": 0.09999999962747097,
+          "count": 31
+        },
+        {
+          "uid": "du:chat:4baee84ed2c72cf3a09325f57cd6487c3c00a30dceefa0308346aef4a8345cd0:episode-native-v0:ep:82ff508b:000000",
+          "chars": 67,
+          "ms": 0.2000000011175871,
+          "count": 67
+        },
+        {
+          "uid": "du:chat:8f4e02bc7695f56e3c45f2daf9ce00d5e42cde18abaf967d9647d2e7e6fbdfb7:episode-native-v0:ep:1cfc5d01:000000",
+          "chars": 51,
+          "ms": 0.09999999962747097,
+          "count": 51
+        },
+        {
+          "uid": "du:chat:a393b9c5aff381af0d681f270bb756da867c8280735e572ed68d810031ada9bd:episode-native-v0:ep:fea73518:000000",
+          "chars": 51,
+          "ms": 0.09999999962747097,
+          "count": 51
+        },
+        {
+          "uid": "du:chat:177145d51d13eb86c6cf705e30d7ed8a22ad453f2890ea98d759b45626472afd:episode-native-v0:ep:1e887057:000000",
+          "chars": 38,
+          "ms": 0.19999999925494194,
+          "count": 36
+        },
+        {
+          "uid": "du:chat:6832ea02920a43c72b6ad9c01dc6b3846395982f3584ea31dc73d8cc5c7e0e54:episode-native-v0:ep:970460bd:000000",
+          "chars": 0,
+          "ms": 0,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:cd4e4d393b76305675ff5c7febccb1784cdac622c353a1d9f13821c69293c0d6:episode-native-v0:ep:aea5b9c2:000000",
+          "chars": 51,
+          "ms": 0.2000000011175871,
+          "count": 51
+        },
+        {
+          "uid": "du:chat:e8b3c8503810475a49c7ab4f6e5c7afcb177b41e49d238ca208256e67c10f7d7:episode-native-v0:ep:9ef742fc:000000",
+          "chars": 4,
+          "ms": 0,
+          "count": 4
+        },
+        {
+          "uid": "du:chat:1ed68c7a0f59af6bfdcb9d9df451ec8f88d256cf34efcdc6b543eae7c80702aa:episode-native-v0:ep:82fa1154:000000",
+          "chars": 37,
+          "ms": 0.19999999925494194,
+          "count": 37
+        },
+        {
+          "uid": "du:chat:6fa7de6caa8753aef5e1c92e678f310fd41d2fae2490f2d5a6abd9e9356c5996:episode-native-v0:ep:3ee3a9e5:000000",
+          "chars": 37,
+          "ms": 0.09999999962747097,
+          "count": 37
+        },
+        {
+          "uid": "du:chat:bb799475fbd2c56ba0b1fccbdf826eed16ccfcadf01039006c9450d45d4e08ae:episode-native-v0:ep:6a90c1e4:000000",
+          "chars": 4,
+          "ms": 0.10000000149011612,
+          "count": 4
+        },
+        {
+          "uid": "du:chat:bb799475fbd2c56ba0b1fccbdf826eed16ccfcadf01039006c9450d45d4e08ae:episode-native-v0:ep:c03b2113:000000",
+          "chars": 15,
+          "ms": 0,
+          "count": 15
+        },
+        {
+          "uid": "du:chat:cda7988f3416132a8e92c661346f0ed095ad435094e841b2d2a7a0a216e53d22:episode-native-v0:ep:881c139e:000000",
+          "chars": 16,
+          "ms": 0.09999999962747097,
+          "count": 16
+        },
+        {
+          "uid": "du:chat:cda7988f3416132a8e92c661346f0ed095ad435094e841b2d2a7a0a216e53d22:episode-native-v0:ep:b570aa0b:000000",
+          "chars": 21,
+          "ms": 0.09999999962747097,
+          "count": 21
+        },
+        {
+          "uid": "du:chat:cda7988f3416132a8e92c661346f0ed095ad435094e841b2d2a7a0a216e53d22:episode-native-v0:ep:ca831d04:000000",
+          "chars": 1177,
+          "ms": 2.099999999627471,
+          "count": 1155
+        },
+        {
+          "uid": "du:chat:cda7988f3416132a8e92c661346f0ed095ad435094e841b2d2a7a0a216e53d22:episode-native-v0:ep:d8a7c954:000000",
+          "chars": 11,
+          "ms": 0.09999999962747097,
+          "count": 11
+        },
+        {
+          "uid": "du:chat:cda7988f3416132a8e92c661346f0ed095ad435094e841b2d2a7a0a216e53d22:episode-native-v0:ep:ed8e5e3d:000000",
+          "chars": 0,
+          "ms": 0,
+          "count": 0
+        },
+        {
+          "uid": "du:chat:cda7988f3416132a8e92c661346f0ed095ad435094e841b2d2a7a0a216e53d22:episode-native-v0:ep:f96b659d:000000",
+          "chars": 19,
+          "ms": 0.2000000011175871,
+          "count": 19
+        }
+      ],
+      "pass-ms": [
+        568.8000000007451,
+        557.4000000003725,
+        547.9000000003725
+      ],
+      "median-ms": 557.4000000003725,
+      "id": "L6-layout-per-block",
+      "warmup-ms": 565.7999999988824,
+      "count": 330254,
+      "items": 144,
+      "heap-delta-bytes": [
+        39658743,
+        45386059,
+        38208025
+      ],
+      "what": "the REAL tl/layout per block, wrap-policy :none (layout.cljc shaped-layout)"
+    }
+  ],
+  "console": [
+    {
+      "type": "log",
+      "text": "[BORDER] start"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "type": "log",
+      "text": "[BORDER] adapter {:is-fallback-adapter false, :fallback-attestation-source \"GPUAdapterInfo.isFallbackAdapter\", :vendor \"amd\", :architecture \"rdna-3\", :device \"\", :description \"\", :feature-count 23}"
+    },
+    {
+      "type": "log",
+      "text": "[FONT] Manifest loaded JSHandle@object"
+    },
+    {
+      "type": "log",
+      "text": "[BORDER] corpus {:blocks 144, :lines 3511, :chars-utf16 334537, :max-block-chars 96727, :machine-blocks 0}"
+    },
+    {
+      "type": "log",
+      "text": "[BORDER] rung L0-hb-shape"
+    },
+    {
+      "type": "log",
+      "text": "[BORDER] rung L1-+getGlyphInfosAndPositions"
+    },
+    {
+      "type": "log",
+      "text": "[BORDER] rung L2-+js->clj"
+    },
+    {
+      "type": "log",
+      "text": "[BORDER] rung L3-+glyphExtents-raw"
+    },
+    {
+      "type": "log",
+      "text": "[BORDER] rung L4-+glyphExtents-js->clj"
+    },
+    {
+      "type": "log",
+      "text": "[BORDER] rung L4b-+glyph-maps"
+    },
+    {
+      "type": "log",
+      "text": "[BORDER] rung L4c-+setVariations-per-line"
+    },
+    {
+      "type": "log",
+      "text": "[BORDER] rung L4d-+bidi+run-split"
+    },
+    {
+      "type": "log",
+      "text": "[BORDER] rung L4e-+position-runs+cluster-records"
+    },
+    {
+      "type": "log",
+      "text": "[BORDER] rung L5-shape-line"
+    },
+    {
+      "type": "log",
+      "text": "[BORDER] rung L6-layout-per-block"
+    }
+  ]
+}
