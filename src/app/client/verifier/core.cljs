@@ -1026,7 +1026,7 @@
                           (:placeholder-rendered unavailable)
                           device-loss-pass?)}))))))
 
-(defn- run-image-atom! [device _adapter]
+(defn- run-image-atom! [device]
   (let [candidate-camera (device/create-camera-buffer device)
         candidate-containers (device/create-containers-buffer device)
         candidate-system
@@ -1374,7 +1374,7 @@
                  (not (:mesh-set-changed? same-mesh-set))
                  (zero? (:writes same-mesh-set)))}))
 
-(defn- run-path-atom! [device _adapter]
+(defn- run-path-atom! [device]
   (let [camera (device/create-camera-buffer device)
         containers-buffer (device/create-containers-buffer device)
         system (path-painter/init-path-system
@@ -2299,7 +2299,7 @@
             (js/Promise.resolve nil)
             steps)))
 
-(defn- run-region3d-floor! [device _adapter font-assets]
+(defn- run-region3d-floor! [device font-assets]
   (let [camera (device/create-camera-buffer device)
         containers-buffer (device/create-containers-buffer device)
         _ (device/update-camera device camera (js/Float32Array. 6)
@@ -2500,10 +2500,9 @@
                                        #js [(promise-mapv (partial run-case! harness) zoom-cases)
                                             (run-ubuntu-mixed-case! device ubuntu-system t1-assets)
                                             (shader-digests)
-                                            (run-image-atom! device adapter)
-                                            (run-path-atom! device adapter)
-                                            (run-region3d-floor! device adapter
-                                                                 t1-assets)])
+                                            (run-image-atom! device)
+                                            (run-path-atom! device)
+                                            (run-region3d-floor! device t1-assets)])
                                       (.then
                                        (fn [values]
                                          {:schema-version 2
@@ -2555,8 +2554,7 @@
                               (fn [font-assets]
                                 (-> (js/Promise.all
                                      #js [(shader-digests)
-                                          (run-region3d-floor!
-                                           device adapter font-assets)])
+                                          (run-region3d-floor! device font-assets)])
                                     (.then
                                      (fn [values]
                                        {:schema-version 2
