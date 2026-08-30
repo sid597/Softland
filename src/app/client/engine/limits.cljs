@@ -1,8 +1,9 @@
 (ns app.client.engine.limits
   "Static WebGPU limits and texture-allocation pricing.
-   Takes: a WebGPU adapter; texture dimensions, pixel size, mip count, and
-   sample count.
-   Gives: an adapter-limit snapshot and the bytes reserved by a texture.
+   Takes: a WebGPU adapter; a texture format; texture dimensions, pixel size,
+   mip count, and sample count.
+   Gives: an adapter-limit snapshot, bytes per texel for a format, and the
+   bytes reserved by a texture.
    Holds: nothing.")
 
 (defn snapshot-adapter-limits [^js adapter]
@@ -13,13 +14,14 @@
        :max-texture-dimension-2d (some-> limits .-maxTextureDimension2D)
        :max-texture-array-layers (some-> limits .-maxTextureArrayLayers)})))
 
-(def bytes-per-pixel
-  (fn [format]
-    (case format
-      ("rgba8unorm" "bgra8unorm" "rgba8unorm-srgb" "bgra8unorm-srgb") 4
-      "rgba16float" 8
-      "rg16uint" 4
-      4)))
+(defn texture-bytes-per-pixel
+  "Bytes per texel for a WebGPU texture format; unknown formats price as 4."
+  [format]
+  (case format
+    ("rgba8unorm" "bgra8unorm" "rgba8unorm-srgb" "bgra8unorm-srgb") 4
+    "rgba16float" 8
+    "rg16uint" 4
+    4))
 
 (defn texture-reserved-bytes
   "Price every allocated mip level and MSAA sample, not only level zero."
