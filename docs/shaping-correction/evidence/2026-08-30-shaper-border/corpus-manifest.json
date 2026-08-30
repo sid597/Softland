@@ -1,0 +1,729 @@
+{
+  "corpusSha256": "edfed32c1a0bbf9d4f73e00c87f945d7b001bf622cae1564086890fc530ebd63",
+  "source": "Softland-archive-20260824T105543Z-497e11e/pstates/app.server.rama.object-container_object-container-module___unit-graduations-by-id.ednl · key :current-content-text · uid :unit-id",
+  "blocks": 144,
+  "charsUtf16": 334537,
+  "lines": 3511,
+  "entries": [
+    {
+      "uid": "du:chat:10c22f9b6ccc059e397f065a7bd95ee6f19dce7260b0a1def19dccf195048a56:sense-block-v0:000005:00:000000",
+      "chars": 4955,
+      "lines": 83
+    },
+    {
+      "uid": "du:chat:10c22f9b6ccc059e397f065a7bd95ee6f19dce7260b0a1def19dccf195048a56:sense-block-v0:000005:00:000001",
+      "chars": 216,
+      "lines": 3
+    },
+    {
+      "uid": "du:chat:5423158571b75574e4a8327266b84319c1f4bb958ec0584c00bc4d74fd9eaeb7:episode-native-v0:ep:fa27902a:000000",
+      "chars": 5,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:bd3acd6c9c3df66d2512d9d9c567c785ca0395e2546e1980bf09d3a73a5f3c09:episode-native-v0:ep:6add9a7f:000000",
+      "chars": 20,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:df14fdbbc77f241b6fd2602748d3413035bd8e8ae5e2732e20fb81245e7391cf:episode-native-v0:ep:37f16540:000000",
+      "chars": 17,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:f9a420c6217b4e1d7841a3c2c325963571c24314c918073babcca58224197c9e:episode-native-v0:ep:2f2f8a87:000000",
+      "chars": 30,
+      "lines": 2
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:059aa6f8:000000",
+      "chars": 295,
+      "lines": 6
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:076f89e9:000000",
+      "chars": 6842,
+      "lines": 92
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:0c1290f7:000000",
+      "chars": 6413,
+      "lines": 60
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:0cee4f72:000000",
+      "chars": 134,
+      "lines": 3
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:100a27cc:000000",
+      "chars": 445,
+      "lines": 8
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:11a16fe3:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:12bb1665:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:149d8737:000000",
+      "chars": 9538,
+      "lines": 93
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:165bd2e8:000000",
+      "chars": 96727,
+      "lines": 765
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:17520aea:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:17a8a72d:000000",
+      "chars": 3980,
+      "lines": 53
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:18b0ce37:000000",
+      "chars": 67,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:1ce7a493:000000",
+      "chars": 126,
+      "lines": 4
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:1d2e7e96:000000",
+      "chars": 251,
+      "lines": 4
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:1fc22c63:000000",
+      "chars": 17,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:2924c56d:000000",
+      "chars": 201,
+      "lines": 4
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:2a8cb631:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:2b9ca288:000000",
+      "chars": 637,
+      "lines": 10
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:2d90d2e1:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:2eddb2b1:000000",
+      "chars": 219,
+      "lines": 3
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:302887cc:000000",
+      "chars": 802,
+      "lines": 12
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:33dbfa0c:000000",
+      "chars": 129,
+      "lines": 3
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3405ac6d:000000",
+      "chars": 66,
+      "lines": 2
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:34c91afe:000000",
+      "chars": 38,
+      "lines": 3
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:39790c47:000000",
+      "chars": 99,
+      "lines": 2
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:39d369c1:000000",
+      "chars": 9,
+      "lines": 3
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:39f85850:000000",
+      "chars": 905,
+      "lines": 12
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3c6512e2:000000",
+      "chars": 24891,
+      "lines": 151
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3de1200f:000000",
+      "chars": 1546,
+      "lines": 21
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3f0d75ff:000000",
+      "chars": 17044,
+      "lines": 192
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:3fd415e4:000000",
+      "chars": 1758,
+      "lines": 19
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:409568e7:000000",
+      "chars": 1197,
+      "lines": 20
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:40dd0d12:000000",
+      "chars": 200,
+      "lines": 4
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:41cb175b:000000",
+      "chars": 68,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:4470a888:000000",
+      "chars": 2264,
+      "lines": 26
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:4dc042b6:000000",
+      "chars": 3414,
+      "lines": 36
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:4df46b3a:000000",
+      "chars": 49,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:50cddf61:000000",
+      "chars": 290,
+      "lines": 4
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:54ec72c7:000000",
+      "chars": 239,
+      "lines": 2
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:55757c02:000000",
+      "chars": 95,
+      "lines": 2
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:558d53e2:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:59de1021:000000",
+      "chars": 146,
+      "lines": 2
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:5a28b15a:000000",
+      "chars": 4251,
+      "lines": 15
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:5c962bf4:000000",
+      "chars": 2506,
+      "lines": 48
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:5e23e99c:000000",
+      "chars": 1956,
+      "lines": 16
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:60319194:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:62584429:000000",
+      "chars": 166,
+      "lines": 4
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:64642424:000000",
+      "chars": 18984,
+      "lines": 144
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:64642424:000045",
+      "chars": 554,
+      "lines": 4
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:64aa4890:000000",
+      "chars": 186,
+      "lines": 5
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:65639231:000000",
+      "chars": 572,
+      "lines": 9
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:65751d4e:000000",
+      "chars": 203,
+      "lines": 3
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:6feafe07:000000",
+      "chars": 1239,
+      "lines": 16
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7173a868:000000",
+      "chars": 168,
+      "lines": 3
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:73c2d664:000000",
+      "chars": 5850,
+      "lines": 73
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:74ce3274:000000",
+      "chars": 1495,
+      "lines": 37
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:753dbc60:000000",
+      "chars": 3678,
+      "lines": 38
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7b439e22:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7e104a43:000000",
+      "chars": 78,
+      "lines": 2
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7e4b5633:000000",
+      "chars": 171,
+      "lines": 5
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:7f6ab4d4:000000",
+      "chars": 816,
+      "lines": 13
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:801a6edc:000000",
+      "chars": 170,
+      "lines": 5
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:835717af:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:84159b68:000000",
+      "chars": 1943,
+      "lines": 33
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:8609c0b3:000000",
+      "chars": 69,
+      "lines": 5
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:86e06d1d:000000",
+      "chars": 2,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:87454fe4:000000",
+      "chars": 390,
+      "lines": 5
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:88f2cf5b:000000",
+      "chars": 3,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:8c21330e:000000",
+      "chars": 234,
+      "lines": 3
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:904632ae:000000",
+      "chars": 3658,
+      "lines": 55
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:90611add:000000",
+      "chars": 121,
+      "lines": 5
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:972dbbc5:000000",
+      "chars": 217,
+      "lines": 4
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9917828e:000000",
+      "chars": 5329,
+      "lines": 69
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9a860a21:000000",
+      "chars": 243,
+      "lines": 5
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9bb70d3e:000000",
+      "chars": 213,
+      "lines": 3
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9d5ac128:000000",
+      "chars": 239,
+      "lines": 2
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9ef4ee4a:000000",
+      "chars": 3,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:9f7de6d7:000000",
+      "chars": 5417,
+      "lines": 67
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a039963a:000000",
+      "chars": 278,
+      "lines": 5
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a5d16fc6:000000",
+      "chars": 10,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a6f09cb7:000000",
+      "chars": 7357,
+      "lines": 32
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a891aab8:000000",
+      "chars": 502,
+      "lines": 8
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a8e617a8:000000",
+      "chars": 95,
+      "lines": 2
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:a95bfd3f:000000",
+      "chars": 201,
+      "lines": 4
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:ac8f5c34:000000",
+      "chars": 125,
+      "lines": 3
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:ace830f3:000000",
+      "chars": 716,
+      "lines": 12
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:ae5696e6:000000",
+      "chars": 3036,
+      "lines": 37
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:b0b650cc:000000",
+      "chars": 186,
+      "lines": 5
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:b15f2fc9:000000",
+      "chars": 175,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:b38f2276:000000",
+      "chars": 61,
+      "lines": 5
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:b4333710:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:b653377e:000000",
+      "chars": 55,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:be863fe0:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:beb021bd:000000",
+      "chars": 3475,
+      "lines": 55
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:c060ce46:000000",
+      "chars": 9760,
+      "lines": 108
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:c3c8c201:000000",
+      "chars": 3,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:c69491bc:000000",
+      "chars": 952,
+      "lines": 13
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:cbad7e52:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:cde222d8:000000",
+      "chars": 522,
+      "lines": 15
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:ceff0332:000000",
+      "chars": 153,
+      "lines": 2
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d218ca5b:000000",
+      "chars": 12115,
+      "lines": 222
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d3c9f4a0:000000",
+      "chars": 212,
+      "lines": 5
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d49fba2f:000000",
+      "chars": 9337,
+      "lines": 48
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d4b5dab9:000000",
+      "chars": 542,
+      "lines": 8
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d5756a4a:000000",
+      "chars": 1631,
+      "lines": 21
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:d9a1200e:000000",
+      "chars": 551,
+      "lines": 14
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:dcc61dd4:000000",
+      "chars": 2311,
+      "lines": 23
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:e4d54eb8:000000",
+      "chars": 288,
+      "lines": 4
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:e88a124b:000000",
+      "chars": 9003,
+      "lines": 148
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:eaa14328:000000",
+      "chars": 4467,
+      "lines": 49
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:eb1057e7:000000",
+      "chars": 192,
+      "lines": 3
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:f0ef85ab:000000",
+      "chars": 7454,
+      "lines": 77
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:f13a0748:000000",
+      "chars": 193,
+      "lines": 3
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:f66ad40a:000000",
+      "chars": 522,
+      "lines": 6
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:f93c1873:000000",
+      "chars": 2715,
+      "lines": 22
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:fa570f59:000000",
+      "chars": 1369,
+      "lines": 31
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:fb58037d:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:fb80fc3e:000000",
+      "chars": 4539,
+      "lines": 49
+    },
+    {
+      "uid": "du:chat:77088a4f028100d3e93a99d291e2a184c7ed6ca66b3a998a74f9fbddfe62b34b:episode-native-v0:ep:ff018d87:000000",
+      "chars": 258,
+      "lines": 4
+    },
+    {
+      "uid": "du:chat:91431ec95e49f368b4c9f8192585330da5f5604ace878da2a72fca951ec26ed5:episode-native-v0:ep:355be683:000000",
+      "chars": 38,
+      "lines": 2
+    },
+    {
+      "uid": "du:chat:4baee84ed2c72cf3a09325f57cd6487c3c00a30dceefa0308346aef4a8345cd0:episode-native-v0:ep:07855019:000000",
+      "chars": 31,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:4baee84ed2c72cf3a09325f57cd6487c3c00a30dceefa0308346aef4a8345cd0:episode-native-v0:ep:82ff508b:000000",
+      "chars": 67,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:8f4e02bc7695f56e3c45f2daf9ce00d5e42cde18abaf967d9647d2e7e6fbdfb7:episode-native-v0:ep:1cfc5d01:000000",
+      "chars": 51,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:a393b9c5aff381af0d681f270bb756da867c8280735e572ed68d810031ada9bd:episode-native-v0:ep:fea73518:000000",
+      "chars": 51,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:177145d51d13eb86c6cf705e30d7ed8a22ad453f2890ea98d759b45626472afd:episode-native-v0:ep:1e887057:000000",
+      "chars": 38,
+      "lines": 2
+    },
+    {
+      "uid": "du:chat:6832ea02920a43c72b6ad9c01dc6b3846395982f3584ea31dc73d8cc5c7e0e54:episode-native-v0:ep:970460bd:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:cd4e4d393b76305675ff5c7febccb1784cdac622c353a1d9f13821c69293c0d6:episode-native-v0:ep:aea5b9c2:000000",
+      "chars": 51,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:e8b3c8503810475a49c7ab4f6e5c7afcb177b41e49d238ca208256e67c10f7d7:episode-native-v0:ep:9ef742fc:000000",
+      "chars": 4,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:1ed68c7a0f59af6bfdcb9d9df451ec8f88d256cf34efcdc6b543eae7c80702aa:episode-native-v0:ep:82fa1154:000000",
+      "chars": 37,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:6fa7de6caa8753aef5e1c92e678f310fd41d2fae2490f2d5a6abd9e9356c5996:episode-native-v0:ep:3ee3a9e5:000000",
+      "chars": 37,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:bb799475fbd2c56ba0b1fccbdf826eed16ccfcadf01039006c9450d45d4e08ae:episode-native-v0:ep:6a90c1e4:000000",
+      "chars": 4,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:bb799475fbd2c56ba0b1fccbdf826eed16ccfcadf01039006c9450d45d4e08ae:episode-native-v0:ep:c03b2113:000000",
+      "chars": 15,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:cda7988f3416132a8e92c661346f0ed095ad435094e841b2d2a7a0a216e53d22:episode-native-v0:ep:881c139e:000000",
+      "chars": 16,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:cda7988f3416132a8e92c661346f0ed095ad435094e841b2d2a7a0a216e53d22:episode-native-v0:ep:b570aa0b:000000",
+      "chars": 21,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:cda7988f3416132a8e92c661346f0ed095ad435094e841b2d2a7a0a216e53d22:episode-native-v0:ep:ca831d04:000000",
+      "chars": 1177,
+      "lines": 16
+    },
+    {
+      "uid": "du:chat:cda7988f3416132a8e92c661346f0ed095ad435094e841b2d2a7a0a216e53d22:episode-native-v0:ep:d8a7c954:000000",
+      "chars": 11,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:cda7988f3416132a8e92c661346f0ed095ad435094e841b2d2a7a0a216e53d22:episode-native-v0:ep:ed8e5e3d:000000",
+      "chars": 0,
+      "lines": 1
+    },
+    {
+      "uid": "du:chat:cda7988f3416132a8e92c661346f0ed095ad435094e841b2d2a7a0a216e53d22:episode-native-v0:ep:f96b659d:000000",
+      "chars": 19,
+      "lines": 1
+    }
+  ]
+}

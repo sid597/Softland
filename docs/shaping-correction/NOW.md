@@ -243,3 +243,19 @@ judgment calls, diff-derived file list sum-checked vs §12) + NOW entry
   NEVER"). Context: Hyperfiddle's v4 note, "the hot spot becomes interop
   between the host language and the wasm kernel". No code touched;
   electric-native CONTRACT §2 "no shaping work" stands.
+- 2026-08-30 · Fable (receipt session, the shaper-border lane) · **STEP-1
+  RECEIPT BANKED** → `evidence/2026-08-30-shaper-border/` (README headline
+  first · `receipt.json` sha256 `3761102b…f3e0` · SHA256SUMS). Physical
+  adapter attested first on the headful road (amd / rdna-3,
+  isFallbackAdapter false). Corpus = the archive's 144 graduated blocks,
+  334,537 chars / 3,511 lines / 330,254 glyphs, both founding check blocks
+  exact; the 36 machine blocks are NOT in the archive as blocks (record
+  banked). Measured (medians of 3): `hb.shape()` 48 ms · site (a)
+  gip→js->clj 361 ms · site (b) glyphExtents→js->clj 288 ms · real
+  `shape-line` 1,984 ms · real `tl/layout` 5,755 ms; the WASM crossings are
+  96 ms — the cost is js->clj + per-glyph CLJS maps (97.6% of shape-line is
+  not HarfBuzz). Derived at 586,927 chars: border ≈1.1 s ≈ 29% of the ≈3.95 s
+  founding residue; provider ≈3.5 s; layout ≈10 s, linear (15–18 µs/char).
+  setVariations-per-line hypothesis dead (+8 ms). **VERDICT: material.**
+  NEXT: Sid's word on the headline → step 2 re-cut or lane close. Layout-side
+  3.77 s (L6−L5) unattributed — queued behind that word.
