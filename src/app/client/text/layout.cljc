@@ -10,6 +10,7 @@
    Holds nothing; the retained arrays live in layout-planes."
   (:require [clojure.string :as str]
             [app.client.text.layout-planes :as planes]
+            [app.client.text.shaped-line :as sl]
             #?(:cljs [goog.crypt :as gcrypt])
             #?(:cljs [goog.crypt.Sha256])))
 
@@ -371,22 +372,120 @@
 (defn- work+! [!work key n]
   (vswap! !work update key (fnil + 0) n))
 
-(defn- cluster-width [cluster]
-  (Math/abs (- (double (or (:right cluster) 0))
-               (double (or (:left cluster) 0)))))
+;; --- the flat road: spans, wrap, and ink over columns -----------------------
 
-(defn- cluster-break-whitespace?
-  [text {:keys [source-start source-end]}]
-  (and (< source-start source-end)
-       (every? #(break-whitespace-at? text %)
-               (range source-start source-end))))
+(defn- sort-glyph-order
+  "Glyph indexes of one shaped line ordered by (cluster-start, cluster-end,
+   index): the exact grouping `glyph-span-index` used to build from maps."
+  [line]
+  (let [g (long (:glyph-count line))
+        cs (:cluster-start line)
+        ce (:cluster-end line)]
+    #?(:clj (let [order (sl/i32-array g)]
+              (doseq [[k i] (map-indexed vector
+                                         (sort-by (fn [i] [(sl/u32-get cs i)
+                                                           (sl/u32-get ce i) i])
+                                                  (range g)))]
+                (sl/i32-set! order k i))
+              order)
+       :cljs (let [order (js/Int32Array. g)]
+               (dotimes [i g] (aset order i i))
+               (.sort order (fn [a b]
+                              (let [d (- (aget cs a) (aget cs b))]
+                                (if (zero? d)
+                                  (let [e (- (aget ce a) (aget ce b))]
+                                    (if (zero? e) (- a b) e))
+                                  d))))
+               order))))
+
+(defn- line-spans
+  "One pass over a shaped line's cluster columns: the span table — sorted by
+   (source-start, source-end), each span's ascending glyph indexes laid out
+   contiguously in `:order`, its [min, max+1) glyph range, its font-unit
+   left/right edge, and whether it is contiguous. Pure; the caller counts
+   `glyph-visits` and `cluster-index-writes` exactly as the map road did."
+  [line]
+  (let [g (long (:glyph-count line))
+        order (sort-glyph-order line)
+        cs (:cluster-start line)
+        ce (:cluster-end line)
+        gx (:glyph-x line)
+        ax (:advance-x line)
+        starts (sl/i32-array g)
+        ends (sl/i32-array g)
+        gstarts (sl/i32-array g)
+        gends (sl/i32-array g)
+        ostarts (sl/i32-array g)
+        oends (sl/i32-array g)
+        lefts (sl/i32-array g)
+        rights (sl/i32-array g)
+        contiguous (sl/u8-array g)
+        count
+        (loop [k 0 s 0]
+          (if (>= k g)
+            s
+            (let [i (sl/i32-get order k)
+                  start (sl/u32-get cs i)
+                  end (sl/u32-get ce i)
+                  ;; the group [k, k') shares (start, end); indexes ascend
+                  k' (loop [k' (inc k)]
+                       (if (and (< k' g)
+                                (let [j (sl/i32-get order k')]
+                                  (and (= start (sl/u32-get cs j))
+                                       (= end (sl/u32-get ce j)))))
+                         (recur (inc k'))
+                         k'))
+                  [lo hi left right]
+                  (loop [m k lo i hi i
+                         left (sl/i32-get gx i)
+                         right (+ (sl/i32-get gx i) (sl/i32-get ax i))]
+                    (if (>= m k')
+                      [lo hi left right]
+                      (let [j (sl/i32-get order m)
+                            x (sl/i32-get gx j)
+                            x2 (+ x (sl/i32-get ax j))]
+                        (recur (inc m) (min lo j) (max hi j)
+                               (min left x) (max right x2)))))]
+              (sl/i32-set! starts s start)
+              (sl/i32-set! ends s end)
+              (sl/i32-set! gstarts s lo)
+              (sl/i32-set! gends s (inc hi))
+              (sl/i32-set! ostarts s k)
+              (sl/i32-set! oends s k')
+              (sl/i32-set! lefts s (min left right))
+              (sl/i32-set! rights s (max left right))
+              (sl/u8-set! contiguous s (if (= (- k' k) (- (inc hi) lo)) 1 0))
+              (recur k' (inc s)))))]
+    {:count count
+     :starts starts :ends ends
+     :glyph-starts gstarts :glyph-ends gends
+     :order order :order-starts ostarts :order-ends oends
+     :lefts lefts :rights rights
+     :contiguous contiguous
+     :monotonic? (loop [s 0]
+                   (cond (>= s count) true
+                         (zero? (sl/u8-get contiguous s)) false
+                         :else (recur (inc s))))}))
+
+(defn- span-start [spans i] (sl/i32-get (:starts spans) i))
+(defn- span-end [spans i] (sl/i32-get (:ends spans) i))
+
+(defn- span-width [spans i]
+  (Math/abs (- (double (sl/i32-get (:rights spans) i))
+               (double (sl/i32-get (:lefts spans) i)))))
+
+(defn- span-break-whitespace? [text spans i]
+  (let [start (span-start spans i) end (span-end spans i)]
+    (and (< start end)
+         (every? #(break-whitespace-at? text %) (range start end)))))
 
 (defn- scan-wrap-cut
   "Choose one segment-relative cut from an already-shaped source line.
    A cluster is revisited at most once after the chosen whitespace boundary,
-   keeping the complete cut walk linear with a <=2C visit bound."
-  [line-text clusters start-index segment-start max-units !work]
-  (let [cluster-count (count clusters)
+   keeping the complete cut walk linear with a <=2C visit bound. (The map
+   road's algorithm, re-keyed to the span table.)"
+  [line-text spans start-index segment-start max-units !work]
+  (let [cluster-count (long (:count spans))
         source-length (code-unit-count line-text)]
     (loop [i start-index
            advance 0.0
@@ -395,31 +494,28 @@
       (if (>= i cluster-count)
         {:kind :final :paint-end source-length :owned-end source-length
          :next-index cluster-count}
-        (let [cluster (nth clusters i)
-              _ (work+! !work :wrap-candidate-visits 1)
-              whitespace? (cluster-break-whitespace? line-text cluster)]
+        (let [_ (work+! !work :wrap-candidate-visits 1)
+              whitespace? (span-break-whitespace? line-text spans i)]
           (if whitespace?
             (let [run (loop [j i width 0.0 fitting-end last-fitting
                              fitting-next-index i]
                         (if (and (< j cluster-count)
-                                 (cluster-break-whitespace? line-text
-                                                            (nth clusters j)))
-                          (let [width' (+ width (cluster-width (nth clusters j)))
+                                 (span-break-whitespace? line-text spans j))
+                          (let [width' (+ width (span-width spans j))
                                 fits? (<= (+ advance width') max-units)]
                             (when (> j i)
                               (work+! !work :wrap-candidate-visits 1))
                             (recur (inc j) width'
-                                   (if fits? (:source-end (nth clusters j))
-                                       fitting-end)
+                                   (if fits? (span-end spans j) fitting-end)
                                    (if fits? (inc j) fitting-next-index)))
                           {:next-index j
                            :run-end (if (> j i)
-                                      (:source-end (nth clusters (dec j)))
-                                      (:source-end cluster))
+                                      (span-end spans (dec j))
+                                      (span-end spans i))
                            :width width
                            :fitting-end fitting-end
                            :fitting-next-index fitting-next-index}))
-                  run-start (:source-start cluster)
+                  run-start (span-start spans i)
                   candidate? (and (> run-start segment-start)
                                   (< (:run-end run) source-length)
                                   (<= advance max-units))
@@ -439,44 +535,45 @@
                        :owned-end (:fitting-end run)
                        :next-index (:fitting-next-index run)})
                     {:kind :hard
-                     :paint-end (:source-end cluster)
-                     :owned-end (:source-end cluster)
+                     :paint-end (span-end spans i)
+                     :owned-end (span-end spans i)
                      :next-index (inc i)})
                 (recur (:next-index run) next-advance (:run-end run) candidate)))
-            (let [next-advance (+ advance (cluster-width cluster))
+            (let [next-advance (+ advance (span-width spans i))
                   fitting? (<= next-advance max-units)
-                  last-fitting (if fitting? (:source-end cluster) last-fitting)]
+                  last-fitting (if fitting? (span-end spans i) last-fitting)]
               (if (and (not fitting?) (> next-advance max-units))
                 (or last-candidate
                     (when last-fitting
                       {:kind :hard :paint-end last-fitting
                        :owned-end last-fitting :next-index i})
                     {:kind :hard
-                     :paint-end (:source-end cluster)
-                     :owned-end (:source-end cluster)
+                     :paint-end (span-end spans i)
+                     :owned-end (span-end spans i)
                      :next-index (inc i)})
                 (recur (inc i) next-advance last-fitting last-candidate)))))))))
 
 (defn- shaped-segments
   "Choose all cuts from one shaped pass, then let `shaped-layout` reshape only
-   the final segments. The returned ranges are relative to the source line."
-  [line-text shaped inline-size !work]
+   the final segments. The returned ranges are relative to the source line.
+   `spans` is the span table of `shaped`."
+  [line-text shaped spans inline-size !work]
   (let [source-length (code-unit-count line-text)
-        clusters (vec (sort-by (juxt :source-start :source-end)
-                               (:clusters shaped)))]
+        cluster-count (long (:count spans))]
     (cond
       (or (not (number? inline-size)) (not (pos? inline-size)))
       [{:text line-text :relative-start 0 :relative-end source-length
-        :owned-end source-length :shaped shaped}]
+        :owned-end source-length :shaped shaped :spans spans}]
 
-      (and (pos? source-length) (empty? clusters))
+      (and (pos? source-length) (zero? cluster-count))
       [{:text line-text :relative-start 0 :relative-end source-length
-        :owned-end source-length :shaped shaped :provider-fault? true}]
+        :owned-end source-length :shaped shaped :spans spans
+        :provider-fault? true}]
 
       (or (zero? source-length) (<= (double (or (:advance shaped) 0))
                                     inline-size))
       [{:text line-text :relative-start 0 :relative-end source-length
-        :owned-end source-length :shaped shaped}]
+        :owned-end source-length :shaped shaped :spans spans}]
 
       :else
       (loop [segment-start 0 start-index 0 result []]
@@ -484,20 +581,19 @@
           result
           (let [{:keys [paint-end owned-end consumed-start consumed-end
                         next-index] :as cut}
-                (scan-wrap-cut line-text clusters start-index segment-start
+                (scan-wrap-cut line-text spans start-index segment-start
                                inline-size !work)
                 paint-end (max segment-start (min source-length paint-end))
                 owned-end (max paint-end (min source-length owned-end))
                 ;; Provider cluster boundaries are the only progress unit.
                 owned-end (if (= owned-end segment-start)
-                            (min source-length
-                                 (:source-end (nth clusters start-index)))
+                            (min source-length (span-end spans start-index))
                             owned-end)]
             (recur owned-end
                    (max (or next-index (inc start-index))
                         (loop [i start-index]
-                          (if (and (< i (count clusters))
-                                   (< (:source-start (nth clusters i)) owned-end))
+                          (if (and (< i cluster-count)
+                                   (< (span-start spans i) owned-end))
                             (recur (inc i))
                             i)))
                    (conj result
@@ -510,17 +606,6 @@
                            (:provider-fault? cut)
                            (assoc :provider-fault? true))))))))))
 
-(defn- material-ink-bounds
-  [glyph scale origin-x baseline-y]
-  (when-let [{:keys [xBearing yBearing width height]} (:ink-bounds glyph)]
-    (let [[gx gy] (:position glyph)
-          x1 (+ origin-x (* gx scale) (* xBearing scale))
-          x2 (+ x1 (* width scale))
-          y1 (- baseline-y (* (+ gy yBearing) scale))
-          y2 (- y1 (* height scale))]
-      {:x (min x1 x2) :y (min y1 y2)
-       :w (Math/abs (- x2 x1)) :h (Math/abs (- y2 y1))})))
-
 (defn- union-bounds [bounds]
   (when (seq bounds)
     (let [x1 (reduce min (map :x bounds))
@@ -528,71 +613,6 @@
           x2 (reduce max (map #(+ (:x %) (:w %)) bounds))
           y2 (reduce max (map #(+ (:y %) (:h %)) bounds))]
       {:x x1 :y y1 :w (- x2 x1) :h (- y2 y1)})))
-
-(defn- monotonic-glyph-order? [glyphs]
-  (every? (fn [[a b]]
-            (<= (long (or (:cluster-start a) 0))
-                (long (or (:cluster-start b) 0))))
-          (partition 2 1 glyphs)))
-
-(defn- glyph-span-index
-  "T1/T2: build source-cluster -> glyph spans once without changing the
-   provider's visual glyph order. `source-offset` translates the provider's
-   line-local cluster coordinates into the retained line's source domain;
-   headers pass zero because each header already owns its own local domain.
-   Non-monotonic sources retain exact index vectors, avoiding both a repeated
-   scan and a paint-order mutation."
-  [glyphs source-offset !work]
-  (let [glyphs (vec glyphs)
-        monotonic? (monotonic-glyph-order? glyphs)
-        g (count glyphs)
-        _ (work+! !work :glyph-visits g)
-        grouped (reduce-kv
-                 (fn [m i glyph]
-                   (update m [(+ source-offset (:cluster-start glyph))
-                              (+ source-offset (:cluster-end glyph))]
-                           (fnil conj []) i))
-                 {} glyphs)
-        spans (mapv (fn [[[source-start source-end] indexes]]
-                      {:source-start source-start :source-end source-end
-                       :glyph-start (reduce min indexes)
-                       :glyph-end (inc (reduce max indexes))
-                       :glyph-indexes (vec indexes)})
-                    (sort-by first grouped))]
-    (work+! !work :cluster-index-writes (count spans))
-    {:glyphs glyphs
-     :spans spans
-     :by-start (into {} (map (juxt :source-start identity)) spans)
-     :monotonic? monotonic?}))
-
-(defn- first-owned-span-index
-  "Binary-search the first retained span whose source start is at or after
-   `start`. A cluster crossing a style boundary is owned by the range containing
-   its first source unit, exactly once."
-  [spans start]
-  (loop [low 0 high (count spans)]
-    (if (< low high)
-      (let [mid (quot (+ low high) 2)]
-        (if (< (:source-start (nth spans mid)) start)
-          (recur (inc mid) high)
-          (recur low mid)))
-      low)))
-
-(defn- spans-for-source-range [spans start end]
-  (let [spans (vec spans)
-        first-index (first-owned-span-index spans start)]
-    (loop [i first-index selected []]
-      (if (and (< i (count spans))
-               (< (:source-start (nth spans i)) end))
-        (recur (inc i) (conj selected (nth spans i)))
-        selected))))
-
-(defn- glyph-indexes-for-source-range [spans start end]
-  (->> (spans-for-source-range spans start end)
-       (mapcat :glyph-indexes)
-       distinct
-       sort
-       vec))
 
 (declare nearest-by)
 
@@ -643,7 +663,35 @@
 (defn within-span-bound? [{:keys [visited-glyphs glyph-span-count]}]
   (<= (long (or visited-glyphs 0)) (+ (long (or glyph-span-count 0)) 8)))
 
+(defn glyph-indexes-in-source-range
+  "Indexed selection without glyph maps: the result-wide glyph indexes of a
+   source range plus the span receipt (the flat paint road's read)."
+  [line-data source-range]
+  (planes/glyph-indexes-in-source-range line-data source-range))
+
+(defn glyph-views
+  "Derive Contract-T glyph maps for explicit result-wide indexes (the oracle
+   paint road)."
+  [line-data indexes dx dy]
+  (planes/glyph-views line-data indexes dx dy))
+
+(defn pack-glyphs!
+  "The pack door: walk result-wide `indexes` of one line calling
+   `(f index glyph-id shaped? tab? font-id x y cluster-start cluster-end)`
+   with primitives only. See `layout-planes/pack-glyphs!`."
+  [line-data indexes dx dy f]
+  (planes/pack-glyphs! line-data indexes dx dy f))
+
+(defn result=
+  "Layout-result equality that sees through typed planes."
+  [a b]
+  (planes/result= a b))
+
 (defn- shaped-layout
+  "The flat road: shape every visual line into columns, derive each line's
+   span table in one pass, then fill the result-wide planes directly — no
+   glyph map between the provider and the retained result. The map road it
+   is fenced against lives verbatim in `app.client.text.layout-oracle`."
   [{:keys [text source-lines provider font-size line-height origin
            baseline-offset inline-size wrap-policy wrap-col headers clip
            line-map source-id source-revision features variations language
@@ -667,9 +715,10 @@
                           :shape-calls 0
                           :reference-shapes 0
                           :provider-fault 0})
+        ;; The one seam: a map-shaped provider result is coerced here.
         shape! (fn [s]
                  (work+! !work :shape-calls 1)
-                 ((:shape-line provider) s shape-opts))
+                 (sl/from-maps ((:shape-line provider) s shape-opts)))
         upem (double (or (:upem provider) 1000))
         scale (/ font-size upem)
         positive-wrap-col? (and (= :block-greedy wrap-policy)
@@ -677,11 +726,11 @@
         reference-shaped
         (when positive-wrap-col?
           (work+! !work :reference-shapes 1)
-          ((:shape-line provider) " " shape-opts))
+          (sl/from-maps ((:shape-line provider) " " shape-opts)))
         reference-units
         (when reference-shaped
           (let [advance (:advance reference-shaped)]
-            (when (and (seq (:clusters reference-shaped))
+            (when (and (pos? (long (:glyph-count reference-shaped)))
                        (number? advance) (pos? advance))
               (double advance))))
         _ (when (and positive-wrap-col? (nil? reference-units))
@@ -699,7 +748,7 @@
         (mapv (fn [h header-text]
                 (let [shaped (shape! header-text)]
                   (when (and (pos? (code-unit-count header-text))
-                             (empty? (:clusters shaped)))
+                             (zero? (long (:glyph-count shaped))))
                     (work+! !work :provider-fault 1))
                   {:kind :header :header-index h :text header-text
                    :relative-start 0 :relative-end (code-unit-count header-text)
@@ -715,11 +764,12 @@
                                  (number? effective-inline-size)
                                  (pos? effective-inline-size))
                    initial (when wrapped? (shape! line-text))
+                   initial-spans (when initial (line-spans initial))
                    fault? (and initial (pos? (code-unit-count line-text))
-                               (empty? (:clusters initial)))
+                               (zero? (long (:glyph-count initial))))
                    _ (when fault? (work+! !work :provider-fault 1))
                    segments (if wrapped?
-                              (shaped-segments line-text initial
+                              (shaped-segments line-text initial initial-spans
                                                effective-inline-size !work)
                               [{:text line-text :relative-start 0
                                 :relative-end (code-unit-count line-text)
@@ -755,155 +805,240 @@
                         :tab-stops tab-stops :clip clip :line-map line-map
                         :zoom zoom}
         id (str "t1/" (hash semantic-input))
-        line-data
+        ;; Pass 1 — every visual line shaped and span-indexed; the plane shape
+        ;; (advance-y column, glyph order) is decided over the whole result.
+        prepared
         (mapv
-          (fn [visual-index {:keys [text source-start source-end paint-end
-                                    logical-line kind shaped
-                                    consumed-absolute provider-fault?]
-                             :as visual}]
-            (let [top-y (+ oy (* visual-index line-height))
+         (fn [{:keys [text shaped spans provider-fault?] :as visual}]
+           (let [shaped (or shaped (shape! text))
+                 spans (or spans (line-spans shaped))
+                 g (long (:glyph-count shaped))
+                 _ (work+! !work :glyph-visits g)
+                 _ (work+! !work :cluster-index-writes (:count spans))
+                 line-fault? (and (pos? (code-unit-count text)) (zero? g))
+                 _ (when (and line-fault? (not provider-fault?))
+                     (work+! !work :provider-fault 1))]
+             {:visual visual :shaped shaped :spans spans}))
+         visual-records)
+        total-glyphs (reduce + 0 (map #(long (:glyph-count (:shaped %))) prepared))
+        total-spans (reduce + 0 (map #(+ (long (:count (:spans %)))
+                                         (if (:consumed-absolute (:visual %)) 1 0))
+                                     prepared))
+        non-monotonic? (boolean (some #(not (:monotonic? (:spans %))) prepared))
+        advance-y? (boolean
+                    (some (fn [{:keys [shaped]}]
+                            (let [ay (:advance-y shaped)
+                                  g (long (:glyph-count shaped))]
+                              (loop [i 0]
+                                (cond (>= i g) false
+                                      (not (zero? (sl/i32-get ay i))) true
+                                      :else (recur (inc i))))))
+                          prepared))
+        b (planes/plane-builder total-glyphs total-spans advance-y?
+                                (if non-monotonic? total-glyphs 0))
+        source {:id source-id :revision source-revision :text text
+                :headers headers
+                :index-space legacy-index-space
+                :source-map {:kind :shaped-visual-lines
+                             :visual-lines (mapv #(select-keys % [:text :source-start
+                                                                 :source-end :logical-line])
+                                                 visual-records)}}
+        ;; Pass 2 — fill the planes line by line; one line-spec map per line.
+        [line-specs glyph-ids]
+        (loop [remaining prepared visual-index 0 gb 0 sb 0 rb 0 ob 0
+               specs (transient []) ids (transient [])]
+          (if-let [{:keys [visual shaped spans]} (first remaining)]
+            (let [{:keys [text source-start source-end paint-end logical-line
+                          kind consumed-absolute]} visual
+                  g (long (:glyph-count shaped))
+                  top-y (+ oy (* visual-index line-height))
                   baseline-y (+ top-y baseline-offset)
+                  header? (= kind :header)
                   header-ordinal (:header-index visual)
-                  shaped (or shaped (shape! text))
-                  line-fault? (and (pos? (code-unit-count text))
-                                   (empty? (:clusters shaped)))
-                  _ (when (and line-fault? (not provider-fault?))
-                      (work+! !work :provider-fault 1))
-                  span-source-offset (if (= kind :header) 0 source-start)
-                  indexed (glyph-span-index (:glyphs shaped) span-source-offset !work)
-                  glyphs
-                  (mapv
-                    (fn [glyph]
-                      (let [[gx gy] (:position glyph)
-                            [ax ay] (:advance glyph)
-                            [off-x off-y] (:offset glyph)
-                            local-start (:cluster-start glyph)
-                            local-end (:cluster-end glyph)
-                            start (if (= kind :header)
-                                    (header-index header-ordinal local-start)
-                                    (tagged-index (+ source-start local-start)))
-                            end (if (= kind :header)
-                                  (header-index header-ordinal local-end)
-                                  (tagged-index (+ source-start local-end)))
-                            positioned (assoc glyph
-                                              :character (subs text
-                                                               local-start local-end)
-                                              :cluster {:source-range [start end]}
-                                              :position [(+ ox (* gx scale))
-                                                         (- baseline-y (* gy scale))]
-                                              :advance [(* ax scale) (* ay scale)]
-                                              :offset [(* off-x scale) (* off-y scale)])]
-                        (assoc positioned :ink-bounds
-                               (material-ink-bounds glyph scale ox baseline-y))))
-                    (:glyphs indexed))
-                  clusters
-                  (mapv
-                    (fn [{:keys [source-start source-end direction left right]
-                          :as cluster}]
-                      (let [absolute-start (if (= kind :header)
-                                             (header-index header-ordinal source-start)
-                                             (tagged-index (+ (:source-start visual)
-                                                              source-start)))
-                            absolute-end (if (= kind :header)
-                                           (header-index header-ordinal source-end)
-                                           (tagged-index (+ (:source-start visual)
-                                                            source-end)))
-                            left (+ ox (* left scale))
-                            right (+ ox (* right scale))
-                            span (get-in indexed
-                                         [:by-start (+ span-source-offset source-start)])
-                            _ (work+! !work :cluster-index-reads 1)]
-                        ;; Caret stops and cluster ink bounds are NOT retained:
-                        ;; both are pure functions of the retained fields
-                        ;; (logical-bounds + direction + source-range, glyphs)
-                        ;; and are derived at read time (cluster-caret-stops).
-                        ;; Measured 2026-08-08: retaining them cost ~150MB on a
-                        ;; 228k-glyph boot with zero readers outside this file.
-                        (assoc cluster
-                               :source-range [absolute-start absolute-end]
-                               :glyph-span (when span
-                                             [(:glyph-start span) (:glyph-end span)])
-                               :logical-bounds {:x (min left right) :y top-y
-                                                :w (Math/abs (- right left))
-                                                :h line-height})))
-                    (sort-by (juxt :source-start :source-end) (:clusters shaped)))
-                  consumed-cluster
-                  (when consumed-absolute
-                    (let [[consumed-start consumed-end] consumed-absolute
-                          x (+ ox (* (double (or (:advance shaped) 0)) scale))]
-                      {:source-range [(tagged-index consumed-start)
-                                      (tagged-index consumed-end)]
-                       :consumed? true
-                       :caret-stops
-                       (mapv (fn [offset]
-                               {:index (tagged-index offset)
-                                :position [x top-y]
-                                :affinity (if (= offset consumed-end)
-                                            :upstream
-                                            :downstream)})
-                             (range consumed-start (inc consumed-end)))
-                       :logical-bounds {:x x :y top-y :w 0 :h line-height}
-                       :ink-bounds nil}))
-                  clusters (cond-> clusters consumed-cluster
-                             (conj consumed-cluster))
+                  span-source-offset (if header? 0 source-start)
+                  index-of (fn [offset]
+                             (if header?
+                               (header-index header-ordinal offset)
+                               (tagged-index (+ source-start offset))))
+                  gid-col (:glyph-id shaped)
+                  cs-col (:cluster-start shaped)
+                  ce-col (:cluster-end shaped)
+                  gx-col (:glyph-x shaped)
+                  gy-col (:glyph-y shaped)
+                  ax-col (:advance-x shaped)
+                  ay-col (:advance-y shaped)
+                  offx-col (:offset-x shaped)
+                  offy-col (:offset-y shaped)
+                  ix-col (:ink-x shaped)
+                  iy-col (:ink-y shaped)
+                  iw-col (:ink-w shaped)
+                  ih-col (:ink-h shaped)
+                  run-col (:run-index shaped)
+                  ;; glyph rows + the line's ink union (doubles, as the map road)
+                  [ink-x1 ink-y1 ink-x2 ink-y2 ink? ids]
+                  (loop [i 0 ink-x1 0.0 ink-y1 0.0 ink-x2 0.0 ink-y2 0.0
+                         ink? false ids ids]
+                    (if (>= i g)
+                      [ink-x1 ink-y1 ink-x2 ink-y2 ink? ids]
+                      (let [run (sl/u32-get run-col i)
+                            tab? (sl/run-tab? shaped run)
+                            rtl? (sl/run-rtl? shaped run)
+                            gid (sl/u32-get gid-col i)
+                            gx (sl/i32-get gx-col i)
+                            gy (sl/i32-get gy-col i)
+                            px (+ ox (* gx scale))
+                            py (- baseline-y (* gy scale))
+                            ax (* (sl/i32-get ax-col i) scale)
+                            ay (* (sl/i32-get ay-col i) scale)
+                            off-x (* (sl/i32-get offx-col i) scale)
+                            off-y (* (sl/i32-get offy-col i) scale)
+                            glyph-ink? (sl/glyph-has-ink? shaped i)
+                            [gix giy giw gih]
+                            (if glyph-ink?
+                              (let [xb (sl/i32-get ix-col i)
+                                    yb (sl/i32-get iy-col i)
+                                    w (sl/i32-get iw-col i)
+                                    h (sl/i32-get ih-col i)
+                                    x1 (+ ox (* gx scale) (* xb scale))
+                                    x2 (+ x1 (* w scale))
+                                    y1 (- baseline-y (* (+ gy yb) scale))
+                                    y2 (- y1 (* h scale))]
+                                [(min x1 x2) (min y1 y2)
+                                 (Math/abs (- x2 x1)) (Math/abs (- y2 y1))])
+                              [0 0 0 0])]
+                        (planes/put-glyph! b (+ gb i) px py ax ay off-x off-y
+                                           glyph-ink? gix giy giw gih
+                                           (if tab? 0 gid) tab? rtl?
+                                           (sl/u32-get cs-col i)
+                                           (sl/u32-get ce-col i))
+                        (recur (inc i)
+                               (if glyph-ink? (if ink? (min ink-x1 gix) gix) ink-x1)
+                               (if glyph-ink? (if ink? (min ink-y1 giy) giy) ink-y1)
+                               (if glyph-ink?
+                                 (if ink? (max ink-x2 (+ gix giw)) (+ gix giw))
+                                 ink-x2)
+                               (if glyph-ink?
+                                 (if ink? (max ink-y2 (+ giy gih)) (+ giy gih))
+                                 ink-y2)
+                               (or ink? glyph-ink?)
+                               (conj! ids (if tab? nil gid))))))
+                  line-ink (when ink?
+                             {:x ink-x1 :y ink-y1
+                              :w (- ink-x2 ink-x1) :h (- ink-y2 ink-y1)})
+                  ;; span rows (+ the trailing empty consumed span)
+                  span-count (long (:count spans))
+                  _ (dotimes [s span-count]
+                      (work+! !work :cluster-index-reads 1)
+                      (planes/put-span! b (+ sb s)
+                                        (+ span-source-offset (span-start spans s))
+                                        (+ span-source-offset (span-end spans s))
+                                        (if non-monotonic?
+                                          (+ ob (sl/i32-get (:order-starts spans) s))
+                                          (+ gb (sl/i32-get (:glyph-starts spans) s)))
+                                        (if non-monotonic?
+                                          (+ ob (sl/i32-get (:order-ends spans) s))
+                                          (+ gb (sl/i32-get (:glyph-ends spans) s)))))
+                  _ (when consumed-absolute
+                      (let [[consumed-start consumed-end] consumed-absolute
+                            at (if non-monotonic? (+ ob g) (+ gb g))]
+                        (planes/put-span! b (+ sb span-count)
+                                          consumed-start consumed-end at at)))
+                  _ (when non-monotonic?
+                      (let [order (:order spans)]
+                        (dotimes [k g]
+                          (planes/put-order! b (+ ob k) (+ gb (sl/i32-get order k))))))
+                  line-span-count (+ span-count (if consumed-absolute 1 0))
+                  ;; run records: retained per run, glyph spans result-wide
+                  run-count (long (:run-count shaped))
                   runs
                   (mapv
-                    (fn [run]
-                      (let [local-start (:source-start run)
-                            local-end (:source-end run)
-                            indexes (glyph-indexes-for-source-range
-                                     (:spans indexed)
-                                     (+ span-source-offset local-start)
-                                     (+ span-source-offset local-end))
-                            span (when (seq indexes)
-                                   [(first indexes) (inc (last indexes))])
-                            _ (do (work+! !work :run-index-writes 1)
-                                  (work+! !work :run-index-reads 1))
-                            run-start (if (= kind :header)
-                                        (header-index header-ordinal local-start)
-                                        (tagged-index (+ source-start local-start)))
-                            run-end (if (= kind :header)
-                                      (header-index header-ordinal local-end)
-                                      (tagged-index (+ source-start local-end)))]
-                        {:source-range [run-start run-end]
-                         :direction (:direction run)
-                         :font-revision (:font-revision run)
-                         :glyph-span span
-                         :glyphs (mapv #(nth glyphs %) indexes)}))
-                    (:runs shaped))
+                   (fn [r]
+                     (let [local-start (sl/u32-get (:run-source-start shaped) r)
+                           local-end (sl/u32-get (:run-source-end shaped) r)
+                           abs-start (+ span-source-offset local-start)
+                           abs-end (+ span-source-offset local-end)
+                           face (sl/run-face shaped r)
+                           ;; spans owned by the run: source-start in [abs-start, abs-end)
+                           [lo hi] (loop [s 0 lo nil hi nil]
+                                     (if (>= s span-count)
+                                       [lo hi]
+                                       (let [ss (+ span-source-offset (span-start spans s))]
+                                         (if (and (<= abs-start ss) (< ss abs-end))
+                                           (let [g0 (sl/i32-get (:glyph-starts spans) s)
+                                                 g1 (sl/i32-get (:glyph-ends spans) s)]
+                                             (recur (inc s)
+                                                    (if lo (min lo g0) g0)
+                                                    (if hi (max hi g1) g1)))
+                                           (recur (inc s) lo hi)))))
+                           _ (do (work+! !work :run-index-writes 1)
+                                 (work+! !work :run-index-reads 1))
+                           first-index (or lo 0)
+                           font-id (when (< first-index g)
+                                     (:id (sl/run-face shaped
+                                                       (sl/u32-get run-col first-index))))
+                           advance-y-column?
+                           (boolean
+                            (when lo
+                              (loop [i lo]
+                                (cond (>= i hi) false
+                                      (not (zero? (sl/i32-get ay-col i))) true
+                                      :else (recur (inc i))))))]
+                       (cond-> {:source-range [(index-of local-start)
+                                               (index-of local-end)]
+                                :direction (if (sl/run-rtl? shaped r) :rtl :ltr)
+                                :font-revision (:revision face)
+                                :glyph-span (if lo [(+ gb lo) (+ gb hi)] [gb gb])
+                                :font-id font-id}
+                         advance-y-column? (assoc :advance-y-column? true))))
+                   (range run-count))
+                  run-source-index
+                  (->> runs
+                       (map-indexed
+                        (fn [i run]
+                          (let [[start end] (mapv source-index-offset
+                                                  (:source-range run))]
+                            {:source-start start :source-end end :run-index i})))
+                       (sort-by (juxt :source-start :source-end))
+                       vec)
                   advance (* (:advance shaped 0) scale)
                   logical-bounds {:x ox :y top-y :w advance :h line-height}
                   line-source-range
-                  (if (= kind :header)
+                  (if header?
                     [:header header-ordinal [0 (code-unit-count text)]]
                     [(tagged-index source-start) (tagged-index source-end)])
                   paint-source-range
-                  (if (= kind :header)
+                  (if header?
                     line-source-range
                     [(tagged-index source-start)
-                     (tagged-index (or paint-end source-end))])]
-              {:line/id [id visual-index]
-               :line/index visual-index
-               :logical-line logical-line
-               :text text
-               :source-range line-source-range
-               :paint-source-range paint-source-range
-               :consumed-range (when consumed-absolute
-                                 (mapv tagged-index consumed-absolute))
-               :baseline [ox baseline-y]
-               :advance advance
-               :logical-bounds logical-bounds
-               :ink-bounds (union-bounds (keep :ink-bounds glyphs))
-               :run-range [0 (count runs)]
-               :glyphs glyphs
-               :glyph-span-index (:spans indexed)
-               :runs runs
-               :clusters clusters}))
-          (range) visual-records)
-        runs (vec (mapcat :runs line-data))
-        clusters (vec (mapcat :clusters line-data))
-        logical-w (reduce max 0 (map :advance line-data))
-        logical-h (* (max 1 (count line-data)) line-height)
+                     (tagged-index (or paint-end source-end))])
+                  spec {:line/id [id visual-index]
+                        :line/index visual-index
+                        :logical-line logical-line
+                        :text text
+                        :source-range line-source-range
+                        :paint-source-range paint-source-range
+                        :consumed-range (when consumed-absolute
+                                          (mapv tagged-index consumed-absolute))
+                        :baseline [ox baseline-y]
+                        :advance advance
+                        :logical-bounds logical-bounds
+                        :ink-bounds line-ink
+                        :run-range [rb (+ rb run-count)]
+                        :glyph-start gb
+                        :glyph-end (+ gb g)
+                        :cluster-start sb
+                        :cluster-end (+ sb line-span-count)
+                        :runs runs
+                        ::planes/shaped? (pos? g)
+                        ::planes/run-source-index run-source-index}]
+              (recur (next remaining) (inc visual-index) (+ gb g)
+                     (+ sb line-span-count) (+ rb run-count) (+ ob g)
+                     (conj! specs spec) ids))
+            [(persistent! specs) (persistent! ids)]))
+        planes (planes/finish-planes! b source)
+        lines (mapv #(assoc % ::planes/planes planes) line-specs)
+        logical-w (reduce max 0 (map :advance lines))
+        logical-h (* (max 1 (count lines)) line-height)
         metrics (:metrics provider)
         ascent (* (or (:ascender metrics) 0) scale)
         descent (* (- (or (:descender metrics) 0)) scale)
@@ -913,16 +1048,10 @@
     (when-not legal-zoom?
       (throw (ex-info "Text zoom is outside Contract-T's legal material range."
                       {:zoom zoom :legal-range [0.01 1000]})))
-    (planes/compact-result
-     {:text-layout/version layout-version
+    {:text-layout/version layout-version
      :layout/id id
-     :source {:id source-id :revision source-revision :text text
-              :headers headers
-              :index-space legacy-index-space
-              :source-map {:kind :shaped-visual-lines
-                           :visual-lines (mapv #(select-keys % [:text :source-start
-                                                               :source-end :logical-line])
-                                               visual-records)}}
+     :layout/planes planes
+     :source source
      :font (merge (provider-identity provider)
                   {:size font-size :variations (:variations shape-opts)
                    :features (:features shape-opts)})
@@ -939,28 +1068,25 @@
                    :alignment :start :tab-stops (or tab-stops {:columns 4})
                    :clip clip :line-map line-map}
      :metrics {:advance [logical-w logical-h]
-               :stack-advance (* (count line-data) line-height)
-               :ink-bounds (union-bounds (keep :ink-bounds line-data))
+               :stack-advance (* (count lines) line-height)
+               :ink-bounds (union-bounds (keep :ink-bounds lines))
                :logical-bounds {:x ox :y oy :w logical-w :h logical-h}
                :ascent ascent :descent descent :leading leading}
-     :lines line-data
-     :line-index (into {} (map (juxt :line/id identity)) line-data)
-     :runs runs :clusters clusters
+     :lines lines
+     :line-index (into {} (map (juxt :line/id identity)) lines)
      :reference-advance reference-advance
      :inline-size (when effective-inline-size (* effective-inline-size scale))
-     :clip-plan {:visible-lines (mapv :line/id line-data)
-                 :visible-glyph-ranges (mapv :source-range line-data)
+     :clip-plan {:visible-lines (mapv :line/id lines)
+                 :visible-glyph-ranges (mapv :source-range lines)
                  :clip-geometry clip}
      :receipts {:input-hash id
-                :output-hash (str id "/" (hash [layout-version
-                                                (mapv :glyph-id
-                                                      (mapcat :glyphs line-data))
+                :output-hash (str id "/" (hash [layout-version glyph-ids
                                                 logical-w logical-h]))
                 :source-lines (vec (or source-lines (mapv :text source-records)))
                 :font-shaper-environment (provider-identity provider)
                 :proportionality (dissoc work :provider-fault :reference-shapes)
                 :reference-shapes (:reference-shapes work)
-                :provider-fault (:provider-fault work)}})))
+                :provider-fault (:provider-fault work)}}))
 
 (defn layout
   "Produce the one immutable Contract-T result. A real provider selects T1;
@@ -1013,8 +1139,12 @@
          :hits 0 :misses 0 :replacements 0
          :oracle-checks 0 :oracle-mismatches 0))
 
-(defn oracle-match? [cached fresh]
-  (= cached fresh))
+(defn oracle-match?
+  "I2's oracle comparator. Sees through typed planes (`planes/result=`): two
+   results holding distinct typed arrays are equal when their planes are
+   element-wise equal and the rest is structurally equal."
+  [cached fresh]
+  (planes/result= cached fresh))
 
 (defn layout-cache-acquire
   "Pure one-current-entry-per-address cache transition. `build-result` is a
