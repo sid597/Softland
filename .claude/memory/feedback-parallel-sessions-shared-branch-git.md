@@ -48,3 +48,16 @@ resets don't touch files and the reflog holds everything.
   HEAD~1` → `git reset -- <files>` → `git apply --cached` own hunks → plain
   commit; disk never changes, so the sibling's hunks are back as found.
   Coordinate by SendMessage (ListAgents shows local peers) before and after.
+
+**Reads are not ground in a shared tree (fired 2026-08-30, 14:27).** A sibling
+session was mid-build in the same working tree. I read its uncommitted
+`shaped_line.cljc` (untracked — the boot file list did not even contain it)
+and `layout.cljc`'s new docstring as landed 08-08 code, and committed a
+"scope correction" on that premise (`204cc34`); the sibling's close report
+had to correct it. **How to apply:** before deriving ANY fact from a
+working-tree file, `git status --short <path>` — untracked or modified means
+someone's in-flight work, not ground; derive from `git show HEAD:<path>`
+instead, or say "uncommitted, whose?". Cross-check against the boot file
+list. When `git log` shows no commit that could have produced what you are
+reading, that IS the tell — stop and check status. Kin:
+[[investigation-fence]] (receipts before verdicts applies to code reads too).

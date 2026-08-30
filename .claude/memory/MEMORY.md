@@ -107,7 +107,7 @@ in this file and every future memory write.
   Rama/Electric/build: verified gotchas (incl. the foreign-proxy / Rama 1.6.0
   workaround).
 - [parallel-sessions git](feedback-parallel-sessions-shared-branch-git.md) —
-  consult before ANY git write: shared tree/branch discipline (exact paths,
+  consult before ANY git write, and before treating a working-tree file as landed ground (a sibling's uncommitted work reads like code — fired 2026-08-30): shared tree/branch discipline (exact paths,
   foreign-change check, HEAD guards, sibling-commit repair; shared file ⇒
   partial-stage then PLAIN commit — `git commit -- path` sweeps the sibling).
 - [commits: one branch, docs-local](feedback-commits-one-branch-docs-local.md)
