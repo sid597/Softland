@@ -308,3 +308,25 @@ judgment calls, diff-derived file list sum-checked vs §12) + NOW entry
   material (residency — shape what you look at) into the step-2 cut's
   scope statement; the contract had deferred it pending his ruling. The
   cut carries the bar as Sid's, not the author's.
+- 2026-08-30 · Fable (step-2 cutting + executing session) · **FLAT ROAD
+  LANDED** `e5c423f` `2119da2` `d58074e` `258371a`; contract `SHAPER-BORDER.md`
+  (cut, then executed straight through; Sid's redline carried verbatim).
+  Shaper reads HarfBuzz off the WASM heap into `shaped_line.cljc` columns ·
+  layout fills the planes with no glyph map · `glyph_pack.cljs` views planes
+  into Slug words · map roads kept as oracles (`shaper_oracle` ·
+  `layout_oracle` · `pack-instances-oracle`). Receipts: JVM text 27t/344a green;
+  full suite 393t/5,191a with 4 fail + 3 error ALL foreign server ns
+  (face-projection g13 ×2 · material-portal p3/halo `Cannot open <nil>` ·
+  space-material g12 · git-import g12's stale `docs/current-mental-model/`
+  path) = board debt; verifier 6/6 guards incl. `text-flat-road` (F1/F2/F3),
+  every golden byte-identical. Replay banked `evidence/2026-08-30-flat-road/`
+  (amd/rdna-3 attested): `shape-line` 1,983.8 → **187.8 ms** · `tl/layout`
+  5,755 → **557 ms** · 17.4 → 2.26 µs/glyph · P1/P2 hit · growth linear.
+  Found+fixed: `oracle-match?`'s `=` could never match real results
+  (`planes/result=`). The 14:27 scope correction above read THIS session's
+  then-uncommitted `shaped_line.cljc` in the shared tree as 08-08 code: its
+  premise (layout already columnar) was not so — that middle measured
+  3.77 → 0.37 s; its conclusion (shaper emits columns, `from-maps` identity)
+  is what landed. OPEN: probe retirement (ns · runner · build) — the delete
+  was declined in-session; Sid's word. NEXT: acceptance, then residency
+  (shape what you look at) against his 500 ms whole-system bar.
