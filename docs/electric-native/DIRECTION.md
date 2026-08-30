@@ -23,9 +23,11 @@ any contract) · evidence = `RECON.md` beside this file (tree receipts
   client left the tree whole and Electric with it (`deps.edn` carries
   Missionary only); the engine is PARKED with no host; nothing renders
   today. The gap as it now stands, the fill hop by hop, and two POSITIONS
-  (road order inverts — the arrow is the first act; courier SSE-first,
-  Electric's keyed machinery takes its test at the host probe — feed
-  transport is probe-decided per PROBLEM-SPACE) are drawn in
+  (road order inverts — the arrow is the first act; courier SSE-first and
+  owned — the Electric arm was struck 2026-08-30 when Hyperfiddle left
+  Clojure (v4 = JS + WASM; v3 a frozen proprietary alpha); the bench now
+  tests our own feed; "Electric" in this file's title and road is Sid's
+  word for the SHAPE — two arrows — never the library) are drawn in
   `docs/below-the-waist/engine-two-arrows.md` §8 (landed 2026-08-23,
   contestable; POSITIONS HELD — the next session keeps filling: contract,
   probes, atoms; the courier closes by the transfer bench, never by waiting).

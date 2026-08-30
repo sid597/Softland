@@ -138,7 +138,7 @@ Code-round additions to the laws [R]:
 
 ## Family boundary notes
 
-- **Code (Clojure-only for now — rama/electric/webgpu):** D-003 Regime 1
+- **Code (Clojure-only for now — rama/missionary/webgpu; Electric left the tree 2026-08-20):** D-003 Regime 1
   ONLY — code as view, git authority, commit-boundary versioning. Atoms
   serve sense-making: reading, arranging, relating. Editing or recomposing
   code THROUGH atoms is Regime 2, gated on the self-hosting test. Cite

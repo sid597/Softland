@@ -1,10 +1,11 @@
 ---
 name: electric-docs
-description: Reference documentation for Hyperfiddle Electric and Missionary reactive programming, plus the project's VERIFIED behavioral laws (regression-tested against the pinned build). Use when asking about e/defn, e/server, e/client, e/for, e/diff-by, e/watch, e/Token, electric-dom (dom/div, dom/text, dom/On, dom/props), virtual scroll (Window, Raster, Tape), Missionary flows/tasks (m/ap, m/sp, m/?, m/seed, m/reduce, m/watch, m/signal), reactive dataflow, client/server transfer, "Watch cancelled" crashes, incseq/mount, or building full-stack reactive Clojure applications.
+description: Missionary reactive programming for Softland — the project's VERIFIED behavioral laws + recipes (regression-tested), plus Hyperfiddle Electric v3 source kept as REFERENCE ONLY for how to do things the reactive way in Missionary and Clojure. Electric is NOT a dependency (removed at the 2026-08-20 waist cut; Hyperfiddle left Clojure 2026-08 — v3 is a frozen proprietary alpha, v4 is JS + WASM). Use when writing or reviewing Missionary flows/tasks (m/ap, m/sp, m/?, m/seed, m/reduce, m/watch, m/signal, m/latest, m/sample, m/observe, m/relieve), the client host's courier and frame edge, "Watch cancelled" crashes, keyed diffs / incseq shape, reactive dataflow design — or when reading Electric-era code in git history (e/defn, e/server, e/client, e/for, e/diff-by, e/watch, electric-dom). Never as a template: Electric targets the DOM; Softland targets its own engine.
 allowed-tools: Read, Grep, Glob
 ---
 
-# Electric & Missionary — Verified Laws + Reference Index
+# Missionary & Electric — Verified Laws + Reference Index
+*(Electric = reference only since 2026-08-30 — see §0)*
 
 Rewritten 2026-07-05 from verified material only; amended 2026-07-11
 (precedence note refreshed to post-A1–A3 reality, U4 rescoped to the
@@ -34,27 +35,50 @@ slimming) remains unapplied.
 
 ---
 
+## 0 · Status (2026-08-30) — read this first
+
+- **Electric is not a dependency.** It left the tree with the product
+  client at the waist cut (`adc30c9`, 2026-08-20); `deps.edn` carries
+  Missionary directly (`b.46`). No `src/` file requires `hyperfiddle.*`.
+- **Hyperfiddle left Clojure** (Slack, read by Sid 2026-08-30): Electric v4
+  is a JavaScript-embedded language with a low-level kernel compiled to
+  WebAssembly and a portable WASM server runtime that reaches JVM backends;
+  v3 (Clojure) is a frozen alpha under a proprietary license ("free for
+  bootstrappers and non-commercial use, but is otherwise a commercial
+  project" — README, checked 2026-08-30). Never propose re-adding it as a
+  foundation; memory `reference-electric-v3-orphaned-v4-pivot`.
+- **How to use this skill now** — Sid's ruling, verbatim (2026-08-30):
+  "for existing electric i think they can be used as reference on how to do things reactive way in missionary and clojure so that is useful part imo … i think we have move past that we are going to copy electric blindly because its for dom ours is multi-engine softland target".
+  So: the Missionary laws and recipes (§2 L1–L12, §3 R1–R3) BIND the
+  client host's courier and frame edge (`docs/electric-native/CONTRACT.md`
+  §3). The Electric layer (L13–L16, R4, U4–U5, the §5 source index) is
+  REFERENCE — read it for the shape of keyed diffs, the item/applier split,
+  demand-driven transfer; never copy an applier or a DOM-shaped contract
+  (L15 is the receipt: the DOM mount broke on a GPU pool). Softland's
+  target is its own store + GPU applier with one painter per family
+  (decisions.md "The render seam": borrowed algebra, never borrowed
+  appliers).
+- Anything below that says "pinned build", "SNAPSHOT bump", or cites
+  `src/app/...` Electric files describes the pre-cut tree; the laws stay
+  true of Missionary `b.46`, and of Electric build `-45` as a reading aid.
+
+---
+
 ## 1 · Versions (read this before trusting anything)
 
-- **Electric**: `com.hyperfiddle/electric {:mvn/version "v3-alpha-SNAPSHOT"}`
-  (`deps.edn`). Resolved build the laws were verified against:
-  **`v3-alpha-20260519.115706-45`**. This is a **MOVING SNAPSHOT**: a
-  dependency refresh silently changes the build under you. Two sessions on
-  2026-07-05 resolved *different* timestamped jars (-45 for the claims tests,
-  `20260325.114002-44` for the render probe). **After any snapshot bump,
-  re-run `test/app/missionary_claims_test.clj`** — it exists to catch a bump
-  changing these behaviors before the app does.
-- **Missionary**: **`b.46`** — **TRANSITIVE and UNPINNED**. It is not in
-  `deps.edn`; it arrives via Electric's POM, so a SNAPSHOT refresh can
-  silently change the Missionary version too. Flag this in any dependency
-  discussion.
-- **App namespace**: v3 — `hyperfiddle.electric3` everywhere in `src/app/`.
-- **v2/v3 prod drift**: the resolved jar ships `hyperfiddle.electric3` but
-  **no `hyperfiddle.electric` (v2)**. `src-prod/prod.cljc:9` still requires
-  the v2 namespace, so **the `:prod` shadow build cannot compile as
-  written; only `:dev` is runnable** (`clj -A:dev -X dev/-main`).
-  Evidence: VERDICTS Claim 20 (compile-check: `(require 'hyperfiddle.electric)`
-  → FileNotFoundException on the resolved classpath).
+- **Electric**: NOT in `deps.edn` (removed `adc30c9`, 2026-08-20). The laws
+  below were verified against `v3-alpha-20260519.115706-45` (claims tests)
+  and `20260325.114002-44` (the render probe) — kept as the reference builds
+  for reading Electric-era code in git history (`adc30c9^`). Pinned source
+  copies live under `docs/electric/` (§5).
+- **Missionary**: **`b.46`**, pinned DIRECTLY in `deps.edn` (no longer
+  transitive). **After any Missionary bump, re-run
+  `test/app/missionary_claims_test.clj`** — it exists to catch a bump
+  changing these behaviors before the app does. Upstream current: `b.47`
+  (EPL-2.0).
+- **App namespace (history)**: the deleted client used v3 —
+  `hyperfiddle.electric3`. `src-prod/prod.cljc` no longer requires any
+  Electric namespace (the old v2/v3 prod-drift note is retired).
 - Clojure 1.12.4, ClojureScript 1.11.132, shadow-cljs 2.28.23.
 
 ---
@@ -370,6 +394,9 @@ yet — read the source below and treat any behavioral conclusion you draw
 as UNVERIFIED until probed. Candidate next probes, in value order: e/Token
 lifecycle; transfer-boundary serialization failures; the
 e/fn-invoked-as-plain-Clojure-fn runtime arity smell (U4 consequence (c)).
+(2026-08-30: Electric is out of the tree and orphaned upstream — these
+Electric probes are retired; the live probe list is
+`docs/electric-native/PROBLEM-SPACE.md` "Probes owed".)
 
 Upstream copies of Electric/Missionary source and tutorials live in-repo.
 Grep within the file for the symbol you need.

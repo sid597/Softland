@@ -197,16 +197,21 @@ minds need server views regardless; audiences need projection, not
 history) · machine-attention budgeted by actor class · the oracle
 duties-transfer list.
 
-**Probe-decided** (no one decides; receipts do): feed transport (Electric
-keyed machinery vs owned Missionary lanes) · felt-lag locus · seen grain ·
+**Probe-decided** (no one decides; receipts do): feed transport (owned
+Missionary lanes — the "Electric keyed machinery" arm was struck
+2026-08-30: Hyperfiddle left Clojure, v3 orphaned; the bench now tests the
+owned feed's algebra) · felt-lag locus · seen grain ·
 per-key cardinality knee · propagation grouping · warming stampedes.
 
 ## Probes owed — deduped; what each closes
 
-1. **The transfer bench** — four merge algebras × `e/diff-by`
-   cross-wire losslessness × two-edits-one-tick. Closes: feed transport.
-   (Zero live `diff-by` uses exist — the bet is untested in BOTH
-   directions.)
+1. **The transfer bench** — four merge algebras × cross-wire
+   losslessness × two-edits-one-tick, over the owned feed
+   (`app.shared.feed`) and apply edge. Closes: the feed's algebra.
+   (2026-08-30: the `e/diff-by` arm is struck — Hyperfiddle left Clojure,
+   v3 orphaned; zero live `diff-by` uses ever existed, so nothing measured
+   is lost. Electric's incseq source stays a reading reference for the
+   algebra's shape.)
 2. **Road-1a profile + weigh one wire frame.** Closes: felt-lag locus and
    keyed-wire urgency. The only measured wall so far is client-side
    shaping (35.678s / 28.7s — contracted); the wire's felt contribution is

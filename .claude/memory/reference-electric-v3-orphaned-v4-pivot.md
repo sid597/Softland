@@ -20,7 +20,9 @@ requires. Missionary is EPL-2.0 (open), b.47 latest, we pin b.46.
 courier-replacement trigger and lists "re-add Electric now" as a lawful
 counter-position. Both now point at an orphaned, unforkable alpha.
 
-**How to apply:** never propose re-adding Electric v3 as a foundation; the
+**How to apply:** Sid's ruling, verbatim (2026-08-30): "for existing electric i think they can be used as reference on how to do things reactive way in missionary and clojure so that is useful part imo … i think we have move past that we are going to copy electric blindly because its for dom ours is multi-engine softland target" — so the
+Electric source stays REFERENCE for the reactive way, never a template.
+Never propose re-adding Electric v3 as a foundation; the
 owned SSE + Missionary courier with the frozen feed format is the position.
 "Electric-native" / "the correct Electric" is Sid's name for the SHAPE (two
 arrows: changes by id ↓, demand ↑), not the library — never rename it for

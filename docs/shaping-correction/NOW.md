@@ -231,3 +231,15 @@ judgment calls, diff-derived file list sum-checked vs §12) + NOW entry
   optional matrix/backend-flip timeout, and unclassified physical-GPU timing
   remain explicit non-blocking residue; no broader verdict is claimed. Docs-only
   custody update; no code or test command.
+- 2026-08-30 · Fable (Electric-pivot session) · RECEIPT-OWED, not acted: the
+  WASM border shape in `src/app/client/text/shaper.cljs` — per run,
+  `getGlyphInfosAndPositions` → `js->clj` per-glyph maps (`shape-run`,
+  :178–190) + one `glyphExtents` round trip PER GLYPH (`glyph-extents`,
+  :156). Structure checked in source; magnitude UNMEASURED — not in the
+  founding evidence's hot share (`union_bounds` 24.390s is). Fold into this
+  contract's next profile; if it shows, the fix is structural — flat typed
+  arrays per run (advance · offset · cluster · extents), viewed into GPU
+  bytes, one crossing in / one out — never a cache (Sid: "never do caching
+  NEVER"). Context: Hyperfiddle's v4 note, "the hot spot becomes interop
+  between the host language and the wasm kernel". No code touched;
+  electric-native CONTRACT §2 "no shaping work" stands.

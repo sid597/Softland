@@ -73,10 +73,15 @@ No-GPU rows are `.cljc` and run under the JVM suite; painters are `.cljs` and ru
 - Every namespace docstring reads: what it is · Takes · Gives · Holds.
 - Dependencies point one way: door → page → episode → worn → ingest → rama; the check and its five standing exceptions: `bin/server_tiers.clj`.
 
-## Critical Missionary/Electric Patterns — see the electric-docs skill
-Verified laws + recipes: `.claude/skills/electric-docs/SKILL.md`
-(regression-tested against the pinned build; re-run
-test/app/missionary_claims_test.clj after any Electric SNAPSHOT bump).
+## Critical Missionary Patterns — see the electric-docs skill
+Verified laws + recipes: `.claude/skills/electric-docs/SKILL.md` §2–§3
+(regression-tested; re-run test/app/missionary_claims_test.clj after any
+Missionary bump — Missionary is pinned directly in deps.edn). Electric is NOT
+a dependency (left the tree at the 2026-08-20 waist cut), and Hyperfiddle
+left Clojure 2026-08 (v4 = JS + WASM; v3 = frozen proprietary alpha). The
+skill's Electric half stays as REFERENCE for the reactive way in Missionary
+and Clojure — read for shape, never copy: Electric targets the DOM, Softland
+targets its own engine (Sid, 2026-08-30; skill §0).
 
 
 ### Terminology

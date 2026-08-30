@@ -33,8 +33,9 @@ It carries exactly:
   refusals can't be named hasn't seen its edges);
 - the few laws/invariants (pointers to W1/engine docs, never restatements);
 - exact entry points — files, namespaces, functions; new code in its OWN
-  namespace; big files (`renderer.cljs`, `ground.cljs`,
-  `electric_flow.cljc`) get thin hooks only;
+  namespace; big files (the engine's largest namespaces — `ground.cljs`
+  and `electric_flow.cljc` are gone since the 2026-08-20 cut) get thin
+  hooks only;
 - the 3–5 decisive scenarios — frozen as tripwire tests at close;
 - real MUST-NOTs only (env.clj, protected files). Nothing conjunctive.
 The cutter reads BINDING law docs primary (W1-class, never a summary), and
