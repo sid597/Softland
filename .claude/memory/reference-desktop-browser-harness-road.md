@@ -29,3 +29,5 @@ memory): `docs/reference/desktop-browser-harness-road.md` — adversarially
 reviewed; its launch command is marked inferred-not-proven, so THIS memory
 holds the proven invocation. If the repo doc and this memory diverge, this
 memory wins until a session re-proves the road.
+
+**Measured 2026-08-28 (twice):** the full render-engine chain — `npm run verify:render-engine` = text-layout suite → instance fence → shadow release build → Chrome verifier — runs in **~27 s wall**; the verifier alone reports ~28 s. The runner's 600 s `waitForFunction` is a ceiling, not a duration; any "minutes" estimate for a verifier run is wrong. `clj -X:test` (full JVM runner) is red on an unclassified tools test since `b86a5d2`; the focused client suite is `clj -M:test -i <script requiring the 12 app.client.*-test namespaces>` → 48 tests / 419 assertions in ~2 s.

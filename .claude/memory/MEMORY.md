@@ -159,3 +159,7 @@ in this file and every future memory write.
   Sid's past words or writing in his register: `recall search` over every prompt
   he typed (Claude Code + Codex, self-growing), `persona/SID.md` (uuid-anchored),
   `/ask-as-sid` pre-check. Built 2026-08-23.
+- [waist-sort sessions: hunters gather, code only](feedback-waist-sort-hunters-code-only.md) — opus hunters return facts per slice, Claude sorts; docs corpus OFF; story + one-notch picture; no repo writes until his word.
+- [top-down sort: what do you take](feedback-top-down-sort-what-do-you-take.md) — consult for any "what is this code / what goes" walk: the five-question card, the role × kind grid read by column, two diagrams (there / struck-through); verdicts are Sid's.
+- [rulings quote Sid verbatim](feedback-rulings-quote-sid-verbatim.md) — consult when recording ANY ruling attributed to Sid: exact words + timestamp; a reversal of on-disk or parallel readings is asked back once; "Sid decides" items never slide to "stays" (the Slug reversal, 2026-08-26).
+- [electric v3 orphaned / v4 pivot](reference-electric-v3-orphaned-v4-pivot.md) — consult before ANY proposal touching Electric as a dependency: v3 = frozen proprietary alpha, its authors left Clojure (v4 = JS+WASM); the owned courier is the position; "Electric-native" names the shape, not the library.

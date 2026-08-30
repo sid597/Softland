@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: feedback
   originSessionId: dbe3b67a-318b-4151-96c4-d76e20973bdf
-  modified: 2026-08-21T11:42:36.573Z
+  modified: 2026-08-25T16:45:00.000Z
 ---
 
 When Sid asks to see how existing code IS (2026-08-21, the kept-code round after the
@@ -34,5 +34,12 @@ page; the page says "no verdicts" in its lede. (6) A claims-bearing map/analysis
 (anchors, receipts, positions) is not finished as a scratch artifact: at his word it LANDS
 as `.md` + `.html` twins under `docs/` so it can be contested (Codex/fresh-eyes rounds read
 disk) — 2026-08-23: "land the docs how else would this be contested?" Positions on the page
-are marked POSITION and pointed at from the board/direction doc; the page is never the ruling. Companion: [[feedback-lived-walkthrough-design]]
+are marked POSITION and pointed at from the board/direction doc; the page is never the ruling. (7) PAGE ORDER: the drawn picture — one SVG at one grain,
+every file in a labeled box, the waist as a line, a why-line under each box — sits right
+after the opening gesture and BEFORE the story; the story's anatomy sentences read off the
+picture's zones by name ("read the shapers row …"). A text-first page loses him exactly where
+the prose starts naming bands/rows/families with nothing to hang them on — fired 2026-08-25,
+the engine-waist page: "hard for me to read around 4–6 … not the right level of thing that
+can keep me going … maybe having some visual … was useful if i just sat with it along with the
+text" (he pointed at the editing-waist SVG as the thing that worked). Companion: [[feedback-lived-walkthrough-design]]
 (moment-by-moment from his POV), [[feedback-explanations-simple-story-first]].

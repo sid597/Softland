@@ -31,3 +31,5 @@ visual learner — but a dense ASCII diagram is not visual, it is code.
 - Composes with [[feedback-guides-integrate-never-accrete]] and
   [[feedback-preserve-sids-vocabulary]]; second push on one topic = frame is
   wrong, re-derive from the root ([[meta-failure-generators]]).
+
+- A "meta / ways to think about it" question at max effort pulls a framework reply (forces, ownership tables, worked cases) — fired 2026-08-28, "wtf are you talking about??? i don't know what did you reply to here". The fix: one line naming what I am answering, then the plain list of ways and the plain "what decides." Frames are the answer, not the frame *about* the frames.
