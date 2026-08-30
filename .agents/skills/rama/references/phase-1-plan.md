@@ -43,15 +43,43 @@ For each read operation, design PStates that make that read efficient:
 - **Multi-read aggregation** (multiple reads on the same partition combined into one result): use a query topology to batch all reads into a single roundtrip instead of multiple foreign selects from the client.
 - **Denormalized views** (precompute expensive queries): materialize a PState that directly answers the query, updated by the topology as data flows in.
 
-Do NOT create separate PStates for multiple categories of data that share the same schema and partition key — this leads to complicated read code with conditionals in both foreign client code and query topologies. Use one PState with a category dimension (e.g., a fixed-keys-schema or map key for the category) instead — this leads to much simpler query code.
+Do NOT declare separate PStates for data that shares a key and a partitioner. Collect it into one PState whose value is a fixed-keys-schema with a field per piece of data:
 
-Do NOT commit to the first PState design that comes to mind — PState schema is the hardest decision to change later and the wrong schema leads to excessive seeks, complex query code, or both. If the optimal design is obvious (e.g., simple key-value lookup), state why in the plan. If not, consider at least two alternative schemas, estimate the total I/O cost per query for each (seeks × ~0.5ms + iterations × ~5µs), and pick the one with lower cost.
+```clojure
+;; NO — two PState partitions per task holding data for the same key
+(declare-pstate s $$user-names     {Long String})
+(declare-pstate s $$user-locations {Long String})
+
+;; YES — one PState partition, one field per piece of data
+(declare-pstate s $$users {Long (fixed-keys-schema {:name String :location String})})
+```
+
+Every PState partition carries its own memory overhead, so the split costs memory on every task and buys nothing.
+
+The same holds for multiple categories of data sharing a schema and partition key: use one PState with a category dimension (e.g., a fixed-keys-schema or map key for the category), not one PState per category — separate PStates also force conditionals into both foreign client code and query topologies.
+
+Do NOT commit to the first PState design that comes to mind — PState schema is the hardest decision to change later and the wrong schema leads to excessive seeks, complex query code, or both. If the optimal design is obvious (e.g., simple key-value lookup), state why in the plan. If not, consider at least two alternative schemas and cost each for both **latency** and **throughput** (SKILL.md cost model): latency = seeks/iterations on one request's critical path, parallel work counted once; throughput = seeks/iterations summed across all tasks, weighted by each operation's call rate. Pick the design that maximizes throughput within the latency target — not simply the lowest single-request cost. A design can give every request low latency and still exhaust the cluster under load.
 
 Do NOT cost contiguous keys in a subindexed sorted structure as N point seeks — they're a range scan (1 seek + N iter-reads × 5µs), ~100× cheaper than N × 0.5ms. Think through whether a query can be satisifed completely or partially with range scans.
 
+Justify design decisions only by requirements stated in the spec. Do NOT justify a decision by the anticipated implementation of anything outside the spec — a consumer, a later subsystem, future work. If their needs bind, they are stated as requirements; if not stated, they do not bind. When the spec bounds a metric, meet the bound on that metric — improving a metric the spec does not state never justifies missing one it does.
+
+When building one subsystem of a decomposed module, the full spec is your spec and your scope bounds what you build. Later subsystems are BLACK BOXES: what the spec states about them binds your design, but their mechanisms do not exist and are yours neither to design nor to assume. Never justify a design choice by an assumption about how a later stage will work, and never satisfy a requirement by imagining a mechanism a later stage will provide. If your design cannot meet a requirement without such an assumption, the design is wrong — the requirement does not move.
+
+**Choose a partitioning scheme for every write and justify it for both latency and throughput** (see `references/pstate-schema.md` "Partitioning control"). Common cases:
+- **`|hash`** when the keyspace is large (many keys per task, so hash variance is negligible) and no single key takes a disproportionate share of events or storage.
+- **`|all`** when the data is small to hold on every task and written rarely — every task pays every write.
+- **`|direct`** for full control: place data on any tasks you choose — computed or stored.
+
+If there is doubt the chosen partitioning is optimal, or cases where it is known not to be, consider placement schemes that store state to assist partitioning, and evaluate every candidate on its TOTAL cost, including the placement state's own reads and writes. Do NOT reject a scheme because storing placement state feels like added complexity — reject only on computed total cost.
+
+If another module consumes this module's depots or PStates directly, read `references/mirrors.md` before designing the read contract.
+
+The `|hash`/`|all` indicators rule out some bad partitionings but not all — a partitioning can pass them and still waste work. **You MUST fill in the `## Partitioning efficiency` table in `PLAN.md`** (see the template in `references/artifact-plan.md`): for the dominant read, tabulate seeks/op and iterator-reads/op per **data category** (rows include the common/typical input, with frequency proportions summing to 1) at **N = 1, 16, and 128 tasks** (N = 1 is the single-task baseline), and compute the weighted sums Σ(proportion × seeks) and Σ(proportion × iterator-reads). If weighted seeks grow substantially from N = 1 to N = 128, the design is WRONG — disk work that grows with cluster size means adding hardware makes each operation more expensive, the opposite of scaling. Redesign until the weighted totals are flat.
+
 **State primitive selection.** PStates are not the only state primitive. For state that does not need durable disk storage (e.g. derived caches that can be rebuilt from durable sources, expensive pre-merged views whose write volume would be prohibitive in a PState), use a TaskGlobal — see `references/task-globals.md`. For each piece of state in the design, decide explicitly:
 - PState: durable, indexed, partitioned. Use when the data is the source of truth or is a derived view whose write volume per source event is bounded by inputs the application controls.
-- TaskGlobal: in-memory per-task, non-durable, must be rebuildable from durable state if state is lost due to worker process restart of module update.
+- TaskGlobal: in-memory per-task, non-durable — lost on restart or module update. Acceptable when rebuildable from durable state, or when the spec tolerates losing it.
 - External system: database, queue, etc.
 
 Schema rules:
@@ -81,8 +109,12 @@ For each processing concern, consider:
 A module can have **multiple topologies** of different types. All PState symbols are module-scoped — any topology can read any PState in the module (seeing the last committed value), but only the owning topology can write to it. Use internal depots (`:disallow` + `depot-partition-append!`) to pass data between topologies within the same module.
 
 Topology types:
-- **Microbatch** (default): exactly-once semantics from depot to PState — if a microbatch retries, all PState updates are applied exactly once. Cross-partition atomic writes within a microbatch. However, higher latency than streaming (at least 300ms) and no coordination with depot appends.
+- **Microbatch** (default): exactly-once semantics from depot to PState — if a microbatch retries, all PState updates are applied exactly once. Cross-partition atomic writes within a microbatch. Higher latency than streaming (at least 300ms) and no coordination with depot appends. Microbatch also offers `<<batch` blocks and multi-step processing patterns that stream does not — read `references/microbatch.md` for the full capabilities.
 - **Stream**: low-latency, at-least-once or at-most once. Stream topologies can retry, so non-idempotent writes could produce duplicates.
+
+**Read BOTH `references/microbatch.md` AND `references/stream.md` before choosing topology types.** Do NOT skip either reference — the topology choice must be informed by the full capabilities of both, not just latency.
+
+Do NOT choose, reject, or degrade a design on test-synchronization grounds. Synchronization never requires changing a design: if no built-in test waiter fits, materialize progress state and poll it (see `references/testing.md` "Synchronizing Any Design"). Testability never justifies missing a spec requirement.
 
 If the design requires any of these, read the corresponding reference:
 - Unique ID generation either client-side or within topologies → read `references/unique-ids.md`
@@ -98,12 +130,19 @@ cp <skill-root>/references/artifact-plan.md <impl-root>/PLAN.md
 
 Read `references/artifact-plan.md` for the template structure, then fill in `PLAN.md` with the design from Steps 1-4.
 
+### Step 6 — Self-validate before finishing
+
+Read `references/artifact-plan-validation.md` and go through every check against your plan. Fix any failures directly in `PLAN.md` before finishing this phase. Do NOT produce the `PLAN_VALIDATION.md` artifact — that is Phase 2's job. This step catches issues while the full design is in your context, avoiding expensive retry cycles through Phase 2 → Phase 1.
+
+Pay special attention to knock-on effects: when you change one part of the design (e.g., moving a concern to a different topology), re-trace every related operation and constraint to verify the change didn't break something elsewhere (e.g., recovery paths, self-inclusion, synchronization).
+
 ## Output
 
-`<impl-root>/PLAN.md`, fully filled in.
+`<impl-root>/PLAN.md`, fully filled in and self-validated.
 
 ## Do NOT
 
 - Do NOT write any topology, ETL, or query topology implementation code in this phase. Phase 1 is design only.
 - Do NOT skip any section of the plan template.
 - Do NOT commit to the first design that comes to mind for non-obvious decisions. State alternatives, estimate costs, pick.
+- Do NOT produce `PLAN_VALIDATION.md` in this phase. Self-validate against the checklist but do not write the artifact.

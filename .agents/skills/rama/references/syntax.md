@@ -97,10 +97,14 @@ mirror-decl   = '(mirror-depot' 'setup' depot-var string string ')'
               | '(mirror-pstate' 'setup' pstate-var string string ')'
               | '(mirror-query' 'setup' var string string ')' ;
 
-dynamic-opt   = '(set-launch-module-dynamic-option!' 'setup' keyword value ')'
-              | '(set-launch-depot-dynamic-option!' 'setup' depot-var keyword value ')'
-              | '(set-launch-pstate-dynamic-option!' 'setup' pstate-var keyword value ')'
-              | '(set-launch-topology-dynamic-option!' 'setup' topo-var keyword value ')' ;
+dynamic-opt   = '(set-launch-module-dynamic-option!' 'setup' option-string value ')'
+              | '(set-launch-depot-dynamic-option!' 'setup' depot-name-string option-string value ')'
+              | '(set-launch-pstate-dynamic-option!' 'setup' pstate-name-string option-string value ')'
+              | '(set-launch-topology-dynamic-option!' 'setup' topology-name-string option-string value ')' ;
+(* Option names are dotted strings, NOT keywords. set-launch-topology-dynamic-option!
+   takes the topology NAME as a string, not the topology object. Example:
+   (set-launch-topology-dynamic-option!
+     setup "etl" "topology.microbatch.phase.timeout.millis" 60000) *)
 ```
 
 | Construct | Syntax |
@@ -112,7 +116,7 @@ dynamic-opt   = '(set-launch-module-dynamic-option!' 'setup' keyword value ')'
 | Depot (hash) | `(declare-depot setup *d (hash-by :k))` |
 | Depot (internal, no client appends) | `(declare-depot setup *d :disallow)` |
 | Depot (global, single partition) | `(declare-depot setup *d :random {:global? true})` |
-| Depot (custom partitioner) | `(declare-depot setup *d (defdepotpartitioner ...))` |
+| Depot (custom partitioner) | `(declare-depot setup *d custom-partitioner-var)` |
 | Tick depot | `(declare-tick-depot setup *tick 1000)` |
 | PState | `(declare-pstate topo $$p {String Long})` |
 | PState (value schema) | `(declare-pstate topo $$p (value-schema Long))` |
@@ -197,10 +201,12 @@ Nil-safe counter increment: `(local-transform> [(keypath *k) (nil->val 0) (term 
 ### Custom depot partitioner
 
 ```clojure
-(declare-depot setup *d
-  (defdepotpartitioner [*data *num-partitions]
-    (mod (hash *data) *num-partitions :> *idx)
-    (:> *idx)))
+(defdepotpartitioner my-depot-partitioning
+  [data num-partitions]
+  (mod (nth data 1) num-partitions))
+
+;; in module
+(declare-depot setup *d my-depot-partitioning)
 ```
 
 ---
@@ -439,8 +445,7 @@ start-from      = ':end' | ':beginning'
                 | '(offset-after-timestamp-millis' number ')' ;
 unit            = ':records' | ':days' | ':months' ;
 retry-mode      = ':individual' | ':all-after' | ':none' ;
-subsource       = '(<<subsource' var { type-clause } ')' ;
-type-clause     = class-name '(' dataflow-body ')' ;
+
 
 (* microbatch emit: *)
 microbatch-emit = '(' frag-var ':>' binding ')' ;
@@ -455,7 +460,7 @@ microbatch-emit = '(' frag-var ':>' binding ')' ;
 | Ack return aggregation | `(source> *depot {:ack-return-agg (combiner +)} :> *data)` |
 | Microbatch source | `(source> *depot :> %microbatch)` |
 | Emit microbatch items | `(%microbatch :> *data)` |
-| Subsource (type dispatch) | `(<<subsource *data TypeA (...) TypeB (...))` |
+| Subsource (type dispatch) | `(<<subsource *data (case> TypeA :> {:keys [*field1 *field2]}) ...) (case> TypeB) ...)` |
 
 ---
 

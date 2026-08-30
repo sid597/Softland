@@ -33,6 +33,8 @@ Map literal `{K V}` is shorthand for `(map-schema K V)`.
 
 ## Subindex Options
 
+Both of these turn subindexing on. The latter also sets an option on it.
+
 ```clojure
 {:subindex? true}                                     ;; size tracking on (default)
 {:subindex-options {:track-size? false}}               ;; disable size tracking
@@ -70,13 +72,23 @@ For subindexed maps and sets (in `com.rpl.rama.path`):
 (sorted-map-range start end)
 (sorted-map-range start end {:inclusive-start? false})
 (sorted-map-range-from key limit)
+(sorted-map-range-from key {:max-amt n :inclusive? bool})
 (sorted-map-range-to key limit)
+(sorted-map-range-to key {:max-amt n :inclusive? bool})
 
 (sorted-set-range start end)
 (sorted-set-range start end {:inclusive-start? false})
 (sorted-set-range-from elem limit)
+(sorted-set-range-from elem {:max-amt n :inclusive? bool})
 (sorted-set-range-to elem limit)
+(sorted-set-range-to elem {:max-amt n :inclusive? bool})
 ```
+
+All single-ended forms (`-from`/`-to`) accept `:inclusive?` — named without a
+`-start`/`-end` suffix because there is only one boundary to qualify. Only the
+two-ended `sorted-*-range` forms use `:inclusive-start?`/`:inclusive-end?`.
+`:max-amt` on `-from` scans forward from the boundary; on `-to` it scans
+backward (the last `n` entries before the boundary) — see paths.md.
 
 ## Size Query
 

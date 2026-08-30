@@ -1,0 +1,7 @@
+# Vendored from redplanetlabs/rama-ai-learn — do not hand-edit this directory.
+# Update:  scripts/sync-rama-skill.sh update [REF]
+# Verify:  scripts/sync-rama-skill.sh check
+repo=https://github.com/redplanetlabs/rama-ai-learn
+path=plugins/rama-skill/skills/rama
+sha=0b46060856b2df661a92bcf21f85a753025d9263
+date=2026-08-05

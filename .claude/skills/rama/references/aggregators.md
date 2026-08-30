@@ -5,6 +5,14 @@ explicit null handling. Within `+compound`, missing nested keys are
 auto-initialized. Top-level PState aggregators (outside `+compound`)
 require the PState value to already exist.
 
+In batch blocks and query topologies, aggregators always fire and bind
+their output even when zero rows reach them: the output is the
+aggregator's zero value — `0` for `+sum`/`+count`, `[]` for `+vec-agg`,
+and `nil` for `+set-agg`, `+map-agg`, and `+last`. Do NOT add
+special-case branches for "empty input" inside the dataflow — but code
+consuming the output must tolerate the `nil` empties when zero rows are
+possible. See batch.md "Zero rows — aggregators still fire".
+
 ## Formalism
 
 Universe
@@ -70,7 +78,7 @@ distributes over aggregation.
 ### 4) +group-by
 
 - key : E -> K, result : K -> S_i (one per agg i)
-- auto hash-partitions by key, runs each agg per key-group
+- auto hash-partitions by key, runs each agg per key-group — the final pre-agg partitioner other aggregators require is NOT needed
 - emits one output row per key
 - max 6 grouping vars; batch/query-topology only
 
@@ -93,6 +101,7 @@ Constraints:
 +top-monotonic: bounded top-N using combiner infrastructure.
 Exact in batch/query finalization; in stream/microbatch, exactness
 requires monotonic (strictly ascending/descending) score movement per id.
+Sort values may be any Comparable (numbers, strings, UUIDs, vectors, ...).
 Buffer grows to 2×N before sort-and-prune (O(N log N)).
 Non-batched contexts skip final sort — client must sort.
 

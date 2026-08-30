@@ -2,6 +2,8 @@
 
 A query topology is a distributed, on-demand, read-only function. It accepts input arguments, performs computation across tasks, and returns a single result. Query topologies are batch blocks — read `batch.md` before writing any query topology. You must understand batch block semantics (pre-agg/agg/post-agg phases, how aggregators work, joins) to write correct query topologies.
 
+**Read-only applies to PStates, not TaskGlobals.** A query topology may synchronously mutate a TaskGlobal (see `task-globals.md`) — a write path for in-memory state that needs no durability, applied and visible by the time the query returns.
+
 ## How query topologies work
 
 A query topology is a batch block that:
@@ -10,6 +12,8 @@ A query topology is a batch block that:
 3. **Post-agg**: post-processes the aggregated result
 
 The final pre-agg partitioner must be `|origin`, which routes computation back to the calling task. The output variable must be emitted exactly once. No partitioners can be used in the post-agg phase.
+
+When every aggregator is a combiner, two-phase aggregation applies (see `aggregators.md`): each task partially aggregates its rows locally and ships ONE partial across `|origin`, not the rows themselves. Cost the fan-in as one transfer per contributing task. Aggregators that are not combiners ship every row.
 
 ## Choosing pre-agg only vs. aggregation
 
@@ -113,13 +117,13 @@ Reads a user's profile and friend list on one partition, then fans out to each f
 - Single-argument: `[*k :> *result]`
 - Multi-argument: `[*a *b :> *result]`
 
-## Leading partitioner optimization
+## Leading partitioner
 
 If the first line of a query topology is a partitioner, it is evaluated client-side to route the query directly to the right task, avoiding a random-task hop. Requirements:
 - Must be a built-in partitioner (not custom)
 - Must target exactly one task (not `|all`)
 - All inputs must be topology input variables
-- Cannot target a mirror PState partitioner
+- Cannot target a mirror PState partitioner (a restriction on this client-side optimization only — mirror partitioners work normally inside topology bodies)
 
 ## Invocation
 
@@ -132,6 +136,8 @@ If the first line of a query topology is a partitioner, it is evaluated client-s
 (invoke-query "query-name" *arg :> *result)
 ```
 
+`invoke-query` is an async boundary that acts as a barrier: nothing in the continuation runs until the sub-query finishes, and the continuation resumes on the same task with the sub-query's complete result. This makes a nested query the way to get a barrier inside a query topology: a query topology's batch has only one aggregation round, so when multi-step work needs an "everything gathered" point before continuing, put the gathering in a separate query topology invoked from pre-agg.
+
 ## Self-invocation (recursion)
 
 Query topologies can call themselves via (invoke-query "query-name" ...argz). Execution is timeout-bounded to prevent infinite loops.
@@ -142,9 +148,13 @@ Every query topology has an implicit unreplicated in-memory PState `$$<topology-
 
 ## Constraints
 
-- Read-only: no `local-transform>` on user PStates (only the implicit temp PState)
+- Read-only applies to PStates only: no `local-transform>` on user PStates (the implicit temp PState is writable). The restriction does NOT extend to other effects:
+  - Task global mutation IS allowed from query topologies — task globals can be mutated from anywhere; tasks are single-threaded, so the usual task-global safety rules apply unchanged.
+  - Depot appends ARE allowed from query topologies (`depot-partition-append!`).
+- The topology's input arguments are in scope everywhere in the body, including post-agg
 - Must end with `|origin` as the final pre-agg partitioner
 - Output variable must be emitted exactly once
+- The output variable is always bound, even when pre-agg emits zero rows — aggregators fire with their zero value (see batch.md "Zero rows — aggregators still fire")
 - No partitioners in post-agg
 
 ## Troubleshooting
