@@ -221,7 +221,7 @@ generalized (drop ticket-specific details; keep the reusable rule):
   (e.g. "Supabase Studio": editor URLs are `/project/default/editor/<table OID>`,
   filters via `?filter=col%3Aop%3Aval`), committed to that repo.
 - Procedure changes (new step, changed command, new pitfall) → update THIS
-  file (`~/.Codex/skills/pr-video/SKILL.md`) in the same session.
+  file (`~/.codex/skills/pr-video/SKILL.md`) in the same session.
 - Never leave a hard-won fix only in the conversation or a scratchpad probe.
 
 ## Narration/caption rules
