@@ -6,8 +6,9 @@
    to begin, draw into, and release.
    Gives: a compositor with its pool and presentation pipeline; leased targets; one
    presented frame; pixels read back for receipts.
-   Holds: the pool state (free and leased targets) and the current region
-   leases."
+   Holds: the pool state (free and leased targets, counters, refusals); the
+   current region leases, the lease keys retiring this frame, and retired
+   targets awaiting release; a receipt atom."
   (:require [app.client.engine.rungs :as region-rungs]
             [app.client.engine.leases :as region-bindings]))
 
