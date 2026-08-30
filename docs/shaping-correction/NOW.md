@@ -286,3 +286,17 @@ judgment calls, diff-derived file list sum-checked vs §12) + NOW entry
   (2) whether layout-side 3.77 s (L6−L5) needs its own ladder first; (3)
   probe retirement at close; (4) founding-scale numbers are derived. Sid's
   touches: the word (opens) · atom acceptance (closes). Nothing else waits.
+- 2026-08-30 · REDLINE on the cold bar (Sid, in chat, after the receipt
+  review), verbatim: "12seconds is too much where did that no. come from???
+  it should be as small as possible under 500ms i would say". The 12.0 s
+  was the contract author's choice (CONTRACT "Experience bars": non-text
+  cold floor ≈7 s = 35.678−28.7; the bar only demanded text stop
+  dominating). Sid's bar is WHOLE-SYSTEM: the ≈7 s non-text floor must go
+  too (whole-page pull → keyed wire + demand, the host lane) and text can
+  only meet it per VISIBLE glyph — whole-corpus shaping never on the cold
+  path (HarfBuzz alone derives to ≈85 ms at founding scale; arrays make the
+  rest ~0.5–1.5 s whole-corpus, estimate — visible-first is the only road
+  under 500 ms). Consequence, asked back once in chat: this pulls step-5
+  material (residency — shape what you look at) into the step-2 cut's
+  scope statement; the contract had deferred it pending his ruling. The
+  cut carries the bar as Sid's, not the author's.
