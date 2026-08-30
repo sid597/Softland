@@ -487,7 +487,7 @@ proof-decay + was this line accurate).
 
 - **studio** → `docs/packages/studio.md` — ARC OPENED + BRIEF SETTLED 2026-07-31 (working name, Sid redlines)
 
-- **shaping-correction** → `docs/packages/shaping-correction.md` — IMPLEMENTATION OPEN (SEAM-STEP1 landed `5f55cf5` 2026-08-05; R4 PASS 2026-08-04; SEAM stays frozen/unwidened)
+- **shaping-correction** → `docs/packages/shaping-correction.md` — IMPLEMENTATION OPEN (SEAM-STEP1 landed `5f55cf5` 2026-08-05; R4 PASS 2026-08-04; SEAM stays frozen/unwidened) **2026-08-30: shaper-border receipt BANKED + REVIEWED** (`docs/shaping-correction/evidence/2026-08-30-shaper-border/README.md`; NOW.md tail) — VERDICT material: ~1.5 s of the 1.98 s shaping pass is an object per glyph, HarfBuzz itself 48 ms; ≈1.1 s derived at founding scale vs the 12.0 s cold bar. **NEXT = Sid's word on the headline** → step 2 re-cut (starter on disk: NOW.md tail; one pass over the text organ together with the union_bounds/I1–I2 fix) or lane close.
 
 - **image-atom** → `docs/packages/image-atom.md` — Package 2 wave 1, LANDED / SID-ACCEPTED 2026-08-06
 

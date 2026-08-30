@@ -259,3 +259,30 @@ judgment calls, diff-derived file list sum-checked vs §12) + NOW entry
   setVariations-per-line hypothesis dead (+8 ms). **VERDICT: material.**
   NEXT: Sid's word on the headline → step 2 re-cut or lane close. Layout-side
   3.77 s (L6−L5) unattributed — queued behind that word.
+- 2026-08-30 · Fable (Electric-pivot session, as reviewer) · the shaper-border
+  receipt REVIEWED against the tree: both commits on main; freeze held (no
+  shaper/layout/painter source touched — the probe is a new verifier ns);
+  the ladder sums exactly to 1,983.8; medians of 3, spreads ≤3.3% on the
+  anchors, every verdict-bearing delta 10–40× its noise. VERDICT material
+  STANDS. Reframe for the cut: crossing WASM is ~96 ms; ~1.5 s of the 1.98 s
+  shaping pass is "an object per glyph" (js->clj ×2 · the 11-key map ·
+  positioning over maps) — flat typed arrays are the data shape of the whole
+  pass, not a border patch. Soft spots, neither flips it: "≈29% of the
+  residue" is an upper bound (probe brackets ≠ founding brackets) — the
+  load-bearing number is ≈1.1 s vs the 12.0 s cold bar (~9%); machine blocks
+  absent, so founding-scale numbers are the human-block rate (pushes up).
+- 2026-08-30 · STEP-2 STARTER — paste into the cutting session once Sid's
+  word on the headline is given (put the word, verbatim + time, at the top).
+  Boot: `evidence/2026-08-30-shaper-border/README.md` whole (the ground) ·
+  CONTRACT.md §4 I1–I2 + §12 only · this NOW tail · decisions.md "The render
+  seam" · work-package skill. Code by seam: `text/shaper.cljs` whole ·
+  `text/layout.cljc` skeleton then :646–960 · `text/painter.cljs` :455–560,
+  :637–720 · `verifier/shaper_border_probe.cljs` (to RETIRE, not extend).
+  Cut ONE document, then execute straight through: flat typed arrays per
+  run (advance · offset · cluster · extents), one crossing in / one out,
+  viewed into GPU bytes; layout + painter re-keyed; batch path kept as
+  oracle; I1/I2 carried; never a cache. The cut STATES: (1) order vs
+  union_bounds/I1–I2 — position: ONE pass over the text organ, both fixes;
+  (2) whether layout-side 3.77 s (L6−L5) needs its own ladder first; (3)
+  probe retirement at close; (4) founding-scale numbers are derived. Sid's
+  touches: the word (opens) · atom acceptance (closes). Nothing else waits.
