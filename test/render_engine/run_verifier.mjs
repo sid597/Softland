@@ -189,6 +189,17 @@ const laneGuards = (result) => [
       result.region3dFloor?.pass === true &&
       allDeterministic(result.region3dFloor?.cases),
   },
+  {
+    // SHAPER-BORDER.md §8: F1 (flat shaper ≡ oracle shaper), F2 (flat layout
+    // ≡ oracle layout, real HarfBuzz), F3 (flat pack bytes ≡ oracle bytes).
+    // The µs/glyph bracket rides in the same block and is never gated.
+    name: "text-flat-road",
+    pass:
+      result.textFlatRoad?.pass === true &&
+      Array.isArray(result.textFlatRoad?.rows) &&
+      result.textFlatRoad.rows.length >= 3 &&
+      result.textFlatRoad.rows.every((row) => row.pass === true),
+  },
 ];
 
 const representativeSpecs = [
@@ -255,6 +266,11 @@ const sourceInputs = () =>
   [
     "src/app/client/engine/device.cljs",
     "src/app/client/text/painter.cljs",
+    "src/app/client/text/glyph_pack.cljs",
+    "src/app/client/text/shaper.cljs",
+    "src/app/client/text/shaped_line.cljc",
+    "src/app/client/text/layout.cljc",
+    "src/app/client/text/layout_planes.cljc",
     "src/app/client/image/painter.cljs",
     "src/app/client/verifier/core.cljs",
     "src/app/client/path/painter.cljs",
@@ -370,6 +386,9 @@ const main = async () => {
       pass: result.ubuntuSlug?.pass === true,
     },
     representativeGoldens: goldens,
+    // SHAPER-BORDER.md §2(3): the flat road's fences and its µs/glyph
+    // bracket live in the receipt permanently (the bracket is never gated).
+    textFlatRoad: result.textFlatRoad,
     sourceInputs: sourceInputs(),
     adapter: result.adapter,
     browserConsole,

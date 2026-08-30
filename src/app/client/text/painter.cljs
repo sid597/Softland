@@ -12,6 +12,7 @@
             [app.client.engine.color :as scene-color]
             [app.client.engine.compositor :as compositor-gpu]
             [app.client.engine.device :as device]
+            [app.client.text.glyph-pack :as glyph-pack]
             [app.client.text.layout :as tl]))
 
 (def slug-vertex-shader "
@@ -535,18 +536,23 @@
         [anchor-x anchor-y] (or (:layout-anchor txt) (:baseline line))
         dx (if existing (- (:x txt anchor-x) anchor-x) 0)
         dy (if existing (- (:y txt anchor-y) anchor-y) 0)
-        range-result (tl/glyphs-in-source-range
+        range-result (tl/glyph-indexes-in-source-range
                       line
                       (if (= :header (first (:source-range line)))
                         [:header (second (:source-range line))
                          [range-start range-end]]
-                        [(tl/tagged-index range-start) (tl/tagged-index range-end)])
-                      dx dy)]
+                        [(tl/tagged-index range-start) (tl/tagged-index range-end)]))]
+    ;; The flat view: the line, its selected glyph indexes, and the op's
+    ;; translation. Glyph maps are derived only by the oracle road
+    ;; (`paint-slug-line` via `tl/glyph-views`); the pack door reads planes.
     {:layout/id (:layout/id layout-result)
      :style txt
      :font-size fsize
      :span-receipt (select-keys range-result [:glyph-span :visited-glyphs])
-     :glyphs (:glyphs range-result)}))
+     :line line
+     :indexes (:indexes range-result)
+     :dx dx
+     :dy dy}))
 
 (defn- position-text
   [texts global-fsize font-assets char-width snap-step surface]
@@ -562,7 +568,10 @@
             [cr cg cb ca] (token-color txt)
             fsize font-size
             inv-size (if (pos? fsize) (/ 1.0 fsize) 0.0)
-            positioned-glyphs (:glyphs positioned-op)]
+            positioned-glyphs (tl/glyph-views (:line positioned-op)
+                                              (:indexes positioned-op)
+                                              (:dx positioned-op)
+                                              (:dy positioned-op))]
         (doseq [{:keys [character position glyph-id-kind] :as positioned-glyph}
                 positioned-glyphs]
           (when-not (or (= character " ") (= glyph-id-kind :virtual/tab))
@@ -678,12 +687,12 @@
               (recur (next remaining) (inc sub-i)))))
         (recur (next lines) (+ global-i (:count (first lines))))))))
 
-(defn update-text-data
-  [^js/GPUDevice device renderer-state texts font-assets font-size
-   & {:keys [line-height-factor line-height char-width snap-step surface]
-      :or {line-height-factor 1.0 char-width 0.56}}]
-  (let [line-h (or line-height (* font-size line-height-factor))
-        shaped-lines (mapv (fn [tokens-in-line]
+(defn pack-instances-oracle
+  "The frozen map road: glyph maps → instance maps → words. Returns the
+   packed instance bytes with their line offsets and count (no GPU)."
+  [texts font-assets font-size stride & {:keys [char-width snap-step surface]
+                                          :or {char-width 0.56}}]
+  (let [shaped-lines (mapv (fn [tokens-in-line]
                              (let [instances (shape-text tokens-in-line font-size font-assets
                                                          :char-width char-width
                                                          :snap-step snap-step
@@ -693,15 +702,49 @@
                            texts)
         actual-instances (reduce + (map :count shaped-lines))
         buffer-instance-count (max actual-instances 1)
+        raw-buffer (js/ArrayBuffer. (* buffer-instance-count stride))]
+    (pack-slug-instances! (js/Float32Array. raw-buffer) (js/Uint32Array. raw-buffer)
+                          shaped-lines)
+    {:raw-buffer raw-buffer
+     :line-offsets (line-offsets-for shaped-lines)
+     :num-instances actual-instances}))
+
+(defn pack-instances-flat
+  "The flat road: planes → words through the pack door, two passes (count,
+   then write). Same return shape as `pack-instances-oracle`."
+  [texts font-assets font-size stride & {:keys [char-width snap-step surface]
+                                          :or {char-width 0.56}}]
+  (let [table (glyph-pack/slug-table (get-in font-assets [:slug :meta :glyphs]))
+        shaped-lines (mapv (fn [tokens-in-line]
+                             (let [ops (position-text tokens-in-line font-size font-assets
+                                                      char-width snap-step surface)]
+                               {:ops ops
+                                :count (reduce + 0 (map #(glyph-pack/count-instances % table)
+                                                        ops))}))
+                           texts)
+        actual-instances (reduce + (map :count shaped-lines))
+        buffer-instance-count (max actual-instances 1)
+        raw-buffer (js/ArrayBuffer. (* buffer-instance-count stride))]
+    (glyph-pack/pack-lines! (js/Float32Array. raw-buffer) (js/Uint32Array. raw-buffer)
+                            shaped-lines table)
+    {:raw-buffer raw-buffer
+     :line-offsets (line-offsets-for shaped-lines)
+     :num-instances actual-instances}))
+
+(defn update-text-data
+  [^js/GPUDevice device renderer-state texts font-assets font-size
+   & {:keys [line-height-factor line-height char-width snap-step surface]
+      :or {line-height-factor 1.0 char-width 0.56}}]
+  (let [line-h (or line-height (* font-size line-height-factor))
         stride (:instance-stride renderer-state)
-        line-offsets (line-offsets-for shaped-lines)]
-    (let [raw-buffer (js/ArrayBuffer. (* buffer-instance-count stride))
-          float-view (js/Float32Array. raw-buffer)
-          uint-view (js/Uint32Array. raw-buffer)
-          upload-view (js/Uint8Array. raw-buffer)
+        {:keys [raw-buffer line-offsets num-instances]}
+        (pack-instances-flat texts font-assets font-size stride
+                             :char-width char-width :snap-step snap-step
+                             :surface surface)
+        actual-instances num-instances]
+    (let [upload-view (js/Uint8Array. raw-buffer)
           required-size (.-byteLength upload-view)
           new-buffer (ensure-text-instance-buffer device renderer-state required-size)]
-      (pack-slug-instances! float-view uint-view shaped-lines)
       (.writeBuffer (.-queue device) new-buffer 0 upload-view)
       ;; Slug renders raw mathematical coverage — no sharpness bias.
       ;; The uniform exists (pipeline expects binding 3) but stays at 0.
