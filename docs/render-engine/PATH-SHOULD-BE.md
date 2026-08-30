@@ -10,6 +10,13 @@ Labels (A1, B2, …) are anchors for cross-reference only.
 is it not supposed to be ecs??? · 7. yes` — see §E for what each maps to;
 question 6 is OPEN with the primitive/composite split proposed.
 
+**Sid's frame for this phase (verbatim, 2026-08-30):** "I think we did miss
+these and they are things that should exist and how things should be ... this
+whole phase is about how things should be ... we delete code that is not
+needed but now also add and fix while we are here ... what we need to remove
+is much more important." → Section A first; the four vocabulary items are
+ADDS (§C3), not limits filed away.
+
 **Ground.** `src/app/client/path/` is one story in three stages:
 `material.cljc` (17.8KB) says what counts as a valid path and answers
 questions about it without drawing; `tessellation.cljc` (18.9KB) turns a path
@@ -236,6 +243,48 @@ errors do not explain.
 
 ### C2. `mesh-bytes` — make the docstring true or move the function (see A2).
 
+### C3. What should exist — the four vocabulary adds — *ruled by Sid's frame above*
+Order: removal (§A) first; then these. Two are unblocked today, two wait on
+things already on Sid's list.
+
+- **C3.1 True curves — unblocked, engine floor.** What it takes: segment
+  grammar widening in `material.cljc` (segments become `:line` | `:quadratic`
+  | `:cubic` with control points; `schema-version` 2; control points
+  validated like every other point); `tessellation.cljc` flattens curves to
+  segments *at derivation time, density chosen from the zoom regime* — the
+  whole reason curves belong below (D1) — after which the existing stroke
+  expansion and ear clipping apply unchanged; `classify`/`boundary-distance`
+  gain distance-to-curve (or flatten-at-query with a declared tolerance — a
+  declared limit either way); goldens at the seven verifier zoom stations;
+  `algorithm-version` bump. Size: one contract + 1–2 atoms. Prerequisites:
+  none. Replaces the contract's "routed to Package 2" — Sid pulled it into NOW.
+- **C3.2 Richer paint — unblocked, mostly without shader work.** *Dashes:* a
+  tessellation-level arc-length walk that splits a stroke into dash
+  sub-strokes before expansion — no painter change (structural inference from
+  `stroke-triangles-normalized`; verify). *Linear gradients:* vertices already
+  carry per-vertex rgba (`vertex-values` packs `[x y r g b a idx]`); a
+  two-stop linear gradient is per-vertex color computed from position at pack
+  time — likely no WGSL change (verify that `path-fragment-shader`
+  interpolates the color attribute rather than reading a uniform). *Radial
+  gradients, textures:* fragment-shader work, genuinely below. Paint schema
+  widening (`paint-required-keys` grows a `:kind`; `schema-version` bump).
+  Size: one contract + 1–2 atoms. Prerequisites: none.
+- **C3.3 Grouping — blocked on the frame runtime.** What it takes: a
+  parent/container reference on marks (data); the container tree
+  (`engine/placement.cljc`, exists) for the shared transform; and **draw
+  order**, which today exists only as design — W0-C §5.4 "ordered scene
+  truth"; the verifier is a "direct driver, no order model"
+  (`verifier/core.cljs:1695`). So grouping pulls the scene-order runtime into
+  should-exist. Size: scene-order runtime = a package; grouping on top = one
+  atom. Prerequisite: the product frame returns (only the verifier compiles
+  today).
+- **C3.4 Semantics — blocked on durable ids.** What it takes: path materials
+  become stored truth with durable `:path/material-id`s (the artery — Sid's
+  storage ruling); then "this arrow supports that claim" is a relation row in
+  the existing relation kernel keyed by mark id — no engine change. Size: one
+  atom after the artery. Prerequisite: Sid's "where client shapes are stored"
+  ruling.
+
 ---
 
 ## D. HOW THINGS SHOULD BE — above the waist (settled stances, no code now)
@@ -325,7 +374,7 @@ system interprets it, and the systems here are tessellation and the painter —
   engine ever had to re-run them per regime or per frame.
 
 **Three piles.** *Grammar widenings* (curves, gradients, winding rules —
-below, each a versioned decision, on demand) · *pure composition* (grouping,
+below, each a versioned decision — and per Sid's frame these SHOULD EXIST: §C3) · *pure composition* (grouping,
 semantics, dashes-as-marks, shape generators — above, buildable when their
 prerequisites exist) · *versioned derivation libraries* (booleans, smoothers —
 above, held to below-the-waist discipline). The floor grows only when a
@@ -467,6 +516,7 @@ stored durably** (the artery).
 | 1 | Hygiene atom — A1, A2, A4, C1, C2, both kinds | ~100 lines, half a session | none |
 | 2 | Ingress atom — A3 | ~1 session | none (ruled) |
 | 3 | Vocabulary library package — D3/D4/D5 | 1 contract + 3–5 atoms | question 6 · drawing input · durable storage |
-| 4 | Grouping | package | scene-order runtime |
-| 5 | Semantics | mostly exists | durable mark ids |
-| — | Curves / gradients / winding | on demand | each its own contract |
+| 4 | True curves (C3.1) | 1 contract + 1–2 atoms | none — unblocked |
+| 5 | Richer paint — dashes, linear gradients (C3.2) | 1 contract + 1–2 atoms | none — unblocked |
+| 6 | Scene-order runtime, then grouping (C3.3) | package + 1 atom | the product frame |
+| 7 | Semantics via relation rows (C3.4) | 1 atom | durable-storage ruling |
