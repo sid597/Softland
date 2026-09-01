@@ -1,6 +1,6 @@
 (ns app.client.path.painter
   "The path painter: one repacked vertex lane and a mesh cache keyed by
-   content, version, and zoom regime.
+   geometry, algorithm, and zoom regime.
    Takes: a device, a format, and the shared buffers to build the system; the
    frame's path ops and zoom to prepare; a render pass and a vertex range to
    draw.
@@ -14,6 +14,9 @@
 
 (def path-color-mode-declaration
   "const kPathLinearPremultiplied: bool = false;")
+
+(def vertex-words 7)
+(def vertex-stride 28)
 
 (def path-vertex-shader
   "struct Camera {
@@ -80,7 +83,7 @@
 (defn- create-vertex-buffer [^js device capacity]
   (.createBuffer device
                  (clj->js {:size (* (max 1 capacity)
-                                    path-material/vertex-stride)
+                                    vertex-stride)
                            :usage (bit-or js/GPUBufferUsage.VERTEX
                                           js/GPUBufferUsage.COPY_DST)})))
 
@@ -114,7 +117,7 @@
                    {:layout pipeline-layout
                     :vertex
                     {:module vertex-module :entryPoint "main"
-                     :buffers [{:arrayStride path-material/vertex-stride
+                     :buffers [{:arrayStride vertex-stride
                                 :stepMode "vertex"
                                 :attributes
                                 [{:shaderLocation 0 :offset 0
@@ -141,7 +144,7 @@
     {:device device :pipeline pipeline :bind-group bind-group
      :camera-buffer camera-buffer :containers-buffer containers-buffer
      :scene-color scene-color
-     :frame-input/identity (js-obj) :!shape-rev (atom 0)
+     :!shape-rev (atom 0)
      :!buffer (atom buffer) :!capacity (atom initial-capacity)
      :!mesh-cache (atom {}) :!prepared (atom [])
      :!last-paths (atom ::never) :!last-regime (atom nil)
@@ -149,96 +152,18 @@
      :!receipt (atom {:path-system/version 1 :uploads 0
                       :mesh-derivations 0 :vertices 0})}))
 
-(defn- inside-edge? [edge value boundary]
-  (case edge
-    :left (>= value boundary)
-    :top (>= value boundary)
-    :right (<= value boundary)
-    :bottom (<= value boundary)))
-
-(defn- edge-intersection [edge boundary [ax ay] [bx by]]
-  (case edge
-    :left
-    (let [t (if (= ax bx) 0.0 (/ (- boundary ax) (- bx ax)))]
-      [boundary (+ ay (* t (- by ay)))])
-    :right
-    (let [t (if (= ax bx) 0.0 (/ (- boundary ax) (- bx ax)))]
-      [boundary (+ ay (* t (- by ay)))])
-    :top
-    (let [t (if (= ay by) 0.0 (/ (- boundary ay) (- by ay)))]
-      [(+ ax (* t (- bx ax))) boundary])
-    :bottom
-    (let [t (if (= ay by) 0.0 (/ (- boundary ay) (- by ay)))]
-      [(+ ax (* t (- bx ax))) boundary])))
-
-(defn- clip-polygon-edge [polygon edge boundary]
-  (if (empty? polygon)
-    []
-    (loop [prior (peek polygon)
-           points polygon
-           result []]
-      (if-let [current (first points)]
-        (let [prior-value (if (#{:left :right} edge) (first prior) (second prior))
-              current-value (if (#{:left :right} edge) (first current) (second current))
-              prior-inside? (inside-edge? edge prior-value boundary)
-              current-inside? (inside-edge? edge current-value boundary)
-              result (cond
-                       (and prior-inside? current-inside?)
-                       (conj result current)
-
-                       (and prior-inside? (not current-inside?))
-                       (conj result (edge-intersection edge boundary prior current))
-
-                       (and (not prior-inside?) current-inside?)
-                       (conj result
-                             (edge-intersection edge boundary prior current)
-                             current)
-
-                       :else result)]
-          (recur current (next points) result))
-        result))))
-
-(defn- clip-triangle [triangle clip]
-  (if-not clip
-    [triangle]
-    (let [{:keys [x y w h]} clip
-          polygon (-> triangle
-                      (clip-polygon-edge :left x)
-                      (clip-polygon-edge :right (+ x w))
-                      (clip-polygon-edge :top y)
-                      (clip-polygon-edge :bottom (+ y h)))]
-      (if (< (count polygon) 3)
-        []
-        (mapv (fn [index]
-                [(first polygon) (nth polygon index) (nth polygon (inc index))])
-              (range 1 (dec (count polygon))))))))
-
-(defn- prepared-op [op mesh first-vertex]
-  (let [origin [(:x op) (:y op)]
-        absolute-triangles
-        (mapv (fn [triangle]
-                (mapv (fn [[x y]]
-                        [(+ x (first origin)) (+ y (second origin))])
-                      triangle))
-              (:triangles mesh))
-        triangles (into []
-                        (mapcat #(clip-triangle % (:path/clip op)))
-                        absolute-triangles)
-        vertices (into [] cat triangles)]
-    {:op op :mesh mesh :vertices vertices
-     :first-vertex first-vertex :vertex-count (count vertices)}))
-
 (defn- pack-vertices [prepared]
   (let [vertex-count (reduce + (map :vertex-count prepared))
-        floats (js/Float32Array. (* vertex-count path-material/vertex-words))
+        floats (js/Float32Array. (* vertex-count vertex-words))
         uints (js/Uint32Array. (.-buffer floats))]
     (loop [ops prepared vertex-offset 0]
-      (if-let [{:keys [op vertices]} (first ops)]
+      (if-let [{:keys [op mesh]} (first ops)]
         (let [material (:path/material op)
+              vertices (:vertices mesh)
               [r g b a] (path-material/paint-color material)
               container-idx (or (:container-idx op) 0)]
           (doseq [[index [x y]] (map-indexed vector vertices)]
-            (let [base (* (+ vertex-offset index) path-material/vertex-words)]
+            (let [base (* (+ vertex-offset index) vertex-words)]
               (aset floats (+ base 0) x)
               (aset floats (+ base 1) y)
               (aset floats (+ base 2) r)
@@ -269,7 +194,7 @@
    changes. Pan/continuous zoom inside a regime never reaches this write."
   [path-system paths zoom]
   (let [paths (or paths [])
-        regime (:regime/id (path-material/zoom-regime zoom))]
+        regime (:regime/id (tessellation/zoom-regime zoom))]
     (if (and (= paths @(:!last-paths path-system))
              (= regime @(:!last-regime path-system)))
       {:mesh-set-changed? false :writes 0
@@ -280,13 +205,17 @@
             mesh-set-key
             (mapv (fn [op mesh]
                     [(:cache-key mesh)
-                     (:x op) (:y op) (:path/clip op) (:container-idx op)])
+                     (path-material/paint-color (:path/material op))
+                     (or (:container-idx op) 0)])
                   paths (:meshes derivation))
             prepared
             (loop [ops paths meshes (:meshes derivation)
                    first-vertex 0 result []]
               (if-let [op (first ops)]
-                (let [row (prepared-op op (first meshes) first-vertex)]
+                (let [mesh (first meshes)
+                      row {:op op :mesh mesh
+                           :first-vertex first-vertex
+                           :vertex-count (:vertex-count mesh)}]
                   (recur (next ops) (next meshes)
                          (+ first-vertex (:vertex-count row))
                          (conj result row)))
@@ -299,7 +228,7 @@
            :vertices (reduce + (map :vertex-count @(:!prepared path-system)))
            :derived (count (:derived-keys derivation))}
           (let [packed (pack-vertices prepared)
-                vertices (quot (.-length packed) path-material/vertex-words)
+                vertices (quot (.-length packed) vertex-words)
                 buffer (ensure-capacity! path-system vertices)
                 ^js device (:device path-system)]
             (when (pos? vertices)
@@ -315,7 +244,7 @@
                                  (count (:derived-keys derivation)))
                          (assoc :vertices vertices :regime regime
                                 :last-write-bytes
-                                (* vertices path-material/vertex-stride)))))
+                                (* vertices vertex-stride)))))
             {:mesh-set-changed? true :writes (if (pos? vertices) 1 0)
              :vertices vertices
              :derived (count (:derived-keys derivation))}))))))
