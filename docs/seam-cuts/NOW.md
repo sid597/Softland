@@ -1,12 +1,14 @@
-# Seam cuts — NOW (2026-09-02)
+# Seam cuts — atom 1 path seam close (2026-09-02)
 
-Status: **CONTRACT CUT 2026-09-02 (cutter Fable 5.1, max); SID LANDED THE POSITION + BOTH FORKS SAME DAY** ("land it · A: data · B: GPU").
-Package: the seam cuts — atom 1 the path seam (this contract) · atoms 2–4 image, text, region by repetition · atom B GPU fill · atom A runtime + builtins · then the missing floor (pointer, in-flight store, wire, clock, culling).
-Source: two fenced waist maps drawn from code alone (sessions 1 and 2), merged in chat 2026-09-02; CONTRACT §0 carries the merged position.
-Rulings recorded verbatim in CONTRACT header: A verbs are data run by a client runtime with builtins · B fill on the GPU · dead means wrong form, not uncalled.
-Baseline: `3d703a5`.
-PENDING 1: `docs/decisions.md` waist amendment — Fable, fresh context, source CONTRACT §0, mechanical merge.
-PENDING 2: the falsification round — one fresh Codex-class session at Sid's hand (CONTRACT §12).
-PENDING 3: implementation — Codex, starter CONTRACT §11; close receipt replaces these lines.
-FOREIGN at cut time, untouched: `CLAUDE.md` shows deleted with `CLAUDE-1.md` untracked; sibling edits under `.claude/memory/`.
-NEXT: Sid's touch on the contract header (model + effort + rulings), then the round or straight to Codex.
+Status: **BUILT + CLOSE RECEIPT PASS; SID ACCEPTANCE PENDING.** Code `9caa2ab` on `main`; source baseline `1750489`.
+S1 tree: cid 17 resolved to slot 1 under `[0.5 0 0 0.5 40 20]`; missing cid refused `:path/unknown-container` before upload; new golden PASS.
+S2 travel: both fixtures survived EDN round-trip with nil metadata, equal content keys/classification/mesh bytes; seven grammar refusals named in data.
+S3 gate: frames 1–4 returned writes/derived `1/2, 0/0, 1/0, 1/2` for first/equal/revision/regime changes.
+S4 width: the two prior mesh SHA-256 fingerprints stayed exact; tapered `(8,3)` classified inside with boundary distance `2.2`.
+S5 color: the painter-local preamble is gone; legacy-direct + linear-premultiplied receipts and the holed/translucent goldens PASS unchanged.
+Receipt: `9 tests / 62 assertions / 0 failures / 0 errors`; `npm run verify:render-engine` PASS, 6/6 guards; diff check and removal scan clean.
+Adapter: Google SwiftShader · architecture/renderer `swiftshader` · fallback true (`GPUAdapterInfo.isFallbackAdapter`).
+Goldens raw SHA-256: holed `645f9536…410b` · translucent `5bf612e2…ea79` · tree `ca96286b…53ba`.
+Changed from `git diff 1750489..9caa2ab`: engine `device, grammar`; path `frame, material, painter, tessellation`; verifier `core`.
+Tests/tooling: path `fixtures + frame/material/tessellation tests`; tree PNG + manifest; `test_runner.clj`; `run_verifier.mjs` (15 exact paths total).
+Foreign untouched: six `.claude/memory/` status entries; known full-suite tools-test debt not re-run by this focused close. No fork surfaced.
