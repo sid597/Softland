@@ -113,7 +113,6 @@
             :address (:address placement)
             :cache-key (:cache-key mesh)
             :vertices (:vertices mesh)
-            :triangles (:triangles mesh)
             :color (adapt-legacy-color
                     (path-material/paint-color (:material placement)))}}))
 

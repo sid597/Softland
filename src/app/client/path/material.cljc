@@ -2,55 +2,50 @@
   "What a path is, and the four things everyone needs from one. A path is ink
    (a stroke of pressure-tagged points, round caps) or a shape (filled outer
    contours with holes), straight segments only, with a paint.
-   Takes: a path map; a point; a zoom.
-   Gives: a validated path; inside, boundary, or outside; a cache key; 7 floats
-   per vertex.
+   Takes: a path map; a point; optional local-unit hit slop.
+   Gives: a validated path; inside, boundary, or outside; a content key; paint.
    Holds nothing.")
 
-(def schema-version 1)
-(def algorithm-version :path-tessellation-v1)
+(def schema-version 2)
 (def legal-kinds #{:ink :shape})
-(def legal-contour-roles #{:open :outer :hole})
+(def legal-contour-roles #{:outer :hole})
 (def legal-cap-join #{:round})
 (def boundary-epsilon 1.0e-9)
-(def hit-slop-screen-px 0.0)
 
-(def legal-zoom-regimes
-  [{:regime/id :legal-min
-    :zoom {:min 0.01 :max 0.1}
-    :fan-resolution 4
-    :extent :normalized-arbitrary
-    :normalization :shape-local-origin-scale
-    :coordinate-precision :f32
-    :coverage-precision :rgba8unorm
-    :lifecycle :live
-    :backend :webgpu-triangle-list
-    :verdict :measured-path-parity}
-   {:regime/id :floor-default
-    :zoom {:min 0.1 :max 8.0}
-    :fan-resolution 8
-    :extent :normalized-arbitrary
-    :normalization :shape-local-origin-scale
-    :coordinate-precision :f32
-    :coverage-precision :rgba8unorm
-    :lifecycle :live
-    :backend :webgpu-triangle-list
-    :verdict :measured-path-parity}
-   {:regime/id :legal-max
-    :zoom {:min 8.0 :max 1000.0}
-    :fan-resolution 16
-    :extent :normalized-arbitrary
-    :normalization :shape-local-origin-scale
-    :coordinate-precision :f32
-    :coverage-precision :rgba8unorm
-    :lifecycle :live
-    :backend :webgpu-triangle-list
-    :verdict :measured-path-parity}])
+(def example-ink-material
+  {:path/material-id :path/ink-fixture
+   :path/revision :ink/rev-1
+   :path/kind :ink
+   :path/geometry
+   {:knots [{:knot/id [:knot 0] :position [0.0 0.0] :pressure 0.2}
+            {:knot/id [:knot 1] :position [20.0 0.0] :pressure 0.6}
+            {:knot/id [:knot 2] :position [30.0 10.0] :pressure 1.0}]
+    :base-width 10.0 :cap :round :join :round}
+   :path/paint {:color [0.2 0.6 0.9 0.8]
+                :opacity 0.75
+                :color-space :srgb
+                :alpha-association :straight}})
+
+(def example-shape-material
+  {:path/material-id :path/holed-concave
+   :path/revision :shape/rev-1
+   :path/kind :shape
+   :path/geometry
+   {:contours
+    [{:contour/id :outer :role :outer
+      :points [[0.0 0.0] [40.0 0.0] [40.0 40.0]
+               [24.0 40.0] [24.0 16.0] [16.0 16.0]
+               [16.0 40.0] [0.0 40.0]]}
+     {:contour/id :hole :role :hole
+      :points [[4.0 4.0] [13.0 4.0] [13.0 13.0] [4.0 13.0]]}]}
+   :path/paint {:color [0.9 0.3 0.2 1.0]
+                :opacity 1.0
+                :color-space :srgb
+                :alpha-association :straight}})
 
 (def material-required-keys
   #{:path/material-id :path/revision :path/kind :path/geometry
-    :path/paint :path/provenance})
-(def material-optional-keys #{:path/extensions})
+    :path/paint})
 (def paint-required-keys #{:color :opacity :color-space :alpha-association})
 
 (defn finite-number? [x]
@@ -68,15 +63,6 @@
 
 (defn pressure-width [base-width pressure]
   (* (double base-width) (clamp-pressure pressure)))
-
-(defn zoom-regime [zoom]
-  (when-not (and (finite-number? zoom) (<= 0.01 zoom 1000.0))
-    (throw (ex-info "Path zoom is outside the legal envelope"
-                    {:zoom zoom :legal [0.01 1000.0]})))
-  (cond
-    (< zoom 0.1) (first legal-zoom-regimes)
-    (<= zoom 8.0) (second legal-zoom-regimes)
-    :else (nth legal-zoom-regimes 2)))
 
 (defn- validate-paint! [paint]
   (let [keys* (set (keys paint))
@@ -107,7 +93,7 @@
 
 (defn- validate-knot! [knot]
   (let [required #{:knot/id :position :pressure}
-        optional #{:gesture-time :source-event-ids}
+        optional #{:gesture-time}
         keys* (set (keys knot))]
     (when-let [missing (seq (sort (remove keys* required)))]
       (throw (ex-info "Ink knot is missing required fields"
@@ -120,6 +106,9 @@
                       {:knot knot})))
     (when-not (finite-number? (:pressure knot))
       (throw (ex-info "Ink knot pressure must be finite" {:knot knot})))
+    (when (and (contains? knot :gesture-time)
+               (not (finite-number? (:gesture-time knot))))
+      (throw (ex-info "Ink knot gesture time must be finite" {:knot knot})))
     knot))
 
 (defn- validate-ink-geometry! [geometry]
@@ -167,14 +156,14 @@
       (throw (ex-info "Shape contour role is invalid"
                       {:role role :legal legal-contour-roles})))
     (when-not (and (vector? points)
-                   (<= (if (= :open role) 2 3) (count points))
+                   (<= 3 (count points))
                    (every? point? points))
       (throw (ex-info "Shape contour has invalid line points"
                       {:role role :points points})))
     contour))
 
 (defn- validate-shape-geometry! [geometry]
-  (let [required #{:contours :open-width}
+  (let [required #{:contours}
         keys* (set (keys geometry))
         contours (:contours geometry)]
     (when-let [missing (seq (sort (remove keys* required)))]
@@ -192,10 +181,6 @@
     (when (and (some #(= :hole (:role %)) contours)
                (not-any? #(= :outer (:role %)) contours))
       (throw (ex-info "Explicit holes require an outer contour" {})))
-    (when-not (and (finite-number? (:open-width geometry))
-                   (pos? (:open-width geometry)))
-      (throw (ex-info "Shape open-polyline width must be positive"
-                      {:open-width (:open-width geometry)})))
     geometry))
 
 (defn validate-material!
@@ -204,9 +189,7 @@
   [material]
   (let [keys* (set (keys material))
         missing (seq (sort (remove keys* material-required-keys)))
-        unknown (seq (sort (remove (into material-required-keys
-                                         material-optional-keys)
-                                   keys*)))
+        unknown (seq (sort (remove material-required-keys keys*)))
         kind (:path/kind material)]
     (when missing
       (throw (ex-info "Path material is missing required fields"
@@ -239,19 +222,8 @@
     (canonical (validate-material! material))))
 
 (defn material-content-key [material]
-  [:path/content-v1 (pr-str (dissoc (canonical-material material)
-                                    :path/revision))])
-
-(defn material-cache-key
-  ([material zoom]
-   (material-cache-key material algorithm-version zoom))
-  ([material algorithm zoom]
-   (let [material (validate-material! material)
-         regime (:regime/id (zoom-regime zoom))]
-     [(material-content-key material)
-      (:path/revision material)
-      algorithm
-      regime])))
+  [:path/content-v2 (pr-str (dissoc (canonical-material material)
+                                    :path/material-id :path/revision))])
 
 (defn material-points [material]
   (let [material (validate-material! material)]
@@ -268,9 +240,7 @@
         max-x (apply max xs) max-y (apply max ys)
         scale (max 1.0 (- max-x min-x) (- max-y min-y))]
     {:origin [min-x min-y]
-     :scale scale
-     :authority-precision :f64
-     :derived-precision :f32}))
+     :scale scale}))
 
 (defn normalize-point [{:keys [origin scale]} [x y]]
   [(/ (- x (first origin)) scale)
@@ -317,6 +287,12 @@
            (map vector points (concat (rest points) [(first points)])))]
       (if inside? :inside :outside))))
 
+(defn- contour-boundary-distance [points point]
+  (apply min
+         (for [[a b] (map vector points
+                          (concat (rest points) [(first points)]))]
+           (point-segment-distance point a b))))
+
 (defn- ink-classify [geometry query-point slop-local]
   (let [knots (:knots geometry)
         base-width (:base-width geometry)
@@ -340,34 +316,36 @@
 
 (defn classify
   "Tri-state authority classification in path-local f64 coordinates."
-  ([material point] (classify material point 1.0))
-  ([material point zoom]
-   (let [material (validate-material! material)
-         slop-local (/ hit-slop-screen-px zoom)]
+  ([material point] (classify material point 0.0))
+  ([material point slop-local]
+   (let [material (validate-material! material)]
+     (when-not (and (finite-number? slop-local) (not (neg? slop-local)))
+       (throw (ex-info "Path hit slop must be finite local units"
+                       {:slop-local slop-local})))
      (case (:path/kind material)
        :ink (ink-classify (:path/geometry material) point slop-local)
        :shape
        (let [contours (get-in material [:path/geometry :contours])
-             closed (remove #(= :open (:role %)) contours)
-             open (filter #(= :open (:role %)) contours)
              closed-classes (mapv #(assoc % :class (contour-classify (:points %) point))
-                                  closed)
-             open-delta
-             (when (seq open)
-               (apply min
-                      (for [contour open
-                            [a b] (partition 2 1 (:points contour))]
-                        (- (point-segment-distance point a b)
-                           (+ (/ (get-in material [:path/geometry :open-width]) 2.0)
-                              slop-local)))))]
+                                  contours)
+             base-class
+             (cond
+               (some #(= :boundary (:class %)) closed-classes) :boundary
+               (and (some #(and (= :outer (:role %)) (= :inside (:class %)))
+                                closed-classes)
+                     (not-any? #(and (= :hole (:role %)) (= :inside (:class %)))
+                               closed-classes)) :inside
+               :else :outside)
+             slop-delta
+             (when (and (= :outside base-class) (pos? slop-local))
+               (- (apply min
+                         (map #(contour-boundary-distance (:points %) point)
+                              contours))
+                  slop-local))]
          (cond
-           (some #(= :boundary (:class %)) closed-classes) :boundary
-           (and open-delta (<= (Math/abs open-delta) boundary-epsilon)) :boundary
-           (and open-delta (neg? open-delta)) :inside
-           (and (some #(and (= :outer (:role %)) (= :inside (:class %)))
-                      closed-classes)
-                (not-any? #(and (= :hole (:role %)) (= :inside (:class %)))
-                          closed-classes)) :inside
+           (not= :outside base-class) base-class
+           (and slop-delta (<= (Math/abs slop-delta) boundary-epsilon)) :boundary
+           (and slop-delta (neg? slop-delta)) :inside
            :else :outside))))))
 
 (defn hit? [material point]
@@ -388,35 +366,12 @@
       :shape
       (apply min
              (for [contour (get-in material [:path/geometry :contours])
-                   [a b] (if (= :open (:role contour))
-                           (partition 2 1 (:points contour))
-                           (map vector (:points contour)
-                                (concat (rest (:points contour))
-                                        [(first (:points contour))])))]
+                   [a b] (map vector (:points contour)
+                              (concat (rest (:points contour))
+                                      [(first (:points contour))]))]
                (point-segment-distance point a b))))))
-
-(def vertex-words 7)
-(def vertex-stride (* vertex-words 4))
 
 (defn paint-color [material]
   (let [{:keys [color opacity]} (:path/paint (validate-material! material))
         [r g b a] color]
     [r g b (* a opacity)]))
-
-(defn vertex-values [material [x y] container-idx]
-  (into [x y] (conj (paint-color material) (or container-idx 0))))
-
-(def claimed-corpus-pressures
-  #{:pressure-width :round-caps-joins :open-polyline :concave-outer
-    :explicit-hole :translucent-self-crossing :legal-zoom-extremes})
-
-(defn assert-corpus-coverage! [fixture-pressure->gates]
-  (let [actual (set (keys fixture-pressure->gates))
-        missing (seq (sort (remove actual claimed-corpus-pressures)))
-        unconsumed (seq (sort (for [[pressure gates] fixture-pressure->gates
-                                   :when (empty? gates)]
-                               pressure)))]
-    (when (or missing unconsumed)
-      (throw (ex-info "Path corpus is incomplete or unconsumed"
-                      {:missing (vec missing) :unconsumed (vec unconsumed)})))
-    true))

@@ -3,13 +3,42 @@
    and joins; shapes bridge their holes and ear-clip. Deterministic and pure.
    Takes: a path material and a zoom; or a content-keyed cache plus many
    materials.
-   Gives: a mesh (vertices, triangles, coverage, cache key); untouched
+   Gives: a mesh (flat vertices, counts, coverage, cache key); untouched
    materials return their old mesh by identity.
    Holds nothing; the cache is a value the caller owns."
   (:require [app.client.path.material :as path-material]))
 
-(def algorithm-version path-material/algorithm-version)
+(def legal-zoom-regimes
+  [{:regime/id :legal-min
+    :zoom {:min 0.01 :max 0.1}
+    :fan-resolution 4}
+   {:regime/id :floor-default
+    :zoom {:min 0.1 :max 8.0}
+    :fan-resolution 8}
+   {:regime/id :legal-max
+    :zoom {:min 8.0 :max 1000.0}
+    :fan-resolution 16}])
+
+(defn zoom-regime [zoom]
+  (when-not (and (path-material/finite-number? zoom) (<= 0.01 zoom 1000.0))
+    (throw (ex-info "Path zoom is outside the legal envelope"
+                    {:zoom zoom :legal [0.01 1000.0]})))
+  (cond
+    (< zoom 0.1) (first legal-zoom-regimes)
+    (<= zoom 8.0) (second legal-zoom-regimes)
+    :else (nth legal-zoom-regimes 2)))
+
+(def algorithm-version :path-tessellation-v1)
 (def ^:private epsilon 1.0e-10)
+
+(defn material-cache-key
+  ([material zoom]
+   (material-cache-key material algorithm-version zoom))
+  ([material algorithm zoom]
+   (let [canonical (path-material/canonical-material material)
+         geometry (into (sorted-map)
+                        (select-keys canonical [:path/kind :path/geometry]))]
+     [geometry algorithm (:regime/id (zoom-regime zoom))])))
 
 (defn- add [[ax ay] [bx by]] [(+ ax bx) (+ ay by)])
 (defn- sub [[ax ay] [bx by]] [(- ax bx) (- ay by)])
@@ -72,7 +101,7 @@
   (let [geometry (:path/geometry material)
         knots (:knots geometry)
         base-width (:base-width geometry)
-        resolution (:fan-resolution (path-material/zoom-regime zoom))
+        resolution (:fan-resolution (zoom-regime zoom))
         segments
         (mapv
          (fn [[left right]]
@@ -328,28 +357,14 @@
                            :triangle-count (count triangles)})))))))
 
 (defn- normalized-shape [material normalization]
-  (let [scale-factor (:scale normalization)]
-    (-> material
-        (update-in [:path/geometry :contours]
-                   (fn [contours]
-                     (mapv #(update % :points
-                                    (fn [points]
-                                      (mapv (partial path-material/normalize-point
-                                                     normalization)
-                                            points)))
-                           contours)))
-        (update-in [:path/geometry :open-width] / scale-factor))))
-
-(defn- open-contour-material [material contour]
-  (assoc material
-         :path/kind :ink
-         :path/geometry
-         {:knots (mapv (fn [index point]
-                         {:knot/id [(:contour/id contour) index]
-                          :position point :pressure 1.0})
-                       (range) (:points contour))
-          :base-width (get-in material [:path/geometry :open-width])
-          :cap :round :join :round}))
+  (update-in material [:path/geometry :contours]
+             (fn [contours]
+               (mapv #(update % :points
+                              (fn [points]
+                                (mapv (partial path-material/normalize-point
+                                               normalization)
+                                      points)))
+                     contours))))
 
 (defn shape-triangles [material zoom]
   (let [material (path-material/validate-material! material)
@@ -358,7 +373,6 @@
         contours (get-in normalized [:path/geometry :contours])
         outer (filter #(= :outer (:role %)) contours)
         holes (mapv :points (filter #(= :hole (:role %)) contours))
-        open (filter #(= :open (:role %)) contours)
         fills
         (into []
               (mapcat
@@ -371,58 +385,27 @@
                                 holes)]
                    (ear-clip (bridge-holes (:points outer-contour)
                                            owned-holes))))
-               outer)
-              )
-        strokes (into []
-                      (mapcat #(stroke-triangles-normalized
-                                (open-contour-material normalized %) zoom))
-                      open)
-        normalized-triangles (into fills strokes)]
+               outer))]
     (mapv (fn [tri]
             (mapv (partial path-material/denormalize-point normalization) tri))
-          normalized-triangles)))
+          fills)))
 
 (defn tessellate
   ([material zoom] (tessellate material algorithm-version zoom))
   ([material algorithm zoom]
    (let [material (path-material/validate-material! material)
-         normalization (path-material/shape-normalization material)
          triangles (case (:path/kind material)
                      :ink (stroke-triangles material zoom)
                      :shape (shape-triangles material zoom))
          vertices (into [] cat triangles)]
-     {:path.mesh/version 1
+     {:path.mesh/version 2
       :algorithm-version algorithm
-      :regime (:regime/id (path-material/zoom-regime zoom))
-      :cache-key (path-material/material-cache-key material algorithm zoom)
-      :normalization normalization
+      :regime (:regime/id (zoom-regime zoom))
+      :cache-key (material-cache-key material algorithm zoom)
       :coverage :aliased-v1
-      :triangles triangles
       :vertices vertices
       :triangle-count (count triangles)
       :vertex-count (count vertices)})))
-
-(defn- float-bits [value]
-  #?(:clj (Float/floatToIntBits (float value))
-     :cljs (let [buffer (js/ArrayBuffer. 4)
-                 floats (js/Float32Array. buffer)
-                 ints (js/Uint32Array. buffer)]
-             (aset floats 0 value)
-             (aget ints 0))))
-
-(defn mesh-bytes
-  "Canonical f32 bit-pattern vector used by JVM and verifier determinism
-   receipts. Metadata/cache identity stays separate from tessellated bytes."
-  [mesh]
-  (into []
-        (mapcat (fn [[x y]] [(float-bits x) (float-bits y)]))
-        (:vertices mesh)))
-
-(defn point-in-mesh? [mesh point]
-  (boolean
-   (some (fn [[a b c]]
-           (point-in-triangle? point a b c))
-         (:triangles mesh))))
 
 (defn derive-mesh-set
   "Content-keyed derivation cache. A point edit mints only its material key;
@@ -430,7 +413,7 @@
   [cache materials zoom]
   (reduce
    (fn [{:keys [cache meshes derived-keys]} material]
-     (let [key (path-material/material-cache-key material algorithm-version zoom)]
+     (let [key (material-cache-key material algorithm-version zoom)]
        (if-let [mesh (get cache key)]
          {:cache cache :meshes (conj meshes mesh) :derived-keys derived-keys}
          (let [mesh (tessellate material zoom)]
@@ -452,7 +435,7 @@
                           (Math/abs (- y (f32-roundtrip y)))])
                        (:vertices mesh))
         max-local (if (seq errors) (apply max errors) 0.0)]
-    {:regime (:regime/id (path-material/zoom-regime zoom))
+    {:regime (:regime/id (zoom-regime zoom))
      :zoom zoom
      :coordinate-precision :f32
      :max-local-error max-local

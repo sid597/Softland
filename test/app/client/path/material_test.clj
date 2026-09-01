@@ -2,62 +2,53 @@
   (:require [clojure.test :refer [deftest is testing]]
             [app.client.path.material :as path-material]))
 
+(def claimed-corpus-pressures
+  #{:pressure-width :round-caps-joins :open-polyline :concave-outer
+    :explicit-hole :translucent-self-crossing :legal-zoom-extremes})
+
+(defn assert-corpus-coverage! [fixture-pressure->gates]
+  (let [actual (set (keys fixture-pressure->gates))
+        missing (seq (sort (remove actual claimed-corpus-pressures)))
+        unconsumed (seq (sort (for [[pressure gates] fixture-pressure->gates
+                                   :when (empty? gates)]
+                               pressure)))]
+    (when (or missing unconsumed)
+      (throw (ex-info "Path corpus is incomplete or unconsumed"
+                      {:missing (vec missing) :unconsumed (vec unconsumed)})))
+    true))
+
 (defn ink-material
-  ([] (ink-material :ink/rev-1 [[0.0 0.0 0.2] [20.0 0.0 0.6]
-                               [30.0 10.0 1.0]]))
+  ([] path-material/example-ink-material)
   ([revision samples]
-   {:path/material-id :path/ink-fixture
-    :path/revision revision
-    :path/kind :ink
-    :path/geometry
-    {:knots (mapv (fn [index [x y pressure]]
-                    {:knot/id [:knot index]
-                     :position [x y]
-                     :pressure pressure})
-                  (range) samples)
-     :base-width 10.0 :cap :round :join :round}
-    :path/paint {:color [0.2 0.6 0.9 0.8]
-                 :opacity 0.75
-                 :color-space :srgb
-                 :alpha-association :straight}
-    :path/provenance {:actor :fixture :act :create}}))
+   (-> path-material/example-ink-material
+       (assoc :path/revision revision)
+       (assoc-in [:path/geometry :knots]
+                 (mapv (fn [index [x y pressure]]
+                         {:knot/id [:knot index]
+                          :position [x y]
+                          :pressure pressure})
+                       (range) samples)))))
 
 (defn holed-shape []
-  {:path/material-id :path/holed-concave
-   :path/revision :shape/rev-1
-   :path/kind :shape
-   :path/geometry
-   {:open-width 3.0
-    :contours
-    [{:contour/id :outer :role :outer
-      :points [[0.0 0.0] [40.0 0.0] [40.0 40.0]
-               [24.0 40.0] [24.0 16.0] [16.0 16.0]
-               [16.0 40.0] [0.0 40.0]]}
-     {:contour/id :hole :role :hole
-      :points [[4.0 4.0] [13.0 4.0] [13.0 13.0] [4.0 13.0]]}
-     {:contour/id :open :role :open
-      :points [[28.0 22.0] [34.0 28.0] [30.0 34.0]]}]}
-   :path/paint {:color [0.9 0.3 0.2 1.0]
-                :opacity 1.0
-                :color-space :srgb
-                :alpha-association :straight}
-   :path/provenance {:actor :fixture :act :create}})
+  path-material/example-shape-material)
 
-(deftest fail-closed-grammar-cache-and-packing-tripwire
-  (let [material (ink-material)
-        key (path-material/material-cache-key material 1.0)
-        bumped (path-material/material-cache-key material
-                                                :path-tessellation-v2 1.0)]
+(deftest fail-closed-grammar-and-content-tripwire
+  (let [material (ink-material)]
     (is (= material (path-material/validate-material! material)))
-    (is (not= key bumped) "algorithm versions are part of cache identity")
+    (is (= path-material/example-shape-material
+           (path-material/validate-material! path-material/example-shape-material)))
+    (is (= (path-material/material-content-key material)
+           (path-material/material-content-key
+            (assoc material :path/material-id :path/other
+                            :path/revision :ink/rev-2)))
+        "material identity and revision are not content")
     (is (= [0.2 0.6 0.9 0.6000000000000001]
            (path-material/paint-color material)))
-    (is (= 7 (count (path-material/vertex-values material [1.0 2.0] 9))))
     (testing "malformed material refuses by field name"
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"missing required fields"
                             (path-material/validate-material!
-                             (dissoc material :path/provenance))))
+                             (dissoc material :path/paint))))
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"unknown fields"
                             (path-material/validate-material!
@@ -66,10 +57,7 @@
                             #"round caps only"
                             (path-material/validate-material!
                              (assoc-in material [:path/geometry :cap] :square)))))
-    (is (= [:legal-min :floor-default :floor-default :legal-max :legal-max]
-           (mapv (comp :regime/id path-material/zoom-regime)
-                 [0.01 0.1 8.0 10.0 1000.0])))
-    (is (path-material/assert-corpus-coverage!
+    (is (assert-corpus-coverage!
          {:pressure-width [:jvm]
           :round-caps-joins [:jvm]
           :open-polyline [:jvm]
@@ -77,6 +65,24 @@
           :explicit-hole [:jvm :gpu]
           :translucent-self-crossing [:gpu]
           :legal-zoom-extremes [:gpu]}))))
+
+(deftest gesture-time-grammar-tripwire
+  (let [material (assoc-in (ink-material)
+                           [:path/geometry :knots 0 :gesture-time]
+                           12.5)]
+    (is (= material (path-material/validate-material! material)))
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                          #"gesture time must be finite"
+                          (path-material/validate-material!
+                           (assoc-in material
+                                     [:path/geometry :knots 0 :gesture-time]
+                                     Double/POSITIVE_INFINITY))))
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                          #"unknown fields"
+                          (path-material/validate-material!
+                           (assoc-in material
+                                     [:path/geometry :knots 0 :source-event-ids]
+                                     [:event/e1]))))))
 
 (deftest pressure-width-and-cpu-interior-truth-tripwire
   (let [ink (ink-material)
