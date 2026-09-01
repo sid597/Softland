@@ -1308,3 +1308,21 @@ marketplace split DOWN to bet — never constitution.)*
 [After the waist constitution converged across two sessions and the curves probe page — cubics through the real floor, four panels, a zoom dial — landed in his hands:]
 
 > and broooo let me tell you ..... this artifact that you created this si something that should should should be possible to do in softland this is what i am striving for like everything that be understood and anlysed and pointed at learned, worked out within softland build softland in softland ..... this is sick
+
+## 2026-09-02 — the waist, round two: the ECS layer, dead means wrong form, A data / B GPU (verbatim)
+
+[Session 2 of two parallel fenced waist rounds. He asked what a freehand canvas, shapes, Figma-style components, 3D and text still need below the waist, then turned to the existing path/* code file by file. Then he pasted session 1's review of session 2, the two merged, and he landed it:]
+
+> Answer every such question i ask keeping in mind we have build engine and some primitives that get hardcoded and we leave other heigher level layers for ecs and call that above the waist. Anything above the waist is stored as data, is collaborative editable, createable, agents and humans can build freely over it without getting into git merge deadlocks, anything in wcs layer should be creatable and then saved for reuse or build higher order things from it
+
+> The problem is not we need to make some set of things in code to use later … the. Problem is what needs to be coded with the assumption that we are saying anything that is not here can be done on ecs layer and the layer can go to i finte compositions and drawings idk imaging anything that is the pinnacle for anything that 2d is possible
+
+> very good now can we get into what the current code that exists should be ... because the way i want to build this out is first make the existing code how it should be and only then fold the other things in ... re: we don't have a driver apart from the test code its fine that is how it should be as of now ... we should be thinking from the pov of what is the input and what is the output of each of the existing files and new ones we make ... this comes with who and how we deciding the input data shape and output shape ... so lets use that to analyse the current path/* code and see what should be removed .. note that we are not going to use the heuristic of hey lets keep this code until better one comes then we will remove .. no we are going to remove now ...
+
+> the definition of what should be dead,from my perspective,Things that should be dead are not explicitly... that are not being called from anywhere, but like that exists for some future valid case and are implemented in the form that they should be
+
+> land it · A: data · B: GPU
+
+> not very sure because this session is like 400k tokens already and we know the performance drop as the context grows so new or here?? … i think you write the full new contract don't ament the existing ones they will droup your performance further imo
+
+*(Routed same-session: the position + both rulings → `docs/seam-cuts/CONTRACT.md` §0 + header, `NOW.md`; the board's seam-cuts pointer + Vision line; the dead criterion → memory `feedback-dead-means-wrong-form-not-uncalled`; `docs/decisions.md` waist amendment PENDING, Fable in a fresh context.)*
