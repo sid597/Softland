@@ -6,14 +6,12 @@
    draw.
    Gives: a path system; a written vertex buffer; draw calls.
    Holds: per-system atoms for the buffer, capacity, mesh cache, prepared
-   state, last paths, and last regime."
-  (:require [clojure.string :as str]
+   state, and the last revision/container/regime frame key."
+  (:require [app.client.engine.color :as scene-color]
+            [app.client.engine.device :as device]
+            [app.client.path.frame :as frame]
             [app.client.path.material :as path-material]
-            [app.client.path.tessellation :as tessellation]
-            [app.client.engine.color :as scene-color]))
-
-(def path-color-mode-declaration
-  "const kPathLinearPremultiplied: bool = false;")
+            [app.client.path.tessellation :as tessellation]))
 
 (def vertex-words 7)
 (def vertex-stride 28)
@@ -53,32 +51,10 @@
      return output;
    }")
 
-(def path-fragment-shader
-  (str path-color-mode-declaration "\n"
-       "fn srgb_channel_to_linear(v: f32) -> f32 {\n"
-       "  if (v <= 0.04045) { return v / 12.92; }\n"
-       "  return pow((v + 0.055) / 1.055, 2.4);\n"
-       "}\n"
-       "@fragment fn main(@location(0) color: vec4<f32>) -> @location(0) vec4<f32> {\n"
-       "  if (!kPathLinearPremultiplied) { return color; }\n"
-       "  let alpha = clamp(color.a, 0.0, 1.0);\n"
-       "  let linear = vec3<f32>(srgb_channel_to_linear(color.r),\n"
-       "                         srgb_channel_to_linear(color.g),\n"
-       "                         srgb_channel_to_linear(color.b));\n"
-       "  return vec4<f32>(linear * alpha, alpha);\n"
-       "}\n"))
-
-(defn- configure-path-color-shader [shader color]
-  (if (:enabled? color)
-    (str/replace shader path-color-mode-declaration
-                 "const kPathLinearPremultiplied: bool = true;")
-    shader))
-
-(defn- scene-color-blend [color]
-  (let [{[color-src color-dst] :color
-         [alpha-src alpha-dst] :alpha} (:blend color)]
-    {:color {:srcFactor (name color-src) :dstFactor (name color-dst)}
-     :alpha {:srcFactor (name alpha-src) :dstFactor (name alpha-dst)}}))
+(def path-fragment-main
+  "@fragment fn main(@location(0) color: vec4<f32>) -> @location(0) vec4<f32> {
+     return scene_color(color, 1.0);
+   }")
 
 (defn- create-vertex-buffer [^js device capacity]
   (.createBuffer device
@@ -98,8 +74,11 @@
                        device (clj->js {:code path-vertex-shader}))
         fragment-module (.createShaderModule
                          device
-                         (clj->js {:code (configure-path-color-shader
-                                         path-fragment-shader scene-color)}))
+                         (clj->js
+                          {:code
+                           (device/configure-scene-color-shader
+                            (str device/scene-color-wgsl path-fragment-main)
+                            scene-color)}))
         bind-layout (.createBindGroupLayout
                      device
                      (clj->js
@@ -129,7 +108,7 @@
                     :fragment
                     {:module fragment-module :entryPoint "main"
                      :targets [{:format fformat
-                                :blend (scene-color-blend scene-color)}]}
+                                :blend (device/scene-color-blend scene-color)}]}
                     :primitive {:topology "triangle-list"
                                 :frontFace "ccw"
                                 :cullMode "none"}}))
@@ -144,15 +123,11 @@
     {:device device :pipeline pipeline :bind-group bind-group
      :camera-buffer camera-buffer :containers-buffer containers-buffer
      :scene-color scene-color
-     :!shape-rev (atom 0)
      :!buffer (atom buffer) :!capacity (atom initial-capacity)
      :!mesh-cache (atom {}) :!prepared (atom [])
-     :!last-paths (atom ::never) :!last-regime (atom nil)
-     :!last-mesh-set-key (atom ::never)
-     :!receipt (atom {:path-system/version 1 :uploads 0
-                      :mesh-derivations 0 :vertices 0})}))
+     :!last-frame-key (atom ::never)}))
 
-(defn- pack-vertices [prepared]
+(defn- pack-vertices [prepared effective]
   (let [vertex-count (reduce + (map :vertex-count prepared))
         floats (js/Float32Array. (* vertex-count vertex-words))
         uints (js/Uint32Array. (.-buffer floats))]
@@ -161,7 +136,7 @@
         (let [material (:path/material op)
               vertices (:vertices mesh)
               [r g b a] (path-material/paint-color material)
-              container-idx (or (:container-idx op) 0)]
+              container-idx (frame/slot effective (:container op))]
           (doseq [[index [x y]] (map-indexed vector vertices)]
             (let [base (* (+ vertex-offset index) vertex-words)]
               (aset floats (+ base 0) x)
@@ -190,64 +165,49 @@
     @(:!buffer path-system)))
 
 (defn prepare-path-frame!
-  "Derive/cache/repack only when the path op vector identity or zoom regime
-   changes. Pan/continuous zoom inside a regime never reaches this write."
-  [path-system paths zoom]
+  "Derive/cache/repack when a material revision, container, or zoom regime
+   changes. Pan and continuous zoom within one regime never reach this write."
+  [path-system paths zoom effective]
   (let [paths (or paths [])
-        regime (:regime/id (tessellation/zoom-regime zoom))]
-    (if (and (= paths @(:!last-paths path-system))
-             (= regime @(:!last-regime path-system)))
-      {:mesh-set-changed? false :writes 0
-       :vertices (reduce + (map :vertex-count @(:!prepared path-system)))}
+        regime (:regime/id (tessellation/zoom-regime zoom))
+        key (frame/frame-key paths regime)]
+    (if (= key @(:!last-frame-key path-system))
+      {:changed? false
+       :writes 0
+       :vertices (reduce + (map :vertex-count @(:!prepared path-system)))
+       :derived 0}
       (let [derivation (tessellation/derive-mesh-set
                         @(:!mesh-cache path-system)
                         (mapv :path/material paths) zoom)
-            mesh-set-key
-            (mapv (fn [op mesh]
-                    [(:cache-key mesh)
-                     (path-material/paint-color (:path/material op))
-                     (or (:container-idx op) 0)])
-                  paths (:meshes derivation))
             prepared
-            (loop [ops paths meshes (:meshes derivation)
-                   first-vertex 0 result []]
+            (loop [ops paths
+                   meshes (:meshes derivation)
+                   first-vertex 0
+                   result []]
               (if-let [op (first ops)]
                 (let [mesh (first meshes)
-                      row {:op op :mesh mesh
+                      row {:op op
+                           :mesh mesh
                            :first-vertex first-vertex
                            :vertex-count (:vertex-count mesh)}]
-                  (recur (next ops) (next meshes)
+                  (recur (next ops)
+                         (next meshes)
                          (+ first-vertex (:vertex-count row))
                          (conj result row)))
-                result))]
+                result))
+            packed (pack-vertices prepared effective)
+            vertices (quot (.-length packed) vertex-words)
+            buffer (ensure-capacity! path-system vertices)
+            ^js device (:device path-system)]
+        (when (pos? vertices)
+          (.writeBuffer (.-queue device) buffer 0 packed))
         (reset! (:!mesh-cache path-system) (:cache derivation))
-        (reset! (:!last-paths path-system) paths)
-        (reset! (:!last-regime path-system) regime)
-        (if (= mesh-set-key @(:!last-mesh-set-key path-system))
-          {:mesh-set-changed? false :writes 0
-           :vertices (reduce + (map :vertex-count @(:!prepared path-system)))
-           :derived (count (:derived-keys derivation))}
-          (let [packed (pack-vertices prepared)
-                vertices (quot (.-length packed) vertex-words)
-                buffer (ensure-capacity! path-system vertices)
-                ^js device (:device path-system)]
-            (when (pos? vertices)
-              (.writeBuffer (.-queue device) buffer 0 packed))
-            (reset! (:!prepared path-system) prepared)
-            (reset! (:!last-mesh-set-key path-system) mesh-set-key)
-            (swap! (:!shape-rev path-system) inc)
-            (swap! (:!receipt path-system)
-                   (fn [receipt]
-                     (-> receipt
-                         (update :uploads inc)
-                         (update :mesh-derivations +
-                                 (count (:derived-keys derivation)))
-                         (assoc :vertices vertices :regime regime
-                                :last-write-bytes
-                                (* vertices vertex-stride)))))
-            {:mesh-set-changed? true :writes (if (pos? vertices) 1 0)
-             :vertices vertices
-             :derived (count (:derived-keys derivation))}))))))
+        (reset! (:!prepared path-system) prepared)
+        (reset! (:!last-frame-key path-system) key)
+        {:changed? true
+         :writes (if (pos? vertices) 1 0)
+         :vertices vertices
+         :derived (count (:derived-keys derivation))}))))
 
 (defn draw-path-range!
   "Paint one contiguous run of the prepared path vertices on an open pass."
@@ -257,14 +217,10 @@
   (.setVertexBuffer pass 0 @(:!buffer path-system))
   (.draw pass vertex-count 1 first-vertex 0))
 
-(defn path-receipt [path-system]
-  @(:!receipt path-system))
-
 (defn destroy-path-system! [path-system]
   (when-let [buffer @(:!buffer path-system)]
     (.destroy buffer))
   (reset! (:!prepared path-system) [])
   (reset! (:!mesh-cache path-system) {})
-  (reset! (:!last-paths path-system) ::destroyed)
-  (reset! (:!last-mesh-set-key path-system) ::destroyed)
+  (reset! (:!last-frame-key path-system) ::destroyed)
   nil)

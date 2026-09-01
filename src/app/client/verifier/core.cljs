@@ -1100,25 +1100,47 @@
 
 (defn- screen-point [zoom [x y]] [(/ x zoom) (/ y zoom)])
 
+(defn- revisioned-path [path]
+  (let [validated (path-material/validate-material! path)]
+    (assoc validated :path/revision
+           (path-material/material-content-key validated))))
+
+(defn- f32-roundtrip [value]
+  (let [values (js/Float32Array. 1)]
+    (aset values 0 value)
+    (aget values 0)))
+
+(defn- quantization-receipt [mesh zoom]
+  (let [errors (mapcat (fn [[x y]]
+                         [(js/Math.abs (- x (f32-roundtrip x)))
+                          (js/Math.abs (- y (f32-roundtrip y)))])
+                       (:vertices mesh))
+        max-local (if (seq errors) (apply max errors) 0.0)]
+    {:regime (:regime/id (path-tessellation/zoom-regime zoom))
+     :zoom zoom
+     :coordinate-precision :f32
+     :max-local-error max-local
+     :max-screen-px-error (* zoom max-local)}))
+
 (defn- path-ink-material [id zoom samples color opacity]
-  (path-material/admit-material
+  (revisioned-path
    {:path/material-id id
-    :path/revision 1
+    :path/revision ::pending
     :path/kind :ink
     :path/geometry
     {:knots (mapv (fn [index [x y pressure]]
                     {:knot/id [id index]
                      :position (screen-point zoom [x y])
+                     :width (* (/ 16.0 zoom) pressure)
                      :pressure pressure})
                   (range) samples)
-     :base-width (/ 16.0 zoom)
      :cap :round :join :round}
     :path/paint (path-paint color opacity)}))
 
 (defn- path-shape-material [id zoom color opacity]
-  (path-material/admit-material
+  (revisioned-path
    {:path/material-id id
-    :path/revision 1
+    :path/revision ::pending
     :path/kind :shape
     :path/geometry
     {:contours
@@ -1134,9 +1156,9 @@
     :path/paint (path-paint color opacity)}))
 
 (defn- path-polygon-material [id points color opacity]
-  (path-material/admit-material
+  (revisioned-path
    {:path/material-id id
-    :path/revision 1
+    :path/revision ::pending
     :path/kind :shape
     :path/geometry
     {:contours [{:contour/id [id :outer] :role :outer
@@ -1150,11 +1172,11 @@
          [[24.0 24.0] [104.0 24.0] [104.0 104.0] [24.0 104.0]])
    color opacity))
 
-(defn- path-op [id material]
-  {:id id :path/material material :container-idx 0})
+(defn- path-op [id material container]
+  {:id id :path/material material :container container})
 
 (defn- render-path-bytes!
-  [^js device path-system ops zoom
+  [^js device path-system ops zoom effective
    & {:keys [clear-value]
       :or {clear-value {:r 0.0 :g 0.0 :b 0.0 :a 0.0}}}]
   (let [row-bytes (* canvas-size 4)
@@ -1177,7 +1199,8 @@
         _ (device/update-camera device (:camera-buffer path-system)
                                   camera 0.0 0.0 zoom
                                   canvas-size canvas-size)
-        {:keys [vertices]} (path-painter/prepare-path-frame! path-system ops zoom)
+        {:keys [vertices]}
+        (path-painter/prepare-path-frame! path-system ops zoom effective)
         encoder (.createCommandEncoder device)
         pass (.beginRenderPass
               encoder
@@ -1206,12 +1229,12 @@
              (.destroy target)
              copy))))))
 
-(defn- render-path-pair! [device path-system ops zoom clear-value]
-  (-> (render-path-bytes! device path-system ops zoom
+(defn- render-path-pair! [device path-system ops zoom effective clear-value]
+  (-> (render-path-bytes! device path-system ops zoom effective
                           :clear-value clear-value)
       (.then
        (fn [first-bytes]
-         (-> (render-path-bytes! device path-system ops zoom
+         (-> (render-path-bytes! device path-system ops zoom effective
                                  :clear-value clear-value)
              (.then
               (fn [second-bytes]
@@ -1261,11 +1284,11 @@
                  [28.0 100.0 1.0] [102.0 28.0 0.7]]
                 [0.84 0.36 0.94 0.62] 1.0)}))
 
-(defn- run-path-golden! [device path-system mode]
+(defn- run-path-golden! [device path-system effective mode]
   (let [{:keys [case-id zoom material] :as spec} (path-golden-spec mode)
         clear {:r 0.025 :g 0.06 :b 0.11 :a 1.0}
-        op (path-op [:golden mode] material)]
-    (-> (render-path-pair! device path-system [op] zoom clear)
+        op (path-op [:golden mode] material 0)]
+    (-> (render-path-pair! device path-system [op] zoom effective clear)
         (.then
          (fn [pair]
            (let [mesh (path-tessellation/tessellate material zoom)]
@@ -1277,15 +1300,46 @@
               :mesh {:triangles (:triangle-count mesh)
                      :coverage (:coverage mesh)
                      :quantization
-                     (path-tessellation/quantization-receipt mesh zoom)}
+                     (quantization-receipt mesh zoom)}
               :images [(path-image-record (:mode spec) case-id pair)]}))))))
 
-(defn- path-parity-row! [device path-system {:keys [case-id zoom regime]}]
+(defn- run-path-tree-golden! [device path-system effective]
+  (let [case-id "tree-containers-cid17-slot1"
+        mode "container-tree"
+        zoom 1.0
+        clear {:r 0.025 :g 0.06 :b 0.11 :a 1.0}
+        material (path-polygon-material
+                  :path-golden/container-tree
+                  [[8.0 8.0] [40.0 8.0] [40.0 40.0] [8.0 40.0]]
+                  [0.18 0.82 0.58 0.96] 1.0)
+        ops [(path-op :path-tree/root material 0)
+             (path-op :path-tree/child material 17)]
+        unknown-error
+        (try
+          (path-painter/prepare-path-frame!
+           path-system [(path-op :path-tree/missing material 99)] zoom effective)
+          nil
+          (catch :default error (ex-data error)))]
+    (-> (render-path-pair! device path-system ops zoom effective clear)
+        (.then
+         (fn [pair]
+           {:case-id case-id
+            :zoom zoom
+            :regime (name (:regime/id (path-tessellation/zoom-regime zoom)))
+            :normalization "path-local-with-effective-container-tree"
+            :shape-extent-world 32.0
+            :transport-slots [(get-in effective [0 :transport-slot])
+                              (get-in effective [17 :transport-slot])]
+            :unknown-container unknown-error
+            :images [(path-image-record mode case-id pair)]})))))
+
+(defn- path-parity-row!
+  [device path-system effective {:keys [case-id zoom regime]}]
   (let [material (path-shape-material [:path-parity case-id] zoom
                                       [1.0 1.0 1.0 1.0] 1.0)
         mesh (path-tessellation/tessellate material zoom)
-        op (path-op [:parity case-id] material)]
-    (-> (render-path-bytes! device path-system [op] zoom)
+        op (path-op [:parity case-id] material 0)]
+    (-> (render-path-bytes! device path-system [op] zoom effective)
         (.then
          (fn [bytes]
            (let [rows
@@ -1321,7 +1375,7 @@
                           [x y]))]
              {:case-id case-id :zoom zoom :regime regime
               :quantization
-              (path-tessellation/quantization-receipt mesh zoom)
+              (quantization-receipt mesh zoom)
               :boundary-band-screen-px 1.25
               :boundary-pixel-count boundary-count
               :decisive-count (count decisive)
@@ -1335,75 +1389,125 @@
                           (some #(= :outside (:cpu %)) decisive)
                           (empty? mismatches))}))))))
 
-(defn- run-path-color! [device path-system]
+(defn- path-color-row! [device path-system effective linear?]
   (let [clear {:r 0.04 :g 0.18 :b 0.35 :a 1.0}
         color [(/ 200.0 255.0) (/ 80.0 255.0) (/ 40.0 255.0) 0.5]
         material (path-quad-material :path-color/source-over 1.0 color 1.0)]
     (-> (render-path-bytes! device path-system
-                            [(path-op :path-color material)] 1.0
+                            [(path-op :path-color material 0)] 1.0 effective
                             :clear-value clear)
         (.then
          (fn [bytes]
-           (let [expected (mapv
-                           (fn [source background]
-                             (linear->srgb-byte
-                              (+ (* (srgb->linear source) 0.5)
-                                 (* background 0.5))))
-                           [200 80 40] [0.04 0.18 0.35])
+           (let [expected
+                 (mapv (fn [source background]
+                         (if linear?
+                           (linear->srgb-byte
+                            (+ (* (srgb->linear source) 0.5)
+                               (* background 0.5)))
+                           (js/Math.round
+                            (+ (* source 0.5) (* 255.0 background 0.5)))))
+                       [200 80 40] [0.04 0.18 0.35])
                  actual (subvec (vec (pixel-rgba bytes 64 64)) 0 3)
                  delta (apply max (map #(js/Math.abs (- %1 %2))
                                        expected actual))]
-             {:expected expected :actual actual
+             {:mode (if linear? :linear-premultiplied :legacy-direct)
+              :expected expected :actual actual
               :max-byte-delta delta
               :non-black-background true
               :pass? (<= delta 3)}))))))
 
-(defn- run-path-upload-gate! [path-system]
-  (let [material (path-quad-material :path-upload-gate 1.0
-                                     [0.3 0.7 0.4 1.0] 1.0)
-        first-ops [(path-op :path-upload-gate material)]
-        first-write (path-painter/prepare-path-frame! path-system first-ops 1.0)
-        equal-new-vector (mapv identity first-ops)
-        same-mesh-set (path-painter/prepare-path-frame!
-                       path-system equal-new-vector 1.0)
-        repainted-material (assoc-in material [:path/paint :color]
-                                     [0.8 0.2 0.5 1.0])
-        repainted (path-painter/prepare-path-frame!
-                   path-system
-                   [(path-op :path-upload-gate repainted-material)] 1.0)]
-    {:first-write first-write
-     :equal-new-vector same-mesh-set
-     :paint-only-change repainted
-     :pass? (and (:mesh-set-changed? first-write)
-                 (= 1 (:writes first-write))
-                 (not (:mesh-set-changed? same-mesh-set))
-                 (zero? (:writes same-mesh-set))
-                 (:mesh-set-changed? repainted)
-                 (= 1 (:writes repainted))
-                 (zero? (:derived repainted)))}))
+(defn- run-path-color!
+  [device path-system camera containers-buffer effective]
+  (let [legacy-system
+        (path-painter/init-path-system
+         device "rgba8unorm" camera containers-buffer
+         :scene-color (scene-color/scene-color false))]
+    (-> (js/Promise.all
+         #js [(path-color-row! device legacy-system effective false)
+              (path-color-row! device path-system effective true)])
+        (.then
+         (fn [rows]
+           (let [legacy (aget rows 0)
+                 linear (aget rows 1)]
+             (path-painter/destroy-path-system! legacy-system)
+             {:legacy legacy
+              :linear-premultiplied linear
+              :pass? (and (:pass? legacy) (:pass? linear))}))))))
+
+(defn- run-path-upload-gate! [path-system effective]
+  (let [left (path-polygon-material
+              :path-upload/left
+              [[3.0 5.0] [19.0 5.0] [19.0 22.0] [3.0 22.0]]
+              [0.3 0.7 0.4 1.0] 1.0)
+        right (path-polygon-material
+               :path-upload/right
+               [[52.0 74.0] [91.0 61.0] [104.0 103.0]]
+               [0.8 0.2 0.5 1.0] 1.0)
+        first-ops [(path-op :path-upload/left left 0)
+                   (path-op :path-upload/right right 17)]
+        frame-1 (path-painter/prepare-path-frame!
+                 path-system first-ops 1.0 effective)
+        frame-2 (path-painter/prepare-path-frame!
+                 path-system (mapv identity first-ops) 1.0 effective)
+        reminted-left (assoc left :path/revision
+                             [:path/revision (:path/revision left)])
+        reminted-ops [(path-op :path-upload/left reminted-left 0)
+                      (second first-ops)]
+        frame-3 (path-painter/prepare-path-frame!
+                 path-system reminted-ops 1.0 effective)
+        frame-4 (path-painter/prepare-path-frame!
+                 path-system reminted-ops 10.0 effective)]
+    {:frame-1 frame-1
+     :frame-2 frame-2
+     :frame-3 frame-3
+     :frame-4 frame-4
+     :last-return frame-4
+     :pass? (and (:changed? frame-1)
+                 (= 1 (:writes frame-1))
+                 (= 2 (:derived frame-1))
+                 (not (:changed? frame-2))
+                 (zero? (:writes frame-2))
+                 (zero? (:derived frame-2))
+                 (:changed? frame-3)
+                 (= 1 (:writes frame-3))
+                 (zero? (:derived frame-3))
+                 (:changed? frame-4)
+                 (= 1 (:writes frame-4))
+                 (= 2 (:derived frame-4)))}))
 
 (defn- run-path-atom! [device]
   (let [camera (device/create-camera-buffer device)
         containers-buffer (device/create-containers-buffer device)
+        registry (-> (containers/empty-registry)
+                     (containers/add-container
+                      17 {:parent 0
+                          :affine [0.5 0.0 0.0 0.5 40.0 20.0]}))
+        effective (containers/effective registry)
+        _ (device/write-containers! device containers-buffer effective)
         system (path-painter/init-path-system
                 device "rgba8unorm-srgb" camera containers-buffer
                 :scene-color (scene-color/scene-color true))]
-    (-> (promise-mapv (partial run-path-golden! device system)
-                      [:pressure-ink :holed-concave
-                       :translucent-self-crossing])
+    (-> (promise-mapv (partial run-path-golden! device system effective)
+                      [:holed-concave :translucent-self-crossing])
+        (.then
+         (fn [cases]
+           (-> (run-path-tree-golden! device system effective)
+               (.then #(conj cases %)))))
         (.then (fn [cases] {:cases cases}))
         (.then
          (fn [state]
-           (-> (promise-mapv (partial path-parity-row! device system)
+           (-> (promise-mapv (partial path-parity-row!
+                                      device system effective)
                              zoom-cases)
                (.then #(assoc state :parity %)))))
         (.then
          (fn [state]
-           (-> (run-path-color! device system)
+           (-> (run-path-color! device system camera containers-buffer effective)
                (.then #(assoc state :color %)))))
         (.then
          (fn [state]
-           (assoc state :upload-gate (run-path-upload-gate! system))))
+           (assoc state :upload-gate
+                  (run-path-upload-gate! system effective))))
         (.then
          (fn [{:keys [cases parity color upload-gate] :as state}]
            (let [determinism
@@ -1412,12 +1516,16 @@
                          cases)
                  pass? (and (= 3 (count cases))
                             (every? :byte-identical? determinism)
+                            (= [0 1] (:transport-slots (last cases)))
+                            (= :path/unknown-container
+                               (get-in (last cases)
+                                       [:unknown-container :error-type]))
                             (= 7 (count parity))
                             (every? :pass? parity)
                             (:pass? color)
                             (:pass? upload-gate))
                  result (assoc state
-                               :system (path-painter/path-receipt system)
+                               :system (:last-return upload-gate)
                                :coverage :aliased-v1
                                :product-pick :cpu-path-authority
                                :self-overlap-alpha
@@ -2310,12 +2418,13 @@
 (defn- run-region3d-floor! [device font-assets]
   (let [camera (device/create-camera-buffer device)
         containers-buffer (device/create-containers-buffer device)
+        surround-effective
+        {0 {:affine containers/identity-affine :flags 0 :layer 0
+            :stack-path [[0 0]] :transport-slot 0}}
         _ (device/update-camera device camera (js/Float32Array. 6)
                                   0.0 0.0 1.0 canvas-size canvas-size)
         _ (device/write-containers!
-           device containers-buffer
-           {0 {:affine containers/identity-affine :flags 0 :layer 0
-               :stack-path [[0 0]] :transport-slot 0}})
+           device containers-buffer surround-effective)
         surround-path-system
         (path-painter/init-path-system
          device "rgba16float" camera containers-buffer
@@ -2327,14 +2436,17 @@
           (path-polygon-material
            :region3d/below
            [[8.0 8.0] [120.0 8.0] [120.0 120.0] [8.0 120.0]]
-           [0.04 0.07 0.15 1.0] 1.0))
+           [0.04 0.07 0.15 1.0] 1.0)
+          0)
          (path-op
           :region3d/above
           (path-polygon-material
            :region3d/above
            [[10.0 58.0] [118.0 58.0] [118.0 70.0] [10.0 70.0]]
-           [0.98 0.72 0.12 0.88] 1.0))]
-        _ (path-painter/prepare-path-frame! surround-path-system surround-ops 1.0)
+           [0.98 0.72 0.12 0.88] 1.0)
+          0)]
+        _ (path-painter/prepare-path-frame!
+           surround-path-system surround-ops 1.0 surround-effective)
         region-system (region3d-painter/ensure-region3d-system!
                        device camera containers-buffer)
         path-system

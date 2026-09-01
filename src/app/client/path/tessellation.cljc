@@ -6,7 +6,8 @@
    Gives: a mesh (flat vertices, counts, coverage, cache key); untouched
    materials return their old mesh by identity.
    Holds nothing; the cache is a value the caller owns."
-  (:require [app.client.path.material :as path-material]))
+  (:require [app.client.engine.grammar :as grammar]
+            [app.client.path.material :as path-material]))
 
 (def legal-zoom-regimes
   [{:regime/id :legal-min
@@ -20,7 +21,7 @@
     :fan-resolution 16}])
 
 (defn zoom-regime [zoom]
-  (when-not (and (path-material/finite-number? zoom) (<= 0.01 zoom 1000.0))
+  (when-not (and (grammar/finite-number? zoom) (<= 0.01 zoom 1000.0))
     (throw (ex-info "Path zoom is outside the legal envelope"
                     {:zoom zoom :legal [0.01 1000.0]})))
   (cond
@@ -31,24 +32,39 @@
 (def algorithm-version :path-tessellation-v1)
 (def ^:private epsilon 1.0e-10)
 
-(defn- require-admitted [material]
-  (when-not (path-material/admitted? material)
-    (throw (ex-info "path material not admitted"
-                    (cond-> {}
-                      (and (map? material)
-                           (contains? material :path/material-id))
-                      (assoc :path/material-id (:path/material-id material))))))
-  material)
-
 (defn material-cache-key
   ([material zoom]
    (material-cache-key material algorithm-version zoom))
   ([material algorithm zoom]
-   (let [material (require-admitted material)
-         canonical (path-material/canonical-material material)
+   (let [canonical (path-material/canonical-material material)
          geometry (into (sorted-map)
                         (select-keys canonical [:path/kind :path/geometry]))]
      [geometry algorithm (:regime/id (zoom-regime zoom))])))
+
+(defn- material-points [material]
+  (case (:path/kind material)
+    :ink (mapv :position (get-in material [:path/geometry :knots]))
+    :shape (into [] (mapcat :points)
+                 (get-in material [:path/geometry :contours]))))
+
+(defn- shape-normalization [material]
+  (let [points (material-points material)
+        xs (map first points)
+        ys (map second points)
+        min-x (apply min xs)
+        min-y (apply min ys)
+        max-x (apply max xs)
+        max-y (apply max ys)
+        scale (max 1.0 (- max-x min-x) (- max-y min-y))]
+    {:origin [min-x min-y] :scale scale}))
+
+(defn- normalize-point [{:keys [origin scale]} [x y]]
+  [(/ (- x (first origin)) scale)
+   (/ (- y (second origin)) scale)])
+
+(defn- denormalize-point [{:keys [origin scale]} [x y]]
+  [(+ (first origin) (* x scale))
+   (+ (second origin) (* y scale))])
 
 (defn- add [[ax ay] [bx by]] [(+ ax bx) (+ ay by)])
 (defn- sub [[ax ay] [bx by]] [(- ax bx) (- ay by)])
@@ -98,21 +114,17 @@
 
 (defn- normalized-ink [material normalization]
   (let [scale-factor (:scale normalization)]
-    (with-meta
-      (-> material
-          (update-in [:path/geometry :knots]
-                     (fn [knots]
-                       (mapv #(update % :position
-                                      (partial path-material/normalize-point
-                                               normalization))
-                             knots)))
-          (update-in [:path/geometry :base-width] / scale-factor))
-      (meta material))))
+    (update-in material [:path/geometry :knots]
+               (fn [knots]
+                 (mapv #(-> %
+                            (update :position
+                                    (partial normalize-point normalization))
+                            (update :width / scale-factor))
+                       knots)))))
 
 (defn- stroke-triangles-normalized [material zoom]
   (let [geometry (:path/geometry material)
         knots (:knots geometry)
-        base-width (:base-width geometry)
         resolution (:fan-resolution (zoom-regime zoom))
         segments
         (mapv
@@ -121,10 +133,8 @@
                  b (:position right)
                  direction (unit (sub b a))
                  normal (left-normal direction)
-                 left-radius (/ (path-material/pressure-width
-                                 base-width (:pressure left)) 2.0)
-                 right-radius (/ (path-material/pressure-width
-                                  base-width (:pressure right)) 2.0)
+                 left-radius (/ (:width left) 2.0)
+                 right-radius (/ (:width right) 2.0)
                  a-left (add a (scale normal left-radius))
                  a-right (sub a (scale normal left-radius))
                  b-left (add b (scale normal right-radius))
@@ -158,8 +168,7 @@
                (fn [[incoming outgoing knot]]
                  (let [turn (cross (:direction incoming)
                                    (:direction outgoing))
-                       radius (/ (path-material/pressure-width
-                                  base-width (:pressure knot)) 2.0)
+                       radius (/ (:width knot) 2.0)
                        center (:position knot)]
                    (cond
                      (> turn epsilon)
@@ -185,12 +194,10 @@
    material's original local f64 values; normalization is internal and is
   recorded separately on the mesh."
   [material zoom]
-  (let [material (require-admitted material)
-        normalization (path-material/shape-normalization material)
+  (let [normalization (shape-normalization material)
         ink (normalized-ink material normalization)]
     (mapv (fn [triangle]
-            (mapv (partial path-material/denormalize-point normalization)
-                  triangle))
+            (mapv (partial denormalize-point normalization) triangle))
           (stroke-triangles-normalized ink zoom))))
 
 (defn- signed-area [points]
@@ -369,20 +376,16 @@
                            :triangle-count (count triangles)})))))))
 
 (defn- normalized-shape [material normalization]
-  (with-meta
-    (update-in material [:path/geometry :contours]
-               (fn [contours]
-                 (mapv #(update % :points
-                                (fn [points]
-                                  (mapv (partial path-material/normalize-point
-                                                 normalization)
-                                        points)))
-                       contours)))
-    (meta material)))
+  (update-in material [:path/geometry :contours]
+             (fn [contours]
+               (mapv #(update % :points
+                              (fn [points]
+                                (mapv (partial normalize-point normalization)
+                                      points)))
+                     contours))))
 
 (defn shape-triangles [material zoom]
-  (let [material (require-admitted material)
-        normalization (path-material/shape-normalization material)
+  (let [normalization (shape-normalization material)
         normalized (normalized-shape material normalization)
         contours (get-in normalized [:path/geometry :contours])
         outer (filter #(= :outer (:role %)) contours)
@@ -401,14 +404,13 @@
                                            owned-holes))))
                outer))]
     (mapv (fn [tri]
-            (mapv (partial path-material/denormalize-point normalization) tri))
+            (mapv (partial denormalize-point normalization) tri))
           fills)))
 
 (defn tessellate
   ([material zoom] (tessellate material algorithm-version zoom))
   ([material algorithm zoom]
-   (let [material (require-admitted material)
-         triangles (case (:path/kind material)
+   (let [triangles (case (:path/kind material)
                      :ink (stroke-triangles material zoom)
                      :shape (shape-triangles material zoom))
          vertices (into [] cat triangles)]
@@ -427,8 +429,7 @@
   [cache materials zoom]
   (reduce
    (fn [{:keys [cache meshes derived-keys]} material]
-     (let [material (require-admitted material)
-           key (material-cache-key material algorithm-version zoom)]
+     (let [key (material-cache-key material algorithm-version zoom)]
        (if-let [mesh (get cache key)]
          {:cache cache :meshes (conj meshes mesh) :derived-keys derived-keys}
          (let [mesh (tessellate material zoom)]
@@ -437,21 +438,3 @@
             :derived-keys (conj derived-keys key)}))))
    {:cache (or cache {}) :meshes [] :derived-keys []}
    materials))
-
-(defn f32-roundtrip [value]
-  #?(:clj (double (float value))
-     :cljs (let [values (js/Float32Array. 1)]
-             (aset values 0 value)
-             (aget values 0))))
-
-(defn quantization-receipt [mesh zoom]
-  (let [errors (mapcat (fn [[x y]]
-                         [(Math/abs (- x (f32-roundtrip x)))
-                          (Math/abs (- y (f32-roundtrip y)))])
-                       (:vertices mesh))
-        max-local (if (seq errors) (apply max errors) 0.0)]
-    {:regime (:regime/id (zoom-regime zoom))
-     :zoom zoom
-     :coordinate-precision :f32
-     :max-local-error max-local
-     :max-screen-px-error (* zoom max-local)}))

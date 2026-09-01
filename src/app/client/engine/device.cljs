@@ -13,7 +13,7 @@
 (def ^:private scene-color-mode-declaration
   "const kSceneColorLinearPremultiplied: bool = false;")
 
-(def ^:private scene-color-wgsl
+(def scene-color-wgsl
   (str scene-color-mode-declaration "\n"
        "fn srgb_channel_to_linear(v: f32) -> f32 {\n"
        "  if (v <= 0.04045) { return v / 12.92; }\n"
@@ -30,13 +30,13 @@
        "  return vec4<f32>(linear * alpha, alpha);\n"
        "}\n"))
 
-(defn- configure-scene-color-shader [shader color]
+(defn configure-scene-color-shader [shader color]
   (if (:enabled? color)
     (str/replace shader scene-color-mode-declaration
                  "const kSceneColorLinearPremultiplied: bool = true;")
     shader))
 
-(defn- scene-color-blend [color]
+(defn scene-color-blend [color]
   (let [{[color-src color-dst] :color
          [alpha-src alpha-dst] :alpha} (:blend color)]
     {:color {:srcFactor (name color-src) :dstFactor (name color-dst)}

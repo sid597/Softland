@@ -214,6 +214,16 @@ const representativeSpecs = [
     resultKey: "pathAtom",
     file: "gpu-path-holed-concave-holed-concave-default-unit-z1.png",
   },
+  {
+    manifestKey: "pathAtomCases",
+    resultKey: "pathAtom",
+    file: "gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png",
+  },
+  {
+    manifestKey: "pathAtomCases",
+    resultKey: "pathAtom",
+    file: "gpu-path-container-tree-tree-containers-cid17-slot1.png",
+  },
 ];
 
 const representativeGoldens = (result, manifest) =>
@@ -265,6 +275,8 @@ const slugGoldens = (result, manifest) =>
 const sourceInputs = () =>
   [
     "src/app/client/engine/device.cljs",
+    "src/app/client/engine/grammar.cljc",
+    "src/app/client/engine/placement.cljc",
     "src/app/client/text/painter.cljs",
     "src/app/client/text/glyph_pack.cljs",
     "src/app/client/text/shaper.cljs",
@@ -274,6 +286,9 @@ const sourceInputs = () =>
     "src/app/client/image/painter.cljs",
     "src/app/client/verifier/core.cljs",
     "src/app/client/path/painter.cljs",
+    "src/app/client/path/frame.cljc",
+    "src/app/client/path/material.cljc",
+    "src/app/client/path/tessellation.cljc",
     "src/app/client/region3d/painter.cljs",
     "test/render_engine/verify_instance_cut.mjs",
     "test/render_engine/run_verifier.mjs",
@@ -303,6 +318,37 @@ const recordUbuntuSlugGolden = (result, manifest) => {
   };
   manifest.images = [
     ...(manifest.images || []).filter((entry) => entry.file !== image.file),
+    row,
+  ];
+  fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+  return row;
+};
+
+const recordPathGolden = (result, manifest, file) => {
+  const matches = (result.pathAtom?.cases || []).flatMap((renderCase) =>
+    (renderCase.images || [])
+      .filter((image) => image.file === file)
+      .map((image) => ({ renderCase, image })),
+  );
+  if (matches.length !== 1) {
+    throw new Error(`Expected one path golden named ${file}, got ${matches.length}`);
+  }
+  const { renderCase, image } = matches[0];
+  const bytes = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+  fs.writeFileSync(path.join(goldenDir, file), bytes);
+  const row = {
+    caseId: renderCase.caseId,
+    zoom: renderCase.zoom,
+    regime: renderCase.regime,
+    normalization: renderCase.normalization,
+    shapeExtentWorld: renderCase.shapeExtentWorld,
+    mode: image.mode,
+    file,
+    rawSha256: image.rawSha256,
+    pngSha256: sha256(bytes),
+  };
+  manifest.pathAtomCases = [
+    ...(manifest.pathAtomCases || []).filter((entry) => entry.file !== file),
     row,
   ];
   fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
@@ -362,6 +408,13 @@ const main = async () => {
   const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
   if (process.env.RENDER_VERIFIER_RECORD_UBUNTU_SLUG === "1") {
     recordUbuntuSlugGolden(result, manifest);
+  }
+  if (process.env.RENDER_VERIFIER_RECORD_PATH_TREE === "1") {
+    recordPathGolden(
+      result,
+      manifest,
+      "gpu-path-container-tree-tree-containers-cid17-slot1.png",
+    );
   }
   const guards = laneGuards(result);
   const goldens = representativeGoldens(result, manifest);

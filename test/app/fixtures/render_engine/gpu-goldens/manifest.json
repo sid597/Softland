@@ -335,17 +335,6 @@
   ],
   "pathAtomCases": [
     {
-      "caseId": "pressure-ink-default-min-z0p1",
-      "zoom": 0.1,
-      "regime": "floor-default",
-      "normalization": "screen-constant-shape-local",
-      "shapeExtentWorld": 800,
-      "mode": "pressure-ink",
-      "file": "gpu-path-pressure-ink-pressure-ink-default-min-z0p1.png",
-      "rawSha256": "a339262f5313db83fa96c238e2b4b1c729e35395cd4394b84c262414bdde451b",
-      "pngSha256": "b846cbb969ac5e9e3637024655ec14e353be4f9b6475aeda316946be12ac9404"
-    },
-    {
       "caseId": "holed-concave-default-unit-z1",
       "zoom": 1,
       "regime": "floor-default",
@@ -366,6 +355,17 @@
       "file": "gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png",
       "rawSha256": "5bf612e2e8ab6a6f93f15c36db2a24391ab69a709b8ccd29f50f6a28705cea79",
       "pngSha256": "0467c22c1154065568da9a2a1ad8da56ccf73f9f41aefb02ad86a3cfc45084ed"
+    },
+    {
+      "caseId": "tree-containers-cid17-slot1",
+      "zoom": 1,
+      "regime": "floor-default",
+      "normalization": "path-local-with-effective-container-tree",
+      "shapeExtentWorld": 32,
+      "mode": "container-tree",
+      "file": "gpu-path-container-tree-tree-containers-cid17-slot1.png",
+      "rawSha256": "ca96286b8c0db9d50a2ead80d5cb9d79c9d72525c286a43243cfcf3ff1c453ba",
+      "pngSha256": "efb70305a864ddb87b29fa9a7cd8ef5fc01009b3c855dd5e62a9d1da8e99e0ac"
     }
   ]
 }
