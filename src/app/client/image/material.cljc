@@ -358,19 +358,3 @@
                      :ops [op]}))))
    []
    (vec ops)))
-
-(def claimed-corpus-pressures
-  #{:two-extents :atlas-overflow :alpha-association-pair
-    :embedded-icc :untagged-refusal :digest-mismatch :unresolvable-digest
-    :partially-clipped})
-
-(defn assert-corpus-coverage!
-  [fixture-pressure->gates]
-  (let [actual (set (keys fixture-pressure->gates))
-        missing (seq (sort (remove actual claimed-corpus-pressures)))
-        unconsumed (seq (sort (for [[pressure gates] fixture-pressure->gates
-                                   :when (empty? gates)] pressure)))]
-    (when (or missing unconsumed)
-      (throw (ex-info "Image corpus is incomplete or unconsumed"
-                      {:missing (vec missing) :unconsumed (vec unconsumed)})))
-    true))

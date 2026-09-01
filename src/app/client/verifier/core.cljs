@@ -1112,16 +1112,14 @@
                  (range) samples)
     :base-width (/ 16.0 zoom)
     :cap :round :join :round}
-   :path/paint (path-paint color opacity)
-   :path/provenance {:actor :render-verifier :act :fixture}})
+   :path/paint (path-paint color opacity)})
 
 (defn- path-shape-material [id zoom color opacity]
   {:path/material-id id
    :path/revision 1
    :path/kind :shape
    :path/geometry
-   {:open-width (/ 5.0 zoom)
-    :contours
+   {:contours
     [{:contour/id [id :outer] :role :outer
       :points (mapv (partial screen-point zoom)
                     [[24.0 24.0] [104.0 24.0] [104.0 104.0]
@@ -1131,19 +1129,16 @@
       :points (mapv (partial screen-point zoom)
                     [[34.0 34.0] [50.0 34.0]
                      [50.0 50.0] [34.0 50.0]])}]}
-   :path/paint (path-paint color opacity)
-   :path/provenance {:actor :render-verifier :act :fixture}})
+   :path/paint (path-paint color opacity)})
 
 (defn- path-polygon-material [id points color opacity]
   {:path/material-id id
    :path/revision 1
    :path/kind :shape
    :path/geometry
-   {:open-width 2.0
-    :contours [{:contour/id [id :outer] :role :outer
+   {:contours [{:contour/id [id :outer] :role :outer
                 :points points}]}
-   :path/paint (path-paint color opacity)
-   :path/provenance {:actor :render-verifier :act :fixture}})
+   :path/paint (path-paint color opacity)})
 
 (defn- path-quad-material [id zoom color opacity]
   (path-polygon-material
@@ -1153,8 +1148,7 @@
    color opacity))
 
 (defn- path-op [id material]
-  {:id id :x 0.0 :y 0.0
-   :path/material material :path/clip nil :container-idx 0})
+  {:id id :path/material material :container-idx 0})
 
 (defn- render-path-bytes!
   [^js device path-system ops zoom
@@ -1274,7 +1268,7 @@
            (let [mesh (path-tessellation/tessellate material zoom)]
              {:case-id case-id
               :zoom zoom
-              :regime (name (:regime/id (path-material/zoom-regime zoom)))
+              :regime (name (:regime/id (path-tessellation/zoom-regime zoom)))
               :normalization "screen-constant-shape-local"
               :shape-extent-world (/ 80.0 zoom)
               :mesh {:triangles (:triangle-count mesh)
@@ -1300,7 +1294,7 @@
                                             (path-material/boundary-distance
                                              material point))]
                        :when (> distance-px 1.25)]
-                   (let [cpu (path-material/classify material point zoom)
+                   (let [cpu (path-material/classify material point)
                          alpha (nth (pixel-rgba bytes x y) 3)
                          gpu (cond (> alpha 128) :inside
                                    (< alpha 128) :outside
@@ -1368,13 +1362,22 @@
         first-write (path-painter/prepare-path-frame! path-system first-ops 1.0)
         equal-new-vector (mapv identity first-ops)
         same-mesh-set (path-painter/prepare-path-frame!
-                       path-system equal-new-vector 1.0)]
+                       path-system equal-new-vector 1.0)
+        repainted-material (assoc-in material [:path/paint :color]
+                                     [0.8 0.2 0.5 1.0])
+        repainted (path-painter/prepare-path-frame!
+                   path-system
+                   [(path-op :path-upload-gate repainted-material)] 1.0)]
     {:first-write first-write
      :equal-new-vector same-mesh-set
+     :paint-only-change repainted
      :pass? (and (:mesh-set-changed? first-write)
                  (= 1 (:writes first-write))
                  (not (:mesh-set-changed? same-mesh-set))
-                 (zero? (:writes same-mesh-set)))}))
+                 (zero? (:writes same-mesh-set))
+                 (:mesh-set-changed? repainted)
+                 (= 1 (:writes repainted))
+                 (zero? (:derived repainted)))}))
 
 (defn- run-path-atom! [device]
   (let [camera (device/create-camera-buffer device)
@@ -1663,7 +1666,7 @@
         {:object-id :seam/ink :object ink-object :kind :ink
          :address :seam/ink-material :status :resolved
          :content-revision (path-material/material-content-key ink-material)
-         :cache-key (path-material/material-cache-key ink-material 1.0)
+         :cache-key (path-tessellation/material-cache-key ink-material 1.0)
          :material ink-material
          :owner {:vi :seam/ink-owner :op-id :seam/ink-material}}
         op (assoc (region3d-op region)

@@ -25,6 +25,22 @@
    :image/intrinsic-size [32 16]
    :image/provenance {:actor :fixture :act :generate}})
 
+(def claimed-corpus-pressures
+  #{:two-extents :atlas-overflow :alpha-association-pair
+    :embedded-icc :untagged-refusal :digest-mismatch :unresolvable-digest
+    :partially-clipped})
+
+(defn assert-corpus-coverage!
+  [fixture-pressure->gates]
+  (let [actual (set (keys fixture-pressure->gates))
+        missing (seq (sort (remove actual claimed-corpus-pressures)))
+        unconsumed (seq (sort (for [[pressure gates] fixture-pressure->gates
+                                   :when (empty? gates)] pressure)))]
+    (when (or missing unconsumed)
+      (throw (ex-info "Image corpus is incomplete or unconsumed"
+                      {:missing (vec missing) :unconsumed (vec unconsumed)})))
+    true))
+
 (deftest g7-ingress-and-material-grammar-fail-closed
   (testing "verified bytes, not a caller assertion, establish source identity"
     (let [registry (image/register-verified-source
@@ -121,9 +137,9 @@
                   :digest-mismatch #{:g7}
                   :unresolvable-digest #{:g9}
                   :partially-clipped #{:g3 :g8}}]
-    (is (true? (image/assert-corpus-coverage! coverage)))
+    (is (true? (assert-corpus-coverage! coverage)))
     (is (thrown? clojure.lang.ExceptionInfo
-                 (image/assert-corpus-coverage! (dissoc coverage :embedded-icc))))))
+                 (assert-corpus-coverage! (dissoc coverage :embedded-icc))))))
 
 (def ^:private fixture-digests
   {"alpha-reference-straight.png"
