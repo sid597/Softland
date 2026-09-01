@@ -3,7 +3,8 @@
             [app.client.path.material-test
              :refer [holed-shape ink-material]]
             [app.client.path.material :as path-material]
-            [app.client.path.tessellation :as tessellation]))
+            [app.client.path.tessellation :as tessellation])
+  (:import [java.security MessageDigest]))
 
 (defn- float-bits [value]
   (Float/floatToIntBits (float value)))
@@ -12,6 +13,13 @@
   (into []
         (mapcat (fn [[x y]] [(float-bits x) (float-bits y)]))
         (:vertices mesh)))
+
+(defn- mesh-fingerprint [mesh]
+  (format "%064x"
+          (BigInteger. 1
+                       (.digest (MessageDigest/getInstance "SHA-256")
+                                (.getBytes (pr-str (mesh-bytes mesh))
+                                           "UTF-8")))))
 
 (defn- orientation [[ax ay] [bx by] [px py]]
   (- (* (- bx ax) (- py ay))
@@ -96,3 +104,41 @@
     (is (identical? (first (:meshes derivation))
                     (second (:meshes derivation)))
         "paint is not a tessellation input")))
+
+(deftest admission-normalization-and-fingerprint-tripwire
+  (let [material (ink-material)
+        shape (holed-shape)
+        unadmitted (with-meta material nil)
+        unadmitted-shape (with-meta shape nil)
+        normalize-ink (var-get
+                       (ns-resolve 'app.client.path.tessellation
+                                   'normalized-ink))
+        normalized (normalize-ink material
+                                  (path-material/shape-normalization material))]
+    (is (path-material/admitted? normalized)
+        "normalize retains the admission stamp")
+    (is (seq (tessellation/stroke-triangles normalized 1.0))
+        "normalized material remains trusted at the next public entry")
+    (doseq [[entry expected-id call]
+            [[:material-cache-key :path/ink-fixture
+              #(tessellation/material-cache-key unadmitted 1.0)]
+             [:stroke-triangles :path/ink-fixture
+              #(tessellation/stroke-triangles unadmitted 1.0)]
+             [:shape-triangles :path/holed-concave
+              #(tessellation/shape-triangles unadmitted-shape 1.0)]
+             [:tessellate :path/ink-fixture
+              #(tessellation/tessellate unadmitted 1.0)]
+             [:derive-mesh-set :path/ink-fixture
+              #(tessellation/derive-mesh-set {} [unadmitted] 1.0)]]]
+      (let [error (try
+                    (call)
+                    (catch clojure.lang.ExceptionInfo exception exception))]
+        (is (= "path material not admitted" (ex-message error))
+            (name entry))
+        (is (= expected-id
+               (:path/material-id (ex-data error)))
+            (name entry))))
+    (is (= "730fce62a455428e0dc98297c57ec0939969c8740c7cbe3fae52d38ba123340b"
+           (mesh-fingerprint (tessellation/tessellate material 10.0))))
+    (is (= "f9f0c49ce9054a46d2099fb01247afc1c8dacd9bc7a94f55ab2433816e6f8270"
+           (mesh-fingerprint (tessellation/tessellate shape 10.0))))))

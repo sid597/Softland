@@ -1101,44 +1101,47 @@
 (defn- screen-point [zoom [x y]] [(/ x zoom) (/ y zoom)])
 
 (defn- path-ink-material [id zoom samples color opacity]
-  {:path/material-id id
-   :path/revision 1
-   :path/kind :ink
-   :path/geometry
-   {:knots (mapv (fn [index [x y pressure]]
-                   {:knot/id [id index]
-                    :position (screen-point zoom [x y])
-                    :pressure pressure})
-                 (range) samples)
-    :base-width (/ 16.0 zoom)
-    :cap :round :join :round}
-   :path/paint (path-paint color opacity)})
+  (path-material/admit-material
+   {:path/material-id id
+    :path/revision 1
+    :path/kind :ink
+    :path/geometry
+    {:knots (mapv (fn [index [x y pressure]]
+                    {:knot/id [id index]
+                     :position (screen-point zoom [x y])
+                     :pressure pressure})
+                  (range) samples)
+     :base-width (/ 16.0 zoom)
+     :cap :round :join :round}
+    :path/paint (path-paint color opacity)}))
 
 (defn- path-shape-material [id zoom color opacity]
-  {:path/material-id id
-   :path/revision 1
-   :path/kind :shape
-   :path/geometry
-   {:contours
-    [{:contour/id [id :outer] :role :outer
-      :points (mapv (partial screen-point zoom)
-                    [[24.0 24.0] [104.0 24.0] [104.0 104.0]
-                     [72.0 104.0] [72.0 64.0] [56.0 64.0]
-                     [56.0 104.0] [24.0 104.0]])}
-     {:contour/id [id :hole] :role :hole
-      :points (mapv (partial screen-point zoom)
-                    [[34.0 34.0] [50.0 34.0]
-                     [50.0 50.0] [34.0 50.0]])}]}
-   :path/paint (path-paint color opacity)})
+  (path-material/admit-material
+   {:path/material-id id
+    :path/revision 1
+    :path/kind :shape
+    :path/geometry
+    {:contours
+     [{:contour/id [id :outer] :role :outer
+       :points (mapv (partial screen-point zoom)
+                     [[24.0 24.0] [104.0 24.0] [104.0 104.0]
+                      [72.0 104.0] [72.0 64.0] [56.0 64.0]
+                      [56.0 104.0] [24.0 104.0]])}
+      {:contour/id [id :hole] :role :hole
+       :points (mapv (partial screen-point zoom)
+                     [[34.0 34.0] [50.0 34.0]
+                      [50.0 50.0] [34.0 50.0]])}]}
+    :path/paint (path-paint color opacity)}))
 
 (defn- path-polygon-material [id points color opacity]
-  {:path/material-id id
-   :path/revision 1
-   :path/kind :shape
-   :path/geometry
-   {:contours [{:contour/id [id :outer] :role :outer
-                :points points}]}
-   :path/paint (path-paint color opacity)})
+  (path-material/admit-material
+   {:path/material-id id
+    :path/revision 1
+    :path/kind :shape
+    :path/geometry
+    {:contours [{:contour/id [id :outer] :role :outer
+                 :points points}]}
+    :path/paint (path-paint color opacity)}))
 
 (defn- path-quad-material [id zoom color opacity]
   (path-polygon-material

@@ -31,11 +31,21 @@
 (def algorithm-version :path-tessellation-v1)
 (def ^:private epsilon 1.0e-10)
 
+(defn- require-admitted [material]
+  (when-not (path-material/admitted? material)
+    (throw (ex-info "path material not admitted"
+                    (cond-> {}
+                      (and (map? material)
+                           (contains? material :path/material-id))
+                      (assoc :path/material-id (:path/material-id material))))))
+  material)
+
 (defn material-cache-key
   ([material zoom]
    (material-cache-key material algorithm-version zoom))
   ([material algorithm zoom]
-   (let [canonical (path-material/canonical-material material)
+   (let [material (require-admitted material)
+         canonical (path-material/canonical-material material)
          geometry (into (sorted-map)
                         (select-keys canonical [:path/kind :path/geometry]))]
      [geometry algorithm (:regime/id (zoom-regime zoom))])))
@@ -88,14 +98,16 @@
 
 (defn- normalized-ink [material normalization]
   (let [scale-factor (:scale normalization)]
-    (-> material
-        (update-in [:path/geometry :knots]
-                   (fn [knots]
-                     (mapv #(update % :position
-                                    (partial path-material/normalize-point
-                                             normalization))
-                           knots)))
-        (update-in [:path/geometry :base-width] / scale-factor))))
+    (with-meta
+      (-> material
+          (update-in [:path/geometry :knots]
+                     (fn [knots]
+                       (mapv #(update % :position
+                                      (partial path-material/normalize-point
+                                               normalization))
+                             knots)))
+          (update-in [:path/geometry :base-width] / scale-factor))
+      (meta material))))
 
 (defn- stroke-triangles-normalized [material zoom]
   (let [geometry (:path/geometry material)
@@ -171,9 +183,9 @@
 (defn stroke-triangles
   "Direct-to-triangles stroke expansion. Returned coordinates are the
    material's original local f64 values; normalization is internal and is
-   recorded separately on the mesh."
+  recorded separately on the mesh."
   [material zoom]
-  (let [material (path-material/validate-material! material)
+  (let [material (require-admitted material)
         normalization (path-material/shape-normalization material)
         ink (normalized-ink material normalization)]
     (mapv (fn [triangle]
@@ -357,17 +369,19 @@
                            :triangle-count (count triangles)})))))))
 
 (defn- normalized-shape [material normalization]
-  (update-in material [:path/geometry :contours]
-             (fn [contours]
-               (mapv #(update % :points
-                              (fn [points]
-                                (mapv (partial path-material/normalize-point
-                                               normalization)
-                                      points)))
-                     contours))))
+  (with-meta
+    (update-in material [:path/geometry :contours]
+               (fn [contours]
+                 (mapv #(update % :points
+                                (fn [points]
+                                  (mapv (partial path-material/normalize-point
+                                                 normalization)
+                                        points)))
+                       contours)))
+    (meta material)))
 
 (defn shape-triangles [material zoom]
-  (let [material (path-material/validate-material! material)
+  (let [material (require-admitted material)
         normalization (path-material/shape-normalization material)
         normalized (normalized-shape material normalization)
         contours (get-in normalized [:path/geometry :contours])
@@ -393,7 +407,7 @@
 (defn tessellate
   ([material zoom] (tessellate material algorithm-version zoom))
   ([material algorithm zoom]
-   (let [material (path-material/validate-material! material)
+   (let [material (require-admitted material)
          triangles (case (:path/kind material)
                      :ink (stroke-triangles material zoom)
                      :shape (shape-triangles material zoom))
@@ -413,7 +427,8 @@
   [cache materials zoom]
   (reduce
    (fn [{:keys [cache meshes derived-keys]} material]
-     (let [key (material-cache-key material algorithm-version zoom)]
+     (let [material (require-admitted material)
+           key (material-cache-key material algorithm-version zoom)]
        (if-let [mesh (get cache key)]
          {:cache cache :meshes (conj meshes mesh) :derived-keys derived-keys}
          (let [mesh (tessellate material zoom)]

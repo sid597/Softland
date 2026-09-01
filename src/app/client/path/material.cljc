@@ -210,6 +210,29 @@
       :shape (validate-shape-geometry! (:path/geometry material)))
     material))
 
+(defn admitted?
+  "True when a path material has crossed the fail-closed admission door."
+  [material]
+  (and (map? material)
+       (true? (:material/validated (meta material)))))
+
+(defn- stamp-admitted [material]
+  (vary-meta material assoc :material/validated true))
+
+(defn admit-material
+  "Validate a path material once and stamp the same map as admitted."
+  [material]
+  (stamp-admitted (validate-material! material)))
+
+(defn- require-admitted [material]
+  (when-not (admitted? material)
+    (throw (ex-info "path material not admitted"
+                    (cond-> {}
+                      (and (map? material)
+                           (contains? material :path/material-id))
+                      (assoc :path/material-id (:path/material-id material))))))
+  material)
+
 (defn canonical-material [material]
   (letfn [(canonical [value]
             (cond
@@ -219,14 +242,15 @@
               (vector? value) (mapv canonical value)
               (set? value) (into (sorted-set) (map canonical) value)
               :else value))]
-    (canonical (validate-material! material))))
+    (stamp-admitted (canonical (require-admitted material)))))
 
 (defn material-content-key [material]
-  [:path/content-v2 (pr-str (dissoc (canonical-material material)
-                                    :path/material-id :path/revision))])
+  (let [material (require-admitted material)]
+    [:path/content-v2 (pr-str (dissoc (canonical-material material)
+                                      :path/material-id :path/revision))]))
 
 (defn material-points [material]
-  (let [material (validate-material! material)]
+  (let [material (require-admitted material)]
     (case (:path/kind material)
       :ink (mapv :position (get-in material [:path/geometry :knots]))
       :shape (into [] (mapcat :points)
@@ -318,7 +342,7 @@
   "Tri-state authority classification in path-local f64 coordinates."
   ([material point] (classify material point 0.0))
   ([material point slop-local]
-   (let [material (validate-material! material)]
+   (let [material (require-admitted material)]
      (when-not (and (finite-number? slop-local) (not (neg? slop-local)))
        (throw (ex-info "Path hit slop must be finite local units"
                        {:slop-local slop-local})))
@@ -352,7 +376,7 @@
   (not= :outside (classify material point)))
 
 (defn boundary-distance [material point]
-  (let [material (validate-material! material)]
+  (let [material (require-admitted material)]
     (case (:path/kind material)
       :ink
       (let [geometry (:path/geometry material)]
@@ -372,6 +396,6 @@
                (point-segment-distance point a b))))))
 
 (defn paint-color [material]
-  (let [{:keys [color opacity]} (:path/paint (validate-material! material))
+  (let [{:keys [color opacity]} (:path/paint (require-admitted material))
         [r g b a] color]
     [r g b (* a opacity)]))

@@ -18,22 +18,27 @@
     true))
 
 (defn ink-material
-  ([] path-material/example-ink-material)
+  ([] (path-material/admit-material path-material/example-ink-material))
   ([revision samples]
-   (-> path-material/example-ink-material
-       (assoc :path/revision revision)
-       (assoc-in [:path/geometry :knots]
-                 (mapv (fn [index [x y pressure]]
-                         {:knot/id [:knot index]
-                          :position [x y]
-                          :pressure pressure})
-                       (range) samples)))))
+   (path-material/admit-material
+    (-> path-material/example-ink-material
+        (assoc :path/revision revision)
+        (assoc-in [:path/geometry :knots]
+                  (mapv (fn [index [x y pressure]]
+                          {:knot/id [:knot index]
+                           :position [x y]
+                           :pressure pressure})
+                        (range) samples))))))
 
 (defn holed-shape []
-  path-material/example-shape-material)
+  (path-material/admit-material path-material/example-shape-material))
 
 (deftest fail-closed-grammar-and-content-tripwire
   (let [material (ink-material)]
+    (is (path-material/admitted?
+         (path-material/admit-material path-material/example-ink-material)))
+    (is (path-material/admitted?
+         (path-material/admit-material path-material/example-shape-material)))
     (is (= material (path-material/validate-material! material)))
     (is (= path-material/example-shape-material
            (path-material/validate-material! path-material/example-shape-material)))
@@ -65,6 +70,33 @@
           :explicit-hole [:jvm :gpu]
           :translucent-self-crossing [:gpu]
           :legal-zoom-extremes [:gpu]}))))
+
+(deftest named-admission-and-canonical-stamp-tripwire
+  (let [material (ink-material)
+        unadmitted (with-meta material nil)
+        canonical (path-material/canonical-material material)]
+    (is (= unadmitted (path-material/validate-material! unadmitted))
+        "the admission tripwire starts from a well-formed map")
+    (doseq [[entry call]
+            [[:canonical-material #(path-material/canonical-material unadmitted)]
+             [:material-content-key #(path-material/material-content-key unadmitted)]
+             [:material-points #(path-material/material-points unadmitted)]
+             [:classify #(path-material/classify unadmitted [10.0 1.0])]
+             [:boundary-distance
+              #(path-material/boundary-distance unadmitted [10.0 1.0])]
+             [:paint-color #(path-material/paint-color unadmitted)]]]
+      (let [error (try
+                    (call)
+                    (catch clojure.lang.ExceptionInfo exception exception))]
+        (is (= "path material not admitted" (ex-message error))
+            (name entry))
+        (is (= :path/ink-fixture
+               (:path/material-id (ex-data error)))
+            (name entry))))
+    (is (path-material/admitted? canonical)
+        "canonical map reconstruction re-stamps its output")
+    (is (= (path-material/material-content-key material)
+           (path-material/material-content-key canonical)))))
 
 (deftest gesture-time-grammar-tripwire
   (let [material (assoc-in (ink-material)
