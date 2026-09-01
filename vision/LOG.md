@@ -1302,3 +1302,9 @@ marketplace split DOWN to bet — never constitution.)*
 > I think I agree with, like, the roads are the painters. By that, you mean, like, whatever the data is. It's it's, like, we we can say painters is data in and things appearing on my monitor out. So whatever that function category is, that needs to stay. Is that correct? And anything that is on the layer of representing the data and modifying the data, in a way that the painters understand or, like, orchestrating some parts of the data that goes to other, uh, painters.
 
 *(Routed same-session: rulings → `docs/below-the-waist/NOW.md` + the board's below-the-waist line; the reading card → memory `feedback-top-down-sort-what-do-you-take`; the phase sentence → the board's Vision line; the Slug reversal's generator → CLAUDE.md "Rulings quote Sid verbatim".)*
+
+## 2026-09-01 — the probe artifact is the striving: build Softland in Softland (verbatim)
+
+[After the waist constitution converged across two sessions and the curves probe page — cubics through the real floor, four panels, a zoom dial — landed in his hands:]
+
+> and broooo let me tell you ..... this artifact that you created this si something that should should should be possible to do in softland this is what i am striving for like everything that be understood and anlysed and pointed at learned, worked out within softland build softland in softland ..... this is sick
