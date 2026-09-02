@@ -12,3 +12,4 @@ Goldens raw SHA-256: holed `645f9536…410b` · translucent `5bf612e2…ea79` ·
 Changed from `git diff 1750489..9caa2ab`: engine `device, grammar`; path `frame, material, painter, tessellation`; verifier `core`.
 Tests/tooling: path `fixtures + frame/material/tessellation tests`; tree PNG + manifest; `test_runner.clj`; `run_verifier.mjs` (15 exact paths total).
 Foreign untouched: six `.claude/memory/` status entries; known full-suite tools-test debt not re-run by this focused close. No fork surfaced.
+PENDING 1 done 2026-09-02: `docs/decisions.md` "The render seam" rewritten from CONTRACT §0; PATH-SHOULD-BE reconciled; PATH-ATOM-CONTRACT and W0-C §6 carry supersession lines.
