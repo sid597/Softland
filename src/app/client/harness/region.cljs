@@ -12,7 +12,7 @@
                [app.client.path.renderer :as path-renderer]
                [app.client.path.tessellation :as path-tessellation]
                [app.client.region3d.component :as region3d-component]
-               [app.client.region3d.oracle :as region3d-oracle]
+               [app.client.harness.region-oracle :as region3d-oracle]
                [app.client.region3d.renderer :as region3d-renderer]
                [app.client.region3d.scene :as region3d-scene]
                [app.client.harness.path

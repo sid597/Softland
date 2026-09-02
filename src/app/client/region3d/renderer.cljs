@@ -766,17 +766,17 @@
     (reset! (:!composite-rows system) rows)
     (count changed)))
 
-(def ^:private region-encode-step 1.12)
+(def ^:private encode-scale-step 1.12)
 
-(defn- region-encode-rung
-  "Versioned geometric camera door.  The rung, not raw scale, is semantic."
+(defn- encode-scale-bucket
+  "Versioned geometric camera door. The bucket, not raw scale, is semantic."
   [scale]
   (let [scale (max 1.0e-9 (double (or scale 1.0)))]
     (long (js/Math.floor (/ (js/Math.log scale)
-                            (js/Math.log region-encode-step))))))
+                            (js/Math.log encode-scale-step))))))
 
-(defn- quantize-region-encode-scale [scale]
-  (js/Math.pow region-encode-step (region-encode-rung scale)))
+(defn- quantize-encode-scale [scale]
+  (js/Math.pow encode-scale-step (encode-scale-bucket scale)))
 
 (defn- empty-region-return [changed?]
   {:changed? changed? :full-rebuilds 0 :instance-uploads 0
@@ -813,8 +813,8 @@
                            (if max-lease-size
                              (mapv #(min % max-lease-size) pixel-size)
                              pixel-size))
-                     encode-scale (quantize-region-encode-scale (* zoom dpr))
-                     encode-rung (region-encode-rung (* zoom dpr))
+                     encode-scale (quantize-encode-scale (* zoom dpr))
+                     encode-bucket (encode-scale-bucket (* zoom dpr))
                      encode-pixel-size
                      [(max 1 (js/Math.ceil (* w encode-scale)))
                       (max 1 (js/Math.ceil (* h encode-scale)))]
@@ -842,7 +842,7 @@
                                     (:shadow-space old))
                      view (or (:view session-row)
                               (:view raw-region))
-                     view-key [view (:display-mode session-row) encode-rung
+                     view-key [view (:display-mode session-row) encode-bucket
                                shadow-space]
                      view-changed? (or scene-changed? (nil? old)
                                        (not= view-key (:view-key old)))
@@ -873,9 +873,7 @@
                      (on-plane-renderer/prepare-placements!
                       (:placement-system system) (:placement gpu2)
                       (:region3d/resolved-placements draw-item) maintained camera
-                      (if path-system @(:!mesh-cache path-system) {})
-                      {:font-assets font-assets
-                       :session-layout-snapshot session-layout-snapshot})
+                      (if path-system @(:!mesh-cache path-system) {}))
                      _ (when path-system
                          (reset! (:!mesh-cache path-system)
                                  (:path-cache placement-return)))
@@ -901,7 +899,7 @@
                       :evaluation-key (:evaluation-key evaluation-result)
                       :background-key background-key :view-key view-key
                       :maintained maintained :camera camera
-                      :lease-size lease-size :encode-rung encode-rung
+                      :lease-size lease-size :encode-rung encode-bucket
                       :shadow-space shadow-space
                       :shadow? (boolean shadow-space)
                       :gpu gpu3 :draw-order mesh-draw-order

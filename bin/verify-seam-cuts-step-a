@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ ! -f docs/seam-cuts/CONTRACT-5.md ]]; then
+  printf '%s\n' 'Run bin/verify-seam-cuts-step-a from the repository root.' >&2
+  exit 1
+fi
+
+dead_pattern='set-effects|:effects|:stack-path|:sibling-rank|project-clip-rect|clip-execution-mode|init-clear-quad|create-render-target|scene-color-resource|copy-present!|retire-absent-region-leases!|keyed-diff-update-pool!|ordered-diff-update-pool!|allocate-handle!|pool-draw-info|:!shape-rev|frame-input/identity|bump-shape-on-count-boundary!|texture-bytes-per-pixel|texture-reserved-bytes|snapshot-adapter-limits|selected-limits|install-font-watch!|manifest-defaults->settings|font-defaults->settings|FONT/PROBE|layout-oracle|shaper-oracle|shape-line-oracle|pack-instances-oracle|paint-slug-line|pack-slug-instances!|__softlandLayoutRetention|register-live-planes!|live-plane-coverage-check|session-layout-key|placed-ink-version|placement-pack-version|placement-pack|settings-panel-text|combined-text-draw-items|layout/surface|source-cache-key|component-cache-key.*lod|region-encode-rung|memory_receipt'
+if rg -n --pcre2 "$dead_pattern" src test --glob '!test/resources/**'; then
+  printf '%s\n' 'S2 failed: a deleted path remains.' >&2
+  exit 1
+fi
+
+comment_pattern='Contract-[A-Z]|Contract [A-Z]\b|W[0-9]-[A-Z]|Phase [0-9]|Q8|frame-effects|plan compile|SHAPER-BORDER\.md|\bT[0-9]{1,2}\b'
+if rg -n --pcre2 "$comment_pattern" src/app/client | rg -v 'js/console\.log|js/Error|ex-info|T1 browser layout evidence failed'; then
+  printf '%s\n' 'S2 failed: a stale contract pointer remains in commentary.' >&2
+  exit 1
+fi
+
+assert_count() {
+  local expected="$1"
+  local pattern="$2"
+  shift 2
+  local actual
+  actual="$(rg -o --pcre2 "$pattern" "$@" | wc -l)"
+  if [[ "$actual" != "$expected" ]]; then
+    printf 'Expected %s occurrence(s) of %s, found %s.\n' "$expected" "$pattern" "$actual" >&2
+    exit 1
+  fi
+}
+
+assert_count 1 '^\(defn texture-bytes\b' src
+for literal in '0\.04045' '0\.0031308' '12\.92' '1\.055' '0\.055' '2\.4'; do
+  assert_count 1 "$literal" src/app/client/engine
+done
+assert_count 1 '\.-maxBufferSize\b' src
+assert_count 1 '\.-maxTextureDimension2D\b' src
+assert_count 1 '^\s*\(boolean \(:shadow\? lease\)\)\)$' src/app/client/engine/rungs.cljc
+
+for deleted in \
+  src/app/client/text/layout_oracle.cljc \
+  src/app/client/text/shaper_oracle.cljs \
+  test/render_engine/memory_receipt.mjs \
+  test/app/client/region3d/oracle.cljc \
+  src/app/client/harness/shaper_border_probe.cljs \
+  resources/electric-manifest.edn \
+  resources/public/font_atlas.json.bak \
+  resources/public/font_atlas.png.bak; do
+  if [[ -e "$deleted" ]]; then
+    printf 'S2 failed: deleted file remains: %s\n' "$deleted" >&2
+    exit 1
+  fi
+done
+
+for moved in \
+  src/app/client/harness/region_oracle.cljc \
+  test/app/client/harness/shaper_border_probe.cljs; do
+  if [[ ! -f "$moved" ]]; then
+    printf 'S4 failed: moved file is absent: %s\n' "$moved" >&2
+    exit 1
+  fi
+done
+
+if rg -n 'app\.client\.region3d\.oracle' src test --glob '!test/resources/**'; then
+  printf '%s\n' 'S4 failed: the old Region3D oracle namespace remains.' >&2
+  exit 1
+fi
+scene_equivalent_assertions="$(rg -o 'oracle/scene-equivalent\?' test/app/client/region3d/scene_test.clj | wc -l)"
+if (( scene_equivalent_assertions < 3 )); then
+  printf 'S4 expected at least 3 scene-equivalent assertions, found %s.\n' "$scene_equivalent_assertions" >&2
+  exit 1
+fi
+assert_count 1 'region3d-oracle/shade-reference' src/app/client/harness/region.cljs
+
+if git diff --name-only -- test/app/fixtures/render_engine/gpu-goldens | rg -q '\.png$'; then
+  printf '%s\n' 'S1 failed: step A changed a golden PNG.' >&2
+  exit 1
+fi
+
+clj -M:test -e "(require 'clojure.test 'app.client.engine.transform-test 'app.client.engine.limits-test 'app.client.image.component-test 'app.client.region3d.scene-test 'app.client.text.flat-route-test 'app.client.text.layout-planes-test 'app.client.text.layout-test)(let [r (clojure.test/run-tests 'app.client.engine.transform-test 'app.client.engine.limits-test 'app.client.image.component-test 'app.client.region3d.scene-test 'app.client.text.flat-route-test 'app.client.text.layout-planes-test 'app.client.text.layout-test)] (System/exit (if (zero? (+ (:fail r) (:error r))) 0 1)))"
+clj -M:dev -m shadow.cljs.devtools.cli release shaper-border-probe
+npm run verify:render-engine
+
+printf '%s\n' 'CONTRACT-5 step A: S1-S5 PASS'

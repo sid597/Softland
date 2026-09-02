@@ -1,4 +1,4 @@
-(ns app.client.region3d.oracle
+(ns app.client.harness.region-oracle
   "Test/verifier oracles for retained Region3D production derivations."
   (:require [app.client.engine.color :as color]
             [app.client.region3d.scene :as scene]))

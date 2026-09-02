@@ -190,7 +190,7 @@
                    (screen->world 24.0) (screen->world 24.0)
                    (screen->world 80.0) (screen->world 80.0))
                   0)
-        ;; T15: this is the post-clamp transform/crop pair for an original
+        ;; This is the post-clamp transform/crop pair for an original
         ;; 80px quad clipped by 20px on each x edge.
         clipped-draw-item (image-draw-item
                     (image-component-row

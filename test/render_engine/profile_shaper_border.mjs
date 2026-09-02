@@ -164,7 +164,7 @@ const main = async () => {
         sources: [
           "src/app/client/text/shaper.cljs",
           "src/app/client/text/layout.cljc",
-          "src/app/client/harness/shaper_border_probe.cljs",
+          "test/app/client/harness/shaper_border_probe.cljs",
           "test/render_engine/profile_shaper_border.mjs",
           "node_modules/harfbuzzjs/hbjs.js",
           "resources/public/fonts/harfbuzz-0.10.3.wasm",

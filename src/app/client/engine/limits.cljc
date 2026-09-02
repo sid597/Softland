@@ -4,9 +4,10 @@
    Gives: the selected limits and total bytes across mips and samples.
    Holds: nothing.")
 
-(defn adapter-limits [^js adapter-or-device]
-  #?(:clj nil
-     :cljs
+#?(:clj
+   (defn adapter-limits [_adapter-or-device] nil)
+   :cljs
+   (defn adapter-limits [^js adapter-or-device]
      (when adapter-or-device
        (let [^js limits (.-limits adapter-or-device)]
          {:max-buffer-size (some-> limits .-maxBufferSize)

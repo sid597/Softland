@@ -147,8 +147,8 @@
                            cpu-inside? (boolean (inside? sx sy))
                            ;; rgba8unorm encodes exact half coverage as byte
                            ;; 128 (128/255). That is a declared boundary tie,
-                           ;; not a Boolean inside vote. W0-B Q6 found this
-                           ;; ambiguity independently; do not threshold it away.
+                           ;; not a Boolean inside vote. This ambiguity is
+                           ;; declared explicitly; do not threshold it away.
                            gpu-class (cond
                                        (< coverage 128) "outside"
                                        (> coverage 128) "inside"

@@ -42,3 +42,4 @@ SID-ACCEPTED 2026-09-02 — Sid: "both accepted now lets go". The rename (§11f)
 - Pre-close: render PASS — `6/6` guards, `7/7` representative, `7/7` DejaVu; focused client PASS — `21 tests / 246 assertions`.
 - JVM debt: client shards green; the four baseline server namespaces remain foreign; the latest registered dogfood probe exhausted two flaky attempts (`407 / 5286 / 5278 pass / 5 fail / 3 error`).
 - RENAME CLOSED, SID ACCEPTANCE PENDING.
+T2/T3's F1–F3 text fences retired by CONTRACT-5; the recorded goldens are the check.

@@ -565,8 +565,8 @@
     (-> (.onSubmittedWorkDone (.-queue ^js (:device compositor)))
       (.then (fn []
                (doseq [buffer transient-buffers] (.destroy ^js buffer))
-               ;; Same identity guard as retire-absent-region-leases!: a later
-               ;; frame may have eagerly released this lease already.
+               ;; A later frame may have eagerly released this lease already;
+               ;; identity prevents releasing its replacement.
                (doseq [[key lease] stale-region-leases]
                  (when (identical? lease
                                    (get @(:!region-leases compositor) key))

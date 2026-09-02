@@ -65,7 +65,7 @@
    :clear [0.0 0.0 0.0 0.0]})
 
 (def scene-color-boundary
-  "The candidate Contract-C resource is code-real but deliberately default-off.
+  "The candidate scene-color resource is code-real but deliberately default-off.
    Direct presentation remains the byte-identical legacy route until a later
    activation evidence explicitly selects the linear-premultiplied candidate."
   {:scene-color-boundary/version 1

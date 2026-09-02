@@ -188,7 +188,7 @@
                        device (clj->js {:code image-mip-vertex-shader}))
         fragment-module (.createShaderModule
                          device (clj->js {:code image-mip-fragment-shader}))
-        ;; IMAGE-STEP T4: candidate mip views are sRGB on both sides, so
+        ;; Candidate mip views are sRGB on both sides, so
         ;; filtering occurs between hardware decode and encode.  Seam-off uses
         ;; unorm on both sides so its declared zero-transfer leg cannot
         ;; accidentally half-convert while generating mips.
@@ -269,7 +269,7 @@
         context (.getContext canvas "2d")]
     (.clearRect context 0 0 (.-width canvas) (.-height canvas))
     (.drawImage context bitmap padding padding)
-    ;; IMAGE-STEP T5: extrude edge texels through the declared gutter before
+    ;; Extrude edge texels through the declared gutter before
     ;; the atlas mip chain is generated; UVs still address only the interior.
     (.drawImage context bitmap 0 0 1 height 0 padding padding height)
     (.drawImage context bitmap (dec width) 0 1 height (+ padding width) padding
@@ -297,7 +297,7 @@
 (defn- normalize-image-alpha!
   "Return a bitmap whose RGB is straight.  PNG decode already yields straight
    bytes for :straight/:opaque sources.  A source explicitly tagged
-   :premultiplied is unassociated exactly once before texture upload (T3/T9)."
+   :premultiplied is unassociated exactly once before texture upload."
   [source ^js bitmap]
   (if-not (= :premultiplied (:image/alpha-association source))
     (js/Promise.resolve bitmap)

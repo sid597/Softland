@@ -17,8 +17,8 @@
 (def layout-version 2)
 
 (def legacy-index-space
-  "T0's explicit adapter boundary. Offsets inside a layout result are UTF-16
-   code-unit offsets; T2 can replace this source map without changing readers."
+  "The explicit adapter boundary. Offsets inside a layout result are UTF-16
+   code-unit offsets; the source map can change without changing readers."
   {:domain :utf-16-code-unit :version 1})
 
 (def index-space-token [:utf-16-code-unit 1])
@@ -67,7 +67,7 @@
   [:header header-ordinal offset])
 
 (defn source-index-offset
-  "Return the numeric offset carried by a Contract-T body or per-header index."
+  "Return the numeric offset carried by a layout body or per-header index."
   [index]
   (cond
     (map? index) (:offset index)
@@ -82,7 +82,7 @@
     (mapv source-index-offset source-range)))
 
 (defn legacy-char-advance
-  "The sole T0 owner of the shipped `font-size * char-width`, including the
+  "The sole owner of the shipped `font-size * char-width`, including the
    existing DPR snap. Callers supply font/style inputs, never redo the metric."
   ([font-size char-width]
    (* font-size char-width))
@@ -101,7 +101,7 @@
       v)))
 
 (defn wrap-line
-  "The shipped word-boundary wrapper, now owned by the T0 provider."
+  "The shipped word-boundary wrapper owned by the grid provider."
   [line max-chars]
   (if (or (<= (code-unit-count line) max-chars) (< max-chars 1))
     [line]
@@ -169,8 +169,8 @@
   (str "t0/" (hash semantic-input)))
 
 (defn- legacy-layout
-  "Produce the immutable Contract-T result using the behavior-identical T0
-   monospace provider.
+  "Produce the immutable layout result using the behavior-identical grid
+   provider.
 
    Required semantic inputs are source text (or exact `source-lines`) and the
    current advance/line height. `origin` is component-local. `baseline-offset`
@@ -208,7 +208,7 @@
          :line-map line-map}
         id (input-id semantic-input)
         texts (visual-lines semantic-input)
-        ;; Visual offsets are an explicit T0 adapter map. They are not silently
+        ;; Visual offsets are an explicit adapter map. They are not silently
         ;; claimed to be shaped-cluster boundaries.
         line-data
         (loop [i 0 visual-offset 0 texts texts acc []]
@@ -314,7 +314,7 @@
                          :metrics]))
 
 (defn legal-zoom?
-  "True when zoom is inside Contract-T's legal component range."
+  "True when zoom is inside the layout's legal component range."
   [zoom]
   (<= 0.01 zoom 1000))
 
@@ -322,7 +322,7 @@
   "The shaping-correction keying source. Only full visible projection,
    stable address/revision, provider identity, and layout metrics enter.
    Paint, camera, origin, selection, hover, backend, and broad rebuild `sig`
-   are deliberately absent (T6/T7/T8)."
+   are deliberately absent."
   [{:keys [address stamp body-text header-texts
            provider font-size line-height baseline-offset wrap-policy wrap-col
            language direction tab-stops]}]
@@ -366,8 +366,8 @@
                                 :source-end (+ source-start n)})))))))
 
 (defn break-whitespace-at?
-  "The shaping-correction break class: U+0020 SPACE and U+0009 TAB only.
-   T14: never replace this with a platform-dependent `\\s` predicate."
+  "The shaping break class: U+0020 SPACE and U+0009 TAB only. Never replace
+   this with a platform-dependent `\\s` predicate."
   [text offset]
   (when (and (<= 0 offset) (< offset (code-unit-count text)))
     (let [cu (code-unit-at text offset)]
@@ -638,12 +638,12 @@
    (planes/glyphs-in-source-range line-data source-range dx dy)))
 
 (defn line-glyphs
-  "Derive Contract-T glyph maps for one line; the maps are never retained."
+  "Derive layout glyph maps for one line; the maps are never retained."
   ([line-data] (planes/line-glyphs line-data))
   ([line-data dx dy] (planes/line-glyphs line-data dx dy)))
 
 (defn line-clusters
-  "Derive Contract-T cluster views for one line from the span plane."
+  "Derive layout cluster views for one line from the span plane."
   [line-data]
   (planes/line-clusters line-data))
 
@@ -674,8 +674,7 @@
   (planes/glyph-indexes-in-source-range line-data source-range))
 
 (defn glyph-views
-  "Derive Contract-T glyph maps for explicit result-wide indexes (the oracle
-   paint route)."
+  "Derive layout glyph maps for explicit result-wide indexes."
   [line-data indexes dx dy]
   (planes/glyph-views line-data indexes dx dy))
 
@@ -694,8 +693,7 @@
 (defn- shaped-layout
   "The flat route: shape every visual line into columns, derive each line's
    span table in one pass, then fill the result-wide planes directly — no
-   glyph map between the provider and the retained result. The map route it
-   is checked against lives verbatim in `app.client.text.layout-oracle`."
+   glyph map between the provider and the retained result."
   [{:keys [text source-lines provider font-size line-height origin
            baseline-offset inline-size wrap-policy wrap-col headers clip
            line-map source-id source-revision features variations language
@@ -1092,8 +1090,8 @@
                 :provider-fault (:provider-fault work)}}))
 
 (defn layout
-  "Produce the one immutable Contract-T result. A real provider selects T1;
-   absence of a provider preserves the exact T0 compatibility route."
+  "Produce the one immutable layout result. A real provider selects the shaped
+   route; absence of a provider preserves the exact grid compatibility route."
   [{:keys [provider] :as input}]
   (if (shaped-provider? provider)
     (shaped-layout input)
@@ -1308,7 +1306,7 @@
            {:index end :position [end-x y] :affinity :upstream}]))))
 
 (defn- injected-cluster-stops
-  "T2 additive reader capability. Grapheme boundaries are injected DATA; an
+  "Grapheme boundaries are injected data; an
    interior boundary interpolates between the shaped cluster's declared edge
    stops by its UTF-16 advance fraction."
   [cluster grapheme-boundaries]
@@ -1610,7 +1608,7 @@
 
 (defn hit-test-result
   "Point -> visual line -> optional logical line map -> source caret stop.
-   T2 may inject grapheme boundaries so shaped-cluster interiors become lawful
+   Callers may inject grapheme boundaries so shaped-cluster interiors become lawful
    stops without introducing a second metric route."
   ([layout-result point]
    (hit-test-result layout-result point nil))

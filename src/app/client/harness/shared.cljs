@@ -87,7 +87,7 @@
     (.toDataURL canvas "image/png")))
 
 (defn q8-world-transforms [entry-count]
-  ;; Semantic ids deliberately stride by 17, reproducing the Q8 sparse-id
+  ;; Semantic ids deliberately stride by 17, reproducing the sparse-id
   ;; pressure while transport buffer indexes remain dense 0..N-1.
   (into {}
         (map (fn [buffer-index]

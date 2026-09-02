@@ -618,8 +618,7 @@
      :visited-glyphs (count indexes)}))
 
 (defn glyph-views
-  "Derive Contract-T glyph maps for explicit result-wide indexes (the oracle
-   paint route)."
+  "Derive layout glyph maps for explicit result-wide indexes."
   [line indexes dx dy]
   (mapv #(glyph-view* line % dx dy) indexes))
 

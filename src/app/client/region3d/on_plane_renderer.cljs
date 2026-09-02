@@ -238,7 +238,7 @@
 (defn prepare-placements!
   "Pack changed placements and upload only when the aggregate packing key
    changes. Returns the caller-owned path cache value after ink derivation."
-  [system region-gpu placements maintained camera path-cache _options]
+  [system region-gpu placements maintained camera path-cache]
   (let [old-cache (:pack-cache region-gpu)
         packed
         (reduce

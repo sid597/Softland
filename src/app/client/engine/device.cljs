@@ -47,11 +47,11 @@
     {:color {:srcFactor (name color-src) :dstFactor (name color-dst)}
      :alpha {:srcFactor (name alpha-src) :dstFactor (name alpha-dst)}}))
 
-;; --- W2-A/Q8: shared compact affine transport ------------------------------
+;; --- shared compact affine transport ---------------------------------------
 ;; One 32-byte storage entry per LIVE transform buffer index:
 ;; [axis-x.xy, axis-y.xy, translation.xy, flags:u32, pad:u32]. Semantic group ids do
 ;; not index this table; transform/world-transforms assigns compact stable buffer indexes.
-;; Q8 priced 1,024 / 4,096 / 16,384 entries, and the largest measured tier is
+;; The transport was priced at 1,024 / 4,096 / 16,384 entries, and the largest measured tier is
 ;; the production allocation. Growing later rebinds the same storage scheme; it
 ;; is not another representation migration after step multiplication.
 (def affine-entry-bytes 32)
@@ -59,7 +59,7 @@
 (def max-transform-nodes 16384)
 
 (defn create-groups-buffer
-  "Create the shared Q8 affine storage buffer and write identity buffer index 0.
+  "Create the shared affine storage buffer and write identity buffer index 0.
    Shared across all four transform-consuming pipelines like the camera."
   [^js/GPUDevice device]
   (let [size (* max-transform-nodes affine-entry-bytes)
@@ -73,7 +73,7 @@
 (defn write-groups!
   "Upload transform/world-transforms through compact :buffer-index values. Sparse
    semantic group ids never allocate holes. Returns machine stats used by the
-   1,024/4,096/16,384 Q8 harness."
+   1,024/4,096/16,384 capacity harness."
   [^js/GPUDevice device ^js groups-buffer world-transforms]
   (let [entries (vals world-transforms)
         buffer-indexes (map :buffer-index entries)
@@ -86,7 +86,7 @@
         max-buffer-index (if (seq buffer-indexes) (apply max buffer-indexes) 0)
         entry-count (inc max-buffer-index)
         _ (when (> entry-count max-transform-nodes)
-            (throw (ex-info "Live affine transport exceeds the Q8 capacity"
+            (throw (ex-info "Live affine transport exceeds its configured capacity"
                             {:entries entry-count :max max-transform-nodes})))
         raw (js/ArrayBuffer. (* entry-count affine-entry-bytes))
         floats (js/Float32Array. raw)

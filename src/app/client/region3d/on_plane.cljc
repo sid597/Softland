@@ -14,13 +14,11 @@
             [app.client.text.layout :as text-layout]))
 
 (def placed-color-adapter-version :region3d/placed-color-v1)
-(def placed-ink-version :region3d/placed-ink-v1)
-(def placement-pack-version :region3d/placement-pack-v1)
 (def placement-zoom 1.0)
 (def plane-epsilon 1.0e-9)
 
 (defn adapt-legacy-color
-  "Adapt the existing flat [r g b a] text/path paint into Contract-C ingress.
+  "Adapt the existing flat [r g b a] text/path paint into tagged color ingress.
    Already-tagged colors pass through unchanged."
   [color]
   (cond
@@ -34,18 +32,8 @@
     (throw (ex-info "Placed color must be tagged or legacy flat RGBA"
                     {:color color :adapter placed-color-adapter-version}))))
 
-(defn provider-identity
-  "Return the shaping identity which joins a settled placement packing key."
-  [font-assets]
-  (select-keys (:layout-provider font-assets)
-               [:face-id :face-revision :shaper-id :shaper-version
-                :features :variations :axes :fallback-chain :upem :metrics]))
-
-(defn session-layout-key [session-snapshot]
-  [:session (:address session-snapshot) (:revision session-snapshot)])
-
 (defn layout-placed-text
-  "Create the settled Contract-T layout for one resolved placed text. The
+  "Create the settled layout for one resolved placed text. The
    renderer-side packing cache is responsible for calling this only on a key
    transition; live editing supplies its already-carried result instead."
   [placement font-assets]

@@ -11,7 +11,7 @@
   (:require [app.client.engine.color :as color]
             [app.client.engine.schema :as schema]))
 
-;; Contract C ingress ---------------------------------------------------------
+;; Color ingress --------------------------------------------------------------
 
 (def legal-source-tags #{:srgb :embedded-profile})
 (def legal-alpha-associations #{:straight :premultiplied :opaque})
@@ -38,7 +38,7 @@
 (defn validate-source!
   "Validate a resolved source record.  The caller still has to prove its byte
    digest through `register-verified-source`; a declared digest is never
-   caller authority (T2/T9)."
+   caller authority."
   [source-row]
   (schema/check source source-row))
 
@@ -66,11 +66,7 @@
   [registry digest]
   (get-in registry [:sources digest]))
 
-(defn source-cache-key
-  [source algorithm-version lod]
-  [(:image/digest (validate-source! source)) algorithm-version lod])
-
-;; Contract M schema ---------------------------------------------------------
+;; Component schema -----------------------------------------------------------
 
 (def rect
   {:keys #{:x :y :w :h}
@@ -112,16 +108,17 @@
 
 (defn canonical-component
   [component]
-  (into (sorted-map) component))
+  (letfn [(canonical [value]
+            (cond
+              (map? value) (into (sorted-map)
+                                 (map (fn [[key child]] [key (canonical child)]))
+                                 value)
+              (vector? value) (mapv canonical value)
+              (set? value) (into (sorted-set) (map canonical) value)
+              :else value))]
+    (canonical component)))
 
-(defn component-cache-key
-  [component algorithm-version lod]
-  [(:image/source-digest component)
-   (:image/revision component)
-   algorithm-version
-   lod])
-
-;; Contract G geometry --------------------------------------------------------
+;; Geometry -------------------------------------------------------------------
 
 (defn normalize-crop
   "Intersect a requested image-local pixel crop with the intrinsic rect."
@@ -149,7 +146,7 @@
 
 (defn half-open-hit?
   "Product-pick equality law: min edges inclusive, max edges exclusive;
-   hit-slop is exactly 0.0 (T6/T14)."
+   hit-slop is exactly 0.0."
   [{:keys [x y w h]} [px py]]
   (and (>= px x) (< px (+ x w))
        (>= py y) (< py (+ y h))))
@@ -157,7 +154,7 @@
 (defn clip-placement
   "Clamp a placed quad to `clip`, carrying the same fractions into image-local
    crop coordinates.  Geometry shrinks and UVs inset together, so clipping
-   crops rather than stretches (T15)."
+   crops rather than stretches."
   [{:keys [x y w h] :as placement} crop clip]
   (if-not clip
     {:placement placement :crop crop}
@@ -207,7 +204,7 @@
    :max-side 128
    :format :rgba8unorm
    ;; Two levels are the declared atlas route; level 1 is the deepest sampled
-   ;; mip and the 2px gutter therefore still supplies a full texel (T5).
+   ;; mip and the 2px gutter therefore still supplies a full texel.
    :mip-level-count 2
    :lod-max 1.0
    :overflow :dedicated})
@@ -297,7 +294,7 @@
 
 (defn instance-words
   "rect[4] + uv[4] + tint/opacity[4] + group u32[1].  There is no
-   per-node transform representation (T8/T14)."
+   per-node transform representation."
   [{:keys [rect uv tint opacity buffer-index]}]
   (let [{:keys [x y w h]} rect
         {:keys [rgba]} tint
@@ -309,7 +306,7 @@
 (defn contiguous-binding-runs
   "Walk stamped image draw-items in order and merge adjacent equal bindings only.
    Returned offsets reproduce draw-item order as explicit sub-draw indirection; no
-   map or registration order participates (T1/T13)."
+   map or registration order participates."
   [draw-items]
   (reduce-kv
    (fn [runs offset draw-item]

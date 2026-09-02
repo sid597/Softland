@@ -1,8 +1,6 @@
 (ns app.client.text.glyph-pack
   "The flat paint route for Slug text: layout planes viewed straight into the
-   instance buffer's words, no glyph map and no instance map per glyph. The
-   pre-flat route (`renderer/shape-text` + `pack-slug-instances!`) stays beside
-   it as the oracle the bytes are checked against.
+   instance buffer's words, no glyph map and no instance map per glyph.
    Takes: positioned text draw-items (a layout line, its selected glyph indexes, the
    draw-item's style and semantic group), world transforms, and the font's
    Slug glyph list.
@@ -134,7 +132,7 @@
 (defn pack-draw-item!
   "Write one draw-item's instances from `instance-index` on; returns the next
    instance index. Resolve its semantic group once before the glyph loop.
-   Word layout = `pack-slug-instances!`'s, expression for expression."
+   The word layout is the renderer's 25-word instance schema."
   [^js float-view ^js uint-view instance-index draw-item table world-transforms]
   (let [{:keys [style font-size]} draw-item
         {:keys [r g b a]} style

@@ -1,7 +1,7 @@
 (ns app.client.region3d.scene-test
   (:require [clojure.test :refer [deftest is testing]]
             [app.client.region3d.component :as component]
-            [app.client.region3d.oracle :as oracle]
+            [app.client.harness.region-oracle :as oracle]
             [app.client.region3d.scene :as region]
             [app.client.region3d.component-test :as fixture]))
 
@@ -37,6 +37,13 @@
                       {:origin [0.5 0.5 8.0]
                        :direction [0.0 0.0 -1.0]})]
     (is (= :near (:object-id center)))
+    (is (= :region3d/missing-camera
+           (try
+             (region/pick-region {:maintained maintained
+                                  :region-point [320.0 180.0]})
+             nil
+             (catch clojure.lang.ExceptionInfo error
+               (:error-type (ex-data error))))))
     (is (= :near (:object-id hit)))
     (is (< 7.0 (:t center) 8.0))
     (is (= (:t hit) (:t center)))

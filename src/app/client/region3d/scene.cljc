@@ -748,11 +748,10 @@
 (defn pick-region
   "Pick the nearest BVH surface, otherwise the region background."
   [{:keys [maintained camera region-point]}]
+  (when-not camera
+    (throw (ex-info "Region pick requires the rendered camera."
+                    {:error-type :region3d/missing-camera})))
   (let [region (:region maintained)
-        camera (or camera
-                   (camera-matrices (:view region)
-                                    [(get-in region [:extent :width])
-                                     (get-in region [:extent :height])]))
         ray (ray-from-region-point camera region-point)]
     (if-let [hit (query-bvh (:bvh maintained) ray)]
       (select-keys (assoc hit :route :object)

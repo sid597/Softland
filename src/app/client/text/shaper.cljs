@@ -329,7 +329,7 @@
                     (recur (inc r) (+ base len) pen)))))))))))
 
 (defn create-provider
-  "Create a synchronous Contract-T provider after HarfBuzz and font bytes are
+  "Create a synchronous layout provider after HarfBuzz and font bytes are
    loaded. `font-sources` is an ordered primary+fallback vector."
   [hb font-sources {:keys [features language tab-columns]
                     :or {features ["kern" "liga" "clig" "calt"]

@@ -79,9 +79,15 @@
       (is (= component-row (image/validate-component! component-row)))
       (is (= (image/canonical-component component-a)
              (image/canonical-component component-row)))
-      (is (= (image/component-cache-key component-a :mips-v1 :default)
-             (image/component-cache-key component-row :mips-v1 :default)
-             [digest-a 1 :mips-v1 :default]))
+      (is (= (image/canonical-component component-a)
+             (image/canonical-component
+              (assoc component-a
+                     :image/rect (array-map :h 16 :w 32 :y 20 :x 10)
+                     :image/paint
+                     (array-map :opacity 0.5
+                                :tint (array-map :rgba [0.25 0.5 0.75 0.8]
+                                                 :color-space :srgb
+                                                 :alpha-association :straight))))))
       (is (= (image/instance-words (instance-input component-a))
              (image/instance-words (instance-input component-row))
              [10 20 32 16 0.0 0.0 1.0 1.0 0.25 0.5 0.75 0.4 7]))))

@@ -447,12 +447,12 @@
   (reduce + 0 (map :fallbacks rows)))
 
 (defn- line-index-for-layout [layout-result]
-  ;; Contract-T retains this index at construction. Consumers must never rebuild
+  ;; The layout retains this index at construction. Consumers must never rebuild
   ;; it by scanning the line vector per draw-item.
   (or (:line-index layout-result) {}))
 
 (defn- position-text-draw-item
-  "Resolve one text draw-item to positioned Contract-T glyphs before a paint backend
+  "Resolve one text draw-item to positioned layout glyphs before a paint backend
    is selected. Existing layout results survive clipping and tree translations;
    otherwise the active provider creates exactly one result here."
   [txt global-fsize font-assets char-width snap-step]
