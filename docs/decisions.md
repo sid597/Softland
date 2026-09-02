@@ -516,7 +516,9 @@ valid future case is alive, called or not. Sid's criterion, verbatim
 being called from anywhere, but like that exists for some future valid case
 and are implemented in the form that they should be". And the order of work:
 "first make the existing code how it should be and only then fold the other
-things in … we are going to remove now". The path boundary is the template
+things in … we are going to remove now". Restated 2026-09-03: "any code that
+survies should be there only if its in the form as it should be". The path
+boundary is the template
 (`docs/seam-cuts/`); the same removals repeat on image, text and region.
 
 **One vocabulary (Sid, 2026-09-02).** His rule, verbatim: "The standard
@@ -643,8 +645,10 @@ the arc makes it invisible to Sid.
   maintained state, and the batch computation kept alive as the oracle,
   with a consistency check asserting the two agree. Equality-gated memoization is its
   degenerate case; heavy stateful derivations (shaping, layout) are its
-  full case. Growth law: a batch stage is never deleted when its
-  incremental sibling arrives — it is demoted to that sibling's oracle.
+  full case. A check survives only in the form a check should have: an
+  independent implementation written as one, or recorded outputs. A frozen
+  copy of the previous implementation is neither (Sid, 2026-09-03: "ok" to
+  this wording, replacing the never-delete growth law).
   The consistency checks are what keep every implementation swappable — open decisions stay
   genuinely open while we build at speed.
 - **The rule, enforced at review: in the render boundary, no derivation
