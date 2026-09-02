@@ -234,7 +234,7 @@ Custody: a session edits only the files under its heading. The shared step prece
 **`src/app/client/text/layout_oracle.cljc`**: `:535-539` calls `layout/legal-zoom?`; `:578` `:input-hash` gone.
 **`src/app/client/text/glyph_pack.cljs`**: `pack-op!` takes the slot from the op, `(placement/slot effective (:container op))`, resolved once per op before the glyph loop; the `:container-idx` read gone.
 **`src/app/client/text/painter.cljs`**: `update-text-data` takes `:effective` in its opts and threads it through `pack-instances-flat` to `pack-op!`; `:605` reads `(:container txt)`; `:!shape-rev`, `:frame-input/identity`, `:span-receipt`, `!text-layout-fallbacks`, `text-layout-fallback-report` gone; `shape-text` and `pack-instances-flat` return `:fallbacks {…}` with today's keys (`:490-496`).
-**`src/app/client/verifier/text.cljs`**: templates and hand-written ops carry `:container 0` (`:456-457, 2662, 2668-2670, 2717` at `8dad07c`); both text roads build a registry and pass `effective`; the F3 fence reads `:fallbacks` from the return; T1's golden added to the manifest's `images` list.
+**`src/app/client/verifier/text.cljs`**: templates and hand-written ops carry `:container 0` (`:456-457, 2662, 2668-2670, 2717` at `8dad07c`); both text roads build a registry and pass `effective`; the F3 fence reads `:fallbacks` from the return; T1 returns its tree receipt (the deterministic hash and the placement check). Its golden PNG and runner row are NOT text's: `run_verifier.mjs:206-210` hardcodes the golden list and `:302` asserts exactly one Ubuntu golden, so registering a ninth is a runner edit; the last closer registers it at package close, one bounded block beside F7's (ruling, Fable, 2026-09-02, on text's fork in `NOW-2-4.md`).
 **Tests:** `test/app/client/text/flat_road_test.clj` updated for `:container` and the returned fallbacks; no new namespace.
 
 ---
@@ -377,7 +377,7 @@ Error types are named per refusal so a refusal is readable as data. Nothing beyo
 
 **R5 — ledgers gone, receipts from returns.** The S5 lifecycle and lower-resolution receipts pass, built from `prepare-region3d-frame!`'s returns; `grep -n "receipt" src/app/client/region3d/painter.cljs src/app/client/region3d/on_plane_painter.cljs` is empty.
 
-**T1 — the tree runs.** Verifier golden through the slug road: the mixed-face case with its template at `:container 17` under the affine; the glyphs at half size offset by (40, 20). An unknown container refused before upload. Wrong build that passes a weaker test: `pack-op!` writing the cid into word 24.
+**T1 — the tree runs.** Verifier receipt through the slug road: the mixed-face case with its template at `:container 17` under the affine; the glyphs at half size offset by (40, 20). Pinned now as the deterministic tree hash plus the placement check; pinned as a golden PNG at package close, when the last closer adds its runner row (§4d). An unknown container refused before upload. Wrong build that passes a weaker test: `pack-op!` writing the cid into word 24.
 
 **T2 — instruments are returns.** The F3 fence reads `:fallbacks` from `pack-instances-flat`'s return: carried ops 0, uncarried 1 per op, as today (`core.cljs:2690-2693`). `grep -rn "__softland" src/app/client/text/painter.cljs src/app/client/text/glyph_pack.cljs` is empty.
 
