@@ -39,11 +39,9 @@
     (/ (:plane-bytes (tl/plane-coverage-check layout)) (max 1 units))))
 
 (deftest retained-layout-is-planes-not-rich-maps
-  (doseq [layout [(tl/layout {:text "legacy plane" :char-advance 8
-                              :font-size 14 :line-height 18})
-                  (tl/layout {:text "shaped plane"
-                              :provider (monotonic-provider)
-                              :font-size 12 :line-height 16})]]
+  (let [layout (tl/layout {:text "shaped plane"
+                           :provider (monotonic-provider)
+                           :font-size 12 :line-height 16})]
     (testing "the retained result owns only columnar populous data"
       (is (= 2 (:text-layout/version layout)))
       (is (map? (:layout/planes layout)))
@@ -64,18 +62,15 @@
 
 (deftest plane-coverage-check-pins-the-contract-budget
   (let [text (apply str (repeat 10000 "x"))
-        legacy (tl/layout {:text text :char-advance 8
-                           :font-size 14 :line-height 18})
-        shaped (tl/layout {:text text :provider (monotonic-provider)
-                           :font-size 12 :line-height 16})]
-    (doseq [layout [legacy shaped]]
-      (let [{:keys [glyph-count span-count glyph-bytes-per-glyph
-                    span-bytes-per-entry]} (tl/plane-coverage-check layout)]
-        (is (= 10000 glyph-count))
-        (is (= 10000 span-count))
-        (is (<= glyph-bytes-per-glyph 48))
-        (is (<= span-bytes-per-entry 16))
-        (is (<= (bytes-per-code-unit layout) 64))))))
+        layout (tl/layout {:text text :provider (monotonic-provider)
+                           :font-size 12 :line-height 16})
+        {:keys [glyph-count span-count glyph-bytes-per-glyph
+                span-bytes-per-entry]} (tl/plane-coverage-check layout)]
+    (is (= 10000 glyph-count))
+    (is (= 10000 span-count))
+    (is (<= glyph-bytes-per-glyph 48))
+    (is (<= span-bytes-per-entry 16))
+    (is (<= (bytes-per-code-unit layout) 64))))
 
 (deftest indexed-view-is-derived-from-the-span-plane
   (let [layout (tl/layout {:text "first\nlater"

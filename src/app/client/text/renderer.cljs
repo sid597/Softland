@@ -446,6 +446,45 @@
 (defn- sum-fallbacks [rows]
   (reduce + 0 (map :fallbacks rows)))
 
+(defn- sum-unresolved-glyphs [rows]
+  (reduce + 0 (map :unresolved-glyphs rows)))
+
+(defn- map-has? [^js m key]
+  (and m (not (undefined? (.get m key)))))
+
+(defn- font-map-has? [^js outer font-id key]
+  (when (and outer font-id)
+    (let [inner (.get outer font-id)]
+      (and (not (undefined? inner)) (map-has? inner key)))))
+
+(defn- directly-resolved-glyph?
+  [{:keys [by-font-index by-index by-font-unicode by-unicode]}
+   shaped? font-id glyph-id]
+  (if shaped?
+    (or (font-map-has? by-font-index font-id glyph-id)
+        (map-has? by-index glyph-id))
+    (or (font-map-has? by-font-unicode font-id glyph-id)
+        (map-has? by-unicode glyph-id))))
+
+(defn- single-space-cluster? [text start end]
+  (let [length (.-length text)
+        start (min length start)
+        end (min length end)]
+    (and (= 1 (- end start)) (= 32 (.charCodeAt text start)))))
+
+(defn- count-unresolved-glyphs
+  [{:keys [line indexes dx dy]} table]
+  (let [text (str (or (:text line) ""))
+        !count (volatile! 0)]
+    (tl/pack-glyphs!
+     line indexes dx dy
+     (fn [_ glyph-id shaped? tab? font-id _ _ cluster-start cluster-end]
+       (when (and (not tab?)
+                  (not (single-space-cluster? text cluster-start cluster-end))
+                  (not (directly-resolved-glyph? table shaped? font-id glyph-id)))
+         (vswap! !count inc))))
+    @!count))
+
 (defn- line-index-for-layout [layout-result]
   ;; The layout retains this index at construction. Consumers must never rebuild
   ;; it by scanning the line vector per draw-item.
@@ -455,7 +494,7 @@
   "Resolve one text draw-item to positioned layout glyphs before a paint backend
    is selected. Existing layout results survive clipping and tree translations;
    otherwise the active provider creates exactly one result here."
-  [txt global-fsize font-assets char-width snap-step]
+  [txt global-fsize font-assets snap-step]
   (let [{:keys [text x y]} txt
         fsize (or (:size txt) global-fsize)
         snap (make-snapper snap-step)
@@ -469,8 +508,6 @@
                         :source-lines [text]
                         :provider (:layout-provider font-assets)
                         :font-size fsize
-                        :char-advance (tl/legacy-char-advance-step
-                                        fsize char-width snap-step)
                         :line-height (* fsize line-h)
                         :origin [start-x start-y]}))
         line (or (tl/line-by-id layout-result (:layout-line-id txt) start-y)
@@ -503,9 +540,8 @@
      :fallbacks (if existing 0 1)}))
 
 (defn- position-text
-  [texts global-fsize font-assets char-width snap-step]
-  (let [rows (mapv #(position-text-draw-item % global-fsize font-assets char-width
-                                      snap-step)
+  [texts global-fsize font-assets snap-step]
+  (let [rows (mapv #(position-text-draw-item % global-fsize font-assets snap-step)
                    texts)]
     {:draw-items (mapv :draw-item rows)
      :fallbacks (sum-fallbacks rows)}))
@@ -543,18 +579,19 @@
 
 (defn pack-instances-flat
   "The flat route: planes → words through the pack entry point, two passes (count,
-   then write). Returns packed bytes, line offsets, count, and call-local fallbacks."
-  [texts font-assets font-size stride & {:keys [char-width snap-step world-transforms]
-                                          :or {char-width 0.56}}]
+   then write). Returns packed bytes, line offsets, count, and call-local misses."
+  [texts font-assets font-size stride & {:keys [snap-step world-transforms]}]
   (let [table (glyph-pack/slug-table (get-in font-assets [:slug :meta :glyphs]))
         shaped-lines (mapv (fn [tokens-in-line]
                              (let [{:keys [draw-items fallbacks]}
-                                   (position-text tokens-in-line font-size font-assets
-                                                  char-width snap-step)]
+                                   (position-text tokens-in-line font-size font-assets snap-step)]
                                {:draw-items draw-items
                                 :count (reduce + 0 (map #(glyph-pack/count-instances % table)
                                                         draw-items))
-                                :fallbacks fallbacks}))
+                                :fallbacks fallbacks
+                                :unresolved-glyphs
+                                (reduce + 0 (map #(count-unresolved-glyphs % table)
+                                                 draw-items))}))
                            texts)
         actual-instances (reduce + (map :count shaped-lines))
         buffer-instance-count (max actual-instances 1)
@@ -565,18 +602,18 @@
     {:raw-buffer raw-buffer
      :line-offsets (line-offsets-for shaped-lines)
      :num-instances actual-instances
-     :fallbacks (sum-fallbacks shaped-lines)}))
+     :fallbacks (sum-fallbacks shaped-lines)
+     :unresolved-glyphs (sum-unresolved-glyphs shaped-lines)}))
 
 (defn update-text-data
   [^js/GPUDevice device renderer-state texts font-assets font-size
-   & {:keys [line-height-factor line-height char-width snap-step world-transforms]
-      :or {line-height-factor 1.0 char-width 0.56}}]
+   & {:keys [line-height-factor line-height snap-step world-transforms]
+      :or {line-height-factor 1.0}}]
   (let [line-h (or line-height (* font-size line-height-factor))
         stride (:instance-stride renderer-state)
-        {:keys [raw-buffer line-offsets num-instances fallbacks]}
+        {:keys [raw-buffer line-offsets num-instances fallbacks unresolved-glyphs]}
         (pack-instances-flat texts font-assets font-size stride
-                             :char-width char-width :snap-step snap-step
-                             :world-transforms world-transforms)
+                             :snap-step snap-step :world-transforms world-transforms)
         actual-instances num-instances]
     (let [upload-view (js/Uint8Array. raw-buffer)
           required-size (.-byteLength upload-view)
@@ -592,6 +629,7 @@
              :num-instances actual-instances
              :line-offsets line-offsets
              :fallbacks fallbacks
+             :unresolved-glyphs unresolved-glyphs
              :line-height line-h))))
 
 (defn- contiguous-state-runs [rows]

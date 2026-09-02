@@ -113,6 +113,9 @@
       .getAdvanceX
       double))
 
+(defn- glyph-index [^Font font unicode]
+  (.getGlyphCode (glyph-vector font @outline-frc unicode) 0))
+
 (defn- outline-plane-bounds [outline]
   (let [bounds (.getBounds2D outline)
         width (.getWidth bounds)
@@ -298,7 +301,7 @@
      :bottom (:min-y curve-bounds)}
     plane-bounds))
 
-(defn- compile-glyph [^Font font unicode]
+(defn- compile-glyph [^Font font font-id unicode]
   (let [outline (glyph-outline font unicode)
         contours (outline->contours outline)
         curves (flatten-curves contours)
@@ -309,6 +312,8 @@
         horizontal-layout (choose-band-layout curves :horizontal)
         vertical-layout (choose-band-layout curves :vertical)]
     {:id unicode
+     :fontId font-id
+     :index (glyph-index font unicode)
      :unicode unicode
      :advance (glyph-advance font unicode)
      :planeBounds plane-bounds
@@ -432,6 +437,7 @@
 
 (defn default-config []
   {:font-path "resources/public/fonts/dejavu_sans_mono.ttf"
+   :font-id "dejavu-sans-mono"
    :codepoints
    [32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54
     55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 73 74 75 76 77
@@ -477,14 +483,15 @@
    :band-out "resources/public/fonts/dejavu_sans_mono_slug_band.bin"})
 
 (defn write-font-assets!
-  [{:keys [font-path codepoints meta-out curve-out band-out]
+  [{:keys [font-path font-id codepoints meta-out curve-out band-out]
     :or {font-path (:font-path (default-config))
+         font-id (:font-id (default-config))
          codepoints (:codepoints (default-config))
          meta-out (:meta-out (default-config))
          curve-out (:curve-out (default-config))
          band-out (:band-out (default-config))}}]
   (let [font (load-font font-path)
-        glyphs (mapv (partial compile-glyph font) codepoints)
+        glyphs (mapv (partial compile-glyph font font-id) codepoints)
         {:keys [glyphs curve-pack band-pack]} (pack-glyphs glyphs)
         meta {:version 1
               :metrics (font-line-metrics font)

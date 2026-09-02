@@ -352,6 +352,45 @@ const recordUbuntuSlugGolden = (result, manifest) => {
   return rows;
 };
 
+const recordDejaVuSlugGoldens = (result, manifest) => {
+  const cases = result.cases || [];
+  if (
+    cases.length !== 7 ||
+    cases.some(
+      (renderCase) =>
+        renderCase.provider?.faceId !== "dejavu-sans-mono" ||
+        renderCase.unresolvedGlyphs !== 0 ||
+        renderCase.images?.length !== 1,
+    )
+  ) {
+    throw new Error("DejaVu recording requires seven resolved font-file cases");
+  }
+  const rows = cases.map((renderCase) => {
+    const [image] = renderCase.images;
+    const bytes = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+    fs.writeFileSync(path.join(goldenDir, image.file), bytes);
+    return {
+      caseId: renderCase.caseId,
+      zoom: renderCase.zoom,
+      regime: renderCase.lod,
+      normalization: renderCase.normalization,
+      shapeExtentWorld: renderCase.shapeExtentWorld,
+      mode: image.mode,
+      file: image.file,
+      rawSha256: image.rawSha256,
+      pngSha256: sha256(bytes),
+    };
+  });
+  const rowsByFile = new Map(rows.map((row) => [row.file, row]));
+  const replaced = (manifest.images || []).filter((row) => rowsByFile.has(row.file));
+  if (replaced.length !== 7) {
+    throw new Error(`Expected seven DejaVu manifest rows, got ${replaced.length}`);
+  }
+  manifest.images = manifest.images.map((row) => rowsByFile.get(row.file) || row);
+  fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+  return rows;
+};
+
 const recordPathGolden = (result, manifest, file) => {
   const matches = (result.pathStep?.cases || []).flatMap((renderCase) =>
     (renderCase.images || [])
@@ -434,6 +473,9 @@ const main = async () => {
   }
 
   const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+  if (process.env.RENDER_VERIFIER_RECORD_DEJAVU_SLUG === "1") {
+    recordDejaVuSlugGoldens(result, manifest);
+  }
   if (process.env.RENDER_VERIFIER_RECORD_UBUNTU_SLUG === "1") {
     recordUbuntuSlugGolden(result, manifest);
   }

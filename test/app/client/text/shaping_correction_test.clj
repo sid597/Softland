@@ -575,16 +575,6 @@
         (is (= (count (tl/line-glyphs line)) (:visited-glyphs legacy)))
         (is (> (:visited-glyphs legacy) (:glyph-span-count legacy)))
         (is (false? (tl/within-span-bound? legacy)))))
-    (testing "the T0 legacy route keeps its contiguous-subvector selection"
-      (let [legacy (tl/layout {:text "abcdef" :char-advance 8
-                               :font-size 14 :line-height 20})
-            legacy-line (first (:lines legacy))
-            legacy-selected
-            (tl/glyphs-in-source-range
-             legacy-line [(tl/tagged-index 1) (tl/tagged-index 4)])]
-        (is (= "bcd" (apply str (map :character (:glyphs legacy-selected)))))
-        (is (= [1 4] (:glyph-span legacy-selected)))
-        (is (= 3 (:visited-glyphs legacy-selected)))))
     (is (= line (tl/line-by-id layout (:line/id line))))
     (is (<= (:visited-lines
              (tl/clip-result (assoc-in layout [:constraints :clip]

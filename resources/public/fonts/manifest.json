@@ -17,7 +17,6 @@
         "curve": "ubuntu_sans_variable_slug_curve.bin",
         "band": "ubuntu_sans_variable_slug_band.bin"
       },
-      "charWidth": 0.52,
       "variations": {"wght": 400, "wdth": 100},
       "features": ["kern", "liga", "clig", "calt"],
       "tabColumns": 4,
@@ -26,12 +25,12 @@
     {
       "name": "DejaVu Sans Mono",
       "id": "dejavu-sans-mono",
+      "font": "dejavu_sans_mono.ttf",
       "slug": {
         "meta": "dejavu_sans_mono_slug_meta.json",
         "curve": "dejavu_sans_mono_slug_curve.bin",
         "band": "dejavu_sans_mono_slug_band.bin"
-      },
-      "charWidth": 0.60
+      }
     }
   ]
 }

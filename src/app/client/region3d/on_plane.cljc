@@ -42,16 +42,11 @@
         inline-size (get-in placement [:style :max-inline-size])
         inline-size (when (number? inline-size) inline-size)
         line-height (get constraints :line-height)
-        line-height (if (number? line-height) line-height (* font-size 1.2))
-        carried-advance (or (get-in placement [:layout :reference-advance])
-                            (some-> (get-in placement [:layout :lines 0])
-                                    text-layout/first-glyph-advance-x)
-                            font-size)]
+        line-height (if (number? line-height) line-height (* font-size 1.2))]
     (text-layout/layout
      {:text (:text placement)
       :provider (:layout-provider font-assets)
       :font-size font-size
-      :char-advance carried-advance
       :line-height line-height
       :origin [0.0 0.0]
       :inline-size inline-size

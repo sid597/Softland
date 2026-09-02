@@ -243,7 +243,7 @@
           (sort-by (juxt second first) @!locations))))
 
 (defn- glyph-lines [zoom]
-  [[{:text "o"
+  [[{:text "oo"
      :x (/ glyph-screen-x zoom)
      :y (/ glyph-screen-baseline zoom)
      :size (/ glyph-screen-size zoom)
@@ -275,7 +275,18 @@
         packed (text-renderer/pack-instances-flat
                 [(first lines)] slug-assets font-size
                 text-renderer/slug-text-instance-stride
-                :char-width 0.60 :world-transforms world-transforms)
+                :world-transforms world-transforms)
+        provider (select-keys (:layout-provider slug-assets)
+                              [:face-id :face-revision :shaper-id :shaper-version])
+        unresolved-glyphs (:unresolved-glyphs packed)
+        _ (when-not (= "dejavu-sans-mono" (:face-id provider))
+            (throw (ex-info "DejaVu case did not use its font-file provider."
+                            {:case-id case-id :provider provider})))
+        _ (when-not (zero? unresolved-glyphs)
+            (throw (ex-info "DejaVu case has unresolved Slug glyphs."
+                            {:case-id case-id
+                             :provider provider
+                             :unresolved-glyphs unresolved-glyphs})))
         packed-words (js/Float32Array. (:raw-buffer packed))
         slug-instance {:rect (mapv #(aget packed-words %) (range 4))}
         slug-probe (instance-path-probe curves slug-instance
@@ -284,7 +295,7 @@
                                         zoom "production-slug-sampleBounds")
         slug-system (text-renderer/update-text-data
                      device slug-system lines slug-assets font-size
-                     :char-width 0.60 :world-transforms world-transforms)]
+                     :world-transforms world-transforms)]
     (js/console.log "[W0-A] case-start" case-id "zoom" zoom)
     (->
         (render-pair! device slug-system zoom)
@@ -296,6 +307,8 @@
             :lod lod
             :normalization "screen-constant"
             :shape-extent-world (/ glyph-screen-size zoom)
+            :provider provider
+            :unresolved-glyphs unresolved-glyphs
             :canvas {:width canvas-size
                      :height canvas-size
                      :format color-format

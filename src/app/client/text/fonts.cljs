@@ -22,8 +22,7 @@
     (or (first (filter :default fonts))
         (first fonts)
         {:name "DejaVu Sans Mono"
-         :id "dejavu-sans-mono"
-         :charWidth 0.56})))
+         :id "dejavu-sans-mono"})))
 
 (defn- with-retry
   "Run thunk (→ promise) with up to 4 attempts and linear backoff. Mobile
