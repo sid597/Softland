@@ -602,6 +602,55 @@ and why (Sid, 2026-09-02: "too small to know anything"). On main, exact paths, n
 not stage CLAUDE.md, CLAUDE-1.md, or anything under .claude/memory/.
 ```
 
+### 11f. The rename (paste after Sid's accept of the package; one fresh Codex session; Sid's word 2026-09-02: close first, rename after)
+
+```
+Preflight, before the first prompt: permission mode, remote-control and MCP set now; never mid-session.
+
+This step renames the client's code to the glossary. Bytes do not change: every golden, every guard,
+every JVM test is identical before and after. The glossary is the spec; the harness is the evidence.
+
+Boot, by seam, sizes first (about 20KB; every source file is then read by skeleton, `grep -n "^(def"`,
+and renamed by scripted substitution per file, never by retyping):
+  docs/decisions.md   "The render boundary" → the "One vocabulary" block only (~4KB)   read PRIMARY
+  CLAUDE.md           "Source Structure" (~2KB): the folder and file names it states
+  shadow-cljs.edn                                              1KB   whole
+  test/app/test_runner.clj                                    25KB   lines 31-60 (the namespace inventory)
+  docs/seam-cuts/NOW-2-4.md                                    6KB   whole
+
+The rule: rename by concept, never by string. A word is renamed where it means the glossary's concept
+and kept where it means something else in graphics. Known homonyms that stay: `face` in text/* (a font
+face), `band` in text/* (a glyph band), `slot` in engine/buffer_pool.cljs and engine/leases.cljs (a pool
+slot), `receipt` where it names a server record. Every homonym you decide is one line in NOW-2-4.md
+under "Rename", with the file and the meaning kept.
+
+What renames, in this order, one commit each:
+1. engine/: placement → transform (file, namespace, `placement/effective` → `transform/world`,
+   `slot` → `buffer-index`, container → group in every identifier); grammar → schema; receipt → stats
+   in compositor/leases where it is a per-frame return; `finite-number?` and friends keep their names.
+2. path/: material → component; painter → renderer; op → draw-item; knot → stroke-point; regime →
+   lod; frame-key stays.
+3. image/: the same words; residency stays.
+4. region3d/: the same words; scene, bvh, lease, composite stay.
+5. text/: op → draw-item, container → group, painter → renderer; face, band, shaper, slug stay.
+6. verifier/ → harness/: folder, namespaces, shadow-cljs.edn entry (`app.client.harness.core/start!`),
+   the `verifier/` mentions in CLAUDE.md "Source Structure"; road → section in identifiers; receipt →
+   evidence in identifiers that name close evidence, → stats where per-frame.
+7. docs: CLAUDE.md "Source Structure" carries the new folder and file names; `docs/seam-cuts/*` and
+   `docs/decisions.md` "The render boundary" swap their backticked identifiers for the new ones
+   (prose is already in the glossary's words); nothing else in docs/.
+
+After each commit: `npm run verify:render-engine` PASS with every golden byte-identical and
+`clj -X:test` unchanged (foreign red named as debt). At the end: a grep census of the old terms in
+src/app/client with the homonym list as the only survivors, written into NOW-2-4.md under "Rename",
+then the terminal line. Sid's accept closes it.
+
+Commits: seven, one per act above, each big enough to read as one change, the message saying what
+changed and why (Sid, 2026-09-02: "too small to know anything"). On main, exact paths, no
+Co-Authored-By. Do not stage CLAUDE-1.md or anything under .claude/memory/. CLAUDE.md is in scope
+for act 7 only.
+```
+
 ## 12. The falsification round (paste-able, one fresh Codex-class session, at Sid's hand)
 
 ```
