@@ -1,7 +1,7 @@
-(ns app.client.image.material-test
+(ns app.client.image.component-test
   (:require [clojure.edn :as edn]
             [clojure.test :refer [deftest is testing]]
-            [app.client.image.material :as image])
+            [app.client.image.component :as image])
   (:import (java.nio.file Files Path)
            (java.security MessageDigest)))
 
@@ -16,8 +16,8 @@
    :image/bytes-route {:kind :fixture :path "images/a.png"}
    :image/alpha-association :straight})
 
-(def material-a
-  {:image/material-id :material/a
+(def component-a
+  {:image/component-id :component/a
    :image/revision 1
    :image/source-digest digest-a
    :image/color-tag :srgb
@@ -32,7 +32,7 @@
 
 (def claimed-corpus-pressures
   #{:two-extents :atlas-overflow :alpha-association-pair
-    :embedded-icc :untagged-refusal :digest-mismatch :unresolvable-digest
+    :embedded-icc :untagged-rejection :digest-mismatch :unresolvable-digest
     :partially-clipped})
 
 (defn assert-corpus-coverage!
@@ -46,21 +46,21 @@
                       {:missing (vec missing) :unconsumed (vec unconsumed)})))
     true))
 
-(defn- refusal-data [f]
+(defn- rejection-data [f]
   (try
     (f)
     nil
     (catch clojure.lang.ExceptionInfo error
       (ex-data error))))
 
-(defn- instance-input [material]
-  {:rect (:image/rect material)
+(defn- instance-input [component]
+  {:rect (:image/rect component)
    :uv [0.0 0.0 1.0 1.0]
-   :tint (get-in material [:image/paint :tint])
-   :opacity (get-in material [:image/paint :opacity])
-   :slot 7})
+   :tint (get-in component [:image/paint :tint])
+   :opacity (get-in component [:image/paint :opacity])
+   :buffer-index 7})
 
-(deftest i2-rows-travel-and-grammar-refuses-by-name
+(deftest i2-rows-travel-and-schema-rejects-by-name
   (testing "verified bytes, not a caller assertion, establish source identity"
     (let [registry (image/register-verified-source
                     (image/empty-source-registry) source-a digest-a)]
@@ -69,44 +69,44 @@
           "identical re-registration is idempotent")
       (is (thrown? clojure.lang.ExceptionInfo
                    (image/register-verified-source registry source-a digest-b)))))
-  (testing "source and material rows survive EDN without admission metadata"
+  (testing "source and component rows survive EDN without admission metadata"
     (let [source-row (edn/read-string (pr-str source-a))
-          material-row (edn/read-string (pr-str material-a))]
+          component-row (edn/read-string (pr-str component-a))]
       (is (nil? (meta source-row)))
-      (is (nil? (meta material-row)))
+      (is (nil? (meta component-row)))
       (is (= source-row (image/validate-source! source-row)))
-      (is (= material-row (image/validate-material! material-row)))
-      (is (= (image/canonical-material material-a)
-             (image/canonical-material material-row)))
-      (is (= (image/material-cache-key material-a :mips-v1 :default)
-             (image/material-cache-key material-row :mips-v1 :default)
+      (is (= component-row (image/validate-component! component-row)))
+      (is (= (image/canonical-component component-a)
+             (image/canonical-component component-row)))
+      (is (= (image/component-cache-key component-a :mips-v1 :default)
+             (image/component-cache-key component-row :mips-v1 :default)
              [digest-a 1 :mips-v1 :default]))
-      (is (= (image/instance-words (instance-input material-a))
-             (image/instance-words (instance-input material-row))
+      (is (= (image/instance-words (instance-input component-a))
+             (image/instance-words (instance-input component-row))
              [10 20 32 16 0.0 0.0 1.0 1.0 0.25 0.5 0.75 0.4 7]))))
-  (testing "closed source and material grammars name each refusal"
+  (testing "closed source and component schemas name each rejection"
     (doseq [[row error-type path]
-            [[(assoc material-a :future/key true)
+            [[(assoc component-a :future/key true)
               :schema/unknown-key [:future/key]]
-             [(assoc material-a :image/extensions {})
+             [(assoc component-a :image/extensions {})
               :schema/unknown-key [:image/extensions]]
-             [(assoc source-a :image/ingress-receipt {:reader :asserted})
-              :schema/unknown-key [:image/ingress-receipt]]
+             [(assoc source-a :image/ingress-evidence {:reader :asserted})
+              :schema/unknown-key [:image/ingress-evidence]]
              [(dissoc source-a :image/bytes-route)
               :schema/invalid-value [:image/bytes-route]]
-             [(assoc-in material-a [:image/paint :tint :rgba]
+             [(assoc-in component-a [:image/paint :tint :rgba]
                         [0.0 0.25 0.5 0.75 1.0])
               :schema/invalid-value [:image/paint :tint :rgba]]
-             [(assoc-in material-a [:image/rect :h] 0)
+             [(assoc-in component-a [:image/rect :h] 0)
               :schema/invalid-value [:image/rect :h]]
-             [(assoc-in material-a [:image/paint :opacity] 1.5)
+             [(assoc-in component-a [:image/paint :opacity] 1.5)
               :schema/invalid-value [:image/paint :opacity]]
-             [(assoc material-a :image/crop [0 0 32 16])
+             [(assoc component-a :image/crop [0 0 32 16])
               :schema/map-required [:image/crop]]]]
       (is (= {:error-type error-type :path path}
-             (select-keys (refusal-data #(if (contains? row :image/digest)
+             (select-keys (rejection-data #(if (contains? row :image/digest)
                                            (image/validate-source! row)
-                                           (image/validate-material! row)))
+                                           (image/validate-component! row)))
                           [:error-type :path]))))))
 
 (deftest g7-mip-chain-and-placement-laws
@@ -156,24 +156,24 @@
       (is (= [0.25 0.2 0.75 0.8]
              (image/crop->uv [200 100] (:crop clipped)))))))
 
-(deftest g5-sub-draw-runs-preserve-op-order
-  (let [ops [{:id :a :image/binding-key :atlas}
+(deftest g5-sub-draw-runs-preserve-draw-item-order
+  (let [draw-items [{:id :a :image/binding-key :atlas}
              {:id :b :image/binding-key :atlas}
              {:id :c :image/binding-key :dedicated-c}
              {:id :d :image/binding-key :atlas}]
-        runs (image/contiguous-binding-runs ops)]
+        runs (image/contiguous-binding-runs draw-items)]
     (is (= [:atlas :dedicated-c :atlas] (mapv :binding-key runs)))
     (is (= [0 2 3] (mapv :first-instance runs)))
     (is (= [2 1 1] (mapv :instance-count runs)))
     (is (= [[:a :b] [:c] [:d]]
-           (mapv #(mapv :id (:ops %)) runs)))))
+           (mapv #(mapv :id (:draw-items %)) runs)))))
 
-(deftest g7-corpus-pressure-census-is-executable
+(deftest g7-corpus-pressure-coverage-check-is-executable
   (let [coverage {:two-extents #{:g4}
                   :atlas-overflow #{:g7}
                   :alpha-association-pair #{:g6}
                   :embedded-icc #{:g6}
-                  :untagged-refusal #{:g7}
+                  :untagged-rejection #{:g7}
                   :digest-mismatch #{:g7}
                   :unresolvable-digest #{:g9}
                   :partially-clipped #{:g3 :g8}}]

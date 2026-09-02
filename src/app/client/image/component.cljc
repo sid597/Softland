@@ -1,10 +1,10 @@
-(ns app.client.image.material
+(ns app.client.image.component
   "What an image is: a verified source (digest, color tag, size, alpha
    association), its place in the atlas, and the 13 floats one image quad packs
    to.
    Takes: an image's provenance record; a registry and a computed digest; an
-   atlas, a content key, and dimensions; one quad's rect, uv, tint, and
-   container slot.
+   atlas, a content hash, and dimensions; one quad's rect, uv, tint, and
+   group buffer-index.
    Gives: a validated source; an atlas placement plan; 13 floats per instance;
    contiguous draw runs.
    Holds nothing; owns no GPU objects."
@@ -48,7 +48,7 @@
 (defn register-verified-source
   "Register `source` only after the byte reader has independently computed
    `computed-digest`.  Duplicate identical rows are idempotent; a conflicting
-   row for one digest is refused."
+   row for one digest is rejected."
   [registry source computed-digest]
   (let [source (validate-source! source)
         digest (:image/digest source)
@@ -67,10 +67,10 @@
   (get-in registry [:sources digest]))
 
 (defn source-cache-key
-  [source algorithm-version regime]
-  [(:image/digest (validate-source! source)) algorithm-version regime])
+  [source algorithm-version lod]
+  [(:image/digest (validate-source! source)) algorithm-version lod])
 
-;; Contract M grammar ---------------------------------------------------------
+;; Contract M schema ---------------------------------------------------------
 
 (def rect
   {:keys #{:x :y :w :h}
@@ -90,12 +90,12 @@
        (= 2 (count value))
        (every? positive-int? value)))
 
-(def grammar
-  {:keys #{:image/material-id :image/revision :image/source-digest
+(def schema
+  {:keys #{:image/component-id :image/revision :image/source-digest
            :image/color-tag :image/intrinsic-size :image/provenance
            :image/rect :image/paint}
    :optional #{:image/crop}
-   :validators {:image/material-id some?
+   :validators {:image/component-id some?
                 :image/revision some?
                 :image/source-digest sha256-digest?
                 :image/color-tag legal-source-tags
@@ -105,21 +105,21 @@
                 :image/crop rect
                 :image/paint paint}})
 
-(defn validate-material!
-  "Check the declared image grammar and return the unchanged EDN map."
-  [material]
-  (schema/check grammar material))
+(defn validate-component!
+  "Check the declared image schema and return the unchanged EDN map."
+  [component]
+  (schema/check schema component))
 
-(defn canonical-material
-  [material]
-  (into (sorted-map) material))
+(defn canonical-component
+  [component]
+  (into (sorted-map) component))
 
-(defn material-cache-key
-  [material algorithm-version regime]
-  [(:image/source-digest material)
-   (:image/revision material)
+(defn component-cache-key
+  [component algorithm-version lod]
+  [(:image/source-digest component)
+   (:image/revision component)
    algorithm-version
-   regime])
+   lod])
 
 ;; Contract G geometry --------------------------------------------------------
 
@@ -212,7 +212,7 @@
    :padding 2
    :max-side 128
    :format :rgba8unorm
-   ;; Two levels are the declared atlas road; level 1 is the deepest sampled
+   ;; Two levels are the declared atlas route; level 1 is the deepest sampled
    ;; mip and the 2px gutter therefore still supplies a full texel (T5).
    :mip-level-count 2
    :lod-max 1.0
@@ -302,36 +302,36 @@
 (def image-instance-stride (* image-instance-words 4))
 
 (defn instance-words
-  "rect[4] + uv[4] + tint/opacity[4] + container u32[1].  There is no
+  "rect[4] + uv[4] + tint/opacity[4] + group u32[1].  There is no
    per-node transform representation (T8/T14)."
-  [{:keys [rect uv tint opacity slot]}]
+  [{:keys [rect uv tint opacity buffer-index]}]
   (let [{:keys [x y w h]} rect
         {:keys [rgba]} tint
         [u0 v0 u1 v1] uv
         [r g b a] rgba]
     [x y w h u0 v0 u1 v1 r g b (* a (or opacity 1.0))
-     slot]))
+     buffer-index]))
 
 (defn contiguous-binding-runs
-  "Walk stamped image ops in order and merge adjacent equal bindings only.
-   Returned offsets reproduce op order as explicit sub-draw indirection; no
+  "Walk stamped image draw-items in order and merge adjacent equal bindings only.
+   Returned offsets reproduce draw-item order as explicit sub-draw indirection; no
    map or registration order participates (T1/T13)."
-  [ops]
+  [draw-items]
   (reduce-kv
-   (fn [runs offset op]
-     (let [binding (:image/binding-key op)
+   (fn [runs offset draw-item]
+     (let [binding (:image/binding-key draw-item)
            last-run (peek runs)]
        (when-not binding
-         (throw (ex-info "Image op is missing a resolved texture binding"
-                         {:offset offset :op op})))
+         (throw (ex-info "Image draw-item is missing a resolved texture binding"
+                         {:offset offset :draw-item draw-item})))
        (if (= binding (:binding-key last-run))
          (conj (pop runs)
                (-> last-run
                    (update :instance-count inc)
-                   (update :ops conj op)))
+                   (update :draw-items conj draw-item)))
          (conj runs {:binding-key binding
                      :first-instance offset
                      :instance-count 1
-                     :ops [op]}))))
+                     :draw-items [draw-item]}))))
    []
-   (vec ops)))
+   (vec draw-items)))

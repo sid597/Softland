@@ -25,7 +25,7 @@ for (const relative of deleted) {
 const registrationSources = [
   "src/app/client/engine/device.cljs",
   "src/app/client/text/renderer.cljs",
-  "src/app/client/image/painter.cljs",
+  "src/app/client/image/renderer.cljs",
 ].map(read).join("\n");
 absent(registrationSources, /render\.family\/connector|connector-registration/,
   "retired family is still registered");
@@ -42,7 +42,7 @@ const editAndPulseSources = [
   "src/app/client/region3d/material.cljc",
   "src/app/client/engine/device.cljs",
   "src/app/client/text/renderer.cljs",
-  "src/app/client/image/painter.cljs",
+  "src/app/client/image/renderer.cljs",
 ].map(read).join("\n");
 absent(editAndPulseSources,
   /\b(?:revisioned-edit|move-knot|set-knot-pressure|move-contour-point|replace-contours|edit-diff|apply-edit|pulse-alpha)\b/,
@@ -52,7 +52,7 @@ const sceneContractSources = [
   "src/app/client/region3d/scene.cljc",
   "src/app/client/engine/device.cljs",
   "src/app/client/text/renderer.cljs",
-  "src/app/client/image/painter.cljs",
+  "src/app/client/image/renderer.cljs",
   "src/app/client/path/renderer.cljs",
 ].map(read).join("\n");
 absent(sceneContractSources,
@@ -65,7 +65,7 @@ const painterFiles = [
   "src/app/client/engine/device.cljs",
   "src/app/client/engine/compositor.cljs",
   "src/app/client/text/renderer.cljs",
-  "src/app/client/image/painter.cljs",
+  "src/app/client/image/renderer.cljs",
   "src/app/client/path/renderer.cljs",
   "src/app/client/region3d/painter.cljs",
   "src/app/client/region3d/on_plane_painter.cljs",

@@ -1,13 +1,13 @@
 (ns app.client.verifier.image
-     "Browser receipts for image material, painting, color, and lifecycle behavior.
+     "Browser receipts for image component, painting, color, and lifecycle behavior.
       Takes: a WebGPU device.
       Gives: the image verifier result map.
       Holds nothing."
      (:require [app.client.engine.color :as scene-color]
                [app.client.engine.device :as device]
                [app.client.engine.transform :as transform]
-               [app.client.image.material :as image-material]
-               [app.client.image.painter :as image-painter]
+               [app.client.image.component :as image-component]
+               [app.client.image.renderer :as image-renderer]
                [app.client.verifier.shared
 :refer [canvas-size color-format glyph-screen-x glyph-screen-baseline
         glyph-screen-size zoom-cases image-fixtures promise-mapv
@@ -43,10 +43,10 @@
 (defn- ingress-corpus! [image-system corpus]
   (promise-mapv
    (fn [{:keys [source bytes]}]
-     (image-painter/register-image-source! image-system source bytes))
+     (image-renderer/register-image-source! image-system source bytes))
    (mapv corpus (map :filename image-fixtures))))
 
-(defn- image-material-row
+(defn- image-component-row
   [id fixture x y width height & {:keys [uv opacity tint revision]
                                   :or {uv [0.0 0.0 1.0 1.0]
                                        opacity 1.0
@@ -63,9 +63,9 @@
                       :color-space :srgb
                       :alpha-association :straight}
                :opacity opacity}
-        content-key [id (:digest fixture) rect crop paint]
-        row {:image/material-id id
-             :image/revision (or revision content-key)
+        content-hash [id (:digest fixture) rect crop paint]
+        row {:image/component-id id
+             :image/revision (or revision content-hash)
              :image/source-digest (:digest fixture)
              :image/color-tag (or (:color-tag fixture) :srgb)
              :image/intrinsic-size [intrinsic-width intrinsic-height]
@@ -74,13 +74,13 @@
              :image/rect rect
              :image/crop crop
              :image/paint paint}]
-    (image-material/validate-material! row)))
+    (image-component/validate-component! row)))
 
-(defn- image-op [material container]
-  {:image/material material :container container})
+(defn- image-draw-item [component group]
+  {:image/component component :container group})
 
 (defn- render-image-bytes!
-  [^js device image-system ops effective zoom
+  [^js device image-system draw-items effective zoom
    & {:keys [clear-value intermediate-copy?]
       :or {clear-value {:r 0.0 :g 0.0 :b 0.0 :a 0.0}
            intermediate-copy? false}}]
@@ -106,7 +106,7 @@
         _ (device/update-camera device (:camera-buffer image-system)
                                   camera 0.0 0.0 zoom
                                   canvas-size canvas-size)
-        _ (image-painter/prepare-image-frame! image-system ops effective)
+        _ (image-renderer/prepare-image-frame! image-system draw-items effective)
         encoder (.createCommandEncoder device)
         pass (.beginRenderPass
               encoder
@@ -115,7 +115,7 @@
                                             (clj->js {:format view-format}))
                           :clearValue clear-value
                           :loadOp "clear" :storeOp "store"}]}))]
-    (image-painter/draw-image-runs! pass image-system 0 (count ops))
+    (image-renderer/draw-image-runs! pass image-system 0 (count draw-items))
     (.end pass)
     (when intermediate-copy?
       (.copyTextureToTexture encoder
@@ -142,12 +142,12 @@
              (when presentation (.destroy presentation))
              copy))))))
 
-(defn- render-image-pair! [device image-system ops effective zoom clear-value]
-  (-> (render-image-bytes! device image-system ops effective zoom
+(defn- render-image-pair! [device image-system draw-items effective zoom clear-value]
+  (-> (render-image-bytes! device image-system draw-items effective zoom
                            :clear-value clear-value)
       (.then
        (fn [first-bytes]
-         (-> (render-image-bytes! device image-system ops effective zoom
+         (-> (render-image-bytes! device image-system draw-items effective zoom
                                   :clear-value clear-value)
              (.then
               (fn [second-bytes]
@@ -172,50 +172,50 @@
                  :byte-identical? (:byte-identical? pair)}})
 
 (defn- run-image-golden-case!
-  [device candidate-system effective corpus {:keys [case-id zoom regime]}]
+  [device candidate-system effective corpus {:keys [case-id zoom lod]}]
   (let [screen->world #(/ % zoom)
         opaque (get corpus "atlas-opaque-srgb.png")
         alpha (get corpus "alpha-reference-straight.png")
         clipped (get corpus "clip-stripes-srgb.png")
         clear {:r 0.018 :g 0.055 :b 0.09 :a 1.0}
-        opaque-op (image-op
-                   (image-material-row
+        opaque-draw-item (image-draw-item
+                   (image-component-row
                     :golden/opaque opaque
                     (screen->world 24.0) (screen->world 24.0)
                     (screen->world 80.0) (screen->world 80.0))
                    0)
-        alpha-op (image-op
-                  (image-material-row
+        alpha-draw-item (image-draw-item
+                  (image-component-row
                    :golden/alpha alpha
                    (screen->world 24.0) (screen->world 24.0)
                    (screen->world 80.0) (screen->world 80.0))
                   0)
         ;; T15: this is the post-clamp transform/crop pair for an original
         ;; 80px quad clipped by 20px on each x edge.
-        clipped-op (image-op
-                    (image-material-row
+        clipped-draw-item (image-draw-item
+                    (image-component-row
                      :golden/clipped clipped
                      (screen->world 44.0) (screen->world 24.0)
                      (screen->world 40.0) (screen->world 80.0)
                      :uv [0.25 0.0 0.75 1.0])
                     0)]
-    (-> (render-image-pair! device candidate-system [opaque-op]
+    (-> (render-image-pair! device candidate-system [opaque-draw-item]
                             effective zoom clear)
         (.then
          (fn [opaque-pair]
-           (-> (render-image-pair! device candidate-system [alpha-op]
+           (-> (render-image-pair! device candidate-system [alpha-draw-item]
                                    effective zoom clear)
                (.then (fn [alpha-pair] [opaque-pair alpha-pair])))))
         (.then
          (fn [[opaque-pair alpha-pair]]
-           (-> (render-image-pair! device candidate-system [clipped-op]
+           (-> (render-image-pair! device candidate-system [clipped-draw-item]
                                    effective zoom clear)
                (.then
                 (fn [clipped-pair]
-                  {:case-id case-id :zoom zoom :regime regime
+                  {:case-id case-id :zoom zoom :lod lod
                    :normalization "screen-constant"
                    :shape-extent-world (/ 80.0 zoom)
-                   :op-counts {:opaque 1 :alpha 1 :partially-clipped 1}
+                   :draw-item-counts {:opaque 1 :alpha 1 :partially-clipped 1}
                    :images [(image-atom-record "opaque-atlas" case-id
                                                opaque-pair)
                             (image-atom-record "alpha-dedicated" case-id
@@ -228,42 +228,42 @@
         mode "container-tree"
         zoom 1.0
         clear {:r 0.025 :g 0.06 :b 0.11 :a 1.0}
-        material (image-material-row
+        component (image-component-row
                   :image-golden/container-tree
                   (get corpus "atlas-opaque-srgb.png")
                   8.0 8.0 32.0 32.0)
-        ops [(image-op material 0) (image-op material 17)]
+        draw-items [(image-draw-item component 0) (image-draw-item component 17)]
         unknown-error
         (try
-          (image-painter/prepare-image-frame!
-           image-system [(image-op material 99)] effective)
+          (image-renderer/prepare-image-frame!
+           image-system [(image-draw-item component 99)] effective)
           nil
           (catch :default error (ex-data error)))]
-    (-> (render-image-pair! device image-system ops effective zoom clear)
+    (-> (render-image-pair! device image-system draw-items effective zoom clear)
         (.then
          (fn [pair]
            {:case-id case-id
             :zoom zoom
-            :regime "floor-default-clamp"
+            :lod "engine-default-clamp"
             :normalization "image-local-with-effective-container-tree"
             :shape-extent-world 32.0
-            :op-counts {:container-tree 2}
+            :draw-item-counts {:container-tree 2}
             :buffer-indexes [(get-in effective [0 :buffer-index])
                               (get-in effective [17 :buffer-index])]
-            :unknown-container unknown-error
+            :unknown-group unknown-error
             :images [(image-atom-record mode case-id pair)]})))))
 
-(defn- image-product-inside? [op zoom screen-x screen-y]
-  (image-material/half-open-hit?
-   (get-in op [:image/material :image/rect])
+(defn- image-product-inside? [draw-item zoom screen-x screen-y]
+  (image-component/half-open-hit?
+   (get-in draw-item [:image/component :image/rect])
    [(/ screen-x zoom) (/ screen-y zoom)]))
 
-(defn- image-parity-receipt [extent-id op zoom rgba]
+(defn- image-parity-receipt [extent-id draw-item zoom rgba]
   (let [boundary (boundary-pixels rgba)
         rows (mapv
               (fn [[x y coverage]]
                 (let [inside? (image-product-inside?
-                               op zoom (+ x 0.5) (+ y 0.5))
+                               draw-item zoom (+ x 0.5) (+ y 0.5))
                       gpu-class (cond (< coverage 128) :outside
                                       (> coverage 128) :inside
                                       :else :half)
@@ -296,13 +296,13 @@
      (fn [{:keys [case-id zoom]}]
        (promise-mapv
         (fn [[extent-id width height]]
-          (let [op (image-op
-                    (image-material-row
+          (let [draw-item (image-draw-item
+                    (image-component-row
                      [:parity extent-id case-id] fixture
                      (/ 24.25 zoom) (/ 24.25 zoom) width height)
                     0)]
-            (-> (render-image-bytes! device seam-system [op] effective zoom)
-                (.then #(image-parity-receipt extent-id op zoom %)))))
+            (-> (render-image-bytes! device seam-system [draw-item] effective zoom)
+                (.then #(image-parity-receipt extent-id draw-item zoom %)))))
         [["screen-constant" (/ 80.0 zoom) (/ 80.0 zoom)]
          ["world-256" 256.0 256.0]]))
      zoom-cases)))
@@ -359,21 +359,21 @@
         premultiplied (get corpus "dedicated-alpha-premultiplied.png")
         seam (get corpus "seam-byte-srgb.png")
         quad (fn [id fixture]
-               (image-op
-                (image-material-row id fixture 24.0 24.0 80.0 80.0)
+               (image-draw-item
+                (image-component-row id fixture 24.0 24.0 80.0 80.0)
                 0))
-        alpha-op (quad :color/alpha alpha)
-        profile-op (quad :color/profile profile)
-        straight-op (quad :color/straight straight)
-        premultiplied-op (quad :color/premultiplied premultiplied)
-        seam-op (image-op
-                 (image-material-row :color/seam seam 24.0 24.0 64.0 64.0)
+        alpha-draw-item (quad :color/alpha alpha)
+        profile-draw-item (quad :color/profile profile)
+        straight-draw-item (quad :color/straight straight)
+        premultiplied-draw-item (quad :color/premultiplied premultiplied)
+        seam-draw-item (image-draw-item
+                 (image-component-row :color/seam seam 24.0 24.0 64.0 64.0)
                  0)
-        seam-profile-op
-        (image-op
-         (image-material-row :color/seam-profile profile 24.0 24.0 8.0 8.0)
+        seam-profile-draw-item
+        (image-draw-item
+         (image-component-row :color/seam-profile profile 24.0 24.0 8.0 8.0)
          0)]
-    (-> (render-image-bytes! device candidate-system [alpha-op] effective 1.0
+    (-> (render-image-bytes! device candidate-system [alpha-draw-item] effective 1.0
                              :clear-value clear)
         (.then
          (fn [alpha-bytes]
@@ -395,12 +395,12 @@
                                  :pass? (every? pos? (take 3 edge))}})))
         (.then
          (fn [receipt]
-           (-> (render-image-bytes! device candidate-system [profile-op]
+           (-> (render-image-bytes! device candidate-system [profile-draw-item]
                                     effective 1.0)
                (.then
                 (fn [direct]
                   (-> (render-image-bytes!
-                       device candidate-system [profile-op] effective 1.0
+                       device candidate-system [profile-draw-item] effective 1.0
                        :intermediate-copy? true)
                       (.then
                        (fn [copied]
@@ -410,12 +410,12 @@
                                  :pass? (zero? (byte-delta direct copied))})))))))))
         (.then
          (fn [receipt]
-           (-> (render-image-bytes! device candidate-system [straight-op]
+           (-> (render-image-bytes! device candidate-system [straight-draw-item]
                                     effective 1.0)
                (.then
                 (fn [straight]
                   (-> (render-image-bytes!
-                       device candidate-system [premultiplied-op] effective 1.0)
+                       device candidate-system [premultiplied-draw-item] effective 1.0)
                       (.then
                        (fn [premultiplied]
                          (assoc receipt :alpha-association
@@ -429,23 +429,23 @@
            (let [camera (device/create-camera-buffer device)
                  groups-buffer (device/create-groups-buffer device)
                  _ (device/write-groups! device groups-buffer effective)
-                 system (image-painter/init-image-system
+                 system (image-renderer/init-image-system
                          device "rgba8unorm-srgb" camera groups-buffer
                          :scene-color (scene-color/scene-color true))
                  row (get corpus "dedicated-alpha-premultiplied.png")
                  mistagged-source (assoc (:source row)
                                          :image/alpha-association :straight)]
-             (-> (image-painter/register-image-source! system mistagged-source
+             (-> (image-renderer/register-image-source! system mistagged-source
                                                   (:bytes row))
                  (.then (fn [_]
                           (render-image-bytes! device system
-                                               [premultiplied-op] effective 1.0)))
+                                               [premultiplied-draw-item] effective 1.0)))
                  (.then
                   (fn [mistagged]
                     (let [delta (byte-delta
                                  (:alpha-association-bytes receipt)
                                  mistagged)]
-                      (image-painter/destroy-image-system! system)
+                      (image-renderer/destroy-image-system! system)
                       (.destroy camera)
                       (.destroy groups-buffer)
                       (-> receipt
@@ -455,7 +455,7 @@
                                   :pass? (> delta 8)})))))))))
         (.then
          (fn [receipt]
-           (-> (render-image-bytes! device seam-system [seam-op] effective 1.0)
+           (-> (render-image-bytes! device seam-system [seam-draw-item] effective 1.0)
                (.then
                 (fn [seam-bytes]
                   (let [actual (subvec (vec (pixel-rgba seam-bytes 56 56))
@@ -465,7 +465,7 @@
                             :transfer-count 0 :pass? (= [64 128 192] actual)})))))))
         (.then
          (fn [receipt]
-           (-> (render-image-bytes! device seam-system [seam-profile-op]
+           (-> (render-image-bytes! device seam-system [seam-profile-draw-item]
                                     effective 1.0)
                (.then
                 (fn [seam-bytes]
@@ -519,7 +519,7 @@
 (defn- residency-counts [rows]
   (reduce (fn [counts [_ {:keys [status]}]]
             (update counts status (fnil inc 0)))
-          {:ok 0 :refused 0 :unavailable 0}
+          {:ok 0 :rejected 0 :unavailable 0}
           rows))
 
 (defn- residency-report [image-system]
@@ -540,55 +540,55 @@
   (let [camera (device/create-camera-buffer device)
         groups-buffer (device/create-groups-buffer device)
         _ (device/write-groups! device groups-buffer effective)
-        system (image-painter/init-image-system
+        system (image-renderer/init-image-system
                 device "rgba8unorm-srgb" camera groups-buffer
                 :scene-color (scene-color/scene-color true))
         left-fixture (get corpus "atlas-opaque-srgb.png")
         right-fixture (get corpus "alpha-reference-straight.png")
         landing-fixture (get corpus "clip-stripes-srgb.png")
-        left (image-material-row :image-upload/left left-fixture
+        left (image-component-row :image-upload/left left-fixture
                                  3.0 5.0 16.0 17.0)
-        right (image-material-row :image-upload/right right-fixture
+        right (image-component-row :image-upload/right right-fixture
                                   52.0 61.0 39.0 42.0)
-        ops [(image-op left 0) (image-op right 17)]]
+        draw-items [(image-draw-item left 0) (image-draw-item right 17)]]
     (-> (promise-mapv
          (fn [fixture]
-           (image-painter/register-image-source!
+           (image-renderer/register-image-source!
             system (:source fixture) (:bytes fixture)))
          [left-fixture right-fixture])
         (.then
          (fn [_]
-           (let [frame-1 (image-painter/prepare-image-frame!
-                          system ops effective)
-                 frame-2 (image-painter/prepare-image-frame!
-                          system (mapv identity ops) effective)
+           (let [frame-1 (image-renderer/prepare-image-frame!
+                          system draw-items effective)
+                 frame-2 (image-renderer/prepare-image-frame!
+                          system (mapv identity draw-items) effective)
                  reminted-left (assoc left :image/revision
                                       [:image/revision (:image/revision left)])
-                 reminted-ops [(image-op reminted-left 0) (second ops)]
-                 frame-3 (image-painter/prepare-image-frame!
-                          system reminted-ops effective)
-                 landing-material
-                 (image-material-row :image-upload/landing landing-fixture
+                 reminted-draw-items [(image-draw-item reminted-left 0) (second draw-items)]
+                 frame-3 (image-renderer/prepare-image-frame!
+                          system reminted-draw-items effective)
+                 landing-component
+                 (image-component-row :image-upload/landing landing-fixture
                                      12.0 18.0 40.0 32.0)
-                 landing-ops [(image-op landing-material 0)]
-                 placeholder-frame (image-painter/prepare-image-frame!
-                                    system landing-ops effective)]
+                 landing-draw-items [(image-draw-item landing-component 0)]
+                 placeholder-frame (image-renderer/prepare-image-frame!
+                                    system landing-draw-items effective)]
              {:frame-1 frame-1 :frame-2 frame-2 :frame-3 frame-3
-              :landing-ops landing-ops
+              :landing-draw-items landing-draw-items
               :placeholder-frame placeholder-frame
               :placeholder-status (:image/status (first @(:!prepared system)))})))
         (.then
          (fn [state]
-           (-> (image-painter/register-image-source!
+           (-> (image-renderer/register-image-source!
                 system (:source landing-fixture) (:bytes landing-fixture))
                (.then
                 (fn [_]
-                  (let [frame-4 (image-painter/prepare-image-frame!
-                                 system (:landing-ops state) effective)
+                  (let [frame-4 (image-renderer/prepare-image-frame!
+                                 system (:landing-draw-items state) effective)
                         prepared (first @(:!prepared system))
                         result
                         (-> state
-                            (dissoc :landing-ops)
+                            (dissoc :landing-draw-items)
                             (assoc :frame-4 frame-4
                                    :pass?
                                    (and (:changed? (:frame-1 state))
@@ -609,7 +609,7 @@
                                         (= :ok (:image/status prepared))
                                         (not= :image/placeholder
                                               (:image/binding-key prepared)))))]
-                    (image-painter/destroy-image-system! system)
+                    (image-renderer/destroy-image-system! system)
                     (.destroy camera)
                     (.destroy groups-buffer)
                     result)))))))))
@@ -634,26 +634,26 @@
                              :color-tag :srgb :filename :unavailable}
         refused-fixture {:digest refused-digest :width 2 :height 2
                          :color-tag :srgb :filename :refused}
-        unavailable-op
-        (image-op (image-material-row :lifecycle/unavailable
+        unavailable-draw-item
+        (image-draw-item (image-component-row :lifecycle/unavailable
                                       unavailable-fixture 0 0 8 8)
                   0)
-        refused-op
-        (image-op (image-material-row :lifecycle/refused
+        refused-draw-item
+        (image-draw-item (image-component-row :lifecycle/refused
                                       refused-fixture 0 0 8 8)
                   0)
         source-row (get corpus "atlas-opaque-srgb.png")
         refused-source (-> (:source source-row)
                            (assoc :image/digest refused-digest
                                   :image/color-tag :untagged))]
-    (-> (image-painter/register-image-source!
+    (-> (image-renderer/register-image-source!
          candidate-system refused-source (:bytes source-row))
         (.then
          (fn [refusal]
            (let [refused-before
                  (get @(:!resources candidate-system) refused-digest)]
              (-> (render-image-bytes! device candidate-system
-                                      [unavailable-op] effective 1.0)
+                                      [unavailable-draw-item] effective 1.0)
                  (.then
                   (fn [unavailable-bytes]
                     (-> (sha256-bytes unavailable-bytes)
@@ -665,7 +665,7 @@
         (.then
          (fn [state]
            (-> (render-image-bytes! device candidate-system
-                                    [refused-op] effective 1.0)
+                                    [refused-draw-item] effective 1.0)
                (.then
                 (fn [_]
                   (assoc state :refused-after-paint
@@ -678,17 +678,17 @@
                 (fn [replacement-device]
                   (let [replacement-camera
                         (device/create-camera-buffer replacement-device)
-                        replacement-containers
+                        replacement-groups
                         (device/create-groups-buffer replacement-device)
                         _ (device/write-groups! replacement-device
-                                                    replacement-containers
+                                                    replacement-groups
                                                     effective)
                         replacement-system
-                        (image-painter/init-image-system
+                        (image-renderer/init-image-system
                          replacement-device "rgba8unorm-srgb"
-                         replacement-camera replacement-containers
+                         replacement-camera replacement-groups
                          :scene-color (scene-color/scene-color true))]
-                    (-> (image-painter/rebuild-image-resources!
+                    (-> (image-renderer/rebuild-image-resources!
                          candidate-system replacement-system)
                         (.then
                          (fn [rebuild]
@@ -714,10 +714,10 @@
                                         :replacement-report replacement-report
                                         :registered-pass? registered-pass?
                                         :refusal-preserved? refusal-preserved?)]
-                             (image-painter/destroy-image-system!
+                             (image-renderer/destroy-image-system!
                               replacement-system)
                              (.destroy replacement-camera)
-                             (.destroy replacement-containers)
+                             (.destroy replacement-groups)
                              (.destroy replacement-device)
                              result))))))))))
         (.then
@@ -742,7 +742,7 @@
                  (get-in state [:replacement-report :counts])
                  lifecycle-pass?
                  (and placeholder-pass?
-                      (= :refused (get-in state [:refusal :status]))
+                      (= :rejected (get-in state [:refusal :status]))
                       (= :unavailable (:status unavailable))
                       (:placeholder-rendered unavailable)
                       (= (count registered-digests) (:rebuilt rebuild))
@@ -761,24 +761,24 @@
 
 (defn run-image-atom! [device]
   (let [candidate-camera (device/create-camera-buffer device)
-        candidate-containers (device/create-groups-buffer device)
+        candidate-groups (device/create-groups-buffer device)
         registry (-> (transform/empty-registry)
                      (transform/add-group
                       17 {:parent 0
                           :affine [0.5 0.0 0.0 0.5 40.0 20.0]}))
         effective (transform/world-transforms registry)
         _candidate-transport
-        (device/write-groups! device candidate-containers effective)
+        (device/write-groups! device candidate-groups effective)
         candidate-system
-        (image-painter/init-image-system
-         device "rgba8unorm-srgb" candidate-camera candidate-containers
+        (image-renderer/init-image-system
+         device "rgba8unorm-srgb" candidate-camera candidate-groups
          :scene-color (scene-color/scene-color true))
         seam-camera (device/create-camera-buffer device)
         seam-containers (device/create-groups-buffer device)
         _seam-transport
         (device/write-groups! device seam-containers effective)
         seam-system
-        (image-painter/init-image-system
+        (image-renderer/init-image-system
          device "rgba8unorm" seam-camera seam-containers
          :scene-color (scene-color/scene-color false))]
     (-> (fetch-image-corpus!)
@@ -828,7 +828,7 @@
                             (= [0 1] (:buffer-indexes tree-case))
                             (= :transform/unknown-group
                                (get-in tree-case
-                                       [:unknown-container :error-type]))
+                                       [:unknown-group :error-type]))
                             (:pass? color)
                             (:pass? upload-gate)
                             (:pass? lifecycle))
@@ -844,8 +844,8 @@
                          :image-above-text-kind-layer true
                          :default-dark true :felt-gate :sid-live
                          :pass? pass?}]
-             (image-painter/destroy-image-system! candidate-system)
-             (image-painter/destroy-image-system! seam-system)
+             (image-renderer/destroy-image-system! candidate-system)
+             (image-renderer/destroy-image-system! seam-system)
              result))))))
 
 ;; --- PATH ATOM --------------------------------------------------------------

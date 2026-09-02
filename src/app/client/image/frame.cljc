@@ -1,14 +1,14 @@
 (ns app.client.image.frame
-  "The pure image-to-floor request for one frame.
-   Takes: image ops plus the residency revision.
-   Gives: the material revision/container frame key.
+  "The pure image-to-engine request for one frame.
+   Takes: image draw-items plus the residency revision.
+   Gives: the component revision/group frame key.
    Holds nothing.")
 
-(defn frame-key [ops residency-rev]
-  [(mapv (fn [op]
-           (let [material (:image/material op)]
-             [(:image/material-id material)
-              (:image/revision material)
-              (:container op)]))
-         (or ops []))
+(defn frame-key [draw-items residency-rev]
+  [(mapv (fn [draw-item]
+           (let [component (:image/component draw-item)]
+             [(:image/component-id component)
+              (:image/revision component)
+              (:container draw-item)]))
+         (or draw-items []))
    residency-rev])

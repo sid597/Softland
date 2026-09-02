@@ -1,8 +1,8 @@
-(ns app.client.image.painter
-  "The image painter: quads sampling an atlas or a dedicated texture, with mip
+(ns app.client.image.renderer
+  "The image renderer: quads sampling an atlas or a dedicated texture, with mip
    levels for zooming out.
-   Takes: a device, a format, and the shared camera and containers buffers to
-   build the system; image sources to register; the frame's image ops to
+   Takes: a device, a format, and the shared camera and groups buffers to
+   build the system; image sources to register; the frame's image draw-items to
    prepare; a render pass to draw into.
    Gives: an image system with atlas, pipelines, and mip generator; packed
    instances in a pool; draw calls.
@@ -13,21 +13,21 @@
             [app.client.engine.device :as device]
             [app.client.engine.transform :as transform]
             [app.client.image.frame :as frame]
-            [app.client.image.material :as image-material]))
+            [app.client.image.component :as image-component]))
 
 (def image-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(2) var<uniform> camera: Camera;
-  struct ContainerTransform {
+  struct GroupTransform {
     axis_x: vec2<f32>, axis_y: vec2<f32>, translation: vec2<f32>,
     flags: u32, padding: u32,
   };
-  @group(0) @binding(3) var<storage, read> containers: array<ContainerTransform>;
+  @group(0) @binding(3) var<storage, read> groups: array<GroupTransform>;
   struct InstanceInput {
     @location(0) rect: vec4<f32>,
     @location(1) uv_bounds: vec4<f32>,
     @location(2) tint: vec4<f32>,
-    @location(3) container_idx: u32,
+    @location(3) group_buffer_index: u32,
   };
   struct VertexOutput {
     @builtin(position) position: vec4<f32>,
@@ -45,14 +45,14 @@
       case 2u: { pos = vec2<f32>(0.0, 1.0); } case 3u: { pos = vec2<f32>(1.0, 0.0); }
       case 4u: { pos = vec2<f32>(1.0, 1.0); } default: { pos = vec2<f32>(0.0, 1.0); }
     }
-    let c = containers[instance.container_idx];
+    let c = groups[instance.group_buffer_index];
     let is_screen = (c.flags & 1u) != 0u;
     let zm = select(camera.zoom, 1.0, is_screen);
     let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
     let axis_scale = max(vec2<f32>(length(c.axis_x), length(c.axis_y)) * zm,
                          vec2<f32>(0.0001, 0.0001));
     // Ramped Cg support: expand the raster hull by half a screen pixel while
-    // keeping the mathematical quad at edge_pos 0/edge_size (IMAGE-ATOM G4).
+    // keeping the mathematical quad at edge_pos 0/edge_size (IMAGE-STEP G4).
     let sign = pos * 2.0 - vec2<f32>(1.0, 1.0);
     let local_delta = sign * vec2<f32>(0.5, 0.5) / axis_scale;
     let local_pos = instance.rect.xy + pos * instance.rect.zw + local_delta;
@@ -107,20 +107,20 @@
 
 ;; --- 2. INITIALIZATION ---
 
-(def image-instance-stride image-material/image-instance-stride)
+(def image-instance-stride image-component/image-instance-stride)
 
-;; --- Image atom resource system --------------------------------------------
+;; --- Image step resource system --------------------------------------------
 
-(defn- pack-image-instance [image-op]
-  (let [material (:image/material image-op)
-        paint (:image/paint material)
-        words (image-material/instance-words
-               {:rect (:image/rect material)
-                :uv (:image/resolved-uv image-op)
+(defn- pack-image-instance [image-draw-item]
+  (let [component (:image/component image-draw-item)
+        paint (:image/paint component)
+        words (image-component/instance-words
+               {:rect (:image/rect component)
+                :uv (:image/resolved-uv image-draw-item)
                 :tint (:tint paint)
                 :opacity (:opacity paint)
-                :slot (:slot image-op)})
-        data (js/Float32Array. image-material/image-instance-words)
+                :buffer-index (:buffer-index image-draw-item)})
+        data (js/Float32Array. image-component/image-instance-words)
         uints (js/Uint32Array. (.-buffer data))]
     (dotimes [index 12]
       (aset data index (nth words index)))
@@ -188,7 +188,7 @@
                        device (clj->js {:code image-mip-vertex-shader}))
         fragment-module (.createShaderModule
                          device (clj->js {:code image-mip-fragment-shader}))
-        ;; IMAGE-ATOM T4: candidate mip views are sRGB on both sides, so
+        ;; IMAGE-STEP T4: candidate mip views are sRGB on both sides, so
         ;; filtering occurs between hardware decode and encode.  Seam-off uses
         ;; unorm on both sides so its declared zero-transfer leg cannot
         ;; accidentally half-convert while generating mips.
@@ -269,7 +269,7 @@
         context (.getContext canvas "2d")]
     (.clearRect context 0 0 (.-width canvas) (.-height canvas))
     (.drawImage context bitmap padding padding)
-    ;; IMAGE-ATOM T5: extrude edge texels through the declared gutter before
+    ;; IMAGE-STEP T5: extrude edge texels through the declared gutter before
     ;; the atlas mip chain is generated; UVs still address only the interior.
     (.drawImage context bitmap 0 0 1 height 0 padding padding height)
     (.drawImage context bitmap (dec width) 0 1 height (+ padding width) padding
@@ -373,7 +373,7 @@
         placeholder-bind-group (create-image-bind-group
                                 device bind-layout sampler placeholder-view
                                 camera-buffer groups-buffer)
-        {:keys [width height mip-level-count]} image-material/atlas-config
+        {:keys [width height mip-level-count]} image-component/atlas-config
         atlas-texture (image-texture device width height mip-level-count)
         atlas-view (image-view atlas-texture scene-color)
         atlas-bind-group (create-image-bind-group
@@ -381,7 +381,7 @@
                           camera-buffer groups-buffer)
         pool (buffer-pool/create-pool
               device initial-capacity pipeline nil
-              :floats-per-item image-material/image-instance-words
+              :floats-per-item image-component/image-instance-words
               :pack-fn pack-image-instance)
         image-system
         {:device device :pipeline pipeline :bind-layout bind-layout
@@ -394,9 +394,9 @@
                        :uv [0.0 0.0 1.0 1.0]}
          :!atlas-resource (atom {:texture atlas-texture
                                  :bind-group atlas-bind-group})
-         :!atlas (atom (image-material/empty-atlas))
+         :!atlas (atom (image-component/empty-atlas))
          :!resources (atom {})
-         :!source-registry (atom (image-material/empty-source-registry))
+         :!source-registry (atom (image-component/empty-source-registry))
          :!source-bytes (atom {})
          :!prepared (atom [])
          :!last-frame-key (atom ::never)
@@ -443,14 +443,14 @@
      (clj->js {:width (+ width (* 2 padding))
                :height (+ height (* 2 padding))}))
     (generate-image-mips! device (:mip-system image-system) texture
-                          (:mip-level-count image-material/atlas-config))))
+                          (:mip-level-count image-component/atlas-config))))
 
 (defn- create-dedicated-image-resource!
   [image-system digest ^js bitmap]
   (let [^js device (:device image-system)
         width (.-width bitmap)
         height (.-height bitmap)
-        mip-level-count (image-material/mip-level-count width height)
+        mip-level-count (image-component/mip-level-count width height)
         texture (image-texture device width height mip-level-count)
         _ (.copyExternalImageToTexture
            (.-queue device)
@@ -478,7 +478,7 @@
     (-> (js/Promise.resolve nil)
         (.then
          (fn [_]
-           (image-material/validate-source! source)
+           (image-component/validate-source! source)
            (bytes->sha256 bytes)))
         (.then
          (fn [computed-digest]
@@ -486,7 +486,7 @@
              (throw (ex-info "Image source digest mismatch"
                              {:reason :digest-mismatch
                               :declared digest :computed computed-digest})))
-           (let [registry (image-material/register-verified-source
+           (let [registry (image-component/register-verified-source
                            @(:!source-registry image-system)
                            source computed-digest)]
              (reset! (:!source-registry image-system) registry)
@@ -515,7 +515,7 @@
                  (throw (ex-info "Decoded image dimensions differ from source"
                                  {:reason :dimension-mismatch
                                   :declared declared :decoded [width height]})))
-               (let [plan (image-material/placement-plan
+               (let [plan (image-component/placement-plan
                            @(:!atlas image-system) digest
                            {:width width :height height})
                      resource
@@ -530,7 +530,7 @@
                           :placement placement
                           :width width :height height
                           :mip-level-count
-                          (:mip-level-count image-material/atlas-config)})
+                          (:mip-level-count image-component/atlas-config)})
                        (create-dedicated-image-resource!
                         image-system digest bitmap))
                      residency (resource-residency resource)]
@@ -547,8 +547,8 @@
                (swap! (:!residency-rev image-system) inc)
                (set-residency!
                 image-system residency-digest
-                (placeholder-residency image-system :refused reason)))
-             {:status :refused :digest digest :reason reason}))))))
+                (placeholder-residency image-system :rejected reason)))
+             {:status :rejected :digest digest :reason reason}))))))
 
 (defn- destroy-dedicated-resources! [image-system]
   (doseq [[_ resource] @(:!resources image-system)
@@ -623,17 +623,17 @@
      (+ resource-u0 (* crop-u1 du))
      (+ resource-v0 (* crop-v1 dv))]))
 
-(defn- resolve-image-op [image-system effective image-op]
-  (let [material (:image/material image-op)
-        digest (:image/source-digest material)
+(defn- resolve-image-draw-item [image-system effective image-draw-item]
+  (let [component (:image/component image-draw-item)
+        digest (:image/source-digest component)
         residency (ensure-residency! image-system digest)
         resource? (= :ok (:status residency))
-        crop (image-material/normalize-crop
-              (:image/intrinsic-size material) (:image/crop material))
-        crop-uv (image-material/crop->uv (:image/intrinsic-size material) crop)
+        crop (image-component/normalize-crop
+              (:image/intrinsic-size component) (:image/crop component))
+        crop-uv (image-component/crop->uv (:image/intrinsic-size component) crop)
         binding (:binding residency)]
-    (assoc image-op
-           :slot (transform/buffer-index effective (:container image-op))
+    (assoc image-draw-item
+           :buffer-index (transform/buffer-index effective (:container image-draw-item))
            :image/status (:status residency)
            :image/reason (:reason residency)
            :image/binding-key (:key binding)
@@ -644,18 +644,18 @@
              (:uv residency)))))
 
 (defn prepare-image-frame!
-  "Write the image pool only when a material/container key or residency
+  "Write the image pool only when a component/group key or residency
    revision changes."
-  [image-system ops effective]
-  (let [ops (or ops [])]
-    (doseq [op ops]
+  [image-system draw-items effective]
+  (let [draw-items (or draw-items [])]
+    (doseq [draw-item draw-items]
       (ensure-residency! image-system
-                         (get-in op [:image/material :image/source-digest])))
-    (let [frame-key (frame/frame-key ops @(:!residency-rev image-system))]
+                         (get-in draw-item [:image/component :image/source-digest])))
+    (let [frame-key (frame/frame-key draw-items @(:!residency-rev image-system))]
       (if (= frame-key @(:!last-frame-key image-system))
         {:changed? false :writes 0
          :instances (count @(:!prepared image-system))}
-        (let [prepared (mapv #(resolve-image-op image-system effective %) ops)
+        (let [prepared (mapv #(resolve-image-draw-item image-system effective %) draw-items)
               item-writes (buffer-pool/batch-update-pool!
                            (:pool image-system) prepared)]
           (reset! (:!last-frame-key image-system) frame-key)
@@ -665,18 +665,18 @@
            :instances (count prepared)})))))
 
 (defn image-draw-runs
-  "Binding runs over one contiguous slice of the prepared image ops, in op
-   order; no texture grouping may reorder the stamped op stream."
+  "Binding runs over one contiguous slice of the prepared image draw-items, in draw-item
+   order; no texture grouping may reorder the stamped draw-item stream."
   [image-system offset instance-count]
   (let [prepared @(:!prepared image-system)
-        slot-ops (subvec prepared offset (+ offset instance-count))
+        buffer-index-items (subvec prepared offset (+ offset instance-count))
         buffer (:buffer @(:pool image-system))]
-    (mapv (fn [{:keys [first-instance instance-count ops]}]
-            {:bind-group (:image/bind-group (first ops))
+    (mapv (fn [{:keys [first-instance instance-count draw-items]}]
+            {:bind-group (:image/bind-group (first draw-items))
              :buffer buffer
              :instance-count instance-count
              :first-instance (+ offset first-instance)})
-          (image-material/contiguous-binding-runs slot-ops))))
+          (image-component/contiguous-binding-runs buffer-index-items))))
 
 (defn draw-image-runs!
   "Family-owned sub-draw walker over one prepared image slice."
