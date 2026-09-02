@@ -43,9 +43,14 @@ It carries exactly:
   session: alternatives considered and why each lost; holes left on
   purpose, each marked "out of scope" or "not yet decided"; what the cutter
   would push back on if an implementer proposed it; the calls it is least
-  sure of. Written before the cutting session ends. Follow-up questions go
-  to a fresh session booted on contract + basis + the seam + the question;
-  the cutting session is never resumed for them (corpse: 300–400k-token
+  sure of. Composed WITH the contract, before its first Write, never after
+  (writing at 300k is the corpse again). Follow-ups go to a FRESH session:
+  a load turn at low effort (contract + basis + NOW + the question's files
+  by window; one-line reply), then effort up, then the question; `recall
+  search` pulls the cutting exchange on the topic where the basis is
+  silent. The cutting session is never resumed: a long context defends
+  what it wrote, a fresh one can falsify it — the fresh judge is the better
+  court, not the compromise (Sid/Fable, 2026-09-03; corpse: 300–400k-token
   sessions reloaded across sittings to answer one question).
 The cutter reads BINDING law docs primary (W1-class, never a summary), and
 the cut CLOSES through ONE bounded fresh-eyes falsification round — run as

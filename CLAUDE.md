@@ -25,7 +25,9 @@ Contract = the hard thinking; everything after is execution. One pass, one
 session, one document — size OPEN, no screen cap (Sid, 2026-08-06): scope · laws · exact entry points
 (new code in its own namespace; big files get thin hooks) · 3–5 decisive
 scenarios · real MUST-NOTs · the BASIS (alternatives rejected, holes left,
-least-sure calls — so follow-ups go to a fresh session, never a resumed one). The implementer builds the whole atom, keeps its
+least-sure calls — so follow-ups go to a fresh session, booted low on contract + basis + the
+question's files then effort up — the fresh judge is the better court, never a
+resumed one; `recall` for the exchange; law: work-package skill). The implementer builds the whole atom, keeps its
   implementation adversarial check, fixes what surfaces before source freeze;
   a genuine fork is ONE
 question, never a stop code. The cutter reads binding law docs PRIMARY
@@ -181,7 +183,12 @@ the lesson, percentages are receipts, not constants. Ranked by measured effect:
 - **Effort is a dial with a ratchet.** Thinking re-enters the prefix ~1:1 and
   is re-read by every later request (31% of W4 carry); past thinking is sunk —
   drop effort at the boundary INTO mechanical stretches; better, don't do
-  mechanics at depth at all.
+  mechanics at depth at all. The inverse at boot: the first turn LOADS at
+  low effort and ends in one line, then effort goes up for the thinking —
+  the read enters the prefix once, no position forms on it, and it is not
+  anchored by the question (receipt: the CONTRACT-5 cut, 2026-09-03).
+  Whether the cache survives the `/effort` switch is unverified; the first
+  turn after the switch showing cache reads, not writes, is the receipt.
 - **Budget gatherers, not just returns.** Delegation moves cost to a cheaper
   meter, it doesn't erase it (T2: subagents billed 12.6M vs parent 4.3M).
   Gatherer prompts carry a scoped FILE list when substrates overlap

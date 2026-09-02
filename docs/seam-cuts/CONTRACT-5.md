@@ -214,6 +214,20 @@ Foreign suite failures are debt (known: four server namespaces red since `81f8c6
 
 **Least sure.** (a) The `max-lease-size` wiring depends on the adapter's max texture dimension exceeding 4096 on the build machine; if it does not, the implementer leaves the wiring out with one NOW line and S1 stands. (b) Whether `plane-coverage-check` has a reader beyond the census; if not it goes too. (c) Step B: DejaVu's Slug meta may have been generated from a different DejaVu build than the ttf, so glyph ids could disagree; SB1's unresolved count and Sid's eye are the only fences. (d) Deleting the fallback manifest assumes every road serves `manifest.json`; the render test harness does; any other road fails loudly, which is the intended form. (e) `first-glyph-advance-x` and `line-offsets-for` may keep a reader; each stays if so. (f) The comment scrub's regexes will hit a few true positives that are not contract tags (`T1` as a scenario name in a harness string); the implementer reads each hit.
 
+**Follow-ups go to a fresh session, never this one.** The cutting session is at 350k tokens and would defend this page; a fresh one can falsify it. Paste, at effort low:
+
+```
+This turn loads. Read the following and keep it in context. Do not assess; reply with one line:
+what was read and its byte total.
+  docs/seam-cuts/CONTRACT-5.md   header, §1 for the area in question, §2, §5, §7, §9
+  docs/seam-cuts/NOW-5.md        whole
+  <the files the question touches, by window; sizes first>
+```
+
+Then `/effort max`, then the question in one paragraph. Where §9 is silent, `recall search` the 2026-09-03 Claude Code exchange on the topic (project Softland); the cutting session's replies are indexed there.
+
+Facts a fresh judge would otherwise re-derive, from the 2026-09-02 map's items this contract did not take: the map's A2 said the fallback surface keys had no reader; the render test harness reads one (`harness/text.cljs:545-547`). Its C12 said `pick-region` treats scene units as pixels; it is an aspect assumption (`camera-matrices` uses the viewport only for aspect). Its C4 called the `:unsupported-kind` status silent; it is returned in `:coverage-check`. Its C5 deleted `world-transform-scale`; settled ground names its future caller. Its C1 (re-fetch image bytes by route) and C14 (strip `:image/bytes-route` from content) contradict each other. Its B4 "buffer-index convention" is three pools indexing three buffers, not one forked truth. Its fact base, if the scratchpad survives: `/tmp/claude-1000/-mnt-data-projects-Softland/3d06229d-0333-4434-b27f-ac458e1a14f2/scratchpad/waist-map-2026-09-02.md`.
+
 ---
 
 ## 10. The starters (paste-able, Codex lane)
