@@ -5,6 +5,7 @@
       Holds nothing."
      (:require [clojure.string :as str]
                [app.client.engine.device :as device]
+               [app.client.engine.placement :as placement]
                [app.client.text.layout :as tl]
                [app.client.text.layout-oracle :as layout-oracle]
                [app.client.text.painter :as text-painter]
@@ -248,7 +249,14 @@
      :x (/ glyph-screen-x zoom)
      :y (/ glyph-screen-baseline zoom)
      :size (/ glyph-screen-size zoom)
-     :r 1.0 :g 1.0 :b 1.0 :a 1.0}]])
+     :r 1.0 :g 1.0 :b 1.0 :a 1.0
+     :container 0}]])
+
+(defn- text-effective []
+  (-> (placement/empty-registry)
+      (placement/add-container 17 {:parent 0
+                                   :affine [0.5 0.0 0.0 0.5 40.0 20.0]})
+      (placement/effective)))
 
 (defn- image-record [mode case-id pair]
   {:mode mode
@@ -260,20 +268,23 @@
                  :byte-identical? (:byte-identical? pair)}})
 
 (defn- run-case!
-  [{:keys [device slug-system slug-assets curves]}
+  [{:keys [device slug-system slug-assets curves effective]}
    {:keys [case-id zoom regime]}]
   (let [lines (glyph-lines zoom)
         font-size (/ glyph-screen-size zoom)
         slug-glyph (first (filter #(= 111 (:unicode %))
                                   (get-in slug-assets [:slug :meta :glyphs])))
-        slug-instance (first (text-painter/shape-text (first lines) font-size slug-assets
-                                                  :char-width 0.60))
+        slug-instance (first (:instances
+                              (text-painter/shape-text
+                               (first lines) font-size slug-assets
+                               :char-width 0.60)))
         slug-probe (instance-path-probe curves slug-instance
                                         (or (:sampleBounds slug-glyph)
                                             (:planeBounds slug-glyph))
                                         zoom "production-slug-sampleBounds")
-        slug-system (text-painter/update-text-data device slug-system lines slug-assets font-size
-                                               :char-width 0.60)]
+        slug-system (text-painter/update-text-data
+                     device slug-system lines slug-assets font-size
+                     :char-width 0.60 :effective effective)]
     (js/console.log "[W0-A] case-start" case-id "zoom" zoom)
     (->
         (render-pair! device slug-system zoom)
@@ -297,7 +308,7 @@
                                (:receipt slug-probe))]})))))
 
 (defn- run-ubuntu-mixed-case!
-  [device ubuntu-system ubuntu-assets]
+  [device ubuntu-system ubuntu-assets effective]
   (let [text "Aɐ"
         font-size 56.0
         line-height 68.0
@@ -318,11 +329,12 @@
                             {:text text :expected expected-faces :actual face-ids})))
         lines (->> (tl/line-paint-ops
                      layout-result
-                     {:size font-size :r 1.0 :g 1.0 :b 1.0 :a 1.0})
+                     {:size font-size :r 1.0 :g 1.0 :b 1.0 :a 1.0
+                      :container 0})
                    (mapv vector))
         ubuntu-system (text-painter/update-text-data
                         device ubuntu-system lines ubuntu-assets font-size
-                        :line-height line-height)]
+                        :line-height line-height :effective effective)]
     (-> (render-pair! device ubuntu-system 1.0)
         (.then
          (fn [pair]
@@ -491,7 +503,7 @@
      :pass (every? :pass rows)
      :inputs rows}))
 
-(defn- flat-road-f3 [slug-assets t1-assets]
+(defn- flat-road-f3 [slug-assets t1-assets effective]
   (let [stride text-painter/slug-text-instance-stride
         carried (let [layout (tl/layout {:text "Aɐ b\tc x\noffice ffi"
                                          :provider (:layout-provider t1-assets)
@@ -500,29 +512,32 @@
                                          :source-id :verifier/flat-f3
                                          :source-revision 1})]
                   (mapv vector (tl/line-paint-ops
-                                layout {:size 32 :r 0.9 :g 0.5 :b 0.2 :a 1.0})))
+                                layout {:size 32 :r 0.9 :g 0.5 :b 0.2 :a 1.0
+                                        :container 0})))
         cases [{:name "slug-case-lines" :texts (glyph-lines 1.0) :assets slug-assets
                 :font-size glyph-screen-size :opts [:char-width 0.60]}
                {:name "ubuntu-carried-two-lines" :texts carried :assets t1-assets
                 :font-size 32 :opts []}
                {:name "ubuntu-uncarried-lines"
-                :texts [[{:text "Aɐ b\tc" :x 4 :y 30 :size 24 :r 1 :g 1 :b 1 :a 1}]
-                        [{:text "office" :x 4 :y 60 :size 24 :r 1 :g 0 :b 0 :a 1}]]
+                :texts [[{:text "Aɐ b\tc" :x 4 :y 30 :size 24
+                          :r 1 :g 1 :b 1 :a 1 :container 0}]
+                        [{:text "office" :x 4 :y 60 :size 24
+                          :r 1 :g 0 :b 0 :a 1 :container 0}]]
                 :assets t1-assets :font-size 24 :opts []}]
         rows (mapv (fn [{:keys [name texts assets font-size opts]}]
-                     (text-painter/reset-text-layout-fallbacks!)
-                     (let [flat (apply text-painter/pack-instances-flat
+                     (let [opts (into opts [:effective effective])
+                           flat (apply text-painter/pack-instances-flat
                                        texts assets font-size stride opts)
-                           fallbacks-after-flat (text-painter/text-layout-fallback-report)
                            oracle (apply text-painter/pack-instances-oracle
                                          texts assets font-size stride opts)]
                        {:name name
                         :num-instances (:num-instances flat)
                         :line-offsets (:line-offsets flat)
-                        :fallbacks fallbacks-after-flat
+                        :fallbacks (:fallbacks flat)
                         :pass (and (bytes= (:raw-buffer flat) (:raw-buffer oracle))
                                    (= (:line-offsets flat) (:line-offsets oracle))
                                    (= (:num-instances flat) (:num-instances oracle))
+                                   (= (:fallbacks flat) (:fallbacks oracle))
                                    (pos? (:num-instances flat)))}))
                    cases)
         carried-row (first (filter #(= "ubuntu-carried-two-lines" (:name %)) rows))
@@ -538,7 +553,7 @@
 (defn- flat-road-bracket
   "µs per glyph for shape · layout · pack over a fixed fixture; a number in
    the receipt, never a gate."
-  [provider t1-assets]
+  [provider t1-assets effective]
   (let [lines (vec (remove empty? flat-road-lines))
         reps 40
         now #(js/performance.now)
@@ -555,11 +570,15 @@
         _ (dotimes [_ reps] (tl/layout layout-input))
         t3 (now)
         ops (mapv vector (tl/line-paint-ops (tl/layout layout-input)
-                                            {:size 19 :r 1 :g 1 :b 1 :a 1}))
+                                            {:size 19 :r 1 :g 1 :b 1 :a 1
+                                             :container 0}))
         stride text-painter/slug-text-instance-stride
-        packed (text-painter/pack-instances-flat ops t1-assets 19 stride)
+        packed (text-painter/pack-instances-flat
+                ops t1-assets 19 stride :effective effective)
         t4 (now)
-        _ (dotimes [_ reps] (text-painter/pack-instances-flat ops t1-assets 19 stride))
+        _ (dotimes [_ reps]
+            (text-painter/pack-instances-flat
+             ops t1-assets 19 stride :effective effective))
         t5 (now)
         per (fn [ms n] (when (pos? n) (/ (* 1000 ms) (* reps n))))]
     {:reps reps
@@ -574,24 +593,92 @@
 (defn run-text-flat-road! [slug-assets t1-assets]
   (try
     (let [provider (:layout-provider t1-assets)
+          effective (text-effective)
           rows [(flat-road-f1 provider)
                 (flat-road-f2 provider)
-                (flat-road-f3 slug-assets t1-assets)]]
+                (flat-road-f3 slug-assets t1-assets effective)]]
       {:pass (every? :pass rows)
        :rows rows
-       :bracket (flat-road-bracket provider t1-assets)})
+       :bracket (flat-road-bracket provider t1-assets effective)})
     (catch :default error
       {:pass false
        :rows []
        :error (str error)
        :data (pr-str (ex-data error))})))
 
+(defn- packed-slots [packed]
+  (let [words (js/Uint32Array. (:raw-buffer packed))]
+    (mapv #(aget words (+ (* % 25) 24))
+          (range (:num-instances packed)))))
+
+(defn- container-refused? [ubuntu-assets effective text-op]
+  (try
+    (text-painter/pack-instances-flat
+     [[text-op]]
+     ubuntu-assets 24 text-painter/slug-text-instance-stride
+     :effective effective)
+    false
+    (catch :default error
+      (= :placement/unknown-container (:error-type (ex-data error))))))
+
+(defn- run-container-tree-case!
+  [device ubuntu-system ubuntu-assets effective]
+  (let [text "Aɐ"
+        font-size 56.0
+        line-height 68.0
+        layout-result (tl/layout {:text text
+                                  :provider (:layout-provider ubuntu-assets)
+                                  :font-size font-size
+                                  :line-height line-height
+                                  :origin [24.0 18.0]
+                                  :baseline-offset font-size
+                                  :source-id :verifier/text-container-tree
+                                  :source-revision 1})
+        lines (->> (tl/line-paint-ops
+                    layout-result
+                    {:size font-size :r 1.0 :g 1.0 :b 1.0 :a 1.0
+                     :container 17})
+                   (mapv vector))
+        packed (text-painter/pack-instances-flat
+                lines ubuntu-assets font-size
+                text-painter/slug-text-instance-stride
+                :effective effective)
+        slots (packed-slots packed)
+        slots-pass (and (seq slots) (every? #{1} slots))
+        base-op {:text "A" :x 0 :y 32 :size 24 :r 1 :g 1 :b 1 :a 1}
+        missing-refused (container-refused? ubuntu-assets effective base-op)
+        unknown-refused (container-refused? ubuntu-assets effective
+                                            (assoc base-op :container 999))
+        fallbacks-pass (every? zero? (vals (:fallbacks packed)))
+        ubuntu-system (text-painter/update-text-data
+                       device ubuntu-system lines ubuntu-assets font-size
+                       :line-height line-height :effective effective)]
+    (-> (render-pair! device ubuntu-system 1.0)
+        (.then
+         (fn [pair]
+           {:pass (and (:byte-identical? pair) slots-pass missing-refused
+                       unknown-refused fallbacks-pass)
+            :slots slots
+            :missing-container-refused missing-refused
+            :unknown-container-refused unknown-refused
+            :fallbacks (:fallbacks packed)
+            :case {:case-id "text-container-tree-mixed-face"
+                   :zoom 1.0
+                   :regime "container-tree-cid17-slot1"
+                   :normalization "material-fixed"
+                   :shape-extent-world font-size
+                   :images [(image-record
+                             "slug" "container-tree-mixed-face-cid17-slot1"
+                             pair)]}})))))
+
 
 
 (defn run-text-slug!
   [device camera-buffer containers-buffer slug-assets t1-assets]
   (js/console.log "[W0-A] init-font-assets")
-  (let [slug-system (do
+  (let [effective (text-effective)
+        _ (device/write-containers! device containers-buffer effective)
+        slug-system (do
                       (js/console.log "[W0-A] init-slug-pipeline-start")
                       (let [system
                             (text-painter/init-text-system
@@ -605,6 +692,11 @@
          device color-format camera-buffer t1-assets
          :initial-capacity 2
          :containers-buffer containers-buffer)
+        ubuntu-tree-system
+        (text-painter/init-text-system
+         device color-format camera-buffer t1-assets
+         :initial-capacity 2
+         :containers-buffer containers-buffer)
         curves (do
                  (js/console.log "[W0-A] init-curve-decode-start")
                  (let [decoded (decode-glyph-curves slug-assets 111)]
@@ -614,12 +706,19 @@
         harness {:device device
                  :slug-system slug-system
                  :slug-assets slug-assets
-                 :curves curves}]
+                 :curves curves
+                 :effective effective}]
     (-> (js/Promise.all
          #js [(promise-mapv (partial run-case! harness) zoom-cases)
-              (run-ubuntu-mixed-case! device ubuntu-system t1-assets)])
+              (run-ubuntu-mixed-case! device ubuntu-system t1-assets effective)
+              (run-container-tree-case! device ubuntu-tree-system t1-assets
+                                        effective)])
         (.then
          (fn [values]
-           {:decoded-slug-curve-count (count curves)
-            :ubuntu-slug (aget values 1)
-            :cases (aget values 0)})))))
+           (let [ubuntu (aget values 1)
+                 tree (aget values 2)]
+             {:decoded-slug-curve-count (count curves)
+              :ubuntu-slug (assoc ubuntu
+                                  :pass (and (:pass ubuntu) (:pass tree))
+                                  :container-tree tree)
+              :cases (aget values 0)}))))))

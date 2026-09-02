@@ -144,3 +144,33 @@
               (:glyphs (tl/paint-result flat))))
     (is (= (count (mapcat tl/line-clusters (:lines flat)))
            (count (mapcat tl/line-glyphs (:lines flat)))))))
+
+(defn- zoom-refusal [layout-fn]
+  (try
+    (layout-fn (corpus-input {:zoom 0.001}))
+    nil
+    (catch clojure.lang.ExceptionInfo error
+      {:message (ex-message error) :data (ex-data error)})))
+
+(deftest t3-container-receipts-and-legal-zoom-have-one-road
+  (let [input (corpus-input {})
+        flat (tl/layout input)
+        mapped (oracle/layout input)
+        template {:size 10 :r 1 :g 1 :b 1 :a 1 :container 17}
+        expected-refusal
+        {:message "Text zoom is outside Contract-T's legal material range."
+         :data {:zoom 0.001 :legal-range [0.01 1000]}}]
+    (testing "the op template's semantic container reaches every line"
+      (is (seq (tl/line-paint-ops flat template)))
+      (is (every? #(= 17 (:container %))
+                  (tl/line-paint-ops flat template))))
+    (testing "unused input hashes are absent while hit-test source lines stay"
+      (doseq [result [flat mapped]]
+        (is (not (contains? (:receipts result) :input-hash)))
+        (is (seq (get-in result [:receipts :source-lines])))))
+    (testing "layout and oracle share the public legal zoom predicate"
+      (is (tl/legal-zoom? 0.01))
+      (is (tl/legal-zoom? 1000))
+      (is (false? (tl/legal-zoom? 0.001)))
+      (is (= expected-refusal (zoom-refusal tl/layout)))
+      (is (= expected-refusal (zoom-refusal oracle/layout))))))

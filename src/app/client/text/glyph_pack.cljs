@@ -4,11 +4,13 @@
    pre-flat road (`painter/shape-text` + `pack-slug-instances!`) stays beside
    it as the oracle the bytes are fenced against.
    Takes: positioned text ops (a layout line, its selected glyph indexes, the
-   op's style) and the font's Slug glyph list.
+   op's style and semantic container), effective placements, and the font's
+   Slug glyph list.
    Gives: instance counts, and the 25 words per instance written into the
    Float32/Uint32 views of the instance buffer.
    Holds: one derived Slug table per glyph list (WeakMap, dies with the list)."
-  (:require [app.client.text.layout :as tl]))
+  (:require [app.client.engine.placement :as placement]
+            [app.client.text.layout :as tl]))
 
 (def instance-words 25)
 
@@ -131,13 +133,13 @@
 
 (defn pack-op!
   "Write one op's instances from `instance-index` on; returns the next
-   instance index. Word layout = `pack-slug-instances!`'s, expression for
-   expression."
-  [^js float-view ^js uint-view instance-index op table]
+   instance index. Resolve its semantic container once before the glyph loop.
+   Word layout = `pack-slug-instances!`'s, expression for expression."
+  [^js float-view ^js uint-view instance-index op table effective]
   (let [{:keys [style font-size]} op
-        {:keys [r g b a container-idx]} style
+        {:keys [r g b a]} style
         cr (or r 1.0) cg (or g 1.0) cb (or b 1.0) ca (or a 1.0)
-        container (or container-idx 0)
+        container (placement/slot effective (:container op))
         fsize font-size
         inv-size (if (pos? fsize) (/ 1.0 fsize) 0.0)
         ^js floats (:floats table)
@@ -187,10 +189,11 @@
 
 (defn pack-lines!
   "Write every line's ops in order; `lines` = [{:ops [...] :count n}]."
-  [^js float-view ^js uint-view lines table]
+  [^js float-view ^js uint-view lines table effective]
   (loop [remaining lines i 0]
     (when (seq remaining)
-      (let [next-i (reduce (fn [i op] (pack-op! float-view uint-view i op table))
+      (let [next-i (reduce (fn [i op]
+                             (pack-op! float-view uint-view i op table effective))
                            i (:ops (first remaining)))]
         (recur (next remaining) next-i))))
   nil)

@@ -6,12 +6,12 @@
    into.
    Gives: a text system with its pipeline, instance buffer, and font textures;
    one instance per glyph in a GPU buffer; draw calls.
-   Holds: a cache from a font's glyph list to its unicode lookup, and a counter
-   of layout fallbacks."
+   Holds: a cache from a font's glyph list to its unicode lookup."
   (:require [clojure.string :as str]
             [app.client.engine.color :as scene-color]
             [app.client.engine.compositor :as compositor-gpu]
             [app.client.engine.device :as device]
+            [app.client.engine.placement :as placement]
             [app.client.text.glyph-pack :as glyph-pack]
             [app.client.text.layout :as tl]))
 
@@ -357,8 +357,6 @@
             :instance-buffer instance-buffer
             :instance-stride slug-text-instance-stride
             :num-instances 0
-            :frame-input/identity (js-obj)
-            :!shape-rev (atom 0)
             :gpu-label label
             :owns-font-resources? true
             :owns-sizing-buffer? true})))
@@ -433,8 +431,6 @@
            :instance-stride stride
            :num-instances 0
            :line-offsets nil
-           :frame-input/identity (js-obj)
-           :!shape-rev (atom 0)
            :gpu-label "text/chrome"
            :owns-font-resources? false
            :owns-sizing-buffer? false)))
@@ -487,13 +483,13 @@
   (or (get-in font-assets [:slug :meta :metrics :lineHeight])
       1.2))
 
-(defonce ^:private !text-layout-fallbacks (atom {}))
+(def ^:private no-layout-fallbacks
+  {:ground 0 :combined-text-ops 0 :settings-panel-text 0})
 
-(defn text-layout-fallback-report []
-  (merge {:ground 0 :combined-text-ops 0 :settings-panel-text 0}
-         @!text-layout-fallbacks))
-
-(defn reset-text-layout-fallbacks! [] (reset! !text-layout-fallbacks {}))
+(defn- sum-fallbacks [rows]
+  (reduce (fn [totals row] (merge-with + totals (:fallbacks row)))
+          no-layout-fallbacks
+          rows))
 
 (defn- line-index-for-layout [layout-result]
   ;; Contract-T retains this index at construction. Consumers must never rebuild
@@ -513,8 +509,6 @@
         line-h (font-line-height font-assets)
         existing (:layout-result txt)
         fallback-surface (or (:layout/surface txt) surface :combined-text-ops)
-        _ (when-not existing
-            (swap! !text-layout-fallbacks update fallback-surface (fnil inc 0)))
         layout-result
         (or existing
             (tl/layout {:text text
@@ -545,19 +539,25 @@
     ;; The flat view: the line, its selected glyph indexes, and the op's
     ;; translation. Glyph maps are derived only by the oracle road
     ;; (`paint-slug-line` via `tl/glyph-views`); the pack door reads planes.
-    {:layout/id (:layout/id layout-result)
-     :style txt
-     :font-size fsize
-     :span-receipt (select-keys range-result [:glyph-span :visited-glyphs])
-     :line line
-     :indexes (:indexes range-result)
-     :dx dx
-     :dy dy}))
+    {:op {:layout/id (:layout/id layout-result)
+          :style txt
+          :font-size fsize
+          :container (:container txt)
+          :line line
+          :indexes (:indexes range-result)
+          :dx dx
+          :dy dy}
+     :fallbacks (if existing
+                  no-layout-fallbacks
+                  (update no-layout-fallbacks fallback-surface (fnil inc 0)))}))
 
 (defn- position-text
   [texts global-fsize font-assets char-width snap-step surface]
-  (mapv #(position-text-op % global-fsize font-assets char-width snap-step surface)
-        texts))
+  (let [rows (mapv #(position-text-op % global-fsize font-assets char-width
+                                      snap-step surface)
+                   texts)]
+    {:ops (mapv :op rows)
+     :fallbacks (sum-fallbacks rows)}))
 
 (defn- paint-slug-line
   [positioned font-assets]
@@ -602,15 +602,20 @@
                                            (or (:packedBandMeta slug) 0)]
                                    :color [cr cg cb ca]
                                    :layout/id (:layout/id positioned-op)
-                                   :container (or (:container-idx txt) 0)}))))))))
+                                   :container (:container txt)}))))))))
     @res))
 
-(defn shape-text [texts global-fsize font-assets & {:as opts}]
+(defn shape-text
+  "Position and paint text into oracle instance maps, returning those maps and
+   this call's layout-fallback counts."
+  [texts global-fsize font-assets & {:as opts}]
   (let [char-width (or (:char-width opts) 0.56)
         snap-step (:snap-step opts)
-        positioned (position-text texts global-fsize font-assets char-width snap-step
-                                  (:surface opts))]
-    (paint-slug-line positioned font-assets)))
+        {:keys [ops fallbacks]}
+        (position-text texts global-fsize font-assets char-width snap-step
+                       (:surface opts))]
+    {:instances (paint-slug-line ops font-assets)
+     :fallbacks fallbacks}))
 
 (defn- line-offsets-for [lines]
   (loop [remaining lines
@@ -643,7 +648,8 @@
       (.destroy ^js current-buffer))
     new-buffer))
 
-(defn- pack-slug-instances! [^js float-view ^js uint-view shaped-lines]
+(defn- pack-slug-instances!
+  [^js float-view ^js uint-view shaped-lines effective]
   (loop [lines shaped-lines
          global-i 0]
     (when (seq lines)
@@ -658,6 +664,7 @@
                   [sx sy ox oy] banding
                   [gx gy gzx gwy] glyph
                   [cr cg cb ca] color
+                  container (placement/slot effective container)
                   base (* (+ global-i sub-i) 25)]
               (aset float-view (+ base 0) x)
               (aset float-view (+ base 1) y)
@@ -683,64 +690,73 @@
               (aset float-view (+ base 21) cg)
               (aset float-view (+ base 22) cb)
               (aset float-view (+ base 23) ca)
-              (aset uint-view (+ base 24) (or container 0))
+              (aset uint-view (+ base 24) container)
               (recur (next remaining) (inc sub-i)))))
         (recur (next lines) (+ global-i (:count (first lines))))))))
 
 (defn pack-instances-oracle
   "The frozen map road: glyph maps → instance maps → words. Returns the
-   packed instance bytes with their line offsets and count (no GPU)."
-  [texts font-assets font-size stride & {:keys [char-width snap-step surface]
+   packed instance bytes with line offsets, count, and call-local fallbacks
+   (no GPU)."
+  [texts font-assets font-size stride & {:keys [char-width snap-step surface effective]
                                           :or {char-width 0.56}}]
   (let [shaped-lines (mapv (fn [tokens-in-line]
-                             (let [instances (shape-text tokens-in-line font-size font-assets
-                                                         :char-width char-width
-                                                         :snap-step snap-step
-                                                         :surface surface)]
+                             (let [{:keys [instances fallbacks]}
+                                   (shape-text tokens-in-line font-size font-assets
+                                               :char-width char-width
+                                               :snap-step snap-step
+                                               :surface surface)]
                                {:instances instances
-                                :count (count instances)}))
+                                :count (count instances)
+                                :fallbacks fallbacks}))
                            texts)
         actual-instances (reduce + (map :count shaped-lines))
         buffer-instance-count (max actual-instances 1)
         raw-buffer (js/ArrayBuffer. (* buffer-instance-count stride))]
-    (pack-slug-instances! (js/Float32Array. raw-buffer) (js/Uint32Array. raw-buffer)
-                          shaped-lines)
+    (pack-slug-instances! (js/Float32Array. raw-buffer)
+                          (js/Uint32Array. raw-buffer)
+                          shaped-lines effective)
     {:raw-buffer raw-buffer
      :line-offsets (line-offsets-for shaped-lines)
-     :num-instances actual-instances}))
+     :num-instances actual-instances
+     :fallbacks (sum-fallbacks shaped-lines)}))
 
 (defn pack-instances-flat
   "The flat road: planes → words through the pack door, two passes (count,
-   then write). Same return shape as `pack-instances-oracle`."
-  [texts font-assets font-size stride & {:keys [char-width snap-step surface]
+   then write). Same call-local return shape as `pack-instances-oracle`."
+  [texts font-assets font-size stride & {:keys [char-width snap-step surface effective]
                                           :or {char-width 0.56}}]
   (let [table (glyph-pack/slug-table (get-in font-assets [:slug :meta :glyphs]))
         shaped-lines (mapv (fn [tokens-in-line]
-                             (let [ops (position-text tokens-in-line font-size font-assets
-                                                      char-width snap-step surface)]
+                             (let [{:keys [ops fallbacks]}
+                                   (position-text tokens-in-line font-size font-assets
+                                                  char-width snap-step surface)]
                                {:ops ops
                                 :count (reduce + 0 (map #(glyph-pack/count-instances % table)
-                                                        ops))}))
+                                                        ops))
+                                :fallbacks fallbacks}))
                            texts)
         actual-instances (reduce + (map :count shaped-lines))
         buffer-instance-count (max actual-instances 1)
         raw-buffer (js/ArrayBuffer. (* buffer-instance-count stride))]
-    (glyph-pack/pack-lines! (js/Float32Array. raw-buffer) (js/Uint32Array. raw-buffer)
-                            shaped-lines table)
+    (glyph-pack/pack-lines! (js/Float32Array. raw-buffer)
+                            (js/Uint32Array. raw-buffer)
+                            shaped-lines table effective)
     {:raw-buffer raw-buffer
      :line-offsets (line-offsets-for shaped-lines)
-     :num-instances actual-instances}))
+     :num-instances actual-instances
+     :fallbacks (sum-fallbacks shaped-lines)}))
 
 (defn update-text-data
   [^js/GPUDevice device renderer-state texts font-assets font-size
-   & {:keys [line-height-factor line-height char-width snap-step surface]
+   & {:keys [line-height-factor line-height char-width snap-step surface effective]
       :or {line-height-factor 1.0 char-width 0.56}}]
   (let [line-h (or line-height (* font-size line-height-factor))
         stride (:instance-stride renderer-state)
-        {:keys [raw-buffer line-offsets num-instances]}
+        {:keys [raw-buffer line-offsets num-instances fallbacks]}
         (pack-instances-flat texts font-assets font-size stride
                              :char-width char-width :snap-step snap-step
-                             :surface surface)
+                             :surface surface :effective effective)
         actual-instances num-instances]
     (let [upload-view (js/Uint8Array. raw-buffer)
           required-size (.-byteLength upload-view)
@@ -751,14 +767,11 @@
       (when-let [sizes-buffer (:sizes-uniform-buffer renderer-state)]
         (let [sizes (js/Float32Array. #js [0.0 0.0 0.0 0.0])]
           (.writeBuffer (.-queue device) sizes-buffer 0 sizes)))
-      (when (or (not= line-offsets (:line-offsets renderer-state))
-                (not= (pos? actual-instances)
-                      (pos? (:num-instances renderer-state 0))))
-        (swap! (:!shape-rev renderer-state) inc))
       (assoc renderer-state
              :instance-buffer new-buffer
              :num-instances actual-instances
              :line-offsets line-offsets
+             :fallbacks fallbacks
              :line-height line-h))))
 
 (defn- contiguous-state-runs [rows]

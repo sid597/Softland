@@ -300,8 +300,7 @@
      :clip-plan {:visible-lines (mapv :line/id line-data)
                  :visible-glyph-ranges (mapv :source-range line-data)
                  :clip-geometry clip}
-     :receipts {:input-hash id
-                :output-hash (str id "/" (hash [layout-version texts
+     :receipts {:output-hash (str id "/" (hash [layout-version texts
                                                  logical-w logical-h]))
                 :source-lines (vec (or source-lines texts))
                 :font-shaper-environment legacy-provider}})))
@@ -313,6 +312,11 @@
   (select-keys provider [:face-id :face-revision :shaper-id :shaper-version
                          :features :variations :axes :fallback-chain :upem
                          :metrics]))
+
+(defn legal-zoom?
+  "True when zoom is inside Contract-T's legal material range."
+  [zoom]
+  (<= 0.01 zoom 1000))
 
 (defn layout-key
   "The shaping-correction keying source. Only full visible projection,
@@ -1043,9 +1047,9 @@
         ascent (* (or (:ascender metrics) 0) scale)
         descent (* (- (or (:descender metrics) 0)) scale)
         leading (* (or (:lineGap metrics) 0) scale)
-        legal-zoom? (<= 0.01 zoom 1000)
+        zoom-legal? (legal-zoom? zoom)
         work @!work]
-    (when-not legal-zoom?
+    (when-not zoom-legal?
       (throw (ex-info "Text zoom is outside Contract-T's legal material range."
                       {:zoom zoom :legal-range [0.01 1000]})))
     {:text-layout/version layout-version
@@ -1079,8 +1083,7 @@
      :clip-plan {:visible-lines (mapv :line/id lines)
                  :visible-glyph-ranges (mapv :source-range lines)
                  :clip-geometry clip}
-     :receipts {:input-hash id
-                :output-hash (str id "/" (hash [layout-version glyph-ids
+     :receipts {:output-hash (str id "/" (hash [layout-version glyph-ids
                                                 logical-w logical-h]))
                 :source-lines (vec (or source-lines (mapv :text source-records)))
                 :font-shaper-environment (provider-identity provider)
@@ -1254,6 +1257,7 @@
                  :to (code-unit-count text)
                  :x (first baseline)
                  :y (second baseline)
+                 :container (:container template)
                  :layout-result layout-result
                  :layout-line-id id
                  :layout-anchor [(first baseline) (second baseline)]

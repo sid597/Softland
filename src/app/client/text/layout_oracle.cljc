@@ -10,9 +10,9 @@
    `planes/compact-result`.
    Holds nothing."
   (:require [clojure.string :as str]
-            [app.client.text.layout :refer [code-unit-count tagged-index
-                                            header-index break-whitespace-at?
-                                            layout-version legacy-index-space]]
+            [app.client.text.layout :as layout
+             :refer [code-unit-count tagged-index header-index
+                     break-whitespace-at? layout-version legacy-index-space]]
             [app.client.text.layout-planes :as planes]
             [app.client.text.shaped-line :as sl]))
 
@@ -532,9 +532,9 @@
         ascent (* (or (:ascender metrics) 0) scale)
         descent (* (- (or (:descender metrics) 0)) scale)
         leading (* (or (:lineGap metrics) 0) scale)
-        legal-zoom? (<= 0.01 zoom 1000)
+        zoom-legal? (layout/legal-zoom? zoom)
         work @!work]
-    (when-not legal-zoom?
+    (when-not zoom-legal?
       (throw (ex-info "Text zoom is outside Contract-T's legal material range."
                       {:zoom zoom :legal-range [0.01 1000]})))
     (planes/compact-result
@@ -575,8 +575,7 @@
      :clip-plan {:visible-lines (mapv :line/id line-data)
                  :visible-glyph-ranges (mapv :source-range line-data)
                  :clip-geometry clip}
-     :receipts {:input-hash id
-                :output-hash (str id "/" (hash [layout-version
+     :receipts {:output-hash (str id "/" (hash [layout-version
                                                 (mapv :glyph-id
                                                       (mapcat :glyphs line-data))
                                                 logical-w logical-h]))
