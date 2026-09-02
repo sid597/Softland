@@ -5,15 +5,13 @@
    Takes: a fully built layout result.
    Gives: the result compacted onto planes; accessors that rebuild glyphs and
    lines on demand.
-   Holds: a capped list of weak references to live planes, for stats only."
+   Holds: typed planes reachable from the layout result."
   )
 
 (def ^:private id-mask 0x3fffffff)
 (def ^:private kind-mask 0x40000000)
 (def ^:private rtl-mask 0x80000000)
 (def ^:private no-ink #?(:clj Float/NaN :cljs js/NaN))
-
-(declare register-live-planes!)
 
 (defn- f32-array [n]
   #?(:clj (float-array n) :cljs (js/Float32Array. n)))
@@ -296,7 +294,6 @@
   (let [{:keys [line-specs] :as shape} (build-shape result)
         planes (allocate-planes shape (:source result))
         lines (mapv #(assoc % ::planes planes) line-specs)]
-    (register-live-planes! planes)
     (-> result
         (assoc :text-layout/version 2
                :layout/planes planes
@@ -598,10 +595,9 @@
   b)
 
 (defn finish-planes!
-  "Seal a builder into the retained planes value and register it for the
-   coverage check, exactly as `compact-result` does."
+  "Seal a builder into the retained planes value."
   [b source]
-  (register-live-planes! (assoc b :source source)))
+  (assoc b :source source))
 
 (defn glyph-indexes-in-source-range
   "The index half of `glyphs-in-source-range`: the selected result-wide glyph
@@ -731,42 +727,3 @@
     (and (planes= (:layout/planes a) (:layout/planes b))
          (= (strip-planes a) (strip-planes b)))
     (= a b)))
-
-(defonce ^:private !live-plane-refs
-  #?(:clj nil :cljs (atom [])))
-
-(defn register-live-planes! [planes]
-  #?(:clj nil
-     :cljs
-     (when (exists? js/WeakRef)
-       (swap! !live-plane-refs
-              (fn [refs]
-                (let [refs (conj refs (js/WeakRef. planes))]
-                  ;; The stats diagnostic must not become its own unbounded
-                  ;; metadata leak during long editing sessions.
-                  (if (> (count refs) 4096)
-                    (into [] (filter #(.deref %)) refs)
-                    refs))))))
-  planes)
-
-(defn live-plane-coverage-check
-  "Browser stats surface: coverage check only plane owners still live after GC.
-   Weak references make the diagnostic incapable of extending retention."
-  []
-  #?(:clj {:layout-count 0 :plane-bytes 0 :glyph-count 0 :span-count 0}
-     :cljs
-     (let [live (into [] (keep (fn [ref] (.deref ref))) @!live-plane-refs)
-           _ (reset! !live-plane-refs (mapv #(js/WeakRef. %) live))
-           rows (map #(plane-coverage-check {:layout/planes %}) live)]
-       {:layout-count (count live)
-        :plane-bytes (reduce + 0 (map :plane-bytes rows))
-        :glyph-bytes (reduce + 0 (map :glyph-bytes rows))
-        :span-bytes (reduce + 0 (map :span-bytes rows))
-        :glyph-order-bytes (reduce + 0 (map :glyph-order-bytes rows))
-        :glyph-count (reduce + 0 (map :glyph-count rows))
-        :span-count (reduce + 0 (map :span-count rows))})))
-
-#?(:cljs
-   (let [api (or (aget js/globalThis "__softlandLayoutRetention") (js-obj))]
-     (aset api "planeCensus" (fn [] (clj->js (live-plane-coverage-check))))
-     (aset js/globalThis "__softlandLayoutRetention" api)))

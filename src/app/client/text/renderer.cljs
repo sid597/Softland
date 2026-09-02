@@ -6,12 +6,11 @@
    into.
    Gives: a text system with its pipeline, instance buffer, and font textures;
    one instance per glyph in a GPU buffer; draw calls.
-   Holds: a cache from a font's glyph list to its unicode lookup."
+   Holds: the current GPU buffers and pipeline state passed by its callers."
   (:require [clojure.string :as str]
             [app.client.engine.color :as scene-color]
             [app.client.engine.compositor :as compositor-gpu]
             [app.client.engine.device :as device]
-            [app.client.engine.transform :as transform]
             [app.client.text.glyph-pack :as glyph-pack]
             [app.client.text.layout :as tl]))
 
@@ -440,56 +439,12 @@
   (when (and snap-step (pos? snap-step))
     (fn [v] (* (Math/round (/ v snap-step)) snap-step))))
 
-(defn- token-color [{:keys [r g b a]}]
-  [(or r 1.0) (or g 1.0) (or b 1.0) (or a 1.0)])
-
-;; first-light P1 (G1 drill finding): glyph-map is rebuilt PER LINE by
-;; paint-slug-line — a whole-conversation reshape rebuilt the
-;; full unicode→glyph map hundreds of times per keystroke (~23ms/keystroke,
-;; CPU-profiled). The map is a pure derivation of the font's glyphs vector,
-;; which only changes identity on a font swap — cache per vector
-;; identity (WeakMap: no leak, old fonts' entries die with their vectors).
-(defonce ^:private glyph-map-cache (js/WeakMap.))
-
-(defn- glyph-map [glyphs]
-  (or (.get glyph-map-cache glyphs)
-      (let [m (reduce (fn [acc glyph]
-                        (cond-> acc
-                          (some? (:unicode glyph))
-                          (assoc [:unicode (:unicode glyph)] glyph)
-
-                          (some? (:index glyph))
-                          (assoc [:index (:index glyph)] glyph)
-
-                          (and (:fontId glyph) (some? (:unicode glyph)))
-                          (assoc [(:fontId glyph) :unicode (:unicode glyph)] glyph)
-
-                          (and (:fontId glyph) (some? (:index glyph)))
-                          (assoc [(:fontId glyph) :index (:index glyph)] glyph)))
-                      {} glyphs)]
-        (when glyphs (.set glyph-map-cache glyphs m))
-        m)))
-
-(defn- painted-glyph [glyphs {:keys [glyph-id glyph-id-kind font-id]}]
-  (let [kind (if (= glyph-id-kind :font-glyph-index) :index :unicode)]
-    (or (get glyphs [font-id kind glyph-id])
-        (get glyphs [kind glyph-id])
-        (get glyphs [font-id :unicode 0xFFFD])
-        (get glyphs [:unicode 0xFFFD])
-        (get glyphs [font-id :index 0])
-        (get glyphs [:index 0]))))
-
 (defn- font-line-height [font-assets]
   (or (get-in font-assets [:slug :meta :metrics :lineHeight])
       1.2))
 
-(def ^:private no-layout-fallbacks
-  {:ground 0 :combined-text-draw-items 0 :settings-panel-text 0})
-
 (defn- sum-fallbacks [rows]
-  (reduce (fn [totals row] (merge-with + totals (:fallbacks row)))
-          no-layout-fallbacks
-          rows))
+  (reduce + 0 (map :fallbacks rows)))
 
 (defn- line-index-for-layout [layout-result]
   ;; Contract-T retains this index at construction. Consumers must never rebuild
@@ -500,7 +455,7 @@
   "Resolve one text draw-item to positioned Contract-T glyphs before a paint backend
    is selected. Existing layout results survive clipping and tree translations;
    otherwise the active provider creates exactly one result here."
-  [txt global-fsize font-assets char-width snap-step surface]
+  [txt global-fsize font-assets char-width snap-step]
   (let [{:keys [text x y]} txt
         fsize (or (:size txt) global-fsize)
         snap (make-snapper snap-step)
@@ -508,7 +463,6 @@
         start-y (if snap (snap y) y)
         line-h (font-line-height font-assets)
         existing (:layout-result txt)
-        fallback-surface (or (:layout/surface txt) surface :combined-text-draw-items)
         layout-result
         (or existing
             (tl/layout {:text text
@@ -536,9 +490,8 @@
                         [:header (second (:source-range line))
                          [range-start range-end]]
                         [(tl/tagged-index range-start) (tl/tagged-index range-end)]))]
-    ;; The flat view: the line, its selected glyph indexes, and the draw-item's
-    ;; translation. Glyph maps are derived only by the oracle route
-    ;; (`paint-slug-line` via `tl/glyph-views`); the pack entry point reads planes.
+    ;; The line, its selected glyph indexes, and the draw-item's translation
+    ;; are the packer's direct view of the layout planes.
     {:draw-item {:layout/id (:layout/id layout-result)
           :style txt
           :font-size fsize
@@ -547,75 +500,15 @@
           :indexes (:indexes range-result)
           :dx dx
           :dy dy}
-     :fallbacks (if existing
-                  no-layout-fallbacks
-                  (update no-layout-fallbacks fallback-surface (fnil inc 0)))}))
+     :fallbacks (if existing 0 1)}))
 
 (defn- position-text
-  [texts global-fsize font-assets char-width snap-step surface]
+  [texts global-fsize font-assets char-width snap-step]
   (let [rows (mapv #(position-text-draw-item % global-fsize font-assets char-width
-                                      snap-step surface)
+                                      snap-step)
                    texts)]
     {:draw-items (mapv :draw-item rows)
      :fallbacks (sum-fallbacks rows)}))
-
-(defn- paint-slug-line
-  [positioned font-assets]
-  (let [paint-map (glyph-map (get-in font-assets [:slug :meta :glyphs]))
-        res (atom [])]
-    (doseq [{:keys [style font-size] :as positioned-draw-item} positioned]
-      (let [txt style
-            [cr cg cb ca] (token-color txt)
-            fsize font-size
-            inv-size (if (pos? fsize) (/ 1.0 fsize) 0.0)
-            positioned-glyphs (tl/glyph-views (:line positioned-draw-item)
-                                              (:indexes positioned-draw-item)
-                                              (:dx positioned-draw-item)
-                                              (:dy positioned-draw-item))]
-        (doseq [{:keys [character position glyph-id-kind] :as positioned-glyph}
-                positioned-glyphs]
-          (when-not (or (= character " ") (= glyph-id-kind :virtual/tab))
-            ;; Slug consumes the positioned glyphs without owning layout.
-            (let [g (painted-glyph paint-map positioned-glyph)
-                    [x0 baseline-y] position]
-                (when g
-                  (let [sample-bounds (or (:sampleBounds g) (:planeBounds g))
-                      slug (:slug g)
-                      left (or (:left sample-bounds) 0.0)
-                      right (or (:right sample-bounds) 0.0)
-                      top (or (:top sample-bounds) 0.0)
-                      bottom (or (:bottom sample-bounds) 0.0)
-                      world-left (+ x0 (* fsize left))
-                      world-right (+ x0 (* fsize right))
-                      world-top (- baseline-y (* fsize top))
-                      world-bottom (- baseline-y (* fsize bottom))]
-                  (swap! res conj {:rect [world-left world-top (- world-right world-left) (- world-bottom world-top)]
-                                   :sample-bounds [left top right bottom]
-                                   :inv-jac [inv-size 0.0 0.0 (- inv-size)]
-                                   :banding [(or (get-in slug [:banding :scaleX]) 0.0)
-                                             (or (get-in slug [:banding :scaleY]) 0.0)
-                                             (or (get-in slug [:banding :offsetX]) 0.0)
-                                             (or (get-in slug [:banding :offsetY]) 0.0)]
-                                   :glyph [(or (get-in slug [:glyphLoc :x]) 0)
-                                           (or (get-in slug [:glyphLoc :y]) 0)
-                                           (or (get-in slug [:bandMax :x]) 0)
-                                           (or (:packedBandMeta slug) 0)]
-                                   :color [cr cg cb ca]
-                                   :layout/id (:layout/id positioned-draw-item)
-                                   :group (:container txt)}))))))))
-    @res))
-
-(defn shape-text
-  "Position and paint text into oracle instance maps, returning those maps and
-   this call's layout-fallback counts."
-  [texts global-fsize font-assets & {:as opts}]
-  (let [char-width (or (:char-width opts) 0.56)
-        snap-step (:snap-step opts)
-        {:keys [draw-items fallbacks]}
-        (position-text texts global-fsize font-assets char-width snap-step
-                       (:surface opts))]
-    {:instances (paint-slug-line draw-items font-assets)
-     :fallbacks fallbacks}))
 
 (defn- line-offsets-for [lines]
   (loop [remaining lines
@@ -648,89 +541,16 @@
       (.destroy ^js current-buffer))
     new-buffer))
 
-(defn- pack-slug-instances!
-  [^js float-view ^js uint-view shaped-lines world-transforms]
-  (loop [lines shaped-lines
-         global-i 0]
-    (when (seq lines)
-      (let [instances (:instances (first lines))]
-        (loop [remaining instances
-               sub-i 0]
-          (when (seq remaining)
-            (let [{:keys [rect sample-bounds inv-jac banding glyph color group]} (first remaining)
-                  [x y w h] rect
-                  [sl st sr sb] sample-bounds
-                  [jx jy kx ky] inv-jac
-                  [sx sy ox oy] banding
-                  [gx gy gzx gwy] glyph
-                  [cr cg cb ca] color
-                  group (transform/buffer-index world-transforms group)
-                  base (* (+ global-i sub-i) 25)]
-              (aset float-view (+ base 0) x)
-              (aset float-view (+ base 1) y)
-              (aset float-view (+ base 2) w)
-              (aset float-view (+ base 3) h)
-              (aset float-view (+ base 4) sl)
-              (aset float-view (+ base 5) st)
-              (aset float-view (+ base 6) sr)
-              (aset float-view (+ base 7) sb)
-              (aset float-view (+ base 8) jx)
-              (aset float-view (+ base 9) jy)
-              (aset float-view (+ base 10) kx)
-              (aset float-view (+ base 11) ky)
-              (aset float-view (+ base 12) sx)
-              (aset float-view (+ base 13) sy)
-              (aset float-view (+ base 14) ox)
-              (aset float-view (+ base 15) oy)
-              (aset uint-view (+ base 16) gx)
-              (aset uint-view (+ base 17) gy)
-              (aset uint-view (+ base 18) gzx)
-              (aset uint-view (+ base 19) gwy)
-              (aset float-view (+ base 20) cr)
-              (aset float-view (+ base 21) cg)
-              (aset float-view (+ base 22) cb)
-              (aset float-view (+ base 23) ca)
-              (aset uint-view (+ base 24) group)
-              (recur (next remaining) (inc sub-i)))))
-        (recur (next lines) (+ global-i (:count (first lines))))))))
-
-(defn pack-instances-oracle
-  "The frozen map route: glyph maps → instance maps → words. Returns the
-   packed instance bytes with line offsets, count, and call-local fallbacks
-   (no GPU)."
-  [texts font-assets font-size stride & {:keys [char-width snap-step surface world-transforms]
-                                          :or {char-width 0.56}}]
-  (let [shaped-lines (mapv (fn [tokens-in-line]
-                             (let [{:keys [instances fallbacks]}
-                                   (shape-text tokens-in-line font-size font-assets
-                                               :char-width char-width
-                                               :snap-step snap-step
-                                               :surface surface)]
-                               {:instances instances
-                                :count (count instances)
-                                :fallbacks fallbacks}))
-                           texts)
-        actual-instances (reduce + (map :count shaped-lines))
-        buffer-instance-count (max actual-instances 1)
-        raw-buffer (js/ArrayBuffer. (* buffer-instance-count stride))]
-    (pack-slug-instances! (js/Float32Array. raw-buffer)
-                          (js/Uint32Array. raw-buffer)
-                          shaped-lines world-transforms)
-    {:raw-buffer raw-buffer
-     :line-offsets (line-offsets-for shaped-lines)
-     :num-instances actual-instances
-     :fallbacks (sum-fallbacks shaped-lines)}))
-
 (defn pack-instances-flat
   "The flat route: planes → words through the pack entry point, two passes (count,
-   then write). Same call-local return shape as `pack-instances-oracle`."
-  [texts font-assets font-size stride & {:keys [char-width snap-step surface world-transforms]
+   then write). Returns packed bytes, line offsets, count, and call-local fallbacks."
+  [texts font-assets font-size stride & {:keys [char-width snap-step world-transforms]
                                           :or {char-width 0.56}}]
   (let [table (glyph-pack/slug-table (get-in font-assets [:slug :meta :glyphs]))
         shaped-lines (mapv (fn [tokens-in-line]
                              (let [{:keys [draw-items fallbacks]}
                                    (position-text tokens-in-line font-size font-assets
-                                                  char-width snap-step surface)]
+                                                  char-width snap-step)]
                                {:draw-items draw-items
                                 :count (reduce + 0 (map #(glyph-pack/count-instances % table)
                                                         draw-items))
@@ -749,14 +569,14 @@
 
 (defn update-text-data
   [^js/GPUDevice device renderer-state texts font-assets font-size
-   & {:keys [line-height-factor line-height char-width snap-step surface world-transforms]
+   & {:keys [line-height-factor line-height char-width snap-step world-transforms]
       :or {line-height-factor 1.0 char-width 0.56}}]
   (let [line-h (or line-height (* font-size line-height-factor))
         stride (:instance-stride renderer-state)
         {:keys [raw-buffer line-offsets num-instances fallbacks]}
         (pack-instances-flat texts font-assets font-size stride
                              :char-width char-width :snap-step snap-step
-                             :surface surface :world-transforms world-transforms)
+                             :world-transforms world-transforms)
         actual-instances num-instances]
     (let [upload-view (js/Uint8Array. raw-buffer)
           required-size (.-byteLength upload-view)

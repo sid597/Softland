@@ -1,12 +1,8 @@
 (ns app.client.text.flat-route-test
-  "The flat route's JVM regression tests (docs/shaping-correction/SHAPER-BORDER.md §8):
-   F2 — the flat `shaped-layout` and the frozen map route agree plane for plane
-   on every consistency-check corpus; the shaped-line converters round-trip; the I1/I2
-   entry points keep working on flat results; layout never memoizes."
+  "JVM regression tests for the flat layout result, its converters, cache entry
+   point, and shaping proportionality."
   (:require [clojure.test :refer [deftest is testing]]
             [app.client.text.layout :as tl]
-            [app.client.text.layout-oracle :as oracle]
-            [app.client.text.layout-planes :as planes]
             [app.client.text.shaped-line :as sl]
             [app.client.text.layout-test :as layout-test]
             [app.client.text.shaping-correction-test :as sct]))
@@ -22,47 +18,6 @@
           :source-id :flat-route :source-revision 1
           :zoom 1}
          overrides))
-
-(defn- synthetic-input [text overrides]
-  ((deref #'sct/layout-input) text overrides))
-
-(def ^:private consistency-check-inputs
-  (concat
-   [(corpus-input {})
-    (corpus-input {:headers ["Heading one" "H2"]})
-    (corpus-input {:inline-size 30 :wrap-policy :word :zoom 0.01})
-    {:text "WW ii WW" :provider layout-test/shaped-provider
-     :font-size 10 :line-height 12 :inline-size 30 :wrap-policy :word}]
-   (map #(synthetic-input % {})
-        ["abc   def" "  abc def" "abc\tdef" "" "a\n\nb\n" "abc   "
-         (str "a" "\u00a0" " b")])
-   [(synthetic-input "😀a" {:wrap-col 1})
-    (synthetic-input "a      z" {:wrap-col 2})
-    (synthetic-input "abcdef" {:wrap-col 3})
-    (synthetic-input "abc def" {:headers ["hdr"] :wrap-col 4})
-    (synthetic-input "abcdef" {:wrap-col 1
-                               :provider ((deref #'sct/synthetic-provider) :empty)})
-    (synthetic-input "abcdef" {:wrap-col 1
-                               :provider ((deref #'sct/synthetic-provider) :zero)})
-    (synthetic-input (deref #'sct/pathological-1x)
-                     {:provider ((deref #'sct/pathological-provider)
-                                 {:shuffle? true})})
-    (synthetic-input (deref #'sct/pathological-1x)
-                     {:provider ((deref #'sct/pathological-provider)
-                                 {:shuffle? false})})]))
-
-(deftest f2-flat-planes-equal-the-frozen-map-route
-  (doseq [input consistency-check-inputs]
-    (let [flat (tl/layout input)
-          mapped (oracle/layout input)]
-      (testing (pr-str (select-keys input [:text :wrap-policy :wrap-col :headers]))
-        (is (tl/result= flat mapped))
-        (is (= (:layout/id flat) (:layout/id mapped)))
-        (is (= (tl/plane-coverage-check flat) (tl/plane-coverage-check mapped)))
-        (is (= (:glyphs (tl/paint-result flat))
-               (:glyphs (tl/paint-result mapped))))
-        (is (= (mapv tl/line-clusters (:lines flat))
-               (mapv tl/line-clusters (:lines mapped))))))))
 
 (deftest f2-comparator-is-not-vacuous
   (let [flat (tl/layout (corpus-input {}))
@@ -155,7 +110,6 @@
 (deftest t3-group-stats-and-legal-zoom-have-one-route
   (let [input (corpus-input {})
         flat (tl/layout input)
-        mapped (oracle/layout input)
         template {:size 10 :r 1 :g 1 :b 1 :a 1 :container 17}
         expected-refusal
         {:message "Text zoom is outside Contract-T's legal component range."
@@ -165,12 +119,10 @@
       (is (every? #(= 17 (:container %))
                   (tl/line-paint-draw-items flat template))))
     (testing "unused input hashes are absent while hit-test source lines stay"
-      (doseq [result [flat mapped]]
-        (is (not (contains? (:stats result) :input-hash)))
-        (is (seq (get-in result [:stats :source-lines])))))
-    (testing "layout and oracle share the public legal zoom predicate"
+      (is (not (contains? (:stats flat) :input-hash)))
+      (is (seq (get-in flat [:stats :source-lines]))))
+    (testing "layout uses the public legal zoom predicate"
       (is (tl/legal-zoom? 0.01))
       (is (tl/legal-zoom? 1000))
       (is (false? (tl/legal-zoom? 0.001)))
-      (is (= expected-refusal (zoom-refusal tl/layout)))
-      (is (= expected-refusal (zoom-refusal oracle/layout))))))
+      (is (= expected-refusal (zoom-refusal tl/layout))))))

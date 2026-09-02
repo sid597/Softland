@@ -73,9 +73,7 @@
      (shader-digests)
      (image/run-image-step! device)
      (path/run-path-step! device)
-     (region/run-region3d-floor! device t1-assets)
-     (js/Promise.resolve
-      (text/run-text-flat-route! slug-assets t1-assets))])
+     (region/run-region3d-floor! device t1-assets)])
                                       (.then
                                        (fn [values]
                                          {:schema-version 2
@@ -100,7 +98,6 @@
                                           :image-step (aget values 2)
                                           :path-step (aget values 3)
                                           :region3d-floor (aget values 4)
-                                          :text-flat-route (aget values 5)
                                           :cases (:cases (aget values 0))})))))))))))))))))))
 
 (defn ^:export run-region3d-floor-harness! []

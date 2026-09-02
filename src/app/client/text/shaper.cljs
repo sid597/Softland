@@ -4,8 +4,7 @@
    direction — as columns. The flat route: HarfBuzz's glyph structs are read
    straight out of the WASM heap into one shaped line (`shaped-line`), one
    crossing in (`addText`) and one crossing out (the two heap views) per run;
-   no object per glyph. The pre-flat map route stays beside it as
-   `:shape-line-oracle` (`shaper-oracle`, harness only).
+   no object per glyph.
    Takes: ordered font sources (primary and fallbacks, with variations) and
    shaping options.
    Gives: a promise of a provider, the handle text layout calls to shape runs.
@@ -15,8 +14,7 @@
             ["harfbuzzjs/hb.js" :as hb-module]
             ["harfbuzzjs/hbjs.js" :as hbjs-module]
             ["bidi-js" :as bidi-module]
-            [app.client.text.shaped-line :as sl]
-            [app.client.text.shaper-oracle :as oracle]))
+            [app.client.text.shaped-line :as sl]))
 
 (def wasm-path "/fonts/harfbuzz-0.10.3.wasm")
 (def shaper-id :harfbuzz/wasm)
@@ -332,8 +330,7 @@
 
 (defn create-provider
   "Create a synchronous Contract-T provider after HarfBuzz and font bytes are
-   loaded. `font-sources` is an ordered primary+fallback vector. `:shape-line`
-   is the flat route; `:shape-line-oracle` the frozen map route."
+   loaded. `font-sources` is an ordered primary+fallback vector."
   [hb font-sources {:keys [features language tab-columns]
                     :or {features ["kern" "liga" "clig" "calt"]
                          language "und" tab-columns 4}}]
@@ -355,8 +352,7 @@
         defaults {:features features
                   :language language
                   :tab-columns tab-columns
-                  :variations (:variations primary)}
-        handles {:hb hb :bidi bidi :faces faces}]
+                  :variations (:variations primary)}]
     {:face-id (:id primary)
      :face-revision (:revision primary)
      :shaper-id shaper-id
@@ -369,10 +365,7 @@
      :upem (:upem primary)
      :shape-line (fn [text opts]
                    (shape-line-flat hb module bidi faces face-meta scratch
-                                    (str (or text "")) (merge defaults opts)))
-     :shape-line-oracle (fn [text opts]
-                          (oracle/shape-line handles (str (or text ""))
-                                             (merge defaults opts)))}))
+                                    (str (or text "")) (merge defaults opts)))}))
 
 (defn load-provider!
   "Load primary/fallback TTF bytes and return a Promise of a provider. Font

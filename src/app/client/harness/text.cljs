@@ -1,5 +1,5 @@
 (ns app.client.harness.text
-     "Browser evidence for the text renderer, shaped layout, and flat route.
+     "Browser evidence for the text renderer and shaped layout.
       Takes: WebGPU device state and loaded font assets.
       Gives: text harness result maps.
       Holds nothing."
@@ -7,9 +7,7 @@
                [app.client.engine.device :as device]
                [app.client.engine.transform :as transform]
                [app.client.text.layout :as tl]
-               [app.client.text.layout-oracle :as layout-oracle]
                [app.client.text.renderer :as text-renderer]
-               [app.client.text.shaped-line :as sl]
                [app.client.harness.shared
 :refer [canvas-size color-format glyph-screen-x glyph-screen-baseline
         glyph-screen-size zoom-cases image-fixtures promise-mapv
@@ -274,10 +272,12 @@
         font-size (/ glyph-screen-size zoom)
         slug-glyph (first (filter #(= 111 (:unicode %))
                                   (get-in slug-assets [:slug :meta :glyphs])))
-        slug-instance (first (:instances
-                              (text-renderer/shape-text
-                               (first lines) font-size slug-assets
-                               :char-width 0.60)))
+        packed (text-renderer/pack-instances-flat
+                [(first lines)] slug-assets font-size
+                text-renderer/slug-text-instance-stride
+                :char-width 0.60 :world-transforms world-transforms)
+        packed-words (js/Float32Array. (:raw-buffer packed))
+        slug-instance {:rect (mapv #(aget packed-words %) (range 4))}
         slug-probe (instance-path-probe curves slug-instance
                                         (or (:sampleBounds slug-glyph)
                                             (:planeBounds slug-glyph))
@@ -399,213 +399,6 @@
     (when-not pass?
       (throw (ex-info "T1 browser layout evidence failed." evidence)))
     (assoc evidence :pass true)))
-;; ---------------------------------------------------------------------------
-;; The flat text route's consistency checks (docs/shaping-correction/SHAPER-BORDER.md §8):
-;; F1 flat shaper ≡ oracle shaper · F2 flat layout ≡ oracle layout on real
-;; HarfBuzz · F3 flat pack bytes ≡ oracle pack bytes; plus the µs/glyph
-;; bracket, recorded and never gated.
-
-(def ^:private flat-route-lines
-  ["AV office é\tسلام ɐ"
-   "漢字"
-   ""
-   "a\tb\tc"
-   "مرحبا hello"
-   "é"
-   "ffi ffl — “quotes” 12:30"])
-
-(defn- bytes= [^js a ^js b]
-  (and (= (.-byteLength a) (.-byteLength b))
-       (let [ua (js/Uint8Array. a) ub (js/Uint8Array. b)]
-         (loop [i 0]
-           (cond (>= i (.-length ua)) true
-                 (= (aget ua i) (aget ub i)) (recur (inc i))
-                 :else false)))))
-
-(defn- flat-route-f1 [provider]
-  (let [opts {}
-        rows (mapv (fn [text]
-                     (let [flat ((:shape-line provider) text opts)
-                           back (sl/->maps flat)
-                           oracle ((:shape-line-oracle provider) text opts)
-                           pass (= back oracle)]
-                       {:text text
-                        :glyph-count (:glyph-count flat)
-                        :run-count (:run-count flat)
-                        :pass pass
-                        :first-difference
-                        (when-not pass
-                          (pr-str (first (remove (fn [[a b]] (= a b))
-                                                 (map vector (:glyphs back)
-                                                      (:glyphs oracle))))))}))
-                   flat-route-lines)
-        rtl (first (filter #(= "AV office é\tسلام ɐ" (:text %)) rows))
-        flat ((:shape-line provider) "AV office é\tسلام ɐ" opts)
-        ;; S1's strengthening: the RTL run's clusters descend in visual order,
-        ;; the tab lands on a stop, and ɐ shaped through the fallback face.
-        rtl-descending?
-        (let [runs (:run-count flat)]
-          (boolean
-           (some (fn [r]
-                   (when (sl/run-rtl? flat r)
-                     (let [starts (keep (fn [i]
-                                          (when (= r (sl/u32-get (:run-index flat) i))
-                                            (sl/u32-get (:cluster-start flat) i)))
-                                        (range (:glyph-count flat)))]
-                       (and (seq starts) (= (vec starts) (vec (reverse (sort starts))))))))
-                 (range runs))))
-        tab-on-stop?
-        (boolean
-         (some (fn [i]
-                 (when (sl/glyph-tab? flat i)
-                   (let [x (sl/i32-get (:glyph-x flat) i)
-                         adv (sl/i32-get (:advance-x flat) i)]
-                     (zero? (mod (+ x adv) 2000)))))
-               (range (:glyph-count flat))))
-        fallback-face?
-        (boolean
-         (some (fn [r] (pos? (sl/u32-get (:run-face flat) r)))
-               (range (:run-count flat))))]
-    {:name "F1 flat shaper = oracle shaper"
-     :pass (and (every? :pass rows) rtl-descending? tab-on-stop? fallback-face?)
-     :lines rows
-     :rtl-descending rtl-descending?
-     :tab-on-stop tab-on-stop?
-     :fallback-face fallback-face?
-     :rtl-line (:text rtl)}))
-
-(defn- flat-route-f2 [provider]
-  (let [inputs [{:text "AV office é\tسلام\nɐ" :provider provider
-                 :font-size 19 :line-height 24
-                 :origin [10 20] :baseline-offset 19
-                 :clip {:left 12 :right 180 :top 20 :bottom 68}
-                 :source-id :harness/flat-f2 :source-revision 1 :zoom 1}
-                {:text "office ffi mixed سلام ɐ words wrap here" :provider provider
-                 :font-size 19 :line-height 24 :origin [0 0] :baseline-offset 19
-                 :inline-size 120 :wrap-policy :word
-                 :source-id :harness/flat-f2-wrap :source-revision 1 :zoom 1}
-                {:text "abc def ghi" :headers ["Head"] :provider provider
-                 :font-size 12 :line-height 14 :origin [3 4] :baseline-offset 12
-                 :wrap-policy :block-greedy :wrap-col 6
-                 :source-id :harness/flat-f2-greedy :source-revision 1 :zoom 1}]
-        rows (mapv (fn [input]
-                     (let [flat (tl/layout input)
-                           mapped (layout-oracle/layout input)]
-                       {:source-id (str (:source-id input))
-                        :lines (count (:lines flat))
-                        :glyphs (:glyph-count (tl/plane-coverage-check flat))
-                        :pass (and (tl/result= flat mapped)
-                                   (= (tl/plane-coverage-check flat) (tl/plane-coverage-check mapped))
-                                   (= (:glyphs (tl/paint-result flat))
-                                      (:glyphs (tl/paint-result mapped))))}))
-                   inputs)]
-    {:name "F2 flat layout = oracle layout (real HarfBuzz)"
-     :pass (every? :pass rows)
-     :inputs rows}))
-
-(defn- flat-route-f3 [slug-assets t1-assets world-transforms]
-  (let [stride text-renderer/slug-text-instance-stride
-        carried (let [layout (tl/layout {:text "Aɐ b\tc x\noffice ffi"
-                                         :provider (:layout-provider t1-assets)
-                                         :font-size 32 :line-height 40
-                                         :origin [8 10] :baseline-offset 32
-                                         :source-id :harness/flat-f3
-                                         :source-revision 1})]
-                  (mapv vector (tl/line-paint-draw-items
-                                layout {:size 32 :r 0.9 :g 0.5 :b 0.2 :a 1.0
-                                        :container 0})))
-        cases [{:name "slug-case-lines" :texts (glyph-lines 1.0) :assets slug-assets
-                :font-size glyph-screen-size :opts [:char-width 0.60]}
-               {:name "ubuntu-carried-two-lines" :texts carried :assets t1-assets
-                :font-size 32 :opts []}
-               {:name "ubuntu-uncarried-lines"
-                :texts [[{:text "Aɐ b\tc" :x 4 :y 30 :size 24
-                          :r 1 :g 1 :b 1 :a 1 :container 0}]
-                        [{:text "office" :x 4 :y 60 :size 24
-                          :r 1 :g 0 :b 0 :a 1 :container 0}]]
-                :assets t1-assets :font-size 24 :opts []}]
-        rows (mapv (fn [{:keys [name texts assets font-size opts]}]
-                     (let [opts (into opts [:world-transforms world-transforms])
-                           flat (apply text-renderer/pack-instances-flat
-                                       texts assets font-size stride opts)
-                           oracle (apply text-renderer/pack-instances-oracle
-                                         texts assets font-size stride opts)]
-                       {:name name
-                        :num-instances (:num-instances flat)
-                        :line-offsets (:line-offsets flat)
-                        :fallbacks (:fallbacks flat)
-                        :pass (and (bytes= (:raw-buffer flat) (:raw-buffer oracle))
-                                   (= (:line-offsets flat) (:line-offsets oracle))
-                                   (= (:num-instances flat) (:num-instances oracle))
-                                   (= (:fallbacks flat) (:fallbacks oracle))
-                                   (pos? (:num-instances flat)))}))
-                   cases)
-        carried-row (first (filter #(= "ubuntu-carried-two-lines" (:name %)) rows))
-        ;; S4: carried draw-items never fall back; uncarried ones count once per draw-item
-        entry-points-pass (and (zero? (get-in carried-row [:fallbacks :combined-text-draw-items] 0))
-                        (= 2 (get-in (first (filter #(= "ubuntu-uncarried-lines" (:name %)) rows))
-                                     [:fallbacks :combined-text-draw-items] 0)))]
-    {:name "F3 flat pack bytes = oracle pack bytes; I1 entry points"
-     :pass (and (every? :pass rows) entry-points-pass)
-     :cases rows
-     :entry-points entry-points-pass}))
-
-(defn- flat-route-bracket
-  "µs per glyph for shape · layout · pack over a fixed fixture; a number in
-   the evidence, never a gate."
-  [provider t1-assets world-transforms]
-  (let [lines (vec (remove empty? flat-route-lines))
-        reps 40
-        now #(js/performance.now)
-        shape-glyphs (reduce + 0 (map #(:glyph-count ((:shape-line provider) % {})) lines))
-        t0 (now)
-        _ (dotimes [_ reps] (doseq [l lines] ((:shape-line provider) l {})))
-        t1 (now)
-        block (clojure.string/join "\n" lines)
-        layout-input {:text block :provider provider :font-size 19 :line-height 24
-                      :origin [0 0] :baseline-offset 19
-                      :source-id :harness/flat-bracket :source-revision 1}
-        layout-glyphs (:glyph-count (tl/plane-coverage-check (tl/layout layout-input)))
-        t2 (now)
-        _ (dotimes [_ reps] (tl/layout layout-input))
-        t3 (now)
-        draw-items (mapv vector (tl/line-paint-draw-items (tl/layout layout-input)
-                                            {:size 19 :r 1 :g 1 :b 1 :a 1
-                                             :container 0}))
-        stride text-renderer/slug-text-instance-stride
-        packed (text-renderer/pack-instances-flat
-                draw-items t1-assets 19 stride :world-transforms world-transforms)
-        t4 (now)
-        _ (dotimes [_ reps]
-            (text-renderer/pack-instances-flat
-             draw-items t1-assets 19 stride :world-transforms world-transforms))
-        t5 (now)
-        per (fn [ms n] (when (pos? n) (/ (* 1000 ms) (* reps n))))]
-    {:reps reps
-     :shape-glyphs shape-glyphs
-     :layout-glyphs layout-glyphs
-     :pack-instances (:num-instances packed)
-     :shape-us-per-glyph (per (- t1 t0) shape-glyphs)
-     :layout-us-per-glyph (per (- t3 t2) layout-glyphs)
-     :pack-us-per-instance (per (- t5 t4) (:num-instances packed))
-     :clock-note "performance.now, one bracket per route, no gate"}))
-
-(defn run-text-flat-route! [slug-assets t1-assets]
-  (try
-    (let [provider (:layout-provider t1-assets)
-          world-transforms (text-world-transforms)
-          rows [(flat-route-f1 provider)
-                (flat-route-f2 provider)
-                (flat-route-f3 slug-assets t1-assets world-transforms)]]
-      {:pass (every? :pass rows)
-       :rows rows
-       :bracket (flat-route-bracket provider t1-assets world-transforms)})
-    (catch :default error
-      {:pass false
-       :rows []
-       :error (str error)
-       :data (pr-str (ex-data error))})))
-
 (defn- packed-buffer-indexes [packed]
   (let [words (js/Uint32Array. (:raw-buffer packed))]
     (mapv #(aget words (+ (* % 25) 24))
@@ -643,13 +436,21 @@
                 lines ubuntu-assets font-size
                 text-renderer/slug-text-instance-stride
                 :world-transforms world-transforms)
+        uncarried (text-renderer/pack-instances-flat
+                   [[{:text "A" :x 0 :y 32 :size 24
+                      :r 1 :g 1 :b 1 :a 1 :container 17}
+                     {:text "ɐ" :x 24 :y 32 :size 24
+                      :r 1 :g 1 :b 1 :a 1 :container 17}]]
+                   ubuntu-assets 24 text-renderer/slug-text-instance-stride
+                   :world-transforms world-transforms)
         buffer-indexes (packed-buffer-indexes packed)
         buffer-indexes-pass (and (seq buffer-indexes) (every? #{1} buffer-indexes))
         base-draw-item {:text "A" :x 0 :y 32 :size 24 :r 1 :g 1 :b 1 :a 1}
         missing-rejected (group-rejected? ubuntu-assets world-transforms base-draw-item)
         unknown-rejected (group-rejected? ubuntu-assets world-transforms
                                             (assoc base-draw-item :container 999))
-        fallbacks-pass (every? zero? (vals (:fallbacks packed)))
+        fallbacks-pass (and (zero? (:fallbacks packed))
+                            (= 2 (:fallbacks uncarried)))
         ubuntu-system (text-renderer/update-text-data
                        device ubuntu-system lines ubuntu-assets font-size
                        :line-height line-height :world-transforms world-transforms)]
@@ -662,6 +463,7 @@
             :missing-group-rejected missing-rejected
             :unknown-group-rejected unknown-rejected
             :fallbacks (:fallbacks packed)
+            :uncarried-fallbacks (:fallbacks uncarried)
             :case {:case-id "text-group-tree-mixed-face"
                    :zoom 1.0
                    :lod "group-tree-cid17-buffer-index1"

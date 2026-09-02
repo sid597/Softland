@@ -21,13 +21,7 @@
       "variations": {"wght": 400, "wdth": 100},
       "features": ["kern", "liga", "clig", "calt"],
       "tabColumns": 4,
-      "default": true,
-      "defaults": {
-        "fontSize": 19,
-        "lineHeight": 1.2,
-        "snapToPixel": true,
-        "showDiagnostics": false
-      }
+      "default": true
     },
     {
       "name": "DejaVu Sans Mono",
@@ -37,19 +31,7 @@
         "curve": "dejavu_sans_mono_slug_curve.bin",
         "band": "dejavu_sans_mono_slug_band.bin"
       },
-      "charWidth": 0.60,
-      "defaults": {
-        "fontSize": 19,
-        "lineHeight": 1.2,
-        "snapToPixel": true,
-        "showDiagnostics": false
-      }
+      "charWidth": 0.60
     }
-  ],
-  "settings": {
-    "fontSize": {"min": 8, "max": 40, "default": 16},
-    "lineHeight": {"min": 1.0, "max": 2.0, "default": 1.2},
-    "snapToPixel": {"default": true},
-    "showDiagnostics": {"default": false}
-  }
+  ]
 }

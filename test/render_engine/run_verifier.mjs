@@ -202,15 +202,11 @@ const laneGuards = (result, manifest) => [
       allDeterministic(result.region3dFloor?.cases),
   },
   {
-    // SHAPER-BORDER.md §8: F1 (flat shaper ≡ oracle shaper), F2 (flat layout
-    // ≡ oracle layout, real HarfBuzz), F3 (flat pack bytes ≡ oracle bytes).
-    // The µs/glyph bracket rides in the same block and is never gated.
-    name: "text-flat-route",
+    name: "text-tree",
     pass:
-      result.textFlatRoute?.pass === true &&
-      Array.isArray(result.textFlatRoute?.rows) &&
-      result.textFlatRoute.rows.length >= 3 &&
-      result.textFlatRoute.rows.every((row) => row.pass === true),
+      result.ubuntuSlug?.groupTree?.pass === true &&
+      result.ubuntuSlug?.groupTree?.fallbacks === 0 &&
+      result.ubuntuSlug?.groupTree?.uncarriedFallbacks === 2,
   },
 ];
 
@@ -472,9 +468,6 @@ const main = async () => {
       pass: result.ubuntuSlug?.pass === true,
     },
     representativeGoldens: goldens,
-    // SHAPER-BORDER.md §2(3): the flat route's consistency checks and its µs/glyph
-    // bracket live in the receipt permanently (the bracket is never gated).
-    textFlatRoute: result.textFlatRoute,
     sourceInputs: sourceInputs(),
     adapter: result.adapter,
     browserConsole,
