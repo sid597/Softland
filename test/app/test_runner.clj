@@ -33,6 +33,7 @@
     app.client.path.frame-test
     app.client.path.material-test
     app.client.path.tessellation-test
+    app.client.region3d.frame-test
     app.client.region3d.material-test
     app.client.region3d.on-plane-test
     app.client.region3d.scene-test
