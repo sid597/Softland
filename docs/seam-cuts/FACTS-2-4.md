@@ -21,7 +21,7 @@ Path's shape (the template) is `docs/seam-cuts/CONTRACT.md` §1 + §5.
 - IMAGE: op minted with `:container-idx 0` — verifier/core.cljs:510-518; packer destructures `container-idx` — image/material.cljc:331-338; painter forwards it — image/painter.cljs:141. PRESENT.
 - REGION: op carries BOTH `:container 0 :container-idx 0` — verifier/core.cljs:1750-1756; painter reads `:container-idx` into `:composite` — region3d/painter.cljs:964-980; byte packer reads it — region3d/painter.cljs:739,745. PRESENT.
 - TEXT: `container-idx` on the STYLE map — text/glyph_pack.cljs:137-141; and on the text map — text/painter.cljs:605; written to the instance at :686; draw batching partitions by `[:clip :container]` — :770-791. PRESENT.
-- Slot resolution through `placement/effective`: exactly two callers repo-wide — verifier/core.cljs:1485 (path road) and test/app/client/path/frame_test.clj:36. No image/region/text caller. The only slot resolver is path/frame.cljc `slot`.
+- Slot resolution through `transform/world-transforms`: exactly two callers repo-wide — verifier/core.cljs:1485 (path road) and test/app/client/path/frame_test.clj:36. No image/region/text caller. The only slot resolver is path/frame.cljc `buffer-index`.
 
 ### Structural frame gate
 - IMAGE: `prepare-key {:images images :resources @(:!resources …)}` compared with `=` — image/painter.cljs:688-693; atoms `:!last-images :!prepared-images :!last-prepare-key` seeded at :445-447; `:!last-images` reset at :700, never read. PRESENT (whole-map structural equality, no revision).
@@ -35,14 +35,14 @@ Path's shape (the template) is `docs/seam-cuts/CONTRACT.md` §1 + §5.
 
 ### Private copy of the color law
 - IMAGE: own WGSL `srgb_channel_to_linear`, byte-identical body to device's — image/painter.cljs:82-86 vs engine/device.cljs:16-20; own `image-color-mode-declaration` (:21) and `configure-image-color-shader` (:24-26) instead of `device/configure-scene-color-shader`; does NOT concatenate `device/scene-color-wgsl`; shares only `device/scene-color-blend` (:188). PRESENT (same as path's removed copies). Second linear route `create-linear-image-variant` :736 unread.
-- REGION: CPU-side `srgb-channel->linear` — region3d/on_plane.cljc:119-131, only caller `linear-premultiplied` below it. engine/color.cljc (49 lines, read whole) holds NO channel conversion: only two color-mode data maps, `scene-color-seam`, and the `scene-color` selector; the transfer is declared as data (:22-31), never computed. The only executable law is device's WGSL. → the CPU side of "one color law" has NO home today.
+- REGION: CPU-side `srgb-channel->linear` — region3d/on_plane.cljc:119-131, only caller `linear-premultiplied` below it. engine/color.cljc (49 lines, read whole) holds NO channel conversion: only two color-mode data maps, `scene-color-boundary`, and the `scene-color` selector; the transfer is declared as data (:22-31), never computed. The only executable law is device's WGSL. → the CPU side of "one color law" has NO home today.
 - TEXT: already uses the shared device law (CONTRACT §1 states it; not re-verified here).
 
 ### Hand-written validators (imperative throws where a declared grammar belongs)
-- IMAGE: `validate-source!` :38, `validate-material!` :107, `legal-source-tags`/`legal-alpha-associations` :16-17 with when-not/throw — image/material.cljc; no `engine.grammar` require. PRESENT.
+- IMAGE: `validate-source!` :38, `validate-component!` :107, `legal-source-tags`/`legal-alpha-associations` :16-17 with when-not/throw — image/material.cljc; no `engine.schema` require. PRESENT.
 - REGION: `validate-tagged-color!` :99, `validate-parent-graph!` :370, `validate-region!` :423, `legal-*` sets :16-20 — region3d/material.cljc; called from scene.cljc:137,624 and painter.cljs:860. PRESENT, much larger grammar (object kinds, primitives, lights, cameras, display modes, parent graph, quaternions).
 - TEXT: none. Only the inline legal-zoom band `(<= 0.01 zoom 1000)` at text/layout.cljc:1046-1063, DUPLICATED in text/layout_oracle.cljc:535-558. Boolean predicates exist (`within-span-bound?` :663, `retained-rich-map?` :660, `oracle-match?` :1142, `within-work-bound?` :1200) but refuse nothing.
-- `engine/grammar.cljc` has exactly ONE consumer today: path/material.cljc:9,26.
+- `engine/schema.cljc` has exactly ONE consumer today: path/material.cljc:9,26.
 
 ### Own `finite-number?`
 - REGION: region3d/material.cljc:80 (public), used :88-406. PRESENT. CONTRACT §1 already routes: "region3d and placement carry their own; atoms 2–4 switch them".
@@ -58,7 +58,7 @@ Path's shape (the template) is `docs/seam-cuts/CONTRACT.md` §1 + §5.
 
 ### Kind-specific extra questions (not in path's template)
 - IMAGE: atlas / mip / texture residency + device-lost lifecycle (painter :191-280, :617-637). CONTRACT §0 rules atlas placements are never rows → floor-private cache. The receipt ledger and the lifecycle state are interleaved; the cut must sort them.
-- REGION: scene.cljc:140-701 `effective-transforms` is a 4x4 matrix composer, a DIFFERENT concept from `placement/effective`; must not be conflated. Scene evaluation passes are rows per §0 (pick, shadow space read them).
+- REGION: scene.cljc:140-701 `world-transforms` is a 4x4 matrix composer, a DIFFERENT concept from `transform/world-transforms`; must not be conflated. Scene evaluation passes are rows per §0 (pick, shadow space read them).
 - TEXT: layout (1642) + planes (772) + oracle (601) + shaped_line (253) + shaper (391) + shaper_oracle (209) are derivations; §0 rules layout passes are rows (caret, selection, hit, on-plane read them). Text sits under the OPEN shaping-correction package (board next-prompt.md:491, "SEAM stays frozen/unwidened"). Text's fill is already GPU (Slug) — atom B copies text's way, it does not reshape text.
 
 ## Shared surface — files every parallel build would touch
@@ -68,7 +68,7 @@ Path's shape (the template) is `docs/seam-cuts/CONTRACT.md` §1 + §5.
 | src/app/client/verifier/core.cljs (2926) | every kind's road lives here; image road :510-1096 (+ :1031 entry), path :1097-1520, region :1681-2547 (entry :2418), text flat road :2549-2747, dispatch :2748-2900 | one file, three sessions |
 | test/app/test_runner.clj | `pure-namespaces` fail-closed inventory :31-52 | one-line adds per kind |
 | test/render_engine/run_verifier.mjs | `sourceInputs` 18-path hashed manifest :275-294; MISSING today: image/material.cljc, region3d/on_plane.cljc, region3d/material.cljc, engine/color.cljc | every cut adds paths |
-| src/app/client/engine/placement.cljc | private `finite-number?` :29; `effective` :193 has 2 callers; no slot resolver here (it is path/frame.cljc) | slot must move here or be duplicated per kind |
+| src/app/client/engine/placement.cljc | private `finite-number?` :29; `world-transforms` :193 has 2 callers; no slot resolver here (it is path/frame.cljc) | slot must move here or be duplicated per kind |
 | src/app/client/engine/grammar.cljc (115) | one consumer; region's grammar may need engine growth | shared |
 | src/app/client/engine/color.cljc (49) / device.cljs | the CPU-side color law has no home | shared |
 

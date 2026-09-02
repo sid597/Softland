@@ -4,7 +4,7 @@
 
 *Vocabulary: per `docs/decisions.md` "The render boundary" glossary (2026-09-02). Code identifiers rename in the step that touches each file, never a sweep.*
 
-**Ground.** Source baseline `3d703a5`. The client is 29 files, 15,819 lines, folded by kind under `engine/ text/ image/ path/ region3d/ verifier/`; `verifier/core.cljs` is the only compiled entry and the only caller of every renderer. The tree is the ground; this page is the cut. Read code, not docs. The two waist maps that fed this contract were drawn from code alone, read-only, and merged in chat on 2026-09-02; their merged position is §0 below, and it is the source for the pending amendment of `docs/decisions.md`.
+**Ground.** Source baseline `3d703a5`. The client is 29 files, 15,819 lines, folded by kind under `engine/ text/ image/ path/ region3d/ harness/`; `harness/core.cljs` is the only compiled entry and the only caller of every renderer. The tree is the ground; this page is the cut. Read code, not docs. The two waist maps that fed this contract were drawn from code alone, read-only, and merged in chat on 2026-09-02; their merged position is §0 below, and it is the source for the pending amendment of `docs/decisions.md`.
 
 **Sid's rulings, verbatim (2026-09-02).**
 - Settlement + both forks: `land it · A: data · B: GPU`
@@ -42,20 +42,20 @@ Removed now, by Sid's criterion, called or not:
 
 | piece | verdict | why |
 |---|---|---|
-| the validation stamp (`admitted?`, `stamp-admitted`, `admit-material`, `require-admitted` in component and its copy in tessellation, the restamp inside `canonical-material`) | remove | a process-local flag in Clojure metadata; `pr-str` drops it, so a row over the wire arrives unvalidated and every reader throws. Validation runs once at the entry point. |
-| `:container-idx` read from the draw item | replace | a buffer index where a group id belongs. The draw item names `:container`; vertex packing resolves id to buffer index through `placement/effective`. Today every draw item says 0 and `effective` has no caller. |
-| the two dirty checks (`:!last-paths` + `:!last-regime` structural equality, then `:!last-mesh-set-key` over canonicalized components) | replace | both are O(geometry) per frame; neither reads the field a row carries for this, its revision. One dirty check: revision + group per draw item, plus the LOD. |
+| the validation stamp (`admitted?`, `stamp-admitted`, `admit-material`, `require-admitted` in component and its copy in tessellation, the restamp inside `canonical-component`) | remove | a process-local flag in Clojure metadata; `pr-str` drops it, so a row over the wire arrives unvalidated and every reader throws. Validation runs once at the entry point. |
+| `:container-idx` read from the draw item | replace | a buffer index where a group id belongs. The draw item names `:container`; vertex packing resolves id to buffer index through `transform/world-transforms`. Today every draw item says 0 and `world-transforms` has no caller. |
+| the two dirty checks (`:!last-paths` + `:!last-lod` structural equality, then `:!last-mesh-set-key` over canonicalized components) | replace | both are O(geometry) per frame; neither reads the field a row carries for this, its revision. One dirty check: revision + group per draw item, plus the LOD. |
 | `:!receipt`, `path-receipt`, `:!shape-rev` | remove | a ledger inside the renderer; the per-frame return of `prepare-path-frame!` is the frame stats. The shape revision is written and never read. |
 | `path-color-mode-declaration`, `configure-path-color-shader`, the renderer's `scene-color-blend`, the srgb function inside `path-fragment-shader` | remove | copies of the color law that lives in `engine/device.cljs`; text and image renderers already use the shared one. |
-| `example-ink-material`, `example-shape-material` | move to a test fixture | fixtures in src |
-| `f32-roundtrip`, `quantization-receipt` | move to the render test harness | diagnostics |
+| `example-ink-component`, `example-shape-component` | move to a test fixture | fixtures in src |
+| `f32-roundtrip`, `quantization-evidence` | move to the render test harness | diagnostics |
 | `clamp-pressure`, `pressure-width`, `:base-width` on ink geometry | replace | width is decided per stroke point when a stroke is created, by the brush. The stroke point carries `:width`. Pressure and gesture time remain as optional gesture provenance the readers never use. |
 | the pressure fork (`classify` interpolates along the segment, `boundary-distance` averages the two stroke points) | replace | one formula, `segment-delta`, shared by both |
-| `material-points`, `shape-normalization`, `normalize-point`, `denormalize-point` | move into tessellation, private | numerics of the derivation |
-| the hand-written validators (`validate-paint!` … `validate-material!`) | replace in one move | right meaning, wrong form: a declared schema checked by one engine is something the land can show; imperative throws are not |
-| `finite-number?` in path/component | move to the scheman engine | region3d and `engine/placement.cljc` carry their own; steps 2–4 switch them |
+| `component-points`, `shape-normalization`, `normalize-point`, `denormalize-point` | move into tessellation, private | numerics of the derivation |
+| the hand-written validators (`validate-paint!` … `validate-component!`) | replace in one move | right meaning, wrong form: a declared schema checked by one engine is something the land can show; imperative throws are not |
+| `finite-number?` in path/component | move to the scheman engine | region3d and `engine/transform.cljc` carry their own; steps 2–4 switch them |
 
-Kept, right form, valid case: `canonical-material`, `material-content-key`, `contour-classify`, `classify`, `hit?`, `boundary-distance`, `paint-color` (a reader of the paint row; on-plane reads it too), `legal-cap-join #{:round}` (fail-closed and honest about the stroker), the stroker, ear clipping and hole bridging (until step B), `zoom-regime` and its table (until step B), `algorithm-version`, `material-cache-key`, `tessellate`, `derive-mesh-set`, `init-path-system`, `ensure-capacity!`, `pack-vertices` with color per vertex (fat, not wrong), `draw-path-range!`, `destroy-path-system!`.
+Kept, right form, valid case: `canonical-component`, `component-content-hash`, `contour-classify`, `classify`, `hit?`, `boundary-distance`, `paint-color` (a reader of the paint row; on-plane reads it too), `legal-cap-join #{:round}` (fail-closed and honest about the stroker), the stroker, ear clipping and hole bridging (until step B), `zoom-lod` and its table (until step B), `algorithm-version`, `component-cache-key`, `tessellate`, `derive-mesh-set`, `init-path-system`, `ensure-capacity!`, `pack-vertices` with color per vertex (fat, not wrong), `draw-path-range!`, `destroy-path-system!`.
 
 ## 2. Non-goals (each routed to LATER, none a void)
 
@@ -76,45 +76,45 @@ Kept, right form, valid case: `canonical-material`, `material-content-key`, `con
 
 ## 4. Entry points (exact)
 
-**New: `src/app/client/engine/grammar.cljc`** — the scheman engine. `check [spec form] → form` or throws `ex-info` with `{:error-type kw :path [ks…] :value v}`. A spec is `{:keys #{required…} :optional #{…} :validators {k pred-or-spec} :form-validators [{:valid? f :error-type kw}]}`; unknown keys are rejected at every level; a validator that is itself a spec recurses. Exports the shared predicates by the server's names: `finite-number?`, `valid-rgba?`, `non-negative-number?`, `positive-number?`, `point?`. About 60 lines. Nothing else may validate a path.
+**New: `src/app/client/engine/schema.cljc`** — the scheman engine. `check [spec form] → form` or throws `ex-info` with `{:error-type kw :path [ks…] :value v}`. A spec is `{:keys #{required…} :optional #{…} :validators {k pred-or-spec} :form-validators [{:valid? f :error-type kw}]}`; unknown keys are rejected at every level; a validator that is itself a spec recurses. Exports the shared predicates by the server's names: `finite-number?`, `valid-rgba?`, `non-negative-number?`, `positive-number?`, `point?`. About 60 lines. Nothing else may validate a path.
 
-**`src/app/client/path/material.cljc`** (after: about 230 lines)
-- `grammar` — the declared spec (§6), public data.
-- `validate-material! [m]` = `(grammar/check grammar m)`; returns the map, no metadata.
-- `canonical-material`, `material-content-key` — unchanged in meaning; take a validated map, never check validation.
+**`src/app/client/path/component.cljc`** (after: about 230 lines)
+- `schema` — the declared spec (§6), public data.
+- `validate-component! [m]` = `(schema/check schema m)`; returns the map, no metadata.
+- `canonical-component`, `component-content-hash` — unchanged in meaning; take a validated map, never check validation.
 - `segment-delta [a wa b wb p] → {:t :distance :half-width :delta}` — private; width interpolated linearly at the projection parameter t, clamped to [0,1]; `delta = distance − half-width`.
 - `classify`, `hit?`, `boundary-distance` — ink cases read `segment-delta`; `boundary-distance` for ink = min over segments of `|delta|`.
 - `contour-classify`, `paint-color` — unchanged.
-- Gone from this file: the stamp trio and `require-admitted`, the examples, `clamp-pressure`, `pressure-width`, `finite-number?`, `material-points`, `shape-normalization`, `normalize-point`, `denormalize-point`, `point-segment-distance` as a public.
+- Gone from this file: the stamp trio and `require-admitted`, the examples, `clamp-pressure`, `pressure-width`, `finite-number?`, `component-points`, `shape-normalization`, `normalize-point`, `denormalize-point`, `point-segment-distance` as a public.
 
 **`src/app/client/path/tessellation.cljc`** (after: about 430 lines)
-- normalization moves in as private (`material-points`, `shape-normalization`, `normalize-point`, `denormalize-point`); `normalized-ink` divides each stroke point's `:width` by the scale factor (today it divides `:base-width`, line 109).
-- the stroker reads `(:width knot)`: radii at lines 124–127 and 161–162 become `(/ (:width knot) 2.0)`.
+- normalization moves in as private (`component-points`, `shape-normalization`, `normalize-point`, `denormalize-point`); `normalized-ink` divides each stroke point's `:width` by the scale factor (today it divides `:base-width`, line 109).
+- the stroker reads `(:width stroke-point)`: radii at lines 124–127 and 161–162 become `(/ (:width stroke-point) 2.0)`.
 - `require-admitted` gone; every entry takes a validated map.
-- `f32-roundtrip`, `quantization-receipt` gone (to the render test harness).
-- unchanged: `legal-zoom-regimes`, `zoom-regime`, `algorithm-version`, `material-cache-key`, `stroke-triangles`, `shape-triangles`, `tessellate`, `derive-mesh-set`.
+- `f32-roundtrip`, `quantization-evidence` gone (to the render test harness).
+- unchanged: `legal-zoom-lods`, `zoom-lod`, `algorithm-version`, `component-cache-key`, `stroke-triangles`, `shape-triangles`, `tessellate`, `derive-mesh-set`.
 
-**New: `src/app/client/path/frame.cljc`** — what one frame of paths asks of the engine, pure, JVM-tested. `frame-key [ops regime] → [[material-id revision container]… regime]`. `slot [effective container] → int` or throws `{:error-type :path/unknown-container}`. About 25 lines.
+**New: `src/app/client/path/frame.cljc`** — what one frame of paths asks of the engine, pure, JVM-tested. `frame-key [draw-items lod] → [[material-id revision container]… lod]`. `buffer-index [world-transforms container] → int` or throws `{:error-type :transform/unknown-group}`. About 25 lines.
 
-**`src/app/client/path/painter.cljs`** (after: about 180 lines)
+**`src/app/client/path/renderer.cljs`** (after: about 180 lines)
 - `init-path-system` builds the fragment shader as `(str device/scene-color-wgsl path-fragment-main)` where `path-fragment-main` is the one entry that returns `scene_color(color, 1.0)`; configures through `device/configure-scene-color-shader`; blends through `device/scene-color-blend`. The renderer's own copies are gone.
-- system map holds: `:device :pipeline :bind-group :camera-buffer :containers-buffer :scene-color :!buffer :!capacity :!mesh-cache :!prepared :!last-frame-key`. Gone: `:!shape-rev :!last-paths :!last-regime :!last-mesh-set-key :!receipt`.
-- `prepare-path-frame! [system ops zoom effective] → {:changed? bool :writes 0|1 :vertices n :derived n}`: LOD from `zoom`; `key = (frame/frame-key ops regime)`; if `(= key @:!last-frame-key)` return `{:changed? false :writes 0 :vertices …}`; else derive through `derive-mesh-set`, pack the vertices with `(frame/slot effective (:container op))`, upload, store the key.
-- `pack-vertices` reads `(:container op)` through `frame/slot`, never `:container-idx`.
+- system map holds: `:device :pipeline :bind-group :camera-buffer :groups-buffer :scene-color :!buffer :!capacity :!mesh-cache :!prepared :!last-frame-key`. Gone: `:!shape-rev :!last-paths :!last-lod :!last-mesh-set-key :!receipt`.
+- `prepare-path-frame! [system draw-items zoom world-transforms] → {:changed? bool :writes 0|1 :vertices n :derived n}`: LOD from `zoom`; `key = (frame/frame-key draw-items lod)`; if `(= key @:!last-frame-key)` return `{:changed? false :writes 0 :vertices …}`; else derive through `derive-mesh-set`, pack the vertices with `(frame/buffer-index world-transforms (:container draw-item))`, upload, store the key.
+- `pack-vertices` reads `(:container draw-item)` through `frame/buffer-index`, never `:container-idx`.
 - `draw-path-range!`, `destroy-path-system!` unchanged; `path-receipt` gone.
 
 **`src/app/client/engine/device.cljs`** — thin hook only: `scene-color-wgsl`, `configure-scene-color-shader`, `scene-color-blend` become public (lines 16, 33, 39). Text and image renderers already call them across the namespace boundary.
 
-**`src/app/client/verifier/core.cljs`** — path section only (lines 1095–1428 and the surround-path calls at 2320–2337):
-- fixtures call `validate-material!`, never `admit-material`; ink fixtures set `:width` per stroke point as `(* (/ 16.0 zoom) pressure)` and keep `:pressure` as provenance; every fixture sets `:path/revision` as its content hash (`(assoc m :path/revision (material-content-key m))`).
-- `path-op` → `{:path/material m :container cid}`; `:id` may ride, unread.
-- the path section builds a registry (`placement/empty-registry` → `add-container`), computes `placement/effective`, writes it with `device/write-containers!`, and passes it to `prepare-path-frame!`. The region3d engine's surround path system passes the world-transform map it already writes at line 2315.
-- `f32-roundtrip` and `quantization-receipt` live here now; the upload gate (1361–1373) accumulates from `prepare-path-frame!` returns; the `:system` evidence at 1420 is the last return, not `path-receipt`.
+**`src/app/client/harness/core.cljs`** — path section only (lines 1095–1428 and the surround-path calls at 2320–2337):
+- fixtures call `validate-component!`, never `admit-material`; ink fixtures set `:width` per stroke point as `(* (/ 16.0 zoom) pressure)` and keep `:pressure` as provenance; every fixture sets `:path/revision` as its content hash (`(assoc m :path/revision (component-content-hash m))`).
+- `path-draw-item` → `{:path/material m :container cid}`; `:id` may ride, unread.
+- the path section builds a registry (`transform/empty-registry` → `add-group`), computes `transform/world-transforms`, writes it with `device/write-groups!`, and passes it to `prepare-path-frame!`. The region3d engine's surround path system passes the world-transform map it already writes at line 2315.
+- `f32-roundtrip` and `quantization-evidence` live here now; the upload gate (1361–1373) accumulates from `prepare-path-frame!` returns; the `:system` evidence at 1420 is the last return, not `path-receipt`.
 - S1's golden case added (§7).
 
 **Tests**
 - New `test/app/client/path/fixtures.cljc` — the two example components, plus the S4 tapered segment.
-- `test/app/client/path/material_test.clj`, `test/app/client/path/tessellation_test.clj` rewritten to §7; the two existing mesh SHA-256 fingerprints at zoom 10 are kept verbatim; the quantization-receipt assertion at line 83 is dropped (it pinned a diagnostic).
+- `test/app/client/path/component_test.clj`, `test/app/client/path/tessellation_test.clj` rewritten to §7; the two existing mesh SHA-256 fingerprints at zoom 10 are kept verbatim; the quantization-receipt assertion at line 83 is dropped (it pinned a diagnostic).
 - New `test/app/client/path/frame_test.clj` — S3's key law.
 - `test/app/test_runner.clj` inventory updated for the two new test namespaces.
 
@@ -164,11 +164,11 @@ Invariant the server's writers own and fixtures honor: **a revision changes when
    :form-validators [{:valid? geometry-matches-kind? :error-type :path/geometry-kind}]})
 ```
 
-Error types are named per key (`:path/paint-color`, `:path/knot-width`, …) so a rejection is readable as data. The engine treats a set as a membership predicate and `[:vector-of spec opts]` as a sequence rule; nothing else is invented.
+Error types are named per key (`:path/paint-color`, `:path/stroke-point-width`, …) so a rejection is readable as data. The engine treats a set as a membership predicate and `[:vector-of spec opts]` as a sequence rule; nothing else is invented.
 
 ## 7. Decisive scenarios (frozen as regression tests at close)
 
-**S1 — the hierarchy runs.** Render-test-harness golden. A registry with group 17 added under the root with affine `[0.5 0 0 0.5 40 20]`; the same shape component drawn twice, once with `:container 0` and once with `:container 17`; `effective` → `write-containers!` → `prepare-path-frame!`. The golden shows two shapes, the second at half size offset by (40, 20). Wrong build that passes a weaker test: buffer index taken as the cid, which works only when cid equals buffer index; 17 gets buffer index 1. Wrong build two: vertex packing ignores the group, invisible under identity; the non-identity affine catches it. Also pinned: a draw item naming a group the hierarchy lacks throws `:path/unknown-container` before any GPU write.
+**S1 — the hierarchy runs.** Render-test-harness golden. A registry with group 17 added under the root with affine `[0.5 0 0 0.5 40 20]`; the same shape component drawn twice, once with `:container 0` and once with `:container 17`; `world-transforms` → `write-groups!` → `prepare-path-frame!`. The golden shows two shapes, the second at half size offset by (40, 20). Wrong build that passes a weaker test: buffer index taken as the cid, which works only when cid equals buffer index; 17 gets buffer index 1. Wrong build two: vertex packing ignores the group, invisible under identity; the non-identity affine catches it. Also pinned: a draw item naming a group the hierarchy lacks throws `:transform/unknown-group` before any GPU write.
 
 **S2 — rows travel and the schema rejects by name.** JVM. `(edn/read-string (pr-str m))` of each fixture validates, has `nil` metadata, and gives the same content hash, the same `classify` answers, and a byte-identical mesh as the original; no reader ever throws "not admitted". The schema rejects, each by its named error type: an unknown top-level key, a stroke point with `:tilt`, a contour with `:role :rim`, a paint missing `:opacity`, `:cap :square`, a hole without an outer, a zero-width stroke point. Wrong build that passes a weaker test: a stamp under another key that the test never looks for; the `nil`-metadata assertion on the read-back map catches it.
 
@@ -188,7 +188,7 @@ Representative goldens at close: the two existing path goldens unchanged, plus S
 
 ## 9. Forks written, with defaults
 
-- **F1, the scheman engine.** The server's `worn/facet_engine.cljc` is reader-conditional and would compile for the client, but its `compile-form` requires every form to carry `:facet-master/*` keys, and a client → server require is a new dependency direction. Default: the client's own `engine/grammar.cljc` with the server's spec shape and predicate names, so specs are one meaning across the two engines. LATER: one engine in a shared place, by ruling.
+- **F1, the scheman engine.** The server's `worn/facet_engine.cljc` is reader-conditional and would compile for the client, but its `compile-form` requires every form to carry `:facet-master/*` keys, and a client → server require is a new dependency direction. Default: the client's own `engine/schema.cljc` with the server's spec shape and predicate names, so specs are one meaning across the two engines. LATER: one engine in a shared place, by ruling.
 - **F2, a draw item without `:container`.** Default: fail closed. The world (the root group) is 0 and fixtures name it.
 - **F3, `paint-color`.** Stays in component; on-plane reads it, so it is a reader, not a schema step.
 - **F4, color per vertex.** Stays; step B reshapes the vertex anyway.

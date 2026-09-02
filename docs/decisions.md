@@ -569,8 +569,8 @@ replaced, current state:
   pointer, clock, culling, builtin, stroker, brush, tessellation,
   derivation, projection, scene stay.
 - *Tests.* evidence ← receipt (a close document) and frame stats ← receipt
-  (a per-frame return) · render test harness ← verifier (the `verifier/`
-  namespace keeps its name until its step) · consistency check ← fence ·
+  (a per-frame return) · render test harness ← verifier (the `harness/`
+  namespace now carries it) · consistency check ← fence ·
   diagnostic ← instrument (implementation, where it meant a swappable one)
   · regression test ← tripwire · coverage check ← census · editor ← studio
   · oracle, fixture, golden, corpus, probe, scenario, harness stay.
