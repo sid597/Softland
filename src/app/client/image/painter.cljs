@@ -8,24 +8,12 @@
    instances in a pool; draw calls.
    Holds: per-system atoms for prepared state, image sources, atlas placement,
    and resources."
-  (:require [clojure.string :as str]
-            [app.client.engine.buffer-pool :as buffer-pool]
+  (:require [app.client.engine.buffer-pool :as buffer-pool]
             [app.client.engine.color :as scene-color]
             [app.client.engine.device :as device]
+            [app.client.engine.placement :as placement]
+            [app.client.image.frame :as frame]
             [app.client.image.material :as image-material]))
-
-;; IMAGE-ATOM T3: the candidate samples through an sRGB texture view (the one
-;; ingress decode) and writes a linear-premultiplied value to an *-srgb target
-;; (the one presentation encode).  The legacy seam samples an unorm view and
-;; returns encoded straight RGB, so it never half-converts.
-(def ^:private image-color-mode-declaration
-  "const kImageLinearPremultiplied: bool = false;")
-
-(defn- configure-image-color-shader [shader color]
-  (if (:enabled? color)
-    (str/replace shader image-color-mode-declaration
-                 "const kImageLinearPremultiplied: bool = true;")
-    shader))
 
 (def image-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
@@ -79,13 +67,8 @@
     return output;
   }")
 
-(def image-fragment-shader
-  (str image-color-mode-declaration "\n"
-       "fn srgb_channel_to_linear(v: f32) -> f32 {\n"
-       "  if (v <= 0.04045) { return v / 12.92; }\n"
-       "  return pow((v + 0.055) / 1.055, 2.4);\n"
-       "}\n"
-       "@group(0) @binding(0) var image_sampler: sampler;\n"
+(def ^:private image-fragment-main
+  (str "@group(0) @binding(0) var image_sampler: sampler;\n"
        "@group(0) @binding(1) var image_texture: texture_2d<f32>;\n"
        "@fragment\n"
        "fn main(@location(0) uv: vec2<f32>,\n"
@@ -96,15 +79,12 @@
        "                          min(edge_pos.y, edge_size.y - edge_pos.y));\n"
        "  let cg = clamp(edge_distance + 0.5, 0.0, 1.0);\n"
        "  let sampled = textureSample(image_texture, image_sampler, uv);\n"
-       "  if (!kImageLinearPremultiplied) {\n"
-       "    return vec4<f32>(sampled.rgb * tint.rgb, sampled.a * tint.a * cg);\n"
-       "  }\n"
-       "  let tint_linear = vec3<f32>(srgb_channel_to_linear(tint.r),\n"
-       "                              srgb_channel_to_linear(tint.g),\n"
-       "                              srgb_channel_to_linear(tint.b));\n"
-       "  let alpha = clamp(sampled.a * tint.a * cg, 0.0, 1.0);\n"
-       "  return vec4<f32>(sampled.rgb * tint_linear * alpha, alpha);\n"
+       "  let t = scene_color(vec4<f32>(tint.rgb, sampled.a * tint.a), cg);\n"
+       "  return vec4<f32>(sampled.rgb * t.rgb, t.a);\n"
        "}\n"))
+
+(def image-fragment-shader
+  (str device/scene-color-wgsl image-fragment-main))
 
 (def ^:private image-mip-vertex-shader "
   struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, };
@@ -132,13 +112,14 @@
 ;; --- Image atom resource system --------------------------------------------
 
 (defn- pack-image-instance [image-op]
-  (let [words (image-material/instance-words
-               {:x (:x image-op) :y (:y image-op)
-                :w (:w image-op) :h (:h image-op)
+  (let [material (:image/material image-op)
+        paint (:image/paint material)
+        words (image-material/instance-words
+               {:rect (:image/rect material)
                 :uv (:image/resolved-uv image-op)
-                :tint (:image/tint image-op)
-                :opacity (:image/opacity image-op)
-                :container-idx (:container-idx image-op)})
+                :tint (:tint paint)
+                :opacity (:opacity paint)
+                :slot (:slot image-op)})
         data (js/Float32Array. image-material/image-instance-words)
         uints (js/Uint32Array. (.-buffer data))]
     (dotimes [index 12]
@@ -162,7 +143,7 @@
                                           (clj->js {:code image-vertex-shader}))
         fragment-module (.createShaderModule
                          device
-                         (clj->js {:code (configure-image-color-shader
+                         (clj->js {:code (device/configure-scene-color-shader
                                          image-fragment-shader scene-color)}))
         layout (.createPipelineLayout
                 device (clj->js {:bindGroupLayouts [bind-layout]}))]
@@ -279,31 +260,6 @@
                (clj->js {:format (if (:enabled? scene-color)
                                    "rgba8unorm-srgb"
                                    "rgba8unorm")})))
-
-(defn- receipt-row-counts [rows]
-  (reduce (fn [counts [_ {:keys [status]}]]
-            (update counts status (fnil inc 0)))
-          {:ok 0 :refused 0 :unavailable 0 :device-lost 0}
-          rows))
-
-(defn- publish-image-receipt! [image-system]
-  (let [!receipt (:!receipt image-system)
-        receipt (assoc @!receipt :counts (receipt-row-counts (:rows @!receipt)))]
-    (reset! !receipt receipt)
-    (aset js/globalThis "__softland_image_ingress_receipt" (clj->js receipt))
-    receipt))
-
-(defn- record-image-receipt!
-  [image-system digest status reason details]
-  (swap! (:!receipt image-system)
-         (fn [receipt]
-           (let [event (merge {:status status :reason reason} details)
-                 prior (get-in receipt [:rows digest])
-                 history (conj (vec (:history prior)) event)]
-             (-> receipt
-                 (assoc-in [:rows digest] (assoc event :history history))
-                 (assoc :updated-at-ms (.now js/performance))))))
-  (publish-image-receipt! image-system))
 
 (defn- padded-image-canvas [^js bitmap padding]
   (let [width (.-width bitmap)
@@ -442,13 +398,37 @@
          :!resources (atom {})
          :!source-registry (atom (image-material/empty-source-registry))
          :!source-bytes (atom {})
-         :frame-input/identity (js-obj) :!shape-rev (atom 0)
-         :!last-images (atom ::never) :!prepared-images (atom [])
-         :!last-prepare-key (atom ::never)
-         :!receipt (atom {:version 1 :rows {}
-                          :ingress image-material/ingress-receipt})}]
-    (publish-image-receipt! image-system)
+         :!prepared (atom [])
+         :!last-frame-key (atom ::never)
+         :!residency-rev (atom 0)}]
     image-system))
+
+(defn- placeholder-residency [image-system status reason]
+  (let [placeholder (:placeholder image-system)]
+    {:status status
+     :reason reason
+     :binding {:key (:binding-key placeholder)
+               :group (:bind-group placeholder)}
+     :uv (:uv placeholder)}))
+
+(defn- resource-residency [resource]
+  (-> resource
+      (assoc :status :ok
+             :reason nil
+             :binding {:key (:binding-key resource)
+                       :group (:bind-group resource)})
+      (dissoc :binding-key :bind-group)))
+
+(defn- set-residency! [image-system digest residency]
+  (swap! (:!resources image-system) assoc digest residency)
+  (swap! (:!residency-rev image-system) inc)
+  residency)
+
+(defn- ensure-residency! [image-system digest]
+  (or (get @(:!resources image-system) digest)
+      (set-residency! image-system digest
+                      (placeholder-residency image-system :unavailable
+                                             :unresolvable-digest))))
 
 (defn- copy-image-to-atlas!
   [image-system ^js bitmap {:keys [x y padding width height]}]
@@ -491,12 +471,10 @@
 
 (defn register-image-source!
   "Verify, decode, upload, and register one digest-addressed image source.
-   The returned Promise resolves to a GPU resource or nil on a receipted
-   refusal.  No decode or Promise work is reachable from the frame producer
-   (IMAGE-ATOM T2/T9/T10)."
+   The returned Promise resolves to an explicit status value.  No decode or
+   Promise work is reachable from the frame producer."
   [image-system source bytes]
-  (let [digest (:image/digest source)
-        started-at (.now js/performance)]
+  (let [digest (:image/digest source)]
     (-> (js/Promise.resolve nil)
         (.then
          (fn [_]
@@ -537,8 +515,7 @@
                  (throw (ex-info "Decoded image dimensions differ from source"
                                  {:reason :dimension-mismatch
                                   :declared declared :decoded [width height]})))
-               (let [decoded-at (.now js/performance)
-                     plan (image-material/placement-plan
+               (let [plan (image-material/placement-plan
                            @(:!atlas image-system) digest
                            {:width width :height height})
                      resource
@@ -556,34 +533,22 @@
                           (:mip-level-count image-material/atlas-config)})
                        (create-dedicated-image-resource!
                         image-system digest bitmap))
-                     completed-at (.now js/performance)]
+                     residency (resource-residency resource)]
                  (.close bitmap)
-                 (swap! (:!resources image-system) assoc digest resource)
-                 (record-image-receipt!
-                  image-system digest :ok (:tier resource)
-                  {:tier (:tier resource)
-                   :mip-level-count (:mip-level-count resource)
-                   :ingress-transfers (if (get-in image-system
-                                                  [:scene-color :enabled?])
-                                        1 0)
-                   :presentation-encodes (if (get-in image-system
-                                                     [:scene-color :enabled?])
-                                           1 0)
-                   :decode-ms (- decoded-at started-at)
-                   :upload-enqueue-ms (- completed-at decoded-at)
-                   :total-enqueue-ms (- completed-at started-at)})
-                 resource)))))
+                 (set-residency! image-system digest residency)
+                 {:status :ok :digest digest :reason nil})))))
         (.catch
          (fn [error]
            (let [data (ex-data error)
-                 reason (or (:reason data) :invalid-source)]
-             (record-image-receipt!
-              image-system (or digest :image/unknown) :refused reason
-              {:message (or (.-message error) (str error))})
-             nil))))))
-
-(defn image-ingress-receipt [image-system]
-  (publish-image-receipt! image-system))
+                 reason (or (:reason data) (:error-type data) :invalid-source)
+                 residency-digest (or digest :image/unknown)
+                 prior (get @(:!resources image-system) residency-digest)]
+             (if (= :ok (:status prior))
+               (swap! (:!residency-rev image-system) inc)
+               (set-residency!
+                image-system residency-digest
+                (placeholder-residency image-system :refused reason)))
+             {:status :refused :digest digest :reason reason}))))))
 
 (defn- destroy-dedicated-resources! [image-system]
   (doseq [[_ resource] @(:!resources image-system)
@@ -594,12 +559,15 @@
 (defn rebuild-image-resources!
   "Reconstruct every device-owned image resource on a freshly initialized
    replacement system.  No pipeline, atlas, placeholder, pool buffer, or
-   bind-group from the lost device is reused.  The digest registry is the only
-   bridge across devices (IMAGE-ATOM T2/T11)."
+   bind-group from the lost device is reused."
   [lost-system replacement-system]
   (let [sources (sort-by #(get-in % [:source :image/digest])
                          (vals @(:!source-bytes lost-system)))
-        digests (mapv #(get-in % [:source :image/digest]) sources)
+        source-digests (set (map #(get-in % [:source :image/digest]) sources))
+        carried (remove (fn [[digest residency]]
+                          (or (= :ok (:status residency))
+                              (contains? source-digests digest)))
+                        @(:!resources lost-system))
         resources-fresh?
         (and (not (identical? (:device lost-system)
                               (:device replacement-system)))
@@ -613,12 +581,9 @@
                                           replacement-system))))
              (not (identical? (:buffer @(:pool lost-system))
                               (:buffer @(:pool replacement-system)))))]
-    (doseq [digest digests]
-      (record-image-receipt! lost-system digest :device-lost :device-lost
-                             {:rebuild-count 0})
-      (record-image-receipt! replacement-system digest
-                             :device-lost :replacement-rebuild-start
-                             {:rebuild-count 0}))
+    (doseq [[digest {:keys [status reason]}] carried]
+      (set-residency! replacement-system digest
+                      (placeholder-residency replacement-system status reason)))
     (-> (js/Promise.all
          (clj->js (mapv (fn [{:keys [source bytes]}]
                           (register-image-source! replacement-system
@@ -626,15 +591,11 @@
                         sources)))
         (.then
          (fn [rebuilt]
-           (swap! (:!receipt replacement-system) assoc
-                  :device-loss {:status :device-lost
-                                :rebuilt-count
-                                (count (filter some? (array-seq rebuilt)))
-                                :replacement-device? true
-                                :resource-identities-fresh?
-                                resources-fresh?})
+           (swap! (:!residency-rev replacement-system) inc)
            {:image-system replacement-system
-            :receipt (publish-image-receipt! replacement-system)})))))
+            :rebuilt (count (filter #(= :ok (:status %))
+                                    (array-seq rebuilt)))
+            :resources-fresh? resources-fresh?})))))
 
 (defn destroy-image-system! [image-system]
   (destroy-dedicated-resources! image-system)
@@ -645,8 +606,11 @@
   (when-let [pool (:pool image-system)]
     (let [buffer (:buffer @pool)]
       (.destroy ^js buffer)))
+  (when (seq @(:!resources image-system))
+    (swap! (:!residency-rev image-system) inc))
   (reset! (:!resources image-system) {})
-  (reset! (:!prepared-images image-system) [])
+  (reset! (:!prepared image-system) [])
+  (reset! (:!last-frame-key image-system) ::never)
   true)
 
 (defn- inset-resource-uv [resource-uv crop-uv]
@@ -659,61 +623,51 @@
      (+ resource-u0 (* crop-u1 du))
      (+ resource-v0 (* crop-v1 dv))]))
 
-(defn- resolve-image-op [image-system image-op]
-  (let [digest (:image/digest image-op)
-        resource (get @(:!resources image-system) digest)
-        prior-row (get-in @(:!receipt image-system) [:rows digest])
-        resolved (or resource (:placeholder image-system))]
-    (when-not resource
-      ;; Missing resources are a deterministic material outcome.  The frame
-      ;; never starts decode work and never silently drops an instance (T10).
-      ;; A prior refusal or device-loss event keeps its causal status/history;
-      ;; painting its placeholder must not relabel it as an unknown digest.
-      (if prior-row
-        (do
-          (swap! (:!receipt image-system) assoc-in
-                 [:rows digest :placeholder-rendered] true)
-          (publish-image-receipt! image-system))
-        (record-image-receipt! image-system digest :unavailable
-                               :unresolvable-digest
-                               {:placeholder true
-                                :placeholder-rendered true})))
+(defn- resolve-image-op [image-system effective image-op]
+  (let [material (:image/material image-op)
+        digest (:image/source-digest material)
+        residency (ensure-residency! image-system digest)
+        resource? (= :ok (:status residency))
+        crop (image-material/normalize-crop
+              (:image/intrinsic-size material) (:image/crop material))
+        crop-uv (image-material/crop->uv (:image/intrinsic-size material) crop)
+        binding (:binding residency)]
     (assoc image-op
-           :image/binding-key (:binding-key resolved)
-           :image/bind-group (:bind-group resolved)
+           :slot (placement/slot effective (:container image-op))
+           :image/status (:status residency)
+           :image/reason (:reason residency)
+           :image/binding-key (:key binding)
+           :image/bind-group (:group binding)
            :image/resolved-uv
-           (if resource
-             (inset-resource-uv (:uv resolved) (:image/uv image-op))
-             (:uv resolved)))))
+           (if resource?
+             (inset-resource-uv (:uv residency) crop-uv)
+             (:uv residency)))))
 
 (defn prepare-image-frame!
-  "Identity-gated image pool write: the prepared vector is rewritten only when
-   the image ops or the resolved resources changed (IMAGE-ATOM T10)."
-  [image-system images]
-  (let [images (or images [])
-        !last-images (:!last-images image-system)
-        prepare-key {:images images :resources @(:!resources image-system)}]
-    (if (= prepare-key @(:!last-prepare-key image-system))
-      {:identity-changed? false :writes 0
-       :instances (count @(:!prepared-images image-system))}
-      (let [prepared (mapv #(resolve-image-op image-system %) images)
+  "Write the image pool only when a material/container key or residency
+   revision changes."
+  [image-system ops effective]
+  (let [ops (or ops [])]
+    (doseq [op ops]
+      (ensure-residency! image-system
+                         (get-in op [:image/material :image/source-digest])))
+    (let [frame-key (frame/frame-key ops @(:!residency-rev image-system))]
+      (if (= frame-key @(:!last-frame-key image-system))
+        {:changed? false :writes 0
+         :instances (count @(:!prepared image-system))}
+        (let [prepared (mapv #(resolve-image-op image-system effective %) ops)
             writes (buffer-pool/batch-update-pool! (:pool image-system)
                                                    prepared)]
-        (reset! !last-images images)
-        (reset! (:!last-prepare-key image-system) prepare-key)
-        (reset! (:!prepared-images image-system) prepared)
-        (swap! (:!receipt image-system) assoc
-               :frame-write {:identity-changed? true
-                             :writes writes :instances (count prepared)})
-        (publish-image-receipt! image-system)
-        {:identity-changed? true :writes writes
-         :instances (count prepared)}))))
+          (reset! (:!last-frame-key image-system) frame-key)
+          (reset! (:!prepared image-system) prepared)
+          {:changed? true :writes writes
+           :instances (count prepared)})))))
 
 (defn image-draw-runs
   "Binding runs over one contiguous slice of the prepared image ops, in op
    order; no texture grouping may reorder the stamped op stream."
   [image-system offset instance-count]
-  (let [prepared @(:!prepared-images image-system)
+  (let [prepared @(:!prepared image-system)
         slot-ops (subvec prepared offset (+ offset instance-count))
         buffer (:buffer @(:pool image-system))]
     (mapv (fn [{:keys [first-instance instance-count ops]}]
@@ -732,41 +686,3 @@
     (.setBindGroup pass 0 bind-group)
     (.setVertexBuffer pass 0 buffer)
     (.draw pass 6 instance-count 0 first-instance)))
-
-(defn- create-linear-image-variant [^js device image-system]
-  (when image-system
-    (let [bind-layout
-          (.createBindGroupLayout
-           device
-           (clj->js
-            {:entries [{:binding 0 :visibility js/GPUShaderStage.FRAGMENT
-                        :sampler {:type "filtering"}}
-                       {:binding 1 :visibility js/GPUShaderStage.FRAGMENT
-                        :texture {:sampleType "float"}}
-                       {:binding 2 :visibility js/GPUShaderStage.VERTEX
-                        :buffer {:type "uniform"}}
-                       {:binding 3 :visibility js/GPUShaderStage.VERTEX
-                        :buffer {:type "read-only-storage"}}]}))
-          pipeline (create-image-pipeline device "rgba16float" bind-layout
-                                          scene-color/linear-premultiplied-color)
-          binding-map (js/WeakMap.)
-          install!
-          (fn [{:keys [texture bind-group]}]
-            (when (and texture bind-group (not (.has binding-map bind-group)))
-              (let [view (.createView ^js texture
-                                      (clj->js {:format "rgba8unorm-srgb"}))
-                    linear-bind-group
-                    (create-image-bind-group
-                     device bind-layout (:sampler image-system) view
-                     (:camera-buffer image-system)
-                     (:containers-buffer image-system))]
-                (.set binding-map bind-group linear-bind-group))))
-          sync!
-          (fn []
-            (install! (:placeholder image-system))
-            (install! @(:!atlas-resource image-system))
-            (doseq [resource (vals @(:!resources image-system))]
-              (install! resource))
-            true)]
-      (sync!)
-      {:pipeline pipeline :binding-map binding-map :sync! sync!})))
