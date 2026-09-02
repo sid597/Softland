@@ -661,9 +661,12 @@ Homonyms that stay, verified in code on 2026-09-02:
              `region3d-seam-fixture` in verifier/region are the path-on-plane boundary and rename.
   road       a named paint pipeline variant (the flat road, the map road, `:paint-road`, `flat-road-*`,
              `app.client.text.flat-road-test`); in compositor comments, an execution path. The glossary's
-             "section" was minted for the harness's prose and fits no code sense. Default: road → pipeline
-             (flat pipeline, map pipeline; the WebGPU object is `:pipeline` and told apart by context).
-             If Sid strikes the default, road stays and is named in NOW.
+             "section" was minted for the harness's prose and fits no code sense. Ruling (Fable,
+             2026-09-02): road → route (flat route, map route, `:paint-route`, `flat-route-*`). "pipeline"
+             is struck: it already names the WebGPU pipeline objects in the same files (`:pipeline`,
+             `:pipelines`, `create-pipelines!`, `present-pipeline`, about 90 hits), and a word that means
+             something else in graphics is a collision, never a keep. In compositor comments, an
+             execution path stays "path".
 Every homonym you decide beyond this list is one line in NOW-2-4.md under "Rename", with the file and
 the meaning kept.
 
@@ -686,10 +689,10 @@ What renames, in dependency order, one commit each, each carrying its requirers 
    verifier/region, the path tests and fixtures, the runner inventory.
 3. text/: op → draw-item (`text-op`, `pack-op!`); container → group; painter → renderer (file, namespace);
    receipt → stats (the layout work-counter map); census → coverage-check (`plane-census`,
-   `live-plane-census`; the `planeCensus` global stays); road → pipeline per the list; "pack door" → pack
+   `live-plane-census`; the `planeCensus` global stays); road → route per the list; "pack door" → pack
    entry point; fence, instrument, tripwire in comments → consistency check, diagnostic, regression test;
    face, band, shaper, slug stay. Carries: region3d/on_plane and its test, verifier/text, verifier/shared,
-   verifier/core, verifier/shaper_border_probe, the text tests (`flat-road-test` → `flat-pipeline-test`),
+   verifier/core, verifier/shaper_border_probe, the text tests (`flat-road-test` → `flat-route-test`),
    the runner inventory.
 4. image/: material → component; painter → renderer; op → draw-item (`image-op`, `slot-ops` → `buffer-index-items`);
    regime → lod; slot → buffer-index; container → group; atlas placement and residency stay. Carries:
