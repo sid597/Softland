@@ -65,7 +65,7 @@ Commit mechanics once settled: the repo is closed source (Sid, 2026-08-10) — c
 
 ## Source Structure
 `src/app/client/` — the client, folded by kind of mark: `engine/` (the shared engine) · `text/` · `image/` · `path/` · `region3d/` · `harness/core.cljs` (the only compiled CLJS entry). kind → engine, never engine → kind, never kind → kind except `region3d/on-plane`.
-No-GPU rows are `.cljc` and run under the JVM suite; renderers are `.cljs` and run only under the harness.
+No-GPU rows are `.cljc` and run under the JVM suite; renderers are `.cljs` and run only under the harness; the shaper-border probe is a test-side build under `test/`.
 `src/app/server/` — the land, folded by what the code is about:
 - `rama/` — the kernels: `object_container` (+ `object_container/runtime`, `transcript_identity`) · `relation_kernel` · `envelope` · `ingest_epoch` · `transcript_ingest`; and `trail_view`, `face_arsenal`, pinned here because a Rama module's name is `namespace/var` and the cluster and the archive key on it
 - `ingest/` — the world into rows: `markdown_adapter` · `transcript_adapter` · `transcript` · `clojure_adapter` · `git_import` · `ingest_watchers` · `transcript_import` · `code_import`
