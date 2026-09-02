@@ -206,10 +206,10 @@
                             :inline-size 30 :wrap-policy :word
                             :zoom 0.01})]
     (is (> (count (:lines wrapped)) 1))
-    (is (= [0.01 1000] (get-in wrapped [:regime :legal-zoom])))
-    (is (= 0.01 (get-in wrapped [:regime :zoom]))))
+    (is (= [0.01 1000] (get-in wrapped [:lod :legal-zoom])))
+    (is (= 0.01 (get-in wrapped [:lod :zoom]))))
   (is (thrown-with-msg? clojure.lang.ExceptionInfo
-                        #"legal material range"
+                        #"legal component range"
                         (tl/layout {:text "zoom"
                                     :provider shaped-provider
                                     :font-size 10 :line-height 12

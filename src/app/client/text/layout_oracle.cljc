@@ -1,9 +1,9 @@
 (ns app.client.text.layout-oracle
   "The frozen map route of shaped text layout: the pre-flat `shaped-layout`
    and its helpers, verbatim, kept as the consistency-check oracle for the
-   flat route (decisions.md \"The render seam\": a batch stage is demoted to its
+   flat route (decisions.md \"The render boundary\": a batch stage is demoted to its
    sibling's oracle, never deleted). Never improved; only read by tests and
-   the verifier.
+   the harness.
    Takes: the same layout input as `app.client.text.layout/layout`, with a
    flat or map-shaped provider.
    Gives: a Contract-T result built through per-glyph maps and
@@ -182,7 +182,7 @@
                            (:provider-fault? cut)
                            (assoc :provider-fault? true))))))))))
 
-(defn- material-ink-bounds
+(defn- component-ink-bounds
   [glyph scale origin-x baseline-y]
   (when-let [{:keys [xBearing yBearing width height]} (:ink-bounds glyph)]
     (let [[gx gy] (:position glyph)
@@ -418,7 +418,7 @@
                                               :advance [(* ax scale) (* ay scale)]
                                               :offset [(* off-x scale) (* off-y scale)])]
                         (assoc positioned :ink-bounds
-                               (material-ink-bounds glyph scale ox baseline-y))))
+                               (component-ink-bounds glyph scale ox baseline-y))))
                     (:glyphs indexed))
                   clusters
                   (mapv
@@ -535,7 +535,7 @@
         zoom-legal? (layout/legal-zoom? zoom)
         work @!work]
     (when-not zoom-legal?
-      (throw (ex-info "Text zoom is outside Contract-T's legal material range."
+      (throw (ex-info "Text zoom is outside Contract-T's legal component range."
                       {:zoom zoom :legal-range [0.01 1000]})))
     (planes/compact-result
      {:text-layout/version layout-version
@@ -554,9 +554,9 @@
                :version (:shaper-version provider)
                :language (:language shape-opts) :script :auto
                :direction :bidi}
-     :space {:coordinates :material-local}
-     :regime {:legal-zoom [0.01 1000] :zoom zoom
-              :precision :material-f64
+     :space {:coordinates :component-local}
+     :lod {:legal-zoom [0.01 1000] :zoom zoom
+           :precision :component-f64
               :paint-route :consumer-selected}
      :constraints {:inline-size (or inline-size :unbounded)
                    :wrap wrap-policy :line-height line-height

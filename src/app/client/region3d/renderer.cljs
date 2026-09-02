@@ -208,17 +208,17 @@
 (def composite-vertex-shader
   "struct Camera { pan: vec2<f32>, zoom: f32, padding: f32,
                    screen_dimensions: vec2<f32>, };
-   struct ContainerTransform { axis_x: vec2<f32>, axis_y: vec2<f32>,
+   struct GroupTransform { axis_x: vec2<f32>, axis_y: vec2<f32>,
      translation: vec2<f32>, flags: u32, padding: u32, };
    @group(0) @binding(2) var<uniform> camera: Camera;
-   @group(0) @binding(3) var<storage, read> containers: array<ContainerTransform>;
-   struct In { @location(0) rect: vec4<f32>, @location(1) container_idx: u32, };
+   @group(0) @binding(3) var<storage, read> groups: array<GroupTransform>;
+   struct In { @location(0) rect: vec4<f32>, @location(1) group_buffer_index: u32, };
    struct Out { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, };
    @vertex fn main(@builtin(vertex_index) index: u32, input: In) -> Out {
      var corners = array<vec2<f32>, 6>(vec2<f32>(0.0,0.0), vec2<f32>(1.0,0.0),
        vec2<f32>(0.0,1.0), vec2<f32>(1.0,0.0), vec2<f32>(1.0,1.0), vec2<f32>(0.0,1.0));
      let uv = corners[index]; let local = input.rect.xy + uv * input.rect.zw;
-     let c = containers[input.container_idx]; let screen = (c.flags & 1u) != 0u;
+     let c = groups[input.group_buffer_index]; let screen = (c.flags & 1u) != 0u;
      let zoom = select(camera.zoom, 1.0, screen);
      let pan = select(camera.pan, vec2<f32>(0.0), screen);
      let world = c.translation + c.axis_x * local.x + c.axis_y * local.y;
@@ -784,7 +784,7 @@
 
 (defn prepare-region3d-frame!
   "Upload changed region rows before any pass opens. The region revision and
-   projection stamps gate the work; the returned counts belong to this call."
+   projection stamps are the dirty check; the returned counts belong to this call."
   [system {:keys [regions]} session
    {:keys [zoom dpr world-transforms font-assets session-layout-snapshot path-system
            max-lease-size]

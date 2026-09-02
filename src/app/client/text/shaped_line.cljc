@@ -115,7 +115,7 @@
 ;; ---------------------------------------------------------------------------
 ;; Oracle converters. `->maps` rebuilds EXACTLY the map shape the pre-flat
 ;; shaper returned, so the frozen oracle routes consume it unchanged.
-;; `from-maps` is the seam coercion for map-shaped providers (the JVM test
+;; `from-maps` is the boundary coercion for map-shaped providers (the JVM test
 ;; corpora); the round trip `(->maps (from-maps m)) = m` is a regression test.
 
 (defn- glyph-map [line i]

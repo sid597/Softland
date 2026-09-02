@@ -1,7 +1,7 @@
-(ns app.client.verifier.region
-     "Browser receipts for the Region3D floor and its on-plane path seam.
+(ns app.client.harness.region
+     "Browser evidence for the Region3D engine and its on-plane path boundary.
       Takes: a WebGPU device and loaded font assets.
-      Gives: the Region3D verifier result map.
+      Gives: the Region3D harness result map.
       Holds nothing."
      (:require [app.client.engine.color :as scene-color]
                [app.client.engine.compositor :as compositor-gpu]
@@ -15,17 +15,17 @@
                [app.client.region3d.oracle :as region3d-oracle]
                [app.client.region3d.renderer :as region3d-renderer]
                [app.client.region3d.scene :as region3d-scene]
-               [app.client.verifier.path
+               [app.client.harness.path
                 :refer [path-draw-item path-ink-component path-polygon-component]]
-               [app.client.verifier.shared
+               [app.client.harness.shared
 :refer [canvas-size color-format glyph-screen-x glyph-screen-baseline
         glyph-screen-size zoom-cases image-fixtures promise-mapv
         bytes->hex sha256-bytes sha256-string opaque-png-data-url
-        q8-effective run-q8-transport! boundary-pixels byte-delta pixel-rgba
+        q8-world-transforms run-q8-transport! boundary-pixels byte-delta pixel-rgba
         srgb->linear linear->srgb-byte selected-limits adapter-information
         shader-digests w4-read-texture!]]))
 
-(def ^:private region3d-id :region3d/verifier)
+(def ^:private region3d-id :region3d/harness)
 
 (defn- region3d-tagged
   ([r g b] (region3d-tagged r g b 1.0))
@@ -42,7 +42,7 @@
   [id primitive translation scale color metallic roughness]
   {:object/id id :object/kind :mesh :parent nil
    :transform (region3d-transform translation scale)
-   :provenance {:asserted-by :sid :act :render-verifier}
+   :provenance {:asserted-by :sid :act :render-harness}
    :mesh {:kind primitive
           :params (get region3d-component/primitive-defaults primitive)}
    :component {:base-color color :metallic metallic :roughness roughness
@@ -51,7 +51,7 @@
 (defn- region3d-light [id kind translation color intensity more]
   {:object/id id :object/kind :light :parent nil
    :transform (region3d-transform translation [1.0 1.0 1.0])
-   :provenance {:asserted-by :sid :act :render-verifier}
+   :provenance {:asserted-by :sid :act :render-harness}
    :light (merge {:kind kind :color color :intensity intensity
                  :cast-shadow false}
                  more)})
@@ -100,44 +100,44 @@
                              :cone {:inner-deg 18.0 :outer-deg 32.0}})}
      :region/rect {:x 24.0 :y 20.0 :w 80.0 :h 88.0}})))
 
-(defn- region3d-draw-item [region & {:keys [width height container]
-                              :or {width 80.0 height 88.0 container 0}}]
+(defn- region3d-draw-item [region & {:keys [width height group]
+                              :or {width 80.0 height 88.0 group 0}}]
   {:region/material
    (region3d-remint
     (assoc region :region/rect {:x 24.0 :y 20.0
                                 :w width :h height}))
-   :container container})
+   :container group})
 
 (defn- region3d-draw-item-size [draw-item]
   (let [{:keys [w h]} (get-in draw-item [:region/material :region/rect])]
     [w h]))
 
-(defn- region3d-seam-fixture []
+(defn- region3d-boundary-fixture []
   (let [ink-object
-        {:object/id :seam/ink :object/kind :ink :parent nil
+        {:object/id :boundary/ink :object/kind :ink :parent nil
          :transform (region3d-transform
                      [-2.7 -0.95 0.4] [0.018 0.018 0.018]
                      [0.0 -0.21644 0.0 0.976296])
-         :provenance {:asserted-by :sid :act :render-verifier}
-         :ink {:ref {:address :seam/ink-component}}}
+         :provenance {:asserted-by :sid :act :render-harness}
+         :ink {:ref {:address :boundary/ink-component}}}
         region (-> (region3d-fixture-region :opaque)
                    (assoc :region3d/version 2)
-                   (assoc-in [:scene :seam/ink] ink-object)
+                   (assoc-in [:scene :boundary/ink] ink-object)
                    region3d-remint)
         ink-component (path-ink-component
-                      :seam/ink-component 1.0
+                      :boundary/ink-component 1.0
                       [[0.0 8.0 0.45] [54.0 2.0 0.9]
                        [108.0 26.0 0.62] [164.0 8.0 1.0]
                        [222.0 34.0 0.55]]
                       [0.16 0.82 1.0 0.92] 1.0)
         ink-placement
-        {:object-id :seam/ink :object ink-object :kind :ink
-         :address :seam/ink-component :status :resolved
+        {:object-id :boundary/ink :object ink-object :kind :ink
+         :address :boundary/ink-component :status :resolved
          :content-revision (path-component/component-content-hash ink-component)
          :cache-key (path-tessellation/component-cache-key ink-component 1.0)
          :component ink-component
-         :owner {:vi :seam/ink-owner :draw-item-id :seam/ink-component}}
-        draw-item (assoc (region3d-draw-item region :container 17)
+         :owner {:vi :boundary/ink-owner :draw-item-id :boundary/ink-component}}
+        draw-item (assoc (region3d-draw-item region :group 17)
                   :region3d/resolved-placements
                   [ink-placement])]
     {:region (:region/material draw-item) :draw-item draw-item
@@ -257,7 +257,7 @@
                     (region3d-renderer/binding-owner region-system))))
 
 (defn- region3d-renderers
-  "The renderers of one floor frame, back to front: the prepared surround
+  "The renderers of one engine frame, back to front: the prepared surround
    paths (draw-item 0 below, draw-item 1 above) bracket the region composite."
   [{:keys [region-system surround-path-system]} sides]
   (let [surround (fn [draw-item-index]
@@ -319,11 +319,11 @@
 
 (defn- region3d-prepare-options [harness session]
   {:zoom 1.0 :dpr 1.0
-   :world-transforms (:effective harness)
+   :world-transforms (:world-transforms harness)
    :font-assets (:font-assets harness)
    :path-system (:path-system harness)
    :session-layout-snapshot
-   {:address :region3d/verifier-session :revision (hash session)}})
+   {:address :region3d/harness-session :revision (hash session)}})
 
 (defn- prepare-region3d!
   [harness draw-items session prepare-overrides]
@@ -561,7 +561,7 @@
                                       :width 300.0
                                       :height (get-in draw-item [:region/material
                                                           :region/rect :h])
-                                      :container (:container draw-item))]
+                                      :group (:container draw-item))]
              (.then
               (region3d-capture!
                harness resized {:regions {region3d-id {:view changed-view}}}
@@ -599,25 +599,25 @@
                    (assoc state :after-close
                           (compositor-gpu/region-leases-stats compositor))))))))
          (fn [state]
-           (let [refusal-compositor
+           (let [rejection-compositor
                  (compositor-gpu/create-compositor!
                   device color-format
                   :budget-cap-bytes (* 5 1024 1024))
-                 refusal-harness (assoc harness :compositor refusal-compositor)]
+                 rejection-harness (assoc harness :compositor rejection-compositor)]
              (.then
-              (region3d-capture! refusal-harness draw-item {} :region)
+              (region3d-capture! rejection-harness draw-item {} :region)
               (fn [{:keys [bytes]}]
                 (wait-for-queue
                  (fn []
-                   (let [receipt
-                         (compositor-gpu/compositor-stats refusal-compositor)
+                   (let [stats
+                         (compositor-gpu/compositor-stats rejection-compositor)
                          sample (pixel-rgba bytes 64 64)
                          next-state
-                         (assoc state :refusal
-                                {:receipt receipt :sample sample
-                                 :pass? (and (some? (:last-region-rejection receipt))
+                         (assoc state :rejection
+                                {:stats stats :sample sample
+                                 :pass? (and (some? (:last-region-rejection stats))
                                              (pos? (apply max sample)))})]
-                     (compositor-gpu/destroy-compositor! refusal-compositor)
+                     (compositor-gpu/destroy-compositor! rejection-compositor)
                      (region3d-renderer/attach-compositor! region-system compositor)
                      (prepare-region3d! harness [] {} {})
                      next-state)))))))
@@ -651,7 +651,7 @@
                              (let [after-recreate
                                    (compositor-gpu/region-leases-stats
                                     recreated)
-                                   receipt
+                                   evidence
                                    {:before-destroy before-destroy
                                     :after-destroy after-destroy
                                     :after-recreate after-recreate
@@ -665,10 +665,10 @@
                                (region3d-renderer/attach-compositor!
                                 region-system compositor)
                                (prepare-region3d! harness [] {} {})
-                               (assoc state :destroy-recreate receipt))))))))))))))
+                               (assoc state :destroy-recreate evidence))))))))))))))
          (fn [{:keys [before-view after-view view-passes clean-passes
-                      resize shadow-off after-close refusal destroy-recreate]
-               :as receipt}]
+                      resize shadow-off after-close rejection destroy-recreate]
+               :as evidence}]
            (let [object-upload-delta
                  (- (:object-instance-uploads after-view)
                     (:object-instance-uploads before-view))
@@ -694,9 +694,9 @@
                             (= 1 (count shadow-off-leases))
                             (< (:bytes shadow-off) (:bytes resize))
                             (zero? (:bytes after-close))
-                            (:pass? refusal)
+                            (:pass? rejection)
                             (:pass? destroy-recreate))]
-             (-> receipt
+             (-> evidence
                  (dissoc :resized-draw-item)
                  (assoc :camera-wake
                         {:object-instance-upload-delta object-upload-delta
@@ -723,24 +723,24 @@
   (-> (region3d-direct-frame! harness renderers)
       (.then (fn [{:keys [bytes passes]}]
                {:bytes bytes :passes passes
-                :receipt (compositor-gpu/compositor-stats
+                :stats (compositor-gpu/compositor-stats
                           (:compositor harness))}))))
 
-(defn- region3d-refusal-leg!
+(defn- region3d-rejection-leg!
   [{:keys [device region-system] :as harness}
    region draw-item budget-cap-bytes]
   (let [compositor (compositor-gpu/create-compositor!
                     device color-format
                     :budget-cap-bytes budget-cap-bytes)
-        refusal-harness (assoc harness :compositor compositor)]
-    (-> (region3d-capture! refusal-harness draw-item {} :region {:zoom 8.0})
+        rejection-harness (assoc harness :compositor compositor)]
+    (-> (region3d-capture! rejection-harness draw-item {} :region {:zoom 8.0})
         (.then
          (fn [{:keys [bytes]}]
-           (let [receipt (compositor-gpu/compositor-stats compositor)
+           (let [stats (compositor-gpu/compositor-stats compositor)
                  result {:bytes bytes
-                         :receipt receipt
+                         :stats stats
                          :sample (pixel-rgba bytes 64 64)
-                         :pass? (and (some? (:last-region-rejection receipt))
+                         :pass? (and (some? (:last-region-rejection stats))
                                      (pos? (apply max (pixel-rgba bytes 64 64))))}]
              (compositor-gpu/destroy-compositor! compositor)
              (prepare-region3d! harness [] {} {})
@@ -826,12 +826,12 @@
                      region3d-remint)
                  no-shadow-draw-item (assoc draw-item :region/material no-shadow-region)]
              (.then
-              (region3d-refusal-leg! harness no-shadow-region no-shadow-draw-item
+              (region3d-rejection-leg! harness no-shadow-region no-shadow-draw-item
                                      (* 3 1024 1024))
               #(assoc state :no-shadow-floor %))))
          (fn [state]
            (.then
-            (region3d-refusal-leg! harness region draw-item (* 5 1024 1024))
+            (region3d-rejection-leg! harness region draw-item (* 5 1024 1024))
             #(assoc state :shadowed-floor %)))
          (fn [{:keys [bytes worn mutated held honest-counter recovered
                       no-shadow-floor shadowed-floor]
@@ -849,7 +849,7 @@
                           (first
                            (filter #(= region3d-id (:region-id %))
                                    (vals (get-in step
-                                                 [:receipt :region-leases
+                                                 [:stats :region-leases
                                                   :leases])))))
                         worn-lease (primary-lease worn)
                         mutated-passes (:passes mutated)
@@ -873,41 +873,41 @@
                         reserve-preserved?
                         (pool-holds-free-target? pool reserve-target)
                         physical-crossing?
-                        (and (= 1 (get-in worn [:receipt :lease-activity
+                        (and (= 1 (get-in worn [:stats :lease-activity
                                                :region-binding-updates]))
-                             (= 1 (get-in worn [:receipt :lease-activity :leases-acquired]))
-                             (= 1 (get-in worn [:receipt :lease-activity :leases-retired]))
-                             (= 1 (get-in worn [:receipt :lease-activity :region-rungs-worn])))
+                             (= 1 (get-in worn [:stats :lease-activity :leases-acquired]))
+                             (= 1 (get-in worn [:stats :lease-activity :leases-retired]))
+                             (= 1 (get-in worn [:stats :lease-activity :region-rungs-worn])))
                         current-content?
                         (and (> (byte-delta bytes (:bytes mutated)) 2)
                              (every? :encoded? mutated-passes))
                         held-stable?
-                        (and (zero? (get-in held [:receipt :lease-activity
+                        (and (zero? (get-in held [:stats :lease-activity
                                                  :region-binding-updates]))
-                             (zero? (get-in held [:receipt :lease-activity :leases-acquired]))
-                             (zero? (get-in held [:receipt :lease-activity :leases-retired]))
+                             (zero? (get-in held [:stats :lease-activity :leases-acquired]))
+                             (zero? (get-in held [:stats :lease-activity :leases-retired]))
                              (every? #(and (:held? %) (not (:encoded? %)))
                                      held-passes))
                         honest-counter?
                         (and (= [512 512]
                                 (get-in honest-counter
-                                        [:receipt :region-leases :leases
-                                         [:region3d/verifier 512 512] :size]))
+                                        [:stats :region-leases :leases
+                                         [:region3d/harness 512 512] :size]))
                              (zero? (get-in honest-counter
-                                            [:receipt :lease-activity :region-binding-updates]))
+                                            [:stats :lease-activity :region-binding-updates]))
                              (zero? (get-in honest-counter
-                                            [:receipt :lease-activity :leases-acquired]))
+                                            [:stats :lease-activity :leases-acquired]))
                              (zero? (get-in honest-counter
-                                            [:receipt :lease-activity :leases-retired])))
+                                            [:stats :lease-activity :leases-retired])))
                         recovery?
                         (and (= 1 (:rung-divisor recovered-lease))
                              (= [768 768] (:size recovered-lease))
                              (= 1 (get-in recovered
-                                          [:receipt :lease-activity :region-binding-updates]))
-                             (= 1 (get-in recovered [:receipt :lease-activity :leases-acquired]))
-                             (= 1 (get-in recovered [:receipt :lease-activity :leases-retired]))
+                                          [:stats :lease-activity :region-binding-updates]))
+                             (= 1 (get-in recovered [:stats :lease-activity :leases-acquired]))
+                             (= 1 (get-in recovered [:stats :lease-activity :leases-retired]))
                              (= 1 (get-in recovered
-                                          [:receipt :lease-activity :region-rung-recoveries])))
+                                          [:stats :lease-activity :region-rung-recoveries])))
                         floor-identical? (= (aget hashes 2) (aget hashes 3))
                         pick? (and (= :near (:object-id object-pick))
                                    (= :region-background
@@ -915,9 +915,9 @@
                         deterministic? (= (aget hashes 0) (aget hashes 1))
                         worn? (and (= 2 (:rung-divisor worn-lease))
                                    (= [512 512] (:size worn-lease))
-                                   (empty? (get-in worn [:receipt :pool
+                                   (empty? (get-in worn [:stats :pool
                                                          :rejections]))
-                                   (nil? (get-in worn [:receipt
+                                   (nil? (get-in worn [:stats
                                                        :last-region-rejection])))
                         glyph? (and (> (nth wear-sample 1) (nth wear-sample 0))
                                     (> (nth wear-sample 2) (nth wear-sample 0)))
@@ -933,17 +933,17 @@
                               :byte-identical? deterministic?}
                         result {:image (region3d-image-record "worn" pair)
                                 :sharp {:lease (primary-lease sharp)
-                                        :lease-activity (get-in sharp [:receipt :lease-activity])}
-                                :worn {:lease worn-lease :lease-activity (get-in worn [:receipt :lease-activity])
+                                        :lease-activity (get-in sharp [:stats :lease-activity])}
+                                :worn {:lease worn-lease :lease-activity (get-in worn [:stats :lease-activity])
                                        :rung-stats
-                                       (get-in worn [:receipt
+                                       (get-in worn [:stats
                                                      :region-rung-stats])}
                                 :current-content? current-content?
                                 :wear-sample wear-sample :glyph? glyph?
                                 :held-stable? held-stable?
                                 :honest-counter? honest-counter?
                                 :recovery {:lease recovered-lease
-                                           :lease-activity (get-in recovered [:receipt :lease-activity])
+                                           :lease-activity (get-in recovered [:stats :lease-activity])
                                            :pass? recovery?}
                                 :reserve-preserved? reserve-preserved?
                                 :pick {:object (:object-id object-pick)
@@ -970,11 +970,11 @@
         registry (transform/add-group
                   (transform/empty-registry) 17
                   {:parent 0 :affine [0.5 0.0 0.0 0.5 40.0 20.0]})
-        effective (transform/world-transforms registry)
+        world-transforms (transform/world-transforms registry)
         _ (device/update-camera device camera (js/Float32Array. 6)
                                   0.0 0.0 1.0 canvas-size canvas-size)
         _ (device/write-groups!
-           device groups-buffer effective)
+           device groups-buffer world-transforms)
         surround-path-system
         (path-renderer/init-path-system
          device "rgba16float" camera groups-buffer
@@ -996,7 +996,7 @@
            [0.98 0.72 0.12 0.88] 1.0)
           0)]
         _ (path-renderer/prepare-path-frame!
-           surround-path-system surround-draw-items 1.0 effective)
+           surround-path-system surround-draw-items 1.0 world-transforms)
         region-system (region3d-renderer/ensure-region3d-system!
                        device camera groups-buffer)
         path-system
@@ -1007,7 +1007,7 @@
                     device color-format)
         harness {:device device :camera camera
                  :groups-buffer groups-buffer
-                 :effective effective
+                 :world-transforms world-transforms
                  :surround-path-system surround-path-system
                  :region-system region-system
                  :path-system path-system
@@ -1017,35 +1017,35 @@
         transparent-region (region3d-fixture-region :transparent)
         opaque-draw-item (region3d-draw-item opaque-region)
         transparent-draw-item (region3d-draw-item transparent-region)
-        seam (region3d-seam-fixture)
-        seam-region (:region seam)
-        seam-draw-item (:draw-item seam)
+        boundary (region3d-boundary-fixture)
+        boundary-region (:region boundary)
+        boundary-draw-item (:draw-item boundary)
         specs [{:case-id "sandwich" :region opaque-region :draw-item opaque-draw-item
                 :session {} :sides :sandwich}
                {:case-id "lit-depth-shadow" :region transparent-region
                 :draw-item transparent-draw-item :session {} :sides :region}
-               {:case-id "tree" :region seam-region
-                :draw-item seam-draw-item :session {} :sides :sandwich
-                :seam? true}]
-        unknown-container-refusal
+               {:case-id "tree" :region boundary-region
+                :draw-item boundary-draw-item :session {} :sides :sandwich
+                :boundary? true}]
+        unknown-group-rejection
         (try
           (prepare-region3d! harness [(assoc opaque-draw-item :container 999)] {} {})
           nil
           (catch :default error
             (ex-data error)))]
     (-> (promise-mapv
-         (fn [{:keys [case-id region draw-item session sides seam?]}]
+         (fn [{:keys [case-id region draw-item session sides boundary?]}]
            (-> (region3d-capture-pair! harness draw-item session sides)
                (.then
                 (fn [pair]
                   {:case-id case-id :zoom 1.0
-                     :regime :region3d-floor-default
+                     :lod :region3d-floor-default
                      :normalization :region-local-3d-inside-world-2d
                      :shape-extent-world (region3d-draw-item-size draw-item)
                      :oracle (when (= case-id "lit-depth-shadow")
                                (region3d-lit-oracle region (:bytes pair)))
-                     :seam-receipt
-                     (when seam?
+                     :boundary-evidence
+                     (when boundary?
                        {:resolved (count (filter #(= :resolved (:status %))
                                                  (:region3d/resolved-placements draw-item)))
                         :ink-vertices
@@ -1078,33 +1078,33 @@
                  s4 s2
                  cases (conj base-cases
                              {:case-id "worn" :zoom 8.0
-                              :regime :region3d-floor-worn
+                              :lod :region3d-floor-worn
                               :normalization :region-local-3d-inside-world-2d
                               :shape-extent-world
                               (region3d-draw-item-size transparent-draw-item)
                               :images [(:image lower)]})
                  determinism (mapcat #(map :determinism (:images %)) cases)
-                 system-receipt (region3d-system-result harness)
-                 seam-receipt (:seam-receipt (last base-cases))
-                 compositor-receipt
+                 system-stats (region3d-system-result harness)
+                 boundary-evidence (:boundary-evidence (last base-cases))
+                 compositor-stats
                  (compositor-gpu/compositor-stats compositor)
-                 seam-pass? (and (= 1 (:resolved seam-receipt))
-                                 (pos? (or (:ink-vertices seam-receipt) 0)))
+                 boundary-pass? (and (= 1 (:resolved boundary-evidence))
+                                 (pos? (or (:ink-vertices boundary-evidence) 0)))
                  r1-pass? (= :transform/unknown-group
-                             (:error-type unknown-container-refusal))
+                             (:error-type unknown-group-rejection))
                  pass? (and (= 4 (count cases))
                             (every? :byte-identical? determinism)
                             r1-pass? (:pass? r3)
-                            (:pass? s2) (:pass? s4) (:pass? s5) seam-pass?
+                            (:pass? s2) (:pass? s4) (:pass? s5) boundary-pass?
                             (:pass? lower))
                  result {:cases cases
-                         :r1 {:unknown-container unknown-container-refusal
+                         :r1 {:unknown-group unknown-group-rejection
                               :pass? r1-pass?}
                          :r3 r3 :s2 s2 :s4 s4 :s5 s5
                          :lower-resolution (dissoc lower :image)
-                         :seam (assoc seam-receipt :pass? seam-pass?)
-                         :system system-receipt
-                         :compositor compositor-receipt
+                         :boundary (assoc boundary-evidence :pass? boundary-pass?)
+                         :system system-stats
+                         :compositor compositor-stats
                          :fixture-query "?region3d=1"
                          :pass? pass?}]
              (compositor-gpu/destroy-compositor! compositor)

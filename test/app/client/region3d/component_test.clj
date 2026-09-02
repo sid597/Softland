@@ -55,7 +55,7 @@
     (catch clojure.lang.ExceptionInfo error
       (ex-data error))))
 
-(deftest region-grammar-is-closed-data-after-pure-canonicalization
+(deftest region-schema-is-closed-data-after-pure-canonicalization
   (let [input (region)
         canonical (component/validate-region! input)
         round-tripped (edn/read-string (pr-str canonical))
@@ -72,14 +72,14 @@
     (is (= canonical (component/validate-region! round-tripped)))
     (is (= (:instances before-derived) (:instances after-derived)))
     (is (= (:bvh before-derived) (:bvh after-derived)))
-    (testing "a near-unit quaternion normalizes before the grammar checks it"
+    (testing "a near-unit quaternion normalizes before the schema checks it"
       (let [accepted (assoc-in input [:scene :parent :transform :rotation]
                                [0.0 0.0 0.0 1.0005])]
         (is (= [0.0 0.0 0.0 1.0]
                (get-in (component/validate-region! accepted)
                        [:scene :parent :transform :rotation])))))))
 
-(deftest region-grammar-rejects-every-r2-boundary-by-name
+(deftest region-schema-rejects-every-r2-boundary-by-name
   (testing "an unknown top-level field"
     (let [data (rejection-data
                 #(component/validate-region!

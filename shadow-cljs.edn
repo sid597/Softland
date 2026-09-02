@@ -2,25 +2,25 @@
  :dependencies [[cider/cider-nrepl "0.24.0"]]
  :builds
  {:render-verifier
-  ;; Permanent W0-A render-engine verifier. The Puppeteer runner serves this
+  ;; Permanent W0-A render-engine harness. The Puppeteer runner serves this
   ;; release build from a synthetic secure origin and drives the REAL renderer
   ;; pipelines; no product server or product surface participates.
   {:target :browser
    :output-dir "target/render-verifier/js"
    :asset-path "/js"
-   ;; The verifier is infrastructure, not a shipped bundle. Simple mode keeps
+   ;; The harness is infrastructure, not a shipped bundle. Simple mode keeps
    ;; the exported asynchronous entrypoint explicit for browser automation and
    ;; avoids advanced-DCE turning that callback into `void 0`.
    :compiler-options {:optimizations :simple}
-   :modules {:main {:entries [app.client.verifier.core]
-                    :init-fn app.client.verifier.core/start!}}}
+   :modules {:main {:entries [app.client.harness.core]
+                    :init-fn app.client.harness.core/start!}}}
   :shaper-border-probe
-  ;; The shaper WASM-border receipt probe (docs/shaping-correction). Same
-  ;; :simple road as the verifier; driven headful by
+  ;; The shaper WASM-border evidence probe (docs/shaping-correction). Same
+  ;; :simple route as the harness; driven headful by
   ;; test/render_engine/profile_shaper_border.mjs. Never a shipped bundle.
   {:target :browser
    :output-dir "target/shaper-border-probe/js"
    :asset-path "/js"
    :compiler-options {:optimizations :simple}
-   :modules {:main {:entries [app.client.verifier.shaper-border-probe]
-                    :init-fn app.client.verifier.shaper-border-probe/start!}}}}}
+   :modules {:main {:entries [app.client.harness.shaper-border-probe]
+                    :init-fn app.client.harness.shaper-border-probe/start!}}}}}

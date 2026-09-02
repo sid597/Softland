@@ -1,5 +1,5 @@
 (ns app.client.engine.schema
-  "A small declared-map schema shared by client material kinds.
+  "A small declared-map schema shared by client component kinds.
    Takes: a schema spec and an EDN form.
    Gives: the unchanged form, or a named rejection with its path and value.
    Holds nothing."

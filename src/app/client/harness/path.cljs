@@ -1,7 +1,7 @@
-(ns app.client.verifier.path
-     "Browser receipts for path component, tessellation, painting, and frame gates.
+(ns app.client.harness.path
+     "Browser evidence for path component, tessellation, rendering, and frame dirty checks.
       Takes: a WebGPU device.
-      Gives: the path verifier result map and Region3D fixture builders.
+      Gives: the path harness result map and Region3D fixture builders.
       Holds nothing."
      (:require [app.client.engine.color :as scene-color]
                [app.client.engine.device :as device]
@@ -9,11 +9,11 @@
                [app.client.path.component :as path-component]
                [app.client.path.renderer :as path-renderer]
                [app.client.path.tessellation :as path-tessellation]
-               [app.client.verifier.shared
+               [app.client.harness.shared
 :refer [canvas-size color-format glyph-screen-x glyph-screen-baseline
         glyph-screen-size zoom-cases image-fixtures promise-mapv
         bytes->hex sha256-bytes sha256-string opaque-png-data-url
-        q8-effective run-q8-transport! boundary-pixels byte-delta pixel-rgba
+        q8-world-transforms run-q8-transport! boundary-pixels byte-delta pixel-rgba
         srgb->linear linear->srgb-byte selected-limits adapter-information
         shader-digests w4-read-texture!]]))
 
@@ -33,7 +33,7 @@
     (aset values 0 value)
     (aget values 0)))
 
-(defn- quantization-receipt [mesh zoom]
+(defn- quantization-evidence [mesh zoom]
   (let [errors (mapcat (fn [[x y]]
                          [(js/Math.abs (- x (f32-roundtrip x)))
                           (js/Math.abs (- y (f32-roundtrip y)))])
@@ -223,7 +223,7 @@
               :mesh {:triangles (:triangle-count mesh)
                      :coverage (:coverage mesh)
                      :quantization
-                     (quantization-receipt mesh zoom)}
+                     (quantization-evidence mesh zoom)}
               :images [(path-image-record (:mode spec) case-id pair)]}))))))
 
 (defn- run-path-tree-golden! [device path-system world-transforms]
@@ -232,7 +232,7 @@
         zoom 1.0
         clear {:r 0.025 :g 0.06 :b 0.11 :a 1.0}
         component (path-polygon-component
-                  :path-golden/container-tree
+                  :path-golden/group-tree
                   [[8.0 8.0] [40.0 8.0] [40.0 40.0] [8.0 40.0]]
                   [0.18 0.82 0.58 0.96] 1.0)
         draw-items [(path-draw-item :path-tree/root component 0)
@@ -249,11 +249,11 @@
            {:case-id case-id
             :zoom zoom
             :lod (name (:lod/id (path-tessellation/zoom-lod zoom)))
-            :normalization "path-local-with-world-transforms-container-tree"
+            :normalization "path-local-with-world-transforms-group-tree"
             :shape-extent-world 32.0
             :buffer-indexes [(get-in world-transforms [0 :buffer-index])
                               (get-in world-transforms [17 :buffer-index])]
-            :unknown-container unknown-error
+            :unknown-group unknown-error
             :images [(path-image-record mode case-id pair)]})))))
 
 (defn- path-parity-row!
@@ -298,7 +298,7 @@
                           [x y]))]
              {:case-id case-id :zoom zoom :lod lod
               :quantization
-              (quantization-receipt mesh zoom)
+              (quantization-evidence mesh zoom)
               :boundary-band-screen-px 1.25
               :boundary-pixel-count boundary-count
               :decisive-count (count decisive)
@@ -357,7 +357,7 @@
               :linear-premultiplied linear
               :pass? (and (:pass? legacy) (:pass? linear))}))))))
 
-(defn- run-path-upload-gate! [path-system world-transforms]
+(defn- run-path-upload-dirty-check! [path-system world-transforms]
   (let [left (path-polygon-component
               :path-upload/left
               [[3.0 5.0] [19.0 5.0] [19.0 22.0] [3.0 22.0]]
@@ -398,7 +398,7 @@
                  (= 1 (:writes frame-4))
                  (= 2 (:derived frame-4)))}))
 
-(defn run-path-atom! [device]
+(defn run-path-step! [device]
   (let [camera (device/create-camera-buffer device)
         groups-buffer (device/create-groups-buffer device)
         registry (-> (transform/empty-registry)
@@ -429,10 +429,10 @@
                (.then #(assoc state :color %)))))
         (.then
          (fn [state]
-           (assoc state :upload-gate
-                  (run-path-upload-gate! system world-transforms))))
+           (assoc state :upload-dirty-check
+                  (run-path-upload-dirty-check! system world-transforms))))
         (.then
-         (fn [{:keys [cases parity color upload-gate] :as state}]
+         (fn [{:keys [cases parity color upload-dirty-check] :as state}]
            (let [determinism
                  (mapcat (fn [case]
                            (map :determinism (:images case)))
@@ -442,13 +442,13 @@
                             (= [0 1] (:buffer-indexes (last cases)))
                             (= :transform/unknown-group
                                (get-in (last cases)
-                                       [:unknown-container :error-type]))
+                                       [:unknown-group :error-type]))
                             (= 7 (count parity))
                             (every? :pass? parity)
                             (:pass? color)
-                            (:pass? upload-gate))
+                            (:pass? upload-dirty-check))
                  result (assoc state
-                               :system (:last-return upload-gate)
+                               :system (:last-return upload-dirty-check)
                                :coverage :aliased-v1
                                :product-pick :cpu-path-authority
                                :self-overlap-alpha

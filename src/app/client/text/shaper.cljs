@@ -5,7 +5,7 @@
    straight out of the WASM heap into one shaped line (`shaped-line`), one
    crossing in (`addText`) and one crossing out (the two heap views) per run;
    no object per glyph. The pre-flat map route stays beside it as
-   `:shape-line-oracle` (`shaper-oracle`, verifier only).
+   `:shape-line-oracle` (`shaper-oracle`, harness only).
    Takes: ordered font sources (primary and fallbacks, with variations) and
    shaping options.
    Gives: a promise of a provider, the handle text layout calls to shape runs.

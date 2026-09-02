@@ -1,5 +1,5 @@
 (ns app.client.region3d.frame
-  "The Region3D frame gate: row identity plus the engine stamps that can change
+  "The Region3D frame dirty check: row identity plus the engine stamps that can change
    its projection.
    Takes: region draw-items, zoom, DPR, and the session revision.
    Gives: one key per region or the ordered frame key.

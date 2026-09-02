@@ -1,7 +1,7 @@
-(ns app.client.verifier.shaper-border-probe
-  "The shaper WASM-border receipt probe: at a served corpus, how many ms of
+(ns app.client.harness.shaper-border-probe
+  "The shaper WASM-border evidence probe: at a served corpus, how many ms of
    shaping go to the JS/CLJS side of the HarfBuzz border versus HarfBuzz's own
-   shape() call. Verifier-only; never a product path.
+   shape() call. Harness-only; never a product path.
    Takes: /corpus.json (blocks: uid · text) and the live font manifest, both
    served by test/render_engine/profile_shaper_border.mjs.
    Gives: window.__shaperBorderResult — the serialized adapter attestation

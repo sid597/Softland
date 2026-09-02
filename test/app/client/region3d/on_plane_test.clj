@@ -55,7 +55,7 @@
                 {:binding {:bind :region-object :region :region/shared
                            :object :mesh/a :local [0.4 0.25 0.3]}
                  :region-draw-item region-draw-item :maintained maintained :camera camera
-                 :world-transforms world-transforms :anchor-container 0})]
+                 :world-transforms world-transforms :anchor-group 0})]
     (is (= :resolved (:status result)))
     (is (= [0.4 0.25 0.3] (:point3 result))
         "the required nonzero local point participates in projection")

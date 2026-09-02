@@ -331,7 +331,7 @@
 (defn init-image-system
   "Own the image pipeline, digest registry, atlas/dedicated resources, and the
    one shared 13-word instance pool.  Product activation remains staged; the
-  verifier creates this system directly."
+  harness creates this system directly."
   [^js device fformat camera-buffer groups-buffer
    & {:keys [initial-capacity scene-color]
       :or {initial-capacity 256
@@ -623,7 +623,7 @@
      (+ resource-u0 (* crop-u1 du))
      (+ resource-v0 (* crop-v1 dv))]))
 
-(defn- resolve-image-draw-item [image-system effective image-draw-item]
+(defn- resolve-image-draw-item [image-system world-transforms image-draw-item]
   (let [component (:image/component image-draw-item)
         digest (:image/source-digest component)
         residency (ensure-residency! image-system digest)
@@ -633,7 +633,7 @@
         crop-uv (image-component/crop->uv (:image/intrinsic-size component) crop)
         binding (:binding residency)]
     (assoc image-draw-item
-           :buffer-index (transform/buffer-index effective (:container image-draw-item))
+           :buffer-index (transform/buffer-index world-transforms (:container image-draw-item))
            :image/status (:status residency)
            :image/reason (:reason residency)
            :image/binding-key (:key binding)
@@ -646,7 +646,7 @@
 (defn prepare-image-frame!
   "Write the image pool only when a component/group key or residency
    revision changes."
-  [image-system draw-items effective]
+  [image-system draw-items world-transforms]
   (let [draw-items (or draw-items [])]
     (doseq [draw-item draw-items]
       (ensure-residency! image-system
@@ -655,7 +655,7 @@
       (if (= frame-key @(:!last-frame-key image-system))
         {:changed? false :writes 0
          :instances (count @(:!prepared image-system))}
-        (let [prepared (mapv #(resolve-image-draw-item image-system effective %) draw-items)
+        (let [prepared (mapv #(resolve-image-draw-item image-system world-transforms %) draw-items)
               item-writes (buffer-pool/batch-update-pool!
                            (:pool image-system) prepared)]
           (reset! (:!last-frame-key image-system) frame-key)

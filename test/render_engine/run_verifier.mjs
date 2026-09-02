@@ -172,16 +172,16 @@ const laneGuards = (result) => [
   {
     name: "image",
     pass:
-      result.imageAtom?.pass === true &&
-      allDeterministic(result.imageAtom?.cases) &&
-      result.imageAtom?.parity?.every((row) => row.pass === true),
+      result.imageStep?.pass === true &&
+      allDeterministic(result.imageStep?.cases) &&
+      result.imageStep?.parity?.every((row) => row.pass === true),
   },
   {
     name: "path",
     pass:
-      result.pathAtom?.pass === true &&
-      allDeterministic(result.pathAtom?.cases) &&
-      result.pathAtom?.parity?.every((row) => row.pass === true),
+      result.pathStep?.pass === true &&
+      allDeterministic(result.pathStep?.cases) &&
+      result.pathStep?.parity?.every((row) => row.pass === true),
   },
   {
     name: "region3d",
@@ -211,17 +211,17 @@ const representativeSpecs = [
   },
   {
     manifestKey: "pathAtomCases",
-    resultKey: "pathAtom",
+    resultKey: "pathStep",
     file: "gpu-path-holed-concave-holed-concave-default-unit-z1.png",
   },
   {
     manifestKey: "pathAtomCases",
-    resultKey: "pathAtom",
+    resultKey: "pathStep",
     file: "gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png",
   },
   {
     manifestKey: "pathAtomCases",
-    resultKey: "pathAtom",
+    resultKey: "pathStep",
     file: "gpu-path-container-tree-tree-containers-cid17-slot1.png",
   },
   {
@@ -326,7 +326,7 @@ const recordUbuntuSlugGolden = (result, manifest) => {
     return {
       caseId: renderCase.caseId,
       zoom: renderCase.zoom,
-      regime: renderCase.regime,
+      regime: renderCase.lod,
       normalization: renderCase.normalization,
       shapeExtentWorld: renderCase.shapeExtentWorld,
       mode: image.mode,
@@ -345,7 +345,7 @@ const recordUbuntuSlugGolden = (result, manifest) => {
 };
 
 const recordPathGolden = (result, manifest, file) => {
-  const matches = (result.pathAtom?.cases || []).flatMap((renderCase) =>
+  const matches = (result.pathStep?.cases || []).flatMap((renderCase) =>
     (renderCase.images || [])
       .filter((image) => image.file === file)
       .map((image) => ({ renderCase, image })),
@@ -359,7 +359,7 @@ const recordPathGolden = (result, manifest, file) => {
   const row = {
     caseId: renderCase.caseId,
     zoom: renderCase.zoom,
-    regime: renderCase.regime,
+    regime: renderCase.lod,
     normalization: renderCase.normalization,
     shapeExtentWorld: renderCase.shapeExtentWorld,
     mode: image.mode,
@@ -409,10 +409,10 @@ const runBrowser = async () => {
 
 const main = async () => {
   if (process.argv.length !== 2) {
-    throw new Error("The cleanup verifier has one replay route: npm run verify:render-engine");
+    throw new Error("The cleanup harness has one replay route: npm run verify:render-engine");
   }
   if (!fs.existsSync(buildFile)) {
-    throw new Error(`Missing verifier build ${path.relative(repoRoot, buildFile)}`);
+    throw new Error(`Missing harness build ${path.relative(repoRoot, buildFile)}`);
   }
   if (!fs.existsSync(manifestFile)) {
     throw new Error("Missing parked renderer golden manifest");
@@ -421,7 +421,7 @@ const main = async () => {
   const { result, browserConsole } = await runBrowser();
   if (!result || result.fatal) {
     throw new Error(
-      `Browser verifier failed: ${result?.fatal || "missing result"}\n${result?.stack || ""}`,
+      `Browser harness failed: ${result?.fatal || "missing result"}\n${result?.stack || ""}`,
     );
   }
 
@@ -446,8 +446,8 @@ const main = async () => {
     dejavuSlugGoldens.every((row) => row.pass);
   const receipt = {
     schemaVersion: 1,
-    verifier: result.verifier,
-    authority: "parked scene, GPU, and render-family verifier; no product client",
+    verifier: result.harness,
+    authority: "parked scene, GPU, and render-family harness; no product client",
     replayCommand: "npm run verify:render-engine",
     pass,
     guards,

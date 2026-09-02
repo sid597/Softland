@@ -1,7 +1,7 @@
-(ns app.client.verifier.text
-     "Browser receipts for the text renderer, shaped layout, and flat route.
+(ns app.client.harness.text
+     "Browser evidence for the text renderer, shaped layout, and flat route.
       Takes: WebGPU device state and loaded font assets.
-      Gives: text verifier result maps.
+      Gives: text harness result maps.
       Holds nothing."
      (:require [clojure.string :as str]
                [app.client.engine.device :as device]
@@ -10,11 +10,11 @@
                [app.client.text.layout-oracle :as layout-oracle]
                [app.client.text.renderer :as text-renderer]
                [app.client.text.shaped-line :as sl]
-               [app.client.verifier.shared
+               [app.client.harness.shared
 :refer [canvas-size color-format glyph-screen-x glyph-screen-baseline
         glyph-screen-size zoom-cases image-fixtures promise-mapv
         bytes->hex sha256-bytes sha256-string opaque-png-data-url
-        q8-effective run-q8-transport! boundary-pixels byte-delta pixel-rgba
+        q8-world-transforms run-q8-transport! boundary-pixels byte-delta pixel-rgba
         srgb->linear linear->srgb-byte selected-limits adapter-information
         shader-digests w4-read-texture!]]))
 
@@ -119,7 +119,7 @@
 (defn- instance-path-probe
   "Build the CPU inverse from the exact shaped quad and glyph bounds used by
    the selected production backend. This deliberately records, rather than
-   assumes, the bearing/plane transform at the comparison seam."
+   assumes, the bearing/plane transform at the comparison boundary."
   [curves instance bounds zoom source]
   (let [[rx ry rw rh] (:rect instance)
         left (:left bounds)
@@ -135,13 +135,13 @@
              path-x (+ left (* u (- right left)))
              path-y (+ top (* v (- bottom top)))]
          (point-in-curves? curves path-x path-y)))
-     :receipt {:source source
+     :evidence {:source source
                :shaped-rect-world [rx ry rw rh]
                :glyph-bounds bounds
                :zoom zoom
                :mapping "screen->world->shaped-quad->glyph-path"}}))
 
-(defn- parity-receipt [mode rgba inside? cpu-inverse]
+(defn- parity-evidence [mode rgba inside? cpu-inverse]
   (let [boundary (boundary-pixels rgba)
         rows (mapv (fn [[x y coverage]]
                      (let [sx (+ x 0.5)
@@ -252,7 +252,7 @@
      :r 1.0 :g 1.0 :b 1.0 :a 1.0
      :container 0}]])
 
-(defn- text-effective []
+(defn- text-world-transforms []
   (-> (transform/empty-registry)
       (transform/add-group 17 {:parent 0
                                    :affine [0.5 0.0 0.0 0.5 40.0 20.0]})
@@ -268,8 +268,8 @@
                  :byte-identical? (:byte-identical? pair)}})
 
 (defn- run-case!
-  [{:keys [device slug-system slug-assets curves effective]}
-   {:keys [case-id zoom regime]}]
+  [{:keys [device slug-system slug-assets curves world-transforms]}
+   {:keys [case-id zoom lod]}]
   (let [lines (glyph-lines zoom)
         font-size (/ glyph-screen-size zoom)
         slug-glyph (first (filter #(= 111 (:unicode %))
@@ -284,7 +284,7 @@
                                         zoom "production-slug-sampleBounds")
         slug-system (text-renderer/update-text-data
                      device slug-system lines slug-assets font-size
-                     :char-width 0.60 :effective effective)]
+                     :char-width 0.60 :world-transforms world-transforms)]
     (js/console.log "[W0-A] case-start" case-id "zoom" zoom)
     (->
         (render-pair! device slug-system zoom)
@@ -293,7 +293,7 @@
            (js/console.log "[W0-A] case-complete" case-id)
            {:case-id case-id
             :zoom zoom
-            :regime regime
+            :lod lod
             :normalization "screen-constant"
             :shape-extent-world (/ glyph-screen-size zoom)
             :canvas {:width canvas-size
@@ -302,13 +302,13 @@
                      :device-pixel-ratio (.-devicePixelRatio js/window)}
             :images [(image-record "slug" case-id slug-pair)]
             :pick-parity
-            [(parity-receipt "slug-dejavu-o-path"
+            [(parity-evidence "slug-dejavu-o-path"
                                (:bytes slug-pair)
                                (:inside? slug-probe)
-                               (:receipt slug-probe))]})))))
+                               (:evidence slug-probe))]})))))
 
 (defn- run-ubuntu-mixed-case!
-  [device ubuntu-system ubuntu-assets effective]
+  [device ubuntu-system ubuntu-assets world-transforms]
   (let [text "Aɐ"
         font-size 56.0
         line-height 68.0
@@ -318,7 +318,7 @@
                                   :line-height line-height
                                   :origin [24.0 18.0]
                                   :baseline-offset font-size
-                                  :source-id :verifier/ubuntu-slug-mixed-face
+                                  :source-id :harness/ubuntu-slug-mixed-face
                                   :source-revision 1})
         glyphs (:glyphs (tl/paint-result layout-result))
         face-ids (->> glyphs (map :font-id) distinct sort vec)
@@ -334,7 +334,7 @@
                    (mapv vector))
         ubuntu-system (text-renderer/update-text-data
                         device ubuntu-system lines ubuntu-assets font-size
-                        :line-height line-height :effective effective)]
+                        :line-height line-height :world-transforms world-transforms)]
     (-> (render-pair! device ubuntu-system 1.0)
         (.then
          (fn [pair]
@@ -345,17 +345,17 @@
             :cases
             [{:case-id "ubuntu-mixed-face"
               :zoom 1.0
-              :regime "default-font-mixed-face"
-              :normalization "material-fixed"
+              :lod "default-font-mixed-face"
+              :normalization "component-fixed"
               :shape-extent-world font-size
               :images [(image-record "slug" "ubuntu-mixed-face" pair)]}]})))))
-(defn t1-layout-receipt [provider]
+(defn t1-layout-evidence [provider]
   (let [text "AV office e\u0301\tسلام\nɐ"
         result (tl/layout {:text text :provider provider
                            :font-size 19 :line-height 24
                            :origin [10 20] :baseline-offset 19
                            :clip {:left 12 :right 180 :top 20 :bottom 68}
-                           :source-id :verifier/t1 :source-revision 1
+                           :source-id :harness/t1 :source-revision 1
                            :zoom 1})
         readers [(tl/measure-result result)
                  (tl/wrap-result result)
@@ -373,11 +373,11 @@
                 (tl/layout {:text "variable" :provider provider
                             :font-size 19 :line-height 24
                             :variations {:wght 400 :wdth width}
-                            :source-id :verifier/t1-variable-axis}))
+                            :source-id :harness/t1-variable-axis}))
               [:metrics :advance])))
         narrow-advance (variable-advance 75)
         wide-advance (variable-advance 125)
-        receipt {:layout-id (:layout/id result)
+        evidence {:layout-id (:layout/id result)
                  :reader-layout-ids (mapv :layout/id readers)
                  :glyph-count (count (get-in readers [2 :glyphs]))
                  :cluster-count (count (:clusters result))
@@ -390,15 +390,15 @@
                                       (get-in readers [2 :glyphs])))
                  :variations (get-in result [:font :variations])
                  :variable-axis-delta (- wide-advance narrow-advance)
-                 :regime (:regime result)}
-        pass? (and (every? #{(:layout/id result)} (:reader-layout-ids receipt))
-                   (= 2 (:lines receipt))
-                   (:rtl? receipt) (:fallback? receipt) (:tab? receipt)
-                   (not (zero? (:variable-axis-delta receipt)))
-                   (= {:wght 400 :wdth 100} (:variations receipt)))]
+                 :lod (:lod result)}
+        pass? (and (every? #{(:layout/id result)} (:reader-layout-ids evidence))
+                   (= 2 (:lines evidence))
+                   (:rtl? evidence) (:fallback? evidence) (:tab? evidence)
+                   (not (zero? (:variable-axis-delta evidence)))
+                   (= {:wght 400 :wdth 100} (:variations evidence)))]
     (when-not pass?
-      (throw (ex-info "T1 browser layout receipt failed." receipt)))
-    (assoc receipt :pass true)))
+      (throw (ex-info "T1 browser layout evidence failed." evidence)))
+    (assoc evidence :pass true)))
 ;; ---------------------------------------------------------------------------
 ;; The flat text route's consistency checks (docs/shaping-correction/SHAPER-BORDER.md §8):
 ;; F1 flat shaper ≡ oracle shaper · F2 flat layout ≡ oracle layout on real
@@ -479,15 +479,15 @@
                  :font-size 19 :line-height 24
                  :origin [10 20] :baseline-offset 19
                  :clip {:left 12 :right 180 :top 20 :bottom 68}
-                 :source-id :verifier/flat-f2 :source-revision 1 :zoom 1}
+                 :source-id :harness/flat-f2 :source-revision 1 :zoom 1}
                 {:text "office ffi mixed سلام ɐ words wrap here" :provider provider
                  :font-size 19 :line-height 24 :origin [0 0] :baseline-offset 19
                  :inline-size 120 :wrap-policy :word
-                 :source-id :verifier/flat-f2-wrap :source-revision 1 :zoom 1}
+                 :source-id :harness/flat-f2-wrap :source-revision 1 :zoom 1}
                 {:text "abc def ghi" :headers ["Head"] :provider provider
                  :font-size 12 :line-height 14 :origin [3 4] :baseline-offset 12
                  :wrap-policy :block-greedy :wrap-col 6
-                 :source-id :verifier/flat-f2-greedy :source-revision 1 :zoom 1}]
+                 :source-id :harness/flat-f2-greedy :source-revision 1 :zoom 1}]
         rows (mapv (fn [input]
                      (let [flat (tl/layout input)
                            mapped (layout-oracle/layout input)]
@@ -503,13 +503,13 @@
      :pass (every? :pass rows)
      :inputs rows}))
 
-(defn- flat-route-f3 [slug-assets t1-assets effective]
+(defn- flat-route-f3 [slug-assets t1-assets world-transforms]
   (let [stride text-renderer/slug-text-instance-stride
         carried (let [layout (tl/layout {:text "Aɐ b\tc x\noffice ffi"
                                          :provider (:layout-provider t1-assets)
                                          :font-size 32 :line-height 40
                                          :origin [8 10] :baseline-offset 32
-                                         :source-id :verifier/flat-f3
+                                         :source-id :harness/flat-f3
                                          :source-revision 1})]
                   (mapv vector (tl/line-paint-draw-items
                                 layout {:size 32 :r 0.9 :g 0.5 :b 0.2 :a 1.0
@@ -525,7 +525,7 @@
                           :r 1 :g 0 :b 0 :a 1 :container 0}]]
                 :assets t1-assets :font-size 24 :opts []}]
         rows (mapv (fn [{:keys [name texts assets font-size opts]}]
-                     (let [opts (into opts [:effective effective])
+                     (let [opts (into opts [:world-transforms world-transforms])
                            flat (apply text-renderer/pack-instances-flat
                                        texts assets font-size stride opts)
                            oracle (apply text-renderer/pack-instances-oracle
@@ -552,8 +552,8 @@
 
 (defn- flat-route-bracket
   "µs per glyph for shape · layout · pack over a fixed fixture; a number in
-   the receipt, never a gate."
-  [provider t1-assets effective]
+   the evidence, never a gate."
+  [provider t1-assets world-transforms]
   (let [lines (vec (remove empty? flat-route-lines))
         reps 40
         now #(js/performance.now)
@@ -564,7 +564,7 @@
         block (clojure.string/join "\n" lines)
         layout-input {:text block :provider provider :font-size 19 :line-height 24
                       :origin [0 0] :baseline-offset 19
-                      :source-id :verifier/flat-bracket :source-revision 1}
+                      :source-id :harness/flat-bracket :source-revision 1}
         layout-glyphs (:glyph-count (tl/plane-coverage-check (tl/layout layout-input)))
         t2 (now)
         _ (dotimes [_ reps] (tl/layout layout-input))
@@ -574,11 +574,11 @@
                                              :container 0}))
         stride text-renderer/slug-text-instance-stride
         packed (text-renderer/pack-instances-flat
-                draw-items t1-assets 19 stride :effective effective)
+                draw-items t1-assets 19 stride :world-transforms world-transforms)
         t4 (now)
         _ (dotimes [_ reps]
             (text-renderer/pack-instances-flat
-             draw-items t1-assets 19 stride :effective effective))
+             draw-items t1-assets 19 stride :world-transforms world-transforms))
         t5 (now)
         per (fn [ms n] (when (pos? n) (/ (* 1000 ms) (* reps n))))]
     {:reps reps
@@ -593,36 +593,36 @@
 (defn run-text-flat-route! [slug-assets t1-assets]
   (try
     (let [provider (:layout-provider t1-assets)
-          effective (text-effective)
+          world-transforms (text-world-transforms)
           rows [(flat-route-f1 provider)
                 (flat-route-f2 provider)
-                (flat-route-f3 slug-assets t1-assets effective)]]
+                (flat-route-f3 slug-assets t1-assets world-transforms)]]
       {:pass (every? :pass rows)
        :rows rows
-       :bracket (flat-route-bracket provider t1-assets effective)})
+       :bracket (flat-route-bracket provider t1-assets world-transforms)})
     (catch :default error
       {:pass false
        :rows []
        :error (str error)
        :data (pr-str (ex-data error))})))
 
-(defn- packed-slots [packed]
+(defn- packed-buffer-indexes [packed]
   (let [words (js/Uint32Array. (:raw-buffer packed))]
     (mapv #(aget words (+ (* % 25) 24))
           (range (:num-instances packed)))))
 
-(defn- group-refused? [ubuntu-assets effective text-draw-item]
+(defn- group-rejected? [ubuntu-assets world-transforms text-draw-item]
   (try
     (text-renderer/pack-instances-flat
      [[text-draw-item]]
      ubuntu-assets 24 text-renderer/slug-text-instance-stride
-     :effective effective)
+     :world-transforms world-transforms)
     false
     (catch :default error
       (= :transform/unknown-group (:error-type (ex-data error))))))
 
 (defn- run-group-tree-case!
-  [device ubuntu-system ubuntu-assets effective]
+  [device ubuntu-system ubuntu-assets world-transforms]
   (let [text "Aɐ"
         font-size 56.0
         line-height 68.0
@@ -632,7 +632,7 @@
                                   :line-height line-height
                                   :origin [24.0 18.0]
                                   :baseline-offset font-size
-                                  :source-id :verifier/text-group-tree
+                                  :source-id :harness/text-group-tree
                                   :source-revision 1})
         lines (->> (tl/line-paint-draw-items
                     layout-result
@@ -642,30 +642,30 @@
         packed (text-renderer/pack-instances-flat
                 lines ubuntu-assets font-size
                 text-renderer/slug-text-instance-stride
-                :effective effective)
-        slots (packed-slots packed)
-        slots-pass (and (seq slots) (every? #{1} slots))
+                :world-transforms world-transforms)
+        buffer-indexes (packed-buffer-indexes packed)
+        buffer-indexes-pass (and (seq buffer-indexes) (every? #{1} buffer-indexes))
         base-draw-item {:text "A" :x 0 :y 32 :size 24 :r 1 :g 1 :b 1 :a 1}
-        missing-refused (group-refused? ubuntu-assets effective base-draw-item)
-        unknown-refused (group-refused? ubuntu-assets effective
+        missing-rejected (group-rejected? ubuntu-assets world-transforms base-draw-item)
+        unknown-rejected (group-rejected? ubuntu-assets world-transforms
                                             (assoc base-draw-item :container 999))
         fallbacks-pass (every? zero? (vals (:fallbacks packed)))
         ubuntu-system (text-renderer/update-text-data
                        device ubuntu-system lines ubuntu-assets font-size
-                       :line-height line-height :effective effective)]
+                       :line-height line-height :world-transforms world-transforms)]
     (-> (render-pair! device ubuntu-system 1.0)
         (.then
          (fn [pair]
-           {:pass (and (:byte-identical? pair) slots-pass missing-refused
-                       unknown-refused fallbacks-pass)
-            :slots slots
-            :missing-group-refused missing-refused
-            :unknown-group-refused unknown-refused
+           {:pass (and (:byte-identical? pair) buffer-indexes-pass missing-rejected
+                       unknown-rejected fallbacks-pass)
+            :buffer-indexes buffer-indexes
+            :missing-group-rejected missing-rejected
+            :unknown-group-rejected unknown-rejected
             :fallbacks (:fallbacks packed)
-            :case {:case-id "text-container-tree-mixed-face"
+            :case {:case-id "text-group-tree-mixed-face"
                    :zoom 1.0
-                   :regime "container-tree-cid17-slot1"
-                   :normalization "material-fixed"
+                   :lod "group-tree-cid17-buffer-index1"
+                   :normalization "component-fixed"
                    :shape-extent-world font-size
                    :images [(image-record
                              "slug" "container-tree-mixed-face-cid17-slot1"
@@ -676,8 +676,8 @@
 (defn run-text-slug!
   [device camera-buffer groups-buffer slug-assets t1-assets]
   (js/console.log "[W0-A] init-font-assets")
-  (let [effective (text-effective)
-        _ (device/write-groups! device groups-buffer effective)
+  (let [world-transforms (text-world-transforms)
+        _ (device/write-groups! device groups-buffer world-transforms)
         slug-system (do
                       (js/console.log "[W0-A] init-slug-pipeline-start")
                       (let [system
@@ -707,12 +707,12 @@
                  :slug-system slug-system
                  :slug-assets slug-assets
                  :curves curves
-                 :effective effective}]
+                 :world-transforms world-transforms}]
     (-> (js/Promise.all
          #js [(promise-mapv (partial run-case! harness) zoom-cases)
-              (run-ubuntu-mixed-case! device ubuntu-system t1-assets effective)
+              (run-ubuntu-mixed-case! device ubuntu-system t1-assets world-transforms)
               (run-group-tree-case! device ubuntu-tree-system t1-assets
-                                        effective)])
+                                        world-transforms)])
         (.then
          (fn [values]
            (let [ubuntu (aget values 1)

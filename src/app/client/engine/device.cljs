@@ -1,10 +1,10 @@
 (ns app.client.engine.device
-  "The GPU pieces every kind of mark shares: the camera and group buffers,
+  "The GPU pieces every entity kind shares: the camera and group buffers,
    render targets, the clear quad, the shared color-mode shader text, and clip-
    rect projection.
    Takes: a WebGPU device; camera pan, zoom, and viewport size; the group-id
    table; a group-local clip rect.
-   Gives: GPU buffers, textures, and render targets the painters draw into; a
+   Gives: GPU buffers, textures, and render targets the renderers draw into; a
    scissor or mask for a clip.
   Holds nothing."
   (:require [clojure.string :as str]
@@ -68,7 +68,7 @@
 (defn write-groups!
   "Upload transform/world-transforms through compact :buffer-index values. Sparse
    semantic group ids never allocate holes. Returns machine stats used by the
-   1,024/4,096/16,384 Q8 verifier."
+   1,024/4,096/16,384 Q8 harness."
   [^js/GPUDevice device ^js groups-buffer world-transforms]
   (let [entries (vals world-transforms)
         buffer-indexes (map :buffer-index entries)

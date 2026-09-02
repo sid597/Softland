@@ -1,9 +1,9 @@
 (ns app.client.region3d.component
   "What a 3D region is: a whole scene as closed, declared data (extent,
    objects by id, components, lights, view), migrated and normalized before one
-   grammar check.
+   schema check.
    Takes: a region map; a view map.
-   Gives: the declared grammar; a canonical region; the default component.
+   Gives: the declared schema; a canonical region; the default component.
    Holds nothing."
   (:require [app.client.engine.color :as color]
             [app.client.engine.schema :as schema]))
@@ -79,7 +79,7 @@
 (defn- named-validator [error-type predicate]
   (fn [value]
     (when-not (predicate value)
-      (throw (ex-info "Region grammar rejected value" {:error-type error-type})))
+      (throw (ex-info "Region schema rejected value" {:error-type error-type})))
     true))
 
 (defn- finite-vector? [n value]
@@ -113,7 +113,7 @@
 
 (defn normalize-quaternion
   "Normalize a finite quaternion only inside the migration tolerance. Invalid
-   values pass through so the declared grammar can reject them once."
+   values pass through so the declared schema can reject them once."
   [quaternion]
   (if (finite-vector? 4 quaternion)
     (let [length (quaternion-length quaternion)]
@@ -462,7 +462,7 @@
 (defn acyclic? [region]
   (nil? (cycle-info region)))
 
-(def grammar
+(def schema
   {:keys #{:region/id :region/revision :region3d/version :extent :scene :view
            :background :ambient :region/rect}
    :validators
@@ -574,7 +574,7 @@
 
 (defn canonical-region
   "Purely migrate, fill defaults, and normalize near-unit quaternions. It does
-   not reject; `validate-region!` performs the one declared grammar check."
+   not reject; `validate-region!` performs the one declared schema check."
   [region]
   (let [region (migrate-region region)]
     (if (map? region)
@@ -592,6 +592,6 @@
       region)))
 
 (defn validate-region!
-  "Return the canonical Region3D v2 row after one closed grammar check."
+  "Return the canonical Region3D v2 row after one closed schema check."
   [region]
-  (schema/check grammar (canonical-region region)))
+  (schema/check schema (canonical-region region)))

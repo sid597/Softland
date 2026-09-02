@@ -1,18 +1,18 @@
-(ns app.client.verifier.image
-     "Browser receipts for image component, painting, color, and lifecycle behavior.
+(ns app.client.harness.image
+     "Browser evidence for image component, rendering, color, and lifecycle behavior.
       Takes: a WebGPU device.
-      Gives: the image verifier result map.
+      Gives: the image harness result map.
       Holds nothing."
      (:require [app.client.engine.color :as scene-color]
                [app.client.engine.device :as device]
                [app.client.engine.transform :as transform]
                [app.client.image.component :as image-component]
                [app.client.image.renderer :as image-renderer]
-               [app.client.verifier.shared
+               [app.client.harness.shared
 :refer [canvas-size color-format glyph-screen-x glyph-screen-baseline
         glyph-screen-size zoom-cases image-fixtures promise-mapv
         bytes->hex sha256-bytes sha256-string opaque-png-data-url
-        q8-effective run-q8-transport! boundary-pixels byte-delta pixel-rgba
+        q8-world-transforms run-q8-transport! boundary-pixels byte-delta pixel-rgba
         srgb->linear linear->srgb-byte selected-limits adapter-information
         shader-digests w4-read-texture!]]))
 
@@ -69,7 +69,7 @@
              :image/source-digest (:digest fixture)
              :image/color-tag (or (:color-tag fixture) :srgb)
              :image/intrinsic-size [intrinsic-width intrinsic-height]
-             :image/provenance {:actor :verifier
+             :image/provenance {:actor :harness
                                 :fixture (or (:filename fixture) :unavailable)}
              :image/rect rect
              :image/crop crop
@@ -80,7 +80,7 @@
   {:image/component component :container group})
 
 (defn- render-image-bytes!
-  [^js device image-system draw-items effective zoom
+  [^js device image-system draw-items world-transforms zoom
    & {:keys [clear-value intermediate-copy?]
       :or {clear-value {:r 0.0 :g 0.0 :b 0.0 :a 0.0}
            intermediate-copy? false}}]
@@ -106,7 +106,7 @@
         _ (device/update-camera device (:camera-buffer image-system)
                                   camera 0.0 0.0 zoom
                                   canvas-size canvas-size)
-        _ (image-renderer/prepare-image-frame! image-system draw-items effective)
+        _ (image-renderer/prepare-image-frame! image-system draw-items world-transforms)
         encoder (.createCommandEncoder device)
         pass (.beginRenderPass
               encoder
@@ -142,12 +142,12 @@
              (when presentation (.destroy presentation))
              copy))))))
 
-(defn- render-image-pair! [device image-system draw-items effective zoom clear-value]
-  (-> (render-image-bytes! device image-system draw-items effective zoom
+(defn- render-image-pair! [device image-system draw-items world-transforms zoom clear-value]
+  (-> (render-image-bytes! device image-system draw-items world-transforms zoom
                            :clear-value clear-value)
       (.then
        (fn [first-bytes]
-         (-> (render-image-bytes! device image-system draw-items effective zoom
+         (-> (render-image-bytes! device image-system draw-items world-transforms zoom
                                   :clear-value clear-value)
              (.then
               (fn [second-bytes]
@@ -162,7 +162,7 @@
                         :byte-identical? (= (aget hashes 0)
                                             (aget hashes 1))}))))))))))
 
-(defn- image-atom-record [mode case-id pair]
+(defn- image-step-record [mode case-id pair]
   {:mode mode
    :file (str "gpu-image-atom-" mode "-" case-id ".png")
    :raw-sha256 (:first-sha256 pair)
@@ -172,7 +172,7 @@
                  :byte-identical? (:byte-identical? pair)}})
 
 (defn- run-image-golden-case!
-  [device candidate-system effective corpus {:keys [case-id zoom lod]}]
+  [device candidate-system world-transforms corpus {:keys [case-id zoom lod]}]
   (let [screen->world #(/ % zoom)
         opaque (get corpus "atlas-opaque-srgb.png")
         alpha (get corpus "alpha-reference-straight.png")
@@ -200,65 +200,65 @@
                      :uv [0.25 0.0 0.75 1.0])
                     0)]
     (-> (render-image-pair! device candidate-system [opaque-draw-item]
-                            effective zoom clear)
+                            world-transforms zoom clear)
         (.then
          (fn [opaque-pair]
            (-> (render-image-pair! device candidate-system [alpha-draw-item]
-                                   effective zoom clear)
+                                   world-transforms zoom clear)
                (.then (fn [alpha-pair] [opaque-pair alpha-pair])))))
         (.then
          (fn [[opaque-pair alpha-pair]]
            (-> (render-image-pair! device candidate-system [clipped-draw-item]
-                                   effective zoom clear)
+                                   world-transforms zoom clear)
                (.then
                 (fn [clipped-pair]
                   {:case-id case-id :zoom zoom :lod lod
                    :normalization "screen-constant"
                    :shape-extent-world (/ 80.0 zoom)
                    :draw-item-counts {:opaque 1 :alpha 1 :partially-clipped 1}
-                   :images [(image-atom-record "opaque-atlas" case-id
+                   :images [(image-step-record "opaque-atlas" case-id
                                                opaque-pair)
-                            (image-atom-record "alpha-dedicated" case-id
+                            (image-step-record "alpha-dedicated" case-id
                                                alpha-pair)
-                            (image-atom-record "partially-clipped" case-id
+                            (image-step-record "partially-clipped" case-id
                                                clipped-pair)]}))))))))
 
-(defn- run-image-tree-golden! [device image-system effective corpus]
+(defn- run-image-tree-golden! [device image-system world-transforms corpus]
   (let [case-id "tree-containers-cid17-slot1"
         mode "container-tree"
         zoom 1.0
         clear {:r 0.025 :g 0.06 :b 0.11 :a 1.0}
         component (image-component-row
-                  :image-golden/container-tree
+                  :image-golden/group-tree
                   (get corpus "atlas-opaque-srgb.png")
                   8.0 8.0 32.0 32.0)
         draw-items [(image-draw-item component 0) (image-draw-item component 17)]
         unknown-error
         (try
           (image-renderer/prepare-image-frame!
-           image-system [(image-draw-item component 99)] effective)
+           image-system [(image-draw-item component 99)] world-transforms)
           nil
           (catch :default error (ex-data error)))]
-    (-> (render-image-pair! device image-system draw-items effective zoom clear)
+    (-> (render-image-pair! device image-system draw-items world-transforms zoom clear)
         (.then
          (fn [pair]
            {:case-id case-id
             :zoom zoom
             :lod "engine-default-clamp"
-            :normalization "image-local-with-effective-container-tree"
+            :normalization "image-local-with-world-transforms-group-tree"
             :shape-extent-world 32.0
-            :draw-item-counts {:container-tree 2}
-            :buffer-indexes [(get-in effective [0 :buffer-index])
-                              (get-in effective [17 :buffer-index])]
+            :draw-item-counts {:group-tree 2}
+            :buffer-indexes [(get-in world-transforms [0 :buffer-index])
+                              (get-in world-transforms [17 :buffer-index])]
             :unknown-group unknown-error
-            :images [(image-atom-record mode case-id pair)]})))))
+            :images [(image-step-record mode case-id pair)]})))))
 
 (defn- image-product-inside? [draw-item zoom screen-x screen-y]
   (image-component/half-open-hit?
    (get-in draw-item [:image/component :image/rect])
    [(/ screen-x zoom) (/ screen-y zoom)]))
 
-(defn- image-parity-receipt [extent-id draw-item zoom rgba]
+(defn- image-parity-evidence [extent-id draw-item zoom rgba]
   (let [boundary (boundary-pixels rgba)
         rows (mapv
               (fn [[x y coverage]]
@@ -290,7 +290,7 @@
      :first-mismatches (subvec mismatches 0 (min 16 (count mismatches)))}))
 
 (defn- run-image-parity!
-  [device seam-system effective corpus]
+  [device seam-system world-transforms corpus]
   (let [fixture (get corpus "coverage-white-srgb.png")]
     (promise-mapv
      (fn [{:keys [case-id zoom]}]
@@ -301,8 +301,8 @@
                      [:parity extent-id case-id] fixture
                      (/ 24.25 zoom) (/ 24.25 zoom) width height)
                     0)]
-            (-> (render-image-bytes! device seam-system [draw-item] effective zoom)
-                (.then #(image-parity-receipt extent-id draw-item zoom %)))))
+            (-> (render-image-bytes! device seam-system [draw-item] world-transforms zoom)
+                (.then #(image-parity-evidence extent-id draw-item zoom %)))))
         [["screen-constant" (/ 80.0 zoom) (/ 80.0 zoom)]
          ["world-256" 256.0 256.0]]))
      zoom-cases)))
@@ -314,7 +314,7 @@
         data (.-data (.getImageData context x y 1 1))]
     [(aget data 0) (aget data 1) (aget data 2) (aget data 3)]))
 
-(defn- icc-decode-receipt! [corpus]
+(defn- icc-decode-evidence! [corpus]
   (let [bytes (:bytes (get corpus "profiled-linear-rgb.png"))
         blob (js/Blob. #js [bytes] #js {:type "image/png"})]
     (-> (js/Promise.all
@@ -350,8 +350,8 @@
              {:fixture "profiled-linear-rgb.png" :rows rows
               :pass? (every? :pass? rows)}))))))
 
-(defn- run-color-receipts!
-  [device candidate-system seam-system effective corpus]
+(defn- run-color-evidence!
+  [device candidate-system seam-system world-transforms corpus]
   (let [clear {:r 0.04 :g 0.18 :b 0.35 :a 1.0}
         alpha (get corpus "alpha-reference-straight.png")
         profile (get corpus "profiled-linear-rgb.png")
@@ -373,7 +373,7 @@
         (image-draw-item
          (image-component-row :color/seam-profile profile 24.0 24.0 8.0 8.0)
          0)]
-    (-> (render-image-bytes! device candidate-system [alpha-draw-item] effective 1.0
+    (-> (render-image-bytes! device candidate-system [alpha-draw-item] world-transforms 1.0
                              :clear-value clear)
         (.then
          (fn [alpha-bytes]
@@ -394,41 +394,41 @@
               :non-black-fringe {:edge-pixel edge
                                  :pass? (every? pos? (take 3 edge))}})))
         (.then
-         (fn [receipt]
+         (fn [evidence]
            (-> (render-image-bytes! device candidate-system [profile-draw-item]
-                                    effective 1.0)
+                                    world-transforms 1.0)
                (.then
                 (fn [direct]
                   (-> (render-image-bytes!
-                       device candidate-system [profile-draw-item] effective 1.0
+                       device candidate-system [profile-draw-item] world-transforms 1.0
                        :intermediate-copy? true)
                       (.then
                        (fn [copied]
-                         (assoc receipt :presentation
+                         (assoc evidence :presentation
                                 {:direct-vs-intermediate-max-byte-delta
                                  (byte-delta direct copied)
                                  :pass? (zero? (byte-delta direct copied))})))))))))
         (.then
-         (fn [receipt]
+         (fn [evidence]
            (-> (render-image-bytes! device candidate-system [straight-draw-item]
-                                    effective 1.0)
+                                    world-transforms 1.0)
                (.then
                 (fn [straight]
                   (-> (render-image-bytes!
-                       device candidate-system [premultiplied-draw-item] effective 1.0)
+                       device candidate-system [premultiplied-draw-item] world-transforms 1.0)
                       (.then
                        (fn [premultiplied]
-                         (assoc receipt :alpha-association
+                         (assoc evidence :alpha-association
                                 {:max-byte-delta
                                  (byte-delta straight premultiplied)
                                  :pass? (<= (byte-delta straight premultiplied)
                                             4)}
                                 :alpha-association-bytes premultiplied)))))))))
         (.then
-         (fn [receipt]
+         (fn [evidence]
            (let [camera (device/create-camera-buffer device)
                  groups-buffer (device/create-groups-buffer device)
-                 _ (device/write-groups! device groups-buffer effective)
+                 _ (device/write-groups! device groups-buffer world-transforms)
                  system (image-renderer/init-image-system
                          device "rgba8unorm-srgb" camera groups-buffer
                          :scene-color (scene-color/scene-color true))
@@ -439,34 +439,34 @@
                                                   (:bytes row))
                  (.then (fn [_]
                           (render-image-bytes! device system
-                                               [premultiplied-draw-item] effective 1.0)))
+                                               [premultiplied-draw-item] world-transforms 1.0)))
                  (.then
                   (fn [mistagged]
                     (let [delta (byte-delta
-                                 (:alpha-association-bytes receipt)
+                                 (:alpha-association-bytes evidence)
                                  mistagged)]
                       (image-renderer/destroy-image-system! system)
                       (.destroy camera)
                       (.destroy groups-buffer)
-                      (-> receipt
+                      (-> evidence
                           (dissoc :alpha-association-bytes)
                           (assoc :mistagged-alpha
                                  {:max-byte-delta delta
                                   :pass? (> delta 8)})))))))))
         (.then
-         (fn [receipt]
-           (-> (render-image-bytes! device seam-system [seam-draw-item] effective 1.0)
+         (fn [evidence]
+           (-> (render-image-bytes! device seam-system [seam-draw-item] world-transforms 1.0)
                (.then
                 (fn [seam-bytes]
                   (let [actual (subvec (vec (pixel-rgba seam-bytes 56 56))
                                        0 3)]
-                    (assoc receipt :seam-off
+                    (assoc evidence :seam-off
                            {:expected [64 128 192] :actual actual
                             :transfer-count 0 :pass? (= [64 128 192] actual)})))))))
         (.then
-         (fn [receipt]
+         (fn [evidence]
            (-> (render-image-bytes! device seam-system [seam-profile-draw-item]
-                                    effective 1.0)
+                                    world-transforms 1.0)
                (.then
                 (fn [seam-bytes]
                   (let [actual (subvec (vec (pixel-rgba seam-bytes 25 25))
@@ -475,7 +475,7 @@
                         ingress-transfers
                         (if (get-in seam-system [:scene-color :enabled?]) 1 0)
                         presentation-encodes ingress-transfers]
-                    (assoc receipt :seam-off-profile
+                    (assoc evidence :seam-off-profile
                            {:fixture "profiled-linear-rgb.png"
                             :pixel [1 1]
                             ;; The 0.5px ramped hull makes this a pinned
@@ -491,30 +491,30 @@
                                         (zero? ingress-transfers)
                                         (zero? presentation-encodes))})))))))
         (.then
-         (fn [receipt]
-           (-> (icc-decode-receipt! corpus)
+         (fn [evidence]
+           (-> (icc-decode-evidence! corpus)
                (.then
                 (fn [icc]
                   (let [transfer-rows (vals @(:!resources candidate-system))
                         counts-ok? (every?
                                     #(= :ok (:status %)) transfer-rows)]
-                    (assoc receipt
+                    (assoc evidence
                            :icc-decode icc
                            :candidate-transfer-counts
                            {:ingress 1 :presentation 1
                             :rows-pass? counts-ok?})))))))
         (.then
-         (fn [receipt]
-           (assoc receipt :pass?
+         (fn [evidence]
+           (assoc evidence :pass?
                   (every? :pass?
-                          [(:source-over receipt)
-                           (:non-black-fringe receipt)
-                           (:presentation receipt)
-                           (:alpha-association receipt)
-                           (:mistagged-alpha receipt)
-                           (:seam-off receipt)
-                           (:seam-off-profile receipt)
-                           (:icc-decode receipt)])))))))
+                          [(:source-over evidence)
+                           (:non-black-fringe evidence)
+                           (:presentation evidence)
+                           (:alpha-association evidence)
+                           (:mistagged-alpha evidence)
+                           (:seam-off evidence)
+                           (:seam-off-profile evidence)
+                           (:icc-decode evidence)])))))))
 
 (defn- residency-counts [rows]
   (reduce (fn [counts [_ {:keys [status]}]]
@@ -536,10 +536,10 @@
      :counts (residency-counts rows)
      :residency-rev @(:!residency-rev image-system)}))
 
-(defn- run-image-upload-gate! [device effective corpus]
+(defn- run-image-upload-dirty-check! [device world-transforms corpus]
   (let [camera (device/create-camera-buffer device)
         groups-buffer (device/create-groups-buffer device)
-        _ (device/write-groups! device groups-buffer effective)
+        _ (device/write-groups! device groups-buffer world-transforms)
         system (image-renderer/init-image-system
                 device "rgba8unorm-srgb" camera groups-buffer
                 :scene-color (scene-color/scene-color true))
@@ -559,20 +559,20 @@
         (.then
          (fn [_]
            (let [frame-1 (image-renderer/prepare-image-frame!
-                          system draw-items effective)
+                          system draw-items world-transforms)
                  frame-2 (image-renderer/prepare-image-frame!
-                          system (mapv identity draw-items) effective)
+                          system (mapv identity draw-items) world-transforms)
                  reminted-left (assoc left :image/revision
                                       [:image/revision (:image/revision left)])
                  reminted-draw-items [(image-draw-item reminted-left 0) (second draw-items)]
                  frame-3 (image-renderer/prepare-image-frame!
-                          system reminted-draw-items effective)
+                          system reminted-draw-items world-transforms)
                  landing-component
                  (image-component-row :image-upload/landing landing-fixture
                                      12.0 18.0 40.0 32.0)
                  landing-draw-items [(image-draw-item landing-component 0)]
                  placeholder-frame (image-renderer/prepare-image-frame!
-                                    system landing-draw-items effective)]
+                                    system landing-draw-items world-transforms)]
              {:frame-1 frame-1 :frame-2 frame-2 :frame-3 frame-3
               :landing-draw-items landing-draw-items
               :placeholder-frame placeholder-frame
@@ -584,7 +584,7 @@
                (.then
                 (fn [_]
                   (let [frame-4 (image-renderer/prepare-image-frame!
-                                 system (:landing-draw-items state) effective)
+                                 system (:landing-draw-items state) world-transforms)
                         prepared (first @(:!prepared system))
                         result
                         (-> state
@@ -616,7 +616,7 @@
 
 (defn- request-replacement-device! []
   ;; Dawn consumes an adapter after its first device.  A fresh adapter request
-  ;; is therefore part of the real replacement-device lifecycle receipt.
+  ;; is therefore part of the real replacement-device lifecycle evidence.
   (-> (.requestAdapter js/navigator.gpu)
       (.then
        (fn [^js replacement-adapter]
@@ -624,53 +624,53 @@
            (throw (js/Error. "Image lifecycle could not acquire replacement adapter")))
          (.requestDevice replacement-adapter)))))
 
-(defn- run-lifecycle-receipt!
-  [device candidate-system effective corpus]
+(defn- run-lifecycle-evidence!
+  [device candidate-system world-transforms corpus]
   (let [registered-digests
         (mapv :digest (mapv corpus (map :filename image-fixtures)))
         unknown-digest (apply str (repeat 64 "f"))
-        refused-digest (apply str (repeat 64 "e"))
+        rejected-digest (apply str (repeat 64 "e"))
         unavailable-fixture {:digest unknown-digest :width 2 :height 2
                              :color-tag :srgb :filename :unavailable}
-        refused-fixture {:digest refused-digest :width 2 :height 2
-                         :color-tag :srgb :filename :refused}
+        rejected-fixture {:digest rejected-digest :width 2 :height 2
+                         :color-tag :srgb :filename :rejected}
         unavailable-draw-item
         (image-draw-item (image-component-row :lifecycle/unavailable
                                       unavailable-fixture 0 0 8 8)
                   0)
-        refused-draw-item
-        (image-draw-item (image-component-row :lifecycle/refused
-                                      refused-fixture 0 0 8 8)
+        rejected-draw-item
+        (image-draw-item (image-component-row :lifecycle/rejected
+                                      rejected-fixture 0 0 8 8)
                   0)
         source-row (get corpus "atlas-opaque-srgb.png")
-        refused-source (-> (:source source-row)
-                           (assoc :image/digest refused-digest
+        rejected-source (-> (:source source-row)
+                           (assoc :image/digest rejected-digest
                                   :image/color-tag :untagged))]
     (-> (image-renderer/register-image-source!
-         candidate-system refused-source (:bytes source-row))
+         candidate-system rejected-source (:bytes source-row))
         (.then
-         (fn [refusal]
-           (let [refused-before
-                 (get @(:!resources candidate-system) refused-digest)]
+         (fn [rejection]
+           (let [rejected-before
+                 (get @(:!resources candidate-system) rejected-digest)]
              (-> (render-image-bytes! device candidate-system
-                                      [unavailable-draw-item] effective 1.0)
+                                      [unavailable-draw-item] world-transforms 1.0)
                  (.then
                   (fn [unavailable-bytes]
                     (-> (sha256-bytes unavailable-bytes)
                         (.then
                          (fn [hash]
-                           {:refusal refusal
-                            :refused-before refused-before
+                           {:rejection rejection
+                            :rejected-before rejected-before
                             :placeholder {:unavailable-sha256 hash}})))))))))
         (.then
          (fn [state]
            (-> (render-image-bytes! device candidate-system
-                                    [refused-draw-item] effective 1.0)
+                                    [rejected-draw-item] world-transforms 1.0)
                (.then
                 (fn [_]
-                  (assoc state :refused-after-paint
+                  (assoc state :rejected-after-paint
                          (get @(:!resources candidate-system)
-                              refused-digest)))))))
+                              rejected-digest)))))))
         (.then
          (fn [state]
            (-> (request-replacement-device!)
@@ -682,7 +682,7 @@
                         (device/create-groups-buffer replacement-device)
                         _ (device/write-groups! replacement-device
                                                     replacement-groups
-                                                    effective)
+                                                    world-transforms)
                         replacement-system
                         (image-renderer/init-image-system
                          replacement-device "rgba8unorm-srgb"
@@ -699,21 +699,21 @@
                                  (every? #(= :ok
                                              (:status (get replacement-rows %)))
                                          registered-digests)
-                                 refused-after-loss
-                                 (get replacement-rows refused-digest)
-                                 refusal-preserved?
-                                 (= (select-keys (:refused-before state)
+                                 rejected-after-loss
+                                 (get replacement-rows rejected-digest)
+                                 rejection-preserved?
+                                 (= (select-keys (:rejected-before state)
                                                  [:status :reason])
-                                    (select-keys (:refused-after-paint state)
+                                    (select-keys (:rejected-after-paint state)
                                                  [:status :reason])
-                                    (select-keys refused-after-loss
+                                    (select-keys rejected-after-loss
                                                  [:status :reason]))
                                  result
                                  (assoc state
                                         :rebuild rebuild
                                         :replacement-report replacement-report
                                         :registered-pass? registered-pass?
-                                        :refusal-preserved? refusal-preserved?)]
+                                        :rejection-preserved? rejection-preserved?)]
                              (image-renderer/destroy-image-system!
                               replacement-system)
                              (.destroy replacement-camera)
@@ -732,7 +732,7 @@
                   :rebuilt-count (:rebuilt rebuild)
                   :replacement-device? true
                   :resource-identities-fresh? (:resources-fresh? rebuild)
-                  :refused-status-preserved? (:refusal-preserved? state)}
+                  :rejected-status-preserved? (:rejection-preserved? state)}
                  placeholder-sha256
                  "aab20b3aa071f60cd29cbcbc44271364792aa800eb6186042eb0d0ab7e4915e8"
                  placeholder-pass?
@@ -742,33 +742,33 @@
                  (get-in state [:replacement-report :counts])
                  lifecycle-pass?
                  (and placeholder-pass?
-                      (= :rejected (get-in state [:refusal :status]))
+                      (= :rejected (get-in state [:rejection :status]))
                       (= :unavailable (:status unavailable))
                       (:placeholder-rendered unavailable)
                       (= (count registered-digests) (:rebuilt rebuild))
                       (:resources-fresh? rebuild)
                       (:registered-pass? state)
-                      (:refusal-preserved? state))]
+                      (:rejection-preserved? state))]
              {:placeholder (assoc (:placeholder state)
                                   :expected-sha256 placeholder-sha256
                                   :pass? placeholder-pass?)
               :unavailable unavailable
               :device-loss device-loss
-              :replacement-history-pass? (:refusal-preserved? state)
+              :replacement-history-pass? (:rejection-preserved? state)
               :lost-device-counts (:counts lost-report)
               :replacement-counts replacement-counts
               :pass? lifecycle-pass?}))))))
 
-(defn run-image-atom! [device]
+(defn run-image-step! [device]
   (let [candidate-camera (device/create-camera-buffer device)
         candidate-groups (device/create-groups-buffer device)
         registry (-> (transform/empty-registry)
                      (transform/add-group
                       17 {:parent 0
                           :affine [0.5 0.0 0.0 0.5 40.0 20.0]}))
-        effective (transform/world-transforms registry)
+        world-transforms (transform/world-transforms registry)
         _candidate-transport
-        (device/write-groups! device candidate-groups effective)
+        (device/write-groups! device candidate-groups world-transforms)
         candidate-system
         (image-renderer/init-image-system
          device "rgba8unorm-srgb" candidate-camera candidate-groups
@@ -776,7 +776,7 @@
         seam-camera (device/create-camera-buffer device)
         seam-containers (device/create-groups-buffer device)
         _seam-transport
-        (device/write-groups! device seam-containers effective)
+        (device/write-groups! device seam-containers world-transforms)
         seam-system
         (image-renderer/init-image-system
          device "rgba8unorm" seam-camera seam-containers
@@ -791,33 +791,33 @@
          (fn [corpus]
            (-> (promise-mapv
                 (partial run-image-golden-case!
-                         device candidate-system effective corpus)
+                         device candidate-system world-transforms corpus)
                 zoom-cases)
                (.then
                 (fn [cases]
                   (-> (run-image-tree-golden!
-                       device candidate-system effective corpus)
+                       device candidate-system world-transforms corpus)
                       (.then #(hash-map :corpus corpus
                                         :cases (conj cases %)))))))))
         (.then
          (fn [{:keys [corpus] :as state}]
-           (-> (run-image-parity! device seam-system effective corpus)
+           (-> (run-image-parity! device seam-system world-transforms corpus)
                (.then #(assoc state :parity (vec (mapcat identity %)))))))
         (.then
          (fn [{:keys [corpus] :as state}]
-           (-> (run-color-receipts! device candidate-system seam-system
-                                    effective corpus)
+           (-> (run-color-evidence! device candidate-system seam-system
+                                    world-transforms corpus)
                (.then #(assoc state :color %)))))
         (.then
          (fn [{:keys [corpus] :as state}]
-           (-> (run-image-upload-gate! device effective corpus)
-               (.then #(assoc state :upload-gate %)))))
+           (-> (run-image-upload-dirty-check! device world-transforms corpus)
+               (.then #(assoc state :upload-dirty-check %)))))
         (.then
          (fn [{:keys [corpus] :as state}]
-           (-> (run-lifecycle-receipt! device candidate-system effective corpus)
+           (-> (run-lifecycle-evidence! device candidate-system world-transforms corpus)
                (.then #(assoc state :lifecycle %)))))
         (.then
-         (fn [{:keys [corpus cases parity color upload-gate lifecycle]}]
+         (fn [{:keys [corpus cases parity color upload-dirty-check lifecycle]}]
            (let [fixture-digests
                  (into {} (map (fn [[filename row]]
                                  [filename (:digest row)])) corpus)
@@ -830,16 +830,16 @@
                                (get-in tree-case
                                        [:unknown-group :error-type]))
                             (:pass? color)
-                            (:pass? upload-gate)
+                            (:pass? upload-dirty-check)
                             (:pass? lifecycle))
                  result {:cases cases :parity parity :color color
-                         :lifecycle lifecycle :upload-gate upload-gate
+                         :lifecycle lifecycle :upload-dirty-check upload-dirty-check
                          :fixture-digests fixture-digests
                          :candidate-ingress
                          (residency-report candidate-system)
                          :seam-off-ingress
                          (residency-report seam-system)
-                         :product-loop-claim :parked-verifier-only
+                         :product-loop-claim :parked-harness-only
                          :product-loop-join :none
                          :image-above-text-kind-layer true
                          :default-dark true :felt-gate :sid-live
@@ -848,4 +848,4 @@
              (image-renderer/destroy-image-system! seam-system)
              result))))))
 
-;; --- PATH ATOM --------------------------------------------------------------
+;; --- PATH STEP --------------------------------------------------------------

@@ -4,7 +4,7 @@
    pre-flat route (`renderer/shape-text` + `pack-slug-instances!`) stays beside
    it as the oracle the bytes are checked against.
    Takes: positioned text draw-items (a layout line, its selected glyph indexes, the
-   draw-item's style and semantic group), effective placements, and the font's
+   draw-item's style and semantic group), world transforms, and the font's
    Slug glyph list.
    Gives: instance counts, and the 25 words per instance written into the
    Float32/Uint32 views of the instance buffer.
@@ -135,11 +135,11 @@
   "Write one draw-item's instances from `instance-index` on; returns the next
    instance index. Resolve its semantic group once before the glyph loop.
    Word layout = `pack-slug-instances!`'s, expression for expression."
-  [^js float-view ^js uint-view instance-index draw-item table effective]
+  [^js float-view ^js uint-view instance-index draw-item table world-transforms]
   (let [{:keys [style font-size]} draw-item
         {:keys [r g b a]} style
         cr (or r 1.0) cg (or g 1.0) cb (or b 1.0) ca (or a 1.0)
-        group (transform/buffer-index effective (:container draw-item))
+        group (transform/buffer-index world-transforms (:container draw-item))
         fsize font-size
         inv-size (if (pos? fsize) (/ 1.0 fsize) 0.0)
         ^js floats (:floats table)
@@ -189,11 +189,11 @@
 
 (defn pack-lines!
   "Write every line's draw-items in order; `lines` = [{:draw-items [...] :count n}]."
-  [^js float-view ^js uint-view lines table effective]
+  [^js float-view ^js uint-view lines table world-transforms]
   (loop [remaining lines i 0]
     (when (seq remaining)
       (let [next-i (reduce (fn [i draw-item]
-                             (pack-draw-item! float-view uint-view i draw-item table effective))
+                             (pack-draw-item! float-view uint-view i draw-item table world-transforms))
                            i (:draw-items (first remaining)))]
         (recur (next remaining) next-i))))
   nil)

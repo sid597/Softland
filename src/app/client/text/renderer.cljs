@@ -18,11 +18,11 @@
 (def slug-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(2) var<uniform> camera: Camera;
-  struct ContainerTransform {
+  struct GroupTransform {
     axis_x: vec2<f32>, axis_y: vec2<f32>, translation: vec2<f32>,
     flags: u32, padding: u32,
   };
-  @group(0) @binding(4) var<storage, read> groups: array<ContainerTransform>;
+  @group(0) @binding(4) var<storage, read> groups: array<GroupTransform>;
 
   struct InstanceInput {
     @location(0) rect: vec4<f32>,
@@ -31,7 +31,7 @@
     @location(3) banding: vec4<f32>,
     @location(4) glyph: vec4<u32>,
     @location(5) color: vec4<f32>,
-    @location(6) container_idx: u32,
+    @location(6) group_buffer_index: u32,
   };
 
   struct VertexOutput {
@@ -59,7 +59,7 @@
 
     let world_pos = vec2<f32>(instance.rect.x + (pos.x * instance.rect.z),
                               instance.rect.y + (pos.y * instance.rect.w));
-    let c = groups[instance.container_idx];
+    let c = groups[instance.group_buffer_index];
     let is_screen = (c.flags & 1u) != 0u;
     let zm = select(camera.zoom, 1.0, is_screen);
     let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
@@ -635,7 +635,7 @@
         ;; exact required size. An exact-size buffer re-reallocs on EVERY
         ;; append (typing adds one instance per keystroke → GPUBuffer
         ;; create+destroy+full-upload per key), and that churn measurably
-        ;; delayed websocket message delivery ~30ms/keystroke on the per-slot
+        ;; delayed websocket message delivery ~30ms/keystroke on the per-entity
         ;; text geos (cloned small, grown to exact). The content geo never hit
         ;; this only because its initial 10k-instance capacity was slack.
         alloc-size (js/Math.ceil (* 1.5 required-size))
@@ -649,7 +649,7 @@
     new-buffer))
 
 (defn- pack-slug-instances!
-  [^js float-view ^js uint-view shaped-lines effective]
+  [^js float-view ^js uint-view shaped-lines world-transforms]
   (loop [lines shaped-lines
          global-i 0]
     (when (seq lines)
@@ -664,7 +664,7 @@
                   [sx sy ox oy] banding
                   [gx gy gzx gwy] glyph
                   [cr cg cb ca] color
-                  group (transform/buffer-index effective group)
+                  group (transform/buffer-index world-transforms group)
                   base (* (+ global-i sub-i) 25)]
               (aset float-view (+ base 0) x)
               (aset float-view (+ base 1) y)
@@ -698,7 +698,7 @@
   "The frozen map route: glyph maps → instance maps → words. Returns the
    packed instance bytes with line offsets, count, and call-local fallbacks
    (no GPU)."
-  [texts font-assets font-size stride & {:keys [char-width snap-step surface effective]
+  [texts font-assets font-size stride & {:keys [char-width snap-step surface world-transforms]
                                           :or {char-width 0.56}}]
   (let [shaped-lines (mapv (fn [tokens-in-line]
                              (let [{:keys [instances fallbacks]}
@@ -715,7 +715,7 @@
         raw-buffer (js/ArrayBuffer. (* buffer-instance-count stride))]
     (pack-slug-instances! (js/Float32Array. raw-buffer)
                           (js/Uint32Array. raw-buffer)
-                          shaped-lines effective)
+                          shaped-lines world-transforms)
     {:raw-buffer raw-buffer
      :line-offsets (line-offsets-for shaped-lines)
      :num-instances actual-instances
@@ -724,7 +724,7 @@
 (defn pack-instances-flat
   "The flat route: planes → words through the pack entry point, two passes (count,
    then write). Same call-local return shape as `pack-instances-oracle`."
-  [texts font-assets font-size stride & {:keys [char-width snap-step surface effective]
+  [texts font-assets font-size stride & {:keys [char-width snap-step surface world-transforms]
                                           :or {char-width 0.56}}]
   (let [table (glyph-pack/slug-table (get-in font-assets [:slug :meta :glyphs]))
         shaped-lines (mapv (fn [tokens-in-line]
@@ -741,7 +741,7 @@
         raw-buffer (js/ArrayBuffer. (* buffer-instance-count stride))]
     (glyph-pack/pack-lines! (js/Float32Array. raw-buffer)
                             (js/Uint32Array. raw-buffer)
-                            shaped-lines table effective)
+                            shaped-lines table world-transforms)
     {:raw-buffer raw-buffer
      :line-offsets (line-offsets-for shaped-lines)
      :num-instances actual-instances
@@ -749,14 +749,14 @@
 
 (defn update-text-data
   [^js/GPUDevice device renderer-state texts font-assets font-size
-   & {:keys [line-height-factor line-height char-width snap-step surface effective]
+   & {:keys [line-height-factor line-height char-width snap-step surface world-transforms]
       :or {line-height-factor 1.0 char-width 0.56}}]
   (let [line-h (or line-height (* font-size line-height-factor))
         stride (:instance-stride renderer-state)
         {:keys [raw-buffer line-offsets num-instances fallbacks]}
         (pack-instances-flat texts font-assets font-size stride
                              :char-width char-width :snap-step snap-step
-                             :surface surface :effective effective)
+                             :surface surface :world-transforms world-transforms)
         actual-instances num-instances]
     (let [upload-view (js/Uint8Array. raw-buffer)
           required-size (.-byteLength upload-view)

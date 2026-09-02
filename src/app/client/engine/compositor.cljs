@@ -92,7 +92,7 @@
 
 (defn- reclaim-stale-free-targets!
   "Held region leases keep :leased occupied across frames, so the empty-leased
-   reclaim road never runs on the region3d lane. Free targets released before
+   reclaim path never runs on the region3d lane. Free targets released before
    the current submit epoch can no longer be named by an unsubmitted encoder,
    so budget pressure may destroy them mid-frame."
   [pool]
@@ -346,7 +346,7 @@
          (quantize-region-size height)])))
 
 (defn- acquire-region-target!
-  "Acquire persistent Region3D storage without reclaiming the free frame-road
+  "Acquire persistent Region3D storage without reclaiming the free frame path
    cache. Those targets are the observed transient reserve for a frame that
    already fit; consuming them here can admit the region and make the later
    mandatory group-output allocation kill the whole frame. The caller's
@@ -498,7 +498,7 @@
 
 (defn retire-absent-region-leases!
   "Retire held targets after the last submitted command that could name them.
-   Used by the legacy road when closing the final region also removes the
+   Used by the legacy path when closing the final region also removes the
    linear-mode trigger."
   [compositor active-region-ids]
   (let [pending @(:!retiring-region-keys compositor)
@@ -713,7 +713,7 @@
      :rung-stats rung-stats :lease-activity @activity}))
 
 (defn copy-present!
-  "Legacy COPY-PRESENT executor primitive used by the effectless verifier row."
+  "Legacy COPY-PRESENT executor primitive used by the effectless harness row."
   [device encoder source-texture swap-texture width height]
   (.copyTextureToTexture ^js encoder
                          (clj->js {:texture source-texture})

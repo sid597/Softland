@@ -1,5 +1,5 @@
 (ns app.client.engine.color
-  "Color conversion shared by every painter: a color as written, or converted
+  "Color conversion shared by every renderer: a color as written, or converted
    to linear premultiplied for the linear scene mode.
    Takes: a color and the scene color mode.
    Gives: the RGBA a shader should receive, and the mode the pipelines are
@@ -54,11 +54,11 @@
            :alpha [:one :one-minus-src-alpha]}
    :clear [0.0 0.0 0.0 0.0]})
 
-(def scene-color-seam
+(def scene-color-boundary
   "The candidate Contract-C resource is code-real but deliberately default-off.
    Direct presentation remains the byte-identical legacy route until a later
    activation evidence explicitly selects the linear-premultiplied candidate."
-  {:scene-color-seam/version 1
+  {:scene-color-boundary/version 1
    :default (:scene-color/id legacy-direct-color)
    :candidate (:scene-color/id linear-premultiplied-color)
    :default-off? true})

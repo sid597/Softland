@@ -3,7 +3,7 @@
    its helpers, verbatim — `getGlyphInfosAndPositions` → `js->clj`, the
    per-glyph `glyphExtents` round trip, the 11-key glyph maps, `position-runs`,
    `cluster-records`. Kept as the oracle the flat shaper is checked against
-   (verifier only); never improved.
+   (harness only); never improved.
    Takes: the provider's handles {:hb :bidi :faces}, a line of text, shaping
    options.
    Gives: the pre-flat result map {:runs :glyphs :clusters :advance

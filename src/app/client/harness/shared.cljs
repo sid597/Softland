@@ -1,7 +1,7 @@
-(ns app.client.verifier.shared
-  "Shared browser-verifier constants, transport, hashing, pixels, and receipts.
+(ns app.client.harness.shared
+  "Shared browser-harness constants, transport, hashing, pixels, and evidence.
    Takes: browser/WebGPU values and kind shader sources.
-   Gives: deterministic helpers consumed by the verifier kind drivers.
+   Gives: deterministic helpers consumed by the harness kind drivers.
    Holds nothing."
   (:require [app.client.engine.color :as color]
             [app.client.engine.device :as device]
@@ -16,13 +16,13 @@
 (def glyph-screen-size 80.0)
 
 (def zoom-cases
-  [{:case-id "legal-min-z0p01" :zoom 0.01 :regime "legal-envelope-sentinel"}
-   {:case-id "default-min-z0p1" :zoom 0.1 :regime "floor-default-clamp"}
-   {:case-id "default-unit-z1" :zoom 1.0 :regime "floor-default-clamp"}
-   {:case-id "default-max-z8" :zoom 8.0 :regime "floor-default-clamp"}
-   {:case-id "legal-log-z10" :zoom 10.0 :regime "legal-envelope-sentinel"}
-   {:case-id "legal-log-z100" :zoom 100.0 :regime "legal-envelope-sentinel"}
-   {:case-id "legal-max-z1000" :zoom 1000.0 :regime "legal-envelope-sentinel"}])
+  [{:case-id "legal-min-z0p01" :zoom 0.01 :lod "legal-zoom-range-sentinel"}
+   {:case-id "default-min-z0p1" :zoom 0.1 :lod "engine-default-clamp"}
+   {:case-id "default-unit-z1" :zoom 1.0 :lod "engine-default-clamp"}
+   {:case-id "default-max-z8" :zoom 8.0 :lod "engine-default-clamp"}
+   {:case-id "legal-log-z10" :zoom 10.0 :lod "legal-zoom-range-sentinel"}
+   {:case-id "legal-log-z100" :zoom 100.0 :lod "legal-zoom-range-sentinel"}
+   {:case-id "legal-max-z1000" :zoom 1000.0 :lod "legal-zoom-range-sentinel"}])
 
 (def image-fixtures
   [{:filename "atlas-opaque-srgb.png" :digest "6e744e448e1480b510b3cd8aef86b5e2c9b8367bbafdb3e1586946c779b265eb"
@@ -65,7 +65,7 @@
   (sha256-bytes (.encode (js/TextEncoder.) s)))
 
 (defn opaque-png-data-url [^js rgba]
-  ;; The golden is the visible result over the verifier's black clear color.
+  ;; The golden is the visible result over the harness's black clear color.
   ;; Raw GPU bytes are hashed separately and remain the comparison authority.
   (let [canvas (.createElement js/document "canvas")
         _ (set! (.-width canvas) canvas-size)
@@ -84,31 +84,31 @@
     (.putImageData context image 0 0)
     (.toDataURL canvas "image/png")))
 
-(defn q8-effective [entry-count]
+(defn q8-world-transforms [entry-count]
   ;; Semantic ids deliberately stride by 17, reproducing the Q8 sparse-id
-  ;; pressure while transport slots remain dense 0..N-1.
+  ;; pressure while transport buffer indexes remain dense 0..N-1.
   (into {}
-        (map (fn [slot]
-               [(* slot 17)
+        (map (fn [buffer-index]
+               [(* buffer-index 17)
                 {:affine transform/identity-affine
                  :flags 0
                  :layer 0
-                 :stack-path [[(* slot 17) 0]]
-                 :buffer-index slot}]))
+                 :stack-path [[(* buffer-index 17) 0]]
+                 :buffer-index buffer-index}]))
         (range entry-count)))
 
 (defn run-q8-transport! [device groups-buffer]
   (let [rows
         (mapv (fn [entry-count]
-                (let [effective (q8-effective entry-count)
-                      receipt (device/write-groups! device groups-buffer effective)
+                (let [world-transforms (q8-world-transforms entry-count)
+                      stats (device/write-groups! device groups-buffer world-transforms)
                       expected-bytes (* entry-count device/affine-entry-bytes)]
-                  (assoc receipt
+                  (assoc stats
                          :semantic-max-id (* 17 (dec entry-count))
                          :expected-bytes expected-bytes
-                         :pass? (and (= entry-count (:entries receipt))
-                                     (= expected-bytes (:bytes receipt))
-                                     (= (dec entry-count) (:max-buffer-index receipt))))))
+                         :pass? (and (= entry-count (:entries stats))
+                                     (= expected-bytes (:bytes stats))
+                                     (= (dec entry-count) (:max-buffer-index stats))))))
               [1024 4096 16384])]
     {:entry-bytes device/affine-entry-bytes
      :transport "compact-read-only-storage"

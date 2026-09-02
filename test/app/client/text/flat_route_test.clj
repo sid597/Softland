@@ -158,7 +158,7 @@
         mapped (oracle/layout input)
         template {:size 10 :r 1 :g 1 :b 1 :a 1 :container 17}
         expected-refusal
-        {:message "Text zoom is outside Contract-T's legal material range."
+        {:message "Text zoom is outside Contract-T's legal component range."
          :data {:zoom 0.001 :legal-range [0.01 1000]}}]
     (testing "the draw-item template's semantic group reaches every line"
       (is (seq (tl/line-paint-draw-items flat template)))

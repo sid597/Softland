@@ -1,5 +1,5 @@
 (ns app.client.region3d.on-plane
-  "Puts 2D marks on 3D planes: text laid out with the text preparer, ink
+  "Puts 2D entities on 3D planes: text laid out with the text preparer, ink
    tessellated with the path preparer, then packed and anchored on a region's
    plane. The one place two kinds meet.
    Takes: a placed text or ink row and font assets; a path-mesh cache; a
@@ -140,13 +140,13 @@
          :clamped? true}))))
 
 (defn project-region-anchor
-  "Project a region-object binding into the connector anchor container."
+  "Project a region-object binding into the connector anchor group."
   [{:keys [binding region-draw-item maintained camera world-transforms
-           anchor-container]}]
+           anchor-group]}]
   (let [object-id (:object binding)
         matrix (get-in maintained [:world-transforms object-id])
         region-world-transform (get world-transforms (:container region-draw-item))
-        anchor-world-transform (get world-transforms anchor-container)]
+        anchor-world-transform (get world-transforms anchor-group)]
     (when (and matrix region-world-transform anchor-world-transform)
       (let [point3 (region3d-scene/transform-point matrix (:local binding))
             projected (region3d-scene/project-point camera point3)
@@ -156,12 +156,12 @@
                 height (double (:h region-draw-item))
                 {:keys [point clamped?]} (clamp-projection (:screen projected)
                                                            width height)
-                region-container-point [(+ (double (:x region-draw-item)) (first point))
+                region-group-point [(+ (double (:x region-draw-item)) (first point))
                                         (+ (double (:y region-draw-item)) (second point))]
                 anchor-point (transform/inverse-point
                               anchor-world-transform
                               (transform/forward-point region-world-transform
-                                                        region-container-point))]
+                                                        region-group-point))]
             {:status :resolved
              :kind :point
              :center anchor-point

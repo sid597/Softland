@@ -173,7 +173,7 @@
    monospace provider.
 
    Required semantic inputs are source text (or exact `source-lines`) and the
-   current advance/line height. `origin` is material-local. `baseline-offset`
+   current advance/line height. `origin` is component-local. `baseline-offset`
    defaults to zero because existing text-draw-item call sites already carry baseline
    y; ground blocks pass font-size to preserve their existing baseline."
   [{:keys [text source-lines font-size char-advance line-height origin
@@ -279,7 +279,7 @@
      :shaping {:shaper-id (:shaper-id legacy-provider)
                :version (:shaper-version legacy-provider)
                :language :und :script :legacy :direction :ltr}
-     :space {:coordinates :material-local}
+     :space {:coordinates :component-local}
      :constraints {:inline-size (or inline-size :unbounded)
                    :wrap wrap-policy
                    :line-height line-height
@@ -314,7 +314,7 @@
                          :metrics]))
 
 (defn legal-zoom?
-  "True when zoom is inside Contract-T's legal material range."
+  "True when zoom is inside Contract-T's legal component range."
   [zoom]
   (<= 0.01 zoom 1000))
 
@@ -719,7 +719,7 @@
                           :shape-calls 0
                           :reference-shapes 0
                           :provider-fault 0})
-        ;; The one seam: a map-shaped provider result is coerced here.
+        ;; The one boundary: a map-shaped provider result is coerced here.
         shape! (fn [s]
                  (work+! !work :shape-calls 1)
                  (sl/from-maps ((:shape-line provider) s shape-opts)))
@@ -1050,7 +1050,7 @@
         zoom-legal? (legal-zoom? zoom)
         work @!work]
     (when-not zoom-legal?
-      (throw (ex-info "Text zoom is outside Contract-T's legal material range."
+      (throw (ex-info "Text zoom is outside Contract-T's legal component range."
                       {:zoom zoom :legal-range [0.01 1000]})))
     {:text-layout/version layout-version
      :layout/id id
@@ -1063,9 +1063,9 @@
                :version (:shaper-version provider)
                :language (:language shape-opts) :script :auto
                :direction :bidi}
-     :space {:coordinates :material-local}
-     :regime {:legal-zoom [0.01 1000] :zoom zoom
-              :precision :material-f64
+     :space {:coordinates :component-local}
+     :lod {:legal-zoom [0.01 1000] :zoom zoom
+           :precision :component-f64
               :paint-route :consumer-selected}
      :constraints {:inline-size (or inline-size :unbounded)
                    :wrap wrap-policy :line-height line-height
