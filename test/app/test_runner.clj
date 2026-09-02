@@ -29,7 +29,8 @@
            [java.nio.file.attribute FileAttribute]))
 
 (def pure-namespaces
-  '[app.client.image.material-test
+  '[app.client.image.frame-test
+    app.client.image.material-test
     app.client.path.frame-test
     app.client.path.material-test
     app.client.path.tessellation-test
