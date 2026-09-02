@@ -25,3 +25,7 @@ Image: PASS — 22 records, 14 parity rows, I3 gate/residency, I4 color, I5 rebu
 I1 golden: `e1d93240…f3b7e5` raw; `58be6105…cf59e` PNG, manifest-matched.
 Note: `:writes` is the frame update count; `:item-writes` preserves the measured per-instance GPU write count (2 on the two-op first frame).
 Custody: `image/{frame,material,painter}`, `verifier/image`, their two JVM tests, test-runner line, image manifest row, I1 PNG.
+Image REPAIR PENDING (ruling, Fable, 2026-09-02): `:writes` reports 1 where the pool wrote 2 (`painter.cljs:664`, `(if (pos? n) 1 0)`); the repair is the pool's count under `:writes`, `:item-writes` gone, I3 re-pinned to measured values; rides the package close, §11e act 1.
+
+## Package close
+PENDING — §11e: image `:writes` repair · T1's ninth golden row beside F7's · full harness + full JVM on the final tree · terminal line · board flip. Contract prose swept into the render-boundary glossary 2026-09-02 (words only; identifiers keep their names).
