@@ -566,7 +566,10 @@ CLAUDE-1.md, or anything under .claude/memory/.
 ```
 Preflight, before the first prompt: permission mode, remote-control and MCP set now; never mid-session.
 
-Boot, by seam, sizes first (about 60KB):
+Boot, by seam, sizes first (about 65KB):
+  docs/decisions.md   "The render boundary" → the "One vocabulary" block only (~4KB), first; NOW and the board
+                      are written in its words. This close renames NO code identifier: a close of frozen
+                      work is not a step; each file's names change in the next real work that owns it.
   docs/seam-cuts/CONTRACT-2-4.md   header, §4b (prepare-image-frame!), §4d (T1), §7 I3 + T1, §8, §10, §11e   read PRIMARY
   docs/seam-cuts/NOW-2-4.md                                    5KB   whole
   src/app/client/image/painter.cljs                           37KB   the prepare-image-frame! window only
