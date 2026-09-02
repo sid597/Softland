@@ -5,10 +5,10 @@
    Takes: a device and output format; lease requests by region; a target pass
    to begin, draw into, and release.
    Gives: a compositor with its pool and presentation pipeline; leased targets; one
-   presented frame; pixels read back for receipts.
-   Holds: the pool state (free and leased targets, counters, refusals); the
+   presented frame; pixels read back as evidence.
+   Holds: the pool state (free and leased targets, counters, rejections); the
    current region leases, the lease keys retiring this frame, and retired
-   targets awaiting release; a receipt atom."
+   targets awaiting release; a stats atom."
   (:require [app.client.engine.rungs :as region-rungs]
             [app.client.engine.leases :as region-bindings]))
 
@@ -65,7 +65,7 @@
                      :or {budget-cap-bytes default-pool-budget-bytes}}]
   {:device device :budget-cap-bytes budget-cap-bytes
    :!state (atom {:free {} :leased {} :allocations 0 :reuses 0
-                  :destroyed 0 :high-water-leased 0 :epoch 0 :refusals []})})
+                  :destroyed 0 :high-water-leased 0 :epoch 0 :rejections []})})
 
 (defn- reserved-bytes [state]
   (reduce + 0 (map :bytes (concat (vals (:leased state))
@@ -122,13 +122,13 @@
   [pool bytes label]
   (let [state @(:!state pool)]
     (when (> (+ (reserved-bytes state) bytes) (:budget-cap-bytes pool))
-      (let [receipt {:reason :frame-target-budget-exceeded
+      (let [rejection {:reason :frame-target-budget-exceeded
                      :requested-bytes bytes
                      :reserved-bytes (reserved-bytes state)
                      :budget-cap-bytes (:budget-cap-bytes pool)
                      :requested-by label}]
-        (swap! (:!state pool) update :refusals conj receipt)
-        (throw (ex-info "Frame target pool budget exceeded" receipt))))))
+        (swap! (:!state pool) update :rejections conj rejection)
+        (throw (ex-info "Frame target pool budget exceeded" rejection))))))
 
 (defn- create-target!
   [pool format width height label sample-count usage reclaim-free?]
@@ -266,10 +266,10 @@
              :reuses (:reuses state) :destroyed (+ (:destroyed state)
                                                    (count targets))
              :high-water-leased (:high-water-leased state)
-             :refusals (:refusals state)})
+             :rejections (:rejections state)})
     nil))
 
-(defn target-pool-receipt [pool]
+(defn target-pool-stats [pool]
   (let [state @(:!state pool)]
     {:target-pool/version target-pool-version
      :budget-owner :frame-runtime/target-pool
@@ -279,7 +279,7 @@
      :free (reduce + 0 (map count (vals (:free state))))
      :reserved-bytes (reserved-bytes state)
      :high-water-leased (:high-water-leased state)
-     :destroyed (:destroyed state) :refusals (:refusals state)}))
+     :destroyed (:destroyed state) :rejections (:rejections state)}))
 
 (defn- shader-module [device code]
   (.createShaderModule ^js device (clj->js {:code code})))
@@ -326,7 +326,7 @@
    :!region-leases (atom {})
    :!retired-region-targets (atom [])
    :!retiring-region-keys (atom #{})
-   :!receipt (atom {})})
+   :!stats (atom {})})
 
 (defn quantize-region-size [value]
   (-> (/ (max 1 (double value)) region-lease-quant)
@@ -350,7 +350,7 @@
    cache. Those targets are the observed transient reserve for a frame that
    already fit; consuming them here can admit the region and make the later
    mandatory group-output allocation kill the whole frame. The caller's
-   existing lease-refusal path owns the combined-set failure instead."
+   existing lease-rejection path owns the combined-set failure instead."
   [compositor format width height label & {:keys [sample-count usage]
                                            :or {sample-count 1}}]
   (acquire-target! (:target-pool compositor) format width height label
@@ -367,7 +367,7 @@
        0)))
 
 (defn acquire-region-lease!
-  "Acquire or reuse one compositor-owned held lease. Refusal is returned as
+  "Acquire or reuse one compositor-owned held lease. Rejection is returned as
    data so the family can draw its declared fill; no target byte has another
    owner."
   [compositor region-id width height shadow?]
@@ -398,14 +398,14 @@
           (swap! (:!region-leases compositor) assoc key lease)
           lease)
         (catch :default error
-          (let [receipt (merge
-                         {:reason :region3d-lease-refused
+          (let [rejection-data (merge
+                         {:reason :region3d-lease-rejected
                           :region-id region-id :key key
                           :requested-size [qw qh] :requested-shadow? true}
                          (ex-data error))]
-            (swap! (:!receipt compositor) assoc :last-region-refusal receipt)
+            (swap! (:!stats compositor) assoc :last-region-rejection rejection-data)
             {:lease/version 1 :key key :region-id region-id
-             :size [qw qh] :bytes 0 :refused? true :refusal receipt})))
+             :size [qw qh] :bytes 0 :rejected? true :rejection rejection-data})))
 
       (and existing (not shadow?) (:shadow existing))
       (let [shadow (:shadow existing)
@@ -458,22 +458,22 @@
                          :size [qw qh] :color-msaa color-msaa :depth depth
                          :resolve resolve :shadow shadow
                          :bytes (reduce + (map :bytes @acquired))
-                         :refused? false}]
+                         :rejected? false}]
               (swap! (:!region-leases compositor) assoc key lease)
               lease)
             (catch :default error
               (doseq [target @acquired]
                 (destroy-target! pool target))
-              (let [receipt (merge
-                             {:reason :region3d-lease-refused
+              (let [rejection-data (merge
+                             {:reason :region3d-lease-rejected
                               :region-id region-id :key key
                               :requested-size [qw qh]}
                              (ex-data error))
-                    refusal {:lease/version 1 :key key :region-id region-id
-                             :size [qw qh] :bytes 0 :refused? true
-                             :refusal receipt}]
-                (swap! (:!receipt compositor) assoc :last-region-refusal receipt)
-                refusal)))))))
+                    rejected-lease {:lease/version 1 :key key :region-id region-id
+                             :size [qw qh] :bytes 0 :rejected? true
+                             :rejection rejection-data}]
+                (swap! (:!stats compositor) assoc :last-region-rejection rejection-data)
+                rejected-lease)))))))
 
 (defn release-region-lease!
   ([compositor region-id]
@@ -524,12 +524,12 @@
                            #(apply disj % keys)))))))
   nil)
 
-(defn region-leases-receipt [compositor]
+(defn region-leases-stats [compositor]
   {:owner :compositor/region-leases
    :leases (into {}
                  (map (fn [[key lease]]
                         [key (select-keys lease
-                                          [:region-id :size :bytes :refused?
+                                          [:region-id :size :bytes :rejected?
                                            :desired-key :rung-divisor])]))
                  @(:!region-leases compositor))
    :bytes (reduce + 0 (map :bytes (vals @(:!region-leases compositor))))})
@@ -563,8 +563,8 @@
                :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 0.0}
                :loadOp load-op :storeOp "store"}]})))
 
-(defn effective-scale [effective-transforms container-id]
-  (let [[a b c d] (or (get-in effective-transforms [container-id :affine])
+(defn world-transform-scale [world-transforms group-id]
+  (let [[a b c d] (or (get-in world-transforms [group-id :affine])
                       [1.0 0.0 0.0 1.0])
         sx (js/Math.sqrt (+ (* a a) (* b b)))
         sy (js/Math.sqrt (+ (* c c) (* d d)))]
@@ -616,8 +616,8 @@
 
 (defn active-region-leases!
   "Acquire this frame's region leases from the binding owner's desired rows,
-   retiring every lease those rows no longer name. Records the rung receipts
-   and the frame's lease activity on the compositor receipt."
+   retiring every lease those rows no longer name. Records the rung stats
+   and the frame's lease activity on the compositor stats."
   [compositor binding-owner]
   (let [regions (if binding-owner
                   (region-bindings/desired-rows binding-owner)
@@ -627,20 +627,20 @@
                         :leases-acquired 0 :region-rungs-worn 0
                         :region-rung-recoveries 0})
         note! (fn [key] (swap! activity update key inc))
-        _ (swap! (:!receipt compositor) dissoc :last-region-refusal)
+        _ (swap! (:!stats compositor) dissoc :last-region-rejection)
         ;; Old-generation leases die BEFORE the new generation is acquired:
         ;; only submitted (or abandoned, never-submitted) encoders can still
         ;; name them, and destroy after submit defers deallocation, so the two
         ;; generations never bill the pool budget at once — a zoom gesture
         ;; that crosses lease quanta otherwise holds both until a frame
-        ;; succeeds, which budget refusal can make unreachable.
+        ;; succeeds, which budget rejection can make unreachable.
         _ (doseq [[key lease] @(:!region-leases compositor)
                   :when (not (contains? desired-region-ids (first key)))]
             (note! :leases-retired)
             (release-region-lease! compositor key lease))
-        {:keys [active rung-receipts]}
+        {:keys [active rung-stats]}
         (reduce
-         (fn [{:keys [active rung-receipts]}
+         (fn [{:keys [active rung-stats]}
               {region-id :region/id [width height] :lease-size
                shadow? :shadow?}]
            (let [prior-physical (region-lease compositor region-id)
@@ -668,7 +668,7 @@
                  prior (when binding-owner
                          (region-bindings/lease binding-owner region-id))
                  update? (or (nil? prior)
-                             (:refused? prior)
+                             (:rejected? prior)
                              (not= selected-key (:key prior))
                              (not= (boolean shadow?)
                                    (boolean (:shadow prior))))
@@ -677,15 +677,15 @@
                  lease (assoc acquired
                               :desired-key (:desired-key grant)
                               :rung-divisor (:rung-divisor grant)
-                              :rung-receipt (:rung-receipt grant))
-                 _ (when-not (:refused? lease)
+                              :rung-stats (:rung-stats grant))
+                 _ (when-not (:rejected? lease)
                      (swap! (:!region-leases compositor)
                             assoc selected-key lease))
                  prior-divisor (:rung-divisor prior)
                  granted-divisor (:rung-divisor grant)]
              (when update?
                (note! :region-binding-updates)
-               (when-not (:refused? lease)
+               (when-not (:rejected? lease)
                  (note! :leases-acquired)
                  (when (> granted-divisor 1)
                    (note! :region-rungs-worn))
@@ -695,22 +695,22 @@
              (when binding-owner
                (region-bindings/record-lease! binding-owner region-id lease))
              {:active (assoc active region-id lease)
-              :rung-receipts (cond-> rung-receipts
-                               (:rung-receipt grant)
-                               (conj (:rung-receipt grant)))}))
-         {:active {} :rung-receipts []}
+              :rung-stats (cond-> rung-stats
+                               (:rung-stats grant)
+                               (conj (:rung-stats grant)))}))
+         {:active {} :rung-stats []}
          regions)
         active-keys (into #{} (keep (fn [[_ lease]]
-                                      (when-not (:refused? lease)
+                                      (when-not (:rejected? lease)
                                         (:key lease)))) active)
         stale (into []
                     (remove (fn [[key _lease]] (contains? active-keys key)))
                     @(:!region-leases compositor))]
-    (swap! (:!receipt compositor) assoc
-           :region-rung-receipts rung-receipts
+    (swap! (:!stats compositor) assoc
+           :region-rung-stats rung-stats
            :lease-activity @activity)
     {:active active :active-keys active-keys :stale stale
-     :rung-receipts rung-receipts :lease-activity @activity}))
+     :rung-stats rung-stats :lease-activity @activity}))
 
 (defn copy-present!
   "Legacy COPY-PRESENT executor primitive used by the effectless verifier row."
@@ -756,7 +756,7 @@
         (.then #(.arrayBuffer %))
         (.then #(js/Uint8Array. %)))))
 
-(defn compositor-receipt [compositor]
-  (assoc @(:!receipt compositor)
-         :pool (target-pool-receipt (:target-pool compositor))
-         :region-leases (region-leases-receipt compositor)))
+(defn compositor-stats [compositor]
+  (assoc @(:!stats compositor)
+         :pool (target-pool-stats (:target-pool compositor))
+         :region-leases (region-leases-stats compositor)))

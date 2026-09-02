@@ -36,9 +36,9 @@
   (let [ink fixtures/example-ink-material
         shape fixtures/example-shape-material
         refusals
-        [[:grammar/unknown-key #(material/validate-material!
+        [[:schema/unknown-key #(material/validate-material!
                                 (assoc ink :path/curve :quadratic))]
-         [:grammar/unknown-key #(material/validate-material!
+         [:schema/unknown-key #(material/validate-material!
                                 (assoc-in ink
                                           [:path/geometry :knots 0 :tilt]
                                           0.5))]

@@ -2,7 +2,7 @@
   (:require [app.client.region3d.material :as region-material]
             [app.client.region3d.on-plane :as on-plane]
             [app.client.region3d.scene :as region-scene]
-            [app.client.engine.placement :as containers]
+            [app.client.engine.transform :as transform]
             [app.client.text.layout :as text-layout]
             [app.client.text.layout-planes :as text-layout-planes]
             [clojure.test :refer [deftest is]]))
@@ -47,7 +47,7 @@
         scene (region {:mesh/a object})
         maintained (region-scene/derive-scene scene)
         camera (region-scene/camera-matrices (:view-default scene) [400.0 240.0])
-        effective {0 {:affine containers/identity-affine :flags 0}}
+        effective {0 {:affine transform/identity-affine :flags 0}}
         region-op {:address :region/shared :region-id :region/a
                    :container 0 :x 20.0 :y 30.0 :w 400.0 :h 240.0
                    :region3d/scene scene}

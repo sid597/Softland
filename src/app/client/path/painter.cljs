@@ -9,7 +9,7 @@
    state, and the last revision/container/regime frame key."
   (:require [app.client.engine.color :as scene-color]
             [app.client.engine.device :as device]
-            [app.client.engine.placement :as placement]
+            [app.client.engine.transform :as transform]
             [app.client.path.frame :as frame]
             [app.client.path.material :as path-material]
             [app.client.path.tessellation :as tessellation]))
@@ -65,12 +65,12 @@
                                           js/GPUBufferUsage.COPY_DST)})))
 
 (defn init-path-system
-  [^js device fformat camera-buffer containers-buffer
+  [^js device fformat camera-buffer groups-buffer
    & {:keys [initial-capacity scene-color]
       :or {initial-capacity 2048
            scene-color scene-color/legacy-direct-color}}]
   (assert camera-buffer "init-path-system requires :camera-buffer")
-  (assert containers-buffer "init-path-system requires :containers-buffer")
+  (assert groups-buffer "init-path-system requires :groups-buffer")
   (let [vertex-module (.createShaderModule
                        device (clj->js {:code path-vertex-shader}))
         fragment-module (.createShaderModule
@@ -119,10 +119,10 @@
                               :entries [{:binding 0
                                          :resource {:buffer camera-buffer}}
                                         {:binding 1
-                                         :resource {:buffer containers-buffer}}]}))
+                                         :resource {:buffer groups-buffer}}]}))
         buffer (create-vertex-buffer device initial-capacity)]
     {:device device :pipeline pipeline :bind-group bind-group
-     :camera-buffer camera-buffer :containers-buffer containers-buffer
+     :camera-buffer camera-buffer :groups-buffer groups-buffer
      :scene-color scene-color
      :!buffer (atom buffer) :!capacity (atom initial-capacity)
      :!mesh-cache (atom {}) :!prepared (atom [])
@@ -137,7 +137,7 @@
         (let [material (:path/material op)
               vertices (:vertices mesh)
               [r g b a] (path-material/paint-color material)
-              container-idx (placement/slot effective (:container op))]
+              container-idx (transform/buffer-index effective (:container op))]
           (doseq [[index [x y]] (map-indexed vector vertices)]
             (let [base (* (+ vertex-offset index) vertex-words)]
               (aset floats (+ base 0) x)

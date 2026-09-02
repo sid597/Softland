@@ -9,7 +9,7 @@
    Gives: instance counts, and the 25 words per instance written into the
    Float32/Uint32 views of the instance buffer.
    Holds: one derived Slug table per glyph list (WeakMap, dies with the list)."
-  (:require [app.client.engine.placement :as placement]
+  (:require [app.client.engine.transform :as transform]
             [app.client.text.layout :as tl]))
 
 (def instance-words 25)
@@ -139,7 +139,7 @@
   (let [{:keys [style font-size]} op
         {:keys [r g b a]} style
         cr (or r 1.0) cg (or g 1.0) cb (or b 1.0) ca (or a 1.0)
-        container (placement/slot effective (:container op))
+        container (transform/buffer-index effective (:container op))
         fsize font-size
         inv-size (if (pos? fsize) (/ 1.0 fsize) 0.0)
         ^js floats (:floats table)

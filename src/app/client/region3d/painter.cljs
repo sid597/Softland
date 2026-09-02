@@ -16,7 +16,7 @@
             [app.client.engine.color :as color]
             [app.client.engine.compositor :as compositor]
             [app.client.engine.leases :as region-bindings]
-            [app.client.engine.placement :as placement]
+            [app.client.engine.transform :as transform]
             [app.client.region3d.on-plane-painter
              :as on-plane-painter]))
 
@@ -389,11 +389,11 @@
                               :targets [{:format "rgba16float" :blend (blend-state)}]}
                    :primitive {:topology "triangle-list"}}))]
     {:interior-layout interior-layout :shadow-layout shadow-layout
-     :composite-layout composite-layout :refusal-layout refusal-layout
+     :composite-layout composite-layout :rejection-layout refusal-layout
      :opaque (mesh-pipeline false) :transparent (mesh-pipeline true)
      :shadow shadow-pipeline :composite composite-pipeline
      :worn worn-pipeline
-     :refusal refusal-pipeline}))
+     :rejection refusal-pipeline}))
 
 (defn- create-buffer! [device label size usage]
   (let [size (max 4 (int size))
@@ -432,7 +432,7 @@
     {:texture texture :view (.createView texture)}))
 
 (defn init-region3d-system!
-  [device camera-buffer containers-buffer]
+  [device camera-buffer groups-buffer]
   (let [fallback (depth-fallback! device)
         composite-buffer (create-buffer!
                           device "region3d/composite-instances" 256
@@ -440,7 +440,7 @@
                                   js/GPUBufferUsage.COPY_DST))]
     {:region3d-gpu/version region3d-gpu-version
      :device device :camera-buffer camera-buffer
-     :containers-buffer containers-buffer :pipelines (create-pipelines! device)
+     :groups-buffer groups-buffer :pipelines (create-pipelines! device)
      :placement-system (on-plane-painter/init-placement-system! device)
      :sampler (.createSampler ^js device (clj->js {:minFilter "linear"
                                                    :magFilter "linear"}))
@@ -468,9 +468,9 @@
   (.get !systems-by-device device))
 
 (defn ensure-region3d-system!
-  [device camera-buffer containers-buffer]
+  [device camera-buffer groups-buffer]
   (or (.get !systems-by-device device)
-      (let [system (init-region3d-system! device camera-buffer containers-buffer)]
+      (let [system (init-region3d-system! device camera-buffer groups-buffer)]
         (.set !systems-by-device device system)
         system)))
 
@@ -728,22 +728,22 @@
     (destroy-buffer! (get gpu key)))
   (on-plane-painter/destroy-region-gpu! (:placement gpu)))
 
-(defn- composite-row-bytes [{:keys [x y w h slot]}]
+(defn- composite-row-bytes [{:keys [x y w h buffer-index]}]
   (let [raw (js/ArrayBuffer. composite-instance-stride)
         floats (js/Float32Array. raw)
         uints (js/Uint32Array. raw)]
     (aset floats 0 x) (aset floats 1 y)
     (aset floats 2 w) (aset floats 3 h)
-    (aset uints 4 slot)
+    (aset uints 4 buffer-index)
     (js/Uint8Array. raw)))
 
 (defn- upload-composites! [system desired]
   (let [rows (into {}
-                   (map (fn [{:keys [slot composite]}]
-                          [slot composite]))
+                   (map (fn [{:keys [buffer-index composite]}]
+                          [buffer-index composite]))
                    desired)
-        max-slot (reduce max -1 (keys rows))
-        active-bytes (* (inc max-slot) composite-instance-stride)
+        max-buffer-index (reduce max -1 (keys rows))
+        active-bytes (* (inc max-buffer-index) composite-instance-stride)
         old-buffer @(:!composite-buffer system)
         buffer (ensure-buffer! system old-buffer
                                "region3d/composite-instances"
@@ -755,12 +755,12 @@
         changed (if grew?
                   rows
                   (into {}
-                        (filter (fn [[slot row]]
-                                  (not= row (get prior slot))))
+                        (filter (fn [[buffer-index row]]
+                                  (not= row (get prior buffer-index))))
                         rows))]
-    (doseq [[slot row] changed]
+    (doseq [[buffer-index row] changed]
       (.writeBuffer (.-queue ^js (:device system)) (:buffer buffer)
-                    (* slot composite-instance-stride)
+                    (* buffer-index composite-instance-stride)
                     (composite-row-bytes row)))
     (reset! (:!composite-buffer system) buffer)
     (reset! (:!composite-rows system) rows)
@@ -793,11 +793,11 @@
         prior @(:!prepared system)
         session-revision (:revision session-layout-snapshot)
         live-ids (set (map #(get-in % [:region/material :region/id]) regions))
-        container-slots (mapv #(placement/slot effective (:container %))
+        group-buffer-indexes (mapv #(transform/buffer-index effective (:container %))
                               regions)
         results
         (mapv
-         (fn [[op container-slot]]
+         (fn [[op group-buffer-index]]
            (let [raw-region (:region/material op)
                  region-id (:region/id raw-region)
                  key (frame/region-key op zoom dpr session-revision)
@@ -897,7 +897,7 @@
                                     (nil? old))}
                      row
                      {:key key :region-id region-id :op op
-                      :container-slot container-slot
+                      :group-buffer-index group-buffer-index
                       :evaluation-key (:evaluation-key evaluation-result)
                       :background-key background-key :view-key view-key
                       :maintained maintained :camera camera
@@ -924,7 +924,7 @@
                                     0)
                       :region-encodes 0}]
                  [region-id row call-return]))))
-         (map vector regions container-slots))
+         (map vector regions group-buffer-indexes))
         computed (into {} (map (fn [[region-id row _]] [region-id row])) results)
         region-returns
         (into {} (map (fn [[region-id _ call-return]]
@@ -943,16 +943,16 @@
                     :background (get-in row [:maintained :region :background])
                     :encode-rung (:encode-rung row)
                     :composite {:x x :y y :w w :h h
-                                :slot (:container-slot row)}}))
+                                :buffer-index (:group-buffer-index row)}}))
                computed))
         computed
         (into {}
               (map (fn [[region-id row]]
-                     (let [slot (get-in desired [region-id :slot])]
+                     (let [buffer-index (get-in desired [region-id :buffer-index])]
                        [region-id
-                        (if (= slot (:composite-slot row))
+                        (if (= buffer-index (:composite-buffer-index row))
                           row
-                          (assoc row :composite-slot slot))])))
+                          (assoc row :composite-buffer-index buffer-index))])))
               computed)
         composite-uploads (upload-composites! system (vals desired))
         unchanged? (and (empty? closed)
@@ -1057,7 +1057,7 @@
    be sampled."
   [system encoder region-id role lease]
   (let [prepared (get @(:!prepared system) region-id)
-        encode? (and prepared lease (not (:refused? lease))
+        encode? (and prepared lease (not (:rejected? lease))
                      (or (get-in prepared [:dirty-by-role role])
                          (not= (:key lease)
                                (get-in prepared [:last-lease-keys role]))))]
@@ -1066,9 +1066,9 @@
       {:region-id region-id :role role :encoded? false
        :held? false :reason :missing-region-state}
 
-      (:refused? lease)
+      (:rejected? lease)
       {:region-id region-id :role role :encoded? false
-       :held? false :refusal (:refusal lease)}
+       :held? false :rejection (:rejection lease)}
 
       (not encode?)
       {:region-id region-id :role role
@@ -1096,25 +1096,25 @@
              :entries [{:binding 0 :resource (:sampler system)}
                        {:binding 1 :resource (get-in lease [:resolve :view])}
                        {:binding 2 :resource {:buffer (:camera-buffer system)}}
-                       {:binding 3 :resource {:buffer (:containers-buffer system)}}]})))
+                       {:binding 3 :resource {:buffer (:groups-buffer system)}}]})))
 
 (defn- refusal-bind-group [system]
   (.createBindGroup
    ^js (:device system)
-   (clj->js {:layout (get-in system [:pipelines :refusal-layout])
+   (clj->js {:layout (get-in system [:pipelines :rejection-layout])
              :entries [{:binding 2 :resource {:buffer (:camera-buffer system)}}
-                       {:binding 3 :resource {:buffer (:containers-buffer system)}}]})))
+                       {:binding 3 :resource {:buffer (:groups-buffer system)}}]})))
 
 (defn composite-region!
-  "Composite one region's held lease onto an open pass at its stable slot, or
+  "Composite one region's held lease onto an open pass at its stable buffer-index, or
    its refusal placeholder when no lease is held."
   [pass region-system region-id]
   (let [owner (:binding-owner region-system)
         lease (region-bindings/lease owner region-id)
-        composite-slot (region-bindings/slot owner region-id)
-        refused? (or (nil? lease) (:refused? lease))
+        composite-buffer-index (region-bindings/buffer-index owner region-id)
+        refused? (or (nil? lease) (:rejected? lease))
         pipeline-key (cond
-                       refused? :refusal
+                       refused? :rejection
                        (> (:rung-divisor lease 1) 1) :worn
                        :else :composite)]
     (.setPipeline ^js pass (get-in region-system
@@ -1123,7 +1123,7 @@
                                 (refusal-bind-group region-system)
                                 (composite-bind-group region-system lease)))
     (.setVertexBuffer ^js pass 0 (:buffer @(:!composite-buffer region-system)))
-    (.draw ^js pass 6 1 0 composite-slot)))
+    (.draw ^js pass 6 1 0 composite-buffer-index)))
 
 (defn destroy-region3d-system! [system]
   (doseq [[_ row] @(:!prepared system)]

@@ -1,5 +1,5 @@
-(ns app.client.engine.grammar-test
-  (:require [app.client.engine.grammar :as grammar]
+(ns app.client.engine.schema-test
+  (:require [app.client.engine.schema :as schema]
             [clojure.test :refer [deftest is]]))
 
 (defn- error-data [f]
@@ -19,18 +19,18 @@
 
 (deftest map-of-tripwire
   (is (= {:scene {:left {:value 1} :right {:value 2}}}
-         (grammar/check scene
+         (schema/check scene
                         {:scene {:left {:value 1} :right {:value 2}}})))
-  (is (= {:error-type :grammar/invalid-key
+  (is (= {:error-type :schema/invalid-key
           :path [:scene "x"]}
          (select-keys
-          (error-data #(grammar/check scene {:scene {"x" {:value 1}}}))
+          (error-data #(schema/check scene {:scene {"x" {:value 1}}}))
           [:error-type :path])))
-  (is (= {:error-type :grammar/invalid-value
+  (is (= {:error-type :schema/invalid-value
           :path [:scene :right :value]}
          (select-keys
           (error-data
-           #(grammar/check
+           #(schema/check
              scene {:scene {:left {:value 1} :right {:value "two"}}}))
           [:error-type :path]))))
 
@@ -39,11 +39,11 @@
               :validators {:left integer? :right integer?}
               :form-validators
               [{:valid? #(= (:left %) (:right %))
-                :error-type :grammar/not-equal
+                :error-type :schema/not-equal
                 :explain (fn [form]
                            {:left (:left form) :right (:right form)})}]}
-        data (error-data #(grammar/check spec {:left 1 :right 2}))]
-    (is (= {:error-type :grammar/not-equal
+        data (error-data #(schema/check spec {:left 1 :right 2}))]
+    (is (= {:error-type :schema/not-equal
             :path []
             :left 1
             :right 2}

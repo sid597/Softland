@@ -5,7 +5,7 @@
    Gives: the RGBA a shader should receive, and the mode the pipelines are
    configured from.
    Holds nothing."
-  (:require [app.client.engine.grammar :as grammar]))
+  (:require [app.client.engine.schema :as schema]))
 
 (defn- pow [base exponent]
   #?(:clj (Math/pow (double base) (double exponent))
@@ -25,7 +25,7 @@
 
 (def tagged
   {:keys #{:rgba :color-space :alpha-association}
-   :validators {:rgba grammar/valid-rgba?
+   :validators {:rgba schema/valid-rgba?
                 :color-space #{:srgb}
                 :alpha-association #{:straight}}})
 
@@ -57,7 +57,7 @@
 (def scene-color-seam
   "The candidate Contract-C resource is code-real but deliberately default-off.
    Direct presentation remains the byte-identical legacy route until a later
-   activation receipt explicitly selects the linear-premultiplied candidate."
+   activation evidence explicitly selects the linear-premultiplied candidate."
   {:scene-color-seam/version 1
    :default (:scene-color/id legacy-direct-color)
    :candidate (:scene-color/id linear-premultiplied-color)

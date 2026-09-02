@@ -5,7 +5,7 @@
       Holds nothing."
      (:require [clojure.string :as str]
                [app.client.engine.device :as device]
-               [app.client.engine.placement :as placement]
+               [app.client.engine.transform :as transform]
                [app.client.text.layout :as tl]
                [app.client.text.layout-oracle :as layout-oracle]
                [app.client.text.painter :as text-painter]
@@ -253,10 +253,10 @@
      :container 0}]])
 
 (defn- text-effective []
-  (-> (placement/empty-registry)
-      (placement/add-container 17 {:parent 0
+  (-> (transform/empty-registry)
+      (transform/add-group 17 {:parent 0
                                    :affine [0.5 0.0 0.0 0.5 40.0 20.0]})
-      (placement/effective)))
+      (transform/world-transforms)))
 
 (defn- image-record [mode case-id pair]
   {:mode mode
@@ -619,7 +619,7 @@
      :effective effective)
     false
     (catch :default error
-      (= :placement/unknown-container (:error-type (ex-data error))))))
+      (= :transform/unknown-group (:error-type (ex-data error))))))
 
 (defn- run-container-tree-case!
   [device ubuntu-system ubuntu-assets effective]
@@ -674,29 +674,29 @@
 
 
 (defn run-text-slug!
-  [device camera-buffer containers-buffer slug-assets t1-assets]
+  [device camera-buffer groups-buffer slug-assets t1-assets]
   (js/console.log "[W0-A] init-font-assets")
   (let [effective (text-effective)
-        _ (device/write-containers! device containers-buffer effective)
+        _ (device/write-groups! device groups-buffer effective)
         slug-system (do
                       (js/console.log "[W0-A] init-slug-pipeline-start")
                       (let [system
                             (text-painter/init-text-system
                              device color-format camera-buffer slug-assets
                              :initial-capacity 1
-                             :containers-buffer containers-buffer)]
+                             :groups-buffer groups-buffer)]
                         (js/console.log "[W0-A] init-slug-pipeline-complete")
                         system))
         ubuntu-system
         (text-painter/init-text-system
          device color-format camera-buffer t1-assets
          :initial-capacity 2
-         :containers-buffer containers-buffer)
+         :groups-buffer groups-buffer)
         ubuntu-tree-system
         (text-painter/init-text-system
          device color-format camera-buffer t1-assets
          :initial-capacity 2
-         :containers-buffer containers-buffer)
+         :groups-buffer groups-buffer)
         curves (do
                  (js/console.log "[W0-A] init-curve-decode-start")
                  (let [decoded (decode-glyph-curves slug-assets 111)]

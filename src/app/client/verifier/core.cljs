@@ -60,12 +60,12 @@
                                                  "T1 browser layout receipt failed.")))]
                                 (js/console.log "[W0-A] init-font-assets")
                                 (let [camera-buffer (device/create-camera-buffer device)
-                                      containers-buffer (device/create-containers-buffer device)
-                                      q8-transport (run-q8-transport! device containers-buffer)
+                                      groups-buffer (device/create-groups-buffer device)
+                                      q8-transport (run-q8-transport! device groups-buffer)
                                       _ (js/console.log "[W0-A] init-shared-buffers")
                                       text-slug
                                       (text/run-text-slug!
-                                       device camera-buffer containers-buffer
+                                       device camera-buffer groups-buffer
                                        slug-assets t1-assets)]
                                   (-> (js/Promise.all
 #js [text-slug

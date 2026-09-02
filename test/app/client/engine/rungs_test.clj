@@ -27,7 +27,7 @@
           :lease-bytes lease-bytes}
          overrides))
 
-(deftest l1-sharpest-admitted-rung-mints-achieved-receipt
+(deftest l1-sharpest-admitted-rung-mints-achieved-stats
   (let [grant (rungs/grant
                (request :reserved-bytes 104637808))]
     (is (= [1 2] (:evaluated-divisors grant)))
@@ -42,12 +42,12 @@
             :candidate-bytes (lease-bytes 2048 1280 true)
             :reserved-bytes 104637808
             :budget-cap-bytes (* 512 mib)}
-           (:rung-receipt grant)))))
+           (:rung-stats grant)))))
 
 (deftest l3-held-rung-is-never-released-to-probe-a-sharper-one
   (let [held {:key [:region/a 768 768]
               :bytes (lease-bytes 768 768 false)
-              :shadow nil :refused? false}
+              :shadow nil :rejected? false}
         grant (rungs/grant
                (request :desired-size [2560 2560]
                         :shadow? false
@@ -61,7 +61,7 @@
 
 (deftest l3-key-crossing-credits-only-the-regions-synchronous-release
   (let [held {:key [:region/a 512 512] :bytes (* 20 mib)
-              :shadow nil :refused? false}
+              :shadow nil :rejected? false}
         grant (rungs/grant
                (request :desired-size [768 768]
                         :shadow? false
@@ -76,7 +76,7 @@
 (deftest same-key-shadow-transitions-price-only-physical-new-bytes
   (let [base-bytes (lease-bytes 512 512 false)
         without-shadow {:key [:region/a 512 512] :bytes base-bytes
-                        :shadow nil :refused? false}
+                        :shadow nil :rejected? false}
         with-shadow (assoc without-shadow
                            :bytes (lease-bytes 512 512 true)
                            :shadow :held)

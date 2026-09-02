@@ -1,11 +1,11 @@
 (ns app.client.engine.leases
   "Which offscreen regions are live: desired region rows reconciled to stable
-   slots and GPU leases, stamped by the compositor's identity.
+   buffer indexes and GPU leases, stamped by the compositor's identity.
    Takes: an owner; desired region rows (id and size); a region id and a
    physical lease to record; a compositor to attach.
-   Gives: the desired map, a region's slot, its lease, a receipt.
+   Gives: the desired map, a region’s buffer index, its lease, frame stats.
    Holds: one state atom per owner (device epoch, compositor, desired rows,
-   slots, leases)."
+   buffer indexes, leases)."
   (:require [clojure.set :as set]))
 
 (defn create-owner [device]
@@ -14,38 +14,38 @@
    (atom {:device-epoch 0
           :compositor nil
           :desired {}
-          :slots {}
-          :next-slot 0
-          :free-slots (sorted-set)
-          :pending-slots {}
+          :buffer-indexes {}
+          :next-buffer-index 0
+          :free-buffer-indexes (sorted-set)
+          :pending-buffer-indexes {}
           :leases {}
-          :receipt {:epoch-bumps 0 :slot-allocations 0 :slot-releases 0
+          :stats {:epoch-bumps 0 :buffer-index-allocations 0 :buffer-index-releases 0
                     :desired-updates 0}})})
 
-(defn- take-slot [state]
-  (if-let [slot (first (:free-slots state))]
-    [(update state :free-slots disj slot) slot]
-    [(update state :next-slot inc) (:next-slot state)]))
+(defn- take-buffer-index [state]
+  (if-let [buffer-index (first (:free-buffer-indexes state))]
+    [(update state :free-buffer-indexes disj buffer-index) buffer-index]
+    [(update state :next-buffer-index inc) (:next-buffer-index state)]))
 
 (defn- lease-key [{:keys [region/id lease-size]}]
   (when (and id lease-size)
     (into [id] lease-size)))
 
-(defn- free-retired-slot! [owner region-id epoch slot]
+(defn- free-retired-buffer-index! [owner region-id epoch buffer-index]
   (swap! (:!state owner)
          (fn [state]
-           (if (= {:epoch epoch :slot slot}
-                  (get-in state [:pending-slots region-id]))
+           (if (= {:epoch epoch :buffer-index buffer-index}
+                  (get-in state [:pending-buffer-indexes region-id]))
              (-> state
-                 (update :pending-slots dissoc region-id)
-                 (update :free-slots conj slot)
-                 (update-in [:receipt :slot-releases] inc))
+                 (update :pending-buffer-indexes dissoc region-id)
+                 (update :free-buffer-indexes conj buffer-index)
+                 (update-in [:stats :buffer-index-releases] inc))
              state))))
 
-(defn- retire-slot-after-submit! [owner region-id epoch slot]
+(defn- retire-buffer-index-after-submit! [owner region-id epoch buffer-index]
   (let [queue (.-queue ^js (:device owner))]
     (-> (.onSubmittedWorkDone queue)
-        (.then (fn [] (free-retired-slot! owner region-id epoch slot)))
+        (.then (fn [] (free-retired-buffer-index! owner region-id epoch buffer-index)))
         (.catch (fn [_] nil)))))
 
 (defn reconcile-desired!
@@ -63,30 +63,30 @@
                    state
                    (reduce
                     (fn [next-state region-id]
-                      (let [slot (get-in next-state [:slots region-id])]
-                        (when (some? slot)
-                          (vswap! retiring conj [region-id epoch slot]))
+                      (let [buffer-index (get-in next-state [:buffer-indexes region-id])]
+                        (when (some? buffer-index)
+                          (vswap! retiring conj [region-id epoch buffer-index]))
                         (cond-> (-> next-state
                                     (update :desired dissoc region-id)
-                                    (update :slots dissoc region-id)
+                                    (update :buffer-indexes dissoc region-id)
                                     (update :leases dissoc region-id))
-                          (some? slot)
-                          (assoc-in [:pending-slots region-id]
-                                    {:epoch epoch :slot slot}))))
+                          (some? buffer-index)
+                          (assoc-in [:pending-buffer-indexes region-id]
+                                    {:epoch epoch :buffer-index buffer-index}))))
                     state closed)
                    [state desired]
                    (reduce
                     (fn [[next-state desired] region-id]
                       (let [input (get rows-by-id region-id)
-                            [next-state slot]
-                            (if-let [slot (get-in next-state [:slots region-id])]
-                              [next-state slot]
-                              (let [[allocated slot] (take-slot next-state)]
+                            [next-state buffer-index]
+                            (if-let [buffer-index (get-in next-state [:buffer-indexes region-id])]
+                              [next-state buffer-index]
+                              (let [[allocated buffer-index] (take-buffer-index next-state)]
                                 [(-> allocated
-                                     (assoc-in [:slots region-id] slot)
-                                     (update-in [:receipt :slot-allocations] inc))
-                                 slot]))
-                            row (assoc input :slot slot
+                                     (assoc-in [:buffer-indexes region-id] buffer-index)
+                                     (update-in [:stats :buffer-index-allocations] inc))
+                                 buffer-index]))
+                            row (assoc input :buffer-index buffer-index
                                       :lease-key (lease-key input)
                                       :device-epoch epoch)]
                         [next-state (assoc desired region-id row)]))
@@ -94,15 +94,15 @@
                     (sort-by pr-str new-ids))
                    changed? (not= (:desired state) desired)]
                (cond-> (assoc state :desired desired)
-                 changed? (update-in [:receipt :desired-updates] inc)))))
-    (doseq [[region-id epoch slot] @retiring]
-      (retire-slot-after-submit! owner region-id epoch slot))
+                 changed? (update-in [:stats :desired-updates] inc)))))
+    (doseq [[region-id epoch buffer-index] @retiring]
+      (retire-buffer-index-after-submit! owner region-id epoch buffer-index))
     (:desired @(:!state owner))))
 
 (defn attach-compositor!
   "Attach the sole compositor identity producer.  A replacement bumps the
    device epoch, clears every physical lease, and deterministically reassigns
-   slots while retaining desired logical rows."
+   buffer indexes while retaining desired logical rows."
   [owner compositor]
   (let [changed? (volatile! false)]
     (swap! (:!state owner)
@@ -114,19 +114,19 @@
                      reset-state (-> state
                                      (assoc :device-epoch epoch
                                             :compositor compositor
-                                            :slots {}
-                                            :next-slot 0
-                                            :free-slots (sorted-set)
-                                            :pending-slots {}
+                                            :buffer-indexes {}
+                                            :next-buffer-index 0
+                                            :free-buffer-indexes (sorted-set)
+                                            :pending-buffer-indexes {}
                                             :leases {})
-                                     (update-in [:receipt :epoch-bumps] inc))
+                                     (update-in [:stats :epoch-bumps] inc))
                      [reset-state desired]
                      (reduce
                       (fn [[next-state rows] row]
-                        (let [[next-state slot] (take-slot next-state)
+                        (let [[next-state buffer-index] (take-buffer-index next-state)
                               region-id (:region/id row)
-                              row (assoc row :slot slot :device-epoch epoch)]
-                          [(assoc-in next-state [:slots region-id] slot)
+                              row (assoc row :buffer-index buffer-index :device-epoch epoch)]
+                          [(assoc-in next-state [:buffer-indexes region-id] buffer-index)
                            (assoc rows region-id row)]))
                       [reset-state {}]
                       (sort-by (comp pr-str :region/id) desired))]
@@ -141,8 +141,8 @@
 (defn topology-rows [owner]
   (mapv #(select-keys % [:region/id :shadow?]) (desired-rows owner)))
 
-(defn slot [owner region-id]
-  (get-in @(:!state owner) [:slots region-id]))
+(defn buffer-index [owner region-id]
+  (get-in @(:!state owner) [:buffer-indexes region-id]))
 
 (defn lease [owner region-id]
   (get-in @(:!state owner) [:leases region-id]))
@@ -160,16 +160,16 @@
 (defn device-epoch [owner] (:device-epoch @(:!state owner)))
 (defn compositor [owner] (:compositor @(:!state owner)))
 
-(defn receipt [owner]
+(defn stats [owner]
   (let [state @(:!state owner)]
-    (assoc (:receipt state)
+    (assoc (:stats state)
            :device-epoch (:device-epoch state)
            :desired (into {}
                           (map (fn [[id row]]
                                  [id (select-keys row
-                                                  [:lease-key :shadow? :slot
+                                                  [:lease-key :shadow? :buffer-index
                                                    :encode-rung])]))
                           (:desired state))
-           :live-slots (:slots state)
-           :pending-slots (:pending-slots state)
+           :live-buffer-indexes (:buffer-indexes state)
+           :pending-buffer-indexes (:pending-buffer-indexes state)
            :lease-ids (set (keys (:leases state))))))

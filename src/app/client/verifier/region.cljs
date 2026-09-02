@@ -7,7 +7,7 @@
                [app.client.engine.compositor :as compositor-gpu]
                [app.client.engine.device :as device]
                [app.client.engine.leases :as region-bindings]
-               [app.client.engine.placement :as containers]
+               [app.client.engine.transform :as transform]
                [app.client.path.material :as path-material]
                [app.client.path.painter :as path-painter]
                [app.client.path.tessellation :as path-tessellation]
@@ -253,7 +253,7 @@
 (defn- region3d-system-result
   [{:keys [!region-result region-system]}]
   (assoc @!region-result
-         :bindings (region-bindings/receipt
+         :bindings (region-bindings/stats
                     (region3d-painter/binding-owner region-system))))
 
 (defn- region3d-painters
@@ -570,7 +570,7 @@
                 (wait-for-queue
                  (fn []
                    (assoc state :resize
-                          (compositor-gpu/region-leases-receipt compositor)
+                          (compositor-gpu/region-leases-stats compositor)
                           :resized-op resized)))))))
          (fn [{:keys [resized-op] :as state}]
            (let [shadow-off
@@ -586,7 +586,7 @@
                 (wait-for-queue
                  (fn []
                    (assoc state :shadow-off
-                          (compositor-gpu/region-leases-receipt compositor))))))))
+                          (compositor-gpu/region-leases-stats compositor))))))))
          (fn [state]
            (prepare-region3d! harness [] {} {})
            (let [frame (region3d-direct-frame!
@@ -597,7 +597,7 @@
                 (wait-for-queue
                  (fn []
                    (assoc state :after-close
-                          (compositor-gpu/region-leases-receipt compositor))))))))
+                          (compositor-gpu/region-leases-stats compositor))))))))
          (fn [state]
            (let [refusal-compositor
                  (compositor-gpu/create-compositor!
@@ -610,12 +610,12 @@
                 (wait-for-queue
                  (fn []
                    (let [receipt
-                         (compositor-gpu/compositor-receipt refusal-compositor)
+                         (compositor-gpu/compositor-stats refusal-compositor)
                          sample (pixel-rgba bytes 64 64)
                          next-state
                          (assoc state :refusal
                                 {:receipt receipt :sample sample
-                                 :pass? (and (some? (:last-region-refusal receipt))
+                                 :pass? (and (some? (:last-region-rejection receipt))
                                              (pos? (apply max sample)))})]
                      (compositor-gpu/destroy-compositor! refusal-compositor)
                      (region3d-painter/attach-compositor! region-system compositor)
@@ -632,11 +632,11 @@
                 (wait-for-queue
                  (fn []
                    (let [before-destroy
-                         (compositor-gpu/region-leases-receipt
+                         (compositor-gpu/region-leases-stats
                           first-compositor)]
                      (compositor-gpu/destroy-compositor! first-compositor)
                      (let [after-destroy
-                           (compositor-gpu/region-leases-receipt
+                           (compositor-gpu/region-leases-stats
                             first-compositor)
                            recreated
                            (compositor-gpu/create-compositor!
@@ -649,7 +649,7 @@
                           (wait-for-queue
                            (fn []
                              (let [after-recreate
-                                   (compositor-gpu/region-leases-receipt
+                                   (compositor-gpu/region-leases-stats
                                     recreated)
                                    receipt
                                    {:before-destroy before-destroy
@@ -723,7 +723,7 @@
   (-> (region3d-direct-frame! harness painters)
       (.then (fn [{:keys [bytes passes]}]
                {:bytes bytes :passes passes
-                :receipt (compositor-gpu/compositor-receipt
+                :receipt (compositor-gpu/compositor-stats
                           (:compositor harness))}))))
 
 (defn- region3d-refusal-leg!
@@ -736,11 +736,11 @@
     (-> (region3d-capture! refusal-harness op {} :region {:zoom 8.0})
         (.then
          (fn [{:keys [bytes]}]
-           (let [receipt (compositor-gpu/compositor-receipt compositor)
+           (let [receipt (compositor-gpu/compositor-stats compositor)
                  result {:bytes bytes
                          :receipt receipt
                          :sample (pixel-rgba bytes 64 64)
-                         :pass? (and (some? (:last-region-refusal receipt))
+                         :pass? (and (some? (:last-region-rejection receipt))
                                      (pos? (apply max (pixel-rgba bytes 64 64))))}]
              (compositor-gpu/destroy-compositor! compositor)
              (prepare-region3d! harness [] {} {})
@@ -765,7 +765,7 @@
                       :lease-size [768 512] :shadow? false
                       :background nil :encode-rung 1
                       :composite {:x 0.0 :y 0.0 :w 1.0 :h 1.0
-                                  :slot 0}}
+                                  :buffer-index 0}}
         prepare-frame
         (fn [current-op zoom]
           (prepare-region3d! lower-harness [current-op] {} {:zoom zoom})
@@ -916,12 +916,12 @@
                         worn? (and (= 2 (:rung-divisor worn-lease))
                                    (= [512 512] (:size worn-lease))
                                    (empty? (get-in worn [:receipt :pool
-                                                         :refusals]))
+                                                         :rejections]))
                                    (nil? (get-in worn [:receipt
-                                                       :last-region-refusal])))
+                                                       :last-region-rejection])))
                         glyph? (and (> (nth wear-sample 1) (nth wear-sample 0))
                                     (> (nth wear-sample 2) (nth wear-sample 0)))
-                        pass? (and (not (:refused? pressure-lease))
+                        pass? (and (not (:rejected? pressure-lease))
                                    worn? physical-crossing? current-content?
                                    held-stable? honest-counter? recovery?
                                    reserve-preserved? deterministic? floor-identical?
@@ -935,9 +935,9 @@
                                 :sharp {:lease (primary-lease sharp)
                                         :lease-activity (get-in sharp [:receipt :lease-activity])}
                                 :worn {:lease worn-lease :lease-activity (get-in worn [:receipt :lease-activity])
-                                       :rung-receipts
+                                       :rung-stats
                                        (get-in worn [:receipt
-                                                     :region-rung-receipts])}
+                                                     :region-rung-stats])}
                                 :current-content? current-content?
                                 :wear-sample wear-sample :glyph? glyph?
                                 :held-stable? held-stable?
@@ -966,18 +966,18 @@
 
 (defn run-region3d-floor! [device font-assets]
   (let [camera (device/create-camera-buffer device)
-        containers-buffer (device/create-containers-buffer device)
-        registry (containers/add-container
-                  (containers/empty-registry) 17
+        groups-buffer (device/create-groups-buffer device)
+        registry (transform/add-group
+                  (transform/empty-registry) 17
                   {:parent 0 :affine [0.5 0.0 0.0 0.5 40.0 20.0]})
-        effective (containers/effective registry)
+        effective (transform/world-transforms registry)
         _ (device/update-camera device camera (js/Float32Array. 6)
                                   0.0 0.0 1.0 canvas-size canvas-size)
-        _ (device/write-containers!
-           device containers-buffer effective)
+        _ (device/write-groups!
+           device groups-buffer effective)
         surround-path-system
         (path-painter/init-path-system
-         device "rgba16float" camera containers-buffer
+         device "rgba16float" camera groups-buffer
          :initial-capacity 16
          :scene-color (scene-color/scene-color true))
         surround-ops
@@ -998,15 +998,15 @@
         _ (path-painter/prepare-path-frame!
            surround-path-system surround-ops 1.0 effective)
         region-system (region3d-painter/ensure-region3d-system!
-                       device camera containers-buffer)
+                       device camera groups-buffer)
         path-system
         (path-painter/init-path-system
-         device "rgba16float" camera containers-buffer
+         device "rgba16float" camera groups-buffer
          :scene-color (scene-color/scene-color true))
         compositor (compositor-gpu/create-compositor!
                     device color-format)
         harness {:device device :camera camera
-                 :containers-buffer containers-buffer
+                 :groups-buffer groups-buffer
                  :effective effective
                  :surround-path-system surround-path-system
                  :region-system region-system
@@ -1087,10 +1087,10 @@
                  system-receipt (region3d-system-result harness)
                  seam-receipt (:seam-receipt (last base-cases))
                  compositor-receipt
-                 (compositor-gpu/compositor-receipt compositor)
+                 (compositor-gpu/compositor-stats compositor)
                  seam-pass? (and (= 1 (:resolved seam-receipt))
                                  (pos? (or (:ink-vertices seam-receipt) 0)))
-                 r1-pass? (= :placement/unknown-container
+                 r1-pass? (= :transform/unknown-group
                              (:error-type unknown-container-refusal))
                  pass? (and (= 4 (count cases))
                             (every? :byte-identical? determinism)

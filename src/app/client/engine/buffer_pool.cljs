@@ -1,5 +1,5 @@
 (ns app.client.engine.buffer-pool
-  "A slot pool for GPU instance buffers that writes only the items that changed
+  "A buffer-index pool for GPU instance buffers that writes only the items that changed
    since last time.
    Takes: a device, a capacity, the pipeline and bind group the items draw
    with, an item width and a pack function; then a new item list each frame.
@@ -15,9 +15,9 @@
                              js/GPUBufferUsage.COPY_SRC)})))
 
 (defn create-pool
-  "Create a slot-based GPU buffer pool. Returns an atom.
+  "Create a buffer-index-based GPU buffer pool. Returns an atom.
    pipeline/bind-group are shared with the rendering system (same shader, same camera).
-   :floats-per-item and :pack-fn are required so the floor carries no implicit
+   :floats-per-item and :pack-fn are required so the engine carries no implicit
   product geometry."
   [device initial-capacity pipeline bind-group
    & {:keys [floats-per-item pack-fn] :as options}]
@@ -31,8 +31,8 @@
            :!shape-rev (atom 0)
            :buffer buffer
            :capacity initial-capacity
-           :free-list ()
-           :active-slots #{}
+           :free-buffer-indexes ()
+           :active-buffer-indexes #{}
            :high-water-mark 0
            :pipeline pipeline
            :bind-group bind-group
@@ -67,43 +67,43 @@
     (grow-pool! pool)))
 
 ;; ============================================================================
-;; RAW PER-SLOT API (internal — used by diff engines. External callers use handles.)
+;; RAW PER-BUFFER-INDEX API (internal — used by diff engines. External callers use handles.)
 ;; ============================================================================
 
-(defn allocate-slot!
-  "Allocate a slot from the pool. Returns slot index.
-   Takes from free-list, or advances high-water-mark (growing buffer if needed)."
+(defn allocate-buffer-index!
+  "Allocate a buffer-index from the pool. Returns buffer-index index.
+   Takes from free-buffer-indexes, or advances high-water-mark (growing buffer if needed)."
   [pool]
-  (let [{:keys [free-list high-water-mark]} @pool]
-    (if (seq free-list)
-      (let [slot (first free-list)]
-        (swap! pool #(-> % (update :free-list rest) (update :active-slots conj slot)))
-        slot)
+  (let [{:keys [free-buffer-indexes high-water-mark]} @pool]
+    (if (seq free-buffer-indexes)
+      (let [buffer-index (first free-buffer-indexes)]
+        (swap! pool #(-> % (update :free-buffer-indexes rest) (update :active-buffer-indexes conj buffer-index)))
+        buffer-index)
       (do
         (ensure-capacity! pool (inc high-water-mark))
-        (let [slot high-water-mark]
+        (let [buffer-index high-water-mark]
           (bump-shape-on-count-boundary! pool high-water-mark
                                          (inc high-water-mark))
-          (swap! pool #(-> % (update :high-water-mark inc) (update :active-slots conj slot)))
-          slot)))))
+          (swap! pool #(-> % (update :high-water-mark inc) (update :active-buffer-indexes conj buffer-index)))
+          buffer-index)))))
 
-(defn free-slot!
-  "Free a slot, zeroing its GPU data to prevent ghost rendering."
-  [pool slot-index]
+(defn free-buffer-index!
+  "Free a buffer-index, zeroing its GPU data to prevent ghost rendering."
+  [pool buffer-index]
   (let [{:keys [^js device ^js buffer floats-per-item bytes-per-item]} @pool
         zeros (js/Float32Array. floats-per-item)]
-    (.writeBuffer (.-queue device) buffer (* slot-index bytes-per-item) zeros))
-  (swap! pool #(-> % (update :free-list conj slot-index)
-                     (update :active-slots disj slot-index)
-                     (update-in [:generations slot-index] inc)))
+    (.writeBuffer (.-queue device) buffer (* buffer-index bytes-per-item) zeros))
+  (swap! pool #(-> % (update :free-buffer-indexes conj buffer-index)
+                     (update :active-buffer-indexes disj buffer-index)
+                     (update-in [:generations buffer-index] inc)))
   nil)
 
-(defn update-slot!
-  "Write a single item to a specific slot. O(1) GPU write."
-  [pool slot-index item-map]
+(defn update-buffer-index!
+  "Write a single item to a specific buffer-index. O(1) GPU write."
+  [pool buffer-index item-map]
   (let [{:keys [^js device ^js buffer bytes-per-item pack-fn]} @pool
         data (pack-fn item-map)]
-    (.writeBuffer (.-queue device) buffer (* slot-index bytes-per-item) data))
+    (.writeBuffer (.-queue device) buffer (* buffer-index bytes-per-item) data))
   nil)
 
 ;; ============================================================================
@@ -112,17 +112,17 @@
 
 (defn keyed-diff-update-pool!
   "Sync pool contents with a keyed item list. Each item must have an :id field.
-   Allocates new slots for new IDs, updates changed items, frees removed IDs.
+   Allocates new buffer indexes for new IDs, updates changed items, frees removed IDs.
    Returns {:added N :updated N :freed N :total-writes N} for diagnostics.
 
    This is the Missionary-side equivalent of what e/for-by would do:
-   - new ID → allocate-slot! + update-slot!
-   - same ID, changed item → update-slot!
-   - removed ID → free-slot!"
+   - new ID → allocate-buffer-index! + update-buffer-index!
+   - same ID, changed item → update-buffer-index!
+   - removed ID → free-buffer-index!"
   [pool new-items]
   (let [new-items (or new-items [])
-        {:keys [id->slot prev-keyed-items]} @pool
-        id->slot (or id->slot {})
+        {:keys [id->buffer-index prev-keyed-items]} @pool
+        id->buffer-index (or id->buffer-index {})
         prev-keyed (or prev-keyed-items {})
         new-keyed (into {} (map (fn [r] [(:id r) r])) new-items)
         new-ids (set (keys new-keyed))
@@ -133,36 +133,36 @@
         added (volatile! 0)
         updated (volatile! 0)
         freed (volatile! 0)
-        ;; Free removed slots
-        new-id->slot (reduce (fn [m id]
-                               (when-let [slot (get m id)]
-                                 (free-slot! pool slot))
+        ;; Free removed buffer indexes
+        new-id->buffer-index (reduce (fn [m id]
+                               (when-let [buffer-index (get m id)]
+                                 (free-buffer-index! pool buffer-index))
                                (vswap! freed inc)
                                (dissoc m id))
-                             id->slot removed-ids)
-        ;; Allocate + write new slots
-        new-id->slot (reduce (fn [m id]
-                               (let [slot (allocate-slot! pool)
+                             id->buffer-index removed-ids)
+        ;; Allocate + write new buffer indexes
+        new-id->buffer-index (reduce (fn [m id]
+                               (let [buffer-index (allocate-buffer-index! pool)
                                      item (get new-keyed id)]
-                                 (update-slot! pool slot item)
+                                 (update-buffer-index! pool buffer-index item)
                                  (vswap! added inc)
-                                 (assoc m id slot)))
-                             new-id->slot added-ids)
-        ;; Update changed kept slots
-        new-id->slot (reduce (fn [m id]
+                                 (assoc m id buffer-index)))
+                             new-id->buffer-index added-ids)
+        ;; Update changed kept buffer indexes
+        new-id->buffer-index (reduce (fn [m id]
                                (let [old-item (get prev-keyed id)
                                      new-item (get new-keyed id)]
                                  (when-not (= old-item new-item)
-                                   (when-let [slot (get m id)]
-                                     (update-slot! pool slot new-item))
+                                   (when-let [buffer-index (get m id)]
+                                     (update-buffer-index! pool buffer-index new-item))
                                    (vswap! updated inc))
                                  m))
-                             new-id->slot kept-ids)]
+                             new-id->buffer-index kept-ids)]
     (swap! pool assoc
-           :id->slot new-id->slot
+           :id->buffer-index new-id->buffer-index
            :prev-keyed-items new-keyed
            :high-water-mark (max (:high-water-mark @pool)
-                                 (count (:active-slots @pool))))
+                                 (count (:active-buffer-indexes @pool))))
     {:added @added :updated @updated :freed @freed
      :total-writes (+ @added @updated @freed)}))
 
@@ -172,7 +172,7 @@
 
 (defn ordered-diff-update-pool!
   "Sync pool with an item list, maintaining input order in the buffer.
-   Slot i always holds the i-th input item, preserving draw order (z-correctness).
+   Buffer index i always holds the i-th input item, preserving draw order (z-correctness).
    Identity tracking via :id skips unchanged items at unchanged positions.
    Returns {:added :updated :freed :total-writes}."
   [pool new-items]
@@ -196,7 +196,7 @@
               prev-id-at-pos (when (< i prev-n) (nth prev-ids i))
               prev-item (get prev-keyed id)]
           (when (or (nil? prev-item)              ;; new ID
-                    (not= id prev-id-at-pos)      ;; different ID at this slot
+                    (not= id prev-id-at-pos)      ;; different ID at this buffer-index
                     (not= item prev-item))         ;; same ID, content changed
             (let [data (pack-fn item)]
               (.writeBuffer (.-queue device) buf (* i bytes-per-item) data)
@@ -244,7 +244,7 @@
             (let [data (pack-fn item)]
               (.writeBuffer (.-queue device) buf (* i bytes-per-item) data)
               (vswap! writes inc)))))
-      ;; Zero freed slots (list shrank)
+      ;; Zero freed buffer indexes (list shrank)
       (when (> prev-n new-n)
         (let [zero-count (- prev-n new-n)
               zeros (js/Float32Array. (* zero-count floats-per-item))]
@@ -273,54 +273,54 @@
      :bind-group bind-group}))
 
 ;; ============================================================================
-;; HANDLE-CHECKED API (Phase 6D: safe per-slot access for external callers)
-;; Raw slot indices stay internal. External code holds handles {:slot :gen}.
+;; HANDLE-CHECKED API (Phase 6D: safe per-buffer-index access for external callers)
+;; Raw buffer-index indices stay internal. External code holds handles {:buffer-index :gen}.
 ;; ============================================================================
 
 (defn allocate-handle!
-  "Allocate a slot and return a handle {:slot idx :gen g}.
-   If item-map is provided, writes it to the slot immediately."
+  "Allocate a buffer-index and return a handle {:buffer-index idx :gen g}.
+   If item-map is provided, writes it to the buffer-index immediately."
   ([pool] (allocate-handle! pool nil))
   ([pool item-map]
-   (let [slot (allocate-slot! pool)
-         gen (nth (:generations @pool) slot)]
+   (let [buffer-index (allocate-buffer-index! pool)
+         gen (nth (:generations @pool) buffer-index)]
      (when item-map
-       (update-slot! pool slot item-map))
-     {:slot slot :gen gen})))
+       (update-buffer-index! pool buffer-index item-map))
+     {:buffer-index buffer-index :gen gen})))
 
 (defn- validate-handle
-  "Check handle against pool state. Returns slot index if valid, nil if stale.
+  "Check handle against pool state. Returns buffer-index index if valid, nil if stale.
    Degrades to warning on malformed input — never throws."
   [pool handle]
-  (if-not (and (map? handle) (integer? (:slot handle)) (integer? (:gen handle)))
+  (if-not (and (map? handle) (integer? (:buffer-index handle)) (integer? (:gen handle)))
     (do (js/console.warn "[POOL] Malformed handle:" (pr-str handle)) nil)
-    (let [{:keys [slot gen]} handle
-          {:keys [generations active-slots]} @pool]
+    (let [{:keys [buffer-index gen]} handle
+          {:keys [generations active-buffer-indexes]} @pool]
       (cond
-        (or (neg? slot) (>= slot (count generations)))
-        (do (js/console.warn "[POOL] Handle out of range: slot" slot "capacity" (count generations))
+        (or (neg? buffer-index) (>= buffer-index (count generations)))
+        (do (js/console.warn "[POOL] Handle out of range: buffer-index" buffer-index "capacity" (count generations))
             nil)
 
-        (not= gen (nth generations slot))
-        (do (js/console.warn "[POOL] Stale handle: slot" slot "expected gen" (nth generations slot) "got" gen)
+        (not= gen (nth generations buffer-index))
+        (do (js/console.warn "[POOL] Stale handle: buffer-index" buffer-index "expected gen" (nth generations buffer-index) "got" gen)
             nil)
 
-        (not (contains? active-slots slot))
-        (do (js/console.warn "[POOL] Handle references inactive slot:" slot)
+        (not (contains? active-buffer-indexes buffer-index))
+        (do (js/console.warn "[POOL] Handle references inactive buffer-index:" buffer-index)
             nil)
 
-        :else slot))))
+        :else buffer-index))))
 
 (defn update-handle!
-  "Write item data to a handle's slot. Returns handle if valid, nil if stale."
+  "Write item data to a handle's buffer-index. Returns handle if valid, nil if stale."
   [pool handle item-map]
-  (when-let [slot (validate-handle pool handle)]
-    (update-slot! pool slot item-map)
+  (when-let [buffer-index (validate-handle pool handle)]
+    (update-buffer-index! pool buffer-index item-map)
     handle))
 
 (defn free-handle!
-  "Free a handle's slot. Returns true if successful, nil if stale."
+  "Free a handle's buffer-index. Returns true if successful, nil if stale."
   [pool handle]
-  (when-let [slot (validate-handle pool handle)]
-    (free-slot! pool slot)
+  (when-let [buffer-index (validate-handle pool handle)]
+    (free-buffer-index! pool buffer-index)
     true))

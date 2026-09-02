@@ -6,7 +6,7 @@
    Gives: the declared grammar; inside, boundary, or outside; a content key;
    paint.
    Holds nothing."
-  (:require [app.client.engine.grammar :as grammar]))
+  (:require [app.client.engine.schema :as schema]))
 
 (def schema-version 2)
 (def legal-kinds #{:ink :shape})
@@ -23,10 +23,10 @@
 (def paint
   {:keys #{:color :opacity :color-space :alpha-association}
    :validators
-   {:color (named-validator :path/paint-color grammar/valid-rgba?)
+   {:color (named-validator :path/paint-color schema/valid-rgba?)
     :opacity (named-validator
               :path/paint-opacity
-              #(and (grammar/finite-number? %) (<= 0.0 % 1.0)))
+              #(and (schema/finite-number? %) (<= 0.0 % 1.0)))
     :color-space (named-validator :path/paint-color-space #{:srgb})
     :alpha-association
     (named-validator :path/paint-alpha-association #{:straight})}})
@@ -36,11 +36,11 @@
    :optional #{:pressure :gesture-time}
    :validators
    {:knot/id (named-validator :path/knot-id some?)
-    :position (named-validator :path/knot-position grammar/point?)
-    :width (named-validator :path/knot-width grammar/positive-number?)
-    :pressure (named-validator :path/knot-pressure grammar/finite-number?)
+    :position (named-validator :path/knot-position schema/point?)
+    :width (named-validator :path/knot-width schema/positive-number?)
+    :pressure (named-validator :path/knot-pressure schema/finite-number?)
     :gesture-time
-    (named-validator :path/knot-gesture-time grammar/finite-number?)}})
+    (named-validator :path/knot-gesture-time schema/finite-number?)}})
 
 (def ink-geometry
   {:keys #{:knots :cap :join}
@@ -54,7 +54,7 @@
    :validators
    {:contour/id (named-validator :path/contour-id some?)
     :role (named-validator :path/contour-role legal-contour-roles)
-    :points [:vector-of grammar/point? {:min 3}]}})
+    :points [:vector-of schema/point? {:min 3}]}})
 
 (defn- holes-have-an-outer? [geometry]
   (let [contours (:contours geometry)]
@@ -70,8 +70,8 @@
 
 (defn- geometry-matches-kind? [material]
   (case (:path/kind material)
-    :ink (do (grammar/check ink-geometry (:path/geometry material)) true)
-    :shape (do (grammar/check shape-geometry (:path/geometry material)) true)
+    :ink (do (schema/check ink-geometry (:path/geometry material)) true)
+    :shape (do (schema/check shape-geometry (:path/geometry material)) true)
     false))
 
 (def grammar
@@ -88,7 +88,7 @@
 (defn validate-material!
   "Check the declared path grammar and return the unchanged EDN map."
   [material]
-  (grammar/check grammar material))
+  (schema/check grammar material))
 
 (defn canonical-material [material]
   (letfn [(canonical [value]
@@ -178,7 +178,7 @@
   "Tri-state authority classification in path-local f64 coordinates."
   ([material point] (classify material point 0.0))
   ([material point slop-local]
-   (when-not (grammar/non-negative-number? slop-local)
+   (when-not (schema/non-negative-number? slop-local)
      (throw (ex-info "Path hit slop must be finite local units"
                      {:error-type :path/hit-slop
                       :path [:slop-local]

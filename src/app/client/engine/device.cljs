@@ -1,9 +1,9 @@
 (ns app.client.engine.device
-  "The GPU pieces every kind of mark shares: the camera and containers buffers,
+  "The GPU pieces every kind of mark shares: the camera and group buffers,
    render targets, the clear quad, the shared color-mode shader text, and clip-
    rect projection.
-   Takes: a WebGPU device; camera pan, zoom, and viewport size; the container
-   table; a container-local clip rect.
+   Takes: a WebGPU device; camera pan, zoom, and viewport size; the group-id
+   table; a group-local clip rect.
    Gives: GPU buffers, textures, and render targets the painters draw into; a
    scissor or mask for a clip.
   Holds nothing."
@@ -43,18 +43,18 @@
      :alpha {:srcFactor (name alpha-src) :dstFactor (name alpha-dst)}}))
 
 ;; --- W2-A/Q8: shared compact affine transport ------------------------------
-;; One 32-byte storage entry per LIVE transform slot:
-;; [axis-x.xy, axis-y.xy, translation.xy, flags:u32, pad:u32]. Semantic cids do
-;; not index this table; containers/effective assigns compact stable slots.
+;; One 32-byte storage entry per LIVE transform buffer index:
+;; [axis-x.xy, axis-y.xy, translation.xy, flags:u32, pad:u32]. Semantic group ids do
+;; not index this table; transform/world-transforms assigns compact stable buffer indexes.
 ;; Q8 priced 1,024 / 4,096 / 16,384 entries, and the largest measured tier is
 ;; the production allocation. Growing later rebinds the same storage scheme; it
-;; is not another representation migration after atom multiplication.
+;; is not another representation migration after step multiplication.
 (def affine-entry-bytes 32)
 
 (def max-transform-nodes 16384)
 
-(defn create-containers-buffer
-  "Create the shared Q8 affine storage buffer and write identity slot 0.
+(defn create-groups-buffer
+  "Create the shared Q8 affine storage buffer and write identity buffer index 0.
    Shared across all four transform-consuming pipelines like the camera."
   [^js/GPUDevice device]
   (let [size (* max-transform-nodes affine-entry-bytes)
@@ -65,39 +65,39 @@
     (.writeBuffer (.-queue device) buffer 0 identity0)
     buffer))
 
-(defn write-containers!
-  "Upload containers/effective through compact :transport-slot values. Sparse
-   semantic cids never allocate holes. Returns a machine receipt used by the
+(defn write-groups!
+  "Upload transform/world-transforms through compact :buffer-index values. Sparse
+   semantic group ids never allocate holes. Returns machine stats used by the
    1,024/4,096/16,384 Q8 verifier."
-  [^js/GPUDevice device ^js containers-buffer effective]
-  (let [entries (vals effective)
-        slots (map :transport-slot entries)
-        _ (when (some nil? slots)
-            (throw (ex-info "Affine transport entry lacks :transport-slot"
-                            {:missing (count (filter nil? slots))})))
-        _ (when-not (= (count slots) (count (set slots)))
-            (throw (ex-info "Affine transport slots must be unique"
-                            {:slots slots})))
-        max-slot (if (seq slots) (apply max slots) 0)
-        entry-count (inc max-slot)
+  [^js/GPUDevice device ^js groups-buffer world-transforms]
+  (let [entries (vals world-transforms)
+        buffer-indexes (map :buffer-index entries)
+        _ (when (some nil? buffer-indexes)
+            (throw (ex-info "Affine transport entry lacks :buffer-index"
+                            {:missing (count (filter nil? buffer-indexes))})))
+        _ (when-not (= (count buffer-indexes) (count (set buffer-indexes)))
+            (throw (ex-info "Affine buffer indexes must be unique"
+                            {:buffer-indexes buffer-indexes})))
+        max-buffer-index (if (seq buffer-indexes) (apply max buffer-indexes) 0)
+        entry-count (inc max-buffer-index)
         _ (when (> entry-count max-transform-nodes)
             (throw (ex-info "Live affine transport exceeds the Q8 capacity"
                             {:entries entry-count :max max-transform-nodes})))
         raw (js/ArrayBuffer. (* entry-count affine-entry-bytes))
         floats (js/Float32Array. raw)
         uints (js/Uint32Array. raw)]
-    ;; Holes can only occur in a hand-built effective map; make them identity,
+    ;; Holes can only occur in a hand-built world-transforms map; make them identity,
     ;; never a singular zero matrix. Normal registries allocate densely.
-    (dotimes [slot entry-count]
-      (let [base (* slot 8)]
+    (dotimes [buffer-index entry-count]
+      (let [base (* buffer-index 8)]
         (aset floats (+ base 0) 1.0)
         (aset floats (+ base 3) 1.0)))
-    (doseq [{:keys [affine flags transport-slot]} entries]
+    (doseq [{:keys [affine flags buffer-index]} entries]
       (let [[a b c d tx ty] affine
-            base (* transport-slot 8)]
+            base (* buffer-index 8)]
         (when-not (= 6 (count affine))
           (throw (ex-info "Affine transport requires [a b c d tx ty]"
-                          {:affine affine :transport-slot transport-slot})))
+                          {:affine affine :buffer-index buffer-index})))
         (aset floats (+ base 0) a)
         (aset floats (+ base 1) b)
         (aset floats (+ base 2) c)
@@ -106,10 +106,10 @@
         (aset floats (+ base 5) ty)
         (aset uints (+ base 6) (or flags 0))
         (aset uints (+ base 7) 0)))
-    (.writeBuffer (.-queue device) containers-buffer 0 (js/Uint8Array. raw))
+    (.writeBuffer (.-queue device) groups-buffer 0 (js/Uint8Array. raw))
     {:entries entry-count
      :bytes (* entry-count affine-entry-bytes)
-     :max-slot max-slot
+     :max-buffer-index max-buffer-index
      :capacity max-transform-nodes}))
 
 (defn create-camera-buffer
@@ -215,8 +215,8 @@
   (.writeBuffer (.-queue device) camera-buffer 0 floats))
 
 (defn- clip-execution-mode
-  "A screen-axis-aligned effective affine uses a scissor. Rotation/shear is a
-   declared mask-road binding; callers must never approximate it as a scissor."
+  "A screen-axis-aligned world transform uses a scissor. Rotation/shear is a
+   declared mask-path binding; callers must never approximate it as a scissor."
   [[a b c d _tx _ty]]
   (if (or (and (< (abs (double b)) 1.0e-9)
                (< (abs (double c)) 1.0e-9))
@@ -226,14 +226,14 @@
     :mask))
 
 (defn project-clip-rect
-  "Project a container-local clip into WebGPU attachment pixels. Camera and
-   container coordinates are CSS pixels; scissor rectangles are device pixels,
+  "Project a group-local clip into WebGPU attachment pixels. Camera and
+   group coordinates are CSS pixels; scissor rectangles are device pixels,
    so the viewport-to-attachment scale is part of the projection."
-  [clip container effective-transforms pan-x pan-y zoom attachment-size
+  [clip group-id world-transforms pan-x pan-y zoom attachment-size
    viewport-size]
   (when clip
     (let [{:keys [affine flags]}
-          (or (get effective-transforms container)
+          (or (get world-transforms group-id)
               {:affine [1.0 0.0 0.0 1.0 0.0 0.0] :flags 0})]
       (let [[a b c d tx ty] affine
             {:keys [x y w h]} clip
@@ -268,4 +268,4 @@
           ;; pass. A rotated/sheared clip is never approximated by its AABB.
           {:mode :mask :points [(nth projected 0) (nth projected 1)
                                 (nth projected 3) (nth projected 2)]
-           :container container :local-clip clip})))))
+           :group-id group-id :local-clip clip})))))

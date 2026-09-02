@@ -9,7 +9,7 @@
    contiguous draw runs.
    Holds nothing; owns no GPU objects."
   (:require [app.client.engine.color :as color]
-            [app.client.engine.grammar :as grammar]))
+            [app.client.engine.schema :as schema]))
 
 ;; Contract C ingress ---------------------------------------------------------
 
@@ -40,7 +40,7 @@
    digest through `register-verified-source`; a declared digest is never
    caller authority (T2/T9)."
   [source-row]
-  (grammar/check source source-row))
+  (schema/check source source-row))
 
 (defn empty-source-registry []
   {:image-registry/version 1 :sources {}})
@@ -74,15 +74,15 @@
 
 (def rect
   {:keys #{:x :y :w :h}
-   :validators {:x grammar/finite-number?
-                :y grammar/finite-number?
-                :w grammar/positive-number?
-                :h grammar/positive-number?}})
+   :validators {:x schema/finite-number?
+                :y schema/finite-number?
+                :w schema/positive-number?
+                :h schema/positive-number?}})
 
 (def paint
   {:keys #{:tint :opacity}
    :validators {:tint color/tagged
-                :opacity #(and (grammar/finite-number? %)
+                :opacity #(and (schema/finite-number? %)
                                (<= 0.0 % 1.0))}})
 
 (defn- intrinsic-size? [value]
@@ -108,7 +108,7 @@
 (defn validate-material!
   "Check the declared image grammar and return the unchanged EDN map."
   [material]
-  (grammar/check grammar material))
+  (schema/check grammar material))
 
 (defn canonical-material
   [material]

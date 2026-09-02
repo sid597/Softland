@@ -6,7 +6,7 @@
    Gives: the declared grammar; a canonical region; the default material.
    Holds nothing."
   (:require [app.client.engine.color :as color]
-            [app.client.engine.grammar :as grammar]))
+            [app.client.engine.schema :as schema]))
 
 (def schema-version 2)
 (def shadow-algorithm-version :region3d/shadow-v1)
@@ -85,10 +85,10 @@
 (defn- finite-vector? [n value]
   (and (vector? value)
        (= n (count value))
-       (every? grammar/finite-number? value)))
+       (every? schema/finite-number? value)))
 
 (defn- in-range? [lo value hi]
-  (and (grammar/finite-number? value) (<= lo value hi)))
+  (and (schema/finite-number? value) (<= lo value hi)))
 
 (defn- positive-int-at-most? [minimum maximum value]
   (and (integer? value) (<= minimum value maximum)))
@@ -137,8 +137,8 @@
     false))
 
 (defn- near-before-far? [{:keys [near far]}]
-  (and (grammar/positive-number? near)
-       (grammar/positive-number? far)
+  (and (schema/positive-number? near)
+       (schema/positive-number? far)
        (< near far)))
 
 (def lens
@@ -146,12 +146,12 @@
    :optional #{:fov-y-deg :ortho-scale}
    :validators
    {:kind (named-validator :region/lens-kind #{:perspective :ortho})
-    :near (named-validator :region/lens-near grammar/positive-number?)
-    :far (named-validator :region/lens-far grammar/positive-number?)
+    :near (named-validator :region/lens-near schema/positive-number?)
+    :far (named-validator :region/lens-far schema/positive-number?)
     :fov-y-deg (named-validator
                 :region/lens-fov
-                #(and (grammar/finite-number? %) (< 0.0 % 170.0)))
-    :ortho-scale (named-validator :region/lens-scale grammar/positive-number?)}
+                #(and (schema/finite-number? %) (< 0.0 % 170.0)))
+    :ortho-scale (named-validator :region/lens-scale schema/positive-number?)}
    :form-validators
    [{:valid? lens-matches-kind? :error-type :region/lens-kind}
     {:valid? near-before-far? :error-type :region/lens-near-far}]})
@@ -160,22 +160,22 @@
   {:keys #{:pivot :distance :yaw :pitch :lens}
    :validators
    {:pivot (named-validator :region/view-pivot vec3?)
-    :distance (named-validator :region/view-distance grammar/positive-number?)
-    :yaw (named-validator :region/view-yaw grammar/finite-number?)
-    :pitch (named-validator :region/view-pitch grammar/finite-number?)
+    :distance (named-validator :region/view-distance schema/positive-number?)
+    :yaw (named-validator :region/view-yaw schema/finite-number?)
+    :pitch (named-validator :region/view-pitch schema/finite-number?)
     :lens lens}})
 
 (def extent
   {:keys #{:width :height :depth}
    :validators
    {:width (named-validator :region/extent
-                            #(and (grammar/positive-number? %)
+                            #(and (schema/positive-number? %)
                                   (<= % extent-max)))
     :height (named-validator :region/extent
-                             #(and (grammar/positive-number? %)
+                             #(and (schema/positive-number? %)
                                    (<= % extent-max)))
     :depth (named-validator :region/extent
-                            #(and (grammar/positive-number? %)
+                            #(and (schema/positive-number? %)
                                   (<= % extent-max)))}})
 
 (def background
@@ -188,7 +188,7 @@
    :validators {:color color/tagged
                 :intensity (named-validator
                             :region/ambient-intensity
-                            grammar/non-negative-number?)}})
+                            schema/non-negative-number?)}})
 
 (def material-spec
   {:keys #{:base-color :metallic :roughness :emissive}
@@ -213,7 +213,7 @@
 (def ^:private sphere-params
   {:keys #{:radius :width-segments :height-segments}
    :validators
-   {:radius (named-validator :region/primitive-kind grammar/positive-number?)
+   {:radius (named-validator :region/primitive-kind schema/positive-number?)
     :width-segments (named-validator
                      :region/primitive-kind
                      #(positive-int-at-most? 3 4096 %))
@@ -224,8 +224,8 @@
 (def ^:private radial-params
   {:keys #{:radius :height :radial-segments}
    :validators
-   {:radius (named-validator :region/primitive-kind grammar/positive-number?)
-    :height (named-validator :region/primitive-kind grammar/positive-number?)
+   {:radius (named-validator :region/primitive-kind schema/positive-number?)
+    :height (named-validator :region/primitive-kind schema/positive-number?)
     :radial-segments (named-validator
                       :region/primitive-kind
                       #(positive-int-at-most? 3 4096 %))}})
@@ -236,8 +236,8 @@
 (def ^:private torus-params
   {:keys #{:radius :tube :radial-segments :tubular-segments}
    :validators
-   {:radius (named-validator :region/primitive-kind grammar/positive-number?)
-    :tube (named-validator :region/primitive-kind grammar/positive-number?)
+   {:radius (named-validator :region/primitive-kind schema/positive-number?)
+    :tube (named-validator :region/primitive-kind schema/positive-number?)
     :radial-segments (named-validator
                       :region/primitive-kind
                       #(positive-int-at-most? 3 4096 %))
@@ -258,7 +258,7 @@
 
 (defn- params-match-kind? [{:keys [kind params]}]
   (when-let [spec (primitive-params-spec kind)]
-    (grammar/check spec params)
+    (schema/check spec params)
     true))
 
 (def primitive
@@ -273,7 +273,7 @@
   (and (vector? value)
        (zero? (mod (count value) 3))
        (<= (/ (count value) 3) maximum)
-       (every? grammar/finite-number? value)))
+       (every? schema/finite-number? value)))
 
 (defn- triangle-index-data? [value]
   (and (vector? value)
@@ -303,9 +303,9 @@
 
 (defn- geometry-matches-kind? [mesh-value]
   (case (:kind mesh-value)
-    :indexed-triangles (do (grammar/check indexed-triangles mesh-value) true)
+    :indexed-triangles (do (schema/check indexed-triangles mesh-value) true)
     (:box :sphere :cylinder :plane :cone :torus)
-    (do (grammar/check primitive mesh-value) true)
+    (do (schema/check primitive mesh-value) true)
     false))
 
 (def mesh
@@ -349,8 +349,8 @@
    {:kind (named-validator :region/light-kind legal-light-kinds)
     :color color/tagged
     :intensity (named-validator :region/light-intensity
-                                grammar/non-negative-number?)
-    :range (named-validator :region/light-range grammar/positive-number?)
+                                schema/non-negative-number?)
+    :range (named-validator :region/light-range schema/positive-number?)
     :cast-shadow boolean?
     :cone map?}
    :form-validators
@@ -368,7 +368,7 @@
    :validators
    {:color color/tagged
     :max-inline-size (named-validator :region/text-inline-size
-                                      grammar/positive-number?)}})
+                                      schema/positive-number?)}})
 
 (def placed-text
   {:keys #{:ref :params}
@@ -415,10 +415,10 @@
 (def ^:private rect
   {:keys #{:x :y :w :h}
    :validators
-   {:x grammar/finite-number?
-    :y grammar/finite-number?
-    :w grammar/positive-number?
-    :h grammar/positive-number?}})
+   {:x schema/finite-number?
+    :y schema/finite-number?
+    :w schema/positive-number?
+    :h schema/positive-number?}})
 
 (defn ids-match-keys? [{:keys [scene]}]
   (every? (fn [[object-id object-value]]
@@ -594,4 +594,4 @@
 (defn validate-region!
   "Return the canonical Region3D v2 row after one closed grammar check."
   [region]
-  (grammar/check grammar (canonical-region region)))
+  (schema/check grammar (canonical-region region)))

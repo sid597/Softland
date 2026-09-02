@@ -11,7 +11,7 @@
   (:require [app.client.engine.buffer-pool :as buffer-pool]
             [app.client.engine.color :as scene-color]
             [app.client.engine.device :as device]
-            [app.client.engine.placement :as placement]
+            [app.client.engine.transform :as transform]
             [app.client.image.frame :as frame]
             [app.client.image.material :as image-material]))
 
@@ -128,14 +128,14 @@
     data))
 
 (defn- create-image-bind-group
-  [^js device layout sampler texture-view camera-buffer containers-buffer]
+  [^js device layout sampler texture-view camera-buffer groups-buffer]
   (.createBindGroup
    device
    (clj->js {:layout layout
              :entries [{:binding 0 :resource sampler}
                        {:binding 1 :resource texture-view}
                        {:binding 2 :resource {:buffer camera-buffer}}
-                       {:binding 3 :resource {:buffer containers-buffer}}]})))
+                       {:binding 3 :resource {:buffer groups-buffer}}]})))
 
 (defn- create-image-pipeline
   [^js device fformat bind-layout scene-color]
@@ -332,11 +332,11 @@
   "Own the image pipeline, digest registry, atlas/dedicated resources, and the
    one shared 13-word instance pool.  Product activation remains staged; the
   verifier creates this system directly."
-  [^js device fformat camera-buffer containers-buffer
+  [^js device fformat camera-buffer groups-buffer
    & {:keys [initial-capacity scene-color]
       :or {initial-capacity 256
            scene-color scene-color/legacy-direct-color}}]
-  (assert containers-buffer "init-image-system requires :containers-buffer")
+  (assert groups-buffer "init-image-system requires :groups-buffer")
   (let [bind-layout (.createBindGroupLayout
                      device
                      (clj->js
@@ -372,13 +372,13 @@
         placeholder-view (image-view placeholder-texture scene-color)
         placeholder-bind-group (create-image-bind-group
                                 device bind-layout sampler placeholder-view
-                                camera-buffer containers-buffer)
+                                camera-buffer groups-buffer)
         {:keys [width height mip-level-count]} image-material/atlas-config
         atlas-texture (image-texture device width height mip-level-count)
         atlas-view (image-view atlas-texture scene-color)
         atlas-bind-group (create-image-bind-group
                           device bind-layout sampler atlas-view
-                          camera-buffer containers-buffer)
+                          camera-buffer groups-buffer)
         pool (buffer-pool/create-pool
               device initial-capacity pipeline nil
               :floats-per-item image-material/image-instance-words
@@ -386,7 +386,7 @@
         image-system
         {:device device :pipeline pipeline :bind-layout bind-layout
          :sampler sampler :mip-system mip-system :pool pool
-         :camera-buffer camera-buffer :containers-buffer containers-buffer
+         :camera-buffer camera-buffer :groups-buffer groups-buffer
          :scene-color scene-color
          :placeholder {:texture placeholder-texture
                        :bind-group placeholder-bind-group
@@ -463,7 +463,7 @@
         bind-group (create-image-bind-group
                     device (:bind-layout image-system) (:sampler image-system)
                     view (:camera-buffer image-system)
-                    (:containers-buffer image-system))]
+                    (:groups-buffer image-system))]
     {:texture texture :bind-group bind-group
      :binding-key [:image/dedicated digest]
      :tier :dedicated :uv [0.0 0.0 1.0 1.0]
@@ -633,7 +633,7 @@
         crop-uv (image-material/crop->uv (:image/intrinsic-size material) crop)
         binding (:binding residency)]
     (assoc image-op
-           :slot (placement/slot effective (:container image-op))
+           :slot (transform/buffer-index effective (:container image-op))
            :image/status (:status residency)
            :image/reason (:reason residency)
            :image/binding-key (:key binding)

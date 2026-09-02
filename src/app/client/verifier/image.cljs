@@ -5,7 +5,7 @@
       Holds nothing."
      (:require [app.client.engine.color :as scene-color]
                [app.client.engine.device :as device]
-               [app.client.engine.placement :as containers]
+               [app.client.engine.transform :as transform]
                [app.client.image.material :as image-material]
                [app.client.image.painter :as image-painter]
                [app.client.verifier.shared
@@ -190,7 +190,7 @@
                    (screen->world 24.0) (screen->world 24.0)
                    (screen->world 80.0) (screen->world 80.0))
                   0)
-        ;; T15: this is the post-clamp placement/crop pair for an original
+        ;; T15: this is the post-clamp transform/crop pair for an original
         ;; 80px quad clipped by 20px on each x edge.
         clipped-op (image-op
                     (image-material-row
@@ -248,8 +248,8 @@
             :normalization "image-local-with-effective-container-tree"
             :shape-extent-world 32.0
             :op-counts {:container-tree 2}
-            :transport-slots [(get-in effective [0 :transport-slot])
-                              (get-in effective [17 :transport-slot])]
+            :buffer-indexes [(get-in effective [0 :buffer-index])
+                              (get-in effective [17 :buffer-index])]
             :unknown-container unknown-error
             :images [(image-atom-record mode case-id pair)]})))))
 
@@ -427,10 +427,10 @@
         (.then
          (fn [receipt]
            (let [camera (device/create-camera-buffer device)
-                 containers-buffer (device/create-containers-buffer device)
-                 _ (device/write-containers! device containers-buffer effective)
+                 groups-buffer (device/create-groups-buffer device)
+                 _ (device/write-groups! device groups-buffer effective)
                  system (image-painter/init-image-system
-                         device "rgba8unorm-srgb" camera containers-buffer
+                         device "rgba8unorm-srgb" camera groups-buffer
                          :scene-color (scene-color/scene-color true))
                  row (get corpus "dedicated-alpha-premultiplied.png")
                  mistagged-source (assoc (:source row)
@@ -447,7 +447,7 @@
                                  mistagged)]
                       (image-painter/destroy-image-system! system)
                       (.destroy camera)
-                      (.destroy containers-buffer)
+                      (.destroy groups-buffer)
                       (-> receipt
                           (dissoc :alpha-association-bytes)
                           (assoc :mistagged-alpha
@@ -538,10 +538,10 @@
 
 (defn- run-image-upload-gate! [device effective corpus]
   (let [camera (device/create-camera-buffer device)
-        containers-buffer (device/create-containers-buffer device)
-        _ (device/write-containers! device containers-buffer effective)
+        groups-buffer (device/create-groups-buffer device)
+        _ (device/write-groups! device groups-buffer effective)
         system (image-painter/init-image-system
-                device "rgba8unorm-srgb" camera containers-buffer
+                device "rgba8unorm-srgb" camera groups-buffer
                 :scene-color (scene-color/scene-color true))
         left-fixture (get corpus "atlas-opaque-srgb.png")
         right-fixture (get corpus "alpha-reference-straight.png")
@@ -611,7 +611,7 @@
                                               (:image/binding-key prepared)))))]
                     (image-painter/destroy-image-system! system)
                     (.destroy camera)
-                    (.destroy containers-buffer)
+                    (.destroy groups-buffer)
                     result)))))))))
 
 (defn- request-replacement-device! []
@@ -679,8 +679,8 @@
                   (let [replacement-camera
                         (device/create-camera-buffer replacement-device)
                         replacement-containers
-                        (device/create-containers-buffer replacement-device)
-                        _ (device/write-containers! replacement-device
+                        (device/create-groups-buffer replacement-device)
+                        _ (device/write-groups! replacement-device
                                                     replacement-containers
                                                     effective)
                         replacement-system
@@ -761,22 +761,22 @@
 
 (defn run-image-atom! [device]
   (let [candidate-camera (device/create-camera-buffer device)
-        candidate-containers (device/create-containers-buffer device)
-        registry (-> (containers/empty-registry)
-                     (containers/add-container
+        candidate-containers (device/create-groups-buffer device)
+        registry (-> (transform/empty-registry)
+                     (transform/add-group
                       17 {:parent 0
                           :affine [0.5 0.0 0.0 0.5 40.0 20.0]}))
-        effective (containers/effective registry)
+        effective (transform/world-transforms registry)
         _candidate-transport
-        (device/write-containers! device candidate-containers effective)
+        (device/write-groups! device candidate-containers effective)
         candidate-system
         (image-painter/init-image-system
          device "rgba8unorm-srgb" candidate-camera candidate-containers
          :scene-color (scene-color/scene-color true))
         seam-camera (device/create-camera-buffer device)
-        seam-containers (device/create-containers-buffer device)
+        seam-containers (device/create-groups-buffer device)
         _seam-transport
-        (device/write-containers! device seam-containers effective)
+        (device/write-groups! device seam-containers effective)
         seam-system
         (image-painter/init-image-system
          device "rgba8unorm" seam-camera seam-containers
@@ -825,8 +825,8 @@
                  pass? (and (= 22 (reduce + (map #(count (:images %)) cases)))
                             (= 14 (count parity))
                             (every? :pass? parity)
-                            (= [0 1] (:transport-slots tree-case))
-                            (= :placement/unknown-container
+                            (= [0 1] (:buffer-indexes tree-case))
+                            (= :transform/unknown-group
                                (get-in tree-case
                                        [:unknown-container :error-type]))
                             (:pass? color)

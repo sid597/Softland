@@ -11,7 +11,7 @@
             [app.client.engine.color :as scene-color]
             [app.client.engine.compositor :as compositor-gpu]
             [app.client.engine.device :as device]
-            [app.client.engine.placement :as placement]
+            [app.client.engine.transform :as transform]
             [app.client.text.glyph-pack :as glyph-pack]
             [app.client.text.layout :as tl]))
 
@@ -236,14 +236,14 @@
                                                               js/GPUBufferUsage.COPY_DST)}))]
     buffer))
 
-(defn- create-slug-bind-group [^js/GPUDevice device layout curve-view band-view camera-buffer sizes-buffer containers-buffer]
+(defn- create-slug-bind-group [^js/GPUDevice device layout curve-view band-view camera-buffer sizes-buffer groups-buffer]
   (.createBindGroup device
     (clj->js {:layout layout
               :entries [{:binding 0 :resource curve-view}
                         {:binding 1 :resource band-view}
                         {:binding 2 :resource {:buffer camera-buffer}}
                         {:binding 3 :resource {:buffer sizes-buffer}}
-                        {:binding 4 :resource {:buffer containers-buffer}}]})))
+                        {:binding 4 :resource {:buffer groups-buffer}}]})))
 
 (defn- create-slug-texture [^js/GPUDevice device format width height bytes bytes-per-row]
   (let [texture (.createTexture device (clj->js {:size {:width width
@@ -301,11 +301,11 @@
 
 (defn- init-slug-text-system
   [^js/GPUDevice device fformat camera-buffer font-assets
-   & {:keys [initial-capacity label containers-buffer scene-color]
+   & {:keys [initial-capacity label groups-buffer scene-color]
       :or {initial-capacity 10000
            label "text/content"
            scene-color scene-color/legacy-direct-color}}]
-  (assert containers-buffer "init-slug-text-system requires :containers-buffer (scene-substrate P2)")
+  (assert groups-buffer "init-slug-text-system requires :groups-buffer (scene-substrate P2)")
   (let [vertex-module (.createShaderModule device (clj->js {:code slug-vertex-shader}))
         fragment-module (.createShaderModule device
                                              (clj->js {:code (device/configure-scene-color-shader
@@ -339,7 +339,7 @@
                                         :targets [{:format fformat
                                                    :blend (device/scene-color-blend scene-color)}]}
                              :primitive {:topology "triangle-list"}}))
-        bind-group (create-slug-bind-group device bg-layout (:curve-texture-view font-resources) (:band-texture-view font-resources) camera-buffer sizes-buffer containers-buffer)]
+        bind-group (create-slug-bind-group device bg-layout (:curve-texture-view font-resources) (:band-texture-view font-resources) camera-buffer sizes-buffer groups-buffer)]
     (js/console.log "[RENDERER] Init text system"
                     {:backend :slug
                      :label label
@@ -352,7 +352,7 @@
             :bind-group bind-group
             :bind-group-layout bg-layout
             :camera-uniform-buffer camera-buffer
-            :containers-uniform-buffer containers-buffer
+            :groups-uniform-buffer groups-buffer
             :sizes-uniform-buffer sizes-buffer
             :instance-buffer instance-buffer
             :instance-stride slug-text-instance-stride
@@ -384,7 +384,7 @@
                                                  (:band-texture-view font-resources)
                                                  (:camera-uniform-buffer text-sys)
                                                  (:sizes-uniform-buffer text-sys)
-                                                 (:containers-uniform-buffer text-sys))
+                                                 (:groups-uniform-buffer text-sys))
              :owns-font-resources? true})))
 
 (defn share-font-resources
@@ -407,7 +407,7 @@
                               (:instance-stride old-text-sys)))
         label (:gpu-label old-text-sys)
         camera-buffer (:camera-uniform-buffer old-text-sys)
-        containers-buffer (:containers-uniform-buffer old-text-sys)
+        groups-buffer (:groups-uniform-buffer old-text-sys)
         scene-color (:scene-color old-text-sys scene-color/legacy-direct-color)]
     (js/console.log "[RENDERER] Recreate text system"
                     {:label label
@@ -417,7 +417,7 @@
     (init-text-system device fformat camera-buffer font-assets
                       :initial-capacity capacity
                       :label label
-                      :containers-buffer containers-buffer
+                      :groups-buffer groups-buffer
                       :scene-color scene-color)))
 
 (defn clone-text-system
@@ -664,7 +664,7 @@
                   [sx sy ox oy] banding
                   [gx gy gzx gwy] glyph
                   [cr cg cb ca] color
-                  container (placement/slot effective container)
+                  container (transform/buffer-index effective container)
                   base (* (+ global-i sub-i) 25)]
               (aset float-view (+ base 0) x)
               (aset float-view (+ base 1) y)

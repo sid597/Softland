@@ -5,7 +5,7 @@
       Holds nothing."
      (:require [app.client.engine.color :as scene-color]
                [app.client.engine.device :as device]
-               [app.client.engine.placement :as containers]
+               [app.client.engine.transform :as transform]
                [app.client.path.material :as path-material]
                [app.client.path.painter :as path-painter]
                [app.client.path.tessellation :as path-tessellation]
@@ -251,8 +251,8 @@
             :regime (name (:regime/id (path-tessellation/zoom-regime zoom)))
             :normalization "path-local-with-effective-container-tree"
             :shape-extent-world 32.0
-            :transport-slots [(get-in effective [0 :transport-slot])
-                              (get-in effective [17 :transport-slot])]
+            :buffer-indexes [(get-in effective [0 :buffer-index])
+                              (get-in effective [17 :buffer-index])]
             :unknown-container unknown-error
             :images [(path-image-record mode case-id pair)]})))))
 
@@ -340,10 +340,10 @@
               :pass? (<= delta 3)}))))))
 
 (defn- run-path-color!
-  [device path-system camera containers-buffer effective]
+  [device path-system camera groups-buffer effective]
   (let [legacy-system
         (path-painter/init-path-system
-         device "rgba8unorm" camera containers-buffer
+         device "rgba8unorm" camera groups-buffer
          :scene-color (scene-color/scene-color false))]
     (-> (js/Promise.all
          #js [(path-color-row! device legacy-system effective false)
@@ -400,15 +400,15 @@
 
 (defn run-path-atom! [device]
   (let [camera (device/create-camera-buffer device)
-        containers-buffer (device/create-containers-buffer device)
-        registry (-> (containers/empty-registry)
-                     (containers/add-container
+        groups-buffer (device/create-groups-buffer device)
+        registry (-> (transform/empty-registry)
+                     (transform/add-group
                       17 {:parent 0
                           :affine [0.5 0.0 0.0 0.5 40.0 20.0]}))
-        effective (containers/effective registry)
-        _ (device/write-containers! device containers-buffer effective)
+        effective (transform/world-transforms registry)
+        _ (device/write-groups! device groups-buffer effective)
         system (path-painter/init-path-system
-                device "rgba8unorm-srgb" camera containers-buffer
+                device "rgba8unorm-srgb" camera groups-buffer
                 :scene-color (scene-color/scene-color true))]
     (-> (promise-mapv (partial run-path-golden! device system effective)
                       [:holed-concave :translucent-self-crossing])
@@ -425,7 +425,7 @@
                (.then #(assoc state :parity %)))))
         (.then
          (fn [state]
-           (-> (run-path-color! device system camera containers-buffer effective)
+           (-> (run-path-color! device system camera groups-buffer effective)
                (.then #(assoc state :color %)))))
         (.then
          (fn [state]
@@ -439,8 +439,8 @@
                          cases)
                  pass? (and (= 3 (count cases))
                             (every? :byte-identical? determinism)
-                            (= [0 1] (:transport-slots (last cases)))
-                            (= :placement/unknown-container
+                            (= [0 1] (:buffer-indexes (last cases)))
+                            (= :transform/unknown-group
                                (get-in (last cases)
                                        [:unknown-container :error-type]))
                             (= 7 (count parity))

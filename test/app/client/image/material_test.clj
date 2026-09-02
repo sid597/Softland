@@ -87,22 +87,22 @@
   (testing "closed source and material grammars name each refusal"
     (doseq [[row error-type path]
             [[(assoc material-a :future/key true)
-              :grammar/unknown-key [:future/key]]
+              :schema/unknown-key [:future/key]]
              [(assoc material-a :image/extensions {})
-              :grammar/unknown-key [:image/extensions]]
+              :schema/unknown-key [:image/extensions]]
              [(assoc source-a :image/ingress-receipt {:reader :asserted})
-              :grammar/unknown-key [:image/ingress-receipt]]
+              :schema/unknown-key [:image/ingress-receipt]]
              [(dissoc source-a :image/bytes-route)
-              :grammar/invalid-value [:image/bytes-route]]
+              :schema/invalid-value [:image/bytes-route]]
              [(assoc-in material-a [:image/paint :tint :rgba]
                         [0.0 0.25 0.5 0.75 1.0])
-              :grammar/invalid-value [:image/paint :tint :rgba]]
+              :schema/invalid-value [:image/paint :tint :rgba]]
              [(assoc-in material-a [:image/rect :h] 0)
-              :grammar/invalid-value [:image/rect :h]]
+              :schema/invalid-value [:image/rect :h]]
              [(assoc-in material-a [:image/paint :opacity] 1.5)
-              :grammar/invalid-value [:image/paint :opacity]]
+              :schema/invalid-value [:image/paint :opacity]]
              [(assoc material-a :image/crop [0 0 32 16])
-              :grammar/map-required [:image/crop]]]]
+              :schema/map-required [:image/crop]]]]
       (is (= {:error-type error-type :path path}
              (select-keys (refusal-data #(if (contains? row :image/digest)
                                            (image/validate-source! row)

@@ -84,7 +84,7 @@
     (let [data (refusal-data
                 #(material/validate-region!
                   (assoc (region) :future/shape :closed)))]
-      (is (= :grammar/unknown-key (:error-type data)))
+      (is (= :schema/unknown-key (:error-type data)))
       (is (= [:future/shape] (:path data)))))
 
   (testing "a parent cycle names its cycle point"
@@ -161,13 +161,13 @@
           data (refusal-data
                 #(material/validate-region!
                   (region {:placed-text placed})))]
-      (is (= :grammar/unknown-key (:error-type data)))))
+      (is (= :schema/unknown-key (:error-type data)))))
 
   (testing "an unsupported region version"
     (let [data (refusal-data
                 #(material/validate-region!
                   (assoc (region) :region3d/version 3)))]
-      (is (= :grammar/invalid-value (:error-type data)))
+      (is (= :schema/invalid-value (:error-type data)))
       (is (= [:region3d/version] (:path data))))))
 
 (deftest primitive-generators-are-deterministic-general-triangle-projections

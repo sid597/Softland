@@ -8,17 +8,17 @@
                    consumer contract). NOTE, found by reading both sides:
                    mount's rotation phase passes existing CHILD HANDLES back
                    through insert-before (DOM insertBefore = move), while
-                   gpu-mount's insert-before allocates a fresh slot from
+                   gpu-mount's insert-before allocates a fresh buffer-index from
                    whatever it receives — so this bridge is only valid for
                    change / append / tail-shrink diffs; any :permutation
                    corrupts the pool. Measured only where valid, plus one
                    deliberate corruption-demo cell.
 
-   C2 :direct    — the north-shaped consumer (NORTH §2.4): address→slot with
-                   an order-indirection vector. :grow → allocate-slot!,
+   C2 :direct    — the north-shaped consumer (NORTH §2.4): address→buffer-index with
+                   an order-indirection vector. :grow → allocate-buffer-index!,
                    :permutation → indirection vector only (no GPU writes),
-                   :shrink → free-slot! (slot zeroed by the pool),
-                   :change → update-slot! (writeBuffer at slot offset).
+                   :shrink → free-buffer-index! (buffer-index zeroed by the pool),
+                   :change → update-buffer-index! (writeBuffer at buffer-index offset).
                    Phase order mirrors incseq's patch-vec exactly.
 
    C3 :recollect — keyed-diff-update-pool! fed whole collections: the
@@ -105,33 +105,33 @@
                      (assoc! v j x))))))))
 
 (defn make-direct [pool*]
-  (let [!slots (atom []) ;; position -> pool slot index (order indirection)
+  (let [!buffer-indexes (atom []) ;; position -> pool buffer-index index (order indirection)
         !rows (atom [])] ;; semantic half of the store, via the real patch-vec
     {:kind :direct
      :apply-diff!
      (fn [{:keys [grow shrink permutation change] :as diff}]
-       (let [v (transient @!slots)
+       (let [v (transient @!buffer-indexes)
              v (loop [k 0, v v]
                  (if (< k grow)
-                   (recur (inc k) (conj! v (pool/allocate-slot! pool*)))
+                   (recur (inc k) (conj! v (pool/allocate-buffer-index! pool*)))
                    v))
              v (if (pos? (count permutation)) (cycles! v permutation) v)
              v (loop [k 0, v v]
                  (if (< k shrink)
-                   (do (pool/free-slot! pool* (nth v (dec (count v))))
+                   (do (pool/free-buffer-index! pool* (nth v (dec (count v))))
                        (recur (inc k) (pop! v)))
                    v))
              v (persistent! v)]
          (reduce-kv (fn [_ idx row]
-                      (pool/update-slot! pool* (nth v idx) row)
+                      (pool/update-buffer-index! pool* (nth v idx) row)
                       nil)
                     nil change)
-         (reset! !slots v)
+         (reset! !buffer-indexes v)
          (swap! !rows i/patch-vec diff)
          nil))
      :verify
      (fn [expected]
-       (cond-> {:active-slots (count (:active-slots @pool*))
+       (cond-> {:active-buffer-indexes (count (:active-buffer-indexes @pool*))
                 :rows-n (count @!rows)}
          expected (assoc :rows-match? (= @!rows (vec expected))
                          :expected-n (count expected))))}))
@@ -154,7 +154,7 @@
        nil)
      :verify
      (fn [expected]
-       (cond-> {:active-slots (count (:active-slots @pool*))
+       (cond-> {:active-buffer-indexes (count (:active-buffer-indexes @pool*))
                 :rows-n (count @!rows)}
          expected (assoc :rows-match? (= @!rows (vec expected))
                          :expected-n (count expected))))}))
@@ -169,7 +169,7 @@
    (fn [coll] (pool/keyed-diff-update-pool! pool* coll))
    :verify
    (fn [expected]
-     (cond-> {:active-slots (count (:active-slots @pool*))}
+     (cond-> {:active-buffer-indexes (count (:active-buffer-indexes @pool*))}
        expected (assoc :expected-n (count expected))))})
 
 (defn make-consumer [kind pool*]

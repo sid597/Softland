@@ -5,7 +5,7 @@
    Holds nothing."
   (:require [app.client.engine.color :as color]
             [app.client.engine.device :as device]
-            [app.client.engine.placement :as containers]
+            [app.client.engine.transform :as transform]
             [app.client.region3d.on-plane-painter :as on-plane-painter]
             [app.client.text.painter :as text-painter]))
 
@@ -90,25 +90,25 @@
   (into {}
         (map (fn [slot]
                [(* slot 17)
-                {:affine containers/identity-affine
+                {:affine transform/identity-affine
                  :flags 0
                  :layer 0
                  :stack-path [[(* slot 17) 0]]
-                 :transport-slot slot}]))
+                 :buffer-index slot}]))
         (range entry-count)))
 
-(defn run-q8-transport! [device containers-buffer]
+(defn run-q8-transport! [device groups-buffer]
   (let [rows
         (mapv (fn [entry-count]
                 (let [effective (q8-effective entry-count)
-                      receipt (device/write-containers! device containers-buffer effective)
+                      receipt (device/write-groups! device groups-buffer effective)
                       expected-bytes (* entry-count device/affine-entry-bytes)]
                   (assoc receipt
                          :semantic-max-id (* 17 (dec entry-count))
                          :expected-bytes expected-bytes
                          :pass? (and (= entry-count (:entries receipt))
                                      (= expected-bytes (:bytes receipt))
-                                     (= (dec entry-count) (:max-slot receipt))))))
+                                     (= (dec entry-count) (:max-buffer-index receipt))))))
               [1024 4096 16384])]
     {:entry-bytes device/affine-entry-bytes
      :transport "compact-read-only-storage"

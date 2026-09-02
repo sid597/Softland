@@ -4,7 +4,7 @@
    Takes: a size request with the region id, desired size, held lease, reserved
    bytes, and budget cap, plus injected quantize and lease-bytes functions.
    Gives: admitted or not, the granted size key, the rung divisor, and a
-   receipt.
+   stats.
    Holds nothing.")
 
 (def admission-divisors [1 2 4 8])
@@ -25,7 +25,7 @@
         height (quantize (/ (double desired-height) divisor))
         key [region-id width height]
         candidate-bytes (lease-bytes width height shadow?)
-        held? (and held-lease (not (:refused? held-lease)))
+        held? (and held-lease (not (:rejected? held-lease)))
         held-key (when held? (:key held-lease))
         same-key? (= key held-key)
         key-crossing? (and held? (not same-key?))
@@ -66,7 +66,7 @@
         (let [row (if (= 1 divisor) desired (candidate request divisor))
               evaluated (conj evaluated divisor)]
           (if (:admitted? row)
-            (let [receipt {:region/id region-id
+            (let [stats {:region/id region-id
                            :desired-key (:key desired)
                            :granted-key (:key row)
                            :rung-divisor divisor
@@ -87,7 +87,7 @@
                :self-credit (:self-credit row)
                :key-crossing? (:key-crossing? row)
                :evaluated-divisors evaluated
-               :rung-receipt (when (> divisor 1) receipt)})
+               :rung-stats (when (> divisor 1) stats)})
             (recur remaining evaluated)))
         {:admitted? false
          :region/id region-id

@@ -39,9 +39,9 @@
     app.client.region3d.on-plane-test
     app.client.region3d.scene-test
     app.client.engine.color-test
-    app.client.engine.grammar-test
+    app.client.engine.schema-test
     app.client.engine.rungs-test
-    app.client.engine.placement-test
+    app.client.engine.transform-test
     app.client.text.shaping-correction-test
     app.client.text.layout-planes-test
     app.client.text.layout-test

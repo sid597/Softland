@@ -6,7 +6,7 @@
    Gives: a mesh (flat vertices, counts, coverage, cache key); untouched
    materials return their old mesh by identity.
    Holds nothing; the cache is a value the caller owns."
-  (:require [app.client.engine.grammar :as grammar]
+  (:require [app.client.engine.schema :as schema]
             [app.client.path.material :as path-material]))
 
 (def legal-zoom-regimes
@@ -21,7 +21,7 @@
     :fan-resolution 16}])
 
 (defn zoom-regime [zoom]
-  (when-not (and (grammar/finite-number? zoom) (<= 0.01 zoom 1000.0))
+  (when-not (and (schema/finite-number? zoom) (<= 0.01 zoom 1000.0))
     (throw (ex-info "Path zoom is outside the legal envelope"
                     {:zoom zoom :legal [0.01 1000.0]})))
   (cond

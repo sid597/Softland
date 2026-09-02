@@ -10,7 +10,7 @@
             [app.client.path.tessellation :as path-tessellation]
             [app.client.region3d.scene :as region3d-scene]
             [app.client.engine.color :as color]
-            [app.client.engine.placement :as containers]
+            [app.client.engine.transform :as transform]
             [app.client.text.layout :as text-layout]))
 
 (def placed-color-adapter-version :region3d/placed-color-v1)
@@ -158,9 +158,9 @@
                                                            width height)
                 region-container-point [(+ (double (:x region-op)) (first point))
                                         (+ (double (:y region-op)) (second point))]
-                anchor-point (containers/inverse-point
+                anchor-point (transform/inverse-point
                               anchor-effective
-                              (containers/forward-point region-effective
+                              (transform/forward-point region-effective
                                                         region-container-point))]
             {:status :resolved
              :kind :point
