@@ -653,7 +653,7 @@
                          (get-in op [:image/material :image/source-digest])))
     (let [frame-key (frame/frame-key ops @(:!residency-rev image-system))]
       (if (= frame-key @(:!last-frame-key image-system))
-        {:changed? false :writes 0 :item-writes 0
+        {:changed? false :writes 0
          :instances (count @(:!prepared image-system))}
         (let [prepared (mapv #(resolve-image-op image-system effective %) ops)
               item-writes (buffer-pool/batch-update-pool!
@@ -661,8 +661,7 @@
           (reset! (:!last-frame-key image-system) frame-key)
           (reset! (:!prepared image-system) prepared)
           {:changed? true
-           :writes (if (pos? item-writes) 1 0)
-           :item-writes item-writes
+           :writes item-writes
            :instances (count prepared)})))))
 
 (defn image-draw-runs

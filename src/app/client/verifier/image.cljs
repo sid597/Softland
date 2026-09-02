@@ -592,13 +592,19 @@
                             (assoc :frame-4 frame-4
                                    :pass?
                                    (and (:changed? (:frame-1 state))
-                                        (= 1 (:writes (:frame-1 state)))
+                                        (= 2 (:writes (:frame-1 state)))
                                         (not (:changed? (:frame-2 state)))
                                         (zero? (:writes (:frame-2 state)))
                                         (:changed? (:frame-3 state))
+                                        ;; A reminted revision changes one
+                                        ;; positional pool item even when its
+                                        ;; packed image words are unchanged.
+                                        (= 1 (:writes (:frame-3 state)))
                                         (:changed? (:placeholder-frame state))
                                         (= :unavailable (:placeholder-status state))
                                         (:changed? frame-4)
+                                        ;; The landed texture changes the one
+                                        ;; prepared placeholder-backed item.
                                         (= 1 (:writes frame-4))
                                         (= :ok (:image/status prepared))
                                         (not= :image/placeholder
