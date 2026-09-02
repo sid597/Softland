@@ -229,11 +229,21 @@ const representativeSpecs = [
     resultKey: "region3dFloor",
     file: "gpu-region3d-floor-tree.png",
   },
+  {
+    manifestKey: "images",
+    resultKey: "textContainerTree",
+    file: "gpu-slug-container-tree-mixed-face-cid17-slot1.png",
+  },
 ];
 
 const representativeGoldens = (result, manifest) =>
   representativeSpecs.map(({ manifestKey, resultKey, file }) => {
-    const cases = resultKey === "cases" ? result.cases : result[resultKey]?.cases;
+    const cases =
+      resultKey === "cases"
+        ? result.cases
+        : resultKey === "textContainerTree"
+          ? [result.ubuntuSlug?.containerTree?.case].filter(Boolean)
+          : result[resultKey]?.cases;
     const current = imageRows(cases).find((row) => row.file === file);
     const expected = manifest[manifestKey]?.find((row) => row.file === file);
     const goldenFile = path.join(goldenDir, file);
@@ -300,33 +310,38 @@ const sourceInputs = () =>
     .map(sha256File);
 
 const recordUbuntuSlugGolden = (result, manifest) => {
-  const cases = result.ubuntuSlug?.cases || [];
+  const cases = [
+    ...(result.ubuntuSlug?.cases || []),
+    result.ubuntuSlug?.containerTree?.case,
+  ].filter(Boolean);
   const images = cases.flatMap((renderCase) =>
     renderCase.images.map((image) => ({ renderCase, image })),
   );
-  if (images.length !== 1) {
-    throw new Error(`Expected one Ubuntu Slug golden, got ${images.length}`);
+  if (images.length !== 2) {
+    throw new Error(`Expected two Ubuntu Slug goldens, got ${images.length}`);
   }
-  const { renderCase, image } = images[0];
-  const bytes = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
-  fs.writeFileSync(path.join(goldenDir, image.file), bytes);
-  const row = {
-    caseId: renderCase.caseId,
-    zoom: renderCase.zoom,
-    regime: renderCase.regime,
-    normalization: renderCase.normalization,
-    shapeExtentWorld: renderCase.shapeExtentWorld,
-    mode: image.mode,
-    file: image.file,
-    rawSha256: image.rawSha256,
-    pngSha256: sha256(bytes),
-  };
+  const rows = images.map(({ renderCase, image }) => {
+    const bytes = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+    fs.writeFileSync(path.join(goldenDir, image.file), bytes);
+    return {
+      caseId: renderCase.caseId,
+      zoom: renderCase.zoom,
+      regime: renderCase.regime,
+      normalization: renderCase.normalization,
+      shapeExtentWorld: renderCase.shapeExtentWorld,
+      mode: image.mode,
+      file: image.file,
+      rawSha256: image.rawSha256,
+      pngSha256: sha256(bytes),
+    };
+  });
+  const recordedFiles = new Set(rows.map((row) => row.file));
   manifest.images = [
-    ...(manifest.images || []).filter((entry) => entry.file !== image.file),
-    row,
+    ...(manifest.images || []).filter((entry) => !recordedFiles.has(entry.file)),
+    ...rows,
   ];
   fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
-  return row;
+  return rows;
 };
 
 const recordPathGolden = (result, manifest, file) => {
