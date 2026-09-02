@@ -5,6 +5,11 @@ Shared verifier receipt: PASS — `14 tests / 87 assertions / 0 failures / 0 err
 ## Text
 Question: T1 requires a ninth replayed Slug golden, but §8 forbids text from editing the shared runner that hardcodes seven DejaVu cases plus one Ubuntu case; does runner custody admit the minimal text-golden registration, or does T1 close on the returned deterministic tree receipt instead?
 Ruling (Fable, 2026-09-02): custody stands; T1 closes now on the returned tree receipt (deterministic hash `6160b2a7…be30` + the placement check) as its tripwire; the golden PNG and its runner row are registered by the last closer at package close, one bounded block beside F7's. Contract §4d and §7 T1 amended.
+TEXT SOURCE FROZEN + RECEIPT PASS — source `67d9a68`; T1–T3 are tripwires; Sid acceptance pending.
+T1: PASS — banked SwiftShader tree raw SHA-256 `6160b2a793cab2a92a6c9f0485bb0df0836800511ea11a26bd635bf52476be30` is deterministic; word-24 slots `[1 1]`; missing/unknown containers refuse. Ninth PNG/row remains with the last package closer per ruling.
+T2: PASS — carried fallbacks `0`, uncarried `1/op`, call-local; removal scans clean; focused text suite `26 tests / 349 assertions / 0 failures / 0 errors` and both text fences pass.
+T3: PASS — shared legal-zoom bounds hold; the eight existing Slug fixtures and runner are untouched by the source diff; isolated text-verifier CLJS compile passes (one pre-existing foreign warning).
+Custody (`git diff --name-only 67d9a68^..67d9a68`): `text/{glyph_pack.cljs,layout.cljc,layout_oracle.cljc,painter.cljs}`, `verifier/text.cljs`, `text/flat_road_test.clj`; foreign `.claude/memory/` dirt preserved.
 
 ## Region
 BUILT + RECEIPTED; SID ACCEPTANCE PENDING — `a2a0a39`, `5c9e313`, `66e22bb`, `c6c96fc`.
