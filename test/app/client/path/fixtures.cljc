@@ -1,15 +1,15 @@
 (ns app.client.path.fixtures)
 
-(def example-ink-material
+(def example-ink-component
   {:path/material-id :path/ink-fixture
    :path/revision :ink/rev-1
    :path/kind :ink
    :path/geometry
-   {:knots [{:knot/id [:knot 0] :position [0.0 0.0]
+   {:stroke-points [{:stroke-point/id [:stroke-point 0] :position [0.0 0.0]
              :width 2.0 :pressure 0.2}
-            {:knot/id [:knot 1] :position [20.0 0.0]
+            {:stroke-point/id [:stroke-point 1] :position [20.0 0.0]
              :width 6.0 :pressure 0.6}
-            {:knot/id [:knot 2] :position [30.0 10.0]
+            {:stroke-point/id [:stroke-point 2] :position [30.0 10.0]
              :width 10.0 :pressure 1.0}]
     :cap :round
     :join :round}
@@ -18,7 +18,7 @@
                 :color-space :srgb
                 :alpha-association :straight}})
 
-(def example-shape-material
+(def example-shape-component
   {:path/material-id :path/holed-concave
    :path/revision :shape/rev-1
    :path/kind :shape
@@ -40,8 +40,8 @@
    :path/revision :tapered/rev-1
    :path/kind :ink
    :path/geometry
-   {:knots [{:knot/id [:tapered 0] :position [0.0 0.0] :width 4.0}
-            {:knot/id [:tapered 1] :position [10.0 0.0] :width 12.0}]
+   {:stroke-points [{:stroke-point/id [:tapered 0] :position [0.0 0.0] :width 4.0}
+            {:stroke-point/id [:tapered 1] :position [10.0 0.0] :width 12.0}]
     :cap :round
     :join :round}
    :path/paint {:color [0.25 0.5 0.75 1.0]

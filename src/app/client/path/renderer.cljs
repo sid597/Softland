@@ -1,17 +1,17 @@
-(ns app.client.path.painter
-  "The path painter: one repacked vertex lane and a mesh cache keyed by
-   geometry, algorithm, and zoom regime.
+(ns app.client.path.renderer
+  "The path renderer: one repacked vertex lane and a mesh cache keyed by
+   geometry, algorithm, and zoom lod.
    Takes: a device, a format, and the shared buffers to build the system; the
-   frame's path ops and zoom to prepare; a render pass and a vertex range to
+   frame's path draw-items and zoom to prepare; a render pass and a vertex range to
    draw.
    Gives: a path system; a written vertex buffer; draw calls.
    Holds: per-system atoms for the buffer, capacity, mesh cache, prepared
-   state, and the last revision/container/regime frame key."
+   state, and the last revision/group/lod frame key."
   (:require [app.client.engine.color :as scene-color]
             [app.client.engine.device :as device]
             [app.client.engine.transform :as transform]
             [app.client.path.frame :as frame]
-            [app.client.path.material :as path-material]
+            [app.client.path.component :as path-component]
             [app.client.path.tessellation :as tessellation]))
 
 (def vertex-words 7)
@@ -23,22 +23,22 @@
      screen_dimensions: vec2<f32>,
    };
    @group(0) @binding(0) var<uniform> camera: Camera;
-   struct ContainerTransform {
+   struct GroupTransform {
      axis_x: vec2<f32>, axis_y: vec2<f32>, translation: vec2<f32>,
      flags: u32, padding: u32,
    };
-   @group(0) @binding(1) var<storage, read> containers: array<ContainerTransform>;
+   @group(0) @binding(1) var<storage, read> groups: array<GroupTransform>;
    struct VertexInput {
      @location(0) position: vec2<f32>,
      @location(1) color: vec4<f32>,
-     @location(2) container_idx: u32,
+     @location(2) group_buffer_index: u32,
    };
    struct VertexOutput {
      @builtin(position) position: vec4<f32>,
      @location(0) color: vec4<f32>,
    };
    @vertex fn main(input: VertexInput) -> VertexOutput {
-     let c = containers[input.container_idx];
+     let c = groups[input.group_buffer_index];
      let is_screen = (c.flags & 1u) != 0u;
      let zm = select(camera.zoom, 1.0, is_screen);
      let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
@@ -128,16 +128,16 @@
      :!mesh-cache (atom {}) :!prepared (atom [])
      :!last-frame-key (atom ::never)}))
 
-(defn- pack-vertices [prepared effective]
+(defn- pack-vertices [prepared world-transforms]
   (let [vertex-count (reduce + (map :vertex-count prepared))
         floats (js/Float32Array. (* vertex-count vertex-words))
         uints (js/Uint32Array. (.-buffer floats))]
-    (loop [ops prepared vertex-offset 0]
-      (if-let [{:keys [op mesh]} (first ops)]
-        (let [material (:path/material op)
+    (loop [draw-items prepared vertex-offset 0]
+      (if-let [{:keys [draw-item mesh]} (first draw-items)]
+        (let [component (:path/material draw-item)
               vertices (:vertices mesh)
-              [r g b a] (path-material/paint-color material)
-              container-idx (transform/buffer-index effective (:container op))]
+              [r g b a] (path-component/paint-color component)
+              group-buffer-index (transform/buffer-index world-transforms (:container draw-item))]
           (doseq [[index [x y]] (map-indexed vector vertices)]
             (let [base (* (+ vertex-offset index) vertex-words)]
               (aset floats (+ base 0) x)
@@ -146,8 +146,8 @@
               (aset floats (+ base 3) g)
               (aset floats (+ base 4) b)
               (aset floats (+ base 5) a)
-              (aset uints (+ base 6) container-idx)))
-          (recur (next ops) (+ vertex-offset (count vertices))))
+              (aset uints (+ base 6) group-buffer-index)))
+          (recur (next draw-items) (+ vertex-offset (count vertices))))
         floats))))
 
 (defn- ensure-capacity! [path-system required]
@@ -166,12 +166,12 @@
     @(:!buffer path-system)))
 
 (defn prepare-path-frame!
-  "Derive/cache/repack when a material revision, container, or zoom regime
-   changes. Pan and continuous zoom within one regime never reach this write."
-  [path-system paths zoom effective]
-  (let [paths (or paths [])
-        regime (:regime/id (tessellation/zoom-regime zoom))
-        key (frame/frame-key paths regime)]
+  "Derive/cache/repack when a component revision, group, or zoom lod
+   changes. Pan and continuous zoom within one lod never reach this write."
+  [path-system draw-items zoom world-transforms]
+  (let [draw-items (or draw-items [])
+        lod (:lod/id (tessellation/zoom-lod zoom))
+        key (frame/frame-key draw-items lod)]
     (if (= key @(:!last-frame-key path-system))
       {:changed? false
        :writes 0
@@ -179,24 +179,24 @@
        :derived 0}
       (let [derivation (tessellation/derive-mesh-set
                         @(:!mesh-cache path-system)
-                        (mapv :path/material paths) zoom)
+                        (mapv :path/material draw-items) zoom)
             prepared
-            (loop [ops paths
+            (loop [draw-items draw-items
                    meshes (:meshes derivation)
                    first-vertex 0
                    result []]
-              (if-let [op (first ops)]
+              (if-let [draw-item (first draw-items)]
                 (let [mesh (first meshes)
-                      row {:op op
+                      row {:draw-item draw-item
                            :mesh mesh
                            :first-vertex first-vertex
                            :vertex-count (:vertex-count mesh)}]
-                  (recur (next ops)
+                  (recur (next draw-items)
                          (next meshes)
                          (+ first-vertex (:vertex-count row))
                          (conj result row)))
                 result))
-            packed (pack-vertices prepared effective)
+            packed (pack-vertices prepared world-transforms)
             vertices (quot (.-length packed) vertex-words)
             buffer (ensure-capacity! path-system vertices)
             ^js device (:device path-system)]

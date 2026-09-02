@@ -38,7 +38,7 @@ absent(regionGpu, /\b(?:grid-shader|overlay-glyph-shader|gizmo-shader|prepared-p
   "retired Region3D GPU closure survived");
 
 const editAndPulseSources = [
-  "src/app/client/path/material.cljc",
+  "src/app/client/path/component.cljc",
   "src/app/client/region3d/material.cljc",
   "src/app/client/engine/device.cljs",
   "src/app/client/text/painter.cljs",
@@ -53,7 +53,7 @@ const sceneContractSources = [
   "src/app/client/engine/device.cljs",
   "src/app/client/text/painter.cljs",
   "src/app/client/image/painter.cljs",
-  "src/app/client/path/painter.cljs",
+  "src/app/client/path/renderer.cljs",
 ].map(read).join("\n");
 absent(sceneContractSources,
   /\bpick-reverse\b|:region-router\b|:pick-order-derived\?|:resolve-view\b|:region-composite\b|:pass-class\s+:region\b/,
@@ -66,7 +66,7 @@ const painterFiles = [
   "src/app/client/engine/compositor.cljs",
   "src/app/client/text/painter.cljs",
   "src/app/client/image/painter.cljs",
-  "src/app/client/path/painter.cljs",
+  "src/app/client/path/renderer.cljs",
   "src/app/client/region3d/painter.cljs",
   "src/app/client/region3d/on_plane_painter.cljs",
 ].map((relative) => path.join(root, relative));

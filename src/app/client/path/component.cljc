@@ -1,9 +1,9 @@
-(ns app.client.path.material
+(ns app.client.path.component
   "What a path is, and the four things everyone needs from one. A path is ink
    (a stroke of width-tagged points, round caps) or a shape (filled outer
    contours with holes), straight segments only, with a paint.
    Takes: a validated path map; a point; optional local-unit hit slop.
-   Gives: the declared grammar; inside, boundary, or outside; a content key;
+   Gives: the declared schema; inside, boundary, or outside; a content hash;
    paint.
    Holds nothing."
   (:require [app.client.engine.schema :as schema]))
@@ -17,7 +17,7 @@
 (defn- named-validator [error-type predicate]
   (fn [value]
     (when-not (predicate value)
-      (throw (ex-info "Path grammar refused value" {:error-type error-type})))
+      (throw (ex-info "Path schema rejected value" {:error-type error-type})))
     true))
 
 (def paint
@@ -31,21 +31,21 @@
     :alpha-association
     (named-validator :path/paint-alpha-association #{:straight})}})
 
-(def knot
-  {:keys #{:knot/id :position :width}
+(def stroke-point
+  {:keys #{:stroke-point/id :position :width}
    :optional #{:pressure :gesture-time}
    :validators
-   {:knot/id (named-validator :path/knot-id some?)
-    :position (named-validator :path/knot-position schema/point?)
-    :width (named-validator :path/knot-width schema/positive-number?)
-    :pressure (named-validator :path/knot-pressure schema/finite-number?)
+   {:stroke-point/id (named-validator :path/stroke-point-id some?)
+    :position (named-validator :path/stroke-point-position schema/point?)
+    :width (named-validator :path/stroke-point-width schema/positive-number?)
+    :pressure (named-validator :path/stroke-point-pressure schema/finite-number?)
     :gesture-time
-    (named-validator :path/knot-gesture-time schema/finite-number?)}})
+    (named-validator :path/stroke-point-gesture-time schema/finite-number?)}})
 
 (def ink-geometry
-  {:keys #{:knots :cap :join}
+  {:keys #{:stroke-points :cap :join}
    :validators
-   {:knots [:vector-of knot {:min 2 :unique-by :knot/id}]
+   {:stroke-points [:vector-of stroke-point {:min 2 :unique-by :stroke-point/id}]
     :cap (named-validator :path/cap legal-cap-join)
     :join (named-validator :path/join legal-cap-join)}})
 
@@ -68,13 +68,13 @@
    :form-validators
    [{:valid? holes-have-an-outer? :error-type :path/hole-without-outer}]})
 
-(defn- geometry-matches-kind? [material]
-  (case (:path/kind material)
-    :ink (do (schema/check ink-geometry (:path/geometry material)) true)
-    :shape (do (schema/check shape-geometry (:path/geometry material)) true)
+(defn- geometry-matches-kind? [component]
+  (case (:path/kind component)
+    :ink (do (schema/check ink-geometry (:path/geometry component)) true)
+    :shape (do (schema/check shape-geometry (:path/geometry component)) true)
     false))
 
-(def grammar
+(def schema
   {:keys #{:path/material-id :path/revision :path/kind :path/geometry
            :path/paint}
    :validators
@@ -85,12 +85,12 @@
    :form-validators
    [{:valid? geometry-matches-kind? :error-type :path/geometry-kind}]})
 
-(defn validate-material!
-  "Check the declared path grammar and return the unchanged EDN map."
-  [material]
-  (schema/check grammar material))
+(defn validate-component!
+  "Check the declared path schema and return the unchanged EDN map."
+  [component]
+  (schema/check schema component))
 
-(defn canonical-material [material]
+(defn canonical-component [component]
   (letfn [(canonical [value]
             (cond
               (map? value) (into (sorted-map)
@@ -99,11 +99,11 @@
               (vector? value) (mapv canonical value)
               (set? value) (into (sorted-set) (map canonical) value)
               :else value))]
-    (canonical material)))
+    (canonical component)))
 
-(defn material-content-key [material]
+(defn component-content-hash [component]
   [:path/content-v2
-   (pr-str (dissoc (canonical-material material)
+   (pr-str (dissoc (canonical-component component)
                    :path/material-id :path/revision))])
 
 (defn- sq [value] (* value value))
@@ -165,7 +165,7 @@
           (:delta (segment-delta (:position left) (:width left)
                                  (:position right) (:width right)
                                  query-point)))
-        (partition 2 1 (:knots geometry))))
+        (partition 2 1 (:stroke-points geometry))))
 
 (defn- ink-classify [geometry query-point slop-local]
   (let [delta (- (apply min (ink-deltas geometry query-point)) slop-local)]
@@ -176,17 +176,17 @@
 
 (defn classify
   "Tri-state authority classification in path-local f64 coordinates."
-  ([material point] (classify material point 0.0))
-  ([material point slop-local]
+  ([component point] (classify component point 0.0))
+  ([component point slop-local]
    (when-not (schema/non-negative-number? slop-local)
      (throw (ex-info "Path hit slop must be finite local units"
                      {:error-type :path/hit-slop
                       :path [:slop-local]
                       :value slop-local})))
-   (case (:path/kind material)
-     :ink (ink-classify (:path/geometry material) point slop-local)
+   (case (:path/kind component)
+     :ink (ink-classify (:path/geometry component) point slop-local)
      :shape
-     (let [contours (get-in material [:path/geometry :contours])
+     (let [contours (get-in component [:path/geometry :contours])
            closed-classes
            (mapv #(assoc % :class (contour-classify (:points %) point)) contours)
            base-class
@@ -209,22 +209,22 @@
          (and slop-delta (neg? slop-delta)) :inside
          :else :outside)))))
 
-(defn hit? [material point]
-  (not= :outside (classify material point)))
+(defn hit? [component point]
+  (not= :outside (classify component point)))
 
-(defn boundary-distance [material point]
-  (case (:path/kind material)
-    :ink (apply min (map #(Math/abs %) (ink-deltas (:path/geometry material)
+(defn boundary-distance [component point]
+  (case (:path/kind component)
+    :ink (apply min (map #(Math/abs %) (ink-deltas (:path/geometry component)
                                                    point)))
     :shape
     (apply min
-           (for [contour (get-in material [:path/geometry :contours])
+           (for [contour (get-in component [:path/geometry :contours])
                  [a b] (map vector (:points contour)
                             (concat (rest (:points contour))
                                     [(first (:points contour))]))]
              (point-segment-distance point a b)))))
 
-(defn paint-color [material]
-  (let [{:keys [color opacity]} (:path/paint material)
+(defn paint-color [component]
+  (let [{:keys [color opacity]} (:path/paint component)
         [red green blue alpha] color]
     [red green blue (* alpha opacity)]))

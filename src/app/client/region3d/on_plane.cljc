@@ -6,7 +6,7 @@
    placement's anchor to project.
    Gives: a layout; a packed ink mesh; a projected anchor.
    Holds nothing."
-  (:require [app.client.path.material :as path-material]
+  (:require [app.client.path.component :as path-component]
             [app.client.path.tessellation :as path-tessellation]
             [app.client.region3d.scene :as region3d-scene]
             [app.client.engine.color :as color]
@@ -115,7 +115,7 @@
             :cache-key (:cache-key mesh)
             :vertices (:vertices mesh)
             :color (adapt-legacy-color
-                    (path-material/paint-color (:material placement)))}}))
+                    (path-component/paint-color (:material placement)))}}))
 
 (defn linear-premultiplied [{[r g b a] :rgba} coverage opacity]
   (let [alpha (max 0.0 (min 1.0 (* (double a) (double coverage)

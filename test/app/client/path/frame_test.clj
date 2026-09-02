@@ -3,20 +3,20 @@
             [app.client.path.fixtures :as fixtures]
             [app.client.path.frame :as frame]))
 
-(deftest revision-container-regime-key-tripwire
-  (let [left fixtures/example-ink-material
-        right fixtures/example-shape-material
-        ops [{:path/material left :container 0}
+(deftest revision-group-lod-key-tripwire
+  (let [left fixtures/example-ink-component
+        right fixtures/example-shape-component
+        draw-items [{:path/material left :container 0}
              {:path/material right :container 17}]
-        key (frame/frame-key ops :floor-default)]
+        key (frame/frame-key draw-items :engine-default)]
     (is (= [[[:path/ink-fixture :ink/rev-1 0]
              [:path/holed-concave :shape/rev-1 17]]
-            :floor-default]
+            :engine-default]
            key))
     (is (not= key
               (frame/frame-key
-               [(update-in (first ops) [:path/material :path/revision]
+               [(update-in (first draw-items) [:path/material :path/revision]
                            (constantly :ink/rev-2))
-                (second ops)]
-               :floor-default)))
-    (is (not= key (frame/frame-key ops :legal-max)))))
+                (second draw-items)]
+               :engine-default)))
+    (is (not= key (frame/frame-key draw-items :legal-max)))))

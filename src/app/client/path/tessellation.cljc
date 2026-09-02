@@ -1,54 +1,54 @@
 (ns app.client.path.tessellation
   "Turns a path into triangles. Ink expands to segment quads with round caps
    and joins; shapes bridge their holes and ear-clip. Deterministic and pure.
-   Takes: a path material and a zoom; or a content-keyed cache plus many
-   materials.
+   Takes: a path component and a zoom; or a content-hash-keyed cache plus many
+   components.
    Gives: a mesh (flat vertices, counts, coverage, cache key); untouched
-   materials return their old mesh by identity.
+   components return their old mesh by identity.
    Holds nothing; the cache is a value the caller owns."
   (:require [app.client.engine.schema :as schema]
-            [app.client.path.material :as path-material]))
+            [app.client.path.component :as path-component]))
 
-(def legal-zoom-regimes
-  [{:regime/id :legal-min
+(def legal-zoom-lods
+  [{:lod/id :legal-min
     :zoom {:min 0.01 :max 0.1}
     :fan-resolution 4}
-   {:regime/id :floor-default
+   {:lod/id :engine-default
     :zoom {:min 0.1 :max 8.0}
     :fan-resolution 8}
-   {:regime/id :legal-max
+   {:lod/id :legal-max
     :zoom {:min 8.0 :max 1000.0}
     :fan-resolution 16}])
 
-(defn zoom-regime [zoom]
+(defn zoom-lod [zoom]
   (when-not (and (schema/finite-number? zoom) (<= 0.01 zoom 1000.0))
-    (throw (ex-info "Path zoom is outside the legal envelope"
+    (throw (ex-info "Path zoom is outside the zoom range"
                     {:zoom zoom :legal [0.01 1000.0]})))
   (cond
-    (< zoom 0.1) (first legal-zoom-regimes)
-    (<= zoom 8.0) (second legal-zoom-regimes)
-    :else (nth legal-zoom-regimes 2)))
+    (< zoom 0.1) (first legal-zoom-lods)
+    (<= zoom 8.0) (second legal-zoom-lods)
+    :else (nth legal-zoom-lods 2)))
 
 (def algorithm-version :path-tessellation-v1)
 (def ^:private epsilon 1.0e-10)
 
-(defn material-cache-key
-  ([material zoom]
-   (material-cache-key material algorithm-version zoom))
-  ([material algorithm zoom]
-   (let [canonical (path-material/canonical-material material)
+(defn component-cache-key
+  ([component zoom]
+   (component-cache-key component algorithm-version zoom))
+  ([component algorithm zoom]
+   (let [canonical (path-component/canonical-component component)
          geometry (into (sorted-map)
                         (select-keys canonical [:path/kind :path/geometry]))]
-     [geometry algorithm (:regime/id (zoom-regime zoom))])))
+     [geometry algorithm (:lod/id (zoom-lod zoom))])))
 
-(defn- material-points [material]
-  (case (:path/kind material)
-    :ink (mapv :position (get-in material [:path/geometry :knots]))
+(defn- component-points [component]
+  (case (:path/kind component)
+    :ink (mapv :position (get-in component [:path/geometry :stroke-points]))
     :shape (into [] (mapcat :points)
-                 (get-in material [:path/geometry :contours]))))
+                 (get-in component [:path/geometry :contours]))))
 
-(defn- shape-normalization [material]
-  (let [points (material-points material)
+(defn- shape-normalization [component]
+  (let [points (component-points component)
         xs (map first points)
         ys (map second points)
         min-x (apply min xs)
@@ -112,20 +112,20 @@
           (keep (fn [[left right]] (triangle center left right)))
           (partition 2 1 points))))
 
-(defn- normalized-ink [material normalization]
+(defn- normalized-ink [component normalization]
   (let [scale-factor (:scale normalization)]
-    (update-in material [:path/geometry :knots]
-               (fn [knots]
+    (update-in component [:path/geometry :stroke-points]
+               (fn [stroke-points]
                  (mapv #(-> %
                             (update :position
                                     (partial normalize-point normalization))
                             (update :width / scale-factor))
-                       knots)))))
+                       stroke-points)))))
 
-(defn- stroke-triangles-normalized [material zoom]
-  (let [geometry (:path/geometry material)
-        knots (:knots geometry)
-        resolution (:fan-resolution (zoom-regime zoom))
+(defn- stroke-triangles-normalized [component zoom]
+  (let [geometry (:path/geometry component)
+        stroke-points (:stroke-points geometry)
+        resolution (:fan-resolution (zoom-lod zoom))
         segments
         (mapv
          (fn [[left right]]
@@ -145,7 +145,7 @@
                                (keep identity)
                                [(triangle a-left a-right b-left)
                                 (triangle b-left a-right b-right)])}))
-         (partition 2 1 knots))
+         (partition 2 1 stroke-points))
         first-segment (first segments)
         last-segment (peek segments)
         start-normal (:normal first-segment)
@@ -165,11 +165,11 @@
         join-triangles
         (into []
               (mapcat
-               (fn [[incoming outgoing knot]]
+               (fn [[incoming outgoing stroke-point]]
                  (let [turn (cross (:direction incoming)
                                    (:direction outgoing))
-                       radius (/ (:width knot) 2.0)
-                       center (:position knot)]
+                       radius (/ (:width stroke-point) 2.0)
+                       center (:position stroke-point)]
                    (cond
                      (> turn epsilon)
                      (fan-triangles center radius
@@ -184,18 +184,18 @@
                                     :cw resolution)
 
                      :else [])))
-               (map vector segments (rest segments) (rest (butlast knots)))))]
+               (map vector segments (rest segments) (rest (butlast stroke-points)))))]
     (into [] cat [(mapcat :triangles segments)
                   cap-triangles
                   join-triangles])))
 
 (defn stroke-triangles
   "Direct-to-triangles stroke expansion. Returned coordinates are the
-   material's original local f64 values; normalization is internal and is
+   component's original local f64 values; normalization is internal and is
   recorded separately on the mesh."
-  [material zoom]
-  (let [normalization (shape-normalization material)
-        ink (normalized-ink material normalization)]
+  [component zoom]
+  (let [normalization (shape-normalization component)
+        ink (normalized-ink component normalization)]
     (mapv (fn [triangle]
             (mapv (partial denormalize-point normalization) triangle))
           (stroke-triangles-normalized ink zoom))))
@@ -238,8 +238,8 @@
                       (mapcat polygon-edges holes)))
         midpoint (scale (add h v) 0.5)]
     (and (not blocked?)
-         (= :inside (path-material/contour-classify outer midpoint))
-         (not-any? #(= :inside (path-material/contour-classify % midpoint))
+         (= :inside (path-component/contour-classify outer midpoint))
+         (not-any? #(= :inside (path-component/contour-classify % midpoint))
                    holes))))
 
 (defn- rotate-from [points index]
@@ -375,8 +375,8 @@
                           {:remaining polygon
                            :triangle-count (count triangles)})))))))
 
-(defn- normalized-shape [material normalization]
-  (update-in material [:path/geometry :contours]
+(defn- normalized-shape [component normalization]
+  (update-in component [:path/geometry :contours]
              (fn [contours]
                (mapv #(update % :points
                               (fn [points]
@@ -384,9 +384,9 @@
                                       points)))
                      contours))))
 
-(defn shape-triangles [material zoom]
-  (let [normalization (shape-normalization material)
-        normalized (normalized-shape material normalization)
+(defn shape-triangles [component zoom]
+  (let [normalization (shape-normalization component)
+        normalized (normalized-shape component normalization)
         contours (get-in normalized [:path/geometry :contours])
         outer (filter #(= :outer (:role %)) contours)
         holes (mapv :points (filter #(= :hole (:role %)) contours))
@@ -397,7 +397,7 @@
                  (let [owned-holes
                        (filterv (fn [hole]
                                   (not= :outside
-                                        (path-material/contour-classify
+                                        (path-component/contour-classify
                                          (:points outer-contour) (first hole))))
                                 holes)]
                    (ear-clip (bridge-holes (:points outer-contour)
@@ -408,33 +408,33 @@
           fills)))
 
 (defn tessellate
-  ([material zoom] (tessellate material algorithm-version zoom))
-  ([material algorithm zoom]
-   (let [triangles (case (:path/kind material)
-                     :ink (stroke-triangles material zoom)
-                     :shape (shape-triangles material zoom))
+  ([component zoom] (tessellate component algorithm-version zoom))
+  ([component algorithm zoom]
+   (let [triangles (case (:path/kind component)
+                     :ink (stroke-triangles component zoom)
+                     :shape (shape-triangles component zoom))
          vertices (into [] cat triangles)]
      {:path.mesh/version 2
       :algorithm-version algorithm
-      :regime (:regime/id (zoom-regime zoom))
-      :cache-key (material-cache-key material algorithm zoom)
+      :lod (:lod/id (zoom-lod zoom))
+      :cache-key (component-cache-key component algorithm zoom)
       :coverage :aliased-v1
       :vertices vertices
       :triangle-count (count triangles)
       :vertex-count (count vertices)})))
 
 (defn derive-mesh-set
-  "Content-keyed derivation cache. A point edit mints only its material key;
+  "Content-keyed derivation cache. A point edit mints only its component key;
    untouched sibling mesh values are returned by identity."
-  [cache materials zoom]
+  [cache components zoom]
   (reduce
-   (fn [{:keys [cache meshes derived-keys]} material]
-     (let [key (material-cache-key material algorithm-version zoom)]
+   (fn [{:keys [cache meshes derived-keys]} component]
+     (let [key (component-cache-key component algorithm-version zoom)]
        (if-let [mesh (get cache key)]
          {:cache cache :meshes (conj meshes mesh) :derived-keys derived-keys}
-         (let [mesh (tessellate material zoom)]
+         (let [mesh (tessellate component zoom)]
            {:cache (assoc cache key mesh)
             :meshes (conj meshes mesh)
             :derived-keys (conj derived-keys key)}))))
    {:cache (or cache {}) :meshes [] :derived-keys []}
-   materials))
+   components))

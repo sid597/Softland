@@ -32,7 +32,7 @@
   '[app.client.image.frame-test
     app.client.image.material-test
     app.client.path.frame-test
-    app.client.path.material-test
+    app.client.path.component-test
     app.client.path.tessellation-test
     app.client.region3d.frame-test
     app.client.region3d.material-test

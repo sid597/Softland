@@ -8,15 +8,15 @@
                [app.client.engine.device :as device]
                [app.client.engine.leases :as region-bindings]
                [app.client.engine.transform :as transform]
-               [app.client.path.material :as path-material]
-               [app.client.path.painter :as path-painter]
+               [app.client.path.component :as path-component]
+               [app.client.path.renderer :as path-renderer]
                [app.client.path.tessellation :as path-tessellation]
                [app.client.region3d.material :as region3d-material]
                [app.client.region3d.oracle :as region3d-oracle]
                [app.client.region3d.painter :as region3d-painter]
                [app.client.region3d.scene :as region3d-scene]
                [app.client.verifier.path
-                :refer [path-op path-ink-material path-polygon-material]]
+                :refer [path-draw-item path-ink-component path-polygon-component]]
                [app.client.verifier.shared
 :refer [canvas-size color-format glyph-screen-x glyph-screen-baseline
         glyph-screen-size zoom-cases image-fixtures promise-mapv
@@ -119,24 +119,24 @@
                      [-2.7 -0.95 0.4] [0.018 0.018 0.018]
                      [0.0 -0.21644 0.0 0.976296])
          :provenance {:asserted-by :sid :act :render-verifier}
-         :ink {:ref {:address :seam/ink-material}}}
+         :ink {:ref {:address :seam/ink-component}}}
         region (-> (region3d-fixture-region :opaque)
                    (assoc :region3d/version 2)
                    (assoc-in [:scene :seam/ink] ink-object)
                    region3d-remint)
-        ink-material (path-ink-material
-                      :seam/ink-material 1.0
+        ink-component (path-ink-component
+                      :seam/ink-component 1.0
                       [[0.0 8.0 0.45] [54.0 2.0 0.9]
                        [108.0 26.0 0.62] [164.0 8.0 1.0]
                        [222.0 34.0 0.55]]
                       [0.16 0.82 1.0 0.92] 1.0)
         ink-placement
         {:object-id :seam/ink :object ink-object :kind :ink
-         :address :seam/ink-material :status :resolved
-         :content-revision (path-material/material-content-key ink-material)
-         :cache-key (path-tessellation/material-cache-key ink-material 1.0)
-         :material ink-material
-         :owner {:vi :seam/ink-owner :op-id :seam/ink-material}}
+         :address :seam/ink-component :status :resolved
+         :content-revision (path-component/component-content-hash ink-component)
+         :cache-key (path-tessellation/component-cache-key ink-component 1.0)
+         :material ink-component
+         :owner {:vi :seam/ink-owner :op-id :seam/ink-component}}
         op (assoc (region3d-op region :container 17)
                   :region3d/resolved-placements
                   [ink-placement])]
@@ -264,7 +264,7 @@
                    (let [{:keys [first-vertex vertex-count]}
                          (nth @(:!prepared surround-path-system) op-index)]
                      (fn [pass]
-                       (path-painter/draw-path-range! pass surround-path-system
+                       (path-renderer/draw-path-range! pass surround-path-system
                                                   first-vertex vertex-count))))
         region (fn [pass]
                  (region3d-painter/composite-region! pass region-system
@@ -976,31 +976,31 @@
         _ (device/write-groups!
            device groups-buffer effective)
         surround-path-system
-        (path-painter/init-path-system
+        (path-renderer/init-path-system
          device "rgba16float" camera groups-buffer
          :initial-capacity 16
          :scene-color (scene-color/scene-color true))
-        surround-ops
-        [(path-op
+        surround-draw-items
+        [(path-draw-item
           :region3d/below
-          (path-polygon-material
+          (path-polygon-component
            :region3d/below
            [[8.0 8.0] [120.0 8.0] [120.0 120.0] [8.0 120.0]]
            [0.04 0.07 0.15 1.0] 1.0)
           0)
-         (path-op
+         (path-draw-item
           :region3d/above
-          (path-polygon-material
+          (path-polygon-component
            :region3d/above
            [[10.0 58.0] [118.0 58.0] [118.0 70.0] [10.0 70.0]]
            [0.98 0.72 0.12 0.88] 1.0)
           0)]
-        _ (path-painter/prepare-path-frame!
-           surround-path-system surround-ops 1.0 effective)
+        _ (path-renderer/prepare-path-frame!
+           surround-path-system surround-draw-items 1.0 effective)
         region-system (region3d-painter/ensure-region3d-system!
                        device camera groups-buffer)
         path-system
-        (path-painter/init-path-system
+        (path-renderer/init-path-system
          device "rgba16float" camera groups-buffer
          :scene-color (scene-color/scene-color true))
         compositor (compositor-gpu/create-compositor!
@@ -1108,7 +1108,7 @@
                          :fixture-query "?region3d=1"
                          :pass? pass?}]
              (compositor-gpu/destroy-compositor! compositor)
-             (path-painter/destroy-path-system! path-system)
-             (path-painter/destroy-path-system! surround-path-system)
+             (path-renderer/destroy-path-system! path-system)
+             (path-renderer/destroy-path-system! surround-path-system)
              (region3d-painter/destroy-region3d-system! region-system)
              result))))))
