@@ -1,11 +1,12 @@
 (ns app.client.region3d.material
-  "What a 3D region is: a whole scene as plain data (extent, objects by id,
-   materials, lights, view), validated fail-closed and migrated to the current
-   version. Unknown fields are kept.
+  "What a 3D region is: a whole scene as closed, declared data (extent,
+   objects by id, materials, lights, view), migrated and normalized before one
+   grammar check.
    Takes: a region map; a view map.
-   Gives: the canonical region; the canonical view; the default material.
+   Gives: the declared grammar; a canonical region; the default material.
    Holds nothing."
-  )
+  (:require [app.client.engine.color :as color]
+            [app.client.engine.grammar :as grammar]))
 
 (def schema-version 2)
 (def shadow-algorithm-version :region3d/shadow-v1)
@@ -16,8 +17,6 @@
 (def legal-object-kinds #{:mesh :light :empty :text :ink})
 (def legal-primitive-kinds #{:box :sphere :cylinder :plane :cone :torus})
 (def legal-light-kinds #{:directional :point :spot})
-(def legal-camera-kinds #{:perspective :ortho})
-(def legal-display-modes #{:flat :normal :lit})
 
 (def default-background
   {:kind :opaque
@@ -77,378 +76,522 @@
    :pipeline-depth-bias-slope-scale 2.0
    :shader-comparison-offset 0.0015})
 
-(defn finite-number? [value]
-  (and (number? value)
-       #?(:clj (Double/isFinite (double value))
-          :cljs (js/Number.isFinite value))))
+(defn- named-validator [error-type predicate]
+  (fn [value]
+    (when-not (predicate value)
+      (throw (ex-info "Region grammar refused value" {:error-type error-type})))
+    true))
 
 (defn- finite-vector? [n value]
   (and (vector? value)
        (= n (count value))
-       (every? finite-number? value)))
+       (every? grammar/finite-number? value)))
 
 (defn- in-range? [lo value hi]
-  (and (finite-number? value) (<= lo value hi)))
+  (and (grammar/finite-number? value) (<= lo value hi)))
 
-(defn- positive-finite? [value]
-  (and (finite-number? value) (pos? value)))
+(defn- positive-int-at-most? [minimum maximum value]
+  (and (integer? value) (<= minimum value maximum)))
 
-(defn- throw-field! [message data]
-  (throw (ex-info message data)))
+(defn- exact-keys? [required optional value]
+  (and (map? value)
+       (every? #(contains? value %) required)
+       (every? (into required optional) (keys value))))
 
-(defn validate-tagged-color!
-  "Validate a straight, tagged sRGB material color and return it unchanged.
-   Alpha is carried in :rgba; data textures never use this function."
-  [label color]
-  (let [rgba (:rgba color)]
-    (when-not (map? color)
-      (throw-field! "Region3D color must be a tagged map"
-                    {:field label :value color}))
-    (when-not (and (finite-vector? 4 rgba)
-                   (every? #(<= 0.0 % 1.0) rgba))
-      (throw-field! "Region3D color requires finite straight RGBA in [0,1]"
-                    {:field label :rgba rgba}))
-    (when-not (= :srgb (:color-space color))
-      (throw-field! "Region3D material color must be tagged sRGB"
-                    {:field label :color-space (:color-space color)}))
-    (when-not (= :straight (:alpha-association color))
-      (throw-field! "Region3D material color must enter with straight alpha"
-                    {:field label
-                     :alpha-association (:alpha-association color)}))
-    color))
+(defn- vec3? [value]
+  (finite-vector? 3 value))
+
+(defn- positive-vec? [n value]
+  (and (finite-vector? n value) (every? pos? value)))
+
+(defn- quaternion-length [quaternion]
+  (Math/sqrt (reduce + (map #(* % %) quaternion))))
+
+(defn- unit-quaternion? [value]
+  (and (finite-vector? 4 value)
+       (<= (Math/abs (- (quaternion-length value) 1.0)) 1.0e-9)))
 
 (defn normalize-quaternion
-  "Canonical [x y z w] quaternion ingress. Zero and values outside the
-   contract's 1e-3 unit-length tolerance refuse; accepted values are exactly
-   normalized before they can enter a canonical region value."
+  "Normalize a finite quaternion only inside the migration tolerance. Invalid
+   values pass through so the declared grammar can refuse them once."
   [quaternion]
-  (when-not (finite-vector? 4 quaternion)
-    (throw-field! "Region3D rotation must be finite [x y z w]"
-                  {:rotation quaternion :component-order [:x :y :z :w]}))
-  (let [length (Math/sqrt (reduce + (map #(* % %) quaternion)))]
-    (when (zero? length)
-      (throw-field! "Region3D rotation quaternion cannot have zero length"
-                    {:rotation quaternion}))
-    (when (> (Math/abs (- length 1.0)) quaternion-tolerance)
-      (throw-field! "Region3D rotation quaternion is outside unit tolerance"
-                    {:rotation quaternion :length length
-                     :tolerance quaternion-tolerance}))
-    (mapv #(/ (double %) length) quaternion)))
+  (if (finite-vector? 4 quaternion)
+    (let [length (quaternion-length quaternion)]
+      (if (and (pos? length)
+               (<= (Math/abs (- length 1.0)) quaternion-tolerance))
+        (mapv #(/ (double %) length) quaternion)
+        quaternion))
+    quaternion))
 
-(defn canonical-transform [transform]
-  (let [transform (merge default-transform (or transform {}))
-        translation (:translation transform)
-        scale (:scale transform)]
-    (when-not (finite-vector? 3 translation)
-      (throw-field! "Region3D translation must be a finite vec3"
-                    {:translation translation}))
-    (when-not (finite-vector? 3 scale)
-      (throw-field! "Region3D scale must be a finite vec3" {:scale scale}))
-    (assoc transform :rotation (normalize-quaternion (:rotation transform)))))
+(def transform
+  {:keys #{:translation :rotation :scale}
+   :validators
+   {:translation (named-validator :region/transform-translation vec3?)
+    :rotation (named-validator :region/quaternion-unit unit-quaternion?)
+    :scale (named-validator :region/transform-scale vec3?)}})
 
-(defn- canonical-lens [lens]
-  (let [kind (:kind lens)
-        lens (merge (case kind
-                      :perspective default-perspective-lens
-                      :ortho default-ortho-lens
-                      (throw-field! "Region3D camera lens kind is invalid"
-                                    {:kind kind :legal legal-camera-kinds}))
-                    lens)
-        near (:near lens)
-        far (:far lens)]
-    (when-not (and (positive-finite? near)
-                   (positive-finite? far)
-                   (> far near))
-      (throw-field! "Region3D camera requires 0 < near < far"
-                    {:near near :far far}))
-    (case kind
-      :perspective
-      (when-not (and (finite-number? (:fov-y-deg lens))
-                     (< 0.0 (:fov-y-deg lens) 170.0))
-        (throw-field! "Region3D perspective fov-y-deg must be in (0,170)"
-                      {:fov-y-deg (:fov-y-deg lens)}))
-      :ortho
-      (when-not (positive-finite? (:ortho-scale lens))
-        (throw-field! "Region3D ortho-scale must be positive"
-                      {:ortho-scale (:ortho-scale lens)})))
-    lens))
+(defn- lens-matches-kind? [lens]
+  (case (:kind lens)
+    :perspective (= #{:kind :fov-y-deg :near :far} (set (keys lens)))
+    :ortho (= #{:kind :ortho-scale :near :far} (set (keys lens)))
+    false))
 
-(defn canonical-view [view]
-  (let [view (merge default-view (or view {}))]
-    (when-not (finite-vector? 3 (:pivot view))
-      (throw-field! "Region3D view pivot must be a finite vec3"
-                    {:pivot (:pivot view)}))
-    (when-not (positive-finite? (:distance view))
-      (throw-field! "Region3D view distance must be positive"
-                    {:distance (:distance view)}))
-    (when-not (and (finite-number? (:yaw view))
-                   (finite-number? (:pitch view)))
-      (throw-field! "Region3D view yaw and pitch must be finite"
-                    {:yaw (:yaw view) :pitch (:pitch view)}))
-    (assoc view :lens (canonical-lens (:lens view)))))
+(defn- near-before-far? [{:keys [near far]}]
+  (and (grammar/positive-number? near)
+       (grammar/positive-number? far)
+       (< near far)))
 
-(defn- canonical-material [material]
-  (let [material (merge default-material (or material {}))]
-    (validate-tagged-color! :material/base-color (:base-color material))
-    (validate-tagged-color! :material/emissive (:emissive material))
-    (when-not (in-range? 0.0 (:metallic material) 1.0)
-      (throw-field! "Region3D metallic must be in [0,1]"
-                    {:metallic (:metallic material)}))
-    (when-not (in-range? 0.0 (:roughness material) 1.0)
-      (throw-field! "Region3D roughness must be in [0,1]"
-                    {:roughness (:roughness material)}))
-    material))
+(def lens
+  {:keys #{:kind :near :far}
+   :optional #{:fov-y-deg :ortho-scale}
+   :validators
+   {:kind (named-validator :region/lens-kind #{:perspective :ortho})
+    :near (named-validator :region/lens-near grammar/positive-number?)
+    :far (named-validator :region/lens-far grammar/positive-number?)
+    :fov-y-deg (named-validator
+                :region/lens-fov
+                #(and (grammar/finite-number? %) (< 0.0 % 170.0)))
+    :ortho-scale (named-validator :region/lens-scale grammar/positive-number?)}
+   :form-validators
+   [{:valid? lens-matches-kind? :error-type :region/lens-kind}
+    {:valid? near-before-far? :error-type :region/lens-near-far}]})
 
-(defn- positive-vec! [label n value]
-  (when-not (and (finite-vector? n value) (every? pos? value))
-    (throw-field! "Region3D primitive dimensions must be positive"
-                  {:field label :value value})))
+(def view
+  {:keys #{:pivot :distance :yaw :pitch :lens}
+   :validators
+   {:pivot (named-validator :region/view-pivot vec3?)
+    :distance (named-validator :region/view-distance grammar/positive-number?)
+    :yaw (named-validator :region/view-yaw grammar/finite-number?)
+    :pitch (named-validator :region/view-pitch grammar/finite-number?)
+    :lens lens}})
 
-(defn- segment-count! [label value minimum]
-  (when-not (and (integer? value) (<= minimum value 4096))
-    (throw-field! "Region3D primitive segment count is outside v1"
-                  {:field label :value value :min minimum :max 4096})))
+(def extent
+  {:keys #{:width :height :depth}
+   :validators
+   {:width (named-validator :region/extent
+                            #(and (grammar/positive-number? %)
+                                  (<= % extent-max)))
+    :height (named-validator :region/extent
+                             #(and (grammar/positive-number? %)
+                                   (<= % extent-max)))
+    :depth (named-validator :region/extent
+                            #(and (grammar/positive-number? %)
+                                  (<= % extent-max)))}})
 
-(defn- canonical-primitive [mesh]
-  (let [kind (:kind mesh)
-        params (merge (get primitive-defaults kind) (:params mesh))]
-    (when-not (contains? legal-primitive-kinds kind)
-      (throw-field! "Region3D primitive kind is invalid"
-                    {:kind kind :legal legal-primitive-kinds}))
-    (case kind
-      :box (positive-vec! :box/size 3 (:size params))
-      :plane (positive-vec! :plane/size 2 (:size params))
-      :sphere
-      (do (when-not (positive-finite? (:radius params))
-            (throw-field! "Region3D sphere radius must be positive" params))
-          (segment-count! :sphere/width-segments (:width-segments params) 3)
-          (segment-count! :sphere/height-segments (:height-segments params) 2))
-      (:cylinder :cone)
-      (do (when-not (positive-finite? (:radius params))
-            (throw-field! "Region3D radial primitive radius must be positive"
-                          params))
-          (when-not (positive-finite? (:height params))
-            (throw-field! "Region3D radial primitive height must be positive"
-                          params))
-          (segment-count! :radial/segments (:radial-segments params) 3))
-      :torus
-      (do (when-not (positive-finite? (:radius params))
-            (throw-field! "Region3D torus radius must be positive" params))
-          (when-not (and (positive-finite? (:tube params))
-                         (< (:tube params) (:radius params)))
-            (throw-field! "Region3D torus tube must be in (0,radius)" params))
-          (segment-count! :torus/radial-segments (:radial-segments params) 3)
-          (segment-count! :torus/tubular-segments (:tubular-segments params) 3)))
-    (assoc mesh :params params)))
+(def background
+  {:keys #{:kind :color}
+   :validators {:kind #{:opaque :transparent}
+                :color color/tagged}})
 
-(defn- canonical-indexed-triangles [mesh]
-  (let [positions (:positions mesh)
-        normals (:normals mesh)
-        indices (:indices mesh)
-        vertex-count (when (sequential? positions) (/ (count positions) 3))
-        triangle-count (when (sequential? indices) (/ (count indices) 3))]
-    (when-not (and (vector? positions)
-                   (zero? (mod (count positions) 3))
-                   (every? finite-number? positions))
-      (throw-field! "Region3D indexed positions must be finite flat vec3 data"
-                    {:positions-count (count positions)}))
-    (when-not (and (vector? normals)
-                   (= (count positions) (count normals))
-                   (every? finite-number? normals))
-      (throw-field! "Region3D indexed normals must match positions"
-                    {:positions-count (count positions)
-                     :normals-count (count normals)}))
-    (when-not (and (vector? indices)
-                   (zero? (mod (count indices) 3))
-                   (every? #(and (integer? %) (<= 0 %)) indices))
-      (throw-field! "Region3D indices must be non-negative u32 triangle data"
-                    {:indices-count (count indices)}))
-    (when (> vertex-count mesh-vertex-max)
-      (throw-field! "Region3D mesh exceeds the v1 vertex cap"
-                    {:vertices vertex-count :max mesh-vertex-max}))
-    (when (> triangle-count mesh-triangle-max)
-      (throw-field! "Region3D mesh exceeds the v1 triangle cap"
-                    {:triangles triangle-count :max mesh-triangle-max}))
-    (when (some #(>= % vertex-count) indices)
-      (throw-field! "Region3D mesh index exceeds the vertex population"
-                    {:vertices vertex-count}))
-    mesh))
+(def ambient
+  {:keys #{:color :intensity}
+   :validators {:color color/tagged
+                :intensity (named-validator
+                            :region/ambient-intensity
+                            grammar/non-negative-number?)}})
 
-(defn- canonical-mesh [mesh]
-  (when-not (map? mesh)
-    (throw-field! "Region3D mesh row must be a map" {:mesh mesh}))
-  (if (= :indexed-triangles (:kind mesh))
-    (canonical-indexed-triangles mesh)
-    (canonical-primitive mesh)))
+(def material-spec
+  {:keys #{:base-color :metallic :roughness :emissive}
+   :validators
+   {:base-color color/tagged
+    :metallic (named-validator :region/material-metallic
+                               #(in-range? 0.0 % 1.0))
+    :roughness (named-validator :region/material-roughness
+                                #(in-range? 0.0 % 1.0))
+    :emissive color/tagged}})
 
-(defn- canonical-light [light]
-  (let [kind (:kind light)
-        light (merge {:color (:color default-ambient)
-                      :intensity 1.0
-                      :range 100.0
-                      :cast-shadow false}
-                     light)]
-    (when-not (contains? legal-light-kinds kind)
-      (throw-field! "Region3D light kind is invalid"
-                    {:kind kind :legal legal-light-kinds}))
-    (validate-tagged-color! :light/color (:color light))
-    (when-not (and (finite-number? (:intensity light))
-                   (<= 0.0 (:intensity light)))
-      (throw-field! "Region3D light intensity must be non-negative" light))
-    (when (contains? #{:point :spot} kind)
-      (when-not (positive-finite? (:range light))
-        (throw-field! "Region3D point/spot range must be positive" light)))
-    (when (= :spot kind)
-      (let [{:keys [inner-deg outer-deg]} (:cone light)]
-        (when-not (and (in-range? 0.0 inner-deg 89.0)
-                       (in-range? 0.0 outer-deg 89.0)
-                       (<= inner-deg outer-deg))
-          (throw-field! "Region3D spot cone requires 0 <= inner <= outer <= 89"
-                        {:cone (:cone light)}))))
-    (when (and (:cast-shadow light) (not= :directional kind))
-      (throw-field! "Region3D v1 accepts shadows on directional lights only"
-                    {:kind kind}))
-    light))
+(def ^:private box-params
+  {:keys #{:size}
+   :validators {:size (named-validator :region/primitive-kind
+                                       #(positive-vec? 3 %))}})
 
-(defn- canonical-provenance [provenance]
-  (when-not (and (map? provenance)
-                 (contains? provenance :asserted-by)
-                 (some? (:asserted-by provenance)))
-    (throw-field! "Region3D object provenance requires :asserted-by"
-                  {:provenance provenance}))
-  provenance)
+(def ^:private plane-params
+  {:keys #{:size}
+   :validators {:size (named-validator :region/primitive-kind
+                                       #(positive-vec? 2 %))}})
 
-(defn- canonical-placed-ref [label ref]
-  (when-not (and (map? ref) (= #{:address} (set (keys ref))))
-    (throw-field! "Region3D placed ref requires exactly :address"
-                  {:field label :ref ref}))
-  (when (nil? (:address ref))
-    (throw-field! "Region3D placed ref address cannot be nil"
-                  {:field label :ref ref}))
-  ref)
+(def ^:private sphere-params
+  {:keys #{:radius :width-segments :height-segments}
+   :validators
+   {:radius (named-validator :region/primitive-kind grammar/positive-number?)
+    :width-segments (named-validator
+                     :region/primitive-kind
+                     #(positive-int-at-most? 3 4096 %))
+    :height-segments (named-validator
+                      :region/primitive-kind
+                      #(positive-int-at-most? 2 4096 %))}})
 
-(defn- canonical-placed-text [text]
-  (when-not (and (map? text) (= #{:ref :params} (set (keys text))))
-    (throw-field! "Region3D text placement requires :ref and :params"
-                  {:text text}))
-  (when-not (map? (:params text))
-    (throw-field! "Region3D text placement params must be a map"
-                  {:params (:params text)}))
-  (when-let [color (:color (:params text))]
-    (validate-tagged-color! :text/color color))
-  (when-let [max-inline-size (:max-inline-size (:params text))]
-    (when-not (positive-finite? max-inline-size)
-      (throw-field! "Region3D text max-inline-size must be positive"
-                    {:max-inline-size max-inline-size})))
-  (update text :ref #(canonical-placed-ref :text/ref %)))
+(def ^:private radial-params
+  {:keys #{:radius :height :radial-segments}
+   :validators
+   {:radius (named-validator :region/primitive-kind grammar/positive-number?)
+    :height (named-validator :region/primitive-kind grammar/positive-number?)
+    :radial-segments (named-validator
+                      :region/primitive-kind
+                      #(positive-int-at-most? 3 4096 %))}})
 
-(defn- canonical-placed-ink [ink]
-  (when-not (and (map? ink) (= #{:ref} (set (keys ink))))
-    (throw-field! "Region3D ink placement requires exactly :ref"
-                  {:ink ink}))
-  (update ink :ref #(canonical-placed-ref :ink/ref %)))
+(defn- torus-params-valid? [{:keys [radius tube]}]
+  (< tube radius))
 
-(defn canonical-object [object]
-  (let [kind (:object/kind object)
-        object (-> object
-                   (update :transform canonical-transform)
-                   (update :provenance canonical-provenance))]
-    (when (nil? (:object/id object))
-      (throw-field! "Region3D object identity cannot be nil" {:object object}))
-    (when-not (contains? legal-object-kinds kind)
-      (throw-field! "Region3D object kind is invalid"
-                    {:kind kind :legal legal-object-kinds}))
-    (case kind
-      :mesh (-> object
-                (update :mesh canonical-mesh)
-                (update :material canonical-material))
-      :light (update object :light canonical-light)
-      :text (update object :text canonical-placed-text)
-      :ink (update object :ink canonical-placed-ink)
-      :empty object)))
+(def ^:private torus-params
+  {:keys #{:radius :tube :radial-segments :tubular-segments}
+   :validators
+   {:radius (named-validator :region/primitive-kind grammar/positive-number?)
+    :tube (named-validator :region/primitive-kind grammar/positive-number?)
+    :radial-segments (named-validator
+                      :region/primitive-kind
+                      #(positive-int-at-most? 3 4096 %))
+    :tubular-segments (named-validator
+                       :region/primitive-kind
+                       #(positive-int-at-most? 3 4096 %))}
+   :form-validators
+   [{:valid? torus-params-valid? :error-type :region/primitive-kind}]})
 
-(defn- validate-parent-graph! [scene]
-  (doseq [[object-id object] scene]
-    (when-not (= object-id (:object/id object))
-      (throw-field! "Region3D scene key must equal :object/id"
-                    {:scene-key object-id :object/id (:object/id object)}))
-    (when-let [parent (:parent object)]
-      (when-not (contains? scene parent)
-        (throw-field! "Region3D object parent is missing"
-                      {:object-id object-id :parent parent}))
-      (loop [cursor parent seen #{object-id}]
-        (when cursor
-          (when (contains? seen cursor)
-            (throw-field! "Region3D hierarchy contains a cycle"
-                          {:object-id object-id :cycle-at cursor}))
-          (recur (:parent (get scene cursor)) (conj seen cursor))))))
-  scene)
+(defn- primitive-params-spec [kind]
+  (case kind
+    :box box-params
+    :plane plane-params
+    :sphere sphere-params
+    (:cylinder :cone) radial-params
+    :torus torus-params
+    nil))
 
-(defn- canonical-extent [extent]
-  (doseq [axis [:width :height :depth]]
-    (when-not (and (positive-finite? (get extent axis))
-                   (<= (get extent axis) extent-max))
-      (throw-field! "Region3D extent component must be in (0,10000]"
-                    {:axis axis :value (get extent axis) :max extent-max})))
-  extent)
+(defn- params-match-kind? [{:keys [kind params]}]
+  (when-let [spec (primitive-params-spec kind)]
+    (grammar/check spec params)
+    true))
 
-(defn- canonical-background [background]
-  (let [background (merge default-background (or background {}))]
-    (when-not (contains? #{:opaque :transparent} (:kind background))
-      (throw-field! "Region3D background kind is invalid"
-                    {:kind (:kind background)}))
-    (validate-tagged-color! :background/color (:color background))
-    background))
+(def primitive
+  {:keys #{:kind :params}
+   :validators {:kind (named-validator :region/primitive-kind
+                                       legal-primitive-kinds)
+                :params map?}
+   :form-validators
+   [{:valid? params-match-kind? :error-type :region/primitive-kind}]})
 
-(defn- canonical-ambient [ambient]
-  (let [ambient (merge default-ambient (or ambient {}))]
-    (validate-tagged-color! :ambient/color (:color ambient))
-    (when-not (and (finite-number? (:intensity ambient))
-                   (<= 0.0 (:intensity ambient)))
-      (throw-field! "Region3D ambient intensity must be non-negative"
-                    {:intensity (:intensity ambient)}))
-    ambient))
+(defn- flat-vec3-data? [maximum value]
+  (and (vector? value)
+       (zero? (mod (count value) 3))
+       (<= (/ (count value) 3) maximum)
+       (every? grammar/finite-number? value)))
 
-(defn migrate-region
-  "Migrate the v1 base grammar into v2 placements. Every v1 value is already
-   semantically valid under v2, so migration changes only the version tag."
+(defn- triangle-index-data? [value]
+  (and (vector? value)
+       (zero? (mod (count value) 3))
+       (<= (/ (count value) 3) mesh-triangle-max)
+       (every? #(and (integer? %) (<= 0 %)) value)))
+
+(defn- normals-match-positions? [{:keys [positions normals]}]
+  (= (count positions) (count normals)))
+
+(defn- indices-in-range? [{:keys [positions indices]}]
+  (let [vertex-count (/ (count positions) 3)]
+    (every? #(< % vertex-count) indices)))
+
+(def indexed-triangles
+  {:keys #{:kind :positions :normals :indices}
+   :validators
+   {:kind #{:indexed-triangles}
+    :positions (named-validator :region/mesh-positions
+                                #(flat-vec3-data? mesh-vertex-max %))
+    :normals (named-validator :region/mesh-normals
+                              #(flat-vec3-data? mesh-vertex-max %))
+    :indices (named-validator :region/mesh-index triangle-index-data?)}
+   :form-validators
+   [{:valid? normals-match-positions? :error-type :region/mesh-normals}
+    {:valid? indices-in-range? :error-type :region/mesh-index}]})
+
+(defn- geometry-matches-kind? [mesh-value]
+  (case (:kind mesh-value)
+    :indexed-triangles (do (grammar/check indexed-triangles mesh-value) true)
+    (:box :sphere :cylinder :plane :cone :torus)
+    (do (grammar/check primitive mesh-value) true)
+    false))
+
+(def mesh
+  {:keys #{:kind}
+   :optional #{:params :positions :normals :indices}
+   :validators
+   {:kind (named-validator :region/mesh-kind
+                           (conj legal-primitive-kinds :indexed-triangles))
+    :params map?
+    :positions vector?
+    :normals vector?
+    :indices vector?}
+   :form-validators
+   [{:valid? geometry-matches-kind? :error-type :region/mesh-kind}]})
+
+(defn- light-matches-kind? [light-value]
+  (case (:kind light-value)
+    :spot (= #{:kind :color :intensity :range :cast-shadow :cone}
+             (set (keys light-value)))
+    (:directional :point)
+    (= #{:kind :color :intensity :range :cast-shadow}
+       (set (keys light-value)))
+    false))
+
+(defn- spot-cone-ordered? [{:keys [kind cone]}]
+  (if (= :spot kind)
+    (let [{:keys [inner-deg outer-deg]} cone]
+      (and (exact-keys? #{:inner-deg :outer-deg} #{} cone)
+           (in-range? 0.0 inner-deg 89.0)
+           (in-range? 0.0 outer-deg 89.0)
+           (<= inner-deg outer-deg)))
+    true))
+
+(defn- shadow-only-directional? [{:keys [kind cast-shadow]}]
+  (or (not cast-shadow) (= :directional kind)))
+
+(def light
+  {:keys #{:kind :color :intensity :range :cast-shadow}
+   :optional #{:cone}
+   :validators
+   {:kind (named-validator :region/light-kind legal-light-kinds)
+    :color color/tagged
+    :intensity (named-validator :region/light-intensity
+                                grammar/non-negative-number?)
+    :range (named-validator :region/light-range grammar/positive-number?)
+    :cast-shadow boolean?
+    :cone map?}
+   :form-validators
+   [{:valid? light-matches-kind? :error-type :region/light-kind}
+    {:valid? spot-cone-ordered? :error-type :region/light-cone}
+    {:valid? shadow-only-directional? :error-type :region/light-shadow}]})
+
+(def placed-ref
+  {:keys #{:address}
+   :validators {:address (named-validator :region/placed-ref some?)}})
+
+(def ^:private placed-text-params
+  {:keys #{}
+   :optional #{:color :max-inline-size}
+   :validators
+   {:color color/tagged
+    :max-inline-size (named-validator :region/text-inline-size
+                                      grammar/positive-number?)}})
+
+(def placed-text
+  {:keys #{:ref :params}
+   :validators {:ref placed-ref :params placed-text-params}})
+
+(def placed-ink
+  {:keys #{:ref}
+   :validators {:ref placed-ref}})
+
+(def ^:private provenance
+  {:keys #{:asserted-by}
+   :optional #{:act}
+   :validators {:asserted-by (named-validator :region/provenance some?)
+                :act (named-validator :region/provenance some?)}})
+
+(defn- body-matches-kind? [object-value]
+  (let [present (set (filter #(contains? object-value %)
+                             [:mesh :material :light :text :ink]))]
+    (case (:object/kind object-value)
+      :mesh (= #{:mesh :material} present)
+      :light (= #{:light} present)
+      :text (= #{:text} present)
+      :ink (= #{:ink} present)
+      :empty (empty? present)
+      false)))
+
+(def object
+  {:keys #{:object/id :object/kind :transform :provenance}
+   :optional #{:parent :mesh :material :light :text :ink}
+   :validators
+   {:object/id (named-validator :region/object-id some?)
+    :object/kind (named-validator :region/object-kind legal-object-kinds)
+    :parent (constantly true)
+    :transform transform
+    :provenance provenance
+    :mesh mesh
+    :material material-spec
+    :light light
+    :text placed-text
+    :ink placed-ink}
+   :form-validators
+   [{:valid? body-matches-kind? :error-type :region/object-kind}]})
+
+(def ^:private rect
+  {:keys #{:x :y :w :h}
+   :validators
+   {:x grammar/finite-number?
+    :y grammar/finite-number?
+    :w grammar/positive-number?
+    :h grammar/positive-number?}})
+
+(defn ids-match-keys? [{:keys [scene]}]
+  (every? (fn [[object-id object-value]]
+            (= object-id (:object/id object-value)))
+          scene))
+
+(defn- id-mismatch [{:keys [scene]}]
+  (when-let [[scene-key object-value]
+             (first (filter (fn [[object-id value]]
+                              (not= object-id (:object/id value)))
+                            (sort-by (comp pr-str first) scene)))]
+    {:scene-key scene-key :object/id (:object/id object-value)}))
+
+(defn parents-exist? [{:keys [scene]}]
+  (every? (fn [[_ object-value]]
+            (let [parent (:parent object-value)]
+              (or (nil? parent) (contains? scene parent))))
+          scene))
+
+(defn- missing-parent [{:keys [scene]}]
+  (when-let [[object-id object-value]
+             (first (filter (fn [[_ value]]
+                              (let [parent (:parent value)]
+                                (and (some? parent)
+                                     (not (contains? scene parent)))))
+                            (sort-by (comp pr-str first) scene)))]
+    {:object/id object-id :parent (:parent object-value)}))
+
+(defn- cycle-info [{:keys [scene]}]
+  (some (fn [object-id]
+          (loop [cursor object-id
+                 seen #{}]
+            (cond
+              (nil? cursor) nil
+              (contains? seen cursor)
+              {:object/id object-id :cycle-at cursor}
+              :else
+              (recur (:parent (get scene cursor)) (conj seen cursor)))))
+        (sort-by pr-str (keys scene))))
+
+(defn acyclic? [region]
+  (nil? (cycle-info region)))
+
+(def grammar
+  {:keys #{:region/id :region/revision :region3d/version :extent :scene :view
+           :background :ambient :region/rect}
+   :validators
+   {:region/id (named-validator :region/id some?)
+    :region/revision (named-validator :region/revision some?)
+    :region3d/version #{schema-version}
+    :extent extent
+    :scene [:map-of some? object]
+    :view view
+    :background background
+    :ambient ambient
+    :region/rect rect}
+   :form-validators
+   [{:valid? ids-match-keys?
+     :error-type :region/object-id-mismatch
+     :explain id-mismatch}
+    {:valid? parents-exist?
+     :error-type :region/parent-missing
+     :explain missing-parent}
+    {:valid? acyclic?
+     :error-type :region/parent-cycle
+     :explain cycle-info}]})
+
+(defn canonical-transform [transform-value]
+  (if (or (nil? transform-value) (map? transform-value))
+    (update (merge default-transform (or transform-value {}))
+            :rotation normalize-quaternion)
+    transform-value))
+
+(defn- canonical-lens [lens-value]
+  (if (map? lens-value)
+    (merge (case (:kind lens-value)
+             :perspective default-perspective-lens
+             :ortho default-ortho-lens
+             {})
+           lens-value)
+    lens-value))
+
+(defn canonical-view [view-value]
+  (if (or (nil? view-value) (map? view-value))
+    (update (merge default-view (or view-value {})) :lens canonical-lens)
+    view-value))
+
+(defn- canonical-material [material-value]
+  (if (or (nil? material-value) (map? material-value))
+    (merge default-material (or material-value {}))
+    material-value))
+
+(defn- canonical-mesh [mesh-value]
+  (if (map? mesh-value)
+    (if (contains? legal-primitive-kinds (:kind mesh-value))
+      (update mesh-value :params
+              #(if (or (nil? %) (map? %))
+                 (merge (get primitive-defaults (:kind mesh-value)) (or % {}))
+                 %))
+      mesh-value)
+    mesh-value))
+
+(defn- canonical-light [light-value]
+  (if (or (nil? light-value) (map? light-value))
+    (merge {:color (:color default-ambient)
+            :intensity 1.0
+            :range 100.0
+            :cast-shadow false}
+           (or light-value {}))
+    light-value))
+
+(defn- canonical-placed-text [text-value]
+  (if (map? text-value)
+    (update text-value :params
+            #(if (map? %)
+               (into (empty %) (remove (comp nil? val)) %)
+               %))
+    text-value))
+
+(defn canonical-object [object-value]
+  (if (map? object-value)
+    (let [object-value (update object-value :transform canonical-transform)]
+      (case (:object/kind object-value)
+        :mesh (-> object-value
+                  (update :mesh canonical-mesh)
+                  (update :material canonical-material))
+        :light (update object-value :light canonical-light)
+        :text (update object-value :text canonical-placed-text)
+        object-value))
+    object-value))
+
+(defn- canonical-scene [scene]
+  (if (map? scene)
+    (into (empty scene)
+          (map (fn [[object-id object-value]]
+                 [object-id (canonical-object object-value)]))
+          scene)
+    scene))
+
+(defn- migrate-region [region]
+  (if (map? region)
+    (cond-> region
+      (= 1 (:region3d/version region))
+      (assoc :region3d/version schema-version)
+
+      (and (contains? region :view-default)
+           (not (contains? region :view)))
+      (assoc :view (:view-default region))
+
+      (contains? region :view-default)
+      (dissoc :view-default))
+    region))
+
+(defn canonical-region
+  "Purely migrate, fill defaults, and normalize near-unit quaternions. It does
+   not refuse; `validate-region!` performs the one declared grammar check."
   [region]
-  (case (:region3d/version region)
-    1 (assoc region :region3d/version 2)
-    2 region
-    (throw-field! "Region3D schema version is unsupported"
-                  {:version (:region3d/version region)
-                   :supported [1 2]})))
+  (let [region (migrate-region region)]
+    (if (map? region)
+      (-> region
+          (update :scene canonical-scene)
+          (update :view canonical-view)
+          (update :background
+                  #(if (or (nil? %) (map? %))
+                     (merge default-background (or % {}))
+                     %))
+          (update :ambient
+                  #(if (or (nil? %) (map? %))
+                     (merge default-ambient (or % {}))
+                     %)))
+      region)))
 
 (defn validate-region!
-  "Migrate then return the canonical Region3D v2 value. Validation is fail-closed for all
-   pinned meanings and preserves unknown extension fields verbatim."
+  "Return the canonical Region3D v2 row after one closed grammar check."
   [region]
-  (when-not (map? region)
-    (throw-field! "Region3D region must be an EDN map" {:region region}))
-  (let [region (migrate-region region)]
-   (when-not (= schema-version (:region3d/version region))
-    (throw-field! "Region3D schema version is unsupported"
-                  {:version (:region3d/version region)
-                   :supported schema-version}))
-  (doseq [field [:extent :scene]]
-    (when-not (contains? region field)
-      (throw-field! "Region3D region is missing a required field"
-                    {:field field})))
-  (when-not (map? (:scene region))
-    (throw-field! "Region3D scene must be an object-id map"
-                  {:scene (:scene region)}))
-  (let [canonical-scene (into (empty (:scene region))
-                              (map (fn [[object-id object]]
-                                     [object-id (canonical-object object)]))
-                              (:scene region))
-        canonical (-> region
-                      (assoc :extent (canonical-extent (:extent region)))
-                      (assoc :background
-                             (canonical-background (:background region)))
-                      (assoc :ambient (canonical-ambient (:ambient region)))
-                      (assoc :view-default
-                             (canonical-view (:view-default region)))
-                      (assoc :scene canonical-scene))]
-    (validate-parent-graph! canonical-scene)
-    canonical)))
+  (grammar/check grammar (canonical-region region)))

@@ -1,5 +1,6 @@
 (ns app.client.region3d.material-test
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.edn :as edn]
+            [clojure.test :refer [deftest is testing]]
             [app.client.region3d.material :as material]
             [app.client.region3d.scene :as scene]))
 
@@ -21,74 +22,148 @@
                :metallic 0.2 :roughness 0.55
                :emissive (tagged 0.0 0.0 0.0)}}))
 
+(defn light-object [object-id kind light]
+  {:object/id object-id :object/kind :light :parent nil
+   :transform material/default-transform
+   :provenance {:asserted-by :sid}
+   :light (assoc light :kind kind)})
+
+(defn text-object [object-id]
+  {:object/id object-id :object/kind :text :parent nil
+   :transform material/default-transform
+   :provenance {:asserted-by :sid}
+   :text {:ref {:address :text/shared}
+          :params {}}})
+
 (defn region
   ([] (region {:parent (mesh-object :parent)}))
   ([objects]
-   {:region3d/version 1
+   {:region/id :region/seam
+    :region/revision "region-seam-r1"
+    :region3d/version 1
     :extent {:width 640.0 :height 360.0 :depth 100.0}
     :background {:kind :opaque :color (tagged 0.1 0.12 0.15)}
     :ambient {:color (tagged 1.0 1.0 1.0) :intensity 0.1}
     :view-default material/default-view
     :scene objects
-    :future/sculpt-node {:preserved true}}))
+    :region/rect {:x 0.0 :y 0.0 :w 640.0 :h 360.0}}))
 
-(deftest material-grammar-migrates-v1-and-admits-v2-placements
+(defn refusal-data [thunk]
+  (try
+    (thunk)
+    nil
+    (catch clojure.lang.ExceptionInfo error
+      (ex-data error))))
+
+(deftest region-grammar-is-closed-data-after-pure-canonicalization
   (let [input (region)
-        canonical (material/validate-region! input)]
+        canonical (material/validate-region! input)
+        round-tripped (edn/read-string (pr-str canonical))]
     (is (= 2 (:region3d/version canonical)))
     (is (= 2 material/schema-version))
-    (is (= {:preserved true} (:future/sculpt-node canonical))
-        "unknown fields are preserved, never silently dropped")
+    (is (= material/default-view (:view canonical)))
+    (is (not (contains? canonical :view-default)))
     (is (= [0.0 0.0 0.0 1.0]
            (get-in canonical [:scene :parent :transform :rotation])))
-    (testing "quaternion normalization is exact inside the pinned tolerance"
+    (is (nil? (meta round-tripped)))
+    (is (= canonical (material/validate-region! round-tripped)))
+    (testing "a near-unit quaternion normalizes before the grammar checks it"
       (let [accepted (assoc-in input [:scene :parent :transform :rotation]
                                [0.0 0.0 0.0 1.0005])]
         (is (= [0.0 0.0 0.0 1.0]
                (get-in (material/validate-region! accepted)
-                       [:scene :parent :transform :rotation]))))
-      (is (thrown-with-msg?
-           clojure.lang.ExceptionInfo #"outside unit tolerance"
-           (material/validate-region!
-            (assoc-in input [:scene :parent :transform :rotation]
-                      [0.0 0.0 0.0 1.01])))))
-    (testing "cycles, untagged colors, non-directional shadows, and extents refuse"
-      (is (thrown-with-msg?
-           clojure.lang.ExceptionInfo #"cycle"
-           (material/validate-region!
-            (region {:a (assoc (mesh-object :a :b [0.0 0.0 0.0]) :parent :b)
-                     :b (assoc (mesh-object :b :a [0.0 0.0 0.0]) :parent :a)}))))
-      (is (thrown-with-msg?
-           clojure.lang.ExceptionInfo #"tagged map"
-           (material/validate-region!
-            (assoc-in input [:background :color] [0.0 0.0 0.0 1.0]))))
-      (is (thrown-with-msg?
-           clojure.lang.ExceptionInfo #"extent component"
-           (material/validate-region!
-            (assoc-in input [:extent :width] 10001.0))))))
+                       [:scene :parent :transform :rotation])))))))
 
-  (let [text-object {:object/id :placed-text :object/kind :text :parent nil
-                     :transform material/default-transform
-                     :provenance {:asserted-by :sid}
-                     :text {:ref {:address :text/shared}
-                            :params {:color nil :max-inline-size nil
-                                     :future/shape :preserved}}}
-        ink-object {:object/id :placed-ink :object/kind :ink :parent nil
-                    :transform material/default-transform
-                    :provenance {:asserted-by :sid}
-                    :ink {:ref {:address :ink/shared}}}
-        v2 (assoc (region {:placed-text text-object :placed-ink ink-object})
-                  :region3d/version 2)
-        canonical (material/validate-region! v2)]
-    (is (= :preserved
-           (get-in canonical [:scene :placed-text :text :params :future/shape])))
-    (is (= {:address :ink/shared}
-           (get-in canonical [:scene :placed-ink :ink :ref])))
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo #"requires :ref and :params"
-         (material/validate-region!
-          (assoc-in v2 [:scene :placed-text :text]
-                    {:ref {:address :text/shared}}))))))
+(deftest region-grammar-refuses-every-r2-boundary-by-name
+  (testing "an unknown top-level field"
+    (let [data (refusal-data
+                #(material/validate-region!
+                  (assoc (region) :future/shape :closed)))]
+      (is (= :grammar/unknown-key (:error-type data)))
+      (is (= [:future/shape] (:path data)))))
+
+  (testing "a parent cycle names its cycle point"
+    (let [data (refusal-data
+                #(material/validate-region!
+                  (region {:a (mesh-object :a :b [0.0 0.0 0.0])
+                           :b (mesh-object :b :a [0.0 0.0 0.0])})))]
+      (is (= :region/parent-cycle (:error-type data)))
+      (is (contains? #{:a :b} (:cycle-at data)))))
+
+  (testing "a missing parent"
+    (let [data (refusal-data
+                #(material/validate-region!
+                  (region {:child (mesh-object :child :missing
+                                               [0.0 0.0 0.0])})))]
+      (is (= :region/parent-missing (:error-type data)))
+      (is (= :missing (:parent data)))))
+
+  (testing "a reversed spot cone"
+    (let [spot (light-object
+                :spot :spot
+                {:color (tagged 1.0 1.0 1.0)
+                 :intensity 1.0 :range 10.0 :cast-shadow false
+                 :cone {:inner-deg 40.0 :outer-deg 20.0}})
+          data (refusal-data
+                #(material/validate-region! (region {:spot spot})))]
+      (is (= :region/light-cone (:error-type data)))))
+
+  (testing "a torus whose tube reaches its radius"
+    (let [torus (assoc (mesh-object :torus)
+                       :mesh {:kind :torus
+                              :params {:radius 0.5 :tube 0.5
+                                       :radial-segments 32
+                                       :tubular-segments 16}})
+          data (refusal-data
+                #(material/validate-region! (region {:torus torus})))]
+      (is (= :region/primitive-kind (:error-type data)))))
+
+  (testing "an index outside the vertex population"
+    (let [indexed (assoc
+                   (mesh-object :indexed)
+                   :mesh {:kind :indexed-triangles
+                          :positions [0.0 0.0 0.0
+                                      1.0 0.0 0.0
+                                      0.0 1.0 0.0]
+                          :normals [0.0 0.0 1.0
+                                    0.0 0.0 1.0
+                                    0.0 0.0 1.0]
+                          :indices [0 1 3]})
+          data (refusal-data
+                #(material/validate-region! (region {:indexed indexed})))]
+      (is (= :region/mesh-index (:error-type data)))))
+
+  (testing "a quaternion outside the normalization tolerance"
+    (let [data (refusal-data
+                #(material/validate-region!
+                  (assoc-in (region)
+                            [:scene :parent :transform :rotation]
+                            [0.0 0.0 0.0 1.01])))]
+      (is (= :region/quaternion-unit (:error-type data)))))
+
+  (testing "a point light casting a shadow"
+    (let [point (light-object
+                 :point :point
+                 {:color (tagged 1.0 1.0 1.0)
+                  :intensity 1.0 :range 10.0 :cast-shadow true})
+          data (refusal-data
+                #(material/validate-region! (region {:point point})))]
+      (is (= :region/light-shadow (:error-type data)))))
+
+  (testing "a placed text body with an extra key"
+    (let [placed (assoc-in (text-object :placed-text)
+                           [:text :future/shape] :closed)
+          data (refusal-data
+                #(material/validate-region!
+                  (region {:placed-text placed})))]
+      (is (= :grammar/unknown-key (:error-type data)))))
+
+  (testing "an unsupported region version"
+    (let [data (refusal-data
+                #(material/validate-region!
+                  (assoc (region) :region3d/version 3)))]
+      (is (= :grammar/invalid-value (:error-type data)))
+      (is (= [:region3d/version] (:path data))))))
 
 (deftest primitive-generators-are-deterministic-general-triangle-projections
   (doseq [[kind params] material/primitive-defaults]
@@ -100,17 +175,17 @@
       (is (zero? (mod (count (:indices first)) 3)))
       (is (< (apply max (:indices first))
              (quot (count (:positions first)) 3)))))
-  (let [general {:object/id :indexed :object/kind :mesh :parent nil
-                 :transform material/default-transform
-                 :provenance {:asserted-by :importer}
-                 :mesh {:kind :indexed-triangles
-                        :positions [0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 0.0]
-                        :normals [0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0]
-                        :indices [0 1 2]}
-                 :material material/default-material}]
+  (let [general {:kind :indexed-triangles
+                 :positions [0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 0.0]
+                 :normals [0.0 0.0 1.0 0.0 0.0 1.0 0.0 0.0 1.0]
+                 :indices [0 1 2]}]
     (is (= [0 1 2]
-           (get-in (material/canonical-object general) [:mesh :indices])))
-    (is (thrown-with-msg?
-         clojure.lang.ExceptionInfo #"index exceeds"
-         (material/canonical-object
-          (assoc-in general [:mesh :indices] [0 1 3]))))))
+           (get-in (material/canonical-object
+                    (assoc (mesh-object :indexed) :mesh general))
+                   [:mesh :indices])))
+    (is (= :region/mesh-index
+           (:error-type
+            (refusal-data
+             #(material/validate-region!
+               (region {:indexed (assoc (mesh-object :indexed)
+                                        :mesh (assoc general :indices [0 1 3]))}))))))))
