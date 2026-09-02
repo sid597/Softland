@@ -1,6 +1,6 @@
 # Seam cuts — atom 1 path seam close (2026-09-02)
 
-Status: **BUILT + CLOSE RECEIPT PASS; SID ACCEPTANCE PENDING.** Code `9caa2ab` on `main`; source baseline `1750489`.
+Status: **CLOSED + SID-ACCEPTED 2026-09-02.** Sid: "this session work for row 3 is accepted." Code `9caa2ab` on `main`; source baseline `1750489`.
 S1 tree: cid 17 resolved to slot 1 under `[0.5 0 0 0.5 40 20]`; missing cid refused `:path/unknown-container` before upload; new golden PASS.
 S2 travel: both fixtures survived EDN round-trip with nil metadata, equal content keys/classification/mesh bytes; seven grammar refusals named in data.
 S3 gate: frames 1–4 returned writes/derived `1/2, 0/0, 1/0, 1/2` for first/equal/revision/regime changes.
