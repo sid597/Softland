@@ -129,7 +129,7 @@ Not text's: its frame gate (§2, first refusal).
 - "Dead means wrong form for the waist, called or not" (`docs/decisions.md`, Sid's criterion verbatim under it). Every row of §1 cites its form, never its call count.
 - Rulings quote Sid verbatim (CLAUDE.md). The header carries them.
 - Work-package law: contract, then execution straight through, two Sid touches, one close receipt (`.claude/skills/work-package/SKILL.md`). Corner 6 (never a third consecutive dark atom) stands; these pieces close dark under Sid's word quoted in the header, which he withdraws in one line.
-- The parallel-sessions git discipline (memory `feedback-parallel-sessions-shared-branch-git`): three sessions in one tree on `main`, file-disjoint by §4's custody; the two shared files every kind touches (`test/app/test_runner.clj`, `docs/seam-cuts/NOW-2-4.md`) take whole-line appends committed alone and at once, so a swept sibling line is complete and harmless. Exact paths staged; never `CLAUDE.md`, `CLAUDE-1.md`, or `.claude/memory/*`.
+- The parallel-sessions git discipline (memory `feedback-parallel-sessions-shared-branch-git`): three sessions in one tree on `main`, file-disjoint by §4's custody; the two shared files every kind touches (`test/app/test_runner.clj`, `docs/seam-cuts/NOW-2-4.md`) take whole-line appends committed alone and at once, so a swept sibling line is complete and harmless. Exact paths staged; never `CLAUDE.md`, `CLAUDE-1.md`, or `.claude/memory/*`. Commits are few and legible: one per milestone, each big enough to read as one change, never a fix-by-fix tail (Sid, 2026-09-02: commits "too small to know anything").
 - Token economy (CLAUDE.md): every starter lists boot bytes; code is read by seam; only the artifact under repair is read whole.
 
 ---
@@ -445,8 +445,9 @@ You own the whole step: build, surface bugs, fix before source freeze. It change
 sees except the error type :placement/unknown-container and the manifest's file list. Plan: OWNER you ·
 SOURCE this contract §4a · DONE WHEN S0 is green and NOW-2-4.md's first three lines are committed.
 Ambiguity takes §9's default plus a note; a genuine fork is one question in NOW-2-4.md, routed around
-while unblocked work continues. Commit on main, grouped by concern (engine · split · manifest · tests),
-exact paths, no Co-Authored-By. Do not stage CLAUDE.md, CLAUDE-1.md, or anything under .claude/memory/.
+while unblocked work continues. Commits: four at most, one per milestone (engine · split · manifest · tests), each big enough to
+read as one change, the message saying what changed and why; never a fix-by-fix tail (Sid,
+2026-09-02: "too small to know anything"). On main, exact paths, no Co-Authored-By. Do not stage CLAUDE.md, CLAUDE-1.md, or anything under .claude/memory/.
 ```
 
 ### 11b. Image (paste once NOW-2-4.md's shared lines are committed; runs beside 11c and 11d)
@@ -476,8 +477,9 @@ remove now"; §1b is the list; call count is never the criterion. Your files are
 (§8); the one-line add to test_runner.clj is committed alone, at once; your road's result keys stay.
 Plan: OWNER you · SOURCE this contract · DONE WHEN I1-I5 are tripwires and your close lines are appended
 to NOW-2-4.md under "image". Ambiguity takes §9's default plus a note; a genuine fork is one question in
-NOW-2-4.md under your heading, routed around while unblocked work continues. Commit on main, grouped by
-concern, exact paths, no Co-Authored-By. Do not stage CLAUDE.md, CLAUDE-1.md, or anything under
+NOW-2-4.md under your heading, routed around while unblocked work continues. Commits: few, one per milestone, each big enough to read as one change, the message saying what
+changed and why; never a fix-by-fix tail (Sid, 2026-09-02: "too small to know anything"). On main,
+exact paths, no Co-Authored-By. Do not stage CLAUDE.md, CLAUDE-1.md, or anything under
 .claude/memory/.
 ```
 
@@ -520,7 +522,9 @@ remove now"; §1c is the list; call count is never the criterion. Your files are
 at once; your road's result keys stay. Plan: OWNER you · SOURCE this contract · DONE WHEN R1-R5 are
 tripwires and your close lines are appended to NOW-2-4.md under "region". Ambiguity takes §9's default
 plus a note; a genuine fork is one question in NOW-2-4.md under your heading, routed around while
-unblocked work continues. Commit on main, grouped by concern, exact paths, no Co-Authored-By. Do not
+unblocked work continues. Commits: few, one per milestone, each big enough to read as one change, the message saying what
+changed and why; never a fix-by-fix tail (Sid, 2026-09-02: "too small to know anything"). On main,
+exact paths, no Co-Authored-By. Do not
 stage CLAUDE.md, CLAUDE-1.md, or anything under .claude/memory/.
 ```
 
@@ -549,7 +553,9 @@ refusal); leave layout-key and the layout cache untouched. Your files are §4d's
 your road's result keys stay. Plan: OWNER you · SOURCE this contract · DONE WHEN T1-T3 are tripwires and
 your close lines are appended to NOW-2-4.md under "text". Ambiguity takes §9's default plus a note; a
 genuine fork is one question in NOW-2-4.md under your heading, routed around while unblocked work
-continues. Commit on main, grouped by concern, exact paths, no Co-Authored-By. Do not stage CLAUDE.md,
+continues. Commits: few, one per milestone, each big enough to read as one change, the message saying what
+changed and why; never a fix-by-fix tail (Sid, 2026-09-02: "too small to know anything"). On main,
+exact paths, no Co-Authored-By. Do not stage CLAUDE.md,
 CLAUDE-1.md, or anything under .claude/memory/.
 ```
 
