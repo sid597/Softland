@@ -1,8 +1,8 @@
 # `path/*` — how things should be
 
 > **Reconciled against `docs/seam-cuts/CONTRACT.md` (2026-09-02; authority newest first).**
-> The path seam atom closed at `c54282d`. Each item below is read against the
-> contract's rulings — **A** (verbs are data, run by a client runtime over
+> The path boundary step closed at `c54282d`. Each item below is read against the
+> contract's rulings — **A** (geometry generators are data, run by a client runtime over
 > compiled builtins), **B** (fill on the GPU), the **dead criterion** (dead means
 > wrong form for the waist, called or not), and **Sid's answers** recorded in
 > the contract header — and against the tree at close. The body under this block
@@ -10,29 +10,29 @@
 > block wins.
 >
 > **The seven rulings (§E).**
-> 1. once → **honored** in meaning (validation runs once at the door: `validate-material!` is `grammar/check`, every reader trusts the map); **superseded** in mechanism by the dead criterion — the admission stamp A3 proposed was a process-local mark that `pr-str` drops, and is gone.
-> 2. table → **superseded** by B and the floor: `hit-slop-screen-px` is deleted, not tabled; slop is the hit builtin's screen-pixel input converted through the effective scale, and the regime table itself leaves with atom B.
-> 3. both → **honored**: the census is out of `src/` for path and image (it lives only in the image test now).
+> 1. once → **honored** in meaning (validation runs once at the entry point: `validate-material!` is `grammar/check`, every reader trusts the map); **superseded** in mechanism by the dead criterion — the validation stamp A3 proposed was a process-local flag that `pr-str` drops, and is gone.
+> 2. table → **superseded** by B and the engine: `hit-slop-screen-px` is deleted, not tabled; slop is the hit builtin's screen-pixel input converted through the world-transform scale, and the LOD table itself leaves with step B.
+> 3. both → **honored**: the coverage check is out of `src/` for path and image (it lives only in the image test now).
 > 4. yes → **honored** in substance, **superseded** in residence by the dead criterion: the two examples exist as `test/app/client/path/fixtures.cljc`, never as defs in `material.cljc` (fixtures in src are wrong form).
 > 5. no → **honored**.
-> 6. open → **superseded** by A as read here: every shape and every compound is a verb row over compiled builtins, so a primitive recipe is data too, not repo code; D4's primitive/composite split does not survive. (Asked back to Sid once, in chat, in case he reads A narrower.)
+> 6. open → **superseded** by A as read here: every shape and every composite is a geometry-generator row over compiled builtins, so a primitive recipe is data too, not repo code; D4's primitive/composite split does not survive. (Asked back to Sid once, in chat, in case he reads A narrower.)
 > 7. yes → **honored**; this file stays as the record.
 >
 > **The B-keeps.**
-> - B1 three-stage split → **honored** at close (material · tessellation · painter, plus `frame.cljc` for the pure frame key); **superseded** ahead by A (the stroker becomes a verb row emitting camera-free contours) and B (ear clipping, hole bridging and the regime table leave tessellation).
-> - B2 hand-rolled code-as-schema validator → **superseded** by the dead criterion: right meaning, wrong form. The grammar is declared data (`material/grammar`) checked by one engine (`engine/grammar.cljc`); closed maps and named refusals survive; `:path/extensions` and `:path/provenance` are gone; `schema-version` stays.
-> - B3 grammar content → **honored** for knots-as-truth, explicit holes, straight segments and round caps; **superseded** for pressure: a knot carries `:width`, decided by the brush at creation, with `:pressure` kept only as unread provenance (contract §4–§5). Straight segments hold until B, where curves are evaluated per pixel on the GPU.
-> - B4 regime-table declaration fields, unread → **honored** today; **superseded** ahead by B (the table goes; the legal zoom envelope moves to the server's space facet, one flattening tolerance stays on the floor).
-> - B5 `derive-mesh-set`, `quantization-receipt`, `boundary-distance` in use → **honored**; `quantization-receipt` and `f32-roundtrip` now live in the verifier (instruments, per the dead criterion), still called there.
+> - B1 three-stage split → **honored** at close (component · tessellation · renderer, plus `frame.cljc` for the pure frame key); **superseded** ahead by A (the stroker becomes a geometry-generator row emitting camera-free contours) and B (ear clipping, hole bridging and the LOD table leave tessellation).
+> - B2 hand-rolled code-as-schema validator → **superseded** by the dead criterion: right meaning, wrong form. The schema is declared data (`material/grammar`) checked by one engine (`engine/grammar.cljc`); closed maps and named rejections survive; `:path/extensions` and `:path/provenance` are gone; `schema-version` stays.
+> - B3 schema content → **honored** for stroke points as the source of truth, explicit holes, straight segments and round caps; **superseded** for pressure: a stroke point carries `:width`, decided by the brush at creation, with `:pressure` kept only as unread provenance (contract §4–§5). Straight segments hold until B, where curves are evaluated per pixel on the GPU.
+> - B4 LOD-table declaration fields, unread → **honored** today; **superseded** ahead by B (the table goes; the legal zoom range moves to the server's space component, one flattening tolerance stays on the engine).
+> - B5 `derive-mesh-set`, `quantization-receipt`, `boundary-distance` in use → **honored**; `quantization-receipt` and `f32-roundtrip` now live in the render test harness (diagnostics, per the dead criterion), still called there.
 >
 > **C1/C2 → honored** (examples as test fixtures; `mesh-bytes` and `point-in-mesh?` live in the tests). **A1/A2 → honored. A3 → see ruling 1. A4 → see ruling 2.**
 >
-> **C3's four adds on the seam-cuts ladder** (atom 1 path seam, closed · atoms 2–4 image, text, region · atom A runtime + verbs · atom B GPU fill · the missing floor in canvas order: pointer, in-flight store, wire, clock, culling · LATER):
-> - C3.1 true curves → **atom B**: curves evaluated per pixel the way the Slug text shader does for glyphs; no segment-grammar widening in tessellation.
-> - C3.2 richer paint → split: paint kinds the shader evaluates (gradients, textures) are floor and ride **atom B**'s paint; dashes are a verb row, **atom A**.
-> - C3.3 grouping → ops name container ids and the placement tree runs (**atom 1**, done for path; atoms 2–4 for the rest); group opacity is a floor composite op; draw order and the group as a mark are the ECS layer above the waist, reachable once **atom A**'s runtime exists.
-> - C3.4 semantics → above the waist as data, never engine work; still waits on durable mark ids (Sid's storage ruling, **open**).
-> - D1's decision rule → **superseded** by §0's two axes (grain, and whether the camera is an input). D2, D3, D5 → **honored** as stances above the waist. D4 → see ruling 6. §F sizing → **superseded** by the ladder above.
+> **C3's four adds on the seam-cuts ladder** (step 1 path boundary, closed · steps 2–4 image, text, region · step A runtime + geometry generators · step B GPU fill · the missing engine in canvas order: pointer, uncommitted store, wire, clock, culling · LATER):
+> - C3.1 true curves → **step B**: curves evaluated per pixel the way the Slug text shader does for glyphs; no segment-schema widening in tessellation.
+> - C3.2 richer paint → split: paint kinds the shader evaluates (gradients, textures) belong to the engine and ride **step B**'s paint; dashes are a geometry-generator row, **step A**.
+> - C3.3 grouping → draw items name group ids and the transform hierarchy runs (**step 1**, done for path; steps 2–4 for the rest); group opacity is an engine composite operation; draw order and the group as an entity are the ECS layer above the waist, reachable once **step A**'s runtime exists.
+> - C3.4 semantics → above the waist as data, never engine work; still waits on durable entity ids (Sid's storage ruling, **open**).
+> - D1's decision rule → **superseded** by §0's two axes (granularity, and whether the camera is an input). D2, D3, D5 → **honored** as stances above the waist. D4 → see ruling 6. §F sizing → **superseded** by the ladder above.
 
 Handoff from the path/tessellation session, 2026-08-30. Purpose: a fresh
 session verifies each claim against source (claim → source, evidence-cited,
@@ -55,7 +55,7 @@ ADDS (§C3), not limits filed away.
 `material.cljc` (17.8KB) says what counts as a valid path and answers
 questions about it without drawing; `tessellation.cljc` (18.9KB) turns a path
 into triangles; `painter.cljs` (15.2KB) hands triangles to WebGPU.
-Dependencies point one way: painter → tessellation → material, never back.
+Dependencies point one way: renderer → tessellation → component, never back.
 Tests: `test/app/client/path/material_test.clj` (4.3KB),
 `tessellation_test.clj` (3.1KB). Law: `docs/render-engine/PATH-ATOM-CONTRACT.md`
 (12KB) and `docs/render-engine/W0-C.md` §6 (lines 605–700, 4.3KB).
@@ -67,63 +67,63 @@ Tests: `test/app/client/path/material_test.clj` (4.3KB),
 
 ## A. REMOVE (the important list)
 
-### A1. Test census out of the engine floor — *verified · ruled: both kinds*
+### A1. Test coverage check out of the engine — *verified · ruled: both kinds*
 **Claim.** `claimed-corpus-pressures` and `assert-corpus-coverage!`
 (`material.cljc` ~lines 409–420) belong in
 `test/app/client/path/material_test.clj`, not in the production namespace.
 The identical pattern in `src/app/client/image/material.cljc` moves the same
-way, same atom (ruling 3 = both).
+way, same step (ruling 3 = both).
 **Reasoning.** They assert that the *test fixtures* exercise every frozen
 scenario pressure (pressure-width, holes, translucent self-crossing, zoom
 extremes). That is a property of the test corpus, not of a path; no
-production caller uses them. The engine floor should contain only what the
+production caller uses them. The engine should contain only what the
 three tests in B1 justify (per-frame · determinism promise · shared meaning);
-a test census is none of those. Every def in the floor is a def a future
+a test coverage check is none of those. Every def in the engine is a def a future
 reader must understand before trusting the file; this one is noise.
 **Verify.** `grep -rn "assert-corpus-coverage!\|claimed-corpus-pressures" src test`
 — callers only in `test/` plus the image twin.
 
-### A2. Test-only receipt helpers out of `tessellation.cljc` — *verified*
+### A2. Test-only evidence helpers out of `tessellation.cljc` — *verified*
 **Claim.** `point-in-mesh?` and `mesh-bytes` are called only by
 `tessellation_test.clj`. Move them to the test namespace — or wire the
-verifier's determinism probe to `mesh-bytes` so it earns its place.
+render test harness's determinism probe to `mesh-bytes` so it earns its place.
 **Reasoning.** `mesh-bytes`' docstring says "used by JVM and verifier
-determinism receipts"; the verifier (`src/app/client/verifier/core.cljs`)
-never calls it. A docstring that overclaims is a small lie in the floor;
+determinism receipts"; the render test harness (`src/app/client/verifier/core.cljs`)
+never calls it. A docstring that overclaims is a small lie in the engine;
 make it true or move the function. `point-in-mesh?` is a parity check
 (triangles vs. truth) with no production use. Same principle as A1.
 **Verify.** `grep -rn "point-in-mesh?\|mesh-bytes" src test` — `src` hits only
 inside `tessellation.cljc`. Contrast `quantization-receipt`, which the
-verifier does call — that one stays.
+render test harness does call — that one stays.
 
-### A3. Validate once at the doors, trust inside — *judgment · ruled: once*
+### A3. Validate once at the entry points, trust inside — *judgment · ruled: once*
 **Claim.** `validate-material!` currently opens nearly every public function in
 `material.cljc` (`classify`, `boundary-distance`, `material-points`,
 `material-cache-key`, `paint-color`, …) and every public entry in
-`tessellation.cljc`. It should run once, where a material *enters the world*
-(mint, archive load, wire ingress); internals trust the value.
+`tessellation.cljc`. It should run once, where a component *enters the world*
+(creation, archive load, wire ingress); internals trust the value.
 **Reasoning.**
 - *Why it is shaped this way today:* with no type system, each public function
   can only promise "I never compute on garbage" by checking for itself. It is
-  what "every function is a door" costs — paranoia, not sloppiness — and it has
+  what "every function is an entry point" costs — paranoia, not sloppiness — and it has
   one virtue: impossible to hold wrong.
 - *Why it is the wrong shape:* the dataflow principle — work belongs where a
   value enters the graph, once per change; the graph's structure then carries
   trust. Re-validating inside every node re-does edge work on every read, and
   in a reactive setting multiplies (a node re-run because an *unrelated* input
-  changed re-walks the same unchanged material). "One place of entry" is what
+  changed re-walks the same unchanged component). "One place of entry" is what
   both the reactive lens and plain engineering say.
 - *Honesty about cost:* nobody has profiled this; at fixture scale it is
-  probably noise, and "probably" is a magnitude claim with no receipt. **The
+  probably noise, and "probably" is a magnitude claim with no evidence. **The
   ruling is on shape, not on measured cost.**
 - *The refactor:* add `admit-material` — runs `validate-material!`, returns the
   map stamped with metadata `{:material/validated true}`; add `admitted?`;
   internals replace their preamble with an `admitted?` assertion that throws a
   named `ex-info` on an unstamped map. Metadata does not affect equality, so
-  content keys and caches are untouched.
+  content hashes and caches are untouched.
 - *Adversarial check before freeze — metadata survival:* `assoc`/`update-in`
   preserve metadata; `into`, `mapv`-rebuilt maps, and `canonical-material`'s
-  sorted-map rebuild do not. Every place a material is reconstructed
+  sorted-map rebuild do not. Every place a component is reconstructed
   (`normalized-ink`, `normalized-shape`, `canonical-material`,
   `open-contour-material`) must work from the stamped original or re-stamp.
   A silently lost stamp turns the guarantee into a false alarm.
@@ -132,16 +132,16 @@ verifier does call — that one stays.
   only inside the engine, never where an outside author hands in data.
 **Verify.** `grep -n "validate-material!" src/app/client/path/*.clj*` — count
 the call sites; confirm each is a preamble; confirm no single ingress function
-exists today. Callers to route through the door: test fixtures, the verifier
+exists today. Callers to route through the entry point: test fixtures, the render test harness
 corpus in `verifier/core.cljs`, `region3d/on_plane.cljc`, and wherever the
-painter's path ops originate.
+renderer's path draw items originate.
 
-### A4. `hit-slop-screen-px` folds into the regime table — *verified · ruled: table*
+### A4. `hit-slop-screen-px` folds into the LOD table — *verified · ruled: table*
 **Claim.** It is hardcoded `0.0` and read nowhere outside `material.cljc`;
 inside, `classify` computes `slop-local = 0.0 / zoom = 0`, so the slop path is
 dead by value. Ruling: move it into `legal-zoom-regimes` as a declared
-per-regime limit (`:hit-slop-screen-px 0.0`), and have `classify` read it from
-the regime.
+per-LOD limit (`:hit-slop-screen-px 0.0`), and have `classify` read it from
+the LOD.
 **Reasoning.** The contract calls slop a Contract-G declaration ("ink =
 distance-to-centerline ≤ half-width + declared slop"). A declaration is
 legitimate data; a def that looks like a tuning knob and is a constant zero is
@@ -161,27 +161,27 @@ code; nothing above them needs to be.
 it **(a)** runs per frame, **(b)** carries a determinism promise across
 runtimes or time, or **(c)** defines meaning that multiple independent
 components rely on.
-- *painter* — (a)+(c). Its WGSL shader source (`path-vertex-shader`,
+- *renderer* — (a)+(c). Its WGSL shader source (`path-vertex-shader`,
   `path-fragment-shader`) and its byte packer (`pack-vertices`, offsets
   0/8/24, 7 floats per vertex) are two compiled halves of one contract that
   must agree byte-for-byte — inexpressible as runtime data; a mismatch does
-  not error, it corrupts. It holds a slot in the shared frame
+  not error, it corrupts. It holds a place in the shared frame
   (`prepare-path-frame!`, `draw-path-range!`). Hottest code in the app.
-- *tessellation* — (b)+(c). Its output is promised: same material + same
-  `algorithm-version` + same regime → byte-identical mesh, which is what lets
+- *tessellation* — (b)+(c). Its output is promised: same component + same
+  `algorithm-version` + same LOD → byte-identical mesh, which is what lets
   untouched strokes return their old mesh by identity. The promise dies if the
   algorithm can vary. The same `.cljc` compiles to JVM (where the suite proves
   determinism, ear-clip termination via the fuel bound, quantization bounds)
   and to the browser; the proof transfers because the code is identical.
   Picking uses the same triangles — pluggable tessellation would be pluggable
   click-truth.
-- *material* — (c) in its strongest form: the fence that makes everything above
+- *component* — (c) in its strongest form: the validation boundary that makes everything above
   safe to be data (B2), the shared vocabulary every component reads, and half
   of geometric truth (`classify`, `hit?`).
-**The seam.** Above `validate-material!` (after A3: `admit-material`) anyone may
+**The boundary.** Above `validate-material!` (after A3: `admit-material`) anyone may
 say anything; below it, only this layer says what anything means. Each file
-has its lawful way to change: painter edits are engine work, tessellation
-changes bump `algorithm-version`, grammar changes bump `schema-version`.
+has its lawful way to change: renderer edits are engine work, tessellation
+changes bump `algorithm-version`, schema changes bump `schema-version`.
 **Verify.** `grep -n "^(def" src/app/client/path/*.clj*`;
 `grep -n "shaderLocation\|vertex-words" src/app/client/path/*`;
 `grep -rn "app.client.path" src/app/client --include='*.clj*'` — no kind→kind
@@ -189,40 +189,40 @@ dependency except `region3d/on_plane`.
 
 ### B2. The fail-closed, hand-rolled, code-as-schema validator — *verified pattern · Sid: "the current shape is good"*
 **Claim.** Keep the validator's shape: closed maps (unknown keys rejected by
-name), `:path/extensions` as the single deliberate open door, no schema
+name), `:path/extensions` as the single deliberate open extension point, no schema
 library, data constants + imperative leaf rules, versioned by `schema-version`.
 **Reasoning — why this boundary earns strictness** (none depends on language
 idiom or anyone's authority):
-1. *Agents mint materials.* An unreliable author's only feedback loop is a
+1. *Agents create components.* An unreliable author's only feedback loop is a
    named rejection (`"Ink knot pressure must be finite"`,
    `{:unknown [:sparkles] :policy :reject}`).
-2. *The archive means data outlives every implementation.* The grammar is the
+2. *The archive means data outlives every implementation.* The schema is the
    future reader's only contract; strictly specified data survives language
    pivots, code never does.
 3. *`material-content-key` fingerprints the whole canonical map.* An unknown key
    riding through would silently fork a path's identity and split its caches.
-   Closed maps keep the content key honest.
+   Closed maps keep the content hash honest.
 4. *The GPU never throws.* One NaN renders as invisible garbage;
-   `finite-number?` on every coordinate is the only fence.
+   `finite-number?` on every coordinate is the only check.
 **Why no schema library.** `clojure.spec`: removes no code, poor errors
 without wrappers, global macro registry, loses the exact error shapes.
 `malli`: schemas-as-data is closer in spirit, but a dependency on the engine
-floor, whose discipline is dependency-free `.cljc` for the determinism lane
+engine, whose discipline is dependency-free `.cljc` for the determinism lane
 (same reason ear clipping is hand-rolled); the interesting rules (unique ids,
 holes-require-outer, cross-field conditions) become custom predicates anyway.
 The house pattern is uniform: `envelope.clj`'s `required-request-keys` /
 `required-event-keys` are the same style; no spec/malli anywhere.
 **The tower-of-schemas worry, answered.** Schemas count with *kinds of
 persisted truth*, never with layers of composition. Every tower of generators
-flattens through the one material fence; a new schema appears only when a
+flattens through the one component entry point; a new schema appears only when a
 genuinely new noun enters the archive (a vocabulary entry, a relation row).
 **Verify.** `grep -rn "malli\|clojure.spec" deps.edn src` → nothing.
 `sed -n '10,54p;201,230p' src/app/client/path/material.cljc`.
 `grep -n "required-.*-keys" src/app/server/rama/envelope.clj`.
 
-### B3. The grammar's content — knots-as-truth, explicit holes, straight segments, round caps, aliased v1 — *verified provenance*
-**Claim.** Each is a recorded decision or a routed refusal, not a gap.
-**Reasoning — the provenance chain.** (1) *Envelope* from corpus: W0-C §§1–3
+### B3. The schema's content — stroke points as the source of truth, explicit holes, straight segments, round caps, aliased v1 — *verified provenance*
+**Claim.** Each is a recorded decision or a routed non-goal, not a gap.
+**Reasoning — the provenance chain.** (1) *Scope* from corpus: W0-C §§1–3
 read tldraw source, Figma docs, Blender practice to derive that a day-one
 family must express open polylines, closed contours, explicit holes — §6.1,
 ratified 2026-08-02. (2) *Truth* by ruling: W0-C §6.2 put the fork to Sid —
@@ -231,13 +231,13 @@ derivation) vs. B (outline is truth) — with a forbidden non-answer (two
 coequal truths). Sid: "Decision 2: yes A" (verbatim, `vision/LOG.md`). That is
 why ink is `:knots` with `:pressure` and why tessellation carries
 `algorithm-version`. (3) *Common anatomy* from engine law: W0-C §6.3 — id,
-revision, provenance, paint, regime-keyed caches — shared with the image atom.
+revision, provenance, paint, LOD-keyed caches — shared with the image step.
 (4) *v1 narrowing* by contract: `PATH-ATOM-CONTRACT.md` "Refusals" routes
 curves → Package 2 vector-network slice, gradients/dashes → paint-axis
-expansion, winding rules → Figma-core floor, AA fringe → LATER, translucent
-self-overlap → stencil-cover road.
-**Genuinely untested.** Felt use (the atom's felt gate waits behind studio
-custody); v1 tessellates raw knots as-is — no smoothing/resampling pass,
+expansion, winding rules → Figma-core engine, AA fringe → LATER, translucent
+self-overlap → stencil-cover approach.
+**Genuinely untested.** Felt use (the step's felt gate waits behind editor
+ownership); v1 tessellates raw stroke points as-is — no smoothing/resampling pass,
 though D2 option A anticipated one; interop with curve+winding formats pays a
 conversion tax; branching vector networks are not expressible in `:contours`
 (not precluded — `schema-version` + `:path/extensions` — but not native).
@@ -245,7 +245,7 @@ conversion tax; branching vector networks are not expressible in `:contours`
 `sed -n '54,72p' docs/render-engine/PATH-ATOM-CONTRACT.md`;
 `grep -n "smooth\|resampl" src/app/client/path/tessellation.cljc` → nothing.
 
-### B4. The regime table's declaration fields stay, unread — *verified*
+### B4. The LOD table's declaration fields stay, unread — *verified*
 `:coverage-precision`, `:lifecycle`, `:backend`, `:verdict`, `:extent` in
 `legal-zoom-regimes` are read by no code; only `:fan-resolution` and
 `:regime/id` are consumed. Correct, not dead: Contract G's declared limits,
@@ -253,8 +253,8 @@ documentation-as-data. A4 adds `:hit-slop-screen-px` beside them.
 **Verify.** `grep -rn ":coverage-precision\|:lifecycle\|:verdict" src/app/client/path` → only the table.
 
 ### B5. `derive-mesh-set`, `quantization-receipt`, `boundary-distance` — *verified in use*
-`derive-mesh-set` is called by the painter and `region3d/on_plane.cljc`;
-`quantization-receipt` and `boundary-distance` by the verifier. All stay.
+`derive-mesh-set` is called by the renderer and `region3d/on_plane.cljc`;
+`quantization-receipt` and `boundary-distance` by the render test harness. All stay.
 
 ---
 
@@ -263,9 +263,9 @@ documentation-as-data. A4 adds `:hit-slop-screen-px` beside them.
 ### C1. Live examples in `material.cljc` — *ruled: yes*
 **Claim.** Add `example-ink-material` and `example-shape-material` (concave
 outer + one hole + one open contour) as defs beside the schema constants, and
-assert in `material_test.clj` that both are admitted.
+assert in `material_test.clj` that both are validated.
 **Reasoning.** The one real gap in the current shape: the schema can be run but
-not read — an agent about to mint, a future importer, the vocabulary library
+not read — an agent about to create, a future importer, the vocabulary library
 all have to read Clojure source. An example is the highest-value cover, and it
 is complete when paired with the fail-closed errors: copy the example, mutate
 it, and every mistake comes back with its name. Example teaches the shape;
@@ -281,20 +281,20 @@ errors do not explain.
 Order: removal (§A) first; then these. Two are unblocked today, two wait on
 things already on Sid's list.
 
-- **C3.1 True curves — unblocked, engine floor.** What it takes: segment
-  grammar widening in `material.cljc` (segments become `:line` | `:quadratic`
+- **C3.1 True curves — unblocked, engine.** What it takes: segment
+  schema widening in `material.cljc` (segments become `:line` | `:quadratic`
   | `:cubic` with control points; `schema-version` 2; control points
   validated like every other point); `tessellation.cljc` flattens curves to
-  segments *at derivation time, density chosen from the zoom regime* — the
+  segments *at derivation time, density chosen from the LOD* — the
   whole reason curves belong below (D1) — after which the existing stroke
   expansion and ear clipping apply unchanged; `classify`/`boundary-distance`
   gain distance-to-curve (or flatten-at-query with a declared tolerance — a
-  declared limit either way); goldens at the seven verifier zoom stations;
-  `algorithm-version` bump. Size: one contract + 1–2 atoms. Prerequisites:
+  declared limit either way); goldens at the seven harness zoom levels;
+  `algorithm-version` bump. Size: one contract + 1–2 steps. Prerequisites:
   none. Replaces the contract's "routed to Package 2" — Sid pulled it into NOW.
 - **C3.2 Richer paint — unblocked, mostly without shader work.** *Dashes:* a
   tessellation-level arc-length walk that splits a stroke into dash
-  sub-strokes before expansion — no painter change (structural inference from
+  sub-strokes before expansion — no renderer change (structural inference from
   `stroke-triangles-normalized`; verify). *Linear gradients:* vertices already
   carry per-vertex rgba (`vertex-values` packs `[x y r g b a idx]`); a
   two-stop linear gradient is per-vertex color computed from position at pack
@@ -302,21 +302,21 @@ things already on Sid's list.
   interpolates the color attribute rather than reading a uniform). *Radial
   gradients, textures:* fragment-shader work, genuinely below. Paint schema
   widening (`paint-required-keys` grows a `:kind`; `schema-version` bump).
-  Size: one contract + 1–2 atoms. Prerequisites: none.
+  Size: one contract + 1–2 steps. Prerequisites: none.
 - **C3.3 Grouping — blocked on the frame runtime.** What it takes: a
-  parent/container reference on marks (data); the container tree
+  parent/group reference on entities (data); the transform hierarchy
   (`engine/placement.cljc`, exists) for the shared transform; and **draw
   order**, which today exists only as design — W0-C §5.4 "ordered scene
-  truth"; the verifier is a "direct driver, no order model"
+  truth"; the render test harness is a "direct driver, no order model"
   (`verifier/core.cljs:1695`). So grouping pulls the scene-order runtime into
   should-exist. Size: scene-order runtime = a package; grouping on top = one
-  atom. Prerequisite: the product frame returns (only the verifier compiles
+  step. Prerequisite: the product frame returns (only the render test harness compiles
   today).
-- **C3.4 Semantics — blocked on durable ids.** What it takes: path materials
-  become stored truth with durable `:path/material-id`s (the artery — Sid's
+- **C3.4 Semantics — blocked on durable ids.** What it takes: path components
+  become stored truth with durable `:path/material-id`s (persistence — Sid's
   storage ruling); then "this arrow supports that claim" is a relation row in
-  the existing relation kernel keyed by mark id — no engine change. Size: one
-  atom after the artery. Prerequisite: Sid's "where client shapes are stored"
+  the existing relation kernel keyed by entity id — no engine change. Size: one
+  step after persistence. Prerequisite: Sid's "where client shapes are stored"
   ruling.
 
 ---
@@ -325,10 +325,10 @@ things already on Sid's list.
 
 ### D1. The vocabulary limits, and what goes below vs. above — *judgment*
 
-**What the grammar can say.** Two sentences, and everything is phrased as one
+**What the schema can say.** Two sentences, and everything is phrased as one
 of them. `:ink` — "a band of varying width swept along these points": the
-hand-following case, but nothing requires a hand; two knots make a clean line,
-a generator can emit perfectly spaced knots along any curve it computes.
+hand-following case, but nothing requires a hand; two stroke points make a clean line,
+a generator can emit perfectly spaced stroke points along any curve it computes.
 `:shape` — "the region enclosed by these boundaries": from a 4-point rectangle
 to a 3,000-point coastline with five lakes as holes, plus `:open` polylines
 mixed in. Complexity is unlimited in point count; the ear clipper does not
@@ -337,99 +337,99 @@ care whether it is a triangle or a floor plan.
 **The real limits are on vocabulary, not complexity:**
 - *No true curves* — every edge is straight. A smooth circle is always an
   approximation by many short segments; you can make the error invisible, but
-  the material records segments, not "circle of radius r." (v1 refusal, routed
+  the component records segments, not "circle of radius r." (v1 non-goal, routed
   to Package 2.)
-- *One flat paint per material* — one color, one opacity. No gradients,
+- *One flat paint per component* — one color, one opacity. No gradients,
   dashes, textures.
-- *One material = one mark, not a picture.* A drawn diagram — box, arrow,
-  scribbled annotation — is several materials, each with its own id and
-  revision, layered by scene order. No grouping inside the grammar;
+- *One component = one entity, not a picture.* A drawn diagram — box, arrow,
+  scribbled annotation — is several components, each with its own id and
+  revision, layered by scene order. No grouping inside the schema;
   composition lives above it.
 - *No semantics* — the map says where ink is, never what it means. "This is a
   rectangle," "this is an arrow pointing at that claim" — that knowledge
-  belongs to whoever minted the map. The material is deliberately dumb:
+  belongs to whoever created the map. The component is deliberately dumb:
   geometry and paint, nothing else.
 
 **The decision rule:**
 
 > Does the feature change what a pixel's color is, or what geometry *means*?
 > Then it is below the waist. Does it only arrange, relate, or parameterize
-> marks that already exist? Then it is data on top.
+> entities that already exist? Then it is data on top.
 
 (An ECS framing lands in the same place: a component is only real if some
-system interprets it, and the systems here are tessellation and the painter —
+system interprets it, and the systems here are tessellation and the renderer —
 "add a component" renames the codify question, it does not dodge it.)
 
 **Each missing item run through the rule:**
 
 - **Curves — must go below, and the reason is zoom.** You can fake a curve
   above the waist today: a generator polygonizes a bézier into 200 segments
-  and mints a normal material. It renders fine — at the zoom you chose the
-  density for. But the material is zoom-independent while tessellation is
-  per-regime: the engine re-derives meshes when you cross a zoom band, and it
-  can only add density if the material still carries the curve. A polygonized
+  and creates a normal component. It renders fine — at the zoom you chose the
+  density for. But the component is zoom-independent while tessellation is
+  per-LOD: the engine re-derives meshes when you cross an LOD, and it
+  can only add density if the component still carries the curve. A polygonized
   curve has already thrown that information away — zoom in 100× and the facets
   are frozen in the truth itself, unfixable downstream. Editing (dragging
   control points vs. 200 points) and picking (distance-to-curve ≠
-  distance-to-segments) both want the curve as truth. So curves are a grammar
+  distance-to-segments) both want the curve as truth. So curves are a schema
   widening — new segment type in `material.cljc`, new expansion in
   `tessellation.cljc`, `schema-version` bump — which is exactly why the
   contract routed them rather than calling them an easy-layer item.
 - **Rich paint — below, with one funny exception.** Gradients change the color
-  per pixel — fragment-shader work, painter change, below by the rule.
+  per pixel — fragment-shader work, renderer change, below by the rule.
   (Stacking a hundred solid slivers to fake a gradient is technically legal
   data and genuinely awful.) The exception is **dashes**: a dashed line is
-  many short ink materials, expressible above the waist right now — clunky (id
+  many short ink components, expressible above the waist right now — clunky (id
   explosion, painful editing) but real. The rule working as intended: dashes
   change *where* ink is, not what a pixel's color computation is, so they ride
   on top until someone wants them done properly.
 - **Grouping — purely above, nothing to build below.** A group is scene
-  structure: marks as entities, a parent reference as a component, the
-  container tree (`engine/placement.cljc`, which already exists) supplying the
-  shared transform. Move-the-group = change one affine; the materials never
+  structure: entities, a parent reference as a component, the
+  transform hierarchy (`engine/placement.cljc`, which already exists) supplying the
+  shared transform. Move-the-group = change one affine; the components never
   know. Scene order's layer/stack key handles group render order. The most
   ECS-shaped item on the list; the engine needs zero new code. Waits on the
   scene-order runtime (W0-C §5.4 is design, not code).
 - **Semantics — above, forever, and it is the product.** "This scribble is an
   arrow supporting that claim" is a relation row keyed by
   `:path/material-id` — Softland's discourse-graph territory. The render
-  engine is deliberately meaning-free; meaning attaching to mark ids from
+  engine is deliberately meaning-free; meaning attaching to entity ids from
   above is not a workaround, it is the architecture. Never sinks below the
-  waist. Needs durable mark ids — the "where client shapes get stored"
+  waist. Needs durable entity ids — the "where client shapes get stored"
   decision on Sid's list.
 - **The middle case: geometry-to-geometry operations** (booleans, smoothing,
   offset, donut-from-parameters). Pure functions from contours to contours —
   no GPU, no per-frame — so by the rule they can live above the waist as
-  libraries whose output is minted as ordinary materials. The catch is the
+  libraries whose output is created as ordinary components. The catch is the
   tessellator's lesson: if such an operation's output becomes durable truth,
   it needs the same discipline the engine gives itself — pinned, versioned,
   deterministic — or you get silently drifting geometry. They live above, but
   as versioned easy-layer code, never ad-hoc. They sink below only if the
-  engine ever had to re-run them per regime or per frame.
+  engine ever had to re-run them per LOD or per frame.
 
-**Three piles.** *Grammar widenings* (curves, gradients, winding rules —
+**Three piles.** *Schema widenings* (curves, gradients, winding rules —
 below, each a versioned decision — and per Sid's frame these SHOULD EXIST: §C3) · *pure composition* (grouping,
-semantics, dashes-as-marks, shape generators — above, buildable when their
+semantics, dashes-as-entities, shape generators — above, buildable when their
 prerequisites exist) · *versioned derivation libraries* (booleans, smoothers —
-above, held to below-the-waist discipline). The floor grows only when a
-feature needs the tessellator's zoom-awareness or the painter's shader;
-everything else is arrangement of what the floor already says.
+above, held to below-the-waist discipline). The engine grows only when a
+feature needs the tessellator's zoom-awareness or the renderer's shader;
+everything else is arrangement of what the engine already says.
 
 **Verify.** `sed -n '1,14p' src/app/client/engine/placement.cljc`;
 `grep -n "fan-resolution\|zoom-regime" src/app/client/path/tessellation.cljc`
-(density is chosen per regime from the material — the curves argument); the
-contract's refusals list.
+(density is chosen per LOD from the component — the curves argument); the
+contract's non-goals list.
 
 ### D2. Complexity shifts to data — and that is the good trade — *judgment*
 
 **The worry.** Layers of generators composing into layers: does this not just
 move complexity to the data side and make the system un-navigable?
 
-**The correction: it is not a tower, it is a fan with a flattening fence.**
-Whatever height of composition produced a shape, what crosses the fence is
+**The correction: it is not a tower, it is a fan with a flattening boundary.**
+Whatever height of composition produced a shape, what crosses the entry point is
 always a flat, self-contained map. A flowchart generator may call a box
 generator that calls a rectangle generator — three layers of scaffolding — but
-the system receives N materials, each complete in itself: points, paint, id.
+the system receives N components, each complete in itself: points, paint, id.
 The runtime truth is never layered — a flat list of self-describing values
 plus a scene order. Navigating *what exists* never requires navigating *how it
 was made*. That is the structural difference from a deep component hierarchy,
@@ -438,21 +438,21 @@ where the layers are alive at runtime.
 **Complexity is conserved; its species changes.** The shift is from
 *heterogeneous code complexity* (many interacting abstractions — understanding
 one requires understanding five others) to *homogeneous data complexity* (many
-instances of one simple schema). A hundred thousand materials is bulk, but
+instances of one simple schema). A hundred thousand components is bulk, but
 bulk of one shape — every element inspectable alone, diffable, deletable,
-archivable — and Softland's substrate (ids, revisions, content keys, Rama, the
+archivable — and Softland's substrate (ids, revisions, content hashes, Rama, the
 EDN archive) is purpose-built for exactly that kind. Uniform bulk scales with
 tooling; interlocking abstraction does not.
 
-**Two bounded residuals.** *Bulk cost* — a generated diagram with 400 marks is
-400 materials; fine for the engine, but the tooling above needs bulk verbs
+**Two bounded residuals.** *Bulk cost* — a generated diagram with 400 entities is
+400 components; fine for the engine, but the tooling above needs bulk operations
 (select-by-origin, delete-the-batch, re-run-the-recipe). *Orphaned intent* — a
 recipe whose generator's meaning drifted; hence versioned generators (D3).
 Neither pushes anything below the waist.
 
 ### D3. Two persistences: instances flatten, the vocabulary persists at every level — *judgment; corrected by Sid's pushback*
 
-**First, the mechanical bit.** Nothing gets redone on load. Materials are
+**First, the mechanical bit.** Nothing gets redone on load. Components are
 durable data — on load you read the flat maps back and render them;
 generators never re-run at render or load time. They re-run only on edit
 ("make the hole bigger") or on stamping a new instance.
@@ -460,7 +460,7 @@ generators never re-run at render or load time. They re-run only on edit
 **Per-instance construction** — "this flowchart was made by flowchart-gen
 calling box-gen calling rect-gen, in that order, with these intermediate
 values." This should evaporate: it is replay history, and persisting it per
-mark is the spelunking-tower that makes systems un-navigable. Nobody builds on
+entity is the spelunking-tower that makes systems un-navigable. Nobody builds on
 the shoulders of a call stack.
 
 **The vocabulary itself** — the definitions: rectangle-gen, box-gen,
@@ -481,7 +481,7 @@ preserved executions.**
 composes something that works → making it permanent is *naming it into the
 library* — the composite becomes a vocabulary entry, `flowchart-gen@v1`,
 itself defined in terms of other named entries → from then on anything can
-mint instances by calling it, and further composites can be defined on top.
+create instances by calling it, and further composites can be defined on top.
 Each instance stays cheap: flat points plus one thin pointer —
 `{:generator :flowchart-gen :version 1 :params {...}}` — into the library.
 The tower persists once, as definitions; instances carry a name, never the
@@ -492,38 +492,38 @@ infrastructure, not a convenience: named, versioned, deprecable, with the
 tessellator's discipline — a vocabulary entry whose meaning drifts silently
 corrupts every instance pointing at it. Governance work; the fair price of
 shoulders. (2) It is Softland-shaped all the way down: a vocabulary entry is
-itself material — identity, revision, provenance, relations to the entries it
+itself a component — identity, revision, provenance, relations to the entries it
 composes. Discovery → naming → settlement into durable, buildable-upon
-material is the settlement thesis applied to the drawing vocabulary itself.
+data is the settlement thesis applied to the drawing vocabulary itself.
 The emergent system is not a side effect of the shape library; it *is* the
 shape library, governed like everything else Softland keeps.
 
 ### D4. Where recipes live — *OPEN (Sid's question 6)*
 
-The ECS split: *components* (data on an entity — "this mark is a rectangle,
+The ECS split: *components* (data on an entity — "this entity is a rectangle,
 200×100") are data; *systems* (the code that turns a component into points)
 are code, in every ECS. Recipes come in two kinds and the answer differs:
 
 - **Primitive recipes** (few, stable, need actual math: rectangle, ellipse,
   arrow head, donut) → **code** in the repo — versioned `.cljc` functions with
   the registry entry as data — and ingested through the existing
-  `clojure_adapter` so each is also visible inside Softland as material.
+  `clojure_adapter` so each is also visible inside Softland as a component.
 - **Composite recipes** (many, emergent, discovered by Sid or an agent:
   "flowchart = box ×3 here, arrow ×2 there") → **data** inside Softland — a
   named list of which primitives, which parameters, placed where; interpreted
   by one generic compose system. Mintable at runtime, no deploy, versioned
-  like any other Softland material. Softland never executes stored code.
+  like any other Softland component. Softland never executes stored code.
 
 Proposed as the answer to question 6; awaiting Sid's word.
 
 ### D5. Parameters are to points what centerline is to outline — *judgment*
 The D2 ruling generalized one level up: the parametric description
-(`{:generator … :params …}`) is the material truth for a generated shape; the
+(`{:generator … :params …}`) is the source of truth for a generated shape; the
 contours are the derivation. Re-edit = re-run the generator, mint a new
 revision. The schema already leaves room (`:path/provenance`
 required-but-unchecked, `:path/extensions` optional); nothing implements it
 yet, and no generators, library, or template store exist in the repo today —
-the only minters are test fixtures and the verifier's corpus.
+the only creators are test fixtures and the render test harness's corpus.
 
 ---
 
@@ -539,18 +539,18 @@ the only minters are test fixtures and the verifier's corpus.
 | 6 | Where do shape recipes live? | **open** | D4 |
 | 7 | Save this document into the repo? | **yes** | this file |
 
-Still on Sid's list from the path-atom close, needed before the library (D3)
-can be built: **drawing input** (studio custody) and **where client shapes are
-stored durably** (the artery).
+Still on Sid's list from the path-step close, needed before the library (D3)
+can be built: **drawing input** (editor ownership) and **where client shapes are
+stored durably** (persistence).
 
 ## F. The work, sized
 
 | # | What | Size (est.) | Prerequisites |
 |---|---|---|---|
-| 1 | Hygiene atom — A1, A2, A4, C1, C2, both kinds | ~100 lines, half a session | none |
-| 2 | Ingress atom — A3 | ~1 session | none (ruled) |
-| 3 | Vocabulary library package — D3/D4/D5 | 1 contract + 3–5 atoms | question 6 · drawing input · durable storage |
-| 4 | True curves (C3.1) | 1 contract + 1–2 atoms | none — unblocked |
-| 5 | Richer paint — dashes, linear gradients (C3.2) | 1 contract + 1–2 atoms | none — unblocked |
-| 6 | Scene-order runtime, then grouping (C3.3) | package + 1 atom | the product frame |
-| 7 | Semantics via relation rows (C3.4) | 1 atom | durable-storage ruling |
+| 1 | Hygiene step — A1, A2, A4, C1, C2, both kinds | ~100 lines, half a session | none |
+| 2 | Ingress step — A3 | ~1 session | none (ruled) |
+| 3 | Vocabulary library package — D3/D4/D5 | 1 contract + 3–5 steps | question 6 · drawing input · durable storage |
+| 4 | True curves (C3.1) | 1 contract + 1–2 steps | none — unblocked |
+| 5 | Richer paint — dashes, linear gradients (C3.2) | 1 contract + 1–2 steps | none — unblocked |
+| 6 | Scene-order runtime, then grouping (C3.3) | package + 1 step | the product frame |
+| 7 | Semantics via relation rows (C3.4) | 1 step | durable-storage ruling |

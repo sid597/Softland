@@ -447,7 +447,7 @@ route). How each piece of it reaches the land:
   build throughput. Package counts are sizing between organs, not a
   schedule.
 
-## The render seam — how frames get computed (settled 2026-08-03, amended 2026-09-02)
+## The render boundary — how frames get computed (settled 2026-08-03, amended 2026-09-02)
 
 Every render-path disease we have had was the read side paying to rediscover
 what the write side already knew: a compiler re-deriving order every frame
@@ -462,27 +462,27 @@ maps drawn from code alone, merged in chat, settled by Sid's word
 `docs/seam-cuts/CONTRACT.md`).
 
 **Where a thing lives — the two axes.** Two questions decide residency:
-its **grain** (per pixel is the floor; per vertex or per mark is the ECS
+its **granularity** (per pixel is the engine; per vertex or per entity is the ECS
 layer above the waist) and **whether the camera is an input** (a derivation
-that takes the camera is floor-private, never a row).
+that takes the camera is engine-internal, never a row).
 
-**The floor** is compiled code that is physical or in flight: filling any
+**The engine** is compiled code that is physical or holds uncommitted state: filling any
 contours under a fill rule with per-pixel coverage · the paint kinds the
-shader evaluates · composite ops (clip by mask, group opacity, blend) · the
-camera · the pointer · the clock · the wire · culling · the in-flight store
-(what is not yet a row) · the derivation cache (floor-private derivations of
+shader evaluates · composite operations (clip by mask, group opacity, blend) · the
+camera · the pointer · the clock · the wire · culling · the uncommitted store
+(what is not yet a row) · the derivation cache (engine-internal derivations of
 settled rows) · the hit builtin the runtime calls with screen-pixel slop
-converted through the effective scale · the runtime and its builtins. Sid's
+converted through the world-transform scale · the runtime and its builtins. Sid's
 older criterion still names it: description in, geometry out, or geometry
 in, pixels out, without knowing what the thing is or what a gesture means,
-plus custody of GPU memory and order
-(`docs/below-the-waist/INSTANCE-CUT-NOW.md`). The pointer, in-flight store,
-wire, clock and culling are floor that does not exist yet; they land in
+plus ownership of GPU memory and order
+(`docs/below-the-waist/INSTANCE-CUT-NOW.md`). The pointer, uncommitted store,
+wire, clock and culling are engine code that does not exist yet; they land in
 that order, the order a canvas needs them.
 
-**Verbs are data** (Sid: `A: data`), run by a client runtime over compiled
-builtins. The stroker, the brush, layout, every shape and every compound are
-verb rows. The stroker emits camera-free offset contours or it is not done.
+**Geometry generators are data** (Sid: `A: data`), run by a client runtime over compiled
+builtins. The stroker, the brush, layout, every shape and every composite are
+geometry-generator rows. The stroker emits camera-free offset contours or it is not done.
 The layer above the waist is the ECS layer, in Sid's words (2026-09-02):
 "we leave other heigher level layers for ecs and call that above the waist.
 Anything above the waist is stored as data, is collaborative editable,
@@ -491,23 +491,23 @@ git merge deadlocks, anything in ecs layer should be creatable and then
 saved for reuse or build higher order things from it".
 
 **Rows** are truth and derived rows. A derivation is a row only if something
-above the pack step reads it: layout passes (caret, selection, hit and
+above the vertex-packing step reads it: layout passes (caret, selection, hit and
 on-plane read it), scene evaluation passes (pick and shadow space read it),
-effective affines pass (hit and clip read them). Meshes and atlas placements
+world transforms pass (hit and clip read them). Meshes and atlas placements
 fail the test and are never rows.
 
 **Fill moves to the GPU** (Sid: `B: GPU`): contours under a rule with
 per-pixel coverage, curves evaluated per pixel the way the Slug text shader
-already does for glyphs. Ear clipping, hole bridging and the zoom-regime
-table go with that atom. The legal zoom envelope lives in the server's space
-facet; what remains on the floor is one flattening tolerance in screen
+already does for glyphs. Ear clipping, hole bridging and the LOD
+table go with that step. The legal zoom range lives in the server's space
+component; what remains on the engine is one flattening tolerance in screen
 pixels.
 
-**The seam is a row boundary, not a folder boundary.** A band's vocabulary
-never appears in another band's rows: no GPU slot on an op, no process-local
-stamp on a material, no shader concern in a grammar. The floor translates at
-the door. Ops name container ids and the placement tree runs. The frame gate
-is the row's revision. The grammar of a kind is declared data checked by one
+**The boundary is a row boundary, not a folder boundary.** A layer's vocabulary
+never appears in another layer's rows: no buffer index on a draw item, no process-local
+stamp on a component, no shader concern in a schema. The engine translates at
+the entry point. Draw items name group ids and the transform hierarchy runs. The dirty check
+is the row's revision. The schema of a kind is declared data checked by one
 engine. The color lives once.
 
 **Dead means wrong form for the waist, called or not.** Right form for a
@@ -516,26 +516,26 @@ valid future case is alive, called or not. Sid's criterion, verbatim
 being called from anywhere, but like that exists for some future valid case
 and are implemented in the form that they should be". And the order of work:
 "first make the existing code how it should be and only then fold the other
-things in … we are going to remove now". The path seam is the template
+things in … we are going to remove now". The path boundary is the template
 (`docs/seam-cuts/`); the same removals repeat on image, text and region.
 
 **In Sid's words: this is the Electric-native arc** — the settled answer
 to "electric has the differential datalog … why not we building electric
 native and equivalent." Four dispositions, permanent, so no briefing loses
 them again. **Electric the transport**: the Electric wire is gone (it left
-the tree at the waist cut, `adc30c9`); the owned courier — SSE + Missionary,
-a frozen courier-agnostic feed, `docs/electric-native/CONTRACT.md` — IS the
+the tree at the waist cut, `adc30c9`); the owned transport — SSE + Missionary,
+a frozen transport-agnostic feed, `docs/electric-native/CONTRACT.md` — IS the
 transport. **Electric the runtime internals** (keyed per-item flows, diffs
-minted at writes, the item/applier split) are mined from source as reading
+emitted at writes, the item/writer split) are mined from source as reading
 reference only: their design IS this section's store contract, re-keyed for
-our GPU target instead of the DOM. **Electric the language as face host**:
-ruled (Sid, 2026-08-12) **faces are data all the way** — a face's authored
-form is material/constitution for every inhabitant, human and agent, never
-source code; which host executes the face spec's interpretation is machinery,
+our GPU target instead of the DOM. **Electric the language as entity-template host**:
+ruled (Sid, 2026-08-12) **entity templates are data all the way** — an entity template's authored
+form is data for every inhabitant, human and agent, never
+source code; which host executes the entity-template spec's interpretation is machinery,
 never a product fork. **Missionary** is the soil, pinned directly in
-`deps.edn`: it runs the frame sink today and the per-key flows next, engaged
+`deps.edn`: it runs the frame-edge GPU write today and the per-key flows next, engaged
 at named points, never ambient. **"Softland as target"** means the scene
-store + GPU applier IS the compile target, and the face spec (declared
+store + GPU write IS the compile target, and the entity-template spec (declared
 inputs) is Softland's own compiler. Hyperfiddle has left Clojure (Electric
 v4 is JavaScript + WebAssembly; v3 is a frozen proprietary alpha); Sid,
 2026-08-30, verbatim: "for existing electric i think they can be used as
@@ -547,132 +547,132 @@ never the library. Briefings of this area carry BOTH vocabularies; renaming
 the arc makes it invisible to Sid.
 
 - **The law: recompute proportional to change, at every layer.** Change is
-  minted once, as a value, at the site that knows it — user action, server
-  applier, animation tick. Everything downstream — store, derivations, the
-  GPU sink, and eventually undo, wire, and collaborators — is a view that
-  maintains itself from those minted values, in its own vocabulary, behind
-  a door it owns. The law stops at no boundary: the sink is a view of the
+  emitted once, as a value, at the site that knows it — user action, server
+  writer, animation tick. Everything downstream — store, derivations, the
+  GPU write, and eventually undo, wire, and collaborators — is a view that
+  maintains itself from those emitted values, in its own vocabulary, behind
+  an entry point it owns. The law stops at no boundary: the GPU write is a view of the
   store exactly as the store is a view of events, and a rescan hiding below
-  the seam is the same disease as one above it. The mechanism is free per
+  the boundary is the same disease as one above it. The mechanism is free per
   layer (reactive flows, dirty sets, incremental pure functions); the
   proportionality is not. Proportional means to the affected set of a
   change, never to the population — and representation is chosen so
-  affected sets stay small (a container move is one transform value, not
+  affected sets stay small (a group move is one transform value, not
   a subtree rewrite, because transforms compose in-shader). At the path
-  seam this is the frame gate: one key of revision + container per op plus
-  the zoom regime, never a structural walk of the geometry.
+  boundary this is the dirty check: one key of revision + group per draw item plus
+  the LOD, never a structural walk of the geometry.
 - **Clocks: no execution clock is ever an ancestor of derivation.** Frame
   counters and wall clocks may drive writers (a tween writes through the
-  event door like anyone else) or be read at the sink — never inside
+  event entry point like anyone else) or be read at the GPU write — never inside
   derivation. Time as data is legal: a playhead is a store value like any
   other, and deriving from it is fine; deriving from the frame loop is the
   named crime. Effects live only at mutation sites and the frame edge;
   derived state is never materialized through watch-mirror atoms; a shared
   derivation gets one signal at its sharing point.
 - **Ownership, not sampling, gives consistency.** Truths that must be seen
-  together share one generation authority — one swap is one generation.
-  Truths with independent cadences (camera, caret phase, overlays) stay
-  separate and meet at the frame pull as a read-atomic mosaic, with
+  together share one transaction — one swap is one transaction.
+  Values with independent cadences (camera, caret phase, overlays) stay
+  separate and meet at the frame pull as a read-atomic snapshot, with
   revision stamps at every joint where async mixing is inherent (fonts,
   server truth, images). Heavy assets ride by id + revision; bytes never
   enter the scene value. And the scene store itself is a projection,
-  never a second truth-owner for material: material truth lives in Rama
-  and arrives as served fact through the event door; only session truths
-  with no upstream (camera, in-flight gestures) originate client-side — the
-  in-flight store is floor.
-- **The unit: the fenced incremental view.** Keyed diffs in, incrementally
+  never a second source of truth for components: the source of truth for components lives in Rama
+  and arrives as served fact through the event entry point; only session truths
+  with no upstream (camera, uncommitted gestures) originate client-side — the
+  uncommitted store belongs to the engine.
+- **The unit: the consistency-checked incremental view.** Keyed diffs in, incrementally
   maintained state, and the batch computation kept alive as the oracle,
-  with a fence asserting the two agree. Equality-gated memoization is its
+  with a consistency check asserting the two agree. Equality-gated memoization is its
   degenerate case; heavy stateful derivations (shaping, layout) are its
   full case. Growth law: a batch stage is never deleted when its
   incremental sibling arrives — it is demoted to that sibling's oracle.
-  The fences are what keep every instrument swappable — open decisions stay
+  The consistency checks are what keep every implementation swappable — open decisions stay
   genuinely open while we build at speed.
-- **The rule, enforced at review: in the render seam, no derivation
+- **The rule, enforced at review: in the render boundary, no derivation
   without a contract.** Every computation that feeds frames declares five
-  things: its keyed inputs (diffs minted at write sites and routed by key
+  things: its keyed inputs (diffs emitted at write sites and routed by key
   AT the write site — a 60Hz storm on one key wakes that key's
-  subscribers, never a population); its door (event-driven, no
-  execution-clock ancestor); its ownership (which generation authority,
+  subscribers, never a population); its entry point (event-driven, no
+  execution-clock ancestor); its ownership (which transaction,
   stamps at async joints); its projections (who reads it, in what shapes —
   draw walks forward, pick walks reverse, the inspector reads by id, the
-  oracle reads the whole; each cheap to add, each fenceable); and its
-  oracle with a fence. Free-floating computation in the seam — a raw
+  oracle reads the whole; each cheap to add, each checkable); and its
+  oracle with a consistency check. Free-floating computation in the boundary — a raw
   watch, a per-frame derive, a read-side differ — is illegal on any
-  substrate. Scope: this is a toll at the frame door, not a permit to
+  substrate. Scope: this is a toll at the frame entry point, not a permit to
   think — playgrounds and probes stay free until they feed frames.
-  Runtime-authored faces obey the same rule by spec instead of compiler: a
-  face's declared inputs are its only feeds — self-hosting makes the
-  contract side sovereign; the face spec is Softland's compiler.
+  Runtime-authored entity templates obey the same rule by spec instead of compiler: a
+  entity template's declared inputs are its only feeds — self-hosting makes the
+  contract side sovereign; the entity-template spec is Softland's compiler.
 - **What "by construction" honestly means — three tiers.** Structural: the
   violation is unrepresentable (keyed vocabulary — no positional
   permutation class; one swap per entangled truth — no intra-truth skew;
-  spec-fed faces — no undeclared reads; a grammar that is data — no
-  unknown key rides). Fenced: possible but mechanically caught (the oracle
-  fences; a seam lint on raw watches and clock-typed inputs). Cultural: a
+  spec-fed entity templates — no undeclared reads; a schema that is data — no
+  unknown key rides). Checked: possible but mechanically caught (the oracle
+  consistency checks; a boundary lint on raw watches and clock-typed inputs). Cultural: a
   clock written in as data still compiles — the rule's value there is that
   the crime now has a name and a review question.
 - **The map.** Electric is three relationships now, not one: algebra within
-  the seam (the keyed two-interface shape of its item machinery, adopted
+  the boundary (the keyed two-interface shape of its item machinery, adopted
   re-keyed) · a reading reference for the reactive way · and Missionary as
   the soil both sides grow in, whose guarantees engage only where its
   constructs are used — the engagement points (signals at sharing points,
   the single sample at the frame edge) are contract items, not ambience.
-  WebGPU is a contract the applier speaks natively, never a DOM-shaped
+  WebGPU is a contract the renderers speak natively, never a DOM-shaped
   target: supervision governs identity (enter/exit diffs drive alloc/free; a
-  container close frees its subtree by construction), while residency —
-  uploads, atlases, eviction, culling — is the floor's private,
+  group close frees its subtree by construction), while residency —
+  uploads, atlases, eviction, culling — is the engine's private,
   usage-driven business; culling never writes a row. Scene derivation
   is the sovereign middle, and every scar we have is one of two leaks
   across its border: a neighbor's contract leaking in (the mutable-tree
-  applier lesson, proven twice), or an execution clock leaking up (the
+  writer lesson, proven twice), or an execution clock leaking up (the
   frame-counter and caret-blink lessons). Borrowed algebra, never borrowed
-  appliers. Document order is row data — sort keys, identity never
-  position; any GPU batch order is a sink-side view of it, never truth.
-- **Minted diffs are values, kept in one namespace.** They have one
-  consumer today (the render applier) and two waiting (undo, the wire) —
+  writers. Document order is row data — sort keys, identity never
+  position; any GPU batch order is a GPU-write-side view of it, never truth.
+- **Emitted diffs are values, kept in one namespace.** They have one
+  consumer today (the renderers) and two waiting (undo, the wire) —
   which is why they want to be invertible and serializable before those
-  futures arrive, and why write-site minting is the one commitment that
-  pays three ways. A minted diff states a canonical fact in document
+  futures arrive, and why write-site emission is the one commitment that
+  pays three ways. An emitted diff states a canonical fact in document
   vocabulary; each destination derives its own delta behind its own
-  door — the applier's slot patches, undo's inverses, the wire's ops
-  are translations, never the minted truth.
+  entry point — the renderers' buffer-index patches, undo's inverses, the wire's operations
+  are translations, never the emitted truth.
 - **Open, each with its decider — deciding these early is the named
-  failure.** The composition host: verbs are data run by the client runtime
-  (ruling A); the Missionary host is judged on one real face built on it —
-  the Block, rebuilt as material for the made-block gate
-  (`docs/electric-native/DIRECTION.md`) — on container close/reopen,
+  failure.** The composition host: geometry generators are data run by the client runtime
+  (ruling A); the Missionary host is judged on one real entity template built on it —
+  the Block, rebuilt as an entity template for the made-block gate
+  (`docs/electric-native/DIRECTION.md`) — on group close/reopen,
   mid-drag teardown, served-source hot-swap; any future second host enters
-  through the same probe; authoring-in-Electric's-language is dead (faces
+  through the same probe; authoring-in-Electric's-language is dead (entity templates
   are data). Where view-dependence lives is settled at the residency
-  level — culling is floor and never writes a row — and open at the
+  level — culling belongs to the engine and never writes a row — and open at the
   mechanism level (walk-time filter now; maintained visible-set / spatial
   index / GPU cull later): the walk-cost profile at scale decides. The
   patch-driven executor: exists only if frame profiles summon it; today's
   walk waits as its oracle. Store internals (sorted map vs spine tree):
   profile-decided, contract-invariant. Delivery at scale (per-key flows for
   composition populations vs dirty-set-and-pass for engine populations):
-  the per-key fleet probe finds the boundary between regimes. Ledger form
-  (ephemeral notifications vs a reified op-log): undo and multiplayer
-  decide. How many generation authorities and what co-locates: entanglement
+  the per-key fleet probe finds the boundary between the two delivery modes. Ledger form
+  (ephemeral notifications vs a reified operation log): undo and multiplayer
+  decide. How many transaction scopes and what co-locates: entanglement
   analysis per domain, forced by reconciliation and data volume. Ordering
   on the wire and under merge: the native-protocol work decides — row data
   internally is settled. Where reactivity hands off to pure incremental
   functions: per domain, moves with measurement — "block" is today's
-  instance, not the law. One grammar engine for client and server (the
+  instance, not the law. One scheman engine for client and server (the
   client's `engine/grammar.cljc` carries the server's spec shape and
   predicate names today): LATER, with a dependency-direction ruling.
-- **The shaping correction — the seam's contracted predecessor.** The
+- **The shaping correction — the boundary's contracted predecessor.** The
   profiling adjudication is banked and binding: the proportional land's
   cold settle (35.678s, one 28.7s text interval) and six-second hover
   stalls trace to per-cluster whole-glyph filtering inside shaped layout
   (~O(C×G), plus a smaller per-run rescan) and to ground establishing
-  legacy layout/wrap geometry while emitting ops WITHOUT the result, the
-  renderer re-deriving shaped layout per op. The correction is contracted
+  legacy layout/wrap geometry while emitting draw items WITHOUT the result, the
+  renderer re-deriving shaped layout per draw item. The correction is contracted
   in `docs/shaping-correction/CONTRACT.md` (founding evidence banked
-  beside it): one material-local layout authority carried by a declared
+  beside it): one component-local layout authority carried by a declared
   layout key, construction proportional to G+C+R, a layout / paint /
-  GPU-geometry invalidation partition with distinct receipts, shaped
+  GPU-geometry invalidation partition with distinct evidence, shaped
   block-greedy wrapping as the one break-choosing truth. Anything beyond
   it — paint deltas, residency, streamed population — is authorized only
   by the post-linearization profile, never presumed.
