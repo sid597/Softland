@@ -116,4 +116,8 @@ Boot, by seam, sizes first (about 100KB primary; the rest by bounded gatherer, n
   test/render_engine/run_verifier.mjs                         15KB  lines 275-294
   test/app/test_runner.clj                                    25KB  lines 15-52
 Law: CLAUDE.md, .claude/skills/work-package/SKILL.md, decisions.md "The corners" and "The render seam".
+Vocabulary: a parallel session is landing a glossary inside decisions.md "The render seam" (2026-09-02).
+Compose in chat; at the first durable write re-read that section and write the contract, prose AND the
+identifiers it mints for image/region/text, in the glossary's words if it has landed; if not, write as is
+and put one line in the header: "vocabulary pre-glossary; sweep when it lands".
 ```
