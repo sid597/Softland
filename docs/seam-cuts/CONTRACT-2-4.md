@@ -713,7 +713,7 @@ What renames, in dependency order, one commit each, each carrying its requirers 
    `:upload-gate`), atom (work sense) → step (`run-image-step!`, `run-path-step!`, `:image-step`), envelope →
    zoom-range (`"legal-envelope-sentinel"`), receipt → evidence where a run returns it for a reader
    (`image-parity-receipt`, `run-color-receipts!`) and → stats where it is a per-frame counter, road →
-   pipeline per the list; `seam-system` stays.
+   route per the list; `seam-system` stays.
 7. docs: CLAUDE.md "Source Structure" carries the new folder and file names; `docs/seam-cuts/*` and
    `docs/decisions.md` "The render boundary" swap their backticked identifiers for the new ones (prose is
    already in the glossary's words); nothing else in docs/.
