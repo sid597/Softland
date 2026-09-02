@@ -331,6 +331,17 @@
       "file": "gpu-image-atom-partially-clipped-legal-max-z1000.png",
       "rawSha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
       "pngSha256": "e4878bdea6ac11493cead34bc4700ca9b81c26ef6218e56d977da056b8fc7d08"
+    },
+    {
+      "caseId": "tree-containers-cid17-slot1",
+      "zoom": 1,
+      "regime": "floor-default-clamp",
+      "normalization": "image-local-with-effective-container-tree",
+      "shapeExtentWorld": 32,
+      "mode": "container-tree",
+      "file": "gpu-image-atom-container-tree-tree-containers-cid17-slot1.png",
+      "rawSha256": "e1d932404060430daa8fc451c4f27d86d4e61bfe6b6251f2f1733c9865f3b7e5",
+      "pngSha256": "58be6105559bf9836c4b6619ef1ab661bc4a3a86038dd6919a6f6f05ca3cf59e"
     }
   ],
   "pathAtomCases": [
