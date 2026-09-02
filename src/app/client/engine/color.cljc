@@ -11,17 +11,27 @@
   #?(:clj (Math/pow (double base) (double exponent))
      :cljs (js/Math.pow base exponent)))
 
+(def srgb-encoded-cutoff 0.04045)
+(def srgb-linear-cutoff 0.0031308)
+(def srgb-linear-scale 12.92)
+(def srgb-transfer-scale 1.055)
+(def srgb-transfer-offset 0.055)
+(def srgb-transfer-exponent 2.4)
+
 (defn srgb-channel->linear [value]
   (let [v (double value)]
-    (if (<= v 0.04045)
-      (/ v 12.92)
-      (pow (/ (+ v 0.055) 1.055) 2.4))))
+    (if (<= v srgb-encoded-cutoff)
+      (/ v srgb-linear-scale)
+      (pow (/ (+ v srgb-transfer-offset) srgb-transfer-scale)
+           srgb-transfer-exponent))))
 
 (defn linear->srgb-channel [value]
   (let [v (double value)]
-    (if (<= v 0.0031308)
-      (* v 12.92)
-      (- (* 1.055 (pow v (/ 1.0 2.4))) 0.055))))
+    (if (<= v srgb-linear-cutoff)
+      (* v srgb-linear-scale)
+      (- (* srgb-transfer-scale
+            (pow v (/ 1.0 srgb-transfer-exponent)))
+         srgb-transfer-offset))))
 
 (def tagged
   {:keys #{:rgba :color-space :alpha-association}

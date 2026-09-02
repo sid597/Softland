@@ -4,6 +4,7 @@
       Gives: window.__renderVerifierResult and completion state.
       Holds nothing."
      (:require [app.client.engine.device :as device]
+               [app.client.engine.limits :as limits]
                [app.client.text.fonts :as fonts]
                [app.client.harness.image :as image]
                [app.client.harness.path :as path]
@@ -14,7 +15,7 @@
         glyph-screen-size zoom-cases image-fixtures promise-mapv
         bytes->hex sha256-bytes sha256-string opaque-png-data-url
         q8-world-transforms run-q8-transport! boundary-pixels byte-delta pixel-rgba
-        srgb->linear linear->srgb-byte selected-limits adapter-information
+        srgb->linear linear->srgb-byte adapter-information
         shader-digests w4-read-texture!]]))
 
 (defn ^:export run-harness! []
@@ -84,7 +85,7 @@
                                           :secure-context? (.-isSecureContext js/window)
                                           :user-agent (.-userAgent js/navigator)
                                           :adapter (adapter-information adapter)
-                                          :device-limits (selected-limits (.-limits device))
+                                          :device-limits (limits/adapter-limits device)
                                           :canvas {:width canvas-size
                                                    :height canvas-size
                                                    :device-pixel-ratio (.-devicePixelRatio js/window)
@@ -136,7 +137,7 @@
                                         :user-agent (.-userAgent js/navigator)
                                         :adapter (adapter-information adapter)
                                         :device-limits
-                                        (selected-limits (.-limits device))
+                                        (limits/adapter-limits device)
                                         :canvas {:width canvas-size
                                                  :height canvas-size
                                                  :device-pixel-ratio

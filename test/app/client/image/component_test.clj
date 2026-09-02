@@ -1,6 +1,7 @@
 (ns app.client.image.component-test
   (:require [clojure.edn :as edn]
             [clojure.test :refer [deftest is testing]]
+            [app.client.engine.limits :as limits]
             [app.client.image.component :as image])
   (:import (java.nio.file Files Path)
            (java.security MessageDigest)))
@@ -113,7 +114,7 @@
   (testing "full mip chain counts, sizes, and bytes are exact"
     (is (= 4 (image/mip-level-count 8 4)))
     (is (= [[8 4] [4 2] [2 1] [1 1]] (image/mip-sizes 8 4)))
-    (is (= 172 (image/texture-bytes 8 4))))
+    (is (= 172 (limits/texture-bytes "rgba8unorm" 8 4 4 1))))
   (testing "small sources shelf-pack deterministically without padded overlap"
     (let [a0 (image/empty-atlas)
           p1 (image/placement-plan a0 digest-a {:width 32 :height 16})

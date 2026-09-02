@@ -39,6 +39,7 @@
     app.client.region3d.on-plane-test
     app.client.region3d.scene-test
     app.client.engine.color-test
+    app.client.engine.limits-test
     app.client.engine.schema-test
     app.client.engine.rungs-test
     app.client.engine.transform-test

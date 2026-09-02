@@ -40,7 +40,7 @@
 (def group
   "The declared public schema for a group specification."
   {:optional #{:affine :x :y :scale :scale-x :scale-y :rotation
-               :parent :camera :layer :sibling-rank :effects}
+               :parent :camera}
    :validators {:affine six-finite?
                 :x schema/finite-number?
                 :y schema/finite-number?
@@ -49,10 +49,7 @@
                 :scale-y schema/finite-number?
                 :rotation schema/finite-number?
                 :parent any?
-                :camera #{:world :screen}
-                :layer integer?
-                :sibling-rank integer?
-                :effects any?}
+                :camera #{:world :screen}}
    :form-validators [{:valid? affine-xor-legacy?
                       :error-type :transform/affine-form}]})
 
@@ -78,9 +75,6 @@
   {:parent nil
    :affine identity-affine
    :camera :world
-   :layer 0
-   :sibling-rank 0
-   :effects nil
    :buffer-index 0})
 
 (defn empty-registry
@@ -109,8 +103,8 @@
   (when (contains? (:groups reg) group-id)
     (throw (ex-info "group already exists"
                     {:error-type :transform/duplicate-group :group-id group-id})))
-  (let [{:keys [parent camera layer sibling-rank effects]
-         :or {parent nil camera nil layer 0 sibling-rank 0}
+  (let [{:keys [parent camera]
+         :or {parent nil camera nil}
          :as spec} (schema/check group spec)]
     (when (and (some? parent) (not (contains? (:groups reg) parent)))
       (throw (ex-info "parent group does not exist"
@@ -121,19 +115,7 @@
               {:parent parent
                :affine (spec->affine spec)
                :camera camera
-               :layer layer
-               :sibling-rank sibling-rank
-               :effects effects
                :buffer-index buffer-index}))))
-
-(defn set-effects
-  "Replace one group's session effect declaration. Schema validation is
-   owned by frame-effects at plan compile; the registry remains a generic data
-   carrier beside transforms."
-  [reg group-id effects]
-  (when-not (contains? (:groups reg) group-id)
-    (throw (ex-info "group does not exist" {:group-id group-id})))
-  (assoc-in reg [:groups group-id :effects] effects))
 
 (defn- assigned-buffer-index
   "Return group-id's compact GPU buffer index, or nil for an unknown group-id."
@@ -177,7 +159,7 @@
    (+ (* pb ctx) (* pd cty) pty)])
 
 (def ^:private world-base
-  {:affine identity-affine :camera :world :stack-path []})
+  {:affine identity-affine :camera :world})
 
 (defn- fallback-buffer-indexes
   "Old hand-built registries in tests/doc fixtures may predate allocator
@@ -204,21 +186,15 @@
                     (spec->affine (schema/check group c)))
             affine (compose-affines (:affine p) local)
             world-transform {:affine affine
-                 :camera (or (:camera c) (:camera p))
-                 :layer (:layer c 0)
-                 ;; W2-B consumes W2-A's canonical nested path directly and
-                 ;; fills Contract O's third slot: semantic sibling rank.  No
-                 ;; transform/order side table is introduced.
-                 :stack-path (conj (:stack-path p)
-                                   [group-id (:layer c 0) (:sibling-rank c 0)])
-                 :buffer-index (or (:buffer-index c)
-                                     (get fallback-buffer-indexes group-id))}]
+                             :camera (or (:camera c) (:camera p))
+                             :buffer-index (or (:buffer-index c)
+                                               (get fallback-buffer-indexes group-id))}]
         [(assoc cache group-id world-transform) world-transform]))))
 
 (defn world-transforms
   "Compose the registry to one absolute affine per group-id.  Every entry carries
    the same affine read by CPU projections and GPU transport, plus its compact
-   buffer-index, camera flag, layer, and nested stack path."
+   buffer-index and camera flag."
   [reg]
   (let [groups (:groups reg)
         fallback-buffer-indexes (fallback-buffer-indexes groups)
@@ -231,11 +207,16 @@
        (assoc m group-id
               {:affine (:affine world-transform)
                :flags (if (= :screen (:camera world-transform)) 1 0)
-               :layer (:layer world-transform)
-               :stack-path (:stack-path world-transform)
                :buffer-index (:buffer-index world-transform)}))
      {}
      cache)))
+
+(defn world-transform-scale [world-transforms group-id]
+  (let [[a b c d] (or (get-in world-transforms [group-id :affine])
+                      [1.0 0.0 0.0 1.0])
+        sx (sqrt (+ (* a a) (* b b)))
+        sy (sqrt (+ (* c c) (* d d)))]
+    (max sx sy)))
 
 (defn buffer-index [world-transforms group-id]
   (let [buffer-index (get-in world-transforms [group-id :buffer-index] ::missing)]

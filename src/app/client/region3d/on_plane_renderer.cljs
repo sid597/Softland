@@ -6,7 +6,8 @@
    Gives: the caller's path cache plus packed rows in a flat vertex buffer; ink
    draw calls.
    Holds: GPU pipelines and per-region packing caches."
-  (:require [app.client.region3d.on-plane :as on-plane]
+  (:require [app.client.engine.limits :as limits]
+            [app.client.region3d.on-plane :as on-plane]
             [app.client.region3d.scene :as scene]))
 
 (def placement-gpu-version 1)
@@ -167,7 +168,9 @@
 
 (defn- device-ink-vertex-limit [system]
   (let [^js device (:device system)
-        max-bytes (or (some-> device .-limits .-maxBufferSize) 268435456)]
+        max-bytes (:max-buffer-size (limits/adapter-limits device))]
+    (when-not max-bytes
+      (throw (ex-info "WebGPU device has no maxBufferSize" {})))
     (long (/ max-bytes flat-vertex-stride))))
 
 (defn- enforce-region-limits [system rows]

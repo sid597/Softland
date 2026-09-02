@@ -152,14 +152,26 @@ const allDeterministic = (cases) => {
   return rows.length > 0 && rows.every((row) => row.byteIdentical);
 };
 
-const laneGuards = (result) => [
+const sameRecord = (actual, expected) => {
+  const actualKeys = Object.keys(actual || {}).sort();
+  const expectedKeys = Object.keys(expected || {}).sort();
+  return (
+    actualKeys.length === expectedKeys.length &&
+    actualKeys.every((key, index) =>
+      key === expectedKeys[index] && actual[key] === expected[key],
+    )
+  );
+};
+
+const laneGuards = (result, manifest) => [
   {
     name: "base-renderer",
     pass:
       allDeterministic(result.cases) &&
       result.q8Transport?.pass === true &&
       result.q8Transport?.rows?.length === 3 &&
-      result.q8Transport.rows.every((row) => row.pass === true),
+      result.q8Transport.rows.every((row) => row.pass === true) &&
+      sameRecord(result.shaderDigests, manifest.shaderDigests),
   },
   {
     name: "ubuntu-slug",
@@ -436,7 +448,7 @@ const main = async () => {
       "gpu-path-container-tree-tree-containers-cid17-slot1.png",
     );
   }
-  const guards = laneGuards(result);
+  const guards = laneGuards(result, manifest);
   const goldens = representativeGoldens(result, manifest);
   const dejavuSlugGoldens = slugGoldens(result, manifest);
   const pass =
@@ -451,6 +463,7 @@ const main = async () => {
     replayCommand: "npm run verify:render-engine",
     pass,
     guards,
+    shaderDigests: result.shaderDigests,
     dejavuSlugGoldens,
     ubuntuSlug: {
       text: result.ubuntuSlug?.text,

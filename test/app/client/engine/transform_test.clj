@@ -73,13 +73,9 @@
         world-transforms (transform/world-transforms registry)]
     (is (= {0 {:affine transform/identity-affine
                :flags 0
-               :layer 0
-               :stack-path [[0 0 0]]
                :buffer-index 0}
             17 {:affine [0.5 0.0 0.0 0.5 40.0 20.0]
                 :flags 0
-                :layer 0
-                :stack-path [[0 0 0] [17 0 0]]
                 :buffer-index 1}}
            world-transforms))
     (is (= 0 (transform/buffer-index world-transforms 0)))

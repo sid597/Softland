@@ -9,7 +9,9 @@
    Holds: the pool state (free and leased targets, counters, rejections); the
    current region leases, the lease keys retiring this frame, and retired
    targets awaiting release; a stats atom."
-  (:require [app.client.engine.rungs :as region-rungs]
+  (:require [app.client.engine.color :as color]
+            [app.client.engine.limits :as limits]
+            [app.client.engine.rungs :as region-rungs]
             [app.client.engine.leases :as region-bindings]))
 
 (def target-pool-version 2)
@@ -32,11 +34,16 @@
    }")
 
 (def present-fragment-shader
-  "@group(0) @binding(0) var linear_sampler: sampler;
+  (str "const kSrgbLinearCutoff: f32 = " color/srgb-linear-cutoff ";\n"
+       "const kSrgbLinearScale: f32 = " color/srgb-linear-scale ";\n"
+       "const kSrgbTransferScale: f32 = " color/srgb-transfer-scale ";\n"
+       "const kSrgbTransferOffset: f32 = " color/srgb-transfer-offset ";\n"
+       "const kSrgbTransferExponent: f32 = " color/srgb-transfer-exponent ";\n"
+       "@group(0) @binding(0) var linear_sampler: sampler;
    @group(0) @binding(1) var scene_texture: texture_2d<f32>;
    fn linear_to_srgb(v: f32) -> f32 {
-     if (v <= 0.0031308) { return 12.92 * v; }
-     return 1.055 * pow(v, 1.0 / 2.4) - 0.055;
+     if (v <= kSrgbLinearCutoff) { return kSrgbLinearScale * v; }
+     return kSrgbTransferScale * pow(v, 1.0 / kSrgbTransferExponent) - kSrgbTransferOffset;
    }
    @fragment fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
      let premult = textureSample(scene_texture, linear_sampler, uv);
@@ -46,19 +53,7 @@
                              linear_to_srgb(straight.g),
                              linear_to_srgb(straight.b));
      return vec4<f32>(encoded * premult.a, premult.a);
-   }")
-
-(defn texture-bytes
-  ([format width height]
-   (texture-bytes format width height 1))
-  ([format width height sample-count]
-   (* width height (max 1 (or sample-count 1))
-      (case format
-        "rgba16float" 8
-        ("rgba8unorm" "bgra8unorm" "rgba8unorm-srgb" "bgra8unorm-srgb"
-         "depth24plus" "depth32float") 4
-        (throw (ex-info "Frame target format lacks byte pricing"
-                        {:format format}))))))
+   }"))
 
 (defn create-target-pool
   [device & {:keys [budget-cap-bytes]
@@ -133,7 +128,7 @@
 (defn- create-target!
   [pool format width height label sample-count usage reclaim-free?]
   (let [sample-count (max 1 (or sample-count 1))
-        bytes (texture-bytes format width height sample-count)
+        bytes (limits/texture-bytes format width height 1 sample-count)
         _ (when (and reclaim-free?
                      (> (+ (reserved-bytes @(:!state pool)) bytes)
                         (:budget-cap-bytes pool)))
@@ -317,16 +312,18 @@
 
 (defn create-compositor!
   [device output-format & {:keys [budget-cap-bytes]}]
-  {:compositor/version compositor-version :device device
-   :format output-format
-   :target-pool (create-target-pool device :budget-cap-bytes
-                                   (or budget-cap-bytes
-                                       default-pool-budget-bytes))
-   :pipelines (create-pipelines! device output-format)
-   :!region-leases (atom {})
-   :!retired-region-targets (atom [])
-   :!retiring-region-keys (atom #{})
-   :!stats (atom {})})
+  (let [max-texture-dimension-2d
+        (:max-texture-dimension-2d (limits/adapter-limits device))]
+    {:compositor/version compositor-version :device device
+     :format output-format
+     :max-lease-size (min region-lease-max max-texture-dimension-2d)
+     :target-pool (create-target-pool device :budget-cap-bytes
+                                     (or budget-cap-bytes
+                                         default-pool-budget-bytes))
+     :pipelines (create-pipelines! device output-format)
+     :!region-leases (atom {})
+     :!retired-region-targets (atom [])
+     :!stats (atom {})}))
 
 (defn quantize-region-size [value]
   (-> (/ (max 1 (double value)) region-lease-quant)
@@ -359,11 +356,11 @@
                    :preserve-free? true))
 
 (defn- region-lease-bytes [width height shadow?]
-  (+ (texture-bytes "rgba16float" width height 4)
-     (texture-bytes "depth24plus" width height 4)
-     (texture-bytes "rgba16float" width height 1)
+  (+ (limits/texture-bytes "rgba16float" width height 1 4)
+     (limits/texture-bytes "depth24plus" width height 1 4)
+     (limits/texture-bytes "rgba16float" width height 1 1)
      (if shadow?
-       (texture-bytes "depth32float" 2048 2048 1)
+       (limits/texture-bytes "depth32float" 2048 2048 1 1)
        0)))
 
 (defn acquire-region-lease!
@@ -384,7 +381,7 @@
         (let [label (str "region3d/" region-id "/shadow")
               _ (ensure-target-capacity!
                  (:target-pool compositor)
-                 (texture-bytes "depth32float" 2048 2048 1)
+                 (limits/texture-bytes "depth32float" 2048 2048 1 1)
                  label)
               shadow (acquire-region-target!
                       compositor "depth32float" 2048 2048
@@ -493,35 +490,6 @@
   (doseq [target @(:!retired-region-targets compositor)]
     (destroy-target! (:target-pool compositor) target))
   (reset! (:!retired-region-targets compositor) [])
-  (reset! (:!retiring-region-keys compositor) #{})
-  nil)
-
-(defn retire-absent-region-leases!
-  "Retire held targets after the last submitted command that could name them.
-   Used by the legacy path when closing the final region also removes the
-   linear-mode trigger."
-  [compositor active-region-ids]
-  (let [pending @(:!retiring-region-keys compositor)
-        retiring (into []
-                       (filter (fn [[key _lease]]
-                                 (and (not (contains? active-region-ids
-                                                      (first key)))
-                                      (not (contains? pending key)))))
-                       @(:!region-leases compositor))
-        keys (set (map first retiring))]
-    (when (seq retiring)
-      (swap! (:!retiring-region-keys compositor) into keys)
-      (-> (.onSubmittedWorkDone (.-queue ^js (:device compositor)))
-          (.then (fn []
-                   (doseq [[key lease] retiring]
-                     (when (identical? lease
-                                       (get @(:!region-leases compositor) key))
-                       (release-region-lease! compositor key lease)))
-                   (swap! (:!retiring-region-keys compositor)
-                          #(apply disj % keys))))
-          (.catch (fn [_]
-                    (swap! (:!retiring-region-keys compositor)
-                           #(apply disj % keys)))))))
   nil)
 
 (defn region-leases-stats [compositor]
@@ -562,13 +530,6 @@
              [{:view (:view target)
                :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 0.0}
                :loadOp load-op :storeOp "store"}]})))
-
-(defn world-transform-scale [world-transforms group-id]
-  (let [[a b c d] (or (get-in world-transforms [group-id :affine])
-                      [1.0 0.0 0.0 1.0])
-        sx (js/Math.sqrt (+ (* a a) (* b b)))
-        sy (js/Math.sqrt (+ (* c c) (* d d)))]
-    (max sx sy)))
 
 (defn draw-present!
   [compositor encoder scene output-view output-format]
@@ -711,15 +672,6 @@
            :lease-activity @activity)
     {:active active :active-keys active-keys :stale stale
      :rung-stats rung-stats :lease-activity @activity}))
-
-(defn copy-present!
-  "Legacy COPY-PRESENT executor primitive used by the effectless harness row."
-  [device encoder source-texture swap-texture width height]
-  (.copyTextureToTexture ^js encoder
-                         (clj->js {:texture source-texture})
-                         (clj->js {:texture swap-texture})
-                         (clj->js {:width width :height height}))
-  true)
 
 (defn- strip-padded-rows [mapped width height padded-bytes-per-row]
   (let [row-bytes (* width 4)

@@ -4,7 +4,9 @@
    Gives: deterministic helpers consumed by the harness kind drivers.
    Holds nothing."
   (:require [app.client.engine.color :as color]
+            [app.client.engine.compositor :as compositor]
             [app.client.engine.device :as device]
+            [app.client.engine.limits :as limits]
             [app.client.engine.transform :as transform]
             [app.client.region3d.on-plane-renderer :as on-plane-renderer]
             [app.client.text.renderer :as text-renderer]))
@@ -92,8 +94,6 @@
                [(* buffer-index 17)
                 {:affine transform/identity-affine
                  :flags 0
-                 :layer 0
-                 :stack-path [[(* buffer-index 17) 0]]
                  :buffer-index buffer-index}]))
         (range entry-count)))
 
@@ -151,14 +151,6 @@
 (defn linear->srgb-byte [value]
   (js/Math.round
    (* 255.0 (color/linear->srgb-channel (max 0.0 (min 1.0 value))))))
-(defn selected-limits [^js limits]
-  {:max-buffer-size (.-maxBufferSize limits)
-   :max-uniform-buffer-binding-size (.-maxUniformBufferBindingSize limits)
-   :max-storage-buffer-binding-size (.-maxStorageBufferBindingSize limits)
-   :max-texture-dimension-2d (.-maxTextureDimension2D limits)
-   :max-bind-groups (.-maxBindGroups limits)
-   :max-vertex-buffers (.-maxVertexBuffers limits)})
-
 (defn adapter-information [^js adapter]
   (let [info (.-info adapter)
         architecture (some-> info .-architecture)
@@ -178,10 +170,12 @@
                    (not-empty architecture)
                    (not-empty (some-> info .-vendor)))
      :features (vec (array-seq (js/Array.from (.-features adapter))))
-     :limits (selected-limits (.-limits adapter))}))
+     :limits (limits/adapter-limits adapter)}))
 
 (defn shader-digests []
-  (let [entries [["slug-vertex" text-renderer/slug-vertex-shader]
+  (let [entries [["scene-color" device/scene-color-wgsl]
+                 ["present-fragment" compositor/present-fragment-shader]
+                 ["slug-vertex" text-renderer/slug-vertex-shader]
                  ["slug-fragment" text-renderer/slug-fragment-shader]
                  ["region3d-placed-flat"
                   on-plane-renderer/placed-flat-shader]]]

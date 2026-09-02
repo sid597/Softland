@@ -15,9 +15,14 @@
 
 (def scene-color-wgsl
   (str scene-color-mode-declaration "\n"
+       "const kSrgbEncodedCutoff: f32 = " scene-color/srgb-encoded-cutoff ";\n"
+       "const kSrgbLinearScale: f32 = " scene-color/srgb-linear-scale ";\n"
+       "const kSrgbTransferScale: f32 = " scene-color/srgb-transfer-scale ";\n"
+       "const kSrgbTransferOffset: f32 = " scene-color/srgb-transfer-offset ";\n"
+       "const kSrgbTransferExponent: f32 = " scene-color/srgb-transfer-exponent ";\n"
        "fn srgb_channel_to_linear(v: f32) -> f32 {\n"
-       "  if (v <= 0.04045) { return v / 12.92; }\n"
-       "  return pow((v + 0.055) / 1.055, 2.4);\n"
+       "  if (v <= kSrgbEncodedCutoff) { return v / kSrgbLinearScale; }\n"
+       "  return pow((v + kSrgbTransferOffset) / kSrgbTransferScale, kSrgbTransferExponent);\n"
        "}\n"
        "fn scene_color(straight: vec4<f32>, coverage: f32) -> vec4<f32> {\n"
        "  if (!kSceneColorLinearPremultiplied) {\n"
@@ -119,92 +124,6 @@
                                                                      js/GPUBufferUsage.COPY_DST)}))]
     camera-buffer))
 
-;; --- Clear-quad system (Phase 6E: dirty-present) ---
-(def clear-quad-shader "
-  @vertex
-  fn vs_main(@builtin(vertex_index) v: u32) -> @builtin(position) vec4<f32> {
-      // Fullscreen triangle from vertex index — no vertex buffer needed
-      let x = f32(i32(v & 1u)) * 4.0 - 1.0;
-      let y = f32(i32(v >> 1u)) * 4.0 - 1.0;
-      return vec4<f32>(x, y, 0.0, 1.0);
-  }
-  @fragment
-  fn fs_main() -> @location(0) vec4<f32> {
-      return vec4<f32>(0.0, 0.0, 0.0, 1.0);
-  }")
-
-(defn- configure-clear-quad-shader [color]
-  (let [[r g b a] (:clear color)]
-    (str/replace clear-quad-shader
-                 "return vec4<f32>(0.0, 0.0, 0.0, 1.0);"
-                 (str "return vec4<f32>(" r ", " g ", " b ", " a ");"))))
-
-(defn- clear-value [color]
-  (let [[r g b a] (:clear color)]
-    {:r r :g g :b b :a a}))
-
-(defn init-clear-quad
-  [^js/GPUDevice device fformat & {:keys [scene-color]
-                                   :or {scene-color scene-color/legacy-direct-color}}]
-  (let [module (.createShaderModule device
-                                   (clj->js {:code (configure-clear-quad-shader
-                                                    scene-color)}))
-        layout (.createPipelineLayout device (clj->js {:bindGroupLayouts []}))
-        pipeline (.createRenderPipeline device
-                   (clj->js {:layout layout
-                             :vertex {:module module :entryPoint "vs_main"}
-                             :fragment {:module module :entryPoint "fs_main"
-                                        :targets [{:format fformat
-                                                   :writeMask 0xF}]}
-                             :primitive {:topology "triangle-list"}}))]
-    {:pipeline pipeline
-     :scene-color scene-color}))
-
-;; --- Persistent render target (Phase 6E: survives swap chain double-buffering) ---
-
-(defn create-render-target
-  [^js device width height fformat & {:keys [label previous scene-color]
-                                      :or {label "render-target/persistent"
-                                           scene-color scene-color/legacy-direct-color}}]
-  (let [safe-width (max 1 width)
-        safe-height (max 1 height)
-        tex (.createTexture device
-              (clj->js {:size {:width safe-width :height safe-height}
-                        :format fformat
-                        :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT
-                                       js/GPUTextureUsage.COPY_SRC)}))
-        old-texture (:texture previous)]
-    (js/console.log "[RENDERER] Create render target"
-                    {:label label
-                     :width safe-width
-                     :height safe-height
-                     :format fformat
-                     :replacing? (boolean old-texture)})
-    (when old-texture
-      (.destroy ^js old-texture))
-    {:texture tex
-     :view (.createView tex)
-     :width safe-width
-     :height safe-height
-     :resource/id :scene-color/main
-     :scene-color scene-color}))
-
-(defn destroy-render-target! [{:keys [^js texture]}]
-  (when texture
-    (.destroy texture)))
-
-(defn- scene-color-resource
-  "Resolve the one frame scene-color resource.  With no persistent target this
-   is the direct-present swap view; when the existing default-off target is
-   enabled it becomes the intermediate view.  Future group targets extend this
-   resource shape instead of creating another frame path."
-  [swap-view render-target color]
-  {:resource/id :scene-color/main
-   :resource/mode (if render-target :intermediate :direct-present)
-   :view (if render-target (:view render-target) swap-view)
-   :format (:format render-target)
-   :color color})
-
 (defn update-camera [^js device camera-buffer ^js floats pan-x pan-y zoom w h]
   (aset floats 0 pan-x)
   (aset floats 1 pan-y)
@@ -213,59 +132,3 @@
   (aset floats 4 w)
   (aset floats 5 h)
   (.writeBuffer (.-queue device) camera-buffer 0 floats))
-
-(defn- clip-execution-mode
-  "A screen-axis-aligned world transform uses a scissor. Rotation/shear is a
-   declared mask-path binding; callers must never approximate it as a scissor."
-  [[a b c d _tx _ty]]
-  (if (or (and (< (abs (double b)) 1.0e-9)
-               (< (abs (double c)) 1.0e-9))
-          (and (< (abs (double a)) 1.0e-9)
-               (< (abs (double d)) 1.0e-9)))
-    :scissor
-    :mask))
-
-(defn project-clip-rect
-  "Project a group-local clip into WebGPU attachment pixels. Camera and
-   group coordinates are CSS pixels; scissor rectangles are device pixels,
-   so the viewport-to-attachment scale is part of the projection."
-  [clip group-id world-transforms pan-x pan-y zoom attachment-size
-   viewport-size]
-  (when clip
-    (let [{:keys [affine flags]}
-          (or (get world-transforms group-id)
-              {:affine [1.0 0.0 0.0 1.0 0.0 0.0] :flags 0})]
-      (let [[a b c d tx ty] affine
-            {:keys [x y w h]} clip
-            points [[x y] [(+ x w) y] [x (+ y h)] [(+ x w) (+ y h)]]
-            screen? (= 1 (bit-and (or flags 0) 1))
-            zm (if screen? 1.0 zoom)
-            px (if screen? 0.0 pan-x)
-            py (if screen? 0.0 pan-y)
-            [aw ah] attachment-size
-            [vw vh] (or viewport-size attachment-size)
-            device-x (/ aw (max 1.0 vw))
-            device-y (/ ah (max 1.0 vh))
-            projected (map (fn [[lx ly]]
-                             [(* device-x
-                                 (+ (* (+ (* a lx) (* c ly) tx) zm) px))
-                              (* device-y
-                                 (+ (* (+ (* b lx) (* d ly) ty) zm) py))])
-                           points)
-            xs (map first projected)
-            ys (map second projected)
-            x0 (int (js/Math.floor (apply min xs)))
-            y0 (int (js/Math.floor (apply min ys)))
-            x1 (int (js/Math.ceil (apply max xs)))
-            y1 (int (js/Math.ceil (apply max ys)))
-            cx (max 0 (min aw x0))
-            cy (max 0 (min ah y0))]
-        (if (= :scissor (clip-execution-mode affine))
-          {:mode :scissor
-           :x cx :y cy :w (max 0 (- (max cx (min aw x1)) cx))
-           :h (max 0 (- (max cy (min ah y1)) cy))}
-          ;; Perimeter order (tl, tr, br, bl) feeds the generic convex mask
-          ;; pass. A rotated/sheared clip is never approximated by its AABB.
-          {:mode :mask :points [(nth projected 0) (nth projected 1)
-                                (nth projected 3) (nth projected 2)]
-           :group-id group-id :local-clip clip})))))

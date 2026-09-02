@@ -380,7 +380,7 @@
                           device bind-layout sampler atlas-view
                           camera-buffer groups-buffer)
         pool (buffer-pool/create-pool
-              device initial-capacity pipeline nil
+              device initial-capacity
               :floats-per-item image-component/image-instance-words
               :pack-fn pack-image-instance)
         image-system

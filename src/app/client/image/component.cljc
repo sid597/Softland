@@ -197,12 +197,6 @@
            (max 1 (quot height (bit-shift-left 1 level)))])
         (range (mip-level-count width height))))
 
-(defn texture-bytes
-  ([width height] (texture-bytes width height 4))
-  ([width height bytes-per-pixel]
-   (reduce + 0 (map (fn [[w h]] (* w h bytes-per-pixel))
-                    (mip-sizes width height)))))
-
 ;; Atlas/dedicated placement --------------------------------------------------
 
 (def atlas-config

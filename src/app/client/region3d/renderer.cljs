@@ -811,7 +811,7 @@
                      lease-size
                      (mapv compositor/quantize-region-size
                            (if max-lease-size
-                             (mapv min pixel-size max-lease-size)
+                             (mapv #(min % max-lease-size) pixel-size)
                              pixel-size))
                      encode-scale (quantize-region-encode-scale (* zoom dpr))
                      encode-rung (region-encode-rung (* zoom dpr))

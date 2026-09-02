@@ -6,9 +6,11 @@
   "environmentFingerprintSha256": "5ced2482f3d0b8e9a14465bba06808a04d3a5a9b7d386fcf71f40a30f557343e",
   "replayCommand": "npm run verify:render-engine",
   "shaderDigests": {
-    "slugVertex": "374f5ebdff8ed10efddeca744428acfceb6e04cf71b43fa701107f5aab5aee9d",
-    "slugFragment": "9bcb7e8b32c4c92479c1c7cb8344d45b0230f3aaab8fed5bb16718d764efe190",
-    "region3dPlacedFlat": "1515d54b249887bea0565899c821e72b7255e66cf674bcb298f8de2bd9183989"
+    "sceneColor": "ca263e5f1bbc34f00a73c780a554046dcdc3807254cfa186d64584f076835d95",
+    "presentFragment": "0835dab5812b96d62c47be9c20e42204c1df106c31937293c3ce125f3cb1a851",
+    "slugVertex": "a8fbae3d266deed5ce5babc533449d1adb523af1e2492dd6bfd2188346fb083f",
+    "slugFragment": "581b9ee01a821e94d161e5e439beccecb232d37fbdde39f223ea55e956eca229",
+    "region3dPlacedFlat": "4e7c0f502bcc717ccebac3c64c90a3005c58e9d5e5ccc994d74d44e310607b13"
   },
   "images": [
     {

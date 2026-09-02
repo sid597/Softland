@@ -22,7 +22,7 @@
         glyph-screen-size zoom-cases image-fixtures promise-mapv
         bytes->hex sha256-bytes sha256-string opaque-png-data-url
         q8-world-transforms run-q8-transport! boundary-pixels byte-delta pixel-rgba
-        srgb->linear linear->srgb-byte selected-limits adapter-information
+        srgb->linear linear->srgb-byte adapter-information
         shader-digests w4-read-texture!]]))
 
 (def ^:private region3d-id :region3d/harness)
@@ -319,6 +319,7 @@
 
 (defn- region3d-prepare-options [harness session]
   {:zoom 1.0 :dpr 1.0
+   :max-lease-size (get-in harness [:compositor :max-lease-size])
    :world-transforms (:world-transforms harness)
    :font-assets (:font-assets harness)
    :path-system (:path-system harness)

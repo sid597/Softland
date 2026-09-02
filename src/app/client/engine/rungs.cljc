@@ -11,9 +11,7 @@
 
 (defn- lease-shadow?
   [lease]
-  (if (contains? lease :shadow?)
-    (boolean (:shadow? lease))
-    (boolean (:shadow lease))))
+  (boolean (:shadow? lease)))
 
 (defn- candidate
   [{region-id :region/id
