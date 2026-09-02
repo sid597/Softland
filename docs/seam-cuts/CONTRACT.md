@@ -2,6 +2,8 @@
 
 *the waist, round two · step 1 of the seam-cuts package · contract cut 2026-09-02 · cutter Fable 5.1, effort max · one session, straight through*
 
+*Vocabulary: per `docs/decisions.md` "The render boundary" glossary (2026-09-02). Code identifiers rename in the step that touches each file, never a sweep.*
+
 **Ground.** Source baseline `3d703a5`. The client is 29 files, 15,819 lines, folded by kind under `engine/ text/ image/ path/ region3d/ verifier/`; `verifier/core.cljs` is the only compiled entry and the only caller of every renderer. The tree is the ground; this page is the cut. Read code, not docs. The two waist maps that fed this contract were drawn from code alone, read-only, and merged in chat on 2026-09-02; their merged position is §0 below, and it is the source for the pending amendment of `docs/decisions.md`.
 
 **Sid's rulings, verbatim (2026-09-02).**

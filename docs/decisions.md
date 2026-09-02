@@ -519,6 +519,65 @@ and are implemented in the form that they should be". And the order of work:
 things in … we are going to remove now". The path boundary is the template
 (`docs/seam-cuts/`); the same removals repeat on image, text and region.
 
+**One vocabulary (Sid, 2026-09-02).** His rule, verbatim: "The standard
+graphics or ECS term is canonical in every doc. A Softland word survives
+only if BOTH hold: Sid coined it (verbatim hit in vision/LOG.md) AND no
+standard term covers the concept. A rename of a standard concept never
+survives." And the test every word must pass: "I'm at a stage where I want
+to have less vocabulary and whatever that is makes direct sense in
+connection to me. So I don't have to dig through things". So the most
+specific standard term wins and a genus word never stands alone (a two-word
+name that says which thing, "draw item", beats "instance"); a word that
+means something else in graphics is a collision, never a keep. Code
+identifiers, folder names and namespaces rename in the step that touches
+each file, never a sweep; until then a doc names the identifier in
+backticks and the concept in this vocabulary. The glossary, standard ←
+replaced, current state:
+- *Layers.* engine ← floor · engine-internal ← floor-private · boundary ←
+  seam (this section was "the render seam"; the `docs/seam-cuts/` package
+  keeps its name) · layer ← band · granularity ← grain · **waist** stays:
+  the boundary between the compiled engine below and the data-defined ECS
+  layer above · **ECS layer** stays · "land" is a loose word for Softland;
+  where the server is meant, say server.
+- *Entities and their data.* entity ← mark · component ← material (client)
+  and ← facet; on the server the same record is still called material, and
+  the entry point translates · **row** stays: any stored record,
+  source-of-truth or derived · stroke point ← knot · content hash ← content
+  key · source of truth ← truth-owner, truth row · uncommitted store ←
+  in-flight store · geometry generator ← verb: data a runtime follows to
+  make geometry (the stroker, the brush, layout, every shape maker, every
+  composite) · entity template ← face: an authored tree of entities stored
+  as data, with declared inputs, instantiated at runtime; the Block is one ·
+  composite ← compound · persistence ← artery · library ← vocabulary (the
+  shape library) · revision, store, kind, generation, recipe stay.
+- *Validation at entry.* schema ← grammar · validation ← admission · entry
+  point ← door · rejection ← refusal (a validator's) · non-goals ← refusals
+  (a contract's scope) · schema step ← words step · stamp stays.
+- *The scene.* group ← container (client; the server's object container
+  keeps its name) · world ← world container: the root group, id 0 ·
+  transform hierarchy ← container tree, placement tree · transform ←
+  placement · world transform ← effective affine · draw item ← op: one
+  component placed in one group, handed to a renderer; several batch into
+  one draw call · buffer index ← slot · LOD ← regime, LOD table ← regime
+  table · dirty check ← frame gate · zoom range ← zoom envelope · zoom level
+  ← zoom station · vertex packing ← pack.
+- *Frames.* renderer ← painter · GPU write ← sink, applier (the act; the
+  renderers are the code that does it) · transport ← courier · emitted ←
+  minted (a diff, at its write site; a record is created) · transaction ←
+  generation authority · ownership ← custody · section ← road (of the
+  harness; a design line is an approach) · snapshot ← mosaic · wire, camera,
+  pointer, clock, culling, builtin, stroker, brush, tessellation,
+  derivation, projection, scene stay.
+- *Tests.* evidence ← receipt (a close document) and frame stats ← receipt
+  (a per-frame return) · render test harness ← verifier (the `verifier/`
+  namespace keeps its name until its step) · consistency check ← fence ·
+  diagnostic ← instrument (implementation, where it meant a swappable one)
+  · regression test ← tripwire · coverage check ← census · editor ← studio
+  · oracle, fixture, golden, corpus, probe, scenario, harness stay.
+- *Process.* step ← atom: one contracted unit of work, one session ·
+  package stays · **dead** stays: wrong form for the waist, called or not ·
+  contract, ruling, close, cut, NOW, LATER, board are outside this rule.
+
 **In Sid's words: this is the Electric-native arc** — the settled answer
 to "electric has the differential datalog … why not we building electric
 native and equivalent." Four dispositions, permanent, so no briefing loses
