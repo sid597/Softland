@@ -10,3 +10,13 @@ Ruling (Fable, 2026-09-02): custody stands; T1 closes now on the returned tree r
 BUILT + RECEIPTED; SID ACCEPTANCE PENDING — `a2a0a39`, `5c9e313`, `66e22bb`, `c6c96fc`.
 R1–R5: PASS — Region3D JVM `15 tests / 109 assertions / 0 failures / 0 errors`; render `6/6` guards and `6/6` representative goldens.
 Custody: frozen Region artifact set unchanged through shared specimen `c6bd601`; removal greps clean; foreign `.claude/memory/` dirt preserved.
+
+## Image
+SOURCE FROZEN + RECEIPT PASS 2026-09-02 — I1–I5 are tripwires; Sid acceptance pending.
+Commits: runner `eaa4832`; grammar `e718443`; frame `372f1c7`; painter `f9bbc83`; verifier/golden `dfe0ebe`.
+JVM: PASS — `7 tests / 62 assertions / 0 failures / 0 errors`.
+Render: PASS — SwiftShader; `6/6` guards; all representative + `7/7` DejaVu goldens; 44 source inputs.
+Image: PASS — 22 records, 14 parity rows, I3 gate/residency, I4 color, I5 rebuild/refusal; removal fence 0.
+I1 golden: `e1d93240…f3b7e5` raw; `58be6105…cf59e` PNG, manifest-matched.
+Note: `:writes` is the frame update count; `:item-writes` preserves the measured per-instance GPU write count (2 on the two-op first frame).
+Custody: `image/{frame,material,painter}`, `verifier/image`, their two JVM tests, test-runner line, image manifest row, I1 PNG.
