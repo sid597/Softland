@@ -1,6 +1,7 @@
 (ns app.client.region3d.oracle
   "Test/verifier oracles for retained Region3D production derivations."
-  (:require [app.client.region3d.scene :as scene]))
+  (:require [app.client.engine.color :as color]
+            [app.client.region3d.scene :as scene]))
 
 (defn- bvh-triangle-receipt [bvh]
   (letfn [(walk [node]
@@ -26,12 +27,11 @@
             (bvh-triangle-receipt (:bvh oracle))))))
 
 (defn- rgba-linear [tagged]
-  (let [[r g b a] (:rgba tagged)
-        decode (fn [value]
-                 (if (<= value 0.04045)
-                   (/ value 12.92)
-                   (Math/pow (/ (+ value 0.055) 1.055) 2.4)))]
-    [(decode r) (decode g) (decode b) a]))
+  (let [[r g b a] (:rgba tagged)]
+    [(color/srgb-channel->linear r)
+     (color/srgb-channel->linear g)
+     (color/srgb-channel->linear b)
+     a]))
 
 (defn- fresnel-schlick [f0 view-dot-half]
   (mapv (fn [base]

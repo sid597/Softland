@@ -5,7 +5,7 @@
    draw.
    Gives: the caller's path cache plus packed rows in a flat vertex buffer; ink
    draw calls.
-   Holds: a receipt atom per system."
+   Holds: GPU pipelines and per-region packing caches."
   (:require [app.client.region3d.on-plane :as on-plane]
             [app.client.region3d.scene :as scene]))
 
@@ -118,10 +118,7 @@
 (defn init-placement-system! [device]
   {:placement-gpu/version placement-gpu-version
    :device device
-   :pipelines (create-pipelines! device)
-   :!receipt (atom {:version placement-gpu-version :packs 0
-                    :uploads 0 :draws 0
-                    :ink-vertices 0 :over-limit 0})})
+   :pipelines (create-pipelines! device)})
 
 (defn create-region-gpu! [system region-id]
   (let [usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.VERTEX)]
@@ -283,17 +280,11 @@
                    changed? (assoc :placements (:placements upload)))
         ink-count (reduce + 0 (map #(or (get-in % [:packed :vertex-count]) 0)
                                        rows))]
-    (swap! (:!receipt system)
-           (fn [receipt]
-             (-> receipt
-                 (update :packs + (:packs packed))
-                 (update :uploads + uploads)
-                 (assoc :ink-vertices ink-count
-                        :over-limit (get statuses :over-limit 0)
-                        :last-census statuses))))
     {:gpu next-gpu :path-cache (:path-cache packed)
      :changed? changed? :packs (:packs packed)
-     :placements (:placements next-gpu) :census statuses}))
+     :placements (:placements next-gpu) :census statuses
+     :uploads uploads :ink-vertices ink-count
+     :over-limit (get statuses :over-limit 0)}))
 
 (defn- flat-bind-group [system region-uniform]
   (.createBindGroup
@@ -315,10 +306,7 @@
             (.draw ^js pass count 1 first 0)
             (swap! draws inc))
         nil))
-    (swap! (:!receipt system) update :draws + @draws)
     @draws))
-
-(defn placement-receipt [system] @(:!receipt system))
 
 (defn- destroy-buffer! [row]
   (when-let [buffer (:buffer row)]

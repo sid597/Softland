@@ -5,15 +5,18 @@
    Takes: a device and format to build the system; regions with zoom, dpr, and
    font assets to prepare; an encoder, a region id, a role, and a lease to
    encode a pass; a render pass to composite.
-   Gives: a region system; a prepare receipt; encoded passes; the composited
+   Gives: a region system; a per-frame result; encoded passes; the composited
    region.
    Holds: one system per device and the compositor per device (WeakMaps), plus
    per-system atoms for prepared scenes and composite rows."
-  (:require [app.client.region3d.material :as material]
+  (:require [app.client.region3d.frame :as frame]
+            [app.client.region3d.material :as material]
             [app.client.region3d.on-plane :as on-plane]
             [app.client.region3d.scene :as scene]
+            [app.client.engine.color :as color]
             [app.client.engine.compositor :as compositor]
             [app.client.engine.leases :as region-bindings]
+            [app.client.engine.placement :as placement]
             [app.client.region3d.on-plane-painter
              :as on-plane-painter]))
 
@@ -446,20 +449,10 @@
                                                :minFilter "linear"
                                                :magFilter "linear"}))
      :shadow-fallback fallback
-     :frame-input/identity (js-obj) :!shape-rev (atom 0)
      :binding-owner (region-bindings/create-owner device)
      :!compositor (atom nil)
      :!prepared (atom {}) :!composite-buffer (atom composite-buffer)
-     :!composite-rows (atom {})
-     :!last-composite-key (atom nil)
-     :!last-regions (atom ::never)
-     :!receipt (atom {:version 1 :prepare-calls 0 :scene-derives 0
-                      :scene-transform-updates 0
-                      :region-encodes 0
-                      :held-passes 0 :object-instance-uploads 0
-                      :mesh-vertex-uploads 0
-                      :light-uploads 0 :uniform-uploads 0
-                      :composite-uploads 0 :regions {}})}))
+     :!composite-rows (atom {})}))
 
 (defonce ^:private !systems-by-device (js/WeakMap.))
 
@@ -500,12 +493,11 @@
   system)
 
 (defn- tagged-linear [{:keys [rgba]}]
-  (let [[r g b a] rgba
-        decode (fn [value]
-                 (if (<= value 0.04045)
-                   (/ value 12.92)
-                   (js/Math.pow (/ (+ value 0.055) 1.055) 2.4)))]
-    [(decode r) (decode g) (decode b) a]))
+  (let [[r g b a] rgba]
+    [(color/srgb-channel->linear r)
+     (color/srgb-channel->linear g)
+     (color/srgb-channel->linear b)
+     a]))
 
 (defn- column-major [matrix]
   (mapv #(nth matrix %) [0 4 8 12 1 5 9 13 2 6 10 14 3 7 11 15]))
@@ -677,7 +669,7 @@
   stay retained; instance and light rows use their stable offsets."
   [system gpu maintained affected-object-ids]
   (reduce
-   (fn [receipt object-id]
+   (fn [result object-id]
      (let [object (get-in maintained [:region :scene object-id])
            instance-index (get-in gpu [:object-index object-id])
            light-index (get-in gpu [:light-index object-id])]
@@ -690,7 +682,7 @@
          (write-buffer-range!
           system (:lights gpu) (* light-index light-instance-stride)
           (light-row-values maintained object-id object)))
-       (cond-> receipt
+       (cond-> result
          (some? instance-index) (update :instance-uploads inc)
          (some? light-index) (update :light-uploads inc))))
    {:instance-uploads 0 :light-uploads 0}
@@ -736,13 +728,13 @@
     (destroy-buffer! (get gpu key)))
   (on-plane-painter/destroy-region-gpu! (:placement gpu)))
 
-(defn- composite-row-bytes [{:keys [x y w h container-idx]}]
+(defn- composite-row-bytes [{:keys [x y w h slot]}]
   (let [raw (js/ArrayBuffer. composite-instance-stride)
         floats (js/Float32Array. raw)
         uints (js/Uint32Array. raw)]
     (aset floats 0 x) (aset floats 1 y)
     (aset floats 2 w) (aset floats 3 h)
-    (aset uints 4 (or container-idx 0))
+    (aset uints 4 slot)
     (js/Uint8Array. raw)))
 
 (defn- upload-composites! [system desired]
@@ -774,17 +766,6 @@
     (reset! (:!composite-rows system) rows)
     (count changed)))
 
-(defn- system-identity [system]
-  (when system (or (:frame-input/identity system) system)))
-
-(defn- shape-rev [system]
-  (if-let [revision (:!shape-rev system)] @revision 0))
-
-(defn- system-token
-  "Identity plus shape revision of a painter system, for prepare cache keys."
-  [system]
-  (when system [(system-identity system) (shape-rev system)]))
-
 (def ^:private region-encode-step 1.12)
 
 (defn- region-encode-rung
@@ -797,249 +778,194 @@
 (defn- quantize-region-encode-scale [scale]
   (js/Math.pow region-encode-step (region-encode-rung scale)))
 
-(defn- font-input-token [font-assets]
-  (on-plane/provider-identity font-assets))
+(defn- empty-region-return [changed?]
+  {:changed? changed? :full-rebuilds 0 :instance-uploads 0
+   :bvh-refits 0 :region-encodes 0})
 
 (defn prepare-region3d-frame!
-  "Upload region material/session projections before any pass opens. Returns a
-   receipt; it never creates a command encoder or requests a target lease."
+  "Upload changed region rows before any pass opens. The region revision and
+   projection stamps gate the work; the returned counts belong to this call."
   [system {:keys [regions]} session
-   {:keys [zoom dpr font-assets session-layout-snapshot path-system
+   {:keys [zoom dpr effective font-assets session-layout-snapshot path-system
            max-lease-size]
     :or {zoom 1.0 dpr 1.0}}]
   (let [regions (vec (or regions []))
         prior @(:!prepared system)
-        live-ids (set (map :region-id regions))
-        computed
-        (into {}
-              (map
-               (fn [op]
-                 (let [region-id (:region-id op)
-                       session-row (session-region session region-id)
-                       pixel-size [(max 1 (js/Math.ceil (* (:w op) zoom dpr)))
-                                   (max 1 (js/Math.ceil (* (:h op) zoom dpr)))]
-                       ;; The composite maps the FULL lease onto the region's
-                       ;; screen rect, so texels past the attachment size can
-                       ;; never reach the screen; capping here also keeps one
-                       ;; lease (56 bytes/px across its four targets) inside
-                       ;; the frame-target cap at any zoom — unclamped, the
-                       ;; 4096-quant MSAA color target alone equals the whole
-                       ;; 512MB pool. Camera aspect and picking stay on the
-                       ;; unclamped pixel-size.
-                       lease-size (mapv compositor/quantize-region-size
-                                        (if max-lease-size
-                                          (mapv min pixel-size max-lease-size)
-                                          pixel-size))
-                       encode-scale
-                       (quantize-region-encode-scale (* zoom dpr))
-                       encode-rung (region-encode-rung (* zoom dpr))
-                       encode-pixel-size
-                       [(max 1 (js/Math.ceil (* (:w op) encode-scale)))
-                        (max 1 (js/Math.ceil (* (:h op) encode-scale)))]
-                       old (get prior region-id)
-                       raw-region (:region3d/scene op)
-                       background-key (:background raw-region)
-                       background-changed?
-                       (or (nil? old)
-                           (not= background-key (:background-key old)))
-                       evaluation-result
-                       (scene/evaluate-scene
-                        (:maintained old) (:evaluation-key old)
-                        raw-region session-row)
-                       update-kind (:update-kind evaluation-result)
-                       material-changed? (= :full update-kind)
-                       transform-changed? (= :transform update-kind)
-                       scene-changed? (not= :none update-kind)
-                       maintained0
-                       (assoc (:maintained evaluation-result)
-                              :region-id region-id)
-                       maintained
-                       (if (and background-changed? (not material-changed?))
-                         (assoc-in maintained0 [:region :background]
-                                   (:background
-                                    (material/validate-region! raw-region)))
-                         maintained0)
-                       shadow-space (if scene-changed?
-                                      (scene/shadow-light-space maintained)
-                                      (:shadow-space old))
-                       view (or (:view session-row)
-                                (get-in maintained [:region :view-default]))
-                       view-key [view (:display-mode session-row) encode-rung
-                                 shadow-space]
-                       view-changed? (or scene-changed? (nil? old)
-                                         (not= view-key (:view-key old)))
-                       camera (if view-changed?
-                                (scene/camera-matrices view encode-pixel-size)
-                                (:camera old))
-                       prepare-key
-                       {:material (:evaluation-key evaluation-result)
-                        :background background-key
-                        :view view-key :dpr dpr
-                        :placements (:region3d/resolved-placements op)
-                        :font (font-input-token font-assets)
-                        :session-layout
-                        (on-plane/session-layout-key session-layout-snapshot)
-                        :path-system (system-token path-system)
-                        :max-lease-size max-lease-size}]
-                   (let [gpu0 (or (:gpu old)
-                                    (create-region-gpu system region-id))
-                           upload-receipt
-                           (case update-kind
-                             :full
-                             {:gpu (write-material-gpu! system region-id gpu0
-                                                        maintained)
-                              :instance-uploads (count (:instances maintained))
-                              :mesh-vertex-uploads 1
-                              :light-uploads (count (light-rows maintained))}
+        session-revision (:revision session-layout-snapshot)
+        live-ids (set (map #(get-in % [:region/material :region/id]) regions))
+        results
+        (mapv
+         (fn [op]
+           (let [raw-region (:region/material op)
+                 region-id (:region/id raw-region)
+                 key (frame/region-key op zoom dpr session-revision)
+                 old (get prior region-id)]
+             (if (= key (:key old))
+               [region-id old (empty-region-return false)]
+               (let [{:keys [w h]} (:region/rect raw-region)
+                     session-row (session-region session region-id)
+                     pixel-size [(max 1 (js/Math.ceil (* w zoom dpr)))
+                                 (max 1 (js/Math.ceil (* h zoom dpr)))]
+                     lease-size
+                     (mapv compositor/quantize-region-size
+                           (if max-lease-size
+                             (mapv min pixel-size max-lease-size)
+                             pixel-size))
+                     encode-scale (quantize-region-encode-scale (* zoom dpr))
+                     encode-rung (region-encode-rung (* zoom dpr))
+                     encode-pixel-size
+                     [(max 1 (js/Math.ceil (* w encode-scale)))
+                      (max 1 (js/Math.ceil (* h encode-scale)))]
+                     background-key (:background raw-region)
+                     background-changed?
+                     (or (nil? old)
+                         (not= background-key (:background-key old)))
+                     evaluation-result
+                     (scene/evaluate-scene
+                      (:maintained old) (:evaluation-key old)
+                      raw-region session-row)
+                     update-kind (:update-kind evaluation-result)
+                     material-changed? (= :full update-kind)
+                     transform-changed? (= :transform update-kind)
+                     scene-changed? (not= :none update-kind)
+                     maintained0 (assoc (:maintained evaluation-result)
+                                        :region-id region-id)
+                     maintained
+                     (if (and background-changed? (not material-changed?))
+                       (assoc-in maintained0 [:region :background]
+                                 background-key)
+                       maintained0)
+                     shadow-space (if scene-changed?
+                                    (scene/shadow-light-space maintained)
+                                    (:shadow-space old))
+                     view (or (:view session-row)
+                              (get-in maintained [:region :view]))
+                     view-key [view (:display-mode session-row) encode-rung
+                               shadow-space]
+                     view-changed? (or scene-changed? (nil? old)
+                                       (not= view-key (:view-key old)))
+                     camera (if view-changed?
+                              (scene/camera-matrices view encode-pixel-size)
+                              (:camera old))
+                     gpu0 (or (:gpu old)
+                              (create-region-gpu system region-id))
+                     upload-return
+                     (case update-kind
+                       :full
+                       {:gpu (write-material-gpu! system region-id gpu0 maintained)
+                        :instance-uploads (count (:instances maintained))}
 
-                             :transform
-                             (assoc (write-transform-gpu!
-                                     system gpu0 maintained
-                                     (:affected-object-ids evaluation-result))
-                                    :gpu gpu0 :mesh-vertex-uploads 0)
+                       :transform
+                       (assoc (write-transform-gpu!
+                               system gpu0 maintained
+                               (:affected-object-ids evaluation-result))
+                              :gpu gpu0)
 
-                             {:gpu gpu0 :instance-uploads 0
-                              :mesh-vertex-uploads 0
-                              :light-uploads 0})
-                           gpu1 (:gpu upload-receipt)
-                           gpu2 (if view-changed?
-                                  (write-view-gpu! system gpu1 maintained camera
-                                                   session-row shadow-space)
-                                  gpu1)
-                           placement-result
-                           (on-plane-painter/prepare-placements!
-                            (:placement-system system) (:placement gpu2)
-                            (:region3d/resolved-placements op) maintained camera
-                            (if path-system @(:!mesh-cache path-system) {})
-                            {:font-assets font-assets
-                             :session-layout-snapshot session-layout-snapshot})
-                           _ (when path-system
-                               (reset! (:!mesh-cache path-system)
-                                       (:path-cache placement-result)))
-                           gpu3 (assoc gpu2 :placement (:gpu placement-result))
-                           mesh-draw-order
-                           (if (or scene-changed? view-changed?
-                                   (not= (get-in old [:maintained :region
-                                                     :background :kind])
-                                         (get-in maintained [:region :background
-                                                             :kind]))
-                                   (nil? old))
-                             (draw-order gpu3 maintained camera)
-                             (:draw-order old))
-                           dirty-by-role
-                           {:shadow (or scene-changed? (nil? old))
-                            :interior (or scene-changed? view-changed?
-                                          background-changed?
-                                          (:changed? placement-result)
-                                          (nil? old))}]
-                       [region-id
-                        {:region-id region-id :op op
-                         :prepare-key prepare-key
-                         :material-key (:evaluation-key evaluation-result)
-                         :evaluation-key (:evaluation-key evaluation-result)
-                         :background-key background-key :view-key view-key
-                         :maintained maintained :camera camera
-                         :lease-size lease-size :encode-rung encode-rung
-                         :shadow-space shadow-space
-                         :shadow? (boolean shadow-space)
-                         :gpu gpu3 :draw-order mesh-draw-order
-                         :placements (:placements placement-result)
-                         :dirty-by-role dirty-by-role
-                         :scene-update-kind update-kind
-                         :affected-object-ids
-                         (:affected-object-ids evaluation-result)
-                         :upload-receipt upload-receipt
-                         :material-changed? material-changed?
-                         :transform-changed? transform-changed?
-                         :background-changed? background-changed?
-                         :view-changed? view-changed?
-                         :last-lease-keys (:last-lease-keys old)
-                         :session session-row}])))
-               regions))
+                       {:gpu gpu0 :instance-uploads 0})
+                     gpu1 (:gpu upload-return)
+                     gpu2 (if view-changed?
+                            (write-view-gpu! system gpu1 maintained camera
+                                             session-row shadow-space)
+                            gpu1)
+                     placement-return
+                     (on-plane-painter/prepare-placements!
+                      (:placement-system system) (:placement gpu2)
+                      (:region3d/resolved-placements op) maintained camera
+                      (if path-system @(:!mesh-cache path-system) {})
+                      {:font-assets font-assets
+                       :session-layout-snapshot session-layout-snapshot})
+                     _ (when path-system
+                         (reset! (:!mesh-cache path-system)
+                                 (:path-cache placement-return)))
+                     gpu3 (assoc gpu2 :placement (:gpu placement-return))
+                     mesh-draw-order
+                     (if (or scene-changed? view-changed?
+                             (not= (get-in old [:maintained :region
+                                               :background :kind])
+                                   (get-in maintained [:region :background
+                                                       :kind]))
+                             (nil? old))
+                       (draw-order gpu3 maintained camera)
+                       (:draw-order old))
+                     dirty-by-role
+                     {:shadow (or scene-changed? (nil? old))
+                      :interior (or scene-changed? view-changed?
+                                    background-changed?
+                                    (:changed? placement-return)
+                                    (nil? old))}
+                     row
+                     {:key key :region-id region-id :op op
+                      :evaluation-key (:evaluation-key evaluation-result)
+                      :background-key background-key :view-key view-key
+                      :maintained maintained :camera camera
+                      :lease-size lease-size :encode-rung encode-rung
+                      :shadow-space shadow-space
+                      :shadow? (boolean shadow-space)
+                      :gpu gpu3 :draw-order mesh-draw-order
+                      :placements (:placements placement-return)
+                      :dirty-by-role dirty-by-role
+                      :scene-update-kind update-kind
+                      :affected-object-ids
+                      (:affected-object-ids evaluation-result)
+                      :last-lease-keys (:last-lease-keys old)
+                      :session session-row}
+                     call-return
+                     {:changed? true
+                      :full-rebuilds (if material-changed? 1 0)
+                      :instance-uploads (:instance-uploads upload-return 0)
+                      :bvh-refits (if transform-changed?
+                                    (count
+                                     (filter (:triangles-by-object maintained)
+                                             (:affected-object-ids
+                                              evaluation-result)))
+                                    0)
+                      :region-encodes 0}]
+                 [region-id row call-return]))))
+         regions)
+        computed (into {} (map (fn [[region-id row _]] [region-id row])) results)
+        region-returns
+        (into {} (map (fn [[region-id _ call-return]]
+                        [region-id call-return])) results)
         closed (vec (remove live-ids (keys prior)))
         desired
         (region-bindings/reconcile-desired!
          (:binding-owner system)
          (mapv (fn [[region-id row]]
-                 (let [op (:op row)]
+                 (let [op (:op row)
+                       {:keys [x y w h]} (get-in op [:region/material
+                                                    :region/rect])]
                    {:region/id region-id
                     :lease-size (:lease-size row)
                     :shadow? (:shadow? row)
                     :background (get-in row [:maintained :region :background])
                     :encode-rung (:encode-rung row)
-                    :composite {:x (:x op) :y (:y op)
-                                :w (:w op) :h (:h op)
-                                :container-idx (:container-idx op)}}))
+                    :composite {:x x :y y :w w :h h
+                                :slot (placement/slot effective
+                                                      (:container op))}}))
                computed))
         computed
         (into {}
               (map (fn [[region-id row]]
-                     (let [row (assoc row :composite-slot
-                                      (get-in desired [region-id :slot]))
-                           old (get prior region-id)]
-                       [region-id (if (= row old) old row)])))
+                     (let [slot (get-in desired [region-id :slot])]
+                       [region-id
+                        (if (= slot (:composite-slot row))
+                          row
+                          (assoc row :composite-slot slot))])))
               computed)
-        composite-uploads
-        (upload-composites! system (vals desired))
-        next (if (and (empty? closed)
-                      (= (keys prior) (keys computed))
-                      (every? (fn [[id row]] (identical? row (get prior id)))
-                              computed))
-               prior computed)
-        changed-rows (keep (fn [[region-id row]]
-                             (when-not (identical? row (get prior region-id))
-                               row))
-                           computed)
-        prepared-changed? (not (identical? prior next))]
+        composite-uploads (upload-composites! system (vals desired))
+        unchanged? (and (empty? closed)
+                        (= (keys prior) (keys computed))
+                        (every? (fn [[id row]]
+                                  (identical? row (get prior id)))
+                                computed))
+        next (if unchanged? prior computed)]
     (doseq [region-id closed]
       (destroy-region-gpu! (:gpu (get prior region-id))))
-    (when prepared-changed?
+    (when-not unchanged?
       (reset! (:!prepared system) next))
-    (when (or prepared-changed? (seq closed) (pos? composite-uploads))
-      (swap! (:!receipt system)
-             (fn [receipt]
-               (-> receipt
-                   (update :prepare-calls inc)
-                   (update :scene-derives +
-                           (count (filter #(= :full (:scene-update-kind %))
-                                          changed-rows)))
-                   (update :scene-transform-updates +
-                           (count (filter #(= :transform
-                                                (:scene-update-kind %))
-                                          changed-rows)))
-                   (update :object-instance-uploads +
-                           (reduce + 0
-                                   (map #(get-in % [:upload-receipt
-                                                    :instance-uploads] 0)
-                                        changed-rows)))
-                   (update :mesh-vertex-uploads +
-                           (reduce + 0
-                                   (map #(get-in % [:upload-receipt
-                                                    :mesh-vertex-uploads] 0)
-                                        changed-rows)))
-                   (update :light-uploads +
-                           (reduce + 0
-                                   (map #(get-in % [:upload-receipt
-                                                    :light-uploads] 0)
-                                        changed-rows)))
-                   (update :uniform-uploads +
-                           (count (filter :view-changed? changed-rows)))
-                   (update :composite-uploads + composite-uploads)
-                   (assoc :last-prepare
-                          {:regions (count regions) :closed closed
-                           :dirty (into {}
-                                        (map (fn [[id row]]
-                                               [id (:dirty-by-role row)]))
-                                        next)
-                           :scene-updates
-                           (into {}
-                                 (map (fn [[id row]]
-                                        [id {:kind (:scene-update-kind row)
-                                             :affected
-                                             (:affected-object-ids row)}]))
-                                 next)
-                           :composite-uploads composite-uploads})))))
-    @(:!receipt system)))
+    {:regions region-returns
+     :composite-uploads composite-uploads
+     :held-passes 0}))
 
 (defn- region-bind-group [system prepared lease]
   (let [gpu (:gpu prepared)
@@ -1143,9 +1069,8 @@
        :held? false :refusal (:refusal lease)}
 
       (not encode?)
-      (do (swap! (:!receipt system) update :held-passes inc)
-          {:region-id region-id :role role
-           :encoded? false :held? true :lease-key (:key lease)})
+      {:region-id region-id :role role
+       :encoded? false :held? true :lease-key (:key lease)}
 
       :else
       (do
@@ -1154,7 +1079,6 @@
                     (encode-shadow! system encoder prepared lease))
           :interior (encode-interior! system encoder prepared lease)
           nil)
-        (swap! (:!receipt system) update :region-encodes inc)
         (swap! (:!prepared system) update region-id
                (fn [row]
                  (-> row
@@ -1198,28 +1122,6 @@
                                 (composite-bind-group region-system lease)))
     (.setVertexBuffer ^js pass 0 (:buffer @(:!composite-buffer region-system)))
     (.draw ^js pass 6 1 0 composite-slot)))
-
-(defn region3d-receipt [system]
-  (assoc @(:!receipt system)
-         :bindings (region-bindings/receipt (:binding-owner system))
-         :placements (on-plane-painter/placement-receipt
-                      (:placement-system system))
-         :prepared
-         (into {} (map (fn [[id row]]
-                         [id {:dirty-by-role (:dirty-by-role row)
-                              :last-lease-keys (:last-lease-keys row)
-                              :shadow? (:shadow? row)
-                              :placement-layouts
-                              (into {}
-                                    (map (fn [placed]
-                                           [(:object-id placed)
-                                            {:address (:address placed)
-                                             :status (:status placed)
-                                             :layout-id (get-in placed
-                                                                [:layout :layout/id])}]))
-                                    (:placements row))
-                              :objects (count (get-in row [:maintained :instances]))}]))
-               @(:!prepared system))))
 
 (defn destroy-region3d-system! [system]
   (doseq [[_ row] @(:!prepared system)]

@@ -134,8 +134,7 @@
    parents and cycles before recursion; sorted ids make the result stable
    across map insertion order."
   [region]
-  (let [region (material/validate-region! region)
-        scene (:scene region)
+  (let [scene (:scene region)
         !memo (atom {})]
     (letfn [(effective [object-id]
               (or (get @!memo object-id)
@@ -621,8 +620,7 @@
                              1.0)))})
 
 (defn derive-scene [region]
-  (let [region (material/validate-region! region)
-        effective (compose-hierarchy region)
+  (let [effective (compose-hierarchy region)
         object-ids (sort-by pr-str (keys (:scene region)))
         instances-by-object
         (into {} (map (fn [object-id]

@@ -9,6 +9,7 @@
   (:require [app.client.path.material :as path-material]
             [app.client.path.tessellation :as path-tessellation]
             [app.client.region3d.scene :as region3d-scene]
+            [app.client.engine.color :as color]
             [app.client.engine.placement :as containers]
             [app.client.text.layout :as text-layout]))
 
@@ -116,18 +117,12 @@
             :color (adapt-legacy-color
                     (path-material/paint-color (:material placement)))}}))
 
-(defn srgb-channel->linear [value]
-  (let [value (double value)]
-    (if (<= value 0.04045)
-      (/ value 12.92)
-      (Math/pow (/ (+ value 0.055) 1.055) 2.4))))
-
 (defn linear-premultiplied [{[r g b a] :rgba} coverage opacity]
   (let [alpha (max 0.0 (min 1.0 (* (double a) (double coverage)
                                     (double opacity))))]
-    [(* (srgb-channel->linear r) alpha)
-     (* (srgb-channel->linear g) alpha)
-     (* (srgb-channel->linear b) alpha)
+    [(* (color/srgb-channel->linear r) alpha)
+     (* (color/srgb-channel->linear g) alpha)
+     (* (color/srgb-channel->linear b) alpha)
      alpha]))
 
 (defn- clamp-projection [[x y] width height]
