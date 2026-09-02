@@ -45,7 +45,7 @@
     app.client.text.shaping-correction-test
     app.client.text.layout-planes-test
     app.client.text.layout-test
-    app.client.text.flat-road-test
+    app.client.text.flat-route-test
     app.server.worn.binding-dispatch-test
     app.missionary-claims-test
     app.server.page.reply-to-block-test

@@ -74,7 +74,7 @@
      (path/run-path-atom! device)
      (region/run-region3d-floor! device t1-assets)
      (js/Promise.resolve
-      (text/run-text-flat-road! slug-assets t1-assets))])
+      (text/run-text-flat-route! slug-assets t1-assets))])
                                       (.then
                                        (fn [values]
                                          {:schema-version 2
@@ -99,7 +99,7 @@
                                           :image-atom (aget values 2)
                                           :path-atom (aget values 3)
                                           :region3d-floor (aget values 4)
-                                          :text-flat-road (aget values 5)
+                                          :text-flat-route (aget values 5)
                                           :cases (:cases (aget values 0))})))))))))))))))))))
 
 (defn ^:export run-region3d-floor-verifier! []

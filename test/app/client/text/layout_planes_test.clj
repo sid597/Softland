@@ -36,7 +36,7 @@
 
 (defn- bytes-per-code-unit [layout]
   (let [units (tl/code-unit-count (get-in layout [:source :text]))]
-    (/ (:plane-bytes (tl/plane-census layout)) (max 1 units))))
+    (/ (:plane-bytes (tl/plane-coverage-check layout)) (max 1 units))))
 
 (deftest retained-layout-is-planes-not-rich-maps
   (doseq [layout [(tl/layout {:text "legacy plane" :char-advance 8
@@ -62,7 +62,7 @@
                                    (tl/caret-result layout 0 1)
                                    (tl/selection-result layout 0 0 1)]))))))
 
-(deftest plane-census-pins-the-contract-budget
+(deftest plane-coverage-check-pins-the-contract-budget
   (let [text (apply str (repeat 10000 "x"))
         legacy (tl/layout {:text text :char-advance 8
                            :font-size 14 :line-height 18})
@@ -70,7 +70,7 @@
                            :font-size 12 :line-height 16})]
     (doseq [layout [legacy shaped]]
       (let [{:keys [glyph-count span-count glyph-bytes-per-glyph
-                    span-bytes-per-entry]} (tl/plane-census layout)]
+                    span-bytes-per-entry]} (tl/plane-coverage-check layout)]
         (is (= 10000 glyph-count))
         (is (= 10000 span-count))
         (is (<= glyph-bytes-per-glyph 48))

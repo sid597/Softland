@@ -1,7 +1,7 @@
 (ns app.client.text.layout-oracle
-  "The frozen map road of shaped text layout: the pre-flat `shaped-layout`
-   and its helpers, verbatim, kept as the oracle the flat road is fenced
-   against (decisions.md \"The render seam\": a batch stage is demoted to its
+  "The frozen map route of shaped text layout: the pre-flat `shaped-layout`
+   and its helpers, verbatim, kept as the consistency-check oracle for the
+   flat route (decisions.md \"The render seam\": a batch stage is demoted to its
    sibling's oracle, never deleted). Never improved; only read by tests and
    the verifier.
    Takes: the same layout input as `app.client.text.layout/layout`, with a
@@ -557,7 +557,7 @@
      :space {:coordinates :material-local}
      :regime {:legal-zoom [0.01 1000] :zoom zoom
               :precision :material-f64
-              :paint-road :consumer-selected}
+              :paint-route :consumer-selected}
      :constraints {:inline-size (or inline-size :unbounded)
                    :wrap wrap-policy :line-height line-height
                    :alignment :start :tab-stops (or tab-stops {:columns 4})
@@ -575,7 +575,7 @@
      :clip-plan {:visible-lines (mapv :line/id line-data)
                  :visible-glyph-ranges (mapv :source-range line-data)
                  :clip-geometry clip}
-     :receipts {:output-hash (str id "/" (hash [layout-version
+     :stats {:output-hash (str id "/" (hash [layout-version
                                                 (mapv :glyph-id
                                                       (mapcat :glyphs line-data))
                                                 logical-w logical-h]))
@@ -585,11 +585,11 @@
                 :reference-shapes (:reference-shapes work)
                 :provider-fault (:provider-fault work)}})))
 
-;; --- the door ----------------------------------------------------------------
+;; --- the entry point ---------------------------------------------------------
 
 (defn layout
-  "Run the frozen map road on `input`. The provider's result is coerced to a
-   shaped line and back to the pre-flat map shape, so both roads read the
+  "Run the frozen map route on `input`. The provider's result is coerced to a
+   shaped line and back to the pre-flat map shape, so both routes read the
    same provider output."
   [{:keys [provider] :as input}]
   (let [shape-line (:shape-line provider)]

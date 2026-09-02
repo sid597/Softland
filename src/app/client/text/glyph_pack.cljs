@@ -1,10 +1,10 @@
 (ns app.client.text.glyph-pack
-  "The flat paint road for Slug text: layout planes viewed straight into the
+  "The flat paint route for Slug text: layout planes viewed straight into the
    instance buffer's words, no glyph map and no instance map per glyph. The
-   pre-flat road (`painter/shape-text` + `pack-slug-instances!`) stays beside
-   it as the oracle the bytes are fenced against.
-   Takes: positioned text ops (a layout line, its selected glyph indexes, the
-   op's style and semantic container), effective placements, and the font's
+   pre-flat route (`renderer/shape-text` + `pack-slug-instances!`) stays beside
+   it as the oracle the bytes are checked against.
+   Takes: positioned text draw-items (a layout line, its selected glyph indexes, the
+   draw-item's style and semantic group), effective placements, and the font's
    Slug glyph list.
    Gives: instance counts, and the 25 words per instance written into the
    Float32/Uint32 views of the instance buffer.
@@ -109,8 +109,8 @@
     (and (= 1 (- b a)) (= 32 (.charCodeAt text a)))))
 
 (defn- each-painted!
-  "Walk one op's glyphs through the pack door, calling `f` with the resolved
-   Slug row for every glyph the oracle road would paint (not a tab, not a
+  "Walk one draw-item's glyphs through the pack entry point, calling `f` with the resolved
+   Slug row for every glyph the oracle route would paint (not a tab, not a
    lone space, resolvable)."
   [{:keys [line indexes dx dy]} table f]
   (let [text (str (or (:text line) ""))
@@ -125,28 +125,28 @@
              (f row x0 baseline-y))))))))
 
 (defn count-instances
-  "Instances the op will pack — the count pass of the two-pass pack."
-  [op table]
+  "Instances the draw-item will pack — the count pass of the two-pass pack."
+  [draw-item table]
   (let [!n (volatile! 0)]
-    (each-painted! op table (fn [_ _ _] (vswap! !n inc)))
+    (each-painted! draw-item table (fn [_ _ _] (vswap! !n inc)))
     @!n))
 
-(defn pack-op!
-  "Write one op's instances from `instance-index` on; returns the next
-   instance index. Resolve its semantic container once before the glyph loop.
+(defn pack-draw-item!
+  "Write one draw-item's instances from `instance-index` on; returns the next
+   instance index. Resolve its semantic group once before the glyph loop.
    Word layout = `pack-slug-instances!`'s, expression for expression."
-  [^js float-view ^js uint-view instance-index op table effective]
-  (let [{:keys [style font-size]} op
+  [^js float-view ^js uint-view instance-index draw-item table effective]
+  (let [{:keys [style font-size]} draw-item
         {:keys [r g b a]} style
         cr (or r 1.0) cg (or g 1.0) cb (or b 1.0) ca (or a 1.0)
-        container (transform/buffer-index effective (:container op))
+        group (transform/buffer-index effective (:container draw-item))
         fsize font-size
         inv-size (if (pos? fsize) (/ 1.0 fsize) 0.0)
         ^js floats (:floats table)
         ^js uints (:uints table)
         !i (volatile! instance-index)]
     (each-painted!
-     op table
+     draw-item table
      (fn [row x0 baseline-y]
        (let [base (* @!i instance-words)
              f8 (* 8 row)
@@ -183,17 +183,17 @@
          (aset float-view (+ base 21) cg)
          (aset float-view (+ base 22) cb)
          (aset float-view (+ base 23) ca)
-         (aset uint-view (+ base 24) container)
+         (aset uint-view (+ base 24) group)
          (vswap! !i inc))))
     @!i))
 
 (defn pack-lines!
-  "Write every line's ops in order; `lines` = [{:ops [...] :count n}]."
+  "Write every line's draw-items in order; `lines` = [{:draw-items [...] :count n}]."
   [^js float-view ^js uint-view lines table effective]
   (loop [remaining lines i 0]
     (when (seq remaining)
-      (let [next-i (reduce (fn [i op]
-                             (pack-op! float-view uint-view i op table effective))
-                           i (:ops (first remaining)))]
+      (let [next-i (reduce (fn [i draw-item]
+                             (pack-draw-item! float-view uint-view i draw-item table effective))
+                           i (:draw-items (first remaining)))]
         (recur (next remaining) next-i))))
   nil)

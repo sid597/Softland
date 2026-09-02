@@ -1,8 +1,8 @@
-(ns app.client.text.painter
-  "The text painter: Slug. Glyph outlines are evaluated per pixel in the
+(ns app.client.text.renderer
+  "The text renderer: Slug. Glyph outlines are evaluated per pixel in the
    fragment shader from curve and band textures; no atlas, exact at any zoom.
    Takes: a device and a font's curve, band, and meta data to build the system;
-   a text op with its layout to position and pack glyphs; a render pass to draw
+   a text draw-item with its layout to position and pack glyphs; a render pass to draw
    into.
    Gives: a text system with its pipeline, instance buffer, and font textures;
    one instance per glyph in a GPU buffer; draw calls.
@@ -22,7 +22,7 @@
     axis_x: vec2<f32>, axis_y: vec2<f32>, translation: vec2<f32>,
     flags: u32, padding: u32,
   };
-  @group(0) @binding(4) var<storage, read> containers: array<ContainerTransform>;
+  @group(0) @binding(4) var<storage, read> groups: array<ContainerTransform>;
 
   struct InstanceInput {
     @location(0) rect: vec4<f32>,
@@ -59,7 +59,7 @@
 
     let world_pos = vec2<f32>(instance.rect.x + (pos.x * instance.rect.z),
                               instance.rect.y + (pos.y * instance.rect.w));
-    let c = containers[instance.container_idx];
+    let c = groups[instance.container_idx];
     let is_screen = (c.flags & 1u) != 0u;
     let zm = select(camera.zoom, 1.0, is_screen);
     let pn = select(camera.pan, vec2<f32>(0.0, 0.0), is_screen);
@@ -227,7 +227,7 @@
     return scene_color(color, saturate(coverage + params.sharpness));
   }"))
 
-(def slug-text-instance-stride 100) ;; 24 words + container u32
+(def slug-text-instance-stride 100) ;; 24 words + group u32
 
 (defn- create-instance-buffer [^js/GPUDevice device initial-capacity stride]
   (let [size (* initial-capacity stride)
@@ -484,7 +484,7 @@
       1.2))
 
 (def ^:private no-layout-fallbacks
-  {:ground 0 :combined-text-ops 0 :settings-panel-text 0})
+  {:ground 0 :combined-text-draw-items 0 :settings-panel-text 0})
 
 (defn- sum-fallbacks [rows]
   (reduce (fn [totals row] (merge-with + totals (:fallbacks row)))
@@ -493,11 +493,11 @@
 
 (defn- line-index-for-layout [layout-result]
   ;; Contract-T retains this index at construction. Consumers must never rebuild
-  ;; it by scanning the line vector per op.
+  ;; it by scanning the line vector per draw-item.
   (or (:line-index layout-result) {}))
 
-(defn- position-text-op
-  "Resolve one text op to positioned Contract-T glyphs before a paint backend
+(defn- position-text-draw-item
+  "Resolve one text draw-item to positioned Contract-T glyphs before a paint backend
    is selected. Existing layout results survive clipping and tree translations;
    otherwise the active provider creates exactly one result here."
   [txt global-fsize font-assets char-width snap-step surface]
@@ -508,7 +508,7 @@
         start-y (if snap (snap y) y)
         line-h (font-line-height font-assets)
         existing (:layout-result txt)
-        fallback-surface (or (:layout/surface txt) surface :combined-text-ops)
+        fallback-surface (or (:layout/surface txt) surface :combined-text-draw-items)
         layout-result
         (or existing
             (tl/layout {:text text
@@ -536,10 +536,10 @@
                         [:header (second (:source-range line))
                          [range-start range-end]]
                         [(tl/tagged-index range-start) (tl/tagged-index range-end)]))]
-    ;; The flat view: the line, its selected glyph indexes, and the op's
-    ;; translation. Glyph maps are derived only by the oracle road
-    ;; (`paint-slug-line` via `tl/glyph-views`); the pack door reads planes.
-    {:op {:layout/id (:layout/id layout-result)
+    ;; The flat view: the line, its selected glyph indexes, and the draw-item's
+    ;; translation. Glyph maps are derived only by the oracle route
+    ;; (`paint-slug-line` via `tl/glyph-views`); the pack entry point reads planes.
+    {:draw-item {:layout/id (:layout/id layout-result)
           :style txt
           :font-size fsize
           :container (:container txt)
@@ -553,25 +553,25 @@
 
 (defn- position-text
   [texts global-fsize font-assets char-width snap-step surface]
-  (let [rows (mapv #(position-text-op % global-fsize font-assets char-width
+  (let [rows (mapv #(position-text-draw-item % global-fsize font-assets char-width
                                       snap-step surface)
                    texts)]
-    {:ops (mapv :op rows)
+    {:draw-items (mapv :draw-item rows)
      :fallbacks (sum-fallbacks rows)}))
 
 (defn- paint-slug-line
   [positioned font-assets]
   (let [paint-map (glyph-map (get-in font-assets [:slug :meta :glyphs]))
         res (atom [])]
-    (doseq [{:keys [style font-size] :as positioned-op} positioned]
+    (doseq [{:keys [style font-size] :as positioned-draw-item} positioned]
       (let [txt style
             [cr cg cb ca] (token-color txt)
             fsize font-size
             inv-size (if (pos? fsize) (/ 1.0 fsize) 0.0)
-            positioned-glyphs (tl/glyph-views (:line positioned-op)
-                                              (:indexes positioned-op)
-                                              (:dx positioned-op)
-                                              (:dy positioned-op))]
+            positioned-glyphs (tl/glyph-views (:line positioned-draw-item)
+                                              (:indexes positioned-draw-item)
+                                              (:dx positioned-draw-item)
+                                              (:dy positioned-draw-item))]
         (doseq [{:keys [character position glyph-id-kind] :as positioned-glyph}
                 positioned-glyphs]
           (when-not (or (= character " ") (= glyph-id-kind :virtual/tab))
@@ -601,8 +601,8 @@
                                            (or (get-in slug [:bandMax :x]) 0)
                                            (or (:packedBandMeta slug) 0)]
                                    :color [cr cg cb ca]
-                                   :layout/id (:layout/id positioned-op)
-                                   :container (:container txt)}))))))))
+                                   :layout/id (:layout/id positioned-draw-item)
+                                   :group (:container txt)}))))))))
     @res))
 
 (defn shape-text
@@ -611,10 +611,10 @@
   [texts global-fsize font-assets & {:as opts}]
   (let [char-width (or (:char-width opts) 0.56)
         snap-step (:snap-step opts)
-        {:keys [ops fallbacks]}
+        {:keys [draw-items fallbacks]}
         (position-text texts global-fsize font-assets char-width snap-step
                        (:surface opts))]
-    {:instances (paint-slug-line ops font-assets)
+    {:instances (paint-slug-line draw-items font-assets)
      :fallbacks fallbacks}))
 
 (defn- line-offsets-for [lines]
@@ -657,14 +657,14 @@
         (loop [remaining instances
                sub-i 0]
           (when (seq remaining)
-            (let [{:keys [rect sample-bounds inv-jac banding glyph color container]} (first remaining)
+            (let [{:keys [rect sample-bounds inv-jac banding glyph color group]} (first remaining)
                   [x y w h] rect
                   [sl st sr sb] sample-bounds
                   [jx jy kx ky] inv-jac
                   [sx sy ox oy] banding
                   [gx gy gzx gwy] glyph
                   [cr cg cb ca] color
-                  container (transform/buffer-index effective container)
+                  group (transform/buffer-index effective group)
                   base (* (+ global-i sub-i) 25)]
               (aset float-view (+ base 0) x)
               (aset float-view (+ base 1) y)
@@ -690,12 +690,12 @@
               (aset float-view (+ base 21) cg)
               (aset float-view (+ base 22) cb)
               (aset float-view (+ base 23) ca)
-              (aset uint-view (+ base 24) container)
+              (aset uint-view (+ base 24) group)
               (recur (next remaining) (inc sub-i)))))
         (recur (next lines) (+ global-i (:count (first lines))))))))
 
 (defn pack-instances-oracle
-  "The frozen map road: glyph maps → instance maps → words. Returns the
+  "The frozen map route: glyph maps → instance maps → words. Returns the
    packed instance bytes with line offsets, count, and call-local fallbacks
    (no GPU)."
   [texts font-assets font-size stride & {:keys [char-width snap-step surface effective]
@@ -722,18 +722,18 @@
      :fallbacks (sum-fallbacks shaped-lines)}))
 
 (defn pack-instances-flat
-  "The flat road: planes → words through the pack door, two passes (count,
+  "The flat route: planes → words through the pack entry point, two passes (count,
    then write). Same call-local return shape as `pack-instances-oracle`."
   [texts font-assets font-size stride & {:keys [char-width snap-step surface effective]
                                           :or {char-width 0.56}}]
   (let [table (glyph-pack/slug-table (get-in font-assets [:slug :meta :glyphs]))
         shaped-lines (mapv (fn [tokens-in-line]
-                             (let [{:keys [ops fallbacks]}
+                             (let [{:keys [draw-items fallbacks]}
                                    (position-text tokens-in-line font-size font-assets
                                                   char-width snap-step surface)]
-                               {:ops ops
+                               {:draw-items draw-items
                                 :count (reduce + 0 (map #(glyph-pack/count-instances % table)
-                                                        ops))
+                                                        draw-items))
                                 :fallbacks fallbacks}))
                            texts)
         actual-instances (reduce + (map :count shaped-lines))
@@ -780,7 +780,7 @@
       (let [same (take-while #(= row %) remaining)
             n (count same)]
         (recur (drop n remaining) (+ offset n)
-               (conj result {:clip (:clip row) :container (:container row)
+               (conj result {:clip (:clip row) :group (:group row)
                              :offset offset :count n})))
       result)))
 
@@ -794,14 +794,14 @@
                                  (:num-instances geo))
                            clip-row (first (filter :clip
                                                    (get line-clips line-index)))]
-                       {:clip (:clip clip-row) :container (:container clip-row)
+                       {:clip (:clip clip-row) :group (:container clip-row)
                         :offset start :count (- end start)}))
                    (range line-count))]
     (->> rows
-         (partition-by #(select-keys % [:clip :container]))
+         (partition-by #(select-keys % [:clip :group]))
          (mapv (fn [group]
                  (let [first-row (first group)]
-                   {:clip (:clip first-row) :container (:container first-row)
+                   {:clip (:clip first-row) :group (:group first-row)
                     :offset (:offset first-row)
                     :count (reduce + (map :count group))}))))))
 

@@ -164,7 +164,7 @@
     (into (vec (or headers [])) body)))
 
 (defn- input-id [semantic-input]
-  ;; The semantic input itself remains in :receipts; this stable process-local
+  ;; The semantic input itself remains in :stats; this stable process-local
   ;; hash is identity, never a source offset or shaping substitute.
   (str "t0/" (hash semantic-input)))
 
@@ -174,7 +174,7 @@
 
    Required semantic inputs are source text (or exact `source-lines`) and the
    current advance/line height. `origin` is material-local. `baseline-offset`
-   defaults to zero because existing text-op call sites already carry baseline
+   defaults to zero because existing text-draw-item call sites already carry baseline
    y; ground blocks pass font-size to preserve their existing baseline."
   [{:keys [text source-lines font-size char-advance line-height origin
            baseline-offset inline-size max-chars wrap-policy headers clip
@@ -300,7 +300,7 @@
      :clip-plan {:visible-lines (mapv :line/id line-data)
                  :visible-glyph-ranges (mapv :source-range line-data)
                  :clip-geometry clip}
-     :receipts {:output-hash (str id "/" (hash [layout-version texts
+     :stats {:output-hash (str id "/" (hash [layout-version texts
                                                  logical-w logical-h]))
                 :source-lines (vec (or source-lines texts))
                 :font-shaper-environment legacy-provider}})))
@@ -376,7 +376,7 @@
 (defn- work+! [!work key n]
   (vswap! !work update key (fnil + 0) n))
 
-;; --- the flat road: spans, wrap, and ink over columns -----------------------
+;; --- the flat route: spans, wrap, and ink over columns -----------------------
 
 (defn- sort-glyph-order
   "Glyph indexes of one shaped line ordered by (cluster-start, cluster-end,
@@ -407,7 +407,7 @@
    (source-start, source-end), each span's ascending glyph indexes laid out
    contiguously in `:order`, its [min, max+1) glyph range, its font-unit
    left/right edge, and whether it is contiguous. Pure; the caller counts
-   `glyph-visits` and `cluster-index-writes` exactly as the map road did."
+   `glyph-visits` and `cluster-index-writes` exactly as the map route did."
   [line]
   (let [g (long (:glyph-count line))
         order (sort-glyph-order line)
@@ -487,7 +487,7 @@
   "Choose one segment-relative cut from an already-shaped source line.
    A cluster is revisited at most once after the chosen whitespace boundary,
    keeping the complete cut walk linear with a <=2C visit bound. (The map
-   road's algorithm, re-keyed to the span table.)"
+   route's algorithm, re-keyed to the span table.)"
   [line-text spans start-index segment-start max-units !work]
   (let [cluster-count (long (:count spans))
         source-length (code-unit-count line-text)]
@@ -631,7 +631,7 @@
 
 (defn glyphs-in-source-range
   "Indexed paint/clip selection. `visited-glyphs` counts only the selected
-   span, never the full line vector (G6's executable receipt)."
+   span, never the full line vector (G6's executable stats)."
   ([line-data source-range]
    (planes/glyphs-in-source-range line-data source-range))
   ([line-data source-range dx dy]
@@ -658,8 +658,8 @@
 (defn result-runs [layout-result]
   (planes/result-runs layout-result))
 
-(defn plane-census [layout-result]
-  (planes/plane-census layout-result))
+(defn plane-coverage-check [layout-result]
+  (planes/plane-coverage-check layout-result))
 
 (defn retained-rich-map? [layout-result]
   (planes/retained-rich-map? layout-result))
@@ -669,18 +669,18 @@
 
 (defn glyph-indexes-in-source-range
   "Indexed selection without glyph maps: the result-wide glyph indexes of a
-   source range plus the span receipt (the flat paint road's read)."
+   source range plus the span stats (the flat paint route's read)."
   [line-data source-range]
   (planes/glyph-indexes-in-source-range line-data source-range))
 
 (defn glyph-views
   "Derive Contract-T glyph maps for explicit result-wide indexes (the oracle
-   paint road)."
+   paint route)."
   [line-data indexes dx dy]
   (planes/glyph-views line-data indexes dx dy))
 
 (defn pack-glyphs!
-  "The pack door: walk result-wide `indexes` of one line calling
+  "The pack entry point: walk result-wide `indexes` of one line calling
    `(f index glyph-id shaped? tab? font-id x y cluster-start cluster-end)`
    with primitives only. See `layout-planes/pack-glyphs!`."
   [line-data indexes dx dy f]
@@ -692,10 +692,10 @@
   (planes/result= a b))
 
 (defn- shaped-layout
-  "The flat road: shape every visual line into columns, derive each line's
+  "The flat route: shape every visual line into columns, derive each line's
    span table in one pass, then fill the result-wide planes directly — no
-   glyph map between the provider and the retained result. The map road it
-   is fenced against lives verbatim in `app.client.text.layout-oracle`."
+   glyph map between the provider and the retained result. The map route it
+   is checked against lives verbatim in `app.client.text.layout-oracle`."
   [{:keys [text source-lines provider font-size line-height origin
            baseline-offset inline-size wrap-policy wrap-col headers clip
            line-map source-id source-revision features variations language
@@ -878,7 +878,7 @@
                   iw-col (:ink-w shaped)
                   ih-col (:ink-h shaped)
                   run-col (:run-index shaped)
-                  ;; glyph rows + the line's ink union (doubles, as the map road)
+                  ;; glyph rows + the line's ink union (doubles, as the map route)
                   [ink-x1 ink-y1 ink-x2 ink-y2 ink? ids]
                   (loop [i 0 ink-x1 0.0 ink-y1 0.0 ink-x2 0.0 ink-y2 0.0
                          ink? false ids ids]
@@ -1066,7 +1066,7 @@
      :space {:coordinates :material-local}
      :regime {:legal-zoom [0.01 1000] :zoom zoom
               :precision :material-f64
-              :paint-road :consumer-selected}
+              :paint-route :consumer-selected}
      :constraints {:inline-size (or inline-size :unbounded)
                    :wrap wrap-policy :line-height line-height
                    :alignment :start :tab-stops (or tab-stops {:columns 4})
@@ -1083,7 +1083,7 @@
      :clip-plan {:visible-lines (mapv :line/id lines)
                  :visible-glyph-ranges (mapv :source-range lines)
                  :clip-geometry clip}
-     :receipts {:output-hash (str id "/" (hash [layout-version glyph-ids
+     :stats {:output-hash (str id "/" (hash [layout-version glyph-ids
                                                 logical-w logical-h]))
                 :source-lines (vec (or source-lines (mapv :text source-records)))
                 :font-shaper-environment (provider-identity provider)
@@ -1093,7 +1093,7 @@
 
 (defn layout
   "Produce the one immutable Contract-T result. A real provider selects T1;
-   absence of a provider preserves the exact T0 compatibility road."
+   absence of a provider preserves the exact T0 compatibility route."
   [{:keys [provider] :as input}]
   (if (shaped-provider? provider)
     (shaped-layout input)
@@ -1197,14 +1197,14 @@
 (defn work-units
   "G1's exact proportionality vocabulary; shaping calls are deliberately
    reported separately."
-  [receipt]
-  (reduce + 0 (map #(long (or (get receipt %) 0)) work-counter-keys)))
+  [stats]
+  (reduce + 0 (map #(long (or (get stats %) 0)) work-counter-keys)))
 
 (defn within-work-bound?
-  ([receipt glyph-count cluster-count run-count]
-   (within-work-bound? receipt glyph-count cluster-count run-count
+  ([stats glyph-count cluster-count run-count]
+   (within-work-bound? stats glyph-count cluster-count run-count
                        :non-monotonic? false))
-  ([receipt glyph-count cluster-count run-count & {:keys [non-monotonic?]}]
+  ([stats glyph-count cluster-count run-count & {:keys [non-monotonic?]}]
    (let [glyph-count (long glyph-count)
          base (* 4 (+ glyph-count cluster-count run-count))
          sort-allowance
@@ -1213,7 +1213,7 @@
               (long (Math/ceil
                      (/ (Math/log (inc glyph-count)) (Math/log 2)))))
            0)]
-     (<= (work-units receipt) (+ base sort-allowance)))))
+     (<= (work-units stats) (+ base sort-allowance)))))
 
 (defn measure-result [layout-result]
   {:layout/id (:layout/id layout-result)
@@ -1245,8 +1245,8 @@
      :glyphs (vec (mapcat :glyphs lines))
      :lines lines}))
 
-(defn line-paint-ops
-  "Adapt layout lines back to the existing text-op maps without changing the
+(defn line-paint-draw-items
+  "Adapt layout lines back to the existing text-draw-item maps without changing the
    renderer-facing schema. Style/range keys come from `template`; positions and
    line text come only from the layout result."
   [layout-result template]
@@ -1475,29 +1475,29 @@
   (long (Math/floor (double x))))
 
 (defn clip-result
-  "Clip one existing text op through the layout's declared clip geometry.
+  "Clip one existing text draw-item through the layout's declared clip geometry.
    `range-mode` preserves the two legacy adapters exactly: `:left-right`
    rewrites :from/:to after substring clipping; `:right-only` preserves :from
    and only updates :to, matching the prior layout path."
-  [layout-result op & {:keys [range-mode] :or {range-mode :left-right}}]
+  [layout-result draw-item & {:keys [range-mode] :or {range-mode :left-right}}]
   (if (shaped-result? layout-result)
     (let [{:keys [left right top bottom]} (get-in layout-result [:constraints :clip])
-          requested-line-id (:layout-line-id op)
-          line (or (line-by-id layout-result requested-line-id (:y op 0))
+          requested-line-id (:layout-line-id draw-item)
+          line (or (line-by-id layout-result requested-line-id (:y draw-item 0))
                    (first (:lines layout-result)))
           [line-start line-end] (line-source-bounds (:source-range line))
-          [op-start op-end]
-          (if-let [paint-range (:paint-source-range op)]
+          [draw-item-start draw-item-end]
+          (if-let [paint-range (:paint-source-range draw-item)]
             (line-source-bounds paint-range)
-            [(+ line-start (long (or (:from op) 0)))
-             (+ line-start (long (or (:to op)
-                                     (code-unit-count (:text op "")))))])
+            [(+ line-start (long (or (:from draw-item) 0)))
+             (+ line-start (long (or (:to draw-item)
+                                     (code-unit-count (:text draw-item "")))))])
           vertical? (and (or (nil? top) (>= (second (:baseline line)) top))
                          (or (nil? bottom) (< (second (:baseline line)) bottom)))
           candidate-range (if (= :header (first (:source-range line)))
                             [:header (second (:source-range line))
-                             [op-start op-end]]
-                            [(tagged-index op-start) (tagged-index op-end)])
+                             [draw-item-start draw-item-end]]
+                            [(tagged-index draw-item-start) (tagged-index draw-item-end)])
           candidate-selection (glyphs-in-source-range line candidate-range)
           visible (filter
                     (fn [glyph]
@@ -1514,13 +1514,13 @@
                                   (map #(source-index-offset
                                          (get-in % [:cluster :source-range 0]))
                                        visible))
-                          op-start)
+                          draw-item-start)
           visible-end (if (seq visible)
                         (reduce max
                                 (map #(source-index-offset
                                        (get-in % [:cluster :source-range 1]))
                                      visible))
-                        op-start)
+                        draw-item-start)
           relative-start (- visible-start line-start)
           relative-end (- visible-end line-start)
           visible-range (if (= :header (first (:source-range line)))
@@ -1531,8 +1531,8 @@
       {:layout/id (:layout/id layout-result)
        :visited-lines (if (line-by-id layout-result requested-line-id) 1 2)
        :visited-glyphs (:visited-glyphs candidate-selection)
-       :op (when (and vertical? (or (and (nil? left) (nil? right)) (seq visible)))
-             (cond-> (assoc op
+       :draw-item (when (and vertical? (or (and (nil? left) (nil? right)) (seq visible)))
+             (cond-> (assoc draw-item
                             :paint-source-range visible-range)
                (= range-mode :left-right)
                (assoc :from relative-start :to relative-end)
@@ -1544,7 +1544,7 @@
         line (first (:lines layout-result))
         txt (:text line "")
         n (code-unit-count txt)
-        [x y] (:baseline line [(:x op 0) (:y op 0)])
+        [x y] (:baseline line [(:x draw-item 0) (:y draw-item 0)])
         cw (or (first-glyph-advance-x line)
                (let [w (get-in line [:logical-bounds :w] 0)]
                  (if (pos? n) (/ w n) 0)))
@@ -1562,11 +1562,11 @@
                  (- n skip))
         end (min n (+ skip take-n))]
     {:layout/id (:layout/id layout-result)
-     :op (when (and vertical?
+     :draw-item (when (and vertical?
                     (if (or left right) (and horizontal? (< skip end)) true))
            (if-not (or left right)
-             op
-             (cond-> (assoc op :text (subs txt skip end) :x adj-x)
+             draw-item
+             (cond-> (assoc draw-item :text (subs txt skip end) :x adj-x)
                (= range-mode :left-right)
                (assoc :from skip :to end)
 
@@ -1618,7 +1618,7 @@
   (if (shaped-result? layout-result)
     (shaped-hit-test-result layout-result [x y] options)
     (let [{:keys [line-map]} (:constraints layout-result)
-        source-lines (or (get-in layout-result [:receipts :source-lines])
+        source-lines (or (get-in layout-result [:stats :source-lines])
                          (mapv :text (:lines layout-result)))
         line-count (max 1 (if (seq line-map) (count line-map) (count source-lines)))
         bounds (get-in layout-result [:metrics :logical-bounds])

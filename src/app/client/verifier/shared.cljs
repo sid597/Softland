@@ -7,7 +7,7 @@
             [app.client.engine.device :as device]
             [app.client.engine.transform :as transform]
             [app.client.region3d.on-plane-painter :as on-plane-painter]
-            [app.client.text.painter :as text-painter]))
+            [app.client.text.renderer :as text-renderer]))
 
 (def canvas-size 128)
 (def color-format "rgba8unorm")
@@ -181,8 +181,8 @@
      :limits (selected-limits (.-limits adapter))}))
 
 (defn shader-digests []
-  (let [entries [["slug-vertex" text-painter/slug-vertex-shader]
-                 ["slug-fragment" text-painter/slug-fragment-shader]
+  (let [entries [["slug-vertex" text-renderer/slug-vertex-shader]
+                 ["slug-fragment" text-renderer/slug-fragment-shader]
                  ["region3d-placed-flat"
                   on-plane-painter/placed-flat-shader]]]
     (-> (promise-mapv (fn [[label source]]

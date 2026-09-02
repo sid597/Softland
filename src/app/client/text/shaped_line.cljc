@@ -1,7 +1,7 @@
 (ns app.client.text.shaped-line
   "The shaping provider's output as columns: one shaped source line as typed
    arrays in visual order, with its runs, faces, and total advance. The flat
-   road's vocabulary between the shaper and text layout.
+   route's vocabulary between the shaper and text layout.
    Takes: nothing itself; providers fill a line through `make-line` and the
    column setters, or coerce a legacy map-shaped result through `from-maps`.
    Gives: the shaped line map (scalars + columns), typed-array accessors, and
@@ -114,9 +114,9 @@
 
 ;; ---------------------------------------------------------------------------
 ;; Oracle converters. `->maps` rebuilds EXACTLY the map shape the pre-flat
-;; shaper returned, so the frozen oracle roads consume it unchanged.
+;; shaper returned, so the frozen oracle routes consume it unchanged.
 ;; `from-maps` is the seam coercion for map-shaped providers (the JVM test
-;; corpora); the round trip `(->maps (from-maps m)) = m` is a tripwire.
+;; corpora); the round trip `(->maps (from-maps m)) = m` is a regression test.
 
 (defn- glyph-map [line i]
   (let [run (u32-get (:run-index line) i)

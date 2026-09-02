@@ -181,7 +181,7 @@
       (is (= "long" (:text (tl/copy-result layout [:header 0 [0 4]]))))
       (is (= ["abc" "def"] (mapv :text body)))
       ;; body initial + 2 final segments + 2 header shapes; reference excluded.
-      (is (= 5 (get-in layout [:receipts :proportionality :shape-calls]))))))
+      (is (= 5 (get-in layout [:stats :proportionality :shape-calls]))))))
 
 (deftest provider-fault-totality
   (testing "a nonempty body with no provider clusters stays one total line"
@@ -194,14 +194,14 @@
           layout (tl/layout (layout-input "😀x" {:provider provider
                                                   :wrap-col 1}))]
       (is (= ["😀x"] (mapv :text (body-lines layout))))
-      (is (= 1 (get-in layout [:receipts :provider-fault])))))
+      (is (= 1 (get-in layout [:stats :provider-fault])))))
   (testing "every invalid reference shape produces one fault and unbounded body"
     (doseq [fault [:empty :missing :non-numeric :zero :negative]]
       (let [layout (tl/layout (layout-input "abcdef"
                                             {:provider (synthetic-provider fault)
                                              :wrap-col 1}))]
         (is (= ["abcdef"] (mapv :text (body-lines layout))) (name fault))
-        (is (= 1 (get-in layout [:receipts :provider-fault])) (name fault))
+        (is (= 1 (get-in layout [:stats :provider-fault])) (name fault))
         (is (nil? (:reference-advance layout)) (name fault))
         (is (nil? (:inline-size layout)) (name fault))))))
 
@@ -279,9 +279,9 @@
           hit (tl/layout-cache-acquire (:cache miss) address key
                                        #(throw (ex-info "hit built" {})))
           unbounded (tl/layout (layout-input "abc def" {:wrap-col nil}))]
-      (is (= 1 (get-in miss [:result :receipts :reference-shapes])))
+      (is (= 1 (get-in miss [:result :stats :reference-shapes])))
       (is (:hit? hit))
-      (is (= 0 (get-in unbounded [:receipts :reference-shapes])))
+      (is (= 0 (get-in unbounded [:stats :reference-shapes])))
       (is (nil? (:reference-advance unbounded))))))
 
 (defn- result [id]
@@ -386,12 +386,12 @@
                             :wrap-col 40})))
 
 (defn- work-shape
-  "G, C, R and the retained proportionality receipt of one layout."
+  "G, C, R and the retained proportionality stats of one layout."
   [layout]
   {:g (count (mapcat tl/line-glyphs (:lines layout)))
    :c (count (mapcat tl/line-clusters (:lines layout)))
    :r (count (tl/result-runs layout))
-   :receipt (get-in layout [:receipts :proportionality])})
+   :stats (get-in layout [:stats :proportionality])})
 
 (defn- monotonic-line? [line]
   (every? (fn [[a b]]
@@ -411,12 +411,12 @@
 
 (deftest pathological-linearity-constants-bound
   (let [layout (pathological-layout pathological-4x false)
-        {:keys [g c r receipt]} (work-shape layout)
+        {:keys [g c r stats]} (work-shape layout)
         consumed (keep #(consumed-text pathological-4x %) (body-lines layout))]
     (testing "the fixture is exactly G1's contracted pathological shape"
       (is (not (str/includes? pathological-4x "\n")))
-      (is (= 1 (count (get-in layout [:receipts :source-lines]))))
-      (is (= [pathological-4x] (get-in layout [:receipts :source-lines])))
+      (is (= 1 (count (get-in layout [:stats :source-lines]))))
+      (is (= [pathological-4x] (get-in layout [:stats :source-lines])))
       (is (>= (count pathological-4x) 4000))
       (is (>= c 4000))
       (is (>= r 3))
@@ -427,22 +427,22 @@
       (testing "cluster-monotonic glyph order"
         (is (every? monotonic-line? (:lines layout)))))
     (testing "work-units <= 4*(G+C+R), covering index build AND wrap-cut selection"
-      (is (<= (tl/work-units receipt) (* 4 (+ g c r))))
-      (is (tl/within-work-bound? receipt g c r))
-      (testing "every counter of the exact vocabulary is instrumented"
-        (is (every? #(contains? receipt %) tl/work-counter-keys))
-        (is (pos? (:wrap-candidate-visits receipt)))))
+      (is (<= (tl/work-units stats) (* 4 (+ g c r))))
+      (is (tl/within-work-bound? stats g c r))
+      (testing "every counter of the exact vocabulary is diagnostic"
+        (is (every? #(contains? stats %) tl/work-counter-keys))
+        (is (pos? (:wrap-candidate-visits stats)))))
     (testing "per source line, shape-calls <= 1 + final-segment count"
-      (is (<= (:shape-calls receipt) (inc (count (:lines layout))))))))
+      (is (<= (:shape-calls stats) (inc (count (:lines layout))))))))
 
 (deftest work-unit-growth-row
   (testing "the 4x fixture is literally four repetitions of the 1x input"
     (is (= pathological-4x (apply str (repeat 4 pathological-1x)))))
   (let [one-work (tl/work-units
-                  (:receipt (work-shape
+                  (:stats (work-shape
                              (pathological-layout pathological-1x false))))
         four-work (tl/work-units
-                   (:receipt (work-shape
+                   (:stats (work-shape
                               (pathological-layout pathological-4x false))))]
     (is (pos? one-work))
     (is (<= four-work (* 5 one-work)))))
@@ -450,7 +450,7 @@
 (deftest shuffled-glyph-order-linearity-and-exact-index-vectors
   (let [monotonic (pathological-layout pathological-4x false)
         shuffled (pathological-layout pathological-4x true)
-        {:keys [g c r receipt]} (work-shape shuffled)]
+        {:keys [g c r stats]} (work-shape shuffled)]
     (testing "the twin is genuinely non-monotonic over identical content"
       (is (every? monotonic-line? (:lines monotonic)))
       (is (some (complement monotonic-line?) (:lines shuffled)))
@@ -458,8 +458,8 @@
       (is (= (mapv :consumed-range (:lines monotonic))
              (mapv :consumed-range (:lines shuffled)))))
     (testing "work-units <= 4*(G+C+R) + G*ceil(log2(G+1))"
-      (is (<= (tl/work-units receipt) (+ (* 4 (+ g c r)) (sort-allowance g))))
-      (is (tl/within-work-bound? receipt g c r :non-monotonic? true)))
+      (is (<= (tl/work-units stats) (+ (* 4 (+ g c r)) (sort-allowance g))))
+      (is (tl/within-work-bound? stats g c r :non-monotonic? true)))
     (testing "non-monotonic sources retain EXACT index vectors, not the span"
       (let [range [(tl/tagged-index 4) (tl/tagged-index 12)]
             m (tl/glyphs-in-source-range (first (:lines monotonic)) range)
@@ -485,7 +485,7 @@
 ;; ---------------------------------------------------------------------------
 ;; G1 "Captured seeded negatives" (a) and (b): the rejected strategies are RUN,
 ;; not described. Each walks the same retained fixture the positive rows use,
-;; produces the same ANSWER as the indexed road, and emits its cost through the
+;; produces the same ANSWER as the indexed route, and emits its cost through the
 ;; same counter vocabulary -- so the gate predicates judge a measurement.
 
 (defn- legacy-per-cluster-glyph-scan
@@ -514,18 +514,18 @@
                         (remove :consumed? (tl/line-clusters line)))))
               lines)]
     {:membership membership
-     :receipt {:glyph-visits @!visits}}))
+     :stats {:glyph-visits @!visits}}))
 
 (defn- indexed-cluster-glyph-membership
-  "The linear road's answer: the retained exact index vectors."
+  "The linear route's answer: the retained exact index vectors."
   [lines]
   (mapv (fn [line]
           (mapv :glyph-indexes (tl/glyph-span-index-view line)))
         lines))
 
 (defn- legacy-full-vector-span-scan
-  "Negative (b): the rejected per-op full-glyph-vector reader (the renderer's
-   per-op glyph filter). Selecting a source range visits EVERY glyph of the op;
+  "Negative (b): the rejected per-draw-item full-glyph-vector reader (the renderer's
+   per-draw-item glyph filter). Selecting a source range visits EVERY glyph of the draw-item;
    the cost is emitted through G6's own `:visited-glyphs`/`:glyph-span-count`."
   [line [start end]]
   (let [glyphs (tl/line-glyphs line)
@@ -553,29 +553,29 @@
         line (first (:lines layout))
         range [(tl/tagged-index 4) (tl/tagged-index 12)]
         selected (tl/glyphs-in-source-range line range)]
-    (testing "the indexed span road visits only the selected span"
+    (testing "the indexed span route visits only the selected span"
       (is (= 8 (:visited-glyphs selected)))
       (is (tl/within-span-bound?
            {:visited-glyphs (:visited-glyphs selected) :glyph-span-count 8})))
-    (testing "negative (a): the instrumented per-cluster whole-glyph strategy"
+    (testing "negative (a): the diagnostic per-cluster whole-glyph strategy"
       (let [legacy (legacy-per-cluster-glyph-scan (:lines layout))]
         ;; Same answer as the linear indexer -- a real strategy, not a literal.
         (is (= (indexed-cluster-glyph-membership (:lines layout))
                (:membership legacy)))
-        (is (pos? (:glyph-visits (:receipt legacy))))
-        (is (> (:glyph-visits (:receipt legacy)) (* 4 (+ g c r))))
-        (is (false? (tl/within-work-bound? (:receipt legacy) g c r)))
+        (is (pos? (:glyph-visits (:stats legacy))))
+        (is (> (:glyph-visits (:stats legacy)) (* 4 (+ g c r))))
+        (is (false? (tl/within-work-bound? (:stats legacy) g c r)))
         ;; Rejected even with the shuffled fixture's sort allowance granted.
-        (is (false? (tl/within-work-bound? (:receipt legacy) g c r
+        (is (false? (tl/within-work-bound? (:stats legacy) g c r
                                            :non-monotonic? true)))))
-    (testing "negative (b): the instrumented full-vector per-op reader"
+    (testing "negative (b): the diagnostic full-vector per-draw-item reader"
       (let [legacy (legacy-full-vector-span-scan line [4 12])]
         (is (= (mapv :character (:glyphs selected))
                (mapv :character (:glyphs legacy))))
         (is (= (count (tl/line-glyphs line)) (:visited-glyphs legacy)))
         (is (> (:visited-glyphs legacy) (:glyph-span-count legacy)))
         (is (false? (tl/within-span-bound? legacy)))))
-    (testing "the T0 legacy road keeps its contiguous-subvector selection"
+    (testing "the T0 legacy route keeps its contiguous-subvector selection"
       (let [legacy (tl/layout {:text "abcdef" :char-advance 8
                                :font-size 14 :line-height 20})
             legacy-line (first (:lines legacy))

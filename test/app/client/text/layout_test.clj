@@ -117,7 +117,7 @@
                   (mapcat :source-range (:lines layout-result)))))))
 
 (deftest t0-legacy-provider-zero-diff-corpus
-  (testing "word wrap and measurement reproduce the current monospace road"
+  (testing "word wrap and measurement reproduce the current monospace route"
     (let [layout-result (corpus-layout)]
       (is (= ["alpha beta" "gamma"] (:lines (tl/wrap-result layout-result))))
       (is (= [50 24] (get-in (tl/measure-result layout-result)
@@ -136,7 +136,7 @@
                                   :font-size 10 :char-advance 8 :line-height 12
                                   :origin [0 10]
                                   :clip {:left 9 :right 35 :top 10}})
-          clipped (:op (tl/clip-result clip-layout
+          clipped (:draw-item (tl/clip-result clip-layout
                                        {:text "abcdef" :x 0 :y 10
                                         :from 0 :to 6 :size 10}))
           hit-layout (tl/layout {:text "abcdef"

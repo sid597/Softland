@@ -1,8 +1,8 @@
 (ns app.client.text.shaper-oracle
-  "The frozen map road of the HarfBuzz shaper: the pre-flat `shape-line*` and
+  "The frozen map route of the HarfBuzz shaper: the pre-flat `shape-line*` and
    its helpers, verbatim — `getGlyphInfosAndPositions` → `js->clj`, the
    per-glyph `glyphExtents` round trip, the 11-key glyph maps, `position-runs`,
-   `cluster-records`. Kept as the oracle the flat shaper is fenced against
+   `cluster-records`. Kept as the oracle the flat shaper is checked against
    (verifier only); never improved.
    Takes: the provider's handles {:hb :bidi :faces}, a line of text, shaping
    options.
@@ -204,6 +204,6 @@
                          :rtl :ltr)})))
 
 (defn shape-line
-  "Run the frozen map road with the provider's handles."
+  "Run the frozen map route with the provider's handles."
   [{:keys [hb bidi faces]} text opts]
   (shape-line* hb bidi faces (str (or text "")) opts))

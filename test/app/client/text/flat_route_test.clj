@@ -1,8 +1,8 @@
-(ns app.client.text.flat-road-test
-  "The flat road's JVM tripwires (docs/shaping-correction/SHAPER-BORDER.md §8):
-   F2 — the flat `shaped-layout` and the frozen map road agree plane for plane
-   on every fenced corpus; the shaped-line converters round-trip; the I1/I2
-   doors keep working on flat results; layout never memoizes."
+(ns app.client.text.flat-route-test
+  "The flat route's JVM regression tests (docs/shaping-correction/SHAPER-BORDER.md §8):
+   F2 — the flat `shaped-layout` and the frozen map route agree plane for plane
+   on every consistency-check corpus; the shaped-line converters round-trip; the I1/I2
+   entry points keep working on flat results; layout never memoizes."
   (:require [clojure.test :refer [deftest is testing]]
             [app.client.text.layout :as tl]
             [app.client.text.layout-oracle :as oracle]
@@ -19,14 +19,14 @@
           :font-size 10 :line-height 14
           :origin [20 30] :baseline-offset 10
           :clip {:left 24 :right 90 :top 30 :bottom 60}
-          :source-id :flat-road :source-revision 1
+          :source-id :flat-route :source-revision 1
           :zoom 1}
          overrides))
 
 (defn- synthetic-input [text overrides]
   ((deref #'sct/layout-input) text overrides))
 
-(def ^:private fenced-inputs
+(def ^:private consistency-check-inputs
   (concat
    [(corpus-input {})
     (corpus-input {:headers ["Heading one" "H2"]})
@@ -51,14 +51,14 @@
                      {:provider ((deref #'sct/pathological-provider)
                                  {:shuffle? false})})]))
 
-(deftest f2-flat-planes-equal-the-frozen-map-road
-  (doseq [input fenced-inputs]
+(deftest f2-flat-planes-equal-the-frozen-map-route
+  (doseq [input consistency-check-inputs]
     (let [flat (tl/layout input)
           mapped (oracle/layout input)]
       (testing (pr-str (select-keys input [:text :wrap-policy :wrap-col :headers]))
         (is (tl/result= flat mapped))
         (is (= (:layout/id flat) (:layout/id mapped)))
-        (is (= (tl/plane-census flat) (tl/plane-census mapped)))
+        (is (= (tl/plane-coverage-check flat) (tl/plane-coverage-check mapped)))
         (is (= (:glyphs (tl/paint-result flat))
                (:glyphs (tl/paint-result mapped))))
         (is (= (mapv tl/line-clusters (:lines flat))
@@ -104,7 +104,7 @@
 
 (deftest i2-oracle-mode-sees-through-planes
   (let [input (corpus-input {})
-        address [:flat-road :a]
+        address [:flat-route :a]
         key (tl/layout-key {:address address :body-text corpus-text
                             :provider layout-test/shaped-provider
                             :font-size 10 :line-height 14 :baseline-offset 10
@@ -129,8 +129,8 @@
     (is (= 2 (count (:lines first-result))))
     (is (= 2 after-first))
     (is (= 4 @!calls))
-    (is (= 2 (get-in first-result [:receipts :proportionality :shape-calls])))
-    (is (= 2 (get-in second-result [:receipts :proportionality :shape-calls])))
+    (is (= 2 (get-in first-result [:stats :proportionality :shape-calls])))
+    (is (= 2 (get-in second-result [:stats :proportionality :shape-calls])))
     (is (tl/result= first-result second-result))))
 
 (deftest flat-result-keeps-the-retained-vocabulary
@@ -152,7 +152,7 @@
     (catch clojure.lang.ExceptionInfo error
       {:message (ex-message error) :data (ex-data error)})))
 
-(deftest t3-container-receipts-and-legal-zoom-have-one-road
+(deftest t3-group-stats-and-legal-zoom-have-one-route
   (let [input (corpus-input {})
         flat (tl/layout input)
         mapped (oracle/layout input)
@@ -160,14 +160,14 @@
         expected-refusal
         {:message "Text zoom is outside Contract-T's legal material range."
          :data {:zoom 0.001 :legal-range [0.01 1000]}}]
-    (testing "the op template's semantic container reaches every line"
-      (is (seq (tl/line-paint-ops flat template)))
+    (testing "the draw-item template's semantic group reaches every line"
+      (is (seq (tl/line-paint-draw-items flat template)))
       (is (every? #(= 17 (:container %))
-                  (tl/line-paint-ops flat template))))
+                  (tl/line-paint-draw-items flat template))))
     (testing "unused input hashes are absent while hit-test source lines stay"
       (doseq [result [flat mapped]]
-        (is (not (contains? (:receipts result) :input-hash)))
-        (is (seq (get-in result [:receipts :source-lines])))))
+        (is (not (contains? (:stats result) :input-hash)))
+        (is (seq (get-in result [:stats :source-lines])))))
     (testing "layout and oracle share the public legal zoom predicate"
       (is (tl/legal-zoom? 0.01))
       (is (tl/legal-zoom? 1000))

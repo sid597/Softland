@@ -6,15 +6,15 @@ const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../
 
 const owners = [
   ["src/app/client/region3d/on_plane.cljc", "layout-placed-text", ["text-layout/layout"]],
-  ["src/app/client/text/painter.cljs", "position-text-op", ["tl/layout", ":layout-result", "tl/glyph-indexes-in-source-range", "line-index-for-layout"]],
-  ["src/app/client/text/painter.cljs", "paint-slug-line", ["painted-glyph", "tl/glyph-views"]],
-  // The flat paint road: planes reach the instance words only through the
-  // pack door (SHAPER-BORDER.md §6.3/§6.4); the packer never owns layout.
+  ["src/app/client/text/renderer.cljs", "position-text-draw-item", ["tl/layout", ":layout-result", "tl/glyph-indexes-in-source-range", "line-index-for-layout"]],
+  ["src/app/client/text/renderer.cljs", "paint-slug-line", ["painted-glyph", "tl/glyph-views"]],
+  // The flat paint route: planes reach the instance words only through the
+  // pack entry point (SHAPER-BORDER.md §6.3/§6.4); the packer never owns layout.
   ["src/app/client/text/glyph_pack.cljs", "each-painted!", ["tl/pack-glyphs!"]],
-  ["src/app/client/text/glyph_pack.cljs", "pack-op!", ["each-painted!"]],
+  ["src/app/client/text/glyph_pack.cljs", "pack-draw-item!", ["each-painted!"]],
 ];
 
-const paintConsumers = ["paint-slug-line", "each-painted!", "pack-op!"];
+const paintConsumers = ["paint-slug-line", "each-painted!", "pack-draw-item!"];
 const forbiddenPaintOwnership = ["tl/layout", "tl/legacy-char-advance", "tl/measure-result", "tl/hit-test-result"];
 
 const privateMetricPatterns = [

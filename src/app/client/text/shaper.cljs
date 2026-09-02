@@ -1,10 +1,10 @@
 (ns app.client.text.shaper
   "Text shaping with HarfBuzz: turns a string plus font programs into glyph
    ids, clusters, advances, offsets, and extents in font units, with bidi
-   direction — as columns. The flat road: HarfBuzz's glyph structs are read
+   direction — as columns. The flat route: HarfBuzz's glyph structs are read
    straight out of the WASM heap into one shaped line (`shaped-line`), one
    crossing in (`addText`) and one crossing out (the two heap views) per run;
-   no object per glyph. The pre-flat map road stays beside it as
+   no object per glyph. The pre-flat map route stays beside it as
    `:shape-line-oracle` (`shaper-oracle`, verifier only).
    Takes: ordered font sources (primary and fallbacks, with variations) and
    shaping options.
@@ -61,7 +61,7 @@
    bundle/script URL. A failed attempt clears the promise cache so a later
    call can retry instead of reusing the rejection forever. The raw
    Emscripten module (heap views + exports) is kept beside the wrapper for
-   the flat road."
+   the flat route."
   []
   (or @!harfbuzz-promise
       (let [create-hb (module-default hb-module)
@@ -110,12 +110,12 @@
      :axes axes
      :variations variations
      :unicodes (typed-set unicodes)
-     ;; the flat road's membership test — one JS Set, no CLJS hashing per char
+     ;; the flat route's membership test — one JS Set, no CLJS hashing per char
      :unicode-set (js/Set. unicodes)
      :metrics extents}))
 
 ;; ---------------------------------------------------------------------------
-;; The flat road: run split over arrays, shaping into columns.
+;; The flat route: run split over arrays, shaping into columns.
 
 (defn- face-index-at
   "One byte per UTF-16 code unit: the index of the first face covering that
@@ -333,7 +333,7 @@
 (defn create-provider
   "Create a synchronous Contract-T provider after HarfBuzz and font bytes are
    loaded. `font-sources` is an ordered primary+fallback vector. `:shape-line`
-   is the flat road; `:shape-line-oracle` the frozen map road."
+   is the flat route; `:shape-line-oracle` the frozen map route."
   [hb font-sources {:keys [features language tab-columns]
                     :or {features ["kern" "liga" "clig" "calt"]
                          language "und" tab-columns 4}}]

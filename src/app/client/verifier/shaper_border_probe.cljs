@@ -314,7 +314,7 @@
       :what "the REAL provider: ((:shape-line provider) line opts) — bidi · runs · shape-run · position-runs · cluster-records (shaper.cljs:269–290)"
       :unit :line :items lines
       :f (fn [line]
-           ;; flat road (SHAPER-BORDER.md §2(3)): the provider returns a
+           ;; flat route (SHAPER-BORDER.md §2(3)): the provider returns a
            ;; shaped line; its glyph count is a scalar, not a vector length.
            (let [shaped ((:shape-line provider) line shape-opts)]
              (or (:glyph-count shaped) (count (:glyphs shaped)))))}

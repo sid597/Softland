@@ -5,7 +5,7 @@
    Takes: a fully built layout result.
    Gives: the result compacted onto planes; accessors that rebuild glyphs and
    lines on demand.
-   Holds: a capped list of weak references to live planes, for receipts only."
+   Holds: a capped list of weak references to live planes, for stats only."
   )
 
 (def ^:private id-mask 0x3fffffff)
@@ -489,7 +489,7 @@
                      :clusters (line-clusters line))))
         (:lines result)))
 
-(defn plane-census [result]
+(defn plane-coverage-check [result]
   (let [planes (:layout/planes result)
         glyph-arrays (cond-> [[:position-x 4] [:position-y 4] [:advance-x 4]
                               [:offset-x 4] [:offset-y 4]
@@ -531,12 +531,12 @@
          (:lines result))))
 
 ;; ---------------------------------------------------------------------------
-;; The flat road's doors. The retained vocabulary above is unchanged; these
+;; The flat route's entry points. The retained vocabulary above is unchanged; these
 ;; are the only places a layout builder writes planes without a glyph map, and
-;; the only place a painter reads them without one.
+;; the only place a renderer reads them without one.
 
 (defn plane-builder
-  "Allocate result-wide planes for the flat layout road: exactly the arrays
+  "Allocate result-wide planes for the flat layout route: exactly the arrays
    `allocate-planes` would allocate for `glyph-count` glyphs and `span-count`
    spans, with the `:advance-y` column only when `advance-y?` and the
    `:glyph-order` array only when `order-count` is positive."
@@ -599,13 +599,13 @@
 
 (defn finish-planes!
   "Seal a builder into the retained planes value and register it for the
-   census, exactly as `compact-result` does."
+   coverage check, exactly as `compact-result` does."
   [b source]
   (register-live-planes! (assoc b :source source)))
 
 (defn glyph-indexes-in-source-range
   "The index half of `glyphs-in-source-range`: the selected result-wide glyph
-   indexes and the span receipt, no glyph map materialized."
+   indexes and the span stats, no glyph map materialized."
   [line source-range]
   (let [planes (plane-ref line)
         [start end] (source-bounds source-range)
@@ -623,12 +623,12 @@
 
 (defn glyph-views
   "Derive Contract-T glyph maps for explicit result-wide indexes (the oracle
-   paint road)."
+   paint route)."
   [line indexes dx dy]
   (mapv #(glyph-view* line % dx dy) indexes))
 
 (defn pack-glyphs!
-  "The pack door: walk `indexes` (result-wide, ascending) and call
+  "The pack entry point: walk `indexes` (result-wide, ascending) and call
    `(f index glyph-id shaped? tab? font-id x y cluster-start cluster-end)`
    with primitives only — no glyph map. `x`/`y` are the plane positions plus
    `dx`/`dy`; `font-id` resolves by the same source-containment rule as
@@ -675,7 +675,7 @@
           (recur (inc k) run-pos))))
     nil))
 
-;; --- equality with typed planes (the oracle fence's comparator) ------------
+;; --- equality with typed planes (the oracle consistency check's comparator) ------------
 
 (defn- typed-array? [v]
   #?(:clj (and (some? v) (.isArray (class v)))
@@ -719,12 +719,12 @@
       (update :line-index (fn [index]
                             (into {} (map (fn [[k v]] [k (dissoc v ::planes)]))
                                   index)))
-      (update :receipts dissoc :proportionality)))
+      (update :stats dissoc :proportionality)))
 
 (defn result=
   "Layout-result equality that sees through typed planes: planes element-wise,
    the rest structurally with the plane owners stripped and the
-   proportionality counters excluded (the two roads count their own work).
+   proportionality counters excluded (the two routes count their own work).
    Results without planes compare with `=`."
   [a b]
   (if (and (map? a) (map? b) (:layout/planes a) (:layout/planes b))
@@ -742,22 +742,22 @@
        (swap! !live-plane-refs
               (fn [refs]
                 (let [refs (conj refs (js/WeakRef. planes))]
-                  ;; The receipt instrument must not become its own unbounded
+                  ;; The stats diagnostic must not become its own unbounded
                   ;; metadata leak during long editing sessions.
                   (if (> (count refs) 4096)
                     (into [] (filter #(.deref %)) refs)
                     refs))))))
   planes)
 
-(defn live-plane-census
-  "Browser receipt surface: census only plane owners still live after GC.
-   Weak references make the instrument incapable of extending retention."
+(defn live-plane-coverage-check
+  "Browser stats surface: coverage check only plane owners still live after GC.
+   Weak references make the diagnostic incapable of extending retention."
   []
   #?(:clj {:layout-count 0 :plane-bytes 0 :glyph-count 0 :span-count 0}
      :cljs
      (let [live (into [] (keep (fn [ref] (.deref ref))) @!live-plane-refs)
            _ (reset! !live-plane-refs (mapv #(js/WeakRef. %) live))
-           rows (map #(plane-census {:layout/planes %}) live)]
+           rows (map #(plane-coverage-check {:layout/planes %}) live)]
        {:layout-count (count live)
         :plane-bytes (reduce + 0 (map :plane-bytes rows))
         :glyph-bytes (reduce + 0 (map :glyph-bytes rows))
@@ -768,5 +768,5 @@
 
 #?(:cljs
    (let [api (or (aget js/globalThis "__softlandLayoutRetention") (js-obj))]
-     (aset api "planeCensus" (fn [] (clj->js (live-plane-census))))
+     (aset api "planeCensus" (fn [] (clj->js (live-plane-coverage-check))))
      (aset js/globalThis "__softlandLayoutRetention" api)))

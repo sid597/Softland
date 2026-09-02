@@ -193,12 +193,12 @@ const laneGuards = (result) => [
     // SHAPER-BORDER.md §8: F1 (flat shaper ≡ oracle shaper), F2 (flat layout
     // ≡ oracle layout, real HarfBuzz), F3 (flat pack bytes ≡ oracle bytes).
     // The µs/glyph bracket rides in the same block and is never gated.
-    name: "text-flat-road",
+    name: "text-flat-route",
     pass:
-      result.textFlatRoad?.pass === true &&
-      Array.isArray(result.textFlatRoad?.rows) &&
-      result.textFlatRoad.rows.length >= 3 &&
-      result.textFlatRoad.rows.every((row) => row.pass === true),
+      result.textFlatRoute?.pass === true &&
+      Array.isArray(result.textFlatRoute?.rows) &&
+      result.textFlatRoute.rows.length >= 3 &&
+      result.textFlatRoute.rows.every((row) => row.pass === true),
   },
 ];
 
@@ -231,7 +231,7 @@ const representativeSpecs = [
   },
   {
     manifestKey: "images",
-    resultKey: "textContainerTree",
+    resultKey: "textGroupTree",
     file: "gpu-slug-container-tree-mixed-face-cid17-slot1.png",
   },
 ];
@@ -241,8 +241,8 @@ const representativeGoldens = (result, manifest) =>
     const cases =
       resultKey === "cases"
         ? result.cases
-        : resultKey === "textContainerTree"
-          ? [result.ubuntuSlug?.containerTree?.case].filter(Boolean)
+        : resultKey === "textGroupTree"
+          ? [result.ubuntuSlug?.groupTree?.case].filter(Boolean)
           : result[resultKey]?.cases;
     const current = imageRows(cases).find((row) => row.file === file);
     const expected = manifest[manifestKey]?.find((row) => row.file === file);
@@ -312,7 +312,7 @@ const sourceInputs = () =>
 const recordUbuntuSlugGolden = (result, manifest) => {
   const cases = [
     ...(result.ubuntuSlug?.cases || []),
-    result.ubuntuSlug?.containerTree?.case,
+    result.ubuntuSlug?.groupTree?.case,
   ].filter(Boolean);
   const images = cases.flatMap((renderCase) =>
     renderCase.images.map((image) => ({ renderCase, image })),
@@ -409,7 +409,7 @@ const runBrowser = async () => {
 
 const main = async () => {
   if (process.argv.length !== 2) {
-    throw new Error("The cleanup verifier has one replay road: npm run verify:render-engine");
+    throw new Error("The cleanup verifier has one replay route: npm run verify:render-engine");
   }
   if (!fs.existsSync(buildFile)) {
     throw new Error(`Missing verifier build ${path.relative(repoRoot, buildFile)}`);
@@ -459,9 +459,9 @@ const main = async () => {
       pass: result.ubuntuSlug?.pass === true,
     },
     representativeGoldens: goldens,
-    // SHAPER-BORDER.md §2(3): the flat road's fences and its µs/glyph
+    // SHAPER-BORDER.md §2(3): the flat route's consistency checks and its µs/glyph
     // bracket live in the receipt permanently (the bracket is never gated).
-    textFlatRoad: result.textFlatRoad,
+    textFlatRoute: result.textFlatRoute,
     sourceInputs: sourceInputs(),
     adapter: result.adapter,
     browserConsole,
