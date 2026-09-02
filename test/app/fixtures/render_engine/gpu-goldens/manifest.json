@@ -16,79 +16,79 @@
     {
       "caseId": "legal-min-z0p01",
       "zoom": 0.01,
-      "regime": "legal-envelope-sentinel",
+      "regime": "legal-zoom-range-sentinel",
       "normalization": "screen-constant",
       "shapeExtentWorld": 8000,
       "mode": "slug",
       "file": "gpu-slug-legal-min-z0p01.png",
-      "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
-      "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+      "rawSha256": "017523e44712a0384e64f2c60f44c23514abe94d0820ed14e3add8fc35337eff",
+      "pngSha256": "83d13ea8294a112fb80d9bb154316369871bbbe37ae99120ccacd81508e858dc"
     },
     {
       "caseId": "default-min-z0p1",
       "zoom": 0.1,
-      "regime": "floor-default-clamp",
+      "regime": "engine-default-clamp",
       "normalization": "screen-constant",
       "shapeExtentWorld": 800,
       "mode": "slug",
       "file": "gpu-slug-default-min-z0p1.png",
-      "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
-      "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+      "rawSha256": "017523e44712a0384e64f2c60f44c23514abe94d0820ed14e3add8fc35337eff",
+      "pngSha256": "83d13ea8294a112fb80d9bb154316369871bbbe37ae99120ccacd81508e858dc"
     },
     {
       "caseId": "default-unit-z1",
       "zoom": 1,
-      "regime": "floor-default-clamp",
+      "regime": "engine-default-clamp",
       "normalization": "screen-constant",
       "shapeExtentWorld": 80,
       "mode": "slug",
       "file": "gpu-slug-default-unit-z1.png",
-      "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
-      "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+      "rawSha256": "017523e44712a0384e64f2c60f44c23514abe94d0820ed14e3add8fc35337eff",
+      "pngSha256": "83d13ea8294a112fb80d9bb154316369871bbbe37ae99120ccacd81508e858dc"
     },
     {
       "caseId": "default-max-z8",
       "zoom": 8,
-      "regime": "floor-default-clamp",
+      "regime": "engine-default-clamp",
       "normalization": "screen-constant",
       "shapeExtentWorld": 10,
       "mode": "slug",
       "file": "gpu-slug-default-max-z8.png",
-      "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
-      "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+      "rawSha256": "017523e44712a0384e64f2c60f44c23514abe94d0820ed14e3add8fc35337eff",
+      "pngSha256": "83d13ea8294a112fb80d9bb154316369871bbbe37ae99120ccacd81508e858dc"
     },
     {
       "caseId": "legal-log-z10",
       "zoom": 10,
-      "regime": "legal-envelope-sentinel",
+      "regime": "legal-zoom-range-sentinel",
       "normalization": "screen-constant",
       "shapeExtentWorld": 8,
       "mode": "slug",
       "file": "gpu-slug-legal-log-z10.png",
-      "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
-      "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+      "rawSha256": "017523e44712a0384e64f2c60f44c23514abe94d0820ed14e3add8fc35337eff",
+      "pngSha256": "83d13ea8294a112fb80d9bb154316369871bbbe37ae99120ccacd81508e858dc"
     },
     {
       "caseId": "legal-log-z100",
       "zoom": 100,
-      "regime": "legal-envelope-sentinel",
+      "regime": "legal-zoom-range-sentinel",
       "normalization": "screen-constant",
       "shapeExtentWorld": 0.8,
       "mode": "slug",
       "file": "gpu-slug-legal-log-z100.png",
-      "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
-      "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+      "rawSha256": "017523e44712a0384e64f2c60f44c23514abe94d0820ed14e3add8fc35337eff",
+      "pngSha256": "83d13ea8294a112fb80d9bb154316369871bbbe37ae99120ccacd81508e858dc"
     },
     {
       "caseId": "legal-max-z1000",
       "zoom": 1000,
-      "regime": "legal-envelope-sentinel",
+      "regime": "legal-zoom-range-sentinel",
       "normalization": "screen-constant",
       "shapeExtentWorld": 0.08,
       "mode": "slug",
       "file": "gpu-slug-legal-max-z1000.png",
-      "rawSha256": "83e06f2315eddf090bdea4a86496822681aecabe2ea825e325c5d6bee883692b",
-      "pngSha256": "90ad65c42442ea627cad9bacea57d4673214a9ef6f51e16e1b15d7f7c92f277b"
+      "rawSha256": "017523e44712a0384e64f2c60f44c23514abe94d0820ed14e3add8fc35337eff",
+      "pngSha256": "83d13ea8294a112fb80d9bb154316369871bbbe37ae99120ccacd81508e858dc"
     },
     {
       "caseId": "ubuntu-mixed-face",
