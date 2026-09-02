@@ -6,7 +6,7 @@
   (:require [app.client.engine.color :as color]
             [app.client.engine.device :as device]
             [app.client.engine.transform :as transform]
-            [app.client.region3d.on-plane-painter :as on-plane-painter]
+            [app.client.region3d.on-plane-renderer :as on-plane-renderer]
             [app.client.text.renderer :as text-renderer]))
 
 (def canvas-size 128)
@@ -184,7 +184,7 @@
   (let [entries [["slug-vertex" text-renderer/slug-vertex-shader]
                  ["slug-fragment" text-renderer/slug-fragment-shader]
                  ["region3d-placed-flat"
-                  on-plane-painter/placed-flat-shader]]]
+                  on-plane-renderer/placed-flat-shader]]]
     (-> (promise-mapv (fn [[label source]]
                         (.then (sha256-string source)
                                (fn [digest] [label digest])))

@@ -3,7 +3,7 @@
   (:require [app.client.engine.color :as color]
             [app.client.region3d.scene :as scene]))
 
-(defn- bvh-triangle-receipt [bvh]
+(defn- bvh-triangle-stats [bvh]
   (letfn [(walk [node]
             (case (:kind node)
               :leaf (:triangles node)
@@ -16,15 +16,15 @@
 (defn scene-equivalent? [maintained]
   (let [oracle (scene/derive-scene (:region maintained))]
     (and (= (select-keys maintained
-                         [:effective-transforms :instances
+                         [:world-transforms :instances
                           :triangles-by-object])
             (select-keys oracle
-                         [:effective-transforms :instances
+                         [:world-transforms :instances
                           :triangles-by-object]))
          (= (get-in maintained [:bvh :bounds])
             (get-in oracle [:bvh :bounds]))
-         (= (bvh-triangle-receipt (:bvh maintained))
-            (bvh-triangle-receipt (:bvh oracle))))))
+         (= (bvh-triangle-stats (:bvh maintained))
+            (bvh-triangle-stats (:bvh oracle))))))
 
 (defn- rgba-linear [tagged]
   (let [[r g b a] (:rgba tagged)]
@@ -128,9 +128,9 @@
 
 (defn shade-reference
   "CPU shading oracle for the production Region3D GPU verifier."
-  [{:keys [material normal point eye lights ambient bvh object-id]
+  [{:keys [component normal point eye lights ambient bvh object-id]
     :or {lights []}}]
-  (let [[br bg bb alpha] (rgba-linear (:base-color material))
+  (let [[br bg bb alpha] (rgba-linear (:base-color component))
         base [br bg bb]
         view (scene/v- eye point)
         direct
@@ -148,16 +148,16 @@
                             [0.0 0.0 0.0]
                             (punctual-radiance light position point direction))]
              (scene/v+ sum
-                       (pbr-brdf {:base-color (:base-color material)
-                                  :metallic (:metallic material)
-                                  :roughness (:roughness material)
+                       (pbr-brdf {:base-color (:base-color component)
+                                  :metallic (:metallic component)
+                                  :roughness (:roughness component)
                                   :normal normal :view view :light to-light
                                   :radiance radiance}))))
          [0.0 0.0 0.0] lights)
         [ar ag ab _] (rgba-linear (:color ambient))
         ambient-term (scene/hadamard base
                                      (scene/v* [ar ag ab] (:intensity ambient)))
-        [er eg eb _] (rgba-linear (:emissive material))
+        [er eg eb _] (rgba-linear (:emissive component))
         linear (khronos-neutral-tone-map
                 (scene/v+ direct ambient-term [er eg eb]))]
     (conj (mapv #(* % alpha) linear) alpha)))

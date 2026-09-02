@@ -1,9 +1,9 @@
-(ns app.client.region3d.material
+(ns app.client.region3d.component
   "What a 3D region is: a whole scene as closed, declared data (extent,
-   objects by id, materials, lights, view), migrated and normalized before one
+   objects by id, components, lights, view), migrated and normalized before one
    grammar check.
    Takes: a region map; a view map.
-   Gives: the declared grammar; a canonical region; the default material.
+   Gives: the declared grammar; a canonical region; the default component.
    Holds nothing."
   (:require [app.client.engine.color :as color]
             [app.client.engine.schema :as schema]))
@@ -52,7 +52,7 @@
    :torus {:radius 0.5 :tube 0.2
            :radial-segments 32 :tubular-segments 16}})
 
-(def default-material
+(def default-component
   {:base-color {:rgba [0.62 0.66 0.72 1.0]
                 :color-space :srgb
                 :alpha-association :straight}
@@ -79,7 +79,7 @@
 (defn- named-validator [error-type predicate]
   (fn [value]
     (when-not (predicate value)
-      (throw (ex-info "Region grammar refused value" {:error-type error-type})))
+      (throw (ex-info "Region grammar rejected value" {:error-type error-type})))
     true))
 
 (defn- finite-vector? [n value]
@@ -113,7 +113,7 @@
 
 (defn normalize-quaternion
   "Normalize a finite quaternion only inside the migration tolerance. Invalid
-   values pass through so the declared grammar can refuse them once."
+   values pass through so the declared grammar can reject them once."
   [quaternion]
   (if (finite-vector? 4 quaternion)
     (let [length (quaternion-length quaternion)]
@@ -190,13 +190,13 @@
                             :region/ambient-intensity
                             schema/non-negative-number?)}})
 
-(def material-spec
+(def component-spec
   {:keys #{:base-color :metallic :roughness :emissive}
    :validators
    {:base-color color/tagged
-    :metallic (named-validator :region/material-metallic
+    :metallic (named-validator :region/component-metallic
                                #(in-range? 0.0 % 1.0))
-    :roughness (named-validator :region/material-roughness
+    :roughness (named-validator :region/component-roughness
                                 #(in-range? 0.0 % 1.0))
     :emissive color/tagged}})
 
@@ -386,9 +386,9 @@
 
 (defn- body-matches-kind? [object-value]
   (let [present (set (filter #(contains? object-value %)
-                             [:mesh :material :light :text :ink]))]
+                             [:mesh :component :light :text :ink]))]
     (case (:object/kind object-value)
-      :mesh (= #{:mesh :material} present)
+      :mesh (= #{:mesh :component} present)
       :light (= #{:light} present)
       :text (= #{:text} present)
       :ink (= #{:ink} present)
@@ -397,7 +397,7 @@
 
 (def object
   {:keys #{:object/id :object/kind :transform :provenance}
-   :optional #{:parent :mesh :material :light :text :ink}
+   :optional #{:parent :mesh :component :light :text :ink}
    :validators
    {:object/id (named-validator :region/object-id some?)
     :object/kind (named-validator :region/object-kind legal-object-kinds)
@@ -405,7 +405,7 @@
     :transform transform
     :provenance provenance
     :mesh mesh
-    :material material-spec
+    :component component-spec
     :light light
     :text placed-text
     :ink placed-ink}
@@ -506,10 +506,10 @@
     (update (merge default-view (or view-value {})) :lens canonical-lens)
     view-value))
 
-(defn- canonical-material [material-value]
-  (if (or (nil? material-value) (map? material-value))
-    (merge default-material (or material-value {}))
-    material-value))
+(defn- canonical-component [component-value]
+  (if (or (nil? component-value) (map? component-value))
+    (merge default-component (or component-value {}))
+    component-value))
 
 (defn- canonical-mesh [mesh-value]
   (if (map? mesh-value)
@@ -544,7 +544,7 @@
       (case (:object/kind object-value)
         :mesh (-> object-value
                   (update :mesh canonical-mesh)
-                  (update :material canonical-material))
+                  (update :component canonical-component))
         :light (update object-value :light canonical-light)
         :text (update object-value :text canonical-placed-text)
         object-value))
@@ -574,7 +574,7 @@
 
 (defn canonical-region
   "Purely migrate, fill defaults, and normalize near-unit quaternions. It does
-   not refuse; `validate-region!` performs the one declared grammar check."
+   not reject; `validate-region!` performs the one declared grammar check."
   [region]
   (let [region (migrate-region region)]
     (if (map? region)

@@ -1,5 +1,5 @@
 (ns app.client.region3d.on-plane-test
-  (:require [app.client.region3d.material :as region-material]
+  (:require [app.client.region3d.component :as region-component]
             [app.client.region3d.on-plane :as on-plane]
             [app.client.region3d.scene :as region-scene]
             [app.client.engine.transform :as transform]
@@ -9,7 +9,7 @@
 
 (defn- placed-object [id kind address]
   (merge {:object/id id :object/kind kind :parent nil
-          :transform region-material/default-transform
+          :transform region-component/default-transform
           :provenance {:asserted-by :sid}}
          (case kind
            :text {:text {:ref {:address address}
@@ -19,9 +19,9 @@
 (defn- region [objects]
   {:region3d/version 2
    :extent {:width 400.0 :height 240.0 :depth 100.0}
-   :background region-material/default-background
-   :ambient region-material/default-ambient
-   :view-default region-material/default-view
+   :background region-component/default-background
+   :ambient region-component/default-ambient
+   :view-default region-component/default-view
    :scene objects})
 
 (deftest s5-placed-layout-keeps-the-one-glyph-accessor-seam
@@ -47,15 +47,15 @@
         scene (region {:mesh/a object})
         maintained (region-scene/derive-scene scene)
         camera (region-scene/camera-matrices (:view-default scene) [400.0 240.0])
-        effective {0 {:affine transform/identity-affine :flags 0}}
-        region-op {:address :region/shared :region-id :region/a
+        world-transforms {0 {:affine transform/identity-affine :flags 0}}
+        region-draw-item {:address :region/shared :region-id :region/a
                    :container 0 :x 20.0 :y 30.0 :w 400.0 :h 240.0
                    :region3d/scene scene}
         result (on-plane/project-region-anchor
                 {:binding {:bind :region-object :region :region/shared
                            :object :mesh/a :local [0.4 0.25 0.3]}
-                 :region-op region-op :maintained maintained :camera camera
-                 :effective-transforms effective :anchor-container 0})]
+                 :region-draw-item region-draw-item :maintained maintained :camera camera
+                 :world-transforms world-transforms :anchor-container 0})]
     (is (= :resolved (:status result)))
     (is (= [0.4 0.25 0.3] (:point3 result))
         "the required nonzero local point participates in projection")

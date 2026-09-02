@@ -1,5 +1,5 @@
-(ns app.client.region3d.painter
-  "The 3D painter: uploads a region's evaluated scene and session, encodes its
+(ns app.client.region3d.renderer
+  "The 3D renderer: uploads a region's evaluated scene and session, encodes its
    shadow and interior passes into a lease, and composites the result into the
    2D frame. Also attaches the compositor per device.
    Takes: a device and format to build the system; regions with zoom, dpr, and
@@ -10,15 +10,15 @@
    Holds: one system per device and the compositor per device (WeakMaps), plus
    per-system atoms for prepared scenes and composite rows."
   (:require [app.client.region3d.frame :as frame]
-            [app.client.region3d.material :as material]
+            [app.client.region3d.component :as component]
             [app.client.region3d.on-plane :as on-plane]
             [app.client.region3d.scene :as scene]
             [app.client.engine.color :as color]
             [app.client.engine.compositor :as compositor]
             [app.client.engine.leases :as region-bindings]
             [app.client.engine.transform :as transform]
-            [app.client.region3d.on-plane-painter
-             :as on-plane-painter]))
+            [app.client.region3d.on-plane-renderer
+             :as on-plane-renderer]))
 
 (def region3d-gpu-version 1)
 (def max-lights 8)
@@ -246,7 +246,7 @@
      return select(resolved, vec4<f32>(0.16,0.78,0.92,1.0), worn);
    }")
 
-(def refusal-fragment-shader
+(def rejection-fragment-shader
   "@fragment fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
      let checker = f32((u32(floor(uv.x * 12.0)) + u32(floor(uv.y * 12.0))) & 1u);
      var color = mix(vec3<f32>(0.18,0.055,0.065), vec3<f32>(0.32,0.09,0.10), checker);
@@ -282,7 +282,7 @@
         composite-vertex (shader-module device composite-vertex-shader)
         composite-fragment (shader-module device composite-fragment-shader)
         worn-fragment (shader-module device worn-fragment-shader)
-        refusal-fragment (shader-module device refusal-fragment-shader)
+        rejection-fragment (shader-module device rejection-fragment-shader)
         interior-layout
         (.createBindGroupLayout
          ^js device
@@ -311,7 +311,7 @@
                                          :buffer {:type "uniform"}}
                                         {:binding 3 :visibility js/GPUShaderStage.VERTEX
                                          :buffer {:type "read-only-storage"}}]}))
-        refusal-layout
+        rejection-layout
         (.createBindGroupLayout
          ^js device (clj->js {:entries [{:binding 2 :visibility js/GPUShaderStage.VERTEX
                                          :buffer {:type "uniform"}}
@@ -374,10 +374,10 @@
                    :fragment {:module worn-fragment :entryPoint "main"
                               :targets [{:format "rgba16float" :blend (blend-state)}]}
                    :primitive {:topology "triangle-list"}}))
-        refusal-pipeline
+        rejection-pipeline
         (.createRenderPipeline
          ^js device
-         (clj->js {:layout (pipeline-layout [refusal-layout])
+         (clj->js {:layout (pipeline-layout [rejection-layout])
                    :vertex {:module composite-vertex :entryPoint "main"
                             :buffers [{:arrayStride composite-instance-stride
                                        :stepMode "instance"
@@ -385,15 +385,15 @@
                                                      :format "float32x4"}
                                                     {:shaderLocation 1 :offset 16
                                                      :format "uint32"}]}]}
-                   :fragment {:module refusal-fragment :entryPoint "main"
+                   :fragment {:module rejection-fragment :entryPoint "main"
                               :targets [{:format "rgba16float" :blend (blend-state)}]}
                    :primitive {:topology "triangle-list"}}))]
     {:interior-layout interior-layout :shadow-layout shadow-layout
-     :composite-layout composite-layout :rejection-layout refusal-layout
+     :composite-layout composite-layout :rejection-layout rejection-layout
      :opaque (mesh-pipeline false) :transparent (mesh-pipeline true)
      :shadow shadow-pipeline :composite composite-pipeline
      :worn worn-pipeline
-     :rejection refusal-pipeline}))
+     :rejection rejection-pipeline}))
 
 (defn- create-buffer! [device label size usage]
   (let [size (max 4 (int size))
@@ -441,7 +441,7 @@
     {:region3d-gpu/version region3d-gpu-version
      :device device :camera-buffer camera-buffer
      :groups-buffer groups-buffer :pipelines (create-pipelines! device)
-     :placement-system (on-plane-painter/init-placement-system! device)
+     :placement-system (on-plane-renderer/init-placement-system! device)
      :sampler (.createSampler ^js device (clj->js {:minFilter "linear"
                                                    :magFilter "linear"}))
      :shadow-sampler (.createSampler ^js device
@@ -538,13 +538,13 @@
    {:vertices [] :draws {}}
    (sort-by (comp pr-str key) (get-in maintained [:region :scene]))))
 
-(defn- instance-row-values [{:keys [matrix material]}]
-  (let [material (or material material/default-material)
-        base (tagged-linear (:base-color material))
-        emissive (tagged-linear (:emissive material))]
+(defn- instance-row-values [{:keys [matrix component]}]
+  (let [component (or component component/default-component)
+        base (tagged-linear (:base-color component))
+        emissive (tagged-linear (:emissive component))]
     (vec (concat (column-major matrix)
                  base
-                 [(:metallic material) (:roughness material) 0.0 0.0]
+                 [(:metallic component) (:roughness component) 0.0 0.0]
                  [(nth emissive 0) (nth emissive 1) (nth emissive 2) 0.0]))))
 
 (defn- instance-values [maintained]
@@ -567,7 +567,7 @@
 
 (defn- light-row-values [maintained object-id object]
   (let [light (:light object)
-        matrix (get-in maintained [:effective-transforms object-id])
+        matrix (get-in maintained [:world-transforms object-id])
         position (scene/transform-point matrix [0.0 0.0 0.0])
         direction (scene/normalize
                    (scene/transform-direction matrix [0.0 0.0 -1.0]))
@@ -638,10 +638,10 @@
      :shadow-uniform (create-buffer! (:device system)
                                      (str "region3d/" region-id "/shadow-uniform")
                                      shadow-uniform-bytes uniform-usage)
-     :placement (on-plane-painter/create-region-gpu!
+     :placement (on-plane-renderer/create-region-gpu!
                  (:placement-system system) region-id)}))
 
-(defn- write-material-gpu! [system region-id gpu maintained]
+(defn- write-component-gpu! [system region-id gpu maintained]
   (let [{:keys [vertices draws]} (mesh-upload maintained)
         vertex-data (typed-f32 vertices)
         instance-data (typed-f32 (instance-values maintained))
@@ -691,7 +691,7 @@
 (defn- object-depth [camera maintained object-id]
   (scene/length
    (scene/v- (scene/transform-point
-              (get-in maintained [:effective-transforms object-id])
+              (get-in maintained [:world-transforms object-id])
               [0.0 0.0 0.0])
              (:eye camera))))
 
@@ -726,7 +726,7 @@
 (defn- destroy-region-gpu! [gpu]
   (doseq [key [:vertex :instances :lights :uniform :shadow-uniform]]
     (destroy-buffer! (get gpu key)))
-  (on-plane-painter/destroy-region-gpu! (:placement gpu)))
+  (on-plane-renderer/destroy-region-gpu! (:placement gpu)))
 
 (defn- composite-row-bytes [{:keys [x y w h buffer-index]}]
   (let [raw (js/ArrayBuffer. composite-instance-stride)
@@ -786,21 +786,21 @@
   "Upload changed region rows before any pass opens. The region revision and
    projection stamps gate the work; the returned counts belong to this call."
   [system {:keys [regions]} session
-   {:keys [zoom dpr effective font-assets session-layout-snapshot path-system
+   {:keys [zoom dpr world-transforms font-assets session-layout-snapshot path-system
            max-lease-size]
     :or {zoom 1.0 dpr 1.0}}]
   (let [regions (vec (or regions []))
         prior @(:!prepared system)
         session-revision (:revision session-layout-snapshot)
         live-ids (set (map #(get-in % [:region/material :region/id]) regions))
-        group-buffer-indexes (mapv #(transform/buffer-index effective (:container %))
+        group-buffer-indexes (mapv #(transform/buffer-index world-transforms (:container %))
                               regions)
         results
         (mapv
-         (fn [[op group-buffer-index]]
-           (let [raw-region (:region/material op)
+         (fn [[draw-item group-buffer-index]]
+           (let [raw-region (:region/material draw-item)
                  region-id (:region/id raw-region)
-                 key (frame/region-key op zoom dpr session-revision)
+                 key (frame/region-key draw-item zoom dpr session-revision)
                  old (get prior region-id)]
              (if (= key (:key old))
                [region-id old (empty-region-return false)]
@@ -827,13 +827,13 @@
                       (:maintained old) (:evaluation-key old)
                       raw-region session-row)
                      update-kind (:update-kind evaluation-result)
-                     material-changed? (= :full update-kind)
+                     component-changed? (= :full update-kind)
                      transform-changed? (= :transform update-kind)
                      scene-changed? (not= :none update-kind)
                      maintained0 (assoc (:maintained evaluation-result)
                                         :region-id region-id)
                      maintained
-                     (if (and background-changed? (not material-changed?))
+                     (if (and background-changed? (not component-changed?))
                        (assoc-in maintained0 [:region :background]
                                  background-key)
                        maintained0)
@@ -854,7 +854,7 @@
                      upload-return
                      (case update-kind
                        :full
-                       {:gpu (write-material-gpu! system region-id gpu0 maintained)
+                       {:gpu (write-component-gpu! system region-id gpu0 maintained)
                         :instance-uploads (count (:instances maintained))}
 
                        :transform
@@ -870,9 +870,9 @@
                                              session-row shadow-space)
                             gpu1)
                      placement-return
-                     (on-plane-painter/prepare-placements!
+                     (on-plane-renderer/prepare-placements!
                       (:placement-system system) (:placement gpu2)
-                      (:region3d/resolved-placements op) maintained camera
+                      (:region3d/resolved-placements draw-item) maintained camera
                       (if path-system @(:!mesh-cache path-system) {})
                       {:font-assets font-assets
                        :session-layout-snapshot session-layout-snapshot})
@@ -896,7 +896,7 @@
                                     (:changed? placement-return)
                                     (nil? old))}
                      row
-                     {:key key :region-id region-id :op op
+                     {:key key :region-id region-id :draw-item draw-item
                       :group-buffer-index group-buffer-index
                       :evaluation-key (:evaluation-key evaluation-result)
                       :background-key background-key :view-key view-key
@@ -914,7 +914,7 @@
                       :session session-row}
                      call-return
                      {:changed? true
-                      :full-rebuilds (if material-changed? 1 0)
+                      :full-rebuilds (if component-changed? 1 0)
                       :instance-uploads (:instance-uploads upload-return 0)
                       :bvh-refits (if transform-changed?
                                     (count
@@ -934,8 +934,8 @@
         (region-bindings/reconcile-desired!
          (:binding-owner system)
          (mapv (fn [[region-id row]]
-                 (let [op (:op row)
-                       {:keys [x y w h]} (get-in op [:region/material
+                 (let [draw-item (:draw-item row)
+                       {:keys [x y w h]} (get-in draw-item [:region/material
                                                     :region/rect])]
                    {:region/id region-id
                     :lease-size (:lease-size row)
@@ -1047,7 +1047,7 @@
     (draw-mesh-rows! pass system prepared
                      (get-in prepared [:draw-order :transparent])
                      (get-in system [:pipelines :transparent]) mesh-bind)
-    (on-plane-painter/draw-placements! pass (:placement-system system)
+    (on-plane-renderer/draw-placements! pass (:placement-system system)
                                     (:placement gpu) (:uniform gpu))
     (.end pass)))
 
@@ -1098,7 +1098,7 @@
                        {:binding 2 :resource {:buffer (:camera-buffer system)}}
                        {:binding 3 :resource {:buffer (:groups-buffer system)}}]})))
 
-(defn- refusal-bind-group [system]
+(defn- rejection-bind-group [system]
   (.createBindGroup
    ^js (:device system)
    (clj->js {:layout (get-in system [:pipelines :rejection-layout])
@@ -1107,20 +1107,20 @@
 
 (defn composite-region!
   "Composite one region's held lease onto an open pass at its stable buffer-index, or
-   its refusal placeholder when no lease is held."
+   its rejection placeholder when no lease is held."
   [pass region-system region-id]
   (let [owner (:binding-owner region-system)
         lease (region-bindings/lease owner region-id)
         composite-buffer-index (region-bindings/buffer-index owner region-id)
-        refused? (or (nil? lease) (:rejected? lease))
+        rejected? (or (nil? lease) (:rejected? lease))
         pipeline-key (cond
-                       refused? :rejection
+                       rejected? :rejection
                        (> (:rung-divisor lease 1) 1) :worn
                        :else :composite)]
     (.setPipeline ^js pass (get-in region-system
                                    [:pipelines pipeline-key]))
-    (.setBindGroup ^js pass 0 (if refused?
-                                (refusal-bind-group region-system)
+    (.setBindGroup ^js pass 0 (if rejected?
+                                (rejection-bind-group region-system)
                                 (composite-bind-group region-system lease)))
     (.setVertexBuffer ^js pass 0 (:buffer @(:!composite-buffer region-system)))
     (.draw ^js pass 6 1 0 composite-buffer-index)))
@@ -1131,7 +1131,7 @@
   (destroy-buffer! @(:!composite-buffer system))
   (when-let [texture (get-in system [:shadow-fallback :texture])]
     (.destroy ^js texture))
-  (on-plane-painter/destroy-placement-system! (:placement-system system))
+  (on-plane-renderer/destroy-placement-system! (:placement-system system))
   (reset! (:!prepared system) {})
     (.delete !systems-by-device (:device system))
   true)

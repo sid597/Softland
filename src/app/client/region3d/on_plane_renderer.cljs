@@ -1,5 +1,5 @@
-(ns app.client.region3d.on-plane-painter
-  "The on-plane painter: packs and draws ink placed inside a 3D region.
+(ns app.client.region3d.on-plane-renderer
+  "The on-plane renderer: packs and draws ink placed inside a 3D region.
    Takes: the region system, a region's GPU state, placements, the maintained
    scene, a camera, and a path cache; a render pass and a region uniform to
    draw.
@@ -128,7 +128,7 @@
      :pack-key ::never
      :draw-order []
      :placements []
-     :census {}}))
+     :coverage-check {}}))
 
 (defn- column-major [matrix]
   (mapv #(nth matrix %) [0 4 8 12 1 5 9 13 2 6 10 14 3 7 11 15]))
@@ -145,7 +145,7 @@
    (:content-revision placed) matrix])
 
 (defn- pack-one [cache old placed maintained]
-  (let [matrix (get-in maintained [:effective-transforms (:object-id placed)])
+  (let [matrix (get-in maintained [:world-transforms (:object-id placed)])
         key (placement-key placed matrix)]
     (cond
       (= key (:key old)) {:cache cache :row old :packed? false}
@@ -225,7 +225,7 @@
     (juxt (comp - :depth) (comp pr-str :object-id))
     (map (fn [draw]
            (let [matrix (get-in maintained
-                                [:effective-transforms (:object-id draw)])]
+                                [:world-transforms (:object-id draw)])]
              (assoc draw :depth
                     (scene/length
                      (scene/v- (scene/transform-point matrix [0.0 0.0 0.0])
@@ -272,7 +272,7 @@
         statuses (frequencies (map (comp :status :packed) rows))
         next-gpu (cond-> (assoc region-gpu :pack-cache next-cache
                                 :pack-key pack-key :flat flat-buffer
-                                :census statuses
+                                :coverage-check statuses
                                 :draw-order
                                 (if changed?
                                   (sort-draws (:draws upload) maintained camera)
@@ -282,7 +282,7 @@
                                        rows))]
     {:gpu next-gpu :path-cache (:path-cache packed)
      :changed? changed? :packs (:packs packed)
-     :placements (:placements next-gpu) :census statuses
+     :placements (:placements next-gpu) :coverage-check statuses
      :uploads uploads :ink-vertices ink-count
      :over-limit (get statuses :over-limit 0)}))
 

@@ -1,5 +1,5 @@
 (ns app.client.region3d.scene
-  "Derives and re-evaluates everything the 3D painter needs: object transforms,
+  "Derives and re-evaluates everything the 3D renderer needs: object transforms,
    instances, triangles by object, and a BVH for picking. \"Scene\" names
    three things here: a region's :scene key (its objects by id), what
    derive-scene returns, and this namespace.
@@ -9,7 +9,7 @@
    the picked object.
    Holds nothing."
   (:require [clojure.set :as set]
-            [app.client.region3d.material :as material]))
+            [app.client.region3d.component :as component]))
 
 (def scene-algorithm-version :region3d/scene-v1)
 (def bvh-algorithm-version :region3d/bvh-v1)
@@ -130,23 +130,23 @@
             (recur (inc pivot) rows)))))))
 
 (defn compose-hierarchy
-  "Return object-id -> effective matrix. Canonical validation rejects missing
+  "Return object-id -> world-transform matrix. Canonical validation rejects missing
    parents and cycles before recursion; sorted ids make the result stable
    across map insertion order."
   [region]
   (let [scene (:scene region)
         !memo (atom {})]
-    (letfn [(effective [object-id]
+    (letfn [(world-transform [object-id]
               (or (get @!memo object-id)
                   (let [object (get scene object-id)
                         local (trs-matrix (:transform object))
                         result (if-let [parent (:parent object)]
-                                 (mat4-mul (effective parent) local)
+                                 (mat4-mul (world-transform parent) local)
                                  local)]
                     (swap! !memo assoc object-id result)
                     result)))]
       (doseq [object-id (sort-by pr-str (keys scene))]
-        (effective object-id))
+        (world-transform object-id))
       @!memo)))
 
 (defn affected-descendants
@@ -316,14 +316,14 @@
 (defn primitive-mesh
   "Deterministic indexed-triangle projection of a validated primitive row."
   [mesh]
-  (let [object (material/canonical-object
+  (let [object (component/canonical-object
                 {:object/id :primitive
                  :object/kind :mesh
                  :parent nil
-                 :transform material/default-transform
+                 :transform component/default-transform
                  :provenance {:asserted-by :derive}
                  :mesh mesh
-                 :material material/default-material})
+                 :component component/default-component})
         mesh (:mesh object)
         params (:params mesh)]
     (case (:kind mesh)
@@ -344,7 +344,7 @@
 (defn- unpack-vec3 [flat index]
   (subvec (vec flat) (* index 3) (+ (* index 3) 3)))
 
-(defn transformed-triangles [object effective-matrix]
+(defn transformed-triangles [object world-transform-matrix]
   (when-let [{:keys [positions indices]} (object-mesh object)]
     (mapv
      (fn [triangle-index]
@@ -352,9 +352,9 @@
              ia (nth indices offset)
              ib (nth indices (inc offset))
              ic (nth indices (+ offset 2))
-             a (transform-point effective-matrix (unpack-vec3 positions ia))
-             b (transform-point effective-matrix (unpack-vec3 positions ib))
-             c (transform-point effective-matrix (unpack-vec3 positions ic))]
+             a (transform-point world-transform-matrix (unpack-vec3 positions ia))
+             b (transform-point world-transform-matrix (unpack-vec3 positions ib))
+             c (transform-point world-transform-matrix (unpack-vec3 positions ic))]
          {:object-id (:object/id object)
           :triangle-index triangle-index
           :a a :b b :c c
@@ -555,7 +555,7 @@
      0.0 0.0 0.0 1.0]))
 
 (defn camera-matrices [view viewport]
-  (let [view (material/canonical-view view)
+  (let [view (component/canonical-view view)
         [width height] viewport
         aspect (/ (double width) (max 1.0 (double height)))
         eye (orbit-eye view)
@@ -604,11 +604,11 @@
                   (* (- 1.0 ndc-y) 0.5 height)]
          :depth (/ (nth clip 2) w)}))))
 
-(defn derive-instance-row [object effective-matrix]
+(defn derive-instance-row [object world-transform-matrix]
   {:object-id (:object/id object)
    :kind (:object/kind object)
-   :matrix effective-matrix
-   :material (:material object)
+   :matrix world-transform-matrix
+   :component (:component object)
    :light (:light object)
    :placement (case (:object/kind object)
                 :text (:text object)
@@ -616,17 +616,17 @@
                 nil)
    :transparent? (or (contains? #{:text :ink} (:object/kind object))
                      (and (= :mesh (:object/kind object))
-                          (< (get-in object [:material :base-color :rgba 3] 1.0)
+                          (< (get-in object [:component :base-color :rgba 3] 1.0)
                              1.0)))})
 
 (defn derive-scene [region]
-  (let [effective (compose-hierarchy region)
+  (let [world-transforms (compose-hierarchy region)
         object-ids (sort-by pr-str (keys (:scene region)))
         instances-by-object
         (into {} (map (fn [object-id]
                         [object-id
                          (derive-instance-row (get-in region [:scene object-id])
-                                              (get effective object-id))]))
+                                              (get world-transforms object-id))]))
               object-ids)
         triangles-by-object
         (into {} (keep (fn [object-id]
@@ -634,17 +634,17 @@
                            (when (= :mesh (:object/kind object))
                              [object-id
                               (transformed-triangles object
-                                                     (get effective object-id))]))))
+                                                     (get world-transforms object-id))]))))
               object-ids)
         triangles (vec (mapcat #(get triangles-by-object % []) object-ids))]
     {:derive/version scene-algorithm-version
      :region region
-     :effective-transforms effective
+     :world-transforms world-transforms
      :instances-by-object instances-by-object
      :instances (mapv instances-by-object object-ids)
      :triangles-by-object triangles-by-object
      :bvh (build-bvh triangles)
-     :receipt {:full-rebuilds 1
+     :stats {:full-rebuilds 1
                :instance-uploads (count object-ids)
                :bvh-build-triangles (count triangles)
                :bvh-refits 0
@@ -654,34 +654,34 @@
   "Recompose only an already-canonical hierarchy subset. Unaffected parents
   are read from the retained evaluated scene; affected parents are resolved
   recursively so input map order cannot change the result."
-  [scene prior-effective affected]
+  [scene prior-world-transforms affected]
   (let [!memo (atom {})]
-    (letfn [(effective [object-id]
+    (letfn [(world-transform [object-id]
               (if-not (contains? affected object-id)
-                (get prior-effective object-id)
+                (get prior-world-transforms object-id)
                 (or (get @!memo object-id)
                     (let [object (get scene object-id)
                           local (trs-matrix (:transform object))
                           result (if-let [parent (:parent object)]
-                                   (mat4-mul (effective parent) local)
+                                   (mat4-mul (world-transform parent) local)
                                    local)]
                       (swap! !memo assoc object-id result)
                       result))))]
       (doseq [object-id (sort-by pr-str affected)]
-        (effective object-id))
-      (merge prior-effective @!memo))))
+        (world-transform object-id))
+      (merge prior-world-transforms @!memo))))
 
 (defn- maintain-affected
   [maintained next-region affected]
-  (let [effective (compose-affected (:scene next-region)
-                                    (:effective-transforms maintained)
+  (let [world-transforms (compose-affected (:scene next-region)
+                                    (:world-transforms maintained)
                                     affected)
         instances-by-object
         (reduce
          (fn [rows id]
            (assoc rows id
                   (derive-instance-row (get-in next-region [:scene id])
-                                       (get effective id))))
+                                       (get world-transforms id))))
          (:instances-by-object maintained) affected)
         triangles-by-object
         (reduce
@@ -689,19 +689,19 @@
            (let [object (get-in next-region [:scene id])]
              (if (= :mesh (:object/kind object))
                (assoc rows id (transformed-triangles object
-                                                    (get effective id)))
+                                                    (get world-transforms id)))
                rows)))
          (:triangles-by-object maintained) affected)
         bvh (refit-bvh (:bvh maintained) triangles-by-object affected)
         object-ids (sort-by pr-str (keys (:scene next-region)))]
     (assoc maintained
            :region next-region
-           :effective-transforms effective
+           :world-transforms world-transforms
            :instances-by-object instances-by-object
            :instances (mapv instances-by-object object-ids)
            :triangles-by-object triangles-by-object
            :bvh bvh
-           :receipt {:full-rebuilds 0
+           :stats {:full-rebuilds 0
                      :instance-uploads (count affected)
                      :bvh-build-triangles 0
                      :bvh-refits (count (filter triangles-by-object affected))
@@ -724,7 +724,7 @@
                      (when-not (contains? scene object-id)
                        (throw (ex-info "Region3D transform target is missing"
                                        {:object-id object-id})))
-                     [object-id (material/canonical-transform transform)]))
+                     [object-id (component/canonical-transform transform)]))
               transforms-by-object)
         changed
         (into {}
@@ -732,7 +732,7 @@
                         (= transform (get-in scene [object-id :transform]))))
               transforms)]
     (if (empty? changed)
-      (assoc maintained :receipt
+      (assoc maintained :stats
              {:full-rebuilds 0 :instance-uploads 0 :bvh-build-triangles 0
               :bvh-refits 0 :region-encodes 0 :affected-object-ids #{}})
       (let [next-region
@@ -776,7 +776,7 @@
                       (map first) (sort-by pr-str) first)
         triangles (mapcat val (:triangles-by-object maintained))]
     (when (and light-id (seq triangles))
-      (let [matrix (get-in maintained [:effective-transforms light-id])
+      (let [matrix (get-in maintained [:world-transforms light-id])
             origin (transform-point matrix [0.0 0.0 0.0])
             direction (normalize (transform-direction matrix [0.0 0.0 -1.0]))
             up (if (> (Math/abs (double (dot direction [0.0 1.0 0.0]))) 0.99)
@@ -787,14 +787,14 @@
             bounds (points-aabb light-points)
             extent (v- (:max bounds) (:min bounds))]
         (when (every? #(> % ray-epsilon) extent)
-          (let [padding (mapv #(* % (:bounds-padding material/shadow-constants))
+          (let [padding (mapv #(* % (:bounds-padding component/shadow-constants))
                               extent)
                 minimum (v- (:min bounds) padding)
                 maximum (v+ (:max bounds) padding)
                 texel [(/ (- (nth maximum 0) (nth minimum 0))
-                          (:size material/shadow-constants))
+                          (:size component/shadow-constants))
                        (/ (- (nth maximum 1) (nth minimum 1))
-                          (:size material/shadow-constants))]
+                          (:size component/shadow-constants))]
                 snapped-min [(Math/floor (/ (nth minimum 0) (nth texel 0)))
                              (Math/floor (/ (nth minimum 1) (nth texel 1)))]
                 snapped-min (mapv * snapped-min texel)
@@ -802,21 +802,21 @@
                                 (- (nth maximum 0) (nth minimum 0)))
                              (+ (nth snapped-min 1)
                                 (- (nth maximum 1) (nth minimum 1)))] ]
-            {:algorithm-version material/shadow-algorithm-version
+            {:algorithm-version component/shadow-algorithm-version
              :light-id light-id :view view
              :bounds {:min [(nth snapped-min 0) (nth snapped-min 1)
                             (nth minimum 2)]
                       :max [(nth snapped-max 0) (nth snapped-max 1)
                             (nth maximum 2)]}
              :texel-world texel
-             :constants material/shadow-constants}))))))
+             :constants component/shadow-constants}))))))
 
-;; Re-evaluates a 3D scene between frames without redoing everything: material
+;; Re-evaluates a 3D scene between frames without redoing everything: component
 ;; and topology changes derive, transform changes only maintain.
 
 (defn session-transform-map
   "Resolve authoritative transforms plus settled and one transient preview.
-  Session overlays may name only objects owned by the region material."
+  Session overlays may name only objects owned by the region component."
   [region session-row]
   (let [object-ids (set (keys (:scene region)))
         settled (or (:settled-transforms session-row) {})
@@ -839,7 +839,7 @@
              region (session-transform-map region session-row)))
 
 (defn evaluation-key [region session-row]
-  {:static-material
+  {:static-component
    (-> region
        (dissoc :region/id :region/revision :region/rect :view :background)
        (update :scene
@@ -857,8 +857,8 @@
   (let [next-key (evaluation-key region session-row)]
     (cond
       (or (nil? maintained)
-          (not= (:static-material prior-key)
-                (:static-material next-key)))
+          (not= (:static-component prior-key)
+                (:static-component next-key)))
       {:maintained (derive-scene
                     (session-region-value region session-row))
        :evaluation-key next-key
@@ -883,4 +883,4 @@
          :evaluation-key next-key
          :update-kind :transform
          :affected-object-ids
-         (get-in maintained [:receipt :affected-object-ids])}))))
+         (get-in maintained [:stats :affected-object-ids])}))))

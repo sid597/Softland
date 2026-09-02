@@ -35,7 +35,7 @@
     app.client.path.component-test
     app.client.path.tessellation-test
     app.client.region3d.frame-test
-    app.client.region3d.material-test
+    app.client.region3d.component-test
     app.client.region3d.on-plane-test
     app.client.region3d.scene-test
     app.client.engine.color-test

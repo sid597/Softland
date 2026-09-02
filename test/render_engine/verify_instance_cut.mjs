@@ -31,7 +31,7 @@ absent(registrationSources, /render\.family\/connector|connector-registration/,
   "retired family is still registered");
 
 const scene = read("src/app/client/region3d/scene.cljc");
-const regionGpu = read("src/app/client/region3d/painter.cljs");
+const regionGpu = read("src/app/client/region3d/renderer.cljs");
 absent(scene, /\b(?:gizmo-handles|translate-delta|rotate-delta|scale-ratio|maintain-scene)\b/,
   "retired Region3D interaction closure survived");
 absent(regionGpu, /\b(?:grid-shader|overlay-glyph-shader|gizmo-shader|prepared-pick-state)\b/,
@@ -39,7 +39,7 @@ absent(regionGpu, /\b(?:grid-shader|overlay-glyph-shader|gizmo-shader|prepared-p
 
 const editAndPulseSources = [
   "src/app/client/path/component.cljc",
-  "src/app/client/region3d/material.cljc",
+  "src/app/client/region3d/component.cljc",
   "src/app/client/engine/device.cljs",
   "src/app/client/text/renderer.cljs",
   "src/app/client/image/renderer.cljs",
@@ -61,24 +61,24 @@ absent(sceneContractSources,
 absent(sceneContractSources, /:pick\b/,
   "scene entries still carry per-entry pick data");
 
-const painterFiles = [
+const rendererFiles = [
   "src/app/client/engine/device.cljs",
   "src/app/client/engine/compositor.cljs",
   "src/app/client/text/renderer.cljs",
   "src/app/client/image/renderer.cljs",
   "src/app/client/path/renderer.cljs",
-  "src/app/client/region3d/painter.cljs",
-  "src/app/client/region3d/on_plane_painter.cljs",
+  "src/app/client/region3d/renderer.cljs",
+  "src/app/client/region3d/on_plane_renderer.cljs",
 ].map((relative) => path.join(root, relative));
-const painterFence = /\b(?:selection|marquee|gizmo|orbit|elbow|arrowhead|connector)\b/i;
-for (const absolute of [...new Set(painterFiles)]) {
-  absent(fs.readFileSync(absolute, "utf8"), painterFence,
-    `${path.relative(root, absolute)} crossed the painter fence`);
+const rendererFence = /\b(?:selection|marquee|gizmo|orbit|elbow|arrowhead|connector)\b/i;
+for (const absolute of [...new Set(rendererFiles)]) {
+  absent(fs.readFileSync(absolute, "utf8"), rendererFence,
+    `${path.relative(root, absolute)} crossed the renderer fence`);
 }
 
 console.log(JSON.stringify({
   instanceCutTripwire: "pass",
   scenarios: 5,
   deleted: deleted.length,
-  painterFiles: new Set(painterFiles).size,
+  rendererFiles: new Set(rendererFiles).size,
 }));

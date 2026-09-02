@@ -1,9 +1,9 @@
 (ns app.client.region3d.scene-test
   (:require [clojure.test :refer [deftest is testing]]
-            [app.client.region3d.material :as material]
+            [app.client.region3d.component :as component]
             [app.client.region3d.oracle :as oracle]
             [app.client.region3d.scene :as region]
-            [app.client.region3d.material-test :as fixture]))
+            [app.client.region3d.component-test :as fixture]))
 
 (defn fixture-region
   ([] (fixture-region {}))
@@ -21,9 +21,9 @@
      (assoc (fixture/region (merge base extra))
             :view-default {:pivot [0.0 0.0 0.0] :distance 8.0
                            :yaw 0.0 :pitch 0.0
-                           :lens material/default-perspective-lens}))))
+                           :lens component/default-perspective-lens}))))
 
-(deftest s2-depth-ray-pick-returns-nearest-identity-and-t-not-painter-order
+(deftest s2-depth-ray-pick-returns-nearest-identity-and-t-not-renderer-order
   (let [maintained (assoc (region/derive-scene (fixture-region))
                           :region-id :region/a)
         camera (region/camera-matrices
@@ -79,11 +79,11 @@
 
 (deftest s4-lit-color-oracle-is-linear-premultiplied-and-alpha-survives
   (let [derived (region/derive-scene (fixture-region))
-        material-row (assoc material/default-material
+        component-row (assoc component/default-component
                             :base-color (fixture/tagged 0.7 0.2 0.1 0.5)
                             :metallic 0.3 :roughness 0.45)
         shaded (oracle/shade-reference
-                {:material material-row
+                {:component component-row
                  :normal [0.0 0.0 1.0]
                  :point [0.0 0.0 0.51]
                  :eye [0.0 0.0 8.0]
@@ -92,12 +92,12 @@
                                    :intensity 2.0 :cast-shadow false}
                            :position [0.0 5.0 5.0]
                            :direction [0.0 -0.3 -1.0]}]
-                 :ambient material/default-ambient
+                 :ambient component/default-ambient
                  :bvh (:bvh derived) :object-id :near})]
     (is (= 4 (count shaded)))
-    (is (= 0.5 (last shaded)) "material alpha is not forced to one")
+    (is (= 0.5 (last shaded)) "component alpha is not forced to one")
     (is (every? #(<= 0.0 % 0.5) (butlast shaded))
-        "linear RGB is premultiplied by material alpha")
+        "linear RGB is premultiplied by component alpha")
     (is (= :khronos-pbr-neutral-v1 region/tone-map-algorithm-version))))
 
 (deftest shadow-light-space-remains-derived-from-the-live-scene
@@ -131,11 +131,11 @@
       (is (= :transform (:update-kind first-preview)))
       (is (= :transform (:update-kind next-preview)))
       (is (= #{:moving :child} (:affected-object-ids next-preview)))
-      (is (zero? (get-in next-preview [:maintained :receipt :full-rebuilds])))
+      (is (zero? (get-in next-preview [:maintained :stats :full-rebuilds])))
       (is (zero? (get-in next-preview
-                         [:maintained :receipt :bvh-build-triangles])))
+                         [:maintained :stats :bvh-build-triangles])))
       (is (= 2 (get-in next-preview
-                       [:maintained :receipt :instance-uploads])))
+                       [:maintained :stats :instance-uploads])))
       (is (oracle/scene-equivalent? (:maintained next-preview))))
     (testing "settle is identity and cancel is an incremental inverse"
       (is (= :none (:update-kind settled)))
@@ -161,19 +161,19 @@
          {:preview-transform {:object-id :moving :transform after}})]
     (is (= 49 (count (get-in preview [:maintained :instances]))))
     (is (= #{:moving} (:affected-object-ids preview)))
-    (is (= 1 (get-in preview [:maintained :receipt :instance-uploads])))
-    (is (zero? (get-in preview [:maintained :receipt :full-rebuilds])))
+    (is (= 1 (get-in preview [:maintained :stats :instance-uploads])))
+    (is (zero? (get-in preview [:maintained :stats :full-rebuilds])))
     (is (oracle/scene-equivalent? (:maintained preview)))))
 
-(deftest material-change-keeps-the-full-oracle-door
+(deftest component-change-keeps-the-full-oracle-door
   (let [moving (fixture/mesh-object :moving nil [0.0 0.0 0.0])
         region (fixture/region {:moving moving})
         initial (region/evaluate-scene nil nil region {})
-        changed (assoc-in region [:scene :moving :material :roughness] 0.17)
+        changed (assoc-in region [:scene :moving :component :roughness] 0.17)
         result (region/evaluate-scene
                 (:maintained initial) (:evaluation-key initial) changed {})]
     (is (= :full (:update-kind result)))
-    (is (= 1 (get-in result [:maintained :receipt :full-rebuilds])))
+    (is (= 1 (get-in result [:maintained :stats :full-rebuilds])))
     (is (oracle/scene-equivalent? (:maintained result)))))
 
 (deftest session-transform-cannot-mint-an-object
