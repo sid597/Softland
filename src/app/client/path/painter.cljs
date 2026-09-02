@@ -9,6 +9,7 @@
    state, and the last revision/container/regime frame key."
   (:require [app.client.engine.color :as scene-color]
             [app.client.engine.device :as device]
+            [app.client.engine.placement :as placement]
             [app.client.path.frame :as frame]
             [app.client.path.material :as path-material]
             [app.client.path.tessellation :as tessellation]))
@@ -136,7 +137,7 @@
         (let [material (:path/material op)
               vertices (:vertices mesh)
               [r g b a] (path-material/paint-color material)
-              container-idx (frame/slot effective (:container op))]
+              container-idx (placement/slot effective (:container op))]
           (doseq [[index [x y]] (map-indexed vector vertices)]
             (let [base (* (+ vertex-offset index) vertex-words)]
               (aset floats (+ base 0) x)

@@ -65,6 +65,24 @@
                      :grammar/invalid-spec path item-spec)))
   value)
 
+(defn- check-map-of! [[_ key-pred item-spec :as validator] value path]
+  (when-not (= 3 (count validator))
+    (refuse! "Invalid map-of grammar" :grammar/invalid-spec path validator))
+  (when-not (map? value)
+    (refuse! "Grammar requires a map" :grammar/map-required path value))
+  (when-not (ifn? key-pred)
+    (refuse! "Invalid map key grammar" :grammar/invalid-spec path key-pred))
+  (doseq [[key item] (sort-by (comp pr-str first) value)]
+    (when-not (key-pred key)
+      (refuse! "Grammar map key was refused"
+               :grammar/invalid-key (conj path key) key))
+    (cond
+      (map? item-spec) (check-form! item-spec item (conj path key))
+      (ifn? item-spec) (check-predicate! item-spec item (conj path key))
+      :else (refuse! "Invalid map value grammar"
+                     :grammar/invalid-spec path item-spec)))
+  value)
+
 (defn- check-validator! [validator value path]
   (cond
     (set? validator)
@@ -74,6 +92,9 @@
 
     (and (vector? validator) (= :vector-of (first validator)))
     (check-vector! validator value path)
+
+    (and (vector? validator) (= :map-of (first validator)))
+    (check-map-of! validator value path)
 
     (map? validator)
     (check-form! validator value path)
@@ -106,9 +127,10 @@
     (doseq [[key validator] validators
             :when (contains? form key)]
       (check-validator! validator (get form key) (conj path key)))
-    (doseq [{:keys [valid? error-type]} (:form-validators spec)]
+    (doseq [{:keys [valid? error-type explain]} (:form-validators spec)]
       (when-not (valid? form)
-        (refuse! "Grammar form invariant failed" error-type path form)))
+        (refuse! "Grammar form invariant failed" error-type path form
+                 (when explain (explain form)))))
     form))
 
 (defn check [spec form]

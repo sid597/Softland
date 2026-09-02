@@ -4,7 +4,30 @@
    Takes: a color and the scene color mode.
    Gives: the RGBA a shader should receive, and the mode the pipelines are
    configured from.
-   Holds nothing.")
+   Holds nothing."
+  (:require [app.client.engine.grammar :as grammar]))
+
+(defn- pow [base exponent]
+  #?(:clj (Math/pow (double base) (double exponent))
+     :cljs (js/Math.pow base exponent)))
+
+(defn srgb-channel->linear [value]
+  (let [v (double value)]
+    (if (<= v 0.04045)
+      (/ v 12.92)
+      (pow (/ (+ v 0.055) 1.055) 2.4))))
+
+(defn linear->srgb-channel [value]
+  (let [v (double value)]
+    (if (<= v 0.0031308)
+      (* v 12.92)
+      (- (* 1.055 (pow v (/ 1.0 2.4))) 0.055))))
+
+(def tagged
+  {:keys #{:rgba :color-space :alpha-association}
+   :validators {:rgba grammar/valid-rgba?
+                :color-space #{:srgb}
+                :alpha-association #{:straight}}})
 
 (def legacy-direct-color
   {:scene-color/version 1

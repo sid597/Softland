@@ -6,7 +6,8 @@
    camera and a pixel offset (anchored-screen-rect).
    Gives: one absolute affine per container with its compact GPU slot; points
    mapped in and out; a world-anchored, screen-pixel-sized rect.
-   Holds nothing; the registry is a value passed in and returned.")
+   Holds nothing; the registry is a value passed in and returned."
+  (:require [app.client.engine.grammar :as grammar]))
 
 (def identity-affine
   "Canonical identity [a b c d tx ty]."
@@ -26,17 +27,34 @@
   #?(:clj (Math/sin (double x))
      :cljs (js/Math.sin x)))
 
-(defn- finite-number? [x]
-  #?(:clj (and (number? x) (Double/isFinite (double x)))
-     :cljs (and (number? x) (js/Number.isFinite x))))
+(defn- six-finite? [value]
+  (and (vector? value)
+       (= 6 (count value))
+       (every? grammar/finite-number? value)))
 
-(defn- validate-affine [affine]
-  (when-not (and (vector? affine)
-                 (= 6 (count affine))
-                 (every? finite-number? affine))
-    (throw (ex-info "affine must be six finite numbers [a b c d tx ty]"
-                    {:affine affine})))
-  (mapv double affine))
+(defn- affine-xor-legacy? [spec]
+  (or (not (contains? spec :affine))
+      (not-any? #(contains? spec %)
+                [:x :y :scale :scale-x :scale-y :rotation])))
+
+(def container
+  "The declared public grammar for a container specification."
+  {:optional #{:affine :x :y :scale :scale-x :scale-y :rotation
+               :parent :camera :layer :sibling-rank :effects}
+   :validators {:affine six-finite?
+                :x grammar/finite-number?
+                :y grammar/finite-number?
+                :scale grammar/finite-number?
+                :scale-x grammar/finite-number?
+                :scale-y grammar/finite-number?
+                :rotation grammar/finite-number?
+                :parent any?
+                :camera #{:world :screen}
+                :layer integer?
+                :sibling-rank integer?
+                :effects any?}
+   :form-validators [{:valid? affine-xor-legacy?
+                      :error-type :placement/affine-form}]})
 
 (defn- spec->affine
   "Normalize the public transform vocabulary to the one canonical affine.
@@ -45,7 +63,7 @@
    without becoming a second stored representation."
   [spec]
   (if (contains? spec :affine)
-    (validate-affine (:affine spec))
+    (mapv double (:affine spec))
     (let [x (double (or (:x spec) 0.0))
           y (double (or (:y spec) 0.0))
           uniform (double (or (:scale spec) 1.0))
@@ -54,7 +72,7 @@
           theta (double (or (:rotation spec) 0.0))
           ct (cos theta)
           st (sin theta)]
-      (validate-affine [(* ct sx) (* st sx) (* (- st) sy) (* ct sy) x y]))))
+      [(* ct sx) (* st sx) (* (- st) sy) (* ct sy) x y])))
 
 (def ^:private root-container
   {:parent nil
@@ -84,16 +102,21 @@
    :x/:y/:scale vocabulary remains behavior-identical; :rotation and
    :scale-x/:scale-y are convenience inputs.  The assigned transport slot is
    compact and independent of cid."
-  [reg cid {:keys [parent camera layer sibling-rank effects] :as spec
-            :or {parent nil camera nil layer 0 sibling-rank 0}}]
+  [reg cid spec]
   (when (= cid 0)
     (throw (ex-info "cid 0 is reserved (identity/world) and cannot be added"
-                    {:cid cid})))
+                    {:error-type :placement/reserved-cid :cid cid})))
   (when (contains? (:containers reg) cid)
-    (throw (ex-info "container already exists" {:cid cid})))
-  (when (and (some? parent) (not (contains? (:containers reg) parent)))
-    (throw (ex-info "parent container does not exist" {:cid cid :parent parent})))
-  (let [[reg slot] (allocate-transport-slot reg)]
+    (throw (ex-info "container already exists"
+                    {:error-type :placement/duplicate-container :cid cid})))
+  (let [{:keys [parent camera layer sibling-rank effects]
+         :or {parent nil camera nil layer 0 sibling-rank 0}
+         :as spec} (grammar/check container spec)]
+    (when (and (some? parent) (not (contains? (:containers reg) parent)))
+      (throw (ex-info "parent container does not exist"
+                      {:error-type :placement/parent-missing
+                       :cid cid :parent parent})))
+    (let [[reg slot] (allocate-transport-slot reg)]
     (assoc-in reg [:containers cid]
               {:parent parent
                :affine (spec->affine spec)
@@ -101,7 +124,7 @@
                :layer layer
                :sibling-rank sibling-rank
                :effects effects
-               :transport-slot slot})))
+               :transport-slot slot}))))
 
 (defn set-effects
   "Replace one container's session effect declaration. Grammar validation is
@@ -125,7 +148,7 @@
   (when-not (contains? (:containers reg) cid)
     (throw (ex-info "unknown container" {:cid cid})))
   (assoc-in reg [:containers cid :affine]
-            (validate-affine (:affine t))))
+            (spec->affine (grammar/check container t))))
 
 (defn remove-container
   "Drop a childless container and return its compact transport slot to the
@@ -176,7 +199,9 @@
             [cache p] (if (nil? parent)
                         [cache world-base]
                         (compose-one containers fallback-slots cache (conj seen cid) parent))
-            local (if (contains? c :affine) (:affine c) (spec->affine c))
+            local (if (contains? c :affine)
+                    (:affine c)
+                    (spec->affine (grammar/check container c)))
             affine (compose-affines (:affine p) local)
             eff {:affine affine
                  :camera (or (:camera c) (:camera p))
@@ -211,6 +236,14 @@
                :transport-slot (:transport-slot eff)}))
      {}
      cache)))
+
+(defn slot [effective container]
+  (let [transport-slot (get-in effective [container :transport-slot] ::missing)]
+    (when (= ::missing transport-slot)
+      (throw (ex-info "Path op names an unknown container"
+                      {:error-type :placement/unknown-container
+                       :container container})))
+    (int transport-slot)))
 
 (defn determinant [[a b c d _tx _ty]]
   (- (* a d) (* b c)))
