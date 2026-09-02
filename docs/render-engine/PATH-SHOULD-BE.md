@@ -1,5 +1,39 @@
 # `path/*` — how things should be
 
+> **Reconciled against `docs/seam-cuts/CONTRACT.md` (2026-09-02; authority newest first).**
+> The path seam atom closed at `c54282d`. Each item below is read against the
+> contract's rulings — **A** (verbs are data, run by a client runtime over
+> compiled builtins), **B** (fill on the GPU), the **dead criterion** (dead means
+> wrong form for the waist, called or not), and **Sid's answers** recorded in
+> the contract header — and against the tree at close. The body under this block
+> is the 2026-08-30 handoff, unchanged; where it disagrees with this block, this
+> block wins.
+>
+> **The seven rulings (§E).**
+> 1. once → **honored** in meaning (validation runs once at the door: `validate-material!` is `grammar/check`, every reader trusts the map); **superseded** in mechanism by the dead criterion — the admission stamp A3 proposed was a process-local mark that `pr-str` drops, and is gone.
+> 2. table → **superseded** by B and the floor: `hit-slop-screen-px` is deleted, not tabled; slop is the hit builtin's screen-pixel input converted through the effective scale, and the regime table itself leaves with atom B.
+> 3. both → **honored**: the census is out of `src/` for path and image (it lives only in the image test now).
+> 4. yes → **honored** in substance, **superseded** in residence by the dead criterion: the two examples exist as `test/app/client/path/fixtures.cljc`, never as defs in `material.cljc` (fixtures in src are wrong form).
+> 5. no → **honored**.
+> 6. open → **superseded** by A as read here: every shape and every compound is a verb row over compiled builtins, so a primitive recipe is data too, not repo code; D4's primitive/composite split does not survive. (Asked back to Sid once, in chat, in case he reads A narrower.)
+> 7. yes → **honored**; this file stays as the record.
+>
+> **The B-keeps.**
+> - B1 three-stage split → **honored** at close (material · tessellation · painter, plus `frame.cljc` for the pure frame key); **superseded** ahead by A (the stroker becomes a verb row emitting camera-free contours) and B (ear clipping, hole bridging and the regime table leave tessellation).
+> - B2 hand-rolled code-as-schema validator → **superseded** by the dead criterion: right meaning, wrong form. The grammar is declared data (`material/grammar`) checked by one engine (`engine/grammar.cljc`); closed maps and named refusals survive; `:path/extensions` and `:path/provenance` are gone; `schema-version` stays.
+> - B3 grammar content → **honored** for knots-as-truth, explicit holes, straight segments and round caps; **superseded** for pressure: a knot carries `:width`, decided by the brush at creation, with `:pressure` kept only as unread provenance (contract §4–§5). Straight segments hold until B, where curves are evaluated per pixel on the GPU.
+> - B4 regime-table declaration fields, unread → **honored** today; **superseded** ahead by B (the table goes; the legal zoom envelope moves to the server's space facet, one flattening tolerance stays on the floor).
+> - B5 `derive-mesh-set`, `quantization-receipt`, `boundary-distance` in use → **honored**; `quantization-receipt` and `f32-roundtrip` now live in the verifier (instruments, per the dead criterion), still called there.
+>
+> **C1/C2 → honored** (examples as test fixtures; `mesh-bytes` and `point-in-mesh?` live in the tests). **A1/A2 → honored. A3 → see ruling 1. A4 → see ruling 2.**
+>
+> **C3's four adds on the seam-cuts ladder** (atom 1 path seam, closed · atoms 2–4 image, text, region · atom A runtime + verbs · atom B GPU fill · the missing floor in canvas order: pointer, in-flight store, wire, clock, culling · LATER):
+> - C3.1 true curves → **atom B**: curves evaluated per pixel the way the Slug text shader does for glyphs; no segment-grammar widening in tessellation.
+> - C3.2 richer paint → split: paint kinds the shader evaluates (gradients, textures) are floor and ride **atom B**'s paint; dashes are a verb row, **atom A**.
+> - C3.3 grouping → ops name container ids and the placement tree runs (**atom 1**, done for path; atoms 2–4 for the rest); group opacity is a floor composite op; draw order and the group as a mark are the ECS layer above the waist, reachable once **atom A**'s runtime exists.
+> - C3.4 semantics → above the waist as data, never engine work; still waits on durable mark ids (Sid's storage ruling, **open**).
+> - D1's decision rule → **superseded** by §0's two axes (grain, and whether the camera is an input). D2, D3, D5 → **honored** as stances above the waist. D4 → see ruling 6. §F sizing → **superseded** by the ladder above.
+
 Handoff from the path/tessellation session, 2026-08-30. Purpose: a fresh
 session verifies each claim against source (claim → source, evidence-cited,
 no recut) and reports which hold; build sessions implement the ruled items.

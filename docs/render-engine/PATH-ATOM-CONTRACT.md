@@ -1,5 +1,7 @@
 # PATH ATOM — one-pass contract (path / tessellation / ink)
 
+> **Superseded 2026-09-02** by `docs/seam-cuts/CONTRACT.md` (the path seam atom, closed `c54282d`): the admission stamp, `:container-idx`, the painter ledger and local color law, base-width × pressure, and the hand-written validators are gone; width lives on the knot, the grammar is data, fill moves to the GPU in atom B. Read this page as history.
+
 Cut 2026-08-06 by Fable under the one-pass law (`.claude/skills/work-package/SKILL.md`;
 decisions.md "How we work"). Two Sid-touches: this cut · the accept. First post-law
 contract — do not imitate IMAGE-ATOM/SEAM-STEP1 docs; they predate the law.

@@ -604,6 +604,8 @@ Rules:
 
 ## 6. D2 round preparation — material truth stays Sid's
 
+> **Superseded 2026-09-02** by `docs/seam-cuts/CONTRACT.md` §0 and `docs/decisions.md` "The render seam": choice A holds (centerline is truth), but a knot now carries `:width` with pressure as unread provenance, and the outline derivation leaves the floor with atom B (fill on the GPU). Read §6 as the decision record.
+
 **Status:** RULED 2026-08-02 — choice A (§6.2). The question set below
 stands as the decision record and as W1/D2 contract input: the
 falsifier set (§6.4) and common fields (§6.3) now bind the
