@@ -224,6 +224,11 @@ const representativeSpecs = [
     resultKey: "pathAtom",
     file: "gpu-path-container-tree-tree-containers-cid17-slot1.png",
   },
+  {
+    manifestKey: "region3dFloorCases",
+    resultKey: "region3dFloor",
+    file: "gpu-region3d-floor-tree.png",
+  },
 ];
 
 const representativeGoldens = (result, manifest) =>

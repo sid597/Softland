@@ -58,7 +58,10 @@
 (deftest region-grammar-is-closed-data-after-pure-canonicalization
   (let [input (region)
         canonical (material/validate-region! input)
-        round-tripped (edn/read-string (pr-str canonical))]
+        round-tripped (edn/read-string (pr-str canonical))
+        before-derived (scene/derive-scene canonical)
+        after-derived (scene/derive-scene
+                       (material/validate-region! round-tripped))]
     (is (= 2 (:region3d/version canonical)))
     (is (= 2 material/schema-version))
     (is (= material/default-view (:view canonical)))
@@ -67,6 +70,8 @@
            (get-in canonical [:scene :parent :transform :rotation])))
     (is (nil? (meta round-tripped)))
     (is (= canonical (material/validate-region! round-tripped)))
+    (is (= (:instances before-derived) (:instances after-derived)))
+    (is (= (:bvh before-derived) (:bvh after-derived)))
     (testing "a near-unit quaternion normalizes before the grammar checks it"
       (let [accepted (assoc-in input [:scene :parent :transform :rotation]
                                [0.0 0.0 0.0 1.0005])]

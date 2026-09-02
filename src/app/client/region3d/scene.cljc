@@ -750,7 +750,7 @@
   [{:keys [maintained camera region-point]}]
   (let [region (:region maintained)
         camera (or camera
-                   (camera-matrices (:view-default region)
+                   (camera-matrices (:view region)
                                     [(get-in region [:extent :width])
                                      (get-in region [:extent :height])]))
         ray (ray-from-region-point camera region-point)]
@@ -841,7 +841,7 @@
 (defn evaluation-key [region session-row]
   {:static-material
    (-> region
-       (dissoc :background)
+       (dissoc :region/id :region/revision :region/rect :view :background)
        (update :scene
                (fn [objects]
                  (into {} (map (fn [[object-id object]]

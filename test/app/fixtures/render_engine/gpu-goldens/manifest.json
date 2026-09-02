@@ -378,5 +378,21 @@
       "rawSha256": "ca96286b8c0db9d50a2ead80d5cb9d79c9d72525c286a43243cfcf3ff1c453ba",
       "pngSha256": "efb70305a864ddb87b29fa9a7cd8ef5fc01009b3c855dd5e62a9d1da8e99e0ac"
     }
+  ],
+  "region3dFloorCases": [
+    {
+      "caseId": "tree",
+      "zoom": 1,
+      "regime": "region3d-floor-default",
+      "normalization": "region-local-3d-inside-world-2d",
+      "shapeExtentWorld": [
+        80,
+        88
+      ],
+      "mode": "tree",
+      "file": "gpu-region3d-floor-tree.png",
+      "rawSha256": "ba8b2efc3c804e2f5b034caedfb287ef321cfad9a5b70e7ca276ca34ae8964ff",
+      "pngSha256": "5f56a4e73ecdfb5a2e8fcb4f3cc555cc41dfb2d214a708bb870cb73b73be7e20"
+    }
   ]
 }

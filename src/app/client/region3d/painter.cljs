@@ -793,9 +793,11 @@
         prior @(:!prepared system)
         session-revision (:revision session-layout-snapshot)
         live-ids (set (map #(get-in % [:region/material :region/id]) regions))
+        container-slots (mapv #(placement/slot effective (:container %))
+                              regions)
         results
         (mapv
-         (fn [op]
+         (fn [[op container-slot]]
            (let [raw-region (:region/material op)
                  region-id (:region/id raw-region)
                  key (frame/region-key op zoom dpr session-revision)
@@ -839,7 +841,7 @@
                                     (scene/shadow-light-space maintained)
                                     (:shadow-space old))
                      view (or (:view session-row)
-                              (get-in maintained [:region :view]))
+                              (:view raw-region))
                      view-key [view (:display-mode session-row) encode-rung
                                shadow-space]
                      view-changed? (or scene-changed? (nil? old)
@@ -895,6 +897,7 @@
                                     (nil? old))}
                      row
                      {:key key :region-id region-id :op op
+                      :container-slot container-slot
                       :evaluation-key (:evaluation-key evaluation-result)
                       :background-key background-key :view-key view-key
                       :maintained maintained :camera camera
@@ -921,7 +924,7 @@
                                     0)
                       :region-encodes 0}]
                  [region-id row call-return]))))
-         regions)
+         (map vector regions container-slots))
         computed (into {} (map (fn [[region-id row _]] [region-id row])) results)
         region-returns
         (into {} (map (fn [[region-id _ call-return]]
@@ -940,8 +943,7 @@
                     :background (get-in row [:maintained :region :background])
                     :encode-rung (:encode-rung row)
                     :composite {:x x :y y :w w :h h
-                                :slot (placement/slot effective
-                                                      (:container op))}}))
+                                :slot (:container-slot row)}}))
                computed))
         computed
         (into {}

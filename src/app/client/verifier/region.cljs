@@ -25,7 +25,6 @@
         srgb->linear linear->srgb-byte selected-limits adapter-information
         shader-digests w4-read-texture!]]))
 
-(def ^:private region3d-owner-vi [:region3d-floor :verifier])
 (def ^:private region3d-id :region3d/verifier)
 
 (defn- region3d-tagged
@@ -54,21 +53,27 @@
    :transform (region3d-transform translation [1.0 1.0 1.0])
    :provenance {:asserted-by :sid :act :render-verifier}
    :light (merge {:kind kind :color color :intensity intensity
-                  :cast-shadow false}
+                 :cast-shadow false}
                  more)})
+
+(defn- region3d-remint [region]
+  (let [content (dissoc region :region/revision)]
+    (region3d-material/validate-region!
+     (assoc content :region/revision (hash content)))))
 
 (defn- region3d-fixture-region
   ([] (region3d-fixture-region :transparent))
   ([background-kind]
-   (region3d-material/validate-region!
-    {:region3d/version 1
+   (region3d-remint
+    {:region/id region3d-id
+     :region3d/version 1
      :extent {:width 640.0 :height 360.0 :depth 100.0}
      :background {:kind background-kind
                   :color (region3d-tagged 0.055 0.07 0.10
                                          (if (= :transparent background-kind)
                                            0.0 1.0))}
      :ambient {:color (region3d-tagged 0.72 0.80 1.0) :intensity 0.11}
-     :view-default {:pivot [0.0 0.0 0.0] :distance 8.0
+     :view {:pivot [0.0 0.0 0.0] :distance 8.0
                     :yaw 0.0 :pitch 0.0
                     :lens region3d-material/default-perspective-lens}
      :scene
@@ -92,15 +97,20 @@
       :spot (region3d-light :spot :spot [3.0 4.0 4.0]
                             (region3d-tagged 1.0 0.34 0.20) 24.0
                             {:range 20.0
-                             :cone {:inner-deg 18.0 :outer-deg 32.0}})}})))
+                             :cone {:inner-deg 18.0 :outer-deg 32.0}})}
+     :region/rect {:x 24.0 :y 20.0 :w 80.0 :h 88.0}})))
 
-(defn- region3d-op [region & {:keys [width height]
-                              :or {width 80.0 height 88.0}}]
-  {:id :region3d/verifier-node :address :region3d/verifier-address
-   :region-id region3d-id :owner-vi region3d-owner-vi
-   :container 0 :container-idx 0
-   :x 24.0 :y 20.0 :w width :h height
-   :region3d/scene region})
+(defn- region3d-op [region & {:keys [width height container]
+                              :or {width 80.0 height 88.0 container 0}}]
+  {:region/material
+   (region3d-remint
+    (assoc region :region/rect {:x 24.0 :y 20.0
+                                :w width :h height}))
+   :container container})
+
+(defn- region3d-op-size [op]
+  (let [{:keys [w h]} (get-in op [:region/material :region/rect])]
+    [w h]))
 
 (defn- region3d-seam-fixture []
   (let [ink-object
@@ -113,7 +123,7 @@
         region (-> (region3d-fixture-region :opaque)
                    (assoc :region3d/version 2)
                    (assoc-in [:scene :seam/ink] ink-object)
-                   region3d-material/validate-region!)
+                   region3d-remint)
         ink-material (path-ink-material
                       :seam/ink-material 1.0
                       [[0.0 8.0 0.45] [54.0 2.0 0.9]
@@ -127,14 +137,124 @@
          :cache-key (path-tessellation/material-cache-key ink-material 1.0)
          :material ink-material
          :owner {:vi :seam/ink-owner :op-id :seam/ink-material}}
-        op (assoc (region3d-op region)
+        op (assoc (region3d-op region :container 17)
                   :region3d/resolved-placements
                   [ink-placement])]
-    {:region region :op op
+    {:region (:region/material op) :op op
      :placements [ink-placement]}))
 
-(defn- region3d-regions [op]
-  {:regions [op]})
+(defn- empty-region3d-system-result []
+  {:version 1 :prepare-calls 0 :scene-derives 0
+   :scene-transform-updates 0 :region-encodes 0 :held-passes 0
+   :object-instance-uploads 0 :mesh-vertex-uploads 0
+   :light-uploads 0 :uniform-uploads 0 :composite-uploads 0
+   :regions {}
+   :placements {:version 1 :packs 0 :uploads 0 :draws 0
+                :ink-vertices 0 :over-limit 0 :last-census {}}
+   :prepared {}})
+
+(defn- placement-ink-vertices [placements]
+  (reduce
+   + 0
+   (keep (fn [placed]
+           (when (and (= :resolved (:status placed))
+                      (= :ink (:kind placed)))
+             (let [{[mesh] :meshes}
+                   (path-tessellation/derive-mesh-set
+                    {} [(:material placed)] 1.0)]
+               (count (:vertices mesh)))))
+         placements)))
+
+(defn- prepared-summary [op]
+  (let [region (:region/material op)
+        placements (:region3d/resolved-placements op)]
+    {:shadow? (boolean
+               (some #(and (= :light (:object/kind %))
+                           (get-in % [:light :cast-shadow]))
+                     (vals (:scene region))))
+     :placement-layouts
+     (into {}
+           (map (fn [placed]
+                  [(:object-id placed)
+                   {:address (:address placed)
+                    :status (:status placed)
+                    :layout-id (get-in placed [:layout :layout/id])}]))
+           placements)
+     :objects (count (:scene region))}))
+
+(defn- record-prepare-return! [{:keys [!region-result]} ops call-return]
+  (let [region-returns (:regions call-return)
+        changed (filter (comp :changed? val) region-returns)
+        placements (vec (mapcat #(or (:region3d/resolved-placements %) []) ops))
+        statuses (frequencies (map :status placements))
+        ink-vertices (placement-ink-vertices placements)
+        full-ids (set (keep (fn [[id result]]
+                              (when (pos? (:full-rebuilds result)) id))
+                            region-returns))
+        light-uploads
+        (reduce + 0
+                (for [op ops
+                      :let [region (:region/material op)]
+                      :when (contains? full-ids (:region/id region))]
+                  (count (filter #(= :light (:object/kind %))
+                                 (vals (:scene region))))))
+        prepared
+        (into {}
+              (map (fn [op]
+                     [(get-in op [:region/material :region/id])
+                      (prepared-summary op)]))
+              ops)]
+    (swap! !region-result
+           (fn [result]
+             (-> result
+                 (update :prepare-calls +
+                         (if (or (seq changed)
+                                 (pos? (:composite-uploads call-return))) 1 0))
+                 (update :scene-derives +
+                         (reduce + 0 (map (comp :full-rebuilds val) changed)))
+                 (update :scene-transform-updates +
+                         (count (filter (fn [[_ value]]
+                                          (and (zero? (:full-rebuilds value))
+                                               (pos? (:instance-uploads value))))
+                                        changed)))
+                 (update :object-instance-uploads +
+                         (reduce + 0 (map (comp :instance-uploads val) changed)))
+                 (update :mesh-vertex-uploads +
+                         (reduce + 0 (map (comp :full-rebuilds val) changed)))
+                 (update :light-uploads + light-uploads)
+                 (update :uniform-uploads + (count changed))
+                 (update :composite-uploads + (:composite-uploads call-return))
+                 (assoc :regions region-returns :prepared prepared)
+                 (update :placements
+                         (fn [placement-result]
+                           (-> placement-result
+                               (update :packs +
+                                       (if (seq changed) (count placements) 0))
+                               (update :uploads +
+                                       (if (and (seq changed)
+                                                (pos? ink-vertices)) 1 0))
+                               (assoc :ink-vertices ink-vertices
+                                      :over-limit 0
+                                      :last-census statuses)))))))
+    call-return))
+
+(defn- record-pass-returns! [{:keys [!region-result]} passes]
+  (swap! !region-result
+         (fn [result]
+           (-> result
+               (update :region-encodes + (count (filter :encoded? passes)))
+               (update :held-passes + (count (filter :held? passes)))
+               (update-in [:placements :draws] +
+                          (count (filter #(and (:encoded? %)
+                                              (= :interior (:role %)))
+                                         passes))))))
+  passes)
+
+(defn- region3d-system-result
+  [{:keys [!region-result region-system]}]
+  (assoc @!region-result
+         :bindings (region-bindings/receipt
+                    (region3d-painter/binding-owner region-system))))
 
 (defn- region3d-painters
   "The painters of one floor frame, back to front: the prepared surround
@@ -159,7 +279,8 @@
    shadow and interior of each one the region painter has prepared, paint the
    painters back to front into one linear scene target, present it, and read
    the pixels back."
-  [{:keys [device compositor region-system]} painters]
+  [{:keys [device compositor region-system !region-result] :as harness}
+   painters]
   (let [^js device device
         ^js texture (.createTexture
                      device
@@ -172,7 +293,7 @@
         {:keys [active stale]}
         (compositor-gpu/active-region-leases! compositor owner)
         encoder (.createCommandEncoder device)
-        prepared (:prepared (region3d-painter/region3d-receipt region-system))
+        prepared (set (keys (:prepared @!region-result)))
         passes (vec (for [{region-id :region/id shadow? :shadow?}
                           (region-bindings/desired-rows owner)
                           :when (contains? prepared region-id)
@@ -180,6 +301,7 @@
                       (region3d-painter/encode-region-pass!
                        region-system encoder region-id role
                        (get active region-id))))
+        _ (record-pass-returns! harness passes)
         scene (compositor-gpu/acquire-target!
                (:target-pool compositor) "rgba16float"
                canvas-size canvas-size "frame/scene-color")
@@ -195,20 +317,30 @@
                  (.destroy texture)
                  {:bytes bytes :passes passes})))))
 
-(defn- region3d-prepare-options [harness]
+(defn- region3d-prepare-options [harness session]
   {:zoom 1.0 :dpr 1.0
+   :effective (:effective harness)
    :font-assets (:font-assets harness)
-   :path-system (:path-system harness)})
+   :path-system (:path-system harness)
+   :session-layout-snapshot
+   {:address :region3d/verifier-session :revision (hash session)}})
+
+(defn- prepare-region3d!
+  [harness ops session prepare-overrides]
+  (let [{:keys [compositor region-system]} harness]
+    (region3d-painter/attach-compositor! region-system compositor)
+    (record-prepare-return!
+     harness ops
+     (region3d-painter/prepare-region3d-frame!
+      region-system {:regions ops} session
+      (merge (region3d-prepare-options harness session) prepare-overrides)))))
 
 (defn- region3d-capture!
   ([harness op session sides]
    (region3d-capture! harness op session sides {}))
   ([{:keys [compositor region-system] :as harness}
     op session sides prepare-overrides]
-   (region3d-painter/attach-compositor! region-system compositor)
-   (region3d-painter/prepare-region3d-frame!
-    region-system (region3d-regions op) session
-    (merge (region3d-prepare-options harness) prepare-overrides))
+   (prepare-region3d! harness [op] session prepare-overrides)
    (region3d-direct-frame! harness (region3d-painters harness sides))))
 
 (defn- region3d-capture-pair!
@@ -216,27 +348,100 @@
    (region3d-capture-pair! harness op session sides {}))
   ([{:keys [compositor region-system] :as harness}
     op session sides prepare-overrides]
-   (region3d-painter/attach-compositor! region-system compositor)
-   (region3d-painter/prepare-region3d-frame!
-    region-system (region3d-regions op) session
-    (merge (region3d-prepare-options harness) prepare-overrides))
-   (let [painters (region3d-painters harness sides)]
-     (-> (region3d-direct-frame! harness painters)
-         (.then
-          (fn [{first-bytes :bytes}]
-            (-> (region3d-direct-frame! harness painters)
-                (.then
-                 (fn [{second-bytes :bytes}]
-                   (-> (js/Promise.all
-                        #js [(sha256-bytes first-bytes)
-                             (sha256-bytes second-bytes)])
-                       (.then
-                        (fn [hashes]
-                          {:bytes first-bytes
-                           :first-sha256 (aget hashes 0)
-                           :second-sha256 (aget hashes 1)
-                           :byte-identical? (= (aget hashes 0)
-                                               (aget hashes 1))}))))))))))))
+   (let [prepare-return
+         (prepare-region3d! harness [op] session prepare-overrides)
+         painters (region3d-painters harness sides)]
+     (.then
+      (region3d-direct-frame! harness painters)
+      (fn [{first-bytes :bytes}]
+        (.then
+         (region3d-direct-frame! harness painters)
+         (fn [{second-bytes :bytes}]
+           (.then
+            (js/Promise.all
+             #js [(sha256-bytes first-bytes)
+                  (sha256-bytes second-bytes)])
+            (fn [hashes]
+              {:bytes first-bytes :prepare prepare-return
+               :first-sha256 (aget hashes 0)
+               :second-sha256 (aget hashes 1)
+               :byte-identical? (= (aget hashes 0)
+                                   (aget hashes 1))})))))))))
+
+(defn- region-result [frame]
+  (get-in frame [:prepare :regions region3d-id]))
+
+(defn- region3d-r3!
+  [harness region]
+  (let [base-region (-> region
+                        (assoc-in [:scene :sun :light :cast-shadow] false)
+                        region3d-remint)
+        base-op (region3d-op base-region)
+        reminted-op
+        (assoc-in base-op [:region/material :region/revision]
+                  [:reminted (get-in base-op
+                                     [:region/material :region/revision])])
+        moved-region
+        (-> (:region/material reminted-op)
+            (assoc-in [:scene :near :transform :translation]
+                      [0.125 0.0 0.0])
+            region3d-remint)
+        moved-op (assoc reminted-op :region/material moved-region)
+        drive
+        (fn [op zoom]
+          (let [prepare (prepare-region3d! harness [op] {} {:zoom zoom})]
+            (-> (region3d-direct-frame!
+                 harness (region3d-painters harness :region))
+                (.then (fn [{:keys [passes]}]
+                         {:prepare prepare :passes passes})))))
+        steps
+        [(fn [_] (drive base-op 1.0))
+         (fn [frame1]
+           (.then (drive base-op 1.0)
+                  #(hash-map :frame1 frame1 :frame2 %)))
+         (fn [state]
+           (.then (drive reminted-op 1.0)
+                  #(assoc state :frame3 %)))
+         (fn [state]
+           (.then (drive moved-op 1.0)
+                  #(assoc state :frame4 %)))
+         (fn [state]
+           (.then (drive moved-op 4.0)
+                  #(assoc state :frame5 %)))
+         (fn [{:keys [frame1 frame2 frame3 frame4 frame5] :as frames}]
+           (let [r1 (region-result frame1)
+                 r2 (region-result frame2)
+                 r3 (region-result frame3)
+                 r4 (region-result frame4)
+                 r5 (assoc (region-result frame5)
+                           :region-encodes
+                           (count (filter :encoded? (:passes frame5))))
+                 zero-counts {:full-rebuilds 0 :instance-uploads 0
+                              :bvh-refits 0 :region-encodes 0}
+                 pass? (and (:changed? r1)
+                            (= 1 (:full-rebuilds r1))
+                            (false? (:changed? r2))
+                            (= zero-counts (select-keys r2 (keys zero-counts)))
+                            (:changed? r3)
+                            (zero? (:full-rebuilds r3))
+                            (zero? (:instance-uploads r3))
+                            (:changed? r4)
+                            (= 1 (:instance-uploads r4))
+                            (= 1 (:bvh-refits r4))
+                            (zero? (:full-rebuilds r4))
+                            (:changed? r5)
+                            (= 1 (:region-encodes r5)))]
+             (prepare-region3d! harness [] {} {})
+             {:frames [(assoc r1 :frame 1)
+                       (assoc r2 :frame 2)
+                       (assoc r3 :frame 3)
+                       (assoc r4 :frame 4)
+                       (assoc r5 :frame 5)]
+              :pass? pass?}))]]
+    (prepare-region3d! harness [] {} {})
+    (reduce (fn [promise step] (.then promise step))
+            (js/Promise.resolve nil)
+            steps)))
 
 (defn- region3d-image-record [case-id pair]
   {:mode case-id :file (str "gpu-region3d-floor-" case-id ".png")
@@ -261,7 +466,7 @@
 (defn- region3d-lit-oracle [region bytes]
   (let [maintained (assoc (region3d-scene/derive-scene region)
                           :region-id region3d-id)
-        camera (region3d-scene/camera-matrices (:view-default region)
+        camera (region3d-scene/camera-matrices (:view region)
                                                 [80.0 88.0])
         hit (region3d-scene/pick-region
              {:maintained maintained :camera camera :region-point [40.0 44.0]})
@@ -329,9 +534,9 @@
 
 (defn- region3d-s5-lifecycle!
   [{:keys [device compositor region-system] :as harness} region op]
-  (let [base-view (:view-default region)
+  (let [base-view (:view region)
         changed-view (assoc base-view :yaw 0.045 :pitch -0.02)
-        before-view (region3d-painter/region3d-receipt region-system)
+        before-view (region3d-system-result harness)
         wait-for-queue
         (fn [value-fn]
           (.then (.onSubmittedWorkDone (.-queue ^js device))
@@ -342,7 +547,7 @@
             (region3d-capture!
              harness op {:regions {region3d-id {:view changed-view}}} :region)
             (fn [{view-passes :passes}]
-              (let [after-view (region3d-painter/region3d-receipt region-system)]
+              (let [after-view (region3d-system-result harness)]
                 (.then
                  (region3d-capture!
                   harness op {:regions {region3d-id {:view changed-view}}}
@@ -352,7 +557,11 @@
                     :view-passes view-passes
                     :clean-passes clean-passes}))))))
          (fn [state]
-           (let [resized (assoc op :w 300.0)]
+           (let [resized (region3d-op (:region/material op)
+                                      :width 300.0
+                                      :height (get-in op [:region/material
+                                                          :region/rect :h])
+                                      :container (:container op))]
              (.then
               (region3d-capture!
                harness resized {:regions {region3d-id {:view changed-view}}}
@@ -364,9 +573,11 @@
                           (compositor-gpu/region-leases-receipt compositor)
                           :resized-op resized)))))))
          (fn [{:keys [resized-op] :as state}]
-           (let [shadow-off (assoc-in region
-                                      [:scene :sun :light :cast-shadow] false)
-                 shadow-off-op (assoc resized-op :region3d/scene shadow-off)]
+           (let [shadow-off
+                 (-> (:region/material resized-op)
+                     (assoc-in [:scene :sun :light :cast-shadow] false)
+                     region3d-remint)
+                 shadow-off-op (assoc resized-op :region/material shadow-off)]
              (.then
               (region3d-capture!
                harness shadow-off-op
@@ -377,8 +588,7 @@
                    (assoc state :shadow-off
                           (compositor-gpu/region-leases-receipt compositor))))))))
          (fn [state]
-           (region3d-painter/prepare-region3d-frame!
-            region-system {:regions []} {} {:zoom 1.0 :dpr 1.0})
+           (prepare-region3d! harness [] {} {})
            (let [frame (region3d-direct-frame!
                         harness (region3d-painters harness :empty))]
              (.then
@@ -409,8 +619,7 @@
                                              (pos? (apply max sample)))})]
                      (compositor-gpu/destroy-compositor! refusal-compositor)
                      (region3d-painter/attach-compositor! region-system compositor)
-                     (region3d-painter/prepare-region3d-frame!
-                      region-system {:regions []} {} {:zoom 1.0 :dpr 1.0})
+                     (prepare-region3d! harness [] {} {})
                      next-state)))))))
          (fn [state]
            (let [first-compositor
@@ -455,9 +664,7 @@
                                (compositor-gpu/destroy-compositor! recreated)
                                (region3d-painter/attach-compositor!
                                 region-system compositor)
-                               (region3d-painter/prepare-region3d-frame!
-                                region-system {:regions []} {}
-                                {:zoom 1.0 :dpr 1.0})
+                               (prepare-region3d! harness [] {} {})
                                (assoc state :destroy-recreate receipt))))))))))))))
          (fn [{:keys [before-view after-view view-passes clean-passes
                       resize shadow-off after-close refusal destroy-recreate]
@@ -536,8 +743,7 @@
                          :pass? (and (some? (:last-region-refusal receipt))
                                      (pos? (apply max (pixel-rgba bytes 64 64))))}]
              (compositor-gpu/destroy-compositor! compositor)
-             (region3d-painter/prepare-region3d-frame!
-              region-system {:regions []} {} {:zoom 1.0 :dpr 1.0})
+             (prepare-region3d! harness [] {} {})
              result))))))
 
 (defn- region3d-lower-resolution!
@@ -559,13 +765,10 @@
                       :lease-size [768 512] :shadow? false
                       :background nil :encode-rung 1
                       :composite {:x 0.0 :y 0.0 :w 1.0 :h 1.0
-                                  :container-idx 0}}
+                                  :slot 0}}
         prepare-frame
         (fn [current-op zoom]
-          (region3d-painter/attach-compositor! region-system lower-compositor)
-          (region3d-painter/prepare-region3d-frame!
-           region-system (region3d-regions current-op) {}
-           (merge (region3d-prepare-options lower-harness) {:zoom zoom}))
+          (prepare-region3d! lower-harness [current-op] {} {:zoom zoom})
           (region3d-painters lower-harness :region))
         install-pressure!
         (fn []
@@ -582,8 +785,8 @@
         (-> region
             (assoc-in [:scene :near :material :base-color]
                       (region3d-tagged 0.12 0.92 0.28))
-            region3d-material/validate-region!)
-        mutated-op (assoc op :region3d/scene mutated-region)
+            region3d-remint)
+        mutated-op (assoc op :region/material mutated-region)
         steps
         [(fn [_]
            (let [frame (prepare-frame op 2.0)]
@@ -620,8 +823,8 @@
            (let [no-shadow-region
                  (-> region
                      (assoc-in [:scene :sun :light :cast-shadow] false)
-                     region3d-material/validate-region!)
-                 no-shadow-op (assoc op :region3d/scene no-shadow-region)]
+                     region3d-remint)
+                 no-shadow-op (assoc op :region/material no-shadow-region)]
              (.then
               (region3d-refusal-leg! harness no-shadow-region no-shadow-op
                                      (* 3 1024 1024))
@@ -657,7 +860,7 @@
                                            mutated-region)
                                           :region-id region3d-id)
                         pick-camera (region3d-scene/camera-matrices
-                                     (:view-default mutated-region)
+                                     (:view mutated-region)
                                      [640.0 704.0])
                         object-pick (region3d-scene/pick-region
                                      {:maintained maintained
@@ -755,8 +958,7 @@
                                 :pass? pass?}]
                     (compositor-gpu/destroy-compositor! lower-compositor)
                     (region3d-painter/attach-compositor! region-system compositor)
-                    (region3d-painter/prepare-region3d-frame!
-                     region-system {:regions []} {} {:zoom 1.0 :dpr 1.0})
+                    (prepare-region3d! harness [] {} {})
                     result)))))]]
     (reduce (fn [promise step] (.then promise step))
             (js/Promise.resolve nil)
@@ -765,13 +967,14 @@
 (defn run-region3d-floor! [device font-assets]
   (let [camera (device/create-camera-buffer device)
         containers-buffer (device/create-containers-buffer device)
-        surround-effective
-        {0 {:affine containers/identity-affine :flags 0 :layer 0
-            :stack-path [[0 0]] :transport-slot 0}}
+        registry (containers/add-container
+                  (containers/empty-registry) 17
+                  {:parent 0 :affine [0.5 0.0 0.0 0.5 40.0 20.0]})
+        effective (containers/effective registry)
         _ (device/update-camera device camera (js/Float32Array. 6)
                                   0.0 0.0 1.0 canvas-size canvas-size)
         _ (device/write-containers!
-           device containers-buffer surround-effective)
+           device containers-buffer effective)
         surround-path-system
         (path-painter/init-path-system
          device "rgba16float" camera containers-buffer
@@ -793,7 +996,7 @@
            [0.98 0.72 0.12 0.88] 1.0)
           0)]
         _ (path-painter/prepare-path-frame!
-           surround-path-system surround-ops 1.0 surround-effective)
+           surround-path-system surround-ops 1.0 effective)
         region-system (region3d-painter/ensure-region3d-system!
                        device camera containers-buffer)
         path-system
@@ -804,9 +1007,11 @@
                     device color-format)
         harness {:device device :camera camera
                  :containers-buffer containers-buffer
+                 :effective effective
                  :surround-path-system surround-path-system
                  :region-system region-system
                  :path-system path-system
+                 :!region-result (atom (empty-region3d-system-result))
                  :font-assets font-assets :compositor compositor}
         opaque-region (region3d-fixture-region :opaque)
         transparent-region (region3d-fixture-region :transparent)
@@ -819,45 +1024,55 @@
                 :session {} :sides :sandwich}
                {:case-id "lit-depth-shadow" :region transparent-region
                 :op transparent-op :session {} :sides :region}
-               {:case-id "placed-depth-interleave" :region seam-region
+               {:case-id "tree" :region seam-region
                 :op seam-op :session {} :sides :sandwich
-                :seam? true}]]
+                :seam? true}]
+        unknown-container-refusal
+        (try
+          (prepare-region3d! harness [(assoc opaque-op :container 999)] {} {})
+          nil
+          (catch :default error
+            (ex-data error)))]
     (-> (promise-mapv
          (fn [{:keys [case-id region op session sides seam?]}]
            (-> (region3d-capture-pair! harness op session sides)
                (.then
                 (fn [pair]
-                  (let [placement-receipt
-                        (:placements
-                         (region3d-painter/region3d-receipt region-system))]
-                    {:case-id case-id :zoom 1.0
+                  {:case-id case-id :zoom 1.0
                      :regime :region3d-floor-default
                      :normalization :region-local-3d-inside-world-2d
-                     :shape-extent-world [(:w op) (:h op)]
+                     :shape-extent-world (region3d-op-size op)
                      :oracle (when (= case-id "lit-depth-shadow")
                                (region3d-lit-oracle region (:bytes pair)))
                      :seam-receipt
                      (when seam?
                        {:resolved (count (filter #(= :resolved (:status %))
                                                  (:region3d/resolved-placements op)))
-                        :ink-vertices (:ink-vertices placement-receipt)})
-                     :images [(region3d-image-record case-id pair)]})))))
+                        :ink-vertices
+                        (placement-ink-vertices
+                         (:region3d/resolved-placements op))})
+                     :images [(region3d-image-record case-id pair)]}))))
          specs)
         (.then
          (fn [cases]
-           (-> (region3d-capture! harness transparent-op {} :region)
+           (-> (region3d-r3! harness transparent-region)
                (.then
-                (fn [_]
-                  (-> (region3d-s5-lifecycle!
-                       harness transparent-region transparent-op)
+                (fn [r3]
+                  (-> (region3d-capture! harness transparent-op {} :region)
                       (.then
-                       (fn [s5]
-                         (-> (region3d-lower-resolution!
+                       (fn [_]
+                         (-> (region3d-s5-lifecycle!
                               harness transparent-region transparent-op)
-                             (.then (fn [lower]
-                                      {:cases cases :s5 s5 :lower lower})))))))))))
+                             (.then
+                              (fn [s5]
+                                (-> (region3d-lower-resolution!
+                                     harness transparent-region transparent-op)
+                                    (.then
+                                     (fn [lower]
+                                       {:cases cases :r3 r3
+                                        :s5 s5 :lower lower}))))))))))))))
         (.then
-         (fn [{:keys [cases s5 lower]}]
+         (fn [{:keys [cases r3 s5 lower]}]
            (let [base-cases cases
                  s2 (get-in base-cases [1 :oracle])
                  s4 s2
@@ -865,22 +1080,27 @@
                              {:case-id "worn" :zoom 8.0
                               :regime :region3d-floor-worn
                               :normalization :region-local-3d-inside-world-2d
-                              :shape-extent-world [(:w transparent-op)
-                                                   (:h transparent-op)]
+                              :shape-extent-world
+                              (region3d-op-size transparent-op)
                               :images [(:image lower)]})
                  determinism (mapcat #(map :determinism (:images %)) cases)
-                 system-receipt (region3d-painter/region3d-receipt region-system)
+                 system-receipt (region3d-system-result harness)
                  seam-receipt (:seam-receipt (last base-cases))
                  compositor-receipt
                  (compositor-gpu/compositor-receipt compositor)
                  seam-pass? (and (= 1 (:resolved seam-receipt))
                                  (pos? (or (:ink-vertices seam-receipt) 0)))
+                 r1-pass? (= :placement/unknown-container
+                             (:error-type unknown-container-refusal))
                  pass? (and (= 4 (count cases))
                             (every? :byte-identical? determinism)
+                            r1-pass? (:pass? r3)
                             (:pass? s2) (:pass? s4) (:pass? s5) seam-pass?
                             (:pass? lower))
                  result {:cases cases
-                         :s2 s2 :s4 s4 :s5 s5
+                         :r1 {:unknown-container unknown-container-refusal
+                              :pass? r1-pass?}
+                         :r3 r3 :s2 s2 :s4 s4 :s5 s5
                          :lower-resolution (dissoc lower :image)
                          :seam (assoc seam-receipt :pass? seam-pass?)
                          :system system-receipt
