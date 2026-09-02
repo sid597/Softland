@@ -38,6 +38,15 @@ It carries exactly:
   hooks only;
 - the 3–5 decisive scenarios — frozen as tripwire tests at close;
 - real MUST-NOTs only (env.clj, protected files). Nothing conjunctive.
+- the BASIS (Sid, 2026-09-03) — the cutter's judgment, written so a
+  FRESH session can rule on follow-ups without reloading the cutting
+  session: alternatives considered and why each lost; holes left on
+  purpose, each marked "out of scope" or "not yet decided"; what the cutter
+  would push back on if an implementer proposed it; the calls it is least
+  sure of. Written before the cutting session ends. Follow-up questions go
+  to a fresh session booted on contract + basis + the seam + the question;
+  the cutting session is never resumed for them (corpse: 300–400k-token
+  sessions reloaded across sittings to answer one question).
 The cutter reads BINDING law docs primary (W1-class, never a summary), and
 the cut CLOSES through ONE bounded fresh-eyes falsification round — run as
 ONE fresh Codex-class session at Sid's hand, never the cutter's own

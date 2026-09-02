@@ -24,7 +24,8 @@ after a second-device copy passes it.
 Contract = the hard thinking; everything after is execution. One pass, one
 session, one document — size OPEN, no screen cap (Sid, 2026-08-06): scope · laws · exact entry points
 (new code in its own namespace; big files get thin hooks) · 3–5 decisive
-scenarios · real MUST-NOTs. The implementer builds the whole atom, keeps its
+scenarios · real MUST-NOTs · the BASIS (alternatives rejected, holes left,
+least-sure calls — so follow-ups go to a fresh session, never a resumed one). The implementer builds the whole atom, keeps its
   implementation adversarial check, fixes what surfaces before source freeze;
   a genuine fork is ONE
 question, never a stop code. The cutter reads binding law docs PRIMARY
