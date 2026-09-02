@@ -272,27 +272,27 @@ const slugGoldens = (result, manifest) =>
     };
   });
 
+const filesUnder = (relativeDirectory, extensions) => {
+  const walk = (directory) =>
+    fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+      const absolutePath = path.join(directory, entry.name);
+      return entry.isDirectory() ? walk(absolutePath) : [absolutePath];
+    });
+
+  return walk(path.join(repoRoot, relativeDirectory))
+    .filter((absolutePath) => extensions.has(path.extname(absolutePath)))
+    .map((absolutePath) =>
+      path.relative(repoRoot, absolutePath).split(path.sep).join("/"),
+    );
+};
+
 const sourceInputs = () =>
   [
-    "src/app/client/engine/device.cljs",
-    "src/app/client/engine/grammar.cljc",
-    "src/app/client/engine/placement.cljc",
-    "src/app/client/text/painter.cljs",
-    "src/app/client/text/glyph_pack.cljs",
-    "src/app/client/text/shaper.cljs",
-    "src/app/client/text/shaped_line.cljc",
-    "src/app/client/text/layout.cljc",
-    "src/app/client/text/layout_planes.cljc",
-    "src/app/client/image/painter.cljs",
-    "src/app/client/verifier/core.cljs",
-    "src/app/client/path/painter.cljs",
-    "src/app/client/path/frame.cljc",
-    "src/app/client/path/material.cljc",
-    "src/app/client/path/tessellation.cljc",
-    "src/app/client/region3d/painter.cljs",
-    "test/render_engine/verify_instance_cut.mjs",
-    "test/render_engine/run_verifier.mjs",
-  ].map(sha256File);
+    ...filesUnder("src/app/client", new Set([".cljs", ".cljc"])),
+    ...filesUnder("test/render_engine", new Set([".mjs"])),
+  ]
+    .sort()
+    .map(sha256File);
 
 const recordUbuntuSlugGolden = (result, manifest) => {
   const cases = result.ubuntuSlug?.cases || [];
