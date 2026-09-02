@@ -440,7 +440,7 @@
                  pass? (and (= 3 (count cases))
                             (every? :byte-identical? determinism)
                             (= [0 1] (:transport-slots (last cases)))
-                            (= :path/unknown-container
+                            (= :placement/unknown-container
                                (get-in (last cases)
                                        [:unknown-container :error-type]))
                             (= 7 (count parity))

@@ -36,6 +36,8 @@
     app.client.region3d.material-test
     app.client.region3d.on-plane-test
     app.client.region3d.scene-test
+    app.client.engine.color-test
+    app.client.engine.grammar-test
     app.client.engine.rungs-test
     app.client.engine.placement-test
     app.client.text.shaping-correction-test
