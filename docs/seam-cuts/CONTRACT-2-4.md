@@ -610,45 +610,120 @@ Preflight, before the first prompt: permission mode, remote-control and MCP set 
 This step renames the client's code to the glossary. Bytes do not change: every golden, every guard,
 every JVM test is identical before and after. The glossary is the spec; the harness is the evidence.
 
-Boot, by seam, sizes first (about 20KB; every source file is then read by skeleton, `grep -n "^(def"`,
+Boot, by window, sizes first (about 20KB; every source file is then read by skeleton, `grep -n "^(def"`,
 and renamed by scripted substitution per file, never by retyping):
   docs/decisions.md   "The render boundary" → the "One vocabulary" block only (~4KB)   read PRIMARY
   CLAUDE.md           "Source Structure" (~2KB): the folder and file names it states
-  shadow-cljs.edn                                              1KB   whole
+  shadow-cljs.edn                                              1KB   whole (two builds: core, shaper-border-probe)
   test/app/test_runner.clj                                    25KB   lines 31-60 (the namespace inventory)
   docs/seam-cuts/NOW-2-4.md                                    6KB   whole
 
-The rule: rename by concept, never by string. A word is renamed where it means the glossary's concept
-and kept where it means something else in graphics. Known homonyms that stay: `face` in text/* (a font
-face), `band` in text/* (a glyph band), `slot` in engine/buffer_pool.cljs and engine/leases.cljs (a pool
-slot), `receipt` where it names a server record. Every homonym you decide is one line in NOW-2-4.md
-under "Rename", with the file and the meaning kept.
+Three rules.
+- Rename by concept, never by string; identifiers, docstrings and comments alike. A word renames
+  where it means the glossary's concept and stays where it means something else. A local binding may
+  be the short form of a two-word name (`item` for a draw item) where the function names the concept.
+- A namespace renames together with every require, alias and test of it, in src/ and test/, in the
+  same commit, so the tree compiles and the harness passes after each act. The require graph
+  (verified 2026-09-02): engine.color, engine.placement and engine.device are required by every kind
+  and by verifier/*; engine.grammar by the four material files; region3d/on_plane requires
+  path.material, path.tessellation and text.layout (the only kind→kind edges); region3d/on_plane_test
+  requires engine.placement, text.layout and text.layout-planes; verifier/region requires
+  app.client.region3d.oracle from test/ (a src→test edge: leave it, name it as debt).
+- What is the harness's own wire keeps its name: row keys agreed across the boundary (CONTRACT.md §5,
+  this page §5: `:path/material-id`, `:path/material` and `:container` on a draw item,
+  `:region/material`), golden filenames (`seam-byte-srgb.png`, `gpu-image-atom-*.png`), the shadow
+  build id `:render-verifier` and its output dir, browser globals the runners read (`planeCensus`).
+  Client-private keys (`:regime/id`, `:!last-regime`, `:!receipt`) rename.
 
-What renames, in this order, one commit each:
-1. engine/: placement → transform (file, namespace, `placement/effective` → `transform/world`,
-   `slot` → `buffer-index`, container → group in every identifier); grammar → schema; receipt → stats
-   in compositor/leases where it is a per-frame return; `finite-number?` and friends keep their names.
-2. path/: material → component; painter → renderer; op → draw-item; knot → stroke-point; regime →
-   lod; frame-key stays.
-3. image/: the same words; residency stays.
-4. region3d/: the same words; scene, bvh, lease, composite stay.
-5. text/: op → draw-item, container → group, painter → renderer; face, band, shaper, slug stay.
-6. verifier/ → harness/: folder, namespaces, shadow-cljs.edn entry (`app.client.harness.core/start!`),
-   the `verifier/` mentions in CLAUDE.md "Source Structure"; road → section in identifiers; receipt →
-   evidence in identifiers that name close evidence, → stats where per-frame.
+Homonyms that stay, verified in code on 2026-09-02:
+  face       a font face wherever it appears: text/* (`create-face-state`, `run-face`, `:face-id`),
+             region3d/on_plane (`:face-id`, `:face-revision`), verifier/text, shaper_border_probe;
+             a mesh quad face in region3d/scene. No entity template exists in code.
+  band       the Slug band texture: text/fonts, text/painter (`bandTexture`, `calc_band_loc`), verifier/text.
+  placement  the atlas rect in image/material (`clip-placement`, `placement-tier`, `:placements`) and
+             `(:placement plan)` in image/painter; a text item placed on a plane in region3d/on_plane and
+             on_plane_painter (`prepare-placements!`, `placement-depth-bias`, `:region3d/resolved-placements`).
+             Only `app.client.engine.placement` and its aliases (`placement/`, `containers/`) are the transform.
+  mark       the allocator's `high-water-mark` in engine/buffer_pool.
+  admitted?  the byte-budget admission in engine/rungs (does the target fit); not validation.
+  floor      the fixture's floor plane in verifier/region (`:floor`, `shadowed-floor`) and `js/Math.floor`;
+             "the floor" in a docstring means the engine and renames.
+  door       the camera "door" in region3d/painter's `region-encode-rung` docstring, a quantization
+             threshold; "the pack door" in text/layout and text/painter is an entry point and renames.
+  gate       `:felt-gate :sid-live` (a human pass marker) and "no gate" in verifier/text (a threshold);
+             `run-*-upload-gate!` and `:upload-gate` in verifier/path and verifier/image test the dirty
+             check and rename.
+  in-flight  the shaper's pending load promise (a docstring).
+  atom       Clojure's `(atom …)` everywhere; the work-package sense (`run-image-atom!`, `run-path-atom!`,
+             `:image-atom`, `image-atom-record`, device.cljs "atom multiplication") is a step and renames.
+  seam       `seam-system` / `seam-camera` / `seam-containers` in verifier/image: a non-sRGB, scene-color-off
+             system for byte parity, unexplained in the file; stays, named in NOW. `:seam/ink` and
+             `region3d-seam-fixture` in verifier/region are the path-on-plane boundary and rename.
+  road       a named paint pipeline variant (the flat road, the map road, `:paint-road`, `flat-road-*`,
+             `app.client.text.flat-road-test`); in compositor comments, an execution path. The glossary's
+             "section" was minted for the harness's prose and fits no code sense. Default: road → pipeline
+             (flat pipeline, map pipeline; the WebGPU object is `:pipeline` and told apart by context).
+             If Sid strikes the default, road stays and is named in NOW.
+Every homonym you decide beyond this list is one line in NOW-2-4.md under "Rename", with the file and
+the meaning kept.
+
+What renames, in dependency order, one commit each, each carrying its requirers and tests:
+1. engine/: placement → transform (file, namespace, aliases; `placement/effective` → `transform/world-transforms`,
+   `effective-scale` → `world-transform-scale`, `effective-transforms` → `world-transforms`; `world` alone
+   is the root group and is no identifier here); slot → buffer-index in placement (`:transport-slot`,
+   `allocate-transport-slot`), buffer_pool (`allocate-slot!`, `slot-index`, `:active-slots`) and leases
+   (`:slots`, `take-slot`); container → group in every identifier (`write-containers!`, `containers-buffer`,
+   `container-id`); grammar → schema (file, namespace, `grammar/check`, the test); receipt → stats in
+   compositor, leases and rungs (per-frame counters: `:!receipt`, `compositor-receipt`, `region-leases-receipt`,
+   `:rung-receipt`); refusal → rejection in compositor (`:refusals`, `:refused?`, `:last-region-refusal`);
+   `finite-number?` and friends keep their names. Carries: every kind file, verifier/*, the engine tests,
+   the runner inventory.
+2. path/: material → component (file, namespace, `material/grammar` → `component/schema`, `validate-material!`
+   → `validate-component!`, `material-content-key` → `component-content-hash`; the row keys stay); painter
+   → renderer (file, namespace); op → draw-item (`path-op`); knot → stroke-point (`:knot/id`, the `knot` spec);
+   regime → lod (`zoom-regime`, `legal-zoom-regimes`, `:regime/id`, `:!last-regime`); "legal envelope" →
+   zoom range in the thrown message; frame-key stays. Carries: region3d/on_plane, verifier/path,
+   verifier/region, the path tests and fixtures, the runner inventory.
+3. text/: op → draw-item (`text-op`, `pack-op!`); container → group; painter → renderer (file, namespace);
+   receipt → stats (the layout work-counter map); census → coverage-check (`plane-census`,
+   `live-plane-census`; the `planeCensus` global stays); road → pipeline per the list; "pack door" → pack
+   entry point; fence, instrument, tripwire in comments → consistency check, diagnostic, regression test;
+   face, band, shaper, slug stay. Carries: region3d/on_plane and its test, verifier/text, verifier/shared,
+   verifier/core, verifier/shaper_border_probe, the text tests (`flat-road-test` → `flat-pipeline-test`),
+   the runner inventory.
+4. image/: material → component; painter → renderer; op → draw-item (`image-op`, `slot-ops` → `buffer-index-items`);
+   regime → lod; slot → buffer-index; container → group; atlas placement and residency stay. Carries:
+   verifier/image, the image tests, the runner inventory.
+5. region3d/: material → component; painter → renderer (`painter.cljs`, `on_plane_painter.cljs`); op →
+   draw-item (`region3d-op`); effective → world-transform (`effective-matrix`, `:effective-transforms`);
+   refusal → rejection (`refusal-pipeline`, `refusal-fragment-shader`, `:refused?`); receipt → stats in
+   scene; census → coverage-check in on_plane_painter; "the floor" in docstrings → the engine; on-plane
+   placement, scene, bvh, lease, composite and the mesh `face` stay. Carries: verifier/region,
+   verifier/shared, the region3d tests, the test-tree oracle, the runner inventory.
+6. verifier/ → harness/: folder and namespaces (`app.client.harness.core`, `app.client.harness.shaper-border-probe`),
+   both shadow-cljs.edn entries and init-fns, the `verifier/` mentions in CLAUDE.md "Source Structure" and
+   in docstrings across src (compositor, device, image/painter, text/layout_oracle, shaper, shaper_oracle).
+   In its files: op → draw-item, material → component, effective → world-transforms, seam → boundary in
+   verifier/region only, painter → renderer, floor → engine in docstrings, regime → lod, container → group,
+   refusal → rejection (`refusal-compositor`, `region3d-refusal-leg!`, `:lifecycle/refused`), placement →
+   transform where it aliases the engine, gate → dirty-check (`run-path-upload-gate!`, `run-image-upload-gate!`,
+   `:upload-gate`), atom (work sense) → step (`run-image-step!`, `run-path-step!`, `:image-step`), envelope →
+   zoom-range (`"legal-envelope-sentinel"`), receipt → evidence where a run returns it for a reader
+   (`image-parity-receipt`, `run-color-receipts!`) and → stats where it is a per-frame counter, road →
+   pipeline per the list; `seam-system` stays.
 7. docs: CLAUDE.md "Source Structure" carries the new folder and file names; `docs/seam-cuts/*` and
-   `docs/decisions.md` "The render boundary" swap their backticked identifiers for the new ones
-   (prose is already in the glossary's words); nothing else in docs/.
+   `docs/decisions.md` "The render boundary" swap their backticked identifiers for the new ones (prose is
+   already in the glossary's words); nothing else in docs/.
 
 After each commit: `npm run verify:render-engine` PASS with every golden byte-identical and
-`clj -X:test` unchanged (foreign red named as debt). At the end: a grep census of the old terms in
-src/app/client with the homonym list as the only survivors, written into NOW-2-4.md under "Rename",
+`clj -X:test` unchanged (foreign red named as debt). At the end: a grep of the old terms in
+src/app/client with the list above as the only survivors, written into NOW-2-4.md under "Rename",
 then the terminal line. Sid's accept closes it.
 
 Commits: seven, one per act above, each big enough to read as one change, the message saying what
 changed and why (Sid, 2026-09-02: "too small to know anything"). On main, exact paths, no
 Co-Authored-By. Do not stage CLAUDE-1.md or anything under .claude/memory/. CLAUDE.md is in scope
-for act 7 only.
+for acts 6 and 7 only.
 ```
 
 ## 12. The falsification round (paste-able, one fresh Codex-class session, at Sid's hand)
