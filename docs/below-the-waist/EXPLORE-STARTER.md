@@ -1,22 +1,41 @@
 # Below the waist: what is not there yet — the exploration starter
 
-*Written 2026-09-03 by the CONTRACT-5 cutting session at Sid's ask. Paste after the deletion contract's two accepts. Code only, no docs: Sid's fence. Two parts: the thinker's prompt, pasted into one session; the hunter, `.claude/agents/code-hunter.md`, which that session spawns and keeps.*
+*Written 2026-09-03 by the CONTRACT-5 cutting session at Sid's ask. Paste after the deletion contract's two accepts. Code only, no docs: Sid's fence. One session, two turns: the load at low effort, then the thinking at max; plus the hunter, `.claude/agents/code-hunter.md`, which the session spawns for function bodies and keeps.*
 
-## The thinker's prompt (paste into one session)
+## Turn one: the load (effort low; paste first)
+
+Why two turns: reading costs tool-result tokens, thinking costs prefix. A read at low effort enters the context once and is cached; a read at high effort forms a position on every file and that thinking rides in the prefix for the rest of the session. And a read that comes before the question is not anchored by it. Effort is a request parameter, not part of the prefix, so the switch should keep the cache; that is inference, unverified here (the receipt would be the first turn after `/effort` showing cache reads, not cache writes).
 
 ```
 Preflight, before the first prompt: permission mode, remote-control and MCP set now; never
-mid-session. Effort max.
+mid-session. Effort low for this turn.
 
+This turn loads. Read the following and keep it in context. Do not summarize, assess, or form a
+position; reply with one line: what was read and its byte total.
+
+  The client's skeleton, one grep per folder, output kept in context (about 80KB, 1,074 lines:
+  every namespace and every top-level name under src/app/client):
+    grep -rn "^(def\|^(ns " src/app/client/<folder> --include='*.clj*'
+    for engine (12KB) · text (21KB) · image (5KB) · path (7KB) · region3d (22KB) · harness (14KB)
+  src/app/client/harness/core.cljs   10KB   whole (the only thing that makes a frame today)
+
+Nothing under docs/, vision/, .claude/; no *.md; no memory recall.
+```
+
+Then Sid types `/effort max`.
+
+## Turn two: the thinking (effort max; paste second)
+
+```
 Exploration, in chat. Nothing lands on disk; Sid reads and steers.
 
-This session reads no docs and no code. Nothing under docs/, vision/, .claude/, no memory
-recall, no board, no contract, no markdown at all. What you learn of Softland you learn by
-asking the hunter and by thinking. Spawn one code-hunter at the start (Agent tool,
-subagent_type code-hunter; model opus, or fable if Sid says so), keep it for the whole session,
-and send it follow-ups by its id; it remembers what it has read. It reads src/app/client,
-test/app/client and test/render_engine and hands back facts with file:line. It never judges;
-you never read.
+This session reads no docs, and no code beyond what turn one loaded: the client's skeleton and
+the driver. Nothing under docs/, vision/, .claude/, no memory recall, no board, no contract, no
+markdown at all. When you need the body of a function, ask the hunter: spawn one code-hunter
+the first time you need a window (Agent tool, subagent_type code-hunter; model opus, or fable
+if Sid says so), keep it for the whole session, and send it follow-ups by its id; it remembers
+what it has read. It reads src/app/client, test/app/client and test/render_engine and hands
+back facts with file:line. It never judges; you open no file yourself.
 
 The question is Sid's (2026-09-03): "it seems like there might be quite a few things missing
 from client side that should be below the waist and what are they how do we even figure what
