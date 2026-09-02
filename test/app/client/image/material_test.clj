@@ -14,7 +14,6 @@
    :image/width 32
    :image/height 16
    :image/bytes-route {:kind :fixture :path "images/a.png"}
-   :image/ingress-receipt image/ingress-receipt
    :image/alpha-association :straight})
 
 (def material-a
@@ -23,7 +22,13 @@
    :image/source-digest digest-a
    :image/color-tag :srgb
    :image/intrinsic-size [32 16]
-   :image/provenance {:actor :fixture :act :generate}})
+   :image/provenance {:actor :fixture :act :generate}
+   :image/rect {:x 10 :y 20 :w 32 :h 16}
+   :image/crop {:x 0 :y 0 :w 32 :h 16}
+   :image/paint {:tint {:rgba [0.25 0.5 0.75 0.8]
+                        :color-space :srgb
+                        :alpha-association :straight}
+                 :opacity 0.5}})
 
 (def claimed-corpus-pressures
   #{:two-extents :atlas-overflow :alpha-association-pair
@@ -41,7 +46,21 @@
                       {:missing (vec missing) :unconsumed (vec unconsumed)})))
     true))
 
-(deftest g7-ingress-and-material-grammar-fail-closed
+(defn- refusal-data [f]
+  (try
+    (f)
+    nil
+    (catch clojure.lang.ExceptionInfo error
+      (ex-data error))))
+
+(defn- instance-input [material]
+  {:rect (:image/rect material)
+   :uv [0.0 0.0 1.0 1.0]
+   :tint (get-in material [:image/paint :tint])
+   :opacity (get-in material [:image/paint :opacity])
+   :slot 7})
+
+(deftest i2-rows-travel-and-grammar-refuses-by-name
   (testing "verified bytes, not a caller assertion, establish source identity"
     (let [registry (image/register-verified-source
                     (image/empty-source-registry) source-a digest-a)]
@@ -50,24 +69,45 @@
           "identical re-registration is idempotent")
       (is (thrown? clojure.lang.ExceptionInfo
                    (image/register-verified-source registry source-a digest-b)))))
-  (testing "untagged, unsupported-alpha, and absent byte routes are refused"
-    (is (thrown? clojure.lang.ExceptionInfo
-                 (image/validate-source! (dissoc source-a :image/color-tag))))
-    (is (thrown? clojure.lang.ExceptionInfo
-                 (image/validate-source!
-                  (assoc source-a :image/alpha-association :unknown))))
-    (is (thrown? clojure.lang.ExceptionInfo
-                 (image/validate-source! (dissoc source-a :image/bytes-route)))))
-  (testing "material canonicalization round-trips and rejects unknown/time fields"
-    (let [canonical (image/canonical-material material-a)]
-      (is (= canonical (edn/read-string (pr-str canonical))))
+  (testing "source and material rows survive EDN without admission metadata"
+    (let [source-row (edn/read-string (pr-str source-a))
+          material-row (edn/read-string (pr-str material-a))]
+      (is (nil? (meta source-row)))
+      (is (nil? (meta material-row)))
+      (is (= source-row (image/validate-source! source-row)))
+      (is (= material-row (image/validate-material! material-row)))
+      (is (= (image/canonical-material material-a)
+             (image/canonical-material material-row)))
       (is (= (image/material-cache-key material-a :mips-v1 :default)
+             (image/material-cache-key material-row :mips-v1 :default)
              [digest-a 1 :mips-v1 :default]))
-      (is (thrown? clojure.lang.ExceptionInfo
-                   (image/validate-material! (assoc material-a :mystery true))))
-      (is (thrown? clojure.lang.ExceptionInfo
-                   (image/validate-material!
-                    (assoc material-a :image/extensions {:image/time 2})))))))
+      (is (= (image/instance-words (instance-input material-a))
+             (image/instance-words (instance-input material-row))
+             [10 20 32 16 0.0 0.0 1.0 1.0 0.25 0.5 0.75 0.4 7]))))
+  (testing "closed source and material grammars name each refusal"
+    (doseq [[row error-type path]
+            [[(assoc material-a :future/key true)
+              :grammar/unknown-key [:future/key]]
+             [(assoc material-a :image/extensions {})
+              :grammar/unknown-key [:image/extensions]]
+             [(assoc source-a :image/ingress-receipt {:reader :asserted})
+              :grammar/unknown-key [:image/ingress-receipt]]
+             [(dissoc source-a :image/bytes-route)
+              :grammar/invalid-value [:image/bytes-route]]
+             [(assoc-in material-a [:image/paint :tint :rgba]
+                        [0.0 0.25 0.5 0.75 1.0])
+              :grammar/invalid-value [:image/paint :tint :rgba]]
+             [(assoc-in material-a [:image/rect :h] 0)
+              :grammar/invalid-value [:image/rect :h]]
+             [(assoc-in material-a [:image/paint :opacity] 1.5)
+              :grammar/invalid-value [:image/paint :opacity]]
+             [(assoc material-a :image/crop [0 0 32 16])
+              :grammar/map-required [:image/crop]]]]
+      (is (= {:error-type error-type :path path}
+             (select-keys (refusal-data #(if (contains? row :image/digest)
+                                           (image/validate-source! row)
+                                           (image/validate-material! row)))
+                          [:error-type :path]))))))
 
 (deftest g7-mip-chain-and-placement-laws
   (testing "full mip chain counts, sizes, and bytes are exact"

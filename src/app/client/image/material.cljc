@@ -8,23 +8,13 @@
    Gives: a validated source; an atlas placement plan; 13 floats per instance;
    contiguous draw runs.
    Holds nothing; owns no GPU objects."
-  )
+  (:require [app.client.engine.color :as color]
+            [app.client.engine.grammar :as grammar]))
 
 ;; Contract C ingress ---------------------------------------------------------
 
-(def source-refusal-policy :reject-untagged)
 (def legal-source-tags #{:srgb :embedded-profile})
 (def legal-alpha-associations #{:straight :premultiplied :opaque})
-
-(def ingress-receipt
-  {:image-ingress/version 1
-   :decode :create-image-bitmap
-   :embedded-profile :convert-to-srgb-at-decode
-   :srgb :preserve-encoded-srgb-at-decode
-   :candidate-transfer :srgb-to-linear-once-at-texture-ingress
-   :candidate-premultiply :after-coverage-and-opacity
-   :candidate-presentation :linear-to-output-once-at-srgb-attachment
-   :seam-off :encoded-byte-passthrough})
 
 (defn sha256-digest?
   [value]
@@ -35,38 +25,22 @@
 (defn- positive-int? [value]
   (and (integer? value) (pos? value)))
 
+(def source
+  {:keys #{:image/digest :image/color-tag :image/width :image/height
+           :image/bytes-route :image/alpha-association}
+   :validators {:image/digest sha256-digest?
+                :image/color-tag legal-source-tags
+                :image/width positive-int?
+                :image/height positive-int?
+                :image/bytes-route some?
+                :image/alpha-association legal-alpha-associations}})
+
 (defn validate-source!
   "Validate a resolved source record.  The caller still has to prove its byte
    digest through `register-verified-source`; a declared digest is never
    caller authority (T2/T9)."
-  [{:keys [image/digest image/color-tag image/width image/height
-           image/bytes-route image/alpha-association]
-    :as source}]
-  (let [declared-ingress-receipt (:image/ingress-receipt source)]
-  (when-not (sha256-digest? digest)
-    (throw (ex-info "Image source requires a lowercase sha256 digest"
-                    {:source source :image/digest digest})))
-  (when-not (contains? legal-source-tags color-tag)
-    (throw (ex-info "Untagged image color is refused"
-                    {:policy source-refusal-policy
-                     :image/color-tag color-tag
-                     :legal legal-source-tags})))
-  (when-not (contains? legal-alpha-associations alpha-association)
-    (throw (ex-info "Image source requires a declared alpha association"
-                    {:image/alpha-association alpha-association
-                     :legal legal-alpha-associations})))
-  (when-not (and (positive-int? width) (positive-int? height))
-    (throw (ex-info "Image source dimensions must be positive integers"
-                    {:image/width width :image/height height})))
-  (when-not (some? bytes-route)
-    (throw (ex-info "Image source requires a digest-keyed bytes route"
-                    {:image/digest digest})))
-  (when-not (= ingress-receipt declared-ingress-receipt)
-    (throw (ex-info "Image source ingress receipt is not the admitted chain"
-                    {:image/digest digest
-                     :expected ingress-receipt
-                     :actual declared-ingress-receipt})))
-  source))
+  [source-row]
+  (grammar/check source source-row))
 
 (defn empty-source-registry []
   {:image-registry/version 1 :sources {}})
@@ -98,53 +72,54 @@
 
 ;; Contract M grammar ---------------------------------------------------------
 
-(def material-schema-version 1)
-(def material-required-keys
-  #{:image/material-id :image/revision :image/source-digest
-    :image/color-tag :image/intrinsic-size :image/provenance})
-(def material-optional-keys #{:image/extensions})
+(def rect
+  {:keys #{:x :y :w :h}
+   :validators {:x grammar/finite-number?
+                :y grammar/finite-number?
+                :w grammar/positive-number?
+                :h grammar/positive-number?}})
+
+(def paint
+  {:keys #{:tint :opacity}
+   :validators {:tint color/tagged
+                :opacity #(and (grammar/finite-number? %)
+                               (<= 0.0 % 1.0))}})
+
+(defn- intrinsic-size? [value]
+  (and (vector? value)
+       (= 2 (count value))
+       (every? positive-int? value)))
+
+(def grammar
+  {:keys #{:image/material-id :image/revision :image/source-digest
+           :image/color-tag :image/intrinsic-size :image/provenance
+           :image/rect :image/paint}
+   :optional #{:image/crop}
+   :validators {:image/material-id some?
+                :image/revision some?
+                :image/source-digest sha256-digest?
+                :image/color-tag legal-source-tags
+                :image/intrinsic-size intrinsic-size?
+                :image/provenance some?
+                :image/rect rect
+                :image/crop rect
+                :image/paint paint}})
 
 (defn validate-material!
-  "Fail-closed material grammar.  Unknown top-level fields and moving-media
-   time are refused in this dark wave."
+  "Check the declared image grammar and return the unchanged EDN map."
   [material]
-  (let [keys* (set (keys material))
-        missing (seq (sort (remove keys* material-required-keys)))
-        unknown (seq (sort (remove (into material-required-keys
-                                         material-optional-keys)
-                                   keys*)))]
-    (when missing
-      (throw (ex-info "Image material is missing required fields"
-                      {:missing (vec missing)})))
-    (when unknown
-      (throw (ex-info "Image material has unknown fields"
-                      {:unknown (vec unknown) :policy :reject})))
-    (when (contains? (or (:image/extensions material) {}) :image/time)
-      (throw (ex-info "Moving sampled media is refused by this wave"
-                      {:field :image/time})))
-    (when-not (sha256-digest? (:image/source-digest material))
-      (throw (ex-info "Image material source identity must be a sha256 digest"
-                      {:image/source-digest (:image/source-digest material)})))
-    (when-not (contains? legal-source-tags (:image/color-tag material))
-      (throw (ex-info "Image material has an inadmissible color tag"
-                      {:image/color-tag (:image/color-tag material)})))
-    (let [[width height] (:image/intrinsic-size material)]
-      (when-not (and (positive-int? width) (positive-int? height))
-        (throw (ex-info "Image material intrinsic size is invalid"
-                        {:image/intrinsic-size (:image/intrinsic-size material)}))))
-    material))
+  (grammar/check grammar material))
 
 (defn canonical-material
   [material]
-  (into (sorted-map) (validate-material! material)))
+  (into (sorted-map) material))
 
 (defn material-cache-key
   [material algorithm-version regime]
-  (let [material (validate-material! material)]
-    [(:image/source-digest material)
-     (:image/revision material)
-     algorithm-version
-     regime]))
+  [(:image/source-digest material)
+   (:image/revision material)
+   algorithm-version
+   regime])
 
 ;; Contract G geometry --------------------------------------------------------
 
@@ -329,11 +304,13 @@
 (defn instance-words
   "rect[4] + uv[4] + tint/opacity[4] + container u32[1].  There is no
    per-node transform representation (T8/T14)."
-  [{:keys [x y w h uv tint opacity container-idx]}]
-  (let [[u0 v0 u1 v1] uv
-        [r g b a] (or tint [1.0 1.0 1.0 1.0])]
+  [{:keys [rect uv tint opacity slot]}]
+  (let [{:keys [x y w h]} rect
+        {:keys [rgba]} tint
+        [u0 v0 u1 v1] uv
+        [r g b a] rgba]
     [x y w h u0 v0 u1 v1 r g b (* a (or opacity 1.0))
-     (or container-idx 0)]))
+     slot]))
 
 (defn contiguous-binding-runs
   "Walk stamped image ops in order and merge adjacent equal bindings only.
