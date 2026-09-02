@@ -460,7 +460,7 @@ by milestone, grammar → frame → painter → verifier road, never all at once
   docs/seam-cuts/CONTRACT-2-4.md   header, §0, §1b, §2, §3, §4b, §5, §6 image, §7 I1-I5, §8, §9   read PRIMARY
   src/app/client/image/material.cljc                          15KB   whole
   src/app/client/image/painter.cljs                           37KB   whole
-  src/app/client/verifier/image.cljs                         ~30KB   `grep -n "^(def"`; then the fixtures
+  src/app/client/verifier/image.cljs                          30KB   `grep -n "^(def"`; then the fixtures
                                                                      (image-fixtures, ingress-corpus!, image-op),
                                                                      run-lifecycle-receipt!, run-color-receipts!,
                                                                      run-image-atom!
@@ -511,7 +511,7 @@ but material.cljc, on_plane.cljc and on_plane_painter.cljs:
   test/app/client/region3d/scene_test.clj                     10KB   `grep -n "deftest"`
 
   Milestone 3, the road (§4c verifier; §7 R1, R4):
-  src/app/client/verifier/region.cljs                        ~45KB   `grep -n "^(def"`; then the fixture builders
+  src/app/client/verifier/region.cljs                         46KB   `grep -n "^(def"`; then the fixture builders
                                                                      (region3d-* through region3d-op), the entry,
                                                                      every site that read region3d-receipt
   test/render_engine/run_verifier.mjs                         15KB   the pathAtomCases compare block only (F7)
@@ -543,7 +543,7 @@ Boot, by seam, sizes first (about 80KB; layout.cljc by window, never whole):
   src/app/client/text/glyph_pack.cljs                          8KB   lines 100-196
   src/app/client/text/layout.cljc                             78KB   lines 295-325, 1040-1065, 1240-1265, 1610-1620
   src/app/client/text/layout_oracle.cljc                      31KB   lines 530-585
-  src/app/client/verifier/text.cljs                          ~26KB   whole
+  src/app/client/verifier/text.cljs                           30KB   whole
   src/app/client/engine/placement.cljc                        11KB   the slot and effective windows
   test/app/client/text/flat_road_test.clj                      7KB   whole
 
