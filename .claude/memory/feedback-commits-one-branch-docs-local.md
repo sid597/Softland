@@ -1,6 +1,6 @@
 ---
 name: commits-one-branch-docs-local
-description: "All commits — code, docs, law — land freely on main (closed-source repo), grouped by concern; push is Sid's alone"
+description: "All commits — code, docs, law — land freely on main (closed-source repo), grouped by concern, one per milestone and big enough to read; push is Sid's alone"
 metadata:
   node_type: memory
   type: feedback
@@ -11,7 +11,11 @@ metadata:
 All commits — code, docs, law files — land on
 `main`. The repo is closed source (Sid,
 2026-08-10): commit freely, no approval, no docs-only/never-mix ceremony;
-group commits by concern so bisect stays sharp. Worktree branches remain
+group commits by concern so bisect stays sharp, and make each one
+big enough to read as one change: one commit per milestone, the message
+saying what changed and why, never a fix-by-fix tail (Sid, 2026-09-02,
+verbatim: "the commits it makes is very bad like its too small to know
+anything"). Worktree branches remain
 scaffolding, never commit targets. Pushing/merging stays Sid's alone; never
 a Co-Authored-By line. CLAUDE.md, AGENTS.md, `.claude/skills/`, and
 `.agents/` are tracked since 2026-08-10 (un-gitignored) so law edits carry

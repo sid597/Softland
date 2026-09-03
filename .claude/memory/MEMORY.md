@@ -69,9 +69,10 @@ in this file and every future memory write.
   — handoff/what-do-I-do questions → paste-able deliverable first; a second
   push = produce the thing, never explain again.
 - [exploration starters: direction, not shape](feedback-exploration-starters-direction-not-shape.md)
-  — consult before writing ANY next-session starter: exploration gets
-  direction + register + Sid's verbatim context, never a pre-enumerated
-  shape; spec-shaped starters drag the agent to the prompt's level.
+  — consult before writing ANY prompt for another session (starter, audit,
+  derivation, adversary round): fence + Sid's verbatim + terrain only — no
+  output shape, no method, no checklist, no restated law; spec-shaped prompts
+  drag the agent to the prompt's level (five live fires, last 2026-09-01).
 - [keep Sid's vocabulary](feedback-preserve-sids-vocabulary.md) — consult
   before any briefing/roadmap/summary: every arc appears under Sid's own
   terms alongside session-minted names; add the translation to the doc,
@@ -112,8 +113,9 @@ in this file and every future memory write.
   partial-stage then PLAIN commit — `git commit -- path` sweeps the sibling).
 - [commits: one branch, docs-local](feedback-commits-one-branch-docs-local.md)
   — commit freely on `main` (closed-source,
-  2026-08-10), group by concern; push is Sid's alone; worktree branches are
-  scaffolding, never commit targets.
+  2026-08-10), group by concern, one commit per milestone and big enough to
+  read as one change (Sid, 2026-09-02: "too small to know anything"); push is
+  Sid's alone; worktree branches are scaffolding, never commit targets.
 - [deep-research limits](deep-research-workflow-limits.md) — consult before
   deep-research workflows: harness limits.
 - [child-session transcript trap](harness-child-session-transcript-trap.md)
@@ -161,5 +163,8 @@ in this file and every future memory write.
   `/ask-as-sid` pre-check. Built 2026-08-23.
 - [waist-sort sessions: hunters gather, code only](feedback-waist-sort-hunters-code-only.md) — opus hunters return facts per slice, Claude sorts; docs corpus OFF; story + one-notch picture; no repo writes until his word.
 - [top-down sort: what do you take](feedback-top-down-sort-what-do-you-take.md) — consult for any "what is this code / what goes" walk: the five-question card, the role × kind grid read by column, two diagrams (there / struck-through); verdicts are Sid's.
+- [dead means wrong form, not uncalled](feedback-dead-means-wrong-form-not-uncalled.md) — consult before ANY delete/cut list: judge each piece by its target form (in/out shape, who decides), never by call count; uncalled-but-right-form is alive, called-but-wrong-form is dead; remove now, no keep-until-better (Sid, 2026-09-02).
 - [rulings quote Sid verbatim](feedback-rulings-quote-sid-verbatim.md) — consult when recording ANY ruling attributed to Sid: exact words + timestamp; a reversal of on-disk or parallel readings is asked back once; "Sid decides" items never slide to "stays" (the Slug reversal, 2026-08-26).
 - [electric v3 orphaned / v4 pivot](reference-electric-v3-orphaned-v4-pivot.md) — consult before ANY proposal touching Electric as a dependency: v3 = frozen proprietary alpha, its authors left Clojure (v4 = JS+WASM); the owned courier is the position; "Electric-native" names the shape, not the library.
+- [analysis deliverables: show the full working](feedback-analysis-deliverables-show-full-working.md) — consult before ANY map/sort/verdict-pass/derivation reply: every claim anchored, alternatives named, raw fact base on disk with the path; story-first compression is for orientation only; Sid never set a length limit (fired 2026-09-02, "disingenuous ... glossed over everything").
+- [examples from code, never invented](feedback-examples-from-code-never-invented.md) — every example for Sid is existing code (input/output/caller) or his LOG words; invented product scenarios read as claims about Softland (fired 2026-09-03).

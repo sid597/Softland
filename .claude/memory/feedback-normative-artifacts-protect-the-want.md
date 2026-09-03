@@ -32,3 +32,5 @@ want-finding amends the law; an is-finding files debt. Run
 any response; adjudication of a live-code claim keeps investigation-fence
 labels (verified structure vs unexecuted inference). See also
 [[meta-failure-generators]].
+
+**Fired 2026-08-30 (the path A3 fold).** Two source audits (mine + Codex) turned "validate once at the door" — a how-the-file-should-be ruling — into "leave it; no ingress exists; profile first." Sid: "you are too much into what exists today, and you cannot see what should exist and what will exist … bounded to the problem of what it is today and making some kind of decisions by yourself on it." The door was the FILE's entry, not a future system ingress; the want was buildable that day inside the files under judgment. Interrupt: in a how-things-should-be phase, "X doesn't exist yet" and "cost unmeasured" are never reasons to demote a want — they are the work, or irrelevant to a shape ruling. Same firing struck B1's role statement as "stale" and hedged D2's requirement as "unmeasured."

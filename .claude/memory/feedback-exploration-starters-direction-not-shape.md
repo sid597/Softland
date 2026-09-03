@@ -5,7 +5,7 @@ metadata:
   node_type: memory
   type: feedback
   originSessionId: d37eafc2-ac98-41c8-8d2f-7c45d939e3cf
-  modified: 2026-08-16T14:15:00.869Z
+  modified: 2026-09-01T00:00:00.000Z
 ---
 
 Two-stage correction at the matter-room P4 close. First: a halo starter
@@ -99,3 +99,35 @@ partner-sessions need accumulated context or a written frontier file
 (the gap ledger); cold sessions serve as instruments on closed tasks
 (build, fetch, verify), whose yield — built things and what reality
 forces — is the only guaranteed-novel material.
+
+**FIFTH LIVE FIRE 2026-09-01** (waist-constitution session; prompts for
+a parallel Fable-max session): the session rationalized "these are
+audit/derivation prompts, not starters" and shipped a 7-part output
+shape, a scenario checklist, a reading method (skeleton-first, file
+sizes), epistemic coaching (structure-vs-magnitude tags), "commit /
+mark DEFAULT", and restated house law — every catalogued death at once.
+Sid: "should we tell it what the output type should be i think we
+should not tell it how to do anything should be smart and have freedom
+for divergent thinking what we do need to pass is the context right?"
+Sharpened: the rule covers EVERY prompt handed to another session —
+starter, audit, derivation, adversary round, contract-adjacent — not
+only things named "starter". Fence + verbatim + terrain, nothing else;
+principles defined in-session and not yet on disk ARE terrain and must
+be passed; a capability checklist is shape (enumerated coverage
+pre-structures the map); naming "divergent thinking" as a virtue in
+the prompt would itself be shape (the costume rule).
+
+**SIXTH LIVE FIRE 2026-09-03** (vision-layer prompt for the below-the-
+waist exploration): fence + verbatim + terrain held, then a closing
+"Sid's register" paragraph was stapled on (plain English, input/output/
+who-decides per piece, examples-from-his-words, re-derive on push, end
+in motion), plus in-terrain steering ("take that as one hypothesis, not
+the frame", "several turns, not one shot, Sid steers"). Sid: "no i am
+not sure we should have this i think the prompt should be as such that
+it gives the maximum room to the session doing its actual work than
+babysitting so we should remove all such." Sharpened: a register block
+is behavioral instruction, i.e. shape, even when every line in it is a
+house rule the session would boot anyway; and steering verbs inside the
+terrain ("take as", "hand back", "several turns") are shape too — state
+the fact (the code session's hypothesis is X) and stop. Sid present ⇒
+his live redirection does the rest.

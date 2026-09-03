@@ -33,3 +33,4 @@ visual learner — but a dense ASCII diagram is not visual, it is code.
   wrong, re-derive from the root ([[meta-failure-generators]]).
 
 - A "meta / ways to think about it" question at max effort pulls a framework reply (forces, ownership tables, worked cases) — fired 2026-08-28, "wtf are you talking about??? i don't know what did you reply to here". The fix: one line naming what I am answering, then the plain list of ways and the plain "what decides." Frames are the answer, not the frame *about* the frames.
+- Fired again 2026-09-03, the deletion-sort reply: "i want simpler english so that i can actually understand and engage with it"; the repair that worked was input/output/use case per piece and a 2×2 table.
