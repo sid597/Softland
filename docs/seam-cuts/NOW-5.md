@@ -7,9 +7,9 @@ S1–S5 are frozen at `bin/verify-seam-cuts-step-a`; the retired F1–F3 shadows
 Tracked removals: the two atlas `.bak` files; oracle/probe custody moved to `src/app/client/harness/region_oracle.cljc` and `test/app/client/harness/shaper_border_probe.cljs`.
 Untracked removals: `electric-manifest.edn`, `font_atlas.json.pre-b2-regen.bak`, five `fonts/*.pre-d7.bak` files, and `resources/public/js/`.
 Defaults noted: actual checkout had five pre-d7 backups and four scene-equivalent assertions; S3 numeric-literal uniqueness is engine-scoped because other kinds use `0.055`/`2.4` as data. Step B may now boot fresh.
-Step B CLOSED 2026-09-03 — DejaVu uses `dejavu_sans_mono.ttf` through HarfBuzz; the grid layout route is deleted.
+STEP B CLOSED + SID-ACCEPTED 2026-09-03 — Sid: "accepted"; DejaVu uses `dejavu_sans_mono.ttf` through HarfBuzz; the grid layout route is deleted.
 Commits: route `cadab66` · re-record this commit; `main`.
 Google SwiftShader fallback first: render `6/6` guards, `7/7` representative + `7/7` DejaVu; DejaVu provider named and unresolved glyphs `0` per case.
 Fences byte-equal: Ubuntu PNG `085374f8…b6a3`; T1 tree raw `6160b2a7…be30`; DejaVu Slug curve/band `41e7c3e6…91e6` / `160766bd…e7`.
 SB2: focused `4 tests / 20 assertions`; affected text `20 / 206`; semantic grid census empty; missing provider throws `:text/layout-provider-required`.
-Pairs: `test/app/fixtures/render_engine/gpu-goldens/{step-b-before/,}`; before `8106cffa…542a`, after `83d13ea8…8dc`; F6 font-only default, face/index metadata added while curve/band stayed byte-equal.
+Accepted pair custody: before set removed per contract (recoverable at `0f15a0b`); after `83d13ea8…8dc`; F6 font-only default, face/index metadata added while curve/band stayed byte-equal.
