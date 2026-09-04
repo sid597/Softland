@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The Waist Argument</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --ground: #faf9f6;
+      --ground-below: #efede7;
+      --ink: #1f1f1f;
+      --ink-muted: #6b6b6b;
+      --outline: #8a8a8a;
+      --green: #2f7d4f;
+      --green-fill: #dff0e5;
+      --grey: #6d6d78;
+      --grey-fill: #dcdce2;
+      --red: #c0392b;
+      --red-fill: #f9e1dd;
+      --amber: #c9931f;
+      --amber-fill: #fbf0d3;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ground: #17171b;
+        --ground-below: #202026;
+        --ink: #e9e7e2;
+        --ink-muted: #a0a0a8;
+        --outline: #7c7c86;
+        --green: #6fcf97;
+        --green-fill: #1c3a2a;
+        --grey: #a0a0ac;
+        --grey-fill: #33333d;
+        --red: #ff7b6b;
+        --red-fill: #4a2320;
+        --amber: #f0c060;
+        --amber-fill: #453612;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    html { background: var(--ground); }
+
+    body {
+      margin: 0;
+      background: var(--ground);
+      color: var(--ink);
+      font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.55;
+    }
+
+    main {
+      width: min(760px, calc(100% - 48px));
+      margin: 0 auto;
+      padding: 72px 0 88px;
+    }
+
+    h1, h2 { margin: 0; line-height: 1.2; }
+    h1 { font-size: 32px; font-weight: 600; }
+    h2 { font-size: 22px; font-weight: 600; }
+
+    p { margin: 14px 0 0; }
+
+    .dek {
+      margin-top: 8px;
+      color: var(--ink-muted);
+    }
+
+    section { margin-top: 56px; }
+
+    blockquote {
+      margin: 24px 0 0;
+      padding-left: 20px;
+      border-left: 2px solid var(--outline);
+    }
+
+    figure { margin: 28px 0 0; }
+
+    figcaption,
+    .picture-legend {
+      max-width: 760px;
+      margin-top: 12px;
+      color: var(--ink-muted);
+      font-size: 13.5px;
+      line-height: 1.48;
+    }
+
+    .picture-legend { margin-top: 10px; }
+    .picture-legend + figcaption { margin-top: 8px; }
+
+    .mono,
+    svg text,
+    .tile,
+    .outline-key,
+    .placement-card,
+    .runtime-table,
+    .merge-strips {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12.5px;
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      overflow: visible;
+    }
+
+    svg text { fill: var(--ink); }
+    .svg-muted { fill: var(--outline); }
+    .svg-green { fill: var(--green); }
+    .svg-grey { fill: var(--grey); }
+    .svg-red { fill: var(--red); }
+    .svg-amber { fill: var(--amber); }
+    .stroke-ink { stroke: var(--ink); }
+    .stroke-outline { stroke: var(--outline); }
+    .stroke-green { stroke: var(--green); }
+    .stroke-grey { stroke: var(--grey); }
+    .stroke-red { stroke: var(--red); }
+    .stroke-amber { stroke: var(--amber); }
+    .fill-ground { fill: var(--ground); }
+    .fill-below { fill: var(--ground-below); }
+    .fill-green { fill: var(--green-fill); }
+    .fill-grey { fill: var(--grey-fill); }
+    .fill-red { fill: var(--red-fill); }
+    .fill-amber { fill: var(--amber-fill); }
+    .no-fill { fill: none; }
+    .box-stroke { stroke-width: 1.5; }
+    .thin-stroke { stroke-width: 1; }
+    .dashed { stroke-dasharray: 6 5; }
+    .waist-rule { stroke: var(--ink); stroke-width: 1.5; }
+    .svg-bold { font-weight: 700; }
+
+    .map-tiles {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .tile {
+      min-height: 118px;
+      padding: 14px 12px;
+      border: 1.5px solid;
+      border-radius: 4px;
+      line-height: 1.42;
+    }
+
+    .tile-title { font-weight: 700; }
+    .tile-range { display: block; margin-top: 18px; }
+    .tile-green { border-color: var(--green); background: var(--green-fill); }
+    .tile-grey { border-color: var(--grey); background: var(--grey-fill); }
+    .tile-red { border-color: var(--red); background: var(--red-fill); }
+    .tile-amber { border-color: var(--amber); background: var(--amber-fill); }
+
+    .outline-key {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 18px;
+      line-height: 1.4;
+    }
+
+    .outline-swatch {
+      flex: 0 0 184px;
+      padding: 12px;
+      border: 1.5px dashed var(--outline);
+      border-radius: 4px;
+      text-align: center;
+    }
+
+    .placement-card {
+      padding: 12px 16px;
+      border: 1.5px solid var(--grey);
+      border-radius: 4px;
+      background: var(--ground-below);
+    }
+
+    .placement-line {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 0;
+    }
+
+    .placement-line + .placement-line { border-top: 1px solid var(--outline); }
+
+    .tag {
+      min-width: 92px;
+      padding: 5px 8px;
+      border: 1.5px solid var(--grey);
+      border-radius: 4px;
+      background: var(--grey-fill);
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .tag-outline {
+      border-color: var(--outline);
+      border-style: dashed;
+      background: transparent;
+    }
+
+    .red-underline {
+      text-decoration-line: underline;
+      text-decoration-color: var(--red);
+      text-decoration-thickness: 1.5px;
+      text-underline-offset: 4px;
+    }
+
+    .runtime-table {
+      display: grid;
+      grid-template-columns: 116px repeat(3, minmax(0, 1fr));
+      border: 1.5px solid var(--outline);
+      border-radius: 4px;
+      overflow: hidden;
+      line-height: 1.34;
+    }
+
+    .runtime-table > div {
+      min-width: 0;
+      padding: 9px 8px;
+      border-right: 1px solid var(--outline);
+      border-bottom: 1px solid var(--outline);
+      overflow-wrap: anywhere;
+    }
+
+    .runtime-table > div:nth-child(4n) { border-right: 0; }
+    .runtime-table > div:nth-last-child(-n + 4) { border-bottom: 0; }
+
+    .runtime-header {
+      grid-column: 2 / 5;
+      background: var(--grey-fill);
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .runtime-blank { grid-column: 1; }
+    .runtime-col { font-weight: 700; }
+    .runtime-row { color: var(--ink-muted); }
+    .runtime-value { position: relative; }
+    .runtime-value.attacked::after {
+      content: "";
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 4px;
+      height: 1.5px;
+      background: var(--red);
+    }
+
+    .merge-strips { line-height: 1.42; }
+    .strip + .strip { margin-top: 24px; }
+    .strip-title { margin-bottom: 8px; font-weight: 700; }
+    .panel-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .panel {
+      min-height: 164px;
+      padding: 14px 12px;
+      border: 1.5px solid var(--outline);
+      border-radius: 4px;
+      white-space: pre-line;
+    }
+    .panel-red { border-color: var(--red); background: var(--red-fill); }
+    .panel-green { border-color: var(--green); background: var(--green-fill); }
+
+    @media (max-width: 520px) {
+      main { padding-top: 48px; }
+      .tile { padding: 10px 7px; }
+      .outline-key { align-items: flex-start; }
+      .outline-swatch { flex-basis: 42%; }
+      .runtime-table { grid-template-columns: 74px repeat(3, minmax(0, 1fr)); }
+      .runtime-table > div { padding: 7px 4px; }
+      .placement-line { gap: 8px; }
+      .tag { min-width: 82px; }
+      .panel { padding: 10px 7px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>The Waist Argument</h1>
+      <p class="dek">A three-move debate, drawn.</p>
+    </header>
+
+    <section aria-labelledby="who-is-speaking">
+      <h2 id="who-is-speaking">Who is speaking</h2>
+      <blockquote>"we have build engine and some primitives that get hardcoded and we leave other heigher level layers for ecs and call that above the waist. Anything above the waist is stored as data, is collaborative editable, createable, agents and humans without getting into git merge deadlocks, anything in ecs layer should be creatable and then saved for reuse or build higher order things from it"</blockquote>
+      <blockquote>"When you see the ceilings, do not try to hack through them. We want to build through them. the question we are asking is: what is the below-the-waist layer that should exist for everything?"</blockquote>
+      <p>"The reply" is the layer proposal Sid was given in answer. "The attack" is the adversarial pass on it. Claims about Figma, Mapbox, browsers and CAD tools on this page are from general knowledge of those products, not from reading their source. Nothing here was checked against Softland source.</p>
+    </section>
+
+
+
+    <section aria-labelledby="picture-0-heading">
+      <h2 id="picture-0-heading">Picture 0. The map of the page, and the legend</h2>
+      <figure>
+        <div class="map-tiles">
+          <div class="tile tile-green"><span class="tile-title">the waist today</span><span class="tile-range">pictures 1 to 2</span></div>
+          <div class="tile tile-grey"><span class="tile-title">the reply's layer</span><span class="tile-range">pictures 3 to 5</span></div>
+          <div class="tile tile-red"><span class="tile-title">the attack</span><span class="tile-range">pictures 6 to 11</span></div>
+          <div class="tile tile-amber"><span class="tile-title">what is open</span><span class="tile-range">picture 12</span></div>
+        </div>
+        <div class="outline-key">
+          <div class="outline-swatch">outline, no fill</div>
+          <div>a world or a step that has no home yet</div>
+        </div>
+        <figcaption>The colors mean the same thing on every picture below.</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="section-1-heading">
+      <h2 id="section-1-heading">1. The waist today</h2>
+      <p>The engine is a picture machine. Draw items go in, pixels come out. That neck is the waist. Nothing stands above it yet; the harness builds draw items by hand.</p>
+      <figure>
+        <svg viewBox="0 0 760 360" role="img" aria-labelledby="picture-1-title">
+          <title id="picture-1-title">Picture 1: The waist today</title>
+          <rect class="fill-below" x="0" y="164" width="760" height="196" />
+          <path class="no-fill stroke-outline box-stroke" d="M28 24 L300 160 M732 24 L460 160 M300 164 L28 336 M460 164 L732 336" />
+
+          <text class="svg-muted" x="68" y="45" text-anchor="middle">CAD boards</text>
+          <text class="svg-muted" x="224" y="45" text-anchor="middle">page layout</text>
+          <text class="svg-muted" x="380" y="45" text-anchor="middle">maps</text>
+          <text class="svg-muted" x="536" y="45" text-anchor="middle">games</text>
+          <text class="svg-muted" x="692" y="45" text-anchor="middle">whiteboards</text>
+
+          <line class="stroke-outline thin-stroke" x1="68" y1="54" x2="126" y2="84" />
+          <line class="stroke-outline thin-stroke" x1="224" y1="54" x2="250" y2="84" />
+          <line class="stroke-outline thin-stroke" x1="380" y1="54" x2="380" y2="84" />
+          <line class="stroke-outline thin-stroke" x1="536" y1="54" x2="510" y2="84" />
+          <line class="stroke-outline thin-stroke" x1="692" y1="54" x2="634" y2="84" />
+          <rect class="no-fill stroke-outline box-stroke dashed" x="112" y="84" width="536" height="48" rx="4" />
+          <text class="svg-muted" x="380" y="113" text-anchor="middle">(empty today: the harness builds draw items by hand)</text>
+
+          <line class="waist-rule" x1="0" y1="160" x2="760" y2="160" />
+          <line class="waist-rule" x1="0" y1="164" x2="760" y2="164" />
+          <rect class="fill-ground" x="242" y="146" width="276" height="32" rx="16" />
+          <text class="svg-bold" x="380" y="166" text-anchor="middle">THE WAIST: draw items in, pixels out</text>
+
+          <text class="svg-green" x="380" y="228" text-anchor="middle">transform · device · compositor · rungs · leases · pool</text>
+          <text class="svg-green" x="380" y="274" text-anchor="middle">path/        image/        text/        region3d/</text>
+        </svg>
+        <figcaption>Above the waist stands nothing yet. Below it is the compiled engine, agreed, changed only with receipts. The five worlds at the top are the ceilings we want to reach.</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="section-2-heading">
+      <h2 id="section-2-heading">2. Where the hard things are hard</h2>
+      <p>Take one ceiling: a page of text flowing around a shape, the InDesign case. Read the chain left to right. Every step re-runs when one letter changes.</p>
+      <figure>
+        <svg viewBox="0 0 760 254" role="img" aria-labelledby="picture-2-title">
+          <title id="picture-2-title">Picture 2: Where the hard things are hard</title>
+          <g class="stroke-ink thin-stroke">
+            <line x1="96" y1="88" x2="106" y2="88" /><line x1="189" y1="88" x2="199" y2="88" />
+            <line x1="282" y1="88" x2="292" y2="88" /><line x1="375" y1="88" x2="385" y2="88" />
+            <line x1="468" y1="88" x2="478" y2="88" /><line x1="561" y1="88" x2="571" y2="88" />
+            <line x1="654" y1="88" x2="664" y2="88" />
+          </g>
+
+          <g class="no-fill stroke-outline box-stroke dashed">
+            <rect x="13" y="24" width="83" height="128" rx="4" /><rect x="106" y="24" width="83" height="128" rx="4" />
+            <rect x="199" y="24" width="83" height="128" rx="4" /><rect x="292" y="24" width="83" height="128" rx="4" />
+            <rect x="385" y="24" width="83" height="128" rx="4" /><rect x="478" y="24" width="83" height="128" rx="4" />
+          </g>
+          <rect class="fill-green stroke-green box-stroke" x="571" y="24" width="83" height="128" rx="4" />
+          <rect class="fill-green stroke-green box-stroke" x="664" y="24" width="83" height="128" rx="4" />
+
+          <text x="24" y="49"><tspan x="24">text runs,</tspan><tspan x="24" dy="18">frames,</tspan><tspan x="24" dy="18">a shape to</tspan><tspan x="24" dy="18">wrap around</tspan></text>
+          <text x="117" y="49"><tspan x="117">measure</tspan><tspan x="117" dy="18">each run</tspan><tspan x="117" dy="18">(how wide,</tspan><tspan x="117" dy="18">how tall)</tspan></text>
+          <text x="210" y="49"><tspan x="210">solve boxes</tspan><tspan x="210" dy="18">(rects)</tspan></text>
+          <text x="303" y="49"><tspan x="303">widths per</tspan><tspan x="303" dy="18">line around</tspan><tspan x="303" dy="18">the shape</tspan></text>
+          <text x="396" y="49"><tspan x="396">break the</tspan><tspan x="396" dy="18">run into</tspan><tspan x="396" dy="18">lines</tspan></text>
+          <text x="489" y="49"><tspan x="489">lines +</tspan><tspan x="489" dy="18">what spills</tspan><tspan x="489" dy="18">over</tspan></text>
+          <text class="svg-green svg-bold" x="582" y="49"><tspan x="582">DRAW ITEMS:</tspan><tspan x="582" dy="18">pre-laid</tspan><tspan x="582" dy="18">text, border</tspan><tspan x="582" dy="18">paths</tspan></text>
+          <text class="svg-green svg-bold" x="675" y="49">PIXELS</text>
+
+          <path class="no-fill stroke-outline box-stroke" d="M13 174 v12 h548 v-12" />
+          <text class="svg-muted" x="287" y="210" text-anchor="middle">no home today: the harness does this by hand</text>
+          <path class="no-fill stroke-green box-stroke" d="M571 174 v12 h176 v-12" />
+          <text class="svg-green" x="659" y="210" text-anchor="middle">the waist</text>
+        </svg>
+        <figcaption>The ceiling is on the left. The waist covers only the right end. This is the reply's first move: the hard part is the chain, and the chain has no home.</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="section-3-heading">
+      <h2 id="section-3-heading">3. The same step-shapes keep coming back</h2>
+      <p>Put the five ceilings' chains side by side and the steps repeat. This is the reply's reason for one shared algorithm library below the waist rather than five engines.</p>
+      <figure>
+        <svg viewBox="0 0 760 350" role="img" aria-labelledby="picture-3-title">
+          <title id="picture-3-title">Picture 3: The same step-shapes keep coming back</title>
+          <g class="stroke-outline thin-stroke no-fill">
+            <path d="M150 96 H760 M150 144 H760 M150 192 H760 M150 240 H760 M150 288 H760 M150 336 H760" />
+            <path d="M150 24 V336 M251.67 24 V336 M353.33 24 V336 M455 24 V336 M556.67 24 V336 M658.33 24 V336" />
+          </g>
+
+          <text x="200.8" y="42" text-anchor="middle"><tspan x="200.8">solve</tspan><tspan x="200.8" dy="17">constraints</tspan></text>
+          <text x="302.5" y="34" text-anchor="middle"><tspan x="302.5">geometry:</tspan><tspan x="302.5" dy="17">boolean,</tspan><tspan x="302.5" dy="17">offset, curve</tspan></text>
+          <text x="404.2" y="34" text-anchor="middle"><tspan x="404.2">text:</tspan><tspan x="404.2" dy="17">shape,</tspan><tspan x="404.2" dy="17">break</tspan></text>
+          <text x="505.8" y="42" text-anchor="middle"><tspan x="505.8">place and</tspan><tspan x="505.8" dy="17">collide</tspan></text>
+          <text x="607.5" y="42" text-anchor="middle"><tspan x="607.5">sample and</tspan><tspan x="607.5" dy="17">skin</tspan></text>
+          <text x="709.2" y="42" text-anchor="middle"><tspan x="709.2">index: cull</tspan><tspan x="709.2" dy="17">and pick</tspan></text>
+
+          <text x="8" y="126">CAD / EDA</text>
+          <text x="8" y="174">page layout</text>
+          <text x="8" y="222">whiteboard</text>
+          <text x="8" y="270">map</text>
+          <text x="8" y="318">game / animation</text>
+
+          <g class="fill-grey stroke-grey box-stroke">
+            <circle cx="200.8" cy="120" r="6" /><circle cx="302.5" cy="120" r="6" /><circle cx="505.8" cy="120" r="6" /><circle cx="709.2" cy="120" r="6" />
+            <circle cx="200.8" cy="168" r="6" /><circle cx="302.5" cy="168" r="6" /><circle cx="404.2" cy="168" r="6" />
+            <circle cx="404.2" cy="216" r="6" /><circle cx="709.2" cy="216" r="6" />
+            <circle cx="302.5" cy="264" r="6" /><circle cx="404.2" cy="264" r="6" /><circle cx="505.8" cy="264" r="6" /><circle cx="709.2" cy="264" r="6" />
+            <circle cx="200.8" cy="312" r="6" /><circle cx="607.5" cy="312" r="6" />
+          </g>
+        </svg>
+        <figcaption>Four of the six columns are shared by three worlds each. Sketch constraints, layout rules and bone chains share a solver; road labels, sticky notes and paragraphs share text shaping. That sharing is the reply's case.</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="section-4-heading">
+      <h2 id="section-4-heading">4. The reply's answer: five boxes</h2>
+      <p>Give the chain a home below the waist. Three new parts, a runtime, a language and an algorithm library, plus nine additions to the tree and the marks.</p>
+      <figure>
+        <svg viewBox="0 0 760 548" role="img" aria-labelledby="picture-4-title">
+          <title id="picture-4-title">Picture 4: The reply's answer: five boxes</title>
+          <rect class="no-fill stroke-outline box-stroke dashed" x="12" y="12" width="736" height="88" rx="4" />
+          <text x="28" y="38"><tspan class="svg-bold">ABOVE</tspan><tspan x="28" dy="22">data: rows · rules · templates (a layout rule · a constraint type · a shape ·</tspan><tspan x="28" dy="20">a tool · a style · a rig)</tspan></text>
+
+          <rect class="fill-below" x="0" y="126" width="760" height="422" />
+          <line class="waist-rule" x1="0" y1="122" x2="760" y2="122" />
+          <line class="waist-rule" x1="0" y1="126" x2="760" y2="126" />
+          <rect class="fill-ground" x="321" y="108" width="118" height="32" rx="16" />
+          <text class="svg-bold" x="380" y="128" text-anchor="middle">THE WAIST</text>
+
+          <g class="fill-grey stroke-grey box-stroke">
+            <rect x="30" y="154" width="718" height="68" rx="4" />
+            <rect x="30" y="230" width="718" height="68" rx="4" />
+            <rect x="30" y="306" width="718" height="68" rx="4" />
+            <rect x="30" y="382" width="718" height="68" rx="4" />
+            <rect x="30" y="458" width="718" height="68" rx="4" />
+          </g>
+
+          <g class="svg-grey svg-bold">
+            <text x="17" y="193" text-anchor="middle">①</text><text x="17" y="269" text-anchor="middle">③</text>
+            <text x="17" y="345" text-anchor="middle">②</text><text x="17" y="421" text-anchor="middle">⑤</text>
+            <text x="17" y="497" text-anchor="middle">④</text>
+          </g>
+          <g class="stroke-grey thin-stroke"><line x1="130" y1="154" x2="130" y2="222" /><line x1="130" y1="230" x2="130" y2="298" /><line x1="130" y1="306" x2="130" y2="374" /><line x1="130" y1="382" x2="130" y2="450" /><line x1="130" y1="458" x2="130" y2="526" /></g>
+
+          <g class="svg-bold">
+            <text x="48" y="193">RUNTIME</text><text x="48" y="269">LANGUAGE</text><text x="48" y="345">OPS</text><text x="48" y="421">TREE</text><text x="48" y="497">MARKS</text>
+          </g>
+          <text x="146" y="178"><tspan x="146">tables · re-run a rule when a row it read changes · camera, clock, pointer as</tspan><tspan x="146" dy="20">tables · residency · merge law</tspan></text>
+          <text x="146" y="254"><tspan x="146">small pure expressions over rows ·</tspan><tspan x="146" dy="20">compiles to a closure AND to GPU code</tspan></text>
+          <text x="146" y="330"><tspan x="146">geometry: boolean · offset · stroke · text: shape · break · measure · solve ·</tspan><tspan x="146" dy="20">one spatial index</tspan></text>
+          <text x="146" y="406"><tspan x="146">transform (world | screen | billboard) · order · clip · composite · camera</tspan><tspan x="146" dy="20">with rotation</tspan></text>
+          <text x="146" y="482"><tspan x="146">path · image · text (positions only) · mesh + skin · instances · foreign ·</tspan><tspan x="146" dy="20">region</tspan></text>
+        </svg>
+        <div class="picture-legend">① the rows of picture 2 live here · ② measure, solve and break are here · ③ rules call them from here · ④ the results land here · ⑤ clipped, stacked and drawn from here</div>
+        <figcaption>The reply's claim in one line: with these five boxes, every ceiling's specific knowledge is a saved entity. A layout rule, a constraint type, a rig, a tool.</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="section-5-heading">
+      <h2 id="section-5-heading">5. The reply's test for what goes below</h2>
+      <p>Three questions decide placement.</p>
+      <figure>
+        <div class="placement-card">
+          <div class="placement-line"><span>Is it numerically delicate?</span><span class="tag">yes: below</span></div>
+          <div class="placement-line"><span>Is it a tight loop, per item, per frame?</span><span class="tag">yes: below</span></div>
+          <div class="placement-line"><span class="red-underline">Is it what makes data runnable or mergeable?</span><span class="tag">yes: below</span></div>
+          <div class="placement-line"><span>all three no</span><span class="tag tag-outline">data, above</span></div>
+        </div>
+        <figcaption>The attack accepts the first two questions. The third is the crack: a layout engine also "makes data runnable", so the test does not decide what the reply says it decides.</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="section-6-heading">
+      <h2 id="section-6-heading">6. Crack one: one word "table", three things</h2>
+      <p>The runtime box says "tables". Three different things hide under that word.</p>
+      <figure>
+        <div class="runtime-table">
+          <div class="runtime-blank"></div>
+          <div class="runtime-header">the reply: one RUNTIME box</div>
+
+          <div class="runtime-row"></div>
+          <div class="runtime-col">shared document rows</div>
+          <div class="runtime-col">bulk buffers</div>
+          <div class="runtime-col">per-client signals</div>
+
+          <div class="runtime-row">examples</div>
+          <div>shapes · constraints · rules · templates</div>
+          <div>map tile features · particles · glyph runs</div>
+          <div>camera · pointer · clock · dpr · size</div>
+
+          <div class="runtime-row">has an identity</div>
+          <div class="runtime-value attacked">yes: id and revision</div>
+          <div class="runtime-value attacked">no: a position in an array</div>
+          <div class="runtime-value attacked">no</div>
+
+          <div class="runtime-row">saved</div>
+          <div class="runtime-value attacked">yes</div>
+          <div class="runtime-value attacked">no: refetched or recomputed</div>
+          <div class="runtime-value attacked">never</div>
+
+          <div class="runtime-row">merged between people</div>
+          <div class="runtime-value attacked">yes</div>
+          <div class="runtime-value attacked">never</div>
+          <div class="runtime-value attacked">never</div>
+
+          <div class="runtime-row">lives on the GPU</div>
+          <div class="runtime-value attacked">no</div>
+          <div class="runtime-value attacked">yes, dense</div>
+          <div class="runtime-value attacked">a few numbers</div>
+
+          <div class="runtime-row">changes</div>
+          <div class="runtime-value attacked">on edit</div>
+          <div class="runtime-value attacked">on pan, or every frame</div>
+          <div class="runtime-value attacked">every frame</div>
+        </div>
+        <figcaption>Real ECS engines are fast because the middle column has no identity: an item is a position in an array. The merge law needs the left column to be nothing but identity. The reply asks one box to be both.</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="section-7-heading">
+      <h2 id="section-7-heading">7. Crack two: merging bytes is not merging meaning</h2>
+      <p>The reply's "no merge deadlocks" rests on a merge law per component: last writer wins, sets union, sequences keep both. Read the CAD sketch case in two strips.</p>
+      <figure>
+        <div class="merge-strips">
+          <div class="strip">
+            <div class="strip-title">the reply: merge law</div>
+            <div class="panel-row">
+              <div class="panel">A adds
+distance p1 p2 = 10.
+B adds, same moment,
+distance p1 p2 = 12.</div>
+              <div class="panel">set union merges.
+both present.
+everyone converged ✓</div>
+              <div class="panel panel-red">solver:
+over-constrained.
+nobody was told.
+the next agent
+builds on it.</div>
+            </div>
+          </div>
+          <div class="strip">
+            <div class="strip-title">server order, which the reply itself says exists</div>
+            <div class="panel-row">
+              <div class="panel">the same two edits.</div>
+              <div class="panel">the log orders them.
+A lands.
+B is checked against
+the sketch: conflict.</div>
+              <div class="panel panel-green">B sees: conflicts
+with A's 10.
+B picks.
+nobody waited.
+nothing broke
+silently.</div>
+            </div>
+          </div>
+        </div>
+        <figcaption>The git deadlock was replaced by silent breakage, which is worse for agents: the next one builds on a broken sketch and no human ever saw a conflict. Softland has an ordered log, so the second strip needs nothing invented. What the reply leaves out lives on that side: validation at apply time, atomic batches, a propose lane.</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="section-8-heading">
+      <h2 id="section-8-heading">8. Crack three: one language, two backends</h2>
+      <p>The reply's language "compiles to a closure AND to GPU code". Draw what each side can hold.</p>
+      <figure>
+        <svg viewBox="0 0 760 420" role="img" aria-labelledby="picture-8-title">
+          <title id="picture-8-title">Picture 8: Crack three: one language, two backends</title>
+          <rect class="no-fill stroke-grey box-stroke" x="14" y="22" width="430" height="300" rx="18" />
+          <rect class="no-fill stroke-red box-stroke" x="330" y="86" width="416" height="300" rx="18" />
+          <path class="fill-grey stroke-grey box-stroke" d="M330 86 H444 V322 H330 Z" />
+
+          <text class="svg-grey svg-bold" x="38" y="54">what the GPU side can run</text>
+          <text x="38" y="90"><tspan x="38">per-item map, fixed output ·</tspan><tspan x="38" dy="28">per-pixel expression ·</tspan><tspan x="38" dy="28">per-vertex</tspan></text>
+
+          <text class="svg-red svg-bold" x="468" y="118">what the ceilings' rules need</text>
+          <text class="svg-red" x="468" y="154"><tspan x="468">spawn and kill particles ·</tspan><tspan x="468" dy="34">one shape makes N marks ·</tspan><tspan x="468" dy="34">read last frame's value ·</tspan><tspan x="468" dy="34">loop until it settles ·</tspan><tspan x="468" dy="34">call a big algorithm</tspan></text>
+
+          <text x="342" y="122"><tspan x="342">style</tspan><tspan x="342" dy="17">expressions ·</tspan><tspan x="342" dy="32">per-pixel</tspan><tspan x="342" dy="17">filters ·</tspan><tspan x="342" dy="32">skinning ·</tspan><tspan x="342" dy="32">per-instance</tspan><tspan x="342" dy="17">color and</tspan><tspan x="342" dy="17">size</tspan></text>
+        </svg>
+        <figcaption>The reply's own precedents agree with the picture. Mapbox evaluates its style expressions on the CPU and hands the GPU a short list to interpolate. Shader graphs compile per-pixel and per-vertex only. Rules outside the overlap fall to the CPU silently, and by the reply's own second test they should then have been below.</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="section-9-heading">
+      <h2 id="section-9-heading">9. Crack four: a waist that became a tower</h2>
+      <p>A waist is narrow so that many things above can meet many things below. Put the reply's layer next to an hourglass.</p>
+      <figure>
+        <svg viewBox="0 0 760 480" role="img" aria-labelledby="picture-9-title">
+          <title id="picture-9-title">Picture 9: Crack four: a waist that became a tower</title>
+          <defs>
+            <clipPath id="ops-clip"><rect x="548" y="58" width="198" height="282" rx="4" /></clipPath>
+          </defs>
+
+          <text class="svg-muted svg-bold" x="138" y="30" text-anchor="middle">an hourglass</text>
+          <path class="no-fill stroke-outline box-stroke" d="M22 58 L118 181 L22 340 M254 58 L158 181 L254 340" />
+          <line class="waist-rule" x1="104" y1="171" x2="172" y2="171" />
+          <line class="waist-rule" x1="104" y1="175" x2="172" y2="175" />
+          <rect class="fill-ground" x="105" y="132" width="66" height="82" rx="4" />
+          <text class="svg-bold" x="138" y="151" text-anchor="middle"><tspan x="138">what the</tspan><tspan x="138" dy="20">engine</tspan><tspan x="138" dy="20">accepts</tspan></text>
+
+          <text class="svg-grey svg-bold" x="518" y="30" text-anchor="middle">the reply's layer</text>
+          <rect class="fill-grey stroke-grey box-stroke" x="302" y="58" width="108" height="282" rx="4" />
+          <rect class="fill-grey stroke-grey box-stroke" x="420" y="58" width="118" height="282" rx="4" />
+          <rect class="fill-grey stroke-grey box-stroke" x="548" y="58" width="198" height="282" rx="4" />
+          <text class="svg-bold" x="320" y="88">RUNTIME</text>
+          <text class="svg-bold" x="438" y="88">LANGUAGE</text>
+          <g clip-path="url(#ops-clip)">
+            <text class="svg-bold" x="566" y="88">OPS</text>
+            <text x="566" y="120"><tspan x="566">boolean · offset · shape</tspan><tspan x="566" dy="30">break · solve · index</tspan><tspan x="566" dy="30">+ tile decode + simplify</tspan><tspan x="566" dy="30">+ triangulate + joins</tspan><tspan x="566" dy="30">+ arc-arc + fillet</tspan><tspan x="566" dy="30">+ skeleton + Delaunay</tspan><tspan x="566" dy="30">+ routing + hyphenate</tspan><tspan x="566" dy="30">+ bidi + justify + ...</tspan></text>
+          </g>
+          <rect class="fill-grey" x="576" y="325" width="142" height="26" />
+          <text class="svg-red svg-bold" x="647" y="343" text-anchor="middle">+ one per ceiling</text>
+
+          <rect class="fill-amber stroke-amber box-stroke" x="12" y="382" width="736" height="82" rx="4" />
+          <text class="svg-bold" x="28" y="411">the narrow thing not named:</text>
+          <text x="242" y="411" textLength="488" lengthAdjust="spacingAndGlyphs">path (does it carry arcs?) · text run · rect · affine · color · id · reference</text>
+          <text x="242" y="437" textLength="488" lengthAdjust="spacingAndGlyphs">the row form · the op signature (pure, typed, versioned in cache keys)</text>
+        </svg>
+        <figcaption>An algorithm list that grows every time a ceiling arrives is the hack-through dressed as a library. The reply answered "which ops". The durable question is "what is an op", and before that, what values everything shares. Whether the path type carries arcs decides on its own whether CAD is through or hack.</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="section-10-heading">
+      <h2 id="section-10-heading">10. Where each walkthrough breaks</h2>
+      <p>The reply walked every ceiling through its layer and stamped each "ceiling met". It also said none of the five is hard at the picture; the CAD row shows one that is. Each chain stops at a red mark.</p>
+      <figure>
+        <svg viewBox="0 0 760 930" role="img" aria-labelledby="picture-10-title">
+          <title id="picture-10-title">Picture 10: Where each walkthrough breaks</title>
+          <defs>
+            <marker id="red-arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path class="fill-red" d="M0 0 L8 4 L0 8 Z" /></marker>
+          </defs>
+
+          <g>
+            <text class="svg-bold" x="8" y="52">page layout</text>
+            <g class="no-fill stroke-outline box-stroke dashed"><rect x="132" y="24" width="80" height="42" rx="4" /><rect x="224" y="24" width="80" height="42" rx="4" /><rect x="316" y="24" width="80" height="42" rx="4" /><rect x="408" y="24" width="80" height="42" rx="4" /><rect x="500" y="24" width="80" height="42" rx="4" /></g>
+            <g class="stroke-ink thin-stroke"><line x1="212" y1="45" x2="224" y2="45" /><line x1="304" y1="45" x2="316" y2="45" /><line x1="396" y1="45" x2="408" y2="45" /><line x1="488" y1="45" x2="500" y2="45" /></g>
+            <text x="172" y="50" text-anchor="middle">runs</text><text x="264" y="50" text-anchor="middle">measure</text><text x="356" y="50" text-anchor="middle">solve</text><text x="448" y="50" text-anchor="middle">break</text><text x="540" y="50" text-anchor="middle">lines</text>
+            <line class="stroke-red box-stroke" x1="448" y1="66" x2="448" y2="88" />
+            <path class="no-fill stroke-red box-stroke" marker-end="url(#red-arrow)" d="M448 76 C448 102 356 102 356 70" />
+            <text class="svg-red" x="132" y="108">✕</text>
+            <text x="154" y="108"><tspan x="154">break needs the height, height needs the width, width comes out of</tspan><tspan x="154" dy="20">solve: a loop, not a line. footnotes make the loop bigger.</tspan></text>
+          </g>
+
+          <g transform="translate(0 158)">
+            <text class="svg-bold" x="8" y="52">CAD / EDA</text>
+            <g class="no-fill stroke-outline box-stroke dashed"><rect x="132" y="24" width="80" height="42" rx="4" /><rect x="224" y="24" width="80" height="42" rx="4" /><rect x="316" y="24" width="80" height="42" rx="4" /><rect x="408" y="24" width="80" height="42" rx="4" /><rect x="500" y="24" width="80" height="42" rx="4" /></g>
+            <g class="stroke-ink thin-stroke"><line x1="212" y1="45" x2="224" y2="45" /><line x1="304" y1="45" x2="316" y2="45" /><line x1="396" y1="45" x2="408" y2="45" /><line x1="488" y1="45" x2="500" y2="45" /></g>
+            <text x="172" y="50" text-anchor="middle">sketch</text><text x="264" y="50" text-anchor="middle">solve</text><text x="356" y="50" text-anchor="middle">offset</text><text x="448" y="50" text-anchor="middle">boolean</text><text x="540" y="50" text-anchor="middle">pour</text>
+            <line class="stroke-red box-stroke" x1="448" y1="66" x2="448" y2="88" />
+            <text class="svg-red" x="132" y="108">✕</text>
+            <text x="154" y="108"><tspan x="154">a pour is a boolean over the whole layer: batch, not "re-run what</tspan><tspan x="154" dy="20">changed". also: float precision at deep zoom. layers cut across the tree.</tspan><tspan x="154" dy="20">footprints are groups, instances are marks.</tspan></text>
+          </g>
+
+          <g transform="translate(0 316)">
+            <text class="svg-bold" x="8" y="52">map</text>
+            <g class="no-fill stroke-outline box-stroke dashed"><rect x="132" y="24" width="80" height="42" rx="4" /><rect x="224" y="24" width="80" height="42" rx="4" /><rect x="316" y="24" width="80" height="42" rx="4" /><rect x="408" y="24" width="80" height="42" rx="4" /><rect x="500" y="24" width="80" height="42" rx="4" /></g>
+            <g class="stroke-ink thin-stroke"><line x1="212" y1="45" x2="224" y2="45" /><line x1="304" y1="45" x2="316" y2="45" /><line x1="396" y1="45" x2="408" y2="45" /><line x1="488" y1="45" x2="500" y2="45" /></g>
+            <text x="172" y="50" text-anchor="middle">camera</text><text x="264" y="50" text-anchor="middle">tiles</text><text x="356" y="50" text-anchor="middle">style</text><text x="448" y="50" text-anchor="middle">place</text><text x="540" y="50" text-anchor="middle">labels</text>
+            <line class="stroke-red box-stroke" x1="264" y1="66" x2="264" y2="88" />
+            <text class="svg-red" x="132" y="108">✕</text>
+            <text x="154" y="108"><tspan x="154">tile features are bulk buffers, not document rows. fonts load by</tspan><tspan x="154" dy="20">reference, not by visibility. the "one index" is two.</tspan></text>
+          </g>
+
+          <g transform="translate(0 474)">
+            <text class="svg-bold" x="8" y="52">game</text>
+            <g class="no-fill stroke-outline box-stroke dashed"><rect x="132" y="24" width="80" height="42" rx="4" /><rect x="224" y="24" width="80" height="42" rx="4" /><rect x="316" y="24" width="80" height="42" rx="4" /><rect x="408" y="24" width="80" height="42" rx="4" /><rect x="500" y="24" width="80" height="42" rx="4" /></g>
+            <g class="stroke-ink thin-stroke"><line x1="212" y1="45" x2="224" y2="45" /><line x1="304" y1="45" x2="316" y2="45" /><line x1="396" y1="45" x2="408" y2="45" /><line x1="488" y1="45" x2="500" y2="45" /></g>
+            <text x="172" y="50" text-anchor="middle">clock</text><text x="264" y="50" text-anchor="middle">tracks</text><text x="356" y="50" text-anchor="middle">bones</text><text x="448" y="50" text-anchor="middle">skin</text><text x="540" y="50" text-anchor="middle">particles</text>
+            <line class="stroke-red box-stroke" x1="540" y1="66" x2="540" y2="88" />
+            <text class="svg-red" x="132" y="108">✕</text>
+            <text x="154" y="108">particles need last frame's value and spawn and kill: outside the pure map.</text>
+          </g>
+
+          <g transform="translate(0 632)">
+            <text class="svg-bold" x="8" y="52">whiteboard</text>
+            <g class="no-fill stroke-outline box-stroke dashed"><rect x="132" y="24" width="80" height="42" rx="4" /><rect x="224" y="24" width="80" height="42" rx="4" /><rect x="316" y="24" width="80" height="42" rx="4" /><rect x="408" y="24" width="80" height="42" rx="4" /><rect x="500" y="24" width="80" height="42" rx="4" /></g>
+            <g class="stroke-ink thin-stroke"><line x1="212" y1="45" x2="224" y2="45" /><line x1="304" y1="45" x2="316" y2="45" /><line x1="396" y1="45" x2="408" y2="45" /><line x1="488" y1="45" x2="500" y2="45" /></g>
+            <text x="172" y="50" text-anchor="middle">pointer</text><text x="264" y="50" text-anchor="middle">pick</text><text x="356" y="50" text-anchor="middle">tool</text><text x="448" y="50" text-anchor="middle">rows</text><text x="540" y="50" text-anchor="middle">shapes</text>
+            <line class="stroke-red box-stroke" x1="448" y1="66" x2="448" y2="88" />
+            <text class="svg-red" x="132" y="108">✕</text>
+            <text x="154" y="108"><tspan x="154">an agent's thousand-row batch against a human's edit: "visibly loses" is</tspan><tspan x="154" dy="20">the wrong contract. mounting another document needs a pinned revision.</tspan></text>
+          </g>
+
+          <g transform="translate(0 790)">
+            <text class="svg-bold" x="8" y="52">region</text>
+            <g class="no-fill stroke-outline box-stroke dashed"><rect x="132" y="24" width="80" height="42" rx="4" /><rect x="224" y="24" width="80" height="42" rx="4" /><rect x="316" y="24" width="80" height="42" rx="4" /><rect x="408" y="24" width="80" height="42" rx="4" /></g>
+            <g class="stroke-ink thin-stroke"><line x1="212" y1="45" x2="224" y2="45" /><line x1="304" y1="45" x2="316" y2="45" /><line x1="396" y1="45" x2="408" y2="45" /></g>
+            <text x="172" y="50" text-anchor="middle">scene</text><text x="264" y="50" text-anchor="middle">view</text><text x="356" y="50" text-anchor="middle">shade</text><text x="448" y="50" text-anchor="middle">portal</text>
+            <line class="stroke-red box-stroke" x1="172" y1="66" x2="172" y2="88" />
+            <text class="svg-red" x="132" y="108">✕</text>
+            <text x="154" y="108"><tspan x="154">the scene is a hidden ECS below the waist: which objects, where, what</tspan><tspan x="154" dy="20">material. by the reply's own third test that is data.</tspan></text>
+          </g>
+        </svg>
+        <figcaption>The stamps said met. The picture says each chain breaks at its own hardest point, and the page layout break is the one the reply's own least-sure list already admitted.</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="section-11-heading">
+      <h2 id="section-11-heading">11. The gap nobody drew: reuse</h2>
+      <p>Sid's framing puts most weight here: creatable, then saved for reuse, then built higher. The reply gave it one line: "templates, all just entities". The KiCad case draws the missing law.</p>
+      <figure>
+        <svg viewBox="0 0 760 430" role="img" aria-labelledby="picture-11-title">
+          <title id="picture-11-title">Picture 11: The gap nobody drew: reuse</title>
+          <rect class="fill-grey stroke-grey box-stroke" x="176" y="20" width="408" height="52" rx="4" />
+          <text class="svg-bold" x="380" y="51" text-anchor="middle">library footprint: pad size 1.0 · courtyard 5×5</text>
+
+          <g class="stroke-grey box-stroke"><line x1="245" y1="72" x2="132" y2="126" /><line x1="380" y1="72" x2="380" y2="126" /><line x1="515" y1="72" x2="628" y2="126" /></g>
+          <g class="no-fill stroke-outline box-stroke">
+            <rect x="28" y="126" width="208" height="78" rx="4" /><rect x="276" y="126" width="208" height="78" rx="4" /><rect x="524" y="126" width="208" height="78" rx="4" />
+          </g>
+          <text x="132" y="157" text-anchor="middle"><tspan x="132">placed copy 1</tspan><tspan x="132" dy="22">(as library)</tspan></text>
+          <text x="380" y="157" text-anchor="middle"><tspan x="380">placed copy 2</tspan><tspan x="380" dy="22">(as library)</tspan></text>
+          <text x="628" y="151" text-anchor="middle"><tspan x="628">placed copy 3</tspan><tspan x="628" dy="20">override: pad size 1.2</tspan></text>
+
+          <line class="stroke-ink box-stroke dashed" x1="12" y1="254" x2="748" y2="254" />
+          <rect class="fill-ground" x="164" y="238" width="432" height="32" />
+          <text class="svg-bold" x="380" y="259" text-anchor="middle">the library footprint is edited: pad size 1.1</text>
+
+          <rect class="no-fill stroke-outline box-stroke" x="28" y="318" width="208" height="58" rx="4" />
+          <rect class="no-fill stroke-outline box-stroke" x="276" y="318" width="208" height="58" rx="4" />
+          <rect class="fill-amber stroke-amber box-stroke" x="524" y="318" width="208" height="58" rx="4" />
+          <text x="132" y="353" text-anchor="middle">copy 1: 1.1</text>
+          <text x="380" y="353" text-anchor="middle">copy 2: 1.1</text>
+          <text class="svg-amber svg-bold" x="628" y="353" text-anchor="middle">copy 3: ?</text>
+        </svg>
+        <figcaption>Which value wins, and who is told, is a runtime law by the reply's own third test. It decides whether reuse is safe when the editor is an agent. It is not in the reply.</figcaption>
+      </figure>
+    </section>
+
+    <section aria-labelledby="section-12-heading">
+      <h2 id="section-12-heading">12. What is still open, and the one act that closes it</h2>
+      <p>Every placement in the reply's layer is a size claim: tight loop, delicate, cheaper to re-run than to recompute. None has a receipt.</p>
+      <figure>
+        <svg viewBox="0 0 760 610" role="img" aria-labelledby="picture-12-title">
+          <title id="picture-12-title">Picture 12: What is still open, and the one act that closes it</title>
+          <g class="stroke-ink thin-stroke"><line x1="96" y1="53" x2="106" y2="53" /><line x1="189" y1="53" x2="199" y2="53" /><line x1="282" y1="53" x2="292" y2="53" /><line x1="375" y1="53" x2="385" y2="53" /><line x1="468" y1="53" x2="478" y2="53" /><line x1="561" y1="53" x2="571" y2="53" /><line x1="654" y1="53" x2="664" y2="53" /></g>
+          <g class="no-fill stroke-outline box-stroke dashed"><rect x="13" y="28" width="83" height="50" rx="4" /><rect x="106" y="28" width="83" height="50" rx="4" /><rect x="199" y="28" width="83" height="50" rx="4" /><rect x="292" y="28" width="83" height="50" rx="4" /><rect x="385" y="28" width="83" height="50" rx="4" /><rect x="478" y="28" width="83" height="50" rx="4" /></g>
+          <rect class="fill-green stroke-green box-stroke" x="571" y="28" width="83" height="50" rx="4" />
+          <rect class="fill-green stroke-green box-stroke" x="664" y="28" width="83" height="50" rx="4" />
+          <text x="54.5" y="58" text-anchor="middle">text runs</text><text x="147.5" y="58" text-anchor="middle">measure</text><text x="240.5" y="58" text-anchor="middle">solve</text><text x="333.5" y="58" text-anchor="middle">widths</text><text x="426.5" y="58" text-anchor="middle">break</text><text x="519.5" y="58" text-anchor="middle">lines</text><text class="svg-green svg-bold" x="612.5" y="58" text-anchor="middle">draw items</text><text class="svg-green svg-bold" x="705.5" y="58" text-anchor="middle">pixels</text>
+
+          <g class="stroke-ink thin-stroke dashed"><line x1="54.5" y1="78" x2="54.5" y2="124" /><line x1="147.5" y1="78" x2="147.5" y2="124" /><line x1="240.5" y1="78" x2="240.5" y2="124" /><line x1="333.5" y1="78" x2="333.5" y2="124" /><line x1="426.5" y1="78" x2="426.5" y2="124" /><line x1="519.5" y1="78" x2="519.5" y2="124" /></g>
+          <g class="svg-bold"><text x="54.5" y="148" text-anchor="middle">?</text><text x="147.5" y="148" text-anchor="middle">?</text><text x="240.5" y="148" text-anchor="middle">?</text><text x="333.5" y="148" text-anchor="middle">?</text><text x="426.5" y="148" text-anchor="middle">?</text><text x="519.5" y="148" text-anchor="middle">?</text></g>
+
+          <rect class="fill-amber stroke-amber box-stroke" x="12" y="184" width="224" height="78" rx="4" />
+          <rect class="fill-amber stroke-amber box-stroke" x="268" y="184" width="224" height="78" rx="4" />
+          <rect class="fill-amber stroke-amber box-stroke" x="524" y="184" width="224" height="78" rx="4" />
+          <text x="124" y="216" text-anchor="middle"><tspan x="124">wants to be an op</tspan><tspan x="124" dy="22">(delicate, big)</tspan></text>
+          <text x="380" y="216" text-anchor="middle"><tspan x="380">wants to be a rule</tspan><tspan x="380" dy="22">(small, per row)</tspan></text>
+          <text x="636" y="216" text-anchor="middle"><tspan x="636">wants to be a table</tspan><tspan x="636" dy="22">(state that others read)</tspan></text>
+
+          <text x="20" y="322"><tspan x="20">hand-drive this one chain above today's waist, in plain code, and watch which bin each step</tspan><tspan x="20" dy="22">falls into.</tspan></text>
+
+          <text class="svg-bold" x="20" y="390">open until then:</text>
+          <text x="20" y="424"><tspan x="20">· the vocabulary: what a path, a text run, a row, an op are</tspan><tspan x="20" dy="32">· which steps truly want compiling</tspan><tspan x="20" dy="32">· server order plus validation, or merge laws</tspan><tspan x="20" dy="32">· the reuse law: template, instance, override</tspan></text>
+        </svg>
+        <figcaption>The harness building draw items by hand was named the enemy. It is the instrument. What begs to be below will be found there, and it will not come out shaped like five boxes.</figcaption>
+      </figure>
+    </section>
+  </main>
+</body>
+</html>
