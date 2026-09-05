@@ -1,0 +1,969 @@
+<title>The Waist Bench</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #EEF1F4; --panel: #FFFFFF; --panel2: #F4F6F8; --ink: #1B2430; --muted: #5D6B7A; --line: #D5DBE2;
+    --data: #A8690F; --data-bg: #FBF4E6; --data-line: #E5C98F;
+    --code: #0F7B8A; --code-bg: #E7F3F5; --code-line: #9ED0D8;
+    --waist: #1B2430; --good: #2E8B57; --bad: #C0392B; --paper: #FFFFFF; --focus: #0F7B8A;
+    --btn: #FFFFFF; --btn-on: #1B2430; --btn-on-ink: #FFFFFF;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141A21; --panel: #1B232C; --panel2: #212B35; --ink: #E6EBF0; --muted: #93A1B0; --line: #2E3A46;
+      --data: #E3AE4F; --data-bg: #2A2314; --data-line: #6B5520;
+      --code: #55BCCB; --code-bg: #10303A; --code-line: #235F6B;
+      --waist: #E6EBF0; --good: #5CC48A; --bad: #E7776A; --paper: #0D1218; --focus: #55BCCB;
+      --btn: #1B232C; --btn-on: #E6EBF0; --btn-on-ink: #141A21;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #141A21; --panel: #1B232C; --panel2: #212B35; --ink: #E6EBF0; --muted: #93A1B0; --line: #2E3A46;
+    --data: #E3AE4F; --data-bg: #2A2314; --data-line: #6B5520;
+    --code: #55BCCB; --code-bg: #10303A; --code-line: #235F6B;
+    --waist: #E6EBF0; --good: #5CC48A; --bad: #E7776A; --paper: #0D1218; --focus: #55BCCB;
+    --btn: #1B232C; --btn-on: #E6EBF0; --btn-on-ink: #141A21;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif; }
+  code, pre, textarea, .mono { font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  header.top { padding: 18px 20px 10px; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; }
+  header.top .crumb { color: var(--muted); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }
+  header.top h1 { font-size: 20px; font-weight: 600; margin: 0; letter-spacing: -.01em; }
+  header.top .lede { margin: 0; color: var(--muted); max-width: 70ch; flex-basis: 100%; }
+  main.wrap { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 16px; padding: 0 20px 20px; align-items: start; }
+  @media (max-width: 980px) { main.wrap { grid-template-columns: 1fr; } .stage { min-height: 420px; } }
+  .stage { position: relative; background: var(--paper); border: 1px solid var(--line); border-radius: 6px; min-height: 640px; height: calc(100vh - 150px); overflow: hidden; }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: none; }
+  .hud { position: absolute; left: 10px; bottom: 10px; right: 10px; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; padding: 8px 10px; background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; pointer-events: none; }
+  .hud .k { color: var(--muted); }
+  .hud .agree { color: var(--good); font-weight: 600; } .hud .disagree { color: var(--bad); font-weight: 600; }
+  .viewbar { position: absolute; left: 10px; top: 10px; display: flex; gap: 8px; align-items: center; padding: 6px 8px; background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--line); border-radius: 6px; font-size: 12px; }
+  .viewbar input[type=range] { width: 140px; accent-color: var(--code); }
+  .viewbar .z { min-width: 5ch; }
+  .msg { position: absolute; left: 10px; top: 52px; right: 10px; padding: 8px 10px; background: var(--panel); border: 1px solid var(--bad); color: var(--bad); border-radius: 6px; font-size: 12px; white-space: pre-wrap; }
+  .waist { display: flex; flex-direction: column; gap: 0; max-height: calc(100vh - 150px); overflow: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); }
+  .tools { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--panel2); }
+  .tier { padding: 10px 12px 12px; }
+  .tier.above { background: var(--data-bg); border-left: 4px solid var(--data); }
+  .tier.line { background: var(--panel); border-top: 3px solid var(--waist); border-bottom: 3px solid var(--waist); }
+  .tier.below { background: var(--code-bg); border-left: 4px solid var(--code); display: flex; flex-direction: column; gap: 10px; }
+  .tierlabel { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
+  .tier.above .tierlabel b { color: var(--data); } .tier.below .tierlabel b { color: var(--code); } .tierlabel b { font-weight: 600; }
+  textarea#record { width: 100%; min-height: 150px; max-height: 300px; resize: vertical; font-size: 11.5px; line-height: 1.4; padding: 8px; border: 1px solid var(--data-line); border-radius: 4px; background: var(--panel); color: var(--ink); }
+  textarea#record:focus, button:focus-visible, input:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .err { color: var(--bad); font-size: 12px; min-height: 0; white-space: pre-wrap; }
+  .note { margin: 8px 0 0; font-size: 12.5px; color: var(--ink); }
+  pre#value { margin: 0; font-size: 11.5px; line-height: 1.45; white-space: pre-wrap; color: var(--ink); }
+  .piece { background: var(--panel); border: 1px solid var(--code-line); border-radius: 4px; padding: 8px 10px; }
+  .piece h3 { margin: 0 0 6px; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .piece h3 .rate { margin-left: auto; }
+  .rate { font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .rate.edit { border-color: var(--data-line); color: var(--data); } .rate.scale { border-color: var(--code-line); color: var(--code); } .rate.frame { border-color: var(--bad); color: var(--bad); }
+  .did { font-size: 12px; color: var(--ink); } .did .mono { font-size: 11.5px; } .did .k { color: var(--muted); }
+  .did ul { margin: 4px 0 0; padding-left: 16px; } .did li { margin: 1px 0; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 4px 0; font-size: 12px; }
+  .row .k { color: var(--muted); min-width: 4.5em; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
+  .seg button { border: 0; border-right: 1px solid var(--line); background: var(--btn); color: var(--ink); font: inherit; font-size: 11.5px; padding: 3px 8px; cursor: pointer; }
+  .seg button:last-child { border-right: 0; }
+  .seg button[aria-pressed="true"] { background: var(--btn-on); color: var(--btn-on-ink); }
+  .seg button:disabled { opacity: .45; cursor: default; }
+  .tools button { border: 1px solid var(--line); background: var(--btn); color: var(--ink); font: inherit; font-size: 12px; padding: 4px 9px; border-radius: 4px; cursor: pointer; }
+  .tools button[aria-pressed="true"] { background: var(--btn-on); color: var(--btn-on-ink); border-color: var(--btn-on); }
+  .small { font-size: 11.5px; color: var(--muted); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11.5px; color: var(--muted); padding: 8px 12px; border-top: 1px solid var(--line); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: -1px; margin-right: 4px; }
+  footer.foot { padding: 6px 20px 18px; color: var(--muted); font-size: 12px; max-width: 90ch; }
+  footer.foot p { margin: 4px 0; }
+  @media (prefers-reduced-motion: no-preference) { .seg button, .tools button { transition: background .12s; } }
+</style>
+
+<header class="top">
+  <div class="crumb">Softland · client · path kind · bench 9</div>
+  <h1>The Waist Bench</h1>
+  <p class="lede">Three real tools, each supplied as a data record above the waist. One pipeline of code below it: source to path, geometry, packer, filler. Edit the record and watch what runs. The filler is the text lane's per-pixel program, lifted.</p>
+</header>
+
+<main class="wrap">
+  <section class="stage" id="stage">
+    <canvas id="c"></canvas>
+    <div class="viewbar">
+      <span class="k">zoom</span>
+      <input id="zoom" type="range" min="-1.3" max="2" step="0.01" value="0.477" aria-label="zoom">
+      <span class="z mono" id="zval">3.0×</span>
+      <button id="reset" class="small" style="border:1px solid var(--line);background:var(--btn);color:var(--ink);border-radius:4px;padding:2px 6px;cursor:pointer">reset view</button>
+      <label class="small"><input type="checkbox" id="outline"> show outline curves</label>
+    </div>
+    <div class="msg" id="msg" hidden></div>
+    <div class="hud" id="hud"><span class="k">move the cursor over the drawing</span></div>
+  </section>
+
+  <aside class="waist">
+    <div class="tools" id="tools"></div>
+
+    <div class="tier above">
+      <div class="tierlabel"><span><b>Above the waist</b> · the tool's record · data anyone can edit</span><span class="rate edit">per edit</span></div>
+      <textarea id="record" spellcheck="false" aria-label="tool record"></textarea>
+      <div class="err" id="recerr"></div>
+      <p class="note" id="note"></p>
+    </div>
+
+    <div class="tier line">
+      <div class="tierlabel"><span><b>The waist</b> · the kind's value: path + paint + identity</span></div>
+      <pre id="value"></pre>
+    </div>
+
+    <div class="tier below">
+      <div class="tierlabel"><span><b>Below the waist</b> · the four pieces of code</span></div>
+
+      <div class="piece" id="p-source">
+        <h3>source → path <span class="rate edit">per edit</span></h3>
+        <div class="did" id="d-source"></div>
+      </div>
+
+      <div class="piece" id="p-geometry">
+        <h3>geometry · envelope, regions, answers <span class="rate" id="r-geometry">per edit</span></h3>
+        <div class="row"><span class="k">tip</span><span class="seg" data-set="tip"><button data-v="nib">swept round nib</button><button data-v="ribbon">ribbon</button></span></div>
+        <div class="row"><span class="k">cap</span><span class="seg" data-set="cap"><button data-v="round">round</button><button data-v="butt">butt</button><button data-v="square">square</button></span></div>
+        <div class="row"><span class="k">join</span><span class="seg" data-set="join"><button data-v="round">round</button><button data-v="miter">miter</button><button data-v="bevel">bevel</button></span></div>
+        <div class="row"><span class="k">align</span><span class="seg" data-set="align"><button data-v="center">center</button><button data-v="inside">inside</button><button data-v="outside">outside</button></span></div>
+        <div class="row"><span class="k">width in</span><span class="seg" data-set="unit"><button data-v="local">local units</button><button data-v="device">device pixels</button></span>
+          <span class="seg" data-set="dash"><button data-v="off">solid</button><button data-v="on">dashed</button></span></div>
+        <div class="did" id="d-geometry"></div>
+      </div>
+
+      <div class="piece" id="p-packer">
+        <h3>packer · cubic→quad, bands, cover <span class="rate" id="r-packer">per scale</span></h3>
+        <div class="row"><span class="k">cover</span><span class="seg" data-view="cover"><button data-v="bbox">one box</button><button data-v="cells">cells the outline touches</button></span>
+          <span class="seg" data-view="bands"><button data-v="on">bands</button><button data-v="off">no bands</button></span></div>
+        <div class="row"><span class="k">snap</span><span class="seg" data-set="snap"><button data-v="off">off</button><button data-v="on">to device pixels</button></span></div>
+        <div class="did" id="d-packer"></div>
+      </div>
+
+      <div class="piece" id="p-filler">
+        <h3>filler · coverage per pixel under a rule <span class="rate frame">per frame</span></h3>
+        <div class="row"><span class="k">fill</span><span class="seg" data-set="fill"><button data-v="none">none</button><button data-v="nonzero">nonzero</button><button data-v="evenodd">even-odd</button></span></div>
+        <div class="row"><span class="k">overlap</span><span class="seg" data-set="overlap"><button data-v="union">union: one region, painted once</button><button data-v="accumulate">accumulate: dabs in order</button></span></div>
+        <div class="row"><span class="k">stroke</span><span class="seg" data-set="stroke"><button data-v="on">on</button><button data-v="off">off</button></span>
+          <span class="k" style="min-width:auto">its skin filled</span><span class="seg" data-view="skinRule"><button data-v="nonzero">nonzero</button><button data-v="evenodd">even-odd</button></span></div>
+        <div class="did" id="d-filler"></div>
+      </div>
+    </div>
+
+    <div class="legend">
+      <span><i style="background:var(--data)"></i>data · the tool supplies it</span>
+      <span><i style="background:var(--code)"></i>code · exists once</span>
+      <span>rates: <span class="rate edit">per edit</span> <span class="rate scale">per scale</span> <span class="rate frame">per frame</span></span>
+    </div>
+  </aside>
+</main>
+
+<footer class="foot">
+  <p>Local units: 1 unit = 1 CSS pixel at zoom 1, Y down, as in the client. Drag to pan, wheel to zoom about the cursor. In "draw your own", drag draws and Shift-drag pans. Fixtures marked harness are the path family's own golden fixtures by their coordinates.</p>
+  <p>The cursor readout runs the filler's algorithm on the CPU at the cursor and reads the GPU pixel under it; they agree because both use the same curves and the same rule. It also shows what the two stroke constructions say about the distance to the drawn centerline.</p>
+</footer>
+
+<script>
+(() => {
+  'use strict';
+  const TAU = Math.PI * 2;
+  const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+  const fmt = (n, d = 2) => (Math.round(n * 10 ** d) / 10 ** d).toFixed(d);
+  const fmtInt = n => Math.round(n).toLocaleString('en-US');
+  const V = {
+    sub: (a, b) => ({ x: a.x - b.x, y: a.y - b.y }), add: (a, b) => ({ x: a.x + b.x, y: a.y + b.y }),
+    mul: (a, k) => ({ x: a.x * k, y: a.y * k }), len: a => Math.hypot(a.x, a.y),
+    norm: a => { const l = Math.hypot(a.x, a.y) || 1; return { x: a.x / l, y: a.y / l }; },
+    perp: a => ({ x: -a.y, y: a.x }), dot: (a, b) => a.x * b.x + a.y * b.y, cross: (a, b) => a.x * b.y - a.y * b.x,
+    lerp: (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t }),
+    ang: a => Math.atan2(a.y, a.x), dir: t => ({ x: Math.cos(t), y: Math.sin(t) }), dist: (a, b) => Math.hypot(a.x - b.x, a.y - b.y),
+  };
+  const normAngle = a => { a = ((a + Math.PI) % TAU + TAU) % TAU - Math.PI; return a; };
+
+  // =====================================================================
+  //  A tiny expression evaluator. This is the fifth piece the waist test
+  //  found: a tool's *behaviour* (how pressure becomes width) is a function,
+  //  and a function is data only if code below the waist can execute it.
+  // =====================================================================
+  function compileExpr(src) {
+    const toks = String(src).match(/[A-Za-z_]\w*|\d*\.?\d+(?:e[+-]?\d+)?|\*\*|[-+*/^(),]/g) || [];
+    let i = 0;
+    const peek = () => toks[i], next = () => toks[i++];
+    const FN = {
+      min: Math.min, max: Math.max, abs: Math.abs, sqrt: Math.sqrt, pow: Math.pow, sin: Math.sin, cos: Math.cos, exp: Math.exp, floor: Math.floor,
+      clamp: (x, a, b) => Math.min(b, Math.max(a, x)), step: (e, x) => (x < e ? 0 : 1),
+      smoothstep: (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); },
+      mix: (a, b, t) => a + (b - a) * t,
+    };
+    function expr() { let l = term(); while (peek() === '+' || peek() === '-') { const op = next(); const r = term(); const L = l; l = op === '+' ? v => L(v) + r(v) : v => L(v) - r(v); } return l; }
+    function term() { let l = unary(); while (peek() === '*' || peek() === '/') { const op = next(); const r = unary(); const L = l; l = op === '*' ? v => L(v) * r(v) : v => L(v) / r(v); } return l; }
+    function unary() { if (peek() === '-') { next(); const r = unary(); return v => -r(v); } if (peek() === '+') { next(); return unary(); } return power(); }
+    function power() { const b = atom(); if (peek() === '^' || peek() === '**') { next(); const e = unary(); return v => Math.pow(b(v), e(v)); } return b; }
+    function atom() {
+      const t = next();
+      if (t === undefined) throw new Error('expression ends early');
+      if (t === '(') { const e = expr(); if (next() !== ')') throw new Error('missing )'); return e; }
+      if (/^\d|^\./.test(t)) { const n = parseFloat(t); return () => n; }
+      if (/^[A-Za-z_]/.test(t)) {
+        if (peek() === '(') {
+          next(); const args = [];
+          if (peek() !== ')') { args.push(expr()); while (peek() === ',') { next(); args.push(expr()); } }
+          if (next() !== ')') throw new Error('missing ) after ' + t);
+          const f = FN[t]; if (!f) throw new Error('unknown function ' + t);
+          return v => f(...args.map(a => a(v)));
+        }
+        if (t === 'pi') return () => Math.PI;
+        return v => { const x = v[t]; if (typeof x !== 'number') throw new Error('unknown name ' + t); return x; };
+      }
+      throw new Error('unexpected ' + t);
+    }
+    const f = expr();
+    if (i < toks.length) throw new Error('unexpected ' + toks[i]);
+    return f;
+  }
+
+  // =====================================================================
+  //  THE WAIST. The path value the kind takes. Everything above makes one
+  //  of these; everything below reads one.
+  //    path.subpaths[]: { closed, start:{x,y}, segs:[ {k:'L',p} | {k:'Q',c,p} | {k:'C',c1,c2,p} ], knots:[ {id, w} ] }
+  //    knots.length === segs.length + 1; knot i sits at the end of seg i-1 (knot 0 at start).
+  // =====================================================================
+  function knotW(sp, i, fallback) { const k = sp.knots && sp.knots[Math.min(i, sp.knots.length - 1)]; return k && typeof k.w === 'number' ? k.w : fallback; }
+  function segEnd(sp, i) { return i < 0 ? sp.start : sp.segs[i].p; }
+  function pathStats(path) {
+    let L = 0, Q = 0, C = 0, sub = 0, knots = 0, varying = false;
+    for (const sp of path.subpaths) { sub++; knots += (sp.knots || []).length; for (const s of sp.segs) { if (s.k === 'L') L++; else if (s.k === 'Q') Q++; else C++; }
+      if (sp.knots && sp.knots.some(k => typeof k.w === 'number' && k.w !== sp.knots[0].w)) varying = true; }
+    return { L, Q, C, sub, knots, varying };
+  }
+  function explicitClose(sp) { // a closed subpath gets its closing line spelled out so reversal and joins see it
+    if (!sp.closed) return sp;
+    const last = segEnd(sp, sp.segs.length - 1);
+    if (V.dist(last, sp.start) < 1e-9) return sp;
+    const knots = sp.knots ? sp.knots.concat([{ ...sp.knots[0] }]) : undefined;
+    return { ...sp, segs: sp.segs.concat([{ k: 'L', p: { ...sp.start } }]), knots };
+  }
+  function reverseSubpath(sp0) {
+    const sp = explicitClose(sp0); const n = sp.segs.length;
+    const start = segEnd(sp, n - 1); const segs = [];
+    for (let i = n - 1; i >= 0; i--) { const s = sp.segs[i], p = segEnd(sp, i - 1);
+      if (s.k === 'L') segs.push({ k: 'L', p }); else if (s.k === 'Q') segs.push({ k: 'Q', c: s.c, p }); else segs.push({ k: 'C', c1: s.c2, c2: s.c1, p }); }
+    return { closed: sp.closed, start, segs, knots: sp.knots ? sp.knots.slice().reverse() : undefined };
+  }
+  function pathBBox(path) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const take = p => { x0 = Math.min(x0, p.x); y0 = Math.min(y0, p.y); x1 = Math.max(x1, p.x); y1 = Math.max(y1, p.y); };
+    for (const sp of path.subpaths) { take(sp.start); for (const s of sp.segs) { take(s.p); if (s.c) take(s.c); if (s.c1) { take(s.c1); take(s.c2); } } }
+    return isFinite(x0) ? { x0, y0, x1, y1 } : { x0: 0, y0: 0, x1: 0, y1: 0 };
+  }
+
+  // ---- flattening (an answer the kind gives: flatten(τ)) ----
+  const quadAt = (a, c, b, t) => { const u = 1 - t; return { x: u * u * a.x + 2 * u * t * c.x + t * t * b.x, y: u * u * a.y + 2 * u * t * c.y + t * t * b.y }; };
+  const cubicAt = (a, c1, c2, b, t) => { const u = 1 - t; return { x: u * u * u * a.x + 3 * u * u * t * c1.x + 3 * u * t * t * c2.x + t * t * t * b.x, y: u * u * u * a.y + 3 * u * u * t * c1.y + 3 * u * t * t * c2.y + t * t * t * b.y }; };
+  function quadSteps(a, c, b, tol) { const d = V.len({ x: a.x - 2 * c.x + b.x, y: a.y - 2 * c.y + b.y }); return clamp(Math.ceil(Math.sqrt(d / (4 * tol))), 1, 96); }       // Wang's bound, degree 2
+  function cubicSteps(a, c1, c2, b, tol) { const d = Math.max(V.len({ x: a.x - 2 * c1.x + c2.x, y: a.y - 2 * c1.y + c2.y }), V.len({ x: c1.x - 2 * c2.x + b.x, y: c1.y - 2 * c2.y + b.y })); return clamp(Math.ceil(Math.sqrt(0.75 * d / tol)), 1, 128); }
+  function flattenSubpath(sp, tol, widthOf, widthFn) { // widthOf(sp, knotIndex) → width at that knot; widthFn(p, s) → width from interpolated pressure (the definer's fix: interpolate the source attribute, then apply the response)
+    const pts = []; let cur = sp.start; const n = sp.segs.length;
+    const kp = i => { const k = sp.knots && sp.knots[Math.min(i, sp.knots.length - 1)]; return k && typeof k.p === 'number' ? k.p : 0.5; };
+    const W = (i, t, wa, wb) => (widthFn ? widthFn(kp(i) + (kp(i + 1) - kp(i)) * t, (i + t) / Math.max(1, n)) : wa + (wb - wa) * t);
+    pts.push({ x: cur.x, y: cur.y, w: W(0, 0, widthOf(sp, 0), widthOf(sp, 0)), t: 0 });
+    sp.segs.forEach((s, i) => {
+      const wa = widthOf(sp, i), wb = widthOf(sp, i + 1);
+      if (s.k === 'L') pts.push({ x: s.p.x, y: s.p.y, w: W(i, 1, wa, wb), t: i + 1 });
+      else if (s.k === 'Q') { const m = quadSteps(cur, s.c, s.p, tol); for (let j = 1; j <= m; j++) { const t = j / m, q = quadAt(cur, s.c, s.p, t); pts.push({ x: q.x, y: q.y, w: W(i, t, wa, wb), t: i + t }); } }
+      else { const m = cubicSteps(cur, s.c1, s.c2, s.p, tol); for (let j = 1; j <= m; j++) { const t = j / m, q = cubicAt(cur, s.c1, s.c2, s.p, t); pts.push({ x: q.x, y: q.y, w: W(i, t, wa, wb), t: i + t }); } }
+      cur = s.p;
+    });
+    if (sp.closed && pts.length > 1 && V.dist(pts[0], pts[pts.length - 1]) < 1e-9) pts.pop();
+    return { closed: !!sp.closed, pts };
+  }
+
+  // ---- lowering (the packer's first job: cubic → quad at the camera's tolerance) ----
+  function splitCubic(a, c1, c2, b, t) {
+    const ab = V.lerp(a, c1, t), bc = V.lerp(c1, c2, t), cd = V.lerp(c2, b, t), abc = V.lerp(ab, bc, t), bcd = V.lerp(bc, cd, t), m = V.lerp(abc, bcd, t);
+    return [[a, ab, abc, m], [m, bcd, cd, b]];
+  }
+  function cubicToQuads(a, c1, c2, b, tol, out) {
+    // error of the midpoint quad ≤ (√3/36)·|b − 3c2 + 3c1 − a|, shrinking by n³ when split into n pieces
+    const d = V.len({ x: b.x - 3 * c2.x + 3 * c1.x - a.x, y: b.y - 3 * c2.y + 3 * c1.y - a.y });
+    const n = clamp(Math.ceil(Math.cbrt((Math.sqrt(3) / 36) * d / Math.max(tol, 1e-6))), 1, 24);
+    let pieces = [[a, c1, c2, b]];
+    for (let k = 1; k < n; k++) { // split off pieces at equal parameter steps
+      const t = 1 / (n - k + 1); const last = pieces.pop(); const [p, q] = splitCubic(last[0], last[1], last[2], last[3], t); pieces.push(p, q);
+    }
+    for (const [p0, p1, p2, p3] of pieces) {
+      const c = { x: (3 * (p1.x + p2.x) - p0.x - p3.x) / 4, y: (3 * (p1.y + p2.y) - p0.y - p3.y) / 4 };
+      out.push([p0.x, p0.y, c.x, c.y, p3.x, p3.y]);
+    }
+    return n;
+  }
+  function lowerPath(path, tol) { // → quads as flat arrays [x1,y1, cx,cy, x3,y3]; lines become quads with the control at the midpoint
+    const quads = []; let cubics = 0, fromCubics = 0;
+    for (const sp0 of path.subpaths) {
+      const sp = explicitClose(sp0); let cur = sp.start;
+      for (const s of sp.segs) {
+        if (s.k === 'L') { if (V.dist(cur, s.p) > 1e-12) quads.push([cur.x, cur.y, (cur.x + s.p.x) / 2, (cur.y + s.p.y) / 2, s.p.x, s.p.y]); }
+        else if (s.k === 'Q') quads.push([cur.x, cur.y, s.c.x, s.c.y, s.p.x, s.p.y]);
+        else { cubics++; fromCubics += cubicToQuads(cur, s.c1, s.c2, s.p, tol, quads); }
+        cur = s.p;
+      }
+    }
+    return { quads, cubics, fromCubics };
+  }
+
+  // =====================================================================
+  //  ABOVE THE WAIST. Three sources. Each is what a tool supplies as data;
+  //  the code here is what must execute to turn that data into a path.
+  // =====================================================================
+  const KAPPA = 0.5522847498;
+  function arcCubic(cx, cy, r, a0, a1) { // one ≤90° arc as a cubic (the standard κ bridge; a circle is not a Bézier)
+    const d = a1 - a0, k = (4 / 3) * Math.tan(d / 4) * r;
+    const p0 = { x: cx + r * Math.cos(a0), y: cy + r * Math.sin(a0) }, p3 = { x: cx + r * Math.cos(a1), y: cy + r * Math.sin(a1) };
+    return { k: 'C', c1: { x: p0.x - k * Math.sin(a0), y: p0.y + k * Math.cos(a0) }, c2: { x: p3.x + k * Math.sin(a1), y: p3.y - k * Math.cos(a1) }, p: p3 };
+  }
+  function buildRect(src) { // a formula shape: {x,y,w,h,r} → 4 lines + 4 arcs (arcs as cubics). This generator is code.
+    const { x, y, w, h } = src; const r = clamp(src.r || 0, 0, Math.min(w, h) / 2);
+    const segs = [];
+    if (r > 0) {
+      const start = { x: x + r, y };
+      segs.push({ k: 'L', p: { x: x + w - r, y } }, arcCubic(x + w - r, y + r, r, -Math.PI / 2, 0),
+        { k: 'L', p: { x: x + w, y: y + h - r } }, arcCubic(x + w - r, y + h - r, r, 0, Math.PI / 2),
+        { k: 'L', p: { x: x + r, y: y + h } }, arcCubic(x + r, y + h - r, r, Math.PI / 2, Math.PI),
+        { k: 'L', p: { x, y: y + r } }, arcCubic(x + r, y + r, r, Math.PI, 1.5 * Math.PI));
+      const knots = Array.from({ length: 9 }, (_, i) => ({ id: 'k' + i }));
+      return { subpaths: [{ closed: true, start, segs, knots }], meta: { kind: 'rect', lines: 4, arcs: 4 } };
+    }
+    const start = { x, y };
+    segs.push({ k: 'L', p: { x: x + w, y } }, { k: 'L', p: { x: x + w, y: y + h } }, { k: 'L', p: { x, y: y + h } }, { k: 'L', p: { x, y } });
+    return { subpaths: [{ closed: true, start, segs, knots: Array.from({ length: 5 }, (_, i) => ({ id: 'k' + i })) }], meta: { kind: 'rect', lines: 4, arcs: 0 } };
+  }
+  function buildAnchors(src) { // a designer's outline: anchors with handles → cubics (a straight piece where both handles are missing). Pure data; no arithmetic beyond copying.
+    const subpaths = []; let cubics = 0, lines = 0;
+    for (const c of src.contours || []) {
+      const A = c.anchors || []; if (A.length < 2) continue;
+      const P = i => ({ x: A[i].p[0], y: A[i].p[1] });
+      const segs = []; const n = c.closed ? A.length : A.length - 1;
+      for (let i = 0; i < n; i++) {
+        const j = (i + 1) % A.length; const a = A[i], b = A[j];
+        if (!a.out && !b.in) { segs.push({ k: 'L', p: P(j) }); lines++; }
+        else { segs.push({ k: 'C', c1: a.out ? { x: a.out[0], y: a.out[1] } : P(i), c2: b.in ? { x: b.in[0], y: b.in[1] } : P(j), p: P(j) }); cubics++; }
+      }
+      const knots = Array.from({ length: n + 1 }, (_, i) => ({ id: A[i % A.length].id || ('a' + (i % A.length)) }));
+      subpaths.push({ closed: !!c.closed, start: P(0), segs, knots });
+    }
+    return { subpaths, meta: { kind: 'anchors', cubics, lines } };
+  }
+  function rdp(pts, eps) { // decimate positions at tolerance eps, keep the sample objects
+    if (pts.length < 3) return pts.slice();
+    const keep = new Uint8Array(pts.length); keep[0] = keep[pts.length - 1] = 1;
+    const stack = [[0, pts.length - 1]];
+    while (stack.length) {
+      const [a, b] = stack.pop(); const A = pts[a], B = pts[b]; const d = V.sub(B, A), L = V.len(d) || 1;
+      let best = -1, bi = -1;
+      for (let i = a + 1; i < b; i++) { const P = pts[i]; const dist = L > 1e-9 ? Math.abs(V.cross(d, V.sub(P, A))) / L : V.dist(P, A); if (dist > best) { best = dist; bi = i; } }
+      if (best > eps && bi > 0) { keep[bi] = 1; stack.push([a, bi], [bi, b]); }
+    }
+    return pts.filter((_, i) => keep[i]);
+  }
+  function buildPen(src, tool) {
+    // 1. the burst: samples [x, y, pressure?, time?] — the event that happened
+    const raw = (src.samples || []).map(([x, y, p, t], i) => ({ x, y, p: typeof p === 'number' ? p : 0.5, t: typeof t === 'number' ? t : i * 8, id: 's' + i }));
+    const meta = { kind: 'pen', samples: raw.length, knots: 0, streamline: tool.streamline || 0, fit: tool.fit, widthExpr: tool.width || 'size * (1 - thinning * (1 - p))', taperStart: tool.taperStart || 0, taperEnd: tool.taperEnd || 0, simulated: !!tool.simulatePressure, error: null };
+    if (raw.length === 0) return { subpaths: [], meta };
+    // 2. streamline: a low-pass over positions (tldraw's setting of that name)
+    const k = clamp(tool.streamline || 0, 0, 0.95); const pts = [];
+    raw.forEach((s, i) => { if (i === 0) pts.push({ ...s }); else { const q = pts[i - 1]; pts.push({ ...s, x: q.x + (s.x - q.x) * (1 - k), y: q.y + (s.y - q.y) * (1 - k) }); } });
+    // 3. arc length, speed, simulated pressure (from speed, when the device gave none)
+    let L = 0; pts[0].s = 0; pts[0].v = 0;
+    for (let i = 1; i < pts.length; i++) { const d = V.dist(pts[i], pts[i - 1]); L += d; pts[i].s = L; pts[i].v = d / Math.max(1e-3, pts[i].t - pts[i - 1].t); }
+    if (tool.simulatePressure) { let prev = 0.5; const size = tool.size || 8; pts.forEach((q, i) => { if (i === 0) { q.p = prev; return; } const sp = Math.min(1, V.dist(q, pts[i - 1]) / size), rp = Math.min(1, 1 - sp); prev = Math.min(1, prev + (rp - prev) * (sp * 0.275)); q.p = prev; }); }
+    // 4. the pen model: width per sample from an expression over p, s, v and the record's numbers — data, executed by the evaluator
+    let f; try { f = compileExpr(meta.widthExpr); } catch (e) { meta.error = 'width: ' + e.message; f = v => v.size * v.p; }
+    const scope = {}; for (const key in tool) if (typeof tool[key] === 'number') scope[key] = tool[key]; if (typeof scope.size !== 'number') scope.size = 8; if (typeof scope.thinning !== 'number') scope.thinning = 0.5;
+    pts.forEach(q => {
+      let w; try { w = f({ ...scope, p: q.p, s: L > 0 ? q.s / L : 0, v: q.v }); } catch (e) { meta.error = 'width: ' + e.message; w = scope.size * q.p; }
+      if (!isFinite(w)) w = 0;
+      if (meta.taperStart > 0) w *= clamp(q.s / meta.taperStart, 0, 1);
+      if (meta.taperEnd > 0) w *= clamp((L - q.s) / meta.taperEnd, 0, 1);
+      q.w = Math.max(0, w);
+    });
+    // 5. fit at τ: tolerance zero keeps one knot per sample; above zero decimates (what a user feels as "streamline" or "smoothing")
+    let knots = pts; if (typeof tool.fit === 'number' && tool.fit > 0) knots = rdp(pts, tool.fit);
+    meta.knots = knots.length; meta.length = L;
+    // 6. the spline through the knots: Catmull-Rom → cubics (the interpolating spline); or a polyline, which is also a valid path
+    const start = { x: knots[0].x, y: knots[0].y }; const segs = [];
+    if (tool.fit === 'polyline' || knots.length < 3) { for (let i = 1; i < knots.length; i++) segs.push({ k: 'L', p: { x: knots[i].x, y: knots[i].y } }); meta.spline = 'polyline'; }
+    else {
+      for (let i = 0; i < knots.length - 1; i++) {
+        const P0 = knots[i], P3 = knots[i + 1], Pm = knots[Math.max(0, i - 1)], Pp = knots[Math.min(knots.length - 1, i + 2)];
+        segs.push({ k: 'C', c1: { x: P0.x + (P3.x - Pm.x) / 6, y: P0.y + (P3.y - Pm.y) / 6 }, c2: { x: P3.x - (Pp.x - P0.x) / 6, y: P3.y - (Pp.y - P0.y) / 6 }, p: { x: P3.x, y: P3.y } });
+      }
+      meta.spline = 'catmull-rom cubics';
+    }
+    return { subpaths: [{ closed: false, start, segs, knots: knots.map(q => ({ id: q.id, w: q.w, p: q.p, t: q.t })) }], meta };
+  }
+  function buildPath(rec) {
+    const src = rec.source || {};
+    if (src.kind === 'pen') return buildPen(src, rec.tool || {});
+    if (src.kind === 'rect') return buildRect(src);
+    if (src.kind === 'anchors') return buildAnchors(src);
+    return { subpaths: [], meta: { kind: 'none' } };
+  }
+
+  // =====================================================================
+  //  BELOW THE WAIST · geometry. The envelope builder. A stroke declaration
+  //  becomes an outline of curves, traced so its folds keep the body's
+  //  orientation; the filler fills it nonzero. The two tip constructions
+  //  differ in one line: which direction the tangent point sits from the knot.
+  // =====================================================================
+  class Outline {
+    constructor() { this.subpaths = []; this.cur = null; this.arcs = 0; }
+    moveTo(p) { this.cur = { closed: true, start: { x: p.x, y: p.y }, segs: [] }; this.subpaths.push(this.cur); }
+    lineTo(p) { this.cur.segs.push({ k: 'L', p: { x: p.x, y: p.y } }); }
+    quadTo(c, p) { this.cur.segs.push({ k: 'Q', c: { x: c.x, y: c.y }, p: { x: p.x, y: p.y } }); }
+    addSubpath(sp) { this.subpaths.push({ closed: true, start: { ...sp.start }, segs: sp.segs.map(s => ({ ...s })) }); this.cur = null; }
+    arc(center, r, a0, a1, via) { // around center from angle a0 to a1; the short way, or through `via` when given (caps)
+      if (r < 1e-9) { this.lineTo(V.add(center, V.mul(V.dir(a1), r))); return; }
+      let d = normAngle(a1 - a0);
+      if (via != null) { const dv = normAngle(via - a0); const inside = Math.abs(dv) <= Math.abs(d) + 1e-9 && (Math.abs(dv) < 1e-9 || Math.sign(dv) === Math.sign(d)); if (!inside) d = d - Math.sign(d || 1) * TAU; }
+      if (Math.abs(d) < 1e-9) { this.lineTo(V.add(center, V.mul(V.dir(a1), r))); return; }
+      const k = Math.max(1, Math.ceil(Math.abs(d) / (Math.PI / 4)));   // ≤45° per quadratic
+      for (let i = 1; i <= k; i++) { const t0 = a0 + d * (i - 1) / k, t1 = a0 + d * i / k, h = (t1 - t0) / 2; const c = V.add(center, V.mul(V.dir((t0 + t1) / 2), r / Math.cos(h))); this.quadTo(c, V.add(center, V.mul(V.dir(t1), r))); this.arcs++; }
+    }
+  }
+  function dedupe(pts, closed) { const out = []; for (const p of pts) if (!out.length || V.dist(p, out[out.length - 1]) > 1e-6) out.push(p); if (closed && out.length > 1 && V.dist(out[0], out[out.length - 1]) <= 1e-6) out.pop(); return out; }
+  const withR = (pts, f) => pts.map(p => ({ x: p.x, y: p.y, w: p.w, r: Math.max(0, (p.w || 0) * f) }));
+  const signedArea = pts => { let a = 0; for (let i = 0; i < pts.length; i++) a += V.cross(pts[i], pts[(i + 1) % pts.length]); return a / 2; };
+  function tracePieces(P, closed, tip) {
+    const n = P.length, m = closed ? n : n - 1, pieces = [];
+    for (let i = 0; i < m; i++) {
+      const a = P[i], b = P[(i + 1) % n]; const d = V.dist(a, b) || 1e-9; const u = V.norm(V.sub(b, a)), nrm = V.perp(u);
+      let c = 0, sn = 1;
+      if (tip === 'nib') { c = clamp((a.r - b.r) / d, -1, 1); sn = Math.sqrt(Math.max(0, 1 - c * c)); }   // ← the one line: the external tangent of two discs leans with the taper; the ribbon's normal never does
+      const mS = s => ({ x: c * u.x + s * sn * nrm.x, y: c * u.y + s * sn * nrm.y });
+      pieces.push({ a, b, u, d, mP: mS(1), mM: mS(-1) });
+    }
+    return pieces;
+  }
+  const T = (pc, end, s) => { const m = s > 0 ? pc.mP : pc.mM, k = end === 'a' ? pc.a : pc.b; return { x: k.x + k.r * m.x, y: k.y + k.r * m.y }; };
+  function join(out, piece, i, j, s, fwd, st) { // at the knot shared by piece i (in) and piece j (out), on side s
+    const pi = piece[i], pj = piece[j], k = pi.b;
+    const from = fwd ? T(pi, 'b', s) : T(pj, 'a', s), to = fwd ? T(pj, 'a', s) : T(pi, 'b', s);
+    const turn = V.cross(pi.u, pj.u), straight = Math.abs(turn) < 1e-7 && V.dot(pi.u, pj.u) > 0;
+    if (straight && V.dist(from, to) < 1e-7) return;
+    const outer = s * turn < 0;
+    if (!outer && !straight) { out.lineTo(k); out.lineTo(to); return; }       // inner side: the fold through the pivot; nonzero absorbs it
+    if (st.join === 'round' || straight || k.r < 1e-9) { out.arc(k, k.r, V.ang(V.sub(from, k)), V.ang(V.sub(to, k)), null); return; }
+    if (st.join === 'miter') {
+      const A = T(pi, 'b', s), dA = V.norm(V.sub(T(pi, 'b', s), T(pi, 'a', s)));   // the hull edge of piece i
+      const B = T(pj, 'a', s), dB = V.norm(V.sub(T(pj, 'b', s), T(pj, 'a', s)));   // the hull edge of piece j
+      const den = V.cross(dA, dB);
+      if (Math.abs(den) > 1e-9) { const t = V.cross(V.sub(B, A), dB) / den; const M = V.add(A, V.mul(dA, t));
+        if (V.dist(M, k) <= (st.miterLimit || 4) * k.r) { out.lineTo(M); out.lineTo(to); return; } }
+    }
+    out.lineTo(to);                                                            // bevel, or a miter past its limit
+  }
+  function cap(out, pc, end, sFrom, sTo, st) {
+    const k = end === 'a' ? pc.a : pc.b, from = T(pc, end, sFrom), to = T(pc, end, sTo), via = end === 'a' ? V.ang(V.mul(pc.u, -1)) : V.ang(pc.u);
+    if (k.r < 1e-9) { out.lineTo(to); return; }
+    if (st.cap === 'round') out.arc(k, k.r, V.ang(V.sub(from, k)), V.ang(V.sub(to, k)), via);
+    else if (st.cap === 'square') { const e = V.mul(pc.u, end === 'a' ? -k.r : k.r); out.lineTo(V.add(from, e)); out.lineTo(V.add(to, e)); out.lineTo(to); }
+    else out.lineTo(to);
+  }
+  function traceOpen(out, P, st, tip) {
+    const piece = tracePieces(P, false, tip), m = piece.length;
+    out.moveTo(T(piece[0], 'a', 1));
+    for (let i = 0; i < m; i++) { out.lineTo(T(piece[i], 'b', 1)); if (i < m - 1) join(out, piece, i, i + 1, 1, true, st); }
+    cap(out, piece[m - 1], 'b', 1, -1, st);
+    for (let i = m - 1; i >= 0; i--) { out.lineTo(T(piece[i], 'a', -1)); if (i > 0) join(out, piece, i - 1, i, -1, false, st); }
+    cap(out, piece[0], 'a', -1, 1, st);
+    return piece;
+  }
+  function traceLoop(out, piece, s, fwd, st) {
+    const m = piece.length;
+    if (fwd) { out.moveTo(T(piece[0], 'a', s)); for (let i = 0; i < m; i++) { out.lineTo(T(piece[i], 'b', s)); join(out, piece, i, (i + 1) % m, s, true, st); } }
+    else { out.moveTo(T(piece[m - 1], 'b', s)); for (let i = m - 1; i >= 0; i--) { out.lineTo(T(piece[i], 'a', s)); join(out, piece, (i - 1 + m) % m, i, s, false, st); } }
+  }
+  function strokeClosed(out, P0, st, tip, spExact) { // a closed centerline: the skin is a ring between two loops; alignment picks which two
+    const A = signedArea(P0), sIn = A > 0 ? 1 : -1;
+    if (st.align === 'inside') { const piece = tracePieces(withR(P0, 1), true, tip); out.addSubpath(explicitClose(spExact)); traceLoop(out, piece, sIn, false, st); return piece; }
+    if (st.align === 'outside') { const piece = tracePieces(withR(P0, 1), true, tip); traceLoop(out, piece, -sIn, true, st); out.addSubpath(reverseSubpath(spExact)); return piece; }
+    const piece = tracePieces(withR(P0, 0.5), true, tip); traceLoop(out, piece, 1, true, st); traceLoop(out, piece, -1, false, st); return piece;
+  }
+  function dashPolyline(poly, on, off, phase) { // an operation on the flattened centerline: arc length is a geometry answer
+    const pts = poly.pts.slice(); if (poly.closed) pts.push(pts[0]);
+    const period = on + off; if (!(on > 0) || !(period > 0)) return [poly];
+    let ph = (((phase || 0) % period) + period) % period, state = ph < on, remain = state ? on - ph : off - (ph - on);
+    const pieces = []; let cur = state ? { closed: false, pts: [{ ...pts[0] }] } : null;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], segLen = V.dist(a, b); let t0 = 0;
+      while (segLen - t0 > remain) {
+        const t = (t0 + remain) / segLen, p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t, w: a.w + (b.w - a.w) * t };
+        if (state) { cur.pts.push(p); pieces.push(cur); cur = null; } else cur = { closed: false, pts: [p] };
+        state = !state; t0 += remain; remain = state ? on : off;
+      }
+      remain -= segLen - t0; if (state) cur.pts.push({ ...b });
+    }
+    if (state && cur && cur.pts.length > 1) pieces.push(cur);
+    return pieces;
+  }
+  function buildEnvelope(path, st, opts) {
+    const out = new Outline(); const polys = []; let open = 0, closed = 0, pieces = 0;
+    const widthOf = (sp, i) => (typeof opts.widthLocal === 'number' ? opts.widthLocal : knotW(sp, i, opts.fallbackW) * opts.knotScale);
+    for (const sp of path.subpaths) {
+      const flat = flattenSubpath(explicitClose(sp), opts.envTol, widthOf, opts.widthFn);
+      const P = dedupe(flat.pts, flat.closed);
+      if (P.length === 1) { const r = (P[0].w || 0) / 2; if (r > 0) { out.moveTo({ x: P[0].x + r, y: P[0].y }); out.arc(P[0], r, 0, Math.PI, null); out.arc(P[0], r, Math.PI, TAU, null); } continue; }
+      if (P.length < 2) continue;
+      let list = [{ closed: flat.closed, pts: P }];
+      if (opts.dash) list = dashPolyline(list[0], opts.dash[0], opts.dash[1], opts.dashPhase || 0);
+      for (const pl of list) {
+        if (pl.pts.length < 2) continue;
+        if (pl.closed && pl.pts.length > 2) { const pc = strokeClosed(out, pl.pts, st, opts.tip, sp); pieces += pc.length; polys.push(withR(pl.pts, st.align === 'center' ? 0.5 : 1)); closed++; }
+        else { const P2 = withR(pl.pts, 0.5); traceOpen(out, P2, st, opts.tip); pieces += P2.length - 1; polys.push(P2); open++; }
+      }
+    }
+    return { path: { subpaths: out.subpaths }, arcs: out.arcs, open, closed, pieces, polys };
+  }
+
+  function buildDabs(path, opts) { // the definer's construction: round dabs at arc lengths 0, spacing, 2·spacing … along the centerline, each its own region, painted in order
+    const widthOf = (sp, i) => (typeof opts.widthLocal === 'number' ? opts.widthLocal : knotW(sp, i, opts.fallbackW) * opts.knotScale);
+    const dabs = []; const polys = []; let length = 0;
+    for (const sp of path.subpaths) {
+      const flat = flattenSubpath(explicitClose(sp), opts.envTol, widthOf, opts.widthFn); const P = dedupe(flat.pts, flat.closed); if (P.length < 1) continue;
+      if (flat.closed && P.length > 2) P.push(P[0]);
+      polys.push(withR(P, 0.5));
+      let next = 0, s = 0;
+      for (let i = 0; i + 1 < P.length || (i === 0 && P.length === 1); i++) {
+        const a = P[i], b = P[i + 1] || P[i], L = V.dist(a, b);
+        while (next <= s + L + 1e-9 && (L > 0 || next === 0)) {
+          const t = L > 0 ? (next - s) / L : 0, x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t, r = (a.w + (b.w - a.w) * t) / 2;
+          const out = new Outline(); out.moveTo({ x: x + r, y }); out.arc({ x, y }, r, 0, Math.PI, null); out.arc({ x, y }, r, Math.PI, TAU, null);
+          dabs.push({ x, y, r, at: next, path: { subpaths: out.subpaths } }); next += opts.spacing; if (L === 0) break;
+        }
+        s += L;
+      }
+      length += s;
+    }
+    return { dabs, polys, length };
+  }
+
+  // ---- the two stroke constructions as signed distances, for the cursor (from session 4's bench) ----
+  function segRibbon(a, b, px, py) { const dx = b.x - a.x, dy = b.y - a.y, L2 = dx * dx + dy * dy || 1e-12; const t = clamp(((px - a.x) * dx + (py - a.y) * dy) / L2, 0, 1); return Math.hypot(px - (a.x + dx * t), py - (a.y + dy * t)) - (a.r + (b.r - a.r) * t); }
+  function segNib(a, b, px, py) { // exact distance to the convex hull of the two end discs (Quilez's uneven capsule)
+    const h = V.dist(a, b); if (h < 1e-9 || Math.abs(a.r - b.r) >= h) { return Math.min(Math.hypot(px - a.x, py - a.y) - a.r, Math.hypot(px - b.x, py - b.y) - b.r); }
+    const u = V.norm(V.sub(b, a)); const p = { x: Math.abs(V.cross(u, { x: px - a.x, y: py - a.y })), y: V.dot(u, { x: px - a.x, y: py - a.y }) };
+    const bb = (a.r - b.r) / h, aa = Math.sqrt(1 - bb * bb); const k = -bb * p.x + aa * p.y;
+    if (k < 0) return Math.hypot(p.x, p.y) - a.r; if (k > aa * h) return Math.hypot(p.x, p.y - h) - b.r; return aa * p.x + bb * p.y - a.r;
+  }
+  function centerlineDistances(polys, px, py) { let rib = Infinity, nib = Infinity; for (const P of polys) for (let i = 0; i + 1 < P.length; i++) { rib = Math.min(rib, segRibbon(P[i], P[i + 1], px, py)); nib = Math.min(nib, segNib(P[i], P[i + 1], px, py)); } return { rib, nib }; }
+
+  // =====================================================================
+  //  BELOW THE WAIST · packer. Bands for the filler's early exit, the cover,
+  //  and the byte layout the text lane's textures use (a quad is two texels).
+  //  Tolerance comes from the camera; the value above never sees it.
+  // =====================================================================
+  const TEXW = 1024;
+  function packRegion(quads, opts) {
+    const n = quads.length; if (n === 0) return null; const t0 = performance.now();
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    const qb = quads.map(q => { const b = [Math.min(q[0], q[2], q[4]), Math.min(q[1], q[3], q[5]), Math.max(q[0], q[2], q[4]), Math.max(q[1], q[3], q[5])]; x0 = Math.min(x0, b[0]); y0 = Math.min(y0, b[1]); x1 = Math.max(x1, b[2]); y1 = Math.max(y1, b[3]); return b; });
+    const HB = opts.bands === false ? 1 : clamp(Math.ceil(Math.sqrt(n / 2)), 1, 64), VB = HB;
+    const hb = Array.from({ length: HB }, () => []), vb = Array.from({ length: VB }, () => []);
+    const hy = (y1 - y0) || 1, vx = (x1 - x0) || 1;
+    for (let i = 0; i < n; i++) { const b = qb[i];
+      const j0 = clamp(Math.floor((b[1] - y0) / hy * HB), 0, HB - 1), j1 = clamp(Math.floor((b[3] - y0) / hy * HB), 0, HB - 1); for (let j = j0; j <= j1; j++) hb[j].push(i);
+      const k0 = clamp(Math.floor((b[0] - x0) / vx * VB), 0, VB - 1), k1 = clamp(Math.floor((b[2] - x0) / vx * VB), 0, VB - 1); for (let k = k0; k <= k1; k++) vb[k].push(i); }
+    for (const l of hb) l.sort((p, q) => qb[q][2] - qb[p][2]);   // by max x, descending
+    for (const l of vb) l.sort((p, q) => qb[q][3] - qb[p][3]);   // by max y, descending
+    const header = HB + VB; let total = header; for (const l of hb) total += l.length; for (const l of vb) total += l.length;
+    const bands = new Uint32Array(total * 2); let off = header;
+    hb.forEach((l, j) => { bands[j * 2] = l.length; bands[j * 2 + 1] = off; for (const i of l) { bands[off * 2] = i; off++; } });
+    vb.forEach((l, k) => { const e = HB + k; bands[e * 2] = l.length; bands[e * 2 + 1] = off; for (const i of l) { bands[off * 2] = i; off++; } });
+    const curves = new Float32Array(n * 8);
+    quads.forEach((q, i) => { curves.set(q, i * 8); });
+    const avgH = hb.reduce((s, l) => s + l.length, 0) / HB, avgV = vb.reduce((s, l) => s + l.length, 0) / VB;
+    return { n, bbox: { x0, y0, x1, y1 }, HB, VB, bandXf: [VB / vx, HB / hy, -x0 * VB / vx, -y0 * HB / hy], bands, curves, hb, vb, qb, avgH, avgV, bandTexels: total, ms: performance.now() - t0 };
+  }
+  function buildCover(packed, opts) {
+    const m = opts.marginLocal, b = packed.bbox, X0 = b.x0 - m, Y0 = b.y0 - m, X1 = b.x1 + m, Y1 = b.y1 + m; const rects = []; let tested = 0;
+    if (opts.mode === 'cells') {
+      const cell = opts.cellLocal, nx = clamp(Math.ceil((X1 - X0) / cell), 1, 96), ny = clamp(Math.ceil((Y1 - Y0) / cell), 1, 96), cw = (X1 - X0) / nx, ch = (Y1 - Y0) / ny;
+      for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+        const cx0 = X0 + i * cw, cy0 = Y0 + j * ch, cx1 = cx0 + cw, cy1 = cy0 + ch; let hit = false; tested++;
+        for (const q of packed.qb) if (q[0] - m <= cx1 && q[2] + m >= cx0 && q[1] - m <= cy1 && q[3] + m >= cy0) { hit = true; break; }
+        if (!hit) { const w = windingAt(packed, (cx0 + cx1) / 2, (cy0 + cy1) / 2); hit = opts.rule === 1 ? (w & 1) !== 0 : w !== 0; }   // interior cells no curve touches
+        if (hit) rects.push([cx0, cy0, cx1, cy1]);
+      }
+    } else rects.push([X0, Y0, X1, Y1]);
+    const tri = new Float32Array(rects.length * 12); let areaLocal = 0;
+    rects.forEach((r, i) => { tri.set([r[0], r[1], r[2], r[1], r[2], r[3], r[0], r[1], r[2], r[3], r[0], r[3]], i * 12); areaLocal += (r[2] - r[0]) * (r[3] - r[1]); });
+    return { tri, rects: rects.length, tested, areaLocal };
+  }
+
+  // ---- the CPU twin of the filler: same curves, same bands, same root code, same rule ----
+  const f32 = new Float32Array(1), u32 = new Uint32Array(f32.buffer);
+  const signBit = y => { f32[0] = y; return u32[0] >>> 31; };
+  function rootCode(y1, y2, y3) { const shift = signBit(y1) | (signBit(y2) << 1) | (signBit(y3) << 2); return (0x2E74 >> shift) & 0x0101; }
+  function solveAxis(p1x, p1y, p2x, p2y, p3x, p3y) { // roots of the y-polynomial, returning x there
+    const ay = p1y - 2 * p2y + p3y, by = p1y - p2y, ax = p1x - 2 * p2x + p3x, bx = p1x - p2x; const d = Math.sqrt(Math.max(by * by - ay * p1y, 0)); let t1, t2;
+    if (Math.abs(ay) < 1 / 65536) { t1 = t2 = p1y / (2 * by); } else { t1 = (by - d) / ay; t2 = (by + d) / ay; }
+    return [(ax * t1 - 2 * bx) * t1 + p1x, (ax * t2 - 2 * bx) * t2 + p1x];
+  }
+  function windingAt(packed, x, y) {
+    const bi = clamp(Math.floor(y * packed.bandXf[1] + packed.bandXf[3]), 0, packed.HB - 1); let w = 0; const c = packed.curves;
+    for (const i of packed.hb[bi]) { const o = i * 8, p1x = c[o] - x, p1y = c[o + 1] - y, p2x = c[o + 2] - x, p2y = c[o + 3] - y, p3x = c[o + 4] - x, p3y = c[o + 5] - y;
+      if (Math.max(p1x, p2x, p3x) < 0) break; const code = rootCode(p1y, p2y, p3y); if (!code) continue;
+      const r = solveAxis(p1x, p1y, p2x, p2y, p3x, p3y); if ((code & 1) && r[0] > 0) w += 1; if (code > 1 && r[1] > 0) w -= 1; }
+    return w;
+  }
+  function coverageAt(packed, x, y, ppuX, ppuY, rule) {
+    const bi = clamp(Math.floor(y * packed.bandXf[1] + packed.bandXf[3]), 0, packed.HB - 1), bj = clamp(Math.floor(x * packed.bandXf[0] + packed.bandXf[2]), 0, packed.VB - 1);
+    let xcov = 0, xwgt = 0, xabs = 0, ycov = 0, ywgt = 0, yabs = 0; const c = packed.curves; const sat = v => clamp(v, 0, 1);
+    for (const i of packed.hb[bi]) { const o = i * 8, p1x = c[o] - x, p1y = c[o + 1] - y, p2x = c[o + 2] - x, p2y = c[o + 3] - y, p3x = c[o + 4] - x, p3y = c[o + 5] - y;
+      if (Math.max(p1x, p2x, p3x) * ppuX < -0.5) break; const code = rootCode(p1y, p2y, p3y); if (!code) continue;
+      const r = solveAxis(p1x, p1y, p2x, p2y, p3x, p3y).map(v => v * ppuX);
+      if (code & 1) { const cv = sat(r[0] + 0.5); xcov += cv; xabs += cv; xwgt = Math.max(xwgt, sat(1 - Math.abs(r[0]) * 2)); }
+      if (code > 1) { const cv = sat(r[1] + 0.5); xcov -= cv; xabs += cv; xwgt = Math.max(xwgt, sat(1 - Math.abs(r[1]) * 2)); } }
+    for (const i of packed.vb[bj]) { const o = i * 8, p1x = c[o] - x, p1y = c[o + 1] - y, p2x = c[o + 2] - x, p2y = c[o + 3] - y, p3x = c[o + 4] - x, p3y = c[o + 5] - y;
+      if (Math.max(p1y, p2y, p3y) * ppuY < -0.5) break; const code = rootCode(p1x, p2x, p3x); if (!code) continue;
+      const r = solveAxis(p1y, p1x, p2y, p2x, p3y, p3x).map(v => v * ppuY);
+      if (code & 1) { const cv = sat(r[0] + 0.5); ycov -= cv; yabs += cv; ywgt = Math.max(ywgt, sat(1 - Math.abs(r[0]) * 2)); }
+      if (code > 1) { const cv = sat(r[1] + 0.5); ycov += cv; yabs += cv; ywgt = Math.max(ywgt, sat(1 - Math.abs(r[1]) * 2)); } }
+    const comb = (xc, yc) => { const weighted = Math.abs(xc * xwgt + yc * ywgt) / Math.max(xwgt + ywgt, 1 / 65536); return sat(Math.max(weighted, Math.min(Math.abs(xc), Math.abs(yc)))); };
+    if (rule === 1) { const tri = v => 1 - Math.abs((v % 2) - 1); return comb(tri(xabs), tri(yabs)); }
+    return comb(xcov, ycov);
+  }
+
+  // =====================================================================
+  //  BELOW THE WAIST · filler. The text lane's per-pixel program (the Slug
+  //  algorithm as it stands in text/renderer.cljs), in GLSL for WebGL2.
+  //  Signed root crossings on two axes, a band lookup, an early exit, one
+  //  coverage. It knows nothing about pens, rectangles or glyphs.
+  //  Two changes from the tree: the band texture width is a uniform, not a
+  //  compile-time 4096; and even-odd is the parity of the same crossings.
+  // =====================================================================
+  const VS = `#version 300 es
+  precision highp float;
+  layout(location = 0) in vec2 a_p; uniform vec2 u_center; uniform float u_zoom; uniform vec2 u_size; uniform float u_pointSize; out vec2 v_p;
+  void main() { v_p = a_p; vec2 s = (a_p - u_center) * u_zoom + u_size * 0.5; vec2 ndc = s / u_size * 2.0 - 1.0; gl_Position = vec4(ndc.x, -ndc.y, 0.0, 1.0); gl_PointSize = u_pointSize; }`;
+  const FS_FILL = `#version 300 es
+  precision highp float; precision highp int; precision highp sampler2D; precision highp usampler2D;
+  uniform sampler2D u_curves; uniform usampler2D u_bands; uniform int u_curveW; uniform int u_bandW;
+  uniform ivec2 u_bandN; uniform vec4 u_bandXf; uniform vec4 u_color; uniform int u_rule;
+  in vec2 v_p; out vec4 o;
+  const float kMinDerivative = 1.0 / 65536.0;
+  float sat(float x) { return clamp(x, 0.0, 1.0); }
+  uint rootCode(float y1, float y2, float y3) {
+    uint i1 = floatBitsToUint(y1) >> 31u; uint i2 = floatBitsToUint(y2) >> 30u; uint i3 = floatBitsToUint(y3) >> 29u;
+    uint shift = (i2 & 2u) | (i1 & ~2u); shift = (i3 & 4u) | (shift & ~4u);
+    return (0x2E74u >> shift) & 0x0101u; }
+  vec2 solveH(vec4 p12, vec2 p3) {
+    vec2 a = p12.xy - p12.zw * 2.0 + p3; vec2 b = p12.xy - p12.zw; float ra = 1.0 / a.y; float rb = 0.5 / b.y;
+    float d = sqrt(max(b.y * b.y - a.y * p12.y, 0.0)); float t1 = (b.y - d) * ra; float t2 = (b.y + d) * ra;
+    if (abs(a.y) < kMinDerivative) { t1 = p12.y * rb; t2 = t1; }
+    return vec2((a.x * t1 - b.x * 2.0) * t1 + p12.x, (a.x * t2 - b.x * 2.0) * t2 + p12.x); }
+  vec2 solveV(vec4 p12, vec2 p3) {
+    vec2 a = p12.xy - p12.zw * 2.0 + p3; vec2 b = p12.xy - p12.zw; float ra = 1.0 / a.x; float rb = 0.5 / b.x;
+    float d = sqrt(max(b.x * b.x - a.x * p12.x, 0.0)); float t1 = (b.x - d) * ra; float t2 = (b.x + d) * ra;
+    if (abs(a.x) < kMinDerivative) { t1 = p12.x * rb; t2 = t1; }
+    return vec2((a.y * t1 - b.y * 2.0) * t1 + p12.y, (a.y * t2 - b.y * 2.0) * t2 + p12.y); }
+  ivec2 bandLoc(int off) { return ivec2(off % u_bandW, off / u_bandW); }
+  ivec2 curveLoc(int idx) { int t = idx * 2; return ivec2(t % u_curveW, t / u_curveW); }
+  float combine(float xc, float yc, float xw, float yw) { float weighted = abs(xc * xw + yc * yw) / max(xw + yw, kMinDerivative); return sat(max(weighted, min(abs(xc), abs(yc)))); }
+  void main() {
+    vec2 upp = max(fwidth(v_p), vec2(kMinDerivative)); vec2 ppu = 1.0 / upp;
+    ivec2 bi = clamp(ivec2(floor(v_p * u_bandXf.xy + u_bandXf.zw)), ivec2(0), u_bandN - 1);
+    float xcov = 0.0, xwgt = 0.0, xabs = 0.0, ycov = 0.0, ywgt = 0.0, yabs = 0.0;
+    uvec2 hb = texelFetch(u_bands, bandLoc(bi.y), 0).xy;
+    for (int j = 0; j < int(hb.x); j++) {
+      int ci = int(texelFetch(u_bands, bandLoc(int(hb.y) + j), 0).x); ivec2 cl = curveLoc(ci);
+      vec4 p12 = texelFetch(u_curves, cl, 0) - vec4(v_p, v_p); vec2 p3 = texelFetch(u_curves, ivec2(cl.x + 1, cl.y), 0).xy - v_p;
+      if (max(max(p12.x, p12.z), p3.x) * ppu.x < -0.5) break;
+      uint code = rootCode(p12.y, p12.w, p3.y);
+      if (code != 0u) { vec2 r = solveH(p12, p3) * ppu.x;
+        if ((code & 1u) != 0u) { float c = sat(r.x + 0.5); xcov += c; xabs += c; xwgt = max(xwgt, sat(1.0 - abs(r.x) * 2.0)); }
+        if (code > 1u) { float c = sat(r.y + 0.5); xcov -= c; xabs += c; xwgt = max(xwgt, sat(1.0 - abs(r.y) * 2.0)); } } }
+    uvec2 vb = texelFetch(u_bands, bandLoc(u_bandN.y + bi.x), 0).xy;
+    for (int j = 0; j < int(vb.x); j++) {
+      int ci = int(texelFetch(u_bands, bandLoc(int(vb.y) + j), 0).x); ivec2 cl = curveLoc(ci);
+      vec4 p12 = texelFetch(u_curves, cl, 0) - vec4(v_p, v_p); vec2 p3 = texelFetch(u_curves, ivec2(cl.x + 1, cl.y), 0).xy - v_p;
+      if (max(max(p12.y, p12.w), p3.y) * ppu.y < -0.5) break;
+      uint code = rootCode(p12.x, p12.z, p3.x);
+      if (code != 0u) { vec2 r = solveV(p12, p3) * ppu.y;
+        if ((code & 1u) != 0u) { float c = sat(r.x + 0.5); ycov -= c; yabs += c; ywgt = max(ywgt, sat(1.0 - abs(r.x) * 2.0)); }
+        if (code > 1u) { float c = sat(r.y + 0.5); ycov += c; yabs += c; ywgt = max(ywgt, sat(1.0 - abs(r.y) * 2.0)); } } }
+    float cov;
+    if (u_rule == 0) cov = combine(xcov, ycov, xwgt, ywgt);
+    else { float ex = 1.0 - abs(mod(xabs, 2.0) - 1.0); float ey = 1.0 - abs(mod(yabs, 2.0) - 1.0); cov = combine(ex, ey, xwgt, ywgt); }
+    o = vec4(u_color.rgb * u_color.a * cov, u_color.a * cov);
+  }`;
+  const FS_FLAT = `#version 300 es
+  precision highp float; uniform vec4 u_color; out vec4 o; void main() { o = vec4(u_color.rgb * u_color.a, u_color.a); }`;
+
+  // ---------- GL plumbing ----------
+  const canvas = document.getElementById('c'); const msgEl = document.getElementById('msg');
+  function showMsg(t) { msgEl.textContent = t || ''; msgEl.hidden = !t; }
+  const gl = canvas.getContext('webgl2', { antialias: false, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true });
+  if (!gl) showMsg('WebGL2 is not available here; the bench needs it.');
+  function compile(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('shader failed to build: ' + gl.getShaderInfoLog(s)); return s; }
+  function program(vs, fs) { const p = gl.createProgram(); gl.attachShader(p, compile(gl.VERTEX_SHADER, vs)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('program failed to link: ' + gl.getProgramInfoLog(p)); const cache = {}; return { p, u: n => (n in cache ? cache[n] : (cache[n] = gl.getUniformLocation(p, n))) }; }
+  let progFill = null, progFlat = null, vbo = null;
+  if (gl) { try { progFill = program(VS, FS_FILL); progFlat = program(VS, FS_FLAT); vbo = gl.createBuffer(); } catch (e) { showMsg(e.message); } }
+  function texSetup(t) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); }
+  function texF32(data, texels) { const w = TEXW, h = Math.max(1, Math.ceil(texels / w)); const buf = new Float32Array(w * h * 4); buf.set(data.subarray(0, texels * 4)); const t = gl.createTexture(); texSetup(t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, w, h, 0, gl.RGBA, gl.FLOAT, buf); return t; }
+  function texU32(data, texels) { const w = TEXW, h = Math.max(1, Math.ceil(texels / w)); const buf = new Uint32Array(w * h * 2); buf.set(data.subarray(0, texels * 2)); const t = gl.createTexture(); texSetup(t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32UI, w, h, 0, gl.RG_INTEGER, gl.UNSIGNED_INT, buf); return t; }
+
+  // ---------- camera ----------
+  const state = { toolId: null, rec: null, path: { subpaths: [] }, rev: 0, zoom: 3, center: { x: 64, y: 64 }, view: { cover: 'bbox', bands: true, skinRule: 0, outline: false }, regions: [], info: null, cursor: null, drawing: null, panning: null, envCache: null, renderedKey: null, builtBucket: null };
+  function camera() { const dpr = window.devicePixelRatio || 1, cssW = canvas.clientWidth || 800, cssH = canvas.clientHeight || 600; return { dpr, cssW, cssH, w: Math.max(1, Math.round(cssW * dpr)), h: Math.max(1, Math.round(cssH * dpr)), zoom: state.zoom, center: state.center }; }
+  function resize(cam) { if (canvas.width !== cam.w || canvas.height !== cam.h) { canvas.width = cam.w; canvas.height = cam.h; } }
+  const toLocal = (sx, sy, cam) => ({ x: (sx - cam.cssW / 2) / cam.zoom + cam.center.x, y: (sy - cam.cssH / 2) / cam.zoom + cam.center.y });
+  const toDevice = (p, cam) => ({ x: ((p.x - cam.center.x) * cam.zoom + cam.cssW / 2) * cam.dpr, y: ((p.y - cam.center.y) * cam.zoom + cam.cssH / 2) * cam.dpr });
+  const fromDevice = (d, cam) => ({ x: (d.x / cam.dpr - cam.cssW / 2) / cam.zoom + cam.center.x, y: (d.y / cam.dpr - cam.cssH / 2) / cam.zoom + cam.center.y });
+  const bucket = cam => Math.round(Math.log(cam.zoom * cam.dpr) / Math.log(1.25));   // one packer cache slot per 25 % of scale
+  function snapPath(path, cam) { // a policy on the paint, executed at frame rate: knots to the device grid, handles carried along
+    const snapP = p => { const d = toDevice(p, cam); return fromDevice({ x: Math.round(d.x), y: Math.round(d.y) }, cam); };
+    return { ...path, subpaths: path.subpaths.map(sp => { const start = snapP(sp.start); let prev = sp.start, prevS = start;
+      const segs = sp.segs.map(s => { const p = snapP(s.p), dPrev = V.sub(prevS, prev), dEnd = V.sub(p, s.p); let ns;
+        if (s.k === 'L') ns = { k: 'L', p }; else if (s.k === 'Q') ns = { k: 'Q', c: V.add(s.c, V.mul(V.add(dPrev, dEnd), 0.5)), p }; else ns = { k: 'C', c1: V.add(s.c1, dPrev), c2: V.add(s.c2, dEnd), p };
+        prev = s.p; prevS = p; return ns; });
+      return { ...sp, start, segs }; }) };
+  }
+
+  // ---------- the tool records (above the waist) ----------
+  const round2 = x => Math.round(x * 100) / 100;
+  function limaconSamples() { const out = []; for (let k = 0; k < 70; k++) { const t = (k / 72) * TAU, r = 18 + 30 * Math.cos(t), p = 0.35 + 0.65 * Math.pow(0.5 + 0.5 * Math.sin(2 * t + 0.6), 1.4); out.push([round2(44 + r * Math.cos(t)), round2(64 + r * Math.sin(t)), round2(p), k * 9]); } return out; }
+  function trefoilAnchors(n) { const A = []; for (let k = 0; k < n; k++) { const t = k / n * TAU, dt = TAU / n; const P = [64 + 13 * (Math.sin(t) + 2 * Math.sin(2 * t)), 64 + 13 * (Math.cos(t) - 2 * Math.cos(2 * t))], D = [13 * (Math.cos(t) + 4 * Math.cos(2 * t)), 13 * (-Math.sin(t) + 4 * Math.sin(2 * t))]; A.push({ id: 'a' + k, p: P.map(round2), in: [P[0] - D[0] * dt / 3, P[1] - D[1] * dt / 3].map(round2), out: [P[0] + D[0] * dt / 3, P[1] + D[1] * dt / 3].map(round2) }); } return A; }
+  function pentagramAnchors() { const A = []; for (let k = 0; k < 5; k++) { const a = -Math.PI / 2 + k * (TAU * 2 / 5); A.push({ id: 'a' + k, p: [round2(64 + 44 * Math.cos(a)), round2(66 + 44 * Math.sin(a))] }); } return A; }
+  const HARNESS_Z = [[26, 28, 0.65, 0], [102, 100, 0.9, 120], [28, 100, 1.0, 240], [102, 28, 0.7, 360]];
+  const HARNESS_PRESSURE = [[26, 72, 0.2, 0], [48, 36, 0.45, 90], [78, 84, 0.72, 180], [102, 42, 1.0, 270]];
+  const drawTool = { name: 'draw', size: 10, thinning: 0.6, streamline: 0.35, fit: 0.9, taperStart: 0, taperEnd: 22, simulatePressure: false, width: 'size * (1 - thinning * (1 - p))' };
+  const harnessTool = { name: 'harness ink', size: 16, thinning: 1, streamline: 0, fit: 'polyline', width: 'size * p' };
+  const TOOLS = [
+    { id: 'draw', name: "tldraw's draw tool", note: "A pen burst plus the tool's settings, as tldraw's draw tool holds them. Its own outline construction is the ribbon with round joins; switch the tip to compare. The stroke crosses itself and is one region, painted once at 85 %: no darkening at the crossing. Change fit, taperEnd or the width expression in the record; nothing below changes.",
+      rec: { tool: { ...drawTool }, source: { kind: 'pen', samples: limaconSamples() }, paint: { fill: null, stroke: { tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.16, 0.42, 0.85, 0.85] } }, snap: false, identity: { id: 'stroke-1', revision: 1 } } },
+    { id: 'pen', name: "Figma's pen tool", note: "Twelve anchors with handles, closed: the trefoil from session 4's bench as cubics. Fill under a rule and a stroke on the same path, two declarations against one boundary. Toggle nonzero and even-odd on the fill; the crossings decide the lobes. Align inside or outside puts the skin on one side of the line.",
+      rec: { tool: { name: 'pen' }, source: { kind: 'anchors', contours: [{ closed: true, anchors: trefoilAnchors(12) }] }, paint: { fill: { rule: 'nonzero', color: [0.93, 0.78, 0.35, 0.9] }, stroke: { tip: 'nib', width: 3, unit: 'local', cap: 'butt', join: 'miter', miterLimit: 4, align: 'center', color: [0.15, 0.17, 0.2, 1] } }, snap: false, identity: { id: 'vector-1', revision: 1 } } },
+    { id: 'border', name: 'a UI border', note: "A rounded rectangle from a formula, with a border one device pixel wide, inside the box, mitered, snapped. Zoom in and out: the border stays one pixel because its width is declared in device pixels, so its skin is rebuilt per scale. Turn snap off and the edge falls between pixels and greys.",
+      rec: { tool: { name: 'border' }, source: { kind: 'rect', x: 24, y: 36, w: 80, h: 52, r: 6 }, paint: { fill: { rule: 'nonzero', color: [0.55, 0.72, 0.95, 0.35] }, stroke: { tip: 'nib', width: 1, unit: 'device', cap: 'butt', join: 'miter', align: 'inside', color: [0.12, 0.2, 0.35, 1] } }, snap: true, identity: { id: 'box-1', revision: 1 } } },
+    { id: 'star', name: 'star (textbook)', note: "Five lines that cross. Nonzero fills the centre, even-odd leaves it empty. Today's ear clipper cannot triangulate this outline at all; the filler does not care.",
+      rec: { tool: { name: 'pen' }, source: { kind: 'anchors', contours: [{ closed: true, anchors: pentagramAnchors() }] }, paint: { fill: { rule: 'nonzero', color: [0.18, 0.55, 0.75, 0.9] }, stroke: { tip: 'nib', width: 2.5, unit: 'local', cap: 'butt', join: 'miter', miterLimit: 4, align: 'center', color: [0.1, 0.12, 0.16, 1] } }, snap: false, identity: { id: 'star-1', revision: 1 } } },
+    { id: 'z', name: 'self-crossing ink (harness)', note: "The harness golden 'translucent self-crossing', width 16 × pressure. Today's lane paints the pieces separately and darkens the crossing; here the skin is one region filled nonzero and the crossing is painted once, at 62 %.",
+      rec: { tool: { ...harnessTool }, source: { kind: 'pen', samples: HARNESS_Z }, paint: { fill: null, stroke: { tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.84, 0.36, 0.94, 0.62] } }, snap: false, identity: { id: 'translucent-self-crossing', revision: 1 } } },
+    { id: 'dabs', name: 'the crossing, as dabs (definer)', note: "The definer's hard case from attack 1: the harness Z stroke as an accumulating round brush. Dabs every 12 units of arc length, radius 8 × pressure, painted in order at 62 %. Two dabs cover the crossing, so its alpha is 0.62 + 0.38 × 0.62 = 0.8556; the union stroke paints it once at 0.62. Same filler, same record but for one word. Switch overlap to compare; move the cursor to the crossing.",
+      rec: { tool: { ...harnessTool }, source: { kind: 'pen', samples: HARNESS_Z }, paint: { fill: null, stroke: { overlap: 'accumulate', spacing: 12, tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.84, 0.36, 0.94, 0.62] } }, snap: false, identity: { id: 'translucent-self-crossing-dabs', revision: 1 } } },
+    { id: 'pressure', name: 'pressure ink (harness)', note: "The harness golden 'pressure ink'. Position 7 lives here: switch the tip between ribbon and swept nib and watch the tapers move; the cursor shows what each construction says. They differ at every taper.",
+      rec: { tool: { ...harnessTool }, source: { kind: 'pen', samples: HARNESS_PRESSURE }, paint: { fill: null, stroke: { tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.16, 0.68, 0.96, 0.94] } }, snap: false, identity: { id: 'pressure-ink', revision: 1 } } },
+    { id: 'holed', name: 'shape with a hole (harness)', note: "The harness golden 'holed concave': both rings listed in the same direction. Even-odd makes the hole either way; nonzero fills it unless the hole's direction is reversed. Reverse the second contour's anchors in the record and switch to nonzero.",
+      rec: { tool: { name: 'pen' }, source: { kind: 'anchors', contours: [{ closed: true, anchors: [[24, 24], [104, 24], [104, 104], [72, 104], [72, 64], [56, 64], [56, 104], [24, 104]].map((p, i) => ({ id: 'o' + i, p })) }, { closed: true, anchors: [[34, 34], [50, 34], [50, 50], [34, 50]].map((p, i) => ({ id: 'h' + i, p })) }] }, paint: { fill: { rule: 'evenodd', color: [0.94, 0.32, 0.18, 0.96] }, stroke: null }, snap: false, identity: { id: 'holed-concave', revision: 1 } } },
+    { id: 'own', name: 'draw your own', note: "Drag to draw. While the pen is down the tail is raw samples and the rest is fit as you go; pen-up fits the whole stroke once. Each drag replaces the stroke. Shift-drag pans.",
+      rec: { tool: { ...drawTool, simulatePressure: true }, source: { kind: 'pen', samples: [] }, paint: { fill: null, stroke: { tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.16, 0.42, 0.85, 0.85] } }, snap: false, identity: { id: 'stroke-2', revision: 1 } } },
+  ];
+  const ENV_TOL = 0.1;
+  function normStroke(s) { return { overlap: s.overlap === 'accumulate' ? 'accumulate' : 'union', spacing: typeof s.spacing === 'number' && s.spacing > 0 ? s.spacing : 12, widthExpr: typeof s.width === 'string' && s.width !== 'knot' ? s.width : null, tip: s.tip === 'ribbon' ? 'ribbon' : 'nib', width: typeof s.width === 'number' ? s.width : 'knot', unit: s.unit === 'device' ? 'device' : 'local', cap: s.cap || 'round', join: s.join || 'round', miterLimit: s.miterLimit || 4, align: s.align || 'center', dash: Array.isArray(s.dash) && s.dash.length === 2 ? s.dash : null, color: Array.isArray(s.color) && s.color.length === 4 ? s.color : [0.1, 0.1, 0.1, 1] }; }
+
+  // ---------- the frame: what runs, at which rate ----------
+  let dirty = 'edit';
+  function rebuild(reason) {
+    const cam = camera(), rec = state.rec, paint = rec.paint || {}, t0 = performance.now();
+    const pxLocal = 1 / (cam.zoom * cam.dpr), tolPack = 0.25 * pxLocal, snapping = !!rec.snap;
+    const path = snapping ? snapPath(state.path, cam) : state.path;
+    for (const R of state.regions) if (R.gpu) { gl.deleteTexture(R.gpu.curves); gl.deleteTexture(R.gpu.bands); }
+    const regions = [], info = { reason, pxLocal, tolPack, snapping, bucket: bucket(cam) };
+    if (paint.fill && paint.fill.rule && paint.fill.rule !== 'none' && path.subpaths.length) {
+      const low = lowerPath(path, tolPack), packed = packRegion(low.quads, { bands: state.view.bands });
+      if (packed) regions.push({ name: 'fill', packed, low, color: Array.isArray(paint.fill.color) ? paint.fill.color : [0.5, 0.5, 0.5, 0.6], rule: paint.fill.rule === 'evenodd' ? 1 : 0 });
+    }
+    if (paint.stroke && paint.stroke.on !== false && path.subpaths.length) {
+      const st = normStroke(paint.stroke), dev = st.unit === 'device';
+      const widthLocal = typeof st.width === 'number' ? (dev ? st.width * pxLocal : st.width) : null;
+      const envTol = dev ? 0.25 * pxLocal : ENV_TOL, dash = st.dash ? (dev ? st.dash.map(d => d * pxLocal) : st.dash) : null;
+      let widthFn = null, widthErr = null;
+      if (st.widthExpr) { try { const f = compileExpr(st.widthExpr); const scope = {}; for (const k in (rec.tool || {})) if (typeof rec.tool[k] === 'number') scope[k] = rec.tool[k]; if (typeof scope.size !== 'number') scope.size = 8; widthFn = (p, sFrac) => { const w = f({ ...scope, p, s: sFrac, v: 0 }); return (isFinite(w) ? Math.max(0, w) : 0) * (dev ? pxLocal : 1); }; } catch (e) { widthErr = e.message; } }
+      const key = [state.rev, JSON.stringify(st), dev ? pxLocal : 'fixed', snapping ? cam.zoom + ',' + cam.center.x + ',' + cam.center.y : ''].join('|');
+      if (st.overlap === 'accumulate') {
+        const t1 = performance.now(); const D = buildDabs(path, { widthLocal, knotScale: dev ? pxLocal : 1, fallbackW: 4, envTol, widthFn, spacing: dev ? st.spacing * pxLocal : st.spacing }); const envMs = performance.now() - t1;
+        D.dabs.forEach((d, i) => { const low = lowerPath(d.path, tolPack), packed = packRegion(low.quads, { bands: false }); if (packed) regions.push({ name: 'dab ' + i, dab: d, packed, low, color: st.color, rule: 0 }); });
+        info.stroke = { st, widthLocal, envTol, dev, dash: null, env: { path: { subpaths: [] }, arcs: D.dabs.length * 8, open: 0, closed: 0, pieces: 0, polys: D.polys }, dabs: D, envMs, reused: false, perScale: dev, perFrame: snapping, widthFn: !!widthFn, widthErr };
+      } else {
+        let env, envMs = 0, reused = false;
+        if (state.envCache && state.envCache.key === key) { env = state.envCache.env; reused = true; }
+        else { const t1 = performance.now(); env = buildEnvelope(path, st, { widthLocal, knotScale: dev ? pxLocal : 1, fallbackW: 4, envTol, tip: st.tip, dash, widthFn }); envMs = performance.now() - t1; state.envCache = { key, env }; }
+        const low = lowerPath(env.path, tolPack), packed = packRegion(low.quads, { bands: state.view.bands });
+        if (packed) regions.push({ name: 'stroke', packed, low, env, st, color: st.color, rule: state.view.skinRule });
+        info.stroke = { st, widthLocal, envTol, dev, dash, env, envMs, reused, perScale: dev, perFrame: snapping, widthFn: !!widthFn, widthErr };
+      }
+    }
+    for (const R of regions) {
+      R.cover = buildCover(R.packed, { mode: state.view.cover, marginLocal: 1.5 * pxLocal, cellLocal: 24 * pxLocal, rule: R.rule });
+      R.coverPx = R.cover.areaLocal * (cam.zoom * cam.dpr) ** 2;
+      R.gpu = { curves: texF32(R.packed.curves, R.packed.n * 2), bands: texU32(R.packed.bands, R.packed.bandTexels) };
+    }
+    state.regions = regions; info.ms = performance.now() - t0; state.info = info; state.builtBucket = info.bucket;
+  }
+  function tokenColor(name, a) { const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); const m = /^#([0-9a-f]{6})$/i.exec(v); if (!m) return [0.5, 0.5, 0.5, a]; const n = parseInt(m[1], 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, a]; }
+  function setCam(pr, cam) { gl.uniform2f(pr.u('u_center'), cam.center.x, cam.center.y); gl.uniform1f(pr.u('u_zoom'), cam.zoom * cam.dpr); gl.uniform2f(pr.u('u_size'), cam.w, cam.h); gl.uniform1f(pr.u('u_pointSize'), 6 * cam.dpr); }
+  function render(cam) {
+    gl.viewport(0, 0, cam.w, cam.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    for (const R of state.regions) {
+      gl.useProgram(progFill.p); setCam(progFill, cam);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, R.gpu.curves); gl.uniform1i(progFill.u('u_curves'), 0);
+      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, R.gpu.bands); gl.uniform1i(progFill.u('u_bands'), 1);
+      gl.uniform1i(progFill.u('u_curveW'), TEXW); gl.uniform1i(progFill.u('u_bandW'), TEXW);
+      gl.uniform2i(progFill.u('u_bandN'), R.packed.VB, R.packed.HB); gl.uniform4fv(progFill.u('u_bandXf'), R.packed.bandXf);
+      gl.uniform4fv(progFill.u('u_color'), R.color); gl.uniform1i(progFill.u('u_rule'), R.rule);
+      gl.bufferData(gl.ARRAY_BUFFER, R.cover.tri, gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES, 0, R.cover.tri.length / 2);
+    }
+    if (state.view.outline) {
+      gl.useProgram(progFlat.p); setCam(progFlat, cam);
+      for (const R of state.regions) {
+        const pts = new Float32Array(R.packed.n * 6 * 4); let o = 0;
+        for (let i = 0; i < R.packed.n; i++) { const c = R.packed.curves, b = i * 8; let px = c[b], py = c[b + 1];
+          for (let j = 1; j <= 6; j++) { const t = j / 6, u = 1 - t, x = u * u * c[b] + 2 * u * t * c[b + 2] + t * t * c[b + 4], y = u * u * c[b + 1] + 2 * u * t * c[b + 3] + t * t * c[b + 5]; pts[o++] = px; pts[o++] = py; pts[o++] = x; pts[o++] = y; px = x; py = y; } }
+        gl.uniform4fv(progFlat.u('u_color'), tokenColor(R.name === 'fill' ? '--data' : '--code', 0.95));
+        gl.bufferData(gl.ARRAY_BUFFER, pts, gl.DYNAMIC_DRAW); gl.drawArrays(gl.LINES, 0, pts.length / 2);
+      }
+      const knots = []; for (const sp of state.path.subpaths) { knots.push(sp.start.x, sp.start.y); for (const s of sp.segs) knots.push(s.p.x, s.p.y); }
+      if (knots.length) { gl.uniform4fv(progFlat.u('u_color'), tokenColor('--bad', 1)); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(knots), gl.DYNAMIC_DRAW); gl.drawArrays(gl.POINTS, 0, knots.length / 2); }
+    }
+  }
+  function frame() {
+    requestAnimationFrame(frame); if (!gl || !progFill || !state.rec) return;
+    const cam = camera(); resize(cam);
+    const key = [cam.zoom, cam.center.x, cam.center.y, cam.w, cam.h, state.view.outline].join('|');
+    let reason = dirty; if (!reason && state.builtBucket !== bucket(cam)) reason = 'scale'; if (!reason && state.rec.snap && key !== state.renderedKey) reason = 'frame';
+    if (reason) { try { rebuild(reason); showMsg(''); } catch (e) { showMsg('geometry failed: ' + e.message); console.error(e); } dirty = null; updatePanel(); render(cam); state.renderedKey = key; updateHud(); return; }
+    if (key !== state.renderedKey) { render(cam); state.renderedKey = key; updateHud(); }
+  }
+
+  // ---------- panel ----------
+  const $ = id => document.getElementById(id); const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+  function pretty(rec) { return JSON.stringify(rec, null, 1).replace(/\[\s+((?:-?\d[\d.e+-]*,?\s*)+)\]/g, (m, inner) => '[' + inner.trim().split(/,\s*/).join(', ') + ']'); }
+  const recEl = $('record'), errEl = $('recerr');
+  function applyRecord(rec, opts = {}) {
+    state.rec = rec; state.path = buildPath(rec, { wetTail: state.drawing ? 6 : 0 }); state.rev++;
+    if (rec.identity) rec.identity.revision = state.rev;
+    if (!opts.keepText) recEl.value = pretty(rec);
+    dirty = 'edit'; writeHash();
+  }
+  function loadTool(id, fromHash) { const t = TOOLS.find(t => t.id === id) || TOOLS[0]; state.toolId = t.id; $('note').textContent = t.note; applyRecord(JSON.parse(JSON.stringify(t.rec))); if (!fromHash) { state.zoom = 3; state.center = { x: 64, y: 64 }; syncZoomUi(); } renderToolButtons(); }
+  function renderToolButtons() { const el = $('tools'); el.innerHTML = ''; for (const t of TOOLS) { const b = document.createElement('button'); b.textContent = t.name; b.setAttribute('aria-pressed', String(t.id === state.toolId)); b.addEventListener('click', () => loadTool(t.id)); el.appendChild(b); } }
+  let editTimer = null;
+  recEl.addEventListener('input', () => { clearTimeout(editTimer); editTimer = setTimeout(() => { try { const rec = JSON.parse(recEl.value); errEl.textContent = ''; applyRecord(rec, { keepText: true }); } catch (e) { errEl.textContent = 'record: ' + e.message; } }, 250); });
+  const strokeOf = r => { r.paint = r.paint || {}; if (!r.paint.stroke) r.paint.stroke = { tip: 'nib', width: 3, unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.1, 0.1, 0.1, 1] }; return r.paint.stroke; };
+  const SET = {
+    tip: (r, v) => { strokeOf(r).tip = v; }, cap: (r, v) => { strokeOf(r).cap = v; }, join: (r, v) => { strokeOf(r).join = v; }, align: (r, v) => { strokeOf(r).align = v; },
+    unit: (r, v) => { strokeOf(r).unit = v; }, dash: (r, v) => { strokeOf(r).dash = v === 'on' ? [6, 4] : null; }, snap: (r, v) => { r.snap = v === 'on'; },
+    fill: (r, v) => { r.paint = r.paint || {}; if (v === 'none') r.paint.fill = null; else { r.paint.fill = r.paint.fill || { color: [0.55, 0.6, 0.7, 0.6] }; r.paint.fill.rule = v; } },
+    stroke: (r, v) => { strokeOf(r).on = v === 'on'; }, overlap: (r, v) => { strokeOf(r).overlap = v; },
+  };
+  const GET = {
+    tip: r => normStroke(r.paint.stroke || {}).tip, cap: r => normStroke(r.paint.stroke || {}).cap, join: r => normStroke(r.paint.stroke || {}).join, align: r => normStroke(r.paint.stroke || {}).align,
+    unit: r => normStroke(r.paint.stroke || {}).unit, dash: r => (normStroke(r.paint.stroke || {}).dash ? 'on' : 'off'), snap: r => (r.snap ? 'on' : 'off'),
+    fill: r => (r.paint.fill && r.paint.fill.rule) || 'none', stroke: r => (r.paint.stroke && r.paint.stroke.on !== false ? 'on' : 'off'), overlap: r => normStroke(r.paint.stroke || {}).overlap,
+  };
+  const VIEWSET = { cover: v => { state.view.cover = v; }, bands: v => { state.view.bands = v === 'on'; }, skinRule: v => { state.view.skinRule = v === 'evenodd' ? 1 : 0; } };
+  const VIEWGET = { cover: () => state.view.cover, bands: () => (state.view.bands ? 'on' : 'off'), skinRule: () => (state.view.skinRule ? 'evenodd' : 'nonzero') };
+  document.querySelectorAll('.seg[data-set] button').forEach(b => b.addEventListener('click', () => { const k = b.parentElement.dataset.set; SET[k](state.rec, b.dataset.v); applyRecord(state.rec); }));
+  document.querySelectorAll('.seg[data-view] button').forEach(b => b.addEventListener('click', () => { const k = b.parentElement.dataset.view; VIEWSET[k](b.dataset.v); dirty = 'edit'; writeHash(); }));
+  function syncSegs() {
+    document.querySelectorAll('.seg[data-set]').forEach(seg => { const cur = GET[seg.dataset.set](state.rec); seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === cur))); });
+    document.querySelectorAll('.seg[data-view]').forEach(seg => { const cur = VIEWGET[seg.dataset.view](); seg.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === cur))); });
+    const sps = state.path.subpaths, allClosed = sps.length > 0 && sps.every(sp => sp.closed), anyOpen = sps.some(sp => !sp.closed), hasStroke = GET.stroke(state.rec) === 'on';
+    const dashed = GET.dash(state.rec) === 'on';
+    document.querySelectorAll('.seg[data-set="align"] button').forEach(b => { b.disabled = !allClosed || !hasStroke; });
+    document.querySelectorAll('.seg[data-set="cap"] button').forEach(b => { b.disabled = !(anyOpen || dashed) || !hasStroke; });
+    ['tip', 'join', 'unit', 'dash', 'overlap'].forEach(k => document.querySelectorAll(`.seg[data-set="${k}"] button`).forEach(b => { b.disabled = !hasStroke; }));
+  }
+  function updatePanel() {
+    const info = state.info; if (!info) return; syncSegs();
+    const st = pathStats(state.path), m = state.path.meta || {}, rec = state.rec;
+    // the waist
+    const sps = state.path.subpaths; const openness = sps.length ? (sps.every(s => s.closed) ? 'closed' : sps.every(s => !s.closed) ? 'open' : 'mixed') : '—';
+    let widths = ''; if (st.varying) { const ws = sps.flatMap(sp => (sp.knots || []).map(k => k.w).filter(w => typeof w === 'number')); widths = ` · width per knot ${fmt(Math.min(...ws), 1)} … ${fmt(Math.max(...ws), 1)}`; }
+    const ids = sps.length && sps[0].knots ? ` · ids ${sps[0].knots[0].id} … ${sps[0].knots[Math.max(0, sps[0].knots.length - (sps[0].closed ? 2 : 1))].id}` : '';
+    const pf = rec.paint && rec.paint.fill && rec.paint.fill.rule !== 'none' ? `{ rule ${rec.paint.fill.rule} }` : '—';
+    const ps = rec.paint && rec.paint.stroke && rec.paint.stroke.on !== false ? (() => { const s = normStroke(rec.paint.stroke); return `{ ${s.overlap === 'accumulate' ? 'overlap accumulate, dabs every ' + s.spacing + ' · ' : ''}tip ${s.tip} · width ${s.widthExpr ? 'f(p) = ' + s.widthExpr : typeof s.width === 'number' ? s.width : 'per knot'} ${s.unit === 'device' ? 'device px' : 'local'} · cap ${s.cap} · join ${s.join}${sps.every(x => x.closed) ? ' · align ' + s.align : ''}${s.dash ? ' · dash ' + s.dash.join('/') : ''} }`; })() : '—';
+    $('value').textContent = `path      ${sps.length} subpath${sps.length === 1 ? '' : 's'} · ${openness} · ${st.C} cubic, ${st.Q} quad, ${st.L} line · ${st.knots} knots${widths}${ids}\npaint     fill ${pf}\n          stroke ${ps}\nidentity  ${rec.identity ? rec.identity.id + ' · rev ' + rec.identity.revision : '—'}\nτ         not in the value; the packer takes it from the camera (${fmt(info.tolPack, 3)} local this frame)`;
+    // source → path
+    let src;
+    if (m.kind === 'pen') src = `<b>pen burst</b>: ${m.samples} samples (x, y, pressure, time)${m.simulated ? ', pressure simulated from speed' : ''} → streamline ${fmt(m.streamline, 2)} → <b>width per sample</b> = <code>${esc(m.widthExpr)}</code>, run by the expression evaluator${m.taperStart || m.taperEnd ? ` → taper ${m.taperStart} / ${m.taperEnd}` : ''} → fit τ ${m.fit === 'polyline' ? '(polyline)' : m.fit}: ${m.samples} samples → <b>${m.knots} knots</b> → ${m.spline || '—'}: ${st.C} cubic${st.L ? ', ' + st.L + ' line' : ''}${state.drawing ? ' · <b>wet</b>: the last 6 samples ride raw; the rest is fit' : ''}.${m.error ? ' <span style="color:var(--bad)">' + esc(m.error) + '</span>' : ''}<div class="small">Every arrow here is code executing the tool's data. Change <code>fit</code>, <code>taperEnd</code> or the <code>width</code> expression in the record: nothing below the waist changes.</div>`;
+    else if (m.kind === 'rect') src = `<b>formula shape</b>: rect ${rec.source.w} × ${rec.source.h}, corner ${rec.source.r} → ${m.lines} lines + ${m.arcs} arcs, each arc a cubic (κ = 0.5523; a circle is not a Bézier).<div class="small">This generator is code. The same shape written out as anchors would be data; a rectangle whose corner radius is a parameter needs a generator, or an evaluator over the parameters.</div>`;
+    else if (m.kind === 'anchors') src = `<b>designer's outline</b>: ${(rec.source.contours || []).reduce((s, c) => s + (c.anchors || []).length, 0)} anchors → ${m.cubics} cubic${m.lines ? ' + ' + m.lines + ' line' : ''}.<div class="small">No arithmetic. The tool's data already is a path; the waist sits right here.</div>`;
+    else src = '<span class="k">no source</span>';
+    $('d-source').innerHTML = src;
+    // geometry
+    const S = info.stroke;
+    const wfn = S && S.widthFn ? ` · <b>width = <code>${esc(S.st.widthExpr)}</code></b> evaluated per flattened point on interpolated pressure (interpolating the knots' widths would differ for a nonlinear response)` : (S && S.widthErr ? ` · <span style="color:var(--bad)">width: ${esc(S.widthErr)}</span>` : '');
+    if (!S) $('d-geometry').innerHTML = '<span class="k">no stroke declared; the fill is the path itself, no envelope to build</span>';
+    else if (S.dabs) { const D = S.dabs; const hit = state.cursor ? D.dabs.filter(d => Math.hypot(d.x - state.cursor.x, d.y - state.cursor.y) <= d.r).length : null;
+      $('d-geometry').innerHTML = `<b>dabs, not an envelope</b>: round footprints at arc lengths 0, ${S.st.spacing}, ${2 * S.st.spacing} … along the centerline (length ${fmt(D.length, 2)}) → <b>${D.dabs.length} dabs</b>, radius = half the width at each one, each its own region, painted in drawing order${wfn} · ${fmt(S.envMs, 2)} ms${hit != null ? ` · under the cursor: ${hit} dab${hit === 1 ? '' : 's'}` : ''}<div class="small">The definer's construction (attack 1): accumulation is ordered paints through the same filler, no second rasteriser. Where two dabs land the alpha is a + (1 − a)·a; on the harness Z at 62 % that is 0.8556 at the crossing. A brush that reads the surface would need state beside this; a union stroke needs none.</div>`; }
+    else { const e = S.env; let lines = 0; for (const sp of e.path.subpaths) for (const s of sp.segs) if (s.k === 'L') lines++;
+      $('d-geometry').innerHTML = `<b>envelope</b>: ${S.st.tip === 'nib' ? 'swept round nib' : 'ribbon'} · ${S.st.join} joins · ${S.st.cap} caps${e.closed ? ' · align ' + S.st.align : ''}${S.dash ? ' · dashed' : ''} · centerline flattened at τ ${fmt(S.envTol, 3)} ${S.dev ? '(width in device pixels: rebuilt per scale)' : '(camera-free)'} → ${e.pieces} pieces → outline: ${e.path.subpaths.length} closed subpath${e.path.subpaths.length === 1 ? '' : 's'}, ${lines} lines + ${e.arcs} arc quads · ${S.reused ? 'reused from the last frame' : fmt(S.envMs, 2) + ' ms'}${wfn}<div class="small">Inner bends fold the outline through the pivot; the fold keeps the body's orientation, so nonzero absorbs it and even-odd punches it out (toggle in the filler). The two tips differ in one line of the tracer: where the tangent point sits on each knot's disc.</div>`; }
+    $('r-geometry').textContent = S && S.perFrame ? 'per frame' : S && S.perScale ? 'per scale' : 'per edit'; $('r-geometry').className = 'rate ' + (S && S.perFrame ? 'frame' : S && S.perScale ? 'scale' : 'edit');
+    // packer
+    const parts = state.regions.filter(R => !R.dab).map(R => `<b>${R.name}</b>: ${R.low.cubics} cubic → ${R.low.fromCubics} quads, ${R.packed.n} curves in all · bands ${R.packed.HB} × ${R.packed.VB}, ${fmt(R.packed.avgH, 1)} curves per row band, ${fmt(R.packed.avgV, 1)} per column · cover ${R.cover.rects} rect${R.cover.rects === 1 ? '' : 's'}, ${fmtInt(R.coverPx)} device px · texels: curves ${R.packed.n * 2}, bands ${R.packed.bandTexels}`);
+    const dabPack = state.regions.filter(R => R.dab); if (dabPack.length) parts.push(`<b>${dabPack.length} dabs</b>: ${dabPack.length} × 8 arc quads, one small pack each, ${fmtInt(dabPack.reduce((s, R) => s + R.coverPx, 0))} device px covered in all`);
+    $('d-packer').innerHTML = `lowered at τ = 0.25 device px = ${fmt(info.tolPack, 3)} local · scale bucket ${info.bucket} · ${fmt(info.ms, 2)} ms${info.snapping ? ' · <b>snapped</b>: knots moved to the device grid, so the pack reruns whenever the camera moves' : ''}<ul>${parts.map(p => '<li>' + p + '</li>').join('')}</ul><div class="small">The value above carried no tolerance and no zoom; both arrive here from the camera. One cache slot per 25 % of scale.</div>`;
+    $('r-packer').textContent = info.snapping ? 'per frame' : 'per scale'; $('r-packer').className = 'rate ' + (info.snapping ? 'frame' : 'scale');
+    // filler
+    const dabRegions = state.regions.filter(R => R.dab), plain = state.regions.filter(R => !R.dab);
+    $('d-filler').innerHTML = state.regions.length ? plain.map(R => `<b>${R.name}</b> under ${R.rule ? 'even-odd' : 'nonzero'}: one coverage draw · ≈ ${fmtInt(R.coverPx * (R.packed.avgH + R.packed.avgV))} curve tests`).concat(dabRegions.length ? [`<b>${dabRegions.length} dabs</b>, each one coverage draw in order, source-over · ≈ ${fmtInt(dabRegions.reduce((s, R) => s + R.coverPx * (R.packed.avgH + R.packed.avgV), 0))} curve tests`] : []).join('<br>') + `<div class="small">One resolve per region: where the skin crosses itself the pixel is painted once at the declared alpha. The program reads no font size, no glyph, no pen.</div>` : '<span class="k">nothing painted</span>';
+  }
+
+  // ---------- cursor: the CPU twin against the GPU pixel ----------
+  const sgn = v => (v >= 0 ? '+' : '−') + fmt(Math.abs(v), 2);
+  function updateHud() {
+    const hud = $('hud'), c = state.cursor; if (!c || !state.regions.length) { hud.innerHTML = '<span class="k">move the cursor over the drawing</span>'; return; }
+    const cam = camera(), ppu = cam.zoom * cam.dpr, d = toDevice(c, cam), px = { x: Math.floor(d.x), y: Math.floor(d.y) }; const pc = fromDevice({ x: px.x + 0.5, y: px.y + 0.5 }, cam);   // the pixel centre the GPU evaluated
+    let A = 0; const parts = [];
+    let dabHits = 0, dabCount = 0;
+    for (const R of state.regions) { const w = windingAt(R.packed, pc.x, pc.y), cov = coverageAt(R.packed, pc.x, pc.y, ppu, ppu, R.rule); const a = R.color[3] * cov; A = a + A * (1 - a); if (R.dab) { dabCount++; if (cov > 0.5) dabHits++; } else parts.push(`<span><span class="k">${R.name}</span> winding ${w} · coverage ${fmt(cov)}</span>`); }
+    if (dabCount) parts.push(`<span><span class="k">dabs here</span> ${dabHits} of ${dabCount}</span>`);
+    let gpuA = null; if (px.x >= 0 && px.y >= 0 && px.x < cam.w && px.y < cam.h) { const buf = new Uint8Array(4); gl.readPixels(px.x, cam.h - 1 - px.y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, buf); gpuA = buf[3] / 255; }
+    const agree = gpuA == null ? '' : (Math.abs(gpuA - A) <= 0.05 ? '<span class="agree">agree</span>' : '<span class="disagree">disagree</span>');
+    const SR = state.regions.find(R => R.name === 'stroke'); let dists = '';
+    if (SR && SR.env && SR.env.polys.length) { const { rib, nib } = centerlineDistances(SR.env.polys, pc.x, pc.y); dists = `<span><span class="k">skin edge by</span> ribbon ${sgn(rib)} · nib ${sgn(nib)}${Math.sign(rib) !== Math.sign(nib) ? ' <span class="disagree">they disagree here</span>' : ''}</span>`; }
+    hud.innerHTML = `<span class="mono">(${fmt(c.x, 1)}, ${fmt(c.y, 1)})</span>${parts.join('')}<span><span class="k">pixel alpha</span> CPU ${fmt(A)} · GPU ${gpuA == null ? '—' : fmt(gpuA)} ${agree}</span>${dists}`;
+  }
+
+  // ---------- input ----------
+  const zoomEl = $('zoom'), zvalEl = $('zval');
+  function syncZoomUi() { zoomEl.value = String(Math.log10(state.zoom)); zvalEl.textContent = (state.zoom >= 10 ? state.zoom.toFixed(0) : state.zoom.toFixed(1)) + '×'; }
+  zoomEl.addEventListener('input', () => { state.zoom = Math.pow(10, parseFloat(zoomEl.value)); syncZoomUi(); writeHash(); });
+  $('reset').addEventListener('click', () => { state.zoom = 3; state.center = { x: 64, y: 64 }; syncZoomUi(); writeHash(); });
+  $('outline').addEventListener('change', e => { state.view.outline = e.target.checked; writeHash(); });
+  function addSample(e, sx, sy, cam) { const p = toLocal(sx, sy, cam); const S = state.drawing.samples; if (S.length) { const last = S[S.length - 1]; if (Math.hypot((p.x - last[0]) * cam.zoom, (p.y - last[1]) * cam.zoom) < 1.5) return false; } S.push([round2(p.x), round2(p.y), round2(e.pressure || 0.5), Math.round(performance.now() - state.drawing.t0)]); return true; }
+  canvas.addEventListener('pointerdown', e => { const cam = camera(), r = canvas.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top; canvas.setPointerCapture(e.pointerId);
+    if (state.toolId === 'own' && !e.shiftKey) { state.drawing = { t0: performance.now(), samples: [] }; state.rec.source.samples = state.drawing.samples; addSample(e, sx, sy, cam); applyRecord(state.rec, { keepText: true }); recEl.value = '… drawing'; }
+    else state.panning = { sx, sy, cx: state.center.x, cy: state.center.y }; });
+  canvas.addEventListener('pointermove', e => { const cam = camera(), r = canvas.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top; state.cursor = toLocal(sx, sy, cam);
+    if (state.drawing) { if (addSample(e, sx, sy, cam)) applyRecord(state.rec, { keepText: true }); }
+    else if (state.panning) { state.center = { x: state.panning.cx - (sx - state.panning.sx) / cam.zoom, y: state.panning.cy - (sy - state.panning.sy) / cam.zoom }; }
+    else updateHud(); });
+  const endPointer = () => { if (state.drawing) { state.drawing = null; applyRecord(state.rec); } if (state.panning) { state.panning = null; writeHash(); } };
+  canvas.addEventListener('pointerup', endPointer); canvas.addEventListener('pointercancel', endPointer);
+  canvas.addEventListener('pointerleave', () => { state.cursor = null; updateHud(); });
+  canvas.addEventListener('wheel', e => { e.preventDefault(); const cam = camera(), r = canvas.getBoundingClientRect(), sx = e.clientX - r.left, sy = e.clientY - r.top; const p = toLocal(sx, sy, cam); const z = clamp(state.zoom * Math.exp(-e.deltaY * 0.0015), 0.05, 100); state.zoom = z; state.center = { x: p.x - (sx - cam.cssW / 2) / z, y: p.y - (sy - cam.cssH / 2) / z }; syncZoomUi(); writeHash(); }, { passive: false });
+
+  // ---------- deep links ----------
+  let hashTimer = null;
+  function writeHash() { clearTimeout(hashTimer); hashTimer = setTimeout(() => { if (!state.rec) return; const q = new URLSearchParams(); q.set('tool', state.toolId); for (const k in GET) q.set(k, GET[k](state.rec)); q.set('cover', state.view.cover); q.set('bands', state.view.bands ? 'on' : 'off'); q.set('skin', state.view.skinRule ? 'evenodd' : 'nonzero'); q.set('outline', state.view.outline ? '1' : '0'); q.set('zoom', state.zoom.toFixed(3)); q.set('cx', state.center.x.toFixed(2)); q.set('cy', state.center.y.toFixed(2)); history.replaceState(null, '', '#' + q.toString()); }, 150); }
+  function readHash() {
+    const q = new URLSearchParams(location.hash.slice(1)); const tool = q.get('tool'); loadTool(tool || 'draw', !!tool);
+    for (const k in SET) if (q.has(k)) SET[k](state.rec, q.get(k));
+    if (q.has('cover')) state.view.cover = q.get('cover') === 'cells' ? 'cells' : 'bbox'; if (q.has('bands')) state.view.bands = q.get('bands') !== 'off'; if (q.has('skin')) state.view.skinRule = q.get('skin') === 'evenodd' ? 1 : 0;
+    if (q.has('outline')) { state.view.outline = q.get('outline') === '1'; $('outline').checked = state.view.outline; }
+    if (q.has('zoom')) state.zoom = clamp(parseFloat(q.get('zoom')) || 3, 0.05, 100); if (q.has('cx') && q.has('cy')) state.center = { x: parseFloat(q.get('cx')) || 64, y: parseFloat(q.get('cy')) || 64 };
+    syncZoomUi(); applyRecord(state.rec);
+  }
+  readHash();
+  requestAnimationFrame(frame);
+})();
+</script>

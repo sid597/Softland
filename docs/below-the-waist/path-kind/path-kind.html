@@ -38,6 +38,8 @@
   figure svg .acc-s { stroke: var(--accent); }
   figure svg .acc-f { fill: var(--accent); }
   figure svg .attn-f { fill: var(--attn); }
+  figure svg .attn-s { stroke: var(--attn); }
+  a { color: var(--accent); }
   .figwrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 14px; }
   figcaption { font-size: 14.5px; color: var(--muted); margin-top: 10px; max-width: 80ch; }
   figcaption b { color: var(--ink); font-weight: 600; }
@@ -71,7 +73,7 @@
 </style>
 
 <div class="wrap">
-  <div class="eyebrow">Softland · client · path kind · 2026-09-05 · sessions 8 and 7 folded, session 6 attacks</div>
+  <div class="eyebrow">Softland · client · path kind · 2026-09-06 · sessions 9, 8 and 7 folded, the definer's attack 1 folded</div>
   <h1>The Path Kind</h1>
   <p class="lede prose">Ink strokes and shapes, read at the level of inputs and outputs: what the kind takes today, what comes out, and what the stored form of a stroke should be so that every 2D tool above the waist can be data. Exploration phase: framing and the whole picture first; details are a fix list.</p>
   <div class="fence">
@@ -182,10 +184,10 @@
       <text x="264" y="468" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">pure, camera-free, CPU-side; the triangulator dies, nonzero handles holes and overlaps</text>
 
       <rect x="868" y="368" width="296" height="110" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3"/>
-      <text x="880" y="390" font-size="13" font-weight="600" fill="currentColor">raster lane, beside this kind</text>
-      <text x="880" y="410" font-size="11.5" fill="currentColor">stamp along a path into a pixel target:</text>
-      <text x="880" y="426" font-size="11.5" fill="currentColor">dabs, textures, smudge, accumulate</text>
-      <text x="880" y="446" font-size="11.5" fill="currentColor">strokes are sources to both lanes</text>
+      <text x="880" y="390" font-size="13" font-weight="600" fill="currentColor">brushes, beside this kind</text>
+      <text x="880" y="410" font-size="11.5" fill="currentColor">accumulate = dabs as ordered regions through the same filler</text>
+      <text x="880" y="426" font-size="11.5" fill="currentColor">smudge = a brush that reads the surface: ordered state beside</text>
+      <text x="880" y="446" font-size="11.5" fill="currentColor">strokes are sources to both</text>
       <text x="880" y="468" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">vector or raster ink is a decision Sid has not ruled</text>
 
       <line x1="532" y1="478" x2="532" y2="518" class="acc-s" stroke-width="2" marker-end="url(#arr2A)"/>
@@ -205,7 +207,7 @@
       <text x="264" y="604" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">glyphs enter the packer directly; replaceable without touching anything above the waist</text>
     </svg>
     </div>
-    <figcaption><b>Should be.</b> Four sources make one camera-free value: path plus paint plus identity. Below the waist, four pieces of code: the path type, the geometry that makes regions, the packer that lowers them at the camera's tolerance, and the filler the text kind already runs. Answers come from the same path with the same nib definition, so CPU and GPU agree by construction. A raster lane sits beside, not inside.</figcaption>
+    <figcaption><b>Should be.</b> Four sources make one camera-free value: path plus paint plus identity. Below the waist, four pieces of code: the path type, the geometry that makes regions, the packer that lowers them at the camera's tolerance, and the filler the text kind already runs. Answers come from the same path with the same nib definition, so CPU and GPU agree on membership by construction; boundary distance and coverage are compared at a declared error. Brushes sit beside, not inside: ordered dabs through the same filler, surface state only for brushes that read the surface.</figcaption>
   </figure>
 
   <!-- ============ STORY ============ -->
@@ -222,8 +224,8 @@
     <li>Zoom already is a camera move in the shader; the only recompute is the band. Nothing stored or cached should know the zoom.</li>
     <li>Text already lives in the model: outlines stored once as curves, coverage per pixel. Its shader knows nothing about glyphs. What it lacks is a packer in the client and the stroke operation.</li>
     <li>The imaging model is the right language for the output and the wrong language for storing ink: its stroke has one width and a pen has one per sample. PostScript's stroke is the swept tip that never changes.</li>
-    <li>Where the model is only a default: brushes that darken where they overlap, which is a raster lane beside this kind; crisp one-pixel UI borders, a snapping policy; very long thin strokes, a cover policy.</li>
-    <li>Four pieces of code must exist below the waist: the path type, the geometry, the packer, the filler. Text's filler is that filler. Everything else is data: tools, brushes, tips, shape sets, fill rules.</li>
+    <li>Where the model is only a default: brushes that darken where they overlap, which are ordered dabs through the same filler, with surface state beside only for brushes that read the surface; crisp one-pixel UI borders, a snapping policy; very long thin strokes, a cover policy.</li>
+    <li>Four pieces of code must exist under the value: the path type, the geometry, the packer, the filler; text's filler is that filler. Beside the sources sits a fifth, an evaluator, so that a pen's response or a shape's formula can be data instead of a new generator. Everything else is data: tools, brushes, tips, shape sets, fill rules.</li>
     <li>The contract, then. In: path, paint, identity. Out: regions to the filler, and answers from the same path: hit, distance, bounds, outline, flatten.</li>
     <li>If the stored form changes, these change with it: the grammar, the answers, the envelope builder, the cache keys, both lanes that draw ink, the harness, and a builder and a band packer that do not exist yet.</li>
   </ol>
@@ -242,20 +244,27 @@
 
 paint                two independent declarations
   fill?              { rule nonzero | even-odd, colour }
-  stroke?            { tip { shape, size | per-knot width },
+  stroke?            { tip { construction nib | ribbon, shape,
+                             size | per-knot width | width fn(pressure, s),
+                             unit local | device },
                        cap, join, miter-limit,
-                       overlap union,       (accumulate = raster lane)
+                       align center | inside | outside,   (closed paths)
+                       dash? [on, off, phase],
+                       overlap union | accumulate { spacing },
                        colour }
   neither            draws nothing; both = bordered shape
 
 identity             material id, revision, container (group id)
-tolerance τ          NOT in the value; a packer parameter</pre>
-      <p style="margin-top:10px;font-size:14.5px;color:var(--muted)">Open path plus fill: the fill closes it implicitly, as PostScript does. Open or closed matters only to the stroke: whether a closing segment is drawn and whether the start gets caps or a join. A varying width means the swept round nib: the region is the union of discs of radius w(t)/2. Today's rule, perpendicular distance to the nearest centerline point against the width there, is a ribbon with end discs, an approximation that diverges at every taper.</p>
+tolerances           three, none in the value: the source's fit (in the
+                     record), a consumer's request (a parameter of the
+                     answers), the device's (the packer's)</pre>
+      <p style="margin-top:10px;font-size:14.5px;color:var(--muted)">Open path plus fill: the fill closes it implicitly, as PostScript does. Open or closed matters only to the stroke: whether a closing segment is drawn and whether the start gets caps or a join. A varying width means the swept round nib: the region is the union of discs of radius w(t)/2. Today's rule, perpendicular distance to the nearest centerline point against the width there, is a ribbon with end discs, an approximation that diverges at every taper. Width has a unit: a width in device pixels keeps the value camera-free but makes the envelope a per-scale quantity (session 9, the border walk). Alignment and dash are declarations the pen tools of the field carry; both are operations on the same path (bench 9). A nonlinear response is not the linear interpolation of endpoint widths (the definer, attack 1: interpolate the pressure, then square it); so the stroke may carry the width as a function of the interpolated source attribute, evaluated where the geometry needs it, and per-knot widths are the constant-between-knots case. Accumulate names ordered dabs, each a region through the same filler, painted in order; union names one region painted once.</p>
     </div>
     <div class="lift">
       <h3>Out: two kinds of answer</h3>
 <pre>to the GPU (per painted region)
-  cover geometry     bbox rect, or the cells the outline touches
+  cover geometry     bbox rect, or the cells the region covers
+                     (boundary cells and interior cells)
   curves             quadratics in local units, consistently wound
   bands              per row and per column: which curves cross it
   instance row       paint, group index, rule
@@ -266,8 +275,15 @@ to the CPU / other kinds
                           (winding with curves, same rule as the GPU)
   bbox (local)
   outline            the stroke's skin, as curves
-  flatten(τ)         polyline or triangles, for mesh consumers</pre>
-      <p style="margin-top:10px;font-size:14.5px;color:var(--muted)">The GPU output is the shape of what the text renderer already uploads per glyph: a rect, curve and band data, a 100-byte instance row (CHECKED). The kind never emits anything that depends on the camera; the packer derives tolerance from camera, group and DPR itself.</p>
+  offset(path, d)    one side's edge; the ring between path and offset
+                     is the inside or outside stroke (session 9)
+  evaluate(t), tangent(t), length ↔ t    dashes, dabs, text on a path,
+                     arrow caps (session 9; the definer, attack 1)
+  intersections(a, b) → (seg, t, seg, t)   the crossing edit, faces
+  split(seg, t) with an id map             so a split keeps identity
+  flatten(τ)         polyline or triangles, for mesh consumers; keeps
+                     which segment and parameter each point came from</pre>
+      <p style="margin-top:10px;font-size:14.5px;color:var(--muted)">The GPU output is the shape of what the text renderer already uploads per glyph: a rect, curve and band data, a 100-byte instance row (CHECKED). The kind never emits anything that depends on the camera; the packer derives tolerance from camera, group and DPR itself. Membership (winding under the rule) is one definition shared by every implementation; boundary distance and pixel coverage are approximations of it, each compared against it at a declared error (the definer, attack 1). Answers return to constructions, not only to the renderer: a saved construction measures, splits, intersects and reuses before deciding to draw.</p>
     </div>
   </div>
 
@@ -277,11 +293,171 @@ to the CPU / other kinds
     <thead><tr><th>Changes…</th><th>Values</th><th>Where it may live</th><th>Today</th></tr></thead>
     <tbody>
       <tr><td class="k">per edit</td><td>path, paint, source record, identity</td><td>CPU; stored; uploaded once</td><td>stored as samples; cached triangles per zoom band</td></tr>
-      <tr><td class="k">per camera scale</td><td>flattening tolerance, cubic→quad lowering, bands, cover cells</td><td>the packer's cache, keyed on projected error from the full transform</td><td>three hand-set bands; only cap roundness changes; whole frame repacked on a crossing</td></tr>
-      <tr><td class="k">per frame</td><td>transform, coverage</td><td>GPU, in practice</td><td>zoom and pan already a 24-byte camera write</td></tr>
+      <tr><td class="k">per camera scale</td><td>flattening tolerance, cubic→quad lowering, bands, cover cells; the envelope of a stroke whose width is in device pixels</td><td>the packer's cache, keyed on projected error from the full transform</td><td>three hand-set bands; only cap roundness changes; whole frame repacked on a crossing</td></tr>
+      <tr><td class="k">per frame</td><td>transform, coverage; snapping to the device grid when declared (it depends on the pan)</td><td>GPU, in practice; snapping is a repack of a small path at frame rate</td><td>zoom and pan already a 24-byte camera write</td></tr>
     </tbody>
   </table>
   </div>
+
+  <!-- ============ THE WAIST TEST (session 9) ============ -->
+  <h2>The waist test: three real tools as data, one pipeline of code</h2>
+  <p class="prose">Session 8 owed this. Three tools from the field, each written down as the record its own tool holds, walked through the picture from the code side: what executes, in which piece, and where a step needs code the picture had no name for. The definer walks the same three from the data side; the two chairs meet at the value. Everything below runs on <a href="https://claude.ai/code/artifact/da84fdb6-604a-488e-b797-e77c6f257cbc">bench 9</a>, where each record is editable and every piece reports what it did and at which rate.</p>
+
+  <figure>
+    <div class="figwrap">
+    <svg viewBox="0 0 1180 600" role="img" aria-label="The waist test: three tool records (tldraw's draw tool, Figma's pen tool, a UI border) sit above the waist as data; below it a source stage of code (builder, generator, evaluator) makes the kind's value, path plus paint plus identity; under the value the geometry, the packer and the filler draw all three. Circles mark what a tool needed that the picture had not named: the evaluator, the offset answer, the width unit, snapping at frame rate." font-family="Source Serif 4, Georgia, serif">
+      <defs>
+        <marker id="arr9" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+      </defs>
+      <text x="16" y="22" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1" fill="currentColor" opacity="0.7">ABOVE THE WAIST — THREE RECORDS, AS THE TOOLS THEMSELVES HOLD THEM</text>
+
+      <rect x="16" y="36" width="372" height="98" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="28" y="58" font-size="13" font-weight="600" fill="currentColor">tldraw's draw tool</text>
+      <text x="28" y="78" font-size="11.5" fill="currentColor">samples (x, y, pressure, t) · size · thinning · streamline · taper</text>
+      <text x="28" y="94" font-size="11.5" fill="currentColor">fit τ · width = size · (1 − thinning · (1 − p)) · colour, alpha</text>
+      <text x="28" y="112" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">the most work of the three; its own outline is the ribbon</text>
+      <text x="28" y="126" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">one setting is a function: it needs a runner</text>
+
+      <rect x="404" y="36" width="372" height="98" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="416" y="58" font-size="13" font-weight="600" fill="currentColor">Figma's pen tool</text>
+      <text x="416" y="78" font-size="11.5" fill="currentColor">anchors with handles · closed</text>
+      <text x="416" y="94" font-size="11.5" fill="currentColor">fill { rule } · stroke { width, cap, join, align, dash }</text>
+      <text x="416" y="112" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">no work at all: the anchors already are a path</text>
+      <text x="416" y="126" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">inside / outside wants the offset of a path</text>
+
+      <rect x="792" y="36" width="372" height="98" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="804" y="58" font-size="13" font-weight="600" fill="currentColor">a UI border</text>
+      <text x="804" y="78" font-size="11.5" fill="currentColor">rect x, y, w, h, r · fill</text>
+      <text x="804" y="94" font-size="11.5" fill="currentColor">stroke { 1 device pixel, miter, inside } · snap</text>
+      <text x="804" y="112" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">the width has a unit; the envelope follows the scale</text>
+      <text x="804" y="126" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">snapping follows the pan: frame rate</text>
+
+      <line x1="16" y1="158" x2="1164" y2="158" stroke="currentColor" stroke-width="3"/>
+      <text x="1164" y="152" text-anchor="end" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1" fill="currentColor" opacity="0.7">THE WAIST · DATA ABOVE, CODE BELOW</text>
+
+      <line x1="202" y1="134" x2="202" y2="176" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr9)"/>
+      <line x1="590" y1="134" x2="590" y2="176" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr9)"/>
+      <line x1="978" y1="134" x2="978" y2="176" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr9)"/>
+
+      <rect x="16" y="178" width="1148" height="92" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="28" y="200" font-size="13" font-weight="600" fill="currentColor">source → path <tspan font-weight="400" opacity="0.7">· code that executes a record; one member per source kind; above the kind, below the waist</tspan></text>
+      <text x="28" y="222" font-size="11.5" fill="currentColor"><tspan font-weight="600">builder</tspan> (pen): streamline · pressure → width · fit at τ · spline through the knots</text>
+      <text x="28" y="240" font-size="11.5" fill="currentColor"><tspan font-weight="600">generator</tspan> (formula): rect → 4 lines + 4 arcs as cubics · <tspan font-weight="600">copy</tspan> (designer): anchors are already a path</text>
+      <rect x="620" y="210" width="530" height="48" rx="24" fill="none" class="attn-s" stroke-width="2"/>
+      <text x="640" y="230" font-size="12" font-weight="600" class="attn-f">evaluator · a fifth piece</text>
+      <text x="640" y="247" font-size="11" fill="currentColor">width = f(pressure, arc length, speed, the record's numbers): a function is data only if this runs it</text>
+
+      <line x1="590" y1="270" x2="590" y2="296" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr9)"/>
+
+      <rect x="230" y="298" width="720" height="60" rx="4" fill="none" class="acc-s" stroke-width="2"/>
+      <text x="246" y="320" font-size="13" font-weight="600" fill="currentColor">the kind's input · path + paint + identity <tspan font-weight="400" opacity="0.7">· the value every session talks about</tspan></text>
+      <text x="246" y="342" font-size="11.5" fill="currentColor">subpaths of line | quad | cubic · knots with ids and widths · fill { rule } · stroke { tip, width <tspan class="attn-f" font-weight="600">+ unit</tspan>, cap, join, <tspan class="attn-f" font-weight="600">align</tspan>, <tspan class="attn-f" font-weight="600">dash</tspan> }</text>
+
+      <line x1="590" y1="358" x2="590" y2="384" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr9)"/>
+      <line x1="590" y1="384" x2="150" y2="384" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="150" y1="384" x2="150" y2="398" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr9)"/>
+
+      <rect x="16" y="400" width="360" height="120" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="28" y="422" font-size="13" font-weight="600" fill="currentColor">geometry</text>
+      <text x="28" y="442" font-size="11.5" fill="currentColor">envelope: nib | ribbon, one line apart · caps · joins</text>
+      <text x="28" y="458" font-size="11.5" fill="currentColor">dash by arc length · inner bends fold through the pivot</text>
+      <rect x="28" y="470" width="336" height="40" rx="20" fill="none" class="attn-s" stroke-width="2"/>
+      <text x="44" y="488" font-size="12" font-weight="600" class="attn-f">offset(path, d) · an answer the list lacked</text>
+      <text x="44" y="503" font-size="11" fill="currentColor">the ring between a path and its offset is the aligned stroke</text>
+
+      <line x1="30" y1="400" x2="30" y2="272" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arr9)"/>
+      <text x="36" y="386" font-size="10.5" fill="currentColor" opacity="0.8">answers return to constructions: measure · split · intersect · offset (the definer's arrow)</text>
+      <line x1="376" y1="460" x2="404" y2="460" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr9)"/>
+      <rect x="406" y="400" width="360" height="120" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="418" y="422" font-size="13" font-weight="600" fill="currentColor">packer</text>
+      <text x="418" y="442" font-size="11.5" fill="currentColor">cubic → quad at the camera's τ · bands, sorted for the early exit · cover</text>
+      <rect x="418" y="452" width="336" height="28" rx="14" fill="none" class="attn-s" stroke-width="2"/>
+      <text x="434" y="471" font-size="11.5" class="attn-f"><tspan font-weight="600">device-unit width</tspan> → the envelope is rebuilt per scale</text>
+      <rect x="418" y="484" width="336" height="28" rx="14" fill="none" class="attn-s" stroke-width="2"/>
+      <text x="434" y="503" font-size="11.5" class="attn-f"><tspan font-weight="600">snap</tspan> → knots to the device grid, per frame</text>
+
+      <line x1="766" y1="460" x2="794" y2="460" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr9)"/>
+      <rect x="796" y="400" width="368" height="120" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="808" y="422" font-size="13" font-weight="600" fill="currentColor">filler</text>
+      <text x="808" y="442" font-size="11.5" fill="currentColor">the text lane's shader, two lines changed:</text>
+      <text x="808" y="458" font-size="11.5" fill="currentColor">band width a uniform · even-odd = parity of the same crossings</text>
+      <text x="808" y="480" font-size="11.5" fill="currentColor">one resolve per region · reads no pen, no rect, no glyph</text>
+      <text x="808" y="503" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">it drew all three without knowing which was which</text>
+
+      <text x="16" y="556" font-size="11.5" fill="currentColor"><tspan class="attn-f" font-weight="600">◯ circled</tspan>: needed by one of the three tools and not on the page before this session. Everything else was already a named piece or a named capability.</text>
+      <text x="16" y="578" font-size="11.5" fill="currentColor">Not on the bench yet: a clip by a path (the mask), arrow caps (a shape placed along the tangent), a vector network's faces (a construction over intersections and splits), a surface-reading brush.</text>
+    </svg>
+    </div>
+    <figcaption><b>The test.</b> Three records above, one code pipeline below. The value in the middle is what the definer and the composer meet at. The source stage is code and sits above the kind: the waist is not the kind's input, it is one step higher, where the records stop and the executing starts.</figcaption>
+  </figure>
+
+  <h3>What the walk found, in plain words</h3>
+  <ol class="story prose">
+    <li>All three tools compile to the same value: a path, a paint, an identity. Nothing on any of the three records refused to become that value.</li>
+    <li>Below the value, the same three pieces drew all three. The filler is the tree's text shader with two lines changed: the band texture width is a uniform instead of a compile-time 4096, and even-odd is the parity of the same crossings.</li>
+    <li>The pen tool needed no code above the value. Its anchors already are a path. For a designer's tool the waist sits right at the tool.</li>
+    <li>The draw tool needed the most: streamline, a pen model, a fit, a spline, an envelope. All of it is code executing the record's numbers, and one step is a function written as data, width from pressure. A function is data only if something below can run it. That runner is a fifth piece, and the picture did not have it.</li>
+    <li>The border needed two things the contract did not say. The width has a unit, and a device-pixel width makes the envelope a per-scale quantity: the value stays camera-free, the geometry stage does not. And snapping is a policy that runs at frame rate, because it depends on the pan as well as the zoom.</li>
+    <li>The pen tool's inside and outside strokes need one answer the list lacked: the offset of a path by a distance. The ring between a path and its offset is the aligned stroke, wound opposite so nonzero leaves the middle empty. No clip is needed for that.</li>
+    <li>tldraw's own outline construction is the ribbon with round joins (FIELD: perfect-freehand offsets each sample perpendicular by its radius). To reproduce it as data the ribbon must be a construction the declaration can name. On the bench the two constructions are one line apart in the tracer, and the record picks. Position 7 stands as the default, not as the only meaning.</li>
+    <li>No tool needed a new piece under the value except the evaluator. Everything else landed as a capability inside a piece that already had a name: offset and dash in the geometry, the unit and snap at the packer's rates.</li>
+  </ol>
+
+  <h3>Every step that executes, and where it lives</h3>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Step that executes</th><th>Piece</th><th>Needed by</th><th>On the page before</th><th>On bench 9</th></tr></thead>
+    <tbody>
+      <tr><td>samples → low-pass (tldraw's streamline)</td><td class="k">source · builder</td><td>draw tool</td><td>named: the builder</td><td>yes</td></tr>
+      <tr><td>pressure, or speed when the device has none → width; taper along the length</td><td class="k">source · evaluator</td><td>draw tool</td><td><b>not named</b></td><td>yes: an expression over p, s, v and the record's numbers</td></tr>
+      <tr><td>samples → knots at τ → spline through them</td><td class="k">source · builder</td><td>draw tool</td><td>named</td><td>yes: decimate at τ, Catmull-Rom cubics; τ 0 keeps every sample; "polyline" is also a path</td></tr>
+      <tr><td>formula → path (a rect: 4 lines, 4 arcs as cubics)</td><td class="k">source · generator</td><td>border</td><td>sources "not kinds"; the generator's code unnamed</td><td>yes; the generator is code. A parametric shape as data needs the evaluator</td></tr>
+      <tr><td>anchors → path</td><td class="k">none</td><td>pen tool</td><td>—</td><td>a copy</td></tr>
+      <tr><td>envelope: tip nib or ribbon, caps, joins</td><td class="k">geometry</td><td>every stroke</td><td>named; caps and joins "on top"</td><td>yes: one outline tracer, the two tips one line apart, joins fold through the pivot</td></tr>
+      <tr><td>stroke alignment: the ring between the path and its offset</td><td class="k">geometry · offset(path, d)</td><td>pen tool, border</td><td><b>not in the answers</b></td><td>yes, on the flattened centerline</td></tr>
+      <tr><td>dash by arc length</td><td class="k">geometry · length</td><td>draw tool's dashed style, pen tool</td><td><b>not named</b></td><td>yes</td></tr>
+      <tr><td>cubic → quad at τ; bands; cover</td><td class="k">packer</td><td>all</td><td>named</td><td>yes; bands sorted by far edge so the shader's early exit holds; cells the outline touches plus interior cells</td></tr>
+      <tr><td>width in device pixels → envelope per scale</td><td class="k">geometry, at the packer's rate</td><td>border</td><td><b>not named</b>; "camera-free" stated without the unit</td><td>yes; the rate badge moves from per edit to per scale</td></tr>
+      <tr><td>snap knots to the device grid</td><td class="k">packer · per frame</td><td>border</td><td>named as a policy on the paint or group</td><td>yes; the repack runs on every camera move and says so</td></tr>
+      <tr><td>coverage under a rule, one resolve per region</td><td class="k">filler</td><td>all</td><td>named</td><td>the tree's shader</td></tr>
+      <tr><td>clip by a path (a mask)</td><td class="k">compositor, or the filler with a second region</td><td>pen tool's "use as mask"</td><td>named as "on top"</td><td>no</td></tr>
+      <tr><td>arrow caps: a shape placed at the end along the tangent</td><td class="k">geometry · tangent(t)</td><td>pen tool</td><td><b>not named</b></td><td>no</td></tr>
+      <tr><td>vector-network faces</td><td class="k">a source compiler</td><td>pen tool's fill by face</td><td>"above the kind"</td><td>no; code if ever wanted, and out of the kind</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>Where the two walks met</h3>
+  <p class="prose">The definer walked the same three tools from the data side the same day (<code>attack-1.md</code>), with a fourth case, the harness's self-crossing stroke painted as a vector stroke, as an accumulating brush and as a smudge. Neither chair had read the other's. What both found is the picture's; what one found is folded at full weight.</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Finding</th><th>Composer (code side, bench 9)</th><th>Definer (data side, attack 1)</th><th>On the page now</th></tr></thead>
+    <tbody>
+      <tr><td>A fifth piece runs the record's behaviour</td><td>an expression evaluator: width from pressure, taper, per sample</td><td>a construction executor: arithmetic, conditions, iteration, ordered accumulation, record updates, calls to geometry and surface; a return arrow from geometry to constructions</td><td>Position 8, both sizes; the return arrow in the drawing</td></tr>
+      <tr><td>The answers the tools consume</td><td>offset(path, d), length, tangent(t)</td><td>evaluate(t), length ↔ t, source correspondence, intersections as (seg, t, seg, t), splits with id maps</td><td>the contract's answers</td></tr>
+      <tr><td>Width between knots</td><td>per-knot widths, interpolated</td><td>interpolate the pressure, then apply the response: 16p² at the crossing's two visits is 9.65 and 11.61, not the interpolation of squared widths</td><td>width fn(pressure, s) in the stroke; bench 9 evaluates it per flattened point</td></tr>
+      <tr><td>Accumulation</td><td>a raster lane beside the kind</td><td>ordered dabs through the same filler: 24 dabs on the harness Z, alpha 0.8556 at the crossing; only a surface-reading brush needs state</td><td>the compositing row, story 12, Position 2, figure 1; bench 9's "the crossing, as dabs"</td></tr>
+      <tr><td>Tolerance</td><td>none in the value; the packer's</td><td>three: the source's fit, a consumer's request, the device's</td><td>the contract's tolerance line</td></tr>
+      <tr><td>Cover cells</td><td>boundary cells plus interior cells by winding</td><td>"cells the outline touches" drops a filled region's middle</td><td>renamed: cells the region covers</td></tr>
+      <tr><td>CPU and GPU</td><td>the CPU twin at the cursor against the GPU pixel</td><td>membership is the shared definition; distance and coverage are compared against it at a declared error</td><td>the contract's note, the cascade's classify row</td></tr>
+      <tr><td>The border</td><td>a stroke aligned inside, one device pixel, snapped</td><td>unequal side widths make the border a ring built from the box with CSS's inner radii, no centerline; per-side colours need the corner divided; a device width under shear needs the full transform</td><td>the table below, fix list</td></tr>
+      <tr><td>The pen tool</td><td>anchors are already a path</td><td>the network is the authored source: vertices, edges, faces as loops; moving a vertex needs incidence; discovered faces need intersections and splits; junction joins need a construction</td><td>the answers; "compile faces" stays a source's construction over them</td></tr>
+      <tr><td>Wet and dry</td><td>one region per pointer event</td><td>wet and dry must resolve as one region where they overlap or the crossing darkens during the handoff</td><td>both benches keep one region; the fix list</td></tr>
+      <tr><td>Over and under</td><td>stable knot ids</td><td>record the pair (AB, 38/75), (CD, 37/75) and the relation; split the display intervals, keep their map to the source</td><td>intersections and split in the answers</td></tr>
+      <tr><td>The envelope</td><td>the tracer folds inner joins through the pivot; nonzero absorbs them</td><td>a winding rule does not turn arbitrary folded contours into a sweep; correctly wound pieces are the builder's responsibility</td><td>the boundary row of the attack: "sloppy" sharpened to "consistently oriented"</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>What this changes on the page, and what it only costs</h3>
+  <ul class="tight prose">
+    <li><b>The contract gains a unit and two fields.</b> Stroke width carries <code>unit local | device</code>; the stroke declaration carries <code>align</code> and <code>dash</code>. The answers gain <code>offset(path, d)</code>, <code>length</code> and <code>tangent(t)</code>. Edited in the contract block above.</li>
+    <li><b>A fifth piece, beside the sources.</b> The evaluator. Position 8 below names it and the three doors it could be.</li>
+    <li><b>Rates, made honest.</b> A device-unit stroke's envelope is per scale; snapping is per frame. Both rows of the axis table gain the entry. The value stays camera-free either way; that claim was about the wrong stage.</li>
+    <li><b>A cost, not a change (fix list).</b> Bench 9's envelope flattens the centerline and traces the outline; a 70-sample stroke becomes 26 knots, 25 cubics, 98 pieces and 491 outline curves, about 27 KB of curve and band texels at τ 0.1. The page's memory line, near 3 KB per stroke, assumed a stroker that offsets the curves themselves, a few quads per cubic per side. The claim survives with that stroker; the number does not survive the shortcut. The shortcut is what perfect-freehand ships; the offset stroker is what Skia ships (FIELD).</li>
+    <li><b>A detail, not a change (fix list).</b> On a tapered piece the nib's butt cap runs between the two tangent points, which are not perpendicular to the centerline; PostScript's butt is the constant-width case. Even-odd on the skin is a demonstration of the folds, never a declaration.</li>
+    <li><b>From the definer's fix list, carried.</b> Per-side border colours need the corner region divided and its shared boundary composited; calling that "paint on top" does not define it. A device width under shear or non-uniform scale needs the full transform, not one scalar. A stroked loop can have a hole. The current tapered projection rule is not the swept nib, and a round sweep gives no butt or miter without construction (both on bench 9 as outline-level constructions). Vector-network faces after an edit that makes curves cross need intersections, splits, ordered outgoing directions and a face-selection policy; ids alone cannot choose the user's intended face.</li>
+  </ul>
 
   <!-- ============ PICTURE: TODAY ============ -->
   <h2>What the path kind is today</h2>
@@ -381,11 +557,11 @@ to the CPU / other kinds
       <tr><td>A path is line, quadratic and cubic segments, open or closed, in subpaths.</td><td class="v">HOLDS</td><td>As the output language it has no rival: Skia, browsers, PDF, Vello, Rive, Figma's and Flutter's renderers all compile to it (FIELD). In this tree, text's curve data is already exactly this, quadratic-only (CHECKED). Cubic in the stored value, split to quads at the packer, is the standard bridge.</td></tr>
       <tr><td>Fill covers the inside under nonzero or even-odd.</td><td class="v">HOLDS</td><td>The text shader accumulates signed crossings, which is nonzero by construction; even-odd is the parity of the same count, one line in the shader (DERIVED from text/renderer.cljs:215-251). Today's path fill has no rule at all and cannot take a self-crossing ring (CHECKED).</td></tr>
       <tr><td>Stroke is the fill of the region within half the width of the centerline, with cap and join.</td><td class="v">SHORT</td><td>That stroke has one width; a pen stroke has a width per knot. The general object is the envelope of a tip swept along the path, attributes varying along it; PostScript's stroke is the round tip at constant size. Every ink system does this: tldraw's perfect-freehand builds the envelope polygon, Google's Ink API sweeps a brush tip into a mesh, PencilKit interpolates per-point size along a B-spline (FIELD). Today's tessellator is already a variable-width envelope builder (CHECKED tessellation.cljc:211-268). And "curve plus varying width" still names two regions: a ribbon offset perpendicular to the centerline, or the union of discs of radius w(t)/2 swept along it. Today's CPU classify projects the point onto the segment and reads the width at that foot (CHECKED component.cljc:176-190), which is the ribbon; its docstring says it is not an exact solver for tapered outlines. Counterexample: centerline (0,0) to (10,0), radius 1 to 4, point (5, 2.6) is outside by the projection rule and inside the disc at (6,0). The two must be told apart before CPU and GPU can agree by construction. Position 7 picks the nib.</td></tr>
-      <tr><td>Boundary and fill are independent declarations; the code must not presume fill.</td><td class="v">HOLDS</td><td>With one precision: the envelope is always filled nonzero, because the skin of a curved or turning stroke overlaps itself on the inside of every bend and at every join, and nonzero is what turns those pieces into one region. This lets the envelope builder be sloppy: consistent orientation, and the rule does the union. Even-odd on a stroke skin would punch holes. The interior takes whatever rule the fill declares.</td></tr>
-      <tr><td>Paint and compositing (clips, blends) sit on top.</td><td class="v">DEFAULT</td><td>Holds for the union semantic: one region, painted once. It cannot express the painting-app semantic where a translucent stroke darkens where it crosses itself and each dab lands over the last; that is a raster model (Procreate, Krita; FIELD). The overlap semantic is a declaration on the stroke; only union goes through the filler. Condition: if painterly brushes become first-class, a second operation joins, stamp along a path into a raster target, sharing the compositor's offscreen targets but not the filler.</td></tr>
+      <tr><td>Boundary and fill are independent declarations; the code must not presume fill.</td><td class="v">HOLDS</td><td>With one precision: the envelope is always filled nonzero, because the skin of a curved or turning stroke overlaps itself on the inside of every bend and at every join, and nonzero is what turns those pieces into one region. This lets the envelope builder skip the boolean, not the orientation: it must emit consistently wound pieces, and then the rule does the union; obtaining such pieces is the builder's job (the definer, attack 1), and bench 9's tracer does it by folding inner joins through the pivot. Even-odd on a stroke skin would punch holes. The interior takes whatever rule the fill declares.</td></tr>
+      <tr><td>Paint and compositing (clips, blends) sit on top.</td><td class="v">DEFAULT</td><td>Holds for the union semantic: one region, painted once. The painting-app semantic where a translucent stroke darkens where it crosses itself is not a second rasteriser: it is ordered dabs, each a region through the same filler, painted in order (the definer, attack 1; bench 9's "the crossing, as dabs": twenty-four dabs on the harness Z, two on the crossing, alpha 0.62 + 0.38 × 0.62 = 0.8556). What does need more is a brush that reads the surface it paints on (smudge, wet edges): an ordered surface operation with state that survives, beside the geometry (Procreate, Krita; FIELD). Condition: if such brushes become first-class, that surface lane joins, sharing the compositor's offscreen targets; the filler is unchanged either way.</td></tr>
       <tr><td>Resolution independent: exact at every zoom.</td><td class="v">DEFAULT</td><td>Right for an infinite canvas. UI libraries want a one-pixel border to be one crisp pixel, and analytic coverage at a fractional position gives two grey pixels instead. Every UI renderer carries a pixel-snapping policy the model is silent on (FIELD). Condition: the day a UI library is built above this kind, snapping becomes a declared option on the group or the paint, not a change to the filler.</td></tr>
       <tr><td>The model is exact.</td><td class="v">DEFAULT</td><td>Circles and arcs are not Béziers; a rounded rectangle's corners are approximations at a declared error. The envelope of a cubic is not a Bézier either, its offset is degree ten (FIELD). So a tolerance exists somewhere in every route. Position: it lives in the packer and the flattener as a parameter, never in the stored value.</td></tr>
-      <tr><td>The model says how to draw.</td><td class="v">SHORT</td><td>It says nothing about cost. Text's filler draws each glyph as one dilated rectangle and evaluates every pixel inside it (CHECKED). A glyph is compact. A stroke across the canvas is a thin diagonal in a huge box, and per-pixel cost is box area times curves per band. The cover policy, bbox or only the cells the outline touches, is outside the model and decides whether the route is feasible for ink. Vello and Pathfinder tile for exactly this reason (FIELD).</td></tr>
+      <tr><td>The model says how to draw.</td><td class="v">SHORT</td><td>It says nothing about cost. Text's filler draws each glyph as one dilated rectangle and evaluates every pixel inside it (CHECKED). A glyph is compact. A stroke across the canvas is a thin diagonal in a huge box, and per-pixel cost is box area times curves per band. The cover policy, bbox or only the cells the region covers, is outside the model and decides whether the route is feasible for ink. Vello and Pathfinder tile for exactly this reason (FIELD).</td></tr>
       <tr><td>Samples become a curve; store the curve.</td><td class="v">DEFAULT</td><td>The pen reported positions eight milliseconds apart; the curve between them is a prior, not data. Fitting is lossy and stylistic: the tolerance is what a user feels as "streamline". tldraw and Google's Ink API keep the samples and derive geometry; PencilKit keeps the spline (FIELD). Position 1: samples are the event truth, the path is derived at a declared tolerance, and a polyline (tolerance zero, the interpolating spline) is a legitimate path. What leaked from the GPU was never the polyline; it was the triangles at zoom bands and the per-piece painting.</td></tr>
     </tbody>
   </table>
@@ -422,10 +598,10 @@ to the CPU / other kinds
       <tr><td class="k">path/renderer.cljs</td><td>Flat-colour triangle program, 28-byte vertices, paint replicated per vertex, no coverage, whole-frame repack on any change (:144-240).</td><td>Dies as a program. Path becomes a producer of instance rows for the shared filler; per-item update through the engine's buffer pool.</td></tr>
       <tr><td class="k">text/renderer.cljs, glyph_pack.cljs</td><td>The filler and the glyph packer in one namespace; em-box and glyph-id assumptions in the packer; 100-byte instance rows; band width 4096 a compile-time constant while the texture reads its width from metadata (:112-113, :127, :321).</td><td>The filler moves out to be shared, gaining a rule parameter and a cover-cell mode. Glyph packing stays as the glyph source's packer. Text's own contract does not change.</td></tr>
       <tr><td class="k">path/frame.cljc</td><td>Dependency key = material, revision, container, plus zoom band.</td><td>Same key without the band.</td></tr>
-      <tr><td class="k">CPU classify</td><td>Ink: distance to segments minus interpolated half-width, the ribbon. Shape: odd-even ray per ring, then outer-and-not-hole. Parity with the GPU tested only on the holed shape, never on ink, skipping a boundary band (harness/path.cljs:341-393).</td><td>Winding number with curves and the nib definition, the CPU twin of the shader's root counting, so CPU and GPU agree by construction. Parity runs on ink too, against coverage.</td></tr>
+      <tr><td class="k">CPU classify</td><td>Ink: distance to segments minus interpolated half-width, the ribbon. Shape: odd-even ray per ring, then outer-and-not-hole. Parity with the GPU tested only on the holed shape, never on ink, skipping a boundary band (harness/path.cljs:341-393).</td><td>Winding number with curves and the nib definition, the CPU twin of the shader's root counting, so CPU and GPU agree on membership by construction; distance and coverage are compared against that membership at a declared error. Parity runs on ink too, against coverage.</td></tr>
       <tr><td class="k">region3d/on_plane*</td><td>Reuses the same tessellator and shares the path renderer's mesh cache object at zoom 1.0, uploads 88-byte vertices with a 4×4 matrix each, draws on a plane with 4× MSAA; only :ink placeable (on_plane.cljc:20, on_plane_renderer.cljs:19, 211-235).</td><td>Placed ink takes the coverage lane on the object's plane: the filler uses screen derivatives, so it works under the projection (DERIVED). The 88-byte mesh road is cut now, no keep-until-better. flatten(τ) stays a geometric answer for consumers that need lines, not a render road.</td></tr>
       <tr><td class="k">harness/path.cljs</td><td>Literal bursts and rings; byte-identical goldens; a translucent self-crossing case that declares the double-blend and names the CPU classifier the authority (:556-559); the variable-width fixture built and never run (:245, :517-518).</td><td>Fixtures gain the fit step, a formula shape, a stroked shape, a filled loop, a cubic; goldens change; the self-crossing case becomes the proof that overlap resolves once; parity moves from alpha over 128 to coverage.</td></tr>
-      <tr><td class="k">new, no home today</td><td>Nothing. No pen input anywhere in client/; no shape generator; no circle fixture.</td><td>The builder (samples → curves, appended live, at τ), the band packer, the cover policy, and a wet route while the pen is still down.</td></tr>
+      <tr><td class="k">new, no home today</td><td>Nothing. No pen input anywhere in client/; no shape generator; no circle fixture.</td><td>The builder (samples → curves, appended live, at τ), the evaluator for responses and formulas written as data, the band packer, the cover policy, offset and arc length as answers, and a wet route while the pen is still down. Bench 9 has a first cut of each but the wet route, in JS.</td></tr>
     </tbody>
   </table>
   </div>
@@ -437,7 +613,7 @@ to the CPU / other kinds
     <li><b>Tolerance is a screen-space quantity.</b> Every route has "how smooth at this zoom" somewhere. Camera-free data does not remove it; it moves it into per-scale work. Name where it lives, packer or flattener, and keep it out of the value.</li>
     <li><b>The envelope has cusps and inner loops.</b> Offsetting a curve inward past its radius of curvature folds the outline over itself. Not a bug to remove; it is why the envelope is filled nonzero and why the builder needs consistent orientation, not a clean boundary.</li>
     <li><b>Overdraw and conflation.</b> Painting a region as many pieces double-blends translucent paint where pieces overlap, and antialiasing pieces separately leaves seams where they meet. The fix is structural: one resolve per region. Today's path lane has the first defect and declares it (CHECKED harness/path.cljs:556-559).</li>
-    <li><b>The cover policy.</b> Bbox covers are right for glyphs and wrong for a stroke across the canvas. Cells touched by the outline, computed in local units at pack time, keep the cover tight and camera-free. The one thing the text lane never needed and ink needs from day one.</li>
+    <li><b>The cover policy.</b> Bbox covers are right for glyphs and wrong for a stroke across the canvas. Cells the region covers, boundary cells plus interior cells, computed in local units at pack time, keep the cover tight and camera-free; boundary cells alone would drop a filled region's middle (the definer, attack 1; bench 9 tests interior cells by winding at the cell centre). The one thing the text lane never needed and ink needs from day one.</li>
     <li><b>Curve degree.</b> Design tools and fitters produce cubics; the shader wants quadratics. Splitting multiplies the curve count two to four times. Decide the canonical stored degree, cubic, and convert once at the packer.</li>
     <li><b>Bands at edit time.</b> Fonts are banded offline by a tool outside client/ (CHECKED). A user path must be banded on pen-up, fast enough not to be felt. Real work, and it does not exist yet.</li>
     <li><b>The wet stroke.</b> While the pen is down the burst is unfinished; fitting and banding the whole stroke on every sample is the wrong cost. Every ink system has a cheap route for the live tail and commits the fitted form at pen-up. Today any change repacks the whole frame and fills the cache with one dead mesh per sample (DERIVED).</li>
@@ -476,7 +652,7 @@ to the CPU / other kinds
     <dt><span class="tag pos">position 1</span>the stored form</dt>
     <dd>Store the burst raw (samples with pressure, time) as the event that happened. Derive the path at a declared tolerance and store that too; it is what gets drawn, edited and hit-tested. Tolerance zero is the interpolating spline, one knot per sample, appended live; a fit above zero is a brush setting. The kind takes the path, never the burst. Stops being the answer: never; if fitting turns out to be a user-facing style this is already right, and if a brush engine later needs the raw samples, they are there.</dd>
     <dt><span class="tag pos">position 2</span>the imaging model as the output language</dt>
-    <dd>Paths, fill under a rule, stroke as the nonzero fill of a swept tip's envelope, paint and compositing on top. Stops being the answer: if painterly raster brushes become first-class, a second operation joins, stamp into a raster target; the path value already carries what it needs.</dd>
+    <dd>Paths, fill under a rule, stroke as the nonzero fill of a swept tip's envelope, paint and compositing on top. Accumulating brushes are ordered dabs through the same filler (attack 1). Stops being the answer: if brushes that read the surface become first-class, a surface operation with ordered state joins beside the geometry; the path value already carries what it needs to replay a stroke through it.</dd>
     <dt><span class="tag pos">position 3</span>one filler, shared with text</dt>
     <dd>Coverage under a rule, per pixel, analytic antialiasing, one resolve per region. Strokes reach it through the envelope. A capsule lane serves the wet stroke under the pen. Stops being the answer: if long thin strokes dominate and cover cells do not cut the cost enough, a distance-based stroke program is the fallback, fed by the same value; if banding per pen event is too slow and the wet lane is not enough, stencil-then-cover is the cheaper correct road.</dd>
     <dt><span class="tag pos">position 4</span>zoom leaves the stored value and its identity</dt>
@@ -486,7 +662,9 @@ to the CPU / other kinds
     <dt><span class="tag pos">position 6</span>placed ink takes the coverage lane on a plane</dt>
     <dd>The filler uses screen derivatives for its pixel scale, so it works under the region's projection; placed ink becomes an instance row drawn on the object's z=0 plane, and the 88-byte triangle road is cut. flatten(τ) stays a geometric answer for consumers that need lines, not a render road.</dd>
     <dt><span class="tag pos">position 7 · the open fork</span>what a varying width means</dt>
-    <dd>The stroke region is the swept round nib: the union of discs of radius w(t)/2 along the curve. Cap and join constructions (butt, square, miter, bevel) are declared operations on the ends and corners on top of it, as PostScript adds them. The ribbon is named as the approximation the current CPU rule computes. Reason: only the nib gives a tip shape a meaning, and it is what a pen physically does. Stops being the answer: if a designer stroke tool wants the ribbon's crisper tapers, both constructions are named operations and the declaration picks one. This is Sid's to close, verbatim and timestamped; asked once. The sliver is visible on 4's bench: pick the pressure-ink fixture and move the cursor across a taper, and the two rules disagree on the readout.</dd>
+    <dd>The stroke region is the swept round nib: the union of discs of radius w(t)/2 along the curve. Cap and join constructions (butt, square, miter, bevel) are declared operations on the ends and corners on top of it, as PostScript adds them. The ribbon is named as the approximation the current CPU rule computes. Reason: only the nib gives a tip shape a meaning, and it is what a pen physically does. Stops being the answer: if a designer stroke tool wants the ribbon's crisper tapers, both constructions are named operations and the declaration picks one. This is Sid's to close, verbatim and timestamped; asked once. The sliver is visible on 4's bench and on bench 9: pick the pressure-ink fixture, switch the tip, and the cursor shows what each construction says and flags where they disagree. Sharpened by the waist test: tldraw's own construction is the ribbon (FIELD), so the ribbon must stay nameable whichever is the default; on bench 9 the two are one line apart in the same tracer.</dd>
+    <dt><span class="tag pos">position 8</span>behaviour as data needs an evaluator</dt>
+    <dd>A tool's settings are numbers until one of them is a function: width from pressure, a shape's corners from its parameters, a taper along the length. A function written in a record is data only if code below the waist can run it. Both chairs reached this from opposite sides on the same day: the composer's evaluator (bench 9 runs one: arithmetic over pressure, arc length, speed and the record's numbers) and the definer's construction executor (attack 1: arithmetic and vector arithmetic, conditions, iteration over collections, an ordered accumulation, record updates, calling another saved construction, and calls to the geometry's answers and to a surface). They are the same piece at two sizes; the evaluator is the smallest member. It sits beside the builder in the source stage, and the geometry's answers return to it: a construction measures, splits, intersects and reuses before it draws. The three doors: a fixed menu of responses and generators, each new behaviour new code; an evaluator of that scope; or code as data, Clojure forms interpreted at runtime (sci), which is the general answer and a substrate decision. Stops being the answer: if Sid rules that tools are code above a data-only contract, the executor dies and each response is a generator. Not asked yet; it closes when brushes or shape formulas are wanted as data, not before.</dd>
   </dl>
 
   <!-- ============ FOLDED IN ============ -->
@@ -510,9 +688,20 @@ to the CPU / other kinds
     <li><b>Vector or raster ink is a decision</b> (4), answered here by a raster lane beside the path kind, not a change to it; Sid has not ruled.</li>
     <li><b>Both ends are missing</b> (2): no live input anywhere in client/, no definition of the correct image; the code defines only the middle.</li>
     <li><b>A bench</b> (4 built it: https://claude.ai/code/artifact/2f98a7e6-beb1-43df-9247-3974586256d6, source under <code>bench-4/</code>). One path, three roads, the pick formula at the cursor: today's triangles as a mirror of the tessellator, per pixel with one cover, per pixel with a cover per segment. The three harness goldens by their own coordinates, a pen loop, a pentagram, a trefoil with z per point for over and under. It now carries both stroke rules side by side, ribbon plus end discs and the swept nib, and the cursor shows both numbers; on the counterexample the ribbon says +0.10 outside and the nib says -0.02 inside. Not yet on it: curves, non-round caps, a cheap wet route.</li>
+    <li><b>Bench 9</b> (session 9 built it: https://claude.ai/code/artifact/da84fdb6-604a-488e-b797-e77c6f257cbc, source under <code>bench-9/</code>). The waist test as a thing to feel: seven records (the three tools, the three harness goldens, the star) plus draw your own, one pipeline. Curves throughout; cubics lowered at the camera's tolerance; bands; the tree's text shader as the filler; both tip constructions, caps, joins, alignment, dash, device-unit width, snapping; the CPU twin of the filler at the cursor against the GPU pixel. A wet route while the pen is down: the tail rides raw, the rest is fit as you go. The definer's hard case as a fixture: the harness Z as twenty-four dabs, 0.8556 at the crossing, one word away from the union stroke at 0.62. Not on it: a clip by a path, arrow caps, an offset stroker for curves (it flattens the centerline first), the sweater's depth, a surface-reading brush.</li>
+  </ul>
+
+  <h3>Folded in from session 9</h3>
+  <ul class="tight prose">
+    <li><b>The waist is one step above the kind's input.</b> The records are data; the source stage (builder, generator, evaluator) is code; the value is what the kind takes. Figure 1 already drew the builder below the line; the waist test made the whole stage visible and gave it a third member.</li>
+    <li><b>Width has a unit</b>; alignment and dash are declarations; offset, length and tangent are answers. All in the contract block.</li>
+    <li><b>Rates</b>: a device-unit stroke's envelope is per scale; snapping is per frame. In the axis table.</li>
+    <li><b>Costs, on the fix list</b>: the flatten-then-trace envelope inflates curve counts about five to eight times over an offset stroker, and with it the memory line; the nib's butt cap on a taper is not perpendicular.</li>
+    <li><b>The two constructions are one line apart</b>, and tldraw ships the ribbon. Position 7 is a default with the other construction nameable.</li>
+    <li><b>From the definer's attack 1, at full weight</b>: the construction executor and the return arrow (Position 8); width as a function of the interpolated source attribute; accumulate as ordered dabs through the same filler, surface state only for brushes that read; three tolerances; membership as the shared definition; cover cells include the interior; the network as the authored source with intersections and splits as answers; the crossing edit as (segment, parameter) pairs; wet and dry as one region. Its Positions A to D are read as constructions and hold with the page's.</li>
   </ul>
 
   <div class="foot">
-    Landed under <code>docs/below-the-waist/path-kind/</code>: this page and its <code>.md</code> twin, session 8's fact base with the hunter reports and the six closing folds, session 7's brief, page and three hunt reports under <code>sources-7/</code>, session 4's bench and its handover under <code>bench-4/</code>. Positions are marked and the verdicts are Sid's.
+    Landed under <code>docs/below-the-waist/path-kind/</code>: this page and its <code>.md</code> twin, session 8's fact base with the hunter reports and the six closing folds, session 7's brief, page and three hunt reports under <code>sources-7/</code>, session 4's bench and its handover under <code>bench-4/</code>, session 9's bench under <code>bench-9/</code>, its fact base <code>fact-base-9.md</code>, and the definer's <code>attack-1.md</code>. Positions are marked and the verdicts are Sid's.
   </div>
 </div>
