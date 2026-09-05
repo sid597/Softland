@@ -66,9 +66,10 @@
       <div class="chain" id="chain"></div>
       <div class="note" id="idnote"></div>
       <div class="note">Rows light up when their value changes: the box link changes rarely, the chart point on every move, the stroke at its edge. Through the portal the chain is CPU only; the id read covers S1.</div>
+      <div class="note">Keys, with the pointer still: arrows orbit · [ ] move the box · , . move the sphere forward and back. The chain re-runs because the scene changed, not the pointer, and only the rows that differ light up.</div>
     </div>
   </div>
-  <p class="try"><b>Try:</b> wheel over the region in both executions and compare the stroke's edge at zoom 4 (direct re-projects; surface re-renders at 256-pixel steps, capped at 2048, and resamples between). Orbit with the portal as a window, then as a picture. Set wheel to dolly and feel the other reading of zoom. Drag the box: the stroke goes with it and the shadow count rises; orbit: it does not. Draw on the face, then hover your stroke.</p>
+  <p class="try"><b>Try:</b> wheel over the region in both executions and compare the stroke's edge at zoom 4 (direct re-projects; surface re-renders at 256-pixel steps, capped at 2048, and resamples between). Orbit with the portal as a window, then as a picture. Set wheel to dolly and feel the other reading of zoom. Drag the box: the stroke goes with it and the shadow count rises; orbit: it does not. Draw on the face, then hover your stroke. Hold the pointer on the stroke and press , until the sphere passes in front: the chain loses the stroke and gains the sphere without the pointer moving.</p>
 </div>
 
 <script>
@@ -80,7 +81,7 @@ const S = {
   rect: { x: 300, y: 50, w: 640, h: 440 },    // the region's rect, page units
   cam: { pivot: [0, 0.55, 0], dist: 5.2, yaw: 0.55, pitch: 0.36, fov: 45, near: 0.1, far: 60 },
   box: { pos: [-0.55, 0.5, 0.35], size: 1.0, yaw: 0.28 },
-  sphere: { pos: [1.15, 0.45, -0.2], r: 0.45 },
+  sphere: { pos: [1.15, 0.45, -0.2], r: 0.45, start: [1.15, 0.45, -0.2], target: [0.64, 1.05, 1.80], t: 0 },   // , and . slide it along start→target, across the default pointer's ray
   wall: { z: -1.8, w: 5.0, h: 2.6 },
   portalQ: { c: [0.9, 1.15, -1.79], w: 1.25, h: 1.35 },
   sun: { dir: norm3([0.55, 1.0, 0.45]) },
@@ -305,8 +306,8 @@ function pageItemsAbove(){ gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ON
   draw2D(0, rectVerts(...PAGE.bar), [0.66,0.38,0.04,0.35]); gl.disable(gl.BLEND); }
 // the surface execution's size ladder, as the tree does it: ceil(w·zoom·dpr), a 256 quantum, capped
 function ladderSize(){ const q=256, cap=2048; const w=Math.ceil(S.rect.w*S.page.zoom*DPR), h=Math.ceil(S.rect.h*S.page.zoom*DPR); return [Math.min(cap,Math.ceil(w/q)*q), Math.min(cap,Math.ceil(h/q)*q)]; }
-function sceneKey(){ return [S.exec,S.portal,S.page.zoom.toFixed(4),S.page.pan[0].toFixed(1),S.page.pan[1].toFixed(1),S.cam.yaw.toFixed(4),S.cam.pitch.toFixed(4),S.cam.dist.toFixed(3),S.box.pos.map(x=>x.toFixed(3)).join(','),S.strokeB.length,canvas.width,canvas.height].join('|'); }
-let lastLadder='', lastKey='', lastCountersText='';
+function sceneKey(){ return [S.exec,S.portal,S.page.zoom.toFixed(4),S.page.pan[0].toFixed(1),S.page.pan[1].toFixed(1),S.cam.yaw.toFixed(4),S.cam.pitch.toFixed(4),S.cam.dist.toFixed(3),S.box.pos.map(x=>x.toFixed(3)).join(','),S.sphere.pos.map(x=>x.toFixed(3)).join(','),S.strokeB.length,canvas.width,canvas.height].join('|'); }
+let lastLadder='', lastKey='', lastCountersText='', lastPtr=null, chainKey='';
 function frame(){ const [W,H]=canvasSize(); const pw=Math.round(W*DPR), ph=Math.round(H*DPR); if(canvas.width!==pw||canvas.height!==ph){ canvas.width=pw; canvas.height=ph; S.dirty.s1=true; freeSurface(SURF_ID); SURF_ID=null; }
   const key=sceneKey(); const changed = key!==lastKey || S.dirty.shadow || S.dirty.s1 || (S.portal==='picture'&&S.dirty.s2pic);
   if(changed){ lastKey=key;
@@ -324,14 +325,15 @@ function frame(){ const [W,H]=canvasSize(); const pw=Math.round(W*DPR), ph=Math.
       pageItemsAbove(); S.counters.surf='—'; S.dirty.s1=false;
     } else {
       const [lw,lh]=ladderSize(); const lk=lw+'×'+lh; if(lk!==lastLadder){ freeSurface(SURF_S1); SURF_S1=makeSurface(lw,lh,4); lastLadder=lk; S.dirty.s1=true; }
-      const needS1 = S.dirty.s1 || frame.lastInterior !== [S.cam.yaw,S.cam.pitch,S.cam.dist,S.box.pos.join(','),S.strokeB.length,S.portal,lk].join('|');
+      const needS1 = S.dirty.s1 || frame.lastInterior !== [S.cam.yaw,S.cam.pitch,S.cam.dist,S.box.pos.join(','),S.sphere.pos.join(','),S.strokeB.length,S.portal,lk].join('|');
       if(needS1){ const VP=m4mul(P,V); if(S.portal==='window'){ if(!SURF_S2||SURF_S2.w!==lw||SURF_S2.h!==lh){ freeSurface(SURF_S2); SURF_S2=makeSurface(lw,lh,1); } renderS2(m4mul(P, s2ViewForWindow()), SURF_S2); }
         gl.bindFramebuffer(gl.FRAMEBUFFER,SURF_S1.fb); gl.viewport(0,0,lw,lh); gl.disable(gl.SCISSOR_TEST); gl.clearColor(0.86,0.9,0.95,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); drawS1(VP,[lw,lh]); resolveSurface(SURF_S1); S.counters.s1++; S.dirty.s1=false;
-        frame.lastInterior=[S.cam.yaw,S.cam.pitch,S.cam.dist,S.box.pos.join(','),S.strokeB.length,S.portal,lk].join('|'); }
+        frame.lastInterior=[S.cam.yaw,S.cam.pitch,S.cam.dist,S.box.pos.join(','),S.sphere.pos.join(','),S.strokeB.length,S.portal,lk].join('|'); }
       gl.bindFramebuffer(gl.FRAMEBUFFER,null); gl.viewport(0,0,pw,ph); gl.disable(gl.SCISSOR_TEST); gl.disable(gl.DEPTH_TEST); gl.clearColor(1,1,1,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
       pageItemsBelow(); draw2D(2, rectVerts(S.rect.x,S.rect.y,S.rect.w,S.rect.h), [1,1,1,1], {tex:SURF_S1.tex, rect:[S.rect.x,S.rect.y,S.rect.w,S.rect.h]}); pageItemsAbove(); S.counters.surf=lk;
     }
   }
+  if(lastPtr && !drag && key!==chainKey){ chainKey=key; showChain(chain(lastPtr[0],lastPtr[1],true)); }
   updateCounters(); requestAnimationFrame(frame); }
 // ---------------------------------------------------------------- the id pass: the GPU's own answer at one pixel; the parity check for the CPU chain
 function readIdAt(sx, sy){ const [W,H]=canvasSize(); const pw=canvas.width, ph=canvas.height; if(!SURF_ID||SURF_ID.w!==pw||SURF_ID.h!==ph){ freeSurface(SURF_ID); SURF_ID=makeSurface(pw,ph,1); }
@@ -413,10 +415,16 @@ canvas.addEventListener('pointermove',(e)=>{ const [sx,sy]=ptr(e); if(drag){ if(
     else if(drag.kind==='move'){ const res=chain(sx,sy,false); if(res.ray){ const f=rayPlaneY(res.ray.o,res.ray.d,0); if(f){ S.box.pos=[Math.max(-2.6,Math.min(2.6,f.p[0]+drag.grab[0])), S.box.pos[1], Math.max(-1.2,Math.min(2.2,f.p[2]+drag.grab[2]))]; S.dirty.shadow=true; S.dirty.s1=true; } } }
     else if(drag.kind==='draw'){ const res=chain(sx,sy,false); if(res.hit&&res.hit.what==='box'&&res.hit.face===4) addKnot(res.hit); }
     writeHash(); }
-  showChain(chain(sx,sy,!drag)); });
+  lastPtr=[sx,sy]; chainKey=sceneKey(); showChain(chain(sx,sy,!drag)); });
 canvas.addEventListener('pointerup',(e)=>{ drag=null; const [sx,sy]=ptr(e); showChain(chain(sx,sy,true)); writeHash(); });
+function sphereSlide(){ const a=S.sphere.start, b=S.sphere.target, t=S.sphere.t; S.sphere.pos=[a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t]; }
+window.addEventListener('keydown',(e)=>{ if(e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return; let used=true;
+  switch(e.key){ case 'ArrowLeft': S.cam.yaw-=0.06; break; case 'ArrowRight': S.cam.yaw+=0.06; break; case 'ArrowUp': S.cam.pitch=Math.min(1.35,S.cam.pitch+0.04); break; case 'ArrowDown': S.cam.pitch=Math.max(-0.2,S.cam.pitch-0.04); break;
+    case '[': S.box.pos[0]=Math.max(-2.6,S.box.pos[0]-0.08); S.dirty.shadow=true; break; case ']': S.box.pos[0]=Math.min(2.6,S.box.pos[0]+0.08); S.dirty.shadow=true; break;
+    case ',': S.sphere.t=Math.min(1,S.sphere.t+0.08); sphereSlide(); S.dirty.shadow=true; break; case '.': S.sphere.t=Math.max(0,S.sphere.t-0.08); sphereSlide(); S.dirty.shadow=true; break; default: used=false; }
+  if(used){ e.preventDefault(); S.dirty.s1=true; writeHash(); if(lastPtr && !drag){ chainKey=sceneKey(); showChain(chain(lastPtr[0],lastPtr[1],true)); } } });
 readHash(); updateCounters();
 requestAnimationFrame(frame);
 // the first chain, at a point on the box's front face, so the panel rests with real content
-requestAnimationFrame(()=>requestAnimationFrame(()=>{ const s=pageToScreen([S.rect.x+S.rect.w*0.40, S.rect.y+S.rect.h*0.56]); showChain(chain(s[0],s[1],true)); }));
+requestAnimationFrame(()=>requestAnimationFrame(()=>{ const s=pageToScreen([S.rect.x+S.rect.w*0.40, S.rect.y+S.rect.h*0.56]); lastPtr=s; chainKey=sceneKey(); showChain(chain(s[0],s[1],true)); }));
 </script>

@@ -1,6 +1,6 @@
 Markdown twin of 3d-kind.html, generated from the page; the three drawings live in the html. Landed 2026-09-06 (session 1, the Claude lane).
 
-Softland · client · 3D kind · 2026-09-06 · session 1, the Claude lane · the other lane's working model sits beside this page in the same directory, unfolded
+Softland · client · 3D kind · 2026-09-06 · session 1, the Claude lane · the Codex lane's working model and the object-space contribution folded, Sid's late words of about 02:00 on the ledger
 
 # The 3D Kind
 What a 3D thing is and what it is made of, how a page holds a 3D space and a 3D space holds a page, and what must exist as code below the waist so that parametric CAD, film tools, open worlds, BIM, the planet and scans can be built above it as data. Read against the path kind's picture: one waist for 2D and 3D, or a reason for two. Exploration phase: framing and the whole picture first; details are a fix list.
@@ -16,12 +16,17 @@ Sid's words, kept apart from positions so neither session promotes or demotes th
 "When you see the ceilings, do not try to hack through them. We want to build through them. the question we are asking is: what is the below-the-waist layer that should exist for everything?"
 **Adopted as a working basis, open to attack · 2026-09-06 · the session starter**
 "In the field, a 3D scene is objects with transforms, geometry, materials, lights and a camera, and rendering is projection, visibility and shading; the interchange forms are settled and the execution is contested … One composition primitive joins the two models: render a scene of either into a surface, and a surface is paint in the other, in both directions and recursively. The 2D contract ends at a region drawn with per-pixel coverage; whether 3D begins there is open." And the method: "every session that started from rendering made a definitional error, and every session that started from what the object must mean made none."
+**Said · 2026-09-06 about 02:00 · to the path kind's session 9, recorded in HANDOFF-9 §6; they bear on this page**
+On tools as data, told no 2D tool team does it: "Yeah i know thats why softland exists those tools are dinasarus".
+On the executor, told the precedent is Houdini and geometry nodes, one executor over a small set of code nodes: "ooooooo nice but one executor idk seems like the constraints and hard part would be getting them in line throughput seems small...."
+On clips, blends and layer stacks in one pipeline: "We should be ahead of everyone or at the very least adopt the best in field."
+On the bench: "the very first thing that i want to do after the code buildout is done is to make the whole system visible in softland itself so that i can use softland to understand softland and build more of it".
 **Carried from the path round · ruled 2026-09-05 about 16:50**
 "yeah fuck the correctness and penalising it … framing and how to think is much more important in exploration phases."
 **Carried from the path round, as positions, not decisions**
 The path contract (path + paint + identity in; regions and answers out; four pieces of code, an evaluator beside the sources); Position 7 (what a varying width means) open, Sid's to close; the executor named by both chairs on 2026-09-06 (the composer's Position 8, the definer's Position A).
 **Not decided**
-Everything on this page. The three things that remain are named once at the end: a decision about the kind's output, a definition the definer's chair should work, and one question only Sid's feel can close.
+Everything on this page. The three things that remain are named once at the end: a decision about the kind's input and output, a definition the definer's chair should work through one construction, and one question only Sid's feel can close.
 
 ### Sid's words and this page's words
 - **region** today's fused row: a space, its scene, its camera and a rect on the page in one thing. On this page the word keeps meaning today's thing.
@@ -30,36 +35,38 @@ Everything on this page. The three things that remain are named once at the end:
  
 - **portal** his word, kept: a thing in one space whose look is another space seen through a camera. A region on a page is one; a window on a wall is one.
  
-- **surface** his word, kept: what rendering a space through a camera produces; paint in the space that holds the portal; also what a light or a probe reads.
+- **surface** his word, kept for one of the three things it was naming (the Codex lane caught the three): the sampled image that rendering a space through a camera produces, paint in the space that holds the portal, what a light or a probe reads. The geometric thing a stroke sits on is a **face**; the GPU allocation behind an image is a **target**. The tree's lease is a target; its resolve is a surface.
  
 - **land** "another land": another space, seen through a portal.
  
 - **seam** his word, kept: the crossing between a space of one kind and a space of the other, in either direction.
  
-- **chart** minted here, marked: a flat space with declared order that sits on a surface of a 3D thing, at that surface's depth. Ink on a face lives in one.
+- **chart** minted here, marked: a flat space with declared order that sits on a face of a 3D thing, at that face's depth. Ink on a face lives in one. Both lanes call the record that binds a chart to a face an **attachment**; this page uses both words: the chart is the space, the attachment is the record.
+ 
+- **copy, thing, definition** his "copies of one shape" and both lanes' **occurrence** of a **definition** are one idea: the definition owns the edits, an occurrence places it in a space with its own identity and overrides. This page says thing and copy in prose, definition and occurrence where the distinction carries weight.
 
 ## [position] The 3D kind as it should be
 Spaces hold things; a portal is a thing whose look is another space; a chart is a flat space on a face. Below the waist, the pieces the path picture already had grow a 3D shelf each, two pieces are new, and one is promoted to the centre.
 
 [FIGURE: see 3d-kind.html for the drawing]
-Caption: **Should be.** A page is a space whose order is declared. A region on it is a portal into a space whose order is derived from the view. A stroke on a face lives in a chart, a flat declared-order space at the face's depth, drawn as a layer of the face's look. A portal on the wall shows another land the same way the page shows this one. Below the waist, the path picture's pieces each grow a 3D shelf; the visibility resolve and the material stage are new; the executor moves from beside the sources to the centre, because every 3D ceiling is a graph re-run on edit.
+Caption: **Should be.** A page is a space whose order is declared. A region on it is a portal into a space whose order is derived from the view. A stroke on a face lives in a chart, a flat declared-order space at the face's depth, drawn as a layer of the face's look. A portal on the wall shows another land the same way the page shows this one. Below the waist, the path picture's pieces each grow a 3D shelf; the visibility resolve and the material stage are new; the executor moves from beside the sources to the centre of the data story, thin, because every 3D ceiling is a graph re-run on edit; the libraries it calls are where the work and the throughput are.
 
 ## The story, read off the picture
 1. Everything a 3D space shows ends as one question per pixel: which surface is nearest along this pixel's line of sight, and what colour does that surface give under the lights.
 2. The first half is visibility, the second is shading, and shading's inputs include other renders of the same space, from the lights, so the question is recursive where 2D's never was.
-3. A 3D thing is a shape in a space with a look and a name: a shape in one of several languages, a placement, a material, and identity for the thing, its faces and its copies.
-4. A modelled mesh, a formula solid, a scan, a 2D shape given depth and a whole scene are sources of that thing; the object is general and the sources are above it, as pen, formula, designer and font are above the path.
+3. A 3D thing is a definition that owns its edits, placed in a space by a copy with its own identity, with a look and a name. Its shape is the description an edit acts on, in one of several languages, plus the representations derived from it, each with a way back.
+4. A modelled mesh, a formula solid, a scan, a 2D shape given depth and a whole scene are sources of that thing; the object is general and the sources are above it, as pen, formula, designer and font are above the path. A mesh is not the leak; a mesh becomes the leak when it replaces information a later operation needs.
 5. A space is a frame plus a rule for who is in front: on a page the order is declared, in a 3D space it is derived from the geometry and the camera.
 6. Today's region is three of these fused: a space, its scene, and a portal that shows the space on the page. Split them and the region stops being the thing; it becomes one way of seeing a space.
 7. A portal is a thing in one space whose look is another space seen through a camera. A page holding a region and a wall holding a window are the same object, and ink on a face is the flat case: a chart, a declared-order space at the face's depth.
 8. Cameras compose as a chain of matrices. Page zoom is the region camera's focal length and never its position; orbit and dolly are its position; nothing stored knows either.
-9. Rendering a space through a camera into a surface is one primitive, whether the surface is a shadow map, a portal, a region on a page, or the second eye. It is also an answer data can ask for, the fifth answer 2D never had.
+9. Rendering a space through a camera into a surface is one primitive, whether the surface is a shadow map, a portal, a region on a page, or the second eye, and it is an answer data can ask for. It is one of three crossings, not the only one: present a view, embed content on a face or in a space, derive geometry from a space. Pixels do the first; the other two need values.
 10. Sort every value by when it changes: shape, look and placement per edit; level of detail per scale, keyed on projected error; the camera and the resolve per frame; derived surfaces on their own inputs, so a shadow map does not care that you orbited.
-11. Click and hover are one function: a ray into a space returns the nearest thing, and through a portal or into a chart the ray continues, so the answer is a chain ending in the innermost value, each link changing at its own rate.
+11. Click and hover are one query: a ray into a space returns what it reached under a declared mode, and through a portal or into a chart the ray continues, so the answer is a chain ending in the innermost value. Hover re-runs when anything on the chain changes, not only the pointer, and emits only what differed.
 12. Two per-pixel resolves nest in one waist: 2D coverage runs inside a face's look as paint, and a 3D space's resolve runs inside the page as one ordered item. Neither replaces the other.
-13. The ceilings are graphs, feature trees and relationships re-run on every edit. An executor that runs saved constructions and tracks what they read is the centre of the waist, not a fifth piece beside it.
-14. What must be code: the transform tree with cameras and rebasing, the visibility resolve with a transparency policy, render to surface from any camera, the material stage with the 2D filler as a layer, a geometry shelf, the per-scale mechanism, the pick chain, and the executor. Everything else is data.
-15. One waist. The 3D code is shelves on the pieces the path picture already has, plus two new pieces and one promotion. Two waists only if 2D inside 3D could not be a chart, and it can.
+13. The ceilings are graphs, feature trees and relationships re-run on every edit. An executor that runs saved constructions and tracks what they read is the centre of the data story, but it is thin: the work and the throughput live in the typed libraries it calls and on the GPU, and constraints need a solver among them.
+14. What must be code: the transform tree with cameras and rebasing, the visibility resolve with a transparency policy, render to surface from any camera, the material stage with the 2D filler as a layer, a geometry shelf whose every result carries correspondence, the per-scale mechanism with scheduling for long work, the pick chain, and the executor. Everything else is data.
+15. One waist, several libraries beneath it. All three sessions on this kind reached that sentence separately. The 3D code is shelves on the pieces the path picture already has, plus two new pieces and one promotion. Two waists only if 2D inside 3D could not be a chart, and it can.
 
 ## What a 3D thing is made of, spelled out
 The value the kind takes and the things it gives. This is what every session on the 3D kind should be talking about. The path's value appears inside it twice: as the content of a chart, and as the output of section and silhouette.
@@ -69,30 +76,41 @@ The value the kind takes and the things it gives. This is what every session on 
 space      frame            place in its parent (2D affine or 3D transform)
            order rule       declared | derived-from-view
            environment      background, ambient: a space-level look
+           physics scope    which things occlude, light and collide with each other
+                            (a portal boundary isolates; a group does not)
 
-object     shape            ONE representation —
-             mesh           triangles + normals, uvs, face ids
-             exact          B-rep patches, subdivision cage   → tessellate(τ)
-             formula        SDF, CSG tree                     → march or mesh at τ
-             sampled        volume, points, splats, heightfield → own program
-             curve in space edges, hair, wires   → the path's sweep, nib facing the view
-           placement        one transform | many (copies of one shape)
+definition shape            the description an edit acts on, in ONE language —
+             mesh           vertices, faces, incidence, attributes, stable ids
+             cage           subdivision cage, crease rules
+             exact          B-rep topology + surfaces, or the feature history
+                            that produced it, with modelling tolerance
+             formula        SDF, CSG tree: domain, parameters, units;
+                            a distance promise only if it is one
+             sampled        volume, points, splats, heightfield: samples + the
+                            map to physical space + what quantity they are
+             curve in space edges, hair, wires
+           derived          representations for consumers (tessellation, index,
+                            isosurface, proxy) each with correspondence back
            look             material { base, metallic, roughness, emissive,
                                        textures, response (a graph, later),
-                              layers: chart* { kind frame|face|uv|projection,
-                                               content: paths, text, images
-                                               in declared order } }
-           identity         object id · stable face ids · copy ids · revision
-           construction?    what it derives from: a saved construction
+                              layers: attachment* { chart frame|face|uv|projection,
+                                        content: paths, text, images in declared
+                                        order; coating | unlit annotation | raised } }
+           identity         definition id · stable face and edge ids · revision
+           construction?    what it derives from: a saved construction, its inputs,
+                            its explicit state and time
 
+occurrence a copy of a definition in a space: its own id, transform, overrides
+           (an attachment may belong to the occurrence or to the definition)
 light      a thing whose look emits: kind, colour, intensity, range, cone, casts?
-camera     a view of a space: projection perspective|ortho, pose, exposure
-portal     a thing whose look is another space through a camera mapping:
+camera     a view of a space: projection perspective|ortho, pose, exposure; time
+portal     an occurrence whose look is another space through a camera mapping:
              fixed (a picture) | window (derived from the viewer)
              | declared (a mapping the executor runs, e.g. zoom → dolly)
-           events pass through?  recursion limit
+           events pass through?  recursion budget  light and bodies cross?
 
-tolerances three, none in the value: the source's fit, a consumer's
+tolerances four, one in the value: the source's fit and the model's
+           tolerance (in the record, they change meaning), a consumer's
            request, the device's (per scale: projected error)
 ```
 
@@ -101,26 +119,37 @@ tolerances three, none in the value: the source's fit, a consumer's
 to the GPU   per space per view: a draw into the space's
              visibility resolve — opaque by depth, translucent
              by order, edges by the resolve's antialiasing —
-             consuming the view's inputs: camera, lights,
+             consuming the view's inputs: camera, lights, time,
              derived surfaces (shadow, probe, portal)
-             ⇒ a surface: display-referred, premultiplied,
-               which is paint in the space that holds the portal
+             ⇒ a surface: display-referred, premultiplied, with
+               its view, time, size and achieved quality; paint
+               in the space that holds the portal
 
-to the CPU   hit(ray, space)  → chain [space, thing, face,
-                                 chart point, …, innermost value]
+to the CPU   hit(ray, space, mode)  mode visible | geometric | nearest | sample
+                → chain [space, occurrence, face, chart point, …,
+                         innermost value] + point, normal, distance
+                  + candidates where no single winner exists
+                    (glass, volumes, splats)
+                  + status exact | approximate | pending | unsupported
+                  + the versions of geometry and view it used
              bounds · closest(p) · distance(p) for formula shapes
-             section(plane) → paths       silhouette(view) → paths
-                                           (the path kind's input,
-                                            with provenance)
+             section(plane) → curves       silhouette(view) → curves
+                 (conics and rationals kept; lowered to the path
+                  kind's value at a declared error, with provenance)
              tessellate(τ) · convert(rep → rep, τ)
+             every operation returns correspondence: unchanged |
+               generated | split | merged | deleted | ambiguous,
+               with parameter maps where known
 
-as a value   render(space, camera, size) → surface
-             the fifth answer: shadows, probes, portals,
-             thumbnails, bakes, a plan rendered to a page,
-             all data above the waist once this exists
+as a value   render(space, camera, size, time) → surface
+             the fifth answer: shadows, probes, portals, thumbnails,
+             bakes, a plan rendered to a page; data above the waist
+             once this exists. Present is one of three crossings:
+             embed (an attachment) and derive (section, extrude)
+             return values, not pixels.
 ```
 
-The GPU output is what the region renderer already does for one case: a depth-tested pass into a lease, resolved and composited (CHECKED, fact base Part 2 §3). The chain answer's first link is what `pick-region` already returns, minus the face and the chart (CHECKED, Part 1 §5). The surface answer is what the shadow pass already is, from the light's camera (CHECKED, Part 2 §8), never yet callable.
+Both lanes wrote the same interface as three verbs, Construct, Present and Query; the block above is that interface with this page's names: the executor and the geometry shelf are Construct, the GPU column and the surface answer are Present, the chain is Query. The GPU output is what the region renderer already does for one case: a depth-tested pass into a lease, resolved and composited (CHECKED, fact base Part 2 §3). The chain answer's first link is what `pick-region` already returns, minus the face and the chart (CHECKED, Part 1 §5). The surface answer is what the shadow pass already is, from the light's camera (CHECKED, Part 2 §8), never yet callable.
 
 ### When does a value change? The axis, not CPU versus GPU
 | Changes… | Values | Where it may live | Today |
@@ -129,12 +158,15 @@ The GPU output is what the region renderer already does for one case: a depth-te
 | per scale | tessellation of exact shapes, level of detail, mip residency, tile admission, copy culling; the chart's packer tolerance from the full chain | the per-scale mechanism's caches, keyed on projected error and budget | none for meshes; placed ink tessellated at zoom 1.0 forever; the 256-pixel lease quantum and the 1.12-power bucket are resolution ladders for the surface, not detail (CHECKED Part 2 §2, Part 3 §2) |
 | per frame | camera, rebase, the visibility resolve, the composite; window portals with derived cameras | GPU | interior re-encoded when dirty; composite every frame |
 | on their own inputs | shadow maps (light + scene), probes (place + scene), fixed portals (scene + camera), a region's surface while nothing moves | derived surfaces with their own keys | the shadow re-encodes with the interior, keyed on the region's revision, not on the light (CHECKED Part 2 §3, §8) |
+| on time, on a query, on arrival | animated values and simulation state (explicit time and state transitions); the hover answer (pointer, cameras, visibility); representations that arrive or leave (streaming, long constructions finishing) | the executor's state and time; the query's dependencies; the scheduler's status | none of the three exists; both lanes added this row, and the one-revision region cannot express any of it |
+
+Two things both lanes said about this table, adopted. The same definition may be seen at two scales through two views in one frame, so a per-scale cache is keyed per view, not per thing. And fine grain names the changed meaning while letting the consequences be large: one light edit changes every pixel, one feature edit changes a whole body; the promise is an accurate dependency set and reuse of unaffected work, never constant work per edit.
 
 ## The hardest case, lived
 A pen stroke drawn on the front face of a box, inside a 3D region that sits on a page; I zoom the page, orbit the region, hover and click the stroke, and inside the region a portal shows another land. Moment by moment, what I see, what the model says is happening, and what today's code would do (CHECKED, from the fact base). The bench beside this page makes the same moments feelable.
 
 1. **I look.** The page shows the region as one item in its declared order: over the big shape, under the translucent bar. Inside, the box's front face carries my stroke as paint on the face: lit by the sun, in shadow where the sphere shades it, hidden where the sphere stands in front. On the back wall a portal shows the other land: its own sun, its own depth, and the box in front of it hides part of the window.
- — The region is a portal into S1; the stroke is a chart layer in the face's look; the portal Q is a thing in S1 whose look is S2 through a window mapping. Three spaces, two seams, one screen.
+ — The region is a portal into S1; the stroke is an attachment to this copy of the box, a chart layer in the face's look declared as a coating (an unlit annotation would be the other declaration); the portal Q is a thing in S1 whose look is S2 through a window mapping. Three spaces, two seams, one screen.
  — today: the region composites as a textured quad; the ink is a separate transparent mesh with a negative depth bias, unlit, unshadowed; there is no portal and no second space.
 2. **I zoom the page, wheel over the region.** The region grows on the page and everything inside grows with it; it is the region camera's focal length changing, an optical zoom, not a step into the room. The stroke's edges stay crisp. The box's silhouette refines if its shape is exact. The window shows a magnified crop of the other land. Nothing stored changed.
  — Only the page's projection changed in the chain P_page · T_rect · P_C1 · V_C1 · M_box. The chart's filler evaluates coverage at the true pixel footprint (screen derivatives); the per-scale mechanism refines by projected error. Zoom is a camera move all the way down.
@@ -143,7 +175,7 @@ A pen stroke drawn on the front face of a box, inside a 3D region that sits on a
  — C1 changed; S1 re-resolves; the shadow surface's key (sun, S1's scene) did not change, so it is reused; the portal's derived camera C2 = f(C1, Q's placement) changed, so S2 re-renders. Orbit costs a resolve, not a derive.
  — today: the interior and the shadow are one dirty region: both re-encode. Ink draw order is only re-sorted when content changes, so a camera-only orbit keeps a stale order (docstring, Part 3 §3).
 4. **I hover the stroke.** On every move the pointer becomes a chain: screen point → page point → the topmost page item under it, the region → region-local point → a ray in S1 → the nearest thing: the box, its front face, a chart coordinate → in the chart, the stroke, inside. A highlight watches the innermost link and lights the stroke; a status line watches the face link and names it.
- — hit(ray, S1) returns [box, face front, uv]; the face has a chart; classify(uv, slop) over the stroke's path answers inside. The box link changes rarely, the uv link on every move, the stroke link at its boundary. That is the fine grain a reactive system watches, and it falls out of the chain being explicit.
+ — hit(ray, S1, visible) returns [box, face front, uv]; the face has a chart; classify(uv, slop) over the stroke's path answers inside. The box link changes rarely, the uv link on every move, the stroke link at its boundary. That is the fine grain a reactive system watches, and it falls out of the chain being explicit. Both lanes added the case this page missed: the sphere drifts in front of the stroke while my hand is still. Hover is a query over the pointer and everything on the chain, so it re-runs when the scene's visibility changes, loses the stroke, gains the sphere, and emits only the links that differed; an internal revision bump with an unchanged answer emits nothing.
  — today: hover does not exist; pick returns a triangle index; the ink is not in the BVH; the ray-to-plane function has no caller; the path's classify has no caller outside the harness. Every link exists as a function; none are joined.
 5. **I click the stroke.** The same chain, and the answer says: stroke S, on the front face of the box, in region R, at uv (0.31, 0.62), world point p, normal n. A tool that wants to place a note gets p and n; a tool that wants the page gets the first link.
  — "You hit this" is the chain, and each consumer reads the link it cares about. Click and hover differ only in what is done with the answer.
@@ -152,7 +184,7 @@ A pen stroke drawn on the front face of a box, inside a 3D region that sits on a
  — A portal is a link in the pick chain, not a wall. A picture portal maps the quad's uv through its fixed camera; a window portal transforms the ray itself. Either way the chain crosses the seam.
  — today: nothing to cross.
 7. **I drag the box.** Its placement changes. The stroke goes with it, because it lives in the box's chart. The BVH refits. The shadow re-renders, because the scene changed. The window does not, because its land did not. The page item does not, because the region's surface re-resolves under it.
- — Per edit: one transform. Derived surfaces re-run by their keys: shadow yes, portal no. The chart's contents are unchanged data.
+ — Per edit: one transform. Derived surfaces re-run by their keys: shadow yes, portal no. The chart's contents are unchanged data. Had the edit been a boolean that split the front face, the geometry operation would have to return a relation for the face, unchanged or generated or split or merged or deleted or ambiguous, and the attachment's saved policy would decide whether the stroke follows one successor, is trimmed, or detaches. A stale triangle index cannot decide that; the object-space contribution made this the next construction.
  — today: transform-only refit works exactly like this (CHECKED Part 1 §4); the shadow also re-encodes, correctly here.
 8. **I share the page.** What travels: the page's items; the region's declaration, its space by reference and its camera; the space's things, the box's shape by reference, its look, its placement, the chart on its front face with the stroke's path value; the portal with its target space by reference and its mapping; the other land likewise. What stays: leases, shadow maps, tessellations, the BVH, packed bands. The other machine re-derives every surface.
  — The value is camera-free and surface-free. Sharing a portal shares a reference, not a copy, the same way an image shares a source digest.
@@ -164,15 +196,17 @@ Caption: **The seam, both ways.** Down the left, a path value in a chart becomes
 ### Where a name still hides work
 | Name | What it hides | Smallest useful next step |
 |---|---|---|
-| surface | Its size policy under a changing outer scale (a projected size, not a fixed ladder); its staleness key (its own inputs, never the frame); its colour space (display-referred premultiplied, which the tone-mapped rgba16float lease already is, CHECKED Part 2 §3); its filtering when seen at a grazing angle (mips, which no lease has today, CHECKED Part 2 §4); its edge, which is the page's coverage problem again. | Write render(space, camera, size) → surface as a function with a key, and make the region's lease its first caller. |
+| surface | Three things under one word until the Codex lane split them: the face a stroke sits on, the sampled image a view produces, the target the GPU allocates. For the image: its size policy under a changing outer scale (a projected size, not a fixed ladder); its staleness key (its own inputs, never the frame); its colour space and what the image is (display-referred paint, an emissive screen, a reflectance texture look the same and behave differently); its filtering at a grazing angle (mips, which no lease has today, CHECKED Part 2 §4); its edge; and its other channels, depth, normals, identity, each with its own resolve rule, because identity cannot be averaged like colour. | Write render(space, camera, size, time) → surface as a function with a key and declared channels, and make the region's lease its first caller. |
 | region | Three things fused: a space, a scene, a portal. Two sizes, extent in scene units (written, never read) and rect in page units (CHECKED Part 1 §1). One revision for everything. | Split the row: the space and its scene by reference, the portal with a mapping, a revision per thing. |
-| portal | The camera mapping kinds (fixed, window, declared); recursion depth and cycles (a mirror is a portal into its own space); whether events pass through; the portal's own coverage at its boundary; what a window's camera is when the outer camera is orthographic (a page). | Declare mapping and pass-through on the portal; cap recursion; the region is the first portal, mapping fixed. |
-| scene | Identity and revision per thing, not per region; things include lights, cameras, portals; copies of one shape as a first-class placement, not a million objects (the group table caps at 16384, CHECKED Part 2 §6). | A revision per object; a shape referenced by many objects; a copies placement. |
-| chart | Where a flat frame on a 3D surface comes from: a plane in the object's frame (today's z = 0, CHECKED Part 3 §2), a named face's parameter space (CAD, BIM), the mesh's uv atlas (DCC, games), a projector (decals). Each needs point on surface ↔ chart coordinate both ways. Anchoring: a triangle index renumbers silently (CHECKED Part 1 §8); a chart must anchor to a stable face or frame. | The definer's chair: which chart kinds, and what identity each anchors to. Frame first, because it is stable and exists. |
+| portal | The camera mapping kinds (fixed, window, declared); recursion depth and cycles (a mirror is a portal into its own space; a land showing its own page); whether events pass through; whether light and bodies cross, which a picture never supplies; depth on the far side belongs to the far view and cannot be compared with host depth; the portal's own coverage at its boundary; what a window's camera is when the outer camera is orthographic (a page). | Declare mapping, pass-through and transport on the portal; cap recursion; the region is the first portal, mapping fixed. |
+| scene | Identity and revision per thing, not per region; things include lights, cameras, portals; occurrences of one definition as a first-class placement, not a million objects (the group table caps at 16384, CHECKED Part 2 §6); and which things share physics: two things that must shadow, reflect or collide must be in one space or cross by a declared transport. Isolation is a portal boundary's property, never a grouping's. | A revision per thing; a definition referenced by many occurrences; a physics scope on the space. |
+| chart, attachment | Where a flat frame on a face comes from: a plane in the object's frame (today's z = 0, CHECKED Part 3 §2), a named face's parameter space (CAD, BIM), the mesh's uv atlas (DCC, games), a projector (decals). Each needs point on face ↔ chart coordinate both ways, and on a curved face a metric: a round nib in uv is not round on the surface, and surface-distance ink, a projected decal and uv painting are three constructions. The attachment record owes the face's valid domain including holes, what happens when a gesture leaves the face (clip, split, cross to the next chart, never a silent jump to whatever is behind the pointer), whose it is (this copy or the definition), and what it does when the face is split, merged or deleted, which is the geometry operation's correspondence to answer. A triangle index renumbers silently (CHECKED Part 1 §8) and anchors nothing. | The definer's chair: one extruded sketch, a stroke on a named face, a boolean split; what the operation returns and what the attachment does with it. |
 | material | A fixed menu today (base, metallic, roughness, emissive; no textures, CHECKED Part 1 §2). Layers need the path filler callable from inside a shader with per-chart bindings. A response as data needs a graph runner: shader generation, permutations, compile cost. | Add textures and one chart layer to the fixed shelf; the runner when a look is wanted as data. |
-| executor | Everything the ceilings call "the graph": what operations it may call, how it records dependencies, whether it has a GPU door (per-frame deformation), how a saved construction is versioned and shared without merge deadlocks. | The path round's three doors; pick one before the first ceiling is attempted. |
+| executor | Everything the ceilings call "the graph": what typed operations it may call, how it records dependencies, explicit state and time (a simulation step is state in, state out), progress and cancellation for long work, whether it has a GPU door (per-frame deformation), how a saved construction is versioned and shared. And Sid's doubt, verbatim on the ledger: one executor's throughput "seems small" and "the constraints and hard part would be getting them in line". The answer both lanes and this page give: the executor is thin and the libraries are thick; a constraint solver is a library operation with convergence or failure as its result, never a node labelled solver. A record naming fillet does not implement filleting; but difficulty alone does not prove an operation must stay native forever: if the substrate reaches the precision and throughput, an operation can be a saved program. Native kernels are the practical default. | The path round's three doors; pick one before the first ceiling is attempted, with the libraries named beside it. |
 
 ## The four things 2D never had: which force code, which are data
+Both lanes qualified the list, adopted: two of the four are differences of degree, because 2D already has nonlocal effects (blurs, blend modes), ordered transparency, several representations (paths, rasters, text) and large residency demands; what 3D adds in kind is depth-dependent visibility, a projection that loses a dimension, surface topology, and light and volumetric transport. Degree argues for sharing the machinery; kind is where the new code is.
+
 | Thing 2D never had | Below the waist, code | Above it, data | Hidden work |
 |---|---|---|---|
 | **A mark's pixels depend on other marks** — shadows, occlusion, transparency order | The visibility resolve: depth for opaque, a transparency policy for translucent. Render to surface from any camera, which is how shading gets its other-viewpoint inputs (a shadow map is S1 seen from the sun, CHECKED Part 2 §8). | Which lights cast, resolutions, cascades, bounce counts; the look's response, once a runner exists. | The transparency policy is contested (sorted per object today with object-origin depth, CHECKED; peeled, per-pixel lists, weighted, FIELD). Derived surfaces need their own keys. A graph runner is a shader generator. |
@@ -191,6 +225,8 @@ The 2D round stamped every ceiling "met" and the adversarial pass broke each at 
 | **BIM** | Element types and instances with typed components. Hosting and joining as constructions with dependencies: move a wall, the roof re-derives. Plans and sections as section(plane) → paths on pages. Schedules as queries over components. | Section of solids. Hidden-line removal as a CPU visibility answer. Dependency tracking in the executor. | Live 2D derived from 3D at drawing quality: hidden-line needs visibility as an answer, section of a mesh is a polyline soup to stitch while section of a B-rep is exact, and every derived line must carry which face made it or the plan cannot be edited back. |
 | **Planet-scale geospatial** | Tile schemes, layers, time-dynamic properties. | f64 frames and camera-relative rebase in the transform tree. Detail trees keyed on projected error: the same mechanism. A non-affine frame (geographic → Cartesian) as a node the executor evaluates per tile. Heightfield as a sampled shape. | Precision everywhere at once: every stage that touches a world coordinate must be rebased, including copies, streaming, picking and the chart's uv. One stage that forgets, jitters. |
 | **Fields and scans** | Transfer functions, thresholds, layer choices. | Sampled-shape programs (volume ray-march, splat, points), each declaring how it composes with opaque depth. Isosurface extraction as a converter. Octree streaming: the same mechanism. | Composing a splat cloud or a volume with meshes in one resolve: splats do not write hard depth; the practical rule is opaque by depth first, then sorted blending against that depth, declared per shape kind, not free. |
+
+Two corrections from the lanes on this table. CAD's "exact" is tolerance-aware, not arbitrary precision: a B-rep kernel's booleans carry tolerances on vertices, edges and faces that decide whether surfaces join and which topology results (FIELD, both lanes); that tolerance belongs in the record because it changes meaning, and it is not the device's. And Sid's "without merge deadlocks" is a want the store carries, not the kind: stable ids and small components reduce contention, but two dimension edits can merge mechanically and still violate a constraint, so an explicit conflict outcome and a consistent publication of related edits remain necessary above the kind (both lanes).
 
 Across all six, the same nine things recur as code: the executor with dependency tracking; render to surface from any camera; the visibility resolve with its transparency policy and the sampled-shape programs' composition rule; the per-scale mechanism, GPU-driven at the top; the geometry shelf, with the exact kernel as its bought member; f64 and rebase in the transform tree; the material stage, fixed shelf now, graph runner later, with the path filler as a layer; curves in space; stable identity for things, faces and copies. Everything else in the six is data. That is the answer to "is something missing that has to be hardcoded": yes, these, and nothing else so far.
 
@@ -257,10 +293,11 @@ The contract above is stable across the field; the program under it is where tea
 - **Face identity does not come free.** glTF has no faces; a chart, a constraint, a mate, a hosted door all need something stable to anchor to. Face groups, uv charts or exact faces: decide the anchor model before the first placement, because every placement references it.
 - **Event routing at the seam.** Which space owns the wheel when the region fills the screen: page zoom or region dolly. A policy above the waist, but the pick chain must be able to route input to the space it hit.
 - **Portals recurse and cycle.** A mirror is a portal into its own space. Depth limit, cycle detection, and a budget for portal surfaces (each is a full render) are policies the primitive must expose.
+- **The lanes' trade-offs, added.** Lossless authoring versus cheap evaluated representations; shared definitions versus occurrence-local edits; personal cameras versus shared view state; automatic attachment repair versus explicit ambiguity; open-ended programmability versus predictable execution cost; deterministic reusable simulation state versus hardware-dependent numerics; output quality versus bounded latency. None is settled by choosing a renderer first.
 
 ## Sid's questions, one by one
 **What is the general 3D object, and what are its sources? Is the region the thing, or one container of things?**
-The object: a shape in one of several languages, a placement (one or many), a look with chart layers, identity for the thing, its faces and its copies, and optionally the construction it derives from. The sources sit above it, as on the path page: a modeller, a formula run by the executor, a capture streamed like an image, extrude over a path value, a reference to another space. The region is not the thing. It is a portal on a page into a space, and the space is the container. Today the region holds all three fused under one revision (CHECKED).
+The object: a definition that owns its edits, its shape in one of several languages with derived representations that keep a way back, placed by occurrences (his copies), with a look with attachment layers, identity for the definition, its faces, its edges and its occurrences, and optionally the construction it derives from. The sources sit above it, as on the path page: a modeller, a formula run by the executor, a capture streamed like an image, extrude over a path value, a reference to another space. The region is not the thing. It is a portal on a page into a space, and the space is the container. Today the region holds all three fused under one revision (CHECKED).
 **Containment: 3D inside 2D, 2D inside 3D, or nested spaces of both kinds? What must a 3D thing still mean after I orbit it, move an object, place ink on a face, zoom the page, or share it?**
 Nested spaces through portals, both ways, recursively; the root is the window's space, a page on a desktop, a room in a headset; nothing in the model changes with the root. Orbit changes a camera and no value. Move changes one placement, and the ink on the face moves with it because it lives in the face's chart. Placing ink adds a path value to a chart. Page zoom changes the page's projection and refines detail by projected error; no value knows it. Sharing sends values and references; every surface is re-derived on the other side.
 **Two cameras: what composes them, and what happens when the page's zoom crosses into a region?**
@@ -272,11 +309,11 @@ The table above. All four force code: the resolve and render-to-surface for the 
 **What must exist as code below the waist for 3D, and what is its input and output, such that the ceilings can be built above it as data?**
 The nine things named under the ceilings table, and the contract block: spaces, things, looks, portals in; a resolve per space per view, a chain answer, geometric answers, and a surface answer out. The executor is the one whose absence makes every ceiling native code; the others are shelves on pieces the path picture already has, plus the resolve and the material stage.
 **Am I reasoning from what region3d does today or from how it should be? How would the best team define the problem, and what trade-offs would they name?**
-This page was derived from what the things must mean, then checked against the tree; the tree holds one instance of each piece (a shadow surface, a BVH, a lease, a decal, a triangle pick) and none of the joins, and its definitions are all renderer quantities: rect, lease, composite, bias, index. The best team's definition and their sixteen trade-offs are above; the ones Sid did not know to ask about are the bought kernel, the two kinds of copies, the face anchor, and that MSAA versus temporal is decided by the page, not by the scene.
+This page was derived from what the things must mean, then checked against the tree; the tree holds one instance of each piece (a shadow surface, a BVH, a lease, a decal, a triangle pick) and none of the joins, and its definitions are all renderer quantities: rect, lease, composite, bias, index. Three sessions derived the same shape without reading each other, which in an exploration is the strongest evidence a picture gets. The best team's definition and the trade-offs are above; the ones Sid did not know to ask about are the bought kernel, the two kinds of copies, the face anchor, attachment repair versus explicit ambiguity, and that MSAA versus temporal is decided by the page, not by the scene.
 
 ## Positions, each with the condition under which it stops being the answer
 **[position 1] the general 3D object**
-Shape in one representation, placement (one or many), look with chart layers, identity for thing, faces and copies, construction if derived; in a space; sources above. Stops being the answer: never for the shape of it; the representation list grows, and a representation that cannot write depth declares how it composes and is still an object.
+A definition that owns its edits, in one language, plus derived representations each with correspondence back; occurrences that place it; a look with attachment layers; identity for definition, faces, edges and occurrences; a construction if derived; sources above. The 3D "store the curve" is the object-space contribution's sentence: retain the description that owns the intended edits, together with correspondence from everything derived from it. Stops being the answer: never for the shape of it; the language list grows, and a representation that cannot write depth declares how it composes and is still an object.
 **[position 2] a space is a frame plus an order rule; the region splits**
 Declared order on a page, derived-from-view order in a 3D space; environment (background, ambient) is a space-level look. The region row becomes a space by reference, a portal with a mapping, and a revision per thing. Stops being the answer: if a page ever wants real depth for 2D items with lighting, it becomes a derived-order space, and nothing else changes.
 **[position 3] containment is nested spaces through portals, both ways, recursively**
@@ -290,13 +327,13 @@ Ordered coverage (the path filler) and depth plus shading (the 3D resolve); each
 **[position 7] 2D on 3D is a chart layer in the face's look, never a biased decal**
 Chart kinds frame, face, uv, projection; frame first because it is stable and exists today; paint in a chart is part of the surface's albedo, so it is lit, shadowed and occluded with the face; tolerance from the full chain, anisotropic. The path page's Position 6 is this with "plane" replaced by "chart". Stops being the answer: for content that must float off the surface (a label on a stalk), which is a thing of its own, not a layer.
 **[position 8] the pick is a chain; hover is the same call**
-hit(ray, space) over the same lowered geometry the GPU drew, through portals and into charts, ending at the innermost value; the screen point is one source of a ray, the head and a hand are others. The id-buffer is the check. Stops being the answer: never; if the ray-query road lands, draw and pick become one function and this position gets cheaper.
+hit(ray, space, mode) over the same lowered geometry the GPU drew, through portals and into charts, ending at the innermost value with status and versions; the screen point is one source of a ray, the head and a hand are others; mode is visible, geometric, nearest or sample, because glass, volumes and splats have no single winner and the object-space contribution is right that nearest is not universal. Hover is the same query re-run when anything on its chain changes, emitting only the links that differed. The id-buffer is the check. Stops being the answer: never; if the ray-query road lands, draw and pick become one function and this position gets cheaper.
 **[position 9] sort by rate, then place; derived surfaces keyed on their own inputs**
 Per edit, per scale (projected error), per frame, and a fourth row: on their own inputs, for shadows, probes, fixed portals and static regions. Stops being the answer: never; it is the path round's axis with one row added.
 **[position 10] the executor is the centre of the waist**
-Saved constructions (feature trees, operator graphs, relationships, scatter, section-to-plan, looks as graphs) are data it runs with dependency tracking; native operations are its shelf; the path round's three doors are its forms and door two is the minimum. Stops being the answer: at the path round's exit for Position 8, if Sid rules that tools are code above a data-only contract; then every ceiling's graph is native and the ceilings are hacked through, which his own framing forbids.
+Saved constructions (feature trees, operator graphs, relationships, scatter, section-to-plan, looks as graphs) are data it runs with dependency tracking, explicit state and time; it is thin: the typed libraries it calls do the work, constraint solving is one of them with convergence or failure as its result, and bulk per-frame work goes through its GPU door. Sid's doubt of about 02:00 is on the ledger and this position now agrees with it: one interpreter would have small throughput and the constraints are the hard part, so the executor orchestrates and the kernels execute. The path round's three doors are its forms and door two is the minimum. Stops being the answer: at the path round's exit for Position 8, if Sid rules that tools are code above a data-only contract; his words of the same night ("those tools are dinasarus") say he will not.
 **[position 11] one waist**
-One contract, one transform tree, one composition primitive, one rate axis, one executor, one pick, two resolves that nest. The 3D code is shelves on the path picture's pieces plus the resolve, the material stage and the promotion. Stops being the answer: only if 2D inside 3D could not be a chart with declared order at a derived depth, and it can; a second execution below (ray query, path tracing) is a second engine under one waist, which is the path round's own "the contract lives, the program is the fork".
+One contract, one transform tree, one rate axis, one thin executor, one query, three crossings (present, embed, derive), two resolves that nest; several libraries beneath. All three sessions on this kind wrote "one waist, several libraries" independently. The 3D code is shelves on the path picture's pieces plus the resolve, the material stage and the promotion. Stops being the answer: only if 2D inside 3D could not be a chart with declared order at a derived depth, and it can; a second execution below (ray query, path tracing) is a second engine under one waist, which is the path round's own "the contract lives, the program is the fork"; and separately deployed runtimes may need a transport boundary, which is a deployment choice that still shares identity, versions, units and queries (the Codex lane).
 
 ## What changes in the path-kind picture
 - **Position 6, sharpened.** "Placed ink takes the coverage lane on the object's z = 0 plane" becomes "placed ink is a chart layer in the face's look; chart kinds frame, face, uv, projection; the z = 0 plane is the first frame chart". The cut of the 88-byte mesh road stands.
@@ -308,13 +345,43 @@ One contract, one transform tree, one composition primitive, one rate axis, one 
 - **The path kind gains a source.** Section and silhouette emit path values derived from 3D; they must carry provenance (which face, which edge) or a BIM plan cannot be edited back, the definer's "source correspondence" one level up.
 - **The sweater stays order.** Over and under in 2D is declared order; in a chart it is chart order; never depth. Depth is the 3D space's derived order and the two are not the same axis.
 - **Precision is one fix.** Rebase around the camera before upload, found by the path round for the infinite canvas, is the same move the planet needs; one stage in the transform tree, both dimensions.
+- **Sections keep their conics (both lanes).** Line, quadratic and cubic are the imaging language, not a lossless language for a CAD section: circles, conics and rational intersections stay analytic in the geometry shelf's result and lower to the path value at a declared error with provenance. The path filler never becomes a CAD kernel; the path grammar may grow an arc, or not, and either way the authoritative form is upstream.
+- **Coverage declares its interpretation (both lanes).** On a face the same coverage can be a coating in the material, an unlit depth-tested annotation, or an input to a geometric construction (raised paint). The path page's "regions to the filler" gains a consumer that says which. And a device-unit width names the view it is measured in when one definition appears in several views.
 
 ## The decision that remains, and the exact question still open
-**[decision · 3D's output] Is render(space, camera, size) → surface an answer, or only the compositor's internal act?**
-If it is an answer, shadows, probes, portals, thumbnails, bakes and a plan rendered to a page are all data above the waist, scheduled by declarations, and the region is its first caller. If it is internal, each of those is a native feature added one at a time. This is the one input-and-output decision that changes what the ceilings can be built from. Position 4 says answer; the cost is a surface budget, which the leases and rungs already are for one surface kind.
-**[definition · the definer's chair] What is a chart?**
-Where a flat frame on a 3D surface comes from and what it anchors to: a plane in the object's frame, a named face's parameter space, the mesh's uv atlas, a projector. This is the 3D twin of the path round's Position 7: a definitional fork at the seam, with a counterexample waiting (a stroke that crosses from one triangle to another on a curved mesh has no frame chart). Position 7 above takes frame first; the definer works the kinds and their identity.
+**[decision · 3D's input and output] Adopt the three-verb interface, and decide what a new representation must supply to it.**
+Construct: typed sources, an operation or saved program, parameters and the model's tolerance in; typed results with correspondence and status out. Present: occurrences, attachments, a view, time and a demand in; a surface with its view, size, time and achieved quality out, callable as a value. Query: a snapshot of content and view, a ray or aperture, a mode and an accuracy in; an addressed chain with coordinates, versions and status out. All three sessions wrote this interface; this page had it as a contract block and a "fifth answer". The decision inside it is the one the Codex lane named: what an above-waist definition of a new spatial representation must supply (bounds, sampling, intersection and selection semantics, correspondence to editable inputs) so the engine can construct, present and query it without a new hardcoded kind, and which of those arrive as saved programs and which as kernel capabilities. An implicit or sampled object is the concrete test. That is the limit of the promise that a new tool needs no engine change, and it is Sid's to size.
+**[definition · the definer's chair] What the geometry operation returns when the face under the stroke is split, merged or deleted.**
+The object-space contribution's question, sharper than this page's "what is a chart": a relation, not an id map: unchanged, generated, split, merged, deleted, ambiguous, with parameter maps where known, so a saved attachment policy can keep, split, trim or explicitly detach the stroke without consulting display triangles or guessing intent. The field's precedent is a CAD kernel's topological naming, which combines operation history with shape evolution and still admits ambiguity (FIELD). The construction to work: one extruded sketch, a stroke attached to a named face, a boolean split, the surviving ink returned as a 2D drawing, queried from both views. Chart kinds and their metrics are the same exercise one level down.
 **[open · Sid's feel] What does page zoom mean at a region: focal length, or a step into the room?**
-Position 5 says focal length: an optical zoom, a magnified crop, nothing stored changes, and entering is the region camera's own gesture. The other reading, zoom beyond the rect becomes a dolly, is a declared mapping on the portal. Which is the default is what a person feels the first time they wheel over a region, and only Sid can close it. Asked once, here. The bench beside this page lets him wheel over one and feel both.
-Landed under `docs/below-the-waist/3d/`: this page and its `.md` twin, `fact-base-1.md` with the three hunter reports and this session's derivations, and `bench-0/`, the seam bench. This page is published at claude.ai/code/artifact/ced3dcf5-d276-46ab-8456-3a1be0141bc5 and the bench at claude.ai/code/artifact/5fd52994-becf-4840-871e-0453bcd7bc3e; to republish either from a fresh session, read it with that url first, then publish with `url` set and the file as `file_path`, or a second artifact is made. Beside them, unfolded and not read past its first paragraph: the other lane's `3d-kind-working-model.md`. The path kind's directory was being edited by its own chairs while this was written (attack 1 folded, `d202c90`, `4b8e986`); nothing here changes it, and the "what changes in the path-kind picture" list above is for its composer to fold or refuse. Positions are marked and the verdicts are Sid's.
+Position 5 says focal length: an optical zoom, a magnified crop, nothing stored changes, and entering is the region camera's own gesture. Both lanes agree there is no mathematical threshold where zoom becomes dolly, and add what the other reading costs: a navigation transition defined as data that preserves the displayed crop and projection at the handover and then decides how they evolve, or the room jumps. Which default a person should feel the first time they wheel over a region is the question, and only Sid can close it. Asked once, here. The bench lets him wheel over one and feel both.
+
+## Folded in from the two lanes
+Sid carried two contributions between chairs on 2026-09-06: the Codex lane's `3d-kind-working-model.md` and the object-space contribution `3d-object-space-and-query.md` with its handoff. Both read in full; everything either had that this page lacked is above, with who found it; counterexamples at full weight, rankings at none. A third page, session 2's `3d-kind-2.html`, sits in the directory unread and unfolded until Sid carries it.
+
+### Where the three met without reading each other
+- One waist, several geometry and imaging libraries beneath it; the executor runs constructions but supplies no algorithm by existing.
+- The region is not the thing: a view of a space placed on a page; the space and its things have identity independent of it; the same space can be seen through another camera, contain pages, or be the window's root.
+- Nested planar and spatial spaces with explicit relationships, both ways; a planar root as the page product's default, a spatial root for a headset, with nothing about the things changing.
+- Ink on a face is an attachment to a copy and a face, drawn as a layer of the face's look; cameras compose as a chain; page zoom is magnification and entering is a different action; the pick is a route from page to stroke; a portal has two meanings, picture and window, and the window needs an eye-and-ray mapping.
+- The rate axis survives; derived work is keyed on its own inputs; fine grain names the changed meaning while the consequences may be large.
+- Today's tree holds the pieces and none of the joins: pick-region excludes ink and text, the composite exports resolved colour only, the plane helper is a coordinate utility, placement zoom is fixed.
+
+### What each lane had that this page lacked, adopted
+- **Codex lane.** The level table (source, construction, representation, occurrence, scene, view) and the definition-versus-occurrence split. Three crossings, present, embed, derive, where this page had one primitive. "Surface" naming three things. Physics scope declared apart from grouping. A gesture leaving the face needs a declared behaviour. Hover as a query re-run on scene change, emitting diffs. The transition as data for zoom-to-enter. Scheduling as a capability: progress, cancellation, versioned results, explicit state and time. The four differences split into degree and kind. The merge caveat. The dividing rule that difficulty does not prove permanence, with native kernels as the practical default. The three-verb interface and the extension question.
+- **The object-space contribution.** "Retain the description that owns the intended edits, with correspondence from every derived representation back to it" as the 3D "store the curve". The mesh is not the leak; replacing needed information is. Query modes: visible, geometric, nearest, sample; candidates where no single winner exists. The stationary pointer under a moving occluder, with the rule that an internal stamp must not publish a change. A surface's other channels with their own resolve rules. Sections keep their conics. Tolerance-aware CAD. The screenshot test: same pixels, different data. The topology-correspondence question and the construction that tests it.
+
+### Where this page holds, and why
+- **The order rule as the 2D/3D distinction.** Both lanes say "planar and spatial"; this page says a space is a frame plus whether front-to-back is declared or derived from the view, because that is the property the compositor and the pick actually branch on, and it is what makes a chart a flat declared-order space at a derived depth. Translation stands in the words block.
+- **Page zoom is focal length, the default.** Both lanes agree on the model (no threshold, a transition as data); the page keeps the default as a position and the feel as Sid's question.
+- **Forward with MSAA, generalised from the region lane.** Neither lane chose a renderer, and the object-space contribution says choosing one first cannot settle the trade-offs. Agreed; the fork table is below the waist and the position is about the road from here, not the model.
+- **Render to surface as a value.** Kept as the fifth answer, now as the Present verb's output; the lanes' correction that it is one of three crossings is adopted above it, not against it.
+
+### Fix list carried, never rank penalties
+- Bench 0 computes the chain on pointer moves; the stationary-pointer case is now on it by keyboard (orbit and nudge the sphere without moving the pointer), query modes are not.
+- Bench 0's chart is a frame chart on a planar face; curved charts, seams and metrics are not on it.
+- The page's ceilings table names the exact kernel as bought; the dividing rule above softens that to a practical default.
+- The contract block's "identity" now lists faces and edges; what a face id is on a mesh with no faces (face groups, uv charts) is the definer's exercise.
+
+Landed under `docs/below-the-waist/3d/`: this page and its `.md` twin, `fact-base-1.md` with the three hunter reports, this session's derivations and the fold record, `bench-0/`, the seam bench, and `HANDOFF-1.md`, the successor's handoff with the starter Sid pastes. This page is published at claude.ai/code/artifact/ced3dcf5-d276-46ab-8456-3a1be0141bc5 and the bench at claude.ai/code/artifact/5fd52994-becf-4840-871e-0453bcd7bc3e; to republish either from a fresh session, read it with that url first, then publish with `url` set and the file as `file_path`, or a second artifact is made. Beside them, both folded above: the Codex lane's `3d-kind-working-model.md` and the object-space contribution's `3d-object-space-and-query.md` with its handoff; session 2's `3d-kind-2.html`, its fact base and its bench sit unread until Sid carries them. The path kind's directory was being edited by its own chairs while this was written (attack 1 folded, `d202c90`, `4b8e986`); nothing here changes it, and the "what changes in the path-kind picture" list above is for its composer to fold or refuse. Positions are marked and the verdicts are Sid's.
 

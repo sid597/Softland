@@ -18,6 +18,7 @@ Live at https://claude.ai/code/artifact/5fd52994-becf-4840-871e-0453bcd7bc3e (re
 | The chain panel: screen → page → page hit (declared order; the bar passes through) → region-local → a ray in S1 (page zoom does not enter it) → nearest thing, face, chart uv → classify against the stroke with a footprint taken one device pixel to the right through the same chain → through the portal into S2 | Position 8: the pick is a chain, hover is the same call; each row flashes when its value changes, at its own rate |
 | `GPU id at the cursor`: an id pass of S1 with the same composed matrices, one pixel read back, compared to the CPU chain's object and face | the parity check the path round also runs: CPU and GPU agreeing on nearest |
 | `draw on the face`: knots appended in chart units from the chain's uv; the new stroke is a second layer in the same shader | placing ink on a face adds a path value to a chart, nothing else |
+| Keys with the pointer still: arrows orbit, `[` `]` move the box, `,` `.` move the sphere forward and back; the chain re-runs from the last pointer position when the scene key changes, and only the rows that differ light up | the case both lanes added: hover is a query over the pointer and the scene, re-run on scene change, emitting diffs; the sphere passing in front loses the stroke without a pointer move |
 
 ## What it simplifies, so nobody reads more into it
 
@@ -47,10 +48,11 @@ google-chrome --headless=new --no-sandbox --use-angle=swiftshader --use-gl=angle
   --virtual-time-budget=8000 --screenshot=out.png "file://…/seam-bench.html#exec=direct&portal=window"
 ```
 
-`--dump-dom` in place of `--screenshot` prints the chain panel and the counters. Verified 2026-09-06 on SwiftShader: both executions render, the chain populates, the id read agrees with the CPU chain at the box's front face.
+`--dump-dom` in place of `--screenshot` prints the chain panel and the counters. Verified 2026-09-06 on SwiftShader: both executions render, the chain populates, the id read agrees with the CPU chain at the box's front face. The keyboard re-run was checked by hand in the same session's probe (the DOM shows the chain after a simulated key), not by screenshot.
 
 ## Known fix list
 
 - The initial chain is computed at a fixed point on the box's front face; if the box is moved via the hash it may land elsewhere.
+- Query modes (visible, geometric, nearest, sample) are not on the bench; the chain is visible-nearest only, and there is no glass, volume or splat to need candidates.
 - Stroke B is capped at 64 knots and replaced on each new drag; there is no wet route and no fit; knots are appended raw.
 - `history.replaceState` runs on every pointer move during a drag.
