@@ -1,0 +1,531 @@
+<title>The Path Kind's Waist</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --paper:#F4F5F7; --surface:#FFFFFF; --ink:#1A1E26; --muted:#5C6470; --rule:#C9CDD4;
+  --pen:#1E4FA3; --pen-soft:#E3EAF7; --mark:#B03A47; --mark-soft:#F6E4E6; --code:#EEF0F3;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#14171C; --surface:#1B1F26; --ink:#E4E7EC; --muted:#98A0AC; --rule:#2F343C;
+    --pen:#86ACF0; --pen-soft:#1E2A40; --mark:#E37F8A; --mark-soft:#3A2126; --code:#20252D;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#14171C; --surface:#1B1F26; --ink:#E4E7EC; --muted:#98A0AC; --rule:#2F343C;
+  --pen:#86ACF0; --pen-soft:#1E2A40; --mark:#E37F8A; --mark-soft:#3A2126; --code:#20252D;
+}
+body{background:var(--paper);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.55;margin:0}
+main{max-width:1080px;margin:0 auto;padding:40px 24px 96px}
+h1,h2,h3{font-family:"IBM Plex Serif",Georgia,"Times New Roman",serif;text-wrap:balance;margin:0}
+h1{font-size:2.3rem;font-weight:600;line-height:1.15}
+h2{font-size:1.45rem;font-weight:600;margin-top:56px;padding-top:20px;border-top:1px solid var(--rule)}
+h3{font-size:1.1rem;font-weight:600;margin-top:28px}
+p,li{max-width:72ch}
+.kicker{font-size:.8rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:500;margin-bottom:12px}
+.lede{font-size:1.08rem;color:var(--muted);margin-top:14px}
+.tags{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.tag{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.74rem;letter-spacing:.04em;padding:3px 8px;border:1px solid var(--rule);border-radius:3px;color:var(--muted)}
+.tag.pen{border-color:var(--pen);color:var(--pen)}
+.tag.mark{border-color:var(--mark);color:var(--mark)}
+figure{margin:28px 0 8px}
+figure svg{max-width:100%;height:auto;display:block;font-family:"IBM Plex Sans",system-ui,sans-serif}
+figcaption{font-size:.9rem;color:var(--muted);margin-top:10px;max-width:80ch}
+.figwrap{overflow-x:auto;background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:16px}
+ol.story{counter-reset:s;list-style:none;padding:0;margin:20px 0 0}
+ol.story li{counter-increment:s;position:relative;padding-left:44px;margin:0 0 12px;font-size:1.02rem}
+ol.story li::before{content:counter(s);position:absolute;left:0;top:1px;width:28px;height:28px;border-radius:50%;background:var(--pen-soft);color:var(--pen);font-family:"IBM Plex Mono",monospace;font-size:.8rem;display:flex;align-items:center;justify-content:center;font-weight:500}
+table{border-collapse:collapse;width:100%;font-size:.93rem;margin-top:16px}
+.tblwrap{overflow-x:auto}
+th,td{text-align:left;vertical-align:top;padding:10px 12px;border-bottom:1px solid var(--rule)}
+th{font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500}
+td code,p code,li code{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.86em;background:var(--code);padding:1px 5px;border-radius:3px}
+pre{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.84rem;line-height:1.5;background:var(--code);padding:14px 16px;border-radius:4px;overflow-x:auto;margin:14px 0}
+.verdict{font-family:"IBM Plex Mono",monospace;font-size:.76rem;letter-spacing:.04em;white-space:nowrap}
+.v-holds{color:var(--pen)} .v-default{color:var(--muted)} .v-short{color:var(--mark)}
+.pos{border-left:3px solid var(--pen);padding:10px 16px;margin:16px 0;background:var(--surface)}
+.pos b{font-family:"IBM Plex Mono",monospace;font-size:.76rem;letter-spacing:.06em;color:var(--pen);display:block;margin-bottom:4px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-top:16px}
+.grid2.stack{grid-template-columns:1fr}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:4px;padding:16px 18px}
+.card h3{margin-top:0}
+.card ul{padding-left:18px;margin:8px 0 0}
+.card li{margin-bottom:6px;font-size:.95rem}
+.q{margin-top:22px}
+.q .ask{font-weight:600}
+.q p{margin:6px 0 0}
+small.src{display:block;color:var(--muted);font-size:.82rem;margin-top:6px}
+hr{border:0;border-top:1px solid var(--rule);margin:40px 0}
+.flat{list-style:none;padding:0}
+.flat li{padding:8px 0;border-bottom:1px solid var(--rule)}
+</style>
+
+<main>
+<div class="kicker">Softland · 2D engine · working paper · session of 2026-09-05 · revised after the eight-session round</div>
+<h1>The Path Kind's Waist</h1>
+<p class="lede">What must exist as code for ink and shapes, what goes in, what comes out, and where the PostScript imaging model holds, is only a default, or falls short. The picture comes first; the story reads off it. Positions are marked and are Sid's to rule on. Nothing here has landed in the repo.</p>
+<div class="tags">
+  <span class="tag pen">CHECKED — a hunter read the lines</span>
+  <span class="tag">DERIVED — inferred from checked lines</span>
+  <span class="tag">FIELD — recalled from the literature, not verified this session</span>
+  <span class="tag mark">POSITION — mine, awaiting Sid's word</span>
+</div>
+
+<!-- ============================ FIGURE 1 ============================ -->
+<h2>The picture: the path kind as it should be</h2>
+<p>One grain: pieces, what each takes and gives, and the arrows the code would actually make. Above the waist is data anyone can author. Below is the small fixed set of code the data feeds.</p>
+
+<figure>
+<div class="figwrap">
+<svg viewBox="0 0 1180 760" role="img" aria-label="The path kind as it should be: four sources above the waist derive one path-plus-paint input; below the waist four code pieces (path type, geometry, packer, filler) produce coverage draws for the GPU and geometric answers for the CPU; text shares the filler.">
+<defs>
+  <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+  <marker id="arrpen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#1E4FA3"/></marker>
+</defs>
+<g fill="none" stroke="currentColor" stroke-width="1.2" color="currentColor">
+
+<!-- band labels -->
+<text x="40" y="34" font-size="11" fill="currentColor" stroke="none" letter-spacing="1.5" opacity=".7">SOURCES · DATA · ABOVE THE WAIST</text>
+
+<!-- sources row -->
+<rect x="40" y="46" width="230" height="70" rx="3"/>
+<text x="52" y="68" font-size="13" font-weight="600" fill="currentColor" stroke="none">Pen</text>
+<text x="52" y="86" font-size="11.5" fill="currentColor" stroke="none">burst: samples x y, width or pressure,</text>
+<text x="52" y="102" font-size="11.5" fill="currentColor" stroke="none">time, tilt · kept raw, never edited</text>
+
+<rect x="290" y="46" width="230" height="70" rx="3"/>
+<text x="302" y="68" font-size="13" font-weight="600" fill="currentColor" stroke="none">Formula shape</text>
+<text x="302" y="86" font-size="11.5" fill="currentColor" stroke="none">rect, rounded rect, circle, ellipse:</text>
+<text x="302" y="102" font-size="11.5" fill="currentColor" stroke="none">a few numbers stay the editable truth</text>
+
+<rect x="540" y="46" width="230" height="70" rx="3"/>
+<text x="552" y="68" font-size="13" font-weight="600" fill="currentColor" stroke="none">Designer outline</text>
+<text x="552" y="86" font-size="11.5" fill="currentColor" stroke="none">star, arrow, icon, tldraw/Figma shape:</text>
+<text x="552" y="102" font-size="11.5" fill="currentColor" stroke="none">already segments, authored once</text>
+
+<rect x="790" y="46" width="250" height="70" rx="3"/>
+<text x="802" y="68" font-size="13" font-weight="600" fill="currentColor" stroke="none">Glyph (the text kind)</text>
+<text x="802" y="86" font-size="11.5" fill="currentColor" stroke="none">font outline, positioned by layout;</text>
+<text x="802" y="102" font-size="11.5" fill="currentColor" stroke="none">bands baked offline today</text>
+
+<!-- arrows sources -> input -->
+<line x1="155" y1="116" x2="155" y2="176" marker-end="url(#arr)"/>
+<text x="163" y="150" font-size="11" fill="currentColor" stroke="none" opacity=".85">fit at tolerance τ</text>
+<line x1="405" y1="116" x2="405" y2="176" marker-end="url(#arr)"/>
+<text x="413" y="150" font-size="11" fill="currentColor" stroke="none" opacity=".85">emit segments</text>
+<line x1="655" y1="116" x2="655" y2="176" marker-end="url(#arr)"/>
+<text x="663" y="150" font-size="11" fill="currentColor" stroke="none" opacity=".85">as drawn</text>
+<line x1="915" y1="116" x2="915" y2="176" marker-end="url(#arr)"/>
+<text x="923" y="150" font-size="11" fill="currentColor" stroke="none" opacity=".85">outline per glyph</text>
+
+<!-- input box -->
+<rect x="40" y="178" width="1000" height="132" rx="3" stroke="#1E4FA3" stroke-width="1.6"/>
+<text x="52" y="200" font-size="11" fill="#1E4FA3" stroke="none" letter-spacing="1.5">THE INPUT · one value, camera-free, local units</text>
+<text x="52" y="226" font-size="13" font-weight="600" fill="currentColor" stroke="none">path</text>
+<text x="52" y="244" font-size="11.5" fill="currentColor" stroke="none">subpaths, each: segments line | quad | cubic,</text>
+<text x="52" y="260" font-size="11.5" fill="currentColor" stroke="none">closed? flag; optional per-knot attributes</text>
+<text x="52" y="276" font-size="11.5" fill="currentColor" stroke="none">(width, opacity, pressure, time); stable ids</text>
+<text x="52" y="292" font-size="11.5" fill="currentColor" stroke="none">on knots so a split keeps identity</text>
+
+<text x="392" y="226" font-size="13" font-weight="600" fill="currentColor" stroke="none">paint · two independent declarations</text>
+<text x="392" y="244" font-size="11.5" fill="currentColor" stroke="none">fill?   { rule: nonzero | even-odd, colour }</text>
+<text x="392" y="260" font-size="11.5" fill="currentColor" stroke="none">stroke? { tip: shape + size or per-knot width,</text>
+<text x="392" y="276" font-size="11.5" fill="currentColor" stroke="none">          cap, join, miter limit, overlap: union,</text>
+<text x="392" y="292" font-size="11.5" fill="currentColor" stroke="none">          colour }   neither ⇒ draws nothing</text>
+
+<text x="762" y="226" font-size="13" font-weight="600" fill="currentColor" stroke="none">identity</text>
+<text x="762" y="244" font-size="11.5" fill="currentColor" stroke="none">material id, revision,</text>
+<text x="762" y="260" font-size="11.5" fill="currentColor" stroke="none">container (group transform id)</text>
+<text x="762" y="284" font-size="11.5" fill="currentColor" stroke="none" opacity=".75">nothing in here knows the zoom</text>
+
+<!-- waist line -->
+<line x1="40" y1="340" x2="1040" y2="340" stroke="#B03A47" stroke-width="1.6" stroke-dasharray="8 6"/>
+<text x="1040" y="332" font-size="11" fill="#B03A47" stroke="none" letter-spacing="1.5" text-anchor="end">THE WAIST · above: data · below: code that must exist</text>
+
+<!-- code row -->
+<rect x="40" y="366" width="200" height="118" rx="3"/>
+<text x="52" y="388" font-size="13" font-weight="600" fill="currentColor" stroke="none">1 · path type</text>
+<text x="52" y="406" font-size="11.5" fill="currentColor" stroke="none">validate the value</text>
+<text x="52" y="422" font-size="11.5" fill="currentColor" stroke="none">canonical content hash</text>
+<text x="52" y="438" font-size="11.5" fill="currentColor" stroke="none">(no zoom in it)</text>
+<text x="52" y="462" font-size="11" fill="currentColor" stroke="none" opacity=".7">cljc, pure</text>
+
+<rect x="260" y="366" width="260" height="118" rx="3"/>
+<text x="272" y="388" font-size="13" font-weight="600" fill="currentColor" stroke="none">2 · geometry</text>
+<text x="272" y="406" font-size="11.5" fill="currentColor" stroke="none">envelope(path, tip) → closed outline(s)</text>
+<text x="272" y="422" font-size="11.5" fill="currentColor" stroke="none">   consistently wound, overlaps allowed</text>
+<text x="272" y="438" font-size="11.5" fill="currentColor" stroke="none">flatten(τ) · winding(point) · distance(point)</text>
+<text x="272" y="454" font-size="11.5" fill="currentColor" stroke="none">bbox · split at a knot</text>
+<text x="272" y="474" font-size="11" fill="currentColor" stroke="none" opacity=".7">cljc, pure · the hard part</text>
+
+<rect x="540" y="366" width="220" height="118" rx="3"/>
+<text x="552" y="388" font-size="13" font-weight="600" fill="currentColor" stroke="none">3 · packer</text>
+<text x="552" y="406" font-size="11.5" fill="currentColor" stroke="none">outline → quadratics</text>
+<text x="552" y="422" font-size="11.5" fill="currentColor" stroke="none">→ bands (curves per row/col)</text>
+<text x="552" y="438" font-size="11.5" fill="currentColor" stroke="none">→ cover: bbox or touched cells</text>
+<text x="552" y="454" font-size="11.5" fill="currentColor" stroke="none">+ instance row (paint, group)</text>
+<text x="552" y="474" font-size="11" fill="currentColor" stroke="none" opacity=".7">cljc · fonts get this offline today</text>
+
+<rect x="780" y="366" width="260" height="118" rx="3" stroke="#1E4FA3" stroke-width="1.6"/>
+<text x="792" y="388" font-size="13" font-weight="600" fill="currentColor" stroke="none">4 · filler (one GPU program)</text>
+<text x="792" y="406" font-size="11.5" fill="currentColor" stroke="none">per pixel: signed root count of the</text>
+<text x="792" y="422" font-size="11.5" fill="currentColor" stroke="none">curves in my band → coverage under</text>
+<text x="792" y="438" font-size="11.5" fill="currentColor" stroke="none">the rule, analytic AA → scene_color</text>
+<text x="792" y="454" font-size="11.5" fill="currentColor" stroke="none">one resolve per painted region</text>
+<text x="792" y="474" font-size="11" fill="#1E4FA3" stroke="none">= text's slug_render, generalised</text>
+
+<line x1="240" y1="425" x2="258" y2="425" marker-end="url(#arr)"/>
+<line x1="520" y1="425" x2="538" y2="425" marker-end="url(#arr)"/>
+<line x1="760" y1="425" x2="778" y2="425" marker-end="url(#arr)"/>
+
+<!-- input -> path type -->
+<line x1="140" y1="310" x2="140" y2="364" marker-end="url(#arr)"/>
+<!-- glyph source -> packer (bypass, dashed) -->
+<path d="M1000 116 L1060 116 L1060 354 L650 354 L650 364" stroke-dasharray="4 4" marker-end="url(#arr)"/>
+<text x="1070" y="236" font-size="11" fill="currentColor" stroke="none" opacity=".75">glyphs are banded</text>
+<text x="1070" y="251" font-size="11" fill="currentColor" stroke="none" opacity=".75">offline and skip</text>
+<text x="1070" y="266" font-size="11" fill="currentColor" stroke="none" opacity=".75">the path type;</text>
+<text x="1070" y="281" font-size="11" fill="currentColor" stroke="none" opacity=".75">same filler</text>
+
+<!-- outputs directly under the code row -->
+<text x="40" y="520" font-size="11" fill="currentColor" stroke="none" letter-spacing="1.5" opacity=".7">OUTPUTS</text>
+<rect x="40" y="532" width="480" height="110" rx="3"/>
+<text x="52" y="554" font-size="13" font-weight="600" fill="currentColor" stroke="none">to the CPU and other kinds</text>
+<text x="52" y="572" font-size="11.5" fill="currentColor" stroke="none">classify(point) → inside | boundary | outside, same rule as the GPU</text>
+<text x="52" y="588" font-size="11.5" fill="currentColor" stroke="none">bbox · the derived outline (curves)</text>
+<text x="52" y="604" font-size="11.5" fill="currentColor" stroke="none">flatten(τ) → polyline / triangles for mesh consumers</text>
+<text x="52" y="628" font-size="11" fill="currentColor" stroke="none" opacity=".7">region3d's placed ink is such a consumer today</text>
+
+<rect x="560" y="532" width="480" height="110" rx="3" stroke="#1E4FA3" stroke-width="1.6"/>
+<text x="572" y="554" font-size="13" font-weight="600" fill="currentColor" stroke="none">to the GPU</text>
+<text x="572" y="572" font-size="11.5" fill="currentColor" stroke="none">one coverage draw per painted region:</text>
+<text x="572" y="588" font-size="11.5" fill="currentColor" stroke="none">cover geometry + curve/band data + paint + group index,</text>
+<text x="572" y="604" font-size="11.5" fill="currentColor" stroke="none">valid at every zoom, resolved once (no double-blend)</text>
+<text x="572" y="628" font-size="11" fill="currentColor" stroke="none" opacity=".7">envelope always filled nonzero; interior under its declared rule</text>
+
+<line x1="390" y1="484" x2="390" y2="530" marker-end="url(#arr)"/>
+<text x="398" y="512" font-size="11" fill="currentColor" stroke="none" opacity=".85">geometric answers</text>
+<line x1="910" y1="484" x2="910" y2="530" stroke="#1E4FA3" marker-end="url(#arrpen)"/>
+<text x="918" y="512" font-size="11" fill="#1E4FA3" stroke="none" opacity=".9">instance rows</text>
+
+<!-- engine strip, shared, below -->
+<rect x="40" y="690" width="1000" height="44" rx="3" stroke-dasharray="4 4"/>
+<text x="52" y="708" font-size="11" fill="currentColor" stroke="none" letter-spacing="1.5" opacity=".7">ENGINE · shared by every kind, unchanged</text>
+<text x="52" y="725" font-size="11.5" fill="currentColor" stroke="none">camera uniform (pan, zoom) · group affines in a storage buffer · scene_color and blend · compositor targets and scissor</text>
+<line x1="800" y1="688" x2="800" y2="644" stroke-dasharray="3 3" marker-end="url(#arr)"/>
+<text x="808" y="670" font-size="11" fill="currentColor" stroke="none" opacity=".75">the draw binds these</text>
+</g>
+</svg>
+</div>
+<figcaption>Four sources derive one camera-free input. Below the waist, four pieces of code turn it into coverage draws and geometric answers. The filler is the program the text kind already runs per pixel; text becomes one more source above it.</figcaption>
+</figure>
+
+<!-- ============================ STORY ============================ -->
+<h2>The story, read off the picture</h2>
+<ol class="story">
+<li>Everything on the canvas ends as one question the GPU answers per pixel: how much of me is inside this region, and what colour goes there.</li>
+<li>A region is a closed outline made of curves, plus a rule for what "inside" means where the outline crosses itself.</li>
+<li>Text already works this way. A letter is a closed outline of quadratic curves, and the text shader answers that question with anti-aliasing built in. <span class="verdict v-holds">CHECKED</span></li>
+<li>A shape, whether rectangle, star or blob, is a closed outline of curves too.</li>
+<li>A pen stroke is not an outline. It is a centreline with a width that changes along it.</li>
+<li>To draw a stroke you first make its skin: the outline of the region the pen tip swept. Then it is drawn like anything else.</li>
+<li>Skin-making is the hard geometry. It is pure, camera-free, CPU-side. Today's tapered quads and round fans are a first version of it, delivered in the wrong output. <span class="verdict v-holds">CHECKED</span></li>
+<li>What gets stored for a stroke is the samples (what the pen did) and a smooth curve fitted to them at a declared looseness (what we draw and edit). Both are camera-free.</li>
+<li>Zoom becomes a camera move because nothing stored or cached knows the zoom. Today the fan resolution does. <span class="verdict v-holds">CHECKED</span></li>
+<li>The code that must exist for this kind is four pieces: the path type, the geometry, the packer, and the one filler. Text's filler is that filler, packed for glyphs.</li>
+<li>Everything else is data feeding those: tools, brushes, tips, cap styles, shape libraries, fill rules.</li>
+<li>The imaging model is the right language for the output. It is not the right language for storing ink, because its stroke has one width and a pen does not.</li>
+<li>Where the model is only a default: brushes that darken where they overlap (a raster world), crisp one-pixel UI borders (a snapping policy), and very long thin strokes (a cover policy).</li>
+<li>The knitted sweater is not a drawing problem. It is a split-and-order edit, and the kind's only job there is keeping segment identity so a split costs nothing.</li>
+</ol>
+
+<!-- ============================ INPUT / OUTPUT ============================ -->
+<h2>Input and output, spelled out</h2>
+<p>The value the kind takes and the two things it gives. This is the contract every session on the path kind should be talking about.</p>
+
+<div class="grid2 stack">
+<div class="card">
+<h3>Input: path + paint + identity</h3>
+<pre>path
+  subpaths*          each: segments*, closed?
+  segment            line | quad | cubic   (cubic in; quads at the packer)
+  knot attributes?   width, opacity, pressure, time   (per knot, optional)
+  knot ids           stable, so split/join keep identity
+
+paint                two independent declarations
+  fill?              { rule nonzero | even-odd, colour }
+  stroke?            { tip  { shape, size | per-knot width },
+                       cap, join, miter-limit,
+                       overlap union,          (accumulate = raster route, later)
+                       colour }
+  neither            draws nothing; both = bordered shape
+
+identity             material id, revision, container (group id)
+tolerance τ          NOT in the value; a packer parameter</pre>
+<p>Open path + fill: the fill closes it implicitly, as PostScript does. Open/closed matters only to the stroke: whether a closing segment is drawn and whether the start gets caps or a join.</p>
+</div>
+<div class="card">
+<h3>Output: two kinds of answer</h3>
+<pre>to the GPU (per painted region)
+  cover geometry     bbox rect, or the cells the outline touches
+  curves             quadratics in local units, consistently wound
+  bands              per row and per column: which curves cross it
+  instance row       paint, group index, rule
+  ⇒ one coverage draw, resolved once, valid at any zoom
+
+to the CPU / other kinds
+  classify(point, slop) → :inside | :boundary | :outside
+                          (winding with curves, same rule as the GPU)
+  bbox (local)
+  outline            the stroke's skin, as curves
+  flatten(τ)         polyline or triangles, for mesh consumers</pre>
+<p>The GPU output is the shape of what the text renderer already uploads per glyph: a rect, curve and band data, a 100-byte instance row. <span class="verdict v-holds">CHECKED</span></p>
+</div>
+</div>
+
+<!-- ============================ FIGURE 2 ============================ -->
+<h2>Today, at the same grain</h2>
+<p>What the four path files and their consumers actually do, from the hunters' reads. Red marks are where the GPU's format, or the camera, has leaked into what a stroke is.</p>
+
+<figure>
+<div class="figwrap">
+<svg viewBox="0 0 1080 700" role="img" aria-label="Today's path pipeline: harness fixtures make ink sample lists or polygon rings; tessellation bakes triangles at one of three zoom bands; the renderer draws flat-colour triangles without anti-aliasing; region3d reuses the same triangles for placed ink; the text kind runs a separate slug coverage shader on offline-banded glyphs.">
+<defs>
+  <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="currentColor"/></marker>
+</defs>
+<g fill="none" stroke="currentColor" stroke-width="1.2">
+
+<text x="40" y="34" font-size="11" fill="currentColor" stroke="none" letter-spacing="1.5" opacity=".7">WHO MAKES THE INPUT</text>
+<rect x="40" y="46" width="330" height="62" rx="3"/>
+<text x="52" y="68" font-size="13" font-weight="600" fill="currentColor" stroke="none">harness/path.cljs fixtures</text>
+<text x="52" y="86" font-size="11.5" fill="currentColor" stroke="none">literal 4-sample bursts and 8-point rings</text>
+<text x="52" y="101" font-size="11.5" fill="#B03A47" stroke="none">no pen or pointer code exists anywhere in client/</text>
+
+<rect x="720" y="46" width="320" height="62" rx="3"/>
+<text x="732" y="68" font-size="13" font-weight="600" fill="currentColor" stroke="none">font files → offline Slug bake</text>
+<text x="732" y="86" font-size="11.5" fill="currentColor" stroke="none">meta JSON + curve bytes + band bytes fetched</text>
+<text x="732" y="101" font-size="11.5" fill="currentColor" stroke="none">from /fonts/ · the baker is outside client/</text>
+
+<line x1="205" y1="108" x2="205" y2="150" marker-end="url(#arr2)"/>
+
+<!-- component -->
+<rect x="40" y="152" width="330" height="128" rx="3"/>
+<text x="52" y="174" font-size="13" font-weight="600" fill="currentColor" stroke="none">path/component.cljc</text>
+<text x="52" y="192" font-size="11.5" fill="currentColor" stroke="none">:ink   stroke-points [id position width</text>
+<text x="52" y="207" font-size="11.5" fill="currentColor" stroke="none">        ?pressure ?gesture-time], cap/join :round only</text>
+<text x="52" y="222" font-size="11.5" fill="currentColor" stroke="none">:shape contours [id role :outer|:hole points ≥ 3]</text>
+<text x="52" y="240" font-size="11.5" fill="currentColor" stroke="none">paint  colour, opacity (srgb, straight alpha)</text>
+<text x="52" y="258" font-size="11.5" fill="#B03A47" stroke="none">no curve segment · no fill rule · pressure never read</text>
+<text x="52" y="273" font-size="11.5" fill="#B03A47" stroke="none">width per sample, in local units · no open/closed flag</text>
+
+<line x1="205" y1="280" x2="205" y2="318" marker-end="url(#arr2)"/>
+<text x="213" y="303" font-size="11" fill="currentColor" stroke="none" opacity=".85">component + zoom</text>
+
+<!-- tessellation -->
+<rect x="40" y="320" width="330" height="150" rx="3"/>
+<text x="52" y="342" font-size="13" font-weight="600" fill="currentColor" stroke="none">path/tessellation.cljc</text>
+<text x="52" y="360" font-size="11.5" fill="currentColor" stroke="none">ink: per sample pair one tapered quad (2 tris);</text>
+<text x="52" y="375" font-size="11.5" fill="currentColor" stroke="none">round cap fans at both ends; round join fan on</text>
+<text x="52" y="390" font-size="11.5" fill="currentColor" stroke="none">the outside of each turn · = a variable-width skin</text>
+<text x="52" y="408" font-size="11.5" fill="currentColor" stroke="none">shape: bridge holes to the outer ring, ear-clip</text>
+<text x="52" y="426" font-size="11.5" fill="#B03A47" stroke="none">fan resolution 4 / 8 / 16 by zoom band → zoom is</text>
+<text x="52" y="441" font-size="11.5" fill="#B03A47" stroke="none">in the mesh cache key and the frame key</text>
+<text x="52" y="459" font-size="11.5" fill="#B03A47" stroke="none">simple polygons only; overlapping pieces stay separate</text>
+
+<line x1="205" y1="470" x2="205" y2="508" marker-end="url(#arr2)"/>
+<text x="213" y="493" font-size="11" fill="currentColor" stroke="none" opacity=".85">[[x y] ...] triangle list</text>
+
+<!-- renderer -->
+<rect x="40" y="510" width="330" height="130" rx="3"/>
+<text x="52" y="532" font-size="13" font-weight="600" fill="currentColor" stroke="none">path/renderer.cljs</text>
+<text x="52" y="550" font-size="11.5" fill="currentColor" stroke="none">28-byte vertex: position, colour ×4, group index</text>
+<text x="52" y="565" font-size="11.5" fill="currentColor" stroke="none">vertex shader: group affine · camera zoom/pan · NDC</text>
+<text x="52" y="580" font-size="11.5" fill="currentColor" stroke="none">fragment: flat colour → scene_color(colour, 1.0)</text>
+<text x="52" y="598" font-size="11.5" fill="currentColor" stroke="none">repacks every row on any change; one draw, one range</text>
+<text x="52" y="616" font-size="11.5" fill="#B03A47" stroke="none">no anti-aliasing (:aliased-v1) · translucent overlaps</text>
+<text x="52" y="631" font-size="11.5" fill="#B03A47" stroke="none">double-blend (declared in the harness)</text>
+
+<line x1="370" y1="575" x2="420" y2="575" marker-end="url(#arr2)"/>
+<rect x="422" y="548" width="120" height="54" rx="3" stroke-dasharray="4 4"/>
+<text x="482" y="571" font-size="12" fill="currentColor" stroke="none" text-anchor="middle">GPU</text>
+<text x="482" y="588" font-size="11" fill="currentColor" stroke="none" text-anchor="middle" opacity=".7">triangles</text>
+
+<!-- region3d consumer -->
+<rect x="400" y="320" width="300" height="150" rx="3"/>
+<text x="412" y="342" font-size="13" font-weight="600" fill="currentColor" stroke="none">region3d placed ink (a consumer)</text>
+<text x="412" y="360" font-size="11.5" fill="currentColor" stroke="none">on_plane.cljc calls the same derive-mesh-set at</text>
+<text x="412" y="375" font-size="11.5" fill="currentColor" stroke="none">zoom 1.0 and shares the path renderer's cache</text>
+<text x="412" y="393" font-size="11.5" fill="currentColor" stroke="none">88-byte vertex: [x y] + mat4 + premultiplied colour</text>
+<text x="412" y="408" font-size="11.5" fill="currentColor" stroke="none">placed on the object's z=0 plane in the shader</text>
+<text x="412" y="426" font-size="11.5" fill="currentColor" stroke="none">4× MSAA, depth test, one/one-minus blend</text>
+<text x="412" y="450" font-size="11.5" fill="currentColor" stroke="none" opacity=".75">only :ink is placeable; placed text has no caller</text>
+<line x1="370" y1="395" x2="398" y2="395" marker-end="url(#arr2)"/>
+<text x="384" y="386" font-size="10" fill="currentColor" stroke="none" opacity=".7" text-anchor="middle">tris</text>
+
+<!-- text kind alongside -->
+<line x1="880" y1="108" x2="880" y2="150" marker-end="url(#arr2)"/>
+<rect x="720" y="152" width="320" height="128" rx="3" stroke="#1E4FA3" stroke-width="1.6"/>
+<text x="732" y="174" font-size="13" font-weight="600" fill="currentColor" stroke="none">text/renderer.cljs · the slug filler</text>
+<text x="732" y="192" font-size="11.5" fill="currentColor" stroke="none">curve texture rgba16float: 2 texels per quadratic</text>
+<text x="732" y="207" font-size="11.5" fill="currentColor" stroke="none">band texture rg16uint: per row/col, which curves</text>
+<text x="732" y="225" font-size="11.5" fill="currentColor" stroke="none">per pixel: solve each curve in my band, count signed</text>
+<text x="732" y="240" font-size="11.5" fill="currentColor" stroke="none">crossings on two axes → coverage → scene_color</text>
+<text x="732" y="258" font-size="11.5" fill="#1E4FA3" stroke="none">nonzero-style · analytic AA · fills only · quads only</text>
+<text x="732" y="273" font-size="11.5" fill="#1E4FA3" stroke="none">slug_render reads no font size and no glyph id</text>
+
+<rect x="720" y="320" width="320" height="96" rx="3"/>
+<text x="732" y="342" font-size="13" font-weight="600" fill="currentColor" stroke="none">text/glyph_pack.cljs · the glyph packer</text>
+<text x="732" y="360" font-size="11.5" fill="currentColor" stroke="none">100-byte instance: rect, em bounds, 1/size jacobian,</text>
+<text x="732" y="375" font-size="11.5" fill="currentColor" stroke="none">band scale/offset, glyph loc, colour, group index</text>
+<text x="732" y="400" font-size="11.5" fill="currentColor" stroke="none" opacity=".75">the em-box and glyph-id assumptions live here</text>
+<line x1="880" y1="280" x2="880" y2="318" marker-end="url(#arr2)"/>
+
+<line x1="880" y1="416" x2="880" y2="546" marker-end="url(#arr2)"/>
+<rect x="820" y="548" width="120" height="54" rx="3" stroke-dasharray="4 4"/>
+<text x="880" y="571" font-size="12" fill="currentColor" stroke="none" text-anchor="middle">GPU</text>
+<text x="880" y="588" font-size="11" fill="currentColor" stroke="none" text-anchor="middle" opacity=".7">coverage</text>
+
+<text x="560" y="670" font-size="11.5" fill="currentColor" stroke="none" text-anchor="middle" opacity=".8">path/ and text/ share no code and no data shape; both bind the same camera and group buffers and the same scene_color</text>
+</g>
+</svg>
+</div>
+<figcaption>Two pipelines that never meet. The path lane bakes camera resolution into a triangle cache and paints without coverage; the text lane already owns the general per-pixel filler, wrapped in glyph packing. Every claim on this figure is from the hunters' checked reads.</figcaption>
+</figure>
+
+<!-- ============================ ATTACK ============================ -->
+<h2>The attack on the imaging model</h2>
+<p>Sid's working basis, claim by claim. HOLDS means it is the answer for this kind. DEFAULT means it works until a named condition, and the condition is stated. SHORT means it cannot express something Sid has already said he wants.</p>
+
+<div class="tblwrap">
+<table>
+<tr><th style="width:26%">Claim</th><th style="width:9%">Verdict</th><th>Why, and the condition</th></tr>
+<tr><td>A path is line, quadratic and cubic segments, open or closed, in subpaths.</td><td class="verdict v-holds">HOLDS</td><td>As the <em>output</em> language it has no rival: Skia, browsers, PDF, Vello, Rive, Figma's and Flutter's renderers all compile to it <span class="verdict v-default">FIELD</span>. In this tree, text's curve data is already exactly this, quadratic-only <span class="verdict v-holds">CHECKED</span>. Cubic in the stored value, split to quads at the packer, is the standard bridge.</td></tr>
+<tr><td>Fill covers the inside under nonzero or even-odd.</td><td class="verdict v-holds">HOLDS</td><td>The text shader accumulates signed crossings, which is nonzero by construction; even-odd is the parity of the same count, one line in the shader <span class="verdict v-default">DERIVED</span> from the accumulation at text/renderer.cljs:215-251. Today's path fill has no rule at all and cannot take a self-crossing ring <span class="verdict v-holds">CHECKED</span>.</td></tr>
+<tr><td>Stroke is the fill of the region within half the width of the centreline, with cap and join.</td><td class="verdict v-short">SHORT</td><td>That stroke has one width. A pen stroke has a width per knot. The general object is the <em>envelope of a tip swept along the path</em>, attributes varying along it; PostScript's stroke is the special case of a round tip at constant size. Every ink system does this: tldraw's perfect-freehand builds the envelope polygon, Google's Ink API sweeps a brush tip into a mesh, PencilKit interpolates per-point size along a B-spline <span class="verdict v-default">FIELD</span>. Today's tessellator is already a variable-width envelope builder: tapered quads plus round fans at each knot's own radius <span class="verdict v-holds">CHECKED</span> tessellation.cljc:211-268. So the reduction "stroke is a fill" survives, but the stroke declaration has to be designed from ink, not from PostScript. <b>And "curve plus varying width" still names two different regions:</b> a ribbon offset perpendicular to the centreline, or the union of round discs of radius w(t)/2 swept along it. They differ wherever width changes fast. Today's CPU classify projects the point onto the segment and reads the width at that foot <span class="verdict v-holds">CHECKED</span> component.cljc:176-190, which is the ribbon, and its docstring says it is not an exact solver for tapered outlines. The two must be told apart before CPU and GPU can agree by construction. Sessions 5, 6 and 8 caught this; the first version of this page did not.</td></tr>
+<tr><td>Boundary and fill are independent declarations; the code must not presume fill.</td><td class="verdict v-holds">HOLDS</td><td>With one precision: the envelope is <em>always</em> filled nonzero, because the skin of a curved or turning stroke overlaps itself on the inside of every bend and at every join, and nonzero is what turns those overlapping pieces into one region. This is what lets the envelope builder be sloppy: it emits pieces with consistent orientation and the rule does the union. Even-odd on a stroke skin would punch holes. The interior takes whatever rule the fill declares.</td></tr>
+<tr><td>Paint and compositing (clips, blends) sit on top.</td><td class="verdict v-default">DEFAULT</td><td>Holds for the union semantic: one region, painted once. It cannot express the painting-app semantic where a translucent stroke darkens where it crosses itself and each dab lands over the last. That is a raster model (Procreate, Krita) <span class="verdict v-default">FIELD</span>. The overlap semantic is therefore a declaration on the stroke; only <code>union</code> goes through the filler. Condition: if painterly brushes become first-class, a second operation joins, "stamp along a path into a raster target", sharing the compositor's offscreen targets but not the filler.</td></tr>
+<tr><td>Resolution independent: exact at every zoom.</td><td class="verdict v-default">DEFAULT</td><td>Right for an infinite canvas. UI component libraries want a one-pixel border to be one crisp pixel, and analytic coverage at a fractional position gives two grey pixels instead. Every UI renderer carries a pixel-snapping policy the imaging model is silent on <span class="verdict v-default">FIELD</span>. Condition: the day a UI library is built above this kind, snapping becomes a declared option on the group or the paint, not a change to the filler.</td></tr>
+<tr><td>The model is exact.</td><td class="verdict v-default">DEFAULT</td><td>Circles and arcs are not Béziers; a rounded rectangle's corners are approximations at a declared error. The envelope of a cubic is not a Bézier either (its offset is degree ten) <span class="verdict v-default">FIELD</span>. So a tolerance exists somewhere in every route. Position: it lives in the packer and the flattener as a parameter, never in the stored value.</td></tr>
+<tr><td>The model says how to draw.</td><td class="verdict v-short">SHORT</td><td>It says nothing about cost. Text's filler draws each glyph as one dilated rectangle and evaluates every pixel inside it <span class="verdict v-holds">CHECKED</span>. A glyph is compact. A stroke across the canvas is a thin diagonal in a huge box, and per-pixel cost is box area times curves per band. The cover policy (bbox, or only the cells the outline touches) is outside the model and decides whether the route is feasible for ink. Vello and Pathfinder tile for exactly this reason <span class="verdict v-default">FIELD</span>.</td></tr>
+<tr><td>Samples become a curve; store the curve.</td><td class="verdict v-default">DEFAULT</td><td>The pen reported positions eight milliseconds apart; the curve between them is a prior, not data. Fitting is lossy and stylistic: the tolerance is what a user feels as "streamline". tldraw and Google's Ink API keep the samples and derive geometry; PencilKit keeps the spline <span class="verdict v-default">FIELD</span>. Position: samples are the event truth, the path is derived at a declared tolerance, and a polyline (tolerance zero) is a legitimate path. What leaked from the GPU was never the polyline; it was the triangles at zoom bands and the overdraw.</td></tr>
+</table>
+</div>
+
+<h3>Two corrections to the earlier turns today</h3>
+<ul>
+<li><b>"Straight segments between samples is the GPU's format leaking."</b> Half right. A polyline is a valid path in the imaging model. What leaked is the baked triangle cache keyed by zoom band, and the per-piece painting that double-blends. Those go; the samples stay as truth.</li>
+<li><b>"Stroke is the fill of the region within w/2 of the centreline."</b> True for PostScript, too narrow for ink. The general statement is: stroke is the nonzero fill of the swept tip's envelope. Constant width is the case where the tip does not change. The current tessellator already lives in the general case and should keep doing so.</li>
+</ul>
+
+<!-- ============================ CASCADE ============================ -->
+<h2>If the stored form changes, what changes with it</h2>
+<p>Sid's last question. Each row is one file or one missing piece, with what it does today from the hunters' reads and what it becomes.</p>
+
+<div class="tblwrap">
+<table>
+<tr><th style="width:24%">Where</th><th style="width:34%">Today <span class="verdict v-holds">CHECKED</span></th><th>Becomes</th></tr>
+<tr><td><code>path/component.cljc</code></td><td>Two grammars: <code>:ink</code> samples with a width each, cap/join round only; <code>:shape</code> rings tagged outer/hole. No curves, no rule, no closed flag; pressure and time accepted and never read.</td><td>One grammar: the path value above. <code>:ink</code> and <code>:shape</code> stop being kinds; they are sources. Outer/hole roles die: winding direction or the rule carries that.</td></tr>
+<tr><td>content hash, mesh cache key</td><td>Key = canonical geometry + algorithm version + zoom band. Frame key carries the band too.</td><td>Zoom leaves both. Tolerance enters the packer's cache key if flattening is cached.</td></tr>
+<tr><td><code>path/tessellation.cljc</code></td><td>Envelope builder for polylines (tapered quads, round fans, resolution by band) and a polygon triangulator (bridge holes, ear clip, O(n³) worst case, throws on no visible bridge).</td><td>Splits in two. <b>Geometry:</b> the envelope builder generalised to curves and tips, emitting a consistently wound outline; the triangulator dies, nonzero handles holes and overlaps. <b>Packer:</b> new. Cubic to quad, band building, cover cells. Fonts get banding offline today; user paths need it at pen-up, in cljc, fast.</td></tr>
+<tr><td><code>path/renderer.cljs</code></td><td>Flat-colour triangle program, 28-byte vertices, no coverage, whole-buffer repack.</td><td>Dies as a program. Path becomes a producer of instance rows for the shared filler.</td></tr>
+<tr><td><code>text/renderer.cljs</code>, <code>text/glyph_pack.cljs</code></td><td>The filler and the glyph packer in one namespace; em-box and glyph-id assumptions in the packer; 100-byte instance rows.</td><td>The filler moves out to be shared, gaining a rule parameter and a cover-cell mode. Glyph packing stays as the glyph source's packer. Text's own contract does not change.</td></tr>
+<tr><td><code>path/frame.cljc</code></td><td>Dependency key = material, revision, container, plus zoom band.</td><td>Same key without the band.</td></tr>
+<tr><td>CPU classify</td><td>Ink: distance to segments minus interpolated half-width. Shape: odd-even ray per ring, then outer-and-not-hole. Parity with the GPU tested only on the holed shape, never on ink.</td><td>Winding number with curves, the CPU twin of the shader's root counting, so CPU and GPU agree by construction. Parity runs on ink too.</td></tr>
+<tr><td><code>region3d/on_plane*</code></td><td>Reuses the same tessellator and cache at zoom 1, uploads 88-byte vertices, draws on a plane with 4× MSAA.</td><td>Fork. Either a placed-coverage pipeline (the filler uses screen derivatives, so it works under any projection <span class="verdict v-default">DERIVED</span>), or keep <code>flatten(τ)</code> → triangles as the kind's second output so this lane survives untouched. Position: the second, until the first is wanted.</td></tr>
+<tr><td><code>harness/path.cljs</code></td><td>Literal bursts and rings; byte-identical goldens; a translucent self-crossing case that declares the double-blend.</td><td>Fixtures gain the fit step; goldens change; the self-crossing case becomes the proof that overlap resolves once.</td></tr>
+<tr><td>New, no home today</td><td>Nothing. No pen input anywhere in client/.</td><td>The fitter (samples → curves at τ), the band builder, the cover policy, and a live-stroke preview route while the pen is still down.</td></tr>
+</table>
+</div>
+
+<!-- ============================ BEST TEAM ============================ -->
+<h2>How the best team in the field would define it, and what they would name</h2>
+<p>Sid asked to be told the trade-offs he does not know to ask about. The problem statement first, then the list. Everything in this section is <span class="verdict v-default">FIELD</span> unless marked.</p>
+
+<div class="pos"><b>THE PROBLEM AS THEY WOULD STATE IT</b>Define a resolution-independent scene language as the output: paths, paint, compositing. Keep every source above it with its own editable truth (samples, radii, glyph ids). Pick the rasteriser by cost profile and keep it swappable behind that language. Decide up front, because they cannot be retrofitted: the anti-aliasing policy, the overdraw policy, the stroke model, the overlap semantic, where tolerance lives, and whether raster brushes are in scope.</div>
+
+<ol>
+<li><b>Tolerance is a screen-space quantity.</b> Every route has "how smooth at this zoom" somewhere. Camera-free data does not remove it; it moves it into per-frame work. Vello flattens on the GPU every frame at the current scale; Slug pays per pixel instead. Name where it lives (packer or flattener) and keep it out of the value.</li>
+<li><b>The envelope has cusps and inner loops.</b> Offsetting a curve inward past its radius of curvature folds the outline over itself. That is not a bug to remove; it is why the envelope must be filled nonzero, and why the builder needs consistent orientation, not a clean boundary. Levien's stroke-expansion work is the reference.</li>
+<li><b>Overdraw and conflation.</b> Painting a region as many pieces double-blends translucent paint where pieces overlap, and anti-aliasing pieces separately leaves seams where they meet. The fix is structural: one resolve per region. Today's path lane has the first defect and declares it <span class="verdict v-holds">CHECKED</span> harness/path.cljs:558-559.</li>
+<li><b>The cover policy.</b> Bbox covers are right for glyphs and wrong for a stroke across the canvas. Cells touched by the outline, computed in local units at pack time, keep the cover tight and camera-free. This is the one thing the text lane never needed and ink needs from day one.</li>
+<li><b>Curve degree.</b> Design tools and fitters produce cubics; the shader wants quadratics. Splitting multiplies the curve count roughly two to four times. Arcs and circles approximate either way. Decide the canonical stored degree (cubic) and convert once at the packer.</li>
+<li><b>Bands at edit time.</b> Fonts are banded offline by a tool outside client/ <span class="verdict v-holds">CHECKED</span>. A user path must be banded on pen-up, in the same pure language as the rest, fast enough that it is not felt. This is real work and it does not exist yet.</li>
+<li><b>The wet stroke.</b> While the pen is down the burst is unfinished. Fitting and banding the whole stroke on every sample is the wrong cost. Every ink system has a cheap preview route for the live tail (polyline envelope at tolerance zero, or only the last few segments) and commits the fitted form at pen-up. The imaging model says nothing about this; latency does.</li>
+<li><b>CPU and GPU must use the same rule.</b> Hit-testing on the CPU and coverage on the GPU disagree at self-crossings if one is odd-even and the other nonzero. The harness already tests parity for shapes <span class="verdict v-holds">CHECKED</span>; the twin implementation keeps that honest.</li>
+<li><b>Pixel snapping</b> for UI borders, as above. A policy, not a filler change.</li>
+<li><b>Raster brushes are a second model.</b> Procreate-style dabs, textures and wet edges live on a pixel canvas. In scope or not is a product decision; the path value should carry enough (samples, pressure, time) that a brush engine can re-render a stroke later.</li>
+<li><b>Booleans and vector networks.</b> Figma's fill-by-face and union/subtract need a planar-arrangement library, the classic pit. It sits above the kind. The path value must not preclude it: multiple subpaths, both rules, stable ids.</li>
+<li><b>Precision on an infinite canvas.</b> Coordinates narrow from float64 to float32 once at upload and are never rebased around the camera, so at the legal zoom of 1000 vertex jitter is real <span class="verdict v-default">CHECKED by session 8's hunter, not re-read here</span>. Group affines keep locals small, but curves in local units inherit the same narrowing. Rebase relative to the camera before upload. The first version of this page said "nothing new" here; that was wrong.</li>
+<li><b>Memory goes down, not up.</b> A hundred-sample stroke today, default band: about 310 triangles, 930 vertices at 28 bytes, near 26 KB per band <span class="verdict v-default">DERIVED</span> from the layouts. As curves: roughly seventy quadratics at 16 bytes plus band references and one 100-byte instance, near 3 KB, valid at every zoom. The GPU-memory worry that comes with local agents is real but it lives in render targets, not in path data.</li>
+</ol>
+
+<!-- ============================ QUESTIONS ============================ -->
+<h2>Sid's questions, one by one</h2>
+
+<div class="q"><div class="ask">Is the sampled pen stroke the general case of formula shapes and designer outlines, or is something else the general object?</div>
+<p>Something else. The general <em>geometric</em> object is the path; the pen burst is the least-structured source of one. But the general <em>stroke</em> object has to be designed from ink, because ink is the first thing Sid wants to draw and PostScript's stroke cannot express it. Least structured is not most general: a circle stored as a radius stays a circle when dragged; the same circle as two hundred samples has lost even the curve.</p></div>
+
+<div class="q"><div class="ask">CPU versus GPU: how is it decided, and is it the right axis?</div>
+<p>Not the right axis. The axis is whether the camera is baked into what you store or cache. Today it is: fan resolution by zoom band, in the mesh key and the frame key <span class="verdict v-holds">CHECKED</span>. Text bakes nothing and the same bytes draw at any zoom <span class="verdict v-holds">CHECKED</span>. Once nothing cached knows the zoom, where the per-frame work runs is a performance choice that can change later without touching the value. The local-agents memory question is real and parked; the arithmetic above says path data is not where it bites.</p></div>
+
+<div class="q"><div class="ask">Why does Slug exist for text, is it glyph-only, and is it what ink and shapes need?</div>
+<p>It exists so a letter is exact at every zoom without an atlas: curves and bands in textures, a per-pixel root count. The per-pixel core reads no font size and no glyph id <span class="verdict v-holds">CHECKED</span>; the glyph-ness sits in the packer (em-normalised bounds, one-over-size jacobian, glyph lookup) and in the offline band bake. It is exactly what shapes need, after cubic-to-quad. It is what ink needs <em>after</em> the envelope step, never directly: it fills, it does not stroke, and it has no distance function. Two things it lacks for user paths: a live band builder and a cover policy for long thin outlines.</p></div>
+
+<div class="q"><div class="ask">A stroke that crosses itself, and the knitted sweater.</div>
+<p>Three different things. A closed shape that crosses itself is the fill rule, a declaration: nonzero fills the pentagram's centre, even-odd leaves it empty. A stroke that crosses itself is the overlap semantic: <code>union</code> paints the crossing once, which is what nonzero coverage gives and what vector tools do; <code>accumulate</code> darkens it, which is the raster route. Neither gives "under". Under means an earlier part of the same stroke sits on top of a later part, and one region has one paint order. So the sweater is a split-and-order edit the user makes, and the kind's job is stable knot ids so a split does not lose the stroke's identity.</p></div>
+
+<div class="q"><div class="ask">Pre-baked and user-defined shapes: same drawing, and can tldraw's and Figma's sets be built above this?</div>
+<p>Same filler, different sources. tldraw's set fits entirely: formula shapes, outline shapes, text, and a freehand tool whose envelope polygon is this kind's envelope step <span class="verdict v-default">FIELD</span>. Figma's set needs three more things above the kind: vector networks as a source that compiles faces to paths, a boolean library, and raster effects (shadow, blur) that belong to the compositor's offscreen targets. UI component libraries need pixel snapping. None of those change the input or the output of the kind.</p></div>
+
+<div class="q"><div class="ask">Do the current per-kind renderers match what "the renderer" should be?</div>
+<p>Half of "the renderer" already exists as a frame contract all four kinds obey: device and format in, the shared camera and group buffers bound, an open pass at draw time, group index baked at prepare <span class="verdict v-holds">CHECKED</span>. What differs is the program each kind runs. Under the position there is a small fixed set of programs (coverage filler, textured quad, 3D mesh plus composite, present) and kinds are sources that feed them. The path program is the one that should not exist; the text program is the one that should be shared.</p></div>
+
+<div class="q"><div class="ask">Am I reasoning from how the code does it today, or from how it should be done?</div>
+<p>This page was derived field-first and then checked against the tree. The field-first derivation lands on the same shape as this morning's turns (path in, coverage out, text's filler shared) and corrects three things: the polyline is not the leak; the stroke must be the envelope of a swept tip, not the PostScript stroke; and the cover policy is a real design item the glyph case never had. "That is what text does today" is evidence of feasibility, not the reason for the design.</p></div>
+
+<!-- ============================ POSITIONS ============================ -->
+<h2>Positions, with the condition under which each stops being the answer</h2>
+
+<div class="pos"><b>POSITION 1 · the stored form</b>Store the burst raw (samples with width, pressure, time) as the event that happened. Derive the path at a declared tolerance and store that too; it is what gets drawn, edited and hit-tested. The kind takes the path, never the burst. Stops being the answer: never; if fitting turns out to be a user-facing style, this is already right, and if a brush engine later needs the raw samples, they are there.</div>
+
+<div class="pos"><b>POSITION 2 · the imaging model as the output language</b>Paths, fill under a rule, stroke as the nonzero fill of a swept tip's envelope, paint and compositing on top. Stops being the answer: if painterly raster brushes become first-class, a second operation joins (stamp into a raster target); the path value already carries what it needs.</div>
+
+<div class="pos"><b>POSITION 3 · one filler, shared with text</b>Coverage under a rule, per pixel, analytic anti-aliasing, one resolve per region. Strokes reach it through the envelope. Stops being the answer: if long thin strokes dominate and cover cells do not cut the cost enough, a distance-based stroke program is the fallback, fed by the same input value.</div>
+
+<div class="pos"><b>POSITION 4 · zoom leaves the stored value and its identity</b>The path value and its content hash carry no zoom. Per-scale caches are legitimate, but they belong to the renderer and are keyed on projected error from the full transform, never on hand-set bands in the kind's own key. The first version said "every key, unconditionally"; sessions 1, 3, 5 and 6 were right that a derived approximation may depend on the view.</div>
+
+<div class="pos"><b>POSITION 5 · cubic in, quadratic at the packer</b>The stored path allows cubics because fitters and design tools produce them; the packer splits to quadratics for the shader. Stops being the answer: if a cubic-capable filler is written, the packer step disappears and nothing above notices.</div>
+
+<div class="pos"><b>POSITION 6 · placed ink takes the coverage lane on a plane</b>The filler uses screen derivatives for its pixel scale, so it works under the region's projection; placed ink becomes an instance row drawn on the object's z=0 plane, and the 88-byte triangle road is cut. The first version kept triangles "until a placed-coverage pipeline exists", which is keep-until-better, and that is not a form this project allows. flatten(τ) stays a geometric answer for consumers that need lines, not a render road.</div>
+
+<div class="pos"><b>POSITION 7 · what a varying width means</b>The stroke region is the swept round nib: the union of discs of radius w(t)/2 along the curve. Cap and join constructions (butt, square, miter, bevel) are declared operations on the ends and corners on top of it, as PostScript adds them. The ribbon is named as the approximation the current CPU rule computes. Reason: only the nib gives a tip shape a meaning, and it is what a pen physically does. Stops being the answer: if a designer stroke tool wants the ribbon's crisper tapers, both constructions are named operations and the declaration picks one.</div>
+
+<h2>Folded in from the other seven sessions on this prompt</h2>
+<p>Eight sessions answered this round; each was ranked by the others. These are the items the peers had that this page lacked, with who found them. All are adopted here.</p>
+<ul>
+<li><b>Ribbon versus swept nib</b> (sessions 5, 6; session 8 corrected itself on it). Now Position 7 and the stroke row above.</li>
+<li><b>The record is already cooked</b> (session 2). Width is required per sample and pressure is optional <span class="verdict v-holds">CHECKED</span> component.cljc:41-50, so a pen model ran before storage and a better pen can never reach old strokes. Store the gesture; derive width through the pen as data.</li>
+<li><b>Write the exact image as a definition first</b> (session 2). One slow reference renderer that produces it; every fast lane is tested against it. The harness parity check is the seed of this and today it skips a band of pixels along every boundary <span class="verdict v-holds">CHECKED</span> harness/path.cljs:341-393.</li>
+<li><b>List every reader of the stored record before shaping it</b> (sessions 2, 4): screen, hit test, editor, 3D placement, file, other people. The record must serve all of them.</li>
+<li><b>Two intended pictures one input cannot tell apart</b> (session 1). The test for whether a field is missing. The sweater passes it in one line; so does closed-versus-filled, and translucent union versus accumulate.</li>
+<li><b>Three parts of the client answer "inside" three ways</b> (session 4): CPU pick is odd-even per ring, the text shader is nonzero, the ear clipper throws on a self-crossing ring <span class="verdict v-holds">CHECKED</span> component.cljc:199-218, text/renderer.cljs:215-251, tessellation.cljc:480-525. One truth, one rule.</li>
+<li><b>A brush field in a record does not make brushes data</b> (session 5). Unless the machinery below executes the arithmetic, sampling and surface reads, the waist has not been achieved. Same for "region": naming it does not discharge the geometry.</li>
+<li><b>Sort work per edit, per scale, per frame</b> (session 8), then place it. Today a per-scale quantity, fan resolution, sits in the per-edit cache key.</li>
+<li><b>Five places decide how big a pixel is</b> (session 8): the path bands, region3d's lease size and its 1.12 bucket ladder, the placement zoom of 1.0, text's snap step. Derive pixels-per-local-unit once from camera, group and DPR.</li>
+<li><b>The variable-width fixture is built and never run</b>; the harness declares the CPU classifier the authority and stamps the double-blend <span class="verdict v-holds">CHECKED</span> harness/path.cljs:245-246, 518, 556-559. The overlap semantics is already declared on one side and violated on the other.</li>
+<li><b>No shape generator exists</b> (session 8): every rectangle in the tree is four typed corners; no circle fixture; no cos, sin, arc or bezier in any maker.</li>
+<li><b>The renderer fork, with memory</b> (session 8): analytic coverage (small GPU memory, curves plus bands), stencil-then-cover with MSAA (a multisampled target, hundreds of MB at canvas size), compute tiles (transient, scene-sized, the largest lift), and a capsule lane for wet ink only. The parked local-agents question lands on the MSAA road, not on path data.</li>
+<li><b>Vector or raster ink is a decision</b> (session 4), answered here by a raster lane beside the path kind, not a change to it.</li>
+<li><b>A bench</b> (session 4 built one). Things you can feel come before documents about them; this page still owes one.</li>
+</ul>
+
+<!-- ============================ FACT BASE ============================ -->
+<h2>Fact base</h2>
+<p>Three hunter reports, one per disjoint slice, every fact tagged and anchored to file:line. They are the raw material for every CHECKED mark above.</p>
+<ul class="flat">
+<li><code>scratchpad/hunt-path.md</code> — path/component, tessellation, frame, renderer, harness/path: the grammar, the tessellation steps and bands, the vertex layout and shaders, the CPU classify, the fixtures.</li>
+<li><code>scratchpad/hunt-text.md</code> — text/fonts, shaper, glyph_pack, renderer, shaped_line: the slug technique per pixel, the texture layouts, the 100-byte instance, what is glyph-specific and what is general.</li>
+<li><code>scratchpad/hunt-engine.md</code> — engine/*, region3d placed ink, harness frame drivers: zoom and rungs, the camera and group buffers, the renderer contract across the four kinds, the placed-ink call chain.</li>
+</ul>
+<p>Full path of the scratchpad: <code>/tmp/claude-1000/-mnt-data-projects-Softland/344f9292-3a47-4b8c-bd37-0ec01e872808/scratchpad/</code>. At Sid's word this page lands as <code>.md</code> and <code>.html</code> twins under <code>docs/</code> so it can be contested on disk.</p>
+</main>

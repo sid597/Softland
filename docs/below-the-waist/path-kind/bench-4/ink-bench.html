@@ -1,0 +1,1087 @@
+<title>Ink Bench</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --paper: #eef1f4;
+    --panel: #e3e8ee;
+    --line: #c9d1db;
+    --ink: #16213a;
+    --muted: #5f6b7c;
+    --accent: #0e7c7b;
+    --accent-ink: #ffffff;
+    --warn: #a8571b;
+    --canvas-paper: #f6f8fa;
+    --font-display: "Spectral", Georgia, "Times New Roman", serif;
+    --font-body: "Source Sans 3", "Segoe UI", Helvetica, Arial, sans-serif;
+    --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #161a21;
+      --panel: #1e242d;
+      --line: #313a47;
+      --ink: #e6eaf0;
+      --muted: #97a1ae;
+      --accent: #4fc1b0;
+      --accent-ink: #0f1418;
+      --warn: #e0a15c;
+      --canvas-paper: #10141a;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #161a21;
+    --panel: #1e242d;
+    --line: #313a47;
+    --ink: #e6eaf0;
+    --muted: #97a1ae;
+    --accent: #4fc1b0;
+    --accent-ink: #0f1418;
+    --warn: #e0a15c;
+    --canvas-paper: #10141a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.45;
+  }
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 18px;
+    flex-wrap: wrap;
+    padding: 18px 24px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  header h1 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 26px;
+    margin: 0;
+    letter-spacing: 0.005em;
+  }
+  header p {
+    margin: 0;
+    color: var(--muted);
+    max-width: 62ch;
+  }
+  main {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 0;
+    min-height: calc(100vh - 70px);
+  }
+  aside {
+    border-right: 1px solid var(--line);
+    padding: 14px 18px 24px;
+    overflow-y: auto;
+    max-height: calc(100vh - 70px);
+  }
+  section.group { padding: 10px 0 12px; border-bottom: 1px solid var(--line); }
+  section.group:last-child { border-bottom: 0; }
+  .label {
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+  .row.tight { gap: 4px; }
+  button, select {
+    font: inherit;
+    font-size: 13.5px;
+    color: var(--ink);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 4px 9px;
+    cursor: pointer;
+  }
+  button:focus-visible, select:focus-visible, input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  button[disabled] { opacity: 0.45; cursor: default; }
+  .slider { display: grid; grid-template-columns: 72px 1fr 52px; align-items: center; gap: 8px; margin: 4px 0; font-size: 13.5px; }
+  .slider input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .slider .val { font-family: var(--font-mono); font-size: 12.5px; text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+  .check { display: flex; align-items: center; gap: 6px; font-size: 13.5px; margin: 4px 0; }
+  .check input { accent-color: var(--accent); }
+  .note { font-size: 13px; color: var(--muted); margin: 4px 0 0; max-width: 40ch; }
+  .note b { color: var(--ink); font-weight: 600; }
+  .stage { display: flex; flex-direction: column; min-width: 0; }
+  .canvas-wrap {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 420px;
+    background: var(--canvas-paper);
+  }
+  .canvas-wrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #overlay { cursor: crosshair; touch-action: none; }
+  .message {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    max-width: 44ch;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--ink);
+    border-radius: 4px;
+  }
+  .readout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 0;
+    border-top: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .readout > div { padding: 10px 16px; border-right: 1px solid var(--line); min-height: 60px; }
+  .readout > div:last-child { border-right: 0; }
+  .readout .k { font-family: var(--font-body); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+  .readout .v { color: var(--ink); }
+  .readout .v.warn { color: var(--warn); }
+  .legend { padding: 10px 16px 16px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); max-width: 92ch; }
+  .legend code { font-family: var(--font-mono); font-size: 12px; color: var(--ink); }
+  @media (max-width: 860px) {
+    main { grid-template-columns: 1fr; }
+    aside { border-right: 0; border-bottom: 1px solid var(--line); max-height: none; }
+    .canvas-wrap { min-height: 360px; }
+  }
+</style>
+
+<header>
+  <h1>Ink Bench</h1>
+  <p>One path, drawn two ways. Today's road builds triangles on the CPU. The other road hands the GPU a cover and lets every pixel test the true curve: a signed distance <code>s</code>, then paint by intervals of <code>s</code>.</p>
+</header>
+
+<main>
+  <aside>
+    <section class="group">
+      <p class="label">Geometry</p>
+      <div class="row tight" id="presets"></div>
+      <label class="check"><input type="checkbox" id="closed"> closed (last point joins the first)</label>
+      <label class="check"><input type="checkbox" id="showPoints" checked> show points</label>
+      <label class="check" id="reverseHoleRow" hidden><input type="checkbox" id="reverseHole"> reverse the hole's direction</label>
+      <p class="note" id="presetNote"></p>
+    </section>
+
+    <section class="group">
+      <p class="label">Road</p>
+      <div class="row tight" id="roads"></div>
+      <p class="note" id="roadNote"></p>
+      <div id="perSegmentOpts">
+        <div class="row tight" style="margin-top:8px"><span style="font-size:13px;color:var(--muted);align-self:center">blend</span><button data-blend="over">over (sum)</button><button data-blend="max">max (union)</button></div>
+        <div class="row tight"><span style="font-size:13px;color:var(--muted);align-self:center">order</span><button data-order="drawn">as drawn</button><button data-order="reversed">reversed</button><button data-order="z">by thread height</button></div>
+        <div class="slider"><span>halo</span><input type="range" id="halo" min="0" max="8" step="0.5" value="0"><span class="val" id="haloVal">0</span></div>
+      </div>
+      <label class="check" id="wireRow"><input type="checkbox" id="wire"> show today's triangles as wire</label>
+    </section>
+
+    <section class="group">
+      <p class="label">Paint</p>
+      <div class="row tight"><span style="font-size:13px;color:var(--muted);align-self:center">stroke rule</span><button data-rule="ribbon">ribbon + end discs (today's CPU rule)</button><button data-rule="nib">swept round nib</button></div>
+      <div class="row tight" id="bands"></div>
+      <div class="row tight" id="fillRules"></div>
+      <div class="slider"><span>width</span><input type="range" id="width" min="0.5" max="12" step="0.5" value="3"><span class="val" id="widthVal">3</span></div>
+      <div class="slider"><span>opacity</span><input type="range" id="alpha" min="0.1" max="1" step="0.02" value="1"><span class="val" id="alphaVal">1.00</span></div>
+      <label class="check"><input type="checkbox" id="aa" checked> smooth edges (coverage from <code>s</code>)</label>
+      <p class="note" id="paintNote"></p>
+    </section>
+
+    <section class="group">
+      <p class="label">Formula shape</p>
+      <div class="row tight" id="formulas"></div>
+      <div class="row tight" id="combines"></div>
+      <p class="note">A formula shape is an exact signed distance in a few numbers. Combining is <code>min</code> / <code>max</code> on <code>s</code>.</p>
+    </section>
+
+    <section class="group">
+      <p class="label">View</p>
+      <div class="slider"><span>zoom</span><input type="range" id="zoom" min="-1.4" max="1.8" step="0.02" value="0.477"><span class="val" id="zoomVal">3.0×</span></div>
+      <p class="note">Drag to pan, wheel to zoom. In <b>draw your own</b>, drag draws; each drag is one contour. Pen pressure sets width when the device reports it.</p>
+    </section>
+  </aside>
+
+  <div class="stage">
+    <div class="canvas-wrap">
+      <canvas id="gl"></canvas>
+      <canvas id="overlay"></canvas>
+      <div class="message" id="message" hidden></div>
+    </div>
+    <div class="readout">
+      <div><div class="k">At the cursor</div><div class="v" id="cursorOut">—</div></div>
+      <div><div class="k">Pixel × segment tests this frame</div><div class="v" id="costOut">—</div></div>
+      <div><div class="k">Zoom band today</div><div class="v" id="lodOut">—</div></div>
+      <div><div class="k">Geometry</div><div class="v" id="geomOut">—</div></div>
+    </div>
+    <div class="legend">
+      <code>s</code> is the signed distance in world units: negative inside, zero on the boundary, positive outside. The cursor value is computed on the CPU with the same formula the shader uses, under the chosen stroke rule, and it also shows what the other rule says at that point. Today's triangle road is the ribbon rule by construction. Presets marked <em>harness</em> are the path family's own golden fixtures; the others are the shapes named in the question.
+    </div>
+  </div>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const BIG = 1e8;
+  const TAU = Math.PI * 2;
+
+  // ---------- geometry presets ----------
+  function inkPoints(samples) { // harness path-ink-component: width = 16 * pressure
+    return samples.map(([x, y, p]) => ({ x, y, hw: 8 * p, z: 0 }));
+  }
+  function contourPoints(list) { return list.map(([x, y]) => ({ x, y, hw: 0, z: 0 })); }
+  function limacon() { // a pen loop that crosses itself and makes an inner loop
+    const pts = [];
+    for (let k = 0; k < 72; k++) {
+      const t = (k / 72) * TAU;
+      const r = 18 + 30 * Math.cos(t);
+      pts.push({ x: 44 + r * Math.cos(t), y: 64 + r * Math.sin(t), hw: 0, z: 0 });
+    }
+    return pts;
+  }
+  function pentagram() {
+    const pts = [];
+    for (let k = 0; k < 5; k++) {
+      const a = -Math.PI / 2 + k * (TAU * 2 / 5);
+      pts.push({ x: 64 + 44 * Math.cos(a), y: 66 + 44 * Math.sin(a), hw: 0, z: 0 });
+    }
+    return pts;
+  }
+  function trefoil() { // the thread: a third number along the path says over or under
+    const pts = [];
+    for (let k = 0; k < 96; k++) {
+      const t = (k / 96) * TAU;
+      pts.push({ x: 64 + 13 * (Math.sin(t) + 2 * Math.sin(2 * t)),
+                 y: 64 + 13 * (Math.cos(t) - 2 * Math.cos(2 * t)),
+                 hw: 3.2, z: -Math.sin(3 * t) });
+    }
+    return pts;
+  }
+  const PRESETS = [
+    { id: 'selfcross', name: 'self-crossing ink (harness)',
+      note: 'The harness golden "translucent self-crossing": a Z stroke over itself at opacity 0.62. Watch the crossing.',
+      contours: [inkPoints([[26, 28, 0.65], [102, 100, 0.9], [28, 100, 1.0], [102, 28, 0.7]])],
+      closed: false, color: [0.84, 0.36, 0.94], alpha: 0.62, fillRule: 'none', bands: 'body', road: 'triangles' },
+    { id: 'pressure', name: 'pressure ink (harness)',
+      note: 'The harness golden "pressure ink": four points, width follows pressure. Zoom in past 8× and compare the fans.',
+      contours: [inkPoints([[26, 72, 0.2], [48, 36, 0.45], [78, 84, 0.72], [102, 42, 1.0]])],
+      closed: false, color: [0.16, 0.68, 0.96], alpha: 0.94, fillRule: 'none', bands: 'body', road: 'triangles' },
+    { id: 'holed', name: 'shape with a hole (harness)',
+      note: 'The harness golden "holed concave": an outer contour and a hole, both listed in the same direction. Under nonzero the hole disappears unless its direction is reversed; under even-odd it is a hole either way.',
+      contours: [contourPoints([[24, 24], [104, 24], [104, 104], [72, 104], [72, 64], [56, 64], [56, 104], [24, 104]]),
+                 contourPoints([[34, 34], [50, 34], [50, 50], [34, 50]])],
+      closed: true, color: [0.94, 0.32, 0.18], alpha: 0.96, fillRule: 'evenodd', bands: 'body', road: 'onecover' },
+    { id: 'penloop', name: 'closed loop crossing itself',
+      note: 'A pen loop that crosses itself and leaves an inner loop. The inner loop has winding 2: nonzero fills it, even-odd leaves it empty.',
+      contours: [limacon()], closed: true, color: [0.18, 0.55, 0.75], alpha: 1.0, fillRule: 'nonzero', bands: 'body', road: 'onecover' },
+    { id: 'star', name: 'star (textbook case)',
+      note: 'Five lines that cross. The center has winding 2. Today\'s ear clipper cannot triangulate this outline at all.',
+      contours: [pentagram()], closed: true, color: [0.18, 0.55, 0.75], alpha: 1.0, fillRule: 'nonzero', bands: 'body', road: 'onecover' },
+    { id: 'knot', name: 'thread over and under',
+      note: 'One thread crossing itself three times. Order "as drawn" makes every later pass go over; only "by thread height" gives over, under, over. Over/under is data along the thread, not something the drawing rule can infer.',
+      contours: [trefoil()], closed: true, color: [0.80, 0.45, 0.20], alpha: 1.0, fillRule: 'none', bands: 'body', road: 'persegment', halo: 3, order: 'z' },
+    { id: 'own', name: 'draw your own',
+      note: 'Drag on the canvas. Each drag is a contour; width comes from pen pressure when your device reports it. Try crossing your own line, then switch roads.',
+      contours: [], closed: false, color: [0.16, 0.68, 0.96], alpha: 0.75, fillRule: 'none', bands: 'body', road: 'onecover' },
+  ];
+
+  const ROADS = [
+    { id: 'triangles', name: "today: CPU triangles",
+      note: 'A mirror of the path family\'s tessellation: a quad per segment, round caps and joins as fans with 4, 8 or 16 steps by zoom band, drawn as aliased triangles that blend one on top of another. Closed shapes are not reproduced here.' },
+    { id: 'onecover', name: 'per pixel, one cover',
+      note: 'One rectangle around the whole path. Every pixel inside it tests every segment: the smallest signed distance, plus a winding count when the path is closed and filled.' },
+    { id: 'persegment', name: 'per pixel, a cover per segment',
+      note: 'A small rectangle per segment; each pixel tests only its own segment. Cheap, and it can order pieces, but it cannot reach the inside of a closed shape, and overlapping pieces add up unless the blend is a union.' },
+  ];
+  const BANDS = [
+    { id: 'body', name: 'fill', desc: 'one interval: s below 0' },
+    { id: 'outline', name: 'outline only', desc: 'one interval straddling the boundary: |s| below width' },
+    { id: 'bgf', name: 'border + gap + fill', desc: 'three intervals of s, one shader, one pass' },
+    { id: 'double', name: 'double line', desc: 'two intervals either side of the boundary' },
+  ];
+  const FILLRULES = [
+    { id: 'none', name: 'no fill rule' },
+    { id: 'nonzero', name: 'nonzero' },
+    { id: 'evenodd', name: 'even-odd' },
+  ];
+  const FORMULAS = [
+    { id: 'none', name: 'none' },
+    { id: 'roundbox', name: 'rounded box' },
+    { id: 'circle', name: 'circle' },
+    { id: 'boxminus', name: 'box minus circle' },
+  ];
+  const COMBINES = [
+    { id: 'only', name: 'formula alone' },
+    { id: 'union', name: 'union with path' },
+    { id: 'subtract', name: 'path minus formula' },
+    { id: 'intersect', name: 'intersect' },
+  ];
+
+  const state = {
+    presetId: 'selfcross', contours: [], closed: false,
+    color: [0.84, 0.36, 0.94], alpha: 0.62,
+    road: 'triangles', blend: 'over', order: 'drawn', halo: 0, window: 4,
+    bands: 'body', fillRule: 'none', width: 3, aa: true, strokeRule: 'ribbon',
+    formula: 'none', combine: 'only',
+    zoom: 3, center: { x: 64, y: 64 }, showPoints: true, wire: false,
+    reverseHole: false,
+    cursor: null, drawing: null, panning: null,
+  };
+
+  // ---------- flattened point list (what the shader sees) ----------
+  // Each row: x, y, half-width, index of the first point of its contour.
+  function flatten() {
+    const rows = [];
+    state.contours.forEach((c, ci) => {
+      let pts = c;
+      if (state.presetId === 'holed' && ci === 1 && state.reverseHole) pts = c.slice().reverse();
+      const start = rows.length;
+      pts.forEach(p => rows.push({ x: p.x, y: p.y, hw: p.hw, z: p.z || 0, start }));
+    });
+    return rows;
+  }
+  function nextIndex(rows, i) {
+    const a = rows[i];
+    if (i + 1 < rows.length && rows[i + 1].start === a.start) return i + 1;
+    if (state.closed && a.start !== i) return a.start;
+    return -1;
+  }
+  function segments(rows) {
+    const out = [];
+    for (let i = 0; i < rows.length; i++) { const j = nextIndex(rows, i); if (j >= 0) out.push([i, j]); }
+    return out;
+  }
+
+  // ---------- the same formula on the CPU (pick) ----------
+  function segRibbon(a, b, px, py) {
+    const abx = b.x - a.x, aby = b.y - a.y, apx = px - a.x, apy = py - a.y;
+    const den = abx * abx + aby * aby;
+    const t = den > 0 ? Math.max(0, Math.min(1, (apx * abx + apy * aby) / den)) : 0;
+    const dx = apx - abx * t, dy = apy - aby * t;
+    return Math.hypot(dx, dy) - (a.hw + (b.hw - a.hw) * t);
+  }
+  function segNib(a, b, px, py) {
+    const ra = a.hw, rb = b.hw;
+    const q0x = px - a.x, q0y = py - a.y, dx = b.x - a.x, dy = b.y - a.y;
+    const h = dx * dx + dy * dy, bb = ra - rb;
+    if (h <= bb * bb + 1e-12) return ra >= rb ? Math.hypot(px - a.x, py - a.y) - ra : Math.hypot(px - b.x, py - b.y) - rb;
+    let qx = Math.abs((q0x * dy - q0y * dx) / h);
+    const qy = (q0x * dx + q0y * dy) / h;
+    const cx = Math.sqrt(h - bb * bb), cy = bb;
+    const k = cx * qy - cy * qx, m = cx * qx + cy * qy, n = qx * qx + qy * qy;
+    if (k < 0) return Math.sqrt(h * n) - ra;
+    if (k > cx) return Math.sqrt(h * (n + 1 - 2 * qy)) - rb;
+    return m - ra;
+  }
+  function segSigned(a, b, px, py, rule) {
+    return (rule || state.strokeRule) === 'nib' ? segNib(a, b, px, py) : segRibbon(a, b, px, py);
+  }
+  function windingAt(rows, segs, px, py) {
+    let wn = 0, cr = 0;
+    for (const [i, j] of segs) {
+      const a = rows[i], b = rows[j];
+      const up = a.y <= py && b.y > py, down = a.y > py && b.y <= py;
+      if (up || down) {
+        const x = (b.x - a.x) * (py - a.y) / (b.y - a.y) + a.x;
+        if (px < x) { cr++; wn += up ? 1 : -1; }
+      }
+    }
+    return { wn, cr };
+  }
+  function sdRoundBox(px, py, cx, cy, bx, by, r) {
+    const qx = Math.abs(px - cx) - bx + r, qy = Math.abs(py - cy) - by + r;
+    return Math.hypot(Math.max(qx, 0), Math.max(qy, 0)) + Math.min(Math.max(qx, qy), 0) - r;
+  }
+  const FORMULA_A = [64, 64, 36, 26]; // box center, half extents
+  const FORMULA_B = [10, 84, 58, 14];  // box radius, circle center, circle radius
+  function formulaSigned(px, py) {
+    const box = sdRoundBox(px, py, FORMULA_A[0], FORMULA_A[1], FORMULA_A[2], FORMULA_A[3], FORMULA_B[0]);
+    const circle = Math.hypot(px - FORMULA_B[1], py - FORMULA_B[2]) - FORMULA_B[3];
+    if (state.formula === 'roundbox') return box;
+    if (state.formula === 'circle') return circle;
+    if (state.formula === 'boxminus') return Math.max(box, -circle);
+    return BIG;
+  }
+  function signedAt(rows, segs, px, py, rule) {
+    let d = BIG, wn = 0, cr = 0;
+    const usePath = rows.length >= 2 && !(state.formula !== 'none' && state.combine === 'only');
+    if (usePath) {
+      for (const [i, j] of segs) d = Math.min(d, segSigned(rows[i], rows[j], px, py, rule));
+      if (state.closed && state.fillRule !== 'none' && state.road !== 'persegment') {
+        ({ wn, cr } = windingAt(rows, segs, px, py));
+        const inside = state.fillRule === 'nonzero' ? wn !== 0 : (cr & 1) === 1;
+        if (inside) d = -Math.abs(d);
+      }
+    }
+    if (state.formula !== 'none') {
+      const f = formulaSigned(px, py);
+      if (state.combine === 'only' || !usePath) d = f;
+      else if (state.combine === 'union') d = Math.min(d, f);
+      else if (state.combine === 'subtract') d = Math.max(d, -f);
+      else d = Math.max(d, f);
+    }
+    return { s: d, wn, cr };
+  }
+
+  // ---------- today's road: a mirror of path/tessellation.cljc ----------
+  function fanResolution(zoom) { return zoom < 0.1 ? 4 : (zoom <= 8 ? 8 : 16); }
+  function tessellateInk(pts, zoom) {
+    const res = fanResolution(zoom), eps = 1e-10, tris = [];
+    const tri = (a, b, c) => {
+      const cr = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+      if (Math.abs(cr) > eps) tris.push(a.x, a.y, b.x, b.y, c.x, c.y);
+    };
+    const fan = (center, radius, start, end, dir) => {
+      let delta = end - start;
+      if (dir === 'ccw') { while (delta < 0) delta += TAU; } else { while (delta > 0) delta -= TAU; }
+      const steps = Math.max(1, Math.ceil(res * Math.abs(delta) / Math.PI));
+      let prev = null;
+      for (let k = 0; k <= steps; k++) {
+        const ang = start + delta * (k / steps);
+        const q = { x: center.x + radius * Math.cos(ang), y: center.y + radius * Math.sin(ang) };
+        if (prev) tri(center, prev, q);
+        prev = q;
+      }
+    };
+    const segs = [];
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i], b = pts[i + 1];
+      let dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.hypot(dx, dy);
+      if (len <= eps) continue;
+      dx /= len; dy /= len;
+      const n = { x: -dy, y: dx }, ra = a.hw, rb = b.hw;
+      const aL = { x: a.x + n.x * ra, y: a.y + n.y * ra }, aR = { x: a.x - n.x * ra, y: a.y - n.y * ra };
+      const bL = { x: b.x + n.x * rb, y: b.y + n.y * rb }, bR = { x: b.x - n.x * rb, y: b.y - n.y * rb };
+      tri(aL, aR, bL); tri(bL, aR, bR);
+      segs.push({ a, b, dir: { x: dx, y: dy }, n, ra, rb });
+    }
+    if (!segs.length) return tris;
+    const ang = v => Math.atan2(v.y, v.x), neg = v => ({ x: -v.x, y: -v.y });
+    const first = segs[0], last = segs[segs.length - 1];
+    fan(first.a, first.ra, ang(first.n), ang(neg(first.n)), 'ccw');
+    fan(last.b, last.rb, ang(neg(last.n)), ang(last.n), 'ccw');
+    for (let i = 0; i + 1 < segs.length; i++) {
+      const inc = segs[i], out = segs[i + 1];
+      const turn = inc.dir.x * out.dir.y - inc.dir.y * out.dir.x;
+      const p = inc.b;
+      if (turn > eps) fan(p, p.hw, ang(neg(inc.n)), ang(neg(out.n)), 'ccw');
+      else if (turn < -eps) fan(p, p.hw, ang(inc.n), ang(out.n), 'cw');
+    }
+    return tris;
+  }
+
+  // ---------- WebGL ----------
+  const glCanvas = document.getElementById('gl');
+  const overlay = document.getElementById('overlay');
+  const gl = glCanvas.getContext('webgl2', { antialias: false, premultipliedAlpha: true, alpha: false });
+  const ctx = overlay.getContext('2d');
+  const messageEl = document.getElementById('message');
+  if (!gl) {
+    messageEl.hidden = false;
+    messageEl.textContent = 'WebGL2 is not available in this browser, so the bench cannot draw.';
+    return;
+  }
+  const VS = `#version 300 es
+  in vec2 a_pos;
+  uniform int u_useRect; uniform vec4 u_rect;
+  uniform vec2 u_center; uniform float u_zoom; uniform vec2 u_size;
+  out vec2 v_world;
+  void main() {
+    vec2 w = (u_useRect == 1) ? (u_rect.xy + a_pos * u_rect.zw) : a_pos;
+    v_world = w;
+    vec2 s = (w - u_center) * u_zoom + u_size * 0.5;
+    vec2 n = s / u_size * 2.0 - 1.0;
+    gl_Position = vec4(n.x, -n.y, 0.0, 1.0);
+  }`;
+  const FS_TRI = `#version 300 es
+  precision highp float;
+  uniform vec4 u_color; out vec4 o;
+  void main() { o = vec4(u_color.rgb * u_color.a, u_color.a); }`;
+  const FS_SDF = `#version 300 es
+  precision highp float; precision highp int; precision highp sampler2D;
+  uniform sampler2D u_pts;
+  uniform int u_count; uniform int u_closed; uniform int u_fillRule; uniform int u_withFill;
+  uniform ivec2 u_seg; uniform int u_window; uniform float u_halo; uniform vec4 u_paper;
+  uniform float u_px; uniform int u_aa;
+  uniform int u_bandCount; uniform vec2 u_bandRange[4]; uniform vec4 u_bandColor[4];
+  uniform int u_formula; uniform int u_combine; uniform vec4 u_fa; uniform vec4 u_fb;
+  in vec2 v_world; out vec4 o;
+  const float BIG = 1e8;
+  vec4 P(int i) { return texelFetch(u_pts, ivec2(i, 0), 0); }
+  int nextIndex(int i) {
+    vec4 a = P(i);
+    if (i + 1 < u_count && P(i + 1).w == a.w) return i + 1;
+    if (u_closed == 1 && int(a.w) != i) return int(a.w);
+    return -1;
+  }
+  // Ribbon with end discs: distance to the segment minus the half-width at the
+  // nearest point. This is today's CPU classifier (segment-delta in
+  // path/component.cljc) and the region today's quads approximate.
+  float segRibbon(vec4 a, vec4 b, vec2 p) {
+    vec2 ab = b.xy - a.xy; vec2 ap = p - a.xy;
+    float den = dot(ab, ab);
+    float t = den > 0.0 ? clamp(dot(ap, ab) / den, 0.0, 1.0) : 0.0;
+    return length(ap - ab * t) - mix(a.z, b.z, t);
+  }
+  // Swept round nib: exact distance to the convex hull of the two end discs,
+  // which is the union of discs of linearly varying radius along the segment
+  // (the "uneven capsule"). Differs from the ribbon by the external-tangent
+  // sliver wherever the two half-widths differ.
+  float cro(vec2 a, vec2 b) { return a.x * b.y - a.y * b.x; }
+  float segNib(vec4 a, vec4 b, vec2 p) {
+    vec2 pa = a.xy, pb = b.xy; float ra = a.z, rb = b.z;
+    vec2 q0 = p - pa; vec2 d = pb - pa;
+    float h = dot(d, d);
+    float bb = ra - rb;
+    if (h <= bb * bb + 1e-12) {
+      return (ra >= rb) ? (length(p - pa) - ra) : (length(p - pb) - rb);
+    }
+    vec2 q = vec2(dot(q0, vec2(d.y, -d.x)), dot(q0, d)) / h;
+    q.x = abs(q.x);
+    vec2 c = vec2(sqrt(h - bb * bb), bb);
+    float k = cro(c, q); float m = dot(c, q); float n = dot(q, q);
+    if (k < 0.0) return sqrt(h * n) - ra;
+    if (k > c.x) return sqrt(h * (n + 1.0 - 2.0 * q.y)) - rb;
+    return m - ra;
+  }
+  uniform int u_strokeRule;
+  float segSigned(vec4 a, vec4 b, vec2 p) {
+    return (u_strokeRule == 1) ? segNib(a, b, p) : segRibbon(a, b, p);
+  }
+  float pathSigned(vec2 p, int s, int e) {
+    float m = BIG;
+    for (int i = s; i < e; i++) { int j = nextIndex(i); if (j < 0) continue; m = min(m, segSigned(P(i), P(j), p)); }
+    return m;
+  }
+  void windingAt(vec2 p, out int wn, out int cr) {
+    wn = 0; cr = 0;
+    for (int i = 0; i < u_count; i++) {
+      int j = nextIndex(i); if (j < 0) continue;
+      vec2 a = P(i).xy, b = P(j).xy;
+      bool up = (a.y <= p.y) && (b.y > p.y);
+      bool down = (a.y > p.y) && (b.y <= p.y);
+      if (up || down) {
+        float x = (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x;
+        if (p.x < x) { cr++; wn += up ? 1 : -1; }
+      }
+    }
+  }
+  float sdRoundBox(vec2 p, vec2 b, float r) {
+    vec2 q = abs(p) - b + r;
+    return length(max(q, vec2(0.0))) + min(max(q.x, q.y), 0.0) - r;
+  }
+  float formulaSigned(vec2 p) {
+    float box = sdRoundBox(p - u_fa.xy, u_fa.zw, u_fb.x);
+    float circle = length(p - u_fb.yz) - u_fb.w;
+    if (u_formula == 1) return box;
+    if (u_formula == 2) return circle;
+    if (u_formula == 3) return max(box, -circle);
+    return BIG;
+  }
+  float signedAt(vec2 p, int s, int e) {
+    float d = BIG;
+    bool usePath = (u_count >= 2) && !(u_formula != 0 && u_combine == 0);
+    if (usePath) {
+      d = pathSigned(p, s, e);
+      if (u_withFill == 1 && u_closed == 1 && u_fillRule != 0) {
+        int wn, cr; windingAt(p, wn, cr);
+        bool inside = (u_fillRule == 1) ? (wn != 0) : ((cr & 1) == 1);
+        if (inside) d = -abs(d);
+      }
+    }
+    if (u_formula != 0) {
+      float f = formulaSigned(p);
+      if (u_combine == 0 || !usePath) d = f;
+      else if (u_combine == 1) d = min(d, f);
+      else if (u_combine == 2) d = max(d, -f);
+      else d = max(d, f);
+    }
+    return d;
+  }
+  float edge(float x) { return (u_aa == 1) ? clamp(x / u_px + 0.5, 0.0, 1.0) : step(0.0, x); }
+  vec4 paintBands(float s) {
+    vec4 acc = vec4(0.0);
+    for (int k = 0; k < u_bandCount; k++) {
+      float from = u_bandRange[k].x, to = u_bandRange[k].y;
+      float cov = 1.0;
+      if (from > -BIG * 0.5) cov *= edge(s - from);
+      if (to < BIG * 0.5) cov *= edge(to - s);
+      vec4 c = u_bandColor[k]; float a = c.a * cov;
+      acc = vec4(c.rgb * a, a) + acc * (1.0 - a);
+    }
+    return acc;
+  }
+  void main() {
+    vec2 p = v_world;
+    float s = signedAt(p, u_seg.x, u_seg.y);
+    vec4 col = paintBands(s);
+    if (u_halo > 0.0) {
+      float dSeg = pathSigned(p, u_seg.x, u_seg.y);
+      float dNb = BIG;
+      int lo = max(0, u_seg.x - u_window), hi = min(u_count, u_seg.y + u_window);
+      for (int i = lo; i < hi; i++) {
+        if (i >= u_seg.x && i < u_seg.y) continue;
+        int j = nextIndex(i); if (j < 0) continue;
+        dNb = min(dNb, segSigned(P(i), P(j), p));
+      }
+      float hcov = edge(dSeg) * edge(u_halo - dSeg) * ((dNb > 0.0) ? 1.0 : 0.0);
+      vec4 halo = vec4(u_paper.rgb, 1.0) * hcov;
+      col = col + halo * (1.0 - col.a);
+    }
+    o = col;
+  }`;
+  const BLIT_VS = `#version 300 es
+  in vec2 a_pos; out vec2 v_uv;
+  void main() { v_uv = a_pos; gl_Position = vec4(a_pos * 2.0 - 1.0, 0.0, 1.0); }`;
+  const BLIT_FS = `#version 300 es
+  precision highp float;
+  uniform sampler2D u_tex; in vec2 v_uv; out vec4 o;
+  void main() { o = texture(u_tex, v_uv); }`;
+  function compile(type, src) {
+    const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh);
+    if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+    return sh;
+  }
+  function program(fs, vs) {
+    const p = gl.createProgram();
+    gl.attachShader(p, compile(gl.VERTEX_SHADER, vs || VS)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs));
+    gl.linkProgram(p);
+    if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+    const u = {};
+    const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+    for (let i = 0; i < n; i++) { const info = gl.getActiveUniform(p, i); const name = info.name.replace(/\[0\]$/, ''); u[name] = gl.getUniformLocation(p, info.name); }
+    return { p, u, a_pos: gl.getAttribLocation(p, 'a_pos') };
+  }
+  let triProg, sdfProg, blitProg;
+  try { triProg = program(FS_TRI); sdfProg = program(FS_SDF); blitProg = program(BLIT_FS, BLIT_VS); }
+  catch (e) { messageEl.hidden = false; messageEl.textContent = 'Shader failed to build: ' + e.message; return; }
+
+  // A layer of its own for the max-blend union: max against light paper would keep the paper.
+  const layerTex = gl.createTexture(), layerFbo = gl.createFramebuffer();
+  let layerW = 0, layerH = 0;
+  function ensureLayer(W, H) {
+    if (layerW === W && layerH === H) return;
+    layerW = W; layerH = H;
+    gl.bindTexture(gl.TEXTURE_2D, layerTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, H, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, layerFbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, layerTex, 0);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
+  const quadBuf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 0, 1, 1, 0, 1]), gl.STATIC_DRAW);
+  const triBuf = gl.createBuffer();
+  const ptsTex = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, ptsTex);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  function uploadPoints(rows) {
+    const n = Math.max(1, rows.length);
+    const data = new Float32Array(n * 4);
+    rows.forEach((r, i) => { data[i * 4] = r.x; data[i * 4 + 1] = r.y; data[i * 4 + 2] = r.hw; data[i * 4 + 3] = r.start; });
+    gl.bindTexture(gl.TEXTURE_2D, ptsTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, n, 1, 0, gl.RGBA, gl.FLOAT, data);
+  }
+
+  // ---------- paint bands ----------
+  function bandList() {
+    const w = state.width, c = state.color, a = state.alpha;
+    const col = [c[0], c[1], c[2], a];
+    const faint = [c[0], c[1], c[2], a * 0.35];
+    switch (state.bands) {
+      case 'outline': return [{ from: -w, to: w, color: col }];
+      case 'bgf': return [{ from: -BIG, to: -2.5 * w, color: faint }, { from: -w, to: 0, color: col }];
+      case 'double': return [{ from: -1.5 * w, to: -0.5 * w, color: col }, { from: 0.5 * w, to: 1.5 * w, color: col }];
+      default: return [{ from: -BIG, to: 0, color: col }];
+    }
+  }
+  function bandExtent(bands) {
+    let e = 0;
+    for (const b of bands) { if (b.to < BIG / 2) e = Math.max(e, Math.abs(b.to)); if (b.from > -BIG / 2) e = Math.max(e, Math.abs(b.from)); }
+    return e;
+  }
+
+  // ---------- rendering ----------
+  function paperColor() {
+    const c = getComputedStyle(document.documentElement).getPropertyValue('--canvas-paper').trim();
+    const m = /^#([0-9a-f]{6})$/i.exec(c);
+    if (!m) return [0.96, 0.97, 0.98];
+    const v = parseInt(m[1], 16);
+    return [((v >> 16) & 255) / 255, ((v >> 8) & 255) / 255, (v & 255) / 255];
+  }
+  function view() {
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = glCanvas.clientWidth, cssH = glCanvas.clientHeight;
+    return { dpr, cssW, cssH, W: Math.max(1, Math.round(cssW * dpr)), H: Math.max(1, Math.round(cssH * dpr)) };
+  }
+  function worldToScreen(x, y, v) { return [(x - state.center.x) * state.zoom + v.cssW / 2, (y - state.center.y) * state.zoom + v.cssH / 2]; }
+  function screenToWorld(sx, sy, v) { return [(sx - v.cssW / 2) / state.zoom + state.center.x, (sy - v.cssH / 2) / state.zoom + state.center.y]; }
+
+  function setView(prog, v) {
+    gl.uniform2f(prog.u.u_center, state.center.x, state.center.y);
+    gl.uniform1f(prog.u.u_zoom, state.zoom * v.dpr);
+    gl.uniform2f(prog.u.u_size, v.W, v.H);
+  }
+  function setBlend(mode) {
+    gl.enable(gl.BLEND);
+    if (mode === 'max') { gl.blendEquation(gl.MAX); gl.blendFunc(gl.ONE, gl.ONE); }
+    else { gl.blendEquation(gl.FUNC_ADD); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
+  }
+
+  const els = {
+    cursorOut: document.getElementById('cursorOut'), costOut: document.getElementById('costOut'),
+    lodOut: document.getElementById('lodOut'), geomOut: document.getElementById('geomOut'),
+  };
+  let lastTris = [];
+
+  function render() {
+    const v = view();
+    if (glCanvas.width !== v.W || glCanvas.height !== v.H) { glCanvas.width = v.W; glCanvas.height = v.H; }
+    if (overlay.width !== v.W || overlay.height !== v.H) { overlay.width = v.W; overlay.height = v.H; }
+    gl.viewport(0, 0, v.W, v.H);
+    const paper = paperColor();
+    gl.clearColor(paper[0], paper[1], paper[2], 1); gl.clear(gl.COLOR_BUFFER_BIT);
+
+    const rows = flatten();
+    const segs = segments(rows);
+    const bands = bandList();
+    const ext = bandExtent(bands);
+    const pxWorld = 1 / (state.zoom * v.dpr);
+    let cost = 0, message = '', triCount = 0;
+    lastTris = [];
+
+    if (state.road === 'triangles') {
+      if (state.closed) {
+        message = "Today's road fills closed shapes by bridging holes and ear-clipping into triangles on the CPU. That is not reproduced here. A self-crossing outline makes the ear clipper throw.";
+      } else if (rows.length >= 2) {
+        const tris = [];
+        state.contours.forEach(c => { if (c.length >= 2) tris.push(...tessellateInk(c, state.zoom)); });
+        lastTris = tris; triCount = tris.length / 6;
+        gl.useProgram(triProg.p); setView(triProg, v);
+        gl.uniform1i(triProg.u.u_useRect, 0);
+        gl.uniform4f(triProg.u.u_color, state.color[0], state.color[1], state.color[2], state.alpha);
+        gl.bindBuffer(gl.ARRAY_BUFFER, triBuf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(tris), gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(triProg.a_pos); gl.vertexAttribPointer(triProg.a_pos, 2, gl.FLOAT, false, 0, 0);
+        setBlend('over');
+        gl.drawArrays(gl.TRIANGLES, 0, tris.length / 2);
+        cost = tris.length / 6; // triangles; the per-pixel test is trivial here
+      } else if (state.presetId === 'own') {
+        message = 'Drag on the canvas to draw.';
+      }
+      if (state.formula !== 'none') message = message || 'Formula shapes have no place on the triangle road: each one would need its own polygonizer.';
+    } else {
+      uploadPoints(rows);
+      gl.useProgram(sdfProg.p); setView(sdfProg, v);
+      gl.uniform1i(sdfProg.u.u_useRect, 1);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, ptsTex); gl.uniform1i(sdfProg.u.u_pts, 0);
+      gl.uniform1i(sdfProg.u.u_count, rows.length);
+      gl.uniform1i(sdfProg.u.u_closed, state.closed ? 1 : 0);
+      gl.uniform1i(sdfProg.u.u_fillRule, state.fillRule === 'nonzero' ? 1 : (state.fillRule === 'evenodd' ? 2 : 0));
+      gl.uniform1f(sdfProg.u.u_px, pxWorld);
+      gl.uniform1i(sdfProg.u.u_aa, state.aa ? 1 : 0);
+      gl.uniform1i(sdfProg.u.u_strokeRule, state.strokeRule === 'nib' ? 1 : 0);
+      gl.uniform1i(sdfProg.u.u_bandCount, bands.length);
+      const br = new Float32Array(8), bc = new Float32Array(16);
+      bands.forEach((b, k) => { br[k * 2] = b.from; br[k * 2 + 1] = b.to; bc.set(b.color, k * 4); });
+      gl.uniform2fv(sdfProg.u.u_bandRange, br); gl.uniform4fv(sdfProg.u.u_bandColor, bc);
+      gl.uniform1i(sdfProg.u.u_formula, FORMULAS.findIndex(f => f.id === state.formula));
+      gl.uniform1i(sdfProg.u.u_combine, COMBINES.findIndex(c => c.id === state.combine));
+      gl.uniform4fv(sdfProg.u.u_fa, FORMULA_A); gl.uniform4fv(sdfProg.u.u_fb, FORMULA_B);
+      gl.uniform4f(sdfProg.u.u_paper, paper[0], paper[1], paper[2], 1);
+      gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+      gl.enableVertexAttribArray(sdfProg.a_pos); gl.vertexAttribPointer(sdfProg.a_pos, 2, gl.FLOAT, false, 0, 0);
+      const pad = ext + 2 * pxWorld;
+      const pxArea = (w, h) => Math.max(0, w * state.zoom * v.dpr) * Math.max(0, h * state.zoom * v.dpr);
+
+      if (state.road === 'onecover') {
+        setBlend('over');
+        gl.uniform1i(sdfProg.u.u_withFill, 1);
+        gl.uniform1f(sdfProg.u.u_halo, 0);
+        gl.uniform1i(sdfProg.u.u_window, 0);
+        let rect = null;
+        if (rows.length >= 2 && !(state.formula !== 'none' && state.combine === 'only')) {
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, maxHw = 0;
+          rows.forEach(r => { minX = Math.min(minX, r.x); minY = Math.min(minY, r.y); maxX = Math.max(maxX, r.x); maxY = Math.max(maxY, r.y); maxHw = Math.max(maxHw, r.hw); });
+          const p = pad + maxHw;
+          rect = [minX - p, minY - p, maxX - minX + 2 * p, maxY - minY + 2 * p];
+        }
+        if (state.formula !== 'none') {
+          const fx = FORMULA_A[0] - FORMULA_A[2] - pad, fy = FORMULA_A[1] - FORMULA_A[3] - pad;
+          const fw = 2 * FORMULA_A[2] + 2 * pad, fh = 2 * FORMULA_A[3] + 2 * pad;
+          if (!rect || state.combine === 'only') rect = [fx, fy, fw, fh];
+          else if (state.combine === 'union') {
+            const x0 = Math.min(rect[0], fx), y0 = Math.min(rect[1], fy);
+            const x1 = Math.max(rect[0] + rect[2], fx + fw), y1 = Math.max(rect[1] + rect[3], fy + fh);
+            rect = [x0, y0, x1 - x0, y1 - y0];
+          }
+        }
+        if (rect) {
+          gl.uniform4fv(sdfProg.u.u_rect, rect);
+          gl.uniform2i(sdfProg.u.u_seg, 0, rows.length);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+          const perPixel = segs.length + (state.closed && state.fillRule !== 'none' ? segs.length : 0) + (state.formula !== 'none' ? 1 : 0);
+          cost = pxArea(rect[2], rect[3]) * Math.max(1, perPixel);
+        } else if (state.presetId === 'own') message = 'Drag on the canvas to draw.';
+      } else {
+        // a cover per segment
+        const haloOn = state.halo > 0 && state.blend === 'over';
+        const useLayer = state.blend === 'max';
+        if (useLayer) {
+          ensureLayer(v.W, v.H);
+          gl.bindFramebuffer(gl.FRAMEBUFFER, layerFbo);
+          gl.viewport(0, 0, v.W, v.H);
+          gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+        }
+        setBlend(state.blend);
+        gl.uniform1i(sdfProg.u.u_withFill, 0);
+        gl.uniform1f(sdfProg.u.u_halo, haloOn ? state.halo : 0);
+        gl.uniform1i(sdfProg.u.u_window, state.window);
+        let order = segs.map((s, k) => k);
+        if (state.order === 'reversed') order.reverse();
+        else if (state.order === 'z') {
+          const key = k => (rows[segs[k][0]].z + rows[segs[k][1]].z) / 2;
+          order.sort((a, b) => key(a) - key(b) || a - b);
+        }
+        const testsPerPixel = haloOn ? 1 + 2 * state.window : 1;
+        for (const k of order) {
+          const [i, j] = segs[k], a = rows[i], b = rows[j];
+          const p = pad + Math.max(a.hw, b.hw) + (haloOn ? state.halo : 0);
+          const rect = [Math.min(a.x, b.x) - p, Math.min(a.y, b.y) - p, Math.abs(b.x - a.x) + 2 * p, Math.abs(b.y - a.y) + 2 * p];
+          gl.uniform4fv(sdfProg.u.u_rect, rect);
+          gl.uniform2i(sdfProg.u.u_seg, i, i + 1);
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+          cost += pxArea(rect[2], rect[3]) * testsPerPixel;
+        }
+        if (useLayer) {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+          gl.viewport(0, 0, v.W, v.H);
+          gl.useProgram(blitProg.p);
+          gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, layerTex); gl.uniform1i(blitProg.u.u_tex, 0);
+          gl.bindBuffer(gl.ARRAY_BUFFER, quadBuf);
+          gl.enableVertexAttribArray(blitProg.a_pos); gl.vertexAttribPointer(blitProg.a_pos, 2, gl.FLOAT, false, 0, 0);
+          setBlend('over');
+          gl.drawArrays(gl.TRIANGLES, 0, 6);
+        }
+        if (!segs.length && state.presetId === 'own') message = 'Drag on the canvas to draw.';
+        if (state.formula !== 'none') message = 'Formula shapes are drawn on the one-cover road; a per-segment cover has no segment to stand on.';
+        if (state.closed && state.fillRule !== 'none') message = 'A cover per segment cannot reach the inside of a closed shape. Fills need the whole cover, or a tile structure.';
+      }
+    }
+
+    // overlay: points, wire, message
+    ctx.setTransform(v.dpr, 0, 0, v.dpr, 0, 0);
+    ctx.clearRect(0, 0, v.cssW, v.cssH);
+    const inkCss = getComputedStyle(document.documentElement).getPropertyValue('--ink').trim();
+    const mutedCss = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim();
+    if (state.wire && state.road === 'triangles' && lastTris.length) {
+      ctx.strokeStyle = mutedCss; ctx.lineWidth = 0.75;
+      ctx.beginPath();
+      for (let i = 0; i < lastTris.length; i += 6) {
+        const a = worldToScreen(lastTris[i], lastTris[i + 1], v), b = worldToScreen(lastTris[i + 2], lastTris[i + 3], v), c = worldToScreen(lastTris[i + 4], lastTris[i + 5], v);
+        ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.lineTo(c[0], c[1]); ctx.closePath();
+      }
+      ctx.stroke();
+    }
+    if (state.showPoints) {
+      ctx.fillStyle = inkCss;
+      rows.forEach(r => { const s = worldToScreen(r.x, r.y, v); ctx.beginPath(); ctx.arc(s[0], s[1], 2.2, 0, TAU); ctx.fill(); });
+    }
+    messageEl.hidden = !message; messageEl.textContent = message;
+
+    // readouts
+    const res = fanResolution(state.zoom);
+    const bandName = state.zoom < 0.1 ? '0.01 – 0.1' : (state.zoom <= 8 ? '0.1 – 8' : '8 – 1000');
+    els.lodOut.textContent = `${state.zoom.toFixed(2)}× → band ${bandName} → ${res}-step fans`;
+    els.geomOut.textContent = `${rows.length} points · ${segs.length} segments` + (state.road === 'triangles' ? ` · ${triCount} triangles built on the CPU` : '');
+    if (state.road === 'triangles') els.costOut.textContent = `none per pixel; ${triCount} triangles rasterized`;
+    else els.costOut.textContent = cost >= 1e6 ? `${(cost / 1e6).toFixed(2)} M` : `${Math.round(cost).toLocaleString()}`;
+    updateCursor(rows, segs);
+  }
+
+  function updateCursor(rows, segs) {
+    if (!state.cursor) { els.cursorOut.textContent = '—'; return; }
+    const [wx, wy] = state.cursor;
+    const r = signedAt(rows, segs, wx, wy);
+    if (r.s >= BIG / 2) { els.cursorOut.textContent = `(${wx.toFixed(1)}, ${wy.toFixed(1)}) · nothing to test`; return; }
+    const other = signedAt(rows, segs, wx, wy, state.strokeRule === 'nib' ? 'ribbon' : 'nib');
+    const cls = r.s < -0.5 ? 'inside' : (r.s > 0.5 ? 'outside' : 'boundary');
+    let txt = `s = ${r.s.toFixed(2)} (${state.strokeRule}) → ${cls}`;
+    if (other.s < BIG / 2 && rows.length >= 2) txt += ` · ${state.strokeRule === 'nib' ? 'ribbon' : 'nib'} says ${other.s.toFixed(2)}`;
+    if (state.closed && state.fillRule !== 'none' && state.road !== 'persegment') txt += ` · winding ${r.wn} · crossings ${r.cr}`;
+    els.cursorOut.textContent = txt;
+    els.cursorOut.className = 'v' + (cls === 'boundary' ? ' warn' : '');
+  }
+
+  // ---------- controls ----------
+  function buttonRow(containerId, items, key, get, set) {
+    const c = document.getElementById(containerId);
+    c.innerHTML = '';
+    items.forEach(it => {
+      const b = document.createElement('button');
+      b.textContent = it.name; b.dataset[key] = it.id;
+      b.addEventListener('click', () => { set(it.id); sync(); render(); });
+      c.appendChild(b);
+    });
+    return () => { [...c.children].forEach(b => b.classList.toggle('on', b.dataset[key] === get())); };
+  }
+  const syncPresets = buttonRow('presets', PRESETS, 'preset', () => state.presetId, loadPreset);
+  const syncRoads = buttonRow('roads', ROADS, 'road', () => state.road, id => { state.road = id; });
+  const syncBands = buttonRow('bands', BANDS, 'band', () => state.bands, id => { state.bands = id; });
+  const syncFill = buttonRow('fillRules', FILLRULES, 'fill', () => state.fillRule, id => { state.fillRule = id; });
+  const syncFormula = buttonRow('formulas', FORMULAS, 'formula', () => state.formula, id => { state.formula = id; if (id !== 'none' && state.road === 'persegment') state.road = 'onecover'; });
+  const syncCombine = buttonRow('combines', COMBINES, 'combine', () => state.combine, id => { state.combine = id; });
+  document.querySelectorAll('[data-blend]').forEach(b => b.addEventListener('click', () => { state.blend = b.dataset.blend; sync(); render(); }));
+  document.querySelectorAll('[data-order]').forEach(b => b.addEventListener('click', () => { state.order = b.dataset.order; sync(); render(); }));
+  document.querySelectorAll('[data-rule]').forEach(b => b.addEventListener('click', () => { state.strokeRule = b.dataset.rule; sync(); render(); }));
+
+  const closedEl = document.getElementById('closed'), showPointsEl = document.getElementById('showPoints');
+  const reverseHoleRow = document.getElementById('reverseHoleRow'), reverseHoleEl = document.getElementById('reverseHole');
+  const haloEl = document.getElementById('halo'), haloVal = document.getElementById('haloVal');
+  const widthEl = document.getElementById('width'), widthVal = document.getElementById('widthVal');
+  const alphaEl = document.getElementById('alpha'), alphaVal = document.getElementById('alphaVal');
+  const aaEl = document.getElementById('aa'), wireEl = document.getElementById('wire'), wireRow = document.getElementById('wireRow');
+  const zoomEl = document.getElementById('zoom'), zoomVal = document.getElementById('zoomVal');
+  const presetNote = document.getElementById('presetNote'), roadNote = document.getElementById('roadNote'), paintNote = document.getElementById('paintNote');
+  const perSegmentOpts = document.getElementById('perSegmentOpts');
+
+  closedEl.addEventListener('change', () => { state.closed = closedEl.checked; if (!state.closed) state.fillRule = 'none'; sync(); render(); });
+  showPointsEl.addEventListener('change', () => { state.showPoints = showPointsEl.checked; render(); });
+  reverseHoleEl.addEventListener('change', () => { state.reverseHole = reverseHoleEl.checked; render(); });
+  haloEl.addEventListener('input', () => { state.halo = parseFloat(haloEl.value); sync(); render(); });
+  widthEl.addEventListener('input', () => { state.width = parseFloat(widthEl.value); sync(); render(); });
+  alphaEl.addEventListener('input', () => { state.alpha = parseFloat(alphaEl.value); sync(); render(); });
+  aaEl.addEventListener('change', () => { state.aa = aaEl.checked; render(); });
+  wireEl.addEventListener('change', () => { state.wire = wireEl.checked; render(); });
+  zoomEl.addEventListener('input', () => { state.zoom = Math.pow(10, parseFloat(zoomEl.value)); sync(); render(); });
+
+  function loadPreset(id) {
+    const p = PRESETS.find(x => x.id === id);
+    state.presetId = id;
+    state.contours = p.contours.map(c => c.map(pt => ({ ...pt })));
+    state.closed = p.closed; state.color = p.color.slice(); state.alpha = p.alpha;
+    state.fillRule = p.fillRule; state.bands = p.bands; state.road = p.road;
+    state.halo = p.halo || 0; state.order = p.order || 'drawn'; state.blend = 'over';
+    state.formula = 'none'; state.combine = 'only'; state.reverseHole = false;
+    state.center = { x: 64, y: 64 }; state.zoom = 3;
+  }
+  function sync() {
+    syncPresets(); syncRoads(); syncBands(); syncFill(); syncFormula(); syncCombine();
+    document.querySelectorAll('[data-blend]').forEach(b => b.classList.toggle('on', b.dataset.blend === state.blend));
+    document.querySelectorAll('[data-order]').forEach(b => b.classList.toggle('on', b.dataset.order === state.order));
+    document.querySelectorAll('[data-rule]').forEach(b => { b.classList.toggle('on', b.dataset.rule === state.strokeRule); b.disabled = state.road === 'triangles'; });
+    closedEl.checked = state.closed; showPointsEl.checked = state.showPoints;
+    reverseHoleRow.hidden = state.presetId !== 'holed'; reverseHoleEl.checked = state.reverseHole;
+    haloEl.value = state.halo; haloVal.textContent = state.halo.toFixed(1);
+    widthEl.value = state.width; widthVal.textContent = state.width.toFixed(1);
+    alphaEl.value = state.alpha; alphaVal.textContent = state.alpha.toFixed(2);
+    aaEl.checked = state.aa; wireEl.checked = state.wire;
+    zoomEl.value = Math.log10(state.zoom).toFixed(3); zoomVal.textContent = state.zoom.toFixed(2) + '×';
+    perSegmentOpts.hidden = state.road !== 'persegment';
+    wireRow.hidden = state.road !== 'triangles';
+    document.querySelectorAll('[data-fill]').forEach(b => { b.disabled = !state.closed || state.road === 'persegment'; });
+    document.querySelectorAll('[data-band]').forEach(b => { b.disabled = state.road === 'triangles'; });
+    document.querySelectorAll('[data-combine]').forEach(b => { b.disabled = state.formula === 'none'; });
+    aaEl.disabled = state.road === 'triangles';
+    presetNote.textContent = PRESETS.find(p => p.id === state.presetId).note;
+    roadNote.textContent = ROADS.find(r => r.id === state.road).note
+      + ((state.road === 'persegment' && state.blend === 'max') ? ' Max only unions inside a layer of its own: this draws offscreen first, then composites.' : '');
+    const band = BANDS.find(b => b.id === state.bands);
+    paintNote.textContent = state.road === 'triangles'
+      ? "The triangle road paints one thing: the ink body. Bands would each need their own offset polygon."
+      : `${band.desc}. Width is in world units, so it zooms with the ink. Stroke rule: ${state.strokeRule === 'nib' ? 'the union of discs of radius half the width along each segment; wider where the width changes fast' : "distance to the segment minus the half-width at the nearest point; today's CPU pick and the shape today's quads approximate"}.`;
+  }
+
+  // ---------- pointer: draw, pan, zoom ----------
+  overlay.addEventListener('pointerdown', e => {
+    overlay.setPointerCapture(e.pointerId);
+    const v = view();
+    const rect = overlay.getBoundingClientRect();
+    const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+    if (state.presetId === 'own' && e.button === 0 && !e.shiftKey) {
+      const [wx, wy] = screenToWorld(sx, sy, v);
+      const hw = 8 * (e.pressure > 0 && e.pointerType === 'pen' ? e.pressure : 0.5);
+      const contour = [{ x: wx, y: wy, hw, z: 0 }];
+      state.contours.push(contour);
+      state.drawing = { contour, lastX: wx, lastY: wy };
+    } else {
+      state.panning = { sx, sy, cx: state.center.x, cy: state.center.y };
+    }
+  });
+  overlay.addEventListener('pointermove', e => {
+    const v = view();
+    const rect = overlay.getBoundingClientRect();
+    const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+    const [wx, wy] = screenToWorld(sx, sy, v);
+    state.cursor = [wx, wy];
+    if (state.drawing) {
+      const d = state.drawing;
+      const minStep = 2.5 / state.zoom;
+      if (Math.hypot(wx - d.lastX, wy - d.lastY) >= minStep && d.contour.length < 1500) {
+        const hw = 8 * (e.pressure > 0 && e.pointerType === 'pen' ? e.pressure : 0.5);
+        d.contour.push({ x: wx, y: wy, hw, z: 0 }); d.lastX = wx; d.lastY = wy;
+      }
+      render();
+    } else if (state.panning) {
+      const p = state.panning;
+      state.center = { x: p.cx - (sx - p.sx) / state.zoom, y: p.cy - (sy - p.sy) / state.zoom };
+      render();
+    } else {
+      updateCursor(flatten(), segments(flatten()));
+    }
+  });
+  const endPointer = e => {
+    if (state.drawing) {
+      if (state.drawing.contour.length < 2) state.contours.pop();
+      state.drawing = null; render();
+    }
+    state.panning = null;
+  };
+  overlay.addEventListener('pointerup', endPointer);
+  overlay.addEventListener('pointercancel', endPointer);
+  overlay.addEventListener('pointerleave', () => { if (!state.drawing && !state.panning) { state.cursor = null; els.cursorOut.textContent = '—'; } });
+  overlay.addEventListener('wheel', e => {
+    e.preventDefault();
+    const v = view();
+    const rect = overlay.getBoundingClientRect();
+    const sx = e.clientX - rect.left, sy = e.clientY - rect.top;
+    const [wx, wy] = screenToWorld(sx, sy, v);
+    const factor = Math.exp(-e.deltaY * 0.0015);
+    state.zoom = Math.min(63, Math.max(0.04, state.zoom * factor));
+    const [nx, ny] = screenToWorld(sx, sy, v);
+    state.center = { x: state.center.x + (wx - nx), y: state.center.y + (wy - ny) };
+    sync(); render();
+  }, { passive: false });
+
+  window.addEventListener('resize', render);
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  if (mq.addEventListener) mq.addEventListener('change', render);
+  new MutationObserver(render).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(render);
+
+  loadPreset('selfcross');
+  sync();
+  render();
+})();
+</script>
