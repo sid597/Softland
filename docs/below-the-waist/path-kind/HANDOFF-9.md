@@ -44,3 +44,16 @@ Sid did not rule on anything this session; it ran on the starter alone.
 ## 5. The starter Sid pastes into the successor
 
 > You are the composer's chair on the path kind, successor to session 9; a Codex session holds the definer's chair. Read `docs/below-the-waist/path-kind/HANDOFF-9.md`, then `HANDOFF-8.md`, then the page it points at and bench 9. Fence: code only under `src/app/client/`; never `src/app/server/env.clj`. I am building every 2D tool as data above a waist of code that exists once, and I want to hold the picture of what that code is, its input and its output, so every session talks about the same thing. Exploration: framing and the whole picture first; details are a fix list, never a reframe. Hold the picture; fold what the definer finds through the directory, its counterexamples at full weight; bring me forks only where my word closes them. Position 7 is mine and has been asked. Continue from the still-owed list; the definer's attack on the waist test is the first thing to meet.
+
+## 6. Late additions, 2026-09-06 about 02:00, after the fold (his words verbatim)
+
+Sid read the session's recap and asked how the best teams solve this. Three things he said in reply, which the picture has not caught up with; they go first on the still-owed list.
+
+- On clips, blend modes and layer stacks (the page says "on top"; Vello and Skia carry them in one pipeline; the tree has a rectangle scissor): "so then why we not doing it we should do this too imo" and "We should be ahead of everyone or at the very least adopt the best in field."
+- On tools as data, when told no 2D tool team does it: "Yeah i know thats why softland exists those tools are dinasarus".
+- On the executor, when told the precedent is Houdini and geometry nodes, one executor over a small set of code nodes: "ooooooo nice but one executor idk seems like the constraints and hard part would be getting them in line throughput seems small...."
+- Earlier the same night, on seeing the bench: "the very first thing that i want to do after the code buildout is done is to make the whole system visible in softland itself so that i can use softland to understand softland and build more of it". In the LOG's register; not appended, he did not say the word.
+
+Also: the definer's `attack-2.md` has landed in this directory and is not yet read or folded. It is the first thing the successor meets.
+
+The starter in section 5 is superseded by the one Sid was given at the end of the session, which carries the three statements above.
