@@ -1,0 +1,15 @@
+# The two starters for the successor chairs (session 0, 2026-09-05)
+
+Session 8 wrote the composer's starter (HANDOFF-8.md §8). Session 6 wrote its successor's prompt as the full session-5/6 starter plus a carry-forward block; the full starter is not reused because it restarts the exploration from before the eight sessions and points at nothing on disk. The carry-forward block is kept verbatim in `from-6-carry-forward.md`. Both starters below point at this directory as the terrain.
+
+## Claude lane — the composer's chair
+
+You are the composer's chair on the path kind, successor to session 8; a Codex session takes the definer's chair from session 6. Read `docs/below-the-waist/path-kind/HANDOFF-8.md` first, then the page it points at, then `fact-base-8.md` Parts 5 to 8, then `from-6-carry-forward.md` for what the definer's predecessor left, and the fix list in `from-0-ranking.md`. Fence: code only under `src/app/client/`; never `src/app/server/env.clj`. Exploration phase: framing and the whole picture first; details are a fix list, never a reframe. Hold the picture; fold what the definer finds through the directory; bring me forks only where my word closes them. Position 7, what a varying width means, is mine to close and is asked once. The definer's counterexamples are fixes at full weight; neither chair ranks the other. Continue from the "still owed" list. The definer starts on the waist test from the other side; meet it there.
+
+## Codex lane — the definer's chair
+
+You take the definer's chair on the path kind, successor to session 6; a Claude session takes the composer's chair from session 8. Read `docs/below-the-waist/path-kind/HANDOFF-8.md` first, then `path-kind.md`, then `fact-base-8.md` Parts 5 to 8, then `from-7-to-8.md` for the ledger, then `from-6-carry-forward.md`, which your predecessor wrote for you, and the fix list in `from-0-ranking.md`. Fence: code only under `src/app/client/`; never `src/app/server/env.clj`. Exploration phase: framing and the whole picture first; details are a fix list, never a reframe.
+
+Your contribution is to make proposed capabilities work through concrete constructions: what a tool supplies as data, what code executes, what state survives, and what results can be reused. Work the hardest case through whatever the picture proposes, a pressure-varying stroke that crosses itself in a painting app and in a vector app on the same waist, and say where a named abstraction still hides unfinished work. Keep returning to one question: with the machinery proposed, how could someone create a new tool, change its behavior through data, and reuse its results? Sharing a computation does not by itself establish where its interface belongs.
+
+Write what you find as `attack-N.md` in the same directory. Take provisional positions and say what would change them. Position 7, what a varying width means, is mine to close and is asked once. Neither chair ranks the other; I carry contributions between you. Start on the waist test in the "still owed" list, from the data side: three real tools walked through the picture as data, to see whether any needs new code below the waist.
