@@ -1,0 +1,786 @@
+<title>The 3D Kind</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --ground: #F3F5F8; --surface: #FFFFFF; --ink: #18212C; --muted: #5C6773; --rule: #D5DBE3;
+    --accent: #2B4ACB; --accent-soft: #E4E9FB; --attn: #A8620A; --attn-soft: #FBF1E2;
+    --today: #6B7480; --today-soft: #EEF0F3; --space: #E9F4EE; --space-line: #2E7D5B; color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0F141B; --surface: #161D26; --ink: #E6EAF0; --muted: #97A2B0; --rule: #2A3441;
+      --accent: #8AA0FF; --accent-soft: #1C2646; --attn: #E0A34A; --attn-soft: #2C2312;
+      --today: #8B95A2; --today-soft: #1B222C; --space: #142A21; --space-line: #5FC495; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #0F141B; --surface: #161D26; --ink: #E6EAF0; --muted: #97A2B0; --rule: #2A3441;
+    --accent: #8AA0FF; --accent-soft: #1C2646; --attn: #E0A34A; --attn-soft: #2C2312;
+    --today: #8B95A2; --today-soft: #1B222C; --space: #142A21; --space-line: #5FC495; color-scheme: dark;
+  }
+  body { background: var(--ground); color: var(--ink); font-family: "Source Serif 4", Georgia, "Times New Roman", serif; font-size: 17px; line-height: 1.55; margin: 0; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 40px 24px 80px; }
+  .prose { max-width: 68ch; }
+  h1, h2, h3 { font-family: "Bricolage Grotesque", "Helvetica Neue", Arial, sans-serif; text-wrap: balance; letter-spacing: -0.01em; margin: 0; }
+  h1 { font-size: 44px; font-weight: 700; line-height: 1.05; }
+  h2 { font-size: 26px; font-weight: 600; margin-top: 64px; margin-bottom: 14px; }
+  h3 { font-size: 18px; font-weight: 600; margin-top: 28px; margin-bottom: 8px; }
+  p { margin: 0 0 14px; }
+  .eyebrow { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
+  .lede { font-size: 20px; line-height: 1.45; margin-top: 18px; }
+  .fence { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 18px; font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 12.5px; color: var(--muted); }
+  .fence span b { color: var(--ink); font-weight: 500; }
+  code, .mono { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 0.86em; }
+  code { background: var(--today-soft); padding: 1px 5px; border-radius: 3px; }
+  pre { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 14px 16px; overflow-x: auto; font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; font-size: 13.5px; line-height: 1.5; }
+  figure { margin: 26px 0 0; }
+  figure svg { display: block; width: 100%; height: auto; max-width: 100%; color: var(--ink); }
+  figure svg .acc-s { stroke: var(--accent); }
+  figure svg .acc-f { fill: var(--accent); }
+  figure svg .attn-f { fill: var(--attn); }
+  figure svg .attn-s { stroke: var(--attn); }
+  figure svg .sp-f { fill: var(--space); }
+  figure svg .sp-s { stroke: var(--space-line); }
+  figure svg .sp-t { fill: var(--space-line); }
+  figure svg .soft-f { fill: var(--today-soft); }
+  figure svg .acc-soft-f { fill: var(--accent-soft); }
+  figure svg .attn-soft-f { fill: var(--attn-soft); }
+  figure svg .surf-f { fill: var(--surface); }
+  a { color: var(--accent); }
+  .figwrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 14px; }
+  figcaption { font-size: 14.5px; color: var(--muted); margin-top: 10px; max-width: 80ch; }
+  figcaption b { color: var(--ink); font-weight: 600; }
+  ol.story { counter-reset: s; list-style: none; padding: 0; margin: 10px 0 0; }
+  ol.story li { counter-increment: s; position: relative; padding-left: 44px; margin-bottom: 12px; }
+  ol.story li::before { content: counter(s); position: absolute; left: 0; top: 2px; font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 15px; color: var(--accent); width: 30px; text-align: right; }
+  ol.lived { list-style: none; padding: 0; margin: 10px 0 0; counter-reset: m; }
+  ol.lived li { counter-increment: m; position: relative; padding-left: 44px; margin-bottom: 16px; }
+  ol.lived li::before { content: counter(m); position: absolute; left: 0; top: 2px; font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 15px; color: var(--attn); width: 30px; text-align: right; }
+  ol.lived li b { font-family: "Bricolage Grotesque", sans-serif; font-weight: 600; }
+  ol.lived li .model { display: block; margin-top: 4px; color: var(--muted); font-size: 15.5px; }
+  ol.lived li .today { display: block; margin-top: 4px; color: var(--today); font-size: 14.5px; font-family: "JetBrains Mono", monospace; }
+  .tag { display: inline-block; font-family: "JetBrains Mono", monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; padding: 2px 7px; border-radius: 3px; vertical-align: middle; margin-right: 6px; }
+  .tag.pos { background: var(--accent-soft); color: var(--accent); }
+  .tag.chk { background: var(--today-soft); color: var(--muted); }
+  .tag.attn { background: var(--attn-soft); color: var(--attn); }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; margin-top: 12px; }
+  .tablewrap { overflow-x: auto; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--rule); }
+  th { font-family: "Bricolage Grotesque", sans-serif; font-weight: 600; font-size: 14px; color: var(--muted); }
+  td.k { font-family: "JetBrains Mono", monospace; font-size: 13px; white-space: nowrap; color: var(--ink); }
+  td.v { font-family: "Bricolage Grotesque", sans-serif; font-weight: 700; font-size: 13px; white-space: nowrap; }
+  td { font-variant-numeric: tabular-nums; }
+  .contract { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 16px; }
+  .contract > div { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 16px 18px; }
+  .contract h3 { margin-top: 0; }
+  .contract pre { border: none; padding: 8px 0 0; background: transparent; }
+  .contract .lift { border-color: var(--accent); }
+  @media (max-width: 760px) { .contract { grid-template-columns: 1fr; } }
+  dl { margin: 10px 0 0; }
+  dt { font-family: "Bricolage Grotesque", sans-serif; font-weight: 600; margin-top: 14px; }
+  dd { margin: 4px 0 0; }
+  ul.tight { margin: 8px 0 0; padding-left: 20px; }
+  ul.tight li { margin-bottom: 8px; }
+  .words { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin-top: 10px; font-size: 15px; }
+  .words .w { font-family: "Bricolage Grotesque", sans-serif; font-weight: 600; white-space: nowrap; }
+  .foot { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--rule); font-size: 14px; color: var(--muted); }
+  .foot code { background: transparent; padding: 0; }
+</style>
+
+<div class="wrap">
+  <div class="eyebrow">Softland · client · 3D kind · 2026-09-06 · session 1, the Claude lane · the other lane's working model sits beside this page in the same directory, unfolded</div>
+  <h1>The 3D Kind</h1>
+  <p class="lede prose">What a 3D thing is and what it is made of, how a page holds a 3D space and a 3D space holds a page, and what must exist as code below the waist so that parametric CAD, film tools, open worlds, BIM, the planet and scans can be built above it as data. Read against the path kind's picture: one waist for 2D and 3D, or a reason for two. Exploration phase: framing and the whole picture first; details are a fix list.</p>
+  <div class="fence">
+    <span><b>Fence</b> src/app/client/ only</span>
+    <span><b>CHECKED</b> a hunter read the lines (fact-base-1.md) · <b>DERIVED</b> from checked lines · <b>FIELD</b> from the literature, unverified here · <b>POSITION</b> ours, awaiting Sid</span>
+  </div>
+
+  <h2>What is decided and what is proposed</h2>
+  <p class="prose">Sid's words, kept apart from positions so neither session promotes or demotes them. Everything else on this page is a position.</p>
+  <dl class="prose">
+    <dt>Ruled · Sid's framing, verbatim in the ceilings starter</dt>
+    <dd>"we have build engine and some primitives that get hardcoded and we leave other heigher level layers for ecs and call that above the waist. Anything above the waist is stored as data, is collaborative editable, createable, agents and humans without getting into git merge deadlocks, anything in ecs layer should be creatable and then saved for reuse or build higher order things from it"</dd>
+    <dd>"When you see the ceilings, do not try to hack through them. We want to build through them. the question we are asking is: what is the below-the-waist layer that should exist for everything?"</dd>
+    <dt>Adopted as a working basis, open to attack · 2026-09-06 · the session starter</dt>
+    <dd>"In the field, a 3D scene is objects with transforms, geometry, materials, lights and a camera, and rendering is projection, visibility and shading; the interchange forms are settled and the execution is contested … One composition primitive joins the two models: render a scene of either into a surface, and a surface is paint in the other, in both directions and recursively. The 2D contract ends at a region drawn with per-pixel coverage; whether 3D begins there is open." And the method: "every session that started from rendering made a definitional error, and every session that started from what the object must mean made none."</dd>
+    <dt>Carried from the path round · ruled 2026-09-05 about 16:50</dt>
+    <dd>"yeah fuck the correctness and penalising it … framing and how to think is much more important in exploration phases."</dd>
+    <dt>Carried from the path round, as positions, not decisions</dt>
+    <dd>The path contract (path + paint + identity in; regions and answers out; four pieces of code, an evaluator beside the sources); Position 7 (what a varying width means) open, Sid's to close; the executor named by both chairs on 2026-09-06 (the composer's Position 8, the definer's Position A).</dd>
+    <dt>Not decided</dt>
+    <dd>Everything on this page. The three things that remain are named once at the end: a decision about the kind's output, a definition the definer's chair should work, and one question only Sid's feel can close.</dd>
+  </dl>
+
+  <h3>Sid's words and this page's words</h3>
+  <div class="words prose">
+    <span class="w">region</span><span>today's fused row: a space, its scene, its camera and a rect on the page in one thing. On this page the word keeps meaning today's thing.</span>
+    <span class="w">space, spaces</span><span>his "nested planar and spatial spaces": a frame with a rule for who is in front. A page is one; a 3D world is one.</span>
+    <span class="w">portal</span><span>his word, kept: a thing in one space whose look is another space seen through a camera. A region on a page is one; a window on a wall is one.</span>
+    <span class="w">surface</span><span>his word, kept: what rendering a space through a camera produces; paint in the space that holds the portal; also what a light or a probe reads.</span>
+    <span class="w">land</span><span>"another land": another space, seen through a portal.</span>
+    <span class="w">seam</span><span>his word, kept: the crossing between a space of one kind and a space of the other, in either direction.</span>
+    <span class="w">chart</span><span>minted here, marked: a flat space with declared order that sits on a surface of a 3D thing, at that surface's depth. Ink on a face lives in one.</span>
+  </div>
+
+  <!-- ============ PICTURE: SHOULD BE ============ -->
+  <h2><span class="tag pos">position</span>The 3D kind as it should be</h2>
+  <p class="prose">Spaces hold things; a portal is a thing whose look is another space; a chart is a flat space on a face. Below the waist, the pieces the path picture already had grow a 3D shelf each, two pieces are new, and one is promoted to the centre.</p>
+
+  <figure>
+    <div class="figwrap">
+    <svg viewBox="0 0 1180 790" role="img" aria-label="The 3D kind as it should be: a page (a space with declared order) holds a note, a stroke and a region; the region is a portal into space S1 (order derived from the view) holding a box, a sphere, a floor and a sun; the box's front face carries a chart, a flat space with declared order at the face's depth, holding a pen stroke as a path value; a portal on the back wall shows space S2, another land. To the right, the sources of a 3D thing and the definition of the object. Below the waist: transform tree, executor, geometry shelf, per-scale mechanism, visibility resolve, material stage, render to surface, pick chain.">
+      <defs>
+        <marker id="arr3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+        <marker id="arr3A" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="acc-f"/></marker>
+      </defs>
+      <text x="16" y="24" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1" fill="currentColor" opacity="0.7">ABOVE THE WAIST — DATA. SPACES, THINGS, LOOKS, PORTALS, CONSTRUCTIONS.</text>
+
+      <!-- the page -->
+      <rect x="16" y="40" width="780" height="430" rx="6" class="surf-f" stroke="currentColor" stroke-width="1.4"/>
+      <text x="28" y="62" font-size="13" font-weight="600" fill="currentColor">page · a space · order declared · camera: orthographic, its zoom is the scale, its pan the eye</text>
+      <!-- note -->
+      <rect x="34" y="84" width="150" height="70" rx="3" class="soft-f" stroke="currentColor" stroke-width="1"/>
+      <text x="44" y="104" font-size="11.5" fill="currentColor">note · text value</text>
+      <line x1="44" y1="118" x2="170" y2="118" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+      <line x1="44" y1="130" x2="150" y2="130" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+      <line x1="44" y1="142" x2="160" y2="142" stroke="currentColor" stroke-width="1" opacity="0.4"/>
+      <!-- 2D stroke -->
+      <path d="M40,200 C70,170 100,230 130,200 S190,180 210,215 S250,250 270,225" fill="none" class="acc-s" stroke-width="5" stroke-linecap="round"/>
+      <text x="40" y="250" font-size="11.5" fill="currentColor">stroke on the page · path value + paint</text>
+      <text x="40" y="266" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">the path kind, as its page has it</text>
+      <!-- below shape -->
+      <rect x="34" y="300" width="230" height="150" rx="3" class="acc-soft-f" stroke="currentColor" stroke-width="1" opacity="0.9"/>
+      <text x="44" y="322" font-size="11.5" fill="currentColor">big shape, below the region</text>
+      <text x="44" y="338" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">order is declared: this is under, the note is over</text>
+
+      <!-- the region: a portal -->
+      <rect x="300" y="80" width="470" height="370" rx="4" class="sp-f" stroke-width="1.6" style="stroke: var(--space-line)"/>
+      <text x="312" y="100" font-size="12.5" font-weight="600" class="sp-t">region · a portal on the page → space S1 · mapping: page zoom is C1's focal length</text>
+      <text x="312" y="118" font-size="11.5" class="sp-t">S1 · a space · order derived from the view · camera C1 perspective · sun (a light is a thing)</text>
+      <!-- floor -->
+      <path d="M320,420 L750,420 L700,330 L370,330 Z" fill="none" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+      <text x="326" y="440" font-size="11" opacity="0.7" fill="currentColor">floor</text>
+      <!-- back wall with portal Q -->
+      <rect x="560" y="150" width="140" height="180" fill="none" stroke="currentColor" stroke-width="1" opacity="0.5"/>
+      <text x="566" y="165" font-size="10.5" opacity="0.7" fill="currentColor">back wall</text>
+      <rect x="590" y="180" width="90" height="120" rx="2" class="attn-soft-f" stroke-width="1.4" style="stroke: var(--attn)"/>
+      <text x="596" y="196" font-size="10.5" font-weight="600" class="attn-f">portal Q → S2</text>
+      <text x="596" y="209" font-size="10" class="attn-f">mapping: window</text>
+      <path d="M594,290 L620,262 L640,278 L660,250 L676,268 L676,296 L594,296 Z" class="attn-f" opacity="0.35"/>
+      <circle cx="660" cy="232" r="7" class="attn-f" opacity="0.5"/>
+      <text x="596" y="285" font-size="10" class="attn-f">S2 · another land</text>
+      <!-- the box -->
+      <path d="M340,250 L470,250 L470,400 L340,400 Z" class="surf-f" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M340,250 L385,215 L515,215 L470,250 Z" class="soft-f" stroke="currentColor" stroke-width="1.4"/>
+      <path d="M470,250 L515,215 L515,365 L470,400 Z" class="soft-f" stroke="currentColor" stroke-width="1.4"/>
+      <text x="348" y="268" font-size="11" fill="currentColor">box · a thing: shape + placement + look + identity</text>
+      <!-- chart on the front face -->
+      <rect x="352" y="278" width="106" height="110" rx="2" class="acc-soft-f" stroke-width="1.2" style="stroke: var(--accent)"/>
+      <text x="358" y="292" font-size="10" font-weight="600" class="acc-f">chart · a flat space on the face</text>
+      <text x="358" y="304" font-size="9.5" class="acc-f">order declared · at the face's depth</text>
+      <path d="M362,350 C372,320 392,370 408,340 S436,320 448,352" fill="none" class="acc-s" stroke-width="4" stroke-linecap="round"/>
+      <text x="358" y="378" font-size="10" class="acc-f">stroke · a path value + paint</text>
+      <!-- sphere -->
+      <circle cx="530" cy="385" r="34" class="soft-f" stroke="currentColor" stroke-width="1.4"/>
+      <text x="512" y="389" font-size="10.5" fill="currentColor">sphere</text>
+      <!-- sun -->
+      <circle cx="740" cy="130" r="9" class="attn-f" opacity="0.8"/>
+      <line x1="728" y1="140" x2="620" y2="240" stroke="currentColor" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>
+      <text x="705" y="122" font-size="10" fill="currentColor" opacity="0.8">sun</text>
+      <!-- above bar -->
+      <rect x="250" y="360" width="260" height="14" rx="2" class="attn-f" opacity="0.35"/>
+      <text x="252" y="392" font-size="10.5" fill="currentColor" opacity="0.8">translucent bar, over the region in the page's order</text>
+
+      <!-- right column: sources + the object -->
+      <rect x="816" y="40" width="348" height="200" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="828" y="62" font-size="13" font-weight="600" fill="currentColor">sources of a 3D thing, above the kind</text>
+      <text x="828" y="84" font-size="11.5" fill="currentColor">a modelled mesh · a file, a sculpt</text>
+      <text x="828" y="102" font-size="11.5" fill="currentColor">a formula solid · a construction the executor runs</text>
+      <text x="828" y="120" font-size="11.5" fill="currentColor">a scan, a splat cloud · a capture, streamed</text>
+      <text x="828" y="138" font-size="11.5" fill="currentColor">a 2D shape given depth · extrude(path, d): the path</text>
+      <text x="828" y="152" font-size="11.5" fill="currentColor">   kind's value is an input to a 3D construction</text>
+      <text x="828" y="170" font-size="11.5" fill="currentColor">a whole scene · a reference to a space, or a portal</text>
+      <text x="828" y="196" font-size="11" font-style="italic" opacity="0.75" fill="currentColor">sources, not kinds: the same lesson as the path page</text>
+      <text x="828" y="212" font-size="11" font-style="italic" opacity="0.75" fill="currentColor">a scan is to 3D what an image is to 2D: sampled, streamed</text>
+
+      <rect x="816" y="256" width="348" height="214" rx="4" class="acc-soft-f" stroke-width="1.4" style="stroke: var(--accent)"/>
+      <text x="828" y="278" font-size="13" font-weight="600" class="acc-f">the object · what a 3D thing is made of</text>
+      <text x="828" y="300" font-size="11.5" fill="currentColor"><tspan font-weight="600">shape</tspan>  where its surface is, in one language:</text>
+      <text x="828" y="315" font-size="11" fill="currentColor">   mesh · exact patches · formula (SDF, CSG) · sampled</text>
+      <text x="828" y="329" font-size="11" fill="currentColor">   (volume, points, splats, heightfield) · curve in space</text>
+      <text x="828" y="349" font-size="11.5" fill="currentColor"><tspan font-weight="600">placement</tspan>  one transform, or many (copies of one shape)</text>
+      <text x="828" y="369" font-size="11.5" fill="currentColor"><tspan font-weight="600">look</tspan>  a material, with chart layers: 2D paint on faces</text>
+      <text x="828" y="389" font-size="11.5" fill="currentColor"><tspan font-weight="600">identity</tspan>  the object, its faces, its copies; a revision each</text>
+      <text x="828" y="409" font-size="11.5" fill="currentColor"><tspan font-weight="600">construction</tspan>  what it derives from, if anything</text>
+      <text x="828" y="434" font-size="11" font-style="italic" opacity="0.75" fill="currentColor">a light, a camera and a portal are things too: a look that</text>
+      <text x="828" y="449" font-size="11" font-style="italic" opacity="0.75" fill="currentColor">emits, a view of a space, a look that is another space</text>
+
+      <!-- waist -->
+      <line x1="16" y1="500" x2="1164" y2="500" stroke="currentColor" stroke-width="2"/>
+      <text x="16" y="490" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1" fill="currentColor" opacity="0.8">THE WAIST — ONE CONTRACT: VALUES IN · A RESOLVE PER SPACE PER VIEW, AND ANSWERS, OUT · TOLERANCES NEVER IN THE VALUE</text>
+      <text x="16" y="524" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1" fill="currentColor" opacity="0.7">BELOW THE WAIST — CODE. THE PATH PIECES WITH A 3D SHELF EACH, TWO NEW, ONE PROMOTED.</text>
+
+      <!-- code boxes row 1 -->
+      <rect x="16" y="540" width="272" height="108" rx="4" class="surf-f" stroke="currentColor" stroke-width="1.2"/>
+      <text x="28" y="560" font-size="12.5" font-weight="600" fill="currentColor">transform tree · a shelf</text>
+      <text x="28" y="578" font-size="11" fill="currentColor">frames 2D and 3D in one tree; cameras as nodes;</text>
+      <text x="28" y="592" font-size="11" fill="currentColor">a space switches at a portal; f64 on the CPU,</text>
+      <text x="28" y="606" font-size="11" fill="currentColor">rebased around the view before f32 upload</text>
+      <text x="28" y="626" font-size="10.5" font-style="italic" opacity="0.75" fill="currentColor">in: frames, cameras · out: composed chains</text>
+
+      <rect x="308" y="540" width="272" height="108" rx="4" class="acc-soft-f" stroke-width="1.6" style="stroke: var(--accent)"/>
+      <text x="320" y="560" font-size="12.5" font-weight="600" class="acc-f">executor · promoted to the centre</text>
+      <text x="320" y="578" font-size="11" fill="currentColor">runs saved constructions: feature trees, operator</text>
+      <text x="320" y="592" font-size="11" fill="currentColor">graphs, relationships, scatter, section-to-plan;</text>
+      <text x="320" y="606" font-size="11" fill="currentColor">records what each read, so an edit re-runs its part</text>
+      <text x="320" y="626" font-size="10.5" font-style="italic" opacity="0.75" fill="currentColor">in: construction + values · out: values + dependencies</text>
+
+      <rect x="600" y="540" width="272" height="108" rx="4" class="surf-f" stroke="currentColor" stroke-width="1.2"/>
+      <text x="612" y="560" font-size="12.5" font-weight="600" fill="currentColor">geometry shelf · a shelf</text>
+      <text x="612" y="578" font-size="11" fill="currentColor">tessellate(τ) · section(plane) · silhouette(view)</text>
+      <text x="612" y="592" font-size="11" fill="currentColor">sweep, extrude, boolean · hit(ray) · closest(p)</text>
+      <text x="612" y="606" font-size="11" fill="currentColor">convert(rep → rep, τ) · the exact kernel when bought</text>
+      <text x="612" y="626" font-size="10.5" font-style="italic" opacity="0.75" fill="currentColor">the path's envelope is sweep in a plane</text>
+
+      <rect x="892" y="540" width="272" height="108" rx="4" class="surf-f" stroke="currentColor" stroke-width="1.2"/>
+      <text x="904" y="560" font-size="12.5" font-weight="600" fill="currentColor">per-scale mechanism · a shelf</text>
+      <text x="904" y="578" font-size="11" fill="currentColor">level of detail, tiles, mips, copies: what is admitted</text>
+      <text x="904" y="592" font-size="11" fill="currentColor">at this projected error under this byte and time</text>
+      <text x="904" y="606" font-size="11" fill="currentColor">budget; GPU-driven when the counts are large</text>
+      <text x="904" y="626" font-size="10.5" font-style="italic" opacity="0.75" fill="currentColor">the packer's rate, made general; the rungs are its seed</text>
+
+      <!-- code boxes row 2 -->
+      <rect x="16" y="666" width="272" height="108" rx="4" class="attn-soft-f" stroke-width="1.6" style="stroke: var(--attn)"/>
+      <text x="28" y="686" font-size="12.5" font-weight="600" class="attn-f">visibility resolve · new</text>
+      <text x="28" y="704" font-size="11" fill="currentColor">per space per view: opaque by depth, translucent</text>
+      <text x="28" y="718" font-size="11" fill="currentColor">by order, edges by the resolve's antialiasing;</text>
+      <text x="28" y="732" font-size="11" fill="currentColor">every shape program writes into it, or declares how</text>
+      <text x="28" y="752" font-size="10.5" font-style="italic" opacity="0.75" fill="currentColor">the 3D twin of "one resolve per region"</text>
+
+      <rect x="308" y="666" width="272" height="108" rx="4" class="attn-soft-f" stroke-width="1.6" style="stroke: var(--attn)"/>
+      <text x="320" y="686" font-size="12.5" font-weight="600" class="attn-f">material stage · new</text>
+      <text x="320" y="704" font-size="11" fill="currentColor">a fixed PBR shelf now; the path filler runs inside it</text>
+      <text x="320" y="718" font-size="11" fill="currentColor">as a chart layer (coverage in chart units, footprint</text>
+      <text x="320" y="732" font-size="11" fill="currentColor">from screen derivatives); a graph runner later</text>
+      <text x="320" y="752" font-size="10.5" font-style="italic" opacity="0.75" fill="currentColor">in: look + lights + surfaces · out: colour at a fragment</text>
+
+      <rect x="600" y="666" width="272" height="108" rx="4" class="surf-f" stroke="currentColor" stroke-width="1.2"/>
+      <text x="612" y="686" font-size="12.5" font-weight="600" fill="currentColor">render to surface · the compositor's shelf</text>
+      <text x="612" y="704" font-size="11" fill="currentColor">render(space, camera, size) → surface; one primitive</text>
+      <text x="612" y="718" font-size="11" fill="currentColor">under shadow maps, probes, portals, a region on a</text>
+      <text x="612" y="732" font-size="11" fill="currentColor">page, the second eye; also an answer data can ask for</text>
+      <text x="612" y="752" font-size="10.5" font-style="italic" opacity="0.75" fill="currentColor">keyed on its own inputs, never on the frame</text>
+
+      <rect x="892" y="666" width="272" height="108" rx="4" class="surf-f" stroke="currentColor" stroke-width="1.2"/>
+      <text x="904" y="686" font-size="12.5" font-weight="600" fill="currentColor">pick chain · the answers' shelf</text>
+      <text x="904" y="704" font-size="11" fill="currentColor">hit(ray, space) → nearest thing; through a portal the</text>
+      <text x="904" y="718" font-size="11" fill="currentColor">ray continues; on a chart the path's classify answers;</text>
+      <text x="904" y="732" font-size="11" fill="currentColor">hover is the same call on every move</text>
+      <text x="904" y="752" font-size="10.5" font-style="italic" opacity="0.75" fill="currentColor">out: a chain, each link at its own rate</text>
+
+      <!-- arrows across the waist -->
+      <line x1="540" y1="452" x2="540" y2="536" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr3)"/>
+      <text x="548" y="480" font-size="10.5" fill="currentColor" opacity="0.8">values down: spaces, things, looks, charts, portals</text>
+      <line x1="760" y1="536" x2="760" y2="452" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr3)"/>
+      <text x="768" y="480" font-size="10.5" fill="currentColor" opacity="0.8">surfaces and answers up: paint, hits, paths</text>
+    </svg>
+    </div>
+    <figcaption><b>Should be.</b> A page is a space whose order is declared. A region on it is a portal into a space whose order is derived from the view. A stroke on a face lives in a chart, a flat declared-order space at the face's depth, drawn as a layer of the face's look. A portal on the wall shows another land the same way the page shows this one. Below the waist, the path picture's pieces each grow a 3D shelf; the visibility resolve and the material stage are new; the executor moves from beside the sources to the centre, because every 3D ceiling is a graph re-run on edit.</figcaption>
+  </figure>
+
+  <h2>The story, read off the picture</h2>
+  <ol class="story prose">
+    <li>Everything a 3D space shows ends as one question per pixel: which surface is nearest along this pixel's line of sight, and what colour does that surface give under the lights.</li>
+    <li>The first half is visibility, the second is shading, and shading's inputs include other renders of the same space, from the lights, so the question is recursive where 2D's never was.</li>
+    <li>A 3D thing is a shape in a space with a look and a name: a shape in one of several languages, a placement, a material, and identity for the thing, its faces and its copies.</li>
+    <li>A modelled mesh, a formula solid, a scan, a 2D shape given depth and a whole scene are sources of that thing; the object is general and the sources are above it, as pen, formula, designer and font are above the path.</li>
+    <li>A space is a frame plus a rule for who is in front: on a page the order is declared, in a 3D space it is derived from the geometry and the camera.</li>
+    <li>Today's region is three of these fused: a space, its scene, and a portal that shows the space on the page. Split them and the region stops being the thing; it becomes one way of seeing a space.</li>
+    <li>A portal is a thing in one space whose look is another space seen through a camera. A page holding a region and a wall holding a window are the same object, and ink on a face is the flat case: a chart, a declared-order space at the face's depth.</li>
+    <li>Cameras compose as a chain of matrices. Page zoom is the region camera's focal length and never its position; orbit and dolly are its position; nothing stored knows either.</li>
+    <li>Rendering a space through a camera into a surface is one primitive, whether the surface is a shadow map, a portal, a region on a page, or the second eye. It is also an answer data can ask for, the fifth answer 2D never had.</li>
+    <li>Sort every value by when it changes: shape, look and placement per edit; level of detail per scale, keyed on projected error; the camera and the resolve per frame; derived surfaces on their own inputs, so a shadow map does not care that you orbited.</li>
+    <li>Click and hover are one function: a ray into a space returns the nearest thing, and through a portal or into a chart the ray continues, so the answer is a chain ending in the innermost value, each link changing at its own rate.</li>
+    <li>Two per-pixel resolves nest in one waist: 2D coverage runs inside a face's look as paint, and a 3D space's resolve runs inside the page as one ordered item. Neither replaces the other.</li>
+    <li>The ceilings are graphs, feature trees and relationships re-run on every edit. An executor that runs saved constructions and tracks what they read is the centre of the waist, not a fifth piece beside it.</li>
+    <li>What must be code: the transform tree with cameras and rebasing, the visibility resolve with a transparency policy, render to surface from any camera, the material stage with the 2D filler as a layer, a geometry shelf, the per-scale mechanism, the pick chain, and the executor. Everything else is data.</li>
+    <li>One waist. The 3D code is shelves on the pieces the path picture already has, plus two new pieces and one promotion. Two waists only if 2D inside 3D could not be a chart, and it can.</li>
+  </ol>
+
+  <h2>What a 3D thing is made of, spelled out</h2>
+  <p class="prose">The value the kind takes and the things it gives. This is what every session on the 3D kind should be talking about. The path's value appears inside it twice: as the content of a chart, and as the output of section and silhouette.</p>
+  <div class="contract">
+    <div class="lift">
+      <h3>In: spaces, things, looks, portals</h3>
+<pre>space      frame            place in its parent (2D affine or 3D transform)
+           order rule       declared | derived-from-view
+           environment      background, ambient: a space-level look
+
+object     shape            ONE representation —
+             mesh           triangles + normals, uvs, face ids
+             exact          B-rep patches, subdivision cage   → tessellate(τ)
+             formula        SDF, CSG tree                     → march or mesh at τ
+             sampled        volume, points, splats, heightfield → own program
+             curve in space edges, hair, wires   → the path's sweep, nib facing the view
+           placement        one transform | many (copies of one shape)
+           look             material { base, metallic, roughness, emissive,
+                                       textures, response (a graph, later),
+                              layers: chart* { kind frame|face|uv|projection,
+                                               content: paths, text, images
+                                               in declared order } }
+           identity         object id · stable face ids · copy ids · revision
+           construction?    what it derives from: a saved construction
+
+light      a thing whose look emits: kind, colour, intensity, range, cone, casts?
+camera     a view of a space: projection perspective|ortho, pose, exposure
+portal     a thing whose look is another space through a camera mapping:
+             fixed (a picture) | window (derived from the viewer)
+             | declared (a mapping the executor runs, e.g. zoom → dolly)
+           events pass through?  recursion limit
+
+tolerances three, none in the value: the source's fit, a consumer's
+           request, the device's (per scale: projected error)</pre>
+    </div>
+    <div>
+      <h3>Out: a resolve, and answers</h3>
+<pre>to the GPU   per space per view: a draw into the space's
+             visibility resolve — opaque by depth, translucent
+             by order, edges by the resolve's antialiasing —
+             consuming the view's inputs: camera, lights,
+             derived surfaces (shadow, probe, portal)
+             ⇒ a surface: display-referred, premultiplied,
+               which is paint in the space that holds the portal
+
+to the CPU   hit(ray, space)  → chain [space, thing, face,
+                                 chart point, …, innermost value]
+             bounds · closest(p) · distance(p) for formula shapes
+             section(plane) → paths       silhouette(view) → paths
+                                           (the path kind's input,
+                                            with provenance)
+             tessellate(τ) · convert(rep → rep, τ)
+
+as a value   render(space, camera, size) → surface
+             the fifth answer: shadows, probes, portals,
+             thumbnails, bakes, a plan rendered to a page,
+             all data above the waist once this exists</pre>
+    </div>
+  </div>
+  <p class="prose" style="margin-top:14px">The GPU output is what the region renderer already does for one case: a depth-tested pass into a lease, resolved and composited (CHECKED, fact base Part 2 §3). The chain answer's first link is what <code>pick-region</code> already returns, minus the face and the chart (CHECKED, Part 1 §5). The surface answer is what the shadow pass already is, from the light's camera (CHECKED, Part 2 §8), never yet callable.</p>
+
+  <h3>When does a value change? The axis, not CPU versus GPU</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Changes…</th><th>Values</th><th>Where it may live</th><th>Today</th></tr>
+    <tr><td class="k">per edit</td><td>shape, look, placement, chart contents, identity, construction</td><td>CPU; stored; uploaded once; BVH refit</td><td>the whole scene re-derives on any non-transform edit; one revision per region (CHECKED Part 1 §4, §8)</td></tr>
+    <tr><td class="k">per scale</td><td>tessellation of exact shapes, level of detail, mip residency, tile admission, copy culling; the chart's packer tolerance from the full chain</td><td>the per-scale mechanism's caches, keyed on projected error and budget</td><td>none for meshes; placed ink tessellated at zoom 1.0 forever; the 256-pixel lease quantum and the 1.12-power bucket are resolution ladders for the surface, not detail (CHECKED Part 2 §2, Part 3 §2)</td></tr>
+    <tr><td class="k">per frame</td><td>camera, rebase, the visibility resolve, the composite; window portals with derived cameras</td><td>GPU</td><td>interior re-encoded when dirty; composite every frame</td></tr>
+    <tr><td class="k">on their own inputs</td><td>shadow maps (light + scene), probes (place + scene), fixed portals (scene + camera), a region's surface while nothing moves</td><td>derived surfaces with their own keys</td><td>the shadow re-encodes with the interior, keyed on the region's revision, not on the light (CHECKED Part 2 §3, §8)</td></tr>
+  </table></div>
+
+  <!-- ============ THE HARDEST CASE ============ -->
+  <h2>The hardest case, lived</h2>
+  <p class="prose">A pen stroke drawn on the front face of a box, inside a 3D region that sits on a page; I zoom the page, orbit the region, hover and click the stroke, and inside the region a portal shows another land. Moment by moment, what I see, what the model says is happening, and what today's code would do (CHECKED, from the fact base). The bench beside this page makes the same moments feelable.</p>
+  <ol class="lived prose">
+    <li><b>I look.</b> The page shows the region as one item in its declared order: over the big shape, under the translucent bar. Inside, the box's front face carries my stroke as paint on the face: lit by the sun, in shadow where the sphere shades it, hidden where the sphere stands in front. On the back wall a portal shows the other land: its own sun, its own depth, and the box in front of it hides part of the window.
+      <span class="model">The region is a portal into S1; the stroke is a chart layer in the face's look; the portal Q is a thing in S1 whose look is S2 through a window mapping. Three spaces, two seams, one screen.</span>
+      <span class="today">today: the region composites as a textured quad; the ink is a separate transparent mesh with a negative depth bias, unlit, unshadowed; there is no portal and no second space.</span></li>
+    <li><b>I zoom the page, wheel over the region.</b> The region grows on the page and everything inside grows with it; it is the region camera's focal length changing, an optical zoom, not a step into the room. The stroke's edges stay crisp. The box's silhouette refines if its shape is exact. The window shows a magnified crop of the other land. Nothing stored changed.
+      <span class="model">Only the page's projection changed in the chain P<sub>page</sub> · T<sub>rect</sub> · P<sub>C1</sub> · V<sub>C1</sub> · M<sub>box</sub>. The chart's filler evaluates coverage at the true pixel footprint (screen derivatives); the per-scale mechanism refines by projected error. Zoom is a camera move all the way down.</span>
+      <span class="today">today: the lease re-renders at the next 256-pixel quantum up to 4096, resamples between 1.12-power buckets, blurs past 4096; the interior's projection never sees the page zoom; the ink stays at its zoom-1.0 tessellation.</span></li>
+    <li><b>I orbit the region, drag inside it.</b> The region camera moves; the page does not. The stroke is re-projected on its face, the same path in the same chart. The sun's shadow does not change, because the light and the scene did not. Through the window I see around the corner of the other land, because a window's camera moves with mine.
+      <span class="model">C1 changed; S1 re-resolves; the shadow surface's key (sun, S1's scene) did not change, so it is reused; the portal's derived camera C2 = f(C1, Q's placement) changed, so S2 re-renders. Orbit costs a resolve, not a derive.</span>
+      <span class="today">today: the interior and the shadow are one dirty region: both re-encode. Ink draw order is only re-sorted when content changes, so a camera-only orbit keeps a stale order (docstring, Part 3 §3).</span></li>
+    <li><b>I hover the stroke.</b> On every move the pointer becomes a chain: screen point → page point → the topmost page item under it, the region → region-local point → a ray in S1 → the nearest thing: the box, its front face, a chart coordinate → in the chart, the stroke, inside. A highlight watches the innermost link and lights the stroke; a status line watches the face link and names it.
+      <span class="model">hit(ray, S1) returns [box, face front, uv]; the face has a chart; classify(uv, slop) over the stroke's path answers inside. The box link changes rarely, the uv link on every move, the stroke link at its boundary. That is the fine grain a reactive system watches, and it falls out of the chain being explicit.</span>
+      <span class="today">today: hover does not exist; pick returns a triangle index; the ink is not in the BVH; the ray-to-plane function has no caller; the path's classify has no caller outside the harness. Every link exists as a function; none are joined.</span></li>
+    <li><b>I click the stroke.</b> The same chain, and the answer says: stroke S, on the front face of the box, in region R, at uv (0.31, 0.62), world point p, normal n. A tool that wants to place a note gets p and n; a tool that wants the page gets the first link.
+      <span class="model">"You hit this" is the chain, and each consumer reads the link it cares about. Click and hover differ only in what is done with the answer.</span>
+      <span class="today">today: the harness asserts one hard-coded object and one ray parameter at the rect's centre; nothing else is asked.</span></li>
+    <li><b>I hover the window.</b> The chain reaches Q and continues: the ray, transformed by Q's mapping into S2, hits a hill. The answer: [R → Q → S2: hill, face, uv]. Whether a drag through the window moves the hill is a declaration on Q: does it pass events through?
+      <span class="model">A portal is a link in the pick chain, not a wall. A picture portal maps the quad's uv through its fixed camera; a window portal transforms the ray itself. Either way the chain crosses the seam.</span>
+      <span class="today">today: nothing to cross.</span></li>
+    <li><b>I drag the box.</b> Its placement changes. The stroke goes with it, because it lives in the box's chart. The BVH refits. The shadow re-renders, because the scene changed. The window does not, because its land did not. The page item does not, because the region's surface re-resolves under it.
+      <span class="model">Per edit: one transform. Derived surfaces re-run by their keys: shadow yes, portal no. The chart's contents are unchanged data.</span>
+      <span class="today">today: transform-only refit works exactly like this (CHECKED Part 1 §4); the shadow also re-encodes, correctly here.</span></li>
+    <li><b>I share the page.</b> What travels: the page's items; the region's declaration, its space by reference and its camera; the space's things, the box's shape by reference, its look, its placement, the chart on its front face with the stroke's path value; the portal with its target space by reference and its mapping; the other land likewise. What stays: leases, shadow maps, tessellations, the BVH, packed bands. The other machine re-derives every surface.
+      <span class="model">The value is camera-free and surface-free. Sharing a portal shares a reference, not a copy, the same way an image shares a source digest.</span>
+      <span class="today">today: the region row is already a value; the placed-ref address is an opaque thing nobody in client/ resolves (CHECKED Part 1 §7).</span></li>
+  </ol>
+
+  <figure>
+    <div class="figwrap">
+    <svg viewBox="0 0 1180 620" role="img" aria-label="The seam both ways. Left column, the draw direction: a path value in a chart becomes coverage in chart units in the face's material, a lit and occluded fragment in S1's resolve, a surface or a direct draw, a page item in declared order, a pixel. Right column, the pick direction: a screen point becomes a page point, the topmost item (the region), a region-local point, a ray in S1, the nearest hit (box, front face, uv), a chart point, classify over the stroke, inside; and a branch through the portal Q into S2. Rates are marked per link.">
+      <defs>
+        <marker id="arr4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+      </defs>
+      <text x="16" y="24" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1" fill="currentColor" opacity="0.7">DRAW — VALUE TO PIXEL</text>
+      <text x="620" y="24" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1" fill="currentColor" opacity="0.7">PICK AND HOVER — PIXEL TO VALUE</text>
+
+      <!-- draw column -->
+      <g font-size="11.5" fill="currentColor">
+        <rect x="16" y="40" width="540" height="52" rx="4" class="acc-soft-f" stroke-width="1.2" style="stroke: var(--accent)"/>
+        <text x="28" y="60" font-weight="600">stroke · a path value + paint, in the chart's units</text>
+        <text x="28" y="78">camera-free; the same value the path page defines; changes per edit</text>
+
+        <line x1="286" y1="92" x2="286" y2="108" stroke="currentColor" marker-end="url(#arr4)"/>
+        <rect x="16" y="110" width="540" height="52" rx="4" class="surf-f" stroke="currentColor" stroke-width="1.2"/>
+        <text x="28" y="130" font-weight="600">the chart · frame | face | uv | projection on the box's front face</text>
+        <text x="28" y="148">point on surface ↔ chart coordinate; the packer's tolerance from the FULL chain, anisotropic</text>
+
+        <line x1="286" y1="162" x2="286" y2="178" stroke="currentColor" marker-end="url(#arr4)"/>
+        <rect x="16" y="180" width="540" height="52" rx="4" class="attn-soft-f" stroke-width="1.2" style="stroke: var(--attn)"/>
+        <text x="28" y="200" font-weight="600">the face's look · material stage: coverage(uv, footprint) is one layer</text>
+        <text x="28" y="218">the path filler runs here; the paint is albedo, so it is lit, shadowed and occluded with the face</text>
+
+        <line x1="286" y1="232" x2="286" y2="248" stroke="currentColor" marker-end="url(#arr4)"/>
+        <rect x="16" y="250" width="540" height="52" rx="4" class="attn-soft-f" stroke-width="1.2" style="stroke: var(--attn)"/>
+        <text x="28" y="270" font-weight="600">S1's visibility resolve · per view: depth for opaque, order for translucent</text>
+        <text x="28" y="288">inputs: C1, the sun, the shadow surface (keyed sun + scene), Q's surface (keyed S2 + C2)</text>
+
+        <line x1="286" y1="302" x2="286" y2="318" stroke="currentColor" marker-end="url(#arr4)"/>
+        <rect x="16" y="320" width="540" height="66" rx="4" class="surf-f" stroke="currentColor" stroke-width="1.2"/>
+        <text x="28" y="340" font-weight="600">the region · a portal: two executions of one chain</text>
+        <text x="28" y="356">surface: render(S1, C1, projected size) → paint at the rect  (cheap while static; a ladder under zoom)</text>
+        <text x="28" y="372">direct: draw S1 into the page pass with P_page·T_rect·P_C1·V_C1, clipped to the rect (crisp under zoom)</text>
+
+        <line x1="286" y1="386" x2="286" y2="402" stroke="currentColor" marker-end="url(#arr4)"/>
+        <rect x="16" y="404" width="540" height="52" rx="4" class="surf-f" stroke="currentColor" stroke-width="1.2"/>
+        <text x="28" y="424" font-weight="600">the page · declared order: big shape, region, bar, note</text>
+        <text x="28" y="442">the page's own resolve is order with coverage; the region is one ordered item with alpha at its edge</text>
+
+        <line x1="286" y1="456" x2="286" y2="472" stroke="currentColor" marker-end="url(#arr4)"/>
+        <rect x="16" y="474" width="540" height="40" rx="4" class="soft-f" stroke="currentColor" stroke-width="1.2"/>
+        <text x="28" y="498" font-weight="600">screen · present: display-referred, premultiplied, sRGB at the end</text>
+
+        <text x="16" y="546" font-size="11" font-style="italic" opacity="0.75">the second seam, S2 seen through Q, is the same column again, one level down:</text>
+        <text x="16" y="562" font-size="11" font-style="italic" opacity="0.75">S2's resolve → Q's surface → a layer of Q's look → S1's resolve.</text>
+        <text x="16" y="590" font-size="11" font-style="italic" opacity="0.75">where work hides: the chart kind; the surface's size policy and staleness key; the page's</text>
+        <text x="16" y="606" font-size="11" font-style="italic" opacity="0.75">order versus the region's depth at the rect's edge; tone mapping's owner (the camera).</text>
+      </g>
+
+      <!-- pick column -->
+      <g font-size="11.5" fill="currentColor">
+        <rect x="620" y="40" width="544" height="40" rx="4" class="soft-f" stroke="currentColor" stroke-width="1.2"/>
+        <text x="632" y="64" font-weight="600">screen point  <tspan font-weight="400" opacity="0.8">→ page point through the page's inverse projection · every move</tspan></text>
+
+        <line x1="892" y1="80" x2="892" y2="96" stroke="currentColor" marker-end="url(#arr4)"/>
+        <rect x="620" y="98" width="544" height="52" rx="4" class="surf-f" stroke="currentColor" stroke-width="1.2"/>
+        <text x="632" y="118" font-weight="600">page hit · topmost item under the point in declared order: the region</text>
+        <text x="632" y="136">the bar over it declares pass-through; page → region-local through T_rect's inverse · rarely changes</text>
+
+        <line x1="892" y1="150" x2="892" y2="166" stroke="currentColor" marker-end="url(#arr4)"/>
+        <rect x="620" y="168" width="544" height="52" rx="4" class="surf-f" stroke="currentColor" stroke-width="1.2"/>
+        <text x="632" y="188" font-weight="600">a ray in S1 · region-local → C1's inverse: eye through the near-plane point</text>
+        <text x="632" y="206">page zoom does not enter the ray; the head and a hand give the same input directly · every move</text>
+
+        <line x1="892" y1="220" x2="892" y2="236" stroke="currentColor" marker-end="url(#arr4)"/>
+        <rect x="620" y="238" width="544" height="66" rx="4" class="attn-soft-f" stroke-width="1.2" style="stroke: var(--attn)"/>
+        <text x="632" y="258" font-weight="600">hit(ray, S1) · nearest thing over the same lowered geometry the GPU drew</text>
+        <text x="632" y="276">box · front face · uv (0.31, 0.62) · point p · normal n · distance t</text>
+        <text x="632" y="292">box changes rarely · face at edges · uv every move · agreement with the draw at a declared error</text>
+
+        <!-- branch -->
+        <line x1="760" y1="304" x2="760" y2="320" stroke="currentColor" marker-end="url(#arr4)"/>
+        <rect x="620" y="322" width="280" height="66" rx="4" class="acc-soft-f" stroke-width="1.2" style="stroke: var(--accent)"/>
+        <text x="632" y="342" font-weight="600">chart point → classify(uv, slop)</text>
+        <text x="632" y="358">the path's own answer, slop from the ray's</text>
+        <text x="632" y="374">footprint at the hit · changes at the boundary</text>
+
+        <line x1="1030" y1="304" x2="1030" y2="320" stroke="currentColor" marker-end="url(#arr4)"/>
+        <rect x="912" y="322" width="252" height="66" rx="4" class="attn-soft-f" stroke-width="1.2" style="stroke: var(--attn)"/>
+        <text x="924" y="342" font-weight="600">or: portal Q, uv on its quad</text>
+        <text x="924" y="358">window: transform the ray into S2</text>
+        <text x="924" y="374">picture: uv → C2's inverse → a ray in S2</text>
+
+        <line x1="760" y1="388" x2="760" y2="404" stroke="currentColor" marker-end="url(#arr4)"/>
+        <rect x="620" y="406" width="280" height="52" rx="4" class="acc-soft-f" stroke-width="1.6" style="stroke: var(--accent)"/>
+        <text x="632" y="426" font-weight="600">stroke S · inside</text>
+        <text x="632" y="444">the innermost value; a highlight watches this link</text>
+
+        <line x1="1030" y1="388" x2="1030" y2="404" stroke="currentColor" marker-end="url(#arr4)"/>
+        <rect x="912" y="406" width="252" height="52" rx="4" class="surf-f" stroke="currentColor" stroke-width="1.2"/>
+        <text x="924" y="426" font-weight="600">hit(ray, S2) · hill, face, uv</text>
+        <text x="924" y="444">the chain continues; events pass if Q says so</text>
+
+        <rect x="620" y="480" width="544" height="58" rx="4" class="surf-f" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3"/>
+        <text x="632" y="500" font-weight="600">the answer · [R → box, front, uv → S, inside]  or  [R → Q → S2: hill, face, uv]</text>
+        <text x="632" y="518">a chain, each link a value at its own rate; the id-buffer at the cursor is the check, never the primary</text>
+
+        <text x="620" y="562" font-size="11" font-style="italic" opacity="0.75">today: every link exists as a function; none are joined. pick-region stops at a triangle index (harness</text>
+        <text x="620" y="578" font-size="11" font-style="italic" opacity="0.75">only); ray→placement-plane has no caller; path/classify has no caller outside the harness; no hover;</text>
+        <text x="620" y="594" font-size="11" font-style="italic" opacity="0.75">the ink is not in the BVH; the CPU is two-sided and the GPU back-face culls (a declared disagreement).</text>
+      </g>
+    </svg>
+    </div>
+    <figcaption><b>The seam, both ways.</b> Down the left, a path value in a chart becomes a layer of a face's look, a fragment in S1's resolve, a surface or a direct draw at the region's rect, one ordered item on the page, a pixel. Up the right, a screen point becomes a ray in S1, a hit on the box's front face, a chart point, and the path's own classify; or a hit on the portal and the same walk in S2. The seam is crossed at the chart going down and at the portal going up, and both crossings are values, not special cases.</figcaption>
+  </figure>
+
+  <h3>Where a name still hides work</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Name</th><th>What it hides</th><th>Smallest useful next step</th></tr>
+    <tr><td class="k">surface</td><td>Its size policy under a changing outer scale (a projected size, not a fixed ladder); its staleness key (its own inputs, never the frame); its colour space (display-referred premultiplied, which the tone-mapped rgba16float lease already is, CHECKED Part 2 §3); its filtering when seen at a grazing angle (mips, which no lease has today, CHECKED Part 2 §4); its edge, which is the page's coverage problem again.</td><td>Write render(space, camera, size) → surface as a function with a key, and make the region's lease its first caller.</td></tr>
+    <tr><td class="k">region</td><td>Three things fused: a space, a scene, a portal. Two sizes, extent in scene units (written, never read) and rect in page units (CHECKED Part 1 §1). One revision for everything.</td><td>Split the row: the space and its scene by reference, the portal with a mapping, a revision per thing.</td></tr>
+    <tr><td class="k">portal</td><td>The camera mapping kinds (fixed, window, declared); recursion depth and cycles (a mirror is a portal into its own space); whether events pass through; the portal's own coverage at its boundary; what a window's camera is when the outer camera is orthographic (a page).</td><td>Declare mapping and pass-through on the portal; cap recursion; the region is the first portal, mapping fixed.</td></tr>
+    <tr><td class="k">scene</td><td>Identity and revision per thing, not per region; things include lights, cameras, portals; copies of one shape as a first-class placement, not a million objects (the group table caps at 16384, CHECKED Part 2 §6).</td><td>A revision per object; a shape referenced by many objects; a copies placement.</td></tr>
+    <tr><td class="k">chart</td><td>Where a flat frame on a 3D surface comes from: a plane in the object's frame (today's z = 0, CHECKED Part 3 §2), a named face's parameter space (CAD, BIM), the mesh's uv atlas (DCC, games), a projector (decals). Each needs point on surface ↔ chart coordinate both ways. Anchoring: a triangle index renumbers silently (CHECKED Part 1 §8); a chart must anchor to a stable face or frame.</td><td>The definer's chair: which chart kinds, and what identity each anchors to. Frame first, because it is stable and exists.</td></tr>
+    <tr><td class="k">material</td><td>A fixed menu today (base, metallic, roughness, emissive; no textures, CHECKED Part 1 §2). Layers need the path filler callable from inside a shader with per-chart bindings. A response as data needs a graph runner: shader generation, permutations, compile cost.</td><td>Add textures and one chart layer to the fixed shelf; the runner when a look is wanted as data.</td></tr>
+    <tr><td class="k">executor</td><td>Everything the ceilings call "the graph": what operations it may call, how it records dependencies, whether it has a GPU door (per-frame deformation), how a saved construction is versioned and shared without merge deadlocks.</td><td>The path round's three doors; pick one before the first ceiling is attempted.</td></tr>
+  </table></div>
+
+  <!-- ============ FOUR THINGS ============ -->
+  <h2>The four things 2D never had: which force code, which are data</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Thing 2D never had</th><th>Below the waist, code</th><th>Above it, data</th><th>Hidden work</th></tr>
+    <tr><td><b>A mark's pixels depend on other marks</b> — shadows, occlusion, transparency order</td><td>The visibility resolve: depth for opaque, a transparency policy for translucent. Render to surface from any camera, which is how shading gets its other-viewpoint inputs (a shadow map is S1 seen from the sun, CHECKED Part 2 §8).</td><td>Which lights cast, resolutions, cascades, bounce counts; the look's response, once a runner exists.</td><td>The transparency policy is contested (sorted per object today with object-origin depth, CHECKED; peeled, per-pixel lists, weighted, FIELD). Derived surfaces need their own keys. A graph runner is a shader generator.</td></tr>
+    <tr><td><b>Many shape representations at once</b> — converting is the work</td><td>One program per family that cannot lower to triangles (triangles, splats, volumes, points, SDF march), each writing into one resolve or declaring how it composes. Converters as native operations: tessellate, mesh ↔ SDF, isosurface, voxelise, boolean.</td><td>Which representation a thing uses, when to convert, at what tolerance: a construction.</td><td>Each program's depth rule (splats do not write hard depth). Converters carry a tolerance and lose information one way. The exact shelf, a B-rep kernel, is a library that is bought, never data.</td></tr>
+    <tr><td><b>2D and 3D nest both ways</b> — including 2D derived from 3D</td><td>The portal (space + camera mapping + a surface or a direct draw). The chart (a flat space on a surface; point ↔ chart coordinate per kind). The path filler callable as a look layer. Section and silhouette as answers that emit path values with provenance.</td><td>What each portal shows and how its camera maps; what sits on which face; which plane cuts the model; which view makes the drawing.</td><td>Chart kinds; event pass-through; recursion and cycles; the surface's size policy; hidden-line removal for drawings, which needs visibility as a CPU answer, not a draw.</td></tr>
+    <tr><td><b>Ranges and budgets</b> — past float32, past frame time, two eyes, hands</td><td>f64 frames with camera-relative upload (no stage rebases today, CHECKED Part 1 §6, Part 2 §6). Reversed-Z float depth (forward [0,1] depth24plus today, CHECKED Part 2 §9). The per-scale mechanism with admission by projected error under a byte and time budget (bytes only today, CHECKED Part 2 §2). The resolve from N views per frame.</td><td>Budget numbers, detail policies, tile schemes, which hand is the pointer.</td><td>Rebasing must be total: one stage that forgets jitters (copies, streaming, picking, the chart's uv). The budget mechanism decides architecture (GPU-driven culling and detail selection) and the rungs and leases are its seed.</td></tr>
+  </table></div>
+
+  <!-- ============ CEILINGS ============ -->
+  <h2>The ceilings on this waist</h2>
+  <p class="prose">The 2D round stamped every ceiling "met" and the adversarial pass broke each at its hardest step. So here each ceiling gets three columns: what is data above, what code it needs below that the list above does not already name, and the crack, the step where it will break if the crack is not named now. FIELD throughout; the product mechanics are general knowledge of those tools.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Ceiling</th><th>As data above the waist</th><th>Code it needs below, beyond the list</th><th>The crack</th></tr>
+    <tr><td><b>Parametric CAD</b></td><td>Sketches as path values with constraints. The feature tree as a construction the executor re-runs from the changed feature down. Assemblies as things referencing parts, mates as constraints. Drawings as section and silhouette → paths on a page.</td><td>The exact shelf: a B-rep kernel (surfaces, booleans, fillets, shells) and a constraint solver for sketches and mates. Tessellation at τ per scale. Exact edges as curves in space through the path's sweep with a view-facing nib.</td><td>Exact silhouettes at every zoom: the silhouette of a curved face is view-dependent and must come from the exact surface per scale, not from a tessellation. And the kernel is a million lines bought or written; the day it is wanted is a scope cliff.</td></tr>
+    <tr><td><b>Procedural DCC and film</b></td><td>Operator graphs. Rigs as deformer constructions producing meshes per frame. Looks as graphs. Simulation caches as sampled shapes indexed by time. Two renderers as two executions of one contract.</td><td>Subdivision and solvers as native operations. A graph → shader runner. A path-traced execution under the same contract.</td><td>Per-frame deformation of a hundred characters is the executor running on the GPU; without a GPU door it is a CPU bottleneck. And nothing in the value may be raster-only (a screen-space trick) or the second renderer cannot draw it.</td></tr>
+    <tr><td><b>Real-time open world</b></td><td>The level as things referencing shared shapes; scatter as constructions; detail and streaming policies as numbers; lighting setup as declarations. An editor many people use at once on one level.</td><td>GPU-driven culling, detail selection and streaming: the per-scale mechanism at scale. Copies as a first-class placement. Shadow cascades, probes and reflections as render-to-surface scheduled by data. Physics and animation solvers. Post-process as surface → surface passes.</td><td>The budget: the frame is decided by what to drop, and dropping is a mechanism, not a policy. Two views at 90 Hz is the primitive twice with shared preparation. Editing one level together is identity plus merge, outside client/.</td></tr>
+    <tr><td><b>BIM</b></td><td>Element types and instances with typed components. Hosting and joining as constructions with dependencies: move a wall, the roof re-derives. Plans and sections as section(plane) → paths on pages. Schedules as queries over components.</td><td>Section of solids. Hidden-line removal as a CPU visibility answer. Dependency tracking in the executor.</td><td>Live 2D derived from 3D at drawing quality: hidden-line needs visibility as an answer, section of a mesh is a polyline soup to stitch while section of a B-rep is exact, and every derived line must carry which face made it or the plan cannot be edited back.</td></tr>
+    <tr><td><b>Planet-scale geospatial</b></td><td>Tile schemes, layers, time-dynamic properties.</td><td>f64 frames and camera-relative rebase in the transform tree. Detail trees keyed on projected error: the same mechanism. A non-affine frame (geographic → Cartesian) as a node the executor evaluates per tile. Heightfield as a sampled shape.</td><td>Precision everywhere at once: every stage that touches a world coordinate must be rebased, including copies, streaming, picking and the chart's uv. One stage that forgets, jitters.</td></tr>
+    <tr><td><b>Fields and scans</b></td><td>Transfer functions, thresholds, layer choices.</td><td>Sampled-shape programs (volume ray-march, splat, points), each declaring how it composes with opaque depth. Isosurface extraction as a converter. Octree streaming: the same mechanism.</td><td>Composing a splat cloud or a volume with meshes in one resolve: splats do not write hard depth; the practical rule is opaque by depth first, then sorted blending against that depth, declared per shape kind, not free.</td></tr>
+  </table></div>
+  <p class="prose" style="margin-top:14px">Across all six, the same nine things recur as code: the executor with dependency tracking; render to surface from any camera; the visibility resolve with its transparency policy and the sampled-shape programs' composition rule; the per-scale mechanism, GPU-driven at the top; the geometry shelf, with the exact kernel as its bought member; f64 and rebase in the transform tree; the material stage, fixed shelf now, graph runner later, with the path filler as a layer; curves in space; stable identity for things, faces and copies. Everything else in the six is data. That is the answer to "is something missing that has to be hardcoded": yes, these, and nothing else so far.</p>
+
+  <!-- ============ TODAY ============ -->
+  <h2>What the 3D kind is today</h2>
+  <p class="prose">One notch below the folder map. Each box is a piece with what goes in and what comes out; arrows are real calls. The harness is the only caller of any of it (CHECKED, Part 2 §1).</p>
+  <figure>
+    <div class="figwrap">
+    <svg viewBox="0 0 1180 560" role="img" aria-label="Today: the region row fuses rect, scene, view, lights, background and ambient; scene.cljc derives transforms, triangles, a BVH and a camera; the renderer encodes a shadow pass into a 2048-square depth lease, an interior pass into a 4-sample rgba16float lease with opaque, transparent and placed-ink draws, then composites a textured quad at the rect through the page camera; placed ink is a separate 88-byte-vertex mesh at zoom 1.0 with a negative depth bias; pick returns a triangle index and is called only by the harness; no hover, no nesting, one revision.">
+      <defs>
+        <marker id="arr5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
+      </defs>
+      <text x="16" y="24" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1" fill="currentColor" opacity="0.7">TODAY — READ FROM THE FACT BASE. GREY IS WHAT THE MODEL WOULD NOT KEEP AS A DEFINITION.</text>
+
+      <!-- region row -->
+      <rect x="16" y="40" width="340" height="150" rx="4" class="soft-f" stroke="currentColor" stroke-width="1.2"/>
+      <text x="28" y="60" font-size="12.5" font-weight="600" fill="currentColor">the region row · component.cljc:593-615</text>
+      <text x="28" y="80" font-size="11" fill="currentColor">id · revision (one for everything) · version 2</text>
+      <text x="28" y="96" font-size="11" fill="currentColor">extent {w h d} scene units — written by the harness, read by nothing</text>
+      <text x="28" y="112" font-size="11" fill="currentColor">rect {x y w h} page units — sizes the lease, the aspect, the pick space</text>
+      <text x="28" y="128" font-size="11" fill="currentColor">scene {id → object} · view {pivot distance yaw pitch lens}</text>
+      <text x="28" y="144" font-size="11" fill="currentColor">background · ambient · no nesting, no reference to another region</text>
+      <text x="28" y="166" font-size="10.5" font-style="italic" opacity="0.75" fill="currentColor">space + scene + camera + portal, fused</text>
+
+      <!-- object -->
+      <rect x="16" y="206" width="340" height="150" rx="4" class="surf-f" stroke="currentColor" stroke-width="1.2"/>
+      <text x="28" y="226" font-size="12.5" font-weight="600" fill="currentColor">object · component.cljc:501-516</text>
+      <text x="28" y="246" font-size="11" fill="currentColor">kind mesh | light | empty | text | ink · TRS · parent (same scene)</text>
+      <text x="28" y="262" font-size="11" fill="currentColor">mesh: 6 primitives or indexed triangles (positions, normals, indices)</text>
+      <text x="28" y="278" font-size="11" fill="currentColor">no uvs · no face ids · no textures · no copies · no revision</text>
+      <text x="28" y="294" font-size="11" fill="currentColor">look: base, metallic, roughness, emissive</text>
+      <text x="28" y="310" font-size="11" fill="currentColor">light: directional | point | spot · ≤ 8 drawn · shadow: one map, first directional</text>
+      <text x="28" y="326" font-size="11" fill="currentColor">text | ink: {ref {address}} — an opaque address nobody resolves</text>
+      <text x="28" y="346" font-size="10.5" font-style="italic" opacity="0.75" fill="currentColor">the object, minus everything a chart or a constraint would anchor to</text>
+
+      <!-- scene.cljc -->
+      <rect x="392" y="40" width="330" height="150" rx="4" class="surf-f" stroke="currentColor" stroke-width="1.2"/>
+      <text x="404" y="60" font-size="12.5" font-weight="600" fill="currentColor">scene.cljc · derive and maintain</text>
+      <text x="404" y="80" font-size="11" fill="currentColor">world transforms (T·R·S, f64) · instance rows · CPU meshes</text>
+      <text x="404" y="96" font-size="11" fill="currentColor">world triangles (geometric normals) · BVH (leaf 8, refit on move)</text>
+      <text x="404" y="112" font-size="11" fill="currentColor">camera-matrices(view, viewport) · shadow light space</text>
+      <text x="404" y="128" font-size="11" fill="currentColor">gating: transform-only → refit; anything else → full re-derive</text>
+      <text x="404" y="144" font-size="11" fill="currentColor">pick-region(point in viewport px) → ray → BVH → triangle index</text>
+      <text x="404" y="166" font-size="10.5" font-style="italic" opacity="0.75" fill="currentColor">the first link of the chain; two-sided, the GPU culls</text>
+
+      <!-- renderer -->
+      <rect x="392" y="206" width="330" height="150" rx="4" class="soft-f" stroke="currentColor" stroke-width="1.2"/>
+      <text x="404" y="226" font-size="12.5" font-weight="600" fill="currentColor">renderer.cljs · passes into leases</text>
+      <text x="404" y="246" font-size="11" fill="currentColor">shadow: depth32float 2048², all objects, one map</text>
+      <text x="404" y="262" font-size="11" fill="currentColor">interior: rgba16float ×4 + depth24plus, forward [0,1]</text>
+      <text x="404" y="278" font-size="11" fill="currentColor">  opaque near-first → transparent far-first (object-origin depth)</text>
+      <text x="404" y="294" font-size="11" fill="currentColor">  → placed ink · then resolve · tone map in shader</text>
+      <text x="404" y="310" font-size="11" fill="currentColor">lease size ceil(w·zoom·dpr) → 256-quantum ≤ 4096 · rungs [1 2 4 8] by bytes</text>
+      <text x="404" y="326" font-size="11" fill="currentColor">viewport = 1.12^bucket(zoom·dpr) · resampled between buckets</text>
+      <text x="404" y="346" font-size="10.5" font-style="italic" opacity="0.75" fill="currentColor">render(S1, C1) → surface, once, keyed on the region's revision</text>
+
+      <!-- composite -->
+      <rect x="758" y="40" width="406" height="150" rx="4" class="soft-f" stroke="currentColor" stroke-width="1.2"/>
+      <text x="770" y="60" font-size="12.5" font-weight="600" fill="currentColor">composite · renderer.cljs:245-266, 1390-1411</text>
+      <text x="770" y="80" font-size="11" fill="currentColor">six vertices, one instance per region</text>
+      <text x="770" y="96" font-size="11" fill="currentColor">local = rect.xy + uv·rect.wh → container affine → world·zoom + pan</text>
+      <text x="770" y="112" font-size="11" fill="currentColor">samples the resolve lease, linear, no mips</text>
+      <text x="770" y="128" font-size="11" fill="currentColor">page camera reaches the rect only; never the interior's projection</text>
+      <text x="770" y="144" font-size="11" fill="currentColor">order: whatever the caller paints before and after (harness: path, region, path)</text>
+      <text x="770" y="166" font-size="10.5" font-style="italic" opacity="0.75" fill="currentColor">a picture portal: the seam as a resample</text>
+
+      <!-- placed ink -->
+      <rect x="758" y="206" width="406" height="150" rx="4" class="soft-f" stroke="currentColor" stroke-width="1.2"/>
+      <text x="770" y="226" font-size="12.5" font-weight="600" fill="currentColor">placed ink · on_plane.cljc, on_plane_renderer.cljs</text>
+      <text x="770" y="246" font-size="11" fill="currentColor">plane = object-local z = 0, hard-coded · y flipped · ink only</text>
+      <text x="770" y="262" font-size="11" fill="currentColor">the path tessellator at zoom 1.0 (fan 8), whatever the scale or zoom</text>
+      <text x="770" y="278" font-size="11" fill="currentColor">88-byte vertices: xy + a 4×4 matrix + colour, repeated per vertex</text>
+      <text x="770" y="294" font-size="11" fill="currentColor">flat shader · MSAA 4 · depth test less-equal, no write, bias −1/−1</text>
+      <text x="770" y="310" font-size="11" fill="currentColor">unlit, unshadowed · not in the BVH · resolved placements come from the harness</text>
+      <text x="770" y="326" font-size="11" fill="currentColor">ray→placement-plane exists, no caller · classify exists, harness only</text>
+      <text x="770" y="346" font-size="10.5" font-style="italic" opacity="0.75" fill="currentColor">a decal, where the model wants a layer of the face's look</text>
+
+      <!-- arrows -->
+      <line x1="356" y1="115" x2="392" y2="115" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr5)"/>
+      <line x1="356" y1="281" x2="392" y2="281" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr5)"/>
+      <line x1="557" y1="190" x2="557" y2="206" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr5)"/>
+      <line x1="722" y1="281" x2="758" y2="281" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr5)"/>
+      <line x1="722" y1="115" x2="758" y2="115" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr5)"/>
+      <text x="726" y="108" font-size="9.5" fill="currentColor" opacity="0.8">lease</text>
+
+      <!-- bottom strip: what does not exist -->
+      <rect x="16" y="380" width="1148" height="160" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <text x="28" y="400" font-size="12.5" font-weight="600" fill="currentColor">what does not exist in client/ today, exact absences (fact base Parts 1 to 3)</text>
+      <text x="28" y="422" font-size="11" fill="currentColor">hover, anywhere · a face, anywhere · a chart or an anchor field · a region inside a region, a scene reference, a portal · a resolver for placed-ref addresses</text>
+      <text x="28" y="440" font-size="11" fill="currentColor">uvs, textures, copies, an object revision · a pick that reaches placed ink or text · a GPU lane for placed text · mips on any lease · rebasing around any camera</text>
+      <text x="28" y="458" font-size="11" fill="currentColor">a frame that composes text, image, path and region (four drivers joined by Promise.all) · a page camera that changes during a run (written once, zoom 1.0)</text>
+      <text x="28" y="476" font-size="11" fill="currentColor">a check of any ink pixel in a region (two integers: resolved count, vertex count) · a fixture with indexed triangles (all six primitives are generated)</text>
+      <text x="28" y="504" font-size="11" font-style="italic" opacity="0.8" fill="currentColor">and what does: a CPU oracle that shades a picked point with the same GGX/Smith/Schlick and tone map as the shader, one hard shadow ray, 2-byte tolerance at one pixel;</text>
+      <text x="28" y="520" font-size="11" font-style="italic" opacity="0.8" fill="currentColor">a BVH that refits on move; a shadow map rendered from the light's camera into a surface the shader reads: the primitive, once, unnamed.</text>
+    </svg>
+    </div>
+    <figcaption><b>Today.</b> The region is a picture portal executed offscreen, with its scene, its camera and its rect in one row under one revision. The page camera reaches the rect and nothing inside. Placed ink is a decal in a second lane at one zoom. The pick reaches a triangle and is called by nobody but the harness. The shadow pass is the composition primitive, already in the tree, unnamed.</figcaption>
+  </figure>
+
+  <h3>Today, read against the model</h3>
+  <div class="tablewrap"><table>
+    <tr><th>Today (CHECKED)</th><th>An instance of</th><th>Where the renderer's convenience became the definition</th></tr>
+    <tr><td>The region row: id, revision, version, extent, scene, view, background, ambient, rect (Part 1 §1)</td><td>a space with an environment, a scene, a camera and a portal, fused</td><td>the row is the thing; extent is written and never read; rect is in page units and extent in scene units, and neither says what the portal shows</td></tr>
+    <tr><td>Composite: a textured quad at the rect through the container affine and the page camera; nothing of the page camera reaches the interior; resampled between 1.12-power buckets (Part 2 §4)</td><td>the fixed mapping of a portal, executed offscreen</td><td>"3D is a picture on the page": two cameras that never meet, which is the only reason the zoom-crossing question exists</td></tr>
+    <tr><td>Lease sizes: ceil(w·zoom·dpr) → 256-quantum ≤ 4096; rungs by bytes; rejection and worn fills (Part 2 §2)</td><td>a surface size policy and a budget mechanism, for one surface kind</td><td>a resolution ladder is not level of detail: nothing inside refines with scale</td></tr>
+    <tr><td>Objects: TRS, six primitives or indexed triangles, four material numbers, ≤ 8 lights, one shadow map (Part 1 §2-3, Part 2 §8)</td><td>the object: shape (mesh) + placement (one) + look (a fixed menu)</td><td>no uvs, face ids, textures, copies or object revision: nothing a chart, a constraint or a fine-grained edit can anchor to</td></tr>
+    <tr><td>Shadow: all triangles from the first directional caster into a depth surface; every casting light reads that one map (Part 2 §8)</td><td>render to surface from another camera, read by shading</td><td>keyed with the interior on the region's revision, not on the light and the scene; orbit re-encodes what did not change</td></tr>
+    <tr><td>Placed ink: a separate transparent mesh, 88-byte vertices, tessellated at zoom 1.0, negative depth bias, unlit, not in the BVH (Part 3 §2-4)</td><td>a chart of kind frame (object-local z = 0), drawn as a decal</td><td>paint on a surface is part of the surface's look; it should be lit, shadowed and occluded with its face, never biased, and its tolerance should come from the chain</td></tr>
+    <tr><td>Pick: viewport point → ray → BVH → {object, triangle index, point, normal, t}; harness only; no hover; ink and text absent (Part 1 §5, Part 3 §4)</td><td>the first link of the chain</td><td>the answer stops at a triangle because triangles are what the BVH holds; a face and a chart point are what a person hit</td></tr>
+    <tr><td>One revision per region; full re-derive on any non-transform edit; refit on move (Part 1 §4, §8)</td><td>the per-edit rate, at the coarsest grain</td><td>fine-grained reactivity needs a revision per thing and derived surfaces keyed on their own inputs</td></tr>
+    <tr><td>No nesting: no region in a region, no scene reference, placed-ref unresolved (Part 1 §7, Part 3 §1)</td><td>nothing</td><td>the portal does not exist; containment is one level deep by construction</td></tr>
+    <tr><td>f64 CPU → f32 upload, absolute world coordinates, no rebasing; forward [0,1] depth24plus (Part 1 §6, Part 2 §9)</td><td>the transform stage without its two precision moves</td><td>the path round's finding again: rebase around the camera before upload; reversed-Z is its depth twin</td></tr>
+  </table></div>
+
+  <!-- ============ ATTACK ============ -->
+  <h2>The attack on the working basis, claim by claim</h2>
+  <p class="prose">Sid's working basis, one claim at a time. HOLDS means it is the answer. DEFAULT means it works until a named condition. SHORT means it cannot express something already wanted. ANSWERED means the open part closes here, as a position.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Claim</th><th>Verdict</th><th>Why, and the condition</th></tr>
+    <tr><td>A 3D scene is objects with transforms, geometry, materials, lights and a camera.</td><td class="v">HOLDS, two additions</td><td>Lights and cameras are things (glTF and USD: nodes with components, FIELD); today's tree already makes a light an object kind (CHECKED). Missing and needed by the seam: the portal, a thing whose look is another space, and identity below the object: faces and copies.</td></tr>
+    <tr><td>Rendering is projection, visibility and shading.</td><td class="v">HOLDS, one precision</td><td>Shading's inputs are renders of the same space from other cameras: shadow maps today (CHECKED), probes and reflections in the field. So render to surface is part of rendering, not only of composition, and the per-pixel question is recursive; every renderer cuts the recursion somewhere, and where is the contested execution.</td></tr>
+    <tr><td>The interchange forms are settled and the execution is contested.</td><td class="v">HOLDS meshes · DEFAULT exact · SHORT sampled</td><td>glTF and USD settle meshes, PBR looks, lights, cameras, skins, animation (FIELD). STEP settles exact solids, but kernels are not interchangeable and tessellate differently. Splats, volumes and SDFs have no settled interchange; each is a frontier. Condition: a value that must round-trip those forms carries its representation and a converter tolerance, never a promise of exactness.</td></tr>
+    <tr><td>One composition primitive: render a scene of either into a surface, and a surface is paint in the other, both ways, recursively.</td><td class="v">HOLDS as primitive · corrected as model</td><td>The model is the matrix chain; render to surface is one execution of it and a direct draw with the composed matrices and a clip is the other. Same image, different cost and crispness. "A surface is paint" leaves three things unsaid: colour space (display-referred premultiplied, which today's tone-mapped lease is, CHECKED), size policy (projected size, not a ladder), staleness key (its own inputs). And the same primitive is what shading uses for shadows, so it is not a seam primitive but the space primitive.</td></tr>
+    <tr><td>The 2D contract ends at a region drawn with per-pixel coverage; whether 3D begins there is open.</td><td class="v">ANSWERED: no</td><td>3D begins at the visibility resolve. Coverage re-enters inside 3D as a layer of a face's look, in chart units, with the footprint from screen derivatives (the path page's Position 6, sharpened from a plane to a chart). The seam is not "coverage, then 3D"; it is 3D's resolve with coverage inside it going down, and the page's order with a 3D surface inside it going up.</td></tr>
+    <tr><td>Sessions that started from rendering erred; sessions that started from meaning did not.</td><td class="v">HOLDS as method</td><td>Today's region is defined by its rendering: a rect, a lease, a composite, a decal, a triangle index. Each row of the today table is a renderer quantity promoted to a definition. This page was derived from what the things must mean and then checked against the tree; the tree turned out to hold one instance of each piece and none of the joins.</td></tr>
+  </table></div>
+
+  <!-- ============ FORK ============ -->
+  <h2>The fork below the waist</h2>
+  <p class="prose">The contract above is stable across the field; the program under it is where teams differ, by workload and platform. Four shapes fit under it. The current region lane is the first, for one space, one camera, one surface.</p>
+  <div class="tablewrap"><table>
+    <tr><th>Renderer shape</th><th>Antialiasing</th><th>Translucency</th><th>Looks as data</th><th>Portals and charts</th><th>Memory</th><th>Cost to reach from here</th></tr>
+    <tr><td>forward, MSAA (today's shape, made general)</td><td>MSAA 4×; a page with text and ink cannot take temporal smear</td><td>sorted per thing, per-pixel lists when needed</td><td>an ubershader with a fixed layer stack first; compile per look later</td><td>natural: any face may run any layer; portals are surfaces or direct draws</td><td>4× colour + depth per resolve target; the parked GPU-sharing worry lives here</td><td>smallest: generalise the region's passes to render(space, camera) → surface; add the chart layer to the mesh shader; add faces, uvs, copies, revision to the object</td></tr>
+    <tr><td>deferred + temporal (the game engines' default)</td><td>temporal</td><td>hard; a separate forward pass anyway</td><td>a fixed G-buffer layout fights per-face layers</td><td>charts need the forward pass anyway</td><td>a G-buffer per view</td><td>largest rewrite; wrong for a page</td></tr>
+    <tr><td>ray query over a BVH (hybrid; hardware when WebGPU exposes it)</td><td>any</td><td>exact order per ray</td><td>any</td><td>portals as ray redirection: the model's own shape</td><td>a BVH per space</td><td>a compute road; the CPU pick's BVH is its seed; visibility becomes one function for draw and pick</td></tr>
+    <tr><td>path traced (film's second renderer)</td><td>converged</td><td>exact</td><td>any</td><td>any</td><td>scene + BVH</td><td>a second execution under the same contract; forbids raster-only values</td></tr>
+  </table></div>
+  <p class="prose" style="margin-top:14px"><span class="tag pos">position</span>Forward with MSAA, generalised from today's region lane, because it is the shape in the tree, it keeps the page crisp, and every face can carry a chart layer. Keep the ray-query road open by never letting a raster-only quantity into the value; the CPU BVH the pick needs is the first half of that road. Conditions that flip this: if open-world counts make forward lighting the bottleneck, clustered forward (still forward) before deferred; if hardware ray queries land in WebGPU, visibility and pick become one function and the depth resolve becomes a cache.</p>
+
+  <!-- ============ BEST TEAM ============ -->
+  <h2>How the best team in the field would define it, and what they would name</h2>
+  <p class="prose"><b>The problem as they would state it.</b> Define a scene description as the output language: typed things with stable identity, composition by reference, looks as declarations, cameras and lights as things; USD is the existing answer to that sentence (FIELD). Keep every source above it with its own editable truth: sketches, cages, captures, constructions. Decide up front, because they cannot be retrofitted: the coordinate model (f64 world, camera-relative upload, reversed-Z), the identity model (what a face is, what a copy is), the antialiasing policy, the transparency policy, the material model and whether looks are graphs, where tolerance lives, the seam with 2D, and whether a second renderer is ever wanted. Then the trade-offs Sid did not know to ask about. FIELD unless marked.</p>
+  <ul class="tight prose">
+    <li><b>Forward or deferred.</b> Deferred wants a fixed G-buffer and hates translucency, MSAA and per-face layers; it is the wrong shape for a page with charts on faces. Forward, clustered when lights are many, keeps every face free to run any layer.</li>
+    <li><b>MSAA or temporal.</b> Temporal antialiasing is everywhere in games and smears text and ink on a page. MSAA costs memory per resolve target, which is exactly the parked GPU-sharing worry; decide it with the budget mechanism, not by default.</li>
+    <li><b>Looks as graphs means shader generation.</b> Permutations, compile cost (WebGPU pipelines are created asynchronously for a reason), an ubershader versus compile-per-look. The fixed shelf buys time; the runner is the evaluator's GPU form.</li>
+    <li><b>CPU and GPU must agree on nearest.</b> Pick over the same lowered geometry the GPU drew, or over the exact shape with a declared error at silhouettes; today the CPU is two-sided and the GPU culls back faces (CHECKED). The id-buffer read at the cursor is the parity check, one frame late, never the primary.</li>
+    <li><b>Exact shapes are a bought kernel.</b> OpenCascade in WASM is tens of megabytes; writing one is a decade. SDF and CSG give formula solids cheaply (marched, meshable) and cover much of "parametric" outside manufacturing; B-rep only when manufacturing precision is wanted. A scope cliff to name before the CAD ceiling is attempted.</li>
+    <li><b>Splats and volumes do not write hard depth.</b> Sort per frame (a GPU radix sort at scale), blend after opaque against the opaque depth; composing them with meshes is a declared rule per shape kind, and the frontier of the field.</li>
+    <li><b>Colour across the seam.</b> The space renders linear HDR, the camera tone-maps (exposure is the camera's, like a real one), the surface is display-referred premultiplied, the page composites it like any item. Today's lease already is that (CHECKED, tone map in shader). Trade: no HDR page; wide gamut later.</li>
+    <li><b>Precision is camera-relative or nothing.</b> Double on the GPU is slow; the answer is to upload every matrix relative to the view's origin, and it must be total: copies, streaming, picking, the chart's uv. The same fix the path round found for the infinite canvas.</li>
+    <li><b>Invalidation grain decides whether reactivity is fine.</b> A revision per thing, derived surfaces keyed on their own inputs (a shadow map on the light and the scene, never the camera), a BVH that refits per edit and per frame for deforming shapes. One revision per region is the trap (CHECKED).</li>
+    <li><b>Hover has a cost.</b> A ray per move needs a BVH kept current; deforming shapes need a refit per frame; a budget applies here too. And hover through a portal is a second ray.</li>
+    <li><b>Two renderers is a discipline, not a feature.</b> Nothing raster-only may enter the value (no screen-space trick in a look) or the path tracer cannot draw it. Decide whether film's second renderer is ever wanted, because it constrains the value from day one.</li>
+    <li><b>Copies are two different things.</b> A forest is one thing with many placements and no identity per tree (pick returns an index); walls are many things sharing one shape, each with identity (BIM). The renderer batches by shape either way; the value must say which it is.</li>
+    <li><b>Deformation is a placement choice on the rate axis.</b> Skinning and blendshapes per frame on the GPU, or per edit on the CPU: the executor's GPU door decides, and the rate axis tells you which.</li>
+    <li><b>Face identity does not come free.</b> glTF has no faces; a chart, a constraint, a mate, a hosted door all need something stable to anchor to. Face groups, uv charts or exact faces: decide the anchor model before the first placement, because every placement references it.</li>
+    <li><b>Event routing at the seam.</b> Which space owns the wheel when the region fills the screen: page zoom or region dolly. A policy above the waist, but the pick chain must be able to route input to the space it hit.</li>
+    <li><b>Portals recurse and cycle.</b> A mirror is a portal into its own space. Depth limit, cycle detection, and a budget for portal surfaces (each is a full render) are policies the primitive must expose.</li>
+  </ul>
+
+  <!-- ============ SID'S QUESTIONS ============ -->
+  <h2>Sid's questions, one by one</h2>
+  <dl class="prose">
+    <dt>What is the general 3D object, and what are its sources? Is the region the thing, or one container of things?</dt>
+    <dd>The object: a shape in one of several languages, a placement (one or many), a look with chart layers, identity for the thing, its faces and its copies, and optionally the construction it derives from. The sources sit above it, as on the path page: a modeller, a formula run by the executor, a capture streamed like an image, extrude over a path value, a reference to another space. The region is not the thing. It is a portal on a page into a space, and the space is the container. Today the region holds all three fused under one revision (CHECKED).</dd>
+    <dt>Containment: 3D inside 2D, 2D inside 3D, or nested spaces of both kinds? What must a 3D thing still mean after I orbit it, move an object, place ink on a face, zoom the page, or share it?</dt>
+    <dd>Nested spaces through portals, both ways, recursively; the root is the window's space, a page on a desktop, a room in a headset; nothing in the model changes with the root. Orbit changes a camera and no value. Move changes one placement, and the ink on the face moves with it because it lives in the face's chart. Placing ink adds a path value to a chart. Page zoom changes the page's projection and refines detail by projected error; no value knows it. Sharing sends values and references; every surface is re-derived on the other side.</dd>
+    <dt>Two cameras: what composes them, and what happens when the page's zoom crosses into a region?</dt>
+    <dd>A matrix chain: P<sub>page</sub> · T<sub>rect</sub> · P<sub>C1</sub> · V<sub>C1</sub> · M. Page zoom multiplies the projection, which for a perspective region is a change of focal length around the cursor: an optical zoom, a magnified crop, never a step into the room. Nothing crosses; the image is the same whether the region re-projects or resamples, only crispness and cost differ. To enter the space you move its camera, a different gesture, or you declare a mapping on the portal that turns zoom beyond the rect into a dolly, which the executor runs. Today the interior never sees the page zoom and the lease resamples between buckets (CHECKED).</dd>
+    <dt>Picking and hover through the seam: click in, "you hit this" out, when the thing hit is ink on a face of an object inside a region on a page.</dt>
+    <dd>One function, hit(ray, space), applied down the containment: the page's order gives the region; the region's inverse projection gives a ray; the space's nearest gives the box, its front face and a chart point; the chart's classify gives the stroke and inside. Through a portal the ray continues into the other land. The answer is the chain, each link a value at its own rate, which is what a fine-grained reactive system watches. Hover is the same call on every move. Today every link exists as a function and none are joined; there is no hover anywhere (CHECKED).</dd>
+    <dt>The four things 2D never had: which force code below the waist, which are data above it?</dt>
+    <dd>The table above. All four force code: the resolve and render-to-surface for the first; the shape programs and converters for the second; the portal, the chart and section/silhouette for the third; rebasing, reversed-Z and the budget mechanism for the fourth. Above each sits data: policies, declarations, constructions. None forces a second waist.</dd>
+    <dt>What must exist as code below the waist for 3D, and what is its input and output, such that the ceilings can be built above it as data?</dt>
+    <dd>The nine things named under the ceilings table, and the contract block: spaces, things, looks, portals in; a resolve per space per view, a chain answer, geometric answers, and a surface answer out. The executor is the one whose absence makes every ceiling native code; the others are shelves on pieces the path picture already has, plus the resolve and the material stage.</dd>
+    <dt>Am I reasoning from what region3d does today or from how it should be? How would the best team define the problem, and what trade-offs would they name?</dt>
+    <dd>This page was derived from what the things must mean, then checked against the tree; the tree holds one instance of each piece (a shadow surface, a BVH, a lease, a decal, a triangle pick) and none of the joins, and its definitions are all renderer quantities: rect, lease, composite, bias, index. The best team's definition and their sixteen trade-offs are above; the ones Sid did not know to ask about are the bought kernel, the two kinds of copies, the face anchor, and that MSAA versus temporal is decided by the page, not by the scene.</dd>
+  </dl>
+
+  <!-- ============ POSITIONS ============ -->
+  <h2>Positions, each with the condition under which it stops being the answer</h2>
+  <dl class="prose">
+    <dt><span class="tag pos">position 1</span>the general 3D object</dt>
+    <dd>Shape in one representation, placement (one or many), look with chart layers, identity for thing, faces and copies, construction if derived; in a space; sources above. Stops being the answer: never for the shape of it; the representation list grows, and a representation that cannot write depth declares how it composes and is still an object.</dd>
+    <dt><span class="tag pos">position 2</span>a space is a frame plus an order rule; the region splits</dt>
+    <dd>Declared order on a page, derived-from-view order in a 3D space; environment (background, ambient) is a space-level look. The region row becomes a space by reference, a portal with a mapping, and a revision per thing. Stops being the answer: if a page ever wants real depth for 2D items with lighting, it becomes a derived-order space, and nothing else changes.</dd>
+    <dt><span class="tag pos">position 3</span>containment is nested spaces through portals, both ways, recursively</dt>
+    <dd>The root is the window's space. 3D in 2D is a portal on a page; 2D in 3D is a chart on a face or a page on a wall; 3D in 3D is a window. Stops being the answer: never as a model; as execution, offscreen versus direct is the fork, decided per portal by cost.</dd>
+    <dt><span class="tag pos">position 4</span>render(space, camera, size) → surface is the primitive and the fifth answer</dt>
+    <dd>One function under shadow maps, probes, portals, a region on a page, the second eye, thumbnails and bakes; callable by data, keyed on its own inputs, budgeted like the leases are. Stops being the answer: never; if surfaces blow the budget, the answer is rate-limited by the mechanism, not removed.</dd>
+    <dt><span class="tag pos">position 5</span>cameras compose as a chain; page zoom is focal length</dt>
+    <dd>Page zoom changes the page's projection only; at a region that is an optical zoom, and nothing enters the space. Orbit and dolly are the region camera's; a zoom-to-dolly mapping is a declaration on the portal the executor runs. Stops being the answer: at Sid's feel, if zooming into a region should walk into it by default; then the default mapping changes and the model does not.</dd>
+    <dt><span class="tag pos">position 6</span>two per-pixel resolves nest in one waist</dt>
+    <dd>Ordered coverage (the path filler) and depth plus shading (the 3D resolve); each contains the other, as a chart layer and as a portal surface. Stops being the answer: a path-traced execution replaces the depth resolve and keeps the contract; nothing above notices.</dd>
+    <dt><span class="tag pos">position 7</span>2D on 3D is a chart layer in the face's look, never a biased decal</dt>
+    <dd>Chart kinds frame, face, uv, projection; frame first because it is stable and exists today; paint in a chart is part of the surface's albedo, so it is lit, shadowed and occluded with the face; tolerance from the full chain, anisotropic. The path page's Position 6 is this with "plane" replaced by "chart". Stops being the answer: for content that must float off the surface (a label on a stalk), which is a thing of its own, not a layer.</dd>
+    <dt><span class="tag pos">position 8</span>the pick is a chain; hover is the same call</dt>
+    <dd>hit(ray, space) over the same lowered geometry the GPU drew, through portals and into charts, ending at the innermost value; the screen point is one source of a ray, the head and a hand are others. The id-buffer is the check. Stops being the answer: never; if the ray-query road lands, draw and pick become one function and this position gets cheaper.</dd>
+    <dt><span class="tag pos">position 9</span>sort by rate, then place; derived surfaces keyed on their own inputs</dt>
+    <dd>Per edit, per scale (projected error), per frame, and a fourth row: on their own inputs, for shadows, probes, fixed portals and static regions. Stops being the answer: never; it is the path round's axis with one row added.</dd>
+    <dt><span class="tag pos">position 10</span>the executor is the centre of the waist</dt>
+    <dd>Saved constructions (feature trees, operator graphs, relationships, scatter, section-to-plan, looks as graphs) are data it runs with dependency tracking; native operations are its shelf; the path round's three doors are its forms and door two is the minimum. Stops being the answer: at the path round's exit for Position 8, if Sid rules that tools are code above a data-only contract; then every ceiling's graph is native and the ceilings are hacked through, which his own framing forbids.</dd>
+    <dt><span class="tag pos">position 11</span>one waist</dt>
+    <dd>One contract, one transform tree, one composition primitive, one rate axis, one executor, one pick, two resolves that nest. The 3D code is shelves on the path picture's pieces plus the resolve, the material stage and the promotion. Stops being the answer: only if 2D inside 3D could not be a chart with declared order at a derived depth, and it can; a second execution below (ray query, path tracing) is a second engine under one waist, which is the path round's own "the contract lives, the program is the fork".</dd>
+  </dl>
+
+  <!-- ============ PATH PICTURE ============ -->
+  <h2>What changes in the path-kind picture</h2>
+  <ul class="tight prose">
+    <li><b>Position 6, sharpened.</b> "Placed ink takes the coverage lane on the object's z = 0 plane" becomes "placed ink is a chart layer in the face's look; chart kinds frame, face, uv, projection; the z = 0 plane is the first frame chart". The cut of the 88-byte mesh road stands.</li>
+    <li><b>The filler gains a caller and a constraint.</b> It must be callable as a function inside another program, coverage(uv, footprint) → alpha, with curve and band data bindable per chart, not only as its own draw. The packer's tolerance is a 2×2 footprint from the full chain, not a scalar: a face at a grazing angle has different tolerance along and across.</li>
+    <li><b>classify gains a caller.</b> The pick chain calls it with a uv from a ray hit; its slop is derived from the ray's footprint at the hit, in chart units.</li>
+    <li><b>The evaluator moves.</b> Position 8's fifth piece beside the sources becomes the executor at the centre; both chairs already named it on 2026-09-06, and 3D makes it unavoidable. The three doors stand; door two is the minimum.</li>
+    <li><b>Sweep generalises.</b> The envelope builder is sweep in a plane: a nib along a path is Minkowski along a curve, and extrude, revolve and pipe are the same operation one dimension up. A curve in space with a view-facing nib is a path whose centerline is 3D: edges, hair, wires. The geometry piece is one piece with a dimension.</li>
+    <li><b>The path value becomes an input to 3D constructions.</b> Sketches, extrude and section-to-plan reference path values by identity; the answers the definer added (intersections, splits with id maps, length ↔ t) serve sketch solvers directly.</li>
+    <li><b>The path kind gains a source.</b> Section and silhouette emit path values derived from 3D; they must carry provenance (which face, which edge) or a BIM plan cannot be edited back, the definer's "source correspondence" one level up.</li>
+    <li><b>The sweater stays order.</b> Over and under in 2D is declared order; in a chart it is chart order; never depth. Depth is the 3D space's derived order and the two are not the same axis.</li>
+    <li><b>Precision is one fix.</b> Rebase around the camera before upload, found by the path round for the infinite canvas, is the same move the planet needs; one stage in the transform tree, both dimensions.</li>
+  </ul>
+
+  <!-- ============ WHAT REMAINS ============ -->
+  <h2>The decision that remains, and the exact question still open</h2>
+  <dl class="prose">
+    <dt><span class="tag attn">decision · 3D's output</span>Is render(space, camera, size) → surface an answer, or only the compositor's internal act?</dt>
+    <dd>If it is an answer, shadows, probes, portals, thumbnails, bakes and a plan rendered to a page are all data above the waist, scheduled by declarations, and the region is its first caller. If it is internal, each of those is a native feature added one at a time. This is the one input-and-output decision that changes what the ceilings can be built from. Position 4 says answer; the cost is a surface budget, which the leases and rungs already are for one surface kind.</dd>
+    <dt><span class="tag attn">definition · the definer's chair</span>What is a chart?</dt>
+    <dd>Where a flat frame on a 3D surface comes from and what it anchors to: a plane in the object's frame, a named face's parameter space, the mesh's uv atlas, a projector. This is the 3D twin of the path round's Position 7: a definitional fork at the seam, with a counterexample waiting (a stroke that crosses from one triangle to another on a curved mesh has no frame chart). Position 7 above takes frame first; the definer works the kinds and their identity.</dd>
+    <dt><span class="tag attn">open · Sid's feel</span>What does page zoom mean at a region: focal length, or a step into the room?</dt>
+    <dd>Position 5 says focal length: an optical zoom, a magnified crop, nothing stored changes, and entering is the region camera's own gesture. The other reading, zoom beyond the rect becomes a dolly, is a declared mapping on the portal. Which is the default is what a person feels the first time they wheel over a region, and only Sid can close it. Asked once, here. The bench beside this page lets him wheel over one and feel both.</dd>
+  </dl>
+
+  <div class="foot">
+    <p>Landed under <code>docs/below-the-waist/3d/</code>: this page and its <code>.md</code> twin, <code>fact-base-1.md</code> with the three hunter reports and this session's derivations, and <code>bench-0/</code>, the seam bench. This page is published at <a href="https://claude.ai/code/artifact/ced3dcf5-d276-46ab-8456-3a1be0141bc5">claude.ai/code/artifact/ced3dcf5-d276-46ab-8456-3a1be0141bc5</a> and the bench at <a href="https://claude.ai/code/artifact/5fd52994-becf-4840-871e-0453bcd7bc3e">claude.ai/code/artifact/5fd52994-becf-4840-871e-0453bcd7bc3e</a>; to republish either from a fresh session, read it with that url first, then publish with <code>url</code> set and the file as <code>file_path</code>, or a second artifact is made. Beside them, unfolded and not read past its first paragraph: the other lane's <code>3d-kind-working-model.md</code>. The path kind's directory was being edited by its own chairs while this was written (attack 1 folded, <code>d202c90</code>, <code>4b8e986</code>); nothing here changes it, and the "what changes in the path-kind picture" list above is for its composer to fold or refuse. Positions are marked and the verdicts are Sid's.</p>
+  </div>
+</div>
