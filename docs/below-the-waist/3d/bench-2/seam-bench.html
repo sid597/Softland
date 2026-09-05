@@ -35,6 +35,7 @@
   .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px 16px; margin-top: 10px; font-size: 13px; }
   .controls label { display: flex; flex-direction: column; gap: 3px; font-family: "Bricolage Grotesque", sans-serif; font-weight: 600; font-size: 12.5px; color: var(--muted); }
   .controls label span.val { font-family: "JetBrains Mono", monospace; font-weight: 500; color: var(--ink); font-size: 12px; }
+  .controls.construction { border-top: 1px dashed var(--rule); padding-top: 10px; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
   .btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
   button { font-family: "Bricolage Grotesque", sans-serif; font-weight: 600; font-size: 13px; padding: 6px 12px; border-radius: 4px; border: 1px solid var(--rule); background: var(--surface); color: var(--ink); cursor: pointer; }
@@ -65,9 +66,9 @@
 </style>
 
 <div class="wrap">
-  <div class="eyebrow">Softland · below the waist · 3D kind · bench 2 · session 2 · 2026-09-06</div>
+  <div class="eyebrow">Softland · below the waist · 3D kind · bench 2 · session 2, folded by its successor · 2026-09-06</div>
   <h1>The Seam Bench</h1>
-  <p class="lede">The hardest case as a thing to feel. A page holds a portal onto a spatial space. In the space, a box carries a pen stroke on its top face and a portal to another land on its front face; a sphere can pass in front. Zoom the page, orbit the portal, draw on the face, hover and click, paste a screenshot beside the portal. The panel prints the hit address the seam walker returns, the diff against the last answer, and which rate each change ran at.</p>
+  <p class="lede">The hardest case as a thing to feel. A page holds a portal onto a spatial space. In the space, a box made by a construction (a rectangle, extruded, optionally cut) carries a pen stroke on its top face and a portal to another land on its front face; a sphere can pass in front. Zoom the page, orbit the portal, draw on the face, hover and click, paste a screenshot beside the portal. Then edit the construction under the ink: widen the rectangle, cut a groove across the top, and choose what the ink preserves. The panel prints the hit address the seam walker returns, with each face's lineage, the diff against the last answer, and which rate each change ran at.</p>
 
   <div class="layout">
     <div>
@@ -89,6 +90,28 @@
             </span>
           </label>
         </div>
+        <div class="controls construction">
+          <label>the construction: rect width <span class="val" id="wVal">1.00 m</span><input id="rectW" type="range" min="0.6" max="1.6" step="0.01" value="1"></label>
+          <label>cut a groove across the top <span class="val" id="cutVal">off</span>
+            <span class="btns" style="margin-top:2px">
+              <button id="cutOff" class="on" type="button">no cut</button>
+              <button id="cutOn" type="button">cut (boolean subtract)</button>
+            </span>
+          </label>
+          <label>the attachment rule: what the ink preserves <span class="val" id="anchorVal">origin</span>
+            <span class="btns" style="margin-top:2px">
+              <button id="anchorOrigin" class="on" type="button">distances from the origin corner</button>
+              <button id="anchorNormalized" type="button">proportions of the face</button>
+              <button id="anchorEdge" type="button">distance from the +x edge</button>
+            </span>
+          </label>
+          <label>when the face splits <span class="val" id="splitVal">clip</span>
+            <span class="btns" style="margin-top:2px">
+              <button id="splitClip" class="on" type="button">keep the stroke, clip to the surviving parts</button>
+              <button id="splitDetach" type="button">detach</button>
+            </span>
+          </label>
+        </div>
         <div class="btns">
           <button id="shot" type="button">paste a screenshot of the portal beside it</button>
           <button id="clearShot" type="button">remove the screenshot</button>
@@ -100,7 +123,7 @@
           <span><i style="background:#2B4ACB"></i>portal R (a reference to space S and view V)</span>
           <span><i style="background:#8A8F98"></i>screenshot I (pixels, no reference)</span>
           <span><i style="background:#C0392B"></i>the hit</span>
-          <span>drag on the page: pan · drag in the portal: orbit, or draw in pen mode · <kbd>R</kbd> reset</span>
+          <span>drag on the page: pan · drag in the portal: orbit, or draw in pen mode · <kbd>R</kbd> reset · deep links: <span class="mono">#w=1.4&amp;cut=1&amp;anchor=edge&amp;onsplit=clip&amp;aim=k</span></span>
           <span class="mono" id="glstat">WebGL2: starting</span>
         </div>
       </div>
@@ -122,13 +145,14 @@
           <div class="rate"><span class="tag frame">per frame</span><span class="what dim" id="rFrame">picture not redrawn</span></div>
           <div class="rate"><span class="tag">hover</span><span class="what dim" id="rHover">hover recomputed on pointer or data change</span></div>
         </div>
-        <p class="note">The value never holds the picture. Zooming the page re-leases the portal's surface at a new pixel size and re-runs the face's filler at a new tolerance; the stroke's stored samples do not change. Orbiting is a view change, not an edit. The screenshot is bytes: it scales, blurs, and answers hover as pixels.</p>
+        <p class="note">The value never holds the picture. Zooming the page re-leases the portal's surface at a new pixel size and re-runs the face's filler at a new tolerance; the framing is the portal's and does not move with the lease. The stroke's stored samples do not change when the face under them changes: the attachment rule says where they land. Orbiting is a view change, not an edit. The screenshot is bytes: it scales, blurs, and answers hover as pixels.</p>
       </div>
 
       <div class="card">
         <h2>the record — what is data, above the waist</h2>
         <pre class="record" id="record"></pre>
-        <p class="note">Spaces, things, views, portals, planar surfaces and the stroke's samples. No triangles, no pixels, no tolerance, no zoom. The pieces below the line derive the picture and answer the hit from this alone.</p>
+        <p class="note">Spaces, things, views, portals, the construction behind the box, the attachment rule and the stroke's samples. No triangles, no pixels, no device tolerance, no zoom. The pieces below the line derive the picture and answer the hit from this alone.</p>
+        <p class="note mono" id="derived">derived: —</p>
       </div>
     </div>
   </div>
@@ -144,12 +168,22 @@
   var S = { // spatial space, unit metres, Y up
     unit: 'm',
     things: {
-      B: { kind: 'box', size: [1, 1, 1], at: [0, 0.5, 0] },
+      B: { kind: 'solid', construction: 'CB' }, // a constructed solid: its shape is whatever CB evaluates to; its faces are named by the construction
       Q: { kind: 'sphere', radius: 0.22, at: [-1.3, 1.25, 0.42] },
       L1: { kind: 'light', dir: [0.45, 0.85, 0.3], intensity: 1.0, ambient: 0.22 },
-      Ftop: { kind: 'planar-surface', on: 'B', face: '+y', unit: 'mm', scale: 1000, space: 'PI' },
-      T: { kind: 'portal', on: 'B', face: '+z', view: 'VL' }
+      // ink on a face: a planar space attached to a named face by a saved rule that says what the ink preserves when the face changes
+      Ftop: { kind: 'planar-surface', on: 'B', face: 'E.top', unit: 'mm', scale: 1000, space: 'PI', attachment: { anchor: 'origin', domain: [1, 1], onSplit: 'clip' } },
+      // the portal on the front face is an attachment too; it stretches with its face
+      T: { kind: 'portal', on: 'B', face: 'E.front', view: 'VL', attachment: { anchor: 'normalized' } }
     }
+  };
+  // The construction behind B: a saved program over values. It is data only because code below (evaluate) runs it.
+  var constructions = {
+    CB: { revision: 0, steps: [
+      { id: 'R0', op: 'rect', origin: [-0.5, -0.5], size: [1, 1] },                        // a sketch on the ground plane: origin corner (x, z), size (w, d)
+      { id: 'E', op: 'extrude', of: 'R0', height: 1 },                                      // faces E.top E.bottom E.left E.right E.back E.front
+      { id: 'C', op: 'cut', of: 'E', on: false, slab: { x: [0.12, 0.30], depth: 0.28 } }     // boolean subtract: a slab across the top, back to front
+    ] }
   };
   var PI = { unit: 'mm', things: { k: { kind: 'path', source: 'pen', samples: [], paint: { stroke: { tip: 'nib', width: 'knot', color: [0.16, 0.29, 0.80, 0.92] } } } } };
   var L = { unit: 'px', size: [256, 256], things: { c: { kind: 'circle', at: [96, 120], r: 44, color: '#D9822B' }, r: { kind: 'rect', at: [150, 60], size: [80, 130], color: '#3C7A4E' }, label: { kind: 'text', at: [24, 40], text: 'land L' } } };
@@ -215,12 +249,15 @@
     return [(m[0] * x + m[4] * y + m[8] * z + m[12]) / w, (m[1] * x + m[5] * y + m[9] * z + m[13]) / w, (m[2] * x + m[6] * y + m[10] * z + m[14]) / w, w];
   }
 
-  // The view V → matrices. One function serves the renderer and the walker, so they agree by construction.
-  function cameraOf(view, viewport) {
-    var c = view.camera, aspect = viewport[0] / Math.max(1, viewport[1]);
+  // The view V → matrices. The framing (the aspect) is the portal's, a logical quantity; the lease only says how many pixels sample it,
+  // so re-leasing at another size never moves a world point on the portal (the fold's repair: the aspect used to come from the lease).
+  // One function serves the renderer and the walker, so the coordinate relation between picture and hit holds by construction —
+  // and only that relation. Meaning (which face, inside which stroke) is defined by the walker's and the shader's own formulas, checked apart.
+  function cameraOf(view, ls) {
+    var c = view.camera, aspect = ls.aspect;
     var eye = [c.pivot[0] + c.distance * Math.cos(c.pitch) * Math.sin(c.yaw), c.pivot[1] + c.distance * Math.sin(c.pitch), c.pivot[2] + c.distance * Math.cos(c.pitch) * Math.cos(c.yaw)];
     var viewM = m4lookAt(eye, c.pivot, [0, 1, 0]), proj = m4perspective(c.fovY, aspect, c.near, c.far), vp = m4mul(proj, viewM);
-    return { eye: eye, view: viewM, proj: proj, vp: vp, inv: m4invert(vp), viewport: viewport };
+    return { eye: eye, view: viewM, proj: proj, vp: vp, inv: m4invert(vp), viewport: ls.used };
   }
   function rayFromRegionPoint(cam, px, py) {
     var nx = 2 * px / cam.viewport[0] - 1, ny = 1 - 2 * py / cam.viewport[1];
@@ -230,25 +267,88 @@
   function projectPoint(cam, p) { var c = m4point(cam.vp, p); if (c[3] <= 1e-7) return null; return [(c[0] + 1) * 0.5 * cam.viewport[0], (1 - c[1]) * 0.5 * cam.viewport[1]]; }
 
   // ------------------------------------------------------------------
-  // The spatial floor's answers: hit(ray) per shape. CPU. The definition of "you hit this".
+  // The evaluator, one runner: construction → parts with lineage. Runs per edit of the construction, never per view or per frame.
+  // A block is a convex box [min, max]; each of its six faces names the construction face it belongs to and which part of it.
+  // The lineage relates every face to the previous evaluation: unchanged | modified | split | merged | generated | deleted.
   // ------------------------------------------------------------------
-  var FACE_NAMES = ['-x', '+x', '-y', '+y', '-z', '+z'];
-  function hitBox(ray, box) {
-    var lo = [box.at[0] - box.size[0] / 2, box.at[1] - box.size[1] / 2, box.at[2] - box.size[2] / 2];
-    var hi = [box.at[0] + box.size[0] / 2, box.at[1] + box.size[1] / 2, box.at[2] + box.size[2] / 2];
-    var tmin = -Infinity, tmax = Infinity, face = -1;
-    for (var a = 0; a < 3; a++) {
-      var o = ray.origin[a], d = ray.dir[a];
-      if (Math.abs(d) < 1e-9) { if (o < lo[a] || o > hi[a]) return null; continue; }
-      var t1 = (lo[a] - o) / d, t2 = (hi[a] - o) / d, f1 = a * 2, f2 = a * 2 + 1;
-      if (t1 > t2) { var tt = t1; t1 = t2; t2 = tt; var ff = f1; f1 = f2; f2 = ff; }
-      if (t1 > tmin) { tmin = t1; face = f1; }
-      if (t2 < tmax) tmax = t2;
-      if (tmin > tmax) return null;
+  var evaluated = null;
+  function evaluate(con, prev) {
+    var R0 = con.steps[0], E = con.steps[1], C = con.steps[2];
+    var x0 = R0.origin[0], z0 = R0.origin[1], w = R0.size[0], d = R0.size[1], h = E.height;
+    var faces = {
+      'E.top': { frame: { origin: [x0, z0], size: [w, d], at: h }, parts: 1, by: 'E' },
+      'E.front': { frame: { origin: [x0, 0], size: [w, h], at: z0 + d }, parts: 1, by: 'E' },
+      'E.bottom': { parts: 1, by: 'E' }, 'E.left': { parts: 1, by: 'E' }, 'E.right': { frame: { at: x0 + w }, parts: 1, by: 'E' }, 'E.back': { parts: 1, by: 'E' }
+    };
+    function block(min, max, tags) { return { min: min, max: max, tags: tags }; }
+    var blocks;
+    if (!C.on) {
+      blocks = [block([x0, 0, z0], [x0 + w, h, z0 + d], { '-x': ['E.left', 0], '+x': ['E.right', 0], '-y': ['E.bottom', 0], '+y': ['E.top', 0], '-z': ['E.back', 0], '+z': ['E.front', 0] })];
+    } else {
+      var xa = Math.max(x0, Math.min(x0 + w, C.slab.x[0])), xb = Math.max(x0, Math.min(x0 + w, C.slab.x[1])), yf = h - C.slab.depth;
+      blocks = [
+        block([x0, 0, z0], [xa, h, z0 + d], { '-x': ['E.left', 0], '+x': ['C.wall-', 0], '-y': ['E.bottom', 0], '+y': ['E.top', 0], '-z': ['E.back', 0], '+z': ['E.front', 0] }),
+        block([xa, 0, z0], [xb, yf, z0 + d], { '-x': ['internal', 0], '+x': ['internal', 0], '-y': ['E.bottom', 0], '+y': ['C.floor', 0], '-z': ['E.back', 0], '+z': ['E.front', 0] }),
+        block([xb, 0, z0], [x0 + w, h, z0 + d], { '-x': ['C.wall+', 0], '+x': ['E.right', 0], '-y': ['E.bottom', 0], '+y': ['E.top', 1], '-z': ['E.back', 0], '+z': ['E.front', 0] })
+      ];
+      faces['E.top'].parts = 2; faces['E.top'].splitBy = 'C'; faces['E.front'].notched = 'C'; faces['E.back'].notched = 'C';
+      faces['C.floor'] = { frame: { origin: [xa, z0], size: [xb - xa, d], at: yf }, parts: 1, by: 'C' };
+      faces['C.wall-'] = { parts: 1, by: 'C' }; faces['C.wall+'] = { parts: 1, by: 'C' };
     }
-    if (tmin < 1e-6) return null;
-    var p = v3add(ray.origin, v3scale(ray.dir, tmin));
-    return { thing: 'B', part: 'face ' + FACE_NAMES[face], face: FACE_NAMES[face], t: tmin, point: p };
+    // lineage against the previous evaluation
+    var report = [];
+    Object.keys(faces).forEach(function (name) {
+      var f = faces[name], p = prev && prev.faces[name];
+      if (!p) { f.lineage = prev ? 'generated by ' + f.by : 'from ' + f.by; }
+      else if (f.parts > p.parts) f.lineage = 'split into ' + f.parts + ' by ' + f.splitBy;
+      else if (f.parts < p.parts) f.lineage = 'merged from ' + p.parts + ' (the cut was undone)';
+      else if (JSON.stringify(f.frame) !== JSON.stringify(p.frame) || f.notched !== p.notched) f.lineage = 'modified' + (f.frame && p.frame && f.frame.size && p.frame.size && f.frame.size[0] !== p.frame.size[0] ? ' (' + p.frame.size[0].toFixed(2) + ' → ' + f.frame.size[0].toFixed(2) + ' m wide)' : f.notched !== p.notched ? (f.notched ? ' (notched by C)' : ' (notch undone)') : '');
+      else f.lineage = 'unchanged';
+      if (f.lineage !== 'unchanged') report.push(name + ' ' + f.lineage);
+    });
+    if (prev) Object.keys(prev.faces).forEach(function (name) { if (!faces[name]) { faces[name] = { lineage: 'deleted', parts: 0, deleted: true }; report.push(name + ' deleted'); } });
+    return { blocks: blocks, faces: faces, frame: { x0: x0, z0: z0, w: w, d: d, h: h }, report: report.length ? report.join(' · ') : 'every face unchanged' };
+  }
+  // The attachment resolves against the evaluated face. Π millimetres = ((p.x, p.z) − origin) · scale + offset, × 1000.
+  //   origin      keep distances from the sketch's origin corner        (scale 1, offset 0)
+  //   normalized  stretch with the face, as proportions of its extents    (scale = authored extents / current extents)
+  //   edge        keep the distance from the +x edge                       (offset = authored width − current width)
+  // Identifying the face does not say where the ink belongs; the rule does. The construction supplies the face's frame and lineage.
+  function resolveAttachment(att, face) {
+    if (!face || face.deleted) return { status: 'detached: the face is gone' };
+    if (face.parts > 1 && att.onSplit === 'detach') return { status: 'detached: ' + face.lineage + ' and the rule says detach', face: face };
+    var f = face.frame, w0 = att.domain ? att.domain[0] : f.size[0], d0 = att.domain ? att.domain[1] : f.size[1], scale = [1, 1], offset = [0, 0];
+    if (att.anchor === 'normalized') scale = [w0 / f.size[0], d0 / f.size[1]];
+    if (att.anchor === 'edge') offset = [w0 - f.size[0], 0];
+    return { status: 'resolved' + (face.parts > 1 ? ' on ' + face.parts + ' parts (' + att.onSplit + ')' : ''), origin: f.origin.slice(), scale: scale, offset: offset, at: f.at, size: f.size.slice(), domain: [w0, d0], anchor: att.anchor, face: face };
+  }
+  function attachUV(res, p) { return [((p[0] - res.origin[0]) * res.scale[0] + res.offset[0]) * 1000, ((p[2] - res.origin[1]) * res.scale[1] + res.offset[1]) * 1000]; }
+  function attachPoint(res, uv) { return [res.origin[0] + (uv[0] / 1000 - res.offset[0]) / res.scale[0], res.at, res.origin[1] + (uv[1] / 1000 - res.offset[1]) / res.scale[1]]; }
+  function resolveTop() { return resolveAttachment(S.things.Ftop.attachment, evaluated.faces[S.things.Ftop.face]); }
+
+  // ------------------------------------------------------------------
+  // The spatial floor's answers: hit(ray) per shape, on the CPU. The reference implementation of "you hit this" under the
+  // declared policy (nearest visible surface); a GPU id read would have to agree with it at a tolerance, not replace it.
+  // ------------------------------------------------------------------
+  function hitBlocks(ray, blocks) {
+    var best = null;
+    blocks.forEach(function (b) {
+      var tmin = -Infinity, tmax = Infinity, axis = -1, sign = 0;
+      for (var a = 0; a < 3; a++) {
+        var o = ray.origin[a], dd = ray.dir[a];
+        if (Math.abs(dd) < 1e-9) { if (o < b.min[a] || o > b.max[a]) return; continue; }
+        var t1 = (b.min[a] - o) / dd, t2 = (b.max[a] - o) / dd, s = -1; if (t1 > t2) { var tt = t1; t1 = t2; t2 = tt; s = 1; }
+        if (t1 > tmin) { tmin = t1; axis = a; sign = s; }
+        if (t2 < tmax) tmax = t2;
+        if (tmin > tmax) return;
+      }
+      if (tmin < 1e-6) return;
+      if (best === null || tmin < best.t) {
+        var tag = b.tags[(sign < 0 ? '-' : '+') + 'xyz'[axis]], n = [0, 0, 0]; n[axis] = sign;
+        best = { thing: 'B', t: tmin, point: v3add(ray.origin, v3scale(ray.dir, tmin)), normal: n, face: tag[0], partIndex: tag[1], part: 'face ' + tag[0] };
+      }
+    });
+    return best;
   }
   function hitSphere(ray, sph) {
     var oc = v3sub(ray.origin, sph.at), b = v3dot(oc, ray.dir), c = v3dot(oc, oc) - sph.radius * sph.radius, h = b * b - c;
@@ -256,25 +356,39 @@
     var p = v3add(ray.origin, v3scale(ray.dir, t));
     return { thing: 'Q', part: 'surface', t: t, point: p, normal: v3norm(v3sub(p, sph.at)) };
   }
-  // The planar surface on the top face: world point → (u, v) in the planar space PI (mm), u along +x, v along +z.
-  function topFaceUV(p) { var B = S.things.B; return [(p[0] - (B.at[0] - 0.5)) * 1000, (p[2] - (B.at[2] - 0.5)) * 1000]; }
-  function frontFaceUV(p) { var B = S.things.B; return [(p[0] - (B.at[0] - 0.5)), (1 - (p[1] - (B.at[1] - 0.5)))]; } // 0..1 across the +z face, v down
+  // The portal on the front face: world point → (0..1, 0..1) across the face, v down, through T's attachment (normalized: it stretches with the face).
+  function frontFaceUV(p) { var f = evaluated.faces['E.front'].frame; return [(p[0] - f.origin[0]) / f.size[0], 1 - (p[1] - f.origin[1]) / f.size[1]]; }
 
-  // The planar floor's answer: classify a point against the stroke (the swept round nib: union of discs of radius w(t)/2).
+  // The planar floor's answer: classify a point against the stroke. The swept round nib is the union over t of the discs of radius
+  // w(t)/2 along each segment; on one segment that union is the convex hull of the two end discs (the uneven capsule) and its signed
+  // distance has a closed form (Quilez). Exact outside; inside, the min over segments is a lower bound on the distance to the union's edge.
+  // The shader evaluates the same formula per pixel. (The fold's repair: the previous classifier projected onto the centreline and read
+  // the width there, which misses points inside a wider disc further along; the shader shared the error, so agreement proved nothing.)
+  function capsuleSD(p, a, b, ra, rb) {
+    var px = p[0] - a[0], py = p[1] - a[1], bx = b[0] - a[0], by = b[1] - a[1], h = bx * bx + by * by;
+    if (h < 1e-12) return Math.hypot(px, py) - Math.max(ra, rb);
+    var bb = ra - rb;
+    if (bb * bb >= h) return Math.min(Math.hypot(px, py) - ra, Math.hypot(p[0] - b[0], p[1] - b[1]) - rb); // one disc holds the other
+    var qx = Math.abs((px * by - py * bx) / h), qy = (px * bx + py * by) / h;
+    var cx = Math.sqrt(h - bb * bb), cy = bb, k = cx * qy - cy * qx, m = cx * qx + cy * qy, n = qx * qx + qy * qy;
+    if (k < 0) return Math.sqrt(h * n) - ra;
+    if (k > cx) return Math.sqrt(h * (n + 1 - 2 * qy)) - rb;
+    return m - ra;
+  }
   function classifyStroke(uv) {
     var s = PI.things.k.samples; if (s.length === 0) return null;
+    if (s.length === 1) return { signed: Math.hypot(uv[0] - s[0][0], uv[1] - s[0][1]) - s[0][2] / 2, seg: 0, t: 0, s: 0, w: s[0][2] };
     var best = null;
-    for (var i = 0; i < s.length; i++) {
-      var a = s[i], b = s[Math.min(i + 1, s.length - 1)];
-      var abx = b[0] - a[0], aby = b[1] - a[1], l2 = abx * abx + aby * aby, t = 0;
-      if (l2 > 1e-9) t = Math.max(0, Math.min(1, ((uv[0] - a[0]) * abx + (uv[1] - a[1]) * aby) / l2));
-      var qx = a[0] + t * abx, qy = a[1] + t * aby, d = Math.hypot(uv[0] - qx, uv[1] - qy);
-      var w = a[2] + t * (b[2] - a[2]);
-      var signed = d - w / 2;
-      if (best === null || signed < best.signed) best = { signed: signed, seg: i, t: t, s: (a[3] || 0) + t * ((b[3] || 0) - (a[3] || 0)), w: w };
-      if (i === s.length - 1) break;
+    for (var i = 0; i < s.length - 1; i++) {
+      var sd = capsuleSD(uv, s[i], s[i + 1], s[i][2] / 2, s[i + 1][2] / 2);
+      if (best === null || sd < best.signed) best = { signed: sd, seg: i };
     }
-    return best;
+    // which disc of the sweep owns the point: the t minimising |p − c(t)| − w(t)/2 on the winning segment (convex in t; ternary search)
+    var a = s[best.seg], b = s[best.seg + 1], lo = 0, hi = 1;
+    function f(t) { return Math.hypot(uv[0] - (a[0] + t * (b[0] - a[0])), uv[1] - (a[1] + t * (b[1] - a[1]))) - (a[2] + t * (b[2] - a[2])) / 2; }
+    for (var it = 0; it < 48; it++) { var m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3; if (f(m1) < f(m2)) hi = m2; else lo = m1; }
+    var t = (lo + hi) / 2;
+    return { signed: best.signed, seg: best.seg, t: t, s: (a[3] || 0) + t * ((b[3] || 0) - (a[3] || 0)), w: a[2] + t * (b[2] - a[2]) };
   }
   // Land L's answer (a planar space): hit a circle, a rect, or the background.
   function hitLand(px, py) {
@@ -298,31 +412,35 @@
       return { leaf: 'I', address: address, mark: pagePx };
     }
     if (wx >= R.rect.x && wx <= R.rect.x + R.rect.w && wy >= R.rect.y && wy <= R.rect.y + R.rect.h) {
-      var surf = surfaceSize(), u = (wx - R.rect.x) / R.rect.w, v = (wy - R.rect.y) / R.rect.h;
-      var rp = [u * surf[0], v * surf[1]];
-      address.push({ thing: 'R', kind: 'portal → space S via view V', where: 'portal-local (' + (u * R.rect.w).toFixed(1) + ', ' + (v * R.rect.h).toFixed(1) + ') px · surface ' + surf[0] + '×' + surf[1] });
-      var cam = cameraOf(views.V, surf), ray = rayFromRegionPoint(cam, rp[0], rp[1]);
-      var hits = [hitBox(ray, S.things.B), hitSphere(ray, S.things.Q)].filter(Boolean).sort(function (a, b) { return a.t - b.t; });
+      var ls = lease(), u = (wx - R.rect.x) / R.rect.w, v = (wy - R.rect.y) / R.rect.h;
+      var rp = [u * ls.used[0], v * ls.used[1]];
+      address.push({ thing: 'R', kind: 'portal → space S via view V', where: 'portal-local (' + (u * R.rect.w).toFixed(1) + ', ' + (v * R.rect.h).toFixed(1) + ') px · surface ' + ls.used[0] + '×' + ls.used[1] + ' used of a ' + ls.alloc[0] + '×' + ls.alloc[1] + ' lease · framing ' + ls.aspect.toFixed(3) + ' (the portal\'s, not the lease\'s)' });
+      var cam = cameraOf(views.V, ls), ray = rayFromRegionPoint(cam, rp[0], rp[1]);
+      var hits = [hitBlocks(ray, evaluated.blocks), hitSphere(ray, S.things.Q)].filter(Boolean).sort(function (a, b) { return a.t - b.t; });
       if (hits.length === 0) { address.push({ space: 'S', where: 'ray from V: origin (' + fmt3(ray.origin) + ') dir (' + fmt3(ray.dir) + ') · hits nothing: the background of S' }); return { leaf: 'S:background', address: address, mark: pagePx }; }
       var h = hits[0];
       address.push({ space: 'S', where: 'ray from V hits at t = ' + h.t.toFixed(3) + ' m · world (' + fmt3(h.point) + ')' });
       if (h.thing === 'Q') { address.push({ thing: 'Q', kind: 'sphere (the occluder)', where: 'surface, normal (' + fmt3(h.normal) + ')' }); return { leaf: 'Q', address: address, mark: pagePx, t: h.t }; }
-      address.push({ thing: 'B', kind: 'box', where: h.part });
-      if (h.face === '+y') {
-        var uv = topFaceUV(h.point);
-        var fp = footprint(cam, h.point, surf);
-        address.push({ thing: 'Ftop', kind: 'planar surface → space Π (mm)', where: 'Π (' + uv[0].toFixed(1) + ', ' + uv[1].toFixed(1) + ') mm · footprint here ' + fp.toFixed(2) + ' px/mm (the filler\'s tolerance on this face, per view)' });
+      var fc = evaluated.faces[h.face];
+      address.push({ thing: 'B', kind: 'solid · construction CB, revision ' + constructions.CB.revision, where: 'face ' + h.face + (fc && fc.parts > 1 ? ' · part ' + (h.partIndex + 1) + ' of ' + fc.parts : '') + ' · lineage: ' + (fc ? fc.lineage : 'internal') });
+      if (h.face === 'E.top') {
+        var res = resolveTop();
+        if (!res.origin) { address.push({ thing: 'Ftop', kind: 'planar surface → space Π (mm)', where: 'attachment ' + res.status + ' · k stays in the record, on no face' }); return { leaf: 'B:E.top (ink detached)', address: address, mark: pagePx, t: h.t }; }
+        var uv = attachUV(res, h.point);
+        var fp = footprint(cam, h.point, ls, res);
+        address.push({ thing: 'Ftop', kind: 'planar surface → space Π (mm)', where: 'attachment ' + res.status + ' · rule: ' + res.anchor + ' · authored on ' + (res.domain[0] * 1000).toFixed(0) + '×' + (res.domain[1] * 1000).toFixed(0) + ' mm, the face is now ' + (res.size[0] * 1000).toFixed(0) + '×' + (res.size[1] * 1000).toFixed(0) + ' · Π (' + uv[0].toFixed(1) + ', ' + uv[1].toFixed(1) + ') mm · footprint here ' + fp.toFixed(2) + ' px per Π mm (the filler\'s tolerance on this face, per view)' });
         var cl = classifyStroke(uv);
         if (cl && cl.signed <= 0) {
-          address.push({ thing: 'k', kind: 'path (the stroke), swept nib', where: 'inside · segment ' + cl.seg + ' t ' + cl.t.toFixed(2) + ' · s ' + cl.s.toFixed(1) + ' mm along · width ' + cl.w.toFixed(1) + ' mm · ' + (-cl.signed).toFixed(2) + ' mm from the edge' });
+          address.push({ thing: 'k', kind: 'path (the stroke), swept nib', where: 'inside · segment ' + cl.seg + ' t ' + cl.t.toFixed(2) + ' · s ' + cl.s.toFixed(1) + ' mm along · width ' + cl.w.toFixed(1) + ' mm · at least ' + (-cl.signed).toFixed(2) + ' mm from the edge' });
           return { leaf: 'k', address: address, mark: pagePx, t: h.t };
         }
         if (cl) address.push({ space: 'Π', where: 'not on k: ' + cl.signed.toFixed(1) + ' mm outside its edge' });
-        return { leaf: 'B:+y', address: address, mark: pagePx, t: h.t };
+        return { leaf: 'B:E.top', address: address, mark: pagePx, t: h.t };
       }
-      if (h.face === '+z') {
+      if (h.face === 'C.floor') { address.push({ space: 'Π', where: 'no attachment here: a generated face inherits no ink (the rule); k\'s samples that pass over the groove are clipped, not moved' }); return { leaf: 'B:C.floor', address: address, mark: pagePx, t: h.t }; }
+      if (h.face === 'E.front') {
         var f = frontFaceUV(h.point);
-        address.push({ thing: 'T', kind: 'portal → land L via view VL', where: 'face (' + f[0].toFixed(3) + ', ' + f[1].toFixed(3) + ') → L (' + (f[0] * 256).toFixed(1) + ', ' + (f[1] * 256).toFixed(1) + ') px' });
+        address.push({ thing: 'T', kind: 'portal → land L via view VL', where: 'attachment normalized (stretches with the face) · face (' + f[0].toFixed(3) + ', ' + f[1].toFixed(3) + ') → L (' + (f[0] * 256).toFixed(1) + ', ' + (f[1] * 256).toFixed(1) + ') px' });
         var lh = hitLand(f[0] * 256, f[1] * 256);
         address.push({ thing: lh.thing, kind: lh.thing === 'L' ? 'planar space' : (lh.thing === 'c' ? 'circle' : 'rect'), where: lh.part + ' · the walk continued into another land through a face' });
         return { leaf: 'L:' + lh.thing, address: address, mark: pagePx, t: h.t };
@@ -332,19 +450,21 @@
     return { leaf: 'page', address: address, mark: pagePx };
   }
   function fmt3(v) { return v[0].toFixed(2) + ', ' + v[1].toFixed(2) + ', ' + v[2].toFixed(2); }
-  // How many page pixels one millimetre on the face spans at this point, under this view and this page zoom.
-  function footprint(cam, p, surf) {
-    var a = projectPoint(cam, p), b = projectPoint(cam, [p[0] + 0.001, p[1], p[2]]); if (!a || !b) return 0;
-    var R = page.things.R; return Math.hypot(b[0] - a[0], b[1] - a[1]) * (R.rect.w * state.zoom / surf[0]);
+  // How many page pixels one Π millimetre on the face spans at this point, under this view, this page zoom and this attachment rule.
+  function footprint(cam, p, ls, res) {
+    var a = projectPoint(cam, p), b = projectPoint(cam, [p[0] + 0.001 / (res ? res.scale[0] : 1), p[1], p[2]]); if (!a || !b) return 0;
+    var R = page.things.R; return Math.hypot(b[0] - a[0], b[1] - a[1]) * (R.rect.w * state.zoom / ls.used[0]);
   }
 
   // ------------------------------------------------------------------
-  // The surface: the portal's lease. Its size is per scale: rect × page zoom × DPR, quantised, capped. Never in the record.
+  // The lease: the portal's surface. Two sizes, never in the record. `used` is the viewport, rect × page zoom × DPR (the cap scales both
+  // axes, so the framing never changes); `alloc` is what the compositor hands out, in 64-px quanta. The framing itself is the portal's aspect.
   // ------------------------------------------------------------------
-  function surfaceSize() {
-    var R = page.things.R;
-    var w = Math.ceil(R.rect.w * state.zoom * DPR / 64) * 64, h = Math.ceil(R.rect.h * state.zoom * DPR / 64) * 64;
-    return [Math.min(2048, Math.max(64, w)), Math.min(2048, Math.max(64, h))];
+  function lease() {
+    var R = page.things.R, w = R.rect.w * state.zoom * DPR, h = R.rect.h * state.zoom * DPR, cap = 2048 / Math.max(w, h);
+    if (cap < 1) { w *= cap; h *= cap; }
+    var used = [Math.max(1, Math.round(w)), Math.max(1, Math.round(h))];
+    return { used: used, alloc: [Math.min(2048, Math.ceil(used[0] / 64) * 64), Math.min(2048, Math.ceil(used[1] / 64) * 64)], aspect: R.rect.w / R.rect.h };
   }
 
   // ------------------------------------------------------------------
@@ -357,44 +477,63 @@
     'uniform mat4 uVP; uniform mat4 uModel; out vec3 vWorld; out vec3 vNrm; flat out float vFace;\n' +
     'void main(){ vec4 w = uModel * vec4(aPos,1.0); vWorld = w.xyz; vNrm = mat3(uModel) * aNrm; vFace = aFace; gl_Position = uVP * w; }';
   var FS = '#version 300 es\nprecision highp float; in vec3 vWorld; in vec3 vNrm; flat in float vFace; out vec4 o;\n' +
-    'uniform vec3 uLightDir; uniform float uAmbient; uniform vec3 uBase; uniform float uKind; uniform sampler2D uStroke; uniform int uCount; uniform vec4 uStrokeColor; uniform sampler2D uLand; uniform vec3 uBoxMin;\n' +
-    'float segDist(vec2 p, vec2 a, vec2 b, float wa, float wb, out float w){ vec2 ab = b - a; float l2 = dot(ab,ab); float t = l2 > 1e-9 ? clamp(dot(p - a, ab) / l2, 0.0, 1.0) : 0.0; w = mix(wa, wb, t); return length(p - (a + t * ab)); }\n' +
+    'uniform vec3 uLightDir; uniform float uAmbient; uniform vec3 uBase; uniform float uKind; uniform sampler2D uStroke; uniform int uCount; uniform vec4 uStrokeColor; uniform sampler2D uLand;\n' +
+    'uniform vec2 uAttOrigin; uniform vec2 uAttScale; uniform vec2 uAttOffset; uniform float uInkOn; uniform vec4 uFront;\n' +
+    '// the swept nib on one segment: the convex hull of the two end discs (uneven capsule, Quilez) — the same formula the CPU classify uses\n' +
+    'float capsuleSD(vec2 p, vec2 a, vec2 b, float ra, float rb){ p -= a; b -= a; float h = dot(b, b); if (h < 1e-12) return length(p) - max(ra, rb); float bb = ra - rb; if (bb * bb >= h) return min(length(p) - ra, length(p - b) - rb);\n' +
+    '  vec2 q = vec2(abs(p.x * b.y - p.y * b.x), dot(p, b)) / h; vec2 c = vec2(sqrt(h - bb * bb), bb); float k = c.x * q.y - c.y * q.x; float m = dot(c, q); float n = dot(q, q);\n' +
+    '  if (k < 0.0) return sqrt(h * n) - ra; if (k > c.x) return sqrt(h * (n + 1.0 - 2.0 * q.y)) - rb; return m - ra; }\n' +
     'void main(){ vec3 n = normalize(vNrm); float ndl = max(dot(n, normalize(uLightDir)), 0.0); vec3 base = uBase; float alpha = 1.0;\n' +
-    '  if (uKind > 0.5 && vFace > 2.5 && vFace < 3.5) { // the top face: the planar surface Π, the stroke filled per pixel with the swept nib\n' +
-    '    vec2 uv = vec2((vWorld.x - uBoxMin.x) * 1000.0, (vWorld.z - uBoxMin.z) * 1000.0);\n' +
-    '    float best = 1e9; float bw = 0.0;\n' +
-    '    for (int i = 0; i < 511; i++) { if (i >= uCount - 1) break; vec4 a = texelFetch(uStroke, ivec2(i, 0), 0); vec4 b = texelFetch(uStroke, ivec2(i + 1, 0), 0); float w; float d = segDist(uv, a.xy, b.xy, a.z, b.z, w); float sd = d - w * 0.5; if (sd < best) { best = sd; bw = w; } }\n' +
+    '  if (uKind > 0.5 && vFace > 2.5 && vFace < 3.5) { // a surviving part of face E.top: the planar surface Π through the attachment rule, the stroke filled per pixel with the swept nib\n' +
+    '    vec2 uv = ((vWorld.xz - uAttOrigin) * uAttScale + uAttOffset) * 1000.0;\n' +
+    '    float best = 1e9;\n' +
+    '    for (int i = 0; i < 511; i++) { if (i >= uCount - 1) break; vec4 a = texelFetch(uStroke, ivec2(i, 0), 0); vec4 b = texelFetch(uStroke, ivec2(i + 1, 0), 0); best = min(best, capsuleSD(uv, a.xy, b.xy, a.z * 0.5, b.z * 0.5)); }\n' +
     '    if (uCount == 1) { vec4 a = texelFetch(uStroke, ivec2(0, 0), 0); best = length(uv - a.xy) - a.z * 0.5; }\n' +
-    '    float aa = fwidth(best) * 0.7; float cov = uCount > 0 ? 1.0 - smoothstep(-aa, aa, best) : 0.0;\n' +
+    '    float aa = fwidth(best) * 0.7; float cov = (uCount > 0 && uInkOn > 0.5) ? 1.0 - smoothstep(-aa, aa, best) : 0.0;\n' +
     '    // a faint grid in mm so the face reads as a space with a unit\n' +
     '    vec2 g = abs(fract(uv / 100.0) - 0.5); float gline = 1.0 - smoothstep(0.0, fwidth(uv.x / 100.0) * 1.5, min(g.x, g.y)); base = mix(base, base * 0.82, gline * 0.6);\n' +
     '    vec3 lit = base * (uAmbient + (1.0 - uAmbient) * ndl); vec3 inkc = uStrokeColor.rgb * (uAmbient + (1.0 - uAmbient) * ndl);\n' +
     '    o = vec4(mix(lit, inkc, cov * uStrokeColor.a), 1.0); return; }\n' +
-    '  if (uKind > 0.5 && vFace > 4.5) { // the front face: portal T, the surface of land L is paint here\n' +
-    '    vec2 f = vec2(vWorld.x - uBoxMin.x, 1.0 - (vWorld.y - uBoxMin.y)); vec3 land = texture(uLand, f).rgb; vec3 frame = vec3(0.17, 0.29, 0.80);\n' +
+    '  if (uKind > 0.5 && vFace > 5.5) { // a face the cut generated: the groove floor and walls. No attachment resolves here, so no ink; a cooler tint so the cut reads\n' +
+    '    o = vec4(base * vec3(0.90, 0.93, 1.0) * (uAmbient + (1.0 - uAmbient) * ndl), 1.0); return; }\n' +
+    '  if (uKind > 0.5 && vFace > 4.5) { // face E.front: portal T, the surface of land L is paint here, stretched with the face (T\'s attachment is normalized)\n' +
+    '    vec2 f = vec2((vWorld.x - uFront.x) / uFront.y, 1.0 - (vWorld.y - uFront.z) / uFront.w); vec3 land = texture(uLand, f).rgb; vec3 frame = vec3(0.17, 0.29, 0.80);\n' +
     '    float edge = step(min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)), 0.02);\n' +
     '    o = vec4(mix(land, frame, edge) * (uAmbient + (1.0 - uAmbient) * ndl), 1.0); return; }\n' +
     '  o = vec4(base * (uAmbient + (1.0 - uAmbient) * ndl), 1.0); }';
-  var prog, locs = {}, boxVAO, sphVAO, groundVAO, sphCount, strokeTex, landTex;
+  var prog, locs = {}, solidVAO, solidCount = 0, sphVAO, groundVAO, sphCount, strokeTex, landTex;
   function glstat(t) { var e = document.getElementById('glstat'); if (e) e.textContent = 'WebGL2: ' + t; }
   function compile(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { var log = gl.getShaderInfoLog(s); console.error(log); glstat('shader failed: ' + log); } return s; }
   function makeVAO(pos, nrm, face, idx) {
-    var vao = gl.createVertexArray(); gl.bindVertexArray(vao);
-    function buf(loc, data, n) { var b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, n, gl.FLOAT, false, 0, 0); }
+    var vao = gl.createVertexArray(); gl.bindVertexArray(vao); var bufs = [];
+    function buf(loc, data, n) { var b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, n, gl.FLOAT, false, 0, 0); bufs.push(b); }
     buf(0, pos, 3); buf(1, nrm, 3); buf(2, face, 1);
     var ib = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(idx), gl.STATIC_DRAW);
-    gl.bindVertexArray(null); return vao;
+    gl.bindVertexArray(null); return { vao: vao, bufs: bufs, ib: ib };
   }
-  function boxGeometry() {
+  // Per edit of the construction: the evaluated blocks go up as triangles. The face class is the material: 3 = a surviving part of E.top (Π), 5 = E.front (T), 6 = a face the cut generated, 0 = plain.
+  function refillVAO(v, g) {
+    gl.bindVertexArray(v.vao);
+    [g.pos, g.nrm, g.face].forEach(function (data, i) { gl.bindBuffer(gl.ARRAY_BUFFER, v.bufs[i]); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW); });
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, v.ib); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(g.idx), gl.STATIC_DRAW);
+    gl.bindVertexArray(null);
+  }
+  function faceClass(name) { return name === 'E.top' ? 3 : name === 'E.front' ? 5 : (name === 'C.floor' || name === 'C.wall-' || name === 'C.wall+') ? 6 : 0; }
+  function blocksGeometry(blocks) {
     var pos = [], nrm = [], face = [], idx = [], n = 0;
-    var faces = [[-1, 0, 0], [1, 0, 0], [0, -1, 0], [0, 1, 0], [0, 0, -1], [0, 0, 1]];
-    faces.forEach(function (N, fi) {
-      var u = N[1] !== 0 ? [1, 0, 0] : [0, 1, 0], v = v3cross(N, u);
-      var corners = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
-      corners.forEach(function (c) { var p = v3add(v3scale(N, 0.5), v3add(v3scale(u, c[0] * 0.5), v3scale(v, c[1] * 0.5))); pos.push(p[0], p[1], p[2]); nrm.push(N[0], N[1], N[2]); face.push(fi); });
-      idx.push(n, n + 1, n + 2, n, n + 2, n + 3); n += 4;
+    var dirs = { '-x': [-1, 0, 0], '+x': [1, 0, 0], '-y': [0, -1, 0], '+y': [0, 1, 0], '-z': [0, 0, -1], '+z': [0, 0, 1] };
+    blocks.forEach(function (b) {
+      var c = [(b.min[0] + b.max[0]) / 2, (b.min[1] + b.max[1]) / 2, (b.min[2] + b.max[2]) / 2], e = [(b.max[0] - b.min[0]) / 2, (b.max[1] - b.min[1]) / 2, (b.max[2] - b.min[2]) / 2];
+      Object.keys(dirs).forEach(function (key) {
+        var N = dirs[key], u = N[1] !== 0 ? [1, 0, 0] : [0, 1, 0], v = v3cross(N, u), cls = faceClass(b.tags[key][0]);
+        [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (cc) {
+          var d = v3add(N, v3add(v3scale(u, cc[0]), v3scale(v, cc[1]))); // unit-cube corner direction, then scaled to the block
+          pos.push(c[0] + d[0] * e[0], c[1] + d[1] * e[1], c[2] + d[2] * e[2]); nrm.push(N[0], N[1], N[2]); face.push(cls);
+        });
+        idx.push(n, n + 1, n + 2, n, n + 2, n + 3); n += 4;
+      });
     });
-    return { pos: pos, nrm: nrm, face: face, idx: idx };
+    return { pos: pos, nrm: nrm, face: face, idx: idx, count: idx.length };
   }
   function sphereGeometry(r, ws, hs) {
     var pos = [], nrm = [], face = [], idx = [];
@@ -416,8 +555,8 @@
     prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.error(gl.getProgramInfoLog(prog)); glstat('link failed: ' + gl.getProgramInfoLog(prog)); glOK = false; return; }
     glstat('ok · ' + (gl.getParameter(gl.RENDERER) || ''));
-    ['uVP', 'uModel', 'uLightDir', 'uAmbient', 'uBase', 'uKind', 'uStroke', 'uCount', 'uStrokeColor', 'uLand', 'uBoxMin'].forEach(function (n) { locs[n] = gl.getUniformLocation(prog, n); });
-    var b = boxGeometry(); boxVAO = makeVAO(b.pos, b.nrm, b.face, b.idx);
+    ['uVP', 'uModel', 'uLightDir', 'uAmbient', 'uBase', 'uKind', 'uStroke', 'uCount', 'uStrokeColor', 'uLand', 'uAttOrigin', 'uAttScale', 'uAttOffset', 'uInkOn', 'uFront'].forEach(function (n) { locs[n] = gl.getUniformLocation(prog, n); });
+    var b = blocksGeometry(evaluated.blocks); solidVAO = makeVAO(b.pos, b.nrm, b.face, b.idx); solidCount = b.count;
     var s = sphereGeometry(1, 40, 24); sphVAO = makeVAO(s.pos, s.nrm, s.face, s.idx); sphCount = s.count;
     var g = { pos: [-4, 0, -4, 4, 0, -4, 4, 0, 4, -4, 0, 4], nrm: [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0], face: [8, 8, 8, 8], idx: [0, 2, 1, 0, 3, 2] }; groundVAO = makeVAO(g.pos, g.nrm, g.face, g.idx);
     strokeTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, strokeTex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -431,11 +570,15 @@
     for (var i = 0; i < n; i++) { data[i * 4] = s[i][0]; data[i * 4 + 1] = s[i][1]; data[i * 4 + 2] = s[i][2]; data[i * 4 + 3] = s[i][3] || 0; }
     gl.bindTexture(gl.TEXTURE_2D, strokeTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 512, 1, 0, gl.RGBA, gl.FLOAT, data);
   }
+  var lastUsed = [0, 0];
   function renderView() {
-    var surf = surfaceSize();
-    if (glCanvas.width !== surf[0] || glCanvas.height !== surf[1]) { glCanvas.width = surf[0]; glCanvas.height = surf[1]; state.dirty.scale = 'surface re-leased at ' + surf[0] + '×' + surf[1]; }
-    var cam = cameraOf(views.V, surf);
-    gl.viewport(0, 0, surf[0], surf[1]); gl.clearColor(0.13, 0.14, 0.17, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    var ls = lease();
+    if (glCanvas.width !== ls.alloc[0] || glCanvas.height !== ls.alloc[1]) { glCanvas.width = ls.alloc[0]; glCanvas.height = ls.alloc[1]; state.dirty.scale = 'lease re-allocated at ' + ls.alloc[0] + '×' + ls.alloc[1] + ' · viewport ' + ls.used[0] + '×' + ls.used[1]; }
+    else if (lastUsed[0] !== ls.used[0] || lastUsed[1] !== ls.used[1]) state.dirty.scale = 'viewport ' + ls.used[0] + '×' + ls.used[1] + ' in the same ' + ls.alloc[0] + '×' + ls.alloc[1] + ' lease';
+    lastUsed = ls.used.slice();
+    var cam = cameraOf(views.V, ls);
+    gl.disable(gl.SCISSOR_TEST); gl.viewport(0, 0, ls.alloc[0], ls.alloc[1]); gl.clearColor(0.13, 0.14, 0.17, 1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.viewport(0, ls.alloc[1] - ls.used[1], ls.used[0], ls.used[1]); // the used viewport sits at the top-left of the lease in image space
     gl.useProgram(prog);
     gl.uniformMatrix4fv(locs.uVP, false, new Float32Array(cam.vp));
     var Lt = S.things.L1; gl.uniform3f(locs.uLightDir, Lt.dir[0], Lt.dir[1], Lt.dir[2]); gl.uniform1f(locs.uAmbient, Lt.ambient);
@@ -443,18 +586,21 @@
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, landTex); gl.uniform1i(locs.uLand, 1);
     gl.uniform1i(locs.uCount, Math.min(512, PI.things.k.samples.length));
     var sc = PI.things.k.paint.stroke.color; gl.uniform4f(locs.uStrokeColor, sc[0], sc[1], sc[2], sc[3]);
-    var B = S.things.B; gl.uniform3f(locs.uBoxMin, B.at[0] - 0.5, B.at[1] - 0.5, B.at[2] - 0.5);
+    var res = resolveTop(); // the same resolution the walker uses: one definition of where Π sits on the face
+    if (res.origin) { gl.uniform2f(locs.uAttOrigin, res.origin[0], res.origin[1]); gl.uniform2f(locs.uAttScale, res.scale[0], res.scale[1]); gl.uniform2f(locs.uAttOffset, res.offset[0], res.offset[1]); gl.uniform1f(locs.uInkOn, 1); }
+    else { gl.uniform2f(locs.uAttOrigin, 0, 0); gl.uniform2f(locs.uAttScale, 1, 1); gl.uniform2f(locs.uAttOffset, 0, 0); gl.uniform1f(locs.uInkOn, 0); }
+    var ff = evaluated.faces['E.front'].frame; gl.uniform4f(locs.uFront, ff.origin[0], ff.size[0], ff.origin[1], ff.size[1]);
     // ground
     gl.uniformMatrix4fv(locs.uModel, false, new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])); gl.uniform3f(locs.uBase, 0.30, 0.32, 0.36); gl.uniform1f(locs.uKind, 0);
-    gl.bindVertexArray(groundVAO); gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-    // the box, faces branch: top = planar surface with the stroke; front = portal T
-    gl.uniformMatrix4fv(locs.uModel, false, new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, B.at[0], B.at[1], B.at[2], 1])); gl.uniform3f(locs.uBase, 0.86, 0.85, 0.80); gl.uniform1f(locs.uKind, 1);
-    gl.bindVertexArray(boxVAO); gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(groundVAO.vao); gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+    // the solid B, evaluated blocks in world space; faces branch by class: E.top parts = Π with the stroke; E.front = portal T; generated faces = the cut
+    gl.uniformMatrix4fv(locs.uModel, false, new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])); gl.uniform3f(locs.uBase, 0.86, 0.85, 0.80); gl.uniform1f(locs.uKind, 1);
+    gl.bindVertexArray(solidVAO.vao); gl.drawElements(gl.TRIANGLES, solidCount, gl.UNSIGNED_SHORT, 0);
     // the occluder
     var Q = S.things.Q; gl.uniformMatrix4fv(locs.uModel, false, new Float32Array([Q.radius, 0, 0, 0, 0, Q.radius, 0, 0, 0, 0, Q.radius, 0, Q.at[0], Q.at[1], Q.at[2], 1])); gl.uniform3f(locs.uBase, 0.78, 0.36, 0.30); gl.uniform1f(locs.uKind, 0);
-    gl.bindVertexArray(sphVAO); gl.drawElements(gl.TRIANGLES, sphCount, gl.UNSIGNED_SHORT, 0);
+    gl.bindVertexArray(sphVAO.vao); gl.drawElements(gl.TRIANGLES, sphCount, gl.UNSIGNED_SHORT, 0);
     gl.bindVertexArray(null);
-    state.dirty.frame = 'view V re-rendered into the surface (' + surf[0] + '×' + surf[1] + ')';
+    state.dirty.frame = 'view V re-rendered into the surface (' + ls.used[0] + '×' + ls.used[1] + ')';
   }
 
   // ------------------------------------------------------------------
@@ -476,7 +622,7 @@
     ctx.fillStyle = css('--muted'); ctx.font = '600 13px "Bricolage Grotesque", sans-serif'; ctx.fillText('the page (planar space, px)', 60, 52);
     // the portal R: its surface is paint here, drawn at the rect; the rect × zoom is where the surface's pixels land
     var R = page.things.R;
-    if (glOK) { ctx.imageSmoothingEnabled = true; ctx.drawImage(glCanvas, R.rect.x, R.rect.y, R.rect.w, R.rect.h); }
+    if (glOK) { var lu = lease().used; ctx.imageSmoothingEnabled = true; ctx.drawImage(glCanvas, 0, 0, lu[0], lu[1], R.rect.x, R.rect.y, R.rect.w, R.rect.h); }
     else { ctx.fillStyle = '#333'; ctx.fillRect(R.rect.x, R.rect.y, R.rect.w, R.rect.h); ctx.fillStyle = '#fff'; ctx.font = '13px sans-serif'; ctx.fillText('WebGL2 unavailable', R.rect.x + 12, R.rect.y + 24); }
     ctx.strokeStyle = '#2B4ACB'; ctx.lineWidth = 2 / state.zoom; ctx.strokeRect(R.rect.x, R.rect.y, R.rect.w, R.rect.h);
     ctx.fillStyle = '#2B4ACB'; ctx.font = '600 12px "JetBrains Mono", monospace'; ctx.fillText('portal R → space S, view V', R.rect.x, R.rect.y - 6);
@@ -495,7 +641,7 @@
     }
   }
   function leafLabel(leaf) {
-    return { 'k': 'you hit k, the stroke, on face +y of B', 'Q': 'you hit Q, the occluder', 'B:+y': 'you hit face +y of B, beside the stroke', 'I': 'you hit I, a screenshot: pixels', 'page': 'the page', 'S:background': 'the background of S' }[leaf] || ('you hit ' + leaf);
+    return { 'k': 'you hit k, the stroke, on face E.top of B', 'Q': 'you hit Q, the occluder', 'B:E.top': 'you hit face E.top of B, beside the stroke', 'B:E.top (ink detached)': 'you hit face E.top; the ink is detached', 'B:C.floor': 'you hit the groove floor, a generated face: no ink', 'I': 'you hit I, a screenshot: pixels', 'page': 'the page', 'S:background': 'the background of S' }[leaf] || ('you hit ' + leaf);
   }
 
   // ------------------------------------------------------------------
@@ -537,7 +683,7 @@
   function report() {
     var d = state.dirty;
     setRate('rEdit', d.edit || 'nothing edited', !!d.edit); setRate('rView', d.view || 'view V unchanged', !!d.view);
-    setRate('rScale', d.scale || 'portal surface ' + surfaceSize()[0] + '×' + surfaceSize()[1] + ' (rect × page zoom × dpr)', !!d.scale); setRate('rFrame', d.frame || 'picture not redrawn', !!d.frame);
+    var lsr = lease(); setRate('rScale', d.scale || 'viewport ' + lsr.used[0] + '×' + lsr.used[1] + ' (rect × page zoom × dpr) in a ' + lsr.alloc[0] + '×' + lsr.alloc[1] + ' lease', !!d.scale); setRate('rFrame', d.frame || 'picture not redrawn', !!d.frame);
     state.dirty = { edit: '', view: '', scale: '', frame: '' };
     if (report.tick++ % 12 === 0) renderRecord();
   }
@@ -548,12 +694,15 @@
     var rec = {
       page: { unit: 'px', things: { R: { kind: 'portal', view: 'V', rect: page.things.R.rect }, I: I ? { kind: 'image', bytes: I.px[0] + '×' + I.px[1] + ' rgba', provenance: 'screenshot of R at revision ' + I.revision, rect: I.rect } : undefined } },
       S: { unit: 'm', things: { B: S.things.B, Q: { kind: 'sphere', radius: S.things.Q.radius, at: S.things.Q.at.map(function (x) { return +x.toFixed(2); }) }, L1: S.things.L1, Ftop: S.things.Ftop, T: S.things.T } },
+      constructions: { CB: { revision: constructions.CB.revision, steps: constructions.CB.steps.map(function (st) { var o = {}; Object.keys(st).forEach(function (kk) { o[kk] = kk === 'size' ? st[kk].map(function (x) { return +x.toFixed(2); }) : st[kk]; }); return o; }) } },
       PI: { unit: 'mm', things: { k: { kind: 'path', source: 'pen', samples: k.samples.length + ' × [u mm, v mm, width mm, s mm]', paint: k.paint, identity: { id: 'k', revision: state.revision } } } },
       L: { unit: 'px', things: L.things },
       views: { V: { space: 'S', camera: { pivot: c.pivot, distance: +c.distance.toFixed(2), yaw: +c.yaw.toFixed(3), pitch: +c.pitch.toFixed(3), fovY: c.fovY, near: c.near, far: c.far }, owner: 'this session' }, VL: views.VL }
     };
     var el = document.getElementById('record'); var txt = JSON.stringify(rec, null, 1).replace(/\n\s*(?=[\d\-"][^\n]*[,\]]\s*$)/g, ' ');
     if (el.textContent !== txt) el.textContent = txt;
+    var res = resolveTop(), der = 'derived, not in the record: CB → ' + evaluated.blocks.length + ' block' + (evaluated.blocks.length > 1 ? 's' : '') + ', faces ' + Object.keys(evaluated.faces).filter(function (n) { return !evaluated.faces[n].deleted; }).map(function (n) { var f = evaluated.faces[n]; return n + (f.parts > 1 ? '×' + f.parts : ''); }).join(' ') + ' · Ftop attachment ' + res.status;
+    var de = document.getElementById('derived'); if (de.textContent !== der) de.textContent = der;
   }
 
   // ------------------------------------------------------------------
@@ -565,11 +714,12 @@
     var r = walk(pp); var top = r.address.find(function (a) { return a.thing === 'Ftop'; });
     if (!top) return false;
     // recompute uv exactly (the walk printed it): redo the ray to keep one definition
-    var R = page.things.R, surf = surfaceSize(), wx = (pp[0] - state.pan[0]) / state.zoom, wy = (pp[1] - state.pan[1]) / state.zoom;
-    var cam = cameraOf(views.V, surf), ray = rayFromRegionPoint(cam, (wx - R.rect.x) / R.rect.w * surf[0], (wy - R.rect.y) / R.rect.h * surf[1]);
-    var h = hitBox(ray, S.things.B); if (!h || h.face !== '+y') return false;
+    var R = page.things.R, ls = lease(), wx = (pp[0] - state.pan[0]) / state.zoom, wy = (pp[1] - state.pan[1]) / state.zoom;
+    var cam = cameraOf(views.V, ls), ray = rayFromRegionPoint(cam, (wx - R.rect.x) / R.rect.w * ls.used[0], (wy - R.rect.y) / R.rect.h * ls.used[1]);
+    var h = hitBlocks(ray, evaluated.blocks); if (!h || h.face !== 'E.top') return false;
     var hq = hitSphere(ray, S.things.Q); if (hq && hq.t < h.t) return false; // the occluder is in the way: the pen does not reach the face
-    var uv = topFaceUV(h.point), s = PI.things.k.samples, last = s[s.length - 1];
+    var res = resolveTop(); if (!res.origin) return false; // a detached attachment takes no ink
+    var uv = attachUV(res, h.point), s = PI.things.k.samples, last = s[s.length - 1];
     if (last && Math.hypot(uv[0] - last[0], uv[1] - last[1]) < 4) return false;
     var sAlong = last ? last[3] + Math.hypot(uv[0] - last[0], uv[1] - last[1]) : 0;
     var width = 18 + 10 * Math.sin(sAlong / 60); // a pressure stand-in: width varies along the stroke, per knot
@@ -610,6 +760,26 @@
   function resetView() { views.V.camera.yaw = 0.62; views.V.camera.pitch = 0.52; views.V.camera.distance = 3.4; state.dirty.view = 'V reset'; needRender = true; state.pendingHover = 'view'; }
   document.addEventListener('keydown', function (ev) { if (ev.key === 'r' || ev.key === 'R') resetView(); });
   document.getElementById('preset').addEventListener('click', presetStroke);
+  // The construction's edits. Each re-runs the evaluator (per edit), re-uploads the solid, and re-walks the hover under a still pointer.
+  function reevaluate(what) {
+    constructions.CB.revision++;
+    evaluated = evaluate(constructions.CB, evaluated);
+    if (glOK) { var g = blocksGeometry(evaluated.blocks); refillVAO(solidVAO, g); solidCount = g.count; }
+    var res = resolveTop();
+    state.dirty.edit = what + ' (CB revision ' + constructions.CB.revision + ') → re-evaluated: ' + evaluated.report + ' · Ftop attachment ' + res.status;
+    needRender = true; state.pendingHover = 'data';
+  }
+  document.getElementById('rectW').addEventListener('input', function (ev) { var w = parseFloat(ev.target.value); constructions.CB.steps[0].size[0] = w; document.getElementById('wVal').textContent = w.toFixed(2) + ' m'; reevaluate('R0.size.w ← ' + w.toFixed(2)); });
+  function setCut(on) { constructions.CB.steps[2].on = on; document.getElementById('cutVal').textContent = on ? 'on' : 'off'; document.getElementById('cutOn').classList.toggle('on', on); document.getElementById('cutOff').classList.toggle('on', !on); reevaluate('C.on ← ' + on); }
+  document.getElementById('cutOn').addEventListener('click', function () { setCut(true); });
+  document.getElementById('cutOff').addEventListener('click', function () { setCut(false); });
+  function setAnchor(a) { S.things.Ftop.attachment.anchor = a; document.getElementById('anchorVal').textContent = a; ['Origin', 'Normalized', 'Edge'].forEach(function (n) { document.getElementById('anchor' + n).classList.toggle('on', n.toLowerCase() === a); }); state.dirty.edit = 'Ftop.attachment.anchor ← ' + a + ' (the rule changed; the face, the construction and k did not)'; needRender = true; state.pendingHover = 'data'; }
+  document.getElementById('anchorOrigin').addEventListener('click', function () { setAnchor('origin'); });
+  document.getElementById('anchorNormalized').addEventListener('click', function () { setAnchor('normalized'); });
+  document.getElementById('anchorEdge').addEventListener('click', function () { setAnchor('edge'); });
+  function setOnSplit(v) { S.things.Ftop.attachment.onSplit = v; document.getElementById('splitVal').textContent = v; document.getElementById('splitClip').classList.toggle('on', v === 'clip'); document.getElementById('splitDetach').classList.toggle('on', v === 'detach'); state.dirty.edit = 'Ftop.attachment.onSplit ← ' + v; needRender = true; state.pendingHover = 'data'; }
+  document.getElementById('splitClip').addEventListener('click', function () { setOnSplit('clip'); });
+  document.getElementById('splitDetach').addEventListener('click', function () { setOnSplit('detach'); });
   function presetStroke() {
     var s = []; var sAlong = 0, px = null, py = null;
     for (var i = 0; i <= 70; i++) { var t = i / 70; var u = 120 + 760 * t, v = 500 + 220 * Math.sin(t * Math.PI * 2.2) - 260 * t; if (px !== null) sAlong += Math.hypot(u - px, v - py); px = u; py = v; s.push([u, v, 14 + 16 * Math.sin(t * Math.PI), sAlong]); }
@@ -618,7 +788,7 @@
   document.getElementById('clear').addEventListener('click', function () { PI.things.k.samples = []; state.revision++; uploadStroke(); state.dirty.edit = 'k.samples ← [] (revision ' + state.revision + ')'; needRender = true; state.pendingHover = 'data'; });
   document.getElementById('shot').addEventListener('click', takeShot);
   function takeShot() {
-    var R = page.things.R, c = document.createElement('canvas'); c.width = glCanvas.width; c.height = glCanvas.height; c.getContext('2d').drawImage(glCanvas, 0, 0);
+    var R = page.things.R, lu = lease().used, c = document.createElement('canvas'); c.width = lu[0]; c.height = lu[1]; c.getContext('2d').drawImage(glCanvas, 0, 0, lu[0], lu[1], 0, 0, lu[0], lu[1]);
     page.things.I = { kind: 'image', canvas: c, px: [c.width, c.height], revision: state.revision, rect: { x: R.rect.x + R.rect.w + 40, y: R.rect.y, w: R.rect.w, h: R.rect.h } };
     state.dirty.edit = 'page.I ← a screenshot: ' + c.width + '×' + c.height + ' bytes copied; no reference kept'; needPage = true; state.pendingHover = 'data';
   }
@@ -629,6 +799,12 @@
     var h = {}; location.hash.replace(/^#/, '').split('&').forEach(function (kv) { var p = kv.split('='); if (p[0]) h[p[0]] = decodeURIComponent(p[1] || ''); });
     if (h.yaw) views.V.camera.yaw = parseFloat(h.yaw); if (h.pitch) views.V.camera.pitch = parseFloat(h.pitch); if (h.dist) views.V.camera.distance = parseFloat(h.dist);
     if (h.occ) { S.things.Q.at[0] = parseFloat(h.occ); document.getElementById('occ').value = h.occ; document.getElementById('occVal').textContent = parseFloat(h.occ).toFixed(2); }
+    if (h.w) { var ww = parseFloat(h.w); constructions.CB.steps[0].size[0] = ww; document.getElementById('rectW').value = ww; document.getElementById('wVal').textContent = ww.toFixed(2) + ' m'; }
+    if (h.cut === '1') { constructions.CB.steps[2].on = true; document.getElementById('cutVal').textContent = 'on'; document.getElementById('cutOn').classList.add('on'); document.getElementById('cutOff').classList.remove('on'); }
+    if (h.anchor) setAnchor(h.anchor);
+    if (h.onsplit) setOnSplit(h.onsplit);
+    if (h.w || h.cut === '1') { evaluated = evaluate(constructions.CB, evaluated); constructions.CB.revision++; if (glOK) { var gg = blocksGeometry(evaluated.blocks); refillVAO(solidVAO, gg); solidCount = gg.count; } }
+    state.dirty = { edit: '', view: '', scale: '', frame: '' };
     if (h.preset !== '0') presetStroke();
     if (h.zoom) setZoom(parseFloat(h.zoom));
     if (h.px && h.py) { state.pointer = [parseFloat(h.px), parseFloat(h.py)]; state.pendingHover = 'pointer'; }
@@ -637,17 +813,19 @@
   }
   // aim=k|T|Q|I: the page pixel where a named thing projects under the current views and page camera.
   function aimAt(name) {
-    var R = page.things.R, surf = surfaceSize(), cam = cameraOf(views.V, surf), B = S.things.B, world = null;
-    if (name === 'k') { var s = PI.things.k.samples; if (!s.length) return null; var m = s[Math.floor(s.length / 2)]; world = [B.at[0] - 0.5 + m[0] / 1000, B.at[1] + 0.5, B.at[2] - 0.5 + m[1] / 1000]; }
-    if (name === 'T') world = [B.at[0], B.at[1], B.at[2] + 0.5];
+    var R = page.things.R, ls = lease(), cam = cameraOf(views.V, ls), fr = evaluated.frame, world = null;
+    if (name === 'k') { var s = PI.things.k.samples; if (!s.length) return null; var m = s[Math.floor(s.length / 2)], att = S.things.Ftop.attachment, res = resolveAttachment({ anchor: att.anchor, domain: att.domain, onSplit: 'clip' }, evaluated.faces[S.things.Ftop.face]); if (!res.origin) return null; world = attachPoint(res, [m[0], m[1]]); } // aims where the ink would sit even when detached, so the panel can say so
+    if (name === 'T') world = [fr.x0 + fr.w / 2, fr.h / 2, fr.z0 + fr.d];
+    if (name === 'floor') { var C = constructions.CB.steps[2]; world = [(C.slab.x[0] + C.slab.x[1]) / 2, fr.h - C.slab.depth, fr.z0 + fr.d / 2]; }
     if (name === 'Q') world = S.things.Q.at;
     if (name === 'I') { var I = page.things.I; if (!I) return null; return [(I.rect.x + I.rect.w / 2) * state.zoom + state.pan[0], (I.rect.y + I.rect.h / 2) * state.zoom + state.pan[1]]; }
     if (!world) return null;
     var rp = projectPoint(cam, world); if (!rp) return null;
-    var wx = R.rect.x + rp[0] / surf[0] * R.rect.w, wy = R.rect.y + rp[1] / surf[1] * R.rect.h;
+    var wx = R.rect.x + rp[0] / ls.used[0] * R.rect.w, wy = R.rect.y + rp[1] / ls.used[1] * R.rect.h;
     return [wx * state.zoom + state.pan[0], wy * state.zoom + state.pan[1]];
   }
   fitPageCanvas(); window.addEventListener('resize', function () { fitPageCanvas(); needPage = true; });
+  evaluated = evaluate(constructions.CB, null); // the first evaluation: every face 'from E'
   if (glOK) initGL(); else glstat('unavailable (no context)');
   applyHash();
   if (state.shotLater && glOK) { renderView(); takeShot(); var hh = location.hash; if (/aim=I/.test(hh)) { var pI = aimAt('I'); if (pI) { state.pointer = pI; state.pendingHover = 'pointer'; } } }
