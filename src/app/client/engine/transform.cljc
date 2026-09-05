@@ -1,38 +1,63 @@
 (ns app.client.engine.transform
-  "Where things sit: the group tree's transform math. A group is a node
-   with one six-number affine [a b c d tx ty], composed once through its
-   parents; every kind positions itself through the result.
-   Takes: a group registry; a group id; a point; local bounds plus a
-   camera and a pixel offset (anchored-screen-rect).
-   Gives: one absolute affine per group with its compact GPU buffer-index; points
-   mapped in and out; a world-anchored, screen-pixel-sized rect.
-   Holds nothing; the registry is a value passed in and returned."
+  "Compose one coordinate system for CPU and GPU consumers.
+
+   Input: a group registry, local transforms/points/bounds, and sometimes a
+   camera. Output: updated registry values or projected geometry. The
+   registry owns group identities and stable compact GPU indexes; this
+   namespace does not retain it globally. It normalizes convenience
+   transforms to six-number affines, composes parent chains, and uses the
+   same affine representation for projections and upload.
+
+   Folder map: README.md."
   (:require [app.client.engine.schema :as schema]))
 
+;; Semantic group IDs and compact GPU buffer indexes are distinct domains.
+;; Group 0 is the reserved identity; world-base carries neutral projection
+;; state.
 (def identity-affine
   "Canonical identity [a b c d tx ty]."
   [1.0 0.0 0.0 1.0 0.0 0.0])
 
 (def ^:private affine-epsilon 1.0e-12)
 
-(defn- sqrt [x]
+(defn- sqrt
+  "Scalar → its square root.
+
+   CLJ/CLJS numeric adapter."
+  [x]
   #?(:clj (Math/sqrt (double x))
      :cljs (js/Math.sqrt x)))
 
-(defn- cos [x]
+(defn- cos
+  "Scalar → its cosine.
+
+   CLJ/CLJS numeric adapter."
+  [x]
   #?(:clj (Math/cos (double x))
      :cljs (js/Math.cos x)))
 
-(defn- sin [x]
+(defn- sin
+  "Scalar → its sine.
+
+   CLJ/CLJS numeric adapter."
+  [x]
   #?(:clj (Math/sin (double x))
      :cljs (js/Math.sin x)))
 
-(defn- six-finite? [value]
+(defn- six-finite?
+  "Value → valid six-number affine?
+
+   Shape plus shared numeric checks."
+  [value]
   (and (vector? value)
        (= 6 (count value))
        (every? schema/finite-number? value)))
 
-(defn- affine-xor-legacy? [spec]
+(defn- affine-xor-legacy?
+  "Group spec → whether affine and convenience fields are not mixed.
+
+   Key-presence check. Resolves representation ambiguity at ingress."
+  [spec]
   (or (not (contains? spec :affine))
       (not-any? #(contains? spec %)
                 [:x :y :scale :scale-x :scale-y :rotation])))
@@ -54,10 +79,10 @@
                       :error-type :transform/affine-form}]})
 
 (defn- spec->affine
-  "Normalize the public transform vocabulary to the one canonical affine.
-   :affine is the full-general path.  The legacy :x/:y/:scale path remains an
-   adapter; :rotation and :scale-x/:scale-y add non-axis-aligned convenience
-   without becoming a second stored representation."
+  "Checked spec → [a b c d tx ty].
+
+   Copies explicit affine or composes scale/rotation/translation. One stored
+   representation."
   [spec]
   (if (contains? spec :affine)
     (mapv double (:affine spec))
@@ -78,24 +103,31 @@
    :buffer-index 0})
 
 (defn empty-registry
-  "A registry holding only the reserved identity group and its compact
-   transport allocator."
+  "No input → registry with identity group 0 and allocator.
+
+   Pure constructor."
   []
   {:groups {0 root-group}
    :next-buffer-index 1
    :free-buffer-indexes (sorted-set)})
 
-(defn- allocate-buffer-index [reg]
+(defn- allocate-buffer-index
+  "Registry → [updated-registry index].
+
+   Reuses the smallest free index, otherwise increments. Intended for stable
+   compact allocation."
+  [reg]
   (if-let [buffer-index (first (:free-buffer-indexes reg))]
     [(update reg :free-buffer-indexes disj buffer-index) buffer-index]
     (let [buffer-index (or (:next-buffer-index reg) 1)]
       [(assoc reg :next-buffer-index (inc buffer-index)) buffer-index])))
 
 (defn add-group
-  "Register a new group. :affine accepts [a b c d tx ty].  The existing
-   :x/:y/:scale vocabulary remains behavior-identical; :rotation and
-   :scale-x/:scale-y are convenience inputs.  The assigned buffer index is
-   compact and independent of group-id."
+  "Registry, ID, spec → new registry; throws for reserved/duplicate ID or
+   missing parent.
+
+   Validates then normalizes and allocates. Parents must exist before
+   children."
   [reg group-id spec]
   (when (= group-id 0)
     (throw (ex-info "group-id 0 is reserved (identity/world) and cannot be added"
@@ -118,12 +150,16 @@
                :buffer-index buffer-index}))))
 
 (defn- assigned-buffer-index
-  "Return group-id's compact GPU buffer index, or nil for an unknown group-id."
+  "Registry, ID → index or nil."
   [reg group-id]
   (get-in reg [:groups group-id :buffer-index]))
 
 (defn set-transform
-  "Replace a group transform with one canonical affine value."
+  "Registry, existing nonroot ID, transform spec → new registry.
+
+   Replaces only affine. Schema accepts parent/camera fields but this
+   operation does not apply them; callers must understand the narrower
+   contract."
   [reg group-id t]
   (when (= group-id 0)
     (throw (ex-info "group-id 0 is reserved and cannot be mutated" {:group-id group-id})))
@@ -133,8 +169,10 @@
             (spec->affine (schema/check group t))))
 
 (defn remove-group
-  "Drop a childless group and return its compact buffer index to the
-   allocator.  The buffer-index is stable for the group's whole live lifetime."
+  "Registry and childless nonroot ID → registry with index returned to free
+   set.
+
+   Scans for children before removal. O(number of groups) child check."
   [reg group-id]
   (when (= group-id 0)
     (throw (ex-info "group-id 0 is reserved and cannot be removed" {:group-id group-id})))
@@ -149,7 +187,9 @@
       (some? buffer-index) (update :free-buffer-indexes (fnil conj (sorted-set)) buffer-index))))
 
 (defn compose-affines
-  "Compose parent and child affines (parent after child)."
+  "Parent and child affines → parent-after-child affine.
+
+   Direct six-coefficient arithmetic."
   [[pa pb pc pd ptx pty] [ca cb cc cd ctx cty]]
   [(+ (* pa ca) (* pc cb))
    (+ (* pb ca) (* pd cb))
@@ -162,14 +202,22 @@
   {:affine identity-affine :camera :world})
 
 (defn- fallback-buffer-indexes
-  "Old hand-built registries in tests/doc fixtures may predate allocator
-   metadata.  Give them deterministic compact buffer indexes without using sparse group ids."
+  "Hand-built group map → deterministic ID/index mapping.
+
+   Sorts IDs by printed representation. Supports registries lacking
+   allocator metadata, adding a second admission path."
   [groups]
   (into {0 0}
         (map-indexed (fn [i group-id] [group-id (inc i)]))
         (sort-by pr-str (remove #(= 0 %) (keys groups)))))
 
-(defn- compose-one [groups fallback-buffer-indexes cache seen group-id]
+(defn- compose-one
+  "Groups, fallback indexes, cache, ancestor set, ID → [cache
+   world-transform]; throws for cycles/missing groups.
+
+   Recursive parent composition with per-call memoization. Very deep trees
+   depend on call-stack capacity."
+  [groups fallback-buffer-indexes cache seen group-id]
   (cond
     (contains? cache group-id) [cache (get cache group-id)]
     (contains? seen group-id) (throw (ex-info "group parent cycle" {:group-id group-id}))
@@ -192,9 +240,10 @@
         [(assoc cache group-id world-transform) world-transform]))))
 
 (defn world-transforms
-  "Compose the registry to one absolute affine per group-id.  Every entry carries
-   the same affine read by CPU projections and GPU transport, plus its compact
-   buffer-index and camera flag."
+  "Registry → ID-to-absolute-affine/flags/index map.
+
+   Composes every group, then emits compact transport rows. Intended for
+   whole-registry derivation; no incremental cross-call cache."
   [reg]
   (let [groups (:groups reg)
         fallback-buffer-indexes (fallback-buffer-indexes groups)
@@ -211,14 +260,24 @@
      {}
      cache)))
 
-(defn world-transform-scale [world-transforms group-id]
+(defn world-transform-scale
+  "World-transform map and ID → maximum axis length, defaulting to identity.
+
+   Computes the two affine column lengths. This is a scale proxy, not the
+   maximum singular value under shear; quality-sensitive users need that
+   distinction."
+  [world-transforms group-id]
   (let [[a b c d] (or (get-in world-transforms [group-id :affine])
                       [1.0 0.0 0.0 1.0])
         sx (sqrt (+ (* a a) (* b b)))
         sy (sqrt (+ (* c c) (* d d)))]
     (max sx sy)))
 
-(defn buffer-index [world-transforms group-id]
+(defn buffer-index
+  "World-transform map and ID → integer index; throws if unknown.
+
+   Checked lookup. No silent alias to identity."
+  [world-transforms group-id]
   (let [buffer-index (get-in world-transforms [group-id :buffer-index] ::missing)]
     (when (= ::missing buffer-index)
       (throw (ex-info "Draw item names an unknown group"
@@ -226,18 +285,25 @@
                        :group-id group-id})))
     (int buffer-index)))
 
-(defn determinant [[a b c d _tx _ty]]
+(defn determinant
+  "Affine → 2×2 determinant."
+  [[a b c d _tx _ty]]
   (- (* a d) (* b c)))
 
 (defn forward-point
-  "Map a group-local point through a world transform."
+  "World transform and local point → transformed point.
+
+   Applies affine directly. Expects valid affine."
   [{[a b c d tx ty] :affine} [x y]]
   [(+ (* a x) (* c y) tx)
    (+ (* b x) (* d y) ty)])
 
 (defn inverse-point
-  "Map a world/screen point into group-local space. Singular transforms
-   fail closed; pick must never invent an inside result from no inverse."
+  "World transform and transformed point → local point; throws for
+   missing/singular affine.
+
+   Explicit inverse with determinant epsilon. Singular geometry cannot
+   produce an invented pick."
   [{[a b c d tx ty] :affine :as world-transform} [px py]]
   (when-not (:affine world-transform)
     (throw (ex-info "world transform has no canonical :affine" {:world-transform world-transform})))
@@ -251,9 +317,10 @@
        (/ (+ (* (- b) dx) (* a dy)) det)])))
 
 (defn transform-bounds
-  "Conservative axis-aligned bounds of a local rect after the exact affine.
-   All four corners participate, so rotation, reflection, shear, and nested
-   non-uniform scale share one bounds/cull projection."
+  "Affine and local rectangle → world axis-aligned bounds.
+
+   Projects all four corners. Intended for affine rectangles, including
+   shear/reflection."
   [world-transform {:keys [x y w h]}]
   (let [points [(forward-point world-transform [x y])
                 (forward-point world-transform [(+ x w) y])
@@ -268,8 +335,10 @@
     {:x x0 :y y0 :w (- x1 x0) :h (- y1 y0)}))
 
 (defn screen-bounds
-  "Project local bounds through group affine and the exact renderer camera
-   law: screen = world*zoom + pan. Screen-camera groups bypass world camera."
+  "Transform, local bounds, camera → screen bounds.
+
+   Applies world camera unless the transform is screen-fixed; normalizes
+   negative zoom bounds."
   [world-transform bounds camera]
   (let [{:keys [x y w h]} (transform-bounds world-transform bounds)
         screen? (= 1 (:flags world-transform))
@@ -286,7 +355,10 @@
      :h (abs (- y1 y0))}))
 
 (defn anchored-screen-rect
-  "Project local bounds through a group and camera, then add px offsets."
+  "Bounds, transform, camera, pixel offsets → screen rectangle.
+
+   Projects then adds offsets, including width/height offsets. Does not
+   itself enforce positive final dimensions."
   [anchor-bounds world-transform camera offset]
   (let [{:keys [x y w h]} (screen-bounds world-transform anchor-bounds camera)]
     {:x (+ x (double (or (:x offset) 0.0)))

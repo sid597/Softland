@@ -1,11 +1,19 @@
 (ns app.client.engine.buffer-pool
-  "A GPU instance buffer that writes only changed items.
-   Takes: a device, an initial capacity, an item width and a pack function;
-   then a new item list each frame.
-   Gives: the number of GPU writes made.
-   Holds: the buffer, capacity, previous items, and live item count.")
+  "Synchronize an ordered instance vector to a GPU buffer.
 
-(defn- make-buffer [^js device capacity bytes-per-item]
+   Input: device, initial capacity, row width/packer, then successive item
+   vectors. Output: an atom-owned pool and a reported update count. State
+   retains the GPU buffer, capacity, preceding items and active length. The
+   implementation compares rows by index; this is positional incremental
+   upload, not identity-aware reconciliation.
+
+   Folder map: README.md.")
+
+(defn- make-buffer
+  "Device, row capacity, bytes per row → vertex/copy buffer.
+
+   Direct allocation. Intended for the fixed-width row contract."
+  [^js device capacity bytes-per-item]
   (.createBuffer device
     (clj->js {:size (* capacity bytes-per-item)
               :usage (bit-or js/GPUBufferUsage.VERTEX
@@ -13,6 +21,11 @@
                              js/GPUBufferUsage.COPY_SRC)})))
 
 (defn create-pool
+  "Device, capacity, keyword row width/packer → pool atom; throws for
+   invalid width/packer.
+
+   Stores packing policy with allocation. Current limitation: initial
+   capacity is not required to be positive."
   [device initial-capacity & {:keys [floats-per-item pack-fn] :as options}]
   (when-not (and (pos-int? floats-per-item) (fn? pack-fn))
     (throw (ex-info "Buffer pool requires :floats-per-item and :pack-fn"
@@ -28,6 +41,10 @@
            :prev-items nil})))
 
 (defn- grow-pool!
+  "Pool atom → updated state; allocates doubled buffer, copies active
+   prefix, submits, destroys old buffer.
+
+   Geometric growth. Intended for positive capacity; zero remains zero."
   [pool]
   (let [{:keys [^js device ^js buffer capacity high-water-mark bytes-per-item]} @pool
         new-capacity (* capacity 2)
@@ -40,12 +57,23 @@
     (.destroy buffer)
     (swap! pool assoc :buffer new-buffer :capacity new-capacity)))
 
-(defn- ensure-capacity! [pool needed]
+(defn- ensure-capacity!
+  "Pool and needed rows → nil after any growth.
+
+   Doubles until enough room. Current limitation: positive need with zero
+   starting capacity does not terminate by this logic."
+  [pool needed]
   (while (> needed (:capacity @pool))
     (grow-pool! pool)))
 
 (defn batch-update-pool!
-  "Sync the buffer with a new item list and return the GPU write count."
+  "Pool and new items (nil treated empty) → reported write count; updates
+   rows and previous items.
+
+   Equality skips unchanged rows; one zero-filled tail upload clears removed
+   rows. Current limitation: the return counts removed rows, although the
+   tail uses one API write, so “GPU write count” is not literally queue-call
+   count on shrink."
   [pool new-items]
   (let [new-items (or new-items [])
         new-count (count new-items)

@@ -1,12 +1,14 @@
 (ns app.client.text.renderer
-  "The text renderer: Slug. Glyph outlines are evaluated per pixel in the
-   fragment shader from curve and band textures; no atlas, exact at any zoom.
-   Takes: a device and a font's curve, band, and meta data to build the system;
-   a text draw-item with its layout to position and pack glyphs; a render pass to draw
-   into.
-   Gives: a text system with its pipeline, instance buffer, and font textures;
-   one instance per glyph in a GPU buffer; draw calls.
-   Holds: the current GPU buffers and pipeline state passed by its callers."
+  "Upload glyph instances and evaluate outlines per pixel.
+
+   Input: device/font outline assets/shared buffers, text items or retained
+   layouts, and an open render pass. Output: a resource-owning text system,
+   packed instance uploads and quad draws. Text system maps carry ownership
+   flags for shared font and sizing resources; functions return replacement
+   maps when handles change. There is no automatic per-frame equality cache
+   in update-text-data: each call packs and uploads.
+
+   Folder map: README.md."
   (:require [clojure.string :as str]
             [app.client.engine.color :as scene-color]
             [app.client.engine.compositor :as compositor-gpu]
@@ -14,6 +16,14 @@
             [app.client.text.glyph-pack :as glyph-pack]
             [app.client.text.layout :as tl]))
 
+;; Slug textures encode curve/band outlines rather than raster glyph images.
+;; Finite texture formats, float arithmetic, derivative floors and affine
+;; hull approximations bound the numerical result.
+;;
+;; Vertex main: Vertex index and 25-word instance, transforms/camera → clip
+;; position, sample coordinate, color/banding/glyph metadata.. Dilates hull
+;; along affine axes and adjusts sample coordinates through inverse Jacobian.
+;; Arbitrary-shear coverage needs visual evidence.
 (def slug-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(2) var<uniform> camera: Camera;
@@ -85,6 +95,34 @@
     return output;
   }")
 
+;; saturate: Scalar → [0,1] clamp..
+;;
+;; calc_root_code: Three curve coordinate signs → encoded root crossing
+;; classes.. Float sign bits and lookup constant. Use only with the
+;; corresponding polynomial algorithm.
+;;
+;; solve_horiz_poly: Relative quadratic control points → horizontal crossing
+;; coordinates.. Quadratic roots with near-linear fallback. Derivative
+;; epsilon defines numerical behavior.
+;;
+;; solve_vert_poly: Same control points → vertical crossing coordinates..
+;; Axis-swapped solver.
+;;
+;; calc_band_loc: Glyph texture origin and offset → wrapped texture
+;; coordinate.. Bit arithmetic assuming band texture width 4096. Shader width
+;; is fixed, while texture dimensions come from metadata.
+;;
+;; calc_coverage: Horizontal/vertical coverage and weights → bounded combined
+;; coverage.. Weighted estimate plus minimum-axis safeguard. Describes
+;; implemented estimator; no exactness verdict from source.
+;;
+;; slug_render: Sample coordinate, band transform, glyph metadata →
+;; coverage.. Derivative-based pixel scale, band lookup, curve-root
+;; accumulation on two axes. Per-pixel loops depend on selected curve bands.
+;;
+;; Fragment main: Interpolated sample/color/banding/glyph → scene-mode RGBA..
+;; Evaluates coverage, adds sizing-uniform sharpness, clamps and applies
+;; shared color helper. Update path sets sharpness to zero.
 (def slug-fragment-shader (str device/scene-color-wgsl "
   const kLogBandTextureWidth: u32 = 12u;
   const kMinDerivative: f32 = 1.0 / 65536.0;
@@ -228,14 +266,22 @@
 
 (def slug-text-instance-stride 100) ;; 24 words + group u32
 
-(defn- create-instance-buffer [^js/GPUDevice device initial-capacity stride]
+(defn- create-instance-buffer
+  "Device/capacity/stride → GPU instance buffer.
+
+   Direct vertex/copy allocation. Caller must supply suitable capacity."
+  [^js/GPUDevice device initial-capacity stride]
   (let [size (* initial-capacity stride)
         buffer (.createBuffer device (clj->js {:size size
                                                :usage (bit-or js/GPUBufferUsage.VERTEX
                                                               js/GPUBufferUsage.COPY_DST)}))]
     buffer))
 
-(defn- create-slug-bind-group [^js/GPUDevice device layout curve-view band-view camera-buffer sizes-buffer groups-buffer]
+(defn- create-slug-bind-group
+  "Device/layout/outline views/camera/sizing/groups → bind group.
+
+   Five explicit resources."
+  [^js/GPUDevice device layout curve-view band-view camera-buffer sizes-buffer groups-buffer]
   (.createBindGroup device
     (clj->js {:layout layout
               :entries [{:binding 0 :resource curve-view}
@@ -244,7 +290,11 @@
                         {:binding 3 :resource {:buffer sizes-buffer}}
                         {:binding 4 :resource {:buffer groups-buffer}}]})))
 
-(defn- create-slug-texture [^js/GPUDevice device format width height bytes bytes-per-row]
+(defn- create-slug-texture
+  "Device/format/dimensions/bytes/row stride → uploaded texture.
+
+   Allocates then writes bytes. Metadata/bytes consistency is trusted."
+  [^js/GPUDevice device format width height bytes bytes-per-row]
   (let [texture (.createTexture device (clj->js {:size {:width width
                                                         :height height
                                                         :depthOrArrayLayers 1}
@@ -260,7 +310,12 @@
                    (clj->js {:width width :height height :depthOrArrayLayers 1}))
     texture))
 
-(defn- create-slug-font-resources [^js/GPUDevice device slug-assets]
+(defn- create-slug-font-resources
+  "Device/Slug assets → curve/band textures, views and labels.
+
+   RGBA16F curves and RG16UINT bands from metadata dimensions. Intended for
+   the declared asset format; partial failure cleanup is absent here."
+  [^js/GPUDevice device slug-assets]
   (let [curve-width (get-in slug-assets [:meta :curveTexture :width])
         curve-height (get-in slug-assets [:meta :curveTexture :height])
         band-width (get-in slug-assets [:meta :bandTexture :width])
@@ -284,13 +339,23 @@
      :band-texture-label "text/slug-band"
      :font-resource-kind :slug}))
 
-(defn- destroy-slug-font-resources! [text-sys]
+(defn- destroy-slug-font-resources!
+  "Text state → destroys present curve/band textures.
+
+   Nil-safe explicit release."
+  [text-sys]
   (when-let [^js curve-texture (:curve-texture text-sys)]
     (.destroy curve-texture))
   (when-let [^js band-texture (:band-texture text-sys)]
     (.destroy band-texture)))
 
-(defn destroy-text-system! [text-sys]
+(defn destroy-text-system!
+  "Text state → release results; destroys instance buffer and only owned
+   shared resources.
+
+   Ownership flags prevent clone double-destruction. Caller must manage
+   parent/clone lifetime."
+  [text-sys]
   (when-let [^js instance-buffer (:instance-buffer text-sys)]
     (.destroy instance-buffer))
   (when (and (:owns-sizing-buffer? text-sys) (:sizes-uniform-buffer text-sys))
@@ -299,6 +364,10 @@
     (destroy-slug-font-resources! text-sys)))
 
 (defn- init-slug-text-system
+  "Device/format/camera/assets/options → complete Slug system.
+
+   Creates textures, instance/sizing buffers, pipeline/layout/binding; marks
+   ownership. Requires groups buffer, trusts complete Slug assets."
   [^js/GPUDevice device fformat camera-buffer font-assets
    & {:keys [initial-capacity label groups-buffer scene-color]
       :or {initial-capacity 10000
@@ -361,11 +430,22 @@
             :owns-sizing-buffer? true})))
 
 (defn init-text-system
+  "Device, output format, camera buffer, font assets and keyword options →
+   Slug system.
+
+   Single backend wrapper forwarding keyword options. Intended for current
+   one-backend tree."
   [^js/GPUDevice device fformat camera-buffer font-assets & {:as opts}]
   (apply init-slug-text-system device fformat camera-buffer font-assets
          (mapcat identity opts)))
 
-(defn update-font-assets [^js/GPUDevice device text-sys font-assets]
+(defn update-font-assets
+  "Device/state/new assets → replacement state with new textures/bindings;
+   destroys previously owned textures.
+
+   Rebinds existing layout/shared buffers. Callers holding clones must
+   update their bindings when old font textures are destroyed."
+  [^js/GPUDevice device text-sys font-assets]
   (js/console.log "[RENDERER] Update font assets"
                   {:font-id (:id font-assets)})
   (let [old-curve (:curve-texture text-sys)
@@ -387,7 +467,12 @@
              :owns-font-resources? true})))
 
 (defn share-font-resources
-  "Point a secondary text system at a primary text system's shared font resources."
+  "Target/source states → target using source textures and whole bind group;
+   destroys target's owned font textures.
+
+   Shares more than fonts because bind group also contains source
+   camera/sizing/groups. Safe only when that shared binding context is
+   intended."
   [target-state source-state]
   (when (:owns-font-resources? target-state)
     (destroy-slug-font-resources! target-state))
@@ -401,6 +486,11 @@
                      :font-resource-kind]))))
 
 (defn recreate-text-system
+  "Device/format/old state/assets → newly initialized state after old
+   teardown.
+
+   Retains capacity, old camera/groups references and color mode. This is
+   not a complete device-loss migration because shared buffers are reused."
   [^js/GPUDevice device fformat old-text-sys font-assets]
   (let [capacity (max 1 (quot (.-size ^js (:instance-buffer old-text-sys))
                               (:instance-stride old-text-sys)))
@@ -420,8 +510,11 @@
                       :scene-color scene-color)))
 
 (defn clone-text-system
-  "Create a lightweight text system clone sharing pipeline, bind-group, camera,
-   and font resources with the parent. Only the instance buffer is new."
+  "Device/parent/capacity → state sharing pipeline/bindings/font/sizing with
+   new instance buffer.
+
+   Marks shared-resource ownership false. Intended for same-device
+   shared-resource clones; parent lifetime remains a dependency."
   [^js/GPUDevice device parent-text-sys initial-capacity]
   (let [stride (:instance-stride parent-text-sys)
         ib (create-instance-buffer device initial-capacity stride)]
@@ -435,29 +528,56 @@
            :owns-sizing-buffer? false)))
 
 ;; --- 3. UPDATES (CPU -> GPU) ---
-(defn- make-snapper [snap-step]
+(defn- make-snapper
+  "Optional positive step → rounding function or nil.
+
+   Local coordinate snapping."
+  [snap-step]
   (when (and snap-step (pos? snap-step))
     (fn [v] (* (Math/round (/ v snap-step)) snap-step))))
 
-(defn- font-line-height [font-assets]
+(defn- font-line-height
+  "Font assets → declared Slug line-height factor or 1.2."
+  [font-assets]
   (or (get-in font-assets [:slug :meta :metrics :lineHeight])
       1.2))
 
-(defn- sum-fallbacks [rows]
+(defn- sum-fallbacks
+  "Rows → sum of layout fallback counts.
+
+   Counts newly built layout results; font-fallback choices are not
+   included."
+  [rows]
   (reduce + 0 (map :fallbacks rows)))
 
-(defn- sum-unresolved-glyphs [rows]
+(defn- sum-unresolved-glyphs
+  "Rows → sum of direct glyph-resolution misses.
+
+   Reduction."
+  [rows]
   (reduce + 0 (map :unresolved-glyphs rows)))
 
-(defn- map-has? [^js m key]
+(defn- map-has?
+  "JS map/key → defined entry?
+
+   Missing/zero distinction."
+  [^js m key]
   (and m (not (undefined? (.get m key)))))
 
-(defn- font-map-has? [^js outer font-id key]
+(defn- font-map-has?
+  "Nested maps/font/key → font-specific entry present?
+
+   Guarded lookup."
+  [^js outer font-id key]
   (when (and outer font-id)
     (let [inner (.get outer font-id)]
       (and (not (undefined? inner)) (map-has? inner key)))))
 
 (defn- directly-resolved-glyph?
+  "Table/shaped flag/font/ID → direct font/global glyph available?
+
+   Uses glyph indexes for shaped text, Unicode otherwise. Intended for
+   diagnostics; replacement glyphs do not count as direct success."
   [{:keys [by-font-index by-index by-font-unicode by-unicode]}
    shaped? font-id glyph-id]
   (if shaped?
@@ -466,13 +586,22 @@
     (or (font-map-has? by-font-unicode font-id glyph-id)
         (map-has? by-unicode glyph-id))))
 
-(defn- single-space-cluster? [text start end]
+(defn- single-space-cluster?
+  "Text/source endpoints → exactly one space?
+
+   Clamped code-unit check. Mirrors packer skip rule."
+  [text start end]
   (let [length (.-length text)
         start (min length start)
         end (min length end)]
     (and (= 1 (- end start)) (= 32 (.charCodeAt text start)))))
 
 (defn- count-unresolved-glyphs
+  "Positioned item/table → count lacking direct glyph metadata, excluding
+   tabs/spaces.
+
+   Primitive plane walk. Separate diagnostic pass adds work alongside count
+   and packing passes."
   [{:keys [line indexes dx dy]} table]
   (let [text (str (or (:text line) ""))
         !count (volatile! 0)]
@@ -485,15 +614,22 @@
          (vswap! !count inc))))
     @!count))
 
-(defn- line-index-for-layout [layout-result]
+(defn- line-index-for-layout
+  "Result → retained line index or empty map.
+
+   No reconstruction."
+  [layout-result]
   ;; The layout retains this index at construction. Consumers must never rebuild
   ;; it by scanning the line vector per draw-item.
   (or (:line-index layout-result) {}))
 
 (defn- position-text-draw-item
-  "Resolve one text draw-item to positioned layout glyphs before a paint backend
-   is selected. Existing layout results survive clipping and tree translations;
-   otherwise the active provider creates exactly one result here."
+  "Text item/global size/assets/snap step → positioned flat draw item plus
+   fallback count.
+
+   Reuses supplied layout or builds one, resolves line/source range, carries
+   translation. Nearest-baseline fallback can choose a different line when
+   ID is missing, and local x/y are required by snapping."
   [txt global-fsize font-assets snap-step]
   (let [{:keys [text x y]} txt
         fsize (or (:size txt) global-fsize)
@@ -540,13 +676,22 @@
      :fallbacks (if existing 0 1)}))
 
 (defn- position-text
+  "Text items/size/assets/snap → positioned items and aggregate fallback
+   count.
+
+   Applies position-text-draw-item to each input and sums its layout
+   fallback count."
   [texts global-fsize font-assets snap-step]
   (let [rows (mapv #(position-text-draw-item % global-fsize font-assets snap-step)
                    texts)]
     {:draw-items (mapv :draw-item rows)
      :fallbacks (sum-fallbacks rows)}))
 
-(defn- line-offsets-for [lines]
+(defn- line-offsets-for
+  "Per-line instance counts → prefix offsets.
+
+   Linear scan."
+  [lines]
   (loop [remaining lines
          current-idx 0
          offsets []]
@@ -556,6 +701,11 @@
       (vec offsets))))
 
 (defn- ensure-text-instance-buffer
+  "Device/state/required bytes → retained or larger buffer; destroys old if
+   grown.
+
+   Allocates 1.5× required size. Intended for append slack; Growth retains
+   spare capacity to reduce repeated allocation."
   [^js/GPUDevice device renderer-state required-size]
   (let [current-buffer (:instance-buffer renderer-state)
         current-size (.-size ^js current-buffer)
@@ -578,8 +728,13 @@
     new-buffer))
 
 (defn pack-instances-flat
-  "The flat route: planes → words through the pack entry point, two passes (count,
-   then write). Returns packed bytes, line offsets, count, and call-local misses."
+  "Grouped text items/assets/size/stride/options → packed ArrayBuffer, line
+   offsets/counts and diagnostics.
+
+   Positions items, counts drawable glyphs, counts direct misses, packs.
+   Intended for direct column route; effectively three glyph traversals
+   including diagnostics, the count/write pair excludes the diagnostic
+   traversal."
   [texts font-assets font-size stride & {:keys [snap-step world-transforms]}]
   (let [table (glyph-pack/slug-table (get-in font-assets [:slug :meta :glyphs]))
         shaped-lines (mapv (fn [tokens-in-line]
@@ -606,6 +761,12 @@
      :unresolved-glyphs (sum-unresolved-glyphs shaped-lines)}))
 
 (defn update-text-data
+  "Device/state/grouped text/assets/size/options → updated state; uploads
+   packed buffer and zero sharpness uniform.
+
+   Packs every call and grows if needed. No unchanged-data short circuit;
+   line-height options affect returned bookkeeping, while fallback layout
+   uses font metadata line height."
   [^js/GPUDevice device renderer-state texts font-assets font-size
    & {:keys [line-height-factor line-height snap-step world-transforms]
       :or {line-height-factor 1.0}}]
@@ -632,7 +793,12 @@
              :unresolved-glyphs unresolved-glyphs
              :line-height line-h))))
 
-(defn- contiguous-state-runs [rows]
+(defn- contiguous-state-runs
+  "Equal-state rows → clip/group runs with offsets/counts.
+
+   Sequential equal-run scan. Serves as utility; no call in this file's
+   current draw path."
+  [rows]
   (loop [remaining rows offset 0 result []]
     (if-let [row (first remaining)]
       (let [same (take-while #(= row %) remaining)
@@ -642,7 +808,13 @@
                              :offset offset :count n})))
       result)))
 
-(defn- text-clip-runs [geo line-clips]
+(defn- text-clip-runs
+  "Geometry offsets and per-line clip rows → merged adjacent clip/group
+   instance runs.
+
+   Picks first clipped item per line, then merges states. Assumes one
+   relevant clip/group per line; no call in this file's current draw path."
+  [geo line-clips]
   (let [offsets (:line-offsets geo)
         line-count (count offsets)
         rows (mapv (fn [line-index]
@@ -664,8 +836,10 @@
                     :count (reduce + (map :count group))}))))))
 
 (defn draw-instances!
-  "Issue one instanced quad draw, or its per-clip sub-draws, on an open pass.
-   A projected clip that scissors to nothing suppresses its draw."
+  "Open pass/draw descriptor/attachment size → encoded draw(s).
+
+   Sets pipeline/binding, applies explicit scissors, skips empty clips,
+   handles optional subdraws. Depends on compositor's scissor normalization."
   [^js pass {:keys [pipeline bind-group buffer vertex-count instance-count
                     first-vertex first-instance scissor sub-draws]}
    attachment-size]
@@ -686,7 +860,10 @@
       (.draw pass vertex-count instance-count first-vertex first-instance))))
 
 (defn draw-text-system!
-  "Paint every shaped instance a text system currently holds."
+  "Open pass/text system/attachment size → full-system glyph draw.
+
+   Six vertices per instance through generic helper. Does not apply the
+   private per-line clip-run helpers automatically."
   [^js pass text-sys attachment-size]
   (draw-instances! pass {:pipeline (:pipeline text-sys)
                          :bind-group (:bind-group text-sys)

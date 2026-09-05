@@ -1,13 +1,17 @@
 (ns app.client.region3d.scene
-  "Derives and re-evaluates everything the 3D renderer needs: object transforms,
-   instances, triangles by object, and a BVH for picking. \"Scene\" names
-   three things here: a region's :scene key (its objects by id), what
-   derive-scene returns, and this namespace.
-   Takes: a canonical region and session transforms; a prior evaluated scene
-   and its key; a view and viewport for camera matrices; a point to pick.
-   Gives: a derived or maintained scene with its update kind; camera matrices;
-   the picked object.
-   Holds nothing."
+  "Derive spatial state and maintain transform changes.
+
+   Input: canonical region, prior derived scene/key, session transforms,
+   camera parameters and geometric queries. Output: derived/maintained
+   scene, update classification, camera matrices and hits. No
+   namespace-owned scene state survives a call; local memo atoms are
+   scratch. Purely returned scene state belongs to its caller.
+
+   Full derivation builds transforms, instances, world triangles and a BVH.
+   Transform-only changes update dependents and refit retained topology;
+   static component changes rebuild it.
+
+   Folder map: README.md."
   (:require [clojure.set :as set]
             [app.client.region3d.component :as component]))
 
@@ -18,23 +22,62 @@
 (def ray-epsilon 1.0e-7)
 (def bvh-leaf-size 8)
 
-(defn v+ [& vectors] (apply mapv + vectors))
-(defn v- [left right] (mapv - left right))
-(defn v* [vector scalar] (mapv #(* % scalar) vector))
-(defn hadamard [left right] (mapv * left right))
-(defn dot [left right] (reduce + (map * left right)))
-(defn cross [[ax ay az] [bx by bz]]
+(defn v+
+  "Vectors → elementwise sum.
+
+   Variadic map arithmetic. Expects matching dimensions."
+  [& vectors] (apply mapv + vectors))
+(defn v-
+  "Two vectors → difference.
+
+   Elementwise subtraction."
+  [left right] (mapv - left right))
+(defn v*
+  "Vector/scalar → scaled vector.
+
+   Elementwise multiplication."
+  [vector scalar] (mapv #(* % scalar) vector))
+(defn hadamard
+  "Two vectors → elementwise product.
+
+   Direct map."
+  [left right] (mapv * left right))
+(defn dot
+  "Two vectors → scalar dot product.
+
+   Multiply/reduce."
+  [left right] (reduce + (map * left right)))
+(defn cross
+  "Two 3D vectors → perpendicular vector."
+  [[ax ay az] [bx by bz]]
   [(- (* ay bz) (* az by))
    (- (* az bx) (* ax bz))
    (- (* ax by) (* ay bx))])
-(defn length [vector] (Math/sqrt (dot vector vector)))
-(defn normalize [vector]
+(defn length
+  "Vector → magnitude.
+
+   Dot then square root."
+  [vector] (Math/sqrt (dot vector vector)))
+(defn normalize
+  "Vector → unit vector or all-zero vector below epsilon.
+
+   Explicit degenerate fallback. Avoids division failure but can propagate a
+   degenerate camera basis."
+  [vector]
   (let [magnitude (length vector)]
     (if (< magnitude ray-epsilon)
       (vec (repeat (count vector) 0.0))
       (v* vector (/ 1.0 magnitude)))))
-(defn clamp [lo value hi] (max lo (min value hi)))
-(defn mix [left right amount]
+(defn clamp
+  "Low/value/high → bounded scalar.
+
+   Min/max."
+  [lo value hi] (max lo (min value hi)))
+(defn mix
+  "Two scalars and amount → linear interpolation.
+
+   Direct weighted sum. Amount is not clamped."
+  [left right amount]
   (+ (* left (- 1.0 amount)) (* right amount)))
 
 (def identity-mat4
@@ -43,7 +86,12 @@
    0.0 0.0 1.0 0.0
    0.0 0.0 0.0 1.0])
 
-(defn mat4-mul [left right]
+(defn mat4-mul
+  "Two row-major 4×4 vectors → matrix product.
+
+   Fixed nested reductions. Intended for clarity; allocates intermediate
+   sequences."
+  [left right]
   (vec
    (for [row (range 4) column (range 4)]
      (reduce +
@@ -51,19 +99,31 @@
                (* (nth left (+ (* row 4) index))
                   (nth right (+ (* index 4) column))))))))
 
-(defn mat4-translation [[x y z]]
+(defn mat4-translation
+  "XYZ → translation matrix.
+
+   Direct construction."
+  [[x y z]]
   [1.0 0.0 0.0 x
    0.0 1.0 0.0 y
    0.0 0.0 1.0 z
    0.0 0.0 0.0 1.0])
 
-(defn mat4-scale [[x y z]]
+(defn mat4-scale
+  "XYZ → scale matrix.
+
+   Direct construction."
+  [[x y z]]
   [x 0.0 0.0 0.0
    0.0 y 0.0 0.0
    0.0 0.0 z 0.0
    0.0 0.0 0.0 1.0])
 
-(defn mat4-quaternion [[x y z w]]
+(defn mat4-quaternion
+  "Unit quaternion → rotation matrix.
+
+   Expanded formula. Trusts unit input."
+  [[x y z w]]
   (let [xx (* x x) yy (* y y) zz (* z z)
         xy (* x y) xz (* x z) yz (* y z)
         wx (* w x) wy (* w y) wz (* w z)]
@@ -72,12 +132,22 @@
      (* 2.0 (- xz wy))       (* 2.0 (+ yz wx))       (- 1.0 (* 2.0 (+ xx yy))) 0.0
      0.0                     0.0                     0.0                       1.0]))
 
-(defn trs-matrix [{:keys [translation rotation scale]}]
+(defn trs-matrix
+  "Translation/rotation/scale → composed matrix.
+
+   T×R×S. Explicit order."
+  [{:keys [translation rotation scale]}]
   (mat4-mul (mat4-translation translation)
             (mat4-mul (mat4-quaternion rotation)
                       (mat4-scale scale))))
 
-(defn transform-point [matrix [x y z]]
+(defn transform-point
+  "Matrix and XYZ → transformed point with perspective divide when w is
+   neither zero nor one.
+
+   Direct row arithmetic. W=0 returns undivided coordinates;
+   projection-specific validity belongs elsewhere."
+  [matrix [x y z]]
   (let [rx (+ (* (nth matrix 0) x) (* (nth matrix 1) y)
               (* (nth matrix 2) z) (nth matrix 3))
         ry (+ (* (nth matrix 4) x) (* (nth matrix 5) y)
@@ -90,13 +160,20 @@
       [(/ rx rw) (/ ry rw) (/ rz rw)]
       [rx ry rz])))
 
-(defn transform-direction [matrix [x y z]]
+(defn transform-direction
+  "Matrix and vector → transformed direction without translation.
+
+   Upper-left 3×3."
+  [matrix [x y z]]
   [ (+ (* (nth matrix 0) x) (* (nth matrix 1) y) (* (nth matrix 2) z))
     (+ (* (nth matrix 4) x) (* (nth matrix 5) y) (* (nth matrix 6) z))
     (+ (* (nth matrix 8) x) (* (nth matrix 9) y) (* (nth matrix 10) z))])
 
 (defn inverse-mat4
-  "Gauss-Jordan inverse over a row-major 4x4 vector."
+  "Row-major matrix → inverse; singular pivot throws.
+
+   Gauss–Jordan with largest pivot selection. Intended for general 4×4
+   inversion; allocates small intermediate vectors."
   [matrix]
   (let [rows (mapv (fn [row]
                      (vec (concat (subvec (vec matrix) (* row 4) (* (inc row) 4))
@@ -130,9 +207,10 @@
             (recur (inc pivot) rows)))))))
 
 (defn compose-hierarchy
-  "Return object-id -> world-transform matrix. Canonical validation rejects missing
-   parents and cycles before recursion; sorted ids make the result stable
-   across map insertion order."
+  "Canonical region → object/world-matrix map.
+
+   Local memoized recursive world-transform. Assumes cycles/missing parents
+   were validated before entry."
   [region]
   (let [scene (:scene region)
         !memo (atom {})]
@@ -150,7 +228,10 @@
       @!memo)))
 
 (defn affected-descendants
-  "Affected hierarchy set including object-id."
+  "Scene and ID → descendant set including ID.
+
+   Frontier walk; scans scene for each parent's children. O(affected objects
+   × scene size), with no child adjacency index."
   [scene object-id]
   (loop [frontier [object-id] result #{}]
     (if-let [parent (first frontier)]
@@ -161,12 +242,20 @@
         (recur (into (vec (rest frontier)) children) (conj result parent)))
       result)))
 
-(defn- mesh-row [positions normals indices]
+(defn- mesh-row
+  "Nested positions/normals and indexes → flattened indexed mesh.
+
+   Representation adapter."
+  [positions normals indices]
   {:positions (vec (mapcat identity positions))
    :normals (vec (mapcat identity normals))
    :indices (vec indices)})
 
-(defn- box-mesh [{[sx sy sz] :size}]
+(defn- box-mesh
+  "Box size → indexed flat-shaded six-face mesh.
+
+   Separate face vertices/normals. Intended for hard edges."
+  [{[sx sy sz] :size}]
   (let [x (/ sx 2.0) y (/ sy 2.0) z (/ sz 2.0)
         specs [{:n [0.0 0.0 1.0]
                 :p [[(- x) (- y) z] [x (- y) z] [x y z] [(- x) y z]]}
@@ -192,13 +281,23 @@
                              (range 6)))]
     (mesh-row positions normals indices)))
 
-(defn- plane-mesh [{[sx sz] :size}]
+(defn- plane-mesh
+  "Two dimensions → indexed XZ plane with +Y normals.
+
+   Four vertices/two triangles. This plane differs from placement-local XY
+   planes."
+  [{[sx sz] :size}]
   (let [x (/ sx 2.0) z (/ sz 2.0)]
     (mesh-row [[(- x) 0.0 z] [x 0.0 z] [x 0.0 (- z)] [(- x) 0.0 (- z)]]
               (repeat 4 [0.0 1.0 0.0])
               [0 1 2 0 2 3])))
 
-(defn- sphere-mesh [{:keys [radius width-segments height-segments]}]
+(defn- sphere-mesh
+  "Radius/segment counts → indexed latitude/longitude sphere.
+
+   Grid with pole-specific triangles. Intended for deterministic primitive
+   generation; cost grows with segment-count product."
+  [{:keys [radius width-segments height-segments]}]
   (let [positions (vec
                    (for [iy (range (inc height-segments))
                          ix (range (inc width-segments))
@@ -225,7 +324,12 @@
                         ix (range width-segments)] [iy ix])))]
     (mesh-row positions normals indices)))
 
-(defn- radial-mesh [{:keys [radius height radial-segments]} cone?]
+(defn- radial-mesh
+  "Radius/height/segments and cone? → capped cylinder/cone mesh.
+
+   Local ring helper, side and cap construction. One cone apex vertex/normal
+   is a shading choice, not a general smooth-surface guarantee."
+  [{:keys [radius height radial-segments]} cone?]
   (let [half (/ height 2.0)
         ring (fn [y ring-radius]
                (for [index (range radial-segments)
@@ -277,7 +381,11 @@
               (concat side-normals base-normals cap-normals)
               (concat side-indices base-indices cap-indices))))
 
-(defn- torus-mesh [{:keys [radius tube radial-segments tubular-segments]}]
+(defn- torus-mesh
+  "Radii and two segment counts → indexed torus.
+
+   Parametric loops and wrapped local index-of. Product-sized allocation."
+  [{:keys [radius tube radial-segments tubular-segments]}]
   (let [positions
         (vec
          (for [radial (range radial-segments)
@@ -314,7 +422,10 @@
     (mesh-row positions normals indices)))
 
 (defn primitive-mesh
-  "Deterministic indexed-triangle projection of a validated primitive row."
+  "Primitive or indexed mesh → positions/normals/indexes.
+
+   Canonicalizes defaults then dispatches. Despite “validated” wording it
+   does not perform complete schema validation itself."
   [mesh]
   (let [object (component/canonical-object
                 {:object/id :primitive
@@ -335,16 +446,30 @@
       :torus (torus-mesh params)
       :indexed-triangles (select-keys mesh [:positions :normals :indices]))))
 
-(defn object-mesh [object]
+(defn object-mesh
+  "Object → mesh for mesh-kind, otherwise nil.
+
+   Indexed pass-through or primitive derivation."
+  [object]
   (when (= :mesh (:object/kind object))
     (if (= :indexed-triangles (get-in object [:mesh :kind]))
       (select-keys (:mesh object) [:positions :normals :indices])
       (primitive-mesh (:mesh object)))))
 
-(defn- unpack-vec3 [flat index]
+(defn- unpack-vec3
+  "Flat data and vertex index → triple.
+
+   Vector slice."
+  [flat index]
   (subvec (vec flat) (* index 3) (+ (* index 3) 3)))
 
-(defn transformed-triangles [object world-transform-matrix]
+(defn transformed-triangles
+  "Object and world matrix → world triangles with object/index/normal, or
+   nil.
+
+   Expands indexed triangles and derives geometric normals. Regenerates
+   primitive geometry when called during transform maintenance."
+  [object world-transform-matrix]
   (when-let [{:keys [positions indices]} (object-mesh object)]
     (mapv
      (fn [triangle-index]
@@ -361,7 +486,11 @@
           :normal (normalize (cross (v- b a) (v- c a)))}))
      (range (quot (count indices) 3)))))
 
-(defn- points-aabb [points]
+(defn- points-aabb
+  "Points → min/max bounds or nil.
+
+   Linear reduction."
+  [points]
   (when (seq points)
     (reduce (fn [{:keys [min max]} point]
               {:min (mapv clojure.core/min min point)
@@ -369,21 +498,37 @@
             {:min (first points) :max (first points)}
             (rest points))))
 
-(defn- triangle-aabb [{:keys [a b c]}]
+(defn- triangle-aabb
+  "Triangle → bounds.
+
+   Three-point specialization."
+  [{:keys [a b c]}]
   (points-aabb [a b c]))
 
-(defn- merge-aabb [left right]
+(defn- merge-aabb
+  "Two optional bounds → union.
+
+   Nil-aware component min/max."
+  [left right]
   (cond
     (nil? left) right
     (nil? right) left
     :else {:min (mapv clojure.core/min (:min left) (:min right))
            :max (mapv clojure.core/max (:max left) (:max right))}))
 
-(defn- triangle-centroid [{:keys [a b c]}]
+(defn- triangle-centroid
+  "Triangle → mean of vertices.
+
+   Vector arithmetic."
+  [{:keys [a b c]}]
   (v* (v+ a b c) (/ 1.0 3.0)))
 
 (defn build-bvh
-  "Stable median BVH. Leaf topology is retained by transform-only refits."
+  "Triangles → tree or nil.
+
+   Local recursive build: largest-extent axis, deterministic median sort,
+   ≤8-triangle leaves. Intended for stable baseline; repeated per-level
+   sorting is a construction tradeoff."
   [triangles]
   (let [triangles (vec triangles)]
     (when (seq triangles)
@@ -412,7 +557,14 @@
                        :left left :right right}))))]
         (build triangles)))))
 
-(defn refit-bvh [bvh triangles-by-object affected-object-ids]
+(defn refit-bvh
+  "BVH, replacement triangles by object, affected IDs → updated tree
+   preserving untouched node identity.
+
+   Uses subtree object sets, replaces leaf triangles by index, recomputes
+   bounds. Intended for unchanged topology; missing replacement triangles
+   retain old values."
+  [bvh triangles-by-object affected-object-ids]
   (when bvh
     (if (empty? (set/intersection (:object-ids bvh) affected-object-ids))
       bvh
@@ -448,6 +600,9 @@
                                            (:bounds right)))))))))
 
 (defn- ray-aabb-hit?
+  "Ray, bounds, max distance → intersects positive interval?
+
+   Slab intersection with near-parallel handling. Intended for pruning."
   [{:keys [origin direction]} {min-point :min max-point :max} max-t]
   (when (and min-point max-point)
     (loop [axis 0 tmin 0.0 tmax max-t]
@@ -469,7 +624,10 @@
                      (clojure.core/min tmax far)))))))))
 
 (defn ray-triangle
-  "Moller-Trumbore with boundary counted as hit."
+  "Ray and triangle → positive hit record or nil.
+
+   Möller–Trumbore with tolerant edge inclusion. Two-sided CPU query differs
+   from backface-culling GPU pipelines."
   [{:keys [origin direction]} {:keys [a b c normal] :as triangle}]
   (let [edge1 (v- b a)
         edge2 (v- c a)
@@ -496,7 +654,12 @@
                                         (< (Math/abs (double (- 1.0 u v)))
                                            ray-epsilon))))))))))))
 
-(defn- hit-before? [candidate current]
+(defn- hit-before?
+  "Candidate/current hit → candidate wins?
+
+   Distance epsilon then printed object-ID tie-break. Deterministic
+   coincident-object choice."
+  [candidate current]
   (or (nil? current)
       (< (:t candidate) (- (:t current) ray-epsilon))
       (and (<= (Math/abs (double (- (:t candidate) (:t current))))
@@ -505,7 +668,10 @@
                           (pr-str (:object-id current)))))))
 
 (defn query-bvh
-  "Nearest positive t; object-id order resolves coincident ties."
+  "BVH and ray → nearest hit or nil.
+
+   Local walk prunes bounds using current best, visits left then right. Does
+   not order children by ray-near distance."
   [bvh ray]
   (letfn [(walk [node best]
             (if (or (nil? node)
@@ -523,7 +689,12 @@
                           (walk (:right node) left)))))]
     (walk bvh nil)))
 
-(defn look-at [eye target up]
+(defn look-at
+  "Eye/target/up → view matrix.
+
+   Builds orthonormal basis. Parallel up/view vectors yield zero basis
+   through normalize."
+  [eye target up]
   (let [z (normalize (v- eye target))
         x (normalize (cross up z))
         y (cross z x)]
@@ -532,21 +703,32 @@
      (nth z 0) (nth z 1) (nth z 2) (- (dot z eye))
      0.0 0.0 0.0 1.0]))
 
-(defn orbit-eye [{:keys [pivot distance yaw pitch]}]
+(defn orbit-eye
+  "Pivot/distance/yaw/pitch → eye position.
+
+   Spherical orbit calculation."
+  [{:keys [pivot distance yaw pitch]}]
   (let [cp (Math/cos pitch)]
     (v+ pivot
         [(* distance cp (Math/sin yaw))
          (* distance (Math/sin pitch))
          (* distance cp (Math/cos yaw))])))
 
-(defn perspective-matrix [fov-y-deg aspect near far]
+(defn perspective-matrix
+  "FOV/aspect/near/far → perspective projection.
+
+   Direct formula for this depth convention. Intended for validated
+   nondegenerate inputs."
+  [fov-y-deg aspect near far]
   (let [f (/ 1.0 (Math/tan (/ (* fov-y-deg Math/PI) 360.0)))]
     [(/ f aspect) 0.0 0.0 0.0
      0.0 f 0.0 0.0
      0.0 0.0 (/ far (- near far)) (/ (* near far) (- near far))
      0.0 0.0 -1.0 0.0]))
 
-(defn ortho-matrix [scale aspect near far]
+(defn ortho-matrix
+  "Scale/aspect/near/far → orthographic projection."
+  [scale aspect near far]
   (let [half-y (/ scale 2.0)
         half-x (* half-y aspect)]
     [(/ 1.0 half-x) 0.0 0.0 0.0
@@ -554,7 +736,12 @@
      0.0 0.0 (/ 1.0 (- near far)) (/ near (- near far))
      0.0 0.0 0.0 1.0]))
 
-(defn camera-matrices [view viewport]
+(defn camera-matrices
+  "View and viewport → camera record including forward/inverse matrices.
+
+   Canonicalizes view and composes orbit/look-at/lens. Clamps height
+   denominator but not zero width or degenerate orbit poles."
+  [view viewport]
   (let [view (component/canonical-view view)
         [width height] viewport
         aspect (/ (double width) (max 1.0 (double height)))
@@ -574,7 +761,12 @@
      :inverse-view-projection (inverse-mat4 view-projection)
      :viewport [width height] :lens lens}))
 
-(defn ray-from-region-point [camera [local-x local-y]]
+(defn ray-from-region-point
+  "Camera and pixel point → near-plane origin, normalized ray direction and
+   NDC.
+
+   Unprojects depth 0/1. Coordinates must match the camera viewport."
+  [camera [local-x local-y]]
   (let [[width height] (:viewport camera)
         ndc-x (- (* 2.0 (/ local-x width)) 1.0)
         ndc-y (- 1.0 (* 2.0 (/ local-y height)))
@@ -584,7 +776,12 @@
     {:origin near :direction (normalize (v- far near))
      :ndc [ndc-x ndc-y]}))
 
-(defn project-point [camera point]
+(defn project-point
+  "Camera and world point → screen/depth or nil behind perspective plane.
+
+   Explicit clip projection and positive-w check. Output may still be
+   offscreen/outside depth range."
+  [camera point]
   (let [matrix (:view-projection camera)
         [x y z] point
         clip [(+ (* (nth matrix 0) x) (* (nth matrix 1) y)
@@ -604,7 +801,13 @@
                   (* (- 1.0 ndc-y) 0.5 height)]
          :depth (/ (nth clip 2) w)}))))
 
-(defn derive-instance-row [object world-transform-matrix]
+(defn derive-instance-row
+  "Object and matrix → shader/placement-facing instance plus transparency
+   classification.
+
+   Projects kind-specific data. Text/ink always enter transparent
+   classification."
+  [object world-transform-matrix]
   {:object-id (:object/id object)
    :kind (:object/kind object)
    :matrix world-transform-matrix
@@ -619,7 +822,12 @@
                           (< (get-in object [:component :base-color :rgba 3] 1.0)
                              1.0)))})
 
-(defn derive-scene [region]
+(defn derive-scene
+  "Canonical region → complete spatial state and derivation counters.
+
+   Sorted objects, instances, triangles and BVH. Serves as full oracle;
+   counters describe work encoded by this function, not GPU submissions."
+  [region]
   (let [world-transforms (compose-hierarchy region)
         object-ids (sort-by pr-str (keys (:scene region)))
         instances-by-object
@@ -651,9 +859,11 @@
                :region-encodes 1}}))
 
 (defn- compose-affected
-  "Recompose only an already-canonical hierarchy subset. Unaffected parents
-  are read from the retained evaluated scene; affected parents are resolved
-  recursively so input map order cannot change the result."
+  "Scene, prior matrices, affected set → matrix map with changed branches
+   recomposed.
+
+   Local memoized recursion reuses unaffected parents. Intended for stable
+   hierarchy."
   [scene prior-world-transforms affected]
   (let [!memo (atom {})]
     (letfn [(world-transform [object-id]
@@ -672,6 +882,11 @@
       (merge prior-world-transforms @!memo))))
 
 (defn- maintain-affected
+  "Prior state, next region, affected set → updated
+   instances/triangles/refit BVH and counters.
+
+   Rebuilds only affected spatial rows; recreates ordered instance vector.
+   Intended for transform-only changes."
   [maintained next-region affected]
   (let [world-transforms (compose-affected (:scene next-region)
                                     (:world-transforms maintained)
@@ -709,9 +924,11 @@
                      :affected-object-ids affected})))
 
 (defn maintain-transforms
-  "Apply a batch of transient or settled object transforms to the retained
-  evaluated scene. Geometry topology is preserved: only affected hierarchy
-  rows are recomposed and the existing BVH topology is refit."
+  "Prior scene and transform overrides → maintained scene; missing
+   state/objects throw.
+
+   Canonicalizes overrides, drops equal values, unions descendants and
+   refits. Canonicalization is not full transform schema validation."
   [maintained transforms-by-object]
   (when-not maintained
     (throw (ex-info "Region3D transform maintenance requires a derived scene"
@@ -746,7 +963,11 @@
         (maintain-affected maintained next-region affected)))))
 
 (defn pick-region
-  "Pick the nearest BVH surface, otherwise the region background."
+  "Maintained scene, rendered camera, region point → nearest mesh object or
+   background route.
+
+   Camera ray plus BVH. Intended for mesh picking; text/ink placements are
+   not in this BVH."
   [{:keys [maintained camera region-point]}]
   (when-not camera
     (throw (ex-info "Region pick requires the rendered camera."
@@ -761,8 +982,12 @@
        :region-id (:region/id region)})))
 
 (defn shadow-light-space
-  "Pinned :region3d/shadow v1 facts for the first shadow-casting directional
-   light by object-id. Returns nil for degenerate/no-mesh scenes."
+  "Maintained scene → first eligible light's snapped/padded shadow-space
+   record or nil.
+
+   Chooses sorted directional shadow light, bounds all mesh vertices in
+   light space. Scans triangles; one shadow space serves the renderer even
+   if several lights request shadows."
   [maintained]
   (let [region (:region maintained)
         light-id (->> (:scene region)
@@ -814,8 +1039,10 @@
 ;; and topology changes derive, transform changes only maintain.
 
 (defn session-transform-map
-  "Resolve authoritative transforms plus settled and one transient preview.
-  Session overlays may name only objects owned by the region component."
+  "Region and session row → authoritative transforms overlaid with settled
+   then preview values.
+
+   Rejects overlay IDs outside the region. Ownership stays explicit."
   [region session-row]
   (let [object-ids (set (keys (:scene region)))
         settled (or (:settled-transforms session-row) {})
@@ -832,12 +1059,22 @@
                         (get overlays object-id (:transform object))))
                {} (:scene region))))
 
-(defn session-region-value [region session-row]
+(defn session-region-value
+  "Region and session → region with resolved transforms.
+
+   Applies the resolved map."
+  [region session-row]
   (reduce-kv (fn [value object-id transform]
                (assoc-in value [:scene object-id :transform] transform))
              region (session-transform-map region session-row)))
 
-(defn evaluation-key [region session-row]
+(defn evaluation-key
+  "Region and session → static component plus resolved-transform keys.
+
+   Excludes ID/revision/rect/view/background and separates object
+   transforms. Expresses distinct dependencies, though
+   building/equality-checking keys visits scene data."
+  [region session-row]
   {:static-component
    (-> region
        (dissoc :region/id :region/revision :region/rect :view :background)
@@ -849,9 +1086,12 @@
    :transforms (session-transform-map region session-row)})
 
 (defn evaluate-scene
-  "Return the retained evaluated scene and the exact dirty component.
-  Background is intentionally outside this function and remains the render
-  edge's independent dirty role."
+  "Prior scene/key, current region/session → state/key/update kind/affected
+   IDs.
+
+   Full derive for static change; identity reuse for none; maintenance for
+   transforms. Excluded background/view changes must be handled by renderer,
+   as they are."
   [maintained prior-key region session-row]
   (let [next-key (evaluation-key region session-row)]
     (cond

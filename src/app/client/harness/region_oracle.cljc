@@ -1,9 +1,21 @@
 (ns app.client.harness.region-oracle
-  "Test/verifier oracles for retained Region3D production derivations."
+  "Compute CPU reference scene and lighting answers.
+
+   Input: maintained scenes, rays, material/light parameters and sample
+   geometry. Output: equivalence predicates, shading values and occlusion
+   decisions. No retained state. This reference shares the production
+   scene/vector/color helpers, while evaluating lighting on the CPU.
+
+   Folder map: README.md."
   (:require [app.client.engine.color :as color]
             [app.client.region3d.scene :as scene]))
 
-(defn- bvh-triangle-stats [bvh]
+(defn- bvh-triangle-stats
+  "BVH → flat sorted triangle/object records.
+
+   Recursively collects leaves and sorts by object/triangle identity.
+   Intended for topology-independent comparison."
+  [bvh]
   (letfn [(walk [node]
             (case (:kind node)
               :leaf (:triangles node)
@@ -13,7 +25,13 @@
          (sort-by (juxt (comp pr-str :object-id) :triangle-index))
          vec)))
 
-(defn scene-equivalent? [maintained]
+(defn scene-equivalent?
+  "Maintained scene and region → whether selected state matches fresh
+   derivation.
+
+   Compares transforms, instances, triangles, root bounds and flattened leaf
+   contents. Does not verify every internal BVH bound or split."
+  [maintained]
   (let [oracle (scene/derive-scene (:region maintained))]
     (and (= (select-keys maintained
                          [:world-transforms :instances
@@ -26,20 +44,34 @@
          (= (bvh-triangle-stats (:bvh maintained))
             (bvh-triangle-stats (:bvh oracle))))))
 
-(defn- rgba-linear [tagged]
+(defn- rgba-linear
+  "Tagged color → linear straight RGBA.
+
+   Shared color transfer with alpha preserved. Shared helper limits oracle
+   independence."
+  [tagged]
   (let [[r g b a] (:rgba tagged)]
     [(color/srgb-channel->linear r)
      (color/srgb-channel->linear g)
      (color/srgb-channel->linear b)
      a]))
 
-(defn- fresnel-schlick [f0 view-dot-half]
+(defn- fresnel-schlick
+  "Base reflectance and angle cosine → approximate Fresnel vector.
+
+   Fifth-power Schlick approximation. Intended for matching the declared
+   BRDF."
+  [f0 view-dot-half]
   (mapv (fn [base]
           (+ base (* (- 1.0 base)
                      (Math/pow (- 1.0 view-dot-half) 5.0))))
         f0))
 
 (defn- pbr-brdf
+  "Material and view/light/normal vectors → reflected RGB factor.
+
+   GGX/Smith/Schlick metallic-roughness calculation. Serves as a CPU
+   reference to this shading model."
   [{:keys [base-color metallic roughness normal view light radiance]}]
   (let [[r g b _] (rgba-linear base-color)
         base [r g b]
@@ -71,6 +103,10 @@
           diffuse specular radiance)))
 
 (defn- punctual-radiance
+  "Light, point and light transform → direction, radiance and distance.
+
+   Directional, inverse-square/range and spot attenuation branches. Intended
+   for supported light types."
   [{:keys [kind intensity range cone color]} light-position point light-dir]
   (let [[r g b _] (rgba-linear color)
         distance (scene/length (scene/v- light-position point))
@@ -97,7 +133,12 @@
           1.0)]
     (mapv #(* % intensity attenuation spot) [r g b])))
 
-(defn- khronos-neutral-tone-map [color]
+(defn- khronos-neutral-tone-map
+  "Linear RGB → tone-mapped RGB.
+
+   Mirrors the renderer's neutral-tone-map calculation. Intended for code
+   parity; the name alone is not external conformance evidence."
+  [color]
   (let [start-compression 0.76
         desaturation 0.15
         color (mapv (fn [channel]
@@ -118,6 +159,12 @@
         (mapv #(scene/mix % new-peak amount) color)))))
 
 (defn- shadowed?
+  "BVH, surface sample, light ray and source object → occluded?
+
+   Offsets the origin and tests a nearest hit within light distance,
+   excluding the same object. Ignoring a nearest same-object hit does not
+   search onward for a different occluder; one ray differs from GPU filtered
+   shadows."
   [bvh point normal direction max-distance source-object-id]
   (let [origin (scene/v+ point (scene/v* normal 1.0e-4))
         hit (scene/query-bvh
@@ -127,7 +174,12 @@
                   (< (:t hit) (or max-distance ##Inf))))))
 
 (defn shade-reference
-  "CPU shading oracle for the production Region3D GPU verifier."
+  "Material, surface, eye, lights, ambient, BVH and object identity →
+   premultiplied tone-mapped RGBA.
+
+   Reduces per-light BRDF/visibility, adds ambient/emissive, tone maps and
+   associates alpha. Intended for the selected oracle sample; does not
+   reproduce all GPU light/shadow resource limits."
   [{:keys [component normal point eye lights ambient bvh object-id]
     :or {lights []}}]
   (let [[br bg bb alpha] (rgba-linear (:base-color component))

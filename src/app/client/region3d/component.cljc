@@ -1,10 +1,14 @@
 (ns app.client.region3d.component
-  "What a 3D region is: a whole scene as closed, declared data (extent,
-   objects by id, components, lights, view), migrated and normalized before one
-   schema check.
-   Takes: a region map; a view map.
-   Gives: the declared schema; a canonical region; the default component.
-   Holds nothing."
+  "Canonicalize and validate region data.
+
+   Input: region/object/view values. Output: canonical values, schema
+   acceptance or named errors. No retained state. Defaults and schemas
+   define version 2; object kinds mesh/light/empty/text/ink; six primitive
+   kinds; perspective/orthographic lenses; directional/point/spot lights;
+   source references and provenance. :empty is a legal transform-bearing
+   object kind in this source.
+
+   Folder map: README.md."
   (:require [app.client.engine.color :as color]
             [app.client.engine.schema :as schema]))
 
@@ -12,6 +16,9 @@
 (def shadow-algorithm-version :region3d/shadow-v1)
 (def quaternion-tolerance 1.0e-3)
 (def extent-max 1.0e4)
+;; Indexed-mesh cardinality limits apply to supplied indexed geometry.
+;; Primitive segment limits are per parameter: their products can generate
+;; more vertices/triangles than these indexed-mesh limits.
 (def mesh-vertex-max 65536)
 (def mesh-triangle-max 131072)
 (def legal-object-kinds #{:mesh :light :empty :text :ink})
@@ -76,44 +83,83 @@
    :pipeline-depth-bias-slope-scale 2.0
    :shader-comparison-offset 0.0015})
 
-(defn- named-validator [error-type predicate]
+(defn- named-validator
+  "Error type/predicate → checker returning true or throwing.
+
+   Family-specific error vocabulary."
+  [error-type predicate]
   (fn [value]
     (when-not (predicate value)
       (throw (ex-info "Region schema rejected value" {:error-type error-type})))
     true))
 
-(defn- finite-vector? [n value]
+(defn- finite-vector?
+  "Required length and value → finite numeric vector of that length?
+
+   Shape and element checks."
+  [n value]
   (and (vector? value)
        (= n (count value))
        (every? schema/finite-number? value)))
 
-(defn- in-range? [lo value hi]
+(defn- in-range?
+  "Low/value/high → finite inclusive membership?
+
+   Shared numeric validation."
+  [lo value hi]
   (and (schema/finite-number? value) (<= lo value hi)))
 
-(defn- positive-int-at-most? [minimum maximum value]
+(defn- positive-int-at-most?
+  "Minimum, maximum, value → integer within bounds?
+
+   Direct bounds; positivity comes from minimum."
+  [minimum maximum value]
   (and (integer? value) (<= minimum value maximum)))
 
-(defn- exact-keys? [required optional value]
+(defn- exact-keys?
+  "Required/optional sets and value → exact allowed map shape?
+
+   Checks presence and rejects extras."
+  [required optional value]
   (and (map? value)
        (every? #(contains? value %) required)
        (every? (into required optional) (keys value))))
 
-(defn- vec3? [value]
+(defn- vec3?
+  "Value → three finite coordinates?
+
+   Specializes finite-vector check."
+  [value]
   (finite-vector? 3 value))
 
-(defn- positive-vec? [n value]
+(defn- positive-vec?
+  "Length/value → all-positive finite vector?
+
+   Shape plus sign check."
+  [n value]
   (and (finite-vector? n value) (every? pos? value)))
 
-(defn- quaternion-length [quaternion]
+(defn- quaternion-length
+  "Quaternion → magnitude.
+
+   Sum of squares/square root. Intended for validated numeric values."
+  [quaternion]
   (Math/sqrt (reduce + (map #(* % %) quaternion))))
 
-(defn- unit-quaternion? [value]
+(defn- unit-quaternion?
+  "Value → unit four-vector within 1e-9?
+
+   Tight post-normalization check."
+  [value]
   (and (finite-vector? 4 value)
        (<= (Math/abs (- (quaternion-length value) 1.0)) 1.0e-9)))
 
 (defn normalize-quaternion
-  "Normalize a finite quaternion only inside the migration tolerance. Invalid
-   values pass through so the declared schema can reject them once."
+  "Value → normalized quaternion only if within 1e-3 of unit; otherwise
+   unchanged.
+
+   Tolerant migration before strict validation. Does not silently repair
+   arbitrary rotations."
   [quaternion]
   (if (finite-vector? 4 quaternion)
     (let [length (quaternion-length quaternion)]
@@ -130,13 +176,21 @@
     :rotation (named-validator :region/quaternion-unit unit-quaternion?)
     :scale (named-validator :region/transform-scale vec3?)}})
 
-(defn- lens-matches-kind? [lens]
+(defn- lens-matches-kind?
+  "Lens → exact perspective/ortho field set?
+
+   Kind-specific key equality."
+  [lens]
   (case (:kind lens)
     :perspective (= #{:kind :fov-y-deg :near :far} (set (keys lens)))
     :ortho (= #{:kind :ortho-scale :near :far} (set (keys lens)))
     false))
 
-(defn- near-before-far? [{:keys [near far]}]
+(defn- near-before-far?
+  "Lens → positive near < far?
+
+   Cross-field invariant."
+  [{:keys [near far]}]
   (and (schema/positive-number? near)
        (schema/positive-number? far)
        (< near far)))
@@ -230,7 +284,11 @@
                       :region/primitive-kind
                       #(positive-int-at-most? 3 4096 %))}})
 
-(defn- torus-params-valid? [{:keys [radius tube]}]
+(defn- torus-params-valid?
+  "Radius/tube map → tube < radius?
+
+   Direct invariant."
+  [{:keys [radius tube]}]
   (< tube radius))
 
 (def ^:private torus-params
@@ -247,7 +305,11 @@
    :form-validators
    [{:valid? torus-params-valid? :error-type :region/primitive-kind}]})
 
-(defn- primitive-params-spec [kind]
+(defn- primitive-params-spec
+  "Primitive kind → parameter schema or nil.
+
+   Closed dispatch."
+  [kind]
   (case kind
     :box box-params
     :plane plane-params
@@ -256,7 +318,11 @@
     :torus torus-params
     nil))
 
-(defn- params-match-kind? [{:keys [kind params]}]
+(defn- params-match-kind?
+  "Primitive → true after matching schema, nil if unknown; may throw.
+
+   Delegated validation."
+  [{:keys [kind params]}]
   (when-let [spec (primitive-params-spec kind)]
     (schema/check spec params)
     true))
@@ -269,22 +335,38 @@
    :form-validators
    [{:valid? params-match-kind? :error-type :region/primitive-kind}]})
 
-(defn- flat-vec3-data? [maximum value]
+(defn- flat-vec3-data?
+  "Maximum count and value → bounded finite flattened triples?
+
+   Shape/cardinality checks. Empty vector is accepted."
+  [maximum value]
   (and (vector? value)
        (zero? (mod (count value) 3))
        (<= (/ (count value) 3) maximum)
        (every? schema/finite-number? value)))
 
-(defn- triangle-index-data? [value]
+(defn- triangle-index-data?
+  "Value → bounded vector of nonnegative integer triples?
+
+   Count and element checks. Empty mesh is permitted."
+  [value]
   (and (vector? value)
        (zero? (mod (count value) 3))
        (<= (/ (count value) 3) mesh-triangle-max)
        (every? #(and (integer? %) (<= 0 %)) value)))
 
-(defn- normals-match-positions? [{:keys [positions normals]}]
+(defn- normals-match-positions?
+  "Mesh → equal flattened lengths?
+
+   Direct cardinality check. Does not normalize normals."
+  [{:keys [positions normals]}]
   (= (count positions) (count normals)))
 
-(defn- indices-in-range? [{:keys [positions indices]}]
+(defn- indices-in-range?
+  "Mesh → all indexes below vertex count?
+
+   Linear scan."
+  [{:keys [positions indices]}]
   (let [vertex-count (/ (count positions) 3)]
     (every? #(< % vertex-count) indices)))
 
@@ -301,7 +383,11 @@
    [{:valid? normals-match-positions? :error-type :region/mesh-normals}
     {:valid? indices-in-range? :error-type :region/mesh-index}]})
 
-(defn- geometry-matches-kind? [mesh-value]
+(defn- geometry-matches-kind?
+  "Mesh value → true after indexed/primitive validation, false otherwise.
+
+   Closed kind dispatch."
+  [mesh-value]
   (case (:kind mesh-value)
     :indexed-triangles (do (schema/check indexed-triangles mesh-value) true)
     (:box :sphere :cylinder :plane :cone :torus)
@@ -321,7 +407,11 @@
    :form-validators
    [{:valid? geometry-matches-kind? :error-type :region/mesh-kind}]})
 
-(defn- light-matches-kind? [light-value]
+(defn- light-matches-kind?
+  "Light → exact kind-specific keys?
+
+   Spot adds cone; other kinds do not."
+  [light-value]
   (case (:kind light-value)
     :spot (= #{:kind :color :intensity :range :cast-shadow :cone}
              (set (keys light-value)))
@@ -330,7 +420,11 @@
        (set (keys light-value)))
     false))
 
-(defn- spot-cone-ordered? [{:keys [kind cone]}]
+(defn- spot-cone-ordered?
+  "Light → legal ordered cone angles, or true for nonspot.
+
+   Exact cone shape and bounded angles."
+  [{:keys [kind cone]}]
   (if (= :spot kind)
     (let [{:keys [inner-deg outer-deg]} cone]
       (and (exact-keys? #{:inner-deg :outer-deg} #{} cone)
@@ -339,7 +433,12 @@
            (<= inner-deg outer-deg)))
     true))
 
-(defn- shadow-only-directional? [{:keys [kind cast-shadow]}]
+(defn- shadow-only-directional?
+  "Light → shadow disabled or directional?
+
+   Simple implication. Does not limit how many directional lights request
+   shadows."
+  [{:keys [kind cast-shadow]}]
   (or (not cast-shadow) (= :directional kind)))
 
 (def light
@@ -384,7 +483,11 @@
    :validators {:asserted-by (named-validator :region/provenance some?)
                 :act (named-validator :region/provenance some?)}})
 
-(defn- body-matches-kind? [object-value]
+(defn- body-matches-kind?
+  "Object → correct exclusive body fields?
+
+   Compares present mesh/component/light/text/ink keys."
+  [object-value]
   (let [present (set (filter #(contains? object-value %)
                              [:mesh :component :light :text :ink]))]
     (case (:object/kind object-value)
@@ -420,25 +523,41 @@
     :w schema/positive-number?
     :h schema/positive-number?}})
 
-(defn ids-match-keys? [{:keys [scene]}]
+(defn ids-match-keys?
+  "Region → all scene keys equal object IDs?
+
+   Full scene check."
+  [{:keys [scene]}]
   (every? (fn [[object-id object-value]]
             (= object-id (:object/id object-value)))
           scene))
 
-(defn- id-mismatch [{:keys [scene]}]
+(defn- id-mismatch
+  "Region → first deterministic mismatch record or nil.
+
+   Sorted diagnostic search."
+  [{:keys [scene]}]
   (when-let [[scene-key object-value]
              (first (filter (fn [[object-id value]]
                               (not= object-id (:object/id value)))
                             (sort-by (comp pr-str first) scene)))]
     {:scene-key scene-key :object/id (:object/id object-value)}))
 
-(defn parents-exist? [{:keys [scene]}]
+(defn parents-exist?
+  "Region → every nonnil parent exists?
+
+   Membership scan."
+  [{:keys [scene]}]
   (every? (fn [[_ object-value]]
             (let [parent (:parent object-value)]
               (or (nil? parent) (contains? scene parent))))
           scene))
 
-(defn- missing-parent [{:keys [scene]}]
+(defn- missing-parent
+  "Region → first deterministic missing-parent record or nil.
+
+   Sorted diagnostic search."
+  [{:keys [scene]}]
   (when-let [[object-id object-value]
              (first (filter (fn [[_ value]]
                               (let [parent (:parent value)]
@@ -447,7 +566,12 @@
                             (sort-by (comp pr-str first) scene)))]
     {:object/id object-id :parent (:parent object-value)}))
 
-(defn- cycle-info [{:keys [scene]}]
+(defn- cycle-info
+  "Region → first cycle description or nil.
+
+   Walks parent ancestry from every sorted ID. Can revisit shared ancestry
+   repeatedly; no cross-start memoization."
+  [{:keys [scene]}]
   (some (fn [object-id]
           (loop [cursor object-id
                  seen #{}]
@@ -459,7 +583,11 @@
               (recur (:parent (get scene cursor)) (conj seen cursor)))))
         (sort-by pr-str (keys scene))))
 
-(defn acyclic? [region]
+(defn acyclic?
+  "Region → no cycle?
+
+   Projects cycle-info. Failed validation may compute the diagnostic again."
+  [region]
   (nil? (cycle-info region)))
 
 (def schema
@@ -486,13 +614,23 @@
      :error-type :region/parent-cycle
      :explain cycle-info}]})
 
-(defn canonical-transform [transform-value]
+(defn canonical-transform
+  "Nil/map/other → defaults merged and near-unit rotation normalized, or
+   unchanged invalid value.
+
+   Pure normalization. Zero scale is allowed by schema although
+   inverse/normal computations may be singular."
+  [transform-value]
   (if (or (nil? transform-value) (map? transform-value))
     (update (merge default-transform (or transform-value {}))
             :rotation normalize-quaternion)
     transform-value))
 
-(defn- canonical-lens [lens-value]
+(defn- canonical-lens
+  "Lens map/other → kind defaults merged or unchanged.
+
+   Preserves unknown kinds for rejection."
+  [lens-value]
   (if (map? lens-value)
     (merge (case (:kind lens-value)
              :perspective default-perspective-lens
@@ -501,17 +639,30 @@
            lens-value)
     lens-value))
 
-(defn canonical-view [view-value]
+(defn canonical-view
+  "Nil/map/other → defaulted view with canonical lens, or unchanged invalid
+   value.
+
+   Pure nested normalization."
+  [view-value]
   (if (or (nil? view-value) (map? view-value))
     (update (merge default-view (or view-value {})) :lens canonical-lens)
     view-value))
 
-(defn- canonical-component [component-value]
+(defn- canonical-component
+  "Nil/map/other → defaulted shading parameters or unchanged.
+
+   Shallow merge. Nested tagged colors must be complete."
+  [component-value]
   (if (or (nil? component-value) (map? component-value))
     (merge default-component (or component-value {}))
     component-value))
 
-(defn- canonical-mesh [mesh-value]
+(defn- canonical-mesh
+  "Mesh → primitive parameter defaults filled where applicable.
+
+   Kind-specific merge."
+  [mesh-value]
   (if (map? mesh-value)
     (if (contains? legal-primitive-kinds (:kind mesh-value))
       (update mesh-value :params
@@ -521,7 +672,11 @@
       mesh-value)
     mesh-value))
 
-(defn- canonical-light [light-value]
+(defn- canonical-light
+  "Nil/map/other → common light defaults merged or unchanged.
+
+   Does not invent a kind or spot cone."
+  [light-value]
   (if (or (nil? light-value) (map? light-value))
     (merge {:color (:color default-ambient)
             :intensity 1.0
@@ -530,7 +685,11 @@
            (or light-value {}))
     light-value))
 
-(defn- canonical-placed-text [text-value]
+(defn- canonical-placed-text
+  "Text value → map with nil optional params removed, or unchanged.
+
+   Filters params. Does not resolve content references."
+  [text-value]
   (if (map? text-value)
     (update text-value :params
             #(if (map? %)
@@ -538,7 +697,11 @@
                %))
     text-value))
 
-(defn canonical-object [object-value]
+(defn canonical-object
+  "Object → canonical transform and kind-specific body.
+
+   Dispatches normalization."
+  [object-value]
   (if (map? object-value)
     (let [object-value (update object-value :transform canonical-transform)]
       (case (:object/kind object-value)
@@ -550,7 +713,11 @@
         object-value))
     object-value))
 
-(defn- canonical-scene [scene]
+(defn- canonical-scene
+  "Scene map → canonicalized values under same IDs; other values unchanged.
+
+   Pure map traversal."
+  [scene]
   (if (map? scene)
     (into (empty scene)
           (map (fn [[object-id object-value]]
@@ -558,7 +725,12 @@
           scene)
     scene))
 
-(defn- migrate-region [region]
+(defn- migrate-region
+  "Region → version/view-key migration.
+
+   Version 1 becomes 2; explicit :view wins over :view-default. Intended for
+   the implemented migration."
+  [region]
   (if (map? region)
     (cond-> region
       (= 1 (:region3d/version region))
@@ -573,8 +745,9 @@
     region))
 
 (defn canonical-region
-  "Purely migrate, fill defaults, and normalize near-unit quaternions. It does
-   not reject; `validate-region!` performs the one declared schema check."
+  "Region → migrated/defaulted region without deliberate rejection.
+
+   Composes normalizers. Normalization and acceptance are distinct."
   [region]
   (let [region (migrate-region region)]
     (if (map? region)
@@ -592,6 +765,9 @@
       region)))
 
 (defn validate-region!
-  "Return the canonical Region3D v2 row after one closed schema check."
+  "Region → canonical accepted region or schema error.
+
+   One shared-schema call after canonicalization. Downstream APIs do not all
+   call this automatically."
   [region]
   (schema/check schema (canonical-region region)))

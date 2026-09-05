@@ -1,11 +1,13 @@
 (ns app.client.path.tessellation
-  "Turns a path into triangles. Ink expands to segment quads with round caps
-   and joins; shapes bridge their holes and ear-clip. Deterministic and pure.
-   Takes: a path component and a zoom; or a content-hash-keyed cache plus many
-   components.
-   Gives: a mesh (flat vertices, counts, coverage, cache key); untouched
-   components return their old mesh by identity.
-   Holds nothing; the cache is a value the caller owns."
+  "Derive deterministic triangle meshes.
+
+   Input: component geometry and zoom, optionally an existing cache. Output:
+   local-coordinate triangles or mesh records and an updated cache. The
+   caller owns cache lifetime. It normalizes coordinates internally, expands
+   ink into quads/circular fans, bridges holes, then ear-clips shapes.
+   Returned mesh coverage is explicitly :aliased-v1.
+
+   Folder map: README.md."
   (:require [app.client.engine.schema :as schema]
             [app.client.path.component :as path-component]))
 
@@ -20,7 +22,12 @@
     :zoom {:min 8.0 :max 1000.0}
     :fan-resolution 16}])
 
-(defn zoom-lod [zoom]
+(defn zoom-lod
+  "Zoom → LOD record; outside legal range throws.
+
+   Three explicit bands. Boundaries are defined by code, including zoom 8 in
+   the middle band."
+  [zoom]
   (when-not (and (schema/finite-number? zoom) (<= 0.01 zoom 1000.0))
     (throw (ex-info "Path zoom is outside the zoom range"
                     {:zoom zoom :legal [0.01 1000.0]})))
@@ -33,6 +40,12 @@
 (def ^:private epsilon 1.0e-10)
 
 (defn component-cache-key
+  "Component, optional algorithm, zoom → geometry/algorithm/LOD tuple.
+
+   Canonicalizes then selects kind/geometry. Intended for reuse across paint
+   changes; canonicalization still visits the whole component. Paint,
+   material ID and revision are excluded; IDs nested in geometry remain. The
+   algorithm label is a key component, not an implementation dispatcher."
   ([component zoom]
    (component-cache-key component algorithm-version zoom))
   ([component algorithm zoom]
@@ -41,13 +54,21 @@
                         (select-keys canonical [:path/kind :path/geometry]))]
      [geometry algorithm (:lod/id (zoom-lod zoom))])))
 
-(defn- component-points [component]
+(defn- component-points
+  "Component → its stroke or contour points.
+
+   Kind dispatch and flattening."
+  [component]
   (case (:path/kind component)
     :ink (mapv :position (get-in component [:path/geometry :stroke-points]))
     :shape (into [] (mapcat :points)
                  (get-in component [:path/geometry :contours]))))
 
-(defn- shape-normalization [component]
+(defn- shape-normalization
+  "Component → minimum-coordinate origin and scale ≥ 1.
+
+   Bounding-box normalization. Expects nonempty valid geometry."
+  [component]
   (let [points (component-points component)
         xs (map first points)
         ys (map second points)
@@ -58,39 +79,86 @@
         scale (max 1.0 (- max-x min-x) (- max-y min-y))]
     {:origin [min-x min-y] :scale scale}))
 
-(defn- normalize-point [{:keys [origin scale]} [x y]]
+(defn- normalize-point
+  "Normalization and point → normalized point.
+
+   Subtract origin/divide scale."
+  [{:keys [origin scale]} [x y]]
   [(/ (- x (first origin)) scale)
    (/ (- y (second origin)) scale)])
 
-(defn- denormalize-point [{:keys [origin scale]} [x y]]
+(defn- denormalize-point
+  "Normalization and point → original-space point.
+
+   Inverse arithmetic."
+  [{:keys [origin scale]} [x y]]
   [(+ (first origin) (* x scale))
    (+ (second origin) (* y scale))])
 
-(defn- add [[ax ay] [bx by]] [(+ ax bx) (+ ay by)])
-(defn- sub [[ax ay] [bx by]] [(- ax bx) (- ay by)])
-(defn- scale [[x y] factor] [(* x factor) (* y factor)])
-(defn- cross [[ax ay] [bx by]] (- (* ax by) (* ay bx)))
-(defn- length [[x y]] (Math/sqrt (+ (* x x) (* y y))))
-(defn- distance [a b] (length (sub a b)))
+(defn- add
+  "Two 2D vectors → their componentwise sum."
+  [[ax ay] [bx by]] [(+ ax bx) (+ ay by)])
+(defn- sub
+  "Two 2D vectors → their componentwise difference."
+  [[ax ay] [bx by]] [(- ax bx) (- ay by)])
+(defn- scale
+  "Vector and factor → scaled vector."
+  [[x y] factor] [(* x factor) (* y factor)])
+(defn- cross
+  "Two vectors → scalar 2D cross product."
+  [[ax ay] [bx by]] (- (* ax by) (* ay bx)))
+(defn- length
+  "Vector → Euclidean magnitude.
 
-(defn- unit [vector]
+   Square root of squared components."
+  [[x y]] (Math/sqrt (+ (* x x) (* y y))))
+(defn- distance
+  "Two points → distance.
+
+   Difference then length."
+  [a b] (length (sub a b)))
+
+(defn- unit
+  "Vector → unit direction; near-zero throws.
+
+   Normalizes with epsilon guard. Derivation rejects degenerate segments
+   explicitly."
+  [vector]
   (let [magnitude (length vector)]
     (when (<= magnitude epsilon)
       (throw (ex-info "Path contains a zero-length line segment"
                       {:vector vector})))
     (scale vector (/ 1.0 magnitude))))
 
-(defn- left-normal [direction]
+(defn- left-normal
+  "Direction → perpendicular vector.
+
+   Component rotation. Caller supplies unit direction when unit length
+   matters."
+  [direction]
   [(- (second direction)) (first direction)])
 
-(defn- triangle [a b c]
+(defn- triangle
+  "Three points → triangle or nil if near-degenerate.
+
+   Cross-product area filter. Epsilon applies in normalized computation."
+  [a b c]
   (when (> (Math/abs (cross (sub b a) (sub c a))) epsilon)
     [a b c]))
 
-(defn- radians [vector]
+(defn- radians
+  "Vector → polar angle.
+
+   Atan2."
+  [vector]
   (Math/atan2 (second vector) (first vector)))
 
-(defn- arc-delta [start end direction]
+(defn- arc-delta
+  "Start/end angles and direction → signed angular span.
+
+   Wraps into the requested direction. Intended for angles supplied by
+   atan2."
+  [start end direction]
   (let [tau (* 2.0 Math/PI)]
     (case direction
       :ccw (loop [delta (- end start)]
@@ -99,6 +167,10 @@
             (if (pos? delta) (recur (- delta tau)) delta)))))
 
 (defn- fan-triangles
+  "Center/radius/arc/direction/resolution → nondegenerate fan triangles.
+
+   Samples arc proportionally to angular span. Intended for declared
+   polygonal approximation, not analytic antialiasing."
   [center radius start-angle end-angle direction resolution]
   (let [delta (arc-delta start-angle end-angle direction)
         steps (max 1 (long (Math/ceil (* resolution
@@ -112,7 +184,11 @@
           (keep (fn [[left right]] (triangle center left right)))
           (partition 2 1 points))))
 
-(defn- normalized-ink [component normalization]
+(defn- normalized-ink
+  "Component and normalization → component with scaled positions/widths.
+
+   Pure nested update. Width scales with coordinates."
+  [component normalization]
   (let [scale-factor (:scale normalization)]
     (update-in component [:path/geometry :stroke-points]
                (fn [stroke-points]
@@ -122,7 +198,12 @@
                             (update :width / scale-factor))
                        stroke-points)))))
 
-(defn- stroke-triangles-normalized [component zoom]
+(defn- stroke-triangles-normalized
+  "Normalized ink and zoom → segment/cap/join triangles.
+
+   Segment quads plus turn-directed fans. Straightforward construction;
+   overlapping stroke pieces remain separate triangles."
+  [component zoom]
   (let [geometry (:path/geometry component)
         stroke-points (:stroke-points geometry)
         resolution (:fan-resolution (zoom-lod zoom))
@@ -190,9 +271,10 @@
                   join-triangles])))
 
 (defn stroke-triangles
-  "Direct-to-triangles stroke expansion. Returned coordinates are the
-   component's original local f64 values; normalization is internal and is
-  recorded separately on the mesh."
+  "Ink and zoom → original-local-coordinate triangles.
+
+   Normalizes, expands, denormalizes. Intended for numeric conditioning;
+   does not validate the whole component first."
   [component zoom]
   (let [normalization (shape-normalization component)
         ink (normalized-ink component normalization)]
@@ -200,24 +282,45 @@
             (mapv (partial denormalize-point normalization) triangle))
           (stroke-triangles-normalized ink zoom))))
 
-(defn- signed-area [points]
+(defn- signed-area
+  "Closed polygon walk → signed area.
+
+   Shoelace sum."
+  [points]
   (/ (reduce + 0.0
              (map (fn [[[ax ay] [bx by]]]
                     (- (* ax by) (* ay bx)))
                   (map vector points (concat (rest points) [(first points)]))))
      2.0))
 
-(defn- orient [points desired]
+(defn- orient
+  "Points and desired winding → vector with that winding.
+
+   Reverses when needed. Zero-area input is not independently rejected."
+  [points desired]
   (let [ccw? (pos? (signed-area points))]
     (if (= ccw? (= desired :ccw)) (vec points) (vec (reverse points)))))
 
-(defn- same-point? [a b]
+(defn- same-point?
+  "Two points → epsilon-equal?
+
+   Distance threshold."
+  [a b]
   (<= (distance a b) epsilon))
 
-(defn- orientation [a b c]
+(defn- orientation
+  "Three points → signed turn scalar.
+
+   Cross product."
+  [a b c]
   (cross (sub b a) (sub c a)))
 
-(defn- proper-segment-intersection? [a b c d]
+(defn- proper-segment-intersection?
+  "Two segments → strict crossing?
+
+   Opposite-side products. Intentionally excludes collinear/touching cases;
+   not a general intersection predicate."
+  [a b c d]
   (let [ab-c (orientation a b c)
         ab-d (orientation a b d)
         cd-a (orientation c d a)
@@ -225,10 +328,19 @@
     (and (< (* ab-c ab-d) (- epsilon))
          (< (* cd-a cd-b) (- epsilon)))))
 
-(defn- polygon-edges [points]
+(defn- polygon-edges
+  "Polygon points → cyclic endpoint pairs.
+
+   Zips points with shifted sequence."
+  [points]
   (map vector points (concat (rest points) [(first points)])))
 
-(defn- bridge-visible? [outer holes h v]
+(defn- bridge-visible?
+  "Outer, holes, candidate endpoints → bridge admissible?
+
+   Rejects crossings; checks midpoint inside outer and outside holes. Suited
+   to this bridge algorithm, not a general polygon-validity proof."
+  [outer holes h v]
   (let [blocked?
         (some (fn [[a b]]
                 (and (not (some #(same-point? % a) [h v]))
@@ -242,10 +354,21 @@
          (not-any? #(= :inside (path-component/contour-classify % midpoint))
                    holes))))
 
-(defn- rotate-from [points index]
+(defn- rotate-from
+  "Point vector and index → cyclically rotated vector.
+
+   Two subvectors."
+  [points index]
   (into (subvec points index) (subvec points 0 index)))
 
-(defn- bridge-hole [outer remaining-holes hole]
+(defn- bridge-hole
+  "Outer walk, remaining holes, one hole → spliced walk; no candidate
+   throws.
+
+   Rightmost hole vertex, nearest visible outer vertex, duplicate bridge
+   endpoints. Intended for deterministic construction; scans/sorts
+   candidates."
+  [outer remaining-holes hole]
   (let [hole (orient hole :cw)
         hole-index
         (first (sort-by (fn [index]
@@ -268,7 +391,10 @@
                    (subvec outer (inc outer-index)))))))
 
 (defn bridge-holes
-  "Bridge explicit CW holes into one CCW simple walk before ear clipping."
+  "Outer and holes → one bridged CCW walk.
+
+   Orders holes and bridges sequentially. Assumes legal contour
+   relationships."
   [outer holes]
   (loop [polygon (orient outer :ccw)
          remaining (mapv #(orient % :cw)
@@ -280,7 +406,12 @@
       (recur (bridge-hole polygon remaining hole) (subvec remaining 1))
       polygon)))
 
-(defn- point-in-triangle? [point a b c]
+(defn- point-in-triangle?
+  "Point and CCW triangle → inclusive containment?
+
+   Three orientation tests with epsilon. Intended for this winding
+   precondition."
+  [point a b c]
   (let [ab (orientation a b point)
         bc (orientation b c point)
         ca (orientation c a point)]
@@ -288,7 +419,11 @@
          (>= bc (- epsilon))
          (>= ca (- epsilon)))))
 
-(defn- diagonal-clear? [polygon prev-index next-index]
+(defn- diagonal-clear?
+  "Polygon and diagonal endpoint indexes → no strict edge crossing?
+
+   Scans nonadjacent edges. Shares strict-intersection limitations."
+  [polygon prev-index next-index]
   (let [prev (nth polygon prev-index)
         next (nth polygon next-index)
         n (count polygon)]
@@ -303,7 +438,12 @@
             prev next (nth polygon edge-index) (nth polygon edge-next)))))
      (range n))))
 
-(defn- ear-index [polygon]
+(defn- ear-index
+  "Polygon → first legal ear index or nil.
+
+   Checks convexity, contained vertices, and diagonal visibility. Nested
+   scans can be O(n²) per ear search."
+  [polygon]
   (let [n (count polygon)]
     (some
      (fn [index]
@@ -329,11 +469,20 @@
            index)))
      (range n))))
 
-(defn- remove-index [values index]
+(defn- remove-index
+  "Vector and index → vector without element.
+
+   Joins subvectors. Intended for immutable construction; copies the
+   remaining values."
+  [values index]
   (into (subvec values 0 index) (subvec values (inc index))))
 
 (defn ear-clip
-  "Deterministic ear clipping over a CCW bridged polygon."
+  "Bridged polygon → triangles or explanatory exception.
+
+   Repeated ear removal; collinear fallback; bounded fuel. Intended for
+   deterministic modest polygons. Worst-case repeated scans can be O(n³);
+   runtime cost depends on the input geometry."
   [points]
   (loop [polygon (orient (vec points) :ccw)
          triangles []
@@ -375,7 +524,11 @@
                           {:remaining polygon
                            :triangle-count (count triangles)})))))))
 
-(defn- normalized-shape [component normalization]
+(defn- normalized-shape
+  "Shape and normalization → normalized contour coordinates.
+
+   Pure nested map."
+  [component normalization]
   (update-in component [:path/geometry :contours]
              (fn [contours]
                (mapv #(update % :points
@@ -384,7 +537,13 @@
                                       points)))
                      contours))))
 
-(defn shape-triangles [component zoom]
+(defn shape-triangles
+  "Shape and zoom → original-space fill triangles.
+
+   Assigns holes by their first point, bridges/clips each outer. Zoom is
+   unused by shape triangulation; overlapping outers and malformed hole
+   relationships are not resolved here."
+  [component zoom]
   (let [normalization (shape-normalization component)
         normalized (normalized-shape component normalization)
         contours (get-in normalized [:path/geometry :contours])
@@ -408,6 +567,11 @@
           fills)))
 
 (defn tessellate
+  "Component, optional algorithm label, zoom → versioned mesh with flat
+   vertices/counts/key.
+
+   Kind-specific derivation then flattening. Mesh does not contain the
+   normalization record; normalization is internal to derivation."
   ([component zoom] (tessellate component algorithm-version zoom))
   ([component algorithm zoom]
    (let [triangles (case (:path/kind component)
@@ -424,8 +588,11 @@
       :vertex-count (count vertices)})))
 
 (defn derive-mesh-set
-  "Content-keyed derivation cache. A point edit mints only its component key;
-   untouched sibling mesh values are returned by identity."
+  "Cache, ordered components, zoom → updated cache, ordered meshes, newly
+   derived keys.
+
+   Reuses meshes by key/identity; derives missing values. Cache grows with
+   all encountered keys and has no eviction here."
   [cache components zoom]
   (reduce
    (fn [{:keys [cache meshes derived-keys]} component]

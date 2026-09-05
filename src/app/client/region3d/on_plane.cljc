@@ -1,11 +1,14 @@
 (ns app.client.region3d.on-plane
-  "Puts 2D entities on 3D planes: text laid out with the text preparer, ink
-   tessellated with the path preparer, then packed and anchored on a region's
-   plane. The one place two kinds meet.
-   Takes: a placed text or ink row and font assets; a path-mesh cache; a
-   placement's anchor to project.
-   Gives: a layout; a packed ink mesh; a projected anchor.
-   Holds nothing."
+  "Adapt 2D geometry and coordinates to object-local planes.
+
+   Input: resolved text/ink placement, font provider or path cache,
+   rays/matrices, and anchor bindings. Output: text layout, ink pack, color
+   values, plane intersections and projected anchors. No retained state. It
+   calls the existing text/path computations; it does not resolve external
+   content addresses or allocate GPU resources. placement-zoom is fixed at
+   1.
+
+   Folder map: README.md."
   (:require [app.client.path.component :as path-component]
             [app.client.path.tessellation :as path-tessellation]
             [app.client.region3d.scene :as region3d-scene]
@@ -18,8 +21,10 @@
 (def plane-epsilon 1.0e-9)
 
 (defn adapt-legacy-color
-  "Adapt the existing flat [r g b a] text/path paint into tagged color ingress.
-   Already-tagged colors pass through unchanged."
+  "Nil, tagged color, or flat RGBA → nil/tagged color; other forms throw.
+
+   Narrow legacy adapter. An existing map with :rgba passes through without
+   full tagged-color validation."
   [color]
   (cond
     (nil? color) nil
@@ -33,9 +38,10 @@
                     {:color color :adapter placed-color-adapter-version}))))
 
 (defn layout-placed-text
-  "Create the settled layout for one resolved placed text. The
-   renderer-side packing cache is responsible for calling this only on a key
-   transition; live editing supplies its already-carried result instead."
+  "Placement and font assets → flat text layout at local origin.
+
+   Adapts style/constraints to text.layout/layout. Serves as reusable
+   calculation; this does not prove a text GPU placement path exists."
   [placement font-assets]
   (let [font-size (double (get-in placement [:style :font-size] 14.0))
         constraints (get-in placement [:layout :constraints])
@@ -57,11 +63,18 @@
       :source-revision (:content-revision placement)
       :zoom placement-zoom})))
 
-(defn object->component-local [[x y _z]] [(double x) (- (double y))])
+(defn object->component-local
+  "Object-local XYZ → 2D [x -y].
+
+   Explicit coordinate convention."
+  [[x y _z]] [(double x) (- (double y))])
 
 (defn ray->placement-plane
-  "Intersect a region-space ray with an object's local XY plane. Returns the
-   component-local point plus the positive region-ray parameter."
+  "Region ray and object matrix → positive intersection with
+   component/object/region coordinates, or nil.
+
+   Inverts matrix, intersects local z=0, converts t back. Singular inverse
+   throws and zero-direction ray is not independently checked."
   [{:keys [origin direction]} world-transform-matrix]
   (let [inverse (region3d-scene/inverse-mat4 world-transform-matrix)
         local-origin (region3d-scene/transform-point inverse origin)
@@ -86,7 +99,10 @@
                :component-local (object->component-local local-point)})))))))
 
 (defn pack-placed-ink
-  "Derive one placed ink mesh through the caller-owned path cache value."
+  "Caller cache and placement → new cache/derived keys/ink pack.
+
+   Reuses path tessellation at zoom 1 and adapts paint. Shares geometry
+   computation."
   [cache placement]
   (let [{next-cache :cache [mesh] :meshes derived-keys :derived-keys}
         (path-tessellation/derive-mesh-set cache [(:component placement)]
@@ -100,7 +116,12 @@
             :color (adapt-legacy-color
                     (path-component/paint-color (:component placement)))}}))
 
-(defn linear-premultiplied [{[r g b a] :rgba} coverage opacity]
+(defn linear-premultiplied
+  "Tagged color, coverage, opacity → linear premultiplied RGBA.
+
+   Transfer conversion and bounded combined alpha. Assumes straight-sRGB
+   input."
+  [{[r g b a] :rgba} coverage opacity]
   (let [alpha (max 0.0 (min 1.0 (* (double a) (double coverage)
                                     (double opacity))))]
     [(* (color/srgb-channel->linear r) alpha)
@@ -108,7 +129,12 @@
      (* (color/srgb-channel->linear b) alpha)
      alpha]))
 
-(defn- clamp-projection [[x y] width height]
+(defn- clamp-projection
+  "2D point and region size → point/clamped flag.
+
+   Intersects center-to-point direction with rectangle edge. Intended for
+   directional edge anchoring, not independent-axis clamping."
+  [[x y] width height]
   (let [cx (/ (double width) 2.0)
         cy (/ (double height) 2.0)]
     (if (and (<= 0.0 x width) (<= 0.0 y height))
@@ -123,7 +149,12 @@
          :clamped? true}))))
 
 (defn project-region-anchor
-  "Project a region-object binding into the connector anchor group."
+  "Binding, prepared scene/camera, region item, transforms, anchor group →
+   resolved point anchor or nil.
+
+   Projects object point, checks depth, clamps region edge, converts groups.
+   Serves as geometry utility; its connector wording does not establish a
+   current connector system."
   [{:keys [binding region-draw-item maintained camera world-transforms
            anchor-group]}]
   (let [object-id (:object binding)

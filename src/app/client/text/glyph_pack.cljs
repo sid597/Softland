@@ -1,12 +1,13 @@
 (ns app.client.text.glyph-pack
-  "The flat paint route for Slug text: layout planes viewed straight into the
-   instance buffer's words, no glyph map and no instance map per glyph.
-   Takes: positioned text draw-items (a layout line, its selected glyph indexes, the
-   draw-item's style and semantic group), world transforms, and the font's
-   Slug glyph list.
-   Gives: instance counts, and the 25 words per instance written into the
-   Float32/Uint32 views of the instance buffer.
-   Holds: one derived Slug table per glyph list (WeakMap, dies with the list)."
+  "Read positioned columns directly into GPU words.
+
+   Input: positioned draw items selecting layout glyph indexes, world
+   transforms and Slug glyph metadata. Output: instance counts and writes
+   into caller-owned float/uint views. A WeakMap holds one derived lookup
+   table per glyph-list object. It does not shape text or create GPU
+   buffers.
+
+   Folder map: README.md."
   (:require [app.client.engine.transform :as transform]
             [app.client.text.layout :as tl]))
 
@@ -14,7 +15,11 @@
 
 (defonce ^:private slug-table-cache (js/WeakMap.))
 
-(defn- map-of! [^js outer key]
+(defn- map-of!
+  "JS outer map/key → existing or newly inserted inner map.
+
+   Lazy nested-map construction."
+  [^js outer key]
   (let [m (.get outer key)]
     (if (undefined? m)
       (let [m (js/Map.)]
@@ -23,10 +28,12 @@
       m)))
 
 (defn slug-table
-  "Derive the Slug lookup once per glyph list: per-row floats (sample bounds
-   l t r b · banding sx sy ox oy, kept as doubles so the pack math is the
-   oracle's) and uints (glyphLoc x y · bandMax x · packedBandMeta), plus the
-   six resolution maps `painted-glyph` walks, in the same last-wins order."
+  "Glyph metadata list → cached typed lookup table.
+
+   Packs metadata and builds last-wins lookup maps. Intended for immutable
+   list identity; mutating the list in place would leave a stale cache. Each
+   metadata row retains eight float64 values and four uint32 values, plus
+   font-specific/global resolution maps."
   [glyphs]
   (or (.get slug-table-cache glyphs)
       (let [n (count glyphs)
@@ -68,18 +75,30 @@
           (when glyphs (.set slug-table-cache glyphs table))
           table))))
 
-(defn- lookup [^js m k]
+(defn- lookup
+  "JS map/key → row index or -1.
+
+   Distinguishes missing from row zero."
+  [^js m k]
   (let [v (.get m k)]
     (if (undefined? v) -1 v)))
 
-(defn- font-lookup [^js outer font-id k]
+(defn- font-lookup
+  "Nested maps/font/key → row or -1.
+
+   Guarded font-specific lookup."
+  [^js outer font-id k]
   (if (nil? font-id)
     -1
     (let [m (.get outer font-id)]
       (if (undefined? m) -1 (lookup m k)))))
 
 (defn- row-for
-  "`painted-glyph`'s six-step resolution over the table; -1 when no row."
+  "Table/font/kind/glyph ID → selected metadata row or -1.
+
+   Six-step direct/replacement/missing-glyph fallback. Global glyph-index
+   fallback assumes the combined metadata mapping is meaningful across
+   fonts."
   [{:keys [by-font-index by-index by-font-unicode by-unicode]} font-id kind glyph-id]
   (let [font-kind (if (= kind :index) by-font-index by-font-unicode)
         kind-map (if (= kind :index) by-index by-unicode)
@@ -101,15 +120,20 @@
                       (lookup by-index 0))))))))))))
 
 (defn- single-space?
-  "`(= \" \" (subs line-text (min len cs) (min len ce)))`, clamps included."
+  "Text/length/cluster bounds → exactly one space?
+
+   Clamped code-unit check without substring. Intended for the exact skip
+   rule."
   [text len cs ce]
   (let [a (min len cs) b (min len ce)]
     (and (= 1 (- b a)) (= 32 (.charCodeAt text a)))))
 
 (defn- each-painted!
-  "Walk one draw-item's glyphs through the pack entry point, calling `f` with the resolved
-   Slug row for every glyph the oracle route would paint (not a tab, not a
-   lone space, resolvable)."
+  "Positioned item/table/callback → callback per drawable glyph; nil-like
+   traversal result.
+
+   Reads primitive layout fields, skips tabs/spaces, resolves row. No rich
+   glyph maps."
   [{:keys [line indexes dx dy]} table f]
   (let [text (str (or (:text line) ""))
         len (.-length text)]
@@ -123,16 +147,22 @@
              (f row x0 baseline-y))))))))
 
 (defn count-instances
-  "Instances the draw-item will pack — the count pass of the two-pass pack."
+  "Item/table → drawable glyph count.
+
+   Traverses same resolution path with a counter. Sizing agrees with
+   packing, at the cost of an extra pass."
   [draw-item table]
   (let [!n (volatile! 0)]
     (each-painted! draw-item table (fn [_ _ _] (vswap! !n inc)))
     @!n))
 
 (defn pack-draw-item!
-  "Write one draw-item's instances from `instance-index` on; returns the next
-   instance index. Resolve its semantic group once before the glyph loop.
-   The word layout is the renderer's 25-word instance schema."
+  "Float/uint views, starting instance, item/table/transforms → next
+   instance index; writes 25 words each.
+
+   Resolves group once, converts glyph bounds/position and writes
+   metadata/color/index. Intended for direct packing; expects
+   capacity/stride/font size supplied consistently."
   [^js float-view ^js uint-view instance-index draw-item table world-transforms]
   (let [{:keys [style font-size]} draw-item
         {:keys [r g b a]} style
@@ -186,7 +216,11 @@
     @!i))
 
 (defn pack-lines!
-  "Write every line's draw-items in order; `lines` = [{:draw-items [...] :count n}]."
+  "Views, ordered line groups, table/transforms → nil; packs all items in
+   order.
+
+   Threads next instance index through groups. Each line group has
+   :draw-items and :count."
   [^js float-view ^js uint-view lines table world-transforms]
   (loop [remaining lines i 0]
     (when (seq remaining)

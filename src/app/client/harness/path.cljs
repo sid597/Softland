@@ -1,8 +1,14 @@
 (ns app.client.harness.path
-     "Browser evidence for path component, tessellation, rendering, and frame dirty checks.
-      Takes: a WebGPU device.
-      Gives: the path harness result map and Region3D fixture builders.
-      Holds nothing."
+     "Exercise geometric derivation, color and frame invalidation.
+
+      Input: device/shared buffers and synthetic path components. Output:
+      deterministic image records, CPU/GPU classifications, float32 roundoff
+      and preparation counters. Fixtures inverse-scale geometry with zoom
+      where constant screen extent is intended. The comparison uses the
+      component's CPU classifier, excluding points within 1.25 screen pixels
+      of the boundary.
+
+      Folder map: README.md."
      (:require [app.client.engine.color :as scene-color]
                [app.client.engine.device :as device]
                [app.client.engine.transform :as transform]
@@ -17,23 +23,43 @@
         srgb->linear linear->srgb-byte adapter-information
         shader-digests w4-read-texture!]]))
 
-(defn- path-paint [color opacity]
+(defn- path-paint
+  "Color/opacity → tagged path paint map."
+  [color opacity]
   {:color color :opacity opacity
    :color-space :srgb :alpha-association :straight})
 
-(defn- screen-point [zoom [x y]] [(/ x zoom) (/ y zoom)])
+(defn- screen-point
+  "Zoom and screen coordinates → local coordinates.
 
-(defn- revisioned-path [path]
+   Divides by zoom. Intended for zero-camera-offset fixture placement."
+  [zoom [x y]] [(/ x zoom) (/ y zoom)])
+
+(defn- revisioned-path
+  "Component → validated component with content-derived revision.
+
+   Validates and hashes fixture content. Uses the component's value
+   identity, not a cryptographic digest."
+  [path]
   (let [validated (path-component/validate-component! path)]
     (assoc validated :path/revision
            (path-component/component-content-hash validated))))
 
-(defn- f32-roundtrip [value]
+(defn- f32-roundtrip
+  "Number → float32-rounded number.
+
+   One typed-array conversion. Intended for transport rounding."
+  [value]
   (let [values (js/Float32Array. 1)]
     (aset values 0 value)
     (aget values 0)))
 
-(defn- quantization-evidence [mesh zoom]
+(defn- quantization-evidence
+  "Mesh and zoom → largest local/screen component rounding errors.
+
+   Scans vertex components before/after float32 conversion. Screen estimate
+   multiplies by zoom only, without arbitrary group affine effects."
+  [mesh zoom]
   (let [errors (mapcat (fn [[x y]]
                          [(js/Math.abs (- x (f32-roundtrip x)))
                           (js/Math.abs (- y (f32-roundtrip y)))])
@@ -45,7 +71,12 @@
      :max-local-error max-local
      :max-screen-px-error (* zoom max-local)}))
 
-(defn path-ink-component [id zoom samples color opacity]
+(defn path-ink-component
+  "ID, zoom, pressure samples, color/opacity → validated stroke fixture.
+
+   Stable point IDs and pressure-scaled widths/positions. Intended for
+   reproducible synthetic ink."
+  [id zoom samples color opacity]
   (revisioned-path
    {:path/material-id id
     :path/revision ::pending
@@ -60,7 +91,12 @@
      :cap :round :join :round}
     :path/paint (path-paint color opacity)}))
 
-(defn- path-shape-component [id zoom color opacity]
+(defn- path-shape-component
+  "ID, zoom and paint → concave filled fixture with a hole.
+
+   Explicit contours with inverse-scaled coordinates. Intended for that
+   geometry class."
+  [id zoom color opacity]
   (revisioned-path
    {:path/material-id id
     :path/revision ::pending
@@ -78,7 +114,11 @@
                       [50.0 50.0] [34.0 50.0]])}]}
     :path/paint (path-paint color opacity)}))
 
-(defn path-polygon-component [id points color opacity]
+(defn path-polygon-component
+  "ID, point list and paint → revisioned filled polygon.
+
+   Indexed contour-point construction."
+  [id points color opacity]
   (revisioned-path
    {:path/material-id id
     :path/revision ::pending
@@ -88,17 +128,27 @@
                  :points points}]}
     :path/paint (path-paint color opacity)}))
 
-(defn- path-quad-component [id zoom color opacity]
+(defn- path-quad-component
+  "ID, zoom and paint → standard screen-aligned quad fixture.
+
+   Specializes polygon construction. Intended for color sampling."
+  [id zoom color opacity]
   (path-polygon-component
    id
    (mapv (partial screen-point zoom)
          [[24.0 24.0] [104.0 24.0] [104.0 104.0] [24.0 104.0]])
    color opacity))
 
-(defn path-draw-item [id component group]
+(defn path-draw-item
+  "ID, component and group → renderer draw item."
+  [id component group]
   {:id id :path/material component :container group})
 
 (defn- render-path-bytes!
+  "Device/system/items/zoom/transforms and clear options → promise of RGBA.
+
+   Updates camera, prepares, draws the complete vertex range and reads back.
+   Intended for isolated captures; temporary cleanup is on the success path."
   [^js device path-system draw-items zoom world-transforms
    & {:keys [clear-value]
       :or {clear-value {:r 0.0 :g 0.0 :b 0.0 :a 0.0}}}]
@@ -152,7 +202,12 @@
              (.destroy target)
              copy))))))
 
-(defn- render-path-pair! [device path-system draw-items zoom world-transforms clear-value]
+(defn- render-path-pair!
+  "Device, path system, draw items, zoom, world transforms and clear color →
+   first bytes, hashes and equality promise.
+
+   Sequential identical captures. Intended for repeatability."
+  [device path-system draw-items zoom world-transforms clear-value]
   (-> (render-path-bytes! device path-system draw-items zoom world-transforms
                           :clear-value clear-value)
       (.then
@@ -172,7 +227,9 @@
                         :byte-identical? (= (aget hashes 0)
                                              (aget hashes 1))}))))))))))
 
-(defn- path-image-record [mode case-id pair]
+(defn- path-image-record
+  "Case/zoom and pair → PNG/raw-hash/determinism metadata."
+  [mode case-id pair]
   {:mode mode
    :file (str "gpu-path-" mode "-" case-id ".png")
    :raw-sha256 (:first-sha256 pair)
@@ -181,7 +238,12 @@
                  :second-raw-sha256 (:second-sha256 pair)
                  :byte-identical? (:byte-identical? pair)}})
 
-(defn- path-golden-spec [mode]
+(defn- path-golden-spec
+  "Golden mode → case identity, fixed zoom and component fixture.
+
+   Selects pressure ink, holed concave fill or translucent crossing ink. The
+   top-level driver selects only a subset of these modes."
+  [mode]
   (case mode
     :pressure-ink
     {:case-id "pressure-ink-default-min-z0p1"
@@ -207,7 +269,13 @@
                  [28.0 100.0 1.0] [102.0 28.0 0.7]]
                 [0.84 0.36 0.94 0.62] 1.0)}))
 
-(defn- run-path-golden! [device path-system world-transforms mode]
+(defn- run-path-golden!
+  "Device, path system, world transforms and golden mode → promise of image
+   plus mesh/quantization evidence.
+
+   Fixed-clear repeated rendering and actual mesh inspection. Intended for
+   the selected example."
+  [device path-system world-transforms mode]
   (let [{:keys [case-id zoom component] :as spec} (path-golden-spec mode)
         clear {:r 0.025 :g 0.06 :b 0.11 :a 1.0}
         draw-item (path-draw-item [:golden mode] component 0)]
@@ -226,7 +294,13 @@
                      (quantization-evidence mesh zoom)}
               :images [(path-image-record (:mode spec) case-id pair)]}))))))
 
-(defn- run-path-tree-golden! [device path-system world-transforms]
+(defn- run-path-tree-golden!
+  "Device, path system and world transforms → promise of root/child-group
+   golden and unknown-group rejection.
+
+   Uses child ID 17 at compact index 1 and deliberately invalid ID 99.
+   Intended for group transport."
+  [device path-system world-transforms]
   (let [case-id "tree-containers-cid17-slot1"
         mode "container-tree"
         zoom 1.0
@@ -257,6 +331,12 @@
             :images [(path-image-record mode case-id pair)]})))))
 
 (defn- path-parity-row!
+  "System/transforms and zoom → promise of inside/outside agreement.
+
+   Scans pixels away from a 1.25-pixel boundary band; compares CPU
+   classification with alpha > 128 and requires both classes nonempty.
+   Intended for decisive interior/exterior evidence; boundary coverage
+   remains outside this check."
   [device path-system world-transforms {:keys [case-id zoom lod]}]
   (let [component (path-shape-component [:path-parity case-id] zoom
                                       [1.0 1.0 1.0 1.0] 1.0)
@@ -312,7 +392,13 @@
                           (some #(= :outside (:cpu %)) decisive)
                           (empty? mismatches))}))))))
 
-(defn- path-color-row! [device path-system world-transforms linear?]
+(defn- path-color-row!
+  "System, scene-color mode and blend fixture → promise of expected/actual
+   sample.
+
+   Source-over reference with three-byte tolerance. Intended for that
+   sample, not every color configuration."
+  [device path-system world-transforms linear?]
   (let [clear {:r 0.04 :g 0.18 :b 0.35 :a 1.0}
         color [(/ 200.0 255.0) (/ 80.0 255.0) (/ 40.0 255.0) 0.5]
         component (path-quad-component :path-color/source-over 1.0 color 1.0)]
@@ -340,6 +426,11 @@
               :pass? (<= delta 3)}))))))
 
 (defn- run-path-color!
+  "Candidate system and shared resources → promise of legacy/linear
+   comparisons.
+
+   Creates a legacy system, joins comparisons, destroys it normally.
+   Intended for mode separation."
   [device path-system camera groups-buffer world-transforms]
   (let [legacy-system
         (path-renderer/init-path-system
@@ -357,7 +448,14 @@
               :linear-premultiplied linear
               :pass? (and (:pass? legacy) (:pass? linear))}))))))
 
-(defn- run-path-upload-dirty-check! [path-system world-transforms]
+(defn- run-path-upload-dirty-check!
+  "Path system and world transforms → first/repeated/revision/LOD
+   preparation evidence.
+
+   Checks initial derivation/upload, identical hold, revision repack without
+   derivation and LOD derivation. Intended for returned work counters; no
+   GPU-buffer readback here."
+  [path-system world-transforms]
   (let [left (path-polygon-component
               :path-upload/left
               [[3.0 5.0] [19.0 5.0] [19.0 22.0] [3.0 22.0]]
@@ -398,7 +496,13 @@
                  (= 1 (:writes frame-4))
                  (= 2 (:derived frame-4)))}))
 
-(defn run-path-step! [device]
+(defn run-path-step!
+  "Device/shared resources → promise of complete selected path evidence.
+
+   Runs three golden cases, seven parity rows, group/color/dirty checks;
+   destroys its path system. Intended for a bounded floor; main shared
+   resources remain caller-owned."
+  [device]
   (let [camera (device/create-camera-buffer device)
         groups-buffer (device/create-groups-buffer device)
         registry (-> (transform/empty-registry)

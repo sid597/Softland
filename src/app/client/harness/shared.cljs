@@ -1,8 +1,13 @@
 (ns app.client.harness.shared
-  "Shared browser-harness constants, transport, hashing, pixels, and evidence.
-   Takes: browser/WebGPU values and kind shader sources.
-   Gives: deterministic helpers consumed by the harness kind drivers.
-   Holds nothing."
+  "Share fixture conventions and byte-level evidence tools.
+
+   Input: promises, GPU textures, pixels and environment handles. Output:
+   fixture records, hashes, readback bytes and measurements. Constants
+   define the 128×128 canvas, color format, glyph position, seven zooms and
+   eight image-fixture identities/digests. These are harness conventions,
+   not renderer-wide limits.
+
+   Folder map: README.md."
   (:require [app.client.engine.color :as color]
             [app.client.engine.compositor :as compositor]
             [app.client.engine.device :as device]
@@ -44,7 +49,11 @@
    {:filename "seam-byte-srgb.png" :digest "836e03f287a153693eecd3b75e4c8ffefbc38407f1e7784a4c2a8f4471f6650a"
     :width 8 :height 8 :color-tag :srgb :alpha-association :opaque}])
 
-(defn promise-mapv [f xs]
+(defn promise-mapv
+  "Promise-returning function and values → promise of ordered result vector.
+
+   Sequential promise reduction. The callback must return a promise."
+  [f xs]
   (reduce (fn [p x]
             (.then p
                    (fn [acc]
@@ -52,21 +61,38 @@
           (js/Promise.resolve [])
           xs))
 
-(defn bytes->hex [^js bytes]
+(defn bytes->hex
+  "Byte buffer → padded lowercase hex string.
+
+   Per-byte formatting. Intended for digest-sized values."
+  [^js bytes]
   (apply str
          (map (fn [b]
                 (let [h (.toString b 16)]
                   (if (= 1 (count h)) (str "0" h) h)))
               (array-seq bytes))))
 
-(defn sha256-bytes [^js bytes]
+(defn sha256-bytes
+  "Bytes → promise of SHA-256 hex.
+
+   Browser SubtleCrypto. Requires the corresponding browser capability."
+  [^js bytes]
   (-> (.digest (.-subtle js/crypto) "SHA-256" bytes)
       (.then #(bytes->hex (js/Uint8Array. %)))))
 
-(defn sha256-string [s]
+(defn sha256-string
+  "String → promise of UTF-8 SHA-256.
+
+   TextEncoder then byte hashing."
+  [s]
   (sha256-bytes (.encode (js/TextEncoder.) s)))
 
-(defn opaque-png-data-url [^js rgba]
+(defn opaque-png-data-url
+  "Canvas-sized RGBA bytes → PNG data URL; allocates canvas/image data.
+
+   Copies RGB and replaces alpha with 255. Serves as a visible preview, not
+   as a lossless encoding of source RGBA."
+  [^js rgba]
   ;; The golden is the visible result over the harness's black clear color.
   ;; Raw GPU bytes are hashed separately and remain the comparison authority.
   (let [canvas (.createElement js/document "canvas")
@@ -86,7 +112,13 @@
     (.putImageData context image 0 0)
     (.toDataURL canvas "image/png")))
 
-(defn q8-world-transforms [entry-count]
+(defn q8-world-transforms
+  "Count → indexed identity world-transform rows with semantic IDs spaced by
+   17.
+
+   Deliberately separates IDs from dense buffer indexes. Intended for
+   transport fixtures."
+  [entry-count]
   ;; Semantic ids deliberately stride by 17, reproducing the sparse-id
   ;; pressure while transport buffer indexes remain dense 0..N-1.
   (into {}
@@ -97,7 +129,13 @@
                  :buffer-index buffer-index}]))
         (range entry-count)))
 
-(defn run-q8-transport! [device groups-buffer]
+(defn run-q8-transport!
+  "Device/shared group buffer → upload accounting for 1,024/4,096/16,384
+   rows.
+
+   Writes generated rows and checks returned counts. Verifies the reported
+   upload contract, not readback of the group buffer."
+  [device groups-buffer]
   (let [rows
         (mapv (fn [entry-count]
                 (let [world-transforms (q8-world-transforms entry-count)
@@ -115,7 +153,12 @@
      :rows rows
      :pass? (every? :pass? rows)}))
 
-(defn boundary-pixels [^js rgba]
+(defn boundary-pixels
+  "RGBA bytes → pixels with red channel strictly between 8 and 247.
+
+   Full pixel scan using red as coverage. Intended for white-on-black
+   fixtures; not a general alpha/edge detector."
+  [^js rgba]
   (persistent!
    (loop [y 0
           acc (transient [])]
@@ -132,7 +175,12 @@
                              (conj! acc [x y coverage])
                              acc))))))))))
 
-(defn byte-delta [^js left ^js right]
+(defn byte-delta
+  "Two byte arrays → largest absolute component difference.
+
+   Linear scan over the left array. Assumes compatible lengths instead of
+   checking them."
+  [^js left ^js right]
   (loop [index 0 maximum 0]
     (if (= index (.-length left))
       maximum
@@ -140,18 +188,35 @@
              (max maximum
                   (js/Math.abs (- (aget left index) (aget right index))))))))
 
-(defn pixel-rgba [^js bytes x y]
+(defn pixel-rgba
+  "Bytes and x/y → four channels.
+
+   Fixed 128-pixel row addressing. Intended for this harness canvas only."
+  [^js bytes x y]
   (let [offset (* 4 (+ x (* y canvas-size)))]
     [(aget bytes offset) (aget bytes (+ offset 1))
      (aget bytes (+ offset 2)) (aget bytes (+ offset 3))]))
 
-(defn srgb->linear [value]
+(defn srgb->linear
+  "Encoded byte → linear normalized scalar.
+
+   Piecewise sRGB transfer. Intended for the reference calculations."
+  [value]
   (color/srgb-channel->linear (/ value 255.0)))
 
-(defn linear->srgb-byte [value]
+(defn linear->srgb-byte
+  "Linear scalar → clamped, rounded encoded byte.
+
+   Inverse transfer."
+  [value]
   (js/Math.round
    (* 255.0 (color/linear->srgb-channel (max 0.0 (min 1.0 value))))))
-(defn adapter-information [^js adapter]
+(defn adapter-information
+  "Adapter/device → capability and identifying evidence.
+
+   Reads available info/features/limits; labels a SwiftShader fallback
+   heuristic separately. Metadata provenance is retained."
+  [^js adapter]
   (let [info (.-info adapter)
         architecture (some-> info .-architecture)
         description (some-> info .-description)
@@ -172,7 +237,13 @@
      :features (vec (array-seq (js/Array.from (.-features adapter))))
      :limits (limits/adapter-limits adapter)}))
 
-(defn shader-digests []
+(defn shader-digests
+  "No arguments → promise of hashes for five selected shader strings.
+
+   Hashes scene-color, presentation, Slug vertex/fragment and placed-flat
+   sources. This is a selected fingerprint, not a digest of every shader in
+   the client."
+  []
   (let [entries [["scene-color" device/scene-color-wgsl]
                  ["present-fragment" compositor/present-fragment-shader]
                  ["slug-vertex" text-renderer/slug-vertex-shader]
@@ -185,7 +256,14 @@
                       entries)
         (.then #(into {} %)))))
 
-(defn w4-read-texture! [^js device ^js texture width height]
+(defn w4-read-texture!
+  "Device, RGBA8 texture, width/height → promise of contiguous RGBA bytes;
+   submits a copy.
+
+   Aligns rows to 256 bytes, maps, strips padding, unmaps/destroys staging
+   buffer. Intended for its assumed four-byte texel format; failure cleanup
+   is not centralized."
+  [^js device ^js texture width height]
   (let [row-bytes (* width 4)
         padded (* 256 (js/Math.ceil (/ row-bytes 256)))
         ^js buffer (.createBuffer device

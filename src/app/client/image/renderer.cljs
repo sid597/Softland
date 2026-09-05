@@ -1,13 +1,20 @@
 (ns app.client.image.renderer
-  "The image renderer: quads sampling an atlas or a dedicated texture, with mip
-   levels for zooming out.
-   Takes: a device, a format, and the shared camera and groups buffers to
-   build the system; image sources to register; the frame's image draw-items to
-   prepare; a render pass to draw into.
-   Gives: an image system with atlas, pipelines, and mip generator; packed
-   instances in a pool; draw calls.
-   Holds: per-system atoms for prepared state, image sources, atlas placement,
-   and resources."
+  "Manage texture residency and encode draws.
+
+   Input has two paths: source record + bytes for asynchronous registration;
+   draw items + world transforms for synchronous preparation. Output is
+   explicit registration status, resolved prepared items, instance uploads
+   and ordered draws. The system retains the source registry and bytes for
+   rebuilding, atlas placement, dedicated resources, placeholder texture,
+   residency revision, instance pool and prepared-frame key.
+
+   Registration verifies the digest, decodes a PNG Blob, normalizes alpha,
+   checks decoded dimensions, plans atlas/dedicated placement, uploads and
+   generates mips. Frame preparation reads residency; unresolved sources
+   receive a visible placeholder rather than triggering decode in the frame
+   path.
+
+   Folder map: README.md."
   (:require [app.client.engine.buffer-pool :as buffer-pool]
             [app.client.engine.color :as scene-color]
             [app.client.engine.device :as device]
@@ -15,6 +22,10 @@
             [app.client.image.frame :as frame]
             [app.client.image.component :as image-component]))
 
+;; Vertex main expands a quad by half a screen pixel and applies the shared
+;; affine/camera. Fragment main samples texture, applies edge coverage and
+;; shared color/tint handling. Axis-length expansion approximates the hull
+;; under general shear.
 (def image-vertex-shader "
   struct Camera { pan: vec2<f32>, zoom: f32, padding: f32, screen_dimensions: vec2<f32>, };
   @group(0) @binding(2) var<uniform> camera: Camera;
@@ -86,6 +97,8 @@
 (def image-fragment-shader
   (str device/scene-color-wgsl image-fragment-main))
 
+;; Mip vertex main(index) emits a full-screen triangle/UV; mip fragment
+;; main(uv) samples the previous texture view to produce the next level.
 (def ^:private image-mip-vertex-shader "
   struct Output { @builtin(position) position: vec4<f32>, @location(0) uv: vec2<f32>, };
   @vertex fn main(@builtin(vertex_index) index: u32) -> Output {
@@ -111,7 +124,11 @@
 
 ;; --- Image step resource system --------------------------------------------
 
-(defn- pack-image-instance [image-draw-item]
+(defn- pack-image-instance
+  "Resolved image item → 13-word typed array.
+
+   Uses pure row construction and uint overlay for group index."
+  [image-draw-item]
   (let [component (:image/component image-draw-item)
         paint (:image/paint component)
         words (image-component/instance-words
@@ -128,6 +145,9 @@
     data))
 
 (defn- create-image-bind-group
+  "Device/layout/sampler/view/shared buffers → bind group.
+
+   Explicit four bindings."
   [^js device layout sampler texture-view camera-buffer groups-buffer]
   (.createBindGroup
    device
@@ -138,6 +158,9 @@
                        {:binding 3 :resource {:buffer groups-buffer}}]})))
 
 (defn- create-image-pipeline
+  "Device, output format, layout, color mode → render pipeline.
+
+   Declares 52-byte instance layout and matching blend/shader mode."
   [^js device fformat bind-layout scene-color]
   (let [vertex-module (.createShaderModule device
                                           (clj->js {:code image-vertex-shader}))
@@ -169,7 +192,12 @@
                              :blend (device/scene-color-blend scene-color)}]}
        :primitive {:topology "triangle-list"}}))))
 
-(defn- create-image-mip-system [^js device scene-color]
+(defn- create-image-mip-system
+  "Device and color mode → mip pipeline/sampler/layout/format.
+
+   Selects sRGB views for linear mode and unorm for legacy. Visual
+   correctness requires color fixtures."
+  [^js device scene-color]
   (let [mip-format (if (:enabled? scene-color)
                      "rgba8unorm-srgb"
                      "rgba8unorm")
@@ -210,6 +238,11 @@
      :format mip-format}))
 
 (defn- generate-image-mips!
+  "Device, mip system, texture, level count → nil/queue submit result;
+   encodes lower levels.
+
+   One render pass per level, one submission. Regenerates the requested
+   whole chain."
   [^js device mip-system ^js texture mip-level-count]
   (when (> mip-level-count 1)
     (let [encoder (.createCommandEncoder device)]
@@ -244,6 +277,10 @@
       (.submit (.-queue device) #js [(.finish encoder)]))))
 
 (defn- image-texture
+  "Device, size, mip count → RGBA8 texture with sRGB-compatible view format.
+
+   Shared texture allocation shape. No image-specific budget/cap admission
+   here."
   [^js device width height mip-level-count]
   (.createTexture
    device
@@ -255,13 +292,22 @@
                             js/GPUTextureUsage.COPY_DST
                             js/GPUTextureUsage.RENDER_ATTACHMENT)})))
 
-(defn- image-view [^js texture scene-color]
+(defn- image-view
+  "Texture and color mode → selected sRGB or unorm view.
+
+   Texture view format selects hardware color decoding."
+  [^js texture scene-color]
   (.createView texture
                (clj->js {:format (if (:enabled? scene-color)
                                    "rgba8unorm-srgb"
                                    "rgba8unorm")})))
 
-(defn- padded-image-canvas [^js bitmap padding]
+(defn- padded-image-canvas
+  "Bitmap and padding → canvas with extruded edge/corner texels.
+
+   Nine source draws including interior. Intended for the declared atlas
+   gutter."
+  [^js bitmap padding]
   (let [width (.-width bitmap)
         height (.-height bitmap)
         canvas (js/OffscreenCanvas. (+ width (* 2 padding))
@@ -286,7 +332,12 @@
                 (+ padding width) (+ padding height) padding padding)
     canvas))
 
-(defn- bytes->sha256 [bytes]
+(defn- bytes->sha256
+  "Byte buffer → promise of lowercase digest.
+
+   Browser cryptographic digest then hex encoding. Independently computes
+   content identity."
+  [bytes]
   (-> (.digest (.-subtle js/crypto) "SHA-256" bytes)
       (.then (fn [digest]
                (apply str
@@ -295,9 +346,12 @@
                            (array-seq (js/Uint8Array. digest))))))))
 
 (defn- normalize-image-alpha!
-  "Return a bitmap whose RGB is straight.  PNG decode already yields straight
-   bytes for :straight/:opaque sources.  A source explicitly tagged
-   :premultiplied is unassociated exactly once before texture upload."
+  "Source tag and bitmap → promise of straight-RGB bitmap; may close
+   original.
+
+   Premultiplied-tag path reads pixels, divides RGB by alpha, creates
+   replacement bitmap. Relies on source-tag/decode semantics; browser
+   color/alpha behavior depends on decode semantics."
   [source ^js bitmap]
   (if-not (= :premultiplied (:image/alpha-association source))
     (js/Promise.resolve bitmap)
@@ -329,9 +383,12 @@
                                         :premultiplyAlpha "none"}))))
 
 (defn init-image-system
-  "Own the image pipeline, digest registry, atlas/dedicated resources, and the
-   one shared 13-word instance pool.  Product activation remains staged; the
-  harness creates this system directly."
+  "Device, format, shared buffers, capacity/color options → initialized
+   owner.
+
+   Creates pipeline, placeholder, atlas, mip generator and one instance
+   pool. Custom zero capacity inherits the shared pool's growth
+   precondition."
   [^js device fformat camera-buffer groups-buffer
    & {:keys [initial-capacity scene-color]
       :or {initial-capacity 256
@@ -403,7 +460,11 @@
          :!residency-rev (atom 0)}]
     image-system))
 
-(defn- placeholder-residency [image-system status reason]
+(defn- placeholder-residency
+  "System, status, reason → status plus placeholder binding/UV record.
+
+   Reuses one visible fallback."
+  [image-system status reason]
   (let [placeholder (:placeholder image-system)]
     {:status status
      :reason reason
@@ -411,7 +472,11 @@
                :group (:bind-group placeholder)}
      :uv (:uv placeholder)}))
 
-(defn- resource-residency [resource]
+(defn- resource-residency
+  "Uploaded resource → normalized successful residency record.
+
+   Moves binding fields into one binding map."
+  [resource]
   (-> resource
       (assoc :status :ok
              :reason nil
@@ -419,18 +484,30 @@
                        :group (:bind-group resource)})
       (dissoc :binding-key :bind-group)))
 
-(defn- set-residency! [image-system digest residency]
+(defn- set-residency!
+  "System, digest, record → same record; stores and bumps revision.
+
+   Explicit invalidation token. Increments even for equal records."
+  [image-system digest residency]
   (swap! (:!resources image-system) assoc digest residency)
   (swap! (:!residency-rev image-system) inc)
   residency)
 
-(defn- ensure-residency! [image-system digest]
+(defn- ensure-residency!
+  "System and digest → existing or newly recorded unavailable placeholder.
+
+   Synchronous lookup/initialization. No promise/decode work here."
+  [image-system digest]
   (or (get @(:!resources image-system) digest)
       (set-residency! image-system digest
                       (placeholder-residency image-system :unavailable
                                              :unresolvable-digest))))
 
 (defn- copy-image-to-atlas!
+  "System, bitmap, placement → mip-generation result; uploads padded pixels.
+
+   Copies gutter rectangle then regenerates atlas mips. Every insertion
+   regenerates the atlas chain, not only the changed region."
   [image-system ^js bitmap {:keys [x y padding width height]}]
   (let [^js device (:device image-system)
         ^js texture (:texture @(:!atlas-resource image-system))
@@ -446,6 +523,10 @@
                           (:mip-level-count image-component/atlas-config))))
 
 (defn- create-dedicated-image-resource!
+  "System, digest, bitmap → texture/binding/mip/size record.
+
+   Uploads dedicated texture and generates complete mip chain. Intended for
+   overflow/large images; no eviction policy here."
   [image-system digest ^js bitmap]
   (let [^js device (:device image-system)
         width (.-width bitmap)
@@ -470,9 +551,15 @@
      :width width :height height :mip-level-count mip-level-count}))
 
 (defn register-image-source!
-  "Verify, decode, upload, and register one digest-addressed image source.
-   The returned Promise resolves to an explicit status value.  No decode or
-   Promise work is reachable from the frame producer."
+  "System, source, bytes → promise of :ok or :rejected status; updates
+   registry/residency/GPU resources.
+
+   Serial promise chain with digest/dimension checks and fallback on error.
+   Current limitation: repeated successful registration has no
+   successful-residency early return; duplicate atlas placement can switch
+   to dedicated, and replacing an existing dedicated resource has no
+   destruction at that replacement site. Extent requires a
+   repeated-registration resource probe."
   [image-system source bytes]
   (let [digest (:image/digest source)]
     (-> (js/Promise.resolve nil)
@@ -550,16 +637,24 @@
                 (placeholder-residency image-system :rejected reason)))
              {:status :rejected :digest digest :reason reason}))))))
 
-(defn- destroy-dedicated-resources! [image-system]
+(defn- destroy-dedicated-resources!
+  "System → nil; destroys dedicated textures currently in residency map.
+
+   Walks owned resources by tier. Cannot destroy resources no longer
+   referenced there."
+  [image-system]
   (doseq [[_ resource] @(:!resources image-system)
           :when (= :dedicated (:tier resource))]
     (when-let [texture (:texture resource)]
       (.destroy ^js texture))))
 
 (defn rebuild-image-resources!
-  "Reconstruct every device-owned image resource on a freshly initialized
-   replacement system.  No pipeline, atlas, placeholder, pool buffer, or
-   bind-group from the lost device is reused."
+  "Lost and freshly initialized replacement systems → promise of
+   replacement/report.
+
+   Re-registers retained bytes, carries failed statuses and reports handle
+   freshness. Sorted registration launch order does not itself guarantee
+   asynchronous decode completion/atlas insertion order."
   [lost-system replacement-system]
   (let [sources (sort-by #(get-in % [:source :image/digest])
                          (vals @(:!source-bytes lost-system)))
@@ -597,7 +692,13 @@
                                     (array-seq rebuilt)))
             :resources-fresh? resources-fresh?})))))
 
-(defn destroy-image-system! [image-system]
+(defn destroy-image-system!
+  "System → true; destroys textures/pool buffer and clears live
+   residency/prepared state.
+
+   Explicit teardown. Retained source bytes/registry remain for
+   reconstruction; this is not complete CPU-memory clearing."
+  [image-system]
   (destroy-dedicated-resources! image-system)
   (doseq [texture [(get-in image-system [:placeholder :texture])
                    (:texture @(:!atlas-resource image-system))]]
@@ -613,7 +714,11 @@
   (reset! (:!last-frame-key image-system) ::never)
   true)
 
-(defn- inset-resource-uv [resource-uv crop-uv]
+(defn- inset-resource-uv
+  "Resource UV rectangle and crop UV → composed UV rectangle.
+
+   Affine remapping in UV space."
+  [resource-uv crop-uv]
   (let [[resource-u0 resource-v0 resource-u1 resource-v1] resource-uv
         [crop-u0 crop-v0 crop-u1 crop-v1] crop-uv
         du (- resource-u1 resource-u0)
@@ -623,7 +728,13 @@
      (+ resource-u0 (* crop-u1 du))
      (+ resource-v0 (* crop-v1 dv))]))
 
-(defn- resolve-image-draw-item [image-system world-transforms image-draw-item]
+(defn- resolve-image-draw-item
+  "System, transforms, item → item stamped with compact index,
+   residency/binding and UVs.
+
+   Looks up source residency, normalizes crop, composes UVs; placeholder
+   uses full UVs. Trusts component/source metadata agreement."
+  [image-system world-transforms image-draw-item]
   (let [component (:image/component image-draw-item)
         digest (:image/source-digest component)
         residency (ensure-residency! image-system digest)
@@ -644,8 +755,12 @@
              (:uv residency)))))
 
 (defn prepare-image-frame!
-  "Write the image pool only when a component/group key or residency
-   revision changes."
+  "System, ordered items, transforms → changed/write/instance statistics;
+   may update instance pool.
+
+   Ensures placeholder records, checks frame key, resolves and syncs rows.
+   Compact-index reassignment alone does not alter the key; reported writes
+   inherit the pool's shrink-count semantics."
   [image-system draw-items world-transforms]
   (let [draw-items (or draw-items [])]
     (doseq [draw-item draw-items]
@@ -665,8 +780,10 @@
            :instances (count prepared)})))))
 
 (defn image-draw-runs
-  "Binding runs over one contiguous slice of the prepared image draw-items, in draw-item
-   order; no texture grouping may reorder the stamped draw-item stream."
+  "System, prepared offset/count → ordered GPU draw records.
+
+   Slices prepared items and merges adjacent equal bindings. Out-of-range
+   slices throw rather than silently truncate."
   [image-system offset instance-count]
   (let [prepared @(:!prepared image-system)
         buffer-index-items (subvec prepared offset (+ offset instance-count))
@@ -679,7 +796,10 @@
           (image-component/contiguous-binding-runs buffer-index-items))))
 
 (defn draw-image-runs!
-  "Family-owned sub-draw walker over one prepared image slice."
+  "Open pass, system, slice → encoded six-vertex instance draws.
+
+   Walks run order and binds each texture. Preserves ordering; caller
+   controls clipping and pass lifetime."
   [^js pass image-system offset instance-count]
   (.setPipeline pass (:pipeline image-system))
   (doseq [{:keys [bind-group buffer instance-count first-instance]}

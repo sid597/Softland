@@ -1,8 +1,13 @@
 (ns app.client.harness.text
-     "Browser evidence for the text renderer and shaped layout.
-      Takes: WebGPU device state and loaded font assets.
-      Gives: text harness result maps.
-      Holds nothing."
+     "Compare text packing and GPU coverage with controlled references.
+
+      Input: device, shared buffers and loaded Slug/font resources. Output:
+      zoom goldens, decoded-curve parity, fallback-face evidence and
+      group/layout checks. Temporary render targets/readback buffers belong
+      to individual captures. Renderer systems and their font bindings are
+      retained through the run.
+
+      Folder map: README.md."
      (:require [clojure.string :as str]
                [app.client.engine.device :as device]
                [app.client.engine.transform :as transform]
@@ -17,6 +22,11 @@
         shader-digests w4-read-texture!]]))
 
 (defn- render-system-bytes!
+  "Device, text system and zoom → promise of 128×128 RGBA; updates camera
+   and submits draw/copy.
+
+   Offscreen render/readback with normal-path temporary cleanup. Intended
+   for a controlled text capture."
   [^js device system zoom]
   (let [row-bytes (* canvas-size 4) ; 512, already WebGPU's required 256 alignment
         texture (.createTexture device
@@ -64,7 +74,13 @@
              (.destroy texture)
              copy))))))
 
-(defn- render-pair! [device system zoom]
+(defn- render-pair!
+  "Device, text system and zoom → promise of first bytes, two hashes and
+   equality.
+
+   Two sequential renders. Intended for within-run repeatability, not
+   cross-machine stability."
+  [device system zoom]
   (-> (render-system-bytes! device system zoom)
       (.then
        (fn [first-bytes]
@@ -81,18 +97,27 @@
                         :second-sha256 (aget hashes 1)
                         :byte-identical? (= (aget hashes 0) (aget hashes 1))}))))))))))
 
-(defn- pixel-red [^js rgba x y]
+(defn- pixel-red
+  "RGBA bytes and pixel position → red channel.
+
+   Fixed-canvas indexing. Intended for the local coverage convention."
+  [^js rgba x y]
   (aget rgba (* 4 (+ x (* y canvas-size)))))
 
-(defn- quadratic-point [[[x1 y1] [x2 y2] [x3 y3]] t]
+(defn- quadratic-point
+  "Three control points and t → Bézier point.
+
+   Bernstein interpolation."
+  [[[x1 y1] [x2 y2] [x3 y3]] t]
   (let [u (- 1.0 t)]
     [(+ (* u u x1) (* 2.0 u t x2) (* t t x3))
      (+ (* u u y1) (* 2.0 u t y2) (* t t y3))]))
 
 (defn- point-in-curves?
-  "Even-odd point-in-path over the actual half-float Slug curve asset. Curves
-   are flattened only for this independent CPU reader; GPU coverage continues
-   to use the live quadratic evaluator."
+  "Curves and point → even/odd inclusion.
+
+   Flattens each quadratic into 48 segments and ray-crosses. Bounded
+   approximation may differ near curved boundaries."
   [curves px py]
   (odd?
    (reduce
@@ -115,9 +140,11 @@
     curves)))
 
 (defn- instance-path-probe
-  "Build the CPU inverse from the exact shaped quad and glyph bounds used by
-   the selected production backend. This deliberately records, rather than
-   assumes, the bearing/plane transform at the comparison boundary."
+  "Packed instance, zoom and decoded curves → screen-to-curve mapping and
+   inside predicate.
+
+   Derives the inverse from the actual packed quad. Compares against
+   uploaded placement rather than a separate guessed layout."
   [curves instance bounds zoom source]
   (let [[rx ry rw rh] (:rect instance)
         left (:left bounds)
@@ -139,7 +166,14 @@
                :zoom zoom
                :mapping "screen->world->shaped-quad->glyph-path"}}))
 
-(defn- parity-evidence [mode rgba inside? cpu-inverse]
+(defn- parity-evidence
+  "Mode, pixels, inside predicate and inverse description → boundary
+   decisions/mismatch report.
+
+   Red-channel boundary samples and a half-coverage decision. Current
+   limitation: a zero-boundary result can satisfy zero mismatches, unlike
+   the image check's explicit nonempty guard."
+  [mode rgba inside? cpu-inverse]
   (let [boundary (boundary-pixels rgba)
         rows (mapv (fn [[x y coverage]]
                      (let [sx (+ x 0.5)
@@ -182,20 +216,36 @@
      :first-boundary-ties (subvec ties 0 (min 24 (count ties)))
      :first-mismatches (subvec mismatches 0 (min 24 (count mismatches)))}))
 
-(defn- read-u16 [^js view byte-offset]
+(defn- read-u16
+  "Byte array and offset → little-endian unsigned word.
+
+   Direct two-byte decode. Assumes valid bounds."
+  [^js view byte-offset]
   (.getUint16 view byte-offset true))
 
-(defn- band-entry [^js view width x y]
+(defn- band-entry
+  "Band texture data and x/y → two unsigned words.
+
+   Converts texel address into byte offsets. Intended for this asset format."
+  [^js view width x y]
   (let [offset (* 4 (+ x (* y width)))]
     [(read-u16 view offset) (read-u16 view (+ offset 2))]))
 
-(defn- band-entry-at-offset [view width origin-x origin-y offset]
+(defn- band-entry-at-offset
+  "Band texture coordinates plus linear offset → entry.
+
+   Wraps into texture rows before decoding."
+  [view width origin-x origin-y offset]
   (let [linear (+ origin-x offset)
         x (mod linear width)
         y (+ origin-y (js/Math.floor (/ linear width)))]
     (band-entry view width x y)))
 
-(defn- half->float [bits]
+(defn- half->float
+  "Half-float bits → numeric value, including subnormal/infinity/NaN cases.
+
+   Explicit IEEE-754 decode. Intended for CPU curve inspection."
+  [bits]
   (let [sign (if (zero? (bit-and bits 0x8000)) 1.0 -1.0)
         exponent (bit-and (unsigned-bit-shift-right bits 10) 0x1f)
         fraction (bit-and bits 0x03ff)]
@@ -210,14 +260,24 @@
       (* sign (js/Math.pow 2.0 (- exponent 15.0))
          (+ 1.0 (/ fraction 1024.0))))))
 
-(defn- curve-texel [^js view width x y]
+(defn- curve-texel
+  "Curve texture and coordinates → four decoded components.
+
+   Four half-float reads."
+  [^js view width x y]
   (let [offset (* 8 (+ x (* y width)))]
     [(half->float (read-u16 view offset))
      (half->float (read-u16 view (+ offset 2)))
      (half->float (read-u16 view (+ offset 4)))
      (half->float (read-u16 view (+ offset 6)))]))
 
-(defn- decode-glyph-curves [slug-assets unicode]
+(defn- decode-glyph-curves
+  "Slug assets and Unicode codepoint → unique, ordered quadratic
+   control-point vectors.
+
+   Follows glyph bands to curve references, deduplicates then decodes.
+   References real asset geometry; tightly coupled to its packing format."
+  [slug-assets unicode]
   (let [meta (get-in slug-assets [:slug :meta])
         glyph (first (filter #(= unicode (:unicode %)) (:glyphs meta)))
         band-width (get-in meta [:bandTexture :width])
@@ -242,7 +302,12 @@
               [[p1x p1y] [p2x p2y] [p3x p3y]]))
           (sort-by (juxt second first) @!locations))))
 
-(defn- glyph-lines [zoom]
+(defn- glyph-lines
+  "Zoom → fixture lines for two “o” glyphs at constant screen size.
+
+   Inverse-scales world size/position. Intended for the chosen
+   normalization."
+  [zoom]
   [[{:text "oo"
      :x (/ glyph-screen-x zoom)
      :y (/ glyph-screen-baseline zoom)
@@ -250,13 +315,20 @@
      :r 1.0 :g 1.0 :b 1.0 :a 1.0
      :container 0}]])
 
-(defn- text-world-transforms []
+(defn- text-world-transforms
+  "No arguments → root/child-17 transform rows.
+
+   Shared transform registry derivation. Intended for compact-index
+   coverage."
+  []
   (-> (transform/empty-registry)
       (transform/add-group 17 {:parent 0
                                    :affine [0.5 0.0 0.0 0.5 40.0 20.0]})
       (transform/world-transforms)))
 
-(defn- image-record [mode case-id pair]
+(defn- image-record
+  "Mode, zoom and render pair → preview/hash/determinism record."
+  [mode case-id pair]
   {:mode mode
    :file (str "gpu-" mode "-" case-id ".png")
    :raw-sha256 (:first-sha256 pair)
@@ -266,6 +338,12 @@
                  :byte-identical? (:byte-identical? pair)}})
 
 (defn- run-case!
+  "Text system/assets/provider, decoded curves and zoom → promise of glyph
+   golden and parity evidence.
+
+   Packs “oo”, checks DejaVu/no unresolved glyphs, updates renderer, renders
+   twice and compares coverage. Intended for this glyph/provider/zoom slice;
+   not broad language coverage."
   [{:keys [device slug-system slug-assets curves world-transforms]}
    {:keys [case-id zoom lod]}]
   (let [lines (glyph-lines zoom)
@@ -321,6 +399,11 @@
                                (:evidence slug-probe))]})))))
 
 (defn- run-ubuntu-mixed-case!
+  "System and Ubuntu provider → promise of mixed-face “Aɐ” evidence.
+
+   Requires Ubuntu plus Noto fallback, lays out/packs/renders twice. Its
+   literal :pass true follows face validation; byte equality is recorded
+   separately rather than included in that field."
   [device ubuntu-system ubuntu-assets world-transforms]
   (let [text "Aɐ"
         font-size 56.0
@@ -362,7 +445,14 @@
               :normalization "component-fixed"
               :shape-extent-world font-size
               :images [(image-record "slug" "ubuntu-mixed-face" pair)]}]})))))
-(defn t1-layout-evidence [provider]
+(defn t1-layout-evidence
+  "Font provider → shared-layout/RTL/fallback/variable-axis evidence or
+   exception.
+
+   Drives measure, wrap, paint, caret, selection, clip and hit paths and
+   compares layout IDs. Current limitation: stale top-level cluster/run
+   readers do not match the current layout shape."
+  [provider]
   (let [text "AV office e\u0301\tسلام\nɐ"
         result (tl/layout {:text text :provider provider
                            :font-size 19 :line-height 24
@@ -412,12 +502,22 @@
     (when-not pass?
       (throw (ex-info "T1 browser layout evidence failed." evidence)))
     (assoc evidence :pass true)))
-(defn- packed-buffer-indexes [packed]
+(defn- packed-buffer-indexes
+  "Packed instances → unsigned group index from each 25-word row.
+
+   Reads slot 24 through uint view. Intended for verifying the actual
+   transport representation."
+  [packed]
   (let [words (js/Uint32Array. (:raw-buffer packed))]
     (mapv #(aget words (+ (* % 25) 24))
           (range (:num-instances packed)))))
 
-(defn- group-rejected? [ubuntu-assets world-transforms text-draw-item]
+(defn- group-rejected?
+  "Draw inputs/provider → whether packing rejects group resolution.
+
+   Executes the pack path and catches its error. A boolean loses exact
+   failure provenance."
+  [ubuntu-assets world-transforms text-draw-item]
   (try
     (text-renderer/pack-instances-flat
      [[text-draw-item]]
@@ -428,6 +528,12 @@
       (= :transform/unknown-group (:error-type (ex-data error))))))
 
 (defn- run-group-tree-case!
+  "System/provider/transforms → promise of carried-layout and
+   fallback-layout group evidence.
+
+   Checks child index 1, missing/unknown rejection, zero carried-layout
+   fallbacks and two uncarried fallbacks, plus repeated render. Intended for
+   the intended transport boundary."
   [device ubuntu-system ubuntu-assets world-transforms]
   (let [text "Aɐ"
         font-size 56.0
@@ -489,6 +595,11 @@
 
 
 (defn run-text-slug!
+  "Device/shared buffers and font assets/providers → promise of all text
+   cases.
+
+   Creates three systems; sequences zoom cases and joins independent Ubuntu
+   checks. System teardown is absent at the end of this driver."
   [device camera-buffer groups-buffer slug-assets t1-assets]
   (js/console.log "[W0-A] init-font-assets")
   (let [world-transforms (text-world-transforms)

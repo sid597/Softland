@@ -1,23 +1,42 @@
 (ns app.client.text.fonts
-  "Font manifest and font asset loading: reads the manifest, then loads a
-   font's Slug curve and band data and its shaping sources.
-   Takes: nothing (the manifest url), or one font config from the manifest.
-   Gives: a promise of font assets, including the layout provider.
-  Holds nothing."
+  "Assemble shaping and outline assets from a font configuration.
+
+   Input: /fonts/manifest.json or a selected config. Output: promises of
+   manifest/config/assets, including a synchronous layout provider and
+   optional complete Slug metadata/curve/band bundle. No persistent state in
+   this file. It delegates provider loading to the shaper and joins
+   independent asset requests.
+
+   Folder map: README.md."
   (:require [app.client.text.shaper :as text-shaper]))
 
 (def ^:private base-path "/fonts/")
 
-(defn load-font-manifest-async []
-  "Load the font manifest from the fonts directory."
+(defn load-font-manifest-async
+  "No caller input; fetches /fonts/manifest.json → promise of keywordized
+   manifest data.
+
+   Decodes JSON without the HTTP status check or retry used by the asset
+   helpers."
+  []
   (-> (js/fetch (str base-path "manifest.json"))
       (.then #(.json %))
       (.then #(js->clj % :keywordize-keys true))))
 
-(defn available-fonts [manifest]
+(defn available-fonts
+  "Manifest → font configs not explicitly unavailable.
+
+   Filters only :available false."
+  [manifest]
   (filterv #(not (false? (:available %))) (:fonts manifest)))
 
-(defn resolve-default-font-config [manifest]
+(defn resolve-default-font-config
+  "Manifest → first available default, first available font, or hardcoded
+   fallback config.
+
+   Explicit fallback order. Fallback config has no asset filenames, so
+   selection alone does not ensure usable assets."
+  [manifest]
   (let [fonts (available-fonts manifest)]
     (or (first (filter :default fonts))
         (first fonts)
@@ -25,9 +44,10 @@
          :id "dejavu-sans-mono"})))
 
 (defn- with-retry
-  "Run thunk (→ promise) with up to 4 attempts and linear backoff. Mobile
-   networks drop parallel asset fetches wholesale; one failure must not
-   kill the boot."
+  "Label, promise thunk, optional attempt → promise.
+
+   Up to four attempts, delays 600/1200/1800 ms, logs failures. Intended for
+   asynchronous rejection; synchronous thunk throws are outside .catch."
   ([label thunk] (with-retry label thunk 1))
   ([label thunk attempt]
    (-> (thunk)
@@ -43,31 +63,51 @@
                            delay-ms))))
                    (throw e)))))))
 
-(defn- fetch-ok [url]
+(defn- fetch-ok
+  "URL → promise of successful response; non-OK throws.
+
+   Checks status before body reading."
+  [url]
   (-> (js/fetch url)
       (.then (fn [response]
                (when-not (.-ok response)
                  (throw (js/Error. (str "HTTP " (.-status response) " " url))))
                response))))
 
-(defn- fetch-json [url]
+(defn- fetch-json
+  "URL → retried promise of keywordized JSON.
+
+   Composes status/body/retry."
+  [url]
   (with-retry url
     #(-> (fetch-ok url)
          (.then (fn [r] (.json r)))
          (.then (fn [j] (js->clj j :keywordize-keys true))))))
 
-(defn- fetch-bytes [url]
+(defn- fetch-bytes
+  "URL → retried ArrayBuffer promise.
+
+   Checks HTTP success and reads the body through with-retry."
+  [url]
   (with-retry url
     #(-> (fetch-ok url) (.then (fn [r] (.arrayBuffer r))))))
 
-(defn- shaper-source [font-config]
+(defn- shaper-source
+  "Font config → primary ID/revision/URL/variations or nil.
+
+   Converts asset metadata to shaper vocabulary."
+  [font-config]
   (when-let [font-file (:font font-config)]
     {:id (:id font-config)
      :revision (or (:faceRevision font-config) font-file)
      :url (str base-path font-file)
      :variations (or (:variations font-config) {})}))
 
-(defn- shaper-sources [font-config]
+(defn- shaper-sources
+  "Config → ordered primary/fallback source vector.
+
+   Preserves fallback order. Calls primary conversion twice when present."
+  [font-config]
   (into (cond-> []
           (shaper-source font-config) (conj (shaper-source font-config)))
         (map (fn [fallback]
@@ -78,7 +118,11 @@
         (:fallbacks font-config)))
 
 (defn load-font-assets
-  "Load the Slug and shared shaping assets for a font config."
+  "Config → promise of Slug bundle and layout provider.
+
+   Parallel fetches plus positional result decoding. Partial Slug
+   configuration resolves with :slug nil rather than rejecting incomplete
+   rendering assets here."
   [font-config]
   (let [slug-config (:slug font-config)
         slug-promises (cond-> []
@@ -127,7 +171,12 @@
                         :curve-bytes slug-curve
                         :band-bytes slug-band})}))))))
 
-(defn load-default-font-data-async []
+(defn load-default-font-data-async
+  "No caller input → promise of manifest/config/assets; failure
+   logged/rethrown.
+
+   Selects then loads default. Intended for one boot operation."
+  []
   (-> (load-font-manifest-async)
       (.then
         (fn [manifest]

@@ -1,18 +1,22 @@
 (ns app.client.engine.device
-  "The GPU pieces every entity kind shares: the camera and group buffers,
-   render targets, the clear quad, the shared color-mode shader text, and clip-
-   rect projection.
-   Takes: a WebGPU device; camera pan, zoom, and viewport size; the group-id
-   table; a group-local clip rect.
-   Gives: GPU buffers, textures, and render targets the renderers draw into; a
-   scissor or mask for a clip.
-  Holds nothing."
+  "Encode shared transforms, camera, and color for GPU use.
+
+   Input: an already-acquired WebGPU device, camera values, composed groups,
+   and color configuration. Output: buffers, uploaded bytes, shader text, or
+   blend descriptors. Resource lifetime belongs to the caller. It does not
+   acquire the browser device or project clips.
+
+   Folder map: README.md."
   (:require [clojure.string :as str]
             [app.client.engine.color :as scene-color]))
 
 (def ^:private scene-color-mode-declaration
   "const kSceneColorLinearPremultiplied: bool = false;")
 
+;; srgb_channel_to_linear(v) returns a linear scalar using the shared
+;; transfer constants. scene_color(straight, coverage) applies coverage once
+;; and returns either legacy straight RGBA or linear premultiplied RGBA,
+;; selected by a compile-time mode constant.
 (def scene-color-wgsl
   (str scene-color-mode-declaration "\n"
        "const kSrgbEncodedCutoff: f32 = " scene-color/srgb-encoded-cutoff ";\n"
@@ -35,13 +39,23 @@
        "  return vec4<f32>(linear * alpha, alpha);\n"
        "}\n"))
 
-(defn configure-scene-color-shader [shader color]
+(defn configure-scene-color-shader
+  "Shader string, color config → configured shader string.
+
+   Replaces one literal declaration when enabled. Simple and local, but
+   depends on exact template text."
+  [shader color]
   (if (:enabled? color)
     (str/replace shader scene-color-mode-declaration
                  "const kSceneColorLinearPremultiplied: bool = true;")
     shader))
 
-(defn scene-color-blend [color]
+(defn scene-color-blend
+  "Color config → WebGPU color/alpha blend descriptor.
+
+   Converts keyword factors to strings. Keeps pipeline blend and declared
+   mode aligned."
+  [color]
   (let [{[color-src color-dst] :color
          [alpha-src alpha-dst] :alpha} (:blend color)]
     {:color {:srcFactor (name color-src) :dstFactor (name color-dst)}
@@ -59,8 +73,9 @@
 (def max-transform-nodes 16384)
 
 (defn create-groups-buffer
-  "Create the shared affine storage buffer and write identity buffer index 0.
-   Shared across all four transform-consuming pipelines like the camera."
+  "Device → storage buffer; allocates and uploads identity row.
+
+   Fixed-capacity shared affine table. No growth here."
   [^js/GPUDevice device]
   (let [size (* max-transform-nodes affine-entry-bytes)
         buffer (.createBuffer device (clj->js {:size size
@@ -71,9 +86,13 @@
     buffer))
 
 (defn write-groups!
-  "Upload transform/world-transforms through compact :buffer-index values. Sparse
-   semantic group ids never allocate holes. Returns machine stats used by the
-   1,024/4,096/16,384 capacity harness."
+  "Device, buffer, world-transform map → upload statistics; writes packed
+   rows.
+
+   Validates unique/present indexes and cap, fills holes with identity,
+   writes floats/flags through shared storage. Whole-prefix upload every
+   call; hand-built indexes are not explicitly checked for nonnegative
+   integer shape."
   [^js/GPUDevice device ^js groups-buffer world-transforms]
   (let [entries (vals world-transforms)
         buffer-indexes (map :buffer-index entries)
@@ -118,13 +137,22 @@
      :capacity max-transform-nodes}))
 
 (defn create-camera-buffer
+  "Device → 24-byte uniform buffer.
+
+   Direct allocation. Caller owns destruction."
   [^js/GPUDevice device]
   (let [camera-buffer (.createBuffer device (clj->js {:size 24
                                                       :usage (bit-or js/GPUBufferUsage.UNIFORM
                                                                      js/GPUBufferUsage.COPY_DST)}))]
     camera-buffer))
 
-(defn update-camera [^js device camera-buffer ^js floats pan-x pan-y zoom w h]
+(defn update-camera
+  "Device, camera buffer, reusable float array, pan/zoom/viewport → queue
+   write result; mutates array and GPU buffer.
+
+   Packs six floats in place. Avoids allocating a new array when caller
+   reuses it."
+  [^js device camera-buffer ^js floats pan-x pan-y zoom w h]
   (aset floats 0 pan-x)
   (aset floats 1 pan-y)
   (aset floats 2 zoom)

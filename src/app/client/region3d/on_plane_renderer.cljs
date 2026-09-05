@@ -1,11 +1,16 @@
 (ns app.client.region3d.on-plane-renderer
-  "The on-plane renderer: packs and draws ink placed inside a 3D region.
-   Takes: the region system, a region's GPU state, placements, the maintained
-   scene, a camera, and a path cache; a render pass and a region uniform to
-   draw.
-   Gives: the caller's path cache plus packed rows in a flat vertex buffer; ink
-   draw calls.
-   Holds: GPU pipelines and per-region packing caches."
+  "Pack and render placed ink.
+
+   Input: resolved placements, maintained matrices, camera, prior per-region
+   GPU state and path cache. Output: updated packing state/cache, status
+   counts and flat ink draws. It owns one flat vertex buffer per region;
+   each vertex repeats local XY, a model matrix and linear premultiplied
+   color (88 bytes).
+
+   Resolved ink is the supported GPU placement kind. Resolved text and other
+   kinds receive :unsupported-kind.
+
+   Folder map: README.md."
   (:require [app.client.engine.limits :as limits]
             [app.client.region3d.on-plane :as on-plane]
             [app.client.region3d.scene :as scene]))
@@ -15,6 +20,9 @@
 (def placement-depth-bias -1)
 (def placement-depth-bias-slope-scale -1.0)
 
+;; vs(input) flips local Y and applies model/view projection; fs(input)
+;; returns already-converted color. Placement passes test depth without
+;; writing it and use a small surface bias.
 (def placed-flat-shader
   "struct Region {
      view_proj: mat4x4<f32>, eye: vec4<f32>, ambient: vec4<f32>,
@@ -41,17 +49,34 @@
      return input.color;
    }")
 
-(defn- shader-module [device code]
+(defn- shader-module
+  "Device/WGSL → shader module.
+
+   Direct adapter."
+  [device code]
   (.createShaderModule ^js device (clj->js {:code code})))
 
-(defn- blend-state []
+(defn- blend-state
+  "No input → premultiplied blend descriptor.
+
+   Fixed lane contract."
+  []
   {:color {:srcFactor "one" :dstFactor "one-minus-src-alpha"}
    :alpha {:srcFactor "one" :dstFactor "one-minus-src-alpha"}})
 
-(defn- pipeline-layout [device layouts]
+(defn- pipeline-layout
+  "Device/layout list → pipeline layout.
+
+   Direct adapter."
+  [device layouts]
   (.createPipelineLayout ^js device (clj->js {:bindGroupLayouts layouts})))
 
-(defn- create-pipelines! [device]
+(defn- create-pipelines!
+  "Device → flat pipeline and binding layout.
+
+   Fixed RGBA16F, 4× MSAA, depth-tested transparent geometry. Intended for
+   region interior target."
+  [device]
   (let [flat-module (shader-module device placed-flat-shader)
         flat-layout
         (.createBindGroupLayout
@@ -88,13 +113,23 @@
                    :depthStencil depth :multisample {:count 4}}))]
     {:flat-layout flat-layout :flat flat}))
 
-(defn- create-buffer! [system label size usage]
+(defn- create-buffer!
+  "System/label/bytes/usage → buffer row with capacity.
+
+   Allocates at least four bytes."
+  [system label size usage]
   (let [size (max 4 (int size))
         buffer (.createBuffer ^js (:device system)
                               (clj->js {:label label :size size :usage usage}))]
     {:buffer buffer :capacity size :label label}))
 
-(defn- ensure-buffer! [system current label required]
+(defn- ensure-buffer!
+  "System/current row/label/required bytes → retained or doubled replacement
+   row.
+
+   Geometric growth, destroys old allocation. Intended for initialized
+   positive-capacity rows."
+  [system current label required]
   (let [required (max 4 (int required))]
     (if (>= (:capacity current) required)
       current
@@ -109,19 +144,32 @@
         (.destroy ^js (:buffer current))
         {:buffer next :capacity capacity :label label}))))
 
-(defn- write-buffer! [system row values]
+(defn- write-buffer!
+  "System, row, numeric values → bytes uploaded; writes typed data if
+   nonempty.
+
+   Whole-prefix upload. Each call allocates a typed array."
+  [system row values]
   (let [data (js/Float32Array. (clj->js (vec values)))
         bytes (.-byteLength data)]
     (when (pos? bytes)
       (.writeBuffer (.-queue ^js (:device system)) (:buffer row) 0 data))
     bytes))
 
-(defn init-placement-system! [device]
+(defn init-placement-system!
+  "Device → pipeline owner.
+
+   Explicit constructor."
+  [device]
   {:placement-gpu/version placement-gpu-version
    :device device
    :pipelines (create-pipelines! device)})
 
-(defn create-region-gpu! [system region-id]
+(defn create-region-gpu!
+  "System and region ID → flat buffer and empty packing state.
+
+   Per-region state constructor."
+  [system region-id]
   (let [usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.VERTEX)]
     {:flat (create-buffer! system (str "region3d/" region-id "/placed-flat")
                            256 usage)
@@ -131,21 +179,41 @@
      :placements []
      :coverage-check {}}))
 
-(defn- column-major [matrix]
+(defn- column-major
+  "Row-major matrix → GPU column order.
+
+   Fixed permutation."
+  [matrix]
   (mapv #(nth matrix %) [0 4 8 12 1 5 9 13 2 6 10 14 3 7 11 15]))
 
-(defn- ink-pack [cache placed matrix]
+(defn- ink-pack
+  "Path cache, placement, matrix → updated cache and resolved vertex/color
+   pack.
+
+   Calls shared ink derivation."
+  [cache placed matrix]
   (let [{next-cache :cache pack :pack} (on-plane/pack-placed-ink cache placed)]
     {:cache next-cache
      :packed {:status :resolved :kind :ink :matrix matrix
               :vertices (:vertices pack) :color (:color pack)
               :vertex-count (count (:vertices pack))}}))
 
-(defn- placement-key [placed matrix]
+(defn- placement-key
+  "Placement and matrix → identity/kind/status/content-revision/matrix
+   tuple.
+
+   Separates geometry packing changes from camera. Trusts revision for
+   paint/content/style changes."
+  [placed matrix]
   [(:object-id placed) (:kind placed) (:status placed)
    (:content-revision placed) matrix])
 
-(defn- pack-one [cache old placed maintained]
+(defn- pack-one
+  "Cache, old row, placement, maintained scene → row/cache and packed? flag.
+
+   Reuses equal key, carries unresolved statuses, supports ink only.
+   Unsupported kinds are explicit data."
+  [cache old placed maintained]
   (let [matrix (get-in maintained [:world-transforms (:object-id placed)])
         key (placement-key placed matrix)]
     (cond
@@ -166,14 +234,24 @@
              :packed {:status :unsupported-kind :kind (:kind placed)
                       :matrix matrix}}})))
 
-(defn- device-ink-vertex-limit [system]
+(defn- device-ink-vertex-limit
+  "System → maximum vertices from maxBufferSize/88; missing limit throws.
+
+   Hardware-cap derivation. It is a buffer limit, not frame-time admission."
+  [system]
   (let [^js device (:device system)
         max-bytes (:max-buffer-size (limits/adapter-limits device))]
     (when-not max-bytes
       (throw (ex-info "WebGPU device has no maxBufferSize" {})))
     (long (/ max-bytes flat-vertex-stride))))
 
-(defn- enforce-region-limits [system rows]
+(defn- enforce-region-limits
+  "System and rows → deterministic rows with excess entries marked
+   over-limit.
+
+   Sorted cumulative admission. Clears vertices but retains vertex-count, so
+   aggregate reporting can still count rejected vertices."
+  [system rows]
   (loop [remaining (sort-by (comp pr-str :object-id :placed) rows)
          ink-vertices 0 result []]
     (if-let [row (first remaining)]
@@ -190,7 +268,14 @@
                (conj result row)))
       result)))
 
-(defn- build-uploads [rows maintained camera]
+(defn- build-uploads
+  "Rows, maintained state, camera → flat words, draws and placement
+   statuses.
+
+   Repeats matrix/color per vertex and records origin distance. Maintained
+   parameter is unused; large repeated matrices are a bandwidth/storage
+   choice."
+  [rows maintained camera]
   (reduce
    (fn [{:keys [flat] :as result} row]
      (let [{:keys [placed packed]} row
@@ -222,7 +307,12 @@
    {:flat [] :draws [] :placements []}
    rows))
 
-(defn- sort-draws [draws maintained camera]
+(defn- sort-draws
+  "Draws, maintained state, camera → back-to-front order with ID tie-break.
+
+   Sorts by object-origin Euclidean distance. Approximate transparency order
+   for intersecting/extended surfaces."
+  [draws maintained camera]
   (vec
    (sort-by
     (juxt (comp - :depth) (comp pr-str :object-id))
@@ -236,8 +326,13 @@
          draws))))
 
 (defn prepare-placements!
-  "Pack changed placements and upload only when the aggregate packing key
-   changes. Returns the caller-owned path cache value after ink derivation."
+  "System, previous GPU row, placements, scene, camera, path cache → updated
+   state/cache and counters.
+
+   Per-placement reuse, aggregate upload key, capacity growth and sorting on
+   pack change. Current limitation: a camera-only change does not change
+   pack key and retains old draw order. A camera-crossing transparency
+   fixture would determine the visual consequence."
   [system region-gpu placements maintained camera path-cache]
   (let [old-cache (:pack-cache region-gpu)
         packed
@@ -289,14 +384,24 @@
      :uploads uploads :ink-vertices ink-count
      :over-limit (get statuses :over-limit 0)}))
 
-(defn- flat-bind-group [system region-uniform]
+(defn- flat-bind-group
+  "System and region uniform row → bind group.
+
+   Direct binding."
+  [system region-uniform]
   (.createBindGroup
    ^js (:device system)
    (clj->js {:layout (get-in system [:pipelines :flat-layout])
              :entries [{:binding 0
                         :resource {:buffer (:buffer region-uniform)}}]})))
 
-(defn draw-placements! [pass system region-gpu region-uniform]
+(defn draw-placements!
+  "Open pass, system, region GPU row, uniform → draw count; encodes ink
+   draws.
+
+   Lazy one-time bind-group creation per call. Uses previously stored
+   ordering."
+  [pass system region-gpu region-uniform]
   (let [flat-bind (delay (flat-bind-group system region-uniform))
         draws (atom 0)]
     (doseq [{:keys [kind first count]} (:draw-order region-gpu)
@@ -311,11 +416,24 @@
         nil))
     @draws))
 
-(defn- destroy-buffer! [row]
+(defn- destroy-buffer!
+  "Buffer row → optional destruction result.
+
+   Nil-safe resource release."
+  [row]
   (when-let [buffer (:buffer row)]
     (.destroy ^js buffer)))
 
-(defn destroy-region-gpu! [region-gpu]
+(defn destroy-region-gpu!
+  "Region GPU row → destroys flat buffer.
+
+   Single owned allocation."
+  [region-gpu]
   (destroy-buffer! (:flat region-gpu)))
 
-(defn destroy-placement-system! [_system] true)
+(defn destroy-placement-system!
+  "System → true, without resource operations.
+
+   Current system contains pipeline/layout handles only. Serves as current
+   API behavior; name does not imply explicit pipeline destruction."
+  [_system] true)

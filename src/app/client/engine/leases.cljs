@@ -1,14 +1,22 @@
 (ns app.client.engine.leases
-  "Which offscreen regions are live: desired region rows reconciled to stable
-   buffer indexes and GPU leases, stamped by the compositor's identity.
-   Takes: an owner; desired region rows (id and size); a region id and a
-   physical lease to record; a compositor to attach.
-   Gives: the desired map, a region’s buffer index, its lease, frame stats.
-   Holds: one state atom per owner (device epoch, compositor, desired rows,
-   buffer indexes, leases)."
+  "Maintain logical region identity across physical allocations.
+
+   Input: desired region rows and compositor attachments. Output: stable
+   buffer indexes, current desired rows/leases, topology rows and
+   statistics. One owner atom holds logical identities, device epoch,
+   free/pending index sets, and references to physical leases. It does not
+   allocate textures. Closed indexes become reusable after submitted GPU
+   work completes; compositor replacement increments an epoch and resets
+   physical associations.
+
+   Folder map: README.md."
   (:require [clojure.set :as set]))
 
-(defn create-owner [device]
+(defn create-owner
+  "Device → owner with fresh state atom.
+
+   Explicit state container."
+  [device]
   {:device device
    :!state
    (atom {:device-epoch 0
@@ -22,16 +30,30 @@
           :stats {:epoch-bumps 0 :buffer-index-allocations 0 :buffer-index-releases 0
                     :desired-updates 0}})})
 
-(defn- take-buffer-index [state]
+(defn- take-buffer-index
+  "State → [new-state index].
+
+   Smallest free index or next integer."
+  [state]
   (if-let [buffer-index (first (:free-buffer-indexes state))]
     [(update state :free-buffer-indexes disj buffer-index) buffer-index]
     [(update state :next-buffer-index inc) (:next-buffer-index state)]))
 
-(defn- lease-key [{:keys [region/id lease-size]}]
+(defn- lease-key
+  "Desired row → [region-id width height] or nil.
+
+   Requires ID and size. Malformed desired rows are not otherwise rejected
+   here."
+  [{:keys [region/id lease-size]}]
   (when (and id lease-size)
     (into [id] lease-size)))
 
-(defn- free-retired-buffer-index! [owner region-id epoch buffer-index]
+(defn- free-retired-buffer-index!
+  "Owner, region ID, epoch, index → swapped state.
+
+   Frees only the matching pending record. Stale callbacks cannot free a
+   replacement index."
+  [owner region-id epoch buffer-index]
   (swap! (:!state owner)
          (fn [state]
            (if (= {:epoch epoch :buffer-index buffer-index}
@@ -42,14 +64,23 @@
                  (update-in [:stats :buffer-index-releases] inc))
              state))))
 
-(defn- retire-buffer-index-after-submit! [owner region-id epoch buffer-index]
+(defn- retire-buffer-index-after-submit!
+  "Owner and retirement identity → promise.
+
+   Waits for queue completion, then conditionally frees. Rejection is
+   swallowed; no observable recovery path here."
+  [owner region-id epoch buffer-index]
   (let [queue (.-queue ^js (:device owner))]
     (-> (.onSubmittedWorkDone queue)
         (.then (fn [] (free-retired-buffer-index! owner region-id epoch buffer-index)))
         (.catch (fn [_] nil)))))
 
 (defn reconcile-desired!
-  "Reconcile prepared, GPU-free desired rows.  Returns the current desired map."
+  "Owner, desired rows → reconciled map; mutates identities and schedules
+   retirement.
+
+   Diffs ID sets, sorts allocation order, retains live indexes. Duplicate
+   input IDs collapse through map construction."
   [owner rows]
   (let [rows-by-id (into {} (map (juxt :region/id identity)) rows)
         retiring (volatile! [])]
@@ -100,9 +131,11 @@
     (:desired @(:!state owner))))
 
 (defn attach-compositor!
-  "Attach the sole compositor identity producer.  A replacement bumps the
-   device epoch, clears every physical lease, and deterministically reassigns
-   buffer indexes while retaining desired logical rows."
+  "Owner and compositor → changed?; resets physical bindings on identity
+   change.
+
+   Epoch bump plus deterministic reassignment. Physical generation changes
+   are explicit."
   [owner compositor]
   (let [changed? (volatile! false)]
     (swap! (:!state owner)
@@ -134,33 +167,67 @@
                  (assoc reset-state :desired desired)))))
     @changed?))
 
-(defn desired-rows [owner]
+(defn desired-rows
+  "Owner → desired rows sorted by printed ID.
+
+   Deterministic projection. Sorts on every read."
+  [owner]
   (->> (:desired @(:!state owner)) vals
        (sort-by (comp pr-str :region/id)) vec))
 
-(defn topology-rows [owner]
+(defn topology-rows
+  "Owner → ordered ID/shadow rows.
+
+   Projects desired rows."
+  [owner]
   (mapv #(select-keys % [:region/id :shadow?]) (desired-rows owner)))
 
-(defn buffer-index [owner region-id]
+(defn buffer-index
+  "Owner and region ID → current index or nil."
+  [owner region-id]
   (get-in @(:!state owner) [:buffer-indexes region-id]))
 
-(defn lease [owner region-id]
+(defn lease
+  "Owner and region ID → recorded physical lease or nil."
+  [owner region-id]
   (get-in @(:!state owner) [:leases region-id]))
 
-(defn record-lease! [owner region-id lease]
+(defn record-lease!
+  "Owner, region ID, lease → same lease; records it.
+
+   Single atom update. Trusts caller ownership."
+  [owner region-id lease]
   (swap! (:!state owner) assoc-in [:leases region-id] lease)
   lease)
 
-(defn forget-lease! [owner region-id]
+(defn forget-lease!
+  "Owner and region ID → updated state; removes reference.
+
+   Does not destroy physical storage. Lifetime stays with compositor."
+  [owner region-id]
   (swap! (:!state owner) update :leases dissoc region-id))
 
-(defn clear-leases! [owner]
+(defn clear-leases!
+  "Owner → updated state with empty references.
+
+   Clears logical references; physical resource destruction belongs to the
+   compositor."
+  [owner]
   (swap! (:!state owner) assoc :leases {}))
 
-(defn device-epoch [owner] (:device-epoch @(:!state owner)))
-(defn compositor [owner] (:compositor @(:!state owner)))
+(defn device-epoch
+  "Owner → current generation integer."
+  [owner] (:device-epoch @(:!state owner)))
+(defn compositor
+  "Owner → attached compositor or nil."
+  [owner] (:compositor @(:!state owner)))
 
-(defn stats [owner]
+(defn stats
+  "Owner → diagnostic snapshot of counters, desired keys, indexes and lease
+   IDs.
+
+   Projects state rather than returning GPU objects."
+  [owner]
   (let [state @(:!state owner)]
     (assoc (:stats state)
            :device-epoch (:device-epoch state)

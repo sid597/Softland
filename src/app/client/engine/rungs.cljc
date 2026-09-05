@@ -1,19 +1,29 @@
 (ns app.client.engine.rungs
-  "Which size an offscreen region gets: the sharpest rung (full, half, quarter,
-   eighth) that fits the byte budget. Pure arithmetic, no GPU.
-   Takes: a size request with the region id, desired size, held lease, reserved
-   bytes, and budget cap, plus injected quantize and lease-bytes functions.
-   Gives: admitted or not, the granted size key, the rung divisor, and a
-   stats.
-   Holds nothing.")
+  "Choose an offscreen resolution within a supplied budget.
+
+   Input: desired region size, held lease, reserved/cap bytes, and injected
+   quantization/pricing functions. Output: admission result with selected
+   size, divisor, and accounting. No GPU work or retained state. It tries
+   divisors [1 2 4 8] in order. This file chooses; the compositor allocates.
+
+   Folder map: README.md.")
 
 (def admission-divisors [1 2 4 8])
 
 (defn- lease-shadow?
+  "Lease → boolean read from :shadow?.
+
+   Current limitation: physical compositor leases carry :shadow instead. A
+   same-size already-shadowed lease can still have zero additional byte
+   cost; this shape mismatch alone does not imply a wrong admission."
   [lease]
   (boolean (:shadow? lease)))
 
 (defn- candidate
+  "Request and divisor → priced candidate including admission boolean.
+
+   Quantizes size, credits a replaced lease, prices shadow addition. Correct
+   shadow accounting depends on the expected held-lease shape."
   [{region-id :region/id
     [desired-width desired-height] :desired-size
     :keys [shadow? held-lease reserved-bytes budget-cap-bytes
@@ -53,9 +63,11 @@
      :admitted? (<= projected-reserved-bytes budget-cap-bytes)}))
 
 (defn grant
-  "Choose the sharpest admission rung that fits the supplied physical pool
-   snapshot. quantize and lease-bytes are injected so the compositor and JVM
-   tests execute the same arithmetic."
+  "Request → first fitting rung or explicit rejection, including evaluated
+   divisors.
+
+   Bounded linear search over four choices. Deterministic and independently
+   executable without a GPU."
   [{region-id :region/id :keys [desired-size] :as request}]
   (let [desired (candidate request 1)]
     (loop [[divisor & remaining] admission-divisors

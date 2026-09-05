@@ -1,14 +1,20 @@
 (ns app.client.engine.compositor
-  "The compositor: offscreen render targets and how they reach the screen. Owns
-   a recycling pool of GPU textures, region leases, the single present to the
-   canvas, and raster readback.
-   Takes: a device and output format; lease requests by region; a target pass
-   to begin, draw into, and release.
-   Gives: a compositor with its pool and presentation pipeline; leased targets; one
-   presented frame; pixels read back as evidence.
-   Holds: the pool state (free and leased targets, counters, rejections); the
-   current region leases, the lease keys retiring this frame, and retired
-   targets awaiting release; a stats atom."
+  "Own physical targets, region leases, and presentation.
+
+   Input: device/output format, target/region requests, command encoders,
+   desired lease rows. Output: leased target records,
+   render-pass/presentation commands, admission/activity statistics. It owns
+   pooled free/leased textures, persistent region target bundles, retirement
+   records, and presentation pipelines. Default budget is 512 MiB. Region
+   sizes round upward in 256-pixel increments, capped at 4096 by the
+   quantizer.
+
+   A target is one texture; a region lease bundles color, depth, resolve and
+   optional shadow targets. leases.cljs owns logical region associations;
+   this file owns physical allocation and destruction. GPU texture readback
+   is driven by the harness.
+
+   Folder map: README.md."
   (:require [app.client.engine.color :as color]
             [app.client.engine.limits :as limits]
             [app.client.engine.rungs :as region-rungs]
@@ -20,6 +26,10 @@
 (def region-lease-max 4096)
 (def default-pool-budget-bytes (* 512 1024 1024))
 
+;; Vertex main(index) generates a full-screen triangle and UV. Presentation
+;; linear_to_srgb(v) encodes a linear channel; fragment main(uv) samples
+;; premultiplied scene color, unpremultiplies, encodes RGB, then
+;; premultiplies again.
 (def full-screen-vertex-shader
   "struct Output { @builtin(position) position: vec4<f32>,
                     @location(0) uv: vec2<f32>, };
@@ -56,22 +66,36 @@
    }"))
 
 (defn create-target-pool
+  "Device and optional byte cap → pool with state atom.
+
+   Explicit owner constructor."
   [device & {:keys [budget-cap-bytes]
                      :or {budget-cap-bytes default-pool-budget-bytes}}]
   {:device device :budget-cap-bytes budget-cap-bytes
    :!state (atom {:free {} :leased {} :allocations 0 :reuses 0
                   :destroyed 0 :high-water-leased 0 :epoch 0 :rejections []})})
 
-(defn- reserved-bytes [state]
+(defn- reserved-bytes
+  "Pool state → sum of free and leased target bytes.
+
+   Includes retained cache in budget. Traverses all tracked targets."
+  [state]
   (reduce + 0 (map :bytes (concat (vals (:leased state))
                                   (mapcat identity (vals (:free state)))))))
 
-(defn- target-key [format width height sample-count]
+(defn- target-key
+  "Format, dimensions, samples → normalized reuse key.
+
+   Small value key. Excludes texture usage."
+  [format width height sample-count]
   [format (int width) (int height) (max 1 (or sample-count 1))])
 
 (defn- reclaim-free-targets!
-  "Discard the recoverable cache before refusing a new target. A viewport
-   resize otherwise strands the old dimensions inside the fixed pool budget."
+  "Pool → destroyed-target count; empties free cache.
+
+   Destroys all free textures. Use only at the safe boundary selected by its
+   callers. Reclaiming cached old dimensions prevents resize from stranding
+   the pool budget."
   [pool]
   (let [state @(:!state pool)
         targets (vec (mapcat val (:free state)))]
@@ -86,10 +110,12 @@
     (count targets)))
 
 (defn- reclaim-stale-free-targets!
-  "Held region leases keep :leased occupied across frames, so the empty-leased
-   reclaim path never runs on the region3d lane. Free targets released before
-   the current submit epoch can no longer be named by an unsubmitted encoder,
-   so budget pressure may destroy them mid-frame."
+  "Pool → count; destroys free targets from earlier submit epochs.
+
+   Filters by release epoch. Separates reusable-this-frame from
+   destroyable-old targets. Persistent region leases keep the leased set
+   nonempty. Earlier-epoch free targets can be reclaimed because an
+   unsubmitted encoder cannot still name them."
   [pool]
   (let [state @(:!state pool)
         epoch (:epoch state 0)
@@ -114,6 +140,9 @@
     (count targets)))
 
 (defn- ensure-target-capacity!
+  "Pool, requested bytes, label → nil or throws; records rejection.
+
+   Checks tracked bytes against cap. Explicit accounting failure."
   [pool bytes label]
   (let [state @(:!state pool)]
     (when (> (+ (reserved-bytes state) bytes) (:budget-cap-bytes pool))
@@ -126,6 +155,10 @@
         (throw (ex-info "Frame target pool budget exceeded" rejection))))))
 
 (defn- create-target!
+  "Pool and texture specification → allocated target record.
+
+   Optional reclaim, budget check, allocation and view creation. Relies on
+   request dimensions/usage being compatible with device."
   [pool format width height label sample-count usage reclaim-free?]
   (let [sample-count (max 1 (or sample-count 1))
         bytes (limits/texture-bytes format width height 1 sample-count)
@@ -156,6 +189,10 @@
       target)))
 
 (defn acquire-target!
+  "Pool, format/size/label/options → leased target; updates counters.
+
+   Reuses matching free target unless preserving the free reserve, otherwise
+   allocates. Reuse compatibility follows the key's limited fields."
   [pool format width height label
    & {:keys [sample-count usage preserve-free? reclaim-free?]
       :or {sample-count 1 preserve-free? false reclaim-free? true}}]
@@ -199,7 +236,11 @@
                        (update :high-water-leased max (count leased))))))
         target))))
 
-(defn release-target! [pool target]
+(defn release-target!
+  "Pool and target → nil; moves tracked leased target to free cache.
+
+   Idempotent membership guard and release epoch."
+  [pool target]
   (when target
     (swap! (:!state pool)
            (fn [state]
@@ -217,13 +258,20 @@
   nil)
 
 (defn bump-frame-epoch!
-  "Mark a submit boundary: everything free before this point is safe for
-   reclaim-stale-free-targets! to destroy under budget pressure."
+  "Pool → nil; increments submit epoch.
+
+   Explicit lifetime boundary. Caller must invoke after submission as
+   intended."
   [pool]
   (swap! (:!state pool) update :epoch (fnil inc 0))
   nil)
 
-(defn- destroy-target! [pool target]
+(defn- destroy-target!
+  "Pool and target → nil; untracks and destroys once.
+
+   Guards by physical target identity. Intended for converging async
+   retirement paths."
+  [pool target]
   (when target
     (let [target-id (:target/id target)
           key (target-key (:format target) (:width target) (:height target)
@@ -251,7 +299,12 @@
         (.destroy ^js (:texture target)))))
   nil)
 
-(defn destroy-target-pool! [pool]
+(defn destroy-target-pool!
+  "Pool → nil; destroys all tracked textures and resets live state.
+
+   Retains historical counters. Intended for teardown; not a full
+   reinitialization contract."
+  [pool]
   (let [state @(:!state pool)
         targets (concat (vals (:leased state)) (mapcat val (:free state)))]
     (doseq [target targets]
@@ -264,7 +317,12 @@
              :rejections (:rejections state)})
     nil))
 
-(defn target-pool-stats [pool]
+(defn target-pool-stats
+  "Pool → accounting/counter snapshot.
+
+   Derived diagnostics. Owner label mentions frame-runtime, which is not a
+   file in this client tree."
+  [pool]
   (let [state @(:!state pool)]
     {:target-pool/version target-pool-version
      :budget-owner :frame-runtime/target-pool
@@ -276,10 +334,18 @@
      :high-water-leased (:high-water-leased state)
      :destroyed (:destroyed state) :rejections (:rejections state)}))
 
-(defn- shader-module [device code]
+(defn- shader-module
+  "Device and WGSL → shader module.
+
+   Direct adapter."
+  [device code]
   (.createShaderModule ^js device (clj->js {:code code})))
 
-(defn- create-pipelines! [device output-format]
+(defn- create-pipelines!
+  "Device and output format → sampler, layout and present pipelines.
+
+   Builds output-format and RGBA8 variants once."
+  [device output-format]
   (let [sampler (.createSampler ^js device
                                 (clj->js {:minFilter "linear" :magFilter "linear"
                                           :addressModeU "clamp-to-edge"
@@ -311,6 +377,10 @@
      :output-format output-format}))
 
 (defn create-compositor!
+  "Device, output format, optional cap → compositor owner.
+
+   Combines pipelines, pool and lease atoms. Stores device-bounded
+   :max-lease-size, but quantize-region-size itself uses the fixed 4096 cap."
   [device output-format & {:keys [budget-cap-bytes]}]
   (let [max-texture-dimension-2d
         (:max-texture-dimension-2d (limits/adapter-limits device))]
@@ -325,7 +395,11 @@
      :!retired-region-targets (atom [])
      :!stats (atom {})}))
 
-(defn quantize-region-size [value]
+(defn quantize-region-size
+  "Requested dimension → 256-aligned integer ≤ 4096.
+
+   Ceiling then cap. Intended for declared policy; no device argument."
+  [value]
   (-> (/ (max 1 (double value)) region-lease-quant)
       js/Math.ceil
       (* region-lease-quant)
@@ -333,6 +407,11 @@
       int))
 
 (defn region-lease
+  "Compositor and region ID, optionally dimensions/shadow flag → matching
+   lease or nil.
+
+   Scans by region or looks up quantized size. The size arity accepts
+   shadow? But does not use it in lookup."
   ([compositor region-id]
    (some (fn [[key lease]]
            (when (= region-id (first key)) lease))
@@ -343,11 +422,13 @@
          (quantize-region-size height)])))
 
 (defn- acquire-region-target!
-  "Acquire persistent Region3D storage without reclaiming the free frame path
-   cache. Those targets are the observed transient reserve for a frame that
-   already fit; consuming them here can admit the region and make the later
-   mandatory group-output allocation kill the whole frame. The caller's
-   existing lease-rejection path owns the combined-set failure instead."
+  "Compositor and texture request → target.
+
+   Acquires while preserving the frame's free-target reserve. Prevents
+   persistent regions consuming that reserve through reuse. The free frame
+   cache reserves transient targets for a frame already known to fit.
+   Consuming it for persistent region storage could admit the region but
+   prevent a later mandatory frame allocation."
   [compositor format width height label & {:keys [sample-count usage]
                                            :or {sample-count 1}}]
   (acquire-target! (:target-pool compositor) format width height label
@@ -355,7 +436,11 @@
                    :usage usage
                    :preserve-free? true))
 
-(defn- region-lease-bytes [width height shadow?]
+(defn- region-lease-bytes
+  "Width, height, shadow? → nominal bundle bytes.
+
+   Prices fixed MSAA/depth/resolve targets and fixed 2048² shadow."
+  [width height shadow?]
   (+ (limits/texture-bytes "rgba16float" width height 1 4)
      (limits/texture-bytes "depth24plus" width height 1 4)
      (limits/texture-bytes "rgba16float" width height 1 1)
@@ -364,9 +449,11 @@
        0)))
 
 (defn acquire-region-lease!
-  "Acquire or reuse one compositor-owned held lease. Rejection is returned as
-   data so the family can draw its declared fill; no target byte has another
-   owner."
+  "Compositor, ID, size, shadow? → lease or rejection data.
+
+   Reuses size bundle, adds/removes shadow separately, rolls back partial
+   allocation on failure. Catches all errors into the same rejection
+   channel."
   [compositor region-id width height shadow?]
   (let [qw (quantize-region-size width)
         qh (quantize-region-size height)
@@ -473,6 +560,9 @@
                 rejected-lease)))))))
 
 (defn release-region-lease!
+  "Compositor plus ID or key/lease → nil; untracks and destroys bundle.
+
+   One physical release road. Timing safety belongs to caller."
   ([compositor region-id]
    (doseq [[key lease] @(:!region-leases compositor)
            :when (= region-id (first key))]
@@ -484,7 +574,11 @@
      (destroy-target! (:target-pool compositor) target))
    nil))
 
-(defn release-all-region-leases! [compositor]
+(defn release-all-region-leases!
+  "Compositor → nil; releases held and retired region targets.
+
+   Explicit teardown."
+  [compositor]
   (doseq [[key lease] @(:!region-leases compositor)]
     (release-region-lease! compositor key lease))
   (doseq [target @(:!retired-region-targets compositor)]
@@ -492,7 +586,11 @@
   (reset! (:!retired-region-targets compositor) [])
   nil)
 
-(defn region-leases-stats [compositor]
+(defn region-leases-stats
+  "Compositor → lease summaries and total bytes.
+
+   Projects physical ownership."
+  [compositor]
   {:owner :compositor/region-leases
    :leases (into {}
                  (map (fn [[key lease]]
@@ -502,16 +600,23 @@
                  @(:!region-leases compositor))
    :bytes (reduce + 0 (map :bytes (vals @(:!region-leases compositor))))})
 
-(defn destroy-compositor! [compositor]
+(defn destroy-compositor!
+  "Compositor → nil; destroys region leases and pool.
+
+   Ordered teardown."
+  [compositor]
   (release-all-region-leases! compositor)
   (destroy-target-pool! (:target-pool compositor))
   nil)
 
 (defn apply-scissor!
-  "Set explicit per-draw state. nil means the full attachment; no draw inherits
-   a prior neighbor's scissor. Returns false for an empty projected clip so the
-   family walker can suppress the draw instead of issuing an invalid zero-area
-   WebGPU scissor."
+  "Pass, optional clip and attachment size → drawable?; sets per-draw
+   scissor state.
+
+   Nil selects the full attachment, so a draw never inherits its neighbor's
+   clip. Empty clips suppress the draw. Current limitation: clamping a
+   negative origin does not subtract that clipped amount from width/height;
+   arbitrary negative inputs are not intersected exactly."
   [pass clip [width height]]
   (let [{:keys [x y w h]} clip
         x (int (max 0 (or x 0)))
@@ -523,7 +628,12 @@
           true)
       false)))
 
-(defn begin-target-pass! [encoder target load-op]
+(defn begin-target-pass!
+  "Encoder, target, load operation → render pass.
+
+   One transparent-clear color attachment. Intended for this narrow pass
+   shape."
+  [encoder target load-op]
   (.beginRenderPass
    ^js encoder
    (clj->js {:colorAttachments
@@ -532,6 +642,11 @@
                :loadOp load-op :storeOp "store"}]})))
 
 (defn draw-present!
+  "Compositor, encoder, scene target, output view/format → command-encoding
+   result.
+
+   Binds scene texture, encodes one full-screen present, ends pass.
+   Submission remains caller-owned."
   [compositor encoder scene output-view output-format]
   (let [{:keys [sampler present-layout present-pipelines]} (:pipelines compositor)
         present-pipeline (get present-pipelines output-format)]
@@ -556,6 +671,12 @@
       (.end pass))))
 
 (defn release-after-submit!
+  "Compositor, acquired targets, transient buffers, stale leases →
+   completion promise.
+
+   Releases reusable targets now; destroys deferred resources after queue
+   completion with identity guards. Intended for submitted work; errors are
+   swallowed."
   [compositor acquired transient-buffers stale-region-leases]
   (bump-frame-epoch! (:target-pool compositor))
   (doseq [target acquired]
@@ -576,9 +697,13 @@
       (.catch (fn [_] nil)))))
 
 (defn active-region-leases!
-  "Acquire this frame's region leases from the binding owner's desired rows,
-   retiring every lease those rows no longer name. Records the rung stats
-   and the frame's lease activity on the compositor stats."
+  "Compositor and logical binding owner → active/stale leases and activity;
+   mutates physical and logical bindings.
+
+   Prices rungs, retires outdated generations, acquires selected bundles,
+   records leases. Centralized but substantial orchestration; rejection and
+   rung behavior deserve focused runtime evidence before claiming
+   optimality."
   [compositor binding-owner]
   (let [regions (if binding-owner
                   (region-bindings/desired-rows binding-owner)
@@ -673,7 +798,11 @@
     {:active active :active-keys active-keys :stale stale
      :rung-stats rung-stats :lease-activity @activity}))
 
-(defn- strip-padded-rows [mapped width height padded-bytes-per-row]
+(defn- strip-padded-rows
+  "Mapped bytes, dimensions, padded stride → contiguous RGBA bytes.
+
+   Copies each live row. Serves as a readback primitive."
+  [mapped width height padded-bytes-per-row]
   (let [row-bytes (* width 4)
         output (js/Uint8Array. (* row-bytes height))
         source (js/Uint8Array. mapped)]
@@ -684,7 +813,12 @@
             (* row row-bytes)))
     output))
 
-(defn- unpremultiply! [rgba]
+(defn- unpremultiply!
+  "RGBA byte array → same mutated array in straight-alpha form.
+
+   Divides nonzero-alpha colors with rounding/clamping. Alpha-zero RGB
+   remains as supplied."
+  [rgba]
   (loop [index 0]
     (when (< index (.-length rgba))
       (let [alpha (aget rgba (+ index 3))]
@@ -698,7 +832,12 @@
       (recur (+ index 4))))
   rgba)
 
-(defn- png-bytes! [rgba width height]
+(defn- png-bytes!
+  "RGBA bytes and dimensions → promise of PNG bytes.
+
+   OffscreenCanvas/ImageData encoding. Intended for browser export; depends
+   on those APIs."
+  [rgba width height]
   (let [canvas (js/OffscreenCanvas. width height)
         context (.getContext canvas "2d")
         image-data (js/ImageData. (js/Uint8ClampedArray. (.-buffer rgba))
@@ -708,7 +847,11 @@
         (.then #(.arrayBuffer %))
         (.then #(js/Uint8Array. %)))))
 
-(defn compositor-stats [compositor]
+(defn compositor-stats
+  "Compositor → own statistics plus pool/lease summaries.
+
+   Composes snapshots."
+  [compositor]
   (assoc @(:!stats compositor)
          :pool (target-pool-stats (:target-pool compositor))
          :region-leases (region-leases-stats compositor)))

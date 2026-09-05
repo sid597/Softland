@@ -1,13 +1,29 @@
 (ns app.client.engine.limits
-  "What a WebGPU device allows and what an allocated texture costs.
-   Takes: a WebGPU adapter or device; a texture format and dimensions.
-   Gives: the selected limits and total bytes across mips and samples.
-   Holds: nothing.")
+  "Expose selected limits and price texture storage.
+
+   Input: adapter/device or format/dimensions. Output: selected limits or
+   nominal byte cost. There is no state. format-bytes is a deliberately
+   finite pricing table; unknown formats throw rather than being assigned an
+   invented cost.
+
+   Folder map: README.md.")
 
 #?(:clj
-   (defn adapter-limits [_adapter-or-device] nil)
+   (defn adapter-limits
+     "Adapter/device → nil on JVM; selected WebGPU limits on CLJS, or nil
+      for absent input.
+
+      Explicit platform boundary. JVM code must inject limits rather than
+      assume hardware access."
+     [_adapter-or-device] nil)
    :cljs
-   (defn adapter-limits [^js adapter-or-device]
+   (defn adapter-limits
+     "Adapter/device → nil on JVM; selected WebGPU limits on CLJS, or nil
+      for absent input.
+
+      Explicit platform boundary. JVM code must inject limits rather than
+      assume hardware access."
+     [^js adapter-or-device]
      (when adapter-or-device
        (let [^js limits (.-limits adapter-or-device)]
          {:max-buffer-size (some-> limits .-maxBufferSize)
@@ -30,7 +46,11 @@
    "depth32float" 4})
 
 (defn texture-bytes
-  "Price every allocated mip level and sample. Unknown formats fail closed."
+  "Format, width, height, mip count, sample count → nominal total bytes;
+   unknown format throws.
+
+   Sums downscaled mip dimensions times format width and samples. Serves as
+   pool accounting; it does not measure driver allocation overhead."
   [format width height mip-level-count sample-count]
   (let [bytes-per-texel
         (or (get format-bytes format)

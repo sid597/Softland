@@ -1,8 +1,12 @@
 (ns app.client.harness.image
-     "Browser evidence for image component, rendering, color, and lifecycle behavior.
-      Takes: a WebGPU device.
-      Gives: the image harness result map.
-      Holds nothing."
+     "Exercise ingress, sampling, color and resource rebuilding.
+
+      Input: eight static image sources, device/shared resources and image
+      components. Output: 22 image records, 14 geometry-parity rows,
+      color/ICC checks, dirty-upload results and residency/rebuild evidence.
+      It creates both candidate linear-color and legacy systems.
+
+      Folder map: README.md."
      (:require [app.client.engine.color :as scene-color]
                [app.client.engine.device :as device]
                [app.client.engine.transform :as transform]
@@ -16,7 +20,13 @@
         srgb->linear linear->srgb-byte adapter-information
         shader-digests w4-read-texture!]]))
 
-(defn- fetch-image-corpus! []
+(defn- fetch-image-corpus!
+  "No arguments → promise of fixture source-byte map; fetches assets.
+
+   Checks HTTP success and attaches expected digest/color/size metadata.
+   Intended for acquisition; digest verification occurs during renderer
+   registration, not in this fetch helper."
+  []
   (-> (promise-mapv
        (fn [{:keys [filename] :as fixture}]
          (-> (js/fetch (str "/images/" filename))
@@ -40,13 +50,22 @@
        image-fixtures)
       (.then (fn [rows] (into {} (map (juxt :filename identity)) rows)))))
 
-(defn- ingress-corpus! [image-system corpus]
+(defn- ingress-corpus!
+  "Image system and corpus → promise of ordered registrations.
+
+   Sequential shared promise mapper."
+  [image-system corpus]
   (promise-mapv
    (fn [{:keys [source bytes]}]
      (image-renderer/register-image-source! image-system source bytes))
    (mapv corpus (map :filename image-fixtures))))
 
 (defn- image-component-row
+  "ID, fixture, rect and optional UV/opacity/tint/revision → validated image
+   component.
+
+   Converts UV bounds to crop and defaults revision to content identity.
+   Intended for fixtures; tests can override revision deliberately."
   [id fixture x y width height & {:keys [uv opacity tint revision]
                                   :or {uv [0.0 0.0 1.0 1.0]
                                        opacity 1.0
@@ -76,10 +95,17 @@
              :image/paint paint}]
     (image-component/validate-component! row)))
 
-(defn- image-draw-item [component group]
+(defn- image-draw-item
+  "ID, component and group → renderer item."
+  [component group]
   {:image/component component :container group})
 
 (defn- render-image-bytes!
+  "Renderer inputs, zoom and clear/copy options → promise of RGBA.
+
+   Prepares, draws, optionally copies through another texture, then reads
+   back. Intended for direct-versus-copy equivalence; not a compositor
+   presentation test."
   [^js device image-system draw-items world-transforms zoom
    & {:keys [clear-value intermediate-copy?]
       :or {clear-value {:r 0.0 :g 0.0 :b 0.0 :a 0.0}
@@ -142,7 +168,12 @@
              (when presentation (.destroy presentation))
              copy))))))
 
-(defn- render-image-pair! [device image-system draw-items world-transforms zoom clear-value]
+(defn- render-image-pair!
+  "Device, image system, draw items, world transforms, zoom and clear color
+   → first bytes, two hashes and repeatability promise.
+
+   Sequential renders."
+  [device image-system draw-items world-transforms zoom clear-value]
   (-> (render-image-bytes! device image-system draw-items world-transforms zoom
                            :clear-value clear-value)
       (.then
@@ -162,7 +193,11 @@
                         :byte-identical? (= (aget hashes 0)
                                             (aget hashes 1))}))))))))))
 
-(defn- image-step-record [mode case-id pair]
+(defn- image-step-record
+  "Case/zoom and pair → preview/hash/determinism record.
+
+   Projection without changing raw evidence."
+  [mode case-id pair]
   {:mode mode
    :file (str "gpu-image-atom-" mode "-" case-id ".png")
    :raw-sha256 (:first-sha256 pair)
@@ -172,6 +207,11 @@
                  :byte-identical? (:byte-identical? pair)}})
 
 (defn- run-image-golden-case!
+  "Renderer/corpus inputs and zoom → promise of opaque-atlas,
+   alpha-dedicated and cropped images.
+
+   Three screen-normalized fixtures. Intended for these residency/sampling
+   combinations."
   [device candidate-system world-transforms corpus {:keys [case-id zoom lod]}]
   (let [screen->world #(/ % zoom)
         opaque (get corpus "atlas-opaque-srgb.png")
@@ -223,7 +263,12 @@
                             (image-step-record "partially-clipped" case-id
                                                clipped-pair)]}))))))))
 
-(defn- run-image-tree-golden! [device image-system world-transforms corpus]
+(defn- run-image-tree-golden!
+  "Device, image system, world transforms and fixture corpus → promise of
+   parent/child transform golden and unknown-group failure.
+
+   Deliberately sparse group IDs. Intended for compact-index transport."
+  [device image-system world-transforms corpus]
   (let [case-id "tree-containers-cid17-slot1"
         mode "container-tree"
         zoom 1.0
@@ -253,12 +298,22 @@
             :unknown-group unknown-error
             :images [(image-step-record mode case-id pair)]})))))
 
-(defn- image-product-inside? [draw-item zoom screen-x screen-y]
+(defn- image-product-inside?
+  "Component, zoom and screen point → half-open rectangular inclusion.
+
+   Inverse zoom and geometry test. Does not classify texture alpha or
+   arbitrary group transforms."
+  [draw-item zoom screen-x screen-y]
   (image-component/half-open-hit?
    (get-in draw-item [:image/component :image/rect])
    [(/ screen-x zoom) (/ screen-y zoom)]))
 
-(defn- image-parity-evidence [extent-id draw-item zoom rgba]
+(defn- image-parity-evidence
+  "Fixture and rendered pixels → decisive boundary comparison.
+
+   White-image red coverage versus geometric inclusion, with a
+   nonempty-sample guard. Intended for geometric edges of this fixture."
+  [extent-id draw-item zoom rgba]
   (let [boundary (boundary-pixels rgba)
         rows (mapv
               (fn [[x y coverage]]
@@ -290,6 +345,10 @@
      :first-mismatches (subvec mismatches 0 (min 16 (count mismatches)))}))
 
 (defn- run-image-parity!
+  "Renderer/corpus inputs → promise of 14 parity rows.
+
+   Seven zooms × constant-screen/world-256 extents. Intended for explicit
+   scale coverage."
   [device seam-system world-transforms corpus]
   (let [fixture (get corpus "coverage-white-srgb.png")]
     (promise-mapv
@@ -307,14 +366,24 @@
          ["world-256" 256.0 256.0]]))
      zoom-cases)))
 
-(defn- bitmap-pixel [^js bitmap x y]
+(defn- bitmap-pixel
+  "Bitmap and x/y → RGBA sample; uses a canvas.
+
+   Browser 2D decode surface. Intended for inspecting browser-decoded color."
+  [^js bitmap x y]
   (let [canvas (js/OffscreenCanvas. (.-width bitmap) (.-height bitmap))
         context (.getContext canvas "2d" #js {:willReadFrequently true})
         _ (.drawImage context bitmap 0 0)
         data (.-data (.getImageData context x y 1 1))]
     [(aget data 0) (aget data 1) (aget data 2) (aget data 3)]))
 
-(defn- icc-decode-evidence! [corpus]
+(defn- icc-decode-evidence!
+  "Corpus → promise of profiled-image decode comparisons.
+
+   Compares colorSpaceConversion none/default against expected samples with
+   two-byte tolerance and closes bitmaps. Intended for the browser decoder
+   path being tested."
+  [corpus]
   (let [bytes (:bytes (get corpus "profiled-linear-rgb.png"))
         blob (js/Blob. #js [bytes] #js {:type "image/png"})]
     (-> (js/Promise.all
@@ -351,6 +420,12 @@
               :pass? (every? :pass? rows)}))))))
 
 (defn- run-color-evidence!
+  "Candidate/legacy systems and corpus → promise of blend, fringe,
+   association, copy, seam and ICC results.
+
+   Uses explicit sampled references and tolerances; deliberately mistagged
+   alpha must differ. Transfer-count fields are configured expectations, not
+   instrumented boundary counts; inspect each result's actual checks."
   [device candidate-system seam-system world-transforms corpus]
   (let [clear {:r 0.04 :g 0.18 :b 0.35 :a 1.0}
         alpha (get corpus "alpha-reference-straight.png")
@@ -516,13 +591,21 @@
                            (:seam-off-profile evidence)
                            (:icc-decode evidence)])))))))
 
-(defn- residency-counts [rows]
+(defn- residency-counts
+  "Image system → frequencies by residency status.
+
+   Reads ingress entries. Serves as state reporting."
+  [rows]
   (reduce (fn [counts [_ {:keys [status]}]]
             (update counts status (fnil inc 0)))
           {:ok 0 :rejected 0 :unavailable 0}
           rows))
 
-(defn- residency-report [image-system]
+(defn- residency-report
+  "System → selected status/reason/tier/UV/mip/binding/source metadata.
+
+   Safe value projection over live entries. Omits opaque GPU handles."
+  [image-system]
   (let [rows (into {}
                    (map (fn [[digest residency]]
                           [digest
@@ -536,7 +619,13 @@
      :counts (residency-counts rows)
      :residency-rev @(:!residency-rev image-system)}))
 
-(defn- run-image-upload-dirty-check! [device world-transforms corpus]
+(defn- run-image-upload-dirty-check!
+  "Device/shared resources and corpus → promise of changed-row evidence.
+
+   Tests initial two rows, held frame, one revision change and
+   placeholder-to-registered transition; tears down its system. Intended for
+   reported instance writes."
+  [device world-transforms corpus]
   (let [camera (device/create-camera-buffer device)
         groups-buffer (device/create-groups-buffer device)
         _ (device/write-groups! device groups-buffer world-transforms)
@@ -614,7 +703,12 @@
                     (.destroy groups-buffer)
                     result)))))))))
 
-(defn- request-replacement-device! []
+(defn- request-replacement-device!
+  "No arguments → promise of another WebGPU device.
+
+   Requests adapter/device anew. Intended for reconstruction input; does not
+   simulate device loss."
+  []
   ;; Dawn consumes an adapter after its first device.  A fresh adapter request
   ;; is therefore part of the real replacement-device lifecycle evidence.
   (-> (.requestAdapter js/navigator.gpu)
@@ -625,6 +719,13 @@
          (.requestDevice replacement-adapter)))))
 
 (defn- run-lifecycle-evidence!
+  "Existing system/corpus → promise of rejection, placeholder and rebuild
+   evidence.
+
+   Checks invalid/unknown source behavior, then resource identity/status
+   after rebuild on another device. Literal loss-related status text is
+   broader than the exercised replacement procedure; no replacement-image
+   readback comparison."
   [device candidate-system world-transforms corpus]
   (let [registered-digests
         (mapv :digest (mapv corpus (map :filename image-fixtures)))
@@ -759,7 +860,14 @@
               :replacement-counts replacement-counts
               :pass? lifecycle-pass?}))))))
 
-(defn run-image-step! [device]
+(defn run-image-step!
+  "Device/shared resources → promise of selected image evidence.
+
+   Loads/registers corpus, runs goldens/parity/color/dirty/lifecycle,
+   aggregates explicit checks, destroys image systems. Aggregate image-count
+   checks do not themselves require every recorded golden's determinism
+   flag; product-loop claim is explicitly parked."
+  [device]
   (let [candidate-camera (device/create-camera-buffer device)
         candidate-groups (device/create-groups-buffer device)
         registry (-> (transform/empty-registry)

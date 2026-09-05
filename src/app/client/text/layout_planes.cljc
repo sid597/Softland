@@ -1,37 +1,70 @@
 (ns app.client.text.layout-planes
-  "Columnar storage for layout results: the same lines and glyphs kept as typed
-   arrays, with rich maps rebuilt at the accessor boundary. Internal to text
-   layout.
-   Takes: a fully built layout result.
-   Gives: the result compacted onto planes; accessors that rebuild glyphs and
-   lines on demand.
-   Holds: typed planes reachable from the layout result."
+  "Own retained layout columns and reconstruct views.
+
+   Input: a rich layout result to compact, or glyph/span counts and
+   primitive row writes to build directly; subsequently a line and query.
+   Output: plane-backed results, rich views, selected glyph indexes, packing
+   callbacks and comparisons. Arrays are reachable from the returned result
+   and its lines; this namespace exposes access operations rather than
+   requiring renderer code to know column addresses.
+
+   Folder map: README.md."
   )
 
+;; Positioned geometry uses float32 columns. Glyph IDs occupy 30 bits with
+;; tab/direction flags in the remaining bits. Source spans address
+;; result-wide glyphs; compatibility views derive line-local offsets.
 (def ^:private id-mask 0x3fffffff)
 (def ^:private kind-mask 0x40000000)
 (def ^:private rtl-mask 0x80000000)
 (def ^:private no-ink #?(:clj Float/NaN :cljs js/NaN))
 
-(defn- f32-array [n]
+(defn- f32-array
+  "Length → zeroed float32 column.
+
+   Uses JVM primitive arrays or native JS typed arrays."
+  [n]
   #?(:clj (float-array n) :cljs (js/Float32Array. n)))
 
-(defn- u32-array [n]
+(defn- u32-array
+  "Length → zeroed unsigned 32-bit integer column.
+
+   Uses JVM primitive arrays or native JS typed arrays."
+  [n]
   #?(:clj (int-array n) :cljs (js/Uint32Array. n)))
 
-(defn- f32-set! [a i value]
+(defn- f32-set!
+  "Column, index and value → assigned value; mutates float32 storage.
+
+   Numeric narrowing and precision loss follow the column format."
+  [a i value]
   #?(:clj (aset-float ^floats a i (float value))
      :cljs (aset a i (double value))))
 
-(defn- u32-set! [a i value]
+(defn- u32-set!
+  "Column, index and value → assigned value; mutates unsigned 32-bit integer
+   storage.
+
+   Numeric narrowing and precision loss follow the column format."
+  [a i value]
   #?(:clj (aset-int ^ints a i (unchecked-int (long value)))
      :cljs (aset a i value)))
 
-(defn- f32-get [a i]
+(defn- f32-get
+  "Column and index → decoded float32 value.
+
+   Handles platform storage interpretation."
+  [a i]
   #?(:clj (double (aget ^floats a i))
      :cljs (aget a i)))
 
-(defn- view-number [line value]
+(defn- view-number
+  "Line and number → legacy integral JVM number when applicable, otherwise
+   unchanged.
+
+   Compatibility normalization. Output numeric type depends on shaped/legacy
+   line marker."
+  [line value]
   #?(:clj (if (and (not (::shaped? line))
                     (not (Double/isNaN value))
                     (== value (Math/rint value)))
@@ -39,49 +72,92 @@
              value)
      :cljs value))
 
-(defn- u32-get [a i]
+(defn- u32-get
+  "Column and index → decoded unsigned 32-bit integer value.
+
+   Handles platform storage interpretation."
+  [a i]
   #?(:clj (bit-and 0xffffffff (long (aget ^ints a i)))
      :cljs (aget a i)))
 
-(defn- array-byte-length [a bytes-per-entry]
+(defn- array-byte-length
+  "Array and bytes per element → storage byte count.
+
+   JVM length×width or JS byteLength. Excludes containing maps/metadata."
+  [a bytes-per-entry]
   #?(:clj (* (alength a) bytes-per-entry)
      :cljs (.-byteLength a)))
 
-(defn- nan-value? [value]
+(defn- nan-value?
+  "Number → NaN?
+
+   Platform adapter. Intended for sentinel handling."
+  [value]
   #?(:clj (Double/isNaN value)
      :cljs (js/Number.isNaN value)))
 
-(defn- source-offset [index]
+(defn- source-offset
+  "Tagged body/header index or scalar → numeric offset.
+
+   Shape dispatch. Accepts a broader scalar form than public layout
+   accessor."
+  [index]
   (cond
     (map? index) (:offset index)
     (and (vector? index) (= :header (first index))) (nth index 2)
     :else index))
 
-(defn- source-bounds [source-range]
+(defn- source-bounds
+  "Header/body range → numeric pair.
+
+   Decodes index representation."
+  [source-range]
   (if (and (vector? source-range) (= :header (first source-range)))
     (nth source-range 2)
     (mapv source-offset source-range)))
 
-(defn- tagged-index [offset]
+(defn- tagged-index
+  "Offset → UTF-16 tagged body index.
+
+   Small constructor. Does not use layout's intern cache."
+  [offset]
   {:index-space {:domain :utf-16-code-unit :version 1}
    :offset offset})
 
-(defn- line-index-value [line offset]
+(defn- line-index-value
+  "Line and offset → header index or tagged body index.
+
+   Preserves source domain."
+  [line offset]
   (if (= :header (first (:source-range line)))
     [:header (second (:source-range line)) offset]
     (tagged-index offset)))
 
-(defn- exact-range? [{:keys [glyph-start glyph-end glyph-indexes]}]
+(defn- exact-range?
+  "Span with endpoints/indexes → indexes equal full contiguous range?
+
+   Materialized vector comparison. Intended for compatibility compaction;
+   allocates range vector."
+  [{:keys [glyph-start glyph-end glyph-indexes]}]
   (= (vec (range glyph-start glyph-end)) (vec glyph-indexes)))
 
-(defn- line-cluster-inputs [line]
+(defn- line-cluster-inputs
+  "Rich line → existing clusters or one cluster projection per glyph.
+
+   Compatibility fallback."
+  [line]
   (if (seq (:clusters line))
     (:clusters line)
     (mapv (fn [glyph]
             {:source-range (get-in glyph [:cluster :source-range])})
           (:glyphs line))))
 
-(defn- line-span-inputs [line]
+(defn- line-span-inputs
+  "Rich line → existing span index or one-glyph spans.
+
+   Derives absent legacy indexing. Semantics rely on input rich glyph
+   ownership."
+  [line]
   (if (seq (:glyph-span-index line))
     (:glyph-span-index line)
     (mapv (fn [i glyph]
@@ -91,13 +167,22 @@
                :glyph-start i :glyph-end (inc i) :glyph-indexes [i]}))
           (range) (:glyphs line))))
 
-(defn- non-monotonic-result? [lines]
+(defn- non-monotonic-result?
+  "Rich lines → any noncontiguous span?
+
+   Examines span inputs. Determines optional order storage."
+  [lines]
   (boolean
    (some (fn [line]
            (some (complement exact-range?) (line-span-inputs line)))
          lines)))
 
-(defn- run-records [line glyph-base]
+(defn- run-records
+  "Rich line/global glyph base → compact run records with global spans and
+   optional Y-advance flag.
+
+   Removes glyph vectors, infers font metadata and Y-advance presence."
+  [line glyph-base]
   (mapv
    (fn [run]
      (let [[start end] (or (:glyph-span run) [0 0])
@@ -118,7 +203,11 @@
          (assoc :advance-y-column? true))))
    (:runs line)))
 
-(defn- run-source-index [runs]
+(defn- run-source-index
+  "Runs → source-sorted run containment records.
+
+   Indexed projection/sort."
+  [runs]
   (->> runs
        (map-indexed
         (fn [i run]
@@ -127,7 +216,12 @@
        (sort-by (juxt :source-start :source-end))
        vec))
 
-(defn- build-shape [result]
+(defn- build-shape
+  "Rich result → flattened glyphs/spans/order and compact line specs.
+
+   Computes global offsets and optional noncontiguous order. Temporary rich
+   structures remain during conversion; direct builder avoids this path."
+  [result]
   (let [top-runs (vec (:runs result))
         lines (mapv (fn [i line]
                       (if (contains? line :runs)
@@ -216,13 +310,23 @@
         {:glyphs glyphs :spans spans :glyph-order glyph-order
          :line-specs line-specs :non-monotonic? non-monotonic?}))))
 
-(defn- pack-id [glyph]
+(defn- pack-id
+  "Glyph map → ID/tab/direction bitfield.
+
+   Masks to 30-bit ID. Intended for expected glyph IDs; larger values
+   truncate without validation."
+  [glyph]
   (let [glyph-id (long (or (:glyph-id glyph) 0))]
     (bit-or (bit-and glyph-id id-mask)
             (if (= :virtual/tab (:glyph-id-kind glyph)) kind-mask 0)
             (if (= :rtl (:direction glyph)) rtl-mask 0))))
 
-(defn- allocate-planes [{:keys [glyphs spans glyph-order non-monotonic?]} source]
+(defn- allocate-planes
+  "Flattened shape and source → populated arrays/counts/source.
+
+   One allocation pass and row writes; NaN marks absent ink. Serves as
+   compatibility converter."
+  [{:keys [glyphs spans glyph-order non-monotonic?]} source]
   (let [glyph-count (count glyphs)
         span-count (count spans)
         position-x (f32-array glyph-count)
@@ -288,8 +392,10 @@
       glyph-order-array (assoc :glyph-order glyph-order-array))))
 
 (defn compact-result
-  "Replace retained glyph/cluster maps with typed planes and rebuild every
-   line-bearing index so no old rich line remains reachable."
+  "Rich result → version-2 plane-backed result with rebuilt lines/index.
+
+   Replaces retained glyph/cluster maps and removes top-level runs/clusters.
+   Old rich lines are removed from these result indexes."
   [result]
   (let [{:keys [line-specs] :as shape} (build-shape result)
         planes (allocate-planes shape (:source result))
@@ -301,18 +407,31 @@
                :line-index (into {} (map (juxt :line/id identity)) lines))
         (dissoc :runs :clusters))))
 
-(defn- plane-ref [line]
+(defn- plane-ref
+  "Line → plane owner or throws.
+
+   Checked ownership boundary."
+  [line]
   (or (::planes line)
       (throw (ex-info "Layout line has no plane owner" {:line/id (:line/id line)}))))
 
-(defn- raw-glyph-indexes [planes span-index]
+(defn- raw-glyph-indexes
+  "Planes/span index → result-wide glyph indexes.
+
+   Contiguous range or order indirection."
+  [planes span-index]
   (let [start (u32-get (:span-glyph-start planes) span-index)
         end (u32-get (:span-glyph-end planes) span-index)]
     (if-let [order (:glyph-order planes)]
       (mapv #(u32-get order %) (range start end))
       (vec (range start end)))))
 
-(defn- run-for-source [line source-start source-end]
+(defn- run-for-source
+  "Line and source interval → first containing run or nil.
+
+   Linear search in source order. Reconstructing many glyph maps can repeat
+   run scans."
+  [line source-start source-end]
   (let [runs (:runs line)
         indexed (::run-source-index line)]
     (when-let [{:keys [run-index]}
@@ -322,7 +441,13 @@
                               indexed))]
       (get runs run-index))))
 
-(defn- glyph-view* [line glyph-index dx dy]
+(defn- glyph-view*
+  "Line/global glyph index/dx/dy → rich glyph map.
+
+   Decodes flags, local/absolute source, face metadata and translated
+   position. Translation affects position; ink-bounds are read unchanged,
+   which callers must account for when consuming translated views."
+  [line glyph-index dx dy]
   (let [planes (plane-ref line)
         packed (u32-get (:glyph-id+flags planes) glyph-index)
         virtual? (not (zero? (bit-and packed kind-mask)))
@@ -377,24 +502,41 @@
              :direction (if rtl? :rtl :ltr)))))
 
 (defn line-glyphs
+  "Line, optional translation → all rich glyph maps in line.
+
+   Materializes a bounded range. Intended for explicit rich-view request."
   ([line] (line-glyphs line 0 0))
   ([line dx dy]
    (mapv #(glyph-view* line % dx dy)
          (range (:glyph-start line) (:glyph-end line)))))
 
-(defn first-glyph-advance-x [line]
+(defn first-glyph-advance-x
+  "Line → first advance or nil if empty.
+
+   Single plane read."
+  [line]
   (when (< (:glyph-start line 0) (:glyph-end line 0))
     (view-number line
                  (f32-get (:advance-x (plane-ref line))
                           (:glyph-start line)))))
 
-(defn- span-selected? [planes span-index start end]
+(defn- span-selected?
+  "Planes/span/start/end → span start lies in half-open source interval?
+
+   Source-start ownership rule. Overlapping clusters that start before
+   requested range are excluded."
+  [planes span-index start end]
   (let [source-start (u32-get (:span-source-start planes) span-index)]
     (and (<= start source-start) (< source-start end))))
 
 (declare glyph-indexes-in-source-range)
 
 (defn glyphs-in-source-range
+  "Line/range/optional translation → selected glyph maps, span/count
+   statistics.
+
+   Index selection then rich materialization. Selection cost includes
+   scanning line spans."
   ([line source-range] (glyphs-in-source-range line source-range 0 0))
   ([line source-range dx dy]
    (let [{:keys [indexes] :as selected}
@@ -403,7 +545,11 @@
          (dissoc :indexes)
          (assoc :glyphs (mapv #(glyph-view* line % dx dy) indexes))))))
 
-(defn glyph-span-index-view [line]
+(defn glyph-span-index-view
+  "Line → compatibility span records with line-local glyph indexes.
+
+   Converts global spans/order."
+  [line]
   (let [planes (plane-ref line)]
     (into []
           (keep
@@ -418,7 +564,11 @@
                   :glyph-indexes indexes}))))
           (range (:cluster-start line) (:cluster-end line)))))
 
-(defn- union-bounds [bounds]
+(defn- union-bounds
+  "Bounds sequence → union or nil.
+
+   Coordinate reductions."
+  [bounds]
   (when (seq bounds)
     (let [x1 (reduce min (map :x bounds))
           y1 (reduce min (map :y bounds))
@@ -426,7 +576,13 @@
           y2 (reduce max (map #(+ (:y %) (:h %)) bounds))]
       {:x x1 :y y1 :w (- x2 x1) :h (- y2 y1)})))
 
-(defn- cluster-view [line span-index]
+(defn- cluster-view
+  "Line/span index → rich cluster bounds/source/direction/span and optional
+   consumed caret stops.
+
+   Reconstructs selected glyphs and bounds. Consumed source can generate one
+   stop per code unit."
+  [line span-index]
   (let [planes (plane-ref line)
         source-start (u32-get (:span-source-start planes) span-index)
         source-end (u32-get (:span-source-end planes) span-index)
@@ -470,14 +626,28 @@
                                   :upstream :downstream)})
                    (range source-start (inc source-end)))))))
 
-(defn line-clusters [line]
+(defn line-clusters
+  "Line → all rich cluster views.
+
+   Span traversal. Intended for explicit geometry queries; allocates views."
+  [line]
   (mapv #(cluster-view line %)
         (range (:cluster-start line) (:cluster-end line))))
 
-(defn result-runs [result]
+(defn result-runs
+  "Result → all compact runs in line order.
+
+   Flattening projection."
+  [result]
   (vec (mapcat :runs (:lines result))))
 
-(defn rich-lines [result]
+(defn rich-lines
+  "Result → line views with glyph/cluster/span maps and internal keys
+   removed.
+
+   On-demand reconstruction. Intended for oracle/export views; not a
+   low-allocation paint route."
+  [result]
   (mapv (fn [line]
           (-> line
               (dissoc ::planes ::run-source-index ::shaped?)
@@ -486,7 +656,11 @@
                      :clusters (line-clusters line))))
         (:lines result)))
 
-(defn plane-coverage-check [result]
+(defn plane-coverage-check
+  "Result → plane byte/count breakdown.
+
+   Sums actual typed storage. Not total retained-memory measurement."
+  [result]
   (let [planes (:layout/planes result)
         glyph-arrays (cond-> [[:position-x 4] [:position-y 4] [:advance-x 4]
                               [:offset-x 4] [:offset-y 4]
@@ -518,7 +692,13 @@
      :span-bytes-per-entry (if (pos? span-count)
                              (/ span-bytes span-count) 0)}))
 
-(defn retained-rich-map? [result]
+(defn retained-rich-map?
+  "Result → presence of rich glyph/cluster/span keys under retained
+   lines/runs?
+
+   Targeted structural check. Does not recursively search arbitrary
+   additional result fields."
+  [result]
   (boolean
    (some (fn [line]
            (or (contains? line :glyphs)
@@ -533,10 +713,9 @@
 ;; the only place a renderer reads them without one.
 
 (defn plane-builder
-  "Allocate result-wide planes for the flat layout route: exactly the arrays
-   `allocate-planes` would allocate for `glyph-count` glyphs and `span-count`
-   spans, with the `:advance-y` column only when `advance-y?` and the
-   `:glyph-order` array only when `order-count` is positive."
+  "Glyph/span counts, Y-advance flag, order count → fresh arrays.
+
+   Exact result-sized allocation. Intended for two-pass layout construction."
   [glyph-count span-count advance-y? order-count]
   (let [glyph-count (long glyph-count) span-count (long span-count)]
     (cond-> {:position-x (f32-array glyph-count)
@@ -561,8 +740,10 @@
       (pos? (long order-count)) (assoc :glyph-order (u32-array order-count)))))
 
 (defn put-glyph!
-  "Write one glyph row. `ink?` false stores the no-ink sentinel exactly as
-   `allocate-planes` does (NaN x, zero y/w/h)."
+  "Builder/index and primitive glyph fields → same builder; writes row.
+
+   Packs float fields and flags/sentinels. Many positional arguments are an
+   internal ABI that requires coordinated callers."
   [b i px py ax ay ox oy ink? ix iy iw ih glyph-id tab? rtl? cluster-start
    cluster-end]
   (f32-set! (:position-x b) i px)
@@ -583,25 +764,39 @@
   (u32-set! (:cluster-end b) i cluster-end)
   b)
 
-(defn put-span! [b i source-start source-end glyph-start glyph-end]
+(defn put-span!
+  "Builder/index/source and glyph endpoints → same builder; writes span.
+
+   Four column assignments."
+  [b i source-start source-end glyph-start glyph-end]
   (u32-set! (:span-source-start b) i source-start)
   (u32-set! (:span-source-end b) i source-end)
   (u32-set! (:span-glyph-start b) i glyph-start)
   (u32-set! (:span-glyph-end b) i glyph-end)
   b)
 
-(defn put-order! [b i glyph-index]
+(defn put-order!
+  "Builder/index/glyph index → same builder; writes indirection.
+
+   Direct assignment. Requires allocated order column."
+  [b i glyph-index]
   (u32-set! (:glyph-order b) i glyph-index)
   b)
 
 (defn finish-planes!
-  "Seal a builder into the retained planes value."
+  "Builder/source → map with source attached.
+
+   Logical sealing by convention. Arrays remain mutable; no physical freeze
+   occurs."
   [b source]
   (assoc b :source source))
 
 (defn glyph-indexes-in-source-range
-  "The index half of `glyphs-in-source-range`: the selected result-wide glyph
-   indexes and the span stats, no glyph map materialized."
+  "Line/range → sorted distinct global glyph indexes, local span and visited
+   count.
+
+   Scans all line spans, collects selected indexes, deduplicates/sorts.
+   Visited-glyphs reports selected glyphs, not all span-search work."
   [line source-range]
   (let [planes (plane-ref line)
         [start end] (source-bounds source-range)
@@ -618,17 +813,20 @@
      :visited-glyphs (count indexes)}))
 
 (defn glyph-views
-  "Derive layout glyph maps for explicit result-wide indexes."
+  "Line/explicit indexes/translation → rich glyph vector.
+
+   Direct indexed reconstruction."
   [line indexes dx dy]
   (mapv #(glyph-view* line % dx dy) indexes))
 
 (defn pack-glyphs!
-  "The pack entry point: walk `indexes` (result-wide, ascending) and call
-   `(f index glyph-id shaped? tab? font-id x y cluster-start cluster-end)`
-   with primitives only — no glyph map. `x`/`y` are the plane positions plus
-   `dx`/`dy`; `font-id` resolves by the same source-containment rule as
-   `run-for-source` (first run in source order containing the cluster range),
-   nil on legacy lines. Raw arrays never leave this namespace."
+  "Line, result-wide glyph indexes, translation and callback → traversal
+   result; calls the callback with primitive glyph data.
+
+   Callback: (f index glyph-id shaped? Tab? Font-id x y cluster-start
+   cluster-end). Coordinates include dx/dy. Font identity uses the first
+   source-ordered run containing the cluster, or nil for legacy lines. No
+   rich glyph map is allocated."
   [line indexes dx dy f]
   (let [planes (plane-ref line)
         shaped? (boolean (::shaped? line))
@@ -672,23 +870,46 @@
 
 ;; --- equality with typed planes (the oracle consistency check's comparator) ------------
 
-(defn- typed-array? [v]
+(defn- typed-array?
+  "Value → array/view?
+
+   Platform predicate. JVM accepts any array; JS ArrayBuffer views include
+   DataView although array helpers expect indexed length. Current plane
+   values are typed arrays."
+  [v]
   #?(:clj (and (some? v) (.isArray (class v)))
      :cljs (js/ArrayBuffer.isView v)))
 
-(defn- array-length [a]
+(defn- array-length
+  "Array → length.
+
+   Reflection/native property. Intended for intended arrays."
+  [a]
   #?(:clj (java.lang.reflect.Array/getLength a) :cljs (.-length a)))
 
-(defn- array-ref [a i]
+(defn- array-ref
+  "Array/index → element.
+
+   Generic reflection/native access. Intended for oracle comparisons."
+  [a i]
   #?(:clj (java.lang.reflect.Array/get a (int i)) :cljs (aget a i)))
 
-(defn- number=* [a b]
+(defn- number=*
+  "Two values → numeric equality including NaN=NaN.
+
+   Exact equality plus numeric coercion/sentinel rule. Intended for stored
+   plane comparison."
+  [a b]
   (or (= a b)
       (and (number? a) (number? b)
            (or (== a b)
                (and (nan-value? (double a)) (nan-value? (double b)))))))
 
-(defn- array= [a b]
+(defn- array=
+  "Two arrays → elementwise equality?
+
+   Shape check and early-exit scan. O(elements)."
+  [a b]
   (and (typed-array? a) (typed-array? b)
        (= (array-length a) (array-length b))
        (loop [i 0]
@@ -697,8 +918,9 @@
                :else false))))
 
 (defn planes=
-  "Element-wise equality of two plane values (NaN equals NaN); every
-   non-array entry compares with `=`."
+  "Two plane maps → same keys and equal arrays/scalars?
+
+   Array-aware structural comparison."
   [pa pb]
   (and (map? pa) (map? pb)
        (= (set (keys pa)) (set (keys pb)))
@@ -707,7 +929,13 @@
                    (if (typed-array? va) (array= va vb) (= va vb))))
                (keys pa))))
 
-(defn- strip-planes [result]
+(defn- strip-planes
+  "Result → structural comparison view without plane
+   references/proportionality counters.
+
+   Removes duplicate array owners from lines/index. Intended for comparator
+   scope."
+  [result]
   (-> result
       (dissoc :layout/planes)
       (update :lines (fn [lines] (mapv #(dissoc % ::planes) lines)))
@@ -717,10 +945,10 @@
       (update :stats dissoc :proportionality)))
 
 (defn result=
-  "Layout-result equality that sees through typed planes: planes element-wise,
-   the rest structurally with the plane owners stripped and the
-   proportionality counters excluded (the two routes count their own work).
-   Results without planes compare with `=`."
+  "Two results → array-aware equality, or normal equality without planes.
+
+   Compares planes once and stripped structure. Intentionally excludes work
+   counters."
   [a b]
   (if (and (map? a) (map? b) (:layout/planes a) (:layout/planes b))
     (and (planes= (:layout/planes a) (:layout/planes b))

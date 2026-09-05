@@ -1,13 +1,18 @@
 (ns app.client.text.layout
-  "Text layout: wraps and measures text into lines of positioned glyphs, with
-   caret stops, selection geometry, clipping, and hit testing, as one immutable
-   result.
-   Takes: raw text, a shaping provider, font size, character advance, line
-   height, an origin; optionally inline size, wrap policy, headers, clip,
-   source id and revision, zoom, tab stops.
-   Gives: the layout result (lines, glyph positions, planes) plus accessors to
-   read lines and glyph ranges back.
-   Holds nothing; the retained arrays live in layout-planes."
+  "Derive one layout and answer source/geometry queries.
+
+   Input: raw text/source lines, shaped provider, metrics,
+   wrapping/headers/clip/source identity; later a retained result and query.
+   Output: plane-backed layout, cache transitions, draw-item adapters,
+   source copies, carets, selection rectangles and hits. Caller owns
+   results/cache. The file also retains a bounded global flyweight array of
+   small tagged source indexes.
+
+   Shapes source lines, chooses cluster-safe wraps, reshapes final segments
+   and fills retained planes. Wrapping preserves source ownership for
+   consumed but unpainted whitespace.
+
+   Folder map: README.md."
   (:require [clojure.string :as str]
             [app.client.text.layout-planes :as planes]
             [app.client.text.shaped-line :as sl]
@@ -23,11 +28,19 @@
 
 (def index-space-token [:utf-16-code-unit 1])
 
-(defn code-unit-count [s]
+(defn code-unit-count
+  "Optional string → UTF-16 code-unit length.
+
+   Same unit on JVM/JS. Source index domain explicit."
+  [s]
   #?(:clj  (.length ^String (str (or s "")))
      :cljs (.-length (str (or s "")))))
 
-(defn- code-unit-at [s i]
+(defn- code-unit-at
+  "String/index → code unit.
+
+   Platform character access."
+  [s i]
   #?(:clj  (int (.charAt ^String s i))
      :cljs (.charCodeAt s i)))
 
@@ -42,7 +55,12 @@
   #?(:cljs (js/Array. tagged-index-intern-limit)
      :clj (object-array tagged-index-intern-limit)))
 
-(defn tagged-index [offset]
+(defn tagged-index
+  "Offset → tagged UTF-16 body index; may fill flyweight cache.
+
+   Interns integer offsets 0–131071. Intended for repeated range endpoints;
+   globally retained cache is bounded."
+  [offset]
   (if (and (number? offset)
            #?(:cljs (js/Number.isInteger offset)
               :clj (integer? offset))
@@ -57,11 +75,15 @@
             v)))
     {:index-space index-space :offset offset}))
 
-(defn header-index [header-ordinal offset]
+(defn header-index
+  "Header ordinal/offset → header-domain index."
+  [header-ordinal offset]
   [:header header-ordinal offset])
 
 (defn source-index-offset
-  "Return the numeric offset carried by a layout body or per-header index."
+  "Tagged body/header index → numeric offset, otherwise nil.
+
+   Explicit decoding."
   [index]
   (cond
     (map? index) (:offset index)
@@ -69,30 +91,46 @@
     :else nil))
 
 (defn line-source-bounds
-  "Return [start end] numeric offsets for either exact line range schema."
+  "Body/header source range → numeric endpoints.
+
+   Decodes the two accepted range forms."
   [source-range]
   (if (and (vector? source-range) (= :header (first source-range)))
     (nth source-range 2)
     (mapv source-index-offset source-range)))
 
-(defn- shaped-provider? [provider]
+(defn- shaped-provider?
+  "Provider → callable shape-line present?
+
+   Narrow capability check. Not full provider schema validation."
+  [provider]
   (and provider (fn? (:shape-line provider))))
 
-(defn- provider-identity [provider]
+(defn- provider-identity
+  "Provider → selected font/shaper/options/metrics fields.
+
+   Stable descriptive projection."
+  [provider]
   (select-keys provider [:face-id :face-revision :shaper-id :shaper-version
                          :features :variations :axes :fallback-chain :upem
                          :metrics]))
 
 (defn legal-zoom?
-  "True when zoom is inside the layout's legal component range."
+  "Zoom → inside [0.01,1000]?
+
+   Direct range check. Intended for numeric callers; does not first check
+   type."
   [zoom]
   (<= 0.01 zoom 1000))
 
 (defn layout-key
-  "The shaping-correction keying source. Only full visible projection,
-   stable address/revision, provider identity, and layout metrics enter.
-   Paint, camera, origin, selection, hover, backend, and broad rebuild `sig`
-   are deliberately absent."
+  "Address, stamp, visible text, provider and layout options → structured
+   cache key; missing address throws.
+
+   Keys source/provider/metrics. Paint, camera, origin, selection, hover,
+   backend and broad rebuild signatures are absent. Callers must use
+   compatible build inputs; :layout/id has a broader identity including
+   origin, clip and zoom."
   [{:keys [address stamp body-text header-texts
            provider font-size line-height baseline-offset wrap-policy wrap-col
            language direction tab-stops]}]
@@ -122,7 +160,14 @@
                       index-space-token]]
     [source-token provider-token metric-token]))
 
-(defn- source-line-records [text source-lines]
+(defn- source-line-records
+  "Text and optional explicit lines → text/logical index/source offsets per
+   line.
+
+   Splits preserving trailing empties; advances offset by line
+   length+newline. Explicit lines are assumed to match newline-separated
+   source."
+  [text source-lines]
   (let [lines (vec (or source-lines (str/split (str (or text "")) #"\n" -1)))]
     (loop [remaining lines line-index 0 source-start 0 records []]
       (if (empty? remaining)
@@ -136,21 +181,29 @@
                                 :source-end (+ source-start n)})))))))
 
 (defn break-whitespace-at?
-  "The shaping break class: U+0020 SPACE and U+0009 TAB only. Never replace
-   this with a platform-dependent `\\s` predicate."
+  "Text and UTF-16 offset → whether the code unit is U+0020 SPACE or U+0009
+   TAB.
+
+   This explicit break class must not widen to a platform whitespace regex."
   [text offset]
   (when (and (<= 0 offset) (< offset (code-unit-count text)))
     (let [cu (code-unit-at text offset)]
       (or (= 0x20 cu) (= 0x09 cu)))))
 
-(defn- work+! [!work key n]
+(defn- work+!
+  "Volatile counter map/key/increment → updated map.
+
+   Local instrumentation. Counts selected operations only."
+  [!work key n]
   (vswap! !work update key (fnil + 0) n))
 
 ;; --- the flat route: spans, wrap, and ink over columns -----------------------
 
 (defn- sort-glyph-order
-  "Glyph indexes of one shaped line ordered by (cluster-start, cluster-end,
-   index): the exact grouping `glyph-span-index` used to build from maps."
+  "Shaped line → indexes sorted by cluster start/end/index.
+
+   Typed sort in JS; sequence sort in JVM. Intended for deterministic
+   grouping; sorting occurs even for already ordered input."
   [line]
   (let [g (long (:glyph-count line))
         cs (:cluster-start line)
@@ -173,11 +226,11 @@
                order))))
 
 (defn- line-spans
-  "One pass over a shaped line's cluster columns: the span table — sorted by
-   (source-start, source-end), each span's ascending glyph indexes laid out
-   contiguously in `:order`, its [min, max+1) glyph range, its font-unit
-   left/right edge, and whether it is contiguous. Pure; the caller counts
-   `glyph-visits` and `cluster-index-writes` exactly as the map route did."
+  "Shaped columns → source-sorted span columns, glyph order/ranges/widths
+   and contiguity flag.
+
+   Sort then grouped linear scans. “monotonic” here means each cluster's
+   glyph set is contiguous, not necessarily source-order glyph monotonicity."
   [line]
   (let [g (long (:glyph-count line))
         order (sort-glyph-order line)
@@ -241,23 +294,37 @@
                          (zero? (sl/u8-get contiguous s)) false
                          :else (recur (inc s))))}))
 
-(defn- span-start [spans i] (sl/i32-get (:starts spans) i))
-(defn- span-end [spans i] (sl/i32-get (:ends spans) i))
+(defn- span-start
+  "Span table and index → the span's source start offset."
+  [spans i] (sl/i32-get (:starts spans) i))
+(defn- span-end
+  "Span table and index → the span's source end offset."
+  [spans i] (sl/i32-get (:ends spans) i))
 
-(defn- span-width [spans i]
+(defn- span-width
+  "Span table/index → absolute horizontal advance extent.
+
+   Difference of retained edges."
+  [spans i]
   (Math/abs (- (double (sl/i32-get (:rights spans) i))
                (double (sl/i32-get (:lefts spans) i)))))
 
-(defn- span-break-whitespace? [text spans i]
+(defn- span-break-whitespace?
+  "Text/spans/index → nonempty all-SPACE/TAB span?
+
+   Scans code units within cluster."
+  [text spans i]
   (let [start (span-start spans i) end (span-end spans i)]
     (and (< start end)
          (every? #(break-whitespace-at? text %) (range start end)))))
 
 (defn- scan-wrap-cut
-  "Choose one segment-relative cut from an already-shaped source line.
-   A cluster is revisited at most once after the chosen whitespace boundary,
-   keeping the complete cut walk linear with a <=2C visit bound. (The map
-   route's algorithm, re-keyed to the span table.)"
+  "Shaped spans, start positions, max font units, counters → next
+   paint/owned/consumed cut.
+
+   Greedy scan remembering whitespace break and last fitting cluster, with
+   progress fallback. Cluster boundaries preserve source ownership; counters
+   do not measure all operations."
   [line-text spans start-index segment-start max-units !work]
   (let [cluster-count (long (:count spans))
         source-length (code-unit-count line-text)]
@@ -328,9 +395,10 @@
                 (recur (inc i) next-advance last-fitting last-candidate)))))))))
 
 (defn- shaped-segments
-  "Choose all cuts from one shaped pass, then let `shaped-layout` reshape only
-   the final segments. The returned ranges are relative to the source line.
-   `spans` is the span table of `shaped`."
+  "Text/shaped columns/spans/inline units/counters → visual segment records.
+
+   Reuses unwrapped shape, detects zero-glyph faults, repeatedly chooses
+   cuts. Shapes final pieces later rather than every candidate substring."
   [line-text shaped spans inline-size !work]
   (let [source-length (code-unit-count line-text)
         cluster-count (long (:count spans))]
@@ -380,7 +448,11 @@
                            (:provider-fault? cut)
                            (assoc :provider-fault? true))))))))))
 
-(defn- union-bounds [bounds]
+(defn- union-bounds
+  "Bounds → union or nil.
+
+   Direct reductions."
+  [bounds]
   (when (seq bounds)
     (let [x1 (reduce min (map :x bounds))
           y1 (reduce min (map :y bounds))
@@ -391,8 +463,10 @@
 (declare nearest-by)
 
 (defn line-by-id
-  "Resolve a line through the retained line-id index. The optional fallback is
-   explicit so callers can count its single extra visit."
+  "Result/ID/optional fallback Y → indexed line, nearest baseline, or nil.
+
+   O(1) keyed path; linear fallback. Callers should distinguish fallback
+   cost."
   ([layout-result line-id]
    (get-in layout-result [:line-index line-id]))
   ([layout-result line-id fallback-y]
@@ -400,67 +474,94 @@
        (nearest-by fallback-y #(second (:baseline %)) (:lines layout-result)))))
 
 (defn glyphs-in-source-range
-  "Indexed paint/clip selection. `visited-glyphs` counts only the selected
-   span, never the full line vector (G6's executable stats)."
+  "Line/range/optional translation → rich selected glyphs and statistics.
+
+   Delegates plane boundary. “visited” counts selected glyphs, not span
+   search."
   ([line-data source-range]
    (planes/glyphs-in-source-range line-data source-range))
   ([line-data source-range dx dy]
    (planes/glyphs-in-source-range line-data source-range dx dy)))
 
 (defn line-glyphs
-  "Derive layout glyph maps for one line; the maps are never retained."
+  "Line/optional translation → all rich glyphs.
+
+   Plane accessor. Intended for explicit materialization."
   ([line-data] (planes/line-glyphs line-data))
   ([line-data dx dy] (planes/line-glyphs line-data dx dy)))
 
 (defn line-clusters
-  "Derive layout cluster views for one line from the span plane."
+  "Line → rich cluster views."
   [line-data]
   (planes/line-clusters line-data))
 
 (defn glyph-span-index-view
-  "Derived compatibility/oracle view of one line's indexed spans."
+  "Line → compatibility span index."
   [line-data]
   (planes/glyph-span-index-view line-data))
 
-(defn result-runs [layout-result]
+(defn result-runs
+  "Result → flattened compact runs."
+  [layout-result]
   (planes/result-runs layout-result))
 
-(defn plane-coverage-check [layout-result]
+(defn plane-coverage-check
+  "Result → typed-array byte statistics.
+
+   Delegation. Not whole-heap measurement."
+  [layout-result]
   (planes/plane-coverage-check layout-result))
 
-(defn retained-rich-map? [layout-result]
+(defn retained-rich-map?
+  "Result → targeted retained-map presence check."
+  [layout-result]
   (planes/retained-rich-map? layout-result))
 
-(defn within-span-bound? [{:keys [visited-glyphs glyph-span-count]}]
+(defn within-span-bound?
+  "Visit/span-count stats → visits ≤ span count+8?
+
+   Declared counter inequality. Missing values default to zero; not proof of
+   measured latency."
+  [{:keys [visited-glyphs glyph-span-count]}]
   (<= (long (or visited-glyphs 0)) (+ (long (or glyph-span-count 0)) 8)))
 
 (defn glyph-indexes-in-source-range
-  "Indexed selection without glyph maps: the result-wide glyph indexes of a
-   source range plus the span stats (the flat paint route's read)."
+  "Line/range → selected global indexes/span/count.
+
+   Delegation to flat selection."
   [line-data source-range]
   (planes/glyph-indexes-in-source-range line-data source-range))
 
 (defn glyph-views
-  "Derive layout glyph maps for explicit result-wide indexes."
+  "Line/indexes/translation → rich glyphs."
   [line-data indexes dx dy]
   (planes/glyph-views line-data indexes dx dy))
 
 (defn pack-glyphs!
-  "The pack entry point: walk result-wide `indexes` of one line calling
-   `(f index glyph-id shaped? tab? font-id x y cluster-start cluster-end)`
-   with primitives only. See `layout-planes/pack-glyphs!`."
+  "Line, result-wide glyph indexes, translation and callback → traversal
+   result; calls the callback with primitive glyph data.
+
+   Callback: (f index glyph-id shaped? Tab? Font-id x y cluster-start
+   cluster-end). Coordinates include dx/dy. Delegates to
+   layout-planes/pack-glyphs!."
   [line-data indexes dx dy f]
   (planes/pack-glyphs! line-data indexes dx dy f))
 
 (defn result=
-  "Layout-result equality that sees through typed planes."
+  "Two results → typed-plane-aware equality."
   [a b]
   (planes/result= a b))
 
 (defn- shaped-layout
-  "The flat route: shape every visual line into columns, derive each line's
-   span table in one pass, then fill the result-wide planes directly — no
-   glyph map between the provider and the retained result."
+  "Full layout input → positioned result with
+   source/metrics/lines/planes/stats; illegal zoom throws.
+
+   Two-pass plane construction with shaped wrap segments, per-line/run
+   records and local shape!/index-of helpers. One large function combines
+   several responsibilities. Source-visible tradeoffs: run construction
+   scans spans per run, counters do not count every iteration, and zoom
+   validation occurs after derivation. These counters do not establish
+   whole-function linear runtime."
   [{:keys [text source-lines provider font-size line-height origin
            baseline-offset inline-size wrap-policy wrap-col headers clip
            line-map source-id source-revision features variations language
@@ -857,14 +958,20 @@
                 :provider-fault (:provider-fault work)}}))
 
 (defn layout
-  "Produce the one immutable layout result through a shaped provider."
+  "Layout input → shaped layout; missing provider throws named error.
+
+   One provider-required entry. No synthetic fixed-width fallback."
   [{:keys [provider] :as input}]
   (if (shaped-provider? provider)
     (shaped-layout input)
     (throw (ex-info "Text layout requires a shaped provider."
                     {:error-type :text/layout-provider-required}))))
 
-(defn- sha256-hex [s]
+(defn- sha256-hex
+  "Value/string → UTF-8 SHA-256 hex.
+
+   Platform hashing implementations. Intended for reporting digest."
+  [s]
   #?(:clj
      (let [digest (.digest (java.security.MessageDigest/getInstance "SHA-256")
                            (.getBytes (str s) "UTF-8"))]
@@ -874,7 +981,11 @@
        (.update digest (gcrypt/stringToUtf8ByteArray (str s)))
        (gcrypt/byteArrayToHex (.digest digest)))))
 
-(defn layout-id-digest [results]
+(defn layout-id-digest
+  "Result map → hash of sorted string layout IDs.
+
+   Order-independent report token. It hashes IDs, not every result byte."
+  [results]
   (->> results
        vals
        (map :layout/id)
@@ -884,13 +995,21 @@
        pr-str
        sha256-hex))
 
-(defn empty-layout-cache []
+(defn empty-layout-cache
+  "No input → empty address/key/result maps and counters.
+
+   Pure constructor."
+  []
   {:address->key {}
    :key->result {}
    :hits 0 :misses 0 :replacements 0
    :oracle-checks 0 :oracle-mismatches 0})
 
-(defn layout-cache-report [cache]
+(defn layout-cache-report
+  "Cache → size/counters/ID digest.
+
+   Derived report. Digest traverses/sorts cached IDs."
+  [cache]
   {:size (count (:key->result cache))
    :address-count (count (:address->key cache))
    :hits (:hits cache 0)
@@ -901,23 +1020,28 @@
    :id-digest (layout-id-digest (:key->result cache))})
 
 (defn layout-cache-reset-counters
-  "Open a new measurement window without changing cache ownership or values."
+  "Optional cache → same contents with counters reset.
+
+   Pure transition. Intended for a measurement window."
   [cache]
   (assoc (or cache (empty-layout-cache))
          :hits 0 :misses 0 :replacements 0
          :oracle-checks 0 :oracle-mismatches 0))
 
 (defn oracle-match?
-  "I2's oracle comparator. Sees through typed planes (`planes/result=`): two
-   results holding distinct typed arrays are equal when their planes are
-   element-wise equal and the rest is structurally equal."
+  "Cached/fresh result → plane-aware equality.
+
+   Shared comparator. Excludes proportionality counters."
   [cached fresh]
   (planes/result= cached fresh))
 
 (defn layout-cache-acquire
-  "Pure one-current-entry-per-address cache transition. `build-result` is a
-   zero-arity batch oracle/constructor. On a production hit, oracle mode may
-   recompute without changing miss/layout conservation."
+  "Cache/address/key/zero-arg builder/options → new
+   cache/result/hit/replacement and optional oracle result.
+
+   One current entry per address; optional hit recomputation without
+   counting a miss. Externally shared keys across addresses could be removed
+   by another address's replacement."
   [cache address key build-result & {:keys [oracle?]}]
   (let [cache (or cache (empty-layout-cache))
         current-key (get-in cache [:address->key address])
@@ -944,7 +1068,11 @@
         {:cache cache :result result :hit? false
          :replacement? replacement?}))))
 
-(defn layout-cache-remove-addresses [cache addresses]
+(defn layout-cache-remove-addresses
+  "Cache and addresses → cache without their keys/results.
+
+   Pure removal. Intended for address-unique keys."
+  [cache addresses]
   (reduce
    (fn [cache address]
      (if-let [key (get-in cache [:address->key address])]
@@ -960,12 +1088,19 @@
    :run-index-writes :run-index-reads :wrap-candidate-visits])
 
 (defn work-units
-  "G1's exact proportionality vocabulary; shaping calls are deliberately
-   reported separately."
+  "Counter map → sum of six declared counters.
+
+   Explicit instrumentation vocabulary. Excludes shaping and uncounted
+   loops."
   [stats]
   (reduce + 0 (map #(long (or (get stats %) 0)) work-counter-keys)))
 
 (defn within-work-bound?
+  "Stats and glyph/cluster/run counts, optional noncontiguous flag →
+   declared inequality holds?
+
+   4×linear allowance plus optional n·ceil(log2(n+1)). Serves as a counter
+   check, not independent complexity proof."
   ([stats glyph-count cluster-count run-count]
    (within-work-bound? stats glyph-count cluster-count run-count
                        :non-monotonic? false))
@@ -980,17 +1115,27 @@
            0)]
      (<= (work-units stats) (+ base sort-allowance)))))
 
-(defn measure-result [layout-result]
+(defn measure-result
+  "Result → layout ID and metrics.
+
+   Projection."
+  [layout-result]
   {:layout/id (:layout/id layout-result)
    :metrics (:metrics layout-result)})
 
-(defn wrap-result [layout-result]
+(defn wrap-result
+  "Result → ID and visual line strings.
+
+   Projection."
+  [layout-result]
   {:layout/id (:layout/id layout-result)
    :lines (mapv :text (:lines layout-result))})
 
 (defn copy-result
-  "Source-based copy. Break-consumed characters remain copyable even though
-   their painted width is zero. Header ranges stay in their own domain."
+  "Result/body-or-header range → original source substring and range.
+
+   Copies source, including unpainted consumed whitespace. Invalid substring
+   bounds throw."
   [layout-result source-range]
   (if (and (vector? source-range) (= :header (first source-range)))
     (let [[_ h [start end]] source-range
@@ -1004,16 +1149,23 @@
        :source-range source-range
        :text (subs text start end)})))
 
-(defn paint-result [layout-result]
+(defn paint-result
+  "Result → ID/all rich glyphs/rich lines.
+
+   Reconstructs maps on demand. Intended for compatibility; main flat
+   packing need not use it."
+  [layout-result]
   (let [lines (planes/rich-lines layout-result)]
     {:layout/id (:layout/id layout-result)
      :glyphs (vec (mapcat :glyphs lines))
      :lines lines}))
 
 (defn line-paint-draw-items
-  "Adapt layout lines back to the existing text-draw-item maps without changing the
-   renderer-facing schema. Style/range keys come from `template`; positions and
-   line text come only from the layout result."
+  "Result and style template → per-line draw items retaining layout/line IDs
+   and anchors.
+
+   Takes positions/text from layout and style from template. Consumers reuse
+   existing layout."
   [layout-result template]
   (mapv (fn [{:keys [line/id text baseline source-range paint-source-range]}]
           (assoc template
@@ -1030,9 +1182,10 @@
         (:lines layout-result)))
 
 (defn source-offset->line-col
-  "Map one body UTF-16 source offset into the retained visual layout. Interior
-   consumed offsets stay at the preceding line; consumed-end belongs to the
-   following line's start."
+  "Result/body offset → visual line and local column.
+
+   Scans body ranges with consumed-end ownership rule. Returns clamped
+   fallback on out-of-range input."
   [layout-result offset]
   (let [offset (long (or offset 0))
         body-lines (vec (remove #(= :header (first (:source-range %)))
@@ -1054,8 +1207,9 @@
      :col (- (max start (min offset end)) start)}))
 
 (defn- cluster-caret-stops
-  "A cluster's two edge caret stops. Clusters no longer retain :caret-stops;
-   stored stops win when present for consumed clusters."
+  "Cluster → explicit consumed stops or two direction-aware edge stops.
+
+   Geometry from cluster bounds."
   [cluster]
   (or (:caret-stops cluster)
       (when-let [{:keys [x y w]} (:logical-bounds cluster)]
@@ -1069,9 +1223,11 @@
            {:index end :position [end-x y] :affinity :upstream}]))))
 
 (defn- injected-cluster-stops
-  "Grapheme boundaries are injected data; an
-   interior boundary interpolates between the shaped cluster's declared edge
-   stops by its UTF-16 advance fraction."
+  "Cluster and external grapheme boundaries → interpolated interior stops.
+
+   UTF-16 fractional interpolation. Not font-provided ligature caret
+   metrics; constructed interior indexes are body-tagged, even for header
+   clusters."
   [cluster grapheme-boundaries]
   (let [[start-index end-index] (:source-range cluster)
         start (source-index-offset start-index)
@@ -1096,6 +1252,10 @@
       [])))
 
 (defn- line-caret-stops
+  "Line and optional boundaries → all cluster/interior stops.
+
+   Reconstructs cluster views then flattens. Repeated queries
+   allocate/recompute."
   ([line-data] (line-caret-stops line-data nil))
   ([line-data grapheme-boundaries]
    (->> (line-clusters line-data)
@@ -1105,7 +1265,11 @@
                                                   grapheme-boundaries))))
         vec)))
 
-(defn- nearest-by [value value-fn xs]
+(defn- nearest-by
+  "Target/accessor/sequence → first closest candidate or nil.
+
+   Linear reduction with stable ties."
+  [value value-fn xs]
   (when (seq xs)
     (reduce (fn [best candidate]
               (if (< (Math/abs (- (double (value-fn candidate)) value))
@@ -1115,6 +1279,12 @@
             (first xs) (rest xs))))
 
 (defn- shaped-caret-result
+  "Result/line/column/options → source index, actual line/column, position,
+   2-pixel caret rect, affinity.
+
+   Clamps request, resolves consumed-line boundary, chooses exact/nearest
+   stops. Intended for current caret rules; rich cluster reconstruction
+   costs remain."
   [layout-result line col {:keys [grapheme-boundaries affinity]}]
   (let [lines (:lines layout-result)
         line (max 0 (min (long (or line 0)) (dec (max 1 (count lines)))))
@@ -1161,12 +1331,19 @@
      :affinity (:affinity stop)}))
 
 (defn caret-result
+  "Result/line/column/optional options → caret record."
   ([layout-result line col]
    (caret-result layout-result line col nil))
   ([layout-result line col options]
    (shaped-caret-result layout-result line col options)))
 
-(defn- shaped-selection-result [layout-result line col-start col-end min-width]
+(defn- shaped-selection-result
+  "Result/line/start/end/min width → overlapping cluster rectangles and
+   union.
+
+   Uses caret-resolved source endpoints. Single-line selection computation;
+   bidi rects remain separate clusters rather than one assumed interval."
+  [layout-result line col-start col-end min-width]
   (let [a (shaped-caret-result layout-result line col-start nil)
         b (shaped-caret-result layout-result line col-end nil)
         [start end] (sort [(source-index-offset (:index a))
@@ -1193,13 +1370,19 @@
      :rect (update bounding :w max min-width)}))
 
 (defn selection-result
+  "Layout result, line, start/end columns and optional minimum width →
+   selection record."
   [layout-result line col-start col-end & {:keys [min-width] :or {min-width 0}}]
   (shaped-selection-result layout-result line col-start col-end min-width))
 
 (defn clip-result
-  "Clip one existing text draw-item through the layout's declared clip geometry.
-   `:left-right` rewrites :from/:to; `:right-only` preserves :from and updates
-   only :to."
+  "Result, draw item and range mode → optional clipped item, source range
+   and visit counts.
+
+   Filters glyph advance intervals and baseline position. :left-right
+   rewrites :from/:to; :right-only preserves :from. Source-range pruning is
+   not pixel clipping. Nearest-line fallback scans are reported as a fixed
+   second visit."
   [layout-result draw-item & {:keys [range-mode] :or {range-mode :left-right}}]
   (let [{:keys [left right top bottom]} (get-in layout-result [:constraints :clip])
           requested-line-id (:layout-line-id draw-item)
@@ -1262,6 +1445,12 @@
        :visible-range visible-range}))
 
 (defn- shaped-hit-test-result
+  "Result/point/options → visual/logical line, source caret
+   index/column/affinity.
+
+   Chooses containing/nearest line then nearest caret stop; treats consumed
+   whitespace specially. Intended for text insertion hit semantics, not
+   ink-outline hit testing."
   [layout-result [x y] {:keys [grapheme-boundaries]}]
   (let [lines (:lines layout-result)
         line-data (or (first (filter (fn [line]
@@ -1296,9 +1485,7 @@
      :index-space index-space}))
 
 (defn hit-test-result
-  "Point -> visual line -> optional logical line map -> source caret stop.
-   Callers may inject grapheme boundaries so shaped-cluster interiors become lawful
-   stops without introducing a second metric route."
+  "Result/point/optional grapheme boundaries → hit record."
   ([layout-result point]
    (hit-test-result layout-result point nil))
   ([layout-result [x y] options]

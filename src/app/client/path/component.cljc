@@ -1,11 +1,14 @@
 (ns app.client.path.component
-  "What a path is, and the four things everyone needs from one. A path is ink
-   (a stroke of width-tagged points, round caps) or a shape (filled outer
-   contours with holes), straight segments only, with a paint.
-   Takes: a validated path map; a point; optional local-unit hit slop.
-   Gives: the declared schema; inside, boundary, or outside; a content hash;
-   paint.
-   Holds nothing."
+  "Define the path's data and CPU geometric meaning.
+
+   Input: component maps and local query points. Output: schema acceptance,
+   canonical content identity, tri-state classification, distance and paint.
+   No retained state. Schema definitions cover paint, stroke points, ink
+   geometry, contours and shape geometry; version is 2. :path/material-id
+   and :path/revision remain field names even though the file is named
+   component.cljc.
+
+   Folder map: README.md."
   (:require [app.client.engine.schema :as schema]))
 
 (def schema-version 2)
@@ -14,7 +17,11 @@
 (def legal-cap-join #{:round})
 (def boundary-epsilon 1.0e-9)
 
-(defn- named-validator [error-type predicate]
+(defn- named-validator
+  "Error type and predicate → checking function returning true or throwing.
+
+   Gives shared-schema failures family-specific names."
+  [error-type predicate]
   (fn [value]
     (when-not (predicate value)
       (throw (ex-info "Path schema rejected value" {:error-type error-type})))
@@ -56,7 +63,12 @@
     :role (named-validator :path/contour-role legal-contour-roles)
     :points [:vector-of schema/point? {:min 3}]}})
 
-(defn- holes-have-an-outer? [geometry]
+(defn- holes-have-an-outer?
+  "Shape geometry → truthy if no holes or some outer exists.
+
+   Presence check. Intended for this narrow invariant; does not prove
+   containment."
+  [geometry]
   (let [contours (:contours geometry)]
     (or (not-any? #(= :hole (:role %)) contours)
         (some #(= :outer (:role %)) contours))))
@@ -68,7 +80,12 @@
    :form-validators
    [{:valid? holes-have-an-outer? :error-type :path/hole-without-outer}]})
 
-(defn- geometry-matches-kind? [component]
+(defn- geometry-matches-kind?
+  "Component → true after matching geometry validation, false for unknown
+   kind.
+
+   Dispatches to ink/shape schema."
+  [component]
   (case (:path/kind component)
     :ink (do (schema/check ink-geometry (:path/geometry component)) true)
     :shape (do (schema/check shape-geometry (:path/geometry component)) true)
@@ -86,11 +103,21 @@
    [{:valid? geometry-matches-kind? :error-type :path/geometry-kind}]})
 
 (defn validate-component!
-  "Check the declared path schema and return the unchanged EDN map."
+  "Component → same map or named exception.
+
+   Shared schema entry. No admission metadata is stamped here. Structural
+   acceptance does not establish simple polygons, contained holes or nonzero
+   segments; tessellation can reject a structurally valid component."
   [component]
   (schema/check schema component))
 
-(defn canonical-component [component]
+(defn canonical-component
+  "Nested component value → recursively sorted maps/sets and preserved
+   vector order.
+
+   Local recursive canonical helper performs structural normalization.
+   Sorted collections assume mutually comparable keys/elements."
+  [component]
   (letfn [(canonical [value]
             (cond
               (map? value) (into (sorted-map)
@@ -101,17 +128,33 @@
               :else value))]
     (canonical component)))
 
-(defn component-content-hash [component]
+(defn component-content-hash
+  "Component → versioned canonical printed content excluding ID/revision.
+
+   Stable value key, not a compact cryptographic hash. Paint remains
+   included here, unlike the mesh cache key."
+  [component]
   [:path/content-v2
    (pr-str (dissoc (canonical-component component)
                    :path/material-id :path/revision))])
 
-(defn- sq [value] (* value value))
+(defn- sq
+  "Number → square."
+  [value] (* value value))
 
-(defn- distance-squared [[ax ay] [bx by]]
+(defn- distance-squared
+  "Two points → squared distance.
+
+   Avoids square root when unnecessary."
+  [[ax ay] [bx by]]
   (+ (sq (- ax bx)) (sq (- ay by))))
 
-(defn- segment-projection [[ax ay] [bx by] [px py]]
+(defn- segment-projection
+  "Segment endpoints and point → clamped parameter and closest centerline
+   point.
+
+   Dot-product projection; zero segment gives its start."
+  [[ax ay] [bx by] [px py]]
   (let [dx (- bx ax)
         dy (- by ay)
         denominator (+ (* dx dx) (* dy dy))
@@ -122,11 +165,22 @@
                              denominator))))]
     {:t t :point [(+ ax (* t dx)) (+ ay (* t dy))]}))
 
-(defn- point-segment-distance [point a b]
+(defn- point-segment-distance
+  "Point and segment → Euclidean distance.
+
+   Uses projection."
+  [point a b]
   (let [{closest :point} (segment-projection a b point)]
     (Math/sqrt (distance-squared point closest))))
 
-(defn- segment-delta [a width-a b width-b point]
+(defn- segment-delta
+  "Endpoints, endpoint widths, query → parameter/distance/interpolated
+   half-width/signed delta.
+
+   Width sampled at centerline projection. Defines the implemented
+   varying-width hit rule; it is not an independent exact-distance solver
+   for every tapered outline."
+  [a width-a b width-b point]
   (let [{:keys [t] closest :point} (segment-projection a b point)
         distance (Math/sqrt (distance-squared point closest))
         half-width (/ (+ width-a (* t (- width-b width-a))) 2.0)]
@@ -135,10 +189,19 @@
      :half-width half-width
      :delta (- distance half-width)}))
 
-(defn- point-on-segment? [point a b]
+(defn- point-on-segment?
+  "Point and segment → within boundary epsilon?
+
+   Distance tolerance. Epsilon is in local units."
+  [point a b]
   (<= (point-segment-distance point a b) boundary-epsilon))
 
-(defn contour-classify [points point]
+(defn contour-classify
+  "Polygon points and query → :boundary, :inside, or :outside.
+
+   Boundary scan then odd/even ray crossing. Intended for this polygon
+   contract; O(edges)."
+  [points point]
   (if (some (fn [[a b]] (point-on-segment? point a b))
             (map vector points (concat (rest points) [(first points)])))
     :boundary
@@ -154,20 +217,34 @@
            (map vector points (concat (rest points) [(first points)])))]
       (if inside? :inside :outside))))
 
-(defn- contour-boundary-distance [points point]
+(defn- contour-boundary-distance
+  "Polygon and point → minimum edge distance.
+
+   Full edge scan."
+  [points point]
   (apply min
          (for [[a b] (map vector points
                           (concat (rest points) [(first points)]))]
            (point-segment-distance point a b))))
 
-(defn- ink-deltas [geometry query-point]
+(defn- ink-deltas
+  "Ink geometry and query → signed deltas for adjacent segments.
+
+   Pairwise projection with interpolated widths. Allocates a vector per
+   query."
+  [geometry query-point]
   (mapv (fn [[left right]]
           (:delta (segment-delta (:position left) (:width left)
                                  (:position right) (:width right)
                                  query-point)))
         (partition 2 1 (:stroke-points geometry))))
 
-(defn- ink-classify [geometry query-point slop-local]
+(defn- ink-classify
+  "Geometry, query, slop → tri-state classification.
+
+   Minimum segment delta minus slop. Intended for the declared local hit
+   rule."
+  [geometry query-point slop-local]
   (let [delta (- (apply min (ink-deltas geometry query-point)) slop-local)]
     (cond
       (< delta (- boundary-epsilon)) :inside
@@ -175,7 +252,12 @@
       :else :outside)))
 
 (defn classify
-  "Tri-state authority classification in path-local f64 coordinates."
+  "Component, point, optional nonnegative slop → tri-state; invalid slop
+   throws.
+
+   Ink union or outer-minus-hole classification, followed by boundary slop
+   expansion. Trusts component validation and treats any hole interior as
+   excluded from any outer."
   ([component point] (classify component point 0.0))
   ([component point slop-local]
    (when-not (schema/non-negative-number? slop-local)
@@ -209,10 +291,18 @@
          (and slop-delta (neg? slop-delta)) :inside
          :else :outside)))))
 
-(defn hit? [component point]
+(defn hit?
+  "Component and point → true for inside or boundary."
+  [component point]
   (not= :outside (classify component point)))
 
-(defn boundary-distance [component point]
+(defn boundary-distance
+  "Component and point → minimum absolute ink-segment delta or contour-edge
+   distance.
+
+   Scans component geometry. For overlapping ink segments, nearest
+   individual segment boundary need not be the boundary of their union."
+  [component point]
   (case (:path/kind component)
     :ink (apply min (map #(Math/abs %) (ink-deltas (:path/geometry component)
                                                    point)))
@@ -224,7 +314,11 @@
                                     [(first (:points contour))]))]
              (point-segment-distance point a b)))))
 
-(defn paint-color [component]
+(defn paint-color
+  "Component → straight RGBA with opacity multiplied into alpha.
+
+   Pure paint extraction. Shader applies scene-color conversion later."
+  [component]
   (let [{:keys [color opacity]} (:path/paint component)
         [red green blue alpha] color]
     [red green blue (* alpha opacity)]))

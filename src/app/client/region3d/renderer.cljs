@@ -1,14 +1,19 @@
 (ns app.client.region3d.renderer
-  "The 3D renderer: uploads a region's evaluated scene and session, encodes its
-   shadow and interior passes into a lease, and composites the result into the
-   2D frame. Also attaches the compositor per device.
-   Takes: a device and format to build the system; regions with zoom, dpr, and
-   font assets to prepare; an encoder, a region id, a role, and a lease to
-   encode a pass; a render pass to composite.
-   Gives: a region system; a per-frame result; encoded passes; the composited
-   region.
-   Holds: one system per device and the compositor per device (WeakMaps), plus
-   per-system atoms for prepared scenes and composite rows."
+  "Retain GPU scenes, encode dirty passes, composite regions.
+
+   Input: device/shared buffers, region items/session/projection stamps,
+   encoders and physical leases. Output: prepared-region records, actual
+   buffer uploads, shadow/interior command encoding and composited quads.
+   WeakMaps retain systems and compositors by device; each system owns
+   prepared-region and composite-row atoms, GPU buffers, pipeline objects, a
+   placement subsystem and logical binding owner. Texture lease ownership
+   remains in engine/compositor.cljs.
+
+   Preparation compares scene, view, background and placements. Dirty roles
+   encode to offscreen leases; clean content is retained. Composition
+   selects content, reduced-resolution marking or rejection fill.
+
+   Folder map: README.md."
   (:require [app.client.region3d.frame :as frame]
             [app.client.region3d.component :as component]
             [app.client.region3d.on-plane :as on-plane]
@@ -29,6 +34,10 @@
 (def region-uniform-bytes 112)
 (def shadow-uniform-bytes 64)
 
+;; Mesh vertex main: Local position/normal, instance matrix/shading, camera →
+;; clip/world position, transformed normal and shading attributes.. Explicit
+;; inverse-transpose basis for normals. Intended for nonsingular transforms;
+;; zero-scale schema inputs make determinant division singular.
 (def mesh-vertex-shader
   "struct Region {
      view_proj: mat4x4<f32>, eye: vec4<f32>, ambient: vec4<f32>,
@@ -66,6 +75,25 @@
      return out;
    }")
 
+;; fresnel_schlick: F0 and view/half-vector cosine → RGB Fresnel
+;; approximation.. Fifth-power approximation. Fits this BRDF implementation;
+;; no external conformance claim is made.
+;;
+;; pbr: Base/metallic/roughness, N/V/L and radiance → reflected RGB..
+;; Microfacet distribution/visibility/Fresnel plus diffuse. Serves as the
+;; implemented lighting equation, with roughness floor.
+;;
+;; neutral_tone_map: Linear HDR RGB → compressed RGB.. Per-channel low-end
+;; offset, peak compression and desaturation. This describes the body; the
+;; algorithm-version label alone is not external conformance evidence.
+;;
+;; shadow_factor: World point and normal → visibility 0–1.. Projects into one
+;; map and averages 3×3 comparisons. Normal parameter is unused; comparison
+;; offset is fixed.
+;;
+;; light_radiance: Light and world point → direction plus scalar
+;; intensity/attenuation.. Directional constant or distance/range/spot
+;; falloff. Intended for supported light kinds.
 (def mesh-fragment-common
   "struct Region {
      view_proj: mat4x4<f32>, eye: vec4<f32>, ambient: vec4<f32>,
@@ -157,6 +185,10 @@
      return vec4<f32>(normalize(delta), light.intensity * attenuation);
    }")
 
+;; Mesh fragment main: Interpolated surface attributes, lights/settings →
+;; premultiplied RGBA.. Flat/normal debug modes or lit/tone-mapped output,
+;; max eight lights. All shadow-casting lights use the same selected shadow
+;; map.
 (def mesh-fragment-shader
   (str mesh-fragment-common
        "struct FragmentIn {
@@ -191,6 +223,9 @@
           return vec4<f32>(mapped * input.base.a, input.base.a);
         }"))
 
+;; Shadow vertex main: Mesh vertex/model/light projection → shadow clip
+;; position.. Depth-only projection. Transparent mesh alpha is not used to
+;; attenuate shadow here.
 (def shadow-depth-shader
   "struct Input {
      @location(0) position: vec3<f32>, @location(1) normal: vec3<f32>,
@@ -205,6 +240,8 @@
      return light_view_proj * model * vec4<f32>(input.position, 1.0);
    }")
 
+;; Composite vertex main: Vertex index, region rectangle/group, 2D camera →
+;; position/UV.. Six-vertex quad using shared transforms.
 (def composite-vertex-shader
   "struct Camera { pan: vec2<f32>, zoom: f32, padding: f32,
                    screen_dimensions: vec2<f32>, };
@@ -228,6 +265,8 @@
      out.uv = uv; return out;
    }")
 
+;; Composite fragment main: UV and resolved texture → sampled pixel.. Direct
+;; sampling.
 (def composite-fragment-shader
   "@group(0) @binding(0) var region_sampler: sampler;
    @group(0) @binding(1) var region_resolve: texture_2d<f32>;
@@ -235,6 +274,9 @@
      return textureSample(region_resolve, region_sampler, uv);
    }")
 
+;; Worn fragment main: UV and texture → sampled pixel with striped corner
+;; marker.. Adds visible resolution-degradation status. Intended for the
+;; declared diagnostic appearance.
 (def worn-fragment-shader
   "@group(0) @binding(0) var region_sampler: sampler;
    @group(0) @binding(1) var region_resolve: texture_2d<f32>;
@@ -246,6 +288,8 @@
      return select(resolved, vec4<f32>(0.16,0.78,0.92,1.0), worn);
    }")
 
+;; Rejection fragment main: UV → checker/color-corner rejection fill..
+;; Procedural placeholder. Rejected allocation stays visible.
 (def rejection-fragment-shader
   "@fragment fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
      let checker = f32((u32(floor(uv.x * 12.0)) + u32(floor(uv.y * 12.0))) & 1u);
@@ -255,10 +299,18 @@
      return vec4<f32>(color, 1.0);
    }")
 
-(defn- shader-module [device code]
+(defn- shader-module
+  "Device/WGSL → shader module.
+
+   Direct adapter."
+  [device code]
   (.createShaderModule ^js device (clj->js {:code code})))
 
-(defn- blend-state []
+(defn- blend-state
+  "No input → premultiplied blend settings.
+
+   Fixed descriptor."
+  []
   {:color {:srcFactor "one" :dstFactor "one-minus-src-alpha"}
    :alpha {:srcFactor "one" :dstFactor "one-minus-src-alpha"}})
 
@@ -275,7 +327,12 @@
                  {:shaderLocation 7 :offset 80 :format "float32x4"}
                  {:shaderLocation 8 :offset 96 :format "float32x4"}]}])
 
-(defn- create-pipelines! [device]
+(defn- create-pipelines!
+  "Device → mesh/shadow/composite/worn/rejection pipelines and layouts.
+
+   Shared vertex layouts with role-specific depth/blend/MSAA settings; local
+   pipeline constructors. One substantial declarative setup block."
+  [device]
   (let [mesh-vertex (shader-module device mesh-vertex-shader)
         mesh-fragment (shader-module device mesh-fragment-shader)
         shadow-module (shader-module device shadow-depth-shader)
@@ -395,12 +452,22 @@
      :worn worn-pipeline
      :rejection rejection-pipeline}))
 
-(defn- create-buffer! [device label size usage]
+(defn- create-buffer!
+  "Device/label/size/usage → allocated buffer row.
+
+   At least four bytes. Label is retained in the row but omitted from the
+   actual GPU descriptor."
+  [device label size usage]
   (let [size (max 4 (int size))
         buffer (.createBuffer ^js device (clj->js {:size size :usage usage}))]
     {:buffer buffer :capacity size :label label}))
 
-(defn- ensure-buffer! [system current label required usage]
+(defn- ensure-buffer!
+  "System/current row/label/required/usage → retained or replacement row.
+
+   Grows by at least required bytes, otherwise 1.5×. Intended for current
+   callers; no explicit device-limit check here."
+  [system current label required usage]
   (let [required (max 4 (int required))]
     (if (and current (>= (:capacity current) required))
       current
@@ -416,12 +483,23 @@
                    (create-buffer! (:device system) label capacity usage))]
         next))))
 
-(defn- write-buffer! [system buffer data active-bytes]
+(defn- write-buffer!
+  "System/buffer row/data/active bytes → buffer row; writes data when active
+   bytes positive.
+
+   Whole-array queue write. Active-bytes gates the write but does not limit
+   its byte length."
+  [system buffer data active-bytes]
   (when (pos? active-bytes)
     (.writeBuffer (.-queue ^js (:device system)) (:buffer buffer) 0 data))
   buffer)
 
-(defn- depth-fallback! [device]
+(defn- depth-fallback!
+  "Device → one-pixel depth texture/view.
+
+   Supplies binding when no shadow target. Shadow-enabled setting controls
+   whether it is sampled."
+  [device]
   (let [texture (.createTexture ^js device
                                 (clj->js {:label "region3d/shadow-fallback"
                                           :size {:width 1 :height 1
@@ -432,6 +510,10 @@
     {:texture texture :view (.createView texture)}))
 
 (defn init-region3d-system!
+  "Device and shared camera/groups buffers → system.
+
+   Allocates pipelines, fallback, composite buffer, placement subsystem and
+   atoms. Ownership explicit."
   [device camera-buffer groups-buffer]
   (let [fallback (depth-fallback! device)
         composite-buffer (create-buffer!
@@ -456,25 +538,44 @@
 
 (defonce ^:private !systems-by-device (js/WeakMap.))
 
-(defn binding-owner [system] (:binding-owner system))
+(defn binding-owner
+  "System → logical lease owner.
 
-(defn region-topology-rows [system]
+   Direct accessor."
+  [system] (:binding-owner system))
+
+(defn region-topology-rows
+  "System → logical region ID/shadow rows.
+
+   Delegates projection to owner."
+  [system]
   (region-bindings/topology-rows (:binding-owner system)))
 
 (defn region3d-system-for-device
-  "Return the already-created system without allocating one. This lets an
-   empty frame retire buffers belonging to regions that just closed."
+  "Device → existing system or JS undefined.
+
+   WeakMap lookup without allocation. Intended for empty-frame retirement."
   [device]
   (.get !systems-by-device device))
 
 (defn ensure-region3d-system!
+  "Device/shared buffers → existing or new cached system.
+
+   Device identity is sole key. Replacement shared buffers on the same
+   device do not replace the cached system."
   [device camera-buffer groups-buffer]
   (or (.get !systems-by-device device)
       (let [system (init-region3d-system! device camera-buffer groups-buffer)]
         (.set !systems-by-device device system)
         system)))
 
-(defn attach-compositor! [system frame-compositor]
+(defn attach-compositor!
+  "System/compositor → system; changes epoch and marks regions dirty on
+   identity change.
+
+   Logical owner reattachment plus lease-key reset. New targets must receive
+   content."
+  [system frame-compositor]
   (when-not (identical? @(:!compositor system) frame-compositor)
     (reset! (:!compositor system) frame-compositor)
     (region-bindings/attach-compositor! (:binding-owner system)
@@ -492,27 +593,50 @@
                    prepared))))
   system)
 
-(defn- tagged-linear [{:keys [rgba]}]
+(defn- tagged-linear
+  "Tagged straight-sRGB color → linear RGB with unchanged alpha.
+
+   Shared transfer per channel. Premultiplication occurs later."
+  [{:keys [rgba]}]
   (let [[r g b a] rgba]
     [(color/srgb-channel->linear r)
      (color/srgb-channel->linear g)
      (color/srgb-channel->linear b)
      a]))
 
-(defn- column-major [matrix]
+(defn- column-major
+  "Row-major matrix → GPU column ordering.
+
+   Fixed permutation."
+  [matrix]
   (mapv #(nth matrix %) [0 4 8 12 1 5 9 13 2 6 10 14 3 7 11 15]))
 
-(defn- typed-f32 [values]
+(defn- typed-f32
+  "Numeric sequence → Float32Array.
+
+   Materializes vector then JS array. Straightforward conversion with
+   intermediates."
+  [values]
   (js/Float32Array. (clj->js (vec values))))
 
-(defn- write-buffer-range! [system buffer byte-offset values]
+(defn- write-buffer-range!
+  "System/buffer/byte offset/values → buffer row; uploads typed values at
+   offset.
+
+   Enables stable-row updates."
+  [system buffer byte-offset values]
   (let [data (typed-f32 values)]
     (when (pos? (.-byteLength data))
       (.writeBuffer (.-queue ^js (:device system))
                     (:buffer buffer) byte-offset data)))
   buffer)
 
-(defn- mesh-vertex-values [object]
+(defn- mesh-vertex-values
+  "Mesh object → expanded position/normal words.
+
+   Deindexes mesh by triangle indexes. Simpler draw lane at the cost of
+   repeated vertices."
+  [object]
   (let [{:keys [positions normals indices]} (scene/object-mesh object)]
     (vec
      (mapcat (fn [index]
@@ -523,7 +647,11 @@
                   (nth normals (+ base 2))]))
              indices))))
 
-(defn- mesh-upload [maintained]
+(defn- mesh-upload
+  "Maintained scene → flat vertices and per-object ranges.
+
+   Sorted mesh traversal. Deterministic layout."
+  [maintained]
   (reduce
    (fn [{:keys [vertices draws]} [object-id object]]
      (if-not (= :mesh (:object/kind object))
@@ -538,7 +666,12 @@
    {:vertices [] :draws {}}
    (sort-by (comp pr-str key) (get-in maintained [:region :scene]))))
 
-(defn- instance-row-values [{:keys [matrix component]}]
+(defn- instance-row-values
+  "Matrix/shading instance → 28 words.
+
+   Matrix, linear base, PBR fields, emissive; default shading for nonmesh
+   rows. Retains instance slots for all object kinds."
+  [{:keys [matrix component]}]
   (let [component (or component component/default-component)
         base (tagged-linear (:base-color component))
         emissive (tagged-linear (:emissive component))]
@@ -547,25 +680,46 @@
                  [(:metallic component) (:roughness component) 0.0 0.0]
                  [(nth emissive 0) (nth emissive 1) (nth emissive 2) 0.0]))))
 
-(defn- instance-values [maintained]
+(defn- instance-values
+  "Maintained scene → concatenated instance rows.
+
+   Ordered packing."
+  [maintained]
   (vec (mapcat instance-row-values (:instances maintained))))
 
-(defn- object-index [maintained]
+(defn- object-index
+  "Maintained scene → object-to-instance index map.
+
+   Enumerates stable instance order."
+  [maintained]
   (into {} (map-indexed (fn [index row] [(:object-id row) index])
                         (:instances maintained))))
 
-(defn- light-rows [maintained]
+(defn- light-rows
+  "Maintained scene → first eight sorted light objects.
+
+   Filter/sort/take. Extra lights are silently omitted from rendering here."
+  [maintained]
   (->> (get-in maintained [:region :scene])
        (filter (fn [[_ object]] (= :light (:object/kind object))))
        (sort-by (comp pr-str key))
        (take max-lights)
        vec))
 
-(defn- light-index [maintained]
+(defn- light-index
+  "Maintained scene → selected-light ID/index map.
+
+   Enumerates the same selected rows."
+  [maintained]
   (into {} (map-indexed (fn [index [object-id _]] [object-id index])
                         (light-rows maintained))))
 
-(defn- light-row-values [maintained object-id object]
+(defn- light-row-values
+  "Scene, light ID/object → 20 words.
+
+   World position/direction, linear color, kind/strength/range/cone.
+   Intended for fixed light transport."
+  [maintained object-id object]
   (let [light (:light object)
         matrix (get-in maintained [:world-transforms object-id])
         position (scene/transform-point matrix [0.0 0.0 0.0])
@@ -583,7 +737,11 @@
                  position [1.0] direction [0.0] [r g b 1.0]
                  [inner outer 0.0 0.0]))))
 
-(defn- light-values [maintained]
+(defn- light-values
+  "Maintained scene → selected count and concatenated values.
+
+   Packs selected lights."
+  [maintained]
   (let [lights (light-rows maintained)]
     {:count (count lights)
      :values
@@ -591,7 +749,12 @@
                     (light-row-values maintained object-id object))
                   lights))}))
 
-(defn- shadow-projection [{:keys [min max]}]
+(defn- shadow-projection
+  "Light-space bounds → orthographic shadow projection.
+
+   Direct bounds transform. Intended for nondegenerate bounds supplied by
+   scene."
+  [{:keys [min max]}]
   (let [[left bottom far] min
         [right top near] max
         dx (- right left) dy (- top bottom) dz (- far near)]
@@ -600,16 +763,29 @@
      0.0 0.0 (/ 1.0 dz) (/ (- near) dz)
      0.0 0.0 0.0 1.0]))
 
-(defn- shadow-matrix [shadow-space]
+(defn- shadow-matrix
+  "Optional shadow space → light projection×view or identity.
+
+   Explicit no-shadow fallback."
+  [shadow-space]
   (if shadow-space
     (scene/mat4-mul (shadow-projection (:bounds shadow-space))
                     (:view shadow-space))
     scene/identity-mat4))
 
-(defn- display-mode-number [mode]
+(defn- display-mode-number
+  "Mode keyword → flat=1, normal=2, otherwise lit=0.
+
+   Closed shader encoding with default."
+  [mode]
   (case mode :flat 1.0 :normal 2.0 0.0))
 
-(defn- region-uniform-values [maintained camera display-mode shadow-space]
+(defn- region-uniform-values
+  "Scene/camera/display/shadow → matrix, eye, ambient and settings words.
+
+   Packs uniform data. Calls light-values to obtain count, also constructing
+   unused packed light values."
+  [maintained camera display-mode shadow-space]
   (let [[ar ag ab _] (tagged-linear (get-in maintained [:region :ambient :color]))
         intensity (get-in maintained [:region :ambient :intensity])
         light-count (:count (light-values maintained))]
@@ -619,10 +795,18 @@
             [light-count (display-mode-number display-mode)
              (if shadow-space 1.0 0.0)])))
 
-(defn- session-region [session region-id]
+(defn- session-region
+  "Session/region ID → session row or empty map.
+
+   Nested lookup."
+  [session region-id]
   (get-in session [:regions region-id] {}))
 
-(defn- create-region-gpu [system region-id]
+(defn- create-region-gpu
+  "System/region ID → mesh/instance/light/uniform/placement buffer bundle.
+
+   Explicit resource constructor."
+  [system region-id]
   (let [usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.VERTEX)
         uniform-usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.UNIFORM)
         storage-usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.STORAGE)]
@@ -641,7 +825,13 @@
      :placement (on-plane-renderer/create-region-gpu!
                  (:placement-system system) region-id)}))
 
-(defn- write-component-gpu! [system region-id gpu maintained]
+(defn- write-component-gpu!
+  "System/ID/GPU row/scene → updated row; uploads complete
+   geometry/instances/lights.
+
+   Full derivation upload with buffer growth and index maps. Intended for
+   topology/static changes."
+  [system region-id gpu maintained]
   (let [{:keys [vertices draws]} (mesh-upload maintained)
         vertex-data (typed-f32 vertices)
         instance-data (typed-f32 (instance-values maintained))
@@ -665,8 +855,10 @@
            :light-index (light-index maintained) :light-count count)))
 
 (defn- write-transform-gpu!
-  "Write only evaluated transform dependents. Mesh vertices and draw topology
-  stay retained; instance and light rows use their stable offsets."
+  "System/GPU row/scene/affected IDs → instance/light upload counts.
+
+   Writes only stable row offsets for affected objects. Geometry buffers
+   remain retained."
   [system gpu maintained affected-object-ids]
   (reduce
    (fn [result object-id]
@@ -688,14 +880,24 @@
    {:instance-uploads 0 :light-uploads 0}
    (sort-by pr-str affected-object-ids)))
 
-(defn- object-depth [camera maintained object-id]
+(defn- object-depth
+  "Camera/scene/object ID → eye-to-object-origin distance.
+
+   Euclidean distance. Object origin is a sorting proxy, not surface depth."
+  [camera maintained object-id]
   (scene/length
    (scene/v- (scene/transform-point
               (get-in maintained [:world-transforms object-id])
               [0.0 0.0 0.0])
              (:eye camera))))
 
-(defn- draw-order [gpu maintained camera]
+(defn- draw-order
+  "GPU ranges/scene/camera → opaque and transparent ordered vectors.
+
+   Near-first opaque, far-first transparent; transparent background routes
+   all meshes through transparent path. Per-object sorting cannot resolve
+   intersecting transparency exactly."
+  [gpu maintained camera]
   (let [transparent-background?
         (= :transparent (get-in maintained [:region :background :kind]))
         rows (for [[object-id draw] (:draws gpu)
@@ -710,7 +912,12 @@
      :transparent (vec (sort-by (juxt (comp - :depth) (comp pr-str :object-id))
                                 (filter :transparent? rows)))}))
 
-(defn- write-view-gpu! [system gpu maintained camera session-row shadow-space]
+(defn- write-view-gpu!
+  "System/GPU row/scene/camera/session/shadow → same GPU row; uploads two
+   uniforms.
+
+   View and shadow transport update together."
+  [system gpu maintained camera session-row shadow-space]
   (let [display-mode (or (:display-mode session-row) :lit)
         uniform (typed-f32 (region-uniform-values maintained camera display-mode
                                                    shadow-space))
@@ -719,16 +926,28 @@
     (write-buffer! system (:shadow-uniform gpu) shadow (.-byteLength shadow))
     gpu))
 
-(defn- destroy-buffer! [row]
+(defn- destroy-buffer!
+  "Buffer row → optional destruction result.
+
+   Nil-safe release."
+  [row]
   (when-let [buffer (:buffer row)]
     (.destroy ^js buffer)))
 
-(defn- destroy-region-gpu! [gpu]
+(defn- destroy-region-gpu!
+  "Region GPU row → destroys buffers and placement buffer.
+
+   Central per-region teardown."
+  [gpu]
   (doseq [key [:vertex :instances :lights :uniform :shadow-uniform]]
     (destroy-buffer! (get gpu key)))
   (on-plane-renderer/destroy-region-gpu! (:placement gpu)))
 
-(defn- composite-row-bytes [{:keys [x y w h buffer-index]}]
+(defn- composite-row-bytes
+  "Rect and group index → 20 packed bytes.
+
+   Float rectangle plus uint index."
+  [{:keys [x y w h buffer-index]}]
   (let [raw (js/ArrayBuffer. composite-instance-stride)
         floats (js/Float32Array. raw)
         uints (js/Uint32Array. raw)]
@@ -737,7 +956,14 @@
     (aset uints 4 buffer-index)
     (js/Uint8Array. raw)))
 
-(defn- upload-composites! [system desired]
+(defn- upload-composites!
+  "System/desired logical rows → changed-row upload count; updates
+   buffer/cache.
+
+   Compares rows by stable region index; rewrites all live rows after
+   growth. Unused old slots need no clearing because live draws select
+   indexes."
+  [system desired]
   (let [rows (into {}
                    (map (fn [{:keys [buffer-index composite]}]
                           [buffer-index composite]))
@@ -769,22 +995,40 @@
 (def ^:private encode-scale-step 1.12)
 
 (defn- encode-scale-bucket
-  "Versioned geometric camera door. The bucket, not raw scale, is semantic."
+  "Scale → integer geometric bucket.
+
+   Floor(log(scale)/log(1.12)), minimum positive input. Intended for
+   explicit hysteresis-free quantization; bucket boundaries still trigger
+   work."
   [scale]
   (let [scale (max 1.0e-9 (double (or scale 1.0)))]
     (long (js/Math.floor (/ (js/Math.log scale)
                             (js/Math.log encode-scale-step))))))
 
-(defn- quantize-encode-scale [scale]
+(defn- quantize-encode-scale
+  "Scale → representative bucket scale.
+
+   Exponentiates bucket."
+  [scale]
   (js/Math.pow encode-scale-step (encode-scale-bucket scale)))
 
-(defn- empty-region-return [changed?]
+(defn- empty-region-return
+  "Changed? → zero-work result.
+
+   Small result constructor."
+  [changed?]
   {:changed? changed? :full-rebuilds 0 :instance-uploads 0
    :bvh-refits 0 :region-encodes 0})
 
 (defn prepare-region3d-frame!
-  "Upload changed region rows before any pass opens. The region revision and
-   projection stamps are the dirty check; the returned counts belong to this call."
+  "System, regions, session, projection/assets/options → per-region
+   counters/composite upload count; updates scenes, buffers, logical desired
+   rows and retires closed regions.
+
+   Outer key early return, then scene/view/background/placement comparisons.
+   Key omits raw session contents, placement contents, max lease size and
+   group index; callers must carry changes via revisions or a different
+   keyed stamp. Font-assets is destructured but unused."
   [system {:keys [regions]} session
    {:keys [zoom dpr world-transforms font-assets session-layout-snapshot path-system
            max-lease-size]
@@ -967,7 +1211,11 @@
      :composite-uploads composite-uploads
      :held-passes 0}))
 
-(defn- region-bind-group [system prepared lease]
+(defn- region-bind-group
+  "System/prepared region/lease → interior bindings.
+
+   Chooses real/fallback shadow view and binds uniforms/lights."
+  [system prepared lease]
   (let [gpu (:gpu prepared)
         pipelines (:pipelines system)
         shadow-view (or (get-in lease [:shadow :view])
@@ -981,13 +1229,21 @@
                          {:binding 3 :resource (:shadow-sampler system)}
                          {:binding 4 :resource {:buffer (:buffer (:shadow-uniform gpu))}}]}))))
 
-(defn- one-buffer-bind-group [system layout buffer]
+(defn- one-buffer-bind-group
+  "System/layout/buffer row → one-binding group.
+
+   Direct adapter."
+  [system layout buffer]
   (.createBindGroup ^js (:device system)
                     (clj->js {:layout layout
                               :entries [{:binding 0
                                          :resource {:buffer (:buffer buffer)}}]})))
 
-(defn- clear-color [prepared]
+(defn- clear-color
+  "Prepared region → linear premultiplied clear map.
+
+   Transparent background forces alpha zero."
+  [prepared]
   (let [[r g b a] (tagged-linear
                    (get-in prepared [:maintained :region :background :color]))
         transparent? (= :transparent
@@ -995,7 +1251,12 @@
         alpha (if transparent? 0.0 a)]
     {:r (* r alpha) :g (* g alpha) :b (* b alpha) :a alpha}))
 
-(defn- draw-mesh-rows! [pass system prepared rows pipeline bind-group]
+(defn- draw-mesh-rows!
+  "Pass/system/prepared/ranges/pipeline/bindings → encoded draws.
+
+   Shared buffers plus one draw per object range. No batching across objects
+   here."
+  [pass system prepared rows pipeline bind-group]
   (let [gpu (:gpu prepared)]
     (.setPipeline ^js pass pipeline)
     (.setBindGroup ^js pass 0 bind-group)
@@ -1004,7 +1265,12 @@
     (doseq [{:keys [first-vertex vertex-count instance-index]} rows]
       (.draw ^js pass vertex-count 1 first-vertex instance-index))))
 
-(defn- encode-shadow! [system encoder prepared lease]
+(defn- encode-shadow!
+  "System/encoder/prepared/lease → encoded depth pass.
+
+   Draws both mesh lists to shadow depth. Alpha-transparent meshes cast
+   solid geometry shadows."
+  [system encoder prepared lease]
   (let [gpu (:gpu prepared)
         pass (.beginRenderPass
               ^js encoder
@@ -1026,7 +1292,13 @@
       (.draw pass vertex-count 1 first-vertex instance-index))
     (.end pass)))
 
-(defn- encode-interior! [system encoder prepared lease]
+(defn- encode-interior!
+  "System/encoder/prepared/lease → encoded MSAA color/depth pass.
+
+   Opaque meshes, transparent meshes, then placed ink, then resolve. Mesh
+   and ink transparency are separate ordered groups rather than one combined
+   depth ordering."
+  [system encoder prepared lease]
   (let [gpu (:gpu prepared)
         pass (.beginRenderPass
               ^js encoder
@@ -1050,9 +1322,13 @@
     (.end pass)))
 
 (defn encode-region-pass!
-  "Encode one role (:shadow or :interior) of one region into its lease. Clean
-   regions hold their encode; a new lease key forces one encode before it can
-   be sampled."
+  "System/encoder/ID/role/lease → encoded/held/rejected result; clears dirty
+   flag on encoding branch.
+
+   Re-encodes dirty roles or changed lease keys. Current limitation: unknown
+   roles reach a no-op branch yet return :encoded? True; intended callers
+   must supply shadow/interior. Dirty state is cleared at encoding, before
+   caller submission."
   [system encoder region-id role lease]
   (let [prepared (get @(:!prepared system) region-id)
         encode? (and prepared lease (not (:rejected? lease))
@@ -1087,7 +1363,11 @@
         {:region-id region-id :role role :encoded? true
          :held? false :lease-key (:key lease)}))))
 
-(defn- composite-bind-group [system lease]
+(defn- composite-bind-group
+  "System/lease → texture and shared transform bindings.
+
+   Direct adapter."
+  [system lease]
   (.createBindGroup
    ^js (:device system)
    (clj->js {:layout (get-in system [:pipelines :composite-layout])
@@ -1096,7 +1376,11 @@
                        {:binding 2 :resource {:buffer (:camera-buffer system)}}
                        {:binding 3 :resource {:buffer (:groups-buffer system)}}]})))
 
-(defn- rejection-bind-group [system]
+(defn- rejection-bind-group
+  "System → camera/group-only bindings.
+
+   No texture dependency for failure fill."
+  [system]
   (.createBindGroup
    ^js (:device system)
    (clj->js {:layout (get-in system [:pipelines :rejection-layout])
@@ -1104,8 +1388,11 @@
                        {:binding 3 :resource {:buffer (:groups-buffer system)}}]})))
 
 (defn composite-region!
-  "Composite one region's held lease onto an open pass at its stable buffer-index, or
-   its rejection placeholder when no lease is held."
+  "Open pass/system/region ID → encoded quad.
+
+   Reads logical lease/index; selects normal/worn/rejection pipeline.
+   Intended for known live region IDs; missing logical index is not
+   separately guarded."
   [pass region-system region-id]
   (let [owner (:binding-owner region-system)
         lease (region-bindings/lease owner region-id)
@@ -1123,7 +1410,13 @@
     (.setVertexBuffer ^js pass 0 (:buffer @(:!composite-buffer region-system)))
     (.draw ^js pass 6 1 0 composite-buffer-index)))
 
-(defn destroy-region3d-system! [system]
+(defn destroy-region3d-system!
+  "System → true; destroys buffers/fallback, clears prepared rows, removes
+   device-system cache entry.
+
+   Explicit system teardown. Compositor lifetime is separate and is not
+   destroyed here."
+  [system]
   (doseq [[_ row] @(:!prepared system)]
     (destroy-region-gpu! (:gpu row)))
   (destroy-buffer! @(:!composite-buffer system))
@@ -1136,7 +1429,12 @@
 
 (defonce ^:private !compositors-by-device (js/WeakMap.))
 
-(defn- ensure-frame-compositor! [device format]
+(defn- ensure-frame-compositor!
+  "Device/format → cached or new compositor.
+
+   Private device-keyed constructor. Format is ignored on cache hit; no call
+   to this helper was found within this file."
+  [device format]
   (or (.get !compositors-by-device device)
       (let [compositor (compositor/create-compositor!
                         device format)]
@@ -1144,8 +1442,11 @@
         compositor)))
 
 (defn replace-frame-compositor!
-  "The sole same-device compositor epoch producer.  Semantic frame state is
-   deliberately retained; Region3D reattaches to the new binding epoch."
+  "Device/format → replacement compositor; destroys old cached compositor
+   and reattaches existing system.
+
+   Sole explicit replacement helper in this file. Intended for epoch
+   transition; callers must coordinate any active encoding."
   [device format]
   (when-let [old (.get !compositors-by-device device)]
     (compositor/destroy-compositor! old))

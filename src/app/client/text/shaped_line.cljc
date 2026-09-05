@@ -1,42 +1,83 @@
 (ns app.client.text.shaped-line
-  "The shaping provider's output as columns: one shaped source line as typed
-   arrays in visual order, with its runs, faces, and total advance. The flat
-   route's vocabulary between the shaper and text layout.
-   Takes: nothing itself; providers fill a line through `make-line` and the
-   column setters, or coerce a legacy map-shaped result through `from-maps`.
-   Gives: the shaped line map (scalars + columns), typed-array accessors, and
-   the two oracle converters `->maps` / `from-maps`.
-   Holds: nothing.")
+  "The shaping-provider column contract.
+
+   Input: dimensions/face metadata or legacy map results. Output:
+   shaped-line records and typed accessors, plus map conversions for
+   compatibility/oracles. No global retained state. Fourteen glyph columns
+   and four run columns carry font-unit integers and source/run identities;
+   :ink-w = -1 means no ink. The map's columns remain mutable while being
+   built.
+
+   Folder map: README.md.")
 
 ;; ---------------------------------------------------------------------------
 ;; Typed columns, cross-platform. HarfBuzz gives int32 font units; cluster
 ;; offsets and glyph ids are unsigned 32-bit.
 
-(defn i32-array [n]
+(defn i32-array
+  "Length → zeroed signed 32-bit integer column.
+
+   Uses JVM primitive arrays or native JS typed arrays."
+  [n]
   #?(:clj (int-array n) :cljs (js/Int32Array. n)))
 
-(defn u32-array [n]
+(defn u32-array
+  "Length → zeroed unsigned 32-bit integer column.
+
+   Uses JVM primitive arrays or native JS typed arrays."
+  [n]
   #?(:clj (int-array n) :cljs (js/Uint32Array. n)))
 
-(defn u8-array [n]
+(defn u8-array
+  "Length → zeroed unsigned 8-bit integer column.
+
+   Uses JVM primitive arrays or native JS typed arrays."
+  [n]
   #?(:clj (byte-array n) :cljs (js/Uint8Array. n)))
 
-(defn i32-get [a i]
+(defn i32-get
+  "Column and index → signed 32-bit integer value.
+
+   JVM access widens the signed value."
+  [a i]
   #?(:clj (long (aget ^ints a i)) :cljs (aget a i)))
 
-(defn u32-get [a i]
+(defn u32-get
+  "Column and index → unsigned 32-bit integer value.
+
+   JVM access masks the signed storage to recover the unsigned value."
+  [a i]
   #?(:clj (bit-and 0xffffffff (long (aget ^ints a i))) :cljs (aget a i)))
 
-(defn u8-get [a i]
+(defn u8-get
+  "Column and index → unsigned 8-bit integer value.
+
+   JVM access masks the signed storage to recover the unsigned value."
+  [a i]
   #?(:clj (bit-and 0xff (long (aget ^bytes a i))) :cljs (aget a i)))
 
-(defn i32-set! [a i v]
+(defn i32-set!
+  "Column, index and value → platform assignment result; mutates the signed
+   32-bit integer column.
+
+   Narrowing is unchecked; callers must supply values in range."
+  [a i v]
   #?(:clj (aset-int ^ints a i (unchecked-int (long v))) :cljs (aset a i v)))
 
-(defn u32-set! [a i v]
+(defn u32-set!
+  "Column, index and value → platform assignment result; mutates the
+   unsigned 32-bit integer column.
+
+   Narrowing is unchecked; callers must supply values in range."
+  [a i v]
   #?(:clj (aset-int ^ints a i (unchecked-int (long v))) :cljs (aset a i v)))
 
-(defn u8-set! [a i v]
+(defn u8-set!
+  "Column, index and value → platform assignment result; mutates the
+   unsigned 8-bit integer column.
+
+   Narrowing is unchecked; callers must supply values in range."
+  [a i v]
   #?(:clj (aset-byte ^bytes a i (unchecked-byte (long v))) :cljs (aset a i v)))
 
 (def no-ink
@@ -55,14 +96,18 @@
   [:run-source-start :run-source-end :run-flags :run-face])
 
 (defn shaped-line?
-  "True for a value in this vocabulary (a provider's flat result)."
+  "Value → map with glyph-count and run-index keys?
+
+   Minimal vocabulary discriminator. Not full column/length validation."
   [x]
   (and (map? x) (contains? x :glyph-count) (contains? x :run-index)))
 
 (defn make-line
-  "Allocate a shaped line with `glyph-count` glyphs and `run-count` runs over
-   `faces` ([{:id :revision :upem}] in provider order). Columns are zeroed;
-   `:ink-w` starts at `no-ink`."
+  "Glyph count, run count, faces → allocated column record with default
+   advance/direction.
+
+   Zeroes columns and sets no-ink sentinel. Faces are provider-ordered maps
+   with :id, :revision and :upem."
   [glyph-count run-count faces]
   (let [g (long glyph-count) r (long run-count)
         ink-w (i32-array g)]
@@ -91,25 +136,52 @@
      :run-flags (u32-array r)
      :run-face (u32-array r)}))
 
-(defn empty-line [faces]
+(defn empty-line
+  "Faces → zero-glyph/zero-run line."
+  [faces]
   (make-line 0 0 faces))
 
-(defn run-rtl? [line run-index]
+(defn run-rtl?
+  "Shaped line and run index → whether the run has its right-to-left flag
+   set.
+
+   Tests the packed run flags."
+  [line run-index]
   (not (zero? (bit-and rtl-flag (u32-get (:run-flags line) run-index)))))
 
-(defn run-tab? [line run-index]
+(defn run-tab?
+  "Shaped line and run index → whether the run has its tab flag set.
+
+   Tests the packed run flags."
+  [line run-index]
   (not (zero? (bit-and tab-flag (u32-get (:run-flags line) run-index)))))
 
-(defn run-face [line run-index]
+(defn run-face
+  "Line/run index → face metadata.
+
+   Two indexed lookups."
+  [line run-index]
   (nth (:faces line) (u32-get (:run-face line) run-index)))
 
-(defn glyph-tab? [line i]
+(defn glyph-tab?
+  "Shaped line and glyph index → whether its owning run has its tab flag
+   set.
+
+   Resolves the run index before testing its flags."
+  [line i]
   (run-tab? line (u32-get (:run-index line) i)))
 
-(defn glyph-rtl? [line i]
+(defn glyph-rtl?
+  "Shaped line and glyph index → whether its owning run has its
+   right-to-left flag set.
+
+   Resolves the run index before testing its flags."
+  [line i]
   (run-rtl? line (u32-get (:run-index line) i)))
 
-(defn glyph-has-ink? [line i]
+(defn glyph-has-ink?
+  "Line/glyph index → ink width differs from sentinel?"
+  [line i]
   (not= no-ink (i32-get (:ink-w line) i)))
 
 ;; ---------------------------------------------------------------------------
@@ -118,7 +190,11 @@
 ;; `from-maps` is the boundary coercion for map-shaped providers (the JVM test
 ;; corpora); the round trip `(->maps (from-maps m)) = m` is a regression test.
 
-(defn- glyph-map [line i]
+(defn- glyph-map
+  "Line/glyph index → rich legacy glyph map.
+
+   Reads columns, run and face metadata. Allocates a map."
+  [line i]
   (let [run (u32-get (:run-index line) i)
         tab? (run-tab? line run)
         face (run-face line run)
@@ -140,8 +216,10 @@
      :position [(i32-get (:glyph-x line) i) (i32-get (:glyph-y line) i)]}))
 
 (defn- cluster-records
-  "Verbatim from the pre-flat shaper: one record per (font-revision,
-   cluster-start, cluster-end, direction), sorted by :left."
+  "Rich runs → cluster maps sorted by left edge.
+
+   Groups glyphs by font revision/source range/direction and bounds them.
+   Reconstruction work, not main flat path."
   [runs]
   (->> runs
        (mapcat :glyphs)
@@ -161,8 +239,11 @@
        vec))
 
 (defn ->maps
-  "The pre-flat provider result: {:runs :glyphs :clusters :advance
-   :base-direction} with 11-key + :position glyph maps."
+  "Column line → legacy runs/glyphs/clusters/advance/direction.
+
+   Materializes glyphs then scans glyph membership for every run.
+   O(runs×glyphs) conversion; empty-line output omits base-direction to
+   match the old shape."
   [line]
   (if (zero? (long (:glyph-count line)))
     {:runs [] :glyphs [] :clusters [] :advance (:advance line)}
@@ -189,15 +270,20 @@
        :advance (:advance line)
        :base-direction (:base-direction line)})))
 
-(defn- int-at [v i]
+(defn- int-at
+  "Optional vector and index → integer value or zero.
+
+   Defaulting coercion. Intended for compatibility input."
+  [v i]
   (long (or (nth v i nil) 0)))
 
 (defn from-maps
-  "Coerce a map-shaped provider result into a shaped line. Visual order is the
-   `:glyphs` vector; a glyph's run is the `:runs` entry whose `:glyphs`
-   contains it (by value). A result whose `:clusters` is empty while glyphs
-   exist has no cluster ownership and coerces to zero glyphs — the flat
-   vocabulary's provider fault (I5)."
+  "Existing flat line or legacy result → column line.
+
+   Passes flat values through; maps rich glyphs to runs and writes columns.
+   Value-equal duplicate glyphs map to the last run; glyphs with explicit
+   empty cluster ownership are intentionally reduced to zero glyphs as a
+   provider-fault signal."
   [m]
   (if (shaped-line? m)
     m

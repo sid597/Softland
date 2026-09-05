@@ -1,13 +1,12 @@
 (ns app.client.image.component
-  "What an image is: a verified source (digest, color tag, size, alpha
-   association), its place in the atlas, and the 13 floats one image quad packs
-   to.
-   Takes: an image's provenance record; a registry and a computed digest; an
-   atlas, a content hash, and dimensions; one quad's rect, uv, tint, and
-   group buffer-index.
-   Gives: a validated source; an atlas placement plan; 13 floats per instance;
-   contiguous draw runs.
-   Holds nothing; owns no GPU objects."
+  "Pure image contracts and placement calculations.
+
+   This file accepts source/component maps, rectangles, atlas values and
+   stamped image items. It returns validated maps, source registries,
+   crop/UV geometry, atlas plans, 13-word instance values and adjacent
+   binding runs. It owns no mutable state or GPU handles.
+
+   Folder map: README.md."
   (:require [app.client.engine.color :as color]
             [app.client.engine.schema :as schema]))
 
@@ -17,12 +16,19 @@
 (def legal-alpha-associations #{:straight :premultiplied :opaque})
 
 (defn sha256-digest?
+  "Value → lowercase 64-hex-character string?
+
+   Length plus regex. Intended for digest syntax; does not verify bytes."
   [value]
   (and (string? value)
        (= 64 (count value))
        (boolean (re-matches #"[0-9a-f]{64}" value))))
 
-(defn- positive-int? [value]
+(defn- positive-int?
+  "Value → positive integer?
+
+   Type/sign check."
+  [value]
   (and (integer? value) (pos? value)))
 
 (def source
@@ -36,19 +42,25 @@
                 :image/alpha-association legal-alpha-associations}})
 
 (defn validate-source!
-  "Validate a resolved source record.  The caller still has to prove its byte
-   digest through `register-verified-source`; a declared digest is never
-   caller authority."
+  "Source record → unchanged valid record or exception.
+
+   Shared schema. Actual digest proof is a separate input."
   [source-row]
   (schema/check source source-row))
 
-(defn empty-source-registry []
+(defn empty-source-registry
+  "No input → versioned empty registry.
+
+   Pure constructor."
+  []
   {:image-registry/version 1 :sources {}})
 
 (defn register-verified-source
-  "Register `source` only after the byte reader has independently computed
-   `computed-digest`.  Duplicate identical rows are idempotent; a conflicting
-   row for one digest is rejected."
+  "Registry, source, independently computed digest → updated registry;
+   mismatches/conflicting records throw.
+
+   Checks schema and digest equality; identical registration is idempotent.
+   Content identity has a single binding."
   [registry source computed-digest]
   (let [source (validate-source! source)
         digest (:image/digest source)
@@ -62,7 +74,7 @@
     (assoc-in registry [:sources digest] source)))
 
 (defn resolve-source
-  "The one data-resolution API: digest -> source record or nil."
+  "Registry and digest → source record or nil."
   [registry digest]
   (get-in registry [:sources digest]))
 
@@ -81,7 +93,11 @@
                 :opacity #(and (schema/finite-number? %)
                                (<= 0.0 % 1.0))}})
 
-(defn- intrinsic-size? [value]
+(defn- intrinsic-size?
+  "Value → pair of positive integers?
+
+   Fixed-size vector check."
+  [value]
   (and (vector? value)
        (= 2 (count value))
        (every? positive-int? value)))
@@ -102,11 +118,18 @@
                 :image/paint paint}})
 
 (defn validate-component!
-  "Check the declared image schema and return the unchanged EDN map."
+  "Component → unchanged checked map or throws.
+
+   Shared schema. Does not cross-check intrinsic size/color tag against a
+   resolved source record."
   [component]
   (schema/check schema component))
 
 (defn canonical-component
+  "Nested value → recursively sorted maps/sets, ordered vectors.
+
+   Local recursive canonical helper. Requires comparable sorted
+   keys/elements."
   [component]
   (letfn [(canonical [value]
             (cond
@@ -121,7 +144,11 @@
 ;; Geometry -------------------------------------------------------------------
 
 (defn normalize-crop
-  "Intersect a requested image-local pixel crop with the intrinsic rect."
+  "Intrinsic dimensions and optional crop → intersection rectangle; empty
+   interior throws.
+
+   Endpoint intersection with full-image default. Cropping cannot silently
+   request an empty image."
   [[intrinsic-width intrinsic-height] crop]
   (let [{:keys [x y w h]} (or crop {:x 0 :y 0
                                     :w intrinsic-width :h intrinsic-height})
@@ -136,7 +163,10 @@
     {:x x0 :y y0 :w (- x1 x0) :h (- y1 y0)}))
 
 (defn classify-quad
-  "Tri-state classification against a local axis-aligned quad."
+  "Local rectangle and point → outside/boundary/inside.
+
+   Inclusive outer bounds with exact equality on edges. Intended for a
+   diagnostic tri-state contract."
   [{:keys [x y w h]} [px py]]
   (let [x1 (+ x w) y1 (+ y h)]
     (cond
@@ -145,16 +175,20 @@
       :else :inside)))
 
 (defn half-open-hit?
-  "Product-pick equality law: min edges inclusive, max edges exclusive;
-   hit-slop is exactly 0.0."
+  "Rectangle and point → min-inclusive/max-exclusive hit boolean.
+
+   Direct inequalities, zero slop. Adjacent rectangles have a clear equality
+   rule."
   [{:keys [x y w h]} [px py]]
   (and (>= px x) (< px (+ x w))
        (>= py y) (< py (+ y h))))
 
 (defn clip-placement
-  "Clamp a placed quad to `clip`, carrying the same fractions into image-local
-   crop coordinates.  Geometry shrinks and UVs inset together, so clipping
-   crops rather than stretches."
+  "Placement, source crop, optional clip → proportionally clipped
+   placement/crop, or nil.
+
+   Transfers geometric clipping fractions into crop coordinates. Avoids
+   stretching after clipping; assumes positive placement size."
   [{:keys [x y w h] :as placement} crop clip]
   (if-not clip
     {:placement placement :crop crop}
@@ -174,6 +208,9 @@
                   :h (* (- fy1 fy0) (:h crop))}})))))
 
 (defn crop->uv
+  "Intrinsic size and crop → normalized [u0 v0 u1 v1].
+
+   Direct division."
   [[intrinsic-width intrinsic-height] {:keys [x y w h]}]
   [(/ x (double intrinsic-width))
    (/ y (double intrinsic-height))
@@ -183,11 +220,18 @@
 ;; Mip and allocation truth --------------------------------------------------
 
 (defn mip-level-count
+  "Dimensions → number of levels down to 1.
+
+   Repeated integer halving of largest side. Intended for positive pixel
+   dimensions."
   [width height]
   (loop [levels 1 side (max 1 width height)]
     (if (<= side 1) levels (recur (inc levels) (quot side 2)))))
 
 (defn mip-sizes
+  "Dimensions → every mip's clamped dimensions.
+
+   Computes dimensions for the declared level count."
   [width height]
   (mapv (fn [level]
           [(max 1 (quot width (bit-shift-left 1 level)))
@@ -196,6 +240,9 @@
 
 ;; Atlas/dedicated placement --------------------------------------------------
 
+;; Atlas policy uses fixed dimensions, gutters, mip count and candidate-size
+;; threshold. Oversize or unplaceable images receive dedicated textures.
+;; These values are policy, not hardware-derived limits.
 (def atlas-config
   {:atlas/version 1
    :width 512
@@ -210,6 +257,10 @@
    :overflow :dedicated})
 
 (defn placement-tier
+  "Width/height map → atlas or dedicated.
+
+   Positive-size and configured-side threshold. Invalid dimensions also
+   route to dedicated; this function is a selector, not validation."
   [{:keys [width height]}]
   (if (and (positive-int? width) (positive-int? height)
            (<= width (:max-side atlas-config))
@@ -217,16 +268,27 @@
     :atlas
     :dedicated))
 
-(defn empty-atlas []
+(defn empty-atlas
+  "No input → empty shelves/placements plus config.
+
+   Pure constructor."
+  []
   {:config atlas-config :shelves [] :used-height 0 :placements {}})
 
-(defn- atlas-uv [{:keys [width height]} x y w h]
+(defn- atlas-uv
+  "Atlas dimensions and placed rectangle → normalized UV endpoints.
+
+   Direct division."
+  [{:keys [width height]} x y w h]
   [(/ x (double width)) (/ y (double height))
    (/ (+ x w) (double width)) (/ (+ y h) (double height))])
 
 (defn atlas-place
-  "Deterministic shelf placement with a padded gutter.  Rejection is a value;
-   the caller routes every rejection to the dedicated tier."
+  "Atlas, source key, dimensions → updated atlas/placement or rejection
+   data.
+
+   First fitting shelf, else new shelf; padded dimensions and duplicate
+   guard. Deterministic/simple packing without compaction or freeing."
   [atlas source-key {:keys [width height]}]
   (let [{:keys [padding] :as config} (:config atlas)
         padded-width (+ width (* 2 padding))
@@ -278,6 +340,11 @@
                       :requested [width height]}})))))
 
 (defn placement-plan
+  "Atlas, key, dimensions → atlas/dedicated plan and reason.
+
+   Threshold selection then shelf attempt with dedicated fallback. Intended
+   for declared overflow policy; duplicate atlas keys also fall back to
+   dedicated."
   [atlas source-key dimensions]
   (if (= :dedicated (placement-tier dimensions))
     {:atlas atlas :tier :dedicated :reason :tier-bound}
@@ -293,8 +360,10 @@
 (def image-instance-stride (* image-instance-words 4))
 
 (defn instance-words
-  "rect[4] + uv[4] + tint/opacity[4] + group u32[1].  There is no
-   per-node transform representation."
+  "Rect, UV, tagged tint, opacity, compact group index → 13 numeric words.
+
+   Rect 4 + UV 4 + tint 4 + index 1. Alpha multiplies opacity once, integer
+   packing happens later."
   [{:keys [rect uv tint opacity buffer-index]}]
   (let [{:keys [x y w h]} rect
         {:keys [rgba]} tint
@@ -304,9 +373,11 @@
      buffer-index]))
 
 (defn contiguous-binding-runs
-  "Walk stamped image draw-items in order and merge adjacent equal bindings only.
-   Returned offsets reproduce draw-item order as explicit sub-draw indirection; no
-   map or registration order participates."
+  "Ordered resolved items → runs with binding, offset/count and items;
+   missing binding throws.
+
+   Merges adjacent equal bindings only. Reduces state changes without
+   changing draw order."
   [draw-items]
   (reduce-kv
    (fn [runs offset draw-item]

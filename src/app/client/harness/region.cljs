@@ -1,8 +1,18 @@
 (ns app.client.harness.region
-     "Browser evidence for the Region3D engine and its on-plane path boundary.
-      Takes: a WebGPU device and loaded font assets.
-      Gives: the Region3D harness result map.
-      Holds nothing."
+     "Drive Region3D preparation, passes and lease pressure.
+
+      Input: device/font assets, synthetic 3D scenes, resolved ink
+      placements and compositor budgets. Output: four image cases and checks
+      for picking/lighting, update classification, camera wake, lease
+      lifetime, resolution reduction/recovery and rejection. It owns
+      harness-local camera/groups, path and region systems, compositors and
+      accumulated diagnostic state.
+
+      The frame sequence is prepare desired regions, reconcile leases,
+      encode shadow/interior passes, composite into linear scene color,
+      present, submit and read back.
+
+      Folder map: README.md."
      (:require [app.client.engine.color :as scene-color]
                [app.client.engine.compositor :as compositor-gpu]
                [app.client.engine.device :as device]
@@ -28,17 +38,27 @@
 (def ^:private region3d-id :region3d/harness)
 
 (defn- region3d-tagged
+  "RGB or RGBA numbers → tagged color.
+
+   Fixture constructor with default alpha."
   ([r g b] (region3d-tagged r g b 1.0))
   ([r g b a]
    {:rgba [r g b a] :color-space :srgb :alpha-association :straight}))
 
 (defn- region3d-transform
+  "Translation, scale and optional rotation → object transform map.
+
+   Explicit TRS defaults."
   ([translation scale]
    (region3d-transform translation scale [0.0 0.0 0.0 1.0]))
   ([translation scale rotation]
    {:translation translation :rotation rotation :scale scale}))
 
 (defn- region3d-mesh
+  "ID, primitive, TRS, color and metallic/roughness → mesh object.
+
+   Builds a canonical primitive/component fixture with provenance. Intended
+   for controlled scene input."
   [id primitive translation scale color metallic roughness]
   {:object/id id :object/kind :mesh :parent nil
    :transform (region3d-transform translation scale)
@@ -48,7 +68,12 @@
    :component {:base-color color :metallic metallic :roughness roughness
               :emissive (region3d-tagged 0.0 0.0 0.0)}})
 
-(defn- region3d-light [id kind translation color intensity more]
+(defn- region3d-light
+  "ID, kind, transform/color/intensity and overrides → light object.
+
+   Merges kind-independent defaults with fixture-specific settings.
+   Overrides can deliberately change defaults."
+  [id kind translation color intensity more]
   {:object/id id :object/kind :light :parent nil
    :transform (region3d-transform translation [1.0 1.0 1.0])
    :provenance {:asserted-by :sid :act :render-harness}
@@ -56,12 +81,22 @@
                  :cast-shadow false}
                  more)})
 
-(defn- region3d-remint [region]
+(defn- region3d-remint
+  "Region → validated region with fresh content-derived revision.
+
+   Removes old identity fields before recomputing. Intended for fixture
+   mutation tracking."
+  [region]
   (let [content (dissoc region :region/revision)]
     (region3d-component/validate-region!
      (assoc content :region/revision (hash content)))))
 
 (defn- region3d-fixture-region
+  "Optional opaque/transparent background mode → revisioned scene region.
+
+   Near/far boxes, sphere, glass, floor and three light kinds;
+   migration/default path retained. Serves as a broad scene fixture, not a
+   scene complexity sweep."
   ([] (region3d-fixture-region :transparent))
   ([background-kind]
    (region3d-remint
@@ -100,7 +135,11 @@
                              :cone {:inner-deg 18.0 :outer-deg 32.0}})}
      :region/rect {:x 24.0 :y 20.0 :w 80.0 :h 88.0}})))
 
-(defn- region3d-draw-item [region & {:keys [width height group]
+(defn- region3d-draw-item
+  "Region and optional extent/group → reminted region draw item.
+
+   Updates rect before wrapping. Changed extent receives changed identity."
+  [region & {:keys [width height group]
                               :or {width 80.0 height 88.0 group 0}}]
   {:region/material
    (region3d-remint
@@ -108,11 +147,20 @@
                                 :w width :h height}))
    :container group})
 
-(defn- region3d-draw-item-size [draw-item]
+(defn- region3d-draw-item-size
+  "Draw item → width/height pair."
+  [draw-item]
   (let [{:keys [w h]} (get-in draw-item [:region/material :region/rect])]
     [w h]))
 
-(defn- region3d-boundary-fixture []
+(defn- region3d-boundary-fixture
+  "No arguments → region/draw item with a resolved transformed ink placement
+   in child group 17.
+
+   Constructs scene plane and path fixture explicitly. Intended for the
+   implemented ink-on-plane boundary; does not exercise text placement
+   rendering."
+  []
   (let [ink-object
         {:object/id :boundary/ink :object/kind :ink :parent nil
          :transform (region3d-transform
@@ -143,7 +191,11 @@
     {:region (:region/material draw-item) :draw-item draw-item
      :placements [ink-placement]}))
 
-(defn- empty-region3d-system-result []
+(defn- empty-region3d-system-result
+  "No arguments → initial diagnostic accumulator.
+
+   Explicit counters/maps. These counters are harness-owned."
+  []
   {:version 1 :prepare-calls 0 :scene-derives 0
    :scene-transform-updates 0 :region-encodes 0 :held-passes 0
    :object-instance-uploads 0 :mesh-vertex-uploads 0
@@ -153,7 +205,12 @@
                 :ink-vertices 0 :over-limit 0 :last-coverage-check {}}
    :prepared {}})
 
-(defn- placement-ink-vertices [placements]
+(defn- placement-ink-vertices
+  "Resolved placements → total derived ink vertex count.
+
+   Rederives path meshes for reporting. Proves derivable geometry size, not
+   the exact vertices uploaded by the placement renderer."
+  [placements]
   (reduce
    + 0
    (keep (fn [placed]
@@ -165,7 +222,12 @@
                (count (:vertices mesh)))))
          placements)))
 
-(defn- prepared-summary [draw-item]
+(defn- prepared-summary
+  "Draw item → selected mesh/light/shadow/placement summary.
+
+   Counts source fixture facts. Serves as an input summary; not an
+   inspection of all GPU prepared state."
+  [draw-item]
   (let [region (:region/material draw-item)
         placements (:region3d/resolved-placements draw-item)]
     {:shadow? (boolean
@@ -182,7 +244,14 @@
            placements)
      :objects (count (:scene region))}))
 
-(defn- record-prepare-return! [{:keys [!region-result]} draw-items call-return]
+(defn- record-prepare-return!
+  "Harness, input items and renderer prepare result → same result; updates
+   diagnostic atom.
+
+   Combines actual returned classifications with inferred upload/placement
+   counts. Derived quantities must retain their stated meaning rather than
+   be treated as raw call counters."
+  [{:keys [!region-result]} draw-items call-return]
   (let [region-returns (:regions call-return)
         changed (filter (comp :changed? val) region-returns)
         placements (vec (mapcat #(or (:region3d/resolved-placements %) []) draw-items))
@@ -238,7 +307,12 @@
                                       :last-coverage-check statuses)))))))
     call-return))
 
-(defn- record-pass-returns! [{:keys [!region-result]} passes]
+(defn- record-pass-returns!
+  "Harness and pass results → updates diagnostic pass/draw counters.
+
+   Counts encoded/held roles and encoded interior passes. Placement-draw
+   count is an interior-pass proxy."
+  [{:keys [!region-result]} passes]
   (swap! !region-result
          (fn [result]
            (-> result
@@ -251,14 +325,19 @@
   passes)
 
 (defn- region3d-system-result
+  "Harness → accumulated report plus binding statistics.
+
+   Merges harness observations and renderer binding owner state."
   [{:keys [!region-result region-system]}]
   (assoc @!region-result
          :bindings (region-bindings/stats
                     (region3d-renderer/binding-owner region-system))))
 
 (defn- region3d-renderers
-  "The renderers of one engine frame, back to front: the prepared surround
-   paths (draw-item 0 below, draw-item 1 above) bracket the region composite."
+  "Harness and sandwich/region/empty mode → ordered pass-painting closures.
+
+   Selects below-path, region composite and above-path order. Intended for
+   explicit overlap evidence."
   [{:keys [region-system surround-path-system]} sides]
   (let [surround (fn [draw-item-index]
                    (let [{:keys [first-vertex vertex-count]}
@@ -275,10 +354,13 @@
       :empty [(surround 0)])))
 
 (defn- region3d-direct-frame!
-  "Direct driver, no order model: lease every desired region, encode the
-   shadow and interior of each one the region renderer has prepared, paint the
-   renderers back to front into one linear scene target, present it, and read
-   the pixels back."
+  "Harness and paint closures → promise of bytes and pass returns; performs
+   a GPU frame.
+
+   Reconciles leases, encodes prepared regions, draws linear scene,
+   presents/submits, schedules lease/target release and reads back. Serves
+   as the real integration driver; a large function owns multiple
+   cleanup-sensitive stages."
   [{:keys [device compositor region-system !region-result] :as harness}
    renderers]
   (let [^js device device
@@ -317,7 +399,14 @@
                  (.destroy texture)
                  {:bytes bytes :passes passes})))))
 
-(defn- region3d-prepare-options [harness session]
+(defn- region3d-prepare-options
+  "Harness and session → renderer options including session snapshot
+   identity.
+
+   Supplies shared transforms/resources and hashes the session revision.
+   Intended for controlled harness invalidation; session hash is a value
+   hash, not collision-proof identity."
+  [harness session]
   {:zoom 1.0 :dpr 1.0
    :max-lease-size (get-in harness [:compositor :max-lease-size])
    :world-transforms (:world-transforms harness)
@@ -327,6 +416,11 @@
    {:address :region3d/harness-session :revision (hash session)}})
 
 (defn- prepare-region3d!
+  "Harness, draw items, session and overrides → prepare result plus recorded
+   diagnostics.
+
+   Attaches compositor, merges options, invokes production preparation.
+   Serves as a single integration boundary."
   [harness draw-items session prepare-overrides]
   (let [{:keys [compositor region-system]} harness]
     (region3d-renderer/attach-compositor! region-system compositor)
@@ -337,6 +431,10 @@
       (merge (region3d-prepare-options harness session) prepare-overrides)))))
 
 (defn- region3d-capture!
+  "Harness, item, session, sides and optional overrides → promise of one
+   frame.
+
+   Prepare then drive."
   ([harness draw-item session sides]
    (region3d-capture! harness draw-item session sides {}))
   ([{:keys [compositor region-system] :as harness}
@@ -345,6 +443,11 @@
    (region3d-direct-frame! harness (region3d-renderers harness sides))))
 
 (defn- region3d-capture-pair!
+  "Harness, draw item, session, sides and optional preparation overrides →
+   promise of first bytes, prepare result, two hashes and equality.
+
+   Prepares once then drives twice. Intended for cached-pass repeatability
+   as well as visible determinism."
   ([harness draw-item session sides]
    (region3d-capture-pair! harness draw-item session sides {}))
   ([{:keys [compositor region-system] :as harness}
@@ -369,10 +472,21 @@
                :byte-identical? (= (aget hashes 0)
                                    (aget hashes 1))})))))))))
 
-(defn- region-result [frame]
+(defn- region-result
+  "Frame → this fixture region's preparation row.
+
+   Fixed-ID projection. Intended for the one-primary-region checks."
+  [frame]
   (get-in frame [:prepare :regions region3d-id]))
 
 (defn- region3d-r3!
+  "Harness and region → promise of five-frame update classification
+   evidence.
+
+   Drives first frame, identical hold, revision remint, object transform and
+   zoom; checks rebuild/upload/refit/encode returns. Intended for the
+   intended incremental branches; counters are those reported by
+   preparation/passes."
   [harness region]
   (let [base-region (-> region
                         (assoc-in [:scene :sun :light :cast-shadow] false)
@@ -444,7 +558,9 @@
             (js/Promise.resolve nil)
             steps)))
 
-(defn- region3d-image-record [case-id pair]
+(defn- region3d-image-record
+  "Case ID and render pair → PNG/hash/determinism record."
+  [case-id pair]
   {:mode case-id :file (str "gpu-region3d-floor-" case-id ".png")
    :raw-sha256 (:first-sha256 pair)
    :png-data-url (opaque-png-data-url (:bytes pair))
@@ -452,7 +568,12 @@
                  :second-raw-sha256 (:second-sha256 pair)
                  :byte-identical? (:byte-identical? pair)}})
 
-(defn- region3d-lights [maintained]
+(defn- region3d-lights
+  "Maintained scene → transformed light records.
+
+   Collects all scene lights and transforms position/direction. Does not
+   apply the GPU's sorted eight-light cap."
+  [maintained]
   (->> (get-in maintained [:region :scene])
        (keep (fn [[id object]]
                (when (= :light (:object/kind object))
@@ -464,7 +585,14 @@
                                 matrix [0.0 0.0 -1.0])}))))
        vec))
 
-(defn- region3d-lit-oracle [region bytes]
+(defn- region3d-lit-oracle
+  "Region and captured pixels → sampled lighting/depth/transparency/picking
+   evidence.
+
+   CPU ray pick/reference shade at the center, plus glass/outside/boundary
+   samples and two-byte color tolerance. Intended for a few explicit points;
+   not image-wide equivalence."
+  [region bytes]
   (let [maintained (assoc (region3d-scene/derive-scene region)
                           :region-id region3d-id)
         camera (region3d-scene/camera-matrices (:view region)
@@ -534,6 +662,13 @@
                  depth-classes-pass?)}))
 
 (defn- region3d-s5-lifecycle!
+  "Harness, region and draw item → promise of
+   camera/resize/shadow/close/budget/recreate evidence.
+
+   Sequential captures with queue-completion waits; tests held shadow versus
+   waking interior, quantized size, released bytes, rejection visibility and
+   compositor recreation. Intended for explicit lifecycle transitions;
+   upload deltas use the harness's derived counters."
   [{:keys [device compositor region-system] :as harness} region draw-item]
   (let [base-view (:view region)
         changed-view (assoc base-view :yaw 0.045 :pitch -0.02)
@@ -713,6 +848,10 @@
 (def ^:private lower-resolution-pressure-id :region3d/lower-resolution-pressure)
 
 (defn- pool-holds-free-target?
+  "Target pool and target → whether that identity remains in a free bucket.
+
+   Inspects private pool state. Precise reserve-preservation evidence
+   coupled to internal representation."
   [pool target]
   (let [target-id (:target/id target)]
     (boolean
@@ -720,6 +859,10 @@
            (mapcat val (:free @(:!state pool)))))))
 
 (defn- region3d-lower-step!
+  "Harness and render closures → promise of bytes, pass returns and
+   compositor stats.
+
+   Frame plus state snapshot."
   [harness renderers]
   (-> (region3d-direct-frame! harness renderers)
       (.then (fn [{:keys [bytes passes]}]
@@ -728,6 +871,11 @@
                           (:compositor harness))}))))
 
 (defn- region3d-rejection-leg!
+  "Harness, fixture and budget → promise of visible rejection result.
+
+   Creates constrained compositor, captures zoom 8, checks rejection
+   metadata/nonzero center sample, destroys compositor. Intended for this
+   rejection surface; does not by itself prove the entire rejection image."
   [{:keys [device region-system] :as harness}
    region draw-item budget-cap-bytes]
   (let [compositor (compositor-gpu/create-compositor!
@@ -748,6 +896,15 @@
              result))))))
 
 (defn- region3d-lower-resolution!
+  "Harness, region and draw item → promise of pressure, worn-content, hold,
+   recovery and floor evidence.
+
+   Reserves a free target, installs a competing lease, drives zoom/content
+   changes, removes pressure, compares hashes and checks physical activity,
+   picking and wear marker. Intended for a carefully constructed
+   resource-policy scenario. Directly mutates desired binding rows and
+   depends on detailed pool/accounting representation; extensive sequential
+   state makes maintenance harder."
   [{:keys [device region-system compositor] :as harness} region draw-item]
   (let [lower-compositor
         (compositor-gpu/create-compositor!
@@ -965,7 +1122,16 @@
             (js/Promise.resolve nil)
             steps)))
 
-(defn run-region3d-floor! [device font-assets]
+(defn run-region3d-floor!
+  "Device and font assets → promise of four cases plus
+   R1/R3/S2/S4/S5/lower-resolution evidence.
+
+   Builds systems and fixtures, runs captures then lifecycle/pressure
+   stages, aggregates explicit checks and destroys compositors/render
+   systems normally. Intended for the declared rendering floor; S2 and S4
+   are aliases of one oracle result, and the externally supplied device plus
+   created camera/group buffers are not destroyed here."
+  [device font-assets]
   (let [camera (device/create-camera-buffer device)
         groups-buffer (device/create-groups-buffer device)
         registry (transform/add-group

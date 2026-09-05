@@ -1,15 +1,17 @@
 (ns app.client.text.shaper
-  "Text shaping with HarfBuzz: turns a string plus font programs into glyph
-   ids, clusters, advances, offsets, and extents in font units, with bidi
-   direction — as columns. The flat route: HarfBuzz's glyph structs are read
-   straight out of the WASM heap into one shaped line (`shaped-line`), one
-   crossing in (`addText`) and one crossing out (the two heap views) per run;
-   no object per glyph.
-   Takes: ordered font sources (primary and fallbacks, with variations) and
-   shaping options.
-   Gives: a promise of a provider, the handle text layout calls to shape runs.
-   Holds: the loaded HarfBuzz wasm module, its hbjs wrapper, and the in-flight
-   load promise."
+  "Produce visual-order glyph columns from font programs.
+
+   Input: ordered font sources and shaping options; then text passed to the
+   provider's closure. Output: a provider whose :shape-line returns typed
+   glyph/run columns. The namespace caches the HarfBuzz wrapper, raw module
+   and in-flight promise. Each provider closes over font/blob/face objects,
+   bidi engine, metadata and a 16-byte WASM extents scratch allocation.
+
+   Splits by bidi level, face and tab status, shapes runs, reads WASM glyph
+   columns and writes the provider result. Per-glyph extents queries still
+   cross into WASM.
+
+   Folder map: README.md."
   (:require [clojure.string :as str]
             ["harfbuzzjs/hb.js" :as hb-module]
             ["harfbuzzjs/hbjs.js" :as hbjs-module]
@@ -23,11 +25,17 @@
 (defonce ^:private !harfbuzz-module (atom nil))
 (defonce ^:private !harfbuzz-promise (atom nil))
 
-(defn- module-default [module]
+(defn- module-default
+  "Imported module → default export or module itself.
+
+   Interop normalization."
+  [module]
   (or (.-default module) module))
 
 (defn- fetch-bytes*
-  "One fetch attempt for url → ArrayBuffer."
+  "URL → ArrayBuffer promise; bad status throws.
+
+   One checked fetch."
   [url]
   (-> (js/fetch url)
       (.then (fn [response]
@@ -37,8 +45,10 @@
                (.arrayBuffer response)))))
 
 (defn- fetch-bytes
-  "fetch-bytes* with up to 4 attempts and linear backoff — mobile networks
-   drop parallel asset fetches wholesale."
+  "URL/optional attempt → retried byte promise.
+
+   Four attempts with linear backoff. Retry policy is duplicated with font
+   asset loading."
   ([url] (fetch-bytes url 1))
   ([url attempt]
    (-> (fetch-bytes* url)
@@ -54,12 +64,12 @@
                    (throw e)))))))
 
 (defn load-harfbuzz!
-  "Instantiate the pinned HarfBuzz WASM once; resolves to the hbjs wrapper.
-   The explicit wasmBinary keeps asset resolution independent of the
-   bundle/script URL. A failed attempt clears the promise cache so a later
-   call can retry instead of reusing the rejection forever. The raw
-   Emscripten module (heap views + exports) is kept beside the wrapper for
-   the flat route."
+  "No caller input; pinned WASM URL → shared wrapper promise.
+
+   Caches in-flight/successful load; clears failed promise. Concurrent
+   callers share initialization and later calls can retry failure. Explicit
+   wasmBinary makes asset resolution independent of the bundle URL. The raw
+   Emscripten module is retained beside the wrapper for heap access."
   []
   (or @!harfbuzz-promise
       (let [create-hb (module-default hb-module)
@@ -78,16 +88,31 @@
         (reset! !harfbuzz-promise p)
         p)))
 
-(defn- typed-set [typed-array]
+(defn- typed-set
+  "Typed array → ClojureScript set.
+
+   Materializes membership values. Face state also retains a JS Set of the
+   same unicodes."
+  [typed-array]
   (into #{} (array-seq typed-array)))
 
-(defn- js-object->map [object]
+(defn- js-object->map
+  "JS object → keyword-keyed map.
+
+   Enumerates own keys. Intended for axis metadata."
+  [object]
   (into {}
         (map (fn [key]
                [(keyword key) (aget object key)]))
         (js/Object.keys object)))
 
-(defn- create-face-state [hb {:keys [id revision bytes variations]}]
+(defn- create-face-state
+  "HarfBuzz wrapper and bytes/identity/variations → face/font/blob state,
+   coverage sets and metrics.
+
+   Creates and configures native handles. Intended for provider lifetime;
+   lacks rollback/disposal in this file."
+  [hb {:keys [id revision bytes variations]}]
   (let [blob (.createBlob hb bytes)
         face (.createFace hb blob 0)
         font (.createFont hb face)
@@ -116,8 +141,11 @@
 ;; The flat route: run split over arrays, shaping into columns.
 
 (defn- face-index-at
-  "One byte per UTF-16 code unit: the index of the first face covering that
-   code point (the primary when none does), exactly `faces-by-offset`."
+  "Faces, text, UTF-16 length → byte array selecting face per code unit.
+
+   First face covering each codepoint, primary fallback when none; surrogate
+   pair shares face. Byte indexes allow only 256 distinct face indexes;
+   fallback is per codepoint, not whole grapheme/script shaping context."
   [faces text n]
   (let [out (js/Uint8Array. n)
         face-count (count faces)
@@ -136,8 +164,11 @@
     out))
 
 (defn- logical-runs
-  "Maximal runs of one bidi level, one face, and one tab-ness, in logical
-   order — small maps, a handful per line."
+  "Text, bidi levels, face indexes, length → maximal
+   same-level/face/tab-status runs.
+
+   Linear scan. Intended for this segmentation; adjacent tabs become one tab
+   run."
   [text levels face-at n]
   (loop [start 0 result (transient [])]
     (if (>= start n)
@@ -155,7 +186,11 @@
         (recur end (conj! result {:start start :end end :level level
                                   :face face :tab? tab?}))))))
 
-(defn- visually-order-runs [bidi text embedding runs n]
+(defn- visually-order-runs
+  "Bidi engine/text/embedding/runs/length → runs sorted by visual rank.
+
+   Builds code-unit rank array then sorts runs. Retains small per-run maps."
+  [bidi text embedding runs n]
   (if (empty? runs)
     []
     (let [indices (.getReorderedIndices bidi text embedding)
@@ -171,7 +206,12 @@
                          runs)]
         (vec (sort-by :rank ranked))))))
 
-(defn- apply-variations! [faces variations]
+(defn- apply-variations!
+  "Faces and requested variations → nil; mutates font variation settings.
+
+   Merges defaults and filters unsupported axes. Intended for synchronous
+   provider use; provider is stateful."
+  [faces variations]
   (doseq [face faces]
     (let [supported (set (keys (:axes face)))
           requested (merge (:variations face) variations)
@@ -179,8 +219,10 @@
       (.setVariations (:font face) (clj->js active)))))
 
 (defn- next-cluster-end
-  "The next distinct cluster start after `cluster` in the run's sorted,
-   deduplicated starts, else the run's end — `cluster-end-map`'s rule."
+  "Sorted distinct starts/count/current start/run end → next larger start or
+   run end.
+
+   Binary search."
   [starts start-count cluster run-end]
   (loop [lo 0 hi start-count]
     (if (< lo hi)
@@ -191,6 +233,13 @@
       (if (< lo start-count) (aget starts lo) run-end))))
 
 (defn- shape-line-flat
+  "Loaded engines/font state/scratch/text/options → shaped-line columns.
+
+   Shape runs, bulk-read infos/positions, query extents, derive clusters and
+   pen positions. Direction option is not destructured/applied; bidi chooses
+   direction. One virtual glyph/advance is emitted per tab run, including a
+   run of consecutive tabs. Temporary buffers are destroyed on normal path,
+   without finally for intermediate exceptions."
   [hb ^js module bidi faces face-meta scratch text
    {:keys [features language tab-columns variations]}]
   (apply-variations! faces variations)
@@ -329,8 +378,13 @@
                     (recur (inc r) (+ base len) pen)))))))))))
 
 (defn create-provider
-  "Create a synchronous layout provider after HarfBuzz and font bytes are
-   loaded. `font-sources` is an ordered primary+fallback vector."
+  "Loaded wrapper, font bytes, defaults → provider with :shape-line(text,
+   opts) → columns.
+
+   Normalizes fallback font scales to primary UPEM, allocates scratch,
+   closes over face state. Intended for synchronous shaping. Current
+   limitation: no empty-source guard or provider teardown; repeated provider
+   creation retains native allocations."
   [hb font-sources {:keys [features language tab-columns]
                     :or {features ["kern" "liga" "clig" "calt"]
                          language "und" tab-columns 4}}]
@@ -368,8 +422,11 @@
                                     (str (or text "")) (merge defaults opts)))}))
 
 (defn load-provider!
-  "Load primary/fallback TTF bytes and return a Promise of a provider. Font
-   source maps use {:id :revision :url :variations}."
+  "URL source vector and options → provider promise.
+
+   Loads WASM and fonts in parallel then constructs provider. Owns loading,
+   not resource disposal. Font source records carry :id, :revision, :url and
+   :variations, ordered primary first and then fallbacks."
   [font-sources opts]
   (-> (js/Promise.all
         (clj->js

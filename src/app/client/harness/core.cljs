@@ -1,8 +1,16 @@
 (ns app.client.harness.core
-     "The compiled browser-harness entry and result assembler.
-      Takes: nothing; it acquires WebGPU and font assets itself.
-      Gives: window.__renderVerifierResult and completion state.
-      Holds nothing."
+     "Assemble and publish a browser verification run.
+
+      Input: browser capabilities, loaded assets and optional URL query.
+      Output: a promise of results, or window.__renderVerifierResult plus
+      window.__renderVerifierDone. It acquires adapters/devices and creates
+      shared camera/group resources. Those resources and browser globals are
+      observable state.
+
+      The browser render-verifier build enters here. Results retain separate
+      subordinate checks rather than one universal pass assertion.
+
+      Folder map: README.md."
      (:require [app.client.engine.device :as device]
                [app.client.engine.limits :as limits]
                [app.client.text.fonts :as fonts]
@@ -18,7 +26,15 @@
         srgb->linear linear->srgb-byte adapter-information
         shader-digests w4-read-texture!]]))
 
-(defn ^:export run-harness! []
+(defn ^:export run-harness!
+  "No arguments → promise of environment, transport, text, image, path,
+   Region3D and shader evidence; acquires GPU/resources/assets.
+
+   Checks secure context/WebGPU, loads DejaVu and Ubuntu assets, then joins
+   independent drivers with Promise.all. Catches the T1 layout exception
+   into a :foreign-failure record but propagates most other failures; no
+   common final aggregate or main-device/shared-buffer teardown."
+  []
   (js/console.log "[W0-A] init-start")
   (when-not (and (.-isSecureContext js/window)
                  (exists? js/navigator.gpu))
@@ -100,7 +116,13 @@
                                           :region3d-floor (aget values 4)
                                           :cases (:cases (aget values 0))})))))))))))))))))))
 
-(defn ^:export run-region3d-floor-harness! []
+(defn ^:export run-region3d-floor-harness!
+  "No arguments → promise of Region3D plus environment/shader evidence.
+
+   Smaller acquisition/asset path for the floor-only mode. Intended for a
+   focused entry; still owns a new device and shared lifetime through the
+   page."
+  []
   (when-not (and (.-isSecureContext js/window)
                  (exists? js/navigator.gpu))
     (throw (js/Error. "Region3D floor harness requires WebGPU")))
@@ -143,7 +165,14 @@
                                         :shader-digests (aget values 0)
                                         :region3d-floor (aget values 1)})))))))))))))))))
 
-(defn ^:export start! []
+(defn ^:export start!
+  "No arguments → schedules a run and updates window completion/result
+   globals.
+
+   Zero-delay boot marker, query-presence dispatch on region3d-floor-only,
+   synchronous and promise error publication. Intended for an external
+   browser runner; completion is explicitly distinguishable from success."
+  []
   (js/console.log "[W0-A] start")
   (set! (.-__renderVerifierDone js/window) false)
   ;; Yield once so CDP can publish the boot marker before any browser/driver

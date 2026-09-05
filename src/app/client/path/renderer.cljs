@@ -1,12 +1,12 @@
 (ns app.client.path.renderer
-  "The path renderer: one repacked vertex lane and a mesh cache keyed by
-   geometry, algorithm, and zoom lod.
-   Takes: a device, a format, and the shared buffers to build the system; the
-   frame's path draw-items and zoom to prepare; a render pass and a vertex range to
-   draw.
-   Gives: a path system; a written vertex buffer; draw calls.
-   Holds: per-system atoms for the buffer, capacity, mesh cache, prepared
-   state, and the last revision/group/lod frame key."
+  "Own the mesh cache and packed vertex lane.
+
+   Input: shared GPU resources, ordered path items, zoom, world transforms
+   and an open pass. Output: uploaded vertices, per-item vertex ranges, and
+   draw commands. State is per system: buffer/capacity, mesh cache, prepared
+   rows and last frame key. It does not own the camera or group buffers.
+
+   Folder map: README.md."
   (:require [app.client.engine.color :as scene-color]
             [app.client.engine.device :as device]
             [app.client.engine.transform :as transform]
@@ -17,6 +17,10 @@
 (def vertex-words 7)
 (def vertex-stride 28)
 
+;; Vertex main(input) applies compact group affine, world/screen camera
+;; behavior and NDC projection. Fragment main(color) uses shared
+;; transfer/alpha handling. A vertex row carries local position, RGBA and
+;; unsigned group index.
 (def path-vertex-shader
   "struct Camera {
      pan: vec2<f32>, zoom: f32, padding: f32,
@@ -57,7 +61,11 @@
      return scene_color(color, 1.0);
    }")
 
-(defn- create-vertex-buffer [^js device capacity]
+(defn- create-vertex-buffer
+  "Device and capacity → vertex/copy-destination buffer.
+
+   Allocates at least one vertex."
+  [^js device capacity]
   (.createBuffer device
                  (clj->js {:size (* (max 1 capacity)
                                     vertex-stride)
@@ -65,6 +73,11 @@
                                           js/GPUBufferUsage.COPY_DST)})))
 
 (defn init-path-system
+  "Device, format, camera/groups buffers, options → system; allocates
+   pipeline/buffer.
+
+   One pipeline and binding set plus cache atoms. Rendering inputs and owned
+   state are explicit."
   [^js device fformat camera-buffer groups-buffer
    & {:keys [initial-capacity scene-color]
       :or {initial-capacity 2048
@@ -128,7 +141,12 @@
      :!mesh-cache (atom {}) :!prepared (atom [])
      :!last-frame-key (atom ::never)}))
 
-(defn- pack-vertices [prepared world-transforms]
+(defn- pack-vertices
+  "Prepared rows and world transforms → packed typed array.
+
+   Replicates paint/index per local vertex; overlays uint view for indexes.
+   Intended for a single simple vertex lane; repacks all prepared rows."
+  [prepared world-transforms]
   (let [vertex-count (reduce + (map :vertex-count prepared))
         floats (js/Float32Array. (* vertex-count vertex-words))
         uints (js/Uint32Array. (.-buffer floats))]
@@ -150,7 +168,13 @@
           (recur (next draw-items) (+ vertex-offset (count vertices))))
         floats))))
 
-(defn- ensure-capacity! [path-system required]
+(defn- ensure-capacity!
+  "System and required vertices → current/enlarged buffer; may destroy old
+   buffer.
+
+   Doubling from at least one. Content need not be copied because
+   preparation rewrites it."
+  [path-system required]
   (let [capacity @(:!capacity path-system)]
     (when (> required capacity)
       (let [next-capacity (loop [candidate (max 1 capacity)]
@@ -166,8 +190,13 @@
     @(:!buffer path-system)))
 
 (defn prepare-path-frame!
-  "Derive/cache/repack when a component revision, group, or zoom lod
-   changes. Pan and continuous zoom within one lod never reach this write."
+  "System, items, zoom, transforms → change/write/vertex/derive statistics;
+   updates caches and buffer.
+
+   Frame-key early return, content-key mesh reuse, whole-frame packing and
+   one upload. Transform coefficients are intentionally excluded, but a
+   reassigned compact index with unchanged container ID is also excluded;
+   callers must preserve that index or invalidate the frame."
   [path-system draw-items zoom world-transforms]
   (let [draw-items (or draw-items [])
         lod (:lod/id (tessellation/zoom-lod zoom))
@@ -211,14 +240,22 @@
          :derived (count (:derived-keys derivation))}))))
 
 (defn draw-path-range!
-  "Paint one contiguous run of the prepared path vertices on an open pass."
+  "Open pass, system, first vertex, count → encoded draw.
+
+   Binds lane and emits one contiguous draw. Caller owns ordering, clipping
+   and pass lifetime."
   [^js pass path-system first-vertex vertex-count]
   (.setPipeline pass (:pipeline path-system))
   (.setBindGroup pass 0 (:bind-group path-system))
   (.setVertexBuffer pass 0 @(:!buffer path-system))
   (.draw pass vertex-count 1 first-vertex 0))
 
-(defn destroy-path-system! [path-system]
+(defn destroy-path-system!
+  "System → nil; destroys buffer and clears caches/key.
+
+   Explicit teardown. Destroyed system is not an initialized reusable
+   system."
+  [path-system]
   (when-let [buffer @(:!buffer path-system)]
     (.destroy buffer))
   (reset! (:!prepared path-system) [])
