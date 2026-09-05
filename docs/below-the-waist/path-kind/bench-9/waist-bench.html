@@ -63,6 +63,7 @@
   .piece h3 .rate { margin-left: auto; }
   .rate { font-size: 10.5px; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 10px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
   .rate.edit { border-color: var(--data-line); color: var(--data); } .rate.scale { border-color: var(--code-line); color: var(--code); } .rate.frame { border-color: var(--bad); color: var(--bad); }
+  .rate.step { border-color: var(--good); color: var(--good); }
   .did { font-size: 12px; color: var(--ink); } .did .mono { font-size: 11.5px; } .did .k { color: var(--muted); }
   .did ul { margin: 4px 0 0; padding-left: 16px; } .did li { margin: 1px 0; }
   .row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 4px 0; font-size: 12px; }
@@ -85,7 +86,7 @@
 <header class="top">
   <div class="crumb">Softland · client · path kind · bench 9</div>
   <h1>The Waist Bench</h1>
-  <p class="lede">Three real tools, each supplied as a data record above the waist. One pipeline of code below it: source to path, geometry, packer, filler. Edit the record and watch what runs. The filler is the text lane's per-pixel program, lifted.</p>
+  <p class="lede">Real tools, each supplied as a data record above the waist. One pipeline of code below it: source to path (with an executor for a record's construction), geometry, packer, filler, compositor. Edit the record and watch what runs, and what was never read. The filler is the text lane's per-pixel program, lifted; the compositor is its last three lines plus surfaces.</p>
 </header>
 
 <main class="wrap">
@@ -109,6 +110,7 @@
       <div class="tierlabel"><span><b>Above the waist</b> · the tool's record · data anyone can edit</span><span class="rate edit">per edit</span></div>
       <textarea id="record" spellcheck="false" aria-label="tool record"></textarea>
       <div class="err" id="recerr"></div>
+      <div class="small" id="unread" style="margin-top:6px"></div>
       <p class="note" id="note"></p>
     </div>
 
@@ -118,7 +120,7 @@
     </div>
 
     <div class="tier below">
-      <div class="tierlabel"><span><b>Below the waist</b> · the four pieces of code</span></div>
+      <div class="tierlabel"><span><b>Below the waist</b> · the pieces of code that exist once</span></div>
 
       <div class="piece" id="p-source">
         <h3>source → path <span class="rate edit">per edit</span></h3>
@@ -152,12 +154,21 @@
           <span class="k" style="min-width:auto">its skin filled</span><span class="seg" data-view="skinRule"><button data-v="nonzero">nonzero</button><button data-v="evenodd">even-odd</button></span></div>
         <div class="did" id="d-filler"></div>
       </div>
+
+      <div class="piece" id="p-compositor">
+        <h3>compositor · surfaces: clip × coverage, blend, layer, sample <span class="rate frame" id="r-compositor">per frame</span></h3>
+        <div class="row"><span class="k">clip</span><span class="seg" data-set="clip"><button data-v="none">none</button><button data-v="trefoil">by the trefoil</button><button data-v="rect">by a rounded rect</button></span></div>
+        <div class="row"><span class="k">blend</span><span class="seg" data-set="blend"><button data-v="over">over</button><button data-v="multiply">multiply</button><button data-v="screen">screen</button><button data-v="difference">difference</button></span></div>
+        <div class="row"><span class="k">group</span><span class="seg" data-set="group"><button data-v="none">direct</button><button data-v="layer">a layer at 62 %</button></span>
+          <span class="k" style="min-width:auto">paper</span><span class="seg" data-set="paper"><button data-v="off">none</button><button data-v="on">opaque</button></span></div>
+        <div class="did" id="d-compositor"></div>
+      </div>
     </div>
 
     <div class="legend">
       <span><i style="background:var(--data)"></i>data · the tool supplies it</span>
       <span><i style="background:var(--code)"></i>code · exists once</span>
-      <span>rates: <span class="rate edit">per edit</span> <span class="rate scale">per scale</span> <span class="rate frame">per frame</span></span>
+      <span>rates: <span class="rate edit">per edit</span> <span class="rate scale">per scale</span> <span class="rate frame">per frame</span> <span class="rate step">per brush step</span></span>
     </div>
   </aside>
 </main>
@@ -165,6 +176,7 @@
 <footer class="foot">
   <p>Local units: 1 unit = 1 CSS pixel at zoom 1, Y down, as in the client. Drag to pan, wheel to zoom about the cursor. In "draw your own", drag draws and Shift-drag pans. Fixtures marked harness are the path family's own golden fixtures by their coordinates.</p>
   <p>The cursor readout runs the filler's algorithm on the CPU at the cursor and reads the GPU pixel under it; they agree because both use the same curves and the same rule. It also shows what the two stroke constructions say about the distance to the drawn centerline.</p>
+  <p>Session 10 added the compositor and the executor. A clip is a second region whose coverage multiplies in the same draw; a blend reads a copy of the backdrop under the region; a layer is a surface painted as a region into its parent; a painting surface is retained at its declared resolution and advances per brush step. The definer's two records from attack 2 run verbatim: the pickup brush through a small executor on the GPU and on a CPU twin, the network through the geometry's arrangement. Fields of a record that no code read are listed under it.</p>
 </footer>
 
 <script>
@@ -190,6 +202,7 @@
   //  and a function is data only if code below the waist can execute it.
   // =====================================================================
   function compileExpr(src) {
+    const names = new Set();   // which of the record's numbers the expression reads: the scope is built from these, nothing else counts as consumed
     const toks = String(src).match(/[A-Za-z_]\w*|\d*\.?\d+(?:e[+-]?\d+)?|\*\*|[-+*/^(),]/g) || [];
     let i = 0;
     const peek = () => toks[i], next = () => toks[i++];
@@ -217,12 +230,14 @@
           return v => f(...args.map(a => a(v)));
         }
         if (t === 'pi') return () => Math.PI;
+        names.add(t);
         return v => { const x = v[t]; if (typeof x !== 'number') throw new Error('unknown name ' + t); return x; };
       }
       throw new Error('unexpected ' + t);
     }
     const f = expr();
     if (i < toks.length) throw new Error('unexpected ' + toks[i]);
+    f.names = names;
     return f;
   }
 
@@ -269,13 +284,15 @@
   function flattenSubpath(sp, tol, widthOf, widthFn) { // widthOf(sp, knotIndex) → width at that knot; widthFn(p, s) → width from interpolated pressure (the definer's fix: interpolate the source attribute, then apply the response)
     const pts = []; let cur = sp.start; const n = sp.segs.length;
     const kp = i => { const k = sp.knots && sp.knots[Math.min(i, sp.knots.length - 1)]; return k && typeof k.p === 'number' ? k.p : 0.5; };
-    const W = (i, t, wa, wb) => (widthFn ? widthFn(kp(i) + (kp(i + 1) - kp(i)) * t, (i + t) / Math.max(1, n)) : wa + (wb - wa) * t);
-    pts.push({ x: cur.x, y: cur.y, w: W(0, 0, widthOf(sp, 0), widthOf(sp, 0)), t: 0 });
+    const PR = (i, t) => kp(i) + (kp(i + 1) - kp(i)) * t;                                   // the interpolated source attribute (pressure)
+    const W = (i, t, wa, wb) => (widthFn ? widthFn(PR(i, t), (i + t) / Math.max(1, n)) : wa + (wb - wa) * t);
+    const push = (q, i, t, wa, wb) => pts.push({ x: q.x, y: q.y, w: W(i, t, wa, wb), t: i + t, p: PR(i, t), seg: i, u: t });   // every flattened point knows its segment, parameter and pressure (attack 2: dab packets carry the source location)
+    push(cur, 0, 0, widthOf(sp, 0), widthOf(sp, 0));
     sp.segs.forEach((s, i) => {
       const wa = widthOf(sp, i), wb = widthOf(sp, i + 1);
-      if (s.k === 'L') pts.push({ x: s.p.x, y: s.p.y, w: W(i, 1, wa, wb), t: i + 1 });
-      else if (s.k === 'Q') { const m = quadSteps(cur, s.c, s.p, tol); for (let j = 1; j <= m; j++) { const t = j / m, q = quadAt(cur, s.c, s.p, t); pts.push({ x: q.x, y: q.y, w: W(i, t, wa, wb), t: i + t }); } }
-      else { const m = cubicSteps(cur, s.c1, s.c2, s.p, tol); for (let j = 1; j <= m; j++) { const t = j / m, q = cubicAt(cur, s.c1, s.c2, s.p, t); pts.push({ x: q.x, y: q.y, w: W(i, t, wa, wb), t: i + t }); } }
+      if (s.k === 'L') push(s.p, i, 1, wa, wb);
+      else if (s.k === 'Q') { const m = quadSteps(cur, s.c, s.p, tol); for (let j = 1; j <= m; j++) { const t = j / m; push(quadAt(cur, s.c, s.p, t), i, t, wa, wb); } }
+      else { const m = cubicSteps(cur, s.c1, s.c2, s.p, tol); for (let j = 1; j <= m; j++) { const t = j / m; push(cubicAt(cur, s.c1, s.c2, s.p, t), i, t, wa, wb); } }
       cur = s.p;
     });
     if (sp.closed && pts.length > 1 && V.dist(pts[0], pts[pts.length - 1]) < 1e-9) pts.pop();
@@ -382,8 +399,8 @@
     for (let i = 1; i < pts.length; i++) { const d = V.dist(pts[i], pts[i - 1]); L += d; pts[i].s = L; pts[i].v = d / Math.max(1e-3, pts[i].t - pts[i - 1].t); }
     if (tool.simulatePressure) { let prev = 0.5; const size = tool.size || 8; pts.forEach((q, i) => { if (i === 0) { q.p = prev; return; } const sp = Math.min(1, V.dist(q, pts[i - 1]) / size), rp = Math.min(1, 1 - sp); prev = Math.min(1, prev + (rp - prev) * (sp * 0.275)); q.p = prev; }); }
     // 4. the pen model: width per sample from an expression over p, s, v and the record's numbers — data, executed by the evaluator
-    let f; try { f = compileExpr(meta.widthExpr); } catch (e) { meta.error = 'width: ' + e.message; f = v => v.size * v.p; }
-    const scope = {}; for (const key in tool) if (typeof tool[key] === 'number') scope[key] = tool[key]; if (typeof scope.size !== 'number') scope.size = 8; if (typeof scope.thinning !== 'number') scope.thinning = 0.5;
+    let f; try { f = compileExpr(meta.widthExpr); } catch (e) { meta.error = 'width: ' + e.message; f = v => v.size * v.p; f.names = new Set(['size', 'p']); }
+    const scope = {}; for (const key of f.names) if (typeof tool[key] === 'number') scope[key] = tool[key]; if (typeof scope.size !== 'number') scope.size = typeof tool.size === 'number' ? tool.size : 8; if (typeof scope.thinning !== 'number') scope.thinning = 0.5;
     pts.forEach(q => {
       let w; try { w = f({ ...scope, p: q.p, s: L > 0 ? q.s / L : 0, v: q.v }); } catch (e) { meta.error = 'width: ' + e.message; w = scope.size * q.p; }
       if (!isFinite(w)) w = 0;
@@ -411,6 +428,7 @@
     if (src.kind === 'pen') return buildPen(src, rec.tool || {});
     if (src.kind === 'rect') return buildRect(src);
     if (src.kind === 'anchors') return buildAnchors(src);
+    if (src.kind === 'network') return { subpaths: [], meta: { kind: 'network' } };   // no native branch (attack 2): the record's construction returns the path, or nothing does
     return { subpaths: [], meta: { kind: 'none' } };
   }
 
@@ -537,19 +555,227 @@
       const flat = flattenSubpath(explicitClose(sp), opts.envTol, widthOf, opts.widthFn); const P = dedupe(flat.pts, flat.closed); if (P.length < 1) continue;
       if (flat.closed && P.length > 2) P.push(P[0]);
       polys.push(withR(P, 0.5));
+      let total = 0; for (let i = 0; i + 1 < P.length; i++) total += V.dist(P[i], P[i + 1]);
       let next = 0, s = 0;
       for (let i = 0; i + 1 < P.length || (i === 0 && P.length === 1); i++) {
         const a = P[i], b = P[i + 1] || P[i], L = V.dist(a, b);
         while (next <= s + L + 1e-9 && (L > 0 || next === 0)) {
-          const t = L > 0 ? (next - s) / L : 0, x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t, r = (a.w + (b.w - a.w) * t) / 2;
+          const t = L > 0 ? (next - s) / L : 0, x = a.x + (b.x - a.x) * t, y = a.y + (b.y - a.y) * t;
+          const p = (a.p == null ? 0.5 : a.p) + ((b.p == null ? 0.5 : b.p) - (a.p == null ? 0.5 : a.p)) * t, sFrac = total > 0 ? next / total : 0;
+          const tt = (a.t == null ? 0 : a.t) + ((b.t == null ? 0 : b.t) - (a.t == null ? 0 : a.t)) * t;
+          // attack 2's fix: the width function is evaluated at the dab's own interpolated pressure, not interpolated between already-evaluated widths
+          const w = opts.widthFn ? opts.widthFn(p, sFrac) : a.w + (b.w - a.w) * t, r = w / 2;
           const out = new Outline(); out.moveTo({ x: x + r, y }); out.arc({ x, y }, r, 0, Math.PI, null); out.arc({ x, y }, r, Math.PI, TAU, null);
-          dabs.push({ x, y, r, at: next, path: { subpaths: out.subpaths } }); next += opts.spacing; if (L === 0) break;
+          dabs.push({ x, y, xy: [x, y], r, at: next, s: sFrac, p, seg: Math.floor(tt), u: tt - Math.floor(tt), path: { subpaths: out.subpaths } }); next += opts.spacing; if (L === 0) break;
         }
         s += L;
       }
       length += s;
     }
     return { dabs, polys, length };
+  }
+
+  // =====================================================================
+  //  Which fields of the record did code read? The definer's ask (attack 2):
+  //  a field with nowhere to go is a finding, and an empty drawing must not
+  //  count as the tool having run. The record is wrapped so every read is
+  //  noted; what was never read is listed under the record.
+  // =====================================================================
+  function tracked(obj, reads, path) {
+    if (obj === null || typeof obj !== 'object') return obj;
+    return new Proxy(obj, { get(t, k, r) {
+      if (typeof k === 'symbol') return Reflect.get(t, k, r);
+      const own = Object.prototype.hasOwnProperty.call(t, k), v = Reflect.get(t, k, r);
+      const p = path ? path + '.' + String(k) : String(k); if (own) reads.add(p);
+      return v !== null && typeof v === 'object' ? tracked(v, reads, p) : v; } });
+  }
+  function unreadFields(obj, reads, path, out) {
+    out = out || []; for (const k of Object.keys(obj)) { const p = path ? path + '.' + k : k; if (!reads.has(p)) { out.push(p); continue; } const v = obj[k]; if (v && typeof v === 'object' && !Array.isArray(v)) unreadFields(v, reads, p, out); } return out;
+  }
+
+  // =====================================================================
+  //  Blending, once, for both hosts (W3C compositing: the source colour is
+  //  mixed toward B(backdrop, source) by the backdrop's alpha, then painted
+  //  over). "over" is the hardware's; the others need the backdrop under the
+  //  region, which is the one thing the filler alone never has.
+  // =====================================================================
+  const BLENDS = ['over', 'multiply', 'screen', 'darken', 'lighten', 'difference'];
+  const blendIndex = name => Math.max(0, BLENDS.indexOf(name === 'source-over' || name == null ? 'over' : name));
+  function blendChannel(mode, cb, cs) { switch (mode) { case 1: return cb * cs; case 2: return cb + cs - cb * cs; case 3: return Math.min(cb, cs); case 4: return Math.max(cb, cs); case 5: return Math.abs(cb - cs); default: return cs; } }
+  function compositeOver(dst, rgb, a, mode) { // dst premultiplied [r,g,b,a]; rgb straight source colour; a = alpha × coverage; returns the new premultiplied pixel
+    let cs = rgb; if (mode) { const ab = dst[3], cb = ab > 0 ? [dst[0] / ab, dst[1] / ab, dst[2] / ab] : [0, 0, 0]; cs = rgb.map((c, i) => c + (blendChannel(mode, cb[i], c) - c) * ab); }
+    return [cs[0] * a + dst[0] * (1 - a), cs[1] * a + dst[1] * (1 - a), cs[2] * a + dst[2] * (1 - a), a + dst[3] * (1 - a)];
+  }
+
+  // =====================================================================
+  //  A vector network is an authored graph; its faces are an ANSWER of the
+  //  geometry (the definer's attack 2): intersect the edges, split them with
+  //  provenance, order the half-edges around every vertex, walk the cycles,
+  //  assemble faces, locate a point. Lines exactly; curve pairs by flattening
+  //  both and refining the parameters on the true curves (Newton). Not a
+  //  general robust arrangement: overlapping spans only where two edges
+  //  coincide exactly, a tangency only if the polylines cross, and ties in
+  //  the tangent order are left to the plain angle sort — all on the fix list.
+  // =====================================================================
+  const GL4 = [[0.0694318442, 0.1739274226], [0.3300094782, 0.3260725774], [0.6699905218, 0.3260725774], [0.9305681558, 0.1739274226]];   // 4-point Gauss–Legendre on [0,1]: exact for the degree-5 area integrand of a cubic
+  const curveAt = (c, t) => (c.kind === 'L' ? V.lerp(c.p0, c.p3, t) : cubicAt(c.p0, c.c1, c.c2, c.p3, t));
+  function curveTan(c, t) {
+    if (c.kind === 'L') return V.sub(c.p3, c.p0);
+    const u = 1 - t, d = { x: 3 * u * u * (c.c1.x - c.p0.x) + 6 * u * t * (c.c2.x - c.c1.x) + 3 * t * t * (c.p3.x - c.c2.x), y: 3 * u * u * (c.c1.y - c.p0.y) + 6 * u * t * (c.c2.y - c.c1.y) + 3 * t * t * (c.p3.y - c.c2.y) };
+    if (V.len(d) > 1e-9) return d; return V.sub(curveAt(c, Math.min(1, t + 1e-3)), curveAt(c, Math.max(0, t - 1e-3)));   // a cusp: fall back to a chord
+  }
+  function curveSlice(c, t0, t1) {
+    if (c.kind === 'L') return { kind: 'L', p0: curveAt(c, t0), p3: curveAt(c, t1) };
+    const right = t0 > 0 ? splitCubic(c.p0, c.c1, c.c2, c.p3, t0)[1] : [c.p0, c.c1, c.c2, c.p3];
+    const s = t0 >= 1 ? 0 : (t1 - t0) / (1 - t0); const left = s < 1 ? splitCubic(right[0], right[1], right[2], right[3], s)[0] : right;
+    return { kind: 'C', p0: left[0], c1: left[1], c2: left[2], p3: left[3] };
+  }
+  function curveArea(c) { // ∮ (x dy − y dx) / 2 along the directed piece
+    if (c.kind === 'L') return V.cross(c.p0, c.p3) / 2;
+    let a = 0; for (const [t, w] of GL4) { const p = curveAt(c, t), d = curveTan(c, t); a += w * (p.x * d.y - p.y * d.x); } return a / 2;
+  }
+  function flattenCurve(c, tol) { if (c.kind === 'L') return [{ t: 0, x: c.p0.x, y: c.p0.y }, { t: 1, x: c.p3.x, y: c.p3.y }]; const m = cubicSteps(c.p0, c.c1, c.c2, c.p3, tol), out = []; for (let j = 0; j <= m; j++) { const t = j / m, q = cubicAt(c.p0, c.c1, c.c2, c.p3, t); out.push({ t, x: q.x, y: q.y }); } return out; }
+  function segSeg(a0, a1, b0, b1) { const r = V.sub(a1, a0), s = V.sub(b1, b0), den = V.cross(r, s); if (Math.abs(den) < 1e-12) return null; const q = V.sub(b0, a0); const t = V.cross(q, s) / den, u = V.cross(q, r) / den; if (t < -1e-9 || t > 1 + 1e-9 || u < -1e-9 || u > 1 + 1e-9) return null; return { t: clamp(t, 0, 1), u: clamp(u, 0, 1) }; }
+  function refinePair(a, b, ta, tb) { // Newton on A(ta) − B(tb) = 0
+    for (let k = 0; k < 16; k++) {
+      const F = V.sub(curveAt(a, ta), curveAt(b, tb)); if (V.len(F) < 1e-13) break;
+      const da = curveTan(a, ta), db = curveTan(b, tb); const det = da.x * -db.y - -db.x * da.y; if (Math.abs(det) < 1e-14) break;
+      const dta = ((-F.x) * (-db.y) - (-db.x) * (-F.y)) / det, dtb = (da.x * (-F.y) - (-F.x) * da.y) / det;
+      ta = clamp(ta + dta, 0, 1); tb = clamp(tb + dtb, 0, 1);
+    }
+    return { ta, tb, gap: V.len(V.sub(curveAt(a, ta), curveAt(b, tb))) };
+  }
+  function sameCurve(a, b) { const eq = (p, q) => V.dist(p, q) < 1e-9; if (a.kind !== b.kind) return 0; if (a.kind === 'L') return eq(a.p0, b.p0) && eq(a.p3, b.p3) ? 1 : eq(a.p0, b.p3) && eq(a.p3, b.p0) ? -1 : 0; return eq(a.p0, b.p0) && eq(a.c1, b.c1) && eq(a.c2, b.c2) && eq(a.p3, b.p3) ? 1 : eq(a.p0, b.p3) && eq(a.c1, b.c2) && eq(a.c2, b.c1) && eq(a.p3, b.p0) ? -1 : 0; }
+  function arrange(curves, coincident) {
+    const t0 = performance.now(); const notes = [];
+    const C = curves.map(c => ({ id: c.id, kind: c.kind === 'C' && c.c1 && c.c2 ? 'C' : 'L', p0: { x: c.start[0], y: c.start[1] }, p3: { x: c.end[0], y: c.end[1] }, c1: c.c1 ? { x: c.c1[0], y: c.c1[1] } : null, c2: c.c2 ? { x: c.c2[0], y: c.c2[1] } : null, owners: [{ id: c.id, dir: 1 }], dropped: false }));
+    // 1. coincident edges: exactly equal geometry becomes one geometric edge with every source owner (the record's declared policy)
+    const spans = [];
+    for (let i = 0; i < C.length; i++) for (let j = i + 1; j < C.length; j++) { if (C[i].dropped || C[j].dropped) continue; const d = sameCurve(C[i], C[j]); if (d) { C[j].dropped = true; C[i].owners.push({ id: C[j].id, dir: d }); spans.push({ a: C[i].id + ':[0,1]', b: C[j].id + (d > 0 ? ':[0,1]' : ':[1,0]') }); } }
+    if (spans.length && coincident !== 'one-geometric-edge-with-all-source-owners') notes.push('coincident edges merged; the record declared "' + coincident + '", which the bench does not implement');
+    const E = C.filter(c => !c.dropped);
+    // 2. intersections: every pair; lines exactly, curves by flattened seeds refined on the true curves
+    const events = [], splits = E.map(() => []);
+    for (let i = 0; i < E.length; i++) for (let j = i + 1; j < E.length; j++) {
+      const a = E[i], b = E[j], found = [];
+      if (a.kind === 'L' && b.kind === 'L') { const h = segSeg(a.p0, a.p3, b.p0, b.p3); if (h) found.push({ ta: h.t, tb: h.u }); }
+      else { const A = flattenCurve(a, 0.02), B = flattenCurve(b, 0.02);
+        for (let p = 0; p + 1 < A.length; p++) for (let q = 0; q + 1 < B.length; q++) { const h = segSeg(A[p], A[p + 1], B[q], B[q + 1]); if (!h) continue;
+          const r = refinePair(a, b, A[p].t + (A[p + 1].t - A[p].t) * h.t, B[q].t + (B[q + 1].t - B[q].t) * h.u); if (r.gap < 1e-6 && !found.some(f => Math.abs(f.ta - r.ta) < 1e-6 && Math.abs(f.tb - r.tb) < 1e-6)) found.push({ ta: r.ta, tb: r.tb }); } }
+      for (const f of found) { const endA = f.ta < 1e-7 || f.ta > 1 - 1e-7, endB = f.tb < 1e-7 || f.tb > 1 - 1e-7; if (endA && endB) continue;   // a shared source vertex, not an event
+        const P = curveAt(a, f.ta); events.push({ x: P.x, y: P.y, a: { edge: a.id, t: f.ta }, b: { edge: b.id, t: f.tb }, kind: endA || endB ? 'endpoint contact' : 'crossing' });
+        if (!endA) splits[i].push(f.ta); if (!endB) splits[j].push(f.tb); }
+    }
+    // 3. vertices by position: an edge's own ends are source vertices (V1, V2 …; the bench relabels them with the record's ids), the ones events made are X1, X2 …
+    const verts = []; let nV = 0, nX = 0;
+    const vid = (p, discovered) => { for (const v of verts) if (V.dist(v, p) < 1e-6) return v.id; const id = discovered ? 'X' + (++nX) : 'V' + (++nV); verts.push({ id, x: p.x, y: p.y, discovered: !!discovered }); return id; };
+    for (const e of E) { vid(e.p0, false); vid(e.p3, false); }
+    // 4. pieces: each edge cut at its parameters, carrying the source interval
+    const pieces = [];
+    E.forEach((e, i) => { const ts = [0, ...splits[i].sort((p, q) => p - q).filter((t, k, arr) => t > 1e-7 && t < 1 - 1e-7 && (k === 0 || t - arr[k - 1] > 1e-7)), 1];
+      for (let k = 0; k + 1 < ts.length; k++) { const cv = curveSlice(e, ts[k], ts[k + 1]); pieces.push({ id: e.id + ':[' + fmtT(ts[k]) + ',' + fmtT(ts[k + 1]) + ']', edge: e.id, t0: ts[k], t1: ts[k + 1], curve: cv, from: vid(cv.p0, true), to: vid(cv.p3, true), owners: e.owners }); } });
+    // 5. half-edges, ordered around each vertex by outgoing tangent; faces to the left; next = the neighbour before the twin
+    const H = []; pieces.forEach((pc, k) => { H.push({ id: 2 * k, piece: k, dir: 1, tail: pc.from, head: pc.to, ang: V.ang(curveTan(pc.curve, 0)) }); H.push({ id: 2 * k + 1, piece: k, dir: -1, tail: pc.to, head: pc.from, ang: V.ang(V.mul(curveTan(pc.curve, 1), -1)) }); });
+    const ring = {}; for (const h of H) (ring[h.tail] = ring[h.tail] || []).push(h); for (const v in ring) ring[v].sort((p, q) => p.ang - q.ang);
+    const nextOf = h => { const R = ring[h.head], tw = H[h.id ^ 1], i = R.indexOf(tw); return R[(i - 1 + R.length) % R.length]; };
+    const cycles = [], seen = new Uint8Array(H.length);
+    for (const h0 of H) { if (seen[h0.id]) continue; const cyc = []; let h = h0, guard = 0; do { seen[h.id] = 1; cyc.push(h); h = nextOf(h); } while (h !== h0 && ++guard < 100000);
+      let area = 0; for (const h of cyc) area += h.dir * curveArea(pieces[h.piece].curve); cycles.push({ hs: cyc, area, verts: cyc.map(h => h.tail) }); }
+    const faces = cycles.filter(c => c.area > 1e-9).map((c, i) => ({ id: 'f' + (i + 1), area: c.area, loop: c, holes: [] }));
+    const outer = cycles.filter(c => c.area <= 1e-9);
+    // holes: a negative cycle inside a face that does not share its vertices belongs to the smallest face containing it
+    const polyOf = c => { const pts = []; for (const h of c.hs) { const F = flattenCurve(pieces[h.piece].curve, 0.05); if (h.dir < 0) F.reverse(); for (let k = 0; k + 1 < F.length; k++) pts.push(F[k]); } return pts; };
+    const windPoly = (pts, p) => { let w = 0; for (let i = 0; i < pts.length; i++) { const a = pts[i], b = pts[(i + 1) % pts.length]; if (a.y <= p.y) { if (b.y > p.y && V.cross(V.sub(b, a), V.sub(p, a)) > 0) w++; } else if (b.y <= p.y && V.cross(V.sub(b, a), V.sub(p, a)) < 0) w--; } return w; };
+    for (const f of faces) f.poly = polyOf(f.loop);
+    for (const o of outer) { const v0 = verts.find(v => v.id === o.verts[0]); if (!v0) continue; const cands = faces.filter(f => !f.loop.verts.includes(v0.id) && windPoly(f.poly, v0) !== 0).sort((p, q) => p.area - q.area); if (cands.length) cands[0].holes.push(o); }
+    const unbounded = outer.filter(o => !faces.some(f => f.holes.includes(o)));
+    return { vertices: verts, pieces, halfEdges: H.length, faces, unbounded, events, spans, notes, ms: performance.now() - t0, windPoly, polyOf };
+  }
+  const fmtT = t => (Math.abs(t - Math.round(t)) < 1e-9 ? String(Math.round(t)) : String(Math.round(t * 1e4) / 1e4).replace(/^0\./, '.'));
+  function locate(arr, point, onBoundary) {
+    const p = { x: point[0], y: point[1] };
+    for (const pc of arr.pieces) { const F = flattenCurve(pc.curve, 0.01); for (let k = 0; k + 1 < F.length; k++) { const d = Math.abs(segRibbon({ ...F[k], r: 0 }, { ...F[k + 1], r: 0 }, p.x, p.y)); if (d < 1e-6) return { on: pc.id, face: null, policy: onBoundary }; } }
+    const inside = arr.faces.filter(f => arr.windPoly(f.poly, p) !== 0 && !f.holes.some(h => arr.windPoly(arr.polyOf(h), p) !== 0)).sort((a, b) => a.area - b.area);
+    return inside.length ? { face: inside[0].id, on: null } : { face: null, on: null, unbounded: true };
+  }
+  function faceBoundaries(arr, sel) {
+    if (!sel || !sel.face) return { subpaths: [], meta: { kind: 'network', empty: true } };
+    const f = arr.faces.find(x => x.id === sel.face); const loopPath = (loop, reverse) => {
+      const hs = reverse ? loop.hs.slice().reverse() : loop.hs; const segs = [], knots = []; let start = null;
+      for (const h of hs) { const pc = arr.pieces[h.piece]; const dir = reverse ? -h.dir : h.dir; const cv = pc.curve; const from = dir > 0 ? pc.from : pc.to, to = dir > 0 ? pc.to : pc.from;
+        const P0 = dir > 0 ? cv.p0 : cv.p3, P3 = dir > 0 ? cv.p3 : cv.p0; if (!start) { start = { x: P0.x, y: P0.y }; knots.push({ id: from }); }
+        if (cv.kind === 'L') segs.push({ k: 'L', p: { x: P3.x, y: P3.y }, src: pc.id }); else segs.push({ k: 'C', c1: { ...(dir > 0 ? cv.c1 : cv.c2) }, c2: { ...(dir > 0 ? cv.c2 : cv.c1) }, p: { x: P3.x, y: P3.y }, src: pc.id }); knots.push({ id: to }); }
+      return { closed: true, start, segs, knots }; };
+    return { subpaths: [loopPath(f.loop, false), ...f.holes.map(h => loopPath(h, false))], meta: { kind: 'network', face: f.id, area: f.area, loop: f.loop.verts.concat([f.loop.verts[0]]).join(' → ') } };
+  }
+
+  // =====================================================================
+  //  The executor. The fifth piece at its next size (the definer's attack 2):
+  //  a record's construction is named steps over bindings, with state carried
+  //  between iterations and calls into the host's capabilities, whose results
+  //  bind back for the next step. The executor only moves values and keeps the
+  //  order; every heavy thing happens inside a capability. Two hosts run the
+  //  same construction here: the GPU compositor and the CPU twin.
+  // =====================================================================
+  const OPS = {
+    sample:            { args: ['surface', 'point', 'filter'],                    run: (a, h) => h.sample(a.surface, a.point, a.filter || 'nearest') },
+    mix:               { args: ['a', 'b', 'amount'],                              run: a => { const A = Array.isArray(a.a) ? a.a : [a.a], B = Array.isArray(a.b) ? a.b : [a.b], t = Number(a.amount); return A.map((x, i) => x + ((B[i] == null ? 0 : B[i]) - x) * t); } },
+    paint:             { args: ['surface', 'region', 'rgba', 'opacity', 'blend'], run: (a, h) => h.paint(a.surface, a.region, a.rgba, a.opacity == null ? 1 : Number(a.opacity), a.blend || 'source-over') },
+    arrange:           { args: ['curves', 'coincident'],                          run: a => arrange(a.curves, a.coincident) },
+    locate:            { args: ['arrangement', 'point', 'onBoundary'],            run: a => locate(a.arrangement, a.point, a.onBoundary) },
+    'face-boundaries': { args: ['arrangement', 'selection'],                      run: a => faceBoundaries(a.arrangement, a.selection) },
+  };
+  const ROOTS = ['state', 'tool', 'paint', 'surface', 'source', 'identity', 'dab', 'path', 'dabs'];
+  function runProgram(program, scope, host) {
+    const log = [], unknown = [], t0 = performance.now(); let steps = 0, calls = {};
+    const lookup = (root, parts) => { let cur = root; for (let i = 1; i < parts.length; i++) { if (cur == null) return undefined; cur = cur[parts[i]]; } return cur; };
+    const resolve = (v, outputs, local) => { if (typeof v !== 'string') return v; const parts = v.split('.'); const r = parts[0];
+      if (local && r in local) return lookup(local[r], parts); if (r in outputs) return lookup(outputs[r], parts); if (ROOTS.includes(r) && r in scope) return lookup(scope[r], parts); return v; };   // not a binding: a literal word
+    const defs = program.definitions || {};
+    const runDef = (name, args, outputs) => { const d = defs[name]; const local = {}; if (d.parameter) local[d.parameter] = resolve(args[d.parameter], outputs); const list = resolve(d.map, outputs, local) || [];
+      return list.map(item => { const L = { ...local, [d.as]: item }; const o = {}; for (const key in d.emit) { const spec = d.emit[key]; let val; if ('ref' in spec) val = resolve(spec.ref, outputs, L); else if ('lookup' in spec) { const table = resolve(spec.lookup, outputs, L) || {}; val = table[resolve(spec.key, outputs, L)]; } if (val === undefined && 'default' in spec) val = spec.default; o[key] = val; } return o; }); };
+    const runSteps = (outputs, local) => { for (const st of program.steps || []) { steps++; const op = OPS[st.op] || (defs[st.op] ? { def: st.op } : null);
+        if (!op) { unknown.push(st.op); log.push({ step: st.out, op: st.op, error: 'unknown operation' }); return false; }
+        const extra = Object.keys(st).filter(k => k !== 'out' && k !== 'op' && !(op.args || []).includes(k)); if (extra.length && !op.def) log.push({ step: st.out, op: st.op, note: 'not consumed: ' + extra.join(', ') });
+        const args = {}; for (const k of (op.args || [])) if (k in st) args[k] = resolve(st[k], outputs, local); for (const k in defs[st.op] ? st : {}) if (k !== 'out' && k !== 'op') args[k] = st[k];
+        try { const r = op.def ? runDef(st.op, args, outputs) : op.run(args, host); outputs[st.out] = r; calls[st.op] = (calls[st.op] || 0) + 1; log.push({ step: st.out, op: st.op, ok: true, value: r }); } catch (e) { log.push({ step: st.out, op: st.op, error: e.message }); return false; } }
+      return true; };
+    let state = {}; for (const k in program.state || {}) state[k] = resolve(program.state[k], {});
+    const results = {}; let ok = true, iterations = 0;
+    if (program.each) { const items = resolve(program.each, {}) || []; for (const item of items) { iterations++; const outputs = {}; const local = { [program.each.replace(/s$/, '')]: item, state };
+        ok = runSteps(outputs, local); if (!ok) break; const ns = {}; for (const k in program.next || {}) ns[k] = resolve(program.next[k], outputs, local); state = { ...state, ...ns }; } }
+    else { const outputs = {}; ok = runSteps(outputs, { state }); for (const k in outputs) results[k] = outputs[k]; }
+    const scopeAll = { ...scope, state }; for (const r of program.return || []) { const parts = String(r).split('.'); const val = parts[0] in results ? lookup(results[parts[0]], parts) : parts[0] in scopeAll ? lookup(scopeAll[parts[0]], parts) : undefined; results[r] = val; }
+    return { ok, results, state, log, unknown, steps, iterations, calls, ms: performance.now() - t0 };
+  }
+
+  // ---- the CPU host: a painting surface as a float array, the definer's reference route (attack 2), run through the same construction ----
+  function cpuHost(decl) {
+    const W = decl.width, Hh = decl.height, M = decl.localToTexel || [1, 0, 0, 1, 0, 0]; const clear = (decl.initial && decl.initial.clear) || [0, 0, 0, 0];
+    const make = rev => { const data = new Float32Array(W * Hh * 4); for (let i = 0; i < W * Hh; i++) data.set(clear, i * 4); return { id: decl.id, revision: rev, width: W, height: Hh, M, data, host: 'cpu' }; };
+    const initial = make(0); let samples = 0, paints = 0;
+    const toTexel = p => ({ x: M[0] * p[0] + M[2] * p[1] + M[4], y: M[1] * p[0] + M[3] * p[1] + M[5] });
+    return {
+      initial, stats: () => ({ samples, paints }),
+      sample(s, point) { samples++; const t = toTexel(point), i = clamp(Math.floor(t.x), 0, W - 1), j = clamp(Math.floor(t.y), 0, Hh - 1); const o = (j * W + i) * 4; return [s.data[o], s.data[o + 1], s.data[o + 2], s.data[o + 3]]; },
+      paint(s, region, rgba, opacity, blend) { paints++;   // a surface is a value: painting returns a new one; the one read stays as it was
+        const out = { ...s, data: new Float32Array(s.data), revision: s.revision + 1 };
+        const q = rgba, qa = q[3] || 0, rgb = qa > 0 ? [q[0] / qa, q[1] / qa, q[2] / qa] : [0, 0, 0], a = opacity * qa, mode = blendIndex(blend);
+        const low = lowerPath(region, 0.25 / Math.abs(M[0] || 1)), packed = packRegion(low.quads, { bands: false }); if (!packed) return out;
+        const b = packed.bbox, c0 = toTexel([b.x0, b.y0]), c1 = toTexel([b.x1, b.y1]); const i0 = clamp(Math.floor(Math.min(c0.x, c1.x)) - 1, 0, W - 1), i1 = clamp(Math.ceil(Math.max(c0.x, c1.x)) + 1, 0, W - 1), j0 = clamp(Math.floor(Math.min(c0.y, c1.y)) - 1, 0, Hh - 1), j1 = clamp(Math.ceil(Math.max(c0.y, c1.y)) + 1, 0, Hh - 1);
+        const inv = 1 / (M[0] * M[3] - M[1] * M[2]);
+        for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) { const tx = i + 0.5 - M[4], ty = j + 0.5 - M[5]; const lx = (M[3] * tx - M[2] * ty) * inv, ly = (-M[1] * tx + M[0] * ty) * inv;
+          const cov = coverageAt(packed, lx, ly, Math.abs(M[0]), Math.abs(M[3]), 0); if (cov <= 0) continue; const o = (j * W + i) * 4; const dst = [out.data[o], out.data[o + 1], out.data[o + 2], out.data[o + 3]]; out.data.set(compositeOver(dst, rgb, a * cov, mode), o); }
+        return out; },
+      texel(s, i, j) { const o = (j * W + i) * 4; return [s.data[o], s.data[o + 1], s.data[o + 2], s.data[o + 3]]; },
+    };
+  }
+  function relabelArrangement(arr, sourceVertices) { // display and value: the record's own vertex ids back onto the arrangement's source vertices, by position
+    const map = {}; for (const v of arr.vertices) { if (v.discovered) continue; for (const id in sourceVertices || {}) { const s = sourceVertices[id]; if (Math.hypot(s[0] - v.x, s[1] - v.y) < 1e-6) { map[v.id] = id; break; } } }
+    const re = id => (id in map ? map[id] : id);
+    for (const v of arr.vertices) v.id = re(v.id); for (const pc of arr.pieces) { pc.from = re(pc.from); pc.to = re(pc.to); }
+    const all = [...arr.faces.map(f => f.loop), ...arr.faces.flatMap(f => f.holes), ...arr.unbounded]; for (const c of all) { c.verts = c.verts.map(re); for (const h of c.hs) { h.tail = re(h.tail); h.head = re(h.head); } }
+    return re;
   }
 
   // ---- the two stroke constructions as signed distances, for the cursor (from session 4's bench) ----
@@ -646,16 +872,13 @@
   //  coverage. It knows nothing about pens, rectangles or glyphs.
   //  Two changes from the tree: the band texture width is a uniform, not a
   //  compile-time 4096; and even-odd is the parity of the same crossings.
+  //  Session 10 adds the compositor's three lines after the coverage: a clip
+  //  is a second region's coverage multiplied in (same program, same textures),
+  //  a blend reads the backdrop under the region, a layer is a surface painted
+  //  as a region. The coverage code itself is untouched.
   // =====================================================================
-  const VS = `#version 300 es
-  precision highp float;
-  layout(location = 0) in vec2 a_p; uniform vec2 u_center; uniform float u_zoom; uniform vec2 u_size; uniform float u_pointSize; out vec2 v_p;
-  void main() { v_p = a_p; vec2 s = (a_p - u_center) * u_zoom + u_size * 0.5; vec2 ndc = s / u_size * 2.0 - 1.0; gl_Position = vec4(ndc.x, -ndc.y, 0.0, 1.0); gl_PointSize = u_pointSize; }`;
-  const FS_FILL = `#version 300 es
+  const GLSL_COMMON = `
   precision highp float; precision highp int; precision highp sampler2D; precision highp usampler2D;
-  uniform sampler2D u_curves; uniform usampler2D u_bands; uniform int u_curveW; uniform int u_bandW;
-  uniform ivec2 u_bandN; uniform vec4 u_bandXf; uniform vec4 u_color; uniform int u_rule;
-  in vec2 v_p; out vec4 o;
   const float kMinDerivative = 1.0 / 65536.0;
   float sat(float x) { return clamp(x, 0.0, 1.0); }
   uint rootCode(float y1, float y2, float y3) {
@@ -672,35 +895,66 @@
     float d = sqrt(max(b.x * b.x - a.x * p12.x, 0.0)); float t1 = (b.x - d) * ra; float t2 = (b.x + d) * ra;
     if (abs(a.x) < kMinDerivative) { t1 = p12.x * rb; t2 = t1; }
     return vec2((a.y * t1 - b.y * 2.0) * t1 + p12.y, (a.y * t2 - b.y * 2.0) * t2 + p12.y); }
+  uniform int u_curveW; uniform int u_bandW;
   ivec2 bandLoc(int off) { return ivec2(off % u_bandW, off / u_bandW); }
   ivec2 curveLoc(int idx) { int t = idx * 2; return ivec2(t % u_curveW, t / u_curveW); }
   float combine(float xc, float yc, float xw, float yw) { float weighted = abs(xc * xw + yc * yw) / max(xw + yw, kMinDerivative); return sat(max(weighted, min(abs(xc), abs(yc)))); }
-  void main() {
-    vec2 upp = max(fwidth(v_p), vec2(kMinDerivative)); vec2 ppu = 1.0 / upp;
-    ivec2 bi = clamp(ivec2(floor(v_p * u_bandXf.xy + u_bandXf.zw)), ivec2(0), u_bandN - 1);
+  float coverage(sampler2D curves, usampler2D bands, ivec2 bandN, vec4 bandXf, int rule, vec2 p, vec2 ppu) {
+    ivec2 bi = clamp(ivec2(floor(p * bandXf.xy + bandXf.zw)), ivec2(0), bandN - 1);
     float xcov = 0.0, xwgt = 0.0, xabs = 0.0, ycov = 0.0, ywgt = 0.0, yabs = 0.0;
-    uvec2 hb = texelFetch(u_bands, bandLoc(bi.y), 0).xy;
+    uvec2 hb = texelFetch(bands, bandLoc(bi.y), 0).xy;
     for (int j = 0; j < int(hb.x); j++) {
-      int ci = int(texelFetch(u_bands, bandLoc(int(hb.y) + j), 0).x); ivec2 cl = curveLoc(ci);
-      vec4 p12 = texelFetch(u_curves, cl, 0) - vec4(v_p, v_p); vec2 p3 = texelFetch(u_curves, ivec2(cl.x + 1, cl.y), 0).xy - v_p;
+      int ci = int(texelFetch(bands, bandLoc(int(hb.y) + j), 0).x); ivec2 cl = curveLoc(ci);
+      vec4 p12 = texelFetch(curves, cl, 0) - vec4(p, p); vec2 p3 = texelFetch(curves, ivec2(cl.x + 1, cl.y), 0).xy - p;
       if (max(max(p12.x, p12.z), p3.x) * ppu.x < -0.5) break;
       uint code = rootCode(p12.y, p12.w, p3.y);
       if (code != 0u) { vec2 r = solveH(p12, p3) * ppu.x;
         if ((code & 1u) != 0u) { float c = sat(r.x + 0.5); xcov += c; xabs += c; xwgt = max(xwgt, sat(1.0 - abs(r.x) * 2.0)); }
         if (code > 1u) { float c = sat(r.y + 0.5); xcov -= c; xabs += c; xwgt = max(xwgt, sat(1.0 - abs(r.y) * 2.0)); } } }
-    uvec2 vb = texelFetch(u_bands, bandLoc(u_bandN.y + bi.x), 0).xy;
+    uvec2 vb = texelFetch(bands, bandLoc(bandN.y + bi.x), 0).xy;
     for (int j = 0; j < int(vb.x); j++) {
-      int ci = int(texelFetch(u_bands, bandLoc(int(vb.y) + j), 0).x); ivec2 cl = curveLoc(ci);
-      vec4 p12 = texelFetch(u_curves, cl, 0) - vec4(v_p, v_p); vec2 p3 = texelFetch(u_curves, ivec2(cl.x + 1, cl.y), 0).xy - v_p;
+      int ci = int(texelFetch(bands, bandLoc(int(vb.y) + j), 0).x); ivec2 cl = curveLoc(ci);
+      vec4 p12 = texelFetch(curves, cl, 0) - vec4(p, p); vec2 p3 = texelFetch(curves, ivec2(cl.x + 1, cl.y), 0).xy - p;
       if (max(max(p12.y, p12.w), p3.y) * ppu.y < -0.5) break;
       uint code = rootCode(p12.x, p12.z, p3.x);
       if (code != 0u) { vec2 r = solveV(p12, p3) * ppu.y;
         if ((code & 1u) != 0u) { float c = sat(r.x + 0.5); ycov -= c; yabs += c; ywgt = max(ywgt, sat(1.0 - abs(r.x) * 2.0)); }
         if (code > 1u) { float c = sat(r.y + 0.5); ycov += c; yabs += c; ywgt = max(ywgt, sat(1.0 - abs(r.y) * 2.0)); } } }
-    float cov;
-    if (u_rule == 0) cov = combine(xcov, ycov, xwgt, ywgt);
-    else { float ex = 1.0 - abs(mod(xabs, 2.0) - 1.0); float ey = 1.0 - abs(mod(yabs, 2.0) - 1.0); cov = combine(ex, ey, xwgt, ywgt); }
-    o = vec4(u_color.rgb * u_color.a * cov, u_color.a * cov);
+    if (rule == 0) return combine(xcov, ycov, xwgt, ywgt);
+    float ex = 1.0 - abs(mod(xabs, 2.0) - 1.0); float ey = 1.0 - abs(mod(yabs, 2.0) - 1.0); return combine(ex, ey, xwgt, ywgt); }
+  // ---- the compositor's part of the program ----
+  uniform int u_clipOn; uniform sampler2D u_curves2; uniform usampler2D u_bands2; uniform ivec2 u_bandN2; uniform vec4 u_bandXf2; uniform int u_rule2;
+  uniform int u_blend; uniform sampler2D u_backdrop;
+  float clipCov(vec2 p, vec2 ppu) { return u_clipOn == 1 ? coverage(u_curves2, u_bands2, u_bandN2, u_bandXf2, u_rule2, p, ppu) : 1.0; }
+  vec3 blendFn(int m, vec3 cb, vec3 cs) { if (m == 1) return cb * cs; if (m == 2) return cb + cs - cb * cs; if (m == 3) return min(cb, cs); if (m == 4) return max(cb, cs); if (m == 5) return abs(cb - cs); return cs; }
+  vec4 composite(vec3 cs, float a) {   // straight colour + alpha·coverage → the premultiplied source the hardware paints over; a declared blend mixes toward B(backdrop, source) by the backdrop's alpha first
+    if (u_blend != 0) { vec4 bd = texelFetch(u_backdrop, ivec2(gl_FragCoord.xy), 0); vec3 cb = bd.a > 0.0 ? bd.rgb / bd.a : vec3(0.0); cs = mix(cs, blendFn(u_blend, cb, cs), bd.a); }
+    return vec4(cs * a, a); }
+  `;
+  const VS = `#version 300 es
+  precision highp float;
+  layout(location = 0) in vec2 a_p; uniform mat3 u_M; uniform vec2 u_size; uniform float u_flip; uniform float u_pointSize; out vec2 v_p;
+  void main() { v_p = a_p; vec3 s = u_M * vec3(a_p, 1.0); vec2 ndc = s.xy / u_size * 2.0 - 1.0; gl_Position = vec4(ndc.x, u_flip > 0.5 ? -ndc.y : ndc.y, 0.0, 1.0); gl_PointSize = u_pointSize; }`;
+  const FS_FILL = `#version 300 es
+  ${GLSL_COMMON}
+  uniform sampler2D u_curves; uniform usampler2D u_bands; uniform ivec2 u_bandN; uniform vec4 u_bandXf; uniform vec4 u_color; uniform int u_rule;
+  in vec2 v_p; out vec4 o;
+  void main() {
+    vec2 upp = max(fwidth(v_p), vec2(kMinDerivative)); vec2 ppu = 1.0 / upp;
+    float cov = coverage(u_curves, u_bands, u_bandN, u_bandXf, u_rule, v_p, ppu) * clipCov(v_p, ppu);
+    o = composite(u_color.rgb, u_color.a * cov);
+  }`;
+  const FS_TEX = `#version 300 es
+  ${GLSL_COMMON}
+  uniform sampler2D u_image; uniform ivec2 u_imgSize; uniform int u_mode; uniform mat3 u_T; uniform float u_opacity;
+  in vec2 v_p; out vec4 o;
+  void main() {   // a surface painted as a region: mode 0 = the same-size target (a layer, the present), mode 1 = a painting surface at its own resolution, read by its local→texel map, nearest
+    ivec2 tc = u_mode == 0 ? ivec2(gl_FragCoord.xy) : ivec2(floor((u_T * vec3(v_p, 1.0)).xy));
+    if (tc.x < 0 || tc.y < 0 || tc.x >= u_imgSize.x || tc.y >= u_imgSize.y) discard;
+    vec4 s = texelFetch(u_image, tc, 0) * u_opacity;
+    if (u_clipOn == 1) { vec2 ppu = 1.0 / max(fwidth(v_p), vec2(kMinDerivative)); s *= clipCov(v_p, ppu); }
+    vec3 cs = s.a > 0.0 ? s.rgb / s.a : vec3(0.0);
+    o = composite(cs, s.a);
   }`;
   const FS_FLAT = `#version 300 es
   precision highp float; uniform vec4 u_color; out vec4 o; void main() { o = vec4(u_color.rgb * u_color.a, u_color.a); }`;
@@ -710,16 +964,106 @@
   function showMsg(t) { msgEl.textContent = t || ''; msgEl.hidden = !t; }
   const gl = canvas.getContext('webgl2', { antialias: false, alpha: true, premultipliedAlpha: true, preserveDrawingBuffer: true });
   if (!gl) showMsg('WebGL2 is not available here; the bench needs it.');
+  const floatOK = !!(gl && gl.getExtension('EXT_color_buffer_float'));
   function compile(type, src) { const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error('shader failed to build: ' + gl.getShaderInfoLog(s)); return s; }
   function program(vs, fs) { const p = gl.createProgram(); gl.attachShader(p, compile(gl.VERTEX_SHADER, vs)); gl.attachShader(p, compile(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p); if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error('program failed to link: ' + gl.getProgramInfoLog(p)); const cache = {}; return { p, u: n => (n in cache ? cache[n] : (cache[n] = gl.getUniformLocation(p, n))) }; }
-  let progFill = null, progFlat = null, vbo = null;
-  if (gl) { try { progFill = program(VS, FS_FILL); progFlat = program(VS, FS_FLAT); vbo = gl.createBuffer(); } catch (e) { showMsg(e.message); } }
+  let progFill = null, progTex = null, progFlat = null, vbo = null;
+  if (gl) { try { progFill = program(VS, FS_FILL); progTex = program(VS, FS_TEX); progFlat = program(VS, FS_FLAT); vbo = gl.createBuffer(); } catch (e) { showMsg(e.message); } }
   function texSetup(t) { gl.bindTexture(gl.TEXTURE_2D, t); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE); }
   function texF32(data, texels) { const w = TEXW, h = Math.max(1, Math.ceil(texels / w)); const buf = new Float32Array(w * h * 4); buf.set(data.subarray(0, texels * 4)); const t = gl.createTexture(); texSetup(t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, w, h, 0, gl.RGBA, gl.FLOAT, buf); return t; }
   function texU32(data, texels) { const w = TEXW, h = Math.max(1, Math.ceil(texels / w)); const buf = new Uint32Array(w * h * 2); buf.set(data.subarray(0, texels * 2)); const t = gl.createTexture(); texSetup(t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32UI, w, h, 0, gl.RG_INTEGER, gl.UNSIGNED_INT, buf); return t; }
+  const packGpu = packed => ({ curves: texF32(packed.curves, packed.n * 2), bands: texU32(packed.bands, packed.bandTexels) });
+  const dummy = gl ? { f: texF32(new Float32Array(4), 1), u: texU32(new Uint32Array(2), 1), b: (() => { const t = gl.createTexture(); texSetup(t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4)); return t; })() } : null;   // every sampler always points at a unit holding a texture of its own type; two sampler types on one unit is an INVALID_OPERATION at draw time
+  const freeGpu = g => { if (g) { gl.deleteTexture(g.curves); gl.deleteTexture(g.bands); } };
+
+  // =====================================================================
+  //  BELOW THE WAIST · compositor. Surfaces. A surface is a target with a
+  //  resolution and a local→texel map; the compositor paints a region into
+  //  one (coverage × clip coverage, a blend against the backdrop, over) and
+  //  samples one. The screen is the root surface; a layer is a surface
+  //  painted as a region into its parent; a painting surface is retained at
+  //  its declared resolution and advances per brush step, not per frame.
+  //  The tree has half of this (engine/compositor.cljs: a target pool, a
+  //  present pass, region3d's quad composite) and no clip by a path, no blend
+  //  mode, no group opacity.
+  // =====================================================================
+  function makeSurface(w, h, float) { const tex = gl.createTexture(); texSetup(tex); gl.texImage2D(gl.TEXTURE_2D, 0, float ? gl.RGBA32F : gl.RGBA8, w, h, 0, gl.RGBA, float ? gl.FLOAT : gl.UNSIGNED_BYTE, null); const fbo = gl.createFramebuffer(); gl.bindFramebuffer(gl.FRAMEBUFFER, fbo); gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0); const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE; gl.bindFramebuffer(gl.FRAMEBUFFER, null); return { tex, fbo, w, h, float, ok, bytes: w * h * (float ? 16 : 4) }; }
+  function freeSurface(s) { if (s) { gl.deleteTexture(s.tex); gl.deleteFramebuffer(s.fbo); } }
+  function clearSurface(s, rgba) { gl.bindFramebuffer(gl.FRAMEBUFFER, s.fbo); gl.viewport(0, 0, s.w, s.h); const a = rgba[3]; gl.clearColor(rgba[0] * a, rgba[1] * a, rgba[2] * a, a); gl.clear(gl.COLOR_BUFFER_BIT); }
+  function blitSurface(dst, src) { gl.bindFramebuffer(gl.READ_FRAMEBUFFER, src.fbo); gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, dst.fbo); gl.blitFramebuffer(0, 0, src.w, src.h, 0, 0, dst.w, dst.h, gl.COLOR_BUFFER_BIT, gl.NEAREST); gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
+  function readTexel(s, i, j) { gl.bindFramebuffer(gl.READ_FRAMEBUFFER, s.fbo); if (s.float) { const b = new Float32Array(4); gl.readPixels(i, j, 1, 1, gl.RGBA, gl.FLOAT, b); return Array.from(b); } const b = new Uint8Array(4); gl.readPixels(i, j, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, b); return Array.from(b, v => v / 255); }
+  const scratch = { tex: null, w: 0, h: 0, copies: 0, px: 0 };
+  function snapshotBackdrop(target, rect) { // the ordered read-before-write: a copy of the target under the region, never the target itself bound as its own input
+    gl.activeTexture(gl.TEXTURE4);   // the backdrop's own unit; binding it anywhere else would knock a typed sampler off its unit
+    if (!scratch.tex || scratch.w !== target.w || scratch.h !== target.h) { if (scratch.tex) gl.deleteTexture(scratch.tex); scratch.tex = gl.createTexture(); texSetup(scratch.tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, target.w, target.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null); scratch.w = target.w; scratch.h = target.h; }
+    const x0 = clamp(Math.floor(rect[0]), 0, target.w), y0 = clamp(Math.floor(rect[1]), 0, target.h), x1 = clamp(Math.ceil(rect[2]), 0, target.w), y1 = clamp(Math.ceil(rect[3]), 0, target.h); if (x1 <= x0 || y1 <= y0) return;
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, target.fbo); gl.bindTexture(gl.TEXTURE_2D, scratch.tex); gl.copyTexSubImage2D(gl.TEXTURE_2D, 0, x0, y0, x0, y0, x1 - x0, y1 - y0); scratch.copies++; scratch.px += (x1 - x0) * (y1 - y0);
+  }
+  const affine = (M, p) => ({ x: M[0] * p.x + M[2] * p.y + M[4], y: M[1] * p.x + M[3] * p.y + M[5] });
+  const camM = (cam, w, h) => { const z = cam.zoom * cam.dpr; return [z, 0, 0, z, -cam.center.x * z + w / 2, -cam.center.y * z + h / 2]; };   // local → target pixels (y down); the GL flip is a uniform
+  function setXf(pr, M, w, h, flip) { gl.uniformMatrix3fv(pr.u('u_M'), false, [M[0], M[1], 0, M[2], M[3], 0, M[4], M[5], 1]); gl.uniform2f(pr.u('u_size'), w, h); gl.uniform1f(pr.u('u_flip'), flip ? 1 : 0); gl.uniform1f(pr.u('u_pointSize'), 6 * (window.devicePixelRatio || 1)); }
+  function glRect(M, w, h, flip, bbox, margin) { // a local bbox → the target's GL pixel rect (bottom-up when flipped)
+    const cs = [affine(M, { x: bbox.x0 - margin, y: bbox.y0 - margin }), affine(M, { x: bbox.x1 + margin, y: bbox.y0 - margin }), affine(M, { x: bbox.x1 + margin, y: bbox.y1 + margin }), affine(M, { x: bbox.x0 - margin, y: bbox.y1 + margin })];
+    const xs = cs.map(c => c.x), ys = cs.map(c => flip ? h - c.y : c.y); return [Math.min(...xs) - 1, Math.min(...ys) - 1, Math.max(...xs) + 1, Math.max(...ys) + 1];
+  }
+  function bindClip(pr, clip) {
+    gl.uniform1i(pr.u('u_clipOn'), clip ? 1 : 0);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, clip ? clip.gpu.curves : dummy.f); gl.uniform1i(pr.u('u_curves2'), 2);
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, clip ? clip.gpu.bands : dummy.u); gl.uniform1i(pr.u('u_bands2'), 3);
+    if (clip) { gl.uniform2i(pr.u('u_bandN2'), clip.packed.VB, clip.packed.HB); gl.uniform4fv(pr.u('u_bandXf2'), clip.packed.bandXf); gl.uniform1i(pr.u('u_rule2'), clip.rule); }
+  }
+  function bindBlend(pr, mode, target, rect) { gl.uniform1i(pr.u('u_blend'), mode); if (mode) snapshotBackdrop(target, rect); gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, mode ? scratch.tex : dummy.b); gl.uniform1i(pr.u('u_backdrop'), 4); }
+  function drawRegion(R, target, M, flip, clip) { // one coverage draw into a surface
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo); gl.viewport(0, 0, target.w, target.h); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.useProgram(progFill.p); setXf(progFill, M, target.w, target.h, flip);
+    gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, R.gpu.curves); gl.uniform1i(progFill.u('u_curves'), 0);
+    gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, R.gpu.bands); gl.uniform1i(progFill.u('u_bands'), 1);
+    gl.uniform1i(progFill.u('u_curveW'), TEXW); gl.uniform1i(progFill.u('u_bandW'), TEXW);
+    gl.uniform2i(progFill.u('u_bandN'), R.packed.VB, R.packed.HB); gl.uniform4fv(progFill.u('u_bandXf'), R.packed.bandXf);
+    gl.uniform4fv(progFill.u('u_color'), R.color); gl.uniform1i(progFill.u('u_rule'), R.rule);
+    bindClip(progFill, clip); bindBlend(progFill, R.blend || 0, target, glRect(M, target.w, target.h, flip, R.packed.bbox, R.margin || 0));
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.bufferData(gl.ARRAY_BUFFER, R.cover.tri, gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES, 0, R.cover.tri.length / 2);
+  }
+  function drawSurfaceAsRegion(src, target, opts) { // a surface painted as a region into another: a layer (mode 0) or a painting surface (mode 1, by its map)
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target ? target.fbo : null); gl.viewport(0, 0, opts.w, opts.h);
+    if (opts.blendOff) gl.disable(gl.BLEND); else { gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); }
+    gl.useProgram(progTex.p); setXf(progTex, opts.M, opts.w, opts.h, opts.flip);
+    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, src.tex); gl.uniform1i(progTex.u('u_image'), 5); gl.uniform2i(progTex.u('u_imgSize'), src.w, src.h);
+    gl.uniform1i(progTex.u('u_mode'), opts.mode); const T = opts.T || [1, 0, 0, 1, 0, 0]; gl.uniformMatrix3fv(progTex.u('u_T'), false, [T[0], T[1], 0, T[2], T[3], 0, T[4], T[5], 1]);
+    gl.uniform1f(progTex.u('u_opacity'), opts.opacity == null ? 1 : opts.opacity); gl.uniform1i(progTex.u('u_curveW'), TEXW); gl.uniform1i(progTex.u('u_bandW'), TEXW);
+    bindClip(progTex, opts.clip || null); bindBlend(progTex, opts.blend || 0, target, opts.rect || [0, 0, opts.w, opts.h]);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.bufferData(gl.ARRAY_BUFFER, opts.quad, gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES, 0, 6);
+  }
+  const quadOf = (x0, y0, x1, y1) => new Float32Array([x0, y0, x1, y0, x1, y1, x0, y0, x1, y1, x0, y1]);
+  const invAffine = M => { const det = M[0] * M[3] - M[1] * M[2] || 1e-12; return [M[3] / det, -M[1] / det, -M[2] / det, M[0] / det, (M[2] * M[5] - M[3] * M[4]) / det, (M[1] * M[4] - M[0] * M[5]) / det]; };
+
+  // ---- the GPU host: the same construction the CPU twin runs, on the compositor's surfaces ----
+  function gpuHost(decl) {
+    const W = decl.width, Hh = decl.height, M = decl.localToTexel || [1, 0, 0, 1, 0, 0]; const clear = (decl.initial && decl.initial.clear) || [0, 0, 0, 0];
+    const alloc = () => makeSurface(W, Hh, floatOK);
+    const initial = { id: decl.id, revision: 0, width: W, height: Hh, M, gpu: alloc(), host: 'gpu' }; clearSurface(initial.gpu, clear);
+    let current = null; let samples = 0, paints = 0, sampleMs = 0, paintMs = 0, curveTexels = 0;
+    const toTexel = p => ({ x: M[0] * p[0] + M[2] * p[1] + M[4], y: M[1] * p[0] + M[3] * p[1] + M[5] });
+    return {
+      initial, float: floatOK, stats: () => ({ samples, paints, sampleMs, paintMs, curveTexels, bytes: initial.gpu.bytes * (current ? 2 : 1) }),
+      sample(s, point) { const t0 = performance.now(); const t = toTexel(point), i = clamp(Math.floor(t.x), 0, W - 1), j = clamp(Math.floor(t.y), 0, Hh - 1); const v = readTexel(s.gpu, i, j); samples++; sampleMs += performance.now() - t0; return v; },
+      paint(s, region, rgba, opacity, blend) { const t0 = performance.now();
+        if (!current) current = alloc(); if (s.gpu !== current) blitSurface(current, s.gpu);   // a paint on the frozen start copies it into the live target first; the start stays readable
+        const q = rgba, qa = q[3] || 0, rgb = qa > 0 ? [q[0] / qa, q[1] / qa, q[2] / qa] : [0, 0, 0];   // the definer's adapter: carried premultiplied colour → straight colour + opacity·alpha
+        const low = lowerPath(region, 0.25 / Math.abs(M[0] || 1)), packed = packRegion(low.quads, { bands: false }); if (!packed) return { ...s, gpu: current, revision: s.revision + 1 };
+        const R = { packed, gpu: packGpu(packed), color: [rgb[0], rgb[1], rgb[2], opacity * qa], rule: 0, blend: blendIndex(blend), margin: 1.5 / Math.abs(M[0] || 1) };
+        R.cover = buildCover(packed, { mode: 'bbox', marginLocal: R.margin, cellLocal: 24, rule: 0 }); curveTexels += packed.n * 2;
+        drawRegion(R, current, M, false, null); freeGpu(R.gpu); paints++; paintMs += performance.now() - t0;
+        return { ...s, gpu: current, revision: s.revision + 1 }; },
+      texel(s, i, j) { return readTexel(s.gpu, i, j); },
+      free() { freeSurface(initial.gpu); if (current) freeSurface(current); },
+    };
+  }
 
   // ---------- camera ----------
-  const state = { toolId: null, rec: null, path: { subpaths: [] }, rev: 0, zoom: 3, center: { x: 64, y: 64 }, view: { cover: 'bbox', bands: true, skinRule: 0, outline: false }, regions: [], info: null, cursor: null, drawing: null, panning: null, envCache: null, renderedKey: null, builtBucket: null };
+  const state = { toolId: null, rec: null, path: { subpaths: [] }, rev: 0, zoom: 3, center: { x: 64, y: 64 }, view: { cover: 'bbox', bands: true, skinRule: 0, outline: false }, regions: [], clip: null, layer: null, surf: null, rootClear: [0, 0, 0, 0], reads: new Set(), unread: [], prog: null, arr: null, info: null, cursor: null, drawing: null, panning: null, envCache: null, renderedKey: null, builtBucket: null, root: null, layerTarget: null };
   function camera() { const dpr = window.devicePixelRatio || 1, cssW = canvas.clientWidth || 800, cssH = canvas.clientHeight || 600; return { dpr, cssW, cssH, w: Math.max(1, Math.round(cssW * dpr)), h: Math.max(1, Math.round(cssH * dpr)), zoom: state.zoom, center: state.center }; }
   function resize(cam) { if (canvas.width !== cam.w || canvas.height !== cam.h) { canvas.width = cam.w; canvas.height = cam.h; } }
   const toLocal = (sx, sy, cam) => ({ x: (sx - cam.cssW / 2) / cam.zoom + cam.center.x, y: (sy - cam.cssH / 2) / cam.zoom + cam.center.y });
@@ -743,7 +1087,13 @@
   const HARNESS_Z = [[26, 28, 0.65, 0], [102, 100, 0.9, 120], [28, 100, 1.0, 240], [102, 28, 0.7, 360]];
   const HARNESS_PRESSURE = [[26, 72, 0.2, 0], [48, 36, 0.45, 90], [78, 84, 0.72, 180], [102, 42, 1.0, 270]];
   const drawTool = { name: 'draw', size: 10, thinning: 0.6, streamline: 0.35, fit: 0.9, taperStart: 0, taperEnd: 22, simulatePressure: false, width: 'size * (1 - thinning * (1 - p))' };
-  const harnessTool = { name: 'harness ink', size: 16, thinning: 1, streamline: 0, fit: 'polyline', width: 'size * p' };
+  const harnessTool = { name: 'harness ink', size: 16, streamline: 0, fit: 'polyline', width: 'size * p' };
+  const PAPER = [0.98, 0.94, 0.86, 1];
+  const trefoilClip = () => ({ source: { kind: 'anchors', contours: [{ closed: true, anchors: trefoilAnchors(12) }] }, rule: 'nonzero' });
+  const NETWORK_EDGES = [{ id: 'AB', from: 'A', to: 'B', kind: 'L' }, { id: 'BC', from: 'B', to: 'C', kind: 'L' }, { id: 'CD', from: 'C', to: 'D', kind: 'L' }, { id: 'DA', from: 'D', to: 'A', kind: 'L' }, { id: 'AC', from: 'A', to: 'C', kind: 'L' }, { id: 'BD', from: 'B', to: 'D', kind: 'L' }];
+  const NETWORK_PROGRAM = { definitions: { 'edge-curves': { parameter: 'source', map: 'source.edges', as: 'edge', emit: { id: { ref: 'edge.id' }, kind: { ref: 'edge.kind' }, start: { lookup: 'source.vertices', key: 'edge.from' }, end: { lookup: 'source.vertices', key: 'edge.to' }, c1: { ref: 'edge.c1', default: null }, c2: { ref: 'edge.c2', default: null } } } },
+    steps: [{ out: 'curves', op: 'edge-curves', source: 'source' }, { out: 'arrangement', op: 'arrange', curves: 'curves', coincident: 'source.coincidentEdges' }, { out: 'selection', op: 'locate', arrangement: 'arrangement', point: 'source.fillSeed', onBoundary: 'source.onBoundary' }, { out: 'path', op: 'face-boundaries', arrangement: 'arrangement', selection: 'selection' }], return: ['path', 'arrangement', 'selection'] };
+  const networkRec = edges => ({ tool: { name: 'network face tool' }, source: { kind: 'network', vertices: { A: [0, 0], B: [120, 0], C: [120, 80], D: [0, 80] }, edges, fillSeed: [60, 10], onBoundary: 'return-location-without-selecting', coincidentEdges: 'one-geometric-edge-with-all-source-owners' }, program: JSON.parse(JSON.stringify(NETWORK_PROGRAM)), paint: { fill: { rule: 'nonzero', color: [0.2, 0.6, 0.3, 0.6] }, stroke: null }, snap: false, identity: { id: 'network-faces', revision: 1 } });
   const TOOLS = [
     { id: 'draw', name: "tldraw's draw tool", note: "A pen burst plus the tool's settings, as tldraw's draw tool holds them. Its own outline construction is the ribbon with round joins; switch the tip to compare. The stroke crosses itself and is one region, painted once at 85 %: no darkening at the crossing. Change fit, taperEnd or the width expression in the record; nothing below changes.",
       rec: { tool: { ...drawTool }, source: { kind: 'pen', samples: limaconSamples() }, paint: { fill: null, stroke: { tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.16, 0.42, 0.85, 0.85] } }, snap: false, identity: { id: 'stroke-1', revision: 1 } } },
@@ -757,6 +1107,22 @@
       rec: { tool: { ...harnessTool }, source: { kind: 'pen', samples: HARNESS_Z }, paint: { fill: null, stroke: { tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.84, 0.36, 0.94, 0.62] } }, snap: false, identity: { id: 'translucent-self-crossing', revision: 1 } } },
     { id: 'dabs', name: 'the crossing, as dabs (definer)', note: "The definer's hard case from attack 1: the harness Z stroke as an accumulating round brush. Dabs every 12 units of arc length, radius 8 × pressure, painted in order at 62 %. Two dabs cover the crossing, so its alpha is 0.62 + 0.38 × 0.62 = 0.8556; the union stroke paints it once at 0.62. Same filler, same record but for one word. Switch overlap to compare; move the cursor to the crossing.",
       rec: { tool: { ...harnessTool }, source: { kind: 'pen', samples: HARNESS_Z }, paint: { fill: null, stroke: { overlap: 'accumulate', spacing: 12, tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.84, 0.36, 0.94, 0.62] } }, snap: false, identity: { id: 'translucent-self-crossing-dabs', revision: 1 } } },
+    { id: 'layer', name: 'the crossing, as a layer', note: "The same 24 dabs at full alpha, painted into a layer, and the layer painted into the root at 62 %. The crossing reads 0.62 again: a layer with an opacity gives the union look from dabs, which is how painting apps make a translucent stroke flat (Krita's indirect painting, Photoshop's brush layer). Three numbers at one pixel: union 0.62, accumulate 0.8556, layer 0.62. The layer costs a surface the size of the target and a second draw.",
+      rec: { tool: { ...harnessTool }, source: { kind: 'pen', samples: HARNESS_Z }, paint: { fill: null, stroke: { overlap: 'accumulate', spacing: 12, tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.84, 0.36, 0.94, 1] } }, group: { opacity: 0.62, blend: 'over' }, snap: false, identity: { id: 'translucent-self-crossing-layer', revision: 1 } } },
+    { id: 'mask', name: 'a stroke through a mask', note: "The draw tool's stroke clipped by the trefoil, a designer's path used as a mask (session 5's move; Figma's 'use as mask'). The clip is a second region in the same program: its coverage multiplies the stroke's, per pixel, from its own curves and bands. No extra target, no mask texture, camera-free. The cursor shows both coverages.",
+      rec: { tool: { ...drawTool }, source: { kind: 'pen', samples: limaconSamples() }, paint: { fill: null, stroke: { tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.16, 0.42, 0.85, 0.85] } }, clip: trefoilClip(), snap: false, identity: { id: 'stroke-masked', revision: 1 } } },
+    { id: 'multiply', name: 'dabs that multiply, on paper', note: "The 24 dabs with blend multiply, on an opaque paper surface (the record declares the surface's starting colour). Multiply needs the backdrop under each dab, which the filler alone never has: the compositor copies the target under the region before the draw, then the program reads it. Over transparent nothing, multiply is over. The cursor shows RGB, not only alpha.",
+      rec: { tool: { ...harnessTool }, source: { kind: 'pen', samples: HARNESS_Z }, paint: { fill: null, stroke: { overlap: 'accumulate', spacing: 12, tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', blend: 'multiply', color: [0.84, 0.36, 0.94, 0.62] } }, surface: { initial: { clear: PAPER } }, snap: false, identity: { id: 'dabs-multiply', revision: 1 } } },
+    { id: 'pickup', name: 'pickup brush (definer)', note: "Attack 2's record, verbatim: a brush that reads the paint under each dab, mixes half of it into what it carries, and deposits. The record's program runs in the executor on two hosts at once: the GPU compositor (a 128 × 128 painting surface, a texel read before every dab) and the CPU twin (the definer's reference). Zoom in: the surface is texels, and it is not re-run when the camera moves. Edit pickup, or read surface.initial instead of state.surface.",
+      rec: { tool: { name: 'pickup brush', size: 16, streamline: 0, fit: 'polyline', width: 'size * p', pickup: 0.5 }, source: { kind: 'pen', samples: [[26, 28, 0.65, 0], [102, 100, 0.9, 90], [28, 100, 1, 180], [102, 28, 0.7, 270]] },
+        paint: { fill: null, stroke: { overlap: 'accumulate', spacing: 12, tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [1, 0, 0, 0.62] } },
+        surface: { id: 'paint', revision: 0, width: 128, height: 128, localToTexel: [1, 0, 0, 1, 0, 0], color: 'linear-premultiplied-rgba', initial: { clear: [0, 0, 1, 1] } },
+        program: { each: 'dabs', state: { carry: [1, 0, 0, 1], surface: 'surface.initial' }, steps: [{ out: 'sample', op: 'sample', surface: 'state.surface', point: 'dab.xy', filter: 'nearest' }, { out: 'carry', op: 'mix', a: 'state.carry', b: 'sample', amount: 'tool.pickup' }, { out: 'surface', op: 'paint', surface: 'state.surface', region: 'dab.path', rgba: 'carry', opacity: 'paint.stroke.color.3', blend: 'source-over' }], next: { carry: 'carry', surface: 'surface' }, return: ['state.surface', 'path', 'dabs'] },
+        snap: false, identity: { id: 'surface-read', revision: 1 } } },
+    { id: 'network', name: 'network faces (definer)', note: "Attack 2's second record, verbatim: four vertices, four perimeter edges, two diagonals, and a seed point. No face is stored. The program asks the geometry to arrange the edges (intersect, split with provenance, order around vertices, walk the cycles), locates the seed's face, and returns its boundary as the path. Move C in the record to [100, 100]: the crossing and every face move; the seed still picks the same face.",
+      rec: networkRec(JSON.parse(JSON.stringify(NETWORK_EDGES))) },
+    { id: 'networkC', name: 'network, one curved edge (definer)', note: "The same network with BD replaced by a cubic that crosses AC three times, at .25, .5 and .75. Six bounded faces, areas 3800, 900, 3800, 900, 100, 100, totalling the rectangle's 9600. The selected boundary alternates lines and split-cubic pieces. One nearest intersection would have missed two faces.",
+      rec: networkRec(NETWORK_EDGES.map(e => (e.id === 'BD' ? { id: 'BD', from: 'B', to: 'D', kind: 'C', c1: [80, 168.88888888888889], c2: [40, -88.88888888888889] } : { ...e }))) },
     { id: 'pressure', name: 'pressure ink (harness)', note: "The harness golden 'pressure ink'. Position 7 lives here: switch the tip between ribbon and swept nib and watch the tapers move; the cursor shows what each construction says. They differ at every taper.",
       rec: { tool: { ...harnessTool }, source: { kind: 'pen', samples: HARNESS_PRESSURE }, paint: { fill: null, stroke: { tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.16, 0.68, 0.96, 0.94] } }, snap: false, identity: { id: 'pressure-ink', revision: 1 } } },
     { id: 'holed', name: 'shape with a hole (harness)', note: "The harness golden 'holed concave': both rings listed in the same direction. Even-odd makes the hole either way; nonzero fills it unless the hole's direction is reversed. Reverse the second contour's anchors in the record and switch to nonzero.",
@@ -765,81 +1131,117 @@
       rec: { tool: { ...drawTool, simulatePressure: true }, source: { kind: 'pen', samples: [] }, paint: { fill: null, stroke: { tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.16, 0.42, 0.85, 0.85] } }, snap: false, identity: { id: 'stroke-2', revision: 1 } } },
   ];
   const ENV_TOL = 0.1;
-  function normStroke(s) { return { overlap: s.overlap === 'accumulate' ? 'accumulate' : 'union', spacing: typeof s.spacing === 'number' && s.spacing > 0 ? s.spacing : 12, widthExpr: typeof s.width === 'string' && s.width !== 'knot' ? s.width : null, tip: s.tip === 'ribbon' ? 'ribbon' : 'nib', width: typeof s.width === 'number' ? s.width : 'knot', unit: s.unit === 'device' ? 'device' : 'local', cap: s.cap || 'round', join: s.join || 'round', miterLimit: s.miterLimit || 4, align: s.align || 'center', dash: Array.isArray(s.dash) && s.dash.length === 2 ? s.dash : null, color: Array.isArray(s.color) && s.color.length === 4 ? s.color : [0.1, 0.1, 0.1, 1] }; }
+  function normStroke(s) { return { overlap: s.overlap === 'accumulate' ? 'accumulate' : 'union', spacing: typeof s.spacing === 'number' && s.spacing > 0 ? s.spacing : 12, widthExpr: typeof s.width === 'string' && s.width !== 'knot' ? s.width : null, tip: s.tip === 'ribbon' ? 'ribbon' : 'nib', width: typeof s.width === 'number' ? s.width : 'knot', unit: s.unit === 'device' ? 'device' : 'local', cap: s.cap || 'round', join: s.join || 'round', miterLimit: s.miterLimit || 4, align: s.align || 'center', dash: Array.isArray(s.dash) && s.dash.length === 2 ? s.dash : null, blend: blendIndex(s.blend), color: Array.isArray(s.color) && s.color.length === 4 ? s.color : [0.1, 0.1, 0.1, 1] }; }
 
   // ---------- the frame: what runs, at which rate ----------
   let dirty = 'edit';
   function rebuild(reason) {
-    const cam = camera(), rec = state.rec, paint = rec.paint || {}, t0 = performance.now();
-    const pxLocal = 1 / (cam.zoom * cam.dpr), tolPack = 0.25 * pxLocal, snapping = !!rec.snap;
+    const cam = camera(), rec = state.rec, R = tracked(rec, state.reads, ''), paint = R.paint || {}, t0 = performance.now();
+    const pxLocal = 1 / (cam.zoom * cam.dpr), tolPack = 0.25 * pxLocal, snapping = !!R.snap;
     const path = snapping ? snapPath(state.path, cam) : state.path;
-    for (const R of state.regions) if (R.gpu) { gl.deleteTexture(R.gpu.curves); gl.deleteTexture(R.gpu.bands); }
-    const regions = [], info = { reason, pxLocal, tolPack, snapping, bucket: bucket(cam) };
+    for (const Rg of state.regions) freeGpu(Rg.gpu); if (state.clip) freeGpu(state.clip.gpu);
+    const regions = [], info = { reason, pxLocal, tolPack, snapping, bucket: bucket(cam), identity: R.identity ? { id: R.identity.id, revision: R.identity.revision } : null, toolName: R.tool ? R.tool.name : null };
+    scratch.copies = 0; scratch.px = 0;
+    // the compositor's declarations: a clip (a region), a group (a layer when it needs isolation), a surface (painting, or the root's starting colour)
+    state.clip = null;
+    if (R.clip && R.clip.source) { const cp = buildPath({ source: R.clip.source, tool: {} }); if (cp.subpaths.length) { const low = lowerPath(cp, tolPack), packed = packRegion(low.quads, { bands: state.view.bands }); if (packed) state.clip = { packed, low, rule: R.clip.rule === 'evenodd' ? 1 : 0, gpu: packGpu(packed), kind: cp.meta.kind }; } }
+    const g = R.group; state.layer = g && (typeof g.opacity === 'number' && g.opacity < 1 || blendIndex(g.blend) !== 0 || g.isolate) ? { opacity: typeof g.opacity === 'number' ? g.opacity : 1, blend: blendIndex(g.blend), isolate: !!g.isolate } : null;
+    const sd = R.surface; const painting = !!(sd && typeof sd.width === 'number' && typeof sd.height === 'number');
+    state.rootClear = !painting && sd && sd.initial && Array.isArray(sd.initial.clear) ? sd.initial.clear.slice() : [0, 0, 0, 0];
+    const programEach = R.program && R.program.each;
+    // the value → regions (fill, stroke or dabs), unless a construction paints them into a surface itself
     if (paint.fill && paint.fill.rule && paint.fill.rule !== 'none' && path.subpaths.length) {
       const low = lowerPath(path, tolPack), packed = packRegion(low.quads, { bands: state.view.bands });
-      if (packed) regions.push({ name: 'fill', packed, low, color: Array.isArray(paint.fill.color) ? paint.fill.color : [0.5, 0.5, 0.5, 0.6], rule: paint.fill.rule === 'evenodd' ? 1 : 0 });
+      if (packed) regions.push({ name: 'fill', packed, low, color: Array.isArray(paint.fill.color) ? paint.fill.color : [0.5, 0.5, 0.5, 0.6], rule: paint.fill.rule === 'evenodd' ? 1 : 0, blend: blendIndex(paint.fill.blend) });
     }
     if (paint.stroke && paint.stroke.on !== false && path.subpaths.length) {
       const st = normStroke(paint.stroke), dev = st.unit === 'device';
       const widthLocal = typeof st.width === 'number' ? (dev ? st.width * pxLocal : st.width) : null;
       const envTol = dev ? 0.25 * pxLocal : ENV_TOL, dash = st.dash ? (dev ? st.dash.map(d => d * pxLocal) : st.dash) : null;
       let widthFn = null, widthErr = null;
-      if (st.widthExpr) { try { const f = compileExpr(st.widthExpr); const scope = {}; for (const k in (rec.tool || {})) if (typeof rec.tool[k] === 'number') scope[k] = rec.tool[k]; if (typeof scope.size !== 'number') scope.size = 8; widthFn = (p, sFrac) => { const w = f({ ...scope, p, s: sFrac, v: 0 }); return (isFinite(w) ? Math.max(0, w) : 0) * (dev ? pxLocal : 1); }; } catch (e) { widthErr = e.message; } }
+      if (st.widthExpr) { try { const f = compileExpr(st.widthExpr); const scope = {}; for (const k of f.names) if (typeof R.tool[k] === 'number') scope[k] = R.tool[k]; if (typeof scope.size !== 'number') scope.size = typeof R.tool.size === 'number' ? R.tool.size : 8; widthFn = (p, sFrac) => { const w = f({ ...scope, p, s: sFrac, v: 0 }); return (isFinite(w) ? Math.max(0, w) : 0) * (dev ? pxLocal : 1); }; } catch (e) { widthErr = e.message; } }
       const key = [state.rev, JSON.stringify(st), dev ? pxLocal : 'fixed', snapping ? cam.zoom + ',' + cam.center.x + ',' + cam.center.y : ''].join('|');
       if (st.overlap === 'accumulate') {
         const t1 = performance.now(); const D = buildDabs(path, { widthLocal, knotScale: dev ? pxLocal : 1, fallbackW: 4, envTol, widthFn, spacing: dev ? st.spacing * pxLocal : st.spacing }); const envMs = performance.now() - t1;
-        D.dabs.forEach((d, i) => { const low = lowerPath(d.path, tolPack), packed = packRegion(low.quads, { bands: false }); if (packed) regions.push({ name: 'dab ' + i, dab: d, packed, low, color: st.color, rule: 0 }); });
+        if (!programEach) D.dabs.forEach((d, i) => { const low = lowerPath(d.path, tolPack), packed = packRegion(low.quads, { bands: false }); if (packed) regions.push({ name: 'dab ' + i, dab: d, packed, low, color: st.color, rule: 0, blend: st.blend }); });
         info.stroke = { st, widthLocal, envTol, dev, dash: null, env: { path: { subpaths: [] }, arcs: D.dabs.length * 8, open: 0, closed: 0, pieces: 0, polys: D.polys }, dabs: D, envMs, reused: false, perScale: dev, perFrame: snapping, widthFn: !!widthFn, widthErr };
       } else {
         let env, envMs = 0, reused = false;
         if (state.envCache && state.envCache.key === key) { env = state.envCache.env; reused = true; }
         else { const t1 = performance.now(); env = buildEnvelope(path, st, { widthLocal, knotScale: dev ? pxLocal : 1, fallbackW: 4, envTol, tip: st.tip, dash, widthFn }); envMs = performance.now() - t1; state.envCache = { key, env }; }
         const low = lowerPath(env.path, tolPack), packed = packRegion(low.quads, { bands: state.view.bands });
-        if (packed) regions.push({ name: 'stroke', packed, low, env, st, color: st.color, rule: state.view.skinRule });
+        if (packed) regions.push({ name: 'stroke', packed, low, env, st, color: st.color, rule: state.view.skinRule, blend: st.blend });
         info.stroke = { st, widthLocal, envTol, dev, dash, env, envMs, reused, perScale: dev, perFrame: snapping, widthFn: !!widthFn, widthErr };
       }
     }
-    for (const R of regions) {
-      R.cover = buildCover(R.packed, { mode: state.view.cover, marginLocal: 1.5 * pxLocal, cellLocal: 24 * pxLocal, rule: R.rule });
-      R.coverPx = R.cover.areaLocal * (cam.zoom * cam.dpr) ** 2;
-      R.gpu = { curves: texF32(R.packed.curves, R.packed.n * 2), bands: texU32(R.packed.bands, R.packed.bandTexels) };
-    }
+    for (const Rg of regions) { Rg.margin = 1.5 * pxLocal; Rg.cover = buildCover(Rg.packed, { mode: state.view.cover, marginLocal: Rg.margin, cellLocal: 24 * pxLocal, rule: Rg.rule }); Rg.coverPx = Rg.cover.areaLocal * (cam.zoom * cam.dpr) ** 2; Rg.gpu = packGpu(Rg.packed); }
+    if (state.clip) { state.clip.cover = buildCover(state.clip.packed, { mode: 'bbox', marginLocal: 1.5 * pxLocal, cellLocal: 24 * pxLocal, rule: state.clip.rule }); }
+    // a painting surface and its construction: runs per brush step (an edit), never per camera move
+    if (painting && programEach) {
+      if (!state.surf || state.surf.rev !== state.rev) {
+        if (state.surf) state.surf.gpu.free();
+        const decl = { id: sd.id, revision: sd.revision, width: sd.width, height: sd.height, localToTexel: Array.isArray(sd.localToTexel) && sd.localToTexel.length === 6 ? sd.localToTexel.slice() : [1, 0, 0, 1, 0, 0], color: sd.color, initial: { clear: sd.initial && Array.isArray(sd.initial.clear) ? sd.initial.clear.slice() : [0, 0, 0, 0] } };
+        const notes = []; if (sd.color && sd.color !== 'linear-premultiplied-rgba') notes.push('surface.color "' + sd.color + '" is not what the bench paints (linear premultiplied)');
+        const dabs = info.stroke && info.stroke.dabs ? info.stroke.dabs.dabs : [];
+        const hostG = gpuHost(decl), hostC = cpuHost(decl);
+        const scopeOf = host => ({ tool: R.tool, paint: R.paint, source: R.source, identity: R.identity, path: state.path, dabs, surface: { id: decl.id, revision: decl.revision, width: decl.width, height: decl.height, initial: host.initial } });
+        const runG = runProgram(R.program, scopeOf(hostG), hostG), runC = runProgram(R.program, scopeOf(hostC), hostC);
+        state.surf = { rev: state.rev, decl, gpu: hostG, cpu: hostC, runG, runC, notes, presented: 0 };
+      }
+      state.surf.presented++;
+    } else if (state.surf) { state.surf.gpu.free(); state.surf = null; }
+    if (programEach && !painting) info.programError = 'the program iterates over dabs and paints, but the record declares no painting surface with a width and height';
     state.regions = regions; info.ms = performance.now() - t0; state.info = info; state.builtBucket = info.bucket;
+    state.unread = unreadFields(rec, state.reads, '');
   }
   function tokenColor(name, a) { const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim(); const m = /^#([0-9a-f]{6})$/i.exec(v); if (!m) return [0.5, 0.5, 0.5, a]; const n = parseInt(m[1], 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255, a]; }
-  function setCam(pr, cam) { gl.uniform2f(pr.u('u_center'), cam.center.x, cam.center.y); gl.uniform1f(pr.u('u_zoom'), cam.zoom * cam.dpr); gl.uniform2f(pr.u('u_size'), cam.w, cam.h); gl.uniform1f(pr.u('u_pointSize'), 6 * cam.dpr); }
+  function ensureRoot(cam) { if (!state.root || state.root.w !== cam.w || state.root.h !== cam.h) { freeSurface(state.root); state.root = makeSurface(cam.w, cam.h, false); } if (state.layer && (!state.layerTarget || state.layerTarget.w !== cam.w || state.layerTarget.h !== cam.h)) { freeSurface(state.layerTarget); state.layerTarget = makeSurface(cam.w, cam.h, false); } }
   function render(cam) {
-    gl.viewport(0, 0, cam.w, cam.h); gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-    for (const R of state.regions) {
-      gl.useProgram(progFill.p); setCam(progFill, cam);
-      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, R.gpu.curves); gl.uniform1i(progFill.u('u_curves'), 0);
-      gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, R.gpu.bands); gl.uniform1i(progFill.u('u_bands'), 1);
-      gl.uniform1i(progFill.u('u_curveW'), TEXW); gl.uniform1i(progFill.u('u_bandW'), TEXW);
-      gl.uniform2i(progFill.u('u_bandN'), R.packed.VB, R.packed.HB); gl.uniform4fv(progFill.u('u_bandXf'), R.packed.bandXf);
-      gl.uniform4fv(progFill.u('u_color'), R.color); gl.uniform1i(progFill.u('u_rule'), R.rule);
-      gl.bufferData(gl.ARRAY_BUFFER, R.cover.tri, gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES, 0, R.cover.tri.length / 2);
+    ensureRoot(cam); const root = state.root, M = camM(cam, cam.w, cam.h); scratch.copies = 0; scratch.px = 0;
+    clearSurface(root, state.rootClear);
+    const full = quadOf(0, 0, cam.w, cam.h), ident = [1, 0, 0, 1, 0, 0];
+    if (state.surf) { // the painting surface, presented as a region of the root under the camera, by its own map, nearest; the group's opacity and blend apply to it
+      const S = state.surf, final = S.runG.results['state.surface'] || S.gpu.initial, T = S.decl.localToTexel, inv = invAffine(T);
+      const c = [affine(inv, { x: 0, y: 0 }), affine(inv, { x: S.decl.width, y: 0 }), affine(inv, { x: S.decl.width, y: S.decl.height }), affine(inv, { x: 0, y: S.decl.height })];
+      const x0 = Math.min(...c.map(p => p.x)), x1 = Math.max(...c.map(p => p.x)), y0 = Math.min(...c.map(p => p.y)), y1 = Math.max(...c.map(p => p.y));
+      drawSurfaceAsRegion(final.gpu, root, { w: cam.w, h: cam.h, M, flip: true, mode: 1, T, quad: quadOf(x0, y0, x1, y1), opacity: state.layer ? state.layer.opacity : 1, blend: state.layer ? state.layer.blend : 0, clip: state.clip, rect: glRect(M, cam.w, cam.h, true, { x0, y0, x1, y1 }, 0) });
     }
+    if (state.layer && state.regions.length) { // an isolated group: regions into a layer, the layer into the root as one region with the group's opacity and blend
+      const L = state.layerTarget; clearSurface(L, [0, 0, 0, 0]);
+      for (const Rg of state.regions) drawRegion(Rg, L, M, true, state.clip);
+      drawSurfaceAsRegion(L, root, { w: cam.w, h: cam.h, M: ident, flip: false, mode: 0, quad: full, opacity: state.layer.opacity, blend: state.layer.blend, rect: [0, 0, cam.w, cam.h] });
+    } else for (const Rg of state.regions) drawRegion(Rg, root, M, true, state.clip);
+    // present: the root surface to the canvas, one overwrite
+    drawSurfaceAsRegion(root, null, { w: cam.w, h: cam.h, M: ident, flip: false, mode: 0, quad: full, opacity: 1, blend: 0, blendOff: true });
     if (state.view.outline) {
-      gl.useProgram(progFlat.p); setCam(progFlat, cam);
-      for (const R of state.regions) {
-        const pts = new Float32Array(R.packed.n * 6 * 4); let o = 0;
-        for (let i = 0; i < R.packed.n; i++) { const c = R.packed.curves, b = i * 8; let px = c[b], py = c[b + 1];
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, cam.w, cam.h); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.useProgram(progFlat.p); setXf(progFlat, M, cam.w, cam.h, true); gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      const drawPacked = (packed, color) => { const pts = new Float32Array(packed.n * 6 * 4); let o = 0;
+        for (let i = 0; i < packed.n; i++) { const c = packed.curves, b = i * 8; let px = c[b], py = c[b + 1];
           for (let j = 1; j <= 6; j++) { const t = j / 6, u = 1 - t, x = u * u * c[b] + 2 * u * t * c[b + 2] + t * t * c[b + 4], y = u * u * c[b + 1] + 2 * u * t * c[b + 3] + t * t * c[b + 5]; pts[o++] = px; pts[o++] = py; pts[o++] = x; pts[o++] = y; px = x; py = y; } }
-        gl.uniform4fv(progFlat.u('u_color'), tokenColor(R.name === 'fill' ? '--data' : '--code', 0.95));
-        gl.bufferData(gl.ARRAY_BUFFER, pts, gl.DYNAMIC_DRAW); gl.drawArrays(gl.LINES, 0, pts.length / 2);
-      }
+        gl.uniform4fv(progFlat.u('u_color'), color); gl.bufferData(gl.ARRAY_BUFFER, pts, gl.DYNAMIC_DRAW); gl.drawArrays(gl.LINES, 0, pts.length / 2); };
+      for (const Rg of state.regions) drawPacked(Rg.packed, tokenColor(Rg.name === 'fill' ? '--data' : '--code', 0.95));
+      if (state.clip) drawPacked(state.clip.packed, tokenColor('--bad', 0.9));
+      if (state.surf && state.info.stroke && state.info.stroke.dabs) for (const d of state.info.stroke.dabs.dabs) { const low = lowerPath(d.path, 0.25 / (cam.zoom * cam.dpr)), packed = packRegion(low.quads, { bands: false }); if (packed) drawPacked(packed, tokenColor('--code', 0.7)); }
       const knots = []; for (const sp of state.path.subpaths) { knots.push(sp.start.x, sp.start.y); for (const s of sp.segs) knots.push(s.p.x, s.p.y); }
       if (knots.length) { gl.uniform4fv(progFlat.u('u_color'), tokenColor('--bad', 1)); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(knots), gl.DYNAMIC_DRAW); gl.drawArrays(gl.POINTS, 0, knots.length / 2); }
     }
+    if (state.arr) { // the network's pieces, faint, always: the authored graph the face came from
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, cam.w, cam.h); gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.useProgram(progFlat.p); setXf(progFlat, M, cam.w, cam.h, true); gl.bindBuffer(gl.ARRAY_BUFFER, vbo); gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+      const pts = []; for (const pc of state.arr.pieces) { const F = flattenCurve(pc.curve, 0.05); for (let k = 0; k + 1 < F.length; k++) pts.push(F[k].x, F[k].y, F[k + 1].x, F[k + 1].y); }
+      gl.uniform4fv(progFlat.u('u_color'), tokenColor('--code', 0.55)); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(pts), gl.DYNAMIC_DRAW); gl.drawArrays(gl.LINES, 0, pts.length / 2);
+      const vs = []; for (const v of state.arr.vertices) vs.push(v.x, v.y); gl.uniform4fv(progFlat.u('u_color'), tokenColor('--bad', 1)); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vs), gl.DYNAMIC_DRAW); gl.drawArrays(gl.POINTS, 0, vs.length / 2);
+    }
+    state.lastCopies = scratch.copies; state.lastCopyPx = scratch.px;
   }
   function frame() {
     requestAnimationFrame(frame); if (!gl || !progFill || !state.rec) return;
     const cam = camera(); resize(cam);
     const key = [cam.zoom, cam.center.x, cam.center.y, cam.w, cam.h, state.view.outline].join('|');
     let reason = dirty; if (!reason && state.builtBucket !== bucket(cam)) reason = 'scale'; if (!reason && state.rec.snap && key !== state.renderedKey) reason = 'frame';
-    if (reason) { try { rebuild(reason); showMsg(''); } catch (e) { showMsg('geometry failed: ' + e.message); console.error(e); } dirty = null; updatePanel(); render(cam); state.renderedKey = key; updateHud(); return; }
-    if (key !== state.renderedKey) { render(cam); state.renderedKey = key; updateHud(); }
+    if (reason) { try { rebuild(reason); showMsg(''); } catch (e) { showMsg('geometry failed: ' + e.message); console.error(e); } dirty = null; render(cam); state.renderedKey = key; updatePanel(); updateHud(); return; }
+    if (key !== state.renderedKey) { render(cam); state.renderedKey = key; updatePanel(); updateHud(); }
   }
 
   // ---------- panel ----------
@@ -847,8 +1249,14 @@
   function pretty(rec) { return JSON.stringify(rec, null, 1).replace(/\[\s+((?:-?\d[\d.e+-]*,?\s*)+)\]/g, (m, inner) => '[' + inner.trim().split(/,\s*/).join(', ') + ']'); }
   const recEl = $('record'), errEl = $('recerr');
   function applyRecord(rec, opts = {}) {
-    state.rec = rec; state.path = buildPath(rec, { wetTail: state.drawing ? 6 : 0 }); state.rev++;
-    if (rec.identity) rec.identity.revision = state.rev;
+    state.rec = rec; state.rev++; if (rec.identity) rec.identity.revision = state.rev;
+    const reads = new Set(); state.reads = reads; const R = tracked(rec, reads, '');
+    state.path = buildPath(R, { wetTail: state.drawing ? 6 : 0 }); state.arr = null; state.prog = null;
+    if (rec.program && !rec.program.each) { // a construction that makes the value itself (the network): the executor runs it, the geometry answers, the returned path is what the kind takes
+      const res = runProgram(R.program, { tool: R.tool, paint: R.paint, source: R.source, identity: R.identity, surface: R.surface }, null); state.prog = res;
+      const P = res.results.path; if (P && P.subpaths) { state.path = P; if (res.results.arrangement) { state.arr = res.results.arrangement; const re = relabelArrangement(state.arr, rec.source && rec.source.vertices); for (const sp of P.subpaths) for (const k of sp.knots || []) k.id = re(k.id); if (P.meta && P.meta.face) { const f = state.arr.faces.find(x => x.id === P.meta.face); if (f) P.meta.loop = f.loop.verts.concat([f.loop.verts[0]]).join(' → '); } } P.meta = { ...(P.meta || {}), kind: 'network', program: true }; }
+      else state.path = { subpaths: [], meta: { kind: 'network', program: true, empty: true } };
+    }
     if (!opts.keepText) recEl.value = pretty(rec);
     dirty = 'edit'; writeHash();
   }
@@ -857,16 +1265,25 @@
   let editTimer = null;
   recEl.addEventListener('input', () => { clearTimeout(editTimer); editTimer = setTimeout(() => { try { const rec = JSON.parse(recEl.value); errEl.textContent = ''; applyRecord(rec, { keepText: true }); } catch (e) { errEl.textContent = 'record: ' + e.message; } }, 250); });
   const strokeOf = r => { r.paint = r.paint || {}; if (!r.paint.stroke) r.paint.stroke = { tip: 'nib', width: 3, unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.1, 0.1, 0.1, 1] }; return r.paint.stroke; };
+  const paintedOf = r => (r.paint && r.paint.stroke && r.paint.stroke.on !== false ? strokeOf(r) : (r.paint && r.paint.fill) ? r.paint.fill : strokeOf(r));
   const SET = {
     tip: (r, v) => { strokeOf(r).tip = v; }, cap: (r, v) => { strokeOf(r).cap = v; }, join: (r, v) => { strokeOf(r).join = v; }, align: (r, v) => { strokeOf(r).align = v; },
     unit: (r, v) => { strokeOf(r).unit = v; }, dash: (r, v) => { strokeOf(r).dash = v === 'on' ? [6, 4] : null; }, snap: (r, v) => { r.snap = v === 'on'; },
     fill: (r, v) => { r.paint = r.paint || {}; if (v === 'none') r.paint.fill = null; else { r.paint.fill = r.paint.fill || { color: [0.55, 0.6, 0.7, 0.6] }; r.paint.fill.rule = v; } },
     stroke: (r, v) => { strokeOf(r).on = v === 'on'; }, overlap: (r, v) => { strokeOf(r).overlap = v; },
+    clip: (r, v) => { if (v === 'none') delete r.clip; else if (v === 'trefoil') r.clip = trefoilClip(); else r.clip = { source: { kind: 'rect', x: 30, y: 30, w: 70, h: 70, r: 14 }, rule: 'nonzero' }; },
+    blend: (r, v) => { const p = paintedOf(r); if (v === 'over') delete p.blend; else p.blend = v; },
+    group: (r, v) => { if (v === 'none') delete r.group; else r.group = { opacity: 0.62, blend: 'over' }; },
+    paper: (r, v) => { if (v === 'on') { r.surface = r.surface || {}; r.surface.initial = { clear: PAPER.slice() }; } else if (r.surface) { if (typeof r.surface.width === 'number') r.surface.initial = { clear: [0, 0, 0, 0] }; else delete r.surface; } },
   };
   const GET = {
     tip: r => normStroke(r.paint.stroke || {}).tip, cap: r => normStroke(r.paint.stroke || {}).cap, join: r => normStroke(r.paint.stroke || {}).join, align: r => normStroke(r.paint.stroke || {}).align,
     unit: r => normStroke(r.paint.stroke || {}).unit, dash: r => (normStroke(r.paint.stroke || {}).dash ? 'on' : 'off'), snap: r => (r.snap ? 'on' : 'off'),
     fill: r => (r.paint.fill && r.paint.fill.rule) || 'none', stroke: r => (r.paint.stroke && r.paint.stroke.on !== false ? 'on' : 'off'), overlap: r => normStroke(r.paint.stroke || {}).overlap,
+    clip: r => (!r.clip || !r.clip.source ? 'none' : r.clip.source.kind === 'rect' ? 'rect' : 'trefoil'),
+    blend: r => { const p = r.paint && (r.paint.stroke && r.paint.stroke.on !== false ? r.paint.stroke : r.paint.fill); return p && BLENDS.includes(p.blend) ? p.blend : 'over'; },
+    group: r => (r.group && (r.group.opacity < 1 || blendIndex(r.group.blend) || r.group.isolate) ? 'layer' : 'none'),
+    paper: r => (r.surface && r.surface.initial && Array.isArray(r.surface.initial.clear) && r.surface.initial.clear[3] > 0 ? 'on' : 'off'),
   };
   const VIEWSET = { cover: v => { state.view.cover = v; }, bands: v => { state.view.bands = v === 'on'; }, skinRule: v => { state.view.skinRule = v === 'evenodd' ? 1 : 0; } };
   const VIEWGET = { cover: () => state.view.cover, bands: () => (state.view.bands ? 'on' : 'off'), skinRule: () => (state.view.skinRule ? 'evenodd' : 'nonzero') };
@@ -881,56 +1298,101 @@
     document.querySelectorAll('.seg[data-set="cap"] button').forEach(b => { b.disabled = !(anyOpen || dashed) || !hasStroke; });
     ['tip', 'join', 'unit', 'dash', 'overlap'].forEach(k => document.querySelectorAll(`.seg[data-set="${k}"] button`).forEach(b => { b.disabled = !hasStroke; }));
   }
+  const rgbaStr = c => '(' + c.map(v => fmt(v, 3)).join(', ') + ')';
+  function programReport(res, host) {
+    if (!res) return '';
+    const calls = Object.keys(res.calls).map(k => `${k} × ${res.calls[k]}`).join(', ');
+    const notes = res.log.filter(l => l.note).map(l => `<li>step <code>${esc(l.step)}</code>: ${esc(l.note)}</li>`).join('');
+    const errs = res.log.filter(l => l.error).map(l => `<li><span style="color:var(--bad)">step <code>${esc(l.step)}</code> (${esc(l.op)}): ${esc(l.error)}</span></li>`).join('');
+    return `${res.ok ? '' : '<span style="color:var(--bad)"><b>the construction did not run to the end</b></span> · '}${res.steps} steps${res.iterations ? ` over ${res.iterations} iterations` : ''} · calls: ${calls || '—'} · ${fmt(res.ms, 2)} ms${host ? ' on ' + host : ''}${res.unknown.length ? ` · <span style="color:var(--bad)">unknown operations: ${esc(res.unknown.join(', '))}</span>` : ''}${notes || errs ? `<ul>${errs}${notes}</ul>` : ''}`;
+  }
   function updatePanel() {
     const info = state.info; if (!info) return; syncSegs();
     const st = pathStats(state.path), m = state.path.meta || {}, rec = state.rec;
+    // fields nobody read
+    const un = state.unread; $('unread').innerHTML = un.length ? `<b>fields with nowhere to go</b>: ${un.map(f => '<code>' + esc(f) + '</code>').join(', ')} — no code below the waist read them. A field here is a finding, not a feature.` : '<span class="k">every field of the record was read by something below the waist</span>';
     // the waist
     const sps = state.path.subpaths; const openness = sps.length ? (sps.every(s => s.closed) ? 'closed' : sps.every(s => !s.closed) ? 'open' : 'mixed') : '—';
     let widths = ''; if (st.varying) { const ws = sps.flatMap(sp => (sp.knots || []).map(k => k.w).filter(w => typeof w === 'number')); widths = ` · width per knot ${fmt(Math.min(...ws), 1)} … ${fmt(Math.max(...ws), 1)}`; }
     const ids = sps.length && sps[0].knots ? ` · ids ${sps[0].knots[0].id} … ${sps[0].knots[Math.max(0, sps[0].knots.length - (sps[0].closed ? 2 : 1))].id}` : '';
-    const pf = rec.paint && rec.paint.fill && rec.paint.fill.rule !== 'none' ? `{ rule ${rec.paint.fill.rule} }` : '—';
-    const ps = rec.paint && rec.paint.stroke && rec.paint.stroke.on !== false ? (() => { const s = normStroke(rec.paint.stroke); return `{ ${s.overlap === 'accumulate' ? 'overlap accumulate, dabs every ' + s.spacing + ' · ' : ''}tip ${s.tip} · width ${s.widthExpr ? 'f(p) = ' + s.widthExpr : typeof s.width === 'number' ? s.width : 'per knot'} ${s.unit === 'device' ? 'device px' : 'local'} · cap ${s.cap} · join ${s.join}${sps.every(x => x.closed) ? ' · align ' + s.align : ''}${s.dash ? ' · dash ' + s.dash.join('/') : ''} }`; })() : '—';
-    $('value').textContent = `path      ${sps.length} subpath${sps.length === 1 ? '' : 's'} · ${openness} · ${st.C} cubic, ${st.Q} quad, ${st.L} line · ${st.knots} knots${widths}${ids}\npaint     fill ${pf}\n          stroke ${ps}\nidentity  ${rec.identity ? rec.identity.id + ' · rev ' + rec.identity.revision : '—'}\nτ         not in the value; the packer takes it from the camera (${fmt(info.tolPack, 3)} local this frame)`;
-    // source → path
+    const pf = rec.paint && rec.paint.fill && rec.paint.fill.rule !== 'none' ? `{ rule ${rec.paint.fill.rule}${rec.paint.fill.blend && rec.paint.fill.blend !== 'over' ? ' · blend ' + rec.paint.fill.blend : ''} }` : '—';
+    const ps = rec.paint && rec.paint.stroke && rec.paint.stroke.on !== false ? (() => { const s = normStroke(rec.paint.stroke); return `{ ${s.overlap === 'accumulate' ? 'overlap accumulate, dabs every ' + s.spacing + ' · ' : ''}tip ${s.tip} · width ${s.widthExpr ? 'f(p) = ' + s.widthExpr : typeof s.width === 'number' ? s.width : 'per knot'} ${s.unit === 'device' ? 'device px' : 'local'} · cap ${s.cap} · join ${s.join}${sps.every(x => x.closed) ? ' · align ' + s.align : ''}${s.dash ? ' · dash ' + s.dash.join('/') : ''}${s.blend ? ' · blend ' + BLENDS[s.blend] : ''} }`; })() : '—';
+    const comp = [rec.clip && rec.clip.source ? `clip { a ${rec.clip.source.kind} path, ${rec.clip.rule || 'nonzero'} }` : null, state.layer ? `group { opacity ${state.layer.opacity}${state.layer.blend ? ', blend ' + BLENDS[state.layer.blend] : ''}${state.layer.isolate ? ', isolate' : ''} }` : null, rec.surface && typeof rec.surface.width === 'number' ? `surface { ${rec.surface.width} × ${rec.surface.height} texels, revision ${state.surf ? (state.surf.runG.results['state.surface'] || {}).revision : rec.surface.revision} }` : (state.rootClear[3] > 0 ? 'surface { the root, starting at paper }' : null)].filter(Boolean).join(' · ');
+    $('value').textContent = `path      ${sps.length} subpath${sps.length === 1 ? '' : 's'} · ${openness} · ${st.C} cubic, ${st.Q} quad, ${st.L} line · ${st.knots} knots${widths}${ids}${m.program ? ' · returned by the record\'s construction' : ''}\npaint     fill ${pf}\n          stroke ${ps}\nidentity  ${info.identity ? info.identity.id + ' · rev ' + info.identity.revision : '—'}${comp ? '\nbeside    ' + comp : ''}\nτ         not in the value; the packer takes it from the camera (${fmt(info.tolPack, 3)} local this frame)`;
+    // source → path (and the executor, when the record carries a construction)
     let src;
     if (m.kind === 'pen') src = `<b>pen burst</b>: ${m.samples} samples (x, y, pressure, time)${m.simulated ? ', pressure simulated from speed' : ''} → streamline ${fmt(m.streamline, 2)} → <b>width per sample</b> = <code>${esc(m.widthExpr)}</code>, run by the expression evaluator${m.taperStart || m.taperEnd ? ` → taper ${m.taperStart} / ${m.taperEnd}` : ''} → fit τ ${m.fit === 'polyline' ? '(polyline)' : m.fit}: ${m.samples} samples → <b>${m.knots} knots</b> → ${m.spline || '—'}: ${st.C} cubic${st.L ? ', ' + st.L + ' line' : ''}${state.drawing ? ' · <b>wet</b>: the last 6 samples ride raw; the rest is fit' : ''}.${m.error ? ' <span style="color:var(--bad)">' + esc(m.error) + '</span>' : ''}<div class="small">Every arrow here is code executing the tool's data. Change <code>fit</code>, <code>taperEnd</code> or the <code>width</code> expression in the record: nothing below the waist changes.</div>`;
     else if (m.kind === 'rect') src = `<b>formula shape</b>: rect ${rec.source.w} × ${rec.source.h}, corner ${rec.source.r} → ${m.lines} lines + ${m.arcs} arcs, each arc a cubic (κ = 0.5523; a circle is not a Bézier).<div class="small">This generator is code. The same shape written out as anchors would be data; a rectangle whose corner radius is a parameter needs a generator, or an evaluator over the parameters.</div>`;
     else if (m.kind === 'anchors') src = `<b>designer's outline</b>: ${(rec.source.contours || []).reduce((s, c) => s + (c.anchors || []).length, 0)} anchors → ${m.cubics} cubic${m.lines ? ' + ' + m.lines + ' line' : ''}.<div class="small">No arithmetic. The tool's data already is a path; the waist sits right here.</div>`;
+    else if (m.kind === 'network') src = `<b>vector network</b>: ${Object.keys((rec.source || {}).vertices || {}).length} vertices, ${((rec.source || {}).edges || []).length} authored edges, no face stored → <b>the executor</b> runs the record's construction: ${programReport(state.prog)}${m.empty ? '<div style="color:var(--bad)">no face was returned, so nothing is drawn: the seed sits on an edge or outside every face, or a step failed above.</div>' : `<div class="small">The value is the boundary the construction returned: <code>${esc(m.loop || '')}</code>, area ${fmt(m.area || 0, 1)}. The authored graph is what gets edited; the arrangement is an answer of the geometry (below); the face choice is the record's policy.</div>`}`;
     else src = '<span class="k">no source</span>';
-    $('d-source').innerHTML = src;
+    if (state.surf) src += `<div style="margin-top:6px"><b>the executor</b> ran the record's brush construction, per dab in order, on two hosts: <b>GPU</b> ${programReport(state.surf.runG)} · <b>CPU twin</b> ${programReport(state.surf.runC)}${info.stroke && info.stroke.dabs ? ` · dab packets carry x, y, r, arc length, s, the source segment and parameter, and pressure` : ''}${state.surf.notes.length ? '<ul>' + state.surf.notes.map(n => '<li>' + esc(n) + '</li>').join('') + '</ul>' : ''}<div class="small">Bindings resolve against the record and the host's surfaces; <code>sample</code>, <code>mix</code> and <code>paint</code> are host capabilities; the executor only orders them. It ran once for this revision and is not re-run when the camera moves.</div></div>`;
+    if (info.programError) src += `<div style="color:var(--bad);margin-top:6px">${esc(info.programError)}</div>`;
+    $('d-source').innerHTML = `${info.toolName ? `<span class="k">tool</span> ${esc(info.toolName)} · ` : ''}${src}`;
     // geometry
     const S = info.stroke;
-    const wfn = S && S.widthFn ? ` · <b>width = <code>${esc(S.st.widthExpr)}</code></b> evaluated per flattened point on interpolated pressure (interpolating the knots' widths would differ for a nonlinear response)` : (S && S.widthErr ? ` · <span style="color:var(--bad)">width: ${esc(S.widthErr)}</span>` : '');
-    if (!S) $('d-geometry').innerHTML = '<span class="k">no stroke declared; the fill is the path itself, no envelope to build</span>';
+    const wfn = S && S.widthFn ? ` · <b>width = <code>${esc(S.st.widthExpr)}</code></b> evaluated per flattened point and per dab on interpolated pressure (interpolating the knots' widths would differ for a nonlinear response)` : (S && S.widthErr ? ` · <span style="color:var(--bad)">width: ${esc(S.widthErr)}</span>` : '');
+    let geo;
+    if (!S) geo = '<span class="k">no stroke declared; the fill is the path itself, no envelope to build</span>';
     else if (S.dabs) { const D = S.dabs; const hit = state.cursor ? D.dabs.filter(d => Math.hypot(d.x - state.cursor.x, d.y - state.cursor.y) <= d.r).length : null;
-      $('d-geometry').innerHTML = `<b>dabs, not an envelope</b>: round footprints at arc lengths 0, ${S.st.spacing}, ${2 * S.st.spacing} … along the centerline (length ${fmt(D.length, 2)}) → <b>${D.dabs.length} dabs</b>, radius = half the width at each one, each its own region, painted in drawing order${wfn} · ${fmt(S.envMs, 2)} ms${hit != null ? ` · under the cursor: ${hit} dab${hit === 1 ? '' : 's'}` : ''}<div class="small">The definer's construction (attack 1): accumulation is ordered paints through the same filler, no second rasteriser. Where two dabs land the alpha is a + (1 − a)·a; on the harness Z at 62 % that is 0.8556 at the crossing. A brush that reads the surface would need state beside this; a union stroke needs none.</div>`; }
+      geo = `<b>dabs, not an envelope</b>: round footprints at arc lengths 0, ${S.st.spacing}, ${2 * S.st.spacing} … along the centerline (length ${fmt(D.length, 2)}) → <b>${D.dabs.length} dabs</b>, radius = half the width at each one, each its own region, painted in drawing order${wfn} · ${fmt(S.envMs, 2)} ms${hit != null ? ` · under the cursor: ${hit} dab${hit === 1 ? '' : 's'}` : ''}<div class="small">The definer's construction (attack 1): accumulation is ordered paints through the same filler, no second rasteriser. Where two dabs land the alpha is a + (1 − a)·a; on the harness Z at 62 % that is 0.8556 at the crossing. A brush that reads the surface is the same dabs with a <code>program</code> and a <code>surface</code> in the record (attack 2).</div>`; }
     else { const e = S.env; let lines = 0; for (const sp of e.path.subpaths) for (const s of sp.segs) if (s.k === 'L') lines++;
-      $('d-geometry').innerHTML = `<b>envelope</b>: ${S.st.tip === 'nib' ? 'swept round nib' : 'ribbon'} · ${S.st.join} joins · ${S.st.cap} caps${e.closed ? ' · align ' + S.st.align : ''}${S.dash ? ' · dashed' : ''} · centerline flattened at τ ${fmt(S.envTol, 3)} ${S.dev ? '(width in device pixels: rebuilt per scale)' : '(camera-free)'} → ${e.pieces} pieces → outline: ${e.path.subpaths.length} closed subpath${e.path.subpaths.length === 1 ? '' : 's'}, ${lines} lines + ${e.arcs} arc quads · ${S.reused ? 'reused from the last frame' : fmt(S.envMs, 2) + ' ms'}${wfn}<div class="small">Inner bends fold the outline through the pivot; the fold keeps the body's orientation, so nonzero absorbs it and even-odd punches it out (toggle in the filler). The two tips differ in one line of the tracer: where the tangent point sits on each knot's disc.</div>`; }
+      geo = `<b>envelope</b>: ${S.st.tip === 'nib' ? 'swept round nib' : 'ribbon'} · ${S.st.join} joins · ${S.st.cap} caps${e.closed ? ' · align ' + S.st.align : ''}${S.dash ? ' · dashed' : ''} · centerline flattened at τ ${fmt(S.envTol, 3)} ${S.dev ? '(width in device pixels: rebuilt per scale)' : '(camera-free)'} → ${e.pieces} pieces → outline: ${e.path.subpaths.length} closed subpath${e.path.subpaths.length === 1 ? '' : 's'}, ${lines} lines + ${e.arcs} arc quads · ${S.reused ? 'reused from the last frame' : fmt(S.envMs, 2) + ' ms'}${wfn}<div class="small">Inner bends fold the outline through the pivot; the fold keeps the body's orientation, so nonzero absorbs it and even-odd punches it out (toggle in the filler). The two tips differ in one line of the tracer: where the tangent point sits on each knot's disc.</div>`; }
+    if (state.arr) { const A = state.arr; const faces = A.faces.map(f => `${f.id} ${fmt(Math.abs(f.area), 0)}${f.holes.length ? ' (' + f.holes.length + ' hole' + (f.holes.length > 1 ? 's' : '') + ')' : ''}`).join(', ');
+      const pcs = A.pieces.map(p => `${esc(p.id)}${p.owners.length > 1 ? '⁺' : ''}`).join(' '); const evs = A.events.map(e => `${e.a.edge}@${fmtT(e.a.t)} × ${e.b.edge}@${fmtT(e.b.t)} at (${fmt(e.x, 0)}, ${fmt(e.y, 0)})${e.kind === 'crossing' ? '' : ' [' + e.kind + ']'}`).join(' · ');
+      geo += `<div style="margin-top:6px"><b>arrangement</b> (an answer, ${fmt(A.ms, 2)} ms): ${A.vertices.length} vertices (${A.vertices.filter(v => v.discovered).length} discovered), ${A.pieces.length} pieces, ${A.halfEdges} half-edges, <b>${A.faces.length} bounded faces</b>${A.unbounded.length ? ` + ${A.unbounded.length} unbounded` : ''} · areas ${faces} · total ${fmt(A.faces.reduce((s, f) => s + Math.abs(f.area), 0), 0)}<br><span class="k">events</span> ${evs || 'none'}<br><span class="k">pieces</span> <span class="mono">${pcs}</span>${A.spans.length ? `<br><span class="k">overlapping spans</span> ${A.spans.map(s => esc(s.a + ' ↔ ' + s.b)).join(', ')} (⁺ = one geometric edge, several source owners)` : ''}${A.notes.length ? '<br>' + A.notes.map(esc).join('<br>') : ''}<div class="small">Pieces keep the source edge and its parameter interval, so a moved vertex or a replaced edge re-derives exactly what depends on it. Lines are exact; curve crossings come from flattened seeds refined on the true curves. Not handled here: partial overlapping spans, tangent contacts that do not cross, ties in the tangent order (attack 2's fix list).</div></div>`; }
+    $('d-geometry').innerHTML = geo;
     $('r-geometry').textContent = S && S.perFrame ? 'per frame' : S && S.perScale ? 'per scale' : 'per edit'; $('r-geometry').className = 'rate ' + (S && S.perFrame ? 'frame' : S && S.perScale ? 'scale' : 'edit');
     // packer
     const parts = state.regions.filter(R => !R.dab).map(R => `<b>${R.name}</b>: ${R.low.cubics} cubic → ${R.low.fromCubics} quads, ${R.packed.n} curves in all · bands ${R.packed.HB} × ${R.packed.VB}, ${fmt(R.packed.avgH, 1)} curves per row band, ${fmt(R.packed.avgV, 1)} per column · cover ${R.cover.rects} rect${R.cover.rects === 1 ? '' : 's'}, ${fmtInt(R.coverPx)} device px · texels: curves ${R.packed.n * 2}, bands ${R.packed.bandTexels}`);
     const dabPack = state.regions.filter(R => R.dab); if (dabPack.length) parts.push(`<b>${dabPack.length} dabs</b>: ${dabPack.length} × 8 arc quads, one small pack each, ${fmtInt(dabPack.reduce((s, R) => s + R.coverPx, 0))} device px covered in all`);
+    if (state.clip) parts.push(`<b>clip</b> (a ${state.clip.kind} path, packed like any region): ${state.clip.low.cubics} cubic → ${state.clip.packed.n} curves · bands ${state.clip.packed.HB} × ${state.clip.packed.VB} · texels: curves ${state.clip.packed.n * 2}, bands ${state.clip.packed.bandTexels}`);
+    if (state.surf) parts.push(`<b>painting surface</b>: ${state.surf.gpu.stats().paints} dab regions packed in texel space at τ 0.25 texel, ${state.surf.gpu.stats().curveTexels} curve texels in all, once per revision`);
     $('d-packer').innerHTML = `lowered at τ = 0.25 device px = ${fmt(info.tolPack, 3)} local · scale bucket ${info.bucket} · ${fmt(info.ms, 2)} ms${info.snapping ? ' · <b>snapped</b>: knots moved to the device grid, so the pack reruns whenever the camera moves' : ''}<ul>${parts.map(p => '<li>' + p + '</li>').join('')}</ul><div class="small">The value above carried no tolerance and no zoom; both arrive here from the camera. One cache slot per 25 % of scale.</div>`;
     $('r-packer').textContent = info.snapping ? 'per frame' : 'per scale'; $('r-packer').className = 'rate ' + (info.snapping ? 'frame' : 'scale');
     // filler
     const dabRegions = state.regions.filter(R => R.dab), plain = state.regions.filter(R => !R.dab);
-    $('d-filler').innerHTML = state.regions.length ? plain.map(R => `<b>${R.name}</b> under ${R.rule ? 'even-odd' : 'nonzero'}: one coverage draw · ≈ ${fmtInt(R.coverPx * (R.packed.avgH + R.packed.avgV))} curve tests`).concat(dabRegions.length ? [`<b>${dabRegions.length} dabs</b>, each one coverage draw in order, source-over · ≈ ${fmtInt(dabRegions.reduce((s, R) => s + R.coverPx * (R.packed.avgH + R.packed.avgV), 0))} curve tests`] : []).join('<br>') + `<div class="small">One resolve per region: where the skin crosses itself the pixel is painted once at the declared alpha. The program reads no font size, no glyph, no pen.</div>` : '<span class="k">nothing painted</span>';
+    const clipCost = state.clip ? ` (+ ${fmt(state.clip.packed.avgH + state.clip.packed.avgV, 1)} clip curves per pixel)` : '';
+    $('d-filler').innerHTML = state.regions.length || state.surf ? plain.map(R => `<b>${R.name}</b> under ${R.rule ? 'even-odd' : 'nonzero'}: one coverage draw · ≈ ${fmtInt(R.coverPx * (R.packed.avgH + R.packed.avgV))} curve tests${clipCost}`).concat(dabRegions.length ? [`<b>${dabRegions.length} dabs</b>, each one coverage draw in order, source-over · ≈ ${fmtInt(dabRegions.reduce((s, R) => s + R.coverPx * (R.packed.avgH + R.packed.avgV), 0))} curve tests${clipCost}`] : []).concat(state.surf ? [`<b>${state.surf.gpu.stats().paints} dabs into the painting surface</b>, one coverage draw each at the surface's resolution, once per revision`] : []).join('<br>') + `<div class="small">One resolve per region: where the skin crosses itself the pixel is painted once at the declared alpha. The program reads no font size, no glyph, no pen. The clip's coverage is computed by the same code in the same pass and multiplied in.</div>` : '<span class="k">nothing painted</span>';
+    // compositor
+    const cam = camera(); const rootBytes = cam.w * cam.h * 4; const lines = [];
+    lines.push(`<b>root surface</b>: ${cam.w} × ${cam.h} device px, ${fmt(rootBytes / 1048576, 1)} MB, cleared to ${state.rootClear[3] > 0 ? 'paper ' + rgbaStr(state.rootClear) : 'transparent'}, presented to the screen by one overwrite`);
+    if (state.clip) lines.push(`<b>clip</b>: every region's coverage × the clip's coverage, per pixel, in the same draw (${state.clip.packed.n} clip curves; no mask texture, no extra target; camera-free like any region). A group mask on a soft edge is not the same as clipping each child (fix list).`);
+    const blended = state.regions.filter(R => R.blend); if (blended.length) lines.push(`<b>blend ${BLENDS[blended[0].blend]}</b> on ${blended.length} region${blended.length > 1 ? 's' : ''}: before each draw the compositor copied the target under the region (${state.lastCopies || 0} copies, ${fmtInt(state.lastCopyPx || 0)} device px this frame) and the program read the backdrop from the copy. Over transparent nothing, every mode is over.`);
+    if (state.layer) lines.push(`<b>layer</b>: the group needs isolation (opacity ${state.layer.opacity}${state.layer.blend ? ', blend ' + BLENDS[state.layer.blend] : ''}), so its regions were painted into a second surface of ${cam.w} × ${cam.h} (${fmt(rootBytes / 1048576, 1)} MB, transient, per frame) and the layer painted into the root as one region at that opacity. Without a translucency or a blend on the group, its regions paint straight into the root.`);
+    if (state.surf) { const S = state.surf, g = S.gpu.stats(), c = S.cpu.stats(), fin = S.runG.results['state.surface'];
+      const trace = (run, k) => { const sm = run.log.filter(l => l.op === 'sample')[k], mx = run.log.filter(l => l.op === 'mix')[k]; return sm && mx && Array.isArray(sm.value) && Array.isArray(mx.value) ? `sampled ${rgbaStr(sm.value)} → carries ${rgbaStr(mx.value)}` : '—'; };
+      const kTrace = Math.min(19, g.paints - 1); if (kTrace >= 0) lines.push(`<b>dab ${kTrace}</b> (attack 2's table): GPU ${trace(S.runG, kTrace)} · CPU twin ${trace(S.runC, kTrace)}`);
+      lines.push(`<b>painting surface</b> <code>${esc(S.decl.id)}</code>: ${S.decl.width} × ${S.decl.height} texels, ${S.gpu.float ? 'RGBA32F' : 'RGBA8 (no float targets here)'}, ${fmt(g.bytes / 1024, 0)} KB, revision ${fin ? fin.revision : 0} after ${g.paints} paints · <b>${g.samples} texel reads</b> before the dabs, ${fmt(g.sampleMs, 1)} ms of GPU round-trips (the ordered read-before-write: one sync per dab on this route) · paints ${fmt(g.paintMs, 1)} ms · CPU twin: ${c.paints} paints, ${c.samples} reads, ${fmt(S.runC.ms, 1)} ms · presented ${S.presented} time${S.presented === 1 ? '' : 's'} since, never re-run on a camera move`); }
+    if (!state.clip && !blended.length && !state.layer && !state.surf) lines.push(`<span class="k">nothing declared beside the regions: each is painted straight into the root with over. Try a clip, a blend, a group, or paper.</span>`);
+    $('d-compositor').innerHTML = lines.map(l => `<div>${l}</div>`).join('') + `<div class="small">The compositor's contract: paint(surface, region, paint, clips, blend) → surface, and sample(surface, point) → colour. A layer is a surface painted as a region into its parent; the screen is the root; a brush that reads the surface calls sample. The tree has a target pool, a present pass and region3d's quad composite, and none of the three declarations.</div>`;
+    $('r-compositor').textContent = state.surf ? 'per brush step' : 'per frame'; $('r-compositor').className = 'rate ' + (state.surf ? 'step' : 'frame');
   }
 
   // ---------- cursor: the CPU twin against the GPU pixel ----------
   const sgn = v => (v >= 0 ? '+' : '−') + fmt(Math.abs(v), 2);
   function updateHud() {
-    const hud = $('hud'), c = state.cursor; if (!c || !state.regions.length) { hud.innerHTML = '<span class="k">move the cursor over the drawing</span>'; return; }
+    const hud = $('hud'), c = state.cursor; if (!c || (!state.regions.length && !state.surf)) { hud.innerHTML = '<span class="k">move the cursor over the drawing</span>'; return; }
     const cam = camera(), ppu = cam.zoom * cam.dpr, d = toDevice(c, cam), px = { x: Math.floor(d.x), y: Math.floor(d.y) }; const pc = fromDevice({ x: px.x + 0.5, y: px.y + 0.5 }, cam);   // the pixel centre the GPU evaluated
-    let A = 0; const parts = [];
-    let dabHits = 0, dabCount = 0;
-    for (const R of state.regions) { const w = windingAt(R.packed, pc.x, pc.y), cov = coverageAt(R.packed, pc.x, pc.y, ppu, ppu, R.rule); const a = R.color[3] * cov; A = a + A * (1 - a); if (R.dab) { dabCount++; if (cov > 0.5) dabHits++; } else parts.push(`<span><span class="k">${R.name}</span> winding ${w} · coverage ${fmt(cov)}</span>`); }
+    const parts = []; let P = state.rootClear.slice(); P = [P[0] * P[3], P[1] * P[3], P[2] * P[3], P[3]];
+    const clipCov = state.clip ? coverageAt(state.clip.packed, pc.x, pc.y, ppu, ppu, state.clip.rule) : 1; if (state.clip) parts.push(`<span><span class="k">clip</span> coverage ${fmt(clipCov)}</span>`);
+    let surfPart = '';
+    if (state.surf) { const S = state.surf, T = S.decl.localToTexel, t = affine(T, pc), i = Math.floor(t.x), j = Math.floor(t.y);
+      if (i >= 0 && j >= 0 && i < S.decl.width && j < S.decl.height) { const finC = S.runC.results['state.surface'], finG = S.runG.results['state.surface']; const vc = finC ? S.cpu.texel(finC, i, j) : [0, 0, 0, 0], vg = finG ? S.gpu.texel(finG, i, j) : [0, 0, 0, 0];
+        const tol = S.gpu.float ? 2e-3 : 0.02, ok = vc.every((v, k) => Math.abs(v - vg[k]) <= tol); surfPart = `<span><span class="k">texel</span> (${i}, ${j}) CPU twin ${rgbaStr(vc)} · GPU ${rgbaStr(vg)} ${ok ? '<span class="agree">agree</span>' : '<span class="disagree">disagree</span>'}</span>`;
+        const s = vc.map(v => v * (state.layer ? state.layer.opacity : 1) * clipCov); const rgb = s[3] > 0 ? [s[0] / s[3], s[1] / s[3], s[2] / s[3]] : [0, 0, 0]; P = compositeOver(P, rgb, s[3], state.layer ? state.layer.blend : 0); } }
+    let dabHits = 0, dabCount = 0, L = state.layer ? [0, 0, 0, 0] : null;
+    for (const R of state.regions) { const w = windingAt(R.packed, pc.x, pc.y), cov = coverageAt(R.packed, pc.x, pc.y, ppu, ppu, R.rule); const a = R.color[3] * cov * clipCov;
+      if (L) L = compositeOver(L, R.color.slice(0, 3), a, R.blend || 0); else P = compositeOver(P, R.color.slice(0, 3), a, R.blend || 0);
+      if (R.dab) { dabCount++; if (cov > 0.5) dabHits++; } else parts.push(`<span><span class="k">${R.name}</span> winding ${w} · coverage ${fmt(cov)}</span>`); }
+    if (L) { const s = L.map(v => v * state.layer.opacity); const rgb = s[3] > 0 ? [s[0] / s[3], s[1] / s[3], s[2] / s[3]] : [0, 0, 0]; P = compositeOver(P, rgb, s[3], state.layer.blend); }
     if (dabCount) parts.push(`<span><span class="k">dabs here</span> ${dabHits} of ${dabCount}</span>`);
-    let gpuA = null; if (px.x >= 0 && px.y >= 0 && px.x < cam.w && px.y < cam.h) { const buf = new Uint8Array(4); gl.readPixels(px.x, cam.h - 1 - px.y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, buf); gpuA = buf[3] / 255; }
-    const agree = gpuA == null ? '' : (Math.abs(gpuA - A) <= 0.05 ? '<span class="agree">agree</span>' : '<span class="disagree">disagree</span>');
+    let G = null; if (state.root && px.x >= 0 && px.y >= 0 && px.x < cam.w && px.y < cam.h) G = readTexel(state.root, px.x, cam.h - 1 - px.y);
+    const agree = G == null ? '' : (P.every((v, k) => Math.abs(v - G[k]) <= 0.05) ? '<span class="agree">agree</span>' : '<span class="disagree">disagree</span>');
     const SR = state.regions.find(R => R.name === 'stroke'); let dists = '';
     if (SR && SR.env && SR.env.polys.length) { const { rib, nib } = centerlineDistances(SR.env.polys, pc.x, pc.y); dists = `<span><span class="k">skin edge by</span> ribbon ${sgn(rib)} · nib ${sgn(nib)}${Math.sign(rib) !== Math.sign(nib) ? ' <span class="disagree">they disagree here</span>' : ''}</span>`; }
-    hud.innerHTML = `<span class="mono">(${fmt(c.x, 1)}, ${fmt(c.y, 1)})</span>${parts.join('')}<span><span class="k">pixel alpha</span> CPU ${fmt(A)} · GPU ${gpuA == null ? '—' : fmt(gpuA)} ${agree}</span>${dists}`;
+    const showRgb = state.rootClear[3] > 0 || state.regions.some(R => R.blend) || (state.layer && state.layer.blend) || state.surf;
+    hud.innerHTML = `<span class="mono">(${fmt(c.x, 1)}, ${fmt(c.y, 1)})</span>${parts.join('')}<span><span class="k">pixel ${showRgb ? 'rgba' : 'alpha'}</span> CPU ${showRgb ? rgbaStr(P) : fmt(P[3])} · GPU ${G == null ? '—' : showRgb ? rgbaStr(G) : fmt(G[3])} ${agree}</span>${surfPart}${dists}`;
   }
 
   // ---------- input ----------
@@ -957,10 +1419,11 @@
   function writeHash() { clearTimeout(hashTimer); hashTimer = setTimeout(() => { if (!state.rec) return; const q = new URLSearchParams(); q.set('tool', state.toolId); for (const k in GET) q.set(k, GET[k](state.rec)); q.set('cover', state.view.cover); q.set('bands', state.view.bands ? 'on' : 'off'); q.set('skin', state.view.skinRule ? 'evenodd' : 'nonzero'); q.set('outline', state.view.outline ? '1' : '0'); q.set('zoom', state.zoom.toFixed(3)); q.set('cx', state.center.x.toFixed(2)); q.set('cy', state.center.y.toFixed(2)); history.replaceState(null, '', '#' + q.toString()); }, 150); }
   function readHash() {
     const q = new URLSearchParams(location.hash.slice(1)); const tool = q.get('tool'); loadTool(tool || 'draw', !!tool);
-    for (const k in SET) if (q.has(k)) SET[k](state.rec, q.get(k));
+    for (const k in SET) if (q.has(k) && GET[k](state.rec) !== q.get(k)) SET[k](state.rec, q.get(k));
     if (q.has('cover')) state.view.cover = q.get('cover') === 'cells' ? 'cells' : 'bbox'; if (q.has('bands')) state.view.bands = q.get('bands') !== 'off'; if (q.has('skin')) state.view.skinRule = q.get('skin') === 'evenodd' ? 1 : 0;
     if (q.has('outline')) { state.view.outline = q.get('outline') === '1'; $('outline').checked = state.view.outline; }
     if (q.has('zoom')) state.zoom = clamp(parseFloat(q.get('zoom')) || 3, 0.05, 100); if (q.has('cx') && q.has('cy')) state.center = { x: parseFloat(q.get('cx')) || 64, y: parseFloat(q.get('cy')) || 64 };
+    if (q.has('at')) { const a = q.get('at').split(',').map(parseFloat); if (a.length === 2 && a.every(isFinite)) state.cursor = { x: a[0], y: a[1] }; }   // a deep-linked cursor, so a readout can be quoted: #…&at=64.5,64.5
     syncZoomUi(); applyRecord(state.rec);
   }
   readHash();
