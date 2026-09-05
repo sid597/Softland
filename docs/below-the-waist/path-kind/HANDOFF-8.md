@@ -59,6 +59,8 @@ All under `docs/below-the-waist/path-kind/`, committed on main (`ec5f3a5`).
 | `from-7-to-8.md` | Session 7's brief: the decided-versus-proposed ledger, the constructions and facts its page carried, pointers. |
 | `sources-7/` | Session 7's page (html and md) and its three hunt reports, verbatim. The page's figure 1 is the four-code-boxes composition now folded into ours. |
 | `bench-4/` | Session 4's Ink Bench, one WebGL2 file, and its handover with a verification note. Live at https://claude.ai/code/artifact/2f98a7e6-beb1-43df-9247-3974586256d6 . One path, three roads (today's triangles as a mirror of the tessellator, per pixel with one cover, per pixel with a cover per segment), the harness goldens by their own coordinates, both stroke rules at the cursor. Lift its shader when a definition needs to be seen. |
+| `from-0-sid-questions.md` | Session 0's cleaning of Sid's own questions from the morning, verbatim minus transcription noise, in his order: what he understood the path kind to be, why it is wrong, whether the best teams think this way. The starters for sessions 5 to 8 were distilled from this. |
+| `from-0-ranking.md` | Session 0's three ranking passes over the eight (initial, after peer critiques with the verified-error list, final under the exploration criterion), the settled and divergence lists, and the fix list that must not reopen the frame. |
 
 Elsewhere: recall holds Sid's morning session (2026-09-05 07:48 to 08:38, prompt uuids 7caba2dd, 255b8f3e, caca9242) where the three sources and the sweater were first said in his words. Memory has today's rulings: `feedback-exploration-rank-framing-over-correctness.md`, `feedback-cross-model-rankings-family-bias.md`, `feedback-durable-work-lands-in-docs-not-tmp.md`.
 
