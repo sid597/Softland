@@ -73,7 +73,7 @@
 </style>
 
 <div class="wrap">
-  <div class="eyebrow">Softland · client · path kind · 2026-09-06 · sessions 9, 8 and 7 folded, the definer's attack 1 folded</div>
+  <div class="eyebrow">Softland · client · path kind · 2026-09-06 · sessions 10, 9, 8 and 7 folded, the definer's attacks 1 and 2 folded, Sid's two late questions worked</div>
   <h1>The Path Kind</h1>
   <p class="lede prose">Ink strokes and shapes, read at the level of inputs and outputs: what the kind takes today, what comes out, and what the stored form of a stroke should be so that every 2D tool above the waist can be data. Exploration phase: framing and the whole picture first; details are a fix list.</p>
   <div class="fence">
@@ -92,122 +92,178 @@
     <dd>"yeah fuck the correctness and penalising it … framing and how to think is much more important in exploration phases."</dd>
     <dt>Ruled · about 17:10</dt>
     <dd>"its going to be 8 and 6" — the team. 8 holds the picture; 6 holds the definitions.</dd>
+    <dt>Said · 2026-09-06 about 02:00 · on session 9's recap (his words; not rulings, the picture's next work)</dt>
+    <dd>On clips, blend modes and layer stacks, told the page says "on top" while Vello and Skia carry them in one pipeline: "so then why we not doing it we should do this too imo" and "We should be ahead of everyone or at the very least adopt the best in field." On tools as data, told no 2D tool team does it: "Yeah i know thats why softland exists those tools are dinasarus". On the executor, told the precedent is Houdini and geometry nodes, one executor over a small set of code nodes: "ooooooo nice but one executor idk seems like the constraints and hard part would be getting them in line throughput seems small...." Session 10 worked the first and the third: Positions 9 and 8 are the answers, his to rule on.</dd>
     <dt>Not decided</dt>
-    <dd>Positions 1 to 7 at the end. Position 7, what a varying width means, is the open fork and is asked once, verbatim and timestamped. This morning's "three tiers" and "stroke is a fill of an offset region" were Claude's replies (uuids 6b009826, 28d31058, 418cb10c), not Sid's words.</dd>
+    <dd>Positions 1 to 9 at the end. Position 7, what a varying width means, is the open fork and is asked once, verbatim and timestamped. Positions 8 (the executor) and 9 (the compositor) are asked now, together, because his two late questions are theirs. This morning's "three tiers" and "stroke is a fill of an offset region" were Claude's replies (uuids 6b009826, 28d31058, 418cb10c), not Sid's words.</dd>
   </dl>
 
   <!-- ============ PICTURE: SHOULD BE ============ -->
   <h2><span class="tag pos">position</span>The path kind as it should be</h2>
-  <p class="prose">Two boundaries, not one. The kind's input is a path with a paint declaration. The kind's output is regions and answers. The waist is the line between data anyone can make and the four pieces of code that must exist once.</p>
+  <p class="prose">Two lines, not one. The waist is where the records stop and the executing starts: above it, data anyone can make; below it, a source stage of code whose general member is the executor. One step lower is the kind's input, a path with a paint declaration and an identity, and under it four pieces of code that exist once: the geometry, the packer, the filler and the compositor. Six pieces in all, each named by what comes out of it, and the list closes there: a path, a region, an answer, coverage, a surface, a record.</p>
 
   <figure>
     <div class="figwrap">
-    <svg viewBox="0 0 1180 640" role="img" aria-label="The path kind as it should be: four sources (pen, formula, designer, font) make a path of lines, quadratics and cubics with per-anchor attributes, beside a paint declaration of fill rule, stroke tip and colour; below the waist, the geometry turns path plus paint into regions, the swept-nib envelope filled nonzero; a packer and filler turn regions into coverage at the camera's tolerance, the filler shared with text; CPU answers come from the same path." font-family="Source Serif 4, Georgia, serif">
+    <svg viewBox="0 0 1290 790" role="img" aria-label="The path kind as it should be: five records above the waist (a pen burst, a formula, a designer's anchors or a vector network, a font file, a saved construction); below the waist a source stage of code (builder, generator, arrangement, reader, executor) makes the kind's value, a path with a paint declaration and an identity; under the value four pieces of code: the geometry that makes regions and answers, the packer, the filler shared with text, and the compositor that owns surfaces (clip, blend, layer, sample). The executor calls the geometry and the compositor and their results return to it." font-family="Source Serif 4, Georgia, serif">
       <defs>
         <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="currentColor"/></marker>
         <marker id="arr2A" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="acc-f"/></marker>
+        <marker id="arr2T" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="attn-f"/></marker>
       </defs>
-      <text x="16" y="24" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1" fill="currentColor" opacity="0.7">ABOVE THE WAIST — DATA. HUMANS AND AGENTS MAKE, EDIT, REUSE.</text>
+      <text x="16" y="24" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1" fill="currentColor" opacity="0.7">ABOVE THE WAIST — RECORDS. DATA HUMANS AND AGENTS MAKE, EDIT, REUSE.</text>
 
-      <rect x="16" y="40" width="250" height="84" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-      <text x="28" y="62" font-size="13" font-weight="600" fill="currentColor">pen</text>
-      <text x="28" y="82" font-size="11.5" fill="currentColor">pen down · samples (x, y, pressure, t) · pen up</text>
-      <text x="28" y="98" font-size="11.5" fill="currentColor">kept raw as the event that happened</text>
-      <text x="28" y="114" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">brush = data: width from pressure, smoothing, tip</text>
+      <rect x="16" y="36" width="246" height="76" rx="4" fill="none" class="attn-s" stroke-width="1.6"/>
+      <text x="28" y="58" font-size="13" font-weight="600" fill="currentColor">construction</text>
+      <text x="28" y="76" font-size="11.5" fill="currentColor">a saved recipe: steps, bindings, state</text>
+      <text x="28" y="92" font-size="11.5" fill="currentColor">a brush loop · a face choice · a formula</text>
+      <text x="28" y="106" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">data only because the executor runs it</text>
 
-      <rect x="300" y="40" width="250" height="84" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-      <text x="312" y="62" font-size="13" font-weight="600" fill="currentColor">formula</text>
-      <text x="312" y="82" font-size="11.5" fill="currentColor">rectangle = 4 lines · ellipse = 4 cubics</text>
-      <text x="312" y="98" font-size="11.5" fill="currentColor">star, arrow, rounded rect, tldraw / Figma sets</text>
-      <text x="312" y="114" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">keeps its radius; the template emits a path</text>
+      <rect x="280" y="36" width="196" height="76" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="292" y="58" font-size="13" font-weight="600" fill="currentColor">pen</text>
+      <text x="292" y="76" font-size="11.5" fill="currentColor">samples (x, y, pressure, t)</text>
+      <text x="292" y="92" font-size="11.5" fill="currentColor">kept raw: the event that happened</text>
+      <text x="292" y="106" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">brush = data: width from pressure</text>
 
-      <rect x="584" y="40" width="250" height="84" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-      <text x="596" y="62" font-size="13" font-weight="600" fill="currentColor">designer</text>
-      <text x="596" y="82" font-size="11.5" fill="currentColor">anchors + handles = cubics directly</text>
-      <text x="596" y="98" font-size="11.5" fill="currentColor">vector networks compile faces to paths</text>
-      <text x="596" y="114" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">the universal vector editing UI</text>
+      <rect x="492" y="36" width="196" height="76" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="504" y="58" font-size="13" font-weight="600" fill="currentColor">formula</text>
+      <text x="504" y="76" font-size="11.5" fill="currentColor">rect = 4 lines · ellipse = 4 cubics</text>
+      <text x="504" y="92" font-size="11.5" fill="currentColor">star, arrow, tldraw / Figma sets</text>
+      <text x="504" y="106" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">keeps its radius; emits a path</text>
 
-      <rect x="868" y="40" width="296" height="84" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-      <text x="880" y="62" font-size="13" font-weight="600" fill="currentColor">font file</text>
-      <text x="880" y="82" font-size="11.5" fill="currentColor">glyph outlines: quadratics (TrueType) or cubics (CFF)</text>
-      <text x="880" y="98" font-size="11.5" fill="currentColor">placed by the text kind's layout; banded offline today</text>
-      <text x="880" y="114" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">already the general object; enters the packer directly</text>
+      <rect x="704" y="36" width="206" height="76" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="716" y="58" font-size="13" font-weight="600" fill="currentColor">designer · network</text>
+      <text x="716" y="76" font-size="11.5" fill="currentColor">anchors + handles = cubics directly</text>
+      <text x="716" y="92" font-size="11.5" fill="currentColor">a network: vertices, edges, a seed</text>
+      <text x="716" y="106" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">its faces are an answer, not stored</text>
 
-      <line x1="141" y1="124" x2="141" y2="164" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr2)"/>
-      <text x="148" y="150" font-size="10.5" fill="currentColor">via the builder (code, below)</text>
-      <line x1="425" y1="124" x2="425" y2="164" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr2)"/>
-      <text x="432" y="150" font-size="10.5" fill="currentColor">generate</text>
-      <line x1="709" y1="124" x2="709" y2="164" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr2)"/>
-      <text x="716" y="150" font-size="10.5" fill="currentColor">edit</text>
-      <line x1="1016" y1="124" x2="1016" y2="164" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr2)"/>
-      <text x="1023" y="150" font-size="10.5" fill="currentColor">read</text>
+      <rect x="928" y="36" width="346" height="76" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="940" y="58" font-size="13" font-weight="600" fill="currentColor">font file</text>
+      <text x="940" y="76" font-size="11.5" fill="currentColor">glyph outlines: quadratics (TrueType), cubics (CFF)</text>
+      <text x="940" y="92" font-size="11.5" fill="currentColor">placed by the text kind; banded offline today</text>
+      <text x="940" y="106" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">already the general object</text>
 
-      <rect x="16" y="166" width="818" height="112" rx="4" fill="none" class="acc-s" stroke-width="2"/>
-      <text x="28" y="190" font-family="Bricolage Grotesque, sans-serif" font-size="16" font-weight="700" class="acc-f">PATH — the stored form, the general object</text>
-      <text x="28" y="214" font-size="12" fill="currentColor">subpaths, each a chain of segments: line · quadratic · cubic, open or closed; knots with stable ids</text>
-      <text x="28" y="232" font-size="12" fill="currentColor">per-knot attributes the stroke operation may read: width, opacity, pressure, time; later z</text>
-      <text x="28" y="250" font-size="12" fill="currentColor">lossless from every source: samples → spline → cubics exactly; handles = cubics; TrueType quads ⊂ cubics</text>
-      <text x="28" y="268" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">a circle is 4 cubics at 0.03% error; no arc or conic segment, so every stage below stays uniform; tolerance is never in the value</text>
+      <line x1="16" y1="132" x2="1274" y2="132" stroke="currentColor" stroke-width="1.5" stroke-dasharray="10 6"/>
+      <text x="16" y="147" font-family="JetBrains Mono, monospace" font-size="10.5" letter-spacing="1" fill="currentColor" opacity="0.7">THE WAIST · RECORDS ABOVE, CODE BELOW · THE SOURCE STAGE IS CODE</text>
 
-      <rect x="868" y="166" width="296" height="112" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-      <text x="880" y="190" font-family="Bricolage Grotesque, sans-serif" font-size="16" font-weight="700" fill="currentColor">PAINT — what to do with it</text>
-      <text x="880" y="214" font-size="12" fill="currentColor">fill? { rule nonzero | even-odd, colour }</text>
-      <text x="880" y="232" font-size="12" fill="currentColor">stroke? { tip: shape, size | per-knot width; cap; join;</text>
-      <text x="880" y="250" font-size="12" fill="currentColor">overlap: union; colour }  + identity: id, revision, group</text>
-      <text x="880" y="268" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">neither draws nothing; both = bordered shape. clip and blend sit above.</text>
+      <line x1="123" y1="112" x2="123" y2="150" class="attn-s" stroke-width="1.6" marker-end="url(#arr2T)"/>
+      <line x1="378" y1="112" x2="378" y2="184" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr2)"/>
+      <text x="385" y="170" font-size="10.5" fill="currentColor">builder</text>
+      <line x1="590" y1="112" x2="590" y2="184" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr2)"/>
+      <text x="597" y="170" font-size="10.5" fill="currentColor">generator</text>
+      <line x1="807" y1="112" x2="807" y2="184" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr2)"/>
+      <text x="814" y="170" font-size="10.5" fill="currentColor">copy · arrange, choose a face</text>
+      <line x1="1101" y1="112" x2="1101" y2="160" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="1101" y1="160" x2="890" y2="160" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="890" y1="160" x2="890" y2="184" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr2)"/>
+      <text x="1108" y="152" font-size="10.5" fill="currentColor">read</text>
 
-      <line x1="16" y1="316" x2="1164" y2="316" stroke="currentColor" stroke-width="1.5" stroke-dasharray="10 6"/>
-      <text x="16" y="340" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1" fill="currentColor" opacity="0.7">THE WAIST</text>
-      <text x="1164" y="340" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1" fill="currentColor" opacity="0.7" text-anchor="end">BELOW — FOUR PIECES OF CODE THAT EXIST ONCE</text>
+      <rect x="16" y="152" width="246" height="146" rx="4" fill="none" class="attn-s" stroke-width="2"/>
+      <text x="28" y="174" font-family="Bricolage Grotesque, sans-serif" font-size="15" font-weight="700" class="attn-f">EXECUTOR</text>
+      <text x="28" y="194" font-size="11.5" fill="currentColor">runs a record's construction:</text>
+      <text x="28" y="210" font-size="11.5" fill="currentColor">bindings · steps · state · each · return</text>
+      <text x="28" y="226" font-size="11.5" fill="currentColor">calls the pieces; their results bind back</text>
+      <text x="28" y="242" font-size="11.5" fill="currentColor">a vocabulary and an order; no interpreter</text>
+      <text x="28" y="258" font-size="11.5" fill="currentColor">per edit, per brush step, never per frame</text>
+      <text x="28" y="276" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">the evaluator (width from pressure) is its</text>
+      <text x="28" y="290" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">smallest member; a step can return the path</text>
+      <line x1="262" y1="230" x2="278" y2="230" class="attn-s" stroke-width="1.6" marker-end="url(#arr2T)"/>
 
-      <line x1="116" y1="278" x2="116" y2="366" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr2)"/>
-      <text x="124" y="300" font-size="10.5" fill="currentColor">path</text>
-      <line x1="330" y1="278" x2="330" y2="366" class="acc-s" stroke-width="2" marker-end="url(#arr2A)"/>
-      <text x="338" y="300" font-size="10.5" class="acc-f" font-weight="600">path</text>
-      <line x1="1016" y1="278" x2="1016" y2="298" stroke="currentColor" stroke-width="1.2"/>
-      <line x1="1016" y1="298" x2="620" y2="298" stroke="currentColor" stroke-width="1.2"/>
-      <line x1="620" y1="298" x2="620" y2="366" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr2)"/>
-      <text x="628" y="358" font-size="10.5" fill="currentColor">paint</text>
+      <rect x="280" y="186" width="630" height="112" rx="4" fill="none" class="acc-s" stroke-width="2"/>
+      <text x="292" y="210" font-family="Bricolage Grotesque, sans-serif" font-size="16" font-weight="700" class="acc-f">PATH — the stored form, the general object</text>
+      <text x="292" y="234" font-size="11.5" fill="currentColor">subpaths, each a chain of segments: line · quadratic · cubic, open or closed; knots with stable ids</text>
+      <text x="292" y="252" font-size="11.5" fill="currentColor">per-knot attributes the stroke may read: width, opacity, pressure, time; provenance from a construction</text>
+      <text x="292" y="270" font-size="11.5" fill="currentColor">lossless from every source: samples → spline → cubics; handles = cubics; TrueType quads ⊂ cubics; a face</text>
+      <text x="292" y="288" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">a circle is 4 cubics at 0.03% error; no arc or conic segment; tolerance is never in the value</text>
 
-      <rect x="16" y="368" width="216" height="110" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-      <text x="28" y="390" font-size="13" font-weight="600" fill="currentColor">answers, from the path</text>
-      <text x="28" y="410" font-size="11.5" fill="currentColor">classify(point, slop) · distance</text>
-      <text x="28" y="426" font-size="11.5" fill="currentColor">bbox · outline · flatten(τ)</text>
-      <text x="28" y="446" font-size="11.5" fill="currentColor">winding with curves, the CPU twin</text>
-      <text x="28" y="462" font-size="11.5" fill="currentColor">of the shader, same nib definition</text>
+      <rect x="928" y="186" width="346" height="112" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="940" y="210" font-family="Bricolage Grotesque, sans-serif" font-size="16" font-weight="700" fill="currentColor">PAINT + IDENTITY</text>
+      <text x="940" y="234" font-size="11.5" fill="currentColor">fill? { rule, colour, blend } · stroke? { tip, width + unit,</text>
+      <text x="940" y="252" font-size="11.5" fill="currentColor">cap, join, align, dash, overlap, colour, blend }</text>
+      <text x="940" y="270" font-size="11.5" fill="currentColor">clip? = a path + rule · identity: id, revision, group</text>
+      <text x="940" y="288" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">a group carries opacity, blend, clip; a layer = isolation</text>
 
-      <rect x="252" y="368" width="560" height="110" rx="4" fill="none" class="acc-s" stroke-width="2"/>
-      <text x="264" y="390" font-family="Bricolage Grotesque, sans-serif" font-size="15" font-weight="700" class="acc-f">PATH TYPE + GEOMETRY — the kind's output: regions</text>
-      <text x="264" y="412" font-size="12" fill="currentColor">path type: the value's grammar and ops — split, join, measure, ids; the builder: samples → cubics, appended live</text>
-      <text x="264" y="430" font-size="12" fill="currentColor">geometry: path + paint → one region per declaration; stroke = the swept nib's skin, union of discs of radius w(t)/2</text>
-      <text x="264" y="448" font-size="12" fill="currentColor">the skin folds over itself on the inside of every bend and join, so it is always filled nonzero: one region, painted once</text>
-      <text x="264" y="468" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">pure, camera-free, CPU-side; the triangulator dies, nonzero handles holes and overlaps</text>
+      <line x1="16" y1="326" x2="1274" y2="326" stroke="currentColor" stroke-width="1.5"/>
+      <text x="16" y="348" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1" fill="currentColor" opacity="0.7">THE KIND'S INPUT · PATH + PAINT + IDENTITY · THE VALUE EVERY SESSION TALKS ABOUT</text>
+      <text x="1274" y="348" font-family="JetBrains Mono, monospace" font-size="11" letter-spacing="1" fill="currentColor" opacity="0.7" text-anchor="end">BELOW — FOUR PIECES OF CODE THAT EXIST ONCE</text>
 
-      <rect x="868" y="368" width="296" height="110" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3"/>
-      <text x="880" y="390" font-size="13" font-weight="600" fill="currentColor">brushes, beside this kind</text>
-      <text x="880" y="410" font-size="11.5" fill="currentColor">accumulate = dabs as ordered regions through the same filler</text>
-      <text x="880" y="426" font-size="11.5" fill="currentColor">smudge = a brush that reads the surface: ordered state beside</text>
-      <text x="880" y="446" font-size="11.5" fill="currentColor">strokes are sources to both</text>
-      <text x="880" y="468" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">vector or raster ink is a decision Sid has not ruled</text>
+      <line x1="362" y1="298" x2="362" y2="370" class="acc-s" stroke-width="2" marker-end="url(#arr2A)"/>
+      <text x="370" y="316" font-size="10.5" class="acc-f" font-weight="600">path</text>
+      <line x1="1101" y1="298" x2="1101" y2="312" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="1101" y1="312" x2="700" y2="312" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="700" y1="312" x2="700" y2="370" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr2)"/>
+      <text x="708" y="362" font-size="10.5" fill="currentColor">paint</text>
 
-      <line x1="532" y1="478" x2="532" y2="518" class="acc-s" stroke-width="2" marker-end="url(#arr2A)"/>
-      <text x="540" y="503" font-size="10.5" class="acc-f" font-weight="600">regions: curves, consistently wound; no triangles, no bands, no zoom</text>
+      <rect x="16" y="372" width="246" height="110" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="28" y="394" font-size="13" font-weight="600" fill="currentColor">answers, from the same path</text>
+      <text x="28" y="412" font-size="11.5" fill="currentColor">classify · distance · bbox · outline</text>
+      <text x="28" y="428" font-size="11.5" fill="currentColor">evaluate · tangent · length · offset · flatten</text>
+      <text x="28" y="444" font-size="11.5" fill="currentColor">intersections (contacts, spans) · split</text>
+      <text x="28" y="460" font-size="11.5" fill="currentColor">arrangement · locate · face boundaries</text>
+      <text x="28" y="476" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">the CPU twin of the shader, same nib</text>
 
-      <rect x="868" y="520" width="296" height="96" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3"/>
-      <text x="880" y="542" font-size="13" font-weight="600" fill="currentColor">camera + group + DPR</text>
-      <text x="880" y="562" font-size="11.5" fill="currentColor">→ pixels per local unit, derived in ONE place</text>
-      <text x="880" y="578" font-size="11.5" fill="currentColor">the only per-frame input the packer needs</text>
-      <text x="880" y="604" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">today five places each decide "how big is a pixel"</text>
-      <line x1="868" y1="568" x2="814" y2="568" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr2)"/>
+      <rect x="280" y="372" width="630" height="110" rx="4" fill="none" class="acc-s" stroke-width="2"/>
+      <text x="292" y="394" font-family="Bricolage Grotesque, sans-serif" font-size="15" font-weight="700" class="acc-f">PATH TYPE + GEOMETRY — regions, and answers that return</text>
+      <text x="292" y="416" font-size="11.5" fill="currentColor">path type: the value's grammar and ops — split, join, measure, ids; the builder: samples → cubics, live</text>
+      <text x="292" y="434" font-size="11.5" fill="currentColor">geometry: path + paint → one region per declaration; stroke = the swept nib's skin, discs of radius w(t)/2</text>
+      <text x="292" y="452" font-size="11.5" fill="currentColor">the skin folds over itself at every bend and join, so it is filled nonzero: one region, painted once; dabs too</text>
+      <text x="292" y="472" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">pure, camera-free, CPU-side; the arrangement is an answer here, not a source; the triangulator dies</text>
 
-      <rect x="252" y="520" width="560" height="96" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
-      <text x="264" y="542" font-family="Bricolage Grotesque, sans-serif" font-size="15" font-weight="700" fill="currentColor">PACKER + FILLER — coverage → pixels</text>
-      <text x="264" y="562" font-size="12" fill="currentColor">packer: cubic → quad, cover cells, bands, at the camera's tolerance; new code, runs at pen-up, must be fast</text>
-      <text x="264" y="580" font-size="12" fill="currentColor">filler: coverage under a rule, per pixel, one resolve per region — the program the text lane already runs</text>
-      <text x="264" y="604" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">glyphs enter the packer directly; replaceable without touching anything above the waist</text>
+      <rect x="928" y="372" width="346" height="110" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <text x="940" y="394" font-size="13" font-weight="600" fill="currentColor">camera + group + DPR</text>
+      <text x="940" y="412" font-size="11.5" fill="currentColor">→ pixels per local unit, derived in ONE place</text>
+      <text x="940" y="428" font-size="11.5" fill="currentColor">the only per-frame input the packer needs</text>
+      <text x="940" y="444" font-size="11.5" fill="currentColor">a device-unit width: the envelope per scale</text>
+      <text x="940" y="460" font-size="11.5" fill="currentColor">snapping: the pack per frame</text>
+      <text x="940" y="476" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">today five places each decide "how big is a pixel"</text>
+
+      <line x1="595" y1="482" x2="595" y2="522" class="acc-s" stroke-width="2" marker-end="url(#arr2A)"/>
+      <text x="603" y="507" font-size="10.5" class="acc-f" font-weight="600">regions: curves, consistently wound; no triangles, no bands, no zoom</text>
+      <line x1="928" y1="540" x2="912" y2="540" stroke="currentColor" stroke-width="1.2" marker-end="url(#arr2)"/>
+
+      <rect x="16" y="524" width="246" height="96" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <text x="28" y="546" font-size="13" font-weight="600" fill="currentColor">surfaces are values</text>
+      <text x="28" y="564" font-size="11.5" fill="currentColor">id, revision, resolution, a texel map</text>
+      <text x="28" y="580" font-size="11.5" fill="currentColor">a paint returns a new revision; the one</text>
+      <text x="28" y="596" font-size="11.5" fill="currentColor">read stays; a replay starts from the start</text>
+      <text x="28" y="612" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">the GPU target is execution, replaceable</text>
+
+      <rect x="280" y="524" width="630" height="96" rx="4" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <text x="292" y="546" font-family="Bricolage Grotesque, sans-serif" font-size="15" font-weight="700" fill="currentColor">PACKER + FILLER — coverage per pixel</text>
+      <text x="292" y="566" font-size="11.5" fill="currentColor">packer: cubic → quad, cover cells, bands, at the camera's tolerance; new code, runs at pen-up, must be fast</text>
+      <text x="292" y="584" font-size="11.5" fill="currentColor">filler: coverage under a rule, per pixel, one resolve per region — the program the text lane already runs</text>
+      <text x="292" y="608" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">glyphs enter the packer directly; a clip's curves and bands ride in the same draw</text>
+
+      <rect x="928" y="524" width="346" height="96" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <text x="940" y="546" font-size="13" font-weight="600" fill="currentColor">today, the middle</text>
+      <text x="940" y="564" font-size="11.5" fill="currentColor">the filler is text's, wrapped in glyph packing</text>
+      <text x="940" y="580" font-size="11.5" fill="currentColor">no packer in the client; fonts banded offline</text>
+      <text x="940" y="596" font-size="11.5" fill="currentColor">the path lane: triangles at zoom bands, no coverage</text>
+      <text x="940" y="612" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">only the harness calls any of it</text>
+
+      <line x1="595" y1="620" x2="595" y2="660" class="acc-s" stroke-width="2" marker-end="url(#arr2A)"/>
+      <text x="603" y="645" font-size="10.5" class="acc-f" font-weight="600">coverage × colour, per region, in order</text>
+
+      <rect x="280" y="662" width="630" height="110" rx="4" fill="none" class="attn-s" stroke-width="2"/>
+      <text x="292" y="684" font-family="Bricolage Grotesque, sans-serif" font-size="15" font-weight="700" class="attn-f">COMPOSITOR — surfaces</text>
+      <text x="292" y="704" font-size="11.5" fill="currentColor">paint(surface, region, paint, clips, blend) → surface · sample(surface, point) → colour · filter, later</text>
+      <text x="292" y="722" font-size="11.5" fill="currentColor">a clip's coverage multiplies in the same draw · a blend reads the backdrop under the region · a layer is a</text>
+      <text x="292" y="740" font-size="11.5" fill="currentColor">surface painted as a region into its parent, only when the group needs isolation · the screen is the root</text>
+      <text x="292" y="762" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">a painting surface is retained at its own resolution and advances per brush step; a camera move only presents it</text>
+
+      <rect x="928" y="662" width="346" height="110" rx="4" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="4 3"/>
+      <text x="940" y="684" font-size="13" font-weight="600" fill="currentColor">today, the compositor</text>
+      <text x="940" y="702" font-size="11.5" fill="currentColor">engine/compositor.cljs: a target pool (512 MiB),</text>
+      <text x="940" y="718" font-size="11.5" fill="currentColor">a present pass; region3d's quad composite</text>
+      <text x="940" y="734" font-size="11.5" fill="currentColor">a scissor rect per draw; no clip by a path,</text>
+      <text x="940" y="750" font-size="11.5" fill="currentColor">no blend mode, no group opacity, no compute</text>
+      <text x="940" y="766" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">a group is a transform node only (CHECKED)</text>
+
+      <line x1="271" y1="298" x2="271" y2="717" class="attn-s" stroke-width="1.4" stroke-dasharray="5 4" marker-start="url(#arr2T)" marker-end="url(#arr2T)"/>
+      <line x1="271" y1="427" x2="279" y2="427" class="attn-s" stroke-width="1.4"/>
+      <text x="16" y="786" font-size="11" class="attn-f">◯ the loop (the definer's attack 2): answers return to the construction; a paint goes into a surface; a sample reads it before the next dab. Orange is what session 10 added.</text>
     </svg>
     </div>
-    <figcaption><b>Should be.</b> Four sources make one camera-free value: path plus paint plus identity. Below the waist, four pieces of code: the path type, the geometry that makes regions, the packer that lowers them at the camera's tolerance, and the filler the text kind already runs. Answers come from the same path with the same nib definition, so CPU and GPU agree on membership by construction; boundary distance and coverage are compared at a declared error. Brushes sit beside, not inside: ordered dabs through the same filler, surface state only for brushes that read the surface.</figcaption>
+    <figcaption><b>Should be.</b> Five kinds of record make one camera-free value: path plus paint plus identity. The waist is one step above the value: records are data, the source stage is code, and the executor is that stage's general member, running a saved construction and binding what the pieces return. Under the value, four pieces of code: the geometry that makes regions and answers, the packer that lowers them at the camera's tolerance, the filler the text kind already runs, and the compositor that owns surfaces, where a clip, a blend, a layer and a brush's read are one contract. Nothing sits "on top"; nothing sits "beside".</figcaption>
   </figure>
 
   <!-- ============ STORY ============ -->
@@ -225,9 +281,11 @@
     <li>Text already lives in the model: outlines stored once as curves, coverage per pixel. Its shader knows nothing about glyphs. What it lacks is a packer in the client and the stroke operation.</li>
     <li>The imaging model is the right language for the output and the wrong language for storing ink: its stroke has one width and a pen has one per sample. PostScript's stroke is the swept tip that never changes.</li>
     <li>Where the model is only a default: brushes that darken where they overlap, which are ordered dabs through the same filler, with surface state beside only for brushes that read the surface; crisp one-pixel UI borders, a snapping policy; very long thin strokes, a cover policy.</li>
-    <li>Four pieces of code must exist under the value: the path type, the geometry, the packer, the filler; text's filler is that filler. Beside the sources sits a fifth, an evaluator, so that a pen's response or a shape's formula can be data instead of a new generator. Everything else is data: tools, brushes, tips, shape sets, fill rules.</li>
-    <li>The contract, then. In: path, paint, identity. Out: regions to the filler, and answers from the same path: hit, distance, bounds, outline, flatten.</li>
-    <li>If the stored form changes, these change with it: the grammar, the answers, the envelope builder, the cache keys, both lanes that draw ink, the harness, and a builder and a band packer that do not exist yet.</li>
+    <li>Six pieces of code exist once, and the count is closed because each is named by its output. Above the value, the source stage: builder, generator, arrangement, reader, and the executor that runs a saved construction. Under it: the geometry (regions and answers), the packer, the filler text already runs, and the compositor (surfaces). Everything else is data: tools, brushes, tips, shape sets, fill rules, clips, layers, recipes.</li>
+    <li>Clips, blend modes and layers are not on top of the picture; they are the compositor's contract. A clip is a region whose coverage multiplies in the same draw; a blend reads the backdrop under the region; a layer is a surface a group paints into and then paints as one region into its parent, allocated only when the group needs isolation. The screen is the root surface. A brush that reads what it painted calls the same surface. That is what the best pipelines carry in one pass, and the tree already has half of it: a target pool, a present pass, region3d's quad composite.</li>
+    <li>The executor is a vocabulary and an order, not one interpreter. It moves values between capabilities and keeps the sequence a construction declares; every heavy thing happens inside a capability, per pixel on the GPU or per point in native code, and instances are many. The one thing that serializes is a surface read before it is written, and that is the compositor's, bounded to brushes that read.</li>
+    <li>The contract, then. In: path, paint (with a clip, a blend, the group's opacity), identity; beside it a construction's bindings and, for a tool that reads paint, a surface with a resolution. Out: regions to the filler, surfaces from the compositor, and answers from the same path: hit, distance, bounds, outline, flatten, evaluate, intersections, the arrangement.</li>
+    <li>If the stored form changes, these change with it: the grammar, the answers, the envelope builder, the cache keys, both lanes that draw ink, the harness, the group record and the engine's compositor, and a builder, a band packer and an executor that do not exist yet.</li>
   </ol>
 
   <!-- ============ CONTRACT ============ -->
@@ -242,8 +300,8 @@
   knot attributes?   width, opacity, pressure, time   (per knot, optional)
   knot ids           stable, so split and join keep identity
 
-paint                two independent declarations
-  fill?              { rule nonzero | even-odd, colour }
+paint                two independent declarations, and what the compositor reads
+  fill?              { rule nonzero | even-odd, colour, blend? }
   stroke?            { tip { construction nib | ribbon, shape,
                              size | per-knot width | width fn(pressure, s),
                              unit local | device },
@@ -251,14 +309,22 @@ paint                two independent declarations
                        align center | inside | outside,   (closed paths)
                        dash? [on, off, phase],
                        overlap union | accumulate { spacing },
-                       colour }
+                       colour, blend? }
+  clip?              { path, rule }   a region with no paint; its coverage multiplies
   neither            draws nothing; both = bordered shape
 
 identity             material id, revision, container (group id)
+group                { transform, opacity?, blend?, clip?, isolate? }
+                     a layer is a group that needs isolation; nothing else costs a target
+
+beside the value, never inside it (the definer, attack 2)
+  construction?      { bindings, steps, state, each, return }  run by the executor
+  surface?           { id, revision, width, height, local→texel map, initial }
+                     only for a tool that reads paint; the record names the revision it reads
 tolerances           three, none in the value: the source's fit (in the
                      record), a consumer's request (a parameter of the
                      answers), the device's (the packer's)</pre>
-      <p style="margin-top:10px;font-size:14.5px;color:var(--muted)">Open path plus fill: the fill closes it implicitly, as PostScript does. Open or closed matters only to the stroke: whether a closing segment is drawn and whether the start gets caps or a join. A varying width means the swept round nib: the region is the union of discs of radius w(t)/2. Today's rule, perpendicular distance to the nearest centerline point against the width there, is a ribbon with end discs, an approximation that diverges at every taper. Width has a unit: a width in device pixels keeps the value camera-free but makes the envelope a per-scale quantity (session 9, the border walk). Alignment and dash are declarations the pen tools of the field carry; both are operations on the same path (bench 9). A nonlinear response is not the linear interpolation of endpoint widths (the definer, attack 1: interpolate the pressure, then square it); so the stroke may carry the width as a function of the interpolated source attribute, evaluated where the geometry needs it, and per-knot widths are the constant-between-knots case. Accumulate names ordered dabs, each a region through the same filler, painted in order; union names one region painted once.</p>
+      <p style="margin-top:10px;font-size:14.5px;color:var(--muted)">Open path plus fill: the fill closes it implicitly, as PostScript does. Open or closed matters only to the stroke: whether a closing segment is drawn and whether the start gets caps or a join. A varying width means the swept round nib: the region is the union of discs of radius w(t)/2. Today's rule, perpendicular distance to the nearest centerline point against the width there, is a ribbon with end discs, an approximation that diverges at every taper. Width has a unit: a width in device pixels keeps the value camera-free but makes the envelope a per-scale quantity (session 9, the border walk). Alignment and dash are declarations the pen tools of the field carry; both are operations on the same path (bench 9). A nonlinear response is not the linear interpolation of endpoint widths (the definer, attack 1: interpolate the pressure, then square it); so the stroke may carry the width as a function of the interpolated source attribute, evaluated where the geometry needs it, and per-knot widths are the constant-between-knots case. Accumulate names ordered dabs, each a region through the same filler, painted in order; union names one region painted once. A clip is a path with a rule and no paint (session 10); the group's opacity, blend and clip are the layer stack's data, and a layer exists only when a group needs isolation: a translucency over overlapping children, a blend, a mask on the composite rather than on each child. A surface is a value beside the path, never inside it: an id, a revision, a resolution and a map; a construction that reads paint names which revision it reads (attack 2). No GPU handle enters any value.</p>
     </div>
     <div class="lift">
       <h3>Out: two kinds of answer</h3>
@@ -267,8 +333,14 @@ tolerances           three, none in the value: the source's fit (in the
                      (boundary cells and interior cells)
   curves             quadratics in local units, consistently wound
   bands              per row and per column: which curves cross it
-  instance row       paint, group index, rule
+  instance row       paint, group index, rule, blend, the group's clip chain
   ⇒ one coverage draw, resolved once, valid at any zoom
+
+to and from the compositor (surfaces)
+  paint(surface, region, paint, clips, blend) → surface   a new revision
+  sample(surface, point, filter) → colour                 the backdrop; a brush's read
+  a layer = a surface painted as a region into its parent; the screen is the root
+  filter(surface, kernel) → surface                       effects, later
 
 to the CPU / other kinds
   classify(point, slop) → :inside | :boundary | :outside
@@ -279,11 +351,19 @@ to the CPU / other kinds
                      is the inside or outside stroke (session 9)
   evaluate(t), tangent(t), length ↔ t    dashes, dabs, text on a path,
                      arrow caps (session 9; the definer, attack 1)
-  intersections(a, b) → (seg, t, seg, t)   the crossing edit, faces
+  intersections(a, b) → contacts* (seg, t, seg, t, crossing | touch)
+                       + spans* ([seg, t0, t1] ↔ [seg, t1', t0'])   (attack 2)
+  arrange(curves, coincidence) → the arrangement: pieces with source
+                     intervals, half-edges ordered around vertices, faces
+                     with boundary loops and holes, the unbounded face
+  locate(arrangement, point, on-boundary) → a face | the boundary location
+  face-boundaries(arrangement, face) → a path with provenance
   split(seg, t) with an id map             so a split keeps identity
   flatten(τ)         polyline or triangles, for mesh consumers; keeps
-                     which segment and parameter each point came from</pre>
-      <p style="margin-top:10px;font-size:14.5px;color:var(--muted)">The GPU output is the shape of what the text renderer already uploads per glyph: a rect, curve and band data, a 100-byte instance row (CHECKED). The kind never emits anything that depends on the camera; the packer derives tolerance from camera, group and DPR itself. Membership (winding under the rule) is one definition shared by every implementation; boundary distance and pixel coverage are approximations of it, each compared against it at a declared error (the definer, attack 1). Answers return to constructions, not only to the renderer: a saved construction measures, splits, intersects and reuses before deciding to draw.</p>
+                     which segment and parameter each point came from
+  dab packets        x, y, r, arc length, s, source segment + parameter,
+                     pressure: what a recipe reads per dab (attack 2)</pre>
+      <p style="margin-top:10px;font-size:14.5px;color:var(--muted)">The GPU output is the shape of what the text renderer already uploads per glyph: a rect, curve and band data, a 100-byte instance row (CHECKED). The kind never emits anything that depends on the camera; the packer derives tolerance from camera, group and DPR itself. Membership (winding under the rule) is one definition shared by every implementation; boundary distance and pixel coverage are approximations of it, each compared against it at a declared error (the definer, attack 1). Answers return to constructions, not only to the renderer: a saved construction measures, splits, intersects and reuses before deciding to draw. The compositor's two operations are one contract for a clip, a blend, a layer and a brush that reads: paint and sample, the definer's surface interface (Position 9; bench 9 runs all four through them). Intersections return contacts and overlapping spans; the arrangement is an answer the geometry returns to a construction, which chooses the face by its own policy, a seed, an area, a neighbour (attack 2; bench 9's two network fixtures).</p>
     </div>
   </div>
 
@@ -292,9 +372,10 @@ to the CPU / other kinds
   <table>
     <thead><tr><th>Changes…</th><th>Values</th><th>Where it may live</th><th>Today</th></tr></thead>
     <tbody>
-      <tr><td class="k">per edit</td><td>path, paint, source record, identity</td><td>CPU; stored; uploaded once</td><td>stored as samples; cached triangles per zoom band</td></tr>
+      <tr><td class="k">per edit</td><td>path, paint, source record, identity; the arrangement, by its dependency graph (a moved vertex re-splits its partners' edges; a face choice reuses unchanged topology)</td><td>CPU; stored; uploaded once</td><td>stored as samples; cached triangles per zoom band</td></tr>
+      <tr><td class="k">per brush step</td><td>a painting surface's content: each paint is a new revision; a committed dab is never re-applied by a frame; a pressure edit on an earlier dab replays from the start or a checkpoint (attack 2)</td><td>the compositor's retained surface, at its declared resolution; the CPU twin composites the same way</td><td>nothing: no brush, no surface, no read of a target anywhere</td></tr>
       <tr><td class="k">per camera scale</td><td>flattening tolerance, cubic→quad lowering, bands, cover cells; the envelope of a stroke whose width is in device pixels</td><td>the packer's cache, keyed on projected error from the full transform</td><td>three hand-set bands; only cap roundness changes; whole frame repacked on a crossing</td></tr>
-      <tr><td class="k">per frame</td><td>transform, coverage; snapping to the device grid when declared (it depends on the pan)</td><td>GPU, in practice; snapping is a repack of a small path at frame rate</td><td>zoom and pan already a 24-byte camera write</td></tr>
+      <tr><td class="k">per frame</td><td>transform, coverage; snapping to the device grid when declared (it depends on the pan); a layer's surface when a group needs isolation (transient, the group's cover); a backdrop copy under each blended region</td><td>GPU, in practice; snapping is a repack of a small path at frame rate; layers from the target pool</td><td>zoom and pan already a 24-byte camera write; a target pool with a 512 MiB budget and region3d's per-lease MSAA targets (CHECKED)</td></tr>
     </tbody>
   </table>
   </div>
@@ -385,7 +466,7 @@ to the CPU / other kinds
       <text x="808" y="503" font-size="11" font-style="italic" opacity="0.7" fill="currentColor">it drew all three without knowing which was which</text>
 
       <text x="16" y="556" font-size="11.5" fill="currentColor"><tspan class="attn-f" font-weight="600">◯ circled</tspan>: needed by one of the three tools and not on the page before this session. Everything else was already a named piece or a named capability.</text>
-      <text x="16" y="578" font-size="11.5" fill="currentColor">Not on the bench yet: a clip by a path (the mask), arrow caps (a shape placed along the tangent), a vector network's faces (a construction over intersections and splits), a surface-reading brush.</text>
+      <text x="16" y="578" font-size="11.5" fill="currentColor">On the bench since session 10: a clip by a path, a surface-reading brush (the definer's record), a vector network's faces (an arrangement). Not yet: arrow caps (a shape placed along the tangent).</text>
     </svg>
     </div>
     <figcaption><b>The test.</b> Three records above, one code pipeline below. The value in the middle is what the definer and the composer meet at. The source stage is code and sits above the kind: the waist is not the kind's input, it is one step higher, where the records stop and the executing starts.</figcaption>
@@ -420,9 +501,12 @@ to the CPU / other kinds
       <tr><td>width in device pixels → envelope per scale</td><td class="k">geometry, at the packer's rate</td><td>border</td><td><b>not named</b>; "camera-free" stated without the unit</td><td>yes; the rate badge moves from per edit to per scale</td></tr>
       <tr><td>snap knots to the device grid</td><td class="k">packer · per frame</td><td>border</td><td>named as a policy on the paint or group</td><td>yes; the repack runs on every camera move and says so</td></tr>
       <tr><td>coverage under a rule, one resolve per region</td><td class="k">filler</td><td>all</td><td>named</td><td>the tree's shader</td></tr>
-      <tr><td>clip by a path (a mask)</td><td class="k">compositor, or the filler with a second region</td><td>pen tool's "use as mask"</td><td>named as "on top"</td><td>no</td></tr>
+      <tr><td>clip by a path (a mask)</td><td class="k">compositor · in the filler's own draw</td><td>pen tool's "use as mask"</td><td>named as "on top"</td><td>yes (session 10): the clip's curves and bands ride in the same draw; coverage × clip coverage, per pixel; no mask texture</td></tr>
+      <tr><td>blend against the backdrop (multiply, screen …)</td><td class="k">compositor · sample under the region</td><td>painting apps; Figma's blend modes</td><td>named as "on top"</td><td>yes (session 10): a copy of the target under the region, read by the program; over transparent nothing every mode is over</td></tr>
+      <tr><td>a group with an opacity or a blend: a layer</td><td class="k">compositor · a surface painted as a region</td><td>every layer stack</td><td>named as "on top"</td><td>yes (session 10): a second surface, then one region into the root; 24 dabs at full alpha in a layer at 0.62 read 0.62 at the crossing</td></tr>
+      <tr><td>a brush that reads the paint under each dab, mixes, deposits</td><td class="k">executor · compositor.sample, compositor.paint</td><td>the definer's pickup brush; smudge</td><td><b>"surface state beside"</b>, unnamed</td><td>yes (session 10): attack 2's record verbatim, on the GPU and on a CPU twin; dab 19's sample and carry equal on both</td></tr>
       <tr><td>arrow caps: a shape placed at the end along the tangent</td><td class="k">geometry · tangent(t)</td><td>pen tool</td><td><b>not named</b></td><td>no</td></tr>
-      <tr><td>vector-network faces</td><td class="k">a source compiler</td><td>pen tool's fill by face</td><td>"above the kind"</td><td>no; code if ever wanted, and out of the kind</td></tr>
+      <tr><td>vector-network faces</td><td class="k">geometry · arrangement, locate; the executor chooses the face</td><td>pen tool's fill by face</td><td>"above the kind"</td><td>yes (session 10): attack 2's record verbatim; lines exact, curve crossings refined on the true curves; the face is an answer, the choice is the record's seed</td></tr>
     </tbody>
   </table>
   </div>
@@ -449,8 +533,32 @@ to the CPU / other kinds
   </table>
   </div>
 
+  <h3>The definer's attack 2, folded</h3>
+  <p class="prose">Two constructions the first walk could not run: a brush that reads the paint under each dab, and a network whose faces are discovered, not stored (<code>attack-2.md</code>). The definer executed both in Node against the bench's own functions and wrote the numbers. Session 10 made both run on the bench itself, verbatim, and folded every finding at full weight.</p>
+  <div class="tablewrap">
+  <table>
+    <thead><tr><th>Finding</th><th>Definer (attack 2)</th><th>On the page and the bench now</th></tr></thead>
+    <tbody>
+      <tr><td>The fifth piece executes a construction with named inputs, outputs and state, and calls into the host</td><td>Position A: the brush's three-step loop cannot run in a scalar evaluator; <code>execute(recipe, inputs, state) → results + next state</code></td><td>Position 8 rewritten as the executor; bench 9 runs a sixty-line one over a capability table, the definer's records unchanged, the brush on two hosts</td></tr>
+      <tr><td>A surface interface beside geometry: sample and paint, with resolution, coordinates, content and an order</td><td>Position B: the same dab boundaries give different colours solely because the read version differs</td><td>Position 9: that interface is the compositor, and it is the same piece a clip, a blend and a layer need; the "brushes beside" box is gone from figure 1</td></tr>
+      <tr><td>The arrangement as a reusable geometry result; face selection as an editable caller</td><td>Position C: intersections and splits must become incidence, order, cycles and faces before a caller can choose</td><td>the answers: arrange, locate, face-boundaries; the seed is the record's policy; bench 9: 4 faces of 2400, then 6 faces of 3800, 900, 3800, 900, 100, 100 with the cubic edge, the boundary alternating L and C</td></tr>
+      <tr><td>Authored sources, logical results and execution resources kept distinct; materialize what the next operation needs</td><td>Position D: pixels, or a replayable history; the framebuffer handle is replaceable</td><td>"surfaces are values" in figure 1; the bench's CPU host copies on paint and its GPU host paints in place, and the handover names where they would differ</td></tr>
+      <tr><td>"Pen anchors already are a path" is scoped to a contour</td><td>a network has an authored graph and an executing construction before a boundary exists</td><td>the source row of figure 1: designer · network; the waist-test table's network row</td></tr>
+      <tr><td>Intersections must return contacts and overlapping spans; splits carry provenance; tangencies and ties in the tangent order are geometric work</td><td>the CA-copy edge (one geometric edge, two owners) and the touching quadratic</td><td>the answers; bench 9 merges exactly coincident edges and keeps partial spans, tangencies and ties on the fix list, said so on its panel</td></tr>
+      <tr><td>Dab packets carry the source location and attributes; the width function is evaluated at the dab, not interpolated between evaluated widths</td><td>dab 4 with size·p²: 4.677200212096 at the dab, 4.801338939016 interpolated</td><td>fixed on the bench (4.677200212096); the dab-packet line in the answers</td></tr>
+      <tr><td>An unconsumed field or an unknown operation is a finding; an empty drawing is not the tool having run</td><td>the Node check: the surface and program fields changed nothing; <code>read</code> was an unknown function</td><td>bench 9 lists the fields nobody read under the record and stops at an unknown operation, painting nothing</td></tr>
+      <tr><td>Rates: a surface advances with brush steps or an explicit replay; presentation with the camera; a committed operation is never re-applied by a frame</td><td>the rates paragraph</td><td>the axis table's per-brush-step row; the bench counts presentations since the run</td></tr>
+      <tr><td>The GPU route must keep an ordered read-before-write and never bind the target as its own input</td><td>the WebGL feedback rule; a copy or separate resources per pass</td><td>the bench copies the backdrop under the region on its own texture unit; the carry-on-GPU route is on the fix list</td></tr>
+    </tbody>
+  </table>
+  </div>
+
   <h3>What this changes on the page, and what it only costs</h3>
   <ul class="tight prose">
+    <li><b>A sixth piece, the compositor (session 10, Position 9).</b> Under the filler in figure 1. Its two operations, paint and sample, are the contract for a clip, a blend, a layer and a brush that reads; "on top" and "beside" both leave the page. The attack row, the fork table's new column, the cascade's new row and the axis table's new row carry it.</li>
+    <li><b>Position 8 rewritten as the executor.</b> A vocabulary, an order and compiled expressions; instances many; Sid's two worries placed. The construction is a fifth kind of record above the waist in figure 1, and the waist itself is drawn where session 9 put it, above the source stage.</li>
+    <li><b>The contract gains clip, blend and the group's fields; the surface and the construction sit beside it; the answers gain the arrangement, contacts and spans, and the dab packet.</b> Edited in the contract block above.</li>
+    <li><b>From attack 2's fix list, carried.</b> Partial overlapping spans, tangent contacts that do not cross, ties in the tangent order, holes in general (the bench assigns them by containment), state and replay dependencies (a paint on an old revision differs between the bench's two hosts), the carry-on-GPU route, layers allocated at the group's cover rather than the target's size, a group mask on a soft edge versus clipping each child. Renderer cost claims stay apart from these constructions.</li>
     <li><b>The contract gains a unit and two fields.</b> Stroke width carries <code>unit local | device</code>; the stroke declaration carries <code>align</code> and <code>dash</code>. The answers gain <code>offset(path, d)</code>, <code>length</code> and <code>tangent(t)</code>. Edited in the contract block above.</li>
     <li><b>A fifth piece, beside the sources.</b> The evaluator. Position 8 below names it and the three doors it could be.</li>
     <li><b>Rates, made honest.</b> A device-unit stroke's envelope is per scale; snapping is per frame. Both rows of the axis table gain the entry. The value stays camera-free either way; that claim was about the wrong stage.</li>
@@ -558,7 +666,7 @@ to the CPU / other kinds
       <tr><td>Fill covers the inside under nonzero or even-odd.</td><td class="v">HOLDS</td><td>The text shader accumulates signed crossings, which is nonzero by construction; even-odd is the parity of the same count, one line in the shader (DERIVED from text/renderer.cljs:215-251). Today's path fill has no rule at all and cannot take a self-crossing ring (CHECKED).</td></tr>
       <tr><td>Stroke is the fill of the region within half the width of the centerline, with cap and join.</td><td class="v">SHORT</td><td>That stroke has one width; a pen stroke has a width per knot. The general object is the envelope of a tip swept along the path, attributes varying along it; PostScript's stroke is the round tip at constant size. Every ink system does this: tldraw's perfect-freehand builds the envelope polygon, Google's Ink API sweeps a brush tip into a mesh, PencilKit interpolates per-point size along a B-spline (FIELD). Today's tessellator is already a variable-width envelope builder (CHECKED tessellation.cljc:211-268). And "curve plus varying width" still names two regions: a ribbon offset perpendicular to the centerline, or the union of discs of radius w(t)/2 swept along it. Today's CPU classify projects the point onto the segment and reads the width at that foot (CHECKED component.cljc:176-190), which is the ribbon; its docstring says it is not an exact solver for tapered outlines. Counterexample: centerline (0,0) to (10,0), radius 1 to 4, point (5, 2.6) is outside by the projection rule and inside the disc at (6,0). The two must be told apart before CPU and GPU can agree by construction. Position 7 picks the nib.</td></tr>
       <tr><td>Boundary and fill are independent declarations; the code must not presume fill.</td><td class="v">HOLDS</td><td>With one precision: the envelope is always filled nonzero, because the skin of a curved or turning stroke overlaps itself on the inside of every bend and at every join, and nonzero is what turns those pieces into one region. This lets the envelope builder skip the boolean, not the orientation: it must emit consistently wound pieces, and then the rule does the union; obtaining such pieces is the builder's job (the definer, attack 1), and bench 9's tracer does it by folding inner joins through the pivot. Even-odd on a stroke skin would punch holes. The interior takes whatever rule the fill declares.</td></tr>
-      <tr><td>Paint and compositing (clips, blends) sit on top.</td><td class="v">DEFAULT</td><td>Holds for the union semantic: one region, painted once. The painting-app semantic where a translucent stroke darkens where it crosses itself is not a second rasteriser: it is ordered dabs, each a region through the same filler, painted in order (the definer, attack 1; bench 9's "the crossing, as dabs": twenty-four dabs on the harness Z, two on the crossing, alpha 0.62 + 0.38 × 0.62 = 0.8556). What does need more is a brush that reads the surface it paints on (smudge, wet edges): an ordered surface operation with state that survives, beside the geometry (Procreate, Krita; FIELD). Condition: if such brushes become first-class, that surface lane joins, sharing the compositor's offscreen targets; the filler is unchanged either way.</td></tr>
+      <tr><td>Paint and compositing (clips, blends) sit on top.</td><td class="v">HOLDS as declarations; SHORT as a placement</td><td>As declarations, yes: a clip, a blend mode and a group's opacity are separate from the boundary and the fill, and PDF 1.4's transparency model already carries all three (FIELD). As a placement on this page, "on top" was wrong, and Sid said so (2026-09-06, about 02:00): nothing composites after the pieces. The compositor is a piece, the last three lines of the filler's program plus surfaces (bench 9, session 10): a clip is a region whose coverage multiplies in the same draw, from its own curves and bands; a blend reads a copy of the backdrop under the region; a layer is a surface painted as a region into its parent, allocated only when a group needs isolation. The painting-app semantic where a translucent stroke darkens where it crosses itself is ordered dabs through the same filler (attack 1; alpha 0.8556 at the crossing), and the same dabs at full alpha in a layer at 0.62 read 0.62 again, which is how painting apps make a translucent stroke flat; three numbers at one pixel on the bench. A brush that reads the surface (smudge, the definer's pickup) is not a second lane: it is a construction calling the compositor's sample before each paint (attack 2; bench 9 runs it on the GPU and on a CPU twin). Condition: on the compute road all of this becomes a per-tile clip stack and blend stack inside one dispatch (Vello; FIELD); the contract does not change.</td></tr>
       <tr><td>Resolution independent: exact at every zoom.</td><td class="v">DEFAULT</td><td>Right for an infinite canvas. UI libraries want a one-pixel border to be one crisp pixel, and analytic coverage at a fractional position gives two grey pixels instead. Every UI renderer carries a pixel-snapping policy the model is silent on (FIELD). Condition: the day a UI library is built above this kind, snapping becomes a declared option on the group or the paint, not a change to the filler.</td></tr>
       <tr><td>The model is exact.</td><td class="v">DEFAULT</td><td>Circles and arcs are not Béziers; a rounded rectangle's corners are approximations at a declared error. The envelope of a cubic is not a Bézier either, its offset is degree ten (FIELD). So a tolerance exists somewhere in every route. Position: it lives in the packer and the flattener as a parameter, never in the stored value.</td></tr>
       <tr><td>The model says how to draw.</td><td class="v">SHORT</td><td>It says nothing about cost. Text's filler draws each glyph as one dilated rectangle and evaluates every pixel inside it (CHECKED). A glyph is compact. A stroke across the canvas is a thin diagonal in a huge box, and per-pixel cost is box area times curves per band. The cover policy, bbox or only the cells the region covers, is outside the model and decides whether the route is feasible for ink. Vello and Pathfinder tile for exactly this reason (FIELD).</td></tr>
@@ -573,12 +681,12 @@ to the CPU / other kinds
   <p class="prose">The contract above is stable across the field; the program under it is where teams differ, by workload and platform. Four shapes fit under this contract. The current flat triangle lane is not one of them: it has no coverage, it consumes geometry with a pixel quantity baked in, and it disagrees with the CPU definition at overlaps.</p>
   <div class="tablewrap">
   <table>
-    <thead><tr><th>Renderer shape</th><th>Antialiasing</th><th>GPU memory</th><th>Zoom</th><th>Strokes</th><th>Cost to reach from here</th></tr></thead>
+    <thead><tr><th>Renderer shape</th><th>Antialiasing</th><th>GPU memory</th><th>Zoom</th><th>Strokes</th><th>Clips, blends, layers (session 10)</th><th>Cost to reach from here</th></tr></thead>
     <tbody>
-      <tr><td class="k">the text filler, made online</td><td>analytic, per pixel</td><td>small: curves + bands</td><td>camera move; lower cubics→quads per scale bucket</td><td>via the envelope, filled nonzero</td><td>a packer (cubic→quad, bands, cover cells) at pen-up; dynamic textures; unifies text and paths</td></tr>
-      <tr><td class="k">stencil-then-cover + MSAA</td><td>MSAA 4×</td><td>large: multisampled target, 40 MB at 1080p, 170 MB at 4K</td><td>flatten per scale bucket</td><td>today's quads + fans into the stencil → union</td><td>smallest change from today; removes bridging and ear-clipping</td></tr>
-      <tr><td class="k">compute coverage (Vello-shaped)</td><td>analytic</td><td>transient, scene-sized</td><td>re-flatten on GPU every frame</td><td>expansion on GPU</td><td>largest lift; best known end state</td></tr>
-      <tr><td class="k">capsule / distance lane</td><td>analytic from distance</td><td>small</td><td>camera move</td><td>today's CPU rule, a ribbon with end discs, per segment; the swept nib needs the disc union per pixel; round only</td><td>strokes only; no fill story; ideal as the wet-ink lane under the pen</td></tr>
+      <tr><td class="k">the text filler, made online</td><td>analytic, per pixel</td><td>small: curves + bands</td><td>camera move; lower cubics→quads per scale bucket</td><td>via the envelope, filled nonzero</td><td>a clip as a second region in the same draw; a blend from a backdrop copy under the region; a layer as a cover-sized target only under isolation (bench 9 does all three)</td><td>a packer (cubic→quad, bands, cover cells) at pen-up; dynamic textures; unifies text and paths</td></tr>
+      <tr><td class="k">stencil-then-cover + MSAA</td><td>MSAA 4×</td><td>large: multisampled target, 40 MB at 1080p, 170 MB at 4K</td><td>flatten per scale bucket</td><td>today's quads + fans into the stencil → union</td><td>a clip through the stencil; blends and layers as on the first road, on a multisampled target</td><td>smallest change from today; removes bridging and ear-clipping</td></tr>
+      <tr><td class="k">compute coverage (Vello-shaped)</td><td>analytic</td><td>transient, scene-sized</td><td>re-flatten on GPU every frame</td><td>expansion on GPU</td><td>all three per tile in one dispatch: a clip stack and a blend stack in tile memory, no full-screen layer ever (FIELD); the same contract</td><td>largest lift; best known end state</td></tr>
+      <tr><td class="k">capsule / distance lane</td><td>analytic from distance</td><td>small</td><td>camera move</td><td>today's CPU rule, a ribbon with end discs, per segment; the swept nib needs the disc union per pixel; round only</td><td>composites like the first road</td><td>strokes only; no fill story; ideal as the wet-ink lane under the pen</td></tr>
     </tbody>
   </table>
   </div>
@@ -601,7 +709,8 @@ to the CPU / other kinds
       <tr><td class="k">CPU classify</td><td>Ink: distance to segments minus interpolated half-width, the ribbon. Shape: odd-even ray per ring, then outer-and-not-hole. Parity with the GPU tested only on the holed shape, never on ink, skipping a boundary band (harness/path.cljs:341-393).</td><td>Winding number with curves and the nib definition, the CPU twin of the shader's root counting, so CPU and GPU agree on membership by construction; distance and coverage are compared against that membership at a declared error. Parity runs on ink too, against coverage.</td></tr>
       <tr><td class="k">region3d/on_plane*</td><td>Reuses the same tessellator and shares the path renderer's mesh cache object at zoom 1.0, uploads 88-byte vertices with a 4×4 matrix each, draws on a plane with 4× MSAA; only :ink placeable (on_plane.cljc:20, on_plane_renderer.cljs:19, 211-235).</td><td>Placed ink takes the coverage lane on the object's plane: the filler uses screen derivatives, so it works under the projection (DERIVED). The 88-byte mesh road is cut now, no keep-until-better. flatten(τ) stays a geometric answer for consumers that need lines, not a render road.</td></tr>
       <tr><td class="k">harness/path.cljs</td><td>Literal bursts and rings; byte-identical goldens; a translucent self-crossing case that declares the double-blend and names the CPU classifier the authority (:556-559); the variable-width fixture built and never run (:245, :517-518).</td><td>Fixtures gain the fit step, a formula shape, a stroked shape, a filled loop, a cubic; goldens change; the self-crossing case becomes the proof that overlap resolves once; parity moves from alpha over 128 to coverage.</td></tr>
-      <tr><td class="k">new, no home today</td><td>Nothing. No pen input anywhere in client/; no shape generator; no circle fixture.</td><td>The builder (samples → curves, appended live, at τ), the evaluator for responses and formulas written as data, the band packer, the cover policy, offset and arc length as answers, and a wet route while the pen is still down. Bench 9 has a first cut of each but the wet route, in JS.</td></tr>
+      <tr><td class="k">engine/compositor.cljs, region3d's composite, the group record</td><td>A target pool keyed by format, size and sample count, a 512 MiB budget, epoch reclaim (compositor.cljs:157-260); a present pass, linear → sRGB, an overwrite (:362-374, :644-671); region3d's composite draws a region lease's resolved MSAA texture as an instanced quad, premultiplied over, into the caller's pass (region3d/renderer.cljs:1366-1412); a scissor rect per draw, supplied by text's caller, not by any group (:612-628; text/renderer.cljs:851-854); a group is a transform node with one flag, screen or world (transform.cljc:65-79, device.cljs:65-137); no blend mode, no opacity, no clip by a path, no stencil, no compute pass anywhere in client/. Painter's order is whatever the harness paints in.</td><td>The compositor of Position 9. The pool and the present stay; the quad composite becomes the general "a surface painted as a region"; the group record gains opacity, blend, clip; the filler's program gains the clip's second region and the backdrop read; a layer comes from the pool only when a group needs isolation; a painting surface is a retained target with a revision. The harness's painter's order becomes the scene's.</td></tr>
+      <tr><td class="k">new, no home today</td><td>Nothing. No pen input anywhere in client/; no shape generator; no circle fixture; no executor; no arrangement.</td><td>The builder (samples → curves, appended live, at τ), the executor for constructions written as data (a step runner over a capability table; bench 9's is sixty lines and runs the definer's two records), the band packer, the cover policy, offset and arc length as answers, the arrangement (lines exact, curve crossings refined; bench 9), the compositor's sample and paint, and a wet route while the pen is still down. Bench 9 has a first cut of each but the wet route, in JS.</td></tr>
     </tbody>
   </table>
   </div>
@@ -624,6 +733,10 @@ to the CPU / other kinds
     <li><b>Raster brushes are a second model.</b> Dabs, textures and wet edges live on a pixel canvas. In scope or not is Sid's decision; the path value carries enough (samples, pressure, time) that a brush engine can re-render a stroke later.</li>
     <li><b>Booleans and vector networks.</b> Figma's fill-by-face and union/subtract need a planar-arrangement library, the classic pit. It sits above the kind; the value must not preclude it: multiple subpaths, both rules, stable ids.</li>
     <li><b>Precision on an infinite canvas.</b> Coordinates narrow from float64 to float32 once at upload and are never rebased around the camera (CHECKED by 8's hunter), so at the legal zoom of 1000 vertex jitter is at pixel scale on a modest canvas (DERIVED). Rebase relative to the camera before upload.</li>
+    <li><b>Clips, blends and layers ride in one pipeline.</b> Skia's canvas carries a clip stack and saves a layer only when it must; Vello's fine rasteriser keeps a clip stack and a blend stack per tile and never allocates a full-screen layer; Rive reads the framebuffer in place (FIELD). The shared shape: a clip as coverage multiplied in the same program, a blend as a read of the backdrop, layers only under isolation. What none of them do is make the clip, the layer and the blend records a tool can be built from, with a CPU twin that composites the same way; that is the part that would be ahead.</li>
+    <li><b>Isolation is a policy, and it costs a target.</b> Group opacity over overlapping children, a non-over blend on a group, or a soft mask on the composite need the group rendered apart; a group with none of these paints straight through (browsers, Skia; FIELD). The number of live layers is the nesting depth, not the count of layers in the document.</li>
+    <li><b>Surface reads serialize; everything else batches.</b> Plain accumulation is one instanced draw in painter's order, which the API keeps. A brush that reads what it painted needs the previous dab resolved first: on a fragment road a copy under the dab per dab, on a compute road sequential dabs inside the tile (Krita: tiles and threads on the CPU; FIELD). That, not the executor, is where a painting brush's throughput lives; bench 9 counts 24 syncs for 24 dabs.</li>
+    <li><b>Determinism when two clients paint one surface.</b> A construction that reads a surface makes pixels into inputs; two GPUs differ in the last bits, so a shared painting surface drifts unless one client is the authority, the arithmetic is integer, or the CPU twin is the truth (Drawpile paints on the CPU for this reason; FIELD). Open, and Sid's; the bench's CPU twin is the seed of an answer.</li>
     <li><b>Antialiasing strategy decides the architecture and the memory.</b> Analytic coverage needs no extra target; MSAA needs a multisampled target of tens to hundreds of MB. The parked GPU-sharing question lands here.</li>
   </ul>
 
@@ -639,7 +752,7 @@ to the CPU / other kinds
     <dt>A stroke that crosses itself, and the knitted sweater.</dt>
     <dd>Three different things. A closed shape that crosses itself is the fill rule, a declaration: nonzero fills the pentagram's centre, even-odd leaves it empty. A stroke that crosses itself is the overlap semantic: union paints the crossing once, which is what nonzero coverage gives and what vector tools do; accumulate darkens it, which is the raster lane. Neither gives "under". Under means an earlier part of the same stroke sits on top of a later part, and one region has one paint order. So the sweater is a split-and-order edit the user makes, and the kind's job is stable knot ids so a split does not lose the stroke's identity. Today the GPU double-paints overlaps at alpha and the CPU says union; the harness declares both (CHECKED).</dd>
     <dt>Pre-baked and user-defined shapes: same drawing, and can tldraw's and Figma's sets be built above this?</dt>
-    <dd>Same filler, different sources. tldraw's set fits entirely: formula shapes, outline shapes, text, and a freehand tool whose envelope polygon is this kind's envelope step (FIELD). Figma's set needs three more things above the kind: vector networks as a source that compiles faces to paths, a boolean library, and raster effects in the compositor's offscreen targets. UI libraries need pixel snapping. None change the input or output of the kind. Today no generator exists: every rectangle in the tree is four typed corners (CHECKED).</dd>
+    <dd>Same filler, different sources. tldraw's set fits entirely: formula shapes, outline shapes, text, and a freehand tool whose envelope polygon is this kind's envelope step (FIELD). Figma's set needs three more things: vector networks as an authored graph whose faces are an answer of the geometry, chosen by a record's policy (attack 2; bench 9 runs Figma-shaped networks with a curved edge); booleans over the same arrangement; effects as the compositor's filters. Its masks and blend modes are the compositor's declarations (session 10). UI libraries need pixel snapping. None change the path value. Today no generator exists: every rectangle in the tree is four typed corners (CHECKED).</dd>
     <dt>What are the current path files doing, and do the per-kind renderers match "the renderer"?</dt>
     <dd>Read off the today picture: the harness is the only maker and only caller, a library without a host. Half of "the renderer" already exists as a frame contract all four kinds obey: device and format in, the shared camera and group buffers bound, an open pass at draw time, group index baked at prepare (CHECKED). What differs is the program each kind runs. Under the position there is a small fixed set of programs, coverage filler, textured quad, 3D mesh plus composite, present, and kinds are sources that feed them. The path program is the one that should not exist; the text program is the one that should be shared.</dd>
     <dt>Am I reasoning from how the code does it today, or from how it should be done?</dt>
@@ -652,7 +765,7 @@ to the CPU / other kinds
     <dt><span class="tag pos">position 1</span>the stored form</dt>
     <dd>Store the burst raw (samples with pressure, time) as the event that happened. Derive the path at a declared tolerance and store that too; it is what gets drawn, edited and hit-tested. Tolerance zero is the interpolating spline, one knot per sample, appended live; a fit above zero is a brush setting. The kind takes the path, never the burst. Stops being the answer: never; if fitting turns out to be a user-facing style this is already right, and if a brush engine later needs the raw samples, they are there.</dd>
     <dt><span class="tag pos">position 2</span>the imaging model as the output language</dt>
-    <dd>Paths, fill under a rule, stroke as the nonzero fill of a swept tip's envelope, paint and compositing on top. Accumulating brushes are ordered dabs through the same filler (attack 1). Stops being the answer: if brushes that read the surface become first-class, a surface operation with ordered state joins beside the geometry; the path value already carries what it needs to replay a stroke through it.</dd>
+    <dd>Paths, fill under a rule, stroke as the nonzero fill of a swept tip's envelope, paint and compositing in the compositor (Position 9), not on top. Accumulating brushes are ordered dabs through the same filler (attack 1); brushes that read the surface are constructions calling the compositor's sample before each paint (attack 2). Stops being the answer: on the output side, never; the condition it used to carry, first-class surface-reading brushes, is now inside the contract, and bench 9 runs one.</dd>
     <dt><span class="tag pos">position 3</span>one filler, shared with text</dt>
     <dd>Coverage under a rule, per pixel, analytic antialiasing, one resolve per region. Strokes reach it through the envelope. A capsule lane serves the wet stroke under the pen. Stops being the answer: if long thin strokes dominate and cover cells do not cut the cost enough, a distance-based stroke program is the fallback, fed by the same value; if banding per pen event is too slow and the wet lane is not enough, stencil-then-cover is the cheaper correct road.</dd>
     <dt><span class="tag pos">position 4</span>zoom leaves the stored value and its identity</dt>
@@ -663,8 +776,10 @@ to the CPU / other kinds
     <dd>The filler uses screen derivatives for its pixel scale, so it works under the region's projection; placed ink becomes an instance row drawn on the object's z=0 plane, and the 88-byte triangle road is cut. flatten(τ) stays a geometric answer for consumers that need lines, not a render road.</dd>
     <dt><span class="tag pos">position 7 · the open fork</span>what a varying width means</dt>
     <dd>The stroke region is the swept round nib: the union of discs of radius w(t)/2 along the curve. Cap and join constructions (butt, square, miter, bevel) are declared operations on the ends and corners on top of it, as PostScript adds them. The ribbon is named as the approximation the current CPU rule computes. Reason: only the nib gives a tip shape a meaning, and it is what a pen physically does. Stops being the answer: if a designer stroke tool wants the ribbon's crisper tapers, both constructions are named operations and the declaration picks one. This is Sid's to close, verbatim and timestamped; asked once. The sliver is visible on 4's bench and on bench 9: pick the pressure-ink fixture, switch the tip, and the cursor shows what each construction says and flags where they disagree. Sharpened by the waist test: tldraw's own construction is the ribbon (FIELD), so the ribbon must stay nameable whichever is the default; on bench 9 the two are one line apart in the same tracer.</dd>
-    <dt><span class="tag pos">position 8</span>behaviour as data needs an evaluator</dt>
-    <dd>A tool's settings are numbers until one of them is a function: width from pressure, a shape's corners from its parameters, a taper along the length. A function written in a record is data only if code below the waist can run it. Both chairs reached this from opposite sides on the same day: the composer's evaluator (bench 9 runs one: arithmetic over pressure, arc length, speed and the record's numbers) and the definer's construction executor (attack 1: arithmetic and vector arithmetic, conditions, iteration over collections, an ordered accumulation, record updates, calling another saved construction, and calls to the geometry's answers and to a surface). They are the same piece at two sizes; the evaluator is the smallest member. It sits beside the builder in the source stage, and the geometry's answers return to it: a construction measures, splits, intersects and reuses before it draws. The three doors: a fixed menu of responses and generators, each new behaviour new code; an evaluator of that scope; or code as data, Clojure forms interpreted at runtime (sci), which is the general answer and a substrate decision. Stops being the answer: if Sid rules that tools are code above a data-only contract, the executor dies and each response is a generator. Not asked yet; it closes when brushes or shape formulas are wanted as data, not before.</dd>
+    <dt><span class="tag pos">position 8 · asked</span>the executor: behaviour as data needs a runner, and the runner is a vocabulary, not one interpreter</dt>
+    <dd>A tool's settings are numbers until one of them is a function, and a function in a record is data only if code below the waist runs it. Both chairs found the piece on the same day (session 9's evaluator, the definer's construction executor) and attack 2 made its calls concrete: sample, mix, paint, arrange, locate, face-boundaries, over bindings, state and an order. Bench 9 runs a sixty-line executor over that table; the definer's two records run on it unchanged, the brush on two hosts with equal numbers. What the executor is: three things at three rates. First, a vocabulary of capabilities, each code that exists once (the geometry's answers, the compositor's two operations, the builder's steps); this is the real waist for behaviour, and it grows by attack, one missing operation at a time (the bench lists the record fields nobody read for exactly this). Second, a sequencing rule over records (bindings, steps, state, each, return) that runs per edit and per brush step, never per frame, and only moves values. Third, per-element expressions (width from pressure now; a paint from position later) compiled to the host's per-element form, per point on the CPU, per pixel in the shader, never interpreted per element (Houdini compiles VEX; Blender evaluates fields as arrays; FIELD). Instances are many, one per construction, per user, per agent; the definition is what exists once. Sid's two worries land in two places. "Getting them in line" is the first thing: every tool must be sayable in the vocabulary, and the attack method is how the vocabulary is found. "Throughput seems small" is not the second thing, which does no work; it is the one operation that serializes, a surface read before it is written, and that belongs to the compositor and only to brushes that read (bench 9: 24 texel reads are 24 GPU syncs on the fragment road; plain accumulation is one draw; the compute road makes the reads tile-local). The three doors stand: a fixed menu, each behaviour new code; this executor, records over a vocabulary, sandboxed by construction, deterministic, replayable; or code as data (sci), the general answer and a substrate decision that gives up the sandbox and the replay unless fenced. Stops being the answer: if a real tool needs control flow the record format cannot say (recursion, iteration beyond each over a collection), the third door opens for that class; if Sid rules that tools are code above a data-only contract, the executor dies and each response is a generator. Asked now, with Position 9.</dd>
+    <dt><span class="tag pos">position 9 · asked</span>the compositor: clips, blends and layers are one piece with the surface a brush reads</dt>
+    <dd>The compositor is the sixth piece and it exists once: paint(surface, region, paint, clips, blend) → surface, and sample(surface, point) → colour. A clip is a region with no paint whose coverage multiplies the painted region's, in the same draw, from the same kind of curves and bands; a blend is a function of the source and the backdrop under the region; a layer is a surface a group paints into and then paints as one region into its parent with the group's opacity and blend, allocated only when the group needs isolation; the screen is the root surface; a painting surface is retained at its own resolution and advances per brush step. A brush that reads what it painted is a construction calling sample before paint (attack 2), so there is no raster lane beside the kind: the definer's surface interface and the compositor are one piece. Adopt the best in field as the contract: this is Vello's scene (clip and layer pushes with blends, resolved in one pass) and Skia's canvas (a clip stack, a layer only when needed) said as data. Implement it on the filler road first, which is what bench 9 does: the filler's last three lines plus surfaces, and every declaration agrees with a CPU twin at the cursor. Keep the compute road as the end state, where the same contract runs per tile and layers stop costing targets. Ahead of everyone is not a faster compositor; it is that a clip, a layer, a blend and a surface are records a human or an agent can make, edit and reuse, that a mask can be any path from any source including a computed one, and that the CPU can say what colour a pixel is. The tree has half of it, a target pool with a 512 MiB budget, a present pass, region3d's quad composite, and none of the declarations. Stops being the answer: if Sid rules that layer stacks are a document structure above the kind rather than a group's declaration, the group record loses its three fields and the compositor keeps its two operations; if two clients must show the same pixels of a surface-reading brush, the CPU twin or one authority becomes the truth of the surface. Asked now, with Position 8.</dd>
   </dl>
 
   <!-- ============ FOLDED IN ============ -->
@@ -701,7 +816,17 @@ to the CPU / other kinds
     <li><b>From the definer's attack 1, at full weight</b>: the construction executor and the return arrow (Position 8); width as a function of the interpolated source attribute; accumulate as ordered dabs through the same filler, surface state only for brushes that read; three tolerances; membership as the shared definition; cover cells include the interior; the network as the authored source with intersections and splits as answers; the crossing edit as (segment, parameter) pairs; wet and dry as one region. Its Positions A to D are read as constructions and hold with the page's.</li>
   </ul>
 
+  <h3>Folded in from session 10</h3>
+  <ul class="tight prose">
+    <li><b>From the definer's attack 2, at full weight</b>: the executor's calls made concrete (sample, mix, paint, arrange, locate, face-boundaries) with bindings, state and an order; a surface interface beside geometry, which is the compositor; the arrangement as an answer with the face choice as data; sources, results and resources kept distinct; "anchors already are a path" scoped to a contour; intersections as contacts and spans; dab packets with the source location; the final-dab width evaluation (fixed on the bench); unconsumed fields as findings (the bench lists them); the rates row for a surface. Its Positions A to D hold with the page's; its Position B and Sid's compositing question met in Position 9.</li>
+    <li><b>Sid's two late questions, worked</b>: clips, blends and layers are the compositor's contract, not "on top" (Position 9, the attack row, the fork column, figure 1); the executor is a vocabulary, an order and compiled expressions, not one interpreter, with the serial cost placed in the surface (Position 8). Both asked now, together.</li>
+    <li><b>The tree's compositor, checked</b> (a hunter's read, 2026-09-06): engine/compositor.cljs owns a target pool and a present pass; region3d's composite draws a resolved MSAA texture as a quad; a scissor rect per draw; groups are transform nodes only; no blend mode, no opacity, no clip by a path, no compute pass anywhere in client/. In the cascade table.</li>
+    <li><b>Bench 9, session 10</b>: a compositor stage (a clip in the same draw, blends from a backdrop copy, a layer as a surface painted as a region, a painting surface per brush step), an executor that runs the definer's two records verbatim (the pickup brush on the GPU and a CPU twin, dab 19's sample and carry equal on both; the network through an arrangement: 4 faces of 2400, then 6 faces of 3800, 900, 3800, 900, 100, 100 with a curved edge), and the list of fields nobody read. Three numbers at one pixel: union 0.62, accumulate 0.8556, layer 0.62.</li>
+    <li><b>The waist, drawn where session 9 put it</b>: figure 1 now has the waist above the source stage, the executor in that stage, the value one step lower, the compositor under the filler, and the loop.</li>
+    <li><b>The count of pieces is closed by outputs</b>: a path, a region, an answer, coverage, a surface, a record. Six pieces; a seventh would need a seventh kind of output.</li>
+  </ul>
+
   <div class="foot">
-    Landed under <code>docs/below-the-waist/path-kind/</code>: this page and its <code>.md</code> twin, session 8's fact base with the hunter reports and the six closing folds, session 7's brief, page and three hunt reports under <code>sources-7/</code>, session 4's bench and its handover under <code>bench-4/</code>, session 9's bench under <code>bench-9/</code>, its fact base <code>fact-base-9.md</code>, and the definer's <code>attack-1.md</code>. Positions are marked and the verdicts are Sid's.
+    Landed under <code>docs/below-the-waist/path-kind/</code>: this page and its <code>.md</code> twin, session 8's fact base with the hunter reports and the six closing folds, session 7's brief, page and three hunt reports under <code>sources-7/</code>, session 4's bench and its handover under <code>bench-4/</code>, session 9's bench under <code>bench-9/</code> with session 10's additions and their handover, the fact bases <code>fact-base-9.md</code> and <code>fact-base-10.md</code>, and the definer's <code>attack-1.md</code> and <code>attack-2.md</code>. Positions are marked and the verdicts are Sid's.
   </div>
 </div>
