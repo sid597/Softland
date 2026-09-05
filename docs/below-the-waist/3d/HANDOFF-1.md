@@ -1,6 +1,6 @@
 # Handoff from session 1 to its successor — the composer's chair on the 3D kind
 
-Written 2026-09-06, end of session 1 (Sid named it "3d session 1 max"; it ran at about 500k tokens and stops here). You inherit the picture and the responsibility for it. Everything you need is in this directory, in git, on main.
+Written 2026-09-06, end of session 1 (Sid named it "3d session 1 max"; it ran at about 500k tokens and stops here); amended by its successor the same night, about 02:50, after folding the two reviews of 6f62711. You inherit the picture and the responsibility for it. Everything you need is in this directory, in git, on main.
 
 Read in this order: this file; `3d-kind.html` (the artifact link below, or the file; `3d-kind.md` is its generated twin for diffing); `fact-base-1.md` Parts 5 and 6, then Parts 1 to 3 when a code claim needs its anchor; `bench-0/HANDOVER.md`. Then, only if you need more than the fact base holds, the code itself under `src/app/client/`, by the READMEs down to docstrings down to code. Docs allowed beyond this directory: `docs/below-the-waist/path-kind/` and `docs/below-the-waist/3d-ceilings-starter.md`. Never `src/app/server/env.clj`.
 
@@ -28,24 +28,24 @@ He reads visually and plainly: story first, at most fifteen numbered sentences i
 
 The page's story, in its own fifteen sentences, is the picture. Compressed to the bone:
 
-1. A 3D space's pixel question is "which face is nearest along this line of sight, and what colour under the lights"; shading's inputs are other renders of the same space, so the question is recursive where 2D's is not.
+1. A 3D space's pixel question is "what does this line of sight meet, and what colour comes back along it under the lights"; for an opaque face that is the nearest face and its shading, and glass, volumes and splats answer along the whole line; shading's inputs are other renders of the same space, so the question is recursive where 2D's is not.
 2. A 3D thing is a definition that owns its edits, placed by occurrences (Sid's copies), with a look and stable identity for definition, faces, edges and occurrences; its shape is the description an edit acts on plus derived representations each with a way back. Sources are above it. A mesh is the leak only when it replaces information a later operation needs.
-3. A space is a frame plus an order rule: declared on a page, derived from the view in 3D. A portal is a thing whose look is another space through a camera; a chart is a flat declared-order space on a face at the face's depth; an attachment binds one to a copy and a face. The region today is space, scene, camera and portal fused; split, it is one way of seeing a space.
-4. Cameras compose as a matrix chain; page zoom is the region camera's focal length; entering is another action; a zoom-to-enter transition is data.
-5. Three crossings: present (render a space through a camera into a surface, callable as a value), embed (an attachment), derive (section, silhouette, extrude). Pixels do only the first.
+3. A space is a frame plus an order rule: declared on a page, derived from the view in 3D. A portal is a thing whose look is another space through a camera; a chart is declared-order coordinates plus a mapping onto a face, its depth from the mapping (flat only where the face is); an attachment binds one to a copy and a face and says whose it is, what part of the face it covers, what a width means on it, and what survives an edit of the face. The region today is space, scene, camera and portal fused; split, it is one way of seeing a space.
+4. Cameras compose as a matrix chain; page zoom magnifies the placed view with its framing kept (the composed mapping's focal scale grows on the screen; the region camera's lens and pose do not change, measured on the bench by the review of 6f62711); a lens zoom inside the aperture and a dolly are the region camera's own; a zoom-to-enter transition is data.
+5. Three crossings: present (render a space through a view into a surface, callable as a value, the request naming the quantity it wants, colour, depth, radiance, identity), embed (an attachment), derive (section, silhouette, extrude). Pixels do only the first.
 6. The rate axis with two rows added: derived surfaces on their own inputs; time, queries and arrivals as triggers. Fine grain names the changed meaning; consequences may be large.
 7. The pick is a query with a mode; hover is the same query re-run when anything on its chain changes, emitting only what differed; a stationary pointer loses the stroke when the sphere passes in front.
 8. Two per-pixel resolves nest in one waist: coverage inside a face's look, a space's resolve inside the page's order.
 9. A thin executor over thick typed libraries; constraints are a solver library; throughput lives in the libraries and the GPU. This is where Sid's doubt landed and the page agrees with him.
-10. One waist, several libraries beneath it. The 3D code is shelves on the path picture's pieces plus the visibility resolve, the material stage, scheduling for long work, and the promotion of the executor.
+10. One waist, several libraries beneath it, because both dimensions need the same six means (identity, execution, mapping, dependencies, representation requests, addressed answers); the chart is the evidence that 2D inside 3D is not a second interface, not the proof. The 3D code is shelves on the path picture's pieces plus the visibility resolve, the material stage, scheduling for long work, and the promotion of the executor.
 
-Positions 1 to 11 with exit conditions are on the page. Held against the lanes, with reasons: the order rule as the 2D/3D distinction; zoom as focal length by default; forward with MSAA as the road from here; render to surface as a value.
+Positions 1 to 11 with exit conditions are on the page. Held against the lanes, with reasons: the order rule as the 2D/3D distinction; page zoom as magnification by default (the page's earlier word for it, focal length, named the wrong variable and was corrected under the reviews of 6f62711); forward with MSAA as the road from here; render to surface as a value.
 
 **The three things that remain, named once on the page:**
 
 - **Decision, Sid's to size:** adopt the three-verb interface (Construct, Present, Query), and decide what an above-waist definition of a new spatial representation must supply (bounds, sampling, intersection and selection semantics, correspondence to editable inputs) so the engine can construct, present and query it without a new hardcoded kind, and which of those arrive as saved programs and which as kernel capabilities. An implicit or sampled object is the test. That is the limit of "a new tool needs no engine change".
-- **Definition, the definer's exercise:** what the geometry operation returns when the face under the stroke is split, merged or deleted: a relation (unchanged, generated, split, merged, deleted, ambiguous, with parameter maps), so a saved attachment policy can keep, split, trim or detach without consulting display triangles. The construction that tests it: one extruded sketch, a stroke attached to a named face, a boolean split, the surviving ink returned as a 2D drawing, queried from both views.
-- **Open, Sid's feel, asked once:** what page zoom means at a region, focal length or a step into the room. Do not ask again unless he reopens it.
+- **Definition, the definer's exercise:** what the geometry operation returns when the face under the stroke is split, merged or deleted: a relation (unchanged, generated, split, merged, deleted, ambiguous, with parameter maps), so a saved attachment policy can keep, split, trim or detach without consulting display triangles. The construction that tests it: one extruded sketch, a stroke attached to a named face, a boolean split, the surviving ink returned as a 2D drawing, queried from both views. Before it, the precursor the reviews of 6f62711 put first: a stroke across a parameterization seam on a curved mesh, the face reparameterized without changing the intended surface, the stroke staying where its attachment says and the pick returning its identity; that isolates the mapping from the topology change.
+- **Open, Sid's feel, asked once:** what the wheel should do at a region, magnify the placed view or step into the room (a lens zoom inside the aperture is the third operation, on the bench beside the two). Do not ask again unless he reopens it.
 
 ## 4. What is on disk
 
@@ -54,13 +54,15 @@ All under `docs/below-the-waist/3d/`, committed on main.
 | File | What it is |
 |---|---|
 | `3d-kind.html` | The page. Published at https://claude.ai/code/artifact/ced3dcf5-d276-46ab-8456-3a1be0141bc5 . To republish from a fresh session: `Artifact` action `read` with that url first, then publish with `url` set and this file as `file_path`; publishing without `url` makes a second artifact. |
-| `3d-kind.md` | Generated twin for reading and diffing; the three drawings live only in the html. Regenerate after editing: the converter is a ninety-line `html.parser` script that maps h1/h2/h3, p, dl, tables, ol/ul, pre and the words block; write it again rather than hunting for it. |
+| `3d-kind.md` | Generated twin for reading and diffing; the three drawings live only in the html. Regenerate after editing: `python3 twin.py 3d-kind.html > 3d-kind.md`; the converter is landed beside the page and reproduces the committed twin byte for byte. |
+| `twin.py` | The twin converter, landed by the successor so it is not rewritten each session. |
+| `feedback-6f62711.md`, `review-6f62711.md` | The two reviews of the page and bench at 6f62711 (a standalone feedback, and the review with its two bench receipts), carried by Sid and folded by the successor; the fold is on the page under "Folded from the two reviews of 6f62711" and in `fact-base-1.md` Part 7. |
 | `fact-base-1.md` | Parts 1 to 3: three hunter reports (contract and scene; renderer and engine seam; placed content, harness and oracle), every fact file:line. Part 4: what session 1 read itself. Part 5: derivations. Part 6: the fold record. |
 | `bench-0/seam-bench.html` | The seam bench, one WebGL2 file. Published at https://claude.ai/code/artifact/5fd52994-becf-4840-871e-0453bcd7bc3e . Both executions of the seam, both portal mappings, both readings of zoom, drawing on the face, the chain from the pointer, the GPU id read as the parity check, keys for the stationary-pointer case. `HANDOVER.md` beside it says what it shows, what it simplifies, deep links and the headless command. |
 | `STARTER-0.md` | Session 0's starter, three versions; Irrespective is the one both lanes received. |
 | `3d-kind-working-model.md` | The Codex lane's answer, folded. Not this chair's file; do not edit. |
 | `3d-object-space-and-query.md`, `HANDOFF-object-space-and-query.md` | The object-space contribution, folded. Not this chair's; do not edit. |
-| `3d-kind-2.html`, `3d-kind-2.md`, `fact-base-2.md`, `bench-2/` | Session 2's page, fact base and bench (a Claude session that read HANDOFF-9 and the LOG). Untracked at this writing; unread past their headers; unfolded until Sid carries them. Not this chair's. |
+| `3d-kind-2.html`, `3d-kind-2.md`, `fact-base-2.md`, `bench-2/` | Session 2's page, fact base and bench (a Claude session that read HANDOFF-9 and the LOG), committed at `a85fd1e`. Unread past their headers; unfolded until Sid carries them. Not this chair's. `feedback-a85fd1e.md` and `feedback-working-model.md` in the directory are addressed to that chair and to the Codex lane, not to this one. |
 
 Elsewhere: `path-kind/HANDOFF-9.md` §6 holds Sid's late words; `path-kind/attack-2.md` is the definer's second attack on the path kind, unread by this chair and not this chair's to fold.
 
@@ -73,7 +75,7 @@ Elsewhere: `path-kind/HANDOFF-9.md` §6 holds Sid's late words; `path-kind/attac
 - `pick-region` returns a triangle index and is called only by the harness; triangle identity is positional and renumbers silently; there is no face anywhere (Part 1 §5, §8).
 - No region can contain a region; no scene reference; the placed-ref address is opaque and unresolved (Part 1 §7).
 - f64 on the CPU narrows to f32 at upload as absolute world coordinates in both dimensions; no rebasing; forward [0,1] depth24plus (Part 1 §6, Part 2 §6, §9).
-- The shadow pass renders the scene from the light's camera into a depth surface the shading reads: the composition primitive, once, keyed on the region's revision (Part 2 §8).
+- The shadow pass renders the scene from the light's camera into a depth surface the shading reads: the composition primitive, once (Part 2 §8). Its dirty role is separate from the interior's: the shadow is dirtied only by a scene change, the interior by scene, view, background or placement change, and a clean role is held, so a camera-only orbit does not re-encode the shadow (`renderer.cljs:1134-1139`, `1324-1345`, own read, Part 7). Its key is any scene change at the region's grain, not the light and its casters.
 - The harness never composes a frame across kinds (four drivers joined by Promise.all); the page camera is written once at zoom 1.0 (Part 3 §6).
 
 ## 6. How the chairs work together
@@ -90,12 +92,14 @@ The tree is shared with several live sessions. Before any git write: `git status
 - I wrote "a kernel is bought, never data". The dividing rule is that difficulty does not prove permanence; native kernels are the practical default. Sid's want is the tie-breaker, and his want is data.
 - Two bench bugs got past a careful write and were caught only by the one headless look: a dropped `abs` in the capsule distance (the stroke filled a half-plane) and a missing precision qualifier on a shadow sampler (the script died before the UI). Take the one look; do not skip it because the code "looks right".
 - A renderer quantity promoted to a definition was the shape of every error in the path round and again here: the rect, the lease, the composite, the bias, the triangle index. When a sentence defines a thing by what a shader or a lease does, stop.
+- (The successor.) I had called page magnification "the region camera's focal length". The bench's own code never changes the lens under page zoom, and the review measured it: aperture doubled, inner projection identical. The composed mapping's effective focal scale grows; the camera's authored variable does not. A word that names the wrong variable is caught by a bench that reads the variables out; the counters now do.
+- (The successor.) I had written "the interior and the shadow are one dirty region: both re-encode" with a CHECKED tag, derived from the harness looping both roles rather than from the dirty flags the hunter had not recorded. A derived claim wearing an anchor is the same error as a renderer quantity wearing a definition. Re-read the lines before amending a CHECKED claim, and mark own reads as own reads.
 
 ## 8. Still owed, in order (the chair's list; the successor takes the feedback Sid pastes and folds, it does not start these on its own)
 
-1. Fold session 2's page when Sid carries it; the definer's construction (extruded sketch, attached stroke, boolean split, ink back as a drawing, queried from both views) when it lands; nothing to rank.
+1. Fold session 2's page when Sid carries it (not yet carried at the successor's writing); the definer's construction when it lands, in the order the reviews set: the chart-seam precursor (a stroke across a parameterization seam on a curved mesh, reparameterized without changing the surface) and then the boolean split (extruded sketch, attached stroke, split, ink back as a drawing, queried from both views); nothing to rank. The two reviews of 6f62711 are folded.
 2. The waist test in 3D form, the code side: the hardest operations of the ceilings written as the data their own tools hold, walked through the three verbs, saying what executes, in which library, and where a step needs code the picture has no name for. The path round did this with three 2D tools and found the evaluator; this is where the 3D picture gets its boots.
-3. On the bench: query modes; a curved chart with a metric; the boolean split with the attachment's outcomes.
+3. On the bench: query modes; a curved chart with a mapping, a seam, a reparameterization and a metric, the stroke staying put and the pick keeping its identity; the boolean split with the attachment's outcomes. The three wheel operations are on it.
 4. The board's pointer at this directory: outside the fence, Sid's call.
 5. At Sid's word only, boots on the ground in the tree: the region row split into a space by reference, a portal with a mapping, a revision per thing; the pick chain joined from its existing links (pick-region, ray-to-plane, classify) with a face and a chart; the 88-byte ink road cut for a chart layer in the mesh shader. The page's today table says what each becomes.
 

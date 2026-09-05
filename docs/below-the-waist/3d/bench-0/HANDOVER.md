@@ -1,4 +1,4 @@
-# Seam bench — handover (session 1, 2026-09-06)
+# Seam bench — handover (session 1 and its successor, 2026-09-06)
 
 Live at https://claude.ai/code/artifact/5fd52994-becf-4840-871e-0453bcd7bc3e (republish with `url` set, or a second artifact is made). `seam-bench.html` is one WebGL2 file, no dependencies, that lets the hardest case on the 3D page be lived: a pen stroke on the front face of a box, inside a 3D region on a page, with a portal on the back wall into another land. Zoom the page, orbit, move the box, hover and click the stroke, look through the portal, draw a new stroke on the face. Everything the page claims about the seam is on it as a thing to feel, in both directions.
 
@@ -8,13 +8,13 @@ Live at https://claude.ai/code/artifact/5fd52994-becf-4840-871e-0453bcd7bc3e (re
 |---|---|
 | The page (a big shape below, a note, a stroke, a translucent bar over the region) drawn in declared order; the region as one item in that order | a space with declared order; the region as a portal on it |
 | S1: floor, wall, box, sphere, sun; drawn with depth; edges by MSAA | a space with order derived from the view; the visibility resolve |
-| The stroke on the box's front face: the same coverage function as the page stroke, evaluated in chart units (u right, v down across the face) with the footprint from `fwidth`, mixed into the face's albedo before lighting, so it is lit, shadowed and occluded with the face | the chart; Position 7 (a chart layer in the face's look, never a decal) |
-| `direct`: S1 drawn straight into the page pass with `R · P · V · M`, where `R` is the rect's place on the canvas and the page's zoom in one clip-space affine, clipped by scissor, depth cleared inside the rect | the composed matrix chain; page zoom as the region camera's focal length |
+| The stroke on the box's front face: the same coverage function as the page stroke, evaluated in chart units (u right, v down across the face) with the footprint from `fwidth`, mixed into the face's albedo before lighting, so it is lit, shadowed and occluded with the face | the chart, here a frame chart on a planar face (the mapping is the face's own frame; a curved face would need a mapping with seams and a metric); Position 7 (coating ink is part of the face's look and inherits its visibility; the bias is an execution trick) |
+| `direct`: S1 drawn straight into the page pass with `R · P · V · M`, where `R` is the rect's place on the canvas and the page's zoom in one clip-space affine, clipped by scissor, depth cleared inside the rect | the composed matrix chain; page zoom as magnification of the placed view: `R` grows, `P` does not (`camProj()` never sees the page zoom), which is what the review of 6f62711 measured |
 | `surface`: S1 rendered into a multisampled surface sized by the tree's ladder, `ceil(w·zoom·dpr)` to a 256 quantum capped at 2048, resolved, then painted at the rect; resampled between quanta | today's execution; the region as a picture, the rungs and leases as a size policy |
-| The sun's shadow: S1 rendered from the sun's orthographic camera into a depth surface the shading compares against; its counter rises when the box moves and not when you orbit | render(space, camera) → surface as the space primitive; derived surfaces keyed on their own inputs |
+| The sun's shadow: S1 rendered from the sun's orthographic camera into a depth surface the shading compares against; its counter rises when the box moves and not when you orbit | render(space, view, request) → surface as the space primitive; derived surfaces keyed on their own inputs. The bench already makes the one call with three requests: depth from the sun, colour at the rect or into the ladder, identity at the canvas for the id read; the page's request names which |
 | `window` portal: S2 rendered with S1's camera shifted into S2's frame, at the target's size, and the quad samples that surface at its own screen pixels | a portal with a derived camera; the seam one level down |
 | `picture` portal: S2 rendered once from a fixed camera into a 768² surface the quad samples by its uv | a portal with a fixed camera; a picture on a wall |
-| `focal length` versus `dolly` for the wheel over the region | the open question on the page: what page zoom means at a region |
+| `magnify` (page zoom: the aperture grows, the framing inside it is kept), `lens` (C1's field of view changes inside a fixed aperture: a crop), `dolly` (C1 moves: a step in) for the wheel over the region; the counters read out the aperture, the lens and the effective focal scale on the screen, `(aperture height / 2) / tan(fov / 2)`, so each operation shows which of the three it changes | the open question on the page: what the wheel should do at a region. The review of 6f62711 measured the committed bench's `focal` mode as page magnification with the inner projection identical; the mode is renamed and the two other operations sit beside it; the question is Sid's and is not re-asked |
 | The chain panel: screen → page → page hit (declared order; the bar passes through) → region-local → a ray in S1 (page zoom does not enter it) → nearest thing, face, chart uv → classify against the stroke with a footprint taken one device pixel to the right through the same chain → through the portal into S2 | Position 8: the pick is a chain, hover is the same call; each row flashes when its value changes, at its own rate |
 | `GPU id at the cursor`: an id pass of S1 with the same composed matrices, one pixel read back, compared to the CPU chain's object and face | the parity check the path round also runs: CPU and GPU agreeing on nearest |
 | `draw on the face`: knots appended in chart units from the chain's uv; the new stroke is a second layer in the same shader | placing ink on a face adds a path value to a chart, nothing else |
@@ -38,7 +38,10 @@ State lives in the URL hash, so one command shows one state:
 - `#exec=direct&portal=window` — the default: composed matrices, a window on the wall.
 - `#exec=surface&portal=picture&zoom=2.4&pan=-560,-160` — the tree's execution at zoom 2.4: surface 1536×1280 on the ladder, resampled at the rect.
 - `#exec=direct&zoom=4&pan=-1400,-500` — zoom 4, direct: the stroke's edge at true pixel scale.
-- `#wheel=dolly` — the other reading of zoom.
+- `#wheel=dolly&dist=2.6` — the wheel as a step in: aperture, lens and effective focal unchanged, the ray's origin moved.
+- `#wheel=lens&fov=22.5` — the wheel as the region camera's lens inside a fixed aperture: aperture unchanged, lens halved, effective focal doubled, the ray at the same region point changed (it hits the box's right face).
+- `#zoom=2&pan=-300,0` — page magnification: aperture doubled, lens unchanged, effective focal doubled, the ray at the same region point identical, the footprint halved. The review of 6f62711's camera receipt, reproducible by hand.
+- `#wheel=focal` still works: it reads as `magnify`.
 
 ## Headless check (the road proven on the path benches)
 
@@ -48,11 +51,16 @@ google-chrome --headless=new --no-sandbox --use-angle=swiftshader --use-gl=angle
   --virtual-time-budget=8000 --screenshot=out.png "file://…/seam-bench.html#exec=direct&portal=window"
 ```
 
-`--dump-dom` in place of `--screenshot` prints the chain panel and the counters. Verified 2026-09-06 on SwiftShader: both executions render, the chain populates, the id read agrees with the CPU chain at the box's front face. The keyboard re-run was checked by hand in the same session's probe (the DOM shows the chain after a simulated key), not by screenshot.
+`--dump-dom` in place of `--screenshot` prints the chain panel and the counters. Verified 2026-09-06 on SwiftShader: both executions render, the chain populates, the id read agrees with the CPU chain at the box's front face. The keyboard re-run was checked by hand in the same session's probe (the DOM shows the chain after a simulated key), not by screenshot. The successor re-ran the dump in the five states above after adding the lens: the counters and the chain's ray row read as the deep links say, and the id read agrees in every state.
+
+## Checked by others
+
+The review of 6f62711 (`../review-6f62711.md`) ran two bounded checks in a real browser (ANGLE on a Radeon), with predictions registered first. Camera: a wheel in the then-`focal` mode took page zoom 1 to 2 and the aperture 640×440 to 1280×880 while the inner field of view, the projection matrix and the ray at region point (0.4, 0.56) stayed identical. Stationary hover: on the bench as committed at 6f62711, a scene-only move of the sphere onto the chain's ray left the hover panel on the stroke while fresh CPU and GPU queries hit the sphere; on the updated bench (the frame loop re-running the chain when the scene key changes, landed at bd57eee) the panel switched to the sphere with no pointer event, one S1 render, the GPU id agreeing. The review's receipt names an intermediate file (SHA-256 `d445dfd2…`); the committed bench keeps the join, and it does not measure latency, query modes, dependency precision or GPU identity through the portal.
 
 ## Known fix list
 
-- The initial chain is computed at a fixed point on the box's front face; if the box is moved via the hash it may land elsewhere.
+- The initial chain is computed at a fixed point on the box's front face; if the box is moved via the hash, or the lens or distance changed via the hash, it may land elsewhere (it lands on the box's right face in the lens and dolly deep links above).
+- The chart is planar. The next case the review of 6f62711 names is not on it: a stroke across a parameterization seam on a curved mesh, the face reparameterized without changing the intended surface, the stroke staying put and the pick returning its identity.
 - Query modes (visible, geometric, nearest, sample) are not on the bench; the chain is visible-nearest only, and there is no glass, volume or splat to need candidates.
 - Stroke B is capped at 64 knots and replaced on each new drag; there is no wet route and no fit; knots are appended raw.
 - `history.replaceState` runs on every pointer move during a drag.

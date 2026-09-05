@@ -55,7 +55,7 @@
   <div class="bar">
     <div class="grp"><label>seam execution</label><span class="seg" id="segExec"><button data-v="direct" aria-pressed="true">direct: composed matrices</button><button data-v="surface" aria-pressed="false">surface: render, then paint (the tree's ladder)</button></span></div>
     <div class="grp"><label>portal</label><span class="seg" id="segPortal"><button data-v="window" aria-pressed="true">window</button><button data-v="picture" aria-pressed="false">picture</button></span></div>
-    <div class="grp"><label>wheel over region</label><span class="seg" id="segZoom"><button data-v="focal" aria-pressed="true">focal length (page zoom)</button><button data-v="dolly" aria-pressed="false">dolly (enter)</button></span></div>
+    <div class="grp"><label>wheel over region</label><span class="seg" id="segZoom"><button data-v="magnify" aria-pressed="true">magnify (page zoom)</button><button data-v="lens" aria-pressed="false">lens (C1's fov, aperture fixed)</button><button data-v="dolly" aria-pressed="false">dolly (enter)</button></span></div>
     <div class="grp"><label>drag</label><span class="seg" id="segMode"><button data-v="navigate" aria-pressed="true">navigate</button><button data-v="draw" aria-pressed="false">draw on the face</button></span></div>
     <div class="counters" id="counters"></div>
   </div>
@@ -69,14 +69,14 @@
       <div class="note">Keys, with the pointer still: arrows orbit · [ ] move the box · , . move the sphere forward and back. The chain re-runs because the scene changed, not the pointer, and only the rows that differ light up.</div>
     </div>
   </div>
-  <p class="try"><b>Try:</b> wheel over the region in both executions and compare the stroke's edge at zoom 4 (direct re-projects; surface re-renders at 256-pixel steps, capped at 2048, and resamples between). Orbit with the portal as a window, then as a picture. Set wheel to dolly and feel the other reading of zoom. Drag the box: the stroke goes with it and the shadow count rises; orbit: it does not. Draw on the face, then hover your stroke. Hold the pointer on the stroke and press , until the sphere passes in front: the chain loses the stroke and gains the sphere without the pointer moving.</p>
+  <p class="try"><b>Try:</b> wheel over the region in both executions and compare the stroke's edge at zoom 4 (direct re-projects; surface re-renders at 256-pixel steps, capped at 2048, and resamples between). Orbit with the portal as a window, then as a picture. Set wheel to lens, then dolly, and feel the two other readings of zoom: the lens crops inside a fixed aperture, the dolly walks in; the counters show which of the aperture, the lens and the effective focal scale each one changes. Drag the box: the stroke goes with it and the shadow count rises; orbit: it does not. Draw on the face, then hover your stroke. Hold the pointer on the stroke and press , until the sphere passes in front: the chain loses the stroke and gains the sphere without the pointer moving.</p>
 </div>
 
 <script>
 'use strict';
 // ---------------------------------------------------------------- state
 const S = {
-  exec: 'direct', portal: 'window', zoomMap: 'focal', mode: 'navigate',
+  exec: 'direct', portal: 'window', zoomMap: 'magnify', mode: 'navigate',
   page: { zoom: 1.0, pan: [0, 0] },           // screen = page * zoom + pan   (CSS px)
   rect: { x: 300, y: 50, w: 640, h: 440 },    // the region's rect, page units
   cam: { pivot: [0, 0.55, 0], dist: 5.2, yaw: 0.55, pitch: 0.36, fov: 45, near: 0.1, far: 60 },
@@ -306,7 +306,7 @@ function pageItemsAbove(){ gl.enable(gl.BLEND); gl.blendFunc(gl.SRC_ALPHA, gl.ON
   draw2D(0, rectVerts(...PAGE.bar), [0.66,0.38,0.04,0.35]); gl.disable(gl.BLEND); }
 // the surface execution's size ladder, as the tree does it: ceil(w·zoom·dpr), a 256 quantum, capped
 function ladderSize(){ const q=256, cap=2048; const w=Math.ceil(S.rect.w*S.page.zoom*DPR), h=Math.ceil(S.rect.h*S.page.zoom*DPR); return [Math.min(cap,Math.ceil(w/q)*q), Math.min(cap,Math.ceil(h/q)*q)]; }
-function sceneKey(){ return [S.exec,S.portal,S.page.zoom.toFixed(4),S.page.pan[0].toFixed(1),S.page.pan[1].toFixed(1),S.cam.yaw.toFixed(4),S.cam.pitch.toFixed(4),S.cam.dist.toFixed(3),S.box.pos.map(x=>x.toFixed(3)).join(','),S.sphere.pos.map(x=>x.toFixed(3)).join(','),S.strokeB.length,canvas.width,canvas.height].join('|'); }
+function sceneKey(){ return [S.exec,S.portal,S.page.zoom.toFixed(4),S.page.pan[0].toFixed(1),S.page.pan[1].toFixed(1),S.cam.yaw.toFixed(4),S.cam.pitch.toFixed(4),S.cam.dist.toFixed(3),S.cam.fov.toFixed(2),S.box.pos.map(x=>x.toFixed(3)).join(','),S.sphere.pos.map(x=>x.toFixed(3)).join(','),S.strokeB.length,canvas.width,canvas.height].join('|'); }
 let lastLadder='', lastKey='', lastCountersText='', lastPtr=null, chainKey='';
 function frame(){ const [W,H]=canvasSize(); const pw=Math.round(W*DPR), ph=Math.round(H*DPR); if(canvas.width!==pw||canvas.height!==ph){ canvas.width=pw; canvas.height=ph; S.dirty.s1=true; freeSurface(SURF_ID); SURF_ID=null; }
   const key=sceneKey(); const changed = key!==lastKey || S.dirty.shadow || S.dirty.s1 || (S.portal==='picture'&&S.dirty.s2pic);
@@ -325,10 +325,10 @@ function frame(){ const [W,H]=canvasSize(); const pw=Math.round(W*DPR), ph=Math.
       pageItemsAbove(); S.counters.surf='—'; S.dirty.s1=false;
     } else {
       const [lw,lh]=ladderSize(); const lk=lw+'×'+lh; if(lk!==lastLadder){ freeSurface(SURF_S1); SURF_S1=makeSurface(lw,lh,4); lastLadder=lk; S.dirty.s1=true; }
-      const needS1 = S.dirty.s1 || frame.lastInterior !== [S.cam.yaw,S.cam.pitch,S.cam.dist,S.box.pos.join(','),S.sphere.pos.join(','),S.strokeB.length,S.portal,lk].join('|');
+      const needS1 = S.dirty.s1 || frame.lastInterior !== [S.cam.yaw,S.cam.pitch,S.cam.dist,S.cam.fov,S.box.pos.join(','),S.sphere.pos.join(','),S.strokeB.length,S.portal,lk].join('|');
       if(needS1){ const VP=m4mul(P,V); if(S.portal==='window'){ if(!SURF_S2||SURF_S2.w!==lw||SURF_S2.h!==lh){ freeSurface(SURF_S2); SURF_S2=makeSurface(lw,lh,1); } renderS2(m4mul(P, s2ViewForWindow()), SURF_S2); }
         gl.bindFramebuffer(gl.FRAMEBUFFER,SURF_S1.fb); gl.viewport(0,0,lw,lh); gl.disable(gl.SCISSOR_TEST); gl.clearColor(0.86,0.9,0.95,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT); drawS1(VP,[lw,lh]); resolveSurface(SURF_S1); S.counters.s1++; S.dirty.s1=false;
-        frame.lastInterior=[S.cam.yaw,S.cam.pitch,S.cam.dist,S.box.pos.join(','),S.sphere.pos.join(','),S.strokeB.length,S.portal,lk].join('|'); }
+        frame.lastInterior=[S.cam.yaw,S.cam.pitch,S.cam.dist,S.cam.fov,S.box.pos.join(','),S.sphere.pos.join(','),S.strokeB.length,S.portal,lk].join('|'); }
       gl.bindFramebuffer(gl.FRAMEBUFFER,null); gl.viewport(0,0,pw,ph); gl.disable(gl.SCISSOR_TEST); gl.disable(gl.DEPTH_TEST); gl.clearColor(1,1,1,1); gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
       pageItemsBelow(); draw2D(2, rectVerts(S.rect.x,S.rect.y,S.rect.w,S.rect.h), [1,1,1,1], {tex:SURF_S1.tex, rect:[S.rect.x,S.rect.y,S.rect.w,S.rect.h]}); pageItemsAbove(); S.counters.surf=lk;
     }
@@ -388,20 +388,22 @@ function stableOf(k,v){ if(k==='S1 hit') return v.replace(/· t [\d.]+/,'').repl
 function showChain(res){ for(const [k,v] of res.rows){ const el=rowEls[k]; const st=stableOf(k,v); if(st!==null){ if(lastVals[k]!==undefined && lastVals[k]!==st){ el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),450); } lastVals[k]=st; }
     el.textContent=v; el.classList.toggle('inside', k==='chart' && /inside/.test(v)); el.classList.toggle('portal', k==='portal' && v!=='—'); }
   if(res.idNote) idNoteEl.textContent=res.idNote; }
-function updateCounters(){ const t=`S1 renders <b>${S.counters.s1}</b> · S2 renders <b>${S.counters.s2}</b> · shadow renders <b>${S.counters.shadow}</b> · surface <b>${S.counters.surf}</b> · page zoom <b>${S.page.zoom.toFixed(2)}</b> · C1 distance <b>${S.cam.dist.toFixed(2)}</b>`; if(t!==lastCountersText){ document.getElementById('counters').innerHTML=t; lastCountersText=t; } }
+function effectiveFocalPx(){ const apertureH=S.rect.h*S.page.zoom; return (apertureH/2)/Math.tan(S.cam.fov*Math.PI/360); }   // the composed mapping's focal scale on the screen, CSS px: grows with page zoom, grows with a longer lens, ignores dolly
+function updateCounters(){ const t=`S1 renders <b>${S.counters.s1}</b> · S2 renders <b>${S.counters.s2}</b> · shadow renders <b>${S.counters.shadow}</b> · id reads <b>${S.counters.ids}</b> · surface <b>${S.counters.surf}</b> · page zoom <b>${S.page.zoom.toFixed(2)}</b> · aperture <b>${Math.round(S.rect.w*S.page.zoom)}×${Math.round(S.rect.h*S.page.zoom)}</b> px · C1 lens <b>${S.cam.fov.toFixed(1)}°</b> · effective focal <b>${Math.round(effectiveFocalPx())}</b> px · C1 distance <b>${S.cam.dist.toFixed(2)}</b>`; if(t!==lastCountersText){ document.getElementById('counters').innerHTML=t; lastCountersText=t; } }
 function seg(id, key, onchange){ const el=document.getElementById(id); el.querySelectorAll('button').forEach(b=>{ b.addEventListener('click',()=>{ el.querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed','false')); b.setAttribute('aria-pressed','true'); S[key]=b.dataset.v; onchange&&onchange(); writeHash(); }); }); }
 seg('segExec','exec',()=>{ S.dirty.s1=true; lastLadder=''; });
 seg('segPortal','portal',()=>{ S.dirty.s1=true; S.dirty.s2pic=true; });
 seg('segZoom','zoomMap',null);
 seg('segMode','mode',()=>{ canvas.style.cursor = S.mode==='draw'?'cell':'crosshair'; });
-function writeHash(){ const h=`#exec=${S.exec}&portal=${S.portal}&wheel=${S.zoomMap}&mode=${S.mode}&zoom=${S.page.zoom.toFixed(3)}&pan=${S.page.pan[0].toFixed(0)},${S.page.pan[1].toFixed(0)}&yaw=${S.cam.yaw.toFixed(3)}&pitch=${S.cam.pitch.toFixed(3)}&dist=${S.cam.dist.toFixed(2)}`; try { history.replaceState(null,'',h); } catch(e){} }
+function writeHash(){ const h=`#exec=${S.exec}&portal=${S.portal}&wheel=${S.zoomMap}&mode=${S.mode}&zoom=${S.page.zoom.toFixed(3)}&pan=${S.page.pan[0].toFixed(0)},${S.page.pan[1].toFixed(0)}&yaw=${S.cam.yaw.toFixed(3)}&pitch=${S.cam.pitch.toFixed(3)}&dist=${S.cam.dist.toFixed(2)}&fov=${S.cam.fov.toFixed(1)}`; try { history.replaceState(null,'',h); } catch(e){} }
 function readHash(){ const h=location.hash.slice(1); if(!h) return; const q={}; h.split('&').forEach(kv=>{ const [k,v]=kv.split('='); q[k]=decodeURIComponent(v||''); });
   const press=(id,v)=>{ if(!v) return; const el=document.getElementById(id); el.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed', b.dataset.v===v?'true':'false')); };
-  if(q.exec){ S.exec=q.exec; press('segExec',q.exec); } if(q.portal){ S.portal=q.portal; press('segPortal',q.portal); } if(q.wheel){ S.zoomMap=q.wheel; press('segZoom',q.wheel); } if(q.mode){ S.mode=q.mode; press('segMode',q.mode); }
-  if(q.zoom) S.page.zoom=parseFloat(q.zoom); if(q.pan){ const p=q.pan.split(',').map(Number); if(p.length===2&&!p.some(isNaN)) S.page.pan=p; } if(q.yaw) S.cam.yaw=parseFloat(q.yaw); if(q.pitch) S.cam.pitch=parseFloat(q.pitch); if(q.dist) S.cam.dist=parseFloat(q.dist); }
+  if(q.exec){ S.exec=q.exec; press('segExec',q.exec); } if(q.portal){ S.portal=q.portal; press('segPortal',q.portal); } if(q.wheel){ S.zoomMap=(q.wheel==='focal'?'magnify':q.wheel); press('segZoom',S.zoomMap); } if(q.mode){ S.mode=q.mode; press('segMode',q.mode); }
+  if(q.zoom) S.page.zoom=parseFloat(q.zoom); if(q.pan){ const p=q.pan.split(',').map(Number); if(p.length===2&&!p.some(isNaN)) S.page.pan=p; } if(q.yaw) S.cam.yaw=parseFloat(q.yaw); if(q.pitch) S.cam.pitch=parseFloat(q.pitch); if(q.dist) S.cam.dist=parseFloat(q.dist); if(q.fov) S.cam.fov=Math.min(110,Math.max(8,parseFloat(q.fov))); }
 let drag=null; const ptr=(e)=>{ const r=canvas.getBoundingClientRect(); return [e.clientX-r.left, e.clientY-r.top]; };
 canvas.addEventListener('wheel',(e)=>{ e.preventDefault(); const [sx,sy]=ptr(e); const page=screenToPage([sx,sy]); const overRegion=inRect(page,[S.rect.x,S.rect.y,S.rect.w,S.rect.h]); const f=Math.exp(-e.deltaY*0.0016);
-  if(S.zoomMap==='dolly' && overRegion){ S.cam.dist=Math.min(14,Math.max(1.2,S.cam.dist/f)); S.dirty.s1=true; }
+  if(S.zoomMap==='dolly' && overRegion){ S.cam.dist=Math.min(14,Math.max(1.2,S.cam.dist/f)); S.dirty.s1=true; }          // dolly: C1 moves; depth relations change; aperture and lens do not
+  else if(S.zoomMap==='lens' && overRegion){ S.cam.fov=Math.min(110,Math.max(8,S.cam.fov/f)); S.dirty.s1=true; }         // lens: C1's fov changes inside a fixed aperture: a crop; the ray at a fixed region point changes
   else { const z=Math.min(12,Math.max(0.2,S.page.zoom*f)); const k=z/S.page.zoom; S.page.pan=[sx-(sx-S.page.pan[0])*k, sy-(sy-S.page.pan[1])*k]; S.page.zoom=z; }
   writeHash(); showChain(chain(sx,sy,false)); },{passive:false});
 canvas.addEventListener('pointerdown',(e)=>{ canvas.setPointerCapture(e.pointerId); const [sx,sy]=ptr(e); const res=chain(sx,sy,false); const overRegion=res.rows[2][1].startsWith('region');

@@ -1,0 +1,17 @@
+# Feedback for session 1 — 6f62711
+
+2026-09-06. Target: session 1, commit `6f62711`, `3d-kind.html` / `3d-kind.md`, and `bench-0`. This feedback evaluates its proposal independently against Sid's original exploration brief. It does not treat that proposal as an implementation or continuation of another session's model. Bench observations below distinguish the committed version from a subsequent local update.
+
+Your strongest moves are making rendering a callable answer, giving attached coating ink a place in material evaluation, and making nested interaction an explicit route. The direct/surface bench gives those claims a useful concrete setting. Preserve them as positions with stated scope.
+
+The main conceptual pressure is on your definition of a space as a frame plus a front-order rule, and on the claim that charts settle one waist. Those explain image composition, but the complete 3D object must also serve constructions and queries before any view exists. Test the definition against solids and fields, including representations without native named faces. Chart composition is evidence for a shared interface; it is not a sufficient argument that every 2D/3D computation reduces to that interface.
+
+For the chart itself, distinguish a flat coordinate domain from flat placement in 3D. A curved chart needs a host mapping, seams and a metric; an attachment also needs ownership and correspondence when the host changes. Keep coating ink as an explicit interpretation. An unlit annotation or raised thread can reuse path information while requiring different appearance or geometry. “Never a biased decal” can describe your coating construction without becoming a universal law for attached content.
+
+Qualify the camera wording. In the committed bench, page zoom 1 to 2 doubled the aperture width from 640 to 1280 while the inner camera stayed at 45 degrees and its projection matrix remained identical. The combined projection can have a larger effective focal scale. That does not mean the inner camera's focal length was edited. Preserve page magnification, lens zoom within the aperture and dolly as distinct operations; Sid's feel selects the input policy among them.
+
+I support render-to-surface as a callable result. Declare the sampled quantity: shadow depth, radiance, display colour and identity have different meanings. Preserve source/view context and achieved quality separately from physical target allocation. A live region retains dependencies and a query route that a screenshot does not acquire merely by containing identical pixels.
+
+“Hover is the same call” needs maintained dependencies around that call. The committed bench initially retained the stroke's hover answer after a synthetic scene-only occluder move, although fresh CPU/GPU queries hit the sphere. A subsequent local update added scene-triggered refresh; a focused repeat then changed the panel automatically to the sphere without another pointer event. That particular join is demonstrated by the revised bench. Full conditions and scope are in [review-6f62711.md](review-6f62711.md).
+
+Your next definition exercise should stay with your chart question: what exactly is saved when the stroke attaches to a curved, editable host, and what result does a host edit return so the stroke can remain, split, trim or become explicitly unresolved? Work that through both the material evaluation and the editable hit. That exposes the unfinished meaning hidden by the word chart while preserving your concrete model.
