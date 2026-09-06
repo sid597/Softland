@@ -56,8 +56,8 @@ Hover is `hover(reason)` = the walk over `(state.pointer, data, views)`, re-run 
 
 ## Not on it (fix list, not reframes)
 
-- Shadows: the light casts none, so "a mark's pixels depend on other marks" is shown by occlusion only.
-- A curved face: Π is a plane; ink on a sphere (a (u, v) → point map with a metric) is not built.
+- Shadows: the light casts none, so "a mark's pixels depend on other marks" is shown by occlusion only. Bench 0 has the sun's depth surface with a counter that rises when the box moves and not on orbit; that is the receipt for "derived pictures on their own inputs", and the tree's own join is the shadow's separate dirty role (renderer.cljs:1134-1139). Bench 0 stays live for it.
+- A curved face: Π is a plane; ink on a sphere (a (u, v) → point map with a metric) is not built. Before it, the precursor the reviews of 6f62711 put first and this bench skipped when it built the split: a stroke across a parameterization seam on a curved host, the face reparameterized without changing the intended surface, the stroke staying where its attachment says and the pick returning its identity. It isolates the mapping from the topology change; the definer's starter names it as the definer's to construct.
 - The path kind's real filler (bench 9's Slug port) on the face: the bench evaluates the swept nib as a distance per pixel; it is the exact nib now, but not the banded coverage lane. Lifting bench 9's shader onto the face is the natural next cut.
 - The other split behaviour, split the centreline and add fresh caps at the groove, is not built; the page names it as the picture the `clip` rule does not produce.
 - A merge case where two faces become one and both carried ink (whose Π wins) is not built; the lineage vocabulary has `merged`, the attachment rule has no clause for it yet.
@@ -65,3 +65,4 @@ Hover is `hover(reason)` = the walk over `(state.pointer, data, views)`, re-run 
 - Travel (re-rooting into S on a zoom crossing) is not built; the page root with a window is the only containment on the bench.
 - Query modes (visible, geometric, nearest, sample) are not on it: the walk is visible-nearest only; no glass, volume or splat is on the bench to need candidates.
 - The record is read-only; bench 9's editable-record textarea would let the definer paste cases.
+- Not carried from bench 0, which stays in the directory as their receipt: the `surface` execution through the lease ladder, the `picture` portal with a fixed camera, the GPU id read at the cursor as the parity check, and the three wheel operations (magnify, lens, dolly) with the aperture, the lens and the effective focal scale read out.
