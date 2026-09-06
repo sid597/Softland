@@ -1,0 +1,5 @@
+== Claude lane: can a record hand the component a path value, or a source of an unknown kind, with its own construction? ==
+1. a record whose source is a path value (kind :path) and a construction that fills it: REJECTED Schema form invariant failed {:error-type :path/source-kind, :path []}
+2. the same with a :network source (attack 2's kind): REJECTED Schema form invariant failed {:error-type :path/source-kind, :path []}
+3. does the executor itself mind? run without validation, source kind :path, construction fills source.path → [true 1]
+4. the clip already takes a path value: accepted
