@@ -67,15 +67,17 @@ The nonlinear receipt is the rule checked on every dab and the dab painted at it
 | restore the original | yes | 1 | 1 | 1 |
 | pan | no | 0 | 0 | 0 |
 | zoom 1.9 (inside bucket 0) | no | 0 | 0 | 0 |
-| zoom 2.5 (bucket 1) | yes | 0 | 1 | 1 |
+| zoom 2.5 (bucket 1) | yes | 0 | 0 | 1 |
+| pen tool first | yes | 1 | 2 | 2 |
+| pen tool zoom 2.5 (bucket 1) | yes | 0 | 1 | 2 |
 | border first | yes | 1 | 2 | 2 |
 | border pan | yes | 1 | 2 | 2 |
 | border zoom 1.5 | yes | 1 | 2 | 2 |
 | Z in group 17, first | yes | 1 | 1 | 2 |
 | group 17 moved | no | 0 | 0 | 0 |
-| group 17 rescaled half → double | yes | 0 | 1 | 1 |
+| group 17 rescaled half → double | yes | 0 | 0 | 1 |
 
-A fractional placement (group 18 at 0.5, 0.25): 300 edge pixels within 0.0020 of the CPU twin, the old varying-position error absent.
+A fractional placement (group 18 at 0.5, 0.25): 300 edge pixels within 0.0020 of the CPU twin, the old varying-position error absent. The Z's rows across a bucket without a repack, and the pen tool's one repack, are the pack fix of the measurements round: a region without cubics packs once for every bucket (`measurements-client-claude.md`).
 
 **Parity.** Seven zooms (0.01, 0.1, 1, 8, 10, 100, 1000), 15,456 decisive pixels each (5,040 inside, 10,416 outside), zero mismatches.
 
@@ -102,6 +104,9 @@ A fractional placement (group 18 at 0.5, 0.25): 300 edge pixels within 0.0020 of
 | Work | Where it lands | Note |
 |---|---|---|
 | The offset stroker | `path/stroke.cljc` | The envelope flattens the centerline and traces the hull with arc joins, so a curved stroke is many short lines plus arcs. A true offset of the cubics keeps the curve count near the source's. The nib's meaning (the external tangent of the end discs) must survive the change; the tests pin it. |
+| Rows cached per item, rebuilt only for changed items | `path/renderer.cljs` | The trace: a one-record colour edit costs 35 ms at 1,600 items with no run and no pack, about 22 µs per unchanged item. The pull model's price; a push edge removes it. `measurements-client-claude.md`. |
+| View-reading records rerun per pan | `path/component.cljc`, `path/renderer.cljs` | 266 snapped borders cost 79 ms per pan. Visible only, or snapping and the device-unit width in the placement. |
+| Cubic regions packed for a bucket range, repacks spread over frames | `path/renderer.cljs`, `path/pack.cljc` | The remaining bucket-crossing hitch, 184 ms at 1,600 items, after cubic-free regions stopped repacking. |
 | Cell cover thresholds | `path/renderer.cljs` `cover-options` | Cells when the box exceeds 256² device pixels and 2048 px per curve, twelve cells across the longer side. Guesses; measure on a long thin stroke at high zoom. |
 | Layers, blends, the surface a brush reads | `engine/compositor.cljs` | Paint and sample as the two operations; the path renderer must not grow a private surface owner. |
 | The executor's each-loop | `engine/executor.cljc` | A step that iterates with carried state (the bench's per-brush-step row, the pickup). The executor stops at the first missing op; a partial run is not counted as the tool having run. |
@@ -126,6 +131,10 @@ node test/render_engine/dump_result.mjs <out-dir>        # every scenario number
 
 The verifier's `receipt.json` keeps pass/fail and golden hashes only; `dump_result.mjs` writes the page's full result for the path and region3d lanes, which is what `receipts-client-claude.json` is. `STARTER-judge.md` beside this file carries a REPL session over the pure layer for change-it moves by hand.
 
-## 6. Next
+## 6. Measurements
+
+`measurements-client-claude.md`: the JVM per-record costs, the browser trace at three scene sizes on the real adapter (AMD RDNA 3) and on SwiftShader, and the reading: the GPU has room, geometry per edit is a millisecond, the CPU frame loop is the cost in three named places. The trace is a harness step with no pass; `test/app/client/path/timing.clj` and `RENDER_VERIFIER_HARDWARE=1 node test/render_engine/dump_result.mjs <out>` reproduce it.
+
+## 7. Next
 
 The definer's constructions against the landed code as they arrive, in this directory. A construction that needs an input, result or state these interfaces cannot carry reopens the picture; a tangent, a curve count or a missing namespace is work inside it.
