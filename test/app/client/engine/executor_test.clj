@@ -2,49 +2,51 @@
   (:require [app.client.engine.executor :as executor]
             [clojure.test :refer [deftest is testing]]))
 
-(def capabilities
-  {:num/add (fn [{:keys [a b]}] (+ a b))
-   :num/scale (fn [{:keys [x by]}] (* x by))
-   :word/echo (fn [{:keys [word]}] word)
-   :fail/always (fn [_] (throw (ex-info "boom" {:why :test})))})
+(deftest one-language-in-formulas-and-capability-arguments
+  (let [rule [:* [:get :size] [:pow [:get :p] 2.0]]
+        input {:size 40 :p 0.55}
+        compiled (executor/compile-expression rule)
+        program {:steps [{:bind :width :call :identity :args [rule]}] :return [:get :width]}]
+    (is (< (Math/abs (- 12.1 (compiled input))) 1e-12))
+    (is (= (compiled input) (:value (executor/execute program input {:identity identity}))))
+    (is (= #{[:size] [:p]} (executor/references rule)))
+    (is (= (executor/execute program input {:identity identity})
+           (executor/execute program input {:identity identity})) "no clock in the semantic value")))
 
-(def scope {"tool" {:size 4 :numbers [1 2 3]} "view" {:scale 2.0 :pan [0.0 0.0]}})
+(deftest expression-vocabulary-and-lazy-branches
+  (doseq [[expression expected] [[[:+ 2 [:* 3 4]] 14]
+                                [[:pow 2 [:pow 3 2]] 512.0]
+                                [[:/ 10 4] 2.5]
+                                [[:max 1 3] 3]
+                                [[:clamp 2 0 0.5] 0.5]
+                                [[:step 0.5 0.7] 1.0]
+                                [[:smoothstep 0 1 0.5] 0.5]
+                                [[:mix 1 2 0.5] 1.5]
+                                [[:floor 1.9] 1.0]
+                                [[:exp 0] 1.0]
+                                [[:if true 7 [:get :missing]] 7]
+                                [[:literal [:unknown :data]] [:unknown :data]]]]
+    (is (= expected (executor/evaluate expression {}))))
+  (is (= #{[:yes] [:no]} (executor/references [:if true [:get :yes] [:get :no]])))
+  (is (= {:path [1 2] :label "source.x"}
+         (executor/evaluate {:path [1 2] :label "source.x"} {}))))
 
-(deftest bindings-resolve-literals-and-step-outputs
-  (let [result (executor/run {:steps [{:out "sum" :op :num/add :a "tool.size" :b "tool.numbers.2"}
-                                      {:out "scaled" :op :num/scale :x "sum" :by 10}
-                                      {:out "word" :op :word/echo :word "nearest"}]
-                              :return {:value "scaled" :word "word" :all ["sum" "scaled"]}}
-                             scope capabilities)]
-    (is (:ok? result))
-    (is (= {"sum" 7 "scaled" 70 "word" "nearest"} (:values result)))
-    (is (= {:value 70 :word "nearest" :all [7 70]} (:return result)))
-    (is (= [:num/add :num/scale :word/echo] (map :op (:log result))))
-    (testing "reads name only the original roots, with the values read"
-      (is (= {"tool.size" 4 "tool.numbers.2" 3} (:reads result))))))
+(deftest errors-stop-before-the-next-capability
+  (let [calls (atom [])]
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unavailable"
+                         (executor/execute {:steps [{:call :missing} {:call :later}]}
+                                           {} {:later #(swap! calls conj :later)})))
+    (is (empty? @calls)))
+  (doseq [expression [[:get :missing] [:pow 2] [:unknown 1] [:sqrt -1]]]
+    (is (thrown? clojure.lang.ExceptionInfo (executor/evaluate expression {}))))
+  (is (thrown? Exception (executor/evaluate [:/ 1 0] {}))))
 
-(deftest reads-decide-a-rerun
-  (let [construction {:steps [{:out "w" :op :num/scale :x "tool.size" :by "view.scale"}] :return {:w "w"}}
-        result (executor/run construction scope capabilities)]
-    (is (= {"tool.size" 4 "view.scale" 2.0} (:reads result)))
-    (is (= (:reads result) (executor/reread scope (:reads result))))
-    (is (not= (:reads result) (executor/reread (assoc-in scope ["view" :scale] 3.0) (:reads result))))
-    (is (= (:reads result) (executor/reread (assoc-in scope ["view" :pan] [5.0 5.0]) (:reads result)))
-        "a field never read does not count")))
-
-(deftest a-missing-capability-stops-the-run-and-names-itself
-  (let [construction {:steps [{:out "sum" :op :num/add :a 1 :b 2}
-                              {:out "x" :op :surface/sample :point [1 2]}
-                              {:out "y" :op :num/add :a "sum" :b 1}]
-                      :return {:y "y"}}
-        result (executor/run construction scope capabilities)]
-    (is (not (:ok? result)))
-    (is (= [:surface/sample] (:missing result)))
-    (is (= {"sum" 3} (:values result)) "steps after the missing one never ran")
-    (is (= [:surface/sample] (executor/missing-capabilities construction capabilities)))))
-
-(deftest a-throwing-capability-is-reported-not-propagated
-  (let [result (executor/run {:steps [{:out "x" :op :fail/always}] :return {}} scope capabilities)]
-    (is (not (:ok? result)))
-    (is (= "boom" (:error (last (:log result)))))
-    (is (= {:why :test} (:data (last (:log result)))))))
+(deftest each-carries-values-and-restores-the-item-binding
+  (let [program {:bindings [[:sum 0]]
+                 :steps [{:each [:get :numbers] :item :n
+                          :steps [{:bind :sum :value [:+ [:get :sum] [:get :n]]}]}]
+                 :return {:sum [:get :sum] :n [:get :n]}}
+        result (executor/execute program {:numbers [1 2 3] :n :outer} {})]
+    (is (= {:sum 6 :n :outer} (:value result)))
+    (is (thrown? clojure.lang.ExceptionInfo
+                 (executor/execute {:steps [{:each [1 2] :steps []}]} {} {})))))

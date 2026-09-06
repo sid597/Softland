@@ -1,21 +1,18 @@
 (ns app.client.path.renderer
-  "Own what a path frame retains, and draw it.
+  "Prepare and draw path values through the shared coverage program.
 
-   Input: shared GPU resources, ordered draw items ({:path/material record
-   :container group-id}), the view ({:zoom :pan}), world transforms and an
-   open pass. Output: prepared instance rows, uploads, one instanced
-   coverage draw, and per-frame statistics naming what was rebuilt at each
-   level. State per system: the run cache (a record's construction result
-   with what it read), the pack cache per region and scale bucket, the
-   curve/band atlas, the instance pool, the pipeline and bind group. It
-   does not own the camera or group buffers.
+   Takes components, explicit view/group values and borrowed GPU buffers.
+   Gives instance rows, uploads, an instanced draw and work counts. Owns
+   retained geometry keyed by complete geometry-inputs, packs keyed by
+   actual region values and tolerance bucket, atlas and instance storage.
+   No source recipe, run result, or observed-read report enters this system.
 
-   A frame runs a record's construction only when a value it read has
-   changed; packs a region only when its content changed, or the scale
-   bucket changed and the region has cubics to lower; writes an instance
-   row only when the row changed. A pan, or a zoom inside the bucket,
-   touches nothing here: the camera buffer moves the picture. Painter's order is the item order, a fill before its stroke,
-   dabs in drawing order, all in one instanced draw.
+   Geometry reuse, the pack buckets and atlas predate this port. The scene
+   trace in harness/path measures source edits separately from preparation;
+   it supports retaining that reuse, not a claim of interactive performance.
+   Integer pans reuse snapped geometry; fractional pans and device-width
+   scales are declared inputs. Color changes only instance rows. Evidence:
+   harness/path rates and path-production pixel checks; frame_test.clj.
 
    Folder map: README.md."
   (:require [app.client.engine.buffer-pool :as buffer-pool]
@@ -166,7 +163,7 @@
      :scene-color scene-color :label label
      :atlas atlas :pool pool
      :!bind-group (atom (create-bind-group device bind-layout atlas camera-buffer groups-buffer))
-     :!runs (atom {}) :!packs (atom {}) :!prepared (atom {:rows [] :items [] :item-ranges []})
+     :!packs (atom {}) :!prepared (atom {:rows [] :items [] :item-ranges []})
      :!last-frame-key (atom ::never)}))
 
 (def cell-cover-area-px (* 256 256))
@@ -186,15 +183,16 @@
       {:mode :cells :margin margin :cell (/ (max w h) 12.0) :rule rule}
       {:mode :box :margin margin})))
 
-(defn- run-for
-  "Runs cache, record, item view → [runs result rebuilt?]."
-  [runs record view]
-  (let [id (:path/material-id record)
-        cached (get runs id)]
-    (if (and cached (not (component/rerun? record view (:reads cached))))
-      [runs (:result cached) false]
-      (let [result (component/run record view)]
-        [(assoc runs id {:reads (:reads result) :result result}) result true]))))
+(defn- geometry-for
+  "Previous geometry inputs/results, component and view → [entries result
+   derived?]. Retains the existing geometry reuse, keyed by its full input;
+   no source program executes here and no observed-read list is retained."
+  [entries record view]
+  (let [inputs (component/geometry-inputs record view)]
+    (if-let [entry (find entries inputs)]
+      [entries (val entry) false]
+      (let [result (component/geometry inputs)]
+        [(assoc entries inputs result) result true]))))
 
 (defn- pack-for
   "Packs cache, region, bucket, scale → [packs entry lowered?]; an entry is
@@ -206,7 +204,7 @@
    the bucket :all and a zoom across a bucket boundary repacks nothing of
    it; a region with cubics packs per bucket. The cover is per bucket either
    way, since its margin is the bucket's device pixel; its mode is chosen
-   at the first scale seen in the bucket."
+   at the bucket's lower scale, a declared input."
   [packs region bucket scale]
   (let [rkey (frame/region-key region)
         cached (get packs rkey)
@@ -223,7 +221,7 @@
             cover (when pack
                     (if have-cover?
                       (get-in cached [:covers bucket])
-                      (pack/cover pack (cover-options pack (:rule region) bucket scale))))
+                      (pack/cover pack (cover-options pack (:rule region) bucket (pack/bucket-scale bucket)))))
             cached (-> (or cached {:packs {} :covers {}})
                        (assoc :cubics cubics)
                        (assoc-in [:packs slot-bucket] pack)
@@ -236,8 +234,8 @@
   "System, draw items, view, world transforms → statistics; updates every
    cache, the atlas and the instance pool.
 
-   {:changed? :runs :packs :instances :instance-writes :atlas {...}
-    :cell-covers :items}. :runs counts constructions that ran, :packs the
+   {:changed? :derivations :packs :instances :instance-writes :atlas {...}
+    :cell-covers :items}. :derivations counts geometry evaluations, :packs the
    regions lowered, :instance-writes the rows uploaded. An unchanged frame
    key returns early with :changed? false and the previous counts."
   [system draw-items view world-transforms]
@@ -245,18 +243,18 @@
         key (frame/frame-key draw-items view world-transforms)
         prepared @(:!prepared system)]
     (if (= key @(:!last-frame-key system))
-      {:changed? false :runs 0 :packs 0 :instances (count (:rows prepared)) :instance-writes 0
+      {:changed? false :derivations 0 :packs 0 :instances (count (:rows prepared)) :instance-writes 0
        :atlas (coverage/stats (:atlas system)) :cell-covers 0 :items (:items prepared)}
       (let [atlas (:atlas system)
-            ;; pass 1: runs and packs
-            [runs packs items run-count pack-count]
+            ;; pass 1: pure geometry and packing
+            [geometries packs items geometry-count pack-count]
             (reduce
-             (fn [[runs packs items run-count pack-count] item]
+             (fn [[geometries packs items geometry-count pack-count] item]
                (let [record (:path/material item)
                      group-index (transform/buffer-index world-transforms (:container item))
                      iv (frame/item-view view (get world-transforms (:container item)))
                      bucket (pack/scale-bucket (:scale iv))
-                     [runs result ran?] (run-for runs record iv)
+                     [geometries result derived?] (geometry-for geometries record iv)
                      [packs clip-entry clip-packed?] (if (:clip result)
                                                        (pack-for packs (:clip result) bucket (:scale iv))
                                                        [packs nil false])
@@ -264,14 +262,14 @@
                      (reduce (fn [[packs regions n] region]
                                (let [[packs entry packed?] (pack-for packs region bucket (:scale iv))]
                                  [packs (conj regions [region entry]) (if packed? (inc n) n)]))
-                             [packs [] 0] (:regions result))]
-                 [runs packs
+                             [packs [] 0] (if (and (:clip result) (nil? clip-entry)) [] (:regions result)))]
+                 [geometries packs
                   (conj items {:record record :group-index group-index :regions regions
                                :clip (when clip-entry [(:clip result) clip-entry])
-                               :ok? (:ok? result) :missing (:missing result) :log (:log result)})
-                  (if ran? (inc run-count) run-count)
+                               :geometry-inputs (component/geometry-inputs record iv)})
+                  (if derived? (inc geometry-count) geometry-count)
                   (+ pack-count region-packs (if clip-packed? 1 0))]))
-             [@(:!runs system) @(:!packs system) [] 0 0]
+             [(or (:geometry prepared) {}) @(:!packs system) [] 0 0]
              draw-items)
             used-keys (into #{} (for [item items
                                       [_ entry] (concat (:regions item) (when (:clip item) [(:clip item)]))
@@ -301,14 +299,14 @@
           (when (:regrown? flushed)
             (reset! (:!bind-group system)
                     (create-bind-group (:device system) (:bind-layout system) atlas (:camera-buffer system) (:groups-buffer system))))
-          (reset! (:!runs system) (select-keys runs (map (comp :path/material-id :path/material) draw-items)))
           (reset! (:!packs system) (select-keys packs (into #{} (map first) used-keys)))
           (reset! (:!prepared system) {:rows rows :item-ranges item-ranges
-                                       :items (mapv #(select-keys % [:ok? :missing :log]) items)})
+                                       :geometry (select-keys geometries (map :geometry-inputs items))
+                                       :items (mapv #(select-keys % [:geometry-inputs]) items)})
           (reset! (:!last-frame-key system) key)
-          {:changed? true :runs run-count :packs pack-count :instances (count rows) :instance-writes writes
+          {:changed? true :derivations geometry-count :packs pack-count :instances (count rows) :instance-writes writes
            :atlas (merge (coverage/stats atlas) flushed) :cell-covers cell-covers
-           :items (mapv #(select-keys % [:ok? :missing :log]) items)})))))
+           :items (mapv #(select-keys % [:geometry-inputs]) items)})))))
 
 (defn draw-path-instances!
   "Open pass, system, first instance, count → one instanced draw of six
@@ -344,7 +342,6 @@
   (coverage/destroy-atlas! (:atlas system))
   (when-let [buffer (:buffer @(:pool system))]
     (.destroy ^js buffer))
-  (reset! (:!runs system) {})
   (reset! (:!packs system) {})
   (reset! (:!prepared system) {:rows [] :items [] :item-ranges []})
   (reset! (:!last-frame-key system) ::destroyed)

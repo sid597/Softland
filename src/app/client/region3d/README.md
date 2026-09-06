@@ -27,3 +27,9 @@ flowchart TD
 Source scene objects, derived spatial state and prepared GPU regions are different representations. Scene functions return values; renderer systems retain them with buffers and dirty state. [Engine](../engine/README.md) compositors own physical texture leases, while logical bindings preserve region identity across replacement.
 
 The placement calculations reuse [text](../text/README.md) and [path](../path/README.md). The placement GPU lane currently supports ink; accepted placement data and available CPU calculations do not by themselves imply GPU support for every kind. The frame caller owns ordering, pass submission and lifetime across these systems.
+
+Placed ink now receives a constructed path value; it runs no source recipe.
+Its packed clip accompanies the painted regions (`path_placement_test.clj`).
+The browser region3d tree golden exercises the placed-ink draw. Device width
+on a perspective plane still uses the existing unit placement scale; true
+pixel width over a perspective-varying projection is untested.

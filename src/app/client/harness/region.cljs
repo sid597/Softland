@@ -19,6 +19,7 @@
                [app.client.engine.leases :as region-bindings]
                [app.client.engine.transform :as transform]
                [app.client.path.component :as path-component]
+            [app.client.path.construction :as path-construction]
                [app.client.path.renderer :as path-renderer]
                [app.client.region3d.on-plane :as on-plane]
                [app.client.region3d.component :as region3d-component]
@@ -159,9 +160,9 @@
   (let [record {:path/material-id id :path/revision ::pending
                 :path/tool {:size 16 :fit :polyline :streamline 0}
                 :path/source {:kind :pen :samples samples}
-                :path/paint {:stroke {:width "size * p" :cap :round :join :round :color color}}}
-        validated (path-component/validate-component! record)]
-    (assoc validated :path/revision (path-component/component-content-hash validated))))
+                :path/paint {:stroke {:width [:* [:get :size] [:get :p]] :cap :round :join :round :color color}}}
+        validated (path-construction/construct record)]
+    (assoc validated :path/revision (path-component/component-content-key validated))))
 
 (defn- polygon-record
   "ID, points and colour → a validated filled polygon record."
@@ -169,8 +170,8 @@
   (let [record {:path/material-id id :path/revision ::pending
                 :path/source {:kind :anchors :contours [{:closed? true :anchors (mapv (fn [p] {:p p}) points)}]}
                 :path/paint {:fill {:rule :nonzero :color color}}}
-        validated (path-component/validate-component! record)]
-    (assoc validated :path/revision (path-component/component-content-hash validated))))
+        validated (path-construction/construct record)]
+    (assoc validated :path/revision (path-component/component-content-key validated))))
 
 (defn- region3d-boundary-fixture
   "No arguments → region/draw item with a resolved transformed ink placement
@@ -200,7 +201,7 @@
         ink-placement
         {:object-id :boundary/ink :object ink-object :kind :ink
          :address :boundary/ink-component :status :resolved
-         :content-revision (path-component/component-content-hash ink-component)
+         :content-revision (path-component/component-content-key ink-component)
          :component ink-component
          :owner {:vi :boundary/ink-owner :draw-item-id :boundary/ink-component}}
         draw-item (assoc (region3d-draw-item region :group 17)

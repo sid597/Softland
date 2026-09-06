@@ -2,7 +2,7 @@
   "The definer's records: the constructions the implementation is measured
    by, as data.
 
-   Input: none. Output: records in the vocabulary of path/component, the
+   Input: none. Output: authored records for path/construction, the
    same ones the bench ran (docs/below-the-waist/path-kind/bench-9/, with
    the measured numbers in its HANDOVER.md). The JVM tests and the browser
    harness read them from here so a record means one thing in both.
@@ -19,7 +19,7 @@
    :path/revision 1
    :path/tool {:name "harness ink" :size 16 :fit :polyline :streamline 0}
    :path/source {:kind :pen :samples z-samples}
-   :path/paint {:stroke {:overlap :union :tip :nib :width "size * p" :unit :local
+   :path/paint {:stroke {:overlap :union :tip :nib :width [:* [:get :size] [:get :p]] :unit :local
                          :cap :round :join :round :color [0.84 0.36 0.94 0.62]}}})
 
 (def z-as-dabs
@@ -30,7 +30,7 @@
 (def z-nonlinear
   "The definer's nonlinear response: width 16 p², evaluated on the
    interpolated pressure, never interpolated between evaluated widths."
-  (assoc-in harness-z [:path/paint :stroke :width] "size * p^2"))
+  (assoc-in harness-z [:path/paint :stroke :width] [:* [:get :size] [:pow [:get :p] 2.0]]))
 
 (def pressure-ink
   "The harness's pressure-ink golden: four samples, pressure 0.2 to 1.0."
@@ -38,7 +38,7 @@
    :path/revision 1
    :path/tool {:size 16 :fit :polyline :streamline 0}
    :path/source {:kind :pen :samples [[26.0 72.0 0.2] [48.0 36.0 0.45] [78.0 84.0 0.72] [102.0 42.0 1.0]]}
-   :path/paint {:stroke {:width "size * p" :color [0.16 0.68 0.96 0.94]}}})
+   :path/paint {:stroke {:width [:* [:get :size] [:get :p]] :color [0.16 0.68 0.96 0.94]}}})
 
 (defn- ring
   [points]
@@ -72,7 +72,7 @@
   {:path/material-id :fixture/draw
    :path/revision 1
    :path/tool {:name "draw" :size 10 :thinning 0.6 :streamline 0.35 :fit 0.9 :taper-end 22
-               :width "size * (1 - thinning * (1 - p))"}
+               :width [:* [:get :size] [:- 1.0 [:* [:get :thinning] [:- 1.0 [:get :p]]]]]}
    :path/source {:kind :pen
                  :samples (vec (for [i (range 70)]
                                  (let [t (* i 0.09)

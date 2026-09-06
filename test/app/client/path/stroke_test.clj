@@ -1,5 +1,6 @@
 (ns app.client.path.stroke-test
   (:require [app.client.path.component :as component]
+            [app.client.path.construction :as construction]
             [app.client.path.records :as fixtures]
             [app.client.path.source :as source]
             [app.client.path.stroke :as stroke]
@@ -30,8 +31,8 @@
     (testing "the definer's three segments form one union, independent of the tracer's curve count"
       (is (= 3 (:pieces result)))
       (is (= 1 (:open result)))
-      (is (= :inside (component/classify fixtures/harness-z (:point z-crossing))))
-      (is (= :outside (component/classify fixtures/harness-z [5.0 5.0])))
+      (is (= :inside (component/classify (construction/construct fixtures/harness-z) (:point z-crossing))))
+      (is (= :outside (component/classify (construction/construct fixtures/harness-z) [5.0 5.0])))
       (is (every? :closed? (:subpaths (:path result)))))))
 
 (deftest the-nib-leans-with-the-taper-and-the-ribbon-does-not

@@ -106,27 +106,29 @@
 
 (defn placed-ink-regions
   "Placement → {:object-id :address :regions [{:region :pack :cover
-   :color}] :ok? :missing}: the record's construction run at the unit view,
+   :color :clip}] :ok? :missing}: the path value evaluated at the unit view,
    each painted region lowered for the placement bucket with a box cover,
    its colour tagged. The same regions and packs the 2D lane draws, so a
    stroke means one thing on a plane and on the canvas."
   [placement]
   (let [record (:component placement)
-        result (path-component/run record {:scale placement-zoom :pan [0.0 0.0]})
+        result (path-component/regions record {:scale placement-zoom :pan [0.0 0.0]})
         tolerance (path-pack/bucket-tolerance placement-bucket)
         margin (path-pack/bucket-margin placement-bucket)
+        clip (when-let [clip (:clip result)]
+               (assoc clip :pack (:pack (path-pack/pack-region (:path clip) tolerance {}))))
         regions (vec (for [region (:regions result)
                            :let [{:keys [pack]} (path-pack/pack-region (:path region) tolerance {})]
-                           :when pack]
+                           :when (and pack (or (nil? clip) (:pack clip)))]
                        {:region region
-                        :pack pack
+                        :pack pack :clip clip
                         :cover (path-pack/cover pack {:mode :box :margin margin})
                         :color (adapt-legacy-color (path-component/region-color record region))}))]
     {:object-id (:object-id placement)
      :address (:address placement)
      :regions regions
-     :ok? (:ok? result)
-     :missing (:missing result)}))
+     :ok? true
+     :missing []}))
 
 (defn linear-premultiplied
   "Tagged color, coverage, opacity → linear premultiplied RGBA.

@@ -1,5 +1,6 @@
 (ns app.client.path.pack-test
   (:require [app.client.path.component :as component]
+            [app.client.path.construction :as construction]
             [app.client.path.records :as fixtures]
             [app.client.path.pack :as pack]
             [app.client.path.source :as source]
@@ -7,7 +8,7 @@
             [clojure.test :refer [deftest is testing]]))
 
 (defn- region [record kind]
-  (first (filter #(= kind (:kind %)) (:regions (component/run record {})))))
+  (first (filter #(= kind (:kind %)) (:regions (component/regions (construction/construct record) {})))))
 
 (deftest tolerance-buckets-are-powers-of-two
   (is (= 0 (pack/scale-bucket 1.0)))
@@ -83,7 +84,7 @@
 (deftest cover-cells-drop-the-empty-middle-of-a-thin-diagonal
   (let [line {:subpaths [{:closed? false :start [0.0 0.0] :segments [(v/line [200.0 200.0])]
                           :knots [{:id 0 :width 2.0} {:id 1 :width 2.0}]}]}
-        skin (first ((:path/envelope component/capabilities) {:path line :stroke {} :tool {}}))
+        skin (first (:regions (component/regions {:path/value line :path/paint {:stroke {}}} {})))
         p (:pack (pack/pack-region (:path skin) 0.1 {}))
         box (pack/cover p {:mode :box :margin 1.0})
         cells (pack/cover p {:mode :cells :margin 1.0 :cell 25.0 :rule :nonzero})]
@@ -91,10 +92,8 @@
     (is (> (count (:rects cells)) 1))
     (is (< (:area cells) (* 0.5 (:area box))))
     (testing "an interior cell no curve touches is kept by winding"
-      (let [fill (first ((:path/fill-region component/capabilities)
-                         {:path {:subpaths [{:closed? true :start [0.0 0.0]
-                                             :segments [(v/line [100.0 0.0]) (v/line [100.0 100.0]) (v/line [0.0 100.0])]}]}
-                          :rule :nonzero}))
+      (let [fill {:path {:subpaths [{:closed? true :start [0.0 0.0]
+                                    :segments [(v/line [100.0 0.0]) (v/line [100.0 100.0]) (v/line [0.0 100.0])]}]}}
             fp (:pack (pack/pack-region (:path fill) 0.1 {}))
             c (pack/cover fp {:mode :cells :margin 0.0 :cell 20.0 :rule :nonzero})]
         (is (= 25 (count (:rects c))) "every cell of a filled square, including the nine no edge touches")))))

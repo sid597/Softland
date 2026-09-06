@@ -156,9 +156,9 @@
 
 (defn- placement-key
   "Placement and matrix → identity/kind/status/content-revision/matrix
-   tuple. Trusts the content revision for content and paint changes."
+   tuple, including the complete component value for content and paint changes."
   [placed matrix]
-  [(:object-id placed) (:kind placed) (:status placed) (:content-revision placed) matrix])
+  [(:object-id placed) (:kind placed) (:status placed) (:content-revision placed) (:component placed) matrix])
 
 (defn- pack-one
   "Old row, placement, maintained scene → {:row :packed?}: reuses an equal
@@ -240,15 +240,22 @@
                           (sort-by (juxt (comp - :depth) (comp pr-str :object-id :placed)))
                           vec)
             atlas (:atlas region-gpu)
-            used-keys (into #{} (for [row ink-rows entry (get-in row [:packed :regions])] [(:object-id (:placed row)) (hash (:pack entry))]))
+            used-keys (into #{} (mapcat (fn [row]
+                                           (mapcat (fn [entry]
+                                                     (cond-> [[(:object-id (:placed row)) (:pack entry)]]
+                                                       (:clip entry) (conj [(:object-id (:placed row)) (get-in entry [:clip :pack])])))
+                                                   (get-in row [:packed :regions]))) ink-rows))
             _ (coverage/retain! atlas used-keys)
             instances (vec (for [[index row] (map-indexed vector ink-rows)
                                  entry (get-in row [:packed :regions])
-                                 :let [slot (coverage/insert! atlas [(:object-id (:placed row)) (hash (:pack entry))] (:pack entry))
+                                 :let [slot (coverage/insert! atlas [(:object-id (:placed row)) (:pack entry)] (:pack entry))
+                                       clip (when-let [clip (:clip entry)]
+                                              {:rule (:rule clip)
+                                               :slot (coverage/insert! atlas [(:object-id (:placed row)) (:pack clip)] (:pack clip))})
                                        color (on-plane/linear-premultiplied (:color entry) 1.0 1.0)]
                                  [x0 y0 x1 y1] (:rects (:cover entry))]
                              {:rect [x0 y0 (- x1 x0) (- y1 y0)] :slot slot :color color
-                              :rule (:rule (:region entry)) :index index :clip nil}))
+                              :rule (:rule (:region entry)) :index index :clip clip}))
             flushed (coverage/flush! atlas)
             matrix-row (ensure-matrix-buffer! system (:matrices region-gpu) (max 1 (count ink-rows)))
             matrix-data (js/Float32Array. (clj->js (vec (mapcat (fn [row] (column-major (get-in row [:packed :matrix]))) ink-rows))))

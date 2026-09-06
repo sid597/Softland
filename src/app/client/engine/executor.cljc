@@ -1,135 +1,122 @@
 (ns app.client.engine.executor
-  "Run a construction written as data over a vocabulary of capabilities.
+  "One expression language for recipe arguments and width rules.
 
-   Input: a construction ({:steps [...] :return ...}), a scope of named roots
-   (maps with keyword keys, and earlier step outputs), and a capability
-   table (op keyword → function of the resolved arguments). Output: the
-   values every step produced, the resolved return, a log per step, the
-   dotted paths that were read with their values, and the operations the
-   table lacked. No retained state; nothing heavy happens here. The executor
-   moves values between capabilities and keeps the order a construction
-   declares; every heavy thing happens inside a capability.
+   Takes EDN expressions, explicit bindings and a capability table. Gives
+   values; execute also returns final bindings. Holds no state or clock.
+   Capabilities own their effects. No read report is a dependency key.
+   Evidence: test/app/client/engine/executor_test.clj."
+  (:require [app.client.engine.schema :as schema]))
 
-   A step is {:out \"name\" :op :family/capability ...bindings}. A binding
-   that is a string names a dotted path into the scope (\"paint.stroke.tip\",
-   \"source.samples.3\"); a string whose first segment is not a root is a
-   literal word. Any other value is a literal. What a construction read is
-   what its result depends on: a caller keys its cache on the read values,
-   so a construction that never reads the view is camera-free by
-   observation, not by declaration.
+(def operations
+  "Operator → [minimum arity, maximum arity or nil, implementation]."
+  {:+ [0 nil +] :- [1 nil -] :* [0 nil *] :/ [1 nil (fn [& xs] (apply / (map double xs)))]
+   :min [1 nil min] :max [1 nil max] :abs [1 1 #(Math/abs (double %))]
+   :sqrt [1 1 #(Math/sqrt (double %))] :pow [2 2 #(Math/pow (double %1) (double %2))]
+   :sin [1 1 #(Math/sin (double %))] :cos [1 1 #(Math/cos (double %))]
+   :exp [1 1 #(Math/exp (double %))] :floor [1 1 #(Math/floor (double %))]
+   :clamp [3 3 (fn [x lo hi] (max lo (min hi x)))]
+   :step [2 2 (fn [edge x] (if (< x edge) 0.0 1.0))]
+   :smoothstep [3 3 (fn [lo hi x] (let [t (max 0.0 (min 1.0 (/ (- x lo) (- hi lo))))] (* t t (- 3.0 (* 2.0 t)))))]
+   :mix [3 3 (fn [a b t] (+ a (* (- b a) t)))]
+   :< [2 2 <] :<= [2 2 <=] := [2 2 =] :not [1 1 not]})
 
-   Folder map: README.md."
-  (:require [clojure.string :as str]))
+(defn- arity! [op args lo hi]
+  (when-not (and (<= lo (count args)) (or (nil? hi) (<= (count args) hi)))
+    (throw (ex-info "Wrong expression arity" {:error-type :executor/arity :operator op :arguments args}))))
 
-(defn- segment-key
-  "Path segment → vector index or keyword."
-  [segment]
-  (if (re-matches #"[0-9]+" segment)
-    #?(:clj (Long/parseLong segment) :cljs (js/parseInt segment 10))
-    (keyword segment)))
-
-(defn resolve-binding
-  "Scope and binding → {:value v :read path} for a dotted path into a root,
-   {:value v :literal? true} otherwise."
-  [scope binding]
-  (if (string? binding)
-    (let [[root & segments] (str/split binding #"\.")]
-      (if (contains? scope root)
-        {:value (reduce (fn [value segment]
-                          (let [k (segment-key segment)]
-                            (if (and (number? k) (sequential? value))
-                              (nth value k nil)
-                              (get value k))))
-                        (get scope root)
-                        segments)
-         :read binding}
-        {:value binding :literal? true}))
-    {:value binding :literal? true}))
-
-(defn- resolve-return
-  "Scope and a return spec (bindings nested in maps and vectors) → the same
-   shape with bindings resolved, and the reads made."
-  [scope spec]
+(defn compile-expression
+  "Expression → a pure function of bindings. :get is required, :literal
+   quotes data, :if is lazy; maps and ordinary vectors resolve children.
+   Compilation happens once for a width rule, before sampling its points."
+  [expression]
   (cond
-    (map? spec) (reduce-kv (fn [[out reads] k child]
-                             (let [[value child-reads] (resolve-return scope child)]
-                               [(assoc out k value) (merge reads child-reads)]))
-                           [{} {}] spec)
-    (vector? spec) (reduce (fn [[out reads] child]
-                             (let [[value child-reads] (resolve-return scope child)]
-                               [(conj out value) (merge reads child-reads)]))
-                           [[] {}] spec)
-    :else (let [{:keys [value read]} (resolve-binding scope spec)]
-            [value (if read {read value} {})])))
+    (map? expression)
+    (let [entries (mapv (fn [[k v]] [k (compile-expression v)]) expression)]
+      (fn [bindings] (into {} (map (fn [[k f]] [k (f bindings)])) entries)))
 
-(defn- now-ms []
-  #?(:clj (/ (System/nanoTime) 1.0e6) :cljs (js/performance.now)))
+    (vector? expression)
+    (let [[op & args] expression]
+      (case op
+        :literal (do (arity! op args 1 1) (constantly (first args)))
+        :get (do (arity! op args 1 nil)
+                 (fn [bindings]
+                   (let [missing #?(:clj (Object.) :cljs (js-obj))
+                         value (get-in bindings args missing)]
+                     (when (identical? missing value)
+                       (throw (ex-info "Missing construction binding"
+                                       {:error-type :executor/missing-binding :path (vec args)})))
+                     value)))
+        :if (do (arity! op args 3 3)
+                (let [[pred yes no] (mapv compile-expression args)]
+                  (fn [bindings] ((if (pred bindings) yes no) bindings))))
+        (if-let [[lo hi f] (get operations op)]
+          (do (arity! op args lo hi)
+              (let [fs (mapv compile-expression args)]
+                (fn [bindings]
+                  (let [result (apply f (map #(% bindings) fs))]
+                    (when (and (number? result) (not (schema/finite-number? result)))
+                      (throw (ex-info "Expression produced a non-finite number"
+                                      {:error-type :executor/non-finite :operator op})))
+                    result))))
+          (if (keyword? op)
+            (throw (ex-info "Unknown expression operator; quote literal data"
+                            {:error-type :executor/operator :operator op}))
+            (let [fs (mapv compile-expression expression)]
+              (fn [bindings] (mapv #(% bindings) fs)))))))
+    :else (constantly expression)))
 
-(defn run
-  "Construction, scope, capabilities → {:ok? :values :return :log :reads
-   :missing :ms}.
+(defn evaluate
+  "Expression and bindings → value, using the same compiler as width rules."
+  [expression bindings]
+  ((compile-expression expression) bindings))
 
-   Steps run in order; each step's output joins the scope under its :out
-   name for later steps and the return. A step whose op the table lacks
-   stops the run there with :ok? false and names the op in :missing; an
-   empty drawing is not counted as the tool having run. A capability that
-   throws stops the run with the error in the log. :reads maps every dotted
-   path read from the original roots to the value read, in the order of
-   first reading."
-  [construction scope capabilities]
-  (let [t0 (now-ms)
-        roots (set (keys scope))]
-    (loop [steps (seq (:steps construction))
-           scope scope
-           values {}
-           log []
-           reads {}]
-      (if-let [step (first steps)]
-        (let [op (:op step)
-              out (:out step)
-              bindings (dissoc step :op :out)
-              {:keys [args reads]} (reduce-kv (fn [acc k binding]
-                                                (let [{:keys [value read]} (resolve-binding scope binding)]
-                                                  (cond-> (assoc-in acc [:args k] value)
-                                                    (and read (roots (first (str/split read #"\."))))
-                                                    (update :reads (fn [r] (if (contains? r read) r (assoc r read value)))))))
-                                              {:args {} :reads reads}
-                                              bindings)
-              capability (get capabilities op)]
-          (if-not capability
-            {:ok? false :values values :return nil
-             :log (conj log {:out out :op op :error (str "no capability " op)})
-             :reads reads :missing [op] :ms (- (now-ms) t0)}
-            (let [step-t0 (now-ms)
-                  [value error] (try [(capability args) nil]
-                                     (catch #?(:clj Exception :cljs :default) e [nil e]))]
-              (if error
-                {:ok? false :values values :return nil
-                 :log (conj log {:out out :op op :error (ex-message error) :data (ex-data error)})
-                 :reads reads :missing [] :ms (- (now-ms) t0)}
-                (recur (next steps)
-                       (assoc scope out value)
-                       (assoc values out value)
-                       (conj log {:out out :op op :ms (- (now-ms) step-t0)})
-                       reads)))))
-        (let [[return return-reads] (resolve-return scope (:return construction))]
-          {:ok? true :values values :return return :log log
-           :reads (reduce-kv (fn [r k v]
-                               (if (and (not (contains? r k)) (roots (first (str/split k #"\."))))
-                                 (assoc r k v)
-                                 r))
-                             reads return-reads)
-           :missing [] :ms (- (now-ms) t0)})))))
+(defn references
+  "Expression → all declared :get paths, including both :if branches.
+   Diagnostic syntax information only; never observations or cache keys."
+  [expression]
+  (cond
+    (map? expression) (into #{} (mapcat references) (vals expression))
+    (vector? expression) (case (first expression)
+                          :literal #{}
+                          :get #{(vec (rest expression))}
+                          (into #{} (mapcat references) expression))
+    :else #{}))
 
-(defn reread
-  "Scope and the :reads of an earlier run → the same paths read now, for a
-   cache key: when this equals the earlier reads, the run's result stands."
-  [scope reads]
-  (reduce-kv (fn [acc path _] (assoc acc path (:value (resolve-binding scope path))))
-             {} reads))
+(declare run-steps)
 
-(defn missing-capabilities
-  "Construction and capability table → the ops the table lacks, in step
-   order, before running anything."
-  [construction capabilities]
-  (vec (distinct (remove #(contains? capabilities %) (map :op (:steps construction))))))
+(defn- run-step [capabilities bindings {:keys [bind call args value each item steps] :as step}]
+  (cond
+    (contains? step :each)
+    (do
+      (when-not item
+        (throw (ex-info "Each requires an explicit item binding" {:error-type :executor/missing-item})))
+      (let [elements (evaluate each bindings)]
+        (when-not (sequential? elements)
+          (throw (ex-info "Each requires a finite sequence value" {:error-type :executor/each-value})))
+        (reduce (fn [scope element]
+                  (let [result (run-steps capabilities (assoc scope item element) steps)]
+                    (if (contains? scope item) (assoc result item (get scope item)) (dissoc result item))))
+                bindings elements)))
+    call
+    (let [capability (get capabilities call)]
+      (when-not capability
+        (throw (ex-info "Unavailable construction capability"
+                        {:error-type :executor/unavailable-capability :capability call})))
+      (let [result (apply capability (map #(evaluate % bindings) args))]
+        (if bind (assoc bindings bind result) bindings)))
+    bind (assoc bindings bind (evaluate value bindings))
+    :else (throw (ex-info "Malformed construction step" {:error-type :executor/invalid-step :step step}))))
+
+(defn run-steps
+  "Capabilities, bindings and ordered steps → final bindings."
+  [capabilities bindings steps]
+  (reduce (partial run-step capabilities) bindings steps))
+
+(defn execute
+  "Program {:bindings :steps :return}, inputs and capabilities →
+   {:value :bindings}. Missing inputs/operations throw before later steps.
+   Program and the complete supplied inputs define the computation."
+  [{:keys [bindings steps return]} inputs capabilities]
+  (let [scope (reduce (fn [scope [name expression]] (assoc scope name (evaluate expression scope))) inputs bindings)
+        result (run-steps capabilities scope steps)]
+    {:value (evaluate return result) :bindings result}))

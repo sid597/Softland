@@ -31,14 +31,15 @@
 (def pure-namespaces
   '[app.client.image.frame-test
     app.client.image.component-test
+    app.client.region3d.path-placement-test
     app.client.path.frame-test
+    app.client.path.construction-test
     app.client.path.component-test
     app.client.path.value-test
     app.client.path.source-test
     app.client.path.stroke-test
     app.client.path.nib-test
     app.client.path.pack-test
-    app.client.engine.expression-test
     app.client.engine.executor-test
     app.client.region3d.frame-test
     app.client.region3d.component-test

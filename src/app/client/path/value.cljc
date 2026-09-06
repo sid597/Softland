@@ -235,7 +235,7 @@
 
 (defn flatten-subpath
   "Subpath, tolerance, width-of (subpath, knot index → width) and optional
-   width-fn (pressure, arc fraction → width) → {:closed? :points}.
+   width-fn (pressure, normalized segment parameter → width) → {:closed? :points}.
 
    Each point carries :x :y :w (width there), :t (segment + parameter), :p
    (the interpolated pressure), :seg and :u. Width between knots is either

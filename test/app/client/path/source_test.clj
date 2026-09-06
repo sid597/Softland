@@ -19,8 +19,8 @@
              (mapv :width (:knots sp)))))
     (testing "an explicit width expression reads only the tool numbers it names"
       (let [{:keys [path meta]} (source/build (:path/source fixtures/harness-z)
-                                              {:size 16 :fit :polyline :thinning 0.9 :width "size * p"})]
-        (is (= #{"size" "p"} (:width-names meta)))
+                                              {:size 16 :fit :polyline :thinning 0.9 :width [:* [:get :size] [:get :p]]})]
+        (is (= #{:size :p} (:width-names meta)))
         (is (= [(* 16 0.65) (* 16 0.9) 16.0 (* 16 0.7)] (mapv :width (:knots (first (:subpaths path))))))))))
 
 (deftest a-fit-decimates-and-a-spline-interpolates
@@ -43,10 +43,9 @@
       (is (= 70 (:knots (:meta (source/build (:path/source fixtures/draw-tool) (assoc (:path/tool fixtures/draw-tool) :fit 0))))))
       (is (= :polyline (:spline (:meta (source/build (:path/source fixtures/draw-tool) (assoc (:path/tool fixtures/draw-tool) :fit :polyline)))))))))
 
-(deftest a-malformed-width-falls-back-and-says-so
-  (let [{:keys [meta path]} (source/build (:path/source fixtures/harness-z) {:size 16 :width "size *"})]
-    (is (re-find #"width:" (:error meta)))
-    (is (= (* 16 0.65) (:width (first (:knots (first (:subpaths path)))))))))
+(deftest a-malformed-width-is-a-named-error
+  (is (thrown? clojure.lang.ExceptionInfo
+               (source/build (:path/source fixtures/harness-z) {:size 16 :width [:unknown 1]}))))
 
 (deftest a-rectangle-is-four-lines-and-four-arcs
   (let [{:keys [path meta]} (source/build (:path/source fixtures/border) nil)

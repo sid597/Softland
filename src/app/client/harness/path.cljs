@@ -15,19 +15,21 @@
             [app.client.engine.device :as device]
             [app.client.engine.transform :as transform]
             [app.client.path.component :as path-component]
+            [app.client.path.construction :as construction]
             [app.client.path.pack :as path-pack]
             [app.client.path.records :as records]
             [app.client.path.renderer :as path-renderer]
             [app.client.path.value :as v]
+            [app.client.harness.path-production :as production]
             [app.client.harness.shared
              :refer [canvas-size zoom-cases promise-mapv sha256-bytes
                      opaque-png-data-url pixel-rgba srgb->linear linear->srgb-byte]]))
 
 (defn- revisioned
-  "Record → validated record whose revision is its content."
+  "Authored record → constructed value whose revision is its content."
   [record]
-  (let [validated (path-component/validate-component! record)]
-    (assoc validated :path/revision (path-component/component-content-hash validated))))
+  (let [validated (construction/construct record)]
+    (assoc validated :path/revision (path-component/component-content-key validated))))
 
 (defn- scaled
   "Record and zoom → the same picture at that zoom: samples and rectangle
@@ -135,15 +137,14 @@
   [device path-system world-transforms mode]
   (let [{:keys [case-id zoom record]} (path-golden-spec mode)
         view {:zoom zoom :pan [0.0 0.0]}
-        run (path-component/run record {:scale zoom})]
+        run (path-component/regions record {:scale zoom})]
     (-> (render-path-pair! device path-system [(path-draw-item [:path-golden mode] record 0)] view world-transforms
                            {:r 0.0 :g 0.0 :b 0.0 :a 0.0})
         (.then (fn [pair]
                  {:case-id case-id :zoom zoom :lod (str "bucket-" (path-pack/scale-bucket zoom))
                   :normalization "screen-constant"
                   :shape-extent-world (/ 80.0 zoom)
-                  :construction {:ops (mapv :op (:log run)) :reads (vec (sort (keys (:reads run))))
-                                 :regions (mapv :kind (:regions run))}
+                  :geometry {:regions (mapv :kind (:regions run))}
                   :images [(path-image-record (:mode (path-golden-spec mode)) case-id pair)]})))))
 
 (defn- run-path-tree-golden!
@@ -180,7 +181,7 @@
   (let [view {:zoom 1.0 :pan [0.0 0.0]}
         cases [{:name :draw :record records/draw-tool
                 :geometry #(assoc-in % [:path/source :samples 10 0] 20.0)
-                :behaviour #(assoc-in % [:path/tool :width] "size * p^2")}
+                :behaviour #(assoc-in % [:path/tool :width] [:* [:get :size] [:pow [:get :p] 2.0]])}
                {:name :pen :record records/pen-tool
                 :geometry #(assoc-in % [:path/source :contours 0 :anchors 1 :p] [110.0 60.0])
                 :behaviour #(assoc-in % [:path/paint :stroke :align] :outside)}
@@ -194,26 +195,24 @@
                       (.then (fn [{:keys [bytes frame]}]
                                (.then (sha256-bytes bytes) (fn [h] {:sha256 h :frame frame}))))))
         one (fn [{:keys [name record geometry behaviour]}]
-              (let [run (path-component/run (revisioned record) {:scale 1.0})]
+              (let [run (path-component/regions (revisioned record) {:scale 1.0})]
                 (-> (promise-mapv capture [record (assoc-in record [:path/tool :name] "renamed")
                                            (geometry record) (behaviour record)])
                     (.then (fn [[base renamed edited behaved]]
                              {:name name
-                              :ok? (:ok? run)
-                              :ops (mapv :op (:log run))
-                              :reads (vec (sort (keys (:reads run))))
+                              :ok? true
+                              :source-recipe (construction/default-construction record)
                               :regions (mapv :kind (:regions run))
                               :base (:sha256 base)
                               :geometry-edit-changes? (not= (:sha256 base) (:sha256 edited))
                               :behaviour-edit-changes? (not= (:sha256 base) (:sha256 behaved))
                               :rename-changes? (not= (:sha256 base) (:sha256 renamed))
-                              :rename-runs (:runs (:frame renamed))
-                              :pass? (and (:ok? run)
-                                          (not-any? #(re-find #"name" %) (keys (:reads run)))
+                              :rename-derivations (:derivations (:frame renamed))
+                              :pass? (and
                                           (not= (:sha256 base) (:sha256 edited))
                                           (not= (:sha256 base) (:sha256 behaved))
                                           (= (:sha256 base) (:sha256 renamed))
-                                          (zero? (:runs (:frame renamed))))})))))]
+                                          (zero? (:derivations (:frame renamed))))})))))]
     (-> (promise-mapv one cases)
         (.then (fn [rows] {:rows rows :pass? (every? :pass? rows)})))))
 
@@ -239,8 +238,8 @@
         union (revisioned records/harness-z)
         dabs (revisioned records/z-as-dabs)
         nonlinear (revisioned (assoc-in records/z-nonlinear [:path/paint :stroke :overlap] :accumulate))
-        run-dabs (path-component/run dabs {:scale 1.0})
-        run-nonlinear (path-component/run nonlinear {:scale 1.0})
+        run-dabs (path-component/regions dabs {:scale 1.0})
+        run-nonlinear (path-component/regions nonlinear {:scale 1.0})
         skin (first (path-component/painted-regions union {:scale 1.0}))
         ;; 16 p² is convex, so on the first segment it lies below the
         ;; interpolation of the knot widths; on the Z the gap is a fraction of
@@ -300,7 +299,7 @@
   (let [view {:zoom 1.0 :pan [0.0 0.0]}
         shape (revisioned records/holed-concave)
         fill-alpha 0.96
-        z-run (path-component/run (revisioned records/harness-z) {:scale 1.0})
+        z-run (path-component/regions (revisioned records/harness-z) {:scale 1.0})
         skin (first (:regions z-run))
         clipped (revisioned (assoc-in records/holed-concave [:path/paint :clip] {:path (:path skin) :rule :nonzero}))
         nonzero (revisioned (assoc-in records/holed-concave [:path/paint :fill :rule] :nonzero))
@@ -385,26 +384,26 @@
         (.then (fn [{bytes :bytes}]
                  (let [rows (mapv (fn [[x y c]] {:pixel [x y] :cpu (* 0.62 c) :gpu (alpha-at bytes x y)}) (take 300 edge-pixels))
                        max-delta (reduce max 0.0 (map (fn [{:keys [cpu gpu]}] (Math/abs (- cpu gpu))) rows))
-                       counts (fn [f] (select-keys f [:changed? :runs :packs :instance-writes :instances]))]
+                       counts (fn [f] (select-keys f [:changed? :derivations :packs :instance-writes :instances]))]
                    {:first (counts f1) :repeat (counts f2) :colour-edit (counts f3) :geometry-edit (counts f4)
                     :restore (counts f5) :pan (counts f6) :zoom-inside-bucket (counts f7) :zoom-across-bucket (counts f8)
                     :pen-first (counts p1) :pen-zoom-across-bucket (counts p2)
                     :border-first (counts b1) :border-pan (counts b2) :border-zoom (counts b3)
                     :group-first (counts g1) :group-moved (counts g2) :group-rescaled (counts g3)
                     :fractional {:offset [ox oy] :edge-rows (count rows) :max-delta max-delta}
-                    :pass? (and (:changed? f1) (= 1 (:runs f1)) (pos? (:packs f1)) (pos? (:instance-writes f1))
+                    :pass? (and (:changed? f1) (= 1 (:derivations f1)) (pos? (:packs f1)) (pos? (:instance-writes f1))
                                 (not (:changed? f2))
-                                (:changed? f3) (zero? (:runs f3)) (zero? (:packs f3)) (pos? (:instance-writes f3))
-                                (:changed? f4) (= 1 (:runs f4)) (pos? (:packs f4))
+                                (:changed? f3) (zero? (:derivations f3)) (zero? (:packs f3)) (pos? (:instance-writes f3))
+                                (:changed? f4) (= 1 (:derivations f4)) (pos? (:packs f4))
                                 (not (:changed? f6))
                                 (not (:changed? f7))
-                                (:changed? f8) (zero? (:runs f8)) (zero? (:packs f8)) (pos? (:instance-writes f8))
+                                (:changed? f8) (zero? (:derivations f8)) (zero? (:packs f8)) (pos? (:instance-writes f8))
                                 (= 2 (:packs p1))
-                                (:changed? p2) (zero? (:runs p2)) (= 1 (:packs p2))
-                                (:changed? b2) (= 1 (:runs b2))
-                                (:changed? b3) (= 1 (:runs b3))
+                                (:changed? p2) (zero? (:derivations p2)) (= 1 (:packs p2))
+                                (:changed? b2) (= 1 (:derivations b2))
+                                (:changed? b3) (= 1 (:derivations b3))
                                 (not (:changed? g2))
-                                (:changed? g3) (zero? (:runs g3)) (zero? (:packs g3)) (pos? (:instance-writes g3))
+                                (:changed? g3) (zero? (:derivations g3)) (zero? (:packs g3)) (pos? (:instance-writes g3))
                                 (pos? (count rows)) (< max-delta 0.05))}))))))
 
 ;; ---- the scale trace: what a frame costs at a scene size ----
@@ -428,7 +427,7 @@
 (defn- scene
   "n → n distinct records on a grid over the trace target: two thirds draw
    strokes (the limaçon traced from a different phase each), a sixth pens,
-   a sixth borders (a device-unit width, snapped, so they reread the view)."
+   a sixth borders (a device-unit width, snapped, with explicit geometry view inputs)."
   [n]
   (let [cols (int (Math/ceil (Math/sqrt n)))
         cell (/ trace-size cols)]
@@ -443,11 +442,11 @@
                                                          r (* 40.0 (+ 1.0 (* 0.5 (Math/cos t))))]
                                                      [(+ 64.0 (* r (Math/cos t))) (+ 64.0 (* r (Math/sin t)))
                                                       (+ 0.4 (* 0.5 (Math/abs (Math/sin (* 2.0 t))))) (* j 16.0)])))))]
-             (revisioned (assoc (shifted base [dx dy]) :path/material-id [:trace i])))))))
+             (assoc (shifted base [dx dy]) :path/material-id [:trace i]))))))
 
 (defn- timed-frame!
   "Device, system, target view, items, view, transforms → promise of the
-   frame's three costs: the CPU in prepare (runs, packs, rows, mirror
+   frame's three costs: the CPU in prepare (geometry, packs, rows, mirror
    writes, upload enqueues), the CPU in encode and submit, and the wall
    time from submit to the queue's work done (GPU execution plus waiting;
    on SwiftShader that is software rendering)."
@@ -468,16 +467,18 @@
       (.then (.onSubmittedWorkDone (.-queue device))
              (fn [_]
                {:prepare-ms (- t1 t0) :encode-ms (- t2 t1) :gpu-ms (- (js/performance.now) t2)
-                :counts (select-keys frame [:changed? :runs :packs :instance-writes :instances])})))))
+                :counts (select-keys frame [:changed? :derivations :packs :instance-writes :instances])})))))
 
 (defn- trace-scene!
   "Device, buffers, transforms, n → promise of the frame costs at that
    scene size: first, repeat, one colour edit and its restore, one geometry
-   edit and its restore (each from the base scene), a pan (the borders
-   reread it), a zoom inside the bucket, a zoom across it; and the geometry
+   edit and its restore (each from the base scene), a pan (integer shifts reuse the borders), a zoom inside the bucket, a zoom across it; and the geometry
    and packing of the whole scene timed alone on the CPU."
   [^js device camera groups-buffer world-transforms n]
-  (let [records (scene n)
+  (let [authored (scene n)
+        s0 (js/performance.now)
+        records (mapv revisioned authored)
+        source-ms (- (js/performance.now) s0)
         items (fn [records] (vec (map-indexed (fn [i r] (path-draw-item [:trace i] r 0)) records)))
         base (items records)
         view {:zoom 1.0 :pan [0.0 0.0]}
@@ -489,13 +490,13 @@
                                                 :usage js/GPUTextureUsage.RENDER_ATTACHMENT}))
         target-view (.createView target (clj->js {:format "rgba8unorm-srgb"}))
         g0 (js/performance.now)
-        runs (mapv (fn [r] (path-component/run r {:scale 1.0 :pan [0.0 0.0]})) records)
+        runs (mapv (fn [r] (path-component/regions r {:scale 1.0 :pan-fraction [0.0 0.0]})) records)
         g1 (js/performance.now)
         regions (mapcat :regions runs)
         packed (mapv (fn [region] (path-pack/pack-region (:path region) (path-pack/bucket-tolerance 0) {})) regions)
         g2 (js/performance.now)
-        edited (update records 0 (fn [r] (revisioned (assoc-in r [:path/source :samples 10 0] 20.0))))
-        recoloured (update records 0 (fn [r] (revisioned (assoc-in r [:path/paint :stroke :color] [0.9 0.1 0.1 0.85]))))
+        edited (assoc records 0 (revisioned (assoc-in (first authored) [:path/source :samples 10 0] 20.0)))
+        recoloured (update records 0 #(assoc-in % [:path/paint :stroke :color] [0.9 0.1 0.1 0.85]))
         frames [[:first base view] [:repeat base view]
                 [:colour-edit (items recoloured) view] [:restore-after-colour base view]
                 [:geometry-edit (items edited) view] [:restore-after-geometry base view]
@@ -510,11 +511,12 @@
                  (path-renderer/destroy-path-system! system)
                  (.destroy target)
                  {:n n
-                  :records {:draw (count (filter #(= :pen (get-in % [:path/source :kind])) records))
-                            :pen (count (filter #(= :anchors (get-in % [:path/source :kind])) records))
-                            :border (count (filter #(= :rect (get-in % [:path/source :kind])) records))}
+                  :records {:draw (count (filter #(= :pen (get-in % [:path/source :kind])) authored))
+                            :pen (count (filter #(= :anchors (get-in % [:path/source :kind])) authored))
+                            :border (count (filter #(= :rect (get-in % [:path/source :kind])) authored))}
                   :regions (count regions)
                   :curves (reduce + 0 (map (comp :count :pack) packed))
+                  :source-edit-ms source-ms
                   :geometry-alone-ms (- g1 g0)
                   :packing-alone-ms (- g2 g1)
                   :frames rows})))))
@@ -607,7 +609,8 @@
         groups-buffer (device/create-groups-buffer device)
         registry (-> (transform/empty-registry)
                      (transform/add-group 17 {:parent 0 :affine [0.5 0.0 0.0 0.5 40.0 20.0]})
-                     (transform/add-group 18 {:parent 0 :affine [1.0 0.0 0.0 1.0 0.5 0.25]}))
+                     (transform/add-group 18 {:parent 0 :affine [1.0 0.0 0.0 1.0 0.5 0.25]})
+                     (transform/add-group 19 {:parent 0 :camera :screen}))
         world-transforms (transform/world-transforms registry)
         _ (device/write-groups! device groups-buffer world-transforms)
         system (path-renderer/init-path-system device "rgba8unorm-srgb" camera groups-buffer
@@ -619,10 +622,18 @@
         (.then (fn [state] (-> (run-crossing-check! device system world-transforms) (.then #(assoc state :crossing %)))))
         (.then (fn [state] (-> (run-region-meaning-check! device system world-transforms) (.then #(assoc state :region-meaning %)))))
         (.then (fn [state] (-> (run-rates-check! device system world-transforms world-transforms) (.then #(assoc state :rates %)))))
+        (.then (fn [state]
+                 (let [capture (fn [system record view group]
+                                 (render-path-bytes! device system [(path-draw-item :production record group)] view world-transforms))
+                       cold-capture (fn [record view group]
+                                      (let [cold (path-renderer/init-path-system device "rgba8unorm-srgb" camera groups-buffer
+                                                                                 :scene-color (scene-color/scene-color true))]
+                                        (.finally (capture cold record view group) #(path-renderer/destroy-path-system! cold))))]
+                   (.then (production/run-checks! (partial capture system) cold-capture) #(assoc state :production %)))))
         (.then (fn [state] (-> (promise-mapv (partial path-parity-row! device system world-transforms) zoom-cases) (.then #(assoc state :parity %)))))
         (.then (fn [state] (-> (run-path-color! device system camera groups-buffer world-transforms) (.then #(assoc state :color %)))))
         (.then (fn [state] (-> (run-scale-trace! device camera groups-buffer world-transforms) (.then #(assoc state :trace %)))))
-        (.then (fn [{:keys [cases records crossing region-meaning rates parity color] :as state}]
+        (.then (fn [{:keys [cases records crossing region-meaning rates parity color production] :as state}]
                  (let [determinism (mapcat (fn [case] (map :determinism (:images case))) cases)
                        pass? (and (= 3 (count cases))
                                   (every? :byte-identical? determinism)
@@ -630,7 +641,7 @@
                                   (= :transform/unknown-group (get-in (last cases) [:unknown-group :error-type]))
                                   (:pass? records) (:pass? crossing) (:pass? region-meaning) (:pass? rates)
                                   (= 7 (count parity)) (every? :pass? parity)
-                                  (:pass? color))
+                                  (:pass? color) (:pass? production))
                        result (assoc state
                                      :coverage :analytic-shared-filler
                                      :product-pick :membership-by-winding

@@ -14,7 +14,7 @@ flowchart TD
     R["rungs.cljc<br/>resolution admission"] --> P
     B["leases.cljs<br/>logical region identities"] <--> P
     U["buffer_pool.cljs<br/>changed instance rows"] --> F["Family renderers"]
-    X["expression.cljc<br/>arithmetic as data"] --> E["executor.cljc<br/>constructions over capabilities"]
+    E["executor.cljc<br/>one expression language and recipes over capabilities"]
     E --> F
     V["coverage.cljs<br/>the shared filler and its atlas"] --> F
     D --> F
@@ -32,8 +32,7 @@ flowchart TD
 | [rungs.cljc](rungs.cljc) | Choose a resolution within a supplied physical budget using pure arithmetic. |
 | [leases.cljs](leases.cljs) | Preserve logical region identities and composite indexes across physical resource replacement. |
 | [compositor.cljs](compositor.cljs) | Allocate, reuse and retire physical targets; reconcile region leases; encode presentation. |
-| [expression.cljc](expression.cljc) | Compile and evaluate a tool's arithmetic written as a string over named numbers, reporting the names it reads. |
-| [executor.cljc](executor.cljc) | Run a construction written as data over a capability table, in order, reporting every value read and every operation missing. |
+| [executor.cljc](executor.cljc) | Evaluate one EDN expression language for width rules and recipe arguments; execute ordered capability calls. Missing bindings/operators throw. Evidence: `test/app/client/engine/executor_test.clj`. |
 | [coverage.cljs](coverage.cljs) | The per-pixel coverage program text and paths share, the dynamic curve/band atlas paths pack into, and the region instance row. |
 
-The caller owns group registries and pure results. Buffer pools retain instance storage; binding owners retain logical associations; compositors own physical textures and retirement; an atlas owns its two textures and their mirrors. The executor and the expression evaluator hold nothing: a construction's result depends on exactly what it read, and the caller keys its caches on that. Logical identity, admission arithmetic and physical allocation are separate responsibilities. The browser caller acquires the GPU device and supplies it to this infrastructure.
+The caller owns group registries and pure results. Buffer pools retain instance storage; binding owners retain logical associations; compositors own physical textures and retirement; an atlas owns its two textures and their mirrors. The executor holds no state or clock. Its complete supplied inputs define the computation; static expression references are diagnostics, never cache keys (`executor_test.clj`). Logical identity, admission arithmetic and physical allocation are separate responsibilities. The browser caller acquires the GPU device and supplies it to this infrastructure.

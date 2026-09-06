@@ -3,19 +3,19 @@
 
    Input: a source record (a pen's samples, a designer's anchors, a
    rectangle's numbers) and the tool's numbers. Output: {:path :meta}: the
-   path value and what executing the source cost and chose. No retained
+   path value and its source metadata. No retained
    state; no camera.
 
    These are sources, not kinds: a pen, a formula and a designer all compile
    to the one value. The pen is the most work: streamline (a low-pass over
    positions), speed, simulated pressure when the device gave none, the
-   width expression per sample (data, run by engine/expression), tapers, a
+   width expression per sample (data, run by path/width through engine/executor), tapers, a
    fit at tolerance τ (decimation), then the interpolating spline through the
    knots, or a polyline when asked. Samples are the event truth; the path is
    derived from them at a declared tolerance.
 
    Folder map: README.md."
-  (:require [app.client.engine.expression :as expression]
+  (:require [app.client.path.width :as width]
             [app.client.engine.schema :as schema]
             [app.client.path.value :as v]))
 
@@ -114,26 +114,6 @@
                      keep))]
         (vec (keep-indexed (fn [i p] (when (keep i) p)) points))))))
 
-(defn width-function
-  "Tool map → {:width-fn (pressure, arc fraction, speed → width) :names
-   :error}: the tool's width expression compiled, with `size * p` as the
-   fallback for a malformed one. The scope holds only the tool numbers the
-   expression names, plus p, s and v."
-  [tool]
-  (let [source (or (:width tool) "size * (1 - thinning * (1 - p))")
-        [compiled error] (try [(expression/compile source) nil]
-                              (catch #?(:clj Exception :cljs :default) e
-                                [(expression/compile "size * p") (str "width: " (ex-message e))]))
-        base (cond-> (expression/scope-from compiled tool {})
-               (not (number? (:size tool))) (assoc "size" 8.0)
-               (not (number? (:thinning tool))) (assoc "thinning" 0.5))
-        base (select-keys base (:names compiled))]
-    {:names (:names compiled)
-     :error error
-     :width-fn (fn [p s speed]
-                 (let [w (expression/evaluate compiled (assoc base "p" p "s" s "v" speed))]
-                   (if (schema/finite-number? w) (max 0.0 w) 0.0)))}))
-
 (defn build-pen
   "Pen source {:samples [[x y pressure? time?]]} and tool → {:path :meta}.
 
@@ -147,7 +127,7 @@
   (let [raw (vec (map-indexed (fn [i [x y p t]]
                                 {:x x :y y :p (if (number? p) p 0.5) :t (if (number? t) t (* i 8)) :id (str "s" i)})
                               (:samples source)))
-        {:keys [width-fn names error]} (width-function tool)
+        {:keys [width-fn names error]} (width/width-function tool)
         meta {:kind :pen :samples (count raw) :knots 0
               :streamline (or (:streamline tool) 0) :fit (:fit tool)
               :width-names names :taper-start (or (:taper-start tool) 0)
@@ -217,11 +197,11 @@
 
 (defn build
   "Source and tool → {:path :meta} by the source's kind; an unknown kind
-   gives an empty path with :kind :none. The kind names the capability;
+   throws a named error. The kind names the capability;
    nothing here reads a tool's name."
   [source tool]
   (case (:kind source)
     :pen (build-pen source (or tool {}))
     :rect (build-rect source)
     :anchors (build-anchors source)
-    {:path v/empty-path :meta {:kind :none}}))
+    (throw (ex-info "Unknown source capability" {:error-type :path/source-kind :kind (:kind source)}))))
