@@ -43,4 +43,4 @@ One fresh session per family, the same paste, `STARTER-judge.md`'s shape (on `ma
 
 ## 5. After this slice
 
-The Fable design session for the pieces both kinds share, the executor and the compositor's paint and sample, with both benches' records as the measure, starts once this slice is on `main`; its starter is written then, with the 3D kind's. The prompt law it follows is the same: fence, essence, terrain, the two riders, a load turn; it points at `two-chairs.md` and restates nothing.
+The Fable design session for the pieces both kinds share, the executor and the compositor's paint and sample, with both benches' records as the measure, starts once this slice is on `main` and its handoff exists. Its paste, the 3D kind's landing paste from it and Sid's card are `../3d/STARTER-production.md`, written 2026-09-07 ahead of its start; the path kind's pickup landing, if the design cuts the two brushes apart, is written from the design then, in the same shape.
