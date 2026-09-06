@@ -1,7 +1,12 @@
 ---
 name: work-package
 description: >-
-  The one-pass law + the corners for Softland work packages: contract = the
+  NOT IN USE for the below-the-waist implementation rounds (Sid, 2026-09-06:
+  "an old old thing ... it creates too many contracts"; the prototype is the
+  spec, tests are built as you build, docs are the README-to-docstring-to-code
+  hierarchy; see memory feedback-implementation-rounds-no-contracts). Whether it
+  still binds Rama packages is Sid's to say. The one-pass law + the corners for
+  Softland work packages: contract = the
   hard thinking (one session, one document, size open); everything
   after is execution straight through; acceptance is Sid's word; two
   Sid-touches per atom. Use when cutting a contract, implementing an
