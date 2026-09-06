@@ -156,19 +156,29 @@ function sphPieceOf(p) {
   if (lat > G_NORTH_LAT) return {piece: 'north', coords: [G_R * p[0], G_R * p[2]], note: '(x, z), embedding (x, √(R² − x² − z²), z)'};
   return {piece: lon < 0 ? 'west' : 'east', coords: [G_R * lon, G_R * lat], note: lon < 0 ? 'longitude in [−π, 0)' : 'longitude in [0, π)'};
 }
-// The reach tool: a saved record {seed: [lon, lat] rad, radius mm, distance: 'surface'} → the retained region.
+// The reach tool: a saved record {seed: [lon, lat] rad | point: unit vector, radius mm, distance: 'surface'} → the
+// retained region. The result owns a copy of its record, the subject it was built from: a caller's later edit of its
+// own record does not reach in (attack 4: the caller's radius field went 150 → 140 and the result reported 140
+// while its membership was still the 150 cap). The angular radius saturates at π: a radius of πR or more is the whole
+// sphere, area 4πR², bounds [−R, R] on each axis (attack 4: letting cos(radius/R) cycle made 629 mm exclude the
+// antipode, which is 0.68 mm inside that radius, and 2πR an empty region with reversed bounds). Membership is the
+// same computation the readout prints, d(seed, q) ≤ radius by sphDist, so `member` and `distance` cannot disagree.
+// Admission: a negative radius names no region and is refused (status 'unsupported'); zero is the seed alone.
 function reachRegion(record) {
-  var n = sphUnit(record.seed[0], record.seed[1]), rho = record.radius / G_R, cr = Math.cos(rho), sr = Math.sin(rho);
+  var rec = JSON.parse(JSON.stringify(record));
+  if (!(rec.radius >= 0)) return {status: 'unsupported', record: rec, reason: 'a negative radius names no region: refused'};
+  var n = rec.point ? rec.point.slice() : sphUnit(rec.seed[0], rec.seed[1]);
+  var saturated = rec.radius >= Math.PI * G_R, rho = saturated ? Math.PI : rec.radius / G_R, cr = Math.cos(rho), sr = Math.sin(rho);
   var bounds = [], i;
   for (i = 0; i < 3; i++) {
     var ni = n[i], s = Math.sqrt(Math.max(0, 1 - ni * ni));
-    bounds.push([-ni >= cr ? -G_R : G_R * (ni * cr - s * sr), ni >= cr ? G_R : G_R * (ni * cr + s * sr)]);
+    bounds.push([saturated || -ni >= cr ? -G_R : G_R * (ni * cr - s * sr), saturated || ni >= cr ? G_R : G_R * (ni * cr + s * sr)]);
   }
   return {
-    record: record, seed: n, rho: rho,
-    area: 2 * Math.PI * G_R * G_R * (1 - cr),
+    status: 'resolved', record: rec, seed: n, rho: rho, saturated: saturated,
+    area: saturated ? 4 * Math.PI * G_R * G_R : 2 * Math.PI * G_R * G_R * (1 - cr),
     bounds: bounds,                                          // world mm about G's centre, [min, max] per axis
-    member: function (q) { return v3dot(n, q) >= cr; },       // n·q ≥ cos ρ  ⇔  d(q, seed) ≤ radius
+    member: function (q) { return saturated || sphDist(n, q) <= rec.radius; },   // d(seed, q) ≤ radius, the printed distance
     distance: function (q) { return sphDist(n, q); }
   };
 }

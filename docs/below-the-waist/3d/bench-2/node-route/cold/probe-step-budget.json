@@ -1,0 +1,44 @@
+{
+  "id": "probe-step-budget@2",
+  "what": "Probe: the capability table gives read-surface a `budget` argument defaulting to the run's grant, and says the merge step of B's binding at G@2 costs one unit of work. It does not say whether that unit is charged once for the run, once per read, or once per event. This is the brush with budget 1 written on the read step, so each of the four reads is capped at one unit.",
+  "support": {"id": "G", "revision": 2},
+  "coating": {"order": ["kA", "kB"]},
+  "painting": {
+    "id": "pickup",
+    "grid": [64, 32],
+    "domain": [588.3185307179587, 194, 80, 30],
+    "chart": "S0",
+    "filter": "nearest",
+    "initial": [0, 0, 0, 0]
+  },
+  "tool": {
+    "curve": "kA/arc-AB",
+    "pickup": 0.25,
+    "radius": 8.75,
+    "opacity": 0.5,
+    "start": [1, 0, 0, 1],
+    "cap": 1
+  },
+  "events": [
+    {"id": "d1", "t": 0.65},
+    {"id": "d2", "t": 0.7},
+    {"id": "d3", "t": 0.41},
+    {"id": "d4", "t": 0.65}
+  ],
+  "program": {
+    "each": "events",
+    "state": {
+      "carry": "tool.start",
+      "painting": "painting.initial"
+    },
+    "steps": [
+      {"out": "at", "op": "curve-point", "curve": "tool.curve", "t": "event.t"},
+      {"out": "read", "op": "read-surface", "support": "support", "point": "at", "layers": ["coating", "state.painting"], "order": "coating.order", "budget": "tool.cap"},
+      {"out": "mixed", "op": "mix", "a": "state.carry", "b": "read.color", "amount": "tool.pickup"},
+      {"out": "disc", "op": "surface-region", "support": "support", "point": "at", "radius": "tool.radius", "distance": "surface"},
+      {"out": "painted", "op": "paint", "painting": "state.painting", "region": "disc", "rgba": "mixed", "opacity": "tool.opacity"}
+    ],
+    "next": {"carry": "mixed", "painting": "painted"},
+    "return": ["state.carry", "state.painting"]
+  }
+}

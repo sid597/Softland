@@ -1,0 +1,16 @@
+{
+  "id": "probe-input-noid@0",
+  "what": "Probe: can an inputs declaration name a surface-region without spelling its 64-hex id? The id is only knowable by running the producing record, and the run summary prints it truncated.",
+  "support": {"id": "G", "revision": 0},
+  "tool": {"curve": "kA/arc-AB", "t": 0.65},
+  "inputs": {
+    "clip": {"kind": "surface-region"}
+  },
+  "program": {
+    "steps": [
+      {"out": "at", "op": "curve-point", "curve": "tool.curve", "t": "tool.t"},
+      {"out": "hit", "op": "member", "region": "inputs.clip", "point": "at"}
+    ],
+    "return": ["hit"]
+  }
+}

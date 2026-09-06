@@ -42,6 +42,9 @@
   button:hover { border-color: var(--accent); }
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   button.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .runbar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:6px; }
+  .runbar button, .runbar select { font: inherit; font-size: 11px; padding: 2px 8px; }
+  #runRecord { width:100%; box-sizing:border-box; font-size:11px; line-height:1.35; }
   .panel { display: flex; flex-direction: column; gap: 14px; }
   .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 12px 14px; }
   .card.hit { border-color: var(--accent); }
@@ -155,6 +158,7 @@
           <span>drag on the page: pan · drag in the portal: orbit, or draw in pen mode · <kbd>R</kbd> reset · deep links: <span class="mono">#w=1.4&amp;cut=1&amp;anchor=edge&amp;onsplit=clip&amp;aim=k</span></span>
           <span class="mono">attack 1: post=0 · chart=S0|S1 · pr=&lt;r m&gt; · panchor=origin|normalized · seam=unwrapped|modulo · nib=surface|naive|capsule · pwork=&lt;n&gt; · field=1 · fx= · fy= · fz= · fa= · hollow=1 · fwork=&lt;n&gt; · fshift=0 · parity=1 · records=2 · left=whole|trimmed · order=lr|rl|none · merge=1 · section=&lt;h m&gt; · aim=P|Pa3|Pm|F|D|k2|strip</span>
           <span class="mono">attack 2 (G): grev=0|1|2 · greach=&lt;mm&gt; · gband=1 · dmetric=underlying|face · gorder=ab|ba|none · gbudget=&lt;n&gt; · gdrop=1 · aim=G|G41|Gq|Gq2|Gpole|Gband · attack 3 (the replay): paint=1 · pstep=&lt;0..155&gt; · porder=ab|ba|none · aim=Pstrip|Poverlap</span>
+          <span class="mono">attack 4 (the executor): run=reach|sequence|pickup|clip · rgrant=0 · resume=1 · the pickup brush's painting is drawn on G after a run</span>
           <span><i style="background:#D8D3CA"></i>sphere G (a curved host: an atlas, a surface-distance region, two retained records)</span>
           <span class="mono" id="glstat">WebGL2: starting</span>
         </div>
@@ -185,6 +189,18 @@
         <pre class="record" id="record"></pre>
         <p class="note">Spaces, things, views, portals, the construction behind the box, the attachment rule and the stroke's samples. No triangles, no pixels, no device tolerance, no zoom. The pieces below the line derive the picture and answer the hit from this alone.</p>
         <p class="note mono" id="derived">derived: —</p>
+      </div>
+
+      <div class="card">
+        <h2>the executor — a record run over the bench's capabilities</h2>
+        <div class="runbar mono" id="runbar">
+          <button type="button" data-rec="reach">reach</button><button type="button" data-rec="sequence">sequence</button><button type="button" data-rec="pickup">pickup</button><button type="button" data-rec="clip">clip</button>
+          <label>work granted to reads <select id="runGrant"><option value="inf">every binding (∞)</option><option value="0">none (0): B's merge step withheld</option></select></label>
+          <button type="button" id="runBtn">run</button><button type="button" id="resumeBtn" disabled>resume the held run under ∞</button>
+        </div>
+        <textarea id="runRecord" class="mono" rows="9" spellcheck="false" placeholder="paste a record (JSON), or load one of the four"></textarea>
+        <pre class="record" id="run">load a record, or paste one, then run</pre>
+        <p class="note">A record is data: a program of named steps over bindings, each step an operation from the capability table (curve-point · surface-region · member · read-surface · mix · paint · sample), its arguments references (<span class="mono">state.carry</span>, <span class="mono">event.t</span>, <span class="mono">tool.radius</span>, a previous step) or literals; <span class="mono">each</span> runs the steps per authored event with a state carried through <span class="mono">next</span>. The executor moves values and keeps the order; every heavy thing is a capability, the bench's own functions. A read through a withheld binding returns pending: no next state, the transaction retained as bytes, resumed under the grant to the same bytes as the eager run; an old answer under a changed order or recipe is stale. Change the record and run again. The four records are <span class="mono">node-route/records.js</span>; the same executor runs in Node (<span class="mono">node-route/probe-4.mjs</span>, <span class="mono">--record</span> for a pasted file).</p>
       </div>
     </div>
   </div>
@@ -693,7 +709,15 @@
     var status = iso.every(function (r) { return r.status === 'complete'; }) ? 'complete' : 'work limit';
     var unresolved = []; iso.forEach(function (r) { unresolved = unresolved.concat(r.unresolved); });
     var work = iso.reduce(function (s, r) { return s + r.work; }, 0);
-    if (!merged.length) return unresolved.length ? { thing: 'F', part: 'unresolved', t: Infinity, unresolved: unresolved, status: status, work: work, miss: true } : null;
+    if (!merged.length) {
+      if (unresolved.length) return { thing: 'F', part: 'unresolved', t: Infinity, unresolved: unresolved, status: status, work: work, miss: true };
+      // a tangency with no material interval of positive length is still a boundary event (attack 4): served as a hit of zero area for a
+      // geometric-boundary answer; the walker's visible policy excludes it and says so, and the shader (visible coverage) never draws it
+      var touch = events.filter(function (e) { return e.kind === 'contact'; })[0];
+      if (!touch) return null;
+      var pc = [o[0] + touch.t * d[0], o[1] + touch.t * d[1], o[2] + touch.t * d[2]], Lc = leaves[touch.leaf], gc = fieldGrad(Lc.e, pc), gcl = Math.hypot(gc[0], gc[1], gc[2]);
+      return { thing: 'F', part: 'boundary f = 0', t: touch.t, point: [pc[0] + F.at[0], pc[1] + F.at[1], pc[2] + F.at[2]], local: pc, normal: gcl > 1e-12 ? gc.map(function (x) { return x / gcl * Lc.sign; }) : null, kind: 'contact', active: Lc.name, events: events, material: [], zeroArea: true, status: status, unresolved: unresolved, work: work };
+    }
     var t = merged[0][0], p = [o[0] + t * d[0], o[1] + t * d[1], o[2] + t * d[2]];
     // an entry that begins inside an unresolved piece is not an answer: the boundary there was never found, only the bounds box was
     if (unresolved.some(function (iv) { return iv[0] <= t + 1e-9; })) return { thing: 'F', part: 'unresolved', t: Infinity, unresolved: unresolved, status: status, work: work, miss: true };
@@ -746,19 +770,29 @@
     if (lat > G_NORTH_LAT) return {piece: 'north', coords: [G_R * p[0], G_R * p[2]], note: '(x, z), embedding (x, √(R² − x² − z²), z)'};
     return {piece: lon < 0 ? 'west' : 'east', coords: [G_R * lon, G_R * lat], note: lon < 0 ? 'longitude in [−π, 0)' : 'longitude in [0, π)'};
   }
-  // The reach tool: a saved record {seed: [lon, lat] rad, radius mm, distance: 'surface'} → the retained region.
+  // The reach tool: a saved record {seed: [lon, lat] rad | point: unit vector, radius mm, distance: 'surface'} → the
+  // retained region. The result owns a copy of its record, the subject it was built from: a caller's later edit of its
+  // own record does not reach in (attack 4: the caller's radius field went 150 → 140 and the result reported 140
+  // while its membership was still the 150 cap). The angular radius saturates at π: a radius of πR or more is the whole
+  // sphere, area 4πR², bounds [−R, R] on each axis (attack 4: letting cos(radius/R) cycle made 629 mm exclude the
+  // antipode, which is 0.68 mm inside that radius, and 2πR an empty region with reversed bounds). Membership is the
+  // same computation the readout prints, d(seed, q) ≤ radius by sphDist, so `member` and `distance` cannot disagree.
+  // Admission: a negative radius names no region and is refused (status 'unsupported'); zero is the seed alone.
   function reachRegion(record) {
-    var n = sphUnit(record.seed[0], record.seed[1]), rho = record.radius / G_R, cr = Math.cos(rho), sr = Math.sin(rho);
+    var rec = JSON.parse(JSON.stringify(record));
+    if (!(rec.radius >= 0)) return {status: 'unsupported', record: rec, reason: 'a negative radius names no region: refused'};
+    var n = rec.point ? rec.point.slice() : sphUnit(rec.seed[0], rec.seed[1]);
+    var saturated = rec.radius >= Math.PI * G_R, rho = saturated ? Math.PI : rec.radius / G_R, cr = Math.cos(rho), sr = Math.sin(rho);
     var bounds = [], i;
     for (i = 0; i < 3; i++) {
       var ni = n[i], s = Math.sqrt(Math.max(0, 1 - ni * ni));
-      bounds.push([-ni >= cr ? -G_R : G_R * (ni * cr - s * sr), ni >= cr ? G_R : G_R * (ni * cr + s * sr)]);
+      bounds.push([saturated || -ni >= cr ? -G_R : G_R * (ni * cr - s * sr), saturated || ni >= cr ? G_R : G_R * (ni * cr + s * sr)]);
     }
     return {
-      record: record, seed: n, rho: rho,
-      area: 2 * Math.PI * G_R * G_R * (1 - cr),
+      status: 'resolved', record: rec, seed: n, rho: rho, saturated: saturated,
+      area: saturated ? 4 * Math.PI * G_R * G_R : 2 * Math.PI * G_R * G_R * (1 - cr),
       bounds: bounds,                                          // world mm about G's centre, [min, max] per axis
-      member: function (q) { return v3dot(n, q) >= cr; },       // n·q ≥ cos ρ  ⇔  d(q, seed) ≤ radius
+      member: function (q) { return saturated || sphDist(n, q) <= rec.radius; },   // d(seed, q) ≤ radius, the printed distance
       distance: function (q) { return sphDist(n, q); }
     };
   }
@@ -1007,6 +1041,697 @@
   function pickupConsume(read, oldCarry) {
     return read.status === 'resolved' ? {status: 'resolved', nextCarry: pickupMix(oldCarry, read.color, 0.25)} : {status: 'pending', dependency: read.dependency};
   }
+  // ───── the executor over the bench's records, and the four records (the fold of attack 4, 2026-09-06): executor.js and records.js, verbatim
+  // The executor over the bench's records (the fold of the definer's attack 4, 2026-09-06): the piece bench 9 ran in
+  // sixty lines, here over the sphere G's capabilities. Plain script, no exports; the bench embeds it verbatim after
+  // pickup-replay.js and probe-4.mjs evaluates it in Node beside the bench's functions. Style follows the bench (ES5).
+  //
+  // A record is data. Its program is named steps over bindings: each step is an operation from the capability table
+  // X_OPS with its arguments as references ('state.carry', 'event.t', 'tool.radius', a previous step's `out`) or
+  // literals; `each` iterates the record's authored events with a state carried through `next`; `return` names what
+  // the run hands back. The executor moves values and keeps the order; every heavy thing is a capability, and the
+  // capabilities are the bench's own functions (reachRegion, gArcCentre, gLocate, over, pickupMix, sphDist).
+  //
+  // What bench 9 did not have. A read can come back pending (a binding withheld: gLocate with the work budget 0) or
+  // needs-policy (no composition order saved). A step consumes only a resolved read. A pending read suspends the run
+  // into a continuation that retains the event, the state before it, the record's hash and the read's pinned
+  // snapshot; nothing else moves (no next painting-step state). Resuming re-demands that read and commits only an
+  // answer that belongs to that request: a changed dependency (the order, the recipe, the input state) starts a new
+  // computation and an old answer is stale. The continuation is bytes: it survives a new process (--cold).
+  //
+  // The roots a reference may start from: state · event (the item of `each`) · events · tool · support · coating ·
+  // painting · inputs (values another construction returned, handed in by the caller with their subject checked).
+  // Every value a capability returns keeps its subject (a region owns a copy of its record; a painting carries its
+  // declaration, revision and bytes; a read carries its snapshot's id).
+
+  // ---------------------------------------------------------------------------------------------------------- 0
+  // A synchronous SHA-256 (FIPS 180-4) over bytes, so request, snapshot and painting identities are the same hex in
+  // the browser and in Node; strings are UTF-8 encoded first. The bench's earlier receipts use crypto.subtle for the
+  // replay's paintings; those stay as they are.
+  var X_K = [];
+  (function () {
+    var i, j, n = 2, isPrime;
+    while (X_K.length < 64) {
+      isPrime = true; for (j = 2; j * j <= n; j++) if (n % j === 0) { isPrime = false; break; }
+      if (isPrime) X_K.push(Math.floor(Math.pow(n, 1 / 3) % 1 * 4294967296) >>> 0);
+      n++;
+    }
+  })();
+  function xUtf8(s) {
+    var out = [], i, c;
+    for (i = 0; i < s.length; i++) {
+      c = s.charCodeAt(i);
+      if (c < 128) out.push(c);
+      else if (c < 2048) out.push(192 | (c >> 6), 128 | (c & 63));
+      else if (c >= 0xd800 && c < 0xdc00 && i + 1 < s.length) { c = 0x10000 + ((c - 0xd800) << 10) + (s.charCodeAt(++i) - 0xdc00); out.push(240 | (c >> 18), 128 | ((c >> 12) & 63), 128 | ((c >> 6) & 63), 128 | (c & 63)); }
+      else out.push(224 | (c >> 12), 128 | ((c >> 6) & 63), 128 | (c & 63));
+    }
+    return new Uint8Array(out);
+  }
+  function xSha256(input) {
+    var bytes = typeof input === 'string' ? xUtf8(input) : input instanceof Uint8Array ? input : new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
+    var H = [0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19];
+    var l = bytes.length, padded = new Uint8Array(((l + 9 + 63) >> 6) << 6), i, j, w = new Array(64), a, b, c, d, e, f, g, h, t1, t2, s0, s1;
+    padded.set(bytes); padded[l] = 0x80;
+    var bits = l * 8; padded[padded.length - 4] = (bits >>> 24) & 255; padded[padded.length - 3] = (bits >>> 16) & 255; padded[padded.length - 2] = (bits >>> 8) & 255; padded[padded.length - 1] = bits & 255;
+    padded[padded.length - 5] = Math.floor(bits / 4294967296) & 255;
+    var rotr = function (x, n) { return (x >>> n) | (x << (32 - n)); };
+    for (i = 0; i < padded.length; i += 64) {
+      for (j = 0; j < 16; j++) w[j] = (padded[i + 4 * j] << 24) | (padded[i + 4 * j + 1] << 16) | (padded[i + 4 * j + 2] << 8) | padded[i + 4 * j + 3];
+      for (j = 16; j < 64; j++) { s0 = rotr(w[j - 15], 7) ^ rotr(w[j - 15], 18) ^ (w[j - 15] >>> 3); s1 = rotr(w[j - 2], 17) ^ rotr(w[j - 2], 19) ^ (w[j - 2] >>> 10); w[j] = (w[j - 16] + s0 + w[j - 7] + s1) >>> 0; }
+      a = H[0]; b = H[1]; c = H[2]; d = H[3]; e = H[4]; f = H[5]; g = H[6]; h = H[7];
+      for (j = 0; j < 64; j++) {
+        s1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25); t1 = (h + s1 + ((e & f) ^ (~e & g)) + X_K[j] + w[j]) >>> 0;
+        s0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22); t2 = (s0 + ((a & b) ^ (a & c) ^ (b & c))) >>> 0;
+        h = g; g = f; f = e; e = (d + t1) >>> 0; d = c; c = b; b = a; a = (t1 + t2) >>> 0;
+      }
+      H[0] = (H[0] + a) >>> 0; H[1] = (H[1] + b) >>> 0; H[2] = (H[2] + c) >>> 0; H[3] = (H[3] + d) >>> 0; H[4] = (H[4] + e) >>> 0; H[5] = (H[5] + f) >>> 0; H[6] = (H[6] + g) >>> 0; H[7] = (H[7] + h) >>> 0;
+    }
+    var hex = '';
+    for (i = 0; i < 8; i++) hex += ('00000000' + H[i].toString(16)).slice(-8);
+    return hex;
+  }
+  function xHash(value) { return xSha256(typeof value === 'string' ? value : JSON.stringify(value)); }
+  function xCopy(value) { return JSON.parse(JSON.stringify(value)); }
+  // Float32 paintings as bytes: little-endian Float32 → base64 (the continuation's wire form) and back.
+  function xFloat32ToBase64(a) {
+    var bytes = new Uint8Array(a.buffer, a.byteOffset, a.byteLength), s = '', i;
+    for (i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return typeof btoa === 'function' ? btoa(s) : Buffer.from(s, 'binary').toString('base64');
+  }
+  function xBase64ToFloat32(text) {
+    var s = typeof atob === 'function' ? atob(text) : Buffer.from(text, 'base64').toString('binary'), bytes = new Uint8Array(s.length), i;
+    for (i = 0; i < s.length; i++) bytes[i] = s.charCodeAt(i);
+    return new Float32Array(bytes.buffer);
+  }
+  function xPaintingSha256(p) { return xSha256(new Uint8Array(p.data.buffer, p.data.byteOffset, p.data.byteLength)); }
+
+  // ---------------------------------------------------------------------------------------------------------- 1
+  // Values. A painting is a logical Float32 RGBA grid over an authored patch of G's chart S0 (u = R·longitude on the
+  // authored branch, v = R·latitude), premultiplied, linear light; the same value the definer's attack 4 paints.
+  function xMakePainting(decl) {
+    var n = decl.grid[0] * decl.grid[1], data = new Float32Array(4 * n), i, c = decl.initial || [0, 0, 0, 0];
+    if (c[0] || c[1] || c[2] || c[3]) for (i = 0; i < n; i++) data.set(c, 4 * i);
+    return {kind: 'painting', id: decl.id, revision: 0, grid: decl.grid.slice(), domain: decl.domain.slice(), chart: decl.chart || 'S0', filter: decl.filter || 'nearest', data: data};
+  }
+  function xPaintingRef(p) { return {painting: p.id, revision: p.revision, sha256: xPaintingSha256(p)}; }
+  function xIsPainting(v) { return !!(v && typeof v === 'object' && v.kind === 'painting'); }
+  function xIsRegion(v) { return !!(v && typeof v === 'object' && v.kind === 'surface-region'); }
+  // the nearest logical texel of painting p at the unit vector q (the declared filter; the definer's read)
+  function xSample(p, q, filter) {
+    if ((filter || p.filter) !== 'nearest') return {status: 'unsupported', reason: 'filter ' + filter + ': only nearest is declared'};
+    var d = p.domain, nx = p.grid[0], ny = p.grid[1], u = gUnwrapU(q), v = G_R * sphLat(q);
+    if (!(u >= d[0] && u < d[0] + d[2] && v >= d[1] && v < d[1] + d[3])) return {status: 'unsupported', reason: 'read outside the authored patch (u ' + u.toFixed(2) + ', v ' + v.toFixed(2) + ')'};
+    var x = Math.floor((u - d[0]) / d[2] * nx), y = Math.floor((v - d[1]) / d[3] * ny);
+    return {status: 'resolved', color: Array.from(p.data.slice(4 * (y * nx + x), 4 * (y * nx + x) + 4)), texel: [x, y]};
+  }
+  // the texel centres of painting p, as unit vectors: y outer, x inner
+  function xTexelCentre(p, x, y) { var d = p.domain; return sphPoint0(d[0] + (x + 0.5) * d[2] / p.grid[0], d[1] + (y + 0.5) * d[3] / p.grid[1]); }
+
+  // ---------------------------------------------------------------------------------------------------------- 2
+  // The capability table. Each operation declares the argument names it consumes; a step's other keys are reported as
+  // not consumed. `run(args, ctx)` returns the value that binds to the step's `out`. A read also declares `snapshot`,
+  // the inputs it pins, computed before it runs: the request a suspended read leaves behind names that snapshot, and an
+  // answer delivered later is checked against it without running anything.
+  var X_OPS = {
+    // the point a curve of the retained records names at parameter t (an authored address, not a pointer sample)
+    'curve-point': {args: ['curve', 't'], run: function (a) {
+      if (a.curve !== 'kA/arc-AB') return {status: 'unsupported', reason: 'curve ' + a.curve + ': only kA/arc-AB is declared'};
+      return gArcCentre(Number(a.t));
+    }},
+    // a region of surface distance on the support: the reach tool's result and the brush's footprint are one operation
+    'surface-region': {args: ['support', 'seed', 'point', 'radius', 'distance'], run: function (a) {
+      if (a.support && a.support.id !== 'G') return {status: 'unsupported', reason: 'support ' + a.support.id + ': only G (the sphere, R 200 mm) is declared'};
+      if ((a.distance || 'surface') !== 'surface') return {status: 'unsupported', reason: 'distance ' + a.distance + ': only surface (intrinsic, the great circle) is declared'};
+      if (!a.point && !a.seed) return {status: 'unsupported', reason: 'surface-region: a seed [longitude, latitude] rad or a point (unit vector) is needed'};
+      var rec = {support: a.support ? {id: a.support.id, revision: a.support.revision} : {id: 'G'}, radius: Number(a.radius), distance: 'surface'};
+      if (a.point) rec.point = Array.from(a.point); else rec.seed = Array.from(a.seed);
+      var r = reachRegion(rec);
+      if (r.status !== 'resolved') return r;
+      r.kind = 'surface-region'; r.id = xHash(rec); r.pieces = xRegionPieces(r);
+      return r;
+    }},
+    // membership of a point in a retained region, by the region's own distance
+    'member': {args: ['region', 'point'], run: function (a) {
+      if (!xIsRegion(a.region)) return {status: 'unsupported', reason: 'member: not a surface region'};
+      return {status: 'resolved', inside: a.region.member(a.point), distance: a.region.distance(a.point), radius: a.region.record.radius};
+    }},
+    // the compositor's sample through the bindings: the layers named bottom to top, each 'coating' (the retained
+    // records on G at the support's revision, inverted through their bindings, composed by the saved order) or a
+    // painting; a withheld binding returns pending with the dependency named, no order returns needs-policy, and
+    // neither is a colour; pending: 'provisional' is the declared exception (the known layers consumed, the guess retained)
+    'read-surface': {args: ['support', 'revision', 'point', 'layers', 'order', 'budget', 'filter', 'pending'],
+      snapshot: function (a, ctx) {
+        var rev = xRevision(a), order = xOrder(a, ctx), layers = a.layers || ['coating'];
+        return {support: {id: 'G', revision: rev}, coating: {records: xHash(G_RECORDS), order: order, chains: gBindings(rev).map(function (b) { return {binding: b.id, chain: b.chain}; })},
+          layers: layers.map(function (l) { return xIsPainting(l) ? xPaintingRef(l) : l; }), read: {quantity: 'coating rgba', filter: a.filter || 'nearest', point: Array.from(a.point)}};
+      },
+      run: function (a, ctx) {
+        var rev = xRevision(a), order = xOrder(a, ctx), layers = a.layers || ['coating'], budget = a.budget != null ? Number(a.budget) : ctx.budget;
+        var snapId = ctx.snapshot, acc = [0, 0, 0, 0], contributors = [], i, l, s;
+        for (i = 0; i < layers.length; i++) {
+          l = layers[i];
+          if (l === 'coating') {
+            var located = gLocate(rev, a.point, {budget: budget, order: order}), comp = located.composition;
+            if (comp.status === 'unresolved') {
+              if ((a.pending || 'wait') !== 'provisional') return {status: 'pending', snapshot: snapId, missing: xCopy(located.unresolved), known: comp.known.slice()};
+              var guess = [0, 0, 0, 0], j, m;                      // the known layers in the saved order, the missing ones transparent
+              for (j = 0; j < (order || ['kA']).length; j++) if (comp.known.indexOf(order[j]) >= 0) { m = G_RECORDS[order[j] === 'kA' ? 'A' : 'B'].mark.rgba; guess = over(m, guess); }
+              acc = over(guess, acc); contributors = contributors.concat(comp.known);
+              var provisional = {missing: xCopy(located.unresolved), interpretation: 'missing layers guessed transparent (a declared provisional read)'};
+              continue;
+            }
+            if (comp.status === 'needs-policy') return {status: 'needs-policy', snapshot: snapId, candidates: comp.contributors.slice()};
+            acc = over(comp.rgba, acc); contributors = contributors.concat(comp.contributors);
+          } else if (xIsPainting(l)) {
+            s = xSample(l, a.point, a.filter);
+            if (s.status !== 'resolved') return {status: 'unsupported', snapshot: snapId, reason: s.reason};
+            acc = over(s.color, acc); contributors.push(l.id + '@' + l.revision);
+          } else return {status: 'unsupported', snapshot: snapId, reason: 'layer ' + JSON.stringify(l) + ': a layer is "coating" or a painting'};
+        }
+        var out = {status: 'resolved', snapshot: snapId, color: acc, contributors: contributors};
+        if (typeof provisional !== 'undefined') out.provisional = provisional;
+        return out;
+      }},
+    // linear mix of two colours (the bench's pickupMix, the definer's arithmetic)
+    'mix': {args: ['a', 'b', 'amount'], run: function (a) { return pickupMix(a.a, a.b, Number(a.amount)); }},
+    // source-over deposit of rgba × opacity on the painting where the region (and the clip, if given) holds the texel
+    // centre; a new painting value with the next revision; the input painting is not changed
+    'paint': {args: ['painting', 'region', 'rgba', 'opacity', 'clip'], run: function (a) {
+      if (!xIsPainting(a.painting)) return {status: 'unsupported', reason: 'paint: not a painting'};
+      if (!xIsRegion(a.region)) return {status: 'unsupported', reason: 'paint: the region is not a surface region'};
+      if (a.clip && !xIsRegion(a.clip)) return {status: 'unsupported', reason: 'paint: the clip is not a surface region'};
+      var p = a.painting, out = p.data.slice(), top = a.rgba.map(function (x) { return x * Number(a.opacity == null ? 1 : a.opacity); }), changed = 0, x, y, q, i;
+      for (y = 0; y < p.grid[1]; y++) for (x = 0; x < p.grid[0]; x++) {
+        q = xTexelCentre(p, x, y);
+        if (a.region.member(q) && (!a.clip || a.clip.member(q))) { i = 4 * (y * p.grid[0] + x); out.set(over(top, Array.from(p.data.slice(i, i + 4))), i); changed++; }
+      }
+      return {kind: 'painting', id: p.id, revision: p.revision + 1, grid: p.grid, domain: p.domain, chart: p.chart, filter: p.filter, data: out, changed: changed, clip: a.clip ? a.clip.id : null};
+    }},
+    // the painting's texel at a point (the declared filter)
+    'sample': {args: ['painting', 'point', 'filter'], run: function (a) { return xIsPainting(a.painting) ? xSample(a.painting, a.point, a.filter) : {status: 'unsupported', reason: 'sample: not a painting'}; }}
+  };
+  // The chart pieces a cap meets (the region's, not its seed's; the cold mind found the seed's piece said nothing about
+  // a region straddling the cut): north when the cap reaches above latitude 70°; west and east by the longitudes the cap
+  // spans, every longitude once a pole is inside it.
+  function xRegionPieces(r) {
+    var lat = sphLat(r.seed), lon = sphLon(r.seed), rho = r.rho, out = [], west, east;
+    if (lat + rho >= G_NORTH_LAT) out.push('north');
+    if (rho >= Math.PI / 2 - Math.abs(lat) - 1e-12) { west = east = true; }
+    else {
+      var half = Math.asin(Math.min(1, Math.sin(rho) / Math.cos(lat))), lo = lon - half, hi = lon + half;   // the longitudes spanned, about lon
+      var spans = function (a, b) { var x; for (x = lo - 2 * Math.PI; x <= hi + 2 * Math.PI; x += 2 * Math.PI) { if (Math.max(x, a) < Math.min(x + (hi - lo), b)) return true; } return false; };
+      west = spans(-Math.PI, 0); east = spans(0, Math.PI);
+    }
+    if (lat - rho < G_NORTH_LAT) { if (west) out.push('west'); if (east) out.push('east'); }
+    return out;
+  }
+  function xRevision(a) { return a.revision != null ? Number(a.revision) : a.support && a.support.revision != null ? Number(a.support.revision) : 0; }
+  function xOrder(a, ctx) { return a.order === undefined ? (ctx.record.coating ? ctx.record.coating.order : ['kA', 'kB']) : a.order; }
+  var X_ROOTS = ['state', 'event', 'events', 'tool', 'support', 'coating', 'painting', 'inputs', 'host'];
+  // The host root: what G already holds, so a record can refer to it instead of retyping the number (the cold mind's
+  // finding: the reach seed is A@0's own seed). Read-only facts of the retained records and the sphere.
+  function xHost() {
+    var A = G_RECORDS.A.mark, B = G_RECORDS.B.mark;
+    return {id: 'G', R: G_R, C: G_C, piR: G_PI_R, revisions: [0, 1, 2], charts: G_CHARTS.map(function (c) { return c.name; }),
+      A: {id: G_RECORDS.A.id, mark: A.id, curve: 'kA/arc-AB', seed: [sphLon(G_N), sphLat(G_N)], radius: A.radius, rgba: A.rgba.slice(), lengthMM: 80, domain: JSON.parse(JSON.stringify(G_RECORDS.A.domain))},
+      B: {id: G_RECORDS.B.id, mark: B.id, at: B.at, point: gArcCentre(B.at), radius: B.radius, rgba: B.rgba.slice(), domain: JSON.parse(JSON.stringify(G_RECORDS.B.domain))}};
+  }
+  var X_CAPABILITIES = 'seam bench, the fold of attack 4: curve-point kA/arc-AB · surface-region on G by intrinsic distance · member · read-surface = coating through the retained bindings (gLocate) and paintings, bottom to top, premultiplied source-over, nearest · mix linear · paint source-over × opacity with an optional clip · sample nearest';
+
+  // ---------------------------------------------------------------------------------------------------------- 3
+  // Running a record. xRun(record, opts) → {status: 'complete' | 'pending' | 'needs-policy' | 'stale' | 'unsupported'
+  // | 'error', at, state, history, results, log, continuation?}.
+  //   opts.budget   the work granted to reads (default Infinity: every binding resolved)
+  //   opts.inputs   values other constructions returned, by the names the record's `inputs` declares (subject checked)
+  //   opts.from     a continuation (or a checkpoint from xCheckpoint) to resume from
+  //   opts.answer   {request, value}: a read's answer delivered for the request the run reaches; it must belong to it
+  //   opts.until    stop before that event (a prefix)
+  function xRecipeHash(record) { var r = xCopy(record); delete r.events; delete r.id; return xHash(r); }
+  function xStateSnapshot(state) { var out = {}, k; for (k in state) out[k] = xIsPainting(state[k]) ? xPaintingRef(state[k]) : state[k]; return out; }
+  function xStateHash(at, state, history) { return xHash({at: at, state: xStateSnapshot(state), history: history}); }
+  function xResolve(ref, scope) {
+    if (typeof ref !== 'string') return ref;
+    var parts = ref.split('.'), root = parts[0], cur, i;
+    if (root === 'painting' && parts[1] === 'initial' && scope.painting) return xMakePainting(scope.painting);
+    if (!(root in scope)) return ref;                                    // not a binding: a literal word
+    cur = scope[root];
+    for (i = 1; i < parts.length; i++) { if (cur == null) return undefined; cur = cur[parts[i]]; }
+    return cur;
+  }
+  function xArgs(st, op, scope) {
+    var args = {}, i, name;
+    for (i = 0; i < op.args.length; i++) { name = op.args[i]; if (name in st) args[name] = name === 'layers' && Array.isArray(st[name]) ? st[name].map(function (r) { return r === 'coating' ? r : xResolve(r, scope); }) : xResolve(st[name], scope); }   // in `layers` the word coating names the coating itself, not the record's declaration of it
+    return args;
+  }
+  function xSerializeState(state) {
+    var out = {}, k;
+    for (k in state) out[k] = xIsPainting(state[k]) ? {painting: state[k].id, revision: state[k].revision, grid: state[k].grid, domain: state[k].domain, chart: state[k].chart, filter: state[k].filter, sha256: xPaintingSha256(state[k]), encoding: 'Float32LE/base64', bytes: xFloat32ToBase64(state[k].data)} : state[k];
+    return out;
+  }
+  function xRestoreState(saved) {
+    var out = {}, k, v;
+    for (k in saved) { v = saved[k]; out[k] = v && typeof v === 'object' && v.encoding === 'Float32LE/base64' ? {kind: 'painting', id: v.painting, revision: v.revision, grid: v.grid, domain: v.domain, chart: v.chart, filter: v.filter, data: xBase64ToFloat32(v.bytes)} : v; }
+    return out;
+  }
+  // A checkpoint of a run (complete or suspended): what a later run resumes from, as bytes.
+  function xCheckpoint(run, record) {
+    return {schema: 'seam-bench-executor-checkpoint/v1', recipe: xRecipeHash(record), input: {at: run.at, state: xSerializeState(run.state), history: xCopy(run.history)}, inputState: xStateHash(run.at, run.state, run.history)};
+  }
+  function xScope(base, state, item, outputs) {
+    var s = {}, k; for (k in base) s[k] = base[k]; s.state = state; if (item !== null) s.event = item; for (k in outputs || {}) s[k] = outputs[k]; return s;
+  }
+  function xRun(record, opts) {
+    opts = opts || {};
+    var budget = opts.budget != null ? opts.budget : Infinity, program = record.program || {}, steps = program.steps || [], log = [], history = [], results = {};
+    var recipe = xRecipeHash(record), inputs = opts.inputs || {}, answer = opts.answer || null, k, i;
+    for (k in record.inputs || {}) {                                     // a declared input must be the subject the record names
+      var want = record.inputs[k], got = inputs[k];
+      if (got === undefined) return {status: 'unsupported', reason: 'input ' + k + ' not supplied'};
+      if (want && want.sha256 && (!xIsPainting(got) || xPaintingSha256(got) !== want.sha256)) return {status: 'stale', reason: 'input ' + k + ': not the painting the record names (' + String(want.sha256).slice(0, 8) + '…)'};
+      if (want && want.id && !want.sha256 && (!got || got.id !== want.id)) return {status: 'stale', reason: 'input ' + k + ': not the declared subject (' + String(want.id).slice(0, 8) + '…, got ' + String(got && got.id).slice(0, 8) + '…)'};
+    }
+    var base = {tool: record.tool || {}, support: record.support || {id: 'G', revision: 0}, coating: record.coating || null, painting: record.painting || null, events: record.events || [], inputs: inputs, host: xHost()};
+    var state = {}, at = 0;
+    if (opts.from) {
+      var c = opts.from;
+      if (c.recipe !== recipe) return {status: 'stale', reason: 'suspended under another recipe (' + c.recipe.slice(0, 8) + '…, now ' + recipe.slice(0, 8) + '…)'};
+      state = xRestoreState(c.input.state); at = c.input.at; history = xCopy(c.input.history || []);
+      var expect = c.request ? c.request.inputState : c.inputState;
+      if (xStateHash(at, state, history) !== expect) return {status: 'stale', reason: 'the restored input state does not hash to the one retained'};
+    } else for (k in program.state || {}) state[k] = xResolve(program.state[k], base);
+    var items = program.each ? (xResolve(program.each, base) || []) : [null], end = typeof opts.until === 'number' ? Math.min(items.length, opts.until) : items.length, single = !program.each;
+    for (; at < end; at++) {
+      var item = items[at], outputs = {}, inputState = xStateHash(at, state, history), s, st, op, args, value, extra;
+      for (s = 0; s < steps.length; s++) {
+        st = steps[s]; op = X_OPS[st.op];
+        if (!op) { log.push({at: at, step: st.out, op: st.op, error: 'unknown operation'}); return xFail('unsupported', 'unknown operation ' + st.op + ' (the table: ' + Object.keys(X_OPS).join(', ') + ')', at, state, history, log); }
+        extra = Object.keys(st).filter(function (key) { return key !== 'out' && key !== 'op' && op.args.indexOf(key) < 0; });
+        if (extra.length) log.push({at: at, step: st.out, op: st.op, note: 'not consumed: ' + extra.join(', ')});
+        args = xArgs(st, op, xScope(base, state, item, outputs));
+        var ctx = {record: record, budget: budget, at: at, step: st.out}, request = null;
+        if (op.snapshot) {                                                 // a read: pin what it depends on, name the request
+          ctx.snapshot = xHash(op.snapshot(args, ctx));
+          request = {event: item, at: at, step: st.out, snapshot: ctx.snapshot, inputState: inputState, recipe: recipe}; request.id = xHash(request);
+        }
+        if (answer && request && answer.request.at === at && answer.request.step === st.out) {   // an answer delivered for this request
+          var verdict = xBelongs(answer, request);
+          if (verdict !== 'belongs') { log.push({at: at, step: st.out, op: st.op, stale: verdict}); return xFail('stale', verdict, at, state, history, log); }
+          value = answer.value; answer = null; log.push({at: at, step: st.out, op: st.op, delivered: request.id.slice(0, 16) + '…'});
+        } else {
+          try { value = op.run(args, ctx); } catch (e) { log.push({at: at, step: st.out, op: st.op, error: e.message}); return xFail('error', st.out + ': ' + e.message, at, state, history, log); }
+          if (opts.stopAt === st.out && request) return {status: 'answered', request: request, value: value, at: at};   // the read demanded outside a commit
+        }
+        if (value && typeof value === 'object' && (value.status === 'pending' || value.status === 'needs-policy')) {
+          // the barrier: no next painting-step state; the transaction is retained as bytes with what it depends on
+          log.push({at: at, step: st.out, op: st.op, status: value.status, missing: value.missing || value.candidates});
+          var r = xFail(value.status, value.status === 'pending' ? 'dependency withheld: ' + JSON.stringify(value.missing) : 'no composition order saved; candidates ' + JSON.stringify(value.candidates), at, state, history, log);
+          r.request = request; r.read = value;
+          r.continuation = {schema: 'seam-bench-executor-continuation/v1', capabilities: X_CAPABILITIES, record: xCopy(record), recipe: recipe, request: request,
+            input: {at: at, state: xSerializeState(state), history: xCopy(history)}, queued: (record.events || []).slice(at + 1), missing: xCopy(value.missing || value.candidates || [])};
+          return r;
+        }
+        if (value && typeof value === 'object' && (value.status === 'unsupported' || value.status === 'error')) { log.push({at: at, step: st.out, op: st.op, error: value.reason}); return xFail('unsupported', st.out + ': ' + value.reason, at, state, history, log); }
+        outputs[st.out] = value;
+        log.push({at: at, step: st.out, op: st.op, value: xDescribe(value)});
+      }
+      if (single) { for (k in outputs) results[k] = outputs[k]; at++; break; }
+      var next = {}, row = {event: item && item.id, at: at, inputState: inputState}, sc = xScope(base, state, item, outputs);
+      for (k in program.next || {}) next[k] = xResolve(program.next[k], sc);
+      for (k in outputs) if (outputs[k] && typeof outputs[k] === 'object' && outputs[k].snapshot) row.read = {step: k, request: xHash({event: item, at: at, step: k, snapshot: outputs[k].snapshot, inputState: inputState, recipe: recipe}), snapshot: outputs[k].snapshot, color: outputs[k].color, contributors: outputs[k].contributors, provisional: outputs[k].provisional || null};
+      for (k in next) row[k] = xIsPainting(next[k]) ? {revision: next[k].revision, changed: next[k].changed, sha256: xPaintingSha256(next[k])} : next[k];
+      history.push(row);
+      for (k in next) state[k] = next[k];
+    }
+    if (answer) return xFail('stale', 'the answer was not consumed: no request pending at this state', at, state, history, log);
+    var all = xScope(base, state, null, results);
+    (program['return'] || []).forEach(function (r) { results[r] = xResolve(r, all); });
+    return {status: 'complete', at: at, state: state, history: history, results: results, log: log, capabilities: X_CAPABILITIES};
+  }
+  function xFail(status, reason, at, state, history, log) { return {status: status, reason: reason, at: at, state: state, history: history, log: log}; }
+  // Does a delivered answer belong to the request the run is suspended at? Every difference has its own word.
+  function xBelongs(answer, request) {
+    if (!answer || !answer.request) return 'the answer names no request';
+    var a = answer.request;
+    if (a.recipe !== request.recipe) return 'stale: the recipe changed since the read was demanded';
+    if (a.inputState !== request.inputState) return 'stale: the input state is not the one the read was demanded in';
+    if (a.at !== request.at || a.step !== request.step || xHash(a.event) !== xHash(request.event)) return 'stale: the answer belongs to another event or step';
+    if (a.snapshot !== request.snapshot) return 'stale: the read\'s snapshot changed (order, bindings, painting or point)';
+    if (!answer.value || answer.value.status !== 'resolved') return 'the answer is not a resolved read';
+    return 'belongs';
+  }
+  // Demand a read without committing: the request and its answer under a grant, for delivering later (the delayed and
+  // cold schedules, and the controls: an answer under a changed order or recipe, an answer delivered twice).
+  function xDemand(record, step, opts) {
+    opts = opts || {};
+    return xRun(record, {budget: opts.budget != null ? opts.budget : Infinity, from: opts.from, inputs: opts.inputs, stopAt: step});
+  }
+  // Resume a continuation: the suspended read is re-demanded under the grant (or the delivered answer is checked), then the run continues.
+  function xResume(continuation, grant, opts) {
+    opts = opts || {};
+    return xRun(continuation.record, {budget: grant, from: continuation, inputs: opts.inputs, answer: opts.answer, until: opts.until});
+  }
+  // A short description of a value for a log line or a readout.
+  function xDescribe(v) {
+    if (v == null) return v;
+    if (xIsPainting(v)) return {painting: v.id, revision: v.revision, sha256: xPaintingSha256(v), changed: v.changed == null ? undefined : v.changed, clip: v.clip == null ? undefined : v.clip};
+    if (xIsRegion(v)) return {region: v.id, radius: v.record.radius, area: v.area, bounds: v.bounds, saturated: v.saturated, pieces: v.pieces};   // ids and hashes in full: a record names a subject by them (the cold mind could not read a truncated one)
+    if (Array.isArray(v)) return v.map(function (x) { return typeof x === 'number' ? +x.toFixed(6) : x; });
+    if (typeof v === 'object' && v.status) { var o = {status: v.status}; if (v.color) o.color = v.color; if (v.contributors) o.contributors = v.contributors; if (v.snapshot) o.snapshot = String(v.snapshot).slice(0, 16) + '…'; if (v.missing) o.missing = v.missing; if (v.candidates) o.candidates = v.candidates; if (v.inside != null) o.inside = v.inside; if (v.distance != null) o.distance = v.distance; if (v.provisional) o.provisional = v.provisional; if (v.reason) o.reason = v.reason; if (v.texel) o.texel = v.texel; return o; }
+    return v;
+  }
+  function xSummary(r) {
+    var s = {status: r.status, at: r.at}, k;
+    if (r.reason) s.reason = r.reason;
+    if (r.state) { s.state = {}; for (k in r.state) s.state[k] = xIsPainting(r.state[k]) ? {painting: r.state[k].id, revision: r.state[k].revision, sha256: xPaintingSha256(r.state[k])} : r.state[k]; }
+    if (r.history) s.history = r.history;
+    if (r.results) { s.results = {}; for (k in r.results) s.results[k] = xDescribe(r.results[k]); }
+    if (r.continuation) s.continuation = {request: r.continuation.request.id, missing: r.continuation.missing, queued: r.continuation.queued.map(function (e) { return e.id; })};
+    return s;
+  }
+  // The four records the executor runs on the bench and in Node (the fold of attack 4, 2026-09-06): the reach tool,
+  // the two-record sequence, the coating-reading brush (the definer's attack 4 records.json in the executor's grammar)
+  // and a dab through a retained clip. Plain data; the bench embeds this file verbatim, the panel's executor card loads
+  // one into its paste box, probe-4.mjs runs them in Node. A pasted record is the same JSON with any change Sid makes.
+  var X_RECORDS = {
+    "reach": {
+      "id": "reach@0",
+      "what": "the reach tool on G (the definer's attack 2 at ×2): a region of surface distance about a seed, retained with its subject, bounds, area and chart pieces; another construction keeps it as a clip",
+      "support": {
+        "id": "G",
+        "revision": 0
+      },
+      "tool": {
+        "seed": [
+          3.141592653589793,
+          1.0471975511965976
+        ],
+        "radius": 150,
+        "distance": "surface"
+      },
+      "program": {
+        "steps": [
+          {
+            "out": "region",
+            "op": "surface-region",
+            "support": "support",
+            "seed": "tool.seed",
+            "radius": "tool.radius",
+            "distance": "tool.distance"
+          }
+        ],
+        "return": [
+          "region"
+        ]
+      }
+    },
+    "sequence": {
+      "id": "sequence@0",
+      "what": "the two-record sequence on G (the definer's attack 2 §4 at ×2): one authored point on kA read through the retained bindings at G@0, G@1 (φ, a chart change) and G@2 (χ∘φ, the merge into M with the sheared chart); the same two source records compose to the same colour at every revision; at G@2 the merge step of B's binding costs one unit of work, and a demand that grants none is pending",
+      "support": {
+        "id": "G"
+      },
+      "coating": {
+        "layers": [
+          "A@0",
+          "B@0"
+        ],
+        "order": [
+          "kA",
+          "kB"
+        ]
+      },
+      "tool": {
+        "curve": "kA/arc-AB",
+        "t": 0.65
+      },
+      "events": [
+        {
+          "id": "G@0",
+          "revision": 0
+        },
+        {
+          "id": "G@1",
+          "revision": 1
+        },
+        {
+          "id": "G@2",
+          "revision": 2
+        }
+      ],
+      "program": {
+        "each": "events",
+        "state": {
+          "last": null
+        },
+        "steps": [
+          {
+            "out": "at",
+            "op": "curve-point",
+            "curve": "tool.curve",
+            "t": "tool.t"
+          },
+          {
+            "out": "read",
+            "op": "read-surface",
+            "support": "support",
+            "revision": "event.revision",
+            "point": "at",
+            "layers": [
+              "coating"
+            ],
+            "order": "coating.order"
+          }
+        ],
+        "next": {
+          "last": "read"
+        },
+        "return": [
+          "state.last"
+        ]
+      }
+    },
+    "pickup": {
+      "id": "coating-pickup@0",
+      "what": "the coating-reading brush on G (the definer's attack 4 records.json, in the executor's grammar): four authored dabs on kA's arc; each reads the composed coating through the retained bindings with the brush's own previous painting above it, mixes the sample into the carry, constructs a disc of surface distance and paints it at half opacity",
+      "support": {
+        "id": "G",
+        "revision": 2
+      },
+      "coating": {
+        "layers": [
+          "A@0",
+          "B@0"
+        ],
+        "bindings": [
+          "binding-A@2",
+          "binding-B@2"
+        ],
+        "order": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "linear-light premultiplied rgba; no lighting, no screen lease"
+      },
+      "painting": {
+        "id": "pickup-G",
+        "grid": [
+          64,
+          32
+        ],
+        "domain": [
+          588.3185307179587,
+          194,
+          80,
+          30
+        ],
+        "chart": "S0",
+        "filter": "nearest",
+        "initial": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "tool": {
+        "carry": [
+          1,
+          0,
+          0,
+          1
+        ],
+        "pickup": 0.25,
+        "opacity": 0.5,
+        "radius": 8.75
+      },
+      "events": [
+        {
+          "id": "dab-0",
+          "curve": "kA/arc-AB",
+          "t": 0.65
+        },
+        {
+          "id": "dab-1",
+          "curve": "kA/arc-AB",
+          "t": 0.7
+        },
+        {
+          "id": "dab-2",
+          "curve": "kA/arc-AB",
+          "t": 0.41
+        },
+        {
+          "id": "dab-3",
+          "curve": "kA/arc-AB",
+          "t": 0.65
+        }
+      ],
+      "program": {
+        "each": "events",
+        "state": {
+          "carry": "tool.carry",
+          "painting": "painting.initial"
+        },
+        "steps": [
+          {
+            "out": "at",
+            "op": "curve-point",
+            "curve": "event.curve",
+            "t": "event.t"
+          },
+          {
+            "out": "picked",
+            "op": "read-surface",
+            "support": "support",
+            "point": "at",
+            "layers": [
+              "coating",
+              "state.painting"
+            ],
+            "order": "coating.order",
+            "filter": "painting.filter"
+          },
+          {
+            "out": "carry",
+            "op": "mix",
+            "a": "state.carry",
+            "b": "picked.color",
+            "amount": "tool.pickup"
+          },
+          {
+            "out": "footprint",
+            "op": "surface-region",
+            "support": "support",
+            "point": "at",
+            "radius": "tool.radius",
+            "distance": "surface"
+          },
+          {
+            "out": "painting",
+            "op": "paint",
+            "painting": "state.painting",
+            "region": "footprint",
+            "rgba": "carry",
+            "opacity": "tool.opacity"
+          }
+        ],
+        "next": {
+          "carry": "carry",
+          "painting": "painting"
+        },
+        "return": [
+          "state.painting",
+          "state.carry"
+        ]
+      }
+    },
+    "clip": {
+      "id": "clip-dab@0",
+      "what": "reuse of a retained result: one dab of the coating brush's pigment painted at a point 144.55 mm from the reach seed, deposited only through a surface region another record returned (the reach tool's), supplied as the input `clip` with its subject declared; a region under a different subject is refused",
+      "support": {
+        "id": "G",
+        "revision": 0
+      },
+      "inputs": {
+        "clip": {
+          "kind": "surface-region",
+          "id": "<the id of the reach record's returned region>"
+        }
+      },
+      "painting": {
+        "id": "clip-G",
+        "grid": [
+          64,
+          32
+        ],
+        "domain": [
+          900,
+          180,
+          100,
+          60
+        ],
+        "chart": "S0",
+        "filter": "nearest",
+        "initial": [
+          0,
+          0,
+          0,
+          0
+        ]
+      },
+      "tool": {
+        "seed": [
+          4.71238898038469,
+          1.0471975511965976
+        ],
+        "radius": 4,
+        "rgba": [
+          0.5,
+          0,
+          0,
+          0.5
+        ],
+        "opacity": 1
+      },
+      "events": [
+        {
+          "id": "dab-q1"
+        }
+      ],
+      "program": {
+        "each": "events",
+        "state": {
+          "painting": "painting.initial"
+        },
+        "steps": [
+          {
+            "out": "footprint",
+            "op": "surface-region",
+            "support": "support",
+            "seed": "tool.seed",
+            "radius": "tool.radius",
+            "distance": "surface"
+          },
+          {
+            "out": "painting",
+            "op": "paint",
+            "painting": "state.painting",
+            "region": "footprint",
+            "rgba": "tool.rgba",
+            "opacity": "tool.opacity",
+            "clip": "inputs.clip"
+          }
+        ],
+        "next": {
+          "painting": "painting"
+        },
+        "return": [
+          "state.painting"
+        ]
+      }
+    }
+  };
   // ───── the bench's own pieces around them: G's hit, the reach record in force, and the pickup replay's state ─────
   var PAINT = null;          // set by paint=1: the replay's records, its paintings, its hashes and the evaluation the step is at
   var G_AIM_YAW = -1.2;      // the aim=G… links look from the seed's side (longitude 180°); the default view sees G whole, from behind it
@@ -1069,6 +1794,67 @@
       }, function () { PAINT.hashes.unavailable = true; });
     });
   }
+  // ───── the executor's card (the fold of attack 4): a record loaded or pasted, run over the capability table; the held run's
+  // continuation kept for resume; the last returned region kept for a record that declares it as an input; a returned
+  // painting on G uploaded to G's material and read by the walker
+  var RUN = { held: null, eager: null, painting: null, keep: {} };
+  function runSetText(t) { var e = document.getElementById('run'); if (e.textContent !== t) e.textContent = t; }
+  function runLoad(name) {
+    var rec = JSON.parse(JSON.stringify(X_RECORDS[name]));
+    if (name === 'clip') rec.inputs.clip.id = RUN.keep.region ? RUN.keep.region.id : '<run the reach record first: its region is the input>';
+    document.getElementById('runRecord').value = JSON.stringify(rec, null, 1);
+  }
+  function runColor(c) { return '(' + c.map(function (x) { return (+x).toFixed(4); }).join(', ') + ')'; }
+  function runDescribeResult(name, v) {
+    if (xIsRegion(v)) return name + ': region ' + v.id.slice(0, 8) + '… of radius ' + v.record.radius + ' mm about ' + (v.record.point ? 'a point' : 'seed (' + (v.record.seed[0] * 180 / Math.PI).toFixed(0) + '°, ' + (v.record.seed[1] * 180 / Math.PI).toFixed(0) + '°)') + ', area ' + v.area.toFixed(1) + ' mm², bounds ' + v.bounds.map(function (b) { return '[' + b[0].toFixed(1) + ', ' + b[1].toFixed(1) + ']'; }).join(' ') + (v.saturated ? ', saturated (the whole sphere)' : '') + ', piece ' + v.pieces.join('/');
+    if (xIsPainting(v)) return name + ': painting ' + v.id + '@' + v.revision + ' ' + xPaintingSha256(v) + (v.changed != null ? ' (' + v.changed + ' texels changed by the last dab' + (v.clip ? ', through the clip ' + v.clip.slice(0, 8) + '…' : '') + ')' : '');
+    if (Array.isArray(v)) return name + ': ' + runColor(v);
+    if (v && v.status) return name + ': ' + v.status + (v.color ? ' ' + runColor(v.color) : '') + (v.contributors ? ' from ' + v.contributors.join(', ') : '') + (v.reason ? ' (' + v.reason + ')' : '');
+    return name + ': ' + JSON.stringify(v);
+  }
+  function runReadout(rec, r, grant, label) {
+    var lines = ['record ' + rec.id + ' · ' + label + ' under grant ' + (grant === Infinity ? '∞' : grant) + ' → ' + r.status + (r.reason ? ': ' + r.reason : '') + ' (at ' + r.at + ')'], k;
+    (r.history || []).forEach(function (h) {
+      var s = h.event + ':';
+      if (h.read) s += ' read ' + (h.read.color ? runColor(h.read.color) : h.read.status) + ' from ' + (h.read.contributors || []).join(', ') + (h.read.provisional ? ' [provisional: ' + h.read.provisional.interpretation + ']' : '') + ' (snapshot ' + h.read.snapshot.slice(0, 8) + '…)';
+      if (h.carry) s += ' → carry ' + runColor(h.carry);
+      if (h.painting) s += ', painting rev ' + h.painting.revision + ' (' + h.painting.changed + ' texels, ' + h.painting.sha256.slice(0, 8) + '…)';
+      if (h.last && h.last.color && !h.read) s += ' read ' + runColor(h.last.color) + ' from ' + h.last.contributors.join(', ');
+      lines.push(s);
+    });
+    if (r.status === 'pending' || r.status === 'needs-policy') lines.push('no next state: the carry ' + (r.state.carry ? runColor(r.state.carry) : '—') + ', the painting at revision ' + (r.state.painting ? r.state.painting.revision : '—') + ' · the transaction retained as bytes: request ' + r.request.id.slice(0, 8) + '…, snapshot ' + r.request.snapshot.slice(0, 8) + '…, ' + r.continuation.queued.length + ' events queued, missing ' + JSON.stringify(r.continuation.missing.map(function (m) { return m.missing || m; })) + ' · resume under ∞ continues from these bytes');
+    if (r.results) for (k in r.results) lines.push(runDescribeResult(k, r.results[k]));
+    (r.log || []).forEach(function (l) { if (l.note) lines.push('note: ' + l.step + ' ' + l.note); if (l.error) lines.push('error: ' + l.step + ' ' + l.error); });
+    return lines.join('\n');
+  }
+  function runTake(rec, r) {   // keep what a run returned: the last region (an input for another record), a painting on G (drawn and read)
+    var k, v;
+    if (r.results) for (k in r.results) { v = r.results[k]; if (xIsRegion(v)) RUN.keep.region = v; }
+    if (r.state && xIsPainting(r.state.painting) && r.state.painting.revision > 0) { RUN.painting = r.state.painting; uploadRunPainting(); needRender = true; }
+  }
+  function runExecute(resume) {
+    var rec, grant = document.getElementById('runGrant').value === '0' ? 0 : Infinity, inputs = {}, k, r, text;
+    try { rec = JSON.parse(document.getElementById('runRecord').value); } catch (e) { runSetText('not a record: ' + e.message); return; }
+    for (k in rec.inputs || {}) if (rec.inputs[k] && rec.inputs[k].kind === 'surface-region' && RUN.keep.region) inputs[k] = RUN.keep.region;
+    if (resume && RUN.held) {
+      r = xResume(RUN.held.continuation, Infinity, { inputs: inputs });
+      text = runReadout(rec, r, Infinity, 'resumed');
+      if (r.status === 'complete') { var eager = xRun(RUN.held.record, { inputs: inputs }); text += '\nresumed = eager: ' + (eager.status === 'complete' && xHash(xSummary(eager)) === xHash(xSummary(r))) + ' (the same carry, the same painting bytes, the same history)'; }
+      RUN.held = null; document.getElementById('resumeBtn').disabled = true;
+    } else {
+      r = xRun(rec, { budget: grant, inputs: inputs });
+      text = runReadout(rec, r, grant, 'run');
+      if (r.status === 'pending' || r.status === 'needs-policy') { RUN.held = { record: rec, continuation: r.continuation }; document.getElementById('resumeBtn').disabled = false; }
+      else { RUN.held = null; document.getElementById('resumeBtn').disabled = true; }
+    }
+    runTake(rec, r);
+    runSetText(text);
+    setRate('rEdit', 'the executor ran ' + rec.id + ': ' + (r.log ? r.log.length : 0) + ' steps over ' + (r.history ? r.history.length : (r.results ? 1 : 0)) + ' events → ' + r.status, true);
+    state.pendingHover = 'data'; needPage = true;
+  }
+  document.querySelectorAll('#runbar button[data-rec]').forEach(function (b) { b.addEventListener('click', function () { runLoad(b.getAttribute('data-rec')); }); });
+  document.getElementById('runBtn').addEventListener('click', function () { runExecute(false); });
+  document.getElementById('resumeBtn').addEventListener('click', function () { runExecute(true); });
   function hex8(k) { return PAINT.hashes[k] ? PAINT.hashes[k].slice(0, 8) + '…' : (PAINT.hashes.unavailable ? 'hash unavailable' : 'hashing…'); }
   function rgba6(c) { return '(' + c.map(function (x) { return x.toFixed(6); }).join(', ') + ')'; }
 
@@ -1124,13 +1910,15 @@
       var rp = [u * ls.used[0], v * ls.used[1]];
       address.push({ thing: 'R', kind: 'portal → space S via view V', where: 'portal-local (' + (u * R.rect.w).toFixed(1) + ', ' + (v * R.rect.h).toFixed(1) + ') px · surface ' + ls.used[0] + '×' + ls.used[1] + ' used of a ' + ls.alloc[0] + '×' + ls.alloc[1] + ' lease · framing ' + ls.aspect.toFixed(3) + ' (the portal\'s, not the lease\'s)' });
       var cam = cameraOf(views.V, ls), ray = rayFromRegionPoint(cam, rp[0], rp[1]);
-      var fh = hitField(ray, S.things.F, state.fieldWork), fMiss = (fh && fh.miss) ? fh : null;
-      var hits = [hitBlocks(ray, evaluated.blocks), hitSphere(ray, S.things.Q), S.things.P ? hitPost(ray, evaluatedP.support) : null, hitSphereG(ray), (fh && !fh.miss) ? fh : null].filter(Boolean).sort(function (a, b) { return a.t - b.t; });
+      var fh = hitField(ray, S.things.F, state.fieldWork), fMiss = (fh && fh.miss) ? fh : null, fTouch = (fh && fh.zeroArea) ? fh : null;
+      var hits = [hitBlocks(ray, evaluated.blocks), hitSphere(ray, S.things.Q), S.things.P ? hitPost(ray, evaluatedP.support) : null, hitSphereG(ray), (fh && !fh.miss && !fh.zeroArea) ? fh : null].filter(Boolean).sort(function (a, b) { return a.t - b.t; });
       // an unresolved piece nearer than the winner: an unknown nearer intersection cannot justify a definite visible winner behind it
       if (fMiss && fMiss.unresolved.length && (!hits.length || fMiss.unresolved[0][0] < hits[0].t)) {
         address.push({ thing: 'F', kind: 'field', where: 'no definite answer: the work limit ' + state.fieldWork + ' left ' + fMiss.unresolved.map(function (iv) { return '[' + iv[0].toFixed(3) + ', ' + iv[1].toFixed(3) + ']'; }).join(' ') + ' m unresolved before the nearest surface; the winner behind it is not definite' });
         walkForce = 'F:unresolved';
       }
+      // a contact of zero area (a tangency) is a boundary event the geometric answer keeps; this walk is visible-nearest and excludes it, said here, never silently (attack 4)
+      if (fTouch && (!hits.length || fTouch.t < hits[0].t)) address.push({ thing: 'F', kind: 'contact', where: 'a contact at t = ' + fTouch.t.toFixed(3) + ' m (a tangency: a boundary event with no material interval), kept by the geometric-boundary answer; the visible policy of this walk excludes it' });
       if (hits.length === 0) { address.push({ space: 'S', where: 'ray from V: origin (' + fmt3(ray.origin) + ') dir (' + fmt3(ray.dir) + ') · hits nothing: the background of S' }); return { leaf: 'S:background', address: address, mark: pagePx }; }
       var h = hits[0];
       address.push({ space: 'S', where: 'ray from V hits at t = ' + h.t.toFixed(3) + ' m · world (' + fmt3(h.point) + ')' });
@@ -1182,10 +1970,12 @@
           var nearest = ' (nearest: segment ' + cm.best.seg + ', t ' + cm.best.t.toFixed(2) + ', width ' + cm.best.w.toFixed(2) + ' mm)';
           var certTol = cm.tol == null ? null : (cm.sd - cm.lower <= cm.tol ? cm.tol : +(cm.sd - cm.lower).toFixed(4));
           var cert = certTol == null ? '' : ' · the swept nib, w = 10 + 30p², minimum certified to ±' + certTol + ' mm in ' + cm.work + ' evaluations';
+          // the shader's footprint on this same kP address line: a 32-sample scan is an approximation with a stated envelope, not the CPU's certificate (attack 4)
+          var shaderFootprintNote = ' · the shader\'s footprint here is a 32-sample scan with 8 golden steps: in exact arithmetic m ≤ ŝ ≤ m + L/64; its sign is not membership (attack 4: at a witness 0.0001 mm inside, the scan reads +0.000126); this enclosure is the certificate, at the cursor only';
           var capNote = state.pNib === 'capsule' ? ' · note: the capsule (endpoint radii interpolated linearly) is the old footprint; for w = 10 + 30p² it overstates the nib everywhere between knots' : '';
           if (cm.status === 'pending') { leafP = 'P:unresolved'; walkForce = 'P:unresolved'; address.push({ thing: 'kP', kind: 'path', where: 'no definite answer within the work limit ' + state.pWork + ': the minimum lies in [' + cm.lower.toFixed(4) + ', ' + cm.sd.toFixed(4) + '] mm' + nearest + capNote }); }
-          else if (cm.inside) { leafP = 'kP'; address.push({ thing: 'kP', kind: 'path', where: 'inside: ' + cm.contributors.map(function (e) { return 'segment ' + e.seg + ', t ' + e.t.toFixed(2) + ', width ' + e.w.toFixed(2) + ' mm'; }).join(' · ') + (cm.contributors.length > 1 ? ' (' + cm.contributors.length + ' source locations, one mark)' : '') + ', at least ' + (-cm.best.signed).toFixed(2) + ' mm from the edge' + cert + capNote }); }
-          else address.push({ thing: 'kP', kind: 'path', where: 'outside by ' + cm.best.signed.toFixed(3) + ' mm' + (cm.lower == null ? '' : ', enclosure [' + cm.lower.toFixed(4) + ', ' + cm.sd.toFixed(4) + ']') + nearest + capNote });
+          else if (cm.inside) { leafP = 'kP'; address.push({ thing: 'kP', kind: 'path', where: 'inside: ' + cm.contributors.map(function (e) { return 'segment ' + e.seg + ', t ' + e.t.toFixed(2) + ', width ' + e.w.toFixed(2) + ' mm'; }).join(' · ') + (cm.contributors.length > 1 ? ' (' + cm.contributors.length + ' source locations, one mark)' : '') + ', at least ' + (-cm.best.signed).toFixed(2) + ' mm from the edge' + cert + (cert ? shaderFootprintNote : '') + capNote }); }
+          else address.push({ thing: 'kP', kind: 'path', where: 'outside by ' + cm.best.signed.toFixed(3) + ' mm' + (cm.lower == null ? '' : ', enclosure [' + cm.lower.toFixed(4) + ', ' + cm.sd.toFixed(4) + ']' + shaderFootprintNote) + nearest + capNote });
           if (state.pMode === 'modulo') { var k0 = markKnots(Pw, 'unwrapped'), km = markKnots(Pw, 'modulo'); address.push({ thing: 'kP', kind: 'note', where: 'first segment A→B: unwrapped +' + (k0[1].u - k0[0].u).toFixed(1) + ' mm; reduced modulo C: ' + (km[1].u - km[0].u).toFixed(1) + ' mm (the stroke would run the other way round the post)' }); }
           if (state.pNib === 'naive' && Pw.chart.scale !== 1) address.push({ thing: 'kP', kind: 'note', where: 'the naive nib measures in a: ' + Pw.chart.scale + ' mm on the surface reads as 1; a point ' + state.probeD + ' mm along the circumference reads ' + (state.probeD / Pw.chart.scale).toFixed(1) });
         }
@@ -1224,7 +2014,9 @@
         address.push({ thing: 'GW', kind: 'chart', where: '(a ' + loc.here.a.toFixed(2) + ', b ' + loc.here.b.toFixed(2) + ') → authored branch u ' + uwG.toFixed(2) + ' mm (k ' + kG + '), longitude ' + (lonG * 180 / Math.PI).toFixed(1) + '°, latitude ' + (latG * 180 / Math.PI).toFixed(1) + '° · metric here [[' + met[0][0].toFixed(2) + ', ' + met[0][1].toFixed(2) + '], [' + met[1][0].toFixed(2) + ', ' + met[1][1].toFixed(2) + ']] (Jᵀ diag(cos² lat, 1) J) · footprint ' + fpG.toFixed(2) + ' px per mm on the surface · chart piece: ' + pieceG.piece + ' (' + pieceG.note + ')' });
         // the reach tool's record: a region measured on the surface, and the two readings that are not it
         var rr = gReachRecord(), paintNote = function (m) { return m ? '(0, 0.4, 0, 0.4)' : '(0, 0, 0, 0)'; };
-        if (state.gBand) {
+        if (rr.status === 'unsupported') {
+          address.push({ thing: 'reach', kind: 'the tool\'s record', where: 'reach: the record\'s radius ' + state.gReach + ' mm is refused (' + rr.reason + '); no region' });
+        } else if (state.gBand) {
           var dU = sphBandDistance(rr.seed, qh, [-10, 10], 'underlying'), dF = sphBandDistance(rr.seed, qh, [-10, 10], 'face');
           var sel = state.dMetric === 'face' ? (dF.d <= 50 ? 'inside' : 'outside') : (dU.d <= 50 ? 'inside' : 'outside');
           address.push({ thing: 'reach₂', kind: 'the tool\'s record beside the removed band', where: 'reach₂: seed (u ' + (Math.PI * G_R).toFixed(1) + ', v 20.0) mm, r 50 mm · here: on the underlying sphere ' + dU.d.toFixed(1) + ' mm → ' + (dU.d <= 50 ? 'inside' : 'outside') + ', clipped after; within the retained support: ' + (dF.d === Infinity ? 'no connecting path, distance ∞' : dF.d.toFixed(1) + ' mm') + ' → ' + (dF.d <= 50 ? 'inside' : 'outside') + ' · policy dmetric=' + state.dMetric + ' selects ' + sel + '; a saved clip at the end does not choose between them' });
@@ -1273,8 +2065,14 @@
           var topG = state.gOrder ? state.gOrder.filter(function (n) { return compG.contributors.indexOf(n) >= 0; }).slice(-1)[0] : compG.contributors[compG.contributors.length - 1];
           lines.push('composed by order [' + (state.gOrder || compG.order).join(', ') + '], top ' + topG + ', premultiplied rgba (' + compG.rgba.map(function (x) { return x.toFixed(3); }).join(', ') + ')');
           leafG = compG.contributors.length > 1 ? 'G:kA+kB' : 'G:' + compG.contributors[0];
-        } else leafG = (!state.gBand && rr.member(qh)) ? 'G:reach' : 'G';
+        } else leafG = (!state.gBand && rr.status === 'resolved' && rr.member(qh)) ? 'G:reach' : 'G';
         address.push({ thing: 'PG', kind: 'the retained records', where: lines.join(' · ') });
+        // attack 4: the executor's painting on G, read at this same hit (the coating-reading brush's own texel, above the coating)
+        if (RUN.painting) {
+          var ps = xSample(RUN.painting, qh);
+          if (ps.status === 'resolved') address.push({ thing: 'PG', kind: 'the executor\'s painting', where: 'the brush\'s painting ' + RUN.painting.id + '@' + RUN.painting.revision + ': texel (' + ps.texel.join(', ') + ') rgba ' + rgba6(ps.color) + (compG.rgba ? ' · above the coating: composed ' + rgba6(over(ps.color, compG.rgba)) : '') });
+          else address.push({ thing: 'PG', kind: 'the executor\'s painting', where: 'the brush\'s painting ' + RUN.painting.id + '@' + RUN.painting.revision + ': outside its authored patch here' });
+        }
         return { leaf: leafG, address: address, mark: pagePx, t: h.t };
       }
       if (h.thing === 'F') {
@@ -1369,6 +2167,8 @@
     'uniform vec4 uG; uniform int uGRev; uniform vec4 uGReach; uniform int uGBand; uniform int uGOrder; uniform int uGBudgetB; uniform int uGDrop;\n' +
     // attack 3: the pickup replay on P's wall — the two paintings as logical 96×96 values over their authored domains
     'uniform int uPaint; uniform int uStrip; uniform int uPaintOrder; uniform sampler2D uPaintA; uniform sampler2D uPaintB; uniform vec4 uPaintDomA; uniform vec4 uPaintDomB;\n' +
+    // attack 4: the executor's painting on G, above the coating, source-over (its own texture unit, bound whether or not it is set)
+    'uniform sampler2D uPaintG; uniform vec4 uPaintGDom; uniform vec2 uPaintGGrid; uniform int uPaintGOn;\n' +
     '// the swept nib on one segment: the convex hull of the two end discs (uneven capsule, Quilez) — the same formula the CPU classify uses\n' +
     'float capsuleSD(vec2 p, vec2 a, vec2 b, float ra, float rb){ p -= a; b -= a; float h = dot(b, b); if (h < 1e-12) return length(p) - max(ra, rb); float bb = ra - rb; if (bb * bb >= h) return min(length(p) - ra, length(p - b) - rb);\n' +
     '  vec2 q = vec2(abs(p.x * b.y - p.y * b.x), dot(p, b)) / h; vec2 c = vec2(sqrt(h - bb * bb), bb); float k = c.x * q.y - c.y * q.x; float m = dot(c, q); float n = dot(q, q);\n' +
@@ -1467,6 +2267,7 @@
     '    vec4 ink;\n' +
     '    if (covA > 0.001 && covB > 0.001 && uGOrder == 2) ink = mix(cA4, cB4, hs);      // no order saved: a hatch of the two\n' +
     '    else if (uGOrder == 1) ink = cA4 + cB4 * (1.0 - cA4.a); else ink = cB4 + cA4 * (1.0 - cB4.a);\n' +
+    '    if (uPaintGOn == 1) { float uw = ug; if (uw < 0.0) uw += Cg; float vv = vg; if (uw >= uPaintGDom.x && uw < uPaintGDom.x + uPaintGDom.z && vv >= uPaintGDom.y && vv < uPaintGDom.y + uPaintGDom.w) { ivec2 tg = ivec2(int((uw - uPaintGDom.x) / uPaintGDom.z * uPaintGGrid.x), int((vv - uPaintGDom.y) / uPaintGDom.w * uPaintGGrid.y)); vec4 cg = texelFetch(uPaintG, tg, 0); ink = cg + ink * (1.0 - cg.a); } }   // the executor\'s painting, above the coating (attack 4)\n' +
     '    float lfg = uAmbient + (1.0 - uAmbient) * ndl;\n' +
     '    o = vec4(mix(gcol * lfg, ink.rgb / max(ink.a, 1e-4) * lfg, ink.a), 1.0); return; }\n' +
     '  if (uKind > 0.5 && vFace > 2.5 && vFace < 3.5) { // a surviving part of face E.top: the planar surface Π through the attachment rule, the stroke filled per pixel with the swept nib\n' +
@@ -1578,7 +2379,7 @@
     '}'].join('\n');
   var prog, locs = {}, solidVAO, solidCount = 0, sphVAO, groundVAO, sphCount, strokeTex, landTex;
   var progF, locsF = {}, cubeVAO, postVAO, postCount = 0, stroke2Tex, shaderLog = { main: '', field: '' }, statDone = false;
-  var gVAO, gCount = 0, paintATex, paintBTex;   // G's own tessellation (class 10) and the two paintings as 96×96 textures
+  var gVAO, gCount = 0, paintATex, paintBTex, paintGTex;   // G's own tessellation (class 10), the two paintings as 96×96 textures, and the executor's painting on G
   function glstat(t) { var e = document.getElementById('glstat'); if (e) e.textContent = 'WebGL2: ' + t; }
   function compile(type, src, which) {
     var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
@@ -1668,7 +2469,8 @@
     ['uVP', 'uModel', 'uLightDir', 'uAmbient', 'uBase', 'uKind', 'uStroke', 'uCount', 'uStrokeColor', 'uLand', 'uAttOrigin', 'uAttScale', 'uAttOffset', 'uInkOn', 'uFront',
       'uPost', 'uChartP', 'uPDom', 'uPMode', 'uPColor', 'uStroke2', 'uCount2', 'uAtt2Origin', 'uAtt2Scale', 'uAtt2Offset', 'uRecords', 'uRight', 'uLeftClip', 'uOrder', 'uComp2',
       'uG', 'uGRev', 'uGReach', 'uGBand', 'uGOrder', 'uGBudgetB', 'uGDrop',
-      'uPaint', 'uStrip', 'uPaintOrder', 'uPaintA', 'uPaintB', 'uPaintDomA', 'uPaintDomB'].forEach(function (n) { locs[n] = gl.getUniformLocation(prog, n); });
+      'uPaint', 'uStrip', 'uPaintOrder', 'uPaintA', 'uPaintB', 'uPaintDomA', 'uPaintDomB',
+      'uPaintG', 'uPaintGDom', 'uPaintGGrid', 'uPaintGOn'].forEach(function (n) { locs[n] = gl.getUniformLocation(prog, n); });
     locs.uPK = gl.getUniformLocation(prog, 'uPK') || gl.getUniformLocation(prog, 'uPK[0]');
     // the field's own program: the same clip transform, its own finder, its own depth
     var vsf = compile(gl.VERTEX_SHADER, VSF, 'field'), fsf = compile(gl.FRAGMENT_SHADER, FSF, 'field');
@@ -1689,6 +2491,8 @@
     // the two paintings: RGBA32F 96 × 96, NEAREST (a logical value, not a picture), their own units, bound on every draw even when paint is off
     paintATex = makePaintTex(); paintBTex = makePaintTex();
     uploadPaintings();
+    // the executor's painting on G (attack 4): its own texture, its own unit, a well-defined 1×1 placeholder until a run returns one
+    paintGTex = makePaintTex(); gl.bindTexture(gl.TEXTURE_2D, paintGTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 1, 1, 0, gl.RGBA, gl.FLOAT, new Float32Array(4));
     landTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, landTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, landCanvas()); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
   }
@@ -1715,6 +2519,12 @@
     var empty = new Float32Array(PICKUP_N * PICKUP_N * 4);
     gl.bindTexture(gl.TEXTURE_2D, paintATex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, PICKUP_N, PICKUP_N, 0, gl.RGBA, gl.FLOAT, PAINT ? PAINT.paintings['paint-A'] : empty);
     gl.bindTexture(gl.TEXTURE_2D, paintBTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, PICKUP_N, PICKUP_N, 0, gl.RGBA, gl.FLOAT, PAINT ? PAINT.paintings['paint-B'] : empty);
+  }
+  // the executor's painting on G (attack 4): the run's returned Float32 bytes go up as they are, over the run's own domain
+  function uploadRunPainting() {
+    if (!glOK || !RUN.painting) return;
+    var g = RUN.painting.grid;
+    gl.bindTexture(gl.TEXTURE_2D, paintGTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, g[0], g[1], 0, gl.RGBA, gl.FLOAT, RUN.painting.data);
   }
   var lastUsed = [0, 0], parityEncode = 0;
   function renderView() {
@@ -1765,11 +2575,17 @@
     var Gp = constructions.CG.params, gr = gReachRecord();
     gl.uniform4f(locs.uG, Gp.at[0], Gp.at[1], Gp.at[2], Gp.r * 1000);
     gl.uniform1i(locs.uGRev, state.gRev);
-    gl.uniform4f(locs.uGReach, gr.seed[0], gr.seed[1], gr.seed[2], Math.cos(gr.rho));
+    if (gr.status === 'unsupported') gl.uniform4f(locs.uGReach, 0, 1, 0, 2);
+    else gl.uniform4f(locs.uGReach, gr.seed[0], gr.seed[1], gr.seed[2], Math.cos(gr.rho));
     gl.uniform1i(locs.uGBand, state.gBand ? 1 : 0);
     gl.uniform1i(locs.uGOrder, !state.gOrder ? 2 : (state.gOrder[0] === 'kA' ? 0 : 1));
     gl.uniform1i(locs.uGBudgetB, (state.gRev === 2 && state.gBudget < 1) ? 0 : 1);
     gl.uniform1i(locs.uGDrop, state.gDrop ? 1 : 0);
+    // attack 4: the executor's painting on G, bound on every draw whether or not a run has returned one
+    gl.activeTexture(gl.TEXTURE5); gl.bindTexture(gl.TEXTURE_2D, paintGTex); gl.uniform1i(locs.uPaintG, 5);
+    gl.uniform1i(locs.uPaintGOn, RUN.painting ? 1 : 0);
+    if (RUN.painting) { gl.uniform4f(locs.uPaintGDom, RUN.painting.domain[0], RUN.painting.domain[1], RUN.painting.domain[2], RUN.painting.domain[3]); gl.uniform2f(locs.uPaintGGrid, RUN.painting.grid[0], RUN.painting.grid[1]); }
+    else { gl.uniform4f(locs.uPaintGDom, 0, 0, 1, 1); gl.uniform2f(locs.uPaintGGrid, 1, 1); }
     // ground
     gl.uniformMatrix4fv(locs.uModel, false, new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])); gl.uniform3f(locs.uBase, 0.30, 0.32, 0.36); gl.uniform1f(locs.uKind, 0);
     gl.bindVertexArray(groundVAO.vao); gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
@@ -1987,7 +2803,8 @@
       der += ' · CG → sphere, r ' + constructions.CG.params.r.toFixed(3) + ' m; G@' + state.gRev + ' chart ' + G_CHARTS[state.gRev].name;
       if (state.gRev >= 1) der += ' (correspondence from revision ' + (state.gRev - 1) + ': same points, unique/unique' + (state.gRev === 2 ? '; A and B merged into M, each restricted to its own root domain' : '') + ')';
       var rD = gReachRecord();
-      der += ' · reach region retained: area ' + rD.area.toFixed(1) + ' mm², bounds ' + rD.bounds.map(function (b) { return '[' + b[0].toFixed(1) + ', ' + b[1].toFixed(1) + ']'; }).join(' ') + '; the seed\'s antipode is πR = ' + (Math.PI * G_R).toFixed(2) + ' mm away exactly: r 628 outside, r 629 inside, the shortest path there is every meridian (a transport direction has candidates)';
+      if (rD.status === 'unsupported') der += ' · reach record refused: ' + rD.reason;
+      else der += ' · reach region retained: area ' + rD.area.toFixed(1) + ' mm², bounds ' + rD.bounds.map(function (b) { return '[' + b[0].toFixed(1) + ', ' + b[1].toFixed(1) + ']'; }).join(' ') + '; the seed\'s antipode is πR = ' + (Math.PI * G_R).toFixed(2) + ' mm away exactly: r 628 outside, r 629 inside by the region\'s own membership as by its distance (a radius of πR or more is the whole sphere, 502654.8 mm²; a retained region keeps the record it was built from), the shortest path there is every meridian (a transport direction has candidates)';
     }
     if (state.paint && PAINT) der += ' · the replay: ' + PAINT.seq.dabsDone + ' of ' + PAINT.dabs.length + ' dabs, evaluation P' + PAINT.ev.rev + (PAINT.merged ? ' (the strip restored)' : ' (the strip cut away)') + ', location error ' + PAINT.seq.locationError.toFixed(1) + ' mm';
     var de = document.getElementById('derived'); if (de.textContent !== der) de.textContent = der;
@@ -2008,7 +2825,7 @@
     var hq = hitSphere(ray, S.things.Q); if (hq && hq.t < h.t) return false; // the occluder is in the way: the pen does not reach the face
     var hp = S.things.P ? hitPost(ray, evaluatedP.support) : null; if (hp && hp.t < h.t) return false;          // so is the post
     var hg = hitSphereG(ray); if (hg && hg.t < h.t) return false;                                               // and the sphere G
-    var hf = hitField(ray, S.things.F, state.fieldWork); if (hf && !hf.miss && hf.t < h.t) return false;        // and so is the field
+    var hf = hitField(ray, S.things.F, state.fieldWork); if (hf && !hf.miss && !hf.zeroArea && hf.t < h.t) return false;        // and so is the field
     var res = resolveTop(); if (!res.origin) return false; // a detached attachment takes no ink
     var uv = attachUV(res, h.point), s = PI.things.k.samples, last = s[s.length - 1];
     if (last && Math.hypot(uv[0] - last[0], uv[1] - last[1]) < 4) return false;
@@ -2194,6 +3011,13 @@
     if (h.px && h.py) { state.pointer = [parseFloat(h.px), parseFloat(h.py)]; state.pendingHover = 'pointer'; }
     if (h.aim) { var pp = aimAt(h.aim); if (pp) { state.pointer = pp; state.pendingHover = 'pointer'; } }
     if (h.shot === '1') { state.shotLater = true; }
+    // attack 4 — the executor's card: loaded after every other piece of state (the record runs need G's functions only, which are pure)
+    if (h.run) {
+      runLoad(h.run);
+      if (h.rgrant === '0') document.getElementById('runGrant').value = '0';
+      runExecute(false);
+      if (h.resume === '1') runExecute(true);
+    }
   }
   // aim=k|T|Q|I: the page pixel where a named thing projects under the current views and page camera.
   function aimAt(name) {

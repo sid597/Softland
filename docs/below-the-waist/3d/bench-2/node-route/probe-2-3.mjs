@@ -4,27 +4,19 @@
 //   node docs/below-the-waist/3d/bench-2/node-route/probe-2-3.mjs [--bench <path-or-git-ref>]
 // Default subject: the bench at commit 2737f41 (the bytes both attacks read, SHA-256 010c91d4…). Pass a path to run
 // the same checks against the patched bench (the attacks as the test suite).
-import vm from 'node:vm';
 import crypto from 'node:crypto';
 import assert from 'node:assert';
-import fs from 'node:fs';
-import path from 'node:path';
-import {execFileSync} from 'node:child_process';
-import {fileURLToPath} from 'node:url';
+import {loadBench} from './load.mjs';
 
-const here = path.dirname(fileURLToPath(import.meta.url));
+// Since the fold of attack 4 the loader is shared (load.mjs): a bench that embeds the sphere, pickup and executor block
+// runs it as embedded, with every sidecar unit checked against the embed (attack 4 §2: this probe used to load the
+// sidecars over the bench's functions, so a poisoned embedded gLocate passed 55/55). The default subject, commit
+// 2737f41, has no block: the sidecars load, which is how the definers' numbers were checked before the bench took them.
 const argBench = process.argv.indexOf('--bench') >= 0 ? process.argv[process.argv.indexOf('--bench') + 1] : null;
-const source = argBench && fs.existsSync(argBench) ? fs.readFileSync(argBench, 'utf8')
-  : execFileSync('git', ['show', (argBench || '2737f41') + ':docs/below-the-waist/3d/bench-2/seam-bench.html'], {encoding: 'utf8'});
-const benchHash = crypto.createHash('sha256').update(source).digest('hex');
-function extract(name, optional) { const a = source.indexOf('  function ' + name + '('); if (a < 0 && optional) return ''; const b = source.indexOf('\n  function ', a + 1); assert(a >= 0 && b > a, 'missing ' + name); return source.slice(a, b); }
-const names = ['capsuleSD', 'markSegments', 'markAt', 'classifyMark', 'postOf', 'postPeriod', 'postWorld', 'postChart', 'postPreimages', 'hitPost', 'markWidth', 'markKnots', 'markDomain', 'evaluateP', 'over', 'composeAt'];
-const B = vm.createContext({TAU: 2 * Math.PI, Math, console});
-vm.runInContext(names.map(n => extract(n)).join('\n') + '\n' + extract('classifyMarkCapsule', true), B); // the patched bench keeps the old footprint as classifyMarkCapsule (nib=capsule)
-vm.runInContext(fs.readFileSync(path.join(here, 'sweep-and-sphere.js'), 'utf8'), B);
-vm.runInContext(fs.readFileSync(path.join(here, 'pickup-replay.js'), 'utf8'), B);
+const loaded = loadBench(argBench || '2737f41');
+const B = loaded.B, source = loaded.source, benchHash = loaded.benchSha256;
 const hash = x => crypto.createHash('sha256').update(ArrayBuffer.isView(x) ? Buffer.from(x.buffer, x.byteOffset, x.byteLength) : JSON.stringify(x)).digest('hex');
-const R = 200, C = 2 * Math.PI * R, out = {bench: benchHash};
+const R = 200, C = 2 * Math.PI * R, out = {bench: benchHash, route: loaded.route, custody: loaded.custody};
 const near = (a, b, eps = 1e-9) => Math.abs(a - b) <= eps;
 const checks = [];
 const check = (name, ok, detail) => { checks.push({name, ok: !!ok, detail}); if (!ok) console.error('FAIL', name, detail); };
@@ -193,9 +185,12 @@ check('overlap B over A (0.000136339, 0.984375, 0.015488661, 1)', out.pickup.ove
 check('no order → needs-policy', out.pickup.unordered.status === 'needs-policy', out.pickup.unordered);
 check('stateful read: held has no next carry; complete (0.8125, 0, 0.125, 0.9375); missing (0.875, 0, 0, 0.875)', !('nextCarry' in out.pickup.statefulRead.held) && near(out.pickup.statefulRead.complete.nextCarry[0], .8125) && near(out.pickup.statefulRead.complete.nextCarry[2], .125) && near(out.pickup.statefulRead.missing.nextCarry[0], .875), out.pickup.statefulRead);
 
+// ---- F. custody of the embedded source (attack 4 §2): only when the bench embeds the block
+if (loaded.custody.embedded) check('custody: every sidecar unit is embedded verbatim (' + loaded.custody.compared + ' units)', loaded.custody.mismatches.length === 0, loaded.custody.mismatches);
+
 out.checks = checks;
 const failed = checks.filter(c => !c.ok).length;
 const dump = process.argv.includes('--dump');
 if (dump) console.log(JSON.stringify(out, (k, v) => typeof v === 'function' ? undefined : (v === Infinity ? 'Infinity' : v), 1));
-else console.log(JSON.stringify({bench: benchHash, checks: checks.map(c => (c.ok ? 'ok   ' : 'FAIL ') + c.name), failed}, null, 1));
+else console.log(JSON.stringify({bench: benchHash, route: loaded.route, custody: loaded.custody, checks: checks.map(c => (c.ok ? 'ok   ' : 'FAIL ') + c.name), failed}, null, 1));
 process.exitCode = failed ? 1 : 0;

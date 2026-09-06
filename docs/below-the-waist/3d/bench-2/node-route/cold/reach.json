@@ -1,0 +1,15 @@
+{
+  "id": "reach@0",
+  "what": "The reach tool: everything within 150 mm of surface distance of the seed (180 deg, 60 deg) on G. Returned as a surface region so another record can hand it in as a clip.",
+  "support": {"id": "G", "revision": 0},
+  "tool": {
+    "seed": [3.141592653589793, 1.0471975511965976],
+    "radius": 150
+  },
+  "program": {
+    "steps": [
+      {"out": "reach", "op": "surface-region", "support": "support", "seed": "tool.seed", "radius": "tool.radius", "distance": "surface"}
+    ],
+    "return": ["reach"]
+  }
+}

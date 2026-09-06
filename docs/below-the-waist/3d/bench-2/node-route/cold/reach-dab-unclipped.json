@@ -1,0 +1,28 @@
+{
+  "id": "reach-dab-unclipped@0",
+  "what": "Control for reach-dab@0: the same dab with no clip, so the reach region's effect is a difference in `changed` and in the painting's bytes rather than a claim.",
+  "support": {"id": "G", "revision": 0},
+  "painting": {
+    "id": "reach-paint",
+    "grid": [128, 64],
+    "domain": [308.3185307179587, 50, 640, 250],
+    "chart": "S0",
+    "filter": "nearest",
+    "initial": [0, 0, 0, 0]
+  },
+  "tool": {
+    "curve": "kA/arc-AB",
+    "t": 0.65,
+    "radius": 200,
+    "rgba": [0, 0.5, 0, 0.5],
+    "opacity": 1
+  },
+  "program": {
+    "steps": [
+      {"out": "at", "op": "curve-point", "curve": "tool.curve", "t": "tool.t"},
+      {"out": "disc", "op": "surface-region", "support": "support", "point": "at", "radius": "tool.radius", "distance": "surface"},
+      {"out": "painted", "op": "paint", "painting": "painting.initial", "region": "disc", "rgba": "tool.rgba", "opacity": "tool.opacity"}
+    ],
+    "return": ["painted"]
+  }
+}

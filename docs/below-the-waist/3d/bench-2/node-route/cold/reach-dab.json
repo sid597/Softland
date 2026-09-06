@@ -1,0 +1,31 @@
+{
+  "id": "reach-dab@0",
+  "what": "One dab painted through the reach region handed in as a clip: a disc of surface radius 200 mm about the arc point at t = .65, painted only where the reach (150 mm about the seed) holds it.",
+  "support": {"id": "G", "revision": 0},
+  "painting": {
+    "id": "reach-paint",
+    "grid": [128, 64],
+    "domain": [308.3185307179587, 50, 640, 250],
+    "chart": "S0",
+    "filter": "nearest",
+    "initial": [0, 0, 0, 0]
+  },
+  "tool": {
+    "curve": "kA/arc-AB",
+    "t": 0.65,
+    "radius": 200,
+    "rgba": [0, 0.5, 0, 0.5],
+    "opacity": 1
+  },
+  "inputs": {
+    "clip": {"kind": "surface-region"}
+  },
+  "program": {
+    "steps": [
+      {"out": "at", "op": "curve-point", "curve": "tool.curve", "t": "tool.t"},
+      {"out": "disc", "op": "surface-region", "support": "support", "point": "at", "radius": "tool.radius", "distance": "surface"},
+      {"out": "painted", "op": "paint", "painting": "painting.initial", "region": "disc", "rgba": "tool.rgba", "opacity": "tool.opacity", "clip": "inputs.clip"}
+    ],
+    "return": ["painted"]
+  }
+}
