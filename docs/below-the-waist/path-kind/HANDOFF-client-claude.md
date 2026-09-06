@@ -135,6 +135,8 @@ The verifier's `receipt.json` keeps pass/fail and golden hashes only; `dump_resu
 
 `measurements-client-claude.md`: the JVM per-record costs, the browser trace at three scene sizes on the real adapter (AMD RDNA 3) and on SwiftShader, and the reading: the GPU has room, geometry per edit is a millisecond, the CPU frame loop is the cost in three named places. The trace is a harness step with no pass; `test/app/client/path/timing.clj` and `RENDER_VERIFIER_HARDWARE=1 node test/render_engine/dump_result.mjs <out>` reproduce it.
 
+`findings-for-production.md` beside this file is where measured findings go with their receipts and the fix's shape; the comparison branch does not build them (Sid's word, 2026-09-06).
+
 ## 7. Next
 
 The definer's constructions against the landed code as they arrive, in this directory. A construction that needs an input, result or state these interfaces cannot carry reopens the picture; a tangent, a curve count or a missing namespace is work inside it.

@@ -94,7 +94,7 @@ The same trace on SwiftShader (headless, the verifier's own road) gives the same
 | Cubic regions packed for a bucket range; repacks spread over frames | `path/renderer.cljs`, `path/pack.cljc` | The remaining bucket-crossing hitch from 184 ms at 1,600 toward a frame. |
 | The offset stroker | `path/stroke.cljc` | Curves per stroke from 421 toward tens; packing and first frame in proportion. |
 
-Done in this round: cubic-free regions pack once for all buckets (commit after 8267376; the harness's rates check and the rescaled-group row now expect no repack for the Z and a repack of the pen tool's cubic fill).
+Done in this round: cubic-free regions pack once for all buckets (0c57fdd; the harness's rates check and the rescaled-group row now expect no repack for the Z and a repack of the pen tool's cubic fill). The rest are findings, not work on this branch: `findings-for-production.md` carries each with its receipt and the fix's shape for the production buildout (Sid, 2026-09-06: "this is a finding note it down so when we start doing the production buildout work it gets there").
 
 ## The answer to the question as asked
 
