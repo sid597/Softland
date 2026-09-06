@@ -45,3 +45,11 @@ Commits, exact paths only, plain `git commit`: attack 4 as found; the bench with
 ## 5. Working with siblings on `main`
 
 As in handoff 11: exact paths only, never `git add -A`; check `git status` for the directory before each commit; a sibling's uncommitted file is not landed ground. The 3D chair had uncommitted files under `docs/below-the-waist/3d/` and an uncommitted `waist-argument.html` one level up throughout this session; none were touched.
+
+## 6. Late additions, 2026-09-06 about 11:20 to 11:55: the close of the exploration (his words verbatim on the page's ledger)
+
+Sid ruled the three positions in the chat, each recorded on the ledger with the time and on the position: Position 7, the swept round nib, "because it looks good on the drawing surface nothing more"; Position 8, "executor yeah"; Position 9, first its framing ("our aim is not to copy anyone they are just a datapoint we go with the best experience and the best in the world for this field. From the start there is no concept of carrying forward existing solution if that is not how it shoudl be"), a stance that reaches every line on the page that argues from what exists, then the piece, "Lets do A", one piece with paint and sample. Nothing on the page is asked any more.
+
+He then pasted the definer's line (`from-12-to-client.md`, landed as found, e98c0b2): the picture is sufficiently defined to begin client implementation; the open-ended bench build/attack cycle ends here; a proposed first change with its callers traced. His word: "lets close out and next up will be implementation rounds from new sessions". The new session cuts its own contract under the work-package law; "what to do how to do next is upto new session". Its starter is `STARTER-client.md` beside this file: the fence, his essence, the terrain, nothing more. `STARTER-12.md` is superseded by it.
+
+The two roles' workflow was written at his word as `docs/below-the-waist/two-chairs.md`, preliminary. The still-owed list in section 2 now reads through that document: items 1 and 7 become the implementation rounds; items 3, 4 and 5 are capabilities the definer says can land in the client as they are worked; item 8 stands.
