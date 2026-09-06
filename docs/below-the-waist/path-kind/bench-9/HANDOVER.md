@@ -276,3 +276,5 @@ Attack 4 brought three constructions, each a binding or an obligation the bench 
 - A content store beyond one page's memory; a reload empties the bench's, and the load then fails with that reason.
 - The cursor's pixel alpha reads the 8-bit root to two decimals (.86/.85 for .8556); the texel readout is the float.
 - As before: the offset stroker, the carry on the GPU, layers at the group's cover, blends on a layer reading the whole target, tangencies and partial overlapping spans.
+
+The Node harness behind this section's numbers is landed under `node-route/` (five files and a README): extract the declarations, run the nested record on a strict host, the pickup and the proofs, and the checkpoint through bytes.

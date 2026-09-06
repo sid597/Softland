@@ -1,0 +1,20 @@
+{
+  "tool": { "name": "proofs returned in a record", "size": 8, "streamline": 0, "fit": "polyline", "width": "size*p", "slots": ["red proof"] },
+  "source": { "kind": "pen", "samples": [[8,8,1,0]] },
+  "paint": { "fill": null, "stroke": { "overlap": "accumulate", "spacing": 12, "tip": "nib", "width": "knot", "unit": "local", "cap": "round", "join": "round", "color": [1,0,0,0.5] } },
+  "surface": { "id": "proof", "revision": 0, "width": 16, "height": 16, "localToTexel": [1,0,0,1,0,0], "color": "linear-premultiplied-rgba", "initial": { "clear": [0,0,0,0] } },
+  "program": {
+    "each": "dabs",
+    "state": { "base": "surface.initial" },
+    "definitions": { "keep": { "parameter": "image", "map": "tool.slots", "as": "label", "emit": { "label": { "ref": "label" }, "surface": { "ref": "image" } } } },
+    "steps": [
+      { "out": "red", "op": "paint", "surface": "state.base", "region": "dab.path", "rgba": [1,0,0,1], "opacity": 0.5, "blend": "source-over" },
+      { "out": "bundle", "op": "keep", "image": "red" },
+      { "out": "blue", "op": "paint", "surface": "state.base", "region": "dab.path", "rgba": [0,0,1,1], "opacity": 0.5, "blend": "source-over" }
+    ],
+    "next": { "proofs": "bundle", "surface": "blue" },
+    "return": ["state.proofs", "state.surface"]
+  },
+  "snap": false,
+  "identity": { "id": "nested-proof", "revision": 1 }
+}
