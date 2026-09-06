@@ -1,0 +1,976 @@
+{
+  "schema": "attack-4-receipts/v1",
+  "node": "v20.20.2",
+  "custody": {
+    "benchSha256": "3061db2a056b354c10af2c2dd47bdcae5010f0790660b4d1b535cf585c1abdb9",
+    "declarationsSha256": "acae01ee0b26b3a130bdd97b77d792d82c8e72bd814fdb36dc096db0dd76a8c7",
+    "functions": [
+      "v3dot",
+      "v3cross",
+      "v3len",
+      "v3norm",
+      "v3add",
+      "v3scale",
+      "over",
+      "markWidth",
+      "markAt",
+      "markSegments",
+      "sweepMin",
+      "postSegmentObjective",
+      "classifyMarkSweep"
+    ],
+    "sphereAndPickup": "embedded G_R through pickupConsume; no sidecar overrides"
+  },
+  "recordsSha256": "f1cfbff933f595d37fc3f5968d52d6f2eefa15b6e8ae3c77a9be3b56a25dc594",
+  "runnerSha256": "d714934dd00a94af3e3e74d2fba4d250318f13dc4f65cec137b2a2bb0d7029a0",
+  "scope": "Node reference transaction and spherical painting over exact shipped bench functions; not a browser brush integration",
+  "pending": {
+    "status": "pending",
+    "hasNextState": false,
+    "inputStateUnchanged": true,
+    "repeatIdentical": true,
+    "queuedEvents": [
+      "dab-1",
+      "dab-2",
+      "dab-3"
+    ],
+    "read": {
+      "request": "0c7246fdda1109c54dc06612366e110ddff40fde250075c1b5ea25aa3b8689be",
+      "snapshot": "adc7491d236d395b1e2f782484ef31cad6fb29fee2070bdb18d66af0a130a470",
+      "located": {
+        "rev": 2,
+        "chart": "S2",
+        "here": {
+          "a": 338.32083165124357,
+          "b": 208.8178315118842
+        },
+        "unwrappedU": 652.232747546545,
+        "v": 208.8178315118842,
+        "bindings": [
+          {
+            "binding": "binding-A",
+            "record": "A@0",
+            "status": "resolved",
+            "root": {
+              "u": 652.232747546545,
+              "v": 208.8178315118842
+            },
+            "k": 0,
+            "chain": [
+              "φ",
+              "χ"
+            ],
+            "mark": "kA",
+            "inside": true,
+            "d": 1.1548621071314795e-14,
+            "t": 0.6499999999999998,
+            "sd": -15.999999999999988
+          }
+        ],
+        "unresolved": [
+          {
+            "binding": "binding-B",
+            "missing": "χ: B@0 → M@2 at the demanded chart point",
+            "work": 1
+          }
+        ],
+        "composition": {
+          "status": "unresolved",
+          "rgba": null,
+          "known": [
+            "kA"
+          ],
+          "may": [
+            "kB"
+          ],
+          "missing": [
+            {
+              "binding": "binding-B",
+              "missing": "χ: B@0 → M@2 at the demanded chart point",
+              "work": 1
+            }
+          ]
+        }
+      },
+      "status": "pending",
+      "unresolved": [
+        {
+          "binding": "binding-B",
+          "missing": "χ: B@0 → M@2 at the demanded chart point",
+          "work": 1
+        }
+      ]
+    },
+    "continuationSha256": "cba03225519a58d7583ac47aa9619d8071104b2b1f2f7e692a60818b0b3c3730"
+  },
+  "eager": {
+    "next": 4,
+    "carry": [
+      0.6781253814697266,
+      0,
+      0.16514968872070312,
+      0.8432750701904297
+    ],
+    "paintingSha256": "30cb13f2147784bdae44b4aa303d412c8980f00c09435c0983521cd291d75579",
+    "history": [
+      {
+        "event": "dab-0",
+        "request": "0c7246fdda1109c54dc06612366e110ddff40fde250075c1b5ea25aa3b8689be",
+        "snapshot": "adc7491d236d395b1e2f782484ef31cad6fb29fee2070bdb18d66af0a130a470",
+        "color": [
+          0.25,
+          0,
+          0.5,
+          0.75
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.8125,
+          0,
+          0.125,
+          0.9375
+        ],
+        "changedTexels": 401
+      },
+      {
+        "event": "dab-1",
+        "request": "1f9902e4cf744f850bcb15b9c7d415c5d325c4ee214073a25f65e37b714b93de",
+        "snapshot": "df521fb0dfaa9751e3197c501230c1090b006a82019cc4db45cf8cb6123196a9",
+        "color": [
+          0.5390625,
+          0,
+          0.328125,
+          0.8671875
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.744140625,
+          0,
+          0.17578125,
+          0.919921875
+        ],
+        "changedTexels": 321
+      },
+      {
+        "event": "dab-2",
+        "request": "f7a58bdc8b765b4af2387021647eba1a026aef4cc8ef56c479875908ea6316f7",
+        "snapshot": "737705e6df99f226afe287a14a1bfdd2eea30f0f0ae71c2b3e4d52e538b7490e",
+        "color": [
+          0.5,
+          0,
+          0,
+          0.5
+        ],
+        "contributors": [
+          "kA"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.68310546875,
+          0,
+          0.1318359375,
+          0.81494140625
+        ],
+        "changedTexels": 405
+      },
+      {
+        "event": "dab-3",
+        "request": "6ca9cf50862afd976aa9b60efcfaa388b1e8b31c408566da4b9ac2ff8cd0ba14",
+        "snapshot": "b4607505328980fcc360ecd5907e14d468703afce7bef95b2519207c335b088b",
+        "color": [
+          0.6631851196289062,
+          0,
+          0.2650909423828125,
+          0.9282760620117188
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.6781253814697266,
+          0,
+          0.16514968872070312,
+          0.8432750701904297
+        ],
+        "changedTexels": 401
+      }
+    ]
+  },
+  "delayed": {
+    "next": 4,
+    "carry": [
+      0.6781253814697266,
+      0,
+      0.16514968872070312,
+      0.8432750701904297
+    ],
+    "paintingSha256": "30cb13f2147784bdae44b4aa303d412c8980f00c09435c0983521cd291d75579",
+    "history": [
+      {
+        "event": "dab-0",
+        "request": "0c7246fdda1109c54dc06612366e110ddff40fde250075c1b5ea25aa3b8689be",
+        "snapshot": "adc7491d236d395b1e2f782484ef31cad6fb29fee2070bdb18d66af0a130a470",
+        "color": [
+          0.25,
+          0,
+          0.5,
+          0.75
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.8125,
+          0,
+          0.125,
+          0.9375
+        ],
+        "changedTexels": 401
+      },
+      {
+        "event": "dab-1",
+        "request": "1f9902e4cf744f850bcb15b9c7d415c5d325c4ee214073a25f65e37b714b93de",
+        "snapshot": "df521fb0dfaa9751e3197c501230c1090b006a82019cc4db45cf8cb6123196a9",
+        "color": [
+          0.5390625,
+          0,
+          0.328125,
+          0.8671875
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.744140625,
+          0,
+          0.17578125,
+          0.919921875
+        ],
+        "changedTexels": 321
+      },
+      {
+        "event": "dab-2",
+        "request": "f7a58bdc8b765b4af2387021647eba1a026aef4cc8ef56c479875908ea6316f7",
+        "snapshot": "737705e6df99f226afe287a14a1bfdd2eea30f0f0ae71c2b3e4d52e538b7490e",
+        "color": [
+          0.5,
+          0,
+          0,
+          0.5
+        ],
+        "contributors": [
+          "kA"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.68310546875,
+          0,
+          0.1318359375,
+          0.81494140625
+        ],
+        "changedTexels": 405
+      },
+      {
+        "event": "dab-3",
+        "request": "6ca9cf50862afd976aa9b60efcfaa388b1e8b31c408566da4b9ac2ff8cd0ba14",
+        "snapshot": "b4607505328980fcc360ecd5907e14d468703afce7bef95b2519207c335b088b",
+        "color": [
+          0.6631851196289062,
+          0,
+          0.2650909423828125,
+          0.9282760620117188
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.6781253814697266,
+          0,
+          0.16514968872070312,
+          0.8432750701904297
+        ],
+        "changedTexels": 401
+      }
+    ]
+  },
+  "cold": {
+    "next": 4,
+    "carry": [
+      0.6781253814697266,
+      0,
+      0.16514968872070312,
+      0.8432750701904297
+    ],
+    "paintingSha256": "30cb13f2147784bdae44b4aa303d412c8980f00c09435c0983521cd291d75579",
+    "history": [
+      {
+        "event": "dab-0",
+        "request": "0c7246fdda1109c54dc06612366e110ddff40fde250075c1b5ea25aa3b8689be",
+        "snapshot": "adc7491d236d395b1e2f782484ef31cad6fb29fee2070bdb18d66af0a130a470",
+        "color": [
+          0.25,
+          0,
+          0.5,
+          0.75
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.8125,
+          0,
+          0.125,
+          0.9375
+        ],
+        "changedTexels": 401
+      },
+      {
+        "event": "dab-1",
+        "request": "1f9902e4cf744f850bcb15b9c7d415c5d325c4ee214073a25f65e37b714b93de",
+        "snapshot": "df521fb0dfaa9751e3197c501230c1090b006a82019cc4db45cf8cb6123196a9",
+        "color": [
+          0.5390625,
+          0,
+          0.328125,
+          0.8671875
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.744140625,
+          0,
+          0.17578125,
+          0.919921875
+        ],
+        "changedTexels": 321
+      },
+      {
+        "event": "dab-2",
+        "request": "f7a58bdc8b765b4af2387021647eba1a026aef4cc8ef56c479875908ea6316f7",
+        "snapshot": "737705e6df99f226afe287a14a1bfdd2eea30f0f0ae71c2b3e4d52e538b7490e",
+        "color": [
+          0.5,
+          0,
+          0,
+          0.5
+        ],
+        "contributors": [
+          "kA"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.68310546875,
+          0,
+          0.1318359375,
+          0.81494140625
+        ],
+        "changedTexels": 405
+      },
+      {
+        "event": "dab-3",
+        "request": "6ca9cf50862afd976aa9b60efcfaa388b1e8b31c408566da4b9ac2ff8cd0ba14",
+        "snapshot": "b4607505328980fcc360ecd5907e14d468703afce7bef95b2519207c335b088b",
+        "color": [
+          0.6631851196289062,
+          0,
+          0.2650909423828125,
+          0.9282760620117188
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.6781253814697266,
+          0,
+          0.16514968872070312,
+          0.8432750701904297
+        ],
+        "changedTexels": 401
+      }
+    ]
+  },
+  "transparentGuess": {
+    "next": 4,
+    "carry": [
+      0.7258682250976562,
+      0,
+      0.0880279541015625,
+      0.8138961791992188
+    ],
+    "paintingSha256": "c1cf81702b98fb287cbbb1432166d81e7a55750d3306c3934cd09528960d2c3d",
+    "history": [
+      {
+        "event": "dab-0",
+        "request": "0c7246fdda1109c54dc06612366e110ddff40fde250075c1b5ea25aa3b8689be",
+        "snapshot": "adc7491d236d395b1e2f782484ef31cad6fb29fee2070bdb18d66af0a130a470",
+        "color": [
+          0.5,
+          0,
+          0,
+          0.5
+        ],
+        "interpretation": "B guessed transparent",
+        "carry": [
+          0.875,
+          0,
+          0,
+          0.875
+        ],
+        "changedTexels": 401
+      },
+      {
+        "event": "dab-1",
+        "request": "fc86b257c0d52c69196a66a2677b0f656a3ad853ce9314914bbf3748ad7edf22",
+        "snapshot": "ebdf01325a7b1eccd0199f9378845a9c7ecb12005933c60505cb2bd952a0aca0",
+        "color": [
+          0.578125,
+          0,
+          0.28125,
+          0.859375
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.80078125,
+          0,
+          0.0703125,
+          0.87109375
+        ],
+        "changedTexels": 321
+      },
+      {
+        "event": "dab-2",
+        "request": "ead8b85ec8aa54c13bb41b586b9650632102689179980c3965a0e2c0c3c00c7a",
+        "snapshot": "2c2c3e72b52797b160db202e9e5909af8ec460e9b1ce143feb72b69180532d83",
+        "color": [
+          0.5,
+          0,
+          0,
+          0.5
+        ],
+        "contributors": [
+          "kA"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.7255859375,
+          0,
+          0.052734375,
+          0.7783203125
+        ],
+        "changedTexels": 405
+      },
+      {
+        "event": "dab-3",
+        "request": "3c69ee36d7440ff975d0b684d883fe5d7391f1f63995ab1558075ea26a900aad",
+        "snapshot": "618dd342176aba91d10d477b8321400619ab9381608bff1069382cc9f916b54c",
+        "color": [
+          0.726715087890625,
+          0,
+          0.19390869140625,
+          0.920623779296875
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.7258682250976562,
+          0,
+          0.0880279541015625,
+          0.8138961791992188
+        ],
+        "changedTexels": 401
+      }
+    ]
+  },
+  "firstResolved": [
+    0.25,
+    0,
+    0.5,
+    0.75
+  ],
+  "firstCarry": [
+    0.8125,
+    0,
+    0.125,
+    0.9375
+  ],
+  "firstGuessCarry": [
+    0.875,
+    0,
+    0,
+    0.875
+  ],
+  "stale": {
+    "status": "stale",
+    "reason": "answer does not belong to this event, recipe, input state and read snapshot"
+  },
+  "duplicate": {
+    "status": "stale",
+    "reason": "answer does not belong to this event, recipe, input state and read snapshot"
+  },
+  "needsPolicy": "needs-policy",
+  "reordered": {
+    "next": 4,
+    "carry": [
+      0.7607002258300781,
+      0,
+      0.08257484436035156,
+      0.8432750701904297
+    ],
+    "paintingSha256": "ae8c231cbfe1ddb4c568913cced70bd8ce8988a25af93d66958c6c14bbb6963a",
+    "history": [
+      {
+        "event": "dab-0",
+        "request": "8c1babf35749338bbeb6f37ad3bafdfbad822fe5d4371d67a55043b4684530df",
+        "snapshot": "4427ea9ba188a3dc865f8025cc6dab2080fa9a06bdd91da6119a5d7e0615ac8a",
+        "color": [
+          0.5,
+          0,
+          0.25,
+          0.75
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.875,
+          0,
+          0.0625,
+          0.9375
+        ],
+        "changedTexels": 401
+      },
+      {
+        "event": "dab-1",
+        "request": "256dd951be694e978e7e5c5e1d686d6f067748e9f71c1aa32b391335cf1958be",
+        "snapshot": "32cebbb4c9ee243a6c856697b1b9c4d6bf0b0efd30a31689655f55c93b9c29cb",
+        "color": [
+          0.703125,
+          0,
+          0.1640625,
+          0.8671875
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.83203125,
+          0,
+          0.087890625,
+          0.919921875
+        ],
+        "changedTexels": 321
+      },
+      {
+        "event": "dab-2",
+        "request": "1f921e6b2290ceea8de1d94329237b699826c15f0fc23367d31c6a8ee8156b4f",
+        "snapshot": "1e82105859a6ab1d1d207fc965333fc9c8c325e38a2b5b90cfed30929802fd64",
+        "color": [
+          0.5,
+          0,
+          0,
+          0.5
+        ],
+        "contributors": [
+          "kA"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.7490234375,
+          0,
+          0.06591796875,
+          0.81494140625
+        ],
+        "changedTexels": 405
+      },
+      {
+        "event": "dab-3",
+        "request": "69948e913e5778f55608064c06f5ce3f8e1ac38bcc5941a1ab13d348a2e598dd",
+        "snapshot": "c1a501913b5ba6c002016e1a9e6e1574d510363935423ebae0fd75ce017f0907",
+        "color": [
+          0.7957305908203125,
+          0,
+          0.13254547119140625,
+          0.9282760620117188
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.7607002258300781,
+          0,
+          0.08257484436035156,
+          0.8432750701904297
+        ],
+        "changedTexels": 401
+      }
+    ]
+  },
+  "changedRecipeResponse": {
+    "status": "stale",
+    "reason": "answer does not belong to this event, recipe, input state and read snapshot"
+  },
+  "changedPickup": {
+    "next": 4,
+    "carry": [
+      0.522857666015625,
+      0,
+      0.27911376953125,
+      0.801971435546875
+    ],
+    "paintingSha256": "4df8a532ec4048f5489927daff4e7dd3635853c66c8d6bb09ebe04a18fc5f0ce",
+    "history": [
+      {
+        "event": "dab-0",
+        "request": "5de6234bfd1db7ed7c09ecf95834609851f988a716c1439cb7269d374a350f15",
+        "snapshot": "adc7491d236d395b1e2f782484ef31cad6fb29fee2070bdb18d66af0a130a470",
+        "color": [
+          0.25,
+          0,
+          0.5,
+          0.75
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.625,
+          0,
+          0.25,
+          0.875
+        ],
+        "changedTexels": 401
+      },
+      {
+        "event": "dab-1",
+        "request": "10748c20bca554b92cfe0e1edbe0d5d34f56c6c93b53c886ed714df0e88eaa5a",
+        "snapshot": "f233638ba542faf4b079eed4099fd4431fd6584042d9b3b6d751cc607167599c",
+        "color": [
+          0.453125,
+          0,
+          0.40625,
+          0.859375
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.5390625,
+          0,
+          0.328125,
+          0.8671875
+        ],
+        "changedTexels": 321
+      },
+      {
+        "event": "dab-2",
+        "request": "1742b582c808dfa0c6b2fa81287f9e01bb8e55a06db79bfe084244b5b5aba976",
+        "snapshot": "a927286c056d5ab921b4aea08bbc92c6245d11516ad9104dc8fd2115fc382b1d",
+        "color": [
+          0.5,
+          0,
+          0,
+          0.5
+        ],
+        "contributors": [
+          "kA"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.51953125,
+          0,
+          0.1640625,
+          0.68359375
+        ],
+        "changedTexels": 405
+      },
+      {
+        "event": "dab-3",
+        "request": "4e31faf20cf4bdf9306d6bfdee97c46702453d0d8f6ca00c47fc686ba0e75a32",
+        "snapshot": "598130f474d6a90509cb59ff9b134f52452c77e20f61f2b2aa3ca7f3f7b631d5",
+        "color": [
+          0.52618408203125,
+          0,
+          0.3941650390625,
+          0.92034912109375
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.522857666015625,
+          0,
+          0.27911376953125,
+          0.801971435546875
+        ],
+        "changedTexels": 401
+      }
+    ]
+  },
+  "reusedPainting": {
+    "next": 4,
+    "carry": [
+      0.778701844625175,
+      0,
+      0.1365891443565488,
+      0.9152909861877561
+    ],
+    "paintingSha256": "a5aba6ed27c234df463b322995e052bba3e3c4fa7871e453d4a0400270cd887a",
+    "history": [
+      {
+        "event": "dab-0",
+        "request": "e3d702922cf7c5eb60e6466c1e133719294f54a2b39f477a10b84d183cd92950",
+        "snapshot": "58dbfc213866368cd33e63e375af9fcebc81942257fb48df84e97642ae23594c",
+        "color": [
+          0.7226240485906601,
+          0,
+          0.23589350283145905,
+          0.9585175663232803
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.86131202429533,
+          0,
+          0.11794675141572952,
+          0.9792587831616402
+        ],
+        "changedTexels": 401
+      },
+      {
+        "event": "dab-1",
+        "request": "f97b5021b515c159a9a38f6c1e729b3e90be055c6e3c2ffec2bb5e1f1f52fc12",
+        "snapshot": "69fb201d6d097ffb618fef22da8a0857748b40e799ddeefcfa2bb4bdd74d985a",
+        "color": [
+          0.7994621098041534,
+          0,
+          0.17936649918556213,
+          0.9788285791873932
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.8303870670497417,
+          0,
+          0.14865662530064583,
+          0.9790436811745167
+        ],
+        "changedTexels": 321
+      },
+      {
+        "event": "dab-2",
+        "request": "b838ba5bfd04eb83a13f0685423750169540439282616814e918a15837436f01",
+        "snapshot": "d31092a7679b368f05f4c4b079ac2779628706817fafa36454612fb1dbd24038",
+        "color": [
+          0.6378173828125,
+          0,
+          0.06591796875,
+          0.7037353515625
+        ],
+        "contributors": [
+          "kA"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.7341022249311209,
+          0,
+          0.10728729702532291,
+          0.8413895163685083
+        ],
+        "changedTexels": 405
+      },
+      {
+        "event": "dab-3",
+        "request": "7874a13794da41e1c16a6af42598705fe0d92c8b2b25c636cbc002e263b26e7e",
+        "snapshot": "dd1c202c58392a27eef4f49c4bce61bf4f257823e6dac7850cf0364143dcc18b",
+        "color": [
+          0.8233014643192291,
+          0,
+          0.16589099168777466,
+          0.9891924560070038
+        ],
+        "contributors": [
+          "kA",
+          "kB"
+        ],
+        "interpretation": "resolved coating",
+        "carry": [
+          0.778701844625175,
+          0,
+          0.1365891443565488,
+          0.9152909861877561
+        ],
+        "changedTexels": 401
+      }
+    ]
+  },
+  "retainedResultUnchanged": true,
+  "reach": {
+    "antipode": [
+      {
+        "radiusMM": 150,
+        "distanceMM": 628.3185307179587,
+        "byDistance": false,
+        "byRegion": false,
+        "areaMM2": 67433.94227378975,
+        "wholeSphereAreaMM2": 502654.8245743669,
+        "bounds": [
+          [
+            -191.2321833642485,
+            44.8944095894843
+          ],
+          [
+            58.56835361987256,
+            200
+          ],
+          [
+            -136.32775200466682,
+            136.32775200466682
+          ]
+        ]
+      },
+      {
+        "radiusMM": 140,
+        "distanceMM": 628.3185307179587,
+        "byDistance": false,
+        "byRegion": false,
+        "areaMM2": 59101.60454890363,
+        "wholeSphereAreaMM2": 502654.8245743669,
+        "bounds": [
+          [
+            -188.06599527146858,
+            35.097557814570834
+          ],
+          [
+            68.05278409111536,
+            200
+          ],
+          [
+            -128.8435374475382,
+            128.8435374475382
+          ]
+        ]
+      },
+      {
+        "radiusMM": 628,
+        "distanceMM": 628.3185307179587,
+        "byDistance": false,
+        "byRegion": false,
+        "areaMM2": 502654.50582273136,
+        "wholeSphereAreaMM2": 502654.8245743669,
+        "bounds": [
+          [
+            -200,
+            200
+          ],
+          [
+            -200,
+            200
+          ],
+          [
+            -200,
+            200
+          ]
+        ]
+      },
+      {
+        "radiusMM": 629,
+        "distanceMM": 628.3185307179587,
+        "byDistance": true,
+        "byRegion": false,
+        "areaMM2": 502653.3656189489,
+        "wholeSphereAreaMM2": 502654.8245743669,
+        "bounds": [
+          [
+            -200,
+            200
+          ],
+          [
+            -200,
+            200
+          ],
+          [
+            -200,
+            200
+          ]
+        ]
+      },
+      {
+        "radiusMM": 1256.6370614359173,
+        "distanceMM": 628.3185307179587,
+        "byDistance": true,
+        "byRegion": false,
+        "areaMM2": 0,
+        "wholeSphereAreaMM2": 502654.8245743669,
+        "bounds": [
+          [
+            -99.99999999999997,
+            -100.00000000000007
+          ],
+          [
+            173.20508075688775,
+            173.2050807568877
+          ],
+          [
+            6.123233995736766e-14,
+            -3.6739403974420595e-14
+          ]
+        ]
+      }
+    ],
+    "retainedRecordAlias": {
+      "recordRadiusMM": 140,
+      "actualMember": true,
+      "memberFromReportedRecord": false,
+      "distanceMM": 144.54684956268315
+    }
+  },
+  "assertions": "pending preserves state and queued events; eager=delayed=cold byte-for-byte; guess/order/recipe/reuse discriminate; stale response commits nothing"
+}

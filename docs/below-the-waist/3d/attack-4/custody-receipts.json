@@ -1,0 +1,273 @@
+{
+  "schema": "attack-4-custody/v1",
+  "benchSha256": "3061db2a056b354c10af2c2dd47bdcae5010f0790660b4d1b535cf585c1abdb9",
+  "runnerSha256": "c074a8d6f20dc0748beb2dca3da2aa223c792388cfcccfeb27030db150642c88",
+  "comparison": [
+    {
+      "function": "sweepMin",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "2371d30eb505100776d1908416413b61d5fa635d85c275d3e25422a411a4a6cf",
+      "adjacentSha256": "2371d30eb505100776d1908416413b61d5fa635d85c275d3e25422a411a4a6cf"
+    },
+    {
+      "function": "postSegmentObjective",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "aa385a364ddd09b41ff7673681490d49984dd9816d1d2efcdfd3338484386ccd",
+      "adjacentSha256": "aa385a364ddd09b41ff7673681490d49984dd9816d1d2efcdfd3338484386ccd"
+    },
+    {
+      "function": "classifyMarkSweep",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "93d69d9760ff593d0632a6b3fcb699ef45fd0e8632d71b98987763bc35fd206a",
+      "adjacentSha256": "93d69d9760ff593d0632a6b3fcb699ef45fd0e8632d71b98987763bc35fd206a"
+    },
+    {
+      "function": "sphUnit",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "d8d8cbb2f48ca67a21fd6661d6d45d974d3cff346aa26277c77cbb9babb3ed90",
+      "adjacentSha256": "d8d8cbb2f48ca67a21fd6661d6d45d974d3cff346aa26277c77cbb9babb3ed90"
+    },
+    {
+      "function": "sphAngle",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "fbff18c3ab73acb3c3278d60ac362b9f9fb74c0d9649b5ad79f20bb361226509",
+      "adjacentSha256": "fbff18c3ab73acb3c3278d60ac362b9f9fb74c0d9649b5ad79f20bb361226509"
+    },
+    {
+      "function": "sphDist",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "f00e8f87a5be3c38d341991dd02233411d8103e5ee92956888792d125012faff",
+      "adjacentSha256": "f00e8f87a5be3c38d341991dd02233411d8103e5ee92956888792d125012faff"
+    },
+    {
+      "function": "sphChord",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "a563c1a7505c11d30f386d715d248c9ed9d2b87f3205407190d2741ae5c88e5e",
+      "adjacentSha256": "a563c1a7505c11d30f386d715d248c9ed9d2b87f3205407190d2741ae5c88e5e"
+    },
+    {
+      "function": "sphLon",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "fb391f4981d0c46a2ac9a6a07183f6194aecf8a9ddf07aa95735ee4fa628368e",
+      "adjacentSha256": "fb391f4981d0c46a2ac9a6a07183f6194aecf8a9ddf07aa95735ee4fa628368e"
+    },
+    {
+      "function": "sphLat",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "0cc7f7493382908f8efa6e7e738cc8c89cca0e7001f2ff10dfcf808b72467031",
+      "adjacentSha256": "0cc7f7493382908f8efa6e7e738cc8c89cca0e7001f2ff10dfcf808b72467031"
+    },
+    {
+      "function": "sphChart0",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "c7a0dffc5b0acd82eb3896de469cea2c60dea18da5473fd505184f6f7c74a998",
+      "adjacentSha256": "c7a0dffc5b0acd82eb3896de469cea2c60dea18da5473fd505184f6f7c74a998"
+    },
+    {
+      "function": "sphPoint0",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "5a9fd578d9daf5ccfdb9116685a9a498553df992fc3ab230c3e9362aceed6072",
+      "adjacentSha256": "5a9fd578d9daf5ccfdb9116685a9a498553df992fc3ab230c3e9362aceed6072"
+    },
+    {
+      "function": "sphPreimages",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "6d6f213f61b6b9f03ff8de2a6e8ab287178861f120c19f8c50ccb161e03afcb0",
+      "adjacentSha256": "6d6f213f61b6b9f03ff8de2a6e8ab287178861f120c19f8c50ccb161e03afcb0"
+    },
+    {
+      "function": "sphArc",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "84b4ea7942bf362060b8a7972d920165707e2a732fcedaa17dffe99542e7414d",
+      "adjacentSha256": "84b4ea7942bf362060b8a7972d920165707e2a732fcedaa17dffe99542e7414d"
+    },
+    {
+      "function": "sphArcDistClosed",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "cb5d0e255af06ae5bef2c86393c8b75eea0b34e834fbc4ec2f524b234ed18f23",
+      "adjacentSha256": "cb5d0e255af06ae5bef2c86393c8b75eea0b34e834fbc4ec2f524b234ed18f23"
+    },
+    {
+      "function": "sphPieceOf",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "e8b43c646e8bf3fbb424e58db14f623ed6a4bce5c77f52549d89c6c50382d1b2",
+      "adjacentSha256": "e8b43c646e8bf3fbb424e58db14f623ed6a4bce5c77f52549d89c6c50382d1b2"
+    },
+    {
+      "function": "reachRegion",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "a4aae36632a66bfb53ea2ccd5a3ffc2641009863a3459490785270fb575d02d2",
+      "adjacentSha256": "a4aae36632a66bfb53ea2ccd5a3ffc2641009863a3459490785270fb575d02d2"
+    },
+    {
+      "function": "sphFrozenDist",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "2944622c707bdfc8ddbd438c2adbf598bc5d9497eeddff3ae182722aeb7cb505",
+      "adjacentSha256": "2944622c707bdfc8ddbd438c2adbf598bc5d9497eeddff3ae182722aeb7cb505"
+    },
+    {
+      "function": "sphBandDistance",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "b916da13e342a65438ba33b9dd6f25b52b8363189987b42f2d5a2a36e0819ebd",
+      "adjacentSha256": "b916da13e342a65438ba33b9dd6f25b52b8363189987b42f2d5a2a36e0819ebd"
+    },
+    {
+      "function": "gArcCentre",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "1e5aa0d5c1d11d3e0aa9d5a2ccfa867ea2a3c0b476f02d020932aa9cd5174ccf",
+      "adjacentSha256": "1e5aa0d5c1d11d3e0aa9d5a2ccfa867ea2a3c0b476f02d020932aa9cd5174ccf"
+    },
+    {
+      "function": "gUnwrapU",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "15130fac5c319bccdec903f3f214e84f0af7bce31284c37f7fb6251e071fd20d",
+      "adjacentSha256": "15130fac5c319bccdec903f3f214e84f0af7bce31284c37f7fb6251e071fd20d"
+    },
+    {
+      "function": "gBeta",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "db6a28999f985bdfa69f084eb3dcbe6452dc92ad271b03f4b5f8c696bb9436f1",
+      "adjacentSha256": "db6a28999f985bdfa69f084eb3dcbe6452dc92ad271b03f4b5f8c696bb9436f1"
+    },
+    {
+      "function": "gBetaInv",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "ecb8a3059163b4b0d510819450fd3016bbcd138dab52eb1bca6a4fe593b3c14e",
+      "adjacentSha256": "ecb8a3059163b4b0d510819450fd3016bbcd138dab52eb1bca6a4fe593b3c14e"
+    },
+    {
+      "function": "gChartMetric",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "8f7d9dce70e2015484f55a895aff1d5c70fe6ddbd13e2351f23b609c7c25c917",
+      "adjacentSha256": "8f7d9dce70e2015484f55a895aff1d5c70fe6ddbd13e2351f23b609c7c25c917"
+    },
+    {
+      "function": "gBindings",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "7ccd603c3791da30fa37d89dca06a4ce396b2539f91a69ffe2dc41bfdc145f5f",
+      "adjacentSha256": "7ccd603c3791da30fa37d89dca06a4ce396b2539f91a69ffe2dc41bfdc145f5f"
+    },
+    {
+      "function": "gMarkA",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "63d13dca5cc274f92e160203f005438eb9a3d49ce3cb862b67dc4b1800060494",
+      "adjacentSha256": "63d13dca5cc274f92e160203f005438eb9a3d49ce3cb862b67dc4b1800060494"
+    },
+    {
+      "function": "gMarkB",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "d5c11f1c24ef5e74b66dd65c58fcd27bad6d02cdde313cf8d6247b371a034acc",
+      "adjacentSha256": "d5c11f1c24ef5e74b66dd65c58fcd27bad6d02cdde313cf8d6247b371a034acc"
+    },
+    {
+      "function": "gLocate",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "243d34b6fd6ac0b7647a8eebe04bbd6613aa3f28b540ef2db9071000aa8f7201",
+      "adjacentSha256": "243d34b6fd6ac0b7647a8eebe04bbd6613aa3f28b540ef2db9071000aa8f7201"
+    },
+    {
+      "function": "gFreshRay",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "8eb5b9609ae2fd60309748ba4e9f8094922e3efc152cb2df71ded81d8d37498b",
+      "adjacentSha256": "8eb5b9609ae2fd60309748ba4e9f8094922e3efc152cb2df71ded81d8d37498b"
+    },
+    {
+      "function": "sphSegmentObjective",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "0f6143cd9da3b73202ba06ce56131f44c743357f8dbb6a6c5997385e420107f0",
+      "adjacentSha256": "0f6143cd9da3b73202ba06ce56131f44c743357f8dbb6a6c5997385e420107f0"
+    },
+    {
+      "function": "classifySphereMark",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "14513caf5db75d52292c5cb2aa4332d112cd29e69284b579517903f199b73e07",
+      "adjacentSha256": "14513caf5db75d52292c5cb2aa4332d112cd29e69284b579517903f199b73e07"
+    },
+    {
+      "function": "pickupMix",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "5190dd5764c2e72868e5a9b422f143489efe62f2f9773cdec971a11d29469d4a",
+      "adjacentSha256": "5190dd5764c2e72868e5a9b422f143489efe62f2f9773cdec971a11d29469d4a"
+    },
+    {
+      "function": "pickupSample",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "30baa80e840fcaf0eb5e212d1e255ba8e06cb562fd4ed8bb3ea7553cec7d25ab",
+      "adjacentSha256": "30baa80e840fcaf0eb5e212d1e255ba8e06cb562fd4ed8bb3ea7553cec7d25ab"
+    },
+    {
+      "function": "pickupStep",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "2aaffd8c73cc6a25d0abdbf966b379f09d55dc6e0da64235b67e7ec13368f6a1",
+      "adjacentSha256": "2aaffd8c73cc6a25d0abdbf966b379f09d55dc6e0da64235b67e7ec13368f6a1"
+    },
+    {
+      "function": "pickupDabs",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "925f37a2d9ac467c0cad59a7338f1be7a3298564f4fbb5003ee2cc0f0fcb2df1",
+      "adjacentSha256": "925f37a2d9ac467c0cad59a7338f1be7a3298564f4fbb5003ee2cc0f0fcb2df1"
+    },
+    {
+      "function": "pickupFreshLocation",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "16a592f25ae772ba688eaff73b5e1c94968adf6f4f17ec180b99a650aabe9303",
+      "adjacentSha256": "16a592f25ae772ba688eaff73b5e1c94968adf6f4f17ec180b99a650aabe9303"
+    },
+    {
+      "function": "pickupBindings",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "5d47673d02bbe4f3e239845508eac3b8761de5d19a862e8eef5a51ff3ac88e23",
+      "adjacentSha256": "5d47673d02bbe4f3e239845508eac3b8761de5d19a862e8eef5a51ff3ac88e23"
+    },
+    {
+      "function": "pickupResolve",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "3465693033e959656a2bf18b8332178d89f6471248396c1f983a05393f9d65c8",
+      "adjacentSha256": "3465693033e959656a2bf18b8332178d89f6471248396c1f983a05393f9d65c8"
+    },
+    {
+      "function": "pickupReplay",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "b8eb7aebec9d4d23d87b39def111261b0dac4cb19ab0e6897668bba71311cb5e",
+      "adjacentSha256": "b8eb7aebec9d4d23d87b39def111261b0dac4cb19ab0e6897668bba71311cb5e"
+    },
+    {
+      "function": "pickupAt",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "c47409f4cdc67971c73b944f9f253f61abcfcde00093c89ac58c94fd4986cad0",
+      "adjacentSha256": "c47409f4cdc67971c73b944f9f253f61abcfcde00093c89ac58c94fd4986cad0"
+    },
+    {
+      "function": "pickupConsume",
+      "equalIgnoringWhitespace": true,
+      "embeddedSha256": "7dffcbc160dc236af28524b3a6e7770cef15f0f808909fe910f1f9bc12a274f4",
+      "adjacentSha256": "7dffcbc160dc236af28524b3a6e7770cef15f0f808909fe910f1f9bc12a274f4"
+    }
+  ],
+  "originalProbe": {
+    "checks": 55,
+    "failed": 0
+  },
+  "poisonedProbe": {
+    "checks": 55,
+    "failed": 0,
+    "actualEmbeddedRGBA": [
+      0,
+      1,
+      0,
+      1
+    ]
+  },
+  "scale": {
+    "sphereRadiusMM": 200,
+    "attack2Factor": 2,
+    "attack3Factor": 1,
+    "attack2ReachMM": 144.54684956268315,
+    "dividedBy2": 72.27342478134157,
+    "areaDividedBy4": 16858.48556844744,
+    "attack3SurfaceMM": 7.99839984003628,
+    "radiusOfArcA": 16,
+    "radiusOfTapB": 24
+  },
+  "conclusion": "Current non-vector functions match the sidecars. The deliberate green-paint mutation passes the old probe because it overlays those functions. Add source equality or execute the embedded definitions directly."
+}

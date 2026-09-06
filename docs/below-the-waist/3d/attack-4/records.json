@@ -1,0 +1,36 @@
+{
+  "schema": "attack-4-fixtures/v1",
+  "status": "Definer fixture vocabulary, not a settled language for Position 9",
+  "subject": {"support": "G", "revision": 2, "radiusMM": 200, "metric": "sphere intrinsic", "distanceDomain": "whole sphere", "depositDomain": "authored patch"},
+  "coating": {"values": ["A@0", "B@0"], "bindings": ["binding-A@2", "binding-B@2"], "order": ["kA", "kB"], "interpretation": "linear-light premultiplied rgba; no lighting or screen lease"},
+  "painting": {"id": "pickup-G", "revision": 0, "storage": "Float32LE rgba", "grid": [64, 32], "domain": [588.3185307179587, 194, 80, 30], "chart": "S0 unwrapped u=R*longitude, v=R*latitude", "sample": "nearest logical texel", "initial": [0, 0, 0, 0]},
+  "brush": {
+    "id": "coating-pickup@0",
+    "initialCarry": [1, 0, 0, 1],
+    "pickup": 0.25,
+    "opacity": 0.5,
+    "radiusMM": 8.75,
+    "program": [
+      {"id": "picked", "op": "read-surface", "args": [{"ref": "snapshot"}, {"ref": "event.point"}]},
+      {"id": "carryOut", "op": "mix", "args": [{"ref": "carry"}, {"ref": "picked"}, {"ref": "pickup"}]},
+      {"id": "footprint", "op": "surface-region", "args": [{"ref": "event.point"}, {"ref": "radiusMM"}]},
+      {"id": "surfaceOut", "op": "paint", "args": [{"ref": "painting"}, {"ref": "footprint"}, {"ref": "carryOut"}, {"ref": "opacity"}]}
+    ],
+    "events": [
+      {"id": "dab-0", "curve": "kA/arc-AB", "t": 0.65},
+      {"id": "dab-1", "curve": "kA/arc-AB", "t": 0.70},
+      {"id": "dab-2", "curve": "kA/arc-AB", "t": 0.41},
+      {"id": "dab-3", "curve": "kA/arc-AB", "t": 0.65}
+    ]
+  },
+  "schedules": {
+    "eager": ["grant binding-B@2", "demand dab-0", "demand remaining events"],
+    "delayed": ["demand dab-0", "repeat demand without grant", "retain remaining authored events", "grant binding-B@2", "resume dab-0", "demand remaining events"],
+    "transparentGuess": ["demand dab-0 without grant", "consume known A with B guessed transparent", "grant binding-B@2", "demand remaining events"]
+  },
+  "reach": {"seed": [3.141592653589793, 1.0471975511965976], "distance": "surface", "radiiMM": [150, 140, 628, 629, 1256.6370614359173]},
+  "gpu": {
+    "field": {"outer": [0.2, 0.1, 0.1], "axis": {"origin": [1, 0, 0], "direction": [-1, 0, 0], "expectedT": 0.8}, "contact": {"origin": [1, 0.1, 0], "direction": [-1, 0, 0], "expectedT": 1}},
+    "nib": {"c0": [0, 0], "c1": [160, 160], "pressure": [0.2, 0.8], "parameter": 0.0158, "clearanceMM": -0.0001}
+  }
+}
