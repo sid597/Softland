@@ -115,15 +115,16 @@ A fractional placement (group 18 at 0.5, 0.25): 300 edge pixels within 0.0020 of
 ## 5. How to run it
 
 ```
-# JVM, the eight namespaces (a script that requires them and calls run-tests)
-clj -M:test -i <script>
+# JVM: the eight pure namespaces, the definer's records as tests, about a minute
+clj -M:test -i test/app/client/path/run_pure.clj
 
 # browser, from this worktree (the :dev alias needs env.clj, absent here; node_modules is a symlink to the main checkout's)
 clj -Sdeps '{:deps {thheller/shadow-cljs {:mvn/version "2.28.23"}}}' -M -m shadow.cljs.devtools.cli release render-verifier
-node test/render_engine/run_verifier.mjs
+node test/render_engine/run_verifier.mjs                 # pass/fail, six guards, golden hashes
+node test/render_engine/dump_result.mjs <out-dir>        # every scenario number as JSON and every picture as PNG
 ```
 
-The verifier's `receipt.json` keeps pass/fail and golden hashes only. To see the scenario numbers, read `window.__renderVerifierResult["path-step"]` from the page; `receipts-client-claude.json` is that object with the PNG data stripped.
+The verifier's `receipt.json` keeps pass/fail and golden hashes only; `dump_result.mjs` writes the page's full result for the path and region3d lanes, which is what `receipts-client-claude.json` is. `STARTER-judge.md` beside this file carries a REPL session over the pure layer for change-it moves by hand.
 
 ## 6. Next
 
