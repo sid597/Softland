@@ -1,11 +1,11 @@
-# The Waist Bench (bench 9) — handover, session 9, 2026-09-06; session 10's compositor and executor, and session 11's results, checkpoint and group mask, added the same day (sections at the end)
+# The Waist Bench (bench 9) — handover, session 9, 2026-09-06; session 10's compositor and executor, and session 11's results, checkpoint and group mask, and session 12's result reuse (a clip bound to a returned path, liveness through records, a checkpoint as bytes), added the same day (sections at the end)
 
 ## Where it is
 
 - Source: `docs/below-the-waist/path-kind/bench-9/waist-bench.html` (one file, ~95 KB, WebGL2, no build; only a Google Fonts link, with fallbacks).
 - Live: https://claude.ai/code/artifact/da84fdb6-604a-488e-b797-e77c6f257cbc . To republish from another session: `Artifact` action `read` with that URL first, then publish with `url` set and this file as `file_path`.
 - Run locally: open the file in any WebGL2 browser (`file://` is fine). Headless check: `google-chrome --headless=new --use-angle=swiftshader --use-gl=angle --enable-unsafe-swiftshader --window-size=1500,1000 --virtual-time-budget=4000 --screenshot=out.png "file://…/waist-bench.html#tool=pen"`; `--dump-dom` instead of `--screenshot` prints the panel's readouts.
-- Deep links: the URL hash carries the whole state, e.g. `#tool=pressure&tip=ribbon&outline=1&zoom=6`. Keys: `tool`, `tip`, `cap`, `join`, `align`, `unit`, `dash`, `snap`, `fill`, `stroke`, `overlap`, `clip`, `blend`, `group` (`none` | `layer` | `mask`, session 11), `checkpoint` (`none` | `12`, session 11), `paper`, `cover`, `bands`, `skin`, `outline`, `zoom`, `cx`, `cy`, and `at=x,y` (session 10: a deep-linked cursor, so a readout can be quoted from `--dump-dom`; the panel's text is nested, read it with an HTML parser rather than a regex).
+- Deep links: the URL hash carries the whole state, e.g. `#tool=pressure&tip=ribbon&outline=1&zoom=6`. Keys: `tool`, `tip`, `cap`, `join`, `align`, `unit`, `dash`, `snap`, `fill`, `stroke`, `overlap`, `clip`, `blend`, `group` (`none` | `layer` | `mask`, session 11), `checkpoint` (`none` | `12`, session 11), `save` (`cpu` | `gpu`, session 12: presses a save-to-bytes button once the in-memory checkpoint exists), `paper`, `cover`, `bands`, `skin`, `outline`, `zoom`, `cx`, `cy`, and `at=x,y` (session 10: a deep-linked cursor, so a readout can be quoted from `--dump-dom`; the panel's text is nested, read it with an HTML parser rather than a regex).
 
 ## What it is
 
@@ -215,3 +215,64 @@ The definer measured the child-clip route at `.461` against the CPU's `.465` and
 - The checkpoint is in memory; a saved-and-reloaded one needs the same fields serialised (`content` as bytes) and the capabilities string checked on load.
 - Release is by the executor's static last-use analysis plus an identity check against still-read bindings; a surface aliased through a definition's `emit` is not seen by it (the host's stale-read check would refuse the read rather than serve a wrong pixel).
 - The carry-on-GPU route, layers at the group's cover, and blends on a layer or presented surface reading the whole target as backdrop: as before.
+
+## Session 12 — a result used somewhere else (the definer's attack 4), 2026-09-06
+
+Attack 4 brought three constructions, each a binding or an obligation the bench lacked; each became a fix at full weight, code before page. The coverage code is untouched again. The executor's liveness follows values into the records and arrays that hold them; a clip takes a path value or a live result; a checkpoint leaves as bytes and comes back into fresh hosts. Verified headless in SwiftShader; the Node route (the pure declarations before the GL plumbing) still works and now reaches `surfacesIn`, `captureState`, `restoreState`, `encodeCheckpoint`, `decodeCheckpoint`, `rgba32fLE`, `b64enc`/`b64dec` and `sha256`. The bench is 217 KB.
+
+### What a record may now declare, in addition
+
+```
+"clip":          { "path": <a path value: { subpaths, meta }>, "rule": ... }            // a derived path bound as a value: frozen; nothing reconstructs it, nothing follows it
+"clip":          { "path": { "result": <name>, "output": "path" }, "rule": ... }        // the live result of a construction the record holds; resolved once per edit, packed per scale
+"group.clip":    the same two forms                                                        // the group's mask shares the clip's input
+"constructions": { <name>: { "tool"?, "source", "program", "identity"? } }              // constructions the record holds by name: the bench's stand-in for a document's other records
+"checkpoint":    { "at": <index>, "load": <the wire object> | { "store": <sha-256> } } // a saved continuation loaded from bytes into fresh hosts; no prefix is taken in its place
+```
+
+### A clip bound to a returned path (attack 4's first construction)
+
+- `buildClip` takes one input for the record's clip and the group's mask: `source` (authored, built here), `path` with `subpaths` (a value), or `path` with `result` and `output` (a reference). A reference resolves against `state.held`, which `applyRecord` fills by running every held construction through the same `construct` as the root's own network (no host; the arrangement's vertices get the record's ids back, the face's loop is written into the path's meta). The clip carries its provenance (`from`: frozen or live; face, loop, area; the producing revision and the revision it ran at) and the panel prints it. A held network's pieces are drawn faintly like the root's.
+- Rates: the producer runs once per edit (the executor, in `applyRecord`); the consumer packs per scale (`rebuild`); a camera move repacks without rerunning the arrangement. A reference to a construction the record does not hold, or to an output that is not a path, is an error printed under the source, not a silent no-clip.
+- Fixture *a rect masked by a returned face*, the definer's literal record verbatim: alpha `.6` at (60.5, 10.5), `0` at (60.5, 70.5), both hosts, every field read. Fixture *the crossing through a face it holds*: 24 dabs at 62 % through the bottom face (seed (60, 70)) by reference: `.8556` at (64.5, 64.5) (the cursor's 8-bit root alpha reads .86 CPU / .85 GPU), `.62` as a union, `0` through the top face (seed (60, 10)). On a scratch copy, not landed, the pickup brush with the same held face: the presented pixel `(0.013, 0, 0.987, 1)` at the crossing and `0` at (64.5, 20), where the surface's own texel is still `(0, 0, 1, 1)`: presentation is masked, deposition is not, and the panel says which one the record asked for.
+
+### A surface reachable only inside a returned record (attack 4's second construction)
+
+- `surfacesIn(value)` walks arrays and plain objects (depth ≤ 8; a surface is a leaf; typed arrays are bytes). `aliveAfter` and the per-step release use it for the bindings the executor made (a step's output, the state, the item); a record root holds a surface only directly (`surface.initial`), so the record's proxies are never walked and the unread-field list stays honest. At `next`, every surface the previous state reached and the new one does not is released. A value is given back once (`free`): the executor had been releasing a value at its last read and again at `next`, which the GPU host's `newest` check tolerated silently.
+- Fixture *proofs returned in a record*, verbatim: `state.proofs = [{ label: "red proof", surface: ⟨proof:0/red⟩ }]`; after the run both hosts read `proof:0/red` as `(0.5, 0, 0, 0.5)` and `proof:0/blue` as `(0, 0, 0.5, 0.5)`; 3 targets, 2 copies, 0 in place, 0 released. Before the fix (Node, a strict adapter on the CPU twin whose release makes a value unreadable): 1 released, the red read refused with the value's key, the definer's finding.
+- The panel now reads every surface the returned values reach, at the first dab's centre, on both hosts, and prints a refusal where a host refuses: a later use of a returned value is part of the receipt.
+
+### A checkpoint as bytes (attack 4's third construction)
+
+- `captureState(state, content)` replaces every reachable surface with `{ surfaceRef: key }` and takes each key's content once; `restoreState(saved, bring)` is its inverse, one value per key. The in-memory checkpoint uses them too (`takeOn`, `bring`), so a nested state is captured and brought back whole.
+- The wire (`encodeCheckpoint`): `{ format: "softland/path-checkpoint", version: 1, origin, dependencies: { at, fixedDeps, itemDeps }, continuation: { at, state }, resources: { <key>: { key, parent, revision, width, height, localToTexel, color, encoding: "rgba32f-le", byteLength, data } } }`, `data` base64. Floats are written and read one component at a time through a DataView, little-endian, so the platform's byte order never leaks into the bytes.
+- The load (`decodeCheckpoint`): the format and version; `checkpointWhy(wire.dependencies, key)` against this record's own key; the continuation's index against `checkpoint.at`; each resource's encoding, its size against the declaration, its map and colour, its payload length; every reference the state makes present among the resources. Any mismatch throws its reason; the bench prints it in red, resumes nothing and takes no prefix in its place.
+- `checkpoint.load` is the wire inline or `{ store: <sha-256> }` naming this page's content store (`STORE`: the sha-256 of the wire text → the text, in memory only; a reload empties it and a load then fails with that reason). The two buttons in the checkpoint row serialise the in-memory checkpoint of the CPU twin or of the GPU, store it, set `checkpoint.load` and re-apply the record: the new revision frees the old hosts and creates fresh ones, which load. `#…&save=cpu|gpu` presses a button headless.
+- Measured, the pickup after 12 dabs from the CPU twin: 364,786 bytes; the saved content's sha-256 is `9757e826…`, the definer's, byte for byte; restored against the saved bytes 0 of 65,536 on both hosts; resumed 0 of 65,536 on the CPU twin and 2,105 at ≤ 1.19e-7 on the GPU against each host's own straight run (the cross-host number, as before). From the GPU: 364,780 bytes, content `502938d1…`; restored 0 on both (the float upload and read-back is exact); resumed 0 on the GPU, 2,146 at ≤ 1.19e-7 on the CPU twin. The definer's four edits, on the Node route against a stored wire: the first pressure `.65 → .4` refused, "dab 0 differs"; the last sample's x `102 → 110` loads; `pickup .5 → .25` refused, a fixed dependency changed; a changed capability in the key refused; a payload four bytes short refused by its count; the naive JSON of a Float32Array has 65,536 keys and resolves to length 0.
+- On a scratch copy, the nested record with three dabs (two samples, spacing 2) and a checkpoint after one: three resources (the start, the red proof, the blue result, 12 KB) and the carried `proofs` with its reference inside; resumed 0 of 1,024 on both hosts; as bytes 19,366 bytes with a content hash per resource, restored and resumed 0 of 1,024 on both; across the three dabs the executor gave four targets back as the new state stopped reaching the old proofs.
+
+### Measured on 2026-09-06 (headless SwiftShader, zoom 3, DPR 1, canvas 1022 × 761)
+
+| State | Readout |
+|---|---|
+| facemask, at (60.5, 10.5) | clip coverage 1.00; alpha CPU 0.60 · GPU 0.60; no unread field |
+| facemask, at (60.5, 70.5) | clip coverage 0.00; alpha 0.00 · 0.00 |
+| facecrossing, at (64.5, 64.5) | clip coverage 1.00, 2 of 24 dabs; alpha CPU 0.86 · GPU 0.85 (the 8-bit root's .8556); held construction `face`: 4 steps, face f3, loop C → D → X1 → C, area 2400; no unread field |
+| facecrossing, `overlap=union` | alpha 0.62 · 0.62 |
+| pickupface (scratch), at (64.5, 64.5) | presented rgba CPU (0.013, 0, 0.987, 1) · GPU (0.012, 0, 0.988, 1); texel (64, 64) (0.013, 0, 0.987, 1) both |
+| pickupface (scratch), at (64.5, 20) | clip coverage 0.00; presented rgba 0 both; texel (64, 20) (0, 0, 1, 1) both |
+| nested | `state.proofs` = [{ label "red proof", surface ⟨proof:0/red⟩ }], `state.surface` = proof:0/blue ← proof:initial; read after the run: proof:0/red (0.5, 0, 0, 0.5), proof:0/blue (0, 0, 0.5, 0.5), both hosts; GPU targets 3, 2 copies, 0 in place, 0 released |
+| pickup with `checkpoint=12` | unchanged from session 11 (0 of 65,536 on each host; the GPU from the CPU twin's: 2,105 at 1.19e-7) |
+| pickup, `checkpoint=12&save=cpu` | 364,786 bytes, sha-256 cea99269…, content 9757e826…; restored 0 of 65,536 CPU · 0 GPU; resumed 0 of 65,536 CPU · 2,105 at 1.19e-7 GPU |
+| pickup, `checkpoint=12&save=gpu` | 364,780 bytes, sha-256 30d081a1…, content 502938d1…; restored 0 · 0; resumed 2,146 at 1.19e-7 CPU · 0 GPU |
+| nestedck (scratch), `checkpoint=1` | 3 surfaces saved incl. proof:0/red inside `proofs`; resumed 0 of 1,024 CPU · 0 GPU · cross 0; GPU targets 5, 6 copies, 0 in place, 4 released |
+| nestedck (scratch), `checkpoint=1&save=cpu` | 19,366 bytes; 3 resources restored 0 of 1,024 each on both hosts; resumed 0 of 1,024 CPU · 0 GPU |
+| proofs, groupmask, dabs, layer, mask, multiply, network, border | unchanged from session 11's table |
+
+### Unfinished, added
+
+- A reference across a document: the bench holds constructions inside the record; a document would name another record by identity and the executor would resolve it the same way.
+- A compiler that reads reachability off a definition's parameter, map and emit; the bench walks values (conservative, depth ≤ 8).
+- A content store beyond one page's memory; a reload empties the bench's, and the load then fails with that reason.
+- The cursor's pixel alpha reads the 8-bit root to two decimals (.86/.85 for .8556); the texel readout is the float.
+- As before: the offset stroker, the carry on the GPU, layers at the group's cover, blends on a layer reading the whole target, tangencies and partial overlapping spans.
