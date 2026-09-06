@@ -159,8 +159,9 @@
         <h3>compositor · surfaces: clip × coverage, blend, layer, sample <span class="rate frame" id="r-compositor">per frame</span></h3>
         <div class="row"><span class="k">clip</span><span class="seg" data-set="clip"><button data-v="none">none</button><button data-v="trefoil">by the trefoil</button><button data-v="rect">by a rounded rect</button></span></div>
         <div class="row"><span class="k">blend</span><span class="seg" data-set="blend"><button data-v="over">over</button><button data-v="multiply">multiply</button><button data-v="screen">screen</button><button data-v="difference">difference</button></span></div>
-        <div class="row"><span class="k">group</span><span class="seg" data-set="group"><button data-v="none">direct</button><button data-v="layer">a layer at 62 %</button></span>
+        <div class="row"><span class="k">group</span><span class="seg" data-set="group"><button data-v="none">direct</button><button data-v="layer">a layer at 62 %</button><button data-v="mask">a layer at 62 % under a mask</button></span>
           <span class="k" style="min-width:auto">paper</span><span class="seg" data-set="paper"><button data-v="off">none</button><button data-v="on">opaque</button></span></div>
+        <div class="row"><span class="k">checkpoint</span><span class="seg" data-set="checkpoint"><button data-v="none">none</button><button data-v="12">after dab 12, resume the rest</button></span></div>
         <div class="did" id="d-compositor"></div>
       </div>
     </div>
@@ -177,6 +178,7 @@
   <p>Local units: 1 unit = 1 CSS pixel at zoom 1, Y down, as in the client. Drag to pan, wheel to zoom about the cursor. In "draw your own", drag draws and Shift-drag pans. Fixtures marked harness are the path family's own golden fixtures by their coordinates.</p>
   <p>The cursor readout runs the filler's algorithm on the CPU at the cursor and reads the GPU pixel under it; they agree because both use the same curves and the same rule. It also shows what the two stroke constructions say about the distance to the drawn centerline.</p>
   <p>Session 10 added the compositor and the executor. A clip is a second region whose coverage multiplies in the same draw; a blend reads a copy of the backdrop under the region; a layer is a surface painted as a region into its parent; a painting surface is retained at its declared resolution and advances per brush step. The definer's two records from attack 2 run verbatim: the pickup brush through a small executor on the GPU and on a CPU twin, the network through the geometry's arrangement. Fields of a record that no code read are listed under it.</p>
+  <p>Session 11 folded the definer's attack 3. A result is a value that keeps its contents: the executor's compile pass says where each binding is last read, and the GPU host paints in place only there, copying into a pooled target otherwise; every result carries the step that made it and its parent. A checkpoint is a construction continuation, saved with what it depends on and resumed on both hosts against the straight run. A mask on a group applies when the completed group is painted into its parent. Each fragment's local position now comes from its own pixel through the inverse map, which put the GPU and the CPU twin within float precision of each other.</p>
 </footer>
 
 <script>
@@ -720,46 +722,86 @@
   const OPS = {
     sample:            { args: ['surface', 'point', 'filter'],                    run: (a, h) => h.sample(a.surface, a.point, a.filter || 'nearest') },
     mix:               { args: ['a', 'b', 'amount'],                              run: a => { const A = Array.isArray(a.a) ? a.a : [a.a], B = Array.isArray(a.b) ? a.b : [a.b], t = Number(a.amount); return A.map((x, i) => x + ((B[i] == null ? 0 : B[i]) - x) * t); } },
-    paint:             { args: ['surface', 'region', 'rgba', 'opacity', 'blend'], run: (a, h) => h.paint(a.surface, a.region, a.rgba, a.opacity == null ? 1 : Number(a.opacity), a.blend || 'source-over') },
+    paint:             { args: ['surface', 'region', 'rgba', 'opacity', 'blend'], run: (a, h, ctx) => h.paint(a.surface, a.region, a.rgba, a.opacity == null ? 1 : Number(a.opacity), a.blend || 'source-over', ctx) },   // ctx: which step and iteration made the result, and whether the input is at its last use
     arrange:           { args: ['curves', 'coincident'],                          run: a => arrange(a.curves, a.coincident) },
     locate:            { args: ['arrangement', 'point', 'onBoundary'],            run: a => locate(a.arrangement, a.point, a.onBoundary) },
     'face-boundaries': { args: ['arrangement', 'selection'],                      run: a => faceBoundaries(a.arrangement, a.selection) },
   };
   const ROOTS = ['state', 'tool', 'paint', 'surface', 'source', 'identity', 'dab', 'path', 'dabs'];
-  function runProgram(program, scope, host) {
+  const CAPABILITIES = 'bench 9, session 11: sample nearest · mix linear · paint = coverage × opacity·alpha, W3C separable blends, linear premultiplied RGBA32F · arrange/locate/face-boundaries';   // what a saved result depends on besides its inputs: the behaviour of the operations that made it
+  const isSurface = v => !!(v && typeof v === 'object' && v.host);
+  const related = (a, b) => a === b || a.startsWith(b + '.') || b.startsWith(a + '.');
+  function compileUses(program) { // the executor's one compile pass (attack 3): where every binding is last read, so a host may reuse a result's storage after its last use and never before
+    const steps = program.steps || [], n = steps.length, last = {}, defs = program.definitions || {}, next = program.next || {};
+    const note = (b, i) => { if (typeof b !== 'string' || !/^[A-Za-z_]/.test(b)) return; last[b] = Math.max(last[b] == null ? -1 : last[b], i); };
+    const walk = (o, i) => { if (typeof o === 'string') note(o, i); else if (o && typeof o === 'object') for (const k in o) walk(o[k], i); };
+    steps.forEach((st, i) => { for (const k in st) if (k !== 'out' && k !== 'op') note(st[k], i); if (defs[st.op]) walk(defs[st.op], i); });
+    for (const k in next) note(next[k], n);                                                                      // next reads at index n, after the steps
+    for (const r of program.return || []) { const parts = String(r).split('.'); if (program.each && parts[0] === 'state' && parts[1] in next) continue; note(r, n + 1); }   // a returned state field that next rebinds names the new value, counted at next already
+    if (program.each) for (const k in program.state || {}) if (!(k in next)) last['state.' + k] = Infinity;   // a state field next never rebinds is carried across iterations: alive throughout
+    const item = program.each ? program.each.replace(/s$/, '') : null;
+    const itemFields = item ? Object.keys(last).filter(b => b.startsWith(item + '.')).map(b => b.slice(item.length + 1).split('.')[0]).filter((f, i, a) => a.indexOf(f) === i) : [];
+    return { last, n, item, itemFields, outs: new Set(steps.map(st => st.out)) };
+  }
+  function runProgram(program, scope, host, opts = {}) { // opts.from = { state, at }: continue a construction from a saved state at item `at`; opts.until: stop before that item (a prefix)
     const log = [], unknown = [], t0 = performance.now(); let steps = 0, calls = {};
     const lookup = (root, parts) => { let cur = root; for (let i = 1; i < parts.length; i++) { if (cur == null) return undefined; cur = cur[parts[i]]; } return cur; };
     const resolve = (v, outputs, local) => { if (typeof v !== 'string') return v; const parts = v.split('.'); const r = parts[0];
       if (local && r in local) return lookup(local[r], parts); if (r in outputs) return lookup(outputs[r], parts); if (ROOTS.includes(r) && r in scope) return lookup(scope[r], parts); return v; };   // not a binding: a literal word
-    const defs = program.definitions || {};
+    const defs = program.definitions || {}; const U = compileUses(program);
+    const aliveAfter = (i, b, value, outputs, local) => { // still needed after step i: a related binding is read later, or another binding still read holds the same object
+      for (const c in U.last) { if (U.last[c] <= i) continue; if (related(b, c)) return true; if (value && typeof value === 'object' && resolve(c, outputs, local) === value) return true; } return false; };
     const runDef = (name, args, outputs) => { const d = defs[name]; const local = {}; if (d.parameter) local[d.parameter] = resolve(args[d.parameter], outputs); const list = resolve(d.map, outputs, local) || [];
       return list.map(item => { const L = { ...local, [d.as]: item }; const o = {}; for (const key in d.emit) { const spec = d.emit[key]; let val; if ('ref' in spec) val = resolve(spec.ref, outputs, L); else if ('lookup' in spec) { const table = resolve(spec.lookup, outputs, L) || {}; val = table[resolve(spec.key, outputs, L)]; } if (val === undefined && 'default' in spec) val = spec.default; o[key] = val; } return o; }); };
-    const runSteps = (outputs, local) => { for (const st of program.steps || []) { steps++; const op = OPS[st.op] || (defs[st.op] ? { def: st.op } : null);
+    const runSteps = (outputs, local, iteration) => { let i = -1; for (const st of program.steps || []) { i++; steps++; const op = OPS[st.op] || (defs[st.op] ? { def: st.op } : null);
         if (!op) { unknown.push(st.op); log.push({ step: st.out, op: st.op, error: 'unknown operation' }); return false; }
         const extra = Object.keys(st).filter(k => k !== 'out' && k !== 'op' && !(op.args || []).includes(k)); if (extra.length && !op.def) log.push({ step: st.out, op: st.op, note: 'not consumed: ' + extra.join(', ') });
         const args = {}; for (const k of (op.args || [])) if (k in st) args[k] = resolve(st[k], outputs, local); for (const k in defs[st.op] ? st : {}) if (k !== 'out' && k !== 'op') args[k] = st[k];
-        try { const r = op.def ? runDef(st.op, args, outputs) : op.run(args, host); outputs[st.out] = r; calls[st.op] = (calls[st.op] || 0) + 1; log.push({ step: st.out, op: st.op, ok: true, value: r }); } catch (e) { log.push({ step: st.out, op: st.op, error: e.message }); return false; } }
+        const consume = st.op === 'paint' && typeof st.surface === 'string' && isSurface(args.surface) && !aliveAfter(i, st.surface, args.surface, outputs, local);   // the input's last use: the host may advance it in place
+        const ctx = { step: st.out, iteration, consume };
+        try { const r = op.def ? runDef(st.op, args, outputs) : op.run(args, host, ctx); outputs[st.out] = r; calls[st.op] = (calls[st.op] || 0) + 1; log.push({ step: st.out, op: st.op, ok: true, value: r, consumed: consume || undefined }); } catch (e) { log.push({ step: st.out, op: st.op, error: e.message }); return false; }
+        if (host && host.release) for (const c in U.last) { if (U.last[c] !== i) continue; const v = resolve(c, outputs, local); if (isSurface(v) && v !== outputs[st.out] && !aliveAfter(i, c, v, outputs, local)) host.release(v); } }   // a result nothing reads again gives its storage back
       return true; };
-    let state = {}; for (const k in program.state || {}) state[k] = resolve(program.state[k], {});
-    const results = {}; let ok = true, iterations = 0;
-    if (program.each) { const items = resolve(program.each, {}) || []; for (const item of items) { iterations++; const outputs = {}; const local = { [program.each.replace(/s$/, '')]: item, state };
-        ok = runSteps(outputs, local); if (!ok) break; const ns = {}; for (const k in program.next || {}) ns[k] = resolve(program.next[k], outputs, local); state = { ...state, ...ns }; } }
-    else { const outputs = {}; ok = runSteps(outputs, { state }); for (const k in outputs) results[k] = outputs[k]; }
+    let state = {}; for (const k in program.state || {}) state[k] = resolve(program.state[k], {}); if (opts.from) state = { ...state, ...opts.from.state };
+    const results = {}; let ok = true, iterations = 0, at = opts.from ? opts.from.at : 0;
+    if (program.each) { const items = resolve(program.each, {}) || []; const end = typeof opts.until === 'number' ? Math.min(items.length, opts.until) : items.length;
+      for (; at < end; at++) { const item = items[at]; iterations++; const outputs = {}; const local = { [U.item]: item, state };
+        ok = runSteps(outputs, local, at); if (!ok) break; const ns = {}; for (const k in program.next || {}) ns[k] = resolve(program.next[k], outputs, local);
+        const prev = state; state = { ...state, ...ns }; if (host && host.release) for (const k in ns) { const old = prev[k]; if (isSurface(old) && !Object.values(state).includes(old)) host.release(old); } } }
+    else { const outputs = {}; ok = runSteps(outputs, { state }, null); for (const k in outputs) results[k] = outputs[k]; }
     const scopeAll = { ...scope, state }; for (const r of program.return || []) { const parts = String(r).split('.'); const val = parts[0] in results ? lookup(results[parts[0]], parts) : parts[0] in scopeAll ? lookup(scopeAll[parts[0]], parts) : undefined; results[r] = val; }
-    return { ok, results, state, log, unknown, steps, iterations, calls, ms: performance.now() - t0 };
+    const reads = {}; for (const b in U.last) { const r = b.split('.')[0]; if (['tool', 'paint', 'source', 'identity', 'surface'].includes(r) && r in scope && !U.outs.has(r)) { const v = resolve(b, {}, null); reads[b] = isSurface(v) ? { surface: v.key } : v && typeof v === 'object' && isSurface(v.initial) ? { ...v, initial: { surface: v.initial.key } } : v; } }   // the record bindings the construction reads (a step output of the same name shadows a root): part of what a saved result depends on
+    return { ok, results, state, log, unknown, steps, iterations, at, calls, reads, itemFields: U.itemFields, ms: performance.now() - t0 };
+  }
+
+  // ---- a checkpoint's dependency key (pure): the program, the record bindings it reads, the surface declaration, the read fields of the items before it, the capabilities ----
+  function checkpointKey(program, reads, decl, items, itemFields, at) {
+    const pick = d => { const o = {}; for (const f of itemFields) o[f] = d[f]; return o; };
+    const itemDeps = items.slice(0, at).map(d => JSON.stringify(pick(d))), fixedDeps = JSON.stringify({ program, reads, surface: decl, capabilities: CAPABILITIES });
+    return { at, fixedDeps, itemDeps, deps: fixedDeps + '|' + itemDeps.join('|') };
+  }
+  function checkpointWhy(prior, key) { // null when the earlier checkpoint can be reused; else the first reason it cannot
+    if (!prior) return 'no earlier checkpoint'; if (prior.at !== key.at) return 'taken after ' + prior.at + ' items, not ' + key.at;
+    if (prior.fixedDeps !== key.fixedDeps) return 'the program, a record binding it reads, the surface declaration or the capabilities changed';
+    const j = prior.itemDeps.findIndex((d, i) => d !== key.itemDeps[i]); return j < 0 ? null : 'dab ' + j + ' differs';
   }
 
   // ---- the CPU host: a painting surface as a float array, the definer's reference route (attack 2), run through the same construction ----
+  const resultKey = (id, ctx) => id + ':' + (ctx && ctx.iteration != null ? ctx.iteration : '-') + '/' + (ctx && ctx.step ? ctx.step : 'paint');   // a result's identity is the step that made it, not its depth: two branches one paint deep must not collide (attack 3)
   function cpuHost(decl) {
     const W = decl.width, Hh = decl.height, M = decl.localToTexel || [1, 0, 0, 1, 0, 0]; const clear = (decl.initial && decl.initial.clear) || [0, 0, 0, 0];
-    const make = rev => { const data = new Float32Array(W * Hh * 4); for (let i = 0; i < W * Hh; i++) data.set(clear, i * 4); return { id: decl.id, revision: rev, width: W, height: Hh, M, data, host: 'cpu' }; };
-    const initial = make(0); let samples = 0, paints = 0;
+    const value = (data, extra) => ({ id: decl.id, width: W, height: Hh, M, data, host: 'cpu', ...extra });
+    const make = () => { const data = new Float32Array(W * Hh * 4); for (let i = 0; i < W * Hh; i++) data.set(clear, i * 4); return value(data, { revision: 0, key: decl.id + ':initial', parent: null, frozen: true }); };
+    const initial = make(); let samples = 0, paints = 0;
     const toTexel = p => ({ x: M[0] * p[0] + M[2] * p[1] + M[4], y: M[1] * p[0] + M[3] * p[1] + M[5] });
     return {
       initial, stats: () => ({ samples, paints }),
       sample(s, point) { samples++; const t = toTexel(point), i = clamp(Math.floor(t.x), 0, W - 1), j = clamp(Math.floor(t.y), 0, Hh - 1); const o = (j * W + i) * 4; return [s.data[o], s.data[o + 1], s.data[o + 2], s.data[o + 3]]; },
-      paint(s, region, rgba, opacity, blend) { paints++;   // a surface is a value: painting returns a new one; the one read stays as it was
-        const out = { ...s, data: new Float32Array(s.data), revision: s.revision + 1 };
+      release() {},   // the twin copies on every paint, so nothing is ever reused; the executor's hint is the host's to take or leave
+      content(s) { return new Float32Array(s.data); },   // a result's bytes, for saving
+      resolve(saved) { return value(new Float32Array(saved.content), { revision: saved.revision, key: saved.key, parent: saved.parent, frozen: true, resumed: true }); },   // a saved result brought back in: frozen, so painting on it copies
+      paint(s, region, rgba, opacity, blend, ctx) { paints++;   // a surface is a value: painting returns a new one; the one read stays as it was
+        const out = { ...s, data: new Float32Array(s.data), revision: s.revision + 1, key: resultKey(decl.id, ctx), parent: s.key, frozen: false, resumed: undefined };
         const q = rgba, qa = q[3] || 0, rgb = qa > 0 ? [q[0] / qa, q[1] / qa, q[2] / qa] : [0, 0, 0], a = opacity * qa, mode = blendIndex(blend);
         const low = lowerPath(region, 0.25 / Math.abs(M[0] || 1)), packed = packRegion(low.quads, { bands: false }); if (!packed) return out;
         const b = packed.bbox, c0 = toTexel([b.x0, b.y0]), c1 = toTexel([b.x1, b.y1]); const i0 = clamp(Math.floor(Math.min(c0.x, c1.x)) - 1, 0, W - 1), i1 = clamp(Math.ceil(Math.max(c0.x, c1.x)) + 1, 0, W - 1), j0 = clamp(Math.floor(Math.min(c0.y, c1.y)) - 1, 0, Hh - 1), j1 = clamp(Math.ceil(Math.max(c0.y, c1.y)) + 1, 0, Hh - 1);
@@ -923,6 +965,8 @@
     if (rule == 0) return combine(xcov, ycov, xwgt, ywgt);
     float ex = 1.0 - abs(mod(xabs, 2.0) - 1.0); float ey = 1.0 - abs(mod(yabs, 2.0) - 1.0); return combine(ex, ey, xwgt, ywgt); }
   // ---- the compositor's part of the program ----
+  uniform mat3 u_Minv; uniform vec2 u_size; uniform float u_flip;
+  vec2 localP() { vec2 d = vec2(gl_FragCoord.x, u_flip > 0.5 ? u_size.y - gl_FragCoord.y : gl_FragCoord.y); return (u_Minv * vec3(d, 1.0)).xy; }   // the fragment's local position from its own pixel centre through the inverse map (session 11): the interpolated varying carries the rasterizer's sub-pixel snapping of the cover's corners, ~0.01 local at zoom 3, which read as a clip edge at .48 instead of .5
   uniform int u_clipOn; uniform sampler2D u_curves2; uniform usampler2D u_bands2; uniform ivec2 u_bandN2; uniform vec4 u_bandXf2; uniform int u_rule2;
   uniform int u_blend; uniform sampler2D u_backdrop;
   float clipCov(vec2 p, vec2 ppu) { return u_clipOn == 1 ? coverage(u_curves2, u_bands2, u_bandN2, u_bandXf2, u_rule2, p, ppu) : 1.0; }
@@ -940,8 +984,8 @@
   uniform sampler2D u_curves; uniform usampler2D u_bands; uniform ivec2 u_bandN; uniform vec4 u_bandXf; uniform vec4 u_color; uniform int u_rule;
   in vec2 v_p; out vec4 o;
   void main() {
-    vec2 upp = max(fwidth(v_p), vec2(kMinDerivative)); vec2 ppu = 1.0 / upp;
-    float cov = coverage(u_curves, u_bands, u_bandN, u_bandXf, u_rule, v_p, ppu) * clipCov(v_p, ppu);
+    vec2 p = localP(); vec2 upp = max(fwidth(p), vec2(kMinDerivative)); vec2 ppu = 1.0 / upp;
+    float cov = coverage(u_curves, u_bands, u_bandN, u_bandXf, u_rule, p, ppu) * clipCov(p, ppu);
     o = composite(u_color.rgb, u_color.a * cov);
   }`;
   const FS_TEX = `#version 300 es
@@ -949,10 +993,10 @@
   uniform sampler2D u_image; uniform ivec2 u_imgSize; uniform int u_mode; uniform mat3 u_T; uniform float u_opacity;
   in vec2 v_p; out vec4 o;
   void main() {   // a surface painted as a region: mode 0 = the same-size target (a layer, the present), mode 1 = a painting surface at its own resolution, read by its local→texel map, nearest
-    ivec2 tc = u_mode == 0 ? ivec2(gl_FragCoord.xy) : ivec2(floor((u_T * vec3(v_p, 1.0)).xy));
+    vec2 p = localP(); ivec2 tc = u_mode == 0 ? ivec2(gl_FragCoord.xy) : ivec2(floor((u_T * vec3(p, 1.0)).xy));
     if (tc.x < 0 || tc.y < 0 || tc.x >= u_imgSize.x || tc.y >= u_imgSize.y) discard;
     vec4 s = texelFetch(u_image, tc, 0) * u_opacity;
-    if (u_clipOn == 1) { vec2 ppu = 1.0 / max(fwidth(v_p), vec2(kMinDerivative)); s *= clipCov(v_p, ppu); }
+    if (u_clipOn == 1) { vec2 ppu = 1.0 / max(fwidth(p), vec2(kMinDerivative)); s *= clipCov(p, ppu); }
     vec3 cs = s.a > 0.0 ? s.rgb / s.a : vec3(0.0);
     o = composite(cs, s.a);
   }`;
@@ -1001,7 +1045,7 @@
   }
   const affine = (M, p) => ({ x: M[0] * p.x + M[2] * p.y + M[4], y: M[1] * p.x + M[3] * p.y + M[5] });
   const camM = (cam, w, h) => { const z = cam.zoom * cam.dpr; return [z, 0, 0, z, -cam.center.x * z + w / 2, -cam.center.y * z + h / 2]; };   // local → target pixels (y down); the GL flip is a uniform
-  function setXf(pr, M, w, h, flip) { gl.uniformMatrix3fv(pr.u('u_M'), false, [M[0], M[1], 0, M[2], M[3], 0, M[4], M[5], 1]); gl.uniform2f(pr.u('u_size'), w, h); gl.uniform1f(pr.u('u_flip'), flip ? 1 : 0); gl.uniform1f(pr.u('u_pointSize'), 6 * (window.devicePixelRatio || 1)); }
+  function setXf(pr, M, w, h, flip) { gl.uniformMatrix3fv(pr.u('u_M'), false, [M[0], M[1], 0, M[2], M[3], 0, M[4], M[5], 1]); const I = invAffine(M); gl.uniformMatrix3fv(pr.u('u_Minv'), false, [I[0], I[1], 0, I[2], I[3], 0, I[4], I[5], 1]); gl.uniform2f(pr.u('u_size'), w, h); gl.uniform1f(pr.u('u_flip'), flip ? 1 : 0); gl.uniform1f(pr.u('u_pointSize'), 6 * (window.devicePixelRatio || 1)); }
   function glRect(M, w, h, flip, bbox, margin) { // a local bbox → the target's GL pixel rect (bottom-up when flipped)
     const cs = [affine(M, { x: bbox.x0 - margin, y: bbox.y0 - margin }), affine(M, { x: bbox.x1 + margin, y: bbox.y0 - margin }), affine(M, { x: bbox.x1 + margin, y: bbox.y1 + margin }), affine(M, { x: bbox.x0 - margin, y: bbox.y1 + margin })];
     const xs = cs.map(c => c.x), ys = cs.map(c => flip ? h - c.y : c.y); return [Math.min(...xs) - 1, Math.min(...ys) - 1, Math.max(...xs) + 1, Math.max(...ys) + 1];
@@ -1037,33 +1081,42 @@
     gl.bufferData(gl.ARRAY_BUFFER, opts.quad, gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES, 0, 6);
   }
   const quadOf = (x0, y0, x1, y1) => new Float32Array([x0, y0, x1, y0, x1, y1, x0, y0, x1, y1, x0, y1]);
-  const invAffine = M => { const det = M[0] * M[3] - M[1] * M[2] || 1e-12; return [M[3] / det, -M[1] / det, -M[2] / det, M[0] / det, (M[2] * M[5] - M[3] * M[4]) / det, (M[1] * M[4] - M[0] * M[5]) / det]; };
+  function invAffine(M) { const det = M[0] * M[3] - M[1] * M[2] || 1e-12; return [M[3] / det, -M[1] / det, -M[2] / det, M[0] / det, (M[2] * M[5] - M[3] * M[4]) / det, (M[1] * M[4] - M[0] * M[5]) / det]; }
 
   // ---- the GPU host: the same construction the CPU twin runs, on the compositor's surfaces ----
-  function gpuHost(decl) {
+  function gpuHost(decl) { // persistent logical results (attack 3): a value painted on keeps its contents; a target advances in place only when the executor says the input is at its last use; otherwise the paint goes to another target from a pool
     const W = decl.width, Hh = decl.height, M = decl.localToTexel || [1, 0, 0, 1, 0, 0]; const clear = (decl.initial && decl.initial.clear) || [0, 0, 0, 0];
-    const alloc = () => makeSurface(W, Hh, floatOK);
-    const initial = { id: decl.id, revision: 0, width: W, height: Hh, M, gpu: alloc(), host: 'gpu' }; clearSurface(initial.gpu, clear);
-    let current = null; let samples = 0, paints = 0, sampleMs = 0, paintMs = 0, curveTexels = 0;
+    const all = [], pool = []; const alloc = () => { const t = makeSurface(W, Hh, floatOK); all.push(t); return t; }; const take = () => pool.pop() || alloc();
+    const value = (t, extra) => ({ id: decl.id, width: W, height: Hh, M, gpu: t, host: 'gpu', ...extra });
+    const initial = value(alloc(), { revision: 0, key: decl.id + ':initial', parent: null, frozen: true }); clearSurface(initial.gpu, clear); initial.gpu.newest = initial.key;
+    let samples = 0, paints = 0, sampleMs = 0, paintMs = 0, curveTexels = 0, inPlace = 0, copies = 0, released = 0;
     const toTexel = p => ({ x: M[0] * p[0] + M[2] * p[1] + M[4], y: M[1] * p[0] + M[3] * p[1] + M[5] });
+    const check = s => { if (!s || s.host !== 'gpu') throw new Error('not a surface of this host'); if (s.gpu.newest !== s.key) throw new Error('surface ' + s.key + ' no longer holds its contents (' + (s.gpu.newest ? 'superseded in place by ' + s.gpu.newest : 'its storage was given back') + '): a stale read, refused'); };   // never a wrong pixel: a read of a superseded value stops the construction
     return {
-      initial, float: floatOK, stats: () => ({ samples, paints, sampleMs, paintMs, curveTexels, bytes: initial.gpu.bytes * (current ? 2 : 1) }),
-      sample(s, point) { const t0 = performance.now(); const t = toTexel(point), i = clamp(Math.floor(t.x), 0, W - 1), j = clamp(Math.floor(t.y), 0, Hh - 1); const v = readTexel(s.gpu, i, j); samples++; sampleMs += performance.now() - t0; return v; },
-      paint(s, region, rgba, opacity, blend) { const t0 = performance.now();
-        if (!current) current = alloc(); if (s.gpu !== current) blitSurface(current, s.gpu);   // a paint on the frozen start copies it into the live target first; the start stays readable
+      initial, float: floatOK, stats: () => ({ samples, paints, sampleMs, paintMs, curveTexels, targets: all.length, bytes: all.reduce((s, t) => s + t.bytes, 0), inPlace, copies, released }),
+      sample(s, point) { check(s); const t0 = performance.now(); const t = toTexel(point), i = clamp(Math.floor(t.x), 0, W - 1), j = clamp(Math.floor(t.y), 0, Hh - 1); const v = readTexel(s.gpu, i, j); samples++; sampleMs += performance.now() - t0; return v; },
+      release(s) { if (s.host !== 'gpu' || s.frozen || s.gpu.newest !== s.key) return; s.gpu.newest = null; pool.push(s.gpu); released++; },   // after a result's last read its target goes back to the pool; the value can never be read again (check refuses it)
+      content(s) { check(s); gl.bindFramebuffer(gl.READ_FRAMEBUFFER, s.gpu.fbo); if (s.gpu.float) { const b = new Float32Array(W * Hh * 4); gl.readPixels(0, 0, W, Hh, gl.RGBA, gl.FLOAT, b); return b; } const u = new Uint8Array(W * Hh * 4); gl.readPixels(0, 0, W, Hh, gl.RGBA, gl.UNSIGNED_BYTE, u); return Float32Array.from(u, v => v / 255); },
+      resolve(saved) { // a saved result brought into this host: uploaded into its own target, frozen, so a paint on it copies and the saved content stays
+        const t = alloc(); gl.activeTexture(gl.TEXTURE7); gl.bindTexture(gl.TEXTURE_2D, t.tex);
+        if (t.float) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, W, Hh, 0, gl.RGBA, gl.FLOAT, saved.content); else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, W, Hh, 0, gl.RGBA, gl.UNSIGNED_BYTE, Uint8Array.from(saved.content, v => Math.round(clamp(v, 0, 1) * 255)));
+        const v = value(t, { revision: saved.revision, key: saved.key, parent: saved.parent, frozen: true, resumed: true }); t.newest = v.key; return v; },
+      paint(s, region, rgba, opacity, blend, ctx) { check(s); const t0 = performance.now();
+        let target; if (ctx && ctx.consume && !s.frozen) { target = s.gpu; inPlace++; } else { target = take(); blitSurface(target, s.gpu); copies++; }   // a saved result (the start, a checkpoint, a value still to be read) is never painted in place
+        const key = resultKey(decl.id, ctx); target.newest = key; const out = value(target, { revision: s.revision + 1, key, parent: s.key, frozen: false });
         const q = rgba, qa = q[3] || 0, rgb = qa > 0 ? [q[0] / qa, q[1] / qa, q[2] / qa] : [0, 0, 0];   // the definer's adapter: carried premultiplied colour → straight colour + opacity·alpha
-        const low = lowerPath(region, 0.25 / Math.abs(M[0] || 1)), packed = packRegion(low.quads, { bands: false }); if (!packed) return { ...s, gpu: current, revision: s.revision + 1 };
+        const low = lowerPath(region, 0.25 / Math.abs(M[0] || 1)), packed = packRegion(low.quads, { bands: false }); if (!packed) return out;
         const R = { packed, gpu: packGpu(packed), color: [rgb[0], rgb[1], rgb[2], opacity * qa], rule: 0, blend: blendIndex(blend), margin: 1.5 / Math.abs(M[0] || 1) };
         R.cover = buildCover(packed, { mode: 'bbox', marginLocal: R.margin, cellLocal: 24, rule: 0 }); curveTexels += packed.n * 2;
-        drawRegion(R, current, M, false, null); freeGpu(R.gpu); paints++; paintMs += performance.now() - t0;
-        return { ...s, gpu: current, revision: s.revision + 1 }; },
+        drawRegion(R, target, M, false, null); freeGpu(R.gpu); paints++; paintMs += performance.now() - t0;
+        return out; },
       texel(s, i, j) { return readTexel(s.gpu, i, j); },
-      free() { freeSurface(initial.gpu); if (current) freeSurface(current); },
+      free() { for (const t of all) freeSurface(t); },
     };
   }
 
   // ---------- camera ----------
-  const state = { toolId: null, rec: null, path: { subpaths: [] }, rev: 0, zoom: 3, center: { x: 64, y: 64 }, view: { cover: 'bbox', bands: true, skinRule: 0, outline: false }, regions: [], clip: null, layer: null, surf: null, rootClear: [0, 0, 0, 0], reads: new Set(), unread: [], prog: null, arr: null, info: null, cursor: null, drawing: null, panning: null, envCache: null, renderedKey: null, builtBucket: null, root: null, layerTarget: null };
+  const state = { toolId: null, rec: null, path: { subpaths: [] }, rev: 0, zoom: 3, center: { x: 64, y: 64 }, view: { cover: 'bbox', bands: true, skinRule: 0, outline: false }, regions: [], clip: null, groupClip: null, layer: null, surf: null, ckpts: {}, rootClear: [0, 0, 0, 0], reads: new Set(), unread: [], prog: null, arr: null, info: null, cursor: null, drawing: null, panning: null, envCache: null, renderedKey: null, builtBucket: null, root: null, layerTarget: null };
   function camera() { const dpr = window.devicePixelRatio || 1, cssW = canvas.clientWidth || 800, cssH = canvas.clientHeight || 600; return { dpr, cssW, cssH, w: Math.max(1, Math.round(cssW * dpr)), h: Math.max(1, Math.round(cssH * dpr)), zoom: state.zoom, center: state.center }; }
   function resize(cam) { if (canvas.width !== cam.w || canvas.height !== cam.h) { canvas.width = cam.w; canvas.height = cam.h; } }
   const toLocal = (sx, sy, cam) => ({ x: (sx - cam.cssW / 2) / cam.zoom + cam.center.x, y: (sy - cam.cssH / 2) / cam.zoom + cam.center.y });
@@ -1111,14 +1164,26 @@
       rec: { tool: { ...harnessTool }, source: { kind: 'pen', samples: HARNESS_Z }, paint: { fill: null, stroke: { overlap: 'accumulate', spacing: 12, tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.84, 0.36, 0.94, 1] } }, group: { opacity: 0.62, blend: 'over' }, snap: false, identity: { id: 'translucent-self-crossing-layer', revision: 1 } } },
     { id: 'mask', name: 'a stroke through a mask', note: "The draw tool's stroke clipped by the trefoil, a designer's path used as a mask (session 5's move; Figma's 'use as mask'). The clip is a second region in the same program: its coverage multiplies the stroke's, per pixel, from its own curves and bands. No extra target, no mask texture, camera-free. The cursor shows both coverages.",
       rec: { tool: { ...drawTool }, source: { kind: 'pen', samples: limaconSamples() }, paint: { fill: null, stroke: { tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [0.16, 0.42, 0.85, 0.85] } }, clip: trefoilClip(), snap: false, identity: { id: 'stroke-masked', revision: 1 } } },
+    { id: 'groupmask', name: 'the crossing masked as one stroke (definer)', note: "Attack 3's second record, verbatim: the 24 footprints opaque into a layer at 62 %, and a mask on the group whose edge runs through the crossing's texel centre. The mask applies when the completed group is painted into its parent: at (64.5, 64.5) the alpha is .62 × .5 = .31. Move the same clip to the record's root and each dab is clipped instead: .62 × (.5 + .5 × .5) = .465. Same coverage code, a different scope; the cursor shows both coverages.",
+      rec: { tool: { name: 'crossing masked as one stroke', size: 16, streamline: 0, fit: 'polyline', width: 'size*p' }, source: { kind: 'pen', samples: [[26, 28, 0.65, 0], [102, 100, 0.9, 90], [28, 100, 1, 180], [102, 28, 0.7, 270]] },
+        paint: { fill: null, stroke: { overlap: 'accumulate', spacing: 12, tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', color: [1, 0, 0, 1] } },
+        group: { opacity: 0.62, isolate: true, clip: { source: { kind: 'rect', x: 0, y: 0, w: 64.5, h: 128, r: 0 }, rule: 'nonzero' } }, snap: false, identity: { id: 'group-mask', revision: 1 } } },
     { id: 'multiply', name: 'dabs that multiply, on paper', note: "The 24 dabs with blend multiply, on an opaque paper surface (the record declares the surface's starting colour). Multiply needs the backdrop under each dab, which the filler alone never has: the compositor copies the target under the region before the draw, then the program reads it. Over transparent nothing, multiply is over. The cursor shows RGB, not only alpha.",
       rec: { tool: { ...harnessTool }, source: { kind: 'pen', samples: HARNESS_Z }, paint: { fill: null, stroke: { overlap: 'accumulate', spacing: 12, tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', blend: 'multiply', color: [0.84, 0.36, 0.94, 0.62] } }, surface: { initial: { clear: PAPER } }, snap: false, identity: { id: 'dabs-multiply', revision: 1 } } },
-    { id: 'pickup', name: 'pickup brush (definer)', note: "Attack 2's record, verbatim: a brush that reads the paint under each dab, mixes half of it into what it carries, and deposits. The record's program runs in the executor on two hosts at once: the GPU compositor (a 128 × 128 painting surface, a texel read before every dab) and the CPU twin (the definer's reference). Zoom in: the surface is texels, and it is not re-run when the camera moves. Edit pickup, or read surface.initial instead of state.surface.",
+    { id: 'pickup', name: 'pickup brush (definer)', note: "Attack 2's record, verbatim: a brush that reads the paint under each dab, mixes half of it into what it carries, and deposits. The record's program runs in the executor on two hosts at once: the GPU compositor (a 128 × 128 painting surface, a texel read before every dab) and the CPU twin (the definer's reference). Zoom in: the surface is texels, and it is not re-run when the camera moves. Edit pickup, or read surface.initial instead of state.surface. Set a checkpoint after dab 12: the rest resumes from the saved surface and carry on both hosts and is compared with the straight run (attack 3).",
       rec: { tool: { name: 'pickup brush', size: 16, streamline: 0, fit: 'polyline', width: 'size * p', pickup: 0.5 }, source: { kind: 'pen', samples: [[26, 28, 0.65, 0], [102, 100, 0.9, 90], [28, 100, 1, 180], [102, 28, 0.7, 270]] },
         paint: { fill: null, stroke: { overlap: 'accumulate', spacing: 12, tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', align: 'center', color: [1, 0, 0, 0.62] } },
         surface: { id: 'paint', revision: 0, width: 128, height: 128, localToTexel: [1, 0, 0, 1, 0, 0], color: 'linear-premultiplied-rgba', initial: { clear: [0, 0, 1, 1] } },
         program: { each: 'dabs', state: { carry: [1, 0, 0, 1], surface: 'surface.initial' }, steps: [{ out: 'sample', op: 'sample', surface: 'state.surface', point: 'dab.xy', filter: 'nearest' }, { out: 'carry', op: 'mix', a: 'state.carry', b: 'sample', amount: 'tool.pickup' }, { out: 'surface', op: 'paint', surface: 'state.surface', region: 'dab.path', rgba: 'carry', opacity: 'paint.stroke.color.3', blend: 'source-over' }], next: { carry: 'carry', surface: 'surface' }, return: ['state.surface', 'path', 'dabs'] },
         snap: false, identity: { id: 'surface-read', revision: 1 } } },
+    { id: 'proofs', name: 'two paint proofs, one chosen (definer)', note: "Attack 3's first record, verbatim: one dab painted red and, separately, blue on the same saved start; red is sampled before and after blue is made, blue is sampled too, and red is the surface presented. Both hosts now answer alike: red stays red after blue exists, because a result is a value that keeps its contents, and the two results carry different keys though both are one paint deep. Change next.surface to \"blue\" to present the other proof.",
+      rec: { tool: { name: 'two paint proofs', size: 8, streamline: 0, fit: 'polyline', width: 'size*p' }, source: { kind: 'pen', samples: [[8, 8, 1, 0]] },
+        paint: { fill: null, stroke: { overlap: 'accumulate', spacing: 12, tip: 'nib', width: 'knot', unit: 'local', cap: 'round', join: 'round', color: [1, 0, 0, 0.5] } },
+        surface: { id: 'proof', revision: 0, width: 16, height: 16, localToTexel: [1, 0, 0, 1, 0, 0], color: 'linear-premultiplied-rgba', initial: { clear: [0, 0, 0, 0] } },
+        program: { each: 'dabs', state: { base: 'surface.initial' },
+          steps: [{ out: 'red', op: 'paint', surface: 'state.base', region: 'dab.path', rgba: [1, 0, 0, 1], opacity: 0.5, blend: 'source-over' }, { out: 'before', op: 'sample', surface: 'red', point: 'dab.xy', filter: 'nearest' }, { out: 'blue', op: 'paint', surface: 'state.base', region: 'dab.path', rgba: [0, 0, 1, 1], opacity: 0.5, blend: 'source-over' }, { out: 'after', op: 'sample', surface: 'red', point: 'dab.xy', filter: 'nearest' }, { out: 'other', op: 'sample', surface: 'blue', point: 'dab.xy', filter: 'nearest' }],
+          next: { surface: 'red', red: 'red', blue: 'blue', before: 'before', after: 'after', other: 'other' }, return: ['state.surface', 'state.red', 'state.blue', 'state.before', 'state.after', 'state.other'] },
+        snap: false, identity: { id: 'branch-proof', revision: 1 } } },
     { id: 'network', name: 'network faces (definer)', note: "Attack 2's second record, verbatim: four vertices, four perimeter edges, two diagonals, and a seed point. No face is stored. The program asks the geometry to arrange the edges (intersect, split with provenance, order around vertices, walk the cycles), locates the seed's face, and returns its boundary as the path. Move C in the record to [100, 100]: the crossing and every face move; the seed still picks the same face.",
       rec: networkRec(JSON.parse(JSON.stringify(NETWORK_EDGES))) },
     { id: 'networkC', name: 'network, one curved edge (definer)', note: "The same network with BD replaced by a cubic that crosses AC three times, at .25, .5 and .75. Six bounded faces, areas 3800, 900, 3800, 900, 100, 100, totalling the rectangle's 9600. The selected boundary alternates lines and split-cubic pieces. One nearest intersection would have missed two faces.",
@@ -1142,10 +1207,12 @@
     for (const Rg of state.regions) freeGpu(Rg.gpu); if (state.clip) freeGpu(state.clip.gpu);
     const regions = [], info = { reason, pxLocal, tolPack, snapping, bucket: bucket(cam), identity: R.identity ? { id: R.identity.id, revision: R.identity.revision } : null, toolName: R.tool ? R.tool.name : null };
     scratch.copies = 0; scratch.px = 0;
-    // the compositor's declarations: a clip (a region), a group (a layer when it needs isolation), a surface (painting, or the root's starting colour)
-    state.clip = null;
-    if (R.clip && R.clip.source) { const cp = buildPath({ source: R.clip.source, tool: {} }); if (cp.subpaths.length) { const low = lowerPath(cp, tolPack), packed = packRegion(low.quads, { bands: state.view.bands }); if (packed) state.clip = { packed, low, rule: R.clip.rule === 'evenodd' ? 1 : 0, gpu: packGpu(packed), kind: cp.meta.kind }; } }
-    const g = R.group; state.layer = g && (typeof g.opacity === 'number' && g.opacity < 1 || blendIndex(g.blend) !== 0 || g.isolate) ? { opacity: typeof g.opacity === 'number' ? g.opacity : 1, blend: blendIndex(g.blend), isolate: !!g.isolate } : null;
+    // the compositor's declarations: a clip (a region, on each child), a group (a layer when it needs isolation; its own clip is a mask on the completed group), a surface (painting, or the root's starting colour)
+    const buildClip = c => { if (!c || !c.source) return null; const cp = buildPath({ source: c.source, tool: {} }); if (!cp.subpaths.length) return null; const low = lowerPath(cp, tolPack), packed = packRegion(low.quads, { bands: state.view.bands }); return packed ? { packed, low, rule: c.rule === 'evenodd' ? 1 : 0, gpu: packGpu(packed), kind: cp.meta.kind } : null; };
+    if (state.groupClip) freeGpu(state.groupClip.gpu);
+    state.clip = buildClip(R.clip);
+    const g = R.group; state.groupClip = g ? buildClip(g.clip) : null;
+    state.layer = g && (typeof g.opacity === 'number' && g.opacity < 1 || blendIndex(g.blend) !== 0 || g.isolate || state.groupClip) ? { opacity: typeof g.opacity === 'number' ? g.opacity : 1, blend: blendIndex(g.blend), isolate: !!g.isolate, clip: state.groupClip } : null;   // a mask on the group needs the group completed first: a layer
     const sd = R.surface; const painting = !!(sd && typeof sd.width === 'number' && typeof sd.height === 'number');
     state.rootClear = !painting && sd && sd.initial && Array.isArray(sd.initial.clear) ? sd.initial.clear.slice() : [0, 0, 0, 0];
     const programEach = R.program && R.program.each;
@@ -1186,7 +1253,25 @@
         const hostG = gpuHost(decl), hostC = cpuHost(decl);
         const scopeOf = host => ({ tool: R.tool, paint: R.paint, source: R.source, identity: R.identity, path: state.path, dabs, surface: { id: decl.id, revision: decl.revision, width: decl.width, height: decl.height, initial: host.initial } });
         const runG = runProgram(R.program, scopeOf(hostG), hostG), runC = runProgram(R.program, scopeOf(hostC), hostC);
-        state.surf = { rev: state.rev, decl, gpu: hostG, cpu: hostC, runG, runC, notes, presented: 0 };
+        state.surf = { rev: state.rev, decl, gpu: hostG, cpu: hostC, runG, runC, g0: hostG.stats(), c0: hostC.stats(), notes, presented: 0, ckpt: null };   // g0, c0: the straight run's own counts, before any checkpoint work on the same hosts
+        // a checkpoint (attack 3): the construction's state after `checkpoint.at` items, saved as content plus carried state plus what it depends on; the rest resumes from it on both hosts and is compared with the straight run
+        const ck = R.checkpoint && typeof R.checkpoint.at === 'number' ? Math.floor(R.checkpoint.at) : null;
+        if (ck != null && !(ck > 0 && ck < dabs.length && runC.ok)) notes.push('checkpoint.at ' + ck + ' is not inside the run (' + dabs.length + ' dabs' + (runC.ok ? '' : ', and the construction did not run to the end') + '), so nothing was saved');
+        if (ck != null && ck > 0 && ck < dabs.length && runC.ok) {
+          const key = checkpointKey(R.program, runC.reads, decl, dabs, runC.itemFields, ck), prior = state.ckpts[decl.id]; let saved, reused = false, why = checkpointWhy(prior, key);
+          if (why === null) { saved = prior; reused = true; }
+          else {
+            const takeOn = host => { const pre = runProgram(R.program, scopeOf(host), host, { until: ck }); const st = {}; for (const k in pre.state) { const v = pre.state[k]; st[k] = isSurface(v) ? { saved: true, content: host.content(v), revision: v.revision, key: v.key, parent: v.parent, width: v.width, height: v.height, localToTexel: v.M, color: decl.color } : v; } return { at: pre.at, steps: pre.steps, state: st }; };   // the saved object: content plus map and colour, the carried state, the next item
+            saved = { id: decl.id, ...key, takenAtRevision: state.rev, cpu: takeOn(hostC), gpu: takeOn(hostG) }; state.ckpts[decl.id] = saved;   // taken on each host from its own prefix
+          }
+          const bring = (host, st) => { const s = {}; for (const k in st) { const v = st[k]; s[k] = v && v.saved ? host.resolve(v) : v; } return s; };
+          const resume = (host, from) => runProgram(R.program, scopeOf(host), host, { from: { state: bring(host, from.state), at: from.at } });
+          const resC = resume(hostC, saved.cpu), resG = resume(hostG, saved.gpu), resX = resume(hostG, saved.cpu);   // each host from its own checkpoint, and the GPU from the CPU twin's
+          const diff = (host, a, b) => { if (!isSurface(a) || !isSurface(b)) return null; const A = host.content(a), B = host.content(b); let n = 0, mx = 0; for (let i = 0; i < A.length; i++) { const d = Math.abs(A[i] - B[i]); if (d > 0) { n++; mx = Math.max(mx, d); } } return { n, of: A.length, max: mx }; };
+          const finalOf = run => { for (const k of R.program.return || []) if (isSurface(run.results[k])) return run.results[k]; return null; };
+          const st = saved.cpu.state, carried = Object.keys(st).filter(k => !(st[k] && st[k].saved));
+          state.surf.ckpt = { at: saved.at, of: dabs.length, reused, why: reused ? null : (prior ? why : null), takenAtRevision: saved.takenAtRevision, prefixSteps: saved.cpu.steps, resumeSteps: resC.steps, carried: carried.map(k => k + ' = ' + (Array.isArray(st[k]) ? rgbaStr(st[k]) : JSON.stringify(st[k]))), surfaces: Object.keys(st).filter(k => st[k] && st[k].saved).map(k => st[k]), reads: runC.reads, itemFields: runC.itemFields, bytes: Object.values(st).filter(v => v && v.saved).reduce((s, v) => s + v.content.byteLength, 0), diffC: diff(hostC, finalOf(runC), finalOf(resC)), diffG: diff(hostG, finalOf(runG), finalOf(resG)), diffX: diff(hostG, finalOf(runG), finalOf(resX)), okC: resC.ok, okG: resG.ok };
+        }
       }
       state.surf.presented++;
     } else if (state.surf) { state.surf.gpu.free(); state.surf = null; }
@@ -1200,17 +1285,17 @@
     ensureRoot(cam); const root = state.root, M = camM(cam, cam.w, cam.h); scratch.copies = 0; scratch.px = 0;
     clearSurface(root, state.rootClear);
     const full = quadOf(0, 0, cam.w, cam.h), ident = [1, 0, 0, 1, 0, 0];
-    if (state.surf) { // the painting surface, presented as a region of the root under the camera, by its own map, nearest; the group's opacity and blend apply to it
-      const S = state.surf, final = S.runG.results['state.surface'] || S.gpu.initial, T = S.decl.localToTexel, inv = invAffine(T);
-      const c = [affine(inv, { x: 0, y: 0 }), affine(inv, { x: S.decl.width, y: 0 }), affine(inv, { x: S.decl.width, y: S.decl.height }), affine(inv, { x: 0, y: S.decl.height })];
-      const x0 = Math.min(...c.map(p => p.x)), x1 = Math.max(...c.map(p => p.x)), y0 = Math.min(...c.map(p => p.y)), y1 = Math.max(...c.map(p => p.y));
-      drawSurfaceAsRegion(final.gpu, root, { w: cam.w, h: cam.h, M, flip: true, mode: 1, T, quad: quadOf(x0, y0, x1, y1), opacity: state.layer ? state.layer.opacity : 1, blend: state.layer ? state.layer.blend : 0, clip: state.clip, rect: glRect(M, cam.w, cam.h, true, { x0, y0, x1, y1 }, 0) });
-    }
-    if (state.layer && state.regions.length) { // an isolated group: regions into a layer, the layer into the root as one region with the group's opacity and blend
-      const L = state.layerTarget; clearSurface(L, [0, 0, 0, 0]);
-      for (const Rg of state.regions) drawRegion(Rg, L, M, true, state.clip);
-      drawSurfaceAsRegion(L, root, { w: cam.w, h: cam.h, M: ident, flip: false, mode: 0, quad: full, opacity: state.layer.opacity, blend: state.layer.blend, rect: [0, 0, cam.w, cam.h] });
-    } else for (const Rg of state.regions) drawRegion(Rg, root, M, true, state.clip);
+    const children = target => { // the group's children, each under the record's own clip: the painting surface presented by its map (nearest), then the regions
+      if (state.surf) { const S = state.surf, final = S.runG.results['state.surface'] || S.gpu.initial, T = S.decl.localToTexel, inv = invAffine(T);
+        const c = [affine(inv, { x: 0, y: 0 }), affine(inv, { x: S.decl.width, y: 0 }), affine(inv, { x: S.decl.width, y: S.decl.height }), affine(inv, { x: 0, y: S.decl.height })];
+        const x0 = Math.min(...c.map(p => p.x)), x1 = Math.max(...c.map(p => p.x)), y0 = Math.min(...c.map(p => p.y)), y1 = Math.max(...c.map(p => p.y));
+        drawSurfaceAsRegion(final.gpu, target, { w: cam.w, h: cam.h, M, flip: true, mode: 1, T, quad: quadOf(x0, y0, x1, y1), opacity: 1, blend: 0, clip: state.clip, rect: glRect(M, cam.w, cam.h, true, { x0, y0, x1, y1 }, 0) }); }
+      for (const Rg of state.regions) drawRegion(Rg, target, M, true, state.clip); };
+    if (state.layer && (state.regions.length || state.surf)) { // an isolated group: the children into a layer, the layer into the root as one region with the group's opacity, blend and mask (attack 3: the mask applies to the completed group, so its quad is drawn in local units under the camera and the mask's curves are read there)
+      const L = state.layerTarget; clearSurface(L, [0, 0, 0, 0]); children(L);
+      const inv = invAffine(M), a = affine(inv, { x: 0, y: 0 }), b = affine(inv, { x: cam.w, y: cam.h });
+      drawSurfaceAsRegion(L, root, { w: cam.w, h: cam.h, M, flip: true, mode: 0, quad: quadOf(Math.min(a.x, b.x), Math.min(a.y, b.y), Math.max(a.x, b.x), Math.max(a.y, b.y)), opacity: state.layer.opacity, blend: state.layer.blend, clip: state.layer.clip, rect: [0, 0, cam.w, cam.h] });
+    } else children(root);
     // present: the root surface to the canvas, one overwrite
     drawSurfaceAsRegion(root, null, { w: cam.w, h: cam.h, M: ident, flip: false, mode: 0, quad: full, opacity: 1, blend: 0, blendOff: true });
     if (state.view.outline) {
@@ -1221,7 +1306,7 @@
           for (let j = 1; j <= 6; j++) { const t = j / 6, u = 1 - t, x = u * u * c[b] + 2 * u * t * c[b + 2] + t * t * c[b + 4], y = u * u * c[b + 1] + 2 * u * t * c[b + 3] + t * t * c[b + 5]; pts[o++] = px; pts[o++] = py; pts[o++] = x; pts[o++] = y; px = x; py = y; } }
         gl.uniform4fv(progFlat.u('u_color'), color); gl.bufferData(gl.ARRAY_BUFFER, pts, gl.DYNAMIC_DRAW); gl.drawArrays(gl.LINES, 0, pts.length / 2); };
       for (const Rg of state.regions) drawPacked(Rg.packed, tokenColor(Rg.name === 'fill' ? '--data' : '--code', 0.95));
-      if (state.clip) drawPacked(state.clip.packed, tokenColor('--bad', 0.9));
+      if (state.clip) drawPacked(state.clip.packed, tokenColor('--bad', 0.9)); if (state.groupClip) drawPacked(state.groupClip.packed, tokenColor('--bad', 0.9));
       if (state.surf && state.info.stroke && state.info.stroke.dabs) for (const d of state.info.stroke.dabs.dabs) { const low = lowerPath(d.path, 0.25 / (cam.zoom * cam.dpr)), packed = packRegion(low.quads, { bands: false }); if (packed) drawPacked(packed, tokenColor('--code', 0.7)); }
       const knots = []; for (const sp of state.path.subpaths) { knots.push(sp.start.x, sp.start.y); for (const s of sp.segs) knots.push(s.p.x, s.p.y); }
       if (knots.length) { gl.uniform4fv(progFlat.u('u_color'), tokenColor('--bad', 1)); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(knots), gl.DYNAMIC_DRAW); gl.drawArrays(gl.POINTS, 0, knots.length / 2); }
@@ -1273,7 +1358,8 @@
     stroke: (r, v) => { strokeOf(r).on = v === 'on'; }, overlap: (r, v) => { strokeOf(r).overlap = v; },
     clip: (r, v) => { if (v === 'none') delete r.clip; else if (v === 'trefoil') r.clip = trefoilClip(); else r.clip = { source: { kind: 'rect', x: 30, y: 30, w: 70, h: 70, r: 14 }, rule: 'nonzero' }; },
     blend: (r, v) => { const p = paintedOf(r); if (v === 'over') delete p.blend; else p.blend = v; },
-    group: (r, v) => { if (v === 'none') delete r.group; else r.group = { opacity: 0.62, blend: 'over' }; },
+    group: (r, v) => { if (v === 'none') delete r.group; else if (v === 'mask') r.group = { opacity: 0.62, isolate: true, clip: { source: { kind: 'rect', x: 0, y: 0, w: 64.5, h: 128, r: 0 }, rule: 'nonzero' } }; else r.group = { opacity: 0.62, blend: 'over' }; },
+    checkpoint: (r, v) => { if (v === 'none') delete r.checkpoint; else r.checkpoint = { at: parseInt(v, 10) }; },
     paper: (r, v) => { if (v === 'on') { r.surface = r.surface || {}; r.surface.initial = { clear: PAPER.slice() }; } else if (r.surface) { if (typeof r.surface.width === 'number') r.surface.initial = { clear: [0, 0, 0, 0] }; else delete r.surface; } },
   };
   const GET = {
@@ -1282,7 +1368,8 @@
     fill: r => (r.paint.fill && r.paint.fill.rule) || 'none', stroke: r => (r.paint.stroke && r.paint.stroke.on !== false ? 'on' : 'off'), overlap: r => normStroke(r.paint.stroke || {}).overlap,
     clip: r => (!r.clip || !r.clip.source ? 'none' : r.clip.source.kind === 'rect' ? 'rect' : 'trefoil'),
     blend: r => { const p = r.paint && (r.paint.stroke && r.paint.stroke.on !== false ? r.paint.stroke : r.paint.fill); return p && BLENDS.includes(p.blend) ? p.blend : 'over'; },
-    group: r => (r.group && (r.group.opacity < 1 || blendIndex(r.group.blend) || r.group.isolate) ? 'layer' : 'none'),
+    group: r => (r.group && r.group.clip && r.group.clip.source ? 'mask' : r.group && (r.group.opacity < 1 || blendIndex(r.group.blend) || r.group.isolate) ? 'layer' : 'none'),
+    checkpoint: r => (r.checkpoint && typeof r.checkpoint.at === 'number' ? String(r.checkpoint.at) : 'none'),
     paper: r => (r.surface && r.surface.initial && Array.isArray(r.surface.initial.clear) && r.surface.initial.clear[3] > 0 ? 'on' : 'off'),
   };
   const VIEWSET = { cover: v => { state.view.cover = v; }, bands: v => { state.view.bands = v === 'on'; }, skinRule: v => { state.view.skinRule = v === 'evenodd' ? 1 : 0; } };
@@ -1297,6 +1384,7 @@
     document.querySelectorAll('.seg[data-set="align"] button').forEach(b => { b.disabled = !allClosed || !hasStroke; });
     document.querySelectorAll('.seg[data-set="cap"] button').forEach(b => { b.disabled = !(anyOpen || dashed) || !hasStroke; });
     ['tip', 'join', 'unit', 'dash', 'overlap'].forEach(k => document.querySelectorAll(`.seg[data-set="${k}"] button`).forEach(b => { b.disabled = !hasStroke; }));
+    document.querySelectorAll('.seg[data-set="checkpoint"] button').forEach(b => { b.disabled = !(state.rec.program && state.rec.program.each); });
   }
   const rgbaStr = c => '(' + c.map(v => fmt(v, 3)).join(', ') + ')';
   function programReport(res, host) {
@@ -1317,7 +1405,7 @@
     const ids = sps.length && sps[0].knots ? ` · ids ${sps[0].knots[0].id} … ${sps[0].knots[Math.max(0, sps[0].knots.length - (sps[0].closed ? 2 : 1))].id}` : '';
     const pf = rec.paint && rec.paint.fill && rec.paint.fill.rule !== 'none' ? `{ rule ${rec.paint.fill.rule}${rec.paint.fill.blend && rec.paint.fill.blend !== 'over' ? ' · blend ' + rec.paint.fill.blend : ''} }` : '—';
     const ps = rec.paint && rec.paint.stroke && rec.paint.stroke.on !== false ? (() => { const s = normStroke(rec.paint.stroke); return `{ ${s.overlap === 'accumulate' ? 'overlap accumulate, dabs every ' + s.spacing + ' · ' : ''}tip ${s.tip} · width ${s.widthExpr ? 'f(p) = ' + s.widthExpr : typeof s.width === 'number' ? s.width : 'per knot'} ${s.unit === 'device' ? 'device px' : 'local'} · cap ${s.cap} · join ${s.join}${sps.every(x => x.closed) ? ' · align ' + s.align : ''}${s.dash ? ' · dash ' + s.dash.join('/') : ''}${s.blend ? ' · blend ' + BLENDS[s.blend] : ''} }`; })() : '—';
-    const comp = [rec.clip && rec.clip.source ? `clip { a ${rec.clip.source.kind} path, ${rec.clip.rule || 'nonzero'} }` : null, state.layer ? `group { opacity ${state.layer.opacity}${state.layer.blend ? ', blend ' + BLENDS[state.layer.blend] : ''}${state.layer.isolate ? ', isolate' : ''} }` : null, rec.surface && typeof rec.surface.width === 'number' ? `surface { ${rec.surface.width} × ${rec.surface.height} texels, revision ${state.surf ? (state.surf.runG.results['state.surface'] || {}).revision : rec.surface.revision} }` : (state.rootClear[3] > 0 ? 'surface { the root, starting at paper }' : null)].filter(Boolean).join(' · ');
+    const comp = [rec.clip && rec.clip.source ? `clip { a ${rec.clip.source.kind} path, ${rec.clip.rule || 'nonzero'} }` : null, state.layer ? `group { opacity ${state.layer.opacity}${state.layer.blend ? ', blend ' + BLENDS[state.layer.blend] : ''}${state.layer.isolate ? ', isolate' : ''}${state.layer.clip ? ', mask: a ' + state.layer.clip.kind + ' path on the completed group' : ''} }` : null, state.surf && state.surf.ckpt ? `checkpoint { after ${state.surf.ckpt.at} dabs }` : null, rec.surface && typeof rec.surface.width === 'number' ? `surface { ${rec.surface.width} × ${rec.surface.height} texels, revision ${state.surf ? (state.surf.runG.results['state.surface'] || {}).revision : rec.surface.revision} }` : (state.rootClear[3] > 0 ? 'surface { the root, starting at paper }' : null)].filter(Boolean).join(' · ');
     $('value').textContent = `path      ${sps.length} subpath${sps.length === 1 ? '' : 's'} · ${openness} · ${st.C} cubic, ${st.Q} quad, ${st.L} line · ${st.knots} knots${widths}${ids}${m.program ? ' · returned by the record\'s construction' : ''}\npaint     fill ${pf}\n          stroke ${ps}\nidentity  ${info.identity ? info.identity.id + ' · rev ' + info.identity.revision : '—'}${comp ? '\nbeside    ' + comp : ''}\nτ         not in the value; the packer takes it from the camera (${fmt(info.tolPack, 3)} local this frame)`;
     // source → path (and the executor, when the record carries a construction)
     let src;
@@ -1359,11 +1447,15 @@
     lines.push(`<b>root surface</b>: ${cam.w} × ${cam.h} device px, ${fmt(rootBytes / 1048576, 1)} MB, cleared to ${state.rootClear[3] > 0 ? 'paper ' + rgbaStr(state.rootClear) : 'transparent'}, presented to the screen by one overwrite`);
     if (state.clip) lines.push(`<b>clip</b>: every region's coverage × the clip's coverage, per pixel, in the same draw (${state.clip.packed.n} clip curves; no mask texture, no extra target; camera-free like any region). A group mask on a soft edge is not the same as clipping each child (fix list).`);
     const blended = state.regions.filter(R => R.blend); if (blended.length) lines.push(`<b>blend ${BLENDS[blended[0].blend]}</b> on ${blended.length} region${blended.length > 1 ? 's' : ''}: before each draw the compositor copied the target under the region (${state.lastCopies || 0} copies, ${fmtInt(state.lastCopyPx || 0)} device px this frame) and the program read the backdrop from the copy. Over transparent nothing, every mode is over.`);
-    if (state.layer) lines.push(`<b>layer</b>: the group needs isolation (opacity ${state.layer.opacity}${state.layer.blend ? ', blend ' + BLENDS[state.layer.blend] : ''}), so its regions were painted into a second surface of ${cam.w} × ${cam.h} (${fmt(rootBytes / 1048576, 1)} MB, transient, per frame) and the layer painted into the root as one region at that opacity. Without a translucency or a blend on the group, its regions paint straight into the root.`);
-    if (state.surf) { const S = state.surf, g = S.gpu.stats(), c = S.cpu.stats(), fin = S.runG.results['state.surface'];
+    if (state.layer) lines.push(`<b>layer</b>: the group needs isolation (opacity ${state.layer.opacity}${state.layer.blend ? ', blend ' + BLENDS[state.layer.blend] : ''}${state.layer.clip ? ', a mask' : ''}), so its children were painted into a second surface of ${cam.w} × ${cam.h} (${fmt(rootBytes / 1048576, 1)} MB, transient, per frame) and the layer painted into the root as one region at that opacity${state.layer.clip ? `. <b>The group's mask</b> (${state.layer.clip.packed.n} curves, a ${state.layer.clip.kind} path) multiplies that one draw's coverage, read in local units under the camera; the children kept the record's own clip. On a soft edge over overlapping children this is not the same as clipping each child (attack 3: .31 against .465 at the crossing under a half-covered edge)` : ''}. Without a translucency, a blend or a mask on the group, its children paint straight into the root.`);
+    if (state.surf) { const S = state.surf, g = S.g0, gAll = S.gpu.stats(), c = S.c0, fin = S.runG.results['state.surface'];
       const trace = (run, k) => { const sm = run.log.filter(l => l.op === 'sample')[k], mx = run.log.filter(l => l.op === 'mix')[k]; return sm && mx && Array.isArray(sm.value) && Array.isArray(mx.value) ? `sampled ${rgbaStr(sm.value)} → carries ${rgbaStr(mx.value)}` : '—'; };
-      const kTrace = Math.min(19, g.paints - 1); if (kTrace >= 0) lines.push(`<b>dab ${kTrace}</b> (attack 2's table): GPU ${trace(S.runG, kTrace)} · CPU twin ${trace(S.runC, kTrace)}`);
-      lines.push(`<b>painting surface</b> <code>${esc(S.decl.id)}</code>: ${S.decl.width} × ${S.decl.height} texels, ${S.gpu.float ? 'RGBA32F' : 'RGBA8 (no float targets here)'}, ${fmt(g.bytes / 1024, 0)} KB, revision ${fin ? fin.revision : 0} after ${g.paints} paints · <b>${g.samples} texel reads</b> before the dabs, ${fmt(g.sampleMs, 1)} ms of GPU round-trips (the ordered read-before-write: one sync per dab on this route) · paints ${fmt(g.paintMs, 1)} ms · CPU twin: ${c.paints} paints, ${c.samples} reads, ${fmt(S.runC.ms, 1)} ms · presented ${S.presented} time${S.presented === 1 ? '' : 's'} since, never re-run on a camera move`); }
+      const kTrace = Math.min(19, g.paints - 1); if (kTrace >= 0 && S.runG.calls.mix) lines.push(`<b>dab ${kTrace}</b> (attack 2's table): GPU ${trace(S.runG, kTrace)} · CPU twin ${trace(S.runC, kTrace)}`);
+      lines.push(`<b>painting surface</b> <code>${esc(S.decl.id)}</code>: ${S.decl.width} × ${S.decl.height} texels, ${S.gpu.float ? 'RGBA32F' : 'RGBA8 (no float targets here)'}, ${fmt(g.bytes / 1024, 0)} KB in ${g.targets} target${g.targets === 1 ? '' : 's'}, revision ${fin ? fin.revision : 0} after ${g.paints} paints · <b>${g.samples} texel reads</b> before the dabs, ${fmt(g.sampleMs, 1)} ms of GPU round-trips (the ordered read-before-write: one sync per dab on this route) · paints ${fmt(g.paintMs, 1)} ms · CPU twin: ${c.paints} paints, ${c.samples} reads, ${fmt(S.runC.ms, 1)} ms · presented ${S.presented} time${S.presented === 1 ? '' : 's'} since, never re-run on a camera move`);
+      const res = (S.runG.results && Object.keys(S.runG.results) || []).filter(k => k !== 'path' && k !== 'dabs').map(k => { const vg = S.runG.results[k], vc = S.runC.results[k]; if (isSurface(vg)) return `<code>${esc(k)}</code> = <b>${esc(vg.key)}</b>${vg.parent ? ' ← ' + esc(vg.parent) : ''}, depth ${vg.revision}`; if (Array.isArray(vg) && vg.length === 4) return `<code>${esc(k)}</code> GPU ${rgbaStr(vg)} · CPU ${rgbaStr(vc)}`; return null; }).filter(Boolean);
+      if (res.length) lines.push(`<b>returned</b>: ${res.join(' · ')}<div class="small">A result's key is the step that made it and its parent is the surface it was painted on; the revision is depth in a chain and does not tell two branches apart (attack 3). Every returned surface keeps its own contents: GPU targets ${g.targets}, ${g.copies} cop${g.copies === 1 ? 'y' : 'ies'} of a saved result (the start, a checkpoint, or a value still to be read), ${g.inPlace} paint${g.inPlace === 1 ? '' : 's'} in place on a value at its last use (the executor's compile pass says where that is), ${g.released} target${g.released === 1 ? '' : 's'} given back after a last read${gAll.targets !== g.targets ? `; with the checkpoint's runs on the same host: ${gAll.targets} targets, ${fmt(gAll.bytes / 1024, 0)} KB` : ''}. The CPU twin copies on every paint. A read of a superseded value is refused, never served.</div>`);
+      if (S.ckpt) { const K = S.ckpt; const d = (x, host) => x ? (x.n === 0 ? `<span class="agree">0 of ${fmtInt(x.of)} components differ</span>` : `<span class="disagree">${fmtInt(x.n)} of ${fmtInt(x.of)} components differ, at most ${x.max.toExponential(2)}</span>`) + ' on the ' + host : 'no surface returned';
+        lines.push(`<b>checkpoint after ${K.at} dabs</b> (<code>checkpoint.at</code>): ${K.reused ? `reused from revision ${K.takenAtRevision}, its prefix unchanged` : `taken now on each host from its own prefix, ${K.prefixSteps} steps${K.why ? ` (the earlier one was not reusable: ${esc(K.why)})` : ''}`} · saved: ${K.surfaces.map(s => `surface <b>${esc(s.key)}</b> ${s.width} × ${s.height} RGBA32F content with its map and colour`).join(', ')}${K.carried.length ? ', carried ' + K.carried.map(esc).join(', ') : ''}, next dab ${K.at} (${fmt(K.bytes / 1024, 0)} KB) · depends on: the program, ${Object.keys(K.reads).map(k => '<code>' + esc(k) + '</code> = ' + esc(JSON.stringify(K.reads[k]))).join(', ') || 'no record binding'}, the surface declaration, the ${K.at} dabs' ${K.itemFields.map(f => '<code>' + esc(f) + '</code>').join(', ')}, and the capabilities' behaviour · <b>resumed</b> over dabs ${K.at}–${K.of - 1}, ${K.resumeSteps} steps, each host from its own checkpoint: ${d(K.diffC, 'CPU twin')} · ${d(K.diffG, 'GPU')} against the straight run · the GPU resumed from the CPU twin's checkpoint: ${d(K.diffX, 'GPU')} (the two hosts' own pixel differences, carried: what determinism across clients would have to settle)<div class="small">A checkpoint is a construction continuation, not a pixel image: the surface alone would lose this brush's carried pigment. An edit to a dab before it invalidates it (its prefix differs); an edit after it does not. Edit the last pen sample, then the first, and read this line.</div>`); } }
     if (!state.clip && !blended.length && !state.layer && !state.surf) lines.push(`<span class="k">nothing declared beside the regions: each is painted straight into the root with over. Try a clip, a blend, a group, or paper.</span>`);
     $('d-compositor').innerHTML = lines.map(l => `<div>${l}</div>`).join('') + `<div class="small">The compositor's contract: paint(surface, region, paint, clips, blend) → surface, and sample(surface, point) → colour. A layer is a surface painted as a region into its parent; the screen is the root; a brush that reads the surface calls sample. The tree has a target pool, a present pass and region3d's quad composite, and none of the three declarations.</div>`;
     $('r-compositor').textContent = state.surf ? 'per brush step' : 'per frame'; $('r-compositor').className = 'rate ' + (state.surf ? 'step' : 'frame');
@@ -1376,16 +1468,19 @@
     const cam = camera(), ppu = cam.zoom * cam.dpr, d = toDevice(c, cam), px = { x: Math.floor(d.x), y: Math.floor(d.y) }; const pc = fromDevice({ x: px.x + 0.5, y: px.y + 0.5 }, cam);   // the pixel centre the GPU evaluated
     const parts = []; let P = state.rootClear.slice(); P = [P[0] * P[3], P[1] * P[3], P[2] * P[3], P[3]];
     const clipCov = state.clip ? coverageAt(state.clip.packed, pc.x, pc.y, ppu, ppu, state.clip.rule) : 1; if (state.clip) parts.push(`<span><span class="k">clip</span> coverage ${fmt(clipCov)}</span>`);
+    const maskCov = state.layer && state.layer.clip ? coverageAt(state.layer.clip.packed, pc.x, pc.y, ppu, ppu, state.layer.clip.rule) : 1; if (state.layer && state.layer.clip) parts.push(`<span><span class="k">group mask</span> coverage ${fmt(maskCov)}</span>`);
+    let L = state.layer ? [0, 0, 0, 0] : null;   // the children paint into the layer when there is one, else into the root; the clip is on each child, the mask on the layer's composite
+    const into = (rgb, a, mode) => { if (L) L = compositeOver(L, rgb, a, mode); else P = compositeOver(P, rgb, a, mode); };
     let surfPart = '';
     if (state.surf) { const S = state.surf, T = S.decl.localToTexel, t = affine(T, pc), i = Math.floor(t.x), j = Math.floor(t.y);
       if (i >= 0 && j >= 0 && i < S.decl.width && j < S.decl.height) { const finC = S.runC.results['state.surface'], finG = S.runG.results['state.surface']; const vc = finC ? S.cpu.texel(finC, i, j) : [0, 0, 0, 0], vg = finG ? S.gpu.texel(finG, i, j) : [0, 0, 0, 0];
         const tol = S.gpu.float ? 2e-3 : 0.02, ok = vc.every((v, k) => Math.abs(v - vg[k]) <= tol); surfPart = `<span><span class="k">texel</span> (${i}, ${j}) CPU twin ${rgbaStr(vc)} · GPU ${rgbaStr(vg)} ${ok ? '<span class="agree">agree</span>' : '<span class="disagree">disagree</span>'}</span>`;
-        const s = vc.map(v => v * (state.layer ? state.layer.opacity : 1) * clipCov); const rgb = s[3] > 0 ? [s[0] / s[3], s[1] / s[3], s[2] / s[3]] : [0, 0, 0]; P = compositeOver(P, rgb, s[3], state.layer ? state.layer.blend : 0); } }
-    let dabHits = 0, dabCount = 0, L = state.layer ? [0, 0, 0, 0] : null;
+        const s = vc.map(v => v * clipCov); const rgb = s[3] > 0 ? [s[0] / s[3], s[1] / s[3], s[2] / s[3]] : [0, 0, 0]; into(rgb, s[3], 0); } }
+    let dabHits = 0, dabCount = 0;
     for (const R of state.regions) { const w = windingAt(R.packed, pc.x, pc.y), cov = coverageAt(R.packed, pc.x, pc.y, ppu, ppu, R.rule); const a = R.color[3] * cov * clipCov;
-      if (L) L = compositeOver(L, R.color.slice(0, 3), a, R.blend || 0); else P = compositeOver(P, R.color.slice(0, 3), a, R.blend || 0);
+      into(R.color.slice(0, 3), a, R.blend || 0);
       if (R.dab) { dabCount++; if (cov > 0.5) dabHits++; } else parts.push(`<span><span class="k">${R.name}</span> winding ${w} · coverage ${fmt(cov)}</span>`); }
-    if (L) { const s = L.map(v => v * state.layer.opacity); const rgb = s[3] > 0 ? [s[0] / s[3], s[1] / s[3], s[2] / s[3]] : [0, 0, 0]; P = compositeOver(P, rgb, s[3], state.layer.blend); }
+    if (L) { const s = L.map(v => v * state.layer.opacity * maskCov); const rgb = s[3] > 0 ? [s[0] / s[3], s[1] / s[3], s[2] / s[3]] : [0, 0, 0]; P = compositeOver(P, rgb, s[3], state.layer.blend); }
     if (dabCount) parts.push(`<span><span class="k">dabs here</span> ${dabHits} of ${dabCount}</span>`);
     let G = null; if (state.root && px.x >= 0 && px.y >= 0 && px.x < cam.w && px.y < cam.h) G = readTexel(state.root, px.x, cam.h - 1 - px.y);
     const agree = G == null ? '' : (P.every((v, k) => Math.abs(v - G[k]) <= 0.05) ? '<span class="agree">agree</span>' : '<span class="disagree">disagree</span>');

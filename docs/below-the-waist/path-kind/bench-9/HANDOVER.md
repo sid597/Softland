@@ -1,11 +1,11 @@
-# The Waist Bench (bench 9) — handover, session 9, 2026-09-06; session 10's compositor and executor added the same day (section at the end)
+# The Waist Bench (bench 9) — handover, session 9, 2026-09-06; session 10's compositor and executor, and session 11's results, checkpoint and group mask, added the same day (sections at the end)
 
 ## Where it is
 
 - Source: `docs/below-the-waist/path-kind/bench-9/waist-bench.html` (one file, ~95 KB, WebGL2, no build; only a Google Fonts link, with fallbacks).
 - Live: https://claude.ai/code/artifact/da84fdb6-604a-488e-b797-e77c6f257cbc . To republish from another session: `Artifact` action `read` with that URL first, then publish with `url` set and this file as `file_path`.
 - Run locally: open the file in any WebGL2 browser (`file://` is fine). Headless check: `google-chrome --headless=new --use-angle=swiftshader --use-gl=angle --enable-unsafe-swiftshader --window-size=1500,1000 --virtual-time-budget=4000 --screenshot=out.png "file://…/waist-bench.html#tool=pen"`; `--dump-dom` instead of `--screenshot` prints the panel's readouts.
-- Deep links: the URL hash carries the whole state, e.g. `#tool=pressure&tip=ribbon&outline=1&zoom=6`. Keys: `tool`, `tip`, `cap`, `join`, `align`, `unit`, `dash`, `snap`, `fill`, `stroke`, `overlap`, `clip`, `blend`, `group`, `paper`, `cover`, `bands`, `skin`, `outline`, `zoom`, `cx`, `cy`, and `at=x,y` (session 10: a deep-linked cursor, so a readout can be quoted from `--dump-dom`; the panel's text is nested, read it with an HTML parser rather than a regex).
+- Deep links: the URL hash carries the whole state, e.g. `#tool=pressure&tip=ribbon&outline=1&zoom=6`. Keys: `tool`, `tip`, `cap`, `join`, `align`, `unit`, `dash`, `snap`, `fill`, `stroke`, `overlap`, `clip`, `blend`, `group` (`none` | `layer` | `mask`, session 11), `checkpoint` (`none` | `12`, session 11), `paper`, `cover`, `bands`, `skin`, `outline`, `zoom`, `cx`, `cy`, and `at=x,y` (session 10: a deep-linked cursor, so a readout can be quoted from `--dump-dom`; the panel's text is nested, read it with an HTML parser rather than a regex).
 
 ## What it is
 
@@ -159,6 +159,59 @@ Coincident edges of identical geometry merge into one piece with every source ow
 
 - The GPU host's `sample` is a CPU round-trip per dab; a GPU route keeps the carry in a small resource and reads the backdrop copy under the dab in the paint itself. Plain accumulate (no read) needs neither: one instanced draw, painter's order preserved by the API.
 - Layers are allocated at the target's size, not the group's cover.
-- A group mask (clip on the composite) versus clipping each child differ on soft edges; only the latter is on the bench.
+- A group mask (clip on the composite) versus clipping each child differ on soft edges; only the latter is on the bench. *(Session 11: both are, `group.clip` on the composite.)*
 - Blend modes on the painting surface's presentation and on the layer read the whole target as backdrop, not the cover.
 - The arrangement's limits above; and the `each` item's name is the plural minus its `s` (`dabs` → `dab`), a convention of the bench, not the format.
+
+## Session 11 — a result that survives its next use (the definer's attack 3), 2026-09-06
+
+Attack 3 brought two records and a receipt; each became a fix at full weight. The coverage code is still untouched; the executor gained a compile pass, the GPU host a pool, the record two fields (`group.clip`, `checkpoint.at`), and the filler one line about where a fragment's local position comes from. Verified headless in SwiftShader as before; the Node route (the pure declarations before the GL plumbing) still works and now reaches `runProgram`, `cpuHost`, `compileUses`, `checkpointKey` and `checkpointWhy`.
+
+### What a record may now declare, in addition
+
+```
+"group":      { ..., "clip": { "source": <any source record>, "rule": "nonzero" | "evenodd" } }   // a mask on the completed group, applied when the group is painted into its parent; the record's root `clip` stays on each child
+"checkpoint": { "at": <item index> }                                                            // after that many items of an `each` construction: save the state, resume the rest from it on both hosts, compare with the straight run
+```
+
+### Results are values with an identity (attack 3's first record)
+
+- **The executor's compile pass** (`compileUses`): one walk over the program's text records where every binding is last read (the steps in order, `next` after them, `return` after that; a state field `next` never rebinds is alive throughout). At a `paint` step whose input surface has no later read, and no other still-read binding holds the same object, the executor passes `consume: true` in the step's context; after any step, a surface value whose last read that was is handed back to the host (`release`). The hint is the host's to take: the CPU twin copies on every paint regardless.
+- **The GPU host** (`gpuHost`): a paint goes in place only when the input is consumable and not a saved result; otherwise the input is copied into another target from a pool and painted there. A saved result (the start, a checkpoint, a value still to be read) is never painted in place. A released target returns to the pool and its value can never be read again: `sample`, `paint` and `content` refuse a superseded value with an error that stops the construction, never a wrong pixel.
+- **Identity**: every result carries `key` = `<surface id>:<iteration>/<step>` (the step that made it), `parent` = the key of the surface it was painted on, and `revision` = depth in the chain. Two branches one paint deep have different keys and the same depth. The panel lists every returned surface with its key and parent, and every returned colour on both hosts.
+- The definer's record runs as a fixture (*two paint proofs, one chosen*): red sampled after blue is made is `(0.5, 0, 0, 0.5)` on both hosts; three targets (the start, red, blue), two copies, no paint in place. The pickup brush: one copy, 23 paints in place, two targets, 512 KB, unchanged from session 10's footprint.
+
+### A checkpoint is a construction continuation (attack 3's receipt)
+
+- `runProgram(program, scope, host, { until: k })` runs a prefix; `{ from: { state, at } }` continues from a state at an item. A checkpoint is taken on **each host from its own prefix**: for every surface in the state, its content (`host.content`, the bytes), map, colour, key and parent; every other state field as is (the pickup's carried colour); the next item's index.
+- **What it depends on** (`checkpointKey`, pure): the program's text, the record bindings the construction reads (`runProgram` returns `reads`: `tool.pickup = 0.5`, `paint.stroke.color.3 = 0.62` for the pickup; a step output that shadows a root is not a read), the surface declaration, the item fields the program binds (`dab.xy`, `dab.path`) for the items before the checkpoint, and a capabilities string naming the bench's operation behaviour. `checkpointWhy(prior, key)` says why an earlier checkpoint cannot be reused, or null. Node receipt on the pickup: the same record → reusable; the last pen sample moved → reusable (dabs 0–11 unchanged); the first sample moved → "dab 0 differs"; `pickup` 0.6 → a binding changed; the tool renamed → reusable (nothing reads the name).
+- **Resume**: `host.resolve(saved)` brings a saved surface into a host as a frozen value (the GPU uploads the bytes into its own target), so painting on it copies and the saved content stays. The bench resumes the rest on each host from its own checkpoint and compares the final surface with the straight run component by component; it also resumes the GPU from the CPU twin's checkpoint and reports that difference separately, as what determinism across clients would have to settle.
+- The checkpoint lives in memory for the surface's id across record revisions; the panel says whether it was reused or why it was retaken.
+
+### A mask on the completed group (attack 3's second record)
+
+- `group.clip` compiles like the root clip (any source, packed as a region). It forces isolation: the children are painted into the layer under the record's own `clip`, and the layer is painted into the root as one region with the group's opacity, blend, and the mask's coverage multiplied in that draw. The composite draw's quad is the view in local units under the camera map, so the mask's curves are read in local units; the layer's texels are still read at the fragment's own pixel.
+- Fixture *the crossing masked as one stroke*: at `(64.5, 64.5)` the alpha is `.31` on both hosts (`.62 × .5`); the same clip at the record's root gives `.465` on the CPU twin (`.62 × (.5 + .5 × .5)`) and `.46` on the GPU. The outline view draws the mask's curves too; the cursor shows the mask's coverage beside the clip's.
+
+### The pixel-agreement residual, attributed and fixed
+
+The definer measured the child-clip route at `.461` against the CPU's `.465` and did not attribute it. On this bench, before the fix: a single clipped dab on the mask's edge read `.30` on the GPU against `.31`, so the clip's coverage inside the region shader came out near `.48` where the same function in the layer composite gave exactly `.5`. Not the 8-bit targets (float targets gave the same number). The cause: the region shader took its local position from the interpolated vertex varying, and the cover triangles' corners sit at fractional device positions that the rasterizer snaps to its sub-pixel grid; the interpolated position at a fragment inherits that snap (about 0.01 local at zoom 3), which reads as a clip edge at `.48`. The layer's quad has integer corners and no such error. **Fix**: both fragment programs now derive the local position from `gl_FragCoord` through the inverse of the draw's map (`localP()`, `u_Minv`), exact per fragment. After it, the single clipped dab reads `.31` on both hosts, and the pickup surface's GPU-against-CPU difference across the whole 128 × 128 (the cross-host checkpoint number) fell from at most `5.8e-3` to at most `1.2e-7`. The tree's filler interpolates the same varying (`text/renderer.cljs`); the same fix applies there when the time comes.
+
+### Measured on 2026-09-06 (headless SwiftShader, zoom 3, DPR 1, canvas 1022 × 761)
+
+| State | Readout |
+|---|---|
+| proofs, at (8.5, 8.5) | `before` (0.5, 0, 0, 0.5), `after` (0.5, 0, 0, 0.5), `other` (0, 0, 0.5, 0.5) on both hosts; keys `proof:0/red` and `proof:0/blue`, both ← `proof:initial`, depth 1; GPU targets 3, 2 copies, 0 in place |
+| pickup, at (64.5, 64.5) | texel (64, 64) CPU (0.013, 0, 0.987, 1) · GPU the same; `paint:23/surface` ← `paint:22/surface`, depth 24; GPU targets 2 (512 KB), 1 copy, 23 in place, 0 released |
+| pickup with `checkpoint=12` | prefix 36 steps; saved `paint:11/surface` + carry (0.000319, 0, 0.99968, 1) + next dab 12, 256 KB; resumed over dabs 12–23, 36 steps: 0 of 65,536 components differ on the CPU twin, 0 on the GPU (each from its own checkpoint); the GPU from the CPU's checkpoint: 2,105 components differ, at most 1.19e-7 |
+| groupmask, at (64.5, 64.5) | group mask coverage 0.50, 2 of 24 dabs; alpha CPU 0.31 · GPU 0.31 |
+| groupmask with the clip at the root (a scratch copy) | clip coverage 0.50; alpha CPU 0.47 · GPU 0.46; at (64.5, 58), one dab: 0.31 · 0.31 (before the fix 0.30) |
+| groupmask, `group=layer` (no mask) | alpha 0.62 both |
+| dabs, layer, mask, multiply, network, border | unchanged from session 10's table |
+
+### Unfinished, added
+
+- A returned path (a network face's boundary) as a clip's source: `clip.source` is built by `buildPath`, which has no network branch; a construction's returned value needs a direct binding into the clip input (the definer's "not yet general result reuse").
+- The checkpoint is in memory; a saved-and-reloaded one needs the same fields serialised (`content` as bytes) and the capabilities string checked on load.
+- Release is by the executor's static last-use analysis plus an identity check against still-read bindings; a surface aliased through a definition's `emit` is not seen by it (the host's stale-read check would refuse the read rather than serve a wrong pixel).
+- The carry-on-GPU route, layers at the group's cover, and blends on a layer or presented surface reading the whole target as backdrop: as before.
