@@ -1,0 +1,61 @@
+[W0-A] start
+[W0-A] scheduled-callback
+[W0-A] init-start
+[W0-A] init-adapter
+[W0-A] init-device
+[W0-A] init-font-manifest
+[W0-A] init-font-assets
+[W0-A] init-shared-buffers
+[W0-A] init-font-assets
+[W0-A] init-slug-pipeline-start
+[W0-A] init-slug-pipeline-complete
+[W0-A] init-curve-decode-start
+[W0-A] init-curve-decode-complete 16
+[W0-A] case-start legal-min-z0p01 zoom 0.01
+[W0-A] case-complete legal-min-z0p01
+[W0-A] case-start default-min-z0p1 zoom 0.1
+[W0-A] case-complete default-min-z0p1
+[W0-A] case-start default-unit-z1 zoom 1
+[W0-A] case-complete default-unit-z1
+[W0-A] case-start default-max-z8 zoom 8
+[W0-A] case-complete default-max-z8
+[W0-A] case-start legal-log-z10 zoom 10
+[W0-A] case-complete legal-log-z10
+[W0-A] case-start legal-log-z100 zoom 100
+[W0-A] case-complete legal-log-z100
+[W0-A] case-start legal-max-z1000 zoom 1000
+[W0-A] case-complete legal-max-z1000
+{
+ "out": "docs/below-the-waist/path-kind/production/receipts",
+ "path-step pass": true,
+ "region3d-floor pass": true,
+ "pngs": [
+  "gpu-path-production-recipe-before.png",
+  "gpu-path-production-recipe-retained.png",
+  "gpu-path-production-recipe-fresh.png",
+  "gpu-path-production-nonlinear-union.png",
+  "gpu-path-production-containing-disc.png",
+  "gpu-path-production-returned-mask.png",
+  "gpu-path-production-empty-clip.png",
+  "gpu-path-production-draw-tapered.png",
+  "gpu-path-production-draw-untapered.png",
+  "gpu-path-production-border-z0.01.png",
+  "gpu-path-production-border-z0.1.png",
+  "gpu-path-production-border-z1.png",
+  "gpu-path-production-border-z8.png",
+  "gpu-path-production-border-z10.png",
+  "gpu-path-production-border-z100.png",
+  "gpu-path-production-border-z1000.png",
+  "gpu-path-production-snap-fraction.png",
+  "gpu-path-production-snap-integer-shift.png",
+  "gpu-path-production-screen-z1.png",
+  "gpu-path-production-screen-z2.png",
+  "gpu-path-holed-concave-holed-concave-default-unit-z1.png",
+  "gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png",
+  "gpu-path-container-tree-tree-containers-cid17-slot1.png",
+  "gpu-region3d-floor-sandwich.png",
+  "gpu-region3d-floor-lit-depth-shadow.png",
+  "gpu-region3d-floor-tree.png",
+  "gpu-region3d-floor-worn.png"
+ ]
+}

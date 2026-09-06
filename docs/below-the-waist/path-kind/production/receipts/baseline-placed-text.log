@@ -1,0 +1,56 @@
+WARNING: Use of :paths external to the project has been deprecated, please remove: /mnt/data/projects/Softland-claude/src
+
+Testing app.client.region3d.on-plane-test
+
+ERROR in (s5-placed-layout-keeps-the-one-glyph-accessor-seam) (layout.cljc:967)
+Uncaught exception, not in assertion.
+expected: nil
+  actual: clojure.lang.ExceptionInfo: Text layout requires a shaped provider.
+{:error-type :text/layout-provider-required}
+ at app.client.text.layout$layout.invokeStatic (layout.cljc:967)
+    app.client.text.layout$layout.invoke (layout.cljc:960)
+    app.client.region3d.on_plane_test$fn__3503.invokeStatic (on_plane_test.clj:32)
+    app.client.region3d.on_plane_test/fn (on_plane_test.clj:27)
+    clojure.test$test_var$fn__9898.invoke (test.clj:717)
+    clojure.test$test_var.invokeStatic (test.clj:717)
+    clojure.test$test_var.invoke (test.clj:708)
+    clojure.test$test_vars$fn__9924$fn__9929.invoke (test.clj:735)
+    clojure.test$default_fixture.invokeStatic (test.clj:687)
+    clojure.test$default_fixture.invoke (test.clj:683)
+    clojure.test$test_vars$fn__9924.invoke (test.clj:735)
+    clojure.test$default_fixture.invokeStatic (test.clj:687)
+    clojure.test$default_fixture.invoke (test.clj:683)
+    clojure.test$test_vars.invokeStatic (test.clj:731)
+    clojure.test$test_all_vars.invokeStatic (test.clj:737)
+    clojure.test$test_ns.invokeStatic (test.clj:758)
+    clojure.test$test_ns.invoke (test.clj:743)
+    clojure.core$map$fn__5956.invoke (core.clj:2772)
+    clojure.lang.LazySeq.force (LazySeq.java:50)
+    clojure.lang.LazySeq.realize (LazySeq.java:87)
+    clojure.lang.LazySeq.seq (LazySeq.java:104)
+    clojure.lang.Cons.next (Cons.java:41)
+    clojure.lang.RT.boundedLength (RT.java:1810)
+    clojure.lang.RestFn.applyTo (RestFn.java:133)
+    clojure.core$apply.invokeStatic (core.clj:669)
+    clojure.test$run_tests.invokeStatic (test.clj:768)
+    clojure.test$run_tests.doInvoke (test.clj:768)
+    clojure.lang.RestFn.invoke (RestFn.java:411)
+    user$eval3529.invokeStatic (NO_SOURCE_FILE:1)
+    user$eval3529.invoke (NO_SOURCE_FILE:1)
+    clojure.lang.Compiler.eval (Compiler.java:7757)
+    clojure.lang.Compiler.eval (Compiler.java:7712)
+    clojure.core$eval.invokeStatic (core.clj:3232)
+    clojure.main$eval_opt.invokeStatic (main.clj:489)
+    clojure.main$eval_opt.invoke (main.clj:483)
+    clojure.main$initialize.invokeStatic (main.clj:509)
+    clojure.main$null_opt.invokeStatic (main.clj:543)
+    clojure.main$null_opt.invoke (main.clj:540)
+    clojure.main$main.invokeStatic (main.clj:665)
+    clojure.main$main.doInvoke (main.clj:617)
+    clojure.lang.RestFn.applyTo (RestFn.java:140)
+    clojure.lang.Var.applyTo (Var.java:707)
+    clojure.main.main (main.java:40)
+
+Ran 2 tests containing 5 assertions.
+0 failures, 1 errors.
+{:test 2, :pass 4, :fail 0, :error 1, :type :summary}

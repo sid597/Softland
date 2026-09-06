@@ -7,7 +7,10 @@ The production geometry uses `path/nib.cljc` for the centered round union;
 pins value keys, and `component_test.clj` pins clipped classification.
 The baseline's curve counts and its unqualified geometry claims below are
 historical receipts, not claims about the production tree. Final production
-handoff: `production/HANDOFF-1.md` (pending during implementation).
+handoff: [production/HANDOFF-1.md](production/HANDOFF-1.md).
+The production renderer takes `:path/value`; recipes execute in
+`path/construction.cljc`, and width/recipe expressions share `engine/executor.cljc`
+(`construction_test.clj`, `executor_test.clj`, browser production pixels).
 
 
 2026-09-06, the Claude builder session, branch `waist/path-claude`. The folder's own map is `src/app/client/path/README.md` (one box per file). This is the notch below it: the functions inside each file, what goes in, what comes out, why that piece exists. No verdicts here; the receipts are in `HANDOFF-client-claude.md`.

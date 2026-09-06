@@ -89,9 +89,13 @@ consumes the same value and carries the packed clip (`region3d/path_placement_te
 Caller order, camera/group buffers, scissors and pass lifetime stay with the
 caller; the Region3D tree golden exercises the placed-ink draw.
 
-Repository golden reconciliation is pending for the intentional nib change:
-the self-crossing and placed-ink tree images differ from the baseline. The
-production handoff will carry the final verifier status and pixel comparison.
+The repository browser verifier is green after intentional recording of
+the self-crossing and placed-ink tree goldens; other goldens and shader
+digests are unchanged. The [production handoff](../../../../docs/below-the-waist/path-kind/production/HANDOFF-1.md)
+links the verifier, pixel comparison and the broader client pure suite's
+pre-existing placed-text error. Nearest-outline distance remains a distance
+to contributor outlines; exact external-boundary distance for overlapping
+unions and clips is untested.
 
 A2 receipt correction: the judge's literal record omits the tool width rule;
 the baseline source produces widths `[4.4 8.0]`, not `[1.6 16.0]`. Supplying

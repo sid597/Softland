@@ -380,8 +380,8 @@
       "shapeExtentWorld": 8,
       "mode": "translucent-self-crossing",
       "file": "gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png",
-      "rawSha256": "2d34ef6603bce8c51b6b951466ff08ee128112ce430f8b7449dbf770ad1f21bb",
-      "pngSha256": "d773a14f2913f37bac833848db60f577a6008f925c7b41d735d28aa2cb421ecd"
+      "rawSha256": "0463b8a2111f26f132ae2a42e91c2e4ca310d25efa4d73a9e62441aa85b0a74e",
+      "pngSha256": "33ad6b0912e32536bc3c975959f006e98869e348cbbbf357d2fcaab3ddd60070"
     },
     {
       "caseId": "tree-containers-cid17-slot1",
@@ -407,8 +407,8 @@
       ],
       "mode": "tree",
       "file": "gpu-region3d-floor-tree.png",
-      "rawSha256": "fda1ce8b45ffb4ec81a9bf83667a06a65d3a9ecd3aca8572030224e65ed8dd9e",
-      "pngSha256": "6b07a17a5241b13b9ee08e0a4835fc9585bfc9436eab30b17fbb6970405e97bb"
+      "rawSha256": "846273f53bbd7252a8a7824d508a2bee6ec40c050c6caa14d55d76dba57d9e4b",
+      "pngSha256": "a25b1de892bd64af2802550844b64eabc2623282ec5a4c7417d8b0d8b2c124ea"
     }
   ]
 }

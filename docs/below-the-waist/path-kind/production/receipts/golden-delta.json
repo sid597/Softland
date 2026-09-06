@@ -1,0 +1,248 @@
+[
+  {
+    "file": "gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png",
+    "baseline-commit": "dd5d34b",
+    "pixels": 68,
+    "total-pixels": 16384,
+    "max-channel-delta": 38,
+    "bbox": [
+      20,
+      22,
+      109,
+      107
+    ],
+    "sample": [
+      {
+        "point": [
+          26,
+          22
+        ],
+        "baseline": [
+          78,
+          28,
+          88,
+          255
+        ],
+        "production": [
+          77,
+          28,
+          87,
+          255
+        ]
+      },
+      {
+        "point": [
+          99,
+          22
+        ],
+        "baseline": [
+          27,
+          6,
+          32,
+          255
+        ],
+        "production": [
+          15,
+          3,
+          18,
+          255
+        ]
+      },
+      {
+        "point": [
+          100,
+          22
+        ],
+        "baseline": [
+          106,
+          42,
+          120,
+          255
+        ],
+        "production": [
+          107,
+          42,
+          121,
+          255
+        ]
+      },
+      {
+        "point": [
+          101,
+          22
+        ],
+        "baseline": [
+          135,
+          55,
+          152,
+          255
+        ],
+        "production": [
+          135,
+          55,
+          151,
+          255
+        ]
+      },
+      {
+        "point": [
+          102,
+          22
+        ],
+        "baseline": [
+          135,
+          55,
+          152,
+          255
+        ],
+        "production": [
+          135,
+          55,
+          151,
+          255
+        ]
+      },
+      {
+        "point": [
+          103,
+          22
+        ],
+        "baseline": [
+          107,
+          42,
+          120,
+          255
+        ],
+        "production": [
+          107,
+          42,
+          121,
+          255
+        ]
+      },
+      {
+        "point": [
+          104,
+          22
+        ],
+        "baseline": [
+          29,
+          6,
+          33,
+          255
+        ],
+        "production": [
+          15,
+          2,
+          18,
+          255
+        ]
+      },
+      {
+        "point": [
+          23,
+          23
+        ],
+        "baseline": [
+          137,
+          56,
+          154,
+          255
+        ],
+        "production": [
+          135,
+          55,
+          152,
+          255
+        ]
+      }
+    ]
+  },
+  {
+    "file": "gpu-region3d-floor-tree.png",
+    "baseline-commit": "dd5d34b",
+    "pixels": 4,
+    "total-pixels": 16384,
+    "max-channel-delta": 1,
+    "bbox": [
+      61,
+      58,
+      78,
+      64
+    ],
+    "sample": [
+      {
+        "point": [
+          61,
+          58
+        ],
+        "baseline": [
+          236,
+          180,
+          72,
+          255
+        ],
+        "production": [
+          236,
+          179,
+          72,
+          255
+        ]
+      },
+      {
+        "point": [
+          70,
+          59
+        ],
+        "baseline": [
+          236,
+          183,
+          86,
+          255
+        ],
+        "production": [
+          236,
+          182,
+          85,
+          255
+        ]
+      },
+      {
+        "point": [
+          74,
+          60
+        ],
+        "baseline": [
+          236,
+          173,
+          32,
+          255
+        ],
+        "production": [
+          236,
+          173,
+          31,
+          255
+        ]
+      },
+      {
+        "point": [
+          78,
+          64
+        ],
+        "baseline": [
+          236,
+          175,
+          47,
+          255
+        ],
+        "production": [
+          236,
+          175,
+          48,
+          255
+        ]
+      }
+    ]
+  }
+]

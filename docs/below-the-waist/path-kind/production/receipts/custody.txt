@@ -1,0 +1,113 @@
+Source custody before the final artifact commit; 2026-09-07.
+
+$ git branch --show-current
+main
+
+$ git show -s --format=%H %P %s dd5d34b
+dd5d34b3b78b8ae16f5f41e5048d8b900ae79dc7 d7c8939c249ceffd71c164e610d2293be5dc6d14 e8cb94664d8ce96f89e6def6891464aa254fb507 Merge path client base from waist/path-claude
+
+$ git log -1 --format=%H %s 2391644
+239164475b89734e22ee843435642fb918d514a1 Move path construction to callers and unify recipe and width expressions
+
+$ git diff --name-only 2391644 HEAD -- src/app/client test
+(empty output)
+
+$ git -C /mnt/data/projects/Softland-codex rev-parse HEAD
+07ea01437094c1652585760f6fa1ebc60251c69f
+
+$ git -C /mnt/data/projects/Softland-codex status --short
+(empty output)
+
+$ git -C /mnt/data/projects/Softland-claude rev-parse HEAD
+e8cb94664d8ce96f89e6def6891464aa254fb507
+
+$ git -C /mnt/data/projects/Softland-claude status --short
+(empty output)
+
+$ git status --short
+ M .claude/memory/MEMORY.md
+ M .claude/memory/feedback-analysis-deliverables-show-full-working.md
+ M .claude/memory/feedback-exploration-starters-direction-not-shape.md
+ M docs/below-the-waist/path-kind/HANDOFF-client-claude.md
+ M docs/below-the-waist/path-kind/code-map-client-claude.md
+ M docs/below-the-waist/waist-argument.html
+ M src/app/client/path/README.md
+ M test/app/fixtures/render_engine/gpu-goldens/gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png
+ M test/app/fixtures/render_engine/gpu-goldens/gpu-region3d-floor-tree.png
+ M test/app/fixtures/render_engine/gpu-goldens/manifest.json
+?? .claude/memory/feedback-caching-only-on-top.md
+?? .claude/memory/feedback-continuation-starters-hold-the-view.md
+?? .claude/memory/feedback-cross-model-rankings-family-bias.md
+?? .claude/memory/feedback-durable-work-lands-in-docs-not-tmp.md
+?? .claude/memory/feedback-exploration-rank-framing-over-correctness.md
+?? .claude/memory/feedback-fable-shortcuts-codex-literal.md
+?? .claude/memory/feedback-findings-not-fixes-during-judging.md
+?? .claude/memory/feedback-implementation-rounds-no-contracts.md
+?? .claude/memory/feedback-page-bytes-live-in-the-scribe.md
+?? .claude/memory/feedback-rules-are-defaults-not-laws.md
+?? .claude/memory/feedback-the-bench-is-the-screen.md
+?? .claude/memory/feedback-thoughts-are-not-rulings.md
+?? .claude/memory/feedback-two-turn-boot-low-then-max.md
+?? .claude/memory/reference-artifact-republish-cost.md
+?? .claude/memory/reference-judging-a-comparison-round.md
+?? .claude/memory/reference-two-chairs-workflow.md
+?? .claude/memory/reference-webgl2-bench-headless-check.md
+?? docs/below-the-waist/3d-ceilings-starter.md
+?? docs/below-the-waist/3d/3d-kind-working-model.md
+?? docs/below-the-waist/3d/3d-object-space-and-query.md
+?? docs/below-the-waist/3d/HANDOFF-object-space-and-query.md
+?? docs/below-the-waist/3d/feedback-working-model.md
+?? docs/below-the-waist/path-kind/production/
+
+Exact final artifact paths:
+src/app/client/path/README.md
+docs/below-the-waist/path-kind/HANDOFF-client-claude.md
+docs/below-the-waist/path-kind/code-map-client-claude.md
+test/app/fixtures/render_engine/gpu-goldens/gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png
+test/app/fixtures/render_engine/gpu-goldens/gpu-region3d-floor-tree.png
+test/app/fixtures/render_engine/gpu-goldens/manifest.json
+docs/below-the-waist/path-kind/production/HANDOFF-1.md
+docs/below-the-waist/path-kind/production/receipts/README.md
+docs/below-the-waist/path-kind/production/receipts/a2-baseline.edn
+docs/below-the-waist/path-kind/production/receipts/a2-production.edn
+docs/below-the-waist/path-kind/production/receipts/baseline-placed-text.log
+docs/below-the-waist/path-kind/production/receipts/build.log
+docs/below-the-waist/path-kind/production/receipts/client-pure.log
+docs/below-the-waist/path-kind/production/receipts/custody.txt
+docs/below-the-waist/path-kind/production/receipts/dump.log
+docs/below-the-waist/path-kind/production/receipts/golden-delta.json
+docs/below-the-waist/path-kind/production/receipts/path-pure.log
+docs/below-the-waist/path-kind/production/receipts/path-step.json
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-container-tree-tree-containers-cid17-slot1.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-holed-concave-holed-concave-default-unit-z1.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-border-z0.01.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-border-z0.1.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-border-z1.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-border-z10.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-border-z100.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-border-z1000.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-border-z8.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-containing-disc.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-draw-tapered.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-draw-untapered.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-empty-clip.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-nonlinear-union.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-recipe-before.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-recipe-fresh.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-recipe-retained.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-returned-mask.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-screen-z1.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-screen-z2.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-snap-fraction.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-snap-integer-shift.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-region3d-floor-lit-depth-shadow.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-region3d-floor-sandwich.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-region3d-floor-tree.png
+docs/below-the-waist/path-kind/production/receipts/png/gpu-region3d-floor-worn.png
+docs/below-the-waist/path-kind/production/receipts/region3d-floor.json
+docs/below-the-waist/path-kind/production/receipts/shader-digests.json
+docs/below-the-waist/path-kind/production/receipts/verifier-before-record.log
+docs/below-the-waist/path-kind/production/receipts/verifier-final.json
+docs/below-the-waist/path-kind/production/receipts/verifier-final.log
+docs/below-the-waist/path-kind/production/receipts/verifier-record.log

@@ -7,7 +7,10 @@ The production geometry uses `path/nib.cljc` for the centered round union;
 pins value keys, and `component_test.clj` pins clipped classification.
 The baseline's curve counts and its unqualified geometry claims below are
 historical receipts, not claims about the production tree. Final production
-handoff: `production/HANDOFF-1.md` (pending during implementation).
+handoff: [production/HANDOFF-1.md](production/HANDOFF-1.md).
+The production renderer takes `:path/value`; recipes execute in
+`path/construction.cljc`, and width/recipe expressions share `engine/executor.cljc`
+(`construction_test.clj`, `executor_test.clj`, browser production pixels).
 
 
 Written 2026-09-06 on branch `waist/path-claude` in the worktree `../Softland-claude`, builder chair, from `STARTER-client.md`. Read the starter first, then the definer's `from-12-to-client.md` (the change this session made and the five scenarios it is measured by), then this file, then the code: `src/app/client/path/README.md` is the map, and every namespace's docstring says what it takes and returns. The receipts are in `receipts-client-claude.json` beside this file, the full result of the browser harness for the path and region3d lanes, dumped from the verifier's page on this tree. The fence is unchanged: code only under `src/app/client/`, never `src/app/server/env.clj`; commits with exact paths on this branch; push is Sid's.
