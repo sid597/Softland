@@ -1,0 +1,63 @@
+# Handoff from session 4 to its successor — the 3D kind, the composer's chair
+
+Written 2026-09-06, evening, by the chair that folded the definer's attacks 2 and 3 into session 2's line (the fourth chair on that line; `HANDOFF-3.md` is its predecessor's file and stays as the record of the fold of attack 1). Read in this order: this file; `3d-kind-2.html` (live at https://claude.ai/code/artifact/400dcba1-c53c-4eb2-bba8-7978dee838d7, or the `.md` twin); `bench-2/HANDOVER.md` and the bench itself (https://claude.ai/code/artifact/32169816-ae1c-4bbb-ba07-a9171eea419a); `fact-base-2.md`, Part 15 first (this fold: the definers' programs run as shipped, the composer's Node route, the dumps, where each finding landed), then Part 14 and Parts 11 to 13; `attack-2.md` and `attack-3.md` (the definer's, both folded; keep as the source of their constructions); `bench-2/node-route/` (the functions the bench embeds and the probe that checks the bench against both attacks). Then the path directory as before. The fence is Sid's: code only under `src/app/client/`, never `src/app/server/env.clj`. `docs/below-the-waist/two-chairs.md` is the workflow both chairs run.
+
+## 1. The problem, in Sid's words
+
+Unchanged from `HANDOFF-3.md` §1: every tool, 2D and 3D; a waist with an engine and a few hardcoded primitives below it, everything above as data; one model for 2D and 3D in one window, fine-grained reactivity over data and mouse actions; click in, "you hit this" out; the store above the kind, which owes it stable identity and fine-grained diffs. The hardest case is the stroke on a face inside a portal on a page under zoom, orbit, hover, an occluder, a portal in the portal, a screenshot beside it, the construction edited under the ink; since the folds: a mark across a curved wall's chart seam, a field with no face, two painted supports merged, a section drawing, and now a reach on a doubly curved host, one mark through a chart change and a merge on one support, a coating pending under a withheld binding, and a painting replayed through a re-cut and a restore.
+
+## 2. The phase
+
+**Phase B** (two-chairs.md): attacks 2 and 3 added obligations and no piece, the guard's tell. The bench is the deliverable from here and the page its ledger: a fold is reproduce, fix, fixture, receipt, and a ledger line where the contract changed; no repaint and no republish unless the picture moves. Exploration still, before any contract; positions carry exits; the verdicts are Sid's. Counterexamples at full weight, rankings at none. Sid ruled on nothing in this fold; his rulings of 11:27 (the executor) and 11:51 (one compositor with paint and sample) on the path ledger are carried verbatim, not re-asked.
+
+## 3. Where the problem-solution space stands (all POSITION unless quoted)
+
+Items 1 to 3, 6, 8, 9 and 12 of `HANDOFF-3.md` §3 stand unchanged. Amended or new:
+
+4. **Ink on a face is content in an authored 2D domain with a declared metric**: surface distance on the host (a round nib is a region of surface distance, which a metric tensor alone cannot compute), the content's own flat coordinates stretched onto the host, or a projection; three constructions over the same location and painting exchanges, and "a planar surface" for all three would hide the choice (attack 3). The attachment noun gains the metric and two policies as separate data: where distance is measured (the underlying surface, or paths within the trimmed face) and where paint is deposited (this support, or onward).
+5. **The hit's status is per requested quantity**: a distance definite while the direction is candidates (the antipode); the support hit complete while the coating is pending (a withheld unit of work). Pending says which it is: an exhausted work limit, or a capability's edge that more of the same work cannot close (the ellipsoid).
+7. **The parity relation has a number**: the field's shader depth against the walker's at the cursor, 2.279 mm at the solid's outer wall with the shader's ray from the eye, 0.101 mm with its origin moved to the bounds box's entry (the hollow body the same; 0.261 → 0.063 mm at the smaller extent), the same pixel-centre ray on both hosts; the shifted origin is in the shader (`fshift`), the residual is open. A runner reports achieved error or an honest limit.
+10. **A correspondence stays usable beyond the points already queried**: the chain and the root restrictions retained, or enough to recompute them; a fresh inverse demand after the intermediate evaluation is gone resolves or names the missing dependency. The closing receipt ran: one mark and one tap through a chart change and then a merge with a sheared chart on the sphere, the same two source addresses from a fresh ray at every revision, composed (0.250, 0.000, 0.500, 0.750), the bytes unchanged; the three negative controls with numbers (170.39 mm; missing retained dependency; blue where blue never had support). On the definer's route at ×1 and cold in a new process; on the bench at ×2.
+11. **The field's runner reports its numeric quality** (see 7); the depth read exists on the bench.
+13. **A surface region is a retained result** (new noun): membership by a declared distance with its subject kept (support revision, metric, path domain, the source's locations and radius), bounds, chart pieces with one owner each, unresolved portions, witness candidates; another construction keeps it as a clip and the tool's later radius does not reach into it (attack 2; the sphere's reach tool on the bench, radius 150 → 140).
+14. **A brush's read is the compositor's sample through a binding** (Position 12, new): it pins its snapshot and can return pending; a stateful step consumes only resolved reads and pending yields no next state, because a consumed wrong value is not repaired by completing the map later ((0.875, 0, 0, 0.875) against (0.8125, 0, 0.125, 0.9375)); the pickup replay's bytes survive a chart change and a restore and change under a carry reset. One compositor (Sid's 11:51 choice, carried).
+15. **The post's footprint was wrong and is fixed**: the capsule interpolates endpoint radii, exact for linear widths (k), wrong for kP's 10 + 30p² (inside by 0.456 mm where the truth is 0.560 mm outside); both sides now minimise |q − c(t)| − w(p(t))/2, the walker certifying an enclosure by branch-and-bound, the shader approximating with a stated envelope; the old footprint stays as `nib=capsule`.
+
+**The decision that remains:** Position 9's 3D half, Sid's, asked once.
+
+**The exact question that remains** (the definer's from attack 3, held with a position as Position 12): does a stateful painting step consume only a resolved sample from a named snapshot, pending producing no next state; or may it consume a provisional sample that is then returned and retained as an explicit input to its history? This chair: the first as ordinary behaviour, the second only as a declared construction. Closes by a receipt on a curved host: a brush reading the composed coating on the sphere through a binding withheld and then granted, its state identical whether the grant came before or after the read was demanded and different from a run that consumed the transparent guess. The bench has the arithmetic and the withheld binding, not the coating-reading brush. **The next construction:** the general smooth or trimmed host, where the sphere's closed form is a bounded unknown, as a distance operation with an error argument or a declared mesh authority; then the coating-reading brush on the sphere.
+
+## 4. What is on disk (this chair)
+
+| File | What it is |
+|---|---|
+| `3d-kind-2.html`, `3d-kind-2.md` | The page and its twin, amended as a ledger: story 9 and a new 17, the attachment stanza's metric and policies, the Out block's surface-region and read-surface, the representation table's sphere, seven moments after the drawing, the Surface region and Snapshot nouns, Positions 7, 10, 11 amended and 12 new, the path-kind list, the closing section, the fold record. Republish with `url` set. |
+| `twin-2.py` | `python3 twin-2.py 3d-kind-2.html 3d-kind-2.md "<label>"`. |
+| `fact-base-2.md` | Parts 1 to 10 the anchors at `4b8e986`; 11 to 14 the earlier folds; **15 this fold**. |
+| `bench-2/seam-bench.html`, `bench-2/HANDOVER.md` | The Seam Bench with the sphere G, the pickup replay, the corrected footprint, the field's shifted origin and the parity read; the deep links, the measured rows, the fix list. |
+| `bench-2/node-route/` | `sweep-and-sphere.js`, `pickup-replay.js` (the functions the bench embeds, verbatim), `probe-2-3.mjs` (44 checks against both attacks; `--bench <path>` checks the patched bench; the attacks are the test suite). |
+| `HANDOFF-4.md`, `STARTER-4.md` | This file, and the starter Sid pastes into the next chair. |
+
+Not this chair's, do not edit: everything listed in `HANDOFF-3.md` §4 plus `attack-2.md`, `attack-2/`, `attack-3.md` (the definer's).
+
+## 5. Folded (this chair)
+
+The definer's attacks 2 and 3, at full weight: their programs run as shipped and matched their prose to the printed precision (Part 15); their constructions on the bench where the record allowed (the sphere at the post's radius, attack 2 at ×2 stated once and carried everywhere, attack 3 at ×1; the pickup replay; the corrected footprint; the shifted origin and the parity read); their definitions on the page as ledger lines; their notation translated. This chair's functions were checked through the bench's own functions in Node before the bench took them; one first draft was wrong there (a classifier that chased a tolerance a global Lipschitz bound cannot reach on a flat minimum; membership is decided first, the quoted segments refined after). The nine pre-existing non-post deep links print byte-identical addresses; the post's changed as the correction requires, before and after recorded.
+
+## 6. Still owed
+
+1. **Whatever Sid pastes next**: redlines, rankings (no weight; their counterexamples full), the definer's attacks (`attack-N.md`). Fold in place as phase B: reproduce on the route, fix, fixture, receipt, a ledger line; republish only when the bench changed or the picture moved.
+2. **The general smooth or trimmed host**: a finite surface-distance operation beyond the sphere's closed form, with an error argument (the ellipsoid's bounded unknown is the shape of its answer) or a declared mesh authority for the tool's metric; the definer constructs, this chair folds.
+3. **The coating-reading brush on the sphere**: the receipt that closes the stateful-read question (a brush reading the composed coating through a binding withheld and then granted).
+4. **The parity residual**: 0.10 mm after the shifted origin at the solid's outer wall, unexplained; a contact-only ray and a full image of boundaries untested.
+5. **Lift bench 9's filler onto the face**; the shader's swept nib as a coverage lane with a certified envelope rather than a scan.
+6. **Travel**, **query modes** with one translucent thing, **a shadow**, **a portal from L back into S** with the bound measured; the antipode hovered rather than printed: the earlier fix list, unchanged.
+7. **At Sid's word only, boots on the ground**: split the region row into space, view, portal, lease; move segment counts and required normals out of the value; placed ink in the pointer map; the aspect declared by the portal; one grammar for the question protocol; the executor's spatial door; the surface read bound into the executor.
+
+## 7. Guards, from this chair (the earlier chairs' guards in `HANDOFF-3.md` §7 and `HANDOFF-2.md` §7 all stand)
+
+- Run the definer's own programs first, as shipped; a fold that reproduces its numbers through its route before writing a line has the cheapest possible check of both the attack and the environment (four programs, all matched, under ten minutes of a Sonnet runner).
+- Land the composer's functions as a Node route beside the bench and make the probe accept `--bench <path>`: the attacks then check the patched bench, not only the committed one, and every later fold inherits the suite.
+- A global Lipschitz bound certifies a sign cheaply and a flat minimum expensively: decide membership first, refine only what the readout quotes, and print the tolerance the readout was refined to. Chasing 1e-9 ran out of budget on segments nobody asked about.
+- When two attacks build on different scales, pick the bench's one scale, state each attack's factor once (here ×2 and ×1), and check the definer's figures at that factor to the last digit before the bench takes the functions; never print a mixed readout.
+- Phase B's shape held: the page took ledger lines and no repaint; the bench took the constructions; the republish is for the bench's change and the moments that quote it.

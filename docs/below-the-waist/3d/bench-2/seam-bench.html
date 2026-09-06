@@ -153,7 +153,9 @@
           <span><i style="background:#C08050"></i>post P (a wall with a chart and a seam)</span>
           <span><i style="background:#ED9E40"></i>field F (a boundary, no face)</span>
           <span>drag on the page: pan · drag in the portal: orbit, or draw in pen mode · <kbd>R</kbd> reset · deep links: <span class="mono">#w=1.4&amp;cut=1&amp;anchor=edge&amp;onsplit=clip&amp;aim=k</span></span>
-          <span class="mono">attack 1: post=0 · chart=S0|S1 · pr=&lt;r m&gt; · panchor=origin|normalized · seam=unwrapped|modulo · nib=surface|naive · field=1 · fx= · fy= · fz= · fa= · hollow=1 · fwork=&lt;n&gt; · records=2 · left=whole|trimmed · order=lr|rl|none · merge=1 · section=&lt;h m&gt; · aim=P|Pm|F|D|k2|strip</span>
+          <span class="mono">attack 1: post=0 · chart=S0|S1 · pr=&lt;r m&gt; · panchor=origin|normalized · seam=unwrapped|modulo · nib=surface|naive|capsule · pwork=&lt;n&gt; · field=1 · fx= · fy= · fz= · fa= · hollow=1 · fwork=&lt;n&gt; · fshift=0 · parity=1 · records=2 · left=whole|trimmed · order=lr|rl|none · merge=1 · section=&lt;h m&gt; · aim=P|Pa3|Pm|F|D|k2|strip</span>
+          <span class="mono">attack 2 (G): grev=0|1|2 · greach=&lt;mm&gt; · gband=1 · dmetric=underlying|face · gorder=ab|ba|none · gbudget=&lt;n&gt; · gdrop=1 · aim=G|G41|Gq|Gq2|Gpole|Gband · attack 3 (the replay): paint=1 · pstep=&lt;0..155&gt; · porder=ab|ba|none · aim=Pstrip|Poverlap</span>
+          <span><i style="background:#D8D3CA"></i>sphere G (a curved host: an atlas, a surface-distance region, two retained records)</span>
           <span class="mono" id="glstat">WebGL2: starting</span>
         </div>
       </div>
@@ -213,6 +215,9 @@
            params: { a: 0.2, b: 0.1, c: 0.1 }, inner: { a: 0.1, b: 0.05, c: 0.05 }, hollow: false, at: [-1.6, 1.2, 0.5],
            supplies: ['sample', 'inside', 'ray-events (root isolation)', 'normal (gradient)'],
            tool: { extent: { binding: 'a', dragFrame: 'local x', constraint: 'a > 0' } } },
+      // attack 2 (the definer): a sphere, the general curved host. Its wall is not developable: a region on it is a
+      // surface-distance region, its charts are an atlas with pieces and a cut, and two records bind through them.
+      G: { kind: 'solid', construction: 'CG' },
       Fright: null   // set by records=2: a second planar surface on E.top's right part
     }
   };
@@ -223,7 +228,8 @@
       { id: 'E', op: 'extrude', of: 'R0', height: 1 },                                      // faces E.top E.bottom E.left E.right E.back E.front
       { id: 'C', op: 'cut', of: 'E', on: false, slab: { x: [0.12, 0.30], depth: 0.28 } }     // boolean subtract: a slab across the top, back to front
     ] },
-    CP: { revision: 0, params: { r: 0.2, h: 0.9, at: [1.1, -0.2], chart: { offset: 0, scale: 1 } } }  // the post: a radius, a height, a place, and a saved chart on its wall
+    CP: { revision: 0, params: { r: 0.2, h: 0.9, at: [1.1, -0.2], chart: { offset: 0, scale: 1 } } },  // the post: a radius, a height, a place, and a saved chart on its wall
+    CG: { revision: 0, params: { r: 0.2, at: [0.55, 0.2, 1.05], chart: 'S0' } }   // the sphere G: a radius, a place, and the name of the saved chart its atlas is read through
   };
   var PI = { unit: 'mm', things: { k: { kind: 'path', source: 'pen', samples: [], paint: { stroke: { tip: 'nib', width: 'knot', color: [0.16, 0.29, 0.80, 0.92] } } } } };
   // the mark on the post's wall: knots with a pressure and a saved response; the samples are not the record. The reading is declared.
@@ -240,7 +246,12 @@
   var page = { unit: 'px', things: { R: { kind: 'portal', view: 'V', rect: { x: 60, y: 70, w: 420, h: 330 } }, I: null, D: null } };
 
   var state = { zoom: 1, pan: [0, 0], mode: 'orbit', anim: false, pointer: null, last: null, lastLeaf: null, dirty: { edit: '', view: '', scale: '', frame: '' }, drawing: false, orbiting: false, panning: false, dragStart: null, shot: null, revision: 0,
-    pMode: 'unwrapped', pNib: 'surface', pAnchor: 'origin', records: 1, leftKept: 'whole', merge: null, fieldWork: 4000, probeD: 15 };
+    pMode: 'unwrapped', pNib: 'surface', pAnchor: 'origin', records: 1, leftKept: 'whole', merge: null, fieldWork: 4000, probeD: 15, pWork: 4000, fieldShift: 1, parity: false,
+    // attack 2 on G: which evaluation the sphere is read at, the reach tool's radius, the removed band, where distance may run,
+    // the composition order, the work the demand grants the correspondence, and the negative control
+    gRev: 0, gReach: 150, gBand: false, dMetric: 'underlying', gOrder: ['kA', 'kB'], gBudget: Infinity, gDrop: false, yawGiven: false,
+    // attack 3's pickup replay on the post: off unless paint=1 asks for it
+    paint: false, paintStep: 155, paintOrder: ['paint-A', 'paint-B'] };
 
   // ------------------------------------------------------------------
   // Small matrix kit (column-major 4x4), shared by the renderer and the hit walk.
@@ -480,7 +491,7 @@
   function markSegments() { return [[0, 1], [1, 2], [2, 3]]; }
   function markAt(ks, seg, t) { var sg = markSegments()[seg], a = ks[sg[0]], b = ks[sg[1]], p = a.p + (b.p - a.p) * t; return { u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t, p: p, w: markWidth(p) }; }
   // every segment inside is a contributor (a self-crossing returns two source locations for one mark); the winner is the minimum signed distance
-  function classifyMark(ks, q) {
+  function classifyMarkCapsule(ks, q) {
     var best = null, contributors = [];
     markSegments().forEach(function (sg, s) {
       var a = ks[sg[0]], b = ks[sg[1]]; var sd = capsuleSD(q, [a.u, a.v], [b.u, b.v], a.w / 2, b.w / 2);
@@ -490,6 +501,98 @@
     });
     return { inside: best.signed <= 0, best: best, contributors: contributors };
   }
+  // attack 3 (the definer): the width is 10 + 30p², so the union of the nib's discs is not the convex hull of the end discs;
+  // the footprint is an objective minimised under a Lipschitz bound. Sections 1 and 2 of node-route/sweep-and-sphere.js,
+  // verbatim (the Node route runs these same bytes; probe-2-3.mjs checks every number through them).
+  // ---------------------------------------------------------------------------------------------------------- 1
+  // sweepMin(f, L, opts): minimise f on [0, 1] where |f(s) - f(t)| <= L |s - t|.
+  //   opts.budget  evaluations allowed (the work demand); exhausted → status 'pending' with the enclosure so far
+  //   opts.tol     stop when upper - lower <= tol (the error demand; default 1e-4); with opts.decide, stop as soon as the sign
+  //                of the minimum is proved (upper < 0 → inside, lower > 0 → outside)
+  // Returns {status: 'inside'|'outside'|'boundary'|'pending', lower, upper, t, work}: lower <= min f <= upper,
+  // t the best sample seen. 'boundary' means the minimum lies within tol of zero (the query's declared tolerance
+  // decides). Each cell's lower bound is f(mid) - L·(hi - lo)/2; cells whose lower bound exceeds the best value are
+  // dropped; the cell with the lowest bound is split next.
+  function sweepMin(f, L, opts) {
+    var budget = opts.budget != null ? opts.budget : 4000, tol = opts.tol != null ? opts.tol : 1e-4, decide = !!opts.decide;
+    var work = 0, upper = Infinity, tBest = NaN, cells, i, c, m, lower;
+    function cell(lo, hi) {
+      var t = (lo + hi) / 2, v = f(t); work++;
+      if (v < upper) { upper = v; tBest = t; }
+      return {lo: lo, hi: hi, lower: v - L * (hi - lo) / 2};
+    }
+    cells = [cell(0, 1)];
+    for (;;) {
+      cells.sort(function (x, y) { return x.lower - y.lower; });   // the definer's order: the lowest bound splits next
+      lower = cells[0].lower;
+      if (decide && (upper < 0 || lower > 0)) break;
+      if (upper - lower <= tol) break;
+      if (work + 2 > budget) return {status: 'pending', lower: lower, upper: upper, t: tBest, work: work};
+      c = cells.shift(); m = (c.lo + c.hi) / 2;
+      cells.push(cell(c.lo, m)); cells.push(cell(m, c.hi));
+      for (i = cells.length - 1; i >= 0; i--) if (cells[i].lower > upper) cells.splice(i, 1);
+    }
+    return {status: upper < 0 ? 'inside' : (lower > 0 ? 'outside' : 'boundary'), lower: lower, upper: upper, t: tBest, work: work};
+  }
+
+  // ---------------------------------------------------------------------------------------------------------- 2
+  // The post's mark, authored in the unwrapped (u, v) mm plane of the wall (a developable host: Euclidean there).
+  // A segment runs from knot i to knot i + 1, the centre linear in t, the pressure linear in t, the width
+  // 10 + 30p² (markWidth). The union of the nib's discs along a segment is NOT the convex hull of the end discs
+  // when the radius is not linear in t (attack 3): the objective below is the membership the bench declares.
+  function postSegmentObjective(knots, seg, q) { // q = [u, v] mm, as the bench's classifyMark takes it
+    var a = knots[seg], b = knots[seg + 1];
+    var du = b.u - a.u, dv = b.v - a.v, len = Math.sqrt(du * du + dv * dv);
+    var L = len + 30 * Math.max(Math.abs(a.p), Math.abs(b.p)) * Math.abs(b.p - a.p);
+    return {
+      f: function (t) {
+        var u = a.u + du * t, v = a.v + dv * t, p = a.p + (b.p - a.p) * t;
+        return Math.sqrt((q[0] - u) * (q[0] - u) + (q[1] - v) * (q[1] - v)) - (10 + 30 * p * p) / 2;
+      },
+      L: L, len: len
+    };
+  }
+  // classifyMarkSweep(knots, q, opts) → {inside, contributors: [{seg, t, width (= w), p, sd (= signed), lower, upper, work}],
+  //   nearest (= best): the segment with the least upper bound, sd (the signed distance to the union's boundary: the min over
+  //   segments; inside distance is a lower bound, as before), status: 'inside'|'outside'|'boundary'|'pending', work}
+  // opts as sweepMin's (default tol 1e-4 mm, budget 4000 per segment: a global Lipschitz bound cannot certify a flat
+  // minimum to 1e-9 in any budget; the readout's tolerance is the query's declared one).
+  function classifyMarkSweep(knots, q, opts) {
+    opts = opts || {};
+    var budget = opts.budget != null ? opts.budget : 4000, tol = opts.tol != null ? opts.tol : 1e-4;
+    var rows = [], contributors = [], nearest = null, work = 0, pending = false, seg, o, r, i;
+    function row(seg, r) {
+      var p = knots[seg].p + (knots[seg + 1].p - knots[seg].p) * r.t, w = 10 + 30 * p * p;
+      return {seg: seg, t: r.t, width: w, w: w, p: p, sd: r.upper, signed: r.upper, lower: r.lower, upper: r.upper, work: r.work, status: r.status};
+    }
+    // first decide membership per segment (cheap: the sign of the minimum), then refine only what the readout quotes
+    for (seg = 0; seg + 1 < knots.length; seg++) {
+      o = postSegmentObjective(knots, seg, q);
+      r = sweepMin(o.f, o.L, {decide: true, budget: budget});
+      work += r.work;
+      if (r.status === 'pending') pending = true;
+      rows.push({seg: seg, o: o, r: r});
+    }
+    for (i = 0; i < rows.length; i++) {
+      var isNearest = true, j;
+      for (j = 0; j < rows.length; j++) if (rows[j].r.upper < rows[i].r.upper) isNearest = false;
+      if (rows[i].r.status === 'inside' || isNearest) { r = sweepMin(rows[i].o.f, rows[i].o.L, {tol: tol, budget: budget}); work += r.work; if (r.status === 'pending') pending = true; rows[i].r = r; }
+      var e = row(rows[i].seg, rows[i].r);
+      if (rows[i].r.status === 'inside' || (rows[i].r.upper < 0)) contributors.push(e);
+      if (!nearest || e.upper < nearest.upper) nearest = e;
+    }
+    var inside = contributors.length > 0;
+    return {
+      inside: inside,
+      contributors: contributors,
+      nearest: nearest, best: nearest,
+      sd: nearest ? nearest.upper : Infinity,
+      lower: nearest ? nearest.lower : Infinity,
+      status: inside ? 'inside' : (pending ? 'pending' : (nearest && nearest.lower > 0 ? 'outside' : 'boundary')),
+      tol: tol, work: work
+    };
+  }
+  function classifyMark(ks, q) { return state.pNib === 'capsule' ? classifyMarkCapsule(ks, q) : classifyMarkSweep(ks, q, { budget: state.pWork }); }
   // the construction CP: evaluate against the previous evaluation; the correspondence piece says what one evaluation's wall is to the other's
   var evaluatedP = null;
   function evaluateP(con, prev) {
@@ -598,6 +701,377 @@
     var g = fieldGrad(Lf.e, p), gl2 = Math.hypot(g[0], g[1], g[2]), normal = gl2 > 1e-12 ? g.map(function (x) { return x / gl2 * Lf.sign; }) : null;
     return { thing: 'F', part: 'boundary f = 0', t: t, point: [p[0] + F.at[0], p[1] + F.at[1], p[2] + F.at[2]], local: p, normal: normal, kind: ev ? ev.kind : 'crossing', active: Lf.name, events: events, material: merged, status: status, unresolved: unresolved, work: work };
   }
+  // ───── attack 2 (the definer) and attack 3's sphere: sections 3, 4 and 5 of node-route/sweep-and-sphere.js and the
+  // whole of node-route/pickup-replay.js, verbatim at this file's indent. The six v3 helpers of section 3 are not
+  // repeated: the bench declares them above, identically but for v3norm's zero-length guard. The Node route runs
+  // these same bytes; probe-2-3.mjs checks every number through them. ─────
+  // ---------------------------------------------------------------------------------------------------------- 3
+  var G_R = 200; // mm; the sphere's radius, the post's
+  var G_C = 2 * Math.PI * G_R;
+  // Locations on G are unit vectors; Y up; longitude from +x towards +z (the post's sense), latitude from the equator.
+  function sphUnit(lon, lat) { return [Math.cos(lat) * Math.cos(lon), Math.sin(lat), Math.cos(lat) * Math.sin(lon)]; }
+  function sphAngle(p, q) { return Math.atan2(v3len(v3cross(p, q)), v3dot(p, q)); }
+  function sphDist(p, q) { return G_R * sphAngle(p, q); }              // the shorter great-circle distance, mm
+  function sphChord(p, q) { return G_R * v3len([p[0] - q[0], p[1] - q[1], p[2] - q[2]]); }
+  function sphLon(p) { return Math.atan2(p[2], p[0]); }                 // in [-π, π): the chart S0's cut is at ±π
+  function sphLat(p) { return Math.asin(Math.max(-1, Math.min(1, p[1]))); }
+  // The chart S0: u = R·lon, v = R·lat. Reading the chart gives u in [-πR, πR); the authored domains here are
+  // unwrapped around u = πR (the mark crosses the cut), so a chart point has preimages u + kC in a domain.
+  function sphChart0(p) { return {u: G_R * sphLon(p), v: G_R * sphLat(p)}; }
+  function sphPoint0(u, v) { return sphUnit(u / G_R, v / G_R); }
+  function sphPreimages(a, domain) { // chart u (any branch) → the u + kC inside [domain.u0, domain.u1]
+    var out = [], k;
+    for (k = -2; k <= 2; k++) { var u = a + k * G_C; if (u >= domain.u0 && u <= domain.u1) out.push({u: u, k: k}); }
+    return out;
+  }
+  // The great-circle arc from a to b (unit vectors), uniform in angle; t in [0, 1].
+  function sphArc(a, b, t) {
+    var z = sphAngle(a, b);
+    if (z < 1e-12) return a;
+    var sa = Math.sin((1 - t) * z) / Math.sin(z), sb = Math.sin(t * z) / Math.sin(z);
+    return v3norm(v3add(v3scale(a, sa), v3scale(b, sb)));
+  }
+  // Distance from q to the minor arc n·cos θ + e·sin θ, θ in [th0, th1] (attack 2's closed form for a
+  // constant-radius sweep on a great circle): the closest centre is at θ* = clamp(atan2(q·e, q·n)).
+  function sphArcDistClosed(q, n, e, th0, th1) {
+    var th = Math.max(th0, Math.min(th1, Math.atan2(v3dot(q, e), v3dot(q, n))));
+    var c = v3add(v3scale(n, Math.cos(th)), v3scale(e, Math.sin(th)));
+    return {d: sphDist(q, c), theta: th, t: (th - th0) / (th1 - th0), centre: c};
+  }
+  // The chart pieces of a region on G (attack 2): longitude in [-π, 0) and [0, π) at or below latitude 70°, and a
+  // north chart (x, z) above 70°, regular at the pole. Every location has one owner.
+  var G_NORTH_LAT = 70 * Math.PI / 180;
+  function sphPieceOf(p) {
+    var lat = sphLat(p), lon = sphLon(p);
+    if (lat > G_NORTH_LAT) return {piece: 'north', coords: [G_R * p[0], G_R * p[2]], note: '(x, z), embedding (x, √(R² − x² − z²), z)'};
+    return {piece: lon < 0 ? 'west' : 'east', coords: [G_R * lon, G_R * lat], note: lon < 0 ? 'longitude in [−π, 0)' : 'longitude in [0, π)'};
+  }
+  // The reach tool: a saved record {seed: [lon, lat] rad, radius mm, distance: 'surface'} → the retained region.
+  function reachRegion(record) {
+    var n = sphUnit(record.seed[0], record.seed[1]), rho = record.radius / G_R, cr = Math.cos(rho), sr = Math.sin(rho);
+    var bounds = [], i;
+    for (i = 0; i < 3; i++) {
+      var ni = n[i], s = Math.sqrt(Math.max(0, 1 - ni * ni));
+      bounds.push([-ni >= cr ? -G_R : G_R * (ni * cr - s * sr), ni >= cr ? G_R : G_R * (ni * cr + s * sr)]);
+    }
+    return {
+      record: record, seed: n, rho: rho,
+      area: 2 * Math.PI * G_R * G_R * (1 - cr),
+      bounds: bounds,                                          // world mm about G's centre, [min, max] per axis
+      member: function (q) { return v3dot(n, q) >= cr; },       // n·q ≥ cos ρ  ⇔  d(q, seed) ≤ radius
+      distance: function (q) { return sphDist(n, q); }
+    };
+  }
+  // The two competing readings attack 2 puts beside the intrinsic distance: the metric frozen at the seed
+  // (an ellipse in the chart) and the ambient chord.
+  function sphFrozenDist(seed, q) {
+    var cs = sphChart0(seed), cq = sphChart0(q), dlon = (cq.u - cs.u) / G_R;
+    while (dlon >= Math.PI) dlon -= 2 * Math.PI; while (dlon < -Math.PI) dlon += 2 * Math.PI;
+    var du = G_R * dlon, dv = cq.v - cs.v, c = Math.cos(sphLat(seed));
+    return Math.sqrt(c * c * du * du + dv * dv);
+  }
+  // Where distance paths may run (attack 2's boundary continuation; attack 3's two policies): with the open
+  // latitude band (v0, v1) removed from the support, 'underlying' measures on the whole sphere and clips the answer
+  // afterwards; 'face' requires the path to stay in the retained support, and a full band disconnects the two
+  // sides, so the distance is infinite (a topological fact of this fixture, not a general obstacle solver).
+  function sphBandDistance(seed, q, band, policy) {
+    var vs = G_R * sphLat(seed), vq = G_R * sphLat(q);
+    var inBand = function (v) { return v > band[0] && v < band[1]; };
+    if (inBand(vs) || inBand(vq)) return {d: NaN, status: 'not on the support'};
+    if (policy === 'face' && ((vs <= band[0]) !== (vq <= band[0]))) return {d: Infinity, status: 'no connecting path in the retained support'};
+    return {d: sphDist(seed, q), status: policy === 'face' ? 'path within the retained support' : 'measured on the underlying sphere, clipped after'};
+  }
+
+  // ---------------------------------------------------------------------------------------------------------- 4
+  // The retained records on G and their bindings through three evaluations (attack 2 §4, at ×2).
+  var G_N = sphUnit(Math.PI, Math.PI / 3);      // the seed (longitude 180°, latitude 60°) = (−1/2, √3/2, 0)
+  var G_E = [0, 0, -1];                          // the eastward tangent there
+  var G_PI_R = Math.PI * G_R;
+  function gArcCentre(t) { var th = (80 * t - 40) / G_R; return v3add(v3scale(G_N, Math.cos(th)), v3scale(G_E, Math.sin(th))); }
+  function gUnwrapU(p) { var lon = sphLon(p); if (lon < 0) lon += 2 * Math.PI; return G_R * lon; } // the authored branch: u around πR
+  var G_RECORDS = {
+    A: {id: 'A@0', root: 'S0 (u, v)', domain: {u0: G_PI_R - 160, u1: G_PI_R + 160, v0: 120, v1: 290},
+        mark: {id: 'kA', kind: 'arc', segment: 'arc-AB', radius: 16, rgba: [0.5, 0, 0, 0.5], th0: -0.2, th1: 0.2}},
+    B: {id: 'B@0', root: '(ξ, η), β(ξ, η) = (ξ + πR, η + 200)', domain: {x0: -10, x1: 200, y0: -80, y1: 90},
+        mark: {id: 'kB', kind: 'tap', radius: 24, rgba: [0, 0, 0.5, 0.5], at: 0.65}}
+  };
+  function gBeta(xi, eta) { return {u: xi + G_PI_R, v: eta + 200}; }
+  function gBetaInv(u, v) { return {xi: u - G_PI_R, eta: v - 200}; }
+  // The charts: S0 (u, v); S1(a, b) = S0(2a + 200, b), φ(u, v) = ((u − 200)/2, v); S2(c, d) = S0(2c − d/2 + 80, d),
+  // χ(a, b) = (a + b/4 + 60, b). Each is a saved chart parameter of the same sphere: same points.
+  var G_CHARTS = [
+    {rev: 0, name: 'S0', fromRoot: function (u, v) { return {a: u, b: v}; }, toRoot: function (a, b) { return {u: a, v: b}; },
+     period: G_C, flat: [[1, 0], [0, 1]], cut: 'u = ±πR (longitude ±180°)'},
+    {rev: 1, name: 'S1', fromRoot: function (u, v) { return {a: (u - 200) / 2, b: v}; }, toRoot: function (a, b) { return {u: 2 * a + 200, v: b}; },
+     period: G_C / 2, flat: [[4, 0], [0, 1]], cut: 'a = ±πR/2'},
+    {rev: 2, name: 'S2', fromRoot: function (u, v) { var a = (u - 200) / 2; return {a: a + v / 4 + 60, b: v}; },
+     toRoot: function (c, d) { return {u: 2 * c - d / 2 + 80, v: d}; }, period: G_C / 2,
+     flat: [[4, -1], [-1, 1.25]], cut: 'sheared'}
+  ];
+  // The metric of chart k at (u, v) in chart units: Jᵀ diag(cos²(v/R), 1) J with J the Jacobian of toRoot
+  // (attack 2: at latitude 60° in chart 2, [[1, −.25], [−.25, 1.0625]] after the cos² factor).
+  function gChartMetric(chart, v) {
+    var J = chart.rev === 0 ? [[1, 0], [0, 1]] : chart.rev === 1 ? [[2, 0], [0, 1]] : [[2, -0.5], [0, 1]];
+    var c2 = Math.cos(v / G_R) * Math.cos(v / G_R);
+    var g = [[c2, 0], [0, 1]];
+    var JtG = [[J[0][0] * g[0][0] + J[1][0] * g[1][0], J[0][0] * g[0][1] + J[1][0] * g[1][1]], [J[0][1] * g[0][0] + J[1][1] * g[1][0], J[0][1] * g[0][1] + J[1][1] * g[1][1]]];
+    return [[JtG[0][0] * J[0][0] + JtG[0][1] * J[1][0], JtG[0][0] * J[0][1] + JtG[0][1] * J[1][1]], [JtG[1][0] * J[0][0] + JtG[1][1] * J[1][0], JtG[1][0] * J[0][1] + JtG[1][1] * J[1][1]]];
+  }
+  // The bindings at revision k, each retained as a chain of relations from the record's root to the current chart,
+  // composable both ways; the valid subset is tested in the ROOT domain (attack 2: "they do not become M's whole
+  // domain merely because M has one face ID"). B's chain gains one unit of work at the merge (a deterministic demand
+  // test); a budget of 0 withholds that answer and returns the missing dependency instead of a guess.
+  function gBindings(rev, opts) {
+    opts = opts || {};
+    var chart = G_CHARTS[rev];
+    var drop = opts.dropRetained; // negative control: remove retained φ without a composed replacement
+    return [
+      {record: G_RECORDS.A, id: 'binding-A', chain: rev === 0 ? ['identity'] : rev === 1 ? ['φ'] : ['φ', 'χ'], work: 0,
+       toRoot: function (a, b) { if (drop && rev >= 1) return null; return chart.toRoot(a, b); },
+       inRoot: function (r) { var d = G_RECORDS.A.domain; return r.u >= d.u0 && r.u <= d.u1 && r.v >= d.v0 && r.v <= d.v1; }},
+      {record: G_RECORDS.B, id: 'binding-B', chain: rev === 0 ? ['β'] : rev === 1 ? ['β', 'φ'] : ['β', 'φ', 'χ'], work: rev === 2 ? 1 : 0,
+       toRoot: function (a, b) { if (drop && rev >= 1) return null; var r = chart.toRoot(a, b); return gBetaInv(r.u, r.v); },
+       inRoot: function (r) { var d = G_RECORDS.B.domain; return r.xi >= d.x0 && r.xi <= d.x1 && r.eta >= d.y0 && r.eta <= d.y1; }}
+    ];
+  }
+  // Membership of the two marks, in world terms (the sphere's own distance), given the point q (unit vector).
+  function gMarkA(q) { var r = sphArcDistClosed(q, G_N, G_E, G_RECORDS.A.mark.th0, G_RECORDS.A.mark.th1); return {inside: r.d <= G_RECORDS.A.mark.radius, d: r.d, t: r.t, sd: r.d - G_RECORDS.A.mark.radius}; }
+  function gMarkB(q) { var d = sphDist(q, gArcCentre(G_RECORDS.B.mark.at)); return {inside: d <= G_RECORDS.B.mark.radius, d: d, sd: d - G_RECORDS.B.mark.radius}; }
+  // gLocate(rev, p, opts): p a unit vector on G hit by a fresh ray. Reads the current chart, inverts each retained
+  // binding, applies its root restriction, queries its retained mark, composes by the saved order.
+  //   opts.budget (default Infinity): work the demand grants to the correspondence; opts.order: ['kA','kB'] |
+  //   ['kB','kA'] | null (needs-policy); opts.dropRetained: the negative control.
+  function gLocate(rev, p, opts) {
+    opts = opts || {};
+    var chart = G_CHARTS[rev], budget = opts.budget != null ? opts.budget : Infinity;
+    var uw = gUnwrapU(p), v = G_R * sphLat(p);
+    var here = chart.fromRoot(uw, v);                              // the chart location on the authored branch
+    var bindings = gBindings(rev, opts), out = [], unresolved = [], b, i, root, pre, k;
+    for (i = 0; i < bindings.length; i++) {
+      b = bindings[i];
+      if (b.work > budget) { unresolved.push({binding: b.id, missing: b.chain[b.chain.length - 1] + ': ' + b.record.id + ' → M@' + rev + ' at the demanded chart point', work: b.work}); continue; }
+      // the chart point has preimages on every branch; test each against the ROOT restriction
+      var hits = [];
+      for (k = -1; k <= 1; k++) {
+        root = b.toRoot(here.a + k * chart.period, here.b);
+        if (root === null) { unresolved.push({binding: b.id, missing: 'retained dependency φ removed without a composed replacement'}); hits = null; break; }
+        if (b.inRoot(root)) hits.push({k: k, root: root});
+      }
+      if (hits === null) continue;
+      if (hits.length === 0) { out.push({binding: b.id, record: b.record.id, status: 'outside the root restriction', root: b.toRoot(here.a, here.b)}); continue; }
+      var m = b.record.mark.kind === 'arc' ? gMarkA(p) : gMarkB(p);
+      out.push({binding: b.id, record: b.record.id, status: 'resolved', root: hits[0].root, k: hits[0].k, chain: b.chain, mark: b.record.mark.id, inside: m.inside, d: m.d, t: m.t, sd: m.sd});
+    }
+    var layers = out.filter(function (r) { return r.status === 'resolved' && r.inside; });
+    var comp;
+    if (unresolved.length) comp = {status: 'unresolved', rgba: null, known: layers.map(function (l) { return l.mark; }), may: unresolved.map(function (u) { return u.binding === 'binding-B' ? 'kB' : 'kA'; }), missing: unresolved};
+    else if (layers.length > 1 && !opts.order) comp = {status: 'needs-policy', contributors: layers.map(function (l) { return l.mark; })};
+    else {
+      var rgba = [0, 0, 0, 0], order = opts.order || ['kA'], j, l;
+      for (j = 0; j < order.length; j++) { l = layers.filter(function (x) { return x.mark === order[j]; })[0]; if (l) rgba = over(G_RECORDS[l.mark === 'kA' ? 'A' : 'B'].mark.rgba, rgba); }
+      comp = {status: layers.length ? 'resolved' : 'empty', rgba: rgba, contributors: layers.map(function (l) { return l.mark; }), order: order};
+    }
+    return {rev: rev, chart: chart.name, here: here, unwrappedU: uw, v: v, bindings: out, unresolved: unresolved, composition: comp};
+  }
+  // The fresh ray of attack 2: from 3·c(.65) toward the centre; the hit is at ray distance 2R and world point c(.65)·R.
+  function gFreshRay(t) { var c = gArcCentre(t); return {origin: v3scale(c, 3 * G_R), dir: v3scale(c, -1), hitT: 2 * G_R, point: c, worldMM: v3scale(c, G_R)}; }
+
+  // ---------------------------------------------------------------------------------------------------------- 5
+  // Attack 3's construction on G: four knots joined by great-circle arcs, pressure linear in arc parameter,
+  // w = 10 + 30p²; the objective is the surface distance minus the half width; L = ℓ + 30·max|p|·|p1 − p0|.
+  function sphSegmentObjective(a, b, p0, p1, q) {
+    var len = sphDist(a, b), L = len + 30 * Math.max(Math.abs(p0), Math.abs(p1)) * Math.abs(p1 - p0);
+    return {f: function (t) { return sphDist(q, sphArc(a, b, t)) - (10 + 30 * Math.pow(p0 + (p1 - p0) * t, 2)) / 2; }, L: L, len: len};
+  }
+  function classifySphereMark(knots, q, opts) { // knots: [{p: unit vector, pressure}], q unit vector
+    opts = opts || {};
+    var rows = [], seg, o, r;
+    for (seg = 0; seg + 1 < knots.length; seg++) {
+      o = sphSegmentObjective(knots[seg].p, knots[seg + 1].p, knots[seg].pressure, knots[seg + 1].pressure, q);
+      r = sweepMin(o.f, o.L, opts);
+      rows.push({seg: seg, status: r.status, lower: r.lower, upper: r.upper, t: r.t, work: r.work});
+    }
+    return rows;
+  }
+
+
+  // The pickup brush's replay on the post (the definer's attack 3, Appendix A, carried onto the bench).
+  // Plain script, no exports; the bench embeds it beside sweep-and-sphere.js. Uses the bench's own
+  // postWorld, postChart, postPreimages, hitPost, markWidth, over (they must be in scope) and a `PICKUP_N` texel count.
+  //
+  // A painting is a logical 96 × 96 Float32 RGBA value over the authored patch [C−120, C+120] × [280, 520] mm
+  // (premultiplied, linear light), independent of the renderer's chart. The program is saved data: read the previous
+  // painting at the dab centre; mix that colour into the carried pigment (amount .25); construct the dab's disc;
+  // source-over the carried colour at deposition opacity .5; return the new painting and the carry. The order and
+  // wiring live in the record; the interpreter below executes named operations over references.
+  var PICKUP_N = 96;
+  var PICKUP_PROGRAM = [
+    {id: 'picked', op: 'sample', args: [{ref: 'surface'}, {ref: 'dab.center'}, {ref: 'domain'}]},
+    {id: 'carryOut', op: 'mix', args: [{ref: 'carry'}, {ref: 'picked'}, 0.25]},
+    {id: 'footprint', op: 'disk', args: [{ref: 'dab.center'}, {ref: 'dab.radius'}]},
+    {id: 'surfaceOut', op: 'over-region', args: [{ref: 'surface'}, {ref: 'footprint'}, {ref: 'carryOut'}, 0.5, {ref: 'domain'}]}
+  ];
+  function pickupMix(a, b, t) { return a.map(function (v, i) { return v * (1 - t) + b[i] * t; }); }
+  function pickupSample(a, q, d) { // nearest texel of the logical painting a over domain d = [u0, v0, w, h]
+    var N = PICKUP_N;
+    var x = Math.max(0, Math.min(N - 1, Math.floor((q[0] - d[0]) / d[2] * N))), y = Math.max(0, Math.min(N - 1, Math.floor((q[1] - d[1]) / d[3] * N)));
+    return Array.from(a.slice(4 * (y * N + x), 4 * (y * N + x) + 4));
+  }
+  var PICKUP_OPS = {
+    sample: pickupSample,
+    mix: pickupMix,
+    disk: function (center, radius) { return {center: center, radius: radius}; },
+    'over-region': function (a, f, color, alpha, d) {
+      var N = PICKUP_N, out = a.slice(), top = color.map(function (x) { return x * alpha; }), x, y, q, i;
+      for (y = 0; y < N; y++) for (x = 0; x < N; x++) {
+        q = [d[0] + (x + 0.5) * d[2] / N, d[1] + (y + 0.5) * d[3] / N];
+        if (Math.hypot(q[0] - f.center[0], q[1] - f.center[1]) <= f.radius) { i = 4 * (y * N + x); out.set(over(top, Array.from(a.slice(i, i + 4))), i); }
+      }
+      return out;
+    }
+  };
+  function pickupStep(surface, carry, dab, domain, prog) {
+    var e = {surface: surface, carry: carry, domain: domain, 'dab.center': dab.q, 'dab.radius': markWidth(dab.p) / 2}, n, k;
+    for (k = 0; k < prog.length; k++) { n = prog[k]; e[n.id] = PICKUP_OPS[n.op].apply(null, n.args.map(function (a) { return a && a.ref ? e[a.ref] : a; })); }
+    return {surface: e.surfaceOut, carry: e.carryOut};
+  }
+  // Divide each straight segment into intervals no longer than 4 mm; retain the source segment and parameter on each
+  // emitted dab; shared knots emitted once (155 dabs for the bench's knots).
+  function pickupDabs(ks) {
+    var out = [], i, a, b, n, j, t;
+    for (i = 0; i + 1 < ks.length; i++) {
+      a = ks[i]; b = ks[i + 1]; n = Math.ceil(Math.hypot(b.u - a.u, b.v - a.v) / 4);
+      for (j = i ? 1 : 0; j <= n; j++) { t = j / n; out.push({q: [a.u + (b.u - a.u) * t, a.v + (b.v - a.v) * t], p: a.p + (b.p - a.p) * t, source: [a.id, b.id, t]}); }
+    }
+    return out;
+  }
+  // A fresh ray at an authored point: hit the wall from just outside along the inward normal, read the current chart,
+  // invert to the authored domain (one preimage for a domain narrower than C).
+  function pickupFreshLocation(ev, q, domain) {
+    var P = ev.support, R = P.R, w = postWorld(P, q[0], q[1]);
+    var normal = [Math.cos(q[0] / R), 0, Math.sin(q[0] / R)];
+    var hit = hitPost({origin: w.map(function (v, i) { return v + 0.03 * normal[i]; }), dir: normal.map(function (v) { return -v; })}, P);
+    var ch = postChart(P, hit.point);
+    var pre = postPreimages(P, {u0: domain[0], u1: domain[0] + domain[2], v0: domain[1], v1: domain[1] + domain[3]}, ch.a, ch.b);
+    if (pre.length !== 1) throw new Error('pickup: expected one preimage, got ' + pre.length);
+    return [pre[0].u, pre[0].v];
+  }
+  // The bindings of the two paintings. A is authored on the whole wall (P0); the wall is then shown trimmed into two
+  // bands (v ≤ 390 and v ≥ 410) and A shown by restriction; B is authored on the upper band; the strip is restored at
+  // the merge. A's rule permits restoring its older whole-wall attachment through the unchanged generator, which is
+  // why A can appear in the strip; B retains its band restriction and gains no history there.
+  function pickupBindings(recordA, recordB) {
+    return [
+      {id: 'binding-A', record: recordA, from: 'P0.whole-wall', to: 'P2.wall', rule: 'retain-source; restore ancestor', before: [[280, 390], [410, 520]], after: [[280, 520]]},
+      {id: 'binding-B', record: recordB, from: 'P1-cut.upper', to: 'P2.wall', rule: 'retain restriction', before: [[410, 520]], after: [[410, 520]]}
+    ];
+  }
+  function pickupResolve(bindings, ev, q, merged, domainA) {
+    if (!merged && q[1] > 390 && q[1] < 410) return {status: 'absent-support', revision: ev.revision, ids: []};
+    var location = pickupFreshLocation(ev, q, domainA);
+    var selected = bindings.filter(function (b) { return b[merged ? 'after' : 'before'].some(function (iv) { return q[1] >= iv[0] && q[1] <= iv[1]; }); });
+    return {status: 'resolved', revision: ev.revision, location: location, ids: selected.map(function (b) { return b.record.id; })};
+  }
+  // pickupReplay(mode, ctx): mode 'baseline' (no rechart, no merge), 'sequence' (rechart before dab 20, restore the
+  // strip before dab 80), 'reset' (the negative control: the carry reset at the rechart). ctx = {dabs, knotsRecord,
+  // evals: [p0, p1, p2], bindings, seed, stopAt?}. Returns {surface, carry, prefix (the painting before dab 20),
+  // merged, locationError, trace}.
+  function pickupReplay(mode, ctx) {
+    var N = PICKUP_N, surface = ctx.seed.slice(), carry = [1, 0, 0, 1], ev = ctx.evals[0], merged = false, prefix = null, locationError = 0, trace = [], i, q, r, ds = ctx.dabs;
+    var stopAt = ctx.stopAt != null ? ctx.stopAt : ds.length;
+    for (i = 0; i < ds.length && i < stopAt; i++) {
+      if (i === 20) { prefix = surface.slice(); if (mode !== 'baseline') ev = ctx.evals[1]; if (mode === 'reset') carry = [1, 0, 0, 1]; }
+      if (i === 80 && mode !== 'baseline') { merged = true; ev = ctx.evals[2]; }
+      if (i === 20 || i === 80) trace.push({beforeDab: i, strip: pickupResolve(ctx.bindings, ev, [ctx.C, 400], merged, ctx.recordA.domain), overlap: pickupResolve(ctx.bindings, ev, [ctx.C + 40, 440], merged, ctx.recordA.domain)});
+      q = pickupFreshLocation(ev, ds[i].q, ctx.recordA.domain);
+      locationError = Math.max(locationError, Math.hypot(q[0] - ds[i].q[0], q[1] - ds[i].q[1]));
+      r = pickupStep(surface, carry, ds[i], ctx.recordA.domain, PICKUP_PROGRAM); surface = r.surface; carry = r.carry;
+    }
+    return {surface: surface, carry: carry, prefix: prefix, merged: merged, locationError: locationError, trace: trace, ev: ev, dabsDone: i};
+  }
+  // The composed reading at an authored point after the sequence: which records bind there (by band), each sampled in
+  // its own painting; the saved order composes, no order → needs-policy.
+  function pickupAt(bindings, ev, q, merged, order, paintings, domainA) {
+    var resolved = pickupResolve(bindings, ev, q, merged, domainA);
+    if (resolved.status !== 'resolved') return resolved;
+    var loc = resolved.location;
+    var layers = bindings.filter(function (b) { return b[merged ? 'after' : 'before'].some(function (iv) { return q[1] >= iv[0] && q[1] <= iv[1]; }); })
+      .map(function (b) { return {id: b.record.id, binding: b.id, color: pickupSample(paintings[b.record.id], loc, b.record.domain)}; });
+    if (layers.length > 1 && !order) return {status: 'needs-policy', ids: layers.map(function (x) { return x.id; }), location: loc};
+    var color = [0, 0, 0, 0], k, l;
+    for (k = 0; k < (order || ['paint-A']).length; k++) { l = layers.filter(function (x) { return x.id === (order || ['paint-A'])[k]; })[0]; if (l) color = over(l.color, color); }
+    return {status: 'resolved', ids: layers.map(function (x) { return x.id; }), location: loc, color: color};
+  }
+  // The stateful read (attack 3): a brush that reads the composed coating cannot take a pending binding as
+  // transparent; pending returns no next carry.
+  function pickupConsume(read, oldCarry) {
+    return read.status === 'resolved' ? {status: 'resolved', nextCarry: pickupMix(oldCarry, read.color, 0.25)} : {status: 'pending', dependency: read.dependency};
+  }
+  // ───── the bench's own pieces around them: G's hit, the reach record in force, and the pickup replay's state ─────
+  var PAINT = null;          // set by paint=1: the replay's records, its paintings, its hashes and the evaluation the step is at
+  var G_AIM_YAW = -1.2;      // the aim=G… links look from the seed's side (longitude 180°); the default view sees G whole, from behind it
+  // the reach record in force: the tool's seed at (180°, 60°) with its radius, or reach₂ beside the removed band (seed (πR, 20 mm), r 50)
+  function gReachRecord() {
+    return state.gBand ? reachRegion({ seed: [Math.PI, 20 / G_R], radius: 50, distance: 'surface' })
+                       : reachRegion({ seed: [Math.PI, Math.PI / 3], radius: state.gReach, distance: 'surface' });
+  }
+  // the quadratic against CG's sphere. With the band removed there is no support inside it: an entry there is not a hit and
+  // does not fall through to what is behind (the answer is "no support here", not "the thing behind").
+  function hitSphereG(ray) {
+    if (!S.things.G) return null;
+    var G = constructions.CG.params, oc = v3sub(ray.origin, G.at), b = v3dot(oc, ray.dir), c = v3dot(oc, oc) - G.r * G.r, h = b * b - c;
+    if (h < 0) return null; var t = -b - Math.sqrt(h); if (t < 1e-6) return null;
+    var p = v3add(ray.origin, v3scale(ray.dir, t)), q = v3norm(v3sub(p, G.at));
+    if (state.gBand && Math.abs(G_R * sphLat(q)) < 10) return { thing: 'G', part: 'band', miss: true, t: t, point: p, normal: q };
+    return { thing: 'G', part: 'sphere', t: t, point: p, normal: q };
+  }
+  // paint=1: the definer's sequence on the post. Three evaluations of CP (S0 · S1 · S1 with the strip restored); the step chooses
+  // which one is current, and the replay runs A's saved program to that step. B is painted once on the upper band. The paintings
+  // are logical 96 × 96 values: the same Float32 bytes go to the shader and to the walker, and are hashed for the receipt.
+  function setupPaint() {
+    var CPc = constructions.CP, CC = TAU * 200;
+    CPc.params.chart = { offset: 0, scale: 1 }; CPc.revision = 0; var e0 = evaluateP(CPc, null);
+    CPc.params.chart = { offset: 100, scale: 2 }; CPc.revision = 1; var e1 = evaluateP(CPc, e0);
+    CPc.revision = 2; var e2 = evaluateP(CPc, e1);
+    var recordA = { id: 'paint-A', path: 'path-A', domain: [CC - 120, 280, 240, 240], knots: markKnots(e0.support, 'unwrapped') };
+    var recordB = { id: 'paint-B', path: 'path-B', domain: [CC - 120, 410, 240, 110], knots: [{ id: 'b0', u: CC - 60, v: 440, p: 0.65 }, { id: 'b1', u: CC + 60, v: 440, p: 0.65 }] };
+    var dabs = pickupDabs(recordA.knots), seedPaint = new Float32Array(PICKUP_N * PICKUP_N * 4), i;
+    for (i = 0; i < PICKUP_N * PICKUP_N; i++) seedPaint.set([0, 0, 1, 1], 4 * i);     // the seed painting: opaque blue
+    var bindings = pickupBindings(recordA, recordB);
+    var ctx = { dabs: dabs, evals: [e0, e1, e2], bindings: bindings, seed: seedPaint, C: CC, recordA: recordA, stopAt: state.paintStep };
+    var seq = pickupReplay('sequence', ctx), base = null, reset = null;
+    if (state.paintStep >= dabs.length) { base = pickupReplay('baseline', ctx); reset = pickupReplay('reset', ctx); }
+    // B's painting, as the Node route paints it: no pickup (the mix amount 0), a green carry, a transparent seed
+    var sb = new Float32Array(PICKUP_N * PICKUP_N * 4), cb = [0, 1, 0, 1], progB = JSON.parse(JSON.stringify(PICKUP_PROGRAM));
+    progB[1].args[2] = 0;
+    pickupDabs(recordB.knots).forEach(function (d) { var r = pickupStep(sb, cb, d, recordB.domain, progB); sb = r.surface; cb = r.carry; });
+    var ev = state.paintStep < 20 ? e0 : (state.paintStep < 80 ? e1 : e2);
+    PAINT = { recordA: recordA, recordB: recordB, dabs: dabs, bindings: bindings, evals: [e0, e1, e2], ev: ev, merged: state.paintStep >= 80,
+      seq: seq, baseline: base, reset: reset, paintings: { 'paint-A': seq.surface, 'paint-B': sb }, hashes: {} };
+    evaluatedP = ev; CPc.params.chart = { offset: ev.support.chart.offset, scale: ev.support.chart.scale }; CPc.revision = ev.rev;
+    document.getElementById('chartVal').textContent = ev.support.chart.scale === 1 ? 'S0' : 'S1';
+    document.getElementById('chartS1').classList.toggle('on', ev.support.chart.scale !== 1); document.getElementById('chartS0').classList.toggle('on', ev.support.chart.scale === 1);
+    hashPaintings();
+  }
+  // the receipt: SHA-256 over the painting's own bytes, the same digest the Node route takes. Asynchronous; the address line
+  // is rewritten when each resolves. Without crypto.subtle there is no hash to print, and the line says so.
+  function hashPaintings() {
+    if (!PAINT) return;
+    if (!(window.crypto && window.crypto.subtle)) { PAINT.hashes.unavailable = true; return; }
+    var jobs = [['painting', PAINT.seq.surface], ['prefix', PAINT.seq.prefix]];
+    if (PAINT.baseline) jobs.push(['baseline', PAINT.baseline.surface]);
+    if (PAINT.reset) jobs.push(['reset', PAINT.reset.surface]);
+    jobs.forEach(function (j) {
+      if (!j[1]) return;
+      window.crypto.subtle.digest('SHA-256', j[1]).then(function (buf) {
+        var a = new Uint8Array(buf), s = '', i; for (i = 0; i < a.length; i++) s += ('0' + a[i].toString(16)).slice(-2);
+        PAINT.hashes[j[0]] = s; state.pendingHover = 'data';
+      }, function () { PAINT.hashes.unavailable = true; });
+    });
+  }
+  function hex8(k) { return PAINT.hashes[k] ? PAINT.hashes[k].slice(0, 8) + '…' : (PAINT.hashes.unavailable ? 'hash unavailable' : 'hashing…'); }
+  function rgba6(c) { return '(' + c.map(function (x) { return x.toFixed(6); }).join(', ') + ')'; }
+
   // the drawing D: the section of S at the plane y = h; a rectangle per block the plane crosses, an analytic circle for the post, the field's level curve
   function sectionOf(h) {
     var curves = [];
@@ -651,7 +1125,7 @@
       address.push({ thing: 'R', kind: 'portal → space S via view V', where: 'portal-local (' + (u * R.rect.w).toFixed(1) + ', ' + (v * R.rect.h).toFixed(1) + ') px · surface ' + ls.used[0] + '×' + ls.used[1] + ' used of a ' + ls.alloc[0] + '×' + ls.alloc[1] + ' lease · framing ' + ls.aspect.toFixed(3) + ' (the portal\'s, not the lease\'s)' });
       var cam = cameraOf(views.V, ls), ray = rayFromRegionPoint(cam, rp[0], rp[1]);
       var fh = hitField(ray, S.things.F, state.fieldWork), fMiss = (fh && fh.miss) ? fh : null;
-      var hits = [hitBlocks(ray, evaluated.blocks), hitSphere(ray, S.things.Q), S.things.P ? hitPost(ray, evaluatedP.support) : null, (fh && !fh.miss) ? fh : null].filter(Boolean).sort(function (a, b) { return a.t - b.t; });
+      var hits = [hitBlocks(ray, evaluated.blocks), hitSphere(ray, S.things.Q), S.things.P ? hitPost(ray, evaluatedP.support) : null, hitSphereG(ray), (fh && !fh.miss) ? fh : null].filter(Boolean).sort(function (a, b) { return a.t - b.t; });
       // an unresolved piece nearer than the winner: an unknown nearer intersection cannot justify a definite visible winner behind it
       if (fMiss && fMiss.unresolved.length && (!hits.length || fMiss.unresolved[0][0] < hits[0].t)) {
         address.push({ thing: 'F', kind: 'field', where: 'no definite answer: the work limit ' + state.fieldWork + ' left ' + fMiss.unresolved.map(function (iv) { return '[' + iv[0].toFixed(3) + ', ' + iv[1].toFixed(3) + ']'; }).join(' ') + ' m unresolved before the nearest surface; the winner behind it is not definite' });
@@ -664,7 +1138,13 @@
       if (h.thing === 'P') {
         var Pw = evaluatedP.support, ch = postChart(Pw, h.point), wk = wallKnots(evaluatedP), corr = evaluatedP.correspondence[evaluatedP.correspondence.length - 1];
         var chartLine = Pw.chart.scale === 1 && Pw.chart.offset === 0 ? 'chart S0: a = u, period ' + Pw.C.toFixed(1) + ' mm' : 'chart S1: a = (u − ' + Pw.chart.offset + ')/' + Pw.chart.scale + ', period ' + postPeriod(Pw).toFixed(1) + ' mm in a, metric diag(' + (Pw.chart.scale * Pw.chart.scale) + ', 1)';
-        address.push({ thing: 'P', kind: 'solid', where: 'construction CP revision ' + constructions.CP.revision + ', face wall (r ' + Pw.r.toFixed(3) + ' m, C ' + Pw.C.toFixed(1) + ' mm), ' + chartLine + (corr ? ' · correspondence from revision ' + corr.from.rev + ': ' + corr.evidence + ', ' + corr.capabilities.forward + '/' + corr.capabilities.backward + (corr.relation.kind === 'reparameterization' ? ' (' + corr.relation.phi + ')' : corr.relation.kind === 'deformation' ? ' (the generator and the height kept; C changed)' : '') : '') });
+        // the replay's own line on the wall level: how far A's saved program has run, what the carry holds, and the painting's own bytes
+        var replayLine = '';
+        if (state.paint && PAINT) {
+          var same = (PAINT.hashes.painting && PAINT.hashes.baseline) ? (PAINT.hashes.painting === PAINT.hashes.baseline ? 'same' : 'different') : (PAINT.baseline ? 'hashing…' : 'not run below 155 dabs');
+          replayLine = ' · replay: ' + PAINT.seq.dabsDone + ' of ' + PAINT.dabs.length + ' dabs of A\'s program (sample → mix .25 → disk → over .5) from retained events; rechart S0 → S1 before dab 20; the strip restored before dab 80; carry now (' + PAINT.seq.carry.map(function (x) { return x.toFixed(3); }).join(', ') + '); painting ' + hex8('painting') + '; prefix at dab 20 ' + (PAINT.seq.prefix ? hex8('prefix') + '' : '— (the step is before dab 20)') + '; baseline (no rechart) ' + same + '; reset-carry control ' + (PAINT.reset ? hex8('reset') + ' (different)' : 'not run below 155 dabs');
+        }
+        address.push({ thing: 'P', kind: 'solid', where: 'construction CP revision ' + constructions.CP.revision + ', face wall (r ' + Pw.r.toFixed(3) + ' m, C ' + Pw.C.toFixed(1) + ' mm), ' + chartLine + (corr ? ' · correspondence from revision ' + corr.from.rev + ': ' + corr.evidence + ', ' + corr.capabilities.forward + '/' + corr.capabilities.backward + (corr.relation.kind === 'reparameterization' ? ' (' + corr.relation.phi + ')' : corr.relation.kind === 'deformation' ? ' (the generator and the height kept; C changed)' : '') : '') + replayLine });
         address.push({ thing: 'Fwall', kind: 'attachment', where: 'resolved, rule ' + wk.res.rule + ', authored unwrapped u ∈ [' + wk.res.dom.u0.toFixed(1) + ', ' + wk.res.dom.u1.toFixed(1) + '] × v ∈ [' + wk.res.dom.v0 + ', ' + wk.res.dom.v1 + '] mm (' + wk.res.evidence + ')' + (state.pMode === 'modulo' ? ' · reading: each knot reduced modulo C (the naive reading)' : '') + (state.pNib === 'naive' ? ' · nib: chart units read as mm (the naive nib)' : '') });
         var q = null, pre = [];
         if (state.pNib === 'naive') q = [ch.a, ch.b];
@@ -673,14 +1153,129 @@
         var fpP = (p1 && p2) ? Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) * (R.rect.w * state.zoom / ls.used[0]) : 0;
         address.push({ thing: 'PW', kind: 'planar space', where: 'chart (a ' + ch.a.toFixed(1) + ', b ' + ch.b.toFixed(1) + ') → ' + (state.pNib === 'naive' ? 'read as mm' : (pre.length ? 'preimage u ' + pre[0].u.toFixed(1) + ' mm (k ' + pre[0].k + ')' + (pre.length > 1 ? ', ' + pre.length + ' candidates' : '') : 'no preimage in the authored domain')) + ', footprint ' + fpP.toFixed(2) + ' px per mm on the surface' });
         var leafP = 'P:wall';
+        // with the replay on, what the wall carries here is the painting, not the mark's coverage: each record sampled in its own
+        // painting through its own binding, composed by the saved order (pickupAt), or no support at all while the strip is cut away
+        if (state.paint && PAINT && q) {
+          var pAt = pickupAt(PAINT.bindings, PAINT.ev, q, PAINT.merged, state.paintOrder, PAINT.paintings, PAINT.recordA.domain);
+          if (pAt.status === 'absent-support') {
+            address.push({ thing: 'painting', kind: 'the replay\'s value on the wall', where: 'absent-support: the strip (390, 410) mm is not in the current evaluation (P1-cut); A binds on the bands by restriction, B on the upper band' });
+            return { leaf: 'P:strip', address: address, mark: pagePx, t: h.t };
+          }
+          var lo = pAt.location, dmA = PAINT.recordA.domain, dmB = PAINT.recordB.domain;
+          var tex = function (d) { return '(' + Math.max(0, Math.min(PICKUP_N - 1, Math.floor((lo[0] - d[0]) / d[2] * PICKUP_N))) + ', ' + Math.max(0, Math.min(PICKUP_N - 1, Math.floor((lo[1] - d[1]) / d[3] * PICKUP_N))) + ')'; };
+          var pw = 'painting A (' + PICKUP_N + ' × ' + PICKUP_N + ' over u ∈ [C−120, C+120] × v ∈ [280, 520] mm): texel ' + tex(dmA) + ' rgba ' + rgba6(pickupSample(PAINT.paintings['paint-A'], lo, dmA));
+          var hasB = pAt.ids.indexOf('paint-B') >= 0;
+          if (hasB) pw += ' · painting B (over v ∈ [410, 520]): texel ' + tex(dmB) + ' rgba ' + rgba6(pickupSample(PAINT.paintings['paint-B'], lo, dmB));
+          if (pAt.status === 'needs-policy') pw += ' · both paintings cover this point; no composition rule saved → needs-policy';
+          else pw += ' · composed by order [' + state.paintOrder.join(', ') + '], top ' + state.paintOrder.filter(function (n) { return pAt.ids.indexOf(n) >= 0; }).slice(-1)[0] + ', premultiplied rgba ' + rgba6(pAt.color);
+          if (hasB) {   // the stateful read: a brush that reads the coating cannot take a pending binding as transparent
+            var missing = pickupConsume({ status: 'resolved', color: [0.5, 0, 0, 0.5] }, [1, 0, 0, 1]).nextCarry;
+            var complete = pickupConsume({ status: 'resolved', color: over([0, 0, 0.5, 0.5], [0.5, 0, 0, 0.5]) }, [1, 0, 0, 1]).nextCarry;
+            pw += ' · the stateful read: if B\'s binding were pending and read as transparent, the next carry would be (' + missing.map(function (x) { return x.toFixed(4); }).join(', ') + '); resolved it is (' + complete.map(function (x) { return x.toFixed(4); }).join(', ') + '); pending: no next state';
+          }
+          address.push({ thing: 'painting', kind: 'the replay\'s value on the wall', where: pw });
+          return { leaf: pAt.status === 'needs-policy' ? 'P:needs-policy' : 'P:painting', address: address, mark: pagePx, t: h.t };
+        }
         if (q) {
           var cm = classifyMark(wk.ks, q);
-          if (cm.inside) { leafP = 'kP'; address.push({ thing: 'kP', kind: 'path', where: 'inside: ' + cm.contributors.map(function (e) { return 'segment ' + e.seg + ', t ' + e.t.toFixed(2) + ', width ' + e.w.toFixed(2) + ' mm'; }).join(' · ') + (cm.contributors.length > 1 ? ' (' + cm.contributors.length + ' source locations, one mark)' : '') + ', at least ' + (-cm.best.signed).toFixed(2) + ' mm from the edge' }); }
-          else address.push({ thing: 'kP', kind: 'path', where: 'outside by ' + cm.best.signed.toFixed(2) + ' mm (nearest: segment ' + cm.best.seg + ', t ' + cm.best.t.toFixed(2) + ', width ' + cm.best.w.toFixed(2) + ' mm)' });
+          // the swept nib answers with an enclosure and its work; the capsule answers with a number and no certificate
+          var nearest = ' (nearest: segment ' + cm.best.seg + ', t ' + cm.best.t.toFixed(2) + ', width ' + cm.best.w.toFixed(2) + ' mm)';
+          var certTol = cm.tol == null ? null : (cm.sd - cm.lower <= cm.tol ? cm.tol : +(cm.sd - cm.lower).toFixed(4));
+          var cert = certTol == null ? '' : ' · the swept nib, w = 10 + 30p², minimum certified to ±' + certTol + ' mm in ' + cm.work + ' evaluations';
+          var capNote = state.pNib === 'capsule' ? ' · note: the capsule (endpoint radii interpolated linearly) is the old footprint; for w = 10 + 30p² it overstates the nib everywhere between knots' : '';
+          if (cm.status === 'pending') { leafP = 'P:unresolved'; walkForce = 'P:unresolved'; address.push({ thing: 'kP', kind: 'path', where: 'no definite answer within the work limit ' + state.pWork + ': the minimum lies in [' + cm.lower.toFixed(4) + ', ' + cm.sd.toFixed(4) + '] mm' + nearest + capNote }); }
+          else if (cm.inside) { leafP = 'kP'; address.push({ thing: 'kP', kind: 'path', where: 'inside: ' + cm.contributors.map(function (e) { return 'segment ' + e.seg + ', t ' + e.t.toFixed(2) + ', width ' + e.w.toFixed(2) + ' mm'; }).join(' · ') + (cm.contributors.length > 1 ? ' (' + cm.contributors.length + ' source locations, one mark)' : '') + ', at least ' + (-cm.best.signed).toFixed(2) + ' mm from the edge' + cert + capNote }); }
+          else address.push({ thing: 'kP', kind: 'path', where: 'outside by ' + cm.best.signed.toFixed(3) + ' mm' + (cm.lower == null ? '' : ', enclosure [' + cm.lower.toFixed(4) + ', ' + cm.sd.toFixed(4) + ']') + nearest + capNote });
           if (state.pMode === 'modulo') { var k0 = markKnots(Pw, 'unwrapped'), km = markKnots(Pw, 'modulo'); address.push({ thing: 'kP', kind: 'note', where: 'first segment A→B: unwrapped +' + (k0[1].u - k0[0].u).toFixed(1) + ' mm; reduced modulo C: ' + (km[1].u - km[0].u).toFixed(1) + ' mm (the stroke would run the other way round the post)' }); }
           if (state.pNib === 'naive' && Pw.chart.scale !== 1) address.push({ thing: 'kP', kind: 'note', where: 'the naive nib measures in a: ' + Pw.chart.scale + ' mm on the surface reads as 1; a point ' + state.probeD + ' mm along the circumference reads ' + (state.probeD / Pw.chart.scale).toFixed(1) });
         }
         return { leaf: leafP, address: address, mark: pagePx, t: h.t };
+      }
+      if (h.thing === 'G') {
+        if (h.part === 'band') {
+          address.push({ thing: 'G', kind: 'solid', where: 'the ray meets the removed band (−10 < v < 10 mm): no support here' });
+          return { leaf: 'G:band', address: address, mark: pagePx, t: h.t };
+        }
+        var Gg = constructions.CG.params, qh = h.normal, grev = state.gRev, gch = G_CHARTS[grev];
+        var lonG = sphLon(qh), latG = sphLat(qh), uwG = gUnwrapU(qh), vG = G_R * latG;
+        var mA = gMarkA(qh), mB = gMarkB(qh);
+        var loc = gLocate(grev, qh, { order: state.gOrder, budget: state.gBudget, dropRetained: state.gDrop });
+        // the solid: the chart this evaluation reads the sphere through, and what it is to the evaluation before it
+        var chartG = grev === 0 ? 'chart S0: u = R·longitude, v = R·latitude, period ' + G_C.toFixed(1) + ' mm, cut at longitude ±180°'
+          : grev === 1 ? 'chart S1: a = (u − 200)/2, period ' + (G_C / 2).toFixed(1) + ' mm in a'
+          : 'chart S2: c = a + b/4 + 60 (sheared), period ' + (G_C / 2).toFixed(1) + ' mm in c';
+        var corrG = grev === 1 ? ' · correspondence from revision 0: same points, unique/unique (φ), evidence S1∘φ = S0'
+          : grev === 2 ? ' · correspondence from revision 1: merged A and B into M: A@0 → M@2 by χ∘φ restricted to A@0\'s domain · B@0 → M@2 by χ∘φ∘β restricted to B@0\'s domain, same points, unique/unique, evidence S2∘χ∘φ = S0' : '';
+        var ctrlG = '';
+        if (grev === 2 && mA.inside) {   // the negative control with a number: χ without the retained φ is not the same map
+          var co = G_CHARTS[2].toRoot(uwG + vG / 4 + 60, vG);
+          ctrlG = ' · control: applying only χ to A\'s original coordinates (omitting the retained φ) would put this point ' + v3len(v3sub(v3scale(sphPoint0(co.u, co.v), G_R), v3scale(qh, G_R))).toFixed(2) + ' mm away in the world';
+        }
+        address.push({ thing: 'G', kind: 'solid', where: 'construction CG revision ' + constructions.CG.revision + ', sphere (r ' + Gg.r.toFixed(3) + ' m, C ' + G_C.toFixed(1) + ' mm), ' + chartG + corrG + ctrlG });
+        // the chart: where this point is in it, on which branch, with the metric there and the piece that owns it
+        var perG = gch.period, aP = loc.here.a - Math.floor(loc.here.a / perG + 0.5) * perG, kG = Math.round((loc.here.a - aP) / perG);
+        var met = gChartMetric(gch, vG), pieceG = sphPieceOf(qh);
+        // one millimetre east along the surface: a great-circle step of 1/R along the eastward tangent, or along the north piece's
+        // x where east is not a direction at all (the pole is where S0 stops being a chart; the piece that owns it is why)
+        var tE = Math.cos(latG) > 1e-9 ? v3norm([-Math.sin(lonG), 0, Math.cos(lonG)]) : [1, 0, 0];
+        var qE = v3norm(v3add(v3scale(qh, Math.cos(1 / G_R)), v3scale(tE, Math.sin(1 / G_R))));
+        var pg1 = projectPoint(cam, h.point), pg2 = projectPoint(cam, v3add(Gg.at, v3scale(qE, Gg.r)));
+        var fpG = (pg1 && pg2) ? Math.hypot(pg2[0] - pg1[0], pg2[1] - pg1[1]) * (R.rect.w * state.zoom / ls.used[0]) : 0;
+        address.push({ thing: 'GW', kind: 'chart', where: '(a ' + loc.here.a.toFixed(2) + ', b ' + loc.here.b.toFixed(2) + ') → authored branch u ' + uwG.toFixed(2) + ' mm (k ' + kG + '), longitude ' + (lonG * 180 / Math.PI).toFixed(1) + '°, latitude ' + (latG * 180 / Math.PI).toFixed(1) + '° · metric here [[' + met[0][0].toFixed(2) + ', ' + met[0][1].toFixed(2) + '], [' + met[1][0].toFixed(2) + ', ' + met[1][1].toFixed(2) + ']] (Jᵀ diag(cos² lat, 1) J) · footprint ' + fpG.toFixed(2) + ' px per mm on the surface · chart piece: ' + pieceG.piece + ' (' + pieceG.note + ')' });
+        // the reach tool's record: a region measured on the surface, and the two readings that are not it
+        var rr = gReachRecord(), paintNote = function (m) { return m ? '(0, 0.4, 0, 0.4)' : '(0, 0, 0, 0)'; };
+        if (state.gBand) {
+          var dU = sphBandDistance(rr.seed, qh, [-10, 10], 'underlying'), dF = sphBandDistance(rr.seed, qh, [-10, 10], 'face');
+          var sel = state.dMetric === 'face' ? (dF.d <= 50 ? 'inside' : 'outside') : (dU.d <= 50 ? 'inside' : 'outside');
+          address.push({ thing: 'reach₂', kind: 'the tool\'s record beside the removed band', where: 'reach₂: seed (u ' + (Math.PI * G_R).toFixed(1) + ', v 20.0) mm, r 50 mm · here: on the underlying sphere ' + dU.d.toFixed(1) + ' mm → ' + (dU.d <= 50 ? 'inside' : 'outside') + ', clipped after; within the retained support: ' + (dF.d === Infinity ? 'no connecting path, distance ∞' : dF.d.toFixed(1) + ' mm') + ' → ' + (dF.d <= 50 ? 'inside' : 'outside') + ' · policy dmetric=' + state.dMetric + ' selects ' + sel + '; a saved clip at the end does not choose between them' });
+        } else {
+          var dI = rr.distance(qh), dFr = sphFrozenDist(rr.seed, qh), dCh = sphChord(rr.seed, qh);
+          var io = function (d) { return d <= state.gReach ? 'inside' : 'outside'; };
+          var bnd = rr.bounds.map(function (b) { return '[' + b[0].toFixed(1) + ', ' + b[1].toFixed(1) + ']'; });
+          var reachW = 'reach: seed (180°, 60°), r ' + state.gReach + ' mm, distance on the surface · here: intrinsic ' + dI.toFixed(2) + ' mm → ' + io(dI) + ' · the metric frozen at the seed reads ' + dFr.toFixed(2) + ' mm → ' + io(dFr) + ' · the chord reads ' + dCh.toFixed(2) + ' mm → ' + io(dCh) + ' · region: area ' + rr.area.toFixed(1) + ' mm², world bounds x ' + bnd[0] + ' y ' + bnd[1] + ' z ' + bnd[2] + ' mm about G\'s centre · paint through the retained region: ' + paintNote(rr.member(qh));
+          if (state.gReach !== 150) {
+            var r150 = reachRegion({ seed: [Math.PI, Math.PI / 3], radius: 150, distance: 'surface' });
+            reachW += ' · the record changed (150 → ' + state.gReach + '): through the retained clip@150 ' + paintNote(r150.member(qh)) + '; through the result@' + state.gReach + ' ' + paintNote(rr.member(qh));
+          }
+          if (pieceG.piece === 'north') reachW += ' · one owner: the north chart; a half-opacity contribution reads α ' + over([0, 0, 0, 0.5], [0, 0, 0, 0])[3].toFixed(3) + ' once (deposited twice by two overlapping execution charts it would read ' + over([0, 0, 0, 0.5], over([0, 0, 0, 0.5], [0, 0, 0, 0]))[3].toFixed(3) + ')';
+          address.push({ thing: 'reach', kind: 'the tool\'s record', where: reachW });
+        }
+        // the retained records: each binding inverted through its own chain, tested in its OWN root domain, then composed
+        var lines = [], dA = G_RECORDS.A.domain, dB = G_RECORDS.B.domain;
+        loc.bindings.forEach(function (bd) {
+          var isA = bd.record === 'A@0';
+          if (bd.status === 'outside the root restriction') {
+            // each binding's root has its own coordinate names (A: (u, v) in S0 · B: (ξ, η) through β), so the reason is read in the
+            // branch that knows which one this is; and the wording says "reaches here" only when the mark's own region does reach here
+            if (isA) {
+              var whyA = bd.root.u < dA.u0 || bd.root.u > dA.u1 ? 'u ' + bd.root.u.toFixed(2) + ' outside [' + dA.u0.toFixed(2) + ', ' + dA.u1.toFixed(2) + ']' : 'v ' + bd.root.v.toFixed(2) + ' outside [' + dA.v0 + ', ' + dA.v1 + ']';
+              lines.push(mA.inside ? 'kA: the arc\'s region reaches here (' + mA.d.toFixed(2) + ' mm from the centre-line, nib 16) but A\'s root restriction excludes it (' + whyA + '): not on kA'
+                                   : 'kA: ' + mA.d.toFixed(2) + ' mm from the centre-line, outside by ' + mA.sd.toFixed(2) + '; and outside A\'s root restriction (' + whyA + '): not on kA');
+            } else {
+              var whyB = bd.root.xi < dB.x0 || bd.root.xi > dB.x1 ? 'ξ ' + bd.root.xi.toFixed(2) + ' outside [' + dB.x0 + ', ' + dB.x1 + ']' : 'η ' + bd.root.eta.toFixed(2) + ' outside [' + dB.y0 + ', ' + dB.y1 + ']';
+              lines.push(mB.inside ? 'kB: the tap\'s region reaches here (' + mB.d.toFixed(2) + ' mm from its centre, r 24) but B\'s root restriction excludes it (' + whyB + '): not on kB'
+                                   : 'kB: ' + mB.d.toFixed(2) + ' mm from its centre, outside by ' + mB.sd.toFixed(2) + '; and outside B\'s root restriction (' + whyB + '): not on kB');
+            }
+          } else if (bd.inside) {
+            if (isA) lines.push('kA inside: arc-AB, t ' + bd.t.toFixed(2) + ', ' + bd.d.toFixed(2) + ' mm from the centre-line, nib 16 mm (inside by ' + (-bd.sd).toFixed(2) + ') · binding-A: root S0 (u ' + bd.root.u.toFixed(2) + ', v ' + bd.root.v.toFixed(2) + '), chain [' + bd.chain.join(', ') + ']');
+            else lines.push('kB inside: tap, ' + bd.d.toFixed(2) + ' mm from its centre, r 24 mm · binding-B: root (ξ ' + bd.root.xi.toFixed(2) + ', η ' + bd.root.eta.toFixed(2) + '), chain [' + bd.chain.join(', ') + ']');
+          } else lines.push((isA ? 'kA: ' + bd.d.toFixed(2) + ' mm from the centre-line' : 'kB: ' + bd.d.toFixed(2) + ' mm from its centre') + ', outside by ' + bd.sd.toFixed(2));
+        });
+        var compG = loc.composition, leafG = 'G';
+        if (compG.status === 'unresolved') {
+          leafG = 'G:unresolved';
+          if (state.gDrop) lines.push('unresolved: retained dependency φ removed without a composed replacement: the binding cannot answer the inverse demand; assigning "merged" to the support does not answer it');
+          else lines.push('unresolved: ' + compG.missing[0].missing + ' (work granted ' + state.gBudget + '): ' + (compG.known.length ? compG.known.join(', ') + ' known' : 'nothing known') + ', ' + compG.may.join(', ') + ' may contribute; the composed coating is not definite (rgba unresolved)');
+        } else if (compG.status === 'needs-policy') {
+          leafG = 'G:needs-policy';
+          lines.push('both records cover this point; no composition rule saved → needs-policy');
+        } else if (compG.contributors && compG.contributors.length) {
+          var topG = state.gOrder ? state.gOrder.filter(function (n) { return compG.contributors.indexOf(n) >= 0; }).slice(-1)[0] : compG.contributors[compG.contributors.length - 1];
+          lines.push('composed by order [' + (state.gOrder || compG.order).join(', ') + '], top ' + topG + ', premultiplied rgba (' + compG.rgba.map(function (x) { return x.toFixed(3); }).join(', ') + ')');
+          leafG = compG.contributors.length > 1 ? 'G:kA+kB' : 'G:' + compG.contributors[0];
+        } else leafG = (!state.gBand && rr.member(qh)) ? 'G:reach' : 'G';
+        address.push({ thing: 'PG', kind: 'the retained records', where: lines.join(' · ') });
+        return { leaf: leafG, address: address, mark: pagePx, t: h.t };
       }
       if (h.thing === 'F') {
         var Ff = S.things.F;
@@ -688,7 +1283,7 @@
         address.push({ thing: 'F', kind: 'boundary', where: 't = ' + h.t.toFixed(3) + ' m, local point (' + h.local.map(function (x) { return x.toFixed(3); }).join(', ') + '), ' + (h.normal ? 'normal (' + h.normal.map(function (x) { return x.toFixed(2); }).join(', ') + ')' : 'normal undefined (a meeting of branches)') + ', ' + h.kind + ', active ' + h.active + ' · no face: the address is the definition, the boundary rule and this local point' });
         address.push({ thing: 'F', kind: 'events', where: h.events.map(function (e) { return e.t.toFixed(3) + ' ' + (e.leaf === 0 ? 'outer' : 'inner') + ' ' + e.kind; }).join(' · ') + '; material ' + h.material.map(function (iv) { return '[' + iv[0].toFixed(3) + ', ' + iv[1].toFixed(3) + ']'; }).join(' ∪ ') + ' m; ' + h.status + ', ' + h.work + ' evaluations' + (h.unresolved.length ? '; unresolved ' + h.unresolved.map(function (iv) { return '[' + iv[0].toFixed(3) + ', ' + iv[1].toFixed(3) + ']'; }).join(' ') : '') });
         address.push({ thing: 'F', kind: 'tool', where: 'extent tool: binding a ← drag along ' + Ff.tool.extent.dragFrame + ' (' + Ff.tool.extent.constraint + '); the hit selects no parameter, the binding does; expression refs a, b, c' });
-        return { leaf: 'F', address: address, mark: pagePx, t: h.t };
+        return { leaf: 'F', address: address, mark: pagePx, t: h.t, hit: h };
       }
       var fc = evaluated.faces[h.face];
       address.push({ thing: 'B', kind: 'solid · construction CB, revision ' + constructions.CB.revision, where: 'face ' + h.face + (fc && fc.parts > 1 ? ' · part ' + (h.partIndex + 1) + ' of ' + fc.parts : '') + ' · lineage: ' + (fc ? fc.lineage : 'internal') });
@@ -769,10 +1364,28 @@
     // attack 1: the post's wall (class 4) and the second record on E.top (class 3)
     'uniform vec4 uPost; uniform vec2 uChartP; uniform vec4 uPDom; uniform vec4 uPK[4]; uniform int uPMode; uniform vec4 uPColor;\n' +
     'uniform sampler2D uStroke2; uniform int uCount2; uniform vec2 uAtt2Origin; uniform vec2 uAtt2Scale; uniform vec2 uAtt2Offset; uniform int uRecords; uniform float uRight; uniform vec2 uLeftClip; uniform int uOrder; uniform vec4 uComp2;\n' +
+    // attack 2: the sphere G (class 10) — its centre and R in mm, which evaluation it is read at, the reach record as a unit seed
+    // with cos ρ, the removed band, the saved order, whether B's binding is resolved under the granted work, and the control
+    'uniform vec4 uG; uniform int uGRev; uniform vec4 uGReach; uniform int uGBand; uniform int uGOrder; uniform int uGBudgetB; uniform int uGDrop;\n' +
+    // attack 3: the pickup replay on P's wall — the two paintings as logical 96×96 values over their authored domains
+    'uniform int uPaint; uniform int uStrip; uniform int uPaintOrder; uniform sampler2D uPaintA; uniform sampler2D uPaintB; uniform vec4 uPaintDomA; uniform vec4 uPaintDomB;\n' +
     '// the swept nib on one segment: the convex hull of the two end discs (uneven capsule, Quilez) — the same formula the CPU classify uses\n' +
     'float capsuleSD(vec2 p, vec2 a, vec2 b, float ra, float rb){ p -= a; b -= a; float h = dot(b, b); if (h < 1e-12) return length(p) - max(ra, rb); float bb = ra - rb; if (bb * bb >= h) return min(length(p) - ra, length(p - b) - rb);\n' +
     '  vec2 q = vec2(abs(p.x * b.y - p.y * b.x), dot(p, b)) / h; vec2 c = vec2(sqrt(h - bb * bb), bb); float k = c.x * q.y - c.y * q.x; float m = dot(c, q); float n = dot(q, q);\n' +
     '  if (k < 0.0) return sqrt(h * n) - ra; if (k > c.x) return sqrt(h * (n + 1.0 - 2.0 * q.y)) - rb; return m - ra; }\n' +
+    '// the swept nib on one segment with w = 10 + 30p²: f(t) = |q − c(t)| − w(p(t))/2, minimised by a 32-sample scan and 8 golden-section steps\n' +
+    '// (an approximation with a stated envelope; the CPU certifies the same objective at the cursor by branch-and-bound)\n' +
+    'float sweepF(vec2 q, vec2 c0, vec2 c1, float p0, float p1, float t){ vec2 c = mix(c0, c1, t); float p = mix(p0, p1, t); return length(q - c) - 0.5 * (10.0 + 30.0 * p * p); }\n' +
+    'float sweepMinGL(vec2 q, vec2 c0, vec2 c1, float p0, float p1){ float best = 1e9, tb = 0.0;\n' +
+    '  for (int i = 0; i <= 32; i++) { float t = float(i) / 32.0; float f = sweepF(q, c0, c1, p0, p1, t); if (f < best) { best = f; tb = t; } }\n' +
+    '  float lo = max(0.0, tb - 1.0 / 32.0), hi = min(1.0, tb + 1.0 / 32.0); float g = 0.6180339887;\n' +
+    '  float x1 = hi - g * (hi - lo), x2 = lo + g * (hi - lo); float f1 = sweepF(q, c0, c1, p0, p1, x1), f2 = sweepF(q, c0, c1, p0, p1, x2);\n' +
+    '  for (int i = 0; i < 8; i++) { if (f1 < f2) { hi = x2; x2 = x1; f2 = f1; x1 = hi - g * (hi - lo); f1 = sweepF(q, c0, c1, p0, p1, x1); } else { lo = x1; x1 = x2; f1 = f2; x2 = lo + g * (hi - lo); f2 = sweepF(q, c0, c1, p0, p1, x2); } }\n' +
+    '  return min(best, min(f1, f2)); }\n' +
+    '// the mark on the wall: the swept nib (uPMode 0 surface, 1 naive) or the old capsule (uPMode 2), over the three segments\n' +
+    'float markSD(vec2 q){\n' +
+    '  if (uPMode == 2) return min(capsuleSD(q, uPK[0].xy, uPK[1].xy, uPK[0].z * 0.5, uPK[1].z * 0.5), min(capsuleSD(q, uPK[1].xy, uPK[2].xy, uPK[1].z * 0.5, uPK[2].z * 0.5), capsuleSD(q, uPK[2].xy, uPK[3].xy, uPK[2].z * 0.5, uPK[3].z * 0.5)));\n' +
+    '  return min(sweepMinGL(q, uPK[0].xy, uPK[1].xy, uPK[0].w, uPK[1].w), min(sweepMinGL(q, uPK[1].xy, uPK[2].xy, uPK[1].w, uPK[2].w), sweepMinGL(q, uPK[2].xy, uPK[3].xy, uPK[2].w, uPK[3].w))); }\n' +
     'void main(){ vec3 n = normalize(vNrm); float ndl = max(dot(n, normalize(uLightDir)), 0.0); vec3 base = uBase; float alpha = 1.0;\n' +
     '  if (uKind > 0.5 && vFace > 3.5 && vFace < 4.5) { // P\'s wall (class 4): the chart on the wall, its seam, and the mark classified in millimetres on the surface\n' +
     '    vec3 pbase = uBase * (uAmbient + (1.0 - uAmbient) * ndl);\n' +
@@ -781,18 +1394,34 @@
     '    float per = uPost.w / uChartP.y;                 // the chart\'s period in a\n' +
     '    float a = mod((uChart - uChartP.x) / uChartP.y, per);\n' +
     '    float b = vWorld.y * 1000.0;\n' +
+    '    if (uPaint == 1) {                                 // the pickup replay: the painting is what the wall carries here, in place of the mark\'s coverage\n' +
+    '      float uu = -1e9;\n' +
+    '      for (int k = -1; k <= 1; k++) { float u = uChartP.y * a + uChartP.x + float(k) * uPost.w; if (u >= uPDom.x && u <= uPDom.y && b >= uPDom.z && b <= uPDom.w) uu = u; }\n' +
+    '      vec3 colQ = pbase;\n' +
+    '      if (uu > -1e8) {\n' +
+    '        if (uStrip == 1 && b > 390.0 && b < 410.0) discard;   // the strip is not in this evaluation: no support here, so no fragment\n' +
+    '        float lfp = uAmbient + (1.0 - uAmbient) * ndl;\n' +
+    '        ivec2 ta = ivec2(int(clamp((uu - uPaintDomA.x) / uPaintDomA.z, 0.0, 0.9999) * 96.0), int(clamp((b - uPaintDomA.y) / uPaintDomA.w, 0.0, 0.9999) * 96.0));\n' +
+    '        vec4 ca = texelFetch(uPaintA, ta, 0), cb = vec4(0.0);\n' +
+    '        if (b >= uPaintDomB.y) { ivec2 tb = ivec2(int(clamp((uu - uPaintDomB.x) / uPaintDomB.z, 0.0, 0.9999) * 96.0), int(clamp((b - uPaintDomB.y) / uPaintDomB.w, 0.0, 0.9999) * 96.0)); cb = texelFetch(uPaintB, tb, 0); }\n' +
+    '        float hp = step(0.5, fract((uu + b) / 16.0));\n' +
+    '        vec4 pink = (uPaintOrder == 2 && ca.a > 0.001 && cb.a > 0.001) ? mix(ca, cb, hp) : ((uPaintOrder == 1) ? ca + cb * (1.0 - ca.a) : cb + ca * (1.0 - cb.a));\n' +
+    '        colQ = mix(pbase, pink.rgb / max(pink.a, 1e-4) * lfp, pink.a);\n' +
+    '      }\n' +
+    '      vec2 gq = abs(fract(vec2(a, b) / 100.0) - 0.5);    // the chart\'s grid and cut still draw over the painting\n' +
+    '      colQ = mix(colQ, colQ * 0.85, (1.0 - smoothstep(0.0, 0.02, min(gq.x, gq.y))) * 0.6);\n' +
+    '      colQ = mix(colQ, vec3(0.08), (1.0 - smoothstep(0.0, 3.0, min(a, per - a))) * 0.85);\n' +
+    '      o = vec4(colQ, 1.0); return;\n' +
+    '    }\n' +
     '    float best = 1e9;\n' +
-    '    if (uPMode == 0) {\n' +
+    '    if (uPMode != 1) {\n' +
     '      for (int k = -1; k <= 1; k++) {               // the preimage in the authored (unwrapped) domain; classify in millimetres on the surface\n' +
     '        float u = uChartP.y * a + uChartP.x + float(k) * uPost.w;\n' +
     '        if (u < uPDom.x || u > uPDom.y || b < uPDom.z || b > uPDom.w) continue;\n' +
-    '        vec2 q = vec2(u, b);\n' +
-    '        best = min(best, min(capsuleSD(q, uPK[0].xy, uPK[1].xy, uPK[0].z * 0.5, uPK[1].z * 0.5), min(capsuleSD(q, uPK[1].xy, uPK[2].xy, uPK[1].z * 0.5, uPK[2].z * 0.5), capsuleSD(q, uPK[2].xy, uPK[3].xy, uPK[2].z * 0.5, uPK[3].z * 0.5))));\n' +
+    '        best = min(best, markSD(vec2(u, b)));\n' +
     '      }\n' +
     '    } else {                                        // the naive nib: (a, b) read as millimetres against knots already mapped by phi\n' +
-    '      vec2 q = vec2(a, b);\n' +
-    '      if (a >= uPDom.x && a <= uPDom.y && b >= uPDom.z && b <= uPDom.w)\n' +
-    '        best = min(capsuleSD(q, uPK[0].xy, uPK[1].xy, uPK[0].z * 0.5, uPK[1].z * 0.5), min(capsuleSD(q, uPK[1].xy, uPK[2].xy, uPK[1].z * 0.5, uPK[2].z * 0.5), capsuleSD(q, uPK[2].xy, uPK[3].xy, uPK[2].z * 0.5, uPK[3].z * 0.5)));\n' +
+    '      if (a >= uPDom.x && a <= uPDom.y && b >= uPDom.z && b <= uPDom.w) best = markSD(vec2(a, b));\n' +
     '    }\n' +
     '    float aaP = max(fwidth(best) * 0.7, 0.05);\n' +
     '    float covP = 1.0 - smoothstep(-aaP, aaP, best);\n' +
@@ -803,6 +1432,43 @@
     '    float seam = 1.0 - smoothstep(0.0, 3.0, min(a, per - a));   // the chart\'s cut, 3 mm dark\n' +
     '    colP = mix(colP, vec3(0.08), seam * 0.85);\n' +
     '    o = vec4(colP, 1.0); return; }\n' +
+    '  if (uKind > 0.5 && vFace > 9.5) { // G (class 10): the chart of this revision on a curved host, its cut and pieces, the reach region, the two retained marks\n' +
+    '    vec3 q = normalize(vWorld - uG.xyz); float Rg = uG.w, Cg = 6.28318530718 * uG.w;\n' +
+    '    float lat = asin(clamp(q.y, -1.0, 1.0)), lon = atan(q.z, q.x);\n' +
+    '    float vg = Rg * lat, ug = Rg * lon;\n' +
+    '    if (uGBand == 1 && abs(vg) < 10.0) discard;    // the open latitude band is not in the support: there is no surface here to shade\n' +
+    '    float ag = (uGRev == 0) ? ug : (ug - 200.0) / 2.0;   // S0: a = u · S1: a = (u − 200)/2 · S2: c = a + b/4 + 60 (sheared)\n' +
+    '    if (uGRev == 2) ag += vg / 4.0 + 60.0;\n' +
+    '    float per = (uGRev == 0) ? Cg : 0.5 * Cg;\n' +
+    '    ag = ag - floor(ag / per + 0.5) * per;               // into [−per/2, per/2): the cut is where the chart stops\n' +
+    '    vec3 gcol = vec3(0.86, 0.83, 0.78);\n' +
+    '    vec2 gg = abs(fract(vec2(ag, vg) / 100.0) - 0.5);    // the chart\'s 100-unit grid: it moves with the chart, the ink does not\n' +
+    '    gcol = mix(gcol, gcol * 0.85, (1.0 - smoothstep(0.0, 0.02, min(gg.x, gg.y))) * 0.6);\n' +
+    '    gcol = mix(gcol, vec3(0.08), (1.0 - smoothstep(0.0, 3.0, 0.5 * per - abs(ag))) * 0.85);\n' +
+    '    float bord = 1.0 - smoothstep(0.0, 2.0, abs(vg - Rg * 1.22173048));    // the pieces\' borders: latitude 70°, and\n' +
+    '    if (lat < 1.22173048) bord = max(bord, 1.0 - smoothstep(0.0, 2.0, min(abs(ug), abs(abs(ug) - 3.14159265359 * Rg))));   // longitude 0 and ±180° below it\n' +
+    '    gcol = mix(gcol, gcol * 0.86 + vec3(0.05, 0.03, 0.10), bord * 0.5);\n' +
+    '    vec4 green = vec4(0.0, 0.4, 0.0, 0.4) * step(uGReach.w, dot(uGReach.xyz, q));   // the retained region: premultiplied, source-over the base\n' +
+    '    gcol = gcol * (1.0 - green.a) + green.rgb;\n' +
+    '    vec3 nA = vec3(-0.5, 0.8660254, 0.0), eA = vec3(0.0, 0.0, -1.0);\n' +
+    '    float th = clamp(atan(dot(q, eA), dot(q, nA)), -0.2, 0.2);      // kA: the closest centre on the arc, in closed form\n' +
+    '    vec3 cA = nA * cos(th) + eA * sin(th);\n' +
+    '    float sdA = Rg * atan(length(cross(q, cA)), dot(q, cA)) - 16.0;\n' +
+    '    vec3 cB = nA * cos(0.06) + eA * sin(0.06);                      // kB: the tap at c(.65), tested in its own root domain\n' +
+    '    float sdB = Rg * atan(length(cross(q, cB)), dot(q, cB)) - 24.0;\n' +
+    '    float uUnw = Rg * ((lon < 0.0) ? lon + 6.28318530718 : lon), xi = uUnw - 3.14159265359 * Rg, eta = vg - 200.0;\n' +
+    '    float okB = (xi >= -10.0 && xi <= 200.0 && eta >= -80.0 && eta <= 90.0) ? 1.0 : 0.0;\n' +
+    '    float covA = 1.0 - smoothstep(-max(fwidth(sdA) * 0.7, 0.05), max(fwidth(sdA) * 0.7, 0.05), sdA);\n' +
+    '    float covB = (1.0 - smoothstep(-max(fwidth(sdB) * 0.7, 0.05), max(fwidth(sdB) * 0.7, 0.05), sdB)) * okB;\n' +
+    '    float hs = step(0.5, fract((ag + vg) / 16.0));\n' +
+    '    vec4 cA4 = vec4(0.5, 0.0, 0.0, 0.5) * covA, cB4 = vec4(0.0, 0.0, 0.5, 0.5) * covB;\n' +
+    '    if (uGDrop == 1 && uGRev >= 1) { cA4 = vec4(0.25, 0.25, 0.25, 0.5) * covA * hs; cB4 = vec4(0.25, 0.25, 0.25, 0.5) * covB * hs; }   // pending, not transparent\n' +
+    '    else if (uGBudgetB == 0 && uGRev == 2) cB4 = vec4(0.25, 0.25, 0.25, 0.5) * covB * hs;\n' +
+    '    vec4 ink;\n' +
+    '    if (covA > 0.001 && covB > 0.001 && uGOrder == 2) ink = mix(cA4, cB4, hs);      // no order saved: a hatch of the two\n' +
+    '    else if (uGOrder == 1) ink = cA4 + cB4 * (1.0 - cA4.a); else ink = cB4 + cA4 * (1.0 - cB4.a);\n' +
+    '    float lfg = uAmbient + (1.0 - uAmbient) * ndl;\n' +
+    '    o = vec4(mix(gcol * lfg, ink.rgb / max(ink.a, 1e-4) * lfg, ink.a), 1.0); return; }\n' +
     '  if (uKind > 0.5 && vFace > 2.5 && vFace < 3.5) { // a surviving part of face E.top: the planar surface Π through the attachment rule, the stroke filled per pixel with the swept nib\n' +
     '    vec2 uv = ((vWorld.xz - uAttOrigin) * uAttScale + uAttOffset) * 1000.0;\n' +
     '    float best = 1e9;\n' +
@@ -840,6 +1506,8 @@
     'void main(){ vec4 w = uModel * vec4(aPos, 1.0); vWorld = w.xyz; gl_Position = uVP * w; }'].join('\n');
   var FSF = ['#version 300 es', 'precision highp float; in vec3 vWorld; out vec4 fragColor;',
     'uniform mat4 uVP; uniform vec3 uEye; uniform vec3 uFieldCentre; uniform vec3 uFieldOuter; uniform vec3 uFieldInner; uniform int uFieldHollow; uniform vec3 uLightDir; uniform float uAmbient;',
+    '// uFieldShift: the ray starts at the bounds-box entry, not at the eye, and the shift is restored on the returned t (the origin\'s magnitude is what the quartic loses)',
+    'uniform int uFieldShift; uniform int uEncodeDepth;',
     'float R_[4];',
     'float p4(float c0, float c1, float c2, float c3, float c4, float t) { return (((c4 * t + c3) * t + c2) * t + c1) * t + c0; }',
     'float bisect4(float c0, float c1, float c2, float c3, float c4, float lo, float hi) {',
@@ -878,7 +1546,7 @@
     '}',
     '// the first material entry: the events of both leaves merged, the Boolean max(f_outer, -f_inner) <= 0 decided between events',
     'float fieldHit(vec3 o, vec3 d, out int leaf, out vec3 n) {',
-    '  float t0, t1; if (!rayBox(o, d, uFieldOuter, t0, t1)) return -1.0;',
+    '  float t0, t1; if (!rayBox(o, d, uFieldOuter, t0, t1)) return -1.0; float shift = 0.0; if (uFieldShift == 1) { shift = t0; o += shift * d; t1 -= shift; t0 = 0.0; }',
     '  float c0, c1, c2, c3, c4; quarticAlongRay(o, d, uFieldOuter, c0, c1, c2, c3, c4);',
     '  int no = quarticRoots(c0, c1, c2, c3, c4, t0, t1); float ro[4]; for (int i = 0; i < 4; i++) ro[i] = R_[i];',
     '  int ni = 0; float ri[4]; for (int i = 0; i < 4; i++) ri[i] = 1e30;',
@@ -894,7 +1562,7 @@
     '    if (inside) {',
     '      vec3 p = o + lo * d; bool innerWall = (uFieldHollow == 1) && abs(fieldValue(p, uFieldInner)) < abs(fieldValue(p, uFieldOuter));',
     '      leaf = innerWall ? 1 : 0; vec3 g = innerWall ? -fieldGrad(p, uFieldInner) : fieldGrad(p, uFieldOuter);',
-    '      n = length(g) > 1e-9 ? normalize(g) : vec3(0.0); return lo;',
+    '      n = length(g) > 1e-9 ? normalize(g) : vec3(0.0); return shift + lo;',
     '    }',
     '  }',
     '  return -1.0;',
@@ -906,10 +1574,11 @@
     '  gl_FragDepth = clamp((clip.z / clip.w) * 0.5 + 0.5, 0.0, 1.0);',
     '  float lit = uAmbient + (1.0 - uAmbient) * max(dot(n, normalize(uLightDir)), 0.0);',
     '  vec3 base = leaf == 1 ? vec3(0.55, 0.30, 0.25) : vec3(0.93, 0.62, 0.25);',
-    '  fragColor = vec4(base * lit, 1.0);',
+    '  if (uEncodeDepth == 1) { float k = floor(gl_FragDepth * 16777215.0 + 0.5); fragColor = vec4(floor(k / 65536.0), mod(floor(k / 256.0), 256.0), mod(k, 256.0), 255.0) / 255.0; } else fragColor = vec4(base * lit, 1.0);',
     '}'].join('\n');
   var prog, locs = {}, solidVAO, solidCount = 0, sphVAO, groundVAO, sphCount, strokeTex, landTex;
   var progF, locsF = {}, cubeVAO, postVAO, postCount = 0, stroke2Tex, shaderLog = { main: '', field: '' }, statDone = false;
+  var gVAO, gCount = 0, paintATex, paintBTex;   // G's own tessellation (class 10) and the two paintings as 96×96 textures
   function glstat(t) { var e = document.getElementById('glstat'); if (e) e.textContent = 'WebGL2: ' + t; }
   function compile(type, src, which) {
     var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
@@ -973,10 +1642,12 @@
     });
     return { pos: pos, nrm: nrm, face: face, idx: idx, count: idx.length };
   }
-  function sphereGeometry(r, ws, hs) {
+  function sphereGeometry(r, ws, hs, cls) {   // cls: the face class, 9 for the plain occluder Q, 10 for G (its own material)
     var pos = [], nrm = [], face = [], idx = [];
-    for (var y = 0; y <= hs; y++) { var th = y / hs * Math.PI; for (var x = 0; x <= ws; x++) { var ph = x / ws * Math.PI * 2; var nx = Math.sin(th) * Math.cos(ph), ny = Math.cos(th), nz = Math.sin(th) * Math.sin(ph); pos.push(nx * r, ny * r, nz * r); nrm.push(nx, ny, nz); face.push(9); } }
-    for (var yy = 0; yy < hs; yy++) for (var xx = 0; xx < ws; xx++) { var a = yy * (ws + 1) + xx, b = a + ws + 1; idx.push(a, b, a + 1, b, b + 1, a + 1); }
+    for (var y = 0; y <= hs; y++) { var th = y / hs * Math.PI; for (var x = 0; x <= ws; x++) { var ph = x / ws * Math.PI * 2; var nx = Math.sin(th) * Math.cos(ph), ny = Math.cos(th), nz = Math.sin(th) * Math.sin(ph); pos.push(nx * r, ny * r, nz * r); nrm.push(nx, ny, nz); face.push(cls || 9); } }
+    // counter-clockwise seen from outside, so cullFace(BACK) keeps the outward faces (before the fold of attack 2 the order was
+    // reversed: the front faces were culled, the inward-facing triangles were shaded, and both spheres lit at ambient only)
+    for (var yy = 0; yy < hs; yy++) for (var xx = 0; xx < ws; xx++) { var a = yy * (ws + 1) + xx, b = a + ws + 1; idx.push(a, a + 1, b, b, a + 1, b + 1); }
     return { pos: pos, nrm: nrm, face: face, idx: idx, count: idx.length };
   }
   function landCanvas() {
@@ -995,23 +1666,29 @@
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.error(gl.getProgramInfoLog(prog)); glstat('link failed: ' + gl.getProgramInfoLog(prog)); glOK = false; return; }
     glstat('ok · ' + (gl.getParameter(gl.RENDERER) || ''));
     ['uVP', 'uModel', 'uLightDir', 'uAmbient', 'uBase', 'uKind', 'uStroke', 'uCount', 'uStrokeColor', 'uLand', 'uAttOrigin', 'uAttScale', 'uAttOffset', 'uInkOn', 'uFront',
-      'uPost', 'uChartP', 'uPDom', 'uPMode', 'uPColor', 'uStroke2', 'uCount2', 'uAtt2Origin', 'uAtt2Scale', 'uAtt2Offset', 'uRecords', 'uRight', 'uLeftClip', 'uOrder', 'uComp2'].forEach(function (n) { locs[n] = gl.getUniformLocation(prog, n); });
+      'uPost', 'uChartP', 'uPDom', 'uPMode', 'uPColor', 'uStroke2', 'uCount2', 'uAtt2Origin', 'uAtt2Scale', 'uAtt2Offset', 'uRecords', 'uRight', 'uLeftClip', 'uOrder', 'uComp2',
+      'uG', 'uGRev', 'uGReach', 'uGBand', 'uGOrder', 'uGBudgetB', 'uGDrop',
+      'uPaint', 'uStrip', 'uPaintOrder', 'uPaintA', 'uPaintB', 'uPaintDomA', 'uPaintDomB'].forEach(function (n) { locs[n] = gl.getUniformLocation(prog, n); });
     locs.uPK = gl.getUniformLocation(prog, 'uPK') || gl.getUniformLocation(prog, 'uPK[0]');
     // the field's own program: the same clip transform, its own finder, its own depth
     var vsf = compile(gl.VERTEX_SHADER, VSF, 'field'), fsf = compile(gl.FRAGMENT_SHADER, FSF, 'field');
     progF = gl.createProgram(); gl.attachShader(progF, vsf); gl.attachShader(progF, fsf); gl.linkProgram(progF);
     var plogF = (gl.getProgramInfoLog(progF) || '').trim(); if (plogF) shaderLog.field += (shaderLog.field ? ' ; ' : '') + 'link: ' + plogF;
     if (!gl.getProgramParameter(progF, gl.LINK_STATUS)) { console.error(gl.getProgramInfoLog(progF)); progF = null; }
-    if (progF) ['uVP', 'uModel', 'uEye', 'uFieldCentre', 'uFieldOuter', 'uFieldInner', 'uFieldHollow', 'uLightDir', 'uAmbient'].forEach(function (n) { locsF[n] = gl.getUniformLocation(progF, n); });
+    if (progF) ['uVP', 'uModel', 'uEye', 'uFieldCentre', 'uFieldOuter', 'uFieldInner', 'uFieldHollow', 'uLightDir', 'uAmbient', 'uFieldShift', 'uEncodeDepth'].forEach(function (n) { locsF[n] = gl.getUniformLocation(progF, n); });
     var pg = postGeometry(evaluatedP.support); postVAO = makeVAO(pg.pos, pg.nrm, pg.face, pg.idx); postCount = pg.count;
     var cg = cubeGeometry(); cubeVAO = makeVAO(cg.pos, cg.nrm, cg.face, cg.idx);
     var b = blocksGeometry(evaluated.blocks); solidVAO = makeVAO(b.pos, b.nrm, b.face, b.idx); solidCount = b.count;
     var s = sphereGeometry(1, 40, 24); sphVAO = makeVAO(s.pos, s.nrm, s.face, s.idx); sphCount = s.count;
+    var sg = sphereGeometry(constructions.CG.params.r, 96, 48, 10); gVAO = makeVAO(sg.pos, sg.nrm, sg.face, sg.idx); gCount = sg.count;   // G: its own class, so the FS branches
     var g = { pos: [-4, 0, -4, 4, 0, -4, 4, 0, 4, -4, 0, 4], nrm: [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0], face: [8, 8, 8, 8], idx: [0, 2, 1, 0, 3, 2] }; groundVAO = makeVAO(g.pos, g.nrm, g.face, g.idx);
     strokeTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, strokeTex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     uploadStroke();
     stroke2Tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, stroke2Tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     uploadStroke2();   // its own unit, its own texture, bound on every draw even when empty
+    // the two paintings: RGBA32F 96 × 96, NEAREST (a logical value, not a picture), their own units, bound on every draw even when paint is off
+    paintATex = makePaintTex(); paintBTex = makePaintTex();
+    uploadPaintings();
     landTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, landTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, landCanvas()); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
   }
@@ -1026,7 +1703,20 @@
     for (var i = 0; i < n; i++) { data[i * 4] = s[i][0]; data[i * 4 + 1] = s[i][1]; data[i * 4 + 2] = s[i][2]; data[i * 4 + 3] = s[i][3] || 0; }
     gl.bindTexture(gl.TEXTURE_2D, stroke2Tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 512, 1, 0, gl.RGBA, gl.FLOAT, data);
   }
-  var lastUsed = [0, 0];
+  function makePaintTex() {
+    var t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    return t;
+  }
+  // the replay's two paintings go up as they are: 96 × 96 premultiplied RGBA, the same Float32 values the walker samples
+  function uploadPaintings() {
+    if (!glOK) return;
+    var empty = new Float32Array(PICKUP_N * PICKUP_N * 4);
+    gl.bindTexture(gl.TEXTURE_2D, paintATex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, PICKUP_N, PICKUP_N, 0, gl.RGBA, gl.FLOAT, PAINT ? PAINT.paintings['paint-A'] : empty);
+    gl.bindTexture(gl.TEXTURE_2D, paintBTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, PICKUP_N, PICKUP_N, 0, gl.RGBA, gl.FLOAT, PAINT ? PAINT.paintings['paint-B'] : empty);
+  }
+  var lastUsed = [0, 0], parityEncode = 0;
   function renderView() {
     var ls = lease();
     if (glCanvas.width !== ls.alloc[0] || glCanvas.height !== ls.alloc[1]) { glCanvas.width = ls.alloc[0]; glCanvas.height = ls.alloc[1]; state.dirty.scale = 'lease re-allocated at ' + ls.alloc[0] + '×' + ls.alloc[1] + ' · viewport ' + ls.used[0] + '×' + ls.used[1]; }
@@ -1060,9 +1750,26 @@
     var wkG = wallKnots(evaluatedP), Pg = evaluatedP.support;
     gl.uniform4f(locs.uPost, Pg.cx, Pg.cz, Pg.R, Pg.C); gl.uniform2f(locs.uChartP, Pg.chart.offset, Pg.chart.scale);
     gl.uniform4f(locs.uPDom, wkG.dom.u0, wkG.dom.u1, wkG.dom.v0, wkG.dom.v1);
-    if (locs.uPK) { var pk = new Float32Array(16); for (var ki = 0; ki < 4; ki++) { pk[ki * 4] = wkG.ks[ki].u; pk[ki * 4 + 1] = wkG.ks[ki].v; pk[ki * 4 + 2] = wkG.ks[ki].w; pk[ki * 4 + 3] = 0; } gl.uniform4fv(locs.uPK, pk); }
-    gl.uniform1i(locs.uPMode, state.pNib === 'naive' ? 1 : 0);
+    if (locs.uPK) { var pk = new Float32Array(16); for (var ki = 0; ki < 4; ki++) { pk[ki * 4] = wkG.ks[ki].u; pk[ki * 4 + 1] = wkG.ks[ki].v; pk[ki * 4 + 2] = wkG.ks[ki].w; pk[ki * 4 + 3] = wkG.ks[ki].p; } gl.uniform4fv(locs.uPK, pk); }
+    gl.uniform1i(locs.uPMode, state.pNib === 'naive' ? 1 : (state.pNib === 'capsule' ? 2 : 0));
     var pc = PW.things.kP.paint.color; gl.uniform4f(locs.uPColor, pc[0], pc[1], pc[2], pc[3]);
+    // attack 3: the two paintings, their own units and their own authored domains; bound on every draw whether or not paint is on
+    gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, paintATex); gl.uniform1i(locs.uPaintA, 3);
+    gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, paintBTex); gl.uniform1i(locs.uPaintB, 4);
+    gl.uniform1i(locs.uPaint, (state.paint && PAINT) ? 1 : 0);
+    gl.uniform1i(locs.uStrip, (state.paint && state.paintStep < 80) ? 1 : 0);
+    gl.uniform1i(locs.uPaintOrder, !state.paintOrder ? 2 : (state.paintOrder[0] === 'paint-A' ? 0 : 1));
+    var dA = PAINT ? PAINT.recordA.domain : [0, 0, 1, 1], dB = PAINT ? PAINT.recordB.domain : [0, 0, 1, 1];
+    gl.uniform4f(locs.uPaintDomA, dA[0], dA[1], dA[2], dA[3]); gl.uniform4f(locs.uPaintDomB, dB[0], dB[1], dB[2], dB[3]);
+    // attack 2: G's material reads the chart of the current evaluation per fragment, and the reach record as a unit seed with cos ρ
+    var Gp = constructions.CG.params, gr = gReachRecord();
+    gl.uniform4f(locs.uG, Gp.at[0], Gp.at[1], Gp.at[2], Gp.r * 1000);
+    gl.uniform1i(locs.uGRev, state.gRev);
+    gl.uniform4f(locs.uGReach, gr.seed[0], gr.seed[1], gr.seed[2], Math.cos(gr.rho));
+    gl.uniform1i(locs.uGBand, state.gBand ? 1 : 0);
+    gl.uniform1i(locs.uGOrder, !state.gOrder ? 2 : (state.gOrder[0] === 'kA' ? 0 : 1));
+    gl.uniform1i(locs.uGBudgetB, (state.gRev === 2 && state.gBudget < 1) ? 0 : 1);
+    gl.uniform1i(locs.uGDrop, state.gDrop ? 1 : 0);
     // ground
     gl.uniformMatrix4fv(locs.uModel, false, new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])); gl.uniform3f(locs.uBase, 0.30, 0.32, 0.36); gl.uniform1f(locs.uKind, 0);
     gl.bindVertexArray(groundVAO.vao); gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
@@ -1079,6 +1786,12 @@
       gl.bindVertexArray(postVAO.vao); gl.drawElements(gl.TRIANGLES, postCount, gl.UNSIGNED_SHORT, 0);
       gl.enable(gl.CULL_FACE);
     }
+    // the sphere G: drawn with the solid kind so the class-10 branch runs, culled like the other solids
+    if (S.things.G && gCount) {
+      gl.uniformMatrix4fv(locs.uModel, false, new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, Gp.at[0], Gp.at[1], Gp.at[2], 1]));
+      gl.uniform3f(locs.uBase, 0.86, 0.83, 0.78); gl.uniform1f(locs.uKind, 1);
+      gl.bindVertexArray(gVAO.vao); gl.drawElements(gl.TRIANGLES, gCount, gl.UNSIGNED_SHORT, 0);
+    }
     // the field F: its own program, its own finder, its own depth — it meets the rest of the scene through gl_FragDepth
     var Fg = S.things.F;
     if (Fg.on && progF) {
@@ -1090,6 +1803,7 @@
       gl.uniform3f(locsF.uFieldOuter, Fg.params.a, Fg.params.b, Fg.params.c);
       gl.uniform3f(locsF.uFieldInner, Fg.inner.a, Fg.inner.b, Fg.inner.c);
       gl.uniform1i(locsF.uFieldHollow, Fg.hollow ? 1 : 0);
+      gl.uniform1i(locsF.uFieldShift, state.fieldShift ? 1 : 0); gl.uniform1i(locsF.uEncodeDepth, parityEncode);
       gl.uniform3f(locsF.uLightDir, Lt.dir[0], Lt.dir[1], Lt.dir[2]); gl.uniform1f(locsF.uAmbient, Lt.ambient);
       gl.bindVertexArray(cubeVAO.vao); gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
       gl.enable(gl.CULL_FACE); gl.useProgram(prog);
@@ -1164,8 +1878,36 @@
   }
   function leafLabel(leaf) {
     return { 'k': 'you hit k, the stroke, on face E.top of B', 'Q': 'you hit Q, the occluder', 'B:E.top': 'you hit face E.top of B, beside the stroke', 'B:E.top (ink detached)': 'you hit face E.top; the ink is detached', 'B:C.floor': 'you hit the groove floor, a generated face: no ink', 'I': 'you hit I, a screenshot: pixels', 'page': 'the page', 'S:background': 'the background of S',
-      'kP': 'you hit kP, the mark on P\'s wall, across the chart\'s seam', 'P:wall': 'you hit P\'s wall, beside the mark', 'F': 'you hit F, a field: a boundary, no face', 'F:unresolved': 'no definite answer: a field piece before this one is unresolved',
-      'k2': 'you hit k2, the second record, on E.top', 'k+k2': 'both records cover this point', 'D:circle': 'you hit D\'s circle: P\'s wall in section', 'D:rect': 'you hit D\'s rectangle: a CB block in section', 'D:poly': 'you hit D\'s lowered level curve: F in section' }[leaf] || ('you hit ' + leaf);
+      'kP': 'you hit kP, the mark on P\'s wall, across the chart\'s seam', 'P:wall': 'you hit P\'s wall, beside the mark', 'F': 'you hit F, a field: a boundary, no face', 'F:unresolved': 'no definite answer: a field piece before this one is unresolved', 'P:unresolved': 'no definite answer: the mark\'s footprint is not decided within the work limit',
+      'k2': 'you hit k2, the second record, on E.top', 'k+k2': 'both records cover this point', 'D:circle': 'you hit D\'s circle: P\'s wall in section', 'D:rect': 'you hit D\'s rectangle: a CB block in section', 'D:poly': 'you hit D\'s lowered level curve: F in section',
+      'G:kA+kB': 'both retained records cover this point on G', 'G:kA': 'you hit kA on G, the arc across the chart\'s cut', 'G:kB': 'you hit kB on G, the tap in its own root domain', 'G:reach': 'you hit G inside the reach tool\'s retained region', 'G': 'you hit G, the sphere, beside both marks',
+      'G:unresolved': 'no definite answer: a retained binding is not resolved here', 'G:needs-policy': 'both records cover this point on G; no order is saved', 'G:band': 'no support here: the band is removed from G',
+      'P:strip': 'no support here: the strip is not in this evaluation of the wall', 'P:painting': 'you hit the replay\'s painting on P\'s wall', 'P:needs-policy': 'both paintings cover this point; no order is saved' }[leaf] || ('you hit ' + leaf);
+  }
+
+  // ------------------------------------------------------------------
+  // The parity read (the fix list): the shader's own depth at the cursor against the walker's t. One extra render with the
+  // depth encoded into the colour, one pixel read back, then the picture is drawn again. Only when parity=1 asks for it.
+  // ------------------------------------------------------------------
+  function readFieldDepth(regionPx, regionPy, hitPoint) {
+    if (!glOK || !progF) return { ok: false, why: 'no field program' };
+    var ls = lease(), cam = cameraOf(views.V, ls), ix = Math.floor(regionPx), iy = Math.floor(regionPy);
+    if (!(ix >= 0 && iy >= 0 && ix < ls.used[0] && iy < ls.used[1])) return { ok: false, why: 'the cursor is outside the used viewport' };
+    var px = new Uint8Array(4);
+    gl.disable(gl.DITHER); parityEncode = 1; renderView();
+    gl.readPixels(ix, ls.alloc[1] - 1 - iy, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+    var err = gl.getError();
+    parityEncode = 0; renderView(); gl.enable(gl.DITHER);   // the picture is restored before anything paints it
+    if (err) return { ok: false, why: 'gl.getError() ' + err };
+    if (px[3] === 0) return { ok: false, why: 'no field pixel at (' + ix + ', ' + iy + ')' };
+    var gd = (px[0] * 65536 + px[1] * 256 + px[2]) / 16777215;
+    // the walker is asked for the same ray the shader shaded: the pixel's centre, not the cursor's fraction of a pixel
+    // (0.3 px of lateral offset is ~2 mm at this range and would swamp the depth disagreement being measured)
+    var hc = hitField(rayFromRegionPoint(cam, ix + 0.5, iy + 0.5), S.things.F, state.fieldWork);
+    var ref = (hc && !hc.miss && hc.point) ? hc.point : hitPoint;
+    var c = m4point(cam.vp, ref), wd = (c[2] + 1) / 2;                            // the walker's hit through the same clip transform
+    var g = m4point(cam.inv, [2 * (ix + 0.5) / ls.used[0] - 1, 1 - 2 * (iy + 0.5) / ls.used[1], 2 * gd - 1]);   // the shader's depth as a world point
+    return { ok: true, ix: ix, iy: iy, centre: !!(hc && !hc.miss && hc.point), walker: wd, shader: gd, d: Math.abs(wd - gd), mm: 1000 * Math.hypot(g[0] - ref[0], g[1] - ref[1], g[2] - ref[2]) };
   }
 
   // ------------------------------------------------------------------
@@ -1174,6 +1916,12 @@
   function hover(reason) {
     if (!state.pointer) return;
     var r = walk(state.pointer);
+    if (state.parity && r.leaf === 'F' && r.hit && r.hit.point) {
+      var lsP = lease(), Rp = page.things.R, wxp = (state.pointer[0] - state.pan[0]) / state.zoom, wyp = (state.pointer[1] - state.pan[1]) / state.zoom;
+      var pr = readFieldDepth((wxp - Rp.rect.x) / Rp.rect.w * lsP.used[0], (wyp - Rp.rect.y) / Rp.rect.h * lsP.used[1], r.hit.point), lvl = null;
+      r.address.forEach(function (a) { if (a.thing === 'F' && a.kind === 'boundary') lvl = a; });
+      if (lvl) lvl.where += pr.ok ? ' · parity at region pixel (' + pr.ix + ', ' + pr.iy + '): walker depth ' + pr.walker.toFixed(6) + ' · shader depth ' + pr.shader.toFixed(6) + ' · Δ ' + pr.d.toExponential(2) + ' → ' + pr.mm.toFixed(3) + ' mm at the hit (' + (state.fieldShift ? 'ray origin shifted to the box entry' : 'ray origin at the eye') + ')' : ' · parity: no read (' + pr.why + ')';
+    }
     var prev = state.lastLeaf;
     state.last = r;
     var addrEl = document.getElementById('addr'), diffEl = document.getElementById('diff');
@@ -1217,9 +1965,11 @@
     var c = views.V.camera, k = PI.things.k, I = page.things.I;
     var rec = {
       page: { unit: 'px', things: { R: { kind: 'portal', view: 'V', rect: page.things.R.rect }, I: I ? { kind: 'image', bytes: I.px[0] + '×' + I.px[1] + ' rgba', provenance: 'screenshot of R at revision ' + I.revision, rect: I.rect } : undefined, D: page.things.D || undefined } },
-      S: { unit: 'm', things: { B: S.things.B, Q: { kind: 'sphere', radius: S.things.Q.radius, at: S.things.Q.at.map(function (x) { return +x.toFixed(2); }) }, L1: S.things.L1, Ftop: S.things.Ftop, T: S.things.T, P: S.things.P || undefined, Fwall: S.things.P ? S.things.Fwall : undefined, F: S.things.F, Fright: S.things.Fright || undefined } },
+      S: { unit: 'm', things: { B: S.things.B, Q: { kind: 'sphere', radius: S.things.Q.radius, at: S.things.Q.at.map(function (x) { return +x.toFixed(2); }) }, L1: S.things.L1, Ftop: S.things.Ftop, T: S.things.T, P: S.things.P || undefined, Fwall: S.things.P ? S.things.Fwall : undefined, F: S.things.F, G: S.things.G || undefined, Fright: S.things.Fright || undefined } },
       constructions: { CB: { revision: constructions.CB.revision, steps: constructions.CB.steps.map(function (st) { var o = {}; Object.keys(st).forEach(function (kk) { o[kk] = kk === 'size' ? st[kk].map(function (x) { return +x.toFixed(2); }) : st[kk]; }); return o; }) },
-        CP: { revision: constructions.CP.revision, params: constructions.CP.params } },
+        CP: { revision: constructions.CP.revision, params: constructions.CP.params },
+        CG: { revision: constructions.CG.revision, params: constructions.CG.params } },
+      PG: S.things.G ? { unit: 'mm', records: { A: G_RECORDS.A, B: G_RECORDS.B }, reach: { seed: [180, 60], radius: state.gReach, distance: 'surface' }, composition: { order: state.gOrder } } : undefined,
       PI: { unit: 'mm', things: { k: { kind: 'path', source: 'pen', samples: k.samples.length + ' × [u mm, v mm, width mm, s mm]', paint: k.paint, identity: { id: 'k', revision: state.revision } } } },
       PW: { unit: 'mm', things: { kP: { kind: 'path', source: PW.things.kP.source, reading: PW.things.kP.reading + (state.pMode === 'modulo' ? ' (read as modulo C: the counterexample)' : ''), knots: PW.things.kP.knots, response: PW.things.kP.response, tip: PW.things.kP.tip + (state.pNib === 'naive' ? ' — read in chart units (the naive nib)' : ''), overlap: PW.things.kP.overlap, paint: PW.things.kP.paint } } },
       PI2: state.records === 2 ? { unit: 'mm', things: { k2: { kind: 'path', source: PI2.things.k2.source, samples: PI2.things.k2.samples.length + ' × [u mm, v mm, width mm, s mm]', paint: PI2.things.k2.paint } } } : undefined,
@@ -1233,6 +1983,13 @@
     if (S.things.P) der += ' · CP → wall, ' + evaluatedP.report;
     if (state.merge) der += ' · merge: ' + state.merge.pieces.length + ' restrictions, no predecessor ' + state.merge.noPredecessor;
     if (S.things.F.on) der += ' · F: a saved field program; its boundary events enter the same visibility and the same walker';
+    if (S.things.G) {
+      der += ' · CG → sphere, r ' + constructions.CG.params.r.toFixed(3) + ' m; G@' + state.gRev + ' chart ' + G_CHARTS[state.gRev].name;
+      if (state.gRev >= 1) der += ' (correspondence from revision ' + (state.gRev - 1) + ': same points, unique/unique' + (state.gRev === 2 ? '; A and B merged into M, each restricted to its own root domain' : '') + ')';
+      var rD = gReachRecord();
+      der += ' · reach region retained: area ' + rD.area.toFixed(1) + ' mm², bounds ' + rD.bounds.map(function (b) { return '[' + b[0].toFixed(1) + ', ' + b[1].toFixed(1) + ']'; }).join(' ') + '; the seed\'s antipode is πR = ' + (Math.PI * G_R).toFixed(2) + ' mm away exactly: r 628 outside, r 629 inside, the shortest path there is every meridian (a transport direction has candidates)';
+    }
+    if (state.paint && PAINT) der += ' · the replay: ' + PAINT.seq.dabsDone + ' of ' + PAINT.dabs.length + ' dabs, evaluation P' + PAINT.ev.rev + (PAINT.merged ? ' (the strip restored)' : ' (the strip cut away)') + ', location error ' + PAINT.seq.locationError.toFixed(1) + ' mm';
     var de = document.getElementById('derived'); if (de.textContent !== der) de.textContent = der;
   }
 
@@ -1250,6 +2007,7 @@
     var h = hitBlocks(ray, evaluated.blocks); if (!h || h.face !== 'E.top') return false;
     var hq = hitSphere(ray, S.things.Q); if (hq && hq.t < h.t) return false; // the occluder is in the way: the pen does not reach the face
     var hp = S.things.P ? hitPost(ray, evaluatedP.support) : null; if (hp && hp.t < h.t) return false;          // so is the post
+    var hg = hitSphereG(ray); if (hg && hg.t < h.t) return false;                                               // and the sphere G
     var hf = hitField(ray, S.things.F, state.fieldWork); if (hf && !hf.miss && hf.t < h.t) return false;        // and so is the field
     var res = resolveTop(); if (!res.origin) return false; // a detached attachment takes no ink
     var uv = attachUV(res, h.point), s = PI.things.k.samples, last = s[s.length - 1];
@@ -1290,7 +2048,7 @@
   document.getElementById('modeOrbit').addEventListener('click', function () { state.mode = 'orbit'; this.classList.add('on'); document.getElementById('modePen').classList.remove('on'); document.getElementById('modeVal').textContent = 'orbit'; });
   document.getElementById('modePen').addEventListener('click', function () { state.mode = 'pen'; this.classList.add('on'); document.getElementById('modeOrbit').classList.remove('on'); document.getElementById('modeVal').textContent = 'pen (drag on the top face)'; });
   document.getElementById('resetView').addEventListener('click', resetView);
-  function resetView() { views.V.camera.yaw = 0.62; views.V.camera.pitch = 0.52; views.V.camera.distance = 3.4; state.dirty.view = 'V reset'; needRender = true; state.pendingHover = 'view'; }
+  function resetView() { views.V.camera.yaw = 0.62; views.V.camera.pitch = 0.52; views.V.camera.distance = 3.4; views.V.camera.pivot = [0, 0.5, 0]; state.dirty.view = 'V reset'; needRender = true; state.pendingHover = 'view'; }
   document.addEventListener('keydown', function (ev) { if (ev.key === 'r' || ev.key === 'R') resetView(); });
   document.getElementById('preset').addEventListener('click', presetStroke);
   // The construction's edits. Each re-runs the evaluator (per edit), re-uploads the solid, and re-walks the hover under a still pointer.
@@ -1338,7 +2096,7 @@
     reevaluateP('CP.chart ← ' + which);
   }
   function setSeam(v) { state.pMode = v; document.getElementById('seamVal').textContent = v; document.getElementById('seamModulo').classList.toggle('on', v === 'modulo'); document.getElementById('seamUnwrapped').classList.toggle('on', v !== 'modulo'); state.dirty.edit = 'the reading of kP ← ' + v + ' (the record did not change; the reading did)'; needRender = true; state.pendingHover = 'data'; }
-  function setNib(v) { state.pNib = v; document.getElementById('nibVal').textContent = v; document.getElementById('nibNaive').classList.toggle('on', v === 'naive'); document.getElementById('nibSurface').classList.toggle('on', v !== 'naive'); state.dirty.edit = 'the nib ← ' + v + (v === 'naive' ? ' (chart units read as mm)' : ' (millimetres on the surface)'); needRender = true; state.pendingHover = 'data'; }
+  function setNib(v) { state.pNib = v; document.getElementById('nibVal').textContent = v; document.getElementById('nibNaive').classList.toggle('on', v === 'naive'); document.getElementById('nibSurface').classList.toggle('on', v === 'surface'); state.dirty.edit = 'the nib ← ' + v + (v === 'naive' ? ' (chart units read as mm)' : v === 'capsule' ? ' (the old capsule footprint: endpoint radii interpolated linearly)' : ' (millimetres on the surface)'); needRender = true; state.pendingHover = 'data'; }
   function setPAnchor(v) { state.pAnchor = v; document.getElementById('panchorVal').textContent = v; document.getElementById('panchorNormalized').classList.toggle('on', v === 'normalized'); document.getElementById('panchorOrigin').classList.toggle('on', v !== 'normalized'); state.dirty.edit = 'Fwall.attachment.anchor ← ' + v; needRender = true; state.pendingHover = 'data'; }
   document.getElementById('postR').addEventListener('input', function (ev) { var r = parseFloat(ev.target.value); constructions.CP.params.r = r; document.getElementById('prVal').textContent = r.toFixed(2) + ' m'; reevaluateP('CP.r ← ' + r.toFixed(2)); });
   document.getElementById('chartS0').addEventListener('click', function () { setChart('S0'); });
@@ -1360,11 +2118,17 @@
 
   // Deep links: #zoom=2&yaw=0.8&pitch=0.5&occ=0.5&shot=1&px=520&py=300&preset=1 — a virtual pointer so the readout renders headless.
   // attack 1: post=0 · chart=S0|S1 · pr=<r m> · panchor=origin|normalized · seam=unwrapped|modulo · nib=surface|naive ·
-  //           field=1 · fx=<x> · fy=<y> · fz=<z> · fa=<a> · hollow=1 · fwork=<n> · records=2 · left=whole|trimmed · order=lr|rl|none · merge=1 ·
-  //           section=<h m> · aim=P|Pm|F|D|k2|strip
+  //           nib=capsule (the old footprint) · pwork=<n> (the swept nib's work limit) ·
+  //           field=1 · fx=<x> · fy=<y> · fz=<z> · fa=<a> · hollow=1 · fwork=<n> · fshift=0 · parity=1 · records=2 · left=whole|trimmed · order=lr|rl|none · merge=1 ·
+  //           section=<h m> · aim=P|Pa3|Pm|F|D|k2|strip
+  // attack 2 (the sphere G): grev=0|1|2 (S0 · S1, a chart change · M@2, the merge of A and B) · greach=<mm> (the reach tool's radius
+  //           through its record) · gband=1 (the open latitude band removed from the support) · dmetric=underlying|face (where a
+  //           distance path may run) · gorder=ab|ba|none · gbudget=<n> (the work the demand grants; 0 withholds B's merge step) ·
+  //           gdrop=1 (the negative control) · aim=G|G41|Gq|Gq2|Gpole|Gband
+  // attack 3 (the pickup replay on the post): paint=1 (overrides chart=) · pstep=<0..155> · porder=ab|ba|none · aim=Pstrip|Poverlap
   function applyHash() {
     var h = {}; location.hash.replace(/^#/, '').split('&').forEach(function (kv) { var p = kv.split('='); if (p[0]) h[p[0]] = decodeURIComponent(p[1] || ''); });
-    if (h.yaw) views.V.camera.yaw = parseFloat(h.yaw); if (h.pitch) views.V.camera.pitch = parseFloat(h.pitch); if (h.dist) views.V.camera.distance = parseFloat(h.dist);
+    if (h.yaw) { views.V.camera.yaw = parseFloat(h.yaw); state.yawGiven = true; } if (h.pitch) views.V.camera.pitch = parseFloat(h.pitch); if (h.dist) views.V.camera.distance = parseFloat(h.dist);
     if (h.occ) { S.things.Q.at[0] = parseFloat(h.occ); document.getElementById('occ').value = h.occ; document.getElementById('occVal').textContent = parseFloat(h.occ).toFixed(2); }
     if (h.w) { var ww = parseFloat(h.w); constructions.CB.steps[0].size[0] = ww; document.getElementById('rectW').value = ww; document.getElementById('wVal').textContent = ww.toFixed(2) + ' m'; }
     if (h.cut === '1') { constructions.CB.steps[2].on = true; document.getElementById('cutVal').textContent = 'on'; document.getElementById('cutOn').classList.add('on'); document.getElementById('cutOff').classList.remove('on'); }
@@ -1375,6 +2139,7 @@
     if (h.chart === 'S1') constructions.CP.params.chart = { offset: 100, scale: 2 };
     if (h.pr) constructions.CP.params.r = parseFloat(h.pr);
     if (h.pd) state.probeD = parseFloat(h.pd);   // how far along the circumference aim=Pm probes, in mm on the surface
+    if (h.pwork) state.pWork = parseFloat(h.pwork);   // the work limit the swept nib's minimisation may spend per segment
     if (h.panchor) setPAnchor(h.panchor);
     if (h.seam) setSeam(h.seam);
     if (h.nib) setNib(h.nib);
@@ -1384,6 +2149,19 @@
       if (h.chart) { document.getElementById('chartVal').textContent = h.chart; document.getElementById('chartS1').classList.toggle('on', h.chart === 'S1'); document.getElementById('chartS0').classList.toggle('on', h.chart !== 'S1'); }
       if (glOK) { var pgh = postGeometry(evaluatedP.support); refillVAO(postVAO, pgh); postCount = pgh.count; }
     }
+    // attack 2 — the sphere G: which evaluation, the tool's radius, the removed band, where distance may run, the order, the work, the control
+    if (h.grev) state.gRev = Math.max(0, Math.min(2, parseInt(h.grev, 10) || 0));
+    if (h.greach) state.gReach = parseFloat(h.greach);
+    if (h.gband === '1') state.gBand = true;
+    if (h.dmetric) state.dMetric = h.dmetric;
+    if (h.gorder) state.gOrder = h.gorder === 'none' ? null : (h.gorder === 'ba' ? ['kB', 'kA'] : ['kA', 'kB']);
+    if (h.gbudget) state.gBudget = parseFloat(h.gbudget);
+    if (h.gdrop === '1') state.gDrop = true;
+    constructions.CG.revision = state.gRev; constructions.CG.params.chart = G_CHARTS[state.gRev].name;
+    // attack 3 — the pickup replay on the post. paint=1 overrides chart=: the evaluation is the one the step is at.
+    if (h.pstep !== undefined) state.paintStep = Math.max(0, Math.min(155, parseInt(h.pstep, 10) || 0));
+    if (h.porder) state.paintOrder = h.porder === 'none' ? null : (h.porder === 'ba' ? ['paint-B', 'paint-A'] : ['paint-A', 'paint-B']);
+    if (h.paint === '1' && S.things.P) { state.paint = true; setupPaint(); if (glOK) uploadPaintings(); }
     // attack 1 — the field F
     if (h.field === '1') S.things.F.on = true;
     if (h.fx) S.things.F.at[0] = parseFloat(h.fx);
@@ -1391,6 +2169,8 @@
     if (h.fa) S.things.F.params.a = parseFloat(h.fa);
     if (h.hollow === '1') S.things.F.hollow = true;
     if (h.fwork) state.fieldWork = parseFloat(h.fwork);
+    if (h.fshift === '0') state.fieldShift = 0;   // the shader's ray keeps its origin at the eye (the unshifted diagnostic)
+    if (h.parity === '1') state.parity = true;    // read the shader's depth at the cursor and print it against the walker's
     // attack 1 — the second record, and the merge that binds both to one face
     if (h.order) composition.order = h.order === 'none' ? null : (h.order === 'rl' ? ['k2', 'k'] : ['k', 'k2']);
     if (h.left) state.leftKept = h.left;
@@ -1417,13 +2197,29 @@
   }
   // aim=k|T|Q|I: the page pixel where a named thing projects under the current views and page camera.
   function aimAt(name) {
+    // the seed of G's reach tool is at longitude 180°: the default view sees G whole but from behind it, so an aim=G… link
+    // that did not name a yaw is looked at from the seed's side. Nothing else about the view changes.
+    if (name.charAt(0) === 'G' && S.things.G && !state.yawGiven) {
+      views.V.camera.yaw = G_AIM_YAW; views.V.camera.pivot = constructions.CG.params.at.slice(); views.V.camera.distance = 2.0;
+      state.dirty.view = 'V.camera ← yaw ' + G_AIM_YAW + ', pivot G, distance 2.0 (the aim looks at G from the seed\'s side; a link that names a yaw keeps its own view)';
+    }
     var R = page.things.R, ls = lease(), cam = cameraOf(views.V, ls), fr = evaluated.frame, world = null;
     if (name === 'k') { var s = PI.things.k.samples; if (!s.length) return null; var m = s[Math.floor(s.length / 2)], att = S.things.Ftop.attachment, res = resolveAttachment({ anchor: att.anchor, domain: att.domain, onSplit: 'clip' }, evaluated.faces[S.things.Ftop.face]); if (!res.origin) return null; world = attachPoint(res, [m[0], m[1]]); } // aims where the ink would sit even when detached, so the panel can say so
     if (name === 'T') world = [fr.x0 + fr.w / 2, fr.h / 2, fr.z0 + fr.d];
     if (name === 'floor') { var C = constructions.CB.steps[2]; world = [(C.slab.x[0] + C.slab.x[1]) / 2, fr.h - C.slab.depth, fr.z0 + fr.d / 2]; }
     if (name === 'Q') world = S.things.Q.at;
     if (name === 'P' || name === 'Pm') { if (!S.things.P) return null; var Pa = evaluatedP.support, us = resolveWall(state.pAnchor, evaluatedP).uScale; world = postWorld(Pa, TAU * 200 * us + (name === 'Pm' ? state.probeD : 0), 400); }
+    // the replay's two probes on the wall: the strip's middle (C, 400) and the overlap of the two paintings (C + 40, 440)
+    if (name === 'Pstrip' || name === 'Poverlap') { if (!S.things.P) return null; var Pp = evaluatedP.support; world = postWorld(Pp, TAU * 200 + (name === 'Poverlap' ? 40 : 0), name === 'Poverlap' ? 440 : 400); }
+    if (name === 'Pa3') { if (!S.things.P) return null; var Pb = evaluatedP.support, us3 = resolveWall(state.pAnchor, evaluatedP).uScale; world = postWorld(Pb, (TAU * 200 - 40 - 7.4 / Math.sqrt(2)) * us3, 360 + 7.4 / Math.sqrt(2)); }   // the definer's attack-3 point: the capsule says inside, the swept nib says outside
     if (name === 'F') world = S.things.F.at;
+    // the points attack 2 asks about, as unit vectors on G: the fresh ray's c(.65), B's restriction case c(.41), the
+    // intrinsic-vs-frozen point, the chord's counterexample, the pole, and the point across the removed band
+    if (name.charAt(0) === 'G' && S.things.G) {
+      var Gu = name === 'G' ? gArcCentre(0.65) : name === 'G41' ? gArcCentre(0.41) : name === 'Gq' ? sphUnit(3 * Math.PI / 2, Math.PI / 3)
+        : name === 'Gq2' ? sphUnit(Math.PI, Math.PI / 3 - 0.76) : name === 'Gpole' ? [0, 1, 0] : name === 'Gband' ? sphPoint0(Math.PI * G_R, -20) : null;
+      if (Gu) world = v3add(constructions.CG.params.at, v3scale(Gu, constructions.CG.params.r));
+    }
     if (name === 'strip') { var rs = resolveTop(); if (!rs.origin || !state.merge) return null; var sk = PI.things.k.samples, mid = (state.merge.strip[0] + state.merge.strip[1]) / 2, pick = null; sk.forEach(function (sm) { if (sm[0] > state.merge.strip[0] && sm[0] < state.merge.strip[1] && (pick === null || Math.abs(sm[0] - mid) < Math.abs(pick[0] - mid))) pick = sm; }); if (!pick) return null; world = attachPoint(rs, [pick[0], pick[1]]); }
     if (name === 'k2') {
       var rk = resolveTop(); if (!rk.origin) return null; var s2 = PI2.things.k2.samples; if (!s2.length) return null;
