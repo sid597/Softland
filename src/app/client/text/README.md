@@ -23,7 +23,7 @@ flowchart TD
 | [layout.cljc](layout.cljc) | Derive wrapped, positioned layout; manage explicit layout-cache transitions; answer source and geometry queries. |
 | [layout_planes.cljc](layout_planes.cljc) | Store positioned columns and spans, expose primitive reads and reconstruct rich views when requested. |
 | [glyph_pack.cljs](glyph_pack.cljs) | Resolve glyph outline metadata and pack positioned columns directly into GPU instances. |
-| [renderer.cljs](renderer.cljs) | Own outline textures and instance resources, prepare text draws and evaluate outlines in shaders. |
+| [renderer.cljs](renderer.cljs) | Own outline textures and instance resources, prepare text draws and evaluate outlines through the engine's shared coverage program in em units. |
 
 Source positions use UTF-16 offsets. Shaping produces integer font units; layout converts to local positioned coordinates; packing produces the renderer's instance format. Retained arrays are mutable storage used as stable results after construction. Provider closures own shaping resources, results own layout arrays, and renderer systems own GPU resources while borrowing shared [engine](../engine/README.md) buffers.
 

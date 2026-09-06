@@ -1,439 +1,299 @@
 (ns app.client.region3d.on-plane-renderer
-  "Pack and render placed ink.
+  "Pack and render placed ink on object planes.
 
-   Input: resolved placements, maintained matrices, camera, prior per-region
-   GPU state and path cache. Output: updated packing state/cache, status
-   counts and flat ink draws. It owns one flat vertex buffer per region;
-   each vertex repeats local XY, a model matrix and linear premultiplied
-   color (88 bytes).
+   Input: resolved placements, maintained matrices, camera and the prior
+   per-region GPU state. Output: updated packing state, status counts and
+   one instanced coverage draw per region. Each region owns a curve/band
+   atlas, an instance buffer and a storage buffer of placement matrices;
+   the system owns the pipeline. Placed ink takes the same regions and
+   packs the 2D path lane draws (region3d/on-plane) and differs only in
+   its vertex stage: the cover rectangle goes through the placement's
+   model matrix and the region's view projection, and the fragment reads
+   its local position as a perspective-correct varying.
 
    Resolved ink is the supported GPU placement kind. Resolved text and other
    kinds receive :unsupported-kind.
 
    Folder map: README.md."
-  (:require [app.client.engine.limits :as limits]
+  (:require [app.client.engine.buffer-pool :as buffer-pool]
+            [app.client.engine.coverage :as coverage]
             [app.client.region3d.on-plane :as on-plane]
             [app.client.region3d.scene :as scene]))
 
-(def placement-gpu-version 1)
-(def flat-vertex-stride 88)
+(def placement-gpu-version 2)
 (def placement-depth-bias -1)
 (def placement-depth-bias-slope-scale -1.0)
+(def matrix-floats 16)
 
-;; vs(input) flips local Y and applies model/view projection; fs(input)
-;; returns already-converted color. Placement passes test depth without
-;; writing it and use a small surface bias.
-(def placed-flat-shader
-  "struct Region {
-     view_proj: mat4x4<f32>, eye: vec4<f32>, ambient: vec4<f32>,
-     settings: vec3<f32>,
-   };
-   @group(0) @binding(0) var<uniform> region: Region;
-   struct In {
-     @location(0) point: vec2<f32>,
-     @location(1) m0: vec4<f32>, @location(2) m1: vec4<f32>,
-     @location(3) m2: vec4<f32>, @location(4) m3: vec4<f32>,
-     @location(5) color: vec4<f32>,
-   };
-   struct Out { @builtin(position) position: vec4<f32>,
-                @location(0) color: vec4<f32>, };
-   @vertex fn vs(input: In) -> Out {
-     let model = mat4x4<f32>(input.m0, input.m1, input.m2, input.m3);
-     var out: Out;
-     out.position = region.view_proj * model
-                  * vec4<f32>(input.point.x, -input.point.y, 0.0, 1.0);
-     out.color = input.color;
-     return out;
-   }
-   @fragment fn fs(input: Out) -> @location(0) vec4<f32> {
-     return input.color;
-   }")
+;; Vertex main: six vertices per instance span the cover rectangle in the
+;; ink's local units, flipped to object-local Y up, placed by the
+;; instance's model matrix (tags.y indexes the region's placement matrices)
+;; and the region's view projection. The fragment receives the local
+;; position interpolated with perspective correction, takes device pixels
+;; per local unit from its screen derivative, and paints the linear
+;; premultiplied colour times the coverage. Depth is tested, not written,
+;; with the surface bias.
+(def placed-region-shader
+  (str "
+  struct Region {
+    view_proj: mat4x4<f32>, eye: vec4<f32>, ambient: vec4<f32>,
+    settings: vec3<f32>,
+  };
+  @group(0) @binding(2) var<uniform> region: Region;
+  @group(0) @binding(3) var<storage, read> placements: array<mat4x4<f32>>;
+  " coverage/instance-input-wgsl "
+  struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) local_pos: vec2<f32>,
+    @location(1) @interpolate(flat) color: vec4<f32>,
+    @location(2) @interpolate(flat) band: vec4<u32>,
+    @location(3) @interpolate(flat) band_xf: vec4<f32>,
+    @location(4) @interpolate(flat) tags: vec4<u32>,
+    @location(5) @interpolate(flat) clip_band: vec4<u32>,
+    @location(6) @interpolate(flat) clip_xf: vec4<f32>,
+  };
 
-(defn- shader-module
-  "Device/WGSL → shader module.
-
-   Direct adapter."
-  [device code]
-  (.createShaderModule ^js device (clj->js {:code code})))
+  @vertex
+  fn vs(@builtin(vertex_index) v_index: u32, inst: RegionInstance) -> VertexOutput {
+    var pos = vec2<f32>(0.0, 0.0);
+    switch(v_index) {
+      case 0u: { pos = vec2<f32>(0.0, 0.0); }
+      case 1u: { pos = vec2<f32>(1.0, 0.0); }
+      case 2u: { pos = vec2<f32>(0.0, 1.0); }
+      case 3u: { pos = vec2<f32>(1.0, 0.0); }
+      case 4u: { pos = vec2<f32>(1.0, 1.0); }
+      default: { pos = vec2<f32>(0.0, 1.0); }
+    }
+    let local_pos = inst.rect.xy + pos * inst.rect.zw;
+    let model = placements[inst.tags.y];
+    var out: VertexOutput;
+    out.position = region.view_proj * model * vec4<f32>(local_pos.x, -local_pos.y, 0.0, 1.0);
+    out.local_pos = local_pos;
+    out.color = inst.color;
+    out.band = inst.band;
+    out.band_xf = inst.band_xf;
+    out.tags = inst.tags;
+    out.clip_band = inst.clip_band;
+    out.clip_xf = inst.clip_xf;
+    return out;
+  }
+  " coverage/coverage-wgsl "
+  @fragment
+  fn fs(in: VertexOutput) -> @location(0) vec4<f32> {
+    let ppu = 1.0 / max(fwidth(in.local_pos), vec2<f32>(kMinDerivative, kMinDerivative));
+    let alpha = region_alpha(in.local_pos, ppu, in.band, in.band_xf, in.tags.x, in.clip_band, in.clip_xf, "
+       coverage/log2-atlas-width "u);
+    return in.color * alpha;
+  }"))
 
 (defn- blend-state
-  "No input → premultiplied blend descriptor.
-
-   Fixed lane contract."
+  "No input → premultiplied blend descriptor. Fixed lane contract."
   []
   {:color {:srcFactor "one" :dstFactor "one-minus-src-alpha"}
    :alpha {:srcFactor "one" :dstFactor "one-minus-src-alpha"}})
 
-(defn- pipeline-layout
-  "Device/layout list → pipeline layout.
-
-   Direct adapter."
-  [device layouts]
-  (.createPipelineLayout ^js device (clj->js {:bindGroupLayouts layouts})))
-
 (defn- create-pipelines!
-  "Device → flat pipeline and binding layout.
+  "Device → the placed-region pipeline and its binding layout.
 
-   Fixed RGBA16F, 4× MSAA, depth-tested transparent geometry. Intended for
+   Fixed RGBA16F, 4× MSAA, depth-tested transparent geometry, for the
    region interior target."
-  [device]
-  (let [flat-module (shader-module device placed-flat-shader)
-        flat-layout
-        (.createBindGroupLayout
-         ^js device
-         (clj->js {:entries [{:binding 0 :visibility js/GPUShaderStage.VERTEX
-                              :buffer {:type "uniform"}}]}))
+  [^js device]
+  (let [module (.createShaderModule device (clj->js {:code placed-region-shader}))
+        layout (.createBindGroupLayout
+                device
+                (clj->js {:entries (into (coverage/bind-group-layout-entries js/GPUShaderStage.FRAGMENT)
+                                         [{:binding 2 :visibility js/GPUShaderStage.VERTEX :buffer {:type "uniform"}}
+                                          {:binding 3 :visibility js/GPUShaderStage.VERTEX :buffer {:type "read-only-storage"}}])}))
         depth {:format "depth24plus" :depthWriteEnabled false
                :depthCompare "less-equal" :depthBias placement-depth-bias
                :depthBiasSlopeScale placement-depth-bias-slope-scale}
-        target {:format "rgba16float" :blend (blend-state)}
-        flat
-        (.createRenderPipeline
-         ^js device
-         (clj->js {:layout (pipeline-layout device [flat-layout])
-                   :vertex {:module flat-module :entryPoint "vs"
-                            :buffers [{:arrayStride flat-vertex-stride
-                                       :stepMode "vertex"
-                                       :attributes
-                                       [{:shaderLocation 0 :offset 0
-                                         :format "float32x2"}
-                                        {:shaderLocation 1 :offset 8
-                                         :format "float32x4"}
-                                        {:shaderLocation 2 :offset 24
-                                         :format "float32x4"}
-                                        {:shaderLocation 3 :offset 40
-                                         :format "float32x4"}
-                                        {:shaderLocation 4 :offset 56
-                                         :format "float32x4"}
-                                        {:shaderLocation 5 :offset 72
-                                         :format "float32x4"}]}]}
-                   :fragment {:module flat-module :entryPoint "fs"
-                              :targets [target]}
-                   :primitive {:topology "triangle-list" :cullMode "none"}
-                   :depthStencil depth :multisample {:count 4}}))]
-    {:flat-layout flat-layout :flat flat}))
-
-(defn- create-buffer!
-  "System/label/bytes/usage → buffer row with capacity.
-
-   Allocates at least four bytes."
-  [system label size usage]
-  (let [size (max 4 (int size))
-        buffer (.createBuffer ^js (:device system)
-                              (clj->js {:label label :size size :usage usage}))]
-    {:buffer buffer :capacity size :label label}))
-
-(defn- ensure-buffer!
-  "System/current row/label/required bytes → retained or doubled replacement
-   row.
-
-   Geometric growth, destroys old allocation. Intended for initialized
-   positive-capacity rows."
-  [system current label required]
-  (let [required (max 4 (int required))]
-    (if (>= (:capacity current) required)
-      current
-      (let [capacity (loop [candidate (:capacity current)]
-                       (if (>= candidate required) candidate
-                           (recur (* 2 candidate))))
-            next (.createBuffer
-                  ^js (:device system)
-                  (clj->js {:label label :size capacity
-                            :usage (bit-or js/GPUBufferUsage.COPY_DST
-                                           js/GPUBufferUsage.VERTEX)}))]
-        (.destroy ^js (:buffer current))
-        {:buffer next :capacity capacity :label label}))))
-
-(defn- write-buffer!
-  "System, row, numeric values → bytes uploaded; writes typed data if
-   nonempty.
-
-   Whole-prefix upload. Each call allocates a typed array."
-  [system row values]
-  (let [data (js/Float32Array. (clj->js (vec values)))
-        bytes (.-byteLength data)]
-    (when (pos? bytes)
-      (.writeBuffer (.-queue ^js (:device system)) (:buffer row) 0 data))
-    bytes))
+        pipeline (.createRenderPipeline
+                  device
+                  (clj->js {:layout (.createPipelineLayout device (clj->js {:bindGroupLayouts [layout]}))
+                            :vertex {:module module :entryPoint "vs"
+                                     :buffers [{:arrayStride coverage/instance-stride
+                                                :stepMode "instance"
+                                                :attributes coverage/instance-attributes}]}
+                            :fragment {:module module :entryPoint "fs"
+                                       :targets [{:format "rgba16float" :blend (blend-state)}]}
+                            :primitive {:topology "triangle-list" :cullMode "none"}
+                            :depthStencil depth :multisample {:count 4}}))]
+    {:layout layout :placed pipeline}))
 
 (defn init-placement-system!
-  "Device → pipeline owner.
-
-   Explicit constructor."
+  "Device → pipeline owner."
   [device]
   {:placement-gpu/version placement-gpu-version
    :device device
    :pipelines (create-pipelines! device)})
 
-(defn create-region-gpu!
-  "System and region ID → flat buffer and empty packing state.
+(defn- create-matrix-buffer
+  [^js device label matrices]
+  (.createBuffer device (clj->js {:label label
+                                  :size (* 4 matrix-floats (max 1 matrices))
+                                  :usage (bit-or js/GPUBufferUsage.STORAGE js/GPUBufferUsage.COPY_DST)})))
 
-   Per-region state constructor."
+(defn create-region-gpu!
+  "System and region ID → the region's atlas, instance pool, matrix buffer
+   and empty packing state."
   [system region-id]
-  (let [usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.VERTEX)]
-    {:flat (create-buffer! system (str "region3d/" region-id "/placed-flat")
-                           256 usage)
+  (let [device (:device system)
+        label (str "region3d/" region-id "/placed")]
+    {:atlas (coverage/create-atlas device :label label :curve-rows 4 :band-rows 4)
+     :pool (buffer-pool/create-pool device 16 :floats-per-item coverage/instance-words
+                                    :pack-fn coverage/pack-instance)
+     :matrices {:buffer (create-matrix-buffer device (str label "/matrices") 4) :capacity 4 :label (str label "/matrices")}
      :pack-cache {}
      :pack-key ::never
-     :draw-order []
+     :instances 0
      :placements []
      :coverage-check {}}))
 
 (defn- column-major
-  "Row-major matrix → GPU column order.
-
-   Fixed permutation."
+  "Row-major matrix → GPU column order."
   [matrix]
   (mapv #(nth matrix %) [0 4 8 12 1 5 9 13 2 6 10 14 3 7 11 15]))
 
-(defn- ink-pack
-  "Path cache, placement, matrix → updated cache and resolved vertex/color
-   pack.
-
-   Calls shared ink derivation."
-  [cache placed matrix]
-  (let [{next-cache :cache pack :pack} (on-plane/pack-placed-ink cache placed)]
-    {:cache next-cache
-     :packed {:status :resolved :kind :ink :matrix matrix
-              :vertices (:vertices pack) :color (:color pack)
-              :vertex-count (count (:vertices pack))}}))
-
 (defn- placement-key
   "Placement and matrix → identity/kind/status/content-revision/matrix
-   tuple.
-
-   Separates geometry packing changes from camera. Trusts revision for
-   paint/content/style changes."
+   tuple. Trusts the content revision for content and paint changes."
   [placed matrix]
-  [(:object-id placed) (:kind placed) (:status placed)
-   (:content-revision placed) matrix])
+  [(:object-id placed) (:kind placed) (:status placed) (:content-revision placed) matrix])
 
 (defn- pack-one
-  "Cache, old row, placement, maintained scene → row/cache and packed? flag.
-
-   Reuses equal key, carries unresolved statuses, supports ink only.
+  "Old row, placement, maintained scene → {:row :packed?}: reuses an equal
+   key, carries unresolved statuses, runs ink through on-plane's regions.
    Unsupported kinds are explicit data."
-  [cache old placed maintained]
+  [old placed maintained]
   (let [matrix (get-in maintained [:world-transforms (:object-id placed)])
         key (placement-key placed matrix)]
     (cond
-      (= key (:key old)) {:cache cache :row old :packed? false}
+      (= key (:key old)) {:row old :packed? false}
       (not= :resolved (:status placed))
-      {:cache cache :packed? true
+      {:packed? true
        :row {:key key :placed (assoc placed :matrix matrix)
-             :packed {:status (:status placed) :kind (:kind placed)
-                      :matrix matrix}}}
+             :packed {:status (:status placed) :kind (:kind placed) :matrix matrix}}}
       (= :ink (:kind placed))
-      (let [{next-cache :cache packed :packed} (ink-pack cache placed matrix)]
-        {:cache next-cache :packed? true
+      (let [ink (on-plane/placed-ink-regions placed)]
+        {:packed? true
          :row {:key key :placed (assoc placed :matrix matrix)
-               :packed packed}})
+               :packed {:status (if (:ok? ink) :resolved :construction-failed)
+                        :kind :ink :matrix matrix
+                        :regions (:regions ink) :missing (:missing ink)
+                        :curves (reduce + 0 (map (comp :count :pack) (:regions ink)))}}})
       :else
-      {:cache cache :packed? true
+      {:packed? true
        :row {:key key :placed (assoc placed :matrix matrix)
-             :packed {:status :unsupported-kind :kind (:kind placed)
-                      :matrix matrix}}})))
+             :packed {:status :unsupported-kind :kind (:kind placed) :matrix matrix}}})))
 
-(defn- device-ink-vertex-limit
-  "System → maximum vertices from maxBufferSize/88; missing limit throws.
+(defn- depth-of
+  [matrix camera]
+  (scene/length (scene/v- (scene/transform-point matrix [0.0 0.0 0.0]) (:eye camera))))
 
-   Hardware-cap derivation. It is a buffer limit, not frame-time admission."
-  [system]
-  (let [^js device (:device system)
-        max-bytes (:max-buffer-size (limits/adapter-limits device))]
-    (when-not max-bytes
-      (throw (ex-info "WebGPU device has no maxBufferSize" {})))
-    (long (/ max-bytes flat-vertex-stride))))
+(defn- ensure-matrix-buffer!
+  [system {:keys [capacity label] :as row} needed]
+  (if (>= capacity needed)
+    row
+    (let [capacity (loop [c (max 1 capacity)] (if (>= c needed) c (recur (* 2 c))))]
+      (.destroy ^js (:buffer row))
+      {:buffer (create-matrix-buffer (:device system) label capacity) :capacity capacity :label label})))
 
-(defn- enforce-region-limits
-  "System and rows → deterministic rows with excess entries marked
-   over-limit.
-
-   Sorted cumulative admission. Clears vertices but retains vertex-count, so
-   aggregate reporting can still count rejected vertices."
-  [system rows]
-  (loop [remaining (sort-by (comp pr-str :object-id :placed) rows)
-         ink-vertices 0 result []]
-    (if-let [row (first remaining)]
-      (let [packed (:packed row)
-            next-ink (+ ink-vertices (or (:vertex-count packed) 0))
-            over? (> next-ink (device-ink-vertex-limit system))
-            row (if (and (= :resolved (:status packed)) over?)
-                  (-> row
-                      (assoc-in [:packed :status] :over-limit)
-                      (assoc-in [:packed :vertices] []))
-                  row)]
-        (recur (next remaining)
-               (if over? ink-vertices next-ink)
-               (conj result row)))
-      result)))
-
-(defn- build-uploads
-  "Rows, maintained state, camera → flat words, draws and placement
-   statuses.
-
-   Repeats matrix/color per vertex and records origin distance. Maintained
-   parameter is unused; large repeated matrices are a bandwidth/storage
-   choice."
-  [rows maintained camera]
-  (reduce
-   (fn [{:keys [flat] :as result} row]
-     (let [{:keys [placed packed]} row
-           kind (:kind packed)
-           status (:status packed)
-           matrix (:matrix packed)
-           color (when (= :resolved status)
-                   (on-plane/linear-premultiplied
-                    (:color packed) 1.0 1.0))
-           depth (when matrix
-                   (scene/length
-                    (scene/v- (scene/transform-point matrix [0.0 0.0 0.0])
-                              (:eye camera))))
-           placed (assoc placed :status status)]
-       (cond
-         (and (= :resolved status) (= :ink kind))
-         (let [first-vertex (quot (count flat) 22)
-               values (vec (mapcat (fn [[x y]]
-                                     (concat [x y] (column-major matrix) color))
-                                   (:vertices packed)))]
-           (-> result
-               (update :flat into values)
-               (update :draws conj {:kind :ink :object-id (:object-id placed)
-                                    :first first-vertex
-                                    :count (:vertex-count packed) :depth depth})
-               (update :placements conj placed)))
-
-         :else (update result :placements conj placed))))
-   {:flat [] :draws [] :placements []}
-   rows))
-
-(defn- sort-draws
-  "Draws, maintained state, camera → back-to-front order with ID tie-break.
-
-   Sorts by object-origin Euclidean distance. Approximate transparency order
-   for intersecting/extended surfaces."
-  [draws maintained camera]
-  (vec
-   (sort-by
-    (juxt (comp - :depth) (comp pr-str :object-id))
-    (map (fn [draw]
-           (let [matrix (get-in maintained
-                                [:world-transforms (:object-id draw)])]
-             (assoc draw :depth
-                    (scene/length
-                     (scene/v- (scene/transform-point matrix [0.0 0.0 0.0])
-                               (:eye camera))))))
-         draws))))
+(defn- bind-group
+  [system region-gpu region-uniform]
+  (let [{:keys [curve-view band-view]} (coverage/views (:atlas region-gpu))]
+    (.createBindGroup ^js (:device system)
+                      (clj->js {:layout (get-in system [:pipelines :layout])
+                                :entries [{:binding 0 :resource curve-view}
+                                          {:binding 1 :resource band-view}
+                                          {:binding 2 :resource {:buffer (:buffer region-uniform)}}
+                                          {:binding 3 :resource {:buffer (:buffer (:matrices region-gpu))}}]}))))
 
 (defn prepare-placements!
-  "System, previous GPU row, placements, scene, camera, path cache → updated
-   state/cache and counters.
+  "System, previous region GPU row, placements, maintained scene, camera →
+   {:gpu :changed? :packs :placements :coverage-check :uploads :instances
+    :ink-curves}.
 
-   Per-placement reuse, aggregate upload key, capacity growth and sorting on
-   pack change. Current limitation: a camera-only change does not change
-   pack key and retains old draw order. A camera-crossing transparency
-   fixture would determine the visual consequence."
-  [system region-gpu placements maintained camera path-cache]
+   Per-placement reuse by key; on a pack change the resolved ink rows are
+   ordered back to front by object-origin distance, their matrices written
+   to the storage buffer, their packs kept in the region's atlas and their
+   cover rectangles written as instance rows in that order. A camera-only
+   change keeps the old order."
+  [system region-gpu placements maintained camera]
   (let [old-cache (:pack-cache region-gpu)
-        packed
-        (reduce
-         (fn [{:keys [path-cache rows packs]} placed]
-           (let [result (pack-one path-cache (get old-cache (:object-id placed))
-                                  placed maintained)]
-             {:path-cache (:cache result)
-              :rows (conj rows (:row result))
-              :packs (+ packs (if (:packed? result) 1 0))}))
-         {:path-cache (or path-cache {}) :rows [] :packs 0}
-         placements)
-        rows (enforce-region-limits system (:rows packed))
-        ;; The cache value is the whole row: `pack-one` compares its :key and
-        ;; reuses its packed payload.  Storing only :placed here erases both,
-        ;; turning every otherwise-idle prepare into a layout + pack.
-        next-cache (into {}
-                         (map (fn [row]
-                                [(get-in row [:placed :object-id]) row]))
-                         rows)
-        pack-key (mapv (fn [{:keys [key packed]}]
-                         [key (:status packed) (:vertex-count packed)]) rows)
+        {:keys [rows packs]} (reduce (fn [{:keys [rows packs]} placed]
+                                       (let [{:keys [row packed?]} (pack-one (get old-cache (:object-id placed)) placed maintained)]
+                                         {:rows (conj rows row) :packs (+ packs (if packed? 1 0))}))
+                                     {:rows [] :packs 0} placements)
+        next-cache (into {} (map (fn [row] [(get-in row [:placed :object-id]) row])) rows)
+        pack-key (mapv (fn [{:keys [key packed]}] [key (:status packed) (:curves packed)]) rows)
         changed? (not= pack-key (:pack-key region-gpu))
-        upload (if changed? (build-uploads rows maintained camera)
-                   {:placements (:placements region-gpu)})
-        flat-data (when changed? (:flat upload))
-        flat-buffer (if changed?
-                      (ensure-buffer! system (:flat region-gpu)
-                                      (:label (:flat region-gpu))
-                                      (* 4 (count flat-data)))
-                      (:flat region-gpu))
-        uploads (if changed?
-                  (if (pos? (write-buffer! system flat-buffer flat-data)) 1 0)
-                  0)
         statuses (frequencies (map (comp :status :packed) rows))
-        next-gpu (cond-> (assoc region-gpu :pack-cache next-cache
-                                :pack-key pack-key :flat flat-buffer
-                                :coverage-check statuses
-                                :draw-order
-                                (if changed?
-                                  (sort-draws (:draws upload) maintained camera)
-                                  (:draw-order region-gpu)))
-                   changed? (assoc :placements (:placements upload)))
-        ink-count (reduce + 0 (map #(or (get-in % [:packed :vertex-count]) 0)
-                                       rows))]
-    {:gpu next-gpu :path-cache (:path-cache packed)
-     :changed? changed? :packs (:packs packed)
-     :placements (:placements next-gpu) :coverage-check statuses
-     :uploads uploads :ink-vertices ink-count
-     :over-limit (get statuses :over-limit 0)}))
-
-(defn- flat-bind-group
-  "System and region uniform row → bind group.
-
-   Direct binding."
-  [system region-uniform]
-  (.createBindGroup
-   ^js (:device system)
-   (clj->js {:layout (get-in system [:pipelines :flat-layout])
-             :entries [{:binding 0
-                        :resource {:buffer (:buffer region-uniform)}}]})))
+        placed-out (mapv (fn [{:keys [placed packed]}] (assoc placed :status (:status packed))) rows)]
+    (if-not changed?
+      {:gpu (assoc region-gpu :pack-cache next-cache :coverage-check statuses)
+       :changed? false :packs packs :placements (:placements region-gpu)
+       :coverage-check statuses :uploads 0 :instances (:instances region-gpu)
+       :ink-curves (reduce + 0 (map (comp #(or % 0) :curves :packed) rows))}
+      (let [ink-rows (->> rows
+                          (filter (fn [{:keys [packed]}] (and (= :resolved (:status packed)) (= :ink (:kind packed)))))
+                          (map (fn [row] (assoc row :depth (depth-of (get-in row [:packed :matrix]) camera))))
+                          (sort-by (juxt (comp - :depth) (comp pr-str :object-id :placed)))
+                          vec)
+            atlas (:atlas region-gpu)
+            used-keys (into #{} (for [row ink-rows entry (get-in row [:packed :regions])] [(:object-id (:placed row)) (hash (:pack entry))]))
+            _ (coverage/retain! atlas used-keys)
+            instances (vec (for [[index row] (map-indexed vector ink-rows)
+                                 entry (get-in row [:packed :regions])
+                                 :let [slot (coverage/insert! atlas [(:object-id (:placed row)) (hash (:pack entry))] (:pack entry))
+                                       color (on-plane/linear-premultiplied (:color entry) 1.0 1.0)]
+                                 [x0 y0 x1 y1] (:rects (:cover entry))]
+                             {:rect [x0 y0 (- x1 x0) (- y1 y0)] :slot slot :color color
+                              :rule (:rule (:region entry)) :index index :clip nil}))
+            flushed (coverage/flush! atlas)
+            matrix-row (ensure-matrix-buffer! system (:matrices region-gpu) (max 1 (count ink-rows)))
+            matrix-data (js/Float32Array. (clj->js (vec (mapcat (fn [row] (column-major (get-in row [:packed :matrix]))) ink-rows))))
+            _ (when (pos? (.-length matrix-data))
+                (.writeBuffer (.-queue ^js (:device system)) (:buffer matrix-row) 0 matrix-data))
+            writes (buffer-pool/batch-update-pool! (:pool region-gpu) instances)
+            gpu (assoc region-gpu
+                       :pack-cache next-cache :pack-key pack-key
+                       :coverage-check statuses :instances (count instances)
+                       :placements placed-out :matrices matrix-row)]
+        {:gpu gpu :changed? true :packs packs :placements placed-out
+         :coverage-check statuses
+         :uploads (+ (if (pos? writes) 1 0) (if (pos? (.-length matrix-data)) 1 0)
+                     (if (pos? (+ (:curve-rows flushed) (:band-rows flushed))) 1 0))
+         :instances (count instances)
+         :ink-curves (reduce + 0 (map (comp #(or % 0) :curves :packed) rows))
+         :atlas (merge (coverage/stats atlas) flushed)}))))
 
 (defn draw-placements!
-  "Open pass, system, region GPU row, uniform → draw count; encodes ink
-   draws.
-
-   Lazy one-time bind-group creation per call. Uses previously stored
-   ordering."
+  "Open pass, system, region GPU row, uniform → draw count; encodes the
+   region's placed ink as one instanced draw in the prepared order. The
+   bind group is made per call: the atlas views and the uniform buffer are
+   both allowed to change between frames."
   [pass system region-gpu region-uniform]
-  (let [flat-bind (delay (flat-bind-group system region-uniform))
-        draws (atom 0)]
-    (doseq [{:keys [kind first count]} (:draw-order region-gpu)
-            :when (pos? count)]
-      (case kind
-        :ink
-        (do (.setPipeline ^js pass (get-in system [:pipelines :flat]))
-            (.setBindGroup ^js pass 0 @flat-bind)
-            (.setVertexBuffer ^js pass 0 (:buffer (:flat region-gpu)))
-            (.draw ^js pass count 1 first 0)
-            (swap! draws inc))
-        nil))
-    @draws))
-
-(defn- destroy-buffer!
-  "Buffer row → optional destruction result.
-
-   Nil-safe resource release."
-  [row]
-  (when-let [buffer (:buffer row)]
-    (.destroy ^js buffer)))
+  (let [instances (:instances region-gpu 0)]
+    (if (pos? instances)
+      (let [bind (bind-group system region-gpu region-uniform)]
+        (.setPipeline ^js pass (get-in system [:pipelines :placed]))
+        (.setBindGroup ^js pass 0 bind)
+        (.setVertexBuffer ^js pass 0 (:buffer @(:pool region-gpu)))
+        (.draw ^js pass 6 instances 0 0)
+        1)
+      0)))
 
 (defn destroy-region-gpu!
-  "Region GPU row → destroys flat buffer.
-
-   Single owned allocation."
+  "Region GPU row → destroys its atlas, instance buffer and matrix buffer."
   [region-gpu]
-  (destroy-buffer! (:flat region-gpu)))
+  (when-let [atlas (:atlas region-gpu)]
+    (coverage/destroy-atlas! atlas))
+  (when-let [buffer (:buffer @(:pool region-gpu))]
+    (.destroy ^js buffer))
+  (when-let [buffer (:buffer (:matrices region-gpu))]
+    (.destroy ^js buffer)))
 
 (defn destroy-placement-system!
-  "System → true, without resource operations.
-
-   Current system contains pipeline/layout handles only. Serves as current
-   API behavior; name does not imply explicit pipeline destruction."
+  "System → true, without resource operations: the system holds pipeline
+   and layout handles only."
   [_system] true)

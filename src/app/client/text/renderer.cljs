@@ -12,6 +12,7 @@
   (:require [clojure.string :as str]
             [app.client.engine.color :as scene-color]
             [app.client.engine.compositor :as compositor-gpu]
+            [app.client.engine.coverage :as coverage]
             [app.client.engine.device :as device]
             [app.client.text.glyph-pack :as glyph-pack]
             [app.client.text.layout :as tl]))
@@ -95,172 +96,27 @@
     return output;
   }")
 
-;; saturate: Scalar → [0,1] clamp..
-;;
-;; calc_root_code: Three curve coordinate signs → encoded root crossing
-;; classes.. Float sign bits and lookup constant. Use only with the
-;; corresponding polynomial algorithm.
-;;
-;; solve_horiz_poly: Relative quadratic control points → horizontal crossing
-;; coordinates.. Quadratic roots with near-linear fallback. Derivative
-;; epsilon defines numerical behavior.
-;;
-;; solve_vert_poly: Same control points → vertical crossing coordinates..
-;; Axis-swapped solver.
-;;
-;; calc_band_loc: Glyph texture origin and offset → wrapped texture
-;; coordinate.. Bit arithmetic assuming band texture width 4096. Shader width
-;; is fixed, while texture dimensions come from metadata.
-;;
-;; calc_coverage: Horizontal/vertical coverage and weights → bounded combined
-;; coverage.. Weighted estimate plus minimum-axis safeguard. Describes
-;; implemented estimator; no exactness verdict from source.
-;;
-;; slug_render: Sample coordinate, band transform, glyph metadata →
-;; coverage.. Derivative-based pixel scale, band lookup, curve-root
-;; accumulation on two axes. Per-pixel loops depend on selected curve bands.
-;;
-;; Fragment main: Interpolated sample/color/banding/glyph → scene-mode RGBA..
-;; Evaluates coverage, adds sizing-uniform sharpness, clamps and applies
-;; shared color helper. Update path sets sharpness to zero.
-(def slug-fragment-shader (str device/scene-color-wgsl "
-  const kLogBandTextureWidth: u32 = 12u;
-  const kMinDerivative: f32 = 1.0 / 65536.0;
-
-  @group(0) @binding(0) var curveTexture: texture_2d<f32>;
-  @group(0) @binding(1) var bandTexture: texture_2d<u32>;
+;; Fragment main: interpolated sample coordinate, colour, banding and glyph
+;; metadata → scene-mode RGBA. The per-pixel program is the engine's shared
+;; coverage (engine/coverage.cljs: root codes, the two axis solvers, band
+;; lookup, the combine); text supplies em units, its offline font atlas
+;; (bands 4096 wide, so log2 width 12) and the nonzero rule, then adds the
+;; sizing-uniform sharpness, which the update path keeps at zero.
+(def slug-fragment-shader (str device/scene-color-wgsl coverage/coverage-wgsl "
   struct SlugParams { sharpness: f32, padding1: f32, padding2: f32, padding3: f32, };
   @group(0) @binding(3) var<uniform> params: SlugParams;
-
-  fn saturate(x: f32) -> f32 {
-    return clamp(x, 0.0, 1.0);
-  }
-
-  fn calc_root_code(y1: f32, y2: f32, y3: f32) -> u32 {
-    let i1 = bitcast<u32>(y1) >> 31u;
-    let i2 = bitcast<u32>(y2) >> 30u;
-    let i3 = bitcast<u32>(y3) >> 29u;
-    var shift = (i2 & 2u) | (i1 & ~2u);
-    shift = (i3 & 4u) | (shift & ~4u);
-    return (0x2E74u >> shift) & 0x0101u;
-  }
-
-  fn solve_horiz_poly(p12: vec4<f32>, p3: vec2<f32>) -> vec2<f32> {
-    let a = p12.xy - p12.zw * 2.0 + p3;
-    let b = p12.xy - p12.zw;
-    let ra = 1.0 / a.y;
-    let rb = 0.5 / b.y;
-    let d = sqrt(max(b.y * b.y - a.y * p12.y, 0.0));
-    var t1 = (b.y - d) * ra;
-    var t2 = (b.y + d) * ra;
-    if (abs(a.y) < kMinDerivative) {
-      t1 = p12.y * rb;
-      t2 = t1;
-    }
-    return vec2<f32>((a.x * t1 - b.x * 2.0) * t1 + p12.x,
-                     (a.x * t2 - b.x * 2.0) * t2 + p12.x);
-  }
-
-  fn solve_vert_poly(p12: vec4<f32>, p3: vec2<f32>) -> vec2<f32> {
-    let a = p12.xy - p12.zw * 2.0 + p3;
-    let b = p12.xy - p12.zw;
-    let ra = 1.0 / a.x;
-    let rb = 0.5 / b.x;
-    let d = sqrt(max(b.x * b.x - a.x * p12.x, 0.0));
-    var t1 = (b.x - d) * ra;
-    var t2 = (b.x + d) * ra;
-    if (abs(a.x) < kMinDerivative) {
-      t1 = p12.x * rb;
-      t2 = t1;
-    }
-    return vec2<f32>((a.y * t1 - b.y * 2.0) * t1 + p12.y,
-                     (a.y * t2 - b.y * 2.0) * t2 + p12.y);
-  }
-
-  fn calc_band_loc(glyph_loc: vec2<i32>, offset: u32) -> vec2<i32> {
-    let width = 1i << kLogBandTextureWidth;
-    var x = glyph_loc.x + i32(offset);
-    var y = glyph_loc.y + (x >> kLogBandTextureWidth);
-    x = x & (width - 1);
-    return vec2<i32>(x, y);
-  }
-
-  fn calc_coverage(xcov: f32, ycov: f32, xwgt: f32, ywgt: f32) -> f32 {
-    let weighted = abs(xcov * xwgt + ycov * ywgt) / max(xwgt + ywgt, kMinDerivative);
-    let coverage = max(weighted, min(abs(xcov), abs(ycov)));
-    return saturate(coverage);
-  }
-
-  fn slug_render(render_coord: vec2<f32>, band_transform: vec4<f32>, glyph: vec4<u32>) -> f32 {
-    let ems_per_pixel = max(fwidth(render_coord), vec2<f32>(kMinDerivative, kMinDerivative));
-    let pixels_per_em = 1.0 / ems_per_pixel;
-    let glyph_loc = vec2<i32>(i32(glyph.x), i32(glyph.y));
-    let band_max = vec2<i32>(i32(glyph.z), i32(glyph.w & 0xFFFFu));
-    let band_index = clamp(vec2<i32>(floor(render_coord * band_transform.xy + band_transform.zw)),
-                           vec2<i32>(0, 0),
-                           band_max);
-
-    var xcov = 0.0;
-    var xwgt = 0.0;
-    let hband_data = textureLoad(bandTexture, vec2<i32>(glyph_loc.x + band_index.y, glyph_loc.y), 0).xy;
-    let hband_loc = calc_band_loc(glyph_loc, hband_data.y);
-    for (var curve_index = 0i; curve_index < i32(hband_data.x); curve_index = curve_index + 1i) {
-      let curve_loc_data = textureLoad(bandTexture, vec2<i32>(hband_loc.x + curve_index, hband_loc.y), 0).xy;
-      let curve_loc = vec2<i32>(i32(curve_loc_data.x), i32(curve_loc_data.y));
-      let p12 = textureLoad(curveTexture, curve_loc, 0) - vec4<f32>(render_coord, render_coord);
-      let p3 = textureLoad(curveTexture, vec2<i32>(curve_loc.x + 1, curve_loc.y), 0).xy - render_coord;
-      if (max(max(p12.x, p12.z), p3.x) * pixels_per_em.x < -0.5) {
-        break;
-      }
-      let code = calc_root_code(p12.y, p12.w, p3.y);
-      if (code != 0u) {
-        let roots = solve_horiz_poly(p12, p3) * pixels_per_em.x;
-        if ((code & 1u) != 0u) {
-          xcov = xcov + saturate(roots.x + 0.5);
-          xwgt = max(xwgt, saturate(1.0 - abs(roots.x) * 2.0));
-        }
-        if (code > 1u) {
-          xcov = xcov - saturate(roots.y + 0.5);
-          xwgt = max(xwgt, saturate(1.0 - abs(roots.y) * 2.0));
-        }
-      }
-    }
-
-    var ycov = 0.0;
-    var ywgt = 0.0;
-    let vband_data = textureLoad(bandTexture, vec2<i32>(glyph_loc.x + band_max.y + 1 + band_index.x, glyph_loc.y), 0).xy;
-    let vband_loc = calc_band_loc(glyph_loc, vband_data.y);
-    for (var curve_index = 0i; curve_index < i32(vband_data.x); curve_index = curve_index + 1i) {
-      let curve_loc_data = textureLoad(bandTexture, vec2<i32>(vband_loc.x + curve_index, vband_loc.y), 0).xy;
-      let curve_loc = vec2<i32>(i32(curve_loc_data.x), i32(curve_loc_data.y));
-      let p12 = textureLoad(curveTexture, curve_loc, 0) - vec4<f32>(render_coord, render_coord);
-      let p3 = textureLoad(curveTexture, vec2<i32>(curve_loc.x + 1, curve_loc.y), 0).xy - render_coord;
-      if (max(max(p12.y, p12.w), p3.y) * pixels_per_em.y < -0.5) {
-        break;
-      }
-      let code = calc_root_code(p12.x, p12.z, p3.x);
-      if (code != 0u) {
-        let roots = solve_vert_poly(p12, p3) * pixels_per_em.y;
-        if ((code & 1u) != 0u) {
-          ycov = ycov - saturate(roots.x + 0.5);
-          ywgt = max(ywgt, saturate(1.0 - abs(roots.x) * 2.0));
-        }
-        if (code > 1u) {
-          ycov = ycov + saturate(roots.y + 0.5);
-          ywgt = max(ywgt, saturate(1.0 - abs(roots.y) * 2.0));
-        }
-      }
-    }
-
-    return calc_coverage(xcov, ycov, xwgt, ywgt);
-  }
 
   @fragment
   fn main(@location(0) texcoord: vec2<f32>,
           @location(1) color: vec4<f32>,
           @location(2) banding: vec4<f32>,
           @location(3) @interpolate(flat) glyph: vec4<u32>) -> @location(0) vec4<f32> {
-    let coverage = slug_render(texcoord, banding, glyph);
+    let ems_per_pixel = max(fwidth(texcoord), vec2<f32>(kMinDerivative, kMinDerivative));
+    let pixels_per_em = 1.0 / ems_per_pixel;
+    let coverage = region_coverage(texcoord, pixels_per_em,
+                                   vec2<i32>(i32(glyph.x), i32(glyph.y)),
+                                   vec2<i32>(i32(glyph.z), i32(glyph.w & 0xFFFFu)),
+                                   banding, 0u, 12u);
     return scene_color(color, saturate(coverage + params.sharpness));
   }"))
 

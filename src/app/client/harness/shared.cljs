@@ -13,6 +13,8 @@
             [app.client.engine.device :as device]
             [app.client.engine.limits :as limits]
             [app.client.engine.transform :as transform]
+            [app.client.engine.coverage :as coverage]
+            [app.client.path.renderer :as path-renderer]
             [app.client.region3d.on-plane-renderer :as on-plane-renderer]
             [app.client.text.renderer :as text-renderer]))
 
@@ -238,18 +240,22 @@
      :limits (limits/adapter-limits adapter)}))
 
 (defn shader-digests
-  "No arguments → promise of hashes for five selected shader strings.
+  "No arguments → promise of hashes for the selected shader strings.
 
-   Hashes scene-color, presentation, Slug vertex/fragment and placed-flat
-   sources. This is a selected fingerprint, not a digest of every shader in
-   the client."
+   Hashes scene-color, presentation, Slug vertex/fragment, the path region
+   vertex/fragment, the shared coverage program and the placed-region
+   shader. A selected fingerprint, not a digest of every shader in the
+   client."
   []
   (let [entries [["scene-color" device/scene-color-wgsl]
                  ["present-fragment" compositor/present-fragment-shader]
                  ["slug-vertex" text-renderer/slug-vertex-shader]
                  ["slug-fragment" text-renderer/slug-fragment-shader]
-                 ["region3d-placed-flat"
-                  on-plane-renderer/placed-flat-shader]]]
+                 ["path-region-vertex" path-renderer/region-vertex-shader]
+                 ["path-region-fragment" path-renderer/region-fragment-shader]
+                 ["coverage-shared" coverage/coverage-wgsl]
+                 ["region3d-placed-region"
+                  on-plane-renderer/placed-region-shader]]]
     (-> (promise-mapv (fn [[label source]]
                         (.then (sha256-string source)
                                (fn [digest] [label digest])))

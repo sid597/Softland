@@ -9,7 +9,7 @@ flowchart TB
     A["Browser capabilities and font/image assets"] --> H["harness/<br/>inputs, execution, evidence"]
     H --> T["text/<br/>shape, lay out, query, draw"]
     H --> I["image/<br/>register, retain, draw"]
-    H --> P["path/<br/>classify, tessellate, draw"]
+    H --> P["path/<br/>records to regions, classify, draw"]
     H --> R["region3d/<br/>maintain scene, pick, render region"]
     E["engine/<br/>coordinates, color, buffers, targets, leases"] --> T & I & P & R
     T & I & P & R --> O["Spatial results and GPU commands"]
@@ -25,7 +25,7 @@ Arrows show inputs and consumed results. The caller determines execution order: 
 | [engine/](engine/README.md) | Validation, group coordinates, scene color, GPU transport, target allocation and region leases. | Callers own pure registries; explicit pools, binding owners and compositors hold resources. |
 | [text/](text/README.md) | Font loading, shaping, positioned layout, source/geometry queries and outline rendering. | Providers hold shaping resources; results hold layout; renderer systems hold GPU resources. |
 | [image/](image/README.md) | Source verification, crop/placement rules, asynchronous texture residency and ordered draws. | Each renderer system holds its source registry, bytes and GPU residency. |
-| [path/](path/README.md) | Ink/fill geometry, CPU classification, triangle derivation and rendering. | Components are caller values; renderer systems hold derived mesh caches and vertex buffers. |
+| [path/](path/README.md) | Records to path values to regions; packing for the camera; CPU membership and coverage; one instanced coverage draw. | Records are caller values; renderer systems hold run and pack caches, the atlas and instance rows. |
 | [region3d/](region3d/README.md) | Scene derivation/maintenance, spatial queries, placed content, offscreen rendering and composition. | Renderer systems retain scenes/buffers; engine compositors own physical texture leases. |
 | [harness/](harness/README.md) | Browser acquisition, fixtures, frame driving, readback and bounded checks. | Drivers hold test resources and evidence; the entry publishes browser completion state. |
 
