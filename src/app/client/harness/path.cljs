@@ -346,8 +346,9 @@
 (defn- run-rates-check!
   "What a frame rebuilds: nothing on repeat; rows only on a colour edit;
    a run on a geometry edit; nothing on a pan or a zoom inside the bucket;
-   a repack across a bucket; a rerun for a snapped record on a pan; and a
-   fractional placement whose edge pixels agree with the CPU twin."
+   a repack across a bucket; a rerun for a snapped record on a pan; nothing
+   on a moved group and a repack on a rescaled one; and a fractional
+   placement whose edge pixels agree with the CPU twin."
   [device path-system world-transforms fractional-transforms]
   (let [z (revisioned records/harness-z)
         border (revisioned records/border)
@@ -367,6 +368,8 @@
         g1 (prepare [(path-draw-item :rates/z z 17)] view world-transforms)
         moved (assoc-in world-transforms [17 :affine 4] 44.0)
         g2 (prepare [(path-draw-item :rates/z z 17)] view moved)
+        rescaled (assoc-in world-transforms [17 :affine] [2.0 0.0 0.0 2.0 40.0 20.0])
+        g3 (prepare [(path-draw-item :rates/z z 17)] view rescaled)
         skin (first (path-component/painted-regions z {:scale 1.0}))
         [ox oy] [0.5 0.25]
         edge-pixels (for [x (range 20 110) y (range 20 110)
@@ -381,7 +384,7 @@
                    {:first (counts f1) :repeat (counts f2) :colour-edit (counts f3) :geometry-edit (counts f4)
                     :restore (counts f5) :pan (counts f6) :zoom-inside-bucket (counts f7) :zoom-across-bucket (counts f8)
                     :border-first (counts b1) :border-pan (counts b2) :border-zoom (counts b3)
-                    :group-first (counts g1) :group-moved (counts g2)
+                    :group-first (counts g1) :group-moved (counts g2) :group-rescaled (counts g3)
                     :fractional {:offset [ox oy] :edge-rows (count rows) :max-delta max-delta}
                     :pass? (and (:changed? f1) (= 1 (:runs f1)) (pos? (:packs f1)) (pos? (:instance-writes f1))
                                 (not (:changed? f2))
@@ -393,6 +396,7 @@
                                 (:changed? b2) (= 1 (:runs b2))
                                 (:changed? b3) (= 1 (:runs b3))
                                 (not (:changed? g2))
+                                (:changed? g3) (zero? (:runs g3)) (pos? (:packs g3))
                                 (pos? (count rows)) (< max-delta 0.05))}))))))
 
 ;; ---- colour ----

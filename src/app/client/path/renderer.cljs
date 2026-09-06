@@ -186,18 +186,6 @@
       {:mode :cells :margin margin :cell (/ (max w h) 12.0) :rule rule}
       {:mode :box :margin margin})))
 
-(defn- item-view
-  "View, world transform → the view the item's construction sees: device
-   pixels per local unit and the device offset of the group's origin."
-  [view {:keys [affine flags]}]
-  (let [[a b c d tx ty] (or affine transform/identity-affine)
-        screen? (= 1 flags)
-        zoom (if screen? 1.0 (or (:zoom view) 1.0))
-        [px py] (if screen? [0.0 0.0] (or (:pan view) [0.0 0.0]))
-        group-scale (max (Math/hypot a b) (Math/hypot c d))]
-    {:scale (* zoom group-scale)
-     :pan [(+ (* tx zoom) px) (+ (* ty zoom) py)]}))
-
 (defn- run-for
   "Runs cache, record, item view → [runs result rebuilt?]."
   [runs record view]
@@ -231,7 +219,7 @@
    key returns early with :changed? false and the previous counts."
   [system draw-items view world-transforms]
   (let [draw-items (or draw-items [])
-        key (frame/frame-key draw-items view)
+        key (frame/frame-key draw-items view world-transforms)
         prepared @(:!prepared system)]
     (if (= key @(:!last-frame-key system))
       {:changed? false :runs 0 :packs 0 :instances (count (:rows prepared)) :instance-writes 0
@@ -243,8 +231,7 @@
              (fn [[runs packs items run-count pack-count] item]
                (let [record (:path/material item)
                      group-index (transform/buffer-index world-transforms (:container item))
-                     wt (get world-transforms (:container item))
-                     iv (item-view view wt)
+                     iv (frame/item-view view (get world-transforms (:container item)))
                      bucket (pack/scale-bucket (:scale iv))
                      [runs result ran?] (run-for runs record iv)
                      [packs clip-entry clip-packed?] (if (:clip result)
