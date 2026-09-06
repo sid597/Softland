@@ -1,0 +1,655 @@
+{
+  "schema": "attack-2-receipts/v1",
+  "node": "v20.20.2",
+  "inputs": {
+    "composerCommit": "2737f4173b3e9f310ba2b593de3c95ede705ad58",
+    "benchPath": "docs/below-the-waist/3d/bench-2/seam-bench.html",
+    "benchSha256": "010c91d4e0cd4b3dad30208a5bf4b729124483374f8d8a32b8903ae00824c807",
+    "borrowedFunctions": [
+      "over",
+      "composeAt"
+    ],
+    "borrowedFunctionsSha256": "193c03db0dbd22702e97f420ae77c0be8ea3f57282de91886bcd30c5a17edf65",
+    "recordsSha256": "76ca4c2c3a5dc29f43d18c97df66dadfc5529d7a1ddde711146fb1385b8b1571",
+    "runnerSha256": "6dcec965fae7ecf5c090a5d0b54e66e46d7b08755536d9292cac4dc64bf4c9fe"
+  },
+  "sphericalRegion": {
+    "support": "G@0",
+    "radiusMm": 75,
+    "metricAtSeed": [
+      [
+        0.2500000000000001,
+        0
+      ],
+      [
+        0,
+        1
+      ]
+    ],
+    "intrinsicVsFrozen": {
+      "intrinsicMm": 72.27342478134159,
+      "frozenMetricMm": 78.53981633974485,
+      "inside": true,
+      "frozenInside": false,
+      "afterRadiusChange": {
+        "radiusMm": 70,
+        "inside": false
+      }
+    },
+    "intrinsicVsChord": {
+      "intrinsicMm": 76,
+      "chordMm": 74.18409388259653,
+      "inside": false,
+      "chordInside": true
+    },
+    "areaMm2": 16858.48556844744,
+    "worldBoundsMm": [
+      [
+        -95.61609168212425,
+        22.44720479474215
+      ],
+      [
+        29.284176809936252,
+        100
+      ],
+      [
+        -68.16387600233341,
+        68.16387600233341
+      ]
+    ],
+    "atlas": {
+      "pieces": [
+        "longitude-negative",
+        "longitude-nonnegative",
+        "north-xz"
+      ],
+      "counts": {
+        "north-xz": 554,
+        "longitude-negative": 2604,
+        "longitude-nonnegative": 1162
+      },
+      "sampledPoints": 4320,
+      "outsideBounds": 0,
+      "pole": {
+        "chart": "north-xz",
+        "coordinates": [
+          0,
+          0
+        ],
+        "distanceMm": 52.359877559829904,
+        "inside": true,
+        "logicalDeposits": 1,
+        "alpha": 0.5,
+        "duplicateDepositAlpha": 0.75
+      }
+    },
+    "cutLocus": {
+      "distanceMm": 314.1592653589793,
+      "pathWitnesses": "all great semicircles; no unique initial direction",
+      "membership": [
+        {
+          "radiusMm": 314,
+          "inside": false,
+          "status": "complete"
+        },
+        {
+          "radiusMm": 315,
+          "inside": true,
+          "status": "complete"
+        }
+      ]
+    },
+    "trim": {
+      "untrimmedDistanceThenClipMm": 20,
+      "untrimmedThenClipInside": true,
+      "stayWithinTrimmedDomain": {
+        "distance": "Infinity",
+        "inside": false,
+        "evidence": "the removed full latitude band disconnects the two components"
+      }
+    },
+    "reusableClip": {
+      "retainedRegion": {
+        "id": "reach-result@0",
+        "operation": "intrinsic-sphere-ball",
+        "support": {
+          "id": "G",
+          "revision": 0,
+          "radiusMm": 100
+        },
+        "seed": [
+          -0.5000000000000001,
+          0.8660254037844385,
+          6.123233995736767e-17
+        ],
+        "radiusMm": 75,
+        "pathDomain": "whole sphere"
+      },
+      "queryPoint": [
+        -9.18485099360515e-15,
+        86.60254037844386,
+        -50.000000000000014
+      ],
+      "retainedPaint": [
+        0,
+        0.4,
+        0,
+        0.4
+      ],
+      "changedRadius70Paint": [
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "ellipsoid": {
+    "support": "E@0",
+    "worldBoundsMm": [
+      [
+        -120,
+        120
+      ],
+      [
+        -100,
+        100
+      ],
+      [
+        -80,
+        80
+      ]
+    ],
+    "distanceLowerMm": 156.204992,
+    "distanceUpperMm": 173.160121,
+    "feasiblePathLengthBoundsMm": [
+      173.129439,
+      173.160121
+    ],
+    "panels": 1024,
+    "answers": [
+      {
+        "radiusMm": 150,
+        "lowerMm": 156.204992,
+        "upperMm": 173.160121,
+        "status": "outside",
+        "unresolvedPortion": null
+      },
+      {
+        "radiusMm": 160,
+        "lowerMm": 156.204992,
+        "upperMm": 173.160121,
+        "status": "unresolved",
+        "unresolvedPortion": {
+          "queryPointMm": [
+            0,
+            100,
+            0
+          ]
+        }
+      },
+      {
+        "radiusMm": 175,
+        "lowerMm": 156.204992,
+        "upperMm": 173.160121,
+        "status": "inside",
+        "unresolvedPortion": null
+      }
+    ],
+    "limit": "The path upper bound is not a claim that this curve is globally shortest. Refining this quadrature alone cannot certify the unresolved 160 mm query."
+  },
+  "sequence": {
+    "stages": [
+      {
+        "revision": 0,
+        "faces": [
+          "A",
+          "B"
+        ],
+        "sourceBytesSha256": "4d4a5d63d68f2106dc7589b8602a38ca5ca5ee2256643af058e1d6ad9f0b6dc8",
+        "maxWorldErrorMm": 2.803043812715256e-14,
+        "maxInverseErrorMm": 0,
+        "freshQuery": {
+          "support": {
+            "id": "G",
+            "revision": 0,
+            "face": "A+B",
+            "status": "complete",
+            "tMm": 200,
+            "point": [
+              -49.91002699676022,
+              86.44670256552297,
+              -5.996400647944455
+            ]
+          },
+          "chartPoint": [
+            326.1163737732725,
+            104.40891575594209
+          ],
+          "contributors": [
+            {
+              "mark": "kA",
+              "sourceRevision": 0,
+              "root": "A@0",
+              "authored": [
+                326.1163737732725,
+                104.40891575594209
+              ],
+              "segment": "arc-AB",
+              "inside": true,
+              "distanceMm": 1.1172481126437303e-14,
+              "sourceParameter": 0.6499999999999997,
+              "status": "complete"
+            },
+            {
+              "mark": "kB",
+              "sourceRevision": 0,
+              "root": "B@0",
+              "authored": [
+                11.957108414293202,
+                4.40891575594209
+              ],
+              "segment": "tap",
+              "inside": true,
+              "distanceMm": 1.6584537080750918e-14,
+              "sourceParameter": 0,
+              "status": "complete"
+            }
+          ],
+          "unresolved": [],
+          "composition": {
+            "status": "composed",
+            "rgba": [
+              0.25,
+              0,
+              0.5,
+              0.75
+            ],
+            "top": "kB",
+            "contributors": [
+              "kA",
+              "kB"
+            ]
+          }
+        }
+      },
+      {
+        "revision": 1,
+        "faces": [
+          "A",
+          "B"
+        ],
+        "sourceBytesSha256": "4d4a5d63d68f2106dc7589b8602a38ca5ca5ee2256643af058e1d6ad9f0b6dc8",
+        "maxWorldErrorMm": 2.803043812715256e-14,
+        "maxInverseErrorMm": 0,
+        "freshQuery": {
+          "support": {
+            "id": "G",
+            "revision": 1,
+            "face": "A+B",
+            "status": "complete",
+            "tMm": 200,
+            "point": [
+              -49.91002699676022,
+              86.44670256552297,
+              -5.996400647944455
+            ]
+          },
+          "chartPoint": [
+            113.05818688663626,
+            104.40891575594209
+          ],
+          "contributors": [
+            {
+              "mark": "kA",
+              "sourceRevision": 0,
+              "root": "A@0",
+              "authored": [
+                326.1163737732725,
+                104.40891575594209
+              ],
+              "segment": "arc-AB",
+              "inside": true,
+              "distanceMm": 1.1172481126437303e-14,
+              "sourceParameter": 0.6499999999999997,
+              "status": "complete"
+            },
+            {
+              "mark": "kB",
+              "sourceRevision": 0,
+              "root": "B@0",
+              "authored": [
+                11.957108414293202,
+                4.40891575594209
+              ],
+              "segment": "tap",
+              "inside": true,
+              "distanceMm": 1.6584537080750918e-14,
+              "sourceParameter": 0,
+              "status": "complete"
+            }
+          ],
+          "unresolved": [],
+          "composition": {
+            "status": "composed",
+            "rgba": [
+              0.25,
+              0,
+              0.5,
+              0.75
+            ],
+            "top": "kB",
+            "contributors": [
+              "kA",
+              "kB"
+            ]
+          }
+        }
+      },
+      {
+        "revision": 2,
+        "faces": [
+          "M"
+        ],
+        "sourceBytesSha256": "4d4a5d63d68f2106dc7589b8602a38ca5ca5ee2256643af058e1d6ad9f0b6dc8",
+        "maxWorldErrorMm": 2.803043812715256e-14,
+        "maxInverseErrorMm": 0,
+        "freshQuery": {
+          "support": {
+            "id": "G",
+            "revision": 2,
+            "face": "M",
+            "status": "complete",
+            "tMm": 200,
+            "point": [
+              -49.91002699676022,
+              86.44670256552297,
+              -5.996400647944455
+            ]
+          },
+          "chartPoint": [
+            169.16041582562178,
+            104.40891575594209
+          ],
+          "contributors": [
+            {
+              "mark": "kA",
+              "sourceRevision": 0,
+              "root": "A@0",
+              "authored": [
+                326.1163737732725,
+                104.40891575594209
+              ],
+              "segment": "arc-AB",
+              "inside": true,
+              "distanceMm": 1.1172481126437303e-14,
+              "sourceParameter": 0.6499999999999997,
+              "status": "complete"
+            },
+            {
+              "mark": "kB",
+              "sourceRevision": 0,
+              "root": "B@0",
+              "authored": [
+                11.957108414293202,
+                4.40891575594209
+              ],
+              "segment": "tap",
+              "inside": true,
+              "distanceMm": 1.6584537080750918e-14,
+              "sourceParameter": 0,
+              "status": "complete"
+            }
+          ],
+          "unresolved": [],
+          "composition": {
+            "status": "composed",
+            "rgba": [
+              0.25,
+              0,
+              0.5,
+              0.75
+            ],
+            "top": "kB",
+            "contributors": [
+              "kA",
+              "kB"
+            ]
+          }
+        }
+      }
+    ],
+    "reverseOrder": {
+      "status": "composed",
+      "rgba": [
+        0.5,
+        0,
+        0.25,
+        0.75
+      ],
+      "top": "kA",
+      "contributors": [
+        "kB",
+        "kA"
+      ]
+    },
+    "noOrder": {
+      "status": "needs-policy",
+      "contributors": [
+        "kA",
+        "kB"
+      ]
+    },
+    "pending": {
+      "support": {
+        "id": "G",
+        "revision": 2,
+        "face": "M",
+        "status": "complete",
+        "tMm": 200,
+        "point": [
+          -49.91002699676022,
+          86.44670256552297,
+          -5.996400647944455
+        ]
+      },
+      "chartPoint": [
+        169.16041582562178,
+        104.40891575594209
+      ],
+      "contributors": [
+        {
+          "mark": "kA",
+          "sourceRevision": 0,
+          "root": "A@0",
+          "authored": [
+            326.1163737732725,
+            104.40891575594209
+          ],
+          "segment": "arc-AB",
+          "inside": true,
+          "distanceMm": 1.1172481126437303e-14,
+          "sourceParameter": 0.6499999999999997,
+          "status": "complete"
+        }
+      ],
+      "unresolved": [
+        {
+          "mark": "kB",
+          "root": "B@0",
+          "targetRevision": 2,
+          "queryChartPoint": [
+            169.16041582562178,
+            104.40891575594209
+          ],
+          "status": "unresolved",
+          "relation": "B-merge",
+          "reason": "work limit",
+          "workUsed": 0
+        }
+      ],
+      "composition": {
+        "status": "unresolved",
+        "rgba": null,
+        "knownContributors": [
+          "kA"
+        ],
+        "possibleContributors": [
+          "kB"
+        ]
+      }
+    },
+    "afterDemandResolved": {
+      "status": "composed",
+      "rgba": [
+        0.25,
+        0,
+        0.5,
+        0.75
+      ],
+      "top": "kB",
+      "contributors": [
+        "kA",
+        "kB"
+      ]
+    },
+    "materialized": {
+      "status": "composed",
+      "rgba": [
+        0.25,
+        0,
+        0.5,
+        0.75
+      ],
+      "top": "kB",
+      "contributors": [
+        "kA",
+        "kB"
+      ]
+    },
+    "coldReload": {
+      "newParameter": 0.41,
+      "answer": {
+        "support": {
+          "id": "G",
+          "revision": 2,
+          "face": "M",
+          "status": "complete",
+          "tMm": 199.99999999999974,
+          "point": [
+            -49.96760349904898,
+            86.54642799280919,
+            3.599222450386942
+          ]
+        },
+        "chartPoint": [
+          159.63619601925743,
+          104.60763918413637
+        ],
+        "contributors": [
+          {
+            "mark": "kA",
+            "sourceRevision": 0,
+            "root": "A@0",
+            "authored": [
+              306.9685724464467,
+              104.60763918413637
+            ],
+            "segment": "arc-AB",
+            "inside": true,
+            "distanceMm": 1.1129302293872875e-14,
+            "sourceParameter": 0.40999999999999986,
+            "status": "complete"
+          }
+        ],
+        "unresolved": [],
+        "composition": {
+          "status": "composed",
+          "rgba": [
+            0.5,
+            0,
+            0,
+            0.5
+          ],
+          "top": "kA",
+          "contributors": [
+            "kA"
+          ]
+        }
+      }
+    },
+    "missingDependency": {
+      "status": "unresolved",
+      "rgba": null,
+      "knownContributors": [],
+      "possibleContributors": [
+        "kA",
+        "kB"
+      ]
+    },
+    "negativeControls": {
+      "lastMapOnlyWorldShiftMm": 85.1927053960466,
+      "pretendingPendingIsAbsent": {
+        "status": "composed",
+        "rgba": [
+          0.5,
+          0,
+          0,
+          0.5
+        ],
+        "top": "kA",
+        "contributors": [
+          "kA"
+        ]
+      }
+    },
+    "seamParameters": [
+      0.49,
+      0.5,
+      0.51
+    ],
+    "seamContributors": [
+      [
+        "kA",
+        "kB"
+      ],
+      [
+        "kA",
+        "kB"
+      ],
+      [
+        "kA",
+        "kB"
+      ]
+    ],
+    "outsideOldB": {
+      "parameter": 0.41,
+      "distanceToUnclippedBlueMm": 9.600000000000005,
+      "blueRootCoordinates": [
+        -7.190692912532654,
+        4.607639184136374
+      ],
+      "contributors": [
+        "kA"
+      ]
+    },
+    "metricAtLatitude60InChart2": [
+      [
+        1.0000000000000004,
+        -0.2500000000000001
+      ],
+      [
+        -0.2500000000000001,
+        1.0625
+      ]
+    ],
+    "packageBytesSha256": "6f6eb79f35935e3b9e62109e4b505ed382f70079cd0c30e762e82ccbeefc8576",
+    "continuationBytesSha256": "3781a2e7247d6ccb3a56064e3f4530726d1184d1c24fc33d64eb955bc22f2570",
+    "sourceBytesSha256": "4d4a5d63d68f2106dc7589b8602a38ca5ca5ee2256643af058e1d6ad9f0b6dc8",
+    "recordHashes": {
+      "kA": "ca9267c4f7c580384b46f7761f8e5e8634cd4c16b63be30d8eab7983887f935d",
+      "kB": "8b06519551c429d5c9d887a69ce248a38e724cc72c500c0c187b269ee3c36772"
+    }
+  },
+  "scope": "New Node reference capabilities plus two exact committed bench functions. No client, GPU, browser, arbitrary-surface distance solver, or painting replay claim."
+}

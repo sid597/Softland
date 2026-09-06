@@ -1,0 +1,41 @@
+{
+  "schema": "attack-2-fixtures/v1 (illustrative capability records, not the 3D language)",
+  "composerCommit": "2737f4173b3e9f310ba2b593de3c95ede705ad58",
+  "sphere": {"id": "G", "revision": 0, "radiusMm": 100},
+  "reachTool": {
+    "id": "surface-reach",
+    "distance": "shortest intrinsic path on the entire sphere",
+    "seedDegrees": [180, 60],
+    "radiusMm": 75,
+    "changedRadiusMm": 70,
+    "membershipProbeDegrees": [270, 60],
+    "meridianProbeOffsetRadians": -0.76,
+    "polarChartAboveDegrees": 70,
+    "antipodeRadiiMm": [314, 315],
+    "trimProbe": {"removedOpenLatitudeBandMm": [-5, 5], "seedLatitudeMm": 10, "queryLatitudeMm": -10, "radiusMm": 25}
+  },
+  "ellipsoid": {
+    "id": "E", "revision": 0,
+    "semiaxesMm": [120, 100, 80],
+    "seedUnit": [1, 0, 0], "queryUnit": [0, 1, 0],
+    "feasiblePath": "image of unit-sphere equatorial quarter-circle",
+    "rectanglePanels": 1024,
+    "radiusQueriesMm": [150, 160, 175]
+  },
+  "sequence": {
+    "id": "one-sphere-rechart-then-merge",
+    "seedDegrees": [180, 60],
+    "markA": {"id": "kA", "revision": 0, "segmentId": "arc-AB", "curve": "minor great-circle arc", "halfLengthMm": 20, "radiusMm": 8, "paint": [0.5, 0, 0, 0.5]},
+    "markB": {"id": "kB", "revision": 0, "curve": "tap", "seedFromMarkAParameter": 0.65, "radiusMm": 12, "paint": [0, 0, 0.5, 0.5]},
+    "rootA": {"id": "A@0", "longitudeOffsetBoundsMm": [-80, 80], "latitudeBoundsMm": [60, 145]},
+    "rootB": {"id": "B@0", "originDegreesAndLatitudeMm": [180, 100], "bounds": [[-5, 100], [-40, 45]]},
+    "chart0ToChart1": [[0.5, 0, -50], [0, 1, 0]],
+    "chart1ToChart2": [[1, 0.25, 30], [0, 1, 0]],
+    "chart1ToBaseUV": [[2, 0, 100], [0, 1, 0]],
+    "chart2ToBaseUV": [[2, -0.5, 40], [0, 1, 0]],
+    "order": ["kA", "kB"],
+    "freshQuerySourceParameter": 0.65,
+    "worldChecksAtParameters": [0, 0.25, 0.5, 0.65, 0.75, 1],
+    "secondQueryAfterReloadParameter": 0.41
+  }
+}

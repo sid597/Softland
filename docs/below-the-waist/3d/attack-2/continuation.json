@@ -1,0 +1,240 @@
+{
+  "pkg": {
+    "sphere": {
+      "id": "G",
+      "revision": 0,
+      "radiusMm": 100
+    },
+    "order": [
+      "kA",
+      "kB"
+    ],
+    "marks": {
+      "kA": {
+        "id": "kA",
+        "revision": 0,
+        "segmentId": "arc-AB",
+        "curve": "minor great-circle arc",
+        "halfLengthMm": 20,
+        "radiusMm": 8,
+        "paint": [
+          0.5,
+          0,
+          0,
+          0.5
+        ],
+        "frame": {
+          "n": [
+            -0.5000000000000001,
+            0.8660254037844385,
+            6.123233995736767e-17
+          ],
+          "e": [
+            -1.2246467991473532e-16,
+            0,
+            -1
+          ]
+        },
+        "support": "G@0",
+        "domain": "A@0"
+      },
+      "kB": {
+        "id": "kB",
+        "revision": 0,
+        "curve": "tap",
+        "seedFromMarkAParameter": 0.65,
+        "radiusMm": 12,
+        "paint": [
+          0,
+          0,
+          0.5,
+          0.5
+        ],
+        "point": [
+          -49.91002699676022,
+          86.44670256552297,
+          -5.996400647944455
+        ],
+        "support": "G@0",
+        "domain": "B@0",
+        "authoredPoint": [
+          11.957108414293202,
+          4.40891575594209
+        ]
+      }
+    },
+    "roots": {
+      "A@0": {
+        "matrix": [
+          [
+            1,
+            0,
+            0
+          ],
+          [
+            0,
+            1,
+            0
+          ]
+        ],
+        "bounds": [
+          [
+            234.15926535897933,
+            394.1592653589793
+          ],
+          [
+            60,
+            145
+          ]
+        ]
+      },
+      "B@0": {
+        "matrix": [
+          [
+            1,
+            0,
+            314.1592653589793
+          ],
+          [
+            0,
+            1,
+            100
+          ]
+        ],
+        "bounds": [
+          [
+            -5,
+            100
+          ],
+          [
+            -40,
+            45
+          ]
+        ]
+      }
+    },
+    "relations": {
+      "phi": {
+        "matrix": [
+          [
+            0.5,
+            0,
+            -50
+          ],
+          [
+            0,
+            1,
+            0
+          ]
+        ],
+        "cost": 0,
+        "from": "G@0/S0",
+        "to": "G@1/S1",
+        "evidence": "same points",
+        "errorMm": 0
+      },
+      "A-merge": {
+        "matrix": [
+          [
+            1,
+            0.25,
+            30
+          ],
+          [
+            0,
+            1,
+            0
+          ]
+        ],
+        "cost": 0,
+        "from": "G@1/A",
+        "to": "G@2/M",
+        "evidence": "restricted old support",
+        "errorMm": 0
+      },
+      "B-merge": {
+        "matrix": [
+          [
+            1,
+            0.25,
+            30
+          ],
+          [
+            0,
+            1,
+            0
+          ]
+        ],
+        "cost": 1,
+        "from": "G@1/B",
+        "to": "G@2/M",
+        "evidence": "restricted old support",
+        "errorMm": 0
+      }
+    },
+    "stages": [
+      null,
+      null,
+      {
+        "revision": 2,
+        "chartToBase": [
+          [
+            2,
+            -0.5,
+            40
+          ],
+          [
+            0,
+            1,
+            0
+          ]
+        ],
+        "faces": [
+          "M"
+        ],
+        "baseDomains": [
+          [
+            [
+              234.15926535897933,
+              414.1592653589793
+            ],
+            [
+              60,
+              145
+            ]
+          ]
+        ],
+        "bindings": [
+          {
+            "mark": "kA",
+            "root": "A@0",
+            "chain": [
+              "phi",
+              "A-merge"
+            ]
+          },
+          {
+            "mark": "kB",
+            "root": "B@0",
+            "chain": [
+              "phi",
+              "B-merge"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "ray": {
+    "origin": [
+      -149.90281049714656,
+      259.639283978427,
+      10.797667351160799
+    ],
+    "direction": [
+      0.49967603499048857,
+      -0.86546427992809,
+      -0.03599222450386933
+    ]
+  }
+}
