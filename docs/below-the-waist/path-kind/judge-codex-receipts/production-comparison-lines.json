@@ -1,0 +1,587 @@
+{
+  "claude": {
+    "frozen": "4d9e0d61bc585a9816bc771baf8634062c7e86e4",
+    "baseline": "bedb890",
+    "definition": "Physical diff lines including comments, docstrings and embedded WGSL. Binary files excluded from line totals. Categories listed per path.",
+    "categories": {
+      "hierarchical-docs": {
+        "added": 34,
+        "deleted": 18,
+        "files": 6,
+        "net": 16
+      },
+      "production-source": {
+        "added": 3076,
+        "deleted": 1697,
+        "files": 15,
+        "net": 1379
+      },
+      "harness-and-tests": {
+        "added": 506,
+        "deleted": 542,
+        "files": 3,
+        "net": -36
+      },
+      "fixtures": {
+        "added": 96,
+        "deleted": 0,
+        "files": 1,
+        "net": 96
+      },
+      "external-tests-and-baselines": {
+        "added": 658,
+        "deleted": 277,
+        "files": 13,
+        "net": 381
+      },
+      "binary": {
+        "added": 0,
+        "deleted": 0,
+        "files": 3,
+        "net": 0
+      }
+    },
+    "current-groups": {
+      "path-implementation": {
+        "lines": 2102,
+        "files": {
+          "src/app/client/path/component.cljc": 353,
+          "src/app/client/path/frame.cljc": 79,
+          "src/app/client/path/pack.cljc": 380,
+          "src/app/client/path/renderer.cljs": 328,
+          "src/app/client/path/source.cljc": 227,
+          "src/app/client/path/stroke.cljc": 421,
+          "src/app/client/path/value.cljc": 314
+        }
+      },
+      "new-shared-engine": {
+        "lines": 770,
+        "files": {
+          "src/app/client/engine/executor.cljc": 135,
+          "src/app/client/engine/expression.cljc": 182,
+          "src/app/client/engine/coverage.cljs": 453
+        }
+      },
+      "placement-rendering": {
+        "lines": 299,
+        "files": {
+          "src/app/client/region3d/on_plane_renderer.cljs": 299
+        }
+      }
+    },
+    "paths": [
+      {
+        "path": "src/app/client/README.md",
+        "category": "hierarchical-docs",
+        "added": 2,
+        "deleted": 2
+      },
+      {
+        "path": "src/app/client/engine/README.md",
+        "category": "hierarchical-docs",
+        "added": 7,
+        "deleted": 1
+      },
+      {
+        "path": "src/app/client/engine/coverage.cljs",
+        "category": "production-source",
+        "added": 453,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/engine/executor.cljc",
+        "category": "production-source",
+        "added": 135,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/engine/expression.cljc",
+        "category": "production-source",
+        "added": 182,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/harness/README.md",
+        "category": "hierarchical-docs",
+        "added": 1,
+        "deleted": 1
+      },
+      {
+        "path": "src/app/client/harness/path.cljs",
+        "category": "harness-and-tests",
+        "added": 452,
+        "deleted": 503
+      },
+      {
+        "path": "src/app/client/harness/region.cljs",
+        "category": "harness-and-tests",
+        "added": 42,
+        "deleted": 33
+      },
+      {
+        "path": "src/app/client/harness/shared.cljs",
+        "category": "harness-and-tests",
+        "added": 12,
+        "deleted": 6
+      },
+      {
+        "path": "src/app/client/path/README.md",
+        "category": "hierarchical-docs",
+        "added": 21,
+        "deleted": 11
+      },
+      {
+        "path": "src/app/client/path/component.cljc",
+        "category": "production-source",
+        "added": 319,
+        "deleted": 290
+      },
+      {
+        "path": "src/app/client/path/frame.cljc",
+        "category": "production-source",
+        "added": 74,
+        "deleted": 17
+      },
+      {
+        "path": "src/app/client/path/pack.cljc",
+        "category": "production-source",
+        "added": 380,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/path/records.cljc",
+        "category": "fixtures",
+        "added": 96,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/path/renderer.cljs",
+        "category": "production-source",
+        "added": 290,
+        "deleted": 226
+      },
+      {
+        "path": "src/app/client/path/source.cljc",
+        "category": "production-source",
+        "added": 227,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/path/stroke.cljc",
+        "category": "production-source",
+        "added": 421,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/path/tessellation.cljc",
+        "category": "production-source",
+        "added": 0,
+        "deleted": 607
+      },
+      {
+        "path": "src/app/client/path/value.cljc",
+        "category": "production-source",
+        "added": 314,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/region3d/README.md",
+        "category": "hierarchical-docs",
+        "added": 2,
+        "deleted": 2
+      },
+      {
+        "path": "src/app/client/region3d/on_plane.cljc",
+        "category": "production-source",
+        "added": 36,
+        "deleted": 24
+      },
+      {
+        "path": "src/app/client/region3d/on_plane_renderer.cljs",
+        "category": "production-source",
+        "added": 229,
+        "deleted": 369
+      },
+      {
+        "path": "src/app/client/region3d/renderer.cljs",
+        "category": "production-source",
+        "added": 2,
+        "deleted": 6
+      },
+      {
+        "path": "src/app/client/text/README.md",
+        "category": "hierarchical-docs",
+        "added": 1,
+        "deleted": 1
+      },
+      {
+        "path": "src/app/client/text/renderer.cljs",
+        "category": "production-source",
+        "added": 14,
+        "deleted": 158
+      },
+      {
+        "path": "test/app/client/engine/executor_test.clj",
+        "category": "external-tests-and-baselines",
+        "added": 50,
+        "deleted": 0
+      },
+      {
+        "path": "test/app/client/engine/expression_test.clj",
+        "category": "external-tests-and-baselines",
+        "added": 40,
+        "deleted": 0
+      },
+      {
+        "path": "test/app/client/path/component_test.clj",
+        "category": "external-tests-and-baselines",
+        "added": 90,
+        "deleted": 79
+      },
+      {
+        "path": "test/app/client/path/fixtures.cljc",
+        "category": "external-tests-and-baselines",
+        "added": 0,
+        "deleted": 50
+      },
+      {
+        "path": "test/app/client/path/frame_test.clj",
+        "category": "external-tests-and-baselines",
+        "added": 45,
+        "deleted": 20
+      },
+      {
+        "path": "test/app/client/path/pack_test.clj",
+        "category": "external-tests-and-baselines",
+        "added": 117,
+        "deleted": 0
+      },
+      {
+        "path": "test/app/client/path/source_test.clj",
+        "category": "external-tests-and-baselines",
+        "added": 74,
+        "deleted": 0
+      },
+      {
+        "path": "test/app/client/path/stroke_test.clj",
+        "category": "external-tests-and-baselines",
+        "added": 114,
+        "deleted": 0
+      },
+      {
+        "path": "test/app/client/path/tessellation_test.clj",
+        "category": "external-tests-and-baselines",
+        "added": 0,
+        "deleted": 113
+      },
+      {
+        "path": "test/app/client/path/value_test.clj",
+        "category": "external-tests-and-baselines",
+        "added": 60,
+        "deleted": 0
+      },
+      {
+        "path": "test/app/fixtures/render_engine/gpu-goldens/gpu-path-holed-concave-holed-concave-default-unit-z1.png",
+        "category": "binary",
+        "added": null,
+        "deleted": null
+      },
+      {
+        "path": "test/app/fixtures/render_engine/gpu-goldens/gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png",
+        "category": "binary",
+        "added": null,
+        "deleted": null
+      },
+      {
+        "path": "test/app/fixtures/render_engine/gpu-goldens/gpu-region3d-floor-tree.png",
+        "category": "binary",
+        "added": null,
+        "deleted": null
+      },
+      {
+        "path": "test/app/fixtures/render_engine/gpu-goldens/manifest.json",
+        "category": "external-tests-and-baselines",
+        "added": 17,
+        "deleted": 14
+      },
+      {
+        "path": "test/app/test_runner.clj",
+        "category": "external-tests-and-baselines",
+        "added": 6,
+        "deleted": 1
+      },
+      {
+        "path": "test/render_engine/run_verifier.mjs",
+        "category": "external-tests-and-baselines",
+        "added": 45,
+        "deleted": 0
+      }
+    ]
+  },
+  "codex": {
+    "frozen": "07ea01437094c1652585760f6fa1ebc60251c69f",
+    "baseline": "bedb890",
+    "definition": "Physical diff lines including comments, docstrings and embedded WGSL. Binary files excluded from line totals. Categories listed per path.",
+    "categories": {
+      "hierarchical-docs": {
+        "added": 57,
+        "deleted": 19,
+        "files": 6,
+        "net": 38
+      },
+      "production-source": {
+        "added": 1581,
+        "deleted": 1857,
+        "files": 17,
+        "net": -276
+      },
+      "binary": {
+        "added": 0,
+        "deleted": 0,
+        "files": 3,
+        "net": 0
+      },
+      "harness-and-tests": {
+        "added": 325,
+        "deleted": 472,
+        "files": 5,
+        "net": -147
+      },
+      "fixtures": {
+        "added": 36,
+        "deleted": 0,
+        "files": 2,
+        "net": 36
+      }
+    },
+    "current-groups": {
+      "path-implementation": {
+        "lines": 887,
+        "files": {
+          "src/app/client/path/component.cljc": 148,
+          "src/app/client/path/curves.cljc": 138,
+          "src/app/client/path/geometry.cljc": 291,
+          "src/app/client/path/pack.cljc": 68,
+          "src/app/client/path/records.cljc": 38,
+          "src/app/client/path/renderer.cljs": 111,
+          "src/app/client/path/source.cljc": 93
+        }
+      },
+      "new-shared-engine": {
+        "lines": 536,
+        "files": {
+          "src/app/client/engine/executor.cljc": 98,
+          "src/app/client/engine/coverage.cljs": 280,
+          "src/app/client/engine/coverage_gpu.cljs": 158
+        }
+      },
+      "placement-rendering": {
+        "lines": 210,
+        "files": {
+          "src/app/client/region3d/on_plane_renderer.cljs": 138,
+          "src/app/client/region3d/path_projection.cljc": 72
+        }
+      }
+    },
+    "paths": [
+      {
+        "path": "src/app/client/README.md",
+        "category": "hierarchical-docs",
+        "added": 3,
+        "deleted": 3
+      },
+      {
+        "path": "src/app/client/engine/README.md",
+        "category": "hierarchical-docs",
+        "added": 6,
+        "deleted": 1
+      },
+      {
+        "path": "src/app/client/engine/coverage.cljs",
+        "category": "production-source",
+        "added": 280,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/engine/coverage_gpu.cljs",
+        "category": "production-source",
+        "added": 158,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/engine/executor.cljc",
+        "category": "production-source",
+        "added": 98,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/harness/README.md",
+        "category": "hierarchical-docs",
+        "added": 15,
+        "deleted": 1
+      },
+      {
+        "path": "src/app/client/harness/path-goldens/gpu-path-accumulate-accumulate.png",
+        "category": "binary",
+        "added": null,
+        "deleted": null
+      },
+      {
+        "path": "src/app/client/harness/path-goldens/gpu-path-curved-hole-curved-hole.png",
+        "category": "binary",
+        "added": null,
+        "deleted": null
+      },
+      {
+        "path": "src/app/client/harness/path-goldens/gpu-path-union-union.png",
+        "category": "binary",
+        "added": null,
+        "deleted": null
+      },
+      {
+        "path": "src/app/client/harness/path.cljs",
+        "category": "harness-and-tests",
+        "added": 122,
+        "deleted": 450
+      },
+      {
+        "path": "src/app/client/harness/path_fixtures.cljc",
+        "category": "fixtures",
+        "added": 16,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/harness/path_geometry_test.cljc",
+        "category": "harness-and-tests",
+        "added": 104,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/harness/path_goldens.json",
+        "category": "fixtures",
+        "added": 20,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/harness/region.cljs",
+        "category": "harness-and-tests",
+        "added": 6,
+        "deleted": 16
+      },
+      {
+        "path": "src/app/client/harness/run_path.mjs",
+        "category": "harness-and-tests",
+        "added": 87,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/harness/shared.cljs",
+        "category": "harness-and-tests",
+        "added": 6,
+        "deleted": 6
+      },
+      {
+        "path": "src/app/client/path/README.md",
+        "category": "hierarchical-docs",
+        "added": 26,
+        "deleted": 12
+      },
+      {
+        "path": "src/app/client/path/component.cljc",
+        "category": "production-source",
+        "added": 108,
+        "deleted": 284
+      },
+      {
+        "path": "src/app/client/path/curves.cljc",
+        "category": "production-source",
+        "added": 138,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/path/frame.cljc",
+        "category": "production-source",
+        "added": 0,
+        "deleted": 22
+      },
+      {
+        "path": "src/app/client/path/geometry.cljc",
+        "category": "production-source",
+        "added": 291,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/path/pack.cljc",
+        "category": "production-source",
+        "added": 68,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/path/records.cljc",
+        "category": "production-source",
+        "added": 38,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/path/renderer.cljs",
+        "category": "production-source",
+        "added": 100,
+        "deleted": 253
+      },
+      {
+        "path": "src/app/client/path/source.cljc",
+        "category": "production-source",
+        "added": 93,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/path/tessellation.cljc",
+        "category": "production-source",
+        "added": 0,
+        "deleted": 607
+      },
+      {
+        "path": "src/app/client/region3d/README.md",
+        "category": "hierarchical-docs",
+        "added": 4,
+        "deleted": 1
+      },
+      {
+        "path": "src/app/client/region3d/on_plane.cljc",
+        "category": "production-source",
+        "added": 16,
+        "deleted": 19
+      },
+      {
+        "path": "src/app/client/region3d/on_plane_renderer.cljs",
+        "category": "production-source",
+        "added": 117,
+        "deleted": 418
+      },
+      {
+        "path": "src/app/client/region3d/path_projection.cljc",
+        "category": "production-source",
+        "added": 72,
+        "deleted": 0
+      },
+      {
+        "path": "src/app/client/region3d/renderer.cljs",
+        "category": "production-source",
+        "added": 1,
+        "deleted": 4
+      },
+      {
+        "path": "src/app/client/text/README.md",
+        "category": "hierarchical-docs",
+        "added": 3,
+        "deleted": 1
+      },
+      {
+        "path": "src/app/client/text/renderer.cljs",
+        "category": "production-source",
+        "added": 3,
+        "deleted": 250
+      }
+    ]
+  }
+}
