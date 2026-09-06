@@ -1,324 +1,353 @@
 (ns app.client.path.component
-  "Define the path's data and CPU geometric meaning.
+  "Define the record a tool supplies, and turn it into regions.
 
-   Input: component maps and local query points. Output: schema acceptance,
-   canonical content identity, tri-state classification, distance and paint.
-   No retained state. Schema definitions cover paint, stroke points, ink
-   geometry, contours and shape geometry; version is 2. :path/material-id
-   and :path/revision remain field names even though the file is named
-   component.cljc.
+   Input: a record (identity, tool numbers, a source, a paint declaration,
+   optionally its own construction) and, for answers, a view and query
+   points. Output: schema acceptance, the record's construction as data,
+   the executor's run of it (a path, ordered regions, an optional clip,
+   what was read), CPU classification and paint colours. No retained state.
+
+   The record:
+     {:path/material-id any  :path/revision any
+      :path/tool   {:size :thinning :streamline :fit :taper-start :taper-end
+                    :simulate-pressure? :width \"expression\" ...}   optional
+      :path/source {:kind :pen :samples [[x y pressure? time?]]}
+                 | {:kind :anchors :contours [{:closed? :anchors [{:id :p :in :out}]}]}
+                 | {:kind :rect :x :y :w :h :r?}
+      :path/paint  {:fill   nil | {:rule :nonzero|:even-odd :color [r g b a]}
+                    :stroke nil | {:tip :nib|:ribbon, :width number|:knot|\"expr\",
+                                   :unit :local|:device, :cap, :join, :miter-limit,
+                                   :align :center|:inside|:outside, :dash [on off],
+                                   :overlap :union|:accumulate, :spacing, :color}
+                    :clip   nil | {:path <path value> :rule}}
+      :path/snap?  bool                                              optional
+      :path/construction {:steps [...] :return ...}                   optional}
+
+   A tool's name selects nothing here: the source's kind names the
+   capability that builds the path, the paint names the operations on it,
+   and the default construction is data the record could have carried
+   itself. Colour is never read by a construction, so a colour edit rebuilds
+   no geometry.
 
    Folder map: README.md."
-  (:require [app.client.engine.schema :as schema]))
+  (:require [app.client.engine.executor :as executor]
+            [app.client.engine.schema :as schema]
+            [app.client.path.pack :as pack]
+            [app.client.path.source :as source]
+            [app.client.path.stroke :as stroke]
+            [app.client.path.value :as v]))
 
-(def schema-version 2)
-(def legal-kinds #{:ink :shape})
-(def legal-contour-roles #{:outer :hole})
-(def legal-cap-join #{:round})
-(def boundary-epsilon 1.0e-9)
+(def schema-version 3)
 
 (defn- named-validator
-  "Error type and predicate → checking function returning true or throwing.
-
-   Gives shared-schema failures family-specific names."
   [error-type predicate]
   (fn [value]
     (when-not (predicate value)
       (throw (ex-info "Path schema rejected value" {:error-type error-type})))
     true))
 
-(def paint
-  {:keys #{:color :opacity :color-space :alpha-association}
+(def legal-rules #{:nonzero :even-odd})
+(def legal-tips #{:nib :ribbon})
+(def legal-caps #{:round :butt :square})
+(def legal-joins #{:round :miter :bevel})
+(def legal-aligns #{:center :inside :outside})
+(def legal-overlaps #{:union :accumulate})
+(def legal-units #{:local :device})
+
+(def fill-schema
+  {:keys #{:rule :color}
+   :validators {:rule (named-validator :path/fill-rule legal-rules)
+                :color (named-validator :path/paint-color schema/valid-rgba?)}})
+
+(def stroke-schema
+  {:keys #{:color}
+   :optional #{:tip :width :unit :cap :join :miter-limit :align :dash :overlap :spacing}
    :validators
    {:color (named-validator :path/paint-color schema/valid-rgba?)
-    :opacity (named-validator
-              :path/paint-opacity
-              #(and (schema/finite-number? %) (<= 0.0 % 1.0)))
-    :color-space (named-validator :path/paint-color-space #{:srgb})
-    :alpha-association
-    (named-validator :path/paint-alpha-association #{:straight})}})
+    :tip (named-validator :path/stroke-tip legal-tips)
+    :width (named-validator :path/stroke-width #(or (schema/non-negative-number? %) (= :knot %) (string? %)))
+    :unit (named-validator :path/stroke-unit legal-units)
+    :cap (named-validator :path/cap legal-caps)
+    :join (named-validator :path/join legal-joins)
+    :miter-limit (named-validator :path/miter-limit schema/positive-number?)
+    :align (named-validator :path/align legal-aligns)
+    :dash (named-validator :path/dash #(and (vector? %) (= 2 (count %)) (every? schema/non-negative-number? %)))
+    :overlap (named-validator :path/overlap legal-overlaps)
+    :spacing (named-validator :path/spacing schema/positive-number?)}})
 
-(def stroke-point
-  {:keys #{:stroke-point/id :position :width}
-   :optional #{:pressure :gesture-time}
-   :validators
-   {:stroke-point/id (named-validator :path/stroke-point-id some?)
-    :position (named-validator :path/stroke-point-position schema/point?)
-    :width (named-validator :path/stroke-point-width schema/positive-number?)
-    :pressure (named-validator :path/stroke-point-pressure schema/finite-number?)
-    :gesture-time
-    (named-validator :path/stroke-point-gesture-time schema/finite-number?)}})
+(def clip-schema
+  {:keys #{:path :rule}
+   :validators {:path (named-validator :path/clip-path #(do (v/validate! %) true))
+                :rule (named-validator :path/clip-rule legal-rules)}})
 
-(def ink-geometry
-  {:keys #{:stroke-points :cap :join}
-   :validators
-   {:stroke-points [:vector-of stroke-point {:min 2 :unique-by :stroke-point/id}]
-    :cap (named-validator :path/cap legal-cap-join)
-    :join (named-validator :path/join legal-cap-join)}})
+(def paint-schema
+  {:keys #{}
+   :optional #{:fill :stroke :clip}
+   :validators {:fill (fn [value] (or (nil? value) (schema/check fill-schema value)) true)
+                :stroke (fn [value] (or (nil? value) (schema/check stroke-schema value)) true)
+                :clip (fn [value] (or (nil? value) (schema/check clip-schema value)) true)}})
 
-(def contour
-  {:keys #{:contour/id :role :points}
-   :validators
-   {:contour/id (named-validator :path/contour-id some?)
-    :role (named-validator :path/contour-role legal-contour-roles)
-    :points [:vector-of schema/point? {:min 3}]}})
+(defn- sample? [s]
+  (and (vector? s) (<= 2 (count s) 4) (every? schema/finite-number? s)))
 
-(defn- holes-have-an-outer?
-  "Shape geometry → truthy if no holes or some outer exists.
+(defn- anchor? [a]
+  (and (map? a) (schema/point? (:p a))
+       (or (nil? (:in a)) (schema/point? (:in a)))
+       (or (nil? (:out a)) (schema/point? (:out a)))))
 
-   Presence check. Intended for this narrow invariant; does not prove
-   containment."
-  [geometry]
-  (let [contours (:contours geometry)]
-    (or (not-any? #(= :hole (:role %)) contours)
-        (some #(= :outer (:role %)) contours))))
+(def source-schemas
+  {:pen {:keys #{:kind :samples}
+         :validators {:kind (named-validator :path/source-kind #{:pen})
+                      :samples [:vector-of sample? {}]}}
+   :anchors {:keys #{:kind :contours}
+             :validators {:kind (named-validator :path/source-kind #{:anchors})
+                          :contours [:vector-of {:keys #{:closed? :anchors}
+                                                 :validators {:closed? (named-validator :path/closed boolean?)
+                                                              :anchors [:vector-of anchor? {:min 2}]}} {}]}}
+   :rect {:keys #{:kind :x :y :w :h}
+          :optional #{:r}
+          :validators {:kind (named-validator :path/source-kind #{:rect})
+                       :x (named-validator :path/rect schema/finite-number?)
+                       :y (named-validator :path/rect schema/finite-number?)
+                       :w (named-validator :path/rect schema/non-negative-number?)
+                       :h (named-validator :path/rect schema/non-negative-number?)
+                       :r (named-validator :path/rect schema/non-negative-number?)}}})
 
-(def shape-geometry
-  {:keys #{:contours}
-   :validators
-   {:contours [:vector-of contour {:min 1 :unique-by :contour/id}]}
-   :form-validators
-   [{:valid? holes-have-an-outer? :error-type :path/hole-without-outer}]})
-
-(defn- geometry-matches-kind?
-  "Component → true after matching geometry validation, false for unknown
-   kind.
-
-   Dispatches to ink/shape schema."
-  [component]
-  (case (:path/kind component)
-    :ink (do (schema/check ink-geometry (:path/geometry component)) true)
-    :shape (do (schema/check shape-geometry (:path/geometry component)) true)
-    false))
+(defn- source-valid?
+  [record]
+  (let [s (:path/source record)]
+    (if-let [spec (get source-schemas (:kind s))]
+      (do (schema/check spec s) true)
+      false)))
 
 (def schema
-  {:keys #{:path/material-id :path/revision :path/kind :path/geometry
-           :path/paint}
+  {:keys #{:path/material-id :path/revision :path/source :path/paint}
+   :optional #{:path/tool :path/snap? :path/construction}
    :validators
    {:path/material-id (named-validator :path/material-id some?)
     :path/revision (named-validator :path/revision some?)
-    :path/kind (named-validator :path/kind legal-kinds)
-    :path/paint paint}
+    :path/paint paint-schema
+    :path/tool (named-validator :path/tool map?)
+    :path/snap? (named-validator :path/snap boolean?)
+    :path/construction (named-validator :path/construction #(and (map? %) (vector? (:steps %))))}
    :form-validators
-   [{:valid? geometry-matches-kind? :error-type :path/geometry-kind}]})
+   [{:valid? source-valid? :error-type :path/source-kind}]})
 
 (defn validate-component!
-  "Component → same map or named exception.
+  "Record → the same map, or a named exception. Structural acceptance;
+   whether a construction runs is the executor's report."
+  [record]
+  (schema/check schema record))
 
-   Shared schema entry. No admission metadata is stamped here. Structural
-   acceptance does not establish simple polygons, contained holes or nonzero
-   segments; tessellation can reject a structurally valid component."
-  [component]
-  (schema/check schema component))
+;; ---- declarations with their defaults ----
+
+(defn stroke-defaults
+  "Stroke declaration → the same with every optional field filled."
+  [s]
+  (merge {:tip :nib :width :knot :unit :local :cap :round :join :round
+          :miter-limit 4.0 :align :center :dash nil :overlap :union :spacing 12.0}
+         s))
+
+(defn- expression-width?
+  [width]
+  (and (string? width) (not= "knot" width)))
+
+(defn stroke-options
+  "Stroke declaration, tool, device scale → the tracer's options: tip,
+   flattening tolerance, the width rule (a constant, the knots, or a
+   function of pressure) in local units, and the dash."
+  [s tool scale]
+  (let [s (stroke-defaults s)
+        device? (= :device (:unit s))
+        k (if device? (/ 1.0 (max scale 1.0e-9)) 1.0)
+        width (:width s)
+        width-fn (when (expression-width? width)
+                   (let [{:keys [width-fn]} (source/width-function (assoc (or tool {}) :width width))]
+                     (fn [p sf] (* k (width-fn p sf 0.0)))))]
+    (cond-> {:tip (:tip s)
+             :tolerance (if device? (/ 0.25 (max scale 1.0e-9)) 0.1)
+             :fallback-width 4.0
+             :knot-scale k
+             :dash (:dash s)
+             :dash-phase 0.0
+             :spacing (:spacing s)}
+      (number? width) (assoc :width-local (* k width))
+      width-fn (assoc :width-fn width-fn))))
+
+(defn- stroke-declaration
+  "Stroke declaration → its geometry-only fields, so a region's key never
+   sees the colour."
+  [s]
+  (select-keys (stroke-defaults s) [:tip :width :unit :cap :join :miter-limit :align :dash :overlap :spacing]))
+
+;; ---- capabilities ----
+
+(defn- region
+  [kind path rule paint-key extra]
+  (merge {:kind kind :path path :rule rule :paint paint-key} extra))
+
+(def capabilities
+  "Op → function of the resolved bindings. Every op is a pure derivation."
+  {:path/source
+   (fn [{:keys [source tool]}]
+     (let [{:keys [path meta]} (source/build source tool)]
+       (assoc path :meta meta)))
+   :path/snap
+   (fn [{:keys [path scale pan]}]
+     (let [scale (or scale 1.0) [px py] (or pan [0.0 0.0])]
+       (pack/snap-path path
+                       (fn [[x y]] [(+ (* x scale) px) (+ (* y scale) py)])
+                       (fn [[dx dy]] [(/ (- dx px) scale) (/ (- dy py) scale)]))))
+   :path/fill-region
+   (fn [{:keys [path rule]}]
+     [(region :fill (dissoc path :meta) (or rule :nonzero) :fill {})])
+   :path/envelope
+   (fn [{:keys [path tool stroke scale]}]
+     (let [s (stroke-defaults stroke)
+           result (stroke/envelope path s (stroke-options s tool (or scale 1.0)))]
+       [(region :stroke (:path result) :nonzero :stroke
+                {:polylines (:polylines result) :pieces (:pieces result)
+                 :arcs (:arcs result) :open (:open result) :closed (:closed result)})]))
+   :path/dabs
+   (fn [{:keys [path tool stroke scale]}]
+     (let [s (stroke-defaults stroke)
+           result (stroke/dabs path (stroke-options s tool (or scale 1.0)))]
+       (mapv (fn [dab]
+               (region :dab (:path dab) :nonzero :stroke {:dab (dissoc dab :path)}))
+             (:dabs result))))
+   :path/clip-region
+   (fn [{:keys [path rule]}]
+     (region :clip path (or rule :nonzero) nil {}))})
+
+(defn default-construction
+  "Record → the construction its declarations imply, as data: the source
+   builds the path; snapping, when declared, moves it to the device grid
+   (reading the view's scale and pan); a fill makes a fill region; a stroke
+   makes the skin as a union or the dabs as an accumulation, reading the
+   view's scale only when the width is in device pixels; a clip makes a
+   clip region. Colours are not bound anywhere."
+  [record]
+  (let [{:keys [fill stroke clip]} (:path/paint record)
+        s (when stroke (stroke-defaults stroke))
+        device? (= :device (:unit s))
+        stroke-step (fn [op]
+                      (cond-> {:out "stroke" :op op :path "path" :tool "tool" :stroke "paint.stroke.geometry"}
+                        device? (assoc :scale "view.scale")))]
+    {:steps (cond-> [{:out "path" :op :path/source :source "source" :tool "tool"}]
+              (:path/snap? record) (conj {:out "path" :op :path/snap :path "path" :scale "view.scale" :pan "view.pan"})
+              fill (conj {:out "fill" :op :path/fill-region :path "path" :rule "paint.fill.rule"})
+              (and s (= :union (:overlap s))) (conj (stroke-step :path/envelope))
+              (and s (= :accumulate (:overlap s))) (conj (stroke-step :path/dabs))
+              clip (conj {:out "clip" :op :path/clip-region :path "paint.clip.path" :rule "paint.clip.rule"}))
+     :return (cond-> {:path "path"
+                      :regions (cond-> [] fill (conj "fill") s (conj "stroke"))}
+               clip (assoc :clip "clip"))}))
+
+(defn construction
+  "Record → its own construction or the default one."
+  [record]
+  (or (:path/construction record) (default-construction record)))
+
+(defn scope
+  "Record and view ({:scale device px per local unit, :pan [x y]}) → the
+   executor's roots. The stroke's geometry fields sit under
+   paint.stroke.geometry so a construction can bind them without the
+   colour."
+  [record view]
+  (let [p (:path/paint record)]
+    {"tool" (or (:path/tool record) {})
+     "source" (:path/source record)
+     "paint" (cond-> (or p {})
+               (:stroke p) (assoc-in [:stroke :geometry] (stroke-declaration (:stroke p))))
+     "identity" {:id (:path/material-id record) :revision (:path/revision record)}
+     "view" (merge {:scale 1.0 :pan [0.0 0.0]} view)}))
+
+(defn run
+  "Record and view → the executor's result with :path, :regions (flat, in
+   paint order) and :clip lifted out of the return. A run that did not
+   complete has :ok? false and no regions; the log says why."
+  [record view]
+  (let [result (executor/run (construction record) (scope record view) capabilities)
+        ret (:return result)]
+    (assoc result
+           :path (dissoc (:path ret) :meta)
+           :meta (:meta (:path ret))
+           :regions (if (:ok? result) (vec (apply concat (:regions ret))) [])
+           :clip (:clip ret))))
+
+(defn rerun?
+  "Record, view, the :reads of an earlier run → true when any read value
+   changed, so the run must repeat."
+  [record view reads]
+  (not= reads (executor/reread (scope record view) reads)))
+
+;; ---- CPU answers ----
+
+(def query-tolerance 0.01)
+
+(defn region-pack
+  "Region → its pack at the query tolerance, for membership and distance."
+  [region]
+  (:pack (pack/pack-region (:path region) query-tolerance {})))
+
+(defn classify-regions
+  "Painted regions (with :pack) and point, slop → :inside | :boundary |
+   :outside: winding under each region's rule, a boundary band of slop
+   around every outline. The same definition the filler estimates."
+  [regions point slop]
+  (let [[x y] point
+        inside? (some (fn [r] (and (:pack r) (pack/inside? (:pack r) (:rule r) x y))) regions)
+        distance (reduce min ##Inf (map (fn [r] (if (:pack r) (pack/outline-distance (:pack r) point) ##Inf)) regions))]
+    (cond
+      (<= distance (+ slop 1.0e-9)) :boundary
+      inside? :inside
+      :else :outside)))
+
+(defn painted-regions
+  "Record and view → the run's painted regions with packs attached."
+  [record view]
+  (mapv (fn [r] (assoc r :pack (region-pack r))) (:regions (run record view))))
+
+(defn classify
+  "Record, point, optional slop (≥ 0, local units) → tri-state; a bad slop
+   throws. Runs the construction at the unit view unless one is given."
+  ([record point] (classify record point 0.0))
+  ([record point slop] (classify record point slop {}))
+  ([record point slop view]
+   (when-not (schema/non-negative-number? slop)
+     (throw (ex-info "Path hit slop must be finite local units"
+                     {:error-type :path/hit-slop :path [:slop-local] :value slop})))
+   (classify-regions (painted-regions record view) point slop)))
+
+(defn hit?
+  "Record and point → true for inside or boundary."
+  [record point]
+  (not= :outside (classify record point)))
+
+(defn boundary-distance
+  "Record and point → the distance to the nearest painted outline."
+  [record point]
+  (reduce min ##Inf (map (fn [r] (pack/outline-distance (:pack r) point)) (painted-regions record {}))))
+
+(defn region-color
+  "Record and region → the straight RGBA the region paints with: the fill's
+   colour for a fill region, the stroke's for a stroke or dab."
+  [record region]
+  (get-in (:path/paint record) [(:paint region) :color] [0.0 0.0 0.0 1.0]))
 
 (defn canonical-component
-  "Nested component value → recursively sorted maps/sets and preserved
-   vector order.
-
-   Local recursive canonical helper performs structural normalization.
-   Sorted collections assume mutually comparable keys/elements."
+  "Nested value → recursively sorted maps/sets with vector order kept."
   [component]
   (letfn [(canonical [value]
             (cond
-              (map? value) (into (sorted-map)
-                                 (map (fn [[key child]] [key (canonical child)]))
-                                 value)
+              (map? value) (into (sorted-map) (map (fn [[k child]] [k (canonical child)])) value)
               (vector? value) (mapv canonical value)
               (set? value) (into (sorted-set) (map canonical) value)
               :else value))]
     (canonical component)))
 
 (defn component-content-hash
-  "Component → versioned canonical printed content excluding ID/revision.
-
-   Stable value key, not a compact cryptographic hash. Paint remains
-   included here, unlike the mesh cache key."
-  [component]
-  [:path/content-v2
-   (pr-str (dissoc (canonical-component component)
-                   :path/material-id :path/revision))])
-
-(defn- sq
-  "Number → square."
-  [value] (* value value))
-
-(defn- distance-squared
-  "Two points → squared distance.
-
-   Avoids square root when unnecessary."
-  [[ax ay] [bx by]]
-  (+ (sq (- ax bx)) (sq (- ay by))))
-
-(defn- segment-projection
-  "Segment endpoints and point → clamped parameter and closest centerline
-   point.
-
-   Dot-product projection; zero segment gives its start."
-  [[ax ay] [bx by] [px py]]
-  (let [dx (- bx ax)
-        dy (- by ay)
-        denominator (+ (* dx dx) (* dy dy))
-        t (if (zero? denominator)
-            0.0
-            (min 1.0
-                 (max 0.0 (/ (+ (* (- px ax) dx) (* (- py ay) dy))
-                             denominator))))]
-    {:t t :point [(+ ax (* t dx)) (+ ay (* t dy))]}))
-
-(defn- point-segment-distance
-  "Point and segment → Euclidean distance.
-
-   Uses projection."
-  [point a b]
-  (let [{closest :point} (segment-projection a b point)]
-    (Math/sqrt (distance-squared point closest))))
-
-(defn- segment-delta
-  "Endpoints, endpoint widths, query → parameter/distance/interpolated
-   half-width/signed delta.
-
-   Width sampled at centerline projection. Defines the implemented
-   varying-width hit rule; it is not an independent exact-distance solver
-   for every tapered outline."
-  [a width-a b width-b point]
-  (let [{:keys [t] closest :point} (segment-projection a b point)
-        distance (Math/sqrt (distance-squared point closest))
-        half-width (/ (+ width-a (* t (- width-b width-a))) 2.0)]
-    {:t t
-     :distance distance
-     :half-width half-width
-     :delta (- distance half-width)}))
-
-(defn- point-on-segment?
-  "Point and segment → within boundary epsilon?
-
-   Distance tolerance. Epsilon is in local units."
-  [point a b]
-  (<= (point-segment-distance point a b) boundary-epsilon))
-
-(defn contour-classify
-  "Polygon points and query → :boundary, :inside, or :outside.
-
-   Boundary scan then odd/even ray crossing. Intended for this polygon
-   contract; O(edges)."
-  [points point]
-  (if (some (fn [[a b]] (point-on-segment? point a b))
-            (map vector points (concat (rest points) [(first points)])))
-    :boundary
-    (let [[px py] point
-          inside?
-          (reduce
-           (fn [inside? [[ax ay] [bx by]]]
-             (if (and (not= (> ay py) (> by py))
-                      (< px (+ ax (* (/ (- py ay) (- by ay)) (- bx ax)))))
-               (not inside?)
-               inside?))
-           false
-           (map vector points (concat (rest points) [(first points)])))]
-      (if inside? :inside :outside))))
-
-(defn- contour-boundary-distance
-  "Polygon and point → minimum edge distance.
-
-   Full edge scan."
-  [points point]
-  (apply min
-         (for [[a b] (map vector points
-                          (concat (rest points) [(first points)]))]
-           (point-segment-distance point a b))))
-
-(defn- ink-deltas
-  "Ink geometry and query → signed deltas for adjacent segments.
-
-   Pairwise projection with interpolated widths. Allocates a vector per
-   query."
-  [geometry query-point]
-  (mapv (fn [[left right]]
-          (:delta (segment-delta (:position left) (:width left)
-                                 (:position right) (:width right)
-                                 query-point)))
-        (partition 2 1 (:stroke-points geometry))))
-
-(defn- ink-classify
-  "Geometry, query, slop → tri-state classification.
-
-   Minimum segment delta minus slop. Intended for the declared local hit
-   rule."
-  [geometry query-point slop-local]
-  (let [delta (- (apply min (ink-deltas geometry query-point)) slop-local)]
-    (cond
-      (< delta (- boundary-epsilon)) :inside
-      (<= (Math/abs delta) boundary-epsilon) :boundary
-      :else :outside)))
-
-(defn classify
-  "Component, point, optional nonnegative slop → tri-state; invalid slop
-   throws.
-
-   Ink union or outer-minus-hole classification, followed by boundary slop
-   expansion. Trusts component validation and treats any hole interior as
-   excluded from any outer."
-  ([component point] (classify component point 0.0))
-  ([component point slop-local]
-   (when-not (schema/non-negative-number? slop-local)
-     (throw (ex-info "Path hit slop must be finite local units"
-                     {:error-type :path/hit-slop
-                      :path [:slop-local]
-                      :value slop-local})))
-   (case (:path/kind component)
-     :ink (ink-classify (:path/geometry component) point slop-local)
-     :shape
-     (let [contours (get-in component [:path/geometry :contours])
-           closed-classes
-           (mapv #(assoc % :class (contour-classify (:points %) point)) contours)
-           base-class
-           (cond
-             (some #(= :boundary (:class %)) closed-classes) :boundary
-             (and (some #(and (= :outer (:role %)) (= :inside (:class %)))
-                        closed-classes)
-                  (not-any? #(and (= :hole (:role %)) (= :inside (:class %)))
-                            closed-classes)) :inside
-             :else :outside)
-           slop-delta
-           (when (and (= :outside base-class) (pos? slop-local))
-             (- (apply min
-                       (map #(contour-boundary-distance (:points %) point)
-                            contours))
-                slop-local))]
-       (cond
-         (not= :outside base-class) base-class
-         (and slop-delta (<= (Math/abs slop-delta) boundary-epsilon)) :boundary
-         (and slop-delta (neg? slop-delta)) :inside
-         :else :outside)))))
-
-(defn hit?
-  "Component and point → true for inside or boundary."
-  [component point]
-  (not= :outside (classify component point)))
-
-(defn boundary-distance
-  "Component and point → minimum absolute ink-segment delta or contour-edge
-   distance.
-
-   Scans component geometry. For overlapping ink segments, nearest
-   individual segment boundary need not be the boundary of their union."
-  [component point]
-  (case (:path/kind component)
-    :ink (apply min (map #(Math/abs %) (ink-deltas (:path/geometry component)
-                                                   point)))
-    :shape
-    (apply min
-           (for [contour (get-in component [:path/geometry :contours])
-                 [a b] (map vector (:points contour)
-                            (concat (rest (:points contour))
-                                    [(first (:points contour))]))]
-             (point-segment-distance point a b)))))
-
-(defn paint-color
-  "Component → straight RGBA with opacity multiplied into alpha.
-
-   Pure paint extraction. Shader applies scene-color conversion later."
-  [component]
-  (let [{:keys [color opacity]} (:path/paint component)
-        [red green blue alpha] color]
-    [red green blue (* alpha opacity)]))
+  "Record → a stable content key excluding identity and revision."
+  [record]
+  [:path/content-v3
+   (pr-str (dissoc (canonical-component record) :path/material-id :path/revision))])
