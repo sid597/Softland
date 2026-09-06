@@ -1,0 +1,4 @@
+== Claude lane: F1, a construction edit versus the run cache ==
+   original regions: 1  reads: (paint.stroke.geometry source tool)
+   edited record (same source, tool, paint; its own construction = the dabs default): fresh run regions 24
+   component/rerun? edited-record view old-reads → false  (false = the renderer's run cache keeps the union; the construction is not among the reads)

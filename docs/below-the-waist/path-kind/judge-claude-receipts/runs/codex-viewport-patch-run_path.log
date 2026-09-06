@@ -1,0 +1,26 @@
+{
+  "pass": true,
+  "path": true,
+  "plane": true,
+  "text": {
+    "pass": true,
+    "tree": true,
+    "deterministic": true
+  },
+  "goldens": [
+    {
+      "file": "gpu-path-union-union.png",
+      "pass": true
+    },
+    {
+      "file": "gpu-path-accumulate-accumulate.png",
+      "pass": true
+    },
+    {
+      "file": "gpu-path-curved-hole-curved-hole.png",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "output": "/tmp/claude-1000/-mnt-data-projects-Softland/42469075-8148-4280-b984-9eb85f5cf631/scratchpad/wt-codex/target/path-coverage"
+}

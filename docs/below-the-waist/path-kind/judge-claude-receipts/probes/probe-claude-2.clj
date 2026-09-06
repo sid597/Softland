@@ -1,0 +1,16 @@
+(require '[app.client.path.component :as c] '[app.client.path.records :as r] '[app.client.path.pack :as pack])
+(defn rec [id source paint & [tool]]
+  (cond-> {:path/material-id id :path/revision 1 :path/source source :path/paint paint} tool (assoc :path/tool tool)))
+(def nonlin (rec :nonlin {:kind :pen :samples [[0.0 0.0 0.1] [100.0 0.0 1.0]]} {:stroke {:tip :nib :width "40*p*p" :color [0 0 0 1]}} {:size 40}))
+(println "C2. nonlinear 40p² union at x=50: boundary distance from the centerline point (50,0):" (c/boundary-distance nonlin [50.0 0.0]))
+(doseq [y [6.0 6.1 8.0 10.0 10.2 11.0]] (println "    (50," y ") →" (c/classify nonlin [50.0 y])))
+(def nonlin-dabs (assoc-in nonlin [:path/paint :stroke] {:tip :nib :width "40*p*p" :overlap :accumulate :spacing 50.0 :color [0 0 0 1]}))
+(let [run (c/run nonlin-dabs {})] (println "    the same record as dabs (spacing 50): radii" (map #(get-in % [:dab :r]) (:regions run))))
+(println "    the skin's flattened points:" (count (:points (first (:polylines (first (:regions (c/run nonlin {}))))))))
+(println "C3. the Z with 16p² (records/z-16p2?):" (keys (ns-publics 'app.client.path.records)))
+(println "H. classify ignores the clip? Z alone at (60,40):" (c/classify r/harness-z [60.0 40.0]) "; (30,60):" (c/classify r/harness-z [30.0 60.0]))
+(let [skin (:path (first (:regions (c/run r/harness-z {}))))
+      shape (assoc-in r/holed-concave [:path/paint :clip] {:path skin :rule :nonzero})]
+  (println "    holed-concave clipped by the Z skin, classify (30,60):" (c/classify shape [30.0 60.0]) " (60,40):" (c/classify shape [60.0 40.0]) " (100,70):" (c/classify shape [100.0 70.0]))
+  (println "    (the harness read the GPU alpha 0 at (30,60), (60,40), (100,70) for this clip)"))
+(System/exit 0)

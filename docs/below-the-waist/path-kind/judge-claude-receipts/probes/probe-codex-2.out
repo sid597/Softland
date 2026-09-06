@@ -1,0 +1,7 @@
+G. Codex: a construction over two extension capabilities returns the swept skin as the path value
+   the record's path is now the skin: subpaths 3
+   filled even-odd, classify (64,64): :outside  (40,64): :outside
+   filled nonzero, classify (64,64): :inside
+   rounded rect clipped by the returned skin: classify (64,64): :inside  (30,60): :outside  (60,40): :outside
+   an op the table lacks → THROWS Unavailable construction capability {:error-type :executor/unavailable-capability, :capability :geometry/arrange}
+   which fields did the construction read?  (:identity :source :settings :construction :paint :path)  (no read report; the bindings are every input)

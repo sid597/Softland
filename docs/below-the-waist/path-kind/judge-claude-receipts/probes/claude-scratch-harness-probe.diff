@@ -1,0 +1,46 @@
+diff --git a/src/app/client/harness/path.cljs b/src/app/client/harness/path.cljs
+index b244a51..6a5b2db 100644
+--- a/src/app/client/harness/path.cljs
++++ b/src/app/client/harness/path.cljs
+@@ -170,6 +170,33 @@
+                   :unknown-group unknown-error
+                   :images [(path-image-record mode case-id pair)]})))))
+ 
++
++;; ---- JUDGE PROBES (scratch copy only, never landed): the border as GPU pixels at three zooms, a picture of the draw tool ----
++
++(defn- run-judge-probes!
++  [device path-system world-transforms]
++  (let [border (revisioned (update records/border :path/paint dissoc :fill))
++        draw (revisioned records/draw-tool)
++        read (fn [record view pixels]
++               (-> (render-path-bytes! device path-system
++                                       [(path-draw-item [:judge (:path/material-id record)] record 0)]
++                                       view world-transforms)
++                   (.then (fn [{:keys [bytes]}]
++                            (mapv (fn [[x y]] {:pixel [x y] :alpha (alpha-at bytes x y)}) pixels)))))]
++    (-> (read border {:zoom 1.0 :pan [0.0 0.0]} [[23 60] [24 60] [25 60] [64 36] [64 37]])
++        (.then (fn [z1]
++                 (-> (read border {:zoom 2.0 :pan [0.0 0.0]} [[47 120] [48 120] [49 120] [100 72] [100 73]])
++                     (.then (fn [z2] [z1 z2])))))
++        (.then (fn [[z1 z2]]
++                 (-> (read border {:zoom 3.0 :pan [0.0 0.0]} [[71 150] [72 150] [73 150] [100 108] [100 109]])
++                     (.then (fn [z3] [z1 z2 z3])))))
++        (.then (fn [[z1 z2 z3]]
++                 (-> (render-path-pair! device path-system [(path-draw-item [:judge :draw] draw 0)]
++                                        {:zoom 1.0 :pan [0.0 0.0]} world-transforms {:r 0 :g 0 :b 0 :a 0})
++                     (.then (fn [pair]
++                              {:border-zoom-1 z1 :border-zoom-2 z2 :border-zoom-3 z3
++                               :draw-tool [(path-image-record "judge" "draw-tool" pair)]}))))))))
++
+ ;; ---- scenario 1: three records, one route ----
+ 
+ (defn- run-records-check!
+@@ -493,6 +520,7 @@
+         (.then (fn [state] (-> (run-rates-check! device system world-transforms world-transforms) (.then #(assoc state :rates %)))))
+         (.then (fn [state] (-> (promise-mapv (partial path-parity-row! device system world-transforms) zoom-cases) (.then #(assoc state :parity %)))))
+         (.then (fn [state] (-> (run-path-color! device system camera groups-buffer world-transforms) (.then #(assoc state :color %)))))
++        (.then (fn [state] (-> (run-judge-probes! device system world-transforms) (.then #(assoc state :judge-probes %)))))
+         (.then (fn [{:keys [cases records crossing region-meaning rates parity color] :as state}]
+                  (let [determinism (mapcat (fn [case] (map :determinism (:images case))) cases)
+                        pass? (and (= 3 (count cases))

@@ -1,0 +1,37 @@
+== Claude lane, pure layer ==
+A. Z regions: (:stroke)  dabs: 24
+   classify Z at (64,64): :inside
+B. blob: |ra-rb|=7.2 >= piece 2 → the big disc (r 8 at (12,50)) should be the region
+    [19.0 50.0] → :outside  dist to (12,50) = 7.0
+    [18.5 50.0] → :outside  dist to (12,50) = 6.5
+    [12.0 57.0] → :outside  dist to (12,50) = 7.0
+    [12.0 43.5] → :outside  dist to (12,50) = 6.5
+    [5.0 50.0] → :outside  dist to (12,50) = 7.0
+    [4.5 50.0] → :outside  dist to (12,50) = 7.5
+    [12.0 50.0] → :inside  dist to (12,50) = 0.0
+   blob skin subpaths: 1  segments: 11
+C. nonlinear 40p²: at x=50 true radius = 20*.55² = 6.05; interpolating widths would give 10.1
+    [50.0 6.5] → :inside
+    [50.0 8.0] → :inside
+    [50.0 9.5] → :inside
+    [50.0 5.5] → :inside
+   reads: (source tool paint.stroke.geometry)
+D. draw tool (records/draw-tool): ok? true  regions (:stroke)  pieces 84  arcs 87
+   packed at scale 3 (bucket 1 ): curves 421  bands nil nil nil
+   scale 0.5 bucket -1 tolerance 0.25 → curves 421
+   scale 3.0 bucket 1 tolerance 0.0625 → curves 421
+   scale 30.0 bucket 4 tolerance 0.0078125 → curves 421
+   scale 300.0 bucket 8 tolerance 4.8828125E-4 → curves 421
+   pen tool: [true (:fill :stroke)]
+E. frame/region-key uses (hash path): search for a collision among random one-line outlines
+   collision after 140264 outlines: key [1096847375 :nonzero]
+   outline 129089 : {:subpaths [{:closed? true, :start [791.0 881.0], :segments [{:type :line, :to [798.0 129089.0]}]}]}
+   outline 140264 : {:subpaths [{:closed? true, :start [616.0 456.0], :segments [{:type :line, :to [267.0 140264.0]}]}]}
+   equal? false  same pack-key at bucket 0? true
+F. open Z, miter join → ok? true  subpaths 1 nil
+F. open Z, butt cap → ok? true  subpaths 1 nil
+F. open Z, dash [10 10] → ok? true  subpaths 15 nil
+F. open Z, ribbon → ok? true  subpaths 1 nil
+G. custom construction (fill the skin even-odd): regions (:fill)  classify (64,64): :outside  (union gives :inside )
+   holed-concave clipped by the Z's returned skin: clip present? true  reads (source tool paint.fill.rule paint.clip.path paint.clip.rule)  classify (90,90): :inside  (60,40): :inside
+   an op the table lacks → ok? false  missing [:geometry/arrange]

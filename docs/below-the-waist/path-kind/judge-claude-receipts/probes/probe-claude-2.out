@@ -1,0 +1,13 @@
+C2. nonlinear 40p² union at x=50: boundary distance from the centerline point (50,0): 10.1
+    (50, 6.0 ) → :inside
+    (50, 6.1 ) → :inside
+    (50, 8.0 ) → :inside
+    (50, 10.0 ) → :inside
+    (50, 10.2 ) → :inside
+    (50, 11.0 ) → :outside
+    the same record as dabs (spacing 50): radii (0.2 6.050000000000001 20.0)
+    the skin's flattened points: 0
+C3. the Z with 16p² (records/z-16p2?): (border z-nonlinear pen-tool harness-z holed-concave pressure-ink z-samples z-as-dabs draw-tool)
+H. classify ignores the clip? Z alone at (60,40): :outside ; (30,60): :outside
+    holed-concave clipped by the Z skin, classify (30,60): :inside  (60,40): :inside  (100,70): :inside
+    (the harness read the GPU alpha 0 at (30,60), (60,40), (100,70) for this clip)

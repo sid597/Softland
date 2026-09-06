@@ -1,0 +1,211 @@
+# Judge, Claude family — the path kind's first client change, both lanes (2026-09-06)
+
+Written from a fresh session in the main checkout, holding the judge starter as Sid pasted it (the `5405ebe` text: marks with a receipt behind each, the costs beside, the ground for the roles after). The branch `waist/path-claude` carries a later rewrite of that starter (`8267376`, 14:33) in which the judging is Sid's and the session scores nothing; the prompt this session received is the earlier one, so this file gives marks, and every mark says what supports it, when it stops holding and what else changes with it. Sid overrides any of them by reading the receipt.
+
+This judge: Claude Fable 5.1 (`claude-fable-5-1`), effort xhigh (Sid set max, then xhigh, before the prompt), tools Bash, Read, Write, Edit and two Sonnet subagents for the card's row 4; headless Chrome with SwiftShader through each lane's own runner. Family bias is real (each family rates its own higher), so nothing below is an opinion: every number was produced on this machine from that lane's client at its frozen hash, and every finding is a counterexample that can be re-run from the scripts landed beside this file. The Codex judge's file `judge-codex.md` was on `main` while this was written; I did not read it until the marks were set. Two of its findings I had missed; I verified both on the pure layer (section 4, A5 and C4) and lowered two marks for them, and section 9 says where we still disagree and on what.
+
+Frozen deliveries: `waist/path-claude` at `4d9e0d6` (worktree `../Softland-claude`; the `src/` tree is byte-identical at `8267376`, checked with `git diff --stat 4d9e0d6..8267376 -- src/`) and `waist/path-codex` at `07ea014` (worktree `../Softland-codex`). Both branch from `bedb890` (12:33). Nothing was committed on either branch; my two experiments ran in detached scratch worktrees of the same hashes, removed afterwards.
+
+Receipts: `judge-claude-receipts/` beside this file. `runs/` holds each lane's own runner output as produced here, `probes/` the four Clojure scripts I ran on each lane's pure layer with their output, `images/` the pictures and diffs. A reader can re-run every probe with `clj -M:test -i <script>` from the lane's worktree.
+
+## 1. What I ran, where
+
+| Lane | Command (from the worktree) | Result |
+|---|---|---|
+| Claude | `clj -Sdeps '{:deps {thheller/shadow-cljs {:mvn/version "2.28.23"}}}' -M -m shadow.cljs.devtools.cli release render-verifier` | build, 0 warnings |
+| Claude | `node test/render_engine/run_verifier.mjs` | pass, six guards green, every golden matches (`runs/claude-run_verifier.log`) |
+| Claude | `node test/render_engine/dump_result.mjs <dir>` | `path-step.json`, `region3d-floor.json`, 7 PNGs (`runs/claude-path-step.json`) |
+| Claude | `clj -M:test -i test/app/client/path/run_pure.clj` | 43 tests, 360 assertions, 0 failures, 2.1 s (`runs/claude-jvm-run_pure.log`) |
+| Claude | every `app.client.*-test` namespace the repo's fast lane lists | 102 tests, 819 pass, 1 error: `on-plane-test` placed text, the same error on `main` before either lane (`runs/claude-jvm-client-all.log`) |
+| Codex | the same shadow-cljs build | build, 0 warnings |
+| Codex | `node src/app/client/harness/run_path.mjs` | pass: path, plane, text, three goldens (`runs/codex-run_path.log`, `runs/codex-receipt.json`) |
+| Codex | the repo's own `node test/render_engine/run_verifier.mjs` on the same build | **fails**: base-renderer guard, all seven text goldens, the three path goldens, the region3d tree, the text tree (`runs/codex-repo-run_verifier.log`) |
+| Codex | `clojure -M:test -e "(require 'app.client.harness.path-geometry-test) …"` (its README) | 9 tests, 29 assertions, 0 failures |
+| Codex | the repo's `app.client.path.{tessellation,component,frame}-test` | all three fail to load: they require `app.client.path.tessellation` (deleted) and the old component API; the repo's fast lane is red on this branch |
+| both | four probe scripts over the pure layer (`probes/`) | section 4 |
+| Codex | one-line experiment in a scratch worktree (section 4, C1) | the placed ink returns |
+| both | a fresh Sonnet session per lane making one change from the READMEs (section 3, row 4) | both changed one value and verified it |
+| Claude | a probe added to its harness in a scratch worktree: border pixels at three zooms, a draw-tool picture (`probes/claude-scratch-harness-probe.diff`) | one device pixel at zooms 1, 2, 3; the taper pictured |
+
+The verifier and the runner take about 40 s each; the builds were warm. Chrome: `/usr/bin/google-chrome`, SwiftShader, `isFallbackAdapter true`.
+
+## 2. The card, filled
+
+Marks: 0 fails · 1 partial · 2 works · 3 holds up · ? unverified. Rows are never summed. First delivery only.
+
+| Row | Codex `07ea014` | Claude `4d9e0d6` |
+|---|---|---|
+| 1. Works in the client | **1** | **1** |
+| 2. Tools as data | **2** | **1** |
+| 3. Sound | **1** | **1** |
+| 4. Someone else can continue | **2** | **2** |
+| 5. Useful collaborator | **?** (Sid's) | **?** (Sid's) |
+
+| Cost | Codex | Claude |
+|---|---|---|
+| Elapsed to the frozen delivery | 43 min (starter in the worktree 12:34, commit 13:17) | 74 min (12:33 to `4d9e0d6` 13:47; the scripts and starters to 14:33) |
+| Reported usage and cost | Sid's sessions hold it; not visible from the tree | same |
+| Times Sid repeated or redirected | not visible from the tree | same |
+| Required work still unfinished | section 7 | section 7 |
+
+The rest of this file is the receipt behind each cell.
+
+## 3. The rows, with what supports each mark
+
+### Row 1, does the intended thing work in the client
+
+What the card lists, checked in each lane's own client, my run:
+
+| Item | Codex | Claude |
+|---|---|---|
+| the crossing painted once, .62 as a union | 0.6196 at (64, 64) | 0.6196 at (64, 64) |
+| the crossing as 24 dabs, .8556 | 0.8549, 24 dabs | 0.8549, 24 dabs, 24 instances |
+| the holed shape, even-odd | its own rounded-rect-with-square-hole: 0.9608 / 0 / 0 | the golden holed concave: interior 0.9608, hole 0, notch 0; nonzero fills the hole 0.9608; the edge pixel (24, 60) CPU 0.48, GPU 0.4784 |
+| the border one pixel at every zoom | GPU, its harness: alpha 1 at (24, 60) and 0 at (25, 60) at zoom 1; 1 at (48, 120), 0 at (49, 120) at zoom 2, in a world group. In a screen-fixed group it halves at zoom 2 (C4) | its harness reads no border pixel (the width reads the view and the rate rows rerun per pan and zoom). On a scratch copy with a probe added to its harness (`probes/claude-scratch-harness-probe.diff`, `runs/claude-scratch-judge-probes.json`): zoom 1, (23, 60) 0 · (24, 60) 1 · (25, 60) 0 and the top edge (64, 36) 1 · (64, 37) 0; zoom 2, (47, 120) 0 · (48, 120) 1 · (49, 120) 0 and (100, 72) 1 · (100, 73) 0; zoom 3, (100, 108) 1 · (100, 109) 0. One device pixel at three zooms |
+| the tapers swept | **cannot be said**: the sampler has streamline and line/Catmull-Rom only; `fit`, `taper-start`, `taper-end`, `simulate-pressure` are accepted in `settings` and silently ignored (probe F) | the draw-tool record runs: 84 pieces, 87 arcs, 421 curves at every bucket; its harness renders it for a hash and never looks. On the scratch copy the picture is `images/claude-scratch-draw-tool-taper.png`: the loop with the end tapering to a point, byte-identical across two captures, the same raw hash as the harness's `base` for the draw record |
+| placed ink in 3D still drawing | **half missing**: 23 ink-tinted floor pixels against the golden's 45, rows 56–58 only against 56–60 and 64, x 65–78 against 55–79; 22 pixels differ from the golden by up to 68 bytes; its runner reports `plane: true` because the region harness checks that one placement resolved with a positive vertex count, never a pixel (`images/region3d-tree-ink-crop-golden-claude-codex.png`) | matches the golden to 4 pixels at most 6 bytes (anti-aliasing at the edge), the same residual the old triangle route left; 45 ink-tinted pixels, same rows and columns |
+| the pickup texel (0.013, 0, 0.987, 1), red after blue | not implemented: no surface a brush reads, no executor loop | not implemented: the same; the handoff lists the each-loop and the compositor as next |
+| the text lane through the extracted filler | text composes from the shared shader; **pixels changed**: 198 of 16,384 differ on the unit-zoom slug golden, max 24 bytes, 161 on the Ubuntu face, 66 on the text tree; not re-recorded, the repo verifier left red, its own runner checks text for determinism only (`images/codex-gpu-slug-default-unit-z1.png` against `golden-…`) | text composes its fragment from the shared string with its own vertex stage; all nine text goldens byte-identical in my run |
+| the parity sweep the old harness had (seven zooms, 15,456 decisive pixels each against a CPU reference) | dropped; five probe cases of two pixels each in its place | kept: 0 mismatches at 0.01, 0.1, 1, 8, 10, 100, 1000 |
+| colour modes | dropped | legacy direct and linear premultiplied within one byte |
+| what was deleted, and that nothing calls it | `tessellation.cljc` gone (607 lines), the zoom table and mesh cache with it; zero references to `tessellation` or `derive-mesh-set` under `src/app/client`; the on-plane reader migrated | the same deletion; zero references; the on-plane reader migrated; `test/` rewritten to match |
+
+**Codex 1.** The 2D route works and its own numbers are right. A card-listed item fails in its own picture: the placed ink on the 3D floor is half gone, and the runner that says `plane: true` never read a pixel of it. The tapers cannot be expressed. The repo's own verifier and test lane are red on the branch. It stops being 1 and becomes 2 when the one-line viewport fix in section 4 (C1) lands and the repo verifier is green again with the text goldens re-recorded on purpose; it becomes 3 only with the tapers and the pickup.
+
+**Claude 1.** Every listed item is produced by the client and matches the handover (two of them, the border pixel and the taper picture, only through my probe on a scratch copy, since its harness never looked), the deletion is complete, the projected caller draws what the old route drew. The two definer items neither lane built are absent. Before reading the Codex judge this was a 2 with a note that the stricter reading gives 1; two things make it 1. Scenario 2 asked for a nonlinear response where interpolating widths gives the wrong footprint, and the union route gives exactly the interpolation (A1, four pixels on my record). And a record whose own construction changes keeps drawing the old tool in the retained renderer (A5, the Codex judge's F1, verified here): the client does not do what the record says until the system is fresh. It becomes 2 when those two are fixed with tests; 3 also needs a border pixel and a taper in its own harness and the containing disc (A2).
+
+### Row 2, can tools be created, changed and reused as data
+
+I made the same three moves in each lane's pure layer (probes G): a new recipe from capabilities already there, a behaviour change through the record, a result fed into another operation.
+
+**Claude 1.** A record may carry its own construction over the six ops (`:path/source :path/snap :path/fill-region :path/envelope :path/dabs :path/clip-region`). A construction that fills the envelope's returned skin even-odd (`skin.0.path`) turns the crossing into a hole: `classify` at (64, 64) answers `:outside` where the union answers `:inside`, no engine change. The Z's returned skin bound as another record's clip: the run reads `paint.clip.path` and on the GPU the three probes outside the Z read alpha 0. Renaming the tool reruns nothing (`rename-runs 0`). An op the table lacks stops the run with `:ok? false, :missing [:geometry/arrange]`, not an empty drawing. The reads name exactly what the construction depends on. All of that is the pure layer and a fresh system. In the retained renderer, the row's first move fails: change the record's construction from the union to the dabs, bump the revision, and the system keeps drawing the union, because the run cache is keyed by what the old construction read and the construction is not a read (A5). The CPU reader also ignores the clip the GPU applies (A4). It becomes 2 when the construction is part of the run's dependency and the two readers agree under a clip; 3 needs the executor loop with carried state (the pickup) and the bench's unread-field report, which this lane has and the Codex lane lacks.
+
+**Codex 2.** The construction vocabulary out of the box is three source conversions (`:path/anchors :path/samples :path/rectangle`), but the recipe language is richer than the Claude lane's: EDN arithmetic, `:if`, and an `:each` loop with an item binding live in the executor, so a recipe can compute an argument from the record (the Codex judge's R2 doubles a rectangle's width with `[:* 2 [:get :source :width]]` and clips the Z with the result, the clip edge moving to 64.5 in the retained renderer; I read the code and its receipt and did not re-run it). The stroke policy is data (a width expression, `:overlap`, `:spacing`). What it cannot say: the stroke geometry is not a step a record can name; to feed the swept outline into another tool I registered two engine functions as capabilities from the caller (`{:path/flatten geometry/flatten-stroke :path/swept geometry/swept-nib}`), after which the returned skin as a literal clip gives `:inside` at the crossing and `:outside` at (30, 60) and (60, 40) on the CPU, agreeing with its GPU. Unknown record fields are accepted and ignored, not listed and not refused (`:fit 0.9 :taper-end 22` in `settings` run without a word); no read report. It becomes 3 when the stroke constructions are steps in the table and unread fields are reported or refused.
+
+### Row 3, is the implementation sound
+
+I am the fresh reviewer of my family for this row. Each finding is a counterexample run on that lane's code, the practical consequence in plain words first; section 4 has the numbers.
+
+**Claude 1.**
+- A squared pressure rule draws the union stroke too fat between two samples on a straight run: on my record the radius at the midpoint is 10.1 where the rule gives 6.05, four pixels at zoom 1. The same record as dabs is right (6.05). Attack 1's rule ("a nonlinear response is not the interpolation of squared knot widths") holds on the dab route and not on the union route, because the envelope evaluates the response only at flattened points and a line has none.
+- A fast pressure ramp at a stroke's start loses most of the nib's disc: two samples two units apart at pressure 0.1 and 1.0 (radii 0.8 and 8) should paint the larger disc; points 6.5 and 7.0 from its centre read `:outside`. The bench's note called this "approximate"; here it is a hole.
+- The pack cache and the atlas are keyed by `(hash path)`, a 32-bit integer: two different outlines with the same hash draw with each other's curves. I found a pair after 140,264 random one-line outlines on the JVM; among N regions on screen the chance of one such pair is about N²/2³³. Cheap to fix (key by the value, as the Codex lane does, or by identity plus revision).
+- Asking the CPU whether a point is inside a clipped shape says yes where the screen shows nothing: `classify` walks the painted regions and never the clip.
+- Editing a record's own construction does not reach the retained renderer (the Codex judge's F1, verified here on the pure layer): `rerun?` compares the values the old construction read against the same paths now, and the construction is not one of them, so the union keeps drawing after the record asks for dabs. The frame's early-out sees the revision; the run cache does not.
+- What holds: the four rates as measured (a colour edit writes one row and reruns nothing; a pan and a zoom inside the bucket touch nothing; a rescaled group repacks once; the border reruns per pan because it declared it reads the view); one instanced draw over one atlas; the fragment's local position from its own pixel through the flat inverse (fractional placement within 0.002 of the CPU twin); text byte-identical; the pure files hold nothing; five atoms with one owner each in the renderer.
+
+**Codex 1.**
+- Placed ink on a 3D plane draws in the wrong place and half of it is missing. Cause found and confirmed: `on_plane_renderer/prepare-one!` builds the fragment-to-plane homography from the camera's `:viewport` (the encode size, 80 × 88 for the fixture) while the interior pass renders into the compositor's 256-aligned lease (256 × 256) with no `setViewport`; the fragment's pixel is read in the wrong units. Passing the lease size as the viewport (one changed argument in `region3d/renderer.cljs`, tested in a scratch worktree) brings the ink back to 45 tinted pixels, 4 pixels from the golden at most 6 bytes, the Claude lane's residual. The `scale-bound` tolerance used the same wrong viewport.
+- Every zoom step throws away and re-creates every region's GPU resources: the resource key is `[geometry-key scale]` with the exact projected scale, and a region owns two textures padded to 4096 texels wide (64 KB and 32 KB rows), a bind group and two buffers; 24 dabs are 48 textures per zoom step. The bench's stated rate is "per scale" too, so this is the prototype's rate carried into production rather than a bug; the Claude lane's power-of-two bucket is the difference. Derived from code, not timed.
+- A curved stroke costs five to six times the curves: the swept nib is a union of one capsule per flattened piece (two arcs of at most 22.5° per quad, two lines), so a 70-sample loop at the 0.05 geometry tolerance is 126 capsules and 2,383 quads against 421 for the traced envelope, at every scale. The filler's per-pixel loop is proportional to curves per band.
+- The repo's own tests and verifier are red on the branch: three test namespaces fail to load and the text goldens no longer match. The fence ("code only under `src/app/client/`") was read as forbidding `test/`, and a parallel runner with its own three goldens under `src/app/client/harness/` took the verifier's place. A successor running the repo's commands sees red with no note saying why.
+- Text pixels changed without a record: the shared vertex stage reconstructs the local position from the fragment's pixel (the bench's session-11 fix, applied to text), which moves edge anti-aliasing by up to 24 bytes on 198 pixels. Probably an improvement; nobody re-recorded the goldens or said so.
+- A screen-fixed group's device-width border shrinks with the world zoom (the Codex judge's F3, verified here on the pure layer): `pack/projected-scale` asks the world transform for `:camera`, the registry's row carries `:flags 1`, so a screen group at zoom 2 packs at scale 2.0 while the shader honours the flag and holds the placement; the one-pixel border reads 0.502 at zoom 2 in the Codex judge's capture.
+- What holds: the geometry does the hard cases right (the containing disc, the nonlinear width by subdividing until the radius error is under tolerance, 17 points on my line); the CPU reader and the GPU consume the same region and the same clip; geometry keys exclude colour so a recolour uploads one instance; a group move repacks nothing; the fragment reads its own pixel through a flat homography, projective under the plane; the executor and geometry hold no state; the placement code is a third the size of its predecessor.
+
+Both lanes share one thing neither states as a limit: the stroke's flattening tolerance is in local units (0.05 in Codex, 0.1 in Claude) whatever the zoom, so a curved stroke's skin is a polyline that shows its facets at high zoom, and the packing tolerance in device pixels cannot repair it because the arcs are already exact quads.
+
+### Row 4, can someone else continue the work
+
+The same change asked of a fresh Sonnet session per lane, in a scratch worktree, given only the READMEs, docstrings and tests, forbidden `docs/` and git writes: move the accumulating brush's first dab from arc length 0 to half the spacing, verify on the Z fixture (24 dabs, 281.94 long, spacing 12), report the diff, what pointed you there, the numbers before and after, and which tests fail.
+
+| | Codex | Claude |
+|---|---|---|
+| Found by | the README's table names `geometry.cljc` for "ordered dabs"; the `dabs` docstring says "Spacing starts at zero per subpath" | the README's table names `stroke.cljc` for "the ordered dabs of an accumulating brush"; the `dabs` docstring says "arc lengths 0, spacing, 2·spacing" |
+| Change | one seed value in `dabs`' reduce: `:next-at (* 0.5 spacing)` | one seed value in `dabs`' loop: `next (/ spacing 2.0)`, and the docstring rewritten to match |
+| Before → after | 24 dabs, first at 0.0 at (26, 28) → 23 dabs, first at 6.0 at (30.36, 32.13) | 24 dabs, first at 0.0 at (26, 28) → 23 dabs, first at 6.0 at (30.36, 32.13) |
+| Verified with | the README's `clojure -M:test -e …` command, 9 tests | `clj -M:test -i test/app/client/path/run_pure.clj`, 43 tests, 2.5 s (the script's comment says about a minute) |
+| Tests that fail | two, both pinning the old behaviour (the fixture's 24, and a dab radius under 16 p² at the moved arc length) | two assertions of one test, both pinning the old behaviour (24, and the arc-length sequence); the nonlinear-width test still passes because it checks a dab's width against its own pressure, not its position |
+| Gaps reported | the docstring now contradicts the code (left as asked); nothing missing for the task | the `run_pure.clj` comment and the `z-as-dabs` docstring still say 24; nothing missing for the task |
+| Cost | 166 s, 24 tool uses, 65 K tokens | 222 s, 31 tool uses, 71 K tokens |
+
+**Codex 2.** The successor found the place in two greps, changed one value, verified with the README's command, and the tests told it what it had broken. The README is one screen and true to the code. It is not 3 because the successor inherits a red repo test lane and a red verifier with no note, and no handoff says what the builder was least sure of.
+
+**Claude 2.** The same outcome by the same road, one search; the successor also kept the docstring true to the code. The handoff names the judgment calls and what the builder is least sure of, and the code map and the REPL session are there for a reader. Not 3 because the two stale "24"s show the record fixtures carry numbers in prose that the tests already carry, and because a two-minute read of the README does not tell Sid the two geometry approximations the tracer inherited (section 4, A1 and A2); they are in the bench's handover, not in the README that says what is implemented and how.
+
+### Row 5, was the builder a useful collaborator
+
+Sid's row. What the tree shows, for his memory of the sessions: the Codex lane is one commit at 13:17 with a four-line validation note, no handoff, no receipts file, nothing under `docs/`; the Claude lane is three commits (13:08, 13:33, 13:47) plus a handoff naming its judgment calls and what it is least sure of, a code map, a receipts file, a dump script and a REPL session for the judge, and two of its commits carry the `Co-Authored-By` trailer Sid's rule forbids (self-disclosed in the handoff). A test that fails when the crossing is painted twice: the Claude starter names how to make it fail (`:accumulate` in the union record reads 0.8556 and the assertion fails); the Codex harness asserts 0.62 at the crossing for the union case, which would fail the same way.
+
+## 4. The counterexamples, with numbers
+
+All from `probes/`, run on each lane's pure layer through its own API; A for the Claude lane, C for the Codex lane, B for both.
+
+**A1. The union route interpolates widths on a straight segment (Claude).** Record: pen samples (0, 0, p .1) and (100, 0, p 1.0), stroke `:width "40*p*p"`, `:tip :nib`. Attack 1's rule gives the radius at x = 50 as 20 × 0.55² = 6.05; the interpolation of the two knot radii (0.2 and 20) gives 10.1. `boundary-distance` from (50, 0): **10.1**. `classify` at (50, 8) and (50, 9.5): `:inside`; (50, 11): `:outside`. The skin's flattened polyline has 0 intermediate points. The same record with `:overlap :accumulate`, spacing 50: dab radii 0.2, **6.05**, 20. The handoff's receipt ("every dab's radius 8 p² at its own pressure; the widest gap on the first segment 0.124 local, sub-pixel") was measured on the dab route and on the Z, whose pressures differ too little for the gap to reach a pixel. The union route never had a check where it bites. Codex on the same record: `boundary-distance` 6.02, `classify` (50, 6.1) `:inside`, (50, 6.5) `:outside`; 17 flattened points from the radius-error subdivision.
+
+**A2. A containing disc collapses (Claude).** Record: pen samples (10, 50, p .1) and (12, 50, p 1.0), width 16 p (radii 0.8 and 8; |Δr| = 7.2 ≥ the piece's 2). The region should be the disc of radius 8 at (12, 50). `classify` at distance 6.5 and 7.0 from that centre, on four sides: `:outside`; at the centre `:inside`. The skin is one subpath of 11 segments. Codex: all six points `:inside` (the capsule returns the containing disc directly).
+
+**A3. The pack key is a 32-bit hash (Claude).** `frame/region-key` is `[(hash path) rule]` and `pack-key` adds the bucket; `pack-for` and the atlas look up by it. Over random one-line outlines `{:start [x y] :segments [{:type :line :to [u v]}]}` a collision appeared at outline 140,264 against outline 129,089: different values, `(= pj pi)` false, the same `pack-key` at bucket 0. The JVM hash and the ClojureScript hash differ, so the colliding pair differs in the browser; the width of the key does not. Consequence: with both regions in one frame the second draws with the first's curves.
+
+**A4. The CPU reader ignores the clip (Claude).** The holed concave with `:clip` bound to the Z's returned skin: `classify` at (30, 60), (60, 40), (100, 70) answers `:inside`; the same three pixels read alpha 0 on the GPU in the lane's own harness (`region-meaning.clip-probes`). The Z alone at those points is `:outside`. `classify-regions` walks `:regions` and never `:clip`.
+
+**A5. A construction edit misses the run cache (Claude; the Codex judge's F1).** `records/harness-z` with `:path/revision 2` and `:path/construction` set to the dabs default: a fresh `run` gives 24 regions; `component/rerun?` with the original run's reads answers **false** (`probes/probe-cross-check-claude.out`). The Codex judge's browser capture shows the consequence: the retained system draws 1 instance at 0.6196 after the edit, a fresh system 24 at 0.8549.
+
+**C4. A screen-fixed group scales with the world camera (Codex; the Codex judge's F3).** `transform/add-group 17 {… :camera :screen}` produces the row `{:affine [1 0 0 1 0 0], :flags 1, :buffer-index 1}`; `pack/projected-scale` on that row gives 1.0 at zoom 1 and **2.0** at zoom 2 (`probes/probe-cross-check-codex.out`), so a device-width border in a screen group is packed at half its width while the vertex shader keeps it in place. The Codex judge read 0.502 at the border pixel at zoom 2.
+
+**B1. What a record can say (both).** The open Z with `:join :miter`: Claude one skin; Codex throws "Miter border requires a closed uniform-width path". With `:cap :butt`: Claude one skin; Codex throws "Butt caps require an explicit outline construction". With `:dash [10 10]`: Claude 15 subpaths (five dashes over the three pieces); Codex the schema rejects the key. With `:tip :ribbon`: Claude one skin; Codex the schema rejects it. With `:align :inside` on the open Z: Claude one skin; Codex throws. All five are disclosed in the Codex README as not implemented; the point for the card is that the bench's draw-tool and pen-tool records, which are the fixtures, cannot be written in that lane as records.
+
+**B2. Curve counts (both).** A 70-sample closed limaçon through the pen source with Catmull-Rom and width 10 p. Claude: 84 pieces, 87 arcs, **421** curves at buckets −1, 1, 4 and 8 alike. Codex: 127 flattened points, 126 capsule loops, **2,383** quads at scales 0.5, 3, 30 and 300 alike, bands 32 × 32 (its cap), two 4096-wide curve-texture rows. One Codex dab is 16 quads (the bench's 8); its Z union is 57 quads in 6 × 6 bands. Neither count moves with the scale because both skins are lines and exact arc quads; only cubics lower differently.
+
+**C1. The placed ink, cause and fix (Codex).** Scratch worktree of `07ea014`, one argument changed in `region3d/renderer.cljs` where the region renderer calls `prepare-placements!`: `camera` → `(assoc camera :viewport lease-size)`. Before: 23 ink-tinted floor pixels, rows 56–58, x 65–78, 22 pixels differ from the golden by up to 68 bytes. After: 45 pixels, rows 56–60 and 64, x 55–79, 4 pixels differ by at most 6 bytes, the same four the Claude lane and the old route differ on. `runs/codex-viewport-patch-run_path.log`, `images/codex-viewport-patch-gpu-region3d-floor-tree.png`. The right home for the fix is the builder's call (the lease size reaching the placement renderer, or the interior pass setting a viewport); the experiment only locates it.
+
+**C2. The repo's verifier on the Codex build.** `runs/codex-repo-run_verifier.log`: `pass false`; `base-renderer false`; the seven DejaVu slug goldens false; the three path goldens `currentRawSha256 null` (the new harness does not produce those files); the region3d tree false. Pixel diffs against `test/app/fixtures/render_engine/gpu-goldens/`: `gpu-slug-default-unit-z1` 198 of 16,384 pixels, max 24 bytes; `gpu-slug-ubuntu-mixed-face` 161, max 32; `gpu-slug-container-tree-mixed-face-cid17-slot1` 66, max 9; `gpu-region3d-floor-tree` 22, max 68 (that one is C1, not anti-aliasing).
+
+**C3. The repo's path tests on the Codex branch.** `app.client.path.tessellation-test`, `component-test`, `frame-test`: "Syntax error macroexpanding at (…_test.clj:1:1)" on require; `test/app/test_runner.clj` still lists `tessellation-test` in its fail-closed pure lane.
+
+## 5. Where a claimed receipt hides work that was never run
+
+**Codex.** The commit says "SwiftShader path, text and placed-ink checks". The placed-ink check is the region harness's boundary evidence, which passes when one placement resolved with a positive vertex count; no pixel of the ink was ever compared, and the ink is half missing. The text check is determinism between two captures of the same build, not agreement with the goldens; the goldens fail. "The older external shader/image baselines remain unchanged by this client-only round" is true of the files and false of the build: the repo's verifier was either not run or run and set aside, and the README says so only as "it does not overwrite the older … goldens outside this source scope". The 9 portable tests are real and pass.
+
+**Claude.** The handoff's nonlinear receipt ("rule-holds? true") covers the dab route; on the union route the rule is not implemented for straight runs and no receipt looked there. "The border one pixel at every zoom" rests on the pure layer and the rate rows; its harness renders the border for a hash and reads no pixel of it. "The tapers swept" is the same: rendered, hashed, never looked at. "One region meaning across readers" was checked GPU against CPU twin along edges and never CPU classify against the GPU under a clip. "Behaviour as data" was checked by editing settings and paint the existing construction reads, never by replacing the construction itself, which is the edit the retained cache misses (A5). Everything else the handoff claims I reproduced.
+
+## 6. The costs
+
+| | Codex | Claude |
+|---|---|---|
+| Starter landed in the worktree | 12:34 | 12:33 |
+| Frozen delivery | 13:17 (43 min) | 13:47 (74 min); scripts, code map, judge starter to 14:33 |
+| Commits to the freeze | 1 | 3 |
+| Lines (for size only; they earn nothing) | +1,999 / −2,348 across 33 files | +6,329 / −2,534 across 44 files |
+| Tests landed | 9 tests, 29 assertions under `src/app/client/harness/` | 43 tests, 360 assertions under `test/app/client/`, the test runner updated |
+| Repo test lane after | red (three namespaces do not load) | green but for the pre-existing placed-text error |
+| Repo verifier after | red | green, goldens re-recorded on purpose with the flag named in the handoff |
+| Usage, cost, subagents, Sid's redirects | in Sid's sessions | in Sid's sessions |
+| Judge's own cost | this session, plus two Sonnet runs (Codex 166 s / 65 K tokens, Claude 222 s / 71 K) and two scratch builds | |
+
+## 7. What each lane leaves unfinished, and the exact open question
+
+**Codex, unfinished:** the viewport fix (C1); the screen-group scale (C4); the tapers, fit and simulated pressure; caps, dashes, open-path miter, the ribbon; the executor loop with carried state and a surface to read; the compositor's paint and sample; a scale bucket or another answer to per-zoom-step re-creation; the repo's test lane and verifier made green on purpose; an unread-field report. **Its exact open question:** the swept nib as a union of capsules is right on every hard case I ran and five times the curves of a traced envelope; is the filler's per-pixel cost at 2,383 curves over 32 × 32 bands acceptable on hardware, or does production need the envelope (with the capsule kept for the containing-disc case), and who measures it.
+
+**Claude, unfinished:** the union route's width response between flattened points on straight runs (A1) and the containing disc (A2), both pinned by tests once fixed; the pack key by value (A3); the clip in `classify` (A4); the construction in the run's dependency (A5); the offset stroker; the each-loop and the pickup; the compositor; a border pixel and a taper picture in its own harness (mine are on a scratch copy). **Its exact open question:** the envelope tracer inherited the bench's two known approximations and one of them is a hole on a realistic stroke start; is the tracer kept and patched piece by piece (subdivide lines by radius error, special-case the containing disc), or does the production stroker become the offset stroker the handoff already lists, in which case the two fixes are wasted and the meaning of the nib (the external tangent of the end discs) must survive the change.
+
+## 8. What the marks rest on, when they stop holding, what else changes
+
+- **Row 1 Codex 1 → 2** when the placed ink matches the golden on the branch, the screen-group border holds its pixel, and the repo verifier is green with intended re-records; **→ 3** needs the tapers and the definer's pickup. If Sid rules that scenario 5 was outside the first change, the mark is 2 today and the text-golden question stays.
+- **Row 1 Claude 1 → 2** when A1 and A5 are fixed with tests; **→ 3** also needs A2 and the border and taper read as pixels in its own harness. It was a 2 before the Codex judge's F1; A1 alone I had let stand under a note, which was the softer reading of scenario 2, and the definer's attack 1 supports the stricter one.
+- **Row 2 Codex 2 → 3** when stroke constructions are steps in the capability table and unread fields are reported; **Claude 1 → 2** when the construction is in the run's dependency and the two readers agree under a clip; **→ 3** with the executor loop.
+- **Row 3, both 1 → 2** when their listed counterexamples are fixed and pinned; neither reaches 3 until the offset stroker or its equivalent and a hardware measurement exist.
+- **Row 4 Codex 2 → 3** with a green repo lane and a handoff; **Claude 2 → 3** when the README names the tracer's approximations and the fixture prose stops carrying numbers the tests own.
+- **What changes with these marks:** the roles for the rounds after. On this delivery the Codex lane is the stronger geometer (right on the two contract cases, a simpler construction, the CPU and GPU sharing one meaning, a recipe language with arithmetic and a loop) and the weaker integrator (a broken caller unseen, a screen group's camera contract missed, the repo's checks abandoned, the fence read to exclude the tests); the Claude lane is the stronger integrator and verifier (rates, atlas, one draw, parity, byte-identical text, receipts and a handoff a successor can use) and carried the bench's geometry approximations into production without testing where they bite, with a cache that keys on what a construction read and not on the construction. A first-cut assignment the receipts support: one lane owns the geometry contract and its tests, the other owns the renderer, the callers and the verification surface, each reviewing the other's row 3; the exchange stage will show whether either keeps the other's sound decisions. Both judges' files list the same two repairs per lane first (C1 and C4; A1 and A5), so the exchange stage has its named defects.
+
+## 9. After the marks: the Codex judge's file against this one
+
+Read after my marks were set, then two of mine lowered on its receipts. Resolved on code or an executed example, never by vote.
+
+**Where we agree, independently.** The crossing numbers to the last digit (0.6196078431372549 and 0.8549019607843137 in both lanes). The nonlinear union failure in the Claude lane: its F2 is my A1 on a different record, with an oracle (a Lipschitz-bounded sweep distance of 1.18 local at its query pixel) beside my boundary-distance reading of 10.1 against 6.05; the Codex lane passes both. The Codex lane's retained test namespaces do not load. The tapers, fit and pressure simulation are not in the Codex lane. The two runners have different scopes and their `pass` flags are not interchangeable. Rows 4 and 5 need observations, not opinions.
+
+**What it found that I had missed, verified here and folded in.** F1, the construction edit the Claude run cache ignores (my A5: `rerun?` false on the pure layer; its browser capture 1 instance retained against 24 fresh). F3, the Codex packer reading `:camera` from a row that carries `:flags` (my C4: `projected-scale` 2.0 at zoom 2 for a screen group). Claude row 1 went from 2 to 1 and row 2 from 2 to 1 for A5; Codex row 1 stays 1 with C4 as a second reason. Its R2 (a recipe that doubles a width arithmetically and clips with the result) is a valid row-2 move the Claude executor cannot make, and moved my Codex row 2 from 1 to 2.
+
+**What I found that it does not have.** The Codex placed ink half missing: its file says "the projected fixture is green in both" and "Region3D floor: Pass; resolved placed-ink fixture exercised", which is the harness flag that never reads a pixel; the pixel count against the golden (23 tinted against 45, 22 pixels off by up to 68 bytes), the cause in the viewport, and the one-line experiment that brings the ink back are in C1. The containing disc (A2), the 32-bit pack key (A3) and the CPU reader ignoring the clip (A4) in the Claude lane. The repo's verifier red on the Codex build with the text goldens moved by up to 24 bytes (C2), which its file describes only as a difference of runner scope. The curve counts (2,383 against 421) and the per-zoom-step re-creation of every region's textures in the Codex lane. The two fresh-session runs for row 4, which it left at ?.
+
+**Where the marks still differ, and on what.**
+
+| Row | Codex judge | This file | What the difference is |
+|---|---|---|---|
+| 1 | 1 / 1 | 1 / 1 | none now |
+| 2 | Codex 3, Claude 1 | Codex 2, Claude 1 | the same facts: its R2 runs and my probes F and G run. It scopes the 3 "within implemented capabilities"; I hold the 3 back because the stroke geometry is not a step a record can name and unknown fields pass in silence, which are the two things a record author meets first. Sid's scope decides; no code resolves it. |
+| 3 | 0 / 0 | 1 / 1 | the scale's words. It reads one demonstrated invariant failure as "0 fails"; I read the structure and most invariants holding, each failure a receipted one-function fix, as "1 partial". Read literally, the card's 0 is the stricter and both files list the failures that earn it; the difference between the lanes is in the receipts either way. |
+| 4 | ? / ? | 2 / 2 | executed here (section 3), not there. |
+| 5 | ? / ? | ? / ? | Sid's. |
+
+**One claim of its I read narrower.** "Both … pass … placed ink" and the Region3D pass row: true of the flag, false of the picture, in the Codex lane (C1). Its own caution that a green subcheck "stops applying outside its actual fixture" is the right one; here the fixture's own picture is the counterexample.

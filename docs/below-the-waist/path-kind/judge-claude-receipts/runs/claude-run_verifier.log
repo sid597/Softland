@@ -1,0 +1,29 @@
+[W0-A] start
+[W0-A] scheduled-callback
+[W0-A] init-start
+[W0-A] init-adapter
+[W0-A] init-device
+[W0-A] init-font-manifest
+[W0-A] init-font-assets
+[W0-A] init-shared-buffers
+[W0-A] init-font-assets
+[W0-A] init-slug-pipeline-start
+[W0-A] init-slug-pipeline-complete
+[W0-A] init-curve-decode-start
+[W0-A] init-curve-decode-complete 16
+[W0-A] case-start legal-min-z0p01 zoom 0.01
+[W0-A] case-complete legal-min-z0p01
+[W0-A] case-start default-min-z0p1 zoom 0.1
+[W0-A] case-complete default-min-z0p1
+[W0-A] case-start default-unit-z1 zoom 1
+[W0-A] case-complete default-unit-z1
+[W0-A] case-start default-max-z8 zoom 8
+[W0-A] case-complete default-max-z8
+[W0-A] case-start legal-log-z10 zoom 10
+[W0-A] case-complete legal-log-z10
+[W0-A] case-start legal-log-z100 zoom 100
+[W0-A] case-complete legal-log-z100
+[W0-A] case-start legal-max-z1000 zoom 1000
+[W0-A] case-complete legal-max-z1000
+{"pass":true,"guards":[{"name":"base-renderer","pass":true},{"name":"ubuntu-slug","pass":true},{"name":"image","pass":true},{"name":"path","pass":true},{"name":"region3d","pass":true},{"name":"text-tree","pass":true}],"dejavuSlugGoldens":[{"file":"gpu-slug-legal-min-z0p01.png","pass":true},{"file":"gpu-slug-default-min-z0p1.png","pass":true},{"file":"gpu-slug-default-unit-z1.png","pass":true},{"file":"gpu-slug-default-max-z8.png","pass":true},{"file":"gpu-slug-legal-log-z10.png","pass":true},{"file":"gpu-slug-legal-log-z100.png","pass":true},{"file":"gpu-slug-legal-max-z1000.png","pass":true}],"ubuntuSlug":{"text":"Aɐ","faceIds":["noto-sans-regular","ubuntu-sans-variable"],"faceRevisions":["noto-sans-regular-2.011","ubuntu-sans-variable-0.869-wght400-wdth100"],"pass":true},"representativeGoldens":[{"family":"cases","file":"gpu-slug-legal-min-z0p01.png","pass":true},{"family":"ubuntuSlug","file":"gpu-slug-ubuntu-mixed-face.png","pass":true},{"family":"pathStep","file":"gpu-path-holed-concave-holed-concave-default-unit-z1.png","pass":true},{"family":"pathStep","file":"gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png","pass":true},{"family":"pathStep","file":"gpu-path-container-tree-tree-containers-cid17-slot1.png","pass":true},{"family":"region3dFloor","file":"gpu-region3d-floor-tree.png","pass":true},{"family":"textGroupTree","file":"gpu-slug-container-tree-mixed-face-cid17-slot1.png","pass":true}],"receipt":"target/render-verifier/receipt.json"}
+EXIT 0

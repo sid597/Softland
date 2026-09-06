@@ -1,0 +1,12 @@
+# Applied in a detached scratch worktree of 07ea014 (never on the branch), then
+# `node src/app/client/harness/run_path.mjs`; the placed ink returned (see ../runs/codex-viewport-patch-run_path.log
+# and ../images/codex-viewport-patch-gpu-region3d-floor-tree.png).
+--- a/src/app/client/region3d/renderer.cljs
++++ b/src/app/client/region3d/renderer.cljs
+@@ -1117,4 +1117,5 @@
+                      (on-plane-renderer/prepare-placements!
+                       (:placement-system system) (:placement gpu2)
+-                      (:region3d/resolved-placements draw-item) maintained camera
++                      (:region3d/resolved-placements draw-item) maintained
++                      (assoc camera :viewport lease-size) ;; JUDGE EXPERIMENT: the lease target's size, not the camera viewport
+                       {})

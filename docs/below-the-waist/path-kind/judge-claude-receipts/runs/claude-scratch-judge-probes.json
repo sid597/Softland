@@ -1,0 +1,126 @@
+{
+ "border-zoom-1": [
+  {
+   "pixel": [
+    23,
+    60
+   ],
+   "alpha": 0
+  },
+  {
+   "pixel": [
+    24,
+    60
+   ],
+   "alpha": 1
+  },
+  {
+   "pixel": [
+    25,
+    60
+   ],
+   "alpha": 0
+  },
+  {
+   "pixel": [
+    64,
+    36
+   ],
+   "alpha": 1
+  },
+  {
+   "pixel": [
+    64,
+    37
+   ],
+   "alpha": 0
+  }
+ ],
+ "border-zoom-2": [
+  {
+   "pixel": [
+    47,
+    120
+   ],
+   "alpha": 0
+  },
+  {
+   "pixel": [
+    48,
+    120
+   ],
+   "alpha": 1
+  },
+  {
+   "pixel": [
+    49,
+    120
+   ],
+   "alpha": 0
+  },
+  {
+   "pixel": [
+    100,
+    72
+   ],
+   "alpha": 1
+  },
+  {
+   "pixel": [
+    100,
+    73
+   ],
+   "alpha": 0
+  }
+ ],
+ "border-zoom-3": [
+  {
+   "pixel": [
+    71,
+    150
+   ],
+   "alpha": null
+  },
+  {
+   "pixel": [
+    72,
+    150
+   ],
+   "alpha": null
+  },
+  {
+   "pixel": [
+    73,
+    150
+   ],
+   "alpha": null
+  },
+  {
+   "pixel": [
+    100,
+    108
+   ],
+   "alpha": 1
+  },
+  {
+   "pixel": [
+    100,
+    109
+   ],
+   "alpha": 0
+  }
+ ],
+ "draw-tool": [
+  {
+   "mode": "judge",
+   "file": "gpu-path-judge-draw-tool.png",
+   "raw-sha256": "c864a32d5331f72a9e3a6ed5828dd10b371ba2f2daf772994f22d3255fa05880",
+   "png": "png/gpu-path-judge-draw-tool.png",
+   "determinism": {
+    "first-raw-sha256": "c864a32d5331f72a9e3a6ed5828dd10b371ba2f2daf772994f22d3255fa05880",
+    "second-raw-sha256": "c864a32d5331f72a9e3a6ed5828dd10b371ba2f2daf772994f22d3255fa05880",
+    "byte-identical?": true
+   }
+  }
+ ]
+}

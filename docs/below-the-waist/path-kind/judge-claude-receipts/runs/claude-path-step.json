@@ -1,0 +1,498 @@
+{
+ "parity": [
+  {
+   "zoom": 0.01,
+   "mismatch-count": 0,
+   "boundary-band-screen-px": 1.25,
+   "inside-count": 5040,
+   "mismatch-sample": [],
+   "decisive-count": 15456,
+   "pass?": true,
+   "outside-count": 10416,
+   "lod": "legal-zoom-range-sentinel",
+   "case-id": "legal-min-z0p01"
+  },
+  {
+   "zoom": 0.1,
+   "mismatch-count": 0,
+   "boundary-band-screen-px": 1.25,
+   "inside-count": 5040,
+   "mismatch-sample": [],
+   "decisive-count": 15456,
+   "pass?": true,
+   "outside-count": 10416,
+   "lod": "engine-default-clamp",
+   "case-id": "default-min-z0p1"
+  },
+  {
+   "zoom": 1,
+   "mismatch-count": 0,
+   "boundary-band-screen-px": 1.25,
+   "inside-count": 5040,
+   "mismatch-sample": [],
+   "decisive-count": 15456,
+   "pass?": true,
+   "outside-count": 10416,
+   "lod": "engine-default-clamp",
+   "case-id": "default-unit-z1"
+  },
+  {
+   "zoom": 8,
+   "mismatch-count": 0,
+   "boundary-band-screen-px": 1.25,
+   "inside-count": 5040,
+   "mismatch-sample": [],
+   "decisive-count": 15456,
+   "pass?": true,
+   "outside-count": 10416,
+   "lod": "engine-default-clamp",
+   "case-id": "default-max-z8"
+  },
+  {
+   "zoom": 10,
+   "mismatch-count": 0,
+   "boundary-band-screen-px": 1.25,
+   "inside-count": 5040,
+   "mismatch-sample": [],
+   "decisive-count": 15456,
+   "pass?": true,
+   "outside-count": 10416,
+   "lod": "legal-zoom-range-sentinel",
+   "case-id": "legal-log-z10"
+  },
+  {
+   "zoom": 100,
+   "mismatch-count": 0,
+   "boundary-band-screen-px": 1.25,
+   "inside-count": 5040,
+   "mismatch-sample": [],
+   "decisive-count": 15456,
+   "pass?": true,
+   "outside-count": 10416,
+   "lod": "legal-zoom-range-sentinel",
+   "case-id": "legal-log-z100"
+  },
+  {
+   "zoom": 1000,
+   "mismatch-count": 0,
+   "boundary-band-screen-px": 1.25,
+   "inside-count": 5040,
+   "mismatch-sample": [],
+   "decisive-count": 15456,
+   "pass?": true,
+   "outside-count": 10416,
+   "lod": "legal-zoom-range-sentinel",
+   "case-id": "legal-max-z1000"
+  }
+ ],
+ "color": {
+  "legacy": {
+   "mode": "legacy-direct",
+   "expected": [
+    105,
+    63,
+    65
+   ],
+   "actual": [
+    105,
+    63,
+    64
+   ],
+   "max-byte-delta": 1,
+   "pass?": true
+  },
+  "linear-premultiplied": {
+   "mode": "linear-premultiplied",
+   "expected": [
+    151,
+    101,
+    119
+   ],
+   "actual": [
+    151,
+    101,
+    120
+   ],
+   "max-byte-delta": 1,
+   "pass?": true
+  },
+  "pass?": true
+ },
+ "region-meaning": {
+  "edge": {
+   "pixel": [
+    24,
+    60
+   ],
+   "cpu": 0.48,
+   "gpu": 0.47843137254901963
+  },
+  "text-filler": "coverage",
+  "clip-probes": [
+   {
+    "pixel": [
+     90,
+     90
+    ],
+    "in-z?": true,
+    "alpha": 0.9607843137254902,
+    "shape-alpha": 0.9607843137254902
+   },
+   {
+    "pixel": [
+     30,
+     60
+    ],
+    "in-z?": false,
+    "alpha": 0,
+    "shape-alpha": 0.9607843137254902
+   },
+   {
+    "pixel": [
+     60,
+     40
+    ],
+    "in-z?": false,
+    "alpha": 0,
+    "shape-alpha": 0.9607843137254902
+   },
+   {
+    "pixel": [
+     100,
+     70
+    ],
+    "in-z?": false,
+    "alpha": 0,
+    "shape-alpha": 0.9607843137254902
+   }
+  ],
+  "clip-path-from": "z-skin",
+  "notch": 0,
+  "interior": 0.9607843137254902,
+  "pass?": true,
+  "hole": 0,
+  "nonzero-hole": 0.9607843137254902
+ },
+ "coverage": "analytic-shared-filler",
+ "product-pick": "membership-by-winding",
+ "records": {
+  "rows": [
+   {
+    "ok?": true,
+    "behaviour-edit-changes?": true,
+    "rename-changes?": false,
+    "name": "draw",
+    "regions": [
+     "stroke"
+    ],
+    "ops": [
+     "source",
+     "envelope"
+    ],
+    "geometry-edit-changes?": true,
+    "pass?": true,
+    "rename-runs": 0,
+    "base": "c864a32d5331f72a9e3a6ed5828dd10b371ba2f2daf772994f22d3255fa05880",
+    "reads": [
+     "paint.stroke.geometry",
+     "source",
+     "tool"
+    ]
+   },
+   {
+    "ok?": true,
+    "behaviour-edit-changes?": true,
+    "rename-changes?": false,
+    "name": "pen",
+    "regions": [
+     "fill",
+     "stroke"
+    ],
+    "ops": [
+     "source",
+     "fill-region",
+     "envelope"
+    ],
+    "geometry-edit-changes?": true,
+    "pass?": true,
+    "rename-runs": 0,
+    "base": "97a113e70c6ded5cdf2f544cadcf78730882a669f42546884ec007ae0bc70bad",
+    "reads": [
+     "paint.fill.rule",
+     "paint.stroke.geometry",
+     "source",
+     "tool"
+    ]
+   },
+   {
+    "ok?": true,
+    "behaviour-edit-changes?": true,
+    "rename-changes?": false,
+    "name": "border",
+    "regions": [
+     "fill",
+     "stroke"
+    ],
+    "ops": [
+     "source",
+     "snap",
+     "fill-region",
+     "envelope"
+    ],
+    "geometry-edit-changes?": true,
+    "pass?": true,
+    "rename-runs": 0,
+    "base": "f8c9f35e7674de5da494ca11c138f4dd952c1d82c098e86f1aacb4cb19f1c3e7",
+    "reads": [
+     "paint.fill.rule",
+     "paint.stroke.geometry",
+     "source",
+     "tool",
+     "view.pan",
+     "view.scale"
+    ]
+   }
+  ],
+  "pass?": true
+ },
+ "pass?": true,
+ "cases": [
+  {
+   "case-id": "holed-concave-default-unit-z1",
+   "zoom": 1,
+   "lod": "bucket-0",
+   "normalization": "screen-constant",
+   "shape-extent-world": 80,
+   "construction": {
+    "ops": [
+     "source",
+     "fill-region"
+    ],
+    "reads": [
+     "paint.fill.rule",
+     "source",
+     "tool"
+    ],
+    "regions": [
+     "fill"
+    ]
+   },
+   "images": [
+    {
+     "mode": "holed-concave",
+     "file": "gpu-path-holed-concave-holed-concave-default-unit-z1.png",
+     "raw-sha256": "3544be76b085f46bd22d142e58e654939fe45cbb6b2f4e7de83eaeab46cc0992",
+     "png": "png/gpu-path-holed-concave-holed-concave-default-unit-z1.png",
+     "determinism": {
+      "first-raw-sha256": "3544be76b085f46bd22d142e58e654939fe45cbb6b2f4e7de83eaeab46cc0992",
+      "second-raw-sha256": "3544be76b085f46bd22d142e58e654939fe45cbb6b2f4e7de83eaeab46cc0992",
+      "byte-identical?": true
+     }
+    }
+   ]
+  },
+  {
+   "case-id": "translucent-self-crossing-legal-z10",
+   "zoom": 10,
+   "lod": "bucket-3",
+   "normalization": "screen-constant",
+   "shape-extent-world": 8,
+   "construction": {
+    "ops": [
+     "source",
+     "envelope"
+    ],
+    "reads": [
+     "paint.stroke.geometry",
+     "source",
+     "tool"
+    ],
+    "regions": [
+     "stroke"
+    ]
+   },
+   "images": [
+    {
+     "mode": "translucent-self-crossing",
+     "file": "gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png",
+     "raw-sha256": "2d34ef6603bce8c51b6b951466ff08ee128112ce430f8b7449dbf770ad1f21bb",
+     "png": "png/gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png",
+     "determinism": {
+      "first-raw-sha256": "2d34ef6603bce8c51b6b951466ff08ee128112ce430f8b7449dbf770ad1f21bb",
+      "second-raw-sha256": "2d34ef6603bce8c51b6b951466ff08ee128112ce430f8b7449dbf770ad1f21bb",
+      "byte-identical?": true
+     }
+    }
+   ]
+  },
+  {
+   "case-id": "tree-containers-cid17-slot1",
+   "zoom": 1,
+   "lod": "bucket-0",
+   "normalization": "path-local-with-world-transforms-group-tree",
+   "shape-extent-world": 32,
+   "buffer-indexes": [
+    0,
+    1
+   ],
+   "unknown-group": {
+    "error-type": "unknown-group",
+    "group-id": 99
+   },
+   "images": [
+    {
+     "mode": "container-tree",
+     "file": "gpu-path-container-tree-tree-containers-cid17-slot1.png",
+     "raw-sha256": "ca96286b8c0db9d50a2ead80d5cb9d79c9d72525c286a43243cfcf3ff1c453ba",
+     "png": "png/gpu-path-container-tree-tree-containers-cid17-slot1.png",
+     "determinism": {
+      "first-raw-sha256": "ca96286b8c0db9d50a2ead80d5cb9d79c9d72525c286a43243cfcf3ff1c453ba",
+      "second-raw-sha256": "ca96286b8c0db9d50a2ead80d5cb9d79c9d72525c286a43243cfcf3ff1c453ba",
+      "byte-identical?": true
+     }
+    }
+   ]
+  }
+ ],
+ "rates": {
+  "zoom-inside-bucket": {
+   "changed?": false,
+   "runs": 0,
+   "packs": 0,
+   "instance-writes": 0,
+   "instances": 1
+  },
+  "group-rescaled": {
+   "changed?": true,
+   "runs": 0,
+   "packs": 1,
+   "instance-writes": 1,
+   "instances": 1
+  },
+  "border-first": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 2,
+   "instance-writes": 2,
+   "instances": 2
+  },
+  "pan": {
+   "changed?": false,
+   "runs": 0,
+   "packs": 0,
+   "instance-writes": 0,
+   "instances": 1
+  },
+  "restore": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 1,
+   "instance-writes": 1,
+   "instances": 1
+  },
+  "geometry-edit": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 1,
+   "instance-writes": 1,
+   "instances": 1
+  },
+  "group-first": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 1,
+   "instance-writes": 2,
+   "instances": 1
+  },
+  "border-pan": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 2,
+   "instance-writes": 2,
+   "instances": 2
+  },
+  "colour-edit": {
+   "changed?": true,
+   "runs": 0,
+   "packs": 0,
+   "instance-writes": 1,
+   "instances": 1
+  },
+  "fractional": {
+   "offset": [
+    0.5,
+    0.25
+   ],
+   "edge-rows": 300,
+   "max-delta": 0.001955039618897758
+  },
+  "zoom-across-bucket": {
+   "changed?": true,
+   "runs": 0,
+   "packs": 1,
+   "instance-writes": 1,
+   "instances": 1
+  },
+  "pass?": true,
+  "repeat": {
+   "changed?": false,
+   "runs": 0,
+   "packs": 0,
+   "instance-writes": 0,
+   "instances": 1
+  },
+  "first": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 1,
+   "instance-writes": 1,
+   "instances": 1
+  },
+  "border-zoom": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 2,
+   "instance-writes": 2,
+   "instances": 2
+  },
+  "group-moved": {
+   "changed?": false,
+   "runs": 0,
+   "packs": 0,
+   "instance-writes": 0,
+   "instances": 1
+  }
+ },
+ "self-overlap-alpha": "one-region-one-resolve",
+ "crossing": {
+  "dab-count": 24,
+  "union-alpha": 0.6196078431372549,
+  "tip": "nib",
+  "edge-max-delta": 0.0019513841764754458,
+  "edge-rows": 200,
+  "dabs-alpha": 0.8549019607843137,
+  "nonlinear": {
+   "rule-holds?": true,
+   "gap-local": 0.12413872691916605,
+   "sub-pixel-gap?": true,
+   "dab": {
+    "x": 60.845728827479675,
+    "y": 61.01174309971759,
+    "r": 4.677200212096453,
+    "p": 0.7646241079851306,
+    "alt-r": 4.801338939015619
+   },
+   "centre": [
+    60,
+    61
+   ],
+   "centre-alpha": 0.8549019607843137
+  },
+  "crossing-pixel": [
+   64,
+   64
+  ],
+  "pass?": true,
+  "dab-instances": 24
+ }
+}

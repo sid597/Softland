@@ -1,0 +1,3 @@
+== Codex lane: F3, a screen-fixed group's projected scale ==
+   the registry's row for group 17: {:affine [1.0 0.0 0.0 1.0 0.0 0.0], :flags 1, :buffer-index 1}
+   pack/projected-scale row zoom=1 dpr=1 → 1.0 ; zoom=2 → 2.0  (a screen group should give 1.0 at both; pack reads (:camera row), the row carries :flags)

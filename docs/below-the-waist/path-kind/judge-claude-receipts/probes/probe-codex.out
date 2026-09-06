@@ -1,0 +1,35 @@
+== Codex lane, pure layer ==
+A. Z union regions: 1  dabs: 24  classify (64,64): :inside
+B. blob: |ra-rb|=7.2 >= piece 2 → the big disc (r 8 at (12,50))
+    [19.0 50.0] → :inside  dist to (12,50) = 7.0
+    [18.5 50.0] → :inside  dist to (12,50) = 6.5
+    [12.0 57.0] → :inside  dist to (12,50) = 7.0
+    [12.0 43.5] → :inside  dist to (12,50) = 6.5
+    [5.0 50.0] → :inside  dist to (12,50) = 7.0
+    [4.5 50.0] → :inside  dist to (12,50) = 7.5
+    [12.0 50.0] → :inside  dist to (12,50) = 0.0
+C. nonlinear 40p²: at x=50 true radius 6.05, interpolation 10.1
+    (50, 5.5 ) → :inside
+    (50, 6.0 ) → :inside
+    (50, 6.1 ) → :inside
+    (50, 6.5 ) → :outside
+    (50, 8.0 ) → :outside
+    (50, 9.5 ) → :outside
+    (50, 10.2 ) → :outside
+    flattened points on the line: 17
+    boundary distance at (50,0): 6.021663764476741
+    as dabs (spacing 50): count 3
+D. 70-sample limaçon, Catmull-Rom, width 10p, geometry tolerance .05: flattened points 127  capsule loops 126
+    scale 0.5 → quads 2383  bands [0 0 31 31]  curve texture rows(4096 wide) 2.0
+    scale 3.0 → quads 2383  bands [0 0 31 31]  curve texture rows(4096 wide) 2.0
+    scale 30.0 → quads 2383  bands [0 0 31 31]  curve texture rows(4096 wide) 2.0
+    scale 300.0 → quads 2383  bands [0 0 31 31]  curve texture rows(4096 wide) 2.0
+    one dab at scale 3: quads 16
+    the Z union at scale 3: quads 57  glyph [0 0 5 5]
+F. open Z, miter join → THROWS Miter border requires a closed uniform-width path {:error-type :path/border-construction}
+F. open Z, butt cap → THROWS Butt caps require an explicit outline construction {:error-type :path/cap-construction}
+F. open Z, dash → THROWS Schema has an unknown key {:error-type :schema/unknown-key, :path [:path/paint :stroke :dash], :value [10 10]}
+F. open Z, ribbon tip → THROWS Schema membership rejected value {:error-type :schema/invalid-value, :path [:path/paint :stroke :tip], :value :ribbon, :allowed #{:round-nib}}
+F. open Z, align inside → THROWS Miter border requires a closed uniform-width path {:error-type :path/border-construction}
+   samples capability options: {:value {:subpaths [{:start [0 0], :closed? false, :knots [{:id 0, :pressure 0.5, :width 8.0} {:id 1, :pressure 0.5, :width 8.0}], :segments [{:id [0 1], :to [6.5 0.0], :type :cubic, :control1 [1.0833333333333333 0.0], :control2 [5.416666666666667 0.0]}]}]}, :bindings {:source {:samples [{:id 0, :position [0 0], :pressure 0.5, :width 8.0} {:id 1, :position [10 0], :pressure 0.5, :width 8.0}]}, :settings {:streamline 0.35, :interpolation :catmull-rom, :fit 0.9, :taper-end 22}, :path {:subpaths [{:start [0 0], :closed? false, :knots [{:id 0, :pressure 0.5, :width 8.0} {:id 1, :pressure 0.5, :width 8.0}], :segments [{:id [0 1], :to [6.5 0.0], :type :cubic, :control1 [1.0833333333333333 0.0], :control2 [5.416666666666667 0.0]}]}]}}}
+   (fit/taper keys are ignored, not refused: nil )

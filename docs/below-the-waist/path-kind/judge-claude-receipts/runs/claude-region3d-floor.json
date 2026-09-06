@@ -1,0 +1,1078 @@
+{
+ "system": {
+  "light-uploads": 33,
+  "bindings": {
+   "lease-ids": [],
+   "buffer-index-releases": 7,
+   "pending-buffer-indexes": {
+    "harness": {
+     "epoch": 11,
+     "buffer-index": 0
+    }
+   },
+   "epoch-bumps": 11,
+   "desired": {},
+   "live-buffer-indexes": {},
+   "desired-updates": 20,
+   "buffer-index-allocations": 11,
+   "device-epoch": 11
+  },
+  "regions": {},
+  "placements": {
+   "version": 1,
+   "packs": 1,
+   "uploads": 1,
+   "draws": 17,
+   "ink-vertices": 0,
+   "over-limit": 0,
+   "last-coverage-check": {}
+  },
+  "region-encodes": 27,
+  "composite-uploads": 9,
+  "uniform-uploads": 20,
+  "scene-derives": 11,
+  "object-instance-uploads": 90,
+  "scene-transform-updates": 1,
+  "prepare-calls": 20,
+  "prepared": {},
+  "version": 1,
+  "held-passes": 15,
+  "mesh-vertex-uploads": 11
+ },
+ "s4": {
+  "expected-t": 6.9,
+  "epsilon-bytes": 2,
+  "actual-object": "near",
+  "expected-object": "near",
+  "actual-t": 6.9,
+  "sample": [
+   64,
+   64
+  ],
+  "depth-classes": {
+   "interior": {
+    "cpu-route": "object",
+    "cpu-object": "near",
+    "gpu-rgba": [
+     215,
+     218,
+     226,
+     255
+    ]
+   },
+   "outside": {
+    "cpu-route": "region-background",
+    "gpu-rgba": [
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   "boundary": {
+    "cpu-route": "object",
+    "cpu-object": "near",
+    "cpu-boundary?": true,
+    "gpu-rgba": [
+     23,
+     23,
+     25,
+     32
+    ],
+    "screen": [
+     53.47975778606008,
+     30.52024221393992
+    ]
+   }
+  },
+  "max-byte-delta": 1,
+  "expected-rgba": [
+   215,
+   218,
+   227,
+   255
+  ],
+  "pass?": true,
+  "depth-classes-pass?": true,
+  "transparency-sample": [
+   93,
+   55
+  ],
+  "actual-rgba": [
+   215,
+   218,
+   226,
+   255
+  ],
+  "transparency-rgba": [
+   15,
+   88,
+   73,
+   128
+  ]
+ },
+ "boundary": {
+  "resolved": 1,
+  "ink-vertices": 26,
+  "pass?": true
+ },
+ "r3": {
+  "frames": [
+   {
+    "changed?": true,
+    "full-rebuilds": 1,
+    "instance-uploads": 8,
+    "bvh-refits": 0,
+    "region-encodes": 0,
+    "frame": 1
+   },
+   {
+    "changed?": false,
+    "full-rebuilds": 0,
+    "instance-uploads": 0,
+    "bvh-refits": 0,
+    "region-encodes": 0,
+    "frame": 2
+   },
+   {
+    "changed?": true,
+    "full-rebuilds": 0,
+    "instance-uploads": 0,
+    "bvh-refits": 0,
+    "region-encodes": 0,
+    "frame": 3
+   },
+   {
+    "changed?": true,
+    "full-rebuilds": 0,
+    "instance-uploads": 1,
+    "bvh-refits": 1,
+    "region-encodes": 0,
+    "frame": 4
+   },
+   {
+    "changed?": true,
+    "full-rebuilds": 0,
+    "instance-uploads": 0,
+    "bvh-refits": 0,
+    "region-encodes": 1,
+    "frame": 5
+   }
+  ],
+  "pass?": true
+ },
+ "compositor": {
+  "region-rung-stats": [],
+  "lease-activity": {
+   "leases-retired": 1,
+   "region-binding-updates": 0,
+   "leases-acquired": 0,
+   "region-rungs-worn": 0,
+   "region-rung-recoveries": 0
+  },
+  "pool": {
+   "version": 2,
+   "budget-cap-bytes": 536870912,
+   "free": 1,
+   "budget-owner": "target-pool",
+   "allocations": 16,
+   "high-water-leased": 5,
+   "destroyed": 15,
+   "rejections": [],
+   "reserved-bytes": 131072,
+   "leased": 0,
+   "reuses": 16
+  },
+  "region-leases": {
+   "owner": "region-leases",
+   "leases": {},
+   "bytes": 0
+  }
+ },
+ "r1": {
+  "unknown-group": {
+   "error-type": "unknown-group",
+   "group-id": 999
+  },
+  "pass?": true
+ },
+ "pass?": true,
+ "cases": [
+  {
+   "case-id": "sandwich",
+   "zoom": 1,
+   "lod": "region3d-floor-default",
+   "normalization": "region-local-3d-inside-world-2d",
+   "shape-extent-world": [
+    80,
+    88
+   ],
+   "oracle": null,
+   "boundary-evidence": null,
+   "images": [
+    {
+     "mode": "sandwich",
+     "file": "gpu-region3d-floor-sandwich.png",
+     "raw-sha256": "fa62ccc356b8afba4b5c32446966d9f62634951ce8eaeff5755d122ce8e91199",
+     "png": "png/gpu-region3d-floor-sandwich.png",
+     "determinism": {
+      "first-raw-sha256": "fa62ccc356b8afba4b5c32446966d9f62634951ce8eaeff5755d122ce8e91199",
+      "second-raw-sha256": "fa62ccc356b8afba4b5c32446966d9f62634951ce8eaeff5755d122ce8e91199",
+      "byte-identical?": true
+     }
+    }
+   ]
+  },
+  {
+   "case-id": "lit-depth-shadow",
+   "zoom": 1,
+   "lod": "region3d-floor-default",
+   "normalization": "region-local-3d-inside-world-2d",
+   "shape-extent-world": [
+    80,
+    88
+   ],
+   "oracle": {
+    "expected-t": 6.9,
+    "epsilon-bytes": 2,
+    "actual-object": "near",
+    "expected-object": "near",
+    "actual-t": 6.9,
+    "sample": [
+     64,
+     64
+    ],
+    "depth-classes": {
+     "interior": {
+      "cpu-route": "object",
+      "cpu-object": "near",
+      "gpu-rgba": [
+       215,
+       218,
+       226,
+       255
+      ]
+     },
+     "outside": {
+      "cpu-route": "region-background",
+      "gpu-rgba": [
+       0,
+       0,
+       0,
+       0
+      ]
+     },
+     "boundary": {
+      "cpu-route": "object",
+      "cpu-object": "near",
+      "cpu-boundary?": true,
+      "gpu-rgba": [
+       23,
+       23,
+       25,
+       32
+      ],
+      "screen": [
+       53.47975778606008,
+       30.52024221393992
+      ]
+     }
+    },
+    "max-byte-delta": 1,
+    "expected-rgba": [
+     215,
+     218,
+     227,
+     255
+    ],
+    "pass?": true,
+    "depth-classes-pass?": true,
+    "transparency-sample": [
+     93,
+     55
+    ],
+    "actual-rgba": [
+     215,
+     218,
+     226,
+     255
+    ],
+    "transparency-rgba": [
+     15,
+     88,
+     73,
+     128
+    ]
+   },
+   "boundary-evidence": null,
+   "images": [
+    {
+     "mode": "lit-depth-shadow",
+     "file": "gpu-region3d-floor-lit-depth-shadow.png",
+     "raw-sha256": "71def3590e75cce0a9aa79f0cc3cde460ffbbfc74b9848a97f0db25cfa2d8d02",
+     "png": "png/gpu-region3d-floor-lit-depth-shadow.png",
+     "determinism": {
+      "first-raw-sha256": "71def3590e75cce0a9aa79f0cc3cde460ffbbfc74b9848a97f0db25cfa2d8d02",
+      "second-raw-sha256": "71def3590e75cce0a9aa79f0cc3cde460ffbbfc74b9848a97f0db25cfa2d8d02",
+      "byte-identical?": true
+     }
+    }
+   ]
+  },
+  {
+   "case-id": "tree",
+   "zoom": 1,
+   "lod": "region3d-floor-default",
+   "normalization": "region-local-3d-inside-world-2d",
+   "shape-extent-world": [
+    80,
+    88
+   ],
+   "oracle": null,
+   "boundary-evidence": {
+    "resolved": 1,
+    "ink-vertices": 26
+   },
+   "images": [
+    {
+     "mode": "tree",
+     "file": "gpu-region3d-floor-tree.png",
+     "raw-sha256": "fda1ce8b45ffb4ec81a9bf83667a06a65d3a9ecd3aca8572030224e65ed8dd9e",
+     "png": "png/gpu-region3d-floor-tree.png",
+     "determinism": {
+      "first-raw-sha256": "fda1ce8b45ffb4ec81a9bf83667a06a65d3a9ecd3aca8572030224e65ed8dd9e",
+      "second-raw-sha256": "fda1ce8b45ffb4ec81a9bf83667a06a65d3a9ecd3aca8572030224e65ed8dd9e",
+      "byte-identical?": true
+     }
+    }
+   ]
+  },
+  {
+   "case-id": "worn",
+   "zoom": 8,
+   "lod": "region3d-floor-worn",
+   "normalization": "region-local-3d-inside-world-2d",
+   "shape-extent-world": [
+    80,
+    88
+   ],
+   "images": [
+    {
+     "mode": "worn",
+     "file": "gpu-region3d-floor-worn.png",
+     "raw-sha256": "83136575b99b5c1684006ba9b15d6aecadceb571ec21203b44f1a090dc1ea572",
+     "png": "png/gpu-region3d-floor-worn.png",
+     "determinism": {
+      "first-raw-sha256": "83136575b99b5c1684006ba9b15d6aecadceb571ec21203b44f1a090dc1ea572",
+      "second-raw-sha256": "83136575b99b5c1684006ba9b15d6aecadceb571ec21203b44f1a090dc1ea572",
+      "byte-identical?": true
+     }
+    }
+   ]
+  }
+ ],
+ "lower-resolution": {
+  "held-stable?": true,
+  "pick": {
+   "object": "near",
+   "background": "region-background",
+   "pass?": true
+  },
+  "deterministic?": true,
+  "current-content?": true,
+  "glyph?": true,
+  "worn": {
+   "lease": {
+    "region-id": "harness",
+    "size": [
+     512,
+     512
+    ],
+    "bytes": 31457280,
+    "rejected?": false,
+    "desired-key": [
+     "harness",
+     768,
+     768
+    ],
+    "rung-divisor": 2
+   },
+   "lease-activity": {
+    "leases-retired": 1,
+    "region-binding-updates": 1,
+    "leases-acquired": 1,
+    "region-rungs-worn": 1,
+    "region-rung-recoveries": 0
+   },
+   "rung-stats": [
+    {
+     "id": "harness",
+     "desired-key": [
+      "harness",
+      768,
+      768
+     ],
+     "granted-key": [
+      "harness",
+      512,
+      512
+     ],
+     "rung-divisor": 2,
+     "candidate-bytes": 31457280,
+     "reserved-bytes": 43646976,
+     "budget-cap-bytes": 67108864
+    }
+   ]
+  },
+  "honest-counter?": true,
+  "pass?": true,
+  "sharp": {
+   "lease": {
+    "region-id": "harness",
+    "size": [
+     256,
+     256
+    ],
+    "bytes": 20447232,
+    "rejected?": false,
+    "desired-key": [
+     "harness",
+     256,
+     256
+    ],
+    "rung-divisor": 1
+   },
+   "lease-activity": {
+    "leases-retired": 0,
+    "region-binding-updates": 1,
+    "leases-acquired": 1,
+    "region-rungs-worn": 0,
+    "region-rung-recoveries": 0
+   }
+  },
+  "recovery": {
+   "lease": {
+    "region-id": "harness",
+    "size": [
+     768,
+     768
+    ],
+    "bytes": 49807360,
+    "rejected?": false,
+    "desired-key": [
+     "harness",
+     768,
+     768
+    ],
+    "rung-divisor": 1
+   },
+   "lease-activity": {
+    "leases-retired": 1,
+    "region-binding-updates": 1,
+    "leases-acquired": 1,
+    "region-rungs-worn": 0,
+    "region-rung-recoveries": 1
+   },
+   "pass?": true
+  },
+  "floor": {
+   "no-shadow": {
+    "stats": {
+     "last-region-rejection": {
+      "reason": "frame-target-budget-exceeded",
+      "region-id": "harness",
+      "key": [
+       "harness",
+       768,
+       768
+      ],
+      "requested-size": [
+       768,
+       768
+      ],
+      "requested-bytes": 33030144,
+      "reserved-bytes": 0,
+      "budget-cap-bytes": 3145728,
+      "requested-by": "region3d/:region3d/harness/lease"
+     },
+     "region-rung-stats": [],
+     "lease-activity": {
+      "leases-retired": 0,
+      "region-binding-updates": 1,
+      "leases-acquired": 0,
+      "region-rungs-worn": 0,
+      "region-rung-recoveries": 0
+     },
+     "pool": {
+      "version": 2,
+      "budget-cap-bytes": 3145728,
+      "free": 1,
+      "budget-owner": "target-pool",
+      "allocations": 1,
+      "high-water-leased": 1,
+      "destroyed": 0,
+      "rejections": [
+       {
+        "reason": "frame-target-budget-exceeded",
+        "requested-bytes": 33030144,
+        "reserved-bytes": 0,
+        "budget-cap-bytes": 3145728,
+        "requested-by": "region3d/:region3d/harness/lease"
+       }
+      ],
+      "reserved-bytes": 131072,
+      "leased": 0,
+      "reuses": 0
+     },
+     "region-leases": {
+      "owner": "region-leases",
+      "leases": {},
+      "bytes": 0
+     }
+    },
+    "sample": [
+     118,
+     66,
+     72,
+     255
+    ],
+    "pass?": true
+   },
+   "shadowed": {
+    "stats": {
+     "last-region-rejection": {
+      "reason": "frame-target-budget-exceeded",
+      "region-id": "harness",
+      "key": [
+       "harness",
+       768,
+       768
+      ],
+      "requested-size": [
+       768,
+       768
+      ],
+      "requested-bytes": 49807360,
+      "reserved-bytes": 0,
+      "budget-cap-bytes": 5242880,
+      "requested-by": "region3d/:region3d/harness/lease"
+     },
+     "region-rung-stats": [],
+     "lease-activity": {
+      "leases-retired": 0,
+      "region-binding-updates": 1,
+      "leases-acquired": 0,
+      "region-rungs-worn": 0,
+      "region-rung-recoveries": 0
+     },
+     "pool": {
+      "version": 2,
+      "budget-cap-bytes": 5242880,
+      "free": 1,
+      "budget-owner": "target-pool",
+      "allocations": 1,
+      "high-water-leased": 1,
+      "destroyed": 0,
+      "rejections": [
+       {
+        "reason": "frame-target-budget-exceeded",
+        "requested-bytes": 49807360,
+        "reserved-bytes": 0,
+        "budget-cap-bytes": 5242880,
+        "requested-by": "region3d/:region3d/harness/lease"
+       }
+      ],
+      "reserved-bytes": 131072,
+      "leased": 0,
+      "reuses": 0
+     },
+     "region-leases": {
+      "owner": "region-leases",
+      "leases": {},
+      "bytes": 0
+     }
+    },
+    "sample": [
+     118,
+     66,
+     72,
+     255
+    ],
+    "pass?": true
+   },
+   "byte-identical?": true
+  },
+  "wear-sample": [
+   111,
+   229,
+   246,
+   255
+  ],
+  "reserve-preserved?": true
+ },
+ "s5": {
+  "rejection": {
+   "stats": {
+    "last-region-rejection": {
+     "reason": "frame-target-budget-exceeded",
+     "region-id": "harness",
+     "key": [
+      "harness",
+      256,
+      256
+     ],
+     "requested-size": [
+      256,
+      256
+     ],
+     "requested-bytes": 20447232,
+     "reserved-bytes": 0,
+     "budget-cap-bytes": 5242880,
+     "requested-by": "region3d/:region3d/harness/lease"
+    },
+    "region-rung-stats": [],
+    "lease-activity": {
+     "leases-retired": 0,
+     "region-binding-updates": 1,
+     "leases-acquired": 0,
+     "region-rungs-worn": 0,
+     "region-rung-recoveries": 0
+    },
+    "pool": {
+     "version": 2,
+     "budget-cap-bytes": 5242880,
+     "free": 1,
+     "budget-owner": "target-pool",
+     "allocations": 1,
+     "high-water-leased": 1,
+     "destroyed": 0,
+     "rejections": [
+      {
+       "reason": "frame-target-budget-exceeded",
+       "requested-bytes": 20447232,
+       "reserved-bytes": 0,
+       "budget-cap-bytes": 5242880,
+       "requested-by": "region3d/:region3d/harness/lease"
+      }
+     ],
+     "reserved-bytes": 131072,
+     "leased": 0,
+     "reuses": 0
+    },
+    "region-leases": {
+     "owner": "region-leases",
+     "leases": {},
+     "bytes": 0
+    }
+   },
+   "sample": [
+    118,
+    66,
+    72,
+    255
+   ],
+   "pass?": true
+  },
+  "after-close": {
+   "owner": "region-leases",
+   "leases": {},
+   "bytes": 0
+  },
+  "view-passes": [
+   {
+    "region-id": "harness",
+    "role": "shadow",
+    "encoded?": false,
+    "held?": true,
+    "lease-key": [
+     "harness",
+     256,
+     256
+    ]
+   },
+   {
+    "region-id": "harness",
+    "role": "interior",
+    "encoded?": true,
+    "held?": false,
+    "lease-key": [
+     "harness",
+     256,
+     256
+    ]
+   }
+  ],
+  "before-view": {
+   "light-uploads": 12,
+   "bindings": {
+    "lease-ids": [
+     "harness"
+    ],
+    "buffer-index-releases": 2,
+    "pending-buffer-indexes": {},
+    "epoch-bumps": 1,
+    "desired": {
+     "harness": {
+      "lease-key": [
+       "harness",
+       256,
+       256
+      ],
+      "shadow?": true,
+      "buffer-index": 0,
+      "encode-rung": 0
+     }
+    },
+    "live-buffer-indexes": {
+     "harness": 0
+    },
+    "desired-updates": 6,
+    "buffer-index-allocations": 3,
+    "device-epoch": 1
+   },
+   "regions": {
+    "harness": {
+     "changed?": true,
+     "full-rebuilds": 1,
+     "instance-uploads": 8,
+     "bvh-refits": 0,
+     "region-encodes": 0
+    }
+   },
+   "placements": {
+    "version": 1,
+    "packs": 1,
+    "uploads": 1,
+    "draws": 7,
+    "ink-vertices": 0,
+    "over-limit": 0,
+    "last-coverage-check": {}
+   },
+   "region-encodes": 10,
+   "composite-uploads": 4,
+   "uniform-uploads": 8,
+   "scene-derives": 4,
+   "object-instance-uploads": 34,
+   "scene-transform-updates": 1,
+   "prepare-calls": 8,
+   "prepared": {
+    "harness": {
+     "shadow?": true,
+     "placement-layouts": {},
+     "objects": 8
+    }
+   },
+   "version": 1,
+   "held-passes": 9,
+   "mesh-vertex-uploads": 4
+  },
+  "clean-passes": [
+   {
+    "region-id": "harness",
+    "role": "shadow",
+    "encoded?": false,
+    "held?": true,
+    "lease-key": [
+     "harness",
+     256,
+     256
+    ]
+   },
+   {
+    "region-id": "harness",
+    "role": "interior",
+    "encoded?": false,
+    "held?": true,
+    "lease-key": [
+     "harness",
+     256,
+     256
+    ]
+   }
+  ],
+  "after-view": {
+   "light-uploads": 12,
+   "bindings": {
+    "lease-ids": [
+     "harness"
+    ],
+    "buffer-index-releases": 2,
+    "pending-buffer-indexes": {},
+    "epoch-bumps": 1,
+    "desired": {
+     "harness": {
+      "lease-key": [
+       "harness",
+       256,
+       256
+      ],
+      "shadow?": true,
+      "buffer-index": 0,
+      "encode-rung": 0
+     }
+    },
+    "live-buffer-indexes": {
+     "harness": 0
+    },
+    "desired-updates": 6,
+    "buffer-index-allocations": 3,
+    "device-epoch": 1
+   },
+   "regions": {
+    "harness": {
+     "changed?": true,
+     "full-rebuilds": 0,
+     "instance-uploads": 0,
+     "bvh-refits": 0,
+     "region-encodes": 0
+    }
+   },
+   "placements": {
+    "version": 1,
+    "packs": 1,
+    "uploads": 1,
+    "draws": 8,
+    "ink-vertices": 0,
+    "over-limit": 0,
+    "last-coverage-check": {}
+   },
+   "region-encodes": 11,
+   "composite-uploads": 4,
+   "uniform-uploads": 9,
+   "scene-derives": 4,
+   "object-instance-uploads": 34,
+   "scene-transform-updates": 1,
+   "prepare-calls": 9,
+   "prepared": {
+    "harness": {
+     "shadow?": true,
+     "placement-layouts": {},
+     "objects": 8
+    }
+   },
+   "version": 1,
+   "held-passes": 10,
+   "mesh-vertex-uploads": 4
+  },
+  "clean-held?": true,
+  "resize": {
+   "owner": "region-leases",
+   "leases": {
+    "[:region3d/harness 512 256]": {
+     "region-id": "harness",
+     "size": [
+      512,
+      256
+     ],
+     "bytes": 24117248,
+     "rejected?": false,
+     "desired-key": [
+      "harness",
+      512,
+      256
+     ],
+     "rung-divisor": 1
+    }
+   },
+   "bytes": 24117248
+  },
+  "camera-wake": {
+   "object-instance-upload-delta": 0,
+   "mesh-vertex-upload-delta": 0,
+   "uniform-upload-delta": 1,
+   "passes": [
+    {
+     "region-id": "harness",
+     "role": "shadow",
+     "encoded?": false,
+     "held?": true,
+     "lease-key": [
+      "harness",
+      256,
+      256
+     ]
+    },
+    {
+     "region-id": "harness",
+     "role": "interior",
+     "encoded?": true,
+     "held?": false,
+     "lease-key": [
+      "harness",
+      256,
+      256
+     ]
+    }
+   ]
+  },
+  "destroy-recreate": {
+   "before-destroy": {
+    "owner": "region-leases",
+    "leases": {
+     "[:region3d/harness 256 256]": {
+      "region-id": "harness",
+      "size": [
+       256,
+       256
+      ],
+      "bytes": 20447232,
+      "rejected?": false,
+      "desired-key": [
+       "harness",
+       256,
+       256
+      ],
+      "rung-divisor": 1
+     }
+    },
+    "bytes": 20447232
+   },
+   "after-destroy": {
+    "owner": "region-leases",
+    "leases": {},
+    "bytes": 0
+   },
+   "after-recreate": {
+    "owner": "region-leases",
+    "leases": {
+     "[:region3d/harness 256 256]": {
+      "region-id": "harness",
+      "size": [
+       256,
+       256
+      ],
+      "bytes": 20447232,
+      "rejected?": false,
+      "desired-key": [
+       "harness",
+       256,
+       256
+      ],
+      "rung-divisor": 1
+     }
+    },
+    "bytes": 20447232
+   },
+   "passes": [
+    {
+     "region-id": "harness",
+     "role": "shadow",
+     "encoded?": true,
+     "held?": false,
+     "lease-key": [
+      "harness",
+      256,
+      256
+     ]
+    },
+    {
+     "region-id": "harness",
+     "role": "interior",
+     "encoded?": true,
+     "held?": false,
+     "lease-key": [
+      "harness",
+      256,
+      256
+     ]
+    }
+   ],
+   "pass?": true
+  },
+  "pass?": true,
+  "shadow-off": {
+   "owner": "region-leases",
+   "leases": {
+    "[:region3d/harness 512 256]": {
+     "region-id": "harness",
+     "size": [
+      512,
+      256
+     ],
+     "bytes": 7340032,
+     "rejected?": false,
+     "desired-key": [
+      "harness",
+      512,
+      256
+     ],
+     "rung-divisor": 1
+    }
+   },
+   "bytes": 7340032
+  }
+ },
+ "fixture-query": "?region3d=1",
+ "s2": {
+  "expected-t": 6.9,
+  "epsilon-bytes": 2,
+  "actual-object": "near",
+  "expected-object": "near",
+  "actual-t": 6.9,
+  "sample": [
+   64,
+   64
+  ],
+  "depth-classes": {
+   "interior": {
+    "cpu-route": "object",
+    "cpu-object": "near",
+    "gpu-rgba": [
+     215,
+     218,
+     226,
+     255
+    ]
+   },
+   "outside": {
+    "cpu-route": "region-background",
+    "gpu-rgba": [
+     0,
+     0,
+     0,
+     0
+    ]
+   },
+   "boundary": {
+    "cpu-route": "object",
+    "cpu-object": "near",
+    "cpu-boundary?": true,
+    "gpu-rgba": [
+     23,
+     23,
+     25,
+     32
+    ],
+    "screen": [
+     53.47975778606008,
+     30.52024221393992
+    ]
+   }
+  },
+  "max-byte-delta": 1,
+  "expected-rgba": [
+   215,
+   218,
+   227,
+   255
+  ],
+  "pass?": true,
+  "depth-classes-pass?": true,
+  "transparency-sample": [
+   93,
+   55
+  ],
+  "actual-rgba": [
+   215,
+   218,
+   226,
+   255
+  ],
+  "transparency-rgba": [
+   15,
+   88,
+   73,
+   128
+  ]
+ }
+}

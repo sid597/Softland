@@ -1,0 +1,21 @@
+
+Testing app.client.engine.expression-test
+
+Testing app.client.engine.executor-test
+
+Testing app.client.path.value-test
+
+Testing app.client.path.source-test
+
+Testing app.client.path.stroke-test
+
+Testing app.client.path.pack-test
+
+Testing app.client.path.component-test
+
+Testing app.client.path.frame-test
+
+Ran 43 tests containing 360 assertions.
+0 failures, 0 errors.
+SUMMARY {:test 43, :pass 360, :fail 0, :error 0, :type :summary}
+clj -M:test -i test/app/client/path/run_pure.clj  6.77s user 0.31s system 333% cpu 2.122 total
