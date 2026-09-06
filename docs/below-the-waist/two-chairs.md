@@ -72,6 +72,8 @@ The composer's terrain adds: hold the picture; bring forks only where Sid's word
 
 **3. A phase B attack or fold.** No new prompt: the continuation starter carries the role, and this document carries the shape of a phase B fold. If a prompt is needed at all it says which phase the round is in and points here.
 
+**The first implementation round is a comparison** (Sid, 2026-09-06): both model families get the builder starter unchanged, each in its own worktree on its own branch; the judge is the definer's records passing, the harness running and what Sid sees on screen, never one session ranking the other; the roles for the rounds after are assigned from the two builds (one builds and one attacks, a split by piece, or both build and the better one lands). Two parallel builders is the one departure from committing on `main`, said here.
+
 **4. An implementation round.** The same fence, essence and terrain, one starter per lane, with Sid's process ruling carried in the essence (the prototype is the spec; tests built as you build; documentation in the hierarchy with the code; the best team in the world; functional; the data layers, the data flow and reactive programming worked out early). No contract, no method. `path-kind/STARTER-client.md` is the first pair.
 
 What every prompt leaves out, because each has fired: an output shape, a method or reading order, epistemic coaching, a register block, enumerated freedoms, restated house law, example values, steering verbs inside the terrain. When Sid is present in the session, the prompt needs even less; his live redirection does the rest.
