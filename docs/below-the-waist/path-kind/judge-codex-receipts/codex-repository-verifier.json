@@ -1,0 +1,590 @@
+{
+  "schemaVersion": 1,
+  "verifier": "softland-render-engine-w0-a",
+  "authority": "parked scene, GPU, and render-family harness; no product client",
+  "replayCommand": "npm run verify:render-engine",
+  "pass": false,
+  "guards": [
+    {
+      "name": "base-renderer",
+      "pass": false
+    },
+    {
+      "name": "ubuntu-slug",
+      "pass": true
+    },
+    {
+      "name": "image",
+      "pass": true
+    },
+    {
+      "name": "path",
+      "pass": true
+    },
+    {
+      "name": "region3d",
+      "pass": true
+    },
+    {
+      "name": "text-tree",
+      "pass": true
+    }
+  ],
+  "shaderDigests": {
+    "sceneColor": "ca263e5f1bbc34f00a73c780a554046dcdc3807254cfa186d64584f076835d95",
+    "presentFragment": "0835dab5812b96d62c47be9c20e42204c1df106c31937293c3ce125f3cb1a851",
+    "slugVertex": "f4b92ff85b91986a8b614790a69919f9d9baf68d992e575548cb89e6e7e17c32",
+    "slugFragment": "122ab17fb0cd059df296bae1660cae8674f318972a55dfef4166e5a338875e8b",
+    "region3dPlacedCoverage": "5abe7fb401118d53beb0c03d2e7fc1ecb10665d0829522e76c06779d58a40206"
+  },
+  "dejavuSlugGoldens": [
+    {
+      "file": "gpu-slug-legal-min-z0p01.png",
+      "pass": false
+    },
+    {
+      "file": "gpu-slug-default-min-z0p1.png",
+      "pass": false
+    },
+    {
+      "file": "gpu-slug-default-unit-z1.png",
+      "pass": false
+    },
+    {
+      "file": "gpu-slug-default-max-z8.png",
+      "pass": false
+    },
+    {
+      "file": "gpu-slug-legal-log-z10.png",
+      "pass": false
+    },
+    {
+      "file": "gpu-slug-legal-log-z100.png",
+      "pass": false
+    },
+    {
+      "file": "gpu-slug-legal-max-z1000.png",
+      "pass": false
+    }
+  ],
+  "ubuntuSlug": {
+    "text": "Aɐ",
+    "faceIds": [
+      "noto-sans-regular",
+      "ubuntu-sans-variable"
+    ],
+    "faceRevisions": [
+      "noto-sans-regular-2.011",
+      "ubuntu-sans-variable-0.869-wght400-wdth100"
+    ],
+    "pass": true
+  },
+  "representativeGoldens": [
+    {
+      "family": "cases",
+      "file": "gpu-slug-legal-min-z0p01.png",
+      "pass": false,
+      "currentRawSha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+      "expectedRawSha256": "017523e44712a0384e64f2c60f44c23514abe94d0820ed14e3add8fc35337eff",
+      "currentPngSha256": "61138da1ae5abd2544a25b1400d9abc2341168a76bf77153d344f94fad1560d2",
+      "expectedPngSha256": "83d13ea8294a112fb80d9bb154316369871bbbe37ae99120ccacd81508e858dc",
+      "goldenPngSha256": "83d13ea8294a112fb80d9bb154316369871bbbe37ae99120ccacd81508e858dc"
+    },
+    {
+      "family": "ubuntuSlug",
+      "file": "gpu-slug-ubuntu-mixed-face.png",
+      "pass": false,
+      "currentRawSha256": "52128b456a80c9e860ca923e821666b336a0ccbb80978fb56d6dcb076c57317c",
+      "expectedRawSha256": "ac7134966143ef1a74a58425e70260e830baeabd69eee09f9fa18ba18834897d",
+      "currentPngSha256": "079a3dd98a146fd5bccd213b4fa6f75e223091e1d54427a7e46a0428ee9de4dc",
+      "expectedPngSha256": "085374f871721bc132804d9de10d0a16dc645d98473e32d5235368955b4bb6a3",
+      "goldenPngSha256": "085374f871721bc132804d9de10d0a16dc645d98473e32d5235368955b4bb6a3"
+    },
+    {
+      "family": "pathStep",
+      "file": "gpu-path-holed-concave-holed-concave-default-unit-z1.png",
+      "pass": false,
+      "currentRawSha256": null,
+      "expectedRawSha256": "645f953598a86b16e64751cd57dfbca0a254a7fe177eb3b1edf5bd3c98c7410b",
+      "currentPngSha256": null,
+      "expectedPngSha256": "5b2ae0819e5509df80f3c4eda44245a64ab8912c564d639e3a5d82834c70d1c3",
+      "goldenPngSha256": "5b2ae0819e5509df80f3c4eda44245a64ab8912c564d639e3a5d82834c70d1c3"
+    },
+    {
+      "family": "pathStep",
+      "file": "gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png",
+      "pass": false,
+      "currentRawSha256": null,
+      "expectedRawSha256": "5bf612e2e8ab6a6f93f15c36db2a24391ab69a709b8ccd29f50f6a28705cea79",
+      "currentPngSha256": null,
+      "expectedPngSha256": "0467c22c1154065568da9a2a1ad8da56ccf73f9f41aefb02ad86a3cfc45084ed",
+      "goldenPngSha256": "0467c22c1154065568da9a2a1ad8da56ccf73f9f41aefb02ad86a3cfc45084ed"
+    },
+    {
+      "family": "pathStep",
+      "file": "gpu-path-container-tree-tree-containers-cid17-slot1.png",
+      "pass": false,
+      "currentRawSha256": null,
+      "expectedRawSha256": "ca96286b8c0db9d50a2ead80d5cb9d79c9d72525c286a43243cfcf3ff1c453ba",
+      "currentPngSha256": null,
+      "expectedPngSha256": "efb70305a864ddb87b29fa9a7cd8ef5fc01009b3c855dd5e62a9d1da8e99e0ac",
+      "goldenPngSha256": "efb70305a864ddb87b29fa9a7cd8ef5fc01009b3c855dd5e62a9d1da8e99e0ac"
+    },
+    {
+      "family": "region3dFloor",
+      "file": "gpu-region3d-floor-tree.png",
+      "pass": false,
+      "currentRawSha256": "add051df551b6e959130043a07c160e7317e68e852db9a345e202d7059c387b0",
+      "expectedRawSha256": "ba8b2efc3c804e2f5b034caedfb287ef321cfad9a5b70e7ca276ca34ae8964ff",
+      "currentPngSha256": "55475546a0809c4cb801b30893201808a3c16aae9c3006b92fd34fe05cacd328",
+      "expectedPngSha256": "5f56a4e73ecdfb5a2e8fcb4f3cc555cc41dfb2d214a708bb870cb73b73be7e20",
+      "goldenPngSha256": "5f56a4e73ecdfb5a2e8fcb4f3cc555cc41dfb2d214a708bb870cb73b73be7e20"
+    },
+    {
+      "family": "textGroupTree",
+      "file": "gpu-slug-container-tree-mixed-face-cid17-slot1.png",
+      "pass": false,
+      "currentRawSha256": "e9e58c39ebce752f0f329367f4ff4afef5d360bce81d861ca88fa2d9f88dbba8",
+      "expectedRawSha256": "6160b2a793cab2a92a6c9f0485bb0df0836800511ea11a26bd635bf52476be30",
+      "currentPngSha256": "77aad9a3eba3a0cde655290d841300e697c867a2139bee131cebf8b3db5c32f2",
+      "expectedPngSha256": "0576acdc3be0dd5930a81248daef419dfaadc0a246396a5416342aa0cfe3c6b9",
+      "goldenPngSha256": "0576acdc3be0dd5930a81248daef419dfaadc0a246396a5416342aa0cfe3c6b9"
+    }
+  ],
+  "sourceInputs": [
+    {
+      "path": "src/app/client/engine/buffer_pool.cljs",
+      "bytes": 4260,
+      "sha256": "363c2534a89e25da5b51b4eefb88843d59df90b1eef1e82e78ed02cd8c504c35"
+    },
+    {
+      "path": "src/app/client/engine/color.cljc",
+      "bytes": 3439,
+      "sha256": "9271263de2f9cfb21691ba16dc7cec4278d44a47365c84494be3174b3e2cc558"
+    },
+    {
+      "path": "src/app/client/engine/compositor.cljs",
+      "bytes": 37959,
+      "sha256": "cd49bd37eb565bf9b6e47d6c256fdb39f9e1daa6d01dfd94b8e9a3374761bcec"
+    },
+    {
+      "path": "src/app/client/engine/coverage.cljs",
+      "bytes": 12724,
+      "sha256": "68bba064c7e5b6c452b22a1fa12ed5dd01a96ffbcf19c9f33581bb6c785131c6"
+    },
+    {
+      "path": "src/app/client/engine/coverage_gpu.cljs",
+      "bytes": 9435,
+      "sha256": "979ea840e9021b55c02ac0f80163d255d15ae86b5876288b1a4753a2539a0684"
+    },
+    {
+      "path": "src/app/client/engine/device.cljs",
+      "bytes": 7587,
+      "sha256": "035fd21d4ce18edd0d7fa7b3c43ee7cfd14edda4d7318246ea23ae718bf51c39"
+    },
+    {
+      "path": "src/app/client/engine/executor.cljc",
+      "bytes": 4184,
+      "sha256": "52b7f030025bee29760b09d4ae8dd9587d42d6f54ec0ff8ae84fd4eacdb1d9ad"
+    },
+    {
+      "path": "src/app/client/engine/leases.cljs",
+      "bytes": 9838,
+      "sha256": "8362f232ddb0adeb9c74c831062b4baa4833463aec9e48ac52997fc4c58580ee"
+    },
+    {
+      "path": "src/app/client/engine/limits.cljc",
+      "bytes": 2597,
+      "sha256": "a140fde4441481e6954ac71b7d809b579115045894a9be5ceaef81402ed1eef3"
+    },
+    {
+      "path": "src/app/client/engine/rungs.cljc",
+      "bytes": 4741,
+      "sha256": "f94b6d021f4bb81ac4b92addd71fa8092e9d9613b24cd36a827209445d043be5"
+    },
+    {
+      "path": "src/app/client/engine/schema.cljc",
+      "bytes": 7336,
+      "sha256": "dcc5e8b714e933a04711edae1f6d986dccdd743c66fb915f7fd7d95460563172"
+    },
+    {
+      "path": "src/app/client/engine/transform.cljc",
+      "bytes": 13515,
+      "sha256": "7bb03cd8f83450e2cfd3c1dbc1a9bf230317fdc59b19dd315d3a3b2e3def5d7a"
+    },
+    {
+      "path": "src/app/client/harness/core.cljs",
+      "bytes": 11035,
+      "sha256": "081f8dbc9366fe5965d6bfc26ec88aa2c9b6ac44ddd2064e5c6e1f7cd56bb469"
+    },
+    {
+      "path": "src/app/client/harness/image.cljs",
+      "bytes": 47089,
+      "sha256": "4352b29d4ef9da7ae52cebe9dddcd6d03f3c9f21b3a372711fbd4356974e1268"
+    },
+    {
+      "path": "src/app/client/harness/path.cljs",
+      "bytes": 12718,
+      "sha256": "5dda60cfbb471d253d31ff9497d6591c8ffd4685ba46ce27980ca0ba161817c8"
+    },
+    {
+      "path": "src/app/client/harness/path_fixtures.cljc",
+      "bytes": 736,
+      "sha256": "8b2f7a238a1f6e303a0d47df6f8524744ee23677eb7b80ac73479ac2a02faa22"
+    },
+    {
+      "path": "src/app/client/harness/path_geometry_test.cljc",
+      "bytes": 6232,
+      "sha256": "9197e25c6224fac8d3542851175cf0f1c9dd18acc03d4acdcef86b30cdb19fd8"
+    },
+    {
+      "path": "src/app/client/harness/region.cljs",
+      "bytes": 62846,
+      "sha256": "85b0c93a1404007ea86e58a691a2beb118893588fc14b061def6c6268cfeaaea"
+    },
+    {
+      "path": "src/app/client/harness/region_oracle.cljc",
+      "bytes": 9106,
+      "sha256": "20b998cb2089d37a106584dfd37a0798da6f888529fc9a13237fa2daf96d8b45"
+    },
+    {
+      "path": "src/app/client/harness/shared.cljs",
+      "bytes": 12373,
+      "sha256": "a2bfa124d11cf3a3cd873f35e7db251c508676c52d98f1e3b337a82cae33fe34"
+    },
+    {
+      "path": "src/app/client/harness/text.cljs",
+      "bytes": 29456,
+      "sha256": "3603248f1f7728502eb08e132fda5b07af0e69e79d8a2135d2397315ca80568c"
+    },
+    {
+      "path": "src/app/client/image/component.cljc",
+      "bytes": 14631,
+      "sha256": "fb71cb7a854583ee24c01cf484b818ee11badbf01b4ea8ef761a36eb80f18770"
+    },
+    {
+      "path": "src/app/client/image/frame.cljc",
+      "bytes": 783,
+      "sha256": "5a1152088fedba441562140a5942b1c57de4413fcab99f1f864fb281d60d8a9d"
+    },
+    {
+      "path": "src/app/client/image/renderer.cljs",
+      "bytes": 37578,
+      "sha256": "3c1be87d44d483e074071e2dfe271546d3c3c277eb401a6001616ae67f6b798d"
+    },
+    {
+      "path": "src/app/client/path/component.cljc",
+      "bytes": 7675,
+      "sha256": "24a88954d6386dea5ecfd5a49cbac4f3886a7b1587eac7dcc9c7ae0bb30ccef8"
+    },
+    {
+      "path": "src/app/client/path/curves.cljc",
+      "bytes": 6432,
+      "sha256": "ad88e0c95d6da5f2eb3bf64a8d0894789f10fe777de70e9c0a1cc028ae1c515f"
+    },
+    {
+      "path": "src/app/client/path/geometry.cljc",
+      "bytes": 15417,
+      "sha256": "826c9f402f29f350e30716d577008758f98fab974f1dbe52c8f707127be230db"
+    },
+    {
+      "path": "src/app/client/path/pack.cljc",
+      "bytes": 3871,
+      "sha256": "127d0cd0ef1d0231bb3da80a6667f79df174d61761141921a184a5e5c41b4f86"
+    },
+    {
+      "path": "src/app/client/path/records.cljc",
+      "bytes": 1707,
+      "sha256": "c29e82d2e6308058849846dbf715631c91d1c2c141e55b613cd2c9df809f2f76"
+    },
+    {
+      "path": "src/app/client/path/renderer.cljs",
+      "bytes": 7281,
+      "sha256": "a01e1b93c76bfd2a47b0869b04404adcf2c693540345224ae683bc738d5dcbce"
+    },
+    {
+      "path": "src/app/client/path/source.cljc",
+      "bytes": 5344,
+      "sha256": "fa9e9a8938b7d2abda1c55163ed0c9d5e1702cfbef939cf787b957374544720b"
+    },
+    {
+      "path": "src/app/client/region3d/component.cljc",
+      "bytes": 24831,
+      "sha256": "77f5fe182cf5767afd217a9ca6309e5263d92c4dd36eddce413bce5113c8cc4a"
+    },
+    {
+      "path": "src/app/client/region3d/frame.cljc",
+      "bytes": 885,
+      "sha256": "6c0c200ff41135e61a6481e5518e3ff4ada39a88b5fa1508cfc96594ddb5dd01"
+    },
+    {
+      "path": "src/app/client/region3d/on_plane.cljc",
+      "bytes": 8368,
+      "sha256": "c56f9d3192a8507ca8df7090c7ed4070178264b795bdf9ca8a88d4bbbe66ba77"
+    },
+    {
+      "path": "src/app/client/region3d/on_plane_renderer.cljs",
+      "bytes": 8350,
+      "sha256": "97fcd9030b5ff6bdcb8a63d4989e3c2ec1f91f072704c9bf54449e24abd215f0"
+    },
+    {
+      "path": "src/app/client/region3d/path_projection.cljc",
+      "bytes": 3778,
+      "sha256": "6d8888bfa860bd0dd9ba74f683a289b7fe983a79f6382f549b51626d5ac67e39"
+    },
+    {
+      "path": "src/app/client/region3d/renderer.cljs",
+      "bytes": 65939,
+      "sha256": "2041d6dc03b785b7462eeaa38313d2d3eb50c2cffbc67d5428f2bd7f48ff2d76"
+    },
+    {
+      "path": "src/app/client/region3d/scene.cljc",
+      "bytes": 45416,
+      "sha256": "da27c4667fa9019b7b0d84942bf2f9dc4a6f63862a5993062f6a4409391d2d42"
+    },
+    {
+      "path": "src/app/client/text/fonts.cljs",
+      "bytes": 7837,
+      "sha256": "dc6cc41d118eec5be193b41fc52aeae6adc7343b95298d4e399c71d604dece7b"
+    },
+    {
+      "path": "src/app/client/text/glyph_pack.cljs",
+      "bytes": 9022,
+      "sha256": "8f11b23b8359401147db990600f38f32589bd51958f141447ff80836d0003c14"
+    },
+    {
+      "path": "src/app/client/text/layout.cljc",
+      "bytes": 67830,
+      "sha256": "0da343fd77d7959143fc38ee9ad43a74d38d33ee47760b9aff09be72d3ccf533"
+    },
+    {
+      "path": "src/app/client/text/layout_planes.cljc",
+      "bytes": 38036,
+      "sha256": "eec7c535634d1dd3c76ba5ee12dd7a28fe8701728169c39eafdaa9904fc4a917"
+    },
+    {
+      "path": "src/app/client/text/renderer.cljs",
+      "bytes": 29599,
+      "sha256": "9c83c922a915f9233b435754f2bf82b81c73986589aa788da31aca887299e977"
+    },
+    {
+      "path": "src/app/client/text/shaped_line.cljc",
+      "bytes": 12795,
+      "sha256": "c39c278247d4d34a06445334a7f449d7a4bc5754a22f6c12adf6736fadd9d837"
+    },
+    {
+      "path": "src/app/client/text/shaper.cljs",
+      "bytes": 19217,
+      "sha256": "e4e14ffe6bbed3cde05b4bda527c2d5b3cbdc6dbe7831837c2c81bc64f4a0ac9"
+    },
+    {
+      "path": "test/render_engine/profile_shaper_border.mjs",
+      "bytes": 8525,
+      "sha256": "fdabfd748b33c8bba9ec86adfdbb15b7bd2b03dc2a3a21c7f770886696da0ed6"
+    },
+    {
+      "path": "test/render_engine/run_verifier.mjs",
+      "bytes": 17192,
+      "sha256": "bba73b481abfff9c2692ee3c7680036cac8d1c0b0be6edd6468802eee59f172b"
+    },
+    {
+      "path": "test/render_engine/verify_instance_cut.mjs",
+      "bytes": 3344,
+      "sha256": "418d8780459df341f432fa9317b6f8fb504c3cf50dbbfd6735d153feff330b33"
+    },
+    {
+      "path": "test/render_engine/verify_proportional_shaper.mjs",
+      "bytes": 5746,
+      "sha256": "56e855a5f1dec49ff9f4f9c5197b0710fbd5148b79dd96d19343b09e11247751"
+    },
+    {
+      "path": "test/render_engine/verify_text_layout_fence.mjs",
+      "bytes": 5502,
+      "sha256": "9a12ffc1916227c4d294360df4b2725faf0bf8c8eac20cc87a73d2e17e382950"
+    }
+  ],
+  "adapter": {
+    "description": "",
+    "features": [
+      "depth32float-stencil8",
+      "rg11b10ufloat-renderable",
+      "bgra8unorm-storage",
+      "texture-compression-bc",
+      "core-features-and-limits",
+      "chromium-experimental-timestamp-query-inside-passes",
+      "float32-filterable",
+      "indirect-first-instance",
+      "texture-compression-astc-sliced-3d",
+      "float32-blendable",
+      "subgroup-size-control",
+      "texture-compression-astc",
+      "texture-compression-etc2",
+      "depth-clip-control",
+      "texture-compression-bc-sliced-3d",
+      "clip-distances",
+      "timestamp-query",
+      "texture-component-swizzle",
+      "subgroups"
+    ],
+    "vendor": "google",
+    "architecture": "swiftshader",
+    "fallbackAttestationSource": "GPUAdapterInfo.isFallbackAdapter",
+    "renderer": "swiftshader",
+    "device": "",
+    "limits": {
+      "maxBufferSize": 1073741824,
+      "maxUniformBufferBindingSize": 65536,
+      "maxStorageBufferBindingSize": 1073741824,
+      "maxTextureDimension2d": 8192,
+      "maxBindGroups": 4,
+      "maxVertexBuffers": 8
+    },
+    "isFallbackAdapter": true
+  },
+  "browserConsole": [
+    {
+      "type": "log",
+      "text": "[W0-A] start"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] scheduled-callback"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] init-start"
+    },
+    {
+      "type": "error",
+      "text": "Failed to load resource: the server responded with a status of 404 (Not Found)"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] init-adapter"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] init-device"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] init-font-manifest"
+    },
+    {
+      "type": "log",
+      "text": "[FONT] Asset resolution JSHandle@object"
+    },
+    {
+      "type": "log",
+      "text": "[FONT] Asset resolution JSHandle@object"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] init-font-assets"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] init-shared-buffers"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] init-font-assets"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] init-slug-pipeline-start"
+    },
+    {
+      "type": "log",
+      "text": "[RENDERER] Created Slug font resources JSHandle@object"
+    },
+    {
+      "type": "log",
+      "text": "[RENDERER] Init text system JSHandle@object"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] init-slug-pipeline-complete"
+    },
+    {
+      "type": "log",
+      "text": "[RENDERER] Created Slug font resources JSHandle@object"
+    },
+    {
+      "type": "log",
+      "text": "[RENDERER] Init text system JSHandle@object"
+    },
+    {
+      "type": "log",
+      "text": "[RENDERER] Created Slug font resources JSHandle@object"
+    },
+    {
+      "type": "log",
+      "text": "[RENDERER] Init text system JSHandle@object"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] init-curve-decode-start"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] init-curve-decode-complete 16"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] case-start legal-min-z0p01 zoom 0.01"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] case-complete legal-min-z0p01"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] case-start default-min-z0p1 zoom 0.1"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] case-complete default-min-z0p1"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] case-start default-unit-z1 zoom 1"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] case-complete default-unit-z1"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] case-start default-max-z8 zoom 8"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] case-complete default-max-z8"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] case-start legal-log-z10 zoom 10"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] case-complete legal-log-z10"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] case-start legal-log-z100 zoom 100"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] case-complete legal-log-z100"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] case-start legal-max-z1000 zoom 1000"
+    },
+    {
+      "type": "log",
+      "text": "[W0-A] case-complete legal-max-z1000"
+    }
+  ]
+}

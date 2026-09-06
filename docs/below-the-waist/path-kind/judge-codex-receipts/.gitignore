@@ -1,2 +1,3 @@
 # Derived bundles are rebuilt from the committed probe sources and lane code.
 *-probe-js/
+*-projection-js/

@@ -1,0 +1,56 @@
+{
+  "judge": {
+    "family": "Codex",
+    "model": "GPT-6 (system identity)",
+    "version": "exact serving build unavailable",
+    "effort": "not exposed by session metadata available within fence",
+    "tools": [
+      "exec_command",
+      "Puppeteer",
+      "Chrome WebGPU SwiftShader"
+    ]
+  },
+  "commands": [
+    {
+      "label": "repository-verifier",
+      "command": [
+        "node",
+        "test/render_engine/run_verifier.mjs"
+      ],
+      "cwd": "/mnt/data/projects/Softland-codex",
+      "exit": 1,
+      "elapsedSeconds": 3.604162790998089
+    },
+    {
+      "label": "projection-build",
+      "command": [
+        "clj",
+        "-Sdeps",
+        "{:paths [\"src\" \"/mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts\"] :deps {thheller/shadow-cljs {:mvn/version \"2.28.23\"}}}",
+        "-M",
+        "-m",
+        "shadow.cljs.devtools.cli",
+        "release",
+        "render-verifier",
+        "--config-merge",
+        "{:output-dir \"/mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/codex-projection-js\" :modules {:main {:entries [judge-codex-projection] :init-fn judge-codex-projection/init}}}"
+      ],
+      "cwd": "/mnt/data/projects/Softland-codex",
+      "exit": 0,
+      "elapsedSeconds": 7.650677802001155
+    },
+    {
+      "label": "projection-capture",
+      "command": [
+        "node",
+        "/mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/capture.mjs",
+        "/mnt/data/projects/Softland-codex",
+        "/mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/codex-projection",
+        "/mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/codex-projection-js/main.js"
+      ],
+      "cwd": "/mnt/data/projects/Softland-codex",
+      "exit": 0,
+      "elapsedSeconds": 2.843825389001722
+    }
+  ]
+}

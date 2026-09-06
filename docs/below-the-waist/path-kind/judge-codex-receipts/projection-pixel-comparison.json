@@ -1,0 +1,139 @@
+{
+  "method": "Absolute RGBA byte differences against the frozen test PNG.",
+  "rows": [
+    {
+      "case": "claude",
+      "file": "gpu-region3d-floor-tree.png",
+      "golden": {
+        "commit": "07ea014",
+        "path": "test/app/fixtures/render_engine/gpu-goldens/gpu-region3d-floor-tree.png",
+        "sha256": "5f56a4e73ecdfb5a2e8fcb4f3cc555cc41dfb2d214a708bb870cb73b73be7e20"
+      },
+      "actual": {
+        "path": "claude/png/gpu-region3d-floor-tree.png",
+        "sha256": "6b07a17a5241b13b9ee08e0a4835fc9585bfc9436eab30b17fbb6970405e97bb",
+        "capture": "claude/run.json"
+      },
+      "changedPixels": 4,
+      "maxByteDelta": 6,
+      "sample": {
+        "pixel": [
+          55,
+          58
+        ],
+        "expected": [
+          236,
+          186,
+          98,
+          255
+        ],
+        "actual": [
+          236,
+          186,
+          98,
+          255
+        ]
+      }
+    },
+    {
+      "case": "codex",
+      "file": "gpu-region3d-floor-tree.png",
+      "golden": {
+        "commit": "07ea014",
+        "path": "test/app/fixtures/render_engine/gpu-goldens/gpu-region3d-floor-tree.png",
+        "sha256": "5f56a4e73ecdfb5a2e8fcb4f3cc555cc41dfb2d214a708bb870cb73b73be7e20"
+      },
+      "actual": {
+        "path": "codex/png/gpu-region3d-floor-tree.png",
+        "sha256": "55475546a0809c4cb801b30893201808a3c16aae9c3006b92fd34fe05cacd328",
+        "capture": "codex/run.json"
+      },
+      "changedPixels": 22,
+      "maxByteDelta": 68,
+      "sample": {
+        "pixel": [
+          55,
+          58
+        ],
+        "expected": [
+          236,
+          186,
+          98,
+          255
+        ],
+        "actual": [
+          236,
+          173,
+          30,
+          255
+        ]
+      }
+    },
+    {
+      "case": "codex-projection",
+      "file": "gpu-region3d-floor-tree.png",
+      "golden": {
+        "commit": "07ea014",
+        "path": "test/app/fixtures/render_engine/gpu-goldens/gpu-region3d-floor-tree.png",
+        "sha256": "5f56a4e73ecdfb5a2e8fcb4f3cc555cc41dfb2d214a708bb870cb73b73be7e20"
+      },
+      "actual": {
+        "path": "codex-projection/png/gpu-region3d-floor-tree.png",
+        "sha256": "92f8386f3a5e43ade33ed97aa1b7f2ef65e1c81d3a5bb8fe1f64af5e3938c510",
+        "capture": "codex-projection/run.json"
+      },
+      "changedPixels": 4,
+      "maxByteDelta": 6,
+      "sample": {
+        "pixel": [
+          55,
+          58
+        ],
+        "expected": [
+          236,
+          186,
+          98,
+          255
+        ],
+        "actual": [
+          236,
+          186,
+          98,
+          255
+        ]
+      }
+    },
+    {
+      "case": "claude",
+      "file": "gpu-slug-default-unit-z1.png",
+      "golden": {
+        "commit": "07ea014",
+        "path": "test/app/fixtures/render_engine/gpu-goldens/gpu-slug-default-unit-z1.png",
+        "sha256": "83d13ea8294a112fb80d9bb154316369871bbbe37ae99120ccacd81508e858dc"
+      },
+      "actual": {
+        "path": "claude/png/gpu-slug-default-unit-z1.png",
+        "sha256": "83d13ea8294a112fb80d9bb154316369871bbbe37ae99120ccacd81508e858dc",
+        "capture": "claude/run.json"
+      },
+      "changedPixels": 0,
+      "maxByteDelta": 0
+    },
+    {
+      "case": "codex",
+      "file": "gpu-slug-default-unit-z1.png",
+      "golden": {
+        "commit": "07ea014",
+        "path": "test/app/fixtures/render_engine/gpu-goldens/gpu-slug-default-unit-z1.png",
+        "sha256": "83d13ea8294a112fb80d9bb154316369871bbbe37ae99120ccacd81508e858dc"
+      },
+      "actual": {
+        "path": "codex/png/gpu-slug-default-unit-z1.png",
+        "sha256": "61138da1ae5abd2544a25b1400d9abc2341168a76bf77153d344f94fad1560d2",
+        "capture": "codex/run.json"
+      },
+      "changedPixels": 198,
+      "maxByteDelta": 24
+    }
+  ]
+}
