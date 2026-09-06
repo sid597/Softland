@@ -112,6 +112,33 @@
             </span>
           </label>
         </div>
+        <div class="controls construction">
+          <label>the post P: radius <span class="val" id="prVal">0.20 m</span><input id="postR" type="range" min="0.12" max="0.30" step="0.01" value="0.2"></label>
+          <label>the wall's saved chart <span class="val" id="chartVal">S0</span>
+            <span class="btns" style="margin-top:2px">
+              <button id="chartS0" class="on" type="button">S0 (a = u)</button>
+              <button id="chartS1" type="button">S1 (a = (u−100)/2)</button>
+            </span>
+          </label>
+          <label>the mark's reading <span class="val" id="seamVal">unwrapped</span>
+            <span class="btns" style="margin-top:2px">
+              <button id="seamUnwrapped" class="on" type="button">unwrapped (the source)</button>
+              <button id="seamModulo" type="button">reduce each knot modulo C</button>
+            </span>
+          </label>
+          <label>the nib measures in <span class="val" id="nibVal">surface</span>
+            <span class="btns" style="margin-top:2px">
+              <button id="nibSurface" class="on" type="button">millimetres on the surface</button>
+              <button id="nibNaive" type="button">chart units, read as mm</button>
+            </span>
+          </label>
+          <label>what the mark keeps when r changes <span class="val" id="panchorVal">origin</span>
+            <span class="btns" style="margin-top:2px">
+              <button id="panchorOrigin" class="on" type="button">millimetres from the generator</button>
+              <button id="panchorNormalized" type="button">proportions of the circumference</button>
+            </span>
+          </label>
+        </div>
         <div class="btns">
           <button id="shot" type="button">paste a screenshot of the portal beside it</button>
           <button id="clearShot" type="button">remove the screenshot</button>
@@ -123,7 +150,10 @@
           <span><i style="background:#2B4ACB"></i>portal R (a reference to space S and view V)</span>
           <span><i style="background:#8A8F98"></i>screenshot I (pixels, no reference)</span>
           <span><i style="background:#C0392B"></i>the hit</span>
+          <span><i style="background:#C08050"></i>post P (a wall with a chart and a seam)</span>
+          <span><i style="background:#ED9E40"></i>field F (a boundary, no face)</span>
           <span>drag on the page: pan · drag in the portal: orbit, or draw in pen mode · <kbd>R</kbd> reset · deep links: <span class="mono">#w=1.4&amp;cut=1&amp;anchor=edge&amp;onsplit=clip&amp;aim=k</span></span>
+          <span class="mono">attack 1: post=0 · chart=S0|S1 · pr=&lt;r m&gt; · panchor=origin|normalized · seam=unwrapped|modulo · nib=surface|naive · field=1 · fx= · fy= · fz= · fa= · hollow=1 · fwork=&lt;n&gt; · records=2 · left=whole|trimmed · order=lr|rl|none · merge=1 · section=&lt;h m&gt; · aim=P|Pm|F|D|k2|strip</span>
           <span class="mono" id="glstat">WebGL2: starting</span>
         </div>
       </div>
@@ -174,7 +204,16 @@
       // ink on a face: a planar space attached to a named face by a saved rule that says what the ink preserves when the face changes
       Ftop: { kind: 'planar-surface', on: 'B', face: 'E.top', unit: 'mm', scale: 1000, space: 'PI', attachment: { anchor: 'origin', domain: [1, 1], onSplit: 'clip' } },
       // the portal on the front face is an attachment too; it stretches with its face
-      T: { kind: 'portal', on: 'B', face: 'E.front', view: 'VL', attachment: { anchor: 'normalized' } }
+      T: { kind: 'portal', on: 'B', face: 'E.front', view: 'VL', attachment: { anchor: 'normalized' } },
+      // attack 1 (the definer): a post whose wall is a chart with a seam, and a field with no face at all
+      P: { kind: 'solid', construction: 'CP' },
+      Fwall: { kind: 'planar-surface', on: 'P', face: 'wall', unit: 'mm', scale: 1000, space: 'PW',
+               attachment: { anchor: 'origin', domain: 'unwrapped u ∈ [C−120, C+120], v ∈ [280, 520] mm', onReparameterize: 'compose with φ', onDeform: 'the anchor rule', onSplit: 'clip' } },
+      F: { kind: 'field', on: false, definition: '(x/a)^4 + (y/b)^4 + (z/c)^4 − 1, interior f ≤ 0', unit: 'm', frame: 'object local',
+           params: { a: 0.2, b: 0.1, c: 0.1 }, inner: { a: 0.1, b: 0.05, c: 0.05 }, hollow: false, at: [-1.6, 1.2, 0.5],
+           supplies: ['sample', 'inside', 'ray-events (root isolation)', 'normal (gradient)'],
+           tool: { extent: { binding: 'a', dragFrame: 'local x', constraint: 'a > 0' } } },
+      Fright: null   // set by records=2: a second planar surface on E.top's right part
     }
   };
   // The construction behind B: a saved program over values. It is data only because code below (evaluate) runs it.
@@ -183,17 +222,25 @@
       { id: 'R0', op: 'rect', origin: [-0.5, -0.5], size: [1, 1] },                        // a sketch on the ground plane: origin corner (x, z), size (w, d)
       { id: 'E', op: 'extrude', of: 'R0', height: 1 },                                      // faces E.top E.bottom E.left E.right E.back E.front
       { id: 'C', op: 'cut', of: 'E', on: false, slab: { x: [0.12, 0.30], depth: 0.28 } }     // boolean subtract: a slab across the top, back to front
-    ] }
+    ] },
+    CP: { revision: 0, params: { r: 0.2, h: 0.9, at: [1.1, -0.2], chart: { offset: 0, scale: 1 } } }  // the post: a radius, a height, a place, and a saved chart on its wall
   };
   var PI = { unit: 'mm', things: { k: { kind: 'path', source: 'pen', samples: [], paint: { stroke: { tip: 'nib', width: 'knot', color: [0.16, 0.29, 0.80, 0.92] } } } } };
+  // the mark on the post's wall: knots with a pressure and a saved response; the samples are not the record. The reading is declared.
+  var PW = { unit: 'mm', things: { kP: { kind: 'path', source: 'the definer, attack 1 (×10)', reading: 'unwrapped',
+    knots: [{ id: 'A', p: 0.2 }, { id: 'B', p: 0.8 }, { id: 'Ck', p: 0.9 }, { id: 'D', p: 0.5 }], response: 'width = 10 + 30·p² mm',
+    tip: 'swept round nib, measured on the surface', overlap: 'union', paint: { color: [0.80, 0.22, 0.16, 0.85] } } } };
+  var PI2 = { unit: 'mm', things: { k2: { kind: 'path', source: 'preset, authored on E.top part 2', samples: [], paint: { stroke: { tip: 'nib', width: 'knot', color: [0.10, 0.62, 0.30, 0.5] } } } } };
+  var composition = { order: ['k', 'k2'] };   // bottom → top; null = no rule (needs-policy)
   var L = { unit: 'px', size: [256, 256], things: { c: { kind: 'circle', at: [96, 120], r: 44, color: '#D9822B' }, r: { kind: 'rect', at: [150, 60], size: [80, 130], color: '#3C7A4E' }, label: { kind: 'text', at: [24, 40], text: 'land L' } } };
   var views = {
     V: { space: 'S', camera: { pivot: [0, 0.5, 0], distance: 3.4, yaw: 0.62, pitch: 0.52, fovY: 50, near: 0.1, far: 100 } },
     VL: { space: 'L', camera: { kind: 'ortho', rect: [0, 0, 256, 256] } }
   };
-  var page = { unit: 'px', things: { R: { kind: 'portal', view: 'V', rect: { x: 60, y: 70, w: 420, h: 330 } }, I: null } };
+  var page = { unit: 'px', things: { R: { kind: 'portal', view: 'V', rect: { x: 60, y: 70, w: 420, h: 330 } }, I: null, D: null } };
 
-  var state = { zoom: 1, pan: [0, 0], mode: 'orbit', anim: false, pointer: null, last: null, lastLeaf: null, dirty: { edit: '', view: '', scale: '', frame: '' }, drawing: false, orbiting: false, panning: false, dragStart: null, shot: null, revision: 0 };
+  var state = { zoom: 1, pan: [0, 0], mode: 'orbit', anim: false, pointer: null, last: null, lastLeaf: null, dirty: { edit: '', view: '', scale: '', frame: '' }, drawing: false, orbiting: false, panning: false, dragStart: null, shot: null, revision: 0,
+    pMode: 'unwrapped', pNib: 'surface', pAnchor: 'origin', records: 1, leftKept: 'whole', merge: null, fieldWork: 4000, probeD: 15 };
 
   // ------------------------------------------------------------------
   // Small matrix kit (column-major 4x4), shared by the renderer and the hit walk.
@@ -398,12 +445,190 @@
     return { thing: 'L', part: 'background', at: [px, py] };
   }
 
+  // ───── attack 1 (the definer, 2026-09-06): the post P, the field F, the second record, the drawing D ─────
+  var TAU = Math.PI * 2;
+  // P's wall: authored chart S0: u = unwrapped arc length (mm) from the +x generator, counter-clockwise seen from +Y; v = height (mm).
+  // S0(u, v) = (cx + r cos(u/R), v/1000, cz + r sin(u/R)); R = r·1000; C = 2πR. A saved chart {offset o, scale s} describes the same
+  // wall by S1(a, b) = S0(s·a + o, b); φ(u, v) = ((u − o)/s, v); period in a is C/s; the metric is diag(s², 1).
+  function postOf(con) { var p = con.params, R = p.r * 1000; return { cx: p.at[0], cz: p.at[1], r: p.r, h: p.h, R: R, C: TAU * R, chart: { offset: p.chart.offset, scale: p.chart.scale } }; }
+  function postPeriod(P) { return P.C / P.chart.scale; }
+  function postWorld(P, u, v) { var th = u / P.R; return [P.cx + P.r * Math.cos(th), v / 1000, P.cz + P.r * Math.sin(th)]; }
+  function postChart(P, p) { var th = Math.atan2(p[2] - P.cz, p[0] - P.cx); if (th < 0) th += TAU; var uChart = th * P.R, per = postPeriod(P); var a = (uChart - P.chart.offset) / P.chart.scale; a -= Math.floor(a / per) * per; return { a: a, b: p[1] * 1000, uChart: uChart, theta: th }; }
+  // a chart point's preimages in an unwrapped domain: u = s·a + o + k·C; a domain narrower than C holds at most one, wrapping content several
+  function postPreimages(P, dom, a, b) { var base = P.chart.scale * a + P.chart.offset, out = []; for (var k = -2; k <= 2; k++) { var u = base + k * P.C; if (u >= dom.u0 && u <= dom.u1 && b >= dom.v0 && b <= dom.v1) out.push({ u: u, v: b, k: k }); } return out; }
+  function reduceModulo(P, u) { return u - Math.floor(u / P.C) * P.C; }
+  function hitPost(ray, P) {
+    var ox = ray.origin[0] - P.cx, oz = ray.origin[2] - P.cz, dx = ray.dir[0], dz = ray.dir[2];
+    var A = dx * dx + dz * dz, B = 2 * (ox * dx + oz * dz), Cq = ox * ox + oz * oz - P.r * P.r;
+    if (A < 1e-12) return null; var disc = B * B - 4 * A * Cq; if (disc < 0) return null; var sq = Math.sqrt(disc);
+    var ts = [(-B - sq) / (2 * A), (-B + sq) / (2 * A)];
+    for (var i = 0; i < 2; i++) {
+      var t = ts[i]; if (t <= 1e-6) continue; var y = ray.origin[1] + t * ray.dir[1]; if (y < 0 || y > P.h) continue;
+      var point = [ray.origin[0] + t * dx, y, ray.origin[2] + t * dz];
+      return { thing: 'P', part: 'face wall', face: 'wall', t: t, point: point, normal: [(point[0] - P.cx) / P.r, 0, (point[2] - P.cz) / P.r] };
+    }
+    return null;
+  }
+  // the mark on the wall: the definer's four knots at ×10 (r 200 mm, C = 400π mm), three straight segments, width = 10 + 30·p² mm
+  function markDomain(P) { return { u0: P.C - 120, u1: P.C + 120, v0: 280, v1: 520 }; }
+  function markWidth(p) { return 10 + 30 * p * p; }
+  function markKnots(P, reading) {
+    // reading: 'unwrapped' (the source) | 'modulo' (each knot's u reduced modulo C: the counterexample) | 'chart' (φ applied: the naive nib reads (a, b) as mm)
+    var ks = [{ id: 'A', u: P.C - 80, v: 320, p: 0.2 }, { id: 'B', u: P.C + 80, v: 480, p: 0.8 }, { id: 'Ck', u: P.C - 80, v: 480, p: 0.9 }, { id: 'D', u: P.C + 80, v: 320, p: 0.5 }];
+    return ks.map(function (k) { var u = k.u, v = k.v; if (reading === 'modulo') u = reduceModulo(P, u); if (reading === 'chart') u = (u - P.chart.offset) / P.chart.scale; return { id: k.id, u: u, v: v, p: k.p, w: markWidth(k.p) }; });
+  }
+  function markSegments() { return [[0, 1], [1, 2], [2, 3]]; }
+  function markAt(ks, seg, t) { var sg = markSegments()[seg], a = ks[sg[0]], b = ks[sg[1]], p = a.p + (b.p - a.p) * t; return { u: a.u + (b.u - a.u) * t, v: a.v + (b.v - a.v) * t, p: p, w: markWidth(p) }; }
+  // every segment inside is a contributor (a self-crossing returns two source locations for one mark); the winner is the minimum signed distance
+  function classifyMark(ks, q) {
+    var best = null, contributors = [];
+    markSegments().forEach(function (sg, s) {
+      var a = ks[sg[0]], b = ks[sg[1]]; var sd = capsuleSD(q, [a.u, a.v], [b.u, b.v], a.w / 2, b.w / 2);
+      var lo = 0, hi = 1; for (var it = 0; it < 48; it++) { var t1 = lo + (hi - lo) / 3, t2 = hi - (hi - lo) / 3; var c1 = markAt(ks, s, t1), c2 = markAt(ks, s, t2); var f1 = Math.hypot(q[0] - c1.u, q[1] - c1.v) - c1.w / 2, f2 = Math.hypot(q[0] - c2.u, q[1] - c2.v) - c2.w / 2; if (f1 < f2) hi = t2; else lo = t1; }
+      var t = (lo + hi) / 2, at = markAt(ks, s, t), e = { seg: s, t: t, signed: sd, w: at.w, p: at.p };
+      if (sd <= 0) contributors.push(e); if (!best || sd < best.signed) best = e;
+    });
+    return { inside: best.signed <= 0, best: best, contributors: contributors };
+  }
+  // the construction CP: evaluate against the previous evaluation; the correspondence piece says what one evaluation's wall is to the other's
+  var evaluatedP = null;
+  function evaluateP(con, prev) {
+    var P = postOf(con), out = { support: P, rev: con.revision, correspondence: [], report: '' };
+    if (!prev) { out.report = 'wall generated by CP'; return out; }
+    var Q = prev.support, chartChanged = Q.chart.offset !== P.chart.offset || Q.chart.scale !== P.chart.scale, rChanged = Q.r !== P.r;
+    var piece = function (o) { return Object.assign({ orientation: +1, error: 0, from: { rev: prev.rev, domain: 'wall', subset: 'all' }, to: { rev: out.rev, domain: 'wall', subset: 'all' }, capabilities: { forward: 'unique', backward: 'unique' } }, o); };
+    if (!chartChanged && !rChanged) { out.correspondence.push(piece({ relation: { kind: 'identity' }, evidence: 'same points' })); out.report = 'wall unchanged'; }
+    if (chartChanged) { out.correspondence.push(piece({ relation: { kind: 'reparameterization', phi: 'a = (u − ' + P.chart.offset + ')/' + P.chart.scale, metric: [P.chart.scale * P.chart.scale, 1], period: postPeriod(P) }, evidence: 'same points' })); out.report = 'wall reparameterized: a = (u − ' + P.chart.offset + ')/' + P.chart.scale + ', period ' + postPeriod(P).toFixed(1) + ' mm in a, metric diag(' + (P.chart.scale * P.chart.scale) + ', 1); the surface is the same (S1∘φ = S0)'; }
+    if (rChanged) { out.correspondence.push(piece({ relation: { kind: 'deformation', generator: 'u = 0 kept', circumference: [Q.C, P.C], height: 'kept' }, evidence: 'declared deformation' })); out.report = (out.report ? out.report + ' · ' : '') + 'wall modified (r ' + Q.r.toFixed(3) + ' → ' + P.r.toFixed(3) + ' m, C ' + Q.C.toFixed(1) + ' → ' + P.C.toFixed(1) + ' mm): a deformation, the anchor rule decides what the ink keeps'; }
+    return out;
+  }
+  // the attachment on the wall: under a chart change the map composes with φ (the ink does not move); under a radius change the rule says what it keeps:
+  //   origin: millimetres from the generator (u kept) · normalized: proportions of the circumference (u scaled by C'/C)
+  function resolveWall(rule, ev) {
+    var P = ev.support, authoredC = TAU * 200, ratio = P.C / authoredC, uScale = rule === 'normalized' ? ratio : 1;
+    var d = markDomain({ C: authoredC }); var dom = { u0: d.u0 * uScale, u1: d.u1 * uScale, v0: d.v0, v1: d.v1 };
+    return { rule: rule, uScale: uScale, dom: dom, metric: [P.chart.scale * P.chart.scale, 1], status: 'resolved', evidence: ev.correspondence.length ? ev.correspondence[ev.correspondence.length - 1].evidence : 'authored here' };
+  }
+  // the knots the wall's material and the walker use: per the reading, scaled by the rule, mapped by φ for the naive nib
+  function wallKnots(ev) {
+    var P = ev.support, res = resolveWall(state.pAnchor, ev);
+    var ks = markKnots({ C: TAU * 200, R: 200, chart: P.chart }, 'unwrapped').map(function (k) { return { id: k.id, u: k.u * res.uScale, v: k.v, p: k.p, w: k.w }; });
+    if (state.pMode === 'modulo') ks = ks.map(function (k) { return Object.assign({}, k, { u: reduceModulo(P, k.u) }); });
+    var dom = state.pMode === 'modulo' ? { u0: 0, u1: P.C, v0: res.dom.v0, v1: res.dom.v1 } : res.dom;
+    if (state.pNib === 'naive') { ks = ks.map(function (k) { return Object.assign({}, k, { u: (k.u - P.chart.offset) / P.chart.scale }); }); dom = { u0: (dom.u0 - P.chart.offset) / P.chart.scale, u1: (dom.u1 - P.chart.offset) / P.chart.scale, v0: dom.v0, v1: dom.v1 }; }
+    return { ks: ks, dom: dom, res: res };
+  }
+  // the merge: two records on the top while it is split; when the cut is undone, each old part maps into the one face by restriction,
+  // the strip between them has no predecessor, both records bind to the one face, and an overlap needs a composition rule
+  function mergeCorrespondence(prevEv, ev) {
+    if (!prevEv || !prevEv.faces['E.top'] || prevEv.faces['E.top'].parts < 2 || ev.faces['E.top'].parts !== 1) return null;
+    var f = ev.frame, slab = constructions.CB.steps[2].slab; var xa = (slab.x[0] - f.x0) * 1000, xb = (slab.x[1] - f.x0) * 1000, w = f.w * 1000;
+    var piece = function (name, x) { return { from: { rev: 'n−1', domain: name, subset: 'x ∈ [' + x[0].toFixed(0) + ', ' + x[1].toFixed(0) + '] mm' }, to: { rev: 'n', domain: 'E.top', subset: 'x ∈ [' + x[0].toFixed(0) + ', ' + x[1].toFixed(0) + '] mm' }, relation: 'restriction (the retained position map)', capabilities: { forward: 'unique', backward: 'unique' }, evidence: 'restricted old support', error: 0 }; };
+    return { pieces: [piece('E.top part 1', [0, xa]), piece('E.top part 2', [xb, w])], noPredecessor: 'E.top x ∈ (' + xa.toFixed(0) + ', ' + xb.toFixed(0) + ') mm', strip: [xa, xb] };
+  }
+  function over(top, under) { var a = top[3]; return [top[0] + under[0] * (1 - a), top[1] + under[1] * (1 - a), top[2] + under[2] * (1 - a), top[3] + under[3] * (1 - a)]; }
+  function premul(c) { return [c[0] * c[3], c[1] * c[3], c[2] * c[3], c[3]]; }
+  function composeAt(order, layers) { if (!order) return { status: 'needs-policy', contributors: Object.keys(layers) }; var acc = [0, 0, 0, 0]; order.forEach(function (n) { if (layers[n]) acc = over(layers[n], acc); }); return { status: 'composed', rgba: acc, top: order.filter(function (n) { return layers[n]; }).slice(-1)[0], contributors: order.filter(function (n) { return layers[n]; }) }; }
+  // the second record's classifier: the same swept nib over PI2's samples (a copy, so k's answer is untouched)
+  function classifyStroke2(uv) {
+    var s = PI2.things.k2.samples; if (s.length === 0) return null;
+    if (s.length === 1) return { signed: Math.hypot(uv[0] - s[0][0], uv[1] - s[0][1]) - s[0][2] / 2, seg: 0, t: 0, s: 0, w: s[0][2] };
+    var best = null;
+    for (var i = 0; i < s.length - 1; i++) {
+      var sd = capsuleSD(uv, s[i], s[i + 1], s[i][2] / 2, s[i + 1][2] / 2);
+      if (best === null || sd < best.signed) best = { signed: sd, seg: i };
+    }
+    var a = s[best.seg], b = s[best.seg + 1], lo = 0, hi = 1;
+    function f(t) { return Math.hypot(uv[0] - (a[0] + t * (b[0] - a[0])), uv[1] - (a[1] + t * (b[1] - a[1]))) - (a[2] + t * (b[2] - a[2])) / 2; }
+    for (var it = 0; it < 48; it++) { var m1 = lo + (hi - lo) / 3, m2 = hi - (hi - lo) / 3; if (f(m1) < f(m2)) hi = m2; else lo = m1; }
+    var t = (lo + hi) / 2;
+    return { signed: best.signed, seg: best.seg, t: t, s: (a[3] || 0) + t * ((b[3] || 0) - (a[3] || 0)), w: a[2] + t * (b[2] - a[2]) };
+  }
+  // the field F: a quartic along the ray; roots by the derivative chain (f''' → f'' → f' → f), each monotone piece bisected; a critical point where
+  // f = 0 is a contact (a tangency with no sign change); a finite work limit returns unresolved pieces, never empty space
+  function fieldPoly(e, o, d) { var c = [0, 0, 0, 0, 0], ex = [e.a, e.b, e.c]; for (var i = 0; i < 3; i++) { var p = o[i], q = d[i], e4 = Math.pow(ex[i], 4); c[0] += p * p * p * p / e4; c[1] += 4 * p * p * p * q / e4; c[2] += 6 * p * p * q * q / e4; c[3] += 4 * p * q * q * q / e4; c[4] += q * q * q * q / e4; } c[0] -= 1; return c; }
+  function polyEval(c, t) { var r = 0; for (var i = c.length - 1; i >= 0; i--) r = r * t + c[i]; return r; }
+  function polyDeriv(c) { var d = []; for (var i = 1; i < c.length; i++) d.push(c[i] * i); return d; }
+  function isolateRealRoots(c, t0, t1, tolT, workLimit) {
+    var st = { work: 0, limit: workLimit || 4000 }, res = { roots: [], covered: [], unresolved: [], status: 'complete' }, eps = 1e-9;
+    var chain = [c]; while (chain[chain.length - 1].length > 2) chain.push(polyDeriv(chain[chain.length - 1]));
+    var kindAt = function (lvl, t) { return (lvl + 1 < chain.length && Math.abs(polyEval(chain[lvl + 1], t)) > 1e-7) ? 'crossing' : 'contact'; };
+    var crit = [];
+    for (var lvl = chain.length - 1; lvl >= 0; lvl--) {
+      var poly = chain[lvl], pts = [t0].concat(crit.filter(function (x) { return x > t0 && x < t1; }).sort(function (p, q) { return p - q; }), [t1]), found = []; var exhausted = false;
+      for (var i = 0; i + 1 < pts.length; i++) {
+        var lo = pts[i], hi = pts[i + 1]; if (exhausted) { if (lvl === 0) res.unresolved.push([lo, hi]); continue; }
+        var flo = polyEval(poly, lo), fhi = polyEval(poly, hi); st.work += 2;
+        if (Math.abs(flo) <= eps) { found.push({ t: lo, kind: kindAt(lvl, lo) }); continue; }
+        if (Math.abs(fhi) <= eps) { if (i + 2 === pts.length) found.push({ t: hi, kind: kindAt(lvl, hi) }); continue; }
+        if ((flo < 0) === (fhi < 0)) { if (lvl === 0) res.covered.push([lo, hi]); continue; }
+        var a = lo, b = hi, fa = flo;
+        while (b - a > tolT) { if (st.work++ > st.limit) { exhausted = true; break; } var m = (a + b) / 2, fm = polyEval(poly, m); if ((fm < 0) === (fa < 0)) { a = m; fa = fm; } else b = m; }
+        if (exhausted) { res.status = 'work limit'; if (lvl === 0) res.unresolved.push([a, b]); continue; }
+        found.push({ t: (a + b) / 2, kind: 'crossing' });
+      }
+      if (exhausted && lvl > 0) { res.status = 'work limit'; res.unresolved.push([t0, t1]); res.work = st.work; return res; }
+      crit = found.map(function (f) { return f.t; });
+      if (lvl === 0) res.roots = found.sort(function (p, q) { return p.t - q.t; }).filter(function (f, i, arr) { return i === 0 || Math.abs(f.t - arr[i - 1].t) > tolT * 4; });
+    }
+    res.work = st.work; return res;
+  }
+  function rayBoxT(o, d, e) { var t0 = -Infinity, t1 = Infinity; for (var i = 0; i < 3; i++) { if (Math.abs(d[i]) < 1e-12) { if (Math.abs(o[i]) > e[i]) return null; continue; } var a = (-e[i] - o[i]) / d[i], b = (e[i] - o[i]) / d[i]; if (a > b) { var tmp = a; a = b; b = tmp; } t0 = Math.max(t0, a); t1 = Math.min(t1, b); } t0 = Math.max(t0, 0); return t1 >= t0 ? [t0, t1] : null; }
+  function fieldGrad(e, p) { return [4 * Math.pow(p[0], 3) / Math.pow(e.a, 4), 4 * Math.pow(p[1], 3) / Math.pow(e.b, 4), 4 * Math.pow(p[2], 3) / Math.pow(e.c, 4)]; }
+  function fieldValue(e, p) { return Math.pow(p[0] / e.a, 4) + Math.pow(p[1] / e.b, 4) + Math.pow(p[2] / e.c, 4) - 1; }
+  // the events of every leaf merged in order; the Boolean max(f_outer, −f_inner) ≤ 0 decided between consecutive events; the first material entry is the hit
+  function hitField(ray, F, workLimit) {
+    if (!F || !F.on) return null;
+    var o = [ray.origin[0] - F.at[0], ray.origin[1] - F.at[1], ray.origin[2] - F.at[2]], d = ray.dir;
+    var bb = rayBoxT(o, d, [F.params.a, F.params.b, F.params.c]); if (!bb) return null;
+    var leaves = F.hollow ? [{ e: F.params, sign: +1, name: 'outer' }, { e: F.inner, sign: -1, name: 'inner' }] : [{ e: F.params, sign: +1, name: 'outer' }];
+    var iso = leaves.map(function (Lf) { return isolateRealRoots(fieldPoly(Lf.e, o, d), bb[0], bb[1], 1e-7, workLimit); });
+    var events = []; iso.forEach(function (r, i) { r.roots.forEach(function (root) { events.push({ t: root.t, leaf: i, kind: root.kind }); }); }); events.sort(function (p, q) { return p.t - q.t; });
+    var bounds = [bb[0]].concat(events.map(function (e) { return e.t; }), [bb[1]]), material = [];
+    for (var i = 0; i + 1 < bounds.length; i++) { if (bounds[i + 1] <= bounds[i]) continue; var m = (bounds[i] + bounds[i + 1]) / 2, pm = [o[0] + m * d[0], o[1] + m * d[1], o[2] + m * d[2]]; var ok = fieldValue(F.params, pm) <= 0; if (F.hollow && fieldValue(F.inner, pm) < 0) ok = false; if (ok) material.push([bounds[i], bounds[i + 1]]); }
+    var merged = []; material.forEach(function (iv) { if (merged.length && Math.abs(merged[merged.length - 1][1] - iv[0]) < 1e-12) merged[merged.length - 1][1] = iv[1]; else merged.push(iv.slice()); });
+    var status = iso.every(function (r) { return r.status === 'complete'; }) ? 'complete' : 'work limit';
+    var unresolved = []; iso.forEach(function (r) { unresolved = unresolved.concat(r.unresolved); });
+    var work = iso.reduce(function (s, r) { return s + r.work; }, 0);
+    if (!merged.length) return unresolved.length ? { thing: 'F', part: 'unresolved', t: Infinity, unresolved: unresolved, status: status, work: work, miss: true } : null;
+    var t = merged[0][0], p = [o[0] + t * d[0], o[1] + t * d[1], o[2] + t * d[2]];
+    // an entry that begins inside an unresolved piece is not an answer: the boundary there was never found, only the bounds box was
+    if (unresolved.some(function (iv) { return iv[0] <= t + 1e-9; })) return { thing: 'F', part: 'unresolved', t: Infinity, unresolved: unresolved, status: status, work: work, miss: true };
+    var ev = events.filter(function (e) { return Math.abs(e.t - t) < 1e-6; })[0], leaf = ev ? ev.leaf : 0, Lf = leaves[leaf];
+    var g = fieldGrad(Lf.e, p), gl2 = Math.hypot(g[0], g[1], g[2]), normal = gl2 > 1e-12 ? g.map(function (x) { return x / gl2 * Lf.sign; }) : null;
+    return { thing: 'F', part: 'boundary f = 0', t: t, point: [p[0] + F.at[0], p[1] + F.at[1], p[2] + F.at[2]], local: p, normal: normal, kind: ev ? ev.kind : 'crossing', active: Lf.name, events: events, material: merged, status: status, unresolved: unresolved, work: work };
+  }
+  // the drawing D: the section of S at the plane y = h; a rectangle per block the plane crosses, an analytic circle for the post, the field's level curve
+  function sectionOf(h) {
+    var curves = [];
+    evaluated.blocks.forEach(function (b, i) { if (h > b.min[1] && h < b.max[1]) curves.push({ kind: 'rect', x: [b.min[0], b.max[0]], z: [b.min[2], b.max[2]], source: 'B block ' + (i + 1) + ' of CB (faces ' + ['-x', '+x', '-z', '+z'].map(function (k) { return b.tags[k][0]; }).join(' ') + ')', live: 'CB' }); });
+    if (S.things.P) { var Pp = evaluatedP.support; if (h > 0 && h < Pp.h) curves.push({ kind: 'circle', c: [Pp.cx, Pp.cz], r: Pp.r, source: 'P wall ← CP.r', live: 'CP.r', analytic: true }); }
+    var Fd = S.things.F; if (Fd.on && Math.abs(h - Fd.at[1]) < Fd.params.b) { var kk = 1 - Math.pow((h - Fd.at[1]) / Fd.params.b, 4), pts = []; for (var i2 = 0; i2 <= 96; i2++) { var th = i2 / 96 * TAU, c = Math.cos(th), sn = Math.sin(th); pts.push([Fd.at[0] + Fd.params.a * Math.pow(kk, 0.25) * Math.sign(c) * Math.sqrt(Math.abs(c)), Fd.at[2] + Fd.params.c * Math.pow(kk, 0.25) * Math.sign(sn) * Math.sqrt(Math.abs(sn))]); } curves.push({ kind: 'poly', pts: pts, source: 'F level curve at y = h, lowered by 96 samples (an implicit curve, not analytic)', live: 'F' }); }
+    return curves;
+  }
+  // D's frame: S x ∈ [−0.7, 1.5] → rect.w px, z ∈ [−0.6, 0.6] → rect.h (z down the page); world → D px
+  function dPoint(D, x, z) { return [D.rect.x + (x + 0.7) / 2.2 * D.rect.w, D.rect.y + (z + 0.6) / 1.2 * D.rect.h]; }
+  function dWorld(D, px, py) { return [(px - D.rect.x) / D.rect.w * 2.2 - 0.7, (py - D.rect.y) / D.rect.h * 1.2 - 0.6]; }
+  function hitD(D, pp) {
+    var w2 = dWorld(D, pp[0], pp[1]), x = w2[0], z = w2[1], curves = sectionOf(D.section.h); var best = null;
+    curves.forEach(function (c) {
+      var d, param, where;
+      if (c.kind === 'circle') { var dx = x - c.c[0], dz = z - c.c[1], rr = Math.hypot(dx, dz); d = Math.abs(rr - c.r); param = 'θ ' + (Math.atan2(dz, dx)).toFixed(2) + ' rad'; where = 'r ' + (c.r * 1000).toFixed(0) + ' mm about (' + (c.c[0] * 1000).toFixed(0) + ', ' + (c.c[1] * 1000).toFixed(0) + ') mm'; }
+      else if (c.kind === 'rect') { var dxs = [Math.abs(x - c.x[0]), Math.abs(x - c.x[1])], dzs = [Math.abs(z - c.z[0]), Math.abs(z - c.z[1])]; var inX = x >= c.x[0] && x <= c.x[1], inZ = z >= c.z[0] && z <= c.z[1]; d = Math.min(inZ ? Math.min(dxs[0], dxs[1]) : Infinity, inX ? Math.min(dzs[0], dzs[1]) : Infinity); param = 'an edge'; where = 'x ∈ [' + (c.x[0] * 1000).toFixed(0) + ', ' + (c.x[1] * 1000).toFixed(0) + '], z ∈ [' + (c.z[0] * 1000).toFixed(0) + ', ' + (c.z[1] * 1000).toFixed(0) + '] mm'; }
+      else { d = Infinity; c.pts.forEach(function (p) { d = Math.min(d, Math.hypot(x - p[0], z - p[1])); }); param = 'a sample'; where = 'the lowered level curve'; }
+      if (best === null || d < best.d) best = { d: d, curve: c, param: param, where: where };
+    });
+    return best;
+  }
+
   // ------------------------------------------------------------------
   // THE SEAM WALKER. Page point in → address out. Pointer goes down through every portal; the answer names each level.
   // ------------------------------------------------------------------
-  function walk(pagePx) {
+  var walkForce = null;   // an unresolved field piece nearer than the winner overrides the leaf: the answer is not definite
+  function walk(pagePx) { walkForce = null; var r = walkInner(pagePx); if (walkForce) r.leaf = walkForce; return r; }
+  function walkInner(pagePx) {
     var wx = (pagePx[0] - state.pan[0]) / state.zoom, wy = (pagePx[1] - state.pan[1]) / state.zoom; // page world (px)
-    var R = page.things.R, I = page.things.I;
+    var R = page.things.R, I = page.things.I, D = page.things.D;
     var address = [{ space: 'page', where: 'page (' + wx.toFixed(1) + ', ' + wy.toFixed(1) + ') px' }];
     // paint order from the top: the screenshot (if any) sits beside, both are top-level page things
     if (I && wx >= I.rect.x && wx <= I.rect.x + I.rect.w && wy >= I.rect.y && wy <= I.rect.y + I.rect.h) {
@@ -411,16 +636,60 @@
       address.push({ thing: 'I', kind: 'image', where: 'pixel (' + Math.floor(iu * I.px[0]) + ', ' + Math.floor(iv * I.px[1]) + ') of ' + I.px[0] + '×' + I.px[1] + ' · no seam: nothing behind these bytes' });
       return { leaf: 'I', address: address, mark: pagePx };
     }
+    // the section drawing D: another planar space on the page, its curves derived from the same constructions
+    if (D && wx >= D.rect.x && wx <= D.rect.x + D.rect.w && wy >= D.rect.y && wy <= D.rect.y + D.rect.h) {
+      address.push({ thing: 'D', kind: 'drawing', where: 'section of S at y = ' + D.section.h + ' m, unit mm, live: it follows CB, CP and F' });
+      var bd = hitD(D, [wx, wy]);
+      if (!bd) return { leaf: 'D', address: address, mark: pagePx };
+      address.push({ thing: bd.curve.kind, kind: 'curve', where: bd.where + ', ' + bd.param + ', ' + (bd.d * 1000).toFixed(1) + ' mm off · source: ' + bd.curve.source + (bd.curve.analytic ? ' (analytic; the path floor gets a lowering at a declared error)' : '') });
+      if (bd.curve.kind === 'circle') address.push({ thing: 'dimension r', kind: 'reaction', where: 'a saved reaction sets CP.r from this dimension; dragging the loop itself has no unique inverse (several source edits move it the same way)' });
+      return { leaf: 'D:' + bd.curve.kind, address: address, mark: pagePx };
+    }
     if (wx >= R.rect.x && wx <= R.rect.x + R.rect.w && wy >= R.rect.y && wy <= R.rect.y + R.rect.h) {
       var ls = lease(), u = (wx - R.rect.x) / R.rect.w, v = (wy - R.rect.y) / R.rect.h;
       var rp = [u * ls.used[0], v * ls.used[1]];
       address.push({ thing: 'R', kind: 'portal → space S via view V', where: 'portal-local (' + (u * R.rect.w).toFixed(1) + ', ' + (v * R.rect.h).toFixed(1) + ') px · surface ' + ls.used[0] + '×' + ls.used[1] + ' used of a ' + ls.alloc[0] + '×' + ls.alloc[1] + ' lease · framing ' + ls.aspect.toFixed(3) + ' (the portal\'s, not the lease\'s)' });
       var cam = cameraOf(views.V, ls), ray = rayFromRegionPoint(cam, rp[0], rp[1]);
-      var hits = [hitBlocks(ray, evaluated.blocks), hitSphere(ray, S.things.Q)].filter(Boolean).sort(function (a, b) { return a.t - b.t; });
+      var fh = hitField(ray, S.things.F, state.fieldWork), fMiss = (fh && fh.miss) ? fh : null;
+      var hits = [hitBlocks(ray, evaluated.blocks), hitSphere(ray, S.things.Q), S.things.P ? hitPost(ray, evaluatedP.support) : null, (fh && !fh.miss) ? fh : null].filter(Boolean).sort(function (a, b) { return a.t - b.t; });
+      // an unresolved piece nearer than the winner: an unknown nearer intersection cannot justify a definite visible winner behind it
+      if (fMiss && fMiss.unresolved.length && (!hits.length || fMiss.unresolved[0][0] < hits[0].t)) {
+        address.push({ thing: 'F', kind: 'field', where: 'no definite answer: the work limit ' + state.fieldWork + ' left ' + fMiss.unresolved.map(function (iv) { return '[' + iv[0].toFixed(3) + ', ' + iv[1].toFixed(3) + ']'; }).join(' ') + ' m unresolved before the nearest surface; the winner behind it is not definite' });
+        walkForce = 'F:unresolved';
+      }
       if (hits.length === 0) { address.push({ space: 'S', where: 'ray from V: origin (' + fmt3(ray.origin) + ') dir (' + fmt3(ray.dir) + ') · hits nothing: the background of S' }); return { leaf: 'S:background', address: address, mark: pagePx }; }
       var h = hits[0];
       address.push({ space: 'S', where: 'ray from V hits at t = ' + h.t.toFixed(3) + ' m · world (' + fmt3(h.point) + ')' });
       if (h.thing === 'Q') { address.push({ thing: 'Q', kind: 'sphere (the occluder)', where: 'surface, normal (' + fmt3(h.normal) + ')' }); return { leaf: 'Q', address: address, mark: pagePx, t: h.t }; }
+      if (h.thing === 'P') {
+        var Pw = evaluatedP.support, ch = postChart(Pw, h.point), wk = wallKnots(evaluatedP), corr = evaluatedP.correspondence[evaluatedP.correspondence.length - 1];
+        var chartLine = Pw.chart.scale === 1 && Pw.chart.offset === 0 ? 'chart S0: a = u, period ' + Pw.C.toFixed(1) + ' mm' : 'chart S1: a = (u − ' + Pw.chart.offset + ')/' + Pw.chart.scale + ', period ' + postPeriod(Pw).toFixed(1) + ' mm in a, metric diag(' + (Pw.chart.scale * Pw.chart.scale) + ', 1)';
+        address.push({ thing: 'P', kind: 'solid', where: 'construction CP revision ' + constructions.CP.revision + ', face wall (r ' + Pw.r.toFixed(3) + ' m, C ' + Pw.C.toFixed(1) + ' mm), ' + chartLine + (corr ? ' · correspondence from revision ' + corr.from.rev + ': ' + corr.evidence + ', ' + corr.capabilities.forward + '/' + corr.capabilities.backward + (corr.relation.kind === 'reparameterization' ? ' (' + corr.relation.phi + ')' : corr.relation.kind === 'deformation' ? ' (the generator and the height kept; C changed)' : '') : '') });
+        address.push({ thing: 'Fwall', kind: 'attachment', where: 'resolved, rule ' + wk.res.rule + ', authored unwrapped u ∈ [' + wk.res.dom.u0.toFixed(1) + ', ' + wk.res.dom.u1.toFixed(1) + '] × v ∈ [' + wk.res.dom.v0 + ', ' + wk.res.dom.v1 + '] mm (' + wk.res.evidence + ')' + (state.pMode === 'modulo' ? ' · reading: each knot reduced modulo C (the naive reading)' : '') + (state.pNib === 'naive' ? ' · nib: chart units read as mm (the naive nib)' : '') });
+        var q = null, pre = [];
+        if (state.pNib === 'naive') q = [ch.a, ch.b];
+        else { pre = postPreimages(Pw, wk.dom, ch.a, ch.b); q = pre.length ? [pre[0].u, pre[0].v] : null; }
+        var p1 = projectPoint(cam, h.point), p2 = projectPoint(cam, postWorld(Pw, ch.uChart + 1, h.point[1] * 1000));
+        var fpP = (p1 && p2) ? Math.hypot(p2[0] - p1[0], p2[1] - p1[1]) * (R.rect.w * state.zoom / ls.used[0]) : 0;
+        address.push({ thing: 'PW', kind: 'planar space', where: 'chart (a ' + ch.a.toFixed(1) + ', b ' + ch.b.toFixed(1) + ') → ' + (state.pNib === 'naive' ? 'read as mm' : (pre.length ? 'preimage u ' + pre[0].u.toFixed(1) + ' mm (k ' + pre[0].k + ')' + (pre.length > 1 ? ', ' + pre.length + ' candidates' : '') : 'no preimage in the authored domain')) + ', footprint ' + fpP.toFixed(2) + ' px per mm on the surface' });
+        var leafP = 'P:wall';
+        if (q) {
+          var cm = classifyMark(wk.ks, q);
+          if (cm.inside) { leafP = 'kP'; address.push({ thing: 'kP', kind: 'path', where: 'inside: ' + cm.contributors.map(function (e) { return 'segment ' + e.seg + ', t ' + e.t.toFixed(2) + ', width ' + e.w.toFixed(2) + ' mm'; }).join(' · ') + (cm.contributors.length > 1 ? ' (' + cm.contributors.length + ' source locations, one mark)' : '') + ', at least ' + (-cm.best.signed).toFixed(2) + ' mm from the edge' }); }
+          else address.push({ thing: 'kP', kind: 'path', where: 'outside by ' + cm.best.signed.toFixed(2) + ' mm (nearest: segment ' + cm.best.seg + ', t ' + cm.best.t.toFixed(2) + ', width ' + cm.best.w.toFixed(2) + ' mm)' });
+          if (state.pMode === 'modulo') { var k0 = markKnots(Pw, 'unwrapped'), km = markKnots(Pw, 'modulo'); address.push({ thing: 'kP', kind: 'note', where: 'first segment A→B: unwrapped +' + (k0[1].u - k0[0].u).toFixed(1) + ' mm; reduced modulo C: ' + (km[1].u - km[0].u).toFixed(1) + ' mm (the stroke would run the other way round the post)' }); }
+          if (state.pNib === 'naive' && Pw.chart.scale !== 1) address.push({ thing: 'kP', kind: 'note', where: 'the naive nib measures in a: ' + Pw.chart.scale + ' mm on the surface reads as 1; a point ' + state.probeD + ' mm along the circumference reads ' + (state.probeD / Pw.chart.scale).toFixed(1) });
+        }
+        return { leaf: leafP, address: address, mark: pagePx, t: h.t };
+      }
+      if (h.thing === 'F') {
+        var Ff = S.things.F;
+        address.push({ thing: 'F', kind: 'field', where: 'definition ' + Ff.definition + '; a ' + Ff.params.a + ', b ' + Ff.params.b + ', c ' + Ff.params.c + ' m' + (Ff.hollow ? '; hollow: max(f_outer, −f_inner) ≤ 0, inner a ' + Ff.inner.a + ', b ' + Ff.inner.b + ', c ' + Ff.inner.c : '') });
+        address.push({ thing: 'F', kind: 'boundary', where: 't = ' + h.t.toFixed(3) + ' m, local point (' + h.local.map(function (x) { return x.toFixed(3); }).join(', ') + '), ' + (h.normal ? 'normal (' + h.normal.map(function (x) { return x.toFixed(2); }).join(', ') + ')' : 'normal undefined (a meeting of branches)') + ', ' + h.kind + ', active ' + h.active + ' · no face: the address is the definition, the boundary rule and this local point' });
+        address.push({ thing: 'F', kind: 'events', where: h.events.map(function (e) { return e.t.toFixed(3) + ' ' + (e.leaf === 0 ? 'outer' : 'inner') + ' ' + e.kind; }).join(' · ') + '; material ' + h.material.map(function (iv) { return '[' + iv[0].toFixed(3) + ', ' + iv[1].toFixed(3) + ']'; }).join(' ∪ ') + ' m; ' + h.status + ', ' + h.work + ' evaluations' + (h.unresolved.length ? '; unresolved ' + h.unresolved.map(function (iv) { return '[' + iv[0].toFixed(3) + ', ' + iv[1].toFixed(3) + ']'; }).join(' ') : '') });
+        address.push({ thing: 'F', kind: 'tool', where: 'extent tool: binding a ← drag along ' + Ff.tool.extent.dragFrame + ' (' + Ff.tool.extent.constraint + '); the hit selects no parameter, the binding does; expression refs a, b, c' });
+        return { leaf: 'F', address: address, mark: pagePx, t: h.t };
+      }
       var fc = evaluated.faces[h.face];
       address.push({ thing: 'B', kind: 'solid · construction CB, revision ' + constructions.CB.revision, where: 'face ' + h.face + (fc && fc.parts > 1 ? ' · part ' + (h.partIndex + 1) + ' of ' + fc.parts : '') + ' · lineage: ' + (fc ? fc.lineage : 'internal') });
       if (h.face === 'E.top') {
@@ -429,6 +698,24 @@
         var uv = attachUV(res, h.point);
         var fp = footprint(cam, h.point, ls, res);
         address.push({ thing: 'Ftop', kind: 'planar surface → space Π (mm)', where: 'attachment ' + res.status + ' · rule: ' + res.anchor + ' · authored on ' + (res.domain[0] * 1000).toFixed(0) + '×' + (res.domain[1] * 1000).toFixed(0) + ' mm, the face is now ' + (res.size[0] * 1000).toFixed(0) + '×' + (res.size[1] * 1000).toFixed(0) + ' · Π (' + uv[0].toFixed(1) + ', ' + uv[1].toFixed(1) + ') mm · footprint here ' + fp.toFixed(2) + ' px per Π mm (the filler\'s tolerance on this face, per view)' });
+        if (state.records === 2) {
+          if (state.merge) address.push({ thing: 'E.top', kind: 'correspondence', where: state.merge.pieces.map(function (p) { return p.from.domain + ' (' + p.from.subset + ') → ' + p.to.domain + ', ' + p.relation + ', ' + p.evidence; }).join(' · ') + ' · no predecessor: ' + state.merge.noPredecessor });
+          if (S.things.Fright) address.push({ thing: 'Fright', kind: 'planar surface → space Π2 (mm)', where: 'resolved, rule origin, Π2 origin at world x 0.30 (Π 800 mm), restricted to its old support x ≥ 800 mm (restricted old support)' });
+          var strip = state.merge ? state.merge.strip : null;
+          var cl1 = classifyStroke(uv);
+          if (state.leftKept === 'trimmed' && strip && uv[0] > strip[0] && uv[0] < strip[1]) cl1 = null;
+          var cl2 = uv[0] >= 800 ? classifyStroke2([uv[0] - 800, uv[1]]) : null;
+          var in1 = !!(cl1 && cl1.signed <= 0), in2 = !!(cl2 && cl2.signed <= 0);
+          if (in1 && in2) {
+            var comp = composeAt(composition.order, { k: premul(PI.things.k.paint.stroke.color), k2: premul(PI2.things.k2.paint.stroke.color) });
+            address.push({ thing: 'k · k2', kind: 'overlap', where: 'k inside (segment ' + cl1.seg + ', t ' + cl1.t.toFixed(2) + ', width ' + cl1.w.toFixed(1) + ' mm) · k2 inside (segment ' + cl2.seg + ', t ' + cl2.t.toFixed(2) + ', width ' + cl2.w.toFixed(1) + ' mm) · ' + (comp.status === 'needs-policy' ? 'both records cover this point; no composition rule saved → needs-policy (the lineage word "merged" cannot choose)' : 'composed by order [' + composition.order.join(', ') + '], top ' + comp.top + ', premultiplied rgba (' + comp.rgba.map(function (x) { return x.toFixed(3); }).join(', ') + ')') });
+            return { leaf: 'k+k2', address: address, mark: pagePx, t: h.t };
+          }
+          if (in1) { address.push({ thing: 'k', kind: 'path (the stroke), swept nib', where: 'inside · segment ' + cl1.seg + ' t ' + cl1.t.toFixed(2) + ' · s ' + cl1.s.toFixed(1) + ' mm along · width ' + cl1.w.toFixed(1) + ' mm · at least ' + (-cl1.signed).toFixed(2) + ' mm from the edge' }); return { leaf: 'k', address: address, mark: pagePx, t: h.t }; }
+          if (in2) { address.push({ thing: 'k2', kind: 'path (the second record), swept nib', where: 'k2 inside: segment ' + cl2.seg + ' t ' + cl2.t.toFixed(2) + ' · s ' + cl2.s.toFixed(1) + ' mm along · width ' + cl2.w.toFixed(1) + ' mm · at least ' + (-cl2.signed).toFixed(2) + ' mm from the edge · Π2 (' + (uv[0] - 800).toFixed(1) + ', ' + uv[1].toFixed(1) + ') mm' }); return { leaf: 'k2', address: address, mark: pagePx, t: h.t }; }
+          address.push({ space: 'Π', where: 'not on k: ' + (cl1 ? cl1.signed.toFixed(1) + ' mm outside its edge' : 'the strip has no predecessor and k is trimmed here') + ' · not on k2: ' + (cl2 ? cl2.signed.toFixed(1) + ' mm outside its edge' : 'k2 binds only to the old right part (Π x ≥ 800 mm)') });
+          return { leaf: 'B:E.top', address: address, mark: pagePx, t: h.t };
+        }
         var cl = classifyStroke(uv);
         if (cl && cl.signed <= 0) {
           address.push({ thing: 'k', kind: 'path (the stroke), swept nib', where: 'inside · segment ' + cl.seg + ' t ' + cl.t.toFixed(2) + ' · s ' + cl.s.toFixed(1) + ' mm along · width ' + cl.w.toFixed(1) + ' mm · at least ' + (-cl.signed).toFixed(2) + ' mm from the edge' });
@@ -479,21 +766,67 @@
   var FS = '#version 300 es\nprecision highp float; in vec3 vWorld; in vec3 vNrm; flat in float vFace; out vec4 o;\n' +
     'uniform vec3 uLightDir; uniform float uAmbient; uniform vec3 uBase; uniform float uKind; uniform sampler2D uStroke; uniform int uCount; uniform vec4 uStrokeColor; uniform sampler2D uLand;\n' +
     'uniform vec2 uAttOrigin; uniform vec2 uAttScale; uniform vec2 uAttOffset; uniform float uInkOn; uniform vec4 uFront;\n' +
+    // attack 1: the post's wall (class 4) and the second record on E.top (class 3)
+    'uniform vec4 uPost; uniform vec2 uChartP; uniform vec4 uPDom; uniform vec4 uPK[4]; uniform int uPMode; uniform vec4 uPColor;\n' +
+    'uniform sampler2D uStroke2; uniform int uCount2; uniform vec2 uAtt2Origin; uniform vec2 uAtt2Scale; uniform vec2 uAtt2Offset; uniform int uRecords; uniform float uRight; uniform vec2 uLeftClip; uniform int uOrder; uniform vec4 uComp2;\n' +
     '// the swept nib on one segment: the convex hull of the two end discs (uneven capsule, Quilez) — the same formula the CPU classify uses\n' +
     'float capsuleSD(vec2 p, vec2 a, vec2 b, float ra, float rb){ p -= a; b -= a; float h = dot(b, b); if (h < 1e-12) return length(p) - max(ra, rb); float bb = ra - rb; if (bb * bb >= h) return min(length(p) - ra, length(p - b) - rb);\n' +
     '  vec2 q = vec2(abs(p.x * b.y - p.y * b.x), dot(p, b)) / h; vec2 c = vec2(sqrt(h - bb * bb), bb); float k = c.x * q.y - c.y * q.x; float m = dot(c, q); float n = dot(q, q);\n' +
     '  if (k < 0.0) return sqrt(h * n) - ra; if (k > c.x) return sqrt(h * (n + 1.0 - 2.0 * q.y)) - rb; return m - ra; }\n' +
     'void main(){ vec3 n = normalize(vNrm); float ndl = max(dot(n, normalize(uLightDir)), 0.0); vec3 base = uBase; float alpha = 1.0;\n' +
+    '  if (uKind > 0.5 && vFace > 3.5 && vFace < 4.5) { // P\'s wall (class 4): the chart on the wall, its seam, and the mark classified in millimetres on the surface\n' +
+    '    vec3 pbase = uBase * (uAmbient + (1.0 - uAmbient) * ndl);\n' +
+    '    float th = atan(vWorld.z - uPost.y, vWorld.x - uPost.x); if (th < 0.0) th += 6.28318530718;\n' +
+    '    float uChart = th * uPost.z;                     // mm along the wall from the +x generator\n' +
+    '    float per = uPost.w / uChartP.y;                 // the chart\'s period in a\n' +
+    '    float a = mod((uChart - uChartP.x) / uChartP.y, per);\n' +
+    '    float b = vWorld.y * 1000.0;\n' +
+    '    float best = 1e9;\n' +
+    '    if (uPMode == 0) {\n' +
+    '      for (int k = -1; k <= 1; k++) {               // the preimage in the authored (unwrapped) domain; classify in millimetres on the surface\n' +
+    '        float u = uChartP.y * a + uChartP.x + float(k) * uPost.w;\n' +
+    '        if (u < uPDom.x || u > uPDom.y || b < uPDom.z || b > uPDom.w) continue;\n' +
+    '        vec2 q = vec2(u, b);\n' +
+    '        best = min(best, min(capsuleSD(q, uPK[0].xy, uPK[1].xy, uPK[0].z * 0.5, uPK[1].z * 0.5), min(capsuleSD(q, uPK[1].xy, uPK[2].xy, uPK[1].z * 0.5, uPK[2].z * 0.5), capsuleSD(q, uPK[2].xy, uPK[3].xy, uPK[2].z * 0.5, uPK[3].z * 0.5))));\n' +
+    '      }\n' +
+    '    } else {                                        // the naive nib: (a, b) read as millimetres against knots already mapped by phi\n' +
+    '      vec2 q = vec2(a, b);\n' +
+    '      if (a >= uPDom.x && a <= uPDom.y && b >= uPDom.z && b <= uPDom.w)\n' +
+    '        best = min(capsuleSD(q, uPK[0].xy, uPK[1].xy, uPK[0].z * 0.5, uPK[1].z * 0.5), min(capsuleSD(q, uPK[1].xy, uPK[2].xy, uPK[1].z * 0.5, uPK[2].z * 0.5), capsuleSD(q, uPK[2].xy, uPK[3].xy, uPK[2].z * 0.5, uPK[3].z * 0.5)));\n' +
+    '    }\n' +
+    '    float aaP = max(fwidth(best) * 0.7, 0.05);\n' +
+    '    float covP = 1.0 - smoothstep(-aaP, aaP, best);\n' +
+    '    vec3 colP = mix(pbase, uPColor.rgb * (uAmbient + (1.0 - uAmbient) * ndl), covP * uPColor.a);\n' +
+    '    vec2 gp = abs(fract(vec2(a, b) / 100.0) - 0.5);  // the chart\'s 100-unit grid: it changes under a reparameterization, the ink does not\n' +
+    '    float gridP = 1.0 - smoothstep(0.0, 0.02, min(gp.x, gp.y));\n' +
+    '    colP = mix(colP, colP * 0.85, gridP * 0.6);\n' +
+    '    float seam = 1.0 - smoothstep(0.0, 3.0, min(a, per - a));   // the chart\'s cut, 3 mm dark\n' +
+    '    colP = mix(colP, vec3(0.08), seam * 0.85);\n' +
+    '    o = vec4(colP, 1.0); return; }\n' +
     '  if (uKind > 0.5 && vFace > 2.5 && vFace < 3.5) { // a surviving part of face E.top: the planar surface Π through the attachment rule, the stroke filled per pixel with the swept nib\n' +
     '    vec2 uv = ((vWorld.xz - uAttOrigin) * uAttScale + uAttOffset) * 1000.0;\n' +
     '    float best = 1e9;\n' +
     '    for (int i = 0; i < 511; i++) { if (i >= uCount - 1) break; vec4 a = texelFetch(uStroke, ivec2(i, 0), 0); vec4 b = texelFetch(uStroke, ivec2(i + 1, 0), 0); best = min(best, capsuleSD(uv, a.xy, b.xy, a.z * 0.5, b.z * 0.5)); }\n' +
     '    if (uCount == 1) { vec4 a = texelFetch(uStroke, ivec2(0, 0), 0); best = length(uv - a.xy) - a.z * 0.5; }\n' +
-    '    float aa = fwidth(best) * 0.7; float cov = (uCount > 0 && uInkOn > 0.5) ? 1.0 - smoothstep(-aa, aa, best) : 0.0;\n' +
+    '    float aa = fwidth(best) * 0.7; float cov1 = (uCount > 0 && uInkOn > 0.5) ? 1.0 - smoothstep(-aa, aa, best) : 0.0;\n' +
+    '    if (uLeftClip.x < uLeftClip.y && vWorld.x > uLeftClip.x && vWorld.x < uLeftClip.y) cov1 = 0.0;   // the strip: k is trimmed to its old support\n' +
+    '    float cov2 = 0.0;\n' +
+    '    if (uRecords > 1 && vWorld.x >= uRight) {       // the second record: its own samples, its own attachment, on its old right part only\n' +
+    '      vec2 uv2 = ((vec2(vWorld.x, vWorld.z) - uAtt2Origin) * uAtt2Scale + uAtt2Offset) * 1000.0;\n' +
+    '      float b2 = 1e9;\n' +
+    '      for (int i = 0; i < 511; i++) { if (i >= uCount2 - 1) break; vec4 a = texelFetch(uStroke2, ivec2(i, 0), 0); vec4 b = texelFetch(uStroke2, ivec2(i + 1, 0), 0); b2 = min(b2, capsuleSD(uv2, a.xy, b.xy, a.z * 0.5, b.z * 0.5)); }\n' +
+    '      if (uCount2 == 1) { vec4 a = texelFetch(uStroke2, ivec2(0, 0), 0); b2 = length(uv2 - a.xy) - a.z * 0.5; }\n' +
+    '      float aa2 = fwidth(b2) * 0.7; cov2 = (uCount2 > 0) ? 1.0 - smoothstep(-aa2, aa2, b2) : 0.0;\n' +
+    '    }\n' +
     '    // a faint grid in mm so the face reads as a space with a unit\n' +
     '    vec2 g = abs(fract(uv / 100.0) - 0.5); float gline = 1.0 - smoothstep(0.0, fwidth(uv.x / 100.0) * 1.5, min(g.x, g.y)); base = mix(base, base * 0.82, gline * 0.6);\n' +
-    '    vec3 lit = base * (uAmbient + (1.0 - uAmbient) * ndl); vec3 inkc = uStrokeColor.rgb * (uAmbient + (1.0 - uAmbient) * ndl);\n' +
-    '    o = vec4(mix(lit, inkc, cov * uStrokeColor.a), 1.0); return; }\n' +
+    '    float lf = uAmbient + (1.0 - uAmbient) * ndl; vec3 lit = base * lf;\n' +
+    '    vec4 c1 = vec4(uStrokeColor.rgb * uStrokeColor.a, uStrokeColor.a) * cov1;   // premultiplied\n' +
+    '    vec4 c2 = vec4(uComp2.rgb * uComp2.a, uComp2.a) * cov2;\n' +
+    '    vec4 ink;\n' +
+    '    if (cov1 > 0.001 && cov2 > 0.001 && uOrder == 0) { float ch = step(0.5, fract((uv.x + uv.y) / 16.0)); ink = mix(c1, c2, ch); }   // needs-policy: a hatch of the two\n' +
+    '    else if (uOrder == 2) ink = c1 + c2 * (1.0 - c1.a); else ink = c2 + c1 * (1.0 - c2.a);\n' +
+    '    o = vec4(mix(lit, ink.rgb / max(ink.a, 1e-4) * lf, ink.a), 1.0); return; }\n' +
     '  if (uKind > 0.5 && vFace > 5.5) { // a face the cut generated: the groove floor and walls. No attachment resolves here, so no ink; a cooler tint so the cut reads\n' +
     '    o = vec4(base * vec3(0.90, 0.93, 1.0) * (uAmbient + (1.0 - uAmbient) * ndl), 1.0); return; }\n' +
     '  if (uKind > 0.5 && vFace > 4.5) { // face E.front: portal T, the surface of land L is paint here, stretched with the face (T\'s attachment is normalized)\n' +
@@ -501,9 +834,89 @@
     '    float edge = step(min(min(f.x, 1.0 - f.x), min(f.y, 1.0 - f.y)), 0.02);\n' +
     '    o = vec4(mix(land, frame, edge) * (uAmbient + (1.0 - uAmbient) * ndl), 1.0); return; }\n' +
     '  o = vec4(base * (uAmbient + (1.0 - uAmbient) * ndl), 1.0); }';
+  // ── the field F: a second program. The picture is found the way the walker finds it: the quartic along the ray, its roots isolated by the
+  // derivative chain, the Boolean decided between consecutive events, and the entry written to gl_FragDepth so it meets the rest of the scene.
+  var VSF = ['#version 300 es', 'layout(location=0) in vec3 aPos; uniform mat4 uVP; uniform mat4 uModel; out vec3 vWorld;',
+    'void main(){ vec4 w = uModel * vec4(aPos, 1.0); vWorld = w.xyz; gl_Position = uVP * w; }'].join('\n');
+  var FSF = ['#version 300 es', 'precision highp float; in vec3 vWorld; out vec4 fragColor;',
+    'uniform mat4 uVP; uniform vec3 uEye; uniform vec3 uFieldCentre; uniform vec3 uFieldOuter; uniform vec3 uFieldInner; uniform int uFieldHollow; uniform vec3 uLightDir; uniform float uAmbient;',
+    'float R_[4];',
+    'float p4(float c0, float c1, float c2, float c3, float c4, float t) { return (((c4 * t + c3) * t + c2) * t + c1) * t + c0; }',
+    'float bisect4(float c0, float c1, float c2, float c3, float c4, float lo, float hi) {',
+    '  float flo = p4(c0, c1, c2, c3, c4, lo), fhi = p4(c0, c1, c2, c3, c4, hi);',
+    '  if (abs(flo) < 1e-7) return lo; if (abs(fhi) < 1e-7) return hi;',
+    '  if ((flo < 0.0) == (fhi < 0.0)) return -1.0;',
+    '  for (int i = 0; i < 26; i++) { float m = 0.5 * (lo + hi), fm = p4(c0, c1, c2, c3, c4, m); if ((fm < 0.0) == (flo < 0.0)) { lo = m; flo = fm; } else hi = m; }',
+    '  return 0.5 * (lo + hi);',
+    '}',
+    '// all real roots of the quartic on [t0, t1] by the derivative chain (fppp -> fpp -> fp -> f): every monotone piece holds at most one root;',
+    '// a piece cut at fp = 0 finds a tangency (a contact, no sign change) that a sign-change loop misses. Writes R_[0..n-1], returns n.',
+    'int quarticRoots(float c0, float c1, float c2, float c3, float c4, float t0, float t1) {',
+    '  float pts2[3]; int n2 = 0; pts2[n2] = t0; n2++;',
+    '  if (abs(c4) > 1e-12) { float r3 = -c3 / (4.0 * c4); if (r3 > t0 && r3 < t1) { pts2[n2] = r3; n2++; } }',
+    '  pts2[n2] = t1; n2++;',
+    '  float pts1[4]; int n1 = 0; pts1[n1] = t0; n1++;',
+    '  for (int i = 0; i < 2; i++) if (i + 1 < n2) { float x = bisect4(2.0 * c2, 6.0 * c3, 12.0 * c4, 0.0, 0.0, pts2[i], pts2[i + 1]); if (x > t0 && x < t1) { pts1[n1] = x; n1++; } }',
+    '  pts1[n1] = t1; n1++;',
+    '  float pts0[5]; int n0 = 0; pts0[n0] = t0; n0++;',
+    '  for (int i = 0; i < 3; i++) if (i + 1 < n1) { float x = bisect4(c1, 2.0 * c2, 3.0 * c3, 4.0 * c4, 0.0, pts1[i], pts1[i + 1]); if (x > t0 && x < t1) { pts0[n0] = x; n0++; } }',
+    '  pts0[n0] = t1; n0++;',
+    '  int n = 0;',
+    '  for (int i = 0; i < 4; i++) if (i + 1 < n0) { float x = bisect4(c0, c1, c2, c3, c4, pts0[i], pts0[i + 1]); if (x >= 0.0) { if (n == 0 || x - R_[n - 1] > 1e-6) { R_[n] = x; n++; } } }',
+    '  for (int i = 0; i < 4; i++) if (i >= n) R_[i] = 1e30;',
+    '  return n;',
+    '}',
+    'void quarticAlongRay(vec3 o, vec3 d, vec3 e, out float c0, out float c1, out float c2, out float c3, out float c4) {',
+    '  vec3 inv = 1.0 / (e * e * e * e);',
+    '  c0 = dot(o * o * o * o, inv) - 1.0; c1 = dot(4.0 * o * o * o * d, inv); c2 = dot(6.0 * o * o * d * d, inv); c3 = dot(4.0 * o * d * d * d, inv); c4 = dot(d * d * d * d, inv);',
+    '}',
+    'float fieldValue(vec3 p, vec3 e) { vec3 s = p / e; s = s * s; s = s * s; return s.x + s.y + s.z - 1.0; }',
+    'vec3 fieldGrad(vec3 p, vec3 e) { return 4.0 * p * p * p / (e * e * e * e); }',
+    'bool rayBox(vec3 o, vec3 d, vec3 e, out float t0, out float t1) {',
+    '  vec3 inv = 1.0 / d; vec3 ta = (-e - o) * inv, tb = (e - o) * inv; vec3 tmin = min(ta, tb), tmax = max(ta, tb);',
+    '  t0 = max(max(max(tmin.x, tmin.y), tmin.z), 0.0); t1 = min(min(tmax.x, tmax.y), tmax.z); return t1 >= t0;',
+    '}',
+    '// the first material entry: the events of both leaves merged, the Boolean max(f_outer, -f_inner) <= 0 decided between events',
+    'float fieldHit(vec3 o, vec3 d, out int leaf, out vec3 n) {',
+    '  float t0, t1; if (!rayBox(o, d, uFieldOuter, t0, t1)) return -1.0;',
+    '  float c0, c1, c2, c3, c4; quarticAlongRay(o, d, uFieldOuter, c0, c1, c2, c3, c4);',
+    '  int no = quarticRoots(c0, c1, c2, c3, c4, t0, t1); float ro[4]; for (int i = 0; i < 4; i++) ro[i] = R_[i];',
+    '  int ni = 0; float ri[4]; for (int i = 0; i < 4; i++) ri[i] = 1e30;',
+    '  if (uFieldHollow == 1) { float i0, i1, i2, i3, i4; quarticAlongRay(o, d, uFieldInner, i0, i1, i2, i3, i4); ni = quarticRoots(i0, i1, i2, i3, i4, t0, t1); for (int i = 0; i < 4; i++) ri[i] = R_[i]; }',
+    '  float ev[9]; int ne = 0; ev[ne] = t0; ne++;',
+    '  int io = 0, ii = 0;',
+    '  for (int k = 0; k < 8; k++) { float a = io < no ? ro[io] : 1e30; float b = ii < ni ? ri[ii] : 1e30; if (a >= 1e29 && b >= 1e29) break; if (a <= b) { ev[ne] = a; io++; } else { ev[ne] = b; ii++; } ne++; }',
+    '  for (int k = 0; k < 9; k++) {',
+    '    if (k >= ne) break;',
+    '    float lo = ev[k], hi = (k + 1 < ne) ? ev[k + 1] : t1; if (hi <= lo) continue;',
+    '    vec3 pm = o + 0.5 * (lo + hi) * d;',
+    '    bool inside = fieldValue(pm, uFieldOuter) <= 0.0; if (uFieldHollow == 1 && fieldValue(pm, uFieldInner) < 0.0) inside = false;',
+    '    if (inside) {',
+    '      vec3 p = o + lo * d; bool innerWall = (uFieldHollow == 1) && abs(fieldValue(p, uFieldInner)) < abs(fieldValue(p, uFieldOuter));',
+    '      leaf = innerWall ? 1 : 0; vec3 g = innerWall ? -fieldGrad(p, uFieldInner) : fieldGrad(p, uFieldOuter);',
+    '      n = length(g) > 1e-9 ? normalize(g) : vec3(0.0); return lo;',
+    '    }',
+    '  }',
+    '  return -1.0;',
+    '}',
+    'void main() {',
+    '  vec3 o = uEye - uFieldCentre; vec3 d = normalize(vWorld - uEye);',
+    '  int leaf; vec3 n; float t = fieldHit(o, d, leaf, n); if (t < 0.0) discard;',
+    '  vec3 pw = uEye + t * d; vec4 clip = uVP * vec4(pw, 1.0);',
+    '  gl_FragDepth = clamp((clip.z / clip.w) * 0.5 + 0.5, 0.0, 1.0);',
+    '  float lit = uAmbient + (1.0 - uAmbient) * max(dot(n, normalize(uLightDir)), 0.0);',
+    '  vec3 base = leaf == 1 ? vec3(0.55, 0.30, 0.25) : vec3(0.93, 0.62, 0.25);',
+    '  fragColor = vec4(base * lit, 1.0);',
+    '}'].join('\n');
   var prog, locs = {}, solidVAO, solidCount = 0, sphVAO, groundVAO, sphCount, strokeTex, landTex;
+  var progF, locsF = {}, cubeVAO, postVAO, postCount = 0, stroke2Tex, shaderLog = { main: '', field: '' }, statDone = false;
   function glstat(t) { var e = document.getElementById('glstat'); if (e) e.textContent = 'WebGL2: ' + t; }
-  function compile(type, src) { var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s); if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { var log = gl.getShaderInfoLog(s); console.error(log); glstat('shader failed: ' + log); } return s; }
+  function compile(type, src, which) {
+    var s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+    var log = (gl.getShaderInfoLog(s) || '').trim(); if (log) shaderLog[which || 'main'] += (shaderLog[which || 'main'] ? ' ; ' : '') + log;
+    if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) { console.error(log); glstat('shader failed: ' + log); }
+    return s;
+  }
   function makeVAO(pos, nrm, face, idx) {
     var vao = gl.createVertexArray(); gl.bindVertexArray(vao); var bufs = [];
     function buf(loc, data, n) { var b = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, b); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, n, gl.FLOAT, false, 0, 0); bufs.push(b); }
@@ -535,6 +948,31 @@
     });
     return { pos: pos, nrm: nrm, face: face, idx: idx, count: idx.length };
   }
+  // P's wall as a tube of 96 segments: positions on the wall, outward normals, face class 4 (the wall's own material)
+  function postGeometry(P) {
+    var pos = [], nrm = [], face = [], idx = [], n = 96;
+    for (var i = 0; i <= n; i++) {
+      var th = i / n * TAU, cx = Math.cos(th), sz = Math.sin(th);
+      pos.push(P.cx + P.r * cx, 0, P.cz + P.r * sz); nrm.push(cx, 0, sz); face.push(4);
+      pos.push(P.cx + P.r * cx, P.h, P.cz + P.r * sz); nrm.push(cx, 0, sz); face.push(4);
+    }
+    for (var j = 0; j < n; j++) { var b0 = j * 2, t0 = b0 + 1, b1 = b0 + 2, t1 = b0 + 3; idx.push(b0, t0, b1, b1, t0, t1); }
+    return { pos: pos, nrm: nrm, face: face, idx: idx, count: idx.length };
+  }
+  // the field's bounds box: a unit cube, scaled to (a, b, c) and placed by uModel; the fragment program does the finding
+  function cubeGeometry() {
+    var pos = [], nrm = [], face = [], idx = [], n = 0;
+    var dirs = { '-x': [-1, 0, 0], '+x': [1, 0, 0], '-y': [0, -1, 0], '+y': [0, 1, 0], '-z': [0, 0, -1], '+z': [0, 0, 1] };
+    Object.keys(dirs).forEach(function (key) {
+      var N = dirs[key], u = N[1] !== 0 ? [1, 0, 0] : [0, 1, 0], v = v3cross(N, u);
+      [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(function (cc) {
+        var d = v3add(N, v3add(v3scale(u, cc[0]), v3scale(v, cc[1])));
+        pos.push(d[0], d[1], d[2]); nrm.push(N[0], N[1], N[2]); face.push(0);
+      });
+      idx.push(n, n + 1, n + 2, n, n + 2, n + 3); n += 4;
+    });
+    return { pos: pos, nrm: nrm, face: face, idx: idx, count: idx.length };
+  }
   function sphereGeometry(r, ws, hs) {
     var pos = [], nrm = [], face = [], idx = [];
     for (var y = 0; y <= hs; y++) { var th = y / hs * Math.PI; for (var x = 0; x <= ws; x++) { var ph = x / ws * Math.PI * 2; var nx = Math.sin(th) * Math.cos(ph), ny = Math.cos(th), nz = Math.sin(th) * Math.sin(ph); pos.push(nx * r, ny * r, nz * r); nrm.push(nx, ny, nz); face.push(9); } }
@@ -551,16 +989,29 @@
     return c;
   }
   function initGL() {
-    var vs = compile(gl.VERTEX_SHADER, VS), fs = compile(gl.FRAGMENT_SHADER, FS);
+    var vs = compile(gl.VERTEX_SHADER, VS, 'main'), fs = compile(gl.FRAGMENT_SHADER, FS, 'main');
     prog = gl.createProgram(); gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+    var plog = (gl.getProgramInfoLog(prog) || '').trim(); if (plog) shaderLog.main += (shaderLog.main ? ' ; ' : '') + 'link: ' + plog;
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) { console.error(gl.getProgramInfoLog(prog)); glstat('link failed: ' + gl.getProgramInfoLog(prog)); glOK = false; return; }
     glstat('ok · ' + (gl.getParameter(gl.RENDERER) || ''));
-    ['uVP', 'uModel', 'uLightDir', 'uAmbient', 'uBase', 'uKind', 'uStroke', 'uCount', 'uStrokeColor', 'uLand', 'uAttOrigin', 'uAttScale', 'uAttOffset', 'uInkOn', 'uFront'].forEach(function (n) { locs[n] = gl.getUniformLocation(prog, n); });
+    ['uVP', 'uModel', 'uLightDir', 'uAmbient', 'uBase', 'uKind', 'uStroke', 'uCount', 'uStrokeColor', 'uLand', 'uAttOrigin', 'uAttScale', 'uAttOffset', 'uInkOn', 'uFront',
+      'uPost', 'uChartP', 'uPDom', 'uPMode', 'uPColor', 'uStroke2', 'uCount2', 'uAtt2Origin', 'uAtt2Scale', 'uAtt2Offset', 'uRecords', 'uRight', 'uLeftClip', 'uOrder', 'uComp2'].forEach(function (n) { locs[n] = gl.getUniformLocation(prog, n); });
+    locs.uPK = gl.getUniformLocation(prog, 'uPK') || gl.getUniformLocation(prog, 'uPK[0]');
+    // the field's own program: the same clip transform, its own finder, its own depth
+    var vsf = compile(gl.VERTEX_SHADER, VSF, 'field'), fsf = compile(gl.FRAGMENT_SHADER, FSF, 'field');
+    progF = gl.createProgram(); gl.attachShader(progF, vsf); gl.attachShader(progF, fsf); gl.linkProgram(progF);
+    var plogF = (gl.getProgramInfoLog(progF) || '').trim(); if (plogF) shaderLog.field += (shaderLog.field ? ' ; ' : '') + 'link: ' + plogF;
+    if (!gl.getProgramParameter(progF, gl.LINK_STATUS)) { console.error(gl.getProgramInfoLog(progF)); progF = null; }
+    if (progF) ['uVP', 'uModel', 'uEye', 'uFieldCentre', 'uFieldOuter', 'uFieldInner', 'uFieldHollow', 'uLightDir', 'uAmbient'].forEach(function (n) { locsF[n] = gl.getUniformLocation(progF, n); });
+    var pg = postGeometry(evaluatedP.support); postVAO = makeVAO(pg.pos, pg.nrm, pg.face, pg.idx); postCount = pg.count;
+    var cg = cubeGeometry(); cubeVAO = makeVAO(cg.pos, cg.nrm, cg.face, cg.idx);
     var b = blocksGeometry(evaluated.blocks); solidVAO = makeVAO(b.pos, b.nrm, b.face, b.idx); solidCount = b.count;
     var s = sphereGeometry(1, 40, 24); sphVAO = makeVAO(s.pos, s.nrm, s.face, s.idx); sphCount = s.count;
     var g = { pos: [-4, 0, -4, 4, 0, -4, 4, 0, 4, -4, 0, 4], nrm: [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0], face: [8, 8, 8, 8], idx: [0, 2, 1, 0, 3, 2] }; groundVAO = makeVAO(g.pos, g.nrm, g.face, g.idx);
     strokeTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, strokeTex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     uploadStroke();
+    stroke2Tex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, stroke2Tex); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    uploadStroke2();   // its own unit, its own texture, bound on every draw even when empty
     landTex = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, landTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, landCanvas()); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.enable(gl.DEPTH_TEST); gl.enable(gl.CULL_FACE); gl.cullFace(gl.BACK);
   }
@@ -569,6 +1020,11 @@
     var s = PI.things.k.samples, n = Math.min(512, s.length), data = new Float32Array(512 * 4);
     for (var i = 0; i < n; i++) { data[i * 4] = s[i][0]; data[i * 4 + 1] = s[i][1]; data[i * 4 + 2] = s[i][2]; data[i * 4 + 3] = s[i][3] || 0; }
     gl.bindTexture(gl.TEXTURE_2D, strokeTex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 512, 1, 0, gl.RGBA, gl.FLOAT, data);
+  }
+  function uploadStroke2() {
+    var s = PI2.things.k2.samples, n = Math.min(512, s.length), data = new Float32Array(512 * 4);
+    for (var i = 0; i < n; i++) { data[i * 4] = s[i][0]; data[i * 4 + 1] = s[i][1]; data[i * 4 + 2] = s[i][2]; data[i * 4 + 3] = s[i][3] || 0; }
+    gl.bindTexture(gl.TEXTURE_2D, stroke2Tex); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, 512, 1, 0, gl.RGBA, gl.FLOAT, data);
   }
   var lastUsed = [0, 0];
   function renderView() {
@@ -590,6 +1046,23 @@
     if (res.origin) { gl.uniform2f(locs.uAttOrigin, res.origin[0], res.origin[1]); gl.uniform2f(locs.uAttScale, res.scale[0], res.scale[1]); gl.uniform2f(locs.uAttOffset, res.offset[0], res.offset[1]); gl.uniform1f(locs.uInkOn, 1); }
     else { gl.uniform2f(locs.uAttOrigin, 0, 0); gl.uniform2f(locs.uAttScale, 1, 1); gl.uniform2f(locs.uAttOffset, 0, 0); gl.uniform1f(locs.uInkOn, 0); }
     var ff = evaluated.faces['E.front'].frame; gl.uniform4f(locs.uFront, ff.origin[0], ff.size[0], ff.origin[1], ff.size[1]);
+    // attack 1: the second record's own unit, its own texture, bound whether or not it is used
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, stroke2Tex); gl.uniform1i(locs.uStroke2, 2);
+    gl.uniform1i(locs.uCount2, Math.min(512, PI2.things.k2.samples.length));
+    var slab2 = constructions.CB.steps[2].slab, fr2 = evaluated.frame;
+    gl.uniform2f(locs.uAtt2Origin, slab2.x[1], fr2.z0); gl.uniform2f(locs.uAtt2Scale, 1, 1); gl.uniform2f(locs.uAtt2Offset, 0, 0);
+    gl.uniform1i(locs.uRecords, state.records); gl.uniform1f(locs.uRight, slab2.x[1]);
+    var stp = (state.records === 2 && state.leftKept === 'trimmed' && state.merge) ? [fr2.x0 + state.merge.strip[0] / 1000, fr2.x0 + state.merge.strip[1] / 1000] : [0, -1];
+    gl.uniform2f(locs.uLeftClip, stp[0], stp[1]);
+    gl.uniform1i(locs.uOrder, !composition.order ? 0 : (composition.order[0] === 'k' ? 1 : 2));
+    var c2c = PI2.things.k2.paint.stroke.color; gl.uniform4f(locs.uComp2, c2c[0], c2c[1], c2c[2], c2c[3]);
+    // the post's wall material: the same knots and the same domain the walker classifies against
+    var wkG = wallKnots(evaluatedP), Pg = evaluatedP.support;
+    gl.uniform4f(locs.uPost, Pg.cx, Pg.cz, Pg.R, Pg.C); gl.uniform2f(locs.uChartP, Pg.chart.offset, Pg.chart.scale);
+    gl.uniform4f(locs.uPDom, wkG.dom.u0, wkG.dom.u1, wkG.dom.v0, wkG.dom.v1);
+    if (locs.uPK) { var pk = new Float32Array(16); for (var ki = 0; ki < 4; ki++) { pk[ki * 4] = wkG.ks[ki].u; pk[ki * 4 + 1] = wkG.ks[ki].v; pk[ki * 4 + 2] = wkG.ks[ki].w; pk[ki * 4 + 3] = 0; } gl.uniform4fv(locs.uPK, pk); }
+    gl.uniform1i(locs.uPMode, state.pNib === 'naive' ? 1 : 0);
+    var pc = PW.things.kP.paint.color; gl.uniform4f(locs.uPColor, pc[0], pc[1], pc[2], pc[3]);
     // ground
     gl.uniformMatrix4fv(locs.uModel, false, new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])); gl.uniform3f(locs.uBase, 0.30, 0.32, 0.36); gl.uniform1f(locs.uKind, 0);
     gl.bindVertexArray(groundVAO.vao); gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
@@ -599,7 +1072,30 @@
     // the occluder
     var Q = S.things.Q; gl.uniformMatrix4fv(locs.uModel, false, new Float32Array([Q.radius, 0, 0, 0, 0, Q.radius, 0, 0, 0, 0, Q.radius, 0, Q.at[0], Q.at[1], Q.at[2], 1])); gl.uniform3f(locs.uBase, 0.78, 0.36, 0.30); gl.uniform1f(locs.uKind, 0);
     gl.bindVertexArray(sphVAO.vao); gl.drawElements(gl.TRIANGLES, sphCount, gl.UNSIGNED_SHORT, 0);
+    // the post P: its wall carries the mark; culling off around it so a winding mismatch cannot hide it (depth LESS still picks the front)
+    if (S.things.P && postCount) {
+      gl.disable(gl.CULL_FACE);
+      gl.uniformMatrix4fv(locs.uModel, false, new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])); gl.uniform3f(locs.uBase, 0.78, 0.74, 0.68); gl.uniform1f(locs.uKind, 1);
+      gl.bindVertexArray(postVAO.vao); gl.drawElements(gl.TRIANGLES, postCount, gl.UNSIGNED_SHORT, 0);
+      gl.enable(gl.CULL_FACE);
+    }
+    // the field F: its own program, its own finder, its own depth — it meets the rest of the scene through gl_FragDepth
+    var Fg = S.things.F;
+    if (Fg.on && progF) {
+      gl.useProgram(progF); gl.disable(gl.CULL_FACE);
+      gl.uniformMatrix4fv(locsF.uVP, false, new Float32Array(cam.vp));
+      gl.uniformMatrix4fv(locsF.uModel, false, new Float32Array([Fg.params.a, 0, 0, 0, 0, Fg.params.b, 0, 0, 0, 0, Fg.params.c, 0, Fg.at[0], Fg.at[1], Fg.at[2], 1]));
+      gl.uniform3f(locsF.uEye, cam.eye[0], cam.eye[1], cam.eye[2]);
+      gl.uniform3f(locsF.uFieldCentre, Fg.at[0], Fg.at[1], Fg.at[2]);
+      gl.uniform3f(locsF.uFieldOuter, Fg.params.a, Fg.params.b, Fg.params.c);
+      gl.uniform3f(locsF.uFieldInner, Fg.inner.a, Fg.inner.b, Fg.inner.c);
+      gl.uniform1i(locsF.uFieldHollow, Fg.hollow ? 1 : 0);
+      gl.uniform3f(locsF.uLightDir, Lt.dir[0], Lt.dir[1], Lt.dir[2]); gl.uniform1f(locsF.uAmbient, Lt.ambient);
+      gl.bindVertexArray(cubeVAO.vao); gl.drawElements(gl.TRIANGLES, 36, gl.UNSIGNED_SHORT, 0);
+      gl.enable(gl.CULL_FACE); gl.useProgram(prog);
+    }
     gl.bindVertexArray(null);
+    if (!statDone) { statDone = true; glstat('ok · ' + (gl.getParameter(gl.RENDERER) || '') + ' · main: ' + (shaderLog.main || 'clean') + ' · field: ' + (progF ? (shaderLog.field || 'clean') : 'no program') + ' · gl.getError() ' + gl.getError()); }
     state.dirty.frame = 'view V re-rendered into the surface (' + ls.used[0] + '×' + ls.used[1] + ')';
   }
 
@@ -632,6 +1128,32 @@
       ctx.strokeStyle = '#8A8F98'; ctx.lineWidth = 2 / state.zoom; ctx.strokeRect(I.rect.x, I.rect.y, I.rect.w, I.rect.h);
       ctx.fillStyle = '#8A8F98'; ctx.fillText('image I: a screenshot of R (' + I.px[0] + '×' + I.px[1] + ' px, revision ' + I.revision + ')', I.rect.x, I.rect.y - 6);
     }
+    // the drawing D: another planar space beside R, its curves derived from the same constructions, carrying their source relations
+    var D = page.things.D;
+    if (D) {
+      ctx.fillStyle = css('--surface'); ctx.fillRect(D.rect.x, D.rect.y, D.rect.w, D.rect.h);
+      ctx.strokeStyle = css('--rule'); ctx.lineWidth = 1 / state.zoom; ctx.strokeRect(D.rect.x, D.rect.y, D.rect.w, D.rect.h);
+      ctx.fillStyle = css('--muted'); ctx.font = '600 12px "JetBrains Mono", monospace';
+      ctx.fillText('D · section of S at y = ' + D.section.h + ' m · mm', D.rect.x + 6, D.rect.y + 12);
+      sectionOf(D.section.h).forEach(function (c) {
+        ctx.lineWidth = 1.5 / state.zoom;
+        if (c.kind === 'rect') {
+          var p0 = dPoint(D, c.x[0], c.z[0]), p1 = dPoint(D, c.x[1], c.z[1]);
+          ctx.strokeStyle = '#2B4ACB'; ctx.strokeRect(p0[0], p0[1], p1[0] - p0[0], p1[1] - p0[1]);
+        } else if (c.kind === 'circle') {
+          var ctr = dPoint(D, c.c[0], c.c[1]), rim = dPoint(D, c.c[0] + c.r, c.c[1]);
+          ctx.strokeStyle = '#A8620A'; ctx.beginPath(); ctx.arc(ctr[0], ctr[1], Math.hypot(rim[0] - ctr[0], rim[1] - ctr[1]), 0, Math.PI * 2); ctx.stroke();
+          ctx.lineWidth = 1 / state.zoom; ctx.beginPath(); ctx.moveTo(ctr[0], ctr[1]); ctx.lineTo(rim[0], rim[1]); ctx.stroke();
+          ctx.fillStyle = '#A8620A'; ctx.font = '500 10px "JetBrains Mono", monospace'; ctx.fillText('r ' + (c.r * 1000).toFixed(0) + ' mm', (ctr[0] + rim[0]) / 2 - 8, ctr[1] - 4);
+        } else {
+          ctx.strokeStyle = '#D9822B'; ctx.beginPath();
+          c.pts.forEach(function (p, i) { var q = dPoint(D, p[0], p[1]); if (i === 0) ctx.moveTo(q[0], q[1]); else ctx.lineTo(q[0], q[1]); });
+          ctx.closePath(); ctx.stroke();
+        }
+      });
+      ctx.fillStyle = css('--muted'); ctx.font = '500 10px "JetBrains Mono", monospace';
+      ctx.fillText('source relations: rectangles ← CB blocks · circle ← P wall ← CP.r (analytic) · curve ← F (lowered)', D.rect.x + 6, D.rect.y + D.rect.h - 7);
+    }
     ctx.restore();
     // the hit marker, in page pixels
     if (state.last && state.pointer) {
@@ -641,7 +1163,9 @@
     }
   }
   function leafLabel(leaf) {
-    return { 'k': 'you hit k, the stroke, on face E.top of B', 'Q': 'you hit Q, the occluder', 'B:E.top': 'you hit face E.top of B, beside the stroke', 'B:E.top (ink detached)': 'you hit face E.top; the ink is detached', 'B:C.floor': 'you hit the groove floor, a generated face: no ink', 'I': 'you hit I, a screenshot: pixels', 'page': 'the page', 'S:background': 'the background of S' }[leaf] || ('you hit ' + leaf);
+    return { 'k': 'you hit k, the stroke, on face E.top of B', 'Q': 'you hit Q, the occluder', 'B:E.top': 'you hit face E.top of B, beside the stroke', 'B:E.top (ink detached)': 'you hit face E.top; the ink is detached', 'B:C.floor': 'you hit the groove floor, a generated face: no ink', 'I': 'you hit I, a screenshot: pixels', 'page': 'the page', 'S:background': 'the background of S',
+      'kP': 'you hit kP, the mark on P\'s wall, across the chart\'s seam', 'P:wall': 'you hit P\'s wall, beside the mark', 'F': 'you hit F, a field: a boundary, no face', 'F:unresolved': 'no definite answer: a field piece before this one is unresolved',
+      'k2': 'you hit k2, the second record, on E.top', 'k+k2': 'both records cover this point', 'D:circle': 'you hit D\'s circle: P\'s wall in section', 'D:rect': 'you hit D\'s rectangle: a CB block in section', 'D:poly': 'you hit D\'s lowered level curve: F in section' }[leaf] || ('you hit ' + leaf);
   }
 
   // ------------------------------------------------------------------
@@ -692,16 +1216,23 @@
   function renderRecord() {
     var c = views.V.camera, k = PI.things.k, I = page.things.I;
     var rec = {
-      page: { unit: 'px', things: { R: { kind: 'portal', view: 'V', rect: page.things.R.rect }, I: I ? { kind: 'image', bytes: I.px[0] + '×' + I.px[1] + ' rgba', provenance: 'screenshot of R at revision ' + I.revision, rect: I.rect } : undefined } },
-      S: { unit: 'm', things: { B: S.things.B, Q: { kind: 'sphere', radius: S.things.Q.radius, at: S.things.Q.at.map(function (x) { return +x.toFixed(2); }) }, L1: S.things.L1, Ftop: S.things.Ftop, T: S.things.T } },
-      constructions: { CB: { revision: constructions.CB.revision, steps: constructions.CB.steps.map(function (st) { var o = {}; Object.keys(st).forEach(function (kk) { o[kk] = kk === 'size' ? st[kk].map(function (x) { return +x.toFixed(2); }) : st[kk]; }); return o; }) } },
+      page: { unit: 'px', things: { R: { kind: 'portal', view: 'V', rect: page.things.R.rect }, I: I ? { kind: 'image', bytes: I.px[0] + '×' + I.px[1] + ' rgba', provenance: 'screenshot of R at revision ' + I.revision, rect: I.rect } : undefined, D: page.things.D || undefined } },
+      S: { unit: 'm', things: { B: S.things.B, Q: { kind: 'sphere', radius: S.things.Q.radius, at: S.things.Q.at.map(function (x) { return +x.toFixed(2); }) }, L1: S.things.L1, Ftop: S.things.Ftop, T: S.things.T, P: S.things.P || undefined, Fwall: S.things.P ? S.things.Fwall : undefined, F: S.things.F, Fright: S.things.Fright || undefined } },
+      constructions: { CB: { revision: constructions.CB.revision, steps: constructions.CB.steps.map(function (st) { var o = {}; Object.keys(st).forEach(function (kk) { o[kk] = kk === 'size' ? st[kk].map(function (x) { return +x.toFixed(2); }) : st[kk]; }); return o; }) },
+        CP: { revision: constructions.CP.revision, params: constructions.CP.params } },
       PI: { unit: 'mm', things: { k: { kind: 'path', source: 'pen', samples: k.samples.length + ' × [u mm, v mm, width mm, s mm]', paint: k.paint, identity: { id: 'k', revision: state.revision } } } },
+      PW: { unit: 'mm', things: { kP: { kind: 'path', source: PW.things.kP.source, reading: PW.things.kP.reading + (state.pMode === 'modulo' ? ' (read as modulo C: the counterexample)' : ''), knots: PW.things.kP.knots, response: PW.things.kP.response, tip: PW.things.kP.tip + (state.pNib === 'naive' ? ' — read in chart units (the naive nib)' : ''), overlap: PW.things.kP.overlap, paint: PW.things.kP.paint } } },
+      PI2: state.records === 2 ? { unit: 'mm', things: { k2: { kind: 'path', source: PI2.things.k2.source, samples: PI2.things.k2.samples.length + ' × [u mm, v mm, width mm, s mm]', paint: PI2.things.k2.paint } } } : undefined,
+      composition: state.records === 2 ? composition : undefined,
       L: { unit: 'px', things: L.things },
       views: { V: { space: 'S', camera: { pivot: c.pivot, distance: +c.distance.toFixed(2), yaw: +c.yaw.toFixed(3), pitch: +c.pitch.toFixed(3), fovY: c.fovY, near: c.near, far: c.far }, owner: 'this session' }, VL: views.VL }
     };
     var el = document.getElementById('record'); var txt = JSON.stringify(rec, null, 1).replace(/\n\s*(?=[\d\-"][^\n]*[,\]]\s*$)/g, ' ');
     if (el.textContent !== txt) el.textContent = txt;
     var res = resolveTop(), der = 'derived, not in the record: CB → ' + evaluated.blocks.length + ' block' + (evaluated.blocks.length > 1 ? 's' : '') + ', faces ' + Object.keys(evaluated.faces).filter(function (n) { return !evaluated.faces[n].deleted; }).map(function (n) { var f = evaluated.faces[n]; return n + (f.parts > 1 ? '×' + f.parts : ''); }).join(' ') + ' · Ftop attachment ' + res.status;
+    if (S.things.P) der += ' · CP → wall, ' + evaluatedP.report;
+    if (state.merge) der += ' · merge: ' + state.merge.pieces.length + ' restrictions, no predecessor ' + state.merge.noPredecessor;
+    if (S.things.F.on) der += ' · F: a saved field program; its boundary events enter the same visibility and the same walker';
     var de = document.getElementById('derived'); if (de.textContent !== der) de.textContent = der;
   }
 
@@ -718,6 +1249,8 @@
     var cam = cameraOf(views.V, ls), ray = rayFromRegionPoint(cam, (wx - R.rect.x) / R.rect.w * ls.used[0], (wy - R.rect.y) / R.rect.h * ls.used[1]);
     var h = hitBlocks(ray, evaluated.blocks); if (!h || h.face !== 'E.top') return false;
     var hq = hitSphere(ray, S.things.Q); if (hq && hq.t < h.t) return false; // the occluder is in the way: the pen does not reach the face
+    var hp = S.things.P ? hitPost(ray, evaluatedP.support) : null; if (hp && hp.t < h.t) return false;          // so is the post
+    var hf = hitField(ray, S.things.F, state.fieldWork); if (hf && !hf.miss && hf.t < h.t) return false;        // and so is the field
     var res = resolveTop(); if (!res.origin) return false; // a detached attachment takes no ink
     var uv = attachUV(res, h.point), s = PI.things.k.samples, last = s[s.length - 1];
     if (last && Math.hypot(uv[0] - last[0], uv[1] - last[1]) < 4) return false;
@@ -785,6 +1318,37 @@
     for (var i = 0; i <= 70; i++) { var t = i / 70; var u = 120 + 760 * t, v = 500 + 220 * Math.sin(t * Math.PI * 2.2) - 260 * t; if (px !== null) sAlong += Math.hypot(u - px, v - py); px = u; py = v; s.push([u, v, 14 + 16 * Math.sin(t * Math.PI), sAlong]); }
     PI.things.k.samples = s; state.revision++; uploadStroke(); state.dirty.edit = 'k.samples ← preset (71 samples, revision ' + state.revision + ')'; needRender = true; state.pendingHover = 'data';
   }
+  // the second record, authored on E.top's right part: its own space Π2, its own samples, its own binding
+  function presetStroke2() {
+    var s = [], sAlong = 0, px = null, py = null;
+    for (var i = 0; i <= 60; i++) { var t = i / 60; var u = 40 + 80 * t, v = 120 + 780 * t + 25 * Math.sin(3 * Math.PI * t); if (px !== null) sAlong += Math.hypot(u - px, v - py); px = u; py = v; s.push([u, v, 16, sAlong]); }
+    PI2.things.k2.samples = s; if (glOK) uploadStroke2();
+  }
+  // the post's edits: a chart change is a reparameterization (the ink does not move), a radius change is a deformation (the rule decides)
+  function reevaluateP(what) {
+    constructions.CP.revision++; evaluatedP = evaluateP(constructions.CP, evaluatedP);
+    if (glOK) { var pg = postGeometry(evaluatedP.support); refillVAO(postVAO, pg); postCount = pg.count; }
+    state.dirty.edit = what + ' (CP revision ' + constructions.CP.revision + ') → ' + evaluatedP.report;
+    needRender = true; state.pendingHover = 'data';
+  }
+  function setChart(which) {
+    constructions.CP.params.chart = which === 'S1' ? { offset: 100, scale: 2 } : { offset: 0, scale: 1 };
+    document.getElementById('chartVal').textContent = which;
+    document.getElementById('chartS1').classList.toggle('on', which === 'S1'); document.getElementById('chartS0').classList.toggle('on', which !== 'S1');
+    reevaluateP('CP.chart ← ' + which);
+  }
+  function setSeam(v) { state.pMode = v; document.getElementById('seamVal').textContent = v; document.getElementById('seamModulo').classList.toggle('on', v === 'modulo'); document.getElementById('seamUnwrapped').classList.toggle('on', v !== 'modulo'); state.dirty.edit = 'the reading of kP ← ' + v + ' (the record did not change; the reading did)'; needRender = true; state.pendingHover = 'data'; }
+  function setNib(v) { state.pNib = v; document.getElementById('nibVal').textContent = v; document.getElementById('nibNaive').classList.toggle('on', v === 'naive'); document.getElementById('nibSurface').classList.toggle('on', v !== 'naive'); state.dirty.edit = 'the nib ← ' + v + (v === 'naive' ? ' (chart units read as mm)' : ' (millimetres on the surface)'); needRender = true; state.pendingHover = 'data'; }
+  function setPAnchor(v) { state.pAnchor = v; document.getElementById('panchorVal').textContent = v; document.getElementById('panchorNormalized').classList.toggle('on', v === 'normalized'); document.getElementById('panchorOrigin').classList.toggle('on', v !== 'normalized'); state.dirty.edit = 'Fwall.attachment.anchor ← ' + v; needRender = true; state.pendingHover = 'data'; }
+  document.getElementById('postR').addEventListener('input', function (ev) { var r = parseFloat(ev.target.value); constructions.CP.params.r = r; document.getElementById('prVal').textContent = r.toFixed(2) + ' m'; reevaluateP('CP.r ← ' + r.toFixed(2)); });
+  document.getElementById('chartS0').addEventListener('click', function () { setChart('S0'); });
+  document.getElementById('chartS1').addEventListener('click', function () { setChart('S1'); });
+  document.getElementById('seamUnwrapped').addEventListener('click', function () { setSeam('unwrapped'); });
+  document.getElementById('seamModulo').addEventListener('click', function () { setSeam('modulo'); });
+  document.getElementById('nibSurface').addEventListener('click', function () { setNib('surface'); });
+  document.getElementById('nibNaive').addEventListener('click', function () { setNib('naive'); });
+  document.getElementById('panchorOrigin').addEventListener('click', function () { setPAnchor('origin'); });
+  document.getElementById('panchorNormalized').addEventListener('click', function () { setPAnchor('normalized'); });
   document.getElementById('clear').addEventListener('click', function () { PI.things.k.samples = []; state.revision++; uploadStroke(); state.dirty.edit = 'k.samples ← [] (revision ' + state.revision + ')'; needRender = true; state.pendingHover = 'data'; });
   document.getElementById('shot').addEventListener('click', takeShot);
   function takeShot() {
@@ -795,6 +1359,9 @@
   document.getElementById('clearShot').addEventListener('click', function () { page.things.I = null; state.dirty.edit = 'page.I removed'; needPage = true; state.pendingHover = 'data'; });
 
   // Deep links: #zoom=2&yaw=0.8&pitch=0.5&occ=0.5&shot=1&px=520&py=300&preset=1 — a virtual pointer so the readout renders headless.
+  // attack 1: post=0 · chart=S0|S1 · pr=<r m> · panchor=origin|normalized · seam=unwrapped|modulo · nib=surface|naive ·
+  //           field=1 · fx=<x> · fy=<y> · fz=<z> · fa=<a> · hollow=1 · fwork=<n> · records=2 · left=whole|trimmed · order=lr|rl|none · merge=1 ·
+  //           section=<h m> · aim=P|Pm|F|D|k2|strip
   function applyHash() {
     var h = {}; location.hash.replace(/^#/, '').split('&').forEach(function (kv) { var p = kv.split('='); if (p[0]) h[p[0]] = decodeURIComponent(p[1] || ''); });
     if (h.yaw) views.V.camera.yaw = parseFloat(h.yaw); if (h.pitch) views.V.camera.pitch = parseFloat(h.pitch); if (h.dist) views.V.camera.distance = parseFloat(h.dist);
@@ -803,7 +1370,44 @@
     if (h.cut === '1') { constructions.CB.steps[2].on = true; document.getElementById('cutVal').textContent = 'on'; document.getElementById('cutOn').classList.add('on'); document.getElementById('cutOff').classList.remove('on'); }
     if (h.anchor) setAnchor(h.anchor);
     if (h.onsplit) setOnSplit(h.onsplit);
-    if (h.w || h.cut === '1') { evaluated = evaluate(constructions.CB, evaluated); constructions.CB.revision++; if (glOK) { var gg = blocksGeometry(evaluated.blocks); refillVAO(solidVAO, gg); solidCount = gg.count; } }
+    // attack 1 — the post P
+    if (h.post === '0') S.things.P = null;
+    if (h.chart === 'S1') constructions.CP.params.chart = { offset: 100, scale: 2 };
+    if (h.pr) constructions.CP.params.r = parseFloat(h.pr);
+    if (h.pd) state.probeD = parseFloat(h.pd);   // how far along the circumference aim=Pm probes, in mm on the surface
+    if (h.panchor) setPAnchor(h.panchor);
+    if (h.seam) setSeam(h.seam);
+    if (h.nib) setNib(h.nib);
+    if (h.chart || h.pr) {
+      constructions.CP.revision++; evaluatedP = evaluateP(constructions.CP, evaluatedP);
+      if (h.pr) { document.getElementById('postR').value = constructions.CP.params.r; document.getElementById('prVal').textContent = constructions.CP.params.r.toFixed(2) + ' m'; }
+      if (h.chart) { document.getElementById('chartVal').textContent = h.chart; document.getElementById('chartS1').classList.toggle('on', h.chart === 'S1'); document.getElementById('chartS0').classList.toggle('on', h.chart !== 'S1'); }
+      if (glOK) { var pgh = postGeometry(evaluatedP.support); refillVAO(postVAO, pgh); postCount = pgh.count; }
+    }
+    // attack 1 — the field F
+    if (h.field === '1') S.things.F.on = true;
+    if (h.fx) S.things.F.at[0] = parseFloat(h.fx);
+    if (h.fy) S.things.F.at[1] = parseFloat(h.fy); if (h.fz) S.things.F.at[2] = parseFloat(h.fz);   // the place is three numbers; fx alone cannot put F on every ray
+    if (h.fa) S.things.F.params.a = parseFloat(h.fa);
+    if (h.hollow === '1') S.things.F.hollow = true;
+    if (h.fwork) state.fieldWork = parseFloat(h.fwork);
+    // attack 1 — the second record, and the merge that binds both to one face
+    if (h.order) composition.order = h.order === 'none' ? null : (h.order === 'rl' ? ['k2', 'k'] : ['k', 'k2']);
+    if (h.left) state.leftKept = h.left;
+    if (h.records === '2') { state.records = 2; constructions.CB.steps[2].on = true; document.getElementById('cutVal').textContent = 'on'; document.getElementById('cutOn').classList.add('on'); document.getElementById('cutOff').classList.remove('on'); }
+    if (h.w || h.cut === '1' || h.records === '2') { evaluated = evaluate(constructions.CB, evaluated); constructions.CB.revision++; if (glOK) { var gg = blocksGeometry(evaluated.blocks); refillVAO(solidVAO, gg); solidCount = gg.count; } }
+    if (h.records === '2') {
+      S.things.Fright = { kind: 'planar-surface', on: 'B', face: 'E.top', part: 2, unit: 'mm', scale: 1000, space: 'PI2', attachment: { anchor: 'origin', domain: [0.2, 1], frame: 'part 2, origin at world x 0.30', onMerge: 'restrict to the old support' } };
+      presetStroke2();
+      if (h.merge === '1') {
+        var prevEvaluation = evaluated;
+        constructions.CB.steps[2].on = false; document.getElementById('cutVal').textContent = 'off'; document.getElementById('cutOn').classList.remove('on'); document.getElementById('cutOff').classList.add('on');
+        evaluated = evaluate(constructions.CB, prevEvaluation); constructions.CB.revision++;
+        if (glOK) { var gm = blocksGeometry(evaluated.blocks); refillVAO(solidVAO, gm); solidCount = gm.count; }
+        state.merge = mergeCorrespondence(prevEvaluation, evaluated);
+      }
+    }
+    if (h.section !== undefined) page.things.D = { kind: 'drawing', rect: { x: 60, y: 408, w: 420, h: 200 }, section: { of: 'S', plane: 'y = h', h: parseFloat(h.section) || 0.5 } };
     state.dirty = { edit: '', view: '', scale: '', frame: '' };
     if (h.preset !== '0') presetStroke();
     if (h.zoom) setZoom(parseFloat(h.zoom));
@@ -818,6 +1422,17 @@
     if (name === 'T') world = [fr.x0 + fr.w / 2, fr.h / 2, fr.z0 + fr.d];
     if (name === 'floor') { var C = constructions.CB.steps[2]; world = [(C.slab.x[0] + C.slab.x[1]) / 2, fr.h - C.slab.depth, fr.z0 + fr.d / 2]; }
     if (name === 'Q') world = S.things.Q.at;
+    if (name === 'P' || name === 'Pm') { if (!S.things.P) return null; var Pa = evaluatedP.support, us = resolveWall(state.pAnchor, evaluatedP).uScale; world = postWorld(Pa, TAU * 200 * us + (name === 'Pm' ? state.probeD : 0), 400); }
+    if (name === 'F') world = S.things.F.at;
+    if (name === 'strip') { var rs = resolveTop(); if (!rs.origin || !state.merge) return null; var sk = PI.things.k.samples, mid = (state.merge.strip[0] + state.merge.strip[1]) / 2, pick = null; sk.forEach(function (sm) { if (sm[0] > state.merge.strip[0] && sm[0] < state.merge.strip[1] && (pick === null || Math.abs(sm[0] - mid) < Math.abs(pick[0] - mid))) pick = sm; }); if (!pick) return null; world = attachPoint(rs, [pick[0], pick[1]]); }
+    if (name === 'k2') {
+      var rk = resolveTop(); if (!rk.origin) return null; var s2 = PI2.things.k2.samples; if (!s2.length) return null;
+      var hitS = null;
+      for (var i2 = 0; i2 < s2.length; i2++) { var c1 = classifyStroke([s2[i2][0] + 800, s2[i2][1]]); if (c1 && c1.signed <= 0) { hitS = s2[i2]; break; } }
+      var use = hitS || s2[Math.floor(s2.length / 2)];
+      world = attachPoint(rk, [use[0] + 800, use[1]]);
+    }
+    if (name === 'D') { var Dd = page.things.D; if (!Dd) return null; var Pd = evaluatedP.support, dp = dPoint(Dd, Pd.cx + Pd.r, Pd.cz); return [dp[0] * state.zoom + state.pan[0], dp[1] * state.zoom + state.pan[1]]; }
     if (name === 'I') { var I = page.things.I; if (!I) return null; return [(I.rect.x + I.rect.w / 2) * state.zoom + state.pan[0], (I.rect.y + I.rect.h / 2) * state.zoom + state.pan[1]]; }
     if (!world) return null;
     var rp = projectPoint(cam, world); if (!rp) return null;
@@ -826,6 +1441,7 @@
   }
   fitPageCanvas(); window.addEventListener('resize', function () { fitPageCanvas(); needPage = true; });
   evaluated = evaluate(constructions.CB, null); // the first evaluation: every face 'from E'
+  evaluatedP = evaluateP(constructions.CP, null); // and the post's: 'wall generated by CP'
   if (glOK) initGL(); else glstat('unavailable (no context)');
   applyHash();
   if (state.shotLater && glOK) { renderView(); takeShot(); var hh = location.hash; if (/aim=I/.test(hh)) { var pI = aimAt('I'); if (pI) { state.pointer = pI; state.pendingHover = 'pointer'; } } }
