@@ -72,7 +72,17 @@ The composer's terrain adds: hold the picture; bring forks only where Sid's word
 
 **3. A phase B attack or fold.** No new prompt: the continuation starter carries the role, and this document carries the shape of a phase B fold. If a prompt is needed at all it says which phase the round is in and points here.
 
-**The first implementation round is a comparison** (Sid, 2026-09-06): both model families get the builder starter unchanged, each in its own worktree on its own branch; the judge is the definer's records passing, the harness running and what Sid sees on screen, never one session ranking the other; the roles for the rounds after are assigned from the two builds (one builds and one attacks, a split by piece, or both build and the better one lands). Two parallel builders is the one departure from committing on `main`, said here.
+**The first implementation round is a comparison** (Sid, 2026-09-06; the definer's reply the same day folded in). Both model families get the builder starter unchanged, the same starting code and the same behavioural target, each in its own worktree on its own branch, and each owns all three responsibilities end to end, so that the question about production ability is answered rather than dodged:
+
+| Responsibility | What it involves |
+|---|---|
+| Production design | find the data layers, the dependencies, the state owners and the function boundaries; decide where reactivity helps, if anywhere |
+| Implementation | build the native client code, integrate its callers, replace the obsolete code, own resources, keep the hierarchical documentation with the code |
+| Verification and repair | exercise the real behaviour, find failures, write the tests that earn their keep, fix the implementation |
+
+The judge is the definer's records passing, the harness running and what Sid sees on screen, never one session ranking the other. Sid's card, read off each build: who understood the data flow and chose clear ownership; who produced working, composable code and handled the existing callers; who found and fixed failures that mattered; who kept the documentation accurate; what each cost in time, tokens and intervention. Each run keeps its model, version, effort and tools attached, since the result is about those setups on this task.
+
+A second stage tests collaboration: once both implementations exist, each inspects the other's or makes one concrete improvement to it, and what the exchange adds is observed as things landed (bugs caught, abstractions clarified, tests, repairs) and as how well each preserves the other's sound decisions, never as opinions, since each family rates its own higher. The roles for the rounds after are assigned from both stages: one primary builder with the other checking named concerns, ownership alternating by task, or one model doing most of the work. Two parallel builders is the one departure from committing on `main`, said here.
 
 **4. An implementation round.** The same fence, essence and terrain, one starter per lane, with Sid's process ruling carried in the essence (the prototype is the spec; tests built as you build; documentation in the hierarchy with the code; the best team in the world; functional; the data layers, the data flow and reactive programming worked out early). No contract, no method. `path-kind/STARTER-client.md` is the first pair.
 
