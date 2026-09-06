@@ -1,0 +1,26 @@
+{
+  "pass": true,
+  "path": true,
+  "plane": true,
+  "text": {
+    "pass": true,
+    "tree": true,
+    "deterministic": true
+  },
+  "goldens": [
+    {
+      "file": "gpu-path-union-union.png",
+      "pass": true
+    },
+    {
+      "file": "gpu-path-accumulate-accumulate.png",
+      "pass": true
+    },
+    {
+      "file": "gpu-path-curved-hole-curved-hole.png",
+      "pass": true
+    }
+  ],
+  "errors": [],
+  "output": "/mnt/data/projects/Softland-codex/target/path-coverage"
+}

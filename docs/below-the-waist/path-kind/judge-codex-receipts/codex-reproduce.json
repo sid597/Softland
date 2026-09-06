@@ -1,0 +1,31 @@
+[
+  {
+    "command": [
+      "clj",
+      "-Sdeps",
+      "{:paths [\"src\" \"/mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts\"] :deps {thheller/shadow-cljs {:mvn/version \"2.28.23\"}}}",
+      "-M",
+      "-m",
+      "shadow.cljs.devtools.cli",
+      "release",
+      "render-verifier",
+      "--config-merge",
+      "{:output-dir \"/mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/codex-probe-js\" :modules {:main {:entries [judge-codex] :init-fn judge-codex/init}}}"
+    ],
+    "cwd": "/mnt/data/projects/Softland-codex",
+    "exit": 0,
+    "elapsedSeconds": 8.86507391899795
+  },
+  {
+    "command": [
+      "node",
+      "/mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/capture.mjs",
+      "/mnt/data/projects/Softland-codex",
+      "/mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/codex-probes",
+      "/mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/codex-probe-js/main.js"
+    ],
+    "cwd": "/mnt/data/projects/Softland-codex",
+    "exit": 0,
+    "elapsedSeconds": 0.8850375359979807
+  }
+]

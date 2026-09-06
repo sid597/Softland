@@ -1,0 +1,36 @@
+{
+  "claude": {
+    "worktree": "/mnt/data/projects/Softland-claude",
+    "frozen": "4d9e0d61bc585a9816bc771baf8634062c7e86e4",
+    "head": "82673763959401f9ba3d2de1bbd791fd44c2f879",
+    "clientDiffFromFrozen": "",
+    "testDiffFromFrozen": "test/app/client/path/run_pure.clj\ntest/render_engine/dump_result.mjs\n",
+    "status": "",
+    "deltaFromSharedStart": " src/app/client/README.md                           |   4 +-\n src/app/client/engine/README.md                    |   8 +-\n src/app/client/engine/coverage.cljs                | 453 ++++++++++\n src/app/client/engine/executor.cljc                | 135 +++\n src/app/client/engine/expression.cljc              | 182 ++++\n src/app/client/harness/README.md                   |   2 +-\n src/app/client/harness/path.cljs                   | 955 ++++++++++-----------\n src/app/client/harness/region.cljs                 |  75 +-\n src/app/client/harness/shared.cljs                 |  18 +-\n src/app/client/path/README.md                      |  32 +-\n src/app/client/path/component.cljc                 | 609 ++++++-------\n src/app/client/path/frame.cljc                     |  91 +-\n src/app/client/path/pack.cljc                      | 380 ++++++++\n src/app/client/path/records.cljc                   |  96 +++\n src/app/client/path/renderer.cljs                  | 516 ++++++-----\n src/app/client/path/source.cljc                    | 227 +++++\n src/app/client/path/stroke.cljc                    | 421 +++++++++\n src/app/client/path/tessellation.cljc              | 607 -------------\n src/app/client/path/value.cljc                     | 314 +++++++\n src/app/client/region3d/README.md                  |   4 +-\n src/app/client/region3d/on_plane.cljc              |  60 +-\n src/app/client/region3d/on_plane_renderer.cljs     | 598 +++++--------\n src/app/client/region3d/renderer.cljs              |   8 +-\n src/app/client/text/README.md                      |   2 +-\n src/app/client/text/renderer.cljs                  | 172 +---\n test/app/client/engine/executor_test.clj           |  50 ++\n test/app/client/engine/expression_test.clj         |  40 +\n test/app/client/path/component_test.clj            | 169 ++--\n test/app/client/path/fixtures.cljc                 |  50 --\n test/app/client/path/frame_test.clj                |  65 +-\n test/app/client/path/pack_test.clj                 | 117 +++\n test/app/client/path/source_test.clj               |  74 ++\n test/app/client/path/stroke_test.clj               | 114 +++\n test/app/client/path/tessellation_test.clj         | 113 ---\n test/app/client/path/value_test.clj                |  60 ++\n ...holed-concave-holed-concave-default-unit-z1.png | Bin 944 -> 951 bytes\n ...rossing-translucent-self-crossing-legal-z10.png | Bin 1891 -> 4290 bytes\n .../gpu-goldens/gpu-region3d-floor-tree.png        | Bin 2311 -> 2320 bytes\n .../render_engine/gpu-goldens/manifest.json        |  31 +-\n test/app/test_runner.clj                           |   7 +-\n test/render_engine/run_verifier.mjs                |  45 +\n 41 files changed, 4370 insertions(+), 2534 deletions(-)\n",
+    "oldRouteSearch": {
+      "command": "rg -n tessellation|derive-mesh-set src/app/client",
+      "exit": 1,
+      "output": ""
+    }
+  },
+  "codex": {
+    "worktree": "/mnt/data/projects/Softland-codex",
+    "frozen": "07ea01437094c1652585760f6fa1ebc60251c69f",
+    "head": "07ea01437094c1652585760f6fa1ebc60251c69f",
+    "clientDiffFromFrozen": "",
+    "testDiffFromFrozen": "",
+    "status": "",
+    "deltaFromSharedStart": " src/app/client/README.md                           |   6 +-\n src/app/client/engine/README.md                    |   7 +-\n src/app/client/engine/coverage.cljs                | 280 ++++++++++\n src/app/client/engine/coverage_gpu.cljs            | 158 ++++++\n src/app/client/engine/executor.cljc                |  98 ++++\n src/app/client/harness/README.md                   |  16 +-\n .../gpu-path-accumulate-accumulate.png             | Bin 0 -> 6475 bytes\n .../gpu-path-curved-hole-curved-hole.png           | Bin 0 -> 1376 bytes\n .../harness/path-goldens/gpu-path-union-union.png  | Bin 0 -> 4132 bytes\n src/app/client/harness/path.cljs                   | 572 +++++--------------\n src/app/client/harness/path_fixtures.cljc          |  16 +\n src/app/client/harness/path_geometry_test.cljc     | 104 ++++\n src/app/client/harness/path_goldens.json           |  20 +\n src/app/client/harness/region.cljs                 |  22 +-\n src/app/client/harness/run_path.mjs                |  87 +++\n src/app/client/harness/shared.cljs                 |  12 +-\n src/app/client/path/README.md                      |  38 +-\n src/app/client/path/component.cljc                 | 392 ++++---------\n src/app/client/path/curves.cljc                    | 138 +++++\n src/app/client/path/frame.cljc                     |  22 -\n src/app/client/path/geometry.cljc                  | 291 ++++++++++\n src/app/client/path/pack.cljc                      |  68 +++\n src/app/client/path/records.cljc                   |  38 ++\n src/app/client/path/renderer.cljs                  | 353 ++++--------\n src/app/client/path/source.cljc                    |  93 ++++\n src/app/client/path/tessellation.cljc              | 607 ---------------------\n src/app/client/region3d/README.md                  |   5 +-\n src/app/client/region3d/on_plane.cljc              |  35 +-\n src/app/client/region3d/on_plane_renderer.cljs     | 535 ++++--------------\n src/app/client/region3d/path_projection.cljc       |  72 +++\n src/app/client/region3d/renderer.cljs              |   5 +-\n src/app/client/text/README.md                      |   4 +-\n src/app/client/text/renderer.cljs                  | 253 +--------\n 33 files changed, 1999 insertions(+), 2348 deletions(-)\n",
+    "oldRouteSearch": {
+      "command": "rg -n tessellation|derive-mesh-set src/app/client",
+      "exit": 1,
+      "output": ""
+    }
+  },
+  "judgeSourceSha256": {
+    "judge_codex.cljs": "23cc618d4edaf0b82befabd861ef1afcd973c5e08ac43984f6883329265866a4",
+    "judge_claude.cljs": "a628c597eccde7b5f23ebf573686e1cb8036202d76c4f3b1b85578b139a29809",
+    "judge_common.cljs": "61375f744783932069bc360ab8afe39d8c6f08939819d8d5a6effae514f33d8b",
+    "capture.mjs": "249c7a7d89e7233959613725b8b12e4410292a8631554a4f5e4a03a3878f094b"
+  }
+}

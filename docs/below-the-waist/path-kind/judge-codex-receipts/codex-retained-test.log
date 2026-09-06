@@ -1,0 +1,5 @@
+Execution error (FileNotFoundException) at app.client.path.tessellation-test/eval138$loading (tessellation_test.clj:1).
+Could not locate app/client/path/tessellation__init.class, app/client/path/tessellation.clj or app/client/path/tessellation.cljc on classpath.
+
+Full report at:
+/tmp/clojure-4375864794215868452.edn

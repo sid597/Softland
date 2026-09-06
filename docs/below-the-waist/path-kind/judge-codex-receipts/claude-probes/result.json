@@ -1,0 +1,234 @@
+{
+  "probes": [
+    {
+      "label": "recipe-before",
+      "stats": {
+        "runs": 1,
+        "packs": 1,
+        "instances": 1,
+        "instance-writes": 1,
+        "changed?": true
+      },
+      "samples": [
+        {
+          "pixel": [
+            64,
+            64
+          ],
+          "rgba": [
+            173,
+            73,
+            194,
+            158
+          ],
+          "alpha": 0.6196078431372549
+        }
+      ],
+      "file": "recipe-before.png",
+      "png": "png/recipe-before.png"
+    },
+    {
+      "label": "recipe-edited-retained",
+      "stats": {
+        "runs": 0,
+        "packs": 0,
+        "instances": 1,
+        "instance-writes": 0,
+        "changed?": true
+      },
+      "samples": [
+        {
+          "pixel": [
+            64,
+            64
+          ],
+          "rgba": [
+            173,
+            73,
+            194,
+            158
+          ],
+          "alpha": 0.6196078431372549
+        }
+      ],
+      "file": "recipe-edited-retained.png",
+      "png": "png/recipe-edited-retained.png"
+    },
+    {
+      "label": "recipe-edited-cold",
+      "stats": {
+        "runs": 1,
+        "packs": 24,
+        "instances": 24,
+        "instance-writes": 24,
+        "changed?": true
+      },
+      "samples": [
+        {
+          "pixel": [
+            64,
+            64
+          ],
+          "rgba": [
+            200,
+            85,
+            224,
+            218
+          ],
+          "alpha": 0.8549019607843137
+        }
+      ],
+      "file": "recipe-edited-cold.png",
+      "png": "png/recipe-edited-cold.png"
+    },
+    {
+      "label": "nonlinear-union",
+      "stats": {
+        "runs": 1,
+        "packs": 1,
+        "instances": 1,
+        "instance-writes": 1,
+        "changed?": true
+      },
+      "samples": [
+        {
+          "pixel": [
+            30,
+            35
+          ],
+          "rgba": [
+            206,
+            206,
+            206,
+            158
+          ],
+          "alpha": 0.6196078431372549
+        },
+        {
+          "pixel": [
+            40,
+            30
+          ],
+          "rgba": [
+            206,
+            206,
+            206,
+            158
+          ],
+          "alpha": 0.6196078431372549
+        }
+      ],
+      "file": "nonlinear-union.png",
+      "png": "png/nonlinear-union.png"
+    },
+    {
+      "label": "screen-border-z1",
+      "stats": {
+        "runs": 1,
+        "packs": 1,
+        "instances": 1,
+        "instance-writes": 1,
+        "changed?": true
+      },
+      "samples": [
+        {
+          "pixel": [
+            24,
+            60
+          ],
+          "rgba": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "alpha": 1
+        }
+      ],
+      "file": "screen-border-z1.png",
+      "png": "png/screen-border-z1.png"
+    },
+    {
+      "label": "screen-border-z2",
+      "stats": {
+        "runs": 0,
+        "packs": 0,
+        "instances": 1,
+        "instance-writes": 0,
+        "changed?": false
+      },
+      "samples": [
+        {
+          "pixel": [
+            24,
+            60
+          ],
+          "rgba": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "alpha": 1
+        }
+      ],
+      "file": "screen-border-z2.png",
+      "png": "png/screen-border-z2.png"
+    }
+  ],
+  "screen-transform": {
+    "affine": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "flags": 1,
+    "buffer-index": 1
+  },
+  "recipe": {
+    "fresh-region-count": 24,
+    "rerun-decision": false
+  },
+  "nonlinear-cpu": "inside",
+  "adapter": {
+    "description": "",
+    "features": [
+      "depth32float-stencil8",
+      "rg11b10ufloat-renderable",
+      "bgra8unorm-storage",
+      "texture-compression-bc",
+      "core-features-and-limits",
+      "chromium-experimental-timestamp-query-inside-passes",
+      "float32-filterable",
+      "indirect-first-instance",
+      "texture-compression-astc-sliced-3d",
+      "float32-blendable",
+      "subgroup-size-control",
+      "texture-compression-astc",
+      "texture-compression-etc2",
+      "depth-clip-control",
+      "texture-compression-bc-sliced-3d",
+      "timestamp-query",
+      "clip-distances",
+      "texture-component-swizzle",
+      "subgroups"
+    ],
+    "vendor": "google",
+    "architecture": "swiftshader",
+    "fallback-attestation-source": "GPUAdapterInfo.isFallbackAdapter",
+    "renderer": "swiftshader",
+    "device": "",
+    "limits": {
+      "max-buffer-size": 1073741824,
+      "max-uniform-buffer-binding-size": 65536,
+      "max-storage-buffer-binding-size": 1073741824,
+      "max-texture-dimension-2d": 8192,
+      "max-bind-groups": 4,
+      "max-vertex-buffers": 8
+    },
+    "is-fallback-adapter": true
+  }
+}

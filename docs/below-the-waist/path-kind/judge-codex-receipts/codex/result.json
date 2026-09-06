@@ -1,0 +1,5167 @@
+{
+  "device-limits": {
+    "max-buffer-size": 268435456,
+    "max-uniform-buffer-binding-size": 65536,
+    "max-storage-buffer-binding-size": 134217728,
+    "max-texture-dimension-2d": 8192,
+    "max-bind-groups": 4,
+    "max-vertex-buffers": 8
+  },
+  "adapter": {
+    "description": "",
+    "features": [
+      "depth32float-stencil8",
+      "rg11b10ufloat-renderable",
+      "bgra8unorm-storage",
+      "texture-compression-bc",
+      "core-features-and-limits",
+      "chromium-experimental-timestamp-query-inside-passes",
+      "float32-filterable",
+      "indirect-first-instance",
+      "texture-compression-astc-sliced-3d",
+      "float32-blendable",
+      "subgroup-size-control",
+      "texture-compression-astc",
+      "texture-compression-etc2",
+      "depth-clip-control",
+      "texture-compression-bc-sliced-3d",
+      "timestamp-query",
+      "clip-distances",
+      "texture-component-swizzle",
+      "subgroups"
+    ],
+    "vendor": "google",
+    "architecture": "swiftshader",
+    "fallback-attestation-source": "GPUAdapterInfo.isFallbackAdapter",
+    "renderer": "swiftshader",
+    "device": "",
+    "limits": {
+      "max-buffer-size": 1073741824,
+      "max-uniform-buffer-binding-size": 65536,
+      "max-storage-buffer-binding-size": 1073741824,
+      "max-texture-dimension-2d": 8192,
+      "max-bind-groups": 4,
+      "max-vertex-buffers": 8
+    },
+    "is-fallback-adapter": true
+  },
+  "region3d-floor": {
+    "system": {
+      "light-uploads": 33,
+      "bindings": {
+        "lease-ids": [],
+        "buffer-index-releases": 7,
+        "pending-buffer-indexes": {
+          "harness": {
+            "epoch": 11,
+            "buffer-index": 0
+          }
+        },
+        "epoch-bumps": 11,
+        "desired": {},
+        "live-buffer-indexes": {},
+        "desired-updates": 20,
+        "buffer-index-allocations": 11,
+        "device-epoch": 11
+      },
+      "regions": {},
+      "placements": {
+        "version": 1,
+        "packs": 1,
+        "uploads": 1,
+        "draws": 17,
+        "ink-vertices": 0,
+        "over-limit": 0,
+        "last-coverage-check": {}
+      },
+      "region-encodes": 27,
+      "composite-uploads": 9,
+      "uniform-uploads": 20,
+      "scene-derives": 11,
+      "object-instance-uploads": 90,
+      "scene-transform-updates": 1,
+      "prepare-calls": 20,
+      "prepared": {},
+      "version": 1,
+      "held-passes": 15,
+      "mesh-vertex-uploads": 11
+    },
+    "s4": {
+      "expected-t": 6.9,
+      "epsilon-bytes": 2,
+      "actual-object": "near",
+      "expected-object": "near",
+      "actual-t": 6.9,
+      "sample": [
+        64,
+        64
+      ],
+      "depth-classes": {
+        "interior": {
+          "cpu-route": "object",
+          "cpu-object": "near",
+          "gpu-rgba": [
+            215,
+            218,
+            226,
+            255
+          ]
+        },
+        "outside": {
+          "cpu-route": "region-background",
+          "gpu-rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "boundary": {
+          "cpu-route": "object",
+          "cpu-object": "near",
+          "cpu-boundary?": true,
+          "gpu-rgba": [
+            23,
+            23,
+            25,
+            32
+          ],
+          "screen": [
+            53.47975778606008,
+            30.52024221393992
+          ]
+        }
+      },
+      "max-byte-delta": 1,
+      "expected-rgba": [
+        215,
+        218,
+        227,
+        255
+      ],
+      "pass?": true,
+      "depth-classes-pass?": true,
+      "transparency-sample": [
+        93,
+        55
+      ],
+      "actual-rgba": [
+        215,
+        218,
+        226,
+        255
+      ],
+      "transparency-rgba": [
+        15,
+        88,
+        73,
+        128
+      ]
+    },
+    "boundary": {
+      "resolved": 1,
+      "ink-vertices": 6,
+      "pass?": true
+    },
+    "r3": {
+      "frames": [
+        {
+          "changed?": true,
+          "full-rebuilds": 1,
+          "instance-uploads": 8,
+          "bvh-refits": 0,
+          "region-encodes": 0,
+          "frame": 1
+        },
+        {
+          "changed?": false,
+          "full-rebuilds": 0,
+          "instance-uploads": 0,
+          "bvh-refits": 0,
+          "region-encodes": 0,
+          "frame": 2
+        },
+        {
+          "changed?": true,
+          "full-rebuilds": 0,
+          "instance-uploads": 0,
+          "bvh-refits": 0,
+          "region-encodes": 0,
+          "frame": 3
+        },
+        {
+          "changed?": true,
+          "full-rebuilds": 0,
+          "instance-uploads": 1,
+          "bvh-refits": 1,
+          "region-encodes": 0,
+          "frame": 4
+        },
+        {
+          "changed?": true,
+          "full-rebuilds": 0,
+          "instance-uploads": 0,
+          "bvh-refits": 0,
+          "region-encodes": 1,
+          "frame": 5
+        }
+      ],
+      "pass?": true
+    },
+    "compositor": {
+      "region-rung-stats": [],
+      "lease-activity": {
+        "leases-retired": 1,
+        "region-binding-updates": 0,
+        "leases-acquired": 0,
+        "region-rungs-worn": 0,
+        "region-rung-recoveries": 0
+      },
+      "pool": {
+        "version": 2,
+        "budget-cap-bytes": 536870912,
+        "free": 1,
+        "budget-owner": "target-pool",
+        "allocations": 16,
+        "high-water-leased": 5,
+        "destroyed": 15,
+        "rejections": [],
+        "reserved-bytes": 131072,
+        "leased": 0,
+        "reuses": 16
+      },
+      "region-leases": {
+        "owner": "region-leases",
+        "leases": {},
+        "bytes": 0
+      }
+    },
+    "r1": {
+      "unknown-group": {
+        "error-type": "unknown-group",
+        "group-id": 999
+      },
+      "pass?": true
+    },
+    "pass?": true,
+    "cases": [
+      {
+        "case-id": "sandwich",
+        "zoom": 1,
+        "lod": "region3d-floor-default",
+        "normalization": "region-local-3d-inside-world-2d",
+        "shape-extent-world": [
+          80,
+          88
+        ],
+        "oracle": null,
+        "boundary-evidence": null,
+        "images": [
+          {
+            "mode": "sandwich",
+            "file": "gpu-region3d-floor-sandwich.png",
+            "raw-sha256": "fa62ccc356b8afba4b5c32446966d9f62634951ce8eaeff5755d122ce8e91199",
+            "png": "png/gpu-region3d-floor-sandwich.png",
+            "determinism": {
+              "first-raw-sha256": "fa62ccc356b8afba4b5c32446966d9f62634951ce8eaeff5755d122ce8e91199",
+              "second-raw-sha256": "fa62ccc356b8afba4b5c32446966d9f62634951ce8eaeff5755d122ce8e91199",
+              "byte-identical?": true
+            }
+          }
+        ]
+      },
+      {
+        "case-id": "lit-depth-shadow",
+        "zoom": 1,
+        "lod": "region3d-floor-default",
+        "normalization": "region-local-3d-inside-world-2d",
+        "shape-extent-world": [
+          80,
+          88
+        ],
+        "oracle": {
+          "expected-t": 6.9,
+          "epsilon-bytes": 2,
+          "actual-object": "near",
+          "expected-object": "near",
+          "actual-t": 6.9,
+          "sample": [
+            64,
+            64
+          ],
+          "depth-classes": {
+            "interior": {
+              "cpu-route": "object",
+              "cpu-object": "near",
+              "gpu-rgba": [
+                215,
+                218,
+                226,
+                255
+              ]
+            },
+            "outside": {
+              "cpu-route": "region-background",
+              "gpu-rgba": [
+                0,
+                0,
+                0,
+                0
+              ]
+            },
+            "boundary": {
+              "cpu-route": "object",
+              "cpu-object": "near",
+              "cpu-boundary?": true,
+              "gpu-rgba": [
+                23,
+                23,
+                25,
+                32
+              ],
+              "screen": [
+                53.47975778606008,
+                30.52024221393992
+              ]
+            }
+          },
+          "max-byte-delta": 1,
+          "expected-rgba": [
+            215,
+            218,
+            227,
+            255
+          ],
+          "pass?": true,
+          "depth-classes-pass?": true,
+          "transparency-sample": [
+            93,
+            55
+          ],
+          "actual-rgba": [
+            215,
+            218,
+            226,
+            255
+          ],
+          "transparency-rgba": [
+            15,
+            88,
+            73,
+            128
+          ]
+        },
+        "boundary-evidence": null,
+        "images": [
+          {
+            "mode": "lit-depth-shadow",
+            "file": "gpu-region3d-floor-lit-depth-shadow.png",
+            "raw-sha256": "71def3590e75cce0a9aa79f0cc3cde460ffbbfc74b9848a97f0db25cfa2d8d02",
+            "png": "png/gpu-region3d-floor-lit-depth-shadow.png",
+            "determinism": {
+              "first-raw-sha256": "71def3590e75cce0a9aa79f0cc3cde460ffbbfc74b9848a97f0db25cfa2d8d02",
+              "second-raw-sha256": "71def3590e75cce0a9aa79f0cc3cde460ffbbfc74b9848a97f0db25cfa2d8d02",
+              "byte-identical?": true
+            }
+          }
+        ]
+      },
+      {
+        "case-id": "tree",
+        "zoom": 1,
+        "lod": "region3d-floor-default",
+        "normalization": "region-local-3d-inside-world-2d",
+        "shape-extent-world": [
+          80,
+          88
+        ],
+        "oracle": null,
+        "boundary-evidence": {
+          "resolved": 1,
+          "ink-vertices": 6
+        },
+        "images": [
+          {
+            "mode": "tree",
+            "file": "gpu-region3d-floor-tree.png",
+            "raw-sha256": "add051df551b6e959130043a07c160e7317e68e852db9a345e202d7059c387b0",
+            "png": "png/gpu-region3d-floor-tree.png",
+            "determinism": {
+              "first-raw-sha256": "add051df551b6e959130043a07c160e7317e68e852db9a345e202d7059c387b0",
+              "second-raw-sha256": "add051df551b6e959130043a07c160e7317e68e852db9a345e202d7059c387b0",
+              "byte-identical?": true
+            }
+          }
+        ]
+      },
+      {
+        "case-id": "worn",
+        "zoom": 8,
+        "lod": "region3d-floor-worn",
+        "normalization": "region-local-3d-inside-world-2d",
+        "shape-extent-world": [
+          80,
+          88
+        ],
+        "images": [
+          {
+            "mode": "worn",
+            "file": "gpu-region3d-floor-worn.png",
+            "raw-sha256": "83136575b99b5c1684006ba9b15d6aecadceb571ec21203b44f1a090dc1ea572",
+            "png": "png/gpu-region3d-floor-worn.png",
+            "determinism": {
+              "first-raw-sha256": "83136575b99b5c1684006ba9b15d6aecadceb571ec21203b44f1a090dc1ea572",
+              "second-raw-sha256": "83136575b99b5c1684006ba9b15d6aecadceb571ec21203b44f1a090dc1ea572",
+              "byte-identical?": true
+            }
+          }
+        ]
+      }
+    ],
+    "lower-resolution": {
+      "held-stable?": true,
+      "pick": {
+        "object": "near",
+        "background": "region-background",
+        "pass?": true
+      },
+      "deterministic?": true,
+      "current-content?": true,
+      "glyph?": true,
+      "worn": {
+        "lease": {
+          "region-id": "harness",
+          "size": [
+            512,
+            512
+          ],
+          "bytes": 31457280,
+          "rejected?": false,
+          "desired-key": [
+            "harness",
+            768,
+            768
+          ],
+          "rung-divisor": 2
+        },
+        "lease-activity": {
+          "leases-retired": 1,
+          "region-binding-updates": 1,
+          "leases-acquired": 1,
+          "region-rungs-worn": 1,
+          "region-rung-recoveries": 0
+        },
+        "rung-stats": [
+          {
+            "id": "harness",
+            "desired-key": [
+              "harness",
+              768,
+              768
+            ],
+            "granted-key": [
+              "harness",
+              512,
+              512
+            ],
+            "rung-divisor": 2,
+            "candidate-bytes": 31457280,
+            "reserved-bytes": 43646976,
+            "budget-cap-bytes": 67108864
+          }
+        ]
+      },
+      "honest-counter?": true,
+      "pass?": true,
+      "sharp": {
+        "lease": {
+          "region-id": "harness",
+          "size": [
+            256,
+            256
+          ],
+          "bytes": 20447232,
+          "rejected?": false,
+          "desired-key": [
+            "harness",
+            256,
+            256
+          ],
+          "rung-divisor": 1
+        },
+        "lease-activity": {
+          "leases-retired": 0,
+          "region-binding-updates": 1,
+          "leases-acquired": 1,
+          "region-rungs-worn": 0,
+          "region-rung-recoveries": 0
+        }
+      },
+      "recovery": {
+        "lease": {
+          "region-id": "harness",
+          "size": [
+            768,
+            768
+          ],
+          "bytes": 49807360,
+          "rejected?": false,
+          "desired-key": [
+            "harness",
+            768,
+            768
+          ],
+          "rung-divisor": 1
+        },
+        "lease-activity": {
+          "leases-retired": 1,
+          "region-binding-updates": 1,
+          "leases-acquired": 1,
+          "region-rungs-worn": 0,
+          "region-rung-recoveries": 1
+        },
+        "pass?": true
+      },
+      "floor": {
+        "no-shadow": {
+          "stats": {
+            "last-region-rejection": {
+              "reason": "frame-target-budget-exceeded",
+              "region-id": "harness",
+              "key": [
+                "harness",
+                768,
+                768
+              ],
+              "requested-size": [
+                768,
+                768
+              ],
+              "requested-bytes": 33030144,
+              "reserved-bytes": 0,
+              "budget-cap-bytes": 3145728,
+              "requested-by": "region3d/:region3d/harness/lease"
+            },
+            "region-rung-stats": [],
+            "lease-activity": {
+              "leases-retired": 0,
+              "region-binding-updates": 1,
+              "leases-acquired": 0,
+              "region-rungs-worn": 0,
+              "region-rung-recoveries": 0
+            },
+            "pool": {
+              "version": 2,
+              "budget-cap-bytes": 3145728,
+              "free": 1,
+              "budget-owner": "target-pool",
+              "allocations": 1,
+              "high-water-leased": 1,
+              "destroyed": 0,
+              "rejections": [
+                {
+                  "reason": "frame-target-budget-exceeded",
+                  "requested-bytes": 33030144,
+                  "reserved-bytes": 0,
+                  "budget-cap-bytes": 3145728,
+                  "requested-by": "region3d/:region3d/harness/lease"
+                }
+              ],
+              "reserved-bytes": 131072,
+              "leased": 0,
+              "reuses": 0
+            },
+            "region-leases": {
+              "owner": "region-leases",
+              "leases": {},
+              "bytes": 0
+            }
+          },
+          "sample": [
+            118,
+            66,
+            72,
+            255
+          ],
+          "pass?": true
+        },
+        "shadowed": {
+          "stats": {
+            "last-region-rejection": {
+              "reason": "frame-target-budget-exceeded",
+              "region-id": "harness",
+              "key": [
+                "harness",
+                768,
+                768
+              ],
+              "requested-size": [
+                768,
+                768
+              ],
+              "requested-bytes": 49807360,
+              "reserved-bytes": 0,
+              "budget-cap-bytes": 5242880,
+              "requested-by": "region3d/:region3d/harness/lease"
+            },
+            "region-rung-stats": [],
+            "lease-activity": {
+              "leases-retired": 0,
+              "region-binding-updates": 1,
+              "leases-acquired": 0,
+              "region-rungs-worn": 0,
+              "region-rung-recoveries": 0
+            },
+            "pool": {
+              "version": 2,
+              "budget-cap-bytes": 5242880,
+              "free": 1,
+              "budget-owner": "target-pool",
+              "allocations": 1,
+              "high-water-leased": 1,
+              "destroyed": 0,
+              "rejections": [
+                {
+                  "reason": "frame-target-budget-exceeded",
+                  "requested-bytes": 49807360,
+                  "reserved-bytes": 0,
+                  "budget-cap-bytes": 5242880,
+                  "requested-by": "region3d/:region3d/harness/lease"
+                }
+              ],
+              "reserved-bytes": 131072,
+              "leased": 0,
+              "reuses": 0
+            },
+            "region-leases": {
+              "owner": "region-leases",
+              "leases": {},
+              "bytes": 0
+            }
+          },
+          "sample": [
+            118,
+            66,
+            72,
+            255
+          ],
+          "pass?": true
+        },
+        "byte-identical?": true
+      },
+      "wear-sample": [
+        111,
+        229,
+        246,
+        255
+      ],
+      "reserve-preserved?": true
+    },
+    "s5": {
+      "rejection": {
+        "stats": {
+          "last-region-rejection": {
+            "reason": "frame-target-budget-exceeded",
+            "region-id": "harness",
+            "key": [
+              "harness",
+              256,
+              256
+            ],
+            "requested-size": [
+              256,
+              256
+            ],
+            "requested-bytes": 20447232,
+            "reserved-bytes": 0,
+            "budget-cap-bytes": 5242880,
+            "requested-by": "region3d/:region3d/harness/lease"
+          },
+          "region-rung-stats": [],
+          "lease-activity": {
+            "leases-retired": 0,
+            "region-binding-updates": 1,
+            "leases-acquired": 0,
+            "region-rungs-worn": 0,
+            "region-rung-recoveries": 0
+          },
+          "pool": {
+            "version": 2,
+            "budget-cap-bytes": 5242880,
+            "free": 1,
+            "budget-owner": "target-pool",
+            "allocations": 1,
+            "high-water-leased": 1,
+            "destroyed": 0,
+            "rejections": [
+              {
+                "reason": "frame-target-budget-exceeded",
+                "requested-bytes": 20447232,
+                "reserved-bytes": 0,
+                "budget-cap-bytes": 5242880,
+                "requested-by": "region3d/:region3d/harness/lease"
+              }
+            ],
+            "reserved-bytes": 131072,
+            "leased": 0,
+            "reuses": 0
+          },
+          "region-leases": {
+            "owner": "region-leases",
+            "leases": {},
+            "bytes": 0
+          }
+        },
+        "sample": [
+          118,
+          66,
+          72,
+          255
+        ],
+        "pass?": true
+      },
+      "after-close": {
+        "owner": "region-leases",
+        "leases": {},
+        "bytes": 0
+      },
+      "view-passes": [
+        {
+          "region-id": "harness",
+          "role": "shadow",
+          "encoded?": false,
+          "held?": true,
+          "lease-key": [
+            "harness",
+            256,
+            256
+          ]
+        },
+        {
+          "region-id": "harness",
+          "role": "interior",
+          "encoded?": true,
+          "held?": false,
+          "lease-key": [
+            "harness",
+            256,
+            256
+          ]
+        }
+      ],
+      "before-view": {
+        "light-uploads": 12,
+        "bindings": {
+          "lease-ids": [
+            "harness"
+          ],
+          "buffer-index-releases": 2,
+          "pending-buffer-indexes": {},
+          "epoch-bumps": 1,
+          "desired": {
+            "harness": {
+              "lease-key": [
+                "harness",
+                256,
+                256
+              ],
+              "shadow?": true,
+              "buffer-index": 0,
+              "encode-rung": 0
+            }
+          },
+          "live-buffer-indexes": {
+            "harness": 0
+          },
+          "desired-updates": 6,
+          "buffer-index-allocations": 3,
+          "device-epoch": 1
+        },
+        "regions": {
+          "harness": {
+            "changed?": true,
+            "full-rebuilds": 1,
+            "instance-uploads": 8,
+            "bvh-refits": 0,
+            "region-encodes": 0
+          }
+        },
+        "placements": {
+          "version": 1,
+          "packs": 1,
+          "uploads": 1,
+          "draws": 7,
+          "ink-vertices": 0,
+          "over-limit": 0,
+          "last-coverage-check": {}
+        },
+        "region-encodes": 10,
+        "composite-uploads": 4,
+        "uniform-uploads": 8,
+        "scene-derives": 4,
+        "object-instance-uploads": 34,
+        "scene-transform-updates": 1,
+        "prepare-calls": 8,
+        "prepared": {
+          "harness": {
+            "shadow?": true,
+            "placement-layouts": {},
+            "objects": 8
+          }
+        },
+        "version": 1,
+        "held-passes": 9,
+        "mesh-vertex-uploads": 4
+      },
+      "clean-passes": [
+        {
+          "region-id": "harness",
+          "role": "shadow",
+          "encoded?": false,
+          "held?": true,
+          "lease-key": [
+            "harness",
+            256,
+            256
+          ]
+        },
+        {
+          "region-id": "harness",
+          "role": "interior",
+          "encoded?": false,
+          "held?": true,
+          "lease-key": [
+            "harness",
+            256,
+            256
+          ]
+        }
+      ],
+      "after-view": {
+        "light-uploads": 12,
+        "bindings": {
+          "lease-ids": [
+            "harness"
+          ],
+          "buffer-index-releases": 2,
+          "pending-buffer-indexes": {},
+          "epoch-bumps": 1,
+          "desired": {
+            "harness": {
+              "lease-key": [
+                "harness",
+                256,
+                256
+              ],
+              "shadow?": true,
+              "buffer-index": 0,
+              "encode-rung": 0
+            }
+          },
+          "live-buffer-indexes": {
+            "harness": 0
+          },
+          "desired-updates": 6,
+          "buffer-index-allocations": 3,
+          "device-epoch": 1
+        },
+        "regions": {
+          "harness": {
+            "changed?": true,
+            "full-rebuilds": 0,
+            "instance-uploads": 0,
+            "bvh-refits": 0,
+            "region-encodes": 0
+          }
+        },
+        "placements": {
+          "version": 1,
+          "packs": 1,
+          "uploads": 1,
+          "draws": 8,
+          "ink-vertices": 0,
+          "over-limit": 0,
+          "last-coverage-check": {}
+        },
+        "region-encodes": 11,
+        "composite-uploads": 4,
+        "uniform-uploads": 9,
+        "scene-derives": 4,
+        "object-instance-uploads": 34,
+        "scene-transform-updates": 1,
+        "prepare-calls": 9,
+        "prepared": {
+          "harness": {
+            "shadow?": true,
+            "placement-layouts": {},
+            "objects": 8
+          }
+        },
+        "version": 1,
+        "held-passes": 10,
+        "mesh-vertex-uploads": 4
+      },
+      "clean-held?": true,
+      "resize": {
+        "owner": "region-leases",
+        "leases": {
+          "[:region3d/harness 512 256]": {
+            "region-id": "harness",
+            "size": [
+              512,
+              256
+            ],
+            "bytes": 24117248,
+            "rejected?": false,
+            "desired-key": [
+              "harness",
+              512,
+              256
+            ],
+            "rung-divisor": 1
+          }
+        },
+        "bytes": 24117248
+      },
+      "camera-wake": {
+        "object-instance-upload-delta": 0,
+        "mesh-vertex-upload-delta": 0,
+        "uniform-upload-delta": 1,
+        "passes": [
+          {
+            "region-id": "harness",
+            "role": "shadow",
+            "encoded?": false,
+            "held?": true,
+            "lease-key": [
+              "harness",
+              256,
+              256
+            ]
+          },
+          {
+            "region-id": "harness",
+            "role": "interior",
+            "encoded?": true,
+            "held?": false,
+            "lease-key": [
+              "harness",
+              256,
+              256
+            ]
+          }
+        ]
+      },
+      "destroy-recreate": {
+        "before-destroy": {
+          "owner": "region-leases",
+          "leases": {
+            "[:region3d/harness 256 256]": {
+              "region-id": "harness",
+              "size": [
+                256,
+                256
+              ],
+              "bytes": 20447232,
+              "rejected?": false,
+              "desired-key": [
+                "harness",
+                256,
+                256
+              ],
+              "rung-divisor": 1
+            }
+          },
+          "bytes": 20447232
+        },
+        "after-destroy": {
+          "owner": "region-leases",
+          "leases": {},
+          "bytes": 0
+        },
+        "after-recreate": {
+          "owner": "region-leases",
+          "leases": {
+            "[:region3d/harness 256 256]": {
+              "region-id": "harness",
+              "size": [
+                256,
+                256
+              ],
+              "bytes": 20447232,
+              "rejected?": false,
+              "desired-key": [
+                "harness",
+                256,
+                256
+              ],
+              "rung-divisor": 1
+            }
+          },
+          "bytes": 20447232
+        },
+        "passes": [
+          {
+            "region-id": "harness",
+            "role": "shadow",
+            "encoded?": true,
+            "held?": false,
+            "lease-key": [
+              "harness",
+              256,
+              256
+            ]
+          },
+          {
+            "region-id": "harness",
+            "role": "interior",
+            "encoded?": true,
+            "held?": false,
+            "lease-key": [
+              "harness",
+              256,
+              256
+            ]
+          }
+        ],
+        "pass?": true
+      },
+      "pass?": true,
+      "shadow-off": {
+        "owner": "region-leases",
+        "leases": {
+          "[:region3d/harness 512 256]": {
+            "region-id": "harness",
+            "size": [
+              512,
+              256
+            ],
+            "bytes": 7340032,
+            "rejected?": false,
+            "desired-key": [
+              "harness",
+              512,
+              256
+            ],
+            "rung-divisor": 1
+          }
+        },
+        "bytes": 7340032
+      }
+    },
+    "fixture-query": "?region3d=1",
+    "s2": {
+      "expected-t": 6.9,
+      "epsilon-bytes": 2,
+      "actual-object": "near",
+      "expected-object": "near",
+      "actual-t": 6.9,
+      "sample": [
+        64,
+        64
+      ],
+      "depth-classes": {
+        "interior": {
+          "cpu-route": "object",
+          "cpu-object": "near",
+          "gpu-rgba": [
+            215,
+            218,
+            226,
+            255
+          ]
+        },
+        "outside": {
+          "cpu-route": "region-background",
+          "gpu-rgba": [
+            0,
+            0,
+            0,
+            0
+          ]
+        },
+        "boundary": {
+          "cpu-route": "object",
+          "cpu-object": "near",
+          "cpu-boundary?": true,
+          "gpu-rgba": [
+            23,
+            23,
+            25,
+            32
+          ],
+          "screen": [
+            53.47975778606008,
+            30.52024221393992
+          ]
+        }
+      },
+      "max-byte-delta": 1,
+      "expected-rgba": [
+        215,
+        218,
+        227,
+        255
+      ],
+      "pass?": true,
+      "depth-classes-pass?": true,
+      "transparency-sample": [
+        93,
+        55
+      ],
+      "actual-rgba": [
+        215,
+        218,
+        226,
+        255
+      ],
+      "transparency-rgba": [
+        15,
+        88,
+        73,
+        128
+      ]
+    }
+  },
+  "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/150.0.0.0 Safari/537.36",
+  "production-renderer?": true,
+  "harness": "softland-render-engine-w0-a",
+  "t1-layout": {
+    "layout-id": "t1/258682569",
+    "rtl?": false,
+    "fallback?": false,
+    "lines": 2,
+    "foreign-failure": "T1 browser layout evidence failed.",
+    "reader-layout-ids": [
+      "t1/258682569",
+      "t1/258682569",
+      "t1/258682569",
+      "t1/258682569",
+      "t1/258682569",
+      "t1/258682569",
+      "t1/258682569"
+    ],
+    "glyph-count": 15,
+    "lod": {
+      "legal-zoom": [
+        0.01,
+        1000
+      ],
+      "zoom": 1,
+      "precision": "component-f64",
+      "paint-route": "consumer-selected"
+    },
+    "pass": false,
+    "tab?": true,
+    "variable-axis-delta": 12.311999999999998,
+    "variations": {
+      "wght": 400,
+      "wdth": 100
+    },
+    "cluster-count": 0
+  },
+  "product-server-used?": false,
+  "schema-version": 2,
+  "secure-context?": true,
+  "canvas": {
+    "width": 128,
+    "height": 128,
+    "device-pixel-ratio": 1,
+    "color-format": "rgba8unorm"
+  },
+  "font": {
+    "id": "dejavu-sans-mono",
+    "slug": {
+      "meta": "dejavu_sans_mono_slug_meta.json",
+      "curve": "dejavu_sans_mono_slug_curve.bin",
+      "band": "dejavu_sans_mono_slug_band.bin"
+    }
+  },
+  "path-step": {
+    "cases": [
+      {
+        "case-id": "union",
+        "images": [
+          {
+            "mode": "union",
+            "file": "gpu-path-union-union.png",
+            "raw-sha256": "0463b8a2111f26f132ae2a42e91c2e4ca310d25efa4d73a9e62441aa85b0a74e",
+            "png": "png/gpu-path-union-union.png",
+            "determinism": {
+              "first-raw-sha256": "0463b8a2111f26f132ae2a42e91c2e4ca310d25efa4d73a9e62441aa85b0a74e",
+              "second-raw-sha256": "0463b8a2111f26f132ae2a42e91c2e4ca310d25efa4d73a9e62441aa85b0a74e",
+              "byte-identical?": true
+            }
+          }
+        ],
+        "checks": [
+          {
+            "point": [
+              64,
+              64
+            ],
+            "expected": 0.62,
+            "actual": 0.6196078431372549,
+            "pass?": true
+          }
+        ],
+        "pass?": true
+      },
+      {
+        "case-id": "accumulate",
+        "images": [
+          {
+            "mode": "accumulate",
+            "file": "gpu-path-accumulate-accumulate.png",
+            "raw-sha256": "ec978f10f8631aadaaea542633c6f474008973db0ae51cce3b0d32298d6103db",
+            "png": "png/gpu-path-accumulate-accumulate.png",
+            "determinism": {
+              "first-raw-sha256": "ec978f10f8631aadaaea542633c6f474008973db0ae51cce3b0d32298d6103db",
+              "second-raw-sha256": "ec978f10f8631aadaaea542633c6f474008973db0ae51cce3b0d32298d6103db",
+              "byte-identical?": true
+            }
+          }
+        ],
+        "checks": [
+          {
+            "point": [
+              64,
+              64
+            ],
+            "expected": 0.8556,
+            "actual": 0.8549019607843137,
+            "pass?": true
+          }
+        ],
+        "pass?": true
+      },
+      {
+        "case-id": "curved-hole",
+        "images": [
+          {
+            "mode": "curved-hole",
+            "file": "gpu-path-curved-hole-curved-hole.png",
+            "raw-sha256": "fce2749e73e0fbeeedd233691050e219b24e84b84d0f51e612d96791cf52b2a1",
+            "png": "png/gpu-path-curved-hole-curved-hole.png",
+            "determinism": {
+              "first-raw-sha256": "fce2749e73e0fbeeedd233691050e219b24e84b84d0f51e612d96791cf52b2a1",
+              "second-raw-sha256": "fce2749e73e0fbeeedd233691050e219b24e84b84d0f51e612d96791cf52b2a1",
+              "byte-identical?": true
+            }
+          }
+        ],
+        "checks": [
+          {
+            "point": [
+              30,
+              64
+            ],
+            "expected": 0.96,
+            "actual": 0.9607843137254902,
+            "pass?": true
+          },
+          {
+            "point": [
+              50,
+              50
+            ],
+            "expected": 0,
+            "actual": 0,
+            "pass?": true
+          },
+          {
+            "point": [
+              10,
+              10
+            ],
+            "expected": 0,
+            "actual": 0,
+            "pass?": true
+          }
+        ],
+        "pass?": true
+      }
+    ],
+    "parity": [
+      {
+        "case-id": "literal-clip",
+        "images": [
+          {
+            "mode": "literal-clip",
+            "file": "gpu-path-literal-clip-literal-clip.png",
+            "raw-sha256": "560baf1f99cd749f47ce11c94df04c9186e8eb3222da6d995a084844e443b4b8",
+            "png": "png/gpu-path-literal-clip-literal-clip.png",
+            "determinism": {
+              "first-raw-sha256": "560baf1f99cd749f47ce11c94df04c9186e8eb3222da6d995a084844e443b4b8",
+              "second-raw-sha256": "560baf1f99cd749f47ce11c94df04c9186e8eb3222da6d995a084844e443b4b8",
+              "byte-identical?": true
+            }
+          }
+        ],
+        "checks": [
+          {
+            "point": [
+              64,
+              64
+            ],
+            "expected": 0.31,
+            "actual": 0.30980392156862746,
+            "pass?": true
+          },
+          {
+            "point": [
+              65,
+              64
+            ],
+            "expected": 0,
+            "actual": 0,
+            "pass?": true
+          }
+        ],
+        "pass?": true
+      },
+      {
+        "case-id": "empty-clip",
+        "images": [
+          {
+            "mode": "empty-clip",
+            "file": "gpu-path-empty-clip-empty-clip.png",
+            "raw-sha256": "de2f256064a0af797747c2b97505dc0b9f3df0de4f489eac731c23ae9ca9cc31",
+            "png": "png/gpu-path-empty-clip-empty-clip.png",
+            "determinism": {
+              "first-raw-sha256": "de2f256064a0af797747c2b97505dc0b9f3df0de4f489eac731c23ae9ca9cc31",
+              "second-raw-sha256": "de2f256064a0af797747c2b97505dc0b9f3df0de4f489eac731c23ae9ca9cc31",
+              "byte-identical?": true
+            }
+          }
+        ],
+        "checks": [
+          {
+            "point": [
+              64,
+              64
+            ],
+            "expected": 0,
+            "actual": 0,
+            "pass?": true
+          }
+        ],
+        "pass?": true
+      },
+      {
+        "case-id": "device-border",
+        "images": [
+          {
+            "mode": "device-border",
+            "file": "gpu-path-device-border-device-border.png",
+            "raw-sha256": "84eebf6cfaa91055fbcc9dac5648ac6478fc7f7e7067df2a0d9ee8d8ae6d6fd6",
+            "png": "png/gpu-path-device-border-device-border.png",
+            "determinism": {
+              "first-raw-sha256": "84eebf6cfaa91055fbcc9dac5648ac6478fc7f7e7067df2a0d9ee8d8ae6d6fd6",
+              "second-raw-sha256": "84eebf6cfaa91055fbcc9dac5648ac6478fc7f7e7067df2a0d9ee8d8ae6d6fd6",
+              "byte-identical?": true
+            }
+          }
+        ],
+        "checks": [
+          {
+            "point": [
+              24,
+              60
+            ],
+            "expected": 1,
+            "actual": 1,
+            "pass?": true
+          },
+          {
+            "point": [
+              25,
+              60
+            ],
+            "expected": 0,
+            "actual": 0,
+            "pass?": true
+          }
+        ],
+        "pass?": true
+      },
+      {
+        "case-id": "scaled-border",
+        "images": [
+          {
+            "mode": "scaled-border",
+            "file": "gpu-path-scaled-border-scaled-border.png",
+            "raw-sha256": "ad6d6a169ac4ce1f2607cbe8e98c791cb6d1fd64605075a73afd58b7311d3472",
+            "png": "png/gpu-path-scaled-border-scaled-border.png",
+            "determinism": {
+              "first-raw-sha256": "ad6d6a169ac4ce1f2607cbe8e98c791cb6d1fd64605075a73afd58b7311d3472",
+              "second-raw-sha256": "ad6d6a169ac4ce1f2607cbe8e98c791cb6d1fd64605075a73afd58b7311d3472",
+              "byte-identical?": true
+            }
+          }
+        ],
+        "checks": [
+          {
+            "point": [
+              48,
+              120
+            ],
+            "expected": 1,
+            "actual": 1,
+            "pass?": true
+          },
+          {
+            "point": [
+              49,
+              120
+            ],
+            "expected": 0,
+            "actual": 0,
+            "pass?": true
+          }
+        ],
+        "pass?": true
+      },
+      {
+        "case-id": "pen",
+        "images": [
+          {
+            "mode": "pen",
+            "file": "gpu-path-pen-pen.png",
+            "raw-sha256": "1a4ba25a3a390a95e4890501cc2ecebb5f83c01ae7c3dc8508a5205dc8a2a081",
+            "png": "png/gpu-path-pen-pen.png",
+            "determinism": {
+              "first-raw-sha256": "1a4ba25a3a390a95e4890501cc2ecebb5f83c01ae7c3dc8508a5205dc8a2a081",
+              "second-raw-sha256": "1a4ba25a3a390a95e4890501cc2ecebb5f83c01ae7c3dc8508a5205dc8a2a081",
+              "byte-identical?": true
+            }
+          }
+        ],
+        "checks": [
+          {
+            "point": [
+              80,
+              40
+            ],
+            "expected": 1,
+            "actual": 1,
+            "pass?": true
+          },
+          {
+            "point": [
+              10,
+              10
+            ],
+            "expected": 0,
+            "actual": 0,
+            "pass?": true
+          }
+        ],
+        "pass?": true
+      }
+    ],
+    "upload-dirty-check": {
+      "initial": {
+        "vertices": 6,
+        "derived": 1,
+        "packed": 1,
+        "writes": 1,
+        "changed?": true
+      },
+      "repeated": {
+        "vertices": 6,
+        "derived": 0,
+        "packed": 0,
+        "writes": 0,
+        "changed?": false
+      },
+      "paint": {
+        "vertices": 6,
+        "derived": 0,
+        "packed": 0,
+        "writes": 1,
+        "changed?": true
+      },
+      "scale": {
+        "vertices": 6,
+        "derived": 0,
+        "packed": 1,
+        "writes": 1,
+        "changed?": true
+      },
+      "pan": {
+        "vertices": 6,
+        "derived": 0,
+        "packed": 0,
+        "writes": 0,
+        "changed?": false
+      },
+      "source": {
+        "vertices": 6,
+        "derived": 1,
+        "packed": 1,
+        "writes": 1,
+        "changed?": true
+      },
+      "pass?": true
+    },
+    "coverage": "quadratic-curves",
+    "self-overlap-alpha": "declared-union-or-accumulation",
+    "pass?": true
+  },
+  "shader-digests": {
+    "scene-color": "ca263e5f1bbc34f00a73c780a554046dcdc3807254cfa186d64584f076835d95",
+    "present-fragment": "0835dab5812b96d62c47be9c20e42204c1df106c31937293c3ce125f3cb1a851",
+    "slug-vertex": "f4b92ff85b91986a8b614790a69919f9d9baf68d992e575548cb89e6e7e17c32",
+    "slug-fragment": "122ab17fb0cd059df296bae1660cae8674f318972a55dfef4166e5a338875e8b",
+    "region3d-placed-coverage": "5abe7fb401118d53beb0c03d2e7fc1ecb10665d0829522e76c06779d58a40206"
+  },
+  "decoded-slug-curve-count": 16,
+  "cases": [
+    {
+      "zoom": 0.01,
+      "images": [
+        {
+          "mode": "slug",
+          "file": "gpu-slug-legal-min-z0p01.png",
+          "raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+          "png": "png/gpu-slug-legal-min-z0p01.png",
+          "determinism": {
+            "first-raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+            "second-raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+            "byte-identical?": true
+          }
+        }
+      ],
+      "pick-parity": [
+        {
+          "mismatch-count": 103,
+          "first-boundary-ties": [
+            {
+              "pixel": [
+                50,
+                60
+              ],
+              "gpu-coverage-byte": 128,
+              "cpu-inside?": true,
+              "gpu-class": "boundary-tie",
+              "decisive?": false,
+              "match?": null
+            },
+            {
+              "pixel": [
+                46,
+                74
+              ],
+              "gpu-coverage-byte": 128,
+              "cpu-inside?": true,
+              "gpu-class": "boundary-tie",
+              "decisive?": false,
+              "match?": null
+            }
+          ],
+          "first-mismatches": [
+            {
+              "pixel": [
+                101,
+                51
+              ],
+              "gpu-coverage-byte": 158,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                102,
+                51
+              ],
+              "gpu-coverage-byte": 189,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                103,
+                51
+              ],
+              "gpu-coverage-byte": 223,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                104,
+                51
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                107,
+                51
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                108,
+                51
+              ],
+              "gpu-coverage-byte": 226,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                109,
+                51
+              ],
+              "gpu-coverage-byte": 197,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                110,
+                51
+              ],
+              "gpu-coverage-byte": 156,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                98,
+                52
+              ],
+              "gpu-coverage-byte": 170,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                113,
+                52
+              ],
+              "gpu-coverage-byte": 202,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                96,
+                53
+              ],
+              "gpu-coverage-byte": 159,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                115,
+                53
+              ],
+              "gpu-coverage-byte": 216,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                95,
+                54
+              ],
+              "gpu-coverage-byte": 239,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                102,
+                57
+              ],
+              "gpu-coverage-byte": 227,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                103,
+                57
+              ],
+              "gpu-coverage-byte": 160,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                109,
+                57
+              ],
+              "gpu-coverage-byte": 192,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                119,
+                57
+              ],
+              "gpu-coverage-byte": 219,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                91,
+                58
+              ],
+              "gpu-coverage-byte": 202,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                100,
+                58
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                111,
+                58
+              ],
+              "gpu-coverage-byte": 180,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                120,
+                58
+              ],
+              "gpu-coverage-byte": 153,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                99,
+                59
+              ],
+              "gpu-coverage-byte": 190,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                90,
+                60
+              ],
+              "gpu-coverage-byte": 237,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                98,
+                60
+              ],
+              "gpu-coverage-byte": 170,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            }
+          ],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "slug-dejavu-o-path",
+          "boundary-pixel-count": 386,
+          "decisive-count": 384,
+          "verdict": "decisive-mismatch",
+          "current-product-pick?": false,
+          "cpu-inverse": {
+            "source": "production-slug-sampleBounds",
+            "shaped-rect-world": [
+              3900,
+              5100,
+              3750,
+              4625
+            ],
+            "glyph-bounds": {
+              "left": 0.0625,
+              "right": 0.53125,
+              "top": 0.5625,
+              "bottom": -0.015625
+            },
+            "zoom": 0.01,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass?": false,
+          "boundary-tie-count": 2,
+          "match-count": 281
+        }
+      ],
+      "canvas": {
+        "width": 128,
+        "height": 128,
+        "format": "rgba8unorm",
+        "device-pixel-ratio": 1
+      },
+      "shape-extent-world": 8000,
+      "lod": "legal-zoom-range-sentinel",
+      "unresolved-glyphs": 0,
+      "case-id": "legal-min-z0p01",
+      "provider": {
+        "face-id": "dejavu-sans-mono",
+        "face-revision": "dejavu_sans_mono.ttf",
+        "shaper-id": "wasm",
+        "shaper-version": "14.0.0"
+      },
+      "normalization": "screen-constant"
+    },
+    {
+      "zoom": 0.1,
+      "images": [
+        {
+          "mode": "slug",
+          "file": "gpu-slug-default-min-z0p1.png",
+          "raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+          "png": "png/gpu-slug-default-min-z0p1.png",
+          "determinism": {
+            "first-raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+            "second-raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+            "byte-identical?": true
+          }
+        }
+      ],
+      "pick-parity": [
+        {
+          "mismatch-count": 103,
+          "first-boundary-ties": [
+            {
+              "pixel": [
+                50,
+                60
+              ],
+              "gpu-coverage-byte": 128,
+              "cpu-inside?": true,
+              "gpu-class": "boundary-tie",
+              "decisive?": false,
+              "match?": null
+            },
+            {
+              "pixel": [
+                46,
+                74
+              ],
+              "gpu-coverage-byte": 128,
+              "cpu-inside?": true,
+              "gpu-class": "boundary-tie",
+              "decisive?": false,
+              "match?": null
+            }
+          ],
+          "first-mismatches": [
+            {
+              "pixel": [
+                101,
+                51
+              ],
+              "gpu-coverage-byte": 158,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                102,
+                51
+              ],
+              "gpu-coverage-byte": 189,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                103,
+                51
+              ],
+              "gpu-coverage-byte": 223,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                104,
+                51
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                107,
+                51
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                108,
+                51
+              ],
+              "gpu-coverage-byte": 226,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                109,
+                51
+              ],
+              "gpu-coverage-byte": 197,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                110,
+                51
+              ],
+              "gpu-coverage-byte": 156,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                98,
+                52
+              ],
+              "gpu-coverage-byte": 170,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                113,
+                52
+              ],
+              "gpu-coverage-byte": 202,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                96,
+                53
+              ],
+              "gpu-coverage-byte": 159,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                115,
+                53
+              ],
+              "gpu-coverage-byte": 216,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                95,
+                54
+              ],
+              "gpu-coverage-byte": 239,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                102,
+                57
+              ],
+              "gpu-coverage-byte": 227,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                103,
+                57
+              ],
+              "gpu-coverage-byte": 160,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                109,
+                57
+              ],
+              "gpu-coverage-byte": 192,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                119,
+                57
+              ],
+              "gpu-coverage-byte": 219,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                91,
+                58
+              ],
+              "gpu-coverage-byte": 202,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                100,
+                58
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                111,
+                58
+              ],
+              "gpu-coverage-byte": 180,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                120,
+                58
+              ],
+              "gpu-coverage-byte": 153,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                99,
+                59
+              ],
+              "gpu-coverage-byte": 190,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                90,
+                60
+              ],
+              "gpu-coverage-byte": 237,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                98,
+                60
+              ],
+              "gpu-coverage-byte": 170,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            }
+          ],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "slug-dejavu-o-path",
+          "boundary-pixel-count": 386,
+          "decisive-count": 384,
+          "verdict": "decisive-mismatch",
+          "current-product-pick?": false,
+          "cpu-inverse": {
+            "source": "production-slug-sampleBounds",
+            "shaped-rect-world": [
+              390,
+              510,
+              375,
+              462.5
+            ],
+            "glyph-bounds": {
+              "left": 0.0625,
+              "right": 0.53125,
+              "top": 0.5625,
+              "bottom": -0.015625
+            },
+            "zoom": 0.1,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass?": false,
+          "boundary-tie-count": 2,
+          "match-count": 281
+        }
+      ],
+      "canvas": {
+        "width": 128,
+        "height": 128,
+        "format": "rgba8unorm",
+        "device-pixel-ratio": 1
+      },
+      "shape-extent-world": 800,
+      "lod": "engine-default-clamp",
+      "unresolved-glyphs": 0,
+      "case-id": "default-min-z0p1",
+      "provider": {
+        "face-id": "dejavu-sans-mono",
+        "face-revision": "dejavu_sans_mono.ttf",
+        "shaper-id": "wasm",
+        "shaper-version": "14.0.0"
+      },
+      "normalization": "screen-constant"
+    },
+    {
+      "zoom": 1,
+      "images": [
+        {
+          "mode": "slug",
+          "file": "gpu-slug-default-unit-z1.png",
+          "raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+          "png": "png/gpu-slug-default-unit-z1.png",
+          "determinism": {
+            "first-raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+            "second-raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+            "byte-identical?": true
+          }
+        }
+      ],
+      "pick-parity": [
+        {
+          "mismatch-count": 103,
+          "first-boundary-ties": [
+            {
+              "pixel": [
+                50,
+                60
+              ],
+              "gpu-coverage-byte": 128,
+              "cpu-inside?": true,
+              "gpu-class": "boundary-tie",
+              "decisive?": false,
+              "match?": null
+            },
+            {
+              "pixel": [
+                46,
+                74
+              ],
+              "gpu-coverage-byte": 128,
+              "cpu-inside?": true,
+              "gpu-class": "boundary-tie",
+              "decisive?": false,
+              "match?": null
+            }
+          ],
+          "first-mismatches": [
+            {
+              "pixel": [
+                101,
+                51
+              ],
+              "gpu-coverage-byte": 158,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                102,
+                51
+              ],
+              "gpu-coverage-byte": 189,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                103,
+                51
+              ],
+              "gpu-coverage-byte": 223,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                104,
+                51
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                107,
+                51
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                108,
+                51
+              ],
+              "gpu-coverage-byte": 226,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                109,
+                51
+              ],
+              "gpu-coverage-byte": 197,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                110,
+                51
+              ],
+              "gpu-coverage-byte": 156,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                98,
+                52
+              ],
+              "gpu-coverage-byte": 170,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                113,
+                52
+              ],
+              "gpu-coverage-byte": 202,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                96,
+                53
+              ],
+              "gpu-coverage-byte": 159,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                115,
+                53
+              ],
+              "gpu-coverage-byte": 216,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                95,
+                54
+              ],
+              "gpu-coverage-byte": 239,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                102,
+                57
+              ],
+              "gpu-coverage-byte": 227,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                103,
+                57
+              ],
+              "gpu-coverage-byte": 160,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                109,
+                57
+              ],
+              "gpu-coverage-byte": 192,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                119,
+                57
+              ],
+              "gpu-coverage-byte": 219,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                91,
+                58
+              ],
+              "gpu-coverage-byte": 202,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                100,
+                58
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                111,
+                58
+              ],
+              "gpu-coverage-byte": 180,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                120,
+                58
+              ],
+              "gpu-coverage-byte": 153,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                99,
+                59
+              ],
+              "gpu-coverage-byte": 190,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                90,
+                60
+              ],
+              "gpu-coverage-byte": 237,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                98,
+                60
+              ],
+              "gpu-coverage-byte": 170,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            }
+          ],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "slug-dejavu-o-path",
+          "boundary-pixel-count": 386,
+          "decisive-count": 384,
+          "verdict": "decisive-mismatch",
+          "current-product-pick?": false,
+          "cpu-inverse": {
+            "source": "production-slug-sampleBounds",
+            "shaped-rect-world": [
+              39,
+              51,
+              37.5,
+              46.25
+            ],
+            "glyph-bounds": {
+              "left": 0.0625,
+              "right": 0.53125,
+              "top": 0.5625,
+              "bottom": -0.015625
+            },
+            "zoom": 1,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass?": false,
+          "boundary-tie-count": 2,
+          "match-count": 281
+        }
+      ],
+      "canvas": {
+        "width": 128,
+        "height": 128,
+        "format": "rgba8unorm",
+        "device-pixel-ratio": 1
+      },
+      "shape-extent-world": 80,
+      "lod": "engine-default-clamp",
+      "unresolved-glyphs": 0,
+      "case-id": "default-unit-z1",
+      "provider": {
+        "face-id": "dejavu-sans-mono",
+        "face-revision": "dejavu_sans_mono.ttf",
+        "shaper-id": "wasm",
+        "shaper-version": "14.0.0"
+      },
+      "normalization": "screen-constant"
+    },
+    {
+      "zoom": 8,
+      "images": [
+        {
+          "mode": "slug",
+          "file": "gpu-slug-default-max-z8.png",
+          "raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+          "png": "png/gpu-slug-default-max-z8.png",
+          "determinism": {
+            "first-raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+            "second-raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+            "byte-identical?": true
+          }
+        }
+      ],
+      "pick-parity": [
+        {
+          "mismatch-count": 103,
+          "first-boundary-ties": [
+            {
+              "pixel": [
+                50,
+                60
+              ],
+              "gpu-coverage-byte": 128,
+              "cpu-inside?": true,
+              "gpu-class": "boundary-tie",
+              "decisive?": false,
+              "match?": null
+            },
+            {
+              "pixel": [
+                46,
+                74
+              ],
+              "gpu-coverage-byte": 128,
+              "cpu-inside?": true,
+              "gpu-class": "boundary-tie",
+              "decisive?": false,
+              "match?": null
+            }
+          ],
+          "first-mismatches": [
+            {
+              "pixel": [
+                101,
+                51
+              ],
+              "gpu-coverage-byte": 158,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                102,
+                51
+              ],
+              "gpu-coverage-byte": 189,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                103,
+                51
+              ],
+              "gpu-coverage-byte": 223,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                104,
+                51
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                107,
+                51
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                108,
+                51
+              ],
+              "gpu-coverage-byte": 226,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                109,
+                51
+              ],
+              "gpu-coverage-byte": 197,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                110,
+                51
+              ],
+              "gpu-coverage-byte": 156,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                98,
+                52
+              ],
+              "gpu-coverage-byte": 170,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                113,
+                52
+              ],
+              "gpu-coverage-byte": 202,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                96,
+                53
+              ],
+              "gpu-coverage-byte": 159,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                115,
+                53
+              ],
+              "gpu-coverage-byte": 216,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                95,
+                54
+              ],
+              "gpu-coverage-byte": 239,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                102,
+                57
+              ],
+              "gpu-coverage-byte": 227,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                103,
+                57
+              ],
+              "gpu-coverage-byte": 160,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                109,
+                57
+              ],
+              "gpu-coverage-byte": 192,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                119,
+                57
+              ],
+              "gpu-coverage-byte": 219,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                91,
+                58
+              ],
+              "gpu-coverage-byte": 202,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                100,
+                58
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                111,
+                58
+              ],
+              "gpu-coverage-byte": 180,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                120,
+                58
+              ],
+              "gpu-coverage-byte": 153,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                99,
+                59
+              ],
+              "gpu-coverage-byte": 190,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                90,
+                60
+              ],
+              "gpu-coverage-byte": 237,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                98,
+                60
+              ],
+              "gpu-coverage-byte": 170,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            }
+          ],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "slug-dejavu-o-path",
+          "boundary-pixel-count": 386,
+          "decisive-count": 384,
+          "verdict": "decisive-mismatch",
+          "current-product-pick?": false,
+          "cpu-inverse": {
+            "source": "production-slug-sampleBounds",
+            "shaped-rect-world": [
+              4.875,
+              6.375,
+              4.6875,
+              5.78125
+            ],
+            "glyph-bounds": {
+              "left": 0.0625,
+              "right": 0.53125,
+              "top": 0.5625,
+              "bottom": -0.015625
+            },
+            "zoom": 8,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass?": false,
+          "boundary-tie-count": 2,
+          "match-count": 281
+        }
+      ],
+      "canvas": {
+        "width": 128,
+        "height": 128,
+        "format": "rgba8unorm",
+        "device-pixel-ratio": 1
+      },
+      "shape-extent-world": 10,
+      "lod": "engine-default-clamp",
+      "unresolved-glyphs": 0,
+      "case-id": "default-max-z8",
+      "provider": {
+        "face-id": "dejavu-sans-mono",
+        "face-revision": "dejavu_sans_mono.ttf",
+        "shaper-id": "wasm",
+        "shaper-version": "14.0.0"
+      },
+      "normalization": "screen-constant"
+    },
+    {
+      "zoom": 10,
+      "images": [
+        {
+          "mode": "slug",
+          "file": "gpu-slug-legal-log-z10.png",
+          "raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+          "png": "png/gpu-slug-legal-log-z10.png",
+          "determinism": {
+            "first-raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+            "second-raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+            "byte-identical?": true
+          }
+        }
+      ],
+      "pick-parity": [
+        {
+          "mismatch-count": 103,
+          "first-boundary-ties": [
+            {
+              "pixel": [
+                50,
+                60
+              ],
+              "gpu-coverage-byte": 128,
+              "cpu-inside?": true,
+              "gpu-class": "boundary-tie",
+              "decisive?": false,
+              "match?": null
+            },
+            {
+              "pixel": [
+                46,
+                74
+              ],
+              "gpu-coverage-byte": 128,
+              "cpu-inside?": true,
+              "gpu-class": "boundary-tie",
+              "decisive?": false,
+              "match?": null
+            }
+          ],
+          "first-mismatches": [
+            {
+              "pixel": [
+                101,
+                51
+              ],
+              "gpu-coverage-byte": 158,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                102,
+                51
+              ],
+              "gpu-coverage-byte": 189,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                103,
+                51
+              ],
+              "gpu-coverage-byte": 223,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                104,
+                51
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                107,
+                51
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                108,
+                51
+              ],
+              "gpu-coverage-byte": 226,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                109,
+                51
+              ],
+              "gpu-coverage-byte": 197,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                110,
+                51
+              ],
+              "gpu-coverage-byte": 156,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                98,
+                52
+              ],
+              "gpu-coverage-byte": 170,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                113,
+                52
+              ],
+              "gpu-coverage-byte": 202,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                96,
+                53
+              ],
+              "gpu-coverage-byte": 159,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                115,
+                53
+              ],
+              "gpu-coverage-byte": 216,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                95,
+                54
+              ],
+              "gpu-coverage-byte": 239,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                102,
+                57
+              ],
+              "gpu-coverage-byte": 227,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                103,
+                57
+              ],
+              "gpu-coverage-byte": 160,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                109,
+                57
+              ],
+              "gpu-coverage-byte": 192,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                119,
+                57
+              ],
+              "gpu-coverage-byte": 219,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                91,
+                58
+              ],
+              "gpu-coverage-byte": 202,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                100,
+                58
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                111,
+                58
+              ],
+              "gpu-coverage-byte": 180,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                120,
+                58
+              ],
+              "gpu-coverage-byte": 153,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                99,
+                59
+              ],
+              "gpu-coverage-byte": 190,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                90,
+                60
+              ],
+              "gpu-coverage-byte": 237,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                98,
+                60
+              ],
+              "gpu-coverage-byte": 170,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            }
+          ],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "slug-dejavu-o-path",
+          "boundary-pixel-count": 386,
+          "decisive-count": 384,
+          "verdict": "decisive-mismatch",
+          "current-product-pick?": false,
+          "cpu-inverse": {
+            "source": "production-slug-sampleBounds",
+            "shaped-rect-world": [
+              3.9000000953674316,
+              5.100000381469727,
+              3.75,
+              4.625
+            ],
+            "glyph-bounds": {
+              "left": 0.0625,
+              "right": 0.53125,
+              "top": 0.5625,
+              "bottom": -0.015625
+            },
+            "zoom": 10,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass?": false,
+          "boundary-tie-count": 2,
+          "match-count": 281
+        }
+      ],
+      "canvas": {
+        "width": 128,
+        "height": 128,
+        "format": "rgba8unorm",
+        "device-pixel-ratio": 1
+      },
+      "shape-extent-world": 8,
+      "lod": "legal-zoom-range-sentinel",
+      "unresolved-glyphs": 0,
+      "case-id": "legal-log-z10",
+      "provider": {
+        "face-id": "dejavu-sans-mono",
+        "face-revision": "dejavu_sans_mono.ttf",
+        "shaper-id": "wasm",
+        "shaper-version": "14.0.0"
+      },
+      "normalization": "screen-constant"
+    },
+    {
+      "zoom": 100,
+      "images": [
+        {
+          "mode": "slug",
+          "file": "gpu-slug-legal-log-z100.png",
+          "raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+          "png": "png/gpu-slug-legal-log-z100.png",
+          "determinism": {
+            "first-raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+            "second-raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+            "byte-identical?": true
+          }
+        }
+      ],
+      "pick-parity": [
+        {
+          "mismatch-count": 103,
+          "first-boundary-ties": [
+            {
+              "pixel": [
+                50,
+                60
+              ],
+              "gpu-coverage-byte": 128,
+              "cpu-inside?": true,
+              "gpu-class": "boundary-tie",
+              "decisive?": false,
+              "match?": null
+            },
+            {
+              "pixel": [
+                46,
+                74
+              ],
+              "gpu-coverage-byte": 128,
+              "cpu-inside?": true,
+              "gpu-class": "boundary-tie",
+              "decisive?": false,
+              "match?": null
+            }
+          ],
+          "first-mismatches": [
+            {
+              "pixel": [
+                101,
+                51
+              ],
+              "gpu-coverage-byte": 158,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                102,
+                51
+              ],
+              "gpu-coverage-byte": 189,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                103,
+                51
+              ],
+              "gpu-coverage-byte": 223,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                104,
+                51
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                107,
+                51
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                108,
+                51
+              ],
+              "gpu-coverage-byte": 226,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                109,
+                51
+              ],
+              "gpu-coverage-byte": 197,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                110,
+                51
+              ],
+              "gpu-coverage-byte": 156,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                98,
+                52
+              ],
+              "gpu-coverage-byte": 170,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                113,
+                52
+              ],
+              "gpu-coverage-byte": 202,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                96,
+                53
+              ],
+              "gpu-coverage-byte": 159,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                115,
+                53
+              ],
+              "gpu-coverage-byte": 216,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                95,
+                54
+              ],
+              "gpu-coverage-byte": 239,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                102,
+                57
+              ],
+              "gpu-coverage-byte": 227,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                103,
+                57
+              ],
+              "gpu-coverage-byte": 160,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                109,
+                57
+              ],
+              "gpu-coverage-byte": 192,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                119,
+                57
+              ],
+              "gpu-coverage-byte": 219,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                91,
+                58
+              ],
+              "gpu-coverage-byte": 202,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                100,
+                58
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                111,
+                58
+              ],
+              "gpu-coverage-byte": 180,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                120,
+                58
+              ],
+              "gpu-coverage-byte": 153,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                99,
+                59
+              ],
+              "gpu-coverage-byte": 190,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                90,
+                60
+              ],
+              "gpu-coverage-byte": 237,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                98,
+                60
+              ],
+              "gpu-coverage-byte": 170,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            }
+          ],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "slug-dejavu-o-path",
+          "boundary-pixel-count": 386,
+          "decisive-count": 384,
+          "verdict": "decisive-mismatch",
+          "current-product-pick?": false,
+          "cpu-inverse": {
+            "source": "production-slug-sampleBounds",
+            "shaped-rect-world": [
+              0.39000001549720764,
+              0.5099999904632568,
+              0.375,
+              0.4625000059604645
+            ],
+            "glyph-bounds": {
+              "left": 0.0625,
+              "right": 0.53125,
+              "top": 0.5625,
+              "bottom": -0.015625
+            },
+            "zoom": 100,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass?": false,
+          "boundary-tie-count": 2,
+          "match-count": 281
+        }
+      ],
+      "canvas": {
+        "width": 128,
+        "height": 128,
+        "format": "rgba8unorm",
+        "device-pixel-ratio": 1
+      },
+      "shape-extent-world": 0.8,
+      "lod": "legal-zoom-range-sentinel",
+      "unresolved-glyphs": 0,
+      "case-id": "legal-log-z100",
+      "provider": {
+        "face-id": "dejavu-sans-mono",
+        "face-revision": "dejavu_sans_mono.ttf",
+        "shaper-id": "wasm",
+        "shaper-version": "14.0.0"
+      },
+      "normalization": "screen-constant"
+    },
+    {
+      "zoom": 1000,
+      "images": [
+        {
+          "mode": "slug",
+          "file": "gpu-slug-legal-max-z1000.png",
+          "raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+          "png": "png/gpu-slug-legal-max-z1000.png",
+          "determinism": {
+            "first-raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+            "second-raw-sha256": "386a2f4bfe06b8cb5e324d1f76c74962cac9e0d4f6b317f87f4f20ed11f54e54",
+            "byte-identical?": true
+          }
+        }
+      ],
+      "pick-parity": [
+        {
+          "mismatch-count": 103,
+          "first-boundary-ties": [
+            {
+              "pixel": [
+                50,
+                60
+              ],
+              "gpu-coverage-byte": 128,
+              "cpu-inside?": true,
+              "gpu-class": "boundary-tie",
+              "decisive?": false,
+              "match?": null
+            },
+            {
+              "pixel": [
+                46,
+                74
+              ],
+              "gpu-coverage-byte": 128,
+              "cpu-inside?": true,
+              "gpu-class": "boundary-tie",
+              "decisive?": false,
+              "match?": null
+            }
+          ],
+          "first-mismatches": [
+            {
+              "pixel": [
+                101,
+                51
+              ],
+              "gpu-coverage-byte": 158,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                102,
+                51
+              ],
+              "gpu-coverage-byte": 189,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                103,
+                51
+              ],
+              "gpu-coverage-byte": 223,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                104,
+                51
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                107,
+                51
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                108,
+                51
+              ],
+              "gpu-coverage-byte": 226,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                109,
+                51
+              ],
+              "gpu-coverage-byte": 197,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                110,
+                51
+              ],
+              "gpu-coverage-byte": 156,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                98,
+                52
+              ],
+              "gpu-coverage-byte": 170,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                113,
+                52
+              ],
+              "gpu-coverage-byte": 202,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                96,
+                53
+              ],
+              "gpu-coverage-byte": 159,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                115,
+                53
+              ],
+              "gpu-coverage-byte": 216,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                95,
+                54
+              ],
+              "gpu-coverage-byte": 239,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                102,
+                57
+              ],
+              "gpu-coverage-byte": 227,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                103,
+                57
+              ],
+              "gpu-coverage-byte": 160,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                109,
+                57
+              ],
+              "gpu-coverage-byte": 192,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                119,
+                57
+              ],
+              "gpu-coverage-byte": 219,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                91,
+                58
+              ],
+              "gpu-coverage-byte": 202,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                100,
+                58
+              ],
+              "gpu-coverage-byte": 244,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                111,
+                58
+              ],
+              "gpu-coverage-byte": 180,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                120,
+                58
+              ],
+              "gpu-coverage-byte": 153,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                99,
+                59
+              ],
+              "gpu-coverage-byte": 190,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                90,
+                60
+              ],
+              "gpu-coverage-byte": 237,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            },
+            {
+              "pixel": [
+                98,
+                60
+              ],
+              "gpu-coverage-byte": 170,
+              "cpu-inside?": false,
+              "gpu-class": "inside",
+              "decisive?": true,
+              "match?": false
+            }
+          ],
+          "contract": "candidate-cpu-point-in-path-vs-production-gpu-coverage; byte-128-is-boundary-tie",
+          "mode": "slug-dejavu-o-path",
+          "boundary-pixel-count": 386,
+          "decisive-count": 384,
+          "verdict": "decisive-mismatch",
+          "current-product-pick?": false,
+          "cpu-inverse": {
+            "source": "production-slug-sampleBounds",
+            "shaped-rect-world": [
+              0.039000000804662704,
+              0.050999999046325684,
+              0.03750000149011612,
+              0.04625000059604645
+            ],
+            "glyph-bounds": {
+              "left": 0.0625,
+              "right": 0.53125,
+              "top": 0.5625,
+              "bottom": -0.015625
+            },
+            "zoom": 1000,
+            "mapping": "screen->world->shaped-quad->glyph-path"
+          },
+          "pass?": false,
+          "boundary-tie-count": 2,
+          "match-count": 281
+        }
+      ],
+      "canvas": {
+        "width": 128,
+        "height": 128,
+        "format": "rgba8unorm",
+        "device-pixel-ratio": 1
+      },
+      "shape-extent-world": 0.08,
+      "lod": "legal-zoom-range-sentinel",
+      "unresolved-glyphs": 0,
+      "case-id": "legal-max-z1000",
+      "provider": {
+        "face-id": "dejavu-sans-mono",
+        "face-revision": "dejavu_sans_mono.ttf",
+        "shaper-id": "wasm",
+        "shaper-version": "14.0.0"
+      },
+      "normalization": "screen-constant"
+    }
+  ],
+  "image-step": {
+    "product-loop-join": "none",
+    "parity": [
+      {
+        "zoom": 0.01,
+        "mismatch-count": 0,
+        "first-mismatches": [],
+        "half-count": 0,
+        "product-route": "image half-open quad",
+        "hit-slop": 0,
+        "boundary-pixel-count": 320,
+        "slop-path-ran?": false,
+        "extent": "screen-constant",
+        "decisive-count": 320,
+        "candidate-route": "production image ramped quad",
+        "pass?": true,
+        "agreement?": true
+      },
+      {
+        "zoom": 0.01,
+        "mismatch-count": 0,
+        "first-mismatches": [],
+        "half-count": 0,
+        "product-route": "image half-open quad",
+        "hit-slop": 0,
+        "boundary-pixel-count": 8,
+        "slop-path-ran?": false,
+        "extent": "world-256",
+        "decisive-count": 8,
+        "candidate-route": "production image ramped quad",
+        "pass?": true,
+        "agreement?": true
+      },
+      {
+        "zoom": 0.1,
+        "mismatch-count": 0,
+        "first-mismatches": [],
+        "half-count": 0,
+        "product-route": "image half-open quad",
+        "hit-slop": 0,
+        "boundary-pixel-count": 320,
+        "slop-path-ran?": false,
+        "extent": "screen-constant",
+        "decisive-count": 320,
+        "candidate-route": "production image ramped quad",
+        "pass?": true,
+        "agreement?": true
+      },
+      {
+        "zoom": 0.1,
+        "mismatch-count": 0,
+        "first-mismatches": [],
+        "half-count": 0,
+        "product-route": "image half-open quad",
+        "hit-slop": 0,
+        "boundary-pixel-count": 100,
+        "slop-path-ran?": false,
+        "extent": "world-256",
+        "decisive-count": 100,
+        "candidate-route": "production image ramped quad",
+        "pass?": true,
+        "agreement?": true
+      },
+      {
+        "zoom": 1,
+        "mismatch-count": 0,
+        "first-mismatches": [],
+        "half-count": 0,
+        "product-route": "image half-open quad",
+        "hit-slop": 0,
+        "boundary-pixel-count": 320,
+        "slop-path-ran?": false,
+        "extent": "screen-constant",
+        "decisive-count": 320,
+        "candidate-route": "production image ramped quad",
+        "pass?": true,
+        "agreement?": true
+      },
+      {
+        "zoom": 1,
+        "mismatch-count": 0,
+        "first-mismatches": [],
+        "half-count": 0,
+        "product-route": "image half-open quad",
+        "hit-slop": 0,
+        "boundary-pixel-count": 207,
+        "slop-path-ran?": false,
+        "extent": "world-256",
+        "decisive-count": 207,
+        "candidate-route": "production image ramped quad",
+        "pass?": true,
+        "agreement?": true
+      },
+      {
+        "zoom": 8,
+        "mismatch-count": 0,
+        "first-mismatches": [],
+        "half-count": 0,
+        "product-route": "image half-open quad",
+        "hit-slop": 0,
+        "boundary-pixel-count": 320,
+        "slop-path-ran?": false,
+        "extent": "screen-constant",
+        "decisive-count": 320,
+        "candidate-route": "production image ramped quad",
+        "pass?": true,
+        "agreement?": true
+      },
+      {
+        "zoom": 8,
+        "mismatch-count": 0,
+        "first-mismatches": [],
+        "half-count": 0,
+        "product-route": "image half-open quad",
+        "hit-slop": 0,
+        "boundary-pixel-count": 207,
+        "slop-path-ran?": false,
+        "extent": "world-256",
+        "decisive-count": 207,
+        "candidate-route": "production image ramped quad",
+        "pass?": true,
+        "agreement?": true
+      },
+      {
+        "zoom": 10,
+        "mismatch-count": 0,
+        "first-mismatches": [],
+        "half-count": 0,
+        "product-route": "image half-open quad",
+        "hit-slop": 0,
+        "boundary-pixel-count": 320,
+        "slop-path-ran?": false,
+        "extent": "screen-constant",
+        "decisive-count": 320,
+        "candidate-route": "production image ramped quad",
+        "pass?": true,
+        "agreement?": true
+      },
+      {
+        "zoom": 10,
+        "mismatch-count": 0,
+        "first-mismatches": [],
+        "half-count": 0,
+        "product-route": "image half-open quad",
+        "hit-slop": 0,
+        "boundary-pixel-count": 207,
+        "slop-path-ran?": false,
+        "extent": "world-256",
+        "decisive-count": 207,
+        "candidate-route": "production image ramped quad",
+        "pass?": true,
+        "agreement?": true
+      },
+      {
+        "zoom": 100,
+        "mismatch-count": 0,
+        "first-mismatches": [],
+        "half-count": 0,
+        "product-route": "image half-open quad",
+        "hit-slop": 0,
+        "boundary-pixel-count": 320,
+        "slop-path-ran?": false,
+        "extent": "screen-constant",
+        "decisive-count": 320,
+        "candidate-route": "production image ramped quad",
+        "pass?": true,
+        "agreement?": true
+      },
+      {
+        "zoom": 100,
+        "mismatch-count": 0,
+        "first-mismatches": [],
+        "half-count": 0,
+        "product-route": "image half-open quad",
+        "hit-slop": 0,
+        "boundary-pixel-count": 207,
+        "slop-path-ran?": false,
+        "extent": "world-256",
+        "decisive-count": 207,
+        "candidate-route": "production image ramped quad",
+        "pass?": true,
+        "agreement?": true
+      },
+      {
+        "zoom": 1000,
+        "mismatch-count": 0,
+        "first-mismatches": [],
+        "half-count": 0,
+        "product-route": "image half-open quad",
+        "hit-slop": 0,
+        "boundary-pixel-count": 320,
+        "slop-path-ran?": false,
+        "extent": "screen-constant",
+        "decisive-count": 320,
+        "candidate-route": "production image ramped quad",
+        "pass?": true,
+        "agreement?": true
+      },
+      {
+        "zoom": 1000,
+        "mismatch-count": 0,
+        "first-mismatches": [],
+        "half-count": 0,
+        "product-route": "image half-open quad",
+        "hit-slop": 0,
+        "boundary-pixel-count": 207,
+        "slop-path-ran?": false,
+        "extent": "world-256",
+        "decisive-count": 207,
+        "candidate-route": "production image ramped quad",
+        "pass?": true,
+        "agreement?": true
+      }
+    ],
+    "color": {
+      "candidate-transfer-counts": {
+        "ingress": 1,
+        "presentation": 1,
+        "rows-pass?": true
+      },
+      "alpha-association": {
+        "max-byte-delta": 1,
+        "pass?": true
+      },
+      "icc-decode": {
+        "fixture": "profiled-linear-rgb.png",
+        "rows": [
+          {
+            "pixel": [
+              1,
+              1
+            ],
+            "none": [
+              40,
+              43,
+              46,
+              255
+            ],
+            "default": [
+              110,
+              114,
+              118,
+              255
+            ],
+            "expected-none": [
+              40,
+              43,
+              46
+            ],
+            "expected-default": [
+              110,
+              114,
+              118
+            ],
+            "pass?": true
+          },
+          {
+            "pixel": [
+              4,
+              2
+            ],
+            "none": [
+              144,
+              147,
+              150,
+              255
+            ],
+            "default": [
+              198,
+              200,
+              202,
+              255
+            ],
+            "expected-none": [
+              144,
+              147,
+              150
+            ],
+            "expected-default": [
+              198,
+              200,
+              202
+            ],
+            "pass?": true
+          }
+        ],
+        "pass?": true
+      },
+      "source-over": {
+        "expected": [
+          151,
+          101,
+          119
+        ],
+        "actual": [
+          151,
+          101,
+          119
+        ],
+        "max-byte-delta": 0,
+        "pass?": true
+      },
+      "seam-off-profile": {
+        "fixture": "profiled-linear-rgb.png",
+        "pixel": [
+          1,
+          1
+        ],
+        "expected": [
+          51,
+          54,
+          57
+        ],
+        "actual": [
+          51,
+          54,
+          57
+        ],
+        "ingress-transfers": 0,
+        "presentation-encodes": 0,
+        "pass?": true
+      },
+      "seam-off": {
+        "expected": [
+          64,
+          128,
+          192
+        ],
+        "actual": [
+          64,
+          128,
+          192
+        ],
+        "transfer-count": 0,
+        "pass?": true
+      },
+      "pass?": true,
+      "presentation": {
+        "direct-vs-intermediate-max-byte-delta": 0,
+        "pass?": true
+      },
+      "non-black-fringe": {
+        "edge-pixel": [
+          56,
+          118,
+          160,
+          255
+        ],
+        "pass?": true
+      },
+      "mistagged-alpha": {
+        "max-byte-delta": 74,
+        "pass?": true
+      }
+    },
+    "felt-gate": "sid-live",
+    "upload-dirty-check": {
+      "frame-1": {
+        "changed?": true,
+        "writes": 2,
+        "instances": 2
+      },
+      "frame-2": {
+        "changed?": false,
+        "writes": 0,
+        "instances": 2
+      },
+      "frame-3": {
+        "changed?": true,
+        "writes": 1,
+        "instances": 2
+      },
+      "placeholder-frame": {
+        "changed?": true,
+        "writes": 2,
+        "instances": 1
+      },
+      "placeholder-status": "unavailable",
+      "frame-4": {
+        "changed?": true,
+        "writes": 1,
+        "instances": 1
+      },
+      "pass?": true
+    },
+    "lifecycle": {
+      "placeholder": {
+        "unavailable-sha256": "aab20b3aa071f60cd29cbcbc44271364792aa800eb6186042eb0d0ab7e4915e8",
+        "expected-sha256": "aab20b3aa071f60cd29cbcbc44271364792aa800eb6186042eb0d0ab7e4915e8",
+        "pass?": true
+      },
+      "unavailable": {
+        "status": "unavailable",
+        "reason": "unresolvable-digest",
+        "uv": [
+          0,
+          0,
+          1,
+          1
+        ],
+        "binding-key": "placeholder",
+        "placeholder-rendered": true
+      },
+      "device-loss": {
+        "status": "device-lost",
+        "rebuilt-count": 8,
+        "replacement-device?": true,
+        "resource-identities-fresh?": true,
+        "rejected-status-preserved?": true
+      },
+      "replacement-history-pass?": true,
+      "lost-device-counts": {
+        "ok": 8,
+        "rejected": 1,
+        "unavailable": 1
+      },
+      "replacement-counts": {
+        "ok": 8,
+        "rejected": 1,
+        "unavailable": 1
+      },
+      "pass?": true
+    },
+    "fixture-digests": {
+      "atlas-opaque-srgb.png": "6e744e448e1480b510b3cd8aef86b5e2c9b8367bbafdb3e1586946c779b265eb",
+      "clip-stripes-srgb.png": "8000e248f9550d364286a5b873a77813040762998f087f7521f0900532730c15",
+      "coverage-white-srgb.png": "71bafd65a2358f69ab1e3086058fa4180760a54f87b0b58cd75579b3ed74d81e",
+      "alpha-reference-straight.png": "b38bcacf6298ec057c4e1b03fefa2116440d8bdd2ea31bb79dcd94396856d608",
+      "dedicated-alpha-straight.png": "c859086c6a2cd8171f4cd429fd9d62529dd97c53e5ae9f131ce216b90af7e402",
+      "dedicated-alpha-premultiplied.png": "28840b6c70cb6dcd01f2f4ae0304e9c38070fcb2c1505f25d03111b158b6f30b",
+      "profiled-linear-rgb.png": "8e0358b9e3830abfdbff58faf3a19907d3fd2c2fd4a79d4cc6156acbb09fabea",
+      "seam-byte-srgb.png": "836e03f287a153693eecd3b75e4c8ffefbc38407f1e7784a4c2a8f4471f6650a"
+    },
+    "product-loop-claim": "parked-harness-only",
+    "image-above-text-kind-layer": true,
+    "seam-off-ingress": {
+      "rows": {
+        "6e744e448e1480b510b3cd8aef86b5e2c9b8367bbafdb3e1586946c779b265eb": {
+          "status": "ok",
+          "reason": null,
+          "tier": "atlas",
+          "uv": [
+            0.00390625,
+            0.00390625,
+            0.06640625,
+            0.05078125
+          ],
+          "mip-level-count": 2,
+          "binding-key": "atlas"
+        },
+        "8000e248f9550d364286a5b873a77813040762998f087f7521f0900532730c15": {
+          "status": "ok",
+          "reason": null,
+          "tier": "atlas",
+          "uv": [
+            0.00390625,
+            0.05859375,
+            0.08203125,
+            0.12109375
+          ],
+          "mip-level-count": 2,
+          "binding-key": "atlas"
+        },
+        "71bafd65a2358f69ab1e3086058fa4180760a54f87b0b58cd75579b3ed74d81e": {
+          "status": "ok",
+          "reason": null,
+          "tier": "atlas",
+          "uv": [
+            0.07421875,
+            0.00390625,
+            0.08203125,
+            0.01171875
+          ],
+          "mip-level-count": 2,
+          "binding-key": "atlas"
+        },
+        "b38bcacf6298ec057c4e1b03fefa2116440d8bdd2ea31bb79dcd94396856d608": {
+          "status": "ok",
+          "reason": null,
+          "tier": "dedicated",
+          "uv": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "mip-level-count": 8,
+          "binding-key": [
+            "dedicated",
+            "b38bcacf6298ec057c4e1b03fefa2116440d8bdd2ea31bb79dcd94396856d608"
+          ]
+        },
+        "c859086c6a2cd8171f4cd429fd9d62529dd97c53e5ae9f131ce216b90af7e402": {
+          "status": "ok",
+          "reason": null,
+          "tier": "dedicated",
+          "uv": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "mip-level-count": 8,
+          "binding-key": [
+            "dedicated",
+            "c859086c6a2cd8171f4cd429fd9d62529dd97c53e5ae9f131ce216b90af7e402"
+          ]
+        },
+        "28840b6c70cb6dcd01f2f4ae0304e9c38070fcb2c1505f25d03111b158b6f30b": {
+          "status": "ok",
+          "reason": null,
+          "tier": "dedicated",
+          "uv": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "mip-level-count": 8,
+          "binding-key": [
+            "dedicated",
+            "28840b6c70cb6dcd01f2f4ae0304e9c38070fcb2c1505f25d03111b158b6f30b"
+          ]
+        },
+        "8e0358b9e3830abfdbff58faf3a19907d3fd2c2fd4a79d4cc6156acbb09fabea": {
+          "status": "ok",
+          "reason": null,
+          "tier": "atlas",
+          "uv": [
+            0.08984375,
+            0.00390625,
+            0.10546875,
+            0.01953125
+          ],
+          "mip-level-count": 2,
+          "binding-key": "atlas"
+        },
+        "836e03f287a153693eecd3b75e4c8ffefbc38407f1e7784a4c2a8f4471f6650a": {
+          "status": "ok",
+          "reason": null,
+          "tier": "atlas",
+          "uv": [
+            0.11328125,
+            0.00390625,
+            0.12890625,
+            0.01953125
+          ],
+          "mip-level-count": 2,
+          "binding-key": "atlas"
+        }
+      },
+      "counts": {
+        "ok": 8,
+        "rejected": 0,
+        "unavailable": 0
+      },
+      "residency-rev": 8
+    },
+    "pass?": true,
+    "cases": [
+      {
+        "case-id": "legal-min-z0p01",
+        "zoom": 0.01,
+        "lod": "legal-zoom-range-sentinel",
+        "normalization": "screen-constant",
+        "shape-extent-world": 8000,
+        "draw-item-counts": {
+          "opaque": 1,
+          "alpha": 1,
+          "partially-clipped": 1
+        },
+        "images": [
+          {
+            "mode": "opaque-atlas",
+            "file": "gpu-image-atom-opaque-atlas-legal-min-z0p01.png",
+            "raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+            "png": "png/gpu-image-atom-opaque-atlas-legal-min-z0p01.png",
+            "determinism": {
+              "first-raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+              "second-raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+              "byte-identical?": true
+            }
+          },
+          {
+            "mode": "alpha-dedicated",
+            "file": "gpu-image-atom-alpha-dedicated-legal-min-z0p01.png",
+            "raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+            "png": "png/gpu-image-atom-alpha-dedicated-legal-min-z0p01.png",
+            "determinism": {
+              "first-raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+              "second-raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+              "byte-identical?": true
+            }
+          },
+          {
+            "mode": "partially-clipped",
+            "file": "gpu-image-atom-partially-clipped-legal-min-z0p01.png",
+            "raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+            "png": "png/gpu-image-atom-partially-clipped-legal-min-z0p01.png",
+            "determinism": {
+              "first-raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+              "second-raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+              "byte-identical?": true
+            }
+          }
+        ]
+      },
+      {
+        "case-id": "default-min-z0p1",
+        "zoom": 0.1,
+        "lod": "engine-default-clamp",
+        "normalization": "screen-constant",
+        "shape-extent-world": 800,
+        "draw-item-counts": {
+          "opaque": 1,
+          "alpha": 1,
+          "partially-clipped": 1
+        },
+        "images": [
+          {
+            "mode": "opaque-atlas",
+            "file": "gpu-image-atom-opaque-atlas-default-min-z0p1.png",
+            "raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+            "png": "png/gpu-image-atom-opaque-atlas-default-min-z0p1.png",
+            "determinism": {
+              "first-raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+              "second-raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+              "byte-identical?": true
+            }
+          },
+          {
+            "mode": "alpha-dedicated",
+            "file": "gpu-image-atom-alpha-dedicated-default-min-z0p1.png",
+            "raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+            "png": "png/gpu-image-atom-alpha-dedicated-default-min-z0p1.png",
+            "determinism": {
+              "first-raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+              "second-raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+              "byte-identical?": true
+            }
+          },
+          {
+            "mode": "partially-clipped",
+            "file": "gpu-image-atom-partially-clipped-default-min-z0p1.png",
+            "raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+            "png": "png/gpu-image-atom-partially-clipped-default-min-z0p1.png",
+            "determinism": {
+              "first-raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+              "second-raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+              "byte-identical?": true
+            }
+          }
+        ]
+      },
+      {
+        "case-id": "default-unit-z1",
+        "zoom": 1,
+        "lod": "engine-default-clamp",
+        "normalization": "screen-constant",
+        "shape-extent-world": 80,
+        "draw-item-counts": {
+          "opaque": 1,
+          "alpha": 1,
+          "partially-clipped": 1
+        },
+        "images": [
+          {
+            "mode": "opaque-atlas",
+            "file": "gpu-image-atom-opaque-atlas-default-unit-z1.png",
+            "raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+            "png": "png/gpu-image-atom-opaque-atlas-default-unit-z1.png",
+            "determinism": {
+              "first-raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+              "second-raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+              "byte-identical?": true
+            }
+          },
+          {
+            "mode": "alpha-dedicated",
+            "file": "gpu-image-atom-alpha-dedicated-default-unit-z1.png",
+            "raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+            "png": "png/gpu-image-atom-alpha-dedicated-default-unit-z1.png",
+            "determinism": {
+              "first-raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+              "second-raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+              "byte-identical?": true
+            }
+          },
+          {
+            "mode": "partially-clipped",
+            "file": "gpu-image-atom-partially-clipped-default-unit-z1.png",
+            "raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+            "png": "png/gpu-image-atom-partially-clipped-default-unit-z1.png",
+            "determinism": {
+              "first-raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+              "second-raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+              "byte-identical?": true
+            }
+          }
+        ]
+      },
+      {
+        "case-id": "default-max-z8",
+        "zoom": 8,
+        "lod": "engine-default-clamp",
+        "normalization": "screen-constant",
+        "shape-extent-world": 10,
+        "draw-item-counts": {
+          "opaque": 1,
+          "alpha": 1,
+          "partially-clipped": 1
+        },
+        "images": [
+          {
+            "mode": "opaque-atlas",
+            "file": "gpu-image-atom-opaque-atlas-default-max-z8.png",
+            "raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+            "png": "png/gpu-image-atom-opaque-atlas-default-max-z8.png",
+            "determinism": {
+              "first-raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+              "second-raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+              "byte-identical?": true
+            }
+          },
+          {
+            "mode": "alpha-dedicated",
+            "file": "gpu-image-atom-alpha-dedicated-default-max-z8.png",
+            "raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+            "png": "png/gpu-image-atom-alpha-dedicated-default-max-z8.png",
+            "determinism": {
+              "first-raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+              "second-raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+              "byte-identical?": true
+            }
+          },
+          {
+            "mode": "partially-clipped",
+            "file": "gpu-image-atom-partially-clipped-default-max-z8.png",
+            "raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+            "png": "png/gpu-image-atom-partially-clipped-default-max-z8.png",
+            "determinism": {
+              "first-raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+              "second-raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+              "byte-identical?": true
+            }
+          }
+        ]
+      },
+      {
+        "case-id": "legal-log-z10",
+        "zoom": 10,
+        "lod": "legal-zoom-range-sentinel",
+        "normalization": "screen-constant",
+        "shape-extent-world": 8,
+        "draw-item-counts": {
+          "opaque": 1,
+          "alpha": 1,
+          "partially-clipped": 1
+        },
+        "images": [
+          {
+            "mode": "opaque-atlas",
+            "file": "gpu-image-atom-opaque-atlas-legal-log-z10.png",
+            "raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+            "png": "png/gpu-image-atom-opaque-atlas-legal-log-z10.png",
+            "determinism": {
+              "first-raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+              "second-raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+              "byte-identical?": true
+            }
+          },
+          {
+            "mode": "alpha-dedicated",
+            "file": "gpu-image-atom-alpha-dedicated-legal-log-z10.png",
+            "raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+            "png": "png/gpu-image-atom-alpha-dedicated-legal-log-z10.png",
+            "determinism": {
+              "first-raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+              "second-raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+              "byte-identical?": true
+            }
+          },
+          {
+            "mode": "partially-clipped",
+            "file": "gpu-image-atom-partially-clipped-legal-log-z10.png",
+            "raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+            "png": "png/gpu-image-atom-partially-clipped-legal-log-z10.png",
+            "determinism": {
+              "first-raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+              "second-raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+              "byte-identical?": true
+            }
+          }
+        ]
+      },
+      {
+        "case-id": "legal-log-z100",
+        "zoom": 100,
+        "lod": "legal-zoom-range-sentinel",
+        "normalization": "screen-constant",
+        "shape-extent-world": 0.8,
+        "draw-item-counts": {
+          "opaque": 1,
+          "alpha": 1,
+          "partially-clipped": 1
+        },
+        "images": [
+          {
+            "mode": "opaque-atlas",
+            "file": "gpu-image-atom-opaque-atlas-legal-log-z100.png",
+            "raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+            "png": "png/gpu-image-atom-opaque-atlas-legal-log-z100.png",
+            "determinism": {
+              "first-raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+              "second-raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+              "byte-identical?": true
+            }
+          },
+          {
+            "mode": "alpha-dedicated",
+            "file": "gpu-image-atom-alpha-dedicated-legal-log-z100.png",
+            "raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+            "png": "png/gpu-image-atom-alpha-dedicated-legal-log-z100.png",
+            "determinism": {
+              "first-raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+              "second-raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+              "byte-identical?": true
+            }
+          },
+          {
+            "mode": "partially-clipped",
+            "file": "gpu-image-atom-partially-clipped-legal-log-z100.png",
+            "raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+            "png": "png/gpu-image-atom-partially-clipped-legal-log-z100.png",
+            "determinism": {
+              "first-raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+              "second-raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+              "byte-identical?": true
+            }
+          }
+        ]
+      },
+      {
+        "case-id": "legal-max-z1000",
+        "zoom": 1000,
+        "lod": "legal-zoom-range-sentinel",
+        "normalization": "screen-constant",
+        "shape-extent-world": 0.08,
+        "draw-item-counts": {
+          "opaque": 1,
+          "alpha": 1,
+          "partially-clipped": 1
+        },
+        "images": [
+          {
+            "mode": "opaque-atlas",
+            "file": "gpu-image-atom-opaque-atlas-legal-max-z1000.png",
+            "raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+            "png": "png/gpu-image-atom-opaque-atlas-legal-max-z1000.png",
+            "determinism": {
+              "first-raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+              "second-raw-sha256": "363fb5faec5d9b50a39eea3969441e45155f75dfcd3b31304fce2101e2d3bc7a",
+              "byte-identical?": true
+            }
+          },
+          {
+            "mode": "alpha-dedicated",
+            "file": "gpu-image-atom-alpha-dedicated-legal-max-z1000.png",
+            "raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+            "png": "png/gpu-image-atom-alpha-dedicated-legal-max-z1000.png",
+            "determinism": {
+              "first-raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+              "second-raw-sha256": "be48cc503fb29dac3bfddcc865f7c0bcee3e107351f83bd35a9feed49b1a5e2b",
+              "byte-identical?": true
+            }
+          },
+          {
+            "mode": "partially-clipped",
+            "file": "gpu-image-atom-partially-clipped-legal-max-z1000.png",
+            "raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+            "png": "png/gpu-image-atom-partially-clipped-legal-max-z1000.png",
+            "determinism": {
+              "first-raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+              "second-raw-sha256": "6d86b485e0c15594d64f21761b51420379df7623c35d4066c140ac082c871501",
+              "byte-identical?": true
+            }
+          }
+        ]
+      },
+      {
+        "zoom": 1,
+        "images": [
+          {
+            "mode": "container-tree",
+            "file": "gpu-image-atom-container-tree-tree-containers-cid17-slot1.png",
+            "raw-sha256": "e1d932404060430daa8fc451c4f27d86d4e61bfe6b6251f2f1733c9865f3b7e5",
+            "png": "png/gpu-image-atom-container-tree-tree-containers-cid17-slot1.png",
+            "determinism": {
+              "first-raw-sha256": "e1d932404060430daa8fc451c4f27d86d4e61bfe6b6251f2f1733c9865f3b7e5",
+              "second-raw-sha256": "e1d932404060430daa8fc451c4f27d86d4e61bfe6b6251f2f1733c9865f3b7e5",
+              "byte-identical?": true
+            }
+          }
+        ],
+        "buffer-indexes": [
+          0,
+          1
+        ],
+        "shape-extent-world": 32,
+        "draw-item-counts": {
+          "group-tree": 2
+        },
+        "lod": "engine-default-clamp",
+        "unknown-group": {
+          "error-type": "unknown-group",
+          "group-id": 99
+        },
+        "case-id": "tree-containers-cid17-slot1",
+        "normalization": "image-local-with-world-transforms-group-tree"
+      }
+    ],
+    "candidate-ingress": {
+      "rows": {
+        "8000e248f9550d364286a5b873a77813040762998f087f7521f0900532730c15": {
+          "status": "ok",
+          "reason": null,
+          "tier": "atlas",
+          "uv": [
+            0.00390625,
+            0.05859375,
+            0.08203125,
+            0.12109375
+          ],
+          "mip-level-count": 2,
+          "binding-key": "atlas"
+        },
+        "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee": {
+          "status": "rejected",
+          "reason": "invalid-value",
+          "uv": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "binding-key": "placeholder"
+        },
+        "6e744e448e1480b510b3cd8aef86b5e2c9b8367bbafdb3e1586946c779b265eb": {
+          "status": "ok",
+          "reason": null,
+          "tier": "atlas",
+          "uv": [
+            0.00390625,
+            0.00390625,
+            0.06640625,
+            0.05078125
+          ],
+          "mip-level-count": 2,
+          "binding-key": "atlas"
+        },
+        "c859086c6a2cd8171f4cd429fd9d62529dd97c53e5ae9f131ce216b90af7e402": {
+          "status": "ok",
+          "reason": null,
+          "tier": "dedicated",
+          "uv": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "mip-level-count": 8,
+          "binding-key": [
+            "dedicated",
+            "c859086c6a2cd8171f4cd429fd9d62529dd97c53e5ae9f131ce216b90af7e402"
+          ]
+        },
+        "b38bcacf6298ec057c4e1b03fefa2116440d8bdd2ea31bb79dcd94396856d608": {
+          "status": "ok",
+          "reason": null,
+          "tier": "dedicated",
+          "uv": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "mip-level-count": 8,
+          "binding-key": [
+            "dedicated",
+            "b38bcacf6298ec057c4e1b03fefa2116440d8bdd2ea31bb79dcd94396856d608"
+          ]
+        },
+        "8e0358b9e3830abfdbff58faf3a19907d3fd2c2fd4a79d4cc6156acbb09fabea": {
+          "status": "ok",
+          "reason": null,
+          "tier": "atlas",
+          "uv": [
+            0.08984375,
+            0.00390625,
+            0.10546875,
+            0.01953125
+          ],
+          "mip-level-count": 2,
+          "binding-key": "atlas"
+        },
+        "71bafd65a2358f69ab1e3086058fa4180760a54f87b0b58cd75579b3ed74d81e": {
+          "status": "ok",
+          "reason": null,
+          "tier": "atlas",
+          "uv": [
+            0.07421875,
+            0.00390625,
+            0.08203125,
+            0.01171875
+          ],
+          "mip-level-count": 2,
+          "binding-key": "atlas"
+        },
+        "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff": {
+          "status": "unavailable",
+          "reason": "unresolvable-digest",
+          "uv": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "binding-key": "placeholder"
+        },
+        "836e03f287a153693eecd3b75e4c8ffefbc38407f1e7784a4c2a8f4471f6650a": {
+          "status": "ok",
+          "reason": null,
+          "tier": "atlas",
+          "uv": [
+            0.11328125,
+            0.00390625,
+            0.12890625,
+            0.01953125
+          ],
+          "mip-level-count": 2,
+          "binding-key": "atlas"
+        },
+        "28840b6c70cb6dcd01f2f4ae0304e9c38070fcb2c1505f25d03111b158b6f30b": {
+          "status": "ok",
+          "reason": null,
+          "tier": "dedicated",
+          "uv": [
+            0,
+            0,
+            1,
+            1
+          ],
+          "mip-level-count": 8,
+          "binding-key": [
+            "dedicated",
+            "28840b6c70cb6dcd01f2f4ae0304e9c38070fcb2c1505f25d03111b158b6f30b"
+          ]
+        }
+      },
+      "counts": {
+        "ok": 8,
+        "rejected": 1,
+        "unavailable": 1
+      },
+      "residency-rev": 10
+    },
+    "default-dark": true
+  },
+  "ubuntu-slug": {
+    "pass": true,
+    "text": "Aɐ",
+    "face-ids": [
+      "noto-sans-regular",
+      "ubuntu-sans-variable"
+    ],
+    "face-revisions": [
+      "noto-sans-regular-2.011",
+      "ubuntu-sans-variable-0.869-wght400-wdth100"
+    ],
+    "cases": [
+      {
+        "case-id": "ubuntu-mixed-face",
+        "zoom": 1,
+        "lod": "default-font-mixed-face",
+        "normalization": "component-fixed",
+        "shape-extent-world": 56,
+        "images": [
+          {
+            "mode": "slug",
+            "file": "gpu-slug-ubuntu-mixed-face.png",
+            "raw-sha256": "52128b456a80c9e860ca923e821666b336a0ccbb80978fb56d6dcb076c57317c",
+            "png": "png/gpu-slug-ubuntu-mixed-face.png",
+            "determinism": {
+              "first-raw-sha256": "52128b456a80c9e860ca923e821666b336a0ccbb80978fb56d6dcb076c57317c",
+              "second-raw-sha256": "52128b456a80c9e860ca923e821666b336a0ccbb80978fb56d6dcb076c57317c",
+              "byte-identical?": true
+            }
+          }
+        ]
+      }
+    ],
+    "group-tree": {
+      "pass": true,
+      "buffer-indexes": [
+        1,
+        1
+      ],
+      "missing-group-rejected": true,
+      "unknown-group-rejected": true,
+      "fallbacks": 0,
+      "uncarried-fallbacks": 2,
+      "case": {
+        "case-id": "text-group-tree-mixed-face",
+        "zoom": 1,
+        "lod": "group-tree-cid17-buffer-index1",
+        "normalization": "component-fixed",
+        "shape-extent-world": 56,
+        "images": [
+          {
+            "mode": "slug",
+            "file": "gpu-slug-container-tree-mixed-face-cid17-slot1.png",
+            "raw-sha256": "e9e58c39ebce752f0f329367f4ff4afef5d360bce81d861ca88fa2d9f88dbba8",
+            "png": "png/gpu-slug-container-tree-mixed-face-cid17-slot1.png",
+            "determinism": {
+              "first-raw-sha256": "e9e58c39ebce752f0f329367f4ff4afef5d360bce81d861ca88fa2d9f88dbba8",
+              "second-raw-sha256": "e9e58c39ebce752f0f329367f4ff4afef5d360bce81d861ca88fa2d9f88dbba8",
+              "byte-identical?": true
+            }
+          }
+        ]
+      }
+    }
+  },
+  "q8-transport": {
+    "entry-bytes": 32,
+    "transport": "compact-read-only-storage",
+    "rows": [
+      {
+        "entries": 1024,
+        "bytes": 32768,
+        "max-buffer-index": 1023,
+        "capacity": 16384,
+        "semantic-max-id": 17391,
+        "expected-bytes": 32768,
+        "pass?": true
+      },
+      {
+        "entries": 4096,
+        "bytes": 131072,
+        "max-buffer-index": 4095,
+        "capacity": 16384,
+        "semantic-max-id": 69615,
+        "expected-bytes": 131072,
+        "pass?": true
+      },
+      {
+        "entries": 16384,
+        "bytes": 524288,
+        "max-buffer-index": 16383,
+        "capacity": 16384,
+        "semantic-max-id": 278511,
+        "expected-bytes": 524288,
+        "pass?": true
+      }
+    ],
+    "pass?": true
+  }
+}

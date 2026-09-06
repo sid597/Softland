@@ -1,0 +1,163 @@
+WARNING: Use of :paths external to the project has been deprecated, please remove: /mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts
+[:render-verifier] Compiling ...
+[:render-verifier] Build completed. (103 files, 2 compiled, 10 warnings, 5.35s)
+
+[1m------ WARNING #1 - :infer-warning ---------------------------------------------[0m
+ File: /mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/judge_common.cljs:17:17
+--------------------------------------------------------------------------------
+[2m  14 |         target (.createTexture gpu #js {:size #js [128 128 1] :format "rgba8unorm"[0m
+[2m  15 |                                         :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT js/GPUTextureUsage.COPY_SRC)})[0m
+[2m  16 |         read (.createBuffer gpu #js {:size 65536 :usage (bit-or js/GPUBufferUsage.MAP_READ js/GPUBufferUsage.COPY_DST)})[0m
+[1m  17 |         encoder (.createCommandEncoder gpu)[0m
+-----------------------^--------------------------------------------------------
+ [33;1mCannot infer target type in expression (. gpu createCommandEncoder)[0m
+--------------------------------------------------------------------------------
+[2m  18 |         pass (.beginRenderPass encoder #js {:colorAttachments #js [#js {:view (.createView target)[0m
+[2m  19 |                                                                        :clearValue #js {:r 0 :g 0 :b 0 :a 0}[0m
+[2m  20 |                                                                        :loadOp "clear" :storeOp "store"}]})][0m
+[2m  21 |     (draw pass system stats)[0m
+--------------------------------------------------------------------------------
+
+[1m------ WARNING #2 - :infer-warning ---------------------------------------------[0m
+ File: /mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/judge_common.cljs:18:79
+--------------------------------------------------------------------------------
+[2m  15 |                                         :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT js/GPUTextureUsage.COPY_SRC)})[0m
+[2m  16 |         read (.createBuffer gpu #js {:size 65536 :usage (bit-or js/GPUBufferUsage.MAP_READ js/GPUBufferUsage.COPY_DST)})[0m
+[2m  17 |         encoder (.createCommandEncoder gpu)[0m
+[1m  18 |         pass (.beginRenderPass encoder #js {:colorAttachments #js [#js {:view (.createView target)[0m
+-------------------------------------------------------------------------------------^
+ [33;1mCannot infer target type in expression (. target createView)[0m
+--------------------------------------------------------------------------------
+[2m  19 |                                                                        :clearValue #js {:r 0 :g 0 :b 0 :a 0}[0m
+[2m  20 |                                                                        :loadOp "clear" :storeOp "store"}]})][0m
+[2m  21 |     (draw pass system stats)[0m
+[2m  22 |     (.end pass)[0m
+--------------------------------------------------------------------------------
+
+[1m------ WARNING #3 - :infer-warning ---------------------------------------------[0m
+ File: /mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/judge_common.cljs:18:14
+--------------------------------------------------------------------------------
+[2m  15 |                                         :usage (bit-or js/GPUTextureUsage.RENDER_ATTACHMENT js/GPUTextureUsage.COPY_SRC)})[0m
+[2m  16 |         read (.createBuffer gpu #js {:size 65536 :usage (bit-or js/GPUBufferUsage.MAP_READ js/GPUBufferUsage.COPY_DST)})[0m
+[2m  17 |         encoder (.createCommandEncoder gpu)[0m
+[1m  18 |         pass (.beginRenderPass encoder #js {:colorAttachments #js [#js {:view (.createView target)[0m
+--------------------^-----------------------------------------------------------
+ [33;1mCannot infer target type in expression (. encoder beginRenderPass #object[cljs.tagged_literals.JSValue 0x74f986cf "cljs.tagged_literals.JSValue@74f986cf"])[0m
+--------------------------------------------------------------------------------
+[2m  19 |                                                                        :clearValue #js {:r 0 :g 0 :b 0 :a 0}[0m
+[2m  20 |                                                                        :loadOp "clear" :storeOp "store"}]})][0m
+[2m  21 |     (draw pass system stats)[0m
+[2m  22 |     (.end pass)[0m
+--------------------------------------------------------------------------------
+
+[1m------ WARNING #4 - :infer-warning ---------------------------------------------[0m
+ File: /mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/judge_common.cljs:23:5
+--------------------------------------------------------------------------------
+[2m  20 |                                                                        :loadOp "clear" :storeOp "store"}]})][0m
+[2m  21 |     (draw pass system stats)[0m
+[2m  22 |     (.end pass)[0m
+[1m  23 |     (.copyTextureToBuffer encoder #js {:texture target} #js {:buffer read :bytesPerRow 512 :rowsPerImage 128} #js [128 128 1])[0m
+-----------^--------------------------------------------------------------------
+ [33;1mCannot infer target type in expression (. encoder copyTextureToBuffer #object[cljs.tagged_literals.JSValue 0x1129efde "cljs.tagged_literals.JSValue@1129efde"] #object[cljs.tagged_literals.JSValue 0x12da1b2a "cljs.tagged_literals.JSValue@12da1b2a"] #object[cljs.tagged_literals.JSValue 0x1dc60e37 "cljs.tagged_literals.JSValue@1dc60e37"])[0m
+--------------------------------------------------------------------------------
+[2m  24 |     (.submit (.-queue gpu) #js [(.finish encoder)])[0m
+[2m  25 |     (-> (.mapAsync read js/GPUMapMode.READ)[0m
+[2m  26 |         (.then (fn [_][0m
+[2m  27 |                  (let [bytes (js/Uint8Array. (js/Uint8Array. (.getMappedRange read)))[0m
+--------------------------------------------------------------------------------
+
+[1m------ WARNING #5 - :infer-warning ---------------------------------------------[0m
+ File: /mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/judge_common.cljs:24:14
+--------------------------------------------------------------------------------
+[2m  21 |     (draw pass system stats)[0m
+[2m  22 |     (.end pass)[0m
+[2m  23 |     (.copyTextureToBuffer encoder #js {:texture target} #js {:buffer read :bytesPerRow 512 :rowsPerImage 128} #js [128 128 1])[0m
+[1m  24 |     (.submit (.-queue gpu) #js [(.finish encoder)])[0m
+--------------------^-----------------------------------------------------------
+ [33;1mCannot infer target type in expression (. gpu -queue)[0m
+--------------------------------------------------------------------------------
+[2m  25 |     (-> (.mapAsync read js/GPUMapMode.READ)[0m
+[2m  26 |         (.then (fn [_][0m
+[2m  27 |                  (let [bytes (js/Uint8Array. (js/Uint8Array. (.getMappedRange read)))[0m
+[2m  28 |                        result {:label label :stats (select-keys stats [:runs :packs :instances :instance-writes :derived :packed :writes :changed?])[0m
+--------------------------------------------------------------------------------
+
+[1m------ WARNING #6 - :infer-warning ---------------------------------------------[0m
+ File: /mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/judge_common.cljs:25:9
+--------------------------------------------------------------------------------
+[2m  22 |     (.end pass)[0m
+[2m  23 |     (.copyTextureToBuffer encoder #js {:texture target} #js {:buffer read :bytesPerRow 512 :rowsPerImage 128} #js [128 128 1])[0m
+[2m  24 |     (.submit (.-queue gpu) #js [(.finish encoder)])[0m
+[1m  25 |     (-> (.mapAsync read js/GPUMapMode.READ)[0m
+---------------^----------------------------------------------------------------
+ [33;1mCannot infer target type in expression (. read mapAsync js/GPUMapMode.READ)[0m
+--------------------------------------------------------------------------------
+[2m  26 |         (.then (fn [_][0m
+[2m  27 |                  (let [bytes (js/Uint8Array. (js/Uint8Array. (.getMappedRange read)))[0m
+[2m  28 |                        result {:label label :stats (select-keys stats [:runs :packs :instances :instance-writes :derived :packed :writes :changed?])[0m
+[2m  29 |                                :samples (mapv (fn [[x y]] {:pixel [x y] :rgba (shared/pixel-rgba bytes x y)[0m
+--------------------------------------------------------------------------------
+
+[1m------ WARNING #7 - :infer-warning ---------------------------------------------[0m
+ File: /mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/judge_common.cljs:27:62
+--------------------------------------------------------------------------------
+[2m  24 |     (.submit (.-queue gpu) #js [(.finish encoder)])[0m
+[2m  25 |     (-> (.mapAsync read js/GPUMapMode.READ)[0m
+[2m  26 |         (.then (fn [_][0m
+[1m  27 |                  (let [bytes (js/Uint8Array. (js/Uint8Array. (.getMappedRange read)))[0m
+--------------------------------------------------------------------^-----------
+ [33;1mCannot infer target type in expression (. read getMappedRange)[0m
+--------------------------------------------------------------------------------
+[2m  28 |                        result {:label label :stats (select-keys stats [:runs :packs :instances :instance-writes :derived :packed :writes :changed?])[0m
+[2m  29 |                                :samples (mapv (fn [[x y]] {:pixel [x y] :rgba (shared/pixel-rgba bytes x y)[0m
+[2m  30 |                                                          :alpha (/ (aget bytes (+ 3 (* 4 (+ x (* y 128))))) 255.0)}) points)[0m
+[2m  31 |                                :file (str label ".png") :png-data-url (shared/opaque-png-data-url bytes)}][0m
+--------------------------------------------------------------------------------
+
+[1m------ WARNING #8 - :infer-warning ---------------------------------------------[0m
+ File: /mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/judge_common.cljs:32:20
+--------------------------------------------------------------------------------
+[2m  29 |                                :samples (mapv (fn [[x y]] {:pixel [x y] :rgba (shared/pixel-rgba bytes x y)[0m
+[2m  30 |                                                          :alpha (/ (aget bytes (+ 3 (* 4 (+ x (* y 128))))) 255.0)}) points)[0m
+[2m  31 |                                :file (str label ".png") :png-data-url (shared/opaque-png-data-url bytes)}][0m
+[1m  32 |                    (.unmap read) (.destroy read) (.destroy target)[0m
+--------------------------^-----------------------------------------------------
+ [33;1mCannot infer target type in expression (. read unmap)[0m
+--------------------------------------------------------------------------------
+[2m  33 |                    result))))))[0m
+[2m  34 | [0m
+[2m  35 | (defn start! [run][0m
+[2m  36 |   (-> (.requestAdapter js/navigator.gpu)[0m
+--------------------------------------------------------------------------------
+
+[1m------ WARNING #9 - :infer-warning ---------------------------------------------[0m
+ File: /mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/judge_common.cljs:38:20
+--------------------------------------------------------------------------------
+[2m  35 | (defn start! [run][0m
+[2m  36 |   (-> (.requestAdapter js/navigator.gpu)[0m
+[2m  37 |       (.then (fn [adapter][0m
+[1m  38 |                (-> (.requestDevice adapter)[0m
+--------------------------^-----------------------------------------------------
+ [33;1mCannot infer target type in expression (. adapter requestDevice)[0m
+--------------------------------------------------------------------------------
+[2m  39 |                    (.then (fn [gpu][0m
+[2m  40 |                             (-> (run gpu)[0m
+[2m  41 |                                 (.then (fn [result][0m
+[2m  42 |                                          (.destroy gpu)[0m
+--------------------------------------------------------------------------------
+
+[1m------ WARNING #10 - :redef ----------------------------------------------------[0m
+ File: /mnt/data/projects/Softland/docs/below-the-waist/path-kind/judge-codex-receipts/judge_codex.cljs:11:1
+--------------------------------------------------------------------------------
+[2m   8 |             [app.client.harness.path-fixtures :as fixtures][0m
+[2m   9 |             [app.client.harness.shared :as shared]))[0m
+[2m  10 | [0m
+[1m  11 | (defn run! [gpu][0m
+-------^------------------------------------------------------------------------
+ [33;1mrun! already refers to: cljs.core/run! being replaced by: judge-codex/run![0m
+--------------------------------------------------------------------------------
+[2m  12 |   (let [camera (device/create-camera-buffer gpu) groups (device/create-groups-buffer gpu)[0m
+[2m  13 |         system (renderer/init-path-system gpu "rgba8unorm" camera groups)[0m
+[2m  14 |         worlds (j/transforms)[0m
+[2m  15 |         nonlinear (r/construct {:identity {:id :nonlinear :revision 1} :construction r/draw[0m
+--------------------------------------------------------------------------------

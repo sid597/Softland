@@ -1,0 +1,75 @@
+{
+  "metadata": {
+    "started": "2026-09-06T09:31:12.572Z",
+    "finished": "2026-09-06T09:31:13.144Z",
+    "elapsedSeconds": 0.571299157,
+    "root": "/mnt/data/projects/Softland-claude",
+    "head": "82673763959401f9ba3d2de1bbd791fd44c2f879",
+    "buildSha256": "570d844e2adf53a5849ddeb92224fa3a950222d0b1fd9490de4d04e6599e7564",
+    "browser": "Chrome/150.0.7871.46",
+    "node": "v20.20.2",
+    "args": [
+      "--no-sandbox",
+      "--enable-unsafe-webgpu",
+      "--use-angle=swiftshader",
+      "--enable-features=WebGPU,UnsafeWebGPU"
+    ],
+    "adapter": {
+      "description": "",
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "core-features-and-limits",
+        "chromium-experimental-timestamp-query-inside-passes",
+        "float32-filterable",
+        "indirect-first-instance",
+        "texture-compression-astc-sliced-3d",
+        "float32-blendable",
+        "subgroup-size-control",
+        "texture-compression-astc",
+        "texture-compression-etc2",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "clip-distances",
+        "timestamp-query",
+        "texture-component-swizzle",
+        "subgroups"
+      ],
+      "vendor": "google",
+      "architecture": "swiftshader",
+      "fallback-attestation-source": "GPUAdapterInfo.isFallbackAdapter",
+      "renderer": "swiftshader",
+      "device": "",
+      "limits": {
+        "max-buffer-size": 1073741824,
+        "max-uniform-buffer-binding-size": 65536,
+        "max-storage-buffer-binding-size": 1073741824,
+        "max-texture-dimension-2d": 8192,
+        "max-bind-groups": 4,
+        "max-vertex-buffers": 8
+      },
+      "is-fallback-adapter": true
+    },
+    "judge": {
+      "family": "Codex",
+      "model": "GPT-6 (system identity)",
+      "version": "exact serving build unavailable",
+      "effort": "not exposed by session metadata available within fence",
+      "tools": [
+        "exec_command",
+        "Puppeteer",
+        "Chrome WebGPU SwiftShader"
+      ]
+    },
+    "errors": []
+  },
+  "keys": [
+    "probes",
+    "screen-transform",
+    "recipe",
+    "nonlinear-cpu",
+    "adapter"
+  ]
+}

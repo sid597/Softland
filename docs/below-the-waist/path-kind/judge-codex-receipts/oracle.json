@@ -1,0 +1,21 @@
+{
+  "source": {
+    "center": "(20t,0)",
+    "radius": "10t^2",
+    "t": [
+      0,
+      1
+    ]
+  },
+  "query": [
+    10,
+    5
+  ],
+  "gridIntervals": 100000,
+  "sampledMinimum": 1.180339887498949,
+  "sampledArgmin": 1.0,
+  "lipschitzConstant": 40,
+  "certifiedDistanceLowerBound": 1.180139887498949,
+  "pixelSquareRadius": 0.7071067811865476,
+  "wholePixelOutside": true
+}

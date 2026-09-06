@@ -1,0 +1,91 @@
+{
+  "metadata": {
+    "started": "2026-09-06T09:23:49.261Z",
+    "finished": "2026-09-06T09:23:53.315Z",
+    "elapsedSeconds": 4.0532648479999995,
+    "root": "/mnt/data/projects/Softland-codex",
+    "head": "07ea01437094c1652585760f6fa1ebc60251c69f",
+    "buildSha256": "6ca2a4431f40dfcb26aadcaa4728fd12d90e14c7cb5e22a9f6c42e80996c5741",
+    "browser": "Chrome/150.0.7871.46",
+    "node": "v20.20.2",
+    "args": [
+      "--no-sandbox",
+      "--enable-unsafe-webgpu",
+      "--use-angle=swiftshader",
+      "--enable-features=WebGPU,UnsafeWebGPU"
+    ],
+    "adapter": {
+      "description": "",
+      "features": [
+        "depth32float-stencil8",
+        "rg11b10ufloat-renderable",
+        "bgra8unorm-storage",
+        "texture-compression-bc",
+        "core-features-and-limits",
+        "chromium-experimental-timestamp-query-inside-passes",
+        "float32-filterable",
+        "indirect-first-instance",
+        "texture-compression-astc-sliced-3d",
+        "float32-blendable",
+        "subgroup-size-control",
+        "texture-compression-astc",
+        "texture-compression-etc2",
+        "depth-clip-control",
+        "texture-compression-bc-sliced-3d",
+        "timestamp-query",
+        "clip-distances",
+        "texture-component-swizzle",
+        "subgroups"
+      ],
+      "vendor": "google",
+      "architecture": "swiftshader",
+      "fallback-attestation-source": "GPUAdapterInfo.isFallbackAdapter",
+      "renderer": "swiftshader",
+      "device": "",
+      "limits": {
+        "max-buffer-size": 1073741824,
+        "max-uniform-buffer-binding-size": 65536,
+        "max-storage-buffer-binding-size": 1073741824,
+        "max-texture-dimension-2d": 8192,
+        "max-bind-groups": 4,
+        "max-vertex-buffers": 8
+      },
+      "is-fallback-adapter": true
+    },
+    "judge": {
+      "family": "Codex",
+      "model": "GPT-6 (system identity)",
+      "version": "exact serving build unavailable",
+      "effort": "not exposed by session metadata available within fence",
+      "tools": [
+        "exec_command",
+        "Puppeteer",
+        "Chrome WebGPU SwiftShader"
+      ]
+    },
+    "errors": []
+  },
+  "keys": [
+    "device-limits",
+    "adapter",
+    "region3d-floor",
+    "user-agent",
+    "production-renderer?",
+    "harness",
+    "t1-layout",
+    "product-server-used?",
+    "schema-version",
+    "secure-context?",
+    "canvas",
+    "font",
+    "path-step",
+    "shader-digests",
+    "decoded-slug-curve-count",
+    "cases",
+    "image-step",
+    "ubuntu-slug",
+    "q8-transport"
+  ],
+  "path": true,
+  "region": true
+}

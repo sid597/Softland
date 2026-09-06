@@ -1,0 +1,26 @@
+no build with id: :judge-claude
+{:build-id :judge-claude, :known-builds #{:render-verifier :shaper-border-probe :npm}}
+ExceptionInfo: no build with id: :judge-claude
+	shadow.cljs.devtools.cli-actual/do-build-commands (cli_actual.clj:45)
+	shadow.cljs.devtools.cli-actual/do-build-commands (cli_actual.clj:38)
+	shadow.cljs.devtools.cli-actual/main/body-fn--16627--auto----17338 (cli_actual.clj:166)
+	shadow.cljs.devtools.cli-actual/main (cli_actual.clj:165)
+	shadow.cljs.devtools.cli-actual/main (cli_actual.clj:132)
+	clojure.core/apply (core.clj:671)
+	clojure.core/apply (core.clj:662)
+	shadow.cljs.devtools.cli-actual/-main (cli_actual.clj:219)
+	shadow.cljs.devtools.cli-actual/-main (cli_actual.clj:217)
+	clojure.lang.Var.applyTo (Var.java:707)
+	clojure.core/apply (core.clj:667)
+	clojure.core/apply (core.clj:662)
+	shadow.cljs.devtools.cli/-main (cli.clj:75)
+	shadow.cljs.devtools.cli/-main (cli.clj:67)
+	clojure.lang.Var.applyTo (Var.java:707)
+	clojure.core/apply (core.clj:667)
+	clojure.main/main-opt (main.clj:515)
+	clojure.main/main-opt (main.clj:511)
+	clojure.main/main (main.clj:665)
+	clojure.main/main (main.clj:617)
+	clojure.lang.Var.applyTo (Var.java:707)
+	clojure.main.main (main.java:40)
+

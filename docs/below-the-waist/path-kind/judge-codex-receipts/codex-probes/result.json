@@ -1,0 +1,225 @@
+{
+  "probes": [
+    {
+      "label": "nonlinear-union",
+      "stats": {
+        "derived": 1,
+        "packed": 1,
+        "writes": 1,
+        "changed?": true
+      },
+      "samples": [
+        {
+          "pixel": [
+            30,
+            35
+          ],
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "alpha": 0
+        },
+        {
+          "pixel": [
+            40,
+            30
+          ],
+          "rgba": [
+            206,
+            206,
+            206,
+            158
+          ],
+          "alpha": 0.6196078431372549
+        }
+      ],
+      "file": "nonlinear-union.png",
+      "png": "png/nonlinear-union.png"
+    },
+    {
+      "label": "screen-border-z1",
+      "stats": {
+        "derived": 1,
+        "packed": 1,
+        "writes": 1,
+        "changed?": true
+      },
+      "samples": [
+        {
+          "pixel": [
+            24,
+            60
+          ],
+          "rgba": [
+            255,
+            255,
+            255,
+            255
+          ],
+          "alpha": 1
+        }
+      ],
+      "file": "screen-border-z1.png",
+      "png": "png/screen-border-z1.png"
+    },
+    {
+      "label": "screen-border-z2",
+      "stats": {
+        "derived": 1,
+        "packed": 1,
+        "writes": 1,
+        "changed?": true
+      },
+      "samples": [
+        {
+          "pixel": [
+            24,
+            60
+          ],
+          "rgba": [
+            188,
+            188,
+            188,
+            128
+          ],
+          "alpha": 0.5019607843137255
+        }
+      ],
+      "file": "screen-border-z2.png",
+      "png": "png/screen-border-z2.png"
+    },
+    {
+      "label": "recipe-mask-before",
+      "stats": {
+        "derived": 1,
+        "packed": 1,
+        "writes": 1,
+        "changed?": true
+      },
+      "samples": [
+        {
+          "pixel": [
+            64,
+            64
+          ],
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "alpha": 0
+        },
+        {
+          "pixel": [
+            65,
+            64
+          ],
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "alpha": 0
+        }
+      ],
+      "file": "recipe-mask-before.png",
+      "png": "png/recipe-mask-before.png"
+    },
+    {
+      "label": "recipe-mask-after",
+      "stats": {
+        "derived": 1,
+        "packed": 1,
+        "writes": 1,
+        "changed?": true
+      },
+      "samples": [
+        {
+          "pixel": [
+            64,
+            64
+          ],
+          "rgba": [
+            126,
+            51,
+            142,
+            79
+          ],
+          "alpha": 0.30980392156862746
+        },
+        {
+          "pixel": [
+            65,
+            64
+          ],
+          "rgba": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "alpha": 0
+        }
+      ],
+      "file": "recipe-mask-after.png",
+      "png": "png/recipe-mask-after.png"
+    }
+  ],
+  "screen-transform": {
+    "affine": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "flags": 1,
+    "buffer-index": 1
+  },
+  "screen-scale-z2": 2,
+  "nonlinear-cpu": "outside",
+  "adapter": {
+    "description": "",
+    "features": [
+      "depth32float-stencil8",
+      "rg11b10ufloat-renderable",
+      "bgra8unorm-storage",
+      "texture-compression-bc",
+      "core-features-and-limits",
+      "chromium-experimental-timestamp-query-inside-passes",
+      "float32-filterable",
+      "indirect-first-instance",
+      "texture-compression-astc-sliced-3d",
+      "float32-blendable",
+      "subgroup-size-control",
+      "texture-compression-astc",
+      "texture-compression-etc2",
+      "depth-clip-control",
+      "texture-compression-bc-sliced-3d",
+      "clip-distances",
+      "timestamp-query",
+      "texture-component-swizzle",
+      "subgroups"
+    ],
+    "vendor": "google",
+    "architecture": "swiftshader",
+    "fallback-attestation-source": "GPUAdapterInfo.isFallbackAdapter",
+    "renderer": "swiftshader",
+    "device": "",
+    "limits": {
+      "max-buffer-size": 1073741824,
+      "max-uniform-buffer-binding-size": 65536,
+      "max-storage-buffer-binding-size": 1073741824,
+      "max-texture-dimension-2d": 8192,
+      "max-bind-groups": 4,
+      "max-vertex-buffers": 8
+    },
+    "is-fallback-adapter": true
+  }
+}
