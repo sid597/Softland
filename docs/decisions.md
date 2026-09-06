@@ -802,6 +802,37 @@ lived want; nothing here changes the current frame-view correction's scope.
   receipt when pulled into NOW: the out-of-loop seam proof on Sid's own
   machine (board, SPACE lane).
 
+## Tools are records over a vocabulary (settled 2026-09-06)
+
+Born of the path round (Positions 7, 8, 9 ruled 2026-09-06 05:57 and 11:51)
+and the 3D round (Position 9 ruled 2026-09-06 17:42: "okay. Let's do b.").
+The pages carry the three sentences, the whys and the exits
+(`docs/below-the-waist/path-kind/path-kind.html`,
+`docs/below-the-waist/3d/3d-kind-2.html`); this is the law in force.
+
+- **A construction is the kind's input.** The kind keeps the recipe with the
+  result, and every result keeps the subject it was built from (its record,
+  its revision, its snapshot).
+- **A recipe is a record**: named steps over a vocabulary of capabilities,
+  formulas in the leaves, one executor with several runners (the CPU walker
+  as the reference, a compiled GPU tier from the same record, the store's
+  own derivation). A tool is a record and never enters git. A capability is
+  code below the waist, added once, with receipts. A solver (a sketch, a
+  mate) is a capability a directed record calls, bought like the kernel.
+- **Nothing in a record is a program.** Foreign code enters the store only
+  as a value in a slot with a declared output, for the runner whose
+  language it is (a posted shader gives its distance field and its
+  material and loses its raymarcher, camera and lights). The escape hatch is
+  closed; if a record provably cannot say a needed tool twice over, the
+  leaves gain a designed total language, never runtime code, asked of Sid
+  then.
+- **Why** (Sid's own constraints): rows merge, version and authorize per
+  row, so the ECS layer has no merge deadlocks; agents author records from
+  a one-page contract; a record is total with a work budget per read, so
+  throughput is a compiled runner and not a language change; the layers are
+  infinite because a record's output is a value any record can take as
+  input.
+
 ## Only Sid decides
 
 Spending money · pushing/merging the docs branch (never) · `env.clj` (never

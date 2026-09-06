@@ -1326,3 +1326,19 @@ marketplace split DOWN to bet — never constitution.)*
 > not very sure because this session is like 400k tokens already and we know the performance drop as the context grows so new or here?? … i think you write the full new contract don't ament the existing ones they will droup your performance further imo
 
 *(Routed same-session: the position + both rulings → `docs/seam-cuts/CONTRACT.md` §0 + header, `NOW.md`; the board's seam-cuts pointer + Vision line; the dead criterion → memory `feedback-dead-means-wrong-form-not-uncalled`; `docs/decisions.md` waist amendment PENDING, Fable in a fresh context.)*
+
+## 2026-09-06 — the 3D round closes: the executor over records, and Position 9 ruled (verbatim)
+
+[After the definer's attack 4 was folded and a cold session wrote the reach tool and the coating brush as records from a one-page contract, he asked what Position 9 was, asked for the whys and the other doors with a recall of his own words, and thought it through aloud:]
+
+> So the question that you are asking is basically what I asked. Like, what has been over the waist, above the waist, uh, which meant, like, anything that is below is set in code and cannot be changed. So what I hear is, like, let's say that is some base layer zero, and maybe there needs to be some base layer one. That is, like, a bit more abstraction over these and composed to build more. And then there is a layer above that. I think, basically, the layers are infinite. Um, so should be able to compose as much as possible. But, like, what should exist on the code level that should be going into get and we are maintaining it? think that's what you are asking. So a graph over a vocabulary seems right. I was also thinking, like, is... can, like, people just, like, shit... write shaders for something, and those can run because I have seen, like, there are many libraries where people just, uh, not libraries, websites where just people post their shaders. And that is something that should be possible, I think. Like, because when I say it should be possible, I imagine, like, I would go in Softland and just point it at some existing shader like, hey. Let's pull this in for my case, and then we will just get that shader code and write it as data for that user. And since data is code, it will run. I'm not sure if this will work out or how this will work out.
+
+[When the chair reached for that thought as a ruling to quote:]
+
+> I just said that it seems right as I was reading it. Why are you putting the decision on me? Like, I don't understand the whole thing. I just told you my, uh, thoughts that were going... that I was going through. Why are you trying to quote it, like, as I said it. am asking like given these thoughts what is the way that you would say we should do it.
+
+[The chair took the position (door (b): a recipe is a record over a vocabulary, tools never in git, capabilities code with receipts, nothing in a record is a program, foreign code only as a value with a declared output), with its exits. Then, 17:42:]
+
+> okay. Let's do b. now save all the things that you need to save and whatever the rulings need to go or whatever.
+
+*(Routed same-session: the ruling → `docs/decisions.md` "Tools are records over a vocabulary (settled 2026-09-06)"; the 3D page's Position 9 with the three sentences, the whys and the exits; `docs/below-the-waist/3d/HANDOFF-5.md`, `STARTER-5.md`, `fact-base-2.md` Part 16; the correction → memory `feedback-thoughts-are-not-rulings`; the board's Vision line.)*
