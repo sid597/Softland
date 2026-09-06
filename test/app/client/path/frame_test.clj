@@ -35,11 +35,11 @@
       (is (= (frame/frame-key items {:zoom 3.0 :pan [1.0 2.0]} transforms)
              (frame/frame-key items {:zoom 0.5 :pan [9.0 9.0]} transforms))))))
 
-(deftest pack-keys-see-the-outline-and-the-bucket
+(deftest region-keys-see-the-outline-and-the-rule
   (let [r {:path {:subpaths []} :rule :nonzero :kind :fill :paint :fill}]
-    (is (= (frame/pack-key r 2) (frame/pack-key (assoc r :paint :stroke) 2)) "paint kind is not geometry")
-    (is (not= (frame/pack-key r 2) (frame/pack-key r 3)))
-    (is (not= (frame/pack-key r 2) (frame/pack-key (assoc r :rule :even-odd) 2)))))
+    (is (= (frame/region-key r) (frame/region-key (assoc r :paint :stroke))) "paint kind is not geometry")
+    (is (not= (frame/region-key r) (frame/region-key (assoc r :rule :even-odd))))
+    (is (not= (frame/region-key r) (frame/region-key (assoc-in r [:path :subpaths] [{:closed? true :start [0.0 0.0] :segments []}]))))))
 
 (deftest item-view-composes-zoom-and-group-scale
   (is (= {:scale 1.5 :pan [121.0 62.0]} (frame/item-view {:zoom 3.0 :pan [1.0 2.0]} (get transforms 17))))

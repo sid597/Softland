@@ -346,9 +346,11 @@
 (defn- run-rates-check!
   "What a frame rebuilds: nothing on repeat; rows only on a colour edit;
    a run on a geometry edit; nothing on a pan or a zoom inside the bucket;
-   a repack across a bucket; a rerun for a snapped record on a pan; nothing
-   on a moved group and a repack on a rescaled one; and a fractional
-   placement whose edge pixels agree with the CPU twin."
+   across a bucket, rows for the Z (its skin has no cubics, so its pack
+   serves every bucket) and a repack of the pen tool's cubic fill; a rerun
+   for a snapped record on a pan; nothing on a moved group and rows on a
+   rescaled one; and a fractional placement whose edge pixels agree with
+   the CPU twin."
   [device path-system world-transforms fractional-transforms]
   (let [z (revisioned records/harness-z)
         border (revisioned records/border)
@@ -362,6 +364,9 @@
         f6 (prepare [(path-draw-item :rates/z z 0)] {:zoom 1.0 :pan [5.0 -3.0]} world-transforms)
         f7 (prepare [(path-draw-item :rates/z z 0)] {:zoom 1.9 :pan [5.0 -3.0]} world-transforms)
         f8 (prepare [(path-draw-item :rates/z z 0)] {:zoom 2.5 :pan [5.0 -3.0]} world-transforms)
+        pen (revisioned records/pen-tool)
+        p1 (prepare [(path-draw-item :rates/pen pen 0)] view world-transforms)
+        p2 (prepare [(path-draw-item :rates/pen pen 0)] {:zoom 2.5 :pan [0.0 0.0]} world-transforms)
         b1 (prepare [(path-draw-item :rates/border border 0)] view world-transforms)
         b2 (prepare [(path-draw-item :rates/border border 0)] {:zoom 1.0 :pan [0.5 0.0]} world-transforms)
         b3 (prepare [(path-draw-item :rates/border border 0)] {:zoom 1.5 :pan [0.5 0.0]} world-transforms)
@@ -383,6 +388,7 @@
                        counts (fn [f] (select-keys f [:changed? :runs :packs :instance-writes :instances]))]
                    {:first (counts f1) :repeat (counts f2) :colour-edit (counts f3) :geometry-edit (counts f4)
                     :restore (counts f5) :pan (counts f6) :zoom-inside-bucket (counts f7) :zoom-across-bucket (counts f8)
+                    :pen-first (counts p1) :pen-zoom-across-bucket (counts p2)
                     :border-first (counts b1) :border-pan (counts b2) :border-zoom (counts b3)
                     :group-first (counts g1) :group-moved (counts g2) :group-rescaled (counts g3)
                     :fractional {:offset [ox oy] :edge-rows (count rows) :max-delta max-delta}
@@ -392,12 +398,133 @@
                                 (:changed? f4) (= 1 (:runs f4)) (pos? (:packs f4))
                                 (not (:changed? f6))
                                 (not (:changed? f7))
-                                (:changed? f8) (zero? (:runs f8)) (pos? (:packs f8))
+                                (:changed? f8) (zero? (:runs f8)) (zero? (:packs f8)) (pos? (:instance-writes f8))
+                                (= 2 (:packs p1))
+                                (:changed? p2) (zero? (:runs p2)) (= 1 (:packs p2))
                                 (:changed? b2) (= 1 (:runs b2))
                                 (:changed? b3) (= 1 (:runs b3))
                                 (not (:changed? g2))
-                                (:changed? g3) (zero? (:runs g3)) (pos? (:packs g3))
+                                (:changed? g3) (zero? (:runs g3)) (zero? (:packs g3)) (pos? (:instance-writes g3))
                                 (pos? (count rows)) (< max-delta 0.05))}))))))
+
+;; ---- the scale trace: what a frame costs at a scene size ----
+
+(def trace-size 1024)
+
+(defn- shifted
+  "Record and [dx dy] → the same record moved in local units."
+  [record [dx dy]]
+  (let [source (:path/source record)
+        mv (fn [[x y]] [(+ x dx) (+ y dy)])
+        source (case (:kind source)
+                 :pen (update source :samples (fn [ss] (mapv (fn [[x y & r]] (into [(+ x dx) (+ y dy)] r)) ss)))
+                 :rect (-> source (update :x + dx) (update :y + dy))
+                 :anchors (update source :contours
+                                  (fn [cs] (mapv (fn [c] (update c :anchors
+                                                                 (fn [as] (mapv (fn [a] (reduce (fn [a k] (if (a k) (update a k mv) a)) a [:p :in :out])) as))))
+                                                 cs))))]
+    (assoc record :path/source source)))
+
+(defn- scene
+  "n → n distinct records on a grid over the trace target: two thirds draw
+   strokes (the limaçon traced from a different phase each), a sixth pens,
+   a sixth borders (a device-unit width, snapped, so they reread the view)."
+  [n]
+  (let [cols (int (Math/ceil (Math/sqrt n)))
+        cell (/ trace-size cols)]
+    (vec (for [i (range n)]
+           (let [dx (* (mod i cols) cell) dy (* (quot i cols) cell)
+                 k (mod i 6)
+                 base (cond (= k 4) records/pen-tool
+                            (= k 5) records/border
+                            :else (assoc-in records/draw-tool [:path/source :samples]
+                                            (vec (for [j (range 70)]
+                                                   (let [t (+ (* j 0.09) (* i 0.37))
+                                                         r (* 40.0 (+ 1.0 (* 0.5 (Math/cos t))))]
+                                                     [(+ 64.0 (* r (Math/cos t))) (+ 64.0 (* r (Math/sin t)))
+                                                      (+ 0.4 (* 0.5 (Math/abs (Math/sin (* 2.0 t))))) (* j 16.0)])))))]
+             (revisioned (assoc (shifted base [dx dy]) :path/material-id [:trace i])))))))
+
+(defn- timed-frame!
+  "Device, system, target view, items, view, transforms → promise of the
+   frame's three costs: the CPU in prepare (runs, packs, rows, mirror
+   writes, upload enqueues), the CPU in encode and submit, and the wall
+   time from submit to the queue's work done (GPU execution plus waiting;
+   on SwiftShader that is software rendering)."
+  [^js device system target-view items view world-transforms]
+  (let [t0 (js/performance.now)
+        [pan-x pan-y] (:pan view)
+        _ (device/update-camera device (:camera-buffer system) (js/Float32Array. 6) pan-x pan-y (:zoom view 1.0) trace-size trace-size)
+        frame (path-renderer/prepare-path-frame! system items view world-transforms)
+        t1 (js/performance.now)
+        encoder (.createCommandEncoder device)
+        pass (.beginRenderPass encoder (clj->js {:colorAttachments [{:view target-view
+                                                                     :clearValue {:r 0.0 :g 0.0 :b 0.0 :a 0.0}
+                                                                     :loadOp "clear" :storeOp "store"}]}))]
+    (path-renderer/draw-path-frame! pass system)
+    (.end pass)
+    (.submit (.-queue device) #js [(.finish encoder)])
+    (let [t2 (js/performance.now)]
+      (.then (.onSubmittedWorkDone (.-queue device))
+             (fn [_]
+               {:prepare-ms (- t1 t0) :encode-ms (- t2 t1) :gpu-ms (- (js/performance.now) t2)
+                :counts (select-keys frame [:changed? :runs :packs :instance-writes :instances])})))))
+
+(defn- trace-scene!
+  "Device, buffers, transforms, n → promise of the frame costs at that
+   scene size: first, repeat, one colour edit and its restore, one geometry
+   edit and its restore (each from the base scene), a pan (the borders
+   reread it), a zoom inside the bucket, a zoom across it; and the geometry
+   and packing of the whole scene timed alone on the CPU."
+  [^js device camera groups-buffer world-transforms n]
+  (let [records (scene n)
+        items (fn [records] (vec (map-indexed (fn [i r] (path-draw-item [:trace i] r 0)) records)))
+        base (items records)
+        view {:zoom 1.0 :pan [0.0 0.0]}
+        system (path-renderer/init-path-system device "rgba8unorm-srgb" camera groups-buffer
+                                               :scene-color (scene-color/scene-color true)
+                                               :initial-capacity (* 4 n))
+        target (.createTexture device (clj->js {:size {:width trace-size :height trace-size :depthOrArrayLayers 1}
+                                                :format "rgba8unorm" :viewFormats ["rgba8unorm-srgb"]
+                                                :usage js/GPUTextureUsage.RENDER_ATTACHMENT}))
+        target-view (.createView target (clj->js {:format "rgba8unorm-srgb"}))
+        g0 (js/performance.now)
+        runs (mapv (fn [r] (path-component/run r {:scale 1.0 :pan [0.0 0.0]})) records)
+        g1 (js/performance.now)
+        regions (mapcat :regions runs)
+        packed (mapv (fn [region] (path-pack/pack-region (:path region) (path-pack/bucket-tolerance 0) {})) regions)
+        g2 (js/performance.now)
+        edited (update records 0 (fn [r] (revisioned (assoc-in r [:path/source :samples 10 0] 20.0))))
+        recoloured (update records 0 (fn [r] (revisioned (assoc-in r [:path/paint :stroke :color] [0.9 0.1 0.1 0.85]))))
+        frames [[:first base view] [:repeat base view]
+                [:colour-edit (items recoloured) view] [:restore-after-colour base view]
+                [:geometry-edit (items edited) view] [:restore-after-geometry base view]
+                [:pan base {:zoom 1.0 :pan [5.0 -3.0]}]
+                [:zoom-inside-bucket base {:zoom 1.9 :pan [5.0 -3.0]}]
+                [:zoom-across-bucket base {:zoom 2.5 :pan [5.0 -3.0]}]]]
+    (-> (promise-mapv (fn [[label its v]]
+                        (.then (timed-frame! device system target-view its v world-transforms)
+                               (fn [t] (assoc t :frame label))))
+                      frames)
+        (.then (fn [rows]
+                 (path-renderer/destroy-path-system! system)
+                 (.destroy target)
+                 {:n n
+                  :records {:draw (count (filter #(= :pen (get-in % [:path/source :kind])) records))
+                            :pen (count (filter #(= :anchors (get-in % [:path/source :kind])) records))
+                            :border (count (filter #(= :rect (get-in % [:path/source :kind])) records))}
+                  :regions (count regions)
+                  :curves (reduce + 0 (map (comp :count :pack) packed))
+                  :geometry-alone-ms (- g1 g0)
+                  :packing-alone-ms (- g2 g1)
+                  :frames rows})))))
+
+(defn- run-scale-trace!
+  "Device → promise of the trace at three scene sizes. A measurement, not
+   a check: it carries no pass; the result's adapter block says what ran."
+  [^js device camera groups-buffer world-transforms]
+  (-> (promise-mapv (partial trace-scene! device camera groups-buffer world-transforms) [50 400 1600])
+      (.then (fn [scenes] {:target [trace-size trace-size] :scenes scenes}))))
 
 ;; ---- colour ----
 
@@ -473,7 +600,8 @@
 
 (defn run-path-step!
   "Device → promise of the path evidence: goldens, the five scenarios'
-   checks, colour and parity; destroys its path system."
+   checks, colour, parity, and the scale trace (a measurement with no
+   pass); destroys its path system."
   [device]
   (let [camera (device/create-camera-buffer device)
         groups-buffer (device/create-groups-buffer device)
@@ -493,6 +621,7 @@
         (.then (fn [state] (-> (run-rates-check! device system world-transforms world-transforms) (.then #(assoc state :rates %)))))
         (.then (fn [state] (-> (promise-mapv (partial path-parity-row! device system world-transforms) zoom-cases) (.then #(assoc state :parity %)))))
         (.then (fn [state] (-> (run-path-color! device system camera groups-buffer world-transforms) (.then #(assoc state :color %)))))
+        (.then (fn [state] (-> (run-scale-trace! device camera groups-buffer world-transforms) (.then #(assoc state :trace %)))))
         (.then (fn [{:keys [cases records crossing region-meaning rates parity color] :as state}]
                  (let [determinism (mapcat (fn [case] (map :determinism (:images case))) cases)
                        pass? (and (= 3 (count cases))

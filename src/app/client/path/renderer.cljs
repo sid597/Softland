@@ -11,10 +11,10 @@
    does not own the camera or group buffers.
 
    A frame runs a record's construction only when a value it read has
-   changed; packs a region only when its content or the scale bucket
-   changed; writes an instance row only when the row changed. A pan, or a
-   zoom inside the bucket, touches nothing here: the camera buffer moves the
-   picture. Painter's order is the item order, a fill before its stroke,
+   changed; packs a region only when its content changed, or the scale
+   bucket changed and the region has cubics to lower; writes an instance
+   row only when the row changed. A pan, or a zoom inside the bucket,
+   touches nothing here: the camera buffer moves the picture. Painter's order is the item order, a fill before its stroke,
    dabs in drawing order, all in one instanced draw.
 
    Folder map: README.md."
@@ -197,17 +197,40 @@
         [(assoc runs id {:reads (:reads result) :result result}) result true]))))
 
 (defn- pack-for
-  "Packs cache, region, bucket, scale → [packs entry rebuilt?]; an entry is
-   {:key :pack :cover} or nil for an empty region."
+  "Packs cache, region, bucket, scale → [packs entry lowered?]; an entry is
+   {:key :pack :cover} or nil for an empty region.
+
+   The cache is keyed by the region's content and rule; inside an entry the
+   packs sit per bucket. A region without cubics (a stroke's skin is lines
+   and arc quads) lowers the same at every tolerance, so it packs once under
+   the bucket :all and a zoom across a bucket boundary repacks nothing of
+   it; a region with cubics packs per bucket. The cover is per bucket either
+   way, since its margin is the bucket's device pixel; its mode is chosen
+   at the first scale seen in the bucket."
   [packs region bucket scale]
-  (let [key (frame/pack-key region bucket)]
-    (if-let [entry (get packs key)]
-      [packs entry false]
-      (let [{:keys [pack]} (pack/pack-region (:path region) (pack/bucket-tolerance bucket) {})
-            entry (when pack
-                    {:key key :pack pack
-                     :cover (pack/cover pack (cover-options pack (:rule region) bucket scale))})]
-        [(assoc packs key entry) entry (some? entry)]))))
+  (let [rkey (frame/region-key region)
+        cached (get packs rkey)
+        slot-bucket (if (and cached (zero? (:cubics cached))) :all bucket)
+        have-pack? (and cached (contains? (:packs cached) slot-bucket))
+        have-cover? (and cached (contains? (:covers cached) bucket))]
+    (if (and have-pack? have-cover?)
+      (let [pack (get-in cached [:packs slot-bucket])]
+        [packs (when pack {:key [rkey slot-bucket] :pack pack :cover (get-in cached [:covers bucket])}) false])
+      (let [{:keys [pack cubics]} (if have-pack?
+                                    {:pack (get-in cached [:packs slot-bucket]) :cubics (:cubics cached)}
+                                    (pack/pack-region (:path region) (pack/bucket-tolerance bucket) {}))
+            slot-bucket (if (zero? cubics) :all bucket)
+            cover (when pack
+                    (if have-cover?
+                      (get-in cached [:covers bucket])
+                      (pack/cover pack (cover-options pack (:rule region) bucket scale))))
+            cached (-> (or cached {:packs {} :covers {}})
+                       (assoc :cubics cubics)
+                       (assoc-in [:packs slot-bucket] pack)
+                       (assoc-in [:covers bucket] cover))]
+        [(assoc packs rkey cached)
+         (when pack {:key [rkey slot-bucket] :pack pack :cover cover})
+         (not have-pack?)]))))
 
 (defn prepare-path-frame!
   "System, draw items, view, world transforms → statistics; updates every
@@ -279,7 +302,7 @@
             (reset! (:!bind-group system)
                     (create-bind-group (:device system) (:bind-layout system) atlas (:camera-buffer system) (:groups-buffer system))))
           (reset! (:!runs system) (select-keys runs (map (comp :path/material-id :path/material) draw-items)))
-          (reset! (:!packs system) (select-keys packs used-keys))
+          (reset! (:!packs system) (select-keys packs (into #{} (map first) used-keys)))
           (reset! (:!prepared system) {:rows rows :item-ranges item-ranges
                                        :items (mapv #(select-keys % [:ok? :missing :log]) items)})
           (reset! (:!last-frame-key system) key)

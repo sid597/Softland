@@ -12,6 +12,9 @@
 //
 // Writes <out-dir>/path-step.json, <out-dir>/region3d-floor.json,
 // <out-dir>/shader-digests.json and <out-dir>/png/<file>.png for each case.
+// RENDER_VERIFIER_HARDWARE=1 runs headful on the real adapter instead of
+// headless SwiftShader; path-step.json's trace block is the scene-scale
+// timing for whichever adapter ran.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -26,12 +29,26 @@ const buildFile = path.join(repoRoot, "target/render-verifier/js/main.js");
 const origin = "http://localhost";
 const chromeExecutable =
   process.env.RENDER_VERIFIER_CHROME || "/usr/bin/google-chrome";
-const launchArgs = [
-  "--no-sandbox",
-  "--enable-unsafe-webgpu",
-  "--use-angle=swiftshader",
-  "--enable-features=WebGPU,UnsafeWebGPU",
-];
+// Default: headless SwiftShader, the verifier's own road. With
+// RENDER_VERIFIER_HARDWARE=1: headful on the desktop's display through the
+// Vulkan backend, which reaches the real adapter (the proven road in
+// docs/reference/desktop-browser-harness-road.md); the result's adapter
+// block says which one ran.
+const hardware = process.env.RENDER_VERIFIER_HARDWARE === "1";
+const launchArgs = hardware
+  ? [
+      "--no-sandbox",
+      "--use-angle=vulkan",
+      "--enable-features=Vulkan,WebGPU,UnsafeWebGPU",
+      "--ignore-gpu-blocklist",
+      "--enable-unsafe-webgpu",
+    ]
+  : [
+      "--no-sandbox",
+      "--enable-unsafe-webgpu",
+      "--use-angle=swiftshader",
+      "--enable-features=WebGPU,UnsafeWebGPU",
+    ];
 const html = `<!doctype html>
 <html><head><meta charset="utf-8"><title>Softland parked renderer</title></head>
 <body><script src="/js/main.js"></script></body></html>`;
@@ -99,9 +116,10 @@ const main = async () => {
 
   const browser = await puppeteer.launch({
     executablePath: chromeExecutable,
-    headless: "chrome",
+    headless: hardware ? false : "chrome",
     ignoreHTTPSErrors: true,
     args: launchArgs,
+    env: hardware ? { ...process.env, DISPLAY: process.env.DISPLAY || ":0" } : process.env,
   });
   let result;
   try {

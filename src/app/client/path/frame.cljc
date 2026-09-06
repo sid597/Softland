@@ -10,7 +10,8 @@
    - the run (path and regions): the values a construction read, kept by
      the renderer from the executor's report and compared by
      component/rerun?; this file only derives the view those reads see;
-   - the pack: a region's content and the scale bucket;
+   - the pack: a region's content, and the scale bucket only when the
+     region has cubics to lower;
    - the instance row: the pack's slot, the cover, the colour, the group;
    - the frame: the early-out over all items, one entry per item carrying
      its identity, its group's slot, its scale bucket, and the exact scale
@@ -68,12 +69,8 @@
   (mapv (fn [item] (item-key item view world-transforms)) (or draw-items [])))
 
 (defn region-key
-  "Region → the key its pack is cached under, before the bucket: the
-   outline's content and the rule."
+  "Region → the key its packs are cached under: the outline's content and
+   the rule. The bucket sits inside the entry, because a region without
+   cubics packs once for every bucket."
   [region]
   [(hash (:path region)) (:rule region)])
-
-(defn pack-key
-  "Region and scale bucket → the pack cache key."
-  [region bucket]
-  [(region-key region) bucket])
