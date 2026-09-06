@@ -20,8 +20,8 @@ flowchart TD
 | [component.cljc](component.cljc) | Canonicalize and validate region, object, geometry, shading, light and view data. |
 | [scene.cljc](scene.cljc) | Derive and maintain transforms, instances, triangles and spatial indexes; compute camera projections and hits. |
 | [frame.cljc](frame.cljc) | Derive the outer dependency keys that gate preparation. |
-| [on_plane.cljc](on_plane.cljc) | Adapt existing text/path computations to object-local planes, ray intersections and projected anchors. |
-| [on_plane_renderer.cljs](on_plane_renderer.cljs) | Retain per-region placement buffers and draw supported resolved ink placements. |
+| [on_plane.cljc](on_plane.cljc) | Adapt existing text/path computations to object-local planes: placed ink as the path kind's regions and packs, ray intersections and projected anchors. |
+| [on_plane_renderer.cljs](on_plane_renderer.cljs) | Retain per-region atlas, instance rows and placement matrices; draw resolved ink placements as one coverage draw under the plane projection. |
 | [renderer.cljs](renderer.cljs) | Retain prepared scenes, upload changed resources, encode shadow/interior passes and composite region content or rejection fill. |
 
 Source scene objects, derived spatial state and prepared GPU regions are different representations. Scene functions return values; renderer systems retain them with buffers and dirty state. [Engine](../engine/README.md) compositors own physical texture leases, while logical bindings preserve region identity across replacement.

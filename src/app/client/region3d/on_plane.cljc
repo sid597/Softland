@@ -1,16 +1,17 @@
 (ns app.client.region3d.on-plane
   "Adapt 2D geometry and coordinates to object-local planes.
 
-   Input: resolved text/ink placement, font provider or path cache,
-   rays/matrices, and anchor bindings. Output: text layout, ink pack, color
-   values, plane intersections and projected anchors. No retained state. It
-   calls the existing text/path computations; it does not resolve external
-   content addresses or allocate GPU resources. placement-zoom is fixed at
-   1.
+   Input: resolved text/ink placement, font provider, rays/matrices, and
+   anchor bindings. Output: text layout, the ink's regions and packs with
+   their colours, plane intersections and projected anchors. No retained
+   state. It calls the existing text/path computations; it does not resolve
+   external content addresses or allocate GPU resources. placement-zoom is
+   fixed at 1: placed ink is packed for one local unit per device pixel and
+   the projection reads it at whatever scale it lands.
 
    Folder map: README.md."
   (:require [app.client.path.component :as path-component]
-            [app.client.path.tessellation :as path-tessellation]
+            [app.client.path.pack :as path-pack]
             [app.client.region3d.scene :as region3d-scene]
             [app.client.engine.color :as color]
             [app.client.engine.transform :as transform]
@@ -98,23 +99,34 @@
                :object-local local-point
                :component-local (object->component-local local-point)})))))))
 
-(defn pack-placed-ink
-  "Caller cache and placement → new cache/derived keys/ink pack.
+(def placement-bucket
+  "The scale bucket placed ink is packed for: bucket 0 is one local unit per
+   device pixel, placement-zoom."
+  (path-pack/scale-bucket placement-zoom))
 
-   Reuses path tessellation at zoom 1 and adapts paint. Shares geometry
-   computation."
-  [cache placement]
-  (let [{next-cache :cache [mesh] :meshes derived-keys :derived-keys}
-        (path-tessellation/derive-mesh-set cache [(:component placement)]
-                                           placement-zoom)]
-    {:cache next-cache
-     :derived-keys derived-keys
-     :pack {:object-id (:object-id placement)
-            :address (:address placement)
-            :cache-key (:cache-key mesh)
-            :vertices (:vertices mesh)
-            :color (adapt-legacy-color
-                    (path-component/paint-color (:component placement)))}}))
+(defn placed-ink-regions
+  "Placement → {:object-id :address :regions [{:region :pack :cover
+   :color}] :ok? :missing}: the record's construction run at the unit view,
+   each painted region lowered for the placement bucket with a box cover,
+   its colour tagged. The same regions and packs the 2D lane draws, so a
+   stroke means one thing on a plane and on the canvas."
+  [placement]
+  (let [record (:component placement)
+        result (path-component/run record {:scale placement-zoom :pan [0.0 0.0]})
+        tolerance (path-pack/bucket-tolerance placement-bucket)
+        margin (path-pack/bucket-margin placement-bucket)
+        regions (vec (for [region (:regions result)
+                           :let [{:keys [pack]} (path-pack/pack-region (:path region) tolerance {})]
+                           :when pack]
+                       {:region region
+                        :pack pack
+                        :cover (path-pack/cover pack {:mode :box :margin margin})
+                        :color (adapt-legacy-color (path-component/region-color record region))}))]
+    {:object-id (:object-id placement)
+     :address (:address placement)
+     :regions regions
+     :ok? (:ok? result)
+     :missing (:missing result)}))
 
 (defn linear-premultiplied
   "Tagged color, coverage, opacity → linear premultiplied RGBA.

@@ -422,6 +422,37 @@ const recordPathGolden = (result, manifest, file) => {
   return row;
 };
 
+const recordRegion3dFloorGolden = (result, manifest, file) => {
+  const matches = (result.region3dFloor?.cases || []).flatMap((renderCase) =>
+    (renderCase.images || [])
+      .filter((image) => image.file === file)
+      .map((image) => ({ renderCase, image })),
+  );
+  if (matches.length !== 1) {
+    throw new Error(`Expected one region3d golden named ${file}, got ${matches.length}`);
+  }
+  const { renderCase, image } = matches[0];
+  const bytes = Buffer.from(image.pngDataUrl.split(",", 2)[1], "base64");
+  fs.writeFileSync(path.join(goldenDir, file), bytes);
+  const row = {
+    caseId: renderCase.caseId,
+    zoom: renderCase.zoom,
+    regime: renderCase.lod,
+    normalization: renderCase.normalization,
+    shapeExtentWorld: renderCase.shapeExtentWorld,
+    mode: image.mode,
+    file,
+    rawSha256: image.rawSha256,
+    pngSha256: sha256(bytes),
+  };
+  manifest.region3dFloorCases = [
+    ...(manifest.region3dFloorCases || []).filter((entry) => entry.file !== file),
+    row,
+  ];
+  fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+  return row;
+};
+
 const runBrowser = async () => {
   const browser = await puppeteer.launch({
     executablePath: chromeExecutable,
@@ -485,6 +516,20 @@ const main = async () => {
       manifest,
       "gpu-path-container-tree-tree-containers-cid17-slot1.png",
     );
+  }
+  if (process.env.RENDER_VERIFIER_RECORD_PATH_ROUTE === "1") {
+    // The path kind's coverage route (2026-09-06): every path golden, the
+    // region3d floor golden its placed ink changes, and the shader digests.
+    for (const file of [
+      "gpu-path-holed-concave-holed-concave-default-unit-z1.png",
+      "gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png",
+      "gpu-path-container-tree-tree-containers-cid17-slot1.png",
+    ]) {
+      recordPathGolden(result, manifest, file);
+    }
+    recordRegion3dFloorGolden(result, manifest, "gpu-region3d-floor-tree.png");
+    manifest.shaderDigests = result.shaderDigests;
+    fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
   }
   const guards = laneGuards(result, manifest);
   const goldens = representativeGoldens(result, manifest);

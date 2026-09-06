@@ -9,8 +9,11 @@
     "sceneColor": "ca263e5f1bbc34f00a73c780a554046dcdc3807254cfa186d64584f076835d95",
     "presentFragment": "0835dab5812b96d62c47be9c20e42204c1df106c31937293c3ce125f3cb1a851",
     "slugVertex": "a8fbae3d266deed5ce5babc533449d1adb523af1e2492dd6bfd2188346fb083f",
-    "slugFragment": "581b9ee01a821e94d161e5e439beccecb232d37fbdde39f223ea55e956eca229",
-    "region3dPlacedFlat": "4e7c0f502bcc717ccebac3c64c90a3005c58e9d5e5ccc994d74d44e310607b13"
+    "slugFragment": "93c8ff1b94a1538683e202ac5d1b30b3518dbc87c24383644323bf26fb95db65",
+    "pathRegionVertex": "f67b08661d700c5315ca71abd1aaaea302d88d99386d84a45b029b6c0f8da2b6",
+    "pathRegionFragment": "c8ffca4975c6c4b3e97597a8eee55debeef94d2bb61b37caa6bbd4fed8fb45d7",
+    "coverageShared": "0e25ea79e33bffef02476d8cfeeba3c10b37aaf659ca073f87cd3a172ffd55e9",
+    "region3dPlacedRegion": "b125e24ad008a54a1edf25155a552cf72056d5b6262d3b164674a418e2595ffc"
   },
   "images": [
     {
@@ -361,30 +364,30 @@
     {
       "caseId": "holed-concave-default-unit-z1",
       "zoom": 1,
-      "regime": "floor-default",
-      "normalization": "screen-constant-shape-local",
+      "regime": "bucket-0",
+      "normalization": "screen-constant",
       "shapeExtentWorld": 80,
       "mode": "holed-concave",
       "file": "gpu-path-holed-concave-holed-concave-default-unit-z1.png",
-      "rawSha256": "645f953598a86b16e64751cd57dfbca0a254a7fe177eb3b1edf5bd3c98c7410b",
-      "pngSha256": "5b2ae0819e5509df80f3c4eda44245a64ab8912c564d639e3a5d82834c70d1c3"
+      "rawSha256": "3544be76b085f46bd22d142e58e654939fe45cbb6b2f4e7de83eaeab46cc0992",
+      "pngSha256": "1446e61a7ac077b91497c69b11f5051c56d2f250a91bc05996b34ff393e67e36"
     },
     {
       "caseId": "translucent-self-crossing-legal-z10",
       "zoom": 10,
-      "regime": "legal-max",
-      "normalization": "screen-constant-shape-local",
+      "regime": "bucket-3",
+      "normalization": "screen-constant",
       "shapeExtentWorld": 8,
       "mode": "translucent-self-crossing",
       "file": "gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png",
-      "rawSha256": "5bf612e2e8ab6a6f93f15c36db2a24391ab69a709b8ccd29f50f6a28705cea79",
-      "pngSha256": "0467c22c1154065568da9a2a1ad8da56ccf73f9f41aefb02ad86a3cfc45084ed"
+      "rawSha256": "2d34ef6603bce8c51b6b951466ff08ee128112ce430f8b7449dbf770ad1f21bb",
+      "pngSha256": "d773a14f2913f37bac833848db60f577a6008f925c7b41d735d28aa2cb421ecd"
     },
     {
       "caseId": "tree-containers-cid17-slot1",
       "zoom": 1,
-      "regime": "floor-default",
-      "normalization": "path-local-with-effective-container-tree",
+      "regime": "bucket-0",
+      "normalization": "path-local-with-world-transforms-group-tree",
       "shapeExtentWorld": 32,
       "mode": "container-tree",
       "file": "gpu-path-container-tree-tree-containers-cid17-slot1.png",
@@ -404,8 +407,8 @@
       ],
       "mode": "tree",
       "file": "gpu-region3d-floor-tree.png",
-      "rawSha256": "ba8b2efc3c804e2f5b034caedfb287ef321cfad9a5b70e7ca276ca34ae8964ff",
-      "pngSha256": "5f56a4e73ecdfb5a2e8fcb4f3cc555cc41dfb2d214a708bb870cb73b73be7e20"
+      "rawSha256": "fda1ce8b45ffb4ec81a9bf83667a06a65d3a9ecd3aca8572030224e65ed8dd9e",
+      "pngSha256": "6b07a17a5241b13b9ee08e0a4835fc9585bfc9436eab30b17fbb6970405e97bb"
     }
   ]
 }

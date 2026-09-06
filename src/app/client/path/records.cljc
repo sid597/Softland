@@ -1,6 +1,13 @@
-(ns app.client.path.fixtures
-  "The definer's records, as the tests measure the implementation by them.
-   Numbers quoted from docs/below-the-waist/path-kind/bench-9/HANDOVER.md.")
+(ns app.client.path.records
+  "The definer's records: the constructions the implementation is measured
+   by, as data.
+
+   Input: none. Output: records in the vocabulary of path/component, the
+   same ones the bench ran (docs/below-the-waist/path-kind/bench-9/, with
+   the measured numbers in its HANDOVER.md). The JVM tests and the browser
+   harness read them from here so a record means one thing in both.
+
+   Folder map: README.md.")
 
 (def z-samples
   "The harness's translucent self-crossing Z: four samples with pressure."

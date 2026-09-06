@@ -20,13 +20,12 @@
                [app.client.engine.transform :as transform]
                [app.client.path.component :as path-component]
                [app.client.path.renderer :as path-renderer]
-               [app.client.path.tessellation :as path-tessellation]
+               [app.client.region3d.on-plane :as on-plane]
                [app.client.region3d.component :as region3d-component]
                [app.client.harness.region-oracle :as region3d-oracle]
                [app.client.region3d.renderer :as region3d-renderer]
                [app.client.region3d.scene :as region3d-scene]
-               [app.client.harness.path
-                :refer [path-draw-item path-ink-component path-polygon-component]]
+               [app.client.harness.path :refer [path-draw-item]]
                [app.client.harness.shared
 :refer [canvas-size color-format glyph-screen-x glyph-screen-baseline
         glyph-screen-size zoom-cases image-fixtures promise-mapv
@@ -153,6 +152,26 @@
   (let [{:keys [w h]} (get-in draw-item [:region/material :region/rect])]
     [w h]))
 
+(defn- ink-record
+  "ID, samples [x y pressure] and colour → a validated pen record with the
+   harness's width rule, 16 × pressure, as a polyline."
+  [id samples color]
+  (let [record {:path/material-id id :path/revision ::pending
+                :path/tool {:size 16 :fit :polyline :streamline 0}
+                :path/source {:kind :pen :samples samples}
+                :path/paint {:stroke {:width "size * p" :cap :round :join :round :color color}}}
+        validated (path-component/validate-component! record)]
+    (assoc validated :path/revision (path-component/component-content-hash validated))))
+
+(defn- polygon-record
+  "ID, points and colour → a validated filled polygon record."
+  [id points color]
+  (let [record {:path/material-id id :path/revision ::pending
+                :path/source {:kind :anchors :contours [{:closed? true :anchors (mapv (fn [p] {:p p}) points)}]}
+                :path/paint {:fill {:rule :nonzero :color color}}}
+        validated (path-component/validate-component! record)]
+    (assoc validated :path/revision (path-component/component-content-hash validated))))
+
 (defn- region3d-boundary-fixture
   "No arguments → region/draw item with a resolved transformed ink placement
    in child group 17.
@@ -172,17 +191,16 @@
                    (assoc :region3d/version 2)
                    (assoc-in [:scene :boundary/ink] ink-object)
                    region3d-remint)
-        ink-component (path-ink-component
-                      :boundary/ink-component 1.0
-                      [[0.0 8.0 0.45] [54.0 2.0 0.9]
-                       [108.0 26.0 0.62] [164.0 8.0 1.0]
-                       [222.0 34.0 0.55]]
-                      [0.16 0.82 1.0 0.92] 1.0)
+        ink-component (ink-record
+                       :boundary/ink-component
+                       [[0.0 8.0 0.45] [54.0 2.0 0.9]
+                        [108.0 26.0 0.62] [164.0 8.0 1.0]
+                        [222.0 34.0 0.55]]
+                       [0.16 0.82 1.0 0.92])
         ink-placement
         {:object-id :boundary/ink :object ink-object :kind :ink
          :address :boundary/ink-component :status :resolved
          :content-revision (path-component/component-content-hash ink-component)
-         :cache-key (path-tessellation/component-cache-key ink-component 1.0)
          :component ink-component
          :owner {:vi :boundary/ink-owner :draw-item-id :boundary/ink-component}}
         draw-item (assoc (region3d-draw-item region :group 17)
@@ -206,20 +224,18 @@
    :prepared {}})
 
 (defn- placement-ink-vertices
-  "Resolved placements → total derived ink vertex count.
+  "Resolved placements → total curve count of the ink's packed regions.
 
-   Rederives path meshes for reporting. Proves derivable geometry size, not
-   the exact vertices uploaded by the placement renderer."
+   Rederives the regions for reporting through the same on-plane route the
+   placement renderer packs with; proves derivable geometry size, not the
+   rows uploaded."
   [placements]
   (reduce
    + 0
    (keep (fn [placed]
            (when (and (= :resolved (:status placed))
                       (= :ink (:kind placed)))
-             (let [{[mesh] :meshes}
-                   (path-tessellation/derive-mesh-set
-                    {} [(:component placed)] 1.0)]
-               (count (:vertices mesh)))))
+             (reduce + 0 (map (comp :count :pack) (:regions (on-plane/placed-ink-regions placed))))))
          placements)))
 
 (defn- prepared-summary
@@ -340,11 +356,11 @@
    explicit overlap evidence."
   [{:keys [region-system surround-path-system]} sides]
   (let [surround (fn [draw-item-index]
-                   (let [{:keys [first-vertex vertex-count]}
-                         (nth @(:!prepared surround-path-system) draw-item-index)]
+                   (let [[first-instance instance-count]
+                         (path-renderer/item-range surround-path-system draw-item-index)]
                      (fn [pass]
-                       (path-renderer/draw-path-range! pass surround-path-system
-                                                  first-vertex vertex-count))))
+                       (path-renderer/draw-path-instances! pass surround-path-system
+                                                           first-instance instance-count))))
         region (fn [pass]
                  (region3d-renderer/composite-region! pass region-system
                                                  region3d-id))]
@@ -411,7 +427,6 @@
    :max-lease-size (get-in harness [:compositor :max-lease-size])
    :world-transforms (:world-transforms harness)
    :font-assets (:font-assets harness)
-   :path-system (:path-system harness)
    :session-layout-snapshot
    {:address :region3d/harness-session :revision (hash session)}})
 
@@ -1150,26 +1165,22 @@
         surround-draw-items
         [(path-draw-item
           :region3d/below
-          (path-polygon-component
+          (polygon-record
            :region3d/below
            [[8.0 8.0] [120.0 8.0] [120.0 120.0] [8.0 120.0]]
-           [0.04 0.07 0.15 1.0] 1.0)
+           [0.04 0.07 0.15 1.0])
           0)
          (path-draw-item
           :region3d/above
-          (path-polygon-component
+          (polygon-record
            :region3d/above
            [[10.0 58.0] [118.0 58.0] [118.0 70.0] [10.0 70.0]]
-           [0.98 0.72 0.12 0.88] 1.0)
+           [0.98 0.72 0.12 0.88])
           0)]
         _ (path-renderer/prepare-path-frame!
-           surround-path-system surround-draw-items 1.0 world-transforms)
+           surround-path-system surround-draw-items {:zoom 1.0 :pan [0.0 0.0]} world-transforms)
         region-system (region3d-renderer/ensure-region3d-system!
                        device camera groups-buffer)
-        path-system
-        (path-renderer/init-path-system
-         device "rgba16float" camera groups-buffer
-         :scene-color (scene-color/scene-color true))
         compositor (compositor-gpu/create-compositor!
                     device color-format)
         harness {:device device :camera camera
@@ -1177,7 +1188,6 @@
                  :world-transforms world-transforms
                  :surround-path-system surround-path-system
                  :region-system region-system
-                 :path-system path-system
                  :!region-result (atom (empty-region3d-system-result))
                  :font-assets font-assets :compositor compositor}
         opaque-region (region3d-fixture-region :opaque)
@@ -1275,7 +1285,6 @@
                          :fixture-query "?region3d=1"
                          :pass? pass?}]
              (compositor-gpu/destroy-compositor! compositor)
-             (path-renderer/destroy-path-system! path-system)
              (path-renderer/destroy-path-system! surround-path-system)
              (region3d-renderer/destroy-region3d-system! region-system)
              result))))))

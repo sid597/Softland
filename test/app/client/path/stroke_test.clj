@@ -1,6 +1,6 @@
 (ns app.client.path.stroke-test
   (:require [app.client.path.component :as component]
-            [app.client.path.fixtures :as fixtures]
+            [app.client.path.records :as fixtures]
             [app.client.path.source :as source]
             [app.client.path.stroke :as stroke]
             [app.client.path.value :as v]

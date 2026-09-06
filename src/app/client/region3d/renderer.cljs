@@ -1030,7 +1030,7 @@
    group index; callers must carry changes via revisions or a different
    keyed stamp. Font-assets is destructured but unused."
   [system {:keys [regions]} session
-   {:keys [zoom dpr world-transforms font-assets session-layout-snapshot path-system
+   {:keys [zoom dpr world-transforms font-assets session-layout-snapshot
            max-lease-size]
     :or {zoom 1.0 dpr 1.0}}]
   (let [regions (vec (or regions []))
@@ -1116,11 +1116,7 @@
                      placement-return
                      (on-plane-renderer/prepare-placements!
                       (:placement-system system) (:placement gpu2)
-                      (:region3d/resolved-placements draw-item) maintained camera
-                      (if path-system @(:!mesh-cache path-system) {}))
-                     _ (when path-system
-                         (reset! (:!mesh-cache path-system)
-                                 (:path-cache placement-return)))
+                      (:region3d/resolved-placements draw-item) maintained camera)
                      gpu3 (assoc gpu2 :placement (:gpu placement-return))
                      mesh-draw-order
                      (if (or scene-changed? view-changed?

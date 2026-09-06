@@ -1,5 +1,5 @@
 (ns app.client.path.frame-test
-  (:require [app.client.path.fixtures :as fixtures]
+  (:require [app.client.path.records :as fixtures]
             [app.client.path.frame :as frame]
             [clojure.test :refer [deftest is testing]]))
 

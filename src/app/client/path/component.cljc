@@ -252,10 +252,10 @@
   "Record and view ({:scale device px per local unit, :pan [x y]}) → the
    executor's roots. The stroke's geometry fields sit under
    paint.stroke.geometry so a construction can bind them without the
-   colour."
+   colour; the tool's name is not in the scope at all."
   [record view]
   (let [p (:path/paint record)]
-    {"tool" (or (:path/tool record) {})
+    {"tool" (dissoc (or (:path/tool record) {}) :name)
      "source" (:path/source record)
      "paint" (cond-> (or p {})
                (:stroke p) (assoc-in [:stroke :geometry] (stroke-declaration (:stroke p))))

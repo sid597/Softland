@@ -1,6 +1,6 @@
 (ns app.client.path.component-test
   (:require [app.client.path.component :as component]
-            [app.client.path.fixtures :as fixtures]
+            [app.client.path.records :as fixtures]
             [clojure.test :refer [deftest is testing]]))
 
 (defn- error-type [f]

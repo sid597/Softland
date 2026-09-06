@@ -1,5 +1,5 @@
 (ns app.client.path.source-test
-  (:require [app.client.path.fixtures :as fixtures]
+  (:require [app.client.path.records :as fixtures]
             [app.client.path.source :as source]
             [app.client.path.value :as v]
             [clojure.test :refer [deftest is testing]]))

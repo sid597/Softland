@@ -1,6 +1,6 @@
 (ns app.client.path.pack-test
   (:require [app.client.path.component :as component]
-            [app.client.path.fixtures :as fixtures]
+            [app.client.path.records :as fixtures]
             [app.client.path.pack :as pack]
             [app.client.path.source :as source]
             [app.client.path.value :as v]
