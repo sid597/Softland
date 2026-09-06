@@ -1,6 +1,6 @@
 # Findings for the production buildout — the path kind
 
-Sid, 2026-09-06, on a fix the builder had started mid-judging: "no this is a finding note it down so when we start doing the production buildout work it gets there". The comparison branches are the lab; findings are recorded here with their receipts and the fix's shape, and the production buildout picks them up. Each finding says what was measured, where the receipt is, what the fix is, and whether anything landed. Nothing here is a ruling.
+Sid, 2026-09-06, on a fix the builder had started mid-judging: "no this is a finding note it down so when we start doing the production buildout work it gets there". The comparison branches are the lab; findings are recorded here with their receipts and the fix's shape, and the production buildout picks them up. Each finding says what was measured, where the receipt is, what the fix is, and whether anything landed. Nothing here is a ruling. On `main` since `cd4aecf` with the measurement page and the two trace receipts it cites. Read it in the order of Sid's rule (`../two-chairs.md`, the production section): the underlying-thing parts first (finding 1's push edge, finding 2's pan fraction, finding 3's key by content, finding 4's representation, each pinned by the judges' counterexamples), and the layers on top (the item cache, the bucket band and the spread, progressive opening, the undo LRU) only after a trace shows the need.
 
 | # | Finding | Receipt | The fix, as designed | State |
 |---|---|---|---|---|
