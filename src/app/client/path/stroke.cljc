@@ -8,17 +8,16 @@
    brush. No retained state; the camera enters only through the flattening
    tolerance and a device-unit width the caller has already converted.
 
-   The centerline is flattened at the tolerance, then one closed outline is
-   traced per open piece (side A forward, end cap, side B backward, start
-   cap), or two loops per closed piece (alignment picks which two). The two
-   tips differ in one line, the direction of the tangent point from the
-   knot: the ribbon's is the piece's normal; the swept round nib's is the
-   external tangent of the two end discs, which leans with the taper. Inner
-   joins fold through the pivot and keep the body's orientation. Dash walks
-   the flattened centerline by arc length and makes open pieces with caps.
+   Centered round nibs are a nonzero union of capsules (nib.cljc), including
+   containing discs. The explicit cap/join and aligned-ring constructions,
+   and the ribbon, retain the policy tracer. Both sample the radius while
+   flattening; dash walks those points by arc length. The local tolerance
+   is an approximation request, not a device-wide error guarantee.
+   Evidence: test/app/client/path/nib_test.clj and stroke_test.clj.
 
    Folder map: README.md."
-  (:require [app.client.path.value :as v]))
+  (:require [app.client.path.nib :as nib]
+            [app.client.path.value :as v]))
 
 ;; ---- an outline under construction, threaded through the tracer ----
 
@@ -309,7 +308,7 @@
    :width-local (a constant width) or :knot-scale over the knot widths with
    :fallback-width, :width-fn (pressure, s → width), :dash [on off],
    :dash-phase. The returned path is the skin, one closed outline per open
-   piece and a ring per closed piece, to be filled nonzero. :polylines are
+   piece for the policy tracer; round nibs keep capsule loops, filled nonzero. :polylines are
    the flattened centerlines with radii, for distance answers."
   [path stroke opts]
   (let [width-of (width-of-fn opts)
@@ -318,8 +317,16 @@
     (envelope-result
      (reduce
      (fn [acc sp]
-       (let [flat (v/flatten-subpath (v/explicit-close sp) tol width-of (:width-fn opts))
-             points (dedupe-points (:points flat) (:closed? flat))]
+       (let [flat (nib/flatten-stroke sp tol width-of (:width-fn opts))
+             ;; Coincident centers with different radii are meaningful to
+             ;; the disc union. Only the policy tracer needs deduplication.
+             round-nib? (and (= :nib tip) (= :round (:join stroke))
+                             (= :round (:cap stroke))
+                             (or (not (:closed? sp)) (= :center (:align stroke))))
+             points (if round-nib? (:points flat) (dedupe-points (:points flat) (:closed? flat)))
+             points (if (and round-nib? (:closed? flat) (> (count points) 1)
+                             (= (select-keys (first points) [:x :y :w])
+                                (select-keys (peek points) [:x :y :w]))) (pop points) points)]
          (cond
            (= 1 (count points))
            (let [p (first points) r (/ (or (:w p) 0.0) 2.0)]
@@ -339,6 +346,16 @@
              (reduce
               (fn [acc run]
                 (cond
+                  round-nib?
+                  (let [pts (with-radius (:points run) 0.5)
+                        path (nib/swept-nib pts (:closed? run) tol)]
+                    (-> acc
+                        (update :out (fn [out]
+                                       (-> (reduce add-subpath out (:subpaths path))
+                                           (update :arcs + (:quads (v/stats path))))))
+                        (update :pieces + (if (:closed? run) (count pts) (dec (count pts))))
+                        (update :polylines conj pts)
+                        (update (if (:closed? run) :closed :open) inc)))
                   (< (count (:points run)) 2) acc
                   (and (:closed? run) (> (count (:points run)) 2))
                   (let [[out pieces] (stroke-closed (:out acc) (:points run) stroke tip sp)]

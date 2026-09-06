@@ -36,6 +36,7 @@
     app.client.path.value-test
     app.client.path.source-test
     app.client.path.stroke-test
+    app.client.path.nib-test
     app.client.path.pack-test
     app.client.engine.expression-test
     app.client.engine.executor-test

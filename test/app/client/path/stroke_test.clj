@@ -27,11 +27,11 @@
         result (stroke/envelope path (component/stroke-defaults (get-in fixtures/harness-z [:path/paint :stroke]))
                                 (options fixtures/harness-z 1.0))
         st (v/stats (:path result))]
-    (testing "3 pieces → 10 lines + 16 arc quads, one closed outline (HANDOVER.md, harness Z)"
+    (testing "the definer's three segments form one union, independent of the tracer's curve count"
       (is (= 3 (:pieces result)))
       (is (= 1 (:open result)))
-      (is (= 16 (:arcs result)))
-      (is (= {:subpaths 1 :lines 10 :quads 16} (select-keys st [:subpaths :lines :quads])))
+      (is (= :inside (component/classify fixtures/harness-z (:point z-crossing))))
+      (is (= :outside (component/classify fixtures/harness-z [5.0 5.0])))
       (is (every? :closed? (:subpaths (:path result)))))))
 
 (deftest the-nib-leans-with-the-taper-and-the-ribbon-does-not

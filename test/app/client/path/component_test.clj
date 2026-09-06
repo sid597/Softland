@@ -96,3 +96,12 @@
          (component/component-content-hash (assoc fixtures/harness-z :path/revision 99 :path/material-id :other))))
   (is (not= (component/component-content-hash fixtures/harness-z)
             (component/component-content-hash fixtures/z-as-dabs))))
+
+(deftest classification-intersects-the-returned-clip
+  (let [skin (:path (first (:regions (component/run fixtures/harness-z {}))))
+        clipped (assoc-in fixtures/holed-concave [:path/paint :clip] {:path skin :rule :nonzero})]
+    (doseq [point [[30.0 60.0] [60.0 40.0] [100.0 70.0]]]
+      (is (= :inside (component/classify fixtures/holed-concave point)))
+      (is (= :outside (component/classify clipped point)) (str "judge A4 " point)))
+    (is (= :inside (component/classify clipped [90.0 90.0])))
+    (is (= :outside (component/classify (assoc-in clipped [:path/paint :clip :path] {:subpaths []}) [90.0 90.0])))))

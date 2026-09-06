@@ -1,5 +1,15 @@
 # The path folder, one notch down
 
+Production note, 2026-09-07: the account below describes the Claude baseline
+merged by `dd5d34b`. The current folder map is `src/app/client/path/README.md`.
+The production geometry uses `path/nib.cljc` for the centered round union;
+`nib_test.clj` pins nonlinear union and containing discs, `frame_test.clj`
+pins value keys, and `component_test.clj` pins clipped classification.
+The baseline's curve counts and its unqualified geometry claims below are
+historical receipts, not claims about the production tree. Final production
+handoff: `production/HANDOFF-1.md` (pending during implementation).
+
+
 2026-09-06, the Claude builder session, branch `waist/path-claude`. The folder's own map is `src/app/client/path/README.md` (one box per file). This is the notch below it: the functions inside each file, what goes in, what comes out, why that piece exists. No verdicts here; the receipts are in `HANDOFF-client-claude.md`.
 
 ## The story in plain words

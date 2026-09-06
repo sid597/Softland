@@ -45,3 +45,10 @@
   (is (= {:scale 1.5 :pan [121.0 62.0]} (frame/item-view {:zoom 3.0 :pan [1.0 2.0]} (get transforms 17))))
   (is (= {:scale 3.0 :pan [0.0 0.0]} (frame/item-view {:zoom 3.0} nil)) "no transform is the identity at the root")
   (is (= {:scale 1.0 :pan [0.0 0.0]} (frame/item-view {:zoom 3.0 :pan [1.0 2.0]} (get transforms 18)))))
+
+(deftest different-regions-never-alias-through-a-hash
+  (let [a {:path {:subpaths [{:closed? true :start [0.0 0.0] :segments []}]} :rule :nonzero}
+        b (assoc-in a [:path :subpaths 0 :start] [100.0 100.0])]
+    (with-redefs [clojure.core/hash (constantly 1096847375)]
+      (is (not= (frame/region-key a) (frame/region-key b)) "judge A3: equal hashes are not equal paths")
+      (is (= (:path a) (first (frame/region-key a))) "the key carries the value itself"))))

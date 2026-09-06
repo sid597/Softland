@@ -34,3 +34,5 @@ Component values describe input. Derived representations can be reconstructed fr
 The [browser build configuration](../../../shadow-cljs.edn) enters the render verifier through the harness. That entry exercises rendering with controlled fixtures; it does not establish an interactive product path. External asset formats, browser behavior and libraries remain dependencies of the corresponding family.
 
 To zoom in, open a folder map, then a source file's namespace docstring, then a function's docstring. To zoom out, follow the containing folder's map. Folder maps describe immediate children; file and function explanations live with their code. [Agent upkeep instructions](AGENTS.md) describe how to keep those levels consistent during changes.
+
+Path production geometry: [path/README.md](path/README.md) maps the capsule union and declared stroke policies; evidence is in `test/app/client/path/{nib,stroke,component,frame}_test.clj`.

@@ -296,17 +296,27 @@
    around every outline. The same definition the filler estimates."
   [regions point slop]
   (let [[x y] point
-        inside? (some (fn [r] (and (:pack r) (pack/inside? (:pack r) (:rule r) x y))) regions)
-        distance (reduce min ##Inf (map (fn [r] (if (:pack r) (pack/outline-distance (:pack r) point) ##Inf)) regions))]
-    (cond
-      (<= distance (+ slop 1.0e-9)) :boundary
-      inside? :inside
-      :else :outside)))
+        answer (fn [r]
+                 (cond
+                   (nil? (:pack r)) :outside
+                   (<= (pack/outline-distance (:pack r) point) (+ slop 1.0e-9)) :boundary
+                   (pack/inside? (:pack r) (:rule r) x y) :inside
+                   :else :outside))
+        answers (map (fn [r]
+                       (let [body (answer r) clip (if-let [clip (:clip r)] (answer clip) :inside)]
+                         (cond (or (= :outside body) (= :outside clip)) :outside
+                               (or (= :boundary body) (= :boundary clip)) :boundary
+                               :else :inside))) regions)]
+    (cond (some #{:inside} answers) :inside
+          (some #{:boundary} answers) :boundary
+          :else :outside)))
 
 (defn painted-regions
   "Record and view → the run's painted regions with packs attached."
   [record view]
-  (mapv (fn [r] (assoc r :pack (region-pack r))) (:regions (run record view))))
+  (let [result (run record view)
+        clip (when-let [clip (:clip result)] (assoc clip :pack (region-pack clip)))]
+    (mapv (fn [r] (cond-> (assoc r :pack (region-pack r)) clip (assoc :clip clip))) (:regions result))))
 
 (defn classify
   "Record, point, optional slop (≥ 0, local units) → tri-state; a bad slop

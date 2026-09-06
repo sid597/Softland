@@ -16,6 +16,7 @@
     app.client.path.value-test
     app.client.path.source-test
     app.client.path.stroke-test
+    app.client.path.nib-test
     app.client.path.pack-test
     app.client.path.component-test
     app.client.path.frame-test])

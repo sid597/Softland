@@ -73,4 +73,4 @@
    the rule. The bucket sits inside the entry, because a region without
    cubics packs once for every bucket."
   [region]
-  [(hash (:path region)) (:rule region)])
+  [(:path region) (:rule region)])
