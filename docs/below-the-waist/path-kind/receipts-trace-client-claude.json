@@ -1,0 +1,913 @@
+{
+ "parity": [
+  {
+   "zoom": 0.01,
+   "mismatch-count": 0,
+   "boundary-band-screen-px": 1.25,
+   "inside-count": 5040,
+   "mismatch-sample": [],
+   "decisive-count": 15456,
+   "pass?": true,
+   "outside-count": 10416,
+   "lod": "legal-zoom-range-sentinel",
+   "case-id": "legal-min-z0p01"
+  },
+  {
+   "zoom": 0.1,
+   "mismatch-count": 0,
+   "boundary-band-screen-px": 1.25,
+   "inside-count": 5040,
+   "mismatch-sample": [],
+   "decisive-count": 15456,
+   "pass?": true,
+   "outside-count": 10416,
+   "lod": "engine-default-clamp",
+   "case-id": "default-min-z0p1"
+  },
+  {
+   "zoom": 1,
+   "mismatch-count": 0,
+   "boundary-band-screen-px": 1.25,
+   "inside-count": 5040,
+   "mismatch-sample": [],
+   "decisive-count": 15456,
+   "pass?": true,
+   "outside-count": 10416,
+   "lod": "engine-default-clamp",
+   "case-id": "default-unit-z1"
+  },
+  {
+   "zoom": 8,
+   "mismatch-count": 0,
+   "boundary-band-screen-px": 1.25,
+   "inside-count": 5040,
+   "mismatch-sample": [],
+   "decisive-count": 15456,
+   "pass?": true,
+   "outside-count": 10416,
+   "lod": "engine-default-clamp",
+   "case-id": "default-max-z8"
+  },
+  {
+   "zoom": 10,
+   "mismatch-count": 0,
+   "boundary-band-screen-px": 1.25,
+   "inside-count": 5040,
+   "mismatch-sample": [],
+   "decisive-count": 15456,
+   "pass?": true,
+   "outside-count": 10416,
+   "lod": "legal-zoom-range-sentinel",
+   "case-id": "legal-log-z10"
+  },
+  {
+   "zoom": 100,
+   "mismatch-count": 0,
+   "boundary-band-screen-px": 1.25,
+   "inside-count": 5040,
+   "mismatch-sample": [],
+   "decisive-count": 15456,
+   "pass?": true,
+   "outside-count": 10416,
+   "lod": "legal-zoom-range-sentinel",
+   "case-id": "legal-log-z100"
+  },
+  {
+   "zoom": 1000,
+   "mismatch-count": 0,
+   "boundary-band-screen-px": 1.25,
+   "inside-count": 5040,
+   "mismatch-sample": [],
+   "decisive-count": 15456,
+   "pass?": true,
+   "outside-count": 10416,
+   "lod": "legal-zoom-range-sentinel",
+   "case-id": "legal-max-z1000"
+  }
+ ],
+ "color": {
+  "legacy": {
+   "mode": "legacy-direct",
+   "expected": [
+    105,
+    63,
+    65
+   ],
+   "actual": [
+    105,
+    63,
+    64
+   ],
+   "max-byte-delta": 1,
+   "pass?": true
+  },
+  "linear-premultiplied": {
+   "mode": "linear-premultiplied",
+   "expected": [
+    151,
+    101,
+    119
+   ],
+   "actual": [
+    151,
+    101,
+    120
+   ],
+   "max-byte-delta": 1,
+   "pass?": true
+  },
+  "pass?": true
+ },
+ "region-meaning": {
+  "edge": {
+   "pixel": [
+    24,
+    60
+   ],
+   "cpu": 0.48,
+   "gpu": 0.47843137254901963
+  },
+  "text-filler": "coverage",
+  "clip-probes": [
+   {
+    "pixel": [
+     90,
+     90
+    ],
+    "in-z?": true,
+    "alpha": 0.9607843137254902,
+    "shape-alpha": 0.9607843137254902
+   },
+   {
+    "pixel": [
+     30,
+     60
+    ],
+    "in-z?": false,
+    "alpha": 0,
+    "shape-alpha": 0.9607843137254902
+   },
+   {
+    "pixel": [
+     60,
+     40
+    ],
+    "in-z?": false,
+    "alpha": 0,
+    "shape-alpha": 0.9607843137254902
+   },
+   {
+    "pixel": [
+     100,
+     70
+    ],
+    "in-z?": false,
+    "alpha": 0,
+    "shape-alpha": 0.9607843137254902
+   }
+  ],
+  "clip-path-from": "z-skin",
+  "notch": 0,
+  "interior": 0.9607843137254902,
+  "pass?": true,
+  "hole": 0,
+  "nonzero-hole": 0.9607843137254902
+ },
+ "trace": {
+  "target": [
+   1024,
+   1024
+  ],
+  "scenes": [
+   {
+    "n": 50,
+    "records": {
+     "draw": 34,
+     "pen": 8,
+     "border": 8
+    },
+    "regions": 66,
+    "curves": 17862,
+    "geometry-alone-ms": 41.5,
+    "packing-alone-ms": 39.399999998509884,
+    "frames": [
+     {
+      "prepare-ms": 106.80000000074506,
+      "encode-ms": 0.09999999776482582,
+      "gpu-ms": 153.80000000074506,
+      "counts": {
+       "changed?": true,
+       "runs": 50,
+       "packs": 66,
+       "instance-writes": 66,
+       "instances": 66
+      },
+      "frame": "first"
+     },
+     {
+      "prepare-ms": 0.10000000149011612,
+      "encode-ms": 0.09999999776482582,
+      "gpu-ms": 0.8000000007450581,
+      "counts": {
+       "changed?": false,
+       "runs": 0,
+       "packs": 0,
+       "instance-writes": 0,
+       "instances": 66
+      },
+      "frame": "repeat"
+     },
+     {
+      "prepare-ms": 1.4000000022351742,
+      "encode-ms": 0,
+      "gpu-ms": 1.2999999970197678,
+      "counts": {
+       "changed?": true,
+       "runs": 0,
+       "packs": 0,
+       "instance-writes": 1,
+       "instances": 66
+      },
+      "frame": "colour-edit"
+     },
+     {
+      "prepare-ms": 1.300000000745058,
+      "encode-ms": 0,
+      "gpu-ms": 1.1000000014901161,
+      "counts": {
+       "changed?": true,
+       "runs": 0,
+       "packs": 0,
+       "instance-writes": 1,
+       "instances": 66
+      },
+      "frame": "restore-after-colour"
+     },
+     {
+      "prepare-ms": 4.899999998509884,
+      "encode-ms": 0,
+      "gpu-ms": 1.5,
+      "counts": {
+       "changed?": true,
+       "runs": 1,
+       "packs": 1,
+       "instance-writes": 1,
+       "instances": 66
+      },
+      "frame": "geometry-edit"
+     },
+     {
+      "prepare-ms": 3.400000002235174,
+      "encode-ms": 0.09999999776482582,
+      "gpu-ms": 2.400000002235174,
+      "counts": {
+       "changed?": true,
+       "runs": 1,
+       "packs": 1,
+       "instance-writes": 1,
+       "instances": 66
+      },
+      "frame": "restore-after-geometry"
+     },
+     {
+      "prepare-ms": 2.7999999970197678,
+      "encode-ms": 0,
+      "gpu-ms": 2.5,
+      "counts": {
+       "changed?": true,
+       "runs": 8,
+       "packs": 0,
+       "instance-writes": 0,
+       "instances": 66
+      },
+      "frame": "pan"
+     },
+     {
+      "prepare-ms": 5.200000002980232,
+      "encode-ms": 0,
+      "gpu-ms": 2.2999999970197678,
+      "counts": {
+       "changed?": true,
+       "runs": 8,
+       "packs": 16,
+       "instance-writes": 16,
+       "instances": 66
+      },
+      "frame": "zoom-inside-bucket"
+     },
+     {
+      "prepare-ms": 5.900000002235174,
+      "encode-ms": 0.09999999776482582,
+      "gpu-ms": 2.5,
+      "counts": {
+       "changed?": true,
+       "runs": 8,
+       "packs": 24,
+       "instance-writes": 66,
+       "instances": 66
+      },
+      "frame": "zoom-across-bucket"
+     }
+    ]
+   },
+   {
+    "n": 400,
+    "records": {
+     "draw": 268,
+     "pen": 66,
+     "border": 66
+    },
+    "regions": 532,
+    "curves": 141252,
+    "geometry-alone-ms": 273.6000000014901,
+    "packing-alone-ms": 268.5999999977648,
+    "frames": [
+     {
+      "prepare-ms": 791.1000000014901,
+      "encode-ms": 0,
+      "gpu-ms": 6.199999999254942,
+      "counts": {
+       "changed?": true,
+       "runs": 400,
+       "packs": 532,
+       "instance-writes": 532,
+       "instances": 532
+      },
+      "frame": "first"
+     },
+     {
+      "prepare-ms": 0.30000000074505806,
+      "encode-ms": 0,
+      "gpu-ms": 3.600000001490116,
+      "counts": {
+       "changed?": false,
+       "runs": 0,
+       "packs": 0,
+       "instance-writes": 0,
+       "instances": 532
+      },
+      "frame": "repeat"
+     },
+     {
+      "prepare-ms": 8.300000000745058,
+      "encode-ms": 0.09999999776482582,
+      "gpu-ms": 2.300000000745058,
+      "counts": {
+       "changed?": true,
+       "runs": 0,
+       "packs": 0,
+       "instance-writes": 1,
+       "instances": 532
+      },
+      "frame": "colour-edit"
+     },
+     {
+      "prepare-ms": 7.100000001490116,
+      "encode-ms": 0,
+      "gpu-ms": 2.5,
+      "counts": {
+       "changed?": true,
+       "runs": 0,
+       "packs": 0,
+       "instance-writes": 1,
+       "instances": 532
+      },
+      "frame": "restore-after-colour"
+     },
+     {
+      "prepare-ms": 11.099999997764826,
+      "encode-ms": 0,
+      "gpu-ms": 2.400000002235174,
+      "counts": {
+       "changed?": true,
+       "runs": 1,
+       "packs": 1,
+       "instance-writes": 1,
+       "instances": 532
+      },
+      "frame": "geometry-edit"
+     },
+     {
+      "prepare-ms": 9.599999997764826,
+      "encode-ms": 0,
+      "gpu-ms": 2.5,
+      "counts": {
+       "changed?": true,
+       "runs": 1,
+       "packs": 1,
+       "instance-writes": 1,
+       "instances": 532
+      },
+      "frame": "restore-after-geometry"
+     },
+     {
+      "prepare-ms": 20.300000000745058,
+      "encode-ms": 0.10000000149011612,
+      "gpu-ms": 2.2999999970197678,
+      "counts": {
+       "changed?": true,
+       "runs": 66,
+       "packs": 0,
+       "instance-writes": 0,
+       "instances": 532
+      },
+      "frame": "pan"
+     },
+     {
+      "prepare-ms": 42.20000000298023,
+      "encode-ms": 0,
+      "gpu-ms": 3.699999999254942,
+      "counts": {
+       "changed?": true,
+       "runs": 66,
+       "packs": 132,
+       "instance-writes": 132,
+       "instances": 532
+      },
+      "frame": "zoom-inside-bucket"
+     },
+     {
+      "prepare-ms": 45.899999998509884,
+      "encode-ms": 0.10000000149011612,
+      "gpu-ms": 2.800000000745058,
+      "counts": {
+       "changed?": true,
+       "runs": 66,
+       "packs": 198,
+       "instance-writes": 532,
+       "instances": 532
+      },
+      "frame": "zoom-across-bucket"
+     }
+    ]
+   },
+   {
+    "n": 1600,
+    "records": {
+     "draw": 1068,
+     "pen": 266,
+     "border": 266
+    },
+    "regions": 2132,
+    "curves": 566239,
+    "geometry-alone-ms": 1050.6000000014901,
+    "packing-alone-ms": 979.6999999992549,
+    "frames": [
+     {
+      "prepare-ms": 3107.599999997765,
+      "encode-ms": 0.10000000149011612,
+      "gpu-ms": 17.899999998509884,
+      "counts": {
+       "changed?": true,
+       "runs": 1600,
+       "packs": 2132,
+       "instance-writes": 2132,
+       "instances": 2132
+      },
+      "frame": "first"
+     },
+     {
+      "prepare-ms": 1.199999999254942,
+      "encode-ms": 0,
+      "gpu-ms": 4.600000001490116,
+      "counts": {
+       "changed?": false,
+       "runs": 0,
+       "packs": 0,
+       "instance-writes": 0,
+       "instances": 2132
+      },
+      "frame": "repeat"
+     },
+     {
+      "prepare-ms": 35,
+      "encode-ms": 0.09999999776482582,
+      "gpu-ms": 5.800000000745058,
+      "counts": {
+       "changed?": true,
+       "runs": 0,
+       "packs": 0,
+       "instance-writes": 1,
+       "instances": 2132
+      },
+      "frame": "colour-edit"
+     },
+     {
+      "prepare-ms": 32.30000000074506,
+      "encode-ms": 0.09999999776482582,
+      "gpu-ms": 5.700000002980232,
+      "counts": {
+       "changed?": true,
+       "runs": 0,
+       "packs": 0,
+       "instance-writes": 1,
+       "instances": 2132
+      },
+      "frame": "restore-after-colour"
+     },
+     {
+      "prepare-ms": 34.29999999701977,
+      "encode-ms": 0.10000000149011612,
+      "gpu-ms": 6.899999998509884,
+      "counts": {
+       "changed?": true,
+       "runs": 1,
+       "packs": 1,
+       "instance-writes": 1,
+       "instances": 2132
+      },
+      "frame": "geometry-edit"
+     },
+     {
+      "prepare-ms": 35.30000000074506,
+      "encode-ms": 0.10000000149011612,
+      "gpu-ms": 5.699999999254942,
+      "counts": {
+       "changed?": true,
+       "runs": 1,
+       "packs": 1,
+       "instance-writes": 1,
+       "instances": 2132
+      },
+      "frame": "restore-after-geometry"
+     },
+     {
+      "prepare-ms": 78.89999999850988,
+      "encode-ms": 0.10000000149011612,
+      "gpu-ms": 4.800000000745058,
+      "counts": {
+       "changed?": true,
+       "runs": 266,
+       "packs": 0,
+       "instance-writes": 0,
+       "instances": 2132
+      },
+      "frame": "pan"
+     },
+     {
+      "prepare-ms": 158.80000000074506,
+      "encode-ms": 0.09999999776482582,
+      "gpu-ms": 4.800000000745058,
+      "counts": {
+       "changed?": true,
+       "runs": 266,
+       "packs": 532,
+       "instance-writes": 532,
+       "instances": 2132
+      },
+      "frame": "zoom-inside-bucket"
+     },
+     {
+      "prepare-ms": 184.10000000149012,
+      "encode-ms": 0.09999999776482582,
+      "gpu-ms": 7.900000002235174,
+      "counts": {
+       "changed?": true,
+       "runs": 266,
+       "packs": 798,
+       "instance-writes": 2132,
+       "instances": 2132
+      },
+      "frame": "zoom-across-bucket"
+     }
+    ]
+   }
+  ]
+ },
+ "coverage": "analytic-shared-filler",
+ "product-pick": "membership-by-winding",
+ "records": {
+  "rows": [
+   {
+    "ok?": true,
+    "behaviour-edit-changes?": true,
+    "rename-changes?": false,
+    "name": "draw",
+    "regions": [
+     "stroke"
+    ],
+    "ops": [
+     "source",
+     "envelope"
+    ],
+    "geometry-edit-changes?": true,
+    "pass?": true,
+    "rename-runs": 0,
+    "base": "1fbca7571c57194b2339759cae414e2da78c69863a42393885e64c8044a60049",
+    "reads": [
+     "paint.stroke.geometry",
+     "source",
+     "tool"
+    ]
+   },
+   {
+    "ok?": true,
+    "behaviour-edit-changes?": true,
+    "rename-changes?": false,
+    "name": "pen",
+    "regions": [
+     "fill",
+     "stroke"
+    ],
+    "ops": [
+     "source",
+     "fill-region",
+     "envelope"
+    ],
+    "geometry-edit-changes?": true,
+    "pass?": true,
+    "rename-runs": 0,
+    "base": "aaddbaf66ecba2187ee451122cd85242db3a8ac176d14910defb8d6775ff8a77",
+    "reads": [
+     "paint.fill.rule",
+     "paint.stroke.geometry",
+     "source",
+     "tool"
+    ]
+   },
+   {
+    "ok?": true,
+    "behaviour-edit-changes?": true,
+    "rename-changes?": false,
+    "name": "border",
+    "regions": [
+     "fill",
+     "stroke"
+    ],
+    "ops": [
+     "source",
+     "snap",
+     "fill-region",
+     "envelope"
+    ],
+    "geometry-edit-changes?": true,
+    "pass?": true,
+    "rename-runs": 0,
+    "base": "f8c9f35e7674de5da494ca11c138f4dd952c1d82c098e86f1aacb4cb19f1c3e7",
+    "reads": [
+     "paint.fill.rule",
+     "paint.stroke.geometry",
+     "source",
+     "tool",
+     "view.pan",
+     "view.scale"
+    ]
+   }
+  ],
+  "pass?": true
+ },
+ "pass?": true,
+ "cases": [
+  {
+   "case-id": "holed-concave-default-unit-z1",
+   "zoom": 1,
+   "lod": "bucket-0",
+   "normalization": "screen-constant",
+   "shape-extent-world": 80,
+   "construction": {
+    "ops": [
+     "source",
+     "fill-region"
+    ],
+    "reads": [
+     "paint.fill.rule",
+     "source",
+     "tool"
+    ],
+    "regions": [
+     "fill"
+    ]
+   },
+   "images": [
+    {
+     "mode": "holed-concave",
+     "file": "gpu-path-holed-concave-holed-concave-default-unit-z1.png",
+     "raw-sha256": "3544be76b085f46bd22d142e58e654939fe45cbb6b2f4e7de83eaeab46cc0992",
+     "png": "png/gpu-path-holed-concave-holed-concave-default-unit-z1.png",
+     "determinism": {
+      "first-raw-sha256": "3544be76b085f46bd22d142e58e654939fe45cbb6b2f4e7de83eaeab46cc0992",
+      "second-raw-sha256": "3544be76b085f46bd22d142e58e654939fe45cbb6b2f4e7de83eaeab46cc0992",
+      "byte-identical?": true
+     }
+    }
+   ]
+  },
+  {
+   "case-id": "translucent-self-crossing-legal-z10",
+   "zoom": 10,
+   "lod": "bucket-3",
+   "normalization": "screen-constant",
+   "shape-extent-world": 8,
+   "construction": {
+    "ops": [
+     "source",
+     "envelope"
+    ],
+    "reads": [
+     "paint.stroke.geometry",
+     "source",
+     "tool"
+    ],
+    "regions": [
+     "stroke"
+    ]
+   },
+   "images": [
+    {
+     "mode": "translucent-self-crossing",
+     "file": "gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png",
+     "raw-sha256": "75e4992992ac315ef9375f61e282905b8d6521ac5125b500958911bb6d63dad0",
+     "png": "png/gpu-path-translucent-self-crossing-translucent-self-crossing-legal-z10.png",
+     "determinism": {
+      "first-raw-sha256": "75e4992992ac315ef9375f61e282905b8d6521ac5125b500958911bb6d63dad0",
+      "second-raw-sha256": "75e4992992ac315ef9375f61e282905b8d6521ac5125b500958911bb6d63dad0",
+      "byte-identical?": true
+     }
+    }
+   ]
+  },
+  {
+   "case-id": "tree-containers-cid17-slot1",
+   "zoom": 1,
+   "lod": "bucket-0",
+   "normalization": "path-local-with-world-transforms-group-tree",
+   "shape-extent-world": 32,
+   "buffer-indexes": [
+    0,
+    1
+   ],
+   "unknown-group": {
+    "error-type": "unknown-group",
+    "group-id": 99
+   },
+   "images": [
+    {
+     "mode": "container-tree",
+     "file": "gpu-path-container-tree-tree-containers-cid17-slot1.png",
+     "raw-sha256": "ca96286b8c0db9d50a2ead80d5cb9d79c9d72525c286a43243cfcf3ff1c453ba",
+     "png": "png/gpu-path-container-tree-tree-containers-cid17-slot1.png",
+     "determinism": {
+      "first-raw-sha256": "ca96286b8c0db9d50a2ead80d5cb9d79c9d72525c286a43243cfcf3ff1c453ba",
+      "second-raw-sha256": "ca96286b8c0db9d50a2ead80d5cb9d79c9d72525c286a43243cfcf3ff1c453ba",
+      "byte-identical?": true
+     }
+    }
+   ]
+  }
+ ],
+ "rates": {
+  "zoom-inside-bucket": {
+   "changed?": false,
+   "runs": 0,
+   "packs": 0,
+   "instance-writes": 0,
+   "instances": 1
+  },
+  "group-rescaled": {
+   "changed?": true,
+   "runs": 0,
+   "packs": 0,
+   "instance-writes": 1,
+   "instances": 1
+  },
+  "border-first": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 2,
+   "instance-writes": 2,
+   "instances": 2
+  },
+  "pan": {
+   "changed?": false,
+   "runs": 0,
+   "packs": 0,
+   "instance-writes": 0,
+   "instances": 1
+  },
+  "restore": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 1,
+   "instance-writes": 1,
+   "instances": 1
+  },
+  "geometry-edit": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 1,
+   "instance-writes": 1,
+   "instances": 1
+  },
+  "group-first": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 1,
+   "instance-writes": 2,
+   "instances": 1
+  },
+  "border-pan": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 2,
+   "instance-writes": 2,
+   "instances": 2
+  },
+  "colour-edit": {
+   "changed?": true,
+   "runs": 0,
+   "packs": 0,
+   "instance-writes": 1,
+   "instances": 1
+  },
+  "fractional": {
+   "offset": [
+    0.5,
+    0.25
+   ],
+   "edge-rows": 300,
+   "max-delta": 0.0020735252357539924
+  },
+  "zoom-across-bucket": {
+   "changed?": true,
+   "runs": 0,
+   "packs": 0,
+   "instance-writes": 1,
+   "instances": 1
+  },
+  "pass?": true,
+  "repeat": {
+   "changed?": false,
+   "runs": 0,
+   "packs": 0,
+   "instance-writes": 0,
+   "instances": 1
+  },
+  "pen-first": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 2,
+   "instance-writes": 2,
+   "instances": 2
+  },
+  "first": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 1,
+   "instance-writes": 1,
+   "instances": 1
+  },
+  "border-zoom": {
+   "changed?": true,
+   "runs": 1,
+   "packs": 2,
+   "instance-writes": 2,
+   "instances": 2
+  },
+  "group-moved": {
+   "changed?": false,
+   "runs": 0,
+   "packs": 0,
+   "instance-writes": 0,
+   "instances": 1
+  },
+  "pen-zoom-across-bucket": {
+   "changed?": true,
+   "runs": 0,
+   "packs": 1,
+   "instance-writes": 2,
+   "instances": 2
+  }
+ },
+ "self-overlap-alpha": "one-region-one-resolve",
+ "crossing": {
+  "dab-count": 24,
+  "union-alpha": 0.6196078431372549,
+  "tip": "nib",
+  "edge-max-delta": 0.0020907973155886994,
+  "edge-rows": 200,
+  "dabs-alpha": 0.8549019607843137,
+  "nonlinear": {
+   "rule-holds?": true,
+   "gap-local": 0.12413872691916605,
+   "sub-pixel-gap?": true,
+   "dab": {
+    "x": 60.845728827479675,
+    "y": 61.01174309971759,
+    "r": 4.677200212096453,
+    "p": 0.7646241079851306,
+    "alt-r": 4.801338939015619
+   },
+   "centre": [
+    60,
+    61
+   ],
+   "centre-alpha": 0.8549019607843137
+  },
+  "crossing-pixel": [
+   64,
+   64
+  ],
+  "pass?": true,
+  "dab-instances": 24
+ }
+}
