@@ -21,6 +21,8 @@
             [app.client.path.renderer :as path-renderer]
             [app.client.path.value :as v]
             [app.client.harness.path-production :as production]
+            [app.client.harness.path-push :as push-checks]
+            [app.client.harness.pickup :as pickup]
             [app.client.harness.shared
              :refer [canvas-size zoom-cases promise-mapv sha256-bytes
                      opaque-png-data-url pixel-rgba srgb->linear linear->srgb-byte]]))
@@ -74,7 +76,7 @@
                                                     :usage (bit-or js/GPUBufferUsage.COPY_DST js/GPUBufferUsage.MAP_READ)}))
         camera (js/Float32Array. 6)
         _ (device/update-camera device (:camera-buffer path-system) camera pan-x pan-y (:zoom view 1.0) canvas-size canvas-size)
-        frame (path-renderer/prepare-path-frame! path-system draw-items view world-transforms)
+        frame (push-checks/fixture! path-system draw-items view world-transforms)
         encoder (.createCommandEncoder device)
         pass (.beginRenderPass encoder (clj->js {:colorAttachments [{:view (.createView target (clj->js {:format view-format}))
                                                                      :clearValue clear-value :loadOp "clear" :storeOp "store"}]}))]
@@ -159,7 +161,7 @@
                             :path/source {:kind :rect :x 8.0 :y 8.0 :w 32.0 :h 32.0}
                             :path/paint {:fill {:rule :nonzero :color [0.18 0.82 0.58 0.96]}}})
         draw-items [(path-draw-item :path-tree/root record 0) (path-draw-item :path-tree/child record 17)]
-        unknown-error (try (path-renderer/prepare-path-frame! path-system [(path-draw-item :path-tree/missing record 99)] view world-transforms)
+        unknown-error (try (path-renderer/push! path-system {:upsert {:path-tree/missing {:path/material record :container 99}} :groups world-transforms})
                            nil
                            (catch :default error (ex-data error)))]
     (-> (render-path-pair! device path-system draw-items view world-transforms clear)
@@ -354,7 +356,7 @@
   (let [z (revisioned records/harness-z)
         border (revisioned records/border)
         view {:zoom 1.0 :pan [0.0 0.0]}
-        prepare (fn [items view wt] (path-renderer/prepare-path-frame! path-system items view wt))
+        prepare (fn [items view wt] (push-checks/fixture! path-system items view wt))
         f1 (prepare [(path-draw-item :rates/z z 0)] view world-transforms)
         f2 (prepare [(path-draw-item :rates/z z 0)] view world-transforms)
         f3 (prepare [(path-draw-item :rates/z (revisioned (assoc-in records/harness-z [:path/paint :stroke :color] [0.1 0.9 0.2 0.62])) 0)] view world-transforms)
@@ -450,11 +452,12 @@
    writes, upload enqueues), the CPU in encode and submit, and the wall
    time from submit to the queue's work done (GPU execution plus waiting;
    on SwiftShader that is software rendering)."
-  [^js device system target-view items view world-transforms]
+  [^js device system target-view diff view world-transforms]
   (let [t0 (js/performance.now)
         [pan-x pan-y] (:pan view)
         _ (device/update-camera device (:camera-buffer system) (js/Float32Array. 6) pan-x pan-y (:zoom view 1.0) trace-size trace-size)
-        frame (path-renderer/prepare-path-frame! system items view world-transforms)
+        frame (push-checks/combine [(path-renderer/frame! system view)
+                                   (path-renderer/push! system diff)])
         t1 (js/performance.now)
         encoder (.createCommandEncoder device)
         pass (.beginRenderPass encoder (clj->js {:colorAttachments [{:view target-view
@@ -467,7 +470,7 @@
       (.then (.onSubmittedWorkDone (.-queue device))
              (fn [_]
                {:prepare-ms (- t1 t0) :encode-ms (- t2 t1) :gpu-ms (- (js/performance.now) t2)
-                :counts (select-keys frame [:changed? :derivations :packs :instance-writes :instances])})))))
+                :counts (select-keys frame [:changed? :derivations :packs :instance-writes :instances :row-ranges-written :row-comparisons])})))))
 
 (defn- trace-scene!
   "Device, buffers, transforms, n → promise of the frame costs at that
@@ -482,7 +485,7 @@
         items (fn [records] (vec (map-indexed (fn [i r] (path-draw-item [:trace i] r 0)) records)))
         base (items records)
         view {:zoom 1.0 :pan [0.0 0.0]}
-        system (path-renderer/init-path-system device "rgba8unorm-srgb" camera groups-buffer
+        system (push-checks/init-fixtures! device "rgba8unorm-srgb" camera groups-buffer {:zoom 1.0 :pan [0.0 0.0]}
                                                :scene-color (scene-color/scene-color true)
                                                :initial-capacity (* 4 n))
         target (.createTexture device (clj->js {:size {:width trace-size :height trace-size :depthOrArrayLayers 1}
@@ -497,12 +500,17 @@
         g2 (js/performance.now)
         edited (assoc records 0 (revisioned (assoc-in (first authored) [:path/source :samples 10 0] 20.0)))
         recoloured (update records 0 #(assoc-in % [:path/paint :stroke :color] [0.9 0.1 0.1 0.85]))
-        frames [[:first base view] [:repeat base view]
-                [:colour-edit (items recoloured) view] [:restore-after-colour base view]
-                [:geometry-edit (items edited) view] [:restore-after-geometry base view]
-                [:pan base {:zoom 1.0 :pan [5.0 -3.0]}]
-                [:zoom-inside-bucket base {:zoom 1.9 :pan [5.0 -3.0]}]
-                [:zoom-across-bucket base {:zoom 2.5 :pan [5.0 -3.0]}]]]
+        placement (fn [r] {:path/material r :container 0})
+        frames [[:first {:upsert (into {} (map (juxt :id #(dissoc % :id))) base)
+                          :order (mapv :id base) :groups world-transforms} view]
+                [:repeat {} view]
+                [:colour-edit {:upsert {[:trace 0] (placement (first recoloured))}} view]
+                [:restore-after-colour {:upsert {[:trace 0] (placement (first records))}} view]
+                [:geometry-edit {:upsert {[:trace 0] (placement (first edited))}} view]
+                [:restore-after-geometry {:upsert {[:trace 0] (placement (first records))}} view]
+                [:pan {} {:zoom 1.0 :pan [5.0 -3.0]}]
+                [:zoom-inside-bucket {} {:zoom 1.9 :pan [5.0 -3.0]}]
+                [:zoom-across-bucket {} {:zoom 2.5 :pan [5.0 -3.0]}]]]
     (-> (promise-mapv (fn [[label its v]]
                         (.then (timed-frame! device system target-view its v world-transforms)
                                (fn [t] (assoc t :frame label))))
@@ -553,7 +561,7 @@
 
 (defn- run-path-color!
   [device path-system camera groups-buffer world-transforms]
-  (let [legacy-system (path-renderer/init-path-system device "rgba8unorm" camera groups-buffer
+  (let [legacy-system (push-checks/init-fixtures! device "rgba8unorm" camera groups-buffer {:zoom 1.0 :pan [0.0 0.0]}
                                                       :scene-color (scene-color/scene-color false))]
     (-> (js/Promise.all #js [(path-color-row! device legacy-system world-transforms false)
                              (path-color-row! device path-system world-transforms true)])
@@ -613,7 +621,7 @@
                      (transform/add-group 19 {:parent 0 :camera :screen}))
         world-transforms (transform/world-transforms registry)
         _ (device/write-groups! device groups-buffer world-transforms)
-        system (path-renderer/init-path-system device "rgba8unorm-srgb" camera groups-buffer
+        system (push-checks/init-fixtures! device "rgba8unorm-srgb" camera groups-buffer {:zoom 1.0 :pan [0.0 0.0]}
                                                :scene-color (scene-color/scene-color true))]
     (-> (promise-mapv (partial run-path-golden! device system world-transforms) [:holed-concave :translucent-self-crossing])
         (.then (fn [cases] (-> (run-path-tree-golden! device system world-transforms) (.then #(conj cases %)))))
@@ -626,12 +634,14 @@
                  (let [capture (fn [system record view group]
                                  (render-path-bytes! device system [(path-draw-item :production record group)] view world-transforms))
                        cold-capture (fn [record view group]
-                                      (let [cold (path-renderer/init-path-system device "rgba8unorm-srgb" camera groups-buffer
+                                      (let [cold (push-checks/init-fixtures! device "rgba8unorm-srgb" camera groups-buffer {:zoom 1.0 :pan [0.0 0.0]}
                                                                                  :scene-color (scene-color/scene-color true))]
                                         (.finally (capture cold record view group) #(path-renderer/destroy-path-system! cold))))]
                    (.then (production/run-checks! (partial capture system) cold-capture) #(assoc state :production %)))))
         (.then (fn [state] (-> (promise-mapv (partial path-parity-row! device system world-transforms) zoom-cases) (.then #(assoc state :parity %)))))
         (.then (fn [state] (-> (run-path-color! device system camera groups-buffer world-transforms) (.then #(assoc state :color %)))))
+        (.then (fn [state] (.then (pickup/run-check!) #(assoc state :pickup %))))
+        (.then (fn [state] (assoc state :push (push-checks/run-checks! device camera groups-buffer world-transforms))))
         (.then (fn [state] (-> (run-scale-trace! device camera groups-buffer world-transforms) (.then #(assoc state :trace %)))))
         (.then (fn [{:keys [cases records crossing region-meaning rates parity color production] :as state}]
                  (let [determinism (mapcat (fn [case] (map :determinism (:images case))) cases)
@@ -641,7 +651,7 @@
                                   (= :transform/unknown-group (get-in (last cases) [:unknown-group :error-type]))
                                   (:pass? records) (:pass? crossing) (:pass? region-meaning) (:pass? rates)
                                   (= 7 (count parity)) (every? :pass? parity)
-                                  (:pass? color) (:pass? production))
+                                  (:pass? color) (:pass? production) (get-in state [:push :pass?]) (get-in state [:pickup :pass?]))
                        result (assoc state
                                      :coverage :analytic-shared-filler
                                      :product-pick :membership-by-winding

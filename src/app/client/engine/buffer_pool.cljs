@@ -3,9 +3,9 @@
 
    Input: device, initial capacity, row width/packer, then successive item
    vectors. Output: an atom-owned pool and a reported update count. State
-   retains the GPU buffer, capacity, preceding items and active length. The
-   implementation compares rows by index; this is positional incremental
-   upload, not identity-aware reconciliation.
+   retains the GPU buffer, capacity, preceding items and active length. Vector callers compare rows by index; direct-range callers name changed
+   rows and the active count, with no population comparison. Evidence:
+   harness/path_push.cljs counts actual queue writes and prior-row comparisons.
 
    Folder map: README.md.")
 
@@ -97,3 +97,29 @@
           (vswap! writes + zero-count))))
     (swap! pool assoc :prev-items new-items :high-water-mark new-count)
     @writes))
+
+(defn write-range!
+  "Pool, first row, changed rows → one queue write, without comparing any
+   previous row. Grows while preserving the active prefix. The caller owns
+   row/range validity; use set-count! after all range writes. Evidence:
+   harness/path_push.cljs instruments the actual queue and pack calls."
+  [pool first-row rows]
+  (let [n (count rows)]
+    (when (pos? n)
+      (ensure-capacity! pool (+ first-row n))
+      (let [{:keys [^js device buffer bytes-per-item pack-fn]} @pool
+            bytes (js/Uint8Array. (* n bytes-per-item))]
+        (doseq [[i row] (map-indexed vector rows)]
+          (let [^js packed (pack-fn row)
+                raw (js/Uint8Array. (.-buffer packed) (.-byteOffset packed) (.-byteLength packed))]
+            (.set bytes raw (* i bytes-per-item))))
+        (.writeBuffer (.-queue device) buffer (* first-row bytes-per-item) bytes)
+        (swap! pool update :high-water-mark max (+ first-row n))))
+    {:ranges (if (pos? n) 1 0) :rows n :comparisons 0}))
+
+(defn set-count!
+  "Pool and active row count → nil. Draws stop at this count; an unused
+   tail needs no clearing upload. Direct-range callers own their row values."
+  [pool n]
+  (swap! pool assoc :high-water-mark n :prev-items nil)
+  nil)

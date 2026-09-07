@@ -22,6 +22,7 @@
     (is (= :complete (:status straight)) (pr-str (dissoc straight :history :results)))
     (is (= :suspended (:status checkpoint)))
     (is (= 12 (:at c)))
+    (is (= :load (:reason (e/resume (assoc-in c [:state :surface :data] (float-array 4)) c/capabilities {}))))
     (is (= 24 (count (get-in straight [:results :dabs]))))
     (is (= 24 (:revision painting)))
     (is (= "paint:23/painted" (:key painting)))
@@ -31,6 +32,7 @@
     (is (= 65536 (alength (:data painting))))
     (is (vb/equal? (:data painting) (get-in tail [:results :surface :data])))
     (is (vb/equal? (:history straight) (:history tail)))
+    (is (= "paint@initial" (get-in straight [:history 0 :steps 0 :snapshot :layers 0 :key])))
     (is (vb/equal? (:subjects straight) (:subjects tail)))
     (is (vb/equal? (:results straight) (:results (e/resume c c/capabilities {}))))
     (doseq [[record reason] [[(assoc-in r/pickup [:path/source :samples 0 2] 0.4) :consumed-items-differ]

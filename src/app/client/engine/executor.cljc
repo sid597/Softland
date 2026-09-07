@@ -103,6 +103,8 @@
       (refuse! :one-loop "One top-level loop; steps use :out, :op and named :args"))
     (when (and each (or (not (keyword? (:item each))) (not (vector? (:fields each)))))
       (refuse! :item-fields "A loop requires an explicit :item and vector :fields"))
+    (when (and each (or (not (map? (:state each))) (not (map? (:next each)))))
+      (refuse! :state "A loop requires initial :state and whole replacement :next maps"))
     (when (and each (contains? root-names (:item each)))
       (refuse! :shadows-root (:item each)))
     (when (some #(= (:item each) (:out %)) all-steps)
@@ -167,7 +169,10 @@
   (reduce
    (fn [{:keys [scope rows producers]} {:keys [out op args]}]
      (let [ctx (assoc ctx :step out)
-           args-value (evaluate args scope)
+           args-value (try (evaluate args scope)
+                           (catch #?(:clj Exception :cljs :default) e
+                             (throw (ex-info #?(:clj (.getMessage e) :cljs (.-message e))
+                                             (assoc (ex-data e) :step out) e))))
            _ (when (some #(and (map? %) (:status %) (not= :resolved (:status %))) (vals args-value))
                (throw (ex-info "An unresolved read cannot be consumed" {:step out :error-type :executor/unresolved-read})))
            value (try ((:run (get capabilities op)) args-value ctx)
@@ -182,7 +187,7 @@
            read-value (when read? (dissoc value :snapshot))
            dependencies (cond-> dependencies read? (conj out))
            row (cond-> {:out out :op op :status (if read? (:status value) :complete)}
-                 read? (merge (select-keys value [:color :contributors :covered? :provisional]))
+                 read? (merge value)
                  (and (map? value) (contains? value :changed)) (assoc :changed (:changed value)))]
        (when read? (swap! reads conj read-value) (swap! read-outputs assoc out read-value))
        {:scope (assoc scope out value) :rows (conj rows row) :producers (assoc producers out dependencies)}))
@@ -191,7 +196,7 @@
 (defn- subjects [program roots results consumed history before-producers before-reads]
   (let [{:keys [reach before transition]} (dependencies program roots)
         loop-reads (vec (for [row history step (:steps row) :when (= :resolved (:status step))]
-                          (dissoc step :out :op)))
+                          (dissoc step :out :op :snapshot)))
         per-output (fn [[out expr]]
                      (let [refs (references expr) state? (some #(= :state (first %)) refs)
                            root-set (cond-> (reach expr before) state? (into transition))
@@ -235,7 +240,9 @@
                   (doseq [i (range start)]
                     (when-not (vb/equal? (nth (:consumed continuation) i) (project-item each (nth items i) i))
                       (refuse! :consumed-items-differ {:at i}))))
-              initial (when each (if continuation (surface/validate-value! (:state continuation))
+              initial (when each (if continuation (try (surface/validate-value! (:state continuation))
+                                                      (catch #?(:clj Exception :cljs :default) e
+                                                        (refuse! :load (ex-data e))))
                                     (evaluate (:state each) scope)))]
           (loop [at start state initial consumed (vec (:consumed continuation)) history (vec (:history continuation))
                  log (vec (:rows before))]

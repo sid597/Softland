@@ -356,9 +356,9 @@
    Selects below-path, region composite and above-path order. Intended for
    explicit overlap evidence."
   [{:keys [region-system surround-path-system]} sides]
-  (let [surround (fn [draw-item-index]
+  (let [surround (fn [placement-id]
                    (let [[first-instance instance-count]
-                         (path-renderer/item-range surround-path-system draw-item-index)]
+                         (path-renderer/item-range surround-path-system placement-id)]
                      (fn [pass]
                        (path-renderer/draw-path-instances! pass surround-path-system
                                                            first-instance instance-count))))
@@ -366,9 +366,9 @@
                  (region3d-renderer/composite-region! pass region-system
                                                  region3d-id))]
     (case sides
-      :sandwich [(surround 0) region (surround 1)]
+      :sandwich [(surround :region3d/below) region (surround :region3d/above)]
       :region [region]
-      :empty [(surround 0)])))
+      :empty [(surround :region3d/below)])))
 
 (defn- region3d-direct-frame!
   "Harness and paint closures → promise of bytes and pass returns; performs
@@ -1160,7 +1160,7 @@
            device groups-buffer world-transforms)
         surround-path-system
         (path-renderer/init-path-system
-         device "rgba16float" camera groups-buffer
+         device "rgba16float" camera groups-buffer {:zoom 1.0 :pan [0.0 0.0]}
          :initial-capacity 16
          :scene-color (scene-color/scene-color true))
         surround-draw-items
@@ -1178,8 +1178,9 @@
            [[10.0 58.0] [118.0 58.0] [118.0 70.0] [10.0 70.0]]
            [0.98 0.72 0.12 0.88])
           0)]
-        _ (path-renderer/prepare-path-frame!
-           surround-path-system surround-draw-items {:zoom 1.0 :pan [0.0 0.0]} world-transforms)
+        _ (path-renderer/push!
+           surround-path-system {:upsert (into {} (map (juxt :id #(dissoc % :id))) surround-draw-items)
+                                 :order (mapv :id surround-draw-items) :groups world-transforms})
         region-system (region3d-renderer/ensure-region3d-system!
                        device camera groups-buffer)
         compositor (compositor-gpu/create-compositor!

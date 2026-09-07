@@ -375,25 +375,32 @@
             (assoc empty-state :packs (select-keys (:packs state) keys))
             keys)))
 
+(defn remove!
+  "Atlas and named pack keys → {:dropped :moved}. Remove only those keys;
+   compaction keeps the existing threshold and reports every relocated slot.
+   Evidence: harness/path_push.cljs (removal/compaction and row counters)."
+  [atlas keys]
+  (let [before @(:!state atlas)
+        dropped (set (filter #(contains? (:slots before) %) keys))
+        texels (reduce + 0 (map #(get-in before [:slots % :curve-texels]) dropped))
+        compact? (and (seq dropped) (> (+ (:garbage before) texels) (/ (get-in before [:curves :fill]) 2)))]
+    (when (seq dropped)
+      (swap! (:!state atlas)
+             (fn [state]
+               (let [state (-> state (update :slots #(apply dissoc % dropped))
+                               (update :packs #(apply dissoc % dropped)) (update :garbage + texels))]
+                 (if compact? (rebuild (:device atlas) state (vec (clojure.core/keys (:slots state)))) state)))))
+    {:dropped dropped
+     :moved (if compact?
+              (set (keep (fn [[key slot]] (when (not= slot (get-in before [:slots key])) key))
+                         (:slots @(:!state atlas)))) #{})}))
+
 (defn retain!
   "Atlas and the set of keys still in use → the count of slots dropped.
    Dropped slots become garbage; when garbage passes half of what is
    written, the live packs are rewritten compactly."
   [atlas keys]
-  (let [state @(:!state atlas)
-        dropped (remove keys (clojure.core/keys (:slots state)))
-        dropped-texels (reduce + (map (fn [k] (get-in state [:slots k :curve-texels])) dropped))]
-    (when (seq dropped)
-      (swap! (:!state atlas)
-             (fn [state]
-               (let [state (-> state
-                               (update :slots #(apply dissoc % dropped))
-                               (update :packs #(apply dissoc % dropped))
-                               (update :garbage + dropped-texels))]
-                 (if (> (:garbage state) (/ (:fill (:curves state)) 2))
-                   (rebuild (:device atlas) state (vec (clojure.core/keys (:slots state))))
-                   state)))))
-    (count dropped)))
+  (count (:dropped (remove! atlas (remove keys (clojure.core/keys (:slots @(:!state atlas))))))))
 
 (defn- flush-plane!
   [^js device plane]

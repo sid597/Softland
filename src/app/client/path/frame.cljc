@@ -42,12 +42,6 @@
      (component/geometry-inputs record iv) (:path/paint record)
      (pack/scale-bucket (:scale iv))]))
 
-(defn frame-key
-  "Draw items, view, world transforms → one item-key per item, in order.
-   Equal keys mean the frame's inputs are unchanged at every level."
-  [draw-items view world-transforms]
-  (mapv (fn [item] (item-key item view world-transforms)) (or draw-items [])))
-
 (defn region-key
   "Region → the key its packs are cached under: the outline's content and
    the rule. The bucket sits inside the entry, because a region without

@@ -23,6 +23,8 @@ flowchart TB
 | [text.cljs](text.cljs) | Drive text layout/packing/rendering and compare selected coverage, source and group behavior. |
 | [image.cljs](image.cljs) | Drive source ingress, sampling/color, residency, preparation and resource reconstruction checks. |
 | [path_production.cljs](path_production.cljs) | Read pixels for device-width zooms, snapped pans, screen groups, retained recipe edits, nonlinear union, containing discs, returned clips and taper; runs inside the repo verifier. |
+| [path_push.cljs](path_push.cljs) | Count real queue writes, row comparisons and per-item checks at 1,600 placements; test atlas relocation and range shifts. Also holds explicit whole-fixture setup for pixel tests. |
+| [pickup.cljs](pickup.cljs) | Run the CPU pickup, continuation bytes and four edits in the browser; export its PNG and text-golden values. The JVM counterpart is `pickup_test.clj`. |
 | [path.cljs](path.cljs) | Drive the definer's records through their constructions and the coverage route; compare CPU membership and coverage with GPU pixels, the crossing's union and dabs, a clip, the frame's rebuild rates and colour. |
 | [region_oracle.cljc](region_oracle.cljc) | Compute CPU reference answers for selected scene, lighting and occlusion checks. |
 | [region.cljs](region.cljs) | Compose explicit Region3D frames and exercise update, lease, pressure, recovery and rejection behavior. |
@@ -46,3 +48,9 @@ pixel samples and scene timings are in `path-step.json` (`dump_result.mjs`).
 The default adapter is headless SwiftShader. The existing
 `RENDER_VERIFIER_HARDWARE=1` dump option selects the desktop adapter; hardware
 results are untested in this production slice.
+
+The repo verifier also compares `test/app/fixtures/render_engine/path-pickup.json`
+against the browser CPU runner. Its full-surface hash was recorded from the JVM
+`pickup-wire save` command; existing GPU image goldens are unchanged in slice A.
+`test/app/client/path/pickup_wire.clj` gives save/resume commands for a continuation
+crossing a fresh JVM. PNGs are evidence exports, not a live product painting UI.

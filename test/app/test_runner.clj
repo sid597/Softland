@@ -41,6 +41,8 @@
     app.client.path.nib-test
     app.client.path.pack-test
     app.client.engine.executor-test
+    app.client.engine.surface-test
+    app.client.path.pickup-test
     app.client.region3d.frame-test
     app.client.region3d.component-test
     app.client.region3d.on-plane-test

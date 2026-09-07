@@ -3,8 +3,8 @@
 [Up: client](../README.md)
 
 The caller keeps the authored tool record and executes its recipe at an edit
-boundary. The renderer takes the resulting `:path/value`, paint and numeric
-parameters. It performs geometry and packing with explicit view inputs;
+boundary. The renderer takes named placement pushes containing the resulting `:path/value`,
+paint and numeric parameters. It performs geometry and packing with explicit view inputs;
 it executes no recipe. `construction_test/geometry-never-executes-a-source-recipe`
 and the browser's `path_production` captures exercise that separation.
 
@@ -31,8 +31,10 @@ flowchart LR
 | [stroke.cljc](stroke.cljc) | Cap/join/alignment/ribbon/dash policies and ordered dabs; one union region for nib overlap. | `stroke_test.clj`; browser crossing check |
 | [nib.cljc](nib.cljc) | Centerline/radius subdivision and round capsule union, retaining containing discs whole. | `nib_test.clj`; browser nonlinear and containing-disc pixels |
 | [pack.cljc](pack.cljc) | Cubic lowering, quads, sorted bands, cover, CPU coverage, snapping. | `pack_test.clj`; browser parity at seven zoom stations |
-| [frame.cljc](frame.cljc) | Complete preparation keys and explicit view inputs; screen groups ignore the world camera. | `frame_test.clj`; browser border and screen-group pixels |
-| [renderer.cljs](renderer.cljs) | Retain geometry/pack values, atlas and instance rows; prepare and draw into the caller's pass. | browser rates, recipe edit, and pixel captures |
+| [frame.cljc](frame.cljc) | Per-placement preparation inputs and explicit view facets; screen groups ignore the world camera. | `frame_test.clj`; browser border and screen-group pixels |
+| [placements.cljc](placements.cljc) | Pure named changes to current geometry, packs, group/view dependents, order and ranges. | `frame_test.clj` |
+| [push.cljs](push.cljs) | Apply affected sets to the atlas and direct row range writer; propagate relocated slots. | `harness/path_push.cljs` |
+| [renderer.cljs](renderer.cljs) | Own the system, pipeline and drawing; expose `push!`/`frame!`. | repo browser verifier, path push and pixel captures |
 | [surface.cljc](surface.cljc) | Bind path coverage and executor step keys into the engine's pure compositor. Paths lower in texel coordinates at quarter-texel tolerance. | `pickup_test.clj`, including the rotated-domain case |
 | [records.cljc](records.cljc) | The definer's shared fixtures, used by JVM tests and the browser. | source, stroke, construction tests and browser records check |
 
@@ -60,11 +62,12 @@ The scalar model supports positive uniform scale and translation; correct
 snapping under rotated/sheared groups and one device pixel under nonuniform
 scale or perspective projection are untested.
 
-There is no renderer run cache. Existing geometry reuse remains, keyed by
-its full input value. Pack identity is the actual path and rule; bucket
+There is no renderer run cache. Each placement holds its current geometry
+and complete input, replacing both when the input changes. Pack identity is the actual path and rule; bucket
 covers use the bucket's lower scale, so the first frame's zoom cannot silently
-choose a different cover. Instance rows use full row equality. The browser
-rates and scale trace measure this reuse and separate source execution from
+choose a different cover. Current row inputs are compared only for affected placements; the writer
+accepts explicit ranges and compares no prior rows (`harness/path_push.cljs`). The browser
+rates and scale trace use named edits and separate source execution from
 preparation; no new memo, bucket or atlas was added. These measurements do
 not establish interactive scene capacity. `frame_test/different-regions-never-alias-through-a-hash`
 is the hash-collision regression (A3).
@@ -89,11 +92,13 @@ consumes the same value and carries the packed clip (`region3d/path_placement_te
 Caller order, camera/group buffers, scissors and pass lifetime stay with the
 caller; the Region3D tree golden exercises the placed-ink draw.
 
-The repository browser verifier is green after intentional recording of
-the self-crossing and placed-ink tree goldens; other goldens and shader
-digests are unchanged. The [production handoff](../../../../docs/below-the-waist/path-kind/production/HANDOFF-1.md)
-links the verifier, pixel comparison and the broader client pure suite's
-pre-existing placed-text error. Nearest-outline distance remains a distance
+The broader client pure suite remains red on the pre-existing placed-text
+provider error. The [pickup and push handoff](../../../../docs/below-the-waist/path-kind/production/HANDOFF-2.md)
+links that receipt, the focused suite and the passing repository browser
+verifier. This slice adds a CPU pickup text golden; the GPU goldens and shader
+digests match. The [first production handoff](../../../../docs/below-the-waist/path-kind/production/HANDOFF-1.md)
+records the earlier intentional self-crossing and placed-ink tree goldens.
+Nearest-outline distance remains a distance
 to contributor outlines; exact external-boundary distance for overlapping
 unions and clips is untested.
 
@@ -127,3 +132,29 @@ compare by contents through `value-bytes/equal?`, never host array identity
 or a hash. The unchanged run and byte-resumed run have equal painting bytes,
 history and subjects. The returned surface is a CPU value; showing it in the
 scene through the renderer is **not implemented**.
+`test/app/client/path/pickup_wire.clj` saves and resumes in separate JVMs;
+the browser harness round trip stays in one page. Exchanging a continuation
+between the JVM and browser is **untested**.
+
+`renderer/init-path-system` takes the initial view after the camera and group
+buffers. `push!` takes `{:upsert {placement-id {:path/material component
+:container group-id}} :remove #{placement-id} :order [placement-id …]
+:groups world-transforms}`; omit order/groups when unchanged. The same material
+in two groups is two placements, and its caller names both on a material edit.
+`frame!` takes just the view. A pan checks snapped world placements; a zoom
+checks world placements because even a quadratic region's cover depends on
+the pack bucket. Screen groups ignore the world camera. Geometry reruns only
+when its full declared inputs change (`frame_test.clj`).
+
+The system retains current values, group membership, view-dependent id sets,
+pack users and row ranges. A color edit prepares its placement and directly
+writes its range. A geometry edit updates only that placement's geometry and
+region packs; a changed row count shifts later ranges. Removing the last user
+of a pack removes that named atlas key. Existing atlas compaction may move
+surviving slots; every placement using a moved slot gets new rows. Reorder and
+range shifts also appear in `:reran :rows`. `item-range` takes a placement id.
+The physical receipt `harness/path_push.cljs` counts queue writes, packed rows,
+prior-row comparisons and per-item input checks for one edit among 1,600; it
+also compares a compaction survivor's packed row with a fresh renderer.
+`prepared-rows` explicitly materializes the population for inspection; frames
+and named edits do not call it. No Missionary wiring is implemented.

@@ -534,11 +534,23 @@ const main = async () => {
   const guards = laneGuards(result, manifest);
   const goldens = representativeGoldens(result, manifest);
   const dejavuSlugGoldens = slugGoldens(result, manifest);
+  // CPU reference bytes are recorded from pickup-wire's JVM save command.
+  // Browser execution must reproduce that full float32 surface, not just
+  // report a passing flag or match the selected texel within a tolerance.
+  const pickupExpected = JSON.parse(fs.readFileSync(
+    path.join(repoRoot, "test/app/fixtures/render_engine/path-pickup.json"), "utf8"));
+  const pickup = result.pathStep?.pickup;
+  const pickupGolden = {
+    expected: pickupExpected,
+    actual: Object.fromEntries(Object.keys(pickupExpected).map((key) => [key, pickup?.[key]])),
+    pass: pickup?.pass === true && Object.entries(pickupExpected).every(
+      ([key, value]) => JSON.stringify(pickup?.[key]) === JSON.stringify(value)),
+  };
   const pass =
     guards.every((guard) => guard.pass) &&
     goldens.every((row) => row.pass) &&
     dejavuSlugGoldens.length === 7 &&
-    dejavuSlugGoldens.every((row) => row.pass);
+    dejavuSlugGoldens.every((row) => row.pass) && pickupGolden.pass;
   const receipt = {
     schemaVersion: 1,
     verifier: result.harness,
@@ -548,6 +560,7 @@ const main = async () => {
     guards,
     shaderDigests: result.shaderDigests,
     dejavuSlugGoldens,
+    pickupGolden,
     ubuntuSlug: {
       text: result.ubuntuSlug?.text,
       faceIds: result.ubuntuSlug?.faceIds,
@@ -566,6 +579,7 @@ const main = async () => {
       pass,
       guards,
       dejavuSlugGoldens,
+      pickupGolden,
       ubuntuSlug: receipt.ubuntuSlug,
       representativeGoldens: goldens.map(({ family, file, pass: rowPass }) => ({
         family,

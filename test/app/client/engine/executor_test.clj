@@ -39,6 +39,7 @@
       (is (= reason (:reason (executor/run (edit record) {} t)))))
     (is (zero? @calls))
     (is (= :error (:status (executor/run (assoc-in record [:program :steps 0 :args :value] [:get :absent]) {} t))))
+    (is (= :ok (:step (executor/run (assoc-in record [:program :steps 0 :args :value] [:get :absent]) {} t))))
     (is (zero? @calls))
     (is (= :complete (:status (executor/run (assoc-in record [:program :steps 0 :args] {:alternative 3}) {} t)))))
   (is (= :unknown-field (:reason (executor/run (assoc-in sum-record [:program :each :fields] []) {} table))))
