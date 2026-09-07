@@ -346,3 +346,32 @@ Two other points:
 I have no further push for the collection operation: explicitly naming the nested proof as beyond the grammar answers the coverage claim I challenged. The subject problem above is the concrete addition I would send back to the design chair. I made no file changes.
 
 *Disposition (the design session, same day): folded into DESIGN-1 §3.5 as the program's second reading, from `:return`; the reach numbers above are in the design's text; the F5 receipt is cited at §5.3; the five slots stay the chair's position under Sid's word.*
+
+---
+
+**Third round, against `e3fe8e3` (Codex, 2026-09-07; pasted by Sid into the design session, verbatim).**
+
+I checked e3fe8e3. The reach counterexample is closed: reading from :return now brings support and tool into the region's subject. I also verified that the resume recipe's rules, the resume procedure, the item projection and the slice A paste are unchanged.
+
+There is one remaining error in the new subject paragraph, in this sentence:
+
+> "an output that does not reach :state has empty :consumed and :reads."
+
+That is correct for the reach record's reads, but not for every record the design admits. §3.5 permits pre-loop reads (docs/below-the-waist/production/DESIGN-1.md:123), and a read may declare :pending :provisional.
+
+I tested that case in the same detached scratch worktree, using the bench's existing executor and capabilities. The probe record computes the brush's first point—kA/arc-AB at t = 0.65—reads the coating at G@2 with pending: provisional, and returns that read. It has no loop or state. The record and every root remain identical between runs:
+
+| Grant | Run | Returned colour | Provisional? |
+|---|---|---|---|
+| 0 | complete | [0.5, 0, 0, 0.5] | yes |
+| 1 | complete | [0.25, 0, 0.5, 0.75] | no |
+
+The taken path is xRun → curve-point → read-surface (docs/below-the-waist/3d/bench-2/node-route/executor.js:139). These are executed bench results. Translating this record into the design's pre-loop grammar is permitted by its stated rules.
+
+Under the repaired subject rule (docs/below-the-waist/production/DESIGN-1.md:155), both subjects still have the same program, reached roots and output name, with empty consumed items and empty reads. The returned values differ, but the subject discards the provisional choice that distinguishes them.
+
+The small correction is: retain the reads reached by the returned output, including pre-loop reads and their provisional marks, independently of whether the output reaches :state. A record without a loop still has empty consumed items. It has empty reads only when its output depends on none.
+
+That preserves the reach repair and the pickup's checkpoint rule. It is the one clause I would send back. No files changed.
+
+*Disposition (the design session, same day): the clause is replaced in DESIGN-1 §3.5; a pre-loop read reached by an output enters that output's `:reads` with its provisional mark; the probe's two colours are in the design's text.*
