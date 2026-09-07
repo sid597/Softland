@@ -21,13 +21,13 @@
                 :path/source {:kind :designer-defined :width 32.25}
                 :path/paint {:fill {:rule :nonzero :color [0 0 0 1]}}
                 :path/construction
-                {:steps [{:bind :path :call :rectangle
-                          :args [[:* 2 [:get :source :width]]]}]
+                {:steps [{:out :path :op :rectangle
+                          :args {:width [:* 2 [:get :source :width]]}}]
                  :return [:get :path]}}
         rectangle (fn [w] {:subpaths [{:start [0.0 0.0] :closed? true
                                       :segments [{:kind :line :p [w 0.0]} {:kind :line :p [w 128.0]}
                                                  {:kind :line :p [0.0 128.0]}]}]})
-        value (construction/construct record {:rectangle rectangle})
+        value (construction/construct record {:rectangle {:args [:width] :needs [[:width]] :run (fn [{:keys [width]} _] (rectangle width))}})
         clipped (assoc-in (construction/construct records/harness-z) [:path/paint :clip]
                           {:path (:path/value value) :rule :nonzero})]
     (is (= 64.5 (get-in value [:path/value :subpaths 0 :segments 0 :p 0])))
@@ -38,17 +38,17 @@
 
 (deftest geometry-never-executes-a-source-recipe
   (let [value (construction/construct records/border)]
-    (with-redefs [executor/execute (fn [& _] (throw (ex-info "renderer entered executor" {})))
+    (with-redefs [executor/run (fn [& _] (throw (ex-info "renderer entered executor" {})))
                   construction/construct (fn [& _] (throw (ex-info "renderer entered source" {})))]
       (doseq [scale [0.01 0.1 1.0 8.0 10.0 100.0 1000.0]]
         (is (seq (:regions (component/regions value {:scale scale :pan-fraction [0.25 0.5]}))))))))
 
 (deftest an-unavailable-capability-is-an-explicit-failure
-  (is (= :geometry/arrange
+  (is (= [:geometry/arrange]
          (try (construction/construct (assoc records/harness-z :path/construction
-                                             {:steps [{:call :geometry/arrange}] :return nil}))
+                                             {:steps [{:out :arrangement :op :geometry/arrange :args {}}] :return nil}))
               nil
-              (catch Exception e (:capability (ex-data e)))))))
+              (catch Exception e (:detail (ex-data e)))))))
 
 (deftest returned-width-declarations-carry-their-parameters
   (let [path {:subpaths [{:start [0 0] :closed? false :segments [{:kind :line :p [20 0]}]}]}

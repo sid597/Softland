@@ -12,6 +12,8 @@
 
 (def namespaces
   '[app.client.engine.executor-test
+    app.client.engine.surface-test
+    app.client.path.pickup-test
     app.client.path.value-test
     app.client.path.source-test
     app.client.path.stroke-test

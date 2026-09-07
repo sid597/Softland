@@ -11,7 +11,7 @@
         clip (:path/value (construction/construct records/holed-concave))
         placement {:object-id :ink :address :shared
                    :component (assoc-in ink [:path/paint :clip] {:path clip :rule :even-odd})}
-        result (with-redefs [executor/execute (fn [& _] (throw (ex-info "placed ink ran a recipe" {})))]
+        result (with-redefs [executor/run (fn [& _] (throw (ex-info "placed ink ran a recipe" {})))]
                  (on-plane/placed-ink-regions placement))
         region (first (:regions result))]
     (is (= 1 (count (:regions result))))

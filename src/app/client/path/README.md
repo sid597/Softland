@@ -33,6 +33,7 @@ flowchart LR
 | [pack.cljc](pack.cljc) | Cubic lowering, quads, sorted bands, cover, CPU coverage, snapping. | `pack_test.clj`; browser parity at seven zoom stations |
 | [frame.cljc](frame.cljc) | Complete preparation keys and explicit view inputs; screen groups ignore the world camera. | `frame_test.clj`; browser border and screen-group pixels |
 | [renderer.cljs](renderer.cljs) | Retain geometry/pack values, atlas and instance rows; prepare and draw into the caller's pass. | browser rates, recipe edit, and pixel captures |
+| [surface.cljc](surface.cljc) | Bind path coverage and executor step keys into the engine's pure compositor. Paths lower in texel coordinates at quarter-texel tolerance. | `pickup_test.clj`, including the rotated-domain case |
 | [records.cljc](records.cljc) | The definer's shared fixtures, used by JVM tests and the browser. | source, stroke, construction tests and browser records check |
 
 All JVM evidence above is under `test/app/client/`; browser evidence is in
@@ -45,8 +46,7 @@ The edit boundary is explicit. A source/recipe edit calls `construct`; an
 independent paint edit can update the returned component. The default recipe
 captures its overlap declaration so replacing it with the dabs recipe changes
 the rendered region list (judge A5). Recipes whose paint reads change must
-be run by their caller. Scheduling that caller from a named change is the
-next, unimplemented push-edge question; the harness calls it explicitly.
+be run by their caller. The harness calls construction explicitly; renderer scheduling is described at its entry point below.
 
 Geometry inputs contain path, geometry paint declarations, numeric parameters,
 clip and snap flag. Device width adds projected scale. Snapping adds scale
@@ -104,3 +104,26 @@ Its coincident-center variation loses the later larger disc there;
 `nib_test/a-containing-disc-is-kept-whole` now tests both center orders through
 `stroke/envelope` and pins the explicitly declared radii. No source default
 was changed to make the judge's stated radii appear.
+
+The pickup is `records/pickup`, a fixture record in the same grammar an
+author supplies; it is measured by `pickup_test/the-definers-pickup-and-checkpoint-through-bytes`.
+The caller constructs its path at L0, then passes `construction/program-record`
+and `{:path (:path/value component)}` to `executor/run` with
+`construction/capabilities`. The program calls `:surface/new`, `:path/dabs`,
+`:sample`, `:mix`, and `:paint`; the table declares named `:args` and `:needs`
+groups. The single top-level `:each` declares its `:item`, `:fields`, initial
+`:state`, steps and whole replacement `:next`. `[:get ...]` references values;
+`[:literal ...]` quotes data. No compatibility step syntax remains
+(`engine/executor_test.clj`, `construction_test.clj`).
+
+`run` with `{:until 12}` yields a continuation. `executor/encode` writes its
+UTF-8 EDN bytes, `decode` takes those bytes and the capability table, and
+`resume` takes the continuation, table and options. An edited record or
+caller scope goes under `:record`/`:scope` in those options. The pickup
+consumes `[:x :y :path]` from each dab, so moving the last sample can preserve
+the first twelve projections; changing first pressure, pickup or surface
+dimensions refuses the saved prefix (`pickup_test.clj`). Surface arrays
+compare by contents through `value-bytes/equal?`, never host array identity
+or a hash. The unchanged run and byte-resumed run have equal painting bytes,
+history and subjects. The returned surface is a CPU value; showing it in the
+scene through the renderer is **not implemented**.

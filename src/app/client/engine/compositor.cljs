@@ -1,5 +1,6 @@
 (ns app.client.engine.compositor
-  "Own physical targets, region leases, and presentation.
+  "The compositor's physical side: targets, region leases, and presentation.
+   surface.cljc holds its pure CPU paint/sample operations (surface_test.clj).
 
    Input: device/output format, target/region requests, command encoders,
    desired lease rows. Output: leased target records,
@@ -797,55 +798,6 @@
            :lease-activity @activity)
     {:active active :active-keys active-keys :stale stale
      :rung-stats rung-stats :lease-activity @activity}))
-
-(defn- strip-padded-rows
-  "Mapped bytes, dimensions, padded stride → contiguous RGBA bytes.
-
-   Copies each live row. Serves as a readback primitive."
-  [mapped width height padded-bytes-per-row]
-  (let [row-bytes (* width 4)
-        output (js/Uint8Array. (* row-bytes height))
-        source (js/Uint8Array. mapped)]
-    (dotimes [row height]
-      (.set output
-            (.subarray source (* row padded-bytes-per-row)
-                       (+ (* row padded-bytes-per-row) row-bytes))
-            (* row row-bytes)))
-    output))
-
-(defn- unpremultiply!
-  "RGBA byte array → same mutated array in straight-alpha form.
-
-   Divides nonzero-alpha colors with rounding/clamping. Alpha-zero RGB
-   remains as supplied."
-  [rgba]
-  (loop [index 0]
-    (when (< index (.-length rgba))
-      (let [alpha (aget rgba (+ index 3))]
-        (when (pos? alpha)
-          (let [scale (/ 255.0 alpha)]
-            (aset rgba index (min 255 (js/Math.round (* (aget rgba index) scale))))
-            (aset rgba (+ index 1)
-                  (min 255 (js/Math.round (* (aget rgba (+ index 1)) scale))))
-            (aset rgba (+ index 2)
-                  (min 255 (js/Math.round (* (aget rgba (+ index 2)) scale)))))))
-      (recur (+ index 4))))
-  rgba)
-
-(defn- png-bytes!
-  "RGBA bytes and dimensions → promise of PNG bytes.
-
-   OffscreenCanvas/ImageData encoding. Intended for browser export; depends
-   on those APIs."
-  [rgba width height]
-  (let [canvas (js/OffscreenCanvas. width height)
-        context (.getContext canvas "2d")
-        image-data (js/ImageData. (js/Uint8ClampedArray. (.-buffer rgba))
-                                  width height)]
-    (.putImageData context image-data 0 0)
-    (-> (.convertToBlob canvas #js {:type "image/png"})
-        (.then #(.arrayBuffer %))
-        (.then #(js/Uint8Array. %)))))
 
 (defn compositor-stats
   "Compositor → own statistics plus pool/lease summaries.

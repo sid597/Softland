@@ -18,7 +18,7 @@
 (defn- capture-without-recipes! [capture record view group]
   ;; prepare is synchronous before the capture's readback Promise. A
   ;; renderer entering the executor here fails the browser suite.
-  (with-redefs [executor/execute (fn [& _] (throw (ex-info "renderer ran a recipe" {})))]
+  (with-redefs [executor/run (fn [& _] (throw (ex-info "renderer ran a recipe" {})))]
     (capture record view group)))
 
 (defn- border-check! [capture]

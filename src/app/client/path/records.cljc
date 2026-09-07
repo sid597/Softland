@@ -32,6 +32,31 @@
    interpolated pressure, never interpolated between evaluated widths."
   (assoc-in harness-z [:path/paint :stroke :width] [:* [:get :size] [:pow [:get :p] 2.0]]))
 
+(def pickup
+  "Bench 9 attack 2 in the client's grammar; the production measure is
+   pickup_test.clj (24 dabs, texel, checkpoint and four edits)."
+  {:path/material-id "surface-read" :path/revision 1
+   :path/tool {:size 16 :streamline 0 :fit :polyline :pickup 0.5 :carry [1 0 0 1]}
+   :path/source {:kind :pen :samples z-samples}
+   :path/paint {:fill nil :stroke {:overlap :accumulate :spacing 12 :tip :nib
+                                  :width [:* [:get :size] [:get :p]] :unit :local
+                                  :cap :round :join :round :align :center :color [1 0 0 0.62]}}
+   :path/surface {:surface/id "paint" :revision 0 :width 128 :height 128
+                  :domain {:kind :plane :map [1 0 0 1 0 0]} :color :linear-premultiplied-rgba
+                  :filter :nearest :initial [0 0 1 1]}
+   :path/program
+   {:steps [{:out :fresh :op :surface/new :args {:declaration [:get :surface]}}
+            {:out :dabs :op :path/dabs :args {:path [:get :path] :tool [:get :tool] :stroke [:get :paint :stroke]}}]
+    :each {:items [:get :dabs] :item :dab :fields [:x :y :path]
+           :state {:carry [:get :tool :carry] :surface [:get :fresh]}
+           :steps [{:out :sample :op :sample :args {:surface [:get :state :surface]
+                                                   :point [[:get :dab :x] [:get :dab :y]] :filter :nearest}}
+                   {:out :carry :op :mix :args {:a [:get :state :carry] :b [:get :sample :color] :amount [:get :tool :pickup]}}
+                   {:out :painted :op :paint :args {:surface [:get :state :surface] :region [:get :dab :path]
+                                                   :rgba [:get :carry] :opacity [:get :paint :stroke :color 3] :blend :source-over}}]
+           :next {:carry [:get :carry] :surface [:get :painted]}}
+    :return {:surface [:get :state :surface] :carry [:get :state :carry] :dabs [:get :dabs]}}})
+
 (def pressure-ink
   "The harness's pressure-ink golden: four samples, pressure 0.2 to 1.0."
   {:path/material-id :fixture/pressure
