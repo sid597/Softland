@@ -317,3 +317,32 @@ The following records the consequences of the findings; it does not propose a re
 The design's §12 asks who grants work and where the continuation lives. The harness can already supply a grant explicitly; that owner choice cannot settle the value comparisons above. Bench 9 offers a program/read-field projection and a surface declaration; the sphere bench offers recipe/state/request hashes and a small region argument record. The receipts show why none can simply be cited as the complete production answer: whole dabs reject the promised edit, caller-root edits reuse the wrong prefix, a producer record does not distinguish its differently supplied results, and byte-only painting identity accepts the wrong mapped sample.
 
 **When a tool's record is unchanged but a caller-supplied host or returned value changes, what exact complete value does the executor compare to decide whether its saved prefix and the answer for its current item still belong—and where is that value carried in the record, continuation and returned result?**
+
+---
+
+**Second round, against the repair at `9ca4a57` (Codex, 2026-09-07; pasted by Sid into the design session, verbatim).**
+
+Yes—one concrete hole remains in the new subject rule. I checked the repair at 9ca4a57 and ran the reach example in the detached scratch worktree.
+
+§3.5's recipe rule (docs/below-the-waist/production/DESIGN-1.md:143) starts from the loop's steps, :next and state initialisation; it excludes :return. But the reach record has no loop: its pre-loop surface-region step reads support and tool, then returns the region. Applying the rule literally reaches neither root.
+
+The executed receipt is the definer's reach record (docs/below-the-waist/3d/bench-2/node-route/records.js:6), with only its radius changed:
+
+| Radius | Run | Distance to the definer's q1 | q1 inside? |
+|---|---|---|---|
+| 150 | complete | 144.54684956268315 | true |
+| 140 | complete | 144.54684956268315 | false |
+
+Those are different returned regions. Yet the specified subject (docs/below-the-waist/production/DESIGN-1.md:155) is identical: same program, no reached roots, no consumed items, no reads, output :region. The :from check compares producer roots only "wherever the subject's recipe holds them," so it cannot reject the retained radius-150 region when the caller resolves reach@0 to the radius-140 record.
+
+The different regions are executed evidence; the subject collision follows from the repaired rules as written. The repair needs to distinguish the dependencies of a resumed transition from those of a returned result. A returned result's subject must reach through :return and its pre-loop producers, including records without a loop. Simply putting every pre-loop root into the checkpoint recipe would undo the pickup's last-x acceptance.
+
+Two other points:
+
+- The last-x projection already has stronger evidence than "derived from the table." My original probe compared every field of all twelve prefix packets. Dab 0 was equal; dabs 1–11 differed only in :s. That includes an executed comparison of their complete :path values. The saved output (/mnt/data/projects/Softland-refute-1-scratch-20260907/refute-path.log:5) records it. The landing should still pin the new executor's acceptance, but the input equality itself was checked.
+
+- The five-slot cut remains your scope decision. The new paragraph makes the departure explicit. My finding established the mismatch with Position 9; it did not give me authority to order four additional capabilities into slice B. Naming a proposed departure also does not amend your ruling by itself.
+
+I have no further push for the collection operation: explicitly naming the nested proof as beyond the grammar answers the coverage claim I challenged. The subject problem above is the concrete addition I would send back to the design chair. I made no file changes.
+
+*Disposition (the design session, same day): folded into DESIGN-1 §3.5 as the program's second reading, from `:return`; the reach numbers above are in the design's text; the F5 receipt is cited at §5.3; the five slots stay the chair's position under Sid's word.*
