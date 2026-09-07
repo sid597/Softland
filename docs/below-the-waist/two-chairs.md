@@ -131,6 +131,20 @@ What every prompt leaves out, because each has fired: an output shape, a method 
 
 The comparison stage's departure from committing on `main` ends here; production commits on `main`, one branch, by exact path.
 
+**Read derivation custody — Sid's ruling, 2026-09-07.** The saved job is the
+read, never the brush. The session keeps a paused continuation in its
+uncommitted store under the read it awaits; it never becomes a row. The
+read's full declared inputs as a value are the idempotency key of a request
+row run by the store's own runner, and the result is a derived row under
+that key for later dabs and other tools. The frame caller grants work per
+frame under a budget, without a grant row. Ownership follows whoever holds
+the key, a live view or a record naming it. The stroke's own record is a row
+at the edit boundary, uncommitted before settle. The complete ruling and
+its tested versus unimplemented boundary are
+[DESIGN-1 §12](production/DESIGN-1.md#12-read-derivation-custody--ruled-by-sid-2026-09-07).
+This settles the ownership question; it does not turn derivation custody
+into a cache or authorize a memo without the trace required above.
+
 ## What is preliminary here
 
 This is one round's shape, written by the composer. The 3D round runs the same two chairs and its feedback file is not yet read against this. Phase B has run zero times in its smaller shape; the cost claim (an attack at half a session) is a prediction. The cold-mind attack has not run. The path round closed the same day this was written: Sid ruled Positions 7, 8 and 9 (the page's ledger), the definer drew the line in `path-kind/from-12-to-client.md`, and the implementation rounds start from the two starters in `path-kind/STARTER-client.md`, without contracts, as the paragraph above says. A stance from those rulings belongs in every future round: the best in the field is a datapoint, never the thing to copy, and nothing existing is carried forward because it exists.

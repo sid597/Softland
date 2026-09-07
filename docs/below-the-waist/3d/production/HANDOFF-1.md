@@ -234,4 +234,26 @@ show. No session/store owner or grant scheduler is implemented. When that
 owner lands, the reactive laws remain Missionary's; Electric is not a
 dependency, and reactive wiring is untested in this slice.
 
-Who grants work, and where does a suspended continuation live between a refusal and a grant?
+## Ownership question closed — Sid's ruling, 2026-09-07
+
+The saved job is the **read derivation**. The paused brush continuation
+stays in the session's uncommitted store, keyed by the read it waits on,
+and never becomes a row. The stroke record belongs at the edit boundary,
+uncommitted before settle. The read has a request row under an idempotency
+key equal to its full declared inputs as a value; the store's own runner
+produces a derived row under that key for later dabs and other tools. The
+frame caller grants work per frame under a budget, without a grant row.
+Ownership follows the key held by a live view or a record naming it.
+
+This supersedes both the open question at the original close and the
+proposal that an expensive operation would turn the brush continuation
+into a saved job. Reproduction of the tested brush state is already shown
+by the eager/delayed/cold tests and receipts above. The derivation receives
+custody under its own inputs; the executor's larger consumer request still
+checks whether an answer belongs to a particular step.
+
+[DESIGN-1 §12](../../production/DESIGN-1.md#12-read-derivation-custody--ruled-by-sid-2026-09-07)
+records the complete adopted boundary. Session/store/frame integration is
+**unimplemented and untested** in this slice; this ruling changes ownership
+direction, not the recorded execution results. No ownership decision is
+waiting on Sid before that integration can be designed and landed.

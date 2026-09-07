@@ -479,9 +479,59 @@ Line numbers at `1501b85`; a landing re-checks them against the tree it starts f
 
 ---
 
-## 12. The exact open question the slice leaves
+## 12. Read derivation custody — ruled by Sid, 2026-09-07
 
-Who grants work, and where a suspended continuation lives between a refusal and a grant. The executor takes the grant as an explicit input of a run and returns the continuation as a value; in both slices the only caller is the harness, and it grants by hand, which is the bench's shape and reproduces the definer's numbers. It is not the app's shape. The position this file takes, and does not land: the frame caller grants per frame under the render-seam law (the frame never waits), and a suspended continuation is a value the session holds, resumed when its dependency arrives; because the coating's work is per read and per point, a merge step at a chart location, and a row in the store per pending dab would be a row too many. It stops holding when a read's withheld work is a whole correspondence rather than a step of one (a kernel's history for a fillet, seconds, HANDOFF-5 §6.2's general host), and then the continuation is a row with a revision and a worker resumes it, which is the same value under a different owner. Nothing in §3 changes with the answer; what changes is who calls `resume` and what holds the bytes in between. That is the first design question the 3D landing may bring back through Sid, and this session stays open for it.
+Sid adopted the frame/session default after slice B landed, with this
+correction: **"The thing that becomes a saved job is never the brush. It is
+the read."** This closes the former open question and supersedes this
+section's earlier proposal to persist an expensive operation's brush
+continuation as a row.
+
+| Thing | Ownership and representation — Sid's ruling |
+|---|---|
+| The stroke's record | A row at the edit boundary; uncommitted before settle. |
+| The paused continuation | The session's uncommitted store, keyed by the read it waits on; never a row. |
+| The read it waits on | A derivation job: a request row whose idempotency key is the read's full declared inputs as a value, run by the store's own runner. |
+| The job's result | A derived row under that key, because later dabs and other tools read it. |
+| The grant | The frame caller, per frame, under a budget; not a row. |
+| Ownership | Whoever holds the key: a live view or a record naming it. |
+
+The stroke record plus the derived rows it reads reproduce the paused
+state. That reproducible state needs no custody beyond the session using
+it. The derivation being awaited — for example, coating at a declared
+resolution or a host-distance read — is what receives job/result custody
+under its own full-input key. Sid identifies this as the same rule the
+server's machine cut applies to its own runs; this amendment records his
+ruling and does not claim a new verification of that server implementation.
+
+**Two distinct identities.** The derivation key names that read's full
+declared inputs at its own level. The executor's request (§3.5, with the
+landed phase addition recorded in `3d/production/HANDOFF-1.md`) names the
+consumer transaction as well: recipe, current item, state and position. It
+continues to decide whether an answer belongs to a brush step. It is not
+the shared derivation-job key. Later dabs and other tools can name the same
+derivation key without sharing a brush continuation. The grant is a work
+allowance, not a row or a semantic input to that key. No hash or observed
+read set substitutes for the full declared input value.
+
+**Evidence and implementation boundary.** The sphere brush's eager,
+delayed and cold equality is exercised by
+`test/app/client/region3d/brush_test.clj` →
+`eager-delayed-and-encoded-continuations-keep-the-same-history`, the separate
+JVM commands in `brush_wire.clj`, and the saved
+[receipt](../3d/production/receipts/cold-resume.edn). Answer belonging is
+exercised by `answers-refuse-edited-inputs-and-are-consumed-once` and
+`test/app/client/engine/executor_pending_test.clj`. Provisional execution
+still names the resolved/provisional reads it consumed; differing grant
+schedules can produce different reads and histories
+(`provisional-schedules-are-declared-and-distinct`).
+
+The custody table is **adopted design, not implemented or integration-tested
+by slice B**. The current harness supplies grants manually. Session storage,
+request/result rows, the store runner and ownership by held keys remain to
+be wired under this ruling. No such storage or cache is added by this
+amendment, and no cost or performance claim for those derivations is made
+without a trace.
 
 REFUTE-1 closed with a second question, which this file now answers rather than leaves: when a tool's record is unchanged but a caller-supplied host or a returned value changes, the executor compares the recipe, which holds every root the transition reaches by value, the caller's included (§3.5), and the current item as declared (§3.1); those values are carried in the continuation's `:record` and `:scope`, from which the recipe is read, and in `:consumed`; a returned value carries the computation that made it under `:subject` (§3.5), read from `:return` so that a record without a loop names the roots its result came from, which is what a `:from` input is checked against and what tells two results of one record apart.
 

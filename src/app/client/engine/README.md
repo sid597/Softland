@@ -49,6 +49,15 @@ consumes the known composition and marks the subject/history. Requests carry
 phase as well as item/step position. A continuation keeps committed loop
 state even if replayed pre-loop work pends again, and retains the producer
 records used to check `:from` inputs. Tests: `executor_pending_test.clj`.
-The caller owns grants and continuation storage; no scheduler is implemented.
+The current caller owns grants and continuation storage; no scheduler is
+implemented. [The adopted ownership ruling](../../../../docs/below-the-waist/production/DESIGN-1.md#12-read-derivation-custody--ruled-by-sid-2026-09-07)
+keeps the paused continuation in the session's uncommitted store under the
+read it awaits, never as a row. The store's own runner executes the read's
+request row and produces a derived row under its full declared input value;
+the frame caller grants work per frame, and ownership follows the held key.
+The derivation key is distinct from the executor request used to check answer belonging.
+This store/session/frame integration is **unimplemented and untested**;
+`region3d/brush_test.clj` and `brush_wire.clj` demonstrate continuation
+reproduction under manually supplied reads and grants.
 
 Result subjects include resolved pre-loop reads that feed loop state as well as loop reads; unused pre-loop reads stay out (`executor_pending_test/a-loop-subject-includes-the-read-that-initialized-state`). The sphere brush exercises real withheld binding work, provisional history, stale answers and producer subjects through the same executor (`test/app/client/region3d/brush_test.clj`).
