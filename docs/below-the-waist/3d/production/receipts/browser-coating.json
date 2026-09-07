@@ -1,0 +1,96 @@
+{
+  "key": "pickup-G:3/painted",
+  "revision": 4,
+  "checkpoint": {
+    "at": 0,
+    "bytes": 142770,
+    "committed": 0,
+    "delayed": {
+      "state": true,
+      "history": true,
+      "results": true,
+      "subjects": true
+    },
+    "encoded": {
+      "state": true,
+      "history": true,
+      "results": true,
+      "subjects": true
+    }
+  },
+  "colors": [
+    [
+      0.25,
+      0,
+      0.5,
+      0.75
+    ],
+    [
+      0.5390625,
+      0,
+      0.328125,
+      0.8671875
+    ],
+    [
+      0.5,
+      0,
+      0,
+      0.5
+    ],
+    [
+      0.6631851196289062,
+      0,
+      0.2650909423828125,
+      0.9282760620117188
+    ]
+  ],
+  "cpu-ms": 154.09999999962747,
+  "painted-pixels": 847,
+  "preview": {
+    "file": "cpu-region3d-coating-8x.png",
+    "png": "png/cpu-region3d-coating-8x.png"
+  },
+  "components": 8192,
+  "image-size": [
+    64,
+    32
+  ],
+  "changed": [
+    401,
+    321,
+    405,
+    401
+  ],
+  "pass?": true,
+  "image": {
+    "file": "cpu-region3d-coating.png",
+    "png": "png/cpu-region3d-coating.png"
+  },
+  "sha256": "30cb13f2147784bdae44b4aa303d412c8980f00c09435c0983521cd291d75579",
+  "carries": [
+    [
+      0.8125,
+      0,
+      0.125,
+      0.9375
+    ],
+    [
+      0.744140625,
+      0,
+      0.17578125,
+      0.919921875
+    ],
+    [
+      0.68310546875,
+      0,
+      0.1318359375,
+      0.81494140625
+    ],
+    [
+      0.6781253814697266,
+      0,
+      0.16514968872070312,
+      0.8432750701904297
+    ]
+  ]
+}

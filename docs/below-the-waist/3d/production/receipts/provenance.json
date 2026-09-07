@@ -1,0 +1,12 @@
+{
+  "sourceCommit": "3a2e239682c98374053dbe293ef35609adca5fa7",
+  "verifierSourceInputsCompared": 67,
+  "verifierSourceMismatches": [],
+  "browserDumpCommand": "node test/render_engine/dump_result.mjs /tmp/softland-3d-final-dump",
+  "extraction": "browser-coating.json is the coating subtree of region3d-floor.json; path-pickup-push.json preserves the pickup and push subtrees of path-step.json. PNGs are copied unchanged from the dump.",
+  "pngSha256": {
+    "cpu-path-pickup.png": "ada3e38ba1aa9b4c84775a6b82e04fe5e6ce70cd245ae5c6b5e945b9747a68f3",
+    "cpu-region3d-coating-8x.png": "4e06ca5d1433e0bafa36860ced087db8422a32ade99528c94c52ef5026364a54",
+    "cpu-region3d-coating.png": "db960e5eaab06357ad4b4db08453dfbd64e2bda82ba22839f1b048c33431753c"
+  }
+}
