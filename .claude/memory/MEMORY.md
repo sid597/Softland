@@ -55,6 +55,13 @@ in this file and every future memory write.
   touching the Softland Lexicon artifact: Sid's naming picks live IN the
   published page source; republishing without merging the live decisions
   blob wipes his rulings (never-clobber rule + converge path).
+- [artifact republish cost](reference-artifact-republish-cost.md) — republishing an existing URL forces a full Read of the live version (~80K tokens per 160KB page) whatever the edit; publish once per session at the end; the definer reads the committed files (Sid, 2026-09-06).
+- [page bytes live in the scribe](feedback-page-bytes-live-in-the-scribe.md) — strongly recommended, near-always, for reading/editing/publishing an artifact page: the parent keeps page bytes out of its context and works through one Sonnet `page-scribe` per page (map → show → apply the parent's patch → check → publish, receipt only); the rare departure says its reason out loud; composes with the republish-cost cadence (Sid, 2026-09-06).
+- [two-turn boot: low then max](feedback-two-turn-boot-low-then-max.md) — a shape for sessions carrying a big load: turn one at low effort loads names/skeletons and replies in one line, `/effort max`, turn two thinks; cache survives the switch (checked 2026-09-06); not required for short sessions.
+- [rules are defaults, not laws](feedback-rules-are-defaults-not-laws.md) — consult when writing memory, agent, skill or starter text: default + reason + what a departure looks like; absolute words only for the few hard rules (Sid, 2026-09-06: "the judgement is sometimes dynamic").
+- [WebGL2 bench headless check](reference-webgl2-bench-headless-check.md) — one
+  command to screenshot or dump a single-file WebGL2 bench headless (SwiftShader
+  works for WebGL2, unlike the WebGPU app); one look, one fix pass, publish.
 - [desktop browser-harness road](reference-desktop-browser-harness-road.md)
   — consult before driving the app for WebGPU runtime receipts: the proven
   headful-:0/vulkan road, the two failing roads, dev-build patch gotchas.
@@ -68,11 +75,14 @@ in this file and every future memory write.
 - [logistics answers are artifacts](feedback-logistics-answers-are-artifacts.md)
   — handoff/what-do-I-do questions → paste-able deliverable first; a second
   push = produce the thing, never explain again.
+- [continuation starters hold the view](feedback-continuation-starters-hold-the-view.md) — a successor at a context limit holds the chair's view and takes the feedback Sid pastes; never assign the exploration again; two paragraphs, `STARTER-N.md` beside `HANDOFF-N.md` (fired twice 2026-09-06).
 - [exploration starters: direction, not shape](feedback-exploration-starters-direction-not-shape.md)
   — consult before writing ANY prompt for another session (starter, audit,
-  derivation, adversary round): fence + Sid's verbatim + terrain only — no
-  output shape, no method, no checklist, no restated law; spec-shaped prompts
-  drag the agent to the prompt's level (five live fires, last 2026-09-01).
+  derivation, adversary round): fence + Sid's ESSENCE in first person (verbatim
+  is for rulings) + terrain + the two ratified riders (hardest case / hidden
+  work / exact open question; position / conditions / cascade) — no output
+  shape, no method, no register block, no restated law; spec-shaped prompts
+  drag the agent to the prompt's level (seven live fires, last 2026-09-05).
 - [keep Sid's vocabulary](feedback-preserve-sids-vocabulary.md) — consult
   before any briefing/roadmap/summary: every arc appears under Sid's own
   terms alongside session-minted names; add the translation to the doc,
@@ -164,7 +174,19 @@ in this file and every future memory write.
 - [waist-sort sessions: hunters gather, code only](feedback-waist-sort-hunters-code-only.md) — opus hunters return facts per slice, Claude sorts; docs corpus OFF; story + one-notch picture; no repo writes until his word.
 - [top-down sort: what do you take](feedback-top-down-sort-what-do-you-take.md) — consult for any "what is this code / what goes" walk: the five-question card, the role × kind grid read by column, two diagrams (there / struck-through); verdicts are Sid's.
 - [dead means wrong form, not uncalled](feedback-dead-means-wrong-form-not-uncalled.md) — consult before ANY delete/cut list: judge each piece by its target form (in/out shape, who decides), never by call count; uncalled-but-right-form is alive, called-but-wrong-form is dead; remove now, no keep-until-better (Sid, 2026-09-02).
+- [thoughts are not rulings](feedback-thoughts-are-not-rulings.md) — when Sid muses on a position marked his ("seems right"), take the position yourself with reasons and exits and record it as the chair's; never convert a thought into a ruling to quote or hand the decision back (Sid, 2026-09-06, Position 9).
 - [rulings quote Sid verbatim](feedback-rulings-quote-sid-verbatim.md) — consult when recording ANY ruling attributed to Sid: exact words + timestamp; a reversal of on-disk or parallel readings is asked back once; "Sid decides" items never slide to "stays" (the Slug reversal, 2026-08-26).
 - [electric v3 orphaned / v4 pivot](reference-electric-v3-orphaned-v4-pivot.md) — consult before ANY proposal touching Electric as a dependency: v3 = frozen proprietary alpha, its authors left Clojure (v4 = JS+WASM); the owned courier is the position; "Electric-native" names the shape, not the library.
-- [analysis deliverables: show the full working](feedback-analysis-deliverables-show-full-working.md) — consult before ANY map/sort/verdict-pass/derivation reply: every claim anchored, alternatives named, raw fact base on disk with the path; story-first compression is for orientation only; Sid never set a length limit (fired 2026-09-02, "disingenuous ... glossed over everything").
+- [analysis deliverables: show the full working](feedback-analysis-deliverables-show-full-working.md) — consult before ANY map/sort/verdict-pass reply: every claim anchored, alternatives named, raw fact base on disk with the path; Sid never set a length limit (fired 2026-09-02). BUILD register only: a direction/what-next question shows its reasoning, not anchors, even when the starter says "file by file"; answer the hardest item (the ceilings), not the tractable one (fired 2026-09-03).
 - [examples from code, never invented](feedback-examples-from-code-never-invented.md) — every example for Sid is existing code (input/output/caller) or his LOG words; invented product scenarios read as claims about Softland (fired 2026-09-03).
+- [exploration ranking: framing over correctness](feedback-exploration-rank-framing-over-correctness.md) — consult before ANY ranking/verdict pass: name the phase first; in exploration score framing, how-to-think and the whole picture, list detail errors as a fix list, never as rank penalties (Sid, 2026-09-05, "it's like starting a painting").
+- [cross-model rankings: family bias](feedback-cross-model-rankings-family-bias.md) — consult before ANY multi-session ranking or peer review: each model family ranks its own family higher, Codex rankers partition perfectly and replicate one judgment; fix the criterion first, weight a family as one vote, keep one session of each family open (Sid, 2026-09-05).
+- [implementation rounds: no contracts](feedback-implementation-rounds-no-contracts.md) — consult before ANY implementation starter or plan: the prototype is the spec, tests built as you build, docs are the README→docstring→code hierarchy in the same commit, functional, data flow and reactive worked out early; never the work-package skill for below-the-waist rounds (Sid, 2026-09-06, "an old old thing").
+- [two chairs workflow](reference-two-chairs-workflow.md) — consult before ANY prompt for a below-the-waist round: `docs/below-the-waist/two-chairs.md` holds the roles, the cycle's two phases, the guards and the three prompt kinds; Sid's two stances (best in field is a datapoint; nothing carried forward for existing) ride every round (2026-09-06); its production section (same day) holds the chairs for a production slice, the caching rule and the first slice.
+- [findings, not fixes, during judging](feedback-findings-not-fixes-during-judging.md) — while Sid judges a comparison round, a measured problem becomes a row in `findings-for-production.md` (finding, receipt, fix shape, state), never a build on the comparison branch (Sid, 2026-09-06, "this is a finding note it down").
+- [the bench is the screen](feedback-the-bench-is-the-screen.md) — never build a viewing page so Sid can judge an implementation: the prototype artifact already shows the thing; the client's numbers and pictures are files its harness writes, plus a REPL recipe (Sid, 2026-09-06, "no one is asking for a view that has to be on screen").
+- [durable work lands in docs, not /tmp](feedback-durable-work-lands-in-docs-not-tmp.md) — anything a successor must read (pages, fact bases, handoffs, benches) goes under docs/ and is committed; /tmp dies on restart (Sid, 2026-09-05).
+- [caching only on top](feedback-caching-only-on-top.md) — consult before crediting or building any cache, memo, bucket or atlas: first each level's inputs explicit as data and a test that X reruns exactly Y; a key is the full input, never observed reads or a hash; caching after a trace shows the need (Sid, 2026-09-06, verbatim inside).
+- [Fable shortcuts, Codex literal](feedback-fable-shortcuts-codex-literal.md) — consult before staffing a production slice or writing a starter for either family: Fable fills gaps with its own judgment, Codex stops where the words stop; Fable at max designs as data, Codex at high lands it, the design says everything the literalist must do; one rule per reflex (Sid, 2026-09-06).
+- [fold refutations with judgment](feedback-fold-refutations-with-judgment.md) — consult before folding ANY Codex refutation or review into a design: want-vs-is per finding, positions not options, names decided by the chair and listed at the end, whole-file reads via gatherers (Sid, 2026-09-07).
+- [judging a comparison round](reference-judging-a-comparison-round.md) — consult before judging any paired delivery: numbers from that lane's client run here, scratch detached worktrees for experiments, the other judge's file after marks, the green-flag trap, the worker lens beside the card (2026-09-06).

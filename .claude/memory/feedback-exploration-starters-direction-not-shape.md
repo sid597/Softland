@@ -131,3 +131,32 @@ house rule the session would boot anyway; and steering verbs inside the
 terrain ("take as", "hand back", "several turns") are shape too — state
 the fact (the code session's hypothesis is X) and stop. Sid present ⇒
 his live redirection does the rest.
+
+**SEVENTH LIVE FIRE 2026-09-05** (path-kind round, then the 3D starter):
+"verbatim" was wrong as the rule for the direction. Sid, before the
+path-kind starters: "fuck what i am saying verbatim get the essence of
+the exploration out .. you noticed that i am taking some of your answers
+and building on top its fine for this session for new sessions i think
+we should be using what my essence of questions are and then you pre
+read the optimise-prompt and use it to write your prompt so i can take
+it to other sessions and we all are on same page." The essence starter
+(clean first person, his questions' essence, adopted frames stated as
+"working basis I want attacked", none of the session's answers as
+conclusions) plus one optimise-prompt rider produced the four one-shot
+sessions that took places 1, 3, 5 and 6 of nine; his four verbatim-
+pasted sessions needed his push to reach the same level. Sid: "the
+prompts that you gave turned out to be the best ones with my help." The
+same session then wrote the 3D starter back in verbatim form (five dated
+quotes) with a register block stapled on; Sid re-pasted the ruling and
+left the decision to the session. Sharpened: the direction is Sid's
+ESSENCE in first person, written after the exploration has moved, with
+his frames marked attackable; verbatim quotes are for rulings on the
+ledger (see [[rulings-quote-sid-verbatim]]), not for starters. Two
+riders are ratified by result and are questions the answer must
+withstand, not shape: (a) work the hardest case through whatever is
+proposed and say where a named abstraction hides unfinished work, ending
+on the exact open question; (b) where a position is taken, what supports
+it, when it becomes only a default, what else changes with it. Carry
+both; each alone pulled one strength. Register blocks, reading order,
+"take positions", "story first" remain shape and stay out (sixth fire
+still stands; it fired again today and was self-caught).

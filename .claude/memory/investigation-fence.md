@@ -57,3 +57,5 @@ fluency-as-truth are the generators this fences, at investigation scale),
 [[falsification-review-protocol]] (the review-side sibling: that judges
 artifacts; this establishes facts), [[working-agreements]]
 (measure-before-assuming is the seed instinct this hardens).
+
+**Fired 2026-09-07 (visioning session): shapes are not apparatus.** Six read-only hunters returned source shapes and an archive manifest's counts; the chair wrote "exists and works", "real and used", "implemented under other names". Sid: "be anal about what exists exactly because then we will be deviating from what is true." The grade ladder that fixes it, to be stated per claim: **read** (shape in source) · **data** (rows in the archive) · **runtime-under-test** (boots and passes under the in-process cluster at a named HEAD) · **live** (reachable from the client a person uses) · **fit** (exercised for the named purpose in a live loop). A claim carries the highest grade its receipt supports and no higher; a suite run is the cheapest way up one rung.

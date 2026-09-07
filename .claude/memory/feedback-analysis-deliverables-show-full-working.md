@@ -37,3 +37,20 @@ the very first time this is disappointing."
 - Related: [[meta-failure-generators]] (G3: fluency as truth; the 2026-09-02
   fire on the same day was the sibling failure, a confident account of elapsed
   time offered unchecked).
+
+**Scope boundary (fired 2026-09-03, session ask-max-2):** this rule is for
+BUILD-register deliverables (a verdict pass, a sort, a per-function form
+audit). It does not turn a DIRECTION question into an audit. Sid's level wins
+over the prompt's shape: a starter that asks "go file by file" can still be a
+what-should-exist / what-next session, and there the working to show is the
+REASONING (the chain worked back from each ceiling, the fork, the bet), not
+file:line anchors. His words: "this is not a session to where you try to
+figure out what the waste is and read all the code and try to determine from
+that. It's more higher level than that. It's about from the product or
+develop what to do next kind of thing … don't try to overoptimise for it."
+And on skipping the hard part for the easy part: "what about these [the
+ceilings] you did not say anything about these the 10 were like very naive."
+Test before replying: which register did he name; and did I answer the
+hardest item in his prompt or the most tractable one. See
+[[feedback-explanations-simple-story-first]] and the Session Registers rule
+in CLAUDE.md.
