@@ -24,6 +24,7 @@
                [app.client.region3d.on-plane :as on-plane]
                [app.client.region3d.component :as region3d-component]
                [app.client.harness.region-oracle :as region3d-oracle]
+               [app.client.harness.coating :as coating]
                [app.client.region3d.renderer :as region3d-renderer]
                [app.client.region3d.scene :as region3d-scene]
                [app.client.harness.path :refer [path-draw-item]]
@@ -1138,7 +1139,7 @@
             (js/Promise.resolve nil)
             steps)))
 
-(defn run-region3d-floor!
+(defn- run-scene-floor!
   "Device and font assets → promise of four cases plus
    R1/R3/S2/S4/S5/lower-resolution evidence.
 
@@ -1290,3 +1291,12 @@
              (path-renderer/destroy-path-system! surround-path-system)
              (region3d-renderer/destroy-region3d-system! region-system)
              result))))))
+
+(defn run-region3d-floor!
+  "Device/font assets → existing scene floor plus the CPU coating brush.
+   Each leg supplies its own image evidence; the brush reads decoded pixels."
+  [device font-assets]
+  (-> (run-scene-floor! device font-assets)
+      (.then (fn [scene]
+               (.then (coating/run-check!)
+                      (fn [brush] (assoc scene :coating brush :pass? (and (:pass? scene) (:pass? brush)))))))))

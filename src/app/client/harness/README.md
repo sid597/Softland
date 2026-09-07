@@ -26,6 +26,7 @@ flowchart TB
 | [path_push.cljs](path_push.cljs) | Count real queue writes, row comparisons and per-item checks at 1,600 placements; test atlas relocation and range shifts. Also holds explicit whole-fixture setup for pixel tests. |
 | [pickup.cljs](pickup.cljs) | Run the CPU pickup, continuation bytes and four edits in the browser; export its PNG and text-golden values. The JVM counterpart is `pickup_test.clj`. |
 | [path.cljs](path.cljs) | Drive the definer's records through their constructions and the coverage route; compare CPU membership and coverage with GPU pixels, the crossing's union and dabs, a clip, the frame's rebuild rates and colour. |
+| [coating.cljs](coating.cljs) | Execute the sphere coating brush eagerly and from continuations, compare full values, hash all float32 pixels and decode/read the exported PNG. `region3d/brush_test.clj` and `brush_wire.clj` are the JVM evidence. |
 | [region_oracle.cljc](region_oracle.cljc) | Compute CPU reference answers for selected scene, lighting and occlusion checks. |
 | [region.cljs](region.cljs) | Compose explicit Region3D frames and exercise update, lease, pressure, recovery and rejection behavior. |
 
@@ -54,3 +55,14 @@ against the browser CPU runner. Its full-surface hash was recorded from the JVM
 `pickup-wire save` command; existing GPU image goldens are unchanged in slice A.
 `test/app/client/path/pickup_wire.clj` gives save/resume commands for a continuation
 crossing a fresh JVM. PNGs are evidence exports, not a live product painting UI.
+
+The Region3D lane includes the CPU coating brush (`coating.cljs`) alongside
+its scene floor. The verifier compares
+`test/app/fixtures/render_engine/region3d-coating.json`, recorded by the JVM
+`brush-wire save` command, against the browser's full float32 hash, all four
+colors/carries, changed texels and decoded PNG pixel count. The nested result
+is `region3d-floor.json` → `coating`; `dump_result.mjs` exports its
+`cpu-region3d-coating.png` and its nearest-neighbour 8x preview
+`cpu-region3d-coating-8x.png` (`coating/pixels!`). This is a chart-patch picture; applying the painting
+to a displayed sphere is unimplemented and untested. Fresh-process commands
+and the supported construction boundary are in [Region3D](../region3d/README.md).

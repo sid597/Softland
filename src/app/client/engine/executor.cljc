@@ -199,15 +199,26 @@
 
 (defn- subjects [program roots results consumed history before-producers before-reads]
   (let [{:keys [reach before transition]} (dependencies program roots)
+        read-names (fn [expr producers]
+                     (reduce into #{} (map #(get producers (first %) #{}) (references expr))))
+        each (:each program)
+        transition-reads
+        (let [{:keys [names producers]}
+              (reduce (fn [{:keys [names producers]} {:keys [out args]}]
+                        (let [reached (read-names args producers)]
+                          {:names (into names reached) :producers (assoc producers out reached)}))
+                      {:names (read-names (:state each) before-producers) :producers before-producers}
+                      (:steps each))]
+          (into names (read-names (:next each) producers)))
         loop-reads (vec (for [row history step (:steps row) :when (= :resolved (:status step))]
                           (dissoc step :out :op :snapshot)))
         per-output (fn [[out expr]]
                      (let [refs (references expr) state? (some #(= :state (first %)) refs)
                            root-set (cond-> (reach expr before) state? (into transition))
-                           read-names (reduce into #{} (map #(get before-producers (first %) #{}) refs))]
+                           names (cond-> (read-names expr before-producers) state? (into transition-reads))]
                        [out {:recipe {:program program :roots (select-keys roots root-set)}
                              :consumed (if state? consumed [])
-                             :reads (into (mapv before-reads (sort-by str read-names)) (when state? loop-reads))
+                             :reads (into (mapv before-reads (sort-by str names)) (when state? loop-reads))
                              :out out}]))]
     (if (map? (:return program)) (into {} (map per-output) (:return program))
         ;; A bare path is an admitted L0 result. Each returned field came from

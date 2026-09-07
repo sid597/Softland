@@ -24,6 +24,21 @@
                     :next {:color [:get :painted]}}
              :return {:color [:get :state :color]}}})
 
+(deftest a-loop-subject-includes-the-read-that-initialized-state
+  (let [record (-> brush
+                   (assoc-in [:program :steps]
+                             [{:out :initial :op :read :args {:point 3 :layer [:get :layer]}}
+                              {:out :unused :op :read :args {:point 9 :layer [:get :layer]}}])
+                   (assoc-in [:program :each :state] {:color [:get :initial :color]})
+                   (assoc-in [:program :each :steps] [])
+                   (assoc-in [:program :each :next] {:color [:get :state :color]}))
+        eager (executor/run record {} read-table {:budget 1})
+        c (:continuation (executor/run record {} read-table {:budget 1 :until 1}))
+        resumed (executor/resume (executor/decode (executor/encode c) read-table) read-table {:budget 1})]
+    (is (= :complete (:status eager)))
+    (is (= [[3 0 0 1]] (mapv :color (get-in eager [:subjects :color :reads]))))
+    (is (vb/equal? (:subjects eager) (:subjects resumed)))))
+
 (deftest pending-is-a-transaction-barrier-and-replay-is-a-value
   (let [calls (atom 0)
         table (assoc-in read-table [:identity :run] (fn [args _] (swap! calls inc) (:value args)))

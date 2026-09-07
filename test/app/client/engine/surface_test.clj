@@ -43,3 +43,26 @@
     (is (= 2 (.getWidth image)))
     (is (= 0x80ff0000 (bit-and 0xffffffff (.getRGB image 0 0))))
     (is (= (seq bytes) (seq (s/png-bytes surface))))))
+
+(deftest a-pending-layer-keeps-known-color-and-composes-the-layers-above
+  (let [lower (painted (s/new (assoc declaration :surface/id "lower")) [1 0 0 1] "red")
+        upper (painted (s/new (assoc declaration :surface/id "upper")) [0 0 1 1] "blue")
+        calls (atom 0)
+        layer {:layer/kind :test :snapshot (fn [_ _ _] {:retained [1 2 3]})
+               :sample (fn [_ _ _] (swap! calls inc)
+                         {:status :pending :partial [0 0.25 0 0.25] :known [:green] :missing [:withheld]})}
+        stack [lower layer upper]
+        snapshot (s/snapshot stack [0.5 0.5] :nearest {})]
+    (is (zero? @calls) "forming a request does not perform a read")
+    (is (vb/equal? snapshot (vb/decode (vb/encode snapshot))) "no adapter functions in the snapshot")
+    (let [r (s/sample stack [0.5 0.5] :nearest {})]
+      (is (= :pending (:status r)))
+      (is (= [0.1875 0.125 0.5 0.8125] (:partial r)))
+      (is (= ["lower@1" :green "upper@1"] (:known r)))
+      (is (= [:withheld] (:missing r)))
+      (is (nil? (:color r))))
+    (doseq [status [:needs-policy :unsupported]]
+      (let [r (s/sample [lower (assoc layer :sample (fn [_ _ _] {:status status :reason :declared :candidates [:a :b]})) upper]
+                        [0.5 0.5] :nearest {})]
+        (is (= status (:status r)))))
+    (is (= [] (:contributors (s/sample [upper] [9 9] :nearest {}))))))

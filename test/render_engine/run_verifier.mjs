@@ -546,11 +546,22 @@ const main = async () => {
     pass: pickup?.pass === true && Object.entries(pickupExpected).every(
       ([key, value]) => JSON.stringify(pickup?.[key]) === JSON.stringify(value)),
   };
+  // Independent JVM brush-wire output pins every float byte and every
+  // carry. The browser also decodes the PNG and reads all its pixels.
+  const coatingExpected = JSON.parse(fs.readFileSync(
+    path.join(repoRoot, "test/app/fixtures/render_engine/region3d-coating.json"), "utf8"));
+  const coating = result.region3dFloor?.coating;
+  const coatingGolden = {
+    expected: coatingExpected,
+    actual: Object.fromEntries(Object.keys(coatingExpected).map((key) => [key, coating?.[key]])),
+    pass: coating?.pass === true && Object.entries(coatingExpected).every(
+      ([key, value]) => JSON.stringify(coating?.[key]) === JSON.stringify(value)),
+  };
   const pass =
     guards.every((guard) => guard.pass) &&
     goldens.every((row) => row.pass) &&
     dejavuSlugGoldens.length === 7 &&
-    dejavuSlugGoldens.every((row) => row.pass) && pickupGolden.pass;
+    dejavuSlugGoldens.every((row) => row.pass) && pickupGolden.pass && coatingGolden.pass;
   const receipt = {
     schemaVersion: 1,
     verifier: result.harness,
@@ -561,6 +572,7 @@ const main = async () => {
     shaderDigests: result.shaderDigests,
     dejavuSlugGoldens,
     pickupGolden,
+    coatingGolden,
     ubuntuSlug: {
       text: result.ubuntuSlug?.text,
       faceIds: result.ubuntuSlug?.faceIds,
@@ -580,6 +592,7 @@ const main = async () => {
       guards,
       dejavuSlugGoldens,
       pickupGolden,
+      coatingGolden,
       ubuntuSlug: receipt.ubuntuSlug,
       representativeGoldens: goldens.map(({ family, file, pass: rowPass }) => ({
         family,

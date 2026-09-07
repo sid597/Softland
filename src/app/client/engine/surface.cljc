@@ -19,10 +19,16 @@
     (fail! :dimensions "A surface needs an id and positive integer dimensions"))
   (when-not (= color :linear-premultiplied-rgba) (fail! :color "Unsupported surface color"))
   (when-not (= filter :nearest) (fail! :filter "Unsupported surface filter"))
-  (let [[a b c d :as m] (:map domain)]
-    (when-not (and (= :plane (:kind domain)) (= 6 (count m))
-                   (every? schema/finite-number? m) (not (zero? (- (* a d) (* b c)))))
-      (fail! :domain "A plane surface needs an invertible finite affine map")))
+  (case (:kind domain)
+    :plane (let [[a b c d :as m] (:map domain)]
+             (when-not (and (= 6 (count m)) (every? schema/finite-number? m)
+                            (not (zero? (- (* a d) (* b c)))))
+               (fail! :domain "A plane surface needs an invertible finite affine map")))
+    :chart (let [[_ _ w h :as rect] (:rect domain)]
+             (when-not (and (keyword? (:chart domain)) (= 4 (count rect))
+                            (every? schema/finite-number? rect) (pos? w) (pos? h))
+               (fail! :domain "A chart surface needs a named chart and positive finite rectangle")))
+    (fail! :domain "Unsupported surface domain"))
   (when (and (contains? s :data) (not (and (vb/floats? data) (= (* width height 4) (alength data)))))
     (fail! :array-length "Surface payload differs from width × height × 4"))
   (when (and (contains? s :initial) (not (and (= 4 (count initial)) (every? schema/finite-number? initial))))
@@ -39,16 +45,29 @@
     (dotimes [i (alength data)] (aset data i (float (nth initial (mod i 4)))))
     (assoc (dissoc declaration :initial :subject :changed) :revision 0 :data data :key (str id "@initial") :parent nil)))
 
-(defn to-texel [surface [x y]]
-  (let [[a b c d e f] (get-in surface [:domain :map])]
-    [(+ (* a x) (* c y) e) (+ (* b x) (* d y) f)]))
+(defn to-texel
+  "Surface and local/support point → continuous texel coordinates. A chart
+   domain is supplied by the kind; there is no engine dependency on a kind."
+  ([surface point] (to-texel surface point {}))
+  ([surface [x y :as point] ctx]
+   (if (= :plane (get-in surface [:domain :kind]))
+     (let [[a b c d e f] (get-in surface [:domain :map])]
+       [(+ (* a x) (* c y) e) (+ (* b x) (* d y) f)])
+     (if-let [f (get-in ctx [:domains (get-in surface [:domain :kind]) :to-texel])]
+       (f surface point)
+       (fail! :domain "The kind must supply this domain's to-texel operation")))))
 
 (defn to-point
   "Surface and texel index → local position of that texel's centre."
-  [surface x y]
-  (let [[a b c d e f] (get-in surface [:domain :map]) det (- (* a d) (* b c))
-        tx (- (+ x 0.5) e) ty (- (+ y 0.5) f)]
-    [(/ (- (* d tx) (* c ty)) det) (/ (- (* a ty) (* b tx)) det)]))
+  ([surface x y] (to-point surface x y {}))
+  ([surface x y ctx]
+   (if (= :plane (get-in surface [:domain :kind]))
+     (let [[a b c d e f] (get-in surface [:domain :map]) det (- (* a d) (* b c))
+           tx (- (+ x 0.5) e) ty (- (+ y 0.5) f)]
+       [(/ (- (* d tx) (* c ty)) det) (/ (- (* a ty) (* b tx)) det)])
+     (if-let [f (get-in ctx [:domains (get-in surface [:domain :kind]) :to-point])]
+       (f surface x y)
+       (fail! :domain "The kind must supply this domain's to-point operation")))))
 
 (defn mix [a b amount] (mapv #(+ (* %1 (- 1.0 amount)) (* %2 amount)) a b))
 (defn over [src dst] (mapv #(+ %1 (* %2 (- 1.0 (nth src 3)))) src dst))
@@ -87,26 +106,57 @@
     (assoc (dissoc surface :subject) :data result :key (:key opts) :parent (:key surface)
            :revision (inc (:revision surface)) :changed changed)))
 
-(defn snapshot [stack point filter _ctx] {:layers (vec stack) :point point :filter filter})
+(defn snapshot
+  "Stack → whole layer inputs, point and filter without sampling. Callable
+   adapters never enter the returned value or a continuation."
+  [stack point filter ctx]
+  {:layers (mapv (fn [layer]
+                   (if (:layer/kind layer)
+                     (if-let [f (:snapshot layer)] (f point filter ctx)
+                         (fail! :snapshot "A non-surface layer must declare its snapshot"))
+                     layer)) stack)
+   :point point :filter filter})
+
+(defn- sample-layer [layer point filter ctx]
+  (if (:layer/kind layer)
+    ((:sample layer) point filter ctx)
+    (do
+      (validate! layer)
+      (let [[tx ty] (to-texel layer point ctx) {:keys [width height data]} layer
+            x (Math/floor tx) y (Math/floor ty)]
+        (if (and (<= 0 x) (< x width) (<= 0 y) (< y height))
+          (let [i (* 4 (+ (int x) (* (int y) width)))]
+            {:status :resolved :color (mapv #(aget data (+ i %)) (range 4)) :covered? true
+             :contributors [(str (:surface/id layer) "@" (:revision layer))]})
+          {:status :resolved :color [0 0 0 0] :covered? false :contributors []})))))
 
 (defn sample
-  "Surface layers bottom to top, local point, filter and domain context →
-   resolved read. Outside a layer is transparent and is not a contributor.
-   Pending/non-surface layers and chart domains belong to slice B."
+  "Layers bottom to top, point, filter and domain context → read. Pending
+   layers contribute their known partial color, and layers above still
+   compose. Missing policy or unsupported reads stop composition. Outside a
+   surface is transparent.
+   Evidence: surface_test.clj and region3d/brush_test.clj."
   [stack point filter ctx]
   (when-not (= :nearest filter) (fail! :filter "Only nearest sampling is landed"))
-  (assoc
-   (reduce (fn [read surface]
-             (validate! surface)
-             (let [[tx ty] (to-texel surface point) {:keys [width height data]} surface
-                   x (int (Math/floor tx)) y (int (Math/floor ty))]
-               (if (and (<= 0 x) (< x width) (<= 0 y) (< y height))
-                 (let [i (* 4 (+ x (* y width))) rgba (mapv #(aget data (+ i %)) (range 4))]
-                   (-> read (assoc :color (over rgba (:color read)) :covered? true)
-                       (update :contributors conj (str (:surface/id surface) "@" (:revision surface)))))
-                 read)))
-           {:status :resolved :color [0.0 0.0 0.0 0.0] :contributors [] :covered? false} stack)
-   :snapshot (snapshot stack point filter ctx)))
+  (let [result
+        (reduce (fn [acc layer]
+                  (let [r (sample-layer layer point filter ctx)]
+                    (case (:status r)
+                      (:needs-policy :unsupported) (reduced r)
+                      (:resolved :pending)
+                      (let [pending? (or (= :pending (:status acc)) (= :pending (:status r)))
+                            color (over (if (= :pending (:status r)) (:partial r) (:color r)) (:color acc))
+                            names (into (:contributors acc) (if (= :pending (:status r)) (:known r) (:contributors r)))]
+                        {:status (if pending? :pending :resolved) :color color :contributors names
+                         :covered? (or (:covered? acc) (:covered? r) (seq names))
+                         :missing (into (:missing acc) (:missing r))})
+                      (fail! :layer "A layer must return a declared read status"))))
+                {:status :resolved :color [0.0 0.0 0.0 0.0] :contributors [] :covered? false :missing []} stack)
+        result (if (= :pending (:status result))
+                 (-> result (assoc :partial (:color result) :known (:contributors result))
+                     (dissoc :color :contributors))
+                 (dissoc result :missing))]
+    (assoc result :covered? (boolean (:covered? result)) :snapshot (snapshot stack point filter ctx))))
 
 (defn validate-value! [value]
   (cond
