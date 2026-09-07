@@ -1,0 +1,51 @@
+{
+ "harness": "softland-render-engine-w0-a",
+ "adapter": {
+  "description": "",
+  "features": [
+   "depth32float-stencil8",
+   "rg11b10ufloat-renderable",
+   "bgra8unorm-storage",
+   "texture-compression-bc",
+   "core-features-and-limits",
+   "chromium-experimental-timestamp-query-inside-passes",
+   "float32-filterable",
+   "indirect-first-instance",
+   "texture-compression-astc-sliced-3d",
+   "float32-blendable",
+   "subgroup-size-control",
+   "texture-compression-astc",
+   "texture-compression-etc2",
+   "depth-clip-control",
+   "texture-compression-bc-sliced-3d",
+   "clip-distances",
+   "timestamp-query",
+   "texture-component-swizzle",
+   "subgroups"
+  ],
+  "vendor": "google",
+  "architecture": "swiftshader",
+  "fallback-attestation-source": "GPUAdapterInfo.isFallbackAdapter",
+  "renderer": "swiftshader",
+  "device": "",
+  "limits": {
+   "max-buffer-size": 1073741824,
+   "max-uniform-buffer-binding-size": 65536,
+   "max-storage-buffer-binding-size": 1073741824,
+   "max-texture-dimension-2d": 8192,
+   "max-bind-groups": 4,
+   "max-vertex-buffers": 8
+  },
+  "is-fallback-adapter": true
+ },
+ "shader-digests": {
+  "scene-color": "ca263e5f1bbc34f00a73c780a554046dcdc3807254cfa186d64584f076835d95",
+  "present-fragment": "0835dab5812b96d62c47be9c20e42204c1df106c31937293c3ce125f3cb1a851",
+  "slug-vertex": "a8fbae3d266deed5ce5babc533449d1adb523af1e2492dd6bfd2188346fb083f",
+  "slug-fragment": "93c8ff1b94a1538683e202ac5d1b30b3518dbc87c24383644323bf26fb95db65",
+  "path-region-vertex": "f67b08661d700c5315ca71abd1aaaea302d88d99386d84a45b029b6c0f8da2b6",
+  "path-region-fragment": "c8ffca4975c6c4b3e97597a8eee55debeef94d2bb61b37caa6bbd4fed8fb45d7",
+  "coverage-shared": "0e25ea79e33bffef02476d8cfeeba3c10b37aaf659ca073f87cd3a172ffd55e9",
+  "region3d-placed-region": "b125e24ad008a54a1edf25155a552cf72056d5b6262d3b164674a418e2595ffc"
+ }
+}

@@ -1,0 +1,4 @@
+pickup ok true dabs 24 steps 72 consumed paints 24 released 23 final paint:23/surface
+  texel (64,64) [ 0.0134, 0, 0.9866, 1 ]
+proofs ok true dabs 1 steps 5 consumed paints 0 released 0 final proof:0/red
+  before [ 0.5, 0, 0, 0.5 ] after [ 0.5, 0, 0, 0.5 ] other [ 0, 0, 0.5, 0.5 ]

@@ -1,0 +1,11 @@
+source + geometry: Z as one skin (capsule union)    397.6 us  (200 runs)
+source + geometry: Z as 24 dabs                     583.9 us  (200 runs)
+source + geometry: draw tool (70 samples, spline, envelope)   3778.5 us  (200 runs)
+source + geometry: pen tool (4 cubics, fill + miter stroke)   1913.1 us  (200 runs)
+source + geometry: border (rect, snap, fill, inside stroke)    853.0 us  (200 runs)
+source + geometry: holed concave (2 rings, even-odd)     30.1 us  (200 runs)
+pack: Z skin at bucket 0                             77.6 us  (200 runs)
+pack: draw tool skin at bucket 0                    971.8 us  (200 runs)
+  draw tool skin curves, bucket 0: 1805  bucket 3: 1805
+classify: Z at the crossing (runs, packs, winds)    298.2 us  (100 runs)
+classify: draw tool at a point                     6814.6 us  (100 runs)

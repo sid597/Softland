@@ -1,0 +1,111 @@
+
+Testing app.client.image.frame-test
+
+Testing app.client.image.component-test
+
+Testing app.client.region3d.path-placement-test
+
+Testing app.client.path.frame-test
+
+Testing app.client.path.construction-test
+
+Testing app.client.path.component-test
+
+Testing app.client.path.value-test
+
+Testing app.client.path.source-test
+
+Testing app.client.path.stroke-test
+
+Testing app.client.path.nib-test
+
+Testing app.client.path.pack-test
+
+Testing app.client.engine.executor-test
+
+Testing app.client.engine.surface-test
+
+Testing app.client.path.pickup-test
+PICKUP {:checkpoint-bytes 8773182, :texel [0.01336952205747366 0.0 0.9866304397583008 1.0], :dabs 24, :components 65536}
+
+Testing app.client.region3d.frame-test
+
+Testing app.client.region3d.component-test
+
+Testing app.client.region3d.on-plane-test
+
+ERROR in (s5-placed-layout-keeps-the-one-glyph-accessor-seam) (layout.cljc:967)
+Uncaught exception, not in assertion.
+expected: nil
+  actual: clojure.lang.ExceptionInfo: Text layout requires a shaped provider.
+{:error-type :text/layout-provider-required}
+ at app.client.text.layout$layout.invokeStatic (layout.cljc:967)
+    app.client.text.layout$layout.invoke (layout.cljc:960)
+    app.client.region3d.on_plane_test$fn__6726.invokeStatic (on_plane_test.clj:32)
+    app.client.region3d.on_plane_test/fn (on_plane_test.clj:27)
+    clojure.test$test_var$fn__9898.invoke (test.clj:717)
+    clojure.test$test_var.invokeStatic (test.clj:717)
+    clojure.test$test_var.invoke (test.clj:708)
+    clojure.test$test_vars$fn__9924$fn__9929.invoke (test.clj:735)
+    clojure.test$default_fixture.invokeStatic (test.clj:687)
+    clojure.test$default_fixture.invoke (test.clj:683)
+    clojure.test$test_vars$fn__9924.invoke (test.clj:735)
+    clojure.test$default_fixture.invokeStatic (test.clj:687)
+    clojure.test$default_fixture.invoke (test.clj:683)
+    clojure.test$test_vars.invokeStatic (test.clj:731)
+    clojure.test$test_all_vars.invokeStatic (test.clj:737)
+    clojure.test$test_ns.invokeStatic (test.clj:758)
+    clojure.test$test_ns.invoke (test.clj:743)
+    clojure.core$map$fn__5956.invoke (core.clj:2770)
+    clojure.lang.LazySeq.force (LazySeq.java:50)
+    clojure.lang.LazySeq.realize (LazySeq.java:87)
+    clojure.lang.LazySeq.seq (LazySeq.java:104)
+    clojure.lang.Cons.next (Cons.java:41)
+    clojure.lang.RT.boundedLength (RT.java:1810)
+    clojure.lang.RestFn.applyTo (RestFn.java:133)
+    clojure.core$apply.invokeStatic (core.clj:669)
+    clojure.test$run_tests.invokeStatic (test.clj:768)
+    clojure.test$run_tests.doInvoke (test.clj:768)
+    clojure.lang.RestFn.applyTo (RestFn.java:140)
+    clojure.core$apply.invokeStatic (core.clj:667)
+    clojure.core$apply.invoke (core.clj:662)
+    user$eval139.invokeStatic (softland-slice-a-client-pure.clj:7)
+    user$eval139.invoke (softland-slice-a-client-pure.clj:2)
+    clojure.lang.Compiler.eval (Compiler.java:7757)
+    clojure.lang.Compiler.load (Compiler.java:8223)
+    clojure.lang.Compiler.loadFile (Compiler.java:8161)
+    clojure.main$load_script.invokeStatic (main.clj:476)
+    clojure.main$init_opt.invokeStatic (main.clj:478)
+    clojure.main$init_opt.invoke (main.clj:478)
+    clojure.main$initialize.invokeStatic (main.clj:509)
+    clojure.main$null_opt.invokeStatic (main.clj:543)
+    clojure.main$null_opt.invoke (main.clj:540)
+    clojure.main$main.invokeStatic (main.clj:665)
+    clojure.main$main.doInvoke (main.clj:617)
+    clojure.lang.RestFn.applyTo (RestFn.java:140)
+    clojure.lang.Var.applyTo (Var.java:707)
+    clojure.main.main (main.java:40)
+
+Testing app.client.region3d.scene-test
+
+Testing app.client.engine.color-test
+
+Testing app.client.engine.limits-test
+
+Testing app.client.engine.schema-test
+
+Testing app.client.engine.rungs-test
+
+Testing app.client.engine.transform-test
+
+Testing app.client.text.shaping-correction-test
+
+Testing app.client.text.layout-planes-test
+
+Testing app.client.text.layout-test
+
+Testing app.client.text.flat-route-test
+
+Ran 115 tests containing 950 assertions.
+0 failures, 1 errors.
+{:test 115, :pass 949, :fail 0, :error 1, :type :summary}

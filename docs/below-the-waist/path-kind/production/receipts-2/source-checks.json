@@ -1,0 +1,43 @@
+[
+  {
+    "command": [
+      "rg",
+      "-n",
+      "prepare-path-frame!|executor/execute|run-steps|!runs|reread|rerun\\?",
+      "src/app/client",
+      "test/app/client"
+    ],
+    "exit": 1,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--name-only",
+      "ad36ce3b448da3eac4b36bec3544c67192d696a3",
+      "e4908d11d9c6594e14291a823b680f3b418ae8f3",
+      "--",
+      "test/app/fixtures/render_engine/gpu-goldens"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "git",
+      "diff",
+      "--check",
+      "ad36ce3b448da3eac4b36bec3544c67192d696a3",
+      "e4908d11d9c6594e14291a823b680f3b418ae8f3",
+      "--",
+      "src/app/client",
+      "test"
+    ],
+    "exit": 0,
+    "stdout": "",
+    "stderr": ""
+  }
+]

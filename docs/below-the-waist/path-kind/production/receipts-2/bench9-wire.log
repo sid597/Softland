@@ -1,0 +1,15 @@
+pickup ok true dabs 24 steps 72 consumed paints 24 released 23 final paint:23/surface
+  texel (64,64) [ 0.0134, 0, 0.9866, 1 ]
+proofs ok true dabs 1 steps 5 consumed paints 0 released 0 final proof:0/red
+  before [ 0.5, 0, 0, 0.5 ] after [ 0.5, 0, 0, 0.5 ] other [ 0, 0, 0.5, 0.5 ]
+prefix at 12 steps 36 carry [ 0.00031892763945506886, 0, 0.9996810704469681, 1 ] resources [ 'paint:11/surface' ] state {"carry":[0.00031892763945506886,0,0.9996810704469681,1],"surface":{"surfaceRef":"paint:11/surface"}}
+content sha256 9757e826f4594d5aa2c628302831ddee00dc57c8037340ee5bc14428d395aa82 bytes 262144 (definer: 9757e826f4594d5aa2c628302831ddee00dc57c8037340ee5bc14428d395aa82)
+wire bytes 364753 sha256 1fad1249369e42b19673af3153ac9110067e9f763f9e17eddb2bffbff4a944fa
+restored vs saved 0 of 65536 · resumed tail steps 36 · resumed final vs straight run (host A): 0 of 65536 differ, max 0
+  first pressure .65 → .4 → refused: its dependencies do not hold for this record: dab 0 differs
+  last x 102 → 110 → loads
+  tool.pickup .5 → .25 → refused: its dependencies do not hold for this record: the program, a record binding it reads, the surface declaration or the capabilities changed
+  surface 64 × 64 → refused: its dependencies do not hold for this record: the program, a record binding it reads, the surface declaration or the capabilities changed
+  capabilities changed in the key → refused: its dependencies do not hold for this record: the program, a record binding it reads, the surface declaration or the capabilities changed
+  truncated payload → refused: resource paint:11/surface: 262140 bytes; 262144 expected for 128 × 128 RGBA32F
+  naive JSON of a Float32Array → object with 65536 keys; resolve gives length 0

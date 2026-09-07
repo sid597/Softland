@@ -1,0 +1,31 @@
+{
+  "date": "2026-09-07",
+  "branch": "main",
+  "sourceHead": "e4908d11d9c6594e14291a823b680f3b418ae8f3",
+  "baselineHead": "ad36ce3b448da3eac4b36bec3544c67192d696a3",
+  "milestones": [
+    "91bd3c7",
+    "e4908d1"
+  ],
+  "scope": "Client slice A; all app.client pure namespaces listed by the repo runner; repository render verifier. Server/IPC suites not run.",
+  "baselineBrowserVerifier": "The collection wrapper did not capture a completed receipt; no baseline browser pass is claimed.",
+  "wire": "Save and resume are separate JVM processes. Browser round trip is in one page. Cross-host continuation exchange is untested.",
+  "copies": {
+    "path-pure.log": "/tmp/softland-slice-a-final-pure.log",
+    "client-pure.log": "/tmp/softland-slice-a-final-client-pure.log",
+    "build.log": "/tmp/softland-slice-a-final-build.log",
+    "verifier.log": "/tmp/softland-slice-a-final-verifier.log",
+    "verifier.json": "target/render-verifier/receipt.json",
+    "wire-save.log": "/tmp/softland-slice-a-final-wire-save.log",
+    "wire-resume.log": "/tmp/softland-slice-a-final-wire-resume.log",
+    "timing.log": "/tmp/softland-slice-a-timing.log",
+    "dump.log": "/tmp/softland-slice-a-dump.log",
+    "baseline-client-pure.log": "/tmp/softland-slice-a-baseline/client-pure.log",
+    "baseline-path-pure.log": "/tmp/softland-slice-a-baseline/path-pure.log",
+    "bench9-regress.log": "/tmp/softland-slice-a-baseline/node-regress.log",
+    "bench9-wire.log": "/tmp/softland-slice-a-baseline/node-wire.log",
+    "bench9-extract.log": "/tmp/softland-slice-a-baseline/node-extract.log"
+  },
+  "browserDump": "node test/render_engine/dump_result.mjs /tmp/softland-slice-a-dump",
+  "timing": "clj -M:test -i test/app/client/path/timing.clj"
+}
