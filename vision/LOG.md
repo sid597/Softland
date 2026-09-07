@@ -1342,3 +1342,11 @@ marketplace split DOWN to bet — never constitution.)*
 > okay. Let's do b. now save all the things that you need to save and whatever the rulings need to go or whatever.
 
 *(Routed same-session: the ruling → `docs/decisions.md` "Tools are records over a vocabulary (settled 2026-09-06)"; the 3D page's Position 9 with the three sentences, the whys and the exits; `docs/below-the-waist/3d/HANDOFF-5.md`, `STARTER-5.md`, `fact-base-2.md` Part 16; the correction → memory `feedback-thoughts-are-not-rulings`; the board's Vision line.)*
+
+## 2026-09-07 — the client's first subject is Softland itself (verbatim, voice transcription)
+
+*[Context: the visioning session, after the 3D and path scene implementations were judged complete and after a server-side fact hunt. Sid, reframing "what next".]*
+
+> So how I was going this? like first blindside kind of things on this tool and let whatever is that it is. build out the client. And in the client, we would be able to see then, like, the first thing that client from the base layers is a lens planned code base itself. Try to make a three d, two d, whatever type of canvas. would be the best one to analyze the codebase from the artificial point of view and how they are implemented, how all this maps together. So this would be, like, Softland looking on the... and then from there, I could use Softland to modify the codebase itself that stinging. But the... it seems many current CD and the paths done. We all... we text based think. Next step is, like, how the UI looks. and then is the mass. I tried it once before and failed miserably. Not at all. And there... what do you think if I frame question and my
+
+*(Same session, on the handoff to the next chair: "just don't bias it with your or codex's solutions ... add the context of whatever you and codex extracted. And then we give it the prompt to do its own thinking." Routed: thread aim for the next chair; starter at `docs/below-the-waist/visioning-2026-09-07/STARTER.md`.)*
