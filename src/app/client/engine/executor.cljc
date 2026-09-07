@@ -7,6 +7,7 @@
    Evidence: test/app/client/engine/executor_test.clj."
   (:require [app.client.engine.schema :as schema]
             [app.client.engine.surface :as surface]
+            [app.client.engine.executor-read :as read]
             [app.client.engine.value-bytes :as vb]))
 
 (def ^:dynamic *read-observer* nil)
@@ -111,10 +112,13 @@
       (refuse! :shadows-item (:item each)))
     (let [missing (vec (distinct (keep #(when-not (contains? capabilities (:op %)) (:op %)) all-steps)))]
       (when (seq missing) (refuse! :missing-capability missing)))
-    (doseq [{:keys [out op args]} all-steps]
+    (doseq [{:keys [out op args pending]} all-steps]
       (when-not (and (keyword? out) (keyword? op) (map? args))
         (refuse! :step "Every step requires :out, :op and an :args map"))
       (when (contains? root-names out) (refuse! :shadows-root out))
+      (when (and pending (or (not (contains? #{:wait :provisional} pending))
+                             (not (:snapshot (get capabilities op)))))
+        (refuse! :pending "Only a declared read accepts :wait or :provisional"))
       (let [cap (get capabilities op) supplied (set (keys args))]
         (doseq [k supplied :when (not (some #{k} (:args cap)))] (refuse! :unconsumed-argument {:op op :argument k}))
         (doseq [group (:needs cap) :when (not-any? supplied group)] (refuse! :missing-argument {:op op :group group}))))
@@ -165,23 +169,23 @@
       (throw (ex-info "Missing declared item field" {:error-type :executor/missing-field :field k :at at}))))
   (select-keys item (:fields each)))
 
-(defn- execute-steps [steps scope capabilities ctx reads read-outputs]
+(defn- execute-steps [steps scope capabilities ctx reads read-outputs opts transaction answer-used]
   (reduce
-   (fn [{:keys [scope rows producers]} {:keys [out op args]}]
+   (fn [{:keys [scope rows producers]} {:keys [out op args] :as step}]
      (let [ctx (assoc ctx :step out)
            args-value (try (evaluate args scope)
                            (catch #?(:clj Exception :cljs :default) e
                              (throw (ex-info #?(:clj (.getMessage e) :cljs (.-message e))
                                              (assoc (ex-data e) :step out) e))))
-           _ (when (some #(and (map? %) (:status %) (not= :resolved (:status %))) (vals args-value))
+           _ (when (read/unresolved? args-value)
                (throw (ex-info "An unresolved read cannot be consumed" {:step out :error-type :executor/unresolved-read})))
-           value (try ((:run (get capabilities op)) args-value ctx)
+           value (try (read/call (get capabilities op) args-value ctx step opts transaction answer-used)
                       (catch #?(:clj Exception :cljs :default) e
                         (throw (ex-info #?(:clj (.getMessage e) :cljs (.-message e))
                                         (assoc (ex-data e) :step out) e))))
            read? (and (map? value) (contains? value :status))
            _ (when (and read? (not= :resolved (:status value)))
-               (throw (ex-info "Only resolved reads are landed in slice A"
+               (throw (ex-info "An unresolved read cannot pass the barrier"
                                {:step out :error-type :executor/unresolved-read :read value})))
            dependencies (reduce into #{} (map #(get producers (first %) #{}) (references args)))
            read-value (when read? (dissoc value :snapshot))
@@ -216,6 +220,28 @@
         {:status :error :at (or (:at d) at) :step (:step d)
          :error #?(:clj (.getMessage e) :cljs (.-message e)) :data d})))
 
+(defn- check-inputs! [record caller records]
+  (doseq [[input declaration] (get-in record [:roots :inputs])
+          :let [{producer-name :record output :output :as from} (:from declaration)]
+          :when from]
+    (let [producer (get records producer-name)
+          subject (get-in caller [:inputs input :subject])
+          program (:program producer)
+          {:keys [reach before transition]} (dependencies program (:roots producer))
+          expr (get-in program [:return output])
+          root-set (cond-> (reach expr before)
+                     (some #(= :state (first %)) (references expr)) (into transition))
+          required (select-keys (:roots producer) root-set)]
+      (when-not (and producer subject (contains? (:return program) output)
+                     (= output (:out subject))
+                     (vb/equal? program (get-in subject [:recipe :program]))
+                     (every? (fn [[k v]] (and (contains? (get-in subject [:recipe :roots]) k)
+                                              (vb/equal? v (get-in subject [:recipe :roots k])))) required)
+                     (every? (fn [[k v]] (or (not (contains? (:roots producer) k))
+                                             (vb/equal? v (get-in producer [:roots k]))))
+                             (get-in subject [:recipe :roots])))
+        (refuse! :subject {:input input :from from})))))
+
 (defn- run* [{:keys [program] :as record} caller capabilities opts continuation]
   (let [roots (merge (:roots record) caller)
         diagnostic (atom {}) read-order (atom []) current-at (atom 0)
@@ -223,11 +249,26 @@
                    (when (contains? roots (first path))
                      (when-not (contains? @diagnostic path) (swap! read-order conj path))
                      (swap! diagnostic assoc path value)))
-        before-reads (atom []) before-outputs (atom {})]
+        before-reads (atom []) before-outputs (atom {}) answer-used (atom false)
+        checkpoint (atom (merge {:at 0 :consumed [] :state nil :history []}
+                                (select-keys continuation [:at :consumed :state :history :loop-entered?])
+                                {:phase :before-loop
+                                 :loop-entered? (boolean (or (:loop-entered? continuation)
+                                                            (= :in-loop (:phase continuation))))}))
+        suspend (fn [data]
+                  (merge data {:at (:at @checkpoint)
+                               :continuation (merge @checkpoint
+                                                    {:schema continuation-schema :vocabulary (:vocabulary capabilities)
+                                                     :record record :scope caller :records (:records opts) :request (:request data)
+                                                     :missing (:missing data)})}))]
     (try
       (admission! record roots capabilities)
+      (check-inputs! record caller (:records opts))
       (binding [*read-observer* observer]
-        (let [before (execute-steps (:steps program) roots capabilities {:at 0 :record record :budget (:budget opts)} before-reads before-outputs)
+        (let [run-recipe (recipe record caller)
+              before (execute-steps (:steps program) roots capabilities {:at 0 :record record :budget (:budget opts)}
+                                    before-reads before-outputs opts
+                                    {:phase :before-loop :recipe run-recipe :at 0 :consumed [] :state nil :item nil} answer-used)
               scope (:scope before) each (:each program)
               items (when each (evaluate (:items each) scope))
               _ (when (and each (not (sequential? items)))
@@ -240,22 +281,24 @@
                   (doseq [i (range start)]
                     (when-not (vb/equal? (nth (:consumed continuation) i) (project-item each (nth items i) i))
                       (refuse! :consumed-items-differ {:at i}))))
-              initial (when each (if continuation (try (surface/validate-value! (:state continuation))
+              initial (when each (if (:loop-entered? @checkpoint) (try (surface/validate-value! (:state continuation))
                                                       (catch #?(:clj Exception :cljs :default) e
                                                         (refuse! :load (ex-data e))))
                                     (evaluate (:state each) scope)))]
           (loop [at start state initial consumed (vec (:consumed continuation)) history (vec (:history continuation))
                  log (vec (:rows before))]
             (reset! current-at at)
+            (reset! checkpoint {:phase (if each :in-loop :before-loop) :loop-entered? (boolean each)
+                                :at at :state state :consumed consumed :history history})
             (cond
               (and each (< at (count items)) (= at (:until opts)))
-              {:status :suspended :reason :until :at at
-               :continuation {:schema continuation-schema :vocabulary (:vocabulary capabilities)
-                              :record record :scope caller :phase :in-loop :at at :consumed consumed
-                              :state state :history history :request nil :missing nil}}
+              (suspend {:status :suspended :reason :until})
 
               (or (nil? each) (= at (count items)))
-              (let [final-scope (cond-> scope each (assoc :state state)) results (evaluate (:return program) final-scope)]
+              (let [_ (when (and (:answer opts) (not @answer-used))
+                        (throw (ex-info "The answer was not consumed: no request pending at this state"
+                                        {:status :stale :reason :answer-not-consumed})))
+                    final-scope (cond-> scope each (assoc :state state)) results (evaluate (:return program) final-scope)]
                 {:status :complete :results results
                  :subjects (subjects program roots results consumed history (:producers before) @before-outputs)
                  :state state :history history :log log :reads @diagnostic :read-order @read-order
@@ -264,15 +307,23 @@
               :else
               (let [item (project-item each (nth items at) at)
                     iteration (execute-steps (:steps each) (assoc scope :state state (:item each) item) capabilities
-                                             {:at at :record record :budget (:budget opts)} (atom []) (atom {}))
+                                             {:at at :record record :budget (:budget opts)} (atom []) (atom {})
+                                             opts (assoc @checkpoint :recipe run-recipe :item item) answer-used)
                     next-state (evaluate (:next each) (:scope iteration))
                     row {:at at :item item :state-after next-state :steps (:rows iteration)}]
                 (recur (inc at) next-state (conj consumed item) (conj history row) (into log (:rows iteration))))))))
-      (catch #?(:clj Exception :cljs :default) e (result-error e @current-at)))))
+      (catch #?(:clj Exception :cljs :default) e
+        (let [data (ex-data e)]
+          (case (:status data)
+            :suspended (suspend data)
+            :answered (assoc data :at (:at @checkpoint) :state (:state @checkpoint) :history (:history @checkpoint))
+            :stale (assoc data :at (:at @checkpoint) :state (:state @checkpoint) :history (:history @checkpoint))
+            (result-error e @current-at)))))))
 
 (defn run
   "Record {:program :roots}, caller scope, capability table and options →
-   complete/error/refused, or a continuation before item :until. Every run
+   complete/error/refused, a demanded read, or a continuation at :until or
+   a pending/needs-policy read. Answers must belong by value. Every run
    is independent. Timing belongs to the caller, not this pure result."
   ([record scope capabilities] (run record scope capabilities {}))
   ([record scope capabilities opts] (run* record scope capabilities opts nil)))
@@ -307,5 +358,5 @@
                  (if-not (= (:program old) (:program fresh)) :program
                      (first (filter #(not (vb/equal? (get-in old [:roots %]) (get-in fresh [:roots %])))
                                     (sort-by str (into (set (keys (:roots old))) (keys (:roots fresh)))))))))
-      (run* record scope capabilities opts continuation))
+      (run* record scope capabilities (merge {:records (:records continuation)} opts) continuation))
     (catch #?(:clj Exception :cljs :default) e (result-error e (:at continuation)))))

@@ -33,6 +33,7 @@ flowchart TD
 | [leases.cljs](leases.cljs) | Preserve logical region identities and composite indexes across physical resource replacement. |
 | [compositor.cljs](compositor.cljs) | Allocate, reuse and retire physical targets; reconcile region leases; encode presentation. |
 | [executor.cljc](executor.cljc) | Evaluate one EDN expression language; run records with named capability arguments and explicit loop state; suspend/resume byte continuations; return computation subjects. Evidence: `test/app/client/engine/executor_test.clj`. |
+| [executor_read.cljc](executor_read.cljc) | Stop pending reads before state advances; route one answer by phase/item/step and compare complete requests; retain declared provisional reads. Evidence: `test/app/client/engine/executor_pending_test.clj`. |
 | [surface.cljc](surface.cljc) | The compositor's pure CPU reference: immutable RGBA32F values, color paint, nearest sampling of surface stacks, linear mix, and exported pictures. Evidence: `surface_test.clj`, `path/pickup_test.clj`. |
 | [value_bytes.cljc](value_bytes.cljc) | Encode nested data as UTF-8 EDN with little-endian float32 payloads; compare complete values including array contents. Evidence: executor and surface tests. |
 | [surface_png.cljc](surface_png.cljc) | Deterministic PNG encoding for the CPU picture, without a canvas or GPU. Evidence: `surface_test/png-is-a-readable-picture`. |
@@ -41,3 +42,11 @@ flowchart TD
 The caller owns group registries and pure results. Buffer pools retain instance storage; binding owners retain logical associations; compositors own physical textures and retirement; an atlas owns its two textures and their mirrors. The executor retains nothing between runs and reads no clock. Its recipe is the program plus whole roots reached statically by the transition; its result subjects read dependencies from `:return` separately. Actual reads are diagnostics only (`executor_test.clj`). A continuation carries the record, caller roots, projected consumed items, state and history; encoding preserves array contents and load checks schema, vocabulary and surface lengths (`executor_test.clj`, `pickup_test.clj`).
 
 `surface.cljc` and `compositor.cljs` are one compositor: pure values/operations and physical ownership. The CPU runner lands color/source-over paint and nearest sampling over surface layers. Non-surface/pending layers, chart domains, texture paint/presentation through these operations, and a GPU runner are **not implemented**; they are the slice B or measured-runner extensions in `DESIGN-1`. Timing belongs to callers. No GPU performance claim is made for the CPU pickup. Logical identity, admission arithmetic and physical allocation are separate responsibilities. The browser caller acquires the GPU device and supplies it to this infrastructure.
+
+A read capability declares `:snapshot` separately from `:run`. Pending and
+needs-policy suspend before `:next`; `:pending :provisional` explicitly
+consumes the known composition and marks the subject/history. Requests carry
+phase as well as item/step position. A continuation keeps committed loop
+state even if replayed pre-loop work pends again, and retains the producer
+records used to check `:from` inputs. Tests: `executor_pending_test.clj`.
+The caller owns grants and continuation storage; no scheduler is implemented.
