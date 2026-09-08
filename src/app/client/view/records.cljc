@@ -68,10 +68,13 @@
   {:id "run-2" :kind :text/run :by "clipboard" :at [4 40]
    :keys (keystrokes "a paste from outside" 5000)})
 
-(def cursor-1 {:id "cursor-1" :kind :cursor :by "sid" :in "run-1" :offset 8})
+(def cursor-1
+  "Sid's cursor: an offset into a run's text, and an anchor when a range is
+   selected (the selection is [min max) of the two)."
+  {:id "cursor-1" :kind :cursor :by "sid" :in "run-1" :offset 8 :anchor nil})
 (def cursor-2
   "An agent's cursor in Sid's run: two people on one subject have two."
-  {:id "cursor-2" :kind :cursor :by "agent:claude" :in "run-1" :offset 4})
+  {:id "cursor-2" :kind :cursor :by "agent:claude" :in "run-1" :offset 4 :anchor nil})
 
 ;; ---------------------------------------------------------------- the layout rule, as expressions
 ;; The pen for THIS glyph, computed once per item by the :value step and read
@@ -219,6 +222,55 @@
                        [:get :state :at]]}}
     :return {:caret {:at [:get :state :at]}}}})
 
+(def selected?
+  "This placement lies in the cursor's selection: the cursor's run, an
+   anchor set, and the glyph's index within [min max) of anchor and offset."
+  [:if [:= [:get :p :run] [:get :cursor :in]]
+   [:if [:= [:get :cursor :anchor] [:literal nil]] false
+    [:if [:< [:get :p :i] [:min [:get :cursor :anchor] [:get :cursor :offset]]] false
+     [:< [:get :p :i] [:max [:get :cursor :anchor] [:get :cursor :offset]]]]]
+   false])
+
+(defn- box-ring
+  "A placement's pen and advance → a box the height of the line, as a ring for the painter."
+  [rgba]
+  (let [x0 [:get :p :pen 0] y0 [:get :p :pen 1] x1 [:+ [:get :p :pen 0] [:get :p :advance]] y1 [:+ [:get :p :pen 1] [:get :tool :height]]]
+    {:path {:subpaths [{:closed? true :start [x0 y0]
+                        :segments [{:kind :line :p [x1 y0]} {:kind :line :p [x1 y1]} {:kind :line :p [x0 y1]}]}]}
+     :rgba rgba}))
+
+(def select-tool
+  "The cursor's selection over the placements → a highlight box per
+   selected glyph, in the tool's ink. Reads the cursor, so it reruns when
+   the selection moves; the loop paints nothing."
+  {:id "select@1" :kind :tool :by "sid" :per :run :tool {:ink [1 0.85 0.2 0.45] :height 14}
+   :inputs {:placements {:kind :placements :from {:record "layout@1" :output :placements}}}
+   :program
+   {:each {:items [:get :inputs :placements :items] :item :p :fields [:i :run :pen :advance]
+           :state {:rings [:literal []]}
+           :steps [{:out :rings :op :collect
+                    :args {:into [:get :state :rings]
+                           :item [:if selected? (box-ring [:get :tool :ink]) [:literal nil]]}}]
+           :next {:rings [:get :rings]}}
+    :return {:highlight {:rings [:get :state :rings]}}}})
+
+(def highlight-paint-tool
+  "The selection's boxes over the run's painting → the painting with the
+   boxes painted over the text, translucent. Nothing selected, nothing
+   painted; the surface is copied once."
+  {:id "highlight-paint@1" :kind :tool :by "sid" :per :run :tool {:rule :nonzero}
+   :inputs {:highlight {:kind :rings :from {:record "select@1" :output :highlight}}
+            :painting {:kind :painting :from {:record "paint@1" :output :painting}}}
+   :program
+   {:each {:items [:get :inputs :highlight :rings] :item :ring :fields [:path :rgba]
+           :state {:painting [:get :inputs :painting]}
+           :steps [{:out :inked :op :paint
+                    :args {:surface [:get :state :painting]
+                           :region {:path [:get :ring :path] :rule [:get :tool :rule]}
+                           :rgba [:get :ring :rgba] :opacity 1 :blend :source-over}}]
+           :next {:painting [:get :inked]}}
+    :return {:painting [:get :state :painting]}}})
+
 (def no-caret? [:= [:get :inputs :caret :at] [:literal nil]])
 
 (def caret-paint-tool
@@ -226,7 +278,7 @@
    the caret's ink; no bar when no caret stands in this run."
   {:id "caret-paint@1" :kind :tool :by "sid" :per :run :tool {:ink [0.85 0.1 0.1 1] :width 1 :height 12}
    :inputs {:caret {:kind :point :from {:record "caret-place@1" :output :caret}}
-            :painting {:kind :painting :from {:record "paint@1" :output :painting}}}
+            :painting {:kind :painting :from {:record "highlight-paint@1" :output :painting}}}
    :program
    {:steps [{:out :bar :op :path/source
              :args {:source {:kind :rect
@@ -240,23 +292,27 @@
     :return {:painting [:get :painted]}}})
 
 (def inside?
-  "The pointer's local point is within this placement's rect."
-  [:if [:< [:get :point 0] [:get :p :rect 0]] false
-   [:if [:< [:+ [:get :p :rect 0] [:get :p :rect 2]] [:get :point 0]] false
-    [:if [:< [:get :point 1] [:get :p :rect 1]] false
-     [:if [:< [:+ [:get :p :rect 1] [:get :p :rect 3]] [:get :point 1]] false true]]]])
+  "The pointer's local point is within this placement's advance box: from
+   its pen to its pen plus its advance, the tool's height down from the pen.
+   The advance box, not the ink, so a space and a narrow letter answer too
+   and a selection dragged across words never falls between glyphs."
+  [:if [:< [:get :point 0] [:get :p :pen 0]] false
+   [:if [:< [:+ [:get :p :pen 0] [:get :p :advance]] [:get :point 0]] false
+    [:if [:< [:get :point 1] [:get :p :pen 1]] false
+     [:if [:< [:+ [:get :p :pen 1] [:get :tool :height]] [:get :point 1]] false true]]]])
 
 (def hit-tool
   "A point over a run's placements → what is there, where, whose, drawn by
    which tool."
-  {:id "hit@1" :kind :tool :by "sid" :per :run :tool {:painter "paint@1"}
+  {:id "hit@1" :kind :tool :by "sid" :per :run :tool {:painter "paint@1" :height 14}
    :inputs {:placements {:kind :placements :from {:record "layout@1" :output :placements}}}
    :program
-   {:each {:items [:get :inputs :placements :items] :item :p :fields [:i :ch :rect :pen :run :by]
+   {:each {:items [:get :inputs :placements :items] :item :p :fields [:i :ch :rect :pen :advance :run :by]
            :state {:hit [:literal nil]} :steps []
            :next {:hit [:if inside?
                         {:what :text/run :run [:get :p :run] :glyph [:get :p :ch] :index [:get :p :i]
-                         :where [:get :p :pen] :by [:get :p :by] :drawn-by [:get :tool :painter]}
+                         :where [:get :p :pen] :rect [:get :p :rect] :advance [:get :p :advance]
+                         :by [:get :p :by] :drawn-by [:get :tool :painter]}
                         [:get :state :hit]]}}
     :return {:hit [:get :state :hit]}}})
 
@@ -267,7 +323,7 @@
    under which scope name, at what zoom, and which view it came from."
   {:id "view-1" :kind :view :by "sid" :from nil
    :subject {:kind :text/run}
-   :tools ["query@1" "layout@1" "paint@1" "caret-place@1" "caret-paint@1"]
+   :tools ["query@1" "layout@1" "paint@1" "select@1" "highlight-paint@1" "caret-place@1" "caret-paint@1"]
    :hit-tool "hit@1"
    :pins {:font "font-noto-sans@1" :cursor "cursor-1"}
    :zoom 4 :origin [0 0]})
@@ -278,7 +334,7 @@
    chain of :from is how it got here."
   {:id "view-2" :kind :view :by "agent:claude" :from "view-1"
    :subject {:kind :text/run :by "sid"}
-   :tools ["query-by@1" "layout@1" "paint@1" "caret-place@1" "caret-paint@1"]
+   :tools ["query-by@1" "layout@1" "paint@1" "select@1" "highlight-paint@1" "caret-place@1" "caret-paint@1"]
    :hit-tool "hit@1"
    :pins {:font "font-noto-sans@1" :cursor "cursor-2"}
    :zoom 3 :origin [0 0]})
@@ -287,5 +343,6 @@
   "The first store: every record above, by id."
   (reduce store/put (store/empty-store)
           [font-boxes font-noto run-1 run-2 cursor-1 cursor-2
-           query-tool query-by-tool layout-tool paint-tool caret-place-tool caret-paint-tool hit-tool
+           query-tool query-by-tool layout-tool paint-tool select-tool highlight-paint-tool
+           caret-place-tool caret-paint-tool hit-tool
            view-1 view-2]))

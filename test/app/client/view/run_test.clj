@@ -25,12 +25,16 @@
    back as doubles where the boxes were integers."
   [v]
   (clojure.walk/postwalk #(if (number? %) (double %) %) v))
+(defn named
+  "A hit → the fields that say what, where and whose; its rect and advance are for the pointer."
+  [hit]
+  (some-> hit (select-keys [:what :run :glyph :index :where :by :drawn-by])))
 
 (deftest each-run-draws-on-its-own-surface-and-the-pointer-answers
   (let [f (frame records/store)]
     (is (= ["run-1" "run-2"] (:order f)))
     (is (every? #(= :complete %) (vals (statuses f))) (pr-str (:statuses f)))
-    (is (= 9 (count (:statuses f))) "one query, four per-run tools twice")
+    (is (= 13 (count (:statuses f))) "one query, six per-run tools twice")
     (is (= [27 20] [(count (get-in f [:placements "run-1"])) (count (get-in f [:placements "run-2"]))]))
     (is (= (nums [{:ch "t" :rect [5 4 2 8] :pen [4 4]} {:ch "h" :rect [9 4 4 8] :pen [8 4]}])
            (nums (mapv #(select-keys % [:ch :rect :pen]) (take 2 (get-in f [:placements "run-1"]))))))
@@ -48,9 +52,10 @@
       (is (= 18 (:revision (painting f "run-2"))) "17 inked glyphs and an empty caret paint"))
     (testing "point at the text: what, where, whose, drawn by which tool"
       (is (= {:what :text/run :run "run-1" :glyph "t" :index 0 :where [4 4] :by "sid" :drawn-by "paint@1"}
-             (run/hit records/store view f [5.5 6.5])))
+             (named (run/hit records/store view f [5.5 6.5]))))
       (is (= {:what :text/run :run "run-2" :glyph "a" :index 0 :where [4 40] :by "clipboard" :drawn-by "paint@1"}
-             (run/hit records/store view f [5 44])))
+             (named (run/hit records/store view f [5 44]))))
+      (is (= " " (:glyph (run/hit records/store view f [21 10]))) "a space answers by its advance box")
       (is (nil? (run/hit records/store view f [50 60]))))
     (testing "a foreign run draws at the tool's foreign scale: 'p' after 'a' and a half-width space"
       (is (= [9.0 41.5 2.0 3.5] (:rect (placement f "run-2" "p")))))))
@@ -116,7 +121,7 @@
     (is (<= 28 (:h (:box (first (:paintings f))))) "the sentence wraps at width 100")
     (is (= 24 (:revision (:surface (first (:paintings f))))) "23 inked glyphs and the caret, as with the boxes")
     (is (= {:what :text/run :run "run-1" :glyph "t" :index 0 :by "sid" :drawn-by "paint@1"}
-           (dissoc (run/hit store view f (centre first-t) {:table table}) :where)))
+           (dissoc (named (run/hit store view f (centre first-t) {:table table})) :where)))
     (is (= "a" (:glyph (run/hit store view f (centre (first (get-in f [:placements "run-2"]))) {:table table}))))
     (is (nil? (run/hit store view f [200 200] {:table table})))
     (is (pos? (:changed (:surface (first (:paintings f))))) "the caret bar left texels behind it")
@@ -135,8 +140,35 @@
     (is (= [42.0 4.0] (nums (:caret sid))) "Sid's caret is Sid's")
     (is (= (:by (store/record records/store "cursor-2")) "agent:claude"))))
 
+(deftest the-edit-log-folds-and-a-selection-highlights
+  (testing "the keystroke stream is an edit log: inserts at an offset, a backspace before one, a deleted range"
+    (is (= "abc" (apply str (table/fold-keys [{:ch "a"} {:ch "c"} {:ch "b" :at 1}]))))
+    (is (= "ac" (apply str (table/fold-keys [{:ch "a"} {:ch "b"} {:ch "c"} {:key "Backspace" :at 2}]))))
+    (is (= "ad" (apply str (table/fold-keys [{:ch "a"} {:ch "b"} {:ch "c"} {:ch "d"} {:key "Delete" :from 1 :to 3}]))))
+    (is (= ["a" "\n" "b"] (table/fold-keys [{:ch "a"} {:ch "b"} {:key "Enter" :at 1}])))
+    (is (= "the tool under your fingers" (apply str (table/fold-keys (:keys records/run-1))))))
+  (let [selected (store/edit records/store "cursor-1" assoc :anchor 4 :offset 8)
+        f (frame selected)
+        rings (get-in f [:runs ["select@1" "run-1"] :results :highlight :rings])]
+    (is (every? #(= :complete %) (vals (statuses f))) (pr-str (:statuses f)))
+    (is (= 4 (count rings)) "'tool' is four glyphs")
+    (is (= [23.0 4.0] (nums (get-in rings [0 :path :subpaths 0 :start]))) "the first box stands at the t's pen")
+    (is (= 28 (:revision (painting f "run-1"))) "23 glyphs, four highlight boxes, one caret bar")
+    (is (= 18 (:revision (painting f "run-2"))) "nothing selected in the paste")
+    (is (= [42.0 4.0] (nums (:caret f))) "the caret stands at the offset end of the selection")
+    (let [replaced (-> selected
+                       (store/append-key "run-1" {:i 27 :key "Delete" :from 4 :to 8 :t 9})
+                       (store/append-key "run-1" {:i 28 :ch "X" :at 4 :t 10})
+                       (store/edit "cursor-1" assoc :offset 5 :anchor nil))
+          g (frame replaced f)]
+      (is (= "the X under your fingers" (apply str (table/fold-keys (:keys (store/record replaced "run-1"))))))
+      (is (= 24 (count (get-in g [:placements "run-1"]))))
+      (is (= 0 (count (get-in g [:runs ["select@1" "run-1"] :results :highlight :rings]))))
+      (is (not (contains? (:resumed g) ["layout@1" "run-1"])) "an edit inside the text reruns the layout")
+      (is (every? #(= :complete %) (vals (statuses g))) (pr-str (:statuses g))))))
+
 (deftest the-store-is-records-by-id-in-order
-  (is (= ["caret-paint@1" "caret-place@1" "cursor-1" "cursor-2" "font-boxes@1" "font-noto-sans@1" "hit@1" "layout@1" "paint@1"
-          "query-by@1" "query@1" "run-1" "run-2" "view-1" "view-2"]
+  (is (= ["caret-paint@1" "caret-place@1" "cursor-1" "cursor-2" "font-boxes@1" "font-noto-sans@1" "highlight-paint@1" "hit@1" "layout@1" "paint@1"
+          "query-by@1" "query@1" "run-1" "run-2" "select@1" "view-1" "view-2"]
          (mapv :id (store/records records/store))))
   (is (every? #(and (string? (:id %)) (keyword? (:kind %)) (string? (:by %))) (store/records records/store))))

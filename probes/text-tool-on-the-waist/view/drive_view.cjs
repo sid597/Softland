@@ -102,6 +102,37 @@ const server = http.createServer((req, res) => {
   receipts['12-cursor-offset-3'] = await metrics();
   await shot('07-cursor-at-3.png');
 
+  // click places the cursor; a drag selects; the selection is the cursor's anchor
+  const g4 = await centre('run-1', 4);
+  await page.mouse.move(box.x + g4[0] - 3, box.y + g4[1]);
+  await page.mouse.down();
+  await page.waitForTimeout(120);
+  const g7 = await centre('run-1', 7);
+  await page.mouse.move(box.x + g7[0] + 3, box.y + g7[1], { steps: 4 });
+  await page.waitForTimeout(200);
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  receipts['19-selected'] = await page.evaluate(() => window.softland.cursor());
+  receipts['19-selected-metrics'] = await metrics();
+  await shot('12-selection.png');
+  await page.keyboard.press('Control+c');
+  await page.waitForTimeout(100);
+  receipts['20-copied'] = await metrics();
+  await page.keyboard.type('X');
+  await page.waitForTimeout(200);
+  receipts['21-typed-over-selection'] = await page.evaluate(() => window.softland.text('run-1'));
+  receipts['21-cursor'] = await page.evaluate(() => window.softland.cursor());
+  await shot('13-typed-over-selection.png');
+  await page.keyboard.press('ArrowLeft');
+  await page.keyboard.press('Shift+ArrowLeft');
+  await page.keyboard.press('Shift+ArrowLeft');
+  await page.waitForTimeout(200);
+  receipts['22-shift-arrows'] = await page.evaluate(() => window.softland.cursor());
+  await page.keyboard.press('Backspace');
+  await page.waitForTimeout(200);
+  receipts['23-backspaced-selection'] = await page.evaluate(() => window.softland.text('run-1'));
+  receipts['23-last-keys'] = await page.evaluate(() => window.softland.record('run-1').slice(-260));
+
   // stand in the agent's view: Sid's runs only, its own cursor, zoom 3, from view-1
   await page.selectOption('#views', 'view-2');
   await page.waitForTimeout(300);

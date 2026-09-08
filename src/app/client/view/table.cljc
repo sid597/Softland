@@ -26,14 +26,21 @@
   "view 2: path kind production 2 · shape = box glyphs or TrueType outlines per character, Backspace deletes, Enter breaks · place = translate and scale, y flipped · collect = conj, nil skips · value = identity")
 
 (defn fold-keys
-  "Keystroke records in order → the characters that stand after deletes.
-   Enter stands as a newline character; anything else without :ch is skipped."
+  "Keystroke records in order → the characters that stand. A key inserts at
+   its :at offset into the text so far, or at the end without one; Backspace
+   removes the character before :at (the last, without one); Delete removes
+   [:from :to); Enter inserts a newline. The stream is the edit log, saved as
+   it was typed; the text is derived from it here."
   [keys]
-  (reduce (fn [chars {:keys [ch key]}]
-            (cond (= key "Backspace") (if (seq chars) (pop chars) chars)
-                  (= key "Enter") (conj chars "\n")
-                  (string? ch) (conj chars ch)
-                  :else chars))
+  (reduce (fn [chars {:keys [ch key at from to]}]
+            (let [n (count chars) at (max 0 (min (or at n) n))
+                  before (subvec chars 0 at) after (subvec chars at)]
+              (cond (= key "Backspace") (if (pos? at) (into (subvec chars 0 (dec at)) after) chars)
+                    (= key "Delete") (let [from (max 0 (min (or from 0) n)) to (max from (min (or to n) n))]
+                                       (into (subvec chars 0 from) (subvec chars to)))
+                    (= key "Enter") (into (conj before "\n") after)
+                    (string? ch) (into (conj before ch) after)
+                    :else chars)))
           [] keys))
 
 (def break-glyph {:advance 0 :bbox [0 0 0 0] :outline {:subpaths []} :ink 0 :break 1})

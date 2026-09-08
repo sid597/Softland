@@ -31,8 +31,35 @@
 (defonce !editing (atom nil))
 (defonce !table (atom table/table))
 
+(declare frame! render-readout!)
+
 (defn- el [id] (js/document.getElementById id))
 (defn- view [] (store/record @!store @!view-id))
+(defn- cursor [] (store/record @!store (get-in (view) [:pins :cursor])))
+
+(defn- selection
+  "The cursor → [from to) of its selection, or nil."
+  [{:keys [anchor offset]}]
+  (when (and anchor (not= anchor offset)) [(min anchor offset) (max anchor offset)]))
+
+(defn- selected-text []
+  (let [c (cursor)]
+    (when-let [[from to] (selection c)]
+      (apply str (subvec (table/fold-keys (:keys (store/record @!store (:in c)))) from to)))))
+
+(defonce !dragging (atom false))
+
+(defn- offset-at
+  "A hit and the local point → the text offset the pointer stands at: before
+   the glyph on the left half of its advance, after it on the right."
+  [hit [px _]]
+  (let [[x _] (:where hit)]
+    (if (> px (+ x (/ (:advance hit) 2))) (inc (:index hit)) (:index hit))))
+
+(defn- move-cursor! [offset anchor]
+  (let [c (cursor)]
+    (swap! !store store/edit (:id c) assoc :offset offset :anchor anchor)
+    (frame!)))
 
 (def srgb-lut
   "Linear [0,1] in 4096 steps → the sRGB 8-bit channel, the transfer curve
@@ -86,6 +113,8 @@
                (when keys-ms (str " · last key " (.toFixed keys-ms 1) " ms")) "\n"
                "tools " (pr-str statuses) "\n"
                "tool ms " (pr-str tool-ms) " · resumed " (pr-str resumed) "\n"
+               "cursor " (pr-str (select-keys (cursor) [:offset :anchor])) (when-let [t (selected-text)] (str " selected " (pr-str t)))
+               (when-let [copied (:copied @!metrics)] (str " · copied " (pr-str copied))) "\n"
                "pointer " (pr-str (:local pointer)) " → " (pretty (:hit pointer))))))
 
 (defn- render-views!
@@ -142,33 +171,74 @@
           local (run/texel->local (view) x y)
           hit (run/hit @!store (view) f local {:table @!table})]
       (swap! !metrics assoc :pointer {:texel [x y] :local local :hit hit :hit-ms (- (js/performance.now) t0)})
+      (when (and @!dragging hit (= (:run hit) (:in (cursor))))
+        (let [c (cursor) offset (offset-at hit local)]
+          (when (not= offset (:offset c))
+            (move-cursor! offset (or (:anchor c) (:offset c))))))
       (render-readout!))))
 
 (defn- editing-text? []
   (contains? #{"TEXTAREA" "INPUT"} (.-tagName (.-activeElement js/document))))
 
-(defn- append-key!
-  "One keystroke → the cursor's run grows by one record and the cursor moves
-   to the end of the folded text; then a frame."
-  [key]
-  (let [v (view) cursor (store/record @!store (get-in v [:pins :cursor])) run-id (:in cursor)]
+(defn- edit!
+  "Keystroke records for the cursor's run, stamped with the stream index,
+   the time and the typing view's asserter, and the cursor's new offset →
+   the store grows by those records, the cursor moves and loses its anchor;
+   then a frame."
+  [keys offset]
+  (let [v (view) c (cursor) run-id (:in c)]
     (swap! !store (fn [s]
-                    (let [s (store/append-key s run-id (assoc key :i (count (:keys (store/record s run-id))) :t (js/Date.now) :by (:by v)))
+                    (let [s (reduce (fn [s key]
+                                      (store/append-key s run-id (assoc key :i (count (:keys (store/record s run-id))) :t (js/Date.now) :by (:by v))))
+                                    s keys)
                           n (count (table/fold-keys (:keys (store/record s run-id))))]
-                      (store/edit s (:id cursor) assoc :offset n))))
+                      (store/edit s (:id c) assoc :offset (max 0 (min offset n)) :anchor nil))))
     (let [t0 (js/performance.now)]
       (frame!)
       (swap! !metrics assoc :keys-ms (- (js/performance.now) t0))
       (render-readout!))))
 
+(defn- type-key!
+  "A typed character or Enter → inserted at the cursor, replacing a
+   selection when one stands."
+  [key]
+  (let [c (cursor) [from to] (selection c) at (or from (:offset c))]
+    (edit! (cond-> [] (and from to) (conj {:key "Delete" :from from :to to}) true (conj (assoc key :at at)))
+           (inc at))))
+
+(defn- backspace! []
+  (let [c (cursor) [from to] (selection c)]
+    (if from
+      (edit! [{:key "Delete" :from from :to to}] from)
+      (when (pos? (:offset c)) (edit! [{:key "Backspace" :at (:offset c)}] (dec (:offset c)))))))
+
 (defn- on-key [e]
   (when-not (editing-text?)
-    (let [k (.-key e)]
+    (let [k (.-key e) c (cursor) n (count (table/fold-keys (:keys (store/record @!store (:in c)))))]
       (cond
-        (= k "Backspace") (do (.preventDefault e) (append-key! {:key "Backspace"}))
-        (= k "Enter") (do (.preventDefault e) (append-key! {:key "Enter"}))
-        (and (= 1 (.-length k)) (not (.-ctrlKey e)) (not (.-metaKey e))) (do (.preventDefault e) (append-key! {:ch k}))
+        (and (or (.-ctrlKey e) (.-metaKey e)) (= (.toLowerCase k) "c"))
+        (when-let [text (selected-text)]
+          (.preventDefault e)
+          (swap! !metrics assoc :copied text)
+          (when-let [clipboard (.-clipboard js/navigator)] (.catch (.writeText clipboard text) (fn [_] nil)))
+          (render-readout!))
+        (or (.-ctrlKey e) (.-metaKey e)) nil
+        (= k "Backspace") (do (.preventDefault e) (backspace!))
+        (= k "Enter") (do (.preventDefault e) (type-key! {:key "Enter"}))
+        (= k "ArrowLeft") (do (.preventDefault e) (move-cursor! (max 0 (dec (:offset c))) (when (.-shiftKey e) (or (:anchor c) (:offset c)))))
+        (= k "ArrowRight") (do (.preventDefault e) (move-cursor! (min n (inc (:offset c))) (when (.-shiftKey e) (or (:anchor c) (:offset c)))))
+        (= 1 (.-length k)) (do (.preventDefault e) (type-key! {:ch k}))
         :else nil))))
+
+(defn- on-mouse-down [e]
+  (when-let [f @!frame]
+    (let [local (run/texel->local (view) (.-offsetX e) (.-offsetY e))
+          hit (run/hit @!store (view) f local {:table @!table})]
+      (when (and hit (= (:run hit) (:in (cursor))))
+        (reset! !dragging true)
+        (move-cursor! (offset-at hit local) nil)))))
+
+(defn- on-mouse-up [_] (reset! !dragging false))
 
 (defn apply-edit!
   "The editor's EDN → the store, then a frame. A record keeps its id; the
@@ -263,6 +333,8 @@
     (when-let [saved (load-store)] (reset! !store saved))
     (add-watch !store ::persist (fn [_ _ _ s] (save-store! s)))
     (.addEventListener canvas "mousemove" on-pointer)
+    (.addEventListener canvas "mousedown" on-mouse-down)
+    (.addEventListener js/window "mouseup" on-mouse-up)
     (.addEventListener js/window "keydown" on-key)
     (.addEventListener (el "apply") "click" (fn [_] (apply-edit!)))
     (.addEventListener (el "views") "change" (fn [e] (reset! !view-id (.-value (.-target e))) (frame!)))
@@ -275,6 +347,8 @@
                :bench bench
                :glyphCentre glyph-centre
                :stand (fn [id] (reset! !view-id id) (frame!) (pr-str (:statuses @!metrics)))
+               :cursor (fn [] (pr-str (cursor)))
+               :text (fn [run] (apply str (table/fold-keys (:keys (store/record @!store run)))))
                :reset (fn [] (.removeItem js/localStorage store-key) (reset! !store records/store) (reset! !frames {}) (frame!) "reset")
                :ready false})
     (load-fonts! (fn [] (frame!) (set! (.-ready js/window.softland) true))))))
