@@ -383,11 +383,16 @@ stay records.
   `/place.html`, `/js/place/*`, `/fonts/*`; drives `page.mouse`; calls
   `window.__place.readback()` and `window.__place.trace()`; writes
   `target/place/<c>.png` and `<c>.trace.edn`.
-- `CHECKPOINTS.md` beside this file, appended per component: what it is, the
-  receipt paths, the numbers that mattered, what moved in this ladder and why,
-  what the builder filled in with its own judgment.
+- The checkpoint table at the end of this file carries, per component, the
+  state, the commit, and one line on what changed in shape. It changes in the
+  same commit as the code. What the builder filled in with its own judgment
+  goes in the README of the namespace it touched.
 - One commit per component, on the worktree branch, explicit paths only.
-  README, docstrings and code in the same commit.
+  README, docstrings and code in the same commit. A red check is reported red
+  before anything else is claimed.
+- Blocked: `ASK-N.md` beside this file with what was going to be built, what
+  was tried, where it stands, and the one missing piece that needs Sid's
+  approval; then stop.
 
 ## 7. Approval points
 
@@ -434,3 +439,16 @@ tick at 128x64 (fallback: bake smaller, rebake only on painting revision);
 the place's region as the harness does; the executor passes opts through as
 ctx (the text capability closes over the provider instead, so nothing rests on
 it).
+
+## 10. Checkpoints
+
+| Component | State | Commit | What changed in shape |
+|---|---|---|---|
+| C0 the page and the present | not started | | |
+| C1 the tick and the deliverer | not started | | |
+| C2 the skin | not started | | |
+| C3 the pointer and the inspector | not started | | |
+| C4 three tools, one subject | not started | | |
+| C5 where you stand | not started | | |
+| C6 change a tool from where you stand | not started | | |
+| C7 the wire | not started | | |
