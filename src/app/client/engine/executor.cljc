@@ -169,11 +169,18 @@
       (throw (ex-info "Missing declared item field" {:error-type :executor/missing-field :field k :at at}))))
   (select-keys item (:fields each)))
 
-(defn- execute-steps [steps scope capabilities ctx reads read-outputs opts transaction answer-used]
+(defn- compile-steps
+  "Steps → the same steps with their argument expressions compiled once and
+   their declared references read once; a run evaluates, never recompiles."
+  [steps]
+  (mapv (fn [step] {:step step :args-fn (compile-expression (:args step)) :refs (references (:args step))}) steps))
+
+(defn- execute-steps [csteps scope capabilities ctx reads read-outputs opts transaction answer-used]
   (reduce
-   (fn [{:keys [scope rows producers]} {:keys [out op args] :as step}]
-     (let [ctx (assoc ctx :step out)
-           args-value (try (evaluate args scope)
+   (fn [{:keys [scope rows producers]} {:keys [step args-fn refs]}]
+     (let [{:keys [out op]} step
+           ctx (assoc ctx :step out)
+           args-value (try (args-fn scope)
                            (catch #?(:clj Exception :cljs :default) e
                              (throw (ex-info #?(:clj (.getMessage e) :cljs (.-message e))
                                              (assoc (ex-data e) :step out) e))))
@@ -187,7 +194,7 @@
            _ (when (and read? (not= :resolved (:status value)))
                (throw (ex-info "An unresolved read cannot pass the barrier"
                                {:step out :error-type :executor/unresolved-read :read value})))
-           dependencies (reduce into #{} (map #(get producers (first %) #{}) (references args)))
+           dependencies (reduce into #{} (map #(get producers (first %) #{}) refs))
            read-value (when read? (dissoc value :snapshot))
            dependencies (cond-> dependencies read? (conj out))
            row (cond-> {:out out :op op :status (if read? (:status value) :complete)}
@@ -195,7 +202,7 @@
                  (and (map? value) (contains? value :changed)) (assoc :changed (:changed value)))]
        (when read? (swap! reads conj read-value) (swap! read-outputs assoc out read-value))
        {:scope (assoc scope out value) :rows (conj rows row) :producers (assoc producers out dependencies)}))
-   {:scope scope :rows [] :producers {}} steps))
+   {:scope scope :rows [] :producers {}} csteps))
 
 (defn- subjects [program roots results consumed history before-producers before-reads]
   (let [{:keys [reach before transition]} (dependencies program roots)
@@ -212,14 +219,20 @@
           (into names (read-names (:next each) producers)))
         loop-reads (vec (for [row history step (:steps row) :when (= :resolved (:status step))]
                           (dissoc step :out :op :snapshot)))
+        ;; A state-dependent output also came from the items the loop consumed;
+        ;; the roots those items reached ride beside the recipe so a consumer
+        ;; can tell a value made from other items apart, while the recipe
+        ;; itself stays free of them and an appended item still resumes.
+        item-roots (when each (select-keys roots (reach (:items each) before)))
         per-output (fn [[out expr]]
                      (let [refs (references expr) state? (some #(= :state (first %)) refs)
                            root-set (cond-> (reach expr before) state? (into transition))
                            names (cond-> (read-names expr before-producers) state? (into transition-reads))]
-                       [out {:recipe {:program program :roots (select-keys roots root-set)}
-                             :consumed (if state? consumed [])
-                             :reads (into (mapv before-reads (sort-by str names)) (when state? loop-reads))
-                             :out out}]))]
+                       [out (cond-> {:recipe {:program program :roots (select-keys roots root-set)}
+                                     :consumed (if state? consumed [])
+                                     :reads (into (mapv before-reads (sort-by str names)) (when state? loop-reads))
+                                     :out out}
+                              state? (assoc :item-roots item-roots))]))]
     (if (map? (:return program)) (into {} (map per-output) (:return program))
         ;; A bare path is an admitted L0 result. Each returned field came from
         ;; the same return expression, so each has that expression's subject.
@@ -231,7 +244,37 @@
         {:status :error :at (or (:at d) at) :step (:step d)
          :error #?(:clj (.getMessage e) :cljs (.-message e)) :data d})))
 
-(defn- check-inputs! [record caller records]
+(defn- inputs-belong?
+  "A producer's declared inputs, the resolved values its subject holds and
+   the records the caller knows → every resolved input with a :from came
+   from that producer's program and output. An unknown producer refuses."
+  [declared resolved records]
+  (every? (fn [[name {:keys [from]}]]
+            (or (nil? from)
+                (let [subject (:subject (get resolved name)) grand (get records (:record from))]
+                  (boolean (and subject grand (= (:output from) (:out subject))
+                                (vb/equal? (:program grand) (get-in subject [:recipe :program])))))))
+          declared))
+
+(defn- roots-belong?
+  "Roots a subject names, the producer record, the consumer's scope and the
+   records → every one still stands: the producer's own roots by its record,
+   :inputs by the producers they were declared from, scope roots by the
+   consumer's scope. A root nobody names is not checked."
+  [subject-roots producer caller records]
+  (every? (fn [[k v]]
+            (cond (= k :inputs) (inputs-belong? (get-in producer [:roots :inputs]) v records)
+                  (contains? (:roots producer) k) (vb/equal? v (get-in producer [:roots k]))
+                  (contains? caller k) (vb/equal? v (get caller k))
+                  :else true))
+          subject-roots))
+
+(defn- check-inputs!
+  "The consumer record, its scope and the records it knows → nothing, or a
+   :subject refusal: a retained input must have been made by the declared
+   producer's program and output, under roots that still stand (recipe roots
+   and the roots its items reached), from inputs that themselves belong."
+  [record caller records]
   (doseq [[input declaration] (get-in record [:roots :inputs])
           :let [{producer-name :record output :output :as from} (:from declaration)]
           :when from]
@@ -240,17 +283,17 @@
           program (:program producer)
           {:keys [reach before transition]} (dependencies program (:roots producer))
           expr (get-in program [:return output])
-          root-set (cond-> (reach expr before)
-                     (some #(= :state (first %)) (references expr)) (into transition))
-          required (select-keys (:roots producer) root-set)]
+          state? (some #(= :state (first %)) (references expr))
+          root-set (cond-> (reach expr before) state? (into transition))
+          item-set (if state? (reach (get-in program [:each :items]) before) #{})
+          named (fn [roots ks] (every? #(contains? roots %) (filter #(contains? (:roots producer) %) ks)))]
       (when-not (and producer subject (contains? (:return program) output)
                      (= output (:out subject))
                      (vb/equal? program (get-in subject [:recipe :program]))
-                     (every? (fn [[k v]] (and (contains? (get-in subject [:recipe :roots]) k)
-                                              (vb/equal? v (get-in subject [:recipe :roots k])))) required)
-                     (every? (fn [[k v]] (or (not (contains? (:roots producer) k))
-                                             (vb/equal? v (get-in producer [:roots k]))))
-                             (get-in subject [:recipe :roots])))
+                     (named (get-in subject [:recipe :roots]) root-set)
+                     (named (:item-roots subject) item-set)
+                     (roots-belong? (get-in subject [:recipe :roots]) producer caller records)
+                     (roots-belong? (:item-roots subject) producer caller records))
         (refuse! :subject {:input input :from from})))))
 
 (defn- run* [{:keys [program] :as record} caller capabilities opts continuation]
@@ -277,11 +320,18 @@
       (check-inputs! record caller (:records opts))
       (binding [*read-observer* observer]
         (let [run-recipe (recipe record caller)
-              before (execute-steps (:steps program) roots capabilities {:at 0 :record record :budget (:budget opts)}
+              each (:each program)
+              ;; Compiled once here; admission already proved every expression compiles.
+              loop-steps (compile-steps (:steps each))
+              items-fn (when each (compile-expression (:items each)))
+              state-fn (when each (compile-expression (:state each)))
+              next-fn (when each (compile-expression (:next each)))
+              return-fn (compile-expression (:return program))
+              before (execute-steps (compile-steps (:steps program)) roots capabilities {:at 0 :record record :budget (:budget opts)}
                                     before-reads before-outputs opts
                                     {:phase :before-loop :recipe run-recipe :at 0 :consumed [] :state nil :item nil} answer-used)
-              scope (:scope before) each (:each program)
-              items (when each (evaluate (:items each) scope))
+              scope (:scope before)
+              items (when each (items-fn scope))
               _ (when (and each (not (sequential? items)))
                   (throw (ex-info "Items must be a finite sequence value" {:error-type :executor/each-value})))
               start (if continuation (:at continuation) 0)
@@ -295,7 +345,7 @@
               initial (when each (if (:loop-entered? @checkpoint) (try (surface/validate-value! (:state continuation))
                                                       (catch #?(:clj Exception :cljs :default) e
                                                         (refuse! :load (ex-data e))))
-                                    (evaluate (:state each) scope)))]
+                                    (state-fn scope)))]
           (loop [at start state initial consumed (vec (:consumed continuation)) history (vec (:history continuation))
                  log (vec (:rows before))]
             (reset! current-at at)
@@ -309,18 +359,21 @@
               (let [_ (when (and (:answer opts) (not @answer-used))
                         (throw (ex-info "The answer was not consumed: no request pending at this state"
                                         {:status :stale :reason :answer-not-consumed})))
-                    final-scope (cond-> scope each (assoc :state state)) results (evaluate (:return program) final-scope)]
+                    final-scope (cond-> scope each (assoc :state state)) results (return-fn final-scope)]
+                ;; A complete run keeps its continuation at the end of its items, so
+                ;; a stream that grows resumes with the new items alone.
                 {:status :complete :results results
                  :subjects (subjects program roots results consumed history (:producers before) @before-outputs)
                  :state state :history history :log log :reads @diagnostic :read-order @read-order
-                 :unread (vec (remove (set (map first (keys @diagnostic))) (keys (:roots record))))})
+                 :unread (vec (remove (set (map first (keys @diagnostic))) (keys (:roots record))))
+                 :continuation (:continuation (suspend {}))})
 
               :else
               (let [item (project-item each (nth items at) at)
-                    iteration (execute-steps (:steps each) (assoc scope :state state (:item each) item) capabilities
+                    iteration (execute-steps loop-steps (assoc scope :state state (:item each) item) capabilities
                                              {:at at :record record :budget (:budget opts)} (atom []) (atom {})
                                              opts (assoc @checkpoint :recipe run-recipe :item item) answer-used)
-                    next-state (evaluate (:next each) (:scope iteration))
+                    next-state (next-fn (:scope iteration))
                     row {:at at :item item :state-after next-state :steps (:rows iteration)}]
                 (recur (inc at) next-state (conj consumed item) (conj history row) (into log (:rows iteration))))))))
       (catch #?(:clj Exception :cljs :default) e
@@ -334,8 +387,9 @@
 (defn run
   "Record {:program :roots}, caller scope, capability table and options →
    complete/error/refused, a demanded read, or a continuation at :until or
-   a pending/needs-policy read. Answers must belong by value. Every run
-   is independent. Timing belongs to the caller, not this pure result."
+   a pending/needs-policy read. A complete result also carries its
+   continuation at the end of its items. Answers must belong by value. Every
+   run is independent. Timing belongs to the caller, not this pure result."
   ([record scope capabilities] (run record scope capabilities {}))
   ([record scope capabilities opts] (run* record scope capabilities opts nil)))
 

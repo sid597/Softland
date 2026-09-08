@@ -78,6 +78,56 @@
         r (executor/run record {} table)]
     (is (= [(dissoc read :snapshot)] (get-in r [:subjects :color :reads])))))
 
+(deftest a-complete-run-keeps-its-continuation-and-an-appended-item-resumes-alone
+  (let [calls (atom 0)
+        t (assoc-in table [:identity :run] (fn [args _] (swap! calls inc) (get args :value (:alternative args))))
+        done (executor/run sum-record {} t)
+        _ (is (= 3 @calls))
+        more (executor/resume (:continuation done) t {:record (update-in sum-record [:roots :numbers] conj {:n 7})})]
+    (is (= :complete (:status done)))
+    (is (= 3 (get-in done [:continuation :at])))
+    (is (= 26 (get-in more [:results :sum])))
+    (is (= 4 @calls) "only the appended item ran")
+    (is (= 4 (count (:history more))))
+    (is (= :complete (:status (executor/resume (:continuation done) t {}))))
+    (is (= 4 @calls) "nothing appended runs nothing")
+    (is (= :recipe-differs (:reason (executor/resume (:continuation done) t {:scope {:factor 3}}))))
+    (is (= (:results done) (:results (executor/resume (executor/decode (executor/encode (:continuation done)) t) t {}))))))
+
+(deftest inputs-chain-through-tools-and-stale-scope-or-items-refuse
+  (let [retained (fn [r out] (assoc (get-in r [:results out]) :subject (get-in r [:subjects out])))
+        a {:roots {:n 2} :program {:steps [{:out :v :op :identity :args {:value {:n [:get :n]}}}] :return {:out [:get :v]}}}
+        b {:roots {:inputs {:x {:from {:record "a" :output :out}}}}
+           :program {:steps [{:out :v :op :identity :args {:value {:doubled [:* 2 [:get :inputs :x :n]] :zoom [:get :zoom]}}}]
+                     :return {:out [:get :v]}}}
+        c {:roots {:inputs {:y {:from {:record "b" :output :out}}}}
+           :program {:steps [{:out :v :op :identity :args {:value {:seen [:get :inputs :y :doubled]}}}] :return {:out [:get :v]}}}
+        ra (executor/run a {} table)
+        rb (executor/run b {:zoom 1 :inputs {:x (retained ra :out)}} table {:records {"a" a}})
+        run-c (fn [scope records] (executor/run c scope table {:records records}))]
+    (is (= :complete (:status rb)))
+    (is (= {:seen 4} (get-in (run-c {:zoom 1 :inputs {:y (retained rb :out)}} {"a" a "b" b}) [:results :out]))
+        "two levels deep; the middle record read its inputs outside a loop")
+    (is (= :subject (:reason (run-c {:zoom 2 :inputs {:y (retained rb :out)}} {"a" a "b" b}))) "a scope root the consumer names differently")
+    (is (= :subject (:reason (run-c {:zoom 1 :inputs {:y (retained rb :out)}} {"b" b}))) "the grand producer is unknown")
+    (is (= :subject (:reason (run-c {:zoom 1 :inputs {:y (retained rb :out)}}
+                                    {"a" (assoc-in a [:program :steps 0 :args :value :n] 5) "b" b})))
+        "the resolved input came from another program"))
+  (let [retained (fn [r out] (assoc (get-in r [:results out]) :subject (get-in r [:subjects out])))
+        summing {:roots {:events [{:x 1} {:x 2}]}
+                 :program {:each {:items [:get :events] :item :e :fields [:x] :state {:sum 0} :steps []
+                                  :next {:sum [:+ [:get :state :sum] [:get :e :x]]}}
+                           :return {:sum {:total [:get :state :sum]}}}}
+        r (executor/run summing {} table)
+        consumer {:roots {:inputs {:s {:from {:record "l" :output :sum}}}}
+                  :program {:steps [{:out :v :op :identity :args {:value [:get :inputs :s :total]}}] :return {:v [:get :v]}}}]
+    (is (= {:events [{:x 1} {:x 2}]} (get-in r [:subjects :sum :item-roots])) "the items' roots ride beside the recipe")
+    (is (= #{} (set (keys (get-in r [:subjects :sum :recipe :roots])))) "and stay out of it")
+    (is (= 3 (get-in (executor/run consumer {:inputs {:s (retained r :sum)}} table {:records {"l" summing}}) [:results :v])))
+    (is (= :subject (:reason (executor/run consumer {:inputs {:s (retained r :sum)}} table
+                                           {:records {"l" (update-in summing [:roots :events] conj {:x 3})}})))
+        "a value summed over other items is not this record's subject")))
+
 (deftest expression-vocabulary-and-lazy-branches
   (doseq [[expression expected] [[[:+ 2 [:* 3 4]] 14]
                                 [[:pow 2 [:pow 3 2]] 512.0]

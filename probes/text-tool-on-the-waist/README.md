@@ -72,7 +72,7 @@ move by tens of percent between runs):
 | Move the cursor record; the caret follows | `07-cursor-at-3.png` |
 | The store survives a reload | `08-after-reload.png` |
 
-| Measured | ms |
+| Measured, first form: one layout and one painting for the whole view | ms |
 |---|---:|
 | First frame: query · layout · paint (47 items, 42 rings) | 12 · 183 · 304 |
 | Present (surface value to the canvas) | 9 to 17 |
@@ -81,14 +81,29 @@ move by tens of percent between runs):
 | One ring's paint, direct / through the executor | 7.7 / 6.5 |
 | Copying the surface once (518,400 floats) | 1.0 |
 | The same copy in node on this machine | 1.5 |
-| Paint as ONE region over the union box (the first form tried) | about 1050 |
+| Paint as ONE region over the union box (the form tried before per ring) | about 1050 |
 | Layout before / after the `:value` word | 426 / 179 |
 
-Where the time goes, attributed: painting is per ring (one coverage pass over
-the ring's box, one copy of the surface) and a ring costs about 7 ms of which
-the copy is 1 ms; one region for all the text costs a coverage pass over the
-union box with every segment of the line in its band. The layout's cost is
-the executor's interpretation: every step's expression is compiled at every
-evaluation, and without a `:let` the pen expression was embedded in every
-place that read it until the `:value` word named it once per item.
+| Measured, second form: one layout and one painting per run, frames resumed | ms |
+|---|---:|
+| First frame, all instances fresh (run-1: layout 87, paint 231 on a 408 × 80 surface) | 468 |
+| One keystroke at the end of run-1: frame · of which run-1 layout · run-1 paint | 102 · 25 · 26 |
+| Enter and a new line, same shape | 93 |
+| Move the cursor record (caret place reruns, all else resumes) | 94 |
+| Backspace, or a tool edit: the run's layout and paint rerun fresh | 400 to 525 |
+| Present, the runs' surfaces composited over white through a lookup table | 6 to 37 |
+| Copying a run's surface once (408 × 80) | 0.4 |
+
+Where the time goes, attributed. First form: painting is per ring (one
+coverage pass over the ring's box, one copy of the surface); one region for
+all the text costs a coverage pass over the union box with every segment of
+the line in its band; the layout's cost was the executor compiling every
+step's expression at every evaluation, and without a `:let` the pen
+expression was embedded in every place that read it until the `:value` word
+named it once per item. Second form: a program is compiled once per run and
+a complete run keeps its continuation, so a keystroke resumes the grown run's
+layout and painter with the new glyph alone; what remains per keystroke is
+eight instances resuming with nothing to do (each replays its pre-loop step
+and checks its consumed items) and one ring's coverage pass, about 7 ms,
+which is the CPU filler's price and the GPU fill's job.
 

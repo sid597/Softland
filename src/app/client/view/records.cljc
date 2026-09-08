@@ -62,34 +62,27 @@
 (def advance [:* [:get :g :advance] scale])
 (def new-run? [:not [:= [:get :g :run] [:get :state :run]]])
 (def fits
-  "This glyph stays on the current line: no break, and it ends within the width."
+  "This glyph stays on the current line: not a break; whitespace hangs past
+   the width; anything inked ends within it."
   [:if [:= [:get :g :break] 1] false
-   [:<= [:+ [:get :state :x] advance] [:+ [:get :g :at 0] [:get :tool :width]]]])
+   [:if [:= [:get :g :ink] 0] true
+    [:<= [:+ [:get :state :x] advance] [:+ [:get :g :at 0] [:get :tool :width]]]]])
 (def pen-x [:if new-run? [:get :g :at 0] [:if fits [:get :state :x] [:get :g :at 0]]])
 (def pen-y [:if new-run? [:get :g :at 1] [:if fits [:get :state :y] [:+ [:get :state :y] [:get :tool :line-height]]]])
-(def in-cursor-run? [:= [:get :g :run] [:get :cursor :in]])
-(def cursor-here? [:if in-cursor-run? [:= [:get :g :i] [:get :cursor :offset]] false])
-(def cursor-after? [:if in-cursor-run? [:= [:+ [:get :g :i] 1] [:get :cursor :offset]] false])
 
 (def pen
   "What the :value step names for this glyph: the pen, its scale and advance,
-   the box corners, and whether the caret stands here or after it."
+   the box corners, and whether this glyph opened a new line."
   {:x pen-x :y pen-y :scale scale :advance advance
    :x0 [:+ pen-x [:* [:get :g :box 0] scale]] :y0 [:+ pen-y [:* [:get :g :box 1] scale]]
    :w [:* [:get :g :box 2] scale] :h [:* [:get :g :box 3] scale]
-   :here cursor-here? :after cursor-after?})
+   :wrapped [:if new-run? false [:not fits]]})
 
 (defn- ring
   "Four corner expressions and a colour expression → one closed ring for the painter."
   [ax ay bx by rgba]
   {:closed? true :rgba rgba
    :anchors [{:p [ax ay]} {:p [bx ay]} {:p [bx by]} {:p [ax by]}]})
-
-(defn- caret-ring
-  "The caret bar standing at x on this glyph's line."
-  [x]
-  (ring x [:get :pen :y] [:+ x [:get :tool :caret-width]] [:+ [:get :pen :y] [:get :tool :caret-height]]
-        [:get :tool :caret-ink]))
 
 ;; ---------------------------------------------------------------- the tools
 (def query-tool
@@ -105,54 +98,88 @@
     :return {:runs {:ids [:get :state :hits]}}}})
 
 (def layout-tool
-  "Keystrokes of the queried runs → placements (for the hit), the rings to
-   paint (each glyph's box in the tool's ink, and the caret bar in the
-   caret's ink, at the cursor's place), and where the caret stands."
-  {:id "layout@1" :kind :tool :by "sid"
-   :tool {:width 100 :line-height 10 :self "sid" :foreign-scale 0.5
-          :ink [0 0 0 1] :caret-ink [0.85 0.1 0.1 1] :caret-width 1 :caret-height 8}
-   :inputs {:runs {:kind :run-ids :from {:record "query@1" :output :runs}}}
+  "One run's keystrokes → placements (for the hit and the caret), the rings
+   to paint (each glyph's box in the tool's ink) and the run's box (its
+   origin, the wrap width, the lines it filled). One instance per run the
+   query names: a key appended to a run is a tail append of that run's
+   items, so its layout resumes with the new glyph alone. The cursor is not
+   read here, so the recipe holds only the tool's parameters."
+  {:id "layout@1" :kind :tool :by "sid" :per :run
+   :tool {:width 100 :line-height 10 :self "sid" :foreign-scale 0.5 :ink [0 0 0 1]}
    :program
-   {:steps [{:out :shaped :op :text/shape
-             :args {:ids [:get :inputs :runs :ids] :store [:get :store] :font [:get :font]}}]
+   {:steps [{:out :shaped :op :text/shape :args {:run [:get :run] :font [:get :font]}}]
     :each {:items [:get :shaped] :item :g :fields [:i :ch :advance :box :ink :break :run :at :by]
-           :state {:run [:literal nil] :x 0 :y 0
-                   :placed [:literal []] :rings [:literal []] :caret [:literal nil]}
+           :state {:run [:literal nil] :x 0 :y 0 :lines 1 :placed [:literal []] :rings [:literal []]}
            :steps [{:out :pen :op :value :args {:value pen}}
                    {:out :placed :op :collect
                     :args {:into [:get :state :placed]
                            :item {:i [:get :g :i] :ch [:get :g :ch] :ink [:get :g :ink]
                                   :rect [[:get :pen :x0] [:get :pen :y0] [:get :pen :w] [:get :pen :h]]
-                                  :pen [[:get :pen :x] [:get :pen :y]]
+                                  :pen [[:get :pen :x] [:get :pen :y]] :advance [:get :pen :advance]
                                   :run [:get :g :run] :by [:get :g :by]}}}
-                   {:out :inked :op :collect
+                   {:out :rings :op :collect
                     :args {:into [:get :state :rings]
                            :item [:if [:= [:get :g :ink] 0] [:literal nil]
                                   (ring [:get :pen :x0] [:get :pen :y0]
                                         [:+ [:get :pen :x0] [:get :pen :w]] [:+ [:get :pen :y0] [:get :pen :h]]
-                                        [:get :tool :ink])]}}
-                   {:out :rings :op :collect
-                    :args {:into [:get :inked]
-                           :item [:if [:get :pen :here] (caret-ring [:get :pen :x])
-                                  [:if [:get :pen :after] (caret-ring [:+ [:get :pen :x] [:get :pen :advance]]) [:literal nil]]]}}]
+                                        [:get :tool :ink])]}}]
            :next {:run [:get :g :run]
                   :x [:+ [:get :pen :x] [:get :pen :advance]] :y [:get :pen :y]
-                  :placed [:get :placed] :rings [:get :rings]
-                  :caret [:if [:get :pen :here] [[:get :pen :x] [:get :pen :y]]
-                          [:if [:get :pen :after] [[:+ [:get :pen :x] [:get :pen :advance]] [:get :pen :y]] [:get :state :caret]]]}}
+                  :lines [:+ [:get :state :lines] [:if [:get :pen :wrapped] 1 0]]
+                  :placed [:get :placed] :rings [:get :rings]}}
     :return {:placements {:items [:get :state :placed]}
-             :outline {:rings [:get :state :rings]}
-             :caret {:at [:get :state :caret]}}}})
+             :outline {:rings [:get :state :rings]
+                       :box {:x [:get :run :at 0] :y [:get :run :at 1]
+                             :w [:+ [:get :tool :width] 2]
+                             :h [:* [:get :state :lines] [:get :tool :line-height]]}}}}})
+
+(def caret-place-tool
+  "The cursor over the placements → where the caret stands: at the glyph
+   the offset names, or after the glyph before it. Reads the cursor, so it
+   reruns when the cursor moves; the loop paints nothing."
+  {:id "caret-place@1" :kind :tool :by "sid" :per :run :tool {}
+   :inputs {:placements {:kind :placements :from {:record "layout@1" :output :placements}}}
+   :program
+   {:each {:items [:get :inputs :placements :items] :item :p :fields [:i :run :pen :advance]
+           :state {:at [:literal nil]} :steps []
+           :next {:at [:if [:= [:get :p :run] [:get :cursor :in]]
+                       [:if [:= [:get :p :i] [:get :cursor :offset]] [:get :p :pen]
+                        [:if [:= [:+ [:get :p :i] 1] [:get :cursor :offset]]
+                         [[:+ [:get :p :pen 0] [:get :p :advance]] [:get :p :pen 1]]
+                         [:get :state :at]]]
+                       [:get :state :at]]}}
+    :return {:caret {:at [:get :state :at]}}}})
+
+(def no-caret? [:= [:get :inputs :caret :at] [:literal nil]])
+
+(def caret-paint-tool
+  "The caret place over the text's painting → the painting with one bar in
+   the caret's ink; no bar when no caret stands."
+  {:id "caret-paint@1" :kind :tool :by "sid" :per :run :tool {:ink [0.85 0.1 0.1 1] :width 1 :height 8}
+   :inputs {:caret {:kind :point :from {:record "caret-place@1" :output :caret}}
+            :painting {:kind :painting :from {:record "paint@1" :output :painting}}}
+   :program
+   {:steps [{:out :bar :op :path/source
+             :args {:source {:kind :rect
+                             :x [:if no-caret? 0 [:get :inputs :caret :at 0]]
+                             :y [:if no-caret? 0 [:get :inputs :caret :at 1]]
+                             :w [:get :tool :width] :h [:get :tool :height]}
+                    :tool {}}}
+            {:out :painted :op :paint
+             :args {:surface [:get :inputs :painting] :region [:get :bar :path]
+                    :rgba [:get :tool :ink] :opacity [:if no-caret? 0 1] :blend :source-over}}]
+    :return {:painting [:get :painted]}}})
 
 (def paint-tool
-  "The rings of a layout → one painting on the view's surface, one paint
-   per ring in the ring's colour. One region for the whole text was tried
-   first: the CPU filler's coverage pass runs over the union box with every
-   segment of the line in its band, 1.5 s per frame in the browser; a paint
-   per ring copies the surface per ring but covers only that ring's box.
-   The rings ride in through :items only, so the painting's subject does not
-   reach :inputs and a later tool can take this painting through :inputs."
-  {:id "paint@1" :kind :tool :by "sid" :tool {:rule :nonzero}
+  "The rings of a run's layout → that run's painting, one paint per ring in
+   the ring's colour, on a surface the runner sizes to the layout's box. One
+   region for the whole text was tried first: the CPU filler's coverage pass
+   runs over the union box with every segment of the line in its band, 1.5 s
+   per frame in the browser; a paint per ring copies the surface per ring but
+   covers only that ring's box, and a run's surface is small. The rings ride
+   in through :items only, so the painting's subject does not reach :inputs
+   and a later tool can take this painting through :inputs."
+  {:id "paint@1" :kind :tool :by "sid" :per :run :tool {:rule :nonzero}
    :inputs {:outline {:kind :rings :from {:record "layout@1" :output :outline}}}
    :program
    {:steps [{:out :fresh :op :surface/new :args {:declaration [:get :painting]}}]
@@ -176,7 +203,7 @@
 
 (def hit-tool
   "A point over the placements → what is there, where, whose, drawn by which tool."
-  {:id "hit@1" :kind :tool :by "sid" :tool {:painter "paint@1"}
+  {:id "hit@1" :kind :tool :by "sid" :per :run :tool {:painter "paint@1"}
    :inputs {:placements {:kind :placements :from {:record "layout@1" :output :placements}}}
    :program
    {:each {:items [:get :inputs :placements :items] :item :p :fields [:i :ch :rect :pen :run :by]
@@ -189,11 +216,12 @@
 
 ;; ---------------------------------------------------------------- the view
 (def view-1
-  "Where Sid stands: which subject, which tools in which order, what is pinned
+  "Where Sid stands: which subject, which tools in which order (a tool
+   marked :per :run runs once per run the subject names), what is pinned
    under which scope name, at what zoom, and which view it came from."
   {:id "view-1" :kind :view :by "sid" :from nil
    :subject {:kind :text/run}
-   :tools ["query@1" "layout@1" "paint@1"]
+   :tools ["query@1" "layout@1" "paint@1" "caret-place@1" "caret-paint@1"]
    :hit-tool "hit@1"
    :pins {:font "font-boxes@1" :cursor "cursor-1"}
    :zoom 4 :origin [0 0]})
@@ -201,4 +229,4 @@
 (def store
   "The first store: every record above, by id."
   (reduce store/put (store/empty-store)
-          [font run-1 run-2 cursor-1 query-tool layout-tool paint-tool hit-tool view-1]))
+          [font run-1 run-2 cursor-1 query-tool layout-tool paint-tool caret-place-tool caret-paint-tool hit-tool view-1]))

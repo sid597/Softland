@@ -28,40 +28,62 @@
 (defn- el [id] (js/document.getElementById id))
 (defn- view [] (store/record @!store @!view-id))
 
+(def srgb-lut
+  "Linear [0,1] in 4096 steps → the sRGB 8-bit channel, the transfer curve
+   evaluated once instead of per texel per frame."
+  (let [lut (js/Uint8ClampedArray. 4096)]
+    (dotimes [i 4096]
+      (aset lut i (js/Math.round (* 255 (color/linear->srgb-channel (/ i 4095))))))
+    lut))
+
 (defn present!
-  "Surface value → the canvas: premultiplied linear RGBA32F composed over
-   white, encoded as straight sRGB 8-bit. The CPU runner's own display."
-  [canvas {:keys [width height data]}]
-  (when-not (and (= width (.-width canvas)) (= height (.-height canvas)))
-    (set! (.-width canvas) width)
-    (set! (.-height canvas) height))
-  (let [ctx (.getContext canvas "2d")
+  "The runs' surfaces at their places → the canvas: each premultiplied
+   linear RGBA32F surface composed source-over at its box's texel offset,
+   the whole composed over white and encoded as straight sRGB 8-bit. The
+   CPU runner's own display; the GPU compositor's quads are the next runner."
+  [canvas view paintings]
+  (let [width (.-width canvas) height (.-height canvas)
+        acc (js/Float32Array. (* width height 4))
+        ctx (.getContext canvas "2d")
         img (.createImageData ctx width height)
         px (.-data img)]
+    (doseq [{:keys [box surface]} paintings]
+      (let [[tx ty] (run/local->texel view [(:x box) (:y box)])
+            ox (js/Math.round tx) oy (js/Math.round ty)
+            sw (:width surface) sh (:height surface) data (:data surface)]
+        (dotimes [y sh]
+          (let [dy (+ oy y)]
+            (when (and (<= 0 dy) (< dy height))
+              (dotimes [x sw]
+                (let [dx (+ ox x)]
+                  (when (and (<= 0 dx) (< dx width))
+                    (let [s (* 4 (+ x (* y sw))) d (* 4 (+ dx (* dy width)))
+                          keep (- 1.0 (aget data (+ s 3)))]
+                      (dotimes [c 4]
+                        (aset acc (+ d c) (+ (aget data (+ s c)) (* keep (aget acc (+ d c)))))))))))))))
     (dotimes [i (* width height)]
-      (let [j (* 4 i) k (- 1.0 (aget data (+ j 3)))]
+      (let [j (* 4 i) k (- 1.0 (aget acc (+ j 3)))]
         (dotimes [c 3]
-          (aset px (+ j c) (js/Math.round (* 255 (color/linear->srgb-channel (min 1.0 (+ (aget data (+ j c)) k)))))))
+          (aset px (+ j c) (aget srgb-lut (js/Math.round (* 4095 (min 1.0 (+ (aget acc (+ j c)) k)))))))
         (aset px (+ j 3) 255)))
     (.putImageData ctx img 0 0)))
 
 (defn- pretty [x] (with-out-str (pprint/pprint x)))
 
 (defn- render-readout! []
-  (let [{:keys [frame-ms present-ms pointer statuses keys-ms tool-ms]} @!metrics
+  (let [{:keys [frame-ms present-ms pointer statuses keys-ms tool-ms resumed]} @!metrics
         v (view)]
     (set! (.-textContent (el "readout"))
           (str "view " (:id v) " by " (:by v) " zoom " (:zoom v) " subject " (pr-str (:subject v)) "\n"
                "frame " (when frame-ms (.toFixed frame-ms 1)) " ms · present " (when present-ms (.toFixed present-ms 1)) " ms"
                (when keys-ms (str " · last key " (.toFixed keys-ms 1) " ms")) "\n"
                "tools " (pr-str statuses) "\n"
-               "tool ms " (pr-str tool-ms) "\n"
+               "tool ms " (pr-str tool-ms) " · resumed " (pr-str resumed) "\n"
                "pointer " (pr-str (:local pointer)) " → " (pretty (:hit pointer))))))
 
 (defn- render-records! []
   (let [v (view) f @!frame
-        ids (distinct (concat [(:id v)] (:tools v) [(:hit-tool v)] (vals (:pins v))
-                              (get-in f [:runs "query@1" :results :runs :ids])))
+        ids (distinct (concat [(:id v)] (:tools v) [(:hit-tool v)] (vals (:pins v)) (:order f)))
         host (el "records")]
     (set! (.-innerHTML host) "")
     (doseq [id ids]
@@ -79,25 +101,27 @@
   []
   (let [canvas (el "painting")
         t0 (js/performance.now)
-        f (run/frame @!store (view) [(.-width canvas) (.-height canvas)] {:clock #(js/performance.now)})
+        f (run/frame @!store (view) {:clock #(js/performance.now) :previous @!frame})
         t1 (js/performance.now)]
     (reset! !frame f)
-    (when (:painting f) (present! canvas (:painting f)))
+    (present! canvas (view) (:paintings f))
     (swap! !metrics assoc :frame-ms (- t1 t0) :present-ms (- (js/performance.now) t1)
-           :tool-ms (into {} (for [[id ms] (:ms f)] [id (js/Math.round ms)]))
-           :statuses (:statuses f) :caret (:caret f)
-           :placements (count (get-in f [:placements :items])))
+           :tool-ms (into {} (for [[key ms] (:ms f)] [(pr-str key) (js/Math.round ms)]))
+           :resumed (mapv pr-str (:resumed f))
+           :statuses (into {} (for [[key s] (:statuses f)] [(pr-str key) s]))
+           :caret (:caret f)
+           :paintings (mapv (fn [{:keys [run box surface]}] {:run run :box box :size [(:width surface) (:height surface)] :revision (:revision surface)}) (:paintings f))
+           :placements (reduce + 0 (map count (vals (:placements f)))))
     (render-readout!)
     (render-records!)))
 
 (defn- on-pointer [e]
-  (when-let [p (:painting @!frame)]
+  (when-let [f @!frame]
     (let [t0 (js/performance.now)
           x (.-offsetX e) y (.-offsetY e)
-          local (surface/to-point p x y)
-          r (run/hit @!store (view) @!frame local)]
-      (swap! !metrics assoc :pointer {:texel [x y] :local local :hit (get-in r [:results :hit])
-                                      :status (:status r) :hit-ms (- (js/performance.now) t0)})
+          local (run/texel->local (view) x y)
+          hit (run/hit @!store (view) f local)]
+      (swap! !metrics assoc :pointer {:texel [x y] :local local :hit hit :hit-ms (- (js/performance.now) t0)})
       (render-readout!))))
 
 (defn- editing-text? []
@@ -144,8 +168,9 @@
   "Where a ring's paint goes: the surface copy alone, the paint call alone,
    and the same paint through the executor. Diagnostic only."
   []
-  (let [f @!frame p (:painting f)
-        ring (first (get-in f [:runs "layout@1" :results :outline :rings]))
+  (let [f @!frame run-id (first (:order f)) p (:surface (first (:paintings f)))
+        rings (get-in f [:runs ["layout@1" run-id] :results :outline :rings])
+        ring (first rings)
         region {:path (:path (source/build {:kind :anchors :contours [ring]} {})) :rule :nonzero}
         t (fn [n g] (let [t0 (js/performance.now)] (dotimes [_ n] (g)) (/ (- (js/performance.now) t0) n)))
         paint-args {:surface p :region region :rgba [0 0 0 1] :opacity 1 :blend :source-over}
@@ -157,7 +182,7 @@
              :slice-ms (t 20 #(.slice (:data p)))
              :paint-direct-ms (t 20 #(path-surface/paint paint-args {:at 0 :step :b}))
              :paint-via-executor-ms (t 20 #(executor/run one {:painting p :region region} table/table))
-             :rings (count (get-in f [:runs "layout@1" :results :outline :rings]))})))
+             :rings (count rings)})))
 
 (def store-key "softland/view/store")
 
@@ -191,6 +216,6 @@
                :put (fn [edn] (swap! !store store/put (reader/read-string edn)) (frame!) (pr-str (:statuses @!metrics)))
                :log (fn [] (pr-str (map #(dissoc % :previous) (:log @!store))))
                :bench bench
-               :reset (fn [] (.removeItem js/localStorage store-key) (reset! !store records/store) (frame!) "reset")
+               :reset (fn [] (.removeItem js/localStorage store-key) (reset! !store records/store) (reset! !frame nil) (frame!) "reset")
                :ready true})
     (frame!))))

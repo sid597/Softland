@@ -1,27 +1,47 @@
 (ns app.client.view.run
   "Run a view on the executor: the records it stands in front of, through its
    tools in the order it names. Takes a store value, a view record and the
-   painting size in texels. Gives the frame (every tool's run, the painting,
-   the placements) and a hit for a point. Holds nothing; timing belongs to the
-   caller. Evidence: run_test.clj.
+   view's texel size. Gives the frame (every tool instance's run, the runs'
+   paintings at their places, the placements, the caret) and a hit for a
+   point. Holds nothing; timing belongs to the caller. Evidence: run_test.clj.
 
    Wiring is data: a tool's :inputs name the producer record and output they
    take, and this runner hands each tool the producer's retained value with
-   its subject. The scope a tool runs under is the view: its subject as
-   :where, its pins by name, the store's records as :store, and the painting
-   declaration derived from its zoom and origin."
+   its subject. A tool marked :per :run is instantiated once per run the
+   view's subject names, keyed [tool run]; its painting is a surface the
+   runner sizes to the layout's box, so a run's paint copies only its own
+   box, and the view composites the runs' surfaces at their places. The
+   scope a tool runs under is the view: its subject as :where, its pins by
+   name, the store's records as :store, the run as :run.
+
+   Between frames each instance resumes the continuation it kept, without
+   its history: a run whose keys grew runs its new glyphs alone; a resume the
+   executor refuses (a root changed, an item changed) is a fresh run."
   (:require [app.client.engine.executor :as executor]
             [app.client.view.store :as store]
             [app.client.view.table :as table]))
 
 (defn painting-declaration
-  "View and texel size → the surface the view paints into: local units to
-   texels through the view's zoom and origin."
-  [view width height]
-  (let [z (:zoom view) [ox oy] (:origin view)]
-    {:surface/id (str (:id view) "/painting") :width width :height height
-     :domain {:kind :plane :map [z 0 0 z (- (* z ox)) (- (* z oy))]}
+  "View, a surface id and a local box {:x :y :w :h} → the surface that box
+   paints into: local units to texels through the view's zoom, the box's
+   origin at texel zero."
+  [view id {:keys [x y w h]}]
+  (let [z (:zoom view)]
+    {:surface/id id :width (max 1 (int (Math/ceil (* z w)))) :height (max 1 (int (Math/ceil (* z h))))
+     :domain {:kind :plane :map [z 0 0 z (- (* z x)) (- (* z y))]}
      :color :linear-premultiplied-rgba :filter :nearest :initial [0 0 0 0]}))
+
+(defn texel->local
+  "View and a texel of the view's canvas → the local point at that texel's centre."
+  [view x y]
+  (let [z (:zoom view) [ox oy] (:origin view)]
+    [(+ ox (/ (+ x 0.5) z)) (+ oy (/ (+ y 0.5) z))]))
+
+(defn local->texel
+  "View and a local point → the view's texel coordinates."
+  [view [x y]]
+  (let [z (:zoom view) [ox oy] (:origin view)]
+    [(* z (- x ox)) (* z (- y oy))]))
 
 (defn tool-record
   "Tool record → executor record: its parameters and declared inputs are its roots."
@@ -35,51 +55,102 @@
   (assoc (get-in run [:results out]) :subject (get-in run [:subjects out])))
 
 (defn scope
-  "Store, view and texel size → the roots every tool of the view runs under."
-  [store view [width height]]
-  (merge {:store (store/records store)
-          :where (:subject view)
-          :painting (painting-declaration view width height)}
+  "Store and view → the roots every tool of the view runs under."
+  [store view]
+  (merge {:store (store/records store) :where (:subject view)}
          (into {} (for [[name id] (:pins view)] [name (store/record store id)]))))
 
+(defn records
+  "Store and view → every tool record the view names, by id: what the
+   executor's input check is allowed to know."
+  [store view]
+  (into {} (for [id (conj (:tools view) (:hit-tool view)) :when id]
+             [id (tool-record (store/record store id))])))
+
+(defn- resolve-inputs
+  "A tool, the instance's run id and the runs so far → its declared inputs,
+   each the producer instance's retained output; a per-view producer serves
+   every run."
+  [tool run-id runs]
+  (into {} (for [[name {:keys [from]}] (:inputs tool) :when from
+                 :let [{:keys [record output]} from
+                       producer (or (get runs [record run-id]) (get runs [record nil]))]]
+             [name (retained producer output)])))
+
 (defn run-tool
-  "Store, base scope, the runs so far and a tool id → that tool's executor run,
-   its declared inputs resolved from the earlier runs."
-  [store base runs id]
+  "Store, scope, the view's records, the runs so far, a tool id, the run id
+   this instance is for and the instance's run from the previous frame →
+   the executor run, resumed from the previous continuation when the
+   executor admits it, fresh otherwise."
+  [store base records runs id run-id previous]
   (let [tool (store/record store id)
-        from (for [[name {:keys [from]}] (:inputs tool) :when from] [name from])
-        inputs (into {} (for [[name {:keys [record output]}] from]
-                          [name (retained (get runs record) output)]))
-        records (into {} (for [[_ {:keys [record]}] from]
-                           [record (tool-record (store/record store record))]))]
-    (executor/run (tool-record tool)
-                  (cond-> base (seq inputs) (assoc :inputs inputs))
-                  table/table
-                  {:records records})))
+        record (tool-record tool)
+        inputs (resolve-inputs tool run-id runs)
+        scope (cond-> base (seq inputs) (assoc :inputs inputs))
+        resumed (when-let [held (:continuation previous)]
+                  (executor/resume (assoc held :history []) table/table
+                                   {:record record :scope scope :records records}))]
+    (if (= :complete (:status resumed))
+      (assoc resumed :resumed? true)
+      (assoc (executor/run record scope table/table {:records records}) :resumed? false))))
+
+(defn- complete [runs key] (let [r (get runs key)] (when (= :complete (:status r)) (:results r))))
 
 (defn frame
-  "Store, view and texel size → the view's tools run in order, the painting
-   the last completed painter gave, the placements the layout gave, and each
-   tool's status. An optional :clock (a function giving milliseconds) times
-   each tool; without one nothing is timed."
-  ([store view size] (frame store view size {}))
-  ([store view size {:keys [clock]}]
-   (let [base (scope store view size)
-         {:keys [runs ms]} (reduce (fn [{:keys [runs] :as acc} id]
-                                     (let [t0 (when clock (clock))
-                                           r (run-tool store base runs id)]
-                                       (cond-> (assoc-in acc [:runs id] r)
-                                         clock (assoc-in [:ms id] (- (clock) t0)))))
-                                   {:runs {} :ms {}} (:tools view))
-         complete (fn [id] (let [r (get runs id)] (when (= :complete (:status r)) (:results r))))]
+  "Store and view → the frame: the view's per-view tools run in order, then
+   each per-run tool for each run the subject names, in order; the runs'
+   paintings with their boxes, in run order; placements and caret; each
+   instance's status. Options: :previous, the last frame, whose instances
+   each instance resumes from; :clock, a function giving milliseconds,
+   times each instance."
+  ([store view] (frame store view {}))
+  ([store view {:keys [clock previous]}]
+   (let [base (scope store view)
+         known (records store view)
+         tools (map #(store/record store %) (:tools view))
+         per-view (map :id (remove #(= :run (:per %)) tools))
+         per-run (map :id (filter #(= :run (:per %)) tools))
+         run-one (fn [acc id run-id sc]
+                   (let [t0 (when clock (clock))
+                         r (run-tool store sc known (:runs acc) id run-id (get-in previous [:runs [id run-id]]))]
+                     (cond-> (assoc-in acc [:runs [id run-id]] r)
+                       clock (assoc-in [:ms [id run-id]] (- (clock) t0)))))
+         acc (reduce (fn [acc id] (run-one acc id nil base)) {:runs {} :ms {}} per-view)
+         run-ids (some #(get-in (complete (:runs acc) [% nil]) [:runs :ids]) per-view)
+         acc (reduce (fn [acc run-id]
+                       (let [run (store/record store run-id)]
+                         (reduce (fn [acc id]
+                                   (let [box (some #(get-in (complete (:runs acc) [% run-id]) [:outline :box]) per-run)
+                                         sc (cond-> (assoc base :run run)
+                                              box (assoc :painting (painting-declaration view (str (:id view) "/" run-id "/painting") box)))]
+                                     (run-one acc id run-id sc)))
+                                 acc per-run)))
+                     acc run-ids)
+         runs (:runs acc)
+         last-painting (fn [run-id] (some #(:painting (complete runs [% run-id])) (reverse per-run)))]
      {:runs runs
-      :ms ms
-      :painting (some #(:painting (complete %)) (reverse (:tools view)))
-      :placements (some #(:placements (complete %)) (:tools view))
-      :caret (some #(:at (:caret (complete %))) (:tools view))
-      :statuses (into {} (for [id (:tools view)] [id (select-keys (get runs id) [:status :reason :error])]))})))
+      :ms (:ms acc)
+      :order (vec run-ids)
+      :resumed (set (for [[key r] runs :when (:resumed? r)] key))
+      :paintings (vec (for [run-id run-ids
+                            :let [box (some #(get-in (complete runs [% run-id]) [:outline :box]) per-run)
+                                  surface (last-painting run-id)]
+                            :when (and box surface)]
+                        {:run run-id :box box :surface surface}))
+      :placements (into {} (for [run-id run-ids
+                                 :let [p (some #(get-in (complete runs [% run-id]) [:placements :items]) per-run)]
+                                 :when p]
+                             [run-id p]))
+      :caret (some (fn [run-id] (some #(get-in (complete runs [% run-id]) [:caret :at]) per-run)) run-ids)
+      :statuses (into {} (for [[key r] runs] [key (select-keys r [:status :reason :error])]))})))
 
 (defn hit
-  "Store, view, a frame and a local point → the view's hit tool run at that point."
+  "Store, view, a frame and a local point → the first run whose hit tool
+   answers at that point, or nil."
   [store view frame point]
-  (run-tool store (assoc (scope store view [1 1]) :point point) (:runs frame) (:hit-tool view)))
+  (let [base (assoc (scope store view) :point point)
+        known (records store view)]
+    (some (fn [run-id]
+            (let [r (run-tool store (assoc base :run (store/record store run-id)) known (:runs frame) (:hit-tool view) run-id nil)]
+              (when (= :complete (:status r)) (get-in r [:results :hit]))))
+          (:order frame))))

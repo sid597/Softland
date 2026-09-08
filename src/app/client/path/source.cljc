@@ -104,7 +104,7 @@
                            [best bi] (reduce (fn [[best bi] i]
                                                (let [P (xy (nth points i))
                                                      dd (if (> L 1.0e-9)
-                                                          (/ (Math/abs (v/cross d (v/sub P A))) L)
+                                                          (/ (Math/abs (double (v/cross d (v/sub P A)))) L)
                                                           (v/dist P A))]
                                                  (if (> dd best) [dd i] [best bi])))
                                              [-1.0 -1] (range (inc a) b))]

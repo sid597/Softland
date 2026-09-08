@@ -243,11 +243,11 @@
                                   r1 (* r1 ppu-x) r2 (* r2 ppu-x)
                                   [xcov xwgt xabs] (if (pos? (bit-and code 1))
                                                      (let [c (sat (+ r1 0.5))]
-                                                       [(+ xcov c) (max xwgt (sat (- 1.0 (* 2.0 (Math/abs r1))))) (+ xabs c)])
+                                                       [(+ xcov c) (max xwgt (sat (- 1.0 (* 2.0 (Math/abs (double r1)))))) (+ xabs c)])
                                                      [xcov xwgt xabs])]
                               (if (> code 1)
                                 (let [c (sat (+ r2 0.5))]
-                                  [(- xcov c) (max xwgt (sat (- 1.0 (* 2.0 (Math/abs r2))))) (+ xabs c)])
+                                  [(- xcov c) (max xwgt (sat (- 1.0 (* 2.0 (Math/abs (double r2)))))) (+ xabs c)])
                                 [xcov xwgt xabs])))))))
                   [0.0 0.0 0.0] (nth (:h-lists pack) bi))
         vv (reduce (fn [[ycov ywgt yabs :as acc] i]
@@ -262,18 +262,18 @@
                                    r1 (* r1 ppu-y) r2 (* r2 ppu-y)
                                    [ycov ywgt yabs] (if (pos? (bit-and code 1))
                                                       (let [c (sat (+ r1 0.5))]
-                                                        [(- ycov c) (max ywgt (sat (- 1.0 (* 2.0 (Math/abs r1))))) (+ yabs c)])
+                                                        [(- ycov c) (max ywgt (sat (- 1.0 (* 2.0 (Math/abs (double r1)))))) (+ yabs c)])
                                                       [ycov ywgt yabs])]
                                (if (> code 1)
                                  (let [c (sat (+ r2 0.5))]
-                                   [(+ ycov c) (max ywgt (sat (- 1.0 (* 2.0 (Math/abs r2))))) (+ yabs c)])
+                                   [(+ ycov c) (max ywgt (sat (- 1.0 (* 2.0 (Math/abs (double r2)))))) (+ yabs c)])
                                  [ycov ywgt yabs])))))))
                    [0.0 0.0 0.0] (nth (:v-lists pack) bj))
         [xcov xwgt xabs] h
         [ycov ywgt yabs] vv
         combine (fn [xc yc]
-                  (let [weighted (/ (Math/abs (+ (* xc xwgt) (* yc ywgt))) (max (+ xwgt ywgt) (/ 1.0 65536.0)))]
-                    (sat (max weighted (min (Math/abs xc) (Math/abs yc))))))]
+                  (let [weighted (/ (Math/abs (double (+ (* xc xwgt) (* yc ywgt)))) (max (+ xwgt ywgt) (/ 1.0 65536.0)))]
+                    (sat (max weighted (min (Math/abs (double xc)) (Math/abs (double yc)))))))]
     (if (= :even-odd rule)
       (let [tri (fn [a] (- 1.0 (Math/abs (- (mod a 2.0) 1.0))))]
         (combine (tri xabs) (tri yabs)))

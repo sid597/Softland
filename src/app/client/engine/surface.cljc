@@ -29,7 +29,7 @@
                             (every? schema/finite-number? rect) (pos? w) (pos? h))
                (fail! :domain "A chart surface needs a named chart and positive finite rectangle")))
     (fail! :domain "Unsupported surface domain"))
-  (when (and (contains? s :data) (not (and (vb/floats? data) (= (* width height 4) (alength data)))))
+  (when (and (contains? s :data) (not (and (vb/floats? data) (= (* width height 4) (alength ^floats data)))))
     (fail! :array-length "Surface payload differs from width × height × 4"))
   (when (and (contains? s :initial) (not (and (= 4 (count initial)) (every? schema/finite-number? initial))))
     (fail! :initial "A surface needs four finite initial channels"))
@@ -41,8 +41,9 @@
   (validate! declaration)
   (let [{:keys [width height initial surface/id]} declaration
         _ (when-not initial (fail! :initial "Missing surface initial color"))
-        data (vb/floats (* width height 4))]
-    (dotimes [i (alength data)] (aset data i (float (nth initial (mod i 4)))))
+        ^floats data (vb/floats (* width height 4))
+        fill (mapv float initial)]
+    (dotimes [i (alength data)] (aset data i (float (nth fill (mod i 4)))))
     (assoc (dissoc declaration :initial :subject :changed) :revision 0 :data data :key (str id "@initial") :parent nil)))
 
 (defn to-texel
@@ -86,8 +87,9 @@
   (when-not (:key opts) (fail! :key "Paint needs its result key"))
   (let [blend-fn (or (get blends blend)
                      (throw (ex-info "Unsupported blend" {:reason :unsupported-blend :supported (vec (keys blends))})))
-        {:keys [width height data]} surface
-        result #?(:clj (aclone ^floats data) :cljs (.slice data))
+        {:keys [width height]} surface
+        ^floats data (:data surface)
+        result #?(:clj (aclone data) :cljs (.slice data))
         [x0 y0 x1 y1] (or (:bounds opts) [0 0 width height])
         coverage (:coverage opts)
         changed (reduce (fn [changed [x y]]
@@ -122,7 +124,8 @@
     ((:sample layer) point filter ctx)
     (do
       (validate! layer)
-      (let [[tx ty] (to-texel layer point ctx) {:keys [width height data]} layer
+      (let [[tx ty] (to-texel layer point ctx) {:keys [width height]} layer
+            ^floats data (:data layer)
             x (Math/floor tx) y (Math/floor ty)]
         (if (and (<= 0 x) (< x width) (<= 0 y) (< y height))
           (let [i (* 4 (+ (int x) (* (int y) width)))]
@@ -170,13 +173,14 @@
 (defn png-bytes
   "Surface → deterministic straight-sRGB RGBA8 PNG bytes. Float data stays
    linear and unchanged; this conversion is only the exported picture."
-  [{:keys [width height data] :as surface}]
+  [{:keys [width height] :as surface}]
   (validate! surface)
-  (png/encode width height
-              (vec (mapcat (fn [i]
-                             (let [a (double (aget data (+ i 3)))
-                                   channel (fn [v] (int (Math/floor (+ 0.5 (* 255 (max 0.0 (min 1.0 v)))))))]
-                               (conj (mapv #(channel (color/linear->srgb-channel
-                                                     (if (pos? a) (/ (aget data (+ i %)) a) 0.0))) (range 3))
-                                     (channel a))))
-                           (range 0 (alength data) 4)))))
+  (let [^floats data (:data surface)]
+    (png/encode width height
+                (vec (mapcat (fn [i]
+                               (let [a (double (aget data (+ i 3)))
+                                     channel (fn [v] (int (Math/floor (+ 0.5 (* 255 (max 0.0 (min 1.0 v)))))))]
+                                 (conj (mapv #(channel (color/linear->srgb-channel
+                                                       (if (pos? a) (/ (aget data (+ i %)) a) 0.0))) (range 3))
+                                       (channel a))))
+                             (range 0 (alength data) 4))))))

@@ -31,10 +31,10 @@
 (defn- restore-floats [{:keys [float32le length]}]
   (when-not (and (string? float32le) (integer? length) (<= 0 length))
     (throw (ex-info "Invalid float32 declaration" {:reason :array-length})))
-  (let [bs (unbase64 float32le)]
+  (let [^bytes bs (unbase64 float32le)]
     (when-not (= (* 4 length) (alength bs))
       (throw (ex-info "Float32 payload length differs" {:reason :array-length})))
-    (let [xs (floats length)
+    (let [^floats xs (floats length)
           v #?(:clj (doto (ByteBuffer/wrap bs) (.order ByteOrder/LITTLE_ENDIAN))
                :cljs (js/DataView. (.-buffer bs) (.-byteOffset bs) (.-byteLength bs)))]
       (dotimes [i length]
@@ -45,7 +45,7 @@
    array identity and hashes never decide whether two inputs agree."
   [x]
   (cond
-    (floats? x) {:float32le (base64 (float-bytes x)) :length (alength x)}
+    (floats? x) {:float32le (base64 (float-bytes x)) :length (alength ^floats x)}
     (map? x) (into (sorted-map-by #(compare (pr-str %1) (pr-str %2))) (map (fn [[k v]] [(data k) (data v)])) x)
     (vector? x) (mapv data x)
     (set? x) (into #{} (map data) x)
@@ -62,6 +62,12 @@
     (set? x) (into #{} (map restore) x)
     :else x))
 
-(defn equal? [a b] (= (data a) (data b)))
+(defn equal?
+  "Full-value equality: the same object, or equal as plain values, or equal
+   once arrays are encoded. Plain equality never says yes wrongly: arrays
+   compare by identity there, so a difference only falls through to the
+   encoded form."
+  [a b]
+  (or (identical? a b) (= a b) (= (data a) (data b))))
 (defn encode [value] (utf8 (pr-str (data value))))
 (defn decode [bs] (restore (edn/read-string (text bs))))
