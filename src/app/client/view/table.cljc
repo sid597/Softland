@@ -25,12 +25,23 @@
 (def vocabulary
   "view 2: path kind production 2 · shape = box glyphs or TrueType outlines per character, Backspace deletes, Enter breaks · place = translate and scale, y flipped · collect = conj, nil skips · value = identity")
 
+(defn effective-keys
+  "Keystroke records in order → the ones that stand after every Undo: an
+   Undo retracts the latest key not yet retracted. The stream keeps both the
+   key and the Undo; only the fold forgets."
+  [keys]
+  (let [live (reduce (fn [stack [i k]]
+                       (if (= "Undo" (:key k)) (if (seq stack) (pop stack) stack) (conj stack i)))
+                     [] (map-indexed vector keys))]
+    (mapv #(nth keys %) live)))
+
 (defn fold-keys
   "Keystroke records in order → the characters that stand. A key inserts at
    its :at offset into the text so far, or at the end without one; Backspace
    removes the character before :at (the last, without one); Delete removes
-   [:from :to); Enter inserts a newline. The stream is the edit log, saved as
-   it was typed; the text is derived from it here."
+   [:from :to); Enter inserts a newline; Undo retracts the latest standing
+   key. The stream is the edit log, saved as it was typed; the text is
+   derived from it here."
   [keys]
   (reduce (fn [chars {:keys [ch key at from to]}]
             (let [n (count chars) at (max 0 (min (or at n) n))
@@ -41,7 +52,7 @@
                     (= key "Enter") (into (conj before "\n") after)
                     (string? ch) (into (conj before ch) after)
                     :else chars)))
-          [] keys))
+          [] (effective-keys keys)))
 
 (def break-glyph {:advance 0 :bbox [0 0 0 0] :outline {:subpaths []} :ink 0 :break 1})
 

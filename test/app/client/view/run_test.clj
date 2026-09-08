@@ -146,7 +146,18 @@
     (is (= "ac" (apply str (table/fold-keys [{:ch "a"} {:ch "b"} {:ch "c"} {:key "Backspace" :at 2}]))))
     (is (= "ad" (apply str (table/fold-keys [{:ch "a"} {:ch "b"} {:ch "c"} {:ch "d"} {:key "Delete" :from 1 :to 3}]))))
     (is (= ["a" "\n" "b"] (table/fold-keys [{:ch "a"} {:ch "b"} {:key "Enter" :at 1}])))
-    (is (= "the tool under your fingers" (apply str (table/fold-keys (:keys records/run-1))))))
+    (is (= "the tool under your fingers" (apply str (table/fold-keys (:keys records/run-1)))))
+    (is (= "ac" (apply str (table/fold-keys [{:ch "a"} {:ch "b"} {:key "Undo"} {:ch "c"}]))) "an Undo retracts the latest standing key")
+    (is (= "a" (apply str (table/fold-keys [{:ch "a"} {:ch "b"} {:ch "c"} {:key "Undo"} {:key "Undo"}]))))
+    (is (= "" (apply str (table/fold-keys [{:key "Undo"} {:ch "a"} {:key "Undo"}]))) "nothing left to retract is nothing"))
+  (testing "an empty run's caret stands at the run's origin"
+    (let [store (-> records/store
+                    (store/put {:id "run-3" :kind :text/run :by "sid" :at [50 50] :keys []})
+                    (store/edit "cursor-1" assoc :in "run-3" :offset 0))
+          f (frame store)]
+      (is (= ["run-1" "run-2" "run-3"] (:order f)))
+      (is (= [50.0 50.0] (nums (:caret f))))
+      (is (every? #(= :complete %) (vals (statuses f))) (pr-str (:statuses f)))))
   (let [selected (store/edit records/store "cursor-1" assoc :anchor 4 :offset 8)
         f (frame selected)
         rings (get-in f [:runs ["select@1" "run-1"] :results :highlight :rings])]

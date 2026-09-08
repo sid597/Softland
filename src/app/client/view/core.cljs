@@ -61,6 +61,18 @@
     (swap! !store store/edit (:id c) assoc :offset offset :anchor anchor)
     (frame!)))
 
+(defn- line-height [] (get-in (store/record @!store (:hit-tool (view))) [:tool :height] 14))
+
+(defn- move-line!
+  "The caret one line up or down: the hit at the caret's x on that line,
+   and the offset there; nothing when no glyph stands on that line."
+  [direction]
+  (when-let [[x y] (:caret @!frame)]
+    (let [f @!frame probe [(+ x 0.01) (+ y (* direction (line-height)) 1)]
+          hit (run/hit @!store (view) f probe {:table @!table})]
+      (when (and hit (= (:run hit) (:in (cursor))))
+        (move-cursor! (offset-at hit probe) nil)))))
+
 (def srgb-lut
   "Linear [0,1] in 4096 steps → the sRGB 8-bit channel, the transfer curve
    evaluated once instead of per texel per frame."
@@ -222,11 +234,17 @@
           (swap! !metrics assoc :copied text)
           (when-let [clipboard (.-clipboard js/navigator)] (.catch (.writeText clipboard text) (fn [_] nil)))
           (render-readout!))
+        (and (or (.-ctrlKey e) (.-metaKey e)) (= (.toLowerCase k) "z"))
+        (do (.preventDefault e)
+            (let [n' (count (table/fold-keys (conj (:keys (store/record @!store (:in c))) {:key "Undo"})))]
+              (edit! [{:key "Undo"}] (min (:offset c) n'))))
         (or (.-ctrlKey e) (.-metaKey e)) nil
         (= k "Backspace") (do (.preventDefault e) (backspace!))
         (= k "Enter") (do (.preventDefault e) (type-key! {:key "Enter"}))
         (= k "ArrowLeft") (do (.preventDefault e) (move-cursor! (max 0 (dec (:offset c))) (when (.-shiftKey e) (or (:anchor c) (:offset c)))))
         (= k "ArrowRight") (do (.preventDefault e) (move-cursor! (min n (inc (:offset c))) (when (.-shiftKey e) (or (:anchor c) (:offset c)))))
+        (= k "ArrowUp") (do (.preventDefault e) (move-line! -1))
+        (= k "ArrowDown") (do (.preventDefault e) (move-line! 1))
         (= 1 (.-length k)) (do (.preventDefault e) (type-key! {:ch k}))
         :else nil))))
 
@@ -234,9 +252,14 @@
   (when-let [f @!frame]
     (let [local (run/texel->local (view) (.-offsetX e) (.-offsetY e))
           hit (run/hit @!store (view) f local {:table @!table})]
-      (when (and hit (= (:run hit) (:in (cursor))))
+      (when hit
         (reset! !dragging true)
-        (move-cursor! (offset-at hit local) nil)))))
+        (if (= (:run hit) (:in (cursor)))
+          (move-cursor! (offset-at hit local) nil)
+          ;; the cursor moves into the run under the pointer
+          (let [c (cursor)]
+            (swap! !store store/edit (:id c) assoc :in (:run hit) :offset (offset-at hit local) :anchor nil)
+            (frame!)))))))
 
 (defn- on-mouse-up [_] (reset! !dragging false))
 

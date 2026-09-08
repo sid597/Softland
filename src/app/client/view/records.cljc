@@ -207,7 +207,8 @@
 
 (def caret-place-tool
   "The cursor over the placements → where the caret stands: at the glyph
-   the offset names, or after the glyph before it. Reads the cursor, so it
+   the offset names, after the glyph before it, or at the run's origin when
+   the cursor's run has no glyph to stand by. Reads the cursor, so it
    reruns when the cursor moves; the loop paints nothing."
   {:id "caret-place@1" :kind :tool :by "sid" :per :run :tool {}
    :inputs {:placements {:kind :placements :from {:record "layout@1" :output :placements}}}
@@ -220,7 +221,9 @@
                          [[:+ [:get :p :pen 0] [:get :p :advance]] [:get :p :pen 1]]
                          [:get :state :at]]]
                        [:get :state :at]]}}
-    :return {:caret {:at [:get :state :at]}}}})
+    :return {:caret {:at [:if [:= [:get :state :at] [:literal nil]]
+                          [:if [:= [:get :run :id] [:get :cursor :in]] [[:get :run :at 0] [:get :run :at 1]] [:literal nil]]
+                          [:get :state :at]]}}}})
 
 (def selected?
   "This placement lies in the cursor's selection: the cursor's run, an

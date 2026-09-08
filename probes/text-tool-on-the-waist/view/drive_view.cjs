@@ -132,6 +132,16 @@ const server = http.createServer((req, res) => {
   await page.waitForTimeout(200);
   receipts['23-backspaced-selection'] = await page.evaluate(() => window.softland.text('run-1'));
   receipts['23-last-keys'] = await page.evaluate(() => window.softland.record('run-1').slice(-260));
+  // undo is a key the fold honours; the stream keeps both
+  await page.keyboard.press('Control+z');
+  await page.waitForTimeout(200);
+  receipts['24-undone'] = await page.evaluate(() => window.softland.text('run-1'));
+  await shot('14-undone.png');
+  // up a line from the caret, through the hit tool
+  await page.keyboard.press('End');
+  await page.keyboard.press('ArrowUp');
+  await page.waitForTimeout(200);
+  receipts['25-arrow-up'] = await page.evaluate(() => window.softland.cursor());
 
   // stand in the agent's view: Sid's runs only, its own cursor, zoom 3, from view-1
   await page.selectOption('#views', 'view-2');
