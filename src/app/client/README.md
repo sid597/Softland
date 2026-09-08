@@ -28,6 +28,7 @@ Arrows show inputs and consumed results. The caller determines execution order: 
 | [path/](path/README.md) | Records to path values to regions; packing for the camera; CPU membership and coverage; one instanced coverage draw. | Callers execute recipes into path values; renderer systems receive named placement diffs and hold current geometry, packs, atlas and rows (`path/frame_test.clj`, harness path push counters). |
 | [region3d/](region3d/README.md) | Sphere/coating records to regions and paintings; scene derivation, queries, placed content and offscreen rendering. | Callers own record results and continuations (`region3d/brush_test.clj`); renderer systems retain scenes/buffers and engine compositors own physical texture leases. |
 | [harness/](harness/README.md) | Browser acquisition, fixtures, frame driving, readback and bounded checks. | Drivers hold test resources and evidence; the entry publishes browser completion state. |
+| [view/](view/README.md) | The first client above the kinds: a view's records run through its tools on the executor, the CPU runner's canvas, the pointer, the keyboard, records edited in place. | The runner and store are pure values; the browser entry holds one store atom and the last frame. |
 
 Component values describe input. Derived representations can be reconstructed from that input and may be retained for reuse. GPU ownership adds allocation, invalidation and teardown responsibilities. These three meanings stay distinct even when one system map holds all three.
 

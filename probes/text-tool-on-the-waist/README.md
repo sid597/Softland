@@ -38,3 +38,57 @@ pictures (`*.png`, zoom 8 of a 34 × 22 local surface).
 | 12 | `check-inputs!` accepts a painting produced from a five-event stream as the subject of the four-event record (the repo's own sphere fixtures); an edited tool root is refused. |
 | 14 | Continuation bytes grow quadratically when the loop collects (state-after per history row). |
 | 15 | A complete run keeps no continuation; suspension needs an unconsumed item. |
+
+## The view — the same records in the browser (`view/`)
+
+`src/app/client/view/` is the first client built out of the tools: the
+records, the store, the runner and the browser entry (its README maps them).
+`view/index.html` is the page, `view/drive_view.cjs` drives it in headless
+Chromium through Playwright and writes `view/receipts/` (screenshots and
+`receipts.edn`).
+
+Build and drive, from the repository root:
+
+```
+# the repository's toolchain (untested in the session that added the build entry)
+clj -M:dev -m shadow.cljs.devtools.cli release view
+# the route that session used, Maven being unreachable there: the standalone
+# ClojureScript jar from https://github.com/clojure/clojurescript/releases (r1.11.132)
+java -cp cljs.jar:src cljs.main -O simple -d target/view/out -o target/view/main.js -c app.client.view.core
+cp probes/text-tool-on-the-waist/view/index.html target/view/
+node probes/text-tool-on-the-waist/view/drive_view.cjs target/view probes/text-tool-on-the-waist/view/receipts
+```
+
+What the receipts show, one run in this session's headless Chromium (no
+GPU; `--use-angle=swiftshader`; a 480 × 270 surface at zoom 4; the numbers
+move by tens of percent between runs):
+
+| Checkpoint | Receipt |
+|---|---|
+| The view drawn by the CPU runner on a 2D canvas | `01-initial.png`; every tool `:complete`; 47 placements, 42 rings |
+| The pointer names what it is on | `02-pointer-on-t.png`; hit = run-1, "t", index 0, at [4 4], by sid, drawn by paint@1; on the paste: run-2, "a", by clipboard; on nothing: nil |
+| Typing, Backspace, Enter as keystroke records | `03-typed.png`, `04-enter-line.png`; the cursor moves with the text |
+| Point at the tool, change one field in the page's editor | `05-width-60.png` (wrap at 60), `06-foreign-full-size.png` (foreign scale 1); status "applied layout@1" |
+| Move the cursor record; the caret follows | `07-cursor-at-3.png` |
+| The store survives a reload | `08-after-reload.png` |
+
+| Measured | ms |
+|---|---:|
+| First frame: query · layout · paint (47 items, 42 rings) | 12 · 183 · 304 |
+| Present (surface value to the canvas) | 9 to 17 |
+| One keystroke (61 to 70 items, whole frame rerun) | 420 to 520 |
+| One pointer move (the hit tool over 47 to 70 placements) | 10 to 15 |
+| One ring's paint, direct / through the executor | 7.7 / 6.5 |
+| Copying the surface once (518,400 floats) | 1.0 |
+| The same copy in node on this machine | 1.5 |
+| Paint as ONE region over the union box (the first form tried) | about 1050 |
+| Layout before / after the `:value` word | 426 / 179 |
+
+Where the time goes, attributed: painting is per ring (one coverage pass over
+the ring's box, one copy of the surface) and a ring costs about 7 ms of which
+the copy is 1 ms; one region for all the text costs a coverage pass over the
+union box with every segment of the line in its band. The layout's cost is
+the executor's interpretation: every step's expression is compiled at every
+evaluation, and without a `:let` the pen expression was embedded in every
+place that read it until the `:value` word named it once per item.
+

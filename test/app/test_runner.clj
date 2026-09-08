@@ -56,6 +56,7 @@
     app.client.engine.schema-test
     app.client.engine.rungs-test
     app.client.engine.transform-test
+    app.client.view.run-test
     app.client.text.shaping-correction-test
     app.client.text.layout-planes-test
     app.client.text.layout-test

@@ -23,4 +23,16 @@
    :asset-path "/js"
    :compiler-options {:optimizations :simple}
    :modules {:main {:entries [app.client.harness.shaper-border-probe]
-                    :init-fn app.client.harness.shaper-border-probe/start!}}}}}
+                    :init-fn app.client.harness.shaper-border-probe/start!}}}
+  :view
+  ;; The first client (src/app/client/view/): one view run on the executor and
+  ;; shown by the CPU runner. Serve target/view with the index.html kept in
+  ;; probes/text-tool-on-the-waist/view/. This build entry is untested: the
+  ;; session that added it compiled the same entry with the standalone
+  ;; cljs.jar because Maven was unreachable there (that README has the command).
+  {:target :browser
+   :output-dir "target/view"
+   :asset-path "/"
+   :compiler-options {:optimizations :simple}
+   :modules {:main {:entries [app.client.view.core]
+                    :init-fn app.client.view.core/start!}}}}}

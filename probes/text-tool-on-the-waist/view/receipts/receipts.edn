@@ -1,0 +1,53 @@
+;; 1-initial
+{:frame-ms 483.5, :present-ms 16.399999999906868, :tool-ms {"query@1" 11, "layout@1" 186, "paint@1" 285}, :statuses {"query@1" {:status :complete}, "layout@1" {:status :complete}, "paint@1" {:status :complete}}, :caret [42 4], :placements 47}
+
+;; 1b-bench
+{:surface [480 270], :slice-ms 1.0849999999860303, :paint-direct-ms 7.380000000004657, :paint-via-executor-ms 6.960000000009313, :rings 42}
+
+;; 2-pointer-on-t
+{:frame-ms 483.5, :present-ms 16.399999999906868, :tool-ms {"query@1" 11, "layout@1" 186, "paint@1" 285}, :statuses {"query@1" {:status :complete}, "layout@1" {:status :complete}, "paint@1" {:status :complete}}, :caret [42 4], :placements 47, :pointer {:texel [23 31], :local [5.875 7.875], :hit {:what :text/run, :run "run-1", :glyph "t", :index 0, :where [4 4], :by "sid", :drawn-by "paint@1"}, :status :complete, :hit-ms 16.600000000093132}}
+
+;; 3-pointer-on-foreign-a
+{:frame-ms 483.5, :present-ms 16.399999999906868, :tool-ms {"query@1" 11, "layout@1" 186, "paint@1" 285}, :statuses {"query@1" {:status :complete}, "layout@1" {:status :complete}, "paint@1" {:status :complete}}, :caret [42 4], :placements 47, :pointer {:texel [21 169], :local [5.375 42.375], :hit {:what :text/run, :run "run-2", :glyph "a", :index 0, :where [4 40], :by "clipboard", :drawn-by "paint@1"}, :status :complete, :hit-ms 10}}
+
+;; 4-pointer-on-nothing
+{:frame-ms 483.5, :present-ms 16.399999999906868, :tool-ms {"query@1" 11, "layout@1" 186, "paint@1" 285}, :statuses {"query@1" {:status :complete}, "layout@1" {:status :complete}, "paint@1" {:status :complete}}, :caret [42 4], :placements 47, :pointer {:texel [399 249], :local [99.875 62.375], :hit nil, :status :complete, :hit-ms 10.5}}
+
+;; 5-typed
+{:frame-ms 463.89999999990687, :present-ms 9.300000000279397, :tool-ms {"query@1" 1, "layout@1" 135, "paint@1" 328}, :statuses {"query@1" {:status :complete}, "layout@1" {:status :complete}, "paint@1" {:status :complete}}, :caret [22 24], :placements 61, :pointer {:texel [399 249], :local [99.875 62.375], :hit nil, :status :complete, :hit-ms 10.5}, :keys-ms 473.8000000002794}
+
+;; 6-backspace-twice
+{:frame-ms 430.29999999981374, :present-ms 10, :tool-ms {"query@1" 2, "layout@1" 143, "paint@1" 285}, :statuses {"query@1" {:status :complete}, "layout@1" {:status :complete}, "paint@1" {:status :complete}}, :caret [10 24], :placements 59, :pointer {:texel [399 249], :local [99.875 62.375], :hit nil, :status :complete, :hit-ms 10.5}, :keys-ms 443.89999999990687}
+
+;; 7-enter-and-line
+{:frame-ms 480.70000000018626, :present-ms 9.299999999813735, :tool-ms {"query@1" 1, "layout@1" 140, "paint@1" 339}, :statuses {"query@1" {:status :complete}, "layout@1" {:status :complete}, "paint@1" {:status :complete}}, :caret [52 34], :placements 70, :pointer {:texel [399 249], :local [99.875 62.375], :hit nil, :status :complete, :hit-ms 10.5}, :keys-ms 490.5}
+
+;; 8-editor-shows-layout
+true
+
+;; 9-width-60
+{:frame-ms 481.90000000037253, :present-ms 10.199999999720603, :tool-ms {"query@1" 1, "layout@1" 152, "paint@1" 328}, :statuses {"query@1" {:status :complete}, "layout@1" {:status :complete}, "paint@1" {:status :complete}}, :caret [52 44], :placements 70, :pointer {:texel [399 249], :local [99.875 62.375], :hit nil, :status :complete, :hit-ms 10.5}, :keys-ms 490.5}
+
+;; 9-status
+applied layout@1
+
+;; 10-foreign-scale-1
+{:frame-ms 595.6999999997206, :present-ms 9.100000000093132, :tool-ms {"query@1" 1, "layout@1" 163, "paint@1" 431}, :statuses {"query@1" {:status :complete}, "layout@1" {:status :complete}, "paint@1" {:status :complete}}, :caret [52 44], :placements 70, :pointer {:texel [399 249], :local [99.875 62.375], :hit nil, :status :complete, :hit-ms 10.5}, :keys-ms 490.5}
+
+;; 11-cursor-record
+{:id "cursor-1", :kind :cursor, :by "sid", :in "run-1", :offset 50}
+
+;; 12-cursor-offset-3
+{:frame-ms 638.3999999999069, :present-ms 10.100000000093132, :tool-ms {"query@1" 1, "layout@1" 167, "paint@1" 470}, :statuses {"query@1" {:status :complete}, "layout@1" {:status :complete}, "paint@1" {:status :complete}}, :caret [20 4], :placements 70, :pointer {:texel [399 249], :local [99.875 62.375], :hit nil, :status :complete, :hit-ms 10.5}, :keys-ms 490.5}
+
+;; 13-store-log
+({:op :put, :id "font-boxes@1"} {:op :put, :id "run-1"} {:op :put, :id "run-2"} {:op :put, :id "cursor-1"} {:op :put, :id "query@1"} {:op :put, :id "layout@1"} {:op :put, :id "paint@1"} {:op :put, :id "hit@1"} {:op :put, :id "view-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "run-1"} {:op :put, :id "cursor-1"} {:op :put, :id "layout@1"} {:op :put, :id "layout@1"} {:op :put, :id "cursor-1"})
+
+;; 14-after-reload
+{:frame-ms 744.5, :present-ms 12.399999999906868, :tool-ms {"query@1" 7, "layout@1" 243, "paint@1" 494}, :statuses {"query@1" {:status :complete}, "layout@1" {:status :complete}, "paint@1" {:status :complete}}, :caret [20 4], :placements 70}
+
+;; 14-cursor-after-reload
+{:id "cursor-1", :kind :cursor, :by "sid", :in "run-1", :offset 3}
+
+;; console
+[]
