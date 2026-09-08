@@ -1,0 +1,207 @@
+
+=== 0a string as loop items ===
+{:status :error,
+ :error "Items must be a finite sequence value",
+ :data {:error-type :executor/each-value}}
+
+=== 0b computed :get (lookup by the item's own char) ===
+{:status :error,
+ :error "Missing construction binding",
+ :data
+ {:error-type :executor/missing-binding,
+  :path [:font :glyphs [:get :k :ch]],
+  :step :g}}
+
+=== 0c operators the leaves lack ===
+{:and :executor/operator,
+ :conj :executor/operator,
+ :count :executor/operator,
+ :str :executor/operator,
+ :let :executor/operator}
+
+=== 0d a loop with items missing a declared field (heterogeneous store) ===
+{:status :error,
+ :error "Missing declared item field",
+ :data {:error-type :executor/missing-field, :field :by, :at 1}}
+
+=== 2a run of text through the compositor ? existing path table only ===
+{:caret [17 2],
+ :png "text-2a-zoom8.png",
+ :unread [],
+ :subject-roots-of-painting (:cursor :painting :run :tool),
+ :pens-by-item
+ [["b" {:x 8, :y 2}]
+  ["a" {:x 14, :y 2}]
+  ["l" {:x 17, :y 2}]
+  ["l" {:x 20, :y 2}]
+  [" " {:x 23, :y 2}]
+  ["a" {:x 29, :y 2}]
+  ["b" {:x 8, :y 12}]],
+ :changed-per-glyph [32 20 8 8 1 20 32],
+ :painting
+ {:surface/id "vantage-1/text",
+  :revision 7,
+  :key "vantage-1/text:6/painted",
+  :changed 32,
+  :width 34,
+  :height 22},
+ :reason nil,
+ :status :complete,
+ :error nil,
+ :data nil}
+
+=== 2b keys stream + :text/shape capability (CODE #1) ===
+{:status :complete,
+ :reason nil,
+ :error nil,
+ :same-painting-as-2a? true,
+ :caret [17 2],
+ :recipe-roots (:cursor :painting :run :tool),
+ :note
+ "the :keys stream is reached only by :items, so it is NOT in the recipe ? appending resumes"}
+
+=== 3a sample the painting where 'b' was drawn, and where nothing was ===
+{:on-b
+ {:status :resolved,
+  :color [0.0 0.0 0.0 1.0],
+  :contributors ["vantage-1/text@7"],
+  :covered? true},
+ :on-nothing
+ {:status :resolved,
+  :color [0.0 0.0 0.0 0.0],
+  :contributors ["vantage-1/text@7"],
+  :covered? true},
+ :note
+ "contributors name surface@revision of the whole painting, not the glyph"}
+
+=== 3b point at the text ? a hit record over the same items (zero code, boxes) ===
+{:at-4.5-5.5
+ {:what :text/run,
+  :glyph "b",
+  :index 0,
+  :where [2 2],
+  :by "sid",
+  :drawn-by "text-tool@1"},
+ :at-9.5-6.5
+ {:status :error,
+  :error "Missing construction binding",
+  :data
+  {:error-type :executor/missing-binding, :path [:state :hit-i]}},
+ :at-4.5-15.5
+ {:status :error,
+  :error "Missing construction binding",
+  :data
+  {:error-type :executor/missing-binding, :path [:state :hit-i]}},
+ :at-0.5-0.5
+ {:status :error,
+  :error "Missing construction binding",
+  :data
+  {:error-type :executor/missing-binding, :path [:state :hit-i]}},
+ :note
+ "the hit re-derives the layout: paint and hit are two sources unless the loop can emit placements"}
+
+=== 4 the vantage's subject as a query over the store ===
+{:count-zero-code {:n 1},
+ :collect-with-CODE-2 {:hits ["run-1"]},
+ :any-run-by-anyone nil}
+
+=== 4b a query whose where-clause omits a field the match reads ===
+{:status :error,
+ :error "Missing construction binding",
+ :data
+ {:error-type :executor/missing-binding,
+  :path [:where :by],
+  :step :hits}}
+
+=== 5 typing = append a key + resume (cost per keystroke vs full rerun) ===
+{:small
+ {:zoom 1,
+  :surface [34 22],
+  :n 60,
+  :per-keystroke-ms
+  {:median 29.469062,
+   :max 47.87416,
+   :first-5 [3706 4045 3343 3078 3377],
+   :last-5 [4787 3537 2874 2849 2797]},
+  :full-rerun-ms 72.511932,
+  :continuation-bytes 994488},
+ :big
+ {:zoom 8,
+  :surface [272 176],
+  :n 60,
+  :per-keystroke-ms
+  {:median 1622.46829,
+   :max 1841.752343,
+   :first-5 [164192 156343 157064 158311 165689],
+   :last-5 [165874 166767 172703 173974 169672]},
+  :full-rerun-ms 2405.963296,
+  :continuation-bytes 61313496},
+ :long
+ {:zoom 1,
+  :surface [34 22],
+  :n 200,
+  :per-keystroke-ms
+  {:median 30.518719,
+   :max 39.970802,
+   :first-5 [2830 2688 3233 3608 2746],
+   :last-5 [3331 3285 3330 3321 3642]},
+  :full-rerun-ms 83.263463,
+  :continuation-bytes 3309915},
+ :note
+ "the continuation exists only while an item is unconsumed: a completed run holds none, so the stream is held one key behind (see :until)"}
+
+=== 5b editing an earlier key vs appending ? what resume says ===
+{:append {:status :complete},
+ :edit-consumed-key {:status :refused, :reason :consumed-items-differ},
+ :edit-unconsumed-key {:status :complete},
+ :move-the-run
+ {:status :refused, :reason :recipe-differs, :detail :run}}
+
+=== 6 point at the tool, change one record, the text redraws; cursor and kind intact ===
+{:before {:sha "926c299768dc", :caret [17 2]},
+ :width-18
+ {:sha "e48c1df85d17",
+  :caret [17 2],
+  :pens
+  [["b" {:x 8, :y 2}]
+   ["a" {:x 14, :y 2}]
+   ["l" {:x 17, :y 2}]
+   ["l" {:x 20, :y 2}]
+   [" " {:x 5, :y 12}]
+   ["a" {:x 11, :y 12}]
+   ["b" {:x 17, :y 12}]]},
+ :rule-edited-no-wrap {:sha "926c299768dc", :caret [17 2]},
+ :cursor-record-unchanged? true,
+ :run-kind-intact? true,
+ :resume-typing-under-edited-tool
+ {:status :refused, :reason :recipe-differs, :detail :tool},
+ :png "text-6-width18-zoom8.png"}
+
+=== 7 a foreign paste draws at half size ? a tool rule over the asserter (zero code) ===
+{:mine {:caret [17 2]},
+ :mine-advance-b 8,
+ :theirs {:caret [9.5 12]},
+ :theirs-advance-b 5.0,
+ :kind-set-by-a-tool {:id "block-9", :kind :task, :by "sid"},
+ :png "text-7-foreign-zoom8.png"}
+
+=== 8 two people on one subject; returning to a vantage ===
+{:sid-painting
+ {:surface/id "vantage-1/text",
+  :revision 7,
+  :key "vantage-1/text:6/painted",
+  :changed 32,
+  :width 34,
+  :height 22},
+ :agent-painting
+ {:surface/id "vantage-2/text",
+  :revision 7,
+  :key "vantage-2/text:6/painted",
+  :changed 128,
+  :width 68,
+  :height 44},
+ :roots-differ-in [:painting],
+ :returning-is-byte-identical? true,
+ :continuation-keeps-kinds? [:text/run :cursor]}
+
+DONE

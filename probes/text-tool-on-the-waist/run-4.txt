@@ -1,0 +1,14 @@
+
+=== 14 continuation bytes when the loop collects placements (state-after per row) ===
+{25 {:bytes 22683, :rows 25, :placed 25},
+ 50 {:bytes 70755, :rows 50, :placed 50},
+ 100 {:bytes 249488, :rows 100, :placed 100},
+ 200 {:bytes 947303, :rows 200, :placed 200}}
+
+=== 15 an open stream: suspend with every key consumed? ===
+{:until=count {:status :complete, :has-continuation? false},
+ :until=count-1 {:status :suspended, :at 6},
+ :receipt
+ "executor.cljc:305 suspends at :until only while (< at (count items)); a complete run returns no continuation"}
+
+DONE

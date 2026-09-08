@@ -1,0 +1,75 @@
+
+=== 6' the wrap rule is one record field now: edit it, the text redraws, caret and kind hold ===
+{:wrap {:sha "926c299768dc", :caret [17 2], :last-b {:x 8, :y 12}},
+ :no-wrap {:sha "4595ac6fc15a", :caret [17 2], :last-b {:x 35, :y 2}},
+ :width-20 {:sha "e48c1df85d17", :caret [17 2]},
+ :cursor-record-unchanged? true,
+ :png "text-6b-nowrap-zoom8.png"}
+
+=== 9 one source: layout ? placements; paint and hit and caret consume them through :inputs ===
+{:threw "Key must be integer", :data nil}
+
+=== 9b consuming a vector output through :inputs ? what the executor says ===
+{:bare-vector
+ {:status :refused,
+  :reason :subject,
+  :detail
+  {:input :placements,
+   :from {:record "layout@1", :output :placements}}},
+ :wrapped-in-a-map
+ {:status :error,
+  :error "Items must be a finite sequence value",
+  :data {:error-type :executor/each-value}}}
+
+=== 9c one source, placements as a map value with its subject: paint, hit and caret all take it ===
+{:png nil,
+ :hit-on-wrapped-b
+ {:what :text/run,
+  :run "run-1",
+  :glyph "b",
+  :index 6,
+  :where [2 12],
+  :by "sid",
+  :drawn-by "paint@1"},
+ :hit-on-b
+ {:what :text/run,
+  :run "run-1",
+  :glyph "b",
+  :index 0,
+  :where [2 2],
+  :by "sid",
+  :drawn-by "paint@1"},
+ :stale-placements-from-a-longer-run {:status :complete},
+ :painting nil,
+ :paint {:status :complete},
+ :caret-status
+ {:status :error,
+  :error "Missing construction binding",
+  :data
+  {:error-type :executor/missing-binding,
+   :path [:inputs :caret 0],
+   :step :bar}},
+ :hit-on-a
+ {:what :text/run,
+  :run "run-1",
+  :glyph "a",
+  :index 1,
+  :where [8 2],
+  :by "sid",
+  :drawn-by "paint@1"},
+ :hit-on-nothing nil}
+
+=== 10 where a keystroke's time goes (zoom 8 surface 272x176; one glyph) ===
+{:resume-one-key-ms 1634.170725,
+ :surface-new-ms 1570.341699,
+ :continuation-bytes 40876519,
+ :encode-continuation-ms 1393.127108,
+ :run-n-keys-ms 2647.449427,
+ :bytes-per-history-row 1048115,
+ :aclone-ms 0.133533,
+ :history-rows 39,
+ :run-one-key-fresh-ms 1705.063208,
+ :resume-one-key-history-stripped-ms 1571.69835,
+ :paint-one-glyph-ms 262.219783}
+
+DONE

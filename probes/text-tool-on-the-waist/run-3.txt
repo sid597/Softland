@@ -1,0 +1,46 @@
+
+=== 11 is surface/new's 1.5 s reflection? (same fill, hinted vs unhinted) ===
+{:floats 191488,
+ :fill-unhinted-ms 1742.968067,
+ :fill-hinted-ms 6.694245,
+ :surface-new-ms 1675.374183,
+ :prediction "if reflection: unhinted ? surface/new ? hinted by ~1000?"}
+
+=== 12 check-inputs! ? does a painting from a DIFFERENT event stream pass as the same subject? ===
+{:same-stream {:status :complete},
+ :five-events-not-four
+ {:status :complete,
+  :reason nil,
+  :consumed-in-subject 5,
+  :consumed-expected 4},
+ :edited-tool-radius {:status :refused, :reason :subject},
+ :note
+ "check-inputs! compares program + reached roots (executor.cljc:234-254); :consumed rides in the subject but is never compared"}
+
+=== 13 layout ? paint ? caret, chained by :inputs, at zoom 1 and zoom 8; a stale caret refused ===
+{:zoom-1
+ {:layout :complete,
+  :paint :complete,
+  :caret {:status :complete},
+  :caret-at [17 2],
+  :surface
+  {:surface/id "vantage-1/text",
+   :revision 8,
+   :key "vantage-1/text:0/painted",
+   :width 34,
+   :height 22}},
+ :zoom-8
+ {:layout :complete,
+  :paint :complete,
+  :caret {:status :complete},
+  :caret-at [17 2],
+  :surface
+  {:surface/id "vantage-1/text",
+   :revision 8,
+   :key "vantage-1/text:0/painted",
+   :width 272,
+   :height 176}},
+ :stale-caret-after-cursor-moved {:status :complete},
+ :png "text-13-chain-caret-zoom8.png"}
+
+DONE
