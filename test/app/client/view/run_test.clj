@@ -79,7 +79,7 @@
     (is (= 28 (count (table/fold-keys (:keys (store/record typed "run-1"))))))
     (is (= [{:op :put :id "run-1"} {:op :put :id "cursor-1"}]
            (mapv #(dissoc % :previous) (take-last 2 (:log typed)))))
-    (is (= records/run-1 (:previous (nth (:log typed) 12))) "the store keeps what a put replaced"))
+    (is (= records/run-1 (:previous (nth (:log typed) (- (count (:log typed)) 2)))) "the store keeps what a put replaced"))
   (let [before (frame records/store)
         narrow (store/edit records/store "layout@1" assoc-in [:tool :width] 30)
         f (frame narrow before)
@@ -123,7 +123,20 @@
     (is (= :font/unloaded (get-in (run/frame store view) [:runs ["layout@1" "run-1"] :data :error-type]))
         "without the file's table the layout says so")))
 
+(deftest two-views-on-one-subject
+  (let [agent (assoc (store/record records/store "view-2") :zoom 1 :pins {:font "font-boxes@1" :cursor "cursor-2"})
+        f (run/frame records/store agent)
+        sid (frame records/store)]
+    (is (= "view-1" (:from agent)) "the agent's view names the view it was handed")
+    (is (= ["run-1"] (:order f)) "its subject is Sid's runs alone; the paste is not in it")
+    (is (every? #(= :complete %) (vals (statuses f))) (pr-str (:statuses f)))
+    (is (= [23.0 4.0] (nums (:caret f))) "the agent's own cursor, offset 4, before 'tool'")
+    (is (= (get-in sid [:placements "run-1"]) (get-in f [:placements "run-1"])) "the same run lays out the same under both views")
+    (is (= [42.0 4.0] (nums (:caret sid))) "Sid's caret is Sid's")
+    (is (= (:by (store/record records/store "cursor-2")) "agent:claude"))))
+
 (deftest the-store-is-records-by-id-in-order
-  (is (= ["caret-paint@1" "caret-place@1" "cursor-1" "font-boxes@1" "font-noto-sans@1" "hit@1" "layout@1" "paint@1" "query@1" "run-1" "run-2" "view-1"]
+  (is (= ["caret-paint@1" "caret-place@1" "cursor-1" "cursor-2" "font-boxes@1" "font-noto-sans@1" "hit@1" "layout@1" "paint@1"
+          "query-by@1" "query@1" "run-1" "run-2" "view-1" "view-2"]
          (mapv :id (store/records records/store))))
   (is (every? #(and (string? (:id %)) (keyword? (:kind %)) (string? (:by %))) (store/records records/store))))

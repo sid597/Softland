@@ -22,7 +22,11 @@
 
 (defonce !store (atom records/store))
 (defonce !view-id (atom "view-1"))
-(defonce !frame (atom nil))
+(defonce !frames (atom {}))
+(def !frame
+  "The current view's last frame: read through the frames kept per view,
+   so switching views and back resumes where that view stood."
+  (reify IDeref (-deref [_] (get @!frames @!view-id))))
 (defonce !metrics (atom {}))
 (defonce !editing (atom nil))
 (defonce !table (atom table/table))
@@ -76,17 +80,31 @@
   (let [{:keys [frame-ms present-ms pointer statuses keys-ms tool-ms resumed]} @!metrics
         v (view)]
     (set! (.-textContent (el "readout"))
-          (str "view " (:id v) " by " (:by v) " zoom " (:zoom v) " subject " (pr-str (:subject v)) "\n"
+          (str "view " (:id v) " by " (:by v) " zoom " (:zoom v) " subject " (pr-str (:subject v))
+               (when (:from v) (str " from " (:from v))) " cursor " (get-in v [:pins :cursor]) "\n"
                "frame " (when frame-ms (.toFixed frame-ms 1)) " ms · present " (when present-ms (.toFixed present-ms 1)) " ms"
                (when keys-ms (str " · last key " (.toFixed keys-ms 1) " ms")) "\n"
                "tools " (pr-str statuses) "\n"
                "tool ms " (pr-str tool-ms) " · resumed " (pr-str resumed) "\n"
                "pointer " (pr-str (:local pointer)) " → " (pretty (:hit pointer))))))
 
+(defn- render-views!
+  "The store's view records as the selector's options; the current one selected."
+  []
+  (let [select (el "views") ids (map :id (filter #(= :view (:kind %)) (store/records @!store)))]
+    (when-not (= (vec ids) (vec (map #(.-value %) (array-seq (.-options select)))))
+      (set! (.-innerHTML select) "")
+      (doseq [id ids]
+        (let [o (js/document.createElement "option")]
+          (set! (.-value o) id) (set! (.-textContent o) id)
+          (.appendChild select o))))
+    (set! (.-value select) @!view-id)))
+
 (defn- render-records! []
   (let [v (view) f @!frame
         ids (distinct (concat [(:id v)] (:tools v) [(:hit-tool v)] (vals (:pins v)) (:order f)))
         host (el "records")]
+    (render-views!)
     (set! (.-innerHTML host) "")
     (doseq [id ids]
       (let [span (js/document.createElement "span")]
@@ -105,7 +123,7 @@
         t0 (js/performance.now)
         f (run/frame @!store (view) {:clock #(js/performance.now) :previous @!frame :table @!table})
         t1 (js/performance.now)]
-    (reset! !frame f)
+    (swap! !frames assoc @!view-id f)
     (present! canvas (view) (:paintings f))
     (swap! !metrics assoc :frame-ms (- t1 t0) :present-ms (- (js/performance.now) t1)
            :tool-ms (into {} (for [[key ms] (:ms f)] [(pr-str key) (js/Math.round ms)]))
@@ -135,7 +153,7 @@
   [key]
   (let [v (view) cursor (store/record @!store (get-in v [:pins :cursor])) run-id (:in cursor)]
     (swap! !store (fn [s]
-                    (let [s (store/append-key s run-id (assoc key :i (count (:keys (store/record s run-id))) :t (js/Date.now)))
+                    (let [s (store/append-key s run-id (assoc key :i (count (:keys (store/record s run-id))) :t (js/Date.now) :by (:by v)))
                           n (count (table/fold-keys (:keys (store/record s run-id))))]
                       (store/edit s (:id cursor) assoc :offset n))))
     (let [t0 (js/performance.now)]
@@ -247,6 +265,7 @@
     (.addEventListener canvas "mousemove" on-pointer)
     (.addEventListener js/window "keydown" on-key)
     (.addEventListener (el "apply") "click" (fn [_] (apply-edit!)))
+    (.addEventListener (el "views") "change" (fn [e] (reset! !view-id (.-value (.-target e))) (frame!)))
     (set! js/window.softland
           #js {:metrics (fn [] (pr-str @!metrics))
                :frame (fn [] (frame!) (pr-str (:statuses @!metrics)))
@@ -255,6 +274,7 @@
                :log (fn [] (pr-str (map #(dissoc % :previous) (:log @!store))))
                :bench bench
                :glyphCentre glyph-centre
-               :reset (fn [] (.removeItem js/localStorage store-key) (reset! !store records/store) (reset! !frame nil) (frame!) "reset")
+               :stand (fn [id] (reset! !view-id id) (frame!) (pr-str (:statuses @!metrics)))
+               :reset (fn [] (.removeItem js/localStorage store-key) (reset! !store records/store) (reset! !frames {}) (frame!) "reset")
                :ready false})
     (load-fonts! (fn [] (frame!) (set! (.-ready js/window.softland) true))))))

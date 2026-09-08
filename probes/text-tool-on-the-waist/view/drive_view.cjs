@@ -102,6 +102,26 @@ const server = http.createServer((req, res) => {
   receipts['12-cursor-offset-3'] = await metrics();
   await shot('07-cursor-at-3.png');
 
+  // stand in the agent's view: Sid's runs only, its own cursor, zoom 3, from view-1
+  await page.selectOption('#views', 'view-2');
+  await page.waitForTimeout(300);
+  receipts['15-view-2'] = await metrics();
+  await shot('09-view-2.png');
+  const t2 = await centre('run-1', 0);
+  await page.mouse.move(box.x + t2[0], box.y + t2[1]);
+  await page.waitForTimeout(150);
+  receipts['16-view-2-pointer'] = await metrics();
+  await page.mouse.move(box.x + 400, box.y + 250);
+  await page.keyboard.type(' by the agent', { delay: 15 });
+  await page.waitForTimeout(200);
+  receipts['17-view-2-typed'] = await metrics();
+  receipts['17-run-1-last-keys'] = await page.evaluate(() => window.softland.record('run-1').slice(-220));
+  await shot('10-view-2-typed.png');
+  await page.selectOption('#views', 'view-1');
+  await page.waitForTimeout(300);
+  receipts['18-back-in-view-1'] = await metrics();
+  await shot('11-back-in-view-1.png');
+
   receipts['13-store-log'] = await page.evaluate(() => window.softland.log());
   // the store survives a reload of the page in this browser
   await page.reload();

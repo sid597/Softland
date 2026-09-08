@@ -69,6 +69,9 @@
    :keys (keystrokes "a paste from outside" 5000)})
 
 (def cursor-1 {:id "cursor-1" :kind :cursor :by "sid" :in "run-1" :offset 8})
+(def cursor-2
+  "An agent's cursor in Sid's run: two people on one subject have two."
+  {:id "cursor-2" :kind :cursor :by "agent:claude" :in "run-1" :offset 4})
 
 ;; ---------------------------------------------------------------- the layout rule, as expressions
 ;; The pen for THIS glyph, computed once per item by the :value step and read
@@ -121,6 +124,21 @@
            :steps [{:out :hits :op :collect
                     :args {:into [:get :state :hits]
                            :item [:if [:= [:get :r :kind] [:get :where :kind]] [:get :r :id] [:literal nil]]}}]
+           :next {:hits [:get :hits]}}
+    :return {:runs {:ids [:get :state :hits]}}}})
+
+(def query-by-tool
+  "A narrower subject: the records whose kind and asserter the where-clause
+   names."
+  {:id "query-by@1" :kind :tool :by "sid" :tool {}
+   :program
+   {:each {:items [:get :store] :item :r :fields [:id :kind :by]
+           :state {:hits [:literal []]}
+           :steps [{:out :hits :op :collect
+                    :args {:into [:get :state :hits]
+                           :item [:if [:= [:get :r :kind] [:get :where :kind]]
+                                  [:if [:= [:get :r :by] [:get :where :by]] [:get :r :id] [:literal nil]]
+                                  [:literal nil]]}}]
            :next {:hits [:get :hits]}}
     :return {:runs {:ids [:get :state :hits]}}}})
 
@@ -254,8 +272,20 @@
    :pins {:font "font-noto-sans@1" :cursor "cursor-1"}
    :zoom 4 :origin [0 0]})
 
+(def view-2
+  "Where an agent stands, handed view-1 to look from: only Sid's runs, its
+   own cursor, its own zoom. Two people on one subject are two views; the
+   chain of :from is how it got here."
+  {:id "view-2" :kind :view :by "agent:claude" :from "view-1"
+   :subject {:kind :text/run :by "sid"}
+   :tools ["query-by@1" "layout@1" "paint@1" "caret-place@1" "caret-paint@1"]
+   :hit-tool "hit@1"
+   :pins {:font "font-noto-sans@1" :cursor "cursor-2"}
+   :zoom 3 :origin [0 0]})
+
 (def store
   "The first store: every record above, by id."
   (reduce store/put (store/empty-store)
-          [font-boxes font-noto run-1 run-2 cursor-1
-           query-tool layout-tool paint-tool caret-place-tool caret-paint-tool hit-tool view-1]))
+          [font-boxes font-noto run-1 run-2 cursor-1 cursor-2
+           query-tool query-by-tool layout-tool paint-tool caret-place-tool caret-paint-tool hit-tool
+           view-1 view-2]))

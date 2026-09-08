@@ -30,7 +30,12 @@ What a view record says: `:subject` (the where-clause its query tool
 matches), `:tools` (record ids, in order; a tool marked `:per :run` runs per
 run), `:hit-tool`, `:pins` (scope name → record id), `:zoom`, `:origin`,
 `:by`, `:from`. Running a view is running its tools under that scope; two
-people on one subject are two views.
+people on one subject are two views: `view-1` is Sid's, every run, his
+cursor, zoom 4; `view-2` is an agent's, handed `view-1` to look from
+(`:from`), Sid's runs alone through a query that matches the asserter too,
+its own cursor in Sid's run, zoom 3. The browser keeps a frame per view, so
+standing in one and back resumes where it stood; a key typed in a view
+carries that view's asserter into the run's stream.
 
 Rows the tools hand each other: the query's run ids → per run, the layout's
 placements, rings and box → the painter's painting on that box → the caret

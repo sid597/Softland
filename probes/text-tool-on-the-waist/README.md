@@ -71,6 +71,7 @@ move by tens of percent between runs):
 | Point at the tool, change one field in the page's editor | `05-width-60.png` (wrap at 60), `06-foreign-full-size.png` (foreign scale 1); status "applied layout@1" |
 | Move the cursor record; the caret follows | `07-cursor-at-3.png` |
 | The store survives a reload | `08-after-reload.png` |
+| Stand in the agent's view: Sid's runs alone, the agent's cursor, zoom 3, from view-1; point, type (the keys carry `agent:claude`), stand back in Sid's view where it stood | `09-view-2.png`, `10-view-2-typed.png`, `11-back-in-view-1.png` |
 
 | Measured, first form: one layout and one painting for the whole view | ms |
 |---|---:|
