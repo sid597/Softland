@@ -20,9 +20,9 @@ flowchart TD
 
 | File | Role in this computation |
 |---|---|
-| [table.cljc](table.cljc) | The vocabulary the view's tools run over: the path kind's table plus the three words the text tool needed as records: shape (one run's keystrokes to glyph items, a box font for now), collect (a loop step that emits a collection), value (a step that names what it is given, the `:let` the leaves lack). |
+| [table.cljc](table.cljc) | The vocabulary the view's tools run over: the path kind's table plus the words the text tool needed as records: shape (one run's keystrokes to glyph items, from a font record's inline glyphs or from the TrueType file the table was built with, `text/truetype.cljc`), place (an outline in font units to local units at a point), collect (a loop step that emits a collection), value (a step that names what it is given, the `:let` the leaves lack). |
 | [store.cljc](store.cljc) | The uncommitted store: records by id, saved as they are, every put logged with what it replaced. Pure; the browser holds one atom. |
-| [records.cljc](records.cljc) | The base records: a box font; two runs of keystroke records, one Sid's and one a foreign paste; the cursor; the query, layout, paint, caret-place, caret-paint and hit tools as executor programs over the table; the first view; the store holding them. |
+| [records.cljc](records.cljc) | The base records: a box font and a TrueType font record naming its file (Noto Sans Regular from the repository's assets; the file's metrics and digest complete the record when it is loaded); two runs of keystroke records, one Sid's and one a foreign paste; the cursor; the query, layout, paint, caret-place, caret-paint and hit tools as executor programs over the table; the first view; the store holding them. A glyph is the same record in both fonts: advance, bounding box and outline in the font's units, y up. |
 | [run.cljc](run.cljc) | The runtime for a view: its per-view tools run in order, then each tool marked `:per :run` runs once per run the subject names, keyed `[tool run]`; every declared `:inputs` resolved from the earlier instances with their subjects; the scope the view names (its subject, its pins, the store, the run). The runner sizes each run's painting to the layout's box, so a run paints on its own small surface at its place. Between frames each instance resumes the continuation it kept (without its history); a resume the executor refuses is a fresh run. A hit asks each run's hit tool in order. Pure; a clock can be injected. |
 | [core.cljs](core.cljs) | The browser entry: the runs' surfaces composited at their places on a 2D canvas by the CPU runner, the pointer mapped through the view's zoom and origin into the hit tools, keystrokes appended to the cursor's run, any record edited as EDN and put back, the store kept across reloads. |
 
@@ -46,7 +46,9 @@ run the new glyph alone (`run_test.clj`,
 `a-keystroke-resumes-the-run-it-grew-and-edits-rerun`). A run's surface is
 its box, so each ring's paint copies that box, not the view.
 
-Receipts: `test/app/client/view/run_test.clj` (JVM, pure tier) and the driven
-browser checkpoints under `probes/text-tool-on-the-waist/view/` (screenshots
-and timings). The GPU compositor's quad and fill are not bound here; the
-HarfBuzz shaper and font outlines are not bound as the shape capability yet.
+Receipts: `test/app/client/view/run_test.clj` (JVM, pure tier, the box
+font for exact numbers and Noto Sans from its file) and the driven browser
+checkpoints under `probes/text-tool-on-the-waist/view/` (screenshots and
+timings). The GPU compositor's quad and fill are not bound here; the
+HarfBuzz shaper is not bound, so there is no kerning, no ligatures and no
+bidi; the CPU filler pays about 38 ms per real glyph at zoom 4.

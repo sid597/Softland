@@ -78,21 +78,21 @@
              [name (retained producer output)])))
 
 (defn run-tool
-  "Store, scope, the view's records, the runs so far, a tool id, the run id
-   this instance is for and the instance's run from the previous frame →
-   the executor run, resumed from the previous continuation when the
-   executor admits it, fresh otherwise."
-  [store base records runs id run-id previous]
+  "Store, scope, the view's records, the capability table, the runs so far,
+   a tool id, the run id this instance is for and the instance's run from
+   the previous frame → the executor run, resumed from the previous
+   continuation when the executor admits it, fresh otherwise."
+  [store base records table runs id run-id previous]
   (let [tool (store/record store id)
         record (tool-record tool)
         inputs (resolve-inputs tool run-id runs)
         scope (cond-> base (seq inputs) (assoc :inputs inputs))
         resumed (when-let [held (:continuation previous)]
-                  (executor/resume (assoc held :history []) table/table
+                  (executor/resume (assoc held :history []) table
                                    {:record record :scope scope :records records}))]
     (if (= :complete (:status resumed))
       (assoc resumed :resumed? true)
-      (assoc (executor/run record scope table/table {:records records}) :resumed? false))))
+      (assoc (executor/run record scope table {:records records}) :resumed? false))))
 
 (defn- complete [runs key] (let [r (get runs key)] (when (= :complete (:status r)) (:results r))))
 
@@ -102,9 +102,10 @@
    paintings with their boxes, in run order; placements and caret; each
    instance's status. Options: :previous, the last frame, whose instances
    each instance resumes from; :clock, a function giving milliseconds,
-   times each instance."
+   times each instance; :table, the capability table (the fonts it was
+   built with), the box-font table when absent."
   ([store view] (frame store view {}))
-  ([store view {:keys [clock previous]}]
+  ([store view {:keys [clock previous table] :or {table table/table}}]
    (let [base (scope store view)
          known (records store view)
          tools (map #(store/record store %) (:tools view))
@@ -112,7 +113,7 @@
          per-run (map :id (filter #(= :run (:per %)) tools))
          run-one (fn [acc id run-id sc]
                    (let [t0 (when clock (clock))
-                         r (run-tool store sc known (:runs acc) id run-id (get-in previous [:runs [id run-id]]))]
+                         r (run-tool store sc known table (:runs acc) id run-id (get-in previous [:runs [id run-id]]))]
                      (cond-> (assoc-in acc [:runs [id run-id]] r)
                        clock (assoc-in [:ms [id run-id]] (- (clock) t0)))))
          acc (reduce (fn [acc id] (run-one acc id nil base)) {:runs {} :ms {}} per-view)
@@ -146,11 +147,12 @@
 
 (defn hit
   "Store, view, a frame and a local point → the first run whose hit tool
-   answers at that point, or nil."
-  [store view frame point]
-  (let [base (assoc (scope store view) :point point)
-        known (records store view)]
-    (some (fn [run-id]
-            (let [r (run-tool store (assoc base :run (store/record store run-id)) known (:runs frame) (:hit-tool view) run-id nil)]
-              (when (= :complete (:status r)) (get-in r [:results :hit]))))
-          (:order frame))))
+   answers at that point, or nil. Options: :table as for frame."
+  ([store view frame point] (hit store view frame point {}))
+  ([store view frame point {:keys [table] :or {table table/table}}]
+   (let [base (assoc (scope store view) :point point)
+         known (records store view)]
+     (some (fn [run-id]
+             (let [r (run-tool store (assoc base :run (store/record store run-id)) known table (:runs frame) (:hit-tool view) run-id nil)]
+               (when (= :complete (:status r)) (get-in r [:results :hit]))))
+           (:order frame)))))

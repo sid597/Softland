@@ -11,6 +11,7 @@
             [app.client.engine.executor :as executor]
             [app.client.path.source :as source]
             [app.client.path.surface :as path-surface]
+            [app.client.text.truetype :as truetype]
             [app.client.view.records :as records]
             [app.client.view.store :as store]
             [app.client.view.run :as run]
@@ -24,6 +25,7 @@
 (defonce !frame (atom nil))
 (defonce !metrics (atom {}))
 (defonce !editing (atom nil))
+(defonce !table (atom table/table))
 
 (defn- el [id] (js/document.getElementById id))
 (defn- view [] (store/record @!store @!view-id))
@@ -101,7 +103,7 @@
   []
   (let [canvas (el "painting")
         t0 (js/performance.now)
-        f (run/frame @!store (view) {:clock #(js/performance.now) :previous @!frame})
+        f (run/frame @!store (view) {:clock #(js/performance.now) :previous @!frame :table @!table})
         t1 (js/performance.now)]
     (reset! !frame f)
     (present! canvas (view) (:paintings f))
@@ -120,7 +122,7 @@
     (let [t0 (js/performance.now)
           x (.-offsetX e) y (.-offsetY e)
           local (run/texel->local (view) x y)
-          hit (run/hit @!store (view) f local)]
+          hit (run/hit @!store (view) f local {:table @!table})]
       (swap! !metrics assoc :pointer {:texel [x y] :local local :hit hit :hit-ms (- (js/performance.now) t0)})
       (render-readout!))))
 
@@ -181,8 +183,44 @@
     (pr-str {:surface [(:width p) (:height p)]
              :slice-ms (t 20 #(.slice (:data p)))
              :paint-direct-ms (t 20 #(path-surface/paint paint-args {:at 0 :step :b}))
-             :paint-via-executor-ms (t 20 #(executor/run one {:painting p :region region} table/table))
+             :paint-via-executor-ms (t 20 #(executor/run one {:painting p :region region} @!table))
              :rings (count rings)})))
+
+(defn- glyph-centre
+  "A run id and a placement index → the texel at the centre of that glyph's
+   rect, as \"x y\"; for the driver to point at real glyphs."
+  [run i]
+  (let [{:keys [rect]} (nth (get-in @!frame [:placements run]) i)
+        [x y w h] rect
+        [tx ty] (run/local->texel (view) [(+ x (/ w 2)) (+ y (/ h 2))])]
+    (str (js/Math.round tx) " " (js/Math.round ty))))
+
+(defn- load-fonts!
+  "Every font record the view pins that names a :source → its file fetched
+   and read (text/truetype.cljc), the completed record put back into the
+   store, the table rebuilt over the fonts; then k. A font that fails to
+   load is reported and the box table stands."
+  [k]
+  (let [pinned (for [[_ id] (:pins (view)) :let [r (store/record @!store id)] :when (and (= :font (:kind r)) (:source r))] r)]
+    (if (empty? pinned)
+      (k)
+      (-> (js/Promise.all
+           (clj->js (for [r pinned]
+                      (-> (js/fetch (:source r))
+                          (.then (fn [response]
+                                   (when-not (.-ok response) (throw (js/Error. (str (:source r) " " (.-status response)))))
+                                   (.arrayBuffer response)))
+                          (.then (fn [buf] #js [r (js/Uint8Array. buf)]))))))
+          (.then (fn [pairs]
+                   (let [fonts (into {} (for [pair pairs
+                                              :let [r (aget pair 0) bytes (aget pair 1) parsed (truetype/parse bytes)]]
+                                          (do (swap! !store store/put (merge r (truetype/metrics parsed) {:digest (truetype/digest bytes)}))
+                                              [(:id r) parsed])))]
+                     (reset! !table (table/with-fonts fonts))
+                     (k))))
+          (.catch (fn [e]
+                    (set! (.-textContent (el "status")) (str "font not loaded: " (.-message e)))
+                    (k)))))))
 
 (def store-key "softland/view/store")
 
@@ -216,6 +254,7 @@
                :put (fn [edn] (swap! !store store/put (reader/read-string edn)) (frame!) (pr-str (:statuses @!metrics)))
                :log (fn [] (pr-str (map #(dissoc % :previous) (:log @!store))))
                :bench bench
+               :glyphCentre glyph-centre
                :reset (fn [] (.removeItem js/localStorage store-key) (reset! !store records/store) (reset! !frame nil) (frame!) "reset")
-               :ready true})
-    (frame!))))
+               :ready false})
+    (load-fonts! (fn [] (frame!) (set! (.-ready js/window.softland) true))))))

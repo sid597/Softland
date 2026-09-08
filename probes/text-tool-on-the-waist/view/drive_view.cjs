@@ -11,12 +11,15 @@ const root = process.argv[2] || 'target/view';
 const outDir = process.argv[3] || 'probes/text-tool-on-the-waist/view/receipts';
 fs.mkdirSync(outDir, { recursive: true });
 
+const assets = 'resources/public'; // the repository's font files, served beside the build
 const server = http.createServer((req, res) => {
   let p = req.url.split('?')[0];
   if (p === '/') p = '/index.html';
-  const f = path.join(root, p);
+  let f = path.join(root, p);
+  if (!fs.existsSync(f)) f = path.join(assets, p);
   if (!fs.existsSync(f)) { res.writeHead(404); res.end(); return; }
-  res.writeHead(200, { 'content-type': f.endsWith('.js') ? 'text/javascript' : 'text/html; charset=utf-8' });
+  const type = f.endsWith('.js') ? 'text/javascript' : f.endsWith('.ttf') ? 'font/ttf' : 'text/html; charset=utf-8';
+  res.writeHead(200, { 'content-type': type });
   fs.createReadStream(f).pipe(res);
 });
 
@@ -40,13 +43,16 @@ const server = http.createServer((req, res) => {
   receipts['1b-bench'] = await page.evaluate(() => window.softland.bench());
 
   const box = await (await page.$('#painting')).boundingBox();
-  // run-1 starts at local [4 4]; zoom 4; "t" is box [1 0 2 8] → local x 5..7, y 4..12 → texel (24, 32)
-  await page.mouse.move(box.x + 24, box.y + 32);
+  const centre = async (run, i) => (await page.evaluate(([r, k]) => window.softland.glyphCentre(r, k), [run, i])).split(' ').map(Number);
+  // the first glyph of run-1, "t", by its own placement
+  const t = await centre('run-1', 0);
+  await page.mouse.move(box.x + t[0], box.y + t[1]);
   await page.waitForTimeout(150);
   receipts['2-pointer-on-t'] = await metrics();
   await shot('02-pointer-on-t.png');
-  // run-2 (foreign, half size) starts at local [4 40]; "a" box [1 3 4 5] × 0.5 → x 4.5..6.5, y 41.5..44 → texel (22, 170)
-  await page.mouse.move(box.x + 22, box.y + 170);
+  // the first glyph of run-2 (foreign, half size), "a"
+  const a = await centre('run-2', 0);
+  await page.mouse.move(box.x + a[0], box.y + a[1]);
   await page.waitForTimeout(150);
   receipts['3-pointer-on-foreign-a'] = await metrics();
   await page.mouse.move(box.x + 400, box.y + 250);

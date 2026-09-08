@@ -94,6 +94,14 @@ move by tens of percent between runs):
 | Present, the runs' surfaces composited over white through a lookup table | 6 to 37 |
 | Copying a run's surface once (408 × 80) | 0.4 |
 
+| Measured, third form: Noto Sans from its file, outlines placed as path values | ms |
+|---|---:|
+| First frame, all instances fresh (run-1: layout 129, paint 305 for 23 glyph outlines on 408 × 112) | 611 |
+| One keystroke at the end of run-1: frame · run-1 layout · run-1 paint (one outline) | 156 · 33 · 43 |
+| One real glyph's paint, direct, at zoom 4 (about 30 quadratics in its band) | 38 |
+| A tool edit (width 60): the run's 23 outlines repainted | 907 |
+| Pointer move, the hit tools over 47 placements | 10 to 11 |
+
 Where the time goes, attributed. First form: painting is per ring (one
 coverage pass over the ring's box, one copy of the surface); one region for
 all the text costs a coverage pass over the union box with every segment of
@@ -105,5 +113,9 @@ a complete run keeps its continuation, so a keystroke resumes the grown run's
 layout and painter with the new glyph alone; what remains per keystroke is
 eight instances resuming with nothing to do (each replays its pre-loop step
 and checks its consumed items) and one ring's coverage pass, about 7 ms,
-which is the CPU filler's price and the GPU fill's job.
+which is the CPU filler's price and the GPU fill's job. Third form: a real
+glyph is about thirty quadratics, and the CPU filler's coverage pass over
+its box scans them per texel, so one outline costs about 38 ms where a box
+cost 7; the shape, the layout and the hits are unchanged in kind, only the
+outline changed, which is the point of the records.
 
