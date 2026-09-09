@@ -9,6 +9,7 @@ last. Each entry: what changed, what caused it, where it landed.
     2026-09-07  seven explorations │  prompts become the object
     2026-09-08  the room, the skill, three builds
     2026-09-09  the read: asks × families, merge, meta split
+    2026-09-09  the merge gets its levels: referees, top merge, bias
                                    ▼
 ```
 
@@ -66,3 +67,19 @@ reads the docs first and the six reads after. Meta is its own prompt, run
 after the merge, because its evidence is the chats and in one room the meta
 wins. This folder opened.
 → `docs/below-the-waist/ecs-layer-2026-09-08/ASKS.md`, `docs/meta/`.
+
+## 2026-09-09 — the merge gets its levels
+
+Six reads landed as files. The merge is the fan-out run backwards: pairs,
+then across asks, then the goal. Level one is a referee per pair, Codex,
+autonomous: agreement once, disagreement in both readers' own words with
+line refs, the written expectation held or broke, where each went silent;
+not the answer, no verdict on the builds. Family bias in referees was
+raised and blinding rejected, style leaks; the verdict is treated as
+separable from the verbatim alignment, and the family check moves to the
+top merge, run as two chairs with Sid between them. First referee result:
+the gaps expectation broke, both readers generalize, Claude's all-three
+list longer than Codex's, reported by a Codex referee against its own
+family.
+→ `docs/below-the-waist/ecs-layer-2026-09-08/reads/`, `ASKS.md` Merge and
+Top merge sections.

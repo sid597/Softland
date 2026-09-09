@@ -70,7 +70,7 @@ attachments for Codex.
 ```
     prompt kinds
     │
-    ├── meta ──────── the loop itself; after the merge; evidence = the chats
+    ├── meta ──────── the loop itself; after the top merge; evidence = the chats
     │
     └── instance
         ├── body ──── one, fixed: goal · ground · files · Sid's questions
@@ -78,10 +78,15 @@ attachments for Codex.
         ├── ask ───── one paragraph; the first idea in the room; N of them
         ├── flavoring one line; the room: claude = read scope,
         │             codex = attached + the question
-        └── merge ─── docs first, reads after; written when the reads exist
+        ├── referee ─ body + tail per pair: align two reads of one ask;
+        │             not the answer, no verdict on the builds
+        └── top merge  Sid in the chair, one chair per family; docs first,
+                      referees after, raw reads for receipts
 ```
 
 ## The read step, as it stands
+
+The merge is the fan-out run backwards: families → asks → the goal.
 
 ```
                             body
@@ -89,23 +94,47 @@ attachments for Codex.
             gaps         repetition      boundary        ← asks
             ┌┴┐            ┌┴┐             ┌┴┐
             C X            C X             C X           ← C claude · X codex
-            └┬┘            └┬┘             └┬┘
-             └──────────────┼───────────────┘
-                            ▼
-                          merge ◄── the docs first, the six reads after
-                            │
-                 ┌──────────┴──────────┐
-         what should exist        where the docs went silent
-         what to build first      (→ back to the builder session, not the code)
+            └┬┘            └┬┘             └┬┘           reads/<ask>-<family>.md
+          referee        referee         referee         ← codex, one per pair
+            │              │               │               reads/merge-<ask>.md
+            └──────────────┼───────────────┘
+                           ▼
+                      top merge          ← Sid in the chair, a Claude chair
+                           │               and a Codex chair in parallel, Sid
+                           │               carries between them; docs first,
+                           │               referees after, raw reads for
+                           │               receipts
+                ┌──────────┴──────────┐
+        what should exist        where the docs went silent
+        what to build first      (→ back to the builder session, not the code)
 ```
 
-Predictions are written before any read exists, so the round can check
-itself. Gaps is the control for repetition.
+Three levels, each with its own question:
+
+- **pairs** — does the family matter for this ask? A prediction per pair,
+  written before any read exists. The referee aligns the two reads:
+  agreement once, disagreement in both readers' own words with line refs,
+  the expectation held or broke, where each went silent. Not the answer.
+- **across asks** — does the one thing repetition found account for the
+  nouns gaps found (gaps is the control)? Is boundary already answered by
+  Sid's questions to the builders, or a room of its own? Do the silences
+  coincide?
+- **the goal** — what should exist in the code before the next build, and
+  what first. One position.
+
+On family bias in the referees: each family sides with its own, Codex more
+so. Blinding the reads was tried on paper and dropped, style leaks, "not a
+game we can win." Instead the referee's verdict paragraphs are treated as
+separable from its alignment, which is verbatim and line-referenced, so a
+verdict can be overruled from the quotes beneath it. The family check
+happens once, where it can be seen: at the top merge, with both chairs in
+the room and Sid between them.
 
 ## Where the instances are
 
 - `docs/below-the-waist/ecs-layer-2026-09-08/ASKS.md` — the current read:
-  body, three asks, predictions, flavorings.
+  body, three asks, predictions, flavorings, the referee and top-merge
+  prompts; its `reads/` holds the six reads and three referee files.
 - `docs/below-the-waist/ecs-layer-2026-09-08/` and
   `docs/below-the-waist/vantage/` — the plans the three builds came from.
 - `docs/below-the-waist/visioning-2026-09-07/` — the "what next" round that
