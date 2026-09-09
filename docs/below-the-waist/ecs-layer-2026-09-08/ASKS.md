@@ -117,21 +117,20 @@ codex: read the six files from the paths above, or attached if you'd rather past
 
 Two sessions with the same prompt, one Claude (Fable, max) and one Codex,
 Sid in both chats and carrying between them. Not autonomous: the position
-is worked out in the chat. The blank is Sid's calls on the three
-expectations after reading the referee files.
+is worked out in the chat. The referees' held/broke verdicts are not input
+here; they are input to the meta prompt. Here the referee files are
+alignment only.
 
 ```
 ok so this is the top of the read, and i'm in the chat with you. the other family is in a parallel chat with the same prompt, and i carry between you.
 
-three builds came out of one hypothesis, that there is an ECS layer on which things can be built out, the minimal layer on top of the existing code. we built it out three times as tests of that, then read the builds back from their write ups and a baseline of the current code, never the code. one fixed body, three asks, gaps, repetition, boundary, each read by one claude and one codex session, and each pair aligned by a referee: agreement once, disagreement in both readers' own words, whether what i expected of the pair held, where each said the docs didn't say. all of that is on disk and it is the ground here, in this order:
+three builds came out of one hypothesis, that there is an ECS layer on which things can be built out, the minimal layer on top of the existing code. we built it out three times as tests of that, then read the builds back from their write ups and a baseline of the current code, never the code. one fixed body, three asks, gaps, repetition, boundary, each read by one claude and one codex session, and each pair aligned by a referee: agreement once, disagreement in both readers' own words, where each said the docs didn't say. the referee files also say whether a prediction of mine about the pair held, ignore that part, it's about the process not the code. all of that is on disk and it is the ground here, in this order:
 - the four docs the readers had: /mnt/data/projects/Softland-ecs-layer/docs/below-the-waist/ecs-layer-2026-09-08/BASELINE.md (what we currently have), /mnt/data/projects/Softland-ecs-layer/docs/below-the-waist/ecs-layer-2026-09-08/ECS-LAYER-WRITEUP.md, /mnt/data/projects/Softland-ecs-workspace-20260908/docs/ecs-workspace/SESSION-HANDOFF.md, /mnt/data/projects/Softland-ecs-workspace-20260908/docs/below-the-waist/vantage/ROUND-ACCOUNT.md
 - the three referee files: /mnt/data/projects/Softland/docs/below-the-waist/ecs-layer-2026-09-08/reads/merge-gaps.md, merge-repetition.md, merge-boundary.md
 - the six raw reads beside them, reads/<ask>-<family>.md, for when a quote needs the rest of its page
 no code.
 
-my own calls on the three expectations, after reading the referee files: ___
-
-what i want is the diff between what we currently have and what we don't have, as one position: what should exist in the code before the next build, and what to build first. three things the pairs can't settle on their own because they cross them: does the one thing repetition found account for the nouns gaps found, or not; is boundary already answered by the questions i asked the builders, or did that pair find something the write ups don't say; and where the silences fall in the same place across the three, which go back to the builder that made them and which are the layer itself.
+what i want is the diff between what we currently have and what we don't have, as one position: what should exist in the code before the next build, and what to build first. three things the pairs can't settle on their own because they cross them: does the one thing repetition found account for the nouns gaps found, or not; what did the boundary pair find that the write ups don't already say; and where the silences fall in the same place across the three, which go back to the builder that made them and which are the layer itself.
 ```
 
 ```
