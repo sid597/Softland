@@ -607,6 +607,21 @@ electric blindly because its for dom ours is multi-engine softland target".
 never the library. Briefings of this area carry BOTH vocabularies; renaming
 the arc makes it invisible to Sid.
 
+**Scoped exception: the Smalltalk/Electric experiment (recorded 2026-09-11).**
+Sid's implementation request explicitly authorized the isolated experiment:
+
+> Electric here means the actual Electric compiler/runtime. This request
+> authorizes introducing it in this isolated worktree, including where older
+> project guidance treated Electric as reference only.
+
+That authorization applies to `/mnt/data/projects/codex-smalltalk-electric`;
+it does not replace the broader default above. The subsequent
+[model](build-softland-in-softland/MODEL.md) and
+[build brief](build-softland-in-softland/BUILD.md) prepare a further isolated
+Electric experiment for Sid's go-ahead. Preparing those documents neither
+authorizes its implementation nor settles permanent host adoption. The September
+6 body-language law remains in force. No new ruling is attributed to Sid here.
+
 - **The law: recompute proportional to change, at every layer.** Change is
   emitted once, as a value, at the site that knows it — user action, server
   writer, animation tick. Everything downstream — store, derivations, the
