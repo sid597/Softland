@@ -34,3 +34,6 @@ __pycache__/
 !.claude/settings.json
 !.claude/hooks/
 !.claude/memory/
+
+/.inland-runtime/
+resources/electric-manifest.edn

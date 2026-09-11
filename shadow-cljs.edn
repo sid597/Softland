@@ -1,7 +1,12 @@
 {:nrepl {:port 9002}
  :dependencies [[cider/cider-nrepl "0.24.0"]]
  :builds
- {:render-verifier
+ {:inland
+  {:target :browser :output-dir "target/inland/public/js" :asset-path "/js"
+   :build-hooks [(hyperfiddle.electric.shadow-cljs.hooks3/reload-clj)]
+   :compiler-options {:optimizations :simple}
+   :modules {:main {:entries [softland.inland.boot] :init-fn softland.inland.boot/start!}}}
+  :render-verifier
   ;; Permanent W0-A render-engine harness. The Puppeteer runner serves this
   ;; release build from a synthetic secure origin and drives the REAL renderer
   ;; pipelines; no product server or product surface participates.

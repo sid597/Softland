@@ -1,0 +1,61 @@
+(ns softland.inland.server
+  "Local experiment server. Takes isolated cluster and compiled browser assets.
+   Gives HTTP and Electric WebSockets. Holds Jetty and the cluster connection."
+  (:require [hyperfiddle.electric3 :as e]
+            [hyperfiddle.electric-ring-adapter3 :as electric-ring]
+            [ring.adapter.jetty :as jetty]
+            [ring.util.response :as response]
+            [ring.middleware.content-type :refer [wrap-content-type]]
+            [clojure.data.json :as json]
+            [clojure.java.io :as io]
+            [softland.inland.app :as app]
+            [softland.inland.store :as store]
+            [softland.inland.resident :as resident]))
+
+(defn json-response [value]
+  {:status 200 :headers {"Content-Type" "application/json" "Cache-Control" "no-store"}
+   :body (json/write-str value)})
+
+(defn handler [request]
+  (let [test? (= "1" (System/getenv "INLAND_TEST_CONTROLS"))]
+    (cond
+      (= "/health" (:uri request)) (json-response {:ready true :build "softland-in-softland"})
+      (and test? (= "/__test/metrics" (:uri request))) (json-response (store/metrics-snapshot))
+      (and test? (= :post (:request-method request)) (= "/__test/read" (:uri request)))
+      (let [{:keys [kind path]} (json/read-str (slurp (:body request)) :key-fn keyword)
+            kind (keyword kind)]
+        (if (and (#{:rows :versions :index :decisions} kind) (vector? path) (<= 1 (count path) 5))
+          (json-response (store/read-one kind path))
+          {:status 400 :body "Invalid test read"}))
+      (and test? (= :post (:request-method request)) (= "/__test/fault" (:uri request)))
+      (let [mode (:mode (json/read-str (slurp (:body request)) :key-fn keyword))]
+        (reset! resident/fault (case mode "failure" :failure "uncertain" :uncertain nil))
+        (json-response {:mode mode}))
+      (and test? (= :post (:request-method request)) (= "/__test/hold" (:uri request)))
+      (do (when-not @store/test-hold (reset! store/test-hold (promise)))
+          (json-response {:held true}))
+      (and test? (= :post (:request-method request)) (= "/__test/release" (:uri request)))
+      (do (when-let [hold @store/test-hold] (reset! store/test-hold nil) (deliver hold true))
+          (json-response {:held false}))
+      :else
+      (or (when-let [file (response/file-response (if (= "/" (:uri request)) "index.html" (subs (:uri request) 1))
+                                                {:root "target/inland/public"})]
+            (if (= "/" (:uri request)) (response/content-type file "text/html; charset=utf-8") file))
+          {:status 404 :body "Not found"}))))
+
+(defn -main [& _]
+  (store/connect!)
+  (store/ensure-workspace! "workbench")
+  (resident/start!)
+  (let [server (jetty/run-jetty
+                 (electric-ring/wrap-electric-websocket
+                   (wrap-content-type handler)
+                   (fn [_]
+                     (try
+                       (e/boot-server {} app/Main)
+                       (catch Throwable error
+                         (.printStackTrace error)
+                         (throw error)))))
+                 {:host "127.0.0.1" :port 8127 :join? false})]
+    (println "Softland in Softland: http://localhost:8127")
+    (.join server)))

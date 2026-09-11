@@ -1,0 +1,232 @@
+#!/usr/bin/env python3
+"""The isolated experiment's launcher. Never calls bin/land or its shared config."""
+import json
+import os
+from pathlib import Path
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import time
+import zipfile
+
+ROOT = Path(__file__).resolve().parent.parent
+RUNTIME = ROOT / '.inland-runtime'
+RELEASE = RUNTIME / 'release'
+PUBLIC = ROOT / 'target/inland/public'
+MODULE = 'softland.inland.module/material'
+
+
+def run(args, cwd=ROOT):
+    subprocess.run(args, cwd=cwd, check=True)
+
+
+def listening(port):
+    with socket.socket() as sock:
+        sock.settimeout(.3)
+        return sock.connect_ex(('127.0.0.1', port)) == 0
+
+
+def await_port(port, timeout=100):
+    end = time.monotonic() + timeout
+    while not listening(port):
+        if time.monotonic() > end:
+            raise RuntimeError(f'Port {port} did not open; inspect {RUNTIME}/logs')
+        time.sleep(1)
+
+
+def setup():
+    RUNTIME.mkdir(exist_ok=True)
+    (RUNTIME / 'logs').mkdir(exist_ok=True)
+    if not (RELEASE / 'rama').exists():
+        source = Path(os.environ.get('INLAND_RAMA_RELEASE', '/mnt/data/rama'))
+        RELEASE.mkdir(exist_ok=True)
+        # Distribution files only; no source data, config, tokens or licenses.
+        for name in ['rama', 'rama.jar', 'log4j2.properties', 'LICENSE.txt']:
+            shutil.copy2(source / name, RELEASE / name)
+        shutil.copytree(source / 'lib', RELEASE / 'lib', dirs_exist_ok=True)
+    (RELEASE / 'logs').mkdir(exist_ok=True)
+    (RELEASE / 'rama.yaml').write_text(f'''zookeeper.servers: ["localhost"]
+zookeeper.port: 2217
+zookeeper.root: "inland-electric"
+conductor.host: "localhost"
+conductor.port: 1997
+cluster.ui.port: 8917
+supervisor.port.range: [35970, 36970]
+local.dir: "{RUNTIME}/data"
+license.dir: "{RUNTIME}/licenses"
+conductor.child.opts: "-Xmx512m"
+supervisor.child.opts: "-Xmx256m"
+cluster.metadata: "Softland in Softland — isolated experiment"
+''')
+    (RUNTIME / 'worker.yaml').write_text('worker.child.opts: "-Xmx1024m -Xss16m"\n')
+
+
+def start(name, args, cwd, port):
+    pidfile = RUNTIME / f'{name}.pid'
+    if listening(port):
+        if not owned_pid(name):
+            raise RuntimeError(f'Port {port} is occupied by an unowned process')
+        print(f'{name} already listening on {port}', flush=True)
+        return
+    with (RUNTIME / f'logs/{name}.log').open('ab') as log:
+        process = subprocess.Popen(args, cwd=cwd, stdout=log, stderr=log,
+                                   start_new_session=True)
+    pidfile.write_text(str(process.pid))
+    end = time.monotonic() + 100
+    while not listening(port):
+        if process.poll() is not None:
+            raise RuntimeError(f'{name} exited; inspect {RUNTIME}/logs/{name}.log and {RELEASE}/logs')
+        if time.monotonic() > end:
+            raise RuntimeError(f'{name} did not open {port}; inspect {RUNTIME}/logs')
+        time.sleep(1)
+    print(f'{name} listening on {port}', flush=True)
+
+
+def cluster():
+    setup()
+    start('zookeeper', ['./rama', 'devZookeeper'], RELEASE, 2217)
+    start('conductor', ['./rama', 'conductor'], RELEASE, 1997)
+    start('supervisor', ['./rama', 'supervisor'], RELEASE, 35970)
+
+
+def module_jar():
+    target = ROOT / 'target/inland/instruments.jar'
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as jar:
+        for folder, prefix in [(ROOT / 'src-inland', ''), (ROOT / 'src/app/client/engine', 'app/client/engine/')]:
+            for path in folder.rglob('*'):
+                if path.is_file() and path.suffix in ['.clj', '.cljc']:
+                    jar.write(path, prefix + str(path.relative_to(folder)))
+        jar.write(ROOT / 'resources/inland/seed.edn', 'inland/seed.edn')
+    return target
+
+
+def module_status():
+    result = subprocess.check_output(['./rama', 'moduleStatus', MODULE], cwd=RELEASE, text=True)
+    return json.loads(result.strip().splitlines()[-1])
+
+
+def deploy(action='launch'):
+    cluster()
+    before = module_status().get('readTargetId') if action == 'update' else None
+    run(['./rama', 'deploy', '--action', action, '--jar', str(module_jar()),
+         '--module', MODULE, '--tasks', '2', '--threads', '2', '--workers', '1',
+         '--configOverrides', str(RUNTIME / 'worker.yaml')], RELEASE)
+    deadline = time.monotonic() + 120
+    while True:
+        status = module_status()
+        if (status.get('moduleState') == 'RUNNING'
+                and status.get('readTargetId') == status.get('appendTargetId')
+                and status.get('readTargetId') != before):
+            break
+        if time.monotonic() > deadline:
+            raise RuntimeError('The submitted module has not become the active read/write instance')
+        time.sleep(1)
+    (RUNTIME / 'module-installed').write_text(MODULE + '\n')
+
+
+def build():
+    PUBLIC.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(ROOT / 'resources/inland', PUBLIC, dirs_exist_ok=True)
+    (PUBLIC / 'fonts').mkdir(exist_ok=True)
+    for name in ['manifest.json', 'harfbuzz-0.10.3.wasm',
+                 'ubuntu_sans_variable.ttf', 'noto_sans_regular.ttf', 'dejavu_sans_mono.ttf',
+                 'ubuntu_sans_variable_slug_meta.json', 'ubuntu_sans_variable_slug_curve.bin',
+                 'ubuntu_sans_variable_slug_band.bin', 'dejavu_sans_mono_slug_meta.json',
+                 'dejavu_sans_mono_slug_curve.bin', 'dejavu_sans_mono_slug_band.bin']:
+        shutil.copy2(ROOT / 'resources/public/fonts' / name, PUBLIC / 'fonts' / name)
+    run(['clj', '-M:inland', '-m', 'shadow.cljs.devtools.cli', 'release', 'inland'])
+
+
+def serve():
+    setup()
+    if '--test-controls' in sys.argv:
+        os.environ['INLAND_TEST_CONTROLS'] = '1'
+    start('app', ['clj', '-M:inland', '-m', 'softland.inland.server'], ROOT, 8127)
+    print('Open http://localhost:8127', flush=True)
+
+
+def owned_pid(name):
+    pidfile = RUNTIME / f'{name}.pid'
+    if pidfile.exists():
+        pid = int(pidfile.read_text())
+        process = Path(f'/proc/{pid}')
+        if not process.exists():
+            return None
+        cwd = (process / 'cwd').resolve()
+        args = (process / 'cmdline').read_bytes().decode().replace('\0', ' ')
+        marker = {'app':'softland.inland.server', 'conductor':'daemon.conductor',
+                  'supervisor':'daemon.supervisor', 'zookeeper':'command.dev_zookeeper'}[name]
+        if (cwd != ROOT and RUNTIME not in cwd.parents) or marker not in args:
+            raise RuntimeError(f'PID {pid} is no longer owned by this launcher')
+        return pid
+    return None
+
+
+def stop(name):
+    pidfile = RUNTIME / f'{name}.pid'
+    pid = owned_pid(name)
+    if pid:
+        try:
+            os.killpg(pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        if name == 'app':
+            deadline = time.monotonic() + 15
+            while listening(8127) and time.monotonic() < deadline:
+                time.sleep(.2)
+            if listening(8127):
+                raise RuntimeError('App is still stopping; pid custody was retained')
+    if pidfile.exists():
+        pidfile.unlink()
+
+
+def stop_workers():
+    # Supervisors may give workers their own process group. Match BOTH exact
+    # runtime cwd and main class, never another experiment or the shared cluster.
+    for process in Path('/proc').glob('[0-9]*'):
+        try:
+            if (process / 'cwd').resolve() != RELEASE:
+                continue
+            args = (process / 'cmdline').read_bytes().decode().split('\0')
+            if 'rpl.rama.distributed.daemon.worker' in args:
+                os.kill(int(process.name), signal.SIGTERM)
+        except (FileNotFoundError, PermissionError, ProcessLookupError):
+            pass
+
+
+def main():
+    command = sys.argv[1] if len(sys.argv) > 1 else 'help'
+    if command == 'setup': setup()
+    elif command == 'cluster': cluster()
+    elif command == 'deploy': deploy(sys.argv[2] if len(sys.argv) > 2 else 'launch')
+    elif command == 'up':
+        cluster()
+        deploy('update' if (RUNTIME / 'module-installed').exists() else 'launch')
+        build()
+        if owned_pid('app'): stop('app')
+        serve()
+    elif command == 'seed':
+        run(['clj', '-M:inland', '-m', 'softland.inland.seed'])
+    elif command == 'build': build()
+    elif command == 'serve': serve()
+    elif command == 'stop-app': stop('app')
+    elif command == 'down':
+        stop('app')
+        stop('supervisor')
+        stop_workers()
+        for name in ['conductor', 'zookeeper']: stop(name)
+    elif command == 'check':
+        run(['clj', '-M:inland', '-m', 'softland.inland.test-runner'])
+    elif command == 'verify':
+        run(['node', 'test-inland/browser.mjs'])
+    elif command == 'status':
+        print(json.dumps({str(p): listening(p) for p in [2217, 1997, 35970, 8127]}))
+    else:
+        print('bin/inland up [--test-controls] | seed | setup | cluster | deploy [launch|update] | build | serve [--test-controls] | stop-app | down | check | verify | status')
+
+
+if __name__ == '__main__':
+    main()
