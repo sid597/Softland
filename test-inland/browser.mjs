@@ -16,22 +16,31 @@ const url = `${base}/?workspace=${workspace}`;
 const receipt = {workspace, url, checks:[], failures:[], browserErrors:[], success:false};
 await fs.mkdir(out, {recursive:true});
 let browser;
+/** Record a named passed observation; caller must assert it before calling. */
 const check = (name, detail={}) => {receipt.checks.push({name,...detail}); console.log(`PASS ${name}`);};
+/** Milliseconds → timer promise; used only to allow asynchronous receipt windows. */
 const pause = ms => new Promise(resolve=>setTimeout(resolve,ms));
+/** Page, predicate and args → bounded browser wait; rejects on timeout. */
 const wait = (p,fn,...args)=>p.waitForFunction(fn,{timeout:30000},...args);
+/** Page and cell key → read-only browser-local session value. */
 const cell = (p,key)=>p.evaluate(key=>window.__inlandCell(key),key);
+/** Test action/body → isolated server control response. Requires test controls; mutations are fault/hold controls, not product admission. */
 const control = async (action, body={}) => {
   const r = await fetch(`${base}/__test/${action}`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   assert.equal(r.status,200,`Test control ${action}: launch with --test-controls`);
   return r.json();
 };
+/** Name and optional layer → accepted row read from this receipt workspace. */
 const row = (name,layer='base')=>control('read',{kind:'rows',path:[workspace,`${layer}/${name}`]});
+/** Read retained server proxy counters; no product state mutation. */
 const metrics = async ()=>{
   const r = await fetch(`${base}/__test/metrics`); assert.equal(r.status,200); return r.json();
 };
+/** Create visible Chrome with the registered local WebGPU flags; caller closes it. */
 const launch = ()=>puppeteer.launch({executablePath:'/usr/bin/google-chrome',headless:false,
   args:['--no-sandbox','--enable-unsafe-webgpu','--use-angle=vulkan','--enable-features=Vulkan,WebGPU,UnsafeWebGPU','--ignore-gpu-blocklist','--disable-dev-shm-usage'],
   defaultViewport:{width:1440,height:1000,deviceScaleFactor:1}});
+/** Create an isolated browser session, attach error capture and wait for real rendered instrument readiness. */
 const client = async ()=>{
   const context=await browser.createIncognitoBrowserContext(), p=await context.newPage();
   p.on('pageerror',e=>receipt.browserErrors.push(e.message));
@@ -40,6 +49,7 @@ const client = async ()=>{
   await wait(p,()=>window.__inlandGPU?.draws>0 && window.__inlandScenePartCount===2 && Boolean(window.__inlandTargetBox?.('instrument-view/active-instrument')));
   return p;
 };
+/** Occurrence id → actual canvas mouse click; wait for event admission to local dispatch unless targeting native input. */
 const click = async (p,id)=>{
   await wait(p,id=>Boolean(window.__inlandTargetBox?.(id)),id);
   const before=await p.evaluate(()=>window.__inland['last-event']?.event?.id);
@@ -48,12 +58,15 @@ const click = async (p,id)=>{
   await p.mouse.click(b.x+b.w/2,b.y+b.h/2);
   if(!native) await wait(p,before=>Boolean(window.__inland['last-event']?.event?.id) && window.__inland['last-event'].event.id!==before,before);
 };
+/** Field id/text → canvas focus plus native keyboard replacement; wait for textarea delivery. */
 const fill = async(p,id,text)=>{
   await click(p,id); await p.keyboard.down('Control'); await p.keyboard.press('A'); await p.keyboard.up('Control');
   await p.keyboard.sendCharacter(text);
   await wait(p,({id,text})=>document.getElementById(id)?.value===text,{id,text});
 };
+/** Tab name → click the authored frame control. */
 const tab = (p,name)=>click(p,`frame-view/tab-${name}`);
+/** Object name → find a point using the actual Region3D picker, then move/click the mouse. Fails if no hit is found. */
 const point = async(p,name,select=true)=>{
   await wait(p,()=>Boolean(document.querySelector('#softland')) && Boolean(window.__inlandPickAt));
   const pos=await p.evaluate(name=>{
@@ -66,7 +79,9 @@ const point = async(p,name,select=true)=>{
   assert.ok(pos,`The real Region3D picker finds ${name}`);
   if(select) await p.mouse.click(pos.x,pos.y); else await p.mouse.move(pos.x,pos.y);
 };
+/** Wait until the local accepted-event effect selects the expected object. */
 const selection = (p,name)=>wait(p,name=>window.__inlandCell('selection')===name,name);
+/** Page through authored Definitions, click its inspect occurrence and wait for the native record editor. */
 const inspect = async(p,name)=>{
   await tab(p,'definitions');
   let found=false;
@@ -85,7 +100,9 @@ const inspect = async(p,name)=>{
   await click(p,`library-view/rows/${name}/inspect`);
   await wait(p,name=>window.__inlandCell('inspecting')===name && Boolean(window.__inlandTargetBox?.('editor-view/record')),name);
 };
+/** Wait for the local display of the requested admission status; durable reads are separate assertions. */
 const admission = (p,status)=>wait(p,status=>window.__inlandCell('admission')?.status===status,status);
+/** Edit source through native input, click an authored action and wait for a new admission result. */
 const apply = async(p,source,button='apply',status='accepted')=>{
   await fill(p,'editor-view/record',source);
   const previous=(await cell(p,'admission'))?.['request-id'];
@@ -93,10 +110,15 @@ const apply = async(p,source,button='apply',status='accepted')=>{
   await wait(p,previous=>window.__inlandCell('admission')?.['request-id']!==previous,previous);
   await admission(p,status);
 };
+/** Name → authored direct-subject recipe source for the record editor. */
 const identity = name=>`{:name "${name}" :label "Direct subject" :body {:steps [] :return [:get :subject]}}`;
+/** Name → authored named-call recipe source sharing containing-object-or-self. */
 const containing = name=>`{:name "${name}" :label "Containing object or self" :body {:steps [{:out :result :op :call :args {:name "containing-object-or-self" :bindings {:subject [:get :subject]}}}] :return [:get :result]}}`;
+/** Read rendered support-view text from diagnostic output, without dispatching an event. */
 const supportText = p=>p.evaluate(()=>window.__inland['support-view']?.value?.find(x=>x.id==='supports')?.text);
+/** Read headline and scene preparation counters for narrow-propagation comparison. */
 const work = p=>p.evaluate(()=>({headline:window.__inlandWork['frame-view/headline'],shape:window.__inlandGPU['scene-preparations']}));
+/** One owner metrics row → opened minus closed subscriptions to parent attributes. */
 const liveParentReads = owner=>owner.paths.filter(p=>p.path.endsWith(':parent]]')).reduce((n,p)=>n+(p.kind==='opened'?p.count:p.kind==='closed'?-p.count:0),0);
 
 try {

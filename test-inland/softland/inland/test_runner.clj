@@ -1,4 +1,9 @@
 (ns softland.inland.test-runner
+  "Focused admission, source ownership and finite-recipe tests.
+   Takes a fresh two-task Rama IPC; asserts transitions, scoped proxy disposal and
+   pure recipe results. Owns the IPC and test handles; no production cluster or real
+   provider is used. The small reference interpreter tests seed semantics only;
+   actual Electric scheduling and rendered interaction require the browser suite."
   (:require [clojure.test :refer :all]
             [com.rpl.rama :as r] [com.rpl.rama.path :as p] [com.rpl.rama.test :as rt]
             [missionary.core :as m]
@@ -9,15 +14,26 @@
             [softland.inland.logic :as logic]))
 
 (defonce handles (atom nil))
-(defn read-one [workspace kind & path]
+(defn read-one
+  "Test workspace, PState kind and key path → synchronous IPC value.
+   Requires handles installed by -main."
+  [workspace kind & path]
   (r/foreign-select-one [(apply p/keypath workspace path)] (kind @handles)))
-(defn submit [workspace kind name & [extra]]
+(defn submit
+  "Test operation fields and optional overrides → retained admission decision.
+   Defaults to a fresh id, base layer and sid actor; appends to the real IPC depot."
+  [workspace kind name & [extra]]
   (let [op (merge {:workspace workspace :request-id (str (random-uuid)) :kind kind
                    :name name :layer "base" :actor "sid"} extra)]
     (or (get (r/foreign-append! (:depot @handles) op :ack) "accept")
         (:decision (read-one workspace :decisions (:request-id op))))))
-(defn seed! [workspace] (submit workspace :seed "world" {:request-id "seed-v1"}))
-(defn wait-until [pred]
+(defn seed!
+  "Workspace → seed-v1 admission in the fresh IPC. Repeating it reuses its id."
+  [workspace] (submit workspace :seed "world" {:request-id "seed-v1"}))
+(defn wait-until
+  "Predicate → true when satisfied within about two seconds, otherwise false.
+   Sleeps 20 ms between observations; used only for asynchronous proxy receipts."
+  [pred]
   (loop [n 100] (if (pred) true (if (zero? n) false (do (Thread/sleep 20) (recur (dec n)))))))
 
 (deftest admitted-definition-is-the-only-live-basis
@@ -89,7 +105,11 @@
           (is (not (:complete? (first @seen))))
           (finally (cancel)))))))
 
-(defn reference-call [rows name bindings reads]
+(defn reference-call
+  "Seed rows, definition name, bindings and read-log atom → pure recipe value.
+   Supports value/call/read only and logs addressed reads; not the Electric runtime.
+   Caller supplies finite known definitions; no independent recursion guard here."
+  [rows name bindings reads]
   (let [body (:body (get rows name))]
     (loop [steps (:steps body) scope bindings]
       (if-let [step (first steps)]
@@ -159,7 +179,11 @@
     (is (= :rejected (:status (submit w :start "malformed" {:intent (assoc intent :max-output "wrong type")}))))
     (is (= :rejected (:status (submit w :put "machine-rule" {:actor "resident" :expected-revision 0 :row {:name "machine-rule" :body {:steps [] :return nil}}}))))))
 
-(defn -main [& _]
+(defn -main
+  "Launch → fresh two-task IPC, focused tests, then IPC disposal.
+   Installs test store handles, shuts down futures and exits nonzero on failures.
+   This entry never invokes the real provider or the disk-backed product cluster."
+  [& _]
   (with-open [ipc (rt/create-ipc)]
     (rt/launch-module! ipc module/material {:tasks 2 :threads 2})
     (let [name (r/get-module-name module/material)

@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""The isolated experiment's launcher. Never calls bin/land or its shared config."""
+"""Launch/build/check the isolated Softland-in-Softland product.
+
+Owns .inland-runtime processes, configuration and durable storage, plus target
+build outputs. Uses exact PID/cwd markers before stopping processes. Distribution
+files may be copied from INLAND_RAMA_RELEASE; existing cluster data is never used.
+See ../src-inland/README.md for architecture and ../test-inland/README.md for checks.
+"""
 import json
 import os
 from pathlib import Path
@@ -19,16 +25,19 @@ MODULE = 'softland.inland.module/material'
 
 
 def run(args, cwd=ROOT):
+    """Run an argument vector in cwd; inherit output and raise on nonzero exit."""
     subprocess.run(args, cwd=cwd, check=True)
 
 
 def listening(port):
+    """Return whether loopback accepts a TCP connection; does not prove ownership."""
     with socket.socket() as sock:
         sock.settimeout(.3)
         return sock.connect_ex(('127.0.0.1', port)) == 0
 
 
 def await_port(port, timeout=100):
+    """Wait up to timeout seconds for TCP reachability or raise. Currently unused."""
     end = time.monotonic() + timeout
     while not listening(port):
         if time.monotonic() > end:
@@ -37,6 +46,10 @@ def await_port(port, timeout=100):
 
 
 def setup():
+    """Create isolated directories/config; copy distribution binaries if absent.
+
+    Reads distribution files only. Writes all cluster paths under this runtime;
+    does not inspect credentials, licenses, existing data or shared configuration."""
     RUNTIME.mkdir(exist_ok=True)
     (RUNTIME / 'logs').mkdir(exist_ok=True)
     if not (RELEASE / 'rama').exists():
@@ -64,6 +77,10 @@ cluster.metadata: "Softland in Softland — isolated experiment"
 
 
 def start(name, args, cwd, port):
+    """Start one named process group or retain a listener with matching PID custody.
+
+    Log output and retain its pid; wait for port reachability or fail with log path.
+    Port reachability alone is not a protocol/readiness or socket-owner proof."""
     pidfile = RUNTIME / f'{name}.pid'
     if listening(port):
         if not owned_pid(name):
@@ -85,6 +102,7 @@ def start(name, args, cwd, port):
 
 
 def cluster():
+    """Set up and start isolated ZooKeeper, conductor and supervisor in order."""
     setup()
     start('zookeeper', ['./rama', 'devZookeeper'], RELEASE, 2217)
     start('conductor', ['./rama', 'conductor'], RELEASE, 1997)
@@ -92,6 +110,9 @@ def cluster():
 
 
 def module_jar():
+    """Package inland Clojure, shared engine Clojure and seed into a module jar.
+
+    Returns target path; source-only packaging does not compile or deploy it."""
     target = ROOT / 'target/inland/instruments.jar'
     target.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(target, 'w', zipfile.ZIP_DEFLATED) as jar:
@@ -104,11 +125,16 @@ def module_jar():
 
 
 def module_status():
+    """Read isolated Rama moduleStatus and parse its last output line as JSON."""
     result = subprocess.check_output(['./rama', 'moduleStatus', MODULE], cwd=RELEASE, text=True)
     return json.loads(result.strip().splitlines()[-1])
 
 
 def deploy(action='launch'):
+    """Launch/update module and wait for a new active matching read/write target.
+
+    Ensures cluster first; records installation only after observed RUNNING state.
+    Uses two tasks, two threads and one worker. Timeout leaves runtime intact."""
     cluster()
     before = module_status().get('readTargetId') if action == 'update' else None
     run(['./rama', 'deploy', '--action', action, '--jar', str(module_jar()),
@@ -128,6 +154,9 @@ def deploy(action='launch'):
 
 
 def build():
+    """Copy product/font assets and compile the Electric browser release.
+
+    Mutates target output only; compiler dependency and activation must exist."""
     PUBLIC.mkdir(parents=True, exist_ok=True)
     shutil.copytree(ROOT / 'resources/inland', PUBLIC, dirs_exist_ok=True)
     (PUBLIC / 'fonts').mkdir(exist_ok=True)
@@ -141,6 +170,10 @@ def build():
 
 
 def serve():
+    """Start loopback Electric app; optionally enable explicit test controls.
+
+    Requires deployed cluster and built assets. Does not restart a running app
+    merely because flags changed; stop-app first when changing control mode."""
     setup()
     if '--test-controls' in sys.argv:
         os.environ['INLAND_TEST_CONTROLS'] = '1'
@@ -149,6 +182,9 @@ def serve():
 
 
 def owned_pid(name):
+    """Return a live recorded pid only if its cwd and expected command marker match.
+
+    Missing/dead pid returns None; mismatched custody raises before any signal."""
     pidfile = RUNTIME / f'{name}.pid'
     if pidfile.exists():
         pid = int(pidfile.read_text())
@@ -166,6 +202,10 @@ def owned_pid(name):
 
 
 def stop(name):
+    """Signal the owned process group and retire its pid file.
+
+    For app, wait up to 15 seconds for port closure; retain pid custody on timeout.
+    Other processes receive SIGTERM without a separate exit confirmation."""
     pidfile = RUNTIME / f'{name}.pid'
     pid = owned_pid(name)
     if pid:
@@ -184,6 +224,9 @@ def stop(name):
 
 
 def stop_workers():
+    """Signal Rama worker processes matching both exact runtime cwd and main class.
+
+    Handles supervisor-created worker groups; never uses a broad name-only kill."""
     # Supervisors may give workers their own process group. Match BOTH exact
     # runtime cwd and main class, never another experiment or the shared cluster.
     for process in Path('/proc').glob('[0-9]*'):
@@ -198,6 +241,10 @@ def stop_workers():
 
 
 def main():
+    """Dispatch launcher command; default prints usage.
+
+    up deploys/builds/restarts; down stops owned processes and preserves data.
+    check uses fresh IPC; verify drives browsers and makes a real provider call."""
     command = sys.argv[1] if len(sys.argv) > 1 else 'help'
     if command == 'setup': setup()
     elif command == 'cluster': cluster()

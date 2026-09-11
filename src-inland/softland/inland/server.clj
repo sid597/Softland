@@ -1,6 +1,10 @@
 (ns softland.inland.server
-  "Local experiment server. Takes isolated cluster and compiled browser assets.
-   Gives HTTP and Electric WebSockets. Holds Jetty and the cluster connection."
+  "Local HTTP/Electric host for the isolated product runtime.
+   Takes a running Rama cluster and compiled assets; gives a loopback HTTP server
+   and native Electric WebSocket sessions. Owns Jetty and starts process-scoped store
+   and resident resources. Browser-owned computation begins at app/Main. Optional
+   test controls inspect isolated state and inject faults; normal serving disables
+   them. The health route reports HTTP reachability, not dependency health."
   (:require [hyperfiddle.electric3 :as e]
             [hyperfiddle.electric-ring-adapter3 :as electric-ring]
             [ring.adapter.jetty :as jetty]
@@ -12,7 +16,10 @@
             [softland.inland.store :as store]
             [softland.inland.resident :as resident]))
 
-(defn configure-websocket! [server]
+(defn configure-websocket!
+  "Jetty server → native WebSocket limits of 1 MiB and five-minute idle timeout.
+   A measured 69 KB Electric startup frame exceeded the default 64 KB limit."
+  [server]
   (org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer/configure
     (.getHandler ^org.eclipse.jetty.server.Server server)
     (reify org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer$Configurator
@@ -23,11 +30,18 @@
         (.setMaxBinaryMessageSize container 1048576)
         (.setIdleTimeout container (java.time.Duration/ofMinutes 5))))))
 
-(defn json-response [value]
+(defn json-response
+  "JSON-encodable value → HTTP 200 JSON response with caching disabled.
+   Serialization errors propagate; this helper does not establish readiness."
+  [value]
   {:status 200 :headers {"Content-Type" "application/json" "Cache-Control" "no-store"}
    :body (json/write-str value)})
 
-(defn handler [request]
+(defn handler
+  "Ring request → static asset, health response, enabled test control or 404.
+   Test reads are restricted to named PStates and short paths. This handler serves
+   no application-state transport; Electric owns reactive client/server traffic."
+  [request]
   (let [test? (= "1" (System/getenv "INLAND_TEST_CONTROLS"))]
     (cond
       (= "/health" (:uri request)) (json-response {:ready true :build "softland-in-softland"})
@@ -54,7 +68,11 @@
             (if (= "/" (:uri request)) (response/content-type file "text/html; charset=utf-8") file))
           {:status 404 :body "Not found"}))))
 
-(defn -main [& _]
+(defn -main
+  "Launch → connect store, seed default workspace, start resident and serve 8127.
+   Requires deployed isolated Rama and browser assets; joins Jetty until shutdown.
+   Electric boots app/Main per connection, with test controls governed by environment."
+  [& _]
   (store/connect!)
   (store/ensure-workspace! "workbench")
   (resident/start!)

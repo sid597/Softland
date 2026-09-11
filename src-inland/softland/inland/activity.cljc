@@ -1,17 +1,31 @@
 (ns softland.inland.activity
-  "View-owned repeated total steps. Takes authored step name, state and budget.
-   Gives visible status/result and yields between steps. Holds cancellable work."
+  "Electric owner for repeated authored total steps.
+   Takes a request with id, step reference, state, budget, output cell and optional
+   pinned context; gives session progress and requested effects. Holds iteration
+   snapshots, timers and their tracked reads; borrows the enclosing view/session.
+   The recipe owns the algorithm, while this owner supplies repetition and yielding.
+   This work ends with the view and is distinct from the durable external resident."
   (:require [hyperfiddle.electric3 :as e]
             [missionary.core :as m]
             [softland.inland.execution :as x]
             [softland.inland.total :as total]
             #?(:cljs [softland.inland.session :as session])))
 
-(defn yield-flow [_iteration ms]
+(defn yield-flow
+  "Iteration identity and milliseconds → continuous false, then true after sleep.
+   The identity argument makes a new Electric input for each iteration although the
+   flow body only uses ms. Cancellation ends the pending Missionary sleep."
+  [_iteration ms]
   (m/relieve (fn [_ v] v)
     (m/reductions (fn [_ v] v) false (m/ap (m/? (m/sleep ms)) true))))
 
-(e/defn Run [s owner workspace context request]
+(e/defn Run
+  "Session, scope and activity request → owned repeated calls and progress effects.
+   Requires progress initialized by the initiating event. Each iteration snapshots
+   one ready recipe result, waits its bounded delay, then advances under owner guards.
+   Cancellation marks running progress cancelled; unmount cancels demanded reads and
+   timers. The step receives state and explicitly reads other inputs itself."
+  [s owner workspace context request]
   (e/client
     (let [!progress (session/cell s (:output request))
           progress (e/watch !progress)

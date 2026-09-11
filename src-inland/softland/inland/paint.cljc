@@ -1,6 +1,10 @@
 (ns softland.inland.paint
-  "Softland target for authored descriptions. Takes occurrence-keyed paint/input
-   records. Gives rendered pixels and addressed events. Holds node resources only."
+  "Electric realization of authored paint and input descriptions.
+   Takes occurrence-keyed descriptions plus session/context; gives Softland pixels,
+   input bindings and generic addressed events. Owns keyed node/input branches;
+   borrows the render surface. Repeated descriptions call named accepted recipes.
+   Validation catches primitive input errors and occurrence-budget violations; it
+   does not establish arbitrary scene multiplicity or a complete UI type system."
   (:require [hyperfiddle.electric3 :as e]
             [softland.inland.nodes :as n]
             [softland.inland.execution :as x]
@@ -12,7 +16,11 @@
 
 (e/declare Items)
 
-(e/defn Field [r s id d]
+(e/defn Field
+  "Surface, session, identity and field description → owned editable occurrence.
+   Native textarea delivers edits; Softland paints text, border, caret and selection.
+   Watches the named draft cell and clips selection/caret to the field viewport."
+  [r s id d]
   (e/client
     (let [!draft (session/cell s (:cell d))
           draft (e/watch !draft) value (str (:value draft ""))
@@ -36,17 +44,26 @@
             (when (<= (+ py 8) y (- (+ py (nth (:box d) 3)) h 8))
               (n/Path r (str id "/caret") 55 (g/line id [[x y] [x (+ y h)]] g/coral 1.3)))))))))
 
-(defn path-material [id d]
+(defn path-material
+  "Occurrence id and path description → constructed Softland path material.
+   Dispatches primitive shape vocabulary; unknown shapes use the supplied source."
+  [id d]
   (case (:shape d)
     :rect (g/rect id (:box d) (:radius d 0) (:fill d) (:stroke d))
     :ellipse (g/ellipse id (:box d) (:angle d 0) (:fill d) (:stroke d) (:width d 1))
     :line (g/line id (:points d) (:stroke d) (:width d 1))
     (g/material id (:source d) (:fill d) (:stroke d) (:width d 1))))
 
-(defn finite-number? [v]
+(defn finite-number?
+  "Value → true only for finite numbers on either JVM or JavaScript."
+  [v]
   (and (number? v) #?(:clj (Double/isFinite (double v)) :cljs (js/Number.isFinite v))))
 
-(defn description-error [d]
+(defn description-error
+  "Paint description → first validation error string, or nil.
+   Exercises path/scene constructors without GPU work; catches construction errors.
+   A finite vector check is not a complete kind-specific box-arity contract."
+  [d]
   (try
     (cond
       (not (and (map? d) (string? (:id d)))) "Every rendered occurrence needs an identity."
@@ -66,14 +83,22 @@
         "This paint kind is not available."))
     (catch #?(:clj Throwable :cljs :default) _ "The rendering primitive cannot consume this description.")))
 
-(defn descriptions-error [descriptions]
+(defn descriptions-error
+  "View result → sequence, count, identity or visible-item error, otherwise nil.
+   At most 256 entries; nil entries do not own nodes. Hidden entries still count
+   toward collection/identity checks but skip per-description validation."
+  [descriptions]
   (cond (not (sequential? descriptions)) "A view returns a sequence of paint descriptions."
         (> (count descriptions) 256) "A view exceeded its 256 occurrence budget."
         (not= (count (remove nil? descriptions)) (count (distinct (map :id (remove nil? descriptions)))))
         "Rendered occurrence identities must be distinct."
         :else (some description-error (remove #(or (nil? %) (= false (:visible %))) descriptions))))
 
-(e/defn Item [r s owner workspace context occurrence d]
+(e/defn Item
+  "Validated description and occurrence context → one keyed target realization.
+   Repeat items own calls by item identity with index/item bindings; other kinds
+   borrow primitive node owners. Hit events carry definition/occurrence provenance."
+  [r s owner workspace context occurrence d]
   (let [id (str occurrence "/" (:id d))]
     (case (:kind d)
       :text (n/Text r id (:order d 50) (:face d :sans) (str (:text d)) (:box d) (:size d 14) (:color d g/silver))
@@ -88,7 +113,11 @@
                   (Items r s owner workspace context (str id "/" item) descriptions)))
       nil)))
 
-(e/defn Items [r s owner workspace context occurrence descriptions]
+(e/defn Items
+  "View result → keyed visible items, or rendered read/validation status.
+   Blocked reads remain visible as status rather than entering primitive renderers.
+   Changing ids or visibility removes the corresponding Electric node branches."
+  [r s owner workspace context occurrence descriptions]
   (let [failure (if (total/blocked? descriptions) descriptions
                   (when-let [reason (descriptions-error descriptions)] {:runtime/status :failed :reason reason}))]
   (if failure

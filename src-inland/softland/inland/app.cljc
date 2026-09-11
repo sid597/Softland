@@ -1,6 +1,11 @@
 (ns softland.inland.app
-  "Generic Electric demand host. Takes the genesis context and material indexes.
-   Gives authored views and event effects. Holds one view's lifetime and requests."
+  "Electric composition root for the authored workbench.
+   Takes a workspace, accepted genesis record and scoped material indexes; gives
+   rendered views, one-shot event effects and admission results. Holds a browser
+   session and separate visible/reopen render owners; borrows Rama through execution.
+   Events snapshot their accepted basis once. Maintained views keep live dependencies.
+   The bootstrap world address and unanswered-event fallback are compiled choices;
+   this host does not make every part of itself editable as ordinary material."
   (:require [hyperfiddle.electric3 :as e]
             [softland.inland.nodes :as n]
             [softland.inland.execution :as x]
@@ -11,14 +16,25 @@
             #?(:cljs [softland.inland.render :as render])
             #?(:clj [softland.inland.store :as store])))
 
-(e/defn Operations [s]
+(e/defn Operations
+  "Session request slot → latest durable decision, displayed in that session.
+   Each request id owns a server offload; replacing the slot cancels its demand.
+   The session supplies one slot, not an admission queue. A cancelled observation
+   is not proof that Rama did not accept the already submitted operation."
+  [s]
   (e/client
     (let [request (e/watch (:request s))]
       (e/for-by :request-id [op (if request [request] [])]
         (let [decision (e/server (e/Offload #(store/submit-result! op)))]
           (session/received! s decision))))))
 
-(e/defn Events [s owner workspace context]
+(e/defn Events
+  "Event, owner and resolution context → one application of authored effects.
+   Waits for dispatch to finish its relevant reads, snapshots results plus context,
+   then validates effects and attaches definition/revision provenance to admissions.
+   Failures update local admission status; no matching rule stores an unanswered
+   record. Consuming the event prevents completed commands replaying on rule edits."
+  [s owner workspace context]
   (e/client
     (let [event (e/watch (:event s))]
       (e/for-by :id [event (if event [event] [])]
@@ -43,7 +59,12 @@
                   :else [{:effect :admit :request {:kind :put :name (str "unanswered-" (:id event)) :expected-revision 0
                                                    :row {:name (str "unanswered-" (:id event)) :catalog "unanswered" :event event}}}])))))))
 
-(e/defn Views [r s owner workspace context]
+(e/defn Views
+  "Visible owner and context → keyed authored view occurrences.
+   The demand/view index selects candidates; matching patterns bind world/context
+   before each recipe runs. Paint owns target resources beneath each named view.
+   Incomplete indexes or patterns produce no occurrence until they become usable."
+  [r s owner workspace context]
   (let [names (x/Index owner workspace context "demand/view")]
     (when (vector? names)
       (e/for-by identity [name names]
@@ -55,7 +76,11 @@
               (e/client (session/report! s name {:revision (:revision row) :value value}))
               (paint/Items r s owner workspace context name value))))))))
 
-(e/defn LiveContext [r s owner workspace]
+(e/defn LiveContext
+  "Retained surface and session → context-dependent events, views and step owners.
+   Session context changes replace affected resolution work without replacing the
+   surface. Repeated work is keyed by request id and cancelled when its owner leaves."
+  [r s owner workspace]
   (e/client
     (let [context (merge {:session owner :who "sid"} (or (x/Local s "context") {:layers ["base"]}))
           runs (vals (e/watch (:work s)))]
@@ -65,7 +90,13 @@
       (e/for-by :id [request runs]
         (activity/Run s owner workspace context request)))))
 
-(e/defn Main []
+(e/defn Main
+  "Browser page lifetime → seeded session and visible or reopen surface.
+   Seeds through Rama, snapshots accepted session defaults once, and retains local
+   cells while a closed view displays its reopen control. Each branch directly
+   demands its surface so temporary pending view resolution cannot release the GPU.
+   Full page cancellation ends the Electric owner; accepted material remains durable."
+  []
   (e/client
     (let [owner (str (random-uuid)) workspace (session/workspace)
           ready (e/server (e/Offload #(store/ensure-workspace! workspace)))

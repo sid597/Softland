@@ -10,3 +10,4 @@
 - Goldens: `evidence/01-instrument.png`, `02-opened.png`, `03-kept.png`; factual receipt and focused log sit beside them.
 - Close launch is `bin/inland serve` after `bin/inland stop-app`: http://localhost:8127/; `/health` 200 and test controls disabled.
 - Runtime is `.inland-runtime`; cluster is retained. Acceptance and any permanent adoption are Sid's word.
+- Documentation REPAIR PENDING: Sid requested the missing colocated README → namespace → function hierarchy; executable behavior and prior runtime receipts remain unchanged.

@@ -1,11 +1,19 @@
 (ns softland.inland.seed
-  "Explicit development genesis refresh. Takes the checked-in seed. Gives
-   admitted seed updates only where a person has not edited the accepted row."
+  "Explicit development refresh of accepted genesis material.
+   Takes the packaged seed and default workbench rows; gives revision-checked put
+   admissions only for missing or still-genesis-owned records. Borrows the process
+   store connection; owns no maintained world. This is a launcher-invoked refresh,
+   not a migration of arbitrary workspaces or an overwrite of user-authored rows."
   (:require [softland.inland.module :as module]
             [softland.inland.store :as store]
             [softland.inland.total :as total]
             [clojure.string :as str]))
-(defn -main [& _]
+(defn -main
+  "Packaged seed → accepted updates in workbench, then process exit 0.
+   Skips rows whose accepted request is not a known seed/genesis request. Compares
+   content without admission metadata and submits expected revisions; rejection
+   throws. Deleted seed entries are not removed from existing accepted workspaces."
+  [& _]
   (store/connect!)
   (store/ensure-workspace! "workbench")
   (doseq [row (module/seed-rows)

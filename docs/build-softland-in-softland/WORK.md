@@ -15,7 +15,7 @@ renderers get only required resource-disposal hooks. `.inland-runtime` owns the
 isolated Rama storage and processes (2217 ZooKeeper, 1997 conductor, 8917 cluster
 UI, 35970 supervisor, 8127 product; all checked available before launch).
 Session cells are individually reactive, view-owned, disposable atoms, never a
-mirror of accepted rows. Draft input is local. Accepted rows and immutable
+mirror of accepted rows. Draft input is local. Accepted rows and retained
 revisions are Rama-owned, keyed by workspace/layer/name; references resolve live
 through ordered layers unless explicitly pinned. A tombstone hides a lower
 value; deleting an override reveals it. Promotion uses base revision preconditions.
@@ -61,3 +61,45 @@ restart recovery. A final diagnostic field records the activity's status when
 the initiating view closes; it changes no product behavior. The fresh close
 primary owns only the registered receipt, evidence preservation, factual handoff
 completion and final NOW/board/doc commit. No further source review is requested.
+
+## Documentation repair authorized by Sid
+
+Owner: Codex primary. Source: Sid's request to make this build understandable and
+questionable across sessions, using the hierarchy in `src/app/client/AGENTS.md`.
+
+- [x] Add folder maps and repair entry links. Done when a reader can enter from the client or handoff, choose runtime/material/evidence, and descend by responsibility without loading every file.
+- [x] Document each runtime namespace and named function, plus launcher/test helper contracts. Done when inputs, effects, ownership, preconditions and non-obvious limits are beside their implementation; existing useful explanations are preserved.
+- [x] Check navigation, documentation coverage and executable equivalence to `8494613`. Done when Clojure/CLJS forms in both reader branches and Python/JS execution remain unchanged, links resolve, and selected causal paths agree with source.
+- [ ] Commit the documentation, finish the short close receipt and push main. Source: Sid's subsequent "do this then git push" authorizes the push over earlier no-push guidance. Done when the board/handoff enter the maps, evidence and product are preserved, and origin/main contains the close commit. Never merge.
+
+The original build close did not establish documentation completeness. This is
+a documentation repair, not authorization to change application behavior. The
+registered close check for this repair is static documentation coverage/link and
+executable-form equivalence; no provider call, cluster mutation or browser restart
+is required to establish those claims. Native code still has the same limits as
+the demonstrated build; descriptions must not turn intended behavior into proof.
+
+Documentation seam check: event snapshot → request slot → Rama decision, addressed
+read → ProxyState cancellation, and view-owned Run versus process-owned execute!
+were compared with their source windows. The maps identify single-slot admission,
+non-awaited repeated admissions, answer-definition support ids, one scene slot,
+and the override delete/recreate revision gap. These are static limits, not new
+runtime failure demonstrations or approval to alter the intended model.
+
+Documentation candidate close bundle (read-only):
+`python3 test-inland/check-docs.py 8494613` and `git diff --check`.
+The primary pass reports 19 runtime namespaces / 141 function docs, 6 JVM helpers,
+15 launcher functions and 22 browser helpers; 21 Clojure/CLJS/EDN files have equal
+forms in both reader branches, Python AST and JavaScript body are unchanged.
+Seven folder maps and 75 local links passed. The installed Electric defn macro
+explicitly carries doc metadata and strips the leading string before its body;
+source checked through the resolved classpath resource, no dependency modified.
+
+After candidate documentation freeze, the fresh close primary has only this
+close scope: run the registered bundle through one fresh receipt_runner, preserve
+a bounded documentation receipt, complete this checklist, update the <=15-line
+NOW and only this package's board pointer last, commit those close documents,
+and push main to origin/main as Sid explicitly requested. No product/source/test/
+launcher changes, cluster actions or provider calls follow freeze. Read-only push
+checks may continue; never merge or read the forbidden env file. A push failure
+must be reported accurately rather than hidden by a completion claim.

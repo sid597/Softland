@@ -1,7 +1,10 @@
 (ns softland.inland.resident
-  "External execution owner. Takes accepted intents and owns one bounded CLI call.
-   Gives observations back through Rama admission. Holds a process lock and tasks,
-   never a second copy of accepted activity state."
+  "Process-owned executor for accepted external activities.
+   Takes pending Rama activity addresses; gives claim and outcome admissions around
+   one bounded Claude CLI attempt. Owns a file lock, polling task and child processes;
+   borrows accepted state from store. Closing a browser never cancels this owner.
+   Startup marks possibly performed running calls unconfirmed, without retrying.
+   The single polling task serializes calls and has no automatic failure supervisor."
   (:require [softland.inland.store :as store]
             [softland.inland.total :as total]
             [clojure.data.json :as json]
@@ -15,22 +18,37 @@
 (defonce fault (atom nil))
 (defonce processes (atom #{}))
 
-(defn stop-process! [^Process process]
+(defn stop-process!
+  "Live process → best-effort destroy of current descendants, then parent.
+   Does not wait or guarantee descendants exited; invoke! separately bounds its wait."
+  [^Process process]
   (when (.isAlive process)
     (with-open [children (.descendants process)]
       (.forEach children (reify java.util.function.Consumer
                            (accept [_ child] (.destroy ^java.lang.ProcessHandle child)))))
     (.destroy process)))
 
-(defn row [workspace name]
+(defn row
+  "Workspace and activity name → current base-layer accepted row.
+   Synchronous foreign read; errors propagate."
+  [workspace name]
   (store/read-one :rows [workspace (total/row-key "base" name)]))
 
-(defn observe! [workspace name token status value]
+(defn observe!
+  "Activity address, owner token, status and trusted outcome fields → admission.
+   Uses a deterministic request id per token/status; Rama checks execution ownership."
+  [workspace name token status value]
   (store/submit! (merge {:workspace workspace :name name :layer "base" :actor "executor"
                          :kind :observe :request-id (str name "/outcome/" token "/" (clojure.core/name status))
                          :execution-owner token :status status} value)))
 
-(defn decode-result [text exit-code]
+(defn decode-result
+  "CLI stdout and exit code → complete, failed or unconfirmed observation.
+   Accepts object, array or newline JSON and selects the last terminal result.
+   Success requires zero exit, success subtype and nonempty reply; retains at most
+   8000 reply characters plus selected usage/cost metadata. Explicit provider error
+   is failed; missing confirmation is unconfirmed. Raw logs are not returned."
+  [text exit-code]
   (let [read-json #(try (json/read-str % :key-fn keyword) (catch Throwable _ nil))
         parsed (read-json text)
         lines (keep read-json (str/split-lines text))
@@ -53,7 +71,14 @@
       {:status :failed :reason "Claude reported an error outcome. No reply was accepted." :provider-result details}
       :else {:status :unconfirmed :reason "The CLI supplied no confirmable terminal result. This intent will not retry." :provider-result details})))
 
-(defn invoke! [intent]
+(defn invoke!
+  "Accepted intent → one provider observation; owns process and stream readers.
+   Runs Claude with no tools, one turn, bounded output configuration, cost ceiling,
+   10–90 second process timeout and retries disabled. Uses the user's existing CLI
+   auth without reading credentials. Controlled fault modes make no external call.
+   Timeout is unconfirmed. Stream slurps have no independent byte cap; CLI flags
+   and elapsed time are limits, not proof of a general memory/resource sandbox."
+  [intent]
   (let [controlled @fault]
     (cond
       (= controlled :failure) {:status :failed :reason "Controlled provider refusal (fault test; no provider call)."}
@@ -85,7 +110,11 @@
           (finally (stop-process! process) (swap! processes disj process)
                    (future-cancel output) (future-cancel errors)))))))
 
-(defn execute! [workspace name]
+(defn execute!
+  "Accepted pending address → claim, one CLI attempt, then owned outcome admission.
+   Only an accepted claim invokes the provider. Exceptions during invocation become
+   unconfirmed; no automatic retry is scheduled. Admission errors still propagate."
+  [workspace name]
   (let [token (str (random-uuid))
         claim (store/submit! {:workspace workspace :name name :layer "base" :actor "executor"
                               :kind :claim :request-id (str name "/claim/" token) :execution-owner token})]
@@ -95,14 +124,23 @@
                         (catch Throwable _ {:status :unconfirmed :reason "The execution owner lost confirmation of the external call. No retry."}))]
         (observe! workspace name token (:status result) (dissoc result :status))))))
 
-(defn recover! [workspace]
+(defn recover!
+  "Workspace → unconfirmed admissions for activities retained as running.
+   Preserves their owner token and possible-effect uncertainty; never reissues calls."
+  [workspace]
   (doseq [name (store/read-one :index [workspace "base/activities/running"])
           :let [current (row workspace name)]
           :when (= :running (:status current))]
     (observe! workspace name (:execution-owner current) :unconfirmed
       {:reason "The previous execution owner stopped during a possible external call. No automatic retry."})))
 
-(defn start! []
+(defn start!
+  "Isolated runtime directory and connected store → process execution owner.
+   Acquires resident.lock, discovers durable workspaces, recovers running records,
+   then polls pending indexes every 250 ms between serial calls. Registers shutdown
+   cleanup for task, processes and lock. Requires one start per server process;
+   an uncaught polling/read error ends the future without automatic restart."
+  []
   (let [channel (FileChannel/open (.toPath (io/file ".inland-runtime/resident.lock"))
                   (into-array StandardOpenOption [StandardOpenOption/CREATE StandardOpenOption/WRITE]))
         lock (.tryLock channel)]

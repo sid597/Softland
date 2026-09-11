@@ -1,7 +1,12 @@
 (ns softland.inland.render
-  "Owned presentation adapter for Electric. Each named node owns its engine
-   resources; changes prepare only that node. A requested frame composites
-   current GPU resources. No authored-state mirror or application result cache."
+  "Owned adapter from Electric node lifetimes to Softland's existing renderers.
+   Takes text, paths, scene material and event delivery; gives a WebGPU canvas and
+   positioned/hit geometry. Each surface owns its device, font providers, compositor,
+   node systems, listeners and frame request. Nodes retain target realization only;
+   accepted material and recipe results remain outside this layer. Node updates
+   prepare scoped resources; each requested frame composites retained draw items.
+   One surface currently has one shared workbench Region3D slot. Diagnostic window
+   counters outlive disposed owners and are used by browser receipts."
   (:require [missionary.core :as m]
             [softland.inland.reactive :as reactive]
             [app.client.engine.device :as device]
@@ -19,12 +24,18 @@
 
 (def width 1440)
 (def height 960)
-(defn count! [key]
+(defn count!
+  "Metric key → incremented browser diagnostic counter.
+   Counters are page-scoped and intentionally survive render-surface disposal."
+  [key]
   (let [stats (or (.-__inlandGPU js/window) #js {})]
     (aset stats key (inc (or (aget stats key) 0)))
     (set! (.-__inlandGPU js/window) stats)))
 
-(defn work! [id key]
+(defn work!
+  "Occurrence id and metric key → incremented per-node diagnostic counter.
+   Counts are evidence instrumentation, not retained application results."
+  [id key]
   (let [stats (or (.-__inlandWork js/window) #js {})
         row (or (aget stats (str id)) #js {})]
     (aset row key (inc (or (aget row key) 0)))
@@ -33,7 +44,11 @@
 
 (declare present! remove-node!)
 
-(defn request-frame! [r]
+(defn request-frame!
+  "Open surface → at most one scheduled animation frame.
+   Coalesces requests, ignores closed owners, and records presentation exceptions
+   for the browser receipt. It does not retry a failed draw automatically."
+  [r]
   (when (and (not @(:!closed r)) (nil? @(:!raf r)))
     (reset! (:!raf r)
       (js/requestAnimationFrame
@@ -45,18 +60,29 @@
                    (js/console.error "Softland presentation failed" error)
                    (set! (.-__inlandRenderError js/window) (.-message error))))))))))
 
-(defn point [r event]
+(defn point
+  "Surface and pointer event → coordinates in the fixed 1440 × 960 canvas space.
+   Requires a nonzero displayed canvas extent."
+  [r event]
   (let [box (.getBoundingClientRect (:canvas r))]
     [(* width (/ (- (.-clientX event) (.-left box)) (.-width box)))
      (* height (/ (- (.-clientY event) (.-top box)) (.-height box)))]))
 
-(defn inside? [[x y w h] [px py]] (and (<= x px (+ x w)) (<= y py (+ y h))))
+(defn inside?
+  "[x y width height] and point → inclusive rectangle containment."
+  [[x y w h] [px py]] (and (<= x px (+ x w)) (<= y py (+ y h))))
 
-(defn target-at [r point]
+(defn target-at
+  "Surface and logical point → highest-order matching registered hit action.
+   Equal-order overlap has no separately specified tie-breaking policy."
+  [r point]
   (some (fn [[_ {:keys [box action]}]] (when (inside? box point) action))
         (reverse (vec (sort-by (comp :order val) @(:!hits r))))))
 
-(defn scene-hit [r [px py]]
+(defn scene-hit
+  "Surface and logical point → picked object id in the retained workbench scene.
+   Checks scene rectangle before the shared Region3D ray picker; nil means no hit."
+  [r [px py]]
   (when-let [{:keys [camera maintained material]} (get @(:!prepared (:region r)) :workbench)]
     (let [rect (or @(:!scene-rect r) [0 0 0 0])]
       (when (inside? rect [px py])
@@ -64,7 +90,13 @@
                       {:maintained maintained :camera camera
                        :region-point [(- px (nth rect 0)) (- py (nth rect 1))]}))))))
 
-(defn dispose! [r]
+(defn dispose!
+  "Surface → one-time release of events, nodes, text parents/font providers,
+   path/scene systems, compositor, buffers, canvas configuration and GPU device.
+   Cancels scheduled frames and clears diagnostic hooks only if owned by this surface.
+   Normal repeated disposal is ignored. Cleanup calls are not individually guarded;
+   a throwing destructor can interrupt the sequence."
+  [r]
   (when (compare-and-set! (:!closed r) false true)
     (when-let [raf @(:!raf r)] (js/cancelAnimationFrame raf))
     ((:stop-events r))
@@ -89,7 +121,10 @@
       (set! (.-__inlandDisposed js/window) disposed))
     (count! "closed")))
 
-(defn load-fonts! [manifest]
+(defn load-fonts!
+  "Font manifest → promise of loaded assets in manifest order.
+   Waits for every load; if one fails, disposes successful providers before rejecting."
+  [manifest]
   (-> (js/Promise.allSettled (clj->js (mapv fonts/load-font-assets (:fonts manifest))))
       (.then (fn [results]
                (if-let [failed (some #(when (= "rejected" (.-status %)) %) (array-seq results))]
@@ -98,7 +133,13 @@
                      (throw (.-reason failed)))
                  (mapv #(.-value %) (array-seq results)))))))
 
-(defn acquire! [deliver]
+(defn acquire!
+  "Generic event delivery callback → promise of an owned render surface.
+   Requires WebGPU and the two manifest fonts in sans/mono order. Allocates canvas,
+   device and shared renderer systems, then installs hit/pointer/resize delivery.
+   Acquisition failures remove the canvas and release known font/device resources;
+   normal complete acquisition is paired with dispose! by reactive/resource."
+  [deliver]
   (when-not (.-gpu js/navigator)
     (throw (js/Error. "This workbench needs a browser with WebGPU enabled.")))
   (let [canvas (.createElement js/document "canvas")
@@ -181,10 +222,18 @@
                           (.destroy gpu) (.remove canvas) (throw error)))))))
         (.catch (fn [error] (.remove canvas) (throw error))))))
 
-(defn open [deliver]
+(defn open
+  "Event callback → flow owning asynchronous surface acquisition and disposal.
+   Cancellation during acquisition disposes a late surface through reactive/resource."
+  [deliver]
   (reactive/resource #(acquire! deliver) dispose!))
 
-(defn remove-node! [r id]
+(defn remove-node!
+  "Surface and id → remove node/hit entries and release node-owned text work.
+   Path removal reaches the path system while the surface is open. Scene preparation
+   is surface-owned and is not cleared here; the single shared scene slot is not a
+   per-node resource. Requests a frame unless the surface is already closed."
+  [r id]
   (when-let [{:keys [kind system]} (get @(:!nodes r) id)]
     (case kind
       :text (text-renderer/destroy-text-system! system)
@@ -195,7 +244,11 @@
     (work! id "closed")
     (request-frame! r)))
 
-(defn node [r id kind order face]
+(defn node
+  "Surface, unique id, kind, order and face → flow owning one node entry.
+   Text clones borrow parent GPU assets but own their instance storage. Duplicate
+   ids assert; cancellation removes the node and its hit entry."
+  [r id kind order face]
   (m/observe
     (fn [emit]
       (let [n (cond-> {:id id :kind kind :order order}
@@ -207,7 +260,11 @@
         (emit id)
         #(remove-node! r id)))))
 
-(defn text! [r id text [x y w viewport-height cursor] size rgba]
+(defn text!
+  "Mounted text node, content, box, size and RGBA → positioned layout.
+   Shapes/wraps text and updates only that node's instance data. Optional viewport
+   and cursor scroll the layout to the caret and install a paint clip; requests a frame."
+  [r id text [x y w viewport-height cursor] size rgba]
   (let [{:keys [face system]} (get @(:!nodes r) id)
         asset (get (:fonts r) face)
         options {:text text :provider (:layout-provider asset)
@@ -228,30 +285,46 @@
     (request-frame! r)
     positioned))
 
-(defn path! [r id material]
+(defn path!
+  "Mounted path id and material → target upsert and scheduled frame.
+   Shared path receipts distinguish geometry preparation from other path updates."
+  [r id material]
   (let [receipt (path-renderer/push! (:paths r) {:upsert {id {:path/material material :container 0}}})]
     (work! id "path-updates")
     (when (seq (get-in receipt [:reran :geometry])) (work! id "geometry-preparations"))
     (request-frame! r)))
 
-(defn hit! [r id box action order]
+(defn hit!
+  "Mounted node id, box, action and order → replaced hit entry.
+   Stores target interaction geometry only; removal follows the node owner."
+  [r id box action order]
   (swap! (:!hits r) assoc id {:box box :action action :order order}))
 
-(defn projected-box [camera points [ox oy] margin]
+(defn projected-box
+  "Camera, 3D points, canvas origin and margin → screen bounding box or nil.
+   Only projectable points contribute; this is an interaction bound, not visibility proof."
+  [camera points [ox oy] margin]
   (when-let [screen (seq (keep #(some-> (region-scene/project-point camera %) :screen) points))]
     (let [xs (map first screen) ys (map second screen)
           x (apply min xs) y (apply min ys)]
       [(+ ox x (- margin)) (+ oy y (- margin))
        (+ (- (apply max xs) x) (* 2 margin)) (+ (- (apply max ys) y) (* 2 margin))])))
 
-(defn projection [r rect group]
+(defn projection
+  "Prepared surface, scene rectangle and group id → group/object screen boxes.
+   Borrows maintained triangle vertices and camera; caller must prepare scene first."
+  [r rect group]
   (let [{:keys [camera maintained]} (get @(:!prepared (:region r)) :workbench)
         points (into {} (for [[id triangles] (:triangles-by-object maintained)]
                           [id (mapcat (juxt :a :b :c) triangles)]))]
     (into {group (projected-box camera (mapcat val points) rect 22)}
       (for [[id vertices] points] [id (projected-box camera vertices rect 14)]))))
 
-(defn scene! [r shapes [x y w h :as rect] options]
+(defn scene!
+  "Surface, authored shapes, rectangle and options → prepared scene and hit boxes.
+   Updates the one :workbench region slot, marks its render pass dirty, and requests
+   a frame. Scene identity/lifetime belong to the surface, not multiple occurrences."
+  [r shapes [x y w h :as rect] options]
   (let [material (assoc (scene/region shapes w h options) :region/rect {:x x :y y :w w :h h})]
     (region-renderer/prepare-region3d-frame!
       (:region r) {:regions [{:region/material material :container 0}]} {}
@@ -265,7 +338,12 @@
     (request-frame! r)
     (projection r rect (:group options))))
 
-(defn present! [{:keys [^js gpu ^js canvas camera compositor paths region] :as r}]
+(defn present!
+  "Open prepared surface → one submitted WebGPU frame.
+   Resizes the canvas, encodes dirty 3D work, draws retained ordered text/path/scene
+   nodes, presents via the shared compositor and releases frame leases after submit.
+   Compositing all nodes here does not re-run their authored recipes or text layout."
+  [{:keys [^js gpu ^js canvas camera compositor paths region] :as r}]
   (let [box (.getBoundingClientRect canvas)
         scale (* (/ (.-width box) width) (min 2 (.-devicePixelRatio js/window)))
         pw (js/Math.round (* width scale)) ph (js/Math.round (* height scale))

@@ -1,6 +1,9 @@
 (ns softland.inland.reactive
-  "Async source to Electric boundary. Owns only the subscribed source's lifetime.
-   An empty table denotes not-yet-delivered; a singleton carries its actual value."
+  "Cancellable async acquisition adapters used by Electric target ownership.
+   Takes source flows or a promise-producing acquire/dispose pair; gives initialized
+   continuous values and failures. Holds only the subscribed acquisition/result until
+   cancellation; callers supply native disposal. Empty tables mean no delivered value,
+   not accepted absence from the durable store (store has its own tagged protocol)."
   (:require [missionary.core :as m]))
 
 (defn table
@@ -12,7 +15,7 @@
     (m/reductions (fn [_ value] [value]) [] flow)))
 
 (defn received
-  "Internal acquisition packet → value or thrown source error."
+  "Acquisition packet → its value, or throw its captured source error."
   [{:keys [value error]}]
   (if error (throw error) value))
 

@@ -1,9 +1,14 @@
 # Softland in Softland — runnable build
 
 Implemented on `main` in `/mnt/data/projects/Softland`. Initial pending work was
-preserved in `5450ac0`, `2c1047d`, and `a484881`. Nothing was pushed or merged.
-The implementation is ready for the final registered browser/recovery receipt;
-the close result and source revision belong in [NOW.md](NOW.md).
+preserved in `5450ac0`, `2c1047d`, and `a484881`. The registered browser/recovery close is recorded in [NOW.md](NOW.md).
+The subsequent documentation repair follows Sid's instruction to document, commit
+and push main; it does not change the demonstrated product behavior.
+
+For cross-session questions, start at the [colocated source hierarchy](../../src-inland/README.md),
+then choose runtime ownership, authored material or verification. The maps lead to
+namespace and function contracts; this handoff preserves launch instructions and
+what actually ran.
 
 From this checkout, launch the complete isolated product with:
 
@@ -15,7 +20,7 @@ bin/inland up
 Open **http://localhost:8127**. A `?workspace=your-name` URL creates a separate,
 durable workspace from the same authored seed. Revisiting that URL retrieves its
 accepted material. Browser sessions own their own selection, drafts, pins and
-active context. The recorded demonstration workspace will be linked in NOW.md.
+active context. The recorded demonstration workspace is linked in NOW.md.
 
 This machine already has Java/Clojure, Node dependencies, Rama 1.6.0, the activated
 Electric compiler, Chrome with WebGPU, and Claude CLI 2.1.268 with normal account
@@ -64,7 +69,7 @@ flowchart LR
   Input[Canvas gesture / native text input] --> Electric[Electric indexed rules and tracked recipes]
   Electric --> Proposal[Admission proposal]
   Proposal --> Rama[Rama accept stream]
-  Rama --> Material[Rows / immutable versions / indexes / decisions]
+  Rama --> Material[Rows / retained versions / indexes / decisions]
   Material --> Proxies[Owned Rama ProxyStates]
   Proxies --> Electric
   Electric --> Render[Softland text / path / Region3D rendering]
@@ -75,7 +80,7 @@ flowchart LR
 
 `src-inland/softland/inland/module.clj` owns accepted state in the isolated Rama
 module `softland.inland.module/material`: two tasks, two threads, one worker,
-replication factor one. Operations partition by workspace. Rows, immutable
+replication factor one. Operations partition by workspace. Rows, retained
 revisions, indexes and decisions are subindexed within a workspace; a durable
 workspace directory lets the executor recover interrupted activities.
 
@@ -94,8 +99,8 @@ atoms are local; accepted shared behavior follows Rama decisions.
 
 `paint`, `nodes`, `render`, `input` and `scene` adapt the existing Softland text,
 2D path and Region3D engines. A hidden textarea supplies native input and
-composition; rendered application UI is WebGPU. Each render occurrence owns its
-GPU resources and native input. The previous experiment supplied these physical
+composition; rendered application UI is WebGPU. Text/path occurrences and native inputs have keyed owners; the surface owns
+shared font/GPU systems and the single workbench scene slot. The previous experiment supplied these physical
 mechanisms, Electric/Rama boundary patterns, and launcher ideas; its compiled
 selection/inspector branches and narrow targeting DSL were replaced. Two small
 shared font/shaper hooks provide explicit resource disposal.
@@ -171,7 +176,10 @@ focused finite test; large rule sets are unproved. Recipes have explicit bounds
 can yield a bounded wait and local/record effects, but cannot spawn a child
 activity to escape its budget. Full live compiler/renderer rebuilding, language
 sufficiency, permanent Electric adoption and broad ECS integration remain outside
-what these demonstrations prove.
+what these demonstrations prove. The [runtime map](../../src-inland/softland/inland/README.md)
+also records source limits found while documenting the implementation, including
+override version identity after delete/recreate and admission sequencing within
+repeated steps. These were not exercised by the original close bundle.
 
 ## Final close receipt
 

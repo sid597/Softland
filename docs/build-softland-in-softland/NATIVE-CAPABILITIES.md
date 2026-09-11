@@ -89,12 +89,20 @@ outside Electric bodies; accepted source reads must preserve pending/absence;
 render occurrence identity must own GPU/native-input teardown.
 
 Retention owners: Rama owns accepted rows, versions, decisions and activity state;
-each Electric view owns its source proxies, local session cells and step work;
-each render occurrence owns its target resources; the app process owns its Rama
-connection, external executor and diagnostics. There is no accepted-world mirror
+Electric branches own source proxies and step work; page-owned session cells
+survive the visible branch closing so the reopen surface can reuse them. Keyed
+text/path/input occurrences own their local resources; the render surface owns
+shared font/GPU systems and the single workbench scene slot. The app process owns
+its Rama connection, external executor and diagnostics. There is no accepted-world mirror
 or application result cache. Finite derivation values are owned by their demand.
 
 The final reply-preview repair is authored material, not a native addition: finite
 `take`/`join`/`str` expressions add an ellipsis, and an ordinary `inspect` event
 opens the complete accepted reply record. The record editor, targeting variation,
 and authored walk demonstrations required no new tool-specific client branch.
+
+The [colocated runtime map](../../src-inland/softland/inland/README.md) records
+source contracts and limits discovered during the documentation repair. That
+repair adds no native application capability and does not extend the original
+browser proof to delete/recreate version identity, repeated-step admission
+sequencing, general scene multiplicity or process failure supervision.

@@ -1,6 +1,10 @@
 (ns softland.inland.module
-  "Accepted material, immutable revisions and scoped indexes. Takes workspace-
-   routed proposals. Gives decisions and keyed facts. Holds one stream's PStates."
+  "Rama authority for accepted material, revision rows, indexes and decisions.
+   Takes workspace-routed proposals; gives admission decisions and addressable facts.
+   Owns five PStates in one stream. Row/index/decision writes precede the separate
+   global workspace registration event. External calls never execute in topology.
+   Revisions increase from the current row; deletion of an override removes that
+   counter. Version identity across delete/recreate is therefore not guaranteed."
   (:use [com.rpl.rama] [com.rpl.rama.path])
   (:require [com.rpl.rama.ops :as ops]
             [clojure.edn :as edn]
@@ -8,12 +12,26 @@
             [clojure.set :as set]
             [softland.inland.total :as total]))
 
-(defn seed-rows [] (edn/read-string (slurp (io/resource "inland/seed.edn"))))
-(defn decision [op status reason revision]
+(defn seed-rows
+  "Classpath seed resource → parsed genesis rows. Reads packaged EDN; it is an
+   input to admission, not the current accepted world."
+  [] (edn/read-string (slurp (io/resource "inland/seed.edn"))))
+(defn decision
+  "Operation, status, reason and revision → public admission receipt.
+   Does not write state or imply an external effect completed."
+  [op status reason revision]
   {:request-id (:request-id op) :name (:name op) :layer (:layer op)
    :operation (:kind op) :status status :reason reason :revision revision})
 
-(defn outcome* [op current source policy]
+(defn outcome*
+  "Operation plus current/source/policy rows → decision and proposed mutation.
+   Checks actor labels, revision expectations, row shape and activity transitions.
+   These labels identify the local build's actors; they are not an authentication
+   system. Reads the seed resource only for genesis; otherwise derives without I/O.
+   A running cancellation becomes unconfirmed. The same executor may later provide
+   a confirmed reply. Candidate promotion checks source revision and the supplied
+   base expectation; it does not independently validate transitive provenance."
+  [op current source policy]
   (let [revision (:revision current 0)
         reject #(hash-map :decision (decision op :rejected % revision))
         kind (:kind op)
@@ -80,17 +98,32 @@
         (reject "This activity is already terminal."))
       :else (reject "No admission capability answers this request."))))
 
-(defn outcome [op current source policy]
+(defn outcome
+  "Admission inputs → outcome, converting malformed-input exceptions to rejection.
+   The wrapper keeps invalid proposals from failing the stream evaluation."
+  [op current source policy]
   (try (outcome* op current source policy)
        (catch Throwable _
          {:decision (decision op :rejected "The request does not satisfy the capability's input contract." (:revision current))})))
 
-(defn index-change [members name add?]
+(defn index-change
+  "Bucket members, name and membership flag → sorted unique member vector.
+   Updates the whole scoped bucket; no paging or per-member PState is provided."
+  [members name add?]
   (vec (sort (if add? (conj (set members) name) (disj (set members) name)))))
 
-(defn mutates? [outcome] (or (:row outcome) (:delete outcome)))
-(defn same-request? [a b] (= (dissoc a :arrival-time) (dissoc b :arrival-time)))
-(defn register-workspace? [op outcome]
+(defn mutates?
+  "Outcome → truthy row/delete marker when current material must change.
+   Seed installation is handled separately by the topology."
+  [outcome] (or (:row outcome) (:delete outcome)))
+(defn same-request?
+  "Two admission envelopes → equality excluding server arrival time.
+   Used to replay a retained decision or reject reuse of an id for different work."
+  [a b] (= (dissoc a :arrival-time) (dissoc b :arrival-time)))
+(defn register-workspace?
+  "Operation and outcome → whether accepted seeding should register the workspace.
+   Registration lets a later resident process discover workspaces without a browser."
+  [op outcome]
   (and (= :seed (:kind op)) (= :accepted (get-in outcome [:decision :status]))))
 
 (defmodule material [setup topologies]

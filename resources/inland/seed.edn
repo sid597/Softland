@@ -1,3 +1,5 @@
+;; Authored genesis input, not a mirror of accepted runtime state.
+;; See README.md for the record families and source/evidence navigation.
 [
 {:name "world" :session {"active" "pointer" "selection" nil "inspecting" nil "tab" "instrument" "context" {:layers ["base"] :pins {}} "draft" {:value ""} "variation" {:value "my-pointer"} "prompt" {:value "Describe how a tool can remain useful while its targeting rule changes, in two short sentences."} "walk-result" {:status :idle} "budget" {:value "12"} "admission" {:status :idle} "page" 0} :closed-view "closed-view"}
 

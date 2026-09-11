@@ -1,6 +1,11 @@
 (ns softland.inland.total
-  "Total recipe validation and pure leaves. Takes records and explicit bindings.
-   Gives values or bounded diagnostics. Holds no sources, clock, cache or effects."
+  "Pure authored-language leaves, structural checks and outcome records.
+   Takes EDN records and explicit bindings; gives values, validation messages or
+   runtime/status outcomes. Holds no source subscriptions, clock, durable store or
+   effect owner. Execution supplies reads/calls; session/activity apply effects.
+   Expression evaluation uses a fixed leaf table and no host eval. Size checks count
+   printed characters after evaluation, not UTF-8 bytes or preemptive CPU/memory
+   budgets. Structural validation is narrower than proving every authored behavior."
   (:require [app.client.engine.executor :as executor]
             [clojure.string :as str]
             [softland.inland.logic :as logic]
@@ -18,7 +23,12 @@
      :take #(vec (take %1 %2)) :drop #(vec (drop %1 %2))
      :parse #(edn/read-string %)}))
 
-(defn expression [x bindings]
+(defn expression
+  "Formula/data and bindings → recursively evaluated value; may throw.
+   Maps evaluate values, get follows binding paths, and if/or/and short-circuit.
+   Literal escapes evaluation. Known vector heads call pure leaves; other vectors
+   remain evaluated data vectors. Use evaluate at a runtime boundary for diagnostics."
+  [x bindings]
   (cond
     (map? x) (into {} (map (fn [[k v]] [k (expression v bindings)]) x))
     (vector? x)
@@ -34,20 +44,34 @@
           (mapv #(expression % bindings) x))))
     :else x))
 
-(defn blocked? [x] (and (map? x) (contains? x :runtime/status)))
-(defn ready? [x]
+(defn blocked?
+  "Value → whether it carries runtime/status, including absence and failures.
+   This recognizes a tagged outcome, not merely an unfinished asynchronous read."
+  [x] (and (map? x) (contains? x :runtime/status)))
+(defn ready?
+  "Nested value → false only when it contains a pending runtime outcome.
+   Failures and complete absence are ready to snapshot and handle explicitly."
+  [x]
   (cond (blocked? x) (not= :pending (:runtime/status x))
         (map? x) (every? ready? (vals x))
         (sequential? x) (every? ready? x)
         :else true))
-(defn evaluate [x bindings]
+(defn evaluate
+  "Formula/data and bindings → value, failed formula, or exhausted size result.
+   Catches expression errors and checks the result's printed length against 65536.
+   The cap is checked after construction; it is not preemptive execution metering."
+  [x bindings]
   (try (let [v (expression x bindings)]
          (if (> (count (pr-str v)) 65536)
            {:runtime/status :exhausted :reason "A step exceeded its 64KB value budget."} v))
        (catch #?(:clj Throwable :cljs :default) _
          {:runtime/status :failed :reason "The formula cannot consume these inputs."})))
 
-(defn step-error [op args]
+(defn step-error
+  "Capability keyword and evaluated args → input-shape error or nil.
+   Read paths accept a keyword or vector of keywords; call/query require explicit
+   binding maps. Derive performs its own deeper validation in logic/derive."
+  [op args]
   (if (and (not= :value op) (not (map? args))) "Capability inputs are a record."
   (case op
     :value nil
@@ -64,17 +88,28 @@
     :derive nil
     "This capability requires an execution owner.")))
 
-(defn first-failure [value]
+(defn first-failure
+  "Nested result → first runtime/status record, or nil if none.
+   Despite its name, this includes pending, complete absence and exhausted outcomes."
+  [value]
   (cond (blocked? value) value
         (map? value) (some first-failure (vals value))
         (sequential? value) (some first-failure value)))
 
-(defn collection-state [expected values]
+(defn collection-state
+  "Expected branch count and received values → pending, nested status or nil.
+   Count equality prevents a temporarily empty Electric collection from proving
+   absence before all branches report. Nil values still count as completed branches."
+  [expected values]
   (if (not= expected (count values))
     {:runtime/status :pending :reason "Waiting for every branch of the relevant scope."}
     (first-failure values)))
 
-(defn effect-error [effects]
+(defn effect-error
+  "Event result → nil for a vector of supported effects, otherwise message.
+   Checks envelope shapes, including string session keys and activity identifiers;
+   nil entries are allowed here. Capability owners validate deeper request contents."
+  [effects]
   (when-not (and (vector? effects)
                 (every? (fn [effect]
                           (or (nil? effect)
@@ -89,7 +124,11 @@
                                      false)))) effects))
     "An event recipe returns a vector of supported effect requests."))
 
-(defn shape-error [body]
+(defn shape-error
+  "Recipe body → structural error or nil.
+   Requires return plus at most 64 steps with distinct keyword out names and known
+   opcodes. It does not resolve definitions or validate evaluated leaf arguments."
+  [body]
   (cond
     (not (map? body)) "A body is a total recipe record."
     (not (vector? (:steps body))) "A recipe needs a vector of named steps."
@@ -99,7 +138,11 @@
     (not (contains? body :return)) "A recipe declares its returned value."
     :else nil))
 
-(defn parse [source]
+(defn parse
+  "EDN source string → {:value map} or {:error message}.
+   Rejects sources over 24000 characters and non-map results; never evaluates host
+   code. The platform EDN reader supplies parsing semantics, including trailing input."
+  [source]
   (try
     (if (> (count source) 24000)
       {:error "The record exceeds this workbench's 24KB read budget."}
@@ -107,7 +150,11 @@
         (if (map? v) {:value v} {:error "Enter an EDN record (a map)."})))
     (catch #?(:clj Throwable :cljs :default) _ {:error "The record is not valid EDN."})))
 
-(defn row-error [row]
+(defn row-error
+  "Candidate record → first structural/admission error or nil.
+   Checks stable name, printed size, body shape and bounded pattern declarations.
+   This does not prove a paint result is usable; paint validates realized descriptions."
+  [row]
   (or (when (not (and (string? (:name row)) (<= 1 (count (:name row)) 100))) "A row needs a stable name.")
       (when (> (count (pr-str row)) 24000) "A record exceeds the 24KB admission budget.")
       (when (:body row) (shape-error (:body row)))
@@ -120,7 +167,11 @@
       (when (and (:pattern row) (some #(and (:not %) (:recursive %)) (:reads (:pattern row))))
         "Negation must read a completed lower dependency, never a recursive one.")))
 
-(defn index-keys [row]
+(defn index-keys
+  "Visible row → its membership buckets, or nil for missing/tombstoned rows.
+   Definitions, catalogs, event/demand names and pending/running activity states each
+   contribute a bucket. Completed activities remain in their ordinary catalog."
+  [row]
   (when (and row (not (:removed row)))
     (cond-> #{"rows"}
       (:body row) (conj "definitions")
@@ -130,21 +181,40 @@
       (get-in row [:pattern :event]) (conj (str "event/" (name (get-in row [:pattern :event]))))
       (get-in row [:pattern :demand]) (conj (str "demand/" (name (get-in row [:pattern :demand])))))))
 
-(defn version-key [layer name revision] (pr-str [layer name revision]))
-(defn row-key [layer name] (str layer "/" name))
+(defn version-key
+  "Layer, record name and revision → printed tuple key for immutable versions."
+  [layer name revision] (pr-str [layer name revision]))
+(defn row-key
+  "Layer and record name → slash-joined current-row key.
+   Callers must use names/layers whose combinations do not collide under this encoding;
+   this helper does not escape slashes or enforce a stronger address grammar."
+  [layer name] (str layer "/" name))
 
-(defn conclude [supports]
+(defn conclude
+  "Answer records → map of each non-nil value to its distinct support ids.
+   Two definitions supporting the same value survive independently. Tagged outcomes
+   are ignored here; Query checks them before calling. No derived facts enter Rama."
+  [supports]
   "Demand-local support union; each support remains identifiable. Two derivations
    of the same conclusion survive independently. No derived facts enter Rama."
   (reduce (fn [out {:keys [support value]}]
             (if (or (nil? value) (blocked? value)) out
               (update out value (fnil conj #{}) support))) {} supports))
 
-(defn step-delay [result fallback]
+(defn step-delay
+  "Step result and fallback delay → milliseconds clamped to a minimum of one.
+   Accepts a numeric explicit/fallback value between zero and 1000; malformed values
+   use one millisecond. Outcome validation separately reports an invalid explicit wait."
+  [result fallback]
   (let [ms (:wait-ms result fallback)]
     (if (and (number? ms) (<= 0 ms 1000)) (max 1 ms) 1)))
 
-(defn step-outcome-error [result]
+(defn step-outcome-error
+  "Repeated-step result → outcome-shape/effect error or nil.
+   Allows bounded waits, at most eight local/record effects and one admission.
+   Child activity/event spawning is excluded. Unlike event effect-error, the step's
+   narrower effect set rejects nil entries when effects are present."
+  [result]
   (cond
     (not (map? result)) "A repeated step returns an outcome record."
     (and (contains? result :wait-ms) (not (and (number? (:wait-ms result)) (<= 0 (:wait-ms result) 1000))))
@@ -157,7 +227,12 @@
                                   (and (= :admit (:effect %)) (#{:put :promote :remove :delete-override} (get-in % [:request :kind]))))) (:effects result)))
           "A step has at most eight local/record effects and one admission. Spawning child activities is not available inside a step."))))
 
-(defn step-result [result state remaining]
+(defn step-result
+  "Step outcome, prior state and remaining budget → next progress record.
+   Tagged outcomes propagate status; invalid outcomes fail; done completes; the last
+   budgeted unfinished step exhausts. Otherwise returns running with one less step.
+   It calculates progress only; the owner applies effects and adds iteration identity."
+  [result state remaining]
   (cond
     (blocked? result) {:status (:runtime/status result) :state state :reason (:reason result)}
     (step-outcome-error result) {:status :failed :state state :reason (step-outcome-error result)}
