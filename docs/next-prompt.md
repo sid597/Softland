@@ -7,6 +7,14 @@ only their own line here; cross-thread flags live here; prune at close. If a
 fresh session (or Sid) can't orient from this file top-to-bottom in two
 minutes, the board is broken — fix it.
 
+## Softland in Softland — CLOSE RECEIPT RECORDED 2026-09-11
+
+Runnable isolated product: [close receipt](build-softland-in-softland/NOW.md).
+Source froze at `ed93ec5`; the registered close passed 5 tests / 72 assertions
+and seven browser/recovery checks with a real accepted provider reply. It is
+running normally at http://localhost:8127; acceptance and permanent adoption
+remain Sid's word.
+
 ## HANDOFF — THE RETURN (campaign build-out COMPLETE 2026-07-26;
 ## P8 GATED PASS — Sid opens the land; the first breath is the true gate)
 

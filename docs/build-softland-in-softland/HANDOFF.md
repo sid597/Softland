@@ -173,6 +173,37 @@ activity to escape its budget. Full live compiler/renderer rebuilding, language
 sufficiency, permanent Electric adoption and broad ECS integration remain outside
 what these demonstrations prove.
 
+## Final close receipt
+
+The registered close bundle ran from frozen source `ed93ec5` with the document
+checkpoint `c4cb1a3`: `bin/inland check` passed **5 tests / 72 assertions** and
+`bin/inland verify` passed its first five demonstrations plus recovery (**7 receipt
+checks**, no browser errors or failures). Its durable material is
+[`receipt-1789146056386`](http://localhost:8127/?workspace=receipt-1789146056386).
+The final real `ask` reached `:complete` while the initiating view had observed it
+as `:running` at close; the accepted result used Claude `haiku`, stream framing,
+exit `0`, `336` output / `451` input tokens, `$0.003121`, zero retry events and
+two assistant messages. This records actual activity status at the observation
+point; it does not strengthen the source-only lifetime claims.
+
+The narrow read receipt fell **4 → 3**. Headline and Region3D preparation remained
+unchanged; support withdrawal was **2 → 1 → 0**. The closed view recorded
+`opened=1311`, `closed=1309`, `changes=28`; the two remaining bootstrap/reopen
+reads are explicit demand by design. Recovery replaced the app JVM
+`1236079 → 1243113` and recovered both instruments and the accepted reply from
+the same isolated Rama storage. GPU adapter: AMD RDNA-3; browser errors: none.
+
+The representative goldens are [initial instrument](evidence/01-instrument.png),
+[opened accepted definition](evidence/02-opened.png), and [kept instrument with
+resident reply](evidence/03-kept.png). The factual browser receipt is
+[`browser.json`](evidence/browser.json), and the focused suite transcript is
+[`inland-close-check.log`](evidence/inland-close-check.log). The earlier provider
+failures and all unproved boundaries above remain unchanged.
+
+Against the preserved initial baseline `a484881`, the source/checkpoint change
+set is `.gitignore`, `bin/inland`, `deps.edn`, `shadow-cljs.edn`,
+`resources/inland/{index.html,seed.edn,style.css}`, `src-inland/softland/inland/{activity.cljc,app.cljc,boot.cljs,execution.cljc,geometry.cljc,input.cljs,logic.cljc,module.clj,nodes.cljc,paint.cljc,reactive.cljc,render.cljs,resident.clj,scene.cljc,seed.clj,server.clj,session.cljs,store.clj,total.cljc}`, `src/app/client/text/{fonts.cljs,shaper.cljs}`, `test-inland/{browser.mjs,softland/inland/test_runner.clj}`, and `docs/build-softland-in-softland/{BUILD.md,HANDOFF.md,MODEL.md,NATIVE-CAPABILITIES.md,WORK.md}` plus `docs/decisions.md`.
+
 ## What the build revealed
 
 Named references did useful compositional work: the pointer calls targeting, the

@@ -8,7 +8,7 @@ Initial preservation commits: `5450ac0`, `2c1047d`, `a484881`; clean main afterw
 - [x] Build tracked Electric recipes, applicability and authored presentation/gestures. SOURCE: encounter and demonstrations 1–3. DONE WHEN the active instrument and its editor can be changed through accepted definitions, with narrow reads and owned disposal.
 - [x] Build owned repeated recipes and external activities. SOURCE: activities and demonstrations 4–5. DONE WHEN authored traversal handles a cycle/budget/cancellation and a real bounded provider result is accepted with uncertain outcomes preserved.
 - [x] Drive all five browser demonstrations, fix in-scope defects and capture three states. SOURCE: handoff. DONE WHEN runnable commands and actual receipts distinguish execution from remaining claims.
-- [ ] Freeze source, run the focused close bundle with one receipt runner, commit and write the final NOW/board receipt. SOURCE: repository bootstrap. DONE WHEN handoff points to committed source and running isolated product.
+- [x] Freeze source, run the focused close bundle with one receipt runner, commit and write the final NOW/board receipt. SOURCE: repository bootstrap. DONE WHEN handoff points to committed source and running isolated product. Close receipt: 5 tests / 72 assertions and 7 browser/recovery checks passed; the final commit and normal launch are recorded in NOW.md.
 
 Implementation choices: `src-inland/softland/inland` holds new machinery; existing
 renderers get only required resource-disposal hooks. `.inland-runtime` owns the

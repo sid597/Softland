@@ -1,0 +1,1769 @@
+{
+  "workspace": "receipt-1789146056386",
+  "url": "http://localhost:8127/?workspace=receipt-1789146056386",
+  "checks": [
+    {
+      "name": "1: rejection and pending preserve the accepted rule; acceptance changes both parts while the instrument remains addressable"
+    },
+    {
+      "name": "1: authored instrument presentation and the editor itself changed through the same record editor"
+    },
+    {
+      "name": "2: independently referenced tool, candidate/base contexts, exact pin, live follow and revision-checked promotion"
+    },
+    {
+      "name": "3: tracked read removed, unrelated work unchanged, alternative support retained then withdrawn, complete absence and independent view disposal",
+      "beforeReads": 4,
+      "afterReads": 3,
+      "closed": {
+        "opened": 1311,
+        "closed": 1309,
+        "changes": 28,
+        "paths": [
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"/\" :name]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/library-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "changes",
+            "path": "[:index [\"receipt-1789146056386\" \"base/demand/view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/candidate\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"candidate/event/point\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/tools-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\"]]",
+            "count": 12
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/keep-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "changes",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\" :shape]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pointer\" :label]]",
+            "count": 6
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/close-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/assembly\"]]",
+            "count": 9
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/orb\" :shape]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/assembly\" :removed]]",
+            "count": 3
+          },
+          {
+            "kind": "changes",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/targeting\"]]",
+            "count": 5
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/group-pointer\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/context-rule\"]]",
+            "count": 7
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/assembly\" :name]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/no-parent\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/support-orb\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/support-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/ring\" :name]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/resident-view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/observe-rule\"]]",
+            "count": 5
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/instrument-appearance\"]]",
+            "count": 14
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/cancel-walk-rule\"]]",
+            "count": 5
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/orb\" :removed]]",
+            "count": 6
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"candidate/catalog/instruments\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/page-rule\"]]",
+            "count": 15
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/live\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/assembly\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/orb\" :shape]]",
+            "count": 2
+          },
+          {
+            "kind": "changes",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/support-ring\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/keep\"]]",
+            "count": 1
+          },
+          {
+            "kind": "changes",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/support-orb\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/ring\" :parent]]",
+            "count": 6
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/instrument-row\"]]",
+            "count": 11
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/preview-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/support-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/group-pointer\" :name]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/no-parent\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/stage-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/create-record-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/walk-step\"]]",
+            "count": 8
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/ring\" :name]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"/no-parent\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/assembly\" :name]]",
+            "count": 11
+          },
+          {
+            "kind": "changes",
+            "path": "[:index [\"receipt-1789146056386\" \"base/demand/connected-support\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/targeting\"]]",
+            "count": 38
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pointer\" :name]]",
+            "count": 19
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/status-view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pin-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/walk-view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/pin\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/\" :name]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/pointer\"]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"candidate/demand/roots\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/preview-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/ring\" :shape]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:versions [\"receipt-1789146056386\" \"[\\\"base\\\" \\\"targeting\\\" 3]\"]]",
+            "count": 3
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/walk-view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/preview-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/assembly\" :parent]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/walk-rule\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/demand/view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/submit\"]]",
+            "count": 11
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/admission-policy\"]]",
+            "count": 5
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/point-rule\"]]",
+            "count": 1
+          },
+          {
+            "kind": "changes",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\" :removed]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\" :removed]]",
+            "count": 23
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/point-rule\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/support-ring\"]]",
+            "count": 14
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pointing-target\"]]",
+            "count": 22
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/draft-example-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\" :name]]",
+            "count": 20
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/group-pointer\"]]",
+            "count": 11
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"candidate/demand/view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/pointer\" :name]]",
+            "count": 3
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/page-rule\"]]",
+            "count": 15
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/instrument-appearance\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/pointer\" :removed]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/tab\"]]",
+            "count": 8
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/world\"]]",
+            "count": 9
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/ring\" :removed]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/demand/connected-support\"]]",
+            "count": 4
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/\" nil]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/pointer\" :targeting]]",
+            "count": 3
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/instrument-row\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/support-orb\"]]",
+            "count": 11
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"/\" :removed]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/stage-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/frame-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/ring\" :name]]",
+            "count": 8
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"/orb\" :shape]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/walk-step\"]]",
+            "count": 8
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/group-pointer\" :name]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/close\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/unanswered-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/page\"]]",
+            "count": 10
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/no-parent\"]]",
+            "count": 9
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/group-pointer\" :targeting]]",
+            "count": 4
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/orb\" :parent]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/assembly\" :removed]]",
+            "count": 12
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/promote-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/resident-view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/reload-rule\"]]",
+            "count": 7
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/activate-rule\"]]",
+            "count": 7
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/editor-view\"]]",
+            "count": 10
+          },
+          {
+            "kind": "changes",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/library-view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\" :parent]]",
+            "count": 11
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pointer\" :parent]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/demand/view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/keep-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"candidate/catalog/instruments\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/ring\" :parent]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/targeting\"]]",
+            "count": 5
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/\" :removed]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/pointer\"]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/status-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/draft-example\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pointer\" :removed]]",
+            "count": 21
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/ring\" :parent]]",
+            "count": 6
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pointer\" :name]]",
+            "count": 19
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/group-pointer\" :removed]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/demand/connected-support\"]]",
+            "count": 4
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/tools-view\"]]",
+            "count": 11
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/point-rule\"]]",
+            "count": 19
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/ring\"]]",
+            "count": 6
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"/\" :name]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/containing-object-or-self\"]]",
+            "count": 14
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/selection-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\" :name]]",
+            "count": 20
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/point-rule\"]]",
+            "count": 19
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/editor-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/pointing-target\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/frame-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/group-pointer\"]]",
+            "count": 11
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pointing-target\"]]",
+            "count": 22
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/edit-rule\"]]",
+            "count": 16
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/editor-view\"]]",
+            "count": 10
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/targeting\"]]",
+            "count": 5
+          },
+          {
+            "kind": "changes",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/instrument-appearance\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/cancel-ask-rule\"]]",
+            "count": 5
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/promote-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/containing-object-or-self\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\"]]",
+            "count": 12
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/assembly\" :label]]",
+            "count": 12
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"/orb\" :removed]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\" :parent]]",
+            "count": 11
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/instrument-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/status-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\" :removed]]",
+            "count": 23
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/selection-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/pointing-target\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/context-rule\"]]",
+            "count": 7
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/tab-rule\"]]",
+            "count": 16
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/cancel-walk-rule\"]]",
+            "count": 5
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/library-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/reopen-rule\"]]",
+            "count": 5
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/walk-from-scene\"]]",
+            "count": 8
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"/no-parent\"]]",
+            "count": 1
+          },
+          {
+            "kind": "changes",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/editor-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/tools-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/reload\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/ring\" :parent]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/stage-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/inspect\"]]",
+            "count": 11
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"/orb\" :removed]]",
+            "count": 1
+          },
+          {
+            "kind": "changes",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/group-pointer\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"candidate/demand/connected-support\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/assembly\"]]",
+            "count": 9
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pointer\" :targeting]]",
+            "count": 17
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/pointer\" :targeting]]",
+            "count": 3
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/tab\"]]",
+            "count": 8
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\" :label]]",
+            "count": 11
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/resident-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/observe-rule\"]]",
+            "count": 5
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"candidate/demand/view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/library-row\"]]",
+            "count": 330
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\" :shape]]",
+            "count": 4
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/keep\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/catalog/instruments\"]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/group-pointer\" :targeting]]",
+            "count": 4
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/candidate\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/orb\" :name]]",
+            "count": 6
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/targeting-example\"]]",
+            "count": 9
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/ring\" :label]]",
+            "count": 3
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/orb\" :label]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/group-pointer\" :removed]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/resident-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pointer\" :removed]]",
+            "count": 21
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/second-targeting\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/catalog/unanswered\"]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:versions [\"receipt-1789146056386\" \"[\\\"base\\\" \\\"targeting\\\" 3]\"]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/orb\" :label]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/orb\" :removed]]",
+            "count": 6
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/ask-rule\"]]",
+            "count": 5
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/demand/roots\"]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/orb\" :parent]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/inspect\"]]",
+            "count": 11
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"/\" :removed]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/preview-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pin-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/frame-view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/cancel-ask-rule\"]]",
+            "count": 5
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"candidate/event/point\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/page\"]]",
+            "count": 10
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pointer\" :targeting]]",
+            "count": 17
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/point\"]]",
+            "count": 14
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/selection-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/second-targeting\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/context-rule\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/rows\"]]",
+            "count": 18
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/ring\" :removed]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/closed-view\"]]",
+            "count": 5
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/support-orb\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/instrument-appearance\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/promote\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\" :label]]",
+            "count": 11
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/create-record-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/point\"]]",
+            "count": 14
+          },
+          {
+            "kind": "changes",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\" :name]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"/orb\" :shape]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/ring\" :removed]]",
+            "count": 10
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/walk-view\"]]",
+            "count": 11
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/ring\" :name]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pointer\" :label]]",
+            "count": 6
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/assembly\" :removed]]",
+            "count": 12
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/reload\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/tab-rule\"]]",
+            "count": 16
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/assembly\" :parent]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"candidate/catalog/unanswered\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/inspect-rule\"]]",
+            "count": 16
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pointer\"]]",
+            "count": 16
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"/\" nil]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/invitation-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/reopen-rule\"]]",
+            "count": 5
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/catalog/unanswered\"]]",
+            "count": 3
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/containing-object-or-self\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/walk-rule\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/assembly\" :name]]",
+            "count": 11
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"/orb\" :name]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pointer\"]]",
+            "count": 16
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/frame-view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/activity-row\"]]",
+            "count": 5
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/walk-from-scene\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/reload-rule\"]]",
+            "count": 7
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/ring\" :label]]",
+            "count": 3
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/create-record\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/assembly\" :label]]",
+            "count": 12
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/assembly\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/ring\" :shape]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/library-row\"]]",
+            "count": 330
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/create-record\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"/\" nil]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/support-ring\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/unanswered-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/support-view\"]]",
+            "count": 11
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/rows\"]]",
+            "count": 18
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/activate\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/ring\" :shape]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/inspect-rule\"]]",
+            "count": 16
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/instrument-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/instrument-appearance\"]]",
+            "count": 14
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/support-view\"]]",
+            "count": 11
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/live-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/ring\" :shape]]",
+            "count": 3
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/pin\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/editor-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/ask-rule\"]]",
+            "count": 5
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/library-view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/invitation-view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/instrument-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/instrument-view\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/support-ring\"]]",
+            "count": 14
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/orb\" :shape]]",
+            "count": 4
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/invitation-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/group-pointer\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/world\"]]",
+            "count": 8
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/closed-view\"]]",
+            "count": 6
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/\" :removed]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/targeting-example\"]]",
+            "count": 9
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/close\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/ring\"]]",
+            "count": 6
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/selection-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/activate-rule\"]]",
+            "count": 7
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/submit\"]]",
+            "count": 11
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/tools-view\"]]",
+            "count": 11
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/support-ring\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/no-parent\"]]",
+            "count": 9
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/assembly\" :label]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/live-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/stage-view\"]]",
+            "count": 8
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/activate\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/context\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/ring\" :removed]]",
+            "count": 10
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/candidate-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/demand/roots\"]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/live\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/\" :name]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/context\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/status-view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/draft-example-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"candidate/event/context\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/instrument-row\"]]",
+            "count": 11
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"candidate/event/context\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/edit-rule\"]]",
+            "count": 16
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/activity-row\"]]",
+            "count": 5
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"/orb\" :name]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/assembly\" :parent]]",
+            "count": 3
+          },
+          {
+            "kind": "changes",
+            "path": "[:index [\"receipt-1789146056386\" \"base/catalog/instruments\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/assembly\" :removed]]",
+            "count": 3
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/promote\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/context-rule\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/close-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/candidate-rule\"]]",
+            "count": 6
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/invitation-view\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/\" nil]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"candidate/catalog/unanswered\"]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/assembly\" :name]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/assembly\" :parent]]",
+            "count": 3
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/assembly\" :label]]",
+            "count": 3
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/support-orb\"]]",
+            "count": 11
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/containing-object-or-self\"]]",
+            "count": 14
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/admission-policy\"]]",
+            "count": 5
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/pointer\" :removed]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/pointer\" :parent]]",
+            "count": 1
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/unanswered-view\"]]",
+            "count": 11
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"candidate/demand/connected-support\"]]",
+            "count": 2
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"candidate/demand/roots\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/instrument-row\"]]",
+            "count": 2
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/targeting\"]]",
+            "count": 38
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/orb\" :name]]",
+            "count": 6
+          },
+          {
+            "kind": "closed",
+            "path": "[:rows [\"receipt-1789146056386\" \"candidate/pointer\" :name]]",
+            "count": 3
+          },
+          {
+            "kind": "opened",
+            "path": "[:index [\"receipt-1789146056386\" \"base/catalog/instruments\"]]",
+            "count": 3
+          },
+          {
+            "kind": "closed",
+            "path": "[:index [\"receipt-1789146056386\" \"base/event/draft-example\"]]",
+            "count": 1
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/walk-view\"]]",
+            "count": 11
+          },
+          {
+            "kind": "opened",
+            "path": "[:rows [\"receipt-1789146056386\" \"base/unanswered-view\"]]",
+            "count": 11
+          }
+        ]
+      },
+      "completedSelection": "ring"
+    },
+    {
+      "name": "4: ordinary authored caller/step crosses a branch and cycle, with authored wait/effect outcomes, exhaustion and cancellation"
+    },
+    {
+      "name": "5: real Claude reply admitted with provenance; controlled failure/uncertainty retained without retry; reopened view retrieves reply"
+    },
+    {
+      "name": "Recovery: replaced browser and app JVM retrieve both instruments and the accepted provider reply from real isolated Rama storage",
+      "oldPid": "1236079",
+      "newPid": "1243113"
+    }
+  ],
+  "failures": [],
+  "browserErrors": [],
+  "success": true,
+  "adapter": {
+    "vendor": "amd",
+    "architecture": "rdna-3",
+    "device": "",
+    "description": ""
+  },
+  "owners": [
+    "5a3c51a5-f38d-4abd-a115-b5b639c7be79",
+    "74a3de9f-77bf-4877-a37d-33d17096bbbe"
+  ],
+  "providerAtViewClose": "running",
+  "provider": {
+    "activity": "41ae5677-12d5-49a7-9c4b-009511af43eb",
+    "model": "haiku",
+    "status": "complete",
+    "reply": "A **text editor** exemplifies a tool that remains usable while its targeting rule changes—you can reconfigure it to target different file types (Python, JavaScript, Markdown) or coding standards, yet the editor's core functionality remains intact and equally effective. Similarly, a **search utility like grep** adapts seamlessly as its targeting parameters change (different keywords, file patterns, or directories), but the tool itself performs its function consistently regardless of which criteria you apply.",
+    "reason": null,
+    "details": {
+      "format": "stream",
+      "exit-code": 0,
+      "subtype": "success",
+      "retry-events": 0,
+      "assistant-messages": 2,
+      "usage": {
+        "input_tokens": 451,
+        "output_tokens": 336,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0
+      },
+      "cost-usd": 0.003121
+    }
+  }
+}
