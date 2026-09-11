@@ -110,8 +110,8 @@
   "HarfBuzz wrapper and bytes/identity/variations → face/font/blob state,
    coverage sets and metrics.
 
-   Creates and configures native handles. Intended for provider lifetime;
-   lacks rollback/disposal in this file."
+   Creates and configures native handles owned by the returned provider.
+   Its :dispose! releases these handles after the last use."
   [hb {:keys [id revision bytes variations]}]
   (let [blob (.createBlob hb bytes)
         face (.createFace hb blob 0)
@@ -382,12 +382,13 @@
    opts) → columns.
 
    Normalizes fallback font scales to primary UPEM, allocates scratch,
-   closes over face state. Intended for synchronous shaping. Current
-   limitation: no empty-source guard or provider teardown; repeated provider
-   creation retains native allocations."
+   closes over face state. Intended for synchronous shaping.
+   Provider owners call :dispose! after the final layout. Disposal is
+   idempotent; shaping afterward throws. Empty source vectors are invalid."
   [hb font-sources {:keys [features language tab-columns]
                     :or {features ["kern" "liga" "clig" "calt"]
                          language "und" tab-columns 4}}]
+  (assert (seq font-sources) "A shaping provider requires at least one font")
   (let [^js module @!harfbuzz-module
         bidi ((module-default bidi-module))
         raw-faces (mapv #(create-face-state hb %) font-sources)
@@ -403,6 +404,7 @@
         version (js-invoke hb "version_string")
         ;; the extents scratch: 16 bytes for the provider's lifetime
         scratch (.malloc ^js (.-wasmExports module) 16)
+        !disposed (atom false)
         defaults {:features features
                   :language language
                   :tab-columns tab-columns
@@ -417,7 +419,14 @@
      :fallback-chain (mapv #(select-keys % [:id :revision]) (rest faces))
      :metrics (:metrics primary)
      :upem (:upem primary)
+     :dispose! (fn []
+                 (when (compare-and-set! !disposed false true)
+                   (doseq [{:keys [font face blob]} faces]
+                     (.destroy font) (.destroy face) (.destroy blob))
+                   (.free ^js (.-wasmExports module) scratch)))
      :shape-line (fn [text opts]
+                   (when @!disposed
+                     (throw (ex-info "Shaping provider has been disposed" {:error-type :text/provider-disposed})))
                    (shape-line-flat hb module bidi faces face-meta scratch
                                     (str (or text "")) (merge defaults opts)))}))
 

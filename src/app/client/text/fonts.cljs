@@ -122,7 +122,8 @@
 
    Parallel fetches plus positional result decoding. Partial Slug
    configuration resolves with :slug nil rather than rejecting incomplete
-   rendering assets here."
+   rendering assets here. The caller owns the returned layout provider and calls
+   its :dispose! at teardown. A failed bundle disposes any provider it acquired."
   [font-config]
   (let [slug-config (:slug font-config)
         slug-promises (cond-> []
@@ -169,7 +170,14 @@
                :slug (when slug-ready?
                        {:meta slug-meta
                         :curve-bytes slug-curve
-                        :band-bytes slug-band})}))))))
+                        :band-bytes slug-band})})))
+        (.catch (fn [error]
+                  ;; Other fetches can fail while the provider is still loading.
+                  ;; Keep that pending acquisition owned until it can be released.
+                  (.then shaper-promise
+                    (fn [provider] (when-let [dispose! (:dispose! provider)] (dispose!)))
+                    (fn [_]))
+                  (throw error))))))
 
 (defn load-default-font-data-async
   "No caller input → promise of manifest/config/assets; failure
