@@ -56,14 +56,13 @@
 
 (e/defn Main []
   (e/client
-    (let [s (session/create) owner (:id s) workspace (session/workspace)
+    (let [owner (str (random-uuid)) workspace (session/workspace)
           ready (e/server (e/Offload #(store/ensure-workspace! workspace)))
           world (x/Read owner :rows [workspace "base/world"])]
-      (session/diagnostics! s)
       (when (and (= :accepted (:status ready)) (:session world))
-        (let [initial (e/snapshot (:session world))
-              _ (session/initialize! s initial)
+        (let [s (session/create owner (e/snapshot (:session world)))
               visible (e/watch (:visible s))]
+          (session/diagnostics! s)
           (Operations s)
           (if visible
             (let [r (n/Await (render/open #(session/deliver! s %)))

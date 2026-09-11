@@ -6,7 +6,7 @@
 (defn workspace []
   (let [v (.get (js/URLSearchParams. (.-search js/location)) "workspace")]
     (if (and v (re-matches #"[A-Za-z0-9-]{1,64}" v)) v "workbench")))
-(defn create [] {:id (str (random-uuid)) :cells (atom {}) :event (atom nil)
+(defn create [id defaults] {:id id :cells (atom (into {} (for [[key value] defaults] [key (atom value)]))) :event (atom nil)
                 :request (atom nil) :result (atom nil) :visible (atom true)
                 :work (atom {}) :cancel (atom {})})
 (defn cell [s k]
@@ -38,8 +38,6 @@
     :native-input ((:run event) (:point event))
     :aim (reset! (cell s "pointer") (:id event))
     (emit! s (-> event (assoc :subject (or (:subject event) (:id event) "world")) (dissoc :id)))))
-(defn initialize! [s values]
-  (doseq [[key value] values] (reset! (cell s key) value)))
 (defn start-progress! [s request]
   (let [a (cell s (:output request))]
     (reset! a (if (and (integer? (:budget request)) (<= 1 (:budget request) 128))

@@ -12,6 +12,17 @@
             [softland.inland.store :as store]
             [softland.inland.resident :as resident]))
 
+(defn configure-websocket! [server]
+  (org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer/configure
+    (.getHandler ^org.eclipse.jetty.server.Server server)
+    (reify org.eclipse.jetty.websocket.server.config.JettyWebSocketServletContainerInitializer$Configurator
+      (accept [_ _ container]
+        ;; A measured 69KB Electric startup frame exceeds Jetty's 64KB default.
+        ;; This changes the native transport limit, not the application's reads.
+        (.setMaxTextMessageSize container 1048576)
+        (.setMaxBinaryMessageSize container 1048576)
+        (.setIdleTimeout container (java.time.Duration/ofMinutes 5))))))
+
 (defn json-response [value]
   {:status 200 :headers {"Content-Type" "application/json" "Cache-Control" "no-store"}
    :body (json/write-str value)})
@@ -56,6 +67,6 @@
                        (catch Throwable error
                          (.printStackTrace error)
                          (throw error)))))
-                 {:host "127.0.0.1" :port 8127 :join? false})]
+                 {:host "127.0.0.1" :port 8127 :join? false :configurator configure-websocket!})]
     (println "Softland in Softland: http://localhost:8127")
     (.join server)))
