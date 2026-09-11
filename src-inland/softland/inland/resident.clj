@@ -30,6 +30,29 @@
                          :kind :observe :request-id (str name "/outcome/" token "/" (clojure.core/name status))
                          :execution-owner token :status status} value)))
 
+(defn decode-result [text exit-code]
+  (let [read-json #(try (json/read-str % :key-fn keyword) (catch Throwable _ nil))
+        parsed (read-json text)
+        lines (keep read-json (str/split-lines text))
+        ;; read-str accepts the first object without consuming trailing objects.
+        ;; Detect newline framing before treating that first object as the result.
+        stream? (> (count lines) 1)
+        messages (cond (vector? parsed) parsed stream? lines
+                       (map? parsed) [parsed] :else lines)
+        result (last (filter #(= "result" (:type %)) messages))
+        details {:format (cond (vector? parsed) :array stream? :stream (map? parsed) :object :else :stream)
+                 :exit-code exit-code :subtype (:subtype result)
+                 :retry-events (count (filter #(= "api_retry" (:subtype %)) messages))
+                 :assistant-messages (count (filter #(= "assistant" (:type %)) messages))
+                 :usage (select-keys (:usage result) [:input_tokens :output_tokens :cache_read_input_tokens :cache_creation_input_tokens])
+                 :cost-usd (:total_cost_usd result)}]
+    (cond
+      (and result (zero? exit-code) (= "success" (:subtype result)) (not (:is_error result)) (seq (:result result)))
+      {:status :complete :reply (subs (:result result) 0 (min 8000 (count (:result result)))) :provider-result details}
+      (and result (:is_error result))
+      {:status :failed :reason "Claude reported an error outcome. No reply was accepted." :provider-result details}
+      :else {:status :unconfirmed :reason "The CLI supplied no confirmable terminal result. This intent will not retry." :provider-result details})))
+
 (defn invoke! [intent]
   (let [controlled @fault]
     (cond
@@ -38,14 +61,16 @@
       :else
       (let [timeout (min 90 (max 10 (:timeout-seconds intent 60)))
             process (.start (doto (ProcessBuilder.
-                                   ^java.util.List ["claude" "-p" "--model" (:model intent "haiku")
-                                                    "--output-format" "json" "--max-turns" "1" "--max-budget-usd" "0.03"
+                                   ^java.util.List ["claude" "-p" "--safe-mode" "--model" (:model intent "haiku")
+                                                    "--system-prompt" "You are Softland's resident. Answer the request directly and concisely. No tools."
+                                                    "--output-format" "stream-json" "--verbose" "--max-turns" "1" "--max-budget-usd" "0.03"
                                                     "--no-session-persistence"
                                                     "--tools" "" "--strict-mcp-config"
                                                     "--setting-sources" "user"])
                              (.directory (io/file ".inland-runtime"))
                              (-> .environment (.put "CLAUDE_CODE_MAX_OUTPUT_TOKENS" (str (:max-output intent))))
-                             (-> .environment (.put "MAX_THINKING_TOKENS" "0"))))
+                             (-> .environment (.put "MAX_THINKING_TOKENS" "0"))
+                             (-> .environment (.put "CLAUDE_CODE_MAX_RETRIES" "0"))))
             output (future (slurp (.getInputStream process)))
             errors (future (slurp (.getErrorStream process)))]
         (swap! processes conj process)
@@ -53,13 +78,7 @@
         (with-open [writer (io/writer (.getOutputStream process))]
           (.write writer (str "Answer in no more than " (:max-output intent) " tokens. No tools.\n\n" (:input intent))))
         (if (.waitFor process timeout TimeUnit/SECONDS)
-          (let [text @output _ @errors
-                parsed (try (json/read-str text :key-fn keyword) (catch Throwable _ nil))]
-            (if (and (zero? (.exitValue process)) (not (:is_error parsed)) (seq (:result parsed)))
-              {:status :complete :reply (subs (:result parsed) 0 (min 8000 (count (:result parsed))))}
-              {:status (if parsed :failed :unconfirmed) :reason (if parsed
-                                         (str "Claude returned " (name (:subtype parsed :provider-error)) ". No reply was accepted.")
-                                         "Claude returned no confirmable outcome. Check its normal CLI authentication/configuration; this intent will not retry.")}))
+          (let [text @output _ @errors] (decode-result text (.exitValue process)))
           (do (stop-process! process) (.waitFor process 2 TimeUnit/SECONDS)
               (when (.isAlive process) (.destroyForcibly process))
               {:status :unconfirmed :reason "The call exceeded its time limit. The provider may have performed it; this intent will not retry."}))

@@ -70,6 +70,7 @@
         (#{:complete :failed :cancelled} (:status current)) (reject "The terminal outcome is already retained.")
         (not (#{:complete :failed :unconfirmed :cancelled} (:status op))) (reject "Unknown external outcome.")
         :else (save (cond-> (assoc current :status (:status op) :reason (:reason op))
+                      (:provider-result op) (assoc :provider-result (:provider-result op))
                       (:reply op) (assoc :reply (:reply op) :provenance :machine)
                       (and (= :unconfirmed (:status current)) (:reply op)) (assoc :late-result true))))
       (= kind :cancel)

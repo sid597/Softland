@@ -55,6 +55,7 @@ const fill = async(p,id,text)=>{
 };
 const tab = (p,name)=>click(p,`frame-view/tab-${name}`);
 const point = async(p,name,select=true)=>{
+  await wait(p,()=>Boolean(document.querySelector('#softland')) && Boolean(window.__inlandPickAt));
   const pos=await p.evaluate(name=>{
     const r=document.querySelector('#softland').getBoundingClientRect();
     for(let y=r.top+340;y<Math.min(r.bottom,r.top+655);y+=6)
@@ -70,10 +71,15 @@ const inspect = async(p,name)=>{
   await tab(p,'definitions');
   let found=false;
   for(let n=0;n<4;n++){
-    await pause(150);
-    found=await p.evaluate(id=>Boolean(window.__inlandTargetBox?.(id)),`library-view/rows/${name}/inspect`);
+    await wait(p,()=>{
+      const rows=window.__inland['library-view']?.value?.find?.(x=>x.id==='rows')?.items;
+      return Array.isArray(rows) && rows.every(n=>window.__inlandTargetBox?.(`library-view/rows/${n}/inspect`));
+    });
+    const names=await p.evaluate(()=>window.__inland['library-view'].value.find(x=>x.id==='rows').items);
+    found=names.includes(name);
     if(found) break;
     await click(p,'library-view/page');
+    await wait(p,previous=>JSON.stringify(window.__inland['library-view']?.value?.find?.(x=>x.id==='rows')?.items)!==previous,JSON.stringify(names));
   }
   assert.ok(found,`Addressable library contains ${name}`);
   await click(p,`library-view/rows/${name}/inspect`);
@@ -124,8 +130,14 @@ try {
   const oldAppearance=(await cell(a,'draft')).value;
   const appearance=oldAppearance.replace(':width 2',':width 3.5');
   assert.notEqual(appearance,oldAppearance); await apply(a,appearance);
+  await click(a,'editor-view/editor-self');
+  const editorSource=(await cell(a,'draft')).value;
+  await apply(a,editorSource.replace('Named steps, explicit reads. Edit the record below.','Change a definition. Keep using it.')
+    .replace('[1052 674 336]','[1052 666 336]').replace('[1040 680 350]','[1040 688 350]'));
+  assert.equal((await row('editor-view')).body.return.find(x=>x.id==='explanation').text,'Change a definition. Keep using it.');
+  await click(a,'editor-view/appearance');
   await a.screenshot({path:path.join(out,'02-opened.png'),fullPage:true});
-  check('1: authored instrument presentation edited through the same record editor');
+  check('1: authored instrument presentation and the editor itself changed through the same record editor');
 
   // 2. Keep a second tool, give it an independent named rule, pin and promote.
   await fill(a,'editor-view/variation','group-pointer'); await click(a,'editor-view/keep'); await admission(a,'accepted');
@@ -140,7 +152,9 @@ try {
   await click(a,'tools-view/tools/pointer/activate'); await point(a,'orb'); await selection(a,'orb');
   await inspect(a,'targeting'); await apply(a,containing('targeting'),'candidate');
   await point(a,'orb'); await selection(a,'orb');
+  const surfaceOwners=await a.evaluate(()=>window.__inlandGPU.opened);
   await click(a,'editor-view/candidate-context'); await point(a,'orb'); await selection(a,'assembly');
+  assert.equal(await a.evaluate(()=>window.__inlandGPU.opened),surfaceOwners,'Changing resolution context retains the visible surface owner');
   await click(a,'editor-view/base-context'); await click(a,'editor-view/reload'); await click(a,'editor-view/pin');
   await click(a,'editor-view/promote'); await admission(a,'accepted');
   await point(a,'orb'); await selection(a,'orb');
@@ -164,8 +178,10 @@ try {
   await inspect(a,'support-ring'); await apply(a,'{:name "support-ring" :body {:steps [] :return nil}}');
   await wait(b,()=>window.__inland['support-view']?.value?.[0]?.text.includes('0 conclusion'));
   assert.match(await supportText(b),/Root absence complete: 1/);
-  await inspect(a,'orb'); await apply(a,(await cell(a,'draft')).value.replace(':parent "assembly"',':parent nil'));
+  await inspect(a,'orb'); const orbSource=(await cell(a,'draft')).value;
+  await apply(a,orbSource.replace(':parent "assembly"',':parent nil'));
   assert.equal((await row('orb')).parent,null);
+  await click(a,'editor-view/reload'); await apply(a,orbSource);
   const beforeClose=(await metrics())[owners[0]], gpuClosed=await a.evaluate(()=>window.__inlandGPU.closed||0);
   await click(a,'frame-view/close'); await wait(a,n=>window.__inlandGPU.closed>n && Boolean(window.__inlandTargetBox?.('closed/reopen')),gpuClosed);
   const closed=(await metrics())[owners[0]];
@@ -184,33 +200,50 @@ try {
   await tab(a,'walk'); await click(a,'walk-view/run');
   await wait(a,()=>window.__inlandCell('walk-result')?.status==='complete');
   assert.deepEqual((await cell(a,'walk-result')).value,['assembly','orb','ring']);
+  await click(a,'walk-view/open-step');
+  const walkSource=(await cell(a,'draft')).value;
+  await apply(a,walkSource.replace(':return {',':return {:wait-ms 150 :effects [:if [:get :head] [{:effect :session :writes {"algorithm-last" [:get :head]}}] []] '));
+  await tab(a,'walk'); await click(a,'walk-view/run');
+  await wait(a,()=>window.__inlandCell('walk-result')?.status==='complete');
+  assert.equal(await cell(a,'algorithm-last'),'orb','The authored step yields a bounded wait and an explicit local effect');
   await fill(a,'walk-view/budget','1'); await click(a,'walk-view/run');
   await wait(a,()=>window.__inlandCell('walk-result')?.status==='exhausted');
   await fill(a,'walk-view/budget','128'); await click(a,'walk-view/run'); await click(a,'walk-view/cancel');
   await wait(a,()=>window.__inlandCell('walk-result')?.status==='cancelled');
   const cancelled=await cell(a,'walk-result'); await pause(300); assert.deepEqual(await cell(a,'walk-result'),cancelled);
   await click(a,'walk-view/open-caller'); assert.match((await cell(a,'draft')).value,/walk-step/);
-  check('4: ordinary authored caller/step crosses a branch and cycle, with visible exhaustion and cancellation');
+  check('4: ordinary authored caller/step crosses a branch and cycle, with authored wait/effect outcomes, exhaustion and cancellation');
 
   // 5. A real bounded call, followed by explicitly controlled non-success paths.
   await tab(a,'resident');
   await fill(a,'resident-view/prompt','Describe a tool that remains usable while its targeting rule changes, in two short sentences.');
   await click(a,'resident-view/ask');
   const ask=await cell(a,'observing'); assert.ok(ask);
-  await a.waitForFunction(()=>window.__inland['resident-view']?.value?.find(x=>x.id==='status')?.text==='Status: :complete',{timeout:100000});
+  await tab(b,'resident'); await click(b,`resident-view/history/${ask}/observe`);
+  receipt.providerAtViewClose=(await row(ask)).status;
+  await click(a,'frame-view/close');
+  await b.waitForFunction(()=>['Status: :complete','Status: :failed','Status: :unconfirmed'].includes(window.__inland['resident-view']?.value?.find?.(x=>x.id==='status')?.text),{timeout:100000});
   const acceptedReply=await row(ask);
-  assert.equal(acceptedReply.status,'complete'); assert.equal(acceptedReply.provenance,'machine'); assert.ok(acceptedReply.reply?.length);
-  receipt.provider={activity:ask,model:acceptedReply.activity.model,status:acceptedReply.status,reply:acceptedReply.reply};
+  receipt.provider={activity:ask,model:acceptedReply.activity.model,status:acceptedReply.status,reply:acceptedReply.reply,reason:acceptedReply.reason,details:acceptedReply['provider-result']};
+  assert.equal(acceptedReply.status,'complete',JSON.stringify(receipt.provider)); assert.equal(acceptedReply.provenance,'machine'); assert.ok(acceptedReply.reply?.length);
+  assert.equal(acceptedReply['provider-result']['retry-events'],0);
+  assert.equal(acceptedReply.activity['definition-basis'].definition[0],'ask-rule');
+  assert.ok(acceptedReply.activity['definition-basis'].definition[1]>0);
+  await click(a,'closed/reopen'); await tab(a,'resident');
+  await click(a,`resident-view/history/${ask}/observe`);
   for(const [mode,status] of [['failure','failed'],['uncertain','unconfirmed']]){
     await control('fault',{mode}); await click(a,'resident-view/ask');
-    await wait(a,s=>window.__inland['resident-view']?.value?.find(x=>x.id==='status')?.text===`Status: :${s}`,status);
+    await wait(a,s=>window.__inland['resident-view']?.value?.find?.(x=>x.id==='status')?.text===`Status: :${s}`,status);
     const name=await cell(a,'observing'), current=await row(name);
     assert.equal(current.status,status); await pause(500); assert.deepEqual(await row(name),current,'No blind retry');
   }
   await control('fault',{mode:null});
   await click(a,'frame-view/close'); await click(a,'closed/reopen'); await tab(a,'resident');
   await click(a,`resident-view/history/${ask}/observe`);
-  await wait(a,()=>window.__inland['resident-view']?.value?.find(x=>x.id==='machine-mark')?.text.includes('machine-authored'));
+  await wait(a,()=>window.__inland['resident-view']?.value?.find?.(x=>x.id==='machine-mark')?.text.includes('machine-authored'));
+  await a.screenshot({path:path.join(out,'03-kept.png'),fullPage:true});
+  await click(a,'resident-view/open-reply');
+  assert.ok((await cell(a,'draft')).value.includes(JSON.stringify(acceptedReply.reply)),'The complete accepted reply is accessible through the ordinary record editor');
   check('5: real Claude reply admitted with provenance; controlled failure/uncertainty retained without retry; reopened view retrieves reply');
 
   // Recovery uses a new browser process and new app JVM against the same disk.

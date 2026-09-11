@@ -5,6 +5,7 @@
             [softland.inland.module :as module]
             [softland.inland.store :as store]
             [softland.inland.total :as total]
+            [softland.inland.resident :as resident]
             [softland.inland.logic :as logic]))
 
 (defonce handles (atom nil))
@@ -119,6 +120,9 @@
   (is (nil? (total/collection-state 1 [nil])))
   (is (= :failed (:runtime/status (total/first-failure [{:value {:runtime/status :failed}}]))))
   (is (some? (total/step-error :query {:demand nil :bindings {}})))
+  (is (= 20 (total/step-delay {:wait-ms 20} 100)))
+  (is (= :failed (:status (total/step-result {:effects [{:effect :activity :request {:id "child" :step "x" :output "x"}}]} {} 10))))
+  (is (= :exhausted (:status (total/step-result {:wait-ms 20 :effects [{:effect :session :writes {"mark" "seen"}}] :state {}} {} 1))))
   (let [facts [{:id :a :tuple [:edge "a" "b"]} {:id :b :tuple [:edge "b" "a"]}]
         rules [{:id :direct :head '[:reach ?a ?b] :body '[[:edge ?a ?b]]}
                {:id :transitive :head '[:reach ?a ?c] :body '[[:reach ?a ?b] [:edge ?b ?c]]}]
@@ -130,6 +134,12 @@
     (is (= :failed (:runtime/status (logic/derive {:facts facts :rules [{:id :negative :head '[:edge ?a ?b] :body '[[:edge ?a ?b]] :not '[[:edge ?b ?a]]}]}))))))
 
 (deftest external-intent-ownership-and-uncertainty
+  (let [decoded (resident/decode-result "{\"type\":\"system\",\"subtype\":\"init\"}\n{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"Terminal fixture\"}" 0)]
+    (is (= :complete (:status decoded)))
+    (is (= "Terminal fixture" (:reply decoded)))
+    (is (= :stream (get-in decoded [:provider-result :format]))))
+  (is (= :complete (:status (resident/decode-result "[{\"type\":\"result\",\"subtype\":\"success\",\"result\":\"Protocol fixture\"}]" 0))))
+  (is (= :unconfirmed (:status (resident/decode-result "{\"type\":\"assistant\",\"content\":\"No terminal result\"}" 0))))
   (let [w "external" _ (seed! w)
         intent {:runner :claude :owner "world" :input "A small request" :basis {:definition "ask-rule" :revision 1}
                 :model "haiku" :max-output 100 :timeout-seconds 30}]
