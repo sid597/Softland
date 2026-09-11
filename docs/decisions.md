@@ -614,13 +614,19 @@ Sid's implementation request explicitly authorized the isolated experiment:
 > authorizes introducing it in this isolated worktree, including where older
 > project guidance treated Electric as reference only.
 
-That authorization applies to `/mnt/data/projects/codex-smalltalk-electric`;
-it does not replace the broader default above. The subsequent
-[model](build-softland-in-softland/MODEL.md) and
-[build brief](build-softland-in-softland/BUILD.md) prepare a further isolated
-Electric experiment for Sid's go-ahead. Preparing those documents neither
-authorizes its implementation nor settles permanent host adoption. The September
-6 body-language law remains in force. No new ruling is attributed to Sid here.
+The earlier authorization applies to `/mnt/data/projects/codex-smalltalk-electric`.
+Sid subsequently authorized the full build here on 2026-09-11, verbatim:
+
+> The implementation destination is main in /mnt/data/projects/Softland.
+> I authorize actual Electric for this build here, including where older
+> guidance treated it as reference only.
+
+The [build brief](build-softland-in-softland/BUILD.md) and
+[model](build-softland-in-softland/MODEL.md) now govern that implementation on
+`main`. No new worktree or branch is required. The old experiment is read-only
+reusable evidence, never authority for the whole model. This authorization does
+not settle permanent host adoption. September 6 total recipes remain binding;
+production data and the archive remain protected. Runtime storage is isolated.
 
 - **The law: recompute proportional to change, at every layer.** Change is
   emitted once, as a value, at the site that knows it — user action, server

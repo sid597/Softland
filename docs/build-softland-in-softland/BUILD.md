@@ -1,9 +1,9 @@
 # Build Softland in Softland
 
-Prepared at Sid's request after the proposal discussion. **Ready for implementation
-go-ahead; implementation has not started.** Approval of this brief authorizes
-this experiment, including actual Electric in its isolated worktree. It does not
-permanently replace main's host policy or assert that the model has been proved.
+Implementation authorized by Sid on 2026-09-11, on `main` in
+`/mnt/data/projects/Softland`. Existing pending work was preserved first in
+`5450ac0`, `2c1047d`, and `a484881`. Actual Electric is authorized for this build
+here; permanent host adoption and proof of the model remain separate questions.
 
 **The build.** One Electric host, Softland's existing text/2D/3D renderers, and a
 small place where the pointing instrument, its targeting rule, its presentation,
@@ -24,24 +24,15 @@ at `1ad55eeb14aec79618c6013755c6e7c17066779f` in
 DSL and compiled selection/inspector wiring are evidence and reusable mechanisms,
 not the finished definition-driven product this brief asks for.
 
-After approval, create a fresh worktree, preserving the original and main's dirty work:
+Implement directly on `main` in `/mnt/data/projects/Softland`. Do not create a
+worktree, switch branches, reset to the earlier experiment, or merge its branch.
+Reuse selected mechanisms while preserving newer main changes. Earlier experiment
+worktrees remain read-only. Never push or merge. Local commits are authorized.
 
-```sh
-git -C /mnt/data/projects/codex-smalltalk-electric worktree add \
-  -b codex/softland-in-softland /mnt/data/projects/codex-softland-in-softland \
-  1ad55eeb14aec79618c6013755c6e7c17066779f
-```
-
-If that path/branch already exists, inspect it and choose a distinct unused name;
-never reset, clean or overwrite it. Copy this brief and MODEL.md into the new
-worktree's `docs/build-softland-in-softland/` so its handoff is self-contained.
-No push or merge. Local commits on the implementation branch are allowed.
-
-Read AGENTS.md and CLAUDE.md from that worktree. For boot, use the size list at the
-end of this file and only the cited decision sections. Prior proposals, the full
-vision log, the board's historical body and unrelated packages are not an opening
-reading sequence. The direct build request and this approved scope authorize
-Electric despite older reference-only guidance.
+Read `AGENTS.md` and the available `CLAUDE-1.md` (do not restore `CLAUDE.md`).
+The direct build request overrides this brief's earlier isolated-worktree and
+reference-only Electric instructions. Isolated **runtime storage** is still
+required; working on main does not authorize production-data access.
 
 Useful source entry points, inspected as starting mechanisms:
 
@@ -188,11 +179,6 @@ Passing checks provides evidence; adoption remains Sid's decision.
 | `docs/build-softland-in-softland/BUILD.md` (this file) | 13,272 |
 | **Total** | **95,728** |
 
-The scoped exception is recorded in main; the pinned code base predates it.
-Approval of this brief supplies the isolated-build permission without copying
-main's unrelated changes.
-
-Use the codebase's instruction files, this brief, MODEL.md and the old experiment
-HANDOFF/NOW; together they fit below the approximately 100KB boot budget. Read only
-the decisions sections “Electric-native arc” including its scoped exception and
-“Tools are records over a vocabulary”. The old full proposals are optional context.
+The table records preparation sizes; `CLAUDE-1.md` is the available instruction
+file here. Read the scoped Electric authorization and the September 6 recipe law
+as primary instructions. Prior proposals remain optional context.

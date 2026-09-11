@@ -4,7 +4,7 @@ Written 2026-09-11 from the test and the vision log; revised after the two
 proposals' comparison at Sid's request. This is the construction model. The
 [build brief](BUILD.md) fixes the proposed next experiment: actual Electric,
 Softland's three renderers, a small real `ask`, and total recipes under the
-September 6 law. It is ready for Sid's implementation go-ahead. The permanent
+September 6 law. Sid authorized its implementation on main on 2026-09-11. The permanent
 host choice, closure and language sufficiency remain unproved; neither this
 edit nor passing a build automatically adopts them as repository law.
 Section 13 distinguishes requirements, choices and open questions.
@@ -461,7 +461,7 @@ for applicability, names for composition, activities for work. Bounded
 bodies and owned repeated steps. Layers for context. Three tiers of state. Three
 things a definition can establish. One-valued attributes by default. Agents
 as participants with an editable starting policy. Positive recursive derivation
-and stratified negation. Electric is the proposed host for this build, with one
+and stratified negation. Electric is the authorized host for this build, with one
 real `ask`; permanent host adoption remains open.
 
 **Open.**
