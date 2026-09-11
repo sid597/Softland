@@ -1,7 +1,8 @@
 (ns softland.inland.session
   "A view owns local cells, input drafts and event delivery. Takes generic effects.
    Gives session facts and admission proposals. Holds no accepted-world mirror."
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [softland.inland.total :as total]))
 
 (defn workspace []
   (let [v (.get (js/URLSearchParams. (.-search js/location)) "workspace")]
@@ -18,6 +19,7 @@
   (let [op (merge {:workspace (workspace) :request-id (str (random-uuid)) :layer "base"} op)]
     (reset! (:result s) nil) (reset! (:request s) op)
     (reset! (cell s "admission") {:status :pending :request-id (:request-id op)}) op))
+(declare start-progress!)
 (defn effects! [s effects]
   (doseq [effect effects]
     (case (:effect effect)
@@ -30,6 +32,7 @@
                         (reset! (:work s) {}))
                       (reset! (:visible s) (:value effect)))
       :activity (let [request (:request effect)]
+                  (start-progress! s request)
                   (swap! (:work s) assoc (:output request) request))
       :cancel (reset! (cell s (str "cancel/" (:owner effect))) true)
       nil)))
@@ -46,6 +49,21 @@
     (reset! a (if (and (integer? (:budget request)) (<= 1 (:budget request) 128))
                 {:status :running :state (:state request) :remaining (:budget request) :iteration 0}
                 {:status :failed :reason "Use an integer step budget from 1 to 128."})) a))
+(defn advance! [s request current result]
+  (let [progress (cell s (:output request))
+        next (assoc (total/step-result result (:state current) (:remaining current))
+                    :iteration (inc (:iteration current)))]
+    (when (and (= (:id request) (get-in @(:work s) [(:output request) :id]))
+               (= :running (:status @progress))
+               (not @(cell s (str "cancel/" (:id request)))))
+      (when-not (= :failed (:status next))
+        (effects! s (mapv (fn [effect]
+                           (if (= :admit (:effect effect))
+                             (-> effect
+                               (assoc-in [:request :request-id] (str (:id request) "/step/" (:iteration current)))
+                               (assoc-in [:request :invocation] {:activity (:id request) :iteration (:iteration current) :context (:context request)}))
+                             effect)) (:effects result))))
+      (reset! progress next))))
 (defn report! [s key value]
   (let [root (or (.-__inland js/window) #js {})]
     (aset root key (clj->js value))

@@ -6,7 +6,7 @@
             [softland.inland.logic :as logic]
             #?(:clj [clojure.edn :as edn] :cljs [cljs.reader :as edn])))
 
-(def vocabulary #{:value :read :session :call :index :activity :query :derive})
+(def vocabulary #{:value :read :session :call :index :query :derive})
 (def leaves
   (merge (into {} (map (fn [[k [_ _ f]]] [k f]) executor/operations))
     {:str str :pr pr-str :count count :first first :rest #(vec (rest %))
@@ -140,9 +140,27 @@
             (if (or (nil? value) (blocked? value)) out
               (update out value (fnil conj #{}) support))) {} supports))
 
+(defn step-delay [result fallback]
+  (let [ms (:wait-ms result fallback)]
+    (if (and (number? ms) (<= 0 ms 1000)) (max 1 ms) 1)))
+
+(defn step-outcome-error [result]
+  (cond
+    (not (map? result)) "A repeated step returns an outcome record."
+    (and (contains? result :wait-ms) (not (and (number? (:wait-ms result)) (<= 0 (:wait-ms result) 1000))))
+    "A step's explicit wait is between 0 and 1000 milliseconds."
+    (:effects result)
+    (or (effect-error (:effects result))
+        (when (or (> (count (:effects result)) 8)
+                  (> (count (filter #(= :admit (:effect %)) (:effects result))) 1)
+                  (some #(not (or (= :session (:effect %))
+                                  (and (= :admit (:effect %)) (#{:put :promote :remove :delete-override} (get-in % [:request :kind]))))) (:effects result)))
+          "A step has at most eight local/record effects and one admission. Spawning child activities is not available inside a step."))))
+
 (defn step-result [result state remaining]
   (cond
     (blocked? result) {:status (:runtime/status result) :state state :reason (:reason result)}
+    (step-outcome-error result) {:status :failed :state state :reason (step-outcome-error result)}
     (:done result) {:status :complete :value (:result result) :state (:state result state)}
     (<= remaining 1) {:status :exhausted :state (:state result state) :reason "The step budget is exhausted; no work is running."}
     :else {:status :running :state (:state result state) :remaining (dec remaining)}))

@@ -289,7 +289,12 @@
       (case kind
         :path (let [[offset count] (path-renderer/item-range paths id)]
                 (path-renderer/draw-path-instances! pass paths offset count))
-        :text (text-renderer/draw-text-system! pass system [pw ph])
+        :text (text-renderer/draw-instances! pass
+                {:pipeline (:pipeline system) :bind-group (:bind-group system)
+                 :buffer (:instance-buffer system) :vertex-count 6
+                 :instance-count (:num-instances system 0) :first-vertex 0 :first-instance 0
+                 :scissor (when clip (mapv #(js/Math.max 0 (js/Math.floor (* scale %))) clip))}
+                [pw ph])
         :scene (when @(:!scene-rect r) (region-renderer/composite-region! pass region :workbench))
         nil)
       (when clip (.setScissorRect pass 0 0 pw ph)))

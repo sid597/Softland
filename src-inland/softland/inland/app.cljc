@@ -55,6 +55,16 @@
               (e/client (session/report! s name {:revision (:revision row) :value value}))
               (paint/Items r s owner workspace context name value))))))))
 
+(e/defn LiveContext [r s owner workspace]
+  (e/client
+    (let [context (merge {:session owner :who "sid"} (or (x/Local s "context") {:layers ["base"]}))
+          runs (vals (e/watch (:work s)))]
+      (session/report! s "context" context)
+      (Events s owner workspace context)
+      (Views r s owner workspace context)
+      (e/for-by :id [request runs]
+        (activity/Run s owner workspace context request)))))
+
 (e/defn Main []
   (e/client
     (let [owner (str (random-uuid)) workspace (session/workspace)
@@ -66,16 +76,14 @@
           (session/diagnostics! s)
           (Operations s)
           (if visible
-            (let [r (n/Await (render/open #(session/deliver! s %)))
-                  context (merge {:session owner :who "sid"} (or (x/Local s "context") {:layers ["base"]}))
-                  runs (vals (e/watch (:work s)))]
-              (session/report! s "context" context)
-              (Events s owner workspace context)
-              (Views r s owner workspace context)
-              (e/for-by :id [request runs]
-                (activity/Run s owner workspace context request)))
+            (let [r (n/Await (render/open #(session/deliver! s %)))]
+              (LiveContext r s owner workspace)
+              ;; The visible owner itself demands the surface, including while
+              ;; every authored view is between completed resolution contexts.
+              (some? r))
             (let [r (n/Await (render/open #(session/deliver! s %)))
                   context {:layers ["base"]}
                   value (x/Call s owner workspace context (:closed-view world) {} 0)]
               (Events s owner workspace context)
-              (paint/Items r s owner workspace context "closed" value))))))))
+              (paint/Items r s owner workspace context "closed" value)
+              (some? r))))))))
