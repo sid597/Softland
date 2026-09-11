@@ -37,10 +37,11 @@
                                            {:definition (:support result) :context (:context invocation) :event (:id event)}) effect))
                                      (:value result))) supports))]
           (session/report! s "last-event" {:event event :supports (mapv :support supports) :effects effects})
-          (cond failure (session/effects! s [{:effect :session :writes {"admission" {:status :failed :reason (:reason failure)}}}])
-                (seq supports) (session/effects! s effects)
-                :else (session/submit! s {:kind :put :name (str "unanswered-" (:id event)) :expected-revision 0
-                                         :row {:name (str "unanswered-" (:id event)) :catalog "unanswered" :event event}})))))))
+          (session/complete-event! s event
+            (cond failure [{:effect :session :writes {"admission" {:status :failed :reason (:reason failure)}}}]
+                  (seq supports) effects
+                  :else [{:effect :admit :request {:kind :put :name (str "unanswered-" (:id event)) :expected-revision 0
+                                                   :row {:name (str "unanswered-" (:id event)) :catalog "unanswered" :event event}}}])))))))
 
 (e/defn Views [r s owner workspace context]
   (let [names (x/Index owner workspace context "demand/view")]

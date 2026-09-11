@@ -26,9 +26,10 @@
   (e/client (e/watch (session/cell s key))))
 
 (e/defn Index [owner workspace context bucket]
-  (let [collections (e/for-by identity [layer (:layers context ["base"])]
+  (let [layers (vec (distinct (:layers context ["base"])))
+        collections (e/for-by identity [layer layers]
                       (Read owner :index [workspace (str layer "/" bucket)]))
-        blocked (some #(when (total/blocked? %) %) collections)]
+        blocked (total/collection-state (count layers) collections)]
     (or blocked (vec (sort (distinct (mapcat identity collections)))))))
 
 (e/defn ResolveLayers [owner workspace layers name pin]
@@ -143,8 +144,7 @@
                                (nil? matched) nil
                                :else {:support [name (:revision row)]
                                       :value (Recipe s owner workspace context (:body row) matched depth)})))
-            blocked (some #(cond (total/blocked? %) %
-                                 (total/blocked? (:value %)) (:value %)) supports)]
+            blocked (total/collection-state (count names) supports)]
         (if blocked blocked
           (mapv (fn [[value basis]] {:value value :supports basis})
             (total/conclude (remove nil? supports)))))))))
@@ -152,7 +152,7 @@
 (e/defn Dispatch [s owner workspace context event]
   (let [names (Index owner workspace context (str "event/" (name (:kind event))))]
     (if (total/blocked? names) names
-      (e/for-by identity [name names]
+      (let [results (e/for-by identity [name names]
         (let [row (Resolve s owner workspace context name)
               bindings (if (total/blocked? row) row
                          (when (= (:kind event) (get-in row [:pattern :event]))
@@ -160,4 +160,5 @@
           (cond (total/blocked? bindings) bindings
                 (nil? bindings) nil
                 :else {:support [name (:revision row)]
-                       :value (Recipe s owner workspace context (:body row) bindings 0)}))))))
+                       :value (Recipe s owner workspace context (:body row) bindings 0)})))]
+        (or (total/collection-state (count names) results) results)))))

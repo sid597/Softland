@@ -69,6 +69,11 @@
         (map? value) (some first-failure (vals value))
         (sequential? value) (some first-failure value)))
 
+(defn collection-state [expected values]
+  (if (not= expected (count values))
+    {:runtime/status :pending :reason "Waiting for every branch of the relevant scope."}
+    (first-failure values)))
+
 (defn effect-error [effects]
   (when-not (and (vector? effects)
                 (every? (fn [effect]

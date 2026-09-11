@@ -115,6 +115,8 @@
     (is (= #{:a :b} (get (total/conclude [{:support :a :value "same"} {:support :b :value "same"}]) "same")))
     (is (= #{:b} (get (total/conclude [{:support :b :value "same"}]) "same"))))
   (is (false? (total/ready? {:result {:runtime/status :pending}})))
+  (is (= :pending (:runtime/status (total/collection-state 1 []))))
+  (is (nil? (total/collection-state 1 [nil])))
   (is (= :failed (:runtime/status (total/first-failure [{:value {:runtime/status :failed}}]))))
   (is (some? (total/step-error :query {:demand nil :bindings {}})))
   (let [facts [{:id :a :tuple [:edge "a" "b"]} {:id :b :tuple [:edge "b" "a"]}]

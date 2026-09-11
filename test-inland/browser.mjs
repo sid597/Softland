@@ -42,8 +42,11 @@ const client = async ()=>{
 };
 const click = async (p,id)=>{
   await wait(p,id=>Boolean(window.__inlandTargetBox?.(id)),id);
+  const before=await p.evaluate(()=>window.__inland['last-event']?.event?.id);
+  const native=await p.evaluate(id=>Boolean(document.getElementById(id)?.matches('textarea')),id);
   const b=await p.evaluate(id=>window.__inlandTargetBox(id),id);
   await p.mouse.click(b.x+b.w/2,b.y+b.h/2);
+  if(!native) await wait(p,before=>Boolean(window.__inland['last-event']?.event?.id) && window.__inland['last-event'].event.id!==before,before);
 };
 const fill = async(p,id,text)=>{
   await click(p,id); await p.keyboard.down('Control'); await p.keyboard.press('A'); await p.keyboard.up('Control');

@@ -33,6 +33,9 @@
                   (swap! (:work s) assoc (:output request) request))
       :cancel (reset! (cell s (str "cancel/" (:owner effect))) true)
       nil)))
+(defn complete-event! [s event effects]
+  (effects! s effects)
+  (swap! (:event s) #(when (not= (:id %) (:id event)) %)))
 (defn deliver! [s event]
   (case (:kind event)
     :native-input ((:run event) (:point event))
