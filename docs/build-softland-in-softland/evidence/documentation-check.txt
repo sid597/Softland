@@ -1,0 +1,13 @@
+Documentation close receipt
+Candidate: d9e619b575fb00140d56ad196f3da2520fb815f1
+Baseline: 8494613
+
+$ python3 test-inland/check-docs.py 8494613
+PASS: 19 runtime namespace and 141 function contracts; 6 JVM helpers; 15 launcher functions; 22 browser helpers
+PASS: 21 Clojure/CLJS/EDN files equivalent in both reader branches to 8494613; Python AST and JavaScript body unchanged
+PASS: 7 colocated maps, 75 local file links, and immediate runtime child coverage
+
+$ git diff --check
+exit 0; no output
+
+The receipt runner executed no product namespace, browser, cluster, or provider.

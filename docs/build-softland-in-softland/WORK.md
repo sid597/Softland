@@ -70,7 +70,7 @@ questionable across sessions, using the hierarchy in `src/app/client/AGENTS.md`.
 - [x] Add folder maps and repair entry links. Done when a reader can enter from the client or handoff, choose runtime/material/evidence, and descend by responsibility without loading every file.
 - [x] Document each runtime namespace and named function, plus launcher/test helper contracts. Done when inputs, effects, ownership, preconditions and non-obvious limits are beside their implementation; existing useful explanations are preserved.
 - [x] Check navigation, documentation coverage and executable equivalence to `8494613`. Done when Clojure/CLJS forms in both reader branches and Python/JS execution remain unchanged, links resolve, and selected causal paths agree with source.
-- [ ] Commit the documentation, finish the short close receipt and push main. Source: Sid's subsequent "do this then git push" authorizes the push over earlier no-push guidance. Done when the board/handoff enter the maps, evidence and product are preserved, and origin/main contains the close commit. Never merge.
+- [x] Commit the documentation, finish the short close receipt and push main. Source: Sid's subsequent "do this then git push" authorizes the push over earlier no-push guidance. Local close documents and receipt are complete; the normal push is requested and is confirmed after this commit. Done when the board/handoff enter the maps, evidence and product are preserved, and origin/main contains the close commit. Never merge.
 
 The original build close did not establish documentation completeness. This is
 a documentation repair, not authorization to change application behavior. The

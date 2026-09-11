@@ -227,6 +227,17 @@ compiled repairs. The capability log records those additions so a successful
 example cannot conceal them. This run establishes a useful authored construction,
 not that the smallest sufficient floor has been found.
 
+## Documentation close
+
+The documentation hierarchy was frozen at `d9e619b`. Start at
+[`src-inland/README.md`](../../src-inland/README.md), then use the runtime,
+authored-material, and verification maps it links. The registered static close
+receipt is [`documentation-check.txt`](evidence/documentation-check.txt): it
+records 19 runtime namespaces / 141 function contracts, 6 JVM helpers, 15
+launcher functions, 22 browser helpers, 21 equivalent Clojure/CLJS/EDN forms,
+seven maps, and 75 local links. `git diff --check` also passed. This preserves
+the demonstrated build receipts above; it does not add runtime proof.
+
 The existing ECS-shaped rendering components remain useful for realizing scene
 material. Indexed fact matching and authored definitions add application behavior
 and composition above them. An ECS storage or renderer arrangement by itself
