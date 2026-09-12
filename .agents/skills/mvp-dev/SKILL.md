@@ -126,7 +126,7 @@ LLMs do the coding, humans check **architecture and scope**:
 - Use high-effort LLMs (Claude Opus xhigh, Codex xhigh). Gemini Pro is fun but eager and shallow.
 - Use the architecture ticket as system prompt
 - Ask for initial plan from two AIs if possible — make them reach consensus. Save plan as `.md` (don't commit).
-- After each session: update plan doc, write `next-prompt.md`
+- After each session: update plan doc
 - After each milestone: have the other AI review it
 
 **Before merge:**
