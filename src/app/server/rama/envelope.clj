@@ -1,8 +1,11 @@
 (ns app.server.rama.envelope
-  "Request and event envelope helpers.
-   Takes: request, event, actor, target, payload, and error maps.
-   Gives: normalized envelopes, stable ids, validation results, and replay decisions.
-   Holds nothing."
+  "Shared request/event vocabulary, validation, and decision-fold helpers.
+   Callers supply envelope maps, actor capabilities, payloads, or existing rows;
+   helpers return envelopes, errors, fingerprints, decisions, and guarded values.
+   No depot, PState, or runtime is owned here. Builders may mint UUIDs and read
+   the clock; interpretation helpers use supplied identities/times where shown.
+   Each receiving module chooses which validators and guards to call: these
+   helpers do not impose uniform authorization, replay, or storage semantics."
   (:require [clojure.string :as str])
   (:import (java.security MessageDigest)))
 
@@ -58,6 +61,7 @@
   (System/currentTimeMillis))
 
 (defn random-id
+  "Return prefix followed by an underscore and a fresh UUID string."
   [prefix]
   (str prefix "_" (java.util.UUID/randomUUID)))
 
@@ -70,16 +74,19 @@
     (apply str (map #(format "%02x" (bit-and % 0xff)) digest))))
 
 (defn sha-256
+  "Return the SHA-256 hex digest of the UTF-8 encoding of (str s)."
   [s]
   (sha-256-bytes (.getBytes (str s) "UTF-8")))
 
 (defn default-actor
+  "Return the default system actor map with the declared compatibility capabilities."
   []
   {:actor/id "system"
    :actor/type :system
    :actor/capabilities #{:action/append :artifact/create :unit/create :unit/judge}})
 
 (defn default-context
+  "Return a context map whose context/projection/selection/question IDs are nil."
   []
   {:context/id nil
    :projection/id nil
@@ -87,12 +94,14 @@
    :question/id nil})
 
 (defn default-causal
+  "Return an empty parent list and nil correlation/intent IDs."
   []
   {:parents []
    :correlation/id nil
    :intent/id nil})
 
 (defn ordering-key-for
+  "Prefer target kind/id, then event type, then the unkeyed event fallback for ordering."
   [event-type target]
   (let [target-kind (:target/kind target)
         target-id (:target/id target)]
@@ -102,6 +111,7 @@
       :else [:event "unkeyed"])))
 
 (defn default-policy
+  "Build private policy metadata requiring :action/append plus any action capability."
   [action]
   (let [capability (:action/capability action)]
     {:required-capabilities (cond-> #{:action/append}
@@ -128,6 +138,8 @@
                :line/number (parse-long n-str)})))))))
 
 (defn artifact-id-from-unit-id
+  "Extract the artifact from a revision-scoped unit ID, falling back to the legacy
+   /line/ prefix or the whole string when neither shape matches."
   [unit-id]
   (or (:artifact/id (unit-id-parts unit-id))
       ;; legacy pre-revision-scoped shape <artifact>/line/<n>
@@ -137,6 +149,8 @@
           s))))
 
 (defn routing-key-for
+  "Prefer an artifact identity from payload/target, then target ID, request ID,
+   or the unkeyed request fallback. Returns a tagged routing vector."
   [{:keys [request-id target payload]}]
   (let [artifact-id (or (:artifact/id payload)
                         (some-> (:unit/id payload) artifact-id-from-unit-id)
@@ -227,6 +241,8 @@
    :context :target :action :payload :causal :ordering :policy :provenance])
 
 (defn request-validation-errors
+  "Return envelope shape, type, routing, actor, action, target, and branch errors.
+   Does not authorize the actor or validate module-specific payload contents."
   [request]
   (let [request-type (:request/type request)
         action-type (get-in request [:action :action/type])
@@ -307,6 +323,8 @@
              :value (get-in request [:branch :branch/id])}))))
 
 (defn event-validation-errors
+  "Return missing-envelope, event/actor/target-type, branch, and ordering errors.
+   A valid shape does not establish that an event has been accepted or stored."
   [event]
   (cond-> []
     (not (map? event))
@@ -337,14 +355,19 @@
     (conj {:type :ordering/missing-key})))
 
 (defn valid-event?
+  "True when event-validation-errors is empty."
   [event]
   (empty? (event-validation-errors event)))
 
 (defn valid-request?
+  "True when request-validation-errors is empty."
   [request]
   (empty? (request-validation-errors request)))
 
 (defn authorized-request?
+  "Allow system actors, otherwise require the action capability in actor capabilities.
+   A request without an action capability has no requirement here. This compares
+   supplied data and does not authenticate the actor identity."
   [request]
   (let [required (cond-> #{}
                    (get-in request [:action :action/capability])
@@ -354,6 +377,7 @@
         (every? actor-caps required))))
 
 (defn decision-id-for-request-id
+  "Append /decision to request-id."
   [request-id]
   (str request-id "/decision"))
 
@@ -362,6 +386,8 @@
 ;; state) so a replayed delivery re-derives a byte-identical decision instead
 ;; of rewriting committed audit rows.
 (defn accepted-decision
+  "Build an accepted decision map referencing event and using the request timestamp;
+   does not validate the event or persist the decision."
   [request event]
   {:decision/id (decision-id-for-request-id (:request/id request))
    :decision/status :accepted
@@ -373,6 +399,7 @@
    :decided-at (:request/time-ms request)})
 
 (defn rejected-decision
+  "Build a rejection map with reason and optional errors, using the request timestamp."
   [request reason & [errors]]
   {:decision/id (decision-id-for-request-id (:request/id request))
    :decision/status :rejected
@@ -385,25 +412,25 @@
    :decided-at (:request/time-ms request)})
 
 (defn accepted-decision?
+  "True when the envelope decision status is :accepted."
   [decision]
   (= :accepted (:decision/status decision)))
 
 (defn decision-id
+  "Return :decision/id from decision, or nil when absent."
   [decision]
   (:decision/id decision))
 
 (defn decision-event
+  "Return :event from decision, or nil when absent."
   [decision]
   (:event decision))
 
 ;; ── :compat/record — a NARROW, transitional adapter, not a generic event mint.
 ;;
-;; Every compatibility event type must be allow-listed here with a payload
-;; validator. Anything else rejects :compat-type-not-allowed — otherwise the
-;; legacy route quietly becomes the real public contract for arbitrary
-;; KernelEvents (retro finding 06/F3). The set below is exactly what the
-;; util-fns transitional helpers emit today; removing a helper should remove
-;; its entry.
+;; interpret-compat-request accepts only the event types and payload shapes
+;; declared below. The helpers remain a compatibility vocabulary; their
+;; presence does not establish a currently deployed producer or topology.
 (def compat-allowed-event-types
   #{:compat/event-id-tick
     :identity/user-registered
@@ -442,6 +469,8 @@
                            (get compat-payload-required-keys event-type [])))}))
 
 (defn compat-record-request
+  "Build a compatibility request and mint its proposed event ID before append.
+   Interpretation separately checks the allowed event type and payload."
   [{:keys [event-type target-kind target-id action-type capability payload actor]}]
   (action-request
     {:request-type :compat/record
@@ -462,6 +491,8 @@
                   :source/ref nil}}))
 
 (defn compat-request->event
+  "Convert a compatibility request to an event using its proposed ID or deterministic
+   request-derived fallback, request time, actor, payload, and provenance."
   [request]
   (let [event-type (get-in request [:payload :compat/event-type])
         action-type (get-in request [:payload :compat/action-type])]
@@ -488,6 +519,7 @@
                     :source/ref (:request/id request)}})))
 
 (defn decide-event
+  "Validate a derived event and return an accepted decision or derived-event-invalid rejection."
   [request event]
   (let [errors (event-validation-errors event)]
     (if (seq errors)
@@ -495,6 +527,8 @@
       (accepted-decision request event))))
 
 (defn interpret-compat-request
+  "Validate envelope, capability, allowed compatibility type, and payload, then
+   derive an event and decision. Returns a value only; owns no journal or writes."
   [request]
   (let [errors (request-validation-errors request)
         event-type (get-in request [:payload :compat/event-type])
@@ -514,6 +548,7 @@
       :else (decide-event request (compat-request->event request)))))
 
 (defn unknown-action-decision
+  "Return an unknown-action-type rejection for the request."
   [request]
   (rejected-decision request :unknown-action-type))
 
@@ -660,6 +695,7 @@
 (def default-dead-letter-preview-chars 512)
 
 (defn- safe-pr-str
+  "Print a value, returning an unprintable class marker if printing throws."
   [x]
   (try
     (pr-str x)
@@ -667,8 +703,8 @@
       (str "<unprintable " (or (some-> (class x) .getName) "nil") ">"))))
 
 (defn bounded-dead-letter
-  "Bounded error value describing a rejected observation/control record. Total:
-   never throws, regardless of record shape. The preview is capped so unbounded
+  "Error value describing a rejected observation/control record. Requires a
+   nonnegative :max-preview-chars when supplied. The preview is capped so unbounded
    payloads cannot be copied wholesale into a dead-letter PState. The optional
    :context map is for small caller-supplied identifiers (run id, depot name) —
    it is included as-is, so keep it small. Never put expected secrets (claim
@@ -781,9 +817,9 @@
 ;; with non-keyword keys, missing/non-String request ids. None of that may
 ;; reach a keyed PState write (a write-schema violation is a poison record
 ;; that retries forever — and under microbatch it stalls the whole partition).
-;; Every appended record still gets exactly one durable decision (no silent
-;; drops), keyed by a deterministic surrogate when the record cannot provide
-;; its own identity.
+;; audit-request-id can supply a deterministic surrogate for unusable IDs.
+;; The receiving topology must call these helpers and store the decision;
+;; this namespace alone cannot guarantee a decision for every appended record.
 ;; ────────────────────────────────────────────────────────────────────────────
 
 (defn audit-request-id

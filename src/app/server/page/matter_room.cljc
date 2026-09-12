@@ -1,8 +1,17 @@
 (ns app.server.page.matter-room
-  "Facet-master room identities, resident text, and action parameters.
-   Takes: master ids, revisions, portal rows, reports, and action parameters.
-   Gives: room ids, resident descriptions, birth or refresh actions, and briefing parameters.
-   Holds: room-id-by-master, master-id-by-room, registered-master-ids, and resident constants."
+  "Pure room identity, action normalization and resident composition.
+   Registered worn facet masters map to deterministic conversation UUIDs on the
+   JVM. Action builders return :act/* parameters or validation errors; they do
+   not append requests, activate material, start residents or read a clock.
+   The door caller performs those effects through episode and worn APIs.
+
+   A master-anchored portal value becomes ordered resident descriptions. Birth
+   ids are stable; :resident/time-ms is a composition ordinal, not wall time.
+   Head/bindings are refreshable, trail entries are append-only descriptions,
+   and the gauge placeholder is not refreshable until it carries a report.
+   Registry maps/constants are code-owned values. No process handles or durable
+   state live here. In CLJS the room tables are empty and room-id throws;
+   consumers must use server-derived room addresses."
   (:require [app.server.worn.activation-event :as activation-event]
             [app.server.worn.facet-masters :as facet-masters]
             [clojure.string :as str])
@@ -46,6 +55,7 @@
      :cljs {}))
 
 (defn master-id-for-room
+  "Look up a registered master by the string form of its server-derived room id."
   [room-id]
   (get master-id-by-room (str room-id)))
 
@@ -74,10 +84,12 @@
      :narrowed? true}))
 
 (defn- nonblank-string?
+  "True for a string containing non-whitespace characters."
   [x]
   (and (string? x) (not (str/blank? x))))
 
 (defn- act-error
+  "Build an invalid act result with a named error and optional detailed errors."
   ([verb error]
    (act-error verb error []))
   ([verb error errors]
@@ -87,6 +99,7 @@
     :act/errors (vec errors)}))
 
 (defn- common-act-error
+  "Return the first missing/invalid master, request id, integer time or actor error; otherwise nil."
   [verb {:keys [master-id request-id time-ms actor]}]
   (cond
     (not (nonblank-string? master-id))
@@ -104,6 +117,7 @@
     :else nil))
 
 (defn- act-options
+  "Copy normalized identity/time/actor fields and optional conversation, scope and grounds into write options."
   [{:keys [request-id time-ms actor conversation-id scope grounds]}]
   (cond-> {:request/id request-id
            :time-ms (long time-ms)
@@ -298,14 +312,17 @@
    (str "mr:" master-id ":" (name section) ":" discriminator)))
 
 (defn- line
+  "Format one label/value line, using an em dash for nil."
   [label value]
   (str label ": " (if (nil? value) "—" (str value))))
 
 (defn- section-text
+  "Join a title and non-nil lines with newlines."
   [title lines]
   (str/join "\n" (into [title] (remove nil? lines))))
 
 (defn- head-text
+  "Format the supplied master head and identity facts with its room address; performs no reads."
   [master-id identity* master room-address]
   (section-text
    (str "# " master-id " — master")
@@ -328,6 +345,7 @@
          " above has an owner in the object container.")]))
 
 (defn- bindings-text
+  "Describe supplied binding rows, conflicts and verb declarations as resident text."
   [master-id bindings]
   (let [rows (vec (get bindings :bindings/rows))
         verbs (vec (get bindings :bindings/verbs))]
@@ -347,6 +365,7 @@
            verbs))))
 
 (defn- gauge-text
+  "Format a supplied report as EDN or describe the not-yet-measured gauge placeholder."
   [master-id report]
   (section-text
    (str "# " master-id " — terminal escape gauge")
@@ -360,6 +379,7 @@
          " embeds or overwrites a computed report.")]))
 
 (defn- place-resident
+  "Attach the ordinal as index/time-ms and a deterministic column position to a resident description."
   [index resident]
   (assoc resident
          :resident/index index
@@ -440,15 +460,13 @@
                                        :history/trail]))))
 
 (defn residents
-  "PURE: one master-anchored portal result → the room's machine residents, in
-   room order. Total over garbage (every read is `get`-shaped).
+  "Compose ordered resident descriptions from a master-anchored portal result;
+   return [] when :portal/master-id is not a string. Expected section values
+   have the portal's map/vector shapes; arbitrary malformed sections may throw.
 
-   Each resident carries everything the driver needs and nothing it must
-   derive: `:resident/turn-id` (birth identity), `:resident/text`,
-   `:resident/time-ms` (the composition ordinal — see the ns docstring),
-   `:resident/position` (deterministic column), and `:resident/refreshable?`
-   — false for trail residents, which are append-only by construction (a new
-   activation births a NEW resident and edits nothing)."
+   Each row supplies stable turn-id, text, ordinal time-ms, deterministic
+   position and refreshable?. This function only describes births/refreshes;
+   the door caller decides which writes to perform."
   [portal-result]
   (let [master-id (get portal-result :portal/master-id)]
     (if-not (string? master-id)

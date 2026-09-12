@@ -1,8 +1,14 @@
 (ns app.server.worn.facet-engine
-  "Facet engine for compiling sources, validating grammar, resolving what subjects wear, and stamping contributions.
-   Takes: master specifications, source forms, active revisions, instance revisions, and subjects.
-   Gives: compiled forms, worn values, contribution stamps, collisions, and validation errors.
-   Holds nothing."
+  "Pure, shared compiler and resolver for versioned facet material.
+   Specs supply exact material keys, validators, default/floor forms and grammar
+   versions. Source/forms compile to validity, errors, grammar and material;
+   served shared/instance values resolve to complete wear maps. Contributions
+   carry subject/facet/revision stamps and deterministic composition diagnostics.
+
+   Owns no state, I/O or resource lifetime. It does not evaluate authored EDN,
+   fetch revisions, activate pointers or render. facet-master supplies durable
+   sources; material-truth and page projections supply served inputs. Compiled
+   validators are trusted code and code-floor forms must themselves be valid."
   (:require #?(:clj [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])))
 
@@ -12,26 +18,31 @@
     :facet-master/facet})
 
 (defn finite-number?
+  "True for finite numeric values on the current host."
   [x]
   (and (number? x)
        #?(:clj (Double/isFinite (double x))
           :cljs (js/Number.isFinite x))))
 
 (defn valid-rgba?
+  "True for a four-element vector of finite channels in the inclusive range 0..1."
   [x]
   (and (vector? x)
        (= 4 (count x))
        (every? #(and (finite-number? %) (<= 0 % 1)) x)))
 
 (defn non-negative-number?
+  "True for a finite numeric value greater than or equal to zero."
   [x]
   (and (finite-number? x) (<= 0 x)))
 
 (defn integer-number?
+  "Apply the host integer? predicate used by grammar declarations."
   [x]
   (integer? x))
 
 (defn- grammar-declaration
+  "Look up the form's explicit grammar version in the supplied spec."
   [spec form]
   (get-in spec [:facet-master/grammars (:facet-master/grammar form)]))
 
@@ -56,7 +67,9 @@
           (:form-validators declaration)))
 
 (defn compile-form
-  "Compile one facet form against its declared grammar without throwing.
+  "Validate one facet form against its explicit grammar and return error data.
+   Spec predicates must handle their inputs; exceptions are caught by
+   compile-source, not by this form-level function.
 
    `:facet-master/grammars` maps a version to:
    - `:material-keys` — the exact keys returned to the renderer;
@@ -130,6 +143,8 @@
        :material material})))
 
 (defn compile-source
+  "Read the source as EDN and compile it; caught reader or validator exceptions
+   become :facet-master/parse-error data. Does not evaluate the source as code."
   [spec source]
   (try
     (compile-form spec (edn/read-string (str source)))
@@ -142,10 +157,14 @@
        :material nil})))
 
 (defn source-for
+  "Print a form as EDN using the caller's printer bindings; does not validate it."
   [form]
   (pr-str form))
 
 (defn code-floor
+  "Compile the spec's floor form and add its stable fallback identity.
+   Requires a valid trusted floor declaration; this helper does not check or
+   report compilation errors before constructing the returned wear map."
   [spec]
   (let [compiled (compile-form spec (:facet-master/floor-form spec))]
     (merge (:material compiled)
@@ -157,6 +176,8 @@
             :facet-master/floor? true})))
 
 (defn valid-material?
+  "Check exact material keys plus field and whole-form predicates for one grammar.
+   An unknown grammar returns nil; predicates are trusted to handle their inputs."
   [spec grammar material]
   (when-let [declaration
              (get-in spec [:facet-master/grammars grammar])]
@@ -217,12 +238,13 @@
 ;; applied to our own machinery: additive reuse, no parallel serve artery, no
 ;; compat adapter, and no new Rama module (R1).
 ;;
-;; ID SHAPE — load-bearing, verified against the routing kernel, not assumed.
+;; ID SHAPE — required by object-container/extract-object-key.
 ;; `object-container/extract-object-key` collapses an `fm:`-prefixed key to its
 ;; first TWO colon segments in every branch (`oc:block:`, `rev:`, `src:`,
 ;; `imp:fm:`) EXCEPT `oc:doc:`, which returns the whole remainder. A shared id
 ;; like `fm:attention` is invariant under both rules, which is why P1–P5 never
-;; met this edge. A THREE-segment instance id (`fm:attention:i:<sha8>`) is not:
+;; met this edge. An id with extra colon segments (`fm:attention:i:<sha8>`)
+;; is not:
 ;; its document container would hash to one Rama partition while its own
 ;; active-pointer, revisions, source and import-completion hash to another —
 ;; the foreign-read mis-route class that has now fired four times in this
@@ -239,10 +261,12 @@
   "~i~")
 
 (defn instance-master-id
+  "Join parent id, ~i~ marker and supplied digest without adding a colon segment."
   [parent-master-id subject-digest]
   (str parent-master-id instance-marker subject-digest))
 
 (defn instance-master-id?
+  "Recognize the ~i~ marker in a string; does not validate a complete instance id."
   [master-id]
   (and (string? master-id)
        #?(:clj (.contains ^String master-id instance-marker)
@@ -259,6 +283,7 @@
     :facet-master/deviates?})
 
 (defn valid-pin?
+  "Accept nil or exactly one nonempty :pinned-revision-id string in a map."
   [x]
   (or (nil? x)
       (and (map? x)
@@ -267,6 +292,7 @@
            (seq (:pinned-revision-id x)))))
 
 (defn- non-empty-string?
+  "Return truthy only for a string with at least one character."
   [x]
   (and (string? x) (seq x)))
 
@@ -298,6 +324,7 @@
         parent-grammars))
 
 (defn instance-floor-revision-id
+  "Derive the synthetic fallback revision label for an instance master."
   [instance-id]
   (str "code-floor:" instance-id))
 
@@ -360,10 +387,7 @@
     :else :holds/inherit))
 
 (defn floor-master-id
-  "The ONE label for a floor row's deciding master, used by the served
-   projection AND by the client tiers. G14 (P5 gate finding 3): these two
-   emitted different strings for the same row — cosmetic, but a reader
-   comparing client and server had to know which lie was which."
+  "Return the spec's code-floor revision label used as a deciding-master label."
   [spec]
   (:facet-master/code-floor-revision-id spec))
 

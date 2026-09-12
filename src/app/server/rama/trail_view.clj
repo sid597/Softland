@@ -1,39 +1,13 @@
-;; IMPORTANT: Before modifying this file, re-read
-;; docs/current-mental-model/build/trail-view/CONTRACT.md (v1.1 BINDING) and
-;; PLAN.md, and check docs/sessions/next-prompt.md.
-;; Adhere to all previously decided design decisions. If the plan needs to
-;; change, FAIL the phase — do not silently redesign while implementing.
-;;
-;; TRAIL-VIEW DATA LAYER — WP1 Phase B (build/trail-view/CONTRACT.md §7).
-;;
-;;   A NEW read-only module (CONTRACT §2 placement ruling): it declares ONLY
-;;   mirror PStates + query topologies over the object-container kernel and the
-;;   relation kernel. ZERO depots, ZERO stream/microbatch topologies, ZERO own
-;;   PStates, and no depot-append or local-write forms anywhere — so "the view
-;;   writes no truth" holds BY CONSTRUCTION (gate 14), not by policy.
-;;
-;;   Query→mirror-query path (CONTRACT §7): this implementation takes the
-;;   contract-named CLIENT-COMPOSITION path. The trail-view query topologies
-;;   gather ONLY the object-container MATERIAL layers by reading mirror PStates
-;;   (the spike-proven mechanism: |hash$$ + local-select>, sibling-index reuse).
-;;   The relation layers (R1/R2/R3) and the OC source-ref queries run as CLIENT
-;;   foreign-queries and are merged into the bundle/feed by the PURE assemblers.
-;;   Wrapper signatures + result shapes are identical to the single-roundtrip
-;;   design (consumers are insulated; §7 "latency is not a gate; shape and
-;;   honesty are"). This honours the style gate: object-container/ops PStates are
-;;   read ONLY via this module's declared mirrors; relation reads go ONLY through
-;;   the kernel's public R1/R2/R3 query topologies.
-;;
-;;   The seam (CONTRACT §2, §7): faces + agents consume ONLY the client wrappers
-;;   below (read-context-bundle / read-recent-activity / read-conversation-trail /
-;;   read-relation-detail / ->address / resolve-address / current-verdicts /
-;;   render-bundle-text) — never PStates, never raw foreign-select.
-
 (ns app.server.rama.trail-view
-  "Mirror-only page bundles over object-container and relation reads.
-   Takes: object-container and relation module names, addresses, cursors, and page limits.
-   Gives: trail pages, relation bundles, and combined read plans.
-   Holds nothing."
+  "Read composition over common object-container material and typed relations.
+   trail-view-module declares OC/operations mirrors and four query topologies;
+   it has no own depot, durable PState, or write topology. Mirror reads address
+   the owning modules rather than copying their material into this module.
+   Foreign wrappers combine material queries with relation-kernel queries and
+   pure assemblers to return bundles, feeds, conversation pages, and EDN addresses.
+   The combined result spans separate reads, not a single cross-module snapshot.
+   Optional IPC startup owns four modules; door/cluster supplies production handles.
+   This vocabulary covers common OC IDs, not the standalone transcript tc:* store."
   (:use [com.rpl.rama]
         [com.rpl.rama.path])
   (:require [com.rpl.rama.ops :as ops]
@@ -47,12 +21,12 @@
 
 ;; ── Constants / vocabulary ───────────────────────────────────────────────────
 (def stance-kinds
-  "Verdict-carrying relation kinds (CONTRACT §5.2). A verdict IS a relation."
+  "Relation kinds folded into current verdicts per target and asserter."
   #{:confirms :refutes :supersedes})
 
 (def default-caps
-  "Contract-visible cap constants (CONTRACT §4 'Defaults ... are contract-visible
-   constants'). Bounds per-layer collection sizes; overridable via opts :caps."
+  "Default result caps. :children and :relations apply after material collection;
+   :text is declared here but is not enforced by the current bundle/text wrappers."
   {:children 50 :relations 200 :text 4000})
 
 ;; The feed's STANDING gap declaration (CONTRACT §6 'Named gaps'; gate 3). Static:
@@ -96,6 +70,8 @@
   (= :markdown (:source-format source-artifact)))
 
 (defn target-kind-of
+  "Classify a loaded container/unit or recognized target prefix for bundle presentation;
+   unknown/missing material returns :unresolved."
   [target-id container unit]
   (let [ck (:container-kind container)
         s  (str target-id)]
@@ -113,10 +89,15 @@
       (some? unit) :block
       :else :unresolved)))
 
-(defn bundle-source-id [container unit] (or (:source-id container) (:source-id unit)))
-(defn bundle-revision-id [container] (:current-revision-id container))
+(defn bundle-source-id
+  "Prefer the loaded container source-id, then the derived unit source-id."
+  [container unit] (or (:source-id container) (:source-id unit)))
+(defn bundle-revision-id
+  "Return :current-revision-id from container, or nil when absent."
+  [container] (:current-revision-id container))
 
 (defn project-anchor
+  "Project a stored anchor to its ID, source span, and block path."
   [a]
   {:anchor-id (:source-anchor-id a)
    :start (:start-offset a)
@@ -124,6 +105,7 @@
    :block-path (:block-path a)})
 
 (defn project-child
+  "Project a composition child edge to ID, order, kind, and a nil preview."
   [edge]
   {:id (:child-target-id edge)
    :order-key (:child-order-key edge)
@@ -183,6 +165,7 @@
      :conversation-entries (count (or conv-proj []))}))
 
 (defn material-pairs->map
+  "Collect [target-id material] pairs into a map; later duplicate IDs replace earlier values."
   [pairs]
   (persistent!
    (reduce (fn [m pair] (assoc! m (nth pair 0) (nth pair 1)))
@@ -190,8 +173,12 @@
            (or pairs []))))
 
 ;; ── Feed row window helpers (pure) ──────────────────────────────────────────
-(defn file-offset-updated-ms [row] (:updated-at-ms row))
-(defn source-completion-ms [row] (:completed-at-ms row))
+(defn file-offset-updated-ms
+  "Return :updated-at-ms from row, or nil when absent."
+  [row] (:updated-at-ms row))
+(defn source-completion-ms
+  "Return :completed-at-ms from row, or nil when absent."
+  [row] (:completed-at-ms row))
 
 (defn flatten-row-groups
   "A |origin +vec-agg over a per-partition subselect yields a vector of vectors
@@ -376,12 +363,9 @@
     (flatten-row-groups *groups :> *result)))
 
 ;; ─────────────────────────────────────────────────────────────────────────────
-;;   FOREIGN CLIENT — the ONLY product surface (CONTRACT §7 seam).
-;;
-;;   Faces + agents consume ONLY these wrappers + the exported pure fns. Relation
-;;   reads go through the kernel's public R1/R2/R3; OC material through this
-;;   module's mirrors; OC source-ref queries (trail/via) through the kernel's own
-;;   public query topologies (queries ARE the public surface — style gate F-2).
+;;   FOREIGN CLIENT — compose material mirror queries with relation queries.
+;;   resolve-via additionally calls OC source-ref queries. These calls do not
+;;   share a snapshot or move ownership of material into the trail-view module.
 ;; ─────────────────────────────────────────────────────────────────────────────
 
 (declare read-context-bundle read-recent-activity read-conversation-trail
@@ -407,6 +391,7 @@
    :last-changed-at-ms (:status-changed-at-ms row)})
 
 (defn verdict-of
+  "Project a relation edge and mark it :current; stance selection is done by current-verdicts."
   [row]
   (assoc (project-edge row) :current true))
 
@@ -427,7 +412,9 @@
        vec))
 
 ;; ── Family grouping (CONTRACT §4, trap 6; F-6; E-6) ─────────────────────────
-(defn- endpoint-in-family? [ref object-key] (= (:target-key ref) object-key))
+(defn- endpoint-in-family?
+  "True when a relation endpoint target-key equals the requested object family key."
+  [ref object-key] (= (:target-key ref) object-key))
 
 (defn group-relations
   "Split a family's R1 rows (all share `object-key`) into `:this` (the requested
@@ -455,6 +442,8 @@
 
 ;; ── Caps → omissions (CONTRACT §4 exactness rule, trap 7; gate 3) ───────────
 (defn cap-children
+  "Keep the first cap collected children and return [kept omission-or-nil].
+   The omission records dropped count and last kept order-key; does not limit the query."
   [children cap]
   (let [total (count (or children []))
         kept  (vec (take cap (or children [])))]
@@ -463,12 +452,15 @@
              :cursor (:order-key (last kept))})]))
 
 (defn- relation-entries
+  "Flatten direct and family-grouped relations into tagged entries for capping."
   [this in-family]
   (concat
    (for [[kind edges] this, edge edges] [:this nil kind edge])
    (for [[oid kinds] in-family, [kind edges] kinds, edge edges] [:in-family oid kind edge])))
 
 (defn cap-relations
+  "Cap the combined direct/family entry sequence and rebuild its grouping. Returns
+   [direct family omission-or-nil]; collection happens before this cap."
   [this in-family cap]
   (let [entries (relation-entries this in-family)
         total   (count entries)
@@ -488,9 +480,10 @@
   (list (symbol "trail" (name query)) params))
 
 (defn assemble-bundle
-  "PURE. Merge gathered MATERIAL (from the context-bundle topology) with the
-   relation layers (R1 rel-map) and R2 relation-detail rows into the CONTRACT §4
-   bundle shape. `rendered-at` is stamped by the wrapper (client clock)."
+  "Merge collected material with family relations and explicit relation details.
+   Apply child/relation caps and attach omission records and re-invocable addresses.
+   Unknown ID classes get top-level omissions. Does not stamp the render clock,
+   enforce the text cap, or provide a cross-query consistency boundary."
   [material-map targets material-ids relation-ids unresolved rel-map rel-details opts address]
   (let [caps (merge default-caps (get opts :caps {}))
         material-bundles
@@ -534,8 +527,10 @@
      :bundle/omissions (mapv (fn [tid] {:id tid :reason :target/unrecognized}) unresolved)}))
 
 (defn read-context-bundle
-  "CONTRACT §4/§7. One roundtrip of MATERIAL (trail-view topology over OC mirrors)
-   + R1 (relations, batch-first) + R2 (rel:* targets), merged by assemble-bundle."
+  "Collect common material, query relations for its object families, and read each
+   explicit relation target before assembling/stamping a bundle. Calls are separate
+   foreign reads. Child/relation caps apply after gathering; :layers is preserved
+   in the address but does not select query work, and :text is not enforced here."
   [rt targets opts]
   (let [targets      (vec targets)
         classes      (group-by bundle-target-class targets)
@@ -560,6 +555,8 @@
 
 ;; ── Recent-activity feed (CONTRACT §6; gate 4) ──────────────────────────────
 (defn- relation-activity-entry
+  "Project a relation transition to feed target, endpoint detail, actor custody,
+   address, and its distinct claimed/arrival timestamps."
   [row]
   {:entry/kind :relation-transition
    :entry/target {:id (:from-id row) :kind (:from-kind row)}
@@ -580,6 +577,8 @@
                   :to   {:id (:to-id row) :kind (:to-kind row)}}})
 
 (defn- file-activity-entry
+  "Project file-offset state to a file-updated feed entry with an arrival timestamp
+   and no claimed time. The generated bundle address may be unresolved for file keys."
   [row]
   {:entry/kind :transcript-file-updated
    :entry/target {:id (:file-key row) :kind :transcript-file
@@ -591,6 +590,8 @@
    :entry/detail {:file-path (:file-path row) :line-count (:line-count row)}})
 
 (defn- source-activity-entry
+  "Project source-ingest completion to a document feed entry, preserving optional
+   claimed time separately from completion/arrival time."
   [row]
   {:entry/kind :source-ingested
    :entry/target {:id (:document-container-id row) :kind :doc
@@ -608,7 +609,9 @@
    :entry/detail {:source-ref (:source-ref row)
                   :derived-unit-count (:derived-unit-count row)}})
 
-(defn- in-window? [ms from to] (and ms (<= (long from) (long ms)) (<= (long ms) (long to))))
+(defn- in-window?
+  "True for a nonnil timestamp within the inclusive numeric [from,to] interval."
+  [ms from to] (and ms (<= (long from) (long ms)) (<= (long ms) (long to))))
 
 (defn assemble-feed
   "PURE. Merge the three branches, window-select by ARRIVAL always (F-1), order
@@ -627,8 +630,10 @@
      :feed/omissions feed-uncovered}))
 
 (defn read-recent-activity
-  "CONTRACT §6/§7. Window selection is ALWAYS arrival-time; `:order` covers
-   in-window ordering. A :claimed-window SELECTION request is refused (§9.10)."
+  "Read relation activity buckets plus all mirrored file/source completion rows,
+   then filter by inclusive arrival window and order by :arrival or :claimed.
+   Refuses :select-clock :claimed. The material scans are not limited by the window;
+   render time is stamped after these separate reads."
   [rt window opts]
   (when (= :claimed (:select-clock opts))
     (throw (ex-info "claimed-window selection refused: the recent-activity window is arrival-time only (CONTRACT §9.10)"
@@ -645,6 +650,9 @@
 
 ;; ── Conversation trail (CONTRACT §7; gate 11) ───────────────────────────────
 (defn read-conversation-trail
+  "Query a conversation page from an inclusive cursor and return rows, last-message
+   metadata, address, render time, and next cursor. A full page proposes a next
+   cursor by appending character 1 to its last order-key; it may lead to an empty page."
   [rt conversation cursor limit]
   (let [cur (or cursor "")
         lim (or limit oc/default-outline-page-size)
@@ -666,15 +674,15 @@
 
 ;; ── relation-detail (CONTRACT §3 law 4; delegates to kernel R2) ─────────────
 (defn read-relation-detail
+  "Delegate to the relation kernel detail query for the current row and status history."
   [rt relation-id]
   (rk/read-relation-detail rt relation-id))
 
 ;; ── View-spec resolution (CONTRACT §3; gate 12; F-3 residue §10) ────────────
 (defn resolve-via
-  "Resolve a view-spec doc (an ingested EDN doc) to a query result. `:latest`
-   tracks the newest source version of the spec's source-ref; a pinned `:rev`
-   (a source-version-key = source-hash) keeps resolving to that version's params.
-   `:overrides` shallow-merge at params level. The view WRITES nothing."
+  "Read an ingested EDN view spec through its source-ref, resolve latest or a pinned
+   source-hash version, shallow-merge parameter overrides, and invoke its query.
+   Reads only; missing/malformed source/spec data can throw."
   [rt {:keys [spec rev overrides]}]
   (let [bundle     (read-context-bundle rt [spec] {})
         tb         (get-in bundle [:bundle/targets spec])
@@ -688,8 +696,8 @@
     (resolve-address rt (->address query params))))
 
 (defn resolve-address
-  "Parse a rendered address (string or list) and re-invoke the matching wrapper
-   over CURRENT truth (CONTRACT §3 round-trip law; NO as-of, §9.1)."
+  "Parse a string/list EDN address and invoke the matching wrapper against current
+   stored values. Unknown heads or malformed data throw; there is no as-of snapshot."
   [rt address]
   (let [form   (if (string? address) (edn/read-string address) address)
         head   (name (first form))
@@ -709,12 +717,16 @@
   [ms]
   (if ms (str (java.time.Instant/ofEpochMilli (long ms))) "unknown"))
 
-(defn- fmt-actor [asserted-by written-by]
+(defn- fmt-actor
+  "Format asserter identity, adding via written-by only for a distinct writer."
+  [asserted-by written-by]
   (if (and written-by (not= written-by asserted-by))
     (str asserted-by " (via " written-by ")")
     (str asserted-by)))
 
-(defn- edge-line [prefix edge]
+(defn- edge-line
+  "Render both endpoint IDs, kind, custody, timestamp, and optional evidence anchor as one line."
+  [prefix edge]
   ;; G11 fix (2026-07-05): print BOTH endpoints — dropping the far end made
   ;; View-3 silently lose WHO produced a target (the map must not lie; the
   ;; design's R6 rule: an edge always names its far end). Full triple:
@@ -727,9 +739,9 @@
          (when ev (str " [ev " ev "]")))))
 
 (defn render-bundle-text
-  "CONTRACT §8: deterministic, versioned View-3 text. Reads rendered-at FROM the
-   bundle (does not generate it). All markers present; ≤ 4,000 chars on the gate
-   fixture; `walked unknown` printed while the field is nil (I-2 exactness)."
+  "Render a bundle as trail-text v0 with identity, times, material counts, direct
+   relations, verdicts, and omissions. Uses its existing render timestamp and
+   prints walked unknown. Does not enforce default-caps :text or a global length bound."
   [bundle]
   (let [lines
         (concat
@@ -823,6 +835,7 @@
       :recent-source-activity-query (foreign-query ipc tv-name "recent-source-activity")})))
 
 (defn close-trail-view-runtime!
+  "Close the owned IPC when runtime contains :ipc, swallowing close exceptions."
   [rt]
   (when-let [ipc (:ipc rt)]
     (try (.close ^java.lang.AutoCloseable ipc) (catch Exception _ nil))))

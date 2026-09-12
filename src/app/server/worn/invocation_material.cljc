@@ -1,8 +1,14 @@
 (ns app.server.worn.invocation-material
-  "The block invocation facet specification.
-   Takes: served model, effort, and precontext values.
-   Gives: compiled invocation settings and contribution rows.
-   Holds: spec."
+  "Pure specification for block invocation model, effort and precontext.
+   The v0 default/floor selects model, effort and a thread+N context setting.
+   Compilation through this namespace adds field paths/legal-value hints to
+   validation errors; callers of facet-engine directly receive generic errors.
+   Served active maps resolve through facet-engine and precontext-depth decodes N.
+
+   Owns immutable specification and vocabulary values only. No provider is
+   called and no installation is checked: model validation accepts any nonempty
+   string, including whitespace. Effort is a local allowlist, not a capability
+   query. Context selection and invocation execution belong to callers."
   (:require #?(:clj [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])
             [app.server.worn.facet-engine :as facet-engine]))
@@ -12,7 +18,7 @@
 (def code-floor-revision-id "code-floor:fm:invocation:v0")
 
 (def effort-vocabulary
-  "The exact subset re-verified against Claude Code 2.1.220 at P2 wiring time."
+  "The effort strings accepted by grammar v0; runtime provider support is separate."
   #{"low" "medium" "high" "xhigh" "max"})
 
 (def precontext-vocabulary
@@ -31,14 +37,17 @@
 (def default-source (pr-str default-form))
 
 (defn- non-blank-string?
+  "Accept a nonempty string; despite the name, whitespace-only values also pass."
   [x]
   (and (string? x) (not-empty x)))
 
 (defn- legal-effort?
+  "Check membership in this spec's local effort vocabulary; no provider query."
   [x]
   (contains? effort-vocabulary x))
 
 (defn- legal-precontext?
+  "Check membership in the declared thread+0 through thread+8 vocabulary."
   [x]
   (contains? precontext-vocabulary x))
 
@@ -87,6 +96,7 @@
                :legal (:legal declaration)))))
 
 (defn compile-form
+  "Validate an invocation form and add field paths/legal-value hints to errors."
   [form]
   (let [compiled (facet-engine/compile-form spec form)]
     (if (:valid? compiled)
@@ -95,6 +105,7 @@
               #(mapv (partial teach form) %)))))
 
 (defn compile-source
+  "Read invocation EDN; return taught validation errors or a parse-error result."
   [source]
   (try
     (compile-form (edn/read-string (str source)))
@@ -112,6 +123,7 @@
   (facet-engine/code-floor spec))
 
 (defn resolved-wear
+  "Resolve a complete served active map, falling back to this spec's code floor."
   [served]
   (facet-engine/resolved-wear spec served))
 
@@ -125,5 +137,6 @@
     0))
 
 (defn contribution-stamp
+  "Return subject/facet/revision and site/role/slot provenance for supplied wear."
   [wear subject site role slot]
   (facet-engine/contribution-stamp wear subject site role slot))

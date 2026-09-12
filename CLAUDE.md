@@ -55,11 +55,13 @@ and usefulness to its inhabitant distinguishable.
   The former `meta/` workflow is archived as an experiment, not a standing
   procedure or a required read before making a prompt. Reuse observations when
   they help the question without making the entire method compulsory.
-- Before gathering, reviewing, explaining, or changing client code, read
-  `src/app/client/AGENTS.md` and `src/app/client/README.md`. Follow the relevant
+- Before gathering, reviewing, explaining, or changing client or server code,
+  read that source root's guidance and map: `src/app/client/AGENTS.md` and
+  `src/app/client/README.md`, or `src/app/server/AGENTS.md` and
+  `src/app/server/README.md`, respectively. Follow the relevant
   folder maps, namespace docstrings, and function docstrings into scoped source
   reads. Keep affected explanations and their immediate parent maps aligned
-  with code changes, as the client instructions describe.
+  with code changes, as those instructions describe.
 
 ## Systemic repair and caching
 

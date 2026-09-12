@@ -1,8 +1,14 @@
 (ns app.server.page.portal-questions
-  "The seventeen material-portal questions and their pure presentation model.
-   Takes: one portal projection and optional why, scope, or history inputs.
-   Gives: question answers, card models, truncation summaries, and resident briefings.
-   Holds: questions, question-ids, and question-by-id."
+  "Pure interpretation and presentation of material-portal results.
+   Code-owned question data fixes the seventeen-card order and answer paths.
+   Given a portal result, derive presence checks, card rows, recipe/provenance
+   descriptions, truncation summaries and a canonical-EDN resident briefing.
+   Master-anchor helpers mark entity-relative facts as not applicable.
+
+   This namespace reads no store, calls no model and retains no mutable state.
+   Render output is data, not pixels. An answer-path presence check accepts
+   nil/error/sentinel values; it does not certify that the underlying read
+   succeeded. Replay-call strings are declarations, not executed connections."
   (:require [clojure.string :as str]))
 
 (def portal-version 0)
@@ -63,6 +69,7 @@
                                       (seq master-id)))})
 
 (defn- sentinel-values
+  "Replace the named entity-relative keys with the master-anchor not-applicable sentinel."
   [m ks]
   (reduce #(assoc %1 %2 not-applicable-at-anchor) (or m {}) ks))
 
@@ -298,6 +305,8 @@
        (mapv :question/id)))
 
 (defn answered?
+  "True when every declared question's answer path is present, including paths
+   whose value is nil, a not-applicable sentinel or an error."
   [result]
   (empty? (unanswered result)))
 
@@ -306,6 +315,7 @@
 ;; ===========================================================================
 
 (defn- compare-edn
+  "Compare printed EDN forms to order mixed-type map keys."
   [a b]
   (compare (pr-str a) (pr-str b)))
 
@@ -578,6 +588,7 @@
      :truncation/sections entries}))
 
 (defn truncation-entry
+  "Build one section's limit/returned/total disclosure, coercing truncated? to a boolean."
   [section {:keys [truncated? limit returned total note]}]
   {:truncation/section section
    :truncation/truncated? (boolean truncated?)
@@ -603,9 +614,9 @@
 ;; ===========================================================================
 
 (defn- render-value
-  "A value rendered for reading, total over anything. Bounded so one enormous
-   durable value cannot make a card unreadable — and the bound is declared in
-   the row rather than silently applied."
+  "Format a value for a card row, clipping strings longer than 400 characters
+   and displaying the original character count. Serialization failures propagate
+   to the enclosing safe-rows boundary."
   [v]
   (let [s (cond
             (nil? v) "—"
@@ -619,10 +630,12 @@
       s)))
 
 (defn- row
+  "Format one label/value pair for a card; the surrounding safe-rows boundary handles failures."
   [label v]
   {:row/label label :row/value (render-value v)})
 
 (defn- safe-rows
+  "Call the row builder, removing nil rows; on failure return one named render-error row."
   [f]
   (try
     (vec (remove nil? (f)))
@@ -632,9 +645,7 @@
         :row/error? true}])))
 
 (defn- card-rows
-  "The floor's rows for one question id. Every branch is defensive by
-   construction: `get`/`get-in` over an arbitrary value, never destructuring
-   that assumes a shape."
+  "Build rows for one question id from its expected section shapes; safe-rows catches malformed sections."
   [id result]
   (case id
     :identity
@@ -827,7 +838,9 @@
 ;; ===========================================================================
 
 (defn briefing
-  "The briefing text a resident summoned inside the portal receives."
+  "Wrap this result's canonical EDN with the fixed question list and guidance.
+   Pure serialization of the supplied value; no reads, model calls or independent
+   check that it equals a separately served portal result."
   [result]
   (let [e (safe-get-in result [:portal/identity :entity/id])
         entity (if (string? e) e "(no entity)")

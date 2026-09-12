@@ -1,8 +1,11 @@
 (ns app.server.ingest.markdown-adapter
-  "Markdown text cut into headings, list items, paragraphs, and outline rows.
-   Takes: markdown text, source metadata, actor data, and claimed time.
-   Gives: block units, outline relations, material rows, and import requests.
-   Holds nothing."
+  "Markdown cutting and ObjectContainer import-request construction.
+   Text plus an opaque source reference becomes heading/list/paragraph units,
+   source anchors, document/revision rows and outline projection hints. This is
+   a line-based subset parser, not a full Markdown implementation. Builders own
+   no persistent state and perform no appends; callers supply runtime handles
+   and inspect decisions. Missing request ids/times are supplied by envelope
+   helpers, while default object/import identity derives from source and content."
   (:require [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
             [clojure.string :as str]))
@@ -15,16 +18,19 @@
 (def ordered-list-pattern #"^(\s*)\d+[\.)]\s+(.*?)\s*$")
 
 (defn derived-unit-id
+  "Return the Markdown unit id for an object key and positional block path."
   [object-key block-path]
   (str "du:" object-key ":" markdown-distiller-id ":" block-path))
 
 (defn strip-trailing-cr
+  "Remove one trailing CR from a line; preserve all other characters."
   [s]
   (if (str/ends-with? s "\r")
     (subs s 0 (dec (count s)))
     s))
 
 (defn markdown-source-lines
+  "Split text on LF into line maps with zero-based line indexes and UTF-16 [start,end) offsets. Exclude a trailing CR from line text/end but account for it when advancing."
   [raw-text]
   (let [lines (str/split (str raw-text) #"\n" -1)]
     (loop [line-idx 0
@@ -46,6 +52,7 @@
         result))))
 
 (defn current-heading-parent
+  "Return the deepest active heading block path, or nil before any heading."
   [heading-stack]
   (some->> heading-stack
            (sort-by key >)
@@ -53,6 +60,7 @@
            val))
 
 (defn heading-parent
+  "Return the nearest active heading with a level lower than the incoming level."
   [heading-stack level]
   (some->> heading-stack
            (filter (fn [[heading-level _]] (< heading-level level)))
@@ -61,10 +69,12 @@
            val))
 
 (defn prune-heading-stack
+  "Keep only headings above the incoming level before installing its new heading."
   [heading-stack level]
   (into {} (filter (fn [[heading-level _]] (< heading-level level)) heading-stack)))
 
 (defn list-parent
+  "Return the nearest less-indented list item, falling back to the current heading."
   [heading-stack list-stack indent]
   (or (some->> list-stack
                (filter (fn [[parent-indent _]] (< parent-indent indent)))
@@ -74,12 +84,17 @@
       (current-heading-parent heading-stack)))
 
 (defn update-list-stack
+  "Discard peers/deeper list entries and install this block at its indentation."
   [list-stack indent block-path]
   (assoc (into {} (filter (fn [[parent-indent _]] (< parent-indent indent)) list-stack))
          indent
          block-path))
 
 (defn markdown-block-v0
+  "Cut text into ordered heading, list-item and paragraph maps with positional
+   block paths, parent paths and UTF-16 spans. Heading/list text omits its markup
+   prefix while anchors cover the source line. Blank lines split paragraphs.
+   Fences, tables, inline syntax and blockquotes have no dedicated parsing here."
   [raw-text]
   (letfn [(block-path [idx]
             (format "%06d" idx))
@@ -174,11 +189,15 @@
               (markdown-source-lines raw-text))))))
 
 (defn parent-block-slot-id
+  "Resolve a non-nil parent block path to its Markdown unit id; otherwise nil."
   [object-key parent-block-path]
   (when parent-block-path
     (derived-unit-id object-key parent-block-path)))
 
 (defn source-materialization
+  "Build document, revision, source, unit, anchor, containment and outline rows
+   from a source-ingest-shaped request. Pure row construction; no store writes.
+   Document/source identity includes source reference and content hash."
   [request]
   (let [payload (oc/request-payload request)
         source-ref (oc/payload-source-ref payload)
@@ -367,24 +386,41 @@
      :outline-rows outline-rows
      :edge-rows edge-rows}))
 
-(defn materialization-object-key [m] (:object-key m))
-(defn materialization-source-ref-key [m] (:source-ref-key m))
-(defn materialization-source-hash [m] (:source-hash m))
-(defn materialization-source-row [m] (:source-row m))
-(defn materialization-source-id [m] (:source-id m))
-(defn materialization-version-row [m] (:version-row m))
-(defn materialization-completion-row [m] (:completion-row m))
-(defn materialization-document-row [m] (:document-row m))
-(defn materialization-document-revision-row [m] (:document-revision-row m))
-(defn materialization-document-id [m] (:document-id m))
-(defn materialization-document-anchor-row [m] (:document-anchor-row m))
-(defn materialization-event [m] (:event m))
-(defn materialization-unit-rows [m] (:unit-rows m))
-(defn materialization-unit-anchor-rows [m] (:unit-anchor-rows m))
-(defn materialization-outline-rows [m] (:outline-rows m))
-(defn materialization-edge-rows [m] (:edge-rows m))
+(defn materialization-object-key
+  "Read :object-key from a source-materialization result; nil when absent." [m] (:object-key m))
+(defn materialization-source-ref-key
+  "Read :source-ref-key from a source-materialization result; nil when absent." [m] (:source-ref-key m))
+(defn materialization-source-hash
+  "Read :source-hash from a source-materialization result; nil when absent." [m] (:source-hash m))
+(defn materialization-source-row
+  "Read :source-row from a source-materialization result; nil when absent." [m] (:source-row m))
+(defn materialization-source-id
+  "Read :source-id from a source-materialization result; nil when absent." [m] (:source-id m))
+(defn materialization-version-row
+  "Read :version-row from a source-materialization result; nil when absent." [m] (:version-row m))
+(defn materialization-completion-row
+  "Read :completion-row from a source-materialization result; nil when absent." [m] (:completion-row m))
+(defn materialization-document-row
+  "Read :document-row from a source-materialization result; nil when absent." [m] (:document-row m))
+(defn materialization-document-revision-row
+  "Read :document-revision-row from a source-materialization result; nil when absent." [m] (:document-revision-row m))
+(defn materialization-document-id
+  "Read :document-id from a source-materialization result; nil when absent." [m] (:document-id m))
+(defn materialization-document-anchor-row
+  "Read :document-anchor-row from a source-materialization result; nil when absent." [m] (:document-anchor-row m))
+(defn materialization-event
+  "Read :event from a source-materialization result; nil when absent." [m] (:event m))
+(defn materialization-unit-rows
+  "Read :unit-rows from a source-materialization result; nil when absent." [m] (:unit-rows m))
+(defn materialization-unit-anchor-rows
+  "Read :unit-anchor-rows from a source-materialization result; nil when absent." [m] (:unit-anchor-rows m))
+(defn materialization-outline-rows
+  "Read :outline-rows from a source-materialization result; nil when absent." [m] (:outline-rows m))
+(defn materialization-edge-rows
+  "Read :edge-rows from a source-materialization result; nil when absent." [m] (:edge-rows m))
 
 (defn- source-ingest-kernel-request
+  "Build the intermediate source-ingest envelope consumed by source-materialization; this helper does not submit the legacy request."
   ([raw-text source-ref]
    (source-ingest-kernel-request raw-text source-ref {}))
   ([raw-text source-ref opts]
@@ -445,10 +481,12 @@
             :material/fingerprint material-fingerprint))))
 
 (defn markdown-import-key
+  "Return the content/source-derived import identity within an object partition."
   [object-key source-ref-key source-hash]
   (str "imp:md:" object-key ":" (envelope/sha-256 (str source-ref-key ":" source-hash))))
 
 (defn markdown-import-payload
+  "Package materialized rows into the common import payload and tag outline hints :markdown-outline."
   [materialization]
   {:object-key (:object-key materialization)
    :source-ref (:source-ref (:source-row materialization))
@@ -467,6 +505,10 @@
                            (:outline-rows materialization))})
 
 (defn markdown-source-import-request
+  "Build a common :object-container/import-material request from text, opaque
+   source-ref and optional actor/id/time/hash overrides. Default import and
+   idempotency keys derive from source/content; default request id/time vary.
+   Returns request data only: the caller appends it and checks its decision."
   ([raw-text source-ref]
    (markdown-source-import-request raw-text source-ref {}))
   ([raw-text source-ref opts]
@@ -521,6 +563,7 @@
             :material/fingerprint material-fingerprint))))
 
 (defn source-ingest-request
+  "Compatibility entrypoint delegating to markdown-source-import-request; returns a common material-import request."
   ([raw-text source-ref]
    (source-ingest-request raw-text source-ref {}))
   ([raw-text source-ref opts]

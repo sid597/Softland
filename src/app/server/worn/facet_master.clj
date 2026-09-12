@@ -1,8 +1,15 @@
 (ns app.server.worn.facet-master
-  "Revision import and active-pointer operations for facet masters.
-   Takes: an object-container runtime, a master spec, source bytes or revision ids, actors, and scopes.
-   Gives: import, activation, instance-master, pointer, and history results.
-   Holds nothing."
+  "Foreign-client adapter for revisioned facet material in object-container.
+   Given a caller-owned runtime, master spec, source or revision id and request
+   options, builds/imports candidates and edits a separate active-pointer
+   container. Reads latest, active and parent-linked history independently;
+   multi-call operations are not one snapshot or transaction.
+
+   Durable requests, decisions, source, revisions and pointers belong to the
+   object-container module. This namespace owns no handles or worker lifetime.
+   Accepted writes not already observed by request id increment the borrowed
+   ingest-epoch notification atom. Instance masters reuse this same adapter;
+   material-truth adds their episode discovery index."
   (:require [clojure.string :as str]
             [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
@@ -13,22 +20,27 @@
             [app.server.worn.facet-engine :as facet-engine]))
 
 (defn master-id
+  "Return the spec's object-container routing key and facet-master identity."
   [spec]
   (:facet-master/id spec))
 
 (defn source-ref
+  "Return the spec's stable source reference, shared by its candidate versions."
   [spec]
   (:facet-master/source-ref spec))
 
 (defn document-id
+  "Derive the master document container id from its object key."
   [spec]
   (oc/document-id-for-object-key (master-id spec)))
 
 (defn active-pointer-container-id
+  "Derive the separate block container whose revision content selects worn material."
   [spec]
   (oc/block-container-id (master-id spec) "active-pointer"))
 
 (defn- master-slug
+  "Remove an fm: prefix for bootstrap request naming; otherwise keep the id."
   [spec]
   (let [id (master-id spec)]
     (if (str/starts-with? id "fm:")
@@ -36,6 +48,7 @@
       id)))
 
 (defn import-key
+  "Combine the master id and source hash into the content-keyed import identity."
   [spec source-hash]
   (str "imp:fm:" (master-id spec) ":" source-hash))
 
@@ -48,18 +61,14 @@
   #{:object/edit})
 
 (def oc-actor-types
-  "object-container's actor allowlist (`core/authorized-request?`). Named here
-   because it is ASYMMETRIC with the relation kernel, which validates no
-   actor-type at all — a `:machine` actor is a legal RK asserter and a rejected
-   OC importer. P6's activation paths are OC paths, so this is the set that
-   binds. Recorded in the quirks registry after block-kernel P1 hit it."
+  "Document the actor types accepted by the object-container request validator.
+   This value is not consulted by normalize-actor and does not authorize a caller."
   #{:human :agent :system :bot})
 
 (defn normalize-actor
-  "Callers name WHO acted; they should not have to remember which capability
-   set each OC request family demands. An actor arriving as
-   `{:actor/id \"sid\" :actor/type :human}` — which is all a UI knows — becomes
-   a request-legal actor here rather than being silently rejected downstream."
+  "Fill missing actor id/type and union the requested capabilities into the actor.
+   This constructs a request actor; it does not authenticate or authorize the
+   caller, and an unsupported supplied actor type is not changed."
   [actor capabilities]
   (let [a (or actor {:actor/id "system" :actor/type :system})]
     {:actor/id (str (or (:actor/id a) "system"))
@@ -67,7 +76,11 @@
      :actor/capabilities (into (set (:actor/capabilities a)) capabilities)}))
 
 (defn materialization
-  "Pure revisioned-OC materialization for one candidate of any known master."
+  "Build source, version, container, anchor and immutable-revision rows for a
+   candidate. Stringifies source and content-hashes it; no storage write occurs.
+   Missing :request/id and :time-ms sample a random id and the clock, so this is
+   deterministic only when those options are supplied. Optional active-pointer
+   rows bootstrap either bare revision-id content or caller-supplied event bytes."
   [spec source opts]
   (let [master-id (master-id spec)
         source-ref (source-ref spec)
@@ -152,6 +165,10 @@
      :pointer-anchor-row pointer-anchor-row}))
 
 (defn candidate-import-request
+  "Build an object-container/import-material ActionRequest without appending it.
+   Carries candidate rows and optional bootstrap pointer rows from materialization;
+   import identity is master plus source hash. Does not compile the candidate,
+   so invalid EDN may be retained for inspection."
   ([spec source] (candidate-import-request spec source {}))
   ([spec source opts]
    (let [master-id (master-id spec)
@@ -204,6 +221,10 @@
       :facet-master/revision-id (:revision-id m)))))
 
 (defn- append-and-read!
+  "Read any prior audit decision, append with :ack, then read the decision again.
+   :replay? means a decision existed before this call, including a rejection;
+   it is not an acceptance test or the kernel's idempotency-replay classification.
+   Foreign-client failures propagate; these calls are not one transaction."
   [runtime request]
   (let [already-decided? (some? (ocr/read-decision runtime request))]
     (ocr/append-object-container-request! runtime request :ack)
@@ -211,6 +232,11 @@
      :replay? already-decided?}))
 
 (defn import-candidate!
+  "Append candidate rows and return request, durable decision, acceptance,
+   pre-observed replay flag and revision id. Unvalidated source is allowed;
+   :revision-id alone is not proof that the import was accepted. Increment the
+   borrowed ingest epoch only for acceptance not observed before this append.
+   Ordinary imports leave the active pointer alone; bootstrap opts include it."
   ([runtime spec source] (import-candidate! runtime spec source {}))
   ([runtime spec source opts]
    (let [request (candidate-import-request spec source opts)
@@ -225,15 +251,10 @@
       :revision-id (:facet-master/revision-id request)})))
 
 (defn read-master
-  "Resolve latest and active independently through the same OC reads for every
-   master. The pointer current revision names the worn immutable revision.
-
-   P6 · R4: the pointer's source is now an activation EVENT, not a bare
-   revision-id. `activation-event/parse` reads both shapes through one door, so
-   a v0 bare string minted by P1's bootstrap and a P6 event minted by a live
-   activation resolve to the same worn revision — the v0 row is never
-   reinterpreted and never rewritten, it is simply read as what it honestly is:
-   an `:activate` with unknown grounds."
+  "Read latest candidate, current pointer and the named active material revision
+   independently. Pointer content may be a declared event or a legacy bare id;
+   parse retains errors and unknown grounds. Returns missing rows as nil. These
+   separate foreign reads are not a coherent snapshot during concurrent writes."
   [runtime spec]
   (let [latest (ocr/read-current-revision runtime (document-id spec))
         pointer (ocr/read-current-revision
@@ -250,6 +271,17 @@
      :active-revision active}))
 
 (defn activate!
+  "Read and compile a candidate, then request an edit of the master's active
+   pointer. A missing revision, wrong container or invalid form returns rejection
+   data before append. Otherwise serialize a declared event and append with :ack;
+   :accepted? comes from the decision read back, not from depot acknowledgement.
+
+   opts supply actor, time, request/idempotency identity, kind, scope and grounds.
+   The scope defaults to this instance's subject or all-unpinned for a shared
+   master. This function does not validate the event's declared kind/scope/grounds
+   or enforce their match to the pointer owner; callers must provide valid ones.
+   No wearer fan-out occurs. Foreign failures propagate; epoch notification
+   follows acceptance not already observed by request id."
   ([runtime spec revision-id] (activate! runtime spec revision-id {}))
   ([runtime spec revision-id opts]
    (let [master-id (master-id spec)
@@ -342,8 +374,11 @@
           :revision-id revision-id})))))
 
 (defn ensure-master!
-  "Idempotently install one master's v0 bytes and pointer only when absent.
-   For provenance this mints the same request IDs and source bytes P1 used."
+  "Install the spec's default source and a bootstrap pointer when the latest
+   revision is absent; repair a missing pointer by activating the latest revision.
+   Uses deterministic bootstrap ids and time 0, then returns import/activation
+   results and a reread state. This is default-form, not necessarily grammar v0
+   (space defaults to v1). Existing candidate and pointer state are not migrated."
   [runtime spec]
   (let [slug (master-slug spec)
         before (read-master runtime spec)
@@ -372,9 +407,10 @@
      :state (read-master runtime spec)}))
 
 (defn ensure-active-source!
-  "Explicit, deterministic grammar migration: import the exact new bytes and
-   activate that immutable revision. Old revisions keep their original
-   grammar meaning and remain rewearable."
+  "Import exact source bytes and, if their revision differs from the observed
+   active revision, request activation with caller-supplied request ids and time.
+   Returns both write results plus a reread state; import and activation are
+   separate operations. Each revision still compiles under its declared grammar."
   [runtime spec source {:keys [request-id activation-request-id time-ms]}]
   (let [imported
         (import-candidate!
@@ -437,24 +473,27 @@
 ;; totality. Its spec is SYNTHESIZED from its parent's rather than authored, so
 ;; a facet gains an instance tier by existing, not by opting in.
 ;;
-;; The id keeps to TWO colon segments (`facet-material/instance-marker`) — see
-;; the routing note in `app.shared.facet-material`. That is what makes every
+;; The id keeps to TWO colon segments (`facet-engine/instance-marker`) — see
+;; the routing note in `app.server.worn.facet-engine`. That is what makes every
 ;; derived id (document, pointer, revisions, source, import-completion) hash to
 ;; ONE Rama partition with zero kernel edits.
 ;; ===========================================================================
 
 (defn subject-digest
-  "Short, stable digest of a subject uid. The FULL uid lives inside the form
-   (`:facet-master/subject`), so identity stays exact while ids stay short."
+  "Return the first eight SHA-256 hex characters of the stringified subject uid.
+   The full uid is also stored in instance material; this shortened identifier
+   has no collision detection in this adapter."
   [subject-uid]
   (subs (envelope/sha-256 (str subject-uid)) 0 8))
 
 (defn instance-master-id
+  "Derive a parent-qualified instance id using the subject's shortened digest."
   [parent-spec subject-uid]
   (facet-engine/instance-master-id
    (master-id parent-spec) (subject-digest subject-uid)))
 
 (defn instance-spec
+  "Synthesize the instance spec for this parent and subject; no storage access."
   [parent-spec subject-uid]
   (facet-engine/instance-spec
    parent-spec (instance-master-id parent-spec subject-uid) subject-uid))
@@ -468,7 +507,9 @@
    (master-id spec) (document-id spec) (oc/source-hash (str source))))
 
 (defn compiled-active
-  "The active revision compiled under its own grammar, or nil. Total."
+  "Read the active revision and attach its id to a compiler result, or return nil
+   when no active revision resolves. Invalid source yields diagnostics; foreign
+   read failures still propagate."
   [runtime spec]
   (let [{:keys [active-revision]} (read-master runtime spec)]
     (when active-revision
@@ -477,9 +518,9 @@
              :revision-id (:revision-id active-revision)))))
 
 (defn inherited-material
-  "What a subject wears TODAY from the SHARED master — the base an instance
-   form snapshots and the diff measures against. Falls to the code floor when
-   the shared master is absent or malformed, so this is total."
+  "Read shared active material as the base for a new instance revision.
+   Missing or invalid shared material uses the code floor. Returns :grammar and
+   :material only; it does not merge an existing instance's deviating values."
   [runtime parent-spec]
   (let [compiled (compiled-active runtime parent-spec)]
     (if (:valid? compiled)
@@ -525,8 +566,14 @@
 
    `overrides` names the deviating keys; everything else is the inherited
    snapshot, which is what makes `deviation-diff` computable without storing
-   anything. Refuses BEFORE any append when the resulting form does not compile
-   — a malformed deviation never reaches the depot."
+   anything. Refuses before append when sites are illegal or the resulting form
+   does not compile. Each call starts from current inherited material, not the
+   existing instance snapshot; callers must supply any overrides they intend to retain.
+
+   The returned :accepted? currently treats a pre-observed decision (:replay?)
+   as success as well as an accepted decision. A replay flag may also describe a
+   prior rejection; inspect the nested import/activation decisions when auditing
+   the outcome. Separate import and activation calls are not one transaction."
   [runtime parent-spec subject-uid
    {:keys [kind overrides deviates? pin actor time-ms grounds
            request-id activation-request-id]
@@ -662,10 +709,11 @@
      (merge opts {:kind :rollback :deviates? false :pin pin}))))
 
 (defn pin!
-  "Pin the subject to one shared revision. A pin is MATERIAL, not a serve-time
-   `if` (T4): it is a revision of the instance master, so it is visible in the
-   table, reversible by activating another revision, and recorded as an event
-   with an actor and a time."
+  "Write a pin to a named shared revision and preserve the current deviates? flag.
+   The target id is recorded without checking its existence; served resolution
+   compiles it later. Current implementation rebuilds other material from the
+   shared inherited snapshot unless opts supplies overrides. Preserving the flag
+   alone does not preserve previous override values. See write-instance-revision!."
   [runtime parent-spec subject-uid pinned-revision-id opts]
   (let [{:keys [deviates?]} (instance-state runtime parent-spec subject-uid)]
     (write-instance-revision!
@@ -675,9 +723,10 @@
                   :pin {:pinned-revision-id (str pinned-revision-id)}}))))
 
 (defn unpin!
-  "Release the pin. The subject re-joins the shared master's activations from
-   the next one onward (G2) — unless it also carries a deviation, which is a
-   separate axis and stays."
+  "Write a nil pin while preserving the current deviates? flag. Without deviation,
+   subsequent wear resolution follows current shared material immediately.
+   Current implementation rebuilds material from the shared snapshot unless opts
+   supplies overrides; retaining the flag alone does not carry old values forward."
   [runtime parent-spec subject-uid opts]
   (let [{:keys [deviates?]} (instance-state runtime parent-spec subject-uid)]
     (write-instance-revision!
@@ -693,17 +742,14 @@
 (def ^:private trail-page-limit 1000)
 
 (defn activation-trail
-  "One master's activation history in CAUSAL order, NEWEST FIRST — walked
-   along the pointer revisions' `parent-revision-id` chain.
+  "Read up to 1000 pointer history rows from the beginning of the order-key index,
+   then follow parent-revision-id from the separately read current tip, newest
+   first. Causal traversal is not timestamp sorting; clock regressions are
+   reported over the reversed chain. Stop at an absent row or a repeated id.
 
-   NOT sorted by time. Deploy-time migrations minted deterministic stamps
-   (P1 v0=0, P3 v1=1, P5=2) that sit under live wall-clock activations, so a
-   timestamp sort silently builds the WRONG world — proven in P4, recorded in
-   the quirks registry as law. Clock regressions are REPORTED
-   (`:ambiguous-activation-history`) rather than smoothed away.
-
-   The `seen` set is not decoration: a corrupt parent pointer that cycles would
-   otherwise spin forever inside a serve."
+   This does not paginate or fetch missing parents. :complete? only says fewer
+   than 1000 rows were returned, not that the chain reached its root. A tip
+   outside that first page can yield an empty chain despite existing history."
   [runtime spec]
   (let [pointer-id (active-pointer-container-id spec)
         current (ocr/read-current-revision runtime pointer-id)
@@ -731,13 +777,10 @@
                    (mapv :event (reverse chain)))}))
 
 (defn worn-at
-  "STANDABLE HISTORY — which revision this master wore at a given causal cut.
-
-   The cut is named by a POINTER revision-id, not by a timestamp, for the same
-   reason the trail is causal: `the world as of 3pm` is unanswerable when three
-   durable activations claim times 0, 1 and 2. `the world as of THIS
-   activation` is always answerable, and it is what a reader actually wants
-   when standing in history."
+  "Find a pointer revision in activation-trail's bounded causal chain and return
+   the material revision it names, its event and newer entries under :since.
+   A missing cut returns :found? false; it may be outside the fetched page.
+   This is one master's pointer cut, not a timestamp or a global snapshot."
   [runtime spec pointer-revision-id]
   (let [{:keys [chain]} (activation-trail runtime spec)
         idx (first (keep-indexed

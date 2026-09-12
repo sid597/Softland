@@ -1,8 +1,15 @@
 (ns app.server.page.material-portal
-  "A batched material-world join around one picked entity.
-   Takes: a page-serving function, runtime context, entity ids, wearer stamps, and optional history cuts.
-   Gives: one portal result with identity, materials, bindings, wearers, history, recovery, and briefing data.
-   Holds nothing."
+  "Assemble an entity- or facet-master-centered material explanation.
+   `open` borrows ctx's ObjectContainer runtime and an injected page `serve-fn`.
+   It combines five sub-projections (plus cascade declarations for a master
+   anchor), direct identity/geometry/history reads, and caller-supplied wearer
+   evidence. Injection keeps the dependency one-way from face-projection here.
+
+   The result is canonical EDN data; `render` produces card data and `briefing`
+   embeds the result in deterministic prose. There are no durable writes or
+   model calls. A per-call errors atom collects section failures and is then
+   discarded. Separate reads do not promise a shared transactional snapshot;
+   wearer rows describe the supplied scene, not a durable attachment registry."
   (:require [app.server.episode.episode :as episode]
             [app.server.worn.material-truth :as material-truth]
             [app.server.worn.facet-master :as facet-master]
@@ -26,6 +33,7 @@
   (if (map? m) (dissoc m :face/rendered-at-ms) m))
 
 (defn- error-of
+  "Name a failed section, retaining a nested sub-projection error when the exception carries one."
   [id ^Throwable t]
   (merge {:error/section id
           :error/type :portal/section-read-failed
@@ -319,6 +327,7 @@
 ;; ===========================================================================
 
 (defn- deviations-of
+  "Select this subject's diffs/pins and count the supplied per-facet diffs; these are read-result totals."
   [truth instances subject]
   (let [diffs (:truth/diffs truth)
         here (into (sorted-map)

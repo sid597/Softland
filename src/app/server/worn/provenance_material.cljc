@@ -1,8 +1,12 @@
 (ns app.server.worn.provenance-material
-  "The provenance facet specification.
-   Takes: served provenance and composition forms.
-   Gives: compiled provenance channels, composition values, and contribution rows.
-   Holds: spec."
+  "Pure specification for provenance appearance and contribution composition.
+   v0 declares an RGBA tint; v1 adds append/priority policy and supplies the code
+   floor. Bootstrap continues to use the v0 default; both grammars are readable.
+
+   Forms, EDN and served active maps yield compiler results or resolved material
+   through facet-engine. Owns immutable specification data only. A contribution
+   stamp records the caller's subject/site/role/slot; this namespace does not
+   discover provenance, assemble visual nodes or write activation state."
   (:require [app.server.worn.facet-engine :as facet-engine]))
 
 (def master-id "fm:provenance")
@@ -28,6 +32,7 @@
 (def composition-source (pr-str composition-form))
 
 (defn valid-tint?
+  "Accept a four-channel RGBA vector through the common finite 0..1 validator."
   [x]
   (facet-engine/valid-rgba? x))
 
@@ -65,10 +70,12 @@
        :error-type :provenance/tint-invalid}}}}})
 
 (defn compile-form
+  "Validate a form under this spec; return validity, errors, grammar and material."
   [form]
   (facet-engine/compile-form spec form))
 
 (defn compile-source
+  "Read EDN and compile under this spec; return parse/validation errors as data."
   [source]
   (facet-engine/compile-source spec source))
 
@@ -76,9 +83,11 @@
   (facet-engine/code-floor spec))
 
 (defn resolved-wear
+  "Resolve a complete served active map, falling back to this spec's code floor."
   [served]
   (facet-engine/resolved-wear spec served))
 
 (defn contribution-stamp
+  "Return subject/facet/revision and site/role/slot provenance for supplied wear."
   [wear subject site role slot]
   (facet-engine/contribution-stamp wear subject site role slot))

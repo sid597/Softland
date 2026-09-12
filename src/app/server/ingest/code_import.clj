@@ -1,8 +1,17 @@
 (ns app.server.ingest.code-import
-  "Code importer that calls a cutter, then writes rows and typed relations into the store.
-   Takes: git commits, blob ids, changed paths, analyzer output, and kernel runtimes.
-   Gives: import requests and :supersedes, :requires, and :calls relations.
-   Holds: kondo-config-dir."
+  "Import committed Clojure blobs and derive code relations as a foreign client.
+   code-sync! enumerates Git history under src/ and test/, guards denied blobs,
+   delegates cutting/material construction to clojure-adapter and appends OC
+   imports plus :supersedes lineage. analyzer-sync! materializes an allowed HEAD
+   tree, runs clj-kondo with Rama hooks, then reconciles :requires/:calls edges.
+   Low-level blob/address helpers also serve page/verb_release.clj.
+
+   OC and RelationKernel own durable material and relations. Per-pass maps/atoms
+   retain text, cuts and seen edges; the optional analyzer-basis atom belongs to
+   the caller and must match the runtime and analysis scope. The HEAD temp tree
+   is deleted in finally; a delayed, process-wide kondo config directory is kept.
+   Sync functions return accounting maps; see their docstrings for timeout and
+   endpoint limits. Neither sync driver is wired into door/cluster's ingest!."
   (:require [app.server.rama.object-container :as oc]
             [app.server.ingest.clojure-adapter :as adapter]
             [app.server.rama.object-container.runtime :as ocr]
@@ -61,7 +70,8 @@
   [e]
   (and (instance? clojure.lang.ExceptionInfo e) (some? (:git/exit (ex-data e)))))
 
-(defn- git-text [repo-root args]
+(defn- git-text
+  "Run Git through git-bytes and decode stdout once as UTF-8; nonzero exit throws." [repo-root args]
   (String. ^bytes (git-bytes repo-root args) StandardCharsets/UTF_8))
 
 (defn blob-text
@@ -325,12 +335,18 @@
       :blobs-unresolved :git-failures :blobs-unparseable :lineage-over-unresolved
       :supersedes-mech :supersedes-silver :re-addressed
       :unmatched-vanished :unmatched-appeared}
-   :blobs-seen = denied + git-failures + ingested + converged + unresolved (identity).
+   :blobs-seen partitions into denied, failed acquisition, accepted and unresolved blobs.
    :blobs-unparseable (G-F1) is an OVERLAY count, not part of the identity: blobs
    whose committed text rewrite-clj cannot parse (history holds broken states —
    5/895 in this repo). They still ingest (raw surface stored, R1) with ZERO
    units, mint no lineage, and are counted here so the boundary is declared.
-   (:supersedes-* are APPENDED counts — a byte-identical re-run appends 0, G9.)"
+   (:supersedes-* are append counts; the relation journal/pre-check handles replays.)
+
+   OC outcomes are counted, while lineage is derived independently and may
+   target unresolved imports (:lineage-over-unresolved). Relation counters count
+   appends, not accepted edges. :git-failures includes lineage failures as well
+   as ingest failures; it cannot be used as the failed-acquisition term in a
+   blob partition sum when lineage reads also fail."
   [{:keys [runtime repo-root commit-filter deny-list-override]}]
   (let [pass-started-ms (System/currentTimeMillis)
         deny?  (deny-fn deny-list-override)
@@ -483,10 +499,12 @@
    form-instance. Verbatim target-key == \"ns/name\"."
   :var)
 
-(defn- app-ns? [x] (str/starts-with? (str x) "app."))
+(defn- app-ns?
+  "True when the stringified namespace has the prefix app." [x] (str/starts-with? (str x) "app."))
 
 ;; ── HEAD resolution (T3: analyze HEAD, never the dirty checkout; T4: commit clock)
-(defn resolve-head-sha [repo-root] (str/trim (git-text repo-root ["rev-parse" "HEAD"])))
+(defn resolve-head-sha
+  "Read the repository's current HEAD SHA using Git; nonzero exit throws." [repo-root] (str/trim (git-text repo-root ["rev-parse" "HEAD"])))
 
 (defn head-committer-ms
   "HEAD commit's committer clock in ms (T4). 0 if `head` is not a resolvable ref."
@@ -495,7 +513,7 @@
                (catch Exception _ 0))))
 
 (defn head-blob-sha
-  "Blob sha of `path` at `head` (tests + evidence joins). nil if absent."
+  "Resolve a path at the supplied commit to its Git object SHA. A failed rev-parse throws; blank stdout yields nil."
   [repo-root head path]
   (let [s (str/trim (git-text repo-root ["rev-parse" (str head ":" path)]))]
     (when-not (str/blank? s) s)))
@@ -516,7 +534,8 @@
                     [path (nth parts 2)]))))
         (str/split-lines (git-text repo-root ["ls-tree" "-r" head "--" "src" "test"]))))
 
-(defn- fresh-temp-dir [prefix]
+(defn- fresh-temp-dir
+  "Create and return a temporary directory path with the supplied prefix; the caller owns cleanup." [prefix]
   (str (java.nio.file.Files/createTempDirectory
         prefix (make-array java.nio.file.attribute.FileAttribute 0))))
 
@@ -566,7 +585,8 @@
 (def ^:private rama-kondo-export-files
   ["config.edn" "com/rpl/utils.clj" "com/rpl/errors.clj" "com/rpl/rama_hooks.clj"])
 
-(defn- build-kondo-config-dir! []
+(defn- build-kondo-config-dir!
+  "Create the retained analyzer config directory, copy available Rama hook resources and write config.edn. The delayed owner retains it for the process." []
   (let [cfg (fresh-temp-dir "code-atoms-kondo-cfg")
         base "clj-kondo.exports/com.rpl/rama/"]
     (doseq [rel rama-kondo-export-files]
@@ -614,7 +634,8 @@
      :units       (:units (adapter/clojure-form-v0 text))
      :line-starts (line-start-offsets text)}))
 
-(defn- row->offset [ctx row]
+(defn- row->offset
+  "Map a one-based analyzer row to a UTF-16 line-start offset, falling back to the final line start or zero." [ctx row]
   (let [ls (:line-starts ctx)]
     (if (seq ls) (nth ls (dec (long row)) (long (peek ls))) 0)))
 
@@ -873,7 +894,13 @@
    Returns a stats map — every bound named, NO silent caps (F4/F5):
      {:ns-usages-seen :var-usages-seen :var-usages-dropped-nonapp :usages-unmapped
       :git-failures :requires-asserted :calls-asserted :retracted :converged
-      :reconcile-basis-missing :unresolved-residual}"
+      :reconcile-basis-missing :unresolved-residual}
+
+   The final relation-status poll is bounded to 15 seconds. Its last value is
+   not checked: the function updates analyzer-basis and returns counts even if
+   expected statuses remain unseen at timeout. This is not an acceptance or
+   settlement receipt. No code-blob import occurs in this analyzer entrypoint;
+   evidence anchors are computed from HEAD independently of stored material."
   [{:keys [runtime repo-root head-override desired-override path-filter deny-list-override analyzer-basis]}]
   (let [deny?   (deny-fn deny-list-override)
         head    (or head-override (resolve-head-sha repo-root))
@@ -909,12 +936,10 @@
                       ;; (materialize-head-tree!'s own throw is now inside this try too).
                       (finally (delete-recursively! dir)))))
         reconcile (reconcile-edges! runtime (:edges derived) head head-ms prior-basis)
-        ;; (c) SETTLE AT EXIT (GATE_REVIEW 2026-07-09 doubt 2): reconcile appended with
-        ;; :append-ack (durable, NOT materialized). Await THIS pass's own appends
-        ;; materialized to their terminal status before returning, so a back-to-back
-        ;; analyzer-sync! never reads a stale transition count and drops a flip. ONE
-        ;; batched poll over the touched target-keys — O(polls), not O(edges); a
-        ;; fully-converged pass appended nothing (:expected {}) and skips the wait.
+        ;; Poll touched target keys for this pass's expected relation statuses.
+        ;; :append-ack does not imply materialization. The timeout result is not
+        ;; checked here; see analyzer-sync!'s contract. A pass with no appends
+        ;; (:expected {}) skips the wait.
         {:keys [target-keys expected]} (:settle reconcile)
         _ (when (seq expected)
             (rk/await-relation

@@ -1,14 +1,19 @@
 (ns app.server.ingest.transcript-adapter
-  "One redacted transcript line converted into container rows.
-   Takes: a parsed JSONL event, source identity, actor data, and claimed time.
-   Gives: container, projection, edge, anchor, artifact, tool-call, and audit rows.
-   Holds nothing."
+  "Convert one already-redacted transcript observation into common material.
+   Source/file/line identity and optional actor/time/previous-message context
+   produce an ObjectContainer import request containing conversation, message,
+   tool-call/result and audit material plus projection and source-line hints.
+   Parse errors retain source/audit material without normal message material.
+   Identity rules come from object-container.transcript-identity; this namespace
+   neither reads files nor appends requests, and owns no state. transcript.clj
+   supplies observations and verifies the resulting decisions/completions."
   (:require [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.transcript-identity :as transcript-identity]
             [clojure.string :as str]))
 
 (defn transcript-content-blocks
+  "Return sequential content blocks from message/top-level content, or [] for scalar content."
   [payload]
   (let [content (or (get-in payload [:message :content])
                     (:content payload)
@@ -16,16 +21,19 @@
     (if (sequential? content) content [])))
 
 (defn transcript-tool-result-blocks
+  "Select map content blocks tagged tool_result or tool-result."
   [payload]
   (filter #(and (map? %) (#{"tool_result" "tool-result"} (:type %)))
           (transcript-content-blocks payload)))
 
 (defn transcript-tool-use-blocks
+  "Select map content blocks tagged tool_use or tool-use."
   [payload]
   (filter #(and (map? %) (#{"tool_use" "tool-use"} (:type %)))
           (transcript-content-blocks payload)))
 
 (defn transcript-text-content
+  "Return string content or newline-joined text/tool-result block content; unsupported shapes yield an empty string."
   [payload]
   (let [content (or (get-in payload [:message :content])
                     (:content payload))]
@@ -41,16 +49,19 @@
       :else "")))
 
 (defn transcript-role
+  "Read nested message role, falling back to the top-level role."
   [payload]
   (or (get-in payload [:message :role])
       (:role payload)))
 
 (defn transcript-content-preview
+  "Return at most 240 UTF-16 code units of stringified content."
   [content]
   (let [s (str (or content ""))]
     (subs s 0 (min 240 (count s)))))
 
 (defn transcript-conversation-projection-row
+  "Construct one ordered conversation projection hint with material, source and request identities; no write."
   [conversation-container-id order-key entry-kind container-id revision-id source-anchor-id
    source-id source-ref source-line-key event-id request-id import-key message-uuid role
    content-preview parse-error-kind]
@@ -73,6 +84,7 @@
                                             parse-error-kind))
 
 (defn transcript-tool-call-index-row
+  "Construct a tool-name/order projection hint linking the call to its message, conversation and source."
   [tool-name order-key tool-call-container-id conversation-container-id message-container-id
    source-id source-ref source-line-key event-id request-id import-key]
   (oc/->TranscriptToolCallIndexRow :transcript-tool-call-index
@@ -89,6 +101,7 @@
                                    import-key))
 
 (defn transcript-audit-entry-row
+  "Construct an import audit projection hint, including optional parse-error context."
   [request-id order-key entry-kind conversation-container-id container-id source-id
    source-ref source-line-key parse-error-kind event-id import-key message]
   (oc/->TranscriptAuditEntryRow :transcript-audit-entry
@@ -106,6 +119,7 @@
                                 message))
 
 (defn transcript-last-message-row
+  "Construct a latest-message projection hint used to link later imports."
   [conversation-container-id message-container-id source-line-key order-key event-id
    request-id import-key updated-at-ms]
   (oc/->TranscriptLastMessageRow :transcript-last-message
@@ -119,6 +133,7 @@
                                  updated-at-ms))
 
 (defn transcript-source-line-status-row
+  "Build an :observed source-line status hint from byte identity and import fingerprint, or nil without file identity. Completion is recorded by the receiving modules."
   [obs import-key material-fingerprint source-id source-ref source-line-key order-key
    request-id now]
   (when-let [file-key (transcript-identity/transcript-source-file-key obs)]
@@ -142,6 +157,7 @@
                                         nil)))
 
 (defn transcript-anchor-row
+  "Construct a source anchor spanning the original JSONL line in bytes. These offsets address the file, not the redacted stored preview."
   [object-key source-id source-ref source-hash target-kind target-id obs event-id]
   (let [offset (long (or (:source/byte-offset obs) 0))
         byte-length (long (or (:source/byte-length obs) 0))
@@ -158,6 +174,7 @@
                           event-id)))
 
 (defn transcript-container-row
+  "Construct a private container row with its current revision/content; no storage effect."
   [container-id kind object-key source-id anchor-id revision-id content-text content-hash
    now actor-id event-id]
   (oc/->ObjectContainerRow container-id
@@ -176,6 +193,7 @@
                            event-id))
 
 (defn transcript-revision-row
+  "Construct a root revision row for imported content and its supplied order key."
   [revision-id container-id content-text content-hash order-key now actor-id event-id]
   (oc/->RevisionRow revision-id
                     container-id
@@ -188,6 +206,7 @@
                     event-id))
 
 (defn transcript-composition-edge
+  "Construct a composition row between supplied endpoints. edge-kind contributes to identity; typed relation assertions belong to RelationKernel."
   [object-key edge-kind parent-kind parent-id child-kind child-id order-key source-id
    anchor-id event-id]
   (oc/->CompositionEdgeRow (str "ce:" object-key ":" (name edge-kind) ":"
@@ -206,6 +225,7 @@
                            event-id))
 
 (defn transcript-previous-message-container-id
+  "Resolve explicit previous-container/message identifiers, then UUID or source-line fallbacks; return nil without a predecessor hint."
   [object-key obs opts]
   (or (:transcript/previous-message-container-id obs)
       (:transcript/previous-message-container-id opts)
@@ -223,6 +243,13 @@
                                              (envelope/sha-256 (str previous-line-key))))))
 
 (defn transcript-observation-import-request
+  "Build one common material-import request from an already-redacted observation.
+   Requires source/conversation/file-line identity appropriate to transcript-identity.
+   Source-line identity determines default request/import keys; time defaults to
+   now. Previous-message/tool-resolution options affect the material fingerprint,
+   so reusing a line key with different context is not an identical import.
+   Parse-error observations retain audit/source material without message rows.
+   No redaction, I/O, append or acceptance check occurs here."
   ([obs]
    (transcript-observation-import-request obs {}))
   ([obs opts]

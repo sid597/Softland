@@ -1,8 +1,13 @@
 (ns app.server.worn.activation-event
-  "Declared activation, rollback, pin, and unpin event forms.
-   Takes: pointer revision ids, kinds, scopes, actors, times, and grounds.
-   Gives: validated event maps, parsed pointer-source bytes, and compatibility reads for prior strings.
-   Holds nothing."
+  "Pure data codec for the content of facet-master active-pointer revisions.
+   Events name the material revision being worn, a declared operation, scope,
+   actor, time and grounds. Constructors/serialization do not validate; explicit
+   validators and parse return diagnostics. Legacy bare revision-id sources read
+   as activations with unknown grounds, without rewriting stored bytes.
+
+   Owns immutable vocabularies only. No depot append, clock read, authorization
+   or revision lookup occurs here. The pointer revision's identity and parent
+   chain live in object-container; facet-master uses them to order history."
   (:require [clojure.string :as str]
             #?(:clj [clojure.edn :as edn]
                :cljs [cljs.reader :as edn])))
@@ -12,17 +17,14 @@
 ;; ===========================================================================
 
 (def kinds
-  "What an activation DID. `:activate` moves the worn revision forward,
-   `:rollback` re-wears a prior one (including the inherited state — T11: the
-   removal of a deviation is a rollback to the parent, never a tombstone and
-   never a deletion), `:pin`/`:unpin` move an instance master's pin."
+  "Declared operation kinds: activate, rollback, pin and unpin. The codec checks
+   vocabulary, not whether a requested revision is newer or previously worn."
   #{:activate :rollback :pin :unpin})
 
 (def scope-kinds
-  "P6 opens exactly two. `:scope/all-unpinned` reaches every unpinned wearer
-   INCLUDING wearers that do not exist yet — by reference, never by fan-out
-   writes (T1). `:scope/subject` is one subject's instance master. Richer
-   scopes wait for a need that names itself."
+  "The two supported scope descriptors. Shared all-unpinned applies by reference;
+   subject scope describes an instance operation. This vocabulary does not
+   enforce which pointer a caller edits."
   #{:scope/all-unpinned :scope/subject})
 
 (def ground-relations
@@ -48,20 +50,28 @@
 ;; Construction
 ;; ===========================================================================
 
-(defn all-unpinned-scope [] [:scope/all-unpinned])
+(defn all-unpinned-scope
+  "Construct the shared-master scope descriptor; performs no wearer lookup."
+  []
+  [:scope/all-unpinned])
 
-(defn subject-scope [subject-uid] [:scope/subject (str subject-uid)])
+(defn subject-scope
+  "Construct a scope for the stringified subject; validation is separate."
+  [subject-uid]
+  [:scope/subject (str subject-uid)])
 
 (defn ground
+  "Construct a ground reference without validating its vocabulary or resolving its id."
   [relation kind id]
   {:ground/relation relation
    :ground/kind kind
    :ground/id (str id)})
 
 (defn event
-  "Build one closed activation event. `time-ms` MUST be the honest wall clock
-   of the requesting act (R3); callers that pass a deterministic constant are
-   test callers passing it explicitly, and G11 greps production paths for it."
+  "Construct the six event fields, filling scope/actor/grounds defaults and
+   coercing time to long (default 0). revision-id names material, not the pointer
+   revision. Does not read the clock or call valid-event?; live request callers
+   supply the act's time, while bootstrap paths may explicitly use time 0."
   [{:keys [revision-id kind scope actor time-ms grounds]}]
   {:activation/revision-id (str revision-id)
    :activation/kind kind
@@ -76,6 +86,7 @@
 ;; ===========================================================================
 
 (defn valid-scope?
+  "Accept the exact vector arity for all-unpinned or a nonempty subject string."
   [scope]
   (and (vector? scope)
        (contains? scope-kinds (first scope))
@@ -87,6 +98,7 @@
          false)))
 
 (defn valid-ground?
+  "Check exact ground keys, declared relation/kind and a nonempty id; no lookup."
   [g]
   (and (map? g)
        (= ground-keys (set (keys g)))
@@ -96,6 +108,7 @@
        (seq (:ground/id g))))
 
 (defn valid-actor?
+  "Require a nonempty actor id and keyword type; not the object-container allowlist."
   [a]
   (and (map? a)
        (string? (:actor/id a))
@@ -145,11 +158,12 @@
            :actual (:activation/grounds e)})))
 
 (defn valid-event?
+  "True when event-errors returns no violations of the closed event shape."
   [e]
   (empty? (event-errors e)))
 
 (defn source-for
-  "The DURABLE bytes of one event. `*print-namespace-maps*` is pinned off, and
+  "Serialize an event without validation. `*print-namespace-maps*` is pinned off, and
    that is load-bearing, not tidiness: every key here lives in the `:activation`
    namespace, so `pr-str` emits `#:activation{…}` when the flag is true (the
    REPL default) and `{:activation/…}` when it is false (the plain-program
@@ -171,21 +185,15 @@
   {:actor/id "unknown" :actor/type :unknown})
 
 (defn parse
-  "One pointer source → one activation event, ALWAYS. Three outcomes, each
-   labeled so a reader never has to guess which it got:
+  "Read pointer content as a declared event or a legacy/degraded activation.
+   A valid map retains its fields with :activation/v0? false and known grounds.
+   Nonempty non-map-looking source is a bare material revision id. Invalid or
+   unreadable map-looking source returns validation/parse errors, unknown actor
+   and grounds, and :activation/v0? true; that flag also marks degraded events.
 
-   - a P6 edn form that validates  → the event, `:activation/v0? false`,
-                                     `:activation/grounds-known? true`
-   - a v0 bare revision-id string  → `{:activation/kind :activate}` over that
-                                     revision, `:activation/v0? true`,
-                                     `:activation/grounds-known? false`
-   - a form that parses as a map   → the same v0-shaped answer PLUS
-     but fails validation            `:activation/errors`, so a corrupt event
-                                     degrades to `we know what is worn, we do
-                                     not know why` instead of to nothing.
-
-   Never throws. `revision-id-fallback` is the pointer's own naming of the
-   worn revision when the source itself cannot supply one."
+   Recover the material revision id from an invalid map when possible, otherwise
+   use revision-id-fallback (nil by default). Corrupt source need not identify a
+   worn revision. Never rewrites source or performs a revision lookup."
   ([source] (parse source nil))
   ([source revision-id-fallback]
    (let [s (str/trim (str source))

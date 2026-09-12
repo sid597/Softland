@@ -1,8 +1,15 @@
 (ns app.server.worn.binding-material
-  "Binding rows resolved from gesture, pick path, site, and material tier.
-   Takes: gesture maps, containment paths, facet claims, instance rows, and master rows.
-   Gives: deterministic binding decisions, conflicts, validators, and interaction tables.
-   Holds: gesture-kinds, sites, tier-order, and binding tables."
+  "Pure grammar, resolution and inspection of gesture-to-verb binding rows.
+   Given a normalized gesture, innermost-first containment claims and instance,
+   master and floor tables, chooses a verb descriptor or an unclaimed result.
+   Within the first matching depth, tier precedes priority and specificity;
+   ties produce a deterministic choice plus conflict data.
+
+   Owns immutable gesture/site vocabularies and code-floor rows. Borrows verb
+   names, versions, required arguments and effect classes from page's
+   verb-registry. Validation and table/drill projections have no side effects;
+   acquisition of browser gestures and execution of the chosen verb are callers'
+   responsibilities. resolve-binding expects already validated row tables."
   (:require [app.server.page.verb-registry :as verb-registry]))
 
 ;; ===========================================================================
@@ -10,9 +17,7 @@
 ;; ===========================================================================
 
 (def gesture-kinds
-  "Every gesture the kernel normalizes. `:pointer/press` and `:pointer/tap` are
-   distinct gestures, not phases of one: a press that crosses the threshold is
-   never also a tap."
+  "Gesture kinds accepted by this binding grammar; acquisition belongs to callers."
   #{:pointer/press :pointer/tap :pointer/meta :wheel :key/eval})
 
 (def gesture-phases
@@ -33,16 +38,11 @@
     [:key/eval :complete]})
 
 (def modifier-keys
-  "Only what the kernel actually observes today: `events/>mouse` and
-   `events/>wheel` carry `:shift?` and nothing else. A row asking for a
-   modifier the kernel never normalizes could never fire, so the grammar
-   refuses it loudly instead of leaving a dead row in the table. Widening this
-   set is a kernel change plus a grammar version — never a silent one."
+  "The modifier vocabulary accepted and retained by this grammar and normalizer."
   #{:shift})
 
 (def sites
-  "The claim sites P5 opened with. P1 makes `:space/ground` the outermost rung
-   of every runtime claim chain; its rows still live only on the code floor."
+  "The block/header and outer-space claim sites accepted by binding validation."
   #{:block/user-hit-area
     :block/machine-hit-area
     :block/fold-header
@@ -136,6 +136,7 @@
 ;; ===========================================================================
 
 (defn- valid-verb-ref?
+  "Check exact name/version keys and the registry's known or material-bindable set."
   [x bindable?]
   (and (map? x)
        (= #{:verb/name :verb/version} (set (keys x)))
@@ -162,9 +163,9 @@
   "One row against the closed grammar. `bindable?` true (the material path)
    additionally refuses floor-reserved verbs; the code floor passes false.
 
-   The 3-arity adds the T10 site check. `valid-bindings?` always knows the site
-   a row is filed under, so it always uses that arity — the 2-arity remains the
-   site-agnostic shape check for callers that genuinely have no site."
+   The three-argument arity also checks the site can supply verb arguments.
+   valid-bindings-strict? uses it; the older valid-bindings? intentionally uses
+   the site-agnostic arity to preserve its grammar semantics."
   ([row] (valid-row? row true))
   ([row bindable?]
    (and (map? row)
@@ -185,6 +186,7 @@
         (site-can-feed? site row))))
 
 (defn- bindings-ok?
+  "Check nonempty site tables, valid rows and unique gesture/phase/modifier triples."
   [bindings bindable? site-check?]
   (and (map? bindings)
        (seq bindings)
@@ -221,8 +223,8 @@
 
 (defn valid-bindings-strict?
   "GRAMMAR v2 (P6 · T10) = v1 plus the site-can-feed-the-verb check. Additive:
-   every row v2 accepts, v1 accepted too. The twenty shipped rows all pass —
-   the only rows this refuses are the ones that could never have worked."
+   every row v2 accepts, v1 accepted too. Requires each site to supply the
+   registered verb arguments."
   ([bindings] (valid-bindings-strict? bindings true))
   ([bindings bindable?] (bindings-ok? bindings bindable? true)))
 
@@ -252,6 +254,7 @@
        :gesture/modifiers mods})))
 
 (defn matches?
+  "Match kind, phase and exact modifiers, or accept modifiers through an :any row."
   [row gesture]
   (and (= (:binding/gesture row) (:gesture/kind gesture))
        (= (:binding/phase row) (:gesture/phase gesture))
@@ -273,7 +276,7 @@
 
 (defn- row-order
   "The deterministic total order. Priority first (ascending — the same
-   convention `facet-material/compose` already uses for contributions), then
+   convention `facet-engine/compose` already uses for contributions), then
    specificity, then facet and verb identity so the winner never depends on map
    iteration order."
   [{:keys [facet row]}]
@@ -303,6 +306,7 @@
        {:tier :floor :facet facet :row row}))))
 
 (defn- conflict-at
+  "Describe the top-ranked tie at one claim/depth/tier, including its chosen verb."
   [tied {:keys [claim gesture depth tier winner]}]
   {:type :material-binding/priority-tie
    :binding/site (:claim/site claim)
@@ -386,6 +390,7 @@
 ;; ===========================================================================
 
 (defn- floor-row
+  "Construct a code-floor binding row for a version-0 verb; validation is separate."
   [gesture phase modifiers verb-name priority]
   {:binding/gesture gesture
    :binding/phase phase
@@ -429,9 +434,7 @@
    halo-floor-bindings))
 
 (def space-facet
-  "The facet the outermost space rung's floor rows are filed under. There is no
-   served `fm:space` master in rung 1, so the space has a FLOOR tier and no
-   material tier."
+  "Facet keyword for the outer space claim and its master/floor binding tables."
   :space)
 
 (def space-floor-master-id
@@ -441,10 +444,9 @@
   "code-floor:fm:space:v0")
 
 (def space-floor-bindings
-  "The space's rows, code side, forever (per the package: camera and space
-   bindings last, always on the code floor). `:camera/pan` and
-   `:camera/zoom-at-pointer` are additionally floor-reserved in the verb
-   registry, so even a future `fm:space` master could not bind them."
+  "Camera-inclusive fallback rows for the outer space claim. The registered
+   space spec derives its bindable anchor/marquee subset from this table;
+   camera verbs remain floor-reserved in verb-registry."
   {:space/ground
    [(floor-row :pointer/tap :complete :any :anchor/place 0)
     (floor-row :pointer/press :threshold #{} :camera/pan 0)

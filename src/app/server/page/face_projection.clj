@@ -1,8 +1,16 @@
 (ns app.server.page.face-projection
-  "Registered page projections over kernel reads.
-   Takes: runtime context and a request map containing :face, :address, and :params.
-   Gives: data-context maps for conversation, material, relation, and page views.
-   Holds: projection-registry and escape-gauge-state."
+  "Request dispatch and read-side composition for conversation and material pages.
+   `serve` takes borrowed runtime handles in ctx and a {:face :address :params}
+   request, selects a registered projection, and returns a data-context map.
+   Conversation reads compose ingest/river-page, episode records and relation
+   queries; material reads compose worn/ APIs and this folder's portal helpers.
+   Resident seed/briefing helpers reuse those reads without invoking a model.
+
+   No durable state is owned here. projection-registry is code-owned dispatch
+   data. escape-gauge-state is process-local: a last report and one in-flight
+   promise; its worker may outlive the requesting call's timeout. Other reads
+   borrow ctx handles without acquiring or closing them. Multi-read projections
+   are assembled observations, not a cross-module transactional snapshot."
   (:require [clojure.string :as str]
             [clojure.edn :as edn]
             [app.server.episode.cascade :as cascade]
@@ -468,11 +476,15 @@
                :message (.getMessage t)}})))
 
 (defn conversation-projection
-  "The ONE Wave-1 projection: conversation → turns → blocks-with-kinds, over the
-   block kernel's durable state via `river-page` (READ-ONLY). `ctx` carries the OC
-   runtime; `request` is the CONTRACT §7 shape {:face :address :params :epoch}, where
-   :address is the conversation object-key and :params {:limit :until-ms}. Returns the
-   §7 data-context (never throws — a bad address yields an error data-context)."
+  "Read bounded river pages for address, its threads and successor episodes;
+   group blocks into turns, apply the optional time cut and attach geometry,
+   turn records, circulation experience and machine-cut pair structure.
+   ctx borrows oc-rt/rk-rt; request carries :address and :params including limit,
+   until-ms and focus-turn. Blocks retain their own object-key for later edits.
+
+   Missing address returns an error data-context. Named lane/experience reads
+   have local fallbacks; other read/shape failures propagate to `serve` or the
+   episode-seed wrapper. No durable writes or all-reads snapshot guarantee."
   [{:keys [oc-rt rk-rt]} {:keys [address params] :as request}]
   (let [limit    (clamp-limit (:limit params))
         until-ms (:until-ms params)]
@@ -1138,6 +1150,7 @@
   oc/default-outline-page-size)
 
 (defn- inspector-entity
+  "Shape entity identity from a unit read result; absent results retain the requested id."
   [entity-id unit-result]
   (let [unit (:unit unit-result)]
     {:entity/id entity-id
@@ -1149,6 +1162,7 @@
      :entity/target-id (:target-id unit-result)}))
 
 (defn- candidate-trail-entry
+  "Compile one candidate revision against spec and annotate its validity and active/latest identity."
   [spec revision active-id latest-id]
   (let [compiled (facet-engine/compile-source
                   spec (:content-text revision))
@@ -1239,6 +1253,7 @@
           (mapv #(entry % nil false) orphans))))
 
 (defn- trail-sort-key
+  "Order trail entries by time, candidate precedence, source order and stable identity tie-breakers."
   [entry]
   [(:trail/time-ms entry)
    (if (= :candidate (:trail/kind entry)) 0 1)
@@ -1248,6 +1263,10 @@
    (:trail/pointer-revision-id entry)])
 
 (defn- material-inspector-facet
+  "Join one stamped master to its current head and bounded candidate/pointer
+   histories. Return derived attachment evidence and a sorted trail with an
+   explicit completeness flag. Unknown masters return a named error; read and
+   compile failures propagate to the enclosing inspector boundary."
   [oc-rt master-id wearer-facets]
   (if-let [spec (facet-masters/spec master-id)]
     (let [{:keys [latest-revision active-pointer active-revision]}
@@ -1340,10 +1359,11 @@
      :material-inspector/revision-trail-complete? true}))
 
 (defn material-inspector-result
-  "Join one picked block and every facet stamped on it to each master's
-   durable OC state in one server projection invocation. Cost is bounded by
-   the registered masters represented on that entity, never wearer count.
-   No wall clock enters the result, so equal snapshots are byte-equal."
+  "Normalize the supplied wearer snapshot and join the picked entity's stamped
+   masters to current ObjectContainer reads. Return canonical inspector data;
+   no runtime yields an explicit unavailable result. Reads scale with selected
+   master/history data and normalization traverses the supplied wearers.
+   No clock is added, but separate reads are not a shared snapshot."
   [oc-rt entity-id wearer-snapshot]
   (let [wearers (material-inspector/normalize-wearers wearer-snapshot)]
     (if (nil? oc-rt)
@@ -1415,6 +1435,7 @@
 ;; ===========================================================================
 
 (defn- cascade-rows-envelope
+  "Call row-source and wrap its declarations with caller-supplied ownership/source labels and a count."
   [row-source source labels ownership]
   (let [rows (vec (row-source))]
     {:cascade/version 0
@@ -1453,6 +1474,7 @@
 (def ^:private default-escape-gauge-timeout-ms 5000)
 
 (defn- poisoned-escape-report
+  "Construct an unavailable/error gauge report; unknown counts remain nil rather than zero."
   [error-type message]
   {:terminal-escape/status :poisoned
    :terminal-escape/count nil
@@ -1480,6 +1502,7 @@
          :in-flight nil}))
 
 (defn- escape-gauge-timeout-ms
+  "Use a positive numeric request timeout (coerced to long), otherwise the default milliseconds."
   [request]
   (let [candidate (get-in request [:params :timeout-ms])]
     (if (and (number? candidate) (pos? candidate))
@@ -1487,6 +1510,9 @@
       default-escape-gauge-timeout-ms)))
 
 (defn- compute-escape-gauge-report
+  "Read Git commits and provenance pointer history with the injected readers,
+   then derive the terminal-escape report. Missing runtime and read failures
+   yield poisoned reports. This function itself has no timeout or cancellation."
   [{:keys [read-commits read-revision-history]} {:keys [oc-rt]}]
   (if-not oc-rt
     (poisoned-escape-report
@@ -1516,6 +1542,10 @@
          (or (.getMessage t) "The on-demand escape gauge read failed."))))))
 
 (defn- start-escape-gauge-flight!
+  "Atomically claim one worker slot in state, or return the existing promise
+   and previous report to a concurrent caller. The owner launches a future;
+   completion updates last-report, clears the matching slot and delivers the
+   promise. A caller timeout does not cancel this worker."
   [state deps ctx]
   (loop []
     (let [{:keys [in-flight last-report] :as before} @state]
@@ -1547,6 +1577,7 @@
             (recur)))))))
 
 (defn- escape-gauge-envelope
+  "Wrap report and observed cached/in-flight flags, optionally adding the named master's gauge resident."
   [master-id report cached? in-flight?]
   (cond->
    {:escape-gauge/version 0
@@ -1618,28 +1649,23 @@
 ;; ===========================================================================
 
 (defn block-truth-projection
-  "block-write INT · the §5 narrowing serve: edited units' materialized truth
-   via the SAME read-unit overlay river-page uses (the graduation overlay
-   returns edited content — Lane A G1). Narrower read, same transport, same
-   criterion (CONTRACT §5). Read-only by construction (G12). Request:
-   {:face :block-truth :address <object-key>
-    :params {:units {<unit-id> <nonce>}} :epoch n} — a UNION map, not a
-   single id (FALSIFY F1: Electric conflates a single-value request atom to
-   the latest value, silently dropping a cross-unit pull; a union map makes
-   conflation lossless — the latest value contains every armed unit; capped
-   client-side). Reaches this entry by direct projection addressing (resolve
-   order 3). Total: unknown units serve found? false, never a throw (L13)."
+  "Read current unit content for each unit-id -> request-nonce entry in
+   :params/:units. Return a keyed map of found?, text and the echoed nonce plus
+   a serve-time clock. The map can carry several pending units in one request
+   instead of replacing one requested id with another. Unknown units return
+   found? false; read errors propagate
+   to `serve`. The caller is responsible for bounding the supplied unit map.
+   Nonces correlate requests; they do not turn separate reads into a snapshot."
   [{:keys [oc-rt]} request]
   (let [units (get-in request [:params :units])]
     {:block-truth/units
      (into {}
            (map (fn [[unit-id request-nonce]]
                   ;; UnitReadResult's TOP-LEVEL :content-text is the overlay:
-                  ;; the graduation row's current content when edited
-                  ;; (refreshed per revision, object_container.clj:1491-1499),
-                  ;; the derived text when never edited — the same truth
-                  ;; river-page serves. Read AT EXECUTION time: a late pull
-                  ;; can never serve stale content.
+                  ;; the graduation row's current content when edited,
+                  ;; the derived text when never edited — the same read API
+                  ;; river-page uses. Each unit is read when this call executes;
+                  ;; another accepted write can precede delivery of the result.
                   (let [result (ocr/read-unit oc-rt unit-id)]
                     [unit-id {:found? (some? result)
                               :text   (:content-text result)
@@ -1653,11 +1679,9 @@
 ;; ===========================================================================
 ;; editable-material P7 — the portal: one pick, every answer, ONE roundtrip.
 ;;
-;; `serve` is forward-declared because the portal composes five sub-projections
-;; through it. That is not an unfortunate ordering accident — it is the fence
-;; `portal renders through the layer's own machinery` made structural: the portal
-;; has no private read path into the land, so it can never show the reader
-;; something the land itself cannot serve.
+;; `serve` is forward-declared so the portal can receive registry dispatch as
+;; a callback without a namespace cycle. Its sub-projections use that callback;
+;; identity, placement and activation trails also use direct server read APIs.
 ;; ===========================================================================
 
 (declare serve)
@@ -1709,14 +1733,12 @@
                  cards))))))
 
 (defn material-portal-projection
-  "P7 transport. `:portal/result` is canonical and CLOCK-FREE — two equal worlds
-   produce byte-equal portals, which is what makes the determinism gate and the
-   briefing-identity gate testable at all. The token, the clock, the rendering
-   and the briefing ride the envelope.
-
-   Total by construction: the portal's own section boundaries name every failure,
-   and this outer catch exists only for a failure that precedes them (a malformed
-   request), which still has to arrive as a data-context and never a throw (L13)."
+  "Open and canonicalize a material portal, enrich room experience, and return
+   result/EDN/card-model/briefing alongside the echoed request token and clock.
+   Section failures are retained in the result; an outer failure becomes an
+   open-failed result with fallback cards/briefing. The normal briefing-bytes
+   field uses string count, not encoded UTF-8 length.
+   Equal result values serialize equally; separate reads need not be equal."
   [ctx request]
   (let [params (:params request)
         token (:request-token params)]
@@ -1752,13 +1774,10 @@
            :face/rendered-at-ms (System/currentTimeMillis)})))))
 
 (def projection-registry
-  "Plain value: {<projection-kw> → (fn [ctx request] → data-context)}. Wave 1
-   registered ONE projection; W2 added the :face-list arsenal roster read.
-   Extensible by adding an entry — never by an
-   Electric `case`. Persisted form (Wave 2, schema §8) is keyword + code address,
-   never fn values (trap T5). block-write INT adds :block-truth (the §5
-   single-unit echo read); editable-material P2 adds the read-only, batched
-   :material-inspector."
+  "Code-owned projection keyword -> (fn [ctx request] -> data-context) dispatch.
+   `serve` uses this map; the alternate arity accepts an injected registry.
+   Registration alone does not establish a caller. Functions borrow runtime
+   handles; the escape gauge additionally manages process-local worker state."
   {:conversation conversation-projection
    :face-list    face-list-projection
    :facet-materials facet-materials-projection
@@ -1822,13 +1841,15 @@
     :face/rendered-at-ms (System/currentTimeMillis)}))
 
 (defn serve
-  "The artery's server entrypoint (CONTRACT §7): resolve the projection for a request
-   and run it. Generic — the Electric side calls ONLY this, with the whole request; all
-   per-face routing is the plain-map lookup below. Total: an unknown face returns an
-   error data-context, never a throw (the render loop has no `try`, L13).
+  "Resolve request :face and invoke its projection with borrowed ctx handles.
+   Static aliases win, then an arsenal face routes to :conversation, otherwise
+   the face value is looked up directly. Unknown kinds return :unknown-projection;
+   exceptions during the selected projection return :projection-read-failed.
+   Calls taking over 100 ms are logged. No subscription is installed here.
 
-   Two arities: `(serve ctx request)` uses the module registry; `(serve registry ctx
-   request)` injects one (the G13 dispatch unit test passes a stub registry — no IPC)."
+   The two-arity form uses projection-registry; the three-arity form accepts a
+   registry for isolated callers/tests. Individual projection functions may
+   throw when called directly; this is their shared invocation error boundary."
   ([ctx request] (serve projection-registry ctx request))
   ([registry ctx request]
    (let [face (:face request)
@@ -1921,20 +1942,17 @@
 ;; the human sees, never with a model's summary of it. `episode-seed` inherits a
 ;; conversation; this inherits a material world.
 ;;
-;; The GESTURE that summons a resident here is P8's (one verb born from inside).
-;; What P7 owns is the briefing and its one named, total entry point — so the
-;; verb, when it arrives, has nothing left to invent about what the resident
-;; knows.
+;; The door's run-episode-turn calls portal-briefing before composing the
+;; resident prompt. It performs a new portal read; see the function docstring
+;; for the difference from the human portal projection's room enrichment.
 ;; ===========================================================================
 
 (defn portal-briefing
-  "Driver shell (TOTAL): the briefing for a resident summoned inside the portal
-   on an entity or inside a master-anchored matter room. Any failure yields nil
-   — an unbriefed resident, never a blocked summon.
-
-   The returned string carries the canonical projection VERBATIM (G7 asserts the
-   byte identity). Prefix it to the resident's prompt exactly as `episode-seed`
-   is prefixed."
+  "Read a new portal result for entity/master parameters and serialize its
+   briefing; log failures and return nil so the caller can continue unbriefed.
+   This calls material-portal/open directly. It does not reuse an earlier human
+   portal result or apply material-portal-projection's with-room-experience
+   enrichment, so cross-call byte identity is not guaranteed."
   [ctx {:keys [entity-id wearers conversation-id master-ids master-id
                narrowed?]}]
   (try

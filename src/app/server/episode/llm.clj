@@ -1,8 +1,14 @@
 (ns app.server.episode.llm
-  "An in-process turn-run and model-execution module.
-   Takes: turn-run requests, claims, observations, approvals, controls, and executor events.
-   Gives: run, item, approval, control, token, cost, and error rows; spawns `claude`.
-   Holds: depots *llm-depot *llm-claim-depot *llm-obs-depot *llm-control-depot; 23 declared PStates."
+  "Rama turn-run lifecycle plus foreign-client executor helpers.
+   llm-module folds requests, claims, observations and controls into run truth
+   and its thread, item, approval, usage and audit indexes in one microbatch
+   topology. Run ids are single-use; a materialized claim gates model execution.
+   The module owns its depots/PStates, not provider processes or OC material.
+   start-llm-runtime! creates an InProcessCluster; its caller owns closure.
+   The Claude adapter runs outside the topology, collects process output, then
+   returns observations for append. Controls update records here; this adapter
+   does not forward them to a running child. See README.md for the separate
+   HTTP episode process path and annotation callers."
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
@@ -15,25 +21,17 @@
            (java.util.concurrent TimeUnit)))
 
 ;; ────────────────────────────────────────────────────────────────────────────────
-;;   LLM KERNEL
+;;   Run lifecycle and derived read indexes
 ;;
-;;   The LLM Kernel runs provider-side turn-runs for chats that live in Space:
-;;   it organizes runs into LLM-side threads bound to spaces, then manages
-;;   each run's lifecycle through its depot family — requests as intent,
-;;   claims as executor locks, streamed observations as provider output /
-;;   tool calls / token usage, and controls as cancel, steer, approve, or
-;;   compact. It is the only kernel that currently carries a control depot,
-;;   because the present product surface expects users to intervene in model
-;;   runs mid-stream.
+;;   Requests are intent; only an accepted decision creates a pending run.
+;;   Claims move it out of the executor inbox. Authenticated observations fold
+;;   provider output into run rows and indexes; controls update run/approval
+;;   state. Pure record/fold helpers precede llm-module; runtime handles and
+;;   foreign executor helpers follow it. The topology never spawns a provider.
 ;;
-;;   Compressed:  requested model work becomes observable agent-run state.
-;;
-;;   Boundary:  Space owns the chat-as-place; LLM owns the execution
-;;   underneath each turn. The executor for LLM work lives outside this
-;;   module as helper / runtime fns — distinct from compute-kernel, which
-;;   owns its executor via `declare-object`.
-;;
-;;   For the kernel taxonomy and KERNEL-SHAPE spec see app.server.rama.kernel.
+;;   The current ambient driver uses a delayed IPC owned by server-jetty.
+;;   OC and relation state written by annotation drivers have separate owners
+;;   and are not in the LLM microbatch transaction.
 ;; ────────────────────────────────────────────────────────────────────────────────
 
 (def schema-version 1)
@@ -106,29 +104,36 @@
   #{"api_key" "apikey" "api-key" "token" "auth_token" "auth-token"
     "oauth_token" "oauth-token" "password" "secret" "authorization"})
 
-(defn now-ms [] (envelope/now-ms))
-(defn random-id [prefix] (envelope/random-id prefix))
+(defn now-ms
+  "Return the envelope clock in milliseconds." [] (envelope/now-ms))
+(defn random-id
+  "Mint a new envelope id under prefix." [prefix] (envelope/random-id prefix))
 
 (defn llm-routing-key
+  "Return the logical run routing key [:llm-run run-id]."
   [run-id]
   [:llm-run run-id])
 
 (defn normalize-task-id
+  "Stringify a non-nil executor task id; preserve nil."
   [task-id]
   (when (some? task-id)
     (str task-id)))
 
 (defn blank-string?
+  "True for non-strings or blank strings; used by request/record validation."
   [x]
   (or (not (string? x)) (str/blank? x)))
 
 (defn opts-executor-task-id
+  "Read either executor task option spelling and normalize it to a string."
   [opts]
   (normalize-task-id
     (or (:executor-task-id opts)
         (:executor/task-id opts))))
 
 (defn opts-backend
+  "Resolve backend option aliases, defaulting to :codex."
   [opts]
   (or (:llm/backend opts)
       (:backend opts)
@@ -137,10 +142,12 @@
       :codex))
 
 (defn normalize-backend
+  "Default a nil backend to :codex; validation is separate."
   [backend]
   (or backend :codex))
 
 (defn normalize-auth-mode
+  "Preserve an explicit auth mode; default Claude to :subscription, others nil."
   [backend auth-mode]
   (cond
     (some? auth-mode) auth-mode
@@ -148,22 +155,26 @@
     :else nil))
 
 (defn request-executor-task-id
+  "Read the task id from payload or executor fields and stringify it."
   [request]
   (normalize-task-id
     (or (get-in request [:payload :executor/task-id])
         (get-in request [:executor :executor/task-id]))))
 
 (defn request-backend
+  "Read backend from request or executor, defaulting to :codex."
   [request]
   (normalize-backend
     (or (:llm/backend request)
         (get-in request [:executor :agent/kind]))))
 
 (defn request-auth-mode
+  "Resolve the request backend's default or explicit authentication mode."
   [request]
   (normalize-auth-mode (request-backend request) (:llm/auth-mode request)))
 
 (defn normalize-turn-run-request
+  "Normalize backend/executor/auth fields on a map; pass non-maps through."
   [request]
   (if (map? request)
     (let [backend (request-backend request)
@@ -177,9 +188,11 @@
     request))
 
 (defn turn-run-request
-  "Build the LLMTopology input record. In the full system SpaceTopology is the
-   only writer of this value to *llm-depot after it has accepted a Turn and
-   frozen the ContextBundle."
+  "Build turn-run intent from space, turn and context-bundle ids plus options.
+   Missing run/thread/request ids and time are minted here; callers needing
+   retry identity must supply stable ids. Annotation drivers call this
+   directly with synthetic space/turn ids. Construction does not persist or
+   accept the request, freeze a bundle, or start an executor."
   [space-id turn-id context-bundle-id & [opts]]
   (let [run-id (or (:llm-turn-run-id opts) (:llm-turn-run/id opts) (random-id "llm-run"))
         llm-thread-id (or (:llm-thread-id opts) (:llm-thread/id opts) (random-id "llm-thread"))
@@ -227,6 +240,8 @@
    :context-bundle/id :llm-thread/id :llm-turn-run/id :executor :payload])
 
 (defn request-validation-errors
+  "Return validation error maps for request shape, routing, backend/auth and
+   executor/payload fields. Return an empty vector when those checks pass."
   [request]
   (let [request (normalize-turn-run-request request)
         run-id (:llm-turn-run/id request)
@@ -314,20 +329,25 @@
       (conj {:type :payload/execution-options-not-bundle-owned
              :keys forbidden-options}))))
 
-(defn request-errors? [errors] (boolean (seq errors)))
-(defn request-run-id [request] (:llm-turn-run/id request))
-(defn decision-run-id [decision] (:llm-turn-run/id decision))
-(defn decision-accepted? [decision] (= :accepted (:decision/status decision)))
+(defn request-errors?
+  "True when the validation error collection is nonempty." [errors] (boolean (seq errors)))
+(defn request-run-id "Return :llm-turn-run/id from request, or nil." [request] (:llm-turn-run/id request))
+(defn decision-run-id "Return :llm-turn-run/id from decision, or nil." [decision] (:llm-turn-run/id decision))
+(defn decision-accepted?
+  "Test the LLM decision's :decision/status for :accepted." [decision] (= :accepted (:decision/status decision)))
 
 (defn decision-id-for-run-id
+  "Derive the single decision id associated with a run id."
   [run-id]
   (str run-id "/decision"))
 
 (defn decision-time-ms
+  "Use the request timestamp as the decision time."
   [request]
   (:request/time-ms request))
 
 (defn run-event
+  "Normalize a request and copy its execution intent into a requested-run event."
   [request]
   (let [request (normalize-turn-run-request request)]
     {:event/id (str (:request/id request) "/event")
@@ -347,6 +367,7 @@
    :payload (:payload request)}))
 
 (defn accepted-decision
+  "Build an accepted decision carrying the supplied request event; no IO."
   [request event]
   {:decision/id (decision-id-for-run-id (:llm-turn-run/id request))
    :decision/status :accepted
@@ -360,6 +381,7 @@
    :decided-at (decision-time-ms request)})
 
 (defn rejected-decision
+  "Build a rejected decision with reason and optional validation errors; no IO."
   [request reason & [errors]]
   {:decision/id (decision-id-for-run-id (:llm-turn-run/id request))
    :decision/status :rejected
@@ -374,6 +396,8 @@
    :decided-at (decision-time-ms request)})
 
 (defn interpret-turn-run-request
+  "Normalize and validate intent, returning an accepted event-bearing decision
+   or a rejection. The topology applies deduplication and persists the result."
   [request]
   (let [request (normalize-turn-run-request request)
         errors (request-validation-errors request)]
@@ -382,6 +406,7 @@
       (accepted-decision request (run-event request)))))
 
 (defn conj-distinct
+  "Return xs as a vector, appending x only if it is not already present."
   [xs x]
   (let [v (vec xs)]
     (if (some #{x} v)
@@ -389,6 +414,8 @@
       (conj v x))))
 
 (defn initial-turn-run-row
+  "Build an unclaimed :pending run from an accepted decision's event, with
+   empty item/control/usage/audit collections and observation watermark -1."
   [decision]
   (let [event (:event decision)
         payload (:payload event)
@@ -441,25 +468,31 @@
      :observation-errors []}))
 
 (defn assign-executor-task
+  "Retain an explicit executor task, else use the current Rama task as a
+   string, falling back to the local task id."
   [run-row current-task-id]
   (let [executor-task-id (or (:executor/task-id run-row)
                              (normalize-task-id current-task-id)
                              pending-task-id)]
     (assoc run-row :executor/task-id executor-task-id)))
 
-(defn run-executor-task-id [run-row] (:executor/task-id run-row))
-(defn run-thread-id [run-row] (:llm-thread/id run-row))
-(defn run-space-id [run-row] (:space/id run-row))
-(defn run-turn-id [run-row] (:turn/id run-row))
-(defn known-run-row? [run-row] (some? run-row))
-(defn terminal-run-row? [run-row] (contains? terminal-statuses (:status run-row)))
-(defn fork-binding-required? [run-row]
+(defn run-executor-task-id "Return :executor/task-id from run-row, or nil." [run-row] (:executor/task-id run-row))
+(defn run-thread-id "Return :llm-thread/id from run-row, or nil." [run-row] (:llm-thread/id run-row))
+(defn run-space-id "Return :space/id from run-row, or nil." [run-row] (:space/id run-row))
+(defn run-turn-id "Return :turn/id from run-row, or nil." [run-row] (:turn/id run-row))
+(defn known-run-row?
+  "True when a run row exists." [run-row] (some? run-row))
+(defn terminal-run-row?
+  "True for succeeded, failed or cancelled run rows." [run-row] (contains? terminal-statuses (:status run-row)))
+(defn fork-binding-required?
+  "True when a requested native fork has no durable backend session binding." [run-row]
   (and (:fork/from-native-thread-id run-row)
        (case (:llm/backend run-row)
          :claude (nil? (:native/claude-session-id run-row))
          (nil? (:native/codex-thread-id run-row)))))
 
 (defn turn-run-summary
+  "Project the run fields stored in the thread's run-summary index."
   [run-row]
   (select-keys run-row
                [:llm-turn-run/id :request/id :status :turn/id
@@ -468,6 +501,7 @@
                 :native/claude-session-id]))
 
 (defn pending-entry
+  "Project run identity, bundle, task and timestamps for the executor inbox."
   [run-row]
   {:llm-turn-run/id (:llm-turn-run/id run-row)
    :llm-thread/id (:llm-thread/id run-row)
@@ -478,6 +512,8 @@
    :status (:status run-row)})
 
 (defn upsert-thread-row
+  "Build/update a thread from a run, keeping the first native session bindings
+   and appending each run id once to the thread membership vector."
   [existing run-row]
   (let [time-ms (:updated-at run-row)
         base (or existing
@@ -503,6 +539,7 @@
         (update :turn-run/ids conj-distinct (:llm-turn-run/id run-row)))))
 
 (defn bind-run-to-existing-thread
+  "Fill missing run native-session ids from the existing thread row."
   [run-row existing-thread-row]
   (cond-> run-row
     (and (nil? (:native/codex-thread-id run-row))
@@ -514,10 +551,12 @@
     (assoc :native/claude-session-id (:native/claude-session-id existing-thread-row))))
 
 (defn run-items-vector
+  "Return stored items in item-order, omitting ids with no row."
   [run-row]
   (vec (keep #(get-in run-row [:items-by-id %]) (:item-order run-row))))
 
 (defn run-view
+  "Project run state with ordered items and pending approvals for readers."
   [run-row]
   (assoc (select-keys run-row
                       [:llm-turn-run/id :llm-thread/id :space/id
@@ -531,6 +570,7 @@
          :approvals-pending (vec (vals (:approvals-pending run-row)))))
 
 (defn run-detail-projection
+  "Extend run-view with controls and patch proposals in their stored order."
   [run-row]
   (assoc (run-view run-row)
          :projection/type :llm-run-detail
@@ -545,6 +585,7 @@
    :tokens/reasoning-output])
 
 (defn numeric-token-value
+  "Read a numeric usage field, substituting zero for missing/non-numeric values."
   [usage k]
   (let [v (get usage k)]
     (if (number? v) v 0)))
@@ -556,6 +597,7 @@
 ;; from depot history and avoids double-counting updated usage for the same run;
 ;; full repair should rebuild $$llm-cost-by-thread from canonical run token usage.
 (defn apply-token-usage-delta
+  "Adjust token totals by new usage minus previous usage for the declared keys."
   [totals previous-usage usage]
   (reduce (fn [acc k]
             (assoc acc k (+ (numeric-token-value acc k)
@@ -565,6 +607,7 @@
           cost-rollup-token-keys))
 
 (defn cost-rollup-run-entry
+  "Project one run's usage and status into its thread cost-rollup entry."
   [run-row]
   {:llm-turn-run/id (:llm-turn-run/id run-row)
    :turn/id (:turn/id run-row)
@@ -574,6 +617,8 @@
    :updated-at (:updated-at run-row)})
 
 (defn cost-rollup-for-thread
+  "Update one run's token contribution and thread totals by delta. Empty usage
+   leaves contributions unchanged; this rollup counts tokens, not dollars."
   [existing run-row]
   (let [run-id (:llm-turn-run/id run-row)
         usage (:token-usage run-row)
@@ -593,6 +638,8 @@
      :updated-at (:updated-at run-row)}))
 
 (defn claim-record
+  "Build a run/thread/executor claim with task, timestamp and claim token.
+   Missing claim id/token/time are minted; this is not a granted claim."
   [run-id llm-thread-id executor-id & [opts]]
   (let [task-id (or (opts-executor-task-id opts) pending-task-id)]
     {:claim/id (or (:claim-id opts) (random-id "claim"))
@@ -604,10 +651,12 @@
      :claimed-at-ms (or (:claimed-at-ms opts) (:claimed-at opts) (now-ms))
      :routing/key (llm-routing-key run-id)}))
 
-(defn claim-run-id [claim] (:llm-turn-run/id claim))
-(defn observation-run-id [obs] (:llm-turn-run/id obs))
+(defn claim-run-id "Return :llm-turn-run/id from claim, or nil." [claim] (:llm-turn-run/id claim))
+(defn observation-run-id "Return :llm-turn-run/id from obs, or nil." [obs] (:llm-turn-run/id obs))
 
 (defn control-record
+  "Build a routed control record with optional approval, actor and payload.
+   Defaults actor to system and mints missing control identity/time; no IO."
   [run-id control-type & [opts]]
   {:control/id (or (:control-id opts) (:control/id opts) (random-id "llm-control"))
    :control/type control-type
@@ -625,10 +674,11 @@
    :reason (:reason opts)
    :payload (or (:payload opts) {})})
 
-(defn control-run-id [control] (:llm-turn-run/id control))
-(defn control-id [control] (:control/id control))
+(defn control-run-id "Return :llm-turn-run/id from control, or nil." [control] (:llm-turn-run/id control))
+(defn control-id "Return :control/id from control, or nil." [control] (:control/id control))
 
 (defn valid-control?
+  "Check control map, supported type, nonblank ids and matching routing key."
   [control]
   (and (map? control)
        (contains? control-types (:control/type control))
@@ -637,6 +687,7 @@
        (= (llm-routing-key (:llm-turn-run/id control)) (:routing/key control))))
 
 (defn valid-claim?
+  "Check nonblank run/thread/executor/task/token fields and matching run routing."
   [claim]
   (and (map? claim)
        (not (blank-string? (:llm-turn-run/id claim)))
@@ -647,6 +698,7 @@
        (= (llm-routing-key (:llm-turn-run/id claim)) (:routing/key claim))))
 
 (defn grantable-claim?
+  "True for a valid claim matching a pending run's id, thread and assigned task."
   [run-row claim]
   (and (valid-claim? claim)
        (= :pending (:status run-row))
@@ -655,6 +707,8 @@
        (= (:executor/task-id run-row) (:executor/task-id claim))))
 
 (defn grant-claim
+  "Set a previously checked run to :claimed with the executor, token and time.
+   Caller must apply grantable-claim? before persisting this pure update."
   [run-row claim]
   (let [t (or (:claimed-at-ms claim) (now-ms))]
     (assoc run-row
@@ -680,6 +734,7 @@
     :else :conflict-or-past))
 
 (defn append-bounded
+  "Append x to a vector and retain its last limit entries; limit must be nonnegative."
   [xs x limit]
   (let [v (conj (vec xs) x)
         c (count v)]
@@ -712,6 +767,7 @@
     :else (now-ms)))
 
 (defn observation-error
+  "Build a small audit entry from reason, run identity and bounded record fields."
   [reason run-row obs]
   {:reason reason
    :llm-turn-run/id (:llm-turn-run/id run-row)
@@ -720,6 +776,7 @@
    :received-at-ms (audit-time-ms obs)})
 
 (defn add-observation-error
+  "Append a bounded audit error to a run and advance its updated timestamp."
   [run-row reason obs]
   (let [t (audit-time-ms obs)]
     (-> run-row
@@ -730,15 +787,20 @@
         (assoc :updated-at t))))
 
 (defn valid-observation-sequence?
+  "True for a nonnegative integer observation sequence."
   [obs]
   (let [seq-id (:sequence obs)]
     (and (integer? seq-id) (not (neg? seq-id)))))
 
 (defn valid-observation-routing?
+  "Test whether the observation routing key matches its run id."
   [obs]
   (= (llm-routing-key (:llm-turn-run/id obs)) (:routing/key obs)))
 
 (defn observation
+  "Construct a sequenced run/thread observation, copying selected provider
+   fields and claim proof from opts. Does not validate or redact the payload;
+   adapter conversion and the topology guard perform those separate steps."
   [run-id llm-thread-id observation-type sequence & [opts]]
   (let [obs-id (or (:observation-id opts) (:observation/id opts) (random-id "obs"))
         received-at (or (:received-at-ms opts) (:observed-at opts) (now-ms))]
@@ -779,6 +841,8 @@
                     :provider/native-redacted]))))
 
 (defn sensitive-key?
+  "Classify named map keys by secret/token/password/auth substrings. This
+   key-name heuristic is also used by transcript ingest; it does not inspect values."
   [k]
   (let [s (-> k name str/lower-case)]
     (or (contains? sensitive-key-names s)
@@ -790,6 +854,8 @@
         (str/includes? s "api_key"))))
 
 (defn redact-provider-payload
+  "Recursively replace values under sensitive named keys with a redaction marker.
+   Sequential collections become vectors; unrelated scalar values pass through."
   [x]
   (cond
     (map? x)
@@ -809,6 +875,7 @@
     :else x))
 
 (defn observation-source
+  "Resolve observation backend from its explicit field or type namespace; default Codex."
   [obs]
   (or (:llm/backend obs)
       (when (namespace (:observation/type obs))
@@ -816,14 +883,18 @@
       :codex))
 
 (defn claude-observation-type?
+  "True when the observation resolves to the Claude backend."
   [obs]
   (= :claude (observation-source obs)))
 
 (defn item-source
+  "Return the provider source used for the observation's materialized item."
   [obs]
   (observation-source obs))
 
 (defn observation->item-row
+  "Project observation text, identity, sequence and source into an item row;
+   compute a hash when absent and fall back to observation identity."
   [obs]
   (let [text (or (:content/text obs)
                  (get-in obs [:codex/event-params :content])
@@ -844,6 +915,7 @@
      :created-at-ms (:received-at-ms obs)}))
 
 (defn add-item
+  "Insert a new item id and append its order once; existing item rows win."
   [run-row item]
   (if (get-in run-row [:items-by-id (:llm-item/id item)])
     run-row
@@ -852,6 +924,7 @@
         (update :item-order conj-distinct (:llm-item/id item)))))
 
 (defn observation->approval-row
+  "Build a pending approval row retaining native request identity from the observation."
   [obs]
   {:approval/id (or (:approval/id obs) (:observation/id obs))
    :approval/type (or (:approval/type obs) :exec)
@@ -865,6 +938,7 @@
    :received-at-ms (:received-at-ms obs)})
 
 (defn add-approval
+  "Add an approval to both run indexes and set :blocked-awaiting-approval."
   [run-row approval]
   (-> run-row
       (assoc :status :blocked-awaiting-approval)
@@ -877,10 +951,12 @@
    :subscription/messages-used :billing/mode])
 
 (defn observation->token-usage
+  "Select only the declared token/billing fields from an observation."
   [obs]
   (select-keys obs token-usage-keys))
 
 (defn observation->tool-call-row
+  "Project tool identity/status and provider evidence from an observation."
   [obs]
   {:tool-call/id (or (:tool-call/id obs) (:observation/id obs))
    :tool-call/type (:tool-call/type obs)
@@ -894,6 +970,7 @@
    :raw/json (:raw/json obs)})
 
 (defn observation->patch-proposal-row
+  "Build a pending patch proposal from the observation; it does not apply files."
   [obs]
   (let [proposal-id (or (:patch-proposal/id obs)
                         (:turn-diff/id obs)
@@ -910,16 +987,19 @@
      :raw/json (:raw/json obs)}))
 
 (defn add-patch-proposal
+  "Upsert a proposal by id and add that id to proposal order once."
   [run-row proposal]
   (-> run-row
       (assoc-in [:patch-proposals-by-id (:patch-proposal/id proposal)] proposal)
       (update :patch-proposal-order conj-distinct (:patch-proposal/id proposal))))
 
 (defn add-raw-response-item
+  "Associate the observation's raw JSON under its observation id in the run."
   [run-row obs]
   (assoc-in run-row [:raw-response-items (:observation/id obs)] (:raw/json obs)))
 
 (defn observation-native-thread-id
+  "Resolve a Codex native thread id from normalized or supported raw fields."
   [obs]
   (or (:native/codex-thread-id obs)
       (get-in obs [:codex/event-params :thread/id])
@@ -930,6 +1010,7 @@
       (get-in obs [:raw/json :thread_id])))
 
 (defn observation-native-claude-session-id
+  "Resolve a Claude session id from normalized or supported raw fields."
   [obs]
   (or (:native/claude-session-id obs)
       (get-in obs [:claude/event :session_id])
@@ -938,6 +1019,7 @@
       (get-in obs [:raw/json :session-id])))
 
 (defn bind-run-to-observation-thread
+  "Fill missing native session bindings from the observation; existing ids win."
   [run-row obs]
   (cond-> run-row
     (observation-native-thread-id obs)
@@ -983,6 +1065,10 @@
       (expire-pending-approvals t :run-closed)))
 
 (defn apply-observation-effect
+  "Apply one already-authorized, in-order observation to run contents and status.
+   Stores raw evidence first, then handles items, approvals, usage or closure.
+   Result text remains in observation/raw evidence; the result branch does not
+   add a text item. Unknown types add an audit error. Use fold-observation for guards."
   [run-row obs]
   (let [t (or (:received-at-ms obs) (now-ms))
         run-row (-> run-row
@@ -1124,6 +1210,7 @@
 (declare drain-observation-buffer)
 
 (defn apply-observation-in-order
+  "Apply an observation effect and set the run watermark to its sequence."
   [run-row obs]
   (-> run-row
       (apply-observation-effect obs)
@@ -1246,6 +1333,7 @@
 ;; approval's pending row or double-index an item.
 
 (defn newly-materialized-items
+  "Return new item rows whose ids were absent before the fold."
   [old-row new-row]
   (vec (vals (apply dissoc (:items-by-id new-row) (keys (:items-by-id old-row))))))
 
@@ -1265,53 +1353,62 @@
         new-pending (or (:approvals-pending new-row) {})]
     (vec (remove #(contains? new-pending %) (keys old-pending)))))
 
-(defn approval-row-id [approval] (:approval/id approval))
-(defn non-empty-coll? [coll] (boolean (seq coll)))
+(defn approval-row-id "Return :approval/id from approval, or nil." [approval] (:approval/id approval))
+(defn non-empty-coll?
+  "True when coll contains at least one element." [coll] (boolean (seq coll)))
 
 (defn newly-terminal?
+  "True when a fold changes a non-terminal row into a terminal row."
   [old-row new-row]
   (and (contains? terminal-statuses (:status new-row))
        (not (contains? terminal-statuses (:status old-row)))))
 
-(defn run-claimed-by [run-row] (:claimed-by run-row))
-(defn run-claimed-at [run-row] (:claimed-at run-row))
-(defn claim-executor-id [claim] (:executor/id claim))
+(defn run-claimed-by "Return :claimed-by from run-row, or nil." [run-row] (:claimed-by run-row))
+(defn run-claimed-at "Return :claimed-at from run-row, or nil." [run-row] (:claimed-at run-row))
+(defn claim-executor-id "Return :executor/id from claim, or nil." [claim] (:executor/id claim))
 
 (defn observation-dead-letter
+  "Build bounded audit evidence for an observation whose run does not exist."
   [run-id obs]
   (envelope/bounded-dead-letter :observation/unknown-run obs
                             {:context {:llm-turn-run/id run-id}}))
 
 (defn control-dead-letter
+  "Build bounded audit evidence for a control whose run does not exist."
   [run-id control]
   (envelope/bounded-dead-letter :control/unknown-run control
                             {:context {:llm-turn-run/id run-id}}))
 
 (defn item-row-id
+  "Return the item row's :llm-item/id, or nil."
   [item-row]
   (:llm-item/id item-row))
 
 (defn keep-existing-item-row
+  "Return the existing row if present, otherwise the candidate item row."
   [existing item-row]
   (or existing item-row))
 
-(defn run-items-by-id [run-row] (:items-by-id run-row))
-(defn run-raw-response-items [run-row] (:raw-response-items run-row))
-(defn run-tool-calls-by-id [run-row] (:tool-calls-by-id run-row))
-(defn run-approvals-by-id [run-row] (:approvals-by-id run-row))
-(defn run-token-usage [run-row] (:token-usage run-row))
-(defn run-controls-by-id [run-row] (:controls-by-id run-row))
-(defn approval-id [approval] (:approval/id approval))
-(defn control-approval-id [control] (:approval/id control))
-(defn control-has-approval? [control] (not (blank-string? (:approval/id control))))
+(defn run-items-by-id "Return :items-by-id from run-row, or nil." [run-row] (:items-by-id run-row))
+(defn run-raw-response-items "Return :raw-response-items from run-row, or nil." [run-row] (:raw-response-items run-row))
+(defn run-tool-calls-by-id "Return :tool-calls-by-id from run-row, or nil." [run-row] (:tool-calls-by-id run-row))
+(defn run-approvals-by-id "Return :approvals-by-id from run-row, or nil." [run-row] (:approvals-by-id run-row))
+(defn run-token-usage "Return :token-usage from run-row, or nil." [run-row] (:token-usage run-row))
+(defn run-controls-by-id "Return :controls-by-id from run-row, or nil." [run-row] (:controls-by-id run-row))
+(defn approval-id "Return :approval/id from approval, or nil." [approval] (:approval/id approval))
+(defn control-approval-id "Return :approval/id from control, or nil." [control] (:approval/id control))
+(defn control-has-approval?
+  "True when the control names a nonblank approval id." [control] (not (blank-string? (:approval/id control))))
 
 (defn record-control
+  "Upsert a control in the run trail and append its id to control order once."
   [run-row control]
   (-> run-row
       (assoc-in [:controls-by-id (:control/id control)] control)
       (update :control-order conj-distinct (:control/id control))))
 
 (defn approval-resolution-status
+  "Normalize allow/timeout decisions to approval statuses; pass other values through."
   [decision]
   (case decision
     :approved :approved
@@ -1324,6 +1421,7 @@
     decision))
 
 (defn approval-terminal-decision?
+  "True for a denial/expiry decision that should fail a non-terminal run."
   [decision]
   (contains? terminal-approval-decisions decision))
 
@@ -1399,6 +1497,7 @@
           (expire-pending-approvals t :run-closed)))))
 
 (defn add-compaction
+  "Append a compaction control to the run record and update time; no provider IO."
   [run-row control]
   (-> run-row
       (update :compactions conj {:control/id (:control/id control)
@@ -1408,6 +1507,7 @@
       (assoc :updated-at (:time-ms control))))
 
 (defn add-steer
+  "Append a steer control to the run record and update time; no provider IO."
   [run-row control]
   (-> run-row
       (update :steers conj {:control/id (:control/id control)
@@ -1417,6 +1517,9 @@
       (assoc :updated-at (:time-ms control))))
 
 (defn fold-control
+  "Ignore an already-recorded control id; otherwise record it, validate routing
+   and type, then resolve approval, cancel, or append steer/compaction history.
+   Invalid controls become audit errors. This updates data, not a child process."
   [run-row control]
   (if (get-in run-row [:controls-by-id (:control/id control)])
     ;; duplicate delivery of an already-recorded control id: first delivery
@@ -1716,6 +1819,10 @@
       (local-transform> [(keypath *orphan-run-id) (termval *control-dead-letters)] $$llm-dead-letters))))
 
 (defn start-llm-runtime!
+  "Create and launch llm-module in a new InProcessCluster (four tasks, two
+   threads), returning foreign handles plus :ipc. The caller must eventually
+   call close-llm-runtime!. This does not attach to the persistent door cluster
+   or start an executor loop."
   []
   (let [ipc (create-ipc)
         module-name (get-module-name llm-module)
@@ -1751,6 +1858,8 @@
      :llm-dead-letters (foreign-pstate ipc module-name "$$llm-dead-letters")}))
 
 (defn close-llm-runtime!
+  "Close the runtime's owned IPC when present, swallowing close exceptions.
+   Does not close OC/relation runtimes or manage provider child processes."
   [runtime]
   (when-let [ipc (:ipc runtime)]
     (try
@@ -1758,6 +1867,9 @@
       (catch Exception _ nil))))
 
 (defn append-turn-run-request!
+  "Append a map with a nonblank run id and return that request. Default
+   :append-ack acknowledges the depot append; it does not prove acceptance or
+   microbatch materialization. Use await-decision and check its result."
   ([runtime request]
    (append-turn-run-request! runtime request :append-ack))
   ([runtime request ack-level]
@@ -1772,6 +1884,7 @@
    request))
 
 (defn append-claim!
+  "Append and return the claim; default :append-ack does not establish a grant."
   ([runtime claim]
    (append-claim! runtime claim :append-ack))
   ([runtime claim ack-level]
@@ -1779,6 +1892,7 @@
    claim))
 
 (defn append-observation!
+  "Append and return the observation; default :append-ack does not establish its fold."
   ([runtime obs]
    (append-observation! runtime obs :append-ack))
   ([runtime obs ack-level]
@@ -1786,6 +1900,7 @@
    obs))
 
 (defn append-control!
+  "Append and return the control; default :append-ack does not establish its effect."
   ([runtime control]
    (append-control! runtime control :append-ack))
   ([runtime control ack-level]
@@ -1795,6 +1910,8 @@
 (declare read-pending read-run await-materialized await-run)
 
 (defn first-pending-entry
+  "Read a task inbox and select its lexicographically first run id, or nil.
+   Defaults to the local task; this is not arrival-time scheduling."
   ([runtime]
    (first-pending-entry runtime pending-task-id))
   ([runtime task-id]
@@ -1804,6 +1921,8 @@
             val)))
 
 (defn await-claim-resolution
+  "Poll run truth until this claim is granted or conflicting/past, defaulting
+   to two seconds. A timeout returns the last claim-state, possibly unresolved."
   ([runtime claim]
    (await-claim-resolution runtime claim 2000))
   ([runtime claim timeout-ms]
@@ -1817,6 +1936,8 @@
      timeout-ms)))
 
 (defn claim-run!
+  "Read the run's task/thread, append a claim, and await its resolution.
+   A caller must check :granted-to-us before spawning; timeout may be unresolved."
   ([runtime run-id executor-id]
    (claim-run! runtime run-id executor-id {}))
   ([runtime run-id executor-id opts]
@@ -1832,6 +1953,8 @@
      (await-claim-resolution runtime claim (or (:timeout-ms opts) 2000)))))
 
 (defn claude-stream-argv
+  "Build the adapter's stream-JSON stdin/stdout argv, with optional session
+   resume and --bare for API-key mode. Does not spawn or pass model/effort flags."
   [run-row & [opts]]
   (let [auth-mode (or (:llm/auth-mode run-row) (:llm/auth-mode opts) :subscription)
         session-id (or (:native/claude-session-id run-row)
@@ -1846,6 +1969,8 @@
                   "--replay-user-messages"]))))
 
 (defn resolve-secret-value
+  "Resolve a supplied secret handle through opts' resolver, else its API-key
+   value. No value is returned when there is no handle."
   [secret-handle opts]
   (when secret-handle
     (if-let [resolver (:secret-resolver opts)]
@@ -1853,6 +1978,9 @@
       (:anthropic-api-key opts))))
 
 (defn claude-child-env
+  "Copy opts' environment or the parent environment, removing listed sensitive
+   keys. Subscription mode returns that copy; API-key mode requires a resolved
+   handle and inserts its value. Unknown auth modes throw. No environment file is read."
   [auth-mode opts]
   (let [base-env (or (:env opts) (System/getenv))
         stripped (apply dissoc (into {} base-env) sensitive-env-keys)]
@@ -1869,6 +1997,7 @@
                        :llm/auth-mode auth-mode})))))
 
 (defn redacted-env-preview
+  "Copy an environment map with listed sensitive-key values replaced by markers."
   [env]
   (into {}
         (map (fn [[k v]]
@@ -1878,6 +2007,8 @@
         env))
 
 (defn claude-process-spec
+  "Build argv, cwd and actual/redacted environment maps for a run and bundle.
+   The returned :env can contain a resolved secret; this function does not spawn."
   [run-row context-bundle opts]
   (let [auth-mode (or (:llm/auth-mode run-row) (:llm/auth-mode opts) :subscription)
         argv (claude-stream-argv run-row (assoc opts :llm/auth-mode auth-mode))
@@ -1891,6 +2022,8 @@
      :context-bundle/id (:context-bundle/id context-bundle)}))
 
 (defn claude-user-envelope
+  "Wrap rendered model input (or prompt/text, else empty text) in one Claude
+   stream-JSON user message."
   [context-bundle]
   {:type "user"
    :message {:role "user"
@@ -1900,10 +2033,12 @@
                                        ""))}]}})
 
 (defn claude-json-read
+  "Parse one JSON line with keyword keys; parse errors propagate."
   [line]
   (json/read-str line :key-fn keyword))
 
 (defn safe-claude-json-read
+  "Return parsed JSON or an error map with a bounded raw preview."
   [line]
   (try
     {:ok true :value (claude-json-read line)}
@@ -1914,6 +2049,7 @@
                :raw-preview (subs (str line) 0 (min 200 (count (str line))))}})))
 
 (defn claude-usage->token-usage
+  "Translate numeric Claude input/cache-read/output counts to usage fields."
   [usage]
   (cond-> {}
     (number? (:input_tokens usage))
@@ -1924,6 +2060,10 @@
     (assoc :tokens/output (:output_tokens usage))))
 
 (defn claude-stream-line->adapter-events
+  "Convert one JSON line plus parser state to [next-state events]. State tracks
+   line ids, session and tool blocks; emitted maps carry redacted provider data.
+   Invalid JSON emits run-failed; unknown event types become generic messages.
+   Observation claim tokens and contiguous sequence numbers are added later."
   [state line]
   (let [{:keys [ok value error]} (safe-claude-json-read line)
         sequence-base (:line-index state)
@@ -2115,6 +2255,7 @@
                 {})]]))))
 
 (defn claude-stream-json-lines->events
+  "Reduce complete JSON lines through the parser and return the collected events."
   [lines]
   (:events
    (reduce (fn [{:keys [state events]} line]
@@ -2127,11 +2268,13 @@
            lines)))
 
 (defn stream-lines
+  "Read all lines from an input stream eagerly, closing its reader on completion."
   [stream]
   (with-open [reader (BufferedReader. (InputStreamReader. stream))]
     (doall (line-seq reader))))
 
 (defn write-claude-input!
+  "Write and flush one UTF-8 JSON user envelope, then close the child's stdin."
   [process context-bundle]
   (with-open [writer (OutputStreamWriter. (.getOutputStream process) "UTF-8")]
     (.write writer (json/write-str (claude-user-envelope context-bundle)))
@@ -2139,6 +2282,12 @@
     (.flush writer)))
 
 (defn run-claude-process->events
+  "Start Claude with the built process spec, write its input, drain stdout and
+   stderr on futures, and wait for exit. Timeout forcibly destroys the child;
+   nonzero exit adds run-failed. Return parsed events after collection, not a
+   live event stream. Exceptions inside the launch block become spawn-error
+   events; process-spec errors propagate. There is no general finally cleanup
+   for exceptions after start, and stream-future derefs have no separate timeout."
   [run-row context-bundle opts]
   (let [{:keys [argv cwd env]} (claude-process-spec run-row context-bundle opts)
         pb (ProcessBuilder. ^java.util.List argv)
@@ -2181,6 +2330,8 @@
           :raw/json {}}]))))
 
 (defn claude-stream-json-adapter
+  "Return a :run-turn adapter that parses supplied :lines when present or
+   launches Claude. Returned events are collected before callers append them."
   [& [opts]]
   {:run-turn (fn [{:keys [run context-bundle]}]
                (if-let [lines (:lines opts)]
@@ -2188,10 +2339,12 @@
                  (run-claude-process->events run context-bundle opts)))})
 
 (defn fake-codex-adapter
+  "Return an adapter that yields the supplied events without provider IO."
   [events]
   {:run-turn (fn [_ctx] events)})
 
 (defn run-adapter-turn
+  "Invoke a function adapter or its :run-turn entry with ctx; throw for other shapes."
   [adapter ctx]
   (cond
     (fn? adapter) (adapter ctx)
@@ -2216,6 +2369,11 @@
       event)))
 
 (defn run-one-pending-with-adapter!
+  "Select one pending run on the requested task, refuse unresolved fork binding,
+   and claim it before loading context or invoking the adapter. Return nil for
+   an empty inbox or a spawn/claim receipt otherwise. Collect all adapter events
+   then append sequenced observations; return does not await their fold.
+   :run is the claimed snapshot, not final truth. Adapter/context errors propagate."
   [runtime {:keys [task-id executor-id adapter load-context-bundle timeout-ms]
             :or {task-id pending-task-id
                  executor-id "llm-executor-local"
@@ -2262,6 +2420,8 @@
            :observations (vec observations)})))))
 
 (defn run-one-pending-with-claude!
+  "Execute one task-inbox entry through the Claude adapter with optional overrides;
+   inherits the claim and materialization limits of run-one-pending-with-adapter!."
   [runtime opts]
   (run-one-pending-with-adapter!
     runtime
@@ -2271,6 +2431,8 @@
            opts)))
 
 (defn stale-approval-control
+  "Build a deterministic expiry control for a stored pending approval, retaining
+   native request identity and the run's restart-policy as audit context."
   [run-row approval opts]
   (control-record
     (:llm-turn-run/id run-row)
@@ -2292,6 +2454,9 @@
                :run/restart-policy (:run/restart-policy run-row)}}))
 
 (defn mark-stale-approvals!
+  "Append expiry controls for this run's currently pending approvals and await
+   terminal state when any exist. The returned :action :failed describes the
+   requested action; the bounded wait result is not checked here."
   ([runtime run-id]
    (mark-stale-approvals! runtime run-id {}))
   ([runtime run-id opts]
@@ -2307,38 +2472,47 @@
       :action (if (seq approvals) :failed :none)})))
 
 (defn select-pstate-one
+  "Perform one foreign point selection on the supplied PState and path."
   [pstate path]
   (foreign-select-one path pstate))
 
 (defn read-thread
+  "Read the thread row by id, or nil."
   [runtime thread-id]
   (select-pstate-one (:llm-threads runtime) [(keypath thread-id)]))
 
 (defn read-thread-binding
+  "Read the LLM thread id indexed by space id, or nil."
   [runtime space-id]
   (select-pstate-one (:llm-thread-by-space runtime) [(keypath space-id)]))
 
 (defn read-run
+  "Read the current materialized run row, or nil."
   [runtime run-id]
   (select-pstate-one (:llm-turn-runs runtime) [(keypath run-id)]))
 
 (defn read-run-for-turn
+  "Read the run id indexed by turn id, or nil (not the run row)."
   [runtime turn-id]
   (select-pstate-one (:llm-turn-run-by-turn runtime) [(keypath turn-id)]))
 
 (defn read-decision
+  "Read the first persisted decision for a run id, or nil."
   [runtime run-id]
   (select-pstate-one (:llm-decisions-by-run-id runtime) [(keypath run-id)]))
 
 (defn read-view
+  "Read the materialized run view by run id, or nil."
   [runtime run-id]
   (select-pstate-one (:llm-views runtime) [(keypath run-id)]))
 
 (defn read-run-detail-projection
+  "Read the materialized run detail with control/proposal trails, or nil."
   [runtime run-id]
   (select-pstate-one (:projection-run-detail runtime) [(keypath run-id)]))
 
 (defn read-pending
+  "Read a task's pending-run map, defaulting to local; absent entries yield {}."
   ([runtime]
    (read-pending runtime pending-task-id))
   ([runtime task-id]
@@ -2346,59 +2520,71 @@
        {})))
 
 (defn read-items-by-run
+  "Read the run's item map, or {}."
   [runtime run-id]
   (or (select-pstate-one (:llm-items-by-turn-run runtime) [(keypath run-id)])
       {}))
 
 (defn read-items-by-thread
+  "Read the thread's item index, or {}."
   [runtime thread-id]
   (or (select-pstate-one (:llm-items-by-thread runtime) [(keypath thread-id)])
       {}))
 
 (defn read-item-by-id
+  "Read one globally indexed item row, or nil."
   [runtime item-id]
   (select-pstate-one (:llm-item-by-id runtime) [(keypath item-id)]))
 
 (defn read-runs-by-thread
+  "Read the thread's run-summary map, or {}."
   [runtime thread-id]
   (or (select-pstate-one (:llm-turn-runs-by-thread runtime) [(keypath thread-id)])
       {}))
 
 (defn read-raw-response-items
+  "Read the run's raw-response map, or {}."
   [runtime run-id]
   (or (select-pstate-one (:llm-raw-response-items runtime) [(keypath run-id)])
       {}))
 
 (defn read-tool-calls-by-run
+  "Read the run's tool-call map, or {}."
   [runtime run-id]
   (or (select-pstate-one (:llm-tool-calls-by-run-id runtime) [(keypath run-id)])
       {}))
 
 (defn read-approvals-by-run
+  "Read the run's approval history map, or {}."
   [runtime run-id]
   (or (select-pstate-one (:llm-approvals-by-run-id runtime) [(keypath run-id)])
       {}))
 
 (defn read-controls-by-run
+  "Read the run's control history map, or {}."
   [runtime run-id]
   (or (select-pstate-one (:llm-controls-by-run-id runtime) [(keypath run-id)])
       {}))
 
 (defn read-control
+  "Read one globally indexed control row, or nil."
   [runtime control-id]
   (select-pstate-one (:llm-control-by-id runtime) [(keypath control-id)]))
 
 (defn read-token-usage
+  "Read the run's materialized token usage, or {}."
   [runtime run-id]
   (or (select-pstate-one (:llm-token-usage-by-run-id runtime) [(keypath run-id)])
       {}))
 
 (defn read-cost-by-thread
+  "Read the thread's token rollup and per-run contributions, or {}."
   [runtime thread-id]
   (or (select-pstate-one (:llm-cost-by-thread runtime) [(keypath thread-id)])
       {}))
 
 (defn read-pending-approval
+  "Read a currently pending approval by id, or nil."
   [runtime approval-id]
   (select-pstate-one (:llm-approvals-pending runtime) [(keypath approval-id)]))
 
@@ -2417,6 +2603,9 @@
       []))
 
 (defn await-materialized
+  "Poll read-f every 25 ms until pred succeeds or the deadline expires
+   (default two seconds). Return the last value in either case: callers must
+   check the predicate again. Read errors propagate; timeout does not throw."
   ([read-f pred]
    (await-materialized read-f pred 2000))
   ([read-f pred timeout-ms]
@@ -2430,16 +2619,19 @@
                  (recur (read-f))))))))
 
 (defn await-decision
+  "Await any decision row for the run, accepted or rejected; timeout may return nil."
   [runtime run-id]
   (await-materialized #(read-decision runtime run-id) some?))
 
 (defn await-run
+  "Await a run satisfying pred (default some?); timeout returns the last row or nil."
   ([runtime run-id]
    (await-run runtime run-id some?))
   ([runtime run-id pred]
    (await-materialized #(read-run runtime run-id) pred)))
 
 (defn await-view
+  "Await a run view satisfying pred; timeout returns the last view or nil."
   ([runtime run-id pred]
    (await-view runtime run-id pred 2000))
   ([runtime run-id pred timeout-ms]

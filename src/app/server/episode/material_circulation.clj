@@ -1,8 +1,14 @@
 (ns app.server.episode.material-circulation
-  "Epistemic relations derived from material activity.
-   Takes: mechanical evidence maps, activation context, wearer facts, and model results.
-   Gives: gold :references relations, silver :felt-at and :instance-of proposals, and run requests.
-   Holds nothing."
+  "Material experience receipts, explicit references and machine annotations.
+   Pure helpers capture scene identities and compose receipts with relations;
+   foreign-client helpers bank human :references and machine :felt-at or
+   :instance-of assertions. Receipts record co-presence, not semantic aboutness.
+   Borrows OC, relation and LLM runtimes: OC stores receipt carriers and
+   annotation records, the relation kernel owns edges, and llm-module owns run
+   lifecycle. This namespace owns no mutable runtime or PState.
+   As-of reads follow registered facet masters' activation revision histories;
+   uncertain histories remain marked ambiguous. New materialized autotag edges
+   advance the shared ingest epoch; callers own other refresh triggers."
   (:require [app.server.worn.activation-event :as activation-event]
             [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
@@ -157,6 +163,8 @@
 ;; ===========================================================================
 
 (defn- materialized-to?
+  "Poll relation detail for up to five seconds and return whether its last
+   observed row has the requested status; timeout itself does not throw."
   [rk-rt relation-id status]
   (= status
      (get-in
@@ -167,6 +175,9 @@
       [:row :relation-status])))
 
 (defn- append-asserted-edge!
+  "Derive an asserter-scoped relation id and request id, append the assertion,
+   then check the queryable status. Return :materialized/:unmaterialized plus
+   ids. This is a status check, not proof that this request changed the row."
   [rk-rt {:keys [kind from to actor-id actor-type asserted-at-ms
                  evidence-source-id evidence-anchor-id note request-prefix]}]
   (let [relation-id (rk/relation-id-for kind from to actor-id)
@@ -344,6 +355,9 @@
      :material/fingerprint fingerprint)))
 
 (defn append-circulation-record!
+  "Append a hint-only OC record and wait up to 20 seconds for its decision.
+   Return request and decision with :accepted only for an accepted outcome;
+   other returned outcomes map to :rejected. IO/append exceptions propagate."
   [oc-rt args]
   (let [request (circulation-record-request args)]
     (ocr/append-object-container-request! oc-rt request)
@@ -353,6 +367,8 @@
        :decision decision})))
 
 (defn read-circulation-records
+  "Read up to 100000 conversation projection rows, retain :material-circulation
+   payloads and return them in order-key order (record hash order, not time)."
   [oc-rt object-key]
   (->> (ocr/read-transcript-conversation-projection
         oc-rt (str "oc:chat-conversation:" object-key) "" 100000)
@@ -437,6 +453,7 @@
 (declare ^:private analyze-activation-history)
 
 (defn- commit-touches-policy?
+  "Test commit :files against policy paths, including rename destination text."
   [policy-paths commit]
   (boolean
    (some
@@ -498,6 +515,8 @@
 ;; ===========================================================================
 
 (defn autotag-input
+  "Normalize candidate ids/text, sort by id, remove duplicate candidate maps
+   and hash the resulting record text plus candidates for run identity."
   [record-unit-id record-text candidates]
   (let [candidates (->> candidates
                         (keep (fn [c]
@@ -512,6 +531,7 @@
     (assoc input :input-hash (envelope/sha-256 (pr-str input)))))
 
 (defn autotag-run-id
+  "Hash object-key, input hash, annotator version and optional salt into a run id."
   [object-key input-hash salt]
   (str "llm-run-material-autotag:"
        (envelope/sha-256
@@ -519,6 +539,8 @@
                               (str (or salt ""))]))))
 
 (defn render-autotag-prompt
+  "Render record text and candidate ids into a prompt for one optional target
+   and a confidence/interpretation JSON result. This does not validate output."
   [{:keys [record-unit-id record-text candidates]}]
   (str
    "You are Softland's calibrated material-autotag resident. A record was\n"
@@ -534,6 +556,8 @@
                        candidates))))
 
 (defn parse-autotag-output
+  "Parse a JSON object into {:ok? true :parsed}; return a structured parse or
+   non-map error instead of throwing for invalid input."
   [s]
   (try
     (let [v (json/read-str (str s) :key-fn keyword)]
@@ -577,11 +601,14 @@
                     :to target})})))
 
 (defn- autotag-record-for-run
+  "Find the first matching run record among this conversation's circulation rows."
   [oc-rt object-key run-id]
   (some #(when (= run-id (:run/id %)) %)
         (read-circulation-records oc-rt object-key)))
 
 (defn- assert-autotag-proposal!
+  "If the record has a proposal, append/check its silver :felt-at assertion;
+   otherwise return nil. Does not itself increment ingest epoch."
   [rk-rt record]
   (when-let [{:keys [from to]} (:proposal record)]
     (merge
@@ -602,12 +629,17 @@
        :request-prefix "circulation:autotag:"}))))
 
 (defn autotag-material!
-  "Run the ambient silver lane through the EXISTING llm-module. `:lines` is the
-   established canned-stream test seam; absent lines use the subscription CLI.
-
-   Identical input derives one run id. Once its calibrated OC record exists,
-   retries never invoke the model again: failed records return :condensed and
-   successful records re-check/re-converge the relation edge."
+  "Derive a run id from material input and execute through llm-module using
+   borrowed LLM/OC/relation runtimes. :lines injects canned stream output;
+   otherwise the adapter starts Claude. After a materialized claim, collect
+   observations, await terminal state and validate a closed-world target.
+   Persist the interpretation record in OC before requesting any silver edge.
+   Existing records never invoke the adapter: failed ones return
+   :condensed-failure; completed ones return :already-recorded with a fresh
+   edge-status check. Inspect :edge on that path; it does not bump the epoch.
+   A terminal run without a record returns :terminal-without-record and needs
+   a new salt for a new run. OC, run and relation writes are separate; this
+   function does not wrap all IO errors in result maps."
   [{:keys [llm-rt oc-rt rk-rt]} object-key
    {:keys [record-unit-id record-text candidates evidence-source-id
            salt lines timeout-ms executor-id]
@@ -760,6 +792,8 @@
 ;; ===========================================================================
 
 (defn- activation-history
+  "Read up to 100000 active-pointer revisions for an OC runtime and master
+   spec; return nil when either input is absent."
   [oc-rt spec]
   (when (and oc-rt spec)
     (vec (ocr/read-revision-history
@@ -817,6 +851,9 @@
      :activation-history/clock-regressions regressions}))
 
 (defn- activation-as-of
+  "Select the last causally ordered row whose timestamp is at most time-ms,
+   decode its worn revision, and report ambiguity from non-linear history or
+   a clock regression inconsistent with captured-revision."
   [analysis time-ms captured-revision]
   (let [rows (:activation-history/rows analysis)
         selected (last (filter #(<= (long (:created-at-ms % 0))
@@ -857,6 +894,8 @@
       time-ms nil))))
 
 (defn- analyses-for-references
+  "Read and analyze activation history once per distinct registered master
+   named by references. Unregistered masters have no entry."
   [oc-rt references]
   (into
    {}
@@ -868,6 +907,8 @@
    (distinct (keep :material/master references))))
 
 (defn- resolve-reference-as-of
+  "Attach captured/as-of revision information from preloaded master analyses.
+   Preserve the original reference fields; absent analyses supply no as-of row."
   [analyses time-ms ref]
   (let [resolved
         (when-let [analysis (get analyses (:material/master ref))]
@@ -882,6 +923,8 @@
      resolved)))
 
 (defn resolve-receipt-as-of
+  "Add :receipt/worn-as-of to a captured receipt by reading registered masters'
+   activation histories and resolving at the receipt timestamp."
   [oc-rt receipt]
   (let [references (:receipt/worn-materials receipt)
         analyses (analyses-for-references oc-rt references)]

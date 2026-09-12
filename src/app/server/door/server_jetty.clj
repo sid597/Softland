@@ -1,8 +1,13 @@
 (ns app.server.door.server-jetty
-  "HTTP and SSE entry point for the land.
-   Takes: Ring requests for ten POST routes, turn streams, assertions, edits, activations, and room actions.
-   Gives: Ring responses, SSE events, and durable request results; spawns `claude`.
-   Holds: ambient-autotag-runtime and data/relation-assert-log.ednl."
+  "Ring/Jetty boundary for episode streams, block/geometry writes, material-room
+   acts and relation assertions. start-server! is called by dev/prod entry
+   namespaces. wrap-file-api parses EDN and composes episode, page, worn and
+   Rama owners through cluster's borrowed foreign handles; it does not own
+   their durable state. Owns per-response writers/CLI processes, a delayed
+   ambient LLM IPC runtime, and an optional relation bridge-log writer/lock.
+   Ordinary results are EDN; episode responses stream EDN inside SSE frames.
+   Acquisition, acknowledgement and materialization differ by route; see the
+   function contracts and README.md. No ambient-runtime shutdown is wired here."
   (:require
     [clojure.edn :as edn]
     [clojure.java.io :as io]
@@ -42,15 +47,23 @@
     (java.util.concurrent TimeUnit)
     (org.eclipse.jetty.server.handler.gzip GzipHandler)))
 
-(defn not-found-handler [_ring-request]
+(defn not-found-handler
+  "Return a text/plain 404 response for a request unclaimed by the API middleware."
+  [_ring-request]
   (-> (res/not-found "Not found")
     (res/content-type "text/plain")))
 
-(defn json-response [data]
+(defn json-response
+  "Return status 200 with pr-str data and application/edn content type.
+   The historical name does not indicate JSON; callers using it for errors
+   still return HTTP 200."
+  [data]
   (-> (res/response (pr-str data))
       (res/content-type "application/edn")))
 
 (defn parse-edn-body
+  "Consume the Ring body stream as EDN, returning {} for blank/missing input.
+   Malformed EDN throws; parsed values are not constrained to maps here."
   [ring-req]
   (let [body-str (some-> ring-req :body slurp str/trim)]
     (if (str/blank? body-str)
@@ -58,6 +71,7 @@
       (edn/read-string body-str))))
 
 (defn preview-str
+  "Render x as a string, keeping at most 180 characters before a truncation suffix."
   [x]
   (let [s (str (or x ""))]
     (if (> (count s) 180)
@@ -65,6 +79,9 @@
       s)))
 
 (defn destroy-process-tree!
+  "Try to forcibly destroy descendants, then terminate the parent process.
+   Waits up to two seconds before forcing the parent; most destruction errors
+   are ignored. Returns nil; it does not wait for every descendant to exit."
   [proc]
   (try
     (doseq [child-handle (iterator-seq (.iterator (.descendants (.toHandle proc))))]
@@ -84,9 +101,12 @@
 ;;; ── Streaming agent execution (SSE over POST) ──────────────────────────────
 
 (defn stream-cli-process
-  "Spawn a CLI process and read its stdout line-by-line.
-   Calls (on-line line-str) for each line, (on-done info-map) when the process
-   exits or times out. Runs reader + waiter on daemon threads."
+  "Start argv in optional cwd, merge stderr into stdout and close child stdin.
+   A daemon reader calls on-line; callback exceptions are swallowed. A daemon
+   waiter calls on-done with exit code, timeout flag and duration after bounded
+   reader draining. Timeout destroys the process tree; returns the Process.
+   on-done is not exception-isolated. HTTP disconnect is not connected to
+   process cancellation here, and a returned Process remains caller-owned."
   [argv cwd timeout-ms on-line on-done]
   (let [cmd  (vec (map str argv))
         pb   (ProcessBuilder. (into-array String cmd))]
@@ -136,12 +156,13 @@
       proc)))
 
 (defn parse-stream-json-line
-  "Parse a single NDJSON line from `claude --output-format stream-json --include-partial-messages`.
-   Event types:
-     system       → {:session_id ...}
-     stream_event → wraps Anthropic API events (content_block_delta, etc.)
-     assistant    → full message (ignored — we already got deltas)
-     result       → {:session_id ... :total_cost_usd ...}"
+  "Normalize one Claude stream-json line to an event with :kind, :event and :ts.
+   Handles system, partial text/thinking/tool events, full assistant text and
+   result; skips unrecognized events and signature deltas. Invalid JSON emits
+   :run-error with a shortened raw line. Full assistant text is also emitted
+   when partial deltas were seen: this parser does not deduplicate that fallback.
+   A result line becomes :run-done/:complete without inspecting error fields;
+   process exit handling belongs to the stream caller."
   [line]
   (let [mk-event (fn [kind payload]
                    (assoc payload
@@ -229,15 +250,19 @@
                    :message (.getMessage e)
                    :raw (preview-str line)})))))
 
-(defn initial-stream-state []
+(defn initial-stream-state
+  "Return empty tool-reference tracking and no terminal event for one stream."
+  []
   {:tool-ids #{}
    :tool-by-block {}
    :terminal-kind nil
    :saw-run-start? false})
 
 (defn apply-stream-invariants
-  "Validate and enrich one parsed stream event.
-   Returns [next-state maybe-emit-event]."
+  "Return [next-state event-or-nil], enriching tool deltas with known tool ids.
+   Rejects missing kind/time and unknown tool references with a terminal error;
+   suppresses events after the first terminal. Tracks run-start but does not
+   require it, and does not deduplicate full assistant text against deltas."
   [state evt]
   (let [mk-error (fn [payload]
                    [(assoc state :terminal-kind :run-error)
@@ -296,7 +321,9 @@
       [state evt])))
 
 (defn parse-stream-json-lines
-  "Parse + validate a sequence of raw NDJSON lines, returning normalized events."
+  "Normalize a finite NDJSON sequence using per-stream reference/terminal state.
+   Returns emitted events, adding :missing-terminal-event when no terminal was
+   present. This helper does not start a process or write an SSE response."
   [lines]
   (let [{:keys [events state]}
         (reduce (fn [{:keys [events state]} line]
@@ -322,25 +349,12 @@
   (.flush writer))
 
 
-;;; ── first-light A P2b · the episode turn (SSE over POST) ───────────────────
-;;
-;; The ground's send lane (CONTRACT §7 P2b addressing): Ctrl+Enter fires from
-;; the FOCUSED block, whose content is ALREADY durable (birthed + committed-
-;; echo edits — the P2 client-buffer mint is dead). What becomes durable HERE,
-;; BEFORE the agent spawns, is the revision-pinned TURN RECORD: source-block-id
-;; + the pinned content (text + kernel hash) + send-time position — later
-;; edits or moves never rewrite what the resident answered. Event order:
-;;   :episode-durable   — the turn record is acked (append+await), BEFORE the
-;;                        agent is spawned (the durable-BEFORE-agent law,
-;;                        unchanged)
-;;   <claude stream events> — the resident agent's live turn (the existing CLI
-;;                        lane; subscription auth, zero keys)
-;;   :run-done/:run-error   — the turn closes honestly (timeout/failed named)
-;;   :episode-distilled — post-turn harvest+distill receipt (T8; G4); the
-;;                        ingest epoch bump makes the worn face re-pull TRUTH
-;; The turn cell's status is overwritten :open → :complete/:failed/:timeout at
-;; turn end; an abrupt JVM death leaves :open — the honest open fact (G4b).
-;; A failed turn-record mint emits :run-error and never spawns the agent.
+;;; ── Episode turn orchestration ──────────────────────────────────────────
+;; An addressed turn pins the existing source block; an unaddressed turn can
+;; still be recorded. The accepted turn record precedes CLI spawn. The waiter
+;; attempts terminal status and post-turn distillation; abrupt termination or
+;; callback failure can leave an open record. See run-episode-turn for the
+;; distinction between durable request identity and process execution.
 
 (defonce ^:private ambient-autotag-runtime
   ;; The llm-module remains an intent/observation lifecycle organ only; durable
@@ -349,9 +363,12 @@
   (delay (llm/start-llm-runtime!)))
 
 (defn run-ambient-autotag!
-  "Best-effort ambient P4 silver lane. It runs off the response thread and
-   cannot delay or prevent the already-durable resident turn. Identical input
-   converges through material-circulation's OC record before any proposal edge."
+  "Handle the cascade's durable-turn notification using material-circulation.
+   Skips when gold-receipt exists or rk-rt is absent; returns nil when no visible
+   candidate units resolve. Otherwise reads candidates through OC and invokes
+   autotag-material!, forcing the delayed LLM IPC runtime. Returns its result.
+   Asynchrony and failure isolation belong to cascade/react!'s future; a direct
+   call runs synchronously and can throw. Durable records/edges use OC/RK."
   [{:keys [oc-rt rk-rt]}
    {:keys [object-key source-unit-id text receipt gold-receipt lines]}]
   ;; CONTRACT T6: the emission is unconditional. This handler alone owns the
@@ -419,11 +436,10 @@
       invocation-material/code-floor)))
 
 (defn resident-portal-open
-  "The actual Ctrl+Enter briefing authority.
-
-   A registered matter-room conversation always wins over client-supplied
-   portal coordinates and narrows to exactly its server-derived master. Every
-   other conversation keeps P8's addressed-block narrowing unchanged."
+  "Derive the resident briefing target from conversation and addressed block.
+   A recognized matter-room id fixes the master scope through matter-room;
+   otherwise reply-to-block narrows client portal data using source-unit-id
+   and invocation precontext. The short arity uses invocation's code floor."
   ([request-data source-unit-id conversation-id]
    (resident-portal-open
     request-data source-unit-id conversation-id invocation-material/code-floor))
@@ -439,12 +455,16 @@
             (or conversation-id episode/genesis-conversation-id))))))
 
 (defn run-episode-turn
-  "POST /api/episode/utterance {:content-text :turn-id :time-ms, optional
-   :source-unit-id/:position/:prev-turn-id} → SSE. turn-id + time-ms are
-   CLIENT-minted once per Ctrl+Enter (the wear-id precedent) so an HTTP retry
-   re-derives identical import identity and the journal no-ops — never a
-   double turn. A source unit narrows source-specific wear/receipt work; it is
-   not required for a top-level durable turn."
+  "Return an SSE Ring response for {:content-text :turn-id :time-ms} plus
+   optional source, position, conversation/thread, scene and CLI settings.
+   Execution begins when Jetty writes the body. Await an accepted :open turn
+   record (and any required gold relation) before emitting :episode-durable
+   and spawning Claude. Stream events, then attempt final status and transcript
+   harvest/distillation on the waiter thread before closing the writer.
+   Stable ids/time support durable request replay; they do not deduplicate CLI
+   execution in this handler. Concurrent/repeated HTTP calls can spawn again.
+   Final status is best-effort. on-done exceptions before promise delivery can
+   strand the response wait; disconnect does not cancel the child process."
   [request-data]
   (let [text           (str (:content-text request-data))
         source-unit-id (:source-unit-id request-data)
@@ -739,18 +759,15 @@
 ;; entry point — a second write path here would be the T1 second-wearer tell).
 ;;
 ;; Birth is NOT part of the portal open: opening a master must stay a read.
-;; This driver is the room ENTRY act, and it is idempotent by construction —
-;; N opens converge on one row set (T2, G3).
+;; This driver is the room entry act. Stable resident identities support
+;; repeated entry; concurrent refreshes still share the edit sequence lane.
 ;; =====================================================================
 
 (defn matter-room-next-edit-seq
-  "The next STRICTLY MONOTONE edit seq for one resident, from a DURABLE read
-   of that unit's own edit-order row (never a content hash: `stale-edit?`
-   rejects `(<= seq last-seq)` inside `edit-effects`, OUTSIDE
-   `edit-request-validation-errors`, so a hash-derived seq would silently drop
-   about half of all refreshes). Lineage key = the unit-id, constant per
-   resident; client id = the room's own, so the only seq this competes with is
-   the room's. Fallback 0 → first refresh 1."
+  "Read one resident's edit-order row for resident-edit-client-id and return
+   last-seq + 1 (default 1). The kernel rejects stale sequences, so use its
+   durable order rather than a content hash. This read does not reserve a seq:
+   concurrent refreshes can choose the same value and must inspect results."
   [oc-rt unit-id]
   (let [row (ocr/foreign-one (:edit-order-by-target oc-rt)
                              [(keypath unit-id)
@@ -758,8 +775,9 @@
     (inc (long (or (:edit-seq row) 0)))))
 
 (defn matter-room-birth!
-  "Land ONE resident through the parameterized episode import path: unit +
-   birth-position in one acked import, machine actor, machine role."
+  "Import a resident's unit and birth position with the episode request builder
+   using machine actor/role. Append, await a decision for up to 20 seconds, then
+   return act/status/import-key/reason; only :accepted decisions map to success."
   [oc-rt object-key resident]
   (let [request (episode/utterance-import-request
                  {:object-key object-key
@@ -779,9 +797,10 @@
        :reason (:reason decision)})))
 
 (defn matter-room-refresh!
-  "Land ONE resident's changed content as an EDIT on the same unit — the
-   append-only trail residents never take this path (`:resident/refreshable?`
-   false), because a new revision births a NEW resident instead."
+  "Submit changed resident text through block-edit on its existing unit.
+   Uses the next durable edit sequence and returns acceptance, replay and
+   reason fields. open-matter-room! calls this only for refreshable residents;
+   this helper itself does not enforce that flag."
   [oc-rt object-key unit-id unit resident]
   (let [seq* (matter-room-next-edit-seq oc-rt unit-id)
         request-id (str "req:matter-room:edit:" unit-id ":" seq*)
@@ -804,17 +823,14 @@
      :reason (:reason result)}))
 
 (defn open-matter-room!
-  "Open (and materialize) one master's room. Returns a plain map:
-   {:status :ok/:error :master-id :room-id :object-key :entry :residents [...]}.
-
-   Every resident is composed PURELY from the master-anchored portal
-   projection, then reconciled against durable truth:
-     absent            → birth once (episode import path)
-     present, same     → nothing (no write, no revision noise)
-     present, changed  → edit lane (refreshable residents only)
-   A changed resident is NEVER re-imported: the kernel's import fingerprint is
-   strict, so a re-import of changed content under the same import key is a
-   durable conflict (PLAN §P2 F5)."
+  "Project one master and reconcile its room residents against OC reads.
+   Missing units are born through episode import; identical text is untouched;
+   changed refreshable residents use block-edit; other residents stay append-only.
+   Returns room address/entry, per-resident outcomes and portal error fields.
+   :status :ok means the orchestration returned, not that all residents were
+   accepted or all portal sections succeeded. Writes are sequential per call,
+   not one atomic room operation. Changed content is never re-imported under
+   the same deterministic resident import identity."
   [{:keys [oc-rt] :as face-ctx} {:keys [master-id]}]
   (if (or (nil? oc-rt) (not (string? master-id)) (str/blank? master-id))
     {:status :error
@@ -868,13 +884,14 @@
 ;; =====================================================================
 ;; matter-room P3 — the named ACT lane over existing P6 machinery.
 ;;
-;; This namespace composes invocation only. The four durable functions below
-;; call the existing owners verbatim; they build no ActionRequest and append no
-;; depot directly. Preview intentionally has NO function or route here — it
-;; remains `ground/preview-candidate!` on the client (L5/G7).
+;; Deviation and activation delegate to worn owners; say composes an episode
+;; import with a reference assertion after the imported root is queryable.
+;; There is no preview route in this middleware.
 ;; =====================================================================
 
 (defn- prepare-matter-act
+  "Fill missing request id, time and actor before matter-room validation.
+   Callers needing stable retry identity must retain these values themselves."
   [request]
   (let [request (or request {})]
     (assoc request
@@ -885,6 +902,7 @@
            :actor (or (:actor request) matter-room/matter-actor))))
 
 (defn- matter-error-card
+  "Build the displayable error card for a named matter act."
   [verb error errors]
   {:card/kind :matter-act
    :card/status :error
@@ -893,6 +911,7 @@
    :card/errors (vec errors)})
 
 (defn- invalid-matter-act
+  "Return a nonaccepted error result and card; the short arity supplies no details."
   ([verb error] (invalid-matter-act verb error []))
   ([verb error errors]
    {:status :error
@@ -903,6 +922,7 @@
     :card (matter-error-card verb error errors)}))
 
 (defn- completed-matter-act
+  "Project an owner result into act status/revision/replay fields and a rejection card."
   [verb branch result]
   (let [accepted? (true? (:accepted? result))
         errors (vec (:errors result))
@@ -922,9 +942,10 @@
              :card (matter-error-card verb error errors)))))
 
 (defn matter-room-deviate!
-  "Invoke `:matter/deviate` through one of its two existing P6 owners:
-   instance deviation (`material-truth/deviate!`) or master candidate import
-   (`facet-master/import-candidate!`)."
+  "Validate a room deviation request and resolve its registered master spec.
+   Instance changes delegate to material-truth/deviate!; candidate source to
+   facet-master/import-candidate!. Returns a normalized act result or an error
+   card for missing runtime, invalid request or unknown master."
   [{:keys [oc-rt]} request]
   (let [act (matter-room/deviate-request (prepare-matter-act request))
         verb :matter/deviate
@@ -953,9 +974,9 @@
         oc-rt spec (:act/source act) (:act/options act))))))
 
 (defn matter-room-activate!
-  "Activate one retained candidate through the existing P6 pointer act.
-   `matter-room/activation-request` validates the closed event form before the
-   owner receives it, so malformed act metadata cannot touch the pointer."
+  "Validate the room activation form and resolve a registered master before
+   calling facet-master/activate!. Returns an act result or error card; candidate
+   admission and durable pointer mutation remain the facet-master owner's work."
   [{:keys [oc-rt]} request]
   (let [act (matter-room/activation-request
              :activate (prepare-matter-act request))
@@ -978,9 +999,10 @@
         oc-rt spec (:act/revision-id act) (:act/options act))))))
 
 (defn matter-room-rollback!
-  "Re-wear exactly one revision currently offered by the room's served
-   `:portal/recovery` section. A stale/forged target fails before the existing
-   P6 activation owner is invoked."
+  "Re-read the master portal and require the requested revision in its offered
+   recovery set before calling facet-master/activate!. Returns the act result
+   with recovery offer, or an error card. The offer read and activation are
+   separate operations; this function supplies no lock between them."
   [{:keys [oc-rt] :as face-ctx} request]
   (let [act (matter-room/activation-request
              :rollback (prepare-matter-act request))
@@ -1014,14 +1036,14 @@
            :recovery-offer offer))))))
 
 (defn matter-room-say!
-  "Halo P1 · H5 — import one immutable whole message, then assert its picked
-   subject reference.
-
-   Both existing runtimes are preflighted before the first append. The OC
-   import is append+await+query first; only then may the relation wrapper append
-   and await. Thus a lost response replays to one unit and one edge, an import
-   fingerprint conflict cannot leak a relation, and an import-only partial
-   attempt repairs on exact replay."
+  "Validate an immutable room message with a picked subject and require both
+   OC/RK handles. Check prior import fingerprint, append/await the OC import,
+   and require a queryable root before banking its reference relation. Returns
+   :accepted only when the reference is materialized, otherwise an error,
+   rejection or incomplete result with the completed stage's identity.
+   Exact replay can finish an import-only attempt through the existing owner
+   identities. This is not a transaction across OC and relation-kernel; presence
+   of handles is not a remote-health preflight, and exceptions can still escape."
   [{:keys [oc-rt rk-rt]} request]
   (let [act (matter-room/say-request (or request {}))
         verb :matter/say]
@@ -1169,6 +1191,8 @@
                       []))))))))))))))
 
 (defn- matter-act-http-status
+  "Map :land-unavailable to 503; other non-nil errors to 400. With no error,
+   :rejected maps to 422 and every other status to 200."
   [result]
   (case (:error result)
     :land-unavailable 503
@@ -1188,16 +1212,11 @@
    value))
 
 ;; =====================================================================
-;; Relation /assert write shim — git-spine WP2 component W (CONTRACT §3.E).
-;;
-;; POST /api/relation/assert is the land's first write affordance (D-008): a CLI
-;; agent asserts a RelationEdge via `curl`. The route validates route-side, does
-;; WRITE-AHEAD durability (one plain-map line, flushed) BEFORE appending the
-;; envelope to the running trail runtime's relation depot, and returns
-;; {relation-id request-id}. Boot replay of that log is P1's job (git_spine.clj);
-;; the two components meet ONLY at the file format + path, so this file NEVER
-;; requires git_spine (SF-R2.1) — it derives the shared path from a local
-;; constant, identically to P1.
+;; Relation assertion submission and optional file bridge.
+;; The normal external-cluster path appends directly. LAND_CLUSTER=0 enables
+;; the local file-before-depot bridge but does not change runtime selection.
+;; git-import/replay-assert-log! reads that file during explicit ingest. A
+;; successful HTTP response confirms append acknowledgement, not admission.
 ;; =====================================================================
 
 (defn edn-response
@@ -1211,16 +1230,14 @@
     :body    (pr-str data)}))
 
 (def assert-log-relative-path
-  "Repo-root-relative path of the shared relation-assert write-ahead log
-   (CONTRACT §3.C/§3.E, pinned by SF-R2.1). This route (PW) and the boot
-   replayer (P1) each derive the identical absolute path from this constant with
-   ZERO shared code and no dependency on the git_spine namespace."
+  "Repository-relative bridge-log path also derived by git-import's replayer.
+   The HTTP route writes it only when cluster-boot? is false; direct callers can
+   pass a log path explicitly. Replay belongs to explicit ingest/migration."
   "data/relation-assert-log.ednl")
 
 (defn default-assert-log-path
-  "Absolute assert-log path anchored at the repo root (user.dir), matching
-   file_viewer's boot-cfg root idiom. Computed at request time only; the parent
-   dir is created at runtime by the writer, never pre-created in the tree."
+  "Resolve the relation bridge-log path under user.dir without creating it.
+   append-assert-log-line! creates its parent directory when called."
   []
   (str (System/getProperty "user.dir") "/" assert-log-relative-path))
 
@@ -1236,13 +1253,9 @@
   #{:container :source :doc-file :conversation :derived-unit :kind})
 
 (defn validate-assert-params
-  "nil when `params` is a valid assert; else {:reason <string>} naming the first
-   failure. Guards (CONTRACT §3.E): kind ∈ rk/relation-kinds; from/to kinds ∈ the
-   route-side target allowlist; from/to ids are non-blank strings; asserter-id a
-   non-blank string and asserter-type a keyword (gate review 2026-07-05: the
-   depot rejects a nil :actor/id AFTER the route would have 200'd — the route
-   must never 200 a request it can know the depot will reject, nor write-ahead
-   a poison line that re-fails on every boot replay)."
+  "Return nil or the first {:reason string} for route-side assertion validation.
+   Checks known relation kind, allowed target kinds, nonblank ids and asserter,
+   and keyword asserter type. This is not the full kernel admission decision."
   [{:keys [kind from-kind from-id to-kind to-id asserter-id asserter-type]}]
   (cond
     (not (contains? rk/relation-kinds kind))
@@ -1272,11 +1285,9 @@
     :else nil))
 
 (defn envelope->plain-map
-  "Convert an assert envelope to a pure-EDN plain map for the write-ahead log
-   (CONTRACT §3.C): the :payload record and its nested :from/:to target-ref
-   records become plain maps (`into {}`, recursive). Every other envelope value is
-   already EDN, so the line pr-str's tag-free and round-trips through
-   clojure.edn/read-string."
+  "Convert the relation payload and its :from/:to records to plain maps for
+   EDN logging. Other envelope values are preserved and must already print as
+   readable EDN; this is not a general recursive record normalizer."
   [envelope]
   (let [ref->map (fn [ref] (when ref (into {} ref)))]
     (update envelope :payload
@@ -1286,22 +1297,16 @@
                   (update :to ref->map))))))
 
 (def ^:private assert-log-lock
-  "Serializes assert-log appends so concurrent /assert POSTs (multiple curl
-   agents, D-008) cannot interleave bytes and corrupt a line — every line must
-   round-trip through clojure.edn/read-string on replay. In-process monitor; the
-   endpoint is low-frequency so contention is negligible."
+  "JVM-local monitor serializing this writer's log appends. It provides no
+   coordination with other processes writing the same path."
   (Object.))
 
 (defn append-assert-log-line!
-  "Write-ahead durability (CONTRACT §3.E): append ONE pr-str'd plain-map line to
-   the assert-log, creating the parent dir at runtime (never pre-created in the
-   tree) and flushing per append. `request` is a relation envelope.
-
-   *print-namespace-maps* is bound false so the :actor submap prints as explicit
-   {:actor/id .. :actor/type ..} rather than the #:actor{..} namespace-map
-   shorthand — the line then contains NO '#' at all (no ambiguity vs reader
-   tags), and clojure.edn/read-string reads both forms identically, so P1's
-   replayer is unaffected."
+  "Append one UTF-8 plain-envelope EDN line under the process-local lock.
+   Creates parents, disables namespace-map shorthand, flushes and closes the
+   writer. This is file-before-depot ordering, not an fsync/power-loss guarantee.
+   Only envelope->plain-map's known records are normalized; arbitrary '#' data
+   is not forbidden by this writer."
   [log-path request]
   (let [f    (io/file log-path)
         ;; pure work off the lock: build the whole line first
@@ -1318,26 +1323,18 @@
         (.flush w)))))
 
 (defn assert-relation-handler
-  "git-spine WP2 component W core. Validates route-side, then on success does
-   WRITE-AHEAD (one durable plain-map line) BEFORE appending the envelope to the
-   trail runtime's relation depot; returns a ring response. Decoupled from HTTP
-   routing + runtime resolution so tests (and the final-phase G8 pair test) drive
-   it directly with a test runtime + tmp log path.
+  "Validate params, optionally append a bridge-log line, then append the
+   relation request using the owner's default :append-ack. Returns 400 for
+   route validation failure; otherwise 200 with relation/request ids after the
+   depot append. It does not await a decision or a queryable relation, so :ok
+   means submitted rather than admitted/materialized. Append errors escape.
 
-   opts   {:runtime <relation runtime handle> :log-path <assert-log path string>}
-   params {:kind :from-kind :from-id :to-kind :to-id :note :asserter-id
-           :asserter-type + optional :idempotency-key}
-
-   Idempotency (gate review 2026-07-05, trap-4 parity with the import path):
-   the default request-id/idempotency-key is the DETERMINISTIC
-   \"assert:<relation-id>\" — a curl retry after a timeout re-sends the same
-   key, the journal drops the replay, and NO duplicate decision/event/activity
-   rows accrue. An optional :idempotency-key param overrides it for the
-   deliberate re-assert case (e.g. after a retract, or to update :note), where
-   the journal must NOT drop the request.
-
-   Valid   → write log line, append to depot, 200 {:ok true :relation-id :request-id}.
-   Invalid → 400 {:ok false :reason ...}; NO file write, NO depot append."
+   opts: {:runtime relation-bundle :log-path optional-path}.
+   params: {:kind :from-kind :from-id :to-kind :to-id :note :asserter-id
+            :asserter-type}, optionally :idempotency-key.
+   Default request/idempotency id is assert:<relation-id>; retain or override
+   it deliberately when reasserting. Replays may add file lines even when the
+   relation owner's journal deduplicates their durable effects."
   [{:keys [runtime log-path]} params]
   (if-let [{:keys [reason]} (validate-assert-params params)]
     (edn-response 400 {:ok false :error :invalid-request :reason reason})
@@ -1370,14 +1367,17 @@
                          :request-id request-id}))))
 
 (defn resolve-trail-runtime-or-503
-  "Return an availability tuple for the external-cluster TrailView runtime."
+  "Return [:ok runtime] for any non-nil bundle, otherwise an unavailable tuple.
+   This checks handle presence only; no remote health/readiness query is made."
   [runtime]
   (if (some? runtime)
     [:ok runtime]
     [:unavailable "trail runtime not booted"]))
 
 (defn handle-assert-route
-  "Route composition for POST /api/relation/assert over a runtime-or-nil."
+  "Parse the EDN body and submit an assertion when a runtime bundle is present;
+   otherwise return 503. Parsing and append exceptions are handled by the outer
+   route wrapper, not here."
   [ring-req runtime-or-nil log-path]
   (let [[status runtime] (resolve-trail-runtime-or-503 runtime-or-nil)]
     (if (= status :ok)
@@ -1387,8 +1387,12 @@
                          :message "trail runtime not booted"}))))
 
 (defn wrap-file-api
-  "Handle /api/* routes for file explorer sidebar.
-   Returns EDN responses consumable by ClojureScript client."
+  "Wrap a Ring handler with the explicit POST act routes listed below.
+   API bodies are read as EDN before downstream parameter middleware; ordinary
+   responses are EDN and utterance responses are SSE. Unknown paths delegate.
+   Status conventions differ: utterance method/errors use the always-200
+   helper, while the other branches set statuses explicitly. Runtime handles
+   always come from cluster, including when the legacy file-log flag is set."
   [next-handler]
   (fn [{:keys [uri query-params request-method] :as ring-req}]
     (cond
@@ -1431,9 +1435,7 @@
         (edn-response 405 {:status :error :error :method-not-allowed}))
 
       ;; ===== matter-room P3 · named durable ACT endpoints (L5/G7) =====
-      ;; These are the complete server invocation surface. Preview is absent
-      ;; by law: window.__portal.preview delegates to the existing client
-      ;; membrane and never reaches Jetty.
+      ;; These branches compose durable room acts; no preview route is installed.
       (= uri "/api/matter-room/deviate")
       (if (= request-method :post)
         (try
@@ -1605,7 +1607,11 @@
       ;; Not an API route — pass through
       (next-handler ring-req))))
 
-(defn http-middleware []
+(defn http-middleware
+  "Compose API routes outside params/content-type middleware and a 404 fallback.
+   This order preserves raw EDN bodies even when curl labels them form data;
+   no browser resource or Electric handler is installed here."
+  []
   ;; these compose as functions, so are applied bottom up
   (-> not-found-handler
     (wrap-content-type)
@@ -1616,7 +1622,8 @@
     (wrap-file-api)))
 
 (defn- add-gzip-handler!
-  "Makes Jetty server compress responses. Optional but recommended."
+  "Wrap Jetty's existing handler with GzipHandler and a 1024-byte size threshold.
+   Mutates server configuration; MIME selection remains Jetty's default here."
   [server]
   (.setHandler server
     (doto (GzipHandler.)
@@ -1624,7 +1631,13 @@
       (.setMinGzipSize 1024)
       (.setHandler (.getHandler server)))))
 
-(defn start-server! [{:keys [port host]
+(defn start-server!
+  "Start Jetty with this namespace's Ring middleware and return the server.
+   Defaults port to 8080, join? to false and installs gzip; supplied config wins
+   when merged, including join? and configurator. Caller owns .stop lifecycle.
+   host is defaulted for logging; bind options are forwarded through config.
+   Does not start ingest/watchers or eagerly acquire cluster/ambient runtimes."
+  [{:keys [port host]
                       :or   {port 8080, host "0.0.0.0"}
                       :as   config}]
   (let [server     (ring/run-jetty (http-middleware)

@@ -1,8 +1,13 @@
 (ns app.server.worn.attention-material
-  "The attention and hit-area facet specification.
-   Takes: served forms and binding rows for block hit areas.
-   Gives: compiled attention values, interaction claims, and contribution rows.
-   Holds: spec."
+  "Pure specification for block hit-area appearance and attention bindings.
+   Declares background/border/padding and composition policy in v0, binding
+   rows in v1, strict site/argument validation in v2 and a reply row in v3.
+   Bootstrap still uses default-form v0; fallback uses reply-bindings-form v3.
+
+   Forms, EDN and served active maps yield compiler results or resolved material
+   through facet-engine; contribution-stamp labels caller-supplied contributions.
+   Owns immutable spec/default values only. It does not build hit geometry,
+   receive gestures, execute verbs or activate the registered master."
   (:require [app.server.worn.binding-material :as binding-material]
             [app.server.worn.facet-engine :as facet-engine]))
 
@@ -171,10 +176,12 @@
             binding-material/strict-bindings-validator)}}})
 
 (defn compile-form
+  "Validate a form under this spec; return validity, errors, grammar and material."
   [form]
   (facet-engine/compile-form spec form))
 
 (defn compile-source
+  "Read EDN and compile under this spec; return parse/validation errors as data."
   [source]
   (facet-engine/compile-source spec source))
 
@@ -182,9 +189,11 @@
   (facet-engine/code-floor spec))
 
 (defn resolved-wear
+  "Resolve a complete served active map, falling back to this spec's code floor."
   [served]
   (facet-engine/resolved-wear spec served))
 
 (defn contribution-stamp
+  "Return subject/facet/revision and site/role/slot provenance for supplied wear."
   [wear subject site role slot]
   (facet-engine/contribution-stamp wear subject site role slot))

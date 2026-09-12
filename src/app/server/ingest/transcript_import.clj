@@ -1,8 +1,16 @@
 (ns app.server.ingest.transcript-import
-  "Transcript importer that calls a cutter, then writes rows and typed relations into the store.
-   Takes: stored source rows, transcript events, object-container and relation runtimes, and page limits.
-   Gives: block rows, edge specifications, import results, and river-page values.
-   Holds nothing."
+  "Distill stored transcript payloads into addressable text parts and blocks.
+   Pure stages classify events, resolve production actors, cut text and build
+   ObjectContainer import requests. Foreign-client stages read stored transcript
+   inputs, append block/class material, and optionally assert mechanical,
+   refinement or assembly relations through the relation kernel.
+
+   ObjectContainer owns surfaces, units, anchors and class/projection rows;
+   RelationKernel owns typed relation state. Drivers borrow runtime handles and
+   return decisions/counts, not an aggregate acceptance guarantee. river-page
+   reads stored block material for page/episode consumers, with separate imported
+   and native lanes. Only the explicit start/close-distiller-runtime! helpers
+   acquire/release IPCs; ordinary cutting, importing and reading own no runtime."
   (:require [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
             [app.server.ingest.markdown-adapter :as md]
@@ -79,10 +87,12 @@
   (or (:type parsed) (get-in parsed [:message :role]) "unknown"))
 
 (defn message-role
+  "Read nested message role, falling back to the top-level role."
   [parsed]
   (or (get-in parsed [:message :role]) (:role parsed)))
 
 (defn message-content
+  "Read nested message content, or nil when absent."
   [parsed]
   (get-in parsed [:message :content]))
 
@@ -96,13 +106,16 @@
       (str "evt:" order)))
 
 (defn- parse-timestamp
+  "Parse an ISO instant string to epoch milliseconds; return nil for invalid or non-string input."
   [ts]
   (when (string? ts)
     (try (.toEpochMilli (java.time.Instant/parse ts))
          (catch Exception _ nil))))
 
-(defn- tool-result-type? [t] (contains? #{"tool_result" "tool-result"} t))
-(defn- tool-use-type? [t] (contains? #{"tool_use" "tool-use"} t))
+(defn- tool-result-type?
+  "True for either supported tool-result tag." [t] (contains? #{"tool_result" "tool-result"} t))
+(defn- tool-use-type?
+  "True for either supported tool-use tag." [t] (contains? #{"tool_use" "tool-use"} t))
 
 (defn- tool-use-text
   "A tool_use block's content = name + redacted args (SPEC §4.3). The args come
@@ -139,6 +152,7 @@
                     (str (whole-message-text (message-content parsed))))))
 
 (defn- user-has-tool-result?
+  "True when nested sequential content contains a tool-result map."
   [parsed]
   (let [content (message-content parsed)]
     (and (sequential? content)
@@ -230,6 +244,7 @@
 ;; ===========================================================================
 
 (defn- assistant-part
+  "Convert one indexed content block to a typed part with text and tool metadata; image parts carry empty text."
   [i block]
   (let [t (:type block)]
     (cond
@@ -295,7 +310,8 @@
     (and (>= (count t) (count marker))
          (every? #(= % c) t))))
 
-(defn- blockquote-line? [text] (boolean (re-find #"^\s{0,3}>" (str text))))
+(defn- blockquote-line?
+  "True for a line with up to three leading spaces before a blockquote marker." [text] (boolean (re-find #"^\s{0,3}>" (str text))))
 
 (defn- table-delimiter-line?
   "A GFM delimiter row: only |, -, :, whitespace, with at least one -."
@@ -343,6 +359,7 @@
             (recur (inc i) regions (conj run (v i)))))))))
 
 (defn- map-md-form
+  "Map the Markdown cutter's unit kind to the transcript block form, defaulting to :prose-para."
   [md-kind]
   (case md-kind
     :markdown/paragraph :prose-para
@@ -427,8 +444,10 @@
 (def write-tools #{"Edit" "Write" "MultiEdit" "NotebookEdit"})
 (def read-tools  #{"Read" "Grep" "Glob" "NotebookRead" "WebFetch" "WebSearch"})
 
-(defn write-tool? [tool-name] (contains? write-tools tool-name))
-(defn read-tool?  [tool-name] (contains? read-tools tool-name))
+(defn write-tool?
+  "True for tool names in the write-tools set used by the mechanical edge planner." [tool-name] (contains? write-tools tool-name))
+(defn read-tool?
+  "True for tool names in the read-tools set used by the mechanical edge planner."  [tool-name] (contains? read-tools tool-name))
 
 (defn edge-spec
   "A pure mechanical-edge spec (the driver turns it into rk/assert-request in
@@ -897,13 +916,12 @@
                       :idempotency-key idempotency-key}))
 
 (defn assert-mechanical-edges!
-  "P3b (SPEC §11.3; gates G8/G9). Re-distills the conversation's river events (pure;
-   reuses the already-read `inputs`), plans the floor edges (pure mechanical-edge-
-   plan), then: (a) demand-mints the paired tool_result endpoint blocks via OC
-   import (await-decision so the endpoint resolves to a real block before the edge);
-   (b) appends each produced/grounds edge into the RELATION kernel (:append-ack).
-   Unpaired write/read tool_use → its edge points at a HOLE (no coarse block minted;
-   G9). Returns {:edges plan :edge-count N} to merge into the driver summary."
+  "Re-distill already-read inputs, pair tool calls/results and plan mechanical
+   :produced/:grounds relations. Paired result parts receive coarse endpoint
+   imports; unpaired calls target explicit hole ids. The OC decision wait is
+   performed but its returned status is ignored before relation appends.
+   Returns {:edges plan :edge-count N}; this counts planned/appended edges,
+   not accepted or materialized relations. The borrowed RK path is microbatch."
   [{:keys [oc-rt rk-rt object-key inputs]}]
   (let [river (keep (fn [{:keys [order payload-str]}]
                       (let [parsed (safe-read-payload payload-str)
@@ -927,17 +945,16 @@
     {:edges plan :edge-count (count plan)}))
 
 (defn distill-conversation!
-  "Drive one already-ingested conversation: read its stored per-message payloads
-   (F3) → classify-first → distill river events → submit one OC import per river
-   event (:append-ack; await the per-request decision). Debris is skipped (it is
-   retained upstream by the transcript ingest; its river/debris ledger is Phase 2).
-   When an `:rk-rt` (relation-kernel runtime) is supplied, ALSO runs the P3b
-   mechanical edge floor (SPEC §11.3, gates G8/G9). When a `:skip-event?`
-   predicate is supplied ((fn [parsed distilled] -> bool) — first-light A P2,
-   flag D), matching events mint NO surface import: they get a class-only
-   :native ledger row (their material is already durable under imp:ep:) and
-   count under :native in the summary. Returns
-   {:object-key :requests :decisions :river :debris :native :edges :edge-count}."
+  "Read a conversation projection prefix of up to 100000 rows, select messages,
+   classify each payload and submit common material for nonempty river parts.
+   Debris and empty river events receive class-only imports. :skip-event? marks
+   matching events :native with class-only rows; their material is assumed to
+   exist through the episode lane. Optional :rk-rt also appends mechanical edges.
+
+   Returns requests, decisions, class-hint decisions and classification/edge
+   counts. Each OC decision is awaited for up to 20 seconds but its status is
+   collected rather than required before continuing; counts describe classified
+   inputs, not accepted imports. Relation append completion is not awaited."
   [{:keys [oc-rt rk-rt source conversation-id skip-event?]}]
   (let [object-key (tid/transcript-object-key source conversation-id)
         inputs (read-conversation-inputs oc-rt object-key)
@@ -1065,7 +1082,12 @@
    unit + finer anchor; DISTINCT import-key so the OC journal does not dedup it as a P1
    replay), then ONE :refines edge finer→coarse (RK microbatch; the caller/test barriers
    on processed-count). Returns {:finer-unit-id :coarse-unit-id :surface-id :relation-id
-   :note :edge-count :decision}."
+   :note :edge-count :decision}.
+
+   When the span already resolves to a unit, :resolved? is true and :decision
+   is nil because no OC import is submitted. Otherwise the returned OC decision
+   can be rejected or nil after timeout; relation emission is not gated on it.
+   Span identity lookup is bounded by refine-resolve-scan-limit."
   [{:keys [oc-rt rk-rt coarse-unit-id sub-span engagement form asserted-at-ms]}]
   (let [[raw-start raw-end] sub-span
         sub-start   (long raw-start)
@@ -1182,7 +1204,14 @@
    co-tenants under the FIRST source block's object-key (v0: one chat; the surface-id is
    distinct, so this is routing/colocation only — cross-object assembly still works, the
    RK target copies hop per endpoint). Returns {:assembled-source-id :assembled-unit-id
-   :assembled-from :edge-count :decision}."
+   :assembled-from :edge-count :decision}.
+
+   The new surface stores assembled text as well as relation references; source
+   rows remain unchanged. Identity depends on ordered block ids, not :text, so
+   changed text for the same ids is not a distinct assembly identity. Repeated
+   occurrences of one block share a relation/idempotency key despite different
+   position notes; separate occurrence identity is not represented. The OC
+   decision is returned but not checked before relation appends."
   [{:keys [oc-rt rk-rt block-ids text asserted-at-ms]}]
   (when (empty? block-ids)
     (throw (ex-info "assemble!: no source blocks" {})))
@@ -1260,6 +1289,7 @@
   100000)
 
 (defn- river-ledger-order
+  "Parse the numeric suffix of an sb: class-ledger order key; otherwise nil."
   [row]
   (let [order-key (str (:order-key row))]
     (when (str/starts-with? order-key "sb:")
@@ -1268,11 +1298,13 @@
         (catch NumberFormatException _ nil)))))
 
 (defn- river-ledger-row?
+  "True for a :river class-ledger row with a parseable sb: order key."
   [row]
   (and (= :river (:entry-kind row))
        (some? (river-ledger-order row))))
 
 (defn- page-limit
+  "Coerce and validate the requested page limit within 1..max-river-page-size; invalid values throw."
   [limit]
   (let [n (long (or limit 0))]
     (when-not (<= 1 n max-river-page-size)
@@ -1382,21 +1414,26 @@
           vec)}))
 
 (defn river-page
-  "Render the first bounded page of a conversation's persisted river blocks.
+  "Read a first page of stored transcript and native episode blocks.
+   Read the conversation projection with a 100000-row guard (hitting the guard
+   throws), then re-derive per-part source ids from stored redacted inputs.
+   Read rendered material through read-common-material-for-source and read-unit;
+   :content-text includes the stored edit/graduation overlay.
 
-   Input enumeration (F3, G13-exempt): one range read of the transcript conversation
-   projection gives ordered `:message` rows plus the `sb:` river class ledger; each
-   selected river event reads its already-redacted stored payload and deterministically
-   re-derives per-part source ids. Output material (G13-governed) uses ONLY
-   read-common-material-for-source + read-unit query topologies.
+   limit must be 1..512. Imported events, surfaces and returned blocks are each
+   bounded by limit; native surfaces/returned blocks have a separate limit.
+   Each surface query requests at most the remaining block budget in refs.
+   Unit reads can exceed returned blocks if candidates are absent or filtered.
+   The returned vector appends native blocks after imported blocks, so it can
+   hold up to 2*limit blocks and is not a global time merge. There is no cursor.
+   Metadata includes :river-page/read-plan, geometry/camera rows and turn rows.
+   :truncated? conservatively reports an exhausted ceiling or remaining events;
+   repeating the same call does not advance to another page.
 
-   `limit` bounds all three fan-out dimensions: at most `limit` river events, at
-   most `limit` per-part source queries, and at most `limit` unit query invocations.
-   The returned vector carries `:river-page/read-plan` metadata with the measured
-   counts. Since read-unit performs the unit + graduation point reads, the v0 seek
-   bound is 1 + events-read + surfaces-read + 2*unit-reads <= 1 + 4*limit (G12).
-   The projection seek iterates sequentially; CommonMaterialBundle uses one subindexed
-   range seek per selected surface."
+   Read-plan counts are derived from traversed calls, not measured RocksDB I/O.
+   :seek-count includes both lanes, while the retained :seek-bound = 1+4*limit
+   assumes imported unit reads stay within limit and excludes native material.
+   It is not an enforced bound. Projection scanning/metadata collection are separately guarded."
   [{:keys [oc-rt object-key]} limit]
   (let [limit      (page-limit limit)
         conv-id    (tid/chat-conversation-id object-key)
@@ -1475,9 +1512,9 @@
                            (count (:blocks native)))
         ;; F2: never present a capped/short page as complete. Truncated when ANY
         ;; ceiling was hit — unrendered river events remain, or the surface/block
-        ;; cap stopped the walk (either lane). A consumer re-pages until
-        ;; :truncated? is false (a cursor/dedicated query is the CONTRACT §10
-        ;; scale extension, not v0).
+        ;; cap stopped the walk (either lane). There is no continuation cursor here;
+        ;; repeating this call reads the same prefix. Consumers must inspect
+        ;; truncation rather than treat a capped prefix as the whole conversation.
         truncated? (boolean (or (> total-river-events (:events-read result))
                                 (>= (:surfaces-read result) limit)
                                 (>= (count (:blocks result)) limit)

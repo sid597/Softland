@@ -1,8 +1,10 @@
 (ns app.server.episode.cascade
-  "An in-process table of trigger-to-handler declarations.
-   Takes: a context map, a trigger keyword, and a payload map.
-   Gives: ordered dispatch maps and one best-effort future per matching handler.
-   Holds: declared-rows."
+  "In-process dispatch from an episode trigger to declared handler symbols.
+   react! receives caller context and payload, returns dispatch receipts, and
+   launches one best-effort future per matching row. The private declaration
+   vector is static code data, not a durable queue. Futures and handler results
+   are not returned or retained; failures are logged. The door emits the
+   turn-durable trigger and supplies the ambient autotag handler."
   (:require [clojure.tools.logging :as log]))
 
 ;; CONTRACT T2/T5: declarations are inert data. Trigger names identify
@@ -23,8 +25,11 @@
   declared-rows)
 
 (defn react!
-  "Dispatch every row declared for `trigger`, preserving declaration order in
-   the immediate receipts. Each handler runs in its own best-effort future."
+  "Launch a future for each declaration matching trigger, passing ctx and
+   payload unchanged. Return a vector of dispatch receipts in declaration
+   order; handler completion order is unspecified. :dispatched? means the
+   future was submitted, not that its effect succeeded. Handler resolution or
+   invocation failures are logged; there is no retry or durable delivery here."
   [ctx trigger payload]
   (->> (rows)
        (filter #(= trigger (:cascade/trigger %)))

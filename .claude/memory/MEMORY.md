@@ -43,7 +43,9 @@ protected.
 - `docs/README.md` — current documentation entrypoints; `docs/how-we-got-here.md`
   explains the changes in understanding that led to the Inland build.
   `reference/README.md` distinguishes dependency docs from source snapshots.
-  Current implementation explanations stay with their code. `history/` preserves
+  Current implementation explanations stay with their code: enter through
+  `src/app/client/README.md`, `src/app/server/README.md`, or `src-inland/README.md`
+  for the relevant source tree. `history/` preserves
   earlier work and its reasoning/evidence; consult it for a relevant question,
   not as default session context. Historical "current", "binding", and "next"
   instructions are not present requirements or tasks. See `CLAUDE.md` under

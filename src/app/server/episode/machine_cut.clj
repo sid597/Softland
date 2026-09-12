@@ -1,8 +1,13 @@
 (ns app.server.episode.machine-cut
-  "A model-driven annotator for :pairs-with relations.
-   Takes: object-container and relation runtimes, an address, block limits, and model output.
-   Gives: validated pair plans, relation writes, run results, and replay results.
-   Holds: data/machine-cut-log.ednl."
+  "Model-derived prompt/response pairing over a bounded transcript river page.
+   Builds and hashes shown events, claims an llm-module run, validates model
+   output against those events, then reconciles this annotator's :pairs-with
+   edges through the relation kernel. OC supplies material; LLM owns run state;
+   the relation kernel owns accepted edges.
+   This driver writes a local EDN replay log before relation requests; it owns
+   no PState. Replay and repeat-success paths reconcile from completed log
+   entries without another model call. The file, LLM run and relations are
+   separate writes, with explicit incomplete and missing-log outcomes."
   (:require [clojure.string :as str]
             [clojure.edn :as edn]
             [clojure.java.io :as io]
@@ -64,6 +69,7 @@
   "\u0000")
 
 (defn default-wal-path
+  "Resolve the replay-log path under :repo-root, defaulting to the JVM cwd."
   [{:keys [repo-root]}]
   (str (or repo-root (System/getProperty "user.dir")) "/" wal-relative-path))
 
@@ -112,10 +118,9 @@
   (->> (:blocks event) (map (comp str :text)) (str/join "\n")))
 
 (defn input-hash
-  "sha-256 over the ordered (event-uuid, unit-id, sha-256(text)) triples across
-   ALL river blocks in river order (CONTRACT §5.1). Deterministic identity is
-   what makes re-annotation of identical input a total no-op (MC-T9 / §3). One
-   changed block text → a different hash → a different run (G1)."
+  "Hash ordered (event-uuid, unit-id, text-hash) triples from the shown blocks.
+   This contributes to run identity; identical input avoids another paid run,
+   but a repeat-success call can still reconcile missing relation writes."
   [blocks]
   (envelope/sha-256
     (str/join id-part-separator
@@ -210,6 +215,7 @@
        "\"unpaired\": [\"<event-uuid>\", ...]}"))
 
 (defn render-event-line
+  "Render one shown event id, actor and concatenated text for the prompt."
   [event]
   (format "[%s] %s:\n%s"
           (:event-uuid event)
@@ -256,9 +262,8 @@
       {:ok? false :error {:reason :invalid-json :message (.getMessage t)}})))
 
 ;; ════════════════════════════════════════════════════════════════════════════
-;;  PURE CORE §5.3 — validation (driver-side, BEFORE any write). TOTAL, keyed on
-;;  the THING (the /atomize A5 law). Closed-world (MC-T3): hallucinated ids must
-;;  not mint dangling-legal edges.
+;;  Validation before relation writes: coverage of the shown event set and
+;;  closed-world endpoint checks. See validate-output for malformed-shape limits.
 ;; ════════════════════════════════════════════════════════════════════════════
 
 (defn human-actor?
@@ -270,8 +275,12 @@
   (str/starts-with? (str actor) "human:"))
 
 (defn validate-output
-  "TOTAL classification of a parsed output against the shown event set
-   (CONTRACT §5.3). PURE. Deterministic policy (documented, within the contract):
+  "Classify parsed output against the shown event set. Pure; the coverage
+   policy is total over shown ids, but arbitrary malformed JSON shapes are
+   not all handled: vec on scalar pairs/unpaired, or the final mapcat over
+   scalar responses, can throw. parse-output checks only the top-level map.
+
+   Deterministic policy:
 
    1. Closed world (MC-T3): a pair whose prompt or ANY response uuid is NOT in
       the shown set is REJECTED whole; each unknown uuid is counted (:unknown-ids).
@@ -510,9 +519,9 @@
      :read-plan (:river-page/read-plan (meta page))}))
 
 (defn- append-wal-line!
-  "One pure-edn line, UTF-8 (the face-arsenal append-wear-log-line! / git-spine
-   route-writer discipline, CONTRACT §5.5). Plain maps only — safe under
-   clojure.edn at replay."
+  "Append one plain EDN value and newline as UTF-8, creating parents.
+   A function-level lock serializes writes in this JVM. Closing the writer
+   flushes it; this does not fsync or coordinate separate processes."
   [path event]
   (locking append-wal-line!
     (let [f (io/file path)]
@@ -522,38 +531,30 @@
         (.write w "\n")))))
 
 ;; The final JSON output rides the `:claude/result` observation's :result/text
-;; (the result fold closes the run terminal but does NOT store the text; the
-;; returned observations carry it — llm.clj:2105, observation constructor
-;; select-keys :result/text). Terminal STATUS is read from the MATERIALIZED run
-;; row (barrier), never inferred from the adapter output.
-(defn- finished-at-of [run-row] (:finished-at run-row))
+;; (the result fold closes the run without adding a text item; raw response
+;; evidence remains in the run). This driver reads :result/text from its
+;; returned observations. Terminal STATUS is read from the materialized run
+;; row, not inferred from the adapter output.
+(defn- finished-at-of
+  "Return the materialized run's finish timestamp, or nil."
+  [run-row]
+  (:finished-at run-row))
 
 (declare annotate-run! apply-transitions! reconcile-from-wal-line!
          read-wal-lines wal-line-for-run read-machine-cut-edges)
 
 (defn annotate-conversation!
-  "The v0 trigger surface (CONTRACT §5.7): annotate one conversation window's
-   pair structure and reconcile the machine-cut edges. D-008 A2's writer is
-   exactly this agent-on-Sid's-instruction path — no workspace command, no
-   Electric write surface (§10.4).
-
-   `ctx`  : {:llm-rt <llm runtime> :rk-rt <relation runtime>
-             :oc-rt <oc runtime, optional — only for the default river loader>
-             :load-river-blocks (fn [address limit] -> {:blocks :read-plan})
-                — INJECTED; defaults to river-page over :oc-rt (MC-T4 shared read)
-             :wal-path <override, optional>}
-   `address` : the conversation object-key (conversation-projection's :address).
-   `opts`  : {:limit <default 64> :salt <default \"\"> :executor-id
-             :lines <canned stream-json lines → fake adapter; ALL suite gates use
-                     this, no live LLM (§3 test seam llm.clj:2179-2184)>
-             :timeout-ms}
-
-   Flow: build input (§5.1) → run-hash + synthetic ids (§3) → submit turn-run
-   intent + await pending → claim & run the executor (spawn is HERE, MC-T5) with
-   a rebuild-verify bundle (MC-T9) → await terminal → parse + validate (§5.2/3) →
-   WAL line FIRST (§5.5) → reconcile append (§5.4) → epoch bump (§5.6, only after
-   edge acks on a non-zero-write run). Returns a summary map (never throws on a
-   failed/malformed run — records it honestly, zero edge writes)."
+  "Annotate one bounded conversation river page using borrowed :llm-rt and
+   :rk-rt; supply :oc-rt or inject :load-river-blocks. :wal-path overrides the
+   local replay file. Options include :limit (default 64), :salt, :executor-id,
+   :timeout-ms and canned stream-JSON :lines instead of a live CLI.
+   A new run hashes the page, claims model work, rechecks the input, validates
+   output, writes the replay recipe, then checks relation materialization.
+   A succeeded run reconciles its completed log line; no line returns
+   :stale-no-wal. Failed/cancelled identities require a new salt to retry.
+   Inspect edge counts and :edges-unmaterialized even on :noop-complete.
+   Handled run/parse failures return summaries; loader, IO and append errors
+   are not covered by a whole-function catch and may propagate."
   [ctx address opts]
   (let [{:keys [llm-rt rk-rt oc-rt load-river-blocks wal-path]} ctx
         {:keys [limit salt executor-id lines timeout-ms]
@@ -887,16 +888,12 @@
     (apply-transitions! rk-rt plan ts)))
 
 (defn replay-wal!
-  "Re-apply every completed WAL line's reconcile to the relation kernel, in FILE
-   ORDER (CONTRACT §5.5, §9 G11). ZERO adapter calls — no LLM (structurally: this
-   fn takes no adapter). Deterministic ids converge; the relation journal makes a
-   double replay within one cluster a no-op; a fresh cluster reconstructs the
-   edges exactly. Each completed line reconciles its edges against the current
-   fresh-cluster state (so a later re-annotation line's move retracts the stale
-   edge, reproducing the live state). Malformed/torn lines are counted + SKIPPED,
-   never aborting the reduce (face-arsenal replay-wear-log! precedent; torn
-   trailing line dropped, the rest replayed). Missing file → no-op. Returns
-   {:asserted <n> :retracted <n> :lines <completed> :failed <torn>}."
+  "Reconcile completed EDN log entries in file order against relation state.
+   No model is called. Return counts of materialized assertions/retractions,
+   unmaterialized transitions, completed lines and failed lines. Non-completed
+   records and blank lines are ignored; malformed entries or per-line write
+   errors are counted and skipped. A missing file returns zero counts. File
+   open/read errors can propagate. This helper does not increment ingest epoch."
   [{:keys [rk-rt wal-path] :as ctx}]
   (let [path (or wal-path (:wal-path ctx) (default-wal-path {}))]
     (reduce

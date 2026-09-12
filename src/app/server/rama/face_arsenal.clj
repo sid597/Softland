@@ -1,8 +1,12 @@
 (ns app.server.rama.face-arsenal
-  "A durable face roster and wear-event log.
-   Takes: face registration and wear records keyed by face name.
-   Gives: roster, current-wear, wear-count, and wear-history query results.
-   Holds: depot *face-arsenal-depot; PStates $$faces-by-name $$wear-events-by-face $$wear-counts-by-face $$wear-journal-by-face; data/face-wear-log.ednl."
+  "Face-name pointers and wear usage in one Rama stream module.
+   Registration/unregistration maps change the roster; wear maps append history
+   and update counts, deduplicated by face-name/wear-id. The roster is colocated
+   under the constant faces key; wear state is partitioned by face name.
+   Face material and revisions belong to object-container, not this registry.
+   Foreign wrappers borrow handles; the IPC launcher records whether it owns
+   its cluster. record-wear! optionally writes a local EDN log before the depot;
+   door/cluster explicitly disables that file path for durable-cluster use."
   (:use [com.rpl.rama]
         [com.rpl.rama.path])
   (:require [app.server.rama.object-container :as oc]
@@ -34,6 +38,7 @@
 ;; ===========================================================================
 
 (defn wear-event
+  "Build a plain namespaced wear-event map from caller-supplied identity, address, and time."
   [{:keys [wear-id face-name wearer address worn-at-ms]}]
   {:event/type :face/wear
    :face/name face-name
@@ -43,6 +48,7 @@
    :wear/worn-at-ms worn-at-ms})
 
 (defn registered-event
+  "Build a registration map pointing a face name at object/import identity and validity metadata."
   [{:keys [face-name object-key import-key status valid? source-ref registered-at-ms]}]
   {:event/type :face/registered
    :face/name face-name
@@ -54,20 +60,23 @@
    :face/registered-at-ms registered-at-ms})
 
 (defn unregistered-event
-  "G26 fix (rename ghost): a face whose name no longer backs a source file is
-   REMOVED from the roster — a permanent ghost entry is the map lying about
-   wearability (T14 spirit). Emitted by the watcher's roster reconcile when an
-   accepted import shows a file's envelope name changed; the OC object itself
-   is untouched (durable history; the rename stays a fork per §17)."
+  "Build an event removing the face-name pointer. The topology retains wear history
+   and does not delete the referenced object-container material."
   [{:keys [face-name]}]
   {:event/type :face/unregistered
    :face/name face-name})
 
 ;; -- topology helper fns (plain defns used as dataflow ops) -------------------
 
-(defn event-type [e] (:event/type e))
-(defn event-face-name [e] (:face/name e))
-(defn event-wear-id [e] (:wear/id e))
+(defn event-type
+  "Return :event/type from e, or nil when absent."
+  [e] (:event/type e))
+(defn event-face-name
+  "Return :face/name from e, or nil when absent."
+  [e] (:face/name e))
+(defn event-wear-id
+  "Return :wear/id from e, or nil when absent."
+  [e] (:wear/id e))
 
 (defn wear-order-key
   "Deterministic from the DEPOT RECORD (retry idempotence, rama-pitfalls §5):
@@ -76,6 +85,7 @@
   (oc/fixed-width-order-key (:wear/worn-at-ms e) (:wear/id e)))
 
 (defn wear-row
+  "Convert a wear event and computed order-key into a WearEventRow."
   [e order-key]
   (->WearEventRow (:wear/id e) (:face/name e) (:wear/wearer e)
                   (:wear/address e) (:wear/worn-at-ms e) order-key))
@@ -96,30 +106,25 @@
       (->WearCountRow (:face/name e) 1 worn (:wear/id e)))))
 
 (defn registry-row
+  "Convert registration event metadata into a FaceRegistryRow; contains no face source text."
   [e]
   (->FaceRegistryRow (:face/name e) (:face/object-key e) (:face/import-key e)
                      (:face/status e) (:face/valid? e) (:face/source-ref e)
                      (:face/registered-at-ms e)))
 
 (def roster-key
-  "The ONE top-level key of $$faces-by-name. A constant top key + the default
-   key-partitioner gives every write and every foreign read the same task
-   (hash(\"faces\")) with the PRECEDENTED nested-map navigation shape
-   ($$transcript-source-lines-by-file) — no :global? declaration, no
-   root-path reads (the Rama 1.6.0 root-path proxy crash class stays far away)."
+  "Constant top-level roster key. Reads and registration/removal writes route by
+   this key, while wear state stays partitioned by face-name."
   "faces")
 
-(defn roster-key-of [_] roster-key)
+(defn roster-key-of
+  "Return the constant roster key regardless of the event, for roster task routing."
+  [_] roster-key)
 
 (defn valid-face-event?
-  "Topology ingress guard: never throw, never write garbage. The lawful
-   appenders (record-wear!/register-face!) validate client-side; this guard
-   drops a malformed depot record honestly (a torn WAL line that slipped
-   replay validation, a foreign append). `worn-at-ms` must be NUMERIC, not
-   merely present — a non-numeric stamp passing the guard throws inside
-   `wear-order-key`'s (long …) cast AFTER acceptance, and under
-   :retry-mode :all-after that wedges the face's whole task partition and
-   hangs boot replay (G26 falsification finding, 2026-07-11)."
+  "Check event map/name and event-specific required fields before stream processing.
+   Wear events require a nonblank ID and numeric timestamp; registration requires
+   object-key. Invalid records are dropped without a separate rejected-decision row."
   [e]
   (and (map? e)
        (oc/string-present? (:face/name e))
@@ -212,20 +217,20 @@
 ;; ===========================================================================
 
 (def wear-log-relative-path
-  "The WAL path literal (the git-spine `assert-log-relative-path` §3.E
-   precedent)."
+  "Default optional local EDN wear-log path, relative to the repository root."
   "data/face-wear-log.ednl")
 
 (defn default-wear-log-path
+  "Resolve data/face-wear-log.ednl under :repo-root or the JVM working directory."
   [{:keys [repo-root]}]
   (str (or repo-root (System/getProperty "user.dir")) "/" wear-log-relative-path))
 
 (defn start-face-arsenal-runtime!
-  "Launch the arsenal module. With no args: own IPC. With {:ipc <ipc>}:
-   attach to an EXISTING in-process cluster (one JVM, one cluster — the OC
-   runtime's IPC is the intended host at W2-INT/test time; :owns-ipc? tells
-   close! whose lifecycle it is). {:wear-log-path} pins the WAL location
-   (tests use a scratch path)."
+  "Launch the face module in a new owned IPC, or in the supplied :ipc. Returns
+   foreign handles and an ownership flag; close only releases an owned IPC.
+   :launch-opts controls task/thread counts and :wear-log-path overrides the local
+   log path. Nil in these startup options falls back to the default log path;
+   the durable-cluster bundle is constructed separately by door/cluster."
   ([] (start-face-arsenal-runtime! {}))
   ([{:keys [ipc launch-opts wear-log-path]}]
    (let [owns-ipc? (nil? ipc)
@@ -243,21 +248,22 @@
       :face-wear-log-path (or wear-log-path (default-wear-log-path {}))})))
 
 (defn close-face-arsenal-runtime!
+  "Close only an IPC owned by this face runtime; borrowed IPCs stay open.
+   Close exceptions are swallowed."
   [runtime]
   (when (and (:face-arsenal-owns-ipc? runtime) (:face-arsenal-ipc runtime))
     (try (.close ^java.lang.AutoCloseable (:face-arsenal-ipc runtime))
          (catch Exception _ nil))))
 
 ;; ===========================================================================
-;; Write fns — the ONLY lawful appenders (back-arrow: everything streams INTO
-;; Rama through these; the UI reads Rama).
+;; Foreign append helpers. Validation here complements the topology guard.
 ;; ===========================================================================
 
 (def ^:private wear-log-lock (Object.))
 
 (defn- append-wear-log-line!
-  "One pure-edn line, UTF-8, single-writer-locked (the git-spine route-writer
-   discipline). Plain maps only — safe under clojure.edn at replay."
+  "Append one UTF-8 EDN event line under a process-local lock, creating parent
+   directories and closing the writer. Does not fsync or coordinate other processes."
   [path event]
   (locking wear-log-lock
     (let [f (io/file path)]
@@ -267,17 +273,13 @@
         (.write w "\n")))))
 
 (defn record-wear!
-  "Record ONE wear (§16 write-path ruling). The caller (the W2-INT outbox)
-   mints the wear-id BEFORE this call; the SERVER stamps `worn-at-ms` here —
-   the honest server clock, never the client's. Order: WAL line first
-   (write-ahead — an append failure after the WAL line converges at boot
-   replay; the reverse order could silently lose an acked wear), then depot
-   append with :ack (PState-visible on return — the deterministic barrier).
-   Duplicate wear-id = journaled no-op in the topology. Returns the event.
-   Stamp semantics (G26/G20 carve-out): the WAL's FIRST line per wear-id is
-   the canonical worn-at-ms — a failed-append retry re-stamps live state
-   until the next boot replay converges it back to the first attempt's time,
-   which IS the wear time (the retry was infra, not a wear)."
+  "Validate wear-id/face-name, stamp server time, optionally write the local EDN
+   line, then append with :ack and return the event. The topology journals by
+   face-name/wear-id, so a repeated ID does not increment the count again.
+   An explicitly nil :face-wear-log-path disables logging; an absent key uses
+   the default path. File and depot writes are not one transaction, and the file
+   writer does not fsync. In a fresh IPC replay, the first accepted logged event
+   for an ID determines its timestamp; replay does not replace an existing journal entry."
   [runtime {:keys [wear-id face-name wearer address]}]
   (when-not (oc/string-present? wear-id)
     (throw (IllegalArgumentException. "record-wear! requires a non-blank :wear-id")))
@@ -300,11 +302,9 @@
     event))
 
 (defn register-face!
-  "Append ONE face-registered event (called by the ingest watcher on every
-   ACCEPTED assembly import decision — trap T17: idempotent by import-key, so
-   replays converge any accept→register gap). Server stamps registered-at-ms.
-   NOT WAL'd: faces re-enter at boot via the watcher's initial-sweep! (§16
-   durability ruling — only wears carry the /assert treatment)."
+  "Validate name/object-key, stamp registration time, append with :ack, and return
+   the event. This overwrites the roster pointer without a local log; it does not
+   inspect material validity or wait for an object-container import itself."
   [runtime {:keys [face-name object-key import-key] :as reg}]
   (when-not (oc/string-present? face-name)
     (throw (IllegalArgumentException. "register-face! requires a non-blank :face-name")))
@@ -315,10 +315,8 @@
     event))
 
 (defn unregister-face!
-  "Remove ONE roster entry (G26 rename-ghost fix; called by the watcher's
-   reconcile when a file's envelope name changed — the old name no longer
-   backs a file and must not list as wearable). Idempotent; NOT WAL'd (the
-   roster reconstructs from the boot sweep); wear history is untouched."
+  "Validate face-name, append its roster removal with :ack, and return the event.
+   Removing an absent pointer is harmless; usage history remains stored."
   [runtime {:keys [face-name]}]
   (when-not (oc/string-present? face-name)
     (throw (IllegalArgumentException. "unregister-face! requires a non-blank :face-name")))
@@ -332,14 +330,12 @@
 ;; ===========================================================================
 
 (defn replay-wear-log!
-  "Re-append every stored wear event to the depot VERBATIM — the stored
-   `worn-at-ms` travels untouched (G20: a replay reproduces counts AND stamps
-   exactly; re-stamping would forge the desire-path record). Appends to the
-   DEPOT ONLY — never back to the WAL (a WAL-writing replay would double the
-   log every boot). Within one cluster lifetime double replay adds nothing
-   (wear-id journal); a fresh cluster reconstructs state exactly. Malformed/
-   torn lines are counted and SKIPPED (never allowed to abort the reduce and
-   un-replay everything after them). Missing file → no-op."
+  "Read the configured or default EDN log and append valid events verbatim with
+   :ack, never writing them back to the file. Returns successful append/failed
+   line counts; blank lines are ignored, malformed lines and append exceptions
+   are skipped, and missing files yield zero counts. The validator also accepts
+   registration/unregistration events. An explicitly nil path still falls back
+   to the default here, unlike record-wear!; callers must choose whether to replay."
   [runtime]
   (let [path (or (:face-wear-log-path runtime) (default-wear-log-path {}))
         f (io/file path)]
@@ -368,8 +364,7 @@
          (map-indexed vector (line-seq rdr)))))))
 
 ;; ===========================================================================
-;; Named read fns — the arsenal's ONLY product read surface (G21 names these;
-;; face_projection reads Rama through them, never PState paths of its own).
+;; Named foreign reads used by page/face_projection and lifecycle callers.
 ;; ===========================================================================
 
 (defn read-face
@@ -378,8 +373,7 @@
   (foreign-select-one [(keypath roster-key face-name)] (:faces-by-name runtime)))
 
 (defn list-faces
-  "All pointer rows (the roster), name-ordered. Bounded: the roster holds one
-   row per face (tens), one seek + sequential iteration."
+  "Read all roster pointer rows as a vector in name-key order. There is no page limit."
   [runtime]
   (vec (foreign-select [(keypath roster-key) MAP-VALS] (:faces-by-name runtime))))
 
@@ -389,8 +383,8 @@
   (foreign-select-one [(keypath face-name)] (:wear-counts-by-face runtime)))
 
 (defn read-wear-events
-  "The wear events for a face, order-key-ascending (append order). Test/receipt
-   grade reads pass a limit; the log is append-only (G20)."
+  "Read the earliest order-key page of wear events for face-name, default limit 1000.
+   Ordering is by stamped wear time and wear-id, not necessarily append order."
   ([runtime face-name] (read-wear-events runtime face-name 1000))
   ([runtime face-name limit]
    (vec (foreign-select [(keypath face-name)

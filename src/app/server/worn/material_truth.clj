@@ -1,8 +1,14 @@
 (ns app.server.worn.material-truth
-  "Reads over facet-masters: served instances, the blast radius of a pointer move, announcements, case reports, and the world at a cut.
-   Takes: an object-container runtime, a facet-master spec, a subject id, and an optional cut {master-id → revision-id}.
-   Gives: plain maps under :facet-master/*, :blast/*, :announce/*, :case/*, :history/*; writes only through facet-master.
-   Holds nothing."
+  "Instance discovery and read projections over revisioned facet masters.
+   Given a caller-owned object-container runtime and specs/subjects, returns
+   served instance maps, scope estimates, activation announcements, declared
+   grounds and per-master history cuts. Write wrappers call facet-master first,
+   then best-effort episode registry upkeep; they return the facet write result.
+
+   Owns no mutable state or resources. Object-container holds material truth;
+   episode holds the durable discovery registry. Serving performs individual
+   foreign reads, not a batched or atomic snapshot. Pure facet-engine resolves
+   the resulting values; this namespace neither renders nor dispatches verbs."
   (:require [app.server.episode.episode :as episode]
             [app.server.worn.facet-master :as facet-master]
             [app.server.rama.object-container.runtime :as ocr]
@@ -15,9 +21,10 @@
 ;; ===========================================================================
 
 (defn- register!
-  "Index upkeep AFTER the deviation has landed. Best-effort and deliberately
-   unable to fail the write: the index is not the truth (T7), so a failure here
-   costs discoverability, never correctness."
+  "After an accepted facet write, attempt to register its subject/instance pair in
+   the episode discovery index. Return the original write result even when index
+   upkeep throws; the caught :index-failed map is discarded. Discovery may lag
+   durable material. No index failure is surfaced in this function's result."
   [oc-rt parent-spec subject-uid result opts]
   (when (:accepted? result)
     (try
@@ -34,6 +41,7 @@
   result)
 
 (defn deviate!
+  "Write deviation material, then best-effort index it in the requested conversation."
   [oc-rt parent-spec subject-uid overrides opts]
   (register! oc-rt parent-spec subject-uid
              (facet-master/deviate! oc-rt parent-spec subject-uid
@@ -41,12 +49,14 @@
              opts))
 
 (defn release-deviation!
+  "Write inherited-state rollback, then best-effort retain its discovery entry."
   [oc-rt parent-spec subject-uid opts]
   (register! oc-rt parent-spec subject-uid
              (facet-master/release-deviation! oc-rt parent-spec subject-uid opts)
              opts))
 
 (defn pin!
+  "Write the subject pin through facet-master, then best-effort index the instance."
   [oc-rt parent-spec subject-uid pinned-revision-id opts]
   (register! oc-rt parent-spec subject-uid
              (facet-master/pin! oc-rt parent-spec subject-uid
@@ -54,18 +64,17 @@
              opts))
 
 (defn unpin!
+  "Clear the subject pin through facet-master, then best-effort index the instance."
   [oc-rt parent-spec subject-uid opts]
   (register! oc-rt parent-spec subject-uid
              (facet-master/unpin! oc-rt parent-spec subject-uid opts)
              opts))
 
 (defn rebuild-instance-registry!
-  "T7 / G13 — rebuild the index from CONTAINER EXISTENCE, which is the truth.
-
-   The index is a convenience: it tells the serve where to look. This function
-   is the proof that it can never become authoritative — drop every row, probe
-   the candidate subjects, and the same rows come back. `subjects` is the
-   candidate set (the world's units); probing is a repair path, not a hot one."
+  "Probe every registered shared spec against supplied candidate subjects and
+   register pairs whose instance document has a latest revision. Returns the
+   registry write result plus :rebuilt entries. Does not scan all stored masters
+   or remove old registry rows; caller must supply the relevant subject universe."
   [oc-rt {:keys [conversation-id subjects time-ms]}]
   (let [entries (vec
                  (for [spec facet-masters/specs
@@ -83,14 +92,14 @@
            :rebuilt entries)))
 
 ;; ===========================================================================
-;; The served instance tier — ONE batched read beside the facet-materials serve
+;; The served instance tier — registry discovery followed by per-instance reads
 ;; ===========================================================================
 
 (defn- compiled-pin-target
-  "The PINNED shared revision, compiled under ITS OWN grammar. Resolving it
-   here means the client never issues a read to answer `what am I pinned to`
-   (T5 — the echo bar dies if wear resolution costs a read per block). A
-   missing or malformed target compiles invalid and the wear law floors it."
+  "Read a pinned revision and compile its content under the parent spec.
+   A missing target yields explicit invalid data; nil id yields nil. Wear-time
+   resolution can then use the supplied result without doing I/O. Foreign read
+   failures propagate and this reader does not check the revision container id."
   [oc-rt parent-spec pinned-revision-id]
   (when pinned-revision-id
     (let [rev (ocr/read-revision oc-rt pinned-revision-id)]
@@ -101,9 +110,9 @@
                :revision-id pinned-revision-id)))))
 
 (defn served-instance
-  "One subject's instance master in the shape the shared wear law consumes.
-   nil when the subject has no instance master — the overwhelmingly common
-   case, and the one that must cost nothing."
+  "Read one subject's instance state and optional pinned target into the map
+   consumed by wear-for-subject. Return nil without a latest instance revision.
+   This still performs foreign reads when absent; it is not a free lookup."
   [oc-rt parent-spec subject-uid]
   (let [{:keys [exists? compiled state instance-master-id pin holds]}
         (facet-master/instance-state oc-rt parent-spec subject-uid)]
@@ -131,11 +140,11 @@
                               (:pinned-revision-id pin))}))))
 
 (defn served-instances
-  "{facet → {subject → served-instance}} for the registered deviant subjects.
-
-   The registry (ONE read) supplies the subject list so this never enumerates
-   blind; container existence is still the truth, so a subject passed in
-   explicitly is honored even when the index has not caught up."
+  "Return {facet -> {subject -> served-instance}} for discovered or extra subjects.
+   Read the episode registry once, union its pairs with each registered facet
+   crossed with extra-subjects, then read instances individually in stable order.
+   Registry read failures are treated as an empty index; extra-subjects can still
+   discover instances. No batched foreign query or atomic snapshot is used."
   ([oc-rt] (served-instances oc-rt nil))
   ([oc-rt {:keys [conversation-id extra-subjects]}]
    (let [object-key (episode/episode-object-key
@@ -161,19 +170,15 @@
 ;; ===========================================================================
 
 (defn blast-radius
-  "The exact wearer set a scoped activation will reach, derived BEFORE the
-   flip and WITHOUT writing anything (T1).
+  "Estimate a declared scope over caller-supplied candidate-wearers without writing.
+   Read instance projections and classify valid pins/deviations separately from
+   inherited or invalid instances. Subject scope includes only that subject if
+   it occurs in the supplied set; all-unpinned also marks future wearers covered.
 
-   `candidate-wearers` is the set of subjects currently wearing the facet — the
-   served page, typically. Subjects that will NOT move are listed with the
-   reason, because `47 blocks will change` is a different claim from
-   `47 blocks will change, 2 are pinned and 1 has its own deviation`.
-
-   `:blast/includes-future-wearers?` is said out loud and is always true for
-   `:scope/all-unpinned`: the pointer is what is worn, so a subject born after
-   this activation wears the new revision without anything being copied to it.
-   That is a promise the projection can make honestly precisely because no
-   fan-out ever happens."
+   This is a classification of current instance state, not a simulation of a
+   candidate revision or a historical affected set. It neither discovers every
+   wearer nor validates the proposed scope. The default case treats any other
+   scope kind as all-unpinned."
   [oc-rt parent-spec {:keys [scope candidate-wearers conversation-id]}]
   (let [scope (or scope (activation-event/all-unpinned-scope))
         facet (:facet-master/facet parent-spec)
@@ -253,17 +258,10 @@
       :else :change/canonical-activation)))
 
 (defn announcement
-  "ONE activation rendered at all three scales the package promises.
-
-   - `:announce/breath` — the local one: which appearances just changed.
-   - `:announce/trace`  — the recoverable one: revision, scope, actor, and the
-     REVERSAL PATH (the causally previous revision, which is what `undo this`
-     actually means here — activation of a prior revision, never a delete).
-   - `:announce/weather` — the ambient one: a row for the RecentChanges feed.
-
-   `:announce/reversal` is nil at the root of the chain, and saying nil is the
-   honest answer: there is nothing causally before the first activation to go
-   back to."
+  "Project a supplied activation entry as local subjects (:announce/breath),
+   detailed event/reversal data (:announce/trace) and a feed row (:announce/weather).
+   previous supplies the reversal target; affected supplies the subject set.
+   Neither is discovered here. :trace/reversal is nil when previous is absent."
   [{:keys [master-id facet entry previous previously-worn affected]}]
   (let [event (:event entry)
         kind (change-kind event previously-worn)]
@@ -300,11 +298,11 @@
       :weather/subject-count (count (or affected []))}}))
 
 (defn master-announcements
-  "Every activation of one master, newest first, each classified and traced.
-
-   Walks the CAUSAL chain (T2). The `previously-worn` accumulator is built in
-   causal ASCENDING order so `:change/recovery` means what it says — this
-   master wore that revision before — and cannot be faked by clock order."
+  "Classify the fetched causal history and return at most limit rows, newest first.
+   Recovery means rewearing a revision already seen earlier in that fetched chain.
+   The same caller-supplied affected set is attached to every row; this is not a
+   reconstruction of past wearer sets. :complete? is inherited from the bounded
+   activation-trail read and does not account for this function's output limit."
   [oc-rt spec {:keys [affected limit] :or {limit 20}}]
   (let [{:keys [chain regressions complete?]}
         (facet-master/activation-trail oc-rt spec)
@@ -337,16 +335,11 @@
 ;; ===========================================================================
 
 (defn case-report
-  "Why does this master wear what it wears? Answered from the event trail and
-   from nothing else.
-
-   The discipline is in `:case/claims`: every line is generated from a DECLARED
-   ground, so the report can be exhaustive without being inventive. Activations
-   that declared nothing appear under `:case/unexplained` — and v0 rows, whose
-   grounds were never recorded at all, appear under `:case/grounds-unknown`.
-   Three buckets, because `we know it had no reason`, `we do not know its
-   reason` and `here is its reason` are three different facts and collapsing
-   them is exactly how a derived report starts lying."
+  "Group up to limit entries from the fetched causal chain by declared, empty or
+   unknown grounds. Claims repeat recorded grounds without verifying them or
+   inferring reasons. Empty grounds means none were recorded, not that no reason
+   existed. Clock regressions and activation-trail's limited completeness flag
+   are returned; the flag does not account for this function's output limit."
   [oc-rt spec {:keys [limit] :or {limit 50}}]
   (let [{:keys [chain regressions complete?]}
         (facet-master/activation-trail oc-rt spec)
@@ -381,12 +374,10 @@
 ;; ===========================================================================
 
 (defn world-at
-  "Project every registered master's worn revision at a causal cut.
-
-   The cut is a map {master-id → pointer-revision-id}; masters absent from it
-   stand at their current activation. Named by POINTER REVISION, never by
-   timestamp — `the world at 3pm` is unanswerable when three durable
-   activations honestly claim times 0, 1 and 2 (R3/T2)."
+  "Read pointer cuts for the static shared-master registry. cut maps master ids
+   to pointer revision ids; omitted masters use their fetched current trail head.
+   Each read has activation-trail's page limit. This is not an atomic global
+   snapshot, instance-history reconstruction or rendering of the historical world."
   [oc-rt cut]
   {:history/cut cut
    :history/masters

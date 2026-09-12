@@ -1,8 +1,11 @@
 (ns app.server.episode.episode
-  "A typed conversation turn from utterance through post-turn harvest.
-   Takes: utterance and turn ids, conversation context, text, runtime handles, and model settings.
-   Gives: durable import or edit results, summon argument vectors, and transcript harvest results.
-   Holds: !episode-chains."
+  "Native conversation material and bounded CLI episode selection.
+   Builds OC import requests for utterances, geometry, turn pins and instance
+   registry hints; append helpers wait for the OC decision. OC owns those rows.
+   !episode-chains holds only process-local lane warmth; turn records supply
+   restart adoption. CLI argv construction does not spawn a process: the door
+   owns that lifecycle. After a turn, ingest helpers harvest its session JSONL
+   from the stored offset and distill it, then advance the shared ingest epoch."
   (:require [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
             [app.server.ingest.transcript-import :as bd]
@@ -83,18 +86,13 @@
        (subs (envelope/sha-256 (str turn-id)) 0 8)))
 
 (defn utterance-request-id
+  "Derive the OC request id from conversation object-key and stable turn-id."
   [object-key turn-id]
   (str "req:episode:" object-key ":" (envelope/sha-256 (str turn-id))))
 
 (defn utterance-actor
-  "asserted-by: sid — an honest :human actor CARRYING the import capability
-   (authorized-request? checks capabilities for non-:system actors).
-
-   matter-room P2 (CONTRACT §11, scoped parameterization): the 1-arity threads
-   a CALLER-SUPPLIED actor through the SAME lane, so machine material (the
-   room's residents) is born by the ONE existing import path instead of a
-   second import family (T1/G5). `nil` — and every existing 0-arity call —
-   yields the identical sid actor map, byte for byte."
+  "Return the supplied actor map unchanged, or Sid's human actor with the
+   OC import capability. Pure construction; authorization occurs in OC."
   ([] (utterance-actor nil))
   ([actor]
    (or actor
@@ -318,8 +316,9 @@
            :material/fingerprint fingerprint)))
 
 (defn settle-geometry!
-  "Land ONE settle write (append+await — the ack IS the acknowledged settle,
-   the safety mechanism; the exit flush is only a belt)."
+  "Append geometry for the selected conversation and wait up to 20 seconds
+   for its OC decision. Return :accepted only for an accepted decision; all
+   other returned decisions map to :rejected. Append/read exceptions propagate."
   [oc-rt {:keys [conversation-id] :as args}]
   (let [object-key (episode-object-key (or conversation-id genesis-conversation-id))
         req (geometry-settle-request (assoc args :object-key object-key))]
@@ -427,8 +426,9 @@
            :material/fingerprint fingerprint)))
 
 (defn register-instance-masters!
-  "Upsert index rows. Best-effort by design: this is an index, and a failure
-   here must never fail the deviation that has already landed."
+  "Append instance discovery-index hints and await the OC decision; empty
+   entries return :noop. The rows do not create instance-master containers.
+   Exceptions propagate: callers must catch failures if indexing is best-effort."
   [oc-rt {:keys [conversation-id entries time-ms]}]
   (if (empty? entries)
     {:status :noop :entries 0}
@@ -444,9 +444,9 @@
          :decision decision}))))
 
 (defn read-instance-registry
-  "[{:facet :subject :instance-master-id :parent-id} …], deterministically
-   ordered. An INDEX read — callers that need certainty read container
-   existence (that is the truth), and G13 proves the two agree."
+  "Read up to 100000 projection rows, retain instance-registry values and sort
+   by facet/subject. This is a discovery index; container existence and master
+   resolution remain the source of truth for a deviation."
   [oc-rt object-key]
   (->> (ocr/read-transcript-conversation-projection
         oc-rt (tid/chat-conversation-id object-key) "" 100000)
@@ -555,10 +555,11 @@
            :material/fingerprint fingerprint)))
 
 (defn record-turn!
-  "Land ONE turn-record status write (append+await). :open lands BEFORE the
-   agent spawns (durable-BEFORE-agent, the existing lane's law); :complete/
-   :failed/:timeout overwrite the same cell at turn end. An abrupt JVM death
-   between the two leaves :open — the honest open fact G4b demands."
+  "Append a revision-pinned turn/status record and await its OC decision.
+   The door writes :open before spawn and later requests a terminal status at
+   the same order-key (time-ms and turn-id must remain stable). This function
+   does not enforce status ordering. A missing final write leaves :open.
+   Return the receipt and decision; only an accepted decision maps to :accepted."
   [oc-rt {:keys [conversation-id] :as args}]
   (let [object-key (episode-object-key (or conversation-id genesis-conversation-id))
         req (turn-record-request (assoc args :object-key object-key))]
@@ -785,12 +786,11 @@
       {:episode-id (mint-id) :fresh? true :seed? true})))
 
 (defn current-episode!
-  "The lane's episode for a turn arriving now (stateful shell over
-   decide-episode). Fallback order: runtime cell → the lane's durable turn
-   cells (JVM restart adopts a still-warm episode) → file-existence belt (a
-   pre-chain lane whose cells never carried an episode resumes its file
-   rather than minting over it). Total: any read failure degrades to the
-   virgin-lane decision."
+  "Choose a lane's CLI session from process-local warmth, then its newest OC
+   turn record, then a legacy session-file existence check. Only the OC read
+   is caught: its failure falls back to a lane without a stored turn. A present
+   legacy file changes the first-session choice to resume. Does not update
+   !episode-chains; note-episode-turn! stamps it when the caller spawns."
   [oc-rt {:keys [conversation-id thread-id now-ms cwd]}]
   (let [conv-id (or conversation-id genesis-conversation-id)
         lane-id (or (some-> thread-id str not-empty) conv-id)
@@ -834,11 +834,10 @@
                    "/.claude/projects/" slug "/" conversation-id ".jsonl")))))
 
 (defn summon-argv
-  "The resident agent's argv. The episode CHAIN decides the session (D-core):
-   a fresh episode opens AS its minted uuid (--session-id, seeded prompt);
-   a warm episode resumes WITHIN its boundary (--resume appends to the SAME
-   jsonl — docs-verified — so the offset-cursor harvest stays sound; no
-   cross-boundary resume exists). Subscription CLI, zero keys (hard rule)."
+  "Build Claude argv for an already-selected episode: --session-id when
+   fresh, otherwise --resume. Include optional model/effort and stream-JSON
+   partial output flags. No process is started and no child environment is
+   configured here; the door's spawn path owns both."
   [{:keys [prompt session-id fresh? model effort]}]
   (vec (concat ["claude"]
                (if fresh?
@@ -905,11 +904,11 @@
              :file-state (:status fs)}))))))
 
 (defn post-turn-distill!
-  "Turn end: incrementally harvest the episode's OWN jsonl (offset cursor —
-   see harvest-episode-increment!), then distill the conversation with the
-   flag-D skip (user text events → class-only :native rows). Bumps the
-   ingest epoch so the worn face re-pulls durable truth (INV-19). Returns
-   the distill summary merged with the harvest receipt."
+  "Harvest complete appended lines from this session's JSONL, then distill
+   with native-turn-event? as the skip predicate and increment ingest epoch.
+   Missing files return :no-transcript; failed harvests return :harvest-failed.
+   After distill returns, its summary is labeled :distilled without checking
+   a distill success predicate here. Exceptions propagate."
   [oc-rt {:keys [cwd conversation-id]}]
   (let [conv-id (or conversation-id genesis-conversation-id)
         file (episode-jsonl-file cwd conv-id)]

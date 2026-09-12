@@ -1,8 +1,12 @@
 (ns app.server.worn.facet-masters
-  "The ordered registry of served facet-master specifications.
-   Takes: master ids and facet keywords.
-   Gives: specifications, master ids, facet lookups, and default master ids.
-   Holds: specs, by-id, and by-facet."
+  "Static, ordered registry of shared facet-master specifications.
+   Supplies master-id and facet lookups plus the common code-floor label for
+   projections and wear resolution. The order is deliberate: provenance is the
+   first entry. Instance specs are synthesized separately by facet-engine.
+
+   Owns immutable registry values only. Requiring this namespace neither imports
+   source nor activates a master; bootstrap/write callers must use facet-master.
+   A registry entry establishes availability, not a running presentation path."
   (:require [app.server.worn.facet-engine :as facet-engine]
             [app.server.worn.attention-material :as attention]
             [app.server.worn.foldable-material :as foldable]
@@ -35,29 +39,23 @@
   (into {} (map (juxt :facet-master/facet identity)) specs))
 
 (defn spec-for-facet
-  "P6 · R2 — the instance tier is keyed by FACET (a subject deviates from a
-   facet, not from a master-id it has never seen), so resolution needs this
-   direction of the registry too."
+  "Look up a shared spec by facet keyword; return nil for an unregistered facet."
   [facet]
   (get by-facet facet))
 
 (defn spec
+  "Look up a shared spec by master id; synthesized instance ids are not registered."
   [master-id]
   (get by-id master-id))
 
 (def floor-master-id-by-facet
-  "facet → the ONE id a FLOOR row names as its deciding master.
-
-   G14 (P5 gate finding 3): the served projection emitted
-   `code-floor:fm:attention:v1` while the client tiers emitted
-   `code-floor:attention` and a nil revision — same row, two labels, so a
-   reader comparing client and server had to know which side to believe.
-   Cosmetic, but the whole point of the served table is that it answers
-   `who decided that?`. Both sides now read the label from here."
+  "Facet -> the common code-floor revision label used for deciding-master fields.
+   Deriving this from specs keeps served tables and pure resolution consistent."
   (into {}
         (map (juxt :facet-master/facet facet-engine/floor-master-id))
         specs))
 
 (defn floor-master-id
+  "Return the registered facet's common fallback label, or nil if unknown."
   [facet]
   (get floor-master-id-by-facet facet))

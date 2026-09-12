@@ -1,21 +1,18 @@
 (ns app.server.episode.claude-cli
-  "Claude CLI command builder and response parser.
-   Takes: prompts, session ids, model settings, and Claude JSON output.
-   Gives: command argument vectors and normalized response maps.
-   Holds nothing."
+  "Pure provider argv construction and normalization of complete Claude JSON.
+   Accepts provider, prompt, session and option values; returns argv or
+   {:session-id :content}. Owns no process or state and performs no execution.
+   No caller was found in src/, src-inland/, bin/ or test/. The active episode
+   and claimed LLM paths use their own builders in episode.clj and llm.clj."
   (:require [clojure.string :as str]
             [cheshire.core :as json]))
 
 (defn provider-default-argv
-  "Build argv when client does not send raw argv.
-   Session support is best-effort per provider.
-   Optional :output-format overrides Claude's default (\"json\").
-   When streaming, pass :output-format \"stream-json\" :include-partials? true.
-   Optional :allowed-tools is a seq of tool patterns (e.g. [\"mcp__linear-server__*\"]).
-   Optional :json-schema is a JSON string for --json-schema (structured output).
-   Optional :max-budget-usd caps API spend (only works with -p/--print).
-   Optional :model overrides the default model.
-   Optional :append-system-prompt appends to the system prompt."
+  "Build argv for :claude, :codex or :gemini; unknown providers use echo.
+   Claude accepts output-format (default json), partials, repeated allowed-tool
+   patterns, JSON schema, budget, model and appended system prompt. These become
+   flags without validation. Claude/Gemini use --resume for a nonempty session;
+   Codex uses only exec and prompt. The caller owns spawning and exit handling."
   [provider prompt session-id & {:keys [output-format include-partials? allowed-tools
                                          json-schema max-budget-usd model append-system-prompt]}]
   (case provider
@@ -35,10 +32,11 @@
     (vec ["echo" (str "Unknown provider: " provider)])))
 
 (defn parse-claude-json-output
-  "Parse Claude's JSON output to extract session-id and text content.
-   Handles two formats:
-   1. Object: {\"type\":\"result\", \"session_id\":\"...\", \"result\":\"...\"}
-   2. Array:  [{\"type\":\"system\",\"session_id\":\"...\",...}, ..., {\"type\":\"message\",\"role\":\"assistant\",\"content\":[{\"type\":\"text\",\"text\":\"...\"}]}]"
+  "Normalize a Claude JSON result object or message array to :session-id and
+   :content. Arrays use the first system session and last assistant message
+   text parts; objects use :result. Missing content falls back to raw-output.
+   Parse/extraction exceptions return {:session-id nil :content raw-output}.
+   This consumes a complete JSON value, not a stream of JSON lines."
   [raw-output]
   (try
     (let [parsed (json/parse-string raw-output true)]

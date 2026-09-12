@@ -8,7 +8,7 @@ Choose the entrypoint for the question:
 | Which intended choices do we currently hold? | [Decisions](decisions.md). |
 | Why did our understanding and implementation change? | [How we got here](how-we-got-here.md), with links to the original attempts. |
 | How do I run and use the current Inland build? | [Inland guide](builds/inland/README.md) and its scoped [intended design](builds/inland/intended-design.md). |
-| How does the implementation work? | The source-local maps: [client](../src/app/client/README.md) and [Inland](../src-inland/README.md). A comparable server hierarchy is still to be written. |
+| How does the implementation work? | The source-local maps: [client](../src/app/client/README.md), [server](../src/app/server/README.md), and [Inland](../src-inland/README.md). Each describes its own scope and callers. |
 | How do I use our browser verification setup? | [Browser verification guide](guides/browser-verification.md). |
 | What do our dependencies provide? | [Dependency references](../reference/README.md), separated into documentation and source snapshots. |
 | What did an earlier attempt propose or observe? | [History](../history/README.md). |

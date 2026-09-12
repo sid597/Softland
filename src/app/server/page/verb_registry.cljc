@@ -1,8 +1,10 @@
 (ns app.server.page.verb-registry
-  "The closed vocabulary of named verbs and effect classes.
-   Takes: verb names and versions.
-   Gives: verb definitions, effect classes, continuation data, and bindability answers.
-   Holds: verbs, names, effect-classes, and continuations."
+  "Code-owned verb declarations used by binding validation and page inspection.
+   Name/version lookups describe effect class, continuation moments, required
+   arguments and floor reservation; declaration-rows exposes them as sorted
+   data. worn/binding-material consumes this vocabulary when checking rows.
+   A declaration is not an implementation dispatch or evidence of a live UI
+   caller. This namespace executes no verbs and owns no mutable/durable state."
   (:require [clojure.string :as str]))
 
 (def effect-classes
@@ -293,6 +295,7 @@
   (vec (sort-by str (keys verbs))))
 
 (defn entry
+  "Return the declaration for verb-name, or nil when unregistered."
   [verb-name]
   (get verbs verb-name))
 
@@ -305,6 +308,7 @@
     (boolean (and e (= version (:verb/version e))))))
 
 (defn floor-reserved?
+  "True only when the named declaration explicitly reserves the verb to the floor."
   [verb-name]
   (true? (:verb/floor-reserved? (entry verb-name))))
 
@@ -317,6 +321,7 @@
        (not (floor-reserved? verb-name))))
 
 (defn effect-class
+  "Return the declared effect class, or nil for an unknown verb."
   [verb-name]
   (:verb/effect-class (entry verb-name)))
 
@@ -339,6 +344,7 @@
   (contains? (:verb/continuations (entry verb-name) #{}) continuation))
 
 (defn continuous?
+  "True when the named verb declares a :move continuation; does not execute it."
   [verb-name]
   (serves? verb-name :move))
 
@@ -362,8 +368,9 @@
    names))
 
 (defn well-formed-registry?
-  "Every declaration is complete and its classes are in the closed sets. The
-   suite asserts this so a malformed entry can never reach a served table."
+  "Check declaration names, versions, effect classes, continuation sets, argument
+   key sets and documentation fields. Return a boolean; this is not automatically
+   run at dispatch and does not establish that implementations exist."
   []
   (every?
    (fn [verb-name]

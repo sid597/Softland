@@ -1,8 +1,12 @@
 (ns app.server.worn.threaded-material
-  "The conversation-thread placement facet specification.
-   Takes: served thread-distance and edge forms.
-   Gives: compiled thread adoption values, edge values, and contribution rows.
-   Holds: spec."
+  "Pure specification for conversation-thread placement and edge appearance.
+   v0 declares column adoption reach in lines; v1 adds edge rail width, color
+   and indent. Bootstrap uses v0; the code floor uses v1.
+
+   Forms, EDN and served active maps yield compiler results or resolved values
+   through facet-engine; contribution stamps label caller-supplied contributions.
+   Owns immutable specification data only. It does not infer thread links,
+   position blocks, draw rails or write episode structure."
   (:require [app.server.worn.facet-engine :as facet-engine]))
 
 (def master-id "fm:threaded")
@@ -68,10 +72,12 @@
         :error-type :threaded/edge-indent-invalid}})}}})
 
 (defn compile-form
+  "Validate a form under this spec; return validity, errors, grammar and material."
   [form]
   (facet-engine/compile-form spec form))
 
 (defn compile-source
+  "Read EDN and compile under this spec; return parse/validation errors as data."
   [source]
   (facet-engine/compile-source spec source))
 
@@ -79,9 +85,11 @@
   (facet-engine/code-floor spec))
 
 (defn resolved-wear
+  "Resolve a complete served active map, falling back to this spec's code floor."
   [served]
   (facet-engine/resolved-wear spec served))
 
 (defn contribution-stamp
+  "Return subject/facet/revision and site/role/slot provenance for supplied wear."
   [wear subject site role slot]
   (facet-engine/contribution-stamp wear subject site role slot))

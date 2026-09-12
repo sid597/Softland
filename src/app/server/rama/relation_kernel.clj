@@ -1,26 +1,14 @@
-;; IMPORTANT: Before modifying this file, re-read
-;; docs/current-mental-model/build/relation-kernel/PLAN.md and CONTRACT.md, and
-;; check the NOW baton in docs/sessions/next-prompt.md.
-;; Adhere to all previously decided design decisions. If the plan needs to
-;; change, FAIL the phase — do not silently redesign while implementing.
-;;
-;; AMENDED under trail-view WP1 (build/trail-view/CONTRACT.md, PLAN.md; authorized
-;; by that contract's §2 "Exception, ruled here"):
-;;   A1 §5.1 — decision/event/edge rows carry envelope-actor custody, so an
-;;     agent-authored write on Sid's instruction is distinguishable from his own
-;;     hand (trap 10). Identity stays asserter-scoped (trap 11).
-;;   A2 §5.2 — the kind registry gains :confirms/:refutes/:supersedes (verdict
-;;     rows ARE relations; traps 1-2).
-;;   A3 §5.3 — the accepted branch projects each transition into
-;;     $$relation-activity-by-bucket (arrival-bucketed, client-stamped, NO wall
-;;     clock — trap 4b), read via the R3 relation-activity query; feeds the
-;;     recent-activity feed (§6).
-
 (ns app.server.rama.relation-kernel
-  "Durable typed relations across eighteen relation kinds.
-   Takes: relation assertion and retraction requests with targets, actors, and idempotency keys.
-   Gives: relation decisions, events, detail reads, target indexes, descriptors, and activity buckets.
-   Holds: depot *relation-request-depot; PStates $$relation-decisions-by-idempotency $$relation-decisions-by-id $$relation-events-by-id $$relations-by-id $$relation-status-log-by-relation $$relations-by-target $$relation-target-descriptors $$relation-activity-by-bucket."
+  "Typed, provenance-carrying relation assertions and retractions.
+   A plain request envelope enters the relation-keyed depot. The microbatch
+   journals a decision, then writes accepted events, current edges, status history,
+   endpoint copies/descriptors, and arrival-day activity in the same batch.
+   Target material belongs to other modules; dangling references are allowed.
+   Three query topologies serve target sets, relation detail, and activity.
+   Foreign wrappers construct requests/read results; the IPC helper owns its
+   test cluster, while door/cluster supplies durable-cluster handles.
+   Identity includes the asserter when built by relation-id-for. Incoming routing
+   keys and endpoint keys are supplied data, not recomputed by the topology."
   (:use [com.rpl.rama]
         [com.rpl.rama.path])
   (:require [com.rpl.rama.ops :as ops]
@@ -38,10 +26,9 @@
 ;;   panel-1", "branch X dead-end". It is the epistemic edge the wall is made of
 ;;   and the substrate lacked.
 ;;
-;;   Own module (CONTRACT §2): own depot, ONE microbatch topology, TWO query
-;;   topologies. No edits to existing kernels; the only dependency on
-;;   object-container is the two plain helper fns `extract-object-key` and
-;;   `fixed-width-order-key` (used in client-side id/target-key derivation).
+;;   Own depot, one microbatch topology, and three query topologies. The
+;;   object-container dependency is limited to extract-object-key for target
+;;   routing and fixed-width-order-key for stored index/history keys.
 ;;
 ;;   Why microbatch, not stream (CONTRACT §5, trap 1): a relation write lands in
 ;;   three places on up to three tasks — the authoritative row on hash(rel-id)
@@ -50,9 +37,9 @@
 ;;   never disagree across a batch boundary. Stream commits per hop, so a replay
 ;;   between hops would partially apply the triple write.
 ;;
-;;   Read surface is ONLY the two query topologies (CONTRACT §7). Consumers never
-;;   foreign-select the PStates directly; that seam keeps the module-reversal
-;;   cost low (CONTRACT §2).
+;;   Target, detail, and activity queries are the composed read surface.
+;;   Direct PState readers below also expose decisions and rows to callers
+;;   that need audit/read-after-write checks.
 ;; ────────────────────────────────────────────────────────────────────────────
 
 ;; ── Kind registry (CONTRACT §3, trap 6) ─────────────────────────────────────
@@ -106,10 +93,12 @@
     (apply str (map #(format "%02x" (bit-and % 0xff)) digest))))
 
 (defn present-string?
+  "True only for a nonblank string."
   [x]
   (and (string? x) (not (str/blank? x))))
 
 (defn blank-string?
+  "True for a nonstring or blank string."
   [x]
   (or (not (string? x)) (str/blank? x)))
 
@@ -124,6 +113,8 @@
 ;; asserter-actor-id). Identity INCLUDES the asserter (CONTRACT §3, trap 5): Sid
 ;; asserting `based-on` and an LLM proposing the same `based-on` are two facts.
 (defn relation-id-for
+  "Build rel:<sha1> from kind, directed endpoint kinds/IDs, and asserter identity
+   separated by NULs. Kind and endpoint kinds must support name."
   [kind from-ref to-ref asserter-actor-id]
   (str "rel:"
        (sha1-hex (str/join id-part-separator
@@ -133,6 +124,7 @@
                             (str asserter-actor-id)]))))
 
 (defn valid-relation-id?
+  "Check only that the value is a string beginning rel:; does not validate its hash."
   [relation-id]
   (and (string? relation-id) (str/starts-with? relation-id "rel:")))
 
@@ -142,24 +134,32 @@
 (def ^:private decision-marker "/decision/")
 (def ^:private event-marker "/event/")
 
-(defn decision-id-for [relation-id request-id] (str relation-id decision-marker request-id))
-(defn event-id-for   [relation-id order-key]  (str relation-id event-marker order-key))
+(defn decision-id-for
+  "Embed relation-id and request-id in an audit decision key."
+  [relation-id request-id] (str relation-id decision-marker request-id))
+(defn event-id-for
+  "Embed relation-id and transition order-key in an event key."
+    [relation-id order-key]  (str relation-id event-marker order-key))
 
 (defn relation-id-from-decision-id
+  "Extract the prefix before /decision/, or preserve the string without that marker."
   [decision-id]
   (let [s (str decision-id) i (str/index-of s decision-marker)]
     (if i (subs s 0 i) s)))
 
 (defn relation-id-from-event-id
+  "Extract the prefix before /event/, or preserve the string without that marker."
   [event-id]
   (let [s (str event-id) i (str/index-of s event-marker)]
     (if i (subs s 0 i) s)))
 
 (defn partition-by-decision-relation
+  "Route a decision key by its embedded relation-id."
   [num-partitions decision-id]
   (positive-partition num-partitions (relation-id-from-decision-id decision-id)))
 
 (defn partition-by-event-relation
+  "Route an event key by its embedded relation-id."
   [num-partitions event-id]
   (positive-partition num-partitions (relation-id-from-event-id event-id)))
 
@@ -177,13 +177,18 @@
 ;; The descriptor-key is a strict "<dir>:<kind>:" prefix of the sort-key, so a
 ;; range read over that prefix returns exactly one (dir, kind) group. Both keys
 ;; are built from the SAME helper so they can never drift.
-(defn direction-code [direction] (case direction :outgoing "o" :incoming "i"))
+(defn direction-code
+  "Encode :outgoing as o or :incoming as i; other directions throw."
+  [direction] (case direction :outgoing "o" :incoming "i"))
 
 (defn target-descriptor-key
+  "Build the direction/kind key used to describe an endpoint index range."
   [direction kind]
   (str (direction-code direction) ":" (name kind)))
 
 (defn target-sort-key
+  "Build a direction/kind/first-assertion-time/relation-ID key that stays stable
+   when an existing relation changes status."
   [direction kind first-asserted-at-ms relation-id]
   (str (target-descriptor-key direction kind) ":"
        (oc/fixed-width-order-key first-asserted-at-ms relation-id)))
@@ -205,9 +210,15 @@
 (def ^:private ms-per-utc-day 86400000)
 (def ^:private activity-bucket-fmt "%08d")
 
-(defn arrival-day-index [arrival-at-ms] (quot (long (or arrival-at-ms 0)) ms-per-utc-day))
-(defn bucket-for-day    [day-index]     (format activity-bucket-fmt (long day-index)))
-(defn bucket-key        [arrival-at-ms] (bucket-for-day (arrival-day-index arrival-at-ms)))
+(defn arrival-day-index
+  "Convert arrival milliseconds to a UTC-day index using integer quotient; nil becomes zero."
+  [arrival-at-ms] (quot (long (or arrival-at-ms 0)) ms-per-utc-day))
+(defn bucket-for-day
+  "Format a numeric day index as a zero-padded activity bucket key."
+     [day-index]     (format activity-bucket-fmt (long day-index)))
+(defn bucket-key
+  "Derive the activity bucket key from supplied arrival milliseconds."
+         [arrival-at-ms] (bucket-for-day (arrival-day-index arrival-at-ms)))
 
 (defn activity-order-key
   "Row accessor (keywords cannot sit in dataflow operation position)."
@@ -215,10 +226,9 @@
   (:order-key activity-row))
 
 (defn activity-bucket-range
-  "Inclusive fixed-width bucket strings for the day range [lo hi] (bucket strings
-   in, bucket strings out). Buckets live on distinct hash(bucket) tasks, so R3
-   ENUMERATES + fans the covered days — never a sorted-map-range across top-level
-   keys. lo>hi / nil bounds → [] (→ R3 returns [] via its terminal aggregation)."
+  "Enumerate inclusive fixed-width day keys for numeric-string bounds; nil or
+   reversed bounds return []. Each key is routed by hash, so different days may
+   share a task. Non-numeric bounds throw; the day range has no explicit size cap."
   [bucket-lo bucket-hi]
   (let [lo (some-> bucket-lo str Long/parseLong)
         hi (some-> bucket-hi str Long/parseLong)]
@@ -295,19 +305,36 @@
    previous-status event-id claimed-at-ms arrival-at-ms])
 
 ;; ── Envelope / payload accessors (namespaced keys read off the wire map) ─────
-(defn relreq-routing-key    [request] (:relation/routing-key request))
-(defn relreq-id             [request] (:request/id request))
-(defn relreq-type           [request] (:request/type request))
-(defn relreq-idempotency-key [request] (:idempotency/key request))
-(defn relreq-actor          [request] (:actor request))
-(defn relreq-payload        [request] (:payload request))
-(defn relreq-sent-at-ms     [request] (:request/sent-at-ms request))  ; arrival clock (§5.3)
+(defn relreq-routing-key
+  "Return :relation/routing-key from request, or nil when absent."
+     [request] (:relation/routing-key request))
+(defn relreq-id
+  "Return :request/id from request, or nil when absent."
+              [request] (:request/id request))
+(defn relreq-type
+  "Return :request/type from request, or nil when absent."
+            [request] (:request/type request))
+(defn relreq-idempotency-key
+  "Return :idempotency/key from request, or nil when absent."
+  [request] (:idempotency/key request))
+(defn relreq-actor
+  "Return :actor from request, or nil when absent."
+           [request] (:actor request))
+(defn relreq-payload
+  "Return :payload from request, or nil when absent."
+         [request] (:payload request))
+(defn relreq-sent-at-ms
+  "Return :request/sent-at-ms from request, or nil when absent."
+      [request] (:request/sent-at-ms request))  ; arrival clock (§5.3)
 
 ;; ── Validation (CONTRACT §5 step 3; IMPLICIT_SPEC edge cases). No target
 ;;    existence check — dangling targets are legal (CONTRACT §8, trap 3). ───────
-(defn registered-kind? [kind] (contains? relation-kinds kind))
+(defn registered-kind?
+  "Test membership in the code-defined relation kind set."
+  [kind] (contains? relation-kinds kind))
 
 (defn well-formed-target?
+  "Require a keyword kind and nonblank ID/routing key; does not look up target material."
   [ref]
   (and (some? ref)
        (keyword? (:target-kind ref))
@@ -411,6 +438,7 @@
            :updated-at-ms  (:updated-at-ms desc-base))))
 
 (defn rejected-decision-row
+  "Construct a rejected relation decision with supplied audit/time/custody fields and errors."
   [decision-id relation-id request-id request-type idempotency-key reason errors ts material-hash
    envelope-actor-id envelope-actor-type]
   (->RelationDecisionRow decision-id relation-id request-id request-type idempotency-key
@@ -418,12 +446,11 @@
                          envelope-actor-id envelope-actor-type))
 
 (defn relation-outcome
-  "Pure decision for one request against the current authoritative row.
-   Rejected → {:accepted? false :decision ...}. Accepted → the full write set.
-   Note: because the asserter is part of the identity, an existing row on the
-   relation-id task is always the SAME asserter — so :relation/assert needs no
-   asserter check; only :relation/retract compares the ENVELOPE actor against
-   the stored asserter (retraction rights, CONTRACT §8)."
+  "Compute a rejected decision or accepted event/edge/history/index/activity write set
+   from the supplied request, routing ID, and current row. Retraction requires an
+   existing relation and its stored asserter matching the envelope actor. Assertions
+   have no equivalent actor check. Assumes numeric timestamps and builder-consistent
+   relation/endpoint keys; request-shape-errors does not recompute those identities."
   [request relation-id current-row]
   (let [request-type (relreq-type request)
         request-id   (relreq-id request)
@@ -526,24 +553,60 @@
 
 ;; Small dataflow-position accessors for the outcome (keywords cannot sit in
 ;; operation position; these keep the topology body readable).
-(defn outcome-accepted?      [o] (:accepted? o))
-(defn outcome-decision       [o] (:decision o))
-(defn outcome-event          [o] (:event o))
-(defn outcome-row            [o] (:row o))
-(defn outcome-log            [o] (:log o))
-(defn outcome-order-key      [o] (:order-key o))
-(defn outcome-total-delta    [o] (:total-delta o))
-(defn outcome-asserted-delta [o] (:asserted-delta o))
-(defn outcome-from-copy      [o] (:from-copy o))
-(defn outcome-to-copy        [o] (:to-copy o))
-(defn outcome-activity-row   [o] (:activity-row o))
-(defn outcome-bucket         [o] (:bucket o))
-(defn decision-row-id        [d] (:decision-id d))
-(defn event-row-id           [e] (:event-id e))
-(defn copy-target-key        [c] (:target-key c))
-(defn copy-sort-key          [c] (:sort-key c))
-(defn copy-descriptor-key    [c] (:descriptor-key c))
-(defn copy-descriptor        [c] (:descriptor c))
+(defn outcome-accepted?
+  "Return :accepted? from o, or nil when absent."
+       [o] (:accepted? o))
+(defn outcome-decision
+  "Return :decision from o, or nil when absent."
+        [o] (:decision o))
+(defn outcome-event
+  "Return :event from o, or nil when absent."
+           [o] (:event o))
+(defn outcome-row
+  "Return :row from o, or nil when absent."
+             [o] (:row o))
+(defn outcome-log
+  "Return :log from o, or nil when absent."
+             [o] (:log o))
+(defn outcome-order-key
+  "Return :order-key from o, or nil when absent."
+       [o] (:order-key o))
+(defn outcome-total-delta
+  "Return :total-delta from o, or nil when absent."
+     [o] (:total-delta o))
+(defn outcome-asserted-delta
+  "Return :asserted-delta from o, or nil when absent."
+  [o] (:asserted-delta o))
+(defn outcome-from-copy
+  "Return :from-copy from o, or nil when absent."
+       [o] (:from-copy o))
+(defn outcome-to-copy
+  "Return :to-copy from o, or nil when absent."
+         [o] (:to-copy o))
+(defn outcome-activity-row
+  "Return :activity-row from o, or nil when absent."
+    [o] (:activity-row o))
+(defn outcome-bucket
+  "Return :bucket from o, or nil when absent."
+          [o] (:bucket o))
+(defn decision-row-id
+  "Return :decision-id from d, or nil when absent."
+         [d] (:decision-id d))
+(defn event-row-id
+  "Return :event-id from e, or nil when absent."
+            [e] (:event-id e))
+(defn copy-target-key
+  "Return :target-key from c, or nil when absent."
+         [c] (:target-key c))
+(defn copy-sort-key
+  "Return :sort-key from c, or nil when absent."
+           [c] (:sort-key c))
+(defn copy-descriptor-key
+  "Return :descriptor-key from c, or nil when absent."
+     [c] (:descriptor-key c))
+(defn copy-descriptor
+  "Return :descriptor from c, or nil when absent."
+         [c] (:descriptor c))
 
 ;; ── Query R1 helpers (relations-for-targets) ─────────────────────────────────
 (defn distinct-present-target-keys
@@ -553,20 +616,10 @@
   (vec (distinct (filter present-string? target-keys))))
 
 (defn relation-read-ranges
-  "Descriptor-gated read plan for one target and status mode. Returns one of:
-     []            — no descriptor survives ⇒ no visible relations ⇒ NO seek
-                     (nil seed; the Phase-2 empty-seek rule).
-     [:all]        — no kind filter, one-or-more descriptors survive ⇒ ONE
-                     whole-map read of $$relations-by-target[target-key]. This is
-                     CONTRACT §6's dominant 'all relations touching X = 1 seek'
-                     path (F1 fix): the surviving (dir,kind) groups are contiguous
-                     in the inner sorted map, so one seek + sequential iteration
-                     beats the up-to-14 (2 dir x 7 kind) separate prefix seeks it
-                     replaces. relation-visible? still drops the retracted rows a
-                     whole-map read carries.
-     [[lo hi] ...] — kind filter present ⇒ one bounded prefix range per surviving,
-                     requested (direction, kind) group (unchanged read path).
-   descriptor-map may be nil."
+  "Plan a target-index read from direction/kind descriptors. Return [] when no
+   requested group has visible counts, [:all] for an unfiltered whole-map read,
+   or [lo,hi) prefix ranges for selected kinds. Later filtering removes retracted
+   rows when requested. A prefix bounds a key range, not the number of results."
   [descriptor-map kinds-filter include-retracted?]
   (let [kinds     (when (seq kinds-filter) (set (map keyword kinds-filter)))
         survives? (fn [desc]
@@ -626,6 +679,7 @@
       grouped))))
 
 (defn relation-detail-result
+  "Return the current row and order-key-sorted history; an absent row has empty history."
   [row log-vec]
   {:row row
    :history (if row
@@ -834,7 +888,7 @@
   ;; (CONTRACT §5.3). Buckets live on hash(bucket), so the day range is enumerated
   ;; + fanned per bucket, each read subindexed + yield-safe, aggregated at |origin,
   ;; sorted by order-key. Terminal aggregation emits exactly once (empty range →
-  ;; []). Feeds the §6 recent-activity feed via the trail-view module (mirror query).
+  ;; []). trail-view calls this through its foreign-client feed wrapper.
   (<<query-topology topologies "relation-activity" [*bucket-lo *bucket-hi :> *result]
     (activity-bucket-range *bucket-lo *bucket-hi :> *buckets)
     (ops/explode *buckets :> *bucket)
@@ -846,12 +900,9 @@
     (sort-activity-rows *rows :> *result)))
 
 ;; ─────────────────────────────────────────────────────────────────────────────
-;;   FOREIGN CLIENT  (request builders + the two read wrappers)
-;;
-;;   Product consumers (Electric server, trail-view projections, agents) use
-;;   ONLY read-relations-for-targets / read-relation-detail. The direct PState
-;;   readers below are validation-only (V1) and must not be wired into product
-;;   code.
+;;   FOREIGN CLIENT — request builders, three composed queries, and direct
+;;   audit/material reads. Append acknowledgement does not wait for microbatch
+;;   processing; callers needing read-after-write use an explicit read barrier.
 ;; ─────────────────────────────────────────────────────────────────────────────
 
 (defn ->target-ref
@@ -873,6 +924,9 @@
   (->target-ref :none nil (:target-key from-ref)))
 
 (defn- envelope
+  "Construct a plain relation request with a typed payload and deterministic routing ID.
+   Uses supplied IDs/times; sent-at defaults to asserted-at and actor to the asserter.
+   Does not validate or append the request."
   [request-type {:keys [kind from to asserter-actor-id asserter-type actor
                         evidence-source-id evidence-anchor-id note asserted-at-ms
                         sent-at-ms request-id idempotency-key]}]
@@ -907,10 +961,14 @@
   [opts]
   (envelope :relation/retract opts))
 
-(defn relation-id-of-request [request] (relreq-routing-key request))
+(defn relation-id-of-request
+  "Return the supplied :relation/routing-key from a request."
+  [request] (relreq-routing-key request))
 
 ;; ── Runtime (mirrors the dogfood kernels' start/stop shape) ─────────────────
 (defn start-relation-runtime!
+  "Create an owned IPC, launch the relation module, and return depot/PState/query
+   handles. Defaults to four tasks and two threads. Caller must close the IPC."
   ([] (start-relation-runtime! {:tasks 4 :threads 2}))
   ([launch-opts]
    (let [ipc (create-ipc)
@@ -932,13 +990,15 @@
       :relation-activity-query (foreign-query ipc module-name "relation-activity")})))
 
 (defn close-relation-runtime!
+  "Close runtime :ipc when present, swallowing close exceptions."
   [runtime]
   (when-let [ipc (:ipc runtime)]
     (try (.close ^java.lang.AutoCloseable ipc) (catch Exception _ nil))))
 
 (defn append-relation-request!
-  "Single foreign-append! of one request envelope. Blank routing key is refused
-   client-side (the topology also drops it)."
+  "Reject a blank routing key, append once with :append-ack by default, and return
+   the request. Neither :append-ack nor :ack waits for this microbatch topology.
+   Observe a decision/query result separately before claiming acceptance or visibility."
   ([runtime request] (append-relation-request! runtime request :append-ack))
   ([runtime request ack-level]
    (when (blank-string? (relreq-routing-key request))
@@ -970,21 +1030,26 @@
   [runtime bucket-lo bucket-hi]
   (foreign-invoke-query (:relation-activity-query runtime) bucket-lo bucket-hi))
 
-;; ── Validation-only PState reads (V1 — tests only, never product code) ───────
+;; ── Direct PState reads for audit/material inspection ──────────────────────
 (defn read-decision-by-idempotency
+  "Read the first decision journaled for relation-id and idempotency-key, or nil.
+   Uses a direct PState handle and the malformed-key sentinel when needed."
   [runtime relation-id idempotency-key]
   (first (foreign-select [(keypath relation-id (safe-journal-key idempotency-key))]
                          (:decisions-by-idempotency runtime))))
 
 (defn read-decision-by-id
+  "Directly read a decision by its relation-scoped audit key, or nil."
   [runtime decision-id]
   (first (foreign-select [(keypath decision-id)] (:decisions-by-id runtime))))
 
 (defn read-event-by-id
+  "Directly read a relation event by its embedded-relation event key, or nil."
   [runtime event-id]
   (first (foreign-select [(keypath event-id)] (:events-by-id runtime))))
 
 (defn read-relation-row
+  "Directly read the current relation row, or nil."
   [runtime relation-id]
   (first (foreign-select [(keypath relation-id)] (:relations-by-id runtime))))
 
@@ -994,6 +1059,7 @@
   (foreign-select [(keypath target-key) ALL] (:relations-by-target runtime)))
 
 (defn read-target-descriptors
+  "Directly read the direction/kind descriptor map for target-key, or nil."
   [runtime target-key]
   (first (foreign-select [(keypath target-key)] (:target-descriptors runtime))))
 

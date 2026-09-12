@@ -1,8 +1,13 @@
 (ns app.server.rama.transcript-ingest
-  "An in-process transcript container store.
-   Takes: transcript requests, claims, observations, file-state records, and source-line completions.
-   Gives: ingest runs, container projections, composition edges, anchors, artifacts, tool calls, and audit rows.
-   Holds: depots *transcript-ingest-depot *transcript-claim-depot *transcript-obs-depot *transcript-file-state-depot; PStates $$ingest-runs $$source-ledger $$files-handled $$file-offsets $$last-msg-per-conv $$containers-by-id $$conversation-projection $$composition-edges-by-parent $$source-anchors-by-container $$source-artifacts $$tool-calls-by-name $$audit-entries."
+  "Standalone transcript store with tc:* identities and its own PStates.
+   TranscriptIngestModule consumes run requests, claims, redacted observations,
+   and file offsets into transcript-specific containers, projections, anchors,
+   tool indexes, and audit/progress rows. It does not write common OC material.
+   The launcher creates an owned IPC. harvest/watch wrappers use this store
+   when supplied its handles, but delegate to ingest/transcript when the runtime
+   has common object-container handles. door/cluster does not bind this module.
+   Acquisition and watch threads live in the foreign wrappers; the module folds
+   their records. Stream hops and separate depots do not form one transaction."
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
@@ -21,9 +26,10 @@
 ;;   materialization, conversation projection, composition edges, source
 ;;   anchors, tool-call indexes, and audit entries.
 ;;
-;;   All PState writes are keypath + termval (complete row overwrites).
-;;   All container IDs are deterministic (sha256-based, no random UUIDs in topology).
-;;   Stream retry safe: every write is naturally idempotent.
+;;   Container IDs and source-line ledger keys are deterministic. The observation
+;;   stream writes conversation material before hopping to request progress and
+;;   tool indexes. These are separate stream transactions: the ledger does not
+;;   make the whole operation atomic, and progress increments are retry-sensitive.
 ;; ────────────────────────────────────────────────────────────────────────────────
 
 ;; ── ID computation ──────────────────────────────────────────────────────────────
@@ -34,22 +40,27 @@
   (envelope/sha-256 (str (name source) ":" conversation-id)))
 
 (defn conversation-container-id
+  "Prefix the conversation hash with tc:conv: for this store."
   [ck]
   (str "tc:conv:" ck))
 
 (defn message-container-id
+  "Combine conversation key and message hash into a tc:msg: container ID."
   [ck message-hash]
   (str "tc:msg:" ck ":" message-hash))
 
 (defn tool-call-container-id
+  "Combine conversation key and tool-use hash into a tc:tc: container ID."
   [ck tool-use-id-hash]
   (str "tc:tc:" ck ":" tool-use-id-hash))
 
 (defn tool-result-container-id
+  "Combine conversation key and tool-use hash into a tc:tr: container ID."
   [ck tool-use-id-hash]
   (str "tc:tr:" ck ":" tool-use-id-hash))
 
 (defn artifact-container-id
+  "Combine conversation key and artifact hash into a tc:art: container ID."
   [ck artifact-id-hash]
   (str "tc:art:" ck ":" artifact-id-hash))
 
@@ -67,6 +78,7 @@
   (format "%010d" (long byte-offset)))
 
 (defn edge-key
+  "Combine edge-type name and child ID into a local composition key."
   [edge-type child-id]
   (str (name edge-type) ":" child-id))
 
@@ -87,6 +99,8 @@
             :else nil)))))
 
 (defn role-from-payload
+  "Extract message/top-level role from redacted payload, falling back to event-type
+   name. Returns nil without a payload; fallback requires a named event-type."
   [obs]
   (let [payload (:transcript/redacted-payload obs)]
     (when payload
@@ -141,12 +155,14 @@
       :else s)))
 
 (defn positive-partition
+  "Hash k into num-partitions, returning zero for a nonpositive partition count."
   [num-partitions k]
   (if (pos? num-partitions)
     (mod (hash k) num-partitions)
     0))
 
 (defn partition-by-conv-key
+  "Route a tc:* ID or conversation key by its extracted conversation identity."
   [num-partitions id-or-key]
   (positive-partition num-partitions (extract-conv-key id-or-key)))
 
@@ -207,63 +223,146 @@
 
 ;; ── Helper fns for topology (named, not keywords-as-functions) ──────────────────
 
-(defn obs-conv-key [obs] (:transcript/conv-key obs))
-(defn obs-source [obs] (:transcript/source obs))
-(defn obs-source-version [obs] (:transcript/source-version obs))
-(defn obs-conversation-id [obs] (:transcript/conversation-id obs))
-(defn obs-message-uuid [obs] (:transcript/message-uuid obs))
-(defn obs-event-type [obs] (:transcript/event-type obs))
-(defn obs-source-timestamp [obs] (:transcript/source-timestamp obs))
-(defn obs-redacted-payload [obs] (:transcript/redacted-payload obs))
-(defn obs-redacted-preview [obs] (:transcript/redacted-preview obs))
-(defn obs-parse-error-kind [obs] (:transcript/parse-error-kind obs))
-(defn obs-ingest-request-id [obs] (:transcript/ingest-request-id obs))
-(defn obs-file-id [obs] (:source/file-id obs))
-(defn obs-file-path [obs] (:source/file-path obs))
-(defn obs-byte-offset [obs] (:source/byte-offset obs))
-(defn obs-byte-length [obs] (:source/byte-length obs))
-(defn obs-line-hash [obs] (:source/line-hash obs))
-(defn obs-redactions [obs] (:transcript/redactions obs))
+(defn obs-conv-key
+  "Return :transcript/conv-key from obs, or nil when absent."
+  [obs] (:transcript/conv-key obs))
+(defn obs-source
+  "Return :transcript/source from obs, or nil when absent."
+  [obs] (:transcript/source obs))
+(defn obs-source-version
+  "Return :transcript/source-version from obs, or nil when absent."
+  [obs] (:transcript/source-version obs))
+(defn obs-conversation-id
+  "Return :transcript/conversation-id from obs, or nil when absent."
+  [obs] (:transcript/conversation-id obs))
+(defn obs-message-uuid
+  "Return :transcript/message-uuid from obs, or nil when absent."
+  [obs] (:transcript/message-uuid obs))
+(defn obs-event-type
+  "Return :transcript/event-type from obs, or nil when absent."
+  [obs] (:transcript/event-type obs))
+(defn obs-source-timestamp
+  "Return :transcript/source-timestamp from obs, or nil when absent."
+  [obs] (:transcript/source-timestamp obs))
+(defn obs-redacted-payload
+  "Return :transcript/redacted-payload from obs, or nil when absent."
+  [obs] (:transcript/redacted-payload obs))
+(defn obs-redacted-preview
+  "Return :transcript/redacted-preview from obs, or nil when absent."
+  [obs] (:transcript/redacted-preview obs))
+(defn obs-parse-error-kind
+  "Return :transcript/parse-error-kind from obs, or nil when absent."
+  [obs] (:transcript/parse-error-kind obs))
+(defn obs-ingest-request-id
+  "Return :transcript/ingest-request-id from obs, or nil when absent."
+  [obs] (:transcript/ingest-request-id obs))
+(defn obs-file-id
+  "Return :source/file-id from obs, or nil when absent."
+  [obs] (:source/file-id obs))
+(defn obs-file-path
+  "Return :source/file-path from obs, or nil when absent."
+  [obs] (:source/file-path obs))
+(defn obs-byte-offset
+  "Return :source/byte-offset from obs, or nil when absent."
+  [obs] (:source/byte-offset obs))
+(defn obs-byte-length
+  "Return :source/byte-length from obs, or nil when absent."
+  [obs] (:source/byte-length obs))
+(defn obs-line-hash
+  "Return :source/line-hash from obs, or nil when absent."
+  [obs] (:source/line-hash obs))
+(defn obs-redactions
+  "Return :transcript/redactions from obs, or nil when absent."
+  [obs] (:transcript/redactions obs))
 
-(defn file-state-file-key [fs] (:source/file-key fs))
-(defn file-state-conv-key [fs] (:transcript/conv-key fs))
-(defn file-state-conversation-id [fs] (:transcript/conversation-id fs))
-(defn file-state-request-id [fs] (:transcript/ingest-request-id fs))
-(defn file-state-is-empty [fs] (:source/is-empty fs))
-(defn file-state-file-id [fs] (:source/file-id fs))
-(defn file-state-file-path [fs] (:source/file-path fs))
-(defn file-state-source [fs] (:transcript/source fs))
-(defn file-state-last-byte-offset [fs] (:source/last-byte-offset fs))
-(defn file-state-line-count [fs] (:source/line-count fs))
-(defn file-state-time-ms [fs] (:time-ms fs))
+(defn file-state-file-key
+  "Return :source/file-key from fs, or nil when absent."
+  [fs] (:source/file-key fs))
+(defn file-state-conv-key
+  "Return :transcript/conv-key from fs, or nil when absent."
+  [fs] (:transcript/conv-key fs))
+(defn file-state-conversation-id
+  "Return :transcript/conversation-id from fs, or nil when absent."
+  [fs] (:transcript/conversation-id fs))
+(defn file-state-request-id
+  "Return :transcript/ingest-request-id from fs, or nil when absent."
+  [fs] (:transcript/ingest-request-id fs))
+(defn file-state-is-empty
+  "Return :source/is-empty from fs, or nil when absent."
+  [fs] (:source/is-empty fs))
+(defn file-state-file-id
+  "Return :source/file-id from fs, or nil when absent."
+  [fs] (:source/file-id fs))
+(defn file-state-file-path
+  "Return :source/file-path from fs, or nil when absent."
+  [fs] (:source/file-path fs))
+(defn file-state-source
+  "Return :transcript/source from fs, or nil when absent."
+  [fs] (:transcript/source fs))
+(defn file-state-last-byte-offset
+  "Return :source/last-byte-offset from fs, or nil when absent."
+  [fs] (:source/last-byte-offset fs))
+(defn file-state-line-count
+  "Return :source/line-count from fs, or nil when absent."
+  [fs] (:source/line-count fs))
+(defn file-state-time-ms
+  "Return :time-ms from fs, or nil when absent."
+  [fs] (:time-ms fs))
 
-(defn request-id-from [request] (:transcript/request-id request))
-(defn request-type-from [request] (:request/type request))
-(defn request-source [request] (:transcript/source request))
-(defn request-paths [request] (:transcript/paths request))
-(defn request-redaction-policy [request] (:transcript/redaction-policy request))
-(defn request-triggered-by [request] (:transcript/triggered-by request))
-(defn request-time-ms [request] (:request/time-ms request))
+(defn request-id-from
+  "Return :transcript/request-id from request, or nil when absent."
+  [request] (:transcript/request-id request))
+(defn request-type-from
+  "Return :request/type from request, or nil when absent."
+  [request] (:request/type request))
+(defn request-source
+  "Return :transcript/source from request, or nil when absent."
+  [request] (:transcript/source request))
+(defn request-paths
+  "Return :transcript/paths from request, or nil when absent."
+  [request] (:transcript/paths request))
+(defn request-redaction-policy
+  "Return :transcript/redaction-policy from request, or nil when absent."
+  [request] (:transcript/redaction-policy request))
+(defn request-triggered-by
+  "Return :transcript/triggered-by from request, or nil when absent."
+  [request] (:transcript/triggered-by request))
+(defn request-time-ms
+  "Return :request/time-ms from request, or nil when absent."
+  [request] (:request/time-ms request))
 
-(defn claim-request-id [claim] (:transcript/request-id claim))
-(defn claim-status [claim] (:status claim))
-(defn claim-time-ms [claim] (:time-ms claim))
-(defn claim-counts [claim] (:counts claim))
-(defn claim-error [claim] (:error claim))
+(defn claim-request-id
+  "Return :transcript/request-id from claim, or nil when absent."
+  [claim] (:transcript/request-id claim))
+(defn claim-status
+  "Return :status from claim, or nil when absent."
+  [claim] (:status claim))
+(defn claim-time-ms
+  "Return :time-ms from claim, or nil when absent."
+  [claim] (:time-ms claim))
+(defn claim-counts
+  "Return :counts from claim, or nil when absent."
+  [claim] (:counts claim))
+(defn claim-error
+  "Return :error from claim, or nil when absent."
+  [claim] (:error claim))
 
-(defn is-parse-error [obs]
+(defn is-parse-error
+  "True when the observation carries a nonnil parse-error kind."
+  [obs]
   (some? (obs-parse-error-kind obs)))
 
 (defn run-accepted?
-  "True if the run exists — meaning a request was submitted and acknowledged.
-   Does not gate on run status: observations may arrive after the executor
-   sends :complete (different depots, no cross-depot ordering guarantee)."
+  "True whenever a run row exists, including failed or terminal rows. This permits
+   observations arriving after status updates on a separate depot; it does not
+   verify that the original run request was valid or that its status accepts work."
   [run-row]
   (some? run-row))
 
 ;; ── Row construction helpers ────────────────────────────────────────────────────
 
 (defn make-initial-run-row
+  "Build a pending run row with request metadata and zero progress counts."
   [request]
   (->IngestRunRow (request-id-from request)
                   (request-type-from request)
@@ -277,6 +376,7 @@
                   0 0 0 nil))
 
 (defn make-rejected-run-row
+  "Build a failed run row with request metadata and validation errors."
   [request errors]
   (->IngestRunRow (request-id-from request)
                   (request-type-from request)
@@ -326,6 +426,7 @@
       (assoc :updated-at-ms (envelope/now-ms))))
 
 (defn make-source-anchor-row
+  "Project an observation physical file/byte/hash identity into a container anchor."
   [container-id obs]
   (->SourceAnchorRow container-id
                      (obs-source obs)
@@ -336,11 +437,13 @@
                      (obs-line-hash obs)))
 
 (defn make-source-artifact-row
+  "Build file/source metadata with supplied initial/latest times and request identity."
   [conversation-id ck source file-id file-path source-version request-id now]
   (->SourceArtifactRow conversation-id ck source file-id file-path source-version
                        now now request-id))
 
 (defn make-audit-entry-row
+  "Build a source-line audit entry with parse/redaction metadata and created-container IDs."
   [obs container-ids now]
   (->AuditEntryRow (t/source-line-key obs)
                    (obs-event-type obs)
@@ -486,25 +589,55 @@
   [obs ck now]
   (build-message-containers obs ck now))
 
-(defn materials-containers [m] (:containers m))
-(defn materials-projection-entry [m] (:projection-entry m))
-(defn materials-edges [m] (:edges m))
-(defn materials-tool-call-indexes [m] (:tool-call-indexes m))
-(defn materials-container-ids [m] (:container-ids m))
-(defn materials-msg-id [m] (:msg-id m))
-(defn materials-anchor [m] (:anchor m))
+(defn materials-containers
+  "Return :containers from m, or nil when absent."
+  [m] (:containers m))
+(defn materials-projection-entry
+  "Return :projection-entry from m, or nil when absent."
+  [m] (:projection-entry m))
+(defn materials-edges
+  "Return :edges from m, or nil when absent."
+  [m] (:edges m))
+(defn materials-tool-call-indexes
+  "Return :tool-call-indexes from m, or nil when absent."
+  [m] (:tool-call-indexes m))
+(defn materials-container-ids
+  "Return :container-ids from m, or nil when absent."
+  [m] (:container-ids m))
+(defn materials-msg-id
+  "Return :msg-id from m, or nil when absent."
+  [m] (:msg-id m))
+(defn materials-anchor
+  "Return :anchor from m, or nil when absent."
+  [m] (:anchor m))
 
-(defn container-id-from [c] (:container-id c))
-(defn edge-key-from [e] (:edge-key e))
-(defn edge-parent-id [e] (:parent-id e))
-(defn anchor-container-id [a] (:container-id a))
+(defn container-id-from
+  "Return :container-id from c, or nil when absent."
+  [c] (:container-id c))
+(defn edge-key-from
+  "Return :edge-key from e, or nil when absent."
+  [e] (:edge-key e))
+(defn edge-parent-id
+  "Return :parent-id from e, or nil when absent."
+  [e] (:parent-id e))
+(defn anchor-container-id
+  "Return :container-id from a, or nil when absent."
+  [a] (:container-id a))
 
-(defn tool-index-name [ti] (:tool-name ti))
-(defn tool-index-line-key [ti] (:source-line-key ti))
+(defn tool-index-name
+  "Return :tool-name from ti, or nil when absent."
+  [ti] (:tool-name ti))
+(defn tool-index-line-key
+  "Return :source-line-key from ti, or nil when absent."
+  [ti] (:source-line-key ti))
 
-(defn conv-entry-order-key [pe] (:order-key pe))
+(defn conv-entry-order-key
+  "Return :order-key from pe, or nil when absent."
+  [pe] (:order-key pe))
 
-(defn run-row-some? [r] (some? r))
+(defn run-row-some?
+  "True when a run row is present."
+  [r] (some? r))
 
 (defn extract-session-metadata
   "Extract session metadata from observation payload for the meta entry."
@@ -520,11 +653,19 @@
     (extract-session-metadata obs)
     0 (obs-source-timestamp obs) (obs-source-timestamp obs)
     (obs-file-path obs) (obs-file-id obs) now))
-(defn materials-has-projection [m] (some? (:projection-entry m)))
-(defn materials-has-containers [m] (seq (materials-containers m)))
-(defn tool-indexes-seq [m] (seq (materials-tool-call-indexes m)))
+(defn materials-has-projection
+  "True when materialization data contains a projection entry."
+  [m] (some? (:projection-entry m)))
+(defn materials-has-containers
+  "Return the nonempty container sequence, or nil."
+  [m] (seq (materials-containers m)))
+(defn tool-indexes-seq
+  "Return the nonempty tool-index sequence, or nil."
+  [m] (seq (materials-tool-call-indexes m)))
 
-(defn container-count [m] (count (or (materials-container-ids m) [])))
+(defn container-count
+  "Count materialized container IDs; missing IDs count as zero."
+  [m] (count (or (materials-container-ids m) [])))
 
 ;; ── Module definition ───────────────────────────────────────────────────────────
 
@@ -586,8 +727,8 @@
 
       ;; ── Observation source ──────────────────────────────────────────────
       (source> *transcript-obs-depot {:retry-mode :all-after} :> *obs)
-      ;; Gate: verify the ingest request exists and is in an accepted state
-      ;; before materializing any durable facts
+      ;; Gate checks only that a run row exists (run-accepted?), including failed
+      ;; rows. This is weaker than validating an accepted request status.
       (obs-ingest-request-id *obs :> *request-id)
       (|hash *request-id)
       (local-select> [(keypath *request-id)] $$ingest-runs :> *run-check)
@@ -753,6 +894,8 @@
 ;; ── Foreign client helpers ──────────────────────────────────────────────────────
 
 (defn start-transcript-ingest-runtime!
+  "Create and launch an owned IPC for TranscriptIngestModule, returning depot
+   and PState handles. The caller must close it; no files are harvested at launch."
   []
   (let [ipc (create-ipc)
         module-name (get-module-name TranscriptIngestModule)]
@@ -774,6 +917,8 @@
      :file-offsets (foreign-pstate ipc module-name "$$file-offsets")}))
 
 (defn close-transcript-ingest-runtime!
+  "Close the runtime IPC when present, swallowing close exceptions. Watch handles
+   are separate resources and should be stopped before closing their cluster."
   [runtime]
   (when-let [ipc (:ipc runtime)]
     (try
@@ -783,25 +928,29 @@
 ;; ── Depot appends ───────────────────────────────────────────────────────────────
 
 (defn append-ingest-request!
-  "Submit a harvest or watch request. Uses :ack so caller can read-after-write."
+  "Append a harvest/watch request with :ack and return it. The run decision is
+   then readable, but file acquisition is performed separately by the wrapper."
   [runtime request]
   (foreign-append! (:ingest-depot runtime) request :ack)
   request)
 
 (defn append-ingest-claim!
-  "Submit an executor lifecycle claim (running/complete/failed/cancelled)."
+  "Append an executor lifecycle claim with :append-ack and return the claim.
+   Depot acknowledgement does not establish run-status visibility."
   [runtime claim]
   (foreign-append! (:claim-depot runtime) claim :append-ack)
   claim)
 
 (defn append-ingest-observation!
-  "Submit a per-record source observation."
+  "Append one prepared observation with :append-ack and return it; materialization
+   is asynchronous relative to this acknowledgement."
   [runtime obs]
   (foreign-append! (:obs-depot runtime) obs :append-ack)
   obs)
 
 (defn append-file-state!
-  "Submit a per-file offset/state record."
+  "Append a file offset/state map with :append-ack and return it. This standalone
+   path writes the supplied offset without common-module completion matching."
   [runtime fs]
   (foreign-append! (:file-state-depot runtime) fs :append-ack)
   fs)
@@ -814,7 +963,8 @@
   (foreign-select-one [(keypath request-id)] (:ingest-runs runtime)))
 
 (defn read-conversation-projection
-  "R1 — full conversation: metadata + ordered messages with inline tool calls."
+  "Read all [order-key entry] pairs under a tc:conv: container ID, including metadata.
+   No pagination is applied."
   [runtime conversation-id]
   (foreign-select [(keypath conversation-id) ALL] (:conversation-projection runtime)))
 
@@ -824,7 +974,7 @@
   (foreign-select-one [(keypath container-id)] (:containers-by-id runtime)))
 
 (defn read-tool-calls-by-name
-  "R3 — tool-call index entries for a given tool name."
+  "Read all [source-line-key ToolCallIndexRow] pairs under tool-name."
   [runtime tool-name]
   (foreign-select [(keypath tool-name) ALL] (:tool-calls-by-name runtime)))
 
@@ -834,7 +984,7 @@
   (foreign-select-one [(keypath conversation-id)] (:source-artifacts runtime)))
 
 (defn read-audit-entries
-  "R2 — audit entries for a harvest/watch request."
+  "Read all [source-line-key AuditEntryRow] pairs under a harvest/watch request ID."
   [runtime request-id]
   (foreign-select [(keypath request-id) ALL] (:audit-entries runtime)))
 
@@ -869,7 +1019,10 @@
 ;; ── Executor orchestration ──────────────────────────────────────────────────────
 
 (defn harvest-ingest!
-  "Full harvest pipeline: request -> walk -> parse -> append observations."
+  "Harvest through ingest/transcript for common OC handles; otherwise append a run,
+   read JSONL files, append prepared observations/file states, and poll progress
+   and completion before returning request ID/file count. The standalone branch
+   does not check the poll result for timeout or wait on each secondary index."
   [runtime request]
   (if (t/object-container-runtime? runtime)
     (t/harvest-transcripts! runtime request)
@@ -925,7 +1078,12 @@
          :files (count files)}))))
 
 (defn start-watch-ingest!
-  "Watch pipeline: request -> poll/watch -> parse -> append. Returns stop handle."
+  "Delegate common OC handles to ingest/transcript; otherwise start a daemon poll
+   thread and return request ID, thread, :poll-once!, and :stop!. Saved offsets win;
+   new files start at zero, existing files at EOF unless :backfill? is set. Local
+   offsets advance before asynchronous observation/file-state appends. :stop! sets
+   the flag, joins for at most one second, then appends a cancelled claim; it does
+   not close the runtime or guarantee the thread has exited by return."
   [runtime request & [opts]]
   (if (t/object-container-runtime? runtime)
     (t/start-transcript-watch! runtime request opts)

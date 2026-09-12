@@ -1,13 +1,16 @@
-;; Historical design context: history/docs/object-container/PLAN.md and
-;; history/docs/object-container-common-infra/PLAN.md describe the earlier slices.
-;; Consult them for relevant reasoning; check current source and docs/decisions.md
-;; before carrying their implementation claims or pending work forward.
-
 (ns app.server.rama.object-container
-  "Durable containers, revisions, source material, edits, and transcript operations.
-   Takes: object-container requests and transcript control, file-state, and source-line records.
-   Gives: decisions, events, material rows, indexes, edit results, and transcript-operation results.
-   Holds: depots *object-container-requests-depot *transcript-control-depot *transcript-file-state-depot *transcript-source-line-completions-depot; 32 PStates from $$requests-by-audit-id through $$edit-order-by-target plus the three $$transcript-* PStates."
+  "Common stored material and its transcript operational tracking.
+   object-container-module accepts prepared import bundles and object edits,
+   journals decisions, and writes source artifacts, containers, revisions, units,
+   anchors, composition, and source/projection indexes. Adapters prepare material
+   outside this namespace; the topology validates and applies it.
+   object-container-transcript-ops-module owns run/file observations and resume
+   offsets. It reads common-module source-line completions through a mirror;
+   observing a file is distinct from accepting its material.
+   Both modules use streams. Object-family writes and later source/tool/audit/file
+   index writes cross task boundaries; the whole import is not one transaction.
+   object-container/runtime contains foreign handles, append/read wrappers, and
+   IPC lifecycle helpers. door/cluster supplies durable-cluster handle maps."
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
@@ -16,12 +19,10 @@
             [clojure.set :as set]
             [clojure.string :as str]))
 
-;; Object Container kernel, Slice 1.
-;;
-;; This module is intentionally a new storage shape rather than a copy of the
-;; old text kernel. Immutable source artifacts, derived units, authored object
-;; containers, revisions, anchors, composition edges, and the outline projection
-;; are separate rows with deterministic ids.
+;; Source artifacts and derived units preserve imported material. Authored
+;; containers point at revisions, and graduation connects an edited unit to its
+;; container. Anchors retain source provenance; composition and outline are
+;; separate relationship/projection rows. See README.md for adjacent modules.
 
 (def object-key-separator (str (char 0)))
 (def default-outline-page-size 1000)
@@ -179,10 +180,13 @@
    accepted-at-ms])
 
 (defn string-present?
+  "True only for a nonblank string."
   [x]
   (and (string? x) (not (str/blank? x))))
 
 (defn append-bounded
+  "Append x to an optional sequence and keep at most the newest limit values.
+   Returns a vector; limit must be a nonnegative count."
   [xs x limit]
   (let [v (conj (vec (or xs [])) x)
         n (count v)]
@@ -191,83 +195,105 @@
       v)))
 
 (defn actor-row
+  "Convert envelope actor keys into an ActorRow, normalizing capabilities to a set."
   [actor]
   (->ActorRow (get actor :actor/id)
               (get actor :actor/type)
               (set (get actor :actor/capabilities))))
 
 (defn target-row
+  "Convert envelope target kind, id, and address into a TargetRefRow."
   [target]
   (->TargetRefRow (get target :target/kind)
                   (get target :target/id)
                   (get target :target/address)))
 
 (defn source-ref-key
+  "Hash the source reference for the source-version index partition."
   [source-ref]
   (envelope/sha-256 source-ref))
 
 (defn object-key-for
+  "Hash source-ref, a NUL separator, and source-hash into a version-specific object key."
   [source-ref source-hash]
   (envelope/sha-256 (str source-ref object-key-separator source-hash)))
 
 (defn source-id-for-object-key
+  "Prefix an object key with src: for a source-artifact ID."
   [object-key]
   (str "src:" object-key))
 
 (defn document-id-for-object-key
+  "Prefix an object key with oc:doc: for a document container ID."
   [object-key]
   (str "oc:doc:" object-key))
 
 (defn source-anchor-id
+  "Prefix target-id with sa: for its source-anchor ID."
   [target-id]
   (str "sa:" target-id))
 
 (defn block-container-id
+  "Build an authored block container ID from object-key and unit-local-id."
   [object-key unit-local-id]
   (str "oc:block:" object-key ":" unit-local-id))
 
 (defn composition-edge-id
+  "Build a composition edge ID from object-key, parent slot, and child order key."
   [object-key parent-slot-id child-order-key]
   (str "ce:" object-key ":" parent-slot-id ":" child-order-key))
 
 (defn revision-id-for-request
+  "Use the payload revision-id when supplied, otherwise derive one from
+   object-key and request-id. Does not check uniqueness against stored revisions."
   [object-key request]
   (or (get-in request [:payload :revision-id])
       (str "rev:" object-key ":" (:request/id request))))
 
 (defn import-revision-id
+  "Derive a revision ID from object-key and hashes of target-id and import-key."
   [object-key target-id import-key]
   (str "rev:" object-key ":" (envelope/sha-256 target-id) ":" (envelope/sha-256 import-key)))
 
 (defn event-id-for-request
+  "Derive the common event ID from object-key and request-id."
   [object-key request]
   (str "evt:" object-key ":" (:request/id request)))
 
 (defn fixed-width-order-key
+  "Format a zero-padded numeric time (nil becomes zero) followed by request-id
+   as an ordered string key; equal times are disambiguated by the suffix."
   [time-ms request-id]
   (format "%020d:%s" (long (or time-ms 0)) request-id))
 
 (defn audit-id
+  "Combine partition-key and request-id into the request audit key."
   [partition-key request-id]
   (str partition-key "/request/" request-id))
 
 (defn decision-id-for-audit-id
+  "Append /decision to an audit-id."
   [audit-id]
   (str audit-id "/decision"))
 
 (defn source-id-for
+  "Derive the version-specific source ID from source reference and content hash."
   [source-ref source-hash]
   (source-id-for-object-key (object-key-for source-ref source-hash)))
 
 (defn document-id-for
+  "Derive the version-specific document ID from source reference and content hash."
   [source-ref source-hash]
   (document-id-for-object-key (object-key-for source-ref source-hash)))
 
 (defn source-hash
+  "Hash the UTF-8 encoding of raw-text coerced to a string; this is not a raw-byte hash."
   [raw-text]
   (envelope/sha-256 (str raw-text)))
 
 (defn leading-object-key
+  "Extract the leading object identity from an ID suffix, keeping two segments
+   for chat: and fm: keys and the first segment for other prefixes."
   [s]
   (let [s (str s)]
     (if (or (str/starts-with? s "chat:")
@@ -282,12 +308,17 @@
         (if idx (subs s 0 idx) s)))))
 
 (defn positive-partition
+  "Map k by Clojure hash into num-partitions; return zero when the count is nonpositive."
   [num-partitions k]
   (if (pos? num-partitions)
     (mod (hash k) num-partitions)
     0))
 
 (defn extract-object-key
+  "Recover a family routing key from the recognized source/container/import/row
+   ID prefixes. Unknown strings pass through unchanged. Exact prefix handling
+   matters because foreign PState reads must route to the task that wrote the row;
+   this parser is not general ID validation."
   [id-or-key]
   (let [s (str id-or-key)]
     (cond
@@ -392,10 +423,12 @@
       :else s)))
 
 (defn partition-by-object-key
+  "Route a stored row ID or object key through extract-object-key and the task count."
   [num-partitions id-or-key]
   (positive-partition num-partitions (extract-object-key id-or-key)))
 
 (defn audit-partition-key
+  "Extract the prefix before /request/ from an audit/decision key; otherwise keep it."
   [audit-id]
   (let [s (str audit-id)
         marker "/request/"
@@ -403,31 +436,74 @@
     (if idx (subs s 0 idx) s)))
 
 (defn partition-by-audit-id
+  "Route request/decision audit IDs by their original request partition key."
   [num-partitions audit-id]
   (positive-partition num-partitions (audit-partition-key audit-id)))
 
-(defn payload-source-ref [payload] (:source-ref payload))
-(defn payload-source-hash [payload] (:source-hash payload))
-(defn payload-source-raw-text [payload] (:source-raw-text payload))
-(defn payload-source-format [payload] (:source-format payload))
-(defn payload-distiller-id [payload] (:distiller-id payload))
-(defn payload-distiller-version [payload] (:distiller-version payload))
-(defn payload-document-container-id [payload] (:document-container-id payload))
-(defn payload-object-key [payload] (:object-key payload))
-(defn payload-content-text [payload] (:content-text payload))
-(defn payload-content-hash [payload] (:content-hash payload))
-(defn payload-edit-client-id [payload] (:edit-client-id payload))
-(defn payload-edit-seq [payload] (:edit-seq payload))
-(defn payload-edit-lineage-key [payload] (:edit-lineage-key payload))
+(defn payload-source-ref
+  "Return :source-ref from payload, or nil when absent."
+  [payload] (:source-ref payload))
+(defn payload-source-hash
+  "Return :source-hash from payload, or nil when absent."
+  [payload] (:source-hash payload))
+(defn payload-source-raw-text
+  "Return :source-raw-text from payload, or nil when absent."
+  [payload] (:source-raw-text payload))
+(defn payload-source-format
+  "Return :source-format from payload, or nil when absent."
+  [payload] (:source-format payload))
+(defn payload-distiller-id
+  "Return :distiller-id from payload, or nil when absent."
+  [payload] (:distiller-id payload))
+(defn payload-distiller-version
+  "Return :distiller-version from payload, or nil when absent."
+  [payload] (:distiller-version payload))
+(defn payload-document-container-id
+  "Return :document-container-id from payload, or nil when absent."
+  [payload] (:document-container-id payload))
+(defn payload-object-key
+  "Return :object-key from payload, or nil when absent."
+  [payload] (:object-key payload))
+(defn payload-content-text
+  "Return :content-text from payload, or nil when absent."
+  [payload] (:content-text payload))
+(defn payload-content-hash
+  "Return :content-hash from payload, or nil when absent."
+  [payload] (:content-hash payload))
+(defn payload-edit-client-id
+  "Return :edit-client-id from payload, or nil when absent."
+  [payload] (:edit-client-id payload))
+(defn payload-edit-seq
+  "Return :edit-seq from payload, or nil when absent."
+  [payload] (:edit-seq payload))
+(defn payload-edit-lineage-key
+  "Return :edit-lineage-key from payload, or nil when absent."
+  [payload] (:edit-lineage-key payload))
 
-(defn request-partition-key [request] (:partition/key request))
-(defn request-id [request] (:request/id request))
-(defn request-type [request] (:request/type request))
-(defn request-payload [request] (:payload request))
-(defn request-idempotency-key [request] (:idempotency/key request))
-(defn request-audit-id [request] (audit-id (request-partition-key request) (request-id request)))
-(defn request-object-key [request] (payload-object-key (request-payload request)))
-(defn request-source-ref-key [request] (request-partition-key request))
+(defn request-partition-key
+  "Return :partition/key from request, or nil when absent."
+  [request] (:partition/key request))
+(defn request-id
+  "Return :request/id from request, or nil when absent."
+  [request] (:request/id request))
+(defn request-type
+  "Return :request/type from request, or nil when absent."
+  [request] (:request/type request))
+(defn request-payload
+  "Return :payload from request, or nil when absent."
+  [request] (:payload request))
+(defn request-idempotency-key
+  "Return :idempotency/key from request, or nil when absent."
+  [request] (:idempotency/key request))
+(defn request-audit-id
+  "Derive the request audit key from its :partition/key and :request/id."
+  [request] (audit-id (request-partition-key request) (request-id request)))
+(defn request-object-key
+  "Read :object-key from the request payload."
+  [request] (payload-object-key (request-payload request)))
+(defn request-source-ref-key
+  "Return the request partition key used by the source-ref request path."
+  [request] (request-partition-key request))
 
 (declare request-import-key
          request-material-fingerprint
@@ -439,6 +515,7 @@
          payload-source-line-statuses)
 
 (defn request-row
+  "Construct an audit row preserving the original request plus normalized actor and target."
   [request]
   (let [audit (request-audit-id request)]
     (->ObjectContainerRequestRow audit
@@ -454,6 +531,7 @@
                                  request)))
 
 (defn event-row
+  "Construct a common event row with the supplied identity, payload, time, and request custody."
   [event-id event-type object-key target-kind target-id actor payload time-ms request]
   (->ObjectContainerEventRow event-id
                              event-type
@@ -467,6 +545,8 @@
                              (request-audit-id request)))
 
 (defn accepted-decision-row
+  "Build an accepted audit decision referencing event and import/fingerprint keys.
+   Stamps decided-at-ms with the current wall clock; does not itself write state."
   [request event]
   (let [audit (request-audit-id request)]
     (->ObjectContainerDecisionRow (decision-id-for-audit-id audit)
@@ -487,6 +567,8 @@
                                   nil)))
 
 (defn rejected-decision-row
+  "Build a rejected audit decision with reason/errors, no event, and a current
+   wall-clock decision timestamp. Does not itself write state."
   [request reason errors]
   (let [audit (request-audit-id request)]
     (->ObjectContainerDecisionRow (decision-id-for-audit-id audit)
@@ -507,11 +589,14 @@
                                   nil)))
 
 (defn conflict-decision-row
+  "Build a rejection that points to the prior decision with which the request conflicts."
   [request reason errors prior-decision]
   (assoc (rejected-decision-row request reason errors)
          :conflict-with-decision-id (:decision-id prior-decision)))
 
 (defn replay-decision-row
+  "Copy a prior decision to the incoming audit/request identity and stamp the replay
+   origin and current decision time. The original event remains referenced."
   [request prior-decision]
   (let [audit (request-audit-id request)]
     (assoc prior-decision
@@ -526,24 +611,29 @@
            :replayed-from-decision-id (:decision-id prior-decision))))
 
 (defn decision-accepted?
+  "True when a common decision row has :status :accepted."
   [decision]
   (= :accepted (:status decision)))
 
 (defn decision-event-id
+  "Return :event-id from decision, or nil when absent."
   [decision]
   (:event-id decision))
 
 (defn decision-material-fingerprint
+  "Return :material-fingerprint from decision, or nil when absent."
   [decision]
   (:material-fingerprint decision))
 
 (defn material-fingerprint-conflict?
+  "True when a prior decision exists and its material fingerprint differs from the request."
   [request prior-decision]
   (and (some? prior-decision)
        (not= (request-material-fingerprint request)
              (decision-material-fingerprint prior-decision))))
 
 (defn material-fingerprint-conflict-error
+  "Describe an idempotency-key fingerprint conflict, including prior decision identity."
   [request prior-decision]
   {:type :idempotency/material-fingerprint-conflict
    :idempotency-key (request-idempotency-key request)
@@ -552,14 +642,17 @@
    :conflict-with-decision-id (:decision-id prior-decision)})
 
 (defn completion-material-fingerprint
+  "Return :material-fingerprint from completion, or nil when absent."
   [completion]
   (:material-fingerprint completion))
 
 (defn completion-event-id
+  "Return :event-id from completion, or nil when absent."
   [completion]
   (:event-id completion))
 
 (defn import-material-fingerprint-conflict-error
+  "Describe reuse of an import-key with a different fingerprint from its completion."
   [request completion]
   {:type :import/material-fingerprint-conflict
    :import-key (request-import-key request)
@@ -568,6 +661,7 @@
    :conflict-with-event-id (completion-event-id completion)})
 
 (defn source-request-valid?
+  "True when the validation error collection is empty."
   [errors]
   (empty? errors))
 
@@ -575,6 +669,9 @@
   #{:derived-unit :object-container})
 
 (defn edit-request-validation-errors
+  "Return envelope, edit-target, partition/object-key, content-hash, client/sequence,
+   and capability errors. Stored-target existence and stale ordering are checked
+   separately by edit-effects; this validator does not read PStates."
   [request]
   (let [payload (request-payload request)
         content (str (payload-content-text payload))
@@ -624,10 +721,17 @@
       (not (envelope/authorized-request? request))
       (conj {:type :actor-not-authorized}))))
 
-(defn request-import-key [request] (:import/key request))
-(defn request-material-fingerprint [request] (:material/fingerprint request))
+(defn request-import-key
+  "Return :import/key from request, or nil when absent."
+  [request] (:import/key request))
+(defn request-material-fingerprint
+  "Return :material/fingerprint from request, or nil when absent."
+  [request] (:material/fingerprint request))
 
 (defn import-completion-row
+  "Build completion metadata/counts from the request bundle and accepted event/decision.
+   Uses the first source row for source-id and the container count for native claims;
+   stamps completion time now. The topology is responsible for writing the rows."
   [request event decision]
   (let [payload (request-payload request)
         source-rows (payload-source-artifacts payload)
@@ -652,6 +756,8 @@
 	                           (request-id request))))
 
 (defn source-ingest-completion-row
+  "Build a source-version completion row with current arrival time and the optional
+   :claimed/at-ms copied from the request; arrival is never substituted for a claim."
   [request source-version-row event]
   (let [payload (request-payload request)]
     (->SourceIngestCompletionRow (:source-id source-version-row)
@@ -667,17 +773,36 @@
                                 ;; material-claimed clock, nil-honest (see record)
                                 (:claimed/at-ms request))))
 
-(defn payload-source-artifacts [payload] (vec (:source-artifacts payload)))
-(defn payload-object-containers [payload] (vec (:object-containers payload)))
-(defn payload-revisions [payload] (vec (:revisions payload)))
-(defn payload-derived-units [payload] (vec (:derived-units payload)))
-(defn payload-source-anchors [payload] (vec (:source-anchors payload)))
-(defn payload-composition-edges [payload] (vec (:composition-edges payload)))
-(defn payload-source-versions [payload] (vec (:source-versions payload)))
-(defn payload-projection-hints [payload] (vec (:projection-hints payload)))
-(defn payload-source-line-statuses [payload] (vec (:source-line-statuses payload)))
+(defn payload-source-artifacts
+  "Return :source-artifacts from payload as a vector; missing values become []."
+  [payload] (vec (:source-artifacts payload)))
+(defn payload-object-containers
+  "Return :object-containers from payload as a vector; missing values become []."
+  [payload] (vec (:object-containers payload)))
+(defn payload-revisions
+  "Return :revisions from payload as a vector; missing values become []."
+  [payload] (vec (:revisions payload)))
+(defn payload-derived-units
+  "Return :derived-units from payload as a vector; missing values become []."
+  [payload] (vec (:derived-units payload)))
+(defn payload-source-anchors
+  "Return :source-anchors from payload as a vector; missing values become []."
+  [payload] (vec (:source-anchors payload)))
+(defn payload-composition-edges
+  "Return :composition-edges from payload as a vector; missing values become []."
+  [payload] (vec (:composition-edges payload)))
+(defn payload-source-versions
+  "Return :source-versions from payload as a vector; missing values become []."
+  [payload] (vec (:source-versions payload)))
+(defn payload-projection-hints
+  "Return :projection-hints from payload as a vector; missing values become []."
+  [payload] (vec (:projection-hints payload)))
+(defn payload-source-line-statuses
+  "Return :source-line-statuses from payload as a vector; missing values become []."
+  [payload] (vec (:source-line-statuses payload)))
 
 (defn projection-hint-fingerprint
+  "Select the projection fields included in import fingerprinting, omitting volatile metadata."
   [hint]
   (select-keys hint
                [:projection-kind
@@ -709,6 +834,7 @@
                 :message]))
 
 (defn source-line-status-fingerprint
+  "Select source-line identity, generation, material, and byte fields for fingerprinting."
   [row]
   (select-keys row
                [:file-key
@@ -726,6 +852,8 @@
 	                :parse-error-kind]))
 
 (defn native-claim-signature
+  "Describe a candidate container identity claim from its row and import request.
+   The source-native-id is currently the container ID, and source-line-key is import-key."
   [request container-row]
   {:claim-key (:container-id container-row)
    :container-id (:container-id container-row)
@@ -741,6 +869,8 @@
    :import-key (request-import-key request)})
 
 (defn duplicate-native-claim-conflicts
+  "Return conflicts for repeated container IDs with differing candidate signatures
+   within one bundle; identical repeated signatures produce no conflict."
   [request container-rows]
   (->> container-rows
        (group-by :container-id)
@@ -756,6 +886,10 @@
        vec))
 
 (defn import-request-validation-errors
+  "Return structural/envelope, capability, source-hash, revision-reference, native
+   duplicate, and anchor-reference errors for a prepared import bundle. Projection-only
+   bundles are allowed. Does not compare against stored native claims or recompute
+   the supplied material fingerprint; those limits matter for foreign appenders."
   [request]
   (let [payload (request-payload request)
         source-rows (payload-source-artifacts payload)
@@ -852,6 +986,7 @@
              :target-ids (vec missing-anchor-targets)}))))
 
 (defn import-event-row
+  "Build the imported-source-record event from request identity, payload, actor, and request time."
   [request]
   (let [object-key (request-object-key request)
         event-id (event-id-for-request object-key request)]
@@ -866,6 +1001,8 @@
                request)))
 
 (defn complete-transcript-source-line-status-row
+  "Mark a line import-complete or parse-error-complete using an import completion
+   fingerprint/key/time. Returns a row for the separate completion-depot write."
   [row completion]
   (assoc row
          :status (if (:parse-error-kind row) :parse-error-complete :import-complete)
@@ -874,14 +1011,18 @@
          :completed-at-ms (:completed-at-ms completion)))
 
 (defn transcript-control-request-type
+  "Prefer :request/type, falling back to :claim/type for control records."
   [request]
   (or (:request/type request) (:claim/type request)))
 
 (defn transcript-control-request-id
+  "Return :transcript/request-id from request, or nil when absent."
   [request]
   (:transcript/request-id request))
 
 (defn transcript-control-validation-errors
+  "Validate control type and request ID plus harvest/watch source, policy, and paths.
+   Run-status requests require a nonnil status; this does not execute acquisition."
   [request]
   (let [request-type (transcript-control-request-type request)]
     (cond-> []
@@ -920,16 +1061,20 @@
       (conj {:type :transcript/status-invalid :value (:status request)}))))
 
 (defn transcript-run-progress
+  "Append an optional progress item, keeping the newest 50; otherwise retain prior progress."
   [existing progress]
   (if progress
     (append-bounded (:progress existing) progress 50)
     (:progress existing)))
 
 (defn terminal-transcript-run?
+  "True for complete, failed, or cancelled operational run rows."
   [run-row]
   (contains? terminal-transcript-run-statuses (:status run-row)))
 
 (defn transcript-initial-run-row
+  "Build an accepted-running row with zero counts and request time, falling back
+   to the current clock. This constructor does not guard an existing run."
   [request]
   (let [now (long (or (:request/time-ms request) (:time-ms request) (envelope/now-ms)))]
     (->TranscriptRunRow (transcript-control-request-id request)
@@ -948,6 +1093,7 @@
                         [])))
 
 (defn transcript-rejected-run-row
+  "Build a failed operational run row carrying validation errors and request metadata."
   [request errors]
   (let [now (long (or (:request/time-ms request) (:time-ms request) (envelope/now-ms)))]
     (->TranscriptRunRow (transcript-control-request-id request)
@@ -966,6 +1112,9 @@
                         [])))
 
 (defn transcript-run-status-row
+  "Keep a terminal existing run unchanged; otherwise apply supplied status, counts,
+   progress, and error. Creates a status-only base row if the run is absent.
+   This terminal guard applies to status updates, not repeated harvest/watch controls."
   [existing request]
   (if (terminal-transcript-run? existing)
     existing
@@ -998,16 +1147,21 @@
                   (:containers-created-count counts)
                   (assoc :containers-created-count (:containers-created-count counts)))))))
 
-(defn transcript-file-state-file-key [file-state]
+(defn transcript-file-state-file-key
+  "Return :source/file-key from file-state, or nil when absent."
+  [file-state]
   (:source/file-key file-state))
 
-(defn transcript-file-state-source-lines [file-state]
+(defn transcript-file-state-source-lines
+  "Return the first supplied source-line collection under the supported aliases as a vector."
+  [file-state]
   (vec (or (:source/lines file-state)
            (:source/source-lines file-state)
            (:transcript/source-lines file-state)
            [])))
 
 (defn transcript-file-state-validation-errors
+  "Validate file-state map shape, optional request type, and nonblank file key."
   [file-state]
   (cond-> []
     (not (map? file-state))
@@ -1024,6 +1178,8 @@
            :value (transcript-file-state-file-key file-state)})))
 
 (defn transcript-file-state-stale?
+  "Detect explicit repair flags, generation/file/stat/policy changes, or shrinkage
+   below the saved offset. Compares supplied metadata; never stats the file itself."
   [existing file-state]
   (let [new-generation (transcript-identity/transcript-file-generation-key file-state)
         old-generation (:file-generation-key existing)
@@ -1051,20 +1207,26 @@
               (< (long current-length) (long saved-offset)))))))
 
 (defn transcript-source-line-range-cursor
+  "Format an offset as a zero-padded lower-bound cursor for source-line order keys."
   [offset]
   (format "%020d" (long (or offset 0))))
 
 (defn transcript-file-state-advance-limit
+  "Read the explicit source/transcript advance limit or the default as a long."
   [file-state]
   (long (or (:source/advance-limit file-state)
             (:transcript/advance-limit file-state)
             default-transcript-offset-advance-limit)))
 
 (defn transcript-file-offset-last-byte-offset
+  "Return :last-byte-offset from row, or nil when absent."
   [row]
   (:last-byte-offset row))
 
 (defn transcript-file-offset-row
+  "Build observed/resume state from a file observation and prior offset. Stale files
+   reset the safe offset; pending observations retain prior progress. With no pending
+   work it uses the requested offset. Completion matching happens in the next fold."
   [file-state existing errors]
   (let [now (long (or (:time-ms file-state) (:request/time-ms file-state) (envelope/now-ms)))
         rejected? (seq errors)
@@ -1106,6 +1268,7 @@
                                (when rejected? {:errors (vec errors)}))))
 
 (defn transcript-source-line-page-values
+  "Normalize nil, an indexed page map, a sequence, or one line row into a vector."
   [page]
   (cond
     (nil? page) []
@@ -1114,17 +1277,21 @@
     :else [page]))
 
 (defn transcript-source-line-end-offset
+  "Add byte-offset and byte-length, treating missing values as zero."
   [row]
   (+ (long (or (:byte-offset row) 0))
      (long (or (:byte-length row) 0))))
 
 (defn transcript-source-line-completion-by-order
+  "Index normalized completion rows by order-key; later duplicate keys replace earlier ones."
   [completed-rows]
   (into {}
         (map (fn [row] [(:order-key row) row]))
         (transcript-source-line-page-values completed-rows)))
 
 (defn transcript-source-line-completion-match?
+  "Require a terminal completion with matching file/order/import/fingerprint,
+   generation, line identity, byte span, and line hash for the observed row."
   [observed completed]
   (and (some? observed)
        (some? completed)
@@ -1146,6 +1313,9 @@
        (= (:line-hash observed) (:line-hash completed))))
 
 (defn transcript-advance-file-offset-row
+  "Advance through a contiguous prefix of observed lines whose common-module
+   completions match. Stop at gaps or pending lines; preserve rejected/stale rows.
+   Returns safe or observed-pending resume state without reading or writing PStates."
   [file-offset-row observed-rows completed-rows]
   (if (or (:error file-offset-row)
           (= :rejected (:resume-status file-offset-row))
@@ -1187,6 +1357,8 @@
              :repair-needed (boolean pending?)))))
 
 (defn transcript-observed-source-line-status-row
+  "Build an observed source-line row from file/line metadata, deriving missing
+   order and line keys and retaining import identity for later completion matching."
   [file-state line]
   (let [file-key (transcript-file-state-file-key file-state)
         offset (long (or (:source/byte-offset line) 0))
@@ -1226,34 +1398,87 @@
                                      (:completed-at-ms line)
                                      (:message line))))
 
-(defn row-source-id [row] (:source-id row))
-(defn row-source-ref-key [row] (:source-ref-key row))
-(defn row-source-hash [row] (:source-hash row))
-(defn row-document-container-id [row] (:document-container-id row))
-(defn row-container-id [row] (:container-id row))
-(defn row-container-kind [row] (:container-kind row))
-(defn row-current-revision-id [row] (:current-revision-id row))
-(defn row-current-content-text [row] (:current-content-text row))
-(defn row-current-content-hash [row] (:current-content-hash row))
-(defn row-source-unit-id [row] (:source-unit-id row))
-(defn row-revision-id [row] (:revision-id row))
-(defn row-order-key [row] (:order-key row))
-(defn row-unit-id [row] (:unit-id row))
-(defn row-source-anchor-id [row] (:source-anchor-id row))
-(defn row-block-path [row] (:block-path row))
-(defn row-parent-slot-id [row] (:parent-slot-id row))
-(defn row-target-id [row] (:target-id row))
-(defn row-edge-id [row] (:edge-id row))
-(defn row-child-slot-id [row] (:child-slot-id row))
-(defn row-child-order-key [row] (:child-order-key row))
-(defn row-parent-slot-id* [row] (:parent-slot-id row))
-(defn row-file-key [row] (:file-key row))
-(defn projection-kind [row] (:projection-kind row))
-(defn projection-conversation-container-id [row] (:conversation-container-id row))
-(defn projection-tool-name [row] (:tool-name row))
-(defn projection-request-id [row] (:request-id row))
+(defn row-source-id
+  "Return :source-id from row, or nil when absent."
+  [row] (:source-id row))
+(defn row-source-ref-key
+  "Return :source-ref-key from row, or nil when absent."
+  [row] (:source-ref-key row))
+(defn row-source-hash
+  "Return :source-hash from row, or nil when absent."
+  [row] (:source-hash row))
+(defn row-document-container-id
+  "Return :document-container-id from row, or nil when absent."
+  [row] (:document-container-id row))
+(defn row-container-id
+  "Return :container-id from row, or nil when absent."
+  [row] (:container-id row))
+(defn row-container-kind
+  "Return :container-kind from row, or nil when absent."
+  [row] (:container-kind row))
+(defn row-current-revision-id
+  "Return :current-revision-id from row, or nil when absent."
+  [row] (:current-revision-id row))
+(defn row-current-content-text
+  "Return :current-content-text from row, or nil when absent."
+  [row] (:current-content-text row))
+(defn row-current-content-hash
+  "Return :current-content-hash from row, or nil when absent."
+  [row] (:current-content-hash row))
+(defn row-source-unit-id
+  "Return :source-unit-id from row, or nil when absent."
+  [row] (:source-unit-id row))
+(defn row-revision-id
+  "Return :revision-id from row, or nil when absent."
+  [row] (:revision-id row))
+(defn row-order-key
+  "Return :order-key from row, or nil when absent."
+  [row] (:order-key row))
+(defn row-unit-id
+  "Return :unit-id from row, or nil when absent."
+  [row] (:unit-id row))
+(defn row-source-anchor-id
+  "Return :source-anchor-id from row, or nil when absent."
+  [row] (:source-anchor-id row))
+(defn row-block-path
+  "Return :block-path from row, or nil when absent."
+  [row] (:block-path row))
+(defn row-parent-slot-id
+  "Return :parent-slot-id from row, or nil when absent."
+  [row] (:parent-slot-id row))
+(defn row-target-id
+  "Return :target-id from row, or nil when absent."
+  [row] (:target-id row))
+(defn row-edge-id
+  "Return :edge-id from row, or nil when absent."
+  [row] (:edge-id row))
+(defn row-child-slot-id
+  "Return :child-slot-id from row, or nil when absent."
+  [row] (:child-slot-id row))
+(defn row-child-order-key
+  "Return :child-order-key from row, or nil when absent."
+  [row] (:child-order-key row))
+(defn row-parent-slot-id*
+  "Return :parent-slot-id from row, or nil when absent."
+  [row] (:parent-slot-id row))
+(defn row-file-key
+  "Return :file-key from row, or nil when absent."
+  [row] (:file-key row))
+(defn projection-kind
+  "Return :projection-kind from row, or nil when absent."
+  [row] (:projection-kind row))
+(defn projection-conversation-container-id
+  "Return :conversation-container-id from row, or nil when absent."
+  [row] (:conversation-container-id row))
+(defn projection-tool-name
+  "Return :tool-name from row, or nil when absent."
+  [row] (:tool-name row))
+(defn projection-request-id
+  "Return :request-id from row, or nil when absent."
+  [row] (:request-id row))
 
 (defn outline-projection-row
+  "Convert a projection hint into the stored outline row shape."
   [row]
   (->OutlineNodeRow (:document-container-id row)
                     (:node-slot-id row)
@@ -1267,27 +1492,46 @@
                     (:graduated row)
                     (:container-id row)
                     (:event-id row)))
-(defn row-source-anchor-id* [row] (:source-anchor-id row))
-(defn row-lineage-key [row] (:lineage-key row))
-(defn row-edit-client-id [row] (:edit-client-id row))
-(defn row-edit-seq [row] (:edit-seq row))
-(defn row-event-id [row] (:event-id row))
-(defn edge-parent-slot-id [row] (:parent-slot-id row))
-(defn edge-child-order-key [row] (:child-order-key row))
+(defn row-source-anchor-id*
+  "Return :source-anchor-id from row, or nil when absent."
+  [row] (:source-anchor-id row))
+(defn row-lineage-key
+  "Return :lineage-key from row, or nil when absent."
+  [row] (:lineage-key row))
+(defn row-edit-client-id
+  "Return :edit-client-id from row, or nil when absent."
+  [row] (:edit-client-id row))
+(defn row-edit-seq
+  "Return :edit-seq from row, or nil when absent."
+  [row] (:edit-seq row))
+(defn row-event-id
+  "Return :event-id from row, or nil when absent."
+  [row] (:event-id row))
+(defn edge-parent-slot-id
+  "Return :parent-slot-id from row, or nil when absent."
+  [row] (:parent-slot-id row))
+(defn edge-child-order-key
+  "Return :child-order-key from row, or nil when absent."
+  [row] (:child-order-key row))
 
 (defn source-material-ref-row
+  "Construct a source-index reference to material, retaining ordering and event custody."
   [source-id object-key target-kind target-id order-key event-id]
   (->SourceMaterialRefRow source-id object-key target-kind target-id order-key event-id))
 
 (defn source-material-ref-key
+  "Combine an optional order-key and target-id for a source material index entry."
   [order-key target-id]
   (str (or order-key "") ":" target-id))
 
 (defn composition-parent-ref-key
+  "Combine parent-slot-id and edge-id for the child-to-parent reverse index."
   [edge-row]
   (str (:parent-slot-id edge-row) ":" (:edge-id edge-row)))
 
 (defn native-identity-claim-row
+  "Construct an accepted native claim for a candidate container, with import identity
+   and current acceptance time. The caller must first check compatibility."
   [request container-row]
   (->NativeIdentityClaimRow (:container-id container-row)
                             (:container-id container-row)
@@ -1306,6 +1550,8 @@
                             (envelope/now-ms)))
 
 (defn native-claim-compatible?
+  "Allow no prior claim, an exact provenance/content match, or a same-container,
+   same-kind/object/native-ID/content-hash match across provenance changes."
   [incoming existing]
   (or (nil? existing)
       (and (= (:claim-key incoming) (:claim-key existing))
@@ -1326,6 +1572,7 @@
            (= (:content-hash incoming) (:content-hash existing)))))
 
 (defn native-claim-conflict-error
+  "Return conflict details when incoming and existing native claims are incompatible; else nil."
   [incoming existing]
   (when-not (native-claim-compatible? incoming existing)
     {:type :native-identity/conflict
@@ -1335,18 +1582,26 @@
      :existing-import-key (:import-key existing)
      :incoming-import-key (:import-key incoming)}))
 
-(defn event-id-from-row [row] (:event-id row))
-(defn decision-row-id [row] (:decision-id row))
+(defn event-id-from-row
+  "Return :event-id from row, or nil when absent."
+  [row] (:event-id row))
+(defn decision-row-id
+  "Return :decision-id from row, or nil when absent."
+  [row] (:decision-id row))
 
 (defn latest-source-id
+  "Return :source-id from version-row, or nil when absent."
   [version-row]
   (:source-id version-row))
 
 (defn latest-source-present?
+  "True when a source-version row is present."
   [version-row]
   (some? version-row))
 
 (defn unit-read-result
+  "Return a unit with its current graduated target/content when present, otherwise
+   its original derived content; return nil for an absent unit."
   [unit graduation]
   (if unit
     (if graduation
@@ -1368,22 +1623,27 @@
   [:containers :derived-units :anchors :edges])
 
 (defn common-material-category-requested?
+  "Test category membership in the requested category collection."
   [categories category]
   (contains? (set categories) category))
 
 (defn common-material-cursor
+  "Get the category cursor as a string, defaulting to the start of its index."
   [cursor-map category]
   (str (or (get cursor-map category) "")))
 
 (defn common-material-limit
+  "Coerce an explicit limit or the default outline page size to a long."
   [limit]
   (long (or limit default-outline-page-size)))
 
 (defn material-ref-page-values
+  "Convert an index page map to its vector of reference values."
   [page]
   (vec (vals page)))
 
 (defn common-material-bundle
+  "Collect four material categories as vectors in a CommonMaterialBundle."
   [containers derived-units anchors edges]
   (->CommonMaterialBundle (vec containers)
                           (vec derived-units)
@@ -1391,6 +1651,8 @@
                           (vec edges)))
 
 (defn edit-lineage-key
+  "Prefer explicit edit lineage, then source unit identities, then the target ID.
+   This keeps ordering attached to a unit across graduation into a container."
   [request derived-unit graduation container]
   (or (payload-edit-lineage-key (request-payload request))
       (some-> derived-unit :unit-id)
@@ -1399,6 +1661,8 @@
       (get-in request [:target :target/id])))
 
 (defn stale-edit?
+  "True when a different idempotency key carries an edit sequence no greater than
+   the stored client/lineage order. Assumes numeric sequences when prior order exists."
   [request last-edit-order]
   (let [seq (payload-edit-seq (request-payload request))
         last-seq (:edit-seq last-edit-order)]
@@ -1407,6 +1671,7 @@
          (<= (long seq) (long last-seq)))))
 
 (defn target-not-found?
+  "Check the selected target kind against its loaded derived-unit or container row."
   [request derived-unit container]
   (let [target-kind (get-in request [:target :target/kind])]
     (case target-kind
@@ -1415,6 +1680,11 @@
       true)))
 
 (defn edit-effects
+  "Compute a rejection or the event/material rows for an object edit from the
+   loaded target, graduation, anchor, outline, edge, and prior client order. The first
+   edit of an ungraduated unit creates a container; later edits create revisions and
+   move current pointers. Returns an effects map for topology writes, not a commit.
+   Decision construction uses the wall clock; request time supplies revision order."
   [request derived-unit graduation container source-anchor outline-node child-edge last-edit-order]
   (let [validation-errors (edit-request-validation-errors request)
         target-kind (get-in request [:target :target/kind])
@@ -1563,22 +1833,53 @@
          :edge-row edge-row
          :edit-order-row edit-order-row}))))
 
-(defn effect-decision [effects] (:decision effects))
-(defn effect-event [effects] (:event effects))
-(defn effect-container-row [effects] (:container-row effects))
-(defn effect-revision-row [effects] (:revision-row effects))
-(defn effect-graduation-row [effects] (:graduation-row effects))
-(defn effect-copied-anchor-row [effects] (:copied-anchor-row effects))
-(defn effect-outline-row [effects] (:outline-row effects))
-(defn effect-edge-row [effects] (:edge-row effects))
-(defn effect-edit-order-row [effects] (:edit-order-row effects))
-(defn effect-has-event? [effects] (some? (:event effects)))
-(defn effect-has-graduation? [effects] (some? (:graduation-row effects)))
-(defn effect-has-anchor? [effects] (some? (:copied-anchor-row effects)))
-(defn effect-has-outline? [effects] (some? (:outline-row effects)))
-(defn effect-has-edge? [effects] (some? (:edge-row effects)))
+(defn effect-decision
+  "Return :decision from effects, or nil when absent."
+  [effects] (:decision effects))
+(defn effect-event
+  "Return :event from effects, or nil when absent."
+  [effects] (:event effects))
+(defn effect-container-row
+  "Return :container-row from effects, or nil when absent."
+  [effects] (:container-row effects))
+(defn effect-revision-row
+  "Return :revision-row from effects, or nil when absent."
+  [effects] (:revision-row effects))
+(defn effect-graduation-row
+  "Return :graduation-row from effects, or nil when absent."
+  [effects] (:graduation-row effects))
+(defn effect-copied-anchor-row
+  "Return :copied-anchor-row from effects, or nil when absent."
+  [effects] (:copied-anchor-row effects))
+(defn effect-outline-row
+  "Return :outline-row from effects, or nil when absent."
+  [effects] (:outline-row effects))
+(defn effect-edge-row
+  "Return :edge-row from effects, or nil when absent."
+  [effects] (:edge-row effects))
+(defn effect-edit-order-row
+  "Return :edit-order-row from effects, or nil when absent."
+  [effects] (:edit-order-row effects))
+(defn effect-has-event?
+  "True when the effects map contains a nonnil event."
+  [effects] (some? (:event effects)))
+(defn effect-has-graduation?
+  "True when the effects map contains a nonnil graduation row."
+  [effects] (some? (:graduation-row effects)))
+(defn effect-has-anchor?
+  "True when the effects map contains a nonnil copied anchor row."
+  [effects] (some? (:copied-anchor-row effects)))
+(defn effect-has-outline?
+  "True when the effects map contains a nonnil outline row."
+  [effects] (some? (:outline-row effects)))
+(defn effect-has-edge?
+  "True when the effects map contains a nonnil composition edge row."
+  [effects] (some? (:edge-row effects)))
 
 (defn import-material-fingerprint
+  "Hash the selected identity/content fields of an import bundle and its object/import
+   keys. Vector order is significant; uses pr-str over the selected structure and
+   does not hash every field of the original payload."
   [object-key import-key payload]
   (envelope/sha-256
    (pr-str
@@ -1675,6 +1976,10 @@
 	           (payload-source-line-statuses payload))})))
 
 (defn object-edit-request
+  "Build an object/edit envelope and typed payload for a unit or container. Options
+   can supply stable request/idempotency/revision IDs, actor, document, lineage,
+   client ID, sequence, and content hash; defaults include a fresh request ID and
+   sequence zero. Construction neither validates against stored state nor appends."
   ([target-kind target-id content-text]
    (object-edit-request target-kind target-id content-text {}))
   ([target-kind target-id content-text opts]

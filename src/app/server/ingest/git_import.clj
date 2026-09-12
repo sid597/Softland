@@ -1,8 +1,16 @@
 (ns app.server.ingest.git-import
-  "Git importer that calls a cutter, then writes rows and typed relations into the store.
-   Takes: repository paths, commit metadata, transcript joins, assertion lines, and kernel runtimes.
-   Gives: commit import results, :based-on and :produced relations, and replay results.
-   Holds: data/relation-assert-log.ednl."
+  "Import Git commit metadata and infer conversation-to-artifact relations.
+   read-commits reads reachable commit metadata; canonical commit text is passed
+   through markdown-adapter into ObjectContainer. spine-sync! appends parent
+   :based-on relations. extract-session-joins! scans transcript tool blocks for
+   repository-resolvable SHAs and document writes, then appends :produced edges.
+
+   Durable material and relation decisions belong to the supplied Rama runtimes.
+   The extractor writes an optional run-id-scoped file-signature cursor and
+   uses per-run seen sets; it does not own the cluster. Serialization helpers
+   describe the assertion-log format; door/server_jetty.clj writes that log,
+   and replay-assert-log! only reads/re-appends it. Relation append counts do
+   not establish that the microbatch accepted or materialized the requests."
   (:require [app.server.rama.object-container :as oc]
             [app.server.ingest.markdown-adapter :as md]
             [app.server.rama.object-container.runtime :as ocr]
@@ -31,10 +39,12 @@
   "data/relation-assert-log.ednl")
 
 (defn default-assert-log-path
+  "Resolve the shared assertion-log path beneath cfg repo-root, falling back to user.dir; no file access."
   [{:keys [repo-root]}]
   (str (or repo-root (System/getProperty "user.dir")) "/" assert-log-relative-path))
 
-(defn- spine-note [basis] (str "spine-v1|" basis))
+(defn- spine-note
+  "Prefix a relation's evidence basis with the extractor version." [basis] (str "spine-v1|" basis))
 (defn- spine-key
   "STABLE idempotency + request key (trap 4): re-runs converge at the journal even
    if the pre-check races the :append-ack microbatch lag."
@@ -76,7 +86,8 @@
    "--pretty=format:%x1e%H%x1f%P%x1f%an%x1f%ae%x1f%at%x1f%ct%x1f%s%x1f%b%x1f"
    "--name-status"])
 
-(defn- parse-long-safe [s]
+(defn- parse-long-safe
+  "Parse a trimmed decimal long, returning zero on parse failure." [s]
   (try (Long/parseLong (str/trim (str s))) (catch Exception _ 0)))
 
 (defn- epoch->iso
@@ -101,6 +112,7 @@
             (recur (+ i 2) (conj acc (nth tokens (inc i) "")))))))))
 
 (defn- parse-commit-chunk
+  "Decode one separator-framed Git record into metadata and normalized paths; return nil if fewer than eight fields."
   [chunk]
   (let [parts (str/split chunk #"\x1f" 9)]
     (when (>= (count parts) 8)
@@ -120,7 +132,9 @@
 (defn read-commits
   "Structured seq of every commit reachable from any ref (`git log --all`). Repo
    path comes from cfg (never hardcoded). Deterministic per commit; order is not
-   relied on."
+   relied on.
+
+   The underlying git-log-bytes helper discards stderr and ignores the exit code; an empty result does not distinguish no commits from a failed Git invocation."
   [repo-root]
   (let [text (String. ^bytes (git-log-bytes repo-root git-log-args) StandardCharsets/UTF_8)]
     (->> (str/split text #"\x1e")
@@ -222,12 +236,13 @@
                       import-asserter-actor-id))
 
 (defn spine-sync!
-  "Idempotent full pass (§3.A): (1) BATCH commit ingests — append ALL requests,
-   then await ALL decisions (NEVER a serial 5s await per commit, trap 7: the
-   topology processes them concurrently while we append, so only the first await
-   actually waits); (2) parent `:based-on` edges (from = commit, to = parent),
-   one per parent so a merge commit yields one edge per parent (G4), each with a
-   pre-check + stable key so a second sync run appends nothing new."
+  "Read all reachable commit metadata, append every OC commit import, then
+   await each decision for up to 20 seconds. Append commit-to-parent :based-on
+   relations for known parents, using a status pre-check and stable request keys.
+   Return accepted/fresh/converged/rejected/unresolved import counts and relation
+   append counts/ids. Edge emission is not gated on each commit's accepted
+   decision and does not wait for the relation microbatch. Appending before
+   awaiting allows processing overlap but does not guarantee a single wait."
   [{:keys [runtime repo-root]}]
   (let [pass-started-ms (System/currentTimeMillis)
         commits (read-commits repo-root)
@@ -288,7 +303,8 @@
   [session-id]
   (tid/chat-conversation-id (tid/transcript-object-key :claude-code session-id)))
 
-(defn- try-parse-json [line]
+(defn- try-parse-json
+  "Parse one transcript JSON line with keyword keys; return nil on malformed input." [line]
   (try (json/read-str line :key-fn keyword) (catch Exception _ nil)))
 
 (defn- entry-blocks
@@ -297,8 +313,10 @@
   (let [c (or (get-in entry [:message :content]) (:content entry))]
     (cond (vector? c) c (sequential? c) (vec c) :else [])))
 
-(defn- tool-use? [b] (contains? #{"tool_use" "tool-use"} (:type b)))
-(defn- tool-result? [b] (contains? #{"tool_result" "tool-result"} (:type b)))
+(defn- tool-use?
+  "True for a content block with either supported tool-use tag." [b] (contains? #{"tool_use" "tool-use"} (:type b)))
+(defn- tool-result?
+  "True for a content block with either supported tool-result tag." [b] (contains? #{"tool_result" "tool-result"} (:type b)))
 
 (defn- block-scan-text
   "Text of a block to scan for shas: tool_use name+input, tool_result content
@@ -476,44 +494,54 @@
 ;; optimization ONLY — correctness is the idempotency journal; deleting the
 ;; cursor must never change land state (G7).
 ;;
-;; INSTANCE-SCOPED (gate-review addendum 2026-07-05): the land's cluster is an
-;; in-process IPC — EPHEMERAL per JVM; all edge state rebuilds from re-ingest
-;; at boot. A durable cursor honored by a FRESH cluster would skip every
-;; unchanged transcript and silently lose the conversation edges on every
-;; boot after the first. So the cursor is only valid for the cluster instance
-;; (:spine-run-id, minted alongside the runtime) that wrote it; a foreign or
-;; legacy cursor reads as absent → full reprocess, which G7 already declares
-;; correct.
-(defn- read-cursor [path run-id]
+;; Cursor validity follows the caller's runtime identity. The original IPC caller
+;; needed a fresh id per empty cluster. The durable door/cluster caller now uses
+;; a fixed id across JVMs. Rebuilding the store empty requires invalidating this
+;; cursor or changing that id; matching file signatures alone cannot prove the
+;; receiving store already has their relations.
+(defn- read-cursor
+  "Read a cursor's file-signature map only when its run id matches; missing/invalid/nonmatching cursors yield nil." [path run-id]
   (try (when (and path (.exists (io/file path)))
          (let [c (edn/read-string (slurp path))]
            (when (and (map? c) (= run-id (:run-id c)))
              (:files c))))
        (catch Exception _ nil)))
 
-(defn- write-cursor! [path run-id files]
+(defn- write-cursor!
+  "Write the supplied run id and file signatures as EDN, creating parent directories; nil path is a no-op." [path run-id files]
   (when path
     (io/make-parents (io/file path))
     (spit path (pr-str {:run-id run-id :files files}))))
 
-(defn- file-sig [^File f] {:mtime (.lastModified f) :size (.length f)})
+(defn- file-sig
+  "Read file modification time and size for the optional extraction cursor." [^File f] {:mtime (.lastModified f) :size (.length f)})
 
-(defn- jsonl-files [transcript-roots]
+(defn- jsonl-files
+  "Enumerate regular .jsonl files recursively below transcript roots." [transcript-roots]
   (for [root transcript-roots
         ^File f (file-seq (io/file root))
         :when (and (.isFile f) (str/ends-with? (.getName f) ".jsonl"))]
     f))
 
 (defn land-doc-roots
-  "The md roots the trail watcher ingests under (file_viewer boot future) — the
-   only files a doc `:produced` edge may target."
+  "Return the two document roots currently accepted for inferred file-write
+   relations: docs/current-mental-model and vision below repo-root. cluster's
+   ingest config independently names these paths; missing roots are not replaced
+   by another documentation directory here."
   [repo-root]
   [(str repo-root "/docs/current-mental-model") (str repo-root "/vision")])
 
 (defn extract-session-joins!
   "Stream every jsonl under cfg :transcript-roots, asserting transcript->commit
    and transcript->doc `:produced` edges. Repo-verified shas only. The cursor
-   skips unchanged files (cost only)."
+   skips unchanged files (cost only).
+
+   The run-id comparison controls cursor reuse. cluster/ingest-config supplies
+   a fixed id for its durable cluster; a caller rebuilding an empty store must
+   invalidate that cursor or use a new id. File errors are counted and leave
+   their signatures unadvanced. Returned edge counts are append counts only.
+   SHA matches establish a textual association with a known commit, not proof
+   that this conversation authored it; document ids derive from current file text."
   [{:keys [runtime repo-root transcript-roots spine-cursor-path spine-run-id]}]
   (let [commits (read-commits repo-root)
         sha->doc (into {} (map (fn [c] [(:sha c) (commit->document-id c)])) commits)
@@ -562,7 +590,8 @@
 ;; C — durability: /assert write-ahead log serialization + boot replay
 ;; ============================================================================
 
-(defn- record->plain [x] (if (record? x) (into {} x) x))
+(defn- record->plain
+  "Convert a record to a plain map, leaving other values unchanged." [x] (if (record? x) (into {} x) x))
 
 (defn envelope->plain-map
   "§3.C serialization: the envelope's :payload (and its :from/:to) become PLAIN
@@ -583,14 +612,16 @@
   [env]
   (pr-str (envelope->plain-map env)))
 
-(defn- plain-map->target-ref [m]
+(defn- plain-map->target-ref
+  "Reconstruct a RelationTargetRef, preserving extension keys; nil input yields nil." [m]
   ;; ALL stored keys, never a hard-coded select-keys (gate review 2026-07-05):
   ;; map->Record keeps unknown keys in the record's extension map, so a field
   ;; added to RelationTargetRef later is written by the route's `into {}` AND
   ;; survives replay — the two sides of the seam can no longer drift silently.
   (when m (rk/map->RelationTargetRef m)))
 
-(defn- plain-map->payload [m]
+(defn- plain-map->payload
+  "Reconstruct a relation payload and both typed target refs from a stored map." [m]
   (rk/map->RelationMutationPayload
    (assoc m
           :from (plain-map->target-ref (:from m))

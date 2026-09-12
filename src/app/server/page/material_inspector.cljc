@@ -1,8 +1,11 @@
 (ns app.server.page.material-inspector
-  "Wearer rows derived from a client scene snapshot.
-   Takes: rendered stamps, wearer ids, and master metadata.
-   Gives: canonical wearer and material-inspector maps.
-   Holds nothing."
+  "Pure normalization of rendered contribution evidence.
+   Recursively collect material stamps, or read a supplied scene-store snapshot's
+   :slots, and group them into deterministic wearer/entity/facet rows. These
+   rows describe observed rendering; they neither read Rama nor prove durable
+   attachment or currently active master state. face-projection performs that
+   join. Canonicalization helpers return ordinary EDN values and strings.
+   No mutable state is owned or retained here."
   (:require [clojure.string :as str]))
 
 (def ^:private stamp-keys
@@ -15,6 +18,7 @@
    :material/slot])
 
 (defn- contribution-stamp?
+  "Recognize the required typed stamp fields, including an fm:-prefixed master id."
   [x]
   (and (map? x)
        (string? (:material/subject x))
@@ -157,6 +161,7 @@
        normalize-wearers))
 
 (defn- compare-edn
+  "Compare printed EDN forms to give mixed-type map keys a deterministic order."
   [a b]
   (compare (pr-str a) (pr-str b)))
 
@@ -180,5 +185,7 @@
     :else x))
 
 (defn canonical-edn
+  "Print the canonicalized value. Unlike portal-questions/canonical-edn, this
+   helper does not bind the JVM namespace-map printing option."
   [x]
   (pr-str (canonicalize x)))

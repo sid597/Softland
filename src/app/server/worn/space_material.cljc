@@ -1,8 +1,13 @@
 (ns app.server.worn.space-material
-  "The outer-space zoom and binding facet specification.
-   Takes: served zoom forms and space binding rows.
-   Gives: compiled zoom bounds, interaction claims, and contribution rows.
-   Holds: spec."
+  "Pure specification for space zoom limits and material-owned bindings.
+   v0 declares zoom bounds with a min < max invariant; default-form v1 adds
+   anchor placement and marquee bindings. The code floor remains the v0 zoom
+   form; binding-material supplies the separate camera-inclusive floor table.
+
+   Forms, EDN and served active maps yield compiler results or resolved values
+   through facet-engine. Owns immutable specs and the durable subject string
+   only. Validation refuses reserved camera/meta gestures. This namespace does
+   not create claims, move the camera, dispatch a gesture or write the space."
   (:require [app.server.worn.binding-material :as binding-material]
             [app.server.worn.facet-engine :as facet-engine]))
 
@@ -43,6 +48,7 @@
 (def default-source (pr-str default-form))
 
 (defn- valid-zoom-bound?
+  "Accept finite numeric zoom values in the inclusive range 0.01..1000."
   [x]
   (and (facet-engine/finite-number? x)
        (<= 0.01 x 1000.0)))
@@ -59,6 +65,7 @@
          (< zoom-min zoom-max))))
 
 (defn- valid-master-bindings?
+  "Validate strict binding tables and reject reserved camera or meta gestures."
   [bindings]
   (and (binding-material/valid-bindings-strict? bindings)
        (every?
@@ -105,10 +112,12 @@
      :form-validators (:form-validators zoom-grammar)}}})
 
 (defn compile-form
+  "Validate a form under this spec; return validity, errors, grammar and material."
   [form]
   (facet-engine/compile-form spec form))
 
 (defn compile-source
+  "Read EDN and compile under this spec; return parse/validation errors as data."
   [source]
   (facet-engine/compile-source spec source))
 
@@ -116,5 +125,6 @@
   (facet-engine/code-floor spec))
 
 (defn resolved-wear
+  "Resolve a complete served active map, falling back to this spec's code floor."
   [served]
   (facet-engine/resolved-wear spec served))

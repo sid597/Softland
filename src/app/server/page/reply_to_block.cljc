@@ -1,8 +1,12 @@
 (ns app.server.page.reply-to-block
-  "A resident reply narrowed to one addressed block.
-   Takes: an addressed block id, portal data, and resident context.
-   Gives: a narrowed durable request and deterministic resident prompt.
-   Holds nothing."
+  "Pure construction of an addressed resident reply and its prompt.
+   Build request data from a subject, text and caller-measured turn/position
+   context. Portal evidence includes the addressed wearer and the bounded
+   preceding context selected by worn/invocation-material. Master ids are
+   derived from those retained rows. No request is appended here.
+   Prompt composition concatenates supplied episode seed, optional precontext
+   label, portal briefing and text; it performs no reads or model calls and
+   retains no state."
   (:require [app.server.worn.invocation-material :as invocation-material]
             [clojure.string :as str]))
 
@@ -11,6 +15,9 @@
 (def release-ref "softland://verb-release/resident-reply-to-block/v1")
 
 (defn- bounded-wearers
+  "Keep every row for entity-id plus at most precontext-depth rows preceding
+   its first occurrence in the supplied order. Return [] if the subject is absent;
+   this selects by row position, not by a durable conversation query."
   [wearers entity-id precontext]
   (let [wearers (vec (or wearers []))
         depth (invocation-material/precontext-depth precontext)
@@ -29,12 +36,11 @@
         (into preceding addressed)))))
 
 (defn narrowed-portal-open
-  "Return the only portal-open shape this verb may carry.
-
-   `entity-id` is authoritative. All other wearer rows are discarded and the
-   master set is derived from the surviving contribution stamps, never accepted
-   as a caller-supplied widening knob. `:narrowed? true` tells the portal that
-   an honestly empty master set means EMPTY rather than `open the registry`."
+  "Build portal parameters around the authoritative entity-id.
+   Keep its wearer rows plus bounded preceding rows selected by precontext;
+   without an addressed row, keep none. Derive master-ids from retained facets
+   and mark :narrowed? true so an empty set does not request the full registry.
+   Caller-supplied master ids cannot widen this selection."
   [{:keys [entity-id wearers conversation-id precontext]}]
   (let [here (bounded-wearers wearers entity-id precontext)
         master-ids (->> here
@@ -51,11 +57,10 @@
      :narrowed? true}))
 
 (defn request
-  "Build the durable request body for exactly `subject`.
-
-   The caller supplies mechanism measurements (turn/time/position/thread);
-   this function makes the deictic guarantee testable: source id, content, and
-   portal evidence all name the same subject. Blank material yields nil."
+  "Build reply request data for `subject`, or nil for a missing subject or
+   blank text. Copy caller-supplied turn/time/position/scene fields and optional
+   thread/conversation ids; narrow the supplied wearer evidence for portal-open.
+   Does not validate the subject's durable existence or append the request."
   [{:keys [subject text position turn-id time-ms scene-context prev-turn-id
            thread-id conversation-id wearers precontext]}]
   (when (and (some? subject) (not (str/blank? (or text ""))))

@@ -1,8 +1,13 @@
 (ns app.server.worn.positioned-material
-  "The placement and reply-birth facet specification.
-   Takes: served placement forms and drag binding rows.
-   Gives: compiled placement defaults, anchor rules, interaction claims, and contribution rows.
-   Holds: spec."
+  "Pure specification for placement policy and block drag bindings.
+   v0 declares reply gap, fallback coordinates, ordered anchor rules and the
+   persist-derived-reply-birth flag; v1 adds drag rows and v2 validates site
+   arguments. Bootstrap uses v0; code-floor fallback uses v2.
+
+   Forms, EDN and served active maps produce compiler results or resolved
+   material through facet-engine, with optional contribution stamps. Owns only
+   immutable specification data. It neither calculates live placement nor writes
+   positions, maintains a drag, or persists reply births."
   (:require [app.server.worn.binding-material :as binding-material]
             [app.server.worn.facet-engine :as facet-engine]))
 
@@ -62,12 +67,14 @@
   #{:same-source-tail :source :previous})
 
 (defn- valid-position?
+  "Require exactly finite numeric x and y coordinates."
   [x]
   (and (map? x)
        (= #{:x :y} (set (keys x)))
        (every? facet-engine/finite-number? (vals x))))
 
 (defn- valid-anchor-order?
+  "Require nonempty, duplicate-free machine/ordinary vectors of known anchor rules."
   [x]
   (and (map? x)
        (= #{:machine :ordinary} (set (keys x)))
@@ -127,10 +134,12 @@
             binding-material/strict-bindings-validator)}}})
 
 (defn compile-form
+  "Validate a form under this spec; return validity, errors, grammar and material."
   [form]
   (facet-engine/compile-form spec form))
 
 (defn compile-source
+  "Read EDN and compile under this spec; return parse/validation errors as data."
   [source]
   (facet-engine/compile-source spec source))
 
@@ -138,9 +147,11 @@
   (facet-engine/code-floor spec))
 
 (defn resolved-wear
+  "Resolve a complete served active map, falling back to this spec's code floor."
   [served]
   (facet-engine/resolved-wear spec served))
 
 (defn contribution-stamp
+  "Return subject/facet/revision and site/role/slot provenance for supplied wear."
   [wear subject site role slot]
   (facet-engine/contribution-stamp wear subject site role slot))

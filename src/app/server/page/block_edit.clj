@@ -1,15 +1,27 @@
 (ns app.server.page.block-edit
-  "The server entry point for one :object/edit request.
-   Takes: an object-container runtime and an edit request map.
-   Gives: the accepted or rejected edit decision.
-   Holds nothing."
+  "Submit one object edit and summarize the stored decision.
+   Borrow an ObjectContainer runtime and accept the transport envelope carrying
+   target, content, scope and request identity. Build an :object/edit request,
+   append through the runtime's durable edit helper, then read its decision.
+   The helper may also write the runtime-configured edit log before the depot.
+   Increment the supplied process-local ingest epoch only for an accepted edit
+   not recognized as a replay. Rama owns the decision and materialized content;
+   this wrapper acquires no runtime and owns no durable state."
   (:require [app.server.rama.object-container :as oc]
             [app.server.rama.object-container.runtime :as ocr]
             [app.server.rama.ingest-epoch :as ingest-epoch]))
 
 (defn submit-block-edit!
-  "Append one object edit through the existing ObjectContainer stream and return
-   its durable accepted/rejected decision as a plain map."
+  "Submit transport envelope `env` through the ObjectContainer edit stream.
+   Payload carries content-text, object-key and document-container-id; target
+   and request/edit identities are copied into the kernel request. Content is
+   stringified. Read the decision before and after the acknowledged append,
+   returning accepted?, replay?, reason/errors/status and correlation fields.
+
+   The optional !epoch atom defaults to ingest-epoch/!ingest-epoch-atom and is
+   incremented only for accepted, non-replay results. This is an invalidation
+   hint, not durable truth or an exactly-once notification. Exceptions propagate;
+   a missing read-back decision is not retried here and yields nil status."
   ([oc-rt env] (submit-block-edit! oc-rt env ingest-epoch/!ingest-epoch-atom))
   ([oc-rt env !epoch]
    (let [{:keys [request-id idempotency-key edit-client-id edit-seq actor time-ms

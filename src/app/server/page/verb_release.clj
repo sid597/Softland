@@ -1,8 +1,14 @@
 (ns app.server.page.verb-release
-  "An eight-node EDN release chain imported as material.
-   Takes: committed blob ids, source paths, anchors, and release metadata.
-   Gives: ordered release nodes and an object-container import request.
-   Holds nothing."
+  "Build, import and inspect the fixed reply-to-block release evidence chain.
+   code-address resolves a committed Git form through ingest/code-import;
+   manifest assembles eight EDN nodes from supplied evidence. Validation checks
+   the implemented chain/address fields, not whether receipts were executed.
+   import-request delegates source cutting to the Clojure ingest adapter.
+
+   append-release! borrows an ObjectContainer runtime, appends the import and
+   waits for its decision; read-release joins stored source, bundle and units.
+   This namespace owns neither runtime handles nor durable state. Importing
+   release evidence does not itself install a verb or activate a binding."
   (:require [app.server.ingest.code-import :as code-import]
             [app.server.rama.object-container :as oc]
             [app.server.ingest.clojure-adapter :as clj-adapter]
@@ -43,9 +49,9 @@
      :source-anchor-id (oc/source-anchor-id (:unit-id unit))}))
 
 (defn manifest
-  "Build the fixed P8 release chain. Exactly one verb node and one binding node
-   are possible by construction; callers supply only evidence addresses,
-   observed receipts, and the deployment activation."
+  "Build the ordered eight-node reply-to-block release chain from supplied
+   addresses, test/build receipts, activation and worn evidence. This is pure
+   construction; release-errors performs the subsequent shape checks."
   [{:keys [wish-address implementation-addresses test-receipt build-receipt
            activation worn]}]
   [{:release/step 0
@@ -84,6 +90,7 @@
     :release/worn worn}])
 
 (defn- address?
+  "Check required address fields are present as nonblank string forms; does not resolve the address."
   [x]
   (and (map? x)
        (every? #(not (str/blank? (str (get x %))))
@@ -91,9 +98,11 @@
                 :source-anchor-id])))
 
 (defn release-errors
-  "Closed validation at the release boundary. In addition to the fixed chain,
-   reject embedded source/code text so the release can only point at committed
-   material, never become a copied shadow of it."
+  "Return validation errors for chain kind/order, the fixed verb and binding,
+   implementation/test/build address fields, and forbidden embedded source keys.
+   Address checks require nonblank fields but do not resolve Git objects. The
+   wish address, activation/worn payloads and receipt outcomes are not validated
+   here; a complete? result is limited to these implemented checks."
   [nodes]
   (let [nodes (vec nodes)
         verb-nodes (filterv #(= :verb (:release/kind %)) nodes)
@@ -154,6 +163,9 @@
     (str (str/join "\n" (map pr-str nodes)) "\n")))
 
 (defn import-request
+  "Validate/serialize nodes and build a Clojure-source import request under
+   release-ref, using caller request-id/time-ms and the fixed system actor.
+   No append occurs here; malformed release data throws."
   [nodes {:keys [request-id time-ms]}]
   (clj-adapter/clojure-source-import-request
    (release-source nodes)
@@ -170,6 +182,10 @@
                  :source/ref release-ref}}))
 
 (defn append-release!
+  "Build and append the import with :ack, then wait up to 20 seconds for its
+   stored decision. Return request, decision and source-id. decision may be nil
+   on timeout or rejected; returning this map does not imply acceptance.
+   Borrow runtime handles and propagate append/read exceptions."
   [runtime nodes opts]
   (let [request (import-request nodes opts)]
     (ocr/append-object-container-request! runtime request :ack)
@@ -178,10 +194,11 @@
      :source-id (get-in request [:payload :source-artifacts 0 :source-id])}))
 
 (defn read-release
-  "Read latest source by stable release ref, its whole material bundle, then
-   the fixed eight unit targets named by that bundle. These joins are all
-   server-side inside the interaction-table projection: the portal still makes
-   one client roundtrip and performs zero client joins."
+  "Read the latest stored source at release-ref, its material bundle and each
+   referenced unit in order. Parse node EDN and return nodes, anchors and the
+   release-errors result; missing source returns an explicit not-found map.
+   Does not cap the stored unit references at eight or catch read/parse errors.
+   The interaction-table projection catches those errors at its call site."
   [runtime]
   (if-let [source (ocr/read-latest-source-by-ref runtime release-ref)]
     (let [source-id (:source-id source)

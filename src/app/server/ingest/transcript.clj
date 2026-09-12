@@ -1,9 +1,20 @@
 (ns app.server.ingest.transcript
-  "Reads Claude Code and Codex session files: walks *.jsonl under ~/.claude/projects and ~/.codex/sessions,
-   parses and redacts each line into observations, and imports them into the object container.
-   Takes: a transcript request {:request/type :transcript/harvest | :transcript/watch, :transcript/source, :transcript/paths}.
-   Gives: observation maps; import results {:status :counts :source-lines}; a daemon thread per watch.
-   Holds: depots *transcript-depot *transcript-claim-depot *transcript-obs-depot; PStates $$transcript-runs $$transcript-source-ledger $$transcript-observed-conversations $$transcript-tool-call-index $$transcript-run-seen-lines (in-process module)."
+  "Transcript file acquisition, redaction and import drivers, plus a parked
+   standalone capture module. Live callers in episode/episode.clj and
+   door/cluster.clj use the readers and ObjectContainer import helpers; the
+   filesystem watcher also imports through that common path. Raw byte identity
+   is retained alongside parsed, structurally redacted observations; malformed
+   lines receive a best-effort pattern-redacted preview.
+
+   Deployed material, source-line completions and safe file offsets belong to
+   the ObjectContainer modules in rama/object_container.clj. This namespace
+   borrows their runtime handles. Watch constructors own daemon threads and
+   local cursor/stop atoms; callers must invoke the returned :stop!.
+
+   transcript-module and start-transcript-runtime! define a separate IPC capture
+   path with its own depots, ledger, run, conversation and tool-call PStates.
+   It is absent from bin/land's deployed module list. The harvest/watch wrappers
+   dispatch between these two paths by the supplied runtime map."
   (:use [com.rpl.rama]
         [com.rpl.rama.path]
         [com.rpl.rama.ops])
@@ -65,18 +76,23 @@
 (def terminal-statuses
   #{:complete :failed :cancelled})
 
-(defn now-ms [] (envelope/now-ms))
-(defn random-id [prefix] (envelope/random-id prefix))
+(defn now-ms
+  "Return the envelope clock in epoch milliseconds." [] (envelope/now-ms))
+(defn random-id
+  "Return a fresh envelope id with the supplied prefix." [prefix] (envelope/random-id prefix))
 
 (defn transcript-routing-key
+  "Build the request routing tuple used by transcript control envelopes."
   [request-id]
   [:transcript/request request-id])
 
 (defn blank-string?
+  "True for non-strings or blank strings."
   [x]
   (or (not (string? x)) (str/blank? x)))
 
 (defn expand-home
+  "Expand a leading ~/ using user.home; leave other path strings unchanged."
   [path]
   (let [s (str path)]
     (if (str/starts-with? s "~/")
@@ -84,6 +100,7 @@
       s)))
 
 (defn default-source-paths
+  "Return the conventional JSONL search roots for Claude Code or Codex; other sources yield []."
   [source]
   (case source
     :claude-code ["~/.claude/projects/**/*.jsonl"]
@@ -91,6 +108,9 @@
     []))
 
 (defn transcript-request
+  "Build a harvest/watch control request from optional source, paths, actor,
+   id, time and redaction policy. Defaults to Claude Code and its session roots.
+   This only constructs data; request-validation-errors performs validation."
   [request-type & [opts]]
   (let [request-id (or (:transcript/request-id opts)
                        (:request-id opts)
@@ -113,6 +133,7 @@
      :routing/key (transcript-routing-key request-id)}))
 
 (defn request-validation-errors
+  "Return validation errors for request type, id/routing, source, policy and path collection. Does not inspect files."
   [request]
   (cond-> []
     (not (map? request))
@@ -145,6 +166,7 @@
            :value (:transcript/paths request)})))
 
 (defn initial-run-row
+  "Construct the parked capture module's pending run row with zero counters."
   [request]
   {:transcript/request-id (:transcript/request-id request)
    :request/type (:request/type request)
@@ -160,6 +182,7 @@
    :progress []})
 
 (defn rejected-run-row
+  "Construct a failed run row from a request and its validation errors."
   [request errors]
   {:transcript/request-id (:transcript/request-id request)
    :request/type (:request/type request)
@@ -169,6 +192,7 @@
    :updated-at-ms (:request/time-ms request)})
 
 (defn transcript-run-status-record
+  "Build a status claim with request routing, fresh/default claim id and optional owner, counts, progress and error."
   [request-id status & [opts]]
   {:transcript/request-id request-id
    :claim/id (or (:claim-id opts) (random-id "transcript-claim"))
@@ -181,11 +205,15 @@
    :counts (:counts opts)
    :error (:error opts)})
 
-(defn claim-request-id [claim] (:transcript/request-id claim))
-(defn request-id [request] (:transcript/request-id request))
-(defn observation-request-id [obs] (:transcript/ingest-request-id obs))
+(defn claim-request-id
+  "Read the transcript request id addressed by a status claim." [claim] (:transcript/request-id claim))
+(defn request-id
+  "Read the transcript request id from a control request." [request] (:transcript/request-id request))
+(defn observation-request-id
+  "Read the ingest request id carried by an observation." [obs] (:transcript/ingest-request-id obs))
 
 (defn append-bounded
+  "Append x to a vector, retaining only its last limit entries."
   [xs x limit]
   (let [v (conj (vec xs) x)
         c (count v)]
@@ -298,6 +326,7 @@
               (remember-claim)))))))
 
 (defn line-hash
+  "Hash supplied line text with a sha256: prefix; file readers use line-hash-bytes for original byte identity."
   [line]
   (str "sha256:" (envelope/sha-256 line)))
 
@@ -310,6 +339,7 @@
   (str "sha256:" (envelope/sha-256-bytes content-bytes)))
 
 (defn file-id
+  "Read Unix device/inode identity, falling back to canonical path when those attributes are unavailable."
   [^File file]
   (try
     (let [attrs (Files/readAttributes (.toPath file)
@@ -321,20 +351,24 @@
       {:canonical-path (.getCanonicalPath file)})))
 
 (defn source-file-key
+  "Combine source name and printed file identity into the file-state key."
   [source file-id]
   (str (name source) ":" (pr-str file-id)))
 
 (defn source-line-key
+  "Combine source/file identity, byte offset and raw-content hash into a line key."
   [obs]
   (str (source-file-key (:transcript/source obs) (:source/file-id obs))
        ":" (:source/byte-offset obs)
        ":" (:source/line-hash obs)))
 
 (defn source-file-state-key
+  "Prefix an observation's source/file identity for the parked module's ledger cursor row."
   [obs]
   (str "file:" (source-file-key (:transcript/source obs) (:source/file-id obs))))
 
 (defn transcript-conversation-id
+  "Read supported conversation/session/thread fields in precedence order, then parentUuid/uuid or fallback. source is currently unused."
   [source parsed fallback]
   (or (:conversation_id parsed)
       (:conversation-id parsed)
@@ -348,6 +382,7 @@
       fallback))
 
 (defn transcript-message-uuid
+  "Read the first supported top-level or nested message identifier, or nil."
   [parsed]
   (or (:message_uuid parsed)
       (:message-uuid parsed)
@@ -357,6 +392,7 @@
       (get-in parsed [:message :uuid])))
 
 (defn transcript-event-type
+  "Read type, event or nested role, falling back to :unknown."
   [parsed]
   (or (:type parsed)
       (:event parsed)
@@ -364,6 +400,7 @@
       :unknown))
 
 (defn transcript-source-timestamp
+  "Read supported source timestamp fields verbatim; no time parsing."
   [parsed]
   (or (:timestamp parsed)
       (:created_at parsed)
@@ -371,6 +408,7 @@
       (get-in parsed [:message :created_at])))
 
 (defn parsed-tool-use-blocks
+  "Select tool-use maps from message/top-level content for the parked capture index."
   [payload]
   (let [content (or (get-in payload [:message :content])
                     (:content payload)
@@ -378,6 +416,7 @@
     (filter #(and (map? %) (#{"tool_use" "tool-use"} (:type %))) content)))
 
 (defn tool-call-index-rows
+  "Build tool-call index values from an observation's redacted payload and source identity; no writes."
   [obs]
   (for [block (parsed-tool-use-blocks (:transcript/redacted-payload obs))
         :let [tool-id (or (:id block) (:tool_use_id block) (:tool-use-id block))]
@@ -395,6 +434,7 @@
      :source/byte-offset (:source/byte-offset obs)}))
 
 (defn parse-json-line
+  "Parse a JSON string with keyword keys; malformed JSON throws."
   [line]
   (json/read-str line :key-fn keyword))
 
@@ -456,6 +496,7 @@
      :redactions redactions}))
 
 (defn redacted-preview
+  "Return a pattern-redacted raw-line preview truncated to 200 UTF-16 code units."
   [line]
   (:preview (redacted-preview-with-redactions (str line))))
 
@@ -497,6 +538,11 @@
      {:payload x :redactions []})))
 
 (defn transcript-observation
+  "Decode one supplied line into an observation retaining byte offset/length/hash
+   and file/request identity. Successful JSON receives recursive key-name
+   redaction; parse/redaction failures become :invalid-json with a pattern-redacted
+   preview. Structural redaction does not scan arbitrary successful string values
+   for embedded secrets. This builds data and stamps ingest time; no append."
   [request source source-version host-id file file-id byte-offset byte-length line line-hash-val]
   (let [ingest-ts (str (java.time.Instant/ofEpochMilli (now-ms)))
         base {:transcript/source source
@@ -537,6 +583,9 @@
                  :transcript/parse-error-kind :invalid-json))))))
 
 (defn walk-jsonl-files
+  "Expand ~/ and discover sorted distinct File values. Directories and paths
+   containing ** recursively enumerate .jsonl below the prefix; this is not a
+   general glob matcher. An explicit existing file is accepted as supplied."
   [paths]
   (let [expand (fn [path]
                  (let [path (expand-home path)]
@@ -667,6 +716,7 @@
                   (recur (+ offset byte-length) (f acc obs)))))))))))
 
 (defn source-file-state-entry
+  "Build the parked module's file cursor row at offset + byte-length from an observation."
   [obs]
   {:source/file-id (:source/file-id obs)
    :source/file-path (:source/file-path obs)
@@ -690,6 +740,7 @@
     existing))
 
 (defn conversation-entry
+  "Build the parked module's conversation index value with source location and event metadata."
   [obs]
   {:source/line-key (source-line-key obs)
    :source/file-path (:source/file-path obs)
@@ -702,6 +753,7 @@
    :transcript/parse-error-kind (:transcript/parse-error-kind obs)})
 
 (defn increment-run-counts
+  "Increment a run's observed count and optional parse-error count, stamping the current update time."
   [run-row obs]
   (-> run-row
       (update :observed-line-count (fnil inc 0))
@@ -710,10 +762,12 @@
       (assoc :updated-at-ms (now-ms))))
 
 (defn obs-conversation-id
+  "Read an observation's conversation id for topology routing."
   [obs]
   (:transcript/conversation-id obs))
 
 (defn tool-call-id
+  "Read a tool-index row's call id for topology routing."
   [row]
   (:tool-call/id row))
 
@@ -821,6 +875,9 @@
                         $$transcript-tool-call-index))))
 
 (defn start-transcript-runtime!
+  "Create an IPC, launch the parked transcript-module with four tasks/two threads,
+   and return its foreign handles. This is not the deployed ObjectContainer path.
+   The caller owns the IPC and must call close-transcript-runtime!."
   []
   (let [ipc (create-ipc)
         module-name (get-module-name transcript-module)]
@@ -836,6 +893,7 @@
      :transcript-tool-call-index (foreign-pstate ipc module-name "$$transcript-tool-call-index")}))
 
 (defn close-transcript-runtime!
+  "Close the IPC owned by start-transcript-runtime!, if present; suppress close Exceptions."
   [runtime]
   (when-let [ipc (:ipc runtime)]
     (try
@@ -843,6 +901,7 @@
       (catch Exception _ nil))))
 
 (defn append-transcript-request!
+  "Append a request to the parked module, defaulting to :append-ack; return the submitted request, not its run outcome."
   ([runtime request]
    (append-transcript-request! runtime request :append-ack))
   ([runtime request ack-level]
@@ -850,6 +909,7 @@
    request))
 
 (defn append-transcript-status!
+  "Append a status claim to the parked module, defaulting to :append-ack; return the claim, not arbitration results."
   ([runtime claim]
    (append-transcript-status! runtime claim :append-ack))
   ([runtime claim ack-level]
@@ -857,6 +917,7 @@
    claim))
 
 (defn append-transcript-observation!
+  "Append an observation to the parked module, defaulting to :append-ack; return it without a materialization barrier."
   ([runtime obs]
    (append-transcript-observation! runtime obs :append-ack))
   ([runtime obs ack-level]
@@ -864,33 +925,40 @@
    obs))
 
 (defn select-pstate-one
+  "Perform one foreign PState read at the supplied Rama path."
   [pstate path]
   (foreign-select-one path pstate))
 
 (defn read-run
+  "Read a parked-module run by request id, or nil when absent."
   [runtime request-id]
   (select-pstate-one (:transcript-runs runtime) [(keypath request-id)]))
 
 (defn read-ledger-line
+  "Read a parked-module source-ledger observation by line key."
   [runtime line-key]
   (select-pstate-one (:transcript-source-ledger runtime) [(keypath line-key)]))
 
 (defn read-source-file-state
+  "Read a parked-module cursor from source and file identity."
   [runtime source fid]
   (select-pstate-one (:transcript-source-ledger runtime)
                      [(keypath (str "file:" (source-file-key source fid)))]))
 
 (defn read-conversation
+  "Read a parked-module conversation index map, returning {} when absent."
   [runtime conversation-id]
   (or (select-pstate-one (:transcript-observed-conversations runtime)
                          [(keypath conversation-id)])
       {}))
 
 (defn read-tool-call
+  "Read a parked-module tool-call index value by call id."
   [runtime tool-call-id]
   (select-pstate-one (:transcript-tool-call-index runtime) [(keypath tool-call-id)]))
 
 (defn await-materialized
+  "Poll read-f every 25 ms until pred holds or the timeout (default 2000 ms). Return the last value on timeout; callers must check it."
   ([read-f pred]
    (await-materialized read-f pred 2000))
   ([read-f pred timeout-ms]
@@ -904,25 +972,30 @@
 	                 (recur (read-f))))))))
 
 (defn object-container-runtime?
+  "Dispatch predicate: true when the runtime map contains :object-container-requests-depot."
   [runtime]
   (contains? runtime :object-container-requests-depot))
 
 (defn transcript-import-message-container-id
+  "Return the first chat-message container id declared by an import request, or nil."
   [request]
   (some #(when (= :chat-message (:container-kind %)) (:container-id %))
         (get-in request [:payload :object-containers])))
 
 (defn transcript-observation-file-key
+  "Build the common source/file key from an observation."
   [obs]
   (source-file-key (:transcript/source obs) (:source/file-id obs)))
 
 (defn transcript-conversation-container-id
+  "Resolve the common conversation container id using transcript-identity."
   [obs]
   (transcript-identity/chat-conversation-id
    (transcript-identity/transcript-object-key (:transcript/source obs)
                                               (:transcript/conversation-id obs))))
 
 (defn previous-common-message-container-id
+  "Prefer this pass's latest message for the conversation; otherwise read ObjectContainer's stored latest-message hint."
   [runtime last-message-by-conversation obs]
   (or (get last-message-by-conversation (:transcript/conversation-id obs))
       (some->> (transcript-conversation-container-id obs)
@@ -930,12 +1003,14 @@
                :message-container-id)))
 
 (defn common-transcript-source-line-order-key
+  "Build the byte-offset/hash order key shared with transcript-adapter's source-line hint."
   [obs]
   (format "%020d:%s"
           (long (or (:source/byte-offset obs) 0))
           (envelope/sha-256 (transcript-identity/transcript-source-line-key obs))))
 
 (defn common-transcript-source-line
+  "Enrich an observation with file/line/order keys and its import identity/fingerprint for completion and cursor checks."
   [obs import-request]
   (assoc obs
          :source/file-key (transcript-observation-file-key obs)
@@ -945,6 +1020,7 @@
          :material/fingerprint (:material/fingerprint import-request)))
 
 (defn common-source-line-completion-matches?
+  "Require a complete status and matching file/line/import/fingerprint/byte identity before treating a stored line completion as this import's completion."
   [source-line completion-row]
   (and (some? completion-row)
        (contains? transcript-identity/transcript-source-line-complete-statuses
@@ -961,6 +1037,7 @@
        (= (:source/line-hash source-line) (:line-hash completion-row))))
 
 (defn await-common-source-line-completion
+  "Poll the common source-line row for a matching completion; return the last row on timeout, possibly nil or mismatched."
   [runtime source-line timeout-ms]
   (await-materialized
    #(oc-runtime/read-transcript-source-line
@@ -971,6 +1048,7 @@
    timeout-ms))
 
 (defn transcript-import-error
+  "Build a failure value from an import request and its missing/rejected decision."
   [import-request decision]
   {:type :object-container/import-failed
    :import-request-id (:request/id import-request)
@@ -980,6 +1058,7 @@
    :errors (vec (:errors decision))})
 
 (defn transcript-source-line-completion-error
+  "Describe the expected line/import identity and selected fields of an absent or mismatched completion."
   [source-line completion-row]
   {:type :object-container/source-line-completion-missing
    :file-key (:source/file-key source-line)
@@ -996,12 +1075,14 @@
                                       :source-line-key])})
 
 (defn transcript-counts
+  "Package observed, parse-error and declared-container counts. The container count is not a count of newly created rows."
   [observed-line-count parse-error-count containers-created-count]
   {:observed-line-count observed-line-count
    :parse-error-count parse-error-count
    :containers-created-count containers-created-count})
 
 (defn append-object-container-file-state!
+  "Submit file-state evidence for nonempty source-lines with the requested next offset and current file length; no-op for no lines. Does not await the resulting offset."
   [runtime request file source-lines next-offset]
   (when (seq source-lines)
     (let [first-line (first source-lines)
@@ -1024,6 +1105,7 @@
         :time-ms (now-ms)}))))
 
 (defn expected-common-file-offset?
+  "True only for an exact next offset with :safe resume status and repair-needed false."
   [next-offset file-offset-row]
   (and (some? file-offset-row)
        (= (long next-offset) (long (or (:last-byte-offset file-offset-row) -1)))
@@ -1031,6 +1113,7 @@
        (false? (:repair-needed file-offset-row))))
 
 (defn transcript-file-offset-advance-error
+  "Describe an expected cursor and selected fields of the observed file-offset row."
   [file-key next-offset file-offset-row]
   {:type :object-container/file-offset-not-advanced
    :file-key file-key
@@ -1044,6 +1127,10 @@
                                            :error])})
 
 (defn append-and-await-object-container-file-state!
+  "Append file-state evidence and poll for the exact safe next offset, retrying
+   at most three times (2 seconds per poll, 50 ms between attempts). Empty input
+   is accepted without a write. Exhaustion records a failed control claim and
+   returns :failed; success returns :accepted and the matching offset row."
   [runtime request file source-lines next-offset]
   (if (empty? source-lines)
     {:status :accepted}
@@ -1080,6 +1167,13 @@
                :file-offset-row (or file-offset-row last-file-offset-row)})))))))
 
 (defn import-observations-into-object-container!
+  "Sequentially build/append common material for observations using a borrowed
+   OC runtime. Require each accepted decision and matching source-line completion
+   before proceeding. Return :accepted with counts, completed source-lines and
+   updated previous-message context, or :failed at the first failed check.
+   Does not advance file offsets: callers pass completed lines to the file-state
+   helper. Re-reading a line with different predecessor context can change its
+   fingerprint; line identity alone is not an unconditional replay guarantee."
   [runtime request observations last-message-by-conversation]
   (loop [remaining (vec observations)
          last-message-by-conversation last-message-by-conversation
@@ -1158,6 +1252,12 @@
              :decision decision}))))))
 
 (defn harvest-transcripts-into-object-container!
+  "Import every discovered file from byte zero through the common OC path,
+   recording run controls and awaiting each file's safe offset. Returns :complete
+   or the first import/file-state failure. Unlike incremental reads, this reader
+   includes an unterminated final line and accumulates each file's observations.
+   Exceptions escape. Suitable for explicit initial harvest; incremental episode
+   import resumes stored offsets instead of replaying earlier predecessor chains."
   [runtime request]
   (oc-runtime/append-transcript-control! runtime request)
   (oc-runtime/append-transcript-control!
@@ -1227,6 +1327,11 @@
                       5000))
 
 (defn harvest-transcripts!
+  "Dispatch to common OC harvest when the runtime has OC request handles.
+   Otherwise run the parked module's claim-arbitrated harvest using bounded,
+   newline-gated streaming reads and per-file error reporting. The parked path
+   polls counters/completion but does not validate timeout returns before reporting
+   :complete; that result alone is not a materialization guarantee."
   [runtime request]
   (if (object-container-runtime? runtime)
     (harvest-transcripts-into-object-container! runtime request)
@@ -1321,6 +1426,14 @@
          :next-offset next-offset}))))
 
 (defn start-transcript-watch-into-object-container!
+  "Start a daemon polling watch over common OC material. Stored offsets win;
+   unseen files start at zero when new/backfill is requested, otherwise at EOF.
+   Only newline-terminated slices import; local offsets advance after matching
+   line completions and safe stored cursor checks. Returns :thread, :poll-once!
+   and :stop!; the latter sets a flag, joins for up to 1 second and records
+   cancellation, without closing the borrowed runtime. It may return while a
+   blocking import is still running. Explicit import/cursor failures set stop?;
+   other poll exceptions record :failed without setting that flag."
   [runtime request & [opts]]
   (oc-runtime/append-transcript-control! runtime request)
   (oc-runtime/append-transcript-control!
@@ -1424,6 +1537,11 @@
                                                :cancelled)))})))
 
 (defn start-transcript-watch!
+  "Dispatch common-runtime watches to start-transcript-watch-into-object-container!.
+   The parked path first arbitrates an executor claim, then polls complete lines
+   with local inode-based cursors and :append-ack writes. Returns :claim-lost or
+   a thread/poll/stop handle; caller must stop it. Per-file failures are progress
+   entries; loop-level failures stop that path. Stop joins for at most 1 second."
   [runtime request & [opts]]
   (if (object-container-runtime? runtime)
     (start-transcript-watch-into-object-container! runtime request opts)

@@ -1,8 +1,11 @@
 (ns app.server.ingest.clojure-adapter
-  "Clojure source cut into top-level form units.
-   Takes: source text, blob and path metadata, actor data, and claimed time.
-   Gives: form units, source anchors, material rows, and import requests.
-   Holds nothing."
+  "Clojure source cutting and ObjectContainer import-request construction.
+   rewrite-clj parses supplied text without evaluating it, retaining top-level
+   form units and standalone comment spans with UTF-16 source offsets. Material
+   builders produce source/document/revision/unit/anchor rows and code-outline
+   hints; code-import supplies Git blobs and performs the writes. No owned store
+   or process resources. guarded-clojure-import-request can refuse a path before
+   invoking a reader thunk; direct text builders assume acquisition was guarded."
   (:require [app.server.rama.envelope :as envelope]
             [app.server.rama.object-container :as oc]
             [clojure.string :as str]
@@ -25,7 +28,8 @@
    every absolute working-copy root (/mnt/... and /home/... both end in this)."
   #{"src/app/server/env.clj"})
 
-(defn- normalize-path [path]
+(defn- normalize-path
+  "Normalize backslashes to forward slashes for deny-list matching." [path]
   (-> (str path) (str/replace "\\" "/")))
 
 (defn denied-path?
@@ -83,7 +87,8 @@
   #{:clj/def :clj/fn :clj/record :clj/protocol :clj/macro :clj/multi
     :clj/test :clj/module :clj/electric-fn})
 
-(defn- meaningful-children [nd]
+(defn- meaningful-children
+  "Return node children excluding whitespace and comments." [nd]
   (remove #(or (node/whitespace? %) (node/comment? %)) (node/children nd)))
 
 (defn- resolve-through-meta
@@ -104,7 +109,8 @@
     (let [sx (try (node/sexpr nd) (catch Exception _ nil))]
       (when (symbol? sx) sx))))
 
-(defn- head-symbol [list-node]
+(defn- head-symbol
+  "Read the first meaningful list child as a symbol, or nil." [list-node]
   (token-symbol (first (meaningful-children list-node))))
 
 (defn- reader-conditional?
@@ -113,13 +119,15 @@
   (and (= :reader-macro (node/tag nd))
        (contains? #{"?" "?@"} (some-> (first (node/children nd)) node/string))))
 
-(defn- head-string [nd reader-cond?]
+(defn- head-string
+  "Return the textual list head or reader-macro prefix, or nil; reader-cond? is currently unused." [nd reader-cond?]
   (cond
     (= :list (node/tag nd)) (some-> (head-symbol nd) str)
     (= :reader-macro (node/tag nd)) (str "#" (some-> (first (node/children nd)) node/string))
     :else nil))
 
-(defn- classify-kind [head-sym reader-cond?]
+(defn- classify-kind
+  "Map a head symbol to the supported form kind, recognizing reader conditionals and e/defn first." [head-sym reader-cond?]
   (cond
     reader-cond?      :clj/reader-cond
     (nil? head-sym)   :clj/other
@@ -148,7 +156,8 @@
         path (if (zero? n) base (str base "~" (inc n)))]
     [path (assoc seen base (inc n))]))
 
-(defn- block-path-for [kind base-name order seen]
+(defn- block-path-for
+  "Choose a deduplicated namespace/binding path or a positional path; return [path updated-seen]." [kind base-name order seen]
   (cond
     (= kind :clj/ns)
     (dedup-path "ns" seen)
@@ -191,7 +200,8 @@
       :end-offset   end}
      seen']))
 
-(defn- comment-span [source start end]
+(defn- comment-span
+  "Return source substring and UTF-16 [start,end) offsets for a comment run." [source start end]
   {:start-offset start :end-offset end :text (subs source start end)})
 
 (declare ^:private parsed-form-cut)
@@ -230,6 +240,7 @@
       (parsed-form-cut source (node/children parsed)))))
 
 (defn- parsed-form-cut
+  "Walk lossless parser children, accumulate UTF-16 offsets and return top-level units plus adjacent comment runs."
   [source children]
     (loop [nodes  children
            offset 0
@@ -281,6 +292,7 @@
 ;; ---------------------------------------------------------------------------
 
 (defn derived-unit-id
+  "Return the Clojure distiller unit id for an object key and block path."
   [object-key block-path]
   (str "du:" object-key ":" clojure-distiller-id ":" block-path))
 
@@ -292,6 +304,7 @@
   (format "%06d" (long order)))
 
 (defn source-materialization
+  "Build source/document/revision/unit/anchor/outline/composition rows from a source-ingest-shaped request. Parse errors retain the raw surface with no form units; no writes occur."
   [request]
   (let [payload           (oc/request-payload request)
         source-ref        (oc/payload-source-ref payload)
@@ -481,17 +494,28 @@
      :edge-rows edge-rows
      :comment-spans (:comment-spans cut)}))
 
-(defn materialization-object-key [m] (:object-key m))
-(defn materialization-source-ref-key [m] (:source-ref-key m))
-(defn materialization-source-hash [m] (:source-hash m))
-(defn materialization-source-row [m] (:source-row m))
-(defn materialization-source-id [m] (:source-id m))
-(defn materialization-document-id [m] (:document-id m))
-(defn materialization-unit-rows [m] (:unit-rows m))
-(defn materialization-unit-anchor-rows [m] (:unit-anchor-rows m))
-(defn materialization-outline-rows [m] (:outline-rows m))
-(defn materialization-edge-rows [m] (:edge-rows m))
-(defn materialization-comment-spans [m] (:comment-spans m))
+(defn materialization-object-key
+  "Read :object-key from a Clojure source-materialization result; nil when absent." [m] (:object-key m))
+(defn materialization-source-ref-key
+  "Read :source-ref-key from a Clojure source-materialization result; nil when absent." [m] (:source-ref-key m))
+(defn materialization-source-hash
+  "Read :source-hash from a Clojure source-materialization result; nil when absent." [m] (:source-hash m))
+(defn materialization-source-row
+  "Read :source-row from a Clojure source-materialization result; nil when absent." [m] (:source-row m))
+(defn materialization-source-id
+  "Read :source-id from a Clojure source-materialization result; nil when absent." [m] (:source-id m))
+(defn materialization-document-id
+  "Read :document-id from a Clojure source-materialization result; nil when absent." [m] (:document-id m))
+(defn materialization-unit-rows
+  "Read :unit-rows from a Clojure source-materialization result; nil when absent." [m] (:unit-rows m))
+(defn materialization-unit-anchor-rows
+  "Read :unit-anchor-rows from a Clojure source-materialization result; nil when absent." [m] (:unit-anchor-rows m))
+(defn materialization-outline-rows
+  "Read :outline-rows from a Clojure source-materialization result; nil when absent." [m] (:outline-rows m))
+(defn materialization-edge-rows
+  "Read :edge-rows from a Clojure source-materialization result; nil when absent." [m] (:edge-rows m))
+(defn materialization-comment-spans
+  "Read :comment-spans from a Clojure source-materialization result; nil when absent." [m] (:comment-spans m))
 
 ;; ---------------------------------------------------------------------------
 ;; Import-request builder — twin of markdown_adapter/markdown-source-import-request.
@@ -499,6 +523,7 @@
 ;; ---------------------------------------------------------------------------
 
 (defn- clojure-source-ingest-kernel-request
+  "Build an intermediate source-ingest envelope for local materialization; no append or file access."
   ([raw-text source-ref] (clojure-source-ingest-kernel-request raw-text source-ref {}))
   ([raw-text source-ref opts]
    (let [raw-text        (str raw-text)
@@ -548,10 +573,12 @@
             :claimed/at-ms (:claimed/at-ms opts)))))
 
 (defn clojure-import-key
+  "Return the blob/source-derived import key within the ObjectContainer partition."
   [object-key source-ref-key source-hash]
   (str "imp:clj:" object-key ":" (envelope/sha-256 (str source-ref-key ":" source-hash))))
 
 (defn clojure-import-payload
+  "Package Clojure material rows and tag the projection hints :code-outline."
   [materialization]
   {:object-key      (:object-key materialization)
    :source-ref      (:source-ref (:source-row materialization))
@@ -570,10 +597,11 @@
                            (:outline-rows materialization))})
 
 (defn clojure-source-import-request
-  "Build the object-container/import-material request for one clojure blob.
-   `source-ref` is opaque to the builder (md pattern); the P2 driver passes
-   \"git-blob:<sha>\" per R1. Deterministic: same (raw-text, source-ref, opts)
-   -> byte-identical request (import key, object key, unit ids, fingerprint)."
+  "Build a common material-import request for supplied Clojure text and an
+   opaque source-ref (code-sync! uses git-blob:<sha>). Default object/import
+   identities and fingerprints derive from material; the whole request is only
+   repeatable when the caller fixes request id/time and other varying options.
+   This builder does not enforce the path deny list or perform any append."
   ([raw-text source-ref] (clojure-source-import-request raw-text source-ref {}))
   ([raw-text source-ref opts]
    (let [legacy-request    (clojure-source-ingest-kernel-request raw-text source-ref opts)

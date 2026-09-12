@@ -1,8 +1,12 @@
 (ns app.server.door.cluster
-  "Cluster-backed runtime handles and explicit import controls.
-   Takes: cluster-manager coordinates, module names, and ingest or migration requests.
-   Gives: runtime handle maps, ingest and migration results, and watcher controllers.
-   Holds: !memo, !default-address, and !first-light-failed."
+  "Foreign handles for the external Rama cluster and explicit ingest controls.
+   Resolves already-deployed object-container, relation, trail and face-arsenal
+   resources; it does not deploy modules or launch the HTTP server. Explicit
+   commands compose ingest, material migration and watcher owners in sibling
+   folders. Durable state belongs to those Rama modules. This JVM retains the
+   manager/bundles in !memo and default-address/failure atoms for projections.
+   Failed acquisitions can be retried; retained handles are not health checks.
+   No manager close/reset lifecycle is provided here. See README.md."
   (:use [com.rpl.rama])
   (:require [app.server.ingest.ingest-watchers :as ingest-watchers]
             [app.server.rama.envelope :as envelope]
@@ -28,28 +32,29 @@
             [clojure.java.io :as io]
             [clojure.string :as str]))
 
-;; ── Boot flag (CONTRACT §7 P3) ──────────────────────────────────────────────
+;; ── Legacy relation-log switch ────────────────────────────────────────────
 
 (defn cluster-boot?
-  "The dev boot rides the durable cluster BY DEFAULT (the package-close flip,
-   CONTRACT §7 Close; G1–G6 green behind it). LAND_CLUSTER=0 opts back into
-   the in-memory IPC boot. Tests are untouched either way — they use the IPC
-   constructors directly; this seam governs only the app boot."
+  "Return false only when LAND_CLUSTER is exactly 0.
+   The current HTTP caller uses this to enable the legacy relation-assert file
+   log. It still obtains external-cluster handles in either mode; this flag
+   does not select an IPC application boot in the current source."
   []
   (not= "0" (System/getenv "LAND_CLUSTER")))
 
-;; ── Manager + total-with-retry memo (T6) ────────────────────────────────────
+;; ── Process-owned manager and retained handles ────────────────────────────
 
 (def conductor-config
-  "Plain config map, localhost conductor, no secrets (CONTRACT §2)."
+  "Local conductor coordinates passed to open-cluster-manager."
   {"conductor.host" "localhost"})
 
 (defonce ^:private !memo (atom {}))
 
 (defn- memo-total
-  "Cache the first non-nil result of `thunk` under `k`; a throw or nil is
-   printed and returned as nil WITHOUT being cached, so the next call
-   retries (T6: no poisoned delays, cluster-down heals without a restart)."
+  "Retain a non-nil thunk result under k, serializing acquisition on !memo.
+   Exceptions are printed and returned as nil; nil is not retained, so later
+   calls retry acquisition. Successful entries are never invalidated here.
+   Intended values are truthy manager/handle maps, not boolean results."
   [k thunk]
   (or (get @!memo k)
       (locking !memo
@@ -63,28 +68,31 @@
               v)))))
 
 (defn manager
-  "The one RamaClusterManager for this JVM; nil while the cluster is down."
+  "Acquire and retain one RamaClusterManager for this JVM; nil if acquisition
+   throws. Once retained it is returned without a fresh availability check.
+   This namespace does not close it."
   []
   (memo-total :manager #(open-cluster-manager conductor-config)))
 
-;; ── Handle bundles (shape-identical to the IPC constructors) ────────────────
+;; ── Foreign bundles using the runtime helper key conventions ──────────────
 
 (defn- pstates
+  "Resolve named module PStates into a keyword-keyed map; names omit the $$ prefix."
   [mgr module-name names]
   (into {} (map (fn [n] [(keyword n) (foreign-pstate mgr module-name (str "$$" n))]))
         names))
 
 (defn- queries
+  "Resolve module query names into a map keyed by <name>-query keywords."
   [mgr module-name names]
   (into {} (map (fn [n] [(keyword (str n "-query")) (foreign-query mgr module-name n)]))
         names))
 
 (defn- object-container-bundle*
-  "Mirror of ocr/start-object-container-runtime!'s handle map (minus :ipc —
-   only the close fns read it, and they are when-let-guarded). NO
-   :block-edit-log-path: on the durable cluster the depot IS the log
-   (DEPLOY.md correction-of-record), so append-block-edit-request-durably!'s
-   when-let skips the WAL line natively."
+  "Resolve object-container and transcript-ops foreign handles on mgr.
+   Uses the runtime helper key conventions, without owning an :ipc. Omitting
+   :block-edit-log-path makes append-block-edit-request-durably! append only
+   to the depot; no local edit log is written through this bundle."
   [mgr]
   (let [oc-name (get-module-name oc/object-container-module)
         ops-name (get-module-name oc/object-container-transcript-ops-module)]
@@ -122,9 +130,10 @@
                "read-common-material-for-source"]))))
 
 (defn- trail-view-bundle*
-  "Mirror of trail-view/start-trail-view-runtime!'s handle map (minus :ipc),
-   including its exact key quirks (:module-name = the RELATION kernel name;
-   :activity-by-bucket = $$relation-activity-by-bucket)."
+  "Resolve a composite trail bundle over object-container, transcript-ops,
+   relation-kernel and TrailView modules. :module-name names the relation
+   kernel; :activity-by-bucket resolves $$relation-activity-by-bucket. This
+   bundle borrows all state and does not own an IPC or a deployed module."
   [mgr]
   (let [oc-name (get-module-name oc/object-container-module)
         ops-name (get-module-name oc/object-container-transcript-ops-module)
@@ -157,9 +166,9 @@
                "recent-file-activity" "recent-source-activity"]))))
 
 (defn- face-arsenal-bundle*
-  "Mirror of face-arsenal/start-face-arsenal-runtime!'s handle map. The wear
-   WAL is OFF on the durable cluster (:face-wear-log-path nil — record-wear!
-   honors an explicitly-nil path; the depot is the log)."
+  "Resolve face registry and wear handles without owning an IPC.
+   Explicit :face-wear-log-path nil disables record-wear!'s file-log fallback;
+   wear events still append to the deployed face-arsenal depot."
   [mgr]
   (let [arsenal-name (get-module-name face-arsenal/face-arsenal-module)]
     (merge
@@ -172,34 +181,36 @@
                "wear-counts-by-face" "wear-journal-by-face"]))))
 
 (defn trail-runtime
-  "Cluster-backed trail runtime bundle; nil while the cluster is down (T6)."
+  "Return the retained composite trail handle bundle, or nil if acquisition fails.
+   A non-nil bundle does not establish that subsequent remote operations succeed."
   []
   (when-some [mgr (manager)]
     (memo-total :trail #(trail-view-bundle* mgr))))
 
 (defn object-container-runtime
-  "Cluster-backed OC runtime bundle (the face/distiller :oc-rt); nil while
-   the cluster is down (T6)."
+  "Return the retained object-container/transcript-ops bundle, or nil on failed
+   acquisition. A non-nil bundle does not establish that subsequent remote operations succeed."
   []
   (when-some [mgr (manager)]
     (memo-total :object-container #(object-container-bundle* mgr))))
 
 (defn face-arsenal-runtime
-  "Cluster-backed arsenal bundle; nil while the cluster is down (T6)."
+  "Return the retained face-arsenal handle bundle, or nil if acquisition fails.
+   A non-nil bundle does not establish that subsequent remote operations succeed."
   []
   (when-some [mgr (manager)]
     (memo-total :face-arsenal #(face-arsenal-bundle* mgr))))
 
-;; ── The face-projection runtime map (file_viewer's cluster branch) ──────────
+;; ── Runtime context consumed by HTTP projections and acts ─────────────────
 
 (def default-conversation-prefix
-  "The first-light default conversation (the G8 conversation; the one literal
-   the IPC boot pins in file_viewer/find-default-transcript — kept in sync
-   until the IPC branch retires)."
+  "Filename prefix used to locate the explicit first-light import source."
   "7c80ce2a")
 
 (defn default-transcript-file
-  "The default conversation's transcript file, nil off-box."
+  "Find the first matching default-session JSONL file in the user's Softland
+   Claude project directory, or nil. Directory iteration is not sorted; this
+   locates a file without reading or importing its contents."
   []
   (let [dir (io/file (str (System/getProperty "user.home")
                           "/.claude/projects/-mnt-data-projects-Softland"))]
@@ -216,10 +227,9 @@
     (str/replace (.getName f) #"\.jsonl$" "")))
 
 (defn default-address
-  "The deterministic first-light address: tid/transcript-object-key is a pure
-   sha over source:conversation-id, so the durable cluster's boot COMPUTES the
-   address and reads whatever material migration (P4) put there — it never
-   re-harvests or re-distills at startup."
+  "Derive a transcript object key from the locally found default conversation
+   id, or nil when that file is absent. Does not check that its material exists
+   in Rama and performs no harvest or distillation."
   []
   (when-some [conv-id (default-conversation-id)]
     (tid/transcript-object-key :claude-code conv-id)))
@@ -228,11 +238,11 @@
 (defonce ^:private !first-light-failed (atom false))
 
 (defn face-projection-runtime
-  "Cluster-mode replacement for file_viewer's face-projection-runtime delay
-   body: the same map shape, no launches, no boot replays, no harvest/distill
-   (those are migration/ingest — T9). Total under a down cluster: the atoms
-   are stable defonces (resolve-request derefs them outside serve's try) and
-   nil bundles ride the projections' honest-degrade paths (G20/G21/MC-T12)."
+  "Return {:oc-rt :arsenal-rt :rk-rt :!default-address :!first-light-failed}
+   for HTTP projection/act callers. Resolves handles without launching modules
+   or replaying imports. The stable atoms belong to this JVM; this namespace
+   initializes the address when a manager exists, but does not set the failure
+   atom. Individual bundles can be nil or fail on later remote use."
   []
   (when (and (nil? @!default-address) (some? (manager)))
     (reset! !default-address (default-address)))
@@ -242,24 +252,24 @@
    :!default-address !default-address
    :!first-light-failed !first-light-failed})
 
-;; ── Explicit ingest (T9) + migration day (CONTRACT §7 P4) ───────────────────
+;; ── Explicit ingest and migration commands ────────────────────────────────
 
 (def ^:private spine-run-id
-  "STABLE spine cursor run-id: the durable cluster is one long-lived instance,
-   so the cost-only cursor may skip unchanged files across ingest runs (the
-   IPC boot minted a fresh UUID per JVM because its cluster was ephemeral).
-   If the cluster is ever destroyed and rebuilt empty, delete
-   data/git-spine-cursor.edn with it — correctness stays the idempotency
-   journal either way (G7)."
+  "Stable run id supplied to git-import's file cursor across explicit ingests.
+   Rebuilding the external store requires coordinating the cursor file with
+   that rebuild; this namespace does not detect a replaced store."
   "durable-ground-cluster")
 
-(defn- repo-root [] (System/getProperty "user.dir"))
+(defn- repo-root
+  "Return user.dir; command callers must run from the repository root."
+  [] (System/getProperty "user.dir"))
 
 (defn ingest-config
-  "The same cfg shape the IPC boot builds in file_viewer's trail delay, over
-   the CLUSTER trail bundle. :assert-log-path stays the default (the bridge
-   log replay-assert-log! reads at migration; the /assert route's write side
-   is jetty's, addressed at P4)."
+  "Build watcher/import configuration from user.dir and the external trail
+   bundle. Includes existing docs/current-mental-model and vision roots, Claude
+   transcript roots, and a stable Git cursor. :assert-log-path is nil, which
+   git-import/replay-assert-log! interprets as its default bridge-log path,
+   not as disabling replay. Missing roots are silently omitted."
   []
   (let [dir (repo-root)]
     {:runtime (trail-runtime)
@@ -277,12 +287,12 @@
      :assert-log-path nil}))
 
 (defn ingest!
-  "Explicit corpus ingest (T9: `bin/land ingest` / REPL — never startup).
-   Same order the proven IPC boot used: initial sweep, then the git-spine
-   sequence (assert-log replay → spine-sync → extract). The one-arity form
-   is the `clj -X` entry (`bin/land ingest`) — it must System/exit: the
-   manager's foreign-client threads are non-daemon, so a completed one-shot
-   would otherwise hang the JVM forever (observed live at P3)."
+  "Run the initial corpus sweep, then the Git bridge replay/sync/join sequence
+   using ingest-watchers. Requires a non-nil trail bundle. Returns {:sweep ...};
+   the Git sequence logs its own results and catches stage failures, so this
+   return is not an all-stages-success receipt. Explicit command, not startup.
+   The one-argument clj -X entry exits the JVM with 0 after a normal return;
+   the zero-argument REPL entry leaves the retained manager open."
   ([_argmap] (ingest!) (System/exit 0))
   ([]
   (let [cfg (ingest-config)]
@@ -296,10 +306,11 @@
       {:sweep sweep}))))
 
 (defn facet-materials-ingest!
-  "Idempotently preserve provenance v0, explicitly activate its composition
-   grammar revision, and install every other registered facet master through
-   the same revision/pointer path. This is a deploy-time action, never an
-   application startup write."
+  "Ensure registered facet masters, import the named grammar revisions, and
+   activate them through facet-master's revision/pointer operations. Returns
+   per-migration results and final states; it does not make the whole sequence
+   transactional or reject every failed subresult itself. This is an explicit
+   deployment command. The one-argument entry exits on normal completion."
   ([_argmap] (facet-materials-ingest!) (System/exit 0))
   ([]
    (let [oc-rt (object-container-runtime)]
@@ -456,10 +467,11 @@
         :states results}))))
 
 (defn first-light-ingest!
-  "Harvest + distill the default conversation into the DURABLE store, then
-   bridge-replay the block-edit WAL (T8: replay only after the distill has
-   created the target units — the proven IPC face-boot order). One-shot at
-   migration; every later boot just reads."
+  "Harvest and distill the locally located default conversation into the
+   external object-container, then replay the block-edit bridge log after its
+   targets exist. Throws on missing runtime/file or incomplete harvest; returns
+   the distillation summary and bridge counts. Later-stage failures can leave
+   earlier imports present. Called by migrate!, not by HTTP startup."
   []
   (let [oc-rt (object-container-runtime)
         file (default-transcript-file)]
@@ -493,8 +505,9 @@
        :block-edit-bridge edits})))
 
 (defn machine-cut-bridge!
-  "Bridge-replay the machine-cut annotation WAL into the durable relation
-   kernel (zero LLM calls — replay-wal! takes no adapter)."
+  "Replay the machine-cut annotation file log into the external relation
+   runtime, returning replay counts. Requires a runtime; passes no LLM adapter
+   to the replay owner and does not invoke classification here."
   []
   (let [rk-rt (trail-runtime)]
     (when-not rk-rt
@@ -531,8 +544,9 @@
       receipt)))
 
 (defn terminal-escape-report
-  "Run P4's mechanical terminal-escape detector against git-spine commit facts
-   and the provenance master's activation log."
+  "Compare repository commit facts with up to 100000 provenance active-pointer
+   revisions through material-circulation's detector. Requires an OC runtime;
+   returns that owner's report without changing stored material."
   []
   (let [oc-rt (object-container-runtime)]
     (when-not oc-rt
@@ -546,12 +560,13 @@
       100000))))
 
 (defn migrate!
-  "Migration day (CONTRACT §7 P4), T8 order: corpus ingest (imported bases
-   first) → transcript harvest/distill + block-edit bridge → machine-cut
-   bridge. Returns the G4 receipt map. Idempotent —
-   every stage rides deterministic ids + idempotency journals. The one-arity
-   form is the `clj -X` entry (`bin/land migrate`) — System/exit for the same
-   non-daemon-thread reason as ingest!."
+  "Run explicit migration in order: corpus ingest; default transcript
+   harvest/distill and block-edit replay; bounded starter associations;
+   terminal-escape report; machine-cut replay. Returns each stage's result.
+   This is a sequential composition, not a cross-module transaction; inspect
+   nested failure/coverage fields. Retry identity belongs to the stage owners.
+   The one-argument clj -X entry exits on normal completion. Facet grammar
+   installation is the separate facet-materials-ingest! command."
   ([_argmap] (migrate!) (System/exit 0))
   ([]
    (let [corpus (ingest!)
@@ -572,9 +587,10 @@
       :machine-cut machine-cut})))
 
 (defn start-watchers!
-  "Live ingest watchers over the document roots (T9: watching resumes
-   whenever this is called — REPL/dev-time, not startup). Returns the handle
-   maps ({:stop! ...})."
+  "Start document-root watchers using ingest-config; requires a trail bundle.
+   Returns {:docs {:stop! ... :watch-service ... :roots ...}}. The caller must
+   invoke the nested :stop! function to release watcher threads and resources.
+   Does not perform the initial sweep or watch the configured transcript roots."
   []
   (let [cfg (ingest-config)]
     (when-not (:runtime cfg)

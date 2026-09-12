@@ -1,8 +1,16 @@
 (ns app.server.ingest.ingest-watchers
-  "Filesystem change watchers that call the existing import adapters.
-   Takes: watched roots, import functions, debounce settings, and runtime handles.
-   Gives: a watcher controller with stop and running operations; starts watcher and worker threads.
-   Holds nothing."
+  "Filesystem-triggered imports over a caller-owned ObjectContainer runtime.
+   initial-sweep! imports existing classified files; start-ingest-watchers!
+   registers create/modify events, debounces each path and serializes imports.
+   Markdown delegates to markdown-adapter; JSONL delegates to transcript's
+   common import driver. Accepted results increment the process-local ingest
+   epoch, which is an invalidation signal rather than durable material.
+
+   Each watcher owns its WatchService, directory-key/pending-timer maps,
+   scheduler, importer executor, daemon watch thread and running flag. The
+   returned :stop! releases those resources; it does not close the borrowed
+   runtime. door/cluster exposes explicit sweep/watch entrypoints. The retained
+   run-git-spine-boot! name denotes a three-stage helper, not automatic startup."
   (:require [app.server.rama.object-container.runtime :as ocr]
             [app.server.ingest.markdown-adapter :as markdown-adapter]
             [app.server.ingest.transcript :as transcript]
@@ -19,6 +27,7 @@
 ;; -- helpers ------------------------------------------------------------------
 
 (defn- ^Path ->path
+  "Coerce a Path, File or string-like value to java.nio.file.Path."
   [x]
   (cond
     (instance? Path x) x
@@ -26,18 +35,17 @@
     :else (Paths/get (str x) (make-array String 0))))
 
 (defn- directory?
+  "Test whether the path resolves to a directory using default link options."
   [^Path p]
   (Files/isDirectory p (make-array LinkOption 0)))
 
 (defn- regular-file?
+  "Test whether the path resolves to a regular file using default link options."
   [^Path p]
   (Files/isRegularFile p (make-array LinkOption 0)))
 
 (defn- classify
-  "Return :md, :jsonl, or nil for a path, dispatching on the file extension.
-   The DEFAULT classify-fn (framework W2, CONTRACT §16): watchers constructed
-   without :classify-fn behave exactly as before — zero change for existing
-   callers, and bare `.edn` is deliberately NOT here (trap T19)."
+  "Return :md or :jsonl for matching filename suffixes, otherwise nil. A custom classifier changes selection, not the importer dispatch table."
   [^Path p]
   (let [name (str (.getFileName p))]
     (cond
@@ -46,6 +54,7 @@
       :else nil)))
 
 (defn- log
+  "Write one ingest-watcher log line to stderr."
   [level & args]
   (binding [*out* *err*]
     (println (str "[ingest-watchers] " (name level)) (apply pr-str args))))
@@ -53,11 +62,7 @@
 ;; -- the existing import seam (NO new truth; slurp/read is the only new code) -
 
 (defn- import-md!
-  "Slurp a settled .md file and drive it through the EXISTING markdown import
-   seam: markdown-source-import-request -> append -> await the decision. The
-   slurp is the only new reader; the request builder and kernel-write seam are
-   verbatim the existing path (trap 2). Returns the decision (a map with
-   :status)."
+  "Read a Markdown file, append its common material-import request and await its decision for 5 seconds; return the decision or nil on timeout."
   [runtime ^File file]
   (let [raw-text (slurp file)
         source-ref (.getPath file)
@@ -66,11 +71,10 @@
     (ocr/await-object-container-decision runtime request 5000)))
 
 (defn- import-jsonl!
-  "Drive one settled .jsonl transcript file through the EXISTING per-file
-   transcript import driver (read-jsonl-observations +
-   import-observations-into-object-container!). Reads from offset 0 and relies
-   on per-line idempotency to converge on re-import. Returns the import result
-   (a map with :status)."
+  "Read a JSONL file from offset zero as Claude Code observations and invoke
+   the common OC import driver. Returns its result without updating file-state
+   cursors. Re-import may fail if stored predecessor context changes a previously
+   seen line's fingerprint; this is not the incremental episode path."
   [runtime ^File file]
   (let [request (transcript/transcript-request
                  :transcript/watch
@@ -86,15 +90,12 @@
   (= :accepted (:status result)))
 
 (defn- run-import!
-  "Import one settled file. Bounded by try/catch so the loop NEVER crashes: any
-   import failure is logged, the epoch is NOT bumped, and the watcher keeps
-   running (the next change event retries). On the accepted decision latch the
-   monotonic ingest-epoch counter is bumped by exactly one. `on-import`, when
-   supplied, is called with an event map for every attempt (the sanctioned
-   no-poll completion signal for tests).
-
-   `classify-fn` is the constructing watcher's own classifier; the 3-arity
-   keeps the default `classify` — zero behavior change for existing callers."
+  "Dispatch a classified file to the Markdown or JSONL importer. An :accepted
+   result increments the local ingest epoch and invokes on-import with a receipt;
+   rejected/missing results do not bump it. Exceptions inside the try are logged
+   and reported as :error. The classifier runs before the try, and a throwing
+   error callback can escape; callbacks/classifiers should not throw. Retry is
+   triggered by a later change event, not by a dedicated retry queue."
   ([runtime ^File file on-import]
    (run-import! runtime file on-import classify))
   ([runtime ^File file on-import classify-fn]
@@ -128,6 +129,7 @@
 ;; -- recursive directory registration -----------------------------------------
 
 (defn- register-dir!
+  "Register create/modify events for one directory and retain WatchKey-to-directory routing in the supplied atom."
   [^WatchService ws ^Path dir key->dir]
   (let [key (.register dir ws (into-array [StandardWatchEventKinds/ENTRY_CREATE
                                            StandardWatchEventKinds/ENTRY_MODIFY]))]
@@ -168,13 +170,10 @@
 ;; -- public API ---------------------------------------------------------------
 
 (defn initial-sweep!
-  "One-time import of every classified file ALREADY under the roots.
-   WatchService fires only on CHANGES, and the in-process runtime is
-   non-durable — a fresh boot needs the existing material imported once.
-   Serialized in the calling thread; re-runs converge (deterministic ids +
-   idempotency journals, D-008.3). Returns {:imported N :attempted N}.
-   Optional :classify-fn (framework W2, CONTRACT §16) — default = the
-   existing `classify`, zero change for existing callers."
+  "Synchronously attempt each classified existing file under roots and return
+   {:attempted N :imported N}; imported counts :accepted results, including
+   accepted replays. Selection defaults to .md/.jsonl. This is an explicit sweep
+   over the supplied runtime; it neither creates a cluster nor starts watchers."
   [{:keys [runtime roots on-import classify-fn]}]
   (let [classify-fn (or classify-fn classify)
         files (for [root roots
@@ -186,15 +185,11 @@
      :imported (count (filter #(= :accepted (:status %)) results))}))
 
 (defn run-git-spine-boot!
-  "git-spine WP2 boot hook (CONTRACT §3.C, P1-owned). After the initial sweep, on
-   the SAME trail-view runtime, run the git-spine sequence IN ORDER:
-   replay-assert-log! (re-append the durable /assert write-ahead log) ->
-   spine-sync! (git commit metadata + parent :based-on edges) ->
-   extract-session-joins! (transcript -> commit/doc :produced edges). Each stage
-   is bounded so a failure NEVER crashes boot; each is idempotent (deterministic
-   ids + idempotency journals), so a re-run converges. `cfg` carries :runtime
-   :repo-root :transcript-roots :spine-cursor-path :assert-log-path. Runs
-   fire-and-forget wrt the relation microbatch (edges materialize async)."
+  "Run assertion-log replay, commit spine sync and transcript join extraction
+   in order with cfg's borrowed runtime and paths. Each stage logs counts and
+   catches failure so later stages still run; no aggregate success is returned.
+   Called explicitly by door/cluster ingest!, despite the retained boot name.
+   Relation requests use append acknowledgements without awaiting microbatches."
   [cfg]
   (doseq [[label f] [[:replay git-import/replay-assert-log!]
                      [:spine-sync git-import/spine-sync!]
@@ -211,19 +206,15 @@
              {:ex (.getName (class t)) :error (.getMessage t)})))))
 
 (defn start-ingest-watchers!
-  "Start event-driven ingest watchers.
+  "Watch directory roots for create/modify events; imports begin on events,
+   not an initial sweep. Debounce each path for at least 500 ms and serialize
+   imports on one executor. :classify-fn defaults to .md/.jsonl selection;
+   :on-import receives attempt results and should not throw.
 
-   config:
-     :runtime      the object-container runtime handle (start-object-container-runtime!)
-     :roots        seq of directory paths (String/File/Path) to watch (trees)
-     :debounce-ms  per-path settle window, >= 500 (default 500)
-     :on-import    optional (fn [event-map]) fired on each import attempt --
-                   {:file File :kind :md|:jsonl :status :accepted|:error|... }.
-                   Tests latch on this callback (no polling).
-     :classify-fn  optional per-watcher classifier; default = the existing
-                   `classify`, zero change for existing callers.
-
-   Returns a handle map: {:stop! (fn []) :watch-service ws :roots [...]}."
+   Returns {:watch-service :roots :stop!}. Stop cancels pending timers, closes
+   the WatchService, interrupts its daemon thread and shuts down both executors.
+   It does not await termination or close the runtime. Delete events are not
+   registered, and overflow events have no reconciliation sweep."
   [{:keys [runtime roots debounce-ms on-import classify-fn]}]
   (let [classify-fn (or classify-fn classify)
         debounce-ms (max default-debounce-ms (or debounce-ms default-debounce-ms))

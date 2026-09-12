@@ -1,8 +1,12 @@
 (ns app.server.tools.export-current-data
-  "A read-only archive writer for all 44 durable PStates.
-   Takes: an output directory and foreign handles to the five pinned Rama modules.
-   Gives: EDNL PState files, manifest.edn, verification.edn, and SHA256SUMS.
-   Holds nothing."
+  "Export the pinned external Rama PState inventory to a new EDN archive.
+   Reads foreign state from localhost and writes files outside the repository
+   and /mnt/data/rama. Owns the manager only for export!'s with-open lifetime;
+   does not append, deploy, pause writers or restore data. module-specs pins
+   storage shapes and task-count pins partition routing. Consistent capture
+   requires caller-established quiescence across the sequential reads.
+   Archive verification checks written bytes/counts, not live-state equality.
+   See README.md for entry points, output format and operational limits."
   (:require [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.java.shell :as shell]
@@ -22,8 +26,12 @@
            [java.security MessageDigest]
            [java.time Instant]))
 
-(def task-count 8)
-(def root-page-size 128)
+(def task-count
+  "Pinned partition count used for scan routing; not discovered from the cluster."
+  8)
+(def root-page-size
+  "Maximum entries requested by each sorted-map range read."
+  128)
 
 (def ^:private object-container-module
   "app.server.rama.object-container/object-container-module")
@@ -37,11 +45,15 @@
   "app.server.rama.face-arsenal/face-arsenal-module")
 
 (defn- pstate
+  "Build an inventory entry; nested entries default to subindexed inner maps."
   [name shape value-type]
   (cond-> {:name name :shape shape :value-type value-type}
     (= :nested shape) (assoc :inner-storage :subindexed)))
 
 (def module-specs
+  "Explicit module/PState inventory and storage shapes for this exporter.
+   TrailView contributes no owned PStates. This is not runtime schema discovery;
+   keep it aligned with module declarations and deployment partition counts."
   [{:module object-container-module
     :role :truth-owner
     :pstates
@@ -103,14 +115,20 @@
      (pstate "$$wear-counts-by-face" :flat "WearCountRow")
      (pstate "$$wear-journal-by-face" :nested "String")]}])
 
-(defn expected-module-names [] (set (map :module module-specs)))
-(defn pstate-specs []
+(defn expected-module-names
+  "Return the set of module names that deployment-snapshot requires exactly."
+  [] (set (map :module module-specs)))
+(defn pstate-specs
+  "Flatten the inventory, attaching each PState owner module and role."
+  []
   (mapcat (fn [{:keys [module role pstates]}]
             (map #(assoc % :module module :module-role role) pstates))
           module-specs))
 
 (defn plain-edn
-  "Convert runtime values to portable EDN without hiding failed deserialization."
+  "Recursively replace records with maps and Throwables with portable diagnostic
+   maps. A :nippy/unthawable map entry is fatal rather than silently archived.
+   Leaves other values unchanged; edn-line checks their EDN round trip."
   [x]
   (walk/postwalk
    (fn [value]
@@ -141,10 +159,14 @@
          :else value)))
    x))
 
-(defn- path-of ^Path [s]
+(defn- path-of
+  "Return an absolute normalized Path; does not resolve symbolic links."
+  ^Path [s]
   (.normalize (.toAbsolutePath (Paths/get (str s) (make-array String 0)))))
 
 (defn safe-output-path?
+  "Check lexical containment: output must be outside repo-root, /mnt/data/rama
+   and the filesystem root. Does not resolve symlinks or check existence."
   [repo-root output]
   (let [out (path-of output)
         repo (path-of repo-root)
@@ -156,6 +178,9 @@
          (not= out (.getRoot out)))))
 
 (defn assert-safe-output!
+  "Return a normalized destination Path or throw if it is lexically forbidden
+   or already exists. Parent directories must already exist for export!'s
+   createDirectory. This check does not resolve symlinked ancestors."
   [repo-root output]
   (when-not (safe-output-path? repo-root output)
     (throw (ex-info "Archive destination must be outside Git and /mnt/data/rama"
@@ -167,7 +192,9 @@
   (path-of output))
 
 (defn partition-keys
-  "Return one inert String key for every hash partition, ordered by task id."
+  "Find one String key for each (mod (hash key) n) bucket, ordered by bucket.
+   n must be positive for useful routing; the exporter uses task-count. These
+   are foreign-select :pkey routing inputs, never appended data."
   [n]
   (loop [candidate 0 found {}]
     (if (= n (count found))
@@ -176,14 +203,19 @@
             idx (mod (hash k) n)]
         (recur (inc candidate) (if (contains? found idx) found (assoc found idx k)))))))
 
-(defn- canonical-compare [a b]
+(defn- canonical-compare
+  "Compare keys by printed EDN representation for deterministic archive ordering."
+  [a b]
   (compare (pr-str a) (pr-str b)))
 
-(defn- canonical-map [entries]
+(defn- canonical-map
+  "Build an archive map ordered by canonical-compare from key/value entries."
+  [entries]
   (into (sorted-map-by canonical-compare) entries))
 
 (defn edn-line
-  "Serialize and immediately prove that one archive row is readable EDN."
+  "Normalize one row, serialize it, and require equality with EDN readback.
+   Returns the line without its newline; throws on unreadable or changed data."
   [row]
   (let [normalized (plain-edn row)
         line (pr-str normalized)
@@ -192,10 +224,14 @@
       (throw (ex-info "EDN row failed exact readback" {:row normalized :reread reread})))
     line))
 
-(defn- sorted-entries [entries]
+(defn- sorted-entries
+  "Order map entries by the printed representation of their keys."
+  [entries]
   (sort-by (comp pr-str first) entries))
 
 (defn- root-range
+  "Build a bounded sorted-map range from the start, or strictly after cursor.
+   Cursor must belong to the PState map's ordering; page size is root-page-size."
   [cursor]
   (if (nil? cursor)
     (path/sorted-map-range-from-start root-page-size)
@@ -204,6 +240,9 @@
                                  :inclusive? false})))
 
 (defn- flat-partition-entries
+  "Read all flat entries for one :pkey partition, accumulating paged reads.
+   Advances using the last key after sorted-entries ordering; the pinned key
+   representations must order compatibly with the PState's range cursor."
   [handle partition-key]
   (loop [cursor nil acc []]
     (let [page (rama/foreign-select-one [(root-range cursor)]
@@ -216,6 +255,9 @@
         (recur (ffirst (rseq entries)) acc*)))))
 
 (defn- nested-partition-outer-keys
+  "Page outer keys in one partition without fetching their nested values.
+   Accumulates keys and advances by printed-key order, which must agree with
+   the underlying range ordering for the pinned schema."
   [handle partition-key]
   (loop [cursor nil acc []]
     (let [keys (vec (sort-by pr-str
@@ -228,6 +270,8 @@
         (recur (peek keys) acc*)))))
 
 (defn- nested-inner-entries
+  "Page one subindexed inner map on the supplied partition into memory.
+   Uses the same cursor/order assumption as flat-partition-entries."
   [handle outer-key partition-key]
   (loop [cursor nil acc []]
     (let [page (rama/foreign-select-one [(path/keypath outer-key)
@@ -241,6 +285,8 @@
         (recur (ffirst (rseq entries)) acc*)))))
 
 (defn- nested-plain-inner-entries
+  "Read an entire non-subindexed inner map and sort its entries locally.
+   Used for relation-target-descriptors; no inner range reads are attempted."
   [handle outer-key partition-key]
   (sorted-entries
    (rama/foreign-select-one [(path/keypath outer-key)]
@@ -248,6 +294,7 @@
                             {:pkey partition-key})))
 
 (defn- scan-flat-partition
+  "Wrap flat entries as archive rows with module, PState, partition and value class."
   [handle module pstate-name partition-index partition-key]
   (mapv (fn [[k v]]
           {:archive/module module
@@ -260,6 +307,8 @@
         (flat-partition-entries handle partition-key)))
 
 (defn- scan-nested-partition
+  "Build one archive row per outer key, containing its normalized subindexed
+   inner map and leaf count. Retains the partition's rows in memory."
   [handle module pstate-name partition-index partition-key]
   (let [outer-keys (nested-partition-outer-keys handle partition-key)]
     (mapv (fn [outer-key]
@@ -277,6 +326,8 @@
           outer-keys)))
 
 (defn- scan-nested-plain-partition
+  "Build nested archive rows from whole plain inner maps, preserving outer-key
+   partition identity and counting their leaves."
   [handle module pstate-name partition-index partition-key]
   (let [outer-keys (nested-partition-outer-keys handle partition-key)]
     (mapv (fn [outer-key]
@@ -294,6 +345,10 @@
           outer-keys)))
 
 (defn scan-pstate
+  "Read one inventory PState across task-count partitions using its declared
+   shape. Returns rows, entry/leaf totals and per-partition counts; throws if an
+   outer key appears more than once. Holds all rows for this PState in memory.
+   Does not discover topology size, pause writes or obtain an atomic snapshot."
   [manager {:keys [module name shape value-type inner-storage]}]
   (let [handle (rama/foreign-pstate manager module name)
         keys (partition-keys task-count)
@@ -325,14 +380,18 @@
      :partition-counts (into (sorted-map)
                              (map-indexed (fn [idx xs] [idx (count xs)]) by-partition))}))
 
-(defn- safe-fragment [s]
+(defn- safe-fragment
+  "Replace characters outside letters, digits, dot, underscore and hyphen for filenames."
+  [s]
   (str/replace (str s) #"[^A-Za-z0-9._-]+" "_"))
 
 (defn pstate-relative-file
+  "Derive a pstates/*.ednl filename from sanitized module and PState names."
   [module pstate-name]
   (str "pstates/" (safe-fragment module) "__" (safe-fragment pstate-name) ".ednl"))
 
 (defn- sha256-file
+  "Stream file bytes into a SHA-256 digest and return lowercase hex; closes the input."
   [file]
   (let [digest (MessageDigest/getInstance "SHA-256")
         buffer (byte-array 65536)]
@@ -345,6 +404,8 @@
     (apply str (map #(format "%02x" (bit-and 0xff %)) (.digest digest)))))
 
 (defn- write-ednl!
+  "Create parents and write UTF-8 rows, checking each row's EDN round trip.
+   Closes the writer; a failed row can leave a partial file."
   [file rows]
   (io/make-parents file)
   (with-open [w (io/writer file :encoding "UTF-8")]
@@ -353,22 +414,31 @@
       (.write w "\n"))))
 
 (defn- write-edn!
+  "Create parents and write one normalized EDN value plus newline in UTF-8."
   [file value]
   (io/make-parents file)
   (with-open [w (io/writer file :encoding "UTF-8")]
     (.write w (pr-str (plain-edn value)))
     (.write w "\n")))
 
-(defn- git-value [repo-root & args]
+(defn- git-value
+  "Run a Git read command in repo-root, returning trimmed stdout or throwing on failure."
+  [repo-root & args]
   (let [{:keys [exit out err]} (apply shell/sh "git" "-C" (str repo-root) args)]
     (when-not (zero? exit)
       (throw (ex-info "Git custody read failed" {:args args :err err})))
     (str/trim out)))
 
-(defn- running-state [status]
+(defn- running-state
+  "Return the module status object's state as a string."
+  [status]
   (str (.get_state status)))
 
-(defn- deployment-snapshot [manager]
+(defn- deployment-snapshot
+  "Require exactly the pinned module names and RUNNING status for each.
+   Returns module names/states; does not verify schemas, task counts, writer
+   quiescence or unchanged deployment during subsequent scanning."
+  [manager]
   (let [deployed (set (rama/deployed-module-names manager))
         expected (expected-module-names)]
     (when-not (= expected deployed)
@@ -384,6 +454,7 @@
       {:modules (vec (sort deployed)) :states states})))
 
 (defn read-ednl
+  "Read all nonblank UTF-8 lines as EDN values into a vector; closes the reader."
   [file]
   (with-open [r (io/reader file :encoding "UTF-8")]
     (->> (line-seq r)
@@ -391,6 +462,10 @@
          (mapv edn/read-string))))
 
 (defn verify-archive
+  "Read manifest.edn and verify each listed PState file's SHA-256 and row/leaf
+   counts. Returns aggregate :ok? and per-file checks; unreadable or missing
+   files can throw. Does not compare with Rama, check extra files, validate the
+   manifest schema, or verify the separate SHA256SUMS file."
   [output]
   (let [root (io/file output)
         manifest-file (io/file root "manifest.edn")
@@ -415,6 +490,13 @@
      :files results}))
 
 (defn export!
+  "Write an archive to a new directory after destination and deployment checks.
+   Caller must ensure the pinned schemas/eight-task layout and quiescent writes;
+   the manifest's consistency label records that assumption, not a lock taken
+   here. Owns/closes its manager, scans one PState at a time, writes a manifest
+   and checksums, verifies PState files, then writes verification.edn.
+   Returns {:output :manifest :verification}. Failures leave partial output;
+   no cleanup or overwrite retry is provided. No depot history is exported."
   [repo-root output]
   (let [output-path (assert-safe-output! repo-root output)
         started-at (str (Instant/now))
@@ -491,6 +573,9 @@
                :verification verification})))))))
 
 (defn -main
+  "CLI entry: clj -M -m app.server.tools.export-current-data <new-output-dir>.
+   Uses user.dir as repo-root, exports and prints totals/verification status.
+   The missing-argument exception below still contains the old namespace."
   [& [output]]
   (when (str/blank? output)
     (throw (ex-info "Usage: clj -M -m app.tools.export-current-data <new-output-dir>" {})))

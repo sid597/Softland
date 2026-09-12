@@ -1,8 +1,13 @@
 (ns app.server.worn.foldable-material
-  "The fold-state and section-header facet specification.
-   Takes: served forms and binding rows for run-section headers.
-   Gives: compiled fold values, header copy, interaction claims, and contribution rows.
-   Holds: spec."
+  "Pure specification for fold defaults, section-header copy and bindings.
+   v0 declares noise/prose defaults and header strings; v1 adds toggle bindings,
+   v2 checks their site arguments, and v3 adds outside-paste display policy.
+   Bootstrap uses v0 while the code floor uses v3. Older grammars stay explicit.
+
+   Forms, EDN and served active maps produce compiler results or resolved
+   material through facet-engine. Owns immutable spec/default values only;
+   actual fold state, pasted text, rendering and verb execution belong to callers.
+   The paste policy limits a projection, not the stored source bytes."
   (:require [app.server.worn.binding-material :as binding-material]
             [app.server.worn.facet-engine :as facet-engine]))
 
@@ -78,16 +83,19 @@
 (def paste-clamp-source (pr-str paste-clamp-form))
 
 (defn- exact-map?
+  "Require exactly ks as map keys and apply value-valid? to every value."
   [x ks value-valid?]
   (and (map? x)
        (= ks (set (keys x)))
        (every? value-valid? (vals x))))
 
 (defn- valid-defaults?
+  "Require exactly the boolean noise? and prose? fold defaults."
   [x]
   (exact-map? x #{:noise? :prose?} boolean?))
 
 (defn- valid-header-copy?
+  "Require all declared header-copy keys with string values, including empty strings."
   [x]
   (exact-map?
    x
@@ -102,6 +110,7 @@
    string?))
 
 (defn- valid-paste-clamp?
+  "Require a positive integer threshold, a share in (0,1] and nonempty header copy."
   [x]
   (and (map? x)
        (= #{:threshold-chars :max-share :header-copy} (set (keys x)))
@@ -169,10 +178,12 @@
              :error-type :foldable/paste-clamp-invalid})}}})
 
 (defn compile-form
+  "Validate a form under this spec; return validity, errors, grammar and material."
   [form]
   (facet-engine/compile-form spec form))
 
 (defn compile-source
+  "Read EDN and compile under this spec; return parse/validation errors as data."
   [source]
   (facet-engine/compile-source spec source))
 
@@ -180,9 +191,11 @@
   (facet-engine/code-floor spec))
 
 (defn resolved-wear
+  "Resolve a complete served active map, falling back to this spec's code floor."
   [served]
   (facet-engine/resolved-wear spec served))
 
 (defn contribution-stamp
+  "Return subject/facet/revision and site/role/slot provenance for supplied wear."
   [wear subject site role slot]
   (facet-engine/contribution-stamp wear subject site role slot))
