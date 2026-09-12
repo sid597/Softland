@@ -26,8 +26,8 @@ work above it can fan out in parallel without being able to break the kernel.
 
 - **trails** — motion leaving traces. RULED yes 2026-08-18 (stamps never
   paths; thresholds are userland dials; a burst's settlement always
-  persists). Recorded at `docs/ARCHITECTURE.md` conflict 2 and
-  `docs/electric-native/PROBLEM-SPACE.md` forks-by-decider.
+  persists). Recorded at `history/docs/ARCHITECTURE.md` conflict 2 and
+  `history/docs/electric-native/PROBLEM-SPACE.md` forks-by-decider.
 - **trail-face** — the old docs-reading surface (cards/lanes/threads over the
   ingested corpus). Dark client code, retire-candidate below. Its server-side
   ingestion is live artery and is NOT touched by retiring the drawing files.
@@ -517,12 +517,12 @@ transport.
 
 ## Pointers (read before ruling; plain-words law applies to all writing)
 
-- The recon: `docs/what-softland-is/build-softland-in-softland.md` (+
+- The recon: `history/docs/what-softland-is/build-softland-in-softland.md` (+
   `-threaded.md` for depth). The treaty, waist, four forces, fence
   instrument, clocks, the door.
-- The wire seam: `docs/electric-native/DIRECTION.md` (road; 1c is the keyed
+- The wire seam: `history/docs/electric-native/DIRECTION.md` (road; 1c is the keyed
   wire), `PROBLEM-SPACE.md` (loads, forks), `RECON.md` (receipts).
-- Principles: `docs/ARCHITECTURE.md` conflicts 2 (becoming/truth), 3
+- Principles: `history/docs/ARCHITECTURE.md` conflicts 2 (becoming/truth), 3
   (identity travels), 5 (cost follows attention); trails ruling recorded at
   conflict 2 and in PROBLEM-SPACE forks-by-decider.
 - Register laws live in session memory (plain English to Sid; exact paths

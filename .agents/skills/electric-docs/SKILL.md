@@ -126,9 +126,9 @@ identity-sensitive work also needs a reorder/removal case. Choose checks that
 challenge the proposed behaviour, without turning every reference lookup into
 a benchmark or architecture review.
 
-Older investigations remain at `docs/electric-skill/VERDICTS.md`,
-`docs/electric-skill/PROBE-EVIDENCE.md`, `docs/render-north/PROBE-10K.md`, and
-`docs/electric-skill/SLACK-THREAD-efn-values.md`. Consult them for a matching
+Older investigations remain at `history/docs/electric-skill/VERDICTS.md`,
+`history/docs/electric-skill/PROBE-EVIDENCE.md`, `history/docs/render-north/PROBE-10K.md`, and
+`history/docs/electric-skill/SLACK-THREAD-efn-values.md`. Consult them for a matching
 question, with their versions and measured scope. Raw incseq measurements do
 not establish full Electric or Softland performance; old implementation recipes
 and Slack reports do not settle current architecture. The Missionary regression

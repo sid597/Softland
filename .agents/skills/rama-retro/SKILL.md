@@ -1,6 +1,6 @@
 ---
 name: rama-retro
-description: How to retrospectively review already-committed Rama code (modules, topologies, PStates, executors) that was built without the /rama skill or whose production-safety is unproven. Use when the user asks to retro/review/audit existing Rama work, find encoded wrong patterns, or validate committed slices after the fact. The /rama skill builds new work; THIS skill reviews as-built work. Synthesized from two real retros (2026-06): the static falsification pipeline (OLD DOCS/retros/rama/) and the runtime-probed review (docs/rama-retro-review/).
+description: How to retrospectively review already-committed Rama code (modules, topologies, PStates, executors) that was built without the /rama skill or whose production-safety is unproven. Use when the user asks to retro/review/audit existing Rama work, find encoded wrong patterns, or validate committed slices after the fact. The /rama skill builds new work; THIS skill reviews as-built work. Synthesized from two real retros (2026-06): the static falsification pipeline (history/old-docs/retros/rama/) and the runtime-probed review (history/docs/rama-retro-review/).
 ---
 
 # Rama Retro — reviewing as-built Rama work
@@ -79,7 +79,7 @@ Semantic assertion rule for any probe/test: assert the **payload the spec promis
 6. **Compatibility/transitional paths becoming permanent truth** (broad compat events, in-memory atom mirrors as UI truth with no rebuild path).
 7. **Green tests proving the spine, not the contract** (no rejection-path, duplicate, post-terminal, restart coverage; 1 IPC launch is usually enough for disjoint-key tests).
 
-Full taxonomy + the 17-question done-gate: `docs/rama-retro-review/META_LEARNINGS.md`. Worked examples: `OLD DOCS/retros/rama/` (pipeline + comparison) and `docs/rama-retro-review/` (probes).
+Full taxonomy + the 17-question done-gate: `history/docs/rama-retro-review/META_LEARNINGS.md`. Worked examples: `history/old-docs/retros/rama/` (pipeline + comparison) and `history/docs/rama-retro-review/` (probes).
 
 ## Handoff (what the retro must end with)
 

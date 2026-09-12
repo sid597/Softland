@@ -47,7 +47,7 @@
 ;; confirmation (gate (c)).
 
 {:snapshot-dir "snapshots/127376b0fd76e1a112422ae5ac21a2f55725a018"
- :questions    "docs/current-mental-model/build/model-uxr/QUESTIONS.md"
+ :questions    "history/docs/model-uxr/QUESTIONS.md"
  :tokenizer    :ws-proxy               ; frozen with the bank (SPEC §2)
 
  :grader {:provider :anthropic

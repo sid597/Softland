@@ -7,7 +7,7 @@ description: The atomization lens — derive the atomic unit, block grammar, and
 
 Provenance: written 2026-07-09 by Fable from the FIRST full application — the
 prose/transcript block round (spec room `spec-sense-line-fable-max`; artifacts:
-`docs/sense-line-mvp/{GROUNDS,SPEC}.md`,
+`history/docs/sense-line-mvp/{GROUNDS,SPEC}.md`,
 `block-kernel/CONTRACT.md`). **Amended same day after the SECOND application —
 the code round** (session `code-atom-spec-round`; artifacts:
 `build/sense-line-mvp/code-atom/{GROUNDS,SPEC,CONTRACT}.md`): one session ran
@@ -146,7 +146,7 @@ Code-round additions to the laws [R]:
 
 ## Boot list for a family round
 
-`docs/sense-line-model.md` fixed points (esp. #7:
+`history/docs/sense-line-model.md` fixed points (esp. #7:
 labeling is emergence) · `build/sense-line-mvp/SPEC.md` (the generic laws +
 the prose instance) · `docs/architecture/MAP.md` (inventory duty) · this
 skill. Lazy-read everything else. Do NOT load decisions.md in full or old

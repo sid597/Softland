@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ ! -f docs/seam-cuts/CONTRACT-5.md ]]; then
+if [[ ! -f history/docs/seam-cuts/CONTRACT-5.md ]]; then
   printf '%s\n' 'Run bin/verify-seam-cuts-step-a from the repository root.' >&2
   exit 1
 fi

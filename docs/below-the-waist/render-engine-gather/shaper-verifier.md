@@ -369,7 +369,7 @@ production source and fail if their own detectors miss them — `verify_text_lay
 - **T6/T7/T8** — what `layout-key` must EXCLUDE (paint, camera, origin, selection, hover, backend).
 - **T14** — the break-class rule (SPACE/TAB only, never `\s`) at :400-401, and the scene-tape fence's
   `rt-node` ten-key shape pin.
-- **shaping-correction** (the contracted correction, docs/shaping-correction/CONTRACT.md, banked in
+- **shaping-correction** (the contracted correction, history/docs/shaping-correction/CONTRACT.md, banked in
   decisions.md:613-627) — `layout-key`, the layout cache, the work counters
   (`:glyph-visits :cluster-index-*` … `:wrap-candidate-visits`) and `within-work-bound?`, i.e.
   everything that makes construction proportional to G+C+R.
@@ -389,6 +389,6 @@ production source and fail if their own detectors miss them — `verify_text_lay
 - **Region3D** — :4190-5464: floor, seam-connector (:4448), lower-resolution-pressure (:5024), and
   the separate `run-region3d-floor-verifier!` entry reachable via `?region3d-floor-only`.
 SOURCE as cited inline.
-UNCERTAINTY the T-numbers are contract-item numbers from docs/shaping-correction/CONTRACT.md and
-docs/render-engine/T2-INPUT-FLOOR-CONTRACT.md; I read the code's references to them, not the
+UNCERTAINTY the T-numbers are contract-item numbers from history/docs/shaping-correction/CONTRACT.md and
+history/docs/render-engine/T2-INPUT-FLOOR-CONTRACT.md; I read the code's references to them, not the
 contracts themselves, so the mapping above is from code comments only.

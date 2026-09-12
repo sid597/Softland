@@ -1,6 +1,6 @@
 <skill_instructions>
 > **SUPERSEDED WHERE THEY DISAGREE — corrected 2026-07-05 per
-> `docs/electric-skill/VERDICTS.md` (Claim 1) and
+> `history/docs/electric-skill/VERDICTS.md` (Claim 1) and
 > `test/app/missionary_claims_test.clj` (`claim-01-nested-ap-forks-crash-watch-cancelled`).**
 > This file originally advocated `m/ap` + `m/?<` for deriving state from
 > watches. That exact shape — multiple `m/?<` over `m/watch` nested in ONE

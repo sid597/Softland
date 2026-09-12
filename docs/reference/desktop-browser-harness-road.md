@@ -5,7 +5,7 @@ different instruments whose evidence must never be merged.
 
 ## Headed desktop / product acceptance
 
-Repo-proven starting conditions (`docs/durable-ground/NOW.md`, 2026-07-17):
+Repo-proven starting conditions (`history/docs/durable-ground/NOW.md`, 2026-07-17):
 
 - run Chrome headed on the desktop with `DISPLAY=:0`;
 - expose CDP on port `9222`;

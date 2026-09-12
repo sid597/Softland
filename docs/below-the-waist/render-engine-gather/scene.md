@@ -154,7 +154,7 @@ EXTRACTION
   ;; SEAM-STEP1 T6: insert-edge validation is additive; compile-tape below
   ;; retains its independent validation and remains the batch oracle.
 UNCERTAINTY the exact phrase "document order is row data — sort keys, never
-position" lives in docs (docs/ARCHITECTURE.md:141, docs/decisions.md:570), not
+position" lives in docs (history/docs/ARCHITECTURE.md:141, docs/decisions.md:570), not
 in scene_tape source; the code embodiment is entry-key + compare-order.
 
 ## F. SCENE RUNTIME

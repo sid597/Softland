@@ -1,8 +1,7 @@
-;; IMPORTANT: Before modifying this file, re-read
-;; docs/current-mental-model/build/object-container/PLAN.md and check pending todos.
-;; Also re-read docs/current-mental-model/build/object-container-common-infra/PLAN.md
-;; for the common import substrate track.
-;; Adhere to all previously decided design decisions.
+;; Historical design context: history/docs/object-container/PLAN.md and
+;; history/docs/object-container-common-infra/PLAN.md describe the earlier slices.
+;; Consult them for relevant reasoning; check current source and docs/decisions.md
+;; before carrying their implementation claims or pending work forward.
 
 (ns app.server.rama.object-container
   "Durable containers, revisions, source material, edits, and transcript operations.

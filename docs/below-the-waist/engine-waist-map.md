@@ -134,7 +134,7 @@ Only the *go* list is a build-stage item. "Thread every atom through as values" 
 
 ### Gates — where "describe, never gate" applies
 
-The law is about product descriptions, and it carves out the floor itself — *"Totality gates on the meta-material's OWN form (error cards) are the dull floor, not a violation"* (`docs/editable-material/DIRECTION.md:94`). So: **above**, an unknown facet still exists and gets an error / fallback projection — an untyped block renders, forever. **Below**, a road refuses a malformed packet (NaN, a bad index, an oversize mesh, a cyclic parent) and shows the fallback; the GPU is never handed invalid data.
+The law is about product descriptions, and it carves out the floor itself — *"Totality gates on the meta-material's OWN form (error cards) are the dull floor, not a violation"* (`history/docs/editable-material/DIRECTION.md:94`). So: **above**, an unknown facet still exists and gets an error / fallback projection — an untyped block renders, forever. **Below**, a road refuses a malformed packet (NaN, a bad index, an oversize mesh, a cyclic parent) and shows the fallback; the GPU is never handed invalid data.
 
 - **Go — kind menus that are product vocabulary:** `legal-forms` (`chrome_material.cljc:16`); `legal-object-kinds` · `-primitive-` · `-light-` · `-camera-` (`region3d_material.cljc:18-22`); `legal-route-policies` · `legal-heads` (`connector_material.cljc:14-17`).
 - **Stay — shape and totality checks:** `validate-region!` (finite vectors, indices, caps, acyclic parents; `region3d_material.cljc:432-464`); contour / knot validation (`path_material.cljc:156`); entry shape (`scene_tape.cljc:653-688`); the exhaustiveness fence (`renderer.cljs:3364`).

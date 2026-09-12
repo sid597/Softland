@@ -312,7 +312,7 @@ None of this is a verdict. It is the state the engine is in, so "is this how I w
 
 ## 8 · Sources — where every claim came from
 
-- **Binding "why":** `docs/decisions.md` — "One render substrate" (:302-327) · "How engine work lands" (:402-449) · "The render seam" (:450-628, incl. the shaping correction) · "The spatial model" (:629-690); `docs/engine-terrain.md`. Read primary.
+- **Binding "why":** `docs/decisions.md` — "One render substrate" (:302-327) · "How engine work lands" (:402-449) · "The render seam" (:450-628, incl. the shaping correction) · "The spatial model" (:629-690); `history/docs/engine-terrain.md`. Read primary.
 - **The prior grain:** `kept-code-map.md` §5 AREA C (the eight pieces, inherited as-is) and its HTML twin (design system inherited). **Twins of this page:** `render-engine-map.html` (the picture) and this file.
 - **Code, read by seam** (skeleton first, scoped windows; tree at commit `e48abeb`): the six read-only gatherer digests in `render-engine-gather/` — `webgpu.md` · `scene.md` · `frame.md` · `families.md` · `shaper-verifier.md` · the `skeleton-*` files (requires graph of all 48 files, def counts, every ns docstring, section banners, the verifier skeleton); its `README.md` says how they were produced. Decision-changing facts (ten families · the two roads in `draw-frame!` · the registry shape · region-as-one-row · the vertex-shader composition · the store shape) were spot-checked against source by the composing session.
 - **General-architecture analogies** (§2 and the "in any engine" lines) are general knowledge, not from the repo.

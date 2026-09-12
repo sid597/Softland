@@ -97,7 +97,7 @@ atom to dereference (claim `18`).
 - Executable cases: `test/app/missionary_claims_test.clj`. Run a relevant subset
   when a proposed change depends on it; after a Missionary upgrade, run the
   suite. It contains no Electric runtime, DOM, or GPU verification.
-- Earlier diagnoses and probe forms: `docs/electric-skill/VERDICTS.md`.
+- Earlier diagnoses and probe forms: `history/docs/electric-skill/VERDICTS.md`.
   Its proposed amendments and application descriptions are historical context,
   not extra project rules. The tested flow shapes and their evidence remain
   useful without carrying forward every old recommendation.

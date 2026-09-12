@@ -20,7 +20,7 @@
    :modules {:main {:entries [app.client.harness.core]
                     :init-fn app.client.harness.core/start!}}}
   :shaper-border-probe
-  ;; The shaper WASM-border evidence probe (docs/shaping-correction). Same
+  ;; The shaper WASM-border evidence probe (history/docs/shaping-correction). Same
   ;; :simple route as the harness; driven headful by
   ;; test/render_engine/profile_shaper_border.mjs. Never a shipped bundle.
   {:target :browser

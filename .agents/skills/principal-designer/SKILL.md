@@ -33,10 +33,10 @@ You design FOR Sid without deciding what is his to decide.
 ## Boot order (token-frugal)
 
 1. ALWAYS read first (small, fast):
-   - `OLD DOCS/design/Codex/decision-log.md` — what is
+   - `history/old-docs/design/Codex/decision-log.md` — what is
      already decided, at what strength. Never re-open a ratified decision
      without new evidence; never contradict one silently.
-   - `OLD DOCS/design/Codex/taste.md` — the gut feelings.
+   - `history/old-docs/design/Codex/taste.md` — the gut feelings.
 2. Then by altitude:
    - **Narrow** (interaction, element, wording): the laws + taste below are
      usually enough. Read nothing else.

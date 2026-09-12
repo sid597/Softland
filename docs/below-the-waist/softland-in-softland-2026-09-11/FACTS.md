@@ -119,7 +119,7 @@ inspector; "invocation is not decision": a record that calls a fixed
 capability leaves the choice inside the capability; a move is real only when
 the program can choose differently.
 
-## Sid's prior words on the same wall (checked: `vision/LOG.md`, `docs/smalltalk-ui-vm/DIRECTION.md`)
+## Sid's prior words on the same wall (checked: `vision/LOG.md`, `history/docs/smalltalk-ui-vm/DIRECTION.md`)
 
 2026-07-30, LOG 970: "why can't Softland be Smalltalk-like from the start,
 with the Workshop able to inspect and reshape itself through the same loop,

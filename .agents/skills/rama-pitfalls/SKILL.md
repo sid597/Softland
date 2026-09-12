@@ -145,7 +145,7 @@ For each non-Rama actor in the design (executor, agent CLI, browser), verify:
 - The actor reads Rama as its source of truth (committed intent), not the topology calling it inline. ✓
 - Observations from the actor flow into a depot; topology materializes; UI sees results. ✓
 
-Citation: `OLD DOCS/architecture/dogfood-runtime/README.md` L84-90.
+Citation: `history/old-docs/architecture/dogfood-runtime/README.md` L84-90.
 
 ---
 

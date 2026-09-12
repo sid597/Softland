@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The shaper WASM-border receipt runner (docs/shaping-correction, 2026-08-30).
+// The shaper WASM-border receipt runner (history/docs/shaping-correction, 2026-08-30).
 // Drives the :shaper-border-probe shadow build in HEADFUL Chrome on the proven
 // desktop road (DISPLAY :0 + Vulkan ANGLE → the physical adapter) so the
 // receipt opens with a real adapter attestation, then records the ladder.

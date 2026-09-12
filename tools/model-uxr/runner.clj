@@ -1,7 +1,7 @@
 (ns model-uxr.runner
   "Model-UXR benchmark v0 — DRY-RUN skeleton. NO live API calls in v0.
 
-  Spec: docs/current-mental-model/build/model-uxr/{SPEC,QUESTIONS,ABLATIONS}.md
+  Spec: history/docs/model-uxr/{SPEC,QUESTIONS,ABLATIONS}.md
 
   What it does today:
     * loads the question bank by extracting the fenced `edn` blocks from
@@ -32,7 +32,7 @@
 ;; ---------------------------------------------------------------------------
 
 (def default-questions-path
-  "docs/current-mental-model/build/model-uxr/QUESTIONS.md")
+  "history/docs/model-uxr/QUESTIONS.md")
 
 (def default-config-path "tools/model-uxr/subjects.edn")
 

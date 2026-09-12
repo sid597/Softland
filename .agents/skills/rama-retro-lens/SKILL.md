@@ -23,9 +23,9 @@ Use this skill after loading `$rama` for any Softland Rama review, repair, or im
 Use these as failure-pattern lenses, not as current implementation truth:
 
 ```text
-docs/rama-retro-review/META_LEARNINGS.md
-docs/rama-retro-review/ARCHITECTURE_VERDICT.md
-docs/rama-retro-review/*/RAMA_REVIEW.md
+history/docs/rama-retro-review/META_LEARNINGS.md
+history/docs/rama-retro-review/ARCHITECTURE_VERDICT.md
+history/docs/rama-retro-review/*/RAMA_REVIEW.md
 ```
 
 Open only the RAMA_REVIEW files relevant to the current module or source path.
