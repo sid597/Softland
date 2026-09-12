@@ -41,14 +41,20 @@ and usefulness to its inhabitant distinguishable.
   when relevant to the task.
 - At the start of a build session, read `docs/decisions.md` and any task-specific
   handoff named in the current conversation.
-- `docs/README.md` lists the retained working areas and references. Current code
-  explanations belong with their source. `history/` holds earlier plans,
+- `docs/README.md` distinguishes the vision, intended decisions, current build
+  guides, and the account of how we got here. Current code explanations belong
+  with their source. `reference/README.md` indexes dependency documentation and
+  source snapshots; check their provenance and version before applying them.
+  `history/` holds earlier plans,
   implementation logs, reviews, experiments, and research; consult it when a
   question needs their reasoning or evidence, rather than loading it by default.
   Labels such as "current", "binding", or "next" inside historical records
   describe their original context. They do not establish present requirements
   or authorize unfinished work. Check implementation claims against current
   source and surface relevant discrepancies using the vision guidance above.
+  The former `meta/` workflow is archived as an experiment, not a standing
+  procedure or a required read before making a prompt. Reuse observations when
+  they help the question without making the entire method compulsory.
 - Before gathering, reviewing, explaining, or changing client code, read
   `src/app/client/AGENTS.md` and `src/app/client/README.md`. Follow the relevant
   folder maps, namespace docstrings, and function docstrings into scoped source

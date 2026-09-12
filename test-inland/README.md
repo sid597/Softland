@@ -1,7 +1,7 @@
 # Inland verification
 
 [Product source entry](../src-inland/README.md) ·
-[Preserved build receipt](../docs/build-softland-in-softland/HANDOFF.md).
+[Preserved build receipt](../docs/builds/inland/README.md).
 
 This tree owns checks and their temporary evidence, not accepted product behavior.
 Choose the modality that can answer the question; a reference recipe interpreter
@@ -44,7 +44,7 @@ owned app during recovery. Test HTTP endpoints only read isolated accepted state
 hold admission or inject labelled faults. The product's transport remains Electric.
 After verification, `bin/inland stop-app` followed by `bin/inland serve` returns
 to normal mode without discarding data. Launch details belong in the
-[handoff](../docs/build-softland-in-softland/HANDOFF.md).
+[handoff](../docs/builds/inland/README.md).
 
 For documentation-only work:
 

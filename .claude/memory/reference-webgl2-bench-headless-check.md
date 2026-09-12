@@ -8,7 +8,7 @@ metadata:
   modified: 2026-09-05T19:52:00.583Z
 ---
 
-For a **WebGL2** single-file bench (the path-kind benches under `docs/below-the-waist/path-kind/bench-*/`), headless Chrome with SwiftShader renders real pixels and the shader compiles like on a GPU (proven 2026-09-05 by session 8 on bench 4, 2026-09-06 by session 9 on bench 9):
+For a **WebGL2** single-file bench (the path-kind benches under `history/docs/below-the-waist/path-kind/bench-*/`), headless Chrome with SwiftShader renders real pixels and the shader compiles like on a GPU (proven 2026-09-05 by session 8 on bench 4, 2026-09-06 by session 9 on bench 9):
 
 ```
 google-chrome --headless=new --no-sandbox --use-angle=swiftshader --use-gl=angle \

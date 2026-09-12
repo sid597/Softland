@@ -93,10 +93,10 @@ Caller order, camera/group buffers, scissors and pass lifetime stay with the
 caller; the Region3D tree golden exercises the placed-ink draw.
 
 The broader client pure suite remains red on the pre-existing placed-text
-provider error. The [pickup and push handoff](../../../../docs/below-the-waist/path-kind/production/HANDOFF-2.md)
+provider error. The [pickup and push handoff](../../../../history/docs/below-the-waist/path-kind/production/HANDOFF-2.md)
 links that receipt, the focused suite and the passing repository browser
 verifier. This slice adds a CPU pickup text golden; the GPU goldens and shader
-digests match. The [first production handoff](../../../../docs/below-the-waist/path-kind/production/HANDOFF-1.md)
+digests match. The [first production handoff](../../../../history/docs/below-the-waist/path-kind/production/HANDOFF-1.md)
 records the earlier intentional self-crossing and placed-ink tree goldens.
 Nearest-outline distance remains a distance
 to contributor outlines; exact external-boundary distance for overlapping

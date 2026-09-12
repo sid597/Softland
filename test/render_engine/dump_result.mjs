@@ -32,7 +32,7 @@ const chromeExecutable =
 // Default: headless SwiftShader, the verifier's own road. With
 // RENDER_VERIFIER_HARDWARE=1: headful on the desktop's display through the
 // Vulkan backend, which reaches the real adapter (the proven road in
-// docs/reference/desktop-browser-harness-road.md); the result's adapter
+// docs/guides/browser-verification.md); the result's adapter
 // block says which one ran.
 const hardware = process.env.RENDER_VERIFIER_HARDWARE === "1";
 const launchArgs = hardware

@@ -92,7 +92,7 @@ atom to dereference (claim `18`).
 
 ## Evidence and lookup
 
-- Operator documentation: `docs/reference/missionary-reference.txt`; verify
+- Operator documentation: `reference/missionary/docs/collected-reference.txt`; verify
   sensitive details in the resolved `missionary/core.cljc`.
 - Executable cases: `test/app/missionary_claims_test.clj`. Run a relevant subset
   when a proposed change depends on it; after a Missionary upgrade, run the

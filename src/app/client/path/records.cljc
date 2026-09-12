@@ -3,7 +3,7 @@
    by, as data.
 
    Input: none. Output: authored records for path/construction, the
-   same ones the bench ran (docs/below-the-waist/path-kind/bench-9/, with
+   same ones the bench ran (history/docs/below-the-waist/path-kind/bench-9/, with
    the measured numbers in its HANDOVER.md). The JVM tests and the browser
    harness read them from here so a record means one thing in both.
 

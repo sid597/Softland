@@ -4,7 +4,7 @@
    Input: device/shared buffers and the definer's records. Output:
    deterministic image records, CPU/GPU agreements, the dependency rates a
    frame reports, colour checks and completion. The five scenarios of the
-   first client change (docs/below-the-waist/path-kind/from-12-to-client.md):
+   first client change (history/docs/below-the-waist/path-kind/from-12-to-client.md):
    records through constructions; the crossing as a union and as dabs with
    the nonlinear width; one region meaning across readers and a returned
    path as a clip; edits and presentation at their own rates, including a

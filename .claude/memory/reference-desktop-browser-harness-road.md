@@ -25,7 +25,7 @@ objects, `:none` optimizations) but single-arity fns have NO
 `cljs$core$IFn$_invoke$arity$N` property — wrap with `.call(null, …)`.
 
 Repo-visible twin (2026-08-10, for the Codex lane / any session without this
-memory): `docs/reference/desktop-browser-harness-road.md` — adversarially
+memory): `docs/guides/browser-verification.md` — adversarially
 reviewed; its launch command is marked inferred-not-proven, so THIS memory
 holds the proven invocation. If the repo doc and this memory diverge, this
 memory wins until a session re-proves the road.

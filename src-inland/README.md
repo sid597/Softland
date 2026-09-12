@@ -10,11 +10,11 @@ Start with the question you are carrying:
 
 | Question | Enter here |
 |---|---|
-| What changed, how do I run it, and what actually ran? | [Build handoff and preserved evidence](../docs/build-softland-in-softland/HANDOFF.md) |
+| What changed, how do I run it, and what actually ran? | [Build handoff and preserved evidence](../docs/builds/inland/README.md) |
 | Who owns accepted truth, live work, local drafts or GPU resources? | [Runtime map](softland/inland/README.md) |
 | How is the instrument itself authored and changed? | [Authored material](../resources/inland/README.md) |
 | Where can I challenge a behavior with an existing check? | [Verification map](../test-inland/README.md) |
-| What was requested, and which native additions were recorded? | [Build brief](../docs/build-softland-in-softland/BUILD.md), [model](../docs/build-softland-in-softland/MODEL.md), [capability log](../docs/build-softland-in-softland/NATIVE-CAPABILITIES.md) |
+| What was requested, and which native additions were recorded? | [Build brief](../history/docs/build-softland-in-softland/BUILD.md), [model](../docs/builds/inland/intended-design.md), [capability log](../history/docs/build-softland-in-softland/NATIVE-CAPABILITIES.md) |
 
 The accepted data path is gesture → Electric recipe → proposal → Rama admission
 → owned ProxyState → Electric recomputation → Softland realization. External work

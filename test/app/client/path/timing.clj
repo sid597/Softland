@@ -7,7 +7,7 @@
 ;; The browser's numbers for the same code at scene scale come from the
 ;; harness's trace: `node test/render_engine/dump_result.mjs <out>` (add
 ;; RENDER_VERIFIER_HARDWARE=1 for the real adapter), then the trace block of
-;; <out>/path-step.json. docs/below-the-waist/path-kind/measurements-client-claude.md
+;; <out>/path-step.json. history/docs/below-the-waist/path-kind/measurements-client-claude.md
 ;; reads both.
 (require '[app.client.path.component :as c] '[app.client.path.construction :as construction] '[app.client.path.records :as r] '[app.client.path.pack :as pack])
 

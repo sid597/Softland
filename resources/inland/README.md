@@ -71,5 +71,5 @@ to descend to those contracts. There is no host `eval` for these records.
 Accepted metadata such as revision, actor and request id is assigned by admission,
 not proof supplied by the seed. Record validation is structural; bounds and known
 language limits are beside `total`, `execution`, `logic` and `activity`. The
-[demonstration receipts](../../docs/build-softland-in-softland/HANDOFF.md) establish
+[demonstration receipts](../../docs/builds/inland/README.md) establish
 which authored paths actually ran.

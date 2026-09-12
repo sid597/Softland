@@ -79,4 +79,4 @@ do not capture full transitive definition provenance; and `render` has one share
 workbench scene slot. `module/outcome*` derives revisions from current rows, so
 override delete/recreate does not guarantee distinct version identities. These
 are source-grounded limits, not newly exercised failure receipts or accepted
-changes to the [intended model](../../../docs/build-softland-in-softland/MODEL.md).
+changes to the [intended model](../../../docs/builds/inland/intended-design.md).

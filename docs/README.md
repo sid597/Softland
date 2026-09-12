@@ -1,26 +1,19 @@
-# Working documentation
+# Softland documentation
 
-Start with [carry-on](carry-on.md) for the vision reference summary and
-[the vision log](../vision/LOG.md) for the primary source. Before building,
-read the relevant [intended decisions](decisions.md).
+Choose the entrypoint for the question:
 
-The retained folders are:
+| Question | Start here |
+|---|---|
+| What are we trying to make possible? | [Carry-on](carry-on.md), the vision reference summary; [vision/LOG.md](../vision/LOG.md) is the primary source. |
+| Which intended choices do we currently hold? | [Decisions](decisions.md). |
+| Why did our understanding and implementation change? | [How we got here](how-we-got-here.md), with links to the original attempts. |
+| How do I run and use the current Inland build? | [Inland guide](builds/inland/README.md) and its scoped [intended design](builds/inland/intended-design.md). |
+| How does the implementation work? | The source-local maps: [client](../src/app/client/README.md) and [Inland](../src-inland/README.md). A comparable server hierarchy is still to be written. |
+| How do I use our browser verification setup? | [Browser verification guide](guides/browser-verification.md). |
+| What do our dependencies provide? | [Dependency references](../reference/README.md), separated into documentation and source snapshots. |
+| What did an earlier attempt propose or observe? | [History](../history/README.md). |
 
-- [build-softland-in-softland/](build-softland-in-softland/HANDOFF.md) — the
-  runnable build, intended model, continuation context, and evidence.
-- [below-the-waist/](below-the-waist/) — the current rendering, waist, and
-  Softland-in-Softland exploration area.
-- [reference/](reference/) — technical references and working reference notes.
-- [electric/](electric/) — local Electric source references; use the
-  [Electric guidance](../.agents/skills/electric-docs/SKILL.md) to check versions
-  and distinguish language capabilities from target integration.
-- [meta/](meta/README.md) — the working-method reference and its development.
-
-These working areas can contain dated records; keeping a folder here does not
-make every statement in it current or every proposal adopted. Use source-local
-maps to understand the implementation, including the
-[client map](../src/app/client/README.md) and [Inland map](../src-inland/README.md).
-
-Earlier work is preserved in [history/](../history/README.md). Consult it when
-its reasoning or evidence helps the question at hand. Its old instructions and
-unfinished steps do not become the current session's requirements.
+The vision, a build's intended design, the implemented behavior, and a recorded
+test result answer different questions. Keep their scope visible when using
+them. Historical instructions and unfinished work do not become current tasks
+through a reference link.

@@ -12,10 +12,10 @@ for an audit or explanation.
 ## Load Context Sparingly
 
 Read only the references needed for the immediate problem:
-- `docs/reference/missionary-reference.txt` for Missionary operators,
+- `reference/missionary/docs/collected-reference.txt` for Missionary operators,
   cancellation, backpressure, and task/flow semantics.
-- `docs/reference/electric-tutorial.txt` for Electric syntax and placement rules.
-- `docs/reference/electric-codebase.txt` when behavior depends on Electric
+- `reference/electric/docs/tutorial.txt` for Electric syntax and placement rules.
+- `reference/electric/source/codebase-snapshot.txt` when behavior depends on Electric
   internals or an error points into the library.
 
 ## Core Model

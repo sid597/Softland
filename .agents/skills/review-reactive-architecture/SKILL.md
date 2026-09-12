@@ -16,9 +16,9 @@ Inspect only the files needed to trace the reactive path:
 - upstream timers, watches, and event sources if recomputation cadence matters
 
 Read these references only when you need grounding or precise terminology:
-- `docs/reference/missionary-reference.txt`
-- `docs/reference/electric-tutorial.txt`
-- `docs/reference/electric-codebase.txt`
+- `reference/missionary/docs/collected-reference.txt`
+- `reference/electric/docs/tutorial.txt`
+- `reference/electric/source/codebase-snapshot.txt`
 
 ## What To Look For
 

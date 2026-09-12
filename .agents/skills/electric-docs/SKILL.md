@@ -62,7 +62,7 @@ The configuration checked on 2026-09-12 has Missionary `b.46` in the base
 `:inland` alias. `shadow-cljs.edn` contains the `:inland` browser build. Verify the
 relevant alias when working; these are checkout facts, not permanent choices.
 
-`docs/electric/` and `docs/reference/` are searchable reference material. The
+`reference/electric/source/` and `reference/` are searchable reference material. The
 copies of `electric3.cljc`, `electric_dom3.cljc`, and `incseq.cljc` were **not byte
 identical** to the resolved `-45` JAR in that check. Use them for orientation;
 verify version-sensitive claims against the resolved dependency source. Obtain
@@ -79,12 +79,12 @@ version, or licensing affects a decision.
 
 | Question | Entry point and useful symbols |
 |---|---|
-| How do Electric functions, tables, placement and lifetime work? | `docs/electric/electric3.cljc`: `defn`, `fn`, `input`, `watch`, `diff`, `diff-by`, `for`, `for-by`, `as-vec`, `client`, `server`, `on-unmount`, `boot-client`, `boot-server`. |
-| What does a sequence diff mean? | `docs/electric/incseq.cljc`: namespace docstring, `diff-by`, `patch-vec`, `items`. Follow the corresponding implementation in the resolved artifact when needed. |
-| Which parts assume DOM semantics? | `docs/electric/electric_dom3.cljc`: `mount-items`, `attach!`, `Text`, `element`, `props`, `On`; also `electric_dom3_events.cljc` and `electric_dom3_props.cljc` in that folder. |
-| How are forms, tokens and scrolling composed? | `docs/electric/electric_forms5.cljc`, `electric_tokens.cljc`, `electric_scroll0.cljc`; examples in `docs/reference/electric-tutorial.txt`. Read for behaviour and composition before adapting to Softland. |
-| What are the Missionary operators and practical traps? | [Missionary reference notes](references/missionary.md), then `docs/reference/missionary-reference.txt` or the resolved `missionary/core.cljc`. |
-| How do the compiler and runtime fit together? | `docs/reference/electric-codebase.txt`, then the relevant `hyperfiddle/electric/impl/` entry in the resolved artifact. Internal implementation is evidence, not automatically a supported extension API. |
+| How do Electric functions, tables, placement and lifetime work? | `reference/electric/source/electric3.cljc`: `defn`, `fn`, `input`, `watch`, `diff`, `diff-by`, `for`, `for-by`, `as-vec`, `client`, `server`, `on-unmount`, `boot-client`, `boot-server`. |
+| What does a sequence diff mean? | `reference/electric/source/incseq.cljc`: namespace docstring, `diff-by`, `patch-vec`, `items`. Follow the corresponding implementation in the resolved artifact when needed. |
+| Which parts assume DOM semantics? | `reference/electric/source/electric_dom3.cljc`: `mount-items`, `attach!`, `Text`, `element`, `props`, `On`; also `electric_dom3_events.cljc` and `electric_dom3_props.cljc` in that folder. |
+| How are forms, tokens and scrolling composed? | `reference/electric/source/electric_forms5.cljc`, `electric_tokens.cljc`, `electric_scroll0.cljc`; examples in `reference/electric/docs/tutorial.txt`. Read for behaviour and composition before adapting to Softland. |
+| What are the Missionary operators and practical traps? | [Missionary reference notes](references/missionary.md), then `reference/missionary/docs/collected-reference.txt` or the resolved `missionary/core.cljc`. |
+| How do the compiler and runtime fit together? | `reference/electric/source/codebase-snapshot.txt`, then the relevant `hyperfiddle/electric/impl/` entry in the resolved artifact. Internal implementation is evidence, not automatically a supported extension API. |
 
 For present Softland usage, enter through `src/app/client/AGENTS.md`,
 `src/app/client/README.md`, and `src-inland/README.md`. Follow their folder maps

@@ -40,14 +40,17 @@ protected.
   permanent requirements. Present contradictions in the conversation, rooted
   in relevant passages from carry-on and/or `vision/LOG.md`, as described in
   `CLAUDE.md` under "Reading the project".
-- `docs/meta/` — the loop we build with (README: the loop, prompt kinds, the
-  read step; LEDGER: how the loop changes, dated); consult before shaping any
-  round or prompt; instances point from it, never copy into it.
-- `docs/README.md` — retained working areas and references. `history/` preserves
+- `docs/README.md` — current documentation entrypoints; `docs/how-we-got-here.md`
+  explains the changes in understanding that led to the Inland build.
+  `reference/README.md` distinguishes dependency docs from source snapshots.
+  Current implementation explanations stay with their code. `history/` preserves
   earlier work and its reasoning/evidence; consult it for a relevant question,
   not as default session context. Historical "current", "binding", and "next"
   instructions are not present requirements or tasks. See `CLAUDE.md` under
   "Reading the project" and `history/README.md` for how to use the archive.
+- The former `meta/` workflow is a historical experiment, not a standing method
+  or a required read before a round or prompt. Its observations can inform a
+  question without importing the whole procedure.
 - `vision/LOG.md` — the primary source, verbatim (his words, append-only).
   Follow carry-on's source pointers when wording or context matters. Surface
   any difference between a summary and the source; trust no compression of it,

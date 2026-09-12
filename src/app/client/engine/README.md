@@ -50,7 +50,7 @@ phase as well as item/step position. A continuation keeps committed loop
 state even if replayed pre-loop work pends again, and retains the producer
 records used to check `:from` inputs. Tests: `executor_pending_test.clj`.
 The current caller owns grants and continuation storage; no scheduler is
-implemented. [The adopted ownership ruling](../../../../docs/below-the-waist/production/DESIGN-1.md#12-read-derivation-custody--ruled-by-sid-2026-09-07)
+implemented. [The adopted ownership ruling](../../../../history/docs/below-the-waist/production/DESIGN-1.md#12-read-derivation-custody--ruled-by-sid-2026-09-07)
 keeps the paused continuation in the session's uncommitted store under the
 read it awaits, never as a row. The store's own runner executes the read's
 request row and produces a derived row under its full declared input value;

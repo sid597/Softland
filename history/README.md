@@ -8,6 +8,13 @@ revisit an assumption, or understand recorded evidence.
 |---|---|
 | Historical work folders and reports from `docs/` | [docs/](docs/) |
 | `OLD DOCS/` | [old-docs/](old-docs/) |
+| `docs/below-the-waist/` | [Rendering and authored-material exploration](docs/below-the-waist/) |
+| `docs/meta/` | [Parallel build-and-review workflow experiment](workflow-experiments/parallel-build-review/README.md) |
+| Original `docs/build-softland-in-softland/` records | [Inland build history](docs/build-softland-in-softland/); use [the maintained guide](../docs/builds/inland/README.md) to run the build. |
+
+[How we got here](../docs/how-we-got-here.md) provides a selective account of the
+questions and changes leading to Inland. The workflow experiment is preserved
+for examination; it is not a standing procedure or a required session boot.
 
 Begin ordinary work with [the current documentation](../docs/README.md) and the
 relevant source maps. Consult the archive when a specific question needs it.

@@ -100,7 +100,7 @@ def main():
     js_helpers = re.findall(r'^const (\w+)\s*=.*=>', browser, re.M)
     assert all(re.search(r'/\*\*[^\n]*\*/\nconst '+name+r'\s*=', browser) for name in js_helpers)
     links = 0
-    documents = MAPS + [Path('src/app/client/README.md'), Path('docs/build-softland-in-softland/HANDOFF.md')]
+    documents = MAPS + [Path('src/app/client/README.md'), Path('docs/builds/inland/README.md')]
     for document in documents:
         source = (ROOT / document).read_text()
         for target in re.findall(r'\[[^\]]*\]\(([^)]+)\)', source):
