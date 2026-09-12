@@ -125,39 +125,34 @@ identifiers, folder names and namespaces rename in the step that touches
 each file, never a sweep; until then a doc names the identifier in
 backticks and the concept in this vocabulary.
 
-**In Sid's words: this is the Electric-native arc** — the settled answer
-to "electric has the differential datalog … why not we building electric
-native and equivalent." Four dispositions, permanent, so no briefing loses
-them again. **Electric the transport**: the Electric wire is gone (it left
-the tree at the waist cut, ); the owned transport — SSE + Missionary,
-a frozen transport-agnostic feed, `docs/electric-native/CONTRACT.md` — IS the
-transport. **Electric the runtime internals** (keyed per-item flows, diffs
-emitted at writes, the item/writer split) are mined from source as reading
-reference only: their design IS this section's store contract, re-keyed for
-our GPU target instead of the DOM. **Electric the language as entity-template host**:
-ruled  **entity templates are data all the way** — an entity template's authored
-form is data for every inhabitant, human and agent, never
-source code; which host executes the entity-template spec's interpretation is machinery,
-never a product fork. **Missionary** is the soil, pinned directly in
-`deps.edn`: it runs the frame-edge GPU write today and the per-key flows next, engaged
-at named points, never ambient. **"Softland as target"** means the scene
-store + GPU write IS the compile target, and the entity-template spec (declared
-inputs) is Softland's own compiler. Hyperfiddle has left Clojure (Electric
-v4 is JavaScript + WebAssembly; v3 is a frozen proprietary alpha); Sid,
-2026-08-30, verbatim: "for existing electric i think they can be used as
-reference on how to do things reactive way in missionary and clojure so that
-is useful part imo … i think we have move past that we are going to copy
-electric blindly because its for dom ours is multi-engine softland target".
-"Electric" in the arc's name and in North names the shape — two arrows —
-never the library. Briefings of this area carry BOTH vocabularies; renaming
-the arc makes it invisible to Sid.
+**Electric and the Softland target.** Softland's presentation target is its own
+rendering system. Electric v3's supplied UI integration targets the DOM, while
+its reactive language offers functions, tracked dependencies, keyed occurrences,
+conditional lifetime, and client/server placement. The place to examine their
+meeting is the UI/client work that turns changing values and interaction into
+presentation. Softland must define the meaning of its scene, spatial input,
+resource ownership, draw order, and frame scheduling.
 
-**Scoped exception: the Smalltalk/Electric experiment .**
-Sid's implementation request explicitly authorized the isolated experiment:
+How much of Electric to use, and where to connect it, remain implementation
+decisions. Learning from its source while using Missionary, using actual
+Electric computations to feed Softland rendering, and building Softland target
+bindings are possibilities to investigate. `e/defn` and `e/diff` are candidates
+whose compiler/runtime requirements and behaviour need checking; mentioning
+them chooses neither the integration nor the architecture. A DOM target does
+not make every Electric affordance irrelevant, and an existing integration
+does not establish the system we should build.
 
-> Electric here means the actual Electric compiler/runtime. This request
-> authorizes introducing it in this isolated worktree, including where older
-> project guidance treated Electric as reference only.
+The authored form of entity templates remains data that humans and agents can
+create and change inside the medium. Which host executes that material is an
+implementation choice; choosing a reactive host does not itself satisfy the
+authorship requirement.
+
+**Implementation observed 2026-09-12:** `deps.edn` pins Missionary directly and
+adds actual Electric in the `:inland` alias. `src-inland/README.md` maps the
+current product caller of Softland's renderers. This describes the checkout;
+it does not settle how far to adopt that implementation. Use `electric-docs`
+for source lookup and the language/target distinctions, checking the version
+and source path relevant to the work.
 
 
 
