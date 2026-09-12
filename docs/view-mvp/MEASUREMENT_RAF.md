@@ -1,5 +1,9 @@
 # MEASUREMENT_RAF — WP-B2 gate 15 evidence (Sid's first boot, 2026-07-05)
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../carry-on.md) as a reference summary
+and [the vision log](../../vision/LOG.md) as the primary source.
+
 Collected at Sid's app boot (`clj -A:dev -X dev/-main` → `/trail timeline`),
 the first boot to run the full git-spine sweep (replay → spine-sync →
 extract) over the real repo + transcript corpus. WP-B2 was gate-PASSED

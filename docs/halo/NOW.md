@@ -1,5 +1,9 @@
 # halo — thread file
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../carry-on.md) as a reference summary
+and [the vision log](../../vision/LOG.md) as the primary source.
+
 ## STANDING (frozen at package open 2026-07-29 — do not edit while active)
 
 - **Binding docs:** `CONTRACT.md` (this package; carries plan-grade

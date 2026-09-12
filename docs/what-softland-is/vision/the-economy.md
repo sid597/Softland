@@ -1,5 +1,9 @@
 # The Economy
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../../carry-on.md) as a reference summary
+and [the vision log](../../../vision/LOG.md) as the primary source.
+
 > LOG extraction — Sid's words verbatim from `vision/LOG.md` (repo root),
 > cited by entry; nothing new written here. This file owns the lived
 > economy picture. The essays carry the economy only as three currencies on

@@ -1,5 +1,9 @@
 # Fork 2 — RULED: one substrate
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../carry-on.md) as a reference summary
+and [the vision log](../../vision/LOG.md) as the primary source.
+
 > **"ONE SUBSTRATE TO RULE THEM ALL"** — Sid, at the ruling, 2026-07-06
 
 **Status: RULED by Sid in-session 2026-07-06** (the Track-D sitting opened

@@ -2,6 +2,18 @@
 
 A thematic reading of [Sid's vision log](../vision/LOG.md), through its final entry on 7 September 2026. This is a proposed organization of the thinking. The prose is synthesized, with a few short phrases kept from the source. Questions remain questions, and local implementation choices retain their context. The source guide at the end covers all 71 entries.
 
+Start here to understand the vision and develop the question further. Use this
+as a reference summary; historical suggestions are not automatically present
+requirements, and desired capabilities are not automatically immediate tasks.
+The log remains the primary source in Sid's words.
+
+When a proposal, implementation, or another document appears to contradict this
+understanding, bring the discrepancy into the conversation. Point to the
+relevant passages here and/or in the log, explain the conflict and your
+interpretation, and give a reasoned position. If this summary differs from the
+source, surface that difference too. Preserve what remains open instead of
+silently choosing a reading or rewriting the vision to fit the current system.
+
 ## The thread through the log
 
 I want to understand where I am, work on what I care about, see what that work changes, and carry the understanding forward. I want to do this at whatever scale the question needs: a sentence, a component, a codebase, a research problem, a field, or the relationships between fields. Other humans and agents should be able to join, understand, and build from there.
@@ -40,7 +52,7 @@ AI is a symbiotic aid in this vision, and the platform should remain usable with
 
 This is a social world for collective intelligence. Someone learns from existing science, finds an engineering possibility, builds it, and contributes the result in the same ecosystem. The data and interfaces should connect that entire journey. The first useful setting is making sense of Softland and building it; the scientific and collective ambitions remain the reason to make the setting general.
 
-The bets should become work. The July idea for `BETS.md` is a place to gather claims and hypotheses, then use the model to break them down and put effort toward making them real. The model should also ask questions about the vision so that we can make better-informed bets together. A meaningful test of intelligence is making something possible that was not possible before.
+The bets should become work. The July suggestion was to gather claims and hypotheses, then use the model to break them down and put effort toward making them real. The model should also ask questions about the vision so that we can make better-informed bets together. A meaningful test of intelligence is making something possible that was not possible before.
 
 Care is central to who drives this. Humans inhabit, inspect, question, and steer the land. In the July reflection, the distinction between humans and current agents is that a human can care about a problem deeply and keep pursuing it; the agent acts on someone's behalf. Greater model intelligence can be exciting to someone who cares, because it gives them more to explore and build on. This is a hypothesis about the relationship, expressed with uncertainty in the log.
 

@@ -1,5 +1,9 @@
 # smalltalk-ui-vm — the noun becomes material: anatomy, interpreter, Workshop
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../carry-on.md) as a reference summary
+and [the vision log](../../vision/LOG.md) as the primary source.
+
 Cut 2026-07-30 in the workshop-realization session (Sid: "lets write down
 what all we discussed … goooo write out"), from the same-day DIRECTION
 (SETTLED, this directory) and `vision/LOG.md` 2026-07-30. Every manifest

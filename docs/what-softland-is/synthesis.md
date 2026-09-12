@@ -1,5 +1,9 @@
 # Synthesis — the Arrows Drawn
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../carry-on.md) as a reference summary
+and [the vision log](../../vision/LOG.md) as the primary source.
+
 > **Derived, not testimony** — the one surface in this folder that is a map
 > a session made, not words anyone said. Every node is owned elsewhere;
 > this file only draws arrows between owned facts and names what the

@@ -1,5 +1,9 @@
 # UI Design Pass — Top-Layer Design Briefs · 2026-07-06 · v3
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../../../docs/carry-on.md) as a reference summary
+and [the vision log](../../../vision/LOG.md) as the primary source.
+
 **Standing:** Fable-authored briefs for the design harness (claude.ai), sitting 3.
 v3 after Sid's override: **problem-first**. v2 led with mood and framed System 1
 as "the wall made alive" — Sid killed that on sight ("the goal of code is not to

@@ -35,13 +35,18 @@ protected.
 
 ## Ground
 
-- `docs/BETS.md` — North (direction; only Sid rewrites
-  it) + the bet ladder; never cache statuses.
+- `docs/carry-on.md` — the entrypoint for understanding the vision: a reference
+  summary that helps develop the question, not a list of immediate tasks or
+  permanent requirements. Present contradictions in the conversation, rooted
+  in relevant passages from carry-on and/or `vision/LOG.md`, as described in
+  `CLAUDE.md` under "Reading the project".
 - `docs/meta/` — the loop we build with (README: the loop, prompt kinds, the
   read step; LEDGER: how the loop changes, dated); consult before shaping any
   round or prompt; instances point from it, never copy into it.
-- `vision/LOG.md` — the soul, verbatim (his words, append-only). Read primary
-  when it matters; trust no compression of it, including this file's.
+- `vision/LOG.md` — the primary source, verbatim (his words, append-only).
+  Follow carry-on's source pointers when wording or context matters. Surface
+  any difference between a summary and the source; trust no compression of it,
+  including this file's.
 
 
 ## SUGGESTIONS USE AT YOUR DISCRETION

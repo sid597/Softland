@@ -9,6 +9,9 @@
 ;; RUN PIN (2026-07-05, freeze-gate session): snapshot sha 127376b0…
 ;; materialized at :snapshot-dir; MANIFEST.edn inside it records bank-hash,
 ;; the CLAUDE.md out-of-tree content-hash, and the ablation amendment below.
+;; BETS.md paths below belong to that frozen snapshot. The current repository
+;; uses docs/carry-on.md as its vision reference and vision/LOG.md as primary;
+;; do not substitute them into this historical benchmark's inputs or golds.
 ;;
 ;; ABLATION AMENDMENT (pre-first-subject-call, recorded in MANIFEST.edn):
 ;; SPEC §1/ABLATIONS.md's A0 include of docs/current-mental-model/** measured

@@ -158,6 +158,8 @@
 ;; A tiny in-memory fixture so `--dry-run` always produces output even with no
 ;; snapshot dir on disk. Includes a build/model-uxr canary that MUST be excluded
 ;; by the contamination guard — if it ever leaks, dry-run throws (self-test).
+;; The retired BETS.md entry represents historical snapshot material. It is
+;; not a current repo pointer; vision orientation starts at docs/carry-on.md.
 (def ^:private fixture-files
   {"CLAUDE.md"
    (str "## Decision Log — BINDING\n"

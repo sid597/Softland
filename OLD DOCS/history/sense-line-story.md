@@ -1,5 +1,9 @@
 # Sense line — the full story
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../../docs/carry-on.md) as a reference summary
+and [the vision log](../../vision/LOG.md) as the primary source.
+
 **What this is.** Sid's 12-07-2026 notebook page opens *"Sense line → Made a UI
 then realised dont want it like this,"* and its History paragraph compresses
 three months into nine sentences. This document is that story filled out and

@@ -1,5 +1,9 @@
 # Local-model sovereignty — intake + recon (2026-07-05)
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../../docs/carry-on.md) as a reference summary
+and [the vision log](../../vision/LOG.md) as the primary source.
+
 **What this file is:** pre-read for the Candidates intake sitting (D-007
 pipeline). Verbatim source: `vision/LOG.md` 2026-07-05 — "local models over my
 own land: the sovereignty hypothesis + benchmarks for models". The candidate

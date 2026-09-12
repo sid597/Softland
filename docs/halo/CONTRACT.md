@@ -1,5 +1,9 @@
 # halo — one reserved meta-gesture, condensation at the citizen
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../carry-on.md) as a reference summary
+and [the vision log](../../vision/LOG.md) as the primary source.
+
 Cut 2026-07-29 in the halo contract session (Sid: "i agree with all lets
 go"), from the 2026-07-28 halo recognition (`vision/LOG.md` 2026-07-28 —
 Self/Morphic halos shown, Sid: "have i not been saying this same thing…";

@@ -25,6 +25,17 @@ and usefulness to its inhabitant distinguishable.
 
 ## Reading the project
 
+- Start with `docs/carry-on.md` to understand the vision and the developing
+  question. It is a reference summary, not a task list or a set of permanent
+  requirements. `vision/LOG.md` remains the primary source in Sid's words.
+  When a proposal, implementation, or document appears to contradict that
+  understanding, present the relevant passages from carry-on and/or the log
+  in the conversation, explain the discrepancy, and give your reasoned view.
+  Surface differences between the summary and its source too; do not silently
+  resolve a contradiction by rewriting the vision or treating an old suggestion
+  as a current decision.
+  `BETS.md` is retired; mentions in historical records, quoted prompts, and
+  frozen benchmark material refer to that earlier document, not current guidance.
 - Use `.claude/memory/MEMORY.md` for the retained working preferences. Read it
   if it is not already in the session context; consult its supporting notes
   when relevant to the task.

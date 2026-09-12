@@ -1,5 +1,9 @@
 # smalltalk-ui-vm — the Workshop: component types become living material
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../carry-on.md) as a reference summary
+and [the vision log](../../vision/LOG.md) as the primary source.
+
 **Status: SETTLED as direction 2026-07-30** — one direction sitting (Sid +
 Fable), three corrections by Sid folded in as they landed: the Workshop is
 NOT built (organs ≠ loop) · three strata, not two ("the code editor is

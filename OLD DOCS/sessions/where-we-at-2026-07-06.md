@@ -1,5 +1,9 @@
 # "Where we at, Softland" — orientation opener (baseline: post-Trunk-5 wave, 2026-07-06)
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../../docs/carry-on.md) as a reference summary
+and [the vision log](../../vision/LOG.md) as the primary source.
+
 Paste-ready prompt for a fresh orientation session. Written at the Trunk-4
 orientation session's close; anywhere this recap and the repo disagree, the
 repo wins.

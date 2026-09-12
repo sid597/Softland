@@ -1,5 +1,9 @@
 # Sitting-3 queue — Track C · captured 2026-07-05 at Window-1 close
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../../../docs/carry-on.md) as a reference summary
+and [the vision log](../../../vision/LOG.md) as the primary source.
+
 **Standing:** queue, not rulings. Delivered by the sitting-2 designer at window
 close (relayed via Sid, verbatim below); filed by HQ so it survives the window.
 Sitting 3 boots from this file + `room-card-lane-2026-07-05.md` + the

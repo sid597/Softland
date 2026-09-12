@@ -1,5 +1,9 @@
 # Render-North INPUTS — the assembled manifest (Track D direction study)
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../carry-on.md) as a reference summary
+and [the vision log](../../vision/LOG.md) as the primary source.
+
 **Written 2026-07-05 (Fable, render-north direction session).** This file exists so
 no future session re-gathers the inputs to the framework-north question. It is a
 manifest with load-bearing gists — every gist cites its source; on any doubt the

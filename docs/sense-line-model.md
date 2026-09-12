@@ -4,7 +4,7 @@
 
 ## What this document is
 
-The boot document for **direction-level sessions** — the "where are we going" conversations. Before one of those, read this + `BETS.md` North + the tail of `vision/LOG.md`, and nothing else. It exists because the land's other documents are written at execution altitude, and they mis-tune a fresh mind toward ticket-queues (observed 2026-07-07: the register-pollution event — the same model that produced the gold-standard reply produced baton-speak after loading the operational docs).
+A July 2026 model for **direction-level sessions** — the "where are we going" conversations. Start with [carry-on](carry-on.md) as the vision reference summary and follow its pointers to [Sid's primary log](../vision/LOG.md). Read this model when it helps the question at hand; present any contradictions against those sources in the conversation. This model grew from the observation that execution documents could mis-tune a fresh mind toward ticket-queues (observed 2026-07-07: the register-pollution event — the same model that produced the gold-standard reply produced baton-speak after loading the operational docs).
 
 This is not a spec, not a contract, not a baton. No tasks live here.
 

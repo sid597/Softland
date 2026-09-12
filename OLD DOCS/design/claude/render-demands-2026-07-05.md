@@ -1,5 +1,9 @@
 # Render Demands — what the land asks of its framework
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../../../docs/carry-on.md) as a reference summary
+and [the vision log](../../../vision/LOG.md) as the primary source.
+
 **Track C → Track D handoff.** Written 2026-07-05 at the close of the Track-C
 write-gesture sitting (Fable, designer lens, Sid live). This is the DEMAND side
 only: what the framework must make possible, extracted from artifacts that

@@ -117,7 +117,9 @@ intake/*.md
   -> dated "painting" decompositions of rich sessions: every thread typed
      (claim / hypothesis / question / work / decision) with parallelism
      status and triggers
-  -> pre-reads for BETS.md Candidates intake sittings
+  -> historical pre-reads for the retired bet-candidate intake process;
+     vision orientation now starts at docs/carry-on.md (reference summary),
+     with vision/LOG.md as the primary source
   -> first: intake/2026-07-04-painting.md
 
 Post `1ef1cbd`, active code uses space/turn vocabulary. Older docs that say

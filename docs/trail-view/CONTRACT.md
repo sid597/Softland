@@ -1,5 +1,9 @@
 # Trail-View Data Contract — WP1 (data layer only; no pixels)
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../carry-on.md) as a reference summary
+and [the vision log](../../vision/LOG.md) as the primary source.
+
 Status: v1 **BINDING** (Fable, 2026-07-04, Track-A WP1 contract session;
 **countersigned by Sid 2026-07-04 in-session** — "Countersigned as yes").
 Implements D-002 (first form = trail view) and D-005 (view-first) on the

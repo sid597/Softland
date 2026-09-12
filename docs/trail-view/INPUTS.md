@@ -1,5 +1,9 @@
 # Trail-View Data Contract — Input Manifest (pre-contract)
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../carry-on.md) as a reference summary
+and [the vision log](../../vision/LOG.md) as the primary source.
+
 Gathered 2026-07-03/04 (bet-foundry + deep-thinking sessions with Sid).
 Status: INPUT to the contract, not the contract. The contract itself opens in
 a FRESH session per `.claude/skills/work-package/SKILL.md` (one phase per

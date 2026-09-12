@@ -1,5 +1,9 @@
 # FIRST_LIGHT.md — view-MVP WP-B2 (2026-07-05, Sid live)
 
+References below to `BETS.md` are historical; that document is retired.
+For vision orientation, use [carry-on](../carry-on.md) as a reference summary
+and [the vision log](../../vision/LOG.md) as the primary source.
+
 The H1 clock-start record (CONTRACT §11, post-gate). D-001 form-break
 evidence for the next slice accumulates HERE.
 
