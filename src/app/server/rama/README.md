@@ -113,8 +113,8 @@ face-name/wear-id is a no-op. Registration updates a pointer and supplied validi
 metadata; it does not validate face material itself. Unregistration removes the
 pointer while retaining usage. [page/face_projection.clj](../page/face_projection.clj)
 reads the roster/usage wrappers. Registration and wear append helpers remain
-available here; no outside caller of those write helpers was found in the checked
-`src/` and `src-inland/` tree. Their presence is not evidence of a current UI write.
+available here; no caller of those write helpers was found elsewhere in `src/`.
+Their presence is not evidence of a current UI write.
 
 Trail views read OC/operations through mirrors, then combine those results with
 relation queries in foreign-client code. A mirror references the owning module's
@@ -153,9 +153,7 @@ operations. These differences should not be inferred away from the similar names
 
 The epoch counter has current increment sites in ingest, page, worn, and episode
 code. No presentation subscription to it was found in the checked source tree;
-increments alone do not establish a reactive refresh path. The separately mapped
-[Inland product](../../../../src-inland/README.md) has its own accepted-state
-runtime; this map does not make these modules its storage implementation.
+increments alone do not establish a reactive refresh path.
 
 Read a file's namespace docstring for its computation and boundaries, then its
 function docstrings for inputs, results, side effects, and preconditions. Keep

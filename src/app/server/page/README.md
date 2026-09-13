@@ -11,8 +11,6 @@ room entry and rollback checks call `face-projection/serve`; episode turns call
 its seed and briefing helpers. Room entry can **write** residents through the
 import/edit paths even though the portal projection it reads is read-only.
 These are traced server call sites, not evidence of a running browser flow.
-The separate [Inland product map](../../../../src-inland/README.md) describes
-its own path; this folder's declarations do not establish an Inland consumer.
 
 ```mermaid
 flowchart TD

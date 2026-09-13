@@ -6,6 +6,11 @@ role; child files explain its implementation. Read only the branches needed
 for the question, following callers and dependencies when the relationship
 crosses a folder boundary.
 
+Keep each map focused on the files and child folders beneath it. Introduce an
+outside dependency or caller at the specific boundary where it explains that
+code. Leave separate-build overviews and prospective integrations out of these
+source maps.
+
 Each level has one home:
 
 - `server/README.md`: server responsibility, entry points and relationships

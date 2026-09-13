@@ -2,6 +2,8 @@
 
 Read the containing folder's README and the relevant namespace/function docstrings when entering a scope. Use parent maps to understand its architectural role; descend into child files for implementation detail.
 
+Keep each map focused on the files and child folders beneath it. Introduce an outside dependency or caller at the specific boundary where it explains that code. Leave separate-build overviews and prospective integrations out of these source maps.
+
 Each level has one home:
 
 - `client/README.md`: client responsibility and relationships among immediate folders.

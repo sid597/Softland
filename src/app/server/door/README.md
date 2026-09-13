@@ -32,8 +32,7 @@ stages. Each route's function docstring states which stage it waits for.
 [dev](../../../../src-dev/dev.cljc) and
 [prod](../../../../src-prod/prod.cljc) call `start-server!`. Its middleware handles
 explicit `/api/*` act paths and otherwise returns the downstream 404. It does not
-install a browser application or Electric handler. The
-[Inland product](../../../../src-inland/README.md) has a separate server entry.
+install a browser application or Electric handler.
 This registration trace establishes a callable path, not a fresh runtime receipt.
 
 `wrap-file-api` owns route dispatch. Relations go to

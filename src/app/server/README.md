@@ -6,12 +6,6 @@ conversation turns, revisioned facet material, projections, and their Rama
 storage. It includes reusable value transformations, foreign clients and module
 definitions; a file's presence does not mean the HTTP host starts it.
 
-The [Inland build](../../../src-inland/README.md) has a separate entry point,
-Rama module, connection and process lifecycle under `src-inland/`. Its server
-does not boot this tree's HTTP application. It uses the
-[client renderers](../client/README.md), whose source hierarchy describes that
-rendering boundary. Use each map for the implementation it actually covers.
-
 ## Enter a scope
 
 | Folder | Responsibility | State and boundary |

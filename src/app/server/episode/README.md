@@ -15,7 +15,7 @@ separate `llm-module` lifecycle defined here.
 | [material_circulation.clj](material_circulation.clj) | Capture mechanical receipts, bank explicit references, annotate material, and compose experience with historical activation context. | OC owns receipt carriers and annotation records; the relation kernel owns accepted edges; LLM owns run state. No local mutable store. |
 | [machine_cut.clj](machine_cut.clj) | Pair responses with human prompts over a bounded transcript page and reconcile this annotator's relations. | Borrows OC, relation and LLM runtimes. Writes `data/machine-cut-log.ednl` before relation requests; replay uses that file without another model call. |
 | [cascade.clj](cascade.clj) | Enumerate trigger/handler declarations and dispatch matching handlers. | Static declaration vector and unretained best-effort futures; no durable queue, retry or completion receipt. |
-| [claude_cli.cljc](claude_cli.cljc) | Build generic provider argv and normalize complete Claude JSON output. | Pure helpers. No caller was found in `src/`, `src-inland/`, `bin/` or `test/`; the two execution paths above use their own argv builders. |
+| [claude_cli.cljc](claude_cli.cljc) | Build generic provider argv and normalize complete Claude JSON output. | Pure helpers. The two execution paths above use their own argv builders. |
 
 There are no child scopes. Descend into a namespace's docstring for its inputs,
 outputs and approach, then into function docstrings for local contracts.
