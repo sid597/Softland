@@ -56,9 +56,11 @@ and usefulness to its inhabitant distinguishable.
   procedure or a required read before making a prompt. Reuse observations when
   they help the question without making the entire method compulsory.
 - Before gathering, reviewing, explaining, or changing client or server code,
-  read that source root's guidance and map: `src/app/client/AGENTS.md` and
-  `src/app/client/README.md`, or `src/app/server/AGENTS.md` and
-  `src/app/server/README.md`, respectively. Follow the relevant
+  read that source root's guidance and map: `src/app/client/CLAUDE.md` and
+  `src/app/client/README.md`, or `src/app/server/CLAUDE.md` and
+  `src/app/server/README.md`, respectively. Each source root's `AGENTS.md`
+  points to its `CLAUDE.md`, so both agents use the same upkeep instructions.
+  Follow the relevant
   folder maps, namespace docstrings, and function docstrings into scoped source
   reads. Keep affected explanations and their immediate parent maps aligned
   with code changes, as those instructions describe.
