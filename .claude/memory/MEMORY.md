@@ -108,3 +108,4 @@ thinking has to start mid-read, runs on one effort and that is fine.
   Claude Code and Codex. Search dimensions and reading depth are the session's
   judgment; the tools expose evidence and coverage. Also links the source-backed
   persona and `/ask-as-sid` for a perspective on how Sid might respond.
+- [Requirements noticing is not Sid's job](project-requirements-noticing-not-sids-job.md) — misses are facts inside the medium, a scribe chair extracts them outside it, the main chair adjudicates at settlement (settled 2026-09-13).

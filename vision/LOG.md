@@ -1360,3 +1360,15 @@ marketplace split DOWN to bet — never constitution.)*
 > So how I was going this? like first blindside kind of things on this tool and let whatever is that it is. build out the client. And in the client, we would be able to see then, like, the first thing that client from the base layers is a lens planned code base itself. Try to make a three d, two d, whatever type of canvas. would be the best one to analyze the codebase from the artificial point of view and how they are implemented, how all this maps together. So this would be, like, Softland looking on the... and then from there, I could use Softland to modify the codebase itself that stinging. But the... it seems many current CD and the paths done. We all... we text based think. Next step is, like, how the UI looks. and then is the mass. I tried it once before and failed miserably. Not at all. And there... what do you think if I frame question and my
 
 *(Same session, on the handoff to the next chair: "just don't bias it with your or codex's solutions ... add the context of whatever you and codex extracted. And then we give it the prompt to do its own thinking." Routed: thread aim for the next chair; starter at `docs/below-the-waist/visioning-2026-09-07/STARTER.md`.)*
+
+## 2026-09-13 — affordances in context, not a pre-baked view; the meta-noting cannot be mine (verbatim)
+
+*[Context: the morning after S71. Sid first reached for a 3D megastructure of the codebase over src-inland, then pulled back the same afternoon, then asked who records requirements if the integration is the work. Three chairs and two rounds of feedback; settled the same day into docs/builds/inland/integration.md.]*
+
+> the architecture docs hierarchy is like the city planning, the the folders are like blocks, and implementation is like a building in block ... other things like data transfer is like pipes, elcetricty cables etc. etc. [...] what if we first built out this layer of visualisation etc on top of src-inland because we do need a way to be bidirectional and then we look at that view and work on it
+
+> but you know what this is like an area of research and if i get into this right now i will not go anywhere ... there is a clear bigger usecase of using discourse garphs on the biology usecase because there we have physical objects that we can map directly here its quite meta and all hci research ... maybe the best thing we can do is have like all the affordances to be able to run all of these in context nd we don't have to pre bake anything ui is used according to the nature of chat so it does provide the value currently at this phase we have just too many options and a clear instance of implementation that needs to exist and work out
+
+> what i hear is lets carry on the actual work but note down the requirements as we go .. but how will i note down the requirements its will be too meta and i will not be able to focus on making sense, decision on the main task and also note down meta (though i think i can but I can't take the responsibilty directly)
+
+*(Routed same-session: the starter above; memory `project-requirements-noticing-not-sids-job`.)*
