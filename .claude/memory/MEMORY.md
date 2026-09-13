@@ -103,7 +103,8 @@ thinking has to start mid-read, runs on one effort and that is fine.
   — consult before driving the app for WebGPU runtime receipts: the proven
   headful-:0/vulkan road, the two failing roads, dev-build patch gotchas.
 
-- [recall + persona](reference-recall-prompt-memory.md) — consult before quoting
-  Sid's past words or writing in his register: `recall search` over every prompt
-  he typed (Claude Code + Codex, self-growing), `persona/SID.md` (uuid-anchored),
-  `/ask-as-sid` pre-check. Built 2026-08-23.
+- [Recall + persona](reference-recall-prompt-memory.md) — prior reasoning, changed
+  decisions, recent activity, source passages and conversational context across
+  Claude Code and Codex. Search dimensions and reading depth are the session's
+  judgment; the tools expose evidence and coverage. Also links the source-backed
+  persona and `/ask-as-sid` for a perspective on how Sid might respond.

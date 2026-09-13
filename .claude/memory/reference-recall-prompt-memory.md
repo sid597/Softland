@@ -1,43 +1,40 @@
 ---
 name: reference-recall-prompt-memory
-description: Where Sid's prompt-recall tool (hybrid search over every prompt he ever typed, Claude Code + Codex) and his evidence-built persona live, and how a session should use them
+description: Recall capabilities, evidence boundaries, and Sid's source-backed persona
 metadata:
   type: reference
 ---
 
-`/mnt/data/projects/recall` (git repo) — `recall search "…" [-p project] [--since]` · `recall show <uuid> [--session]`
-· web http://127.0.0.1:7337 · MCP `recall mcp` (search_prompts · get_prompt · session_thread · recent_prompts · prompt_occurrences · list_projects).
-A systemd user unit (`recall.service`) re-indexes new transcript bytes every 30 s and embeds with bge-m3 on the
-local GPUs via Ollama, so it grows by itself. DB: `~/.local/share/recall/recall.db`.
-Persona: `persona/SID.md` — every quote carries a uuid that `recall show` opens; reader digests in
-`persona/digests/`; held-out test receipt `persona/holdout-results.md`; re-derive per `persona/REGENERATE.md`.
-Skill: `/ask-as-sid` (user-level) — Sid-voiced pushbacks/questions on an artifact, with confidence tags.
+Recall makes indexed Claude Code and Codex conversations available as evidence. It can recover why a choice
+was made, how a question developed, what later qualified an earlier position, or what was happening near a
+particular time. A decision may be settled in a conversation even when it never reached a decisions file.
+Whether recall is useful, which dimensions to explore, how far to follow them, and when there is enough
+evidence are the session's judgment.
 
-**Why:** Sid asked (2026-08-23) for a persona he can use to "question the system in my language" at ~30–40 %
-fidelity, and a local semantic search over all his prompts; both are built from the same corpus.
-**How to apply:** before asserting "Sid said X" or writing a starter in his register, search his real words;
-before handing him anything big, run /ask-as-sid; when the persona and his live words disagree, his live words
-win — note the delta. Related: [[feedback-preserve-sids-vocabulary]], [[feedback-corpus-terms-never-back-at-sid]].
+- `search_prompts`: scoped keyword, semantic or hybrid retrieval; up to three query dimensions within a shared
+  budget. Each occurrence identifies the queries and passages that found it, including matches in replies.
+- `get_prompt` and `session_thread`: expandable stored passages, replies and surrounding turns with provenance.
+  `recent_prompts` offers activity without requiring search keywords.
+- `prompt_occurrences`: every exact-text occurrence is accessible with its own date, session and reply.
+  Shared prompt text does not make the conversations interchangeable.
 
-For present decisions, establish the live conversation and current project guidance first. `docs/carry-on.md`
-is the vision entrypoint and a reference synthesis; `vision/LOG.md` is the primary source. Recall can recover
-the reasoning, corrections and unsettled questions behind them. Historical instructions, including BETS or
-archived workflow rules, do not become current requirements because search returned them. Read the original
-and its surrounding turns to establish status; a decision may be settled in a conversation too. Surface a
-relevant contradiction with its sources instead of silently choosing the newest or most similar result.
+Results expose candidate limits, text clipping and embedding coverage. Semantic search covers stored prompt
+chunks; keyword search also covers stored replies. Long replies may already have their middle elided during
+indexing. Offsets recover display-clipped text; transcript file/line provenance provides the route to material
+absent from the index. These boundaries describe what was searched and shown, not how much relevant history
+exists beyond it.
 
-Choose what to recall and along which dimensions for the actual question. `search_prompts` accepts up to
-three queries with one shared result/character budget and identifies which query found each occurrence.
-An empty query result is visible. Inspect matching excerpts and candidate/coverage limits; semantic search
-covers indexed prompt chunks only, while keyword search also covers stored replies. Long replies may already have
-their middle elided by ingestion: `reply_storage` makes that visible, and paging cannot recover it. Use transcript
-file/line provenance when that missing passage matters. Use `get_prompt` and paged
-`session_thread` around a selected UUID to read qualifications, short approvals, corrections and replies.
-Identical prompts share presentation, with each occurrence retaining its own session/date/reply; expand
-with `prompt_occurrences`. Truncated text has offsets for further reading. Use `recent_prompts` on demand
-when resuming activity or when chronology matters without known keywords. Dates locate evidence; they do
-not assign authority or expire older context. No automatic recall hook, decay rule or parallel truth store.
+The live conversation and current project guidance establish present constraints. `docs/carry-on.md` is the
+vision entrypoint and reference synthesis; `vision/LOG.md` remains primary. Historical passages can explain,
+qualify or conflict with that understanding. Relevance, recency and confident wording do not establish a
+passage's authority. A consequential contradiction belongs in the conversation with its sources; an old
+instruction's appearance in search does not reinstate it.
 
-Evaluation uses a frozen corpus and checked source UUIDs. `RECALL_TRACE_FILE` optionally records a run's
-queries, fetched UUIDs, response size and timing, with no transcript bodies; it is off otherwise. Keep traces
-with that evaluation rather than starting a permanent collection or a manual classification backlog.
+Repo: `/mnt/data/projects/recall`. MCP: `recall mcp`. CLI: `recall search "…"`, `recall show <uuid> [--session]`.
+Web: http://127.0.0.1:7337. The daemon continuously indexes new transcript material. Operational details and
+evaluation receipts live in Recall's README.
+
+The source-backed persona at `persona/SID.md` supplies a perspective on how Sid might respond; `/ask-as-sid`
+uses it for questions and pushbacks. Its quoted UUIDs open through Recall. Sid's live words take precedence
+over that portrait. Supporting material and regeneration instructions live under `persona/` in the Recall repo.
+Related: [[feedback-preserve-sids-vocabulary]], [[feedback-corpus-terms-never-back-at-sid]].
