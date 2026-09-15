@@ -1372,3 +1372,12 @@ marketplace split DOWN to bet — never constitution.)*
 > what i hear is lets carry on the actual work but note down the requirements as we go .. but how will i note down the requirements its will be too meta and i will not be able to focus on making sense, decision on the main task and also note down meta (though i think i can but I can't take the responsibilty directly)
 
 *(Routed same-session: the starter above; memory `project-requirements-noticing-not-sids-job`.)*
+
+## ~2024-03-21 — the answer is too quick; ask async, read on, then see replies to my quoted questions (back-filled from the README)
+
+*[Context: from the README's "Random musings on how things should be", written beside a canvas screenshot of a chat exploded into quoted questions and branches; the date is the commit that added it. Moved here on 2026-09-15 when the README was rewritten for going open source. Sid: "it makes sense in vision".]*
+
+> Currently the answer is too quick, I want to ask question async, I generally expect the answer to be present but not 
+> distracted by this thread right now. I want to continue reading the rest, synthesis the current text. Once I am done, I
+> want to think and mull over it, add my comments, see if and how my thinking has changed, explore some threads but maybe
+> in my brain, make some connections or maybe not. And then see replies to my quoted questions. 
