@@ -42,6 +42,18 @@ at from the others.
   inbound and outbound volume; the builds-on graph of layers, inside which
   the pass's swarm topology is one choice.
 
+**After the third pass** (pasted 17 September, below the first two). The
+pass withdrew its fifth status, denied, for coverage written on every read,
+and withdrew its own withdrawal of the as-of index: an as-of pattern read
+needs the head of each candidate cell at the frontier. It kept the active
+set, lineage as a slot, attributes as things, tool-shaped policy, split
+budgets, and observation, and it added a law it says the proposal had in
+pieces: standing declared, authority met, change through standing. Two
+positions Sid held are flagged as touched: the miss condition's reach (part
+two) and the entry the stale rule runs over (part four). Both bites the pass
+finds in the trace were checked this session against NOTATIONS rows 25 and
+37 and the holding reply, and are real as the predicates are written.
+
 ## Layer −1. The problem, and the world it is tested against
 
 - **The bar the pass held:** the map must not lie; no optimism; nothing found by a name the store holds; no stored levels; only the gate writes; editable from inside by the same moves; affordable as people and agents grow. *Lands on:* the six coherence properties, and part seven's exclusions. *Touches:* layer −1 read right, 16 September. [the pass's own frame]
@@ -185,7 +197,127 @@ gate, on a fact, the one that admitted it (one); observation, a gate outcome tha
 | downgraded | regenerability omits the runtime | | a discipline, not a slot | three |
 | withdrawn | a temporal index is a store requirement | | as-of is cheap on append-only with seq on index entries | eight |
 
-## Not placed
+## Not placed, first two passes
 
 - The Codex pass beyond its opening: 1003 lines were hidden in the paste, so only its verdict sentence and its world sketch arrived. An untracked `src/proposal/falsification/` directory appeared in git status during the 17 September session and was not read, under that session's read-only bound; it may hold the full text.
 - The pass's log citations, S04 through S70 and the README lines: not verified in any frame session.
+
+---
+
+# The third pass: the standing law (pasted 17 September, after two reviews of the first two)
+
+The falsifying session received two reviews of its passes, one of them
+Codex's, treated them as tests, and ran them against its planet story. The
+result is a law it says the proposal had in pieces and never stated, a
+floor-before-and-after table as the waist check, ten compositions at the
+planet, and a section of concessions, holds, and flags. The paste is
+garbled in places by terminal wrapping; every garbled passage is listed at
+the end and nothing is filled in. Same bullet form as above.
+
+## Layer −1
+
+- **The verdict, whole:** the architecture preserves the intended experience at its largest scale on three conditions: the standing law enters the floor as what it writes on every crossing and as the scope of two existing checks; the planet obligations, origin, coverage, and observation, are met by a candidate whose forced parts are settled and whose chosen parts are chosen with eyes open; the store contract is written and Rama is checked against it. *Lands on:* the second half of the problem, how you would know. [verdict; not a ruling]
+- **What a person can then rely on:** a standing that unrelated growth cannot touch; authority met at every act, so nothing old carries permission and nothing new inherits an intent; change reaching them only through what they declared, ranked by a painter that has what it needs; crossing into another community deliberately with identity, authority, history, and coverage intact and every lag painted. **What an agent can rely on:** its declared standing and mode say what question it answers; its cut says which world; what it may change is met at the gate when it offers; what changed underneath reaches it only through current-mode standings; its result is entitled to nothing beyond what the gate grants it then. *Lands on:* the six coherence properties, restated for many actors. [derived]
+- **The reviewer's derived principle,** that unrelated growth must not make my interaction proportionally more expensive and shared dependence must be understandable in scope, cost, and state, is a corollary: unrelated work does not intersect my standing; shared dependence is in my standing with its coverage and rank. *Lands on:* affordability. [derived]
+- **What remains uncertain,** by the pass's own account: the cost of the standing-pattern join and of head-at-n at field scale; whether Rama serves observation and exact reads at a frontier; defaults for pinning and for situation versus standing; the ranking painters; the economy's allocation rules. None is a hole in the record language; each is a cost or a policy the law makes nameable. [open]
+
+## Layer 0
+
+- **The record language carries the plurality.** Across twelve episodes and ten compositions no case needed a second substance, a stored level, a route, a consumer list in the store, or a sixth station. Every case resolved into what an act stands on, what authority it meets, or a definition that is material. *Lands on:* the recognition row on one substance, the largest step past Sid's words. [held by the pass]
+- **Truth is per authority.** "Rama is the truth, there is no state anywhere else" and "personal and business knowledge need not all go to one external provider" are reconciled only if truth is per authority, which "authority is met, never carried" entails. If Sid meant one planet-scale cluster, observation dissolves and origin reduces to partitions; the pass does not read him that way. *Lands on:* the row on what stays outside. *Touches:* still unruled; the one vision tension the pass leaves to Sid. [vision tension]
+- **Scientific warrant is material.** The honesty machine is about the map not misdescribing its own reads; it never claimed to establish truth; acceptance sits in promotion policy and grounds in discourse material. *Lands on:* the row on the map not lying. [held by the pass]
+
+## Part one
+
+- **The envelope gains origin and keeps expected.** Nine slots: origin, the authority that admitted the fact, is added; the claim's expected revision is kept on the fact as its predecessor instead of stripped. *Lands on:* what a fact carries. *Touches:* Sid's envelope lean; forced choice 3, held, which had claim and fact differ by one slot each way; the version-check ruling, since identity becomes origin-qualified. [floor table; rank 4 recast]
+- **Basis entries keep their three shapes and each carries mode, role, and coverage.** Mode is current or pinned; role is standing or situation; coverage is what domain the read answered over. Lineage is the kept slot, not an entry. *Lands on:* the basis. *Touches:* forced choice 1, held implied. [floor table]
+- **Who declares a read's role.** A condition can be standing, as when a rule relates "as verified" and stands on the check result. The floor cannot infer role from syntax; the tool declares it per read, as material; the default is by tier: a condition over session facts is situation, over anything durable is standing. The reviewer's six roles survive as two, plus lineage as a slot and mode as a bit: evidence, live input, and historical source are standing, current or pinned; permission is situation, re-met at the frontier; the previous version is lineage. *Lands on:* basis; the tier axis. [position]
+- **Attributes as things, held;** the reviewer concurs. The grammar revision a fact was checked against is recorded in its decision. *Lands on:* attribute, grammar. [held; rank 3]
+- **Identity is a social process.** Sameness is an act with a method: same occurrence, the same proposition in other words, equivalent under stated assumptions, chosen interchangeable by someone. The shorthand "sameAs" is withdrawn for that. Closures are materialized on a budget and coverage names whose equivalences a read used. *Lands on:* thing, continuity. *Touches:* Scene F above. [held, reworded]
+- **Content hash or origin-qualified identifier** is a chosen part of the federation candidate, not forced. *Lands on:* identity. [chosen]
+- **Two kinds of cut.** An enumerated cut names identities, a release, and reading it is free. An as-of cut names a frontier, what I saw, what was true then, and reading it needs the head of every candidate cell at that frontier. The pattern-as-of compression that keeps presentations small is what turns "what did I see" into an as-of cut. *Lands on:* groups as things; the pattern basis entry. *Touches:* part eight's store contract. [insight]
+- **A release is a thing** whose members fact names identities; reading through it by version and reading live are two different questions, not a failure of nearest-wins. *Lands on:* group, members. [derived; a garbled clause omitted]
+
+## Part two
+
+- **Trigger modes go in the signature.** Demand-triggered stands on the current state of its cut, so a view installed today runs over existing material; event-triggered stands on landings after its cut, so a notifier does not replay the corpus; transition-triggered stands on a pattern read going from absent to present. The loop already names all three; the signature must say which, as a value in the grammar of consumers, and the floor honors it in match. Turning a mode on later does not re-fire an old click, since events are consumed once; it re-runs the halo, a conclusion standing current. *Lands on:* the signature; trigger; match. *Touches:* part two settled item one, a signature is pattern in with context and kind out with nature, held; this adds a third element. [floor table; held by the pass]
+- **The active set, held,** as the cut over tools acting as me, with pins that cover the closure or cover nothing. It is not a consumer list in the store; it is the asker's facts, and match reads it as it reads any condition. Defaults: own layers live, trust boundaries pinned, stale marks on every pin. A broken base tool under ten thousand users leaves pinned users untouched and seeing that a newer exists; current users break and pin back through the floor viewer or a rule. *Lands on:* affordance, references resolved at use. *Touches:* Sid's naming sharpening. [held; composition]
+- **Flag, on a position Sid held: only offer-yielders can collide.** The position stands. What the notation added without his ruling is reach: the predicate counts over every landing kind, so any two offer-yielders on any trigger collide. The vision's cascades, a comment that also makes an inbox entry, ingest plus a replication starter on one arrival, make two offers on one event ordinary. The correction the pass draws from "shape underdetermines intent and context resolves it": interpretations of an act compete and consequences of an event compose, so the miss predicate runs over intent-bearing kinds, a fact on the kind thing, and reactions are conclusions by the determinism rule and never collide. This narrows the predicate's reach, not the position; if Sid held the reach as well it is his to reopen, and what forces it is the vision's cascades. *Lands on:* the miss. *Touches:* part two ruled, the four trace positions held. Checked this session: NOTATIONS' `miss?` does count claim-yielders over any landing fact. [flag]
+- **Regime derived per pass over the resolved closure at the cut,** not from leaves at admission: a helper that now reaches outside refuses its caller's conclusion at that pass with a status. *Lands on:* regime derived, not declared. *Touches:* held in part two; carried to its consequence. [floor table]
+- **A control whose definition changed between showing and clicking** is interpreted by the revision shown, read by version; if that revision's conditions no longer hold the gesture is a miss with a reason, never a silently different action. A selection from a filtered view stands on the pattern as of the presentation's frontier, so "these results" means the ones seen. *Lands on:* point on point; resolution at use. [derived from clause one]
+- **The pass frontier is conceded as consistency within one pass,** not as the act's standing; the first clause settles meaning against authority, and the pass frontier only keeps one pass from reading two revisions of one tool. *Lands on:* the pass boundary. [conceded]
+- **Reads by pattern and reads at a cut are leaves.** *Lands on:* the leaf vocabulary. [precision]
+
+## Part three
+
+- **The standing law.** Every act declares what it stands on; change reaches it only through what it stands on; it is met, at the moment of acting, by the gate it acts through. An act is anything the floor performs on behalf of someone: a claim, a presentation, a crossing, a pass, an owned activity, a promotion, an observation. Three clauses: standing is declared, with each read in a mode, the situation that made the act applicable recorded but not standing, and what it replaces recorded as lineage; authority is met, shape, expected revision, and policy checked by the admitting gate at its frontier with exact reads, and nothing carries permission across time, not a presentation, a cut, a replica, or a request; change follows standing, a current read that would now resolve differently marks a fact and re-runs a conclusion, a pinned read never moves, a situation read changes what is offered now and never what was done, lineage is history. *Lands on:* the pass; the gate; maintain. The pass says the loop is complete as a loop and was never the problem. [the pass's law; a garbled clause noted below]
+- **Why the law was missing.** The loop separates trigger from read; the notation's basis merged them. Row 25's basis holds the rule, the selection, the second pointing, and the two things related; two of those are why the rule ran, one is the reference. Row 37's basis adds 25, its predecessor, because the envelope stripped expected at admission and the trace had nowhere else to put lineage. Two bites: clearing the selection supersedes 21 and makes 25 stale though only the situation moved; 37 supersedes 25, which is in 37's own basis, so 37 is stale at birth. Under the law, 25 stands on {10, 2, 5} with situation {21, 24}; 37 stands on {10, 33, 5} with 25 as prev, and is not stale. Both forcing cases are the proposal's own material, the trace's note at row 37 and the holding reply's clear rule. *Lands on:* the basis in the pass. *Touches:* the request rule, ruled; NOTATIONS revealed item 15, reference as a read. Checked this session: both bites hold against the rows as written. [derived, checked]
+- **Clause two, derived.** Revocation is effective in the gate's order within one authority, provided the gate's reads are exact at its frontier and never through a lagging replica. A presentation cannot preserve an authority since withdrawn, because the click's meaning comes from the first clause and its permission from the second. A late result from a cancelled activity keeps its origin, meets a gate that reads the cancellation and grants nothing further, and is admitted as what it is, continuing nothing. Flow is the clause applied to a crossing: the crossing's standing is the basis chain of what leaves, and its policy meets that standing at the frontier. Across authorities the limit is stated: the owning authority enforces at its own crossing what it exposes; a downstream gate's flow policy is that gate's honesty, attributable not enforceable; placement changes strength. *Lands on:* the gate; crossings out. *Touches:* "only the gate writes", held. [derived]
+- **The gate's checks widen without a new kind.** Expected covers the target cell and any standing the claim marks must-hold; policy rules are tool-shaped and may read the claim, the thing, and the standing; reads are exact at the gate's frontier; observed is a fourth outcome, a candidate. "A torn admission is truthful about what it checked" is conceded as insufficient. *Lands on:* the three checks. *Touches:* settled item two, held. [floor table; conceded]
+- **Budgets split:** the stop and the failure value are floor; amounts are read from facts on the request chain, which the floor reads and never sets. *Lands on:* settled item three, held. [held]
+- **Outcome grammars and cancellation are material:** converged, interrupted, exhausted, unknown. *Lands on:* long jobs. *Touches:* Sid's lean on progress. [material]
+- **Presentation is supply, not attention.** "There is no separate last-seen state" is wrong as a universal: a surface updated while alice works elsewhere was supplied, not looked at. A presentation records supply at a pass; attention is a tier-one signal a rule may claim as a fact, focus or acknowledgement; the journey must show supplied and acknowledged as two things; inboxes and briefings stand on the second. *Lands on:* settled item four, held; the journey. *Touches:* NOTATIONS revealed item 8, not ruled; Sid's capture sharpening, since a claimed attention signal is the door again. [conceded]
+- **A gesture stands on the presentation it came through,** at the revision that offered it. *Lands on:* the inward return; the request rule. [derived from clause one]
+
+## Part four
+
+- **Flag, on a position Sid held implied: one stale rule, two consequences.** The rule stands: a moved current read marks a fact and re-runs a conclusion. What the trace forces is a correction to the entry the rule runs over: lineage out, into the kept expected slot; situation out, into the trigger record; mode in, so a read by version never moves. Row 37 and the clear-selection sentence are the forcing cases. If Sid reads the predicate as part of the position, it is his to reopen; the rule's shape is untouched. *Lands on:* stale as a definition over bases. *Touches:* held implied by "I agree with part four". [flag]
+- **Coverage instead of a fifth status.** Absent already means no answer in the asker's authorized domain. Index lag, an unobserved hub, a restricted region, and an erased fact are four statements about that domain; a denied enum would name one and lie about the other three. Coverage on the read, written by the floor, subsumes all four; whether coverage names a restricted region is a policy choice. The status set stays four and the envelope is untouched. *Lands on:* status. *Touches:* withdraws rank 5 above; settled item one, held. [conceded; insight]
+- **Drift by recorded grammar revision.** A fact's shape stands on the grammar at the revision the gate checked, recorded in the decision, so a reader meeting a later grammar sees drift rather than a silently reinterpreted number. *Lands on:* drift. [derived]
+- **Two honesty dimensions the proposal lacked, in scope and derivable:** completeness claims, where a summary implying its sources are complete violates the map, and disagreement between standings, a running answer nobody wrote yet. *Lands on:* the breaking ask of part four, something the map could say that is still a lie. [held by the pass; a garbled clause noted below]
+- **Undo is a context whose cut excludes my acts;** what stood on them goes stale honestly; nothing is overwritten. *Lands on:* stale; layers. [derived]
+- **Reproduction has five levels,** each a cut that can or cannot be reconstituted, which is what coverage says: reconstruct method and context, re-execute, reproduce the presentation, compare against a contemporary reading, and one more lost to garbling. *Lands on:* regenerability. [derived]
+- **Ranked joins stale, doubtful, and torn as material definitions.** *Lands on:* the painter. [material]
+- **Seeded randomness allowed, unseeded forbidden.** *Lands on:* the leaf rule, held. [precision]
+- **The as-of filter, conceded.** A pattern over a value under a seq filter finds the old matching fact and cannot see the later non-matching fact that superseded it in the same cell; an as-of pattern read must find the head of each candidate cell at the frontier and test that. The journey by actor and day stays a filter. *Lands on:* regenerating what a view showed. *Touches:* the withdrawn row in the ranking above, now reinstated as an obligation. [conceded]
+
+## Part five
+
+- **Context is actor, on-behalf-of chain, a cut over the layer graph, and an active set,** all material; four statuses; coverage on every read. *Lands on:* what an asker brings. *Touches:* settled item one, held. [floor table]
+- **A per-agent active set against a person's swarm** is settled by the on-behalf-of chain: the person's grant to the agent is a fact, and the agent's active set is the person's cut over tools acting through it. *Lands on:* agents use what people use. [held]
+- **Authority is not placement.** A person's gate is theirs in authority; where it runs is the host's; latency and enforcement strength follow placement. The first pass conflated the two under "gates are per person". *Lands on:* many runtimes; the seed. [conceded]
+- **The accepted base by proof, planet-wide:** per hub by its promotion policy; cross-hub acceptance is observation plus re-derivation under my cut, demonstration eight; disagreement between hubs is a running answer, not a root's ruling. *Lands on:* promotion; comparison. *Touches:* Scene D's missing disagreement view. [composition, holds]
+- **A release read through by version** is a context question, placed under part one. [derived]
+
+## Part six
+
+- **The inward return gains two manufactures:** liveness of a session, and observation of another authority's chain, a candidate. *Lands on:* the inward return. [floor table]
+- **Federation as an obligation with a candidate.** Forced: origin on every fact; references that survive a crossing; lineage per cell; the observation frontier in the standing of everything that read a replica. Chosen: a content hash rather than an origin-qualified identifier; verbatim replicas rather than wrapped values; observed as a distinct gate outcome rather than a flavor of admission. The pass keeps verbatim replicas because stale and doubt must walk a replica's own standing without unwrapping a value. *Lands on:* the outside inlet. *Touches:* Scene G above, now split into obligation and candidate. [conceded in part]
+- **The runtime gains one surface:** a floor viewer over facts and bases, and re-assertion of any prior revision; its version fact in every boundary support. This is the recovery path when a tool that edits tools breaks. *Lands on:* the one tool that is not a fact. *Touches:* carry-on's minimal floor beneath a self-reshaping workshop, his words per the pass. [held]
+- **Observation meets event-triggered tools:** a first observation replays a hub's history as landings; without trigger modes and cuts, subscribing is indistinguishable from the hub's whole history arriving as news. *Lands on:* observation; part two's trigger modes. [composition; exposure]
+- **Erasure meets reproduction:** the hub tombstones, observed; a 2027 cut names the fact by identity; the promise degrades to reconstruct method and context; coverage says erased. *Lands on:* erasure as enactment. [composition, holds]
+- **A chain across three hubs, then cancellation:** budgets are chain facts read at each gate; cancellation is effective at a hub when observed; work continues until then, honestly. *Lands on:* enactment; many runtimes. [composition, holds with lag]
+- **Flow policy through an agent across hubs:** upstream enforces only what it exposes; downstream honesty is attributable; a gate hosted at the hub is enforced by the hub. *Lands on:* crossings. [composition, holds with a limit]
+- **Hubs and no root:** a hub is a cut a community maintains and others stand on; there is no root because authority is met per gate and never carried; a fork is another gate; two hubs in one context are ordered by the asker, with tools pinned from each, and attributes as things keep their helpers from colliding. *Lands on:* many runtimes. [composition, holds]
+- **Sameness and grammar revisions across hubs:** each hub's sameness layer is observed and the closure materialized on a budget; two hubs' "dose" are different things unless a sameness act with a conversion tool equates them, and a fact read under the other grammar shows drift. *Lands on:* ingest, continuity, strata. [compositions, hold]
+- **Field tile, ranking, allocator:** the tile stands on a cut naming each hub's observed frontier; rank is distance per hub weighted by the painter; observation frontiers are rank inputs, "hub two is four days behind in my view"; observation itself is priced by the hub's exposure policy. *Lands on:* crossings; part four's graded marks. [composition, holds]
+
+## Part seven
+
+- **The floor, before and after, as the waist check.** Envelope: eight slots to nine, origin added, expected kept. Basis entries: same three shapes, plus mode, role, coverage. Gate checks: same three, wider scope, observed as a candidate outcome. Resolve: context reshaped, four statuses, coverage on every read. Match: plus trigger mode from the signature, plus the active set as a filter, miss over intent-bearing kinds. Rerun and budgets: stop and failure value floor, amounts from facts. Inward return: plus liveness, plus observation. Regime: derived per pass. Grammar interpreter: attributes as things, checked revision in the decision. Leaves: seeded randomness allowed; pattern and cut reads are leaves. Runtime: plus the floor viewer and re-assertion. The pass's reading: no new station, no new check kind, no route, no list held by the store, no stored level; the waist is thicker in what it records and no wider in what it does. *Lands on:* the nine, the five exclusions, the gauge. *Touches:* every item held; the ninth slot Sid named as the envelope's gauge. [the pass's check]
+- **What stays material:** the definitions of stale, doubtful, torn, and ranked; every painter; active sets, pins, and their defaults; releases; trigger mode per tool; policy and flow rules; sameness assertions and methods; migration policy; merge combinators per material; inverses for editing through a view; outcome grammars; cancellation; summaries and re-attestation; subscriptions and hubs; grammar revisions and their binding; equivalence closures on a budget. *Lands on:* who chooses shapes. [the other side of the waist]
+- **Editing through a derived view:** the frame binds the gesture to the presented cut; the inverse of a projection is the view's authored responsibility, and where none exists no affordance is offered. Scope, not a defect. *Lands on:* the exclusions. [held by the pass]
+
+## Part eight
+
+- **The store contract, final form:** per cell a head, a chain with lineage, compare-and-set on the head, exact reads at the gate's frontier; facts immutable and addressable by origin-qualified identity; index entries carrying the seq of the fact they list and a coverage frontier; head-at-n per candidate cell for as-of cuts; a reverse basis index, active in runners for the watched, durable for history and erasure; a standing-pattern join for maintain, bounded by watched conclusions plus transition-triggered tools; policy-aware reads at the exit with coverage; observation of another authority's chains with frontiers, if adopted; append rates for facts, decisions, and presentations with pattern-compressed support; runner liveness as a host signal. Not checked against Rama. *Lands on:* the log and derived indexes in the table. [the missing document, drafted in nine lines]
+- **The first workpiece should measure,** not demonstrate: the cost of the standing-pattern join and of head-at-n, rather than showing again what a single actor on a single gate already shows. *Lands on:* the go question. *Touches:* carried, Sid's. [position]
+
+## Not placed, third pass
+
+Garbled by terminal wrapping in the paste; the fragments, so nothing is invented:
+
+- "What I withdraw from my own second pass is narrower than the reviewer asked and I say prec" — cut.
+- The law's sentence: "…change reaches it only through what it is never in what it stands on; it is met, at the moment of acting, by the gate it actsthrough." Read above as "through what it stands on".
+- Clause one: "each read in a mode, current applicable is its situation" — the words between "mode" and "applicable" are missing.
+- "anyone who wants coherence reads through it by version, anyone who wants le two are different questions".
+- "so 'derived from private may not go…rossing's standing".
+- The sameness list: "same occurrence in the samf the same proposition".
+- "…eld summary, observing a hub, running a chain, and amounts are facts on the request chain while the floor only stops".
+- The floor table's resolve row after "on-behalf-of", and the basis row's "information the floor writes".
+- "content identity against erasure, settled by coverage, the identity remains a reference and the domain saysad against volume".
+- The store contract: "active in runners for the watched se…ory, and erasure".
+- The two smaller corrections: "honesty owes th…consistency within one pass", and "'after the …gate's order".
+- Flag one: "Reactions t… clicks, are conclusions".
+- The two honesty dimensions: "in scope and derivabl…his summary implies".
+- Reproduction's five: the first is lost.
