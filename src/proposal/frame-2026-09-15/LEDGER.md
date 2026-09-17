@@ -1,4 +1,4 @@
-# Ledger — an index of what Sid ruled, at what weight, and where he said it (as of 16 September 2026)
+# Ledger — an index of what Sid ruled, at what weight, and where he said it (as of 17 September 2026)
 
 An index into [What-is-this-proposal-about.md](What-is-this-proposal-about.md),
 not a summary of it. Every entry points at the line where Sid said it and the
@@ -8,8 +8,9 @@ ruling is his word. A lean is marked and is not to be read as more. Anything
 marked "trace" is the session's position from NOTATIONS.md, not a reading of
 Sid. The one section not in the verbatim is "Residue" at the end.
 
-Line numbers are for the file as committed on 16 September. If the file is
-edited, grep the quoted words.
+Line numbers for the 16 September entries are for the file as committed that
+day; the 17 September section points at the lines appended that day. If the
+file is edited, grep the quoted words.
 
 ## Where the walk stands
 
@@ -17,9 +18,13 @@ edited, grep the quoted words.
 - Top-layer recognition: all thirteen pairs (line 115, on the table at 79 and
   the paragraph at 54).
 - Eight parts named (118), accepted as the layer below (135).
-- Part one closed (340). Part two closed (492). Part three delivered (497),
-  no response.
-- Parts four to eight are in [PARTS-4-8.md](PARTS-4-8.md), not yet presented.
+- Part one closed (340). Part two closed (492). Part three closed on
+  17 September (631). Parts four and five closed (813, 852). Parts six,
+  seven, eight closed (877).
+- The walk is complete; the 17 September section at the end indexes it.
+  Next is Sid's go on part eight's ask: executable model, first workpiece,
+  second walk, or code verification first. Not given. No new STARTER.md
+  until it is.
 
 ## Rulings
 
@@ -78,7 +83,7 @@ Part two (sorted at 469): index rebuild on rule change and match cost, left to
 building; leaves to part seven; session lifetime to part five; runner as
 material, research.
 
-Part three (497): delivered; its asks are at the end of that reply.
+Part three (497): closed 17 September; carried items in the section below.
 
 ## Framing rulings
 
@@ -109,3 +114,69 @@ Four exchanges after part three, in the 16 September session, not pasted.
    its head and tail. Fixed: STARTER.md redone under the skill; six gaps in the
    verbatim filled from the session's context, each marked with an HTML
    comment; this file rebuilt as an index.
+
+## 17 September 2026 — parts three to eight
+
+The verbatim of this walk is appended to
+[What-is-this-proposal-about.md](What-is-this-proposal-about.md) from line
+560. Line numbers below are in that file. Sid never named a weight on a hold;
+"agree" and "read right" are recorded as his word, and the weight column says
+so. "Implied" means covered by his agreement to a part without his naming the
+item.
+
+### Rulings
+
+| his word | line | on the reply at | what it settled |
+|---|---|---|---|
+| "I am happy with uh, what it settles." | 631 | 599 | part three's four settled items: a tool gives a running answer or an offer, and only replayable tools give running answers; the gate's three checks, only the gate writes; maintain by the boundary's policy, no non-replayable leaf; a running answer crossing to a person or a model is recorded as an offer |
+| "Yeah, it's just like uh, go a level up. to figure out uh, who started it." | 639 | 599 | the request rule: the fact whose landing started the pass is the request; a standing watch sits in the basis |
+| "Okay, I agree with the version check." | 810 | 763 | closes part one's two open items: one live row per thing, attribute, and layer; version as the gate's number per fact. Relations as things follows. |
+| "I agree with part four." | 813 | 763 | part four's three settled items; its three positions, two-valued exactness, the found-nothing read, one rule with two consequences, held, implied |
+| "yeah I agree" | 852 | 820 | part five's three settled items; session lifetime, erasure, tier held, implied; auth-first is not a divergence, implied; the layer reading held: the slot and the walk fixed, the builds-on graph as facts, an unordered meeting of two parents a miss, composition by context or by promotion |
+| "all the six seven eight read right to me" | 877 | 854 | parts six, seven, eight: settled items held; the from-this-session notes read right, including settled item two of part six widened to any boundary and the door as the first instance of "governed by facts"; the nine fixed items with the sharpened wording; the leaf-rate gauge and the nine demonstrations as the check; the six open items deferred as listed |
+| "go go go" | 900 | 879 | the write-set landed as previewed |
+
+### Leans
+
+| his words | line | on | what it is |
+|---|---|---|---|
+| "an agent running for 20 minutes and producing uh, different uh, tool calls and thinking token streaming etc ... I would say Yes, but maybe there are counter examples" | 635 | 599 | long-job progress as offers: yes for an agent's acts. The session's criterion, at 645: progress is an offer when something inside will refer to it, match on it, or find it in the journey; outcome by default. Open, settled by the first long job. |
+
+### Sharpened
+
+Where his pushback changed what the proposal says. His words first.
+
+| his words | line | the session's restatement | at |
+|---|---|---|---|
+| "a running answer is something that can be deterministically rederived if given the same data and anything that is not that is an offer" | 621 | the part's "not the tool's choice" is too strong: a tool that is not replayable gives only offers; a replayable tool says in its signature which it gives; the fixed part enforces only the ceiling | 645 |
+| "from emergence point of view we cannot answer it right now ... we cannot predict this without uh, storing these signals somehow" | 755 | the session's demand-driven drop at the door is struck; crossings are captured at the person's rate, consent is visibility policy on a layer that outlives the session, and the fixed part never drops a crossing silently; samples point at presentations, so presentations must be facts at least as often; one rule for inbound and outbound volume | 763 |
+| "are we treating the layers as like everything everything underneath it or ... can it be more granular ... infinitely compositional" | 816 | a layer is thin; the slot and the walk are fixed; builds-on is facts and a context is derived by walking it; two parents without a stated order is a miss; composition by context or by promotion; overlays compose as a monoid | 820 |
+
+### Confirmed as already in the frame
+
+| his question | line | reply | at |
+|---|---|---|---|
+| "what is a running answer what is not a running answer so a user selecting something on their screen panning zooming" | 621 | the hand is not replayable, so offers only; most never land: local signals until crossed in at the door | 645 |
+| "where do we add some kind of throttling" | 626 | a policy fact read at the door; a buffer where the latest wins; a tick as the sampling clock; the cost derivable from facts per kind per second times readers | 645 |
+| "what would be the examples" of long-job progress | 635 | rebuild stages, ingest, an agent's acts on one side; a model reply, a build log, a token stream on the other; the criterion | 645 |
+| "for the version check are you saying ... thing dash two ... an explosion" | 759 | a version is on the fact; a new version is a new fact on the same thing; no thing per version; many-ness in a set value or in separate things | 763 |
+
+### Carried, not ruled
+
+- No weight stated on any hold.
+- Decisions frozen but queryable, the trace's position under part three. Untouched.
+- Breaking: not attempted in any part.
+- The go question of part eight.
+- The tenth-item candidate, "the fixed part never drops a crossing silently": a tenth fixed item, or a clause on item eight.
+- Words: none struck; running number replaced by version; projection offered as his word for running answer, not taken up.
+
+### Rendering discrepancies found in the walk
+
+- Part three's body says a long job's progress and outcome are offers; its open list and the picture leave whether open. Read as: if recorded, as offers.
+- "Which of the two a tool gives is not the tool's choice" is stronger than the trace's own seeds. Sharpened above.
+- Part three's fourth settled item and part six's second name only a person or a model; the picture folds the host too. Widened to any boundary.
+
+### Residue
+
+None. The whole session is in the verbatim, with the parts' reproduced text
+replaced by comments naming the file and lines.

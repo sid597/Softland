@@ -8,6 +8,13 @@ checked against the repository. The trace is a hand simulation of the rules,
 which is where an error is most likely; the closing paragraph names the
 executable model that would remove the hand.
 
+Updated 17 September 2026: Sid's rulings from the walk through parts one to
+eight, indexed in [LEDGER.md](LEDGER.md), are folded in where they touch a
+notation. Marks: **[ruled]** his word; **[held, implied]** covered by his
+agreement to a part without his naming the item; **[Sid's sharpening]** his
+pushback changed the text; **[session position]** the 17 September session's
+stance, not his. The trace is untouched.
+
 ---
 
 **The view first.** The prose is not one kind of content. It is five, interleaved: shapes, topology, rules, a trace, and choices, plus arguments. Prose is the native form only for the arguments. Each of the other four has a form that is shorter to load and, more importantly, can fail. A shape written as data has to say what is in every slot. A walk written as a trace has to land every step on a fact with a basis or admit it cannot. So the better representation is not one notation but a small set, each native to its content, with the trace as the load-bearing piece because it is the only one that can be wrong in a way you can see. The whole set is below. The frame carried the walk. Writing it as data forced seven choices the prose left implicit and surfaced eight things the prose implies but does not say. Those are at the end and are the actual payoff.
@@ -52,17 +59,21 @@ executable model that would remove the hand.
  :basis [{:kind :point :fact <grammar>} {:kind :point :fact 40} {:kind :point :fact pol-7}]}
 
 ;; ─── A CONSUMER ──────────────────────────────────────────────────────────────
-;; A fact whose value is a signature and a body. Matched, never named.
+;; A fact whose value is a signature and a body. Matched, or referenced by name from a body;
+;; never named by the store. [Sid's sharpening, part two]
 {:thing s1  :attr :consumer
  :value {:signature {:demands {:kinds      #{:watching}                    ; index by kind
                                :conditions [[sess :tab (= :instrument)]]}  ; read against ctx at match time
-                     :yields  {:kind :surface  :nature :conclusion}}       ; nature is enforced, not chosen
+                     :yields  {:kind :surface  :nature :conclusion}}       ; chosen here; the gate enforces only the ceiling [Sid's sharpening]
          :regime    #{:inside :instant}   ; derived by the floor from the body's leaves, not declared
          :body      …}}                   ; opaque to the medium. Steps over leaves and names resolved at use.
 
 ;; ─── A CONTEXT ───────────────────────────────────────────────────────────────
 ;; What an asker brings to a read. Not a fact. Built by resolve from policy facts.
 {:actor alice  :layers [S A base]}        ; nearest first. visible? = "is this layer in my list"
+;; The list is derived: walk :builds-on facts from the asker's nearest layer down to base.
+;; A layer is a thing; which builds on which is facts. Only the slot and the walk are fixed. [ruled 17 Sep]
+;; Where a layer builds on two and no order is stated, a row held by both is a miss fact. [session position, held]
 ```
 
 ★ Insight ─────────────────────────────────────
@@ -93,6 +104,8 @@ executable model that would remove the hand.
       └──── inward return · identity, address, basis, and sometimes request are manufactured here ────┘
 ```
 
+Every crossing out, to the screen, the host, a mind, or an instance, leaves a claim at the boundary: what was shown or what was asked, with its support. What comes back enters as a claim through the outside inlet. **[held, implied: part six, 17 Sep]**
+
 **The pass.** Five stations, two properties on every arc, one loop closing it.
 
 ```
@@ -113,6 +126,17 @@ executable model that would remove the hand.
 **The rules, as predicates.** These are the parts of the prose that are definitions. Written this way you can see which are floor and which are material: a predicate over facts that any inhabitant could rewrite is material.
 
 ```clojure
+;; ─── THE DOOR. The inward return for signals. Floor performs it; facts govern it. ───
+(defn door [signal buffer policy presentation]
+  ;; a signal is tier one: the hand's motion, a pan, a zoom. The screen follows it at once.
+  ;; buffer: the latest replaces the earlier until the next tick. Droppable here, never after the gate.
+  ;; tick: an outside claim at the rate the person's policy fact names. Time enters only as a stamp or a tick.
+  ;; on tick → a claim {:attr :pointed | :viewport … :basis [{:kind :point :fact presentation}] :request nil}
+  ;; the floor never drops a crossing silently; only a policy fact the person wrote does. [Sid's sharpening, 17 Sep]
+  ;; demand never decides what is captured: capture the crossings, not the questions. [session position, struck by Sid]
+  ;; consent = visibility policy on the layer the samples land in; that layer outlives the session. [session position]
+  …)
+
 ;; ─── THE GATE. Only writer. Three checks: two floor, one material. ────────────
 (defn gate [claim store]
   (let [grammar (grammar-of store (:attr claim))                                     ; a fact
@@ -126,7 +150,7 @@ executable model that would remove the hand.
                    :rule rule  :basis [grammar current rule]))))
 ;; (now) appears exactly once in the frame: here, as a stamp. Never as a read.
 ;; For :attr :consumer the shape check also derives :regime from the body's leaves
-;; and refuses :nature :conclusion on an :outside body. Nature is enforced here.
+;; and refuses :nature :conclusion on an :outside body. Nature is chosen in the signature; only the ceiling is enforced here. [Sid's sharpening]
 
 ;; ─── RESOLVE. Where reads leave the store. No consumer can skip it. ───────────
 (defn resolve [store ctx thing attr]
@@ -134,6 +158,8 @@ executable model that would remove the hand.
       {:status :absent}))
 ;; → {:status :value :fact f} | {:status :absent} | {:status :pending} | {:status :failed}
 ;; every call leaves a basis entry on the caller. Status is part of what was read.
+;; (:layers ctx) is the walk over :builds-on facts, nearest first. Composition by context reads
+;; through; composition by promotion writes in, through the gate. [ruled 17 Sep]
 
 ;; ─── MATCH. How consumers are found. Nobody routes. ───────────────────────────
 (defn match [fact store ctx]
@@ -486,30 +512,30 @@ A side branch the walk does not take, for concurrency and branching:
 
 **Forced.** Writing it as data required a choice the prose did not make. Each is a position Sid can redline.
 
-1. **Basis entries have three shapes.** Point read, pattern read with a frontier, outside anchor. The prose gives only the first. A read that returned absent is a pattern read, and it goes stale by growing, not by being superseded.
-2. **Revision is the gate's sequence, per fact.** Superseded is the relation: same thing, attr, and layer, later seq, visible. Per-thing revision would make every conclusion stale on any change to the thing. A per-attribute counter would just be the seq again.
-3. **Claim and fact differ by one slot each way.** Expected in, seq and time out. The gate's whole transformation is that swap plus three checks.
-4. **There is no producer slot.** The consumer that produced a claim is in the basis, because resolving its name was a read. Actor is whose authority it ran under. This is what lets an agent's claim be attributable to the agent and traceable to the rule at once.
-5. **Multiplicity lives in things, never in attributes.** A relation is a thing because something will point at it. Every thing, attr, and layer has one current row, so expected revision is always meaningful and cardinality never enters the envelope.
-6. **Exactness belongs to resolution, never to anchoring.** An outside anchor is what it is. The inexact read in the trace is ingest reading the old continuity fact by name. Continuity's method goes in the claim's value as `:by`, and exactness stays two valued. That is a position on the picture's open question about a third value.
-7. **The miss condition is narrower than "two rules match."** It is two claim-yielding consumers matching one trigger in one layer. Conclusions never compete because they are not choices. Without this narrowing, every point that triggers both a halo and a selection is a miss.
+1. **Basis entries have three shapes.** [held, implied: parts four and six] Point read, pattern read with a frontier, outside anchor. The prose gives only the first. A read that returned absent is a pattern read, and it goes stale by growing, not by being superseded.
+2. **Revision is the gate's sequence, per fact.** [ruled 17 Sep] Superseded is the relation: same thing, attr, and layer, later seq, visible. Per-thing revision would make every conclusion stale on any change to the thing. A per-attribute counter would just be the seq again.
+3. **Claim and fact differ by one slot each way.** [ruled: part three held] Expected in, seq and time out. The gate's whole transformation is that swap plus three checks.
+4. **There is no producer slot.** [held, implied: part three] The consumer that produced a claim is in the basis, because resolving its name was a read. Actor is whose authority it ran under. This is what lets an agent's claim be attributable to the agent and traceable to the rule at once.
+5. **Multiplicity lives in things, never in attributes.** [ruled 17 Sep] A relation is a thing because something will point at it. Every thing, attr, and layer has one current row, so expected revision is always meaningful and cardinality never enters the envelope.
+6. **Exactness belongs to resolution, never to anchoring.** [held, implied: part four] An outside anchor is what it is. The inexact read in the trace is ingest reading the old continuity fact by name. Continuity's method goes in the claim's value as `:by`, and exactness stays two valued. That is a position on the picture's open question about a third value.
+7. **The miss condition is narrower than "two rules match."** [ruled: part two] It is two claim-yielding consumers matching one trigger in one layer. Conclusions never compete because they are not choices. Without this narrowing, every point that triggers both a halo and a selection is a miss.
 
 **Revealed.** The prose implies it; the data says it out loud.
 
 8. **The presentation claim is the last-looked-at record.** "Moved on since you last looked" is staleness of the previous presentation. There is no other state.
-9. **Request is nil when a claim originates a pass.** Every bare outside arrival originates: a commit, a tick, a pointer. A return through the outside inlet continues a pass only when the presentation it answers was made under a request still open, and then the inward return copies that request. Pointing at a watched surface originates. A model's reply to a prompt continues. Both are visible in the envelope without an inlet slot.
-10. **Affordance is match with session conditions relaxed,** painted with what each rule still needs. The prose says "match now." After a selection with no mode set, match now offers nothing, so the walk needs match one context fact ahead.
-11. **Staleness is one rule with two consequences.** On a fact it is a mark. On a conclusion it is a re-trigger.
+9. **Request is nil when a claim originates a pass.** [ruled: part three, "go a level up"] Every bare outside arrival originates: a commit, a tick, a pointer. A return through the outside inlet continues a pass only when the presentation it answers was made under a request still open, and then the inward return copies that request. Pointing at a watched surface originates. A model's reply to a prompt continues. Both are visible in the envelope without an inlet slot.
+10. **Affordance is match with session conditions relaxed,** [ruled: part two] painted with what each rule still needs. The prose says "match now." After a selection with no mode set, match now offers nothing, so the walk needs match one context fact ahead.
+11. **Staleness is one rule with two consequences.** [held, implied: part four] On a fact it is a mark. On a conclusion it is a re-trigger.
 12. **Doubt propagates by a view that follows basis chains,** not by a property of a read. Exactness is local. The map-must-not-lie painter walks the chain.
-13. **Decisions are frozen facts with a basis,** so "which past decisions would go differently under current policy" is derivable. The prose does not say this. The shape gives it.
+13. **Decisions are frozen facts with a basis,** [carried: not ruled] so "which past decisions would go differently under current policy" is derivable. The prose does not say this. The shape gives it.
 14. **The pass boundary is two rows apart.** One presentation is by the surface at its old seq, the next is by the surface at its new seq. Demonstration item six is checkable by reading two facts.
-15. **A consumer is triggered by match or invoked by reference, and both are reads.** The staleness view had to be invoked from the surface's body rather than matched on presentations, or it would trigger on its own output. Reference is how a definition participates in a pass without being a trigger, and it leaves support like any read.
+15. **A consumer is triggered by match or invoked by reference, and both are reads.** [ruled: part two] The staleness view had to be invoked from the surface's body rather than matched on presentations, or it would trigger on its own output. Reference is how a definition participates in a pass without being a trigger, and it leaves support like any read.
 
 **Still open after the trace.**
 
-16. Whether every recompute that reaches a person is a presentation claim. That is the volume driver. The tier axis is what would keep it cheap, and that is a store concern the trace cannot settle.
+16. Whether every recompute that reaches a person is a presentation claim. That is the volume driver. The tier axis is what would keep it cheap, and that is a store concern the trace cannot settle. Seen from 17 September: the inbound twin is how many of the hand's signals become claims. Sid's emergence pushback says capture at the person's rate, not by demand, and samples point at presentations, so presentations must be claims at least as often as samples land. One rule for both sides: the knob is a policy fact at the boundary, the cost is the store's. [session position; still open]
 17. Where decisions live and whether they take seqs from the same sequence. Store concern.
-18. What the request of a demand-opened pass is when no single fact triggered it. The trace uses the fact whose landing started the pass and puts the standing watch in the basis.
+18. What the request of a demand-opened pass is when no single fact triggered it. The trace uses the fact whose landing started the pass and puts the standing watch in the basis. [ruled 17 Sep: "go a level up to figure out who started it"]
 
 **What the walk exercised** of the nine demonstrations:
 
@@ -533,10 +559,10 @@ Five fully, two partly, two not. The walk is a strong test of the read side and 
 |---|---|---|---|
 | placement as asserted rule or maintained conclusion | whether any index must outlive its rule | doubts it | maintained; an index is a conclusion over its rule |
 | migration when a grammar or the envelope changes | the first one | | an enactment with an owner; detection is already drift |
-| exactness with two or three values | | a third mark | two, with `:by` in the continuity value |
-| progress from long consumers as claims or only outcome | the first rebuild activity | | claims, with the request copied; the trace's request rule already carries it |
+| exactness with two or three values | | a third mark | two, with `:by` in the continuity value; held, implied, 17 Sep |
+| progress from long consumers as claims or only outcome | the first rebuild activity | | claims, with the request copied; the trace's request rule already carries it. 17 Sep: outcome by default, progress claims on demand; Sid's lean: an agent's tool calls yes, its token stream no |
 | a runner as material, admitted not deployed | its own evidence bar | | not architecture now |
-| erasure as enactment | the first real second person | tombstone above, drop below | same; the tombstone is a fact, the drop is a crossing |
+| erasure as enactment | the first real second person | tombstone above, drop below | same; the tombstone is a fact, the drop is a crossing; held, implied, part five |
 
 **What stays prose,** because it is argument and no notation improves it:
 
@@ -549,6 +575,6 @@ Five fully, two partly, two not. The walk is a strong test of the read side and 
 
 Each of these is short in the picture and should stay short.
 
-**The next representation up.** An executable reference model: the envelope as data, the rules as functions, the seed and the walk as a vector of claims, and a run that folds them through the gate and match. Roughly two hundred lines of Clojure. It would take the session's hand out of the trace. The seqs, the supports, and the marks would be produced rather than written, which is where an error is most likely. It would also let demonstrations five, eight, and nine be tested directly: assert a kind, diff two layers, assert an overlapping rule and watch the miss fact land. It is not the implementation and should not become one. It is the frame's own claim about itself, made replayable. It has not been built.
+**The next representation up.** An executable reference model: the envelope as data, the rules as functions, the seed and the walk as a vector of claims, and a run that folds them through the gate and match. Roughly two hundred lines of Clojure. It would take the session's hand out of the trace. The seqs, the supports, and the marks would be produced rather than written, which is where an error is most likely. It would also let demonstrations five, eight, and nine be tested directly: assert a kind, diff two layers, assert an overlapping rule and watch the miss fact land. It is not the implementation and should not become one. It is the frame's own claim about itself, made replayable. It has not been built. Sid's go on it, or on the workpiece first, is pending as of 17 September.
 
 Three of the forced choices, the basis shapes, no producer slot, and multiplicity in things, change what the first workpiece's facts must carry. The exercised list says which demonstrations the walk leaves untested.

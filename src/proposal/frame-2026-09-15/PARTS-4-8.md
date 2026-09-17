@@ -1,23 +1,23 @@
-# Parts four to eight (rendered 16 September 2026, not yet presented)
+# Parts four to eight (rendered 16 September 2026, presented and held 17 September)
 
 Rendered by the 16 September session in the same form as parts one to three in
 [What-is-this-proposal-about.md](What-is-this-proposal-about.md): what it
 proposes, with the words in dependency order and a diagram; what it settles;
 what it leaves open, with the trace's positions marked as the session's; what
-it asks. The proposal's own words are noted once per part. These carry no
-ruling. Part three had not been responded to when these were written; if
-Sid strikes "only the gate writes," part six changes.
+it asks. The proposal's own words are noted once per part. Sid held all
+five on 17 September, with from-this-session notes in the verbatim; LEDGER.md
+records the weights. Line numbers in this file are unchanged since.
 
 The eight parts, for orientation:
 
 1. What everything is made of. (closed)
 2. What does things, and how it is found. (closed)
-3. How change moves. (delivered, awaiting response)
-4. How it stays honest.
-5. How many people share it.
-6. What stays outside, and how outside gets in.
-7. What is fixed, and how to check the cut.
-8. The current code against the frame.
+3. How change moves. (closed 17 September)
+4. How it stays honest. (closed 17 September)
+5. How many people share it. (closed 17 September)
+6. What stays outside, and how outside gets in. (closed 17 September)
+7. What is fixed, and how to check the cut. (closed 17 September)
+8. The current code against the frame. (closed 17 September)
 
 ---
 

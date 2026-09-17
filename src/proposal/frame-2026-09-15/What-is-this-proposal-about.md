@@ -555,3 +555,348 @@ What it asks of you.
 - Breaking. Name a thing a tool could give that is neither a running answer nor an offer. Or a change that must get in without passing the gate.
 - Positions. The trace's two: the request rule, and decisions frozen but queryable.
 - Words. Running answer or conclusion. Offer or claim. Gate, decision, expected version, replayable, pass, maintain, status.
+
+
+<!-- Appended by the 17 September 2026 session, verbatim: Sid's messages in blockquotes, the session's replies after each. Where a reply reproduced a part's text word for word from a file in this folder, that block is replaced by a comment naming the file and lines. Local command output (/effort) is omitted. -->
+
+> this session isself contained read only src/proposal/frame-2026-09-15/* and do not read outside it. 
+>
+> In the order readme.md, picture.md, notations.md, what-is-this-proposal-about.md (which has verbatim my questions and your replies through part 3; leadger.md; parts-4-8.md. 
+>
+> Reply with one line: what you read and the byte total
+
+Reading the six files in the named order.
+
+Case-sensitive names. Reading with the actual filenames.
+
+Read README.md, PICTURE.md, NOTATIONS.md, What-is-this-proposal-about.md, LEDGER.md, PARTS-4-8.md in that order (STARTER.md not read); 196,954 bytes total.
+
+
+> I want to be put in a position to respond to this proposal. We are going
+> layer by layer, top down, from how it should be, correcting my mental model.
+> Each layer true to the content below it but one abstraction up. Layer up does
+> not mean dilution or a loose summary. Part by part, because a proposal has
+> parts, and each part carries what it proposes, what it settles, what it leaves
+> open, and what it asks of me. I am a human, not an AI that can load things
+> into my brain at once. Write in the words I think in. Nothing referenced
+> before it has been introduced.
+>
+> Where we are: layer −1, the top-layer recognition, and parts one and two are
+> done. The ledger has what I ruled and at what weight and points at where I
+> said it. Part three was delivered and I have not responded to it. Parts four
+> to eight are in `PARTS-4-8.md` in the same form as one to three.
+>
+> One part at a time. Present the part from the file and stop there until I say
+> it reads right. The "you said" framing is dropped. Do not carry ECS; keep
+> things simple, as in not naming an abstraction and one implementation of it
+> together. Say tool, running answer, offer. When I say agree or nothing more,
+> tell me what changed in the ledger and open the next part. Nothing lands on
+> disk until I say; at the end, preview the write-set in one message so I can
+> veto in one line.
+>
+> Start by asking me for my response to part three.
+
+Part three, as delivered on 16 September, reproduced from the verbatim file at line 497. Nothing in it is changed. Four short notes follow it, then the ask.
+
+---
+
+<!-- The reply here reproduced part three word for word from this file, lines 497–557 as committed on 16 September, with the four section labels in bold. Omitted to avoid duplication. -->
+
+---
+
+Four notes before you answer. All four are derived from the files read this session and checked against nothing else.
+
+- **The version check rests on a part-one item still open.** An offer expects one current version for a thing, attribute, and layer. That only works if there is one current value per thing, attribute, and layer, which part one left open as the trace's position. Holding the gate as written holds that too.
+- **"Only the gate writes" reaches into part six.** There, a rebuild's outcome comes back from the host as an offer through the same gate. If you strike it here, part six changes shape.
+- **Station four names three ways out, and the last paragraph folds only two back.** Screen and mind become offers. The host is not mentioned. The picture itself folds the host too: an ask to the host is recorded as an offer, and its outcome returns as one. So a crossing to the host is a gap in this rendering, not a third thing the frame lacks.
+- **Two words arrive before their part.** Host and mind are introduced in part six. For now read them plainly: the machine the place runs on, and a person or a model.
+
+On each answer, say the weight: ruling or lean.
+
+Your response to part three, on its four asks: the line, breaking, positions, words. Take them in any order, or say agree if there is nothing more.
+
+
+> let's not use the word answer and offer or if we are using these words then uh, let's first understand what uh, you mean by them like I see three words running answer offer and uh, running number 
+>
+> um, I just want to clarify like uh, what is a running answer what is not a running answer so a user selecting something on their screen panning zooming are these running answers or not .. so we are saying like a tool outputs only the running answer or a offer as you put these words together still not able to make sense of them and a running answer is something that can be deterministically rederived if given the same data and anything that is not that is an offer so I think from that point of view the answer to panning zooming and uh, moving pointer across the screen or something all these are offers because it is being controlled by the user and that is unpredictable Okay, okay.
+>
+> I am loving it as I read more. ;
+>
+>
+> uh, where do we add some kind of throttling so for example if we want to save the user's input basically like the offer that a point tool makes as it moves across the screen but uh, like the output can be maybe 120 pointer events per second and we are not going to store all of them so maybe there is some kind of uh, decision that we make not we but the user should make how many times they want an event to be saved and uh, like they will know the cost of cost of it because if they say like save everything then basically their view will become a bit slower and then they they will be like uh, why is it slow and if they go into the administrative settings or whatever the settings is called or there is no settings and they just talk to a agent or the agent just brings it up hey your system is slow did you expect this and the reason is because you saved the setting for this thing Uh, and then they can like either move down or move up how many times they want to save it and basically the number they save also is dynamic so that the system in real time can tell what the expected outcomes and counter outcomes of it is and like well, what are the pros and cons the weighing scale that the user has to measure uh, yeah I think this problem only comes up when we have massive number of events hitting to the database and uh, I'm not sure why I keep saying database uh, okay but uh, where was I yeah if uh, too many number of events are hitting for from one tool Uh, we decide based on the tool if this is expected or there is something more to it like for this uh, panning not not panning but uh, moving your cursor around the screen In some examples it would be useful to keep everything in others it might not be hmm. yeah yeah
+>
+> then there is also flushing events that can be removed if not consumed fast enough ( I am taking this out from how electric handles the events that only need a fixed set of buffer or smth i am not remembering correctly but also don't read anything from the file system) 
+>
+>
+> I am happy with uh, what it settles.
+>
+> > - Whether a long job's progress is offers along the way or only a final outcome. Settled by the first rebuild, not before.
+>
+> you mean we cannot answer it right now and uh, only after we build a few then we can answer it uh, what would be the examples uh, is is uh, an agent running for 20 minutes and producing uh, different uh, tool calls and thinking token streaming etc are these considered in this example uh, I would say Yes, but maybe there are counter examples where we don't want this. So, yeah, not sure. But I need some examples of this.
+>
+> > - What the request of a pass is when no single fact started it, for instance a standing watch. The trace's position: the fact whose landing started this pass, with the watch in the basis.
+>
+> Yeah, it's just like uh, go a level up. to figure out uh, who started it.
+>
+> for the four nodes um, let's uh, can you say a bit more about these two I think the other two that are left I am okay with them because I think I approved them yeah those make sense to me
+>
+> "The version check rests on a part-one item still open. " and " Station four names three ways out, and the last paragraph folds only two back"
+
+The three words first, then throttling and progress, then the two notes, then where part three stands.
+
+## The three words
+
+**A running answer** is what a tool gives when the result should keep up with what it read. It is never stored. When any fact it read gets a newer version, it is made again. Yesterday's is not lost, because the tool at its version plus the reads at their versions makes it again. What a view shows, the halo around a thing, the stale mark, a search result: all running answers. In the picture, your own word for this was projection, and the picture kept it as yours. If you think in projection, we say projection.
+
+**An offer** is what a tool gives when it wants a fact to exist. It goes to the gate carrying who, basis, request, and the version it expects to be current. The gate admits it and it is a fact, or refuses it and the refusal is a fact. It is called an offer because it can be refused. A selection, a relation, a saved edit, a commit arriving, a model's reply, a pointing that landed: all offers. You used the word yourself in this message, for what a pointer tool makes, and it fit.
+
+**Running number** is not a third kind of thing. It is the version, in the trace's reading of what a version is: one counter for the whole place, each fact takes the next number as it lands, and newer means a bigger number. I will say version from here. You ruled that a version exists. This shape of it is the trace's position and still open in part one. It comes back under the first note.
+
+**Your test, sharpened.** You said a running answer is what can be re-derived from the same data, and everything else is an offer. That is the right direction, and the frame's rule is one step tighter.
+
+- A tool that is not replayable can give only offers. The hand, a model, a build, a clock.
+- A tool that is replayable may give either, and its signature says which. The select rule is replayable and gives an offer, because a selection must stay made so later conditions can read it. A view is replayable and gives a running answer, because it should keep up, not stay made.
+
+So the author of a tool asks: should this stay made, as a statement someone made, or keep up with what it read? The fixed part enforces only the ceiling. A tool that is not replayable may not pick keep up. This sharpens the part's own sentence that which of the two a tool gives is not the tool's choice. That sentence is too strong. The trace's seeds already have an inside rule choosing to give offers. The choice is in the signature, and the ceiling is enforced.
+
+**Pan, zoom, the pointer.** Your reading is right, and there is one more step. The hand is not replayable, so nothing it produces can be a running answer. But most of what the hand produces is never an offer either. A pointer position, a pan, a zoom step are local signals: they happened on the screen, and nothing inside has said so. The screen follows them at once. The cursor moves and the view pans without anything landing. They become offers only when something crosses them in: a pointing that a rule should match, a viewport that a view should read. That crossing is the door, and it is where your throttling question lives. Part five will name this as one of the four axes. For now three states are enough: a local signal, a session fact, an accepted fact, each painted as what it is. The pointer at full speed is the first state and stays there.
+
+## Throttling, and progress from long jobs
+
+**Where throttling lives.** The picture has one sentence for every crossing: owned by the fixed part, governed by facts. So the rate at which pointer moves become offers is a fact. A policy in your layer says: pointer movement lands at most so many times a second while in this mode, or never unless something wants it. The fixed part reads that fact at the door, at each crossing. Change the fact and the next crossing uses the new rate. That is the knob you described, and it needs no settings page, because it is a fact anyone inside can point at and edit, an agent included.
+
+**Why an agent can explain the slowness.** Every fact that landed carries a time and a kind, so facts per kind per second is a pattern over the store, a running answer anyone can ask for. The policy fact that set the rate carries who and when. The cost of each landed fact is what reads it: how many tools match on its kind, times their condition reads, which is the number the proposal says to watch. So the weighing scale is not designed. It is derived from the facts that are already there.
+
+**Per tool, by demand.** My position, derived from the frame's pieces and not in the part's text. Before the door mints an offer, it asks match: is there any tool whose pattern wants a pointer-move fact, here, in this context? If none, the signal is dropped at the door and never becomes an offer. A heat-map recorder in one workspace wants them all, and nothing else does, so there they land and elsewhere they do not. Nobody sets a rate for the general case. The demand sets it. The halo already matches on a pointing that has not happened yet, so this is the same move at the door.
+
+**The rate, without the door reading a clock.** A tick arrives as an outside offer, as the part has it, at the rate your policy fact names. On each tick the door lands the latest signal. Between ticks, signals replace each other in a buffer at the door. That is your flushing. Before the door, a signal is droppable and the latest wins. After the gate, nothing is ever dropped. A fact is permanent, and removing one is an enactment with a tombstone. Whatever Electric does with its buffers is a door policy, not a store policy.
+
+```
+   the hand, 120 signals a second ──▶ the door ──▶ offers ──▶ gate ──▶ facts
+                                        │
+                                        ├─ does any tool want this kind, here?   no → dropped, never a fact
+                                        ├─ buffer: the latest replaces the earlier, until the next tick
+                                        └─ tick, at the rate your policy fact names → the latest lands
+
+   before the door:  droppable · a local signal · the screen follows it at once
+   after the gate:   never dropped · removal is an enactment with a tombstone
+```
+
+`★ Insight ─────────────────────────────────────`
+- The gate is the line between droppable and permanent. Everything before it may be sampled, replaced, or lost. Everything after it is history.
+- Your throttling question and the part's open item about recompute volume are one question from two sides: how many crossings become facts. Same knob, policy at the boundary. Same cost, in the store.
+- The weighing scale needs no design because facts already carry time, kind, and who set the policy. The cost report is a view.
+`─────────────────────────────────────────────────`
+
+**This is one of the part's open items, seen from the other side.** The item about whether every recompute that reaches a person is an offer is outbound volume. Your throttling question is inbound volume. Both knobs are policy at the boundary, and both costs are in the store. The part calls the outbound one a store question. I think the knob is a frame question, the cost is a store question, and the two sides should get one rule. Position. Its home is part six, where the door gets its own words, and I will bring what you said here back there.
+
+**Progress from long jobs, with examples.** First, a discrepancy in the rendering. The part's body says a long job's progress and outcome are offers. Its open list says whether progress is recorded at all is open. The picture leaves it open. Read the body sentence as: if progress is recorded, it is recorded as offers, never as running answers, because a long job is not replayable. The nature is settled. The whether is not.
+
+Progress recorded along the way:
+
+- **A rebuild.** Compiling this module, tests passed so far, each landing as a fact with who and basis. A view over code shows a live bar, the middle survives, and later someone can point at where the build was when something else happened.
+- **Ingest of a large repo.** Each file's forms are minted as facts as it goes. Here progress is the output, and nothing extra is needed.
+- **An agent's tool calls over a long run.** Each call is an act with a basis, and each lands as an offer. But this is not progress, it is the agent's work. An agent is an actor, and its acts are offers by construction. The question does not bite there.
+
+Only a final outcome:
+
+- **A model summary.** One reply, one fact.
+- **A build's log lines.** Nobody will point at them. They stay on the screen as pending and are gone.
+- **The token stream between an agent's tool calls.** This is where your example bites. If each chunk is a fact, the volume is enormous, and they are not statements the agent stands behind. If none is, the stream is a local signal painted as pending until the reply lands as one fact.
+
+The criterion the frame can state now, even while the choice waits: progress becomes an offer when something inside needs to refer to it, match on it, or find it in the journey. Otherwise it is a local signal painted as pending. That is the door rule again. My lean: outcome by default, progress facts on demand, and the first rebuild shows whether anyone points at the middle. On that criterion your yes for the agent is right for its tool calls and wrong for its token stream. Why not decide now: we could, and my lean is above, but whether anyone points at the middle is what only the first long job shows.
+
+**The request rule.** Your reading is the trace's. The fact whose landing started the pass is the request, and for a standing watch the watch sits in the basis, so going one level up finds who started it. Held.
+
+## The two notes
+
+**The version check rests on a part-one item still open.** Part three's gate compares the version an offer expects with what is current for that thing, attribute, and layer. What is current is one row only if there is exactly one current value per thing, attribute, and layer. Part one left that open, with the trace's position being yes, one. So holding the gate as written holds two part-one positions at once.
+
+The first is one current value per thing, attribute, and layer.
+
+```
+   f1 ──has── :relates-to ── c1                 one row. Now f1 also relates to c2.
+
+   two rows under one attribute?   then "the current version of f1 :relates-to" is two things,
+                                   and an offer that expects version V does not say which one it
+                                   replaces, or whether it adds a third.
+
+   the trace's way:   rel1 ──has── :relation {from f1, to c1}     each relation is its own thing
+                      rel2 ──has── :relation {from f1, to c2}     one current row each
+
+   many-ness lives inside a value, as a set:  q1 :members {p1 f1 c1}
+   or in separate things. Never as several rows under one attribute.
+```
+
+The cost you would be signing: a set-valued fact contends as a whole. Two people add a member to the same group in the same layer, and the second is refused, lost to the first. The frame's answer to that is layers and promotion, with a miss fact when they meet. The alternative, several rows under one attribute, would let both add without conflict, at the price of putting many-ness into the envelope, which you want kept small and proven by what bakes on top.
+
+The second is version as the gate's number per fact, the running number. If version were a counter per thing, every fact about f1 would bump it, and every reader of any f1 fact would go stale when any other f1 fact changed. Per fact, only the readers of the changed row go stale. That is what the trace chose and why.
+
+If you hold part three's gate, I mark both as closed by that in the ledger, pointing here.
+
+**Station four names three ways out, and the last paragraph folds only two back.** Part three opens with one of two things. Station four then lists what a tool gives: an offer to the gate, or a crossing out to the screen, the host, or a mind. A crossing out reads like a third thing. The last paragraph closes that for the screen and a mind: a running answer that reaches a person or a model is recorded as an offer, what was shown and from which reads. So those two crossings are a running answer plus a recorded offer, not a third thing. The host is left out of that sentence.
+
+A crossing to the host is an ask. Rebuild this. Run the checks. Drop this. It is not a running answer shown to someone. The picture handles it: an enactment is a request offer and an outcome offer. The ask is recorded as an offer at the moment it crosses, as the presentation to a mind is, and the host's answer comes back through the outside door as an offer. Under that, all three crossings fold back and one of two things holds. Whatever leaves the place is recorded as an offer at the boundary, and whatever comes back enters as one.
+
+Why it matters now. The fourth settled item says a person or a model. If you hold it, hold it as any boundary: a running answer or an ask that crosses to a person, a model, or the host is recorded as an offer, with what it was built from. And the breaking test should not be spent on a rebuild ask being a third thing, because the frame already has that one.
+
+---
+
+**Where part three stands.** Held in this message: the four settled items, and the request rule. Sharpened by your questions: the choice of what a tool gives sits in its signature under an enforced ceiling, and the fourth settled item widens to any boundary, if you agree. Still yours:
+
+- **The weight** on the two holds: ruling or lean.
+- **The other trace position,** decisions frozen but queryable, not yet touched.
+- **Words:** running answer or your word projection, offer, and version instead of running number.
+- **Breaking,** if you want to try it.
+
+Say agree when done, and I give the ledger delta and open part four.
+
+
+> um, okay on the signal uh, kind of things that we are describing yeah I think uh, from the engineering point of view they are signals but uh, if we look from emergence point of view we cannot answer it right now like if the question is given all the let's see if a user is moving their mouse and we capture only every thirty milliseconds so maybe it gives us maybe thirty events or something per second that we store and like given this data over the view that they were at that time can an agent look at things look at uh, this view and figure out what uh, is the user trying to do and what they are not able to do uh, like I mean they are able to do but not uh, quickly is there something that can be more streamlined a uh, better workflow is there uh, some tool that is missing etc and this might not be built over a session but uh, assume like a user has a workflow they go to their work page and that is kind of a settled screen for some time and they have a process that they start their day off with that is consistent and every time they go to that page they move their sc uh, cursor around to figure something out that is a thing that uh, gets built up over a month a week I don't know what the time frame is but there are learnings from that for that particular user and we cannot predict this without uh, storing these signals somehow or some way and we cannot like what I'm also saying is a hypothesis and we cannot uh, reject it or accept it without having a read into this uh, yeah so it's like how much data do we collect of course this is like from the user point of view if they agree to get the data to the system for analysis or something
+>
+>
+>
+> for the version check are you saying like for each uh, each thing it has to have the same version for its uh, attribute and layer and value and uh, if any one of these three does not have the same version we don't match it I'm just trying to think through like uh, If there is a case where we can just make a new thing that has three different versions of uh, the layer attribute and value. Maybe that just becomes a new thing, thing dash two, or whatever, and then that will be used. And then there will be two things because they hold different versions. But then it makes an explosion of. Hmm.
+>
+> Uh, yeah, I think let's uh, give the ledger delta what your thoughts are and open parts four and five together. We are running out of tokens. So we need to be a bit more efficient.
+
+**Signals: you are right, and my position was wrong on the picture's own terms.** The picture's insight says do not capture for questions, capture the crossings, and the only thing lost forever is a crossing that left no fact. My "drop it if no tool wants it" captured for today's questions only. Struck. What stays: the rate is the person's policy fact, your thirty milliseconds. The buffer before the door flushes between samples. The cost is derivable, so they can see what the rate buys and costs. What your hypothesis needs, and the frame gives: each sample lands with what was on screen, through the presentation record, in a layer that outlives the session, and consent is visibility policy, facts saying who and which agents may read them. The month-long read is then a pattern over those facts, the journey with what they were looking at. One consequence: if samples point at presentations, presentations must be facts at least as often as samples land. So the inbound and outbound volume questions get one rule, now with a reason. Position: the fixed part never drops a crossing silently. Only a policy the person wrote does.
+
+**The version check, said again, simply.** A version is on a fact, not on the thing, the attribute, the layer, or the value separately. One fact is one row with one number.
+
+```
+   f1 · :source · "(defn f …)"     · layer A · number 2
+   f1 · :source · "(defn f [x y] …)" · layer A · number 33     a newer fact on the same thing. Not a new thing.
+
+   current for (f1, :source, A)  =  the newest row with those three  =  33
+   an offer says: I replace number 33 for (f1, :source, A).   The gate checks 33 is still the newest.
+```
+
+Nothing makes a thing-2 for a new version. A new version is a new fact on the same thing, so no explosion. What I flagged is narrower: at most one live row per thing, attribute, and layer. Many values go inside one value as a set, or each gets its own thing, as relations do. A thing per relation is not an explosion either. It is one id per thing someone will point at, and a relation is one.
+
+## Ledger delta
+
+Part three closes with carried items. Parts four and five open together.
+
+| his words, this session | what it does | weight |
+|---|---|---|
+| "I am happy with what it settles" | part three's four settled items held | not stated |
+| "go a level up to figure out who started it" | the request rule held | not stated |
+| "from emergence point of view we cannot answer it right now ... we cannot predict this without storing these signals" | strikes the session's demand-driven drop at the door; crossings are captured at the person's rate, consent as visibility policy, the read is the hypothesis test | Sid's sharpening |
+| "a running answer is something that can be deterministically rederived ... anything that is not that is an offer" | the part's "not the tool's choice" is too strong; the choice is in the signature under an enforced ceiling | session's restatement from his words, not objected to |
+| the agent's tool calls, "I would say yes" | long-job progress: examples given, criterion stated, his lean noted for tool calls; open, settled by the first long job | lean |
+
+Closes if the re-explanation above reads right: one live row per thing, attribute, layer; version as the gate's number per fact. Both part one.
+
+Carried, not ruled: the weight on the two holds; decisions frozen but queryable; the words, with version replacing running number; the fourth settled item widened to any boundary; breaking not attempted.
+
+Rendering discrepancies recorded: the body says progress is offers while the open list leaves it open; "not the tool's choice"; the host missing from settled item four.
+
+## Part four. How it stays honest.
+
+<!-- The reply here reproduced part four word for word from PARTS-4-8.md, lines 24–136. Omitted to avoid duplication. -->
+
+**From this session.** Your month of pointer samples is what the first ask costs: every read leaves a basis entry, and every sample lands with what was on screen. The honesty machine then runs over them like anything else. A sample taken over a presentation that has since moved on is stale, correctly.
+
+## Part five. How many people share it.
+
+<!-- The reply here reproduced part five word for word from PARTS-4-8.md, lines 140–253. Omitted to avoid duplication. -->
+
+**From this session.** Where captured signals live is this part's business. A sample is tier one until it lands. Consent is visibility policy, facts in your layer naming who and which agents may read the samples. They need a layer that outlives the session. The proposal names four layers and caps nothing, and a layer is a thing, so a person can make one for their signals with its own visibility. Derived. That makes the session-lifetime item concrete: which layer samples land in, and when a session's pile dies.
+
+Your response to parts four and five, on their asks. Say agree when done, and I give the ledger delta and open part six.
+
+
+> Okay, I agree with the version check.
+>
+>
+> I agree with part four. 
+>
+>
+> for the layers um, are we treating the layers as like everything everything underneath it or is it is or can it be more granular for example I define two groups and both groups are built on some layer but within those groups they have different kind of layers and then I make another layer that is some set of both of those uh, groups and uh, this goes both up and down and at the bottom there is like uh, well, what we currently have and are proposing like a base set or something and then on top of them we do the composition and call them layers so they can be infinitely compositional or is the definition more strict here where does it fall on category theory kind of uh, thing
+
+**Ledger delta.** "I agree with the version check" closes part one's two open items: one live row per thing, attribute, and layer; version as the gate's number per fact. "I agree with part four" holds its three settled items. Its three positions, two-valued exactness, the found-nothing read, one rule with two consequences, are taken as held by that agreement and marked implied, so you can veto in a line. Migration and torn-by-default stay open as the file has them.
+
+**Layers: strict in two places, free everywhere else.** What the proposal fixes is small. Every fact sits in exactly one layer, a slot on the fact. A context is an ordered list of layers, nearest first. Resolve walks that list and, for each thing and attribute, takes the first layer that has a row. That is the whole fixed part.
+
+A layer is thin. It holds only the facts written into it, not everything underneath. "Everything underneath" is the context's list, not the layer. So the four names in the part are roles for one mechanism, differing in lifetime and promotion policy, not four kinds.
+
+Everything you described lives above that, as facts. A layer is a thing, so a fact can say this layer builds on that one. A group's layer builds on base, and who may write it is a policy fact over the group's members. Each member's own layer builds on the group's. A layer for two groups builds on both. A context is then derived: walk builds-on from the asker's nearest layer down to base, and that walk is the list resolve uses. The trace's context is already made this way, built by resolve from policy facts. So the graph is unbounded and editable from inside, and only the walk is fixed.
+
+```
+                      Lc  builds on [Lg1, Lg2]     order stated by whoever made Lc
+                     /  \
+   alice: [S · A · Lg1 · base]          bob: [T · B · Lg2 · base]
+                  Lg1    Lg2
+                     \  /
+                     base                          the seed
+
+   down = reading:   a context sees base through every layer above it
+   up   = promotion: an offer moves a fact from a nearer layer into a farther one, through the gate
+```
+
+Two places where it bites:
+
+- **Where a layer builds on two,** both may hold a row for the same thing and attribute, and nearest wins needs an order. Either the builder states it and the list follows it, or no order is stated and the collision is a miss fact, never a silent priority. Position, by the frame's own rule for colliding tools.
+- **Two ways to compose, not one.** By context, reading through both, which is free and instant. By promotion, writing facts from both into the composite, which passes the gate with expected versions and records a miss where they collide. The union you pictured, a layer that is the set of both groups, is the second. A view over both is the first. Say which you mean and the frame does either.
+
+Depth has a cost, and the picture names it: resolve is active layers times reads. An unbounded graph is fine. A long list per asker is what costs.
+
+**Category theory, as far as it helps.** Builds-on makes the layers a directed graph without cycles. A context is a path in it. Overlaying one layer on another is associative, and an empty layer is its unit, so overlays compose as a monoid. That is why it makes no difference whether you think of alice's copy as her layer over the group's over base, or as her layer over whatever the group sees. The picture uses none of these words. This is derived, and it is as far as I would carry it before a real case asks for more.
+
+**What this means for the part's line.** The strict part is the slot and the walk. The graph, the roles, who sees what, and what builds on what are facts. If that split is right, the part's settled items stand as written. If you want the graph itself fixed, or nesting inside the slot, that changes the envelope.
+
+Your response to part five: the line, including whether auth-first is a divergence; positions on session lifetime, erasure, tier; words. Say agree when done, and I give the delta and open part six.
+
+
+> yeah I agree uh, let's do the remaining three at once
+
+**Ledger delta.** "Yeah I agree" holds part five's three settled items. Positions on session lifetime, erasure, and tier are taken as held, implied. Auth-first is not a divergence: what solidifies is the exit, policy is facts, by your agreement to the part, implied. The layer reading from this session is held in your word: the slot and the walk are fixed; the builds-on graph, the roles, and who sees what are facts; two parents meeting without a stated order is a miss; composition is by context or by promotion, and you say which.
+
+## Part six. What stays outside, and how outside gets in.
+
+<!-- The reply here reproduced part six word for word from PARTS-4-8.md, lines 257–374. Omitted to avoid duplication. -->
+
+**From this session.** The door got its shape under part three: capture at the person's rate, a buffer that flushes before the door, a tick as the sampling clock, and your sharpening that the fixed part never drops a crossing silently, only a policy the person wrote does. That is this part's "owned by the fixed part, governed by facts" with a first instance. Two carried items land here. Settled item two widens to a running answer or an ask that crosses any boundary. The request rule you held for a pass is the same rule applied at the return.
+
+## Part seven. What is fixed, and how to check the cut.
+
+<!-- The reply here reproduced part seven word for word from PARTS-4-8.md, lines 378–470. Omitted to avoid duplication. -->
+
+**From this session.** Against this list, you have ruled one through seven explicitly across parts one to five, with the envelope itself as a lean. Eight and nine are this message. Sharpened wording carried into the list: on four, the choice is in the signature under an enforced ceiling; on eight, any boundary, running answer or ask. One candidate for the list from this session, yours to place: the fixed part never drops a crossing silently. It could be a tenth, or a clause on eight. Of the six open items, two-valued exactness and erasure as tombstone plus drop are implied by your part four and five agreements, progress has your lean, and placement, migration, and the runner stay as the file has them.
+
+## Part eight. The current code against the frame.
+
+<!-- The reply here reproduced part eight word for word from PARTS-4-8.md, lines 474–528. Omitted to avoid duplication. -->
+
+**From this session.** Nothing in the table was checked this session either. Of the three things the trace said the first workpiece's facts must carry, relations as things is now ruled by the version check, and the three basis shapes are implied by parts four and six, through the found-nothing read and the commit anchor. The capture policy at the door is a fourth the first workpiece must show, if your signals hypothesis is to be testable from the first day. My lean on go: the executable model first, because it is the cheapest test of demonstrations five, eight, and nine and takes the hand out of the trace, then a code-reading session to verify the table before the workpiece builds on it. Lean.
+
+Your response to parts six, seven, and eight. After it, the write-set preview in one message.
+
+
+> um yeah all the six seven eight read right to me whereas like seven and eight are more about uh, what we already discussed so uh, I think for the next uh, immediate step let's uh, write things down because we don't have anything written down right now for this whole session and uh, we can fill out a what is this proposal about like in a similar fashion that we already did basically you append all the message that I did in this message in this uh, session and uh, your replies um, I think we should also update the ledger and then fix everything in the notations that was pointed out in the ledger so it is uh, a representation of what we discussed and where we stand at right now
+
+The walk is complete through part eight. Here is the write-set, in one message. Veto by number, or say go and it lands as one commit on main.
+
+1. **`What-is-this-proposal-about.md`, append.** Every message of this session in order, starting from your boot instruction: yours verbatim in blockquotes, including the false starts and the "uh"s; mine verbatim after each. One proposed cut: where a reply reproduced a part's text word for word from `PARTS-4-8.md` or from the verbatim itself, that block is replaced by an HTML comment naming the file and line range, in the style of the 16 September gap marks. That avoids duplicating about six thousand words the folder already holds. Veto this and the parts go in twice.
+
+2. **`LEDGER.md`, update.** A dated 17 September section indexed to the appended lines. Rulings, in your words: part three's settled items held; the request rule held; the version check agreed, which closes part one's two open items; parts four, five, six, seven, and eight held, with positions marked implied where you did not name them. One lean: long-job progress, agent tool calls yes, counterexamples possible. Three sharpenings, your words first: the choice of what a tool gives sits in the signature under an enforced ceiling; the fixed part never drops a crossing silently and capture is the person's policy with consent as visibility; layers are a fixed slot and walk over a builds-on graph that is facts. Four "confirmed already in the frame" rows: pointer as offer or signal, throttling at the door, long-job examples, no thing per version. Three rendering discrepancies recorded. Carried, not ruled: decisions frozen but queryable, breaking never attempted in any part, the go question, the tenth-item candidate, and no weight stated on any hold. "Where the walk stands" becomes: complete; next is your go.
+
+3. **`NOTATIONS.md`, fold in the rulings.** A provenance paragraph at the top saying it was updated on 17 September from the ledger, with four marks used inline: ruled, held implied, Sid's sharpening, session position. The trace itself is untouched. The edits:
+   - the consumer shape: "matched, never named" becomes matched, or referenced by name from a body, never named by the store; "nature is enforced, not chosen" becomes chosen in the signature, ceiling enforced by the gate;
+   - the context shape and resolve: the layer list is derived by walking builds-on facts to base; two parents without a stated order are a miss fact;
+   - a new short block, the door: signals, a buffer where the latest wins, a tick at the policy's rate, a claim manufactured with the presentation in its basis; never dropped by the floor, only by a person's policy fact;
+   - the topology note: every crossing out, screen, host, mind, or instance, leaves a claim at the boundary, what was shown or what was asked;
+   - the forced choices and revealed items get their marks: basis shapes, seq per fact, one row, no producer slot, multiplicity in things, two-valued exactness, the narrowed miss, one-ahead affordance, match or reference;
+   - the open table: request rule closed, exactness and erasure held implied, progress with your lean and the criterion, the recompute-volume item now stated as one rule for both sides, position.
+
+4. **`PARTS-4-8.md` and `README.md`, two-line touches.** The header and the table row stop saying "not yet presented" and say presented and held on 17 September, with the from-this-session notes left where they are in the verbatim.
+
+5. **Not in the set.** No new `STARTER.md`, because the go question is still yours: executable model, workpiece, second walk, or code verification first. No change to `PICTURE.md`, which stays the verbatim input. No memory file.
+
+6. **Commit.** One commit on main, no push: "Record the walk through parts three to eight: verbatim, ledger, notations folded to rulings." No Co-Authored-By line.
+
+
+> go go go
+
+<!-- The session's final reply, the receipt for this write-set after the commit, is not in this file. -->
