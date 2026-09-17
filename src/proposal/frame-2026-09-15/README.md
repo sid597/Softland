@@ -7,6 +7,7 @@
 | [What-is-this-proposal-about.md](What-is-this-proposal-about.md) | verbatim: Sid's questions and the sessions' replies, from layer −1 through part eight; his 16 September paste with six gaps filled and marked, then the 17 September walk appended in full | Sid, pasted 16 September; the 17 September session |
 | [LEDGER.md](LEDGER.md) | an index into the verbatim: Sid's rulings, leans, sharpenings, and what stays open, each with the line where he said it | the 16 and 17 September sessions |
 | [PARTS-4-8.md](PARTS-4-8.md) | parts four to eight rendered in the same form as one to three; presented and held on 17 September | the 16 September session |
+| [FALSIFICATION.md](FALSIFICATION.md) | another session's falsification pass over the frame, sorted under layer −1, layer 0, and the eight parts, each point with what it touches in the ledger; not adjudicated | the 17 September session, from Sid's paste |
 | [STARTER.md](STARTER.md) | the prompt that started the 17 September session, made with the prompt-maker skill; spent. The next starter waits on Sid's go | the 16 September session |
 
 A fresh session starts with the ledger's "Where the walk stands" and the files it points at.

@@ -25,6 +25,9 @@ file is edited, grep the quoted words.
   Next is Sid's go on part eight's ask: executable model, first workpiece,
   second walk, or code verification first. Not given. No new STARTER.md
   until it is.
+- A falsification pass from another session is sorted under the parts in
+  [FALSIFICATION.md](FALSIFICATION.md), not adjudicated; walking it is the
+  other candidate for the next session.
 
 ## Rulings
 
