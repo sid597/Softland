@@ -194,7 +194,13 @@ Sid's instruction to update only the ledger. His words are quoted from the
 chat. The scenes, the cost split, and the what-I-missed reflection the
 17 September session wrote in the chat stay in the chat.
 
-### Lean
+### Ruling (18 September, superseding the lean below)
+
+| his words | what it settled |
+|---|---|
+| "one thing is ruled since: one truth. everyone is registered on the same database, a singular rama deployed throughout the world. alice and bob write their own opinions on a shared thing that sits below them; their comments are theirs, always marked, read as theirs in anyone else's land; different versions of their own world over the same base is not a conflict, it is already in the system. the notation's pressure list says 'another person's instance' and 'federation falls out of the outside inlet'; that is not the world. there is one." | one Rama, one truth; the notation's many-instance lines are not the world |
+
+### Lean (17 September, superseded above)
 
 | his words | what it is |
 |---|---|
