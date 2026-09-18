@@ -25,9 +25,12 @@ file is edited, grep the quoted words.
   Next is Sid's go on part eight's ask: executable model, first workpiece,
   second walk, or code verification first. Not given. No new STARTER.md
   until it is.
-- A falsification pass from another session is sorted under the parts in
-  [FALSIFICATION.md](FALSIFICATION.md), not adjudicated; walking it is the
-  other candidate for the next session.
+- Three falsification passes from another session are sorted under the parts
+  in [FALSIFICATION.md](FALSIFICATION.md), not adjudicated.
+- 18 September: Sid's lean on federation and his order for the next session
+  are in the section at the end. Next session: from NOTATIONS.md and this
+  ledger, build up what was decided; then the falsification, passed by Sid in
+  the chat, reasoned over by that session itself; one Rama first, then many.
 
 ## Rulings
 
@@ -183,3 +186,31 @@ Where his pushback changed what the proposal says. His words first.
 
 None. The whole session is in the verbatim, with the parts' reproduced text
 replaced by comments naming the file and lines.
+
+## 17 and 18 September — after the falsification (chat only, not in the verbatim)
+
+These exchanges came after the last verbatim append and were not appended, on
+Sid's instruction to update only the ledger. His words are quoted from the
+chat. The scenes, the cost split, and the what-I-missed reflection the
+17 September session wrote in the chat stay in the chat.
+
+### Lean
+
+| his words | what it is |
+|---|---|
+| "federation might be a goal but uh, it's only a very rare case so for big labs or some other institution that wants it deployed for themselves and want to disconnect from the world ... it is not uh, there for individuals maybe it's there for individuals but uh, I have not thought about how we will communicate between them ... we can have some smaller version of Rama locally or somewhere and then there is a sync algorithm somewhere that maps it to the global one ... let's uh, not pace our answer on this we're not thinking about this right now" | one Rama now, everything routes through it; a second Rama is a rare, later case, an institution deploying for itself; the sync between them not thought through; not decided |
+
+### Framing rulings
+
+| his words | what changed |
+|---|---|
+| "i want to first work in the current proposal and its shortcomings for the one rama case and then go into multiple rama case with the updated understanding of on rama as it should be so the new session is not going into multiple directions at once" | the order for the next session: one Rama first, then many; not federation first; not opened with the falsification |
+| "the new session should itself go through the falsification and answer from its own reasoning instead of you pre telling it your bias or your understanding" | the next session reads the passes itself, as Sid passes them; the sorting in FALSIFICATION.md and the 17 September session's reading are not its starting point |
+| "what i want first. the conventions that would paint me in a corner" (his acceptance of the line, without "for federation") | the first question of the next session: which conventions of the current proposal, under one Rama, would be fixed for the future if not decided now |
+| "ok only update the ledger the prompt you gave is not useful" | nothing else written from the 17 September chat; no LEARNINGS.md, no raw paste file, no starter |
+
+### Not ruled
+
+Every finding of the falsification. Sid asked for them sorted, not
+adjudicated. Adjudication is the next session's, from its own reasoning, in
+the order above.
