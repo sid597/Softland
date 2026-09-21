@@ -1,0 +1,195 @@
+136	137	DEFER	D2	-	Questions heading
+138	139	PROMOTE	P-quote	-	WAL immutability, repair, and tamper detection quotations
+140	141	PROMOTE	P-mechanism	-	Identifier reuse for ingest and namespace compatibility
+142	143	PROMOTE	P-reason	-	Pre-admission identifiers let offers in one batch reference each other
+144	147	PROMOTE	P-quote	-	Timestamp ordering and timeout intervals across clock boundaries
+148	149	PROMOTE	P-quote	-	Logged expiry and Kingsbury's timeout determinism qualification
+150	151	PROMOTE	P-mechanism	-	One mismatch error code per differing field
+152	152	PROMOTE	P-claim	-	Comparative strength of TigerBeetle runtime-version evidence
+153	153	PROMOTE	P-quote	-	Prepare-header release quotation
+154	154	DEFER	D1	50-50,831-831	Upgrade recorded as a log operation
+155	155	PROMOTE	P-quote	-	Checkpoint alignment and cross-version replay assertion example
+156	156	PROMOTE	P-mechanism	-	Multiversion binaries retain executable releases
+157	159	PROMOTE	P-condition	-	Storage migration promise versus incomplete API stability
+160	161	PROMOTE	P-mechanism	-	Reversible closing flag and external immutable mappings
+162	163	PROMOTE	P-mechanism	-	External identity checks involving keys, tokens, and revocations
+164	165	PROMOTE	P-number	-	Storage format stable since March 2024 and release 0.15.x
+166	167	PROMOTE	P-quote	-	Parent checksum verification quotation
+168	169	PROMOTE	P-number	-	Default 64 client sessions and oldest-session eviction
+170	171	PROMOTE	P-condition	-	Reply-cache session boundaries and different replies after client restart
+172	173	PROMOTE	P-reason	-	Cost argument for choosing an explicit chain-start mark now
+234	235	DEFER	D2	-	Questions heading
+236	236	DEFER	D1	77-77	Strongest challenge to unstored running answers
+237	237	PROMOTE	P-quote	-	Exact Workflow API call-sequence constraint
+238	238	DEFER	D1	200-200,889-889	Recorded outputs reveal replay divergence
+239	239	DEFER	D1	77-77,218-226	Replay remedies depend on histories ending
+240	240	PROMOTE	P-number	-	Three-year re-derivation example and permanently runnable builds
+241	241	DEFER	D1	200-200,889-892	Unstored answers conceal changed results after runtime rebuilds
+242	243	DEFER	D1	77-77,198-198,839-839,889-892	Named replay pair, crossing digests, content, and exact model inputs
+244	244	DEFER	D2	-	Runtime version and rebuilds heading
+245	245	DEFER	D1	202-202,224-224,831-831	Build identity recorded per work unit
+246	246	DEFER	D1	833-833,1051-1052	Deploy-spanning sessions require crossing and verdict stamps
+247	248	PROMOTE	P-condition	-	Running answers must read rebuild facts to react
+249	250	PROMOTE	P-claim	-	Temporal's years with only one declared behavior
+251	252	DEFER	D1	109-109,199-199,763-764,893-893	Recorded time as an input to deterministic answers
+253	254	PROMOTE	P-reason	-	Recording polled reads as Updates for speed
+255	256	PROMOTE	P-number	-	Restate's default 24-hour idempotency-key retention
+257	258	PROMOTE	P-claim	-	Both gates attempting writes at every failover
+259	260	PROMOTE	P-quote	-	Reset-run history copying through the reset point
+261	262	PROMOTE	P-claim	-	Failed tasks record the build that failed them
+263	264	PROMOTE	P-quote	-	Payload codec host-control quotation
+265	266	PROMOTE	P-claim	-	Temporary recovery histories identified as the largest difference
+331	332	DEFER	D2	-	Questions heading
+333	334	PROMOTE	P-mechanism	-	Leopard update tuple, deletion marker, and heartbeat resume protocol
+335	336	PROMOTE	P-claim	-	Opaque token identified as the group's most portable idea
+337	337	DEFER	D2	-	Visibility before permissions and lagging policy heading
+338	338	DEFER	D1	297-301,768-768	Visibility snapshot no older than displayed content
+339	339	PROMOTE	P-condition	-	Cheap policy freshness requires shared ordering
+340	340	DEFER	D1	827-827,1091-1091	Recorded policy positions expose admission under withdrawn rules
+341	342	PROMOTE	P-claim	-	Bootstrap search terms and limits of the documentation sweep
+343	343	DEFER	D2	-	Policies as facts heading
+344	344	DEFER	D1	309-309	Space and bulk-change reasons against per-object rule records
+345	345	DEFER	D1	323-323	External policy needs separate snapshot freshness discipline
+346	346	PROMOTE	P-reason	-	Key-and-layer policies avoid Zanzibar's per-entity storage cost
+347	348	PROMOTE	P-mechanism	-	Ordinary lock tuples detect write races
+349	350	PROMOTE	P-condition	-	Masking layers create deny-by-position and complicate reverse visibility
+351	352	PROMOTE	P-mechanism	-	Zanzibar identifier formats and SpiceDB's replacement of GAIA users
+353	354	PROMOTE	P-claim	-	No erasure information reported for Zanzibar
+409	410	DEFER	D2	-	Questions heading
+411	411	DEFER	D2	-	Pointer identity heading
+412	412	PROMOTE	P-quote	-	Primary-key mapping and version exclusion from Protocol Buffer records
+413	413	DEFER	D1	396-399,812-812	Incarnation prefixes survive moves without restamping old records
+414	415	PROMOTE	P-claim	-	Gate-number pointers prevent references among unadmitted batch offers
+416	417	PROMOTE	P-mechanism	-	Identifiers minted inside Rama streaming topologies are not retry-safe
+418	418	DEFER	D2	-	Order heading
+419	419	PROMOTE	P-condition	-	Single ordering requires every log server to hear every number
+420	420	PROMOTE	P-quote	-	Recovery rollback and multi-region durability-loss quotations
+421	422	PROMOTE	P-claim	-	Worldwide sequencer-region round trips and FoundationDB's untried scope
+423	424	PROMOTE	P-quote	-	Unknown-result guarantee that uncommitted transactions never commit later
+425	425	DEFER	D2	-	Read dependencies and paths heading
+426	426	PROMOTE	P-mechanism	-	Tracked read ranges include a read version
+427	427	PROMOTE	P-claim	-	Ordinary versus snapshot reads as dependency commitments
+428	428	DEFER	D1	403-403	Manual dependency marking causes hard-to-find bugs
+429	430	DEFER	D1	793-793	Tool-defined dependency marks prevent misleading staleness
+431	432	PROMOTE	P-quote	-	Detailed field-number serialization and metadata rename quotations
+433	434	PROMOTE	P-mechanism	-	Store-header counters and simultaneous FoundationDB process restarts
+435	436	PROMOTE	P-number	-	Safe 32-bit to 64-bit type change and index lifecycle
+437	438	PROMOTE	P-mechanism	-	Fault-distribution tuning and final random-state simulation self-check
+486	487	DEFER	D2	-	Questions heading
+488	489	PROMOTE	P-number	-	Global ordering batch wait of about 5 to 15 milliseconds
+490	492	PROMOTE	P-quote	-	FaunaDB log contents and independently re-derived verdict quotations
+493	494	PROMOTE	P-quote	-	FaunaDB snapshot comparison and differing stale-write admission policy
+495	497	PROMOTE	P-quote	-	FaunaDB logical timestamp and real-time courtesy quotations
+498	499	PROMOTE	P-claim	-	Retries leave no separate record
+500	501	PROMOTE	P-claim	-	Grammar and index conventions deserve at least equal checking
+564	565	DEFER	D2	-	Questions heading
+566	567	DEFER	D1	528-528,548-548,558-558,759-760	Store clocks, hardware-backed ordering, and production clock skew
+568	568	DEFER	D2	-	Order and as-of heading
+569	569	PROMOTE	P-mechanism	-	Safe-time inequality and idle-partition timestamp advancement
+570	570	PROMOTE	P-condition	-	Ordering units must be coarser than personal and session layers
+571	572	PROMOTE	P-condition	-	Immutable facts cannot move ordering units; exclude partition identity
+573	576	PROMOTE	P-quote	-	F1 optimistic-write benefits, insertion phantoms, and hot-counter failures
+577	578	PROMOTE	P-quote	-	Cache catch-up and live-query out-of-sync recovery quotations
+579	580	PROMOTE	P-mechanism	-	Root-child change history avoids extra transaction participants
+581	582	PROMOTE	P-quote	-	Monotonic-key guidance, scatter allocation, and indexed-time hotspots
+583	584	PROMOTE	P-number	-	Four deletion stages and two-month garbage-collection timing
+585	587	PROMOTE	P-quote	-	Service identities, centrally minted tickets, and access-enforcement quotations
+588	589	PROMOTE	P-quote	-	Full audit-log defaults quotations
+590	591	PROMOTE	P-quote	-	Spanner metadata quotation includes schema versions and data placement
+592	595	PROMOTE	P-condition	-	Expired schema leases, intermediate states, and retained grammar versions
+644	645	DEFER	D2	-	Questions heading
+646	649	PROMOTE	P-number	-	Etcd lost approximately 18 percent of acknowledged updates
+650	652	PROMOTE	P-number	-	PostgreSQL's nine-year tuple-version identity bug
+653	656	PROMOTE	P-number	-	Retry duplication and Bufstream refusal offsets minus one versus zero
+657	658	PROMOTE	P-quote	-	Timestamp collision and clock-alarm anomaly-window quotations
+659	660	PROMOTE	P-mechanism	-	Redis-Raft no-op, MySQL isolation failures, and Datomic synchronization
+661	662	PROMOTE	P-quote	-	Datomic predicates apply only to newly added datoms
+663	664	PROMOTE	P-quote	-	Transaction-function composition can invalidate separately correct operations
+665	666	PROMOTE	P-quote	-	MongoDB ACID claims versus snapshot-isolation failures
+667	667	DEFER	D2	-	Checking conventions before building heading
+668	668	PROMOTE	P-condition	-	Formal invariants and two-gate failover model scenario
+669	669	PROMOTE	P-claim	-	Tiny gate model as cheapest standing proof across runtime rebuilds
+670	670	PROMOTE	P-mechanism	-	PObserve and permanent runtime-independent log auditing
+671	672	DEFER	D1	616-618,622-622	Real fault tests complement models and rare-schedule checking
+922	923	DEFER	D2	-	Sources heading
+924	925	PROMOTE	P-claim	-	Fetch date, source-list scope, and meaning of current documentation
+926	927	PROMOTE	P-number	-	Quotation-check threshold, counts, corrections, and normalization limits
+928	928	DEFER	D2	-	TigerBeetle sources heading
+929	929	DEFER	D2	-	TigerBeetle documentation
+930	930	DEFER	D2	-	TigerBeetle repository source paths
+931	931	DEFER	D2	-	Greef clock article
+932	932	DEFER	D2	-	Daly bitemporality article
+933	933	DEFER	D2	-	Matklad clockless-time article
+934	934	DEFER	D2	-	Fuzzer blind spots article
+935	935	DEFER	D2	-	Greef Changelog interview transcript
+936	936	DEFER	D2	-	Greef QCon talk transcript
+937	938	DEFER	D2	-	Kingsbury TigerBeetle analysis
+939	939	DEFER	D2	-	Temporal and Restate sources heading
+940	940	DEFER	D2	-	Temporal documentation topics
+941	941	DEFER	D2	-	Temporal Worker Versioning deployment article
+942	942	DEFER	D2	-	Wang summary of Fateev talk
+943	943	DEFER	D2	-	Fateev SE Radio transcript
+944	944	DEFER	D2	-	Ewen Restate origin article
+945	945	DEFER	D2	-	Kleeman immutability article
+946	946	DEFER	D2	-	Ewen and Kleeman log article
+947	947	DEFER	D2	-	Durable execution engine article
+948	948	DEFER	D2	-	Agent versioning article
+949	949	DEFER	D2	-	Van Dongen checkpointing article
+950	951	DEFER	D2	-	Restate versioning and retention documentation
+952	952	DEFER	D2	-	Zanzibar sources heading
+953	953	DEFER	D2	-	Zanzibar paper
+954	954	DEFER	D2	-	Kissner interview
+955	955	DEFER	D2	-	Moshenko permissions-ordering article
+956	956	DEFER	D2	-	Cordell Spanner and CockroachDB article
+957	957	DEFER	D2	-	Zelinskie consistency-token article
+958	958	DEFER	D2	-	AuthZed Zanzibar annotations
+959	959	DEFER	D2	-	SpiceDB consistency documentation
+960	960	DEFER	D2	-	Yao Himeji article and archive provenance
+961	962	DEFER	D2	-	OpenFGA consistency documentation
+963	963	DEFER	D2	-	FoundationDB and Record Layer sources heading
+964	964	DEFER	D2	-	FoundationDB paper
+965	965	DEFER	D2	-	Record Layer paper
+966	966	DEFER	D2	-	Record Layer schema-evolution documentation
+967	967	DEFER	D2	-	FoundationDB documentation topics
+968	968	DEFER	D2	-	Idempotency identifiers design document
+969	969	DEFER	D2	-	Versionstamp forum threads and GitHub issue
+970	970	DEFER	D2	-	Wilson Antithesis essay
+971	972	DEFER	D2	-	Third-party notes on Wilson's talk
+973	973	DEFER	D2	-	Calvin and related sources heading
+974	974	DEFER	D2	-	Calvin paper
+975	975	DEFER	D2	-	Thomson and Abadi determinism paper
+976	976	DEFER	D2	-	Abadi and Faleiro overview
+977	977	DEFER	D2	-	Abadi blog bibliography
+978	978	DEFER	D2	-	FaunaDB protocol article and authorship metadata
+979	979	DEFER	D2	-	Kingsbury FaunaDB analysis
+980	980	DEFER	D2	-	Fauna closure article
+981	981	DEFER	D2	-	Kimball and Sharif clock article
+982	983	DEFER	D2	-	Matei consistency-model article
+984	984	DEFER	D2	-	Google lineage sources heading
+985	985	DEFER	D2	-	Bigtable paper
+986	986	DEFER	D2	-	Chubby paper
+987	987	DEFER	D2	-	Megastore paper
+988	988	DEFER	D2	-	Spanner paper
+989	989	DEFER	D2	-	F1 paper
+990	990	DEFER	D2	-	F1 schema-change paper
+991	991	DEFER	D2	-	Brewer TrueTime and CAP article
+992	992	DEFER	D2	-	Spanner SQL evolution paper
+993	993	DEFER	D2	-	Firestore paper
+994	994	DEFER	D2	-	Cloud Spanner documentation topics
+995	995	DEFER	D2	-	Firestore best practices
+996	996	DEFER	D2	-	Datastore consistency article
+997	997	DEFER	D2	-	Google Cloud deletion documentation
+998	998	DEFER	D2	-	Google infrastructure security overview
+999	1000	DEFER	D2	-	Cloud Audit Logs overview
+1001	1001	DEFER	D2	-	Checking sources heading
+1002	1002	DEFER	D2	-	Kingsbury timestamp article
+1003	1003	DEFER	D2	-	Jepsen research ethics
+1004	1004	DEFER	D2	-	Jepsen tutorial chapters
+1005	1005	DEFER	D2	-	Jepsen database-analysis bibliography
+1006	1006	DEFER	D2	-	Elle paper
+1007	1007	DEFER	D2	-	AWS formal-methods report
+1008	1008	DEFER	D2	-	AWS correctness-practices article
+1009	1010	DEFER	D2	-	S3 lightweight formal-methods paper
+1011	1011	DEFER	D2	-	Identifiers sources heading
+1012	1012	DEFER	D2	-	RFC 9562
+1013	1014	DEFER	D2	-	Snowflake announcement and project README
