@@ -1,0 +1,373 @@
+1	30	SKIP	-	Title, provenance, reading instructions, and part heading.
+31	34	OWN-LIST	-	Introduction to the file's first-record findings.
+35	35	OWN-LIST	P0	CARRIED Q10; defaults preserve records but operators may migrate or trim.
+36	36	OWN-LIST	C3,C2	CARRIED Q5; fixed task count forces copying and changed positions.
+37	37	OWN-LIST	C1	NEW-REASON: carried ids survive restore, trimming, and repartition.
+38	38	OWN-LIST	C1	DISAGREES: recommends time-bearing UUIDv7; client generation protects retries.
+39	39	OWN-LIST	E1	DISAGREES: verdict retention is required for correctness, not merely an early loss.
+40	40	OWN-LIST	C3,E1	CARRIED Q7; gate modes trade atomic scope, latency, and failure isolation.
+41	41	OWN-LIST	C2,W3	CARRIED Q3; microbatch exposes global progress, stream offsets remain unavailable.
+42	42	OWN-LIST	C1,P0	CARRIED Q1; publishing admitted facts produces duplicates requiring deduplication.
+43	43	OWN-LIST	E3,A1	CARRIED Q2; gate-generated stamps must be preserved rather than recomputed.
+44	44	OWN-LIST	E5,E6	Read provenance requires application conventions.
+45	46	OWN-LIST	C8,X4,C5	Authentication, authorization, and encryption require additional mechanisms.
+47	50	SKIP	-	Section headings.
+51	51	SAME	P0	Default permanent retention.
+52	53	CARRIED	C5,P0	Q10; migration replaces content or leaves an offset-preserving tombstone.
+54	54	CARRIED	C5,P0	Q10; migration creates another log, switches, then deletes the original.
+55	55	CARRIED	C5,P0	Q10; migration must be idempotent and also transforms subsequent appends.
+56	56	CARRIED	P0,C5	Q10; trimming respects outstanding topology consumption by default.
+57	58	NEW-REASON	P0	Retaining raw inputs permits recovery from code-corrupted views.
+59	60	CARRIED	P0,C5	Q10; operator policy controls whole-depot rewriting and erasure.
+61	62	SKIP	-	Identity heading.
+63	63	DISAGREES	C1	UUIDv7 instead of opaque random ids; retries explain client-side generation.
+64	64	NEW-REASON	C1	Random 64-bit ids reach roughly ten percent collision probability at two billion.
+65	65	DISAGREES	C1	CARRIED Q6; time-ordered ids are preferred for sorted scans.
+66	66	NEW-REASON	C1	UUIDv7 supplies only millisecond ordering.
+67	67	DISAGREES	C1	Task-bearing, topology-generated ids are permitted under microbatch.
+68	69	DISAGREES	C1	Composite user-and-task ids are endorsed instead of one opaque id space.
+70	71	DISAGREES	C1	CARRIED Q6; leaking time or task is valued for physical access.
+72	73	CARRIED	C3	Q7; partitioner-selected record component fixes ordering companions.
+74	75	SKIP	-	First-facts heading.
+76	78	NEW-REASON	C4	Initial PState values are code constants; no genesis hook exists.
+79	80	NEW-REASON	C4	New topologies may replay initial appends from the beginning.
+81	82	NEW-CORNER	C4	Bootstrap admission requires rules that precede grammar and policy facts.
+83	86	SKIP	-	Key heading and reference qualification.
+87	87	SAME	C4	Stable numeric type ids separate wire identity from names.
+88	89	CARRIED	C1,W1	Q6; map keys require deterministic serialization and sort by serialized bytes.
+90	91	SAME	C4	Stable wire ids permit separately looked-up human names.
+92	93	SKIP	-	Erasure heading.
+94	94	CARRIED	C5,P0	Q10; excision preserves slots while readers skip removed contents.
+95	95	CARRIED	C5	Q10; deleting a subindex parent leaves child values on disk.
+96	97	CARRIED	C5	Q10; incremental backups retain depot and PState bytes until backup garbage collection.
+98	99	CARRIED	C5	Q10; reference supplies no encryption or backup-excision guarantee.
+100	101	DISAGREES	C5	CARRIED Q10; tombstoning, explicit index deletion, and backup expiry offer a third erasure route.
+102	103	SKIP	-	Actor heading.
+104	105	NEW-REASON	C8,E4	Reference supplies no authentication or authorization mechanism.
+106	106	NEW-REASON	C8	Client-executed partitioners assume trusted appenders.
+107	107	NEW-REASON	C8	REST append and read examples supply no credentials.
+108	109	NEW-REASON	X4	Any cluster module can mirror another module's data.
+110	111	NEW-CORNER	C8	First-record choice between front-tier attestation and preserved offer signatures.
+112	113	SKIP	-	Clock heading.
+114	114	CARRIED	E3,C2	Q2; depot leader stamps append time, but topology access is undocumented.
+115	115	CARRIED	E3	Q2; tutorial obtains time inside task execution.
+116	116	CARRIED	E3	Q2; topology clock wrapper permits controlled test time.
+117	118	SAME	E3	Order comes from partition sequence, not time.
+119	120	CARRIED	E3,E1	Q2; leader changes and retries alter clocks unless the first verdict is reused.
+121	122	SKIP	-	Visibility heading.
+123	126	NEW-REASON	X4	Committed-state visibility supplies no permission boundary.
+127	128	NEW-REASON	X4	People's visibility depends on an external access tier.
+129	130	SKIP	-	Order heading.
+131	131	NEW-REASON	A3	One topology exclusively owns each PState's writes.
+132	132	CARRIED	C3	Q7; a task executes actions serially.
+133	133	CARRIED	C3,E1	Q7; stream atomicity is local, microbatch atomicity spans partitions.
+134	134	CARRIED	C3	Q7; separate partitions process independently.
+135	135	CARRIED	C3	Q7; shared ordering or entities motivates one depot.
+136	136	NEW-REASON	C2	Native positions contain partition index and offset; no global offset exists.
+137	138	CARRIED	C2	Q3; topology code can obtain a global microbatch counter tied to input ranges.
+139	140	NEW-REASON	C2	Readers may see partitions at different microbatches during commit.
+141	142	NEW-REASON	A3,C3	Task serialization makes a local compare-and-set lock-free.
+143	144	CARRIED	C3,E1,E4	Q7; atomic stream admission requires colocated writes and decision inputs.
+145	146	CARRIED	C2	Q3; cuts need committed-partition checks or application-maintained stream counters.
+147	148	SKIP	-	Read-list heading.
+149	150	NEW-REASON	E6	Unlogged reads multiply fact size; depot fetch guidance assumes roughly fifty kilobytes.
+151	156	SKIP	-	Read-mark absence and index-progress heading.
+157	157	CARRIED	C2	Q3; clients can obtain each depot partition's start and end offsets.
+158	158	CARRIED	C2	Q3; progress exists internally, but no client API is documented.
+159	160	CARRIED	C2	Q3; reference recommends materializing application progress counters.
+161	162	CARRIED	C2	Q3; index topology must publish progress before historical reads can retain it.
+163	166	SKIP	-	Causation question has only transient acknowledgement bookkeeping.
+167	168	SKIP	-	Fact-pointer heading.
+169	169	DISAGREES	C1	Rama names records by partition and offset.
+170	170	CARRIED	C1,P0	Q10; depot migration preserves record positions.
+171	171	NEW-CASE	C1	Restoring a backup reuses old offsets for different records.
+172	172	CARRIED	C1,C2	Q5; repartition creates copied depots in another module.
+173	173	NEW-REASON	C1	Trimming invalidates position-based references.
+174	175	SAME	C1	Client-generated ids travel inside records.
+176	177	CARRIED	C1,P0	Q9; content-derived identity conflicts with in-place content migration.
+178	185	SKIP	-	Replacement-reference absence and verdict-section introduction.
+186	186	NEW-REASON	E1	Append exceptions leave successful admission uncertain.
+187	187	NEW-CASE	E1	Throttle exceptions occur after appends have landed.
+188	188	NEW-REASON	C1,E1	Stream retry can follow completed, committed writes.
+189	190	NEW-REASON	E1	Deterministically malformed records otherwise block microbatch processing indefinitely.
+191	192	DISAGREES	E1	Kept verdicts are required for retry correctness, rather than optional early history.
+193	194	NEW-REASON	E1	Fact and verdict atomicity depends on event locality or microbatch scope.
+195	196	NEW-REASON	E1	Microbatch verdicts require polling or subscriptions; append acknowledgements establish durability only.
+197	198	SKIP	-	Runtime-version heading.
+199	200	NEW-REASON	A2,E8	Each deployment has a runtime-readable module instance identity.
+201	201	NEW-REASON	A2	Backups preserve the deployed module jar.
+202	203	NEW-REASON	A2	Runtime version, jar hash, and machine kind lack documented accessors.
+204	205	NEW-REASON	A2,E8	Verdicts can identify module instances; applications must connect them to build facts.
+206	207	SKIP	-	Hand and click heading.
+208	209	NEW-REASON	E7	Pointer facts consume the same per-task stream execution budget as other writes.
+210	211	SKIP	-	Storage heading.
+212	212	NEW-REASON	W2	Built-in serialization already supports maps, collections, and records.
+213	213	NEW-REASON	C7,W2	Java serialization cannot reliably deserialize earlier type versions.
+214	214	NEW-REASON	W2	Custom serializers must be registered in every interacting client and module.
+215	215	NEW-REASON	W2	Client and cluster major and minor versions must match.
+216	216	CARRIED	P0	Q10; depot trimming is disabled by default.
+217	218	NEW-REASON	P0	Online backups require licensing; free backups require cluster shutdown.
+219	220	NEW-REASON	C7,W2	Custom types bind clients to serializer jars; plain data can retain checked grammars.
+221	226	SKIP	-	Gate comparison introduction and table header.
+227	227	NEW-REASON	E1,E7	Interactive gate latency differs by hundreds of milliseconds.
+228	228	NEW-REASON	E1,C1	Only microbatch PState writes provide exactly-once delivery.
+229	229	CARRIED	C3,E1	Q7; atomic scope differs between one task event and all partitions.
+230	230	NEW-REASON	E1	Stream returns verdicts directly; microbatch requires separate reads.
+231	231	CARRIED	C2	Q3; only microbatch supplies a native global progress number.
+232	232	DISAGREES	C1	Microbatch permits generating ids inside the gate.
+233	233	NEW-REASON	E1	A malformed record can block the entire microbatch topology.
+234	234	NEW-REASON	C3	One stalled task group stops all microbatch topologies in its module.
+235	236	CARRIED	P0,C1	Q1; neither topology supplies exactly-once publication to another depot.
+237	238	NEW-REASON	E1,C3	Microbatch preference is conditional on accepting greater update latency.
+239	240	DISAGREES	E1,C1	Retained verdicts become first-record requirements under stream, while microbatch allegedly permits skipping them; also ABOVE.
+241	242	CARRIED	P0,E3,A1	Q1,Q2; offers-as-log and primary fact rows require different replay guarantees.
+243	244	SKIP	-	Additional-items heading.
+245	246	CARRIED	C3,W1	Q7; colocating by entity trades local checks against hot entities and reverse-query fanout.
+247	248	NEW-CORNER	-	Depot and PState names cannot be renamed through module updates.
+249	250	CARRIED	C2	Q3; readable progress requires application materialization except for microbatch ids.
+251	252	NEW-REASON	P0	Visibility waits for leader and in-sync follower disk persistence.
+253	254	NEW-REASON	C1,C8	Cross-cluster ingestion requires self-contained fact and actor identities.
+255	256	ABOVE	-	A worldwide cluster places wide-area latency inside admission or between users and the gate.
+257	264	SKIP	-	Part heading and biographical introduction.
+265	266	SAME	P0,C7	Typed small facts retained in an append-only master dataset.
+267	268	SAME	P0	Immutable raw inputs remain the permanent source of derived views.
+269	270	CARRIED	P0	Q1; Rama distinguishes depot inputs from incrementally maintained indexes.
+271	272	SKIP	-	Reasons heading.
+273	274	NEW-REASON	P0	A statement's truth at its original time motivates immutable facts.
+275	276	NEW-REASON	P0	Raw observations terminate derivation and anchor the source of truth.
+277	278	NEW-REASON	P0	Append-only inputs protect good data from buggy deployments.
+279	280	SKIP	-	Small-fact granularity benefits outside the ledger.
+281	282	NEW-REASON	C1	Logical repetition of one fact is idempotent.
+283	284	NEW-REASON	C7	Tight schemas detect inconsistent objects at creation.
+285	286	ABOVE	W1	Separating truth storage from query indexes challenges one-store conflation.
+287	288	CARRIED	P0,A3	Q1; exclusive PState ownership coexists with depots as recomputation truth.
+289	292	SKIP	-	Change-history heading and sourcing qualification.
+293	294	CARRIED	C3,W1	Q5; repartition follows replay-into-new-module and client-switch migration.
+295	296	DISAGREES	E3	Earlier designs order facts by timestamps; later designs use partition positions.
+297	298	DISAGREES	P0,C5	Bad or low-value data may be removed, beyond preserving admitted content.
+299	300	CARRIED	E3,A1	Q2; nondeterministic PState data prevents reconstruction from depot inputs.
+301	302	DISAGREES	C1	Time-bearing UUIDv7 replaces an unverified earlier 64-bit nonce practice.
+303	304	NEW-CASE	E1,A3	Collaborative-editor version checks omitted retry handling later required by guidance.
+305	306	SKIP	-	Question-by-question heading.
+307	308	DISAGREES	P0	Re-derivability and deletable bad data replace immutable admitted content as the governing promise.
+309	310	DISAGREES	C1	Natural, typed, and time-bearing identities are favored over opacity.
+311	312	NEW-REASON	C4	Initial rules live in code in this camp's practice.
+313	314	SAME	C4	Numeric field identity survives name changes.
+315	316	DISAGREES	C5	CARRIED Q10; erasure is operator purging rather than mandatory encryption or external payloads.
+317	318	NEW-REASON	C8,E4	Trusted pipelines use permissions chiefly to protect the log from mistakes.
+319	320	DISAGREES	E3	Earlier timestamp-based ordering conflicts; later source and gate timestamps agree.
+321	322	DISAGREES	A3,E1	CARRIED Q4,Q7; stale edits are transformed and admitted instead of failing compare-and-set.
+323	324	DISAGREES	E6	Reads belong in execution traces keyed by run, not crossing-pattern records; also ABOVE.
+325	326	SAME	C1	A fact is referenced by its carried id.
+327	328	DISAGREES	C6	An explicit replacement pointer is considered redundant with cell order.
+329	330	DISAGREES	A3,P0,E1	Admission winners are recomputable views rather than fixed gate decisions; also ABOVE.
+331	332	NEW-REASON	A2,E8	Code identity enables finding facts written by a faulty deployment.
+333	334	NEW-REASON	C7,W2	Evolving custom schemas motivate Thrift or Protobuf.
+335	338	SKIP	-	Unaddressed questions and comparison heading.
+339	340	SAME	P0	Atomic, timestamped, unoverwritten facts form the source of truth.
+341	342	SKIP	-	Transfer-limit introduction.
+343	343	NEW-REASON	C8,E1	Trusted descriptive pipelines do not establish admission safety for many independent actors.
+344	344	NEW-REASON	E6	Marz's earlier practice supplies no read-provenance experience.
+345	345	ABOVE	C4,X2	Code-deployed schemas differ from permanently coexisting grammar, policy, and tool facts.
+346	346	DISAGREES	P0	Attributes a ban on representation rewriting to Sid, unlike the ledger.
+347	347	CARRIED	P0	Q10; operator-controlled rewriting becomes a trust problem in a public economy.
+348	349	ABOVE	-	Per-customer clusters supply no evidence for one planetary store.
+350	351	SKIP	-	Disagreements heading.
+352	352	ABOVE	W1	One datastore serving truth and indexing is challenged.
+353	353	SKIP	-	Batch-versus-stream historical disagreement.
+354	354	ABOVE	-	Integrated log, index, and compute confront the multiple-systems dissent.
+355	356	NEW-CASE	W1	Multiply migrated after fixed indexes constrained queries and distributed operation.
+357	362	SKIP	-	Dissent introduction and biography heading.
+363	364	DISAGREES	C1,P0	Positions permanently name records; retention may discard history.
+365	366	SKIP	-	Reasons heading.
+367	368	SAME	E3	Logical sequence separates order from physical clocks.
+369	370	NEW-REASON	A1	Clock reads and thread scheduling invalidate deterministic replay.
+371	372	CARRIED	P0,E3	Q1,Q2; request logs and result logs permit different leader behavior.
+373	374	CARRIED	C2	Q3; processed position plus log identifies replica state.
+375	376	CARRIED	C2	Q3; serving nodes can wait for a requested index position.
+377	378	NEW-REASON	C3,W3	Independent writers weaken the meaning of a desired global order.
+379	380	NEW-REASON	A3	Single partition writers simplify reasoning about concurrent modification.
+381	382	DISAGREES	P0	Complete permanent history is challenged as unbounded; retention and compaction are alternatives.
+383	386	SKIP	-	Disagreement heading and source introduction.
+387	388	NEW-REASON	P0,A1	Changing code motivates retained inputs and reprocessing.
+389	390	SKIP	-	List introduction.
+391	391	NEW-REASON	A1,W1	Two implementations must agree; parallel replay and table switching avoid maintaining both.
+392	392	NEW-REASON	C3	Streaming can provide semantic guarantees comparable to batch processing.
+393	393	SKIP	-	CAP remark without a ledger-specific argument.
+394	394	DISAGREES	P0	Retention need cover only the desired reprocessing window.
+395	396	ABOVE	-	One system cannot presumptively outperform specialized query systems.
+397	398	NEW-CASE	A1	Twitter's batch pipeline discarded late events that streaming retained.
+399	400	SKIP	-	Question heading.
+401	402	DISAGREES	C1,P0	CARRIED Q10; positions are permanent identifiers while contents may be compacted away.
+403	404	DISAGREES	C7,C5	Null is a deletion signal; expiring tombstones let lagging readers miss erasure. CARRIED Q10.
+405	406	DISAGREES	W3,C2	Requires positions per partition whenever several partitions exist.
+407	408	DISAGREES	E3	Includes Spanner's physical-time alternative to logical ordering.
+409	410	CARRIED	C2	Q3; index points determine whether a requested read position has been reached.
+411	412	DISAGREES	C1	Kafka identifies records by positions, despite cross-cluster portability concerns.
+413	414	CARRIED	P0,E3	Q1,Q2; log decisions when admission cannot be replayed deterministically.
+415	416	ABOVE	-	Challenges one substance and one store serving every query.
+417	418	SKIP	-	Comparison heading.
+419	420	SAME	P0	One log provides enduring truth to many readers.
+421	422	NEW-REASON	C8,E1,E6	Trusted transport records lack attribution, admission checks, and read history.
+423	448	SKIP	-	Voice selection, omitted sources, and above-table introduction.
+449	450	ABOVE	W1	One substance still requires multiple indexes and physical routing to avoid every tool reading everything.
+451	452	ABOVE	C4,X2,C3	Stored grammars and policies raise permanent-reader, colocation, and correction questions.
+453	454	ABOVE	C3	Planetary unity creates a shared failure domain without global order.
+455	456	ABOVE	C7	A forever-fixed envelope is challenged in favor of explicit evolution rules.
+457	458	ABOVE	A1	Running answers may be stored safely as recomputable views.
+459	460	ABOVE	E6	Recording every read on facts risks provenance dominating storage.
+461	462	ABOVE	A3	One writer is understood per partition rather than globally.
+463	464	SKIP	-	Wrong-question heading.
+465	465	ABOVE	P0	Reframes permanence around preserved facts, stable positions, and re-derivation.
+466	466	OWN-LIST	C4,C1,C7,C3,C8,E3,E5	DISAGREES: key and id representation may migrate; captured information and physical placement must be fixed.
+467	467	ABOVE	E3	Clock choice is reframed as recorded provenance rather than ordering.
+468	468	DISAGREES	C6	Camp calls replacement pointers redundant locally; author defends them across stores.
+469	470	NEW-REASON	E1	Keeping offers and verdicts permits auditing a fallible gate.
+471	472	SKIP	-	Premise-challenge heading.
+473	474	SAME	P0	Uncaptured historical information cannot later be recovered.
+475	476	ABOVE	P0	Representation migration narrows what genuinely must precede the first record.
+477	478	CARRIED	P0	Q10; untrusted operators motivate transparency logs beyond this camp's experience.
+479	519	SKIP	-	Sources, retrieval limitations, and round-two method.
+520	521	CARRIED	C1,W1	Q6; withdraws disk-locality attribution and distinguishes documented sort-order motivation.
+522	525	SKIP	-	Log-shape introduction.
+526	529	CARRIED	P0	Q1; offers form the depot log while facts occupy primary PState rows.
+530	531	ABOVE	P0	Offers-only permanence fails to cover the admitted facts themselves.
+532	533	CARRIED	E3,A1	Q2; gate-clock data prevents reconstructing fact rows from offers.
+534	535	CARRIED	E3,A1,X2	Q2; replay clocks and cross-partition policy timing can change admission results.
+536	537	NEW-CASE	C1,C2	Backup restore reuses gate versions as well as offsets for different facts.
+538	539	CARRIED	C2,C3	Q5; nondeterministic facts require direct PState copying with significant repartition downtime.
+540	541	CARRIED	P0	Q1; offers omit verdicts and PState rows do not provide an admitted-fact feed.
+542	543	CARRIED	P0,E1	Q1; atomic verdict rows coexist with permanently retained malformed intake.
+544	547	CARRIED	P0,C1	Q1; result publication requires a commit boundary and retry-safe republishing of stored facts.
+548	549	CARRIED	P0,E1	Q1; a results depot permits trimming intake but must also publish permanent refusals.
+550	551	CARRIED	E3,E1	Q2; read the clock once, retain the decision, then publish it.
+552	553	CARRIED	P0,A1	Q1; deduplicated result logs can rebuild both indexes and gate state.
+554	555	NEW-CASE	C1	Independent ids preserve names despite post-backup loss.
+556	557	CARRIED	C2,C3	Q5; deterministic result-log consumers permit replay-based repartition.
+558	559	CARRIED	P0,C1	Q1; a second store consumes the admitted-facts depot and deduplicates before ingestion.
+560	561	CARRIED	P0,E1	Q1; publication triples logical storage and separates committed rows from visible log records.
+562	563	SKIP	-	Choice heading.
+564	565	DISAGREES	E3	CARRIED Q1,Q2; moves stamping before append instead of retaining a separate gate admission stamp.
+566	567	CARRIED	P0	Q1; request-log and result-log shapes are both legitimate if kept distinct.
+568	569	CARRIED	P0,E3,X2	Q1,Q2; logged decisions avoid requiring a permanently deterministic policy-reading gate.
+570	571	SKIP	-	Content-identity heading.
+572	573	DISAGREES	C1	CARRIED Q9; content-derived ids remain usable as unchecked names after migration.
+574	576	CARRIED	C1	Q9; unchecked content-derived names lose integrity verification.
+577	577	CARRIED	C1,C4	Q9; reproducible seed hashes freeze canonical encoding across runtime versions.
+578	579	CARRIED	C1	Q9; salted hashes provide commitments only to salt holders, without improving retry identity.
+580	581	DISAGREES	C1	Camp practices include natural ids, time-bearing UUIDs, and position identities.
+582	583	SAME	C1,C4	Changing canonical encoding breaks derived seeds; published constants avoid that dependency.
+584	585	SAME	C5	Small plaintext values remain guessable from unsalted hashes.
+586	587	SKIP	-	UUID heading.
+588	589	DISAGREES	C1	CARRIED Q6; UUIDv7 is favored for chronological scans, not documented disk locality.
+590	591	CARRIED	C1,W1	Q6; lifelong random entity ids need a separate index only for creation-order scans.
+592	593	CARRIED	C1,W1	Q6; random ids preserve partition balance and nested locality but require another chronological index.
+594	595	CARRIED	C3	Q7; skewed keys require spreading work and possibly stored placement state.
+596	597	CARRIED	C3	Q7; spreading hot entities retains cell order while giving up whole-entity order.
+598	599	NEW-CASE	C3	A hot shared canvas throttles unrelated entities sharing its task.
+600	601	CARRIED	C3	Q7; preserve cell-level guarantees and ensure appenders know changing placement.
+602	603	SKIP	-	Gate-check heading.
+604	605	CARRIED	C3,E4	Q7; version checks are local, while grammar and policy placement remain unresolved.
+606	606	NEW-REASON	X2,E1	Broadcast metadata incurs every-task write cost and inherently stale local checks.
+607	607	CARRIED	C3,E4	Q7; remote checks require two hops and may become stale before the local write.
+608	608	CARRIED	C3,X3	Q7; layer-local policies make overlay resolution cross partitions.
+609	609	CARRIED	C3	Q7; microbatch supplies cross-partition transaction scope despite read hops.
+610	610	DISAGREES	E4	The door checks policy; the gate checks only shape and version.
+611	612	DISAGREES	C4,X2	Grammars live in module code rather than versioned facts; also ABOVE.
+613	614	CARRIED	C3	Q7; replicate small metadata and colocate larger data.
+615	616	DISAGREES	E4,C1,C3	Check grants at the door or encode ownership in layer ids; CARRIED Q7.
+617	620	SKIP	-	Worldwide-cluster evidence introduction.
+621	621	ABOVE	-	Leader-only reads prevent replicas from bringing service closer to distant users.
+622	622	NEW-REASON	P0	Write visibility waits for every in-sync replica.
+623	623	ABOVE	-	Node separation supplies no documented regional placement guarantee.
+624	624	ABOVE	-	Cluster-wide coordination includes a five-second leader-election session timeout.
+625	625	ABOVE	C3	One stalled task group halts all module microbatch topologies.
+626	626	ABOVE	A2	Module-wide updates pause everyone's appends.
+627	627	ABOVE	C3	Placement labels target modules rather than individual partitions.
+628	628	NEW-REASON	W2	Clients must match the cluster's major and minor versions.
+629	629	CARRIED	C3	Q5; task count is fixed at launch.
+630	630	NEW-REASON	P0	Online backup licensing and free-node limits constrain operational recovery.
+631	634	ABOVE	-	Per-customer deployments leave worldwide behavior unestablished.
+635	636	SKIP	-	Open-questions introduction.
+637	637	ABOVE	-	Requests evidence for tested cross-region round trips.
+638	638	ABOVE	C3	Questions regional replica placement and preferred leaders.
+639	639	CARRIED	C2	Q3; asks whether follower reads can state their applied position.
+640	640	ABOVE	C3	Questions whether a regional outage stops every microbatch topology.
+641	641	ABOVE	-	Questions network timeout assumptions at worldwide latencies.
+642	642	CARRIED	C1,C2	Q5; asks whether cross-cluster copying preserves offsets.
+643	643	CARRIED	C3,C2	Q5; asks how task scaling preserves, remaps, or translates positions.
+644	644	CARRIED	P0,C1	Q1; asks about exactly-once internal depot publication.
+645	645	CARRIED	C2,E3	Q2,Q3; asks whether topology code can read depot offsets and append time.
+646	646	ABOVE	A2	Questions whether worldwide module updates can roll region by region.
+647	647	NEW-REASON	E6	Practical depot record-size limits may constrain long read lists.
+648	648	CARRIED	C1,W2	Q9; asks whether built-in serialization remains hash-stable across versions.
+649	650	ABOVE	-	Questions public-service licensing and a mandatory front tier.
+651	654	SKIP	-	Lean-by-lean introduction.
+655	656	DISAGREES	C5,P0	NEW-CASE: sensitive metadata requires operator excision beyond encrypted values and identity facts.
+657	658	NEW-CORNER	C1,C4	A same-as key is required from day one for independently ingested identities.
+659	660	SKIP	-	Cross-reference to seed-id discussion.
+661	662	NEW-REASON	C4	Stable key ids require grammar resolution on every offer.
+663	664	NEW-CASE	C5	CARRIED Q10; restoring backups resurrects destroyed encryption keys unless deletions are reapplied.
+665	665	NEW-REASON	C5	Permanent intake must already be encrypted; grammar checks need colocated decryption keys.
+666	667	NEW-REASON	C5	Cryptography protects depot and backup copies; primary row deletion is already mutable.
+668	669	CARRIED	C5	Q10; camp offers implementation optimism but no operational key-erasure experience.
+670	671	DISAGREES	E4,C8,A2	Door checks grants instead of gate; NEW-CORNER: preserve door build and verification method.
+672	672	SKIP	-	Time and provenance subheading.
+673	673	CARRIED	E3,E1	Q2; reuse the first stamp and identify its task and module instance.
+674	674	DISAGREES	E6	Store full read lists in separate records instead of pattern-plus-cut crossing records.
+675	676	SKIP	-	No sourced position on causation.
+677	678	DISAGREES	W1,X4	Index paths must contain layers from day one; ABOVE: cluster-executed tools bypass private-layer promises.
+679	680	DISAGREES	C2	Layout epochs must accompany positions from the first day, rather than remain a later extension.
+681	681	SAME	C2	Interned cuts avoid repeatedly storing large partition vectors.
+682	682	CARRIED	C2,W3	Q5; claims microbatch global cuts survive repartition and supports both token forms.
+683	684	SAME	C3	Hot-entity constraint already held.
+685	686	NEW-REASON	E5	Deterministic tools purportedly make all reads dependencies; distinctions remain for people and models.
+687	688	CARRIED	C2	Q3; index progress must be explicitly materialized in Rama.
+689	690	NEW-CASE	C1	Restore-driven identity reuse motivates independent fact names.
+691	692	NEW-REASON	C6	Permanent offers already retain the expected predecessor.
+693	694	DISAGREES	E1,P0	Refusals should expire after a horizon; NEW-CASE: hot-cell contention multiplies retained refusals.
+695	696	NEW-CASE	E8,A2	Mid-session deployment makes session-start build attribution insufficient.
+697	698	DISAGREES	E7,P0	Hand records should use a separate, expiring log; NEW-CASE: millions of daily motion facts.
+699	700	SKIP	-	No sourced position on clicks.
+701	702	NEW-CASE	C7,P0	A malformed-offer flood makes permanent intake expensive; validate before append and retain facts separately.
+703	704	SKIP	-	Wrong-question heading.
+705	705	DISAGREES	P0,C3	Attributes irreversible representation choices to permanence; placement and encryption remain first-record obligations independently.
+706	706	SAME	C2	Stable, compact cut names matter more than number-versus-vector representation.
+707	707	CARRIED	C1	Q9; content-derived identity needs a verifier and frozen canonical bytes.
+708	708	ABOVE	E7,P0	Reframes hand recording as a question about differing permanence promises.
+709	709	ABOVE	E1,P0	Reframes refusal placement around whether verdicts are facts or views.
+710	711	CARRIED	P0,E3	Q1,Q2; log choice determines whether gate-clock stamping prevents reconstruction.
+712	715	SKIP	-	Above-table additions introduction.
+716	716	DISAGREES	P0,E1,E6,E7	Retention should vary by record kind instead of preserving refusals, hand ticks, and provenance forever.
+717	717	ABOVE	C5	Deletable key storage adds sensitive mutable state outside an all-facts model.
+718	718	NEW-REASON	A2,C8	Authentication tier is runtime code whose build must be attributable.
+719	719	ABOVE	A3,P0	Writer uniqueness depends on whether the permanent object is intake, rows, or results.
+720	721	ABOVE	X4	Tool execution location determines whether private layers have meaning.
+722	723	SKIP	-	Transfer-summary heading.
+724	725	CARRIED	P0	Q10; rewrite arguments inherit trusted-operator assumptions.
+726	741	SKIP	-	Research gaps, round-three provenance, and reply heading.
+742	744	CARRIED	C3	Q7; custom partitioning can place all records by layer.
+745	745	CARRIED	C3,X1	Q7; one layer-local offer can atomically admit a many-fact saying.
+746	746	CARRIED	C3	Q7; matching depot and PState placement eliminates hops.
+747	747	CARRIED	C3,E4	Q7; layer placement makes private policy and grant checks local.
+748	749	CARRIED	C3	Q7; owner-based placement follows the dominant access pattern rather than map keys.
+750	751	CARRIED	C3,X1	Q7; exclusive topology ownership prevents mixing gate modes for one fact PState.
+752	753	SKIP	-	Rejoinder heading.
+754	754	NEW-CASE	C3	A hot team layer throttles unrelated layers sharing its task.
+755	755	CARRIED	C3,C2	Q5,Q7; a layer outgrowing one task loses single-writer order when split.
+756	756	CARRIED	C3	Q7; few unequal layers balance worse than numerous small entities.
+757	757	CARRIED	C3,X3	Q7; layer partitioning makes every entity-stack read hop across layers.
+758	758	NEW-REASON	C3	Cross-partition promotion remains an ordinary offer linked by provenance.
+759	759	CARRIED	C3,X1	Q7; a saying spanning two layers loses the promised local atomicity.
+760	761	CARRIED	C3,C2	Q5; no documented online rehoming avoids a full module copy.
+762	763	SKIP	-	Hybrid verdict heading.
+764	765	CARRIED	C3	Q7; hybrid placement distinguishes single-owner and many-writer layers rather than privacy.
+766	766	CARRIED	C3	Q7; configurable partitioners support the hybrid's local atomicity.
+767	767	CARRIED	C3,C2,X1	Q7; layer-local counters and batches trade local policy checks against stack hops and throughput limits.
+768	769	CARRIED	C3,C2	Q5; online rehoming and task splitting remain undocumented.
+770	771	OWN-LIST	-	Introduction to decisions required before the first record.
+772	772	OWN-LIST	C3,C1	Placement and layer class must be fixed; offers must reveal a verifiable class.
+773	773	OWN-LIST	C2	DISAGREES: position epochs are mandatory immediately rather than available as later token extensions.
+774	774	OWN-LIST	C3	Order promises depend on single-owner placement remaining fixed.
+775	776	OWN-LIST	X1,E1	NEW-CORNER: every constituent fact carries saying identity and a whole-saying verdict.
+777	778	CARRIED	C2	Q3; interned cuts agree, with a native global number under microbatch.

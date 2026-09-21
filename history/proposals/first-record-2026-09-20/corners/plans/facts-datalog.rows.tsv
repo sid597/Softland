@@ -1,0 +1,446 @@
+1	36	SKIP	-	Title, method, source limitations, and introduction.
+37	38	ABOVE	C7,C8,E3,E6	Move shared provenance from individual facts to the saying.
+39	40	DISAGREES	C4	DataScript uses words directly; incompatible value types require new keys.
+41	42	CARRIED	C3,C2	Q7: database scope determines total order and its write ceiling.
+43	44	CARRIED	C5,P0	Q10: excision failures, external payloads, replay costs, and an ephemeral log.
+45	46	NEW-CORNER	C3,C5	Missing customer ownership obstructs later splitting; unrecorded origins cannot be recovered.
+47	50	ABOVE	C7,C3	Challenges planetary scope and the fixed nine-part envelope.
+51	54	SKIP	-	Section headings.
+55	58	CARRIED	C1	Q8: datoms contain transaction references rather than independent fact identities.
+59	60	SKIP	-	List introduction.
+61	61	SAME	P0	Changes accumulate through retraction and assertion.
+62	62	CARRIED	C3,C2	Q7: one database is one serialized order and basis.
+63	63	NEW-REASON	C2	Immutable database values let readers avoid coordination.
+64	64	CARRIED	C4	Q8: attributes are entities with naming facts.
+65	65	CARRIED	C1	Q8: transactions are entities carrying shared metadata.
+66	66	SAME	E3	Other notions of time remain separate from transaction time.
+67	68	CARRIED	C5	Q10: forgetting was added later as excision.
+69	78	SAME	P0	New information does not alter earlier facts.
+79	82	CARRIED	C1	Q8: the transaction reference provides time, provenance, and causality.
+83	84	NEW-REASON	C7	Additional structural components introduce application rigidity.
+85	86	NEW-REASON	C7	Atomic facts keep transaction size proportional to novelty.
+87	96	ABOVE	C7,C8,E3	Transaction-level provenance avoids enormous datoms and repeated metadata.
+97	100	ABOVE	C7	Questions minimal data sufficiency and provenance granularity.
+101	104	NEW-REASON	A3	Acquiring novelty requires coordination and admission rules.
+105	108	CARRIED	C3	Q7: serialization can avoid overlap-detection costs.
+109	114	ABOVE	C3	Rejects unlimited write scalability as Datomic's scope.
+115	118	CARRIED	C3	Q7: independent shards lose cross-shard query, transactions, and consistency.
+119	122	NEW-REASON	X1	Atomic transactions make intermediate database states inexpressible.
+123	128	ABOVE	E6	Perception remains free; ordinary reads never create transactions.
+129	134	NEW-REASON	C2	A shareable basis enables historical permalinks without enclosing reads in transactions.
+135	144	NEW-REASON	C4	Names retain established meanings; incompatible variants receive new names.
+145	148	NEW-REASON	A1	Repeated live derivations can produce internally inconsistent calculations.
+149	150	NEW-REASON	A1,W1	Immutable source segments support caching without caching changing answers.
+151	158	ABOVE	C7	Fixed places conflate meaning with position and force placeholder values.
+159	162	SKIP	-	Retrospective introduction.
+163	164	CARRIED	C5,P0	Q10: legal retention requirements drove explicit forgetting.
+165	166	CARRIED	C5	Q10: excised entities remained readable; repair required an index checker.
+167	168	CARRIED	C5	Q10: Cloud lacks excision; disposable data belongs in separately deletable storage.
+169	170	NEW-CASE	C4	Schema alteration became necessary; value types remained unalterable.
+171	172	NEW-REASON	C4,X2	Historical reads use current schema because physical indexes retain only one schema.
+173	174	SAME	A3	CAS safety survives concurrent transactors during failover.
+175	176	NEW-CASE	E1	Jepsen prompted separate terminology for submitted requests and admitted datoms.
+177	178	ABOVE	A2	Code moved from database facts toward external commit-identified builds.
+179	180	NEW-REASON	E3	Recording time cannot represent revisable domain event time.
+181	186	SKIP	-	Question-by-question introduction and log heading.
+187	187	SAME	P0	Changing, retracting, and deliberately forgetting are distinct operations.
+188	188	CARRIED	C5,P0	Q10: excision requests are permanently protected from excision.
+189	189	CARRIED	C5	Q10: transactional erasure requests trigger nontransactional removal across history.
+190	191	DISAGREES	P0	Forbids repair and reshaping migrations; permits only explicit tombstones.
+192	193	SKIP	-	Entity identity heading.
+194	194	DISAGREES	C1	Transactor mints entity ids; clients supply temporary names.
+195	195	DISAGREES	C1,C3	Ids encode partition location for index locality; also bears on Q6.
+196	196	DISAGREES	C1	Prefers time-leading UUIDs despite their creation-time leak; also bears on Q6.
+197	197	NEW-CORNER	C1	Fix external unique-identity keys early so independent ingests converge on one entity.
+198	199	CARRIED	C1,W1	Q6: random ids scatter lookups; time-leading ids trade privacy for locality.
+200	201	SKIP	-	Bootstrap heading.
+202	202	DISAGREES	C7,C4	Bootstrap uses a magic epoch timestamp; also adds self-naming and reserved-range mechanisms.
+203	203	DISAGREES	C8,C7	Bootstrap facts lack an actor and carry an artificial time.
+204	204	DISAGREES	C4,C7	Gate identity is constant across stores; bootstrap stamps use a sentinel.
+205	206	SAME	C4	Shared bootstrap key ids enable cross-store vocabulary.
+207	208	SKIP	-	Key heading.
+209	209	CARRIED	C4	Q8: idents resolve to attribute entities whose schema can be annotated.
+210	210	NEW-REASON	C4	Always-resident ident tables constrain names to schema and enums.
+211	211	NEW-REASON	C4	Old names remain aliases after renaming.
+212	212	NEW-REASON	C4	Namespaced names are global; changed meanings require new names.
+213	213	NEW-REASON	C4	Grammar versioning remains safe only when new versions preserve earlier contracts.
+214	214	NEW-REASON	X2,E1	Record admission grammar versions to avoid current-schema reinterpretation.
+215	215	DISAGREES	C4	DataScript stores plain words directly as attributes.
+216	217	DISAGREES	C4	Datomic attribute ids are local; names cross stores instead.
+218	219	SKIP	-	Erasure heading.
+220	220	CARRIED	C5	Q10: excision can require database-sized indexing work and throttle writes.
+221	221	CARRIED	C5,P0	Q10: excision is exceptional; ordinary mistakes should remain in history.
+222	222	CARRIED	C5	Q10: no-history attributes prevent guaranteed complete excision.
+223	223	CARRIED	C5	Q10: backup erasure remains unestablished.
+224	224	CARRIED	C5	Q10: practitioners use external payloads or per-subject crypto-shredding.
+225	226	CARRIED	C5	Q10: early cleartext admission makes later erasure expensive and unreliable.
+227	228	SKIP	-	Actor heading.
+229	229	NEW-REASON	C8,A2	Applications attach actor and runtime metadata to transactions.
+230	230	DISAGREES	C8,E4	Trusted peers can transact without actor or delegation verification.
+231	231	ABOVE	C8,C7,E4	Open transaction attributes separate actor, principal, and grant; trusted-writer assumptions limit transfer.
+232	233	NEW-REASON	C8	Transaction signatures provide cryptographic actor verification.
+234	235	SKIP	-	Clock heading.
+236	236	SAME	E3	The writer supplies the transaction stamp.
+237	237	NEW-REASON	E3	Millisecond stamp collisions prevent precise transaction ordering.
+238	238	NEW-REASON	E3,C2	Monotonic stamps permit wall-clock queries to map onto ordered positions.
+239	239	NEW-CASE	E3	Paper publication dates cannot serve as admission stamps.
+240	241	CARRIED	C1,E3	Q8: each saying adds a distinct time fact even when its content repeats.
+242	243	SKIP	-	Visibility heading.
+244	244	DISAGREES	X4	Visibility depends on trusted read-time filtering rather than a creation-inherited rule.
+245	245	NEW-REASON	E5	Trust views derive from metadata about sayings.
+246	246	ABOVE	X3,C3	Questions combining speculative state, private space, trust, and admission in one layer.
+247	247	NEW-REASON	X3	Historical filtering and speculation do not provide durable branches.
+248	249	NEW-REASON	X4	Default-open and default-closed systems provide opposing visibility precedents.
+250	251	SKIP	-	Order heading.
+252	252	CARRIED	C3,C2	Q7: total database order makes a gap-free numeric basis possible.
+253	253	CARRIED	A3	Q4: concurrent gates remain safe through previous-position CAS.
+254	254	NEW-REASON	A3,X1	Cell-local CAS cannot enforce atomic invariants spanning multiple cells.
+255	255	CARRIED	C3,E1,X2	Q7: admission dependencies need a shared order or recorded foreign positions.
+256	256	CARRIED	C3,C2	Q7: choose meaningful ordered units before choosing the shape of as-of.
+257	258	CARRIED	C3,C2	Q7: layer ordering shortens cuts but leaves shared-base capacity unresolved.
+259	260	SKIP	-	Read provenance heading.
+261	261	NEW-REASON	C2	One database value preserves consistency across a unit of work.
+262	262	SAME	E6	Record the pattern and basis rather than the reconstructible result rows.
+263	263	NEW-REASON	E6	Single-fact reads reduce to narrow patterns; outside anchors cannot be reconstructed.
+264	264	NEW-REASON	E5	Triggering reads and content dependencies belong to different transaction attributes.
+265	266	ABOVE	E6	Recording all perception would undo reader independence; acts and crossings delimit recording.
+267	268	SKIP	-	Read marks heading.
+269	269	DISAGREES	E5	Uses separate attributes instead of a dependence flag within each read entry.
+270	270	NEW-REASON	E5,C2	Identity plus recorded basis supports both historical and current reference resolution.
+271	272	SKIP	-	No camp precedent for the read distinction.
+273	274	SKIP	-	Index progress heading.
+275	275	CARRIED	C2	Q3: merging indexed data with novelty gives a gap-free basis; sync waits.
+276	276	CARRIED	C2	Q3: the read basis must identify actual index progress rather than log head.
+277	278	CARRIED	C2	Q3: synchronous and asynchronous commits expose indexing lag explicitly.
+279	280	SKIP	-	Causal link heading.
+281	281	DISAGREES	C7	An absent causal attribute denotes chain start instead of an explicit mark.
+282	282	CARRIED	C1,C6	Q8: transaction entities can explicitly reference transactions they correct.
+283	284	CARRIED	C1	Q8: causality belongs to the saying referenced by each datom.
+285	286	SKIP	-	Fact identity heading.
+287	287	DISAGREES	C1	Facts have no independent ids; entity, transaction, or tuple identifies them; Q8.
+288	288	DISAGREES	C1	Use the gate's number to identify the saying.
+289	289	CARRIED	C1	Q9: hashes provide universal commitments but do not reveal order or causality.
+290	291	DISAGREES	C1	Prefers gate numbers locally and store-number pairs or content hashes across stores.
+292	293	SKIP	-	Replacement heading.
+294	294	NEW-REASON	C6	Paired assertion and retraction datoms explicitly retain the replaced value.
+295	295	DISAGREES	C6,E1	CAS checks expected value instead of the expected fact version.
+296	297	NEW-REASON	C6	Explicit replacement links avoid costly index-dependent reconstruction.
+298	299	SKIP	-	Verdict heading.
+300	300	DISAGREES	E1	Successful transactions serve as verdicts; refusals leave no durable trace.
+301	301	NEW-REASON	E1	Success responses expose before-state, after-state, and expanded datoms.
+302	302	DISAGREES	E1	Deterministic verdicts need no storage when all dependencies share one order.
+303	304	DISAGREES	E1	Datomic drops refusals; XTDB and Nubank experience support retaining them.
+305	306	SKIP	-	Runtime heading.
+307	307	NEW-REASON	A2	Nubank records the service commit on every transaction.
+308	308	NEW-REASON	A2	Commit identity and explicit unreproducibility distinguish runtime builds.
+309	310	DISAGREES	E8,A2	A session entity, renewed on rebuild, is the runtime provenance unit.
+311	312	SKIP	-	Hand motion heading.
+313	313	NEW-REASON	E7	High-churn histories increase storage and indexing costs.
+314	314	NEW-CASE	E7	Nubank regretted using its default fact store for firehose writes.
+315	315	DISAGREES	E7	Select and point become facts only when they contribute to an act.
+316	317	NEW-REASON	E5,E2	Showing is attestable; looking is only inferred.
+318	319	SKIP	-	Click authority heading.
+320	320	DISAGREES	E4,C8	Transaction functions trust any writer without a checked invocation grant.
+321	322	NEW-REASON	E4	Grant narrowing requires a new name rather than silently changing relied-upon meaning.
+323	324	SKIP	-	Storage heading.
+325	326	NEW-REASON	C7,W2	Plain named data survives runtime rebuilds without requiring historical classes.
+327	328	CARRIED	P0,C5	Q10: deliberate retention exceptions differ from garbage collection of derived indexes.
+329	332	SKIP	-	Comparison introduction.
+333	333	SAME	P0	Small immutable facts retain a path to time.
+334	334	CARRIED	C4	Q8: schema and stored code are ordinary facts.
+335	335	SAME	E1	Offers and admitted facts are distinct.
+336	336	SAME	P0	The store preserves an account of how it reached its state.
+337	338	NEW-REASON	E2,C2	Recording-time history answers what someone was shown.
+339	340	SKIP	-	Transfer limits heading.
+341	341	ABOVE	C4	Closed-world design explicitly excludes planetary shared semantics.
+342	342	DISAGREES	C8	Datomic trusts writers and never verifies actors.
+343	343	ABOVE	C3	Machine-rate agents exceed the single-box scope assumption.
+344	344	NEW-REASON	C3,C2	Ten-billion-datom guidance constrains large shared fields and crossing histories.
+345	345	DISAGREES	E6	Datomic keeps no read provenance.
+346	346	ABOVE	X1,C7	Single-fact offers lack atomic multi-fact admission and shared provenance.
+347	348	NEW-REASON	X3	Datomic supplies no durable layers or branches.
+349	350	SKIP	-	Disagreements heading.
+351	351	NEW-REASON	E3	Valid time can be a first-class axis rather than an ordinary attribute.
+352	352	CARRIED	C5	Q10: erasure was retrofitted in Datomic and designed into XTDB.
+353	353	CARRIED	C3	Q7: partitioned logs lose guarantees available inside a database.
+354	354	DISAGREES	P0	Datalevin rejects universal database immutability; also ABOVE.
+355	355	DISAGREES	C4,P0	DataScript chooses literal attribute words and discards history.
+356	356	ABOVE	C7	Questions whether data should exist independently of interpreters.
+357	358	NEW-CASE	X1	Jepsen's set-versus-sequence dispute required transaction documentation changes.
+359	362	DISAGREES	C1,C4	Datomic entity ids and bases are local; names carry cross-store meaning.
+363	366	SKIP	-	Nubank section headings.
+367	370	CARRIED	C3	Q7: services and customer slices become separate databases at large scale.
+371	372	CARRIED	C1,C8,A2	Q8: reified transactions hold service commits and user credentials.
+373	376	SAME	P0	Retractions preserve earlier assertions instead of overwriting them.
+377	380	CARRIED	C3	Q7: customer partitions become complete infrastructure copies.
+381	382	CARRIED	C3	Q7: transactors, services, and microservice clusters shard together.
+383	384	CARRIED	C3	Q7: operational guidance limits each transactor to one primary database.
+385	388	SKIP	-	Regrets introduction.
+389	390	NEW-CORNER	C3	Customer ownership missing from transactions makes later database splitting harder.
+391	392	NEW-CASE	C7,C8	Unrecorded origins left Nubank unable to explain operations.
+393	394	NEW-CASE	E1	Nubank lost requests preceding writes and regretted downstream-only event sourcing.
+395	396	ABOVE	E7	Firehose writes and long strings do not belong in the universal fact store.
+397	398	CARRIED	C3	Q7: customer counts across fragmented databases required separate analytical ETL.
+399	400	SKIP	-	Question mapping heading.
+401	401	CARRIED	C3	Q7: database order follows service and customer boundaries.
+402	402	NEW-REASON	C8,A2	Actor credentials and runtime commits are routinely recorded together.
+403	403	NEW-CASE	E1	Nubank wanted the complete upstream offer stream, including refusals.
+404	404	NEW-CASE	C7,C8	Missing operation origins were a major early mistake.
+405	405	NEW-CORNER	C5,C3	Shared-base facts need subject ownership from creation for splitting and erasure.
+406	406	ABOVE	E7	Rejects firehose data as fact-store content.
+407	410	SKIP	-	Erasure evidence absent; comparison heading.
+411	412	ABOVE	C8,C3	Closed ownership and trusted writers limit transfer to a shared planetary store.
+413	418	CARRIED	C3	Q7: single-box saturation and cross-database analytics constrain shard-above scaling.
+419	426	SKIP	-	XTDB introduction and architecture heading.
+427	427	CARRIED	C5,C3	Q10: immutable single-partition log replaces documents with hashes.
+428	428	CARRIED	C5,C1	Q10 and Q9: content-addressed documents occupy a forgettable store.
+429	430	NEW-REASON	W1	Each node rebuilds its index from the entire log.
+431	432	NEW-REASON	E3	Records carry both transaction time and valid time.
+433	434	CARRIED	C5,P0	Q10: rewritten architecture uses compaction and an ephemeral log.
+435	436	SKIP	-	Reasons heading.
+437	440	CARRIED	C5,C1	Q10: content hashes separate an immutable log from erasable documents.
+441	442	CARRIED	C5,C1	Q10 and Q9: separate content topics enable erasure and deduplication.
+443	444	CARRIED	C5	Q10: erasure should avoid rebuilding entire topics or indexes.
+445	448	NEW-REASON	E3	External corrections make transaction-time history inadequate for domain history.
+449	450	NEW-REASON	E3	Valid time addresses lag, corrections, and effective-date queries.
+451	456	CARRIED	C3	Q7: strict database ordering requires exactly one Kafka partition.
+457	458	CARRIED	C3	Q7: bounded write throughput buys precise database-wide change guarantees.
+459	460	NEW-REASON	C3	Reported local single-thread throughput reaches 300,000 documents per second.
+461	462	SKIP	-	Retrospective heading.
+463	464	CARRIED	C5,C2	Q10: erasure changes historical query results.
+465	466	CARRIED	C5	Q10: missing erased documents block replay unless pointers resolve to tombstones.
+467	468	CARRIED	C1,C5	Q9 and Q10: returning identical content races with content-addressed eviction.
+469	470	CARRIED	P0,W1	Q10: weeks-long replay drove abandonment of the permanent log.
+471	472	NEW-REASON	W1	Full per-node replicas motivated shared object storage.
+473	474	NEW-CASE	C7,W2	Arbitrary serialized values were replaced with stricter portable types.
+475	476	NEW-REASON	C7	Whole-document retransmission amplifies single-field changes.
+477	478	CARRIED	E1,E3,A1	Q1 and Q2: resolved-result logs relax deterministic replay and external metadata constraints.
+479	480	CARRIED	C5	Q10: erasure becomes physically complete through background compaction.
+481	482	CARRIED	C2	Q5: forward-only log epochs distinguish recovery generations.
+483	484	SKIP	-	Question mapping heading.
+485	485	CARRIED	C5,P0	Q10: erasable payloads require tombstones, replay tolerance, and explicit historical-loss reporting.
+486	486	CARRIED	C1,C5	Q9 and Q10: content naming benefits meet eviction costs and guessable hashes.
+487	487	NEW-CORNER	E3	Valid time requires a separate decision; offerer time does not cover effective dates.
+488	488	CARRIED	C3	Q7: each database enforces one partition and a write ceiling.
+489	489	CARRIED	E1	Q1: offers enter the log before judgment; retained results include refusals and metadata.
+490	490	CARRIED	E1,A1	Q1: resolved outcomes avoid requiring future runtimes to reproduce all historical verdicts.
+491	491	CARRIED	C2	Q3: commit modes distinguish log submission from completed indexing.
+492	492	NEW-CASE	C7,W2	Restricting serialized value types improved portability.
+493	494	SAME	C2	Generation and offset must distinguish recovered logs from their predecessors.
+495	496	SKIP	-	Comparison heading.
+497	498	CARRIED	E1,C5	Q1 and Q10: appended offers, retained refusals, and erasure survived a runtime rewrite.
+499	500	SKIP	-	Disagreements heading.
+501	501	CARRIED	E1,E3	Q1: passive transaction logs differ from active transactors.
+502	502	CARRIED	P0	Q10: XTDB abandoned its permanently retained log.
+503	503	SKIP	-	SQL adoption.
+504	505	ABOVE	P0	Questions treating event sourcing as a universal remedy for discarded history.
+506	509	CARRIED	E1,A3	Q1: secondary stores follow one writer's resolved log.
+510	515	SKIP	-	Instant introduction.
+516	517	CARRIED	C4	Q8: attribute UUIDs and separate ident records support renaming.
+518	519	NEW-REASON	C4,C1	Client-generated attribute ids allow offline schema creation.
+520	521	DISAGREES	X4	Absent policies allow access; visibility is applied after querying.
+522	523	DISAGREES	P0	Triples mutate without history; only deleted attributes gained undo.
+524	525	CARRIED	C3	Q7: one Postgres order feeds reactive invalidation.
+526	529	SKIP	-	DataScript introduction.
+530	531	DISAGREES	C4,P0	Attributes are literal words; retractions erase history to maintain constant space.
+532	533	DISAGREES	C4	Defends word keys for small single-process stores without renames.
+534	537	NEW-REASON	E6	Subscription matching reverses the direction of query execution.
+538	539	NEW-REASON	C7,X4	Atomic datoms provide fine-grained security and synchronization filters.
+540	543	ABOVE	E6	General Datalog cannot efficiently reverse high-volume changes into affected subscriptions.
+544	545	NEW-REASON	C4,E6	Restricting subscription patterns enables reverse matching and requires indexable keys.
+546	549	SKIP	-	Datalevin introduction.
+550	551	DISAGREES	P0	Deleted data is physically gone.
+552	553	DISAGREES	P0	Mutable application state challenges universal immutability; also ABOVE.
+554	555	DISAGREES	P0,C1	No history or database values; transaction identities are not stored.
+556	557	CARRIED	C4	Q8: Datalevin stores attributes as integer ids.
+558	561	ABOVE	P0	Distinguishes mutable application state from durable information.
+562	565	SKIP	-	Voice-selection heading.
+566	566	ABOVE	C7,C3	Provenance belongs on sayings; closed-world scope limits planetary transfer.
+567	567	CARRIED	C5,E1	Q10 and Q1: erasure experience and append-before-judgment make XTDB relevant.
+568	569	NEW-CORNER	C3,C5	Owner omissions join irrecoverable origin and refusal losses.
+570	571	ABOVE	E6	Matching requires a weaker language than unrestricted queries.
+572	575	SKIP	-	Selection rationale and missing-voices introduction.
+576	576	NEW-REASON	C8,X4	Cryptographic actor verification and fail-closed policy are available precedents.
+577	577	NEW-REASON	X3	Durable branching requires mechanisms beyond historical database filters.
+578	578	NEW-REASON	X3,E5	Named contexts support provenance but lack historical retraction without additional structure.
+579	585	SKIP	-	Unexamined systems and further reading.
+586	589	SKIP	-	Above-table introduction.
+590	591	ABOVE	E7,P0	Rejects one fact substance for firehose data and incidental application state.
+592	593	ABOVE	C7,X2,A2	Stored schema and code need admission versions, runtime identities, and ordered policy dependencies.
+594	595	ABOVE	C3	Planetary scope exceeds lived database limits; meaningful ordering units remain unresolved.
+596	597	ABOVE	C7,C8,E3	Reduce the fixed envelope and move shared provenance into open saying attributes.
+598	599	NEW-REASON	A1,E2	Temporally pinned crossings turn changing derivations into attestable events.
+600	601	ABOVE	E6	Record patterns at acts; per-render crossings risk firehose volume.
+602	603	SAME	A3,C6	CAS against the preceding position provides safety despite concurrent writers.
+604	606	ABOVE	X1,C7	Add an atomic unit of saying for multi-fact admission and shared provenance.
+607	607	NEW-CORNER	C1	Unique external identities resolve semantic sameness beyond random-id uniqueness.
+608	608	SAME	C5	Decide which values may never enter the log in cleartext.
+609	609	CARRIED	C5	Q10: derived indexes need a checker proving erasure completed.
+610	610	SAME	C2	Log positions need generation identity.
+611	614	NEW-CORNER	E3	Choose whether valid time is a universal axis or ordinary data.
+615	616	SKIP	-	Wrong-question heading.
+617	617	DISAGREES	C1	Names belong to entities and sayings; facts have no independent id; also ABOVE.
+618	618	ABOVE	E6	Replace read-list framing with basis and question.
+619	619	ABOVE	C3,C2	Choose the meaningful timeline unit before choosing as-of representation.
+620	620	ABOVE	C5	Distinguish retraction, forgetting, and never admitting the value.
+621	621	DISAGREES	C7	Absent attributes replace required causal slots; also ABOVE.
+622	622	ABOVE	C7	Rejects maps-versus-classes framing in favor of plain data.
+623	624	CARRIED	C4	Q8: id in the attribute slot, word as a fact about it.
+625	770	SKIP	-	Sources, question index, and round-two method.
+771	774	NEW-REASON	C3,C8	Partitioned-store and verified-actor proposals lack this camp's lived evidence.
+775	780	SKIP	-	Tailored questions and redrawing introduction.
+781	784	ABOVE	C7	Introduces the saying as a separate entity and provenance container.
+785	785	SAME	C1	Offerer-generated random saying ids support retries and cross-store identity.
+786	786	DISAGREES	C1	Gate position serves as every fact's version.
+787	787	CARRIED	C3	Q7: one saying has one checked layer.
+788	788	CARRIED	C1,C8,E4	Q8: actor and invoked grant are attributes of the saying.
+789	789	CARRIED	C1,E3	Q8: the gate records one stamp per saying.
+790	790	DISAGREES	E8	Session identity carries runtime provenance instead of epoch and crossing.
+791	791	DISAGREES	E6	Read patterns, bases, and anchors live on the saying rather than the crossing.
+792	792	DISAGREES	C7	Absence of because-of denotes chain start.
+793	794	SAME	E1	Verdicts name checked versions and failed checks.
+795	798	SKIP	-	Fact table introduction.
+799	799	SAME	C4	Facts retain entity, key, and value.
+800	800	DISAGREES	C1	Saying plus ordinal replaces an independent fact id.
+801	802	DISAGREES	C1,C7,C6	Replacement uses a position; missing replacement denotes a new cell.
+803	804	DISAGREES	C7	Core permits an absent replacement field rather than explicit chain-start marking.
+805	806	ABOVE	C7,C8	Shared provenance belongs on sayings, supported by Datomic and transaction-auditing practice.
+807	808	SAME	C1	Offerer identity and gate-assigned order have separate jobs.
+809	809	SAME	C1	Correlation ids prevent duplicate effects on message redelivery.
+810	810	NEW-REASON	C1	Unique-value constraints reject duplicate temporary identities.
+811	811	SAME	C1	The offerer names the saying; the gate deduplicates and orders it.
+812	813	DISAGREES	C1	Preserves replay-stable names only for sayings, not individual facts.
+814	815	CARRIED	C3	Q7: atomic sayings occupy one layer; cross-layer acts split into causally linked sayings.
+816	817	SKIP	-	Effects on leans heading.
+818	818	DISAGREES	C1	Fact addresses use saying-plus-place or cell-plus-position, with one saying digest.
+819	819	SAME	C6	Each fact retains its own replacement link.
+820	820	NEW-REASON	E1,X1	One atomic verdict admits or rejects the entire saying.
+821	821	ABOVE	C7,C8,E3	When, reads, and cause are shared once per saying.
+822	822	DISAGREES	E8	Session pointer remains the provenance unit.
+823	824	DISAGREES	C1	Cell versions are saying positions rather than independent fact identities.
+825	830	ABOVE	X1,C7	A 200-fact reply requires one atomic saying to avoid partial invented states.
+831	833	DISAGREES	E6,E5	Reads move onto sayings; coarse provenance trades dependency precision for shared storage.
+834	834	NEW-CORNER	-	Require one cause per saying; throughput batching can silently combine unrelated acts.
+835	835	CARRIED	C3	Q7: multi-entity sayings require an atomic ordering unit larger than one entity.
+836	837	DISAGREES	C1	Reify an entity or use cell-plus-version instead of naming individual facts.
+838	840	CARRIED	C1	Q8: transaction provenance has transaction-level granularity.
+841	841	NEW-CORNER	-	Name the act explicitly; actor and context alone cannot reconstruct it.
+842	842	NEW-CORNER	C3,C5	Nubank's missing owner and origin metadata cannot be reconstructed later.
+843	844	NEW-REASON	X1	Unrelated-cause batching risk is inferred, not a documented practitioner regret.
+845	848	CARRIED	C5	Q10: key deletion replaces a large erasable payload store with a small mutable key store.
+849	852	SKIP	-	Erasure failure comparison table heading.
+853	853	CARRIED	C5,C2	Q10: erasure changes historical reads while the encrypted envelope remains.
+854	854	CARRIED	C5	Q10: destroyed keys need tombstones distinguishable from unreachable keys.
+855	855	CARRIED	C5,C1	Q10 and Q9: forgetting salts prevents both guessing and recognition of forbidden resubmission.
+856	856	CARRIED	C5	Q10: plaintext derived indexes still require verifiable purging.
+857	858	CARRIED	C5	Q10: crypto-shredding reaches log backups only if key-store backups are erased too.
+859	864	SAME	C5	Hash ciphertext or use secret material destroyed with the key.
+865	866	NEW-REASON	C5,E1	After erasure, admission verdicts alone attest the value's accepted shape.
+867	868	SKIP	-	Further erasure cases introduction.
+869	869	CARRIED	C5	Q10: key-store outages must not be mistaken for intentional erasure during rebuilding.
+870	870	CARRIED	C5	Q10: per-value keys form another system of record and must be durable before admission.
+871	872	NEW-CORNER	C5	Subject ownership must be marked at admission to locate or collectively destroy value keys.
+873	874	CARRIED	C5,E6	Q10: downstream quotations retain separate keys; dependency walks locate copied private content.
+875	876	CARRIED	C5,P0	Q10: eviction, replication, and replay costs explain the move toward compaction.
+877	878	CARRIED	C5,P0	Q10: resolvable erasure markers do not solve unbounded full-log rebuilds.
+879	880	SKIP	-	Ordering scope heading.
+881	882	CARRIED	C3,C2	Q7: entity partitioning makes pattern-read bases multi-position cuts.
+883	884	CARRIED	C3	Q7: total-order scope determines atomic admission and consistent reading.
+885	886	SKIP	-	Ordering candidates introduction.
+887	887	CARRIED	C3,E1	Q7: entity ordering loses multi-entity atomicity and imports policy dependencies.
+888	888	CARRIED	C3,C2	Q7: layer ordering gives local atomicity and one foreign policy position.
+889	889	CARRIED	C3	Q7: owner ordering combines personal layers but mixes durable and firehose traffic.
+890	890	CARRIED	C3	Q7: hot shared problems hit throughput ceilings and require semantic subdivision.
+891	892	CARRIED	C3	Q7: a shared base exceeds one ordered unit and requires finer divisions.
+893	894	CARRIED	C3	Q7: proposes owner-recoverable layer units and multiple base units.
+895	897	SAME	C2	Inline partition vectors multiply read provenance bytes; shared names remove that cost.
+898	899	CARRIED	C3,C2	Q7: base-wide reads require cuts spanning multiple units.
+900	901	CARRIED	C2	Q3: named index builds describe applied cuts, with explicit lag.
+902	903	NEW-CASE	C2	Nubank replaced cross-database analytics with a lagging named extract.
+904	905	NEW-REASON	C3	Nubank's isolated databases do not establish shared-base behavior.
+906	909	NEW-CASE	C4,X2	Current cardinality can hide historical affiliations in as-of reads.
+910	912	OWN-LIST	E1,X2	Admission verdict records checked grammar and policy versions; rejects per-fact placement.
+913	913	OWN-LIST	E1,C3	Cross-order admission dependencies cannot be reconstructed unless the gate recorded them.
+914	915	OWN-LIST	E1	Optional offered grammar version explains refusal under a newer grammar.
+916	918	OWN-LIST	W2,C7	Disagrees: one permanent value encoding is fixed before admission.
+919	920	OWN-LIST	C4	Require new keys for incompatible grammar changes; renames add aliases.
+921	922	NEW-CASE	C4,X2	Historical multi-affiliation views are corrupted by later single-valued grammar.
+923	924	NEW-REASON	E1,C5	An erased value's surviving shape evidence is its admission verdict.
+925	928	ABOVE	C7	Reopens minimal data sufficiency and the fixed-envelope framing.
+929	929	CARRIED	C1,E3	Q8: facts carry a transaction reference as their path to time.
+930	930	ABOVE	C7,C4	Named attributes separate labels from definitions; positional envelopes require permanent external agreement.
+931	931	ABOVE	C7	Provenance belongs to the shared dataset or stream.
+932	933	ABOVE	C7	Use an open, growing set of saying attributes.
+934	936	OWN-LIST	C7	Small positional core contains entity, key, value, saying, and replaces.
+937	937	OWN-LIST	C1	Saying is an entity with an id and an ordered position.
+938	938	OWN-LIST	C4,C7	Fix initial provenance vocabulary as ordinary named keys rather than envelope places.
+939	939	OWN-LIST	W2	Disagrees: fix the floor's single value encoding now.
+940	941	OWN-LIST	C4	Incompatible shapes require new keys; names grow only by aliases.
+942	945	DISAGREES	C7	Envelope versioning is too costly; open vocabulary accommodates economic and cross-store provenance.
+946	949	SKIP	-	Lean-by-lean introduction.
+950	951	CARRIED	P0,C5	Q10: immutable logs can survive erasure, but unbounded replay caused XTDB's retreat.
+952	953	SAME	C1	Client-minted random entity ids reveal no creation time.
+954	954	SAME	C1	Source-derived entity identities permanently freeze duplicate-identity mistakes.
+955	956	CARRIED	C1,W1,C3	Q6: random-id locality costs depend on whether indexes lead with id or layer.
+957	959	NEW-CASE	C4	Bootstrap schema grew through explicit idempotent upgrades rather than a one-time seed.
+960	961	NEW-REASON	C4,C1	Self-naming bootstrap facts prevent hashing their own complete content; namespaced words avoid the cycle.
+962	963	NEW-REASON	C4	Key indirection permits renames, but readers need an available name table.
+964	965	NEW-CORNER	C5	Admission must identify subject ownership; erasure also needs key tombstones and complete-copy checking.
+966	967	NEW-REASON	C8	A local actor check becomes an unverified claim when facts cross stores.
+968	969	NEW-CASE	E3,C2	Clock rollback breaks historical wall-clock lookup unless stamps remain monotonic per unit.
+970	971	DISAGREES	E6	Stores reads once on the saying rather than on a referenced crossing.
+972	973	NEW-CASE	C7	One-off repair scripts without causal provenance become unexplained historical operations.
+974	975	DISAGREES	C7	Absence means unknown cause; chain start is explicit, but missing fields still carry meaning.
+976	977	NEW-CASE	X4,C3	Entity partitioning makes private-data isolation depend on every filter path across rebuilds.
+978	979	CARRIED	C3	Q7: entity partitioning spreads private layers and prevents local atomic sayings.
+980	981	DISAGREES	E5	Read meanings become separate attributes; provenance corrections attach to sayings instead of fact envelopes.
+982	983	NEW-REASON	C2	An accurate read basis includes its layer stack and policy-filtered view.
+984	985	DISAGREES	C1	Name the saying rather than the fact; attach position to avoid ordering lookups.
+986	987	NEW-REASON	C6	Replacement links avoid rerunning newer admission logic while rebuilding historical chains.
+988	989	DISAGREES	E1	Refusals belong in offerer session layers, outside the contested cell's partition.
+990	991	DISAGREES	E8	Session-start identity remains central rather than gate epoch and crossing.
+992	993	DISAGREES	E7	Point and select are recorded only through resulting sayings, not by default.
+994	995	NEW-CASE	E4	Copied toolkits can act without the owner's authorship or grant.
+996	999	CARRIED	P0,W1,C5	Q10: snapshots avoid planetary replay but introduce plaintext copies requiring erasure.
+1000	1001	SKIP	-	Wrong-question heading.
+1002	1002	ABOVE	E5	Staleness depends on later meaning, not a follow-or-stay choice fixed at admission.
+1003	1003	ABOVE	C2	Ask what names a cut rather than choosing number versus vector.
+1004	1004	DISAGREES	C1	Name the saying and fact ordinal instead of an independent fact; also ABOVE.
+1005	1005	ABOVE	C4	Ask how the seed grows through compatible editions.
+1006	1006	DISAGREES	E7	Motions enter records through resulting acts or crossings; also ABOVE.
+1007	1008	SAME	C7	A chain's start must state positively that it is one.
+1009	1014	SKIP	-	Above-table introduction.
+1015	1015	ABOVE	C7,X1,C3	An atomic saying joins envelope design, provenance precision, and partition choice.
+1016	1016	NEW-CORNER	-	Fix uniform logical retraction before the first record; empty values constrain every grammar.
+1017	1017	CARRIED	E1,A1	Q1: XTDB's deterministic replay restrictions support preserving outcomes across runtime rebuilds.
+1018	1018	ABOVE	C3,C2	Planetary ordering uses meaningful units, named cuts, and recorded ownership.
+1019	1019	NEW-REASON	X2,C4	Keep checked versions while growing bootstrap editions from stable word-derived ids.
+1020	1020	DISAGREES	E6	Reads reside once on the saying rather than on a referenced crossing; also ABOVE.
+1021	1021	ABOVE	E7,P0	One append-only substance excludes incidental firehose state.
+1022	1023	NEW-REASON	A1,E2	Crossings make live derivations temporally qualified facts.
+1024	1048	SKIP	-	Evidence limitations, sources, and round-three introduction.
+1049	1050	SKIP	-	Counterargument heading.
+1051	1051	CARRIED	C3	Q7 and Q5: semantic partition boundaries require foresight and costly later movement.
+1052	1052	CARRIED	C3	Q7: hot shared layers exceed single-thread write capacity.
+1053	1053	CARRIED	C3	Q7: layer keys concentrate load; entity keys distribute it.
+1054	1054	SAME	C2	Interning cuts removes repeated vector storage.
+1055	1055	NEW-REASON	X1	A microbatch gate supplies cross-partition atomic admission.
+1056	1057	CARRIED	C3,C2	Q5: repartitioning costs remain under either key.
+1058	1061	CARRIED	C3,C2	Q7: base and team-layer ceilings remain after eliminating cut byte costs.
+1062	1062	CARRIED	C3,X1	Q7: cross-partition atomic admission adds latency and shared stalls.
+1063	1063	CARRIED	C3	Q7: lived systems use owner units or bounded databases rather than hashed global units.
+1064	1064	CARRIED	C3	Q7: small personal units preserve ordering benefits within a thread's capacity.
+1065	1066	CARRIED	C2,C3	Q5: unit-relative counts survive movement; task offsets require layout epochs.
+1067	1068	CARRIED	C3	Q7: shared-base and hot-team workloads lack this camp's lived ordering solution.
+1069	1072	SKIP	-	Hybrid verdict introduction.
+1073	1073	CARRIED	C3,C2	Q7: private layers become ordered values; entity-sharded base requires named cuts.
+1074	1074	CARRIED	C3,C2	Q7 and Q3: private ordered logs coexist with named base cuts and epochs.
+1075	1076	CARRIED	C3,C2	Q7: owner units need lagging derived builds for cross-unit aggregation.
+1077	1078	CARRIED	C3,X1,E1	Q7: one saying occupies one unit; multi-entity base sayings use asynchronous atomic admission.
+1079	1081	OWN-LIST	C3,C5	Record owner or subject from admission to support later recutting.
+1082	1082	OWN-LIST	C1	Offerer-generated identity survives recutting.
+1083	1083	OWN-LIST	C2,C3	Use unit-relative positions and layout epochs wherever task offsets appear.
+1084	1084	OWN-LIST	E3	Gate stamps remain monotonic within each ordered unit.
+1085	1086	OWN-LIST	-	Record causal-chain root early to identify future problem-based splits.
+1087	1088	CARRIED	C3	Q7 and Q5: choose team-layer ordering at creation; preserved metadata enables later changes.
+1089	1090	NEW-REASON	C3	Hybrid shared-base and live-recutting claims remain inferred rather than demonstrated.

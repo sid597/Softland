@@ -11,6 +11,7 @@ revisit an assumption, or understand recorded evidence.
 | `docs/below-the-waist/` | [Rendering and authored-material exploration](docs/below-the-waist/) |
 | `docs/meta/` | [Parallel build-and-review workflow experiment](workflow-experiments/parallel-build-review/README.md) |
 | Original `docs/build-softland-in-softland/` records | [Inland build history](docs/build-softland-in-softland/); use [the maintained guide](../docs/builds/inland/README.md) to run the build. |
+| `src/proposal/first-record-2026-09-20/` research files, pilot, first handoff and Codex line-range mechanics | [First-record research](proposals/first-record-2026-09-20/README.md); what is passed on from it is [CORNERS.md](../src/proposal/first-record-2026-09-20/CORNERS.md). |
 
 [How we got here](../docs/how-we-got-here.md) provides a selective account of the
 questions and changes leading to Inland. The workflow experiment is preserved

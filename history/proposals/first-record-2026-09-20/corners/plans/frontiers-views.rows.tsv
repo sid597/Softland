@@ -1,0 +1,279 @@
+1	17	SKIP	-	Title, research method, scope, and introductory headings.
+18	18	SAME	C2	Collections read at partially ordered times.
+19	19	NEW-REASON	P0,C2	Timestamped differences reconstruct collection contents by summation.
+20	20	NEW-REASON	C2,W3	Time domains require a partial order and least upper bounds.
+21	21	NEW-REASON	C2	Antichain frontiers certify that earlier updates cannot arrive.
+22	22	NEW-REASON	C2	Reads wait for completion rather than emit partial answers.
+23	24	SAME	A1	Recomputation requires retained inputs, times, and logic.
+25	26	OWN-LIST	C2,E3,W3	DISAGREES: authoritative ordering stamps and durable scalar mappings required before first record.
+27	32	SKIP	-	Section headings.
+33	33	NEW-REASON	C2	Nested-loop timestamps and precursor counts determine completion.
+34	34	SAME	P0	Append-only changes as stored history.
+35	36	SAME	C2	Outputs correspond exactly to a stated input cut.
+37	38	SAME	C2	Explicit change times and reported completeness.
+39	40	SKIP	-	Section heading.
+41	42	DISAGREES	E3	Gate-assigned time prescribes order rather than merely recording when.
+43	44	NEW-REASON	C2	Explicit histories turn coordination problems into timestamped computation.
+45	46	NEW-REASON	C2,W3	Chosen interleaving aligns consumers without making independent sources mutually consistent.
+47	48	NEW-REASON	C2,W3	Durable sidecar remapping preserves source data and enables consistent recovery.
+49	50	CARRIED	C2	Q5: dynamically arriving partitions require representable not-yet-started positions.
+51	52	CARRIED	C2	Q3: collection read and write frontiers bound correctly readable positions.
+53	54	NEW-REASON	C2	Read-time selection trades responsiveness, freshness, and monotonic observations.
+55	56	NEW-REASON	C2	Capture upstream position, then wait for replication to reach it.
+57	58	NEW-REASON	C2	Eventually consistent streaming may remain systematically wrong and trigger irreversible actions.
+59	60	CARRIED	C2	Q3: progress counts certify completeness despite duplicated or reordered updates.
+61	62	NEW-REASON	C6	Upserts force consumers to retain previous values just to interpret changes.
+63	64	ABOVE	E6,A1	Questions exhaustive provenance; compute useful explanations on demand.
+65	66	NEW-REASON	W1,E6	Shared indexes and parameter collections reduce standing-query overhead.
+67	68	DISAGREES	E1,P0	Verdicts become views; failed intents and unobserved writes may disappear. CARRIED Q1.
+69	70	NEW-REASON	A1	Clock-dependent views require explicit future validity boundaries.
+71	74	SKIP	-	Section heading and transition.
+75	75	NEW-REASON	C2	Held timestamp tokens represent outstanding rights to write and constrain progress.
+76	76	NEW-CASE	A2,C2	Virtual-time configuration cutovers originated in live reconfiguration.
+77	77	NEW-CASE	C2,A1	Materialize added durable reclocking because original sources were not exactly replayable.
+78	78	CARRIED	C3,A3	Q7: atomic multi-shard writes use one coordinating shard, imposing contention and scale limits.
+79	79	NEW-CASE	C6	Supporting incoming upserts required retaining the entire keyed collection.
+80	83	SKIP	-	Biographical reflection and section heading.
+84	84	DISAGREES	W3,C2	Requires a store-wide scalar timeline and durable partition map before first record.
+85	85	NEW-REASON	A3,W4	Multiple checking gates require a separate lightweight time-assignment authority.
+86	86	CARRIED	C3	Q7: sharing a time source, rather than physical co-location, supplies cross-partition order.
+87	87	DISAGREES	E3	Uses the gate's clock for order; rejects a separate decorative timestamp.
+88	88	CARRIED	C2	Q3: index upper frontier defines valid reads; readers must stay behind it or wait.
+89	89	NEW-REASON	E5	Recorded reads pin versions; following and staleness are derived views.
+90	90	ABOVE	E6,A1	Questions per-output provenance for deterministic results; non-rederivable results retain empty reads too.
+91	91	NEW-REASON	C6	Explicit retraction targets allow stateless change consumers.
+92	92	DISAGREES	E1	Offers and verdicts may have shorter retention instead of permanent verdict storage.
+93	93	DISAGREES	P0	Correct retained-window reads replace the never-rewritten-content invariant.
+94	94	DISAGREES	C5,P0	Offers retraction plus compaction as physical erasure, beyond the ledger's two roads.
+95	95	SAME	A2	Runtime rebuilds become readable timeline events.
+96	96	DISAGREES	P0,E7	Recommends aggressive compaction of recorded attention inputs.
+97	98	NEW-REASON	W1,E6	Index patterns together and join landings rather than maintaining millions of subscriptions.
+99	100	SKIP	-	Section heading.
+101	102	SAME	P0,C2	Append-only timestamped inputs and exact derived views.
+103	104	DISAGREES	P0	Materialize deliberately compacts history; also contrasts opaque tools and planetary scope.
+105	106	SKIP	-	Section heading.
+107	108	NEW-REASON	C2,W3	Keyed queries may converge when relevant updates stop; simpler time and baseline costs matter.
+109	114	SKIP	-	Section headings.
+115	116	NEW-CASE	C2	Bank-transfer tests exposed impossible totals in Flink and ksqlDB.
+117	118	SKIP	-	Section heading.
+119	120	NEW-REASON	C2	Internal consistency requires each output to match some supplied input subset.
+121	122	NEW-REASON	C2	Streaming inconsistency can produce impossible values indefinitely, unlike merely stale key-value reads.
+123	124	NEW-CASE	C2	Unsynchronized credit and debit streams manufacture money.
+125	125	NEW-CASE	C2,X1	Emitting after each related update makes three of four aggregate results wrong.
+126	126	NEW-REASON	E2,C2	Output corrections must be distinguishable from changes in the world.
+127	128	NEW-REASON	C2,E1	Reject inputs only at the edge so downstream operators share the same input set.
+129	130	NEW-CASE	C2,E2	Transient inconsistency can trigger a false overdraft warning.
+131	132	NEW-REASON	C2	Internal consistency removes the user's obligation to reason about event interleavings.
+133	134	NEW-REASON	C2	Completeness metadata amortizes over batches; correctness primarily trades against latency.
+135	136	CARRIED	C2	Q3: output frontiers let downstream consumers detect complete timestamped results.
+137	138	NEW-REASON	E6	Dependency granularity trades redundant recomputation against graph-metadata overhead.
+139	140	NEW-REASON	E6	Lazy computation cannot notify changes; wanted-output inputs approximate selective eagerness.
+141	142	NEW-REASON	P0	Logged state supports causal debugging and historical invariant checks.
+143	144	SKIP	-	Section heading.
+145	145	NEW-CASE	W3	Brandon points from his differential-dataflow implementation toward simpler totally ordered DBSP.
+146	146	NEW-CASE	X5,C2	Settled-output tests missed intermediate-output consistency failures.
+147	147	NEW-REASON	X5,C2	Failure dynamics proved easier to trigger and harder to predict than expected.
+148	148	NEW-REASON	C2	Multiple watermark waves permit early outputs and late inputs while preserving consistency.
+149	150	NEW-REASON	W1	Hidden operator state and unclear memory costs hindered differential-dataflow adoption.
+151	152	SKIP	-	Section heading.
+153	153	NEW-REASON	C2	Impossible outputs are a stronger failure than stale outputs.
+154	154	NEW-CASE	C2,E2	Lagging reads and branching work can mix moments or conceal partial-answer corrections.
+155	155	CARRIED	C2	Q3: record index progress and forbid answering beyond it.
+156	156	NEW-REASON	E6	Pattern-grain reads avoid per-value dependency metadata dominating computation.
+157	157	NEW-REASON	W3	Pay partial-order complexity only for loops or independently advancing inputs.
+158	158	NEW-REASON	E2,C2	Crossings distinguish partial answers from answers complete at their cut.
+159	159	SAME	A1,A2	Runtime version is needed to check historical outputs.
+160	161	NEW-REASON	E6	Wanted outputs become maintained input data.
+162	163	SKIP	-	Section heading.
+164	165	NEW-REASON	A1,E2	Model-shaped answers may lack the batch oracle used to check relational outputs.
+166	167	SKIP	-	Section heading.
+168	169	NEW-REASON	C2,W3	Weak consistency imposes reasoning costs; simpler time reduces complexity.
+170	175	SKIP	-	Section headings.
+176	177	NEW-REASON	C3,A3	Coordinate only non-monotone logic, with time and order represented as data.
+178	179	SKIP	-	Section heading.
+180	181	NEW-REASON	C3,A3,C2	Monotonicity determines whether missing information requires coordination.
+182	183	CARRIED	C5	Q10: tombstones preserve monotone histories while masking immutable values.
+184	185	NEW-CASE	C2,E5	Shopping-cart manifests delay checkout until every named update arrives.
+186	187	NEW-CASE	C2	Early checkout reads a Ferrari before its removal reaches the replica.
+188	189	CARRIED	C3	Q7: per-partition sealing permits more asynchrony than a shared total order.
+190	191	NEW-REASON	E3	Receiver time and carried premise time expose temporal causality as data.
+192	193	NEW-REASON	C3	Causal ordering is required specifically for non-monotone derivations.
+194	195	NEW-REASON	E5	Alternative lineage supports enable solver-based failure analysis.
+196	197	SKIP	-	Section heading.
+198	198	SKIP	-	Language adoption history and implementation direction.
+199	199	NEW-CASE	E6	Netflix replaced fine-grained lineage with request traces because porting applications was unacceptable.
+200	200	NEW-REASON	C2	CRDT update guarantees leave observations unsafe.
+201	202	DISAGREES	C2	Eventual consistency becomes the default per-handler choice instead of universally complete answers.
+203	204	SKIP	-	Section heading.
+205	205	NEW-REASON	C3,C2,X3	Current values, nearest layers, and revocable policies require coordinated absence reads.
+206	206	DISAGREES	C3,A3	Rejects universal cell compare-and-set as unnecessary for accumulating keys.
+207	207	CARRIED	C3	Q7: co-locate the cell and everything its non-monotone admission decision reads.
+208	208	DISAGREES	E3	Gate stamps supply order at supersession and absence checks.
+209	209	NEW-REASON	E5,C2	Based-on manifests let consumers wait for causal prerequisites, beyond auditing.
+210	210	NEW-REASON	E5	Alternative support groups prevent doubt from spreading through redundant dependencies.
+211	211	NEW-CASE	C2	Lagging pattern reads reproduce the early-checkout failure.
+212	212	CARRIED	C5	Q10: tombstones hide values without providing erasure.
+213	213	DISAGREES	C7	Allows emptiness to mark chain starts instead of requiring an explicit mark.
+214	214	NEW-REASON	E1	Refusals provide lineage explaining absent outcomes.
+215	216	NEW-REASON	E6	Opaque-body reads are capturable only when the runtime controls every read path.
+217	218	SKIP	-	Section heading.
+219	220	NEW-REASON	E6,A1	Rule-based protocol lineage does not directly cover opaque tools, models, or permanent provenance.
+221	222	SKIP	-	Section heading.
+223	224	NEW-REASON	C3,A3	Coordination cost motivates selective guarantees rather than strong consistency everywhere.
+225	230	SKIP	-	Section headings.
+231	232	SAME	W3	One counter is a permissible time representation.
+233	234	SKIP	-	Section heading.
+235	236	NEW-REASON	W3,E3	Transaction order supplies time; ordered inputs simplify the computational model.
+237	238	NEW-REASON	A1,C1	Replay logs offsets and checksums for rereadable inputs, but full data for transient inputs.
+239	240	NEW-REASON	A1	Reproducibility additionally depends on logged now, processor architecture, and compiler optimizations.
+241	242	NEW-REASON	A1,X1	Replay must preserve batch cuts to preserve the sequence of output changes.
+243	244	SKIP	-	Section heading.
+245	245	NEW-REASON	W3	DBSP simplifies differential dataflow by dropping partial time and past updates.
+246	246	NEW-REASON	W1	Incremental engines must efficiently process historical backfill before live updates.
+247	248	NEW-REASON	W1	Streaming workloads also require batch processing.
+249	250	SKIP	-	Section heading.
+251	251	NEW-REASON	C2,W3	Independent implementations durably bind scalar steps to partition offsets.
+252	252	DISAGREES	E8,A1	Requires session-start runtime and machine metadata as first-record convention; ledger uses epochs and crossings.
+253	253	SAME	C1	External anchors need content checksums beside their pointers.
+254	254	ABOVE	E6	Questions landing-only matching: newly registered tools may owe work to historical facts.
+255	256	NEW-REASON	X1,W1	Bulk seeding must preserve the semantics of individual landings.
+257	258	SKIP	-	Section heading.
+259	260	NEW-REASON	W3,C3	A partitioned source requires constructing, rather than assuming, the scalar admission order.
+261	262	SKIP	-	Section heading.
+263	264	SAME	W3	Scalar and partial-order time are alternative choices.
+265	270	SKIP	-	Section headings.
+271	272	DISAGREES	C2	Noria deliberately permits eventual consistency while maintaining partial views.
+273	274	SKIP	-	Section heading.
+275	276	DISAGREES	C2	Noria sacrifices complete, correct reads for disconnected high-throughput read paths.
+277	278	SAME	A1	Deterministic derived entries can be discarded and recomputed from authoritative inputs.
+279	280	SKIP	-	Section heading.
+281	281	NEW-REASON	C2,W1	Partial materialization does not inherently require weak consistency.
+282	282	NEW-CASE	C2	Noria's successors added tickets and waiting to recover read-your-writes.
+283	283	DISAGREES	C2	ReadySet retains eventual consistency.
+284	284	NEW-REASON	X4,W1	Per-user policy views require shared computation to avoid excessive read or storage costs.
+285	286	CARRIED	C5	Q10: owner shards, encryption keys, and revocation streams cover stored, backup, and derived data.
+287	288	SKIP	-	Section heading.
+289	289	ABOVE	A1	Challenges never-held running answers: discarding all maintained state requires rescanning history.
+290	290	NEW-REASON	X4	Without policy, only the trusted base may see a fact.
+291	291	NEW-REASON	X3,W1	Writable layers differ from policy-derived universes; per-person computation still incurs their costs.
+292	292	NEW-CORNER	C5,C8	Every fact must resolve to an erasure owner through actor and layer from creation.
+293	294	NEW-REASON	C5,E6	Erasure requires a policy for stored model summaries and other derived facts.
+295	296	SKIP	-	Section heading.
+297	298	DISAGREES	C2	Presents Noria's deliberately incorrect intermediate views as an opposing convention.
+299	300	SKIP	-	Section heading.
+301	302	DISAGREES	C2	Defends eventual consistency for keyed web reads to gain throughput.
+303	312	SKIP	-	System introduction and section headings.
+313	314	CARRIED	C1	Q8: five-part datoms carry a transaction slot, without a separate fact-id slot.
+315	315	DISAGREES	C1	Uses internal integer entity ids and UUIDs only across domains, rather than one random-id space.
+316	316	DISAGREES	C4	Prefers globally qualified words as keys.
+317	317	SAME	C2,W3	Time may have multiple axes instead of one scalar.
+318	318	NEW-REASON	C6	Multiplicity differences generalize binary assertion and retraction.
+319	319	NEW-REASON	A3,E1	Replicating interpreted facts avoids distributing authority over the same intent.
+320	321	ABOVE	C7	Different communication contexts call for different record shapes.
+322	323	DISAGREES	C3,A3	Prefers minimizing conflict avoidance and repairing conflicts after changes.
+324	325	SKIP	-	Section heading.
+326	327	NEW-CASE	E6,W1	Goebel moved from eager fact maintenance to demand-driven maintenance at thousands of views.
+328	329	SKIP	-	Section heading.
+330	330	DISAGREES	C1	Reported voice reserves UUIDs for cross-domain use despite the author's random-id recommendation.
+331	331	DISAGREES	C4,E6	Prefers word keys; opaque ids introduce time-varying name lookups requiring recorded reads.
+332	332	ABOVE	A3,E1	Questions multiple authorities interpreting identical offers; federation should carry interpreted facts.
+333	333	DISAGREES	C3,A3	Proposes repairing machine-rate conflicts instead of compare-and-set refusals and retries.
+334	334	ABOVE	C7	Questions a fixed envelope across communication contexts.
+335	336	NEW-REASON	E6,W1	Demand-driven maintenance addresses many thousands of views.
+337	342	SKIP	-	Research limitations and section headings.
+343	344	DISAGREES	C3,A3	Opposes centering transaction processing on conflict avoidance.
+345	350	SKIP	-	Section heading and transition.
+351	352	DISAGREES	P0	Permits trimming with explicit read-retention frontiers instead of preserving admitted content.
+353	354	NEW-REASON	C1	Random client ids avoid the coordination required by sequential assignment.
+355	356	NEW-CORNER	C4	Bootstrap grammar and gate-authorizing policy must exist at the least time.
+357	358	DISAGREES	C4	Preserves a vote for word keys while requiring recorded name resolution at registration.
+359	360	DISAGREES	C5,P0	Treats retraction plus compaction as real erasure; permits loss of historical reads.
+361	362	SAME	C8,E1	Gate checks acts-for facts and records the authorization read on its verdict.
+363	364	DISAGREES	E3	Ingest-assigned time is the ordering field; sender time is separate data.
+365	366	NEW-REASON	X3,C2,X4	Nearest-layer reads require a frontier for every searched layer.
+367	368	DISAGREES	A3,C3,C2	Forbids two gates on register cells; CARRIED Q7 co-location and Q5 partition starts.
+369	370	NEW-REASON	E6,E5	Read records include empty matches, firing triggers, and explicit coarse-lineage kinds.
+371	372	NEW-REASON	E5	Pinned reads and alternative supports prevent excessive doubt propagation.
+373	374	CARRIED	C2	Q3: a pattern read is defined by the index frontier it used.
+375	376	NEW-REASON	C2,E6	Causal epochs track completion of all work from an input before showing results.
+377	378	DISAGREES	C1	Derives fact identity from content and time for idempotent exchange.
+379	380	NEW-REASON	C6	Replacement pointers eliminate consumers' need to retain prior state.
+381	382	DISAGREES	E1	Verdicts may be computed from offers and refusals trimmed sooner than facts.
+383	384	NEW-REASON	A1,A2	Bit-exact replay depends on machine architecture and compiler as well as runtime events.
+385	386	DISAGREES	P0,E7	Recorded screen demand is the first history to trim.
+387	388	SKIP	-	No contribution on click authorization.
+389	390	DISAGREES	P0	Allows trimming through since; backups additionally require authoritative sidecar maps.
+391	396	SKIP	-	Section headings and ranking introduction.
+397	397	NEW-REASON	C2,W3	Durable interleaving maps and coordinated frontier movement carry recovery and contention costs.
+398	398	NEW-REASON	C2,E6	Intermediate-output failures and provenance granularity bear on safe displayed answers.
+399	400	DISAGREES	C3,A3	Calls gate coordination waste where monotonicity permits avoiding it.
+401	402	NEW-REASON	A1	Re-derivation depends on machine, compiler, logged now, and batch cuts.
+403	404	DISAGREES	C2	Preserves Noria's permission for briefly wrong answers as an opposing voice.
+405	406	SKIP	-	Unresearched literature pointers.
+407	407	NEW-REASON	E5,C1	Build systems use recorded input hashes to decide what requires recomputation.
+408	408	DISAGREES	C2	Estimated watermarks and later corrections oppose certified complete cuts.
+409	416	SKIP	-	Unresearched sources, method note, and section heading.
+417	417	NEW-REASON	C6	Upsert-style supersession hides retractions and shifts state requirements onto consumers.
+418	418	ABOVE	E1,X2	Questions the programming model and consequences of storing the gate's rules as facts.
+419	419	ABOVE	C5,W1,C3	Questions planetary scope through linearization limits, mixed ownership, and per-person view costs.
+420	420	ABOVE	C7	Questions nine fixed envelope parts versus system-understood fields and ordinary payload.
+421	421	ABOVE	A1,E2	Rejects never holding derived state; crossings also need versions for reproducibility.
+422	422	DISAGREES	E6	Omits deterministic read sets; ABOVE challenges universal provenance.
+423	424	DISAGREES	C3,A3	Drops version checks for monotone keys; ABOVE separates timestamp authority from checking.
+425	426	OWN-LIST	C2,W3	DISAGREES: ordering time, frontiers, and durable partition mappings required at first record; ABOVE challenges matching.
+427	430	SKIP	-	Section heading.
+431	431	ABOVE	C2,W3	Rejects scalar-versus-vector framing; asks who records the interleaving.
+432	432	ABOVE	C2	Rejects lag as supplementary metadata; the frontier defines the read.
+433	433	ABOVE	E5	Rejects follow-or-pin as a read-entry choice.
+434	434	DISAGREES	E3	Makes clock ownership secondary to one authoritative ordering field; ABOVE questions the framing.
+435	435	ABOVE	E6	Questions matching only new landings instead of defining obligations to history.
+436	437	DISAGREES	C3,A3	Makes coordination depend on growing-set versus register semantics; ABOVE rejects layer-level framing.
+438	441	SKIP	-	Section heading.
+442	442	NEW-REASON	C2,W3	Federated timelines need durable receiver-chosen remapping.
+443	443	NEW-REASON	C2	Composable stores must exchange frontiers as well as timestamped changes.
+444	444	NEW-REASON	C2	Completeness statements make exchanged updates safe under duplication and reordering.
+445	445	NEW-REASON	E1,A3	Exchanging interpreted facts avoids duplicate interpretation of offers across stores.
+446	446	DISAGREES	C3	Accumulating cells merge without coordination; only current-value cells require a single owner.
+447	448	DISAGREES	C4	Assigns the same gate id in every store.
+449	510	SKIP	-	Source lists, round-two method, and section heading.
+511	512	OWN-LIST	C2	Every index answer carries its complete-through point.
+513	513	OWN-LIST	C2	DISAGREES: requires comparable points; permits explicitly marked mixed-moment answers.
+514	515	OWN-LIST	E2,C2	Crossings store the read point and completeness status.
+516	517	DISAGREES	C2	Requires comparability before first record rather than handling incomparable points.
+518	521	SKIP	-	Section heading and introduction to alternative mechanisms.
+522	523	CARRIED	C2,C3	Q3,Q5: shared cuts and partition starts; exposed microbatch offsets need checking; own writes wait.
+524	525	DISAGREES	E3	Uses gate stamps for partition and causal order without a recorded remap.
+526	527	DISAGREES	E3	Requires monotone, causally ordered when stamps from the first record.
+528	529	NEW-REASON	C2	Opaque token meaning must survive runtime rebuilds in facts or a computation over facts.
+530	531	SKIP	-	Section heading.
+532	533	ABOVE	E5,C6	Rejects follow-or-stay choice; metadata fixes and retractions need different supersession meanings.
+534	535	DISAGREES	E5	Replaces dependence marks with observed roles and later weighting; adds alternative supports.
+536	537	DISAGREES	E5	Records roles and optional support groups instead of dependence marks.
+538	539	SKIP	-	Section heading.
+540	541	ABOVE	E6,C2	Questions universal provenance: per-row costs, vector costs, and unobservable reads through opaque bodies.
+542	543	DISAGREES	E6,E5	Treats read recording and manifest safety as unretrofittable, rather than early losses.
+544	545	DISAGREES	E6	Canonical read sets belong to firings, with offers pointing there instead of crossings.
+546	546	NEW-REASON	E6,C2	Read entries add matched-count and id-version digests, including explicit empty results.
+547	547	NEW-REASON	E6	Read-set completeness marks distinguish captured reads from all actual reads.
+548	549	DISAGREES	E6,E2	Crossings reference separate read sets instead of owning the recorded reads.
+550	551	NEW-REASON	E6	Digests validate exact pattern replay and expose index, erasure, or policy mismatches.
+552	553	NEW-REASON	C5,E6	Erased predicates prevent exact pattern-reader recovery; audits over-report possible readers.
+554	555	SKIP	-	Section heading.
+556	556	DISAGREES	C2,E3	Rejects incomparable vectors and non-ordering when; NEW-CASE: growth from 64 to 256 partitions.
+557	557	SKIP	-	Cross-reference to T3.
+558	558	SAME	C2,E1	Record the policy version and complete cut, never the withheld set.
+559	559	DISAGREES	C3,A3,E1	Replaces refusal-based CAS with repair or accumulating keys; NEW-CASE: hot-cell refusal volume.
+560	560	NEW-REASON	C5	Owner-wrapped value keys avoid million-key erasure walks; plaintext indexes require revocation.
+561	561	DISAGREES	P0,E7	Rejects untrimmed hand history; records demand changes instead of periodic movement ticks.
+562	562	DISAGREES	C1,E1	Uses content-plus-salt identities; NEW-REASON: pre-admission references may name refused facts.
+563	564	NEW-CASE	C4	Repointing relation silently changes every standing pattern that stores the word.
+565	566	SKIP	-	Section heading.
+567	567	DISAGREES	C2	Requires comparable as-of points; ABOVE rejects the scalar-versus-cut question.
+568	568	ABOVE	E5,C6	Replaces follow-or-stay framing with the superseding fact's reason for change.
+569	570	ABOVE	C2	Replaces lag measurement with whether reads may pass index progress.
+571	572	SKIP	-	Section heading.
+573	573	ABOVE	E6	Narrows the universal-read objection to an explicit capture-completeness mark.
+574	574	NEW-REASON	C2,A2	Runtime progress must leave durable facts or historical cuts die at rebuild.
+575	575	ABOVE	C7,C4	Questions the fixed envelope through floor-only verdict, read-set, and cut seed kinds.
+576	577	SAME	A3,C3	Multiple partition gates are permissible; cross-partition policy reads remain hazardous.
+578	578	DISAGREES	P0	Surveyed systems allow trimming; proposed read-set design remains unimplemented.

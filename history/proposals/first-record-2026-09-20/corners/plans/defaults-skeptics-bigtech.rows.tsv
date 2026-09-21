@@ -1,0 +1,211 @@
+1	15	SKIP	-	Title, method, provenance, and opening heading.
+16	16	DISAGREES	P0	Mutable truth and expiring logs reject permanent admitted content; also ABOVE.
+17	17	DISAGREES	C1	Time-bearing and shard-bearing ids oppose random, location-free names.
+18	18	DISAGREES	E3,C3,C2	Permits wall-clock ordering, which E3 excludes.
+19	19	DISAGREES	E6,E5,C8,E4	Omits read provenance and uses shared accounts with application-level authority.
+20	21	DISAGREES	P0,C5	Rents immutability and questions key destruction as erasure; also CARRIED Q10.
+22	23	ABOVE	-	Operational familiarity explains preference for the ordinary default.
+24	29	SKIP	-	Section heading and framing.
+30	31	DISAGREES	P0	Mutable rows and bounded history replace permanent content; also ABOVE and CARRIED Q10.
+32	33	DISAGREES	C1	Time and shard leakage are accepted; also CARRIED Q6 on random-id index locality.
+34	35	DISAGREES	C4	Seed identities may vary between environments instead of using universal first-key constants.
+36	37	DISAGREES	C4,X2	Words remain key identities; also NEW-REASON on non-transitive schema compatibility.
+38	39	CARRIED	C5	Q10: crypto-shredding and forgettable payloads cover event histories and backups.
+40	41	DISAGREES	C8,E4	Shared-account attribution omits verified actors and delegation; also NEW-CASE on ambiguous request identities.
+42	43	DISAGREES	E3	Reported clock-ordering practice conflicts with E3; the quoted default creed agrees.
+44	45	DISAGREES	X4	Visibility defaults open internally and depends on manually remembered predicates.
+46	47	CARRIED	C3,C2,P0	Q7,Q1: entity partitions, consumer offsets, and the database-to-log atomicity seam.
+48	49	DISAGREES	E6,E5	Read provenance is absent or kept in separate, expiring audit logs.
+50	51	DISAGREES	E5	No read recording means no dependence or path distinctions.
+52	53	DISAGREES	C2,E6	Lag remains an external metric rather than a recorded answer-completeness cut.
+54	55	DISAGREES	E5,E6	Causal read links are sampled and expire instead of being kept.
+56	57	DISAGREES	C1,E1	Stream/sequence pointers and expiring retry keys conflict with permanent ids and verdicts.
+58	59	DISAGREES	C6	New records omit replacement pointers and discard checked versions.
+60	61	DISAGREES	E1	Refusals expire and the journal retains only accepted work; also CARRIED Q1.
+62	63	DISAGREES	A2	Runtime versions remain deployment metadata instead of facts read by running answers.
+64	65	DISAGREES	E7	Hand events are sampled outside the system of record.
+66	67	DISAGREES	E4	Broad, once-granted OAuth scopes replace authority designated by each click.
+68	69	DISAGREES	P0	Log retention and TTLs discard history rather than preserve admitted content.
+70	73	SKIP	-	Section heading and framing.
+74	74	DISAGREES	C5	Crypto-shredding may fail cryptographically, operationally, or legally; also CARRIED Q10.
+75	75	DISAGREES	C5	Rejects key deletion as personal-data erasure and prefers external payloads; also CARRIED Q10.
+76	76	DISAGREES	C5	Inaccessibility only approaches erasure, rather than accomplishing it; also CARRIED Q10.
+77	77	DISAGREES	C5	Rejects on-log personal ciphertext; also ABOVE and CARRIED Q10.
+78	79	CARRIED	C5	Q10: academic countervoice treats crypto-shredding as compliant erasure.
+80	81	DISAGREES	C5	Requires external personal values, with encryption only supplementary; also CARRIED Q10.
+82	91	SKIP	-	Section headings and biographical background.
+92	93	ABOVE	C4	Questions schema-last and new constructs; also NEW-REASON on semantic heterogeneity.
+94	95	ABOVE	-	Questions whether schema-later document stores remain distinct from relational systems.
+96	97	ABOVE	-	Questions graph-store necessity and distributed performance advantages.
+98	99	ABOVE	P0	Questions ledger necessity and unique audit benefits; also CARRIED Q10.
+100	101	ABOVE	-	Questions replacing relational models and rebuilding established database infrastructure.
+102	103	ABOVE	P0	QLDB retirement challenges demand for a dedicated immutable ledger.
+104	104	SKIP	-	List introduction.
+105	105	ABOVE	-	Demands a functional or performance advantage over relational rows and audit tables.
+106	106	NEW-REASON	C4,X2	Grammar checks satisfy schema-first; independently coined keys still create semantic heterogeneity.
+107	107	DISAGREES	P0,E1	Treats immutable-ledger audit as unnecessary; also ABOVE.
+108	108	ABOVE	C7,C4	Questions indirect versioned value grammars as a complication of the storage model.
+109	110	ABOVE	C3	Challenges planetary distribution with scale-up-first and later personal sharding.
+111	112	ABOVE	-	Limits the skeptics' applicability by distinguishing business workloads, adoption, and avoiding irreversible choices.
+113	116	SKIP	-	Biographical positioning and next heading.
+117	118	NEW-REASON	E4	Agent database branching and account restrictions provide practical safety mechanisms.
+119	120	ABOVE	E4	Questions needing a new store for agent isolation and least privilege.
+121	122	SKIP	-	Section heading.
+123	124	ABOVE	-	Challenges custom infrastructure through operational costs and unknown failure modes.
+125	126	ABOVE	-	Applies innovation costs while qualifying the objection for a medium-building product.
+127	128	ABOVE	-	Limits the boring-technology objection when infrastructure itself is the product.
+129	136	SKIP	-	Section headings.
+137	138	DISAGREES	A3,C3,C2	Always-writable conflict merging replaces compare-and-set; also NEW-REASON on truncated vector clocks.
+139	140	ABOVE	-	Operational manageability displaced a better-fitting distributed design inside Amazon.
+141	142	NEW-REASON	P0	Continuous verification and transfer checks make durability an ongoing activity.
+143	144	NEW-REASON	P0,A3	Operational simplicity motivates single writers; checksums enable later integrity verification.
+145	146	SKIP	-	Section heading.
+147	148	NEW-CASE	C2	S3 customers built separate consistency systems before per-object witnesses supplied read barriers.
+149	150	NEW-REASON	X5,P0	Small executable models, durability reviews, and observed bit errors justify continuous protection.
+151	152	NEW-CASE	C2,P0	S3's missing freshness guarantees caused customer side systems; durability also requires operational review.
+153	154	SKIP	-	Section heading.
+155	156	CARRIED	P0,E1,C3	Q1: adjudication precedes journal admission, allowing storage replicas to consume only committed work.
+157	158	DISAGREES	E3,C2,C3	Commit timestamps order writes across gates; also CARRIED Q3 on completeness frontiers.
+159	160	DISAGREES	E3,C2	Physical-time ordering simplifies consistent reads but makes correctness depend on clock accuracy.
+161	162	DISAGREES	E3,E1,C3,C2	Uses gate clocks for order and omits refusals; also NEW-REASON on hot-cell retries.
+163	164	SKIP	-	Section heading.
+165	166	CARRIED	C1,E1	Q9: parameter hashes collapse distinct requests; caller tokens preserve intent and late-retry answers.
+167	168	SKIP	-	Fallback reliability advice without a specific ledger convention.
+169	170	NEW-REASON	E6,A1	Constant work avoids load-sensitive modes and cache-empty instability.
+171	172	ABOVE	E6,C1	Questions change-driven recomputation under ingestion bursts; also CARRIED Q9 on separating identity from hashes.
+173	174	NEW-REASON	C7,P0	Never-rewrite extends old-format readability obligations indefinitely.
+175	176	SKIP	-	Section heading.
+177	178	DISAGREES	C1,C3	Embeds immutable shard placement in ids; also CARRIED Q7 on association locality and cross-shard writes.
+179	180	DISAGREES	C1,C3	Accepts permanent placement in ids to obtain single-server association reads.
+181	182	SKIP	-	Retrofit introduction.
+183	184	NEW-CASE	C2,C7,X2	FlightTracker exposed permanent consistency bugs and historical records violating assumed invariants.
+185	186	NEW-CASE	C3,X1	One in 1,500 batched reads exposed partial transactional updates before atomic visibility was added.
+187	187	SKIP	-	List introduction.
+188	188	DISAGREES	C1,C3	Meta judges opaque-id routing lookups too costly and chooses permanent shard-bearing identities.
+189	189	DISAGREES	C2,E6	Records reader freshness demands instead of each read's achieved index cut.
+190	190	NEW-REASON	C2	Accepted transient staleness conceals permanent consistency bugs.
+191	191	NEW-REASON	C7,X2	Historical facts require readers to retain old shapes or identify the rules originally applied.
+192	193	CARRIED	C3,X1	Q7: cross-partition fact chains can land partially and require detection or repair.
+194	195	DISAGREES	P0	TAO keeps mutable rows without history and repairs data through migrations.
+196	197	SKIP	-	Section heading.
+198	199	DISAGREES	C1	Orleans makes type part of identity, unlike the single opaque id space.
+200	201	CARRIED	A3	Q4: durable storage rejects stale ETags despite simultaneous actor activations.
+202	203	SKIP	-	Vocabulary retrospective and unread follow-up work.
+204	204	SKIP	-	List introduction.
+205	205	DISAGREES	C1	Type-bearing Orleans identities prohibit type changes; ledger ids carry no type.
+206	206	CARRIED	A3	Q4: compare-and-set must hold at durability, not merely in gate memory.
+207	208	SKIP	-	Cost of unfamiliar vocabulary.
+209	210	SKIP	-	Section heading.
+211	212	NEW-REASON	C7,C1,C2	Observable implementation habits become dependencies even without contractual promises.
+213	214	DISAGREES	C1	Requires time-sortable ids, opposing random names; widening-cost example is SAME.
+215	215	SKIP	-	List introduction.
+216	216	NEW-REASON	C7,C1	Randomizing unspecified behavior prevents consumers from relying on accidental stability.
+217	217	NEW-REASON	C1	Declared opacity cannot prevent dependencies on visible timestamp bits.
+218	219	NEW-REASON	C2,E1	Opaque policy tokens preserve causality while allowing latency and availability choices.
+220	220	SKIP	-	List introduction.
+221	221	NEW-REASON	C1	Stored tools permanently depend on observable id properties, freezing both sides of the interface.
+222	222	NEW-CORNER	C7	Unpromised observable field behaviors must be hidden before tools make them permanent contracts.
+223	223	SAME	E1,C2	Records the policy version or freshness checked for each content admission.
+224	225	NEW-REASON	E3,C2	Clock uncertainty directly increases waiting costs.
+226	231	SKIP	-	Section heading and table header.
+232	232	DISAGREES	P0	Mutable rows and expiring logs replace permanent content; audit is said not to require a ledger.
+233	233	DISAGREES	C1	Default ids expose time and shard placement rather than remaining random and opaque.
+234	234	DISAGREES	C4	Seed ids vary by environment instead of using shared first-key constants.
+235	235	DISAGREES	C4	Words serve as key identities; also NEW-REASON on local semantic drift.
+236	236	DISAGREES	C5	Rejects personal ciphertext on immutable logs; also CARRIED Q10.
+237	237	DISAGREES	C8	Shared database accounts and application-set attribution replace verified immediate actors.
+238	238	DISAGREES	E3	Allows bounded-clock ordering, which E3 prohibits.
+239	239	DISAGREES	X4	Internal visibility defaults open and relies on manual predicates.
+240	240	DISAGREES	E3,C2,C3	DSQL uses monotone clock order; also CARRIED Q7 on partitioning and cross-shard atomicity.
+241	241	DISAGREES	E6,E5	The default omits reads, while cited systems preserve only selected freshness dependencies.
+242	242	SKIP	-	No finding on dependence versus path.
+243	243	DISAGREES	C2,E6	Lag is a metric rather than recorded read data; alternative mechanisms constrain freshness.
+244	244	DISAGREES	E5,E6	Causal trace links are sampled and expire.
+245	245	CARRIED	C1	Q9: caller ids and stored parameters distinguish retries from requests with identical content.
+246	246	DISAGREES	C6	Replacement pointers are not retained.
+247	247	DISAGREES	E1	Refusals expire and journals retain committed work only; also CARRIED Q1.
+248	248	DISAGREES	A2	Runtime versions remain deploy logs and trace attributes rather than runtime facts.
+249	249	DISAGREES	E7	Hand events remain in a separate analytics pipeline.
+250	250	DISAGREES	E4	Broad OAuth scopes replace specifically invoked click authority.
+251	252	DISAGREES	P0	Storage history is trimmed despite checksum and compatibility safeguards.
+253	257	SKIP	-	Section heading and ranking introduction.
+258	258	DISAGREES	E3,C2	DSQL demonstrates trusted wall-clock ordering instead of excluding clock-derived order.
+259	259	DISAGREES	C1,C3	Meta embeds shards in ids; also NEW-CASE on consistency retrofits and historical invariant failures.
+260	261	ABOVE	P0	Relational audit alternatives and ledger-product retirement challenge the need for the proposed store.
+262	266	SKIP	-	Source rankings, omissions, and research limits.
+267	267	CARRIED	P0	Q10: externally audited transparency logs offer a strong append-only comparison.
+268	268	CARRIED	P0	Q10: regulated write-once practice couples immutability with retention periods.
+269	269	SKIP	-	Unresearched names deferred to other sessions.
+270	270	CARRIED	P0,C6	Q10: financial ledgers preserve append-only history through correction by reversal.
+271	276	SKIP	-	Missing source note and section heading.
+277	277	ABOVE	P0,C2	Challenges one fact-store substance while identifying concrete costs of absent freshness guarantees.
+278	278	NEW-REASON	X2,E1	Versioned rules must remain attributable because historical facts can violate later invariants.
+279	279	ABOVE	C3,C5	Challenges planetary scope through operations, locality, cross-shard atomicity, and erasure boundaries.
+280	280	DISAGREES	W2,C7	Fixes encodings now rather than deferring W2; also ABOVE on permanent envelope observables.
+281	281	ABOVE	A1,E6	Questions the operational cost of having to recompute all unstored answers simultaneously.
+282	282	DISAGREES	E6,E5	Prefers a small actionable read subset over complete crossing provenance; also ABOVE.
+283	284	CARRIED	A3,C3	Q4: durable checks must survive overlapping writers during failover.
+285	286	ABOVE	-	Requires demonstrated gains sufficient to justify operating a new store.
+287	290	SKIP	-	Section heading.
+291	291	ABOVE	P0	Reframes immutability as a recurring obligation to detect loss.
+292	292	ABOVE	C1	Reframes id leakage as a decision about permanent public promises.
+293	293	ABOVE	E1,C1	Reframes verdict retention around late retries and the caller's original response.
+294	294	ABOVE	C1	Rejects the random-versus-content dichotomy; uses identity and digest together.
+295	295	ABOVE	C2,W4	Reframes gate count around a shared lower bound on future stamps.
+296	297	ABOVE	C7,W2	Reframes representation choice around rollback compatibility under never-rewrite.
+298	301	SKIP	-	Section heading.
+302	302	NEW-REASON	C7,C1,E3	A second store exposes accidental first-store behaviors as an incompatible de facto protocol.
+303	303	NEW-REASON	C1	Random ids avoid the cross-store worker registry required by Snowflake-style minting.
+304	304	NEW-REASON	C1,C3	Home-bearing names prevent migration to another store without renaming.
+305	305	NEW-REASON	C3,A3	Independent stores writing one cell reintroduce conflict reconciliation and version-vector costs.
+306	306	NEW-REASON	C2,C3	Independent institutions cannot inherit one operator's ordering promises across their store boundary.
+307	307	ABOVE	-	Challenges creating a second store when trusted institutions could share the first.
+308	308	SAME	C2	Opaque boundary tokens preserve freedom to change their internals.
+309	310	CARRIED	C5	Q10: copied immutable payloads multiply erasure obligations across controllers.
+311	375	SKIP	-	Source list, round-two method, headings, and comparison setup.
+376	376	ABOVE	E6,C2,A1	Tests historical-screen reconstruction through temporal tables, logged queries, retention, and reproducible rendering.
+377	377	DISAGREES	E2,P0,C5	Model inputs and replies are sampled and expire; retained copies also enlarge erasure obligations.
+378	378	DISAGREES	P0,C5	Allows rewriting audit history for ordinary deletion rather than preserving admitted content.
+379	381	NEW-REASON	E5,E6	Absent common read provenance, change history cannot establish staleness or transitive doubt.
+382	383	NEW-CASE	E5,E6	A retracted paper must invalidate summaries and downstream claims across independently built tools.
+384	385	ABOVE	E6,C3	Separates provenance capability from engine choice; questions matcher and planetary admission costs.
+386	387	SKIP	-	Section heading.
+388	389	DISAGREES	C5	Rejects immutable personal ciphertext and hashes; also ABOVE and CARRIED Q10.
+390	391	DISAGREES	C5	Later cipher breaks defeat key-deletion erasure; also NEW-CASE and CARRIED Q10.
+392	393	DISAGREES	C5	Requires personal values outside the log rather than allowing ciphertext alone; also CARRIED Q10.
+394	395	OWN-LIST	C5	Replay must tolerate erased values from record one; also CARRIED Q10.
+396	396	OWN-LIST	C5,P0	Distinguishes erased from missing and keeps attributable erasure facts; also CARRIED Q10.
+397	397	OWN-LIST	C1,C5	Random value ids and tombstone write refusal prevent resurrection; also CARRIED Q9,Q10.
+398	399	OWN-LIST	C5	Requires durable values before admission; also ABOVE on dual-write seam and CARRIED Q10.
+400	403	OWN-LIST	E3,C2	First-record list: monotone commit timestamps; also DISAGREES with E3's prohibition on clock ordering.
+404	404	OWN-LIST	C3,C2,E3	Idle gates advance clock frontiers; also DISAGREES E3; heartbeat requirement is SAME.
+405	405	OWN-LIST	E3,C2	Readers wait past one shared time at every gate; also DISAGREES E3.
+406	406	OWN-LIST	E1,P0	Journal contains only committed work; also DISAGREES E1 on refusal retention; CARRIED Q1.
+407	407	OWN-LIST	C3,A3	Commit-time conflict checks require bounded heat on individual keys; also NEW-REASON.
+408	409	OWN-LIST	C3,X1	Cross-gate writes require coordination; also CARRIED Q7.
+410	411	DISAGREES	E3,E1,C2	Orders by gate timestamps and excludes refusals, unlike E3 and E1.
+412	413	DISAGREES	E3,C2,C3	Requires clock-order promises at record one; also NEW-REASON on heartbeat and admission waiting costs.
+414	415	DISAGREES	P0,E6,E1	Trims historical versions, omits reads, and keeps no refusals.
+416	417	SKIP	-	Section heading.
+418	418	DISAGREES	E3	Permits wall-clock ordering once clock error is bounded.
+419	419	CARRIED	C2,C3	Q5: repartitioning invalidates recorded cuts unless historical layouts remain interpretable; scalar cuts remain permissible.
+420	420	DISAGREES	C5	Rejects the erasure lean through T6's objection to personal ciphertext on the log.
+421	421	DISAGREES	C1,C4,W2,C7	Accepts content-derived seed ids and fixes canonical encoding now; also CARRIED Q9.
+422	422	DISAGREES	C1,P0	Endorses content-derived fact identity instead of separate random names; also CARRIED Q9.
+423	423	DISAGREES	C1	Derives shared entity ids from public sources; ledger derives only offer ids.
+424	424	NEW-REASON	C4	Scoped word uniqueness preserves informative collisions that opaque key ids otherwise hide.
+425	425	NEW-CORNER	C8,E4	Noninteractive actors need a credential path independent of logged-in sessions from the first record.
+426	426	NEW-CASE	E1,C1	An agent restarting in another session must retrieve original verdicts while replaying its outbox.
+427	427	DISAGREES	P0,E7	Permits sampled, expiring hand records instead of permanent default capture.
+428	428	NEW-CASE	E4	Imported tools must not acquire default authority merely by entering a person's layer.
+429	430	NEW-REASON	C7,P0,X2	Permanent history imposes indefinite format support and tolerance of earlier invariant violations.
+431	432	SKIP	-	Section heading.
+433	433	DISAGREES	E3,C2	Reserves future clock ordering instead of prohibiting it; also ABOVE.
+434	434	ABOVE	C5	Reframes erasure around whether immutable records should contain personal data in any form.
+435	435	ABOVE	E1	Reframes refusal storage around the response and lookup path for late retries.
+436	437	ABOVE	C7,C1,W2	Reframes maps versus classes around the exact bytes committed by hashing.
+438	439	SKIP	-	Section heading.
+440	440	ABOVE	C5	External values challenge one substance by restoring the dual-write seam; also CARRIED Q10.
+441	441	SAME	C1,C7	Content-derived identity freezes encoding as part of the record contract.
+442	442	CARRIED	A3	Q4: durable version checks must reject stale gates during overlapping failover.
+443	443	DISAGREES	E3	Requires clock-order capability from the first record instead of permanently excluding it.

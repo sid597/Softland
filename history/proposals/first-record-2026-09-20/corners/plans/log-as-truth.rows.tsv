@@ -1,0 +1,446 @@
+1	29	SKIP	-	Title, scope, method, and introductory headings.
+30	31	OWN-LIST	C1,P0	Three names; DISAGREES by requiring hashes on every pointer.
+32	33	OWN-LIST	P0,C5,W2	Four promises, canonical form, separable values, and impersonal surviving metadata.
+34	35	OWN-LIST	A2,A1,E2,E1	Runtime versions, logged upgrades, and crossing checksums.
+36	37	OWN-LIST	C3,C2,E3	Keyed order, index frontier, and writer knowledge.
+38	39	OWN-LIST	E1	Log offers first; DISAGREES by allowing verdict trimming.
+40	41	OWN-LIST	C7	Extension rules and named fields before fixed parts.
+42	43	SKIP	-	Challenge heading.
+44	44	ABOVE	A1	Challenges never storing running answers through playback costs.
+45	46	ABOVE	-	Challenges event sourcing as the substance of the entire system.
+47	50	SKIP	-	Separator and heading.
+51	52	NEW-REASON	A1,P0	Capture nondeterministic inputs before logging to make replay deterministic.
+53	54	OWN-LIST	-	Introduces three choices required before the first record.
+55	56	OWN-LIST	C3,W3	Ordering scope; DISAGREES by requiring an immediate choice.
+57	58	OWN-LIST	P0	Retention depends on whether the log contains records or redo instructions.
+59	60	OWN-LIST	P0	External verifiability versus operator trust.
+61	66	SKIP	-	Section headings.
+67	68	CARRIED	C3,C1	Q7: consistency belongs to a uniquely keyed entity.
+69	69	SKIP	-	Quotation heading.
+70	70	ABOVE	A1	Readable state stored as a disposable log-derived cache.
+71	71	SAME	P0	Semantic immutability permits physical changes.
+72	72	CARRIED	C5,P0	Q10: deletion may yield absence but never substituted content.
+73	73	NEW-CASE	C1,X2	Undated newspaper reference fails to identify immutable content; schemas also need pinned references.
+74	74	DISAGREES	C1	Names immutable data by key and version rather than an independent random id.
+75	75	NEW-REASON	C6	Linear versus branching version histories require different parent cardinalities.
+76	76	CARRIED	C3	Q7: only a shared unique key guarantees transactional scope.
+77	77	NEW-REASON	E3	Messages contain past observations; distant services share no simultaneous present.
+78	78	NEW-REASON	E1	Durable processing transitions must preserve identical replies on retries.
+79	79	NEW-REASON	C1	Identity scope, nonreuse, and central allocation scalability.
+80	81	NEW-REASON	P0	More faithful retained history costs more.
+82	83	CARRIED	C3,C2	Q5,Q7: repartitioning moves new versions while old versions remain in their original logs.
+84	84	SKIP	-	Question mapping heading.
+85	85	SAME	P0	Physical re-encoding must preserve meaning.
+86	86	CARRIED	C5,P0	Q10: tombstones preserve absence without replacing content.
+87	87	NEW-REASON	C1,E5	Stored pointers pin versions; following latest is computed by readers.
+88	88	SAME	C4,X2	Keys identify versioned schema; facts or verdicts pin checked grammar.
+89	89	DISAGREES	C1,C6	Immutable names are key-version pairs rather than independent random ids.
+90	90	CARRIED	C3	Q7: only one key guarantees shared ordering and placement.
+91	91	CARRIED	C2	Q3: alternate indexes may lag, with no reported applied-position marker.
+92	92	NEW-REASON	E1	Durable retry decisions need not be records in the same log.
+93	93	NEW-REASON	E3	Each service has its own present; received data describes the past.
+94	94	NEW-REASON	E6	Read logging can remain idempotent without changing substantive entity behavior.
+95	95	NEW-REASON	C1	Identifier uniqueness must cover all users and prohibit reuse.
+96	97	SKIP	-	Unanswered questions.
+98	99	ABOVE	A1	Challenges transferring private mutable inside-state designs to one shared immutable store.
+100	101	NEW-CORNER	-	Records must preserve intended operations, not merely resulting values.
+102	103	SKIP	-	Voice heading.
+104	105	CARRIED	E1,C3	Q1,Q7: shared-log systems evolved from ordered transaction records to partial ordering and replaceable logs.
+106	106	SKIP	-	Quotation heading.
+107	107	SAME	E3	Log position supplies logical time independently of physical clocks.
+108	108	SAME	A3,W4	Sequencer is an optimization rather than a safety requirement.
+109	109	DISAGREES	E6,E5	Every transaction logs object-version read rows and validates all of them.
+110	110	NEW-REASON	E1	Decision records are required when a reader lacks enough objects to derive the verdict.
+111	111	SAME	C4	Bootstrap directory has a fixed identifier.
+112	112	CARRIED	C5,P0	Q10: checkpoint trimming trades away rollback and historical indexing.
+113	113	NEW-REASON	C3,W3	Regional partitions can make a system-wide total order unavailable.
+114	114	NEW-REASON	C2,E5	Snapshots are vectors; records carry the writer's causal frontier.
+115	115	ABOVE	-	Log reconfiguration requires consensus metadata outside the log to survive log unavailability.
+116	116	DISAGREES	C1	Stable preassigned positions provide retry identity instead of independent random ids.
+117	117	NEW-REASON	A2	Logged activation synchronizes new runtime behavior at one position.
+118	118	CARRIED	C2	Q3: outgoing proposals carry local playback positions and support deterministic trimming.
+119	119	NEW-REASON	E3	Time proposals make retention robust to skew and drift.
+120	121	NEW-REASON	A1	Stored inputs versus outputs trade bandwidth against CPU; intervening writes can invalidate outputs.
+122	122	SKIP	-	Retrospective heading.
+123	123	NEW-REASON	C3,W3	CORFU's author later judged global total ordering typically unnecessary.
+124	124	ABOVE	A1	Playback limited shared-log applicability to few clients or small state.
+125	125	NEW-CASE	C3	One inaccessible log slot blocks learners across unrelated shards.
+126	126	NEW-CASE	C7	Positional headers broke under upgrades; named header maps survived.
+127	127	NEW-CASE	A2,A1	Production inconsistencies came from engine rollout; two-phase activation and checksums addressed them.
+128	128	DISAGREES	P0	Permits altering admitted entries to recover from poison records.
+129	129	CARRIED	P0,C5	Q10: old log segments move to cold storage for point-in-time restoration.
+130	131	NEW-REASON	C7	Survey found almost no reserved-field or compatibility provisions.
+132	132	SKIP	-	Question mapping heading.
+133	133	DISAGREES	C1	Position alone suffices inside one log; virtualization becomes necessary across log implementations.
+134	134	NEW-REASON	E1,A1	Code changes prevent future verdict derivation, requiring recorded decisions.
+135	135	NEW-CORNER	E5	Read marks must distinguish gate-validated reads from actor-declared provenance.
+136	136	NEW-REASON	C2,E5	One offer frontier bounds everything its actor could have known.
+137	137	CARRIED	C2,C3	Q7: vector cuts preserve partial order; one global log couples failure domains.
+138	138	SAME	E3	Physical clocks do not determine order.
+139	139	NEW-REASON	A2,A1	Logged code changes plus derived-state checksums make runtime transitions checkable.
+140	140	NEW-CASE	C7	Named maps survived version skew where positional fields failed.
+141	141	ABOVE	C4	Bootstrap needs both a fixed object id and an external current-log register.
+142	142	DISAGREES	P0	Allows historical editing and adds poison-record neutralization beyond erasure.
+143	144	SKIP	-	Unanswered questions.
+145	146	CARRIED	P0,C5	Q10: redo-log entries are disposable commands, unlike permanent facts.
+147	148	CARRIED	C2,C3	Q5: persist-before-order avoids holes; shared cuts order shards only without trimming.
+149	150	SKIP	-	Voice heading.
+151	152	DISAGREES	C4	Event types are names rather than entity ids.
+153	153	SKIP	-	Quotation heading.
+154	154	NEW-REASON	P0	Editable history undermines audit trust; audit evidence must reconstruct present state.
+155	155	NEW-REASON	C4,C7	A new version must be convertible from the old; otherwise it is a new event.
+156	156	DISAGREES	C4	Word keys cannot be renamed; compatibility requires retaining old names indefinitely.
+157	157	NEW-REASON	C4	Downstream consumers cannot safely interpret changed semantic meanings.
+158	158	NEW-REASON	A1,E2	External-call results must be captured when events are made for deterministic replay.
+159	159	CARRIED	C3,A3	Q7: stream ordering and expected-version checks jointly control concurrency.
+160	160	NEW-CORNER	-	Preserve both conversation root and immediate cause with separate propagated identifiers.
+161	161	CARRIED	C5	Q10: whole-stream deletion and key destruction are offered as safe erasure paths.
+162	163	DISAGREES	C4,C1	Type is a friendly word; retry identity is stream-scoped and fails under unrestricted expected versions.
+164	164	SKIP	-	Retrospective heading.
+165	165	DISAGREES	P0	Practitioners routinely copy and rewrite historical content despite immutability promises.
+166	166	NEW-CASE	C1	Copy-and-replace retains identifiers while changing event content, undermining idempotency.
+167	167	NEW-CASE	P0	Yearly read-only accounting stores make cross-year projections painful.
+168	168	ABOVE	-	Event sourcing across an entire system is called an architectural anti-pattern.
+169	169	CARRIED	C5,P0	Q10: production privacy erasure used rewriting or separate stores; immutable vendors refused in-place edits.
+170	171	DISAGREES	C5	Crypto-shredding is legally disputed; side stores weaken single-source truth and retain relational identity.
+172	172	SKIP	-	Question mapping heading.
+173	173	DISAGREES	P0	Without affordable evolution, users rewrite whole stores despite immutability promises.
+174	174	NEW-REASON	C4	Changed meaning requires a new key; stable ids free display names from permanent spelling.
+175	175	NEW-REASON	C7	Weak-schema maps are preferred over typed classes.
+176	176	NEW-REASON	C1	Retry ids are stream-scoped while revisions separately supply order.
+177	177	CARRIED	C3	Q7: mutual ordering requires one stream or application merging.
+178	178	NEW-CORNER	-	Conversation root omits immediate causation; infrastructure must preserve both.
+179	179	CARRIED	C5	Q10: stream erasure leaves an existence marker that may remain sensitive.
+180	180	NEW-REASON	A1,E2	Recording computed outputs is an alternative to relying on software-version replay.
+181	181	DISAGREES	E1	Rejected expected-version checks leave no durable verdict.
+182	183	SKIP	-	No verified evidence about timestamp ordering.
+184	185	CARRIED	C3	Q7: business-event streams are substantially coarser ordering units than cells.
+186	187	DISAGREES	C5,P0	Includes retroactive rewriting and legal objections to treating key destruction as deletion.
+188	192	SKIP	-	Biographical introduction and quotation heading.
+193	193	ABOVE	A1	Materialized views store derived state and remain rebuildable.
+194	194	CARRIED	E1	Q1: a leader may validate before appending to the log.
+195	195	CARRIED	E1,C3	Q1,Q7: ordered offers precede validation; outcomes go to a separate stream.
+196	196	CARRIED	P0,C5	Q10: the log definition permits discarding old events.
+197	197	NEW-CORNER	-	Generated events preserve the original event id for causal tracing.
+198	198	NEW-REASON	C3,W3	Total ordering requires network coordination and cannot serve disconnected writers.
+199	199	NEW-REASON	E3,P0	Timestamp ordering can insert events before the end, violating append order.
+200	200	DISAGREES	C1	Content hashes name updates and prevent Byzantine duplicate-id forgery; also Q9.
+201	202	CARRIED	C5,P0	Q10: privacy deletion may rewrite logs or destroy per-user encryption keys.
+203	203	SKIP	-	Retrospective heading.
+204	204	SKIP	-	Reactive subscription gap in the earlier inside-out database thesis.
+205	205	ABOVE	-	Rejects a single universally correct architecture.
+206	206	NEW-REASON	C7	Bidirectional format compatibility and accumulated optional fields constrain envelope evolution.
+207	207	CARRIED	C5,P0	Q10: disconnected replicas prevent safely truncating accumulated edit history.
+208	208	CARRIED	C5,P0	Q10: Bluesky explicitly deletes records; permanent undeletability is criticized.
+209	209	CARRIED	C1	Q9: cross-repository pointers pair names with hashes; stable account ids survive renames.
+210	210	DISAGREES	C1	Operations use Lamport ids and changes use hashes rather than one random id space.
+211	212	SKIP	-	Humans and agents sharing a database.
+213	213	SKIP	-	Question mapping heading.
+214	214	DISAGREES	C1,C6	Versions and changes use content hashes rather than random names.
+215	215	CARRIED	E1	Q1: both admission outcomes are recorded in a separate stream.
+216	216	CARRIED	C3	Q7: shared claims require colocated ordering; multi-entity events break per-partition processing.
+217	217	CARRIED	C2	Q3: subscribers checkpoint applied LSNs; direct lagging-store reads lack isolation.
+218	218	CARRIED	C5,P0	Q10: rewriting and key destruction support deletion; downstream cleanup uses replay.
+219	219	SAME	E3	Wall-clock labels do not supply order.
+220	220	SAME	C4	Root uses one well-known identifier across replicas.
+221	222	NEW-REASON	E6	Unverified read-as-event precedent names storage cost for tracing decisions.
+223	224	ABOVE	-	Local primary copies and merging challenge one shared truth governed by a gate.
+225	226	ABOVE	P0	Local-first primary copies challenge the single-store premise.
+227	228	SKIP	-	Voice heading.
+229	230	DISAGREES	C1	Entries use hashes and indexes rather than random fact ids.
+231	231	SKIP	-	Quotation heading.
+232	232	DISAGREES	P0,C5	Accepted entries can never be removed, excluding the ledger's erasure exception.
+233	233	CARRIED	P0	Q10: issuing a receipt creates an unconditional retention obligation.
+234	234	NEW-CASE	E1	Waiting for inclusion delayed certificate issuance, motivating promise-only receipts.
+235	235	NEW-REASON	E1	Admission restrictions bound spam and permanent log growth.
+236	236	NEW-REASON	E3	Log timestamps must progress monotonically and cannot appear in the client's future.
+237	237	NEW-REASON	C1,E1	Duplicate submissions may reuse an earlier receipt.
+238	238	DISAGREES	C1,C4	Log identity derives from its public key; the trust list remains external.
+239	240	CARRIED	P0	Q10: external observation makes record removal detectable.
+241	241	SKIP	-	Retrospective heading.
+242	242	CARRIED	P0	Q10: one corrupted leaf hash made Yeti2022 irreparable.
+243	243	CARRIED	P0	Q10: restoring an older backup forked a transparency log.
+244	244	NEW-CASE	E1	Merge-delay breaches led Sunlight to sequence entries before acknowledging them.
+245	245	NEW-CASE	C7,C1	Signed extension space enabled receipt indexes and removed the hash-lookup database.
+246	246	NEW-CASE	C7	A clean second CT format had no planned adoption.
+247	247	NEW-CASE	W1,W2	Relational storage approached seven-figure costs and hit a 16 TiB limit.
+248	248	CARRIED	C5,P0	Q10: mandatory temporal shards allow whole logs to retire.
+249	249	CARRIED	P0,C1	Q10: checkpoints must never roll back while duplicate caches may lose data.
+250	250	DISAGREES	C1	Best-effort duplicate suppression permits repeated entries.
+251	251	DISAGREES	C5	Q10: redaction rejected because it conceals misissuance; permanent logs exclude personal data.
+252	252	DISAGREES	E1	Refusals leave only a returned error, without durable verdicts.
+253	253	SKIP	-	Trillian map removal has no reported explanation.
+254	255	CARRIED	P0	Q10: missing gossip concentrates trust; witness signatures address costly, brittle public verification.
+256	256	SKIP	-	Question mapping heading.
+257	257	CARRIED	P0	Q10: transparency incidents expose the cost of externally checkable append-only promises.
+258	258	DISAGREES	C1	Names are content hash and index; no independent random fact id.
+259	259	DISAGREES	C1	Exact duplicate suppression is explicitly unnecessary for correctness.
+260	260	DISAGREES	E1	Refusals are deliberately unrecorded to control spam and growth.
+261	261	DISAGREES	C5	Removal is prohibited; sensitive content must stay out of the log.
+262	262	NEW-REASON	E3	Gate time must be monotone and cannot be trusted when future-dated.
+263	263	CARRIED	P0,C7	Q10: immutable encoding, signed extensions, retiring shards, and protected heads constrain restoration.
+264	264	DISAGREES	C1,C4	Log identity is a key rather than random; bootstrap trust remains outside.
+265	266	ABOVE	A3	Independent stores and client receipt quorums replace one globally trusted store.
+267	268	ABOVE	-	CT's public, independent stores differ from one shared store with private layers.
+269	270	CARRIED	P0,E1	Q10: transparency costs, rejected redaction, and persistence-before-receipt lessons.
+271	274	SKIP	-	Voice heading and introduction.
+275	275	NEW-REASON	C2	Happened-before determines only a partial order.
+276	276	NEW-REASON	C2,W3	Any total order extending causal order adds an arbitrary choice.
+277	278	NEW-CASE	C2,E5	Phone-mediated causality can be reversed unless clients carry the earlier request's timestamp.
+279	280	NEW-REASON	E5,C2	Named reads establish cross-partition causal precedence as well as provenance.
+281	282	SKIP	-	Voice heading.
+283	284	DISAGREES	E1	Verdicts are derived by all readers rather than durably written; also ABOVE and Q1.
+285	285	SKIP	-	Quotation heading.
+286	286	CARRIED	E1	Q1: the database consists of the intention log.
+287	287	CARRIED	E1	Q1: appending an intention precedes the commit decision.
+288	288	NEW-REASON	C2,E6	One committed snapshot position names the state a transaction read.
+289	289	DISAGREES	E1	Atomic append arbitrates; identical log replay derives every verdict without recording it.
+290	290	NEW-REASON	C1	Atomic idempotent appends permit retries after missing replies.
+291	291	CARRIED	E1	Q1: both committed and aborted transaction updates remain in the intention log.
+292	293	DISAGREES	E6	Queries are never logged, enabling linear read scaling.
+294	294	SKIP	-	Retrospective heading.
+295	295	NEW-REASON	A3,W4	Sequential certification limits parallelism even when parts can run concurrently.
+296	296	NEW-REASON	C3,A3	Longer certification delays enlarge conflict zones and increase abort probability.
+297	297	NEW-CASE	A3,W4	Heavily optimized Hyder certification remained the transaction-throughput bottleneck.
+298	298	CARRIED	C5,P0	Q10: copying live nodes reclaims old log segments; garbage collection hurt performance.
+299	300	CARRIED	C3,C2	Q7: proposed multiple logs share ordering only for overlapping partitions; cross-log positions are incomparable.
+301	301	SKIP	-	Question mapping heading.
+302	302	DISAGREES	E1	Hyder never writes verdicts; identical-code replay is contrasted with recorded Tango decisions.
+303	303	CARRIED	C3,C2	Q7: multiple certifiers require shared ordering for overlapping work and vector cuts elsewhere.
+304	304	NEW-REASON	E6,C2	A snapshot position compactly names the state underlying a read set.
+305	305	NEW-CASE	C3	Remote agents repeatedly collide on hot cells; finer semantic cells reduce contention.
+306	307	SAME	E3	Position supplies ordering without a clock.
+308	309	CARRIED	P0,C5	Q10: Hyder garbage-collects its redo log rather than preserving permanent factual history.
+310	311	DISAGREES	E1	Hyder and Tango disagree over whether admission decisions must be written.
+312	313	SKIP	-	Voice heading.
+314	315	CARRIED	P0,C5	Q10: Aurora garbage-collects redo history behind readers while retaining derived pages.
+316	316	SKIP	-	Quotation heading.
+317	317	ABOVE	A1	Storage retains derived page images built from redo logs.
+318	318	SAME	E3	Database-assigned monotonic sequence numbers provide ordering.
+319	319	DISAGREES	A3,W4	One active writer is required to simplify isolation, ordering, and atomicity.
+320	320	CARRIED	C2	Q3: read replicas lag and anchor views behind writer durability points.
+321	321	CARRIED	C5,P0	Q10: materialized pages replace old redo records; backups preserve separate redo streams.
+322	323	CARRIED	A3,E8,P0	Q4: durable epoch-stamped truncation records fence deposed writers.
+324	324	SKIP	-	Retrospective heading.
+325	325	NEW-CASE	C3	Multi-master page-level conflicts coupled unrelated rows; retirement cause remains unspecified.
+326	327	DISAGREES	E1,E3	Aurora DSQL omits refusals and uses physical-time ordering; also Q3,Q7,Q10.
+328	328	SKIP	-	Question mapping heading.
+329	329	DISAGREES	A3,W4	Permits multiple gates only across distinct keys, never concurrently on one cell.
+330	330	CARRIED	C2	Q3: report the applied position or wait until a requested cut is reached.
+331	331	CARRIED	P0,C5	Q10: redo history is collected; tail annulment itself is an epoch-stamped append.
+332	332	DISAGREES	E1	Aurora and DSQL retain no refusal verdicts.
+333	333	SAME	E8,A3	Gate epochs identify writer incarnations and fence deposed writers.
+334	335	NEW-REASON	E6,C2	Historical pattern results require retained index history; later staleness checks can be cheaper.
+336	337	CARRIED	P0,C5	Q10: redo storage has short historical horizons rather than permanent semantic records.
+338	341	SKIP	-	System comparisons and next heading.
+342	343	CARRIED	C2,C5,P0	Q3,Q10: applied positions describe replicas; compaction destroys earlier reconstructible states.
+344	345	CARRIED	C5,P0	Q10: immutable history protects against bad writes; compaction and regulatory deletion remove old values.
+346	346	SKIP	-	Documentation introduction.
+347	347	CARRIED	P0,C5	Q10: depots retain all appends by default but permit trimming.
+348	348	CARRIED	C5,P0	Q10: excision replaces content with tombstones while preserving offsets.
+349	349	CARRIED	E3	Q2: Rama records append time; a separate gate stamp creates a second clock.
+350	350	CARRIED	C3	Q7: Rama guarantees only local ordering, with none across depots.
+351	352	NEW-REASON	C1	Topology depot appends can repeat under failures and retries.
+353	354	ABOVE	A1	Incrementally stored PStates replaced routine full recomputation.
+355	362	SKIP	-	Section introduction and question heading.
+363	364	ABOVE	P0	Splits immutability into four independently chosen promises.
+365	365	CARRIED	P0	Q10: durable inclusion promises impose operational and storage costs.
+366	366	CARRIED	P0,C5	Q10: absence is allowed but substituted content destroys immutability.
+367	367	NEW-CASE	P0,C2	Copy-and-replace can rebuild a different history at the same recorded position.
+368	369	DISAGREES	P0,C5	External provability forbids repair, restoration, and removal.
+370	371	CARRIED	P0,C5	Q10: redo logs trim while record logs preserve factual history.
+372	373	DISAGREES	P0	Includes poison-entry editing and wholesale historical rewriting beyond content-preserving repair.
+374	375	DISAGREES	P0,W2	Requires canonical bytes immediately and adds poison-record exceptions beyond erasure.
+376	377	SKIP	-	Question heading.
+378	379	NEW-REASON	C1	Counter ids depend on trusted nodes; uniqueness and retry checks have explicit scopes.
+380	381	SAME	C1,C5	Origin-bearing identifiers preserve personal information after value erasure.
+382	383	NEW-REASON	C1	ExpectedVersion.Any defeats Event Store's otherwise scoped duplicate check.
+384	385	SKIP	-	Question heading.
+386	387	SAME	C4	Known bootstrap ids and shared initial state enable finding definitions.
+388	389	ABOVE	-	Current-log pointers and trust lists must exist outside the log.
+390	391	ABOVE	C4	Bootstrap requires external encoding, hash rules, trust anchor, and successor pointer.
+392	393	SKIP	-	Question heading.
+394	395	DISAGREES	C4	Includes friendly-name type keys rather than ids; versioned-schema pointers offer an alternative.
+396	397	NEW-REASON	C4,X2	Id-keyed records need portable dictionaries; semantic changes require new keys.
+398	400	SKIP	-	Question heading and deletion taxonomy introduction.
+401	401	SAME	P0	Retractions append corrections without removing earlier content.
+402	402	DISAGREES	C5	Erasure may also use excision or whole-log rewriting, beyond the ledger's two roads.
+403	404	CARRIED	C5,P0	Q10: space-driven trimming is distinct from erasure.
+405	406	DISAGREES	C5	Key destruction may not satisfy law; backup cleaning and relational residue complicate the two roads.
+407	408	OWN-LIST	C5	Separable values, impersonal envelopes, hiding hashes; DISAGREES by permitting expiring-backup erasure.
+409	410	SKIP	-	Question heading.
+411	412	DISAGREES	C8	CT records no submitter, contrary to preserving each fact's immediate actor.
+413	414	NEW-CORNER	C8	Gate-authenticated attribution and portable actor signatures require explicit provenance.
+415	416	SKIP	-	Question heading.
+417	418	DISAGREES	E3	Includes physical-clock ordering in DSQL, contrary to ordering by neither stamp.
+419	420	NEW-REASON	E3	Statement time can predate admission by decades during large historical ingestion.
+421	422	CARRIED	E3	Q2: choose append time or a separate gate stamp; enforce per-partition monotonicity.
+423	424	SKIP	-	Question heading.
+425	426	NEW-REASON	X4,C4	Before policy facts exist, runtime default-denial and genesis policies must bootstrap visibility.
+427	428	SKIP	-	Question heading.
+429	430	CARRIED	C3	Q7: keys, streams, and accessed partitions determine ordering scope.
+431	432	DISAGREES	A3,W4	Forbids simultaneous deciders on one key even with fencing.
+433	434	CARRIED	C3	Q7,Q5: CAS scope and gesture ordering constrain placement; repartitioning leaves history behind.
+435	436	CARRIED	C2,C3	Q7: global ordering combines shard vectors and couples failures across readers.
+437	438	DISAGREES	A3,W4	Requires exactly one gate per partition; also Q5 about position-layout dependence.
+439	441	SKIP	-	Question heading and read-purpose introduction.
+442	442	DISAGREES	E6,E5	Every object's version is logged and all reads are validated before accepting writes.
+443	443	NEW-REASON	C2,E5	Writer knowledge can be represented by one causal or playback frontier.
+444	445	NEW-CORNER	-	Generated events retain an origin identifier for causal tracing.
+446	447	NEW-REASON	E6,E2	Direct parents and shared snapshots bound provenance; external results must survive source changes.
+448	449	NEW-CORNER	E5,E6	Read provenance needs attesting authority; external anchors need durable content commitments.
+450	451	SKIP	-	Question heading.
+452	453	CARRIED	C1,E5	Q9: immutable references and name-plus-hash commitments pin exactly what was read.
+454	455	NEW-REASON	E5,C1	Pinned versions preserve recoverable history; dependency judgments are available only when writing.
+456	457	SKIP	-	Question heading.
+458	459	CARRIED	C2	Q3: applied-position markers or wait-for-cut reads account for lagging indexes.
+460	461	CARRIED	C2,E6,E2	Q3: as-of must match applied state; historical replay may require separately preserved crossing evidence.
+462	463	SKIP	-	Question heading.
+464	465	NEW-CORNER	-	Infrastructure propagates both correlation and immediate-causation ids.
+466	467	NEW-CORNER	-	Preserve chain root and immediate parent; runtime fills both.
+468	470	SKIP	-	Question heading and naming introduction.
+471	471	NEW-REASON	C1	Event identity, stream revision, and global position perform different jobs.
+472	472	DISAGREES	C1	Content hash and tree index serve as the two names.
+473	473	CARRIED	C1	Q9: record references include both name and content hash.
+474	474	DISAGREES	C1	Operation ids are Lamport timestamps; change ids are content hashes.
+475	475	DISAGREES	C1	Position-only naming works within one log and needs virtualization across log chains.
+476	476	CARRIED	C1	Q9: content names resist forgery but require completed encoding and more space.
+477	477	NEW-CASE	C1	Copying changed events under unchanged ids breaks identity-based retry semantics.
+478	478	NEW-REASON	C1	Assigning positions before durable persistence creates holes.
+479	480	NEW-REASON	C1	Failed topology appends can produce duplicate deliveries.
+481	482	DISAGREES	C1	Requires hashes on every pointer and favors content names for versions; also Q9.
+483	484	SKIP	-	Question heading.
+485	486	DISAGREES	C6	Event Store leaves predecessors implicit rather than recording a replacement pointer.
+487	488	NEW-REASON	C6	Sparse cell positions require explicit predecessors; parent lists support merging stores or layers.
+489	491	SKIP	-	Question heading and verdict taxonomy introduction.
+492	492	DISAGREES	E1	Logs offers but never records derived verdicts.
+493	493	CARRIED	E1	Q1: offers and durable outcomes use separate records or streams.
+494	495	DISAGREES	E1	Judges before logging and preserves no refusal verdict.
+496	497	NEW-REASON	E1	Stable retry replies need retained decisions only through the bounded retry lifetime.
+498	499	DISAGREES	E1	Refusal retention may expire; verdict stream may trim independently of facts.
+500	501	SKIP	-	Question heading.
+502	503	NEW-CASE	A2,A1	Engine rollout caused production divergence; logged activation and incremental checksums addressed it.
+504	505	NEW-REASON	A1,A2,E2	Runtime versions and answer-affecting machine properties bound reproducible crossings.
+506	507	SKIP	-	Question heading.
+508	509	NEW-REASON	E7,E5	Intent-grain recording limits motion growth; shown and looked require different witnesses.
+510	511	SKIP	-	Question heading.
+512	513	NEW-CASE	C7	Header upgrades, upcaster stacks, optional fields, and CT extensions expose format-evolution costs.
+514	515	CARRIED	P0,C5	Q10: trimming, tiering, and whole-log retirement differ in historical information loss.
+516	517	CARRIED	P0	Q10: protected heads prevent restore rollback; tiered segments support historical recovery.
+518	519	DISAGREES	P0,E1	Accepts acknowledged facts disappearing after restore and permits refusal trimming.
+520	525	SKIP	-	Section headings and source-ranking introduction.
+526	527	DISAGREES	P0	Includes surgical poison-entry editing among transferable corrections.
+528	529	ABOVE	-	Practitioners' architectural regrets challenge the overall event-sourcing premise.
+530	531	CARRIED	P0,C7	Q10: externally verified permanence has operational costs; reserved extensions preserve evolution.
+532	533	CARRIED	C3,C5	Q7,Q10: keyed order, immutable pointers, and deletion without substituted content.
+534	535	DISAGREES	C1	Long-lived identities are random but versions are named by content hashes.
+536	537	SKIP	-	Explains lighter source treatment.
+538	539	SKIP	-	Missing research voices and ungathered sources.
+540	541	SKIP	-	Above-the-table heading.
+542	543	ABOVE	-	Challenges immutable small facts as one substance for the entire system.
+544	545	ABOVE	C4	Trust anchor, successor pointer, and encoding must remain outside the shared fact store.
+546	547	ABOVE	C3	Planetary store faces remote-write latency and concentrated operator trust despite partitioned ordering.
+548	549	ABOVE	C7	Challenges fixing nine parts; advocates named maps, versions, hashed extensions, and tolerant readers.
+550	551	ABOVE	A1	Rejects never storing running answers; proposes disposable derived state stamped with applied positions.
+552	553	ABOVE	E6	Questions retaining every read forever at machine rate; offers bounded provenance representations.
+554	555	DISAGREES	A3,W4	Requires exactly one active gate per cell; also challenges one writer for the whole system.
+556	557	SKIP	-	Wrong-question heading.
+558	558	ABOVE	C1	Rejects choosing one name; identity, position, and hash have distinct jobs.
+559	559	ABOVE	C2	Reframes recording index progress as the definition of as-of.
+560	560	ABOVE	P0	Reframes immutability as separate meaning, identity, order, and provability promises.
+561	561	ABOVE	C3	Rejects treating a layer namespace as the ordered unit.
+562	562	ABOVE	E1	Logging offers before judgment precedes decisions about verdict placement and retention.
+563	564	ABOVE	E3	Reframes whose clock around statement time versus admission time.
+565	568	SKIP	-	Second-store heading.
+569	569	NEW-REASON	C1	Own ids and content commitments survive store boundaries; local gate numbers do not.
+570	570	NEW-CORNER	E1,C4	Store identity must appear on every verdict from the first record.
+571	571	DISAGREES	C1	Content hashes name updates for untrusted merging; also Q9.
+572	572	ABOVE	C2	Continuing a store elsewhere requires an external successor pointer.
+573	573	DISAGREES	P0,C1	Copy-and-transform reuses identities across different content.
+574	574	NEW-REASON	C2	Cross-log positions are incomparable; partition tie-breaking creates only an arbitrary total order.
+575	576	NEW-REASON	C4	Identical genesis content prevents inter-store translation, beyond merely sharing ids.
+577	578	SKIP	-	Separator.
+579	582	OWN-LIST	-	Introduces conventions whose absence cannot be repaired for earlier facts.
+583	583	OWN-LIST	C1	Three names; DISAGREES by requiring hashes on every pointer.
+584	584	OWN-LIST	P0,C1	Canonical form and named hash function specified outside the store.
+585	585	OWN-LIST	C7	Versioned named-field envelope with a hashed extension slot.
+586	586	OWN-LIST	C5	Separable values, impersonal metadata, and salted erasable-value hashes.
+587	587	OWN-LIST	C6	Replacement history uses a parent list.
+588	588	OWN-LIST	E1	Additional verdict metadata; DISAGREES by permitting refusal trimming and classifying verdicts as foundational.
+589	589	OWN-LIST	C2	Applied index cuts, cross-partition vectors, and writer frontiers.
+590	590	OWN-LIST	E5	Provenance includes attesting authority; DISAGREES by classifying read marks as foundational.
+591	591	OWN-LIST	C4,X2	Stable key meaning and pinned checked grammar versions.
+592	592	OWN-LIST	A2,E2	Runtime changes and crossing evidence; DISAGREES by treating crossing checksums as foundational.
+593	593	OWN-LIST	C4	Shared genesis and required external bootstrap rules.
+594	594	OWN-LIST	-	Both causal root and immediate cause recorded by the runtime.
+595	595	OWN-LIST	E3	Monotone admission clock; statement time stays in the value.
+596	596	OWN-LIST	P0,C5	Recorded erasure and poison-record neutralization.
+597	598	OWN-LIST	C1,C3	Fact pointers remain independent of partition positions.
+599	634	SKIP	-	Research gaps, source bibliography, and appendix introduction.
+635	635	DISAGREES	E3	Spanner uses synchronized physical clocks for order.
+636	636	DISAGREES	E3,C2	DSQL uses physical-time cuts; excessive skew loses linearizability.
+637	646	SKIP	-	Incidental Calvin comparison, round-two method, and heading.
+647	648	CARRIED	P0,C5	Q10: encryption shifts deletion into the key store; public provability is a separate promise.
+649	650	NEW-CASE	P0,W2	Obsolete or unsafe serializers require content-preserving re-encoding years later.
+651	652	DISAGREES	C5	A regulator may require ciphertext excision beyond encryption-key destruction.
+653	654	NEW-CORNER	C5	Key-store restoration can resurrect erased keys; destruction facts must be replayed afterward.
+655	656	SAME	C5	Secret salt prevents guessing short erased values from retained hashes.
+657	658	NEW-REASON	C5,C8	Opaque actors preserve attribution, but surviving associations may still identify people.
+659	659	OWN-LIST	P0	Introduces the minimum required now for future public provability.
+660	660	OWN-LIST	P0,W2	Canonical fact encoding specified outside the store.
+661	661	OWN-LIST	C7,C1	Envelope version and named hash function.
+662	662	OWN-LIST	P0,E1	Duplicate admission hashes in fact and verdict permit corruption repair.
+663	663	OWN-LIST	C5,P0	Hiding value commitments let erasure preserve hash chains.
+664	664	OWN-LIST	C7	Extension slot included in the hashed form.
+665	666	OWN-LIST	C3,P0	Partition order never changes.
+667	668	NEW-CORNER	P0	Early external checkpoints are needed to prove early history against later tampering.
+669	670	SKIP	-	Three-names heading.
+671	672	DISAGREES	C1	Content-derived fact identity handles repeated appends; also Q9.
+673	673	SKIP	-	Naming-failure introduction.
+674	674	DISAGREES	C1,C5	Proposes public offer salts for content-derived identity plus secret value-commitment salts.
+675	675	DISAGREES	C1	Uses derived ingest salts for content ids rather than independently random fact ids.
+676	676	DISAGREES	C1	Includes lossy CT deduplication; recommends exact cell-partition checks for Sid.
+677	678	DISAGREES	C1	Hash migration is not decisive against content names; algorithm-tagged ids and later attestations suffice.
+679	680	DISAGREES	C1	Content hash names the unchanged offer; gate stamps live solely on the verdict.
+681	682	DISAGREES	C1,X1	Names facts by saying-id plus index, not independent random ids; also Q8.
+683	684	DISAGREES	C1	Retains source-derived entity ids and versions their derivation instead of requiring random entity ids.
+685	686	NEW-REASON	C6	Parent lists preserve multiple predecessors rather than assuming a single replacement.
+687	688	SKIP	-	Ordering-unit heading.
+689	690	CARRIED	C3	Q7: ordering by layer makes the layer itself the uniquely homed key.
+691	692	CARRIED	C3	Q7: base-layer partitioning centralizes throughput, latency, and failure exposure.
+693	694	DISAGREES	C3,C2	Requires partition ids in cuts; also Q7 on session entities for ordered gestures.
+695	696	SKIP	-	Refusal-retention heading.
+697	698	SAME	E1	Accepted verdicts remain with facts in the local partition for exact retry checks.
+699	700	NEW-CASE	E1	Thirty agents on one summary cell can generate twenty-nine permanent refusals per accepted write.
+701	702	NEW-REASON	E1,C5	Destroying refused payload keys preserves verdicts but loses future gate replay; session closure permits tiering.
+703	706	OWN-LIST	-	Introduces first-record requirements to avoid repeated full playback.
+707	707	OWN-LIST	W2,P0,C5	DISAGREES: physical envelope-value separation must be fixed immediately because later layout changes are forbidden.
+708	708	OWN-LIST	C2	Derived readers preserve applied cuts and resume from checkpoints.
+709	709	OWN-LIST	A1,A2	DISAGREES: runtime rebuilds selectively invalidate derived state.
+710	710	OWN-LIST	E6,E2	DISAGREES: crossings list result ids and hashes rather than only patterns and cuts.
+711	712	OWN-LIST	W1,C5	DISAGREES: reverse provenance index required before first erasure to avoid scanning.
+713	714	ABOVE	A1	Reconsiders playback objection because summaries are already facts and indexes are stored.
+715	716	SKIP	-	Remaining-leans heading.
+717	717	DISAGREES	C1,C4	Universal seed kinds use content-derived ids; store and gate identities remain random.
+718	718	SAME	C4,X2	Word keys cannot be renamed; verdicts pin checked grammar.
+719	719	NEW-CASE	E6,E3	A 200,000-fact summary makes row provenance enormous; patterns and cuts bound it.
+720	720	NEW-CORNER	E5	Trigger marks preserve immediate causation; runtime guesses need explicit attribution.
+721	721	DISAGREES	C2	Endorses recording withheld facts, which the ledger prohibits.
+722	722	SAME	A2,E8,A3	Runtime rebuild facts and epoch-stamped verdicts preserve gate incarnation.
+723	723	NEW-REASON	C7	Versioned named maps need an extension slot; refusal volume remains a concern.
+724	724	NEW-REASON	E7	Settled viewport on crossings preserves intent while years of motion ticks accumulate.
+725	726	SKIP	-	Unsourced questions.
+727	728	SKIP	-	Wrong-question heading.
+729	729	ABOVE	P0	Reframes immutability around canonical form versus stored bytes.
+730	730	ABOVE	C1	Asks whether the fact is the unchanged offer before choosing its identity.
+731	731	ABOVE	E1	Reframes refusal retention around session-layer closure.
+732	732	ABOVE	C2,C3	Reframes cut representation around partition naming and re-homing.
+733	734	ABOVE	E6	Reframes listing every read as accounting for every read.
+735	736	SKIP	-	Above-the-table heading.
+737	737	ABOVE	C5	Key store adds mutable external authority alongside runtime, encoding, and trust anchors.
+738	738	NEW-REASON	E1,A3	Two appends per action amplify sequential admission costs; atomic combined append avoids this.
+739	740	NEW-CORNER	E1,C4	Multiple home stores require store identity on every verdict from record one.
+741	742	SKIP	-	Final pressure-points heading.
+743	743	ABOVE	C1	Proposes unchanged offers as facts with all gate stamps on separate verdicts.
+744	744	DISAGREES	C5	Allows ciphertext excision beyond the ledger's two erasure roads; also key-restore protection.
+745	746	NEW-CASE	E1,E7	Thirty agents contending on one cell amplify permanent refusal and gesture storage.

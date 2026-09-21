@@ -31,6 +31,9 @@ snapshots/
 # python bytecode (scripts/ tooling)
 __pycache__/
 *.pyc
+# fetched research captures (saved pages, PDFs): they live in a depot beside the
+# repo, /mnt/data/projects/research/<project>/<work>/, never in git
+src/proposal/**/sources/
 !.claude/settings.json
 !.claude/hooks/
 !.claude/memory/
