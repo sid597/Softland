@@ -6,7 +6,7 @@ stands", then what they point at. Two Claude sessions work this folder in
 parallel; if you change state, rewrite Now and append to Log. A line under
 "Ruled" is Sid's; reopening one is allowed, with a reason, said out loud.
 
-## Now (24 September 2026, evening)
+## Now (25 September 2026)
 
 **Where we are.** The frame walk closed on 18 September (LEDGER.md). The
 first-record research produced CORNERS.md on 21 September: the store's
@@ -17,6 +17,9 @@ and on the evening of the 24th ruled the nine that block the rig. The chat
 verbatim is not in this folder; these are chat rulings, not ledger rows, until
 it is pasted. Vocabulary fixed on the 24th: "key" means a fact's key, the
 "in this respect" part; "lock" means an encryption key. Never one word for both.
+The formal model ran two rounds on 24 and 25 September; the readings it
+forced are ruled below, under "Sharpenings". Nothing has yet been checked
+against Rama itself.
 
 **Sid's frame for a corner** (his, 23 September). Time is the root: the log
 appends and time runs one way, so a fact written later about a moment is a
@@ -114,22 +117,78 @@ optimism the person's view shows "promotion pending" until it lands. A group
 member cannot forget one value in a group layer themselves unless the group's
 rule requires the mark on write; otherwise it is an excision.
 
+**Sharpenings from the formal model, ruled 24 and 25 September.** The model
+(src/proposal/formal-model-2026-09-24/; its README has the readings, the
+results table and every trace) read the rulings above literally, found six
+places where they were silent or pulled against a property, and a second
+round added five changes. Each line below is a reading Sid made his in chat;
+each flipped back alone brings back its own failure over 30,000 histories.
+Chat rulings, not ledger rows, until the verbatim is pasted.
+- Envelope, acts: layer belongs on the act; the gate refuses an act whose
+  facts name another layer. Promotion is the cross-layer move, two acts.
+- Names: an act that causes further offers names every one of them before
+  the first gate; a promotion's landing is named from the request's name
+  under a scheme reserved to the store. A name carries the layer and class
+  it was made for and reaches one gate only. A reused name with different
+  content is refused by a digest of the offer. An answer is found by name
+  plus layer: the layer's home partition when placed by layer; a name row
+  the microbatch commit writes in the same batch when placed by entity.
+- Ruling 2: re-classing a one-owner layer to by-entity moves it to the
+  microbatch gate. The single-owner order promise ends at the re-class.
+- Rulings 7, 7b, 8: a per-value lock is wrapped under the value's own
+  subjects, the three sources applied to that fact; the act's subject slot
+  is the union, for finding. In a one-owner layer the owner's lock is always
+  required, and 7b applies among the other subjects: Alice's mention of Bob
+  in her own layer dies with Alice and survives Bob. In shared layers there
+  is no person owner and 7b applies as written: about one person, dies with
+  them; about two, survives one by default; marked, dies with any. A per-act
+  lock is wrapped under the act's union, the coarser cut the person chose.
+- Forget, time travel: a read as of a moment shows nothing admitted after
+  it, except an erasure, which shows only its date. A deterministic tool's
+  short read entry cannot re-run to its fingerprint once a matched value is
+  forgotten; expected.
+- The first consequence, promotion: two steps, a uniformity rule chosen
+  once. At the read-out the stream gate opens the value through its lock on
+  the owner's partition and writes a crossing fact there. Pending has two
+  states: not yet read out, still forgettable; read out and not landed,
+  crossed. A forget ordered before the read-out refuses the promotion; after
+  it the copy is not recalled, because the read-out is a read that happened.
+  The copy is about whoever the target's grammar and tool name, not its
+  former owner. Crossed does not promise done; a landing can still be
+  refused. Say all of this at the point of promotion.
+- Permissions: a permission lives in the layer it governs; a gate checks
+  only permissions in layers it orders; an offer citing a permission kept in
+  another layer is refused. A forget names a permission too.
+- Under all of it, Sid's rule: order between the two stores exists only
+  through stood-on. A check one gate makes against the other store is a
+  read, stamped in the checking store, never atomic with the other's
+  writes, and the store promises nothing that needs such an order.
+
 **Rig constraints, not rulings.** Every index over values is rebuildable from
 the log or purgeable by value id, so forget reaches it. Lock rows sit on the
 same task as their values. Every forget and every restore is a fact; forget
 facts are replayed after any restore. Fingerprints over values are keyed.
 
 **Open while the rig runs.** These change what a kept record carries, not
-how the rig is built: the exact bytes the fingerprint covers and the written
-logical form of a record (56); first-facts ids as constants and growth by
+how the rig is built: a read's moment across the two stores: a read is final
+only for what the store held when taken, since the other store can still
+admit something dated at or before it, so a tool's short read entry re-run
+later can match more; either a read closes its moment in every store it
+read, or the entry carries one moment per store (the model's x2); the lock
+store's order of a person's forget against a read-out, reasoned not shown;
+whether a person can always forget their own values once their write
+permission is revoked; writes about someone already forgotten; the exact
+bytes the fingerprint covers and the written logical form of a record (56); first-facts ids as constants and growth by
 editions (59); opaque actor ids with one erasable link to the person (41);
 ingest as random entity id plus a registry cell plus same-as (17, 60); the
 runtime's meaning as first facts (3); the stale table's first default (44);
 what stays a person's (83); forget's full reach (77); when a session layer
 closes (82); repair lockout (84); what a new tool owes history (85).
 
-**Next.** A formal model of the envelope's rules and the gate. Then the Rama
-rig that tests the line: add a tool and a grammar from inside, count how many
+**Next.** The rama skill verifies on a real in-process cluster the two claims
+the model assumes: a stream event atomic on one partition and at least once
+across failover; a microbatch decided at prepare, made visible at commit,
+atomic across partitions. Then the Rama rig that tests the line: add a tool and a grammar from inside, count how many
 new built-in steps were needed; measure index writes per second at the agent
 rate, lock-store growth under hand layers, and one person's layer on one
 thread. Then the decision record, both sessions' lists merged with rulings
@@ -153,3 +212,11 @@ marked, lands here as DECISIONS.md.
 - 2026-09-24, late. Lock grain refinement on 7 from Session B, settled by
   Sid: per value by default in personal and hand layers, per act by a
   layer setting. Session A added the line to Now.
+- 2026-09-24. A fresh session built the formal model and reported six
+  readings. A review session took positions; Sid ruled the six, the
+  owner-required line and the stood-on rule in chat that evening.
+- 2026-09-24, night. A second session ran round two from
+  STARTER-round-2.md: changes A to E, and a name tag proposed to make E hold.
+- 2026-09-25. Sid ruled the name tag his, kept 7b for a mention of Bob in
+  Alice's own layer, and left the read's moment open. The round was
+  committed. The review session added the sharpenings to Now.
