@@ -6,7 +6,10 @@ max). Plan only: no module or test code. Sources: SPEC.md and everything it
 names; IMPLICIT_SPEC.md (cited as I-xx, OPn, RDn, En, On); DECOMPOSITION.json
 ("stream-store" scope); RIG.md phase 0; the rama skill's references. Where a
 line here summarises a source, the source wins. Vocabulary: "key" is a fact's
-key; "lock" is an encryption key. -->
+key; "lock" is an encryption key.
+Amended 25 September 2026 by the Phase 2 validator (verdict minor-fail):
+fixes F1 to F14 of PLAN_VALIDATION-stream-store.md are applied in place and
+marked "[F n]" where the text changed. -->
 
 ## Scope of this stage, in one paragraph
 
@@ -60,7 +63,7 @@ two, reading nothing (I-G5's first check).
 ```
 {:version     1                       ; the version marker; only 1 is known
  :name        [layer class scheme id]
- :who         person | :operator | :store
+ :who         person | :operator            ; :store is refused on its face from this depot in this stage [F6]
  :layer       layer                   ; the act's layer (I-G6 sharpening: layer on the act)
  :class       :by-layer | :by-entity  ; what the offerer expects the layer's class fact to say
  :permission  [who layer in] | nil    ; nil only when :who is :operator or :store
@@ -68,7 +71,7 @@ two, reading nothing (I-G5's first check).
  :stood-on    {fid stamp, ...}        ; what the act stood on, with the stamps as the offerer read them (P9)
  :because-of  name | nil              ; the act that caused this one
  :claimed-when long | nil             ; the offerer's own clock, carried, not checked
- :subjects    #{person ...}           ; what the tool named; the gate unions the owner in (P15)
+ :subjects    #{person ...}           ; what the tool named; the gate unions the owner in (P15); at most 256 carried [F3]
  :facts       [fact ...]}             ; one or more
 ```
 
@@ -85,8 +88,11 @@ Act id and index are not carried: they are the name and the position. A fact
 may name its layer; the gate refuses the act when it is not the act's
 (`:fact-outside-the-acts-layer`, the sharpening "layer belongs on the act").
 Any key outside these two sets, a missing required part, a version other than
-1, a name that is not a well-formed vector, or a value outside EDN data is
-refused as malformed, unrecorded (P7). Tools add facts, never parts.
+1, a name that is not a well-formed vector, a value outside EDN data, a value
+nested deeper than 32 levels, more than 256 carried subjects, or `:who :store`
+is refused as malformed, unrecorded (P7) [F3] [F6]. The parser normalises
+every vector with `(into [] ...)` and every number in a Long position with
+`long` before anything reaches a write [F6]. Tools add facts, never parts.
 
 **Permission id** (P8): `[who layer in]`, the model's `[who layer where]` with
 `where` resolved to the layer the permission's fact lives in: the model's
@@ -107,13 +113,23 @@ on the layer's home task, for a yes and for a recorded no alike.
 
 ```
 {:answer :yes | :no   :reason keyword | nil   :stamp long   :digest string
- :who :class :permission :session :stood-on :because-of :claimed-when   ; the act's parts, once
- :subjects #{person ...}}                                               ; owner ∪ carried
+ :who :class :permission :session :because-of :claimed-when             ; the act's parts, once
+ :subjects #{person ...}}                                               ; owner ∪ carried, at most 256 carried [F3]
 ```
+
+**Stood-on map** [F2]: under the name, beside the record, `{fid stamp}` as
+the offerer carried it: the envelope's "based on" part with the stamps the
+clock promise used. Its own subindexed map, not a field of the record,
+because it is unbounded (ruling 3 makes a person's or a model's reads "the
+crossing's exact list, always") and the record is read on every resend and
+every replay.
 
 **Log entry**: under the name, the act's facts as a vector of rows
 `{:e :k :v :replaces :mark}` in offer order, with `:v` as canonical EDN text
 (P12). Written only for a yes. A row is addressed by its value id `[name idx]`.
+The row vector is subindexed [F1]: acts have no size limit, so a row is one
+seek by `(keypath layer :log name idx)` and the act is read whole by `ALL`;
+the act is still admitted whole, in one event.
 
 **Stamp** (I-O2, `stamp-for`, P9): a long,
 `max(wall, clock + 1, max(stood-on stamps) + 1, max(replaced facts' stamps) + 1)`,
@@ -132,14 +148,20 @@ query topology exists (Step 1's first question answers yes for each).
 | RD1 the answer by name plus layer | the offerer, tests | `[(keypath layer :answers name)]` | 2 (the layer's entry, then the name) | `layer` is the name's first element; the client compares the record's digest with the digest of what it sent: equal → the answer; different → name taken (`lookup`); nil → no answer yet, resend (I-G3). An answer for a store-placed act (tag class nil) in this stage is on the home too; the second read I-G4 describes (the name row) exists only once the micro store does (stage 3). |
 | RD10 a layer's settings | the gate (locally), tests | `[(keypath layer :settings)]` | 1 | `{:kind :owner :class :grain}`, projected from the layer's setting facts |
 | RD10 a permission's state | the gate (locally), tests | `[(keypath layer :permissions pid)]` | 2 | `{:granted fid :revoked fid-or-nil}` |
-| the admitted facts of an act | tests, stage 5 | `[(keypath layer :log name)]` | 2 | the vector of rows; the value slot decoded by the client |
+| the admitted facts of an act | tests, stage 5 | `[(keypath layer :log name) ALL]` by `foreign-select` [F1] | 2 + the rows iterated | the rows in index order; the value slot decoded by the client; one row is `[(keypath layer :log name idx)]`, 2 seeks |
+| what an act stood on | stage 5, tests | `[(keypath layer :stood-on name) ALL]` by `foreign-select` [F2] | 2 + entries iterated | `{fid stamp}` as carried (P9) |
 | whether a fact heads its chain | the gate (locally), stage 5 | `[(keypath layer :heads [e k fid])]` | 2 | its stamp when unreplaced, nil otherwise; the latest head of `(e k)` (O5, P13) is the max stamp over the keys with prefix `[e k]` — a range scan for stage 5, not read in this stage |
 | the task's stamp | the gate (locally), tests | `STAY` on `$$clock` | 1 | one long per task |
 
 The gate's own reads per offer, all local to the home task and inside the
-decision event: the layer's entry (settings come with it), the name's answer
-record, the cited permission's row, and one heads row per replacing fact. The
-counts are in "Partitioning efficiency".
+decision event, in this order [F4]: the name's answer record first; then, only
+when the record does not decide the offer (a record with the same digest
+answers it; one with another digest refuses it; both without further reads),
+the layer's settings `[(keypath layer :settings)]` (a plain map, never the
+layer's whole entry, whose four children are subindexed handles), the task's
+clock, the cited permission's row, and one heads row per replacing fact. The
+wall clock is a function call, not a seek. The counts are in "Partitioning
+efficiency".
 
 Point reads and pattern reads as of a moment (RD2, RD4) are stage 5's; what
 this stage leaves for them is under "What later stages consume".
@@ -154,15 +176,18 @@ single append encodes all side-effects of an event). By operation:
 | OP1 offer an act | `:who` the person, `:permission` a pid in this layer, `:class` the layer's class | ordinary facts, any number ≥ 1 | the gate, on the layer's home |
 | OP2 resend | the same offer map, byte for byte (the digest covers `:claimed-when` and `:stood-on`, so the client resends what it built, not a rebuilt offer) | — | answered from the record; nothing written |
 | OP4 replace / retract | as OP1 | a fact with `:replaces fid`; a retract is such a fact with `:v nil` (P13); its undo is a fact replacing the retract with the value again | the gate; a stale or doubled replace refuses the whole act |
-| OP5 make a layer | `:who :operator`, `:permission nil`, `:class` = what its own class fact declares | `{:e layer :k :kind :v :personal|:hand|:agent}`, `{:e layer :k :owner :v person}`, `{:e layer :k :class :v :by-layer}`, `{:e layer :k :lock-grain :v :per-value}` (P10); any of them may be in one act with the layer's grants | the gate; the class check uses the act's own class fact when the layer has none (P10) |
+| OP5 make a layer | `:who :operator`, `:permission nil`, `:class` = what its own class fact declares | `{:e layer :k :kind :v :personal|:hand|:agent}`, `{:e layer :k :owner :v person}`, `{:e layer :k :class :v :by-layer}`, `{:e layer :k :lock-grain :v :per-value}` (P10); any of them may be in one act with the layer's grants | the gate; the class check uses the act's own class fact when the layer has none (P10); a `:kind` or `:owner` fact on a layer whose settings already hold them is refused `:layer-already-made`, recorded [F8] |
 | OP6 grant | `:who :operator` | `{:e (perm-entity who) :k :permission :v {:id pid}}` in the layer `in` of the pid | the gate; projected into `:permissions` |
 | OP6 revoke | `:who :operator`, `:stood-on {grant-fid stamp}` | `{:e (perm-entity who) :k :revoke :v {:permission pid}}` in the permission's layer | the gate; refused `:stale-revoke` when the pid is not granted and unrevoked in this layer (P8) |
-| OP7 re-class | `:who :operator`, `:class` the current class | `{:e layer :k :class :v :by-entity}`; tag class nil (store-placed) | the gate; from then on an offer tagged `:by-layer` into this layer is refused `:class-mismatch`; the move to the micro gate is stage 3's |
+| OP7 re-class | `:who :operator`, `:class` the current class | `{:e layer :k :class :v :by-entity}`; tag class nil (store-placed) | the gate; from then on an offer tagged `:by-layer` into this layer is refused `:class-mismatch`; the move to the micro gate is stage 3's; a `:class :by-layer` fact while the class in force is `:by-entity` is refused `:unsupported-reclass`, recorded (O9: not ruled, not modelled) [F8] |
 | OP8 grain switch | `:who` the owner, `:permission` the owner's own | `{:e layer :k :lock-grain :v :per-act|:per-value}`; tag class nil | the gate; projected into `:settings`; its effect on locks is stage 2's |
 | seed | the operator's OP5 and OP6 acts for the one-owner layers and the permissions that live in them | as `seed-permissions`: for the model's world, layers `:alice` (personal), `:alice-hand` (hand), `:alice-agent` (agent); own permissions `[:alice L L]` for those three layers; session permissions `[:alice L :alice-hand]` for L in `:alice :alice-agent :group :base`, all facts in `:alice-hand` | the gate, before any history |
 
 The gate's writes on a yes, all on the home task in the one decision event
-(I-G6): the answer record (`termval`), the log entry (`termval`), for each fact
+(I-G6): the answer record (`termval`), the log rows (one `termval` of the row
+vector if Rama takes a whole-collection write into a subindexed vector, else
+one `termval` per index, [F1]), the stood-on map (one `termval` per carried
+entry, [F2]), for each fact
 a heads write (`[e k fid]` set to the stamp; `[e k replaced]` deleted with
 `NONE>`), for each setting fact one `:settings` field (`termval`), for a
 permission fact its row (`termval`), for a revoke its row's `:revoked`
@@ -221,7 +246,6 @@ is one PState with a field per piece). Schema:
                                   :class        clojure.lang.Keyword
                                   :permission   clojure.lang.PersistentVector
                                   :session      clojure.lang.Keyword
-                                  :stood-on     (map-schema clojure.lang.PersistentVector Long)
                                   :because-of   clojure.lang.PersistentVector
                                   :claimed-when Long
                                   :subjects     (set-schema clojure.lang.Keyword)})
@@ -232,7 +256,12 @@ is one PState with a field per piece). Schema:
                                                      :k        clojure.lang.Keyword
                                                      :v        String              ; canonical EDN; nil for a retract
                                                      :replaces clojure.lang.PersistentVector
-                                                     :mark     (set-schema clojure.lang.Keyword)}))
+                                                     :mark     (set-schema clojure.lang.Keyword)})
+                                 {:subindex-options {:track-size? false}})  ; [F1] rows subindexed: acts have no size limit
+                               {:subindex-options {:track-size? false}})
+      :stood-on    (map-schema clojure.lang.PersistentVector          ; name -> {fid stamp} as carried [F2]
+                               (map-schema clojure.lang.PersistentVector Long
+                                           {:subindex-options {:track-size? false}})
                                {:subindex-options {:track-size? false}})
       :heads       (map-schema clojure.lang.PersistentVector Long     ; [e k fid] -> the fact's stamp, while unreplaced
                                {:subindex-options {:track-size? false}})
@@ -248,14 +277,20 @@ Why each part is shaped so:
   point read. Unbounded (one per name, never expired: D4), so subindexed. A
   refused offer's record keeps the act's parts too, so a refused request is
   still found by what it was because-of (E1 N3 rows).
-- `:log` keyed by name, value the act's rows as one vector: an act is admitted
-  whole and read whole; one write per act instead of one per fact (M1 counts
-  index writes per act); a row is addressed by `[name idx]` as `(keypath layer
-  :log name)` then `nth`. The inner vector is not subindexed: it is one act,
-  and an act's size is the offerer's, read and written as a unit ("acts of any
-  size" means the unit is the act). The alternative, rows keyed by `[name
-  idx]` in one subindexed map, costs one write per fact and gives nothing this
-  stage or the stated needs of later stages read by fact alone.
+- `:log` keyed by name, value the act's rows as a subindexed vector [F1]: an
+  act is admitted whole in one event and read whole by `ALL`; a row is
+  addressed by `[name idx]` as `(keypath layer :log name idx)`, one seek. The
+  vector is subindexed because "acts of any size" is ruled and nothing
+  enforces a bound: a 100,000-fact act as one serialized value would make
+  stage 5's point read of one row, and stage 2's excision of a lock kept in
+  the row, load and rewrite the whole act. The rows are still written in the
+  one decision event (one `termval` of the vector if Rama takes a
+  whole-collection write into a subindexed vector, else one per index; the
+  build checks first, "What this plan could not settle").
+- `:stood-on` keyed by name, value `{fid stamp}` subindexed [F2]: the
+  envelope's "based on" part with the stamps the clock promise used;
+  unbounded (ruling 3's exact lists for a person's or a model's reads), so
+  not a field of the answer record, which every resend and replay reads.
 - `:heads` keyed by `[e k fid]`: the stale-replace check is one point read
   (`[e k r]` present means r is unreplaced, in this layer, on this entity and
   key: `replaceable?` in one seek), and admission is two no-read writes per
@@ -270,8 +305,9 @@ Why each part is shaped so:
 - Size tracking off on all four: nothing queries a count; tracking costs a
   read per write.
 - No `Object`: ids are keywords (P3), names and fact ids and pids are
-  `PersistentVector` (the envelope parser rebuilds every vector with `vec` so a
-  `subvec` never reaches a write), values are canonical EDN text (P12). The
+  `PersistentVector` (the envelope parser rebuilds every vector with `(into []
+  ...)`, since `vec` returns a `subvec` unchanged, so no `subvec` reaches a
+  write [F6]), values are canonical EDN text (P12). The
   parser guarantees the exact classes, because a schema violation would throw
   inside the topology (I-G1); see "Topologies", no-throw.
 
@@ -366,22 +402,25 @@ uncommitted state; nothing hops):
    the other gate (`:wrong-gate`, tag class `:by-entity`), or tag mismatch
    (`mis-tagged?`). A refusal here is answered by `ack-return>` and nothing
    else happens (P7).
-3. Reads, in dataflow, all local: the layer's entry
-   `(local-select> [(keypath *layer)] $$layers :> *entry)` (nil when the layer
-   is not made; settings come with it), the answer record
-   `(local-select> [(keypath *layer :answers *name)] $$layers :> *rec)`, the
-   task's clock `(local-select> STAY $$clock :> *clock)`, the wall
-   `(gate/wall-now :> *wall)`, and, only when the offer is not already
-   decided: the cited permission's row `(local-select> [(keypath *layer
-   :permissions *pid)] $$layers :> *perm)` (skipped for the operator and the
-   store), and for each fact with `:replaces`, the heads row
+3. Reads, in dataflow, all local, record first [F4]: the answer record
+   `(local-select> [(keypath *layer :answers *name)] $$layers :> *rec)`;
+   `(gate/status offer rec :> *status)` (pure) says `:recorded`, `:taken` or
+   `:undecided`; only when `:undecided`: the layer's settings
+   `(local-select> [(keypath *layer :settings)] $$layers :> *settings)` (nil
+   when the layer is not made; a plain map, never the layer's whole entry,
+   whose four children are subindexed handles), the task's clock
+   `(local-select> STAY $$clock :> *clock)`, the wall `(gate/wall-now :>
+   *wall)` (a function call, not a seek), the cited permission's row
+   `(local-select> [(keypath *layer :permissions *pid)] $$layers :> *perm)`
+   (skipped for the operator; `*perm` bound nil on that branch so the attach
+   point unifies), and for each fact with `:replaces` the heads row
    `(local-select> [(keypath *layer :heads [*e *k *r])] $$layers :> *head)`
-   (via `ops/explode` over the replacing facts, collected into a map with an
-   aggregator-free local accumulation: the facts are a small vector, so a
-   `loop<-` over them binding a map of `r → stamp-or-nil` is the shape).
-   Reads are fixed in count except the heads reads, which are one per
-   replacing fact — issued only for those facts (none for an act with no
-   replaces).
+   inside a `loop<-` over the replacing facts that binds a map of `r →
+   stamp-or-nil` and emits it, possibly empty, on termination [F7]. Never
+   `ops/explode` here: an act with no replaces would emit zero times and skip
+   the decision and the writes (syntax.md, zero emits skip everything
+   downstream). Reads are fixed in count except the heads reads, one per
+   replacing fact.
 4. `(gate/decide offer entry rec perm heads clock wall :> *d)` — pure, total,
    the executable spec of `stream-step` + `refusal` + `stamp-for` under
    `baseline`, returning one of:
@@ -403,12 +442,17 @@ uncommitted state; nothing hops):
    `:no-permission` (no row); `:permission-revoked` (row has `:revoked`);
    `:stale-replaces` (a replacing fact whose `[e k r]` heads row is absent,
    or two facts of the act replacing one fact); `:stale-revoke` (a revoke
-   fact whose target pid has no unrevoked row in this layer, P8). The
-   operator and `:store` skip the four permission checks (`exempt?`). A yes
+   fact whose target pid has no unrevoked row in this layer, P8);
+   `:layer-already-made` (a `:kind` or `:owner` fact when the layer's
+   settings already hold them, [F8]); `:unsupported-reclass` (a `:class
+   :by-layer` fact while the class in force is `:by-entity`, O9, [F8]). The
+   operator skips the four permission checks (`exempt?`; `:store` is refused
+   on its face in this stage, [F6]). A yes
    is the absence of every reason. The stamp is computed for a yes and a no
    alike (`decide` in the model stamps refusals).
 5. Writes, only for `:kind :decide`, all `termval`/`NONE>` sets as listed
-   under "Writes": answer record, log entry (yes only), heads deletes and
+   under "Writes": answer record, log rows and the stood-on map (yes only,
+   [F1] [F2]), heads deletes and
    puts (yes only), settings fields for `:kind`/`:owner`/`:class`/`:lock-grain`
    facts (yes only), permission rows for `:permission`/`:revoke` facts (yes
    only), `$$clock`. A test-only crash hook (`inject/maybe-fail!`, R3, P14)
@@ -441,16 +485,25 @@ there is one stamp. A crash after the commit: the replay finds the record and
 returns it, writing nothing; a completed record replayed after a later crash
 (RQ 2, D4) takes the same path. Tests assert "at least once" (R4).
 
-**No input can make topology code throw** (I-G1, RQ 3): (1) the source binds
-the raw record; (2) `parse` is total and wraps its body in `try` as a last
-line, turning any exception into `{:refuse :malformed}`; (3) `decide` is
-total on parsed data and likewise wrapped; (4) every value written has the
-class the schema names, because `parse` normalised it, and every path key is
-a keyword or a `vec`'d vector; (5) `ack-return>` sends a map of keywords,
-longs, strings and vectors. A property test drives `parse` and `decide` with
-generated garbage and asserts no exception; an IPC test appends non-maps,
-maps with unknown parts, a version 2, a name that is a string, and an empty
-act, and asserts the ack carries a refusal and the worker did not restart.
+**No input can make topology code throw** (I-G1, RQ 3) [F6]: (1) the source
+binds the raw record; (2) `parse` is total: its walk carries an explicit
+depth counter and refuses a value nested deeper than 32 levels as malformed,
+so neither the walk nor `canonical` ever recurses deep (a `StackOverflowError`
+is an `Error`, which `catch Exception` would not catch), and its outer guard
+catches `Throwable`, turning anything else into `{:refuse :malformed}`; (3)
+`decide` is total on parsed data and its guard, also `Throwable`, turns a
+failure into the unrecorded face refusal `:gate-error`, so a resend after a
+fixed gate can be decided; (4) every value written has the class the schema
+names, because `parse` normalised it (`(into [] ...)` on vectors, `long` in
+Long positions, keywords checked), and every path key is a keyword or such a
+vector; (5) `ack-return>` sends a map of keywords, longs, strings and vectors.
+A property test drives `parse` and `decide` with generated garbage, including
+values nested past the bound and a `subvec` in a vector position, and asserts
+no exception; an IPC test appends non-maps, maps with unknown parts, a
+version 2, a name that is a string, an empty act, and `:who :store`, and
+asserts the ack carries a refusal and the worker did not restart. A hostile
+record can still overflow Rama's own deserializer before the source binding;
+that is outside topology code and the rig's client is in-process.
 This is the load-bearing invariant of the build: a schema violation or a
 destructuring failure inside the topology is a worker restart loop on a
 poison record.
@@ -488,18 +541,19 @@ layer, is rejected on total cost above ("Depots").
 
 **Validation.** Seeks/op are totals across the cluster: every read below
 touches exactly one task, so the totals do not change with N. The block cache
-makes the layer's entry a memory hit for a hot layer; it is counted as a seek
-regardless.
+makes the layer's settings and the clock memory hits for a hot task; both are
+counted as seeks regardless [F4].
 
-Data categories for the gate's decision (one offer):
+Data categories for the gate's decision (one offer), with the reads ordered
+record-first [F4]:
 
 - (a) an ordinary act with no replacing fact, a person citing a permission:
-  layer entry + answer record + permission row = 3 seeks.
-- (b) an act with r replacing facts (r = 1 typical, counted as 1): 3 + r = 4.
-- (c) a resend or a replay of a decided offer: layer entry + answer record =
-  2 (the digest is computed, nothing else read).
-- (d) an operator act (make, grant, revoke, re-class): layer entry + answer
-  record + (revoke only) permission row = 2 to 3, counted 3.
+  answer record + settings + clock + permission row = 4 seeks.
+- (b) an act with r replacing facts (r = 1 typical, counted as 1): 4 + r = 5.
+- (c) a resend or a replay of a decided offer: answer record = 1 (the digest
+  is computed, nothing else read).
+- (d) an operator act (make, grant, revoke, re-class): answer record +
+  settings + clock + (revoke only) permission row = 3 to 4, counted 4.
 - (e) a face refusal (malformed, mis-tagged): 0 seeks, nothing read.
 
 Frequencies: agent session layers write "many small acts" (P 54-55) mostly
@@ -509,37 +563,40 @@ error (RQ 4) plus replays after a crash; operator acts are rare.
 ### N = 1 task (single-task baseline)
 | Data category | Frequency proportion | Seeks/op | Iterator reads/op |
 |---|---|---|---|
-| (a) ordinary act, no replace | 0.60 | 3 | 0 |
-| (b) act with a replace | 0.25 | 4 | 0 |
-| (c) resend / replay, decided | 0.10 | 2 | 0 |
-| (d) operator act | 0.04 | 3 | 0 |
+| (a) ordinary act, no replace | 0.60 | 4 | 0 |
+| (b) act with a replace | 0.25 | 5 | 0 |
+| (c) resend / replay, decided | 0.10 | 1 | 0 |
+| (d) operator act | 0.04 | 4 | 0 |
 | (e) face refusal | 0.01 | 0 | 0 |
-Weighted seeks = 3.12   |   Weighted iterator reads = 0
+Weighted seeks = 3.91   |   Weighted iterator reads = 0
 
 ### N = 16 tasks
 | Data category | Frequency proportion | Seeks/op | Iterator reads/op |
 |---|---|---|---|
-| (a) ordinary act, no replace | 0.60 | 3 | 0 |
-| (b) act with a replace | 0.25 | 4 | 0 |
-| (c) resend / replay, decided | 0.10 | 2 | 0 |
-| (d) operator act | 0.04 | 3 | 0 |
+| (a) ordinary act, no replace | 0.60 | 4 | 0 |
+| (b) act with a replace | 0.25 | 5 | 0 |
+| (c) resend / replay, decided | 0.10 | 1 | 0 |
+| (d) operator act | 0.04 | 4 | 0 |
 | (e) face refusal | 0.01 | 0 | 0 |
-Weighted seeks = 3.12   |   Weighted iterator reads = 0
+Weighted seeks = 3.91   |   Weighted iterator reads = 0
 
 ### N = 128 tasks
 | Data category | Frequency proportion | Seeks/op | Iterator reads/op |
 |---|---|---|---|
-| (a) ordinary act, no replace | 0.60 | 3 | 0 |
-| (b) act with a replace | 0.25 | 4 | 0 |
-| (c) resend / replay, decided | 0.10 | 2 | 0 |
-| (d) operator act | 0.04 | 3 | 0 |
+| (a) ordinary act, no replace | 0.60 | 4 | 0 |
+| (b) act with a replace | 0.25 | 5 | 0 |
+| (c) resend / replay, decided | 0.10 | 1 | 0 |
+| (d) operator act | 0.04 | 4 | 0 |
 | (e) face refusal | 0.01 | 0 | 0 |
-Weighted seeks = 3.12   |   Weighted iterator reads = 0
+Weighted seeks = 3.91   |   Weighted iterator reads = 0
 
 Flat in N: every offer is decided on one task with point reads. The offerer's
 lookup (RD1) is 2 seeks at every N for the same reason. Writes per offer are
-likewise on one task: 2 to 2 + 2r + (setting and permission facts) sets and
-one clock set, flat in N.
+likewise on one task: 1 + f + 2r + s + p + b no-read sets (record, f rows, 2r
+heads, s setting fields, p permission rows, b stood-on entries, [F1] [F2])
+and one clock set, flat in N. The 3.12 of the first draft omitted the clock
+seek and paid settings and clock on the recorded path; 3.91 is the recount
+[F4].
 
 Where the design is known not to be optimal and accepts it by ruling: one
 layer's throughput is one task's thread (OP1 "Throughput"); a hot layer is
@@ -553,11 +610,12 @@ exactly that bound.
   D4), `:log` (one per admitted act), `:heads` (one per unreplaced fact),
   `:permissions` (one per permission a layer holds; a hand session holds a
   person's session permissions for every layer). Size tracking is off on all
-  four. Not subindexed: `:settings` (four fields); the log entry's inner
-  vector (one act, the ruled unit of admission and reading, sized by its
-  offerer); `:mark` (at most the two marks the parser knows); `:subjects` and
-  `:stood-on` on the answer record (sized by the offer, the input the
-  offerer controls, like the act itself).
+  four, and so are the log entry's row vector and the stood-on map [F1]
+  [F2], both sized by the offerer with no enforced bound ("acts of any
+  size"; ruling 3's exact lists). Not subindexed: `:settings` (four fields);
+  `:mark` (at most the two marks the parser knows); `:subjects` on the
+  answer record (the parser caps carried subjects at 256, an enforced bound,
+  rig choice [F3]).
 - **Colocation.** The depot's `hash-by :layer` and `$$layers`'s default key
   partitioner put an offer and every datum of its layer on one task, so the
   gate reads and writes locally with no partitioner in the event, and the
@@ -589,9 +647,10 @@ exactly that bound.
 ## State primitive selection
 
 - `$$layers` (PState): durable, partitioned by layer. Per admitted act the
-  write volume is 2 + 2r + s + p sets, where r is the act's replacing facts,
-  s its setting facts and p its permission facts, all bounded by the act the
-  offerer sent. Per refused (recorded) offer: 1 set. Source of truth for the
+  write volume is 1 + f + 2r + s + p + b sets, where f is the act's facts (one
+  row each, [F1]), r its replacing facts, s its setting facts, p its
+  permission facts and b its stood-on entries ([F2]), all bounded by the act
+  the offerer sent. Per refused (recorded) offer: 1 set. Source of truth for the
   store: the log and the answers; `:heads`, `:settings` and `:permissions`
   are derived views whose volume is bounded by the same act.
 - `$$clock` (PState): durable, one long per task, 1 set per decided offer.
@@ -611,10 +670,12 @@ Ids are keywords of about 10 bytes serialized; a name is about 60 bytes
 
 - `:answers`: one record per name. Fixed parts (answer, reason, stamp,
   digest as 64 hex chars, who, class, permission, session, claimed-when)
-  about 250 bytes; `:stood-on` about 80 bytes per stood-on fact; `:subjects`
-  about 10 per person; `:because-of` 60. Typical record 350 to 500 bytes plus
-  the 60-byte key. Growth: one per offer decided (yes or recorded no); never
-  expired (D4).
+  about 250 bytes; `:subjects` about 10 per person; `:because-of` 60. Typical
+  record 300 to 400 bytes plus the 60-byte key. Growth: one per offer decided
+  (yes or recorded no); never expired (D4).
+- `:stood-on` [F2]: about 80 bytes per entry (a 70-byte fact id, a stamp)
+  under the 60-byte name; one entry per fact the act stood on. Growth: with
+  the acts' reads.
 - `:log`: one entry per admitted act; per row about 60 bytes of framing and
   ids, plus the value's EDN text (the toy's values are about 40 characters),
   plus 70 for `:replaces` when present. A three-fact act is about 400 bytes.
@@ -640,8 +701,9 @@ None.
 - The digest is stored once (64 hex characters); a binary form would halve
   it. Kept as text for readability in the rig; a kept store could store
   bytes.
-- `:stood-on` is stored on the act record; the read entry (stage 5) may keep
-  its own line, so stage 5 decides whether this copy stays. The stamp per
+- `:stood-on` is its own map beside the act record [F2]; the read entry
+  (stage 5) may keep its own line, so stage 5 decides whether this copy
+  stays, and dropping it is dropping one field of `$$layers`. The stamp per
   stood-on fact is what the clock promise used; it is not derivable later
   from the ids alone without a read per id.
 - `:subjects` duplicates the owner (from settings) into every act record
@@ -695,16 +757,30 @@ RIG.md with the next free numbers.
   because the rig keeps no records. A consequence the client owns: the
   digest covers `:claimed-when` and `:stood-on`, so only the identical map
   answers from the record; a client keeps what it sent until it has an
-  answer, and one that lost it makes a new name.
+  answer, and one that lost it makes a new name. Three things said plainly
+  [F11]: the client's copy of the secret is a convenience for the read-only
+  `lookup`; a client without it gets its answer by resending, and the gate
+  then computes both sides (RQ 4's road), so the secret is not a requirement
+  of the protocol. The record's digest is a keyed fingerprint over plaintext
+  values that outlives a forget (the name's answer for ever, D4); the
+  constraint keys it so that a kept fingerprint is not a confirmation oracle
+  for an erased low-entropy value, and with the secret in the client that
+  protection is gone in the rig; a kept store keeps the secret in the store.
+  And the depot retains every offer's plaintext values with no trimming
+  (I-L4's "the queue of offers a gate reads from"; O2), which is stage 2's
+  to answer.
 - **P7. Refusals before the name is trusted are answered through the ack
   only and never recorded**: malformed envelope, unknown part, unknown
-  version, bad name, reserved scheme, empty act, tag mismatch, a name tagged
-  for the other gate (`:wrong-gate`: tag class `:by-entity` at the stream
-  gate, so a name reaches one gate only even if a client misroutes it), and
-  name taken. Everything from `:fact-outside-the-acts-layer` on is recorded
-  under the name with a stamp, in I-G5's order, with the rig's own reasons
-  placed: `:no-such-layer` just before `:class-mismatch`, `:stale-revoke`
-  after `:stale-replaces`; no act size limit; no mixed-act refusal (the model
+  version, bad name, reserved scheme, empty act, a value nested past 32
+  levels, more than 256 carried subjects, `:who :store` (`:reserved-who`),
+  tag mismatch, a name tagged for the other gate (`:wrong-gate`: tag class
+  `:by-entity` at the stream gate, so a name reaches one gate only even if a
+  client misroutes it), a caught failure in the gate itself (`:gate-error`),
+  and name taken [F3] [F6]. Everything from `:fact-outside-the-acts-layer` on
+  is recorded under the name with a stamp, in I-G5's order, with the rig's
+  own reasons placed: `:no-such-layer` just before `:class-mismatch`,
+  `:stale-revoke` after `:stale-replaces`, then `:layer-already-made` and
+  `:unsupported-reclass` [F8]; no act size limit; no mixed-act refusal (the model
   places per fact; in this stage every fact of a one-owner layer is on the
   home). A recorded no keeps the act's parts (who, class, permission,
   session, stood-on, because-of, claimed-when, subjects) like a yes, so a
@@ -734,6 +810,19 @@ RIG.md with the next free numbers.
   mean a hop for every stood-on fact on another task or in the other store,
   and the ruled order between stores is stood-on itself, a read stamped in
   the checking store. (O3, stream side)
+  The boundary, stated [F10]: for a stood-on fact admitted on this task
+  (this layer, or another layer homed here) the promise holds whatever the
+  carried value is, because the stamp is at least the task's clock + 1 and
+  the clock is at least every stamp the task gave; for a replaced fact the
+  recorded stamp is read from `:heads`; only for a fact on another task or
+  in the other store does the promise rest on the carried value, and there
+  it holds for a client that carries what it read and breaks only for a
+  client that carries less, which the store cannot tell from the identity
+  of the stood-on facts it already takes unsigned. The carried map is kept
+  (`:stood-on`, [F2]) so the claim is auditable. The model reads the real
+  stamps; that is what a kept store would do, as a read stamped in the
+  checking store (I-O4), and a same-task verification is one seek per
+  stood-on fact if a later stage wants it.
 - **P10. A layer is made by an operator act carrying its `:kind`, `:owner`,
   `:class` and `:lock-grain` facts**; the class in force for an act into a
   layer with no class fact is the act's own `:class` fact; who may change a
@@ -760,6 +849,19 @@ RIG.md with the next free numbers.
   offer carries.** Why: the ruled three sources are owner, grammar and tool;
   the owner is a setting the gate already has, the tool's are carried, and
   the grammar's are stage 2's until stage 6 makes grammars facts.
+- **P16. After a re-class, acts of a one-owner layer whose name's tag has
+  class nil (a setting, later a forget) stay with the stream gate on the
+  layer's home** [F9]. The model's micro gate would decide them once the
+  layer is placed by entity (`gate-of`). The checks are the same `refusal`;
+  the stamp comes from the home task's clock; the answer is on the home,
+  where the lookup's first read finds it. The consequence, named: the
+  micro gate learns a grain switch or a further setting by a read (D6), so
+  a stale view admits at the wrong grain for a re-classed layer where the
+  model's order would refuse or admit correctly; stage 3 may move these
+  acts to the micro gate, and phase 8 reports any history where the pick
+  shows. The client routes a nil-tagged name by the layer's kind (one-owner
+  to `*offers`, shared to the micro depot); how the client learns the kind
+  is stage 3's.
 
 ## What later stages consume, and where it is
 
@@ -781,14 +883,12 @@ Stated as what this stage leaves, not as their design.
   so a schema that grows needs no migration.
 - **For the micro store (stage 3).** Same module (P1). A second depot placed
   by entity, a microbatch topology and its own PStates, all theirs. The
-  client picks the depot by the name's tag: class `:by-layer` and nil go to
-  `*offers`, `:by-entity` to theirs, so "a name reaches one gate only" is the
-  client's routing plus each gate's tag check. The stream gate keeps deciding
-  every act whose tag class is nil for a one-owner layer, before and after a
-  re-class, on the home (in the model the micro gate decides a setting act
-  for a re-classed layer; the checks are the same `refusal`, the stamp comes
-  from the stream task's clock, and the answer is found by the lookup's
-  first read; phase 8 reports it if a history shows a difference), refuses
+  client picks the depot by the name's tag: class `:by-layer` goes to
+  `*offers`, `:by-entity` to theirs, and nil by the layer's kind (P16), so "a
+  name reaches one gate only" is the client's routing plus each gate's tag
+  check. The stream gate keeps deciding every act whose tag class is nil for
+  a one-owner layer, before and after a re-class, on the home (P16, with its
+  consequence named there), refuses
   `:by-layer`-tagged acts after the re-class (`:class-mismatch`), and refuses
   `:by-entity`-tagged names on their face (`:wrong-gate`, P7); a re-classed layer's settled heads, permissions and
   settings are readable in `$$layers` as committed state from any topology in
@@ -808,11 +908,30 @@ Stated as what this stage leaves, not as their design.
   answers the second from its record because the name and the digest are the
   same, which is what "a retried request landing once" needs.
 - **For reads (stage 5).** `:log` per layer holds every admitted act's rows;
-  `:answers` holds each act's stamp and who; `:heads` holds the current
-  heads with their stamps, keyed so a range over `[e k]` gives a chain's
-  heads. A by-stamp index (stamp → name per layer) is rebuildable from
-  `:answers` and belongs in `$$layers` if kept. Every index over values they
-  add must be keyed by, or purgeable by, `[name idx]`.
+  `:answers` holds each act's stamp and who; `:stood-on` what it stood on;
+  `:heads` holds the current heads with their stamps, keyed so a range over
+  `[e k]` gives a chain's heads. A by-stamp index (stamp → name per layer) is
+  rebuildable from `:answers` and belongs in `$$layers` if kept. Every index
+  over values they add must be keyed by, or purgeable by, `[name idx]`.
+- **The log, stated as what it is** [F12]. The log of this store is the pair
+  `:answers` + `:log` (+ `:stood-on`) under one key, the name, not `:log`
+  alone: the stamp, who, permission, class and because-of are on the record,
+  the rows carry neither stamp nor layer. Admission order per task is stamp
+  order: stamps are strictly increasing per task, so a rebuild recovers the
+  order exactly; per layer it is the order of that layer's answers by stamp,
+  per task a merge over the layers homed there. Rebuilding an index over a
+  layer's values reads `[(keypath layer :answers) ALL]` and `[(keypath layer
+  :log) ALL]`, both sorted by the same key, and merges on the name: 2 seeks
+  plus one iteration per act in each map. Purging by value id is `(keypath
+  layer :log name idx)`, one seek. The chain history stage 5's reads as of a
+  moment need (the replaced facts `:heads` drops) is derivable from the pair
+  and is theirs to keep.
+- **PState ownership** [F12]. `$$layers` is written only by the stream gate
+  (a PState has one owning topology). Every index a later stage keeps in
+  `$$layers`, the lock rows of stage 2, the crossing fact of stage 4, the
+  by-stamp and chain indexes of stage 5, is written from this gate's decision
+  event, in the same atomic group, by extending `decide`'s precomputed
+  writes; never from a query or microbatch topology.
 - **For tools and grammars (stage 6).** The envelope's `:subjects` part is
   where a tool's subjects arrive; the grammar's subjects (the `:mention`
   rule stage 2 keeps as a constant) move into facts there.
@@ -839,11 +958,14 @@ process in the rig.
   `lookup`; an answer ends it, otherwise the same map is sent again, up to
   a bound, then the last error.
 - `(lookup store name digest)` → `foreign-select-one [(keypath layer :answers
-  name)]` with `layer` the name's first element; nil → `:no-answer`; the
-  record's digest ≠ `digest` → `{:answer :no :reason :name-taken}`; else the
-  record (RD1, `lookup` in the model).
-- `(facts store layer name)` → the log entry with each `:v` decoded from
-  EDN; `(settings store layer)`, `(permission store layer pid)`, `(head?
+  name)]` with `layer` the name's first element; nil → `:no-answer`; a
+  digest given and the record's digest ≠ `digest` → `{:answer :no :reason
+  :name-taken}`; else the record (RD1, `lookup` in the model). A nil digest
+  returns the record as data, for a client that kept only the name [F13].
+- `(facts store layer name)` → `foreign-select [(keypath layer :log name)
+  ALL]` [F1], the rows in index order with each `:v` decoded from EDN;
+  `(stood-on store layer name)` → `foreign-select [(keypath layer :stood-on
+  name) ALL]` [F2]; `(settings store layer)`, `(permission store layer pid)`, `(head?
   store layer e k fid)`, and `(clock store layer)` → `foreign-select-one STAY
   $$clock {:pkey layer}`, which routes to the layer's home task.
 - `(seed! store world)` → the operator's making and granting acts for a
@@ -869,8 +991,9 @@ process in the rig.
   dataflow.
 - `src/rig/store/client.clj` — the offerer's side above.
 - `test/rig/store/envelope_test.clj` — property tests (test.check is on the
-  test classpath): `parse` and `decide` never throw on generated input;
-  `digest` is the same for `=` offers built in different orders and differs
+  test classpath): `parse` and `decide` never throw on generated input,
+  including values nested past the depth bound and a `subvec` in a vector
+  position [F13]; `digest` is the same for `=` offers built in different orders and differs
   when any part differs; `tag-of` matches the model's `tag-of` on the
   model's own offer shapes translated to the rig's.
 - `test/rig/store/gate_test.clj` — one IPC, `{:tasks (rand-nth [2 4 8])
@@ -891,7 +1014,12 @@ process in the rig.
   replaced fact's stamp, at or above the wall under simulated time; the same
   answer after a crash mid-offer, injected before the writes and after them
   (one log entry, one stamp, the worker restarted at least once, R4); a
-  retract and its undo; the malformed inputs of "no throw". Run with
+  completed offer replayed by a later crash on the same layer (RQ 2, D4, E1
+  N2 × crash: offer A decided, a crash injected on offer B, then A's answer,
+  stamp and log unchanged, A's decision code run at least twice, R4) [F13];
+  a lookup by name with no digest [F13]; a second `:kind`/`:owner` fact and
+  a re-class back refused [F8]; a retract and its undo; the malformed inputs
+  of "no throw", `:who :store` among them [F13]. Run with
   `clojure -M:test rig.store.envelope-test rig.store.gate-test` from the rig
   folder.
 - Where cheap, a branch's expected answer is also asked of the model: the
@@ -927,7 +1055,10 @@ Written while designing, first person.
   reads or that later stages are stated to need reads a single row without
   its act, and M1 counts index writes per act, so by act won on write cost;
   a row is still addressed by its id. I would have chosen differently if the
-  spec had a per-row read on a hot path.
+  spec had a per-row read on a hot path. (Validator, [F1]: the key stays by
+  act; the row vector is subindexed because "acts of any size" is ruled and
+  nothing enforces a bound, so one row must be reachable without loading the
+  act; the write is still one event.)
 - **One PState or five.** Forced by the merge rule once I noticed every
   piece shares the layer key and partitioner; the only doubt was whether a
   fixed-keys value with four subindexed children and a plain field is
@@ -969,10 +1100,9 @@ here.
   key vs one value per task), so the split is justified; no `Object`; record
   shapes use `fixed-keys-schema`; no polymorphic position (the value slot is
   text by P12; `:reason` is a keyword or nil); inner collections that can
-  exceed 100 elements are the four subindexed maps; the unsubindexed
-  collections are bounded by the act or by the parser (`:mark`), or are the
-  act's own carried sets (`:stood-on`, `:subjects`), which are the offerer's
-  input like the act itself.
+  exceed 100 elements are the five subindexed maps, the subindexed row
+  vector and the subindexed stood-on entries [F1] [F2]; the unsubindexed
+  collections are bounded by the parser (`:mark`, `:subjects` at 256, [F3]).
 - Partitioning: `|hash` on the layer has many keys per task (sessions
   accumulate) and the hot-key case is the ruled re-class case; the table is
   filled for N = 1, 16, 128 with proportions summing to 1, seeks as totals
@@ -1015,10 +1145,21 @@ here.
 ## What this plan could not settle
 
 - Whether Rama accepts `clojure.lang.PersistentVector` as a subindexed map
-  key class and creates a top-level fixed-keys value with four subindexed
-  children on the first nested write; the build checks both in its first
-  compile and, if not, falls back to five PStates keyed by layer with the
-  same paths (and to `clojure.lang.IPersistentVector` for the key class).
+  key class and creates a top-level fixed-keys value with subindexed
+  children on the first nested write; whether a whole-vector `termval` lands
+  in a subindexed vector location; whether `{:pkey layer}` on `$$clock`
+  routes to the task `hash-by :layer` chose. The build checks these first,
+  before the module, with `create-test-pstate` (testing.md; module-free,
+  seconds) on the exact `$$layers` schema [F14]: write `[(keypath :alice
+  :answers n) (termval rec)]` on an empty PState and read it back; write a
+  `:heads` row under a nested vector key and delete it with `NONE>`; write
+  a three-row act into `:log` by one whole-vector `termval` and by per-index
+  `termval`s, read it with `ALL`; iterate `:answers` with `ALL` and record
+  the key order; then, with the module up, `foreign-select-one STAY $$clock
+  {:pkey :alice}` against the task the gate wrote. On a refused key class,
+  `clojure.lang.IPersistentVector` (interfaces are accepted as schema types),
+  then a string key; on a failed nested creation, the five-PState fallback
+  keyed by layer with the same paths.
 - Whether vector keys in a subindexed map sort with prefix contiguity, which
   stage 5's range over `[e k]` in `:heads` wants; not needed by this stage's
   point reads.

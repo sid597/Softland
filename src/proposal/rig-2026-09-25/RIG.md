@@ -98,8 +98,9 @@ questions the plan left open: vector keys work in subindexed maps, and a
 fixed-keys value holding subindexed maps is created on the first nested
 write.
 
-Not done in phase 1: the plan's validation (a fresh session was running
-when I stopped; see "What is next"), the implementation validation, the
+The plan's validation finished after I stopped: minor-fail, the plan fixed
+in place, the code not yet brought in line (see "What is next"). Not done
+in phase 1: bringing the code in line, the implementation validation, the
 test suite for the model's stream cases (R7), and the test validation.
 
 ## Phase 0: the two Rama claims, and the cross-module read
@@ -214,9 +215,19 @@ None. Machine for every number: AMD Ryzen 9 9900X (12 cores, 24 threads),
 
 For whoever continues, in this order:
 
-1. The plan's validation, `PLAN_VALIDATION-stream-store.md`, was being
-   written by a fresh session when I stopped. If it exists, read its
-   verdict. A minor-fail edits the plan in place; bring the code in line.
+1. The plan's validation finished after I stopped, by a fresh Fable
+   session: `PLAN_VALIDATION-stream-store.md`, verdict **minor-fail**. The
+   architecture stands; it amended `PLAN-stream-store.md` in place with
+   fourteen local fixes, each marked `[F n]` there. The committed code
+   predates them. Some already hold in it: the record is read before the
+   settings, parse and decide catch every throwable, and values nest at
+   most 32 deep. The rest do not yet: the log's rows as a subindexed
+   vector (F1), stood-on in its own map (F2), a cap on carried subjects
+   (F3), `(into [] ...)` rather than `vec` for keys, since `vec` keeps a
+   subvector (F6), a face refusal for an offerer claiming to be the store
+   (F6), refusals for a layer made twice and an unsupported re-class (F8),
+   the routing of store-placed acts after a re-class as rig choice P16
+   (F9), and the tests F13 adds. Bring the code in line first.
 2. Decide what happens to the partial `test/rig/store/gate_test.clj`.
 3. Phase 1's remaining steps under the rama skill: the implementation
    validation, the test suite for the model's stream cases (R7), the test
