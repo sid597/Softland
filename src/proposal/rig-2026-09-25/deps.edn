@@ -1,0 +1,16 @@
+;; The rig: a throwaway Rama build whose records nobody keeps.
+;; Rama and Clojure versions are the ones pinned in the repo's root deps.edn.
+{:paths     ["src" "resources"]
+ :mvn/repos {"nexus-releases" {:url "https://nexus.redplanetlabs.com/repository/maven-public-releases"}}
+ :deps      {org.clojure/clojure  {:mvn/version "1.12.4"}
+             com.rpl/rama         {:mvn/version "1.6.0"}
+             com.rpl/rama-helpers {:mvn/version "0.10.0"}}
+ :aliases   {;; clojure -M:test [ns ...]   runs clojure.test over the named namespaces
+             :test {:extra-paths ["test"]
+                    ;; Rama's module compilation analyzes topology graphs recursively
+                    :jvm-opts    ["-Xss16m" "-Xmx8g"]
+                    :main-opts   ["-m" "rig.test-runner"]}
+             ;; clojure -M:bench <ns> <fn>   runs one measurement
+             :bench {:extra-paths ["test"]
+                     :jvm-opts    ["-Xss16m" "-Xmx16g"]
+                     :main-opts   ["-m" "rig.bench-runner"]}}}

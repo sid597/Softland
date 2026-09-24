@@ -1,0 +1,10 @@
+OBSERVED stream one-task: append threw rpl.rama.distributed.exceptions.CallbackException: Callback failure | recovered after 645 ms | left 1 right 1 | first write ran 2 times
+OBSERVED stream two-tasks: append threw rpl.rama.distributed.exceptions.CallbackException: Callback failure | left 3 right 1 | first write ran 3 times
+OBSERVED stream restart: held true | update finished while held: false | update :updated after 8746 ms | append :acked | left 1 right 3 | first write ran 1 times | held 1 times | second write ran 1 times
+OBSERVED stream replays of the one-task record, which completed before the later crashes: first write ran 3 times, second write 2 | left 2 | right k0 (one-task 1 + restart record's write) 3 | restart record's second write ran 1 times
+OBSERVED cross-module: source module name rig.claims/StampSource | microbatch read [other-module own-module] = [42 7]
+OBSERVED micro hold: held true | task-0 write ran 1 times | counts during hold [nil nil nil] | after commit [1 1 1 1]
+OBSERVED micro fail: task-0 write ran 2 times | counts [2 2 2 2]
+OBSERVED micro visibility: ran 20084 ms, records 5211 , last microbatch id 345 , final max-seq per task [5209 5209 5209 5209] , read pairs 410155 , pairs where the later read showed an older batch 5822 e.g. [[2 14 0 7] [2 14 1 7] [2 14 0 7] [3 14 0 7] [2 14 1 7]]
+Ran 3 tests containing 19 assertions.
+{:test 3, :pass 19, :fail 0, :error 0}
