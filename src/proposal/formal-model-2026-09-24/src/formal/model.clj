@@ -18,9 +18,18 @@
   encrypts. Every value gets its own lock at write, wrapped under the person
   locks of the people it is about (ruling 7).
 
+  Order between the two stores exists only through stood-on: a landing
+  stands on its crossing fact, so landing-after-read-out is defined; a
+  forget and a read-out on one partition are ordered by it; a forget
+  against a landing is ordered by nothing. A check one gate makes against
+  the other store is a read, never atomic with that store's writes. The
+  properties may use `:order`, the true order of every effect, as their
+  ruler; the gates never do.
+
   Where PROGRESS.md is silent the model takes a reading. Each reading is an
   entry in the config, so a run can turn it the other way: `ruled` holds the
-  literal readings, `amendments` the other side of each."
+  literal readings, `readings` the other side of each, and `baseline`, the
+  default, is `ruled` with every reading in `readings` turned."
   (:require [clojure.string :as str]))
 
 ;; ------------------------------------------------------------------ world
@@ -30,7 +39,7 @@
 (def n-parts "N, the task count, fixed at launch (ruling 2)." 3)
 
 (def entities [:e0 :e1 :e2 :e3])
-(def entity-part {:e0 0 :e1 1 :e2 2 :e3 0})
+(def entity-part {:e0 0 :e1 1 :e2 2 :e3 0 :perm-alice 1 :perm-bob 2})
 
 (def layers
   "Four layer kinds; a session is hand or agent. :home is the partition that
@@ -45,7 +54,30 @@
 (def control-keys
   "Fact keys the store itself acts on. Their values are ids and settings, so
   the model gives them no lock."
-  #{:forget :lock-grain :class :promote-request})
+  #{:forget :lock-grain :class :promote-request :crossed :permission :revoke})
+
+(def permissions
+  "Who may write into which layer, and where the permission's fact lives:
+  [person layer where]. :own lives in the layer it grants writes into;
+  :session in the person's session, the root narrower permissions sit under
+  (only Alice has one here, her hand session). Both kinds are first facts
+  in every run; which a gate accepts is the reading in :permission-home."
+  (vec (concat (for [l [:alice :alice-hand :alice-agent :group :base]] [:alice l :own])
+               (for [l [:alice :alice-agent :group :base]] [:alice l :session])
+               [[:bob :group :own] [:bob :base :own]])))
+
+(defn permission-layer
+  "The layer a permission's fact lives in."
+  [[_ layer where]]
+  (if (= :session where) :alice-hand layer))
+
+(defn perm-entity [[who _ _]] (keyword (str "perm-" (name who))))
+
+(defn exempt?
+  "The operator and the store's own steps act at the root; they cite no
+  permission."
+  [offer]
+  (contains? #{:operator :store} (:who offer)))
 
 ;; ----------------------------------------------------------------- config
 
@@ -53,27 +85,49 @@
   "The literal reading of PROGRESS.md; where it is silent, the plain one."
   {:act-layer             :per-fact ; 'layer' is a named part; fact or act is not said
    :reclass-moves-gate    false     ; ruling 2 re-classes placement; ruling 1 picks the gate by ownership
-   :forward-name          :minted   ; a promotion's second offer is named by the store as it sends it
+   :forward-name          :minted   ; a promotion's second offer is named by the store as it sends it;
+                                    ; :derived names it from the request's name under a scheme,
+                                    ; :carried has the person make a second random name up front
    :lock-subjects         :act      ; ruling 7: per-value locks inherit the act's subject list
+   :wrap                  :any-subject ; 7b over every subject, the owner one among them; see `wrap`
    :landing-checks-source false     ; the micro gate does not look at the source again when it lands a copy
+   :name-row              false     ; the micro gate records an answer only where the offer's facts land
+   :digest-check          false     ; a decided name answers any offer under it from the record
+   :name-tag              :none     ; what a name's scheme tag carries; :layer-and-class, the
+                                    ; layer and class it was made for, so it reaches one gate
+   :permission-home       :anywhere ; a gate takes a cited permission wherever its fact lives
    :fencing               true      ; the epoch: a deposed leader's writes are refused
    ;; how two of the eight properties are read
    :p4-erasure-exempt     false     ; P4 literally: a read shows nothing dated after its moment
    :p6-copies             :none})   ; P6 literally: after a forget no copy anywhere returns the value;
                                     ; :landed-before exempts copies that had landed before the forget,
-                                    ; :released-before those whose value was read out before it
+                                    ; :crossed those whose crossing fact came before it
 
-(def amendments
-  "Each entry turns one reading the other way."
+(def readings
+  "Each entry turns one reading the other way. The first six Sid confirmed as
+  his on 24 September."
   (array-map
    :layer-on-the-act         {:act-layer :per-act}
    :reclass-moves-the-gate   {:reclass-moves-gate true}
-   :second-offer-named-first {:forward-name :carried}
+   :landing-named-first      {:forward-name :derived}
    :value-locks-own-subjects {:lock-subjects :fact}
-   :p4-erasure-date-exempt   {:p4-erasure-exempt true}
-   :p6-released-copies-exempt {:p6-copies :released-before}))
+   :p4-erasure-shows-its-date {:p4-erasure-exempt true}
+   :p6-line-at-the-read-out  {:p6-copies :crossed}
+   ;; change A, confirmed 24 September
+   :owner-required           {:wrap :owner-required}
+   ;; change C
+   :findable-by-name         {:name-row true}
+   ;; change E
+   :reuse-refused-by-digest  {:digest-check true}
+   ;; proposed in round 2 to make E hold, Sid's since 25 September: without
+   ;; it a reuse that reaches the other store is invisible to the digest
+   :name-carries-layer-and-class {:name-tag :layer-and-class}
+   ;; change D
+   :permissions-in-their-layer {:permission-home :in-their-layer}))
 
-(def amended (apply merge ruled (vals amendments)))
+(def baseline
+  "The default configuration: every reading turned."
+  (apply merge ruled (vals readings)))
 
 ;; ------------------------------------------------------------------ state
 
@@ -99,7 +153,10 @@
                             :grain :per-value}]))
    :persons {}     ; person -> {:stamp :tick :order} once their person lock is destroyed
    :lock-clock 0   ; the lock store's last stamp
-   :sent {}        ; offer name -> offer, for every offer anyone made
+   :sent {}        ; offer name -> the first offer sent under it, for every offer anyone made
+   :reuses []      ; later offers sent under a name already used, with other content (change E)
+   :offers {}      ; digest -> offer
+   :name-tags {}   ; name -> [layer class] it was made for; stands for the name's own tag
    :client-sent [] ; names of offers people and the operator made, in order
    :reads []
    :trace []})
@@ -120,12 +177,46 @@
   (apply max (:lock-clock st)
          (for [s [:stream :micro] p (get-in st [s :parts])] (:clock p))))
 
-(defn answers-for [st nm]
+(defn answers-for
+  "Every answer recorded under a name, found by scanning every partition."
+  [st nm]
   (for [s [:stream :micro]
         [i p] (map-indexed vector (get-in st [s :parts]))
         :let [a (get-in p [:answers nm])]
         :when a]
     (assoc a :where [s i])))
+
+(defn name-part
+  "The micro partition a name picks for its name row (change C)."
+  [nm]
+  (mod (hash nm) n-parts))
+
+(defn lookup
+  "Change C: the answer to an offer from its name and its layer, by point
+  reads, never a scan. A one-owner layer's answers are on its home partition
+  in the stream store while it is placed by layer; once re-classed onto the
+  micro gate, and for every shared layer, the name row on the micro partition
+  the name picks. Without a name tag, a one-owner layer takes two reads,
+  home then name row, since a re-class moves its later names. Under
+  :name-tag :layer-and-class the name itself says its layer and class, so
+  one read. Given the asker's digest and under :digest-check (change E), a
+  record made for other content answers no: the name is taken."
+  [st nm layer & [digest]]
+  (let [[tl tc] (when (= :layer-and-class (get-in st [:config :name-tag]))
+                  (get-in st [:name-tags nm]))
+        layer (or tl layer)
+        home #(some-> (get-in st [:stream :parts (get-in layers [layer :home]) :answers nm])
+                      (assoc :where [:stream (get-in layers [layer :home])]))
+        row #(some-> (get-in st [:micro :parts (name-part nm) :answers nm])
+                     (assoc :where [:micro (name-part nm)]))
+        rec (cond
+              (and tc (get-in layers [layer :one-owner]) (= :by-layer tc)) (home)
+              tc (row)
+              ;; no tag, or the store's own read-out, which claims no class
+              :else (or (when (get-in layers [layer :one-owner]) (home)) (row)))]
+    (if (and rec digest (get-in st [:config :digest-check]) (not= digest (:digest rec)))
+      {:answer :no :reason :name-taken :where (:where rec)}
+      rec)))
 
 (defn stood-on
   "Ids an admitted fact stood on: its act's reads, what it replaces, and a
@@ -139,7 +230,7 @@
 
 (defn describe-fact [f]
   (str (name (:e f)) " " (name (:k f))
-       (when-let [p (get-in f [:v :person])] (str " " (name p)))
+       (when-let [ps (get-in f [:v :persons])] (str " " (str/join "+" (map name (sort ps)))))
        (when-let [t (get-in f [:v :token])] (str " " t))
        " in " (name (:layer f))
        (when (:replaces f) (str ", replacing " (fid-str (:replaces f))))
@@ -149,11 +240,12 @@
 
 (defn fact-subjects
   "Ruling 8's three sources applied to one fact: the layer's owner, the
-  key's grammar (a :mention names a person), and the tool (none here)."
+  key's grammar (a :mention names one or two people), and the tool (none
+  here)."
   [layer f]
   (cond-> #{}
     (get-in layers [layer :owner]) (conj (get-in layers [layer :owner]))
-    (and (= :mention (:k f)) (get-in f [:v :person])) (conj (get-in f [:v :person]))))
+    (= :mention (:k f)) (into (get-in f [:v :persons]))))
 
 ;; -------------------------------------------------------------- placement
 
@@ -225,13 +317,62 @@
     (boolean (and r (= (:e f) (:e r)) (= (:k f) (:k r))
                   (not-any? #(= (:replaces f) (:replaces %)) fs)))))
 
+;; ------------------------------------------------------------ permissions
+
+(defn permission-fact
+  "The admitted fact that grants permission `pid`, or nil."
+  [st pid]
+  (some #(when (and (= :permission (:k %)) (= pid (get-in % [:v :id]))) %) (all-facts st)))
+
+(defn revocation
+  "The admitted fact that revokes permission `pid`, or nil."
+  [st pid]
+  (some #(when (and (= :revoke (:k %)) (= pid (get-in % [:v :permission]))) %) (all-facts st)))
+
 ;; ------------------------------------------------------------------ locks
+
+(defn wrap
+  "Whose person locks a value's lock is wrapped under, as {:required #{..}
+  :any-of #{..}}: it opens while every required lock is alive and, when
+  :any-of is not empty, at least one of those. `subjects` are the people it
+  is about, `owner` the layer's person owner (nil in shared layers),
+  `marked?` a mark to die with any of them (7b). The readings of change A:
+    :any-subject        7b over every subject; the owner is one among them
+    :owner-required     A as confirmed: in a one-owner layer the owner's lock
+                        always, the others only by a mark (7b's survive
+                        default among them, as Sid ruled on 25 September);
+                        in a shared layer 7b as written
+    :owner-and-an-other A read the other way: the owner's lock, and one of
+                        the other subjects' while there are others
+    :owner-and-marked   the third reading: only the owner's lock and marked
+                        subjects, so an unmarked subject in a shared layer
+                        gives no wrap at all"
+  [reading owner subjects marked?]
+  (let [subjects (cond-> (set subjects) owner (conj owner))
+        others (disj subjects owner)]
+    (cond
+      marked? {:required subjects :any-of #{}}
+      (= :any-subject reading) {:required #{} :any-of subjects}
+      owner {:required #{owner}
+             :any-of (if (= :owner-and-an-other reading) others #{})}
+      (= :owner-and-marked reading) {:required #{} :any-of #{}}
+      :else {:required #{} :any-of subjects})))
+
+(defn wrap-closed
+  "The forget that closed a wrap, from `persons` (person -> the record of
+  their forget), or nil while it opens."
+  [{:keys [required any-of]} persons]
+  (let [dead-req (keep persons required)
+        dead-any (keep persons any-of)]
+    (first (sort-by :order (cond-> (vec dead-req)
+                             (and (seq any-of) (= (count dead-any) (count any-of)))
+                             (conj (apply max-key :order dead-any)))))))
 
 (defn- lock-for
   "Ruling 7. The value's own lock, or its act's in a per-act layer; a row in
   the lock store for personal and hand layers or when marked, otherwise
-  wrapped into the record; wrapped under the people it is about, any one of
-  whom can open it unless it is marked to die with any of them (7b)."
+  wrapped into the record; wrapped under the people it is about as `wrap`
+  reads change A."
   [st store p offer f fid layer]
   (let [grain (get-in st [:settings layer :grain])]
     {:id (if (= :per-act grain) [:act (:name offer) p] [:value fid])
@@ -240,24 +381,21 @@
                         (contains? (:mark f) :own-row)))
      :store store
      :part p
-     :under (if (or (= :per-act grain) (= :act (get-in st [:config :lock-subjects])))
-              (act-subjects st offer)
-              (fact-subjects layer f))
-     :mode (if (contains? (:mark f) :die-with-any) :all :any)}))
+     :wrap (wrap (get-in st [:config :wrap])
+                 (get-in layers [layer :owner])
+                 (if (or (= :per-act grain) (= :act (get-in st [:config :lock-subjects])))
+                   (act-subjects st offer)
+                   (fact-subjects layer f))
+                 (contains? (:mark f) :die-with-any))}))
 
 (defn erasure
   "Why a fact's value can no longer be opened, or nil while it can: its lock
-  row deleted or its wrapped lock excised, or the person locks it was
-  wrapped under destroyed."
+  row deleted or its wrapped lock excised, or its wrap closed by a person's
+  forget."
   [st f]
   (when-let [lk (:lock f)]
     (or (get-in st [(:store lk) :parts (:part lk) :erased (:id lk)])
-        (let [under (:under lk)
-              dead (keep #(get-in st [:persons %]) under)]
-          (when (seq under)
-            (case (:mode lk)
-              :any (when (= (count dead) (count under)) (apply max-key :order dead))
-              :all (when (seq dead) (apply min-key :order dead))))))))
+        (wrap-closed (:wrap lk) (:persons st)))))
 
 (defn readable? [st f] (boolean (and f (nil? (erasure st f)))))
 
@@ -273,10 +411,29 @@
            (some #(not= (:layer offer) (:layer %)) (:facts offer)))
       :fact-outside-the-acts-layer
 
-      (some (fn [[_ f]] (not= (:class offer)
-                              (get-in st [:settings (layer-of st offer f) :class])))
-            here)
+      ;; a read-out is the store's own step, placed where the source's lock is; it claims no class
+      (and (not (:read-out offer))
+           (some (fn [[_ f]] (not= (:class offer)
+                                   (get-in st [:settings (layer-of st offer f) :class])))
+                 here))
       :class-mismatch
+
+      ;; change D: the cited permission covers this write, lives where the
+      ;; reading says a gate may take it from, exists, and is not revoked
+      (and (not (exempt? offer))
+           (let [[pw pl _] (:permission offer)] (or (not= pw (:who offer)) (not= pl (:layer offer)))))
+      :permission-does-not-cover-this
+
+      (and (not (exempt? offer))
+           (= :in-their-layer (:permission-home cfg))
+           (not= (permission-layer (:permission offer)) (:layer offer)))
+      :permission-from-another-layer
+
+      (and (not (exempt? offer)) (nil? (permission-fact st (:permission offer))))
+      :no-permission
+
+      (and (not (exempt? offer)) (revocation st (:permission offer)))
+      :permission-revoked
 
       (or (not= (count rs) (count (set rs)))
           (some (fn [[_ f]] (and (:replaces f)
@@ -284,7 +441,12 @@
                 here))
       :stale-replaces
 
-      (or (:source-erased offer)
+      (and (:read-out offer) (nil? (:lock (fact-by-id st (get-in offer [:read-out :source])))))
+      :source-has-no-value
+
+      ;; the read-out opens the source through its lock, on the partition that holds it
+      (or (and (:read-out offer)
+               (not (readable? st (fact-by-id st (get-in offer [:read-out :source])))))
           (and (:landing-checks-source cfg) (:source offer)
                (not (readable? st (fact-by-id st (:source offer))))))
       :source-erased)))
@@ -333,7 +495,8 @@
                        :subjects (act-subjects st offer)
                        :own-subjects (fact-subjects layer f)
                        :stood-on (:stood-on offer) :source (:source offer)
-                       :because-of (:because-of offer) :released-at (:released-at offer)})
+                       :because-of (:because-of offer) :crossing (:crossing offer)
+                       :digest (:digest offer)})
            (cond-> (:row? lk) (assoc-in [store :parts p :locks (:id lk)] lk))
            next-order
            (apply-control f layer stamp))))
@@ -351,7 +514,8 @@
               (-> st
                   (assoc-in [store :parts p :answers (:name offer)]
                             {:answer (if reason :no :yes) :reason reason :stamp stamp
-                             :because-of (:because-of offer)})
+                             :tick (:tick st) :because-of (:because-of offer)
+                             :digest (:digest offer)})
                   (update-in [store :parts p :clock] max stamp)
                   (update-in [store :parts p :stamps] conj stamp)))
             st parts)))
@@ -365,42 +529,124 @@
 
 ;; ---------------------------------------------------------------- sending
 
+(defn digest-of
+  "Change E: a digest of what an offer says, its name aside."
+  [offer]
+  (hash (dissoc offer :name :digest)))
+
+(defn tag-of
+  "What a name made for this offer would carry under :name-tag
+  :layer-and-class: its layer, and the class that places it. An offer the
+  store places itself (a forget or a setting with the value or layer it
+  acts on, a read-out with the source's lock) is placed by no class, so its
+  name carries none."
+  [offer]
+  [(:layer offer) (when-not (every? :at (:facts offer)) (:class offer))])
+
+(defn mis-tagged?
+  "Under :name-tag :layer-and-class, whether an offer claims another layer or
+  class than its name was made for; a gate refuses it on its face, reading
+  nothing."
+  [st offer]
+  (and (= :layer-and-class (get-in st [:config :name-tag]))
+       (not= (tag-of offer) (get-in st [:name-tags (:name offer)]))))
+
+(defn- with-digest [offer]
+  (if (:digest offer) offer (assoc offer :digest (digest-of offer))))
+
 (defn deliver-offer
   "Put an offer on the queue of each gate its facts go to."
   [st offer]
-  (let [plan (stream-plan st offer)]
+  (let [offer (with-digest offer)
+        plan (stream-plan st offer)]
     (cond-> st
       (seq plan) (update-in [:stream :inbox (first plan)] conj {:offer offer :stage 0})
       (some #(= :micro (nth % 2)) (placed st offer)) (update-in [:micro :inbox] conj offer))))
 
 (defn- send-offer [st offer client?]
-  (-> st
-      (assoc-in [:sent (:name offer)] offer)
-      (cond-> client? (update :client-sent conj (:name offer)))
-      (deliver-offer offer)))
+  (let [offer (with-digest offer)
+        before (get-in st [:sent (:name offer)])]
+    (-> st
+        (assoc-in [:offers (:digest offer)] offer)
+        (cond-> (nil? before) (-> (assoc-in [:sent (:name offer)] offer)
+                                  (assoc-in [:name-tags (:name offer)] (tag-of offer)))
+                (and before (not= (:digest before) (:digest offer))) (update :reuses conj offer)
+                client? (update :client-sent conj (:name offer)))
+        (deliver-offer offer))))
+
+(defn landing-name
+  "The landing offer's name derived from its request's: a name under the
+  landing scheme, so it is fixed before the first gate and needs no second
+  random name."
+  [req-name]
+  (str "landing:" req-name))
+
+(defn crossing-name
+  "The read-out's name, always derived from the request's: it is the gate's
+  own next step on the owner's partition, and a replay must find it decided."
+  [req-name]
+  (str "crossing:" req-name))
+
+(defn crossing-id [req-name] [(crossing-name req-name) 0])
+
+(defn- send-read-out
+  "A promotion's request is in. The gate's next step is the read-out, on the
+  partition that holds the source's lock: it opens the value through the
+  lock and writes the crossing fact there, or, the source already erased,
+  refuses. Until then the promotion is pending and the value forgettable."
+  [st req]
+  (let [{:keys [source]} (:promote req)
+        src (fact-by-id st source)
+        lk (:lock src)
+        ;; where two facts share an id the pointer may resolve to one with no
+        ;; value; the read-out then goes where the request is, to refuse
+        [s p] (if lk [(:store lk) (:part lk)] (let [[_ _ s p] (first (placed st req))] [s p]))
+        nm (crossing-name (:name req))]
+    (-> st
+        (note "    promotion " (:name req) " queues its read-out " nm
+              " on " (name s) " p" p)
+        (send-offer {:name nm :who :store :layer (:layer src)
+                     :permission (:permission req) :because-of (:name req)
+                     :read-out {:request (:name req) :source source}
+                     :promote (:promote req)
+                     :stood-on [source [(:name req) 0]]
+                     :facts [{:layer (:layer src) :e (:e src) :k :crossed
+                              :v {:request (:name req) :source source} :mark #{}
+                              :at [s p]}]}
+                    false))))
 
 (defn- forward
-  "A promotion's second offer, into the shared layer. Under :minted the store
-  names it as it sends it; under :carried it uses the name the person put in
-  the request."
-  [st req]
-  (let [{:keys [source target replaces fwd-name]} (:promote req)
-        src (fact-by-id st source)
-        [nm st] (if (= :carried (get-in st [:config :forward-name]))
-                  [fwd-name st]
-                  (fresh st (str (:name req) "-m")))
-        gone (not (readable? st src))]
-    (-> (next-order st)
-        (note "    promotion " (:name req) " sends its landing offer " nm " to the micro gate"
-              (when gone " (source already erased)"))
-        (send-offer {:name nm :who (:who req) :layer target :class :by-entity
-                     :permission (:permission req) :because-of (:name req)
-                     :source source :source-erased gone
-                     :released-at (when-not gone (:order st))
-                     :stood-on [source [(:name req) 0]]
-                     :facts [{:layer target :e (:e src) :k (:k src)
-                              :v (when-not gone (:v src)) :replaces replaces :mark #{}}]}
-                    false))))
+  "A promotion's landing offer, into the shared layer, sent at the read-out;
+  it stands on the crossing fact. Under :minted the store names it as it
+  sends it; under :derived its name comes from the request's; under :carried
+  it uses the second name the person put in the request. A replay that finds
+  the read-out decided sends it again, while the source can still be opened."
+  [st ro]
+  (let [{:keys [source target replaces fwd-name]} (:promote ro)
+        req (get-in ro [:read-out :request])
+        src (fact-by-id st source)]
+    (if-not (and (:lock src) (readable? st src))
+      (note st "    " (:name ro) " was read out before; its source is erased now, so nothing is sent again")
+      (let [[nm st] (case (get-in st [:config :forward-name])
+                      :derived [(landing-name req) st]
+                      :carried [fwd-name st]
+                      :minted (fresh st (str req "-m")))]
+        (-> st
+            (note "    promotion " req " sends its landing offer " nm " to the micro gate")
+            (send-offer {:name nm :who (:who (get-in st [:sent req])) :layer target :class :by-entity
+                         :permission (get-in ro [:promote :landing-permission]) :because-of req
+                         :source source :crossing (crossing-id req)
+                         :stood-on [source (crossing-id req)]
+                         :facts [{:layer target :e (:e src) :k (:k src)
+                                  :v (:v src) :replaces replaces :mark #{}}]}
+                        false))))))
+
+(defn- continue-promotion
+  "After a yes: a request goes on to its read-out, a read-out to its landing."
+  [st offer]
+  (cond (:read-out offer) (forward st offer)
+        (:promote offer) (send-read-out st offer)
+        :else st))
 
 ;; ------------------------------------------------------------ stream gate
 
@@ -419,17 +665,23 @@
             (note "    stream p" p ": " nm " finished and acknowledged"))
         (let [plan (stream-plan st offer)
               here (on st offer :stream p)
-              st (if (get-in st [:stream :parts p :answers nm])
-                   (note st "    stream p" p ": " nm " already decided here")
-                   (-> st
-                       (decide :stream [p] offer here
-                               (stamp-for st :stream [p] offer here)
-                               (refusal st offer here))
-                       (say-decision :stream p offer)))
-              last? (= stage (dec (count plan)))
-              st (if (and last? (:promote offer)
+              rec (get-in st [:stream :parts p :answers nm])
+              tagged-else? (mis-tagged? st offer)
+              taken? (or tagged-else?
+                         (and rec (get-in st [:config :digest-check]) (not= (:digest rec) (:digest offer))))
+              st (cond
+                   tagged-else? (note st "    stream p" p ": " nm " was made for another layer or class; refused on its face")
+                   taken? (note st "    stream p" p ": " nm " is taken by other content; refused by its digest")
+                   rec (note st "    stream p" p ": " nm " already decided here")
+                   :else (-> st
+                             (decide :stream [p] offer here
+                                     (stamp-for st :stream [p] offer here)
+                                     (refusal st offer here))
+                             (say-decision :stream p offer)))
+              last? (or taken? (= stage (dec (count plan))))
+              st (if (and last? (not taken?) (:promote offer)
                           (= :yes (get-in st [:stream :parts p :answers nm :answer])))
-                   (forward st offer)
+                   (continue-promotion st offer)
                    st)]
           (update-in st [:stream :inbox (if last? p (plan (inc stage)))]
                      conj {:offer offer :stage (if last? :ack (inc stage)) :cont true}))))
@@ -437,10 +689,19 @@
 
 ;; ------------------------------------------------------------- micro gate
 
-(defn- micro-decision [w offer]
+(defn- micro-decision
+  "What the micro leader would decide for an offer, or nil if it has none of
+  the offer's facts or already decided it. Under :name-row the commit also
+  writes the answer on the partition the name picks (change C), so that
+  partition is part of the decision."
+  [w offer]
   (let [here (filter #(= :micro (nth % 2)) (placed w offer))
-        parts (vec (sort (distinct (map #(nth % 3) here))))]
+        fact-parts (distinct (map #(nth % 3) here))
+        parts (vec (sort (distinct (cond-> fact-parts
+                                     (and (seq fact-parts) (get-in w [:config :name-row]))
+                                     (conj (name-part (:name offer)))))))]
     (when (and (seq parts)
+               (not (mis-tagged? w offer))
                (not-any? #(get-in w [:micro :parts % :answers (:name offer)]) parts))
       {:offer offer :parts parts :here here
        :reason (refusal w offer here)
@@ -450,26 +711,39 @@
   (let [st (-> st
                (decide :micro parts offer here stamp reason)
                (say-decision :micro (first parts) offer who))]
-    (if (and (:promote offer) (nil? reason)) (forward st offer) st)))
+    (if (and (:promote offer) (nil? reason)) (continue-promotion st offer) st)))
 
 (defn micro-prepare
   "The micro leader decides everything queued, in order, each offer seeing
   the ones before it; nothing is visible until the commit."
   [st]
   (let [batch (get-in st [:micro :inbox])
-        [_ delta] (reduce (fn [[w ds] o]
+        [w delta] (reduce (fn [[w ds] o]
                             (if-let [d (micro-decision w o)]
                               [(decide w :micro (:parts d) o (:here d) (:stamp d) (:reason d))
                                (conj ds d)]
                               [w ds]))
                           [st []] batch)
-        skipped (remove (set (map (comp :name :offer) delta)) (map :name batch))]
+        decided (set (map (comp :digest :offer) delta))
+        skipped (remove #(decided (:digest %)) batch)
+        taken? (fn [o] (and (get-in st [:config :digest-check])
+                            (some #(when-let [a (get-in w [:micro :parts % :answers (:name o)])]
+                                     (not= (:digest a) (:digest o)))
+                                  (range n-parts))))
+        [taken skipped] ((juxt filter remove) taken? skipped)
+        [face taken] ((juxt filter remove) #(mis-tagged? st %) taken)
+        [face2 skipped] ((juxt filter remove) #(mis-tagged? st %) skipped)
+        face (concat face face2)]
     (-> st
         (assoc-in [:micro :prepared] {:epoch (get-in st [:micro :epoch])
                                       :n (count batch) :delta delta})
         (note "    micro leader (epoch " (get-in st [:micro :epoch]) ") prepares a batch"
               (when (seq batch) (str ": " (str/join ", " (map :name batch))))
-              (when (seq skipped) (str "; already decided, skipped: " (str/join ", " skipped)))))))
+              (when (seq skipped) (str "; already decided, skipped: " (str/join ", " (map :name skipped))))
+              (when (seq taken) (str "; taken by other content, refused by digest: "
+                                     (str/join ", " (map :name taken))))
+              (when (seq face) (str "; made for another layer or class, refused on its face: "
+                                    (str/join ", " (map :name face))))))))
 
 (defn micro-commit [st]
   (if-let [prepared (get-in st [:micro :prepared])]
@@ -553,7 +827,7 @@
         head (chain-head st l (:e spec) (:k spec))
         stale (first (filter #(replaced (:id %)) chain))]
     [{:layer l :e (:e spec) :k (:k spec)
-      :v (cond-> {:token tok} (= :mention (:k spec)) (assoc :person (:mention spec)))
+      :v (cond-> {:token tok} (= :mention (:k spec)) (assoc :persons (:mention spec)))
       :replaces (case (:replaces spec) :none nil :head (:id head) :stale (:id stale))
       :mark (:mark spec)}
      st]))
@@ -567,24 +841,40 @@
                 (deliver-offer offer)))
           st (range (dec (or times 1)))))
 
-(defn- op-offer [st {:keys [who layer facts stood-on times]}]
-  (let [[nm st] (fresh st "o")
+(defn- cite
+  "The permission an offerer names for writing into `layer`: its own-layer
+  one, or, when it asks for :session and has a session, the one there."
+  [who layer where]
+  [who layer (if (and (= :session where) (= :alice who) (not= :alice-hand layer)) :session :own)])
+
+(defn- op-offer [st {:keys [who layer facts stood-on times] :as spec} & [reused]]
+  (let [[nm st] (if reused [reused st] (fresh st "o"))
         [fs st] (reduce (fn [[fs st] spec]
                           (let [[f st] (resolve-fact st layer spec)] [(conj fs f) st]))
                         [[] st] facts)
         pool (sort-by (juxt :tick :id) (all-facts st))
         offer {:name nm :who who :layer layer
                :class (get-in st [:settings layer :class])
-               :permission [:session who]
+               :permission (cite who layer (:cite spec))
                :stood-on (if (and stood-on (seq pool))
                            [(:id (nth pool (mod stood-on (count pool))))]
                            [])
                :facts fs}]
     (-> st
-        (note (name who) " offers " nm " (act layer " (name layer) ", class "
+        (note (name who) (if reused " reuses the name " " offers ") nm
+              (when reused " for other content")
+              " (act layer " (name layer) ", class "
               (name (:class offer)) "): " (str/join "; " (map describe-fact fs)))
         (send-offer offer true)
         (send-again offer times))))
+
+(defn- op-reuse
+  "Change E: an offerer sends other content under a name already used."
+  [st i spec]
+  (let [names (:client-sent st)]
+    (if (empty? names)
+      st
+      (op-offer st spec (nth (rseq names) (mod i (count names)))))))
 
 (defn- op-retry [st i]
   (let [names (:client-sent st)]
@@ -595,7 +885,7 @@
             (note "the offerer of " nm " sends it again under the same name")
             (deliver-offer (get-in st [:sent nm])))))))
 
-(defn- op-promote [st i target times]
+(defn- op-promote [st i target times & [where]]
   (let [cands (reverse (sort-by (juxt :tick :id)
                                 (filter #(and (= :alice (:layer %)) (:lock %) (readable? st %))
                                         (all-facts st))))]
@@ -603,15 +893,18 @@
       st
       (let [src (nth cands (mod i (count cands)))
             [nm st] (fresh st "o")
+            ;; under :carried the person makes the landing's name too, a second random one
+            [fwd st] (if (= :carried (get-in st [:config :forward-name])) (fresh st "o") [nil st])
             head (chain-head st target (:e src) (:k src))]
         (-> st
             (note "alice asks to promote " (fid-str (:id src)) " (" (get-in src [:v :token])
                   ") into " (name target) " as " nm)
             (as-> st (let [req {:name nm :who :alice :layer :alice
                                 :class (get-in st [:settings :alice :class])
-                                :permission [:session :alice] :stood-on [(:id src)]
+                                :permission (cite :alice :alice where) :stood-on [(:id src)]
                                 :promote {:source (:id src) :target target :replaces (:id head)
-                                          :fwd-name (str nm "-fwd")}
+                                          :fwd-name fwd
+                                          :landing-permission (cite :alice target where)}
                                 :facts [{:layer :alice :e (:e src) :k :promote-request
                                          :v {:source (:id src) :target target} :mark #{}}]}]
                        (-> st (send-offer req true) (send-again req times)))))))))
@@ -631,7 +924,7 @@
                     ": its lock is in the record, so the operator excises it"))
             (send-offer {:name nm :who who :layer (:layer t)
                          :class (get-in st [:settings (:layer t) :class])
-                         :permission [:session who] :stood-on [(:id t)]
+                         :permission [who (:layer t) :own] :stood-on [(:id t)]
                          :facts [{:layer (:layer t) :e (:e t) :k :forget
                                   :v {:target (:id t)} :mark #{}
                                   :at [(:store lk) (:part lk)]}]}
@@ -654,25 +947,56 @@
     (-> st
         (note (name who) " sets " (name layer) " " (name k) " to " (name v) " as " nm)
         (send-offer {:name nm :who who :layer layer :class cls
-                     :permission [:session who] :stood-on []
+                     :permission [who layer :own] :stood-on []
                      :facts [{:layer layer :e layer :k k :v v :mark #{}
                               :at [(gate-of st layer cls) (get-in layers [layer :home])]}]}
                     true))))
+
+(defn- op-revoke
+  "Change D: the operator revokes a permission, by a fact in the layer the
+  permission's fact lives in, standing on it. `a` is a permission, or an
+  index into those still standing."
+  [st a]
+  (let [cands (vec (for [pid permissions
+                         :let [f (permission-fact st pid)]
+                         :when (and f (not (revocation st pid)))]
+                     pid))]
+    (if (empty? cands)
+      st
+      (let [pid (if (vector? a) a (cands (mod a (count cands))))
+            pf (permission-fact st pid)
+            l (permission-layer pid)
+            [nm st] (fresh st "o")]
+        (if-not pf
+          st
+          (-> st
+              (note "operator revokes " (pr-str pid) " (in " (name l) ") as " nm)
+              (send-offer {:name nm :who :operator :layer l :class (get-in st [:settings l :class])
+                           :stood-on [(:id pf)]
+                           :facts [{:layer l :e (:e pf) :k :revoke :v {:permission pid} :mark #{}}]}
+                          true)))))))
 
 ;; ------------------------------------------------------------------ reads
 
 (defn promotion-status
   "The person's view of a promotion as of T, with no optimism: done only once
-  the landing is in the shared layer."
+  the landing is in the shared layer; before that, crossed once the crossing
+  fact is at or before T (read out, no longer forgettable), else pending (not
+  yet read out, still forgettable); refused if its read-out or landing said
+  no."
   [st req T]
-  (let [landed (filter #(and (= req (:because-of %)) (<= (:stamp %) T)) (facts-in st :micro))
-        refused (for [p (get-in st [:micro :parts])
+  (let [facts (all-facts st)
+        landed (filter #(and (:source %) (= req (:because-of %)) (<= (:stamp %) T)) facts)
+        crossed (filter #(and (= (crossing-id req) (:id %)) (<= (:stamp %) T)) facts)
+        refused (for [s [:stream :micro]
+                      p (get-in st [s :parts])
                       [_ a] (:answers p)
                       :when (and (= req (:because-of a)) (= :no (:answer a)) (<= (:stamp a) T))]
                   a)]
     {:request req
-     :status (cond (seq landed) :done (seq refused) :refused :else :pending)
-     :landing-stamps (mapv :stamp landed)}))
+     :status (cond (seq landed) :done (seq refused) :refused (seq crossed) :crossed :else :pending)
+     :landing-stamps (mapv :stamp landed)
+     :crossing-stamps (mapv :stamp crossed)}))
 
 (defn read-as-of
   "What a reader sees as of stamp T: every admitted fact stamped at or before
@@ -684,7 +1008,7 @@
      :facts (vec (for [f facts
                        :when (<= (:stamp f) T)
                        :let [e (erasure st f)]]
-                   (cond-> (select-keys f [:id :act :layer :stamp :tick :order :source :released-at])
+                   (cond-> (select-keys f [:id :act :digest :layer :stamp :tick :order :source :crossing])
                      e (assoc :erased-at (:stamp e))
                      (not e) (assoc :value (:v f)))))
      ;; every fact erased by now, whatever its stamp, and when it was erased
@@ -728,7 +1052,9 @@
     (case kind
       :offer (op-offer st a)
       :retry (op-retry st a)
-      :promote (op-promote st a b c)
+      :reuse (op-reuse st a b)
+      :revoke (op-revoke st a)
+      :promote (op-promote st a b c (nth op 4 nil))
       :step (stream-step st a)
       :prepare (micro-prepare st)
       :commit (micro-commit st)
@@ -775,10 +1101,33 @@
         st
         (recur st (inc rounds))))))
 
+(defn seed-permissions
+  "The first facts: every permission, as a fact in the layer it lives in,
+  admitted through the gates before any history."
+  [st]
+  (let [st (reduce (fn [st [who layer where :as pid]]
+                     (let [l (permission-layer pid)]
+                       (send-offer st {:name (str "grant:" (name who) ":" (name layer)
+                                                  (when (= :session where) "@session"))
+                                       :who :operator :layer l
+                                       :class (get-in st [:settings l :class]) :stood-on []
+                                       :facts [{:layer l :e (perm-entity pid) :k :permission
+                                                :v {:id pid} :mark #{}}]}
+                                   false)))
+                   st permissions)
+        st (reduce (fn [st p]
+                     (loop [st st, n 0]
+                       (if (and (seq (get-in st [:stream :inbox p])) (< n 100))
+                         (recur (stream-step st p) (inc n))
+                         st)))
+                   st (range n-parts))
+        st (-> st micro-prepare micro-commit)]
+    (assoc st :trace ["[t0] first facts: every permission, in the layer it lives in"])))
+
 (defn run
-  "Play a history from an empty store, drain it, and take a last read as of now."
+  "Play a history from the first facts, drain it, and take a last read as of now."
   [config history]
-  (let [st (drain (reduce step (init config) history))]
+  (let [st (drain (reduce step (seed-permissions (init config)) history))]
     (-> st
         (update :tick inc)
         (as-> st (update st :reads conj (read-as-of st (now st)))))))
