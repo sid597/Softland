@@ -1,0 +1,13 @@
+SEED [[:yes nil] [:yes nil] [:yes nil] [:yes nil] [:yes nil] [:yes nil] [:yes nil] [:yes nil] [:yes nil] [:yes nil]]
+ANSWER {:answer :yes, :reason nil, :stamp 1790285519511, :name [:alice :by-layer :offer #uuid "01a0d555-1a94-7cb4-a9e9-6f6a5184163e"]}
+RESEND {:answer :yes, :reason nil, :stamp 1790285519511, :name [:alice :by-layer :offer #uuid "01a0d555-1a94-7cb4-a9e9-6f6a5184163e"]}
+REUSE {:answer :no, :reason :name-taken, :stamp nil, :name [:alice :by-layer :offer #uuid "01a0d555-1a94-7cb4-a9e9-6f6a5184163e"]}
+FACTS [{:e :e0, :k :note, :v {:token v1}, :replaces nil, :mark #{}} {:e :e1, :k :mention, :v {:persons #{:bob}}, :replaces nil, :mark #{}}]
+SETTINGS {:kind :personal, :owner :alice, :class :by-layer, :grain :per-value}
+PERM {:granted [[:alice :by-layer :offer #uuid "01a0d555-1a1e-79d8-9c85-4df0f8910963"] 0]}
+HEAD 1790285519511
+CLOCK 1790285519511
+LOOKUP {:answer :yes, :reason nil, :stamp 1790285519511, :name [:alice :by-layer :offer #uuid "01a0d555-1a94-7cb4-a9e9-6f6a5184163e"]} {:answer :no, :reason :name-taken, :name [:alice :by-layer :offer #uuid "01a0d555-1a94-7cb4-a9e9-6f6a5184163e"]}
+FACE {:answer :no, :reason :unknown-part, :stamp nil, :name nil} {:answer :no, :reason :malformed, :stamp nil, :name nil}
+Ran 1 tests containing 1 assertions.
+{:test 1, :pass 1, :fail 0, :error 0}
