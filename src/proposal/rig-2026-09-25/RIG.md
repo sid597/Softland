@@ -82,15 +82,46 @@ Four more findings, each ran:
 - **R6. Cross-store stamps.** Open until phase 3: the micro gate can read
   what an offer stood on through a mirror; whether it does, or the offer
   carries the stamp, is decided there.
+- **R7. "The model's stream cases"** (phase 1's tests) means the stream
+  gate's decision branches in `model.clj`, listed in SPEC.md;
+  `scenarios.clj` has no stream-only set.
+- **R8. "The model's A cases, both directions"** (phase 2's tests) means
+  every A case checked both ways: what must be erased is erased, and what
+  must stay open stays open.
+- **R9. The build stages are Sid's phases 1 to 6, in his order.** The
+  skill's decompose step had nothing left to split; `DECOMPOSITION.json`
+  points each stage at its phase.
+- **R10. The skill's steps are pipelined across stages.** Each stage still
+  gets a fresh-context plan, a fresh-context plan validation and one build
+  session. The next stage's plan and validation run while the current
+  stage builds, against the current stage's validated plan. One design
+  phase took 44 minutes; run strictly in sequence, the six stages would
+  not fit a night.
 
 ## Numbers so far
 
 None yet. Machine for every number: AMD Ryzen 9 9900X (12 cores, 24
 threads), 62 GB RAM, Linux 7.0.0-31-generic, OpenJDK 21.0.12.1.
 
+## The skill's artifacts so far
+
+- `SPEC.md`: the user-facing spec. Sid's phases verbatim, pointers to the
+  rulings and the model, what phase 0 found, the rig choices.
+- `IMPLICIT_SPEC.md`: the skill's phase 0, written by a fresh session
+  (about 1,900 lines). Its section 2 lists twelve places where the sources
+  differ. Two change what a ruling says and are Sid's: D2 (the model gives
+  no lock to the facts the store acts on, though ruling 7 says every value
+  gets one; the rig follows the model) and D3 (the model's person forget is
+  not a fact, though every forget must be one; the rig writes a fact). A
+  third it found was a gap in this file, R7 to R9, now closed. Its "Open"
+  list, O1 to O23, is what the stage plans pick as rig choices.
+- `DECOMPOSITION.json`: the six stages.
+- The formal model rides on the rig's test classpath, so a test can ask it
+  for its answer to the same history. All 14 fixed histories in
+  `scenarios.clj` come out as stated under the baseline configuration.
+
 ## What is next
 
-Phase 1, the stream store, through the rama skill's process: the implicit
-spec, the decomposition into the rig's phases as subsystems, then per phase
-a plan, a plan validation, a build with tests, and a commit. The full-spec
-review runs after the last store phase.
+Phase 1, the stream store: its plan (running), then the plan's validation,
+then its build with tests, and a commit. The full-spec review runs after the
+last store phase.
