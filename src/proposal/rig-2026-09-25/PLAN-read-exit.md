@@ -529,10 +529,10 @@ act that phase 1 would have admitted; the property test drives
 3. `(reads/rebuild-writes hints *layer *acts *current :> *d)` — pure: the
    entries the log implies (a tombstone for a value open-value says erased,
    with its date and no `:ix-kv` entry; the row's entry otherwise), minus
-   what is already there, as `:index-put`, `:index-of`, `:index-del`
-   (entries and `:ix-of` sets present but not implied), and `:of-del`.
-4. The three write blocks, plus one for `:of-del` (`NONE>` at
-   `(keypath *layer :ix-of *fid)`).
+   what is already there, as `:index-put`, `:index-of` and `:index-del`
+   (entries present but not implied, and `[:ix-of fid]` for sets present
+   but not implied).
+4. The three write blocks.
 5. `(ack-return> {:put n :deleted m})`.
 
 Idempotent: a second rebuild finds nothing to put or delete. Consistent:
@@ -792,8 +792,9 @@ pure and total, returning write lists for the three blocks:
 - `:index-put`: the fact's `:ix-ek` and `:ix-ke` entries as tombstones
   (`:v nil`, `:erased-at forget-stamp`), at addresses computed from the row's
   entity and key, the act's stamp and the fact id: no value is needed.
-- `:index-del`: every `:ix-kv` address in `kv-addresses`.
-- `:of-del`: the fact id's `:ix-of` entry.
+- `:index-del`: every `:ix-kv` address in `kv-addresses`, and `[:ix-of fid]`
+  (the delete block's `keypath` takes the fact id as the address in that
+  field, so no fourth block is needed).
 
 Its inputs are what phase 2's forget event reads anyway (the row and the
 act's record, to find the lock) plus RE4, one seek for `kv-addresses`.
@@ -1041,8 +1042,8 @@ None.
 - RC1. Pattern parsing, the refusals before a read (`:bad-pattern`,
   `:not-indexed`, `:opaque`, `:not-visible`, `:no-such-layer`,
   `:bad-read`), none recorded.
-- RC2. Limits: 1,000 rows per pattern read by default, 1,000 fact ids per
-  point read.
+- RC2. Limits: 1,000 rows per pattern read by default, a limit outside 1 to
+  10,000 refused `:bad-pattern`, 1,000 fact ids per point read.
 - RC3. Pages of 16 entries, doubling.
 - RC4. String addresses joined by U+0000, stamps as 16 hex digits, a value
   length-prefixed in `:ix-kv`.
