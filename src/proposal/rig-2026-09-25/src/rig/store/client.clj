@@ -2,7 +2,7 @@
   "The offerer's side (PLAN-stream-store.md, 'The client side'): make a
   name, build an offer, send it, resend it under the same name after an
   error, and read the answer by name plus layer. Plain Clojure over the
-  foreign API."
+  foreign API, in the same process in the rig."
   (:require [com.rpl.rama :refer :all]
             [com.rpl.rama.path :refer :all]
             [rig.store.envelope :as env]
@@ -20,7 +20,9 @@
 
 (defn build
   "An offer ready to send: version marker, defaults, and a fresh name unless
-  one is given. Pure: the map it returns is what is sent and what is resent."
+  one is given. Pure: the map it returns is what is sent and what is resent
+  (the digest covers `:claimed-when` and `:stood-on`, so a resend is this
+  map, never a rebuilt one)."
   [{:keys [name who layer class permission facts stood-on subjects because-of session claimed-when]}]
   (let [offer {:version env/version
                :who who
@@ -36,45 +38,67 @@
     (assoc offer :name (or name (env/name-for offer)))))
 
 (defn offer!
-  "Append the offer with a full ack and return the gate's answer. Throws when
-  the append fails; the offer may still have gone in (RIG.md finding 3)."
+  "Append the offer with a full ack and return the gate's answer. Blocks
+  until the decision is visible. Throws when the append fails; the offer may
+  still have gone in (RIG.md finding 3)."
   [store offer]
   (get (foreign-append! (:depot store) offer :ack) "gate"))
 
-(defn lookup
-  "The answer to an offer by its name plus layer (RD1): :no-answer when the
-  home holds none, name taken when it holds one for other content."
-  [store offer]
-  (let [nm (:name offer)
-        rec (foreign-select-one [(keypath (nth nm 0) :answers nm)] (:layers store))]
-    (cond
-      (nil? rec) :no-answer
-      (not= (:digest rec) (env/offer-digest offer)) {:answer :no :reason :name-taken :name nm}
-      :else {:answer (:answer rec) :reason (:reason rec) :stamp (:stamp rec) :name nm})))
-
-(defn offer-until-answered!
-  "Send; after an error look the answer up, and send the same map again
-  while there is none, up to `tries` times (I-G3)."
-  ([store offer] (offer-until-answered! store offer 40))
-  ([store offer tries]
-   (loop [n 1]
-     (let [r (try (offer! store offer) (catch Exception e e))]
-       (if-not (instance? Exception r)
-         r
-         (let [found (try (lookup store offer) (catch Exception _ :no-answer))]
-           (cond
-             (map? found) found
-             (>= n tries) (throw r)
-             :else (do (Thread/sleep 250) (recur (inc n))))))))))
-
-(defn record [store nm]
+(defn record
+  "The answer record kept under a name, read by name plus layer (RD1), or nil."
+  [store nm]
   (foreign-select-one [(keypath (nth nm 0) :answers nm)] (:layers store)))
 
+(defn lookup
+  "The answer to an offer by its name plus layer (RD1, model.clj `lookup`):
+  :no-answer when the layer's home holds none; given the asker's digest, a
+  record made for other content is {:answer :no :reason :name-taken}; else
+  the record itself. A nil digest returns the record as data, for a client
+  that kept only the name (F13). With an offer in place of name and digest,
+  the offer's own name and digest."
+  ([store offer] (lookup store (:name offer) (env/offer-digest offer)))
+  ([store nm digest]
+   (let [rec (record store nm)]
+     (cond
+       (nil? rec) :no-answer
+       (and (some? digest) (not= digest (:digest rec))) {:answer :no :reason :name-taken :name nm}
+       :else rec))))
+
+(defn answer-of
+  "The answer shape the ack carries, from a record found by lookup."
+  [nm rec]
+  (if (= :name-taken (:reason rec))
+    {:answer :no :reason :name-taken :stamp nil :name nm}
+    {:answer (:answer rec) :reason (:reason rec) :stamp (:stamp rec) :name nm}))
+
+(defn offer-until-answered!
+  "Send; after an error look the answer up with the offer's own digest, and
+  send the same map again while there is none, up to `tries` times, then
+  throw the last error (I-G3, RQ 4)."
+  ([store offer] (offer-until-answered! store offer 60))
+  ([store offer tries]
+   (let [nm (:name offer)
+         d (env/offer-digest offer)]
+     (loop [n 1]
+       (let [r (try (offer! store offer) (catch Exception e e))]
+         (if-not (instance? Exception r)
+           r
+           (let [found (try (lookup store nm d) (catch Exception _ :no-answer))]
+             (cond
+               (map? found) (answer-of nm found)
+               (>= n tries) (throw r)
+               :else (do (Thread/sleep 250) (recur (inc n)))))))))))
+
 (defn facts
-  "An admitted act's rows, each value decoded."
+  "An admitted act's rows in index order, each value decoded (F1)."
   [store layer nm]
-  (some->> (foreign-select-one [(keypath layer :log nm)] (:layers store))
-           (mapv #(update % :v env/decode-value))))
+  (mapv #(update % :v env/decode-value)
+        (foreign-select [(keypath layer :log nm) ALL] (:layers store))))
+
+(defn stood-on
+  "What an act stood on, {fid stamp} as carried (F2)."
+  [store layer nm]
+  (into {} (foreign-select [(keypath layer :stood-on nm) ALL] (:layers store))))
 
 (defn settings [store layer]
   (foreign-select-one [(keypath layer :settings)] (:layers store)))
@@ -83,7 +107,8 @@
   (foreign-select-one [(keypath layer :permissions pid)] (:layers store)))
 
 (defn head
-  "The stamp of fact `fid` while it heads its chain for (e k), else nil."
+  "The stamp of fact `fid` while it heads its chain for (e k) in the layer,
+  else nil."
   [store layer e k fid]
   (foreign-select-one [(keypath layer :heads [e k fid])] (:layers store)))
 
@@ -123,9 +148,9 @@
   "The operator's act that revokes a permission, standing on its grant."
   [store [who _ in :as pid]]
   (let [{:keys [granted]} (permission store in pid)
-        grant-stamp (:stamp (record store (first granted)))]
+        grant-stamp (when granted (:stamp (record store (first granted))))]
     (build {:who :operator :layer in :class (or (:class (settings store in)) :by-layer)
-            :stood-on (if granted {granted grant-stamp} {})
+            :stood-on (if (and granted grant-stamp) {granted grant-stamp} {})
             :facts [{:e (gate/perm-entity who) :k :revoke :v {:permission pid}}]})))
 
 (defn seed!

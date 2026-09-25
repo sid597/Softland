@@ -1,0 +1,40 @@
+Phase 1 (stream-store) build: the suite, last run 25 September 2026, 09:25 IST
+Command, from the rig folder:
+  clojure -M:test rig.smoke-test rig.store.envelope-test rig.store.stream-gate-test
+Result: Ran 13 tests containing 728 assertions. 0 failures, 0 errors. Exit 0.
+  About 17 s wall. In-process cluster, 1 worker, 2 threads, tasks drawn: 4.
+  AMD Ryzen 9 9900X, OpenJDK 21.0.12.1, Rama 1.6.0.
+
+Namespaces:
+  rig.smoke-test (1 deftest, own cluster): the earlier smoke test.
+  rig.store.envelope-test (10 deftests, no cluster): parse total (unguarded
+    parse*, 1500 generated records); parsed classes incl. subvecs; bounds
+    (nesting 32/33/200000, subjects 256/257, carried stamp < 2^62, values
+    outside P5's list); face reasons; value round trip; readable keywords;
+    digest respects = and separates contents, keyed; names, uuid7, tag-of
+    against the model's own offers; reason order; stamp-for; decide* total
+    with every write applied to a test PState of the real $$layers schema.
+  rig.store.stream-gate-test (2 deftests): the F14 schema probe (no
+    cluster); one cluster seeded with the model's one-owner world, every R7
+    branch, F8, F13, R13, OP5-OP8, E1-E4 rows, model parity through
+    formal.model/run, and three injected crashes.
+
+Observed in the last run:
+  a subvec name sent through the depot arrived a PersistentVector: decided yes
+  crash before the writes: the acked append threw; the gate saw the offer 3
+    times (the crashed attempt, Rama's replay, the client's resend) and
+    reached its writes twice; one answer, one stamp, rows once; answered by
+    lookup before any resend
+  crash after the writes: the append threw; the decision ran twice (the
+    first attempt's writes discarded); one answer, one stamp
+  completed-record replay: on the first attempt the completed offer (and a
+    completed refusal) was processed again after the crash, from its record;
+    answer, stamp and rows unchanged, nothing decided again
+  the log's only fatal throwables are the 3 injected crashes, each followed
+    by a worker shutdown and restart; the same in every run below
+
+This session's runs: run 1 (tasks 2): 13 tests, 720 assertions, 2 failures,
+  2 errors (a test-order bug, a generator that threw, and Java floats whose
+  normalised form is not = inside a set: now refused); runs 2-8 and the
+  last: 0 failures, 0 errors, tasks drawn 4, 4, 4, 4, 2, 4, 8, 4.
+Full output: runs/phase1-suite.log (runs/*.log is not committed).
