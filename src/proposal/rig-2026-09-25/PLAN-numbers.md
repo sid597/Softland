@@ -341,3 +341,259 @@ says so first.
 > or more from its threshold decides the question; one within ten times
 > needs a real cluster. Logical bytes are exact for Rama 1.6.0's
 > serializers; bytes on disk depend on the RocksDB options Rama sets here.
+
+## 4. Number 1: index writes a second, an agent session layer writing small acts continuously
+
+### 4.1 What it answers
+
+README.md, "Each rig question checks a ruling": ruling 2 places one-owner
+layers by layer, with N, the task count, fixed at launch for two years, and
+"a stream is many small acts". A bad answer changes "how many agent
+sessions one task can carry, and so how large N must be". So the number is
+a task's capacity for small acts with every index written, and the divisor
+that capacity gives.
+
+### 4.2 Setup, per run, before any window
+
+Every setup act must be answered `:yes`; anything else stops the run with
+the answer printed, as the slices' `make-layer!` did.
+
+1. The store layer `:people` (`c/make-layer-offer :people {:kind :store}`)
+   and the person `:ada` (`c/make-person!`): a layer's owner needs a person
+   lock before its making act (*code*: client.clj `seed!`, L11).
+2. The agent session layer `:bench-agent`, `{:kind :agent :owner :ada}`
+   (`c/make-layer-offer`, which also sets per-value grain), and the owner's
+   root permission `[:ada :bench-agent :bench-agent]` (`c/grant-offer`).
+3. A session `:bench-s1` opened on it: the grant
+   `[:bench-s1 :bench-agent :bench-agent [:ada :bench-agent :bench-agent]]`
+   beneath the owner's, by the operator through the layer's gate (*code*:
+   `rig-build-micro` micro_client.clj `open-session!` :482; **to confirm
+   at build**, its namespace after the merge). Value acts are built with
+   `c/build {:who :ada :session :bench-s1 :permission <that pid> :layer
+   :bench-agent :class :by-layer :facts [f]}`: the permission's holder is
+   the offer's session, which phase 3's check accepts (M21).
+4. The layer's home task: the depot partition that grew by one when the
+   layer was made.
+5. For A' (4.4): a second layer `:bench-agent-v`, made, granted and opened
+   the same way, and a `:note` grammar with `:index #{:by-value}` written
+   in it as a fact by the operator (*plan*: tools-and-grammars 4.1 and 4.7;
+   **to confirm at build**, the fact's form). Its home task may differ from
+   the first layer's; placement is checked per window.
+
+The layer holds no grammar in variant A: "session layers start with none"
+(*plan*: tools-and-grammars, section 0), and a key with no grammar gets no
+index hints (4.6 there), so the act writes the three id indexes and no
+value index. That is the realistic default and the primary number; A'
+gives the heavier end.
+
+### 4.3 Variant A: one agent session layer, K writers sharing one door
+
+This is the number as asked, in the slices' shape.
+
+- **Writers.** Each is a thread in a closed loop with no pause: build a
+  value act (a fresh name each time; the value string distinct per writer
+  and act, as the slices' `value-for`), send it with `c/offer!` (the door
+  seals it, then an acked append that returns once the gate's event is
+  complete and its writes are visible), take the answer, send the next.
+  All K writers share one store handle, so one door, one pool of leased
+  locks and one lease at a time. Latency is `System/nanoTime` around
+  `c/offer!` only.
+- **Warm-up.** The 10-second idle window (3.2), then 4 writers for 20
+  seconds, as the slices warmed.
+- **Levels.** K = 1, 4, 16, 32, 64, 128. At each: 3 seconds at K
+  unmeasured, then a 15-second measured window. Past 128, K = 256 and then
+  512, each only while the median gain over the level before is at least
+  10%, p99 is at most 200 ms and nothing errs; the run applies this rule to
+  its own windows.
+- **Recorded per window** (a `RESULT` line): value offers sent and every
+  answer (yes, no with its reason, error); lease acts, both counts (2.5);
+  the rate, admitted value acts over the time from the window's start to
+  the last writer's last ack; latency p50, p95, p99, max and mean by
+  nearest rank over every offer in the window; placement (each depot
+  partition's growth, each task's `$$clock` movement); every thread's CPU
+  over the window (`ThreadMXBean`), with the home task thread's share of a
+  core; GC count and time; the home clock's lead over the wall clock in
+  ms (the hybrid clock should hold it near zero, where the slices'
+  millisecond stamps ran 21 s ahead); whether another JVM ran.
+- **Read back after each window, never during it.** Up to 200 admitted
+  acts, sampled one in 50 as they were answered, checked against every
+  write in 2.3's agent column: the answer record says yes with the act's
+  stamp; the log holds one row, with the sealed bytes, the lock id, and the
+  lock record inside the row (an agent layer keeps it there); the head at
+  that stamp; the `:ix-ek`, `:ix-ke` and `:ix-s` entries at their
+  addresses (`reads/address`, **to confirm at build** for `:ix-s`); the
+  cited lease row gone; the stamp-to-name entry; no lock row. This is what
+  "with every index written" is checked by.
+- **Derived per window**: index writes a second, all, read indexes and
+  deletes, by 2.5's sum.
+
+### 4.4 Variant A': the same act under a by-value grammar
+
+In the same JVM after A's levels: K = 1, 4, 16 on `:bench-agent-v`, 3 s
+unmeasured and 15 s measured each, recorded and checked as in 4.3, the
+read-back adding the `:ix-kv` entry and the `:ix-of` set. It shows the
+range of the index-write count for one small act (9 to 11) and whether two
+more writes an act move the rate.
+
+### 4.5 Variant B: S agent sessions on one task, each at an assumed agent speed
+
+The divisor, measured instead of divided out.
+
+- **Setup.** The person `:ada`; S session layers `:bench-a<i>`, each
+  `{:kind :agent :owner :ada}`, all homed on one task. Placement is by
+  layer (`hash-by :layer`), so the harness makes candidate layers one at a
+  time and keeps those whose making grew the target task's partition
+  (about one candidate in four). Each kept layer gets its root grant and
+  its own session. Each session has its own store handle (`c/connect`),
+  so its own door and pool: no session waits on another's lease, as no
+  real agent process would.
+- **Writers, open loop.** Each session has one writer that sends a value
+  act every 10 ms, 100 acts a second (*assumed*: the README's "an agent at
+  full speed writes about 100 a second"), on a fixed schedule
+  t(n) = t(0) + n × 10 ms with a random phase per session. A send that
+  falls behind its schedule goes at once, and its latency is measured from
+  its scheduled time, not from when it was sent, so a queue at the task
+  shows as latency instead of the writers quietly slowing down.
+- **Levels.** S = 10, 20, 40, 80, 160: 1,000 to 16,000 value acts a second
+  offered. Each: 3 s unmeasured, 15 s measured. The run stops after the
+  first level where fewer than 90% of the offered acts were admitted in
+  the window, or p99 passed 100 ms, or anything erred.
+- **Recorded per level**: offered and admitted value acts a second, lease
+  acts a second, index writes a second, latency from schedule (p50, p99,
+  max), the home task thread's CPU share, and placement (every decision on
+  the one task).
+- **The result**: the largest S at which at least 95% of the offered acts
+  were admitted and p99 stayed at or under 20 ms (number 3's latency line,
+  reused, *assumed*). It reads "this many agent sessions at 100 acts a
+  second each, on one task, on this machine". It does not say how fast
+  real agents write or how many run at once, the README's two missing
+  inputs; they stay Sid's (section 13).
+
+### 4.6 Variant C: the agent reads before it writes, each read recorded
+
+- **Loop.** One session layer, K = 1, 4, 16 writers. Each iteration: a
+  point read of the fact that writer had admitted last (the first
+  iteration reads a fact written at setup), through
+  `rig.store.read-exit/read!` with reader kind `:model` reading for `:ada`,
+  the session layer as both the layer read and the working layer, the
+  session's permission, role `:stood-on`; then a value act standing on
+  that fact at its stamp (`:stood-on {fid stamp}`), as an agent's act
+  stands on what it read.
+- **Per iteration**: one entry act and one value act, each sealed at the
+  door under its own lock, so a lease act every 32 iterations. Writes (2.3):
+  the entry act 10, the value act 9 plus one `:stood-on` row, so about
+  20 + 72/32 = 22.3 a iteration (*derived*).
+- **Reported per level**: iterations a second; value, entry and lease acts
+  a second; index writes a second; the lock rows the entries wrote (the
+  `:locks` growth, one per entry, from the `:own-row` mark in an agent
+  layer); latency of `read!` (its query and its entry's acked offer) and
+  of the write, each p50, p99 and max.
+- **Entry bytes (optional).** The read exit's plan calls an entry line
+  with an exact list "the number to watch" at a model's call rate. After
+  C's windows: a model's pattern reads `[:k :note]` with exact lists of
+  10, 100 and 1,000 matched facts, and the logical bytes (Rama's
+  serializers, as in 6.3) of each entry act's row, its three id-index
+  entries (no copy) and its lock row.
+- **What it informs.** RIG.md default 4 records agent session reads
+  through the exit, which "R5 partly reopens" against ruling 3's "agent
+  session layers may default to none". C prices that default in acts and
+  writes a second. It decides nothing (section 13).
+
+### 4.7 Diagnostics: run and reported, never numbers
+
+- **D1, the door without its lease stalls.** Only when A's rate has
+  flattened (under 10% from K = 64 to K = 128) while the home task thread
+  stayed under 60% of a core: one more K = 128 window with the pool
+  stocked ahead (`c/stock!`, leases of 256, until the pool holds the
+  window's expected acts). It gives the gate's rate when no writer waits
+  on a lease. The stocking lease acts run before the window and are
+  reported apart.
+- **D2, the permission walk.** One K = 16 window in A's layer with acts
+  citing the owner's root permission (a chain of 1) instead of the
+  session's (a chain of 2), beside A's own K = 16 window: whether one more
+  permission read per act shows at all (PLAN-micro-store.md, "the 1.5
+  seeks").
+- **D3, disk syncs per act.** Not run unless a result needs it: the
+  slices' strace road (runs/phase7-agent-rate.txt, "WHAT THE ACK LATENCY
+  IS MADE OF"), for the case where K = 1 latency moves far from the
+  slices' 3.3 ms.
+
+### 4.8 Checked in every window
+
+A window that fails a check is kept, marked, and shown as such by the
+summary.
+
+- Every answer counted; no error; no refusal (a refusal is printed with
+  its reason; the workloads make none by design).
+- One task: only the home partition grew, by exactly the value, entry and
+  lease offers sent; only the home task's clock moved.
+- The two lease counts agree.
+- The sample read-back of 4.3 (and 4.4, 4.6) is complete.
+- No other JVM ran during the window (the overlap monitor, section 8.4).
+
+### 4.9 Run length (derived from the levels, JVM start assumed)
+
+Per run: JVM start, compile and module launch about 40 s (*assumed*, the
+slices did not record it); setup about 10 s; idle 10 s; warm-up 20 s; A
+six levels of 18 s (108 s) and up to two more (36 s); A' three levels
+(54 s); D2 18 s. About 4.5 minutes, 5 with D1. Variant B: about 1 minute
+of setup (some 640 candidate layers made one at a time, 160 grants and 160
+sessions) and five levels of 18 s, about 2.5 minutes with the JVM. Variant
+C: three levels and setup, about 2 minutes. Three runs of each.
+
+## 5. Number 3: one person's layer on one thread, acts a second and latency
+
+### 5.1 What it answers
+
+README.md: ruling 2's placement by layer, with re-class as the way out for
+a hot layer; a bad answer says whether "one thread can carry a person, or
+a person's layer needs splitting". Every offer into a one-owner layer is
+decided on that layer's one task (*code*: the gate's `<<sources` block has
+no partitioner; *slice*: every window one-task), and that task has one
+thread under `{:tasks 4 :threads 4}`.
+
+### 5.2 Setup, per run
+
+The store layer `:people`; the person `:pat`; the personal layer
+`:bench-person`, `{:kind :personal :owner :pat}`, per-value grain; the
+owner's root permission `[:pat :bench-person :bench-person]`. The person
+writes as `:who :pat`, citing that permission, in the door's default
+session `:door/pat` (*code*: client.clj `default-session` and `build`).
+No grammar, so the value act writes 10 (2.3): a personal layer keeps a
+lock row per value. The home task is recorded as in 4.2.
+
+### 5.3 (a) One writer, one act at a time
+
+After the idle window and the 20-second warm-up at 4 writers: 1,000 acts
+unmeasured, then **6,400 measured**, each `c/offer!` timed. The slices
+measured 2,000, which is 31 lease cycles in the finished store: too few to
+place the slowest 1 in 100 when one offer in 64 carries a lease. 6,400 is
+100 cycles. Each offer is tagged "leased" when the door came to know a new
+lease during its call, which is exact with one writer. Reported: acts a
+second; p50, p95, p99, max and mean over all offers; the same for leased
+and unleased offers apart.
+
+### 5.4 (b) K writers sharing one door
+
+K = 1, 2, 4, 8, 16, 32, 64, 128, the slices' levels (64 and 128 were past
+the asked range then and stay so). At each: 3 seconds unmeasured and a
+10-second measured window. Recorded, read back and checked as in 4.3 and
+4.8; the sample read-back adds the lock row, which a personal layer
+writes. Reported per level: value acts a second, all acts a second,
+latency (typical p50, slowest 1 in 100 p99, worst max, with p95 and mean),
+the task thread's CPU share, lease acts, index writes a second, and
+placement ("every offer decided on the layer's one task").
+
+### 5.5 (c) The person's own reads (optional)
+
+2,000 sequential point reads of the person's own facts through the exit
+(reader kind `:person`, the personal layer as the layer read and as the
+working layer), each `read!` timed: p50, p99 and max. A person's read waits
+on a query and on an acked entry, the exit's two round trips
+(PLAN-read-exit.md, "Minimization").
+
+### 5.6 Run length
+
+JVM about 40 s; setup and idle 20 s; warm-up 20 s; (a) about 7,400 offers
+at roughly 3.5 ms, 26 s; (b) eight levels of 13 s, 104 s. About 3.5
+minutes a run; (c) adds about 10 s. Three runs.
