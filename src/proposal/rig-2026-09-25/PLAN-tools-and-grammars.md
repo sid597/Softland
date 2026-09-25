@@ -47,7 +47,7 @@ model's third round's.
   possible later with no new envelope part, and in the examination's
   reading not a copy under the rule. T-FR3 stays first-record. The cost of
   A: every layer states its own grammars, and session layers start with
-  none; in a one-owner layer that changes no unmarked value's forget (4.6,
+  none; in a layer with a person owner that changes no unmarked value's forget (4.6,
   [V-F2]). Where a key's grammar has authority is Sid's (Q1).
 - **The grammar checks at the gate** where phase 2 already refuses one
   shape: `:value-shape`, after the value is opened, now from the grammar's
@@ -593,11 +593,11 @@ subjects beyond owner and tool and are not opaque ... the model's `:note`")
 and today's behaviour, so every earlier test that writes no grammar keeps
 its answers (*derived*; the build confirms by running the suites).
 **[V-F2]** What it costs, narrowed by the caching examination (its 3.1): in
-a one-owner layer an unmarked value is wrapped under the owner alone with
+a layer with a person owner (a personal or session layer) an unmarked value is wrapped under the owner alone with
 or without a grammar (`locks/wrap-of`), so a missing grammar changes no
 unmarked value's forget there. It changes the act's subject union (a
 `:mention` of Bob is not found by Bob), the shape check, the hints, and a
-mark (next paragraph). In a shared layer, with no person owner, it does
+mark (next paragraph). In a shared layer or the base, with no person owner, it does
 change the forget: a promoted copy or a value that lands in a shared layer
 with no grammar for its key is about no one and its wrap is empty
 (LP:480-481). Strict (refuse a key with no grammar) is the other end; it
@@ -1473,7 +1473,7 @@ Rig choices (each can change without touching a record):
   interprets the value (tonight), or never unseals it, under a lock the
   store does not hold?
 - **Q4. A key with no grammar.** Permissive, or refused until the layer
-  states a grammar? Tonight, permissive: **[V-F2]** in a one-owner layer a
+  states a grammar? Tonight, permissive: **[V-F2]** in a layer with a person owner a
   `:mention` of Bob under such a key is not in the act's subjects and gets
   no shape check or hints, and its unmarked wrap is the owner's with or
   without a grammar; in a shared layer it is about no one. **[V-F3]** And a

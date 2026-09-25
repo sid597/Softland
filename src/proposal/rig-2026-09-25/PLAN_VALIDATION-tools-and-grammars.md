@@ -42,7 +42,7 @@ a fix. Not opened: `env.clj`, anything under `src/app`,
 | # | Failure | Fix in the plan |
 |---|---|---|
 | F1 | The grammar section still marks C and F "unsettled" copies and offers G to Sid; the caching examination has settled them | 0, 3.2, 3.3, 3.4, 12 Q1-Q2, 14: the examination's outcome recorded; A is built, C fails, G fails the yardstick, F is deferred (possible later through based-on, R4, with no new envelope part; in the examination's reading not a copy under the rule); T-FR3 stays first-record; the build builds A only |
-| F2 | The cost of a key with no grammar is overstated: "a `:mention` of Bob written there is not about Bob ... his forget does not reach it" reads as a loss for every value, but in a one-owner layer an unmarked value is wrapped under the owner alone with or without a grammar (`wrap-of`, locks build) | 3.2, 4.6, Q4: narrowed to what a missing grammar changes: a `:die-with-any` mark, the act's subject union (finding), the shape check, the hints |
+| F2 | The cost of a key with no grammar is overstated: "a `:mention` of Bob written there is not about Bob ... his forget does not reach it" reads as a loss for every value, but in a layer with a person owner an unmarked value is wrapped under the owner alone with or without a grammar (`wrap-of`, locks build; the base, owned by the root actor, and shared layers wrap unmarked values any-of their subjects, so there a missing grammar does change the forget) | 3.2, 4.6, Q4: narrowed to what a missing grammar changes: a `:die-with-any` mark, the act's subject union (finding), the shape check, the hints |
 | F3 | A `:die-with-any` mark on a key the layer has no grammar for is admitted with no rule stated and no test: its wrap is owner ∪ carried, so the mark silently adds nothing | 4.6: stated as a rig choice (admitted, required = owner ∪ carried), T-RC12; test G7; the examination's question 5 put to Sid with Q4 |
 | F4 | `:grammar-change-needs-rebuild` reads only `:used` from before the act (stream) or the batch (micro). An act holding the first `:note` grammar with `:by-value` and a `:note` value is admitted, its value indexed under the old hints, and the row then says `:by-value`: `[:kv :note v]` misses it silently. The micro batch has the same hole across acts, in both orders | 4.5, 4.7, 3.2 (micro), G4: the act's own value facts under k count as a use; in the micro store any envelope of the same batch in L offering a fact under k does, and the fold refuses the grammar |
 | F5 | "Two runners at once offer the same name with the same content": false as built. `client/build` fills `:claimed-when` from the wall clock and the parts digest covers it (`client.clj` 21-37, both branches), so a second runner's offer is `:name-taken`, not answered from the record | 6.2 c, 6.3, T-FR5, 15: the run's output act carries a derived `:claimed-when` (the millisecond of the later stood-on stamp) and a fixed `:session`, so its content is a function of (L, tool fact, matched fact) |
@@ -249,13 +249,13 @@ H5 as a case.
 ### 2.5 Subjects from a grammar reaching the wrap; the unmarked narrowing; a mark with no grammar
 
 - Grammared, marked: H1's A3, wrap `{:required [:alice :bob]}`. Pass.
-- Grammared, unmarked, one-owner layer: wrap `{:required [:alice]}`
+- Grammared, unmarked, a layer with a person owner: wrap `{:required [:alice]}`
   (`wrap-of`: "unmarked, a person owner: the owner alone required",
   locks build, *checked*); `:subjects #{:alice :bob}` on the answer record
   (for finding). Bob's forget does not close it, as the ruling says
   ("Alice's mention of Bob in her own layer dies with Alice and survives
   Bob", PROGRESS.md 140-142).
-- No grammar, unmarked, one-owner layer (a session layer made tonight with
+- No grammar, unmarked, a layer with a person owner (a session layer made tonight with
   no grammar): wrap `{:required [:alice]}`, the same as with a grammar;
   `:subjects #{:alice}`. So the only differences a missing grammar makes
   are the act's union (finding by subject), the shape check and the hints,
@@ -278,7 +278,8 @@ H5 as a case.
   subjects, and there a missing grammar does change the forget: a `:mention`
   of Bob in a shared layer with no grammar is about no one, its wrap empty
   (LP 207-209; the plan's 4.6 says so for promoted copies). The narrowing
-  in F2 is stated for one-owner layers only.
+  in F2 is stated for layers with a person owner only; the base (owner the
+  root actor, `person-owner` nil) wraps as a shared layer does.
 
 ### 2.6 Opaque keys
 
