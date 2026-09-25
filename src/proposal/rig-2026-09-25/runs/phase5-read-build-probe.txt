@@ -1,0 +1,16 @@
+Probe of PLAN-read-exit.md's [build checks], run by the read exit build, 26 September 2026, under the cluster lock:
+clojure -Sdeps '{:aliases {:probe {:extra-paths ["runs/probes"]}}}' -M:test:probe rig.probe.read-build-probe
+(U+0000 shown as |; stack traces cut; full output runs/phase5-read-build-probe.log, not in git)
+
+Testing rig.probe.read-build-probe
+PAGE {:class "class rpl.rama.util.vector_backed_structures.VectorBackedSortedMap", :keys ["e0|note|0000000000000005|[n5]" "e0|note|000000000000000c|[n12]" "e0a|mention|0000000000000005|[n5]"], :clock 77}
+TAIL {:class "class rpl.rama.util.vector_backed_structures.VectorBackedSortedMap", :keys ["e0|note|000000000000000c|[n12]"], :clock 0}
+WALK 12 addresses
+02:48:42.741 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:query :boom :fail-ack-event]}
+02:48:42.781 ERROR watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:48:43.297 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:query :boom :fail-ack-event]}
+02:48:43.366 ERROR watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+BOOM "THREW rpl.rama.distributed.exceptions.QueryTopologyInvokeFailed: QueryTopologyInvokeFailed" | query ms 657 | next append ms 388 {"s" :ok} | next query ms 208 clock 78
+Ran 1 tests containing 14 assertions.
+0 failures, 0 errors.
+{:test 1, :pass 14, :fail 0, :error 0}

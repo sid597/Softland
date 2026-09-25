@@ -93,9 +93,26 @@ handoff.
     test 7 named a block's extent where it meant a form's; the code was
     right and the test asserts the form's. For phase 6's count it is one
     capability, class (c): two built-in steps a tool can call.
+  - The one-owner read exit built and green, merged here: `rig.store.reads`
+    (four index fields in `$$layers` written in the gate's decision event;
+    purge by value id; a paged rebuild; the `read-point` and `read-pattern`
+    queries; the keyed fingerprint; the entry's facts; the open step behind
+    one seam that passes values through until phase 2's merge) and
+    `rig.store.read-exit` (`read!` shows rows only on its entry's yes). Its
+    tests: `rig.store.reads-test`, `rig.store.read-exit-test` (crashes at
+    each hook, last), `rig.store.read-model-test` (0 differences from the
+    model: 73 answers matched over five histories). On the merge, run by
+    builder A with phase 1, the clock and the revision reader: 62 tests,
+    4,177 checks, 0 failures, 0 errors, 32 s
+    (`runs/after-read-exit-merge.log`). Divergences from the plan are
+    named in `IMPLEMENTATION_VALIDATION-read-exit.md` (D1 to D13); among
+    them, rebuild pages never yield, since a forget landing inside a yield
+    would have a purged value written back (D3), and a fact id in an index
+    address carries its index as fixed-width hex, so index 10 no longer
+    sorts before 9 (D5).
 - **In flight**, each writer in its own worktree off this branch, merged by
-  commit: builds of phase 2 (`Softland-rig-build-locks`), the read exit
-  (`Softland-rig-build-reads`) and phase 3 (`Softland-rig-build-micro`,
+  commit: builds of phase 2 (`Softland-rig-build-locks`) and phase 3
+  (`Softland-rig-build-micro`,
   which merges phase 2's lock primitives from an early commit of
   `rig-build-locks`); validations of the rest of phase 5's plan
   (`Softland-rig-plan-reads-rest`), phase 8's plan
@@ -138,6 +155,11 @@ parent. *Inferred:* that "restore code" was chosen in the rewind menu, which
 the client does not log. For runs with builds in flight: after a refusal,
 restoring the conversation only is safe; restoring code rewrites any file
 the session's history tracks, its subagents' files included.
+
+**An exception in a query topology is fatal to the worker**, as in a
+stream topology (probed by the read exit's build,
+`runs/phase5-read-build-probe.txt`). So a read refuses as data too, never
+by throwing.
 
 **The caching rule, run on two copies** (`EXAMINATION-copies.md`, a fresh
 adversarial session, 03:37). Two designs kept one layer's or one person's
