@@ -178,8 +178,15 @@ of each of the resend's own facts, which reads the first act's row at the
 same `[e name idx]`: its `:lock` (the value's lock, wrapped under its
 subjects, in the record) and phase 2's erasure state for it (the ledger on
 that task, `$$persons`: open-value's inputs). No new field is needed on the
-record. A missing row means the content differs: `:name-taken`.
+record. For a `:yes` record, a missing row means the content differs:
+`:name-taken`.
 
+- If the record is a `:no`, the answer is "recorded", with no content check
+  and no hop: the refused act's leased locks were destroyed at its decision
+  (R1: "refused ... destroyed"), so nothing can recompute its digest. A
+  reuse of a refused name with other content therefore hears the old
+  refusal, not `:name-taken`, where the model's digest check would say
+  taken. This follows from R1 and is listed as an open question.
 - If any first value is erased, the answer is "recorded", with no content
   check. This is R1's rider: after a forget, a reuse with other content
   cannot be told from a retry, which is the price of forgetting.
@@ -258,13 +265,12 @@ reads its own lease row from its own PState on the task where it decides,
 and the function unwraps the row under the owner's person lock. The micro
 side needs no other body. Only the place the row is read from differs (the
 stream store: the layer's home, phase 2's; this store: the lease name's
-task), and that is
-outside the function.
+task), and that is outside the function.
 
 **What the depot holds after this.** Sealed bytes, lock ids, names, ids and
 the carried parts: nothing that could open a value (R1). The only locks not
-yet wrapped under a value's subjects are the lease rows in `$$micro`, and
-they are consumed at decision.
+yet wrapped under a value's subjects are the lease rows in `$$micro-names`,
+and they are consumed at decision.
 
 ### B. Permissions (default R7), both gates
 
@@ -548,7 +554,48 @@ chains of up to four pids, and double-cited locks; `skeleton`, `prepare`,
 
 ### G. The probe (a Rama question the plan must settle)
 
-Filled in below when the probe's run is in (runs/probe-micro-2026-09-26.txt).
+One probe ran on the in-process cluster on 26 September at 02:08 IST, under
+the machine lock (Rama 1.6.0, 4 tasks, 2 threads, 1 worker; source
+`runs/probe-micro-2026-09-26/rig/probe/micro_decl_test.clj`, report
+`runs/probe-micro-2026-09-26.txt`, raw log `runs/probe-micro-2026-09-26.raw.txt`;
+run 2: 8 passes, 0 failures, 0 errors). Each answer is what ran:
+
+- **M1 is settled: a plain `defn` can declare the store's micro side.** A
+  `defmodule` whose body was the one line `(declare-micro! setup topologies)`
+  launched, and the `defn` declared a depot, a tick depot, a microbatch
+  topology with four PStates and its `<<sources`, and a query topology. The
+  topology processed an append (`$$by-tag :q1 = 7`) and the query answered
+  through `foreign-invoke-query` (7). So `module.clj` gets the micro store
+  through one function called by one line, `(micro/declare! setup
+  topologies)`, with its `:require`; no macro is needed. Rama allows it
+  everywhere this plan needs it.
+- **The frontier id's class is settled.** `ops/current-microbatch-id` gave a
+  `java.lang.Long`, `dec` worked on it in dataflow, and a batch retried
+  after a one-shot throw saw the same id on both attempts (4 and 4, dec 3).
+  The ids rose by one per batch (2, 4, 15 across the run, with tick batches
+  between). So §D's frontier, `b − 1` written in block 0, is a Long and the
+  same on every retry of its batch. The throw was fatal to the worker, as
+  phase 0 found, and a client read during the restart threw
+  `ExecutionException :connection-closed`: an offerer's poll must treat a
+  read that throws as "not yet" (the rig's `offer-micro!`).
+- **A vector as a PState's top-level key works.** The schema
+  `{clojure.lang.PersistentVector (fixed-keys-schema {:x Long})}`, written
+  after `(|hash *k)` with `*k` = `[:group :by-entity :offer "abc"]`, read
+  back by the client with `foreign-select-one (keypath k)` as `{:x 3}`. So
+  `$$micro-names` keeps the name vector as its key, and the `(pr-str name)`
+  fallback is not needed; the depot's `hash-by` on a name vector and the
+  PState's key partitioner agree, which §A's routing rests on.
+- **A tick depot as a second source keeps batches running with no data.**
+  With no appends for 2 s, the microbatch ran 10 times and the tick emitted
+  5 times. So the frontier advances after the last data batch (M7); the
+  cadence was about 200 ms here. No control run without the tick was made.
+
+Still open for the build's first checks, as the 25 September plan listed
+them: `materialize>` after the post-agg of `+map-agg` and sourcing it in the
+next `<<batch` (the fallback is named there); a `<<cond` whose branches hold
+different partitioners in a pre-agg-only `<<batch`; vector-key prefix order
+for stage 5's `[L k]` range (not needed by §A, whose lease rows are keyed by
+index under the name).
 
 ### H. Partitioning efficiency, recomputed
 

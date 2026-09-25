@@ -1,0 +1,36 @@
+Probe, 26 Sept 2026: declaring a microbatch module from a plain defn; microbatch ids across a retry; a vector as a PState's top-level key; a tick depot as a second source
+Date: Sat Sep 26 02:08:41 AM IST 2026 (TZ=Asia/Kolkata date; run 2, the run reported below)
+Rama 1.6.0 in-process cluster, {:tasks 4 :threads 2 :workers 1}. Source: runs/probe-micro-2026-09-26/rig/probe/micro_decl_test.clj
+Command, from src/proposal/rig-2026-09-25:
+  flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock clojure -Sdeps '{:aliases {:probe {:extra-paths ["runs/probe-micro-2026-09-26"]}}}' -M:test:probe rig.probe.micro-decl-test 2>&1 | tee -a runs/probe-micro-2026-09-26.raw.txt
+Result: {:test 1, :pass 8, :fail 0, :error 0}. The raw log holds run 1, then run 2 after its "===== run 2" line.
+Run 1 (02:07:46) errored after Q1. The one-shot throw shut the worker down, and a foreign-select-one in the poll threw ExecutionException :reason :connection-closed. For run 2 the poll counts a read that throws as not yet; nothing else changed.
+
+Q1. Can a plain defn declare the module? ran-and-held
+  Ran: (defmodule MicroDecl [setup topologies] (declare-micro! setup topologies)). declare-micro! is a defn that calls declare-depot *events (hash-by :tag),
+  declare-tick-depot *tick 250, microbatch-topology "micro" with four declare-pstate and one <<sources, and <<query-topology "x-of" [*tag :> *x].
+  Appended {:tag :q1 :x 7}, polled $$by-tag, and invoked the query with foreign-query and foreign-invoke-query.
+  Printed: PROBE Q1 launched rig.probe.micro-decl-test/MicroDecl in 1094 ms
+           PROBE Q1 $$by-tag :q1 = 7 ; (foreign-invoke-query (foreign-query ipc mn "x-of") :q1) = 7
+
+Q2. current-microbatch-id: its class, dec on it, and whether it holds across a retry. ran-and-held
+  Ran: inside the <<batch over %mb: (ops/current-microbatch-id :> *b), (class *b :> *cls), and (dec *b :> *b-1) guarded by (number? *b). Each attempt
+  recorded them in an atom. A global atom armed with :q2 threw once, on the first attempt that reached the :q2 record.
+  Printed: PROBE Q2 fired [{:tag :q2, :id 4}] ; reads that threw while polling: 1 {"ExecutionException :reason :connection-closed" 1}
+           PROBE Q2 attempts for :q2 [{:tag :q2, :id 4, :class "java.lang.Long", :dec 3, ...} {:tag :q2, :id 4, :class "java.lang.Long", :dec 3, ...}]
+           PROBE Q2 $$by-tag :q2 = 11 after 860 ms; armed now nil
+  Ids seen: :q1 had id 2 (dec 1). :q2 had id 4 on both attempts (dec 3); the first attempt threw and the retry wrote 11. :q3 had id 15 (dec 14).
+  The class was java.lang.Long every time, dec worked, and the retried attempt saw the same id.
+  The log shows "Unexpected throwable! Will be treated as a fatal!" and then "watchdog - ... Triggering system shutdown" for the worker.
+
+Q3. A vector as a PState's top-level key. ran-and-held
+  Ran: schema {clojure.lang.PersistentVector (fixed-keys-schema {:x Long})}. Appended {:tag :q3 :k [:group :by-entity :offer "abc"] :x 3}.
+  The topology did (|hash *k), then (local-transform> [(keypath *k :x) (termval *x)] $$by-vec). The client did (foreign-select-one (keypath k) $$by-vec).
+  Printed: PROBE Q3 key [:group :by-entity :offer "abc"] class clojure.lang.PersistentVector ; $$by-tag :q3 = 3 ; (foreign-select-one (keypath k) $$by-vec) = {:x 3}
+
+Q4. A tick depot as a second source: does the microbatch run with no depot records? ran-and-held
+  Ran: the tick source did (%tick) (|global) and (term inc) on $$ticks. Under (source> *events :> %mb), a <<batch that never reads %mb did (|global)
+  and (term inc) on $$runs. The probe read both global PStates, slept 2 s with no *events appends, then read them again.
+  Printed: PROBE Q4 window 2003 ms with no *events appends: $$runs 5 -> 15 ; $$ticks 3 -> 8 ; ms since launch at end 3151
+  With no *events records, the microbatch ran 10 times in about 2 s. The tick emitted 5 times in the same window, half the run count.
+  No control run without the tick depot was made.
