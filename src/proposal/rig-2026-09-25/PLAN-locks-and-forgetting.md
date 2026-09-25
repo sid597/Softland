@@ -379,6 +379,10 @@ cites only lock ids it took from a lease's answer (see "The missing lock").
   inside the gate's event. `*persons` is the map of `$$persons` entries the
   event has read (the owner's at least), which is "the task's state" beside
   the PStates themselves. `*lock` is the 32 lock bytes, or nil for missing.
+  `*layer` is the offer's layer; a lock id whose lease name names another
+  layer is missing, so a lock is only ever used in the layer it was leased
+  in (the orchestrator's form, lock id, session and the task's state, with
+  the layer made explicit).
   Total: nil on any failure, never a throw. PStates are reached through
   `<<with-substitutions` (dataflow.md; module-scoped PStates in a
   `deframafn` body) or passed in; no partitioner inside.
@@ -1474,7 +1478,7 @@ a seek's half millisecond.
 
 - The lock record's two vectors repeat the person ids the act's subject
   slot already holds on the answer record; they are kept on the record
-  because `crypto/open` and `wrap-closed` need the wrap without a second
+  because `locks/unwrap` and `wrap-closed` need the wrap without a second
   read, and the sealing order must be reproducible from the lock alone.
   About 25 bytes per value.
 - Raw bytes are used (L4, revised); no text form is kept anywhere.
@@ -1982,7 +1986,9 @@ Written while designing, first person.
   protocol on every write for a record nobody keeps, against a phase named
   "kept simple". So the rig names the gap, shows it in a test, and writes
   the road down with its cost. Genuinely contested; I would build the road
-  in a kept store.
+  in a kept store. (Revised 26 September: the road is now built as the
+  default under CONCLUSION R1, by leases rather than the holder, which
+  stays described as a replacement body of the delivery function.)
 - **The wrap as encryption.** "Required" and "any of" had to become key
   operations, not flags. A chain of seals for required and a copy per
   any-of person was the first shape that made the model's `wrap-closed`
@@ -2016,7 +2022,9 @@ Written while designing, first person.
 - **Bytes or base64.** Raw bytes are the right kept-store answer and a
   third smaller; a schema class question the build would have to check
   first. Text, with M2 stating the inflation, was the simplest thing that
-  keeps every requirement. A real choice, not a hard one.
+  keeps every requirement. A real choice, not a hard one. (Revised 26
+  September: the bench since ran `byte/1` as a schema class and measured
+  169 bytes against 189, so bytes, L4.)
 - **What "the record" means for a lock.** The row's `:lock` field versus a
   second map keyed by fact id: the first is one write and one read per
   value; the second would make the row lock and the record lock the same
@@ -2089,7 +2097,7 @@ written here.
 - **Partitioning:** lock rows by the layer's hash (stage 1's justification
   stands); `$$persons` by `|all`, small and rarely written; the table
   filled for N = 1, 16, 128 with seven categories summing to 1.00, seeks
-  as totals across tasks, weighted seeks flat at 4.77, the fan-out's
+  as totals across tasks, weighted seeks flat at 4.77 (5.886 after the 26 September revision), the fan-out's
   growth shown as its own column and costed against the alternative with a
   break-even; no justification rests on a later stage's mechanism (each
   hand-off is stated as what is left); the stored-placement question does
@@ -2136,9 +2144,12 @@ written here.
   avoids that seek is a cache (rejected by the CLAUDE.md rule and by the
   destroyed-lock-in-memory hazard). A value forget is 6 seeks, a person
   act 4 plus N writes. No cheaper design meeting every check was found.
+  (Revised 26 September: plus one lease-row seek per value fact and the
+  record path's value check; the holder road is constructed and costed in
+  the revision's self-validation below.)
 - **Spec coverage:** I-L1 (the wrap table under "The shapes" and L3),
   I-L2 (L5), I-L3 (erasure by destroying a lock; the gate reads plaintext
-  values it wraps), I-L4 and O2 (L2, with the gap), I-L5 (`:erased` and
+  values it wraps), I-L4 and O2 (L2 revised: the depot holds sealed values only; P6 check 1), I-L5 (`:erased` and
   `:by-stamp` rebuildable; `:heads` untouched), I-L6 (L6), I-L7 (`read-as-
   of`), I-L8 (encodings change, meaning does not), D2 (control keys), D3
   and O12 (L7, L8), D9 (`:own-row` in every layer), D12 and O8 (L6); OP8
