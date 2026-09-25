@@ -70,7 +70,13 @@ Each change, with its reason in a line:
     permission chain and the hop to the entity task. Why: the costs moved.
 11. **Rig choices.** M4, M8, M11 and M12 revised; M16 to M24 added (§I).
     First-record picks are marked.
-12. **What stands unchanged, and why it still holds:** M1 (with the probe's
+12. **The probe (§G)** settled M1 (one `defn`, one line in `defmodule`), the
+    frontier id's class (a Long, the same across a retry), a name vector as
+    a top-level key, and the tick depot's cadence. Why: the plan could not
+    otherwise be validated on those points.
+13. **Open questions (§J)** gathered in one place. Why: each needs Sid, a
+    later stage or the build's first check, and none blocks this build.
+14. **What stands unchanged, and why it still holds:** M1 (with the probe's
     answer, §G), M2 (batch order), M3 (the leader's fold over skeletons: a
     lock and a value never reach it), M5 (a re-classed layer's stream-era
     history read as settled history; the base now uses it too), M6 (R6:
@@ -490,6 +496,11 @@ asked of the model too:
   through this gate once phase 2's locks merge. Their lock assertions are
   phase 2's; this stage provides the path and the wrapped lock in the row.
 
+The model's permission ids map to the rig's (M20): `[p l :own]` becomes
+`[p l l]` when p owns l (the layer's root), else `[p l l root]` beneath l's
+root; `[p l :session]` becomes `[p l :alice-hand]`, kept in the hand layer,
+so it is refused as from another layer, as under the model's baseline.
+
 The rig's own, each named in the step:
 
 - **The revocation race.** D1 as above; in one batch, a revoke then a write
@@ -725,6 +736,41 @@ require, §G), `gate.clj` (the two permission lines of §B),
 also changes `gate.clj` and `envelope.clj` tonight; the lines here are in
 functions its sealing does not need (`refusal`'s permission clauses,
 `pids-to-read`, `pid?`), and the merge is where a mismatch would show.
+
+### J. Open after this revision
+
+Each is either Sid's, a later stage's, or the build's first check; none
+blocks the build of this stage.
+
+1. **A refused name reused with other content** hears the old refusal, not
+   `:name-taken` (§A, the resend path): R1 destroys a refused act's leased
+   locks, so its lock-keyed digest cannot be recomputed. The model's digest
+   check would say taken. Sid's, with R1: keep it as the price, or keep a
+   refused act's digest under a key that outlives its lock.
+2. **"Nothing recorded" for a missing lock**: this plan writes a faces
+   entry that is not the name's answer (§A). If the default means no entry
+   at all, the change is one line.
+3. **The permission walk against the cascade** (§B): the walk costs about
+   1.5 seeks per offer; the cascade wins on throughput and touches no
+   record, so it can replace the walk after phase 7's numbers.
+4. **Who may grant beneath a permission.** The operator only, tonight (R13);
+   delegation by a holder is open and changes no record.
+5. **Coverage by `:who` or `:session`** is a claim the gate cannot check,
+   as every offer's `:who` is at launch (operator trusted, no signing).
+6. **Unused leases.** A lease whose door never sends stays as a row wrapped
+   under its owner, opening nothing in the store; an expiry is not
+   designed. A stream lease for the base minted before its re-class is
+   phase 2's to consume or expire; the door leases here after.
+7. **Phase 2's shapes**: the lock id, the content digest's exact form over
+   an act of several values, and the envelope part that cites a lock are
+   taken from phase 2's revision; where they differ from §A's placeholders,
+   phase 2's win and the adapters are in `micro.clj`.
+8. **The root actor and the operator**: `:root` owns the base and holds its
+   root, and never offers; whether it is the operator's identity is open.
+9. **The frontier id** is Rama's microbatch id (M23). A kept store that
+   could re-create the topology owns the sequence instead.
+10. **A re-classed layer's stream-side settings after the re-class** (P16)
+    are not bounded by a read entry's frontier: stage 5's.
 
 ## Scope of this stage, in one paragraph
 
