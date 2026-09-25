@@ -22,7 +22,7 @@ was run, for F2's page reads (see "Unverified Rama behaviours"). -->
 
 ## Verdict
 
-**minor-fail.** Eleven failures, each fixed in the plan in place (F1 to F11,
+**minor-fail.** Twelve failures, each fixed in the plan in place (F1 to F12,
 marked `[F<n>]` in PLAN-read-exit.md). Two of them are substantive: the read
 entry could be stamped below the moment it records (F1), and the rebuild as
 one event cannot finish on a large layer inside Rama's stream timeout (F2).
@@ -45,6 +45,7 @@ could write and trace here; nothing the other sections rest on moved.
 | F9 | IMPLICIT_SPEC RD2 defines the point read by layer, entity and key (the chain's head), recorded as rows; the plan serves that read as the pattern `[:latest e k]`, recorded as a line, and defines point reads by fact id, without naming the divergence | Named in FR9 and "For Sid"; no mechanism change |
 | F10 | Interfaces: the gate edits were not all named (F1 adds one), the person forget's reach into `:ix-kv` was left to "phase 2's pick" while phase 2's plan picks nothing for it, and the reader's kind is caller-supplied | Named in "Interfaces"; the person-forget obligation and phase 2's duplicate `read-as-of`/`:by-stamp` go to builder A; the kind comes from the actor in a kept store |
 | F11 | The partitioning tables omit the point read, a category of input | Point-read row added, weights re-summed |
+| F12 | Visibility is decided for `:reader`, which for an agent is its own actor id; an agent in Alice's session is then refused Alice's personal layer and even its own session layer (owned by Alice), so default 4's recorded agent reads cannot happen | The exit and the queries take `:for`, the person the read is for; visibility is decided for it; the entry's `:who` stays the agent |
 
 ## Query topology: `read-point`
 
@@ -457,6 +458,24 @@ No mechanism fails deletion. Pass.
   agent reads; the plan follows default 4 and says so (plan line 737-739).
 - **Verdict**: PASS.
 
+### C8b. An agent's read passes visibility (F12)
+
+- **Source**: default 4 "Agent session reads are recorded there"; ruling 9
+  "a person's own and session layers private to that person"; store-level
+  "Owner is derivable at read time from author, layer and permission".
+- **Trace**: `:alice-agent` (kind agent, owner `:alice`); the agent's actor
+  `:agent-a`, reader kind `:model`, reads `:alice` and `:alice-agent`. The
+  plan's step 3 calls `(reads/visible? *settings *reader)` with `*reader`
+  `:agent-a`; RC6 makes personal and session layers visible to their owner,
+  `:alice`: both reads are refused `:not-visible`, nothing is recorded, and
+  T15 cannot pass as written unless the test passes `:reader :alice`, which
+  makes the entry's `:who` Alice and loses who read.
+- **Fault/race**: none (a pure check).
+- **Flaws found**: F12.
+- **Verdict**: FAIL; PASS after F12 (`:for`, the person the read is for,
+  decides visibility; `:reader` stays the entry's `:who`; in a kept store the
+  gateway derives `:for` from the session, never from the call).
+
 ### C9. The moment's form
 
 - **Source**: default 3 "A one-owner layer's moment is its stamp, inline; a
@@ -639,7 +658,7 @@ failures, 02:34 IST).
 
 ## Self-consistency
 
-Every place above that names a gap is a FAIL with its fix (F1 to F11) and is
+Every place above that names a gap is a FAIL with its fix (F1 to F12) and is
 fixed in the plan. What remains open is surfaced, not certified: the
 over-recording crash (entry recorded, answer not shown), hand-written
 `:read/*` facts, a `[:kv]` line holding its value in the pattern, the

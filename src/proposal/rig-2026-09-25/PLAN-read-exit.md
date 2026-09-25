@@ -32,7 +32,7 @@ first and the fallback is named). -->
 
 **Validated, 26 September, 02:13 to 03:00 IST (phase 2 of the rama skill):
 minor-fail, fixed in place by the validator. Every fix is marked `[F1]` to
-`[F11]` where it lands; PLAN_VALIDATION-read-exit.md has the traces. Where
+`[F12]` where it lands; PLAN_VALIDATION-read-exit.md has the traces. Where
 text below a fix still says otherwise, the fix wins.**
 
 ## Scope of this stage
@@ -246,7 +246,15 @@ tonight a parameter), `:working` (the reader's working layer: where its acts
 land, its session layer or its own layer), `:permission` (the reader's
 permission in the working layer, a pid `[who working working]`), and
 `:role` (one of the placeholders `:stood-on`, `:shown`, `:matched`,
-`:passed-through`; default `:shown`).
+`:passed-through`; default `:shown`), and **[F12]** `:for`, the person the
+reader reads for: the reader itself for `:person`, the session's person for
+`:model` and `:tool` (tonight a parameter; a kept store derives it from
+the session-start fact, "owner is derivable at read time from author,
+layer and permission"). Visibility is decided for `:for`, never for an
+agent's or a tool's own actor id: an agent in Alice's session reading her
+personal layer, or its own session layer `:alice-agent` (owned by Alice),
+reads what Alice may see, and its entry's `:who` stays the agent, under its
+own permission in the working layer (R7: agents narrower still).
 
 **The read entry** (ruling 3 as written; **first-record** in every part
 below). One act per exit call, in the working layer, offered as an ordinary
@@ -310,8 +318,8 @@ exit then appends through the depot.
 
 | read | who | method | reads on the home task |
 |---|---|---|---|
-| RE1 point read `[L reader fids as-of]` | the exit | query topology `read-point`, leading `(|hash *layer)` | the layer's settings (1, visibility); `$$clock` STAY (1); per fid, `[(keypath L :answers name)]` (1 seek, the name's record) and, only when the record is a yes at or before the moment, `[(keypath L :log name idx)]` (1 to 2 seeks, the row) |
-| RE2 pattern read `[L reader pattern as-of limit]` | the exit | query topology `read-pattern`, leading `(|hash *layer)` | the layer's settings (1); `$$clock` STAY (1); a loop of doubling pages over one index, `{:allow-yield? true}` (1 seek per page, one iteration per entry, stopping at the range's end or at limit + 1 matches); no per-fact seek (the entry carries the row) |
+| RE1 point read `[L for fids as-of]` [F12] | the exit | query topology `read-point`, leading `(|hash *layer)` | the layer's settings (1, visibility); `$$clock` STAY (1); per fid, `[(keypath L :answers name)]` (1 seek, the name's record) and, only when the record is a yes at or before the moment, `[(keypath L :log name idx)]` (1 to 2 seeks, the row) |
+| RE2 pattern read `[L for pattern as-of limit]` [F12] | the exit | query topology `read-pattern`, leading `(|hash *layer)` | the layer's settings (1); `$$clock` STAY (1); a loop of doubling pages over one index, `{:allow-yield? true}` (1 seek per page, one iteration per entry, stopping at the range's end or at limit + 1 matches); no per-fact seek (the entry carries the row) |
 | RE3 an entry's answer | the exit, tests | phase 1's `client/lookup` (RD1) | unchanged |
 | RE4 the index entries of one fact | purge (the gate, in a forget event), tests | `[(keypath L :ix-of fid)]` | 1 seek |
 | RE5 a page of a layer's acts and their rows **[F2]** | a rebuild put page (the gate, one event per page), tests | `[(keypath L :answers) (sorted-map-range-from nm {:max-amt n :inclusive? false})]` (from the start when `nm` is nil), then per yes act `[(keypath L :log name) (subselect ALL)]` | 1 seek + n iterations, then 1 seek per yes act |
@@ -660,15 +668,16 @@ throws. A query topology exception is not known here to be fatal to the
 worker as a stream one is, but this plan does not find out by accident
 [phase-1 ran for stream topologies only].
 
-### `read-point` `[*layer *reader *fids *as-of :> *answer]`
+### `read-point` `[*layer *for *fids *as-of :> *answer]` [F12: `*for`, the person the read is for]
 
 1. `(|hash *layer)`.
-2. `(reads/parse-point *reader *fids *as-of :> *p)` — total; refuses a
+2. `(reads/parse-point *for *fids *as-of :> *p)` — total; refuses a
    non-vector list, more than 1,000 fact ids (a rig choice), a malformed
    fact id, or a malformed moment, as data; a refusal skips to step 7 with
    `*answer` bound to it (both branches unify on `*answer`).
 3. `(local-select> [(keypath *layer :settings)] $$layers :> *settings)`;
-   `(reads/visible? *settings *reader :> *ok)` — ruling 9's default:
+   `(reads/visible? *settings *for :> *ok)` (**[F12]**: for the person the
+   read is for, so an agent's read is not refused for its own id) — ruling 9's default:
    personal, hand and agent layers are visible to their owner; the base to
    any authenticated actor; else `{:refused :not-visible}`, **[F4]** and
    the same `:not-visible` when settings are nil, so a reader cannot tell a
@@ -700,7 +709,7 @@ an entry with no rows; see "The exit"). **Variable**: the count follows
 the input; handled by `loop<-`, one record seek per fact id and one row
 seek only when the record says the fact is there.
 
-### `read-pattern` `[*layer *reader *pattern *as-of *limit :> *answer]`
+### `read-pattern` `[*layer *for *pattern *as-of *limit :> *answer]` [F12]
 
 1. `(|hash *layer)`.
 2. `(reads/parse-pattern *pattern *limit reads/seed-hints :> *pp)` — total:
@@ -796,7 +805,7 @@ moves the same function behind the server. Its handles are taken once, `(read-ex
 function:
 
 ```
-(read! store {:reader :alice :reader-kind :person|:model|:tool :rows? false
+(read! store {:reader :alice :for :alice :reader-kind :person|:model|:tool :rows? false
               :working :alice-hand :permission [:alice :alice-hand :alice-hand]
               :layer :alice :read [:point [fid ...]] | [:pattern p]
               :as-of nil :limit 1000 :role :shown :entry-name nil})
@@ -1001,11 +1010,15 @@ two files; neither plan removes or reorders the other's lines.
 - **Phase 3's micro gate** (its own namespace): nothing tonight. Its
   settled-frontier id (its M23, a microbatch id, a Long) fills the moment's
   `{:frontier id}` slot later.
-- **The reader's kind.** Tonight a parameter of the exit's caller. A kept
-  store's read gateway (R5) takes it from the actor (the session-start fact
+- **The reader's kind, `:for` and the working layer.** Tonight parameters
+  of the exit's caller. A kept
+  store's read gateway (R5) takes them from the actor (the session-start fact
   and phase 6's tool signature), never from the call, since a model called a
   `:tool` would otherwise leave a short line (ruling 3: a model's reads are
-  the exact list, always).
+  the exact list, always), a reader naming another person as `:for` would
+  read that person's private layers (F12), and an entry sent to a working
+  layer others can see (a layer where someone granted the reader write
+  permission) would show them the ids of what the reader read.
 - **What this stage exports**, in `rig.store.reads`: `layer-fields`,
   `seed-hints`, `declare-queries!`, `declare-depots!`, `address`,
   `index-writes`, `purge-writes`, `put-page-writes`, `sweep-page-writes`,
@@ -1383,7 +1396,11 @@ Tests the design adds:
   same history run without the crash.
 - **T13. Visibility.** Bob reading Alice's personal layer is refused
   `:not-visible` and nothing is recorded; a read of the base (made one-owner,
-  owned by the root actor, R8 as a default) by Bob is answered.
+  owned by the root actor, R8 as a default) by Bob is answered. **[F12]** A
+  model reader `:agent-a` with `:for :alice` reads `:alice` and
+  `:alice-agent` and is answered, its entry in `:alice-agent` with `:who
+  :agent-a`; the same reader with `:for :bob` reading `:alice` is refused
+  `:not-visible`.
 - **T14. No throw.** Property tests drive `parse-pattern`, `parse-point`,
   `index-writes`, `purge-writes`, `put-page-writes`, `sweep-page-writes`, `entry-moments`, `entry-facts` and
   `fingerprint` with generated garbage and generated offers, and assert
@@ -1416,8 +1433,8 @@ Tests the design adds:
 
 ## Spec coverage, self-check (the validator does the full trace)
 
-(The validator's trace, PLAN_VALIDATION-read-exit.md, found eleven
-failures under these PASS lines, F1 to F11; the lines below are the plan
+(The validator's trace, PLAN_VALIDATION-read-exit.md, found twelve
+failures under these PASS lines, F1 to F12; the lines below are the plan
 author's and stand as corrected by those fixes.)
 
 - **"Point reads and pattern reads on a layer's home task, as of a
