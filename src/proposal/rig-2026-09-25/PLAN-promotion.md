@@ -812,3 +812,313 @@ for Sid in the receipt.
   statements), `promotion-status`.
 - New: `rig.store.promote` (the store-made crossing and landing offers,
   pure; the status function over three answers, pure; the statements).
+
+## Namespaces and tests
+
+`rig.store.promote-unit-test` (no cluster) and `rig.store.promote-test`
+(in-process cluster, every run under `flock
+/mnt/data/projects/rig-relay-2026-09-26/cluster.lock`), run by name, so
+`gate_test.clj` never loads. The world is the model's (Alice, Bob, `:alice`,
+`:alice-hand`, `:group`, the base; entities `:e0` to `:e3`; keys `:note`,
+`:mention`). "Status" below is `promotion-status` as of now; "reads open"
+and "reads erased" are `open-value>` through the read exit.
+
+**Holding a step** (R3, global atoms, PR15). `inject/hold!` on a request
+name stops the stream gate's continuation at one of two points,
+`:before-read-out` or `:before-forward`; the record's processing ends there
+with the request's answer (and, at the second point, the crossing's). After
+`release!` the door's resend of the request, answered from the record,
+continues the promotion from where it stopped. Phase 3's batch hold (the
+one its revocation race uses) holds a landing already in `*micro-offers`;
+where it is a crash rather than a hold, the `:before-forward` hold stands
+in, and the test says so.
+
+**Unit (no cluster).**
+
+- U1. The box: `box` then `unbox` with the lease's private key gives the
+  lock back; with any other private key, a changed byte of the box, or a
+  public key of the wrong length, `unbox` is nil and never throws.
+- U2. The store-made offers: `crossing-offer` and `landing-offer` from a
+  request and a source are the shapes in PR2 and PR3; the landing's name is
+  `[T C :landing uuid]` with the request's uuid and the carried class; its
+  `:subjects` are the request's, never the source act's; its stood-on
+  carries the source's and the crossing's stamps.
+- U3. The status function over three answers gives the model's
+  `promotion-status` for every combination (none, pending, crossed, done,
+  refused at either step; stamps before and after the as-of moment; the
+  landing above the frontier reads crossed).
+- U4. The request's control value check: each malformed shape is
+  `:malformed-control`; the lease name tagged for another layer or class,
+  a 43-byte public key, a permission in another layer, 257 subjects.
+
+**Cluster.**
+
+- **T1 to T4, the model's B cases**, each played as scenarios.clj plays it,
+  each asserting the model's `:values` and its `:shown` sequence, the
+  closing read last:
+  - **T1** "a value forget queued before the read-out: pending, then
+    refused". Alice's note in `:alice`; a landing lease in `:group`; hold at
+    `:before-read-out`; `promote!` → status pending; Alice forgets the note
+    → status pending; release, resend → the read-out records
+    `:source-erased`; closing status refused. Shown `[:pending :pending
+    :refused]`; Alice's note reads erased. No landing was ever appended
+    (`*micro-offers` has no record under the landing name).
+  - **T2** "Alice forgotten before the read-out: pending, then refused".
+    Hold at `:before-read-out`; `promote!` → pending; Alice's person forget
+    (phase 2's fan-out, waited for on `:alice`'s home); release, resend →
+    `:source-erased`; closing refused. Shown `[:pending :refused]`.
+  - **T3** "a value forget after the read-out: crossed, then done; the copy
+    stays". `promote!` with the landing held on the micro side → crossed;
+    Alice forgets the note → crossed; the landing's batch runs → done;
+    closing done. Shown `[:crossed :crossed :done :done]`; Alice's note
+    reads erased, the group's copy reads open.
+  - **T4** "Alice forgotten after the read-out: crossed, then done; the copy
+    stays". As T3 with Alice's person forget in place of the value forget.
+    Shown `[:crossed :done :done]`; the copy reads open. The landing's
+    `:who` is Alice, forgotten: PR13 is what lets it land.
+- **T5, both sides of the read-out line, by stamp.** In T3's history, a
+  status read as of the request's stamp is pending, as of the crossing's
+  stamp crossed, as of the landing's stamp done; in T1's, as of the
+  crossing's stamp refused. The line is the crossing's stamp on `:alice`'s
+  home, where the forget's stamp falls on one side of it.
+- **T6, a retried request lands once.** The door resends the request under
+  its name five times: twice while held before the read-out, once between
+  the crossing and the landing, twice after the landing. Exactly one
+  crossing record, one forward, one landing answer, one copy row in
+  `:group`; every resend's ack carries the same request and crossing
+  answers; the landing lease row is gone after the first landing; status
+  done. Repeated with the base on the stream gate as T.
+- **T7, a crash between the forward and the landing** (a failover in the
+  rig: a worker restart).
+  - (a) `inject/point! :after-forward` throws once after the append: the
+    record replays, the request and the crossing answer from their
+    records, the stored forward is appended again; the micro gate decides
+    the landing once (a second record in `*micro-offers` under the same
+    name, answered from the record, or collapsed in one batch by phase 3's
+    F3); one copy.
+  - (b) `:before-forward` throws once after the crossing's commit and before
+    the append, and the test forgets the source before the replay: the
+    replay re-sends the stored forward, and the copy lands. This is the case
+    the model's `forward` would not re-send ("while the source can still be
+    opened"); in the model the first send cannot be lost, so the outcomes
+    agree.
+  - (c) The landing's batch fails once on the micro gate (phase 3's crash
+    hook): the batch retries whole; the copy is admitted once and the lease
+    consumed once.
+- **T8, a forget of the source after the landing.** T3's history run to
+  done, then Alice forgets the source: the copy reads open, the source
+  erased. The depot check (as T11) finds the source's plaintext under no
+  live lock; the forward's and the micro depot's landing bytes open only
+  under the copy's record lock. Then the copy is forgotten in the base on
+  the stream gate (phase 2's forget of a record lock; the group's excision
+  is phase 3's to offer, and the test runs it there if phase 3 has it):
+  nothing anywhere opens it.
+- **T9, a landing refused by the target.** (a) Between the crossing and the
+  landing, the operator revokes Alice's permission in `:group` (in the
+  group, where it lives): the landing is `:permission-revoked`, status
+  refused with that reason; the lease row is gone; the landing's bytes in
+  `*micro-offers` and in `:forwards` open under no lock the store holds.
+  (b) Bob writes the same entity and key in `:group` after the request: the
+  landing is `:stale-replaces`. (c) Alice's session in `:group` is closed
+  before the landing: `:landing-lock-gone`, recorded. Each: crossed, then
+  refused; Alice's source still reads open (the promotion is not a forget).
+- **T10, the base before and after its re-class.** (a) No group yet, the
+  base one-owner on the stream gate: `promote!` into the base lands through
+  the stream gate's hop (no record in any depot), the copy in the base
+  wrapped by the no-owner row, status done. (b) After the re-class: the same
+  promotion lands through `*micro-offers`. (c) The request made before the
+  re-class, with the forward held; the re-class decided; released: the
+  landing, named `[base :by-layer :landing uuid]`, reaches the stream gate,
+  which refuses it `:class-mismatch` (recorded), and consumes its lease;
+  status refused.
+- **T11, nothing in any depot opens after the source value's forget before
+  the read-out.** After T1's and T2's histories: every record of `*offers`
+  and `*micro-offers`, read raw (`foreign-depot-read`), and every box in
+  them, tried under every lock the store still holds (lock rows and record
+  locks unwrapped with every live person lock, every symmetric lease row,
+  every landing lease's private key, the live person locks themselves):
+  none gives the source's plaintext; no landing record exists; the unused
+  landing lease's private key opens no box anywhere. Then Alice's session
+  in `:group` closes and the lease row is gone.
+- **T12, the reservation.** A door's `:landing` name or `:crossing` name
+  on `*offers` is `:reserved-scheme`; a door's `:crossing` name on
+  `*micro-offers` is `:reserved-scheme`; an `:offer` name citing a landing
+  lease is `:no-such-lock`; a landing lease act of count 2 is
+  `:malformed-control`.
+- **T13, whose the copy is.** Alice's `:mention` of Bob in `:alice`,
+  promoted into `:group`: Alice's person forget leaves the copy open; Bob's
+  erases it (about one person in a shared layer, 7b as written). A plain
+  note about no one survives both. The copy is about whoever the target's
+  grammar and the request's tool name, not its former owner.
+- **T14, what is said.** `promote!` returns `:pending` or `:crossed` with
+  the statements of "What is said at the point of promotion";
+  `promotion-status` returns the statement of the state it found.
+
+## What later stages consume, and where it is
+
+- **Reads (phase 5).** `promotion-status` and the statements; the crossing
+  is an ordinary fact in the owner's layer, shown by reads with its stamp;
+  a read of a `:promote-request` row gets `:promotion` from the status
+  query (one call per such row in the exit). Ruling 3's "agent session
+  layers may default to none, with the line added on promotion": under
+  default 4 every read is recorded, so nothing is added; were agent layers
+  to record none, the read-out is where the line belongs (it is the read
+  that happened). Named, not built.
+- **Tools and grammars (phase 6).** The copy's subjects are the target
+  gate's to compute, as for any value: the key's grammar over the copy and
+  the carried `:subjects`, which a tool fills from its signature through the
+  request. Phase 6 replaces the rig's grammar with facts; nothing here
+  changes.
+- **The numbers (phase 7).** No new number. **Replays (phase 8).** The B
+  cases; the differences to report: a landing lease act in the target
+  before each request (the model has none), the read-out as a continuation
+  (the same order), and the re-send from the stored forward (T7 b).
+
+## Design difficulty log
+
+**How the landing's lock reaches the target.** This was the whole stage,
+and it was not close once I had the three forgets and the one-event rule
+side by side. My first design put a lock minted at the read-out in a row on
+the owner's task for the micro gate to read; it fell on consumption,
+because the micro gate cannot delete a stream gate's row, and a message
+back would make two places consume one lock and leave a window where the
+copy's forget misses it. My second had the micro gate mint a symmetric
+lease that the stream gate fetches in a hop before the read-out's event.
+That one works, and it was genuinely competitive: no new cryptography, two
+hops per promotion. It lost on two things I could name: a bare lock
+travels between tasks, which phase 3 has as its rule against, and the
+read-out would need the micro store reachable, a read of the other store
+in the promotion's path. The sealed box removed both at the price of a
+key agreement the JDK has, which I probed rather than assumed. Then B case
+4 caught me: phase 2 and phase 3 seal lease rows under the lease act's
+writer, and a landing lease under Alice's lock would die with her after the
+read-out. So landing leases are bare; that is what the case needs, and I
+checked what a bare row retains (nothing before the read-out, the copy after
+it) before keeping it.
+
+**The micro depot and the reserved scheme.** I wanted the reservation to be
+structural, a `:disallow` depot for landings, and dropped it when
+microbatch.md reminded me that each `source>` is its own dataflow section:
+phase 3's single fold over the batch's skeletons could not see both. The
+choice left is to take a `:landing` name on `*micro-offers` only as a
+landing. It is weaker, and I say so in open question 1 rather than dress
+it up; the ruling "no signing, a later edition can add the part" is where
+the strong form belongs.
+
+**The read-out's place in the event flow.** The model queues the read-out
+as an offer; a depot record for it looked faithful. Traced, it added a
+depot and a second source, and the order it bought is the order the task
+already gives a continuation. Not close.
+
+**The stored forward.** The model's `forward` re-sends only while the
+source opens. I nearly copied that, and then traced Rama's order: the
+append follows the commit, so there is a crash window the model does not
+have, and a forget inside it would lose a crossed copy. Storing the
+landing was forced once that was on the page.
+
+**A missing landing lease: face or recorded.** Phase 2 made a missing lock
+a face refusal for good reasons (a door resends under a new lease). A
+landing is never resent under another lease, and a face refusal would leave
+the promotion crossed for ever. Recorded, then; forced once I asked what
+the person would see.
+
+**What I did not settle and did not pretend to:** whether a landing lease
+should outlive its session (open question 2), and whether a door should be
+able to forge a landing at all (open question 1).
+
+## Self-validation against `artifact-plan-validation.md`
+
+- **Query topology.** `promotion-status`: reads counted per state, the
+  second task reached only when the crossing is a yes; no empty read issued
+  where the state already decided. Pass.
+- **PState schemas.** Two fields and two optional lease fields, fully typed,
+  no `Object`; `:forwards` subindexed; no new PState, with the rejected
+  `$$promotions` costed. Pass.
+- **Partitioning.** Placement from `f` first; the table flat at 4.10
+  weighted seeks at N = 1, 16 and 128; the write path's terms independent
+  of N. Pass.
+- **Topologies.** No new topology; the stream gate's continuation is in the
+  topology that owns `$$layers`; at most one stream topology holds. Pass.
+- **Production readiness.** Every refusal is data: the box functions are
+  total, the read-out's refusals are recorded, the landing's missing lease
+  is recorded; no throw on any offer. Crash at each boundary traced (T7):
+  before the crossing's commit (nothing visible, the replay decides fresh,
+  and no landing exists yet), after it (the record path re-sends the stored
+  forward), after the append (a duplicate answered by name), in the
+  landing's batch (retried whole). Pass.
+- **Internal depot usage.** The one append (`*micro-offers`) follows a
+  commit boundary `(|direct (ops/current-task-id))`, uses `:append-ack`
+  (never `:ack`: the depot is not consumed by the appending stream
+  topology, but `:append-ack` is all the forward needs), and runs on the
+  task the depot's partitioner would pick. Pass.
+- **Cross-topology correctness.** The stream gate writes only `$$layers`;
+  the micro gate only its own PStates; neither writes the other's. The
+  micro gate reads nothing of the stream store for a landing. Pass.
+- **Stream topology correctness.** No partitioner inside the read-out's or
+  the stream landing's decision event; every write idempotent under replay;
+  randomness bound before the decision. Pass.
+- **In-memory state.** None. Pass.
+- **Minimality.** Delete the landing lease: no opener reaches the target's
+  task by a path the depot never sees (default 1 fails). Delete the box:
+  the lease's lock would have to reach the read-out by a hop (the
+  alternative costed above). Delete the stored forward: T7 b loses a
+  crossed copy ("after it does not recall" fails). Delete the class in the
+  landing name: every promotion into the base before its re-class is
+  refused on its face at the micro gate (`:wrong-gate`), default 6 fails.
+  Delete `:landing-lock-gone`: a crossed promotion can stay crossed for
+  ever. Delete `promotion-status`: "the read says which" fails. Delete the
+  statements: the sharpening's "say all of this at the point of promotion"
+  fails. Delete PR10: the micro gate either refuses the store's landings or
+  takes any landing name without its lease. Each stays.
+- **Throughput.** Per promotion: 7 seeks and 0.26 ms of cryptography on the
+  owner's home, 1 hop and 1 append, then an ordinary sealed act at the
+  target plus 0.08 ms. The hop alternative costs 2 more hops per promotion
+  and a read on the micro store's task; the back-channel alternative an
+  extra stream act per promotion. Promotions are rare beside ordinary acts;
+  nothing here touches the ordinary offer's path.
+- **Spec coverage.** Sid's phase 4, clause by clause: the request act in the
+  owner's layer (step 1, PR1); the read-out opening the value through its
+  lock on the owner's task and writing the crossing fact there (step 2,
+  PR2); a landing offer named from the request under a reserved scheme
+  (step 4, Names, PR3, PR10); pending with two states (step 5,
+  `promotion-status`); a forget before the read-out refuses, after it does
+  not recall (the forgets walked; T1 to T4; T11); the tests: both sides of
+  the read-out line (T1 to T5), a retried request landing once (T6), a
+  failover between forward and landing (T7). The sharpening: the copy's
+  subjects (step 4, T13); crossed does not promise done (T9, T10 c); say it
+  at the point of promotion (step 6, T14); the uniformity rule (the
+  protocol section, PR1 to PR5). Sid's rule on order between the stores: no
+  cross-store check anywhere; the landing stands on the crossing. Default
+  1: the hard question. Default 2: stamps. Default 6: T10. Pass, with the
+  open questions below.
+
+## Open questions (for Sid, or for the build's first check)
+
+1. **The reservation on `*micro-offers` is by rule, not by channel.** A door
+   that deliberately makes a landing name for a request it sent, and seals
+   to its own landing lease, can land content no read-out made. Built: the
+   rule PR10; the strong form is a store signature on its landings, the
+   part the ruling defers ("no signing; a later edition can add the part").
+2. **A landing lease dies with its session** (PR9), so a requester whose
+   session in the target closes before the landing sees crossed, then
+   refused (`:landing-lock-gone`). The door waits; a crashed door's session
+   (open item 82) may not. Should a landing lease outlive its session, at
+   the cost of a second lifetime rule and key pairs kept after abandoned
+   requests?
+3. **A person's forget against a read-out** (PROGRESS.md, open): the rig
+   orders them on the owner's home task, where both are decided; the
+   fan-out's order on other tasks does not reach the read-out. Reasoned,
+   then tested by T2 and T4.
+4. **A copy about someone already forgotten** is refused by the target's
+   gate as any such write is (phase 3's `:person-forgotten`): crossed, then
+   refused. "Writes about someone already forgotten" is open.
+5. **A re-class of the target between the request and the landing** refuses
+   the landing (T10 c), because the name fixed before the first gate names
+   the old gate. The ruling's order; stated so Sid sees the consequence.
+6. **Promotion out of a re-classed one-owner layer** is not built: its
+   requests would reach the micro gate, which refuses `:promote-request` as
+   an unknown control fact.
+7. **For the build:** whether `ack-return>` called once at the end of the
+   continuation behaves as the plan assumes (phase 1 calls it once per
+   record); and whether phase 3's gather reads a value act's `:who` against
+   `$$persons` (PR13 needs it not to). Both are checks, not designs.
