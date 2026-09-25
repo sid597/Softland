@@ -367,17 +367,38 @@ safe. A lease minted in this batch cannot be consumed in it: an offer
 citing it read committed state in block 1, found it missing, and was
 refused on its face.
 
-**Grain.** In a per-value layer each value cites its own leased lock; a lock
-cited twice in one act is `:no-such-lock` for its second use. In a per-act
-layer the act cites one leased lock for all its values (the grain's "one
-small lock shared by all values in an act").
+**Grain.** In a per-value layer each value cites its own leased lock; in a
+per-act layer the act cites one leased lock for all its values (the grain's
+"one small lock shared by all values in an act"). **[PV-F13]** An act whose
+citations do not fit the grain in force (a lock cited twice in one act of a
+per-value layer, two locks in a per-act act) is refused `:grain-mismatch`,
+recorded, its leases consumed: phase 2's L30 (the 26 September text here
+said `:no-such-lock`).
 
 **Nothing here throws.** Every lock function (unlease, open, wrap, unwrap,
 value-digest) is total (phase 2's: nil on any failure) and is called
-through the per-offer `Throwable` guard besides. A sealed value that does
-not open under its cited lock (wrong lock, tampered bytes) is refused on
-its face as `:malformed`. A deterministic throw in a microbatch retries the
-batch for ever (rule 9, "What Rama showed" 3).
+through the per-offer `Throwable` guard besides. A deterministic throw in
+a microbatch retries the batch for ever (rule 9, "What Rama showed" 3).
+
+**[PV-F13] The refusal order is phase 2's L27, on this gate too.** Faces,
+unrecorded, consuming nothing: stage 1's structural faces, `:not-sealed`
+(a non-control fact whose `:v` is not sealed: a plaintext value refused at
+this gate as at the stream gate), the record path's `:name-taken`, and
+`:no-such-lock` at the delivery. Everything after the delivery is
+recorded and consumes the cited leases, in phase 2's order after stage 1's
+list: `:does-not-open` (a live lock that fails on the bytes; the 26
+September text here made it a `:malformed` face), `:malformed-value`,
+`:value-shape`, `:too-many-subjects` (the 25 September face "over the
+subject cap" moves here), `:grain-mismatch`, `:no-such-person`,
+`:person-forgotten`. The value-level ones need the plaintext, so block 1
+computes them on the arrival task, where the value is opened, with phase
+2's pure checks, and the skeleton carries the first one found
+(`:value-reason`) with the subjects; the fold hands it to `gate/decide`,
+which places it in L27's order. That is an adapter: phase 2's `decide` on
+the stream gate opens values itself, which the leader must never do (M3);
+the reasons and their order are one code, the place they are computed
+differs. For builder A: phase 2's value checks must be callable apart from
+`decide` (a pure `locks/value-refusal` or the like).
 
 **A missing lock, with nothing recorded.** The faces entry is not the name's
 answer, so the name stays free, which is the default's stated purpose ("so a
@@ -490,8 +511,10 @@ gates:
   `$$layers [L]`).
 - **Grant** `[who L L parent]`: the gather reads the parent's row too (one
   seek); the grant is written with the child index entry, and born cut
-  (`:cut` the parent's revoke or cut) when the parent is revoked or cut,
-  in committed state or in W.
+  when the parent is revoked, cut or never granted, in committed state or
+  in W. The cut carries the reason a citing offer gets, so the answers
+  match the walk's: `{:by fid :batch b :reason :permission-revoked}`, or
+  `:no-permission` for a parent never granted.
 - **Revoke** of pid P: the gather walks P's subtree on L's task through the
   children index (a `loop<-` with `yield-if-overtime`, one range seek per
   inner node, `{:allow-yield? true}`) and reads each descendant's row; the
@@ -1513,7 +1536,8 @@ task (reads inside the owning topology see its uncommitted writes).
      *s)` (pure: the digest, the skeleton, the face reason if any).
    - A face refusal (malformed with a readable name, `:wrong-gate`,
      mis-tagged, `:crossing` scheme, `:reserved-who`, empty act, over the
-     subject cap) emits one row `[[:face name digest] reason]` and no
+     subject cap; **[PV-F13]**: plus `:not-sealed`, and the subject cap is
+     now the recorded `:too-many-subjects`, §A) emits one row `[[:face name digest] reason]` and no
      other; a record with no readable name emits nothing (nobody can ask
      for it).
    - `(|hash *name)`; `(local-select> [(keypath *name :answer)]

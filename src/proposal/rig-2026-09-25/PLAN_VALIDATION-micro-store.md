@@ -19,7 +19,7 @@ encryption key. -->
 
 ## Verdict
 
-**minor-fail.** Twelve failures, each fixable by an edit to named sections
+**minor-fail.** Thirteen failures, each fixable by an edit to named sections
 of the plan; the architecture stands (lease rows beside the lease act's
 name row, routing by lease name, one fold on task 0 over skeletons, blocks
 0 to 2c, the frontier as the previous microbatch id, the four PStates).
@@ -71,6 +71,14 @@ The failures, one line each (the traces below give the working):
   `refusal`: holder must be `:who`), and the model has no chain at all.
 - **F12.** The base's owner and root holder is `:root` here and `:operator`
   in phase 2's latest (V-F2, "the rig uses `:operator`").
+- **F13.** The value-level refusals differ from phase 2's L27 order: the
+  plan makes a value that does not open a `:malformed` face, a lock cited
+  twice in one act `:no-such-lock`, and the subject cap a face; phase 2
+  records `:does-not-open`, `:grain-mismatch` and `:too-many-subjects`
+  after the delivery, consuming the leases, and refuses a plaintext value
+  `:not-sealed` on its face, which the plan does not have. "The rig's gates
+  must decide the same way" (M21) fails, and a refused value's leases stay
+  openable.
 
 ## The traces the step names
 
@@ -533,8 +541,17 @@ to builder A and Sid below.
 
 ## Fixes applied to the plan (marked `[PV-Fn]` in PLAN-micro-store.md)
 
-F1 to F12 as listed under the verdict; the text of each is in the plan,
-in §A, §B, §C, §D, §H, §I, §J and the "Query Topologies" section.
+F1 to F13 as listed under the verdict; the text of each is in the plan,
+in the revision's change list, §A, §B, §C, §D, §F, §H, §I, §J, "The shapes"
+(batch order), block 1's face list, and the "Query Topologies" section.
+Commits: 6b12638c (this file, first version), dfed5467 (F1 to F12 in the
+plan), and the commit after it (F13, the born-cut reason, this file's
+update).
+
+Residual edges left named, not failed: a lease act decided after a close
+of the same session in one batch keeps its rows (the close's gather reads
+committed state), and `(termval NONE)` on a whole subindexed `:leases` map
+is the build's to check (the fallback deletes entry by entry).
 
 ## For builder A and Sid
 
@@ -548,12 +565,16 @@ in §A, §B, §C, §D, §H, §I, §J and the "Query Topologies" section.
    closes (phase 2's "retention it bounds"). Is that inside "gone for
    everyone including the past"? If not, faces that proved their lock
    (the value opened) consume it too, on both gates.
-3. **First-record picks touched by the fixes**: the parts digest without
+3. **For builder A (F13):** phase 2's value checks (`:does-not-open` to
+   `:grain-mismatch`) must be callable apart from its `decide`, since the
+   micro leader never holds a value; the reasons and their order stay one
+   code.
+4. **First-record picks touched by the fixes**: the parts digest without
    lock ids (phase 2's, adopted); the name row's decided fingerprint
    (`[name :fp]`, F3, a gate mark outside the answer record); the cut mark
    and the children index (F8, projections, rebuildable, no record); the
    root actor's id `:operator` (F12, phase 2's).
-4. **Named divergence (F3)**: an honest door that re-seals and resends
+5. **Named divergence (F3)**: an honest door that re-seals and resends
    within one batch hears `:name-taken` on its face for the second
    attempt, while its first attempt's answer stands; the stream gate
    would answer the second from the record after a value check.
