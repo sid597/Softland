@@ -158,7 +158,7 @@ uncommitted. The names to bind after the merge:
 | `reads/parse-pattern`, `reads/index-writes` | as planned: `(parse-pattern pattern limit as-of hints)`, `(index-writes hints layer name log stamp)` | `reads.clj:416-426, 181` |
 | `grammar/grammars`, `grammar/subjects-of` | as planned, `(subjects-of grammars k v)` | `grammar.clj:12-29` at `5a5de4fe` (the same file in the micro build) |
 | `locks/read-values`, the wrap | `locks/read-values`, `locks/wrap-of` | `locks.clj:418, 253` at `5a5de4fe` |
-| the lease road ([V-F6]) | `client/lease!`, `client/default-session`, `locks/person-owner`, `locks/max-lease` | locks build `client.clj:63-67, 293-308`; `locks.clj:68, 247` |
+| the lease road ([V-F6]) | `client/stock!` (uncommitted at 04:00), else `client/lease!` with a pool refresh; `client/default-session`, `locks/person-owner`, `locks/max-lease` | locks build `client.clj:63-67, 293-308` at `5a5de4fe`, `stock!` at 310 in its working copy; `locks.clj:68, 247` |
 | the offer builder ([V-F5]) | `client/build`, its `:claimed-when` and `:session` defaults | `client.clj:21-37` on both branches |
 | the micro gate's block 1 and fold | `micro/arrival-open` (the open on the arrival task, before the `(|hash *name)` hop at `micro.clj:1160`), `micro/layer-rows` (the `(|hash *layer)` visit's reads, 1171-1204), `micro/prepare` (the pure fold on `(|global)`, 1259-1263), `micro/reason-order` (the refusal order both gates share, 58-70), `rig.store.permit/refusal` (the permission chain) | micro build at `48562bde` |
 | the clock's millisecond ([V-F5]) | `clock/ms-of` | `clock.clj:33` |
@@ -814,19 +814,29 @@ first runner, of the several decisions.md 166-169 expects.
       entry `:no-such-person` (`lease-writes`, `persons-refusal`, locks
       build at `5a5de4fe`). A tool is not a person, so its own lease is
       refused. The runner therefore leases as the operator into the tool's
-      own door session, `(client/lease! store :operator L
-      (client/default-session tool-id) k)`, with k = 1 for the tool's read
-      entry plus the run outputs it will offer (at most 256 a lease act,
-      `locks/max-lease`; more acts when more). The lease rows are bare, as
-      every operator lease is (L23), and consumed at decision; the door's
-      `refresh!` takes the session's unconsumed locks into its pool
-      whoever leased them (`lease-locks`), so `lease-for!` is never
-      reached; the gate matches a cited lock to the offer's `:session` and
-      layer only (the lease row holds `{:under :sealed}`, no writer). The
-      tool's reads and outputs carry that session. No store code; a step
-      of the runner (a11). When tools run beneath a person's session (R7),
-      the session owner leases and her lock seals the rows (L23), and this
-      step goes. The build confirms it by a probe on the merge (13.2).
+      own door session and takes the locks into the door's pool:
+      `(client/stock! store :operator L (client/default-session tool-id)
+      k)`, with k = 1 for the tool's read entry plus the run outputs it
+      will offer (at most 256 a lease act, `locks/max-lease`; more acts
+      when more). `stock!` is "Lease `n` locks for `session` in `layer` by
+      `who` and take them into the door's pool, so the acts that follow in
+      that session need no lease (... a caller that leases ahead)": in the
+      locks build's working copy at 04:00, not yet committed. If it does
+      not land, `client/lease!` (committed) makes the rows but the door
+      takes them into its pool only through the private `refresh!`, which
+      `assign!` calls only when the layer's grain is not yet known; then a
+      public refresh is one door step, class b. The lease rows are bare, as
+      every operator lease is (L23), and consumed at decision; the gate
+      matches a cited lock to the offer's `:session` and layer only (the
+      lease row holds `{:under :sealed}`, no writer). The tool's reads and
+      outputs carry that session. If the pool runs short the door falls
+      back to `lease-for!` as the tool, which is recorded as a refused
+      lease (`:no-such-person`) and leaves the act refused `:no-such-lock`
+      on its face, so the runner stocks exactly what it will cite. No
+      store code; a step of the runner (a11). When tools run beneath a
+      person's session (R7), the session owner leases and her lock seals
+      the rows (L23), and this step goes. The build confirms it by a probe
+      on the merge (13.2).
    a. `read!` its `:matches` in L as the tool: `:reader` the tool's id,
       `:reader-kind :tool`, `:rows?` from its signature, `:role :matched`,
       `:for` L's owner, `:working L`, `:permission` the tool's pid, `:limit
@@ -1122,7 +1132,7 @@ The exit itself does not change for tools: the runner passes the tool's
 | b2 | the run's derived name and derived content | once per match with no runner state; the rulings cover acts that name what they cause and derived landing names, not a tool's runs; the content must be derived too, `:claimed-when` included, or a second runner is `:name-taken` ([V-F5]) |
 | b3 | the loop check | nothing in the frame says what stops a tool feeding itself; it covers the runner's own read-entry writes ([V-F7]) |
 | b4 | the micro gate's block 1 reads the rows before it opens values | phase 3 opens values on the arrival task before any hop (MP:208-223; built, `micro/arrival-open` before the `(|hash *name)` and `(|hash *layer)` hops), and the rows live on `hash(L)`: one hop per act ([V-F9]) |
-| b5 (resolved: no step) | a lease road for a tool actor | examined ([V-F6]): phase 2 refuses a lease by an actor with no person lock, and read entries are sealed too; the runner leases for the tool as the operator into the tool's door session with the public `client/lease!`, so no store code changes. Kept here so the receipt shows it was examined |
+| b5 (resolved: no step) | a lease road for a tool actor | examined ([V-F6]): phase 2 refuses a lease by an actor with no person lock, and read entries are sealed too; the runner leases for the tool as the operator into the tool's door session and takes the locks into the door's pool (`client/stock!`, in the locks build's working copy at 04:00), so no store code changes; if `stock!` does not land, a public pool refresh after `client/lease!` is one door step, class b. Kept here so the receipt shows it was examined |
 | b6 [V-F8] | `client/lookup-many`, the batch form of the answer lookup by name plus layer | a pass must find which matches already ran in one roundtrip per tool, not one per match; the door had only the single lookup (`client.clj:53-66`) |
 | b7 [V-F8] (deferred) | a "start after" bound on the pattern read | a tool with more than n matches reads the same first page every pass (the built `read-pattern` takes `layer for pattern as-of limit`, `read_exit.clj:69-76`), so matches past n never run; not needed by tonight's proof, whose layers hold a handful of facts; the runner reports such a tool `:partial`, never complete. With R6's standing read it may not be needed at all |
 
@@ -1498,7 +1508,7 @@ Rig choices (each can change without touching a record):
 2. Short checks, probes under the flock with output in `runs/`: the exit
    taking the operator as a reader with `:permission` nil; and, once phase 2
    is merged, **[V-F6]** that an operator lease into the tool's door
-   session (`client/lease!`) lets the tool's read entry and output, `:who`
+   session (`client/stock!`, or `client/lease!` and a pool refresh) lets the tool's read entry and output, `:who`
    the tool under its pid, be sealed and admitted with no lease act by the
    tool, and that the door never falls back to `lease-for!` when the
    runner has leased enough. The row's schema and the batched lookup are

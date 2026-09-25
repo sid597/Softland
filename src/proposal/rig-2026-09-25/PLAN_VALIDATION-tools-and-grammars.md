@@ -27,7 +27,7 @@ seed" (main, 74-129); EXAMINATION-copies.md whole (main rig worktree, at
 `36f27077`); RIG.md's overnight head (main rig worktree, 03:39 copy);
 PLAN-locks-and-forgetting.md lines 155-215, 270-300, 398-410, 675-690, 742,
 1054-1066, 1710-1722, 1786-1796, 1815-1826; PLAN-micro-store.md 180-300 and
-its batch-id lines; the built code on the rig branch (`802af562`):
+its batch-id lines; the built code on the rig branch (the read exit's merge, `40374171`, byte-identical to `rig-build-reads` at `00fd0468`):
 `client.clj`, `gate.clj` 20-190, `reads.clj` 28-72 and its hint call sites,
 `read_exit.clj` 41-127; the locks build committed at `5a5de4fe`
 (`client.clj` `build`, `lease-for!`, `assign!`, `lease!`; `locks.clj`
@@ -46,11 +46,11 @@ a fix. Not opened: `env.clj`, anything under `src/app`,
 | F3 | A `:die-with-any` mark on a key the layer has no grammar for is admitted with no rule stated and no test: its wrap is owner ∪ carried, so the mark silently adds nothing | 4.6: stated as a rig choice (admitted, required = owner ∪ carried), T-RC12; test G7; the examination's question 5 put to Sid with Q4 |
 | F4 | `:grammar-change-needs-rebuild` reads only `:used` from before the act (stream) or the batch (micro). An act holding the first `:note` grammar with `:by-value` and a `:note` value is admitted, its value indexed under the old hints, and the row then says `:by-value`: `[:kv :note v]` misses it silently. The micro batch has the same hole across acts, in both orders | 4.5, 4.7, 3.2 (micro), G4: the act's own value facts under k count as a use; in the micro store any envelope of the same batch in L offering a fact under k does, and the fold refuses the grammar |
 | F5 | "Two runners at once offer the same name with the same content": false as built. `client/build` fills `:claimed-when` from the wall clock and the parts digest covers it (`client.clj` 21-37, both branches), so a second runner's offer is `:name-taken`, not answered from the record | 6.2 c, 6.3, T-FR5, 15: the run's output act carries a derived `:claimed-when` (the millisecond of the later stood-on stamp) and a fixed `:session`, so its content is a function of (L, tool fact, matched fact) |
-| F6 | The possible fifth class-b step (a tool is not a person) left open. Resolved: phase 2 seals a lease row under `person-owner` of the lease act's `:who`, so a lease by the tool is refused `:no-such-person` (locks build `lease-writes`, `persons-refusal`); and read entries are sealed at the door too (LP:677-679), so every tool read needs a lock, not only its outputs | 6.2, 8 b5, 13.2: the runner leases as the operator (`client/lease!`, bare rows, L23) into the tool's own door session `(client/default-session tool-id)` before the tool's reads and outputs, sized to what it will offer. No store code; a runner step inside a11; the build probes it after phase 2's merge |
+| F6 | The possible fifth class-b step (a tool is not a person) left open. Resolved: phase 2 seals a lease row under `person-owner` of the lease act's `:who`, so a lease by the tool is refused `:no-such-person` (locks build `lease-writes`, `persons-refusal`); and read entries are sealed at the door too (LP:677-679), so every tool read needs a lock, not only its outputs | 6.2, 8 b5, 13.2: the runner leases as the operator (bare rows, L23) into the tool's own door session `(client/default-session tool-id)` and takes the locks into the door's pool, `client/stock!` (in the locks build's working copy at 04:00, uncommitted), sized to what it will offer. No store code; a runner step inside a11; if `stock!` does not land, a public pool refresh after `client/lease!` is one door step, class b; the build probes it after phase 2's merge |
 | F7 | The loop check ignores the runner's own writes: every tool read writes a `:read/pattern` fact into L, so a tool matching `[:k :read/pattern]` gets a new match every pass for ever; and nothing stops `:out` from naming a store key | 6.4, 5.1, 5.2, R5, recipe-test: every tool's edges include the read-entry keys; a pattern on a store key and an `:out` holding one are refused at parse |
 | F8 | The count misses steps: `client/lookup-many` is a new door function the plan lists in section 10 but not in section 8; the pattern read's "start after" is needed for any tool with more than n matches and is uncounted; the revision reader is two steps in the plan and "one capability" in RIG.md | 8: b6 `lookup-many`; b7 (deferred, not built tonight) the pattern read's start-after; the revision reader stated as one capability exposing two built-in steps |
 | F9 | The micro reorder's hop is not in the cost tables, and the cheaper road (open on `hash(L)` with the lease rows carried sealed) was not constructed | 3.2, 9 "Partitioning efficiency": the micro row costed; the alternative constructed and rejected on the micro plan's own rule that a bare lock never crosses a task on the common path |
-| F10 | Names that no longer match what was built: `open-row>` is `reads/open-row`; the hint seam is `reads/current-hints` (called at `gate.clj:281`, `reads.clj:426`, `reads.clj:975`), not `seed-hints`; `reads/read-keys` already names the read-entry keys | 1, 2, 10, 13: the names to bind after the merge |
+| F10 | The plan named functions of builds that had committed nothing; they have since. The hint seam is `reads/current-hints` (called at `gate.clj:281`, `reads.clj:426`, `reads.clj:975`), not only the constant `seed-hints`; `reads/read-keys` already names the read-entry keys; the micro gate's block 1 and fold are `micro/arrival-open`, `micro/layer-rows`, `micro/prepare`, and its refusal order `micro/reason-order`, where `:grammar-change-needs-rebuild` must also go | 1 (a table of what each name became), 10, 13: the names to bind after the merge |
 | F11 | `:tool` is called "a store key the runner knows" in 5.1 while 4.1 excludes it from the store keys and 5.1 lets a grammar govern it | 5.1: `:tool` is an ordinary key the runner reads by name; the store keys are the control keys, `:grammar` and `reads/read-keys` |
 | F12 | Section 10 misses `rig.store.read-model-test` (its histories read `[:kv ...]`), whose 0-difference result depends on the `:note` by-value hint | 10: listed; its replays write the toy grammars into each layer first |
 
@@ -336,16 +336,26 @@ its grant; Alice writes `:mention`s on `:e1` (`#{:bob}`) and `:e2`
   `5a5de4fe`). So the tool's first read fails before it reads anything,
   and the same holds for its outputs. The plan's b5 ("if needed") is
   needed. Resolution (F6): the runner leases as the operator into the
-  tool's own door session in L, `(client/lease! store :operator L
-  (client/default-session tool-id) k)` (public, built), for k = 1 per read
-  entry plus the run's outputs, before the read and before the outputs; the
-  door's `refresh!` takes that session's unconsumed locks into its pool
-  (`lease-locks` returns a session's locks whoever leased them), so
-  `lease-for!` is never reached. The gate ties a cited lock to the offer's
+  tool's own door session in L and takes the locks into the door's pool,
+  `(client/stock! store :operator L (client/default-session tool-id) k)`,
+  for k = 1 per read entry plus the run's outputs, before the read and
+  before the outputs. `stock!` is in the locks build's working copy at
+  04:00, not committed ("Lease `n` locks for `session` in `layer` by `who`
+  and take them into the door's pool, so the acts that follow in that
+  session need no lease"). The committed door alone is not enough: after
+  `client/lease!` the rows exist, but the pool is filled only by the
+  private `refresh!`, which `assign!` calls when the layer's grain is not
+  yet known or after its own lease succeeds; with the grain known, `take!`
+  finds the pool empty and the door falls back to `lease-for!` as the
+  tool, a recorded `:no-such-person` lease, and the act is refused
+  `:no-such-lock` on its face (*checked*, `assign!`, `refresh!`, `take!`
+  at `5a5de4fe`). So if `stock!` does not land, a public pool refresh is
+  one door step, class b. The gate ties a cited lock to the offer's
   `:session` and layer only (the lease row holds `{:under :sealed}`, no
   writer), so the tool's act is admitted. No store code: a runner step
-  inside a11. Rows are bare until consumed at decision, as the operator's
-  own are. When tools run beneath a person's session (R7), the lease is
+  inside a11 (given `stock!`). Rows are bare until consumed at decision,
+  as the operator's own are; the runner stocks exactly what it will cite,
+  so the fallback never fires. When tools run beneath a person's session (R7), the lease is
   that session owner's and sealed under her lock (L23), and this step goes.
   *Derived* from the committed code; the build's probe (13.2) confirms it
   on the merge.
@@ -399,8 +409,10 @@ Checked row by row (plan section 8):
   now with its derived `:claimed-when`, F5), b3 (the loop check, now over
   the runner's own writes, F7), b4 (the micro reorder and its hop): nobody
   anticipated them. Correct class.
-- b5: resolved by F6 to no store step; it stays in the table as a resolved
-  non-step with its why, so the receipt shows it was examined.
+- b5: resolved by F6 to no store step, given the locks build's
+  uncommitted `client/stock!`; without it, one door step (a public pool
+  refresh), class b. It stays in the table as a resolved non-step with its
+  why, so the receipt shows it was examined.
 - Uncounted before F8: `client/lookup-many`, a new door function (section
   10 lists it; section 8 did not). Class b, nobody anticipated. And the
   start-after on pattern reads, needed past n matches: class b, deferred.
@@ -415,9 +427,9 @@ Checked row by row (plan section 8):
   the grant is phase 1's `grant-offer`; the lease road needs none (F6).
 
 The count as the plan now predicts it: (a) 11; (b) 5 built tonight (b1
-b2 b3 b4 b6) plus b7 deferred, b5 resolved to none; (c) 9 vocabulary
-entries (one of them, the revision reader, one capability as two steps).
-24 + 1 = 25 built tonight, one deferred. After them, the test tool and the
+b2 b3 b4 b6) plus b7 deferred, b5 resolved to none (one more if `stock!`
+does not land); (c) 9 vocabulary entries (the revision reader is one
+capability as two of them). 11 + 5 + 9 = 25 built tonight, one deferred. After them, the test tool and the
 test grammar are facts only: the machinery count's zero.
 
 ## 3. The caching examination's outcome (brief's request)
@@ -440,14 +452,15 @@ examination, and Q1 still offered G. FAIL → F1, recorded in 0, 3.2, 3.3,
 
 ## 4. Names the build must bind to after the merge
 
-Committed now (*checked*: rig branch `802af562`; locks build `5a5de4fe`;
-micro and read-exit names per the gatherer, see 4.1):
+Committed now (*checked*: rig branch at `40374171`; locks build `5a5de4fe`;
+micro names per the gatherer at `48562bde`, see 4.1). The plan's own copy of
+this table is in its section 1 ([V-F10]):
 
 | The plan's name | Bind to | Where |
 |---|---|---|
 | `reads/seed-hints` → `store-hints` | the seam is `reads/current-hints` (a function, "so the topology code calls it rather than embedding the constant"); the constant `reads/seed-hints` | `reads.clj:34-47`; called at `gate.clj:281` (decide*), `reads.clj:426` (`parse-pattern`'s default arity), `reads.clj:975` (a query topology) |
 | the three places that take hints (a8) | exactly those three call sites | as above |
-| `open-row>` | `reads/open-row` (a `defn`) | `reads.clj:331` |
+| `open-row>` | `reads/open-row>` (a `deframafn` over the pure `reads/open-row`); phase 2 has its own `locks/open-row>` and `open-value>`, joined behind the read exit's seam at the merge | `reads.clj:331-346`; `locks.clj:1291, 1320` at `5a5de4fe` |
 | the store's read-entry keys | `reads/read-keys` `#{:read/point :read/pattern}` (FR6) | `reads.clj:68` |
 | `read-exit/read!` | as built, spec keys `:reader :for :reader-kind :rows? :working :permission :layer :read :as-of :limit :role :entry-name`; `:read [:pattern p]` | `read_exit.clj:88` |
 | `reads/parse-pattern` | as built, `(parse-pattern pattern limit as-of hints)` | `reads.clj:416-426` |
@@ -455,14 +468,56 @@ micro and read-exit names per the gatherer, see 4.1):
 | `grammar/grammars`, `grammar/subjects-of` | as built in the locks build | `grammar.clj:12-29` at `5a5de4fe` |
 | `locks/read-values` | as built | `locks.clj:418` at `5a5de4fe` |
 | wrap | `locks/wrap-of` | `locks.clj:253` at `5a5de4fe` |
-| leasing (F6) | `client/lease!`, `client/default-session` | locks build `client.clj` 63-67, 293-308 |
+| leasing (F6) | `client/stock!` (working copy, uncommitted at 04:00), else `client/lease!` plus a pool refresh; `client/default-session` | locks build `client.clj` 63-67, 293-308 at `5a5de4fe`; `stock!` at 310 in the working copy |
+| the micro gate (F4, F9, F10) | `micro/arrival-open`, `micro/layer-rows`, `micro/prepare`, `micro/reason-order`, `rig.store.permit/refusal` | micro build at `48562bde` (`micro.clj` 58-70, 1112-1266) |
+| the clock's millisecond (F5) | `clock/ms-of` | `clock.clj:33` |
 | the offer builder (F5) | `client/build` (its `:claimed-when` and `:session` defaults) | both branches |
 | `client/lookup-many` | new; the batch form of `client/lookup` | rig branch `client.clj:53-66` |
 | `client/seed!` | as built | rig branch `client.clj:158` |
 
 ### 4.1 The builds in flight
 
-PLACEHOLDER-GATHER
+From a read-only gatherer (Sonnet), spot-checked where a fix rests on it:
+
+- **Read exit** (`Softland-rig-build-reads`, `00fd0468`, clean): merged into
+  the rig branch as `40374171`; every source file byte-identical to the rig
+  branch's. Names as in the table above. *Spot-checked*: `read!`,
+  `check-call`, `entry-offer`, `current-hints` and its three callers,
+  `open-row`/`open-row>`, `read-keys`, `reader-kinds`.
+- **Phase 2** (`Softland-rig-build-locks`): committed to `5a5de4fe` when I
+  read it (the gatherer saw `3ddc6eab` earlier), with `client.clj`,
+  `inject.clj`, `locks.clj` and tests modified and uncommitted at 04:00.
+  Bind to: `grammar/grammars` and `subjects-of`; `locks/read-values`,
+  `wrap-of`, `person-owner`, `lease-row`, `lease-writes` (private),
+  `lock-refusal` (L27's order), `max-lease`; `client/build` (session
+  default `default-session`), `lease!`, `stock!` (uncommitted),
+  `lease-locks`, `offer-until-answered!`. No `:grammar-*` keyword exists
+  yet anywhere (grep over all four trees).
+- **Phase 3** (`Softland-rig-build-micro`): committed to `48562bde` in the
+  gatherer's read and `2d0cb13c` in mine, with `micro.clj` and
+  `micro_client.clj` modified and uncommitted. Block 1 as built
+  (`micro.clj:1112-1266` at `48562bde`): on the arrival task (the depot is
+  `hash-by route-key`) the lease rows are read from `$$micro-names`,
+  `$$persons` for their `:under` persons, then `arrival-open` opens and
+  computes subjects with `grammar/subjects-of` (the constant); then
+  `(|hash *name)` (1160) for the record and the name step; on the fresh
+  path `(|hash *layer)` (1171) reads settings, the permission chain and
+  heads from `$$micro` with `$$layers` fallbacks (`layer-rows`); then
+  `(|hash *e)` per entity (1212); then `(|global)` (1259), where
+  `+map-agg` gathers and the pure `prepare` decides every envelope in
+  batch order and emits the writes that block 2a consumes. So the rows the
+  open needs are two hops away from it, which is the plan's b4, and the
+  fold that must see a batch's own uses (F4) is `prepare`, which sees every
+  envelope's rows on one task. The refusal order both gates share is
+  `micro/reason-order` (22 reasons, 58-70); `:grammar-change-needs-rebuild`
+  goes after `:control-not-allowed` there too. The permission chain is
+  `rig.store.permit`.
+- **Revision reader** (rig branch): `rig.revision/read-units [repo rev path]
+  [repo rev path opts]` → `{:rev :commit :path :cut :units}` or an error
+  map; `read-span [repo rev path first-line last-line]` (+opts) → `{:rev
+  :commit :path :unit}` or an error map (`revision.clj:735, 766`). The
+  plan's two steps bind to these; its `:first`/`:last` arguments are the
+  reader's `first-line`/`last-line`.
 
 ## 5. The template's checks
 
@@ -515,8 +570,13 @@ PLACEHOLDER-GATHER
   record. Pass.
 - Scale: rows per layer and key, subindexed. The runner past n matches:
   FAIL → F8 counts the step it needs; the pass is O(T × M) seeks, stated,
-  with R6's standing read or a "since" bound as the road (plan 6.5). The
-  bound is reported as data, never as complete.
+  with R6's standing read or a "since" bound as the road (plan 6.5). After
+  F8 this passes as a stated bound, not as scale: the runner stays correct
+  (one output per match, a partial read reported partial, never complete),
+  and its progress stops at n matches per tool until b7 or a standing read
+  lands. The spec asks for a minimal runner and tonight's proof stays
+  below n; the phase that runs a real tool over a real layer needs b7 or
+  R6 first.
 - Stream non-idempotent writes: none added (whole-row `termval`s). Pass.
 - Multi-partition stream writes: none added. Pass.
 
