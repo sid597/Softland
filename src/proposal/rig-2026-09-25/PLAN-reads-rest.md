@@ -241,6 +241,9 @@ On the layer's task, after the branch:
    limit + 1 matches, are merged by address in memory
    (`shared-reads/merge-eras`, pure); the first `limit` are shown; the read
    is `:partial` when either loop was, or the merge had more than `limit`.
+   For `[:latest e k]` the merge keeps the one entry with the larger
+   address, which inside `e␀k␀` is the larger stamp (the head by P13's rule
+   across both eras).
    Why a merge of two bounded lists and not one index: the stream era's
    entries are in `$$layers`, which only the stream gate may write, and the
    micro era's in `$$micro`, which only the micro topology may write (PState
@@ -300,6 +303,19 @@ the entry alone plus `$$persons`, which phase 2 keeps on every task:
    `{:unreadable :does-not-open}`. Returns exactly the shapes of
    `open-row>` (the read exit's "open-value" section); never throws.
 
+The entry's `:lock` holds the value's lock record wherever the row keeps
+it: the row's own `:lock` (in the record, the shared default), or, for a
+value marked `:own-row` in a shared layer, a copy of its lock row
+(`$$micro [e :locks lid]`), which block 2b has in hand when it writes the
+row. So every shared entry opens on the layer's task alone. A reading of
+the rig constraint "lock rows sit on the same task as their values", named
+for Sid: the index keeps, on the layer's task, a copy of the sealed value
+and a copy of its wrapped lock together, and the forget's batch nils both
+copies with the original (atomic across tasks), so a forget still reaches
+every copy at once; the alternative, a hop to the entity task per opened
+own-row entry, costs one network round trip and one seek per such entry on
+every read.
+
 Why the erasure ledger is not read here: the ledger for a shared value sits
 on the value's entity task (`$$micro [e :erased lock-id]`, micro plan), not
 the layer's; this plan's purge writes the forget's date into every index
@@ -347,15 +363,16 @@ gather reads the settings and the permission row(s) on hash(L) (micro plan,
   two tasks. Not taken tonight.
 
 - **Option D, stored placement: B cut into buckets.** A layer's settings
-  carry a bucket count `B` (a fact, 1 by default); entry i of the layer
-  lives on `hash([L (mod (hash e) B)])`. Entity-scoped reads go to one
+  carry a bucket count `B` (a setting, 1 by default); an entry lives on
+  `hash([L (mod (hash e) B)])`. Entity-scoped reads go to one
   bucket: the same seeks as B, plus one hop for the settings when the
   bucket is not the layer's task. Key-scoped reads and `[:all]` fan out to
   B buckets: seeks 4 + B × pages instead of 4 + pages, and a merge of B
   sorted lists; writes spread over B tasks. Total I/O, the placement state
   included (B is read with the settings already read, so it costs no seek):
   for B = 8, a key-scoped read of 60 matches costs about 4 + 8 × 1 = 12
-  seeks against B's 7, weighted seeks about 8.6 against 6.1, and each of
+  seeks against B's 7, weighted seeks about 9.3 against 6.1 (0.5 × 5 + 0.3 ×
+  12 + 0.1 × 20 + 0.1 × 12), and each of
   the 8 bucket tasks takes one eighth of the layer's index puts and bytes.
   Flat in N (B is the layer's, not the cluster's). It is the road for a hot
   layer, paid only by that layer; with B = 1 it is Option B exactly.
@@ -423,13 +440,18 @@ new **block 2d** after block 2b's name-task check (the check that decides
 
 1. Block 2b, on the arrival task, has each value's plaintext (opened from
    its lease), its sealed bytes, its re-wrapped lock record and its value
-   digest, and learns from the name task that the act was admitted with its
-   stamp and batch. There `(shared-reads/index-writes hints *layer *nm *rows
-   *stamp *batch :> *d)`, pure and total, computes the act's entries (the
-   rows as written, with `:e`, `:fid`, `:stamp`, `:batch`), their addresses,
-   the `:ix-of` sets and the `:ix-id` addresses. An `:ix-kv` address holds
-   the value's canonical text, which is why it is computed here: this is
-   the one place the text exists. **A change to phase 3's discipline, named
+   digest. Before it drops the plaintext, `(shared-reads/kv-prefixes hints
+   *layer *facts :> *kvp)`, pure, computes for each value-indexed fact the
+   text-bearing part of its `:ix-kv` address, `k ␀ len ␀ vtext ␀`, which
+   travels on with the sealed bytes. After the name task's check gives the
+   act's stamp and batch (the record written in block 2a),
+   `(shared-reads/index-writes hints *layer *nm *rows *kvp *stamp *batch :>
+   *d)`, pure and total, computes the act's entries (the rows as written,
+   with `:e`, `:fid`, `:stamp`, `:batch`), their addresses (each `:ix-kv`
+   address completed with `hex(stamp) ␀ fid`), the `:ix-of` sets and the
+   `:ix-id` addresses. An `:ix-kv` address holds the value's canonical
+   text, which is why its prefix is taken on the arrival task: that is the
+   one place the text exists. **A change to phase 3's discipline, named
    for the merge:** block 2b's "never the plaintext" onward holds for the
    rows; the `:ix-kv` addresses of values whose key is hinted `:by-value`
    (and not `:opaque`) carry the canonical text to the layer's task inside
@@ -504,8 +526,10 @@ record names its task and the batch routes to it with `(|direct *task)`:
   by block 2b, one no-read put per new entity]), each entity's `:answers`
   and `:log` read whole (`subselect ALL`, `{:allow-yield? true}`), each row
   of a yes act opened by the same open step (`locks/unwrap` and `open` with
-  the row's lock and the entity task's `$$persons`; the ledger on this task
-  gives the erasure date), then `(shared-reads/put-page-writes ...)`, pure:
+  the row's lock, or its lock row under an `:own-row` mark, and the entity
+  task's `$$persons`; the ledger on this task gives the erasure date; the
+  `:ix-kv` prefix is taken here, on the entity task, as block 2b takes it
+  on the arrival task), then `(shared-reads/put-page-writes ...)`, pure:
   the entries, tombstones and sets they imply, grouped by layer; `(|hash
   L)` per layer group; the write blocks. The batch's work is bounded by n
   entities and a row cap of 4,096 (the rest of an entity's rows, if more,
@@ -730,13 +754,17 @@ nothing depends on it surviving (the record has everything a close needs).
   r}`. Called at the delivery rate by its caller (the renderer's refresh, the
   agent's model call); the store does not pace it, and a line exists
   exactly when a delivery is shown, which is R6's rate by construction.
-  Steps: the delta query with `:after` the handle's moment; no match gives
-  `:nothing-new`, nothing offered, nothing shown, the handle's moment
-  unchanged (so a later fact admitted before the unchanged moment's clamp
-  cannot be skipped: the next delta starts where the last acknowledged one
-  ended); a match builds one FRR2 act, offers it until answered, and on
-  `:yes` advances the handle's moment and returns the rows; on `:no`
-  returns `{:refused r}` and shows nothing, the moment unchanged.
+  The handle keeps two moments: `:scan`, where the next delta starts, and
+  `:line`, the moment of the last recorded line (the next line's recorded
+  `:after`, so the lines chain). Steps: the delta query with `:after` the
+  handle's `:scan`; no match gives `:nothing-new`, nothing offered, nothing
+  shown, and `:scan` advances to the delta's moment (safe: nothing matched
+  between, by the argument of "The delta", and a busy layer is then not
+  rescanned from the last line on every quiet tick); a match builds one
+  FRR2 act with `:after` the handle's `:line`, offers it until answered,
+  and on `:yes` sets both moments to the delta's and returns the rows; on
+  `:no` returns `{:refused r}`, shows nothing, and leaves both moments, so
+  the same facts are new again at the next delivery.
 - **`(unsubscribe! store h)`** → the closing act, FRR3 with `:closed-by
   :unsubscribe`, its fingerprint and mark from the query below.
 - **The closing query `standing-close [*layer *ent :> *c]`** (a third
@@ -1409,7 +1437,9 @@ Continuing the read exit's FR1 to FR14, which stand.
   named upgrade.
 - RR10. A delta cut by the limit resumes after the last shown address.
 - RR11. The closing, open-entries and entry-ids queries are maintenance
-  reads, ids and stamps only, not recorded (For Sid).
+  reads, ids and stamps only, not recorded (For Sid); tonight their
+  callers are trusted (the rig's clients); a kept store's gateway allows
+  them to the session's owner and the operator only.
 - RR12. A standing read of a re-classed layer delivers its micro era only.
 - RR13. The gate needs no branch for the close act's `:reads`; the closer's
   procedure reads it.
