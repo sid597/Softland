@@ -71,7 +71,8 @@ unless absolute. Vocabulary as SPEC.md fixes it: "key" is a fact's key,
   relay's cluster lock, driven in the background by one script, progress
   one line every 5 s under `runs/`, results in `runs/phase7-final-*.txt`
   with method headers and raw points in `runs/phase7-final-*.edn`. The
-  minimum set is about 50 minutes of machine time, the full set about 75.
+  minimum set is about 40 minutes of machine time, the full set about an
+  hour, plus any wait for the lock (section 8.6).
 - **Build**: five new namespaces under `test/rig/bench/` (a shared
   harness, one per number, a test namespace) and a driver script. Nothing
   under `src/`. The slice benches stay as they are: they are the record of
@@ -817,3 +818,338 @@ carry that caveat. The denominator is the plaintext value, the slice's
 reading; the ratio to the rest (6.4, item 5) is printed beside it,
 because the threshold does not say which bytes it means
 (runs/phase7-lock-growth.txt, "What is uncertain").
+
+## 8. How the runs execute
+
+### 8.1 Under the cluster lock
+
+Every JVM that starts an in-process cluster, each measured run and the
+harness test alike, runs from the rig folder as
+
+    flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock clojure -M:bench <ns> <fn> <args>
+
+(`clojure -M:test rig.bench.numbers-test` for the test). `flock` waits for
+the lock with no timeout, holds it for that one JVM and lets it go when the
+JVM exits, so a run waits behind any other session's cluster, and no two
+clusters try to bind port 2002 at once (the slices' collision at 11:10:33,
+BENCH_NOTES-locks.md). The lock is taken per run, not for a whole set, so
+another session can use the machine between runs; the overlap monitor
+(8.4) says whether anything else ran during a window.
+
+### 8.2 The driver, in the background
+
+`test/rig/bench/phase7-final.sh <set>`, where `<set>` is `test`, `min`,
+`full`, or one step's name, started once from the rig folder:
+
+    nohup test/rig/bench/phase7-final.sh full > runs/phase7-final-driver.log 2>&1 &
+
+For each step it appends a start line to `runs/phase7-final-progress.log`
+(the time, the step, the load average, any other JVM running), runs the
+step's JVM under the lock with its output to `runs/phase7-final-<step>.log`,
+and appends an end line (exit code, duration). The steps, in order:
+
+| # | Step | Command (`clojure -M:bench ...` unless said) | Set |
+|---|---|---|---|
+| 1 | `test` | `clojure -M:test rig.bench.numbers-test`; the driver stops if it fails, because a harness that does not measure what it claims measures nothing | both |
+| 2 | `agent-rate-1` to `-3` | `rig.bench.agent-rate run <n>`: A, A', D2, and D1 when its condition holds | both |
+| 3 | `one-thread-1` to `-3` | `rig.bench.one-thread run <n>`: (a) and (b) | both |
+| 4 | `lock-growth-<v>` | `rig.bench.lock-growth run <v>` for `h40`, `h200`, `h40-p2`, `h40-p3`, `h40-p5`, a JVM each | both |
+| 5 | `agent-sessions-1` to `-3` | `rig.bench.agent-rate sessions <n>`: B | full |
+| 6 | `agent-reads-1` to `-3` | `rig.bench.agent-rate reads <n>`: C and the entry bytes | full |
+| 7 | `lock-growth-<v>` | `h40-again`, `h40-act4` | full |
+| 8 | `one-thread-reads` | `rig.bench.one-thread reads 1`: 5.5 | full |
+| 9 | `report` | `rig.bench.numbers report`: no cluster and no lock; writes the three `.txt` files from the `.edn` files | both |
+
+The timing runs go first, on the quietest machine the night will give;
+bytes do not care about noise, so the lock store follows. Variant B leads
+the full set because it turns number 1 into the yardstick's divisor; C
+prices a default; the rest repeat or extend.
+
+### 8.3 Progress a watcher can see
+
+While writers run, every harness prints a `PROGRESS` line every 5 seconds
+and one at each window's start and end: `<time> <number> run=<n>
+<variant> K=<k> t=<s> acts=<n> rate=<r>/s errors=<e>`. The lock store
+prints one at every point and every 5 seconds of writing. These go to the
+step's `.log`; the driver's progress file has one line per step start and
+end. A watcher runs `tail -f runs/phase7-final-progress.log
+runs/phase7-final-*.log`. The `.log` files are ignored by git
+(`runs/*.log`, the rig folder's `.gitignore`), as the slices' console
+logs were; nothing a result needs lives only in them.
+
+### 8.4 Quiet, and a busy port
+
+- **The overlap monitor**: a daemon thread in the harness lists every
+  other Java process on the machine (`ProcessHandle/allProcesses`) every 2
+  seconds while a window runs. A window during which one ran is marked
+  `:overlap` with the processes' command names. The summary uses the clean
+  runs when at least two of three are clean, and otherwise reports the
+  marked runs with their mark.
+- **A cluster that cannot bind port 2002** ("Address already in use") is
+  retried every 30 seconds, up to five times, and each retry is logged.
+  Under the lock this should not happen; the slices met it without one.
+
+### 8.5 Where results land
+
+| File | In git | What it holds |
+|---|---|---|
+| `runs/phase7-final-agent-rate.edn`, `runs/phase7-final-one-thread.edn`, `runs/phase7-final-lock-growth.edn` | yes | every `META` and `RESULT` map of every run, appended by the harness as it goes, one EDN map a line |
+| `runs/phase7-final-agent-rate.txt`, `runs/phase7-final-one-thread.txt`, `runs/phase7-final-lock-growth.txt` | yes | the method header: the machine (from `META`), the configuration, the method, the per-act write list with its code sites, and the caveat of 3.3; then the tables (median and spread across runs), the checks, the verdicts against default 7, and the slice's numbers beside the final ones. `report` writes all of that; the session that runs the numbers adds the reading in words |
+| `runs/phase7-final-<step>.log`, `runs/phase7-final-progress.log`, `runs/phase7-final-driver.log` | no | console output and progress |
+
+### 8.6 Time
+
+| Step | Per run (*derived* from the windows; JVM start about 40 s, *assumed*) | Runs | Total |
+|---|---|---|---|
+| test | about 3 min | 1 | 3 min |
+| agent rate (A, A', D2, sometimes D1) | about 4.6 min | 3 | 14 min |
+| one person's layer ((a), (b)) | about 3.5 min | 3 | 10.5 min |
+| lock growth, 100,000 values | about 2.5 min at 3,000 acts a second through the door (*assumed*), longer if the door is slower | 3 | 7 min |
+| lock growth, 10,000 values | about 1 min | 2 | 2 min |
+| report | under 1 min | 1 | 1 min |
+| **minimum set** | | | **about 37 min** |
+| agent sessions (B) | about 3 min | 3 | 9.5 min |
+| agent reads (C) | about 2.1 min | 3 | 6.5 min |
+| lock growth, `h40-again` and `h40-act4` | about 2.5 min | 2 | 5 min |
+| one person's reads | about 1.2 min | 1 | 1 min |
+| **full set** | | | **about 59 min** |
+
+Say about 40 minutes for the minimum and about an hour for the full set,
+plus any wait for the lock. If the door proves slower than assumed, the
+lock-growth steps stretch first: 100,000 values at 1,000 acts a second is
+another minute and a half a variant.
+
+### 8.7 When something goes wrong
+
+A run that exits non-zero is logged, and the driver goes on to the next
+step: no step depends on an earlier one's output, except that nothing runs
+after a failed `test`. A window whose check failed is kept and marked, not
+dropped. Nothing is rerun by the script; the session that reads the results
+decides, and the `.txt` says what it decided and why.
+
+## 9. What the build step writes
+
+### 9.1 The files
+
+All new, all in the rig folder. Nothing that exists changes.
+
+| File | Namespace | What it is |
+|---|---|---|
+| `test/rig/bench/numbers.clj` | `rig.bench.numbers` | the shared harness |
+| `test/rig/bench/agent_rate.clj` | `rig.bench.agent-rate` | number 1 |
+| `test/rig/bench/one_thread.clj` | `rig.bench.one-thread` | number 3 |
+| `test/rig/bench/lock_growth.clj` | `rig.bench.lock-growth` | number 2 |
+| `test/rig/bench/numbers_test.clj` | `rig.bench.numbers-test` | the tests that each harness measures what it claims |
+| `test/rig/bench/phase7-final.sh` | | the driver of 8.2 |
+
+**Why `test/` and nothing under `src/`.** The harnesses run on the
+`:bench` and `:test` aliases' classpath, drive the store's own module and
+declare none. The slice's `src/rig/bench/lock_slice.clj` sat under `src/`
+because it was a module; the final lock store needs none.
+
+**Left as they are.** Everything under `src/rig/store/`: a measurement
+never changes what it measures. The slice benches
+(`src/rig/bench/lock_slice.clj`, `test/rig/bench/stream_bench.clj`,
+`test/rig/bench/lock_bench.clj`) and their run files, the record of how the
+slice numbers were made. `rig.bench.lock-growth` requires
+`rig.bench.lock-bench` for seven public pure helpers only (`value-spec`,
+`value-bytes`, `key-bytes`, `rocks-dirs`, `live-bytes`, `ipc-root`,
+`replog-bytes`). If the merged store stops that namespace from loading, the
+build copies those seven into `rig.bench.lock-growth` unchanged and says
+so in its notes.
+
+### 9.2 The named pieces
+
+`rig.bench.numbers`, the shared harness:
+
+- `machine`: the `META` map of 3.1.
+- `with-store`: a fresh in-process cluster with the finished store
+  launched under a given launch config, retrying a busy port (8.4); yields
+  the store handles (`c/connect`, and the read exit's `connect` where a
+  workload reads).
+- `people!`, `person!`, `layer!` (make, grant, optionally open a session
+  and write a grammar; returns the layer spec with its home task), and
+  `layers-on-task!` (variant B's candidate search).
+- `writes`: 2.3's per-act write lists as data. For each act kind, each
+  write's name, path head, set or delete, and code site; and
+  `per-act-writes`, kind to total, read-index subset and deletes. This is
+  the harness's claim, and T1 to T4 test it.
+- `field-counts`: for a layer, the entry count of every field of its
+  `$$layers` value, the fields enumerated from the store itself (**to
+  confirm at build**: `MAP-KEYS` on the layer's value, else the merged
+  module's field map), and `$$clock` per task.
+- `offer-loop` and `window` (closed loop: the slice's
+  `stream-bench/window`, extended with lease counting, a lease tag per
+  offer, entry acts and the overlap mark), `open-loop-window` (variant B's
+  schedule, latency from the scheduled time), `read-loop` (variant C and
+  5.5).
+- `lease-counts`: the door's known leases for [layer, session], and the
+  home depot partition's growth.
+- `check-sample`: every write of an act's kind read back for sampled acts.
+- `thread-cpu`, `busiest`, `gc-totals`, `percentiles`, `rate`,
+  `partition-ends`, `task-clocks`: the slice's, taken over and generalized.
+- `overlap-monitor`, `progress!`, `emit!` (`META`, `PROGRESS` and `RESULT`
+  to stdout; `META` and `RESULT` appended to the number's `.edn` as well).
+- `verdict`: the rules of 7.2 and 7.3 over given values and thresholds.
+- `summarize` and `report`: the median and spread across runs per variant
+  and level, and the three `.txt` files.
+
+`rig.bench.agent-rate`: `run` (A, A', D1, D2), `sessions` (B), `reads`
+(C, with the entry bytes).
+
+`rig.bench.one-thread`: `run` ((a) and (b)), `reads` ((c)).
+
+`rig.bench.lock-growth`: `variants` (6.3's table), `run <variant>`,
+`lock-rows-logical` (for any layer), `compacted` (6.4, item 3),
+`pick-lock-rows` and `repack` (6.5), `check-values` (the end-of-variant
+checks of 6.4), `report`.
+
+### 9.3 The tests: `rig.bench.numbers-test`
+
+Run under the lock as `clojure -M:test rig.bench.numbers-test`: one
+cluster for the namespace at `{:tasks 4 :threads 4 :workers 1}`, and one at
+`{:tasks 1 :threads 1 :workers 1}` for T7.
+
+- **T1, the write list is the store's own.** In an agent layer with no
+  grammar, 100 value acts through the door (so two lease acts). Take
+  `field-counts` before and after. Every field must grow by what `writes`
+  claims, summed over the acts admitted by kind: `:answers`, `:log`,
+  `:heads`, `:ix-ek`, `:ix-ke`, `:ix-s` and `:by-stamp` by 102; `:leases` by
+  2 × 64 − 100; `:locks`, `:ix-kv` and `:ix-of` by 0; every other field by
+  0; `$$clock` moved on the home task only. A field the store has and the
+  list does not name fails the test, and so does a named write that did
+  not happen. This is the brief's "count of index writes per act checked
+  against the code's own list": the list is the harness's claim, the
+  growth is what the code did.
+- **T2 and T3**, the same for the by-value grammar (`:ix-kv` and `:ix-of`
+  by 100) and for a personal and a hand layer (`:locks` by 100).
+- **T4, the read entry.** Twenty point reads through the exit in an agent
+  layer: `:locks` grows by 20 (the `:own-row` mark), the entries' id-index
+  entries carry no value fields (`:no-copy`), and each entry act's growth
+  matches the list's entry column.
+- **T5, the counts the numbers are made of.** In a short window of four
+  writers: the harness's value count equals the answers the writers
+  received; its two lease counts agree with each other and with the
+  growth of `:answers` less the value acts. On a known synthetic latency
+  list, `rate` and `percentiles` give the known values (pure).
+- **T6, placement.** Every offer of a window was decided on its layer's
+  home task (partition and clock deltas), and `layers-on-task!` returns
+  only layers whose making grew the target partition.
+- **T7, the lock-store measure.** In a hand layer on one task, 2,000
+  values of 40 bytes: the logical pass counts 2,000 rows and sizes each as
+  its key's bytes plus its record's, matching a row read by keypath;
+  `pick-lock-rows` on a compacted copy picks exactly 2,000 entries under
+  one prefix, with raw bytes within 4 a row of the logical ones; `repack`
+  gives a positive size no larger than the whole store's. Then a second
+  hand layer's values in the same store: the pick must now report two
+  prefixes and a failed check, which shows the one-structure check is not
+  empty.
+- **T8, the wrap.** In a hand layer: an unmarked `:mention` of Bob makes a
+  lock row whose `:required` is `[:alice]` and whose record is the size of
+  an unmarked `:note`'s; a marked one makes `[:alice :bob]` and a blob 28
+  bytes longer.
+- **T9, the machine.** Every field of `machine` is present and not empty.
+- **T10, the verdict rule**, on synthetic values: 10,000 against 1,000 is
+  far above; 2,249 against 1,000 is near; bytes at 4.7 times are over four
+  times.
+
+The driver runs no measurement unless this namespace passes.
+
+## 10. The final numbers against the slice numbers
+
+### 10.1 What changed in the thing measured
+
+The slices measured the stream store of 25 September; the final runs
+measure the finished store. The differences the numbers should show, each
+from 2.3 and 2.4:
+
+| | Slices | Finished store |
+|---|---|---|
+| writes per small agent act | 4 | 9 (10 in a personal or hand layer), and a 72-write lease act per 64 value acts |
+| reads per small act | 4 | 8 for the agent (7 for the person) |
+| the value in the depot | plaintext | sealed at the door, 28 bytes more, and a lock id |
+| crypto on the task thread | none | unlease, open, re-wrap, value digest |
+| lock rows | none (stream); a slice module for number 2 | written by the store in personal and hand layers, one per value |
+| stamps | milliseconds, 21 s ahead of the wall at 2,250 acts a second | the hybrid clock (default 2) |
+| other topologies in the module | none | the micro store's, idle |
+
+So a change is expected everywhere. What each comparison looks for is
+whether a verdict moves, and why.
+
+### 10.2 Number 1
+
+Slice (runs/phase7-agent-rate.txt, runs 4 to 6): 299, 646 and 2,249
+admitted acts a second at K = 1, 4 and 16; 1,196, 2,584 and 8,996 index
+writes a second at 4 an act; p99 4.74, 9.79 and 9.94 ms; the home task
+thread 20%, 24% and 37% of a core. `report` prints the final value beside
+each and their ratio. Readings:
+
+- **Value acts a second within about a quarter of the slice's at every K,
+  and index writes a second up by about the ratio of write counts (about
+  2.5 times).** The finished rules cost the task little at these loads;
+  the writers in flight still set the rate; the verdict stays "near" at
+  every K.
+- **Value acts a second well under the slice's at high K, while the home
+  thread stays under 60% of a core.** The door is the limit (one lease at
+  a time, and a lease only when the pool is empty). D1 shows the gate's
+  own rate. The lease size and when to lease are rig choices that change
+  no record.
+- **The home thread near a full core.** The gate's per-act work is the
+  ceiling, and that rate is the task capacity the divisor needs. Variant
+  B's largest S should agree with it divided by 100; if it does not, the
+  report says which one to believe and why.
+- **K = 1 p99 above the slice's 4.7 ms.** The lease tier: one offer in 64
+  carries an acked lease act and a query. Number 3's (a) shows it apart.
+- **The clock's lead over the wall**: the slices' 20 to 21 seconds at
+  2,250 acts a second should be about zero. A check that default 2 did
+  what it was for, not a number.
+
+### 10.3 Number 3
+
+Slice (runs/phase7-one-thread.txt, runs 4 to 6): one writer 299 acts a
+second, p50 3.26, p99 4.72, max 20.9 ms; K = 1 to 128 from 300 to 5,192
+acts a second, p99 from 4.71 to 43.94 ms, the thread never above 60%.
+Readings:
+
+- **The rate verdict** was far above (13 times at K = 8). It stays far as
+  long as K = 8 still gives at least 1,000 value acts a second.
+- **The latency verdict** was near (the best p99 4.7 ms, 4.2 times under
+  20 ms). If the finished p99 at one writer is set by the lease tier, the
+  margin falls to about two times (*derived*: a leased offer waits for two
+  acked round trips and a query). If it passes 20 ms at one writer, the
+  assumed threshold fails at the smallest load, and the cause is the
+  door's cadence, not the task: a door that leases ahead would remove it.
+  (a)'s split of leased and unleased offers says which.
+
+### 10.4 Number 2
+
+Slice (runs/phase7-lock-growth.txt): raw bytes, one person: 169 B a value
+logical, 86.9 B compacted; two persons (base64) 233 B and 148.0 B; each
+extra person computed at 32 to 35 B raw; ratios at 40 B 4.23 times
+logical and 2.17 on disk, at 200 B 0.85 and 0.43. The finished store keeps
+raw bytes, so the slice's raw variants are the ones compared. Readings:
+
+- **Within about 10% of 169 B** (about 180 B expected, 6.2): the slice's
+  verdict stands. Fine at 200 bytes; over four times logically at 40
+  bytes and between two and four times on disk. It still turns on how big
+  hand-layer values are, which is Sid's.
+- **The slope per extra subject near 28 bytes plus a keyword**: the wrap is
+  what 6.2 says. Far from it, the report says where the bytes went.
+- **The ratio to the rest far under the slice's 0.38 to 0.75**: the
+  finished store keeps the sealed row four times (the log and three id
+  indexes), so the lock store weighs less among what a value costs than
+  the slice showed; a threshold read against stored bytes passes
+  everywhere.
+- **Per-act grain at four values an act**, if run: about a quarter of a
+  row a value (*derived*: about 45 B, 1.1 times a 40-byte value). It turns
+  the README's fallback, stated "by calculation rather than a run", into a
+  run.
+- **A curve that is not linear**: something per value is not constant
+  (lease rows standing, say); the report names the step where it bends.
+
+### 10.5 What a comparison cannot say
+
+The slices and the final runs ran on one machine (if the `META` lines
+agree) at different times. The slices' own runs agreed within 2% to 5%
+(runs 1 to 3 against 4 to 6), so smaller differences here are noise, and
+timing differences read as orders of magnitude only, by 7.2.
