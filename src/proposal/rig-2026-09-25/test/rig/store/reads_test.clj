@@ -135,8 +135,9 @@
   (let [n1 (nm)]
     (testing "a non-empty vector of at most 1,000 well-formed fact ids, normalised"
       (is (= {:fids [[n1 0]] :as-of nil} (reads/parse-point :alice [[n1 0]] nil)))
-      (is (= [[n1 3]] (:fids (reads/parse-point :alice [(subvec [:x [n1 (int 3)]] 1)] nil)))
-          "a subvec and an Integer index are rebuilt as a PersistentVector and a long")
+      (is (= [[n1 3]] (:fids (reads/parse-point :alice [(subvec [:x n1 (int 3)] 1)] nil)))
+          "a fact id that is a subvec, with an Integer index, is rebuilt as a PersistentVector and a long")
+      (is (instance? clojure.lang.PersistentVector (first (:fids (reads/parse-point :alice [(subvec [:x n1 (int 3)] 1)] nil)))))
       (is (= 1000 (count (:fids (reads/parse-point :alice (vec (repeat 1000 [n1 0])) 7))))))
     (testing "refused :bad-read: not a vector, empty (D6), too long, a malformed id, a malformed moment"
       (doseq [[what fids as-of] [["a list" (list [n1 0]) nil] ["empty" [] nil] ["1,001 ids" (vec (repeat 1001 [n1 0])) nil]

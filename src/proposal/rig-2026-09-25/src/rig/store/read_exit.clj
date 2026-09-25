@@ -49,9 +49,10 @@
   "The exit's step 1, total: nil when the call is well formed, else the
   reason `:bad-read`. A person reads for itself; a model or a tool for the
   person named in `:for` (tonight a parameter, F12)."
-  [{:keys [reader for reader-kind rows? working permission layer read as-of limit role]}]
+  [spec]
   (try
-    (let [kw? env/readable-keyword?]
+    (let [{:keys [reader for reader-kind rows? working permission layer read as-of limit role]} spec
+          kw? env/readable-keyword?]
       (when-not (and (kw? reader) (kw? for)
                      (contains? reads/reader-kinds reader-kind)
                      (or (not= :person reader-kind) (= for reader))

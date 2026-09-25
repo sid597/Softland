@@ -765,9 +765,10 @@
   and the secret's id, and the exact list of [fid stamp] for a person or a
   model, or a tool that asks for rows. Empty pattern reads give their line
   too. Total: nil for anything else."
-  [answer {:keys [entry-name role reader-kind rows?]}]
+  [answer spec]
   (try
-    (let [ent (entry-entity entry-name)
+    (let [{:keys [entry-name role reader-kind rows?]} spec
+          ent (entry-entity entry-name)
           base {:layer (:layer answer) :moment (:moment answer) :role (or role :shown)}]
       (case (:kind answer)
         :point (vec (for [r (:rows answer)]

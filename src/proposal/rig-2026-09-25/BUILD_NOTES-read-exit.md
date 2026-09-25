@@ -94,3 +94,15 @@ under `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`.
   paged read, a point read of an erased fact, `:exit-shown`, D5 and D7 in
   the cluster). Stand-ins named: T10's resend, T12's comparison, T18's homes,
   T1's per-layer moment.
+- Runs, narrowest first. `rig.store.reads-test`: 2 failures on the first run,
+  fixed: my test wrapped the fact-id list in an extra vector (test fix);
+  the totality property found `entry-facts` destructuring its spec in the
+  parameter list, outside its `try` (module fix; the exit's `check-call`
+  likewise). Then 16 tests, 222 assertions, green. `rig.store.read-exit-test`:
+  green on its first run, 1 test, 294 assertions (T11's crashes included;
+  47 reads returned rows, each with its entry :yes). `rig.store.read-model-test`:
+  green, 39 assertions: five histories, 25 model reads compared per layer,
+  73 answers, 0 differences. The plan's single moment (the chosen fact's rig
+  stamp for every layer) differs in 5 places, each traced to the model's
+  per-partition clocks (its seed gives `:alice-hand`'s partition stamps 1 to
+  5 before any history op); reported in the receipt, not asserted.
