@@ -122,15 +122,27 @@ handoff.
     named and cited case by case; any unexplained difference fails the
     test. Phase 4's build must provide its own hold hook: the only one that
     exists blocks a task thread.
+  - The rest of phase 5 planned (`PLAN-reads-rest.md`) and validated:
+    minor-fail, eighteen fixes in place (`PLAN_VALIDATION-reads-rest.md`,
+    03:55), merged here. Shared-layer reads go through the same exit with
+    the moment `{:frontier F}`; a shared layer's indexes sit on the
+    layer's own task, written in the deciding batch, the value index
+    holding a keyed hash of the value rather than its text (F12), so no
+    plaintext crosses between micro tasks; standing reads poll at the
+    delivery rate through the exit, each line carrying a keyed chain so a
+    close reads one line (F3); an agent session's close act keeps or
+    drops its read entries, a drop being ordinary value forgets 64 at a
+    time (F4), which needs every entry marked for its own lock row; purge
+    and rebuild share one invariant, that a purge writes what a rebuild
+    would, with a restore replaying the forgets after its rebuild.
+    Placement: acceptable tonight as a named rig choice (RR5), not as the
+    store core's (For Sid 29).
 - **In flight**, each writer in its own worktree off this branch, merged by
   commit: builds of phase 2 (`Softland-rig-build-locks`) and phase 3
   (`Softland-rig-build-micro`,
   which merges phase 2's lock primitives from an early commit of
-  `rig-build-locks`); validations of the rest of phase 5's plan
-  (`Softland-rig-plan-reads-rest`), phase 8's plan
-  (`Softland-rig-plan-replays`) and phase 6's plan
-  (`Softland-rig-plan-tools`), the last after the caching examination
-  below.
+  `rig-build-locks`); the validation of phase 6's plan
+  (`Softland-rig-plan-tools`), after the caching examination below.
 - **Next:** the merge of wave 1 in its own worktree, with the seams wired;
   then phases 4, the rest of 5 and 6 built side by side; then phase 8's
   replays; then phase 7's numbers on the finished store. Carried into the
@@ -327,6 +339,18 @@ everyone including the past"?
     forgotten, no read can be recorded for them through the exit, since
     the read entry's lease is refused, so nobody reads their one-owner
     layers there any more. Is that the intended reach?
+29. **Where a shared layer's indexes live, at scale.** Tonight every index
+    of a shared layer sits on that layer's own task (RR5): ruling 2's
+    letter (rows and log by entity) but not its intent. At the yardstick
+    the base's index would be about 200 GB on one task thread, and 10,000
+    renderers would ask about 60,000 seeks a second where one thread serves
+    2,000 to 3,000. Bucketed placement spreads writes and entity-scoped
+    reads but not key-scoped reads or standing-read deltas. It changes no
+    record, since indexes are rebuildable and the bucket count is
+    maintenance state; the store core needs the real answer.
+30. **A read paging across a micro commit** can show one erasure of a batch
+    and not another from the same batch; a case of 19's exposure at the
+    edges, left as it is.
 
 ## Defaults taken overnight, not ruled
 
