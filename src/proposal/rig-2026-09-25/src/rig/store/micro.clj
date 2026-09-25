@@ -1122,8 +1122,9 @@
   the same PState, with phase 2's schema, on a placeholder stream topology
   fed by a test depot (`*persons-placeholder`), so the micro gate's reads of
   person locks run. The one seam: set false (or delete the call) when phase
-  2's `gate` declares `$$persons`, and the micro gate reads that one."
-  true)
+  2's `gate` declares `$$persons`, and the micro gate reads that one.
+  False since phase 2's merge (wave 1): its gate declares `$$persons`."
+  false)
 
 (defn- declare-persons-placeholder!
   [setup topologies]

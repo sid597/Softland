@@ -1,4 +1,5 @@
-;; IMPORTANT: Before modifying this file, re-read PLAN-stream-store.md.
+;; IMPORTANT: Before modifying this file, re-read PLAN-stream-store.md and
+;; PLAN-locks-and-forgetting.md (sealed facts, the parts digest, L24 to L27).
 (ns rig.store.envelope
   "The envelope and the names, shared by the gate and the offerer. Pure.
 
@@ -29,13 +30,24 @@
 
 (def fact-parts
   "The positional core of a fact, its mark, and an optional layer that must
-  be the act's (the sharpening: layer belongs on the act)."
-  #{:e :k :v :replaces :mark :layer})
+  be the act's (the sharpening: layer belongs on the act). Stage 2: a value
+  fact carries `:sealed` and `:lock-id` in place of `:v` (L24)."
+  #{:e :k :v :replaces :mark :layer :sealed :lock-id})
 
 (def placed-keys
   "Fact keys whose acts the store places itself (model.clj `tag-of`, P4): a
-  name made for such an act carries no class."
-  #{:class :lock-grain :forget :crossed})
+  name made for such an act carries no class. Stage 2 adds the person acts
+  (L7)."
+  #{:class :lock-grain :forget :crossed :person :forget-person})
+
+(def control-keys
+  "Fact keys the store itself acts on (D2): they get no lock and their value
+  slot stays plaintext canonical EDN (P12). The model's seven, stage 1's
+  `:kind` and `:owner`, and stage 2's person, forget-person, lease and
+  session-close keys. Every other fact with a value is a value fact, sealed
+  at the door (L24, L27)."
+  #{:forget :lock-grain :class :promote-request :crossed :permission :revoke
+    :kind :owner :person :forget-person :lease :session-closed})
 
 (def setting-keys
   "Fact keys on a layer's own entity that the gate projects into settings,
@@ -181,12 +193,26 @@
     (.init mac (SecretKeySpec. ^bytes fingerprint-secret "HmacSHA256"))
     (hex (.doFinal mac (.getBytes text "UTF-8")))))
 
+(defn- parts-fact
+  "A fact as the parts digest sees it (L26, [V-F1]): a sealed fact's bytes
+  replaced by `true` and its lock id removed, so a resend sealed again, or
+  sealed under a newly leased lock, digests the same, while a value fact, a
+  retract and a control fact under the same e and k still digest apart."
+  [f]
+  (if (contains? f :sealed)
+    (-> f (dissoc :lock-id) (assoc :sealed true))
+    f))
+
 (defn digest
-  "The keyed digest of what a parsed offer says, its name aside (change E,
-  D8, P6). Derived by the gate when it decides and by the client when it
-  looks up; the offer does not carry it."
+  "The parts digest (change E, D8, P6; L26): the keyed digest of what a
+  parsed offer says, its name aside, with every value fact's sealed bytes
+  replaced by `true` and every lock id removed. It covers who, layer,
+  class, permission, session, stood-on, because-of, claimed-when, subjects
+  and per fact e, k, replaces, mark and any control value; nothing in it is
+  a value and nothing names a lock. Derived by the gate when it decides and
+  by the client when it looks up; the offer does not carry it."
   [offer]
-  (hmac-hex (canonical (dissoc offer :name))))
+  (hmac-hex (canonical (update (dissoc offer :name) :facts #(mapv parts-fact %)))))
 
 ;; ------------------------------------------------------------------- names
 
@@ -258,7 +284,10 @@
        (contains? schemes (nth nm 2))
        (uuid? (nth nm 3))))
 
-(defn- fid? [x]
+(defn fid?
+  "A fact id [name idx], idx a non-negative integer; a lock id [lease-name
+  i] has the same shape (L21)."
+  [x]
   (and (vector? x) (= 2 (count x)) (valid-name? (nth x 0))
        (int? (nth x 1)) (<= 0 (nth x 1))))
 
@@ -282,23 +311,48 @@
 (defn- norm-fid [x] [(norm-name (nth x 0)) (long (nth x 1))])
 (defn- norm-pid [p] (cond-> (into [] (take 3 p)) (= 4 (count p)) (conj (norm-pid (nth p 3)))))
 
+(defn- value-slot
+  "The value slot of a fact, by its kind (L24, L27): a control fact keeps a
+  plaintext EDN `:v` and carries no seal; a value fact carries `:sealed`
+  bytes and a well-formed `:lock-id` and no `:v`; a retract is `:v` nil
+  with neither. The normalised slot fields, or the reason the fact is
+  refused on its face: `:not-sealed` for a value that is not sealed as the
+  door seals it, `:malformed` for a control value outside the domain."
+  [f]
+  (cond
+    (contains? control-keys (:k f))
+    (cond
+      (or (contains? f :sealed) (contains? f :lock-id)) :not-sealed
+      (not (edn-value? (:v f))) :malformed
+      :else {:v (normalize-value (:v f))})
+
+    (contains? f :sealed)
+    (if (and (not (contains? f :v)) (bytes? (:sealed f)) (fid? (:lock-id f)))
+      {:sealed (:sealed f) :lock-id (norm-fid (:lock-id f))}
+      :not-sealed)
+
+    (or (contains? f :lock-id) (some? (:v f))) :not-sealed
+    :else {:v nil}))
+
 (defn- parse-fact
   "A fact, normalised, or the reason it is refused."
   [f]
-  (cond
-    (not (map? f)) :malformed
-    (record? f) :malformed
-    (not-every? fact-parts (keys f)) :unknown-part
-    (not (readable-keyword? (:e f))) :malformed
-    (not (readable-keyword? (:k f))) :malformed
-    (not (edn-value? (:v f))) :malformed
-    (not (or (nil? (:replaces f)) (fid? (:replaces f)))) :malformed
-    (not (or (nil? (:mark f)) (and (set? (:mark f)) (every? marks (:mark f))))) :malformed
-    (not (or (nil? (:layer f)) (readable-keyword? (:layer f)))) :malformed
-    :else (cond-> {:e (:e f) :k (:k f) :v (normalize-value (:v f))
-                   :replaces (some-> (:replaces f) norm-fid)
-                   :mark (into #{} (:mark f))}
-            (some? (:layer f)) (assoc :layer (:layer f)))))
+  (let [slot (when (and (map? f) (not (record? f))) (value-slot f))]
+    (cond
+      (not (map? f)) :malformed
+      (record? f) :malformed
+      (not-every? fact-parts (keys f)) :unknown-part
+      (not (readable-keyword? (:e f))) :malformed
+      (not (readable-keyword? (:k f))) :malformed
+      (keyword? slot) slot
+      (not (or (nil? (:replaces f)) (fid? (:replaces f)))) :malformed
+      (not (or (nil? (:mark f)) (and (set? (:mark f)) (every? marks (:mark f))))) :malformed
+      (not (or (nil? (:layer f)) (readable-keyword? (:layer f)))) :malformed
+      :else (cond-> (merge {:e (:e f) :k (:k f)}
+                           slot
+                           {:replaces (some-> (:replaces f) norm-fid)
+                            :mark (into #{} (:mark f))})
+              (some? (:layer f)) (assoc :layer (:layer f))))))
 
 (defn- parse*
   [raw gate]
@@ -357,11 +411,16 @@
   "Parse a raw depot record into {:ok offer}, every part validated and every
   class normalised, or {:refuse reason} for a record refused on its face,
   answered through the ack and recorded nowhere (P7): malformed (including
-  a value nested past `max-depth`, more than `max-subjects` carried
+  a control value nested past `max-depth`, more than `max-subjects` carried
   subjects, a carried stamp past `max-carried-stamp`), an unknown part or
   version, a bad name, `:who :store` (:reserved-who), a reserved scheme, an
-  empty act, a name made for the other gate (:wrong-gate), or a name made
-  for another layer or class (:mis-tagged). Total: never throws."
+  empty act, a value fact not sealed as the door seals it (:not-sealed,
+  L27: a plaintext `:v` on a value fact, `:sealed` that is not bytes or has
+  no well-formed `:lock-id`, a `:v` beside `:sealed`, a seal on a control
+  fact), a name made for the other gate (:wrong-gate), or a name made for
+  another layer or class (:mis-tagged). A sealed value is not read here:
+  its domain checks run where the gate opens it (rig.store.locks
+  `read-values`). Total: never throws."
   ([raw] (parse raw :stream))
   ([raw gate]
    (try (parse* raw gate)
@@ -384,9 +443,33 @@
   [s]
   (when (some? s) (edn/read-string s)))
 
-(defn offer-digest
-  "The digest of an offer as the gate will see it: over its parsed,
-  normalised form, so the client's lookup and the gate's record agree. Nil
-  when the gate would refuse the record on its face."
+(defn value-fact?
+  "A fact the door seals: a key that is not a control key, with a value
+  (a retract has none, L14)."
+  [f]
+  (and (map? f) (not (contains? control-keys (:k f))) (some? (:v f))))
+
+(defn sealed-view
+  "An offer as the gate will parse it once the door has sealed it: every
+  plaintext value fact given placeholder sealed bytes and a placeholder
+  lock id in place of its `:v`. The parts digest leaves both out, so this
+  view digests as the sealed offer will, whatever locks the door uses.
+  Anything that is not an offer with a vector of facts is returned as it
+  is."
   [raw]
-  (some-> (parse raw) :ok digest))
+  (if (and (map? raw) (sequential? (:facts raw)))
+    (let [placeholder [(:name raw) 0]]
+      (assoc raw :facts (mapv (fn [f]
+                                (if (value-fact? f)
+                                  (-> f (dissoc :v) (assoc :sealed (byte-array 0) :lock-id placeholder))
+                                  f))
+                              (:facts raw))))
+    raw))
+
+(defn offer-digest
+  "The parts digest of an offer as the gate will see it: over its parsed,
+  normalised form, so the client's lookup and the gate's record agree. A
+  plaintext offer is digested as the door will seal it (`sealed-view`).
+  Nil when the gate would refuse the record on its face."
+  [raw]
+  (some-> (parse (sealed-view raw)) :ok digest))
