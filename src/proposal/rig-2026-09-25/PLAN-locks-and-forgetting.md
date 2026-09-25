@@ -1957,6 +1957,19 @@ and the lease road").
   still get `:name-taken`); stream_gate_test.clj 216-219 and 536-537 (the
   outcomes stand, now through the gate's value check, so they need the
   sealing harness).
+  And stream_gate_test.clj 264-308, "refusals recorded under the name with
+  a stamp": a value act by a writer whose lease act is refused for the same
+  cause (`:no-permission`, `:permission-does-not-cover-this`,
+  `:permission-from-another-layer`, as for `:no-such-layer` above) can
+  cite no lock, so it is refused `:no-such-lock` on the face, unrecorded;
+  the lease act carries the recorded refusal. 299-301, "the refused name
+  stays refused" after a grant, then fails for a value act: the resend,
+  now able to lease, is decided fresh. A refusal whose cause arises between
+  the lease and the offer (a revoke) stays recorded. Where the suite asks
+  the model for the same history, these answers differ from the model's;
+  phase 8 reports them with the lease acts. Whether a lease act should need
+  the write permission at all is a question for Sid (validation, "For
+  Sid").
 
 ## Namespaces and tests
 

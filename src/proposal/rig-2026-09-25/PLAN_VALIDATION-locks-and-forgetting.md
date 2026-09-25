@@ -45,7 +45,7 @@ completes a list.
 | F1 | 1, 2, 5 | lock ids in the parts digest refuse an honest resend under a newly leased lock as `:name-taken`; the record path then left such a resend's lease rows alive, and after a forget they open the forgotten value's plaintext in the depot | "The shapes" (parts digest), door step 4, "The digest and the resend check", "Consumption of lease rows", "The missing lock", gate event step 3, cost row (c), L26 |
 | F2 | 3, 4 | the base (default 6, R8) cannot be made, leased into or wrapped: the plan puts it in stage 3, refuses a making act whose owner has no person lock, and seals lease rows under the layer's owner | "The shapes" (wrap table, lease row), "Re-wrap", "Lease rows", `lease-locks`, the lease act, L23, tests |
 | F3 | 7 | the holder body removes its entry inside `deliver-lock>`, so a face `:no-such-lock` on a later lock of the same act, or a discarded event, consumes a lock the plan says is untouched | "The delivery function", "Consumption of lease rows", interfaces |
-| F4 | 6 | the list of phase 1 expectations that change is incomplete (it names two groups; at least six places change) | "What later stages consume", stage 1 suite note |
+| F4 | 6 | the list of phase 1 expectations that change is incomplete (it names two groups; seven places change, one of them a difference from the model's answers) | "What later stages consume", stage 1 suite note |
 
 ## The revision's road, traced first
 
@@ -336,6 +336,19 @@ writer's lock, and the value must not die with the writer.
   6. stream_gate_test.clj 216-219 and 536-537: outcomes stand; the
      `:name-taken` now comes from the gate's value check, so the tests need
      the sealing harness.
+  7. stream_gate_test.clj 264-308, "refusals recorded under the name with
+     a stamp": the lease act is checked like a value write (plan, "The
+     lease act and its answer"), so a writer without permission cannot
+     lease, and its value act can cite no lock: `:no-such-lock` on the
+     face, unrecorded, where stage 1 and the model record `:no-permission`
+     (model.clj 432-433) or another permission reason. 299-301, "the
+     refused name stays refused" after a grant, fails for a value act: the
+     resend, now able to lease, is decided fresh and admitted. The plan
+     named only the unknown-layer case of this mechanism. This is a
+     difference from the model's answers for permission histories with
+     value facts, not only the lease acts phase 8 expects; for Sid below.
+  Before F4 the plan listed two of these seven. After F4 it lists all
+  seven, marked `[V-F4]`.
 
 ### Trace 7. No throw, and the delivery seam — no throw PASS; seam FAIL, fixed by F3
 
@@ -452,7 +465,15 @@ range read, at the lease act's rate (about one per 80 offers). PASS.
    The plan uses the operator; R8 says "the root actor", not its id.
 5. **Who seals a lease row (F2).** The lease act's person, not the layer's
    owner; the same in a person's own layers today, different in the base.
-6. **A crashed door's session.** Its unconsumed lease rows stay until a
+6. **Should a lease act need the write permission?** As planned it does,
+   so a writer without permission gets `:no-such-lock` on the face for a
+   value act, where the model and stage 1 record `:no-permission` under
+   the name (trace 6, item 7). If a lease needed only a session and a live
+   person lock (sealed under the leaser's own lock after F2, so harmless),
+   value acts would reach the recorded checks in the model's order; the
+   cost is lease rows any session can mint in any layer, bounded by the
+   close. Kept as planned tonight; the choice is Sid's.
+7. **A crashed door's session.** Its unconsumed lease rows stay until a
    close; the operator may close it (plan 504-506). When a session is
    closed after a crash is open item 82's.
 
