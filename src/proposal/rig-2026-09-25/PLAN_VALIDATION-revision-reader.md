@@ -303,9 +303,12 @@ to 1082). **Pass.**
   `path` unless the encoding is UTF-8 (L 340 to 347, error table L 184).
   No tracked path at the rig branch's head is non-ASCII (checked).
 - **The environment. Failed, fixed (F5):** the plan left inherited
-  `GIT_DIR` to the runner (117b6cf9 L 301 to 303). A git hook or `git
-  rebase --exec` sets it; git then reads that repository instead of the
-  one named, and `/proc` (test 10) is suddenly inside one. Every `GIT_`
+  `GIT_DIR` to the runner (117b6cf9 L 301 to 303). A git hook runs with
+  `GIT_DIR` and `GIT_WORK_TREE` exported (githooks(5), read here:
+  "Environment variables, such as GIT_DIR, GIT_WORK_TREE, etc., are
+  exported"), so a suite run from a hook would have git read that
+  repository instead of the one named, and `/proc` (test 10) would be
+  inside one (derived). Every `GIT_`
   variable is now dropped from the command's environment, the oracles run
   the same way, and `git diff` runs with `--no-ext-diff --no-textconv`
   (L 330 to 338).

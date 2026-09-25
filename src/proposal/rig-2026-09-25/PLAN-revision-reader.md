@@ -330,9 +330,12 @@ wait on nothing (assumed).
 
 Each command runs with the JVM's environment minus every variable whose
 name starts with `GIT_` **[F5]** (`clojure.java.shell`'s `:env` replaces the
-whole environment, so the reader passes the filtered copy). A git hook or
-`git rebase --exec` sets `GIT_DIR`, and with it git reads that repository
-instead of the one named, and finds a repository even at `/proc`. The
+whole environment, so the reader passes the filtered copy). A git hook runs
+with `GIT_DIR` and `GIT_WORK_TREE` exported (githooks(5), checked by the
+validation: "Environment variables, such as GIT_DIR, GIT_WORK_TREE, etc.,
+are exported"), so a suite run from a hook would have git read that
+repository instead of the one named, and find one even at `/proc`
+(derived). The
 tests' oracles run git with the same environment, and `git diff` with
 `--no-ext-diff --no-textconv`, so neither the environment nor user
 configuration can change what they report.
