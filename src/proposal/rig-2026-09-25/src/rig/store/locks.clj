@@ -510,6 +510,14 @@
 ;; ======================================================================
 ;; The decision's lock part (pure; gate/decide calls it)
 
+(defn row-at
+  "Row `i` of an act's rows, or nil: total for any index an offer carries
+  (a fact id's index may be any non-negative long, and `nth` past int
+  range throws)."
+  [rows i]
+  (when (and (int? i) (<= 0 i) (< i (count rows)))
+    (nth rows i)))
+
 (def lock-control-keys
   "The control keys this stage adds whose facts the gate acts on (L7, L10,
   L20, L28). An act carrying one carries that fact alone (rig choice: one
@@ -522,12 +530,21 @@
 (defn lease-count "A lease act's count, or nil." [offer]
   (some-> (fact-of offer :lease) :v :count))
 
-(defn forget-target "A value forget's target fact id, or nil." [offer]
-  (some-> (fact-of offer :forget) :v :target))
+(defn forget-target
+  "A value forget's target fact id, or nil; nil too when the target is not
+  a well-formed fact id (refused `:malformed-control` by the decision), so
+  the reads made before the decision never take a malformed key."
+  [offer]
+  (let [t (some-> (fact-of offer :forget) :v :target)]
+    (when (env/fid? t) t)))
 
-(defn person-target "The person a person act makes or forgets, or nil." [offer]
-  (or (some-> (fact-of offer :person) :v :id)
-      (some-> (fact-of offer :forget-person) :v :person)))
+(defn person-target
+  "The person a person act makes or forgets, or nil; nil too for an id
+  that is not a readable keyword (refused `:malformed-control`)."
+  [offer]
+  (let [p (or (some-> (fact-of offer :person) :v :id)
+              (some-> (fact-of offer :forget-person) :v :person))]
+    (when (env/readable-keyword? p) p)))
 
 (defn close-session "The session a session close closes, or nil." [offer]
   (some-> (fact-of offer :session-closed) :v :session))
@@ -657,7 +674,7 @@
         wrap-ps (plan-persons offer settings (:read lx))
         lease-who (when (fact-of offer :lease) (person-owner (:who offer)))
         maker (making-owner offer settings)
-        forgotten (some-> (fact-of offer :forget-person) :v :person)
+        forgotten (when (fact-of offer :forget-person) (person-target offer))
         missing? (fn [p] (and (some? p) (nil? (get persons p))))
         dead? (fn [p] (and (some? p) (nil? (:lock (get persons p)))))]
     (cond
@@ -681,7 +698,7 @@
       (when (and (fact-of offer :person) (some? (get (:persons lx) (person-target offer))))
         :person-already-made)
       (when-let [t (forget-target offer)]
-        (when (nil? (nth (:target-rows lx) (nth t 1) nil)) :no-such-value))))
+        (when (nil? (row-at (:target-rows lx) (nth t 1))) :no-such-value))))
 
 (defn- fail!
   "An impossible state inside the decision: thrown, and turned by
@@ -728,7 +745,7 @@
 (defn- forget-writes [offer lx stamp]
   (when-let [[tname tidx] (forget-target offer)]
     (let [trows (:target-rows lx)
-          row (nth trows tidx nil)
+          row (row-at trows tidx)
           lid (:lock-id row)]
       (if (or (nil? lid) (some? (:target-ledger lx)))
         {:ack {:how nil}}
@@ -854,8 +871,14 @@
 
 ;; ------------------------------------------- reads and enumeration (pure)
 
+(defn readable-fid?
+  "A fact id a point read can take: well formed, its index within the range
+  a row vector can hold."
+  [fid]
+  (boolean (and (env/fid? fid) (< (nth fid 1) Integer/MAX_VALUE))))
+
 (defn target-lock-id "The lock id of a forget's target row, or nil." [rows target]
-  (:lock-id (nth rows (nth target 1) nil)))
+  (:lock-id (row-at rows (nth target 1))))
 
 (defn rows-under "The persons lease rows are sealed under, each once." [rows]
   (into [] (comp (keep (comp :under second)) (distinct)) rows))
@@ -907,6 +930,12 @@
 
 (defn indexed "[i x] pairs of a collection, i a long." [xs]
   (into [] (map-indexed (fn [i x] [(long i) x])) xs))
+
+(defn opens-at?
+  "Whether a sealed row stamped `stamp` is to be opened for a read as of
+  `T` (nil: now). Total: a moment that is not a stamp opens nothing."
+  [row stamp T]
+  (boolean (and (sealed? row) (int? stamp) (or (nil? T) (and (int? T) (<= stamp T))))))
 
 ;; ======================================================================
 ;; Install functions: the schema fields, $$persons, the query topologies
@@ -1258,7 +1287,7 @@
   interface's (the read exit passes it); the row already names its value."
   [*layer *fid *row *stamp *T]
   (<<with-substitutions [$$layers (rama/this-module-pobject-task-global "$$layers")]
-    (<<if (and> (sealed? *row) (some? *stamp) (or> (nil? *T) (<= *stamp *T)))
+    (<<if (opens-at? *row *stamp *T)
       (get *row :lock-id :> *lid)
       (local-select> (keypath *layer :erased *lid) $$layers :> *ledger)
       (<<cond
@@ -1288,7 +1317,7 @@
   the bytes, which no write of this plan produces). Never throws."
   [*layer *fid *T]
   (<<with-substitutions [$$layers (rama/this-module-pobject-task-global "$$layers")]
-    (<<if (env/fid? *fid)
+    (<<if (readable-fid? *fid)
       (first *fid :> *name)
       (second *fid :> *idx)
       (local-select> (keypath *layer :answers *name) $$layers :> *rec)
@@ -1312,8 +1341,11 @@
   it goes. Stage 5's read exit replaces it at the merge."
   [*layer *T]
   (<<with-substitutions [$$layers (rama/this-module-pobject-task-global "$$layers")]
-    (local-select> [(keypath *layer :by-stamp) (sorted-map-range-to *T {:inclusive? true})]
-                   $$layers {:allow-yield? true} :> *acts)
+    (<<if (int? *T)
+      (local-select> [(keypath *layer :by-stamp) (sorted-map-range-to *T {:inclusive? true})]
+                     $$layers {:allow-yield? true} :> *acts)
+     (else>)
+      (identity {} :> *acts))
     (loop<- [*todo (seq *acts) *acc [] :> *facts]
       (yield-if-overtime)
       (<<if (empty? *todo)
