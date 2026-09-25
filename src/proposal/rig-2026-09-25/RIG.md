@@ -95,15 +95,13 @@ handoff.
     capability, class (c): two built-in steps a tool can call.
 - **In flight**, each writer in its own worktree off this branch, merged by
   commit: builds of phase 2 (`Softland-rig-build-locks`), the read exit
-  (`Softland-rig-build-reads`), the revision reader
-  (`Softland-rig-build-reader`) and phase 3 (`Softland-rig-build-micro`,
+  (`Softland-rig-build-reads`) and phase 3 (`Softland-rig-build-micro`,
   which merges phase 2's lock primitives from an early commit of
-  `rig-build-locks` once it lands); the validation of the rest of phase 5's
-  plan (`PLAN-reads-rest.md`, `Softland-rig-plan-reads-rest`); phase 8's
-  plan (`Softland-rig-plan-replays`); the caching rule's examination of
-  copies on many tasks (`Softland-rig-exam-copies`), which phase 6's plan
-  (`PLAN-tools-and-grammars.md`, written, in `Softland-rig-plan-tools`)
-  waits on before its validation.
+  `rig-build-locks`); validations of the rest of phase 5's plan
+  (`Softland-rig-plan-reads-rest`), phase 8's plan
+  (`Softland-rig-plan-replays`) and phase 6's plan
+  (`Softland-rig-plan-tools`), the last after the caching examination
+  below.
 - **Next:** the merge of wave 1 in its own worktree, with the seams wired;
   then phases 4, the rest of 5 and 6 built side by side; then phase 8's
   replays; then phase 7's numbers on the finished store. Carried into the
@@ -140,6 +138,27 @@ parent. *Inferred:* that "restore code" was chosen in the rewind menu, which
 the client does not log. For runs with builds in flight: after a refusal,
 restoring the conversation only is safe; restoring code rewrites any file
 the session's history tracks, its subagents' files included.
+
+**The caching rule, run on two copies** (`EXAMINATION-copies.md`, a fresh
+adversarial session, 03:37). Two designs kept one layer's or one person's
+facts on many tasks: phase 6's plan, for a key's grammar to reach every
+layer, and phase 2's `$$persons`, every person's lock on every task. Both
+trace to phase 1's invariant that a stream decision has every input local
+on one task, which is a rig choice drawn from Rama, not a ruling, meeting
+ruling 2's placement by layer; Sid's order rule allows a check against
+elsewhere as a stamped read. *Grammar: no copy.* A gate can honestly enforce
+only what lives in the layer it orders, as with permissions, so a key's
+grammar is a fact in each layer that governs it, read locally; adoption of
+another layer's grammar can come later through based-on, with no new part;
+a copy on every task fails (it copies mutable current state and needs one
+writer across two gates), and so do a hop per offer and all of a person's
+layers on one task. The model's compiled grammar is where "the toy is
+kinder than the rule". *Person locks: the copy survives, as the original
+lock replicated*, because the owner's lock is needed at every decision and
+every open, on any task; a public-key wrap would free only the non-owner
+wraps, at 147.7 µs a wrap against 1.24 µs (measured, JVM only), and would
+change the wrap record. A forget must reach every task's entry, which the
+act does, and Rama's replicas and RocksDB's leftovers, which is For Sid 25.
 
 ## For Sid
 
@@ -247,6 +266,29 @@ everyone including the past"?
 22. **Re-class and promotion.** A target re-classed between the request and
     the landing refuses the landing; promotion out of a re-classed layer is
     not built.
+
+**From the caching examination** (`EXAMINATION-copies.md`):
+
+23. **Where a key's grammar lives.** Built: per layer, a fact in the layer
+    it governs, read there, with no copy; a layer can adopt another's later
+    through based-on. The alternative, one grammar enforced store-wide at
+    every gate, changes the record: every decision would name the grammar
+    version it used. Which?
+24. **The person lock's scheme.** Built: symmetric, the original replicated
+    to every task. Public-key would keep the secret in one place for
+    everything but opening, at about 120 times the cost of a wrap, and
+    changes the wrap record.
+25. **Forget's physical reach.** A destroyed lock's bytes stay in RocksDB
+    until compaction, on every task and every replica, and such a leftover
+    would open the depot's sealed copies. So "nothing that could open a
+    value sits in the depot" rests, in the end, on compaction. Assumed
+    from RocksDB's design, not probed.
+26. **A mark without a grammar.** Should a `:die-with-any` mark on a key the
+    layer has no grammar for be refused? In a one-owner layer with no
+    grammar, an unmarked value is wrapped under the owner alone, as it
+    should be; a mark needs the subjects a grammar gives.
+27. **For round three:** the model's compiled grammar is the toy's
+    kindness; the seed can model grammars as facts in layers.
 
 ## Defaults taken overnight, not ruled
 

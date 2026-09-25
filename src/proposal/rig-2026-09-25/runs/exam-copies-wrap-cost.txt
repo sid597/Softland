@@ -1,0 +1,5 @@
+Sat Sep 26 03:31:36 AM IST 2026
+java 21.0.12.1, 10000 iterations each
+symmetric wrap (AES-256-GCM of 32 bytes):            1.24 us
+public-key wrap (X25519 ephemeral + agree + GCM):   147.70 us
+public-key open step (X25519 agree + SHA-256):       73.66 us
