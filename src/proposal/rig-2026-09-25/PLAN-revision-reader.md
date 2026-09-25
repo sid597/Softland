@@ -30,15 +30,14 @@ revision cut into units, and each unit is its content and its position,
 nothing else. Prose files (Markdown, and any file that is not Clojure) are
 cut into passages, which are blocks (section 6). Clojure files (`.clj`,
 `.cljc`, `.cljs`, `.edn`) are cut into top-level forms, which is how this
-plan reads "functions" (section 7). A third entry reads the lines a person
-points at as one unit (section 8); a second entry reads it. Every failure
-comes back as data. It has
-no Rama in it, no dependency on the store's namespaces, no new library, and
-no identity of any kind: no ids, no names used as keys, no hashes offered as
-identity. It is a capability in the count's third class, a built-in a tool
-calls (section 12). It is not the reference tool, not ingest into the store,
-and not a rule for when a passage at one revision is the same as one at the
-next; round three designs those.
+plan reads "functions" (section 7). A span, the lines a person points at,
+is the third kind of unit (section 8), read through a second entry. Every
+failure comes back as data. It has no Rama in it, no dependency on the
+store's namespaces, no new library, and no identity of any kind: no ids, no
+names used as keys, no hashes offered as identity. It is a capability in
+the count's third class, a built-in a tool calls (section 12). It is not the
+reference tool, not ingest into the store, and not a rule for when a passage
+at one revision is the same as one at the next; round three designs those.
 
 ## 2. Why it exists, and what binds it
 
@@ -165,14 +164,15 @@ returns `{:rev :commit :path :text}` (section 4).
 
 ### Errors
 
-An error is a map with `:error`; a success never has it. Every error carries
-the inputs as given (`:repo`, `:rev`, `:path`) and `:commit` once it is
-known, plus the keys below.
+An error is a map with `:error`; a success never has it. An error from a
+read (`read-units`, `read-span`) carries the inputs as given (`:repo`,
+`:rev`, `:path`) and `:commit` once it is known, plus the keys below; an
+error from a pure function carries only `:error` and its own keys.
 
 | `:error` | When | Also carries |
 |---|---|---|
 | `:bad-argument` | An input is malformed, checked before git runs: `repo` blank; `rev` blank, starting with `-`, or holding NUL, `\n` or `\r`; `path` blank, starting with `/`, ending with `/`, holding NUL, or with an empty, `.` or `..` segment; `:limit` not a positive integer; `:git` blank; `:cut` not `:blocks` or `:forms`; span lines not `1 <= first <= last`; after the read, span `last` past the file's last line | `:argument` (which input), `:value`; for a span past the end, `:line-count` |
-| `:not-a-repository` | git exits 128 while resolving the revision: the directory is missing or not in a repository | `:detail` (git's stderr) |
+| `:not-a-repository` | git exits 128 while resolving the revision: the directory is missing, is not in a repository, or git refuses it (an unsafe owner, for one); its stderr says which | `:detail` (git's stderr) |
 | `:unknown-revision` | the revision names no commit (git exits 1), a tree or blob id included | |
 | `:missing-path` | no entry at exactly that path in the commit's tree | `:commit` |
 | `:not-a-file` | the entry is a directory, a symlink or a submodule | `:entry` (`:directory`, `:symlink`, `:submodule`) |
@@ -195,7 +195,8 @@ Public, in `rig.revision`:
   executable; default `"git"`).
 - `(read-span repo rev path first-line last-line)` and the same with
   `opts` (`:limit`, `:git`): `{:rev :commit :path :unit}` or an error.
-- `(blocks text)`: `{:units [...]}`; it cannot fail.
+- `(blocks text)`: `{:units [...]}`; it has no error of its own (only
+  `:internal`, on a bug).
 - `(forms text)`: `{:units [...]}`, or `{:error :unreadable :at ... :reason
   ...}`.
 - `(span text first-line last-line)`: `{:unit ...}`, or `{:error
@@ -292,9 +293,10 @@ A non-zero exit from step 2 or step 4 gives `:git-failed` too (it can only
 happen if the repository changes under the read, for example a pruned
 object). Each public function, the pure cuts included, also wraps its body
 in a catch of `Exception` that gives `:internal`, so a runner can call it
-from anywhere, a Rama task included, and never see an exception (an exception in topology code kills the
-worker: RIG.md, phase 0). Three processes per read (by construction; their
-cost, a few milliseconds each, is assumed). No timeout, because
+from anywhere, a Rama task included, and never see an exception (an
+exception in topology code kills the worker: RIG.md, phase 0). Three
+processes per read (by construction; their cost, a few milliseconds each, is
+assumed). No timeout, because
 `clojure.java.shell` has none and local plumbing reads of a bounded blob
 wait on nothing (assumed). A caller whose environment sets `GIT_DIR` reads
 that repository instead of the one named (git's rule); the runner must not
@@ -340,10 +342,11 @@ run of whole lines, by six rules.
    and any other number does not, because a wrapped line can begin with a
    number and a full stop. That is CommonMark's rule, and it is measured
    here: in the 36 Markdown files of `docs/`, `src/proposal/` and `vision/`
-   on this branch, ten lines begin with a number marker directly under a
-   paragraph line; the eight that are `1.` start real lists (PROGRESS.md's
-   "**The nine ...**" label directly above "1. Gate kind", for one), and
-   the two that are not, `LEDGER.md` line 128 ("560. Line numbers below are
+   at `7a7403bd`, ten lines begin with a number marker directly under a
+   paragraph line; the eight that are `1.` all start real lists, a label or
+   a sentence directly above each (checked one by one; PROGRESS.md's "**The
+   nine ...**" label directly above "1. Gate kind" is one), and the two
+   that are not, `LEDGER.md` line 128 ("560. Line numbers below are
    in that file") and the rig's `README.md` line 354 ("64. One offerer at
    a time"), are wrapped prose (checked with awk tonight). The letter is
    this project's own convention, not CommonMark's: three lines in those
@@ -486,7 +489,7 @@ data the open top-level unit still needs.
   symbols). This set is from Clojure's reader source, `LispReader`,
   assumed from memory; the reader oracle and the property test check it.
 - A character literal is `\`, then one char taken whatever it is, then any
-  token characters after it (`\newline`, `é`, `\(`).
+  token characters after it (`\newline`, `\u00e9`, `\(`).
 - In a string or a regex, `\` takes the next char, and the first unescaped
   `"` ends it.
 - After `#`, any char other than `{ ( " ' _ = ? : ^ # !` or the start of a
@@ -695,8 +698,9 @@ bindings given in section 7.
     folder's `"RIG.md/x"` at `7a7403bd`.
 13. `:not-a-file`: the rig folder's `src` at `7a7403bd` (`:directory`);
     `AGENTS.md` at `ce6ebaeb` (`:symlink`); `:submodule` through the
-    private ls-tree record parser, given `"160000 commit <40 hex>       -\tvendor/x"`,
-    since no tracked path outside `src/app` is a submodule (checked).
+    private ls-tree record parser, given the record
+    `"160000 commit <40 hex>       -\tvendor/x"`, since no tracked path
+    outside `src/app` is a submodule (checked).
 14. `:too-large`: `RIG.md` at `7a7403bd` with `:limit` 1000; with `:limit`
     26033, its exact size, the read succeeds (the budget is inclusive).
 15. `:binary`: the PNG fixture; git's numstat gives `-` for it and `96 0`
@@ -734,7 +738,7 @@ bindings given in section 7.
     `# Title` makes that line paragraph text (G8, recorded as behaviour).
 22. Forms: two forms on one line; a comment holding `)` and `"`; the
     characters `\(`, `\)`, `\;`, `\"`, `\\`, `\newline`, `\space`,
-    `é`; a string holding `(;` and an escaped quote; the regex
+    `\u00e9`; a string holding `(;` and an escaped quote; the regex
     `#"[)\"]"`; `#{}`, `#()`, `##Inf`; `#inst "..."` and `#foo/bar {}`;
     `^:private`, `^{:a 1}`, `#^` and `^:a ^:b x`; `'`, `` ` ``, `~`, `~@`,
     `@`, `#'`, `#=`; `#?(...)` and `#?@(...)` at the top, one unit each;
