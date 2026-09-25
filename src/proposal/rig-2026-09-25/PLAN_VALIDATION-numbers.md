@@ -478,3 +478,220 @@ the plan's own promise that every workload goes "through its own road"
   grants `[S L L [p L L]]` (micro_client.clj L473-493). **Hold.**
 
 **Verdict: FAIL**, fixed by F3 and F4.
+
+## C8. The runs: the cluster lock, the background, progress, one cluster at a time
+
+**Source.** RIG.md L89-92: "Every in-process cluster run waits on `flock
+/mnt/data/projects/rig-relay-2026-09-26/cluster.lock`." RIG.md L82-85:
+"long runs in the background with progress under `runs/`". README L789-790
+of RIG.md: "Only one in-process cluster can run on this machine at a time
+(port 2002)".
+
+**Trace.**
+
+- *The lock.* Every JVM that starts a cluster, each run and the test alike,
+  runs as `flock <lock> clojure -M:bench|-M:test ...` from the rig folder
+  (L841-850); `flock` waits with no timeout and holds the lock for the
+  JVM's life. The file exists (checked: `cluster.lock` in the relay
+  folder). A `flock -n` try first writes "waiting for the cluster lock" to
+  the progress file, so a wait is told from a hang (L852-855). `report`
+  starts no cluster and takes no lock (L879). **Holds.**
+- *The background.* `nohup test/rig/bench/phase7-final.sh <set> >
+  runs/phase7-final-driver.log 2>&1 &` (L862); per step a start line and an
+  end line in `runs/phase7-final-progress.log`, the step's output in
+  `runs/phase7-final-<step>.log` (L864-867); `PROGRESS` lines every 5 s
+  and at every window's edges (L888-892). The `.log` files are ignored by
+  git (the rig folder's `.gitignore` holds `runs/*.log`, checked), and
+  nothing a result needs lives only in them (L893-896). **Holds.**
+- *One cluster at a time, across JVMs*: the lock. **Holds.**
+- *One cluster at a time, inside one JVM*: the test namespace opens "one
+  cluster for the namespace at `{:tasks 4 ...}`, and one at `{:tasks 1
+  ...}` for T7" (L1035-1037). If the first is a fixture around the whole
+  namespace, T7's `create-ipc` runs while it is open and fails to bind port
+  2002, as the slices' first attempt did ("Address already in use",
+  runs/phase7-lock-growth.txt L296-299). `flock` cannot help inside one
+  JVM. The plan must say the two are never open at once. **FAIL → F6.**
+- *The busy port* is retried every 30 s up to five times (L906-908);
+  *the overlap monitor* lists other Java processes every 2 s (L900-905). At
+  validation the only other JVM on the machine was a rig test JVM of
+  another session (`-Xmx8g`, the `:test` alias), so no permanent JVM would
+  mark every window (checked with `ps`). *Free space* is checked before
+  each step (L1299-1300). *Failures* (L940-946): a failed `test` stops the
+  driver; any other failure is logged and the driver goes on; nothing is
+  rerun by the script. **Hold.**
+
+**Verdict: FAIL** on the two clusters in one JVM; fixed by F6.
+
+## C9. The thresholds, and conclusions at orders of magnitude
+
+**Source.** RIG.md default 7 (L532-537): "The numbers are judged against
+the thresholds assumed in this file and README.md ... which are assumed,
+not Sid's." SPEC.md L192-194: "only orders of magnitude mean anything, and
+the numbers say so."
+
+**Trace.** 7.1 (L808-817) quotes the three thresholds as default 7 has
+them, says "assumed and not Sid's", and every result file prints
+"thresholds assumed (RIG.md default 7), not Sid's"; Q1 (L1357-1358) puts
+them to Sid. 7.2 (L819-824) keeps the slices' rule: ten times or more on
+one side decides, within ten times the in-process cluster cannot, each K
+judged on its own with the side and the factor named. The caveat of 3.3 is
+in every file. Bytes (7.3, L826-835): logical bytes are exact for Rama
+1.6.0's serializers and are judged directly; compacted bytes are judged the
+same way with the RocksDB-options caveat; both denominators are printed,
+because the threshold does not say which bytes it means. T10 tests the
+rule on the slices' own cases (10,000 far above 1,000; 2,249 near; 4.7
+times over four). Section 10's readings compare with the slices and name
+what would move a verdict; none states a timing finer than the rule
+allows. With F5, number 3's latency verdict is taken on the open-arrival
+windows under the same rule.
+
+**Verdict: PASS.**
+
+## C10. The binding points B1 to B13
+
+**Source.** The brief: the build after the merges must know what to
+confirm. The plan: "Each is a name this plan uses that tonight's merges
+may move or rename" (L1308-1310).
+
+**Trace.** Each of B1 to B13 (L1314-1326) names a site today and what the
+harness does with it, and T1 to T11 fail if one is wrong in a way that
+matters. Read against the code: B1 (`rig.store.module/Store`, module.clj
+L105 on `d83e5ff8`), B3, B4, B5's named pieces, B6, B7 (micro_client.clj
+L482-493), B8 (permit.clj L29), B11, B13 (`"*offers"`, `"lease-locks"`,
+`"read-point"`, `"read-pattern"`: module.clj L107, locks.clj L1402,
+reads.clj's queries) are where the plan says. What the list does not name,
+though the plan or C1 to C8 lean on it:
+
+1. The content of `reads/seed-hints`: `:note` by value (C2, flaw 1). B9
+   names the constant, not what it says.
+2. The first-use `:key-rows` write (C2, flaw 2). B2 lists `:key-rows` as
+   planned, not the write the first fact under a key makes.
+3. `read-exit/entry-offer`'s `:session nil` and the reader as `:who`
+   (C7). B10 names `read!`, not the entry it builds.
+4. `c/connect` (every `with-store`, and a door per session in B),
+   `c/offer-until-answered!` (setup) and `c/lease!` (F4). B5 names
+   neither.
+5. The RocksDB family names `default` and `subindexed` and
+   `OptionsUtil/loadLatestOptions` over Rama's written options (C5,
+   item 7). B12 names the serializers only.
+6. The slice bench's helpers and what loading them needs:
+   `rig.bench.lock-bench` requires `rig.bench.lock-slice` and uses
+   `rig.store.envelope/canonical` (lock_bench.clj L30-38, L82-94). 9.1
+   names the copy fallback; no binding point names the dependency.
+
+And one statement is stale: 2.1 (L166-168) says no merge has committed
+and `rig-wave1` stands at `703b8e26`. At validation `rig-wave1` stands at
+`d83e5ff8`: phase 3 merged (`f29f792d`), then phase 2 (`d83e5ff8`), with
+the seams RIG.md "Unfinished" item 1 lists still to wire ("The rest of the
+seams are wired in the commits that follow", its message). The build reads
+the final branch anyway; the plan should record what the trace on
+`d83e5ff8` showed, so the build knows where the list already agrees.
+
+**Verdict: FAIL**, fixed by F12 (with the notes of F1 to F4).
+
+## C11. Time
+
+**Source.** The brief: is the run-time estimate plausible, and does a
+minimum set exist if time is short?
+
+**Trace.** Recomputed from the windows (8.6, L918-938; 4.9, 5.6, 6.7):
+
+- *Agent rate*, a run: JVM 40 s (*assumed*) + setup 10 + idle 10 +
+  warm-up 20 + A's six levels 108 + two more 36 + A' 54 + D2 18 = 296 s;
+  260 s without the two extra levels. The plan's "about 4.6 minutes" holds
+  without D1.
+- *One person*, a run: 40 + 20 + 20 + (a) 26 + (b) 104 = 210 s. Holds.
+- *Lock growth*, a 100,000-value variant: 40 s + setup + 100,000 values
+  at 2,400 to 4,300 a second (C7) = 23 to 42 s + ten points, each a copy,
+  a forced compaction and a scan of a store growing to an estimated 150
+  to 250 MB, a few seconds each growing with the store. About 2 to 3.5
+  minutes. Holds.
+- *Not in the estimate*: D1, which C7 shows will likely run in every
+  agent-rate run: with F4's linear stocking (352 leases of 256 at a few
+  milliseconds each, then one range read of 90,000 rows, *derived*) and its
+  18-s window, about a minute a run, three more minutes. As written, its
+  quadratic stocking adds more. F5's open-arrival windows: 2 × 18 s a run,
+  about two more minutes. So the minimum set is about 42 to 45 minutes,
+  the full set about 65.
+- *A minimum set exists*: 8.2's `min` (L869-879). *A shorter one does
+  not*, for when less than 40 minutes remain before the numbers are due.
+  One run of each timing step and the two main lock variants: `test` 3,
+  `agent-rate-1` about 6 (with D1), `one-thread-1` about 4, `h40` and
+  `h200` about 2.5 each, `report` 1: about 19 minutes, at the cost of the
+  spread across runs, which the report must then say is unknown.
+
+**Verdict: FAIL** (the estimate misses D1 and has no set shorter than 40
+minutes); fixed by F4, F5 and F11.
+
+## C12. The template's sections, read for a measurement (the plan's section 15, checked)
+
+- **Query topologies, PState schemas, topologies, internal depots, stream
+  correctness**: none is added; the harness drives the store's own module
+  (L1189-1245). Not applicable, with that reason. The micro store's
+  microbatch topology is present and idle, and its idle cost is recorded in
+  a 10-s window (L329-332). PASS.
+- **Partitioning**: C3; flat at N = 1, 16 and 128 with the corrected lease
+  row. PASS with F10.
+- **Production readiness, as it applies to a harness.** Concurrent
+  clients: K writers share the door, whose pool locking is phase 2's (a
+  lease's locks enter the pool once, one thread leases at a time:
+  `de86fd23`, client.clj L102-121, L171-179); the harness's counters are
+  per writer. A killed run leaves `RESULT` lines under its run id and no
+  end line, and the summary uses complete runs only; `flock` lets go when
+  the JVM exits (L1441-1443). A retried lease act (setup and the door use
+  `offer-until-answered!`) appends twice: the two lease counts then
+  disagree and the window is marked, which is the check doing its job. A
+  worker restart is not simulated; the numbers are not about failover.
+  Two clusters in one JVM: C8, F6. PASS with F6.
+- **In-memory efficiency.** Latencies in growable primitive `long` arrays
+  per writer (L1007-1010); A's largest window, about 150,000 offers, is
+  about 1.2 MB. PASS.
+- **Minimality, adversarially.** The simplest plan, rerunning the slices'
+  benches on the merged store, fails twice (L1450-1455): the lock slice is
+  not the store's lock rows, and the stream bench neither counts leases
+  nor names or reads back the finished store's writes. Could
+  `field-counts` go, with the read-back alone checking the list? No: the
+  read-back shows that sampled acts' named writes exist; only a count of
+  every field can show a write the list does not name. Could the re-pack
+  go, with RocksDB's approximate range size instead? Only as an estimate
+  over the same prefix, which the plan keeps as a cross-check. The extras
+  (A', D1, D2, B, C, the per-act grain, the entry bytes, the repeat, 5.5)
+  are each named with what they decide and what they cost. PASS.
+- **Throughput, adversarially: does the harness load the task it
+  measures?** Read-backs and placement reads at window edges, the overlap
+  monitor and progress on client threads, CPU snapshots at edges
+  (L1462-1467). One load the plan does not name: D1's stocking as written
+  puts O(n²) reads on the home task before its window (C7). PASS with F4.
+
+## C13. Spec coverage, clause by clause
+
+Each clause of SPEC.md's phase 7 and "Tests and evidence", and RIG.md
+default 7, traced to the plan's lines, with the fault and race checks as
+they apply to a harness (a harness writes through the store's own road
+and keeps no store state of its own).
+
+| Clause (verbatim) | Traced to | Holds? |
+|---|---|---|
+| "The three numbers, each with its method" | 4, 5, 6; the method header of every result file (L915) | yes |
+| "and the machine it ran on" | `META`, recorded by the harness at every run (L293-310) | yes |
+| "index writes per second" | 2.3, 2.5, 4.3; T1 ties the list to the code | with F1, F2 |
+| "with an agent session layer" | 4.2: kind `:agent`, a session opened beneath the owner's root | yes |
+| "writing small acts continuously" | 4.3: one 40-byte fact an act, closed loops with no pause | yes |
+| "lock store growth under hand layers" | 6: kind `:hand`, the store's own `[L :locks]` rows | yes |
+| "bytes per value" | 6.4, 6.6: logical, raw, compacted and re-packed | with F8, F9 |
+| "the curve over a hundred thousand values" | ten points to 100,000; each step against the mean step (L778-780) | yes |
+| "one person's layer on one thread" | 5: a personal layer, every offer decided on its one task (4.8) | yes |
+| "acts per second" | 5.3, 5.4 | yes |
+| "and latency" | 5.3, 5.4: closed loops only | with F5 |
+| "Tests are `clojure.test` namespaces under the rig folder's `test/`, run with `clojure -M:test <ns> ...`" | `rig.bench.numbers-test` (9.3), step 1 of the driver | with F6 |
+| "Every claim that a capability works says what was run and what it showed. A claim that was only reasoned says so." | the plan's marks (L15-20); the result files (8.5) | yes |
+| "Measurements (phase 7) state the method, the machine and the run. ... only orders of magnitude mean anything, and the numbers say so." | 3.3 in every file; 7.2 | yes |
+| Default 7: "Lock growth is reported for 40- and 200-byte values." | `h40`, `h200` in the minimum set | yes |
+| Default 7: "judged against the thresholds assumed ... not Sid's" | 7.1; every file's line | yes |
+| RIG.md L82-85: "long runs in the background with progress under `runs/`" | 8.2, 8.3 | yes |
+
+*Fault and race checks, as they apply.* A worker restart mid-run: not
+simulated; an erring run is marked (L1443-1445). A retried offer: C12. A
+run killed mid-way: partial lines the summary ignores (L1492-1493). Two
+sessions' clusters: `flock` across JVMs; two clusters in one JVM: F6.
+Concurrent writers into one door: the door's own locking, as built.
