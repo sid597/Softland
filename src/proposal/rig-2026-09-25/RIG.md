@@ -81,6 +81,18 @@ handoff.
     it (F1); a small-order key that would have made the read-out throw, and
     so replay for ever, now decoded at the request and answered as data
     (F2).
+  - Phase 6's revision reader built and green, merged here: `rig.revision`
+    (`read-units`, `read-span`; plain Clojure, no Rama, no store namespace,
+    no new library) and `rig.revision-test`, 25 tests. On the merge, run
+    by builder A: 25 tests, 2,837 checks, 0 failures, 0 errors
+    (`runs/revision-reader-after-merge.log`; no cluster needed). Both
+    validations minor-fail, fixed. As extra evidence the build cut every
+    tracked file outside `src/app`: 1,580 Markdown files into 126,747
+    blocks, every block rule holding, and 345 Clojure files into 3,327
+    forms, each count and line equal to Clojure's own reader. The plan's
+    test 7 named a block's extent where it meant a form's; the code was
+    right and the test asserts the form's. For phase 6's count it is one
+    capability, class (c): two built-in steps a tool can call.
 - **In flight**, each writer in its own worktree off this branch, merged by
   commit: builds of phase 2 (`Softland-rig-build-locks`), the read exit
   (`Softland-rig-build-reads`), the revision reader
