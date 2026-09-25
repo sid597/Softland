@@ -34,14 +34,11 @@
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.aggs :as aggs]
             [com.rpl.rama.ops :as ops]
-            [clojure.string :as str]
             [rig.store.envelope :as env]
             [rig.store.gate :as gate]
-            [rig.store.grammar :as grammar]
             [rig.store.inject :as inject]
-            [rig.store.locks :as locks]
-            [rig.store.permit :as permit])
-  (:import [java.util HexFormat UUID]))
+            [rig.store.locks :as locks])
+  (:import [java.util HexFormat]))
 
 ;; ================================================================ constants
 
@@ -387,8 +384,6 @@
   [lrows]
   (into [] (comp (keep :under) (distinct)) (vals lrows)))
 
-(defn- present-rows [in lrows] (into {} (filter (comp some? val)) lrows))
-
 (defn owned-ids
   "The cited ids whose rows are present and leased to this offer's session
   in its layer: the only rows it may consume ([PV-F2], M19)."
@@ -540,7 +535,7 @@
   "The replacing facts on entity `e` whose head the entity task reads: those
   not found as a stream-era head on the layer's task."
   [sk e lrows]
-  (let [o (:offer sk) L (:layer o)
+  (let [o (:offer sk)
         found (into #{} (keep (fn [[need _]] (when (= :shead (first need)) (subvec need 2)))) lrows)]
     (into [] (filter (fn [[fe _ _ :as hk]] (and (= e fe) (not (contains? found hk))))) (replacing-keys o))))
 
@@ -581,6 +576,15 @@
         :recorded))
     (catch Throwable _ :name-taken)))
 
+(defn carry-rows
+  "The lease rows the record path may carry from the arrival task to a
+  value's entity task: only those sealed under a person lock (M18: no bare
+  lock crosses a task). An operator's bare row stays where it was read, so
+  a resend under a fresh operator lease skips its value check, as a
+  missing own lock does (phase 2's 'a missing own lock skips')."
+  [lrows]
+  (into {} (filter (fn [[_ row]] (some? (:under row)))) lrows))
+
 (defn resend-persons
   "The persons a record path check reads on the entity task: the recorded
   lock's wrap persons and the carried lease row's `:under`."
@@ -600,32 +604,38 @@
        (distinct)
        (sort-by (fn [[nm fp]] [(uuid-of nm) nm fp]))))
 
+(defn- init-row
+  "One gathered row into W."
+  [w need found]
+  (case (first need)
+    :name (assoc-in w [:names (nth need 1)] {:record found :committed true})
+    :settings (assoc-in w [:settings (nth need 1)] found)
+    :perm (assoc-in w [:perms [(nth need 1) (nth need 2)]] found)
+    :shead (assoc-in w [:sheads (subvec need 1)] found)
+    :tomb (assoc-in w [:tombs (subvec need 1)] found)
+    :head (assoc-in w [:heads (subvec need 1)] found)
+    :clock (assoc-in w [:clocks (nth need 1)] found)
+    :task-of (assoc-in w [:task-of (nth need 1)] found)
+    :resend (assoc-in w [:resend [(nth need 1) (nth need 2)] (nth need 3)] found)
+    :face (assoc-in w [:faces [(nth need 1) (nth need 2)]] found)
+    :offer (assoc-in w [:offers [(nth need 1) (nth need 2)]] found)
+    w))
+
 (defn- init-w
   "The fold's working state W, from the gathered rows (committed state)."
   [state]
   (reduce-kv
    (fn [w need found]
-     (case (first need)
-       :name (assoc-in w [:names (nth need 1)] {:record found :committed true})
-       :settings (assoc-in w [:settings (nth need 1)] found)
-       :perm (assoc-in w [:perms [(nth need 1) (nth need 2)]] found)
-       :shead (assoc-in w [:sheads (subvec need 1)] found)
-       :tomb (assoc-in w [:tombs (subvec need 1)] found)
-       :head (assoc-in w [:heads (subvec need 1)] found)
-       :clock (assoc-in w [:clocks (nth need 1)] found)
-       :task-of (assoc-in w [:task-of (nth need 1)] found)
-       :resend (assoc-in w [:resend [(nth need 1) (nth need 2)] (nth need 3)] found)
-       :face (assoc-in w [:faces [(nth need 1) (nth need 2)]] found)
-       :offer (assoc-in w [:offers [(nth need 1) (nth need 2)]] found)
-       w))
+     ;; a row the fold cannot read is skipped, never a reason to drop the batch
+     (try
+       (init-row w need found)
+       (catch Throwable _ w)))
    {:names {} :settings {} :perms {} :sheads {} :tombs {} :heads {} :clocks {} :task-of {}
     :resend {} :faces {} :offers {} :cited #{} :given {} :out {} :dels [] :mints []}
    state))
 
 (defn- settings-in-force [w L]
   (let [s (get-in w [:settings L])] (or (:micro s) (:stream s))))
-
-(defn- stream-held? [w L] (some? (:stream (get-in w [:settings L]))))
 
 (defn- merged-perm
   "A permission's row as the check sees it (M5): granted in either store,
@@ -1126,6 +1136,7 @@
            (else>)
             (identity nil :> *cnames))
           (skeleton *in *arr *preason *cnames :> *sk)
+          (carry-rows *lrows :> *carry)
           ;; the name's task: its record first
           (|hash *name)
           (local-select> [(keypath *name :answer)] $$micro-names :> *rec)
@@ -1197,9 +1208,10 @@
             ;; the record path: each value checked on its entity task under the recorded lock (M18)
             (value-facts-of *sk2 :> *vfacts)
             (get *in :offer :> *roffer)
-            (ops/explode *vfacts :> [*vi *vf0])
+            (ops/explode *vfacts :> *vpair)
+            (first *vpair :> *vi)
             (nth (get *roffer :facts) *vi :> *vf)
-            (get *lrows (get *vf :lock-id) :> *carried)
+            (get *carry (get *vf :lock-id) :> *carried)
             (get *vf :e :> *ve)
             (|hash *ve)
             (local-select> [(keypath *ve :log *name *vi)] $$micro :> *vrow)
@@ -1309,14 +1321,16 @@
         (fresh-nonces (nonces-needed *ww) :> *nonces)
         (fact-rows *in3 *ww *wpersons *nonces :> *frows)
         (get *in3 :name :> *name3)
+        (select-keys *in3 [:digest :fp] :> *id3)
+        (get-in *in3 [:offer :stood-on] :> *stood3)
         (|hash *name3)
         (local-select> [(keypath *name3 :answer)] $$micro-names :> *rec3)
         (local-select> [(keypath *name3 :fp)] $$micro-names :> *dfp3)
         (ops/current-microbatch-id :> *b3)
-        (filter> (rows-written? *in3 *rec3 *dfp3 *b3))
+        (filter> (rows-written? *id3 *rec3 *dfp3 *b3))
         (inject/point! :micro-2b *name3)
         (<<atomic
-          (ops/explode-map (get-in *in3 [:offer :stood-on]) :> *sf *ss)
+          (ops/explode-map *stood3 :> *sf *ss)
           (local-transform> [(keypath *name3 :stood-on *sf) (termval *ss)] $$micro-names))
         (ops/explode *frows :> [*e3 *i3 *row3 *lockrow3])
         (|hash *e3)

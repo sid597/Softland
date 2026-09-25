@@ -380,6 +380,12 @@
           :grants [[:alice :base :base [locks/root-actor :base :base]]
                    [:bob :base :base [locks/root-actor :base :base]]]}})
 
+(def base-making-name
+  "The name of the base's making act, a constant of the rig's seed, so the
+  ids of the base's first facts are constants (§C, item 59's default;
+  first-record: the id is a placeholder)."
+  [:base :by-layer :offer #uuid "01926c00-0000-7000-8000-00000000ba5e"])
+
 (defn make-base!
   "The base (§C, default R8): the operator's making act on the stream gate,
   one-owner, `:kind :base`, owned by the root actor, with its root
@@ -388,7 +394,7 @@
   ([store] (make-base! store (:base shared-world)))
   ([store {:keys [root grants]}]
    (let [made (c/offer-until-answered!
-               store (c/build {:who :operator :layer :base :class :by-layer
+               store (c/build {:who :operator :layer :base :class :by-layer :name base-making-name
                                :facts [{:e :base :k :kind :v :base}
                                        {:e :base :k :owner :v locks/root-actor}
                                        {:e :base :k :class :v :by-layer}
