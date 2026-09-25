@@ -387,7 +387,10 @@ its grant; Alice writes `:mention`s on `:e1` (`#{:bob}`) and `:e2`
   operator and by each tool); pass k+1's read of X finds them as new
   matches; X runs on each; it writes read entries again. One generation per
   pass, for ever, driven by the runner's own writes, which the check does
-  not see. FAIL → F7.
+  not see. The same holds for a pattern on `:lease`, since the runner's
+  operator leases (F6) write `:lease` facts into L every pass. FAIL → F7:
+  a pattern on any store key is refused `:tool-loop`, and an `:out`
+  holding a store key or `:tool` is refused at parse.
 - Scale: a tool with more than n matches reads the same first page each
   pass (the pattern read takes no "start after", as built:
   `(foreign-invoke-query (:read-pattern store) layer for x as-of limit)`,

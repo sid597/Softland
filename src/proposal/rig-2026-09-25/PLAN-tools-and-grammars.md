@@ -912,9 +912,10 @@ layer):
   `:tool-loop`: it would match its own outputs.
 - A tool whose pattern's key is one of its own `:out` keys is refused.
 - **[V-F7]** A tool whose pattern names a store key (the control keys,
-  `:grammar`, `reads/read-keys`) or `:tool` is refused `:tool-loop`. The
-  runner writes into L on every pass itself: one `:read/pattern` fact for
-  its `[:k :tool]` read and one for each tool's match read. A tool matching
+  `:grammar`, `reads/read-keys`) is refused `:tool-loop`. The runner writes
+  into L on every pass itself: one `:read/pattern` fact for its `[:k
+  :tool]` read and one for each tool's match read, and a `:lease` act for
+  each tool it runs ([V-F6]). A tool matching
   `[:k :read/pattern]` and writing `:note` passes the key graph, yet each
   pass finds the previous pass's entries as new matches and runs on them,
   one generation a pass for ever. So every tool's edges include the
