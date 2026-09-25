@@ -588,19 +588,27 @@ need more than one PState read go through the query topology `read-as-of`
 | read | who | path | seeks | note |
 |---|---|---|---|---|
 | RD4 a layer as of T: every yes act stamped ≤ T, each fact with its value or its erasure date, and every erasure by now | tests, stage 5 | query topology `read-as-of [layer T]` (below) | 1 + acts ≤ T + about 3 per value fact | the erasure part of RD4 is this stage's; visibility (I-P2), points and patterns are stage 5's |
-| RD7 whether one value opens, and since when | tests, stage 4 (in the event), stage 5 | through `read-as-of` in this stage; in a gate event: the row `[(keypath layer :log name idx)]`, the ledger `[(keypath layer :erased lock-id)]`, the lock row `[(keypath layer :locks lock-id)]` when the row's `:lock` is nil, and `[(keypath p)]` on `$$persons` per wrap person | 2 + 2 + 2 + w | all local; `rig.store.lock/erasure` and `rig.store.crypto/open` are the pure steps |
+| RD7 whether one value opens, and since when | tests, stage 4 (in the event), stage 5 and the read exit | `open-value> [layer fid T]` (revised 26 September): the answer's stamp `[(keypath layer :answers name) :stamp]`, the row `[(keypath layer :log name idx)]`, the ledger `[(keypath layer :erased lock-id)]`, the lock row `[(keypath layer :locks lock-id)]` when the row's `:lock` is nil, and `[(keypath p)]` on `$$persons` per wrap person | 1 + 1 + 1 + 1 + w | all local; `locks/erasure`, `locks/unwrap` and `locks/open` are the pure steps |
+| the leased locks of a session, in plaintext (the door's step 2) | the door | query topology `lease-locks [layer session]` (below) | 1 settings + 1 owner + 1 range seek + rows | revised 26 September; the one path by which a lock leaves the module |
+| a session's lease rows, raw | tests (consumption, P6 check 2) | `foreign-select [(keypath layer :leases session) ALL]` | 1 + rows | revised 26 September |
 | RD7s the lock store's size for a layer | phase 7 (M2), tests | `foreign-select [(keypath layer :locks) ALL]` | 2 + rows iterated | count and serialized bytes by iteration; size tracking is off (L15) |
 | a lock row | tests | `[(keypath layer :locks lock-id)]` | 2 | the lock record; nil once deleted |
 | an erasure ledger entry | tests, stage 5 | `[(keypath layer :erased lock-id)]` | 2 | `{:stamp :how}` or nil |
 | a person's lock state | the gate (locally), tests | `[(keypath p)]` on `$$persons` | 1 | on every task; a foreign read routes by `p` to some task and every task holds the same entry once the person act's ack returned |
 | the by-stamp index of a layer | `read-as-of`, stage 5 | `[(keypath layer :by-stamp) (sorted-map-range-to (inc T))]` | 1 seek + entries | stamp → name, yes answers only |
-| the depot record of an offer (the known gap, O2) | the test that shows the gap | `foreign-depot-read` | — | plaintext values, see "Design Decisions", O2 |
+| the depot record of an offer, raw | the P6 check 1 (revised 26 September) | `foreign-depot-read` | — | sealed bytes, lock ids and control values only; no longer "the known gap" |
 
-The gate's own reads per offer, added to stage 1's ordered list and read only
-when the record does not decide the offer: `[(keypath p)]` on `$$persons`
-for every distinct person in the act's wraps (one for an ordinary act: the
-owner; more only for marked values naming others), read in a `loop<-` that
-emits a map even when empty (never `ops/explode`, [F7]); for a `:forget`
+The gate's own reads per offer (revised 26 September), in the event's
+order. On the record path (a record under the name): for a recorded yes
+with value facts, the act's rows `[(keypath layer :log name)]` as one
+subindexed read, the lock row per distinct lock id when the row's `:lock` is
+nil, and `$$persons` per wrap person, for the value check. When the record
+does not decide the offer: `:settings`; `[(keypath owner)]` on `$$persons`;
+the lease row per distinct cited lock id through `deliver-lock>`; then stage
+1's clock, wall, permission row, heads loop; then `[(keypath p)]` on
+`$$persons` for every other distinct person in the act's wraps (none for an
+ordinary act; more only for marked values naming others), read in a
+`loop<-` that emits a map even when empty (never `ops/explode`, [F7]); for a `:forget`
 fact, the target row `[(keypath layer :log tname tidx)]` and then, when the
 row has a lock id, the ledger entry `[(keypath layer :erased lock-id)]`; for
 a `:person` or `:forget-person` fact, `[(keypath p)]` on `$$persons`; for a
@@ -613,33 +621,45 @@ One depot, stage 1's `*offers`; every write is an offer. By operation:
 
 | op | offer | facts | decided by, and the lock effect |
 |---|---|---|---|
-| OP1 offer an act (stage 1) | as stage 1 | value facts | the gate on the home; per value fact a fresh lock K, the value sealed under K into `:v`, K wrapped under the fact's wrap into a lock record; the record goes to `:locks[[:value fid]]` (row) or the row's `:lock` (record); a fact whose wrap names a person with no lock or a destroyed one is refused (`:no-such-person`, `:person-forgotten`, L11); `:by-stamp[stamp] = name` |
-| OP1 under per-act grain | as stage 1 | value facts | one K for the act, wrapped under the act's union with marked? = any value fact marked (L6); the lock record at `:locks[[:act name]]` when the layer's kind is personal or hand or any fact is marked `:own-row`, else in every row's `:lock` |
+| lease (revised 26 September) | the session's `:who`, a permission covering the layer, `:session s`, tag the layer's class | `{:e s :k :lease :v {:count n}}` | the gate on the home; the owner's person lock must be live (`:no-such-person`, `:person-forgotten`); n fresh locks, each sealed under the owner's lock into `:leases[s][[name i]]`; the ack carries `:lock-ids` |
+| OP1 offer an act (stage 1, revised 26 September) | as stage 1, value facts sealed at the door | sealed facts citing leased lock ids | the gate on the home; each cited lock through `deliver-lock>` (any missing: `:no-such-lock` on the face, nothing written); each value opened; K re-wrapped under the fact's wrap into a lock record, which goes to `:locks[lock-id]` (row) or the row's `:lock` (record); the row keeps the offered `:sealed` bytes and the value digest; each cited lease row deleted, admitted or refused; a fact whose wrap names a person with no lock or a destroyed one is refused (`:no-such-person`, `:person-forgotten`, L11); `:by-stamp[stamp] = name` |
+| OP1 under per-act grain | as stage 1 | sealed facts all citing one lock id | one K for the act, re-wrapped under the act's union with marked? = any value fact marked (L6); the lock record at `:locks[lock-id]` when the layer's kind is personal or hand or any fact is marked `:own-row`, else in every row's `:lock`; an act whose citations do not fit the grain in force is refused `:grain-mismatch`, recorded (L30) |
+| session close (revised 26 September) | the session itself or `:operator`, a permission covering the layer | `{:e s :k :session-closed :v {:session s}}` | the gate on the home; `:leases[s]` deleted whole (`NONE>`, one direct delete); nothing else |
 | OP8 grain switch (stage 1) | as stage 1 | `:lock-grain` | as stage 1; the next act decided on the home reads the new grain (I-P5) |
 | OP9 forget a value | `:who` the layer's owner with `[owner L L]`, or `:operator`; `:layer` the target name's layer; tag class nil; `:stood-on {target-fid stamp}` | `{:e e :k :forget :v {:target fid}}` | the gate on the home; the target row must be in this layer's log on this task, else `:no-such-value` (L10); a target with no lock id, or a lock already in the ledger: admitted, nothing changes; else a row lock is deleted (`NONE>` on `:locks[lock-id]`, `:how :row-deleted`) or a record lock is excised (`termval nil` on the row's `:lock`, every row of the act under per-act, `:how :excised`), and `:erased[lock-id] = {:stamp s :how}` |
 | OP10 make a person | `:who :operator`, `:layer :people`, tag class nil | `{:e p :k :person :v {:id p}}` | the gate on `:people`'s home: `:person-already-made` when `$$persons[p]` exists; else `$$persons[p] = {:lock fresh :erased-at nil}` on the home in the decision's group, then `(|all)` and `termval` of the home's entry on every task (L7, L9) |
 | OP10 forget a person | `:who :operator`, `:layer :people`, tag class nil, `:stood-on {person-fid stamp}` | `{:e p :k :forget-person :v {:person p}}` | the gate on `:people`'s home: `:no-such-person` when no entry; an entry already erased: admitted, nothing changes (the first date stays); else `$$persons[p] = {:lock nil :erased-at s}` on the home in the decision's group, then `(|all)` and `termval` of the home's entry on every task |
 | seed | the operator's acts | the `:people` layer (`:kind :store`, `:class :by-layer`, `:lock-grain :per-value`, no owner), then a `:person` act per person of the world (`:alice`, `:bob`), then stage 1's layers and grants | the gate, before any history; a making act naming an owner with no person lock is refused `:no-such-person` (L11), so persons come first |
 
-The gate's writes on a yes, all on the home task in the one decision event
-as stage 1, extended: per value fact the row (`termval`, now with `:v`
-ciphertext, `:lock-id`, `:lock`), per row lock one `termval` into `:locks`,
-one `termval` into `:by-stamp`; for a forget one `NONE>` or one or more
-`termval nil` and one ledger `termval`; for a person act one `termval` into
-`$$persons`. Every one is a set or a delete keyed by name, fact id, lock id,
-stamp or person id. The values written by a fresh decision include fresh
-random bytes (locks, nonces): a replay that reaches the writes (possible
-only when nothing was committed) produces the same facts under a different
-encoding, which I-L8 allows and I-G2 does not forbid; a replay that finds
-the record writes nothing and, for a person act, repeats the idempotent
-fan-out (L9). The person fan-out is the one place a partitioner enters the
-gate's event (see "Topologies").
+The gate's writes on a fresh decision, all on the home task in the one
+decision event as stage 1, extended (revised 26 September): for any decided
+act citing locks, one `NONE>` per cited lease row, yes or no; on a yes, per
+value fact the row (`termval`, now with `:sealed` as offered, `:lock-id`,
+`:lock`, `:digest`), per row lock one `termval` into `:locks`, one `termval`
+into `:by-stamp`; for a lease n `termval`s into `:leases`; for a session
+close one `NONE>` on `:leases[s]`; for a forget one `NONE>` or one or more
+`termval nil`, one ledger `termval` and the read exit's purge; for a person
+act one `termval` into `$$persons`. Every one is a set or a delete keyed by
+name, fact id, lock id, session, stamp or person id. The fresh random bytes
+a decision writes are now only the gate's own: the locks a lease mints,
+person locks, and the nonces of a re-wrap (the value's ciphertext and its
+lock are the door's, fixed in the depot record). A replay that reaches the
+writes (possible only when nothing was committed) produces the same facts
+under a different wrapping or, for a lease, other lock bytes under the same
+ids that no door has seen, which I-L8 allows and I-G2 does not forbid; a
+replay that finds the record writes nothing and, for a person act, repeats
+the idempotent fan-out (L9). The person fan-out is the one place a
+partitioner enters the gate's event (see "Topologies").
 
 ## PState Design
 
-Two PStates change or appear: stage 1's `$$layers` grows four fields (three
-per-layer maps and three row fields), and `$$persons` is new. `$$clock`
-stands.
+Two PStates change or appear: stage 1's `$$layers` grows four per-layer maps
+(`:locks`, `:leases`, `:erased`, `:by-stamp`) and four row fields
+(`:sealed`, `:lock-id`, `:lock`, `:digest`), and `$$persons` is new.
+`$$clock` stands as stage 1 has it, holding the hybrid clock's last stamp
+(tonight's clock build owns its meaning). Revised 26 September: `:leases`
+and `:sealed` added, `:digest` moved onto the row for values, every sealed
+or wrapped slot raw bytes.
 
 ### Where the lock rows and the ledger live: in `$$layers`, by the merge rule
 
@@ -673,39 +693,50 @@ the erasure check (every open, in the gate for stage 4 and in `read-as-of`):
   ledger (1 more under the loaded entry); the erasure check is 1 + 1 (+ 1
   for a row lock) under the loaded entry.
 
-Schema, stage 1's `$$layers` with the additions marked `; +2`:
+Schema, stage 1's `$$layers` with the additions marked `; +2` (revised 26
+September: `byte/1` for bytes, `:sealed`, `:digest` on the row, `:leases`;
+stage 1's row vector is `{:subindex? true}` as its code has it, since Rama
+1.6.0's `vector-schema` takes no `:subindex-options`):
 
 ```clojure
 (declare-pstate s $$layers
   {clojure.lang.Keyword
    (fixed-keys-schema
      {:settings    ...                                            ; stage 1
-      :answers     ...                                            ; stage 1 (the :subjects set now includes the grammar's, capped at 256, L13)
+      :answers     ...                                            ; stage 1; :digest is now the parts digest (L26); :subjects includes the grammar's, capped at 256, L13
       :log         (map-schema clojure.lang.PersistentVector      ; name
                                (vector-schema
                                  (fixed-keys-schema
                                    {:e        clojure.lang.Keyword
                                     :k        clojure.lang.Keyword
-                                    :v        String              ; +2 base64 ciphertext for a value fact; EDN text for a control fact; nil for a retract
+                                    :v        String              ; EDN text for a control fact; nil for a value fact and a retract
+                                    :sealed   byte/1              ; +2 the offer's sealed bytes, as they came; nil unless a value fact
                                     :replaces clojure.lang.PersistentVector
                                     :mark     (set-schema clojure.lang.Keyword)
-                                    :lock-id  clojure.lang.PersistentVector   ; +2 [:value fid] | [:act name] | nil
+                                    :lock-id  clojure.lang.PersistentVector   ; +2 [lease-name i] | nil
+                                    :digest   byte/1                          ; +2 the value digest, HMAC-SHA256 keyed by the lock; nil unless a value fact
                                     :lock     (fixed-keys-schema              ; +2 the lock record when kept in the record; nil for a row lock; nil once excised
                                                 {:required  clojure.lang.PersistentVector
                                                  :any-of    clojure.lang.PersistentVector
-                                                 :blob      String
-                                                 :any-blobs (map-schema clojure.lang.Keyword String)})})
-                                 {:subindex-options {:track-size? false}})
+                                                 :blob      byte/1
+                                                 :any-blobs (map-schema clojure.lang.Keyword byte/1)})})
+                                 {:subindex? true})
                                {:subindex-options {:track-size? false}})
       :stood-on    ...                                            ; stage 1
       :heads       ...                                            ; stage 1
       :permissions ...                                            ; stage 1
-      :locks       (map-schema clojure.lang.PersistentVector      ; +2 lock id -> the lock record: the lock store's rows for this layer
+      :locks       (map-schema clojure.lang.PersistentVector      ; +2 lock id -> the lock record: the value locks of this layer
                                (fixed-keys-schema
                                  {:required  clojure.lang.PersistentVector
                                   :any-of    clojure.lang.PersistentVector
-                                  :blob      String
-                                  :any-blobs (map-schema clojure.lang.Keyword String)})
+                                  :blob      byte/1
+                                  :any-blobs (map-schema clojure.lang.Keyword byte/1)})
+                               {:subindex-options {:track-size? false}})
+      :leases      (map-schema clojure.lang.Keyword               ; +2 session ->
+                               (map-schema clojure.lang.PersistentVector    ; lock id -> the lease row, unconsumed
+                                           (fixed-keys-schema {:under  clojure.lang.Keyword
+                                                               :sealed byte/1})
+                                           {:subindex-options {:track-size? false}})
                                {:subindex-options {:track-size? false}})
       :erased      (map-schema clojure.lang.PersistentVector      ; +2 lock id -> {:stamp :how}: the erasure ledger
                                (fixed-keys-schema {:stamp Long :how clojure.lang.Keyword})
@@ -744,9 +775,29 @@ Why each part is shaped so:
   of keywords is one of stage 1's known classes.
 - `:lock-id` on the row lets a reader find the lock without knowing the
   layer's grain at the value's write time (I-P5: the pick sticks per
-  value).
+  value), and it is the id the offer cited, so the record path compares
+  like with like.
+- `:leases` keyed by session, then lock id (revised 26 September): the
+  delivery is one point read under the offer's session, `lease-locks` one
+  range read of the session's map, a session close one direct delete of it
+  (pstate-schema.md: delete the subindexed structure itself). Unbounded per
+  session in principle (a door may lease more than it uses), so both levels
+  are subindexed; a lease writes at most 256 rows, bounded by its offer.
+  Not folded into `:locks`: a lease row is wrapped under the session owner
+  only and belongs to a session, a lock row is wrapped under the value's
+  subjects and belongs to a value; M2's count is of `:locks` alone.
+- `:sealed` beside `:v`, not in it (revised 26 September): one slot cannot
+  hold text for a control value and bytes for a sealed one without an
+  `Object` or a polymorphic record; two nullable fields on one shape keep
+  stage 1's control-value decoding as it is.
+- `:digest` on the row, not on the answer record (revised 26 September):
+  one value digest per value fact, keyed by that value's lock, written with
+  the row it checks; the answer record keeps the parts digest, a String as
+  stage 1 has it.
 - No `Object`: person ids are keywords (P3), ids are vectors rebuilt by the
-  parser ([F6]), ciphertext and locks are base64 `String` (L4).
+  parser ([F6]), ciphertext, digests and locks are `byte/1` (L4, revised;
+  `byte/1` ran as a schema class in the lock-growth bench,
+  BENCH_NOTES-locks.md).
 
 ### `$$persons` — every person's lock, on every task
 
@@ -774,8 +825,8 @@ derived from those reads first:
 ```clojure
 (declare-pstate s $$persons
   {clojure.lang.Keyword                                 ; person id
-   (fixed-keys-schema {:lock String                     ; base64 of 32 random bytes; nil once destroyed
-                       :erased-at Long})})              ; the forget-person fact's stamp; nil while alive
+   (fixed-keys-schema {:lock byte/1                     ; 32 random bytes; nil once destroyed (revised: raw bytes)
+                       :erased-at Long})})              ; the forget-person fact's stamp (rig.store.clock); nil while alive
 ```
 
 Owned by the stream gate (the only topology that writes; stage 3's micro
@@ -789,8 +840,12 @@ subindexing (each value is two small fields).
 ### What is not a PState
 
 No index over plaintext values: `:heads` holds ids and stamps (stage 1),
-`:erased` and `:by-stamp` hold ids and stamps. No copy of a value lock
-anywhere but its one lock record. No TaskGlobal: person locks are read from
+`:erased` and `:by-stamp` hold ids and stamps. No copy of a value lock in
+the store but its one lock record, or, before its decision, its one lease
+row (never both: the decision that writes the one deletes the other in one
+commit); outside the store, the door's memory until the session closes. No
+in-memory holder: the lease road is tonight's default and the holder is a
+described replacement body (see "The delivery function"). No TaskGlobal: person locks are read from
 `$$persons` at every use, one local seek, block-cached for a hot person; a
 cache of locks in memory would be a second place a destroyed lock could
 survive and one more thing to keep right across restarts, for no seek that
@@ -811,9 +866,16 @@ depot. No internal depot: nothing here needs a second topology to wait on
 the first, and no datum the fan-out carries is unavailable to the stream
 gate's own event.
 
-**Depot retention, the known gap (O2, I-L4).** Every offer's plaintext
-values sit in `*offers` for ever; the rig keeps them there. What the rig
-does about it and what it leaves is under "Design Decisions", O2.
+**Depot retention (revised 26 September; O2, I-L4).** `*offers` keeps every
+offer for ever (no trimming), and an offer now carries only sealed bytes,
+lock ids and control values: nothing in it opens a value once the value's
+lock is gone, and nothing in it ever carried the lock (the door took it by
+`lease-locks`, which is not a depot). The 25 September gap, plaintext values
+in the depot for ever, is closed by the door's sealing; what stays named is
+under "Design Decisions", O2. The depot is still partitioned `hash-by
+:layer`, so a lease, the offers citing it and the session close are ordered
+on the layer's home, which is what makes "the lease row exists before the
+offer that cites it" hold for a door that waits for the lease's answer.
 
 ## Topologies and PStates
 
@@ -831,66 +893,99 @@ read without optimism (I-O6); the answer, including a forget's, returns
 through the append's ack, and OP9 needs the forget "complete at the answer,
 never eventual". A microbatch would give neither.
 
-**Every concern in it needs stream.** Sealing the value, wrapping the lock,
-writing the lock row, deleting or excising it on a forget, writing the
-ledger, and destroying a person lock are each part of one decision whose
-answer the offerer takes from the ack: if the lock row were written later
-by a microbatch, a read-out (stage 4) between the answer and the row would
-find a value with no lock; if the deletion were later, a forget answered
-yes would still open (OP9's invariant broken). So none moves.
+**Every concern in it needs stream.** Minting a lease, delivering and
+re-wrapping a lock, writing the lock row, consuming the lease rows, deleting
+or excising a lock on a forget, writing the ledger, closing a session's
+leases and destroying a person lock are each part of one decision whose
+answer the offerer takes from the ack: if the lock row were written later by
+a microbatch, a read-out (stage 4) between the answer and the row would find
+a value with no lock; if a lease row outlived its decision, a refused
+offer's depot bytes would stay openable; a lease's rows must stand when its
+answer returns, or the door's `lease-locks` would miss them; if the deletion
+were later, a forget answered yes would still open (OP9's invariant broken).
+So none moves.
 
-**The event, on the home task.** Stage 1's six steps, extended; the
-decision is still one atomic group with no hop except for the person
-fan-out at the end:
+**The event, on the home task** (revised 26 September). Stage 1's steps,
+extended; the decision is still one atomic group with no hop except for the
+person fan-out at the end:
 
 1. `source>` as stage 1 (`:all-after`, P11).
-2. `parse` as stage 1, extended: control values checked (`:forget` carries
-   `{:target fid}` with a well-formed name and a non-negative long index;
-   `:person` `{:id p}` and `:forget-person` `{:person p}` with a keyword;
-   else `:malformed-control`, R13); then `grammar/subjects-of` per value
-   fact (pure) and the act's union: a `:mention` whose `:persons` is not a
-   collection of keywords is refused on its face `:value-shape` (L12); a
-   union over 256 persons is refused on its face `:too-many-subjects`
-   (L13). Face refusals are unrecorded (P7).
-3. Reads, record first, then only when undecided: stage 1's settings,
-   clock, wall, permission row, heads loop; then `[(keypath p)]` on
-   `$$persons` for each distinct person of the act's wraps in a `loop<-`
-   emitting a map (possibly empty) on termination [F7]; for a `:forget`
-   fact the target row `[(keypath layer :log tname tidx)]` and, inside a
-   `<<if` on its lock id, the ledger entry; for a `:person`,
-   `:forget-person` or `:owner` fact `[(keypath p)]` on `$$persons`. Each
-   such var is bound nil on the branches that do not read it, so the
-   attach point unifies (dataflow.md; [F7]).
-4. Fresh randomness, bound before the pure decision: `(crypto/fresh n :>
-   *fresh)`, a vector of `n` locks and their nonces for the act's value
-   facts (or one for the act under per-act), plus one for a `:person` fact.
-   A `defn` over `SecureRandom`; never `ops/random-uuid7` or any generator
-   inside `decide`, which stays pure and total.
-5. `decide`, pure and total, extended with `lock/lock-for` per value fact
-   and `crypto/seal` + `crypto/wrap-lock` over the fresh material and the
-   person locks read in step 3, producing the rows, the lock records, the
-   `:by-stamp` entry, and, for a forget, the deletion or excision and the
-   ledger entry, and, for a person act, the `$$persons` entry. New reasons,
-   appended after stage 1's list in I-G5's spirit (every earlier check
-   reads nothing more than stage 1 read): `:no-such-person` (a wrap person
-   with no `$$persons` entry; a `:forget-person` of an unknown person; a
-   making act whose `:owner` has none), `:person-forgotten` (a wrap person
-   whose entry is erased), `:person-already-made` (a `:person` fact for an
-   existing entry), `:no-such-value` (a `:forget` whose target row is not
-   in this layer's log on this task). All recorded under the name with a
-   stamp (they come after the name is trusted). `:control-not-allowed`
-   (R13) now admits the layer's owner for `:forget` as well as
-   `:lock-grain` (L10). A `:forget` whose target has no lock id, or whose
-   lock is already in the ledger, decides yes with no lock effect
+2. `intake` as stage 1, extended, structural only (face, unrecorded, P7):
+   the sealed-fact shape (`:not-sealed`, L27: a non-control fact with a
+   non-nil `:v`; a `:sealed` that is not bytes or has no well-formed
+   `:lock-id`; a control fact or a retract carrying `:sealed`); the parts
+   digest. Control values are checked as the 25 September text has them
+   (`:forget` carries `{:target fid}` with a well-formed name and a
+   non-negative long index; `:person` `{:id p}` and `:forget-person`
+   `{:person p}` with a keyword), and now `:lease` `{:count n}` with a long
+   in 1..256 and an offer `:session`, and `:session-closed` `{:session s}`
+   with a keyword; a bad one is `:malformed-control`, recorded where R13
+   puts it. Stage 1's value-domain checks (R17, the 32-level bound [F6]) no
+   longer run here: the values are sealed.
+3. The record, first [F4]: `[(keypath layer :answers name)]`. Found: the
+   record path ("The digest and the resend check"): for a recorded yes with
+   value facts, the act's rows in one subindexed read, the lock row per
+   distinct lock id where the row's `:lock` is nil, the wrap persons in a
+   `loop<-` [F7]; then the pure `locks/check-resend` → the recorded answer
+   or `:name-taken`; nothing written; `ack-return>`.
+4. Not found: `:settings`; `$$persons [owner]` (nil when the layer has no
+   owner or does not exist); then `deliver-lock>` per distinct cited lock id
+   in a `loop<-` emitting a map `{lock-id K-or-nil}`, possibly empty [F7].
+   Any nil: `:no-such-lock` through the ack, nothing written (face; "The
+   missing lock").
+5. Open and read the values, pure (`locks/read-values`): `locks/open` per
+   value fact under its delivered K, the canonical decode, stage 1's
+   value-domain check, `grammar/subjects-of` per value fact and the act's
+   union, the citation-against-grain check. Its reasons are recorded (step
+   8), and when it has one, the next step's persons loop reads nothing.
+6. Stage 1's reads (clock, wall, permission rows, heads loop); then
+   `[(keypath p)]` on `$$persons` for each distinct wrap person not yet read,
+   in a `loop<-` emitting a map [F7]; for a `:forget` fact the target row
+   `[(keypath layer :log tname tidx)]` and, inside a `<<if` on its lock id,
+   the ledger entry; for a `:person`, `:forget-person` or `:owner` fact
+   `[(keypath p)]` on `$$persons`. Each such var is bound nil on the
+   branches that do not read it, so the attach point unifies (dataflow.md;
+   [F7]).
+7. Fresh randomness, bound before the pure decision: `(locks/fresh ...)`,
+   n locks for a lease, one person lock for a `:person` fact, and the nonces
+   the re-wraps' seals take. A `defn` over `SecureRandom`; never
+   `ops/random-uuid7` or any generator inside `decide`, which stays pure and
+   total. The value locks themselves are not fresh here: they are the
+   delivered ones.
+8. `decide`, pure and total, extended. Refusals: stage 1's list, then this
+   stage's recorded reasons in this order: `:does-not-open`,
+   `:malformed-value`, `:value-shape` (L12), `:too-many-subjects` (L13),
+   `:grain-mismatch` (L30), `:no-such-person` (a wrap person, a lease's or
+   a making act's owner, or a `:forget-person` target with no entry),
+   `:person-forgotten` (a wrap person or a lease's owner whose lock is
+   destroyed), `:person-already-made`, `:no-such-value`. Every earlier check
+   reads nothing more than stage 1 read (I-G5's spirit), and every recorded
+   reason sits after the delivery, so a recorded no always consumes its
+   leases. `:control-not-allowed` (R13) now admits the layer's owner for
+   `:forget` as well as `:lock-grain` (L10), and anyone whose permission
+   covers the layer for `:lease` and `:session-closed` (L20, L28). On a yes:
+   per value fact `locks/wrap` of its K under its wrap, placed by
+   `locks/lock-for`; the row with `:sealed` as offered, `:lock-id`, `:lock`,
+   `:digest` (`value-digest K plain`); for a lease the n lease rows; for a
+   session close the delete; for a forget the deletion or excision and the
+   ledger entry; for a person act the `$$persons` entry. Yes or no, the list
+   of cited lease rows to delete. A `:forget` whose target has no lock id,
+   or whose lock is already in the ledger, decides yes with no lock effect
    (`apply-control`'s nil branch; OP9 "the second is admitted and changes
-   nothing"). A `:forget-person` of an already erased person decides yes
-   with no change (the first date stays).
-6. Writes, only for a fresh decision, all sets and deletes as listed under
-   "Writes". The crash hook (P14) stays where stage 1 put it.
-7. `ack-return>` as stage 1; the answer of a value forget also carries
+   nothing"); a `:forget-person` of an already erased person decides yes
+   with no change (the first date stays). The stamp is
+   `rig.store.clock/next-stamp` over the task's clock, the wall and the
+   carried and replaced stamps (P9's promise in R2's form).
+9. Writes, only for a fresh decision, all sets and deletes as listed under
+   "Writes", the lease consumption among them in the one group. The crash
+   hook (P14) stays where stage 1 put it (`:seen`, `:recorded`,
+   `:before-writes`, `:after-writes`); the two crash tests of this stage use
+   those points ("Namespaces and tests").
+10. `ack-return>` as stage 1; the answer of a value forget also carries
    `:how` (`:row-deleted`, `:excised`, or nil when nothing changed), the
-   model's note made data.
-8. **The person fan-out**, only when the act carries a `:person` or
+   model's note made data; a lease's yes carries `:lock-ids`, computed
+   from its name and count on the fresh and the record path alike.
+11. **The person fan-out**, only when the act carries a `:person` or
    `:forget-person` fact and its answer is yes, fresh or recorded:
    `(local-select> [(keypath *p)] $$persons :> *entry)` on the home (the
    entry as the decision left it, or as later acts left it on a recorded
@@ -906,36 +1001,49 @@ fan-out at the end:
    destroyed lock (OP10 "once answered, no value ... opens anywhere").
 
 **Idempotency of every write, traced.** Stage 1's trace stands for its
-writes. New: the row's `:v`, `:lock-id`, `:lock` are part of the row's one
-`termval`; `:locks[id]` a `termval` (a replay that reaches it committed
+writes. New: the row's `:sealed`, `:lock-id`, `:lock`, `:digest` are part of
+the row's one `termval`; a lease row a `termval`; a consumed lease row's
+`NONE>` and a session close's `NONE>` (deleting twice is the same); `:locks[id]` a `termval` (a replay that reaches it committed
 nothing before); `:by-stamp[stamp]` a `termval` of the name; `:erased[id]` a
 `termval`; a row lock's `NONE>` (deleting twice is the same); an excision's
 `termval nil` (nil twice is the same); `$$persons[p]` a `termval` on the
 home and on every task. No increment, no append. The fresh random bytes
-differ between a lost attempt and its replay, but a lost attempt committed
-nothing (RQ 1), so exactly one encoding ever exists for a fact.
+(a lease's locks, person locks, re-wrap nonces) differ between a lost
+attempt and its replay, but a lost attempt committed nothing (RQ 1), so
+exactly one encoding ever exists for a fact, and a lease's committed bytes
+are the only ones any door can have taken (`lease-locks` reads committed
+state).
 
 **Same answer after a crash, extended.** A crash before the home's commit:
-no record, replay decides on the same state (a fresh lock, the same facts).
+no record, replay decides on the same state (the same delivered locks,
+because the attempt's consumption of the lease rows was discarded with its
+other writes; fresh wrap nonces; the same facts). A crash between a lease
+and the offer citing it (the lease committed and answered, the offer not yet
+decided): the replay of the lease takes the record path and mints nothing,
+so the rows the door took stand, and the offer then decides as it would
+have.
 A crash after the home's commit and before a fan-out child: the replay
 finds the record, writes nothing on the home, re-reads its `$$persons`
 entry and fans out again; a child that had already written gets the same
 entry. A crash in the middle of the children: the same, at least once per
 task. R4: tests assert at least once, never a count.
 
-**No input can make topology code throw** (I-G1, RQ 3), extended: the
-crypto functions take bytes the gate itself produced or decoded from
-base64 it wrote; `unseal` on a tampered or foreign blob throws
-`AEADBadTagException`, so `crypto/open` catches `Throwable` and returns nil
-(the value does not open), never propagating; base64 decoding of a slot
-the gate wrote cannot fail, and a slot a test corrupts is caught the same
-way. `grammar/subjects-of` walks one path into a value already bounded to
-32 levels by the parser [F6]. `decide`'s outer guard (`:gate-error`, [F6])
+**No input can make topology code throw** (I-G1, RQ 3), extended: every
+function of `rig.store.locks` catches `Throwable` and returns nil (`open` on
+a tampered, foreign or truncated blob, which in AES-GCM throws
+`AEADBadTagException`; `unwrap`, `unlease`, `deliver-lock>`), so a sealed
+value from the depot, which the door made and the gate did not, can refuse
+an offer and never kill a worker. The canonical decode of an opened value
+and stage 1's value-domain and 32-level checks run inside
+`locks/read-values`'s own catch, which returns `:malformed-value`; so
+`grammar/subjects-of` walks one path into a value already bounded to 32
+levels [F6]. `decide`'s outer guard (`:gate-error`, [F6])
 stands. Every new written value has the schema's class (vectors rebuilt,
 longs, keywords, strings).
 
-**Cooperative multitasking.** The only new loops are over the act's facts
-and the act's wrap persons (bounded by the offer and the 256 cap) and,
+**Cooperative multitasking.** The only new loops are over the act's facts,
+its cited lock ids and its wrap persons (bounded by the offer and the 256
+cap), a lease's n rows (at most 256) and,
 under per-act excision, over the act's rows (`ALL` on the subindexed row
 vector: f reads and f writes, bounded by the act; a forget is rare). No
 loop over PState contents in the gate.
