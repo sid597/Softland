@@ -1051,3 +1051,240 @@ topology that declares `$$micro` may write it), so `micro.clj` carries the
 block (a partitioner and four write blocks, about ten lines, calling
 `shared-reads` functions) and the source; the read exit's query topologies
 carry the shared branch (about four lines each, calling `shared-reads`).
+
+## Reads
+
+Every reader-facing read goes through the exit and its query topologies on
+one task, the read layer's; the maintenance reads are queries on the
+working layer's home. Each needs more than one PState read, so each is a
+query topology (phase-1-plan Step 1).
+
+| read | who | method | reads, on the layer's task |
+|---|---|---|---|
+| RS1 shared pattern read `[L for p as-of limit]` | the exit | `read-pattern`'s shared branch | stream settings (1), frontier (1), micro settings at F (1, group), membership (1, group), the page loop over one `$$micro [L]` index (1 seek per page, one iteration per entry, batch filter); re-classed: plus the read exit's loop over `$$layers [L]`; `$$persons` per wrap person (local) per opened entry |
+| RS2 shared point read `[L for fids as-of]` | the exit | `read-point`'s shared branch | settings as RS1; per fid `:ix-id` (1) and `:ix-ek` (1) when indexed; stream-era fids as the read exit |
+| RS3 a delta `[... :after m0]` | `standing/deliver!` | `read-pattern` with `:after` | as RS1 or the read exit's RE2, over `:ix-s` or the pattern's own stamp-ordered index from the bound |
+| RS4 closing fingerprint `[L ent]` | `standing/unsubscribe!`, `close-session!` | query `standing-close` on the working layer's home | the entry's delivery lines (1 page of `:ix-ek`), each line's row (1 to 2) and `open-row>` |
+| RS5 open standing entries `[L]` | `close-session!` | query `standing-open` | one page of `:ix-ke` `read/standing␀`, one seek per entry at `:ix-ek` `ent␀read/closed␀` |
+| RS6 entry ids `[L before after n]` | `drop-reads!`, the restore's replay | query `entry-ids` | up to five `:ix-ke` prefix pages, ids only |
+| RS7 a micro rebuild page's progress | the operator's loop | `foreign-select-one [(keypath :rebuild)] $$micro-task {:pkey t}` | 1 |
+
+## Writes
+
+| op | how | decided by |
+|---|---|---|
+| WS1 a shared read's entry | the exit's ordinary offer into the working layer (the read exit's W1) | the stream gate |
+| WS2 a standing read's opening, deliveries, closing | ordinary offers into the working layer, one act each | the stream gate |
+| WS3 shared index entries | block 2d of the deciding batch, from the offer and the fold's answer | the micro topology |
+| WS4 shared purge by value id | block 2d, in the forget's batch | the micro topology |
+| WS5 the close act's `:reads` | a part of phase 2's session close act | the stream gate (phase 2's decision, unchanged) |
+| WS6 a drop | phase 2's OP9 acts, 256 targets each, `:because-of` the close act | the stream gate |
+| WS7 a person purge page | `*index-ops` (one-owner) and `*micro-index-ops` (shared) records, one bounded page each | the gate topology's index-ops source; the micro topology |
+| WS8 a rebuild page | the read exit's `*index-ops` pages; `*micro-index-ops` put and sweep pages | as WS7 |
+| WS9 the restore fact | an operator offer into `:people` | the stream gate |
+| WS10 a forget replay | `:replay-forget` records on the layer's ops depot | the layer's gate, calling phase 2's replay seam and the purge |
+| WS11 the one-owner `:ix-s` | the read exit's `index-writes`, in the admitting event | the stream gate |
+
+## PState Design
+
+No new PState. Fields added to three existing ones, by the merge rule
+(same key and partitioner as the data they index, so fields of its value):
+
+- **`$$layers [L]`** (stream gate): one field, `:ix-s` (`hex(stamp) ␀ fid`
+  → the read exit's entry), subindexed, size tracking off. Options for the
+  delta costed in "The delta": A, prefix rescans (no new field; a delta
+  costs the whole prefix, and `[:all]` on a big layer is partial every
+  tick); B, phase 2's `:by-stamp` plus a row read per act (no new field;
+  one seek per new act per standing read per tick, multiplied by every
+  standing read a renderer holds); C, chosen, `:ix-s` carrying the row (one
+  put per fact at write; a delta is one seek plus the new facts' iterations
+  whatever the number of standing reads). The skill's rule decides: write
+  once, read on every tick.
+- **`$$micro [L]`** (micro topology): six fields, `:ix-ek`, `:ix-ke`,
+  `:ix-kv`, `:ix-of`, `:ix-s`, `:ix-id` (schema in "The fields"); options A,
+  B, C in "Placement"; B chosen.
+- **`$$micro-task`** (micro topology): `:rebuild` (`(fixed-keys-schema {:op
+  Keyword :cursor String :done? Boolean :batch Long})`, a rebuild's
+  progress) and `:layers` (`(set-schema Keyword {:subindex? true})`, the
+  shared layers whose home is this task; subindexed because a task can hold
+  many layers).
+
+## Depots
+
+- `*offers` (phase 1's): every entry, line, close act and forget act, as
+  ordinary offers.
+- `*index-ops` (the read exit's, `hash-by :layer`): gains the ops
+  `:person-purge` (routed to its `:task` by `(|direct)` after the source)
+  and `:replay-forget`.
+- `*micro-index-ops`, new: `(declare-depot setup *micro-index-ops
+  :random)`, operator appends, a third source of the micro topology; every
+  record names its task and is routed by `(|direct *task)`. `:random`
+  because a record's task is in the record, not in its hash. Not an act and
+  not in the record (maintenance, RR8).
+- `*micro-offers` and `*micro-tick` (phase 3's): unchanged.
+
+## Topologies and PStates
+
+No new topology. The stream gate topology gains nothing but what the read
+exit's changes bring (the fifth index field, two ops in its index-ops
+source); the micro topology gains block 2d and the `*micro-index-ops`
+source. Both remain the only writers of their PStates, which is why no
+third topology can hold these writes. The micro topology stays microbatch:
+its index writes must be atomic with the rows they index across tasks, which
+only the batch gives, and exactly-once with the batch (block 2d's writes are
+`termval`s and `NONE>`s, applied once per batch). The stream gate stays
+stream: the one-owner `:ix-s` entry must be visible with the act's answer,
+as the read exit's other entries are.
+
+## Query Topologies
+
+The read exit's `read-point` and `read-pattern` gain the shared branch and
+`:after`; three new ones, `standing-close`, `standing-open`, `entry-ids`,
+each on one task with a leading `(|hash *layer)` and a closing `(|origin)`,
+emitting once.
+
+- **`read-pattern`, shared branch.** A group layer's `[:e e]` with 12
+  facts → 4 seeks (stream settings, frontier, micro settings, members) + 1
+  page (16 iterated, 12 kept). `[:latest e k]` with nothing hidden → 4 + 1;
+  with one hidden entry above F → 4 + 2. `[:k :note]` over 1,000 matches →
+  4 + 7 pages. The base's `[:k k]` after its re-class, 40 stream-era and 60
+  micro-era matches → 2 (stream settings, frontier) + 3 pages + 3 pages.
+  An empty `[:e unknown]` → 4 + 1 (recorded, ruling 3). **Variable**,
+  handled by the read exit's doubling page loop and the tail loop.
+- **`read-point`, shared branch.** 5 fids of which 2 never indexed → 4 + 5
+  `:ix-id` + 3 `:ix-ek`. **Variable**, the read exit's `loop<-`.
+- **`read-pattern` with `:after`.** A quiet tick → 3 seeks (one-owner:
+  settings, clock, one range seek that finds nothing) or 4 (shared). A tick
+  with 3 new facts of 40 new in the layer (`[:k]` over `:ix-s`) → 3 + 1
+  page of 40 iterated. `[:ek]` with 2 new → 3 + 1 page of 3. **Variable**,
+  the same loop from a bound.
+- **`standing-close`.** d delivery lines → 1 + 1 page + d rows (1 to 2
+  each). **Variable**, a `loop<-` over the page.
+- **`standing-open`.** s standing entries in the layer → 1 page + s seeks.
+  **Variable**, `loop<-`.
+- **`entry-ids`.** Up to five prefix pages until n ids; **variable**, the
+  page loop, stopping at n.
+
+## Partitioning efficiency
+
+**Optimal placement first.** The dominant read of this stage is a shared
+pattern read (RS1). It wants every entry it scans on one task and the
+layer's settings, members and frontier on the same task; the micro store
+already keeps a layer's settings, members and permissions on `hash(L)`,
+and the frontier is on every task. So `f(index entries of L) = hash(L) mod
+N`, the same `f` as the layer's per-layer data, implemented by fields of
+`$$micro [L]` (Option B). Entity-scoped entries could also sit on `hash(e)`
+(Option C) at no read cost for the scan but one more task per read for the
+settings; key-scoped and whole-layer forms want `hash(L)` whatever else
+holds. The table is for B; the categories are the pattern families over
+shared layers, the base after re-class among them.
+
+### N = 1 task (single-task baseline)
+| Data category | Frequency proportion | Seeks/op | Iterator reads/op |
+|---|---|---|---|
+| entity-scoped form, group layer, about 12 matches | 0.5 | 5 | 16 |
+| key-scoped form, group layer, about 60 matches | 0.3 | 7 | 64 |
+| `[:all]`, small group layer, about 200 facts | 0.1 | 9 | 208 |
+| key-scoped form on the re-classed base, both eras | 0.1 | 8 | 128 |
+Weighted seeks = 6.3   |   Weighted iterator reads = 60.0
+
+### N = 16 tasks
+| Data category | Frequency proportion | Seeks/op | Iterator reads/op |
+|---|---|---|---|
+| entity-scoped form, group layer, about 12 matches | 0.5 | 5 | 16 |
+| key-scoped form, group layer, about 60 matches | 0.3 | 7 | 64 |
+| `[:all]`, small group layer, about 200 facts | 0.1 | 9 | 208 |
+| key-scoped form on the re-classed base, both eras | 0.1 | 8 | 128 |
+Weighted seeks = 6.3   |   Weighted iterator reads = 60.0
+
+### N = 128 tasks
+| Data category | Frequency proportion | Seeks/op | Iterator reads/op |
+|---|---|---|---|
+| entity-scoped form, group layer, about 12 matches | 0.5 | 5 | 16 |
+| key-scoped form, group layer, about 60 matches | 0.3 | 7 | 64 |
+| `[:all]`, small group layer, about 200 facts | 0.1 | 9 | 208 |
+| key-scoped form on the re-classed base, both eras | 0.1 | 8 | 128 |
+Weighted seeks = 6.3   |   Weighted iterator reads = 60.0
+
+Flat, because every read touches one task whatever N. (The seeks: group
+layers pay 4 before the first page, the base 2; pages double from 16.
+Opening a shown value adds one local `$$persons` seek per wrap person,
+block-cached for a hot person, the same at every N and left out of both
+columns, as the read exit's table leaves out `open-row>`.) Option A at N =
+128 would pay 128 seeks for every key-scoped and whole-layer read (weighted
+seeks about 55), which is why it was rejected. The write side, per admitted
+act in a shared layer: one hop to `hash(L)` and 3 puts per fact (plus 2 for
+a value-indexed fact, plus 1 `:ix-id`), no seek, at every N.
+
+The standing read's quiet tick: 3 seeks (one-owner) or 4 (shared) on one
+task at every N; its busy tick adds one iteration per new fact of the
+layer.
+
+## Design Decisions
+
+- **One task per read, both kinds.** Both stores keep per-layer data on
+  `hash(L)`; the shared indexes go there too, so the exit's first query
+  already stands where every answer is.
+- **Subindexing.** All six micro fields and the one-owner `:ix-s` are
+  subindexed maps (unbounded per layer); `:ix-of` sets are plain (bounded
+  by the value-indexed kinds); `$$micro-task :layers` is a subindexed set.
+  Size tracking off everywhere.
+- **The frontier rule on entries**, not on addresses: an entry's `:batch`
+  hides it; the address orders by entity, key, stamp as the read exit's,
+  so the same address function and page loop serve both stores.
+- **Erasures cross the frontier**: a purge overwrites entries in place
+  (tombstones), the one overwrite in the micro index, by the rule phase 3
+  states for erasures.
+- **A poll at the delivery rate** holds a standing read open; a proxy
+  cannot show a value.
+- **The close act's drop is phase 2's OP9**, paged by act size, with the
+  mark `:own-row` making it the ordinary road.
+- **Person forgets are paged** in both stores, because one person's values
+  can exceed one event's bound; their pages are idempotent and resumable.
+- **A purge writes what a rebuild would**, so restore, rebuild and replay
+  reproduce the indexes exactly.
+
+## State primitive selection
+
+- `$$layers [L :ix-s]`, `$$micro [L :ix-*]` (PState fields): durable,
+  co-located with the data they index, written in the admitting event or
+  batch; per source event, 3 to 6 puts per fact.
+- `$$micro-task :rebuild`, `:layers` (PState fields): durable, tiny.
+- The standing read's handle (client memory): not durable by design; the
+  record has everything a close needs.
+- No TaskGlobal, no external system, nothing cached.
+
+## Resource usage analysis
+
+### Disk usage (PStates), per fact
+
+- **One-owner:** the read exit's arithmetic (about three times a plain
+  fact's bytes for `:ix-ek` and `:ix-ke`) plus `:ix-s`, one more copy of
+  the row with a shorter address (about 90 characters): about four times a
+  plain fact's bytes, about six for a value-indexed one. The `:read/*`
+  facts stay `:no-copy` (F7) in all three id indexes: about 200 bytes each.
+- **Shared:** `:ix-ek`, `:ix-ke`, `:ix-s` copies of the micro row (sealed
+  bytes, the wrapped lock record of about 169 bytes, BENCH_NOTES-locks.md,
+  the digest), `:ix-id` about 100 bytes: about four times a fact's bytes on
+  the layer's task, six for a value-indexed one. Growth: every admitted
+  fact of every shared layer, for ever (the log's growth times four).
+- **Lock rows** for read entries in agent layers (the mark): one per
+  entry value, about 169 bytes, moved from the row, not added.
+- **`$$micro-task`**: a few hundred bytes per task.
+
+### Memory usage (TaskGlobals)
+
+None.
+
+### Minimization
+
+- `:ix-s` could hold only the fact id and its `:ix-ek` address, making
+  every delta pay a seek per new fact; not taken (reads on every tick
+  against one write).
+- The shared id indexes could shorten the fact id text in addresses, as
+  the read exit's minimization notes; not taken tonight, rebuildable later.
+- A hot shared layer's index could move to Option C or a `[L k]` placement
+  to spread its bytes; not taken until measured (RR5).
+- Data duplicated across locations: each index is a copy of the row by
+  design (reads without a seek per fact); the rows themselves are not
+  duplicated elsewhere.
