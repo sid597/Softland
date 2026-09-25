@@ -459,7 +459,10 @@
             (is (= {:stamp (:stamp f) :how :excised} (get (c/ledger st :alice-agent) lid)))
             (is (nil? (c/lock-row st :alice-agent lid)))
             (is (= {:erased-at (:stamp f)} (c/opens? st :alice-agent id)))
-            (p6-check! st :alice-agent id "agent value" [:alice :alice-hand :alice-agent :base] @all-persons "value forget, agent")))
+            (p6-check! st :alice-agent id "agent value" [:alice :alice-hand :alice-agent :base] @all-persons "value forget, agent")
+            (let [f2 (c/forget-value! st :alice :alice-agent id)]
+              (is (= [:yes nil] [(:answer f2) (:how f2)]) "an excised value forgotten again: yes, nothing changes (E5 K4)")
+              (is (= {:stamp (:stamp f) :how :excised} (get (c/ledger st :alice-agent) lid)) "the first date stays"))))
         (testing "in a hand layer: a lock row, deleted"
           (let [a (send! (act :alice :alice-hand [(note :e13 "hand value")]))
                 id (fid a 0)
@@ -488,6 +491,16 @@
                   f (c/forget-value! st :operator :alice [grant-name 0])]
               (is (= [:yes nil] [(:answer f) (:how f)]) "a forget of a control fact: yes, nothing changes")
               (is (= :yes (:answer (send! (act :alice :alice [(note :e15 "the grant still stands")]))))))))
+        (testing "a forget by a person whose permission is revoked is refused :permission-revoked, as the model does (L17, O13)"
+          (person+ :jo)
+          (layer! st :jo :personal :jo)
+          (let [a (send! (act :jo :jo [(note :e0 "jo's note")]))
+                _ (is (= :yes (:answer (c/offer-until-answered! st (c/revoke-offer st [:jo :jo :jo])))))
+                f (c/forget-value! st :jo :jo (fid a 0))]
+            (is (= :permission-revoked (:reason f)))
+            (is (= :permission-revoked (:reason (rec (:name f)))) "recorded")
+            (is (= {:value "jo's note"} (c/opens? st :jo (fid a 0))) "the value still opens")
+            (is (= :yes (:answer (c/forget-value! st :operator :jo (fid a 0)))) "the operator can still forget it")))
         (testing "per-act grain: one lock for the act, a forget erases it whole, earlier values keep theirs"
           (person+ :pia)
           (layer! st :pia :personal :pia)
@@ -526,7 +539,11 @@
             (is (= {:erased-at (:stamp fg)} (c/opens? st :fay (fid marked 0))) "marked: dies with Gus, dated by his forget")
             (is (= {:value {:persons #{:gus}}} (c/opens? st :fay (fid plain 0))) "unmarked: survives Gus")
             (is (= :person-forgotten (:reason (send! (act :fay :fay [(mention :e2 [:gus] :die-with-any)]))))
-                "a new value that must die with Gus cannot be wrapped under his destroyed lock")))
+                "a new value that must die with Gus cannot be wrapped under his destroyed lock")
+            (let [later (send! (act :fay :fay [(mention :e3 [:gus])]))]
+              (is (= :yes (:answer later)) "an unmarked mention of Gus after his forget: admitted, wrapped under Fay alone (E6 Q1, L11)")
+              (is (= [:fay] (:required (c/lock-row st :fay (:lock-id (c/raw-row st :fay (fid later 0)))))))
+              (is (contains? (:subjects (rec (:name later))) :gus) "and still found by him in the subject slot (ruling 8)"))))
         (testing "a write about a person with no lock is refused :no-such-person (L11)"
           (is (= :no-such-person (:reason (send! (act :alice :alice [(mention :e16 [:nobody] :die-with-any)]))))))
         (testing "a value forget after a person forget: the ledger's date shows (L16)"
@@ -635,6 +652,10 @@
                     (is (contains? purged id) "a value that died with the person went to the purge seam")
                     (is (not (contains? purged id)) "a value that stays open is not purged"))))
               (when (= 0 i)
+                (let [lrows (c/lock-rows st layer)]
+                  (is (= 2 (count lrows)) "after a person forget the lock rows stay (E5, RD7s): closed, not deleted")
+                  (is (every? #(nil? (l/unwrap (second %) (live-persons st @all-persons))) lrows)
+                      "and none unwraps with a live person lock"))
                 (p6-check! st layer (:id (first facts)) {:token (str what)} [:alice :alice-hand :alice-agent :base layer]
                            @all-persons "A1's person forget"))))))
 
