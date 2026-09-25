@@ -244,8 +244,17 @@ Why this pick (*derived*, each from a ruling or a plan):
 What it gives up (*derived*): one key can carry different grammars in
 different layers. CORNERS C4.3's rule ("a grammar version that requires
 more, or provides less, is a new key") says such divergence should be a new
-key; nothing enforces it tonight. A layer that wants the base's grammar must
-state it itself (3.4). Both are questions for Sid (section 12, Q1 and Q2).
+key; nothing enforces it tonight. And every layer must state its own
+grammars. That is cheap for a person's layer, made once, and not for the
+layers made in quantity: a hand or agent session layer is made per session,
+and under the pick it starts with no grammar, so until its making act (or a
+later act) states grammars, a `:mention` of Bob written there is not about
+Bob (the permissive default, 4.6). Giving a new layer its grammars from
+another layer is road F below, a copy. So the pick is copy-free for what the
+rig builds tonight (the fixture states each test layer's grammars), and the
+store-wide need, one grammar reaching every layer, still needs a copy (C or
+F), a hop (B), or a placement that puts a person's layers on one task (G).
+These are questions for Sid (section 12, Q1 and Q2).
 
 ### 3.3 The alternatives, and what each costs
 
@@ -327,6 +336,20 @@ task: unsettled**, under the same rule as C. It differs from C in being a
 fact (attributed, visible, time-travelled, retractable) rather than
 machinery, and in costing one act per adopting layer per change. Designed
 here so the pick does not close it; not built tonight, and no test needs it.
+
+**G. A person's layers placed on one task, the session layers reading
+their owner's grammar there.** If a session layer were placed on its
+owner's personal layer's task (the task chosen by owner, each layer still
+whole on one task), its gate could read the personal layer's rows locally,
+with no copy and no hop, and a session would inherit its owner's grammars.
+Costs (*derived*): all of a person's layers share one single-threaded task,
+so one person's total write rate, agents included, is bounded by one task
+(a hot layer is remedied by re-class, SP:536-537, which moves it off);
+`*offers` would be partitioned by the layer's owner, which the offer does
+not carry, so the name's tag or a lookup would have to give it (an envelope
+or placement change); and "inherits" is itself a new rule. Not taken
+tonight; it is the one road I found that gives sessions a grammar with no
+copy, so it goes to Sid with Q1.
 
 ### 3.4 Where "only through stood-on" puts a grammar the offer relied on
 
@@ -1241,9 +1264,12 @@ Rig choices (each can change without touching a record):
 ## 12. Open questions for Sid
 
 - **Q1. Where a grammar lives.** In the layer it governs (tonight), or once
-  per key for the whole store, in the base, which needs either a copy on
-  every task or a hop on every offer (3.3)? It decides whether "the key's
-  grammar" is one per key or one per key per layer.
+  per key for the whole store, in the base? It decides whether "the key's
+  grammar" is one per key or one per key per layer. A store-wide grammar,
+  or a session layer that should inherit its owner's, needs one of: a copy
+  on every task (C), a copy into each new layer standing on its source (F),
+  a hop on every offer (B), or a person's layers placed on one task (G)
+  (3.3). C and F are copies, unsettled under the caching rule.
 - **Q2. One key, two grammars.** May a key carry different grammars in
   different layers, or must a grammar that requires more or provides less
   be a new key (CORNERS C4.3)? And is a layer's reliance on another layer's
@@ -1308,7 +1334,13 @@ A's: permissions live in the layer they govern, and R7 copies a session's
 permissions into each layer through its own gate rather than reading them
 across. Third, the brief's rule on copies: A builds tonight with no copy,
 so builder A's examination is not on the critical path. What A gives up
-(one key, two grammars) I have put to Sid as Q1 and Q2 rather than settled.
+(one key, two grammars; and session layers, made in quantity, that start
+with no grammar) I have put to Sid as Q1 and Q2 rather than settled. The
+session-layer cost I saw late, on a read-through: it is the strongest point
+for C, because under C a new layer has every grammar the moment it is made.
+It did not change the pick for tonight, since tonight's layers are the
+model's five and the fixture states their grammars, but it means the pick
+is copy-free only for what is built tonight, and I have said so in 3.2.
 I also noticed my own pull toward C as the "Rama-shaped" answer, which is
 the failure mode CLAUDE.md names (a fluent pattern beating project truth);
 the permission sharpening is the project's truth here.
