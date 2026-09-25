@@ -78,6 +78,11 @@
   ([store e nm] (act store e nm nil))
   ([store e nm F] (retrying #(foreign-invoke-query (:act-q store) e nm F))))
 
+(defn task-of
+  "The task an entity's rows live on, as micro-act reports it."
+  [store e]
+  (:task (act store e [e :by-entity :offer (java.util.UUID. 0 0)] -1)))
+
 (defn record-of
   "The name row as stored, bypassing the frontier (tests only)."
   [store nm]

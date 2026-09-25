@@ -80,11 +80,15 @@
 ;; ================================================================== schemas
 
 (def lock-record-schema
-  "Phase 2's lock record, shared by both stores (M12)."
+  "Phase 2's lock record, shared by both stores (M12). `:scheme` is the tag
+  phase 2's later commit 3ddc6eab puts on every record (`:aes-gcm-1`); the
+  merged primitives (1febfa3d) do not write it yet, so it is optional here
+  and a record carrying it after the merge fits this schema."
   (fixed-keys-schema {:required  clojure.lang.PersistentVector
                       :any-of    clojure.lang.PersistentVector
                       :blob      byte/1
-                      :any-blobs (map-schema clojure.lang.Keyword byte/1)}))
+                      :any-blobs (map-schema clojure.lang.Keyword byte/1)
+                      :scheme    clojure.lang.Keyword}))
 
 (def answer-record-schema
   "The stream plan's answer record plus `:batch`, the microbatch that
@@ -1029,11 +1033,12 @@
 
 (defn act-result
   "micro-act's answer: the act's record under the entity and its rows on
-  that entity, in index order, when its batch is at or below F; else only F."
-  [rec rows F]
+  that entity, in index order, when its batch is at or below F; else only
+  F. With the task that answered, which is the entity's."
+  [rec rows F task]
   (if (visible-at? rec F)
-    {:frontier F :record rec :rows (vec rows)}
-    {:frontier F :record nil :rows []}))
+    {:frontier F :task task :record rec :rows (vec rows)}
+    {:frontier F :task task :record nil :rows []}))
 
 (defn leases-of-result
   "micro-leases-of's answer (§A): the names of the yes acts that touched the
@@ -1395,7 +1400,8 @@
       (local-select> [(keypath *e :log *name) (subselect ALL)] $$micro {:allow-yield? true} :> *rows)
      (else>)
       (identity nil :> *rows))
-    (act-result *rec *rows *F :> *result)
+    (ops/current-task-id :> *task)
+    (act-result *rec *rows *F *task :> *result)
     (|origin))
 
   (<<query-topology topologies "micro-lease" [*lease-name *f :> *result]
