@@ -20,7 +20,9 @@ and .txt; PLAN-locks-and-forgetting.md (lease rows by session, 408-418,
 `route-key` (Softland-rig-build-micro, micro.clj:290, at 5afe3c7d);
 stream.md (commit boundaries 39-57, ack-return> 233-252); microbatch.md 15.
 Nothing under src/app was read. gate_test.clj was not opened. No cluster
-was run: the only probe is the plan's own, read and checked, not re-run.
+was run. The plan's probe was read and checked, not re-run; one probe of
+this validation's own ran with no cluster: runs/Phase4ValidateX25519.java,
+output runs/phase4-validate-x25519.txt (JDK 21.0.12.1, this machine).
 Marks: *checked* = read in a source named here; *derived* = reasoned from
 those; *assumed* = not checked. -->
 
@@ -225,7 +227,7 @@ the plan. Each mechanism:
   - landing decided, refused (any recorded reason): the lease row deleted; the forward's and the depot's bytes open under nothing the store holds.
   - landing face-refused and not recorded: before F3, the row stays until its session closes, and the promotion stays crossed. After F3, only a malformed envelope, a lease id its name does not bind, or a row leased to another session are face refusals, and none of them is the store's own forward from an honest door.
   - a person forget of someone the copy is about, between the read-out and the landing: the bare row still opens a copy about a forgotten person until the landing's decision refuses it (`:person-forgotten`) and deletes the row. **Unwalked** → F7. The same window phase 2 leaves for every in-flight sealed offer (its lease rows are wrapped under the writer, not the subjects).
-- **Construction** (the probe, *checked* by reading the code and its output, not re-run): X25519 by the JDK (`XDH`), an ephemeral key per box, the wrapping lock HMAC-SHA256 keyed by the raw shared secret over the label `softland/landing-box/v1` ‖ ephemeral public ‖ lease public (a one-block HKDF-style derivation; acceptable for PR6, which can change without touching a record), AES-GCM with a fresh 12-byte nonce over the 32-byte K, **no associated data**. The probe shows: opens with the lease's private key, not with another; 44 + 12 + 48 bytes; 0.09/0.18/0.08 ms. It does not show: a non-key or small-order public key (the JDK's X25519 agreement can refuse a result of all zeros; the probe's `box` has no try, its `unbox` has); what is bound to the landing name (nothing in the box; only the lease row's `:for`). → F2: the request's check decodes the key; the read-out records a no if `box` still returns nil; GCM's associated data binds the lock id and the landing name.
+- **Construction** (the probe, *checked* by reading the code and its output, not re-run): X25519 by the JDK (`XDH`), an ephemeral key per box, the wrapping lock HMAC-SHA256 keyed by the raw shared secret over the label `softland/landing-box/v1` ‖ ephemeral public ‖ lease public (a one-block HKDF-style derivation; acceptable for PR6, which can change without touching a record), AES-GCM with a fresh 12-byte nonce over the 32-byte K, **no associated data**. The probe shows: opens with the lease's private key, not with another; 44 + 12 + 48 bytes; 0.09/0.18/0.08 ms. It does not show: a non-key or small-order public key; what is bound to the landing name (nothing in the box; only the lease row's `:for`). **Probed here** (runs/phase4-validate-x25519.txt): 44 random bytes fail to decode (`InvalidKeySpecException`); a well-formed 44-byte key with u = 0 or u = 1 *decodes*, and the agreement then throws `InvalidKeyException: Point has small order`; a real key agrees. The plan's probe `box` has no `try` (its `unbox` has), so the plan's "44 bytes" check admits a request whose read-out would throw in topology code: fatal to the worker, and replayed from the record's start, a poison record. A decode check at the request alone would not catch the small-order points; the read-out needs its own nil-box branch. → F2: the request's check decodes the key; the read-out records a no if `box` still returns nil; GCM's associated data binds the lock id and the landing name.
 - **Verdict**: PASS after F2, F3, F7.
 
 ### C8. "a retried request landing once"
@@ -274,7 +276,7 @@ the plan. Each mechanism:
 - **Default 6** (the base): one-owner on the stream gate until its re-class, lock rules shared from day one; T10 a to c. PASS.
 
 ### C16. "What Rama showed" 3: a gate never throws on an offer
-- **Trace**: the box functions are total (the plan says so); before F2 the read-out had no branch for a nil box, and writing `:box nil` into a fixed-keys field can throw at the schema check, which would be fatal to the worker and replayed for ever. **FAIL** → F2.
+- **Trace**: the plan says the box functions are total, but its probe's `box` is not (no `try`), and the read-out had no branch for a nil box. Probed: a small-order key passes a length check and a decode check, then the agreement throws (runs/phase4-validate-x25519.txt). Unfixed, the read-out throws, the worker dies, the record replays and throws again. **FAIL** → F2 (decode at the request, `box` total, a recorded no when it is nil).
 - **Verdict**: PASS after F2.
 
 ## Self-consistency
@@ -302,3 +304,12 @@ The F7 window is phase 2's accepted window applied here, named, not solved.
    the landing (open item "writes about someone already forgotten").
 </content>
 </invoke>
+
+## Probes and commits
+
+- runs/Phase4ValidateX25519.java → runs/phase4-validate-x25519.txt, no
+  cluster, JDK 21.0.12.1: decode and agreement for a non-key, two
+  small-order points, a non-canonical u and a real key (F2's evidence).
+- Commits on rig-plan-promotion: 24c6aaf7 (this file, first version);
+  2942e888 (the plan, F1 to F9 applied and marked `[F<n>]`); the commit
+  after it (this file with the probe's evidence, and the probe).
