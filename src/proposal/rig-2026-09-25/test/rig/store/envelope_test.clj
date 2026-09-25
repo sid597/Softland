@@ -9,7 +9,14 @@
 
   The unguarded `parse*` and `decide*` are driven directly: their Throwable
   guards are the last line, and a property that only exercised the guarded
-  functions could not fail."
+  functions could not fail.
+
+  Stage 2 (PLAN-locks-and-forgetting.md, [V-F4]): a value fact reaches the
+  gate sealed, so the offers these tests build are sealed as the door
+  seals them (`seal-raw`, with locks it makes up) before they are parsed;
+  the value-domain rows move from the parser to the gate's opening
+  (`locks/read-values`), and the digest is the parts digest, which no
+  value-only or lock-id change moves."
   (:require [clojure.edn :as edn]
             [clojure.test :refer [deftest is testing]]
             [clojure.test.check :as tc]
@@ -23,11 +30,12 @@
             [rig.store.clock :as hlc]
             [rig.store.envelope :as env]
             [rig.store.gate :as gate]
+            [rig.store.locks :as l]
             [rig.store.module :as m])
   (:import [clojure.lang PersistentVector]
            [java.math BigDecimal]
            [java.security MessageDigest]
-           [java.util UUID]))
+           [java.util Arrays UUID]))
 
 ;; ------------------------------------------------------------------ helpers
 
@@ -55,9 +63,10 @@
   (subvec (into [::pad] v) 1))
 
 (def face-reasons
-  "Every reason the gate gives on a record's face (P7, F6)."
+  "Every reason the gate gives on a record's face (P7, F6; stage 2's
+  :not-sealed, L27)."
   #{:malformed :unknown-part :unknown-version :bad-name :reserved-who
-    :reserved-scheme :empty-act :wrong-gate :mis-tagged})
+    :reserved-scheme :empty-act :wrong-gate :mis-tagged :not-sealed})
 
 (def recorded-reasons
   "Every reason the gate records under a name, in its order (plan step 4,
@@ -69,6 +78,35 @@
 
 (defn- uuid [] (UUID/randomUUID))
 (defn- nm [layer cls] [layer cls :offer (uuid)])
+
+(defn- seal-with-locks
+  "A plaintext offer sealed as the door seals it, with locks made up here:
+  each value fact (not a control key, a value) under a fresh lock cited as
+  [lease-name i]. Returns [raw delivered]; anything that is not an offer
+  with a vector of facts comes back as it is."
+  [raw]
+  (if (and (map? raw) (vector? (:facts raw)))
+    (let [lease [(if (keyword? (:layer raw)) (:layer raw) :alice) :by-layer :offer (uuid)]
+          idx (keep-indexed (fn [i f] (when (env/value-fact? f) i)) (:facts raw))
+          ids (zipmap idx (map (fn [j] [lease (long j)]) (range)))
+          Ks (into {} (map (fn [id] [id (l/fresh-lock)])) (vals ids))]
+      [(assoc raw :facts (vec (map-indexed (fn [i f]
+                                             (if-let [id (get ids i)]
+                                               (-> f (dissoc :v) (assoc :sealed (l/seal (get Ks id) (l/canonical-bytes (:v f))) :lock-id id))
+                                               f))
+                                           (:facts raw))))
+       Ks])
+    [raw {}]))
+
+(defn- seal-raw [raw] (first (seal-with-locks raw)))
+
+(def ^:private parts-fact @#'env/parts-fact)
+
+(defn- parts-of
+  "What the parts digest covers of a parsed offer: all but its name, each
+  sealed fact's bytes as true and its lock id left out (L26)."
+  [o]
+  (update (dissoc o :name) :facts #(mapv parts-fact %)))
 
 ;; --------------------------------------------------------------- generators
 
@@ -140,9 +178,10 @@
   [o]
   (env/name-for o))
 
-(def gen-offer
+(def gen-plain-offer
   "A well-formed offer, as a client builds it: sometimes with control facts
-  on the layer's own entity, sometimes carrying stood-on stamps."
+  on the layer's own entity, sometimes carrying stood-on stamps. Its value
+  facts are plaintext; `gen-offer` seals them."
   (gen/let [layer (gen/elements layers)
             who (gen/frequency [[2 (gen/return :alice)] [1 (gen/return :bob)] [2 (gen/return :operator)]])
             ordinary (gen/vector gen-fact 0 4)
@@ -166,6 +205,14 @@
              :session session :stood-on stood :because-of because :claimed-when cw
              :subjects subjects :facts facts}]
       (assoc o :name (tag-name o)))))
+
+(def gen-sealed-offer
+  "An offer as the door sends it, and the locks it was sealed under."
+  (gen/fmap seal-with-locks gen-plain-offer))
+
+(def gen-offer
+  "An offer as the door sends it: its value facts sealed."
+  (gen/fmap first gen-sealed-offer))
 
 (def mutations
   "Ways a record goes wrong on its way to the gate, and two that keep it
@@ -253,7 +300,12 @@
                             (or (nil? (:replaces f))
                                 (and (exact-vector? (:replaces f)) (exact-vector? (first (:replaces f)))
                                      (instance? Long (second (:replaces f)))))
-                            (= (:v f) (env/normalize-value (:v f)))))
+                            (= (:v f) (env/normalize-value (:v f)))
+                            ;; stage 2: a sealed fact's bytes and its lock id in the schema's classes
+                            (or (not (contains? f :sealed))
+                                (and (bytes? (:sealed f)) (nil? (:v f))
+                                     (exact-vector? (:lock-id f)) (exact-vector? (first (:lock-id f)))
+                                     (instance? Long (second (:lock-id f)))))))
                (:facts o))))
 
 (deftest parse-hands-on-schema-classes
@@ -263,25 +315,45 @@
               (let [r (parse* x :stream)]
                 (or (contains? r :refuse) (classes-ok? (:ok r)))))))
   (testing "a subvec in each vector position comes out a PersistentVector"
+    ;; stage 2: a value's vectors are inside its seal, so a control value
+    ;; carries the nested subvec here, and a sealed fact's lock id is one
     (let [n (nm :alice :by-layer)
           o {:version 1 :name (subv n) :who :alice :layer :alice :class :by-layer
              :permission (subv [:alice :alice :alice])
              :because-of (subv (nm :alice :by-layer))
              :stood-on {[(subv (nm :alice-hand :by-layer)) 0] 5}
-             :facts [{:e :e0 :k :note :v (subv [1 2 (subv [3])]) :replaces [(subv n) (int 1)]}]}
+             :facts [{:e :e0 :k :permission :v (subv [1 2 (subv [3])]) :replaces [(subv n) (int 1)]}
+                     {:e :e1 :k :note :sealed (byte-array 30) :lock-id [(subv n) (int 2)] :replaces [(subv n) (int 1)]}]}
           r (env/parse o)]
       (is (contains? r :ok))
       (is (classes-ok? (:ok r)))
       (is (= [1 2 [3]] (-> r :ok :facts first :v)))
       (is (exact-vector? (-> r :ok :facts first :v)))
-      (is (exact-vector? (nth (-> r :ok :facts first :v) 2))))))
+      (is (exact-vector? (nth (-> r :ok :facts first :v) 2)))
+      (is (exact-vector? (-> r :ok :facts second :lock-id)))
+      (is (exact-vector? (first (-> r :ok :facts second :lock-id))))
+      (is (instance? Long (second (-> r :ok :facts second :lock-id)))))))
 
 ;; ------------------------------------------------------------ parse: bounds
 
+(defn- sealed-read
+  "What the gate's opening says of a value the door sealed ([V-F4]: the
+  value-domain checks moved from the parser to `locks/read-values`):
+  :ok with the value it reads, or its refusal."
+  [v]
+  (let [K (l/fresh-lock)
+        id [(nm :alice :by-layer) 0]
+        r (l/read-values [{:e :e0 :k :note :sealed (l/seal K (l/canonical-bytes v)) :lock-id id}] {id K}
+                         {:owner :alice :carried #{} :grain :per-value})]
+    (if (:reason r) (:reason r) [:ok (get-in r [:values 0])])))
+
 (deftest parse-bounds
+  ;; stage 2: the parser reads control values only; the value rows below
+  ;; use a control fact (a grant's value), and each is checked again as a
+  ;; sealed value through the gate's opening ([V-F4])
   (let [base (fn [v] {:version 1 :name (nm :alice :by-layer) :who :alice :layer :alice
                       :class :by-layer :permission [:alice :alice :alice]
-                      :facts [{:e :e0 :k :note :v v}]})]
+                      :facts [{:e :e0 :k :permission :v v}]})]
     (testing "a value may nest in 32 collections; 33 is malformed; 3000 is malformed without a deep walk (F6)"
       (is (true? (env/edn-value? (nest 32))))
       (is (false? (env/edn-value? (nest 33))))
@@ -289,7 +361,10 @@
       (is (= {:refuse :malformed} (env/parse (base (nest 33)))))
       (is (= {:refuse :malformed} (parse* (base (nest 3000)) :stream)) "unguarded: the walk stops at the bound")
       (is (= {:refuse :malformed} (parse* (base (nest 200000)) :stream)))
-      (is (string? (env/canonical (nest 32)))))
+      (is (string? (env/canonical (nest 32))))
+      (is (= [:ok (nest 32)] (sealed-read (nest 32))) "sealed: 32 levels open")
+      (is (= :malformed-value (sealed-read (nest 33))) "sealed: 33 are refused at the opening, recorded")
+      (is (= :malformed-value (sealed-read (nest 3000))) "sealed: 3000 too, without a throw"))
     (testing "nested maps and sets count the same way"
       (let [nest-map (fn [n] (loop [v 1 i 0] (if (< i n) (recur {:a v} (inc i)) v)))
             nest-set (fn [n] (loop [v 1 i 0] (if (< i n) (recur #{v} (inc i)) v)))]
@@ -313,19 +388,30 @@
                  (keyword "a b") (keyword "") (keyword "x/y" "z") {:a '(1)} #{(keyword "a b")}
                  (java.util.concurrent.atomic.AtomicLong. 1) (java.util.HashMap.)]]
         (is (= {:refuse :malformed} (env/parse (base v))) (pr-str v))))
+    (testing "sealed, a value is its canonical text's: outside the domain it is refused at the opening, :malformed-value"
+      ;; a Java float's or a HashMap's text is a double's or a map's, which the domain holds:
+      ;; the door's canonical text is the value (RIG choice in BUILD_NOTES)
+      (doseq [v ['(1 2) 'sym \c 1/3 (java.util.Date.) Double/NaN Double/POSITIVE_INFINITY
+                 (keyword "a b") (keyword "") {:a '(1)} #{(keyword "a b")} (java.util.concurrent.atomic.AtomicLong. 1)]]
+        (is (= :malformed-value (sealed-read v)) (pr-str v))))
     (testing "values inside it pass, normalised to one form per = class"
       (doseq [[v want] [[(int 7) 7] [(short 7) 7] [(byte 7) 7] [7N 7] [(biginteger 7) 7]
                         [-0.0 0.0] [#{-0.0} #{0.0}] [1.500M 1.5M] [100M 1E+2M]
                         [(sorted-map :b 2 :a 1) {:a 1 :b 2}] [(sorted-set 3 1) #{1 3}]
                         [(bigint 1e30) (bigint 1e30)]]]
-        (let [got (-> (env/parse (base v)) :ok :facts first :v)]
+        (let [got (-> (env/parse (base v)) :ok :facts first :v)
+              [ok opened] (sealed-read v)]
           (is (= want got) (pr-str v))
-          (is (= (class want) (class got)) (pr-str v)))))))
+          (is (= (class want) (class got)) (pr-str v))
+          (is (= [:ok want] [ok opened]) (str "sealed: " (pr-str v)))
+          (is (= (class want) (class opened)) (str "sealed: " (pr-str v))))))))
 
 (deftest face-refusals-by-reason
   (let [n (nm :alice :by-layer)
-        ok {:version 1 :name n :who :alice :layer :alice :class :by-layer
-            :permission [:alice :alice :alice] :facts [{:e :e0 :k :note :v "x"}]}]
+        plain {:version 1 :name n :who :alice :layer :alice :class :by-layer
+               :permission [:alice :alice :alice] :facts [{:e :e0 :k :note :v "x"}]}
+        ok (seal-raw plain)
+        sealed-fact (first (:facts ok))]
     (is (contains? (env/parse ok) :ok))
     (doseq [[what x reason]
             [["a number" 42 :malformed]
@@ -352,7 +438,16 @@
              ["a name made for the micro gate" (assoc ok :name (nm :alice :by-entity) :class :by-entity) :wrong-gate]
              ["a name made for another layer" (assoc ok :layer :alice-hand) :mis-tagged]
              ["a name made with no class for ordinary facts" (assoc-in ok [:name 1] nil) :mis-tagged]
-             ["a name made for a store-placed act, with a class" (assoc ok :facts [{:e :alice :k :lock-grain :v :per-act}]) :mis-tagged]]]
+             ["a name made for a store-placed act, with a class" (assoc ok :facts [{:e :alice :k :lock-grain :v :per-act}]) :mis-tagged]
+             ;; stage 2 (L27)
+             ["a value fact in plaintext" plain :not-sealed]
+             ["sealed bytes that are not bytes" (assoc-in ok [:facts 0 :sealed] "abc") :not-sealed]
+             ["a seal with no lock id" (update-in ok [:facts 0] dissoc :lock-id) :not-sealed]
+             ["a seal with a malformed lock id" (assoc-in ok [:facts 0 :lock-id] [:x 0]) :not-sealed]
+             ["a :v beside the seal" (assoc-in ok [:facts 0 :v] nil) :not-sealed]
+             ["a lock id with no seal" (assoc ok :facts [{:e :e0 :k :note :v nil :lock-id (:lock-id sealed-fact)}]) :not-sealed]
+             ["a seal on a control fact" (assoc ok :facts [(assoc sealed-fact :k :permission)]) :not-sealed]
+             ["a plaintext value beside a sealed one" (update ok :facts conj {:e :e1 :k :note :v "y"}) :not-sealed]]]
       (is (= {:refuse reason} (env/parse x)) what)
       (is (= reason (:refuse (gate/intake x))) what))))
 
@@ -414,24 +509,40 @@
               (let [o2 (rebuild o)
                     d1 (digest-of o)]
                 (and (= o o2) (= d1 (digest-of o2)))))))
-  (testing "offers whose parsed content differs have different digests"
+  (testing "offers whose parts differ have different digests (the parts digest, L26)"
     (check! "digest separates" 800
             (prop/for-all [a gen-offer b gen-offer]
               (let [pa (:ok (env/parse a)) pb (:ok (env/parse b))]
                 (or (nil? pa) (nil? pb)
-                    (= (dissoc pa :name) (dissoc pb :name))
+                    (= (parts-of pa) (parts-of pb))
                     (not= (env/digest pa) (env/digest pb)))))))
+  (testing "the parts digest leaves the sealed bytes and the lock ids out: a resend sealed again, or under new locks, digests the same ([V-F1])"
+    (check! "digest ignores the seal" 400
+            (prop/for-all [o gen-plain-offer]
+              (let [a (seal-raw o) b (seal-raw o)]
+                (= (env/offer-digest a) (env/offer-digest b) (env/offer-digest o))))))
   (let [o {:version 1 :name (nm :alice :by-layer) :who :alice :layer :alice :class :by-layer
            :permission [:alice :alice :alice] :claimed-when 5 :subjects #{:bob}
            :stood-on {[(nm :alice-hand :by-layer) 0] 9}
            :facts [{:e :e0 :k :note :v "1"} {:e :e1 :k :mention :v {:persons #{:bob}}}
                    {:e :e2 :k :tag :v "one"}]}
         d (digest-of o)]
-    (testing "every part is covered: one change anywhere changes the digest"
+    (testing "a value-only change no longer moves the parts digest; the value digest, keyed by the value's lock, tells them apart ([V-F4])"
       (doseq [[what o2] [["the value's type" (assoc-in o [:facts 0 :v] 1)]
                          ["a keyword for a string" (assoc-in o [:facts 2 :v] :one)]
-                         ["a vector for a set" (assoc-in o [:facts 1 :v :persons] [:bob])]
-                         ["a mark" (assoc-in o [:facts 0 :mark] #{:own-row})]
+                         ["a vector for a set" (assoc-in o [:facts 1 :v :persons] [:bob])]]]
+        (is (= d (digest-of o2)) what)
+        (let [K (l/fresh-lock)
+              va (l/value-digest K (l/canonical-bytes (mapv :v (:facts o))))
+              vb (l/value-digest K (l/canonical-bytes (mapv :v (:facts o2))))]
+          (is (not (Arrays/equals ^bytes va ^bytes vb)) (str what ": the value digests differ")))))
+    (testing "a value, a retract and a control fact under the same e and k digest apart (the marker where the bytes were, [V-F1])"
+      (let [value (digest-of (assoc o :facts [{:e :e0 :k :note :v "1"}]))
+            retract (digest-of (assoc o :facts [{:e :e0 :k :note :v nil}]))]
+        (is (not= value retract))
+        (is (not= value (digest-of (assoc o :facts [{:e :e0 :k :permission :v "1"}]))))))
+    (testing "every part is covered: one change anywhere changes the digest"
+      (doseq [[what o2] [["a mark" (assoc-in o [:facts 0 :mark] #{:own-row})]
                          ["what it replaces" (assoc-in o [:facts 0 :replaces] [(nm :alice :by-layer) 0])]
                          ["the fact order" (update o :facts (comp vec reverse))]
                          ["claimed-when (a rebuilt map is other content)" (assoc o :claimed-when 6)]
@@ -446,7 +557,7 @@
     (testing "the name is not covered"
       (is (= d (digest-of (assoc o :name (nm :alice :by-layer))))))
     (testing "it is keyed: not the plain SHA-256 of the same text (D8)"
-      (let [text (env/canonical (dissoc (:ok (env/parse o)) :name))
+      (let [text (env/canonical (parts-of (:ok (env/parse (env/sealed-view o)))))
             sha (let [md (MessageDigest/getInstance "SHA-256")]
                   (apply str (map #(format "%02x" (bit-and % 0xff)) (.digest md (.getBytes ^String text "UTF-8")))))]
         (is (= 64 (count d)))
@@ -497,7 +608,7 @@
 
 (def alice-settings {:kind :personal :owner :alice :class :by-layer :grain :per-value})
 
-(defn- parsed [raw] (:ok (env/parse raw)))
+(defn- parsed [raw] (:ok (env/parse (seal-raw raw))))
 
 (defn- offer*
   "A parsed offer: `who` into `layer` with `facts`, under a fresh name."
@@ -507,7 +618,7 @@
                     :facts facts}
                    more)
         raw (assoc raw :name (or (:name more) (env/name-for raw)))]
-    (or (parsed raw) (throw (ex-info "offer* built a record the parser refuses" {:raw raw :r (env/parse raw)})))))
+    (or (parsed raw) (throw (ex-info "offer* built a record the parser refuses" {:raw raw :r (env/parse (seal-raw raw))})))))
 
 (def granted-row {:granted [[:alice :by-layer :offer (UUID. 1 1)] 0]})
 
@@ -588,7 +699,7 @@
       (check! "reasons known" 800
               (prop/for-all [raw gen-offer
                              settings (gen/elements [nil alice-settings (assoc alice-settings :class :by-entity)])]
-                (let [o (parsed raw)]
+                (let [o (:ok (env/parse raw))]
                   (or (nil? o)
                       (let [r (gate/refusal o settings rows heads)]
                         (or (nil? r) (some #{r} recorded-reasons))))))))))
@@ -647,7 +758,7 @@
   (rtest/test-pstate-transform [(termval (:stamp d))] clock-tp))
 
 (def gen-decision-input
-  (gen/let [raw gen-offer
+  (gen/let [[raw Ks] gen-sealed-offer
             settings (gen/frequency [[6 (gen/return alice-settings)]
                                      [1 (gen/elements [nil (assoc alice-settings :owner :bob)
                                                        (assoc alice-settings :class :by-entity) {:class :by-layer}])]])
@@ -655,12 +766,12 @@
             head-states (gen/vector (gen/frequency [[3 (gen/choose 0 1000)] [1 (gen/return nil)]]) 8)
             clock (gen/choose 0 2000000000)
             wall (gen/choose 0 2000000000)]
-    (let [o (parsed raw)]
+    (let [o (:ok (env/parse raw))]
       (when o
         (let [pids (gate/pids-to-read o)
               hks (gate/heads-to-read o)
               fid [(nm :alice :by-layer) 0]]
-          {:offer o :settings settings :clock clock :wall wall
+          {:offer o :settings settings :clock clock :wall wall :delivered Ks
            :rows (into {} (map (fn [p st] [p (case st nil nil :granted {:granted fid} :revoked {:granted fid :revoked fid})])
                                pids (cycle row-states)))
            :heads (into {} (map vector hks (cycle head-states)))})))))
@@ -672,8 +783,11 @@
       (check! "decide total + schema" 700
               (prop/for-all [in gen-decision-input]
                 (or (nil? in)
-                    (let [{:keys [offer settings rows heads clock wall]} in
-                          d (decide* offer settings rows heads clock wall (env/digest offer))
+                    (let [{:keys [offer settings rows heads clock wall delivered]} in
+                          rv (l/value-context offer settings delivered)
+                          persons {:alice {:lock (l/fresh-lock) :erased-at nil} :bob {:lock (l/fresh-lock) :erased-at nil}}
+                          lx (l/lock-context delivered rv persons nil nil (l/fresh-for offer settings rv))
+                          d (decide* offer settings rows heads clock wall (env/digest offer) lx)
                           yes? (= :yes (:answer (:record d)))]
                       (apply-decision! tp clock-tp (:layer offer) (:name offer) d)
                       (and (= :decide (:kind d))
