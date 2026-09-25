@@ -278,6 +278,15 @@
   [w]
   (+ (count (:required w)) (count (:any-of w))))
 
+(def wrap-scheme
+  "The scheme tag every lock record carries (first-record placeholder,
+  builder A from the copies examination): `:aes-gcm-1` names this
+  construction, a value lock sealed with AES-256-GCM (12-byte nonce
+  prepended, 16-byte tag appended) under each required person's 32-byte
+  lock in sorted order, and one copy of that chain per any-of person, so a
+  later person-lock scheme (public-key, say) can sit beside it."
+  :aes-gcm-1)
+
 (defn wrap
   "The lock record of value lock `K` under wrap `w` (L3): K sealed under
   each required person's lock in the wrap's (sorted) order, the chain;
@@ -302,17 +311,18 @@
               (let [blobs (into {} (map (fn [p n] [p (seal-with (lock-of p) chain n)])
                                         any-of (drop (count required) ns)))]
                 (when (every? some? (vals blobs))
-                  {:required required :any-of any-of :blob nil :any-blobs blobs}))
-              {:required required :any-of any-of :blob chain :any-blobs nil})))))
+                  {:scheme wrap-scheme :required required :any-of any-of :blob nil :any-blobs blobs}))
+              {:scheme wrap-scheme :required required :any-of any-of :blob chain :any-blobs nil})))))
     (catch Throwable _ nil)))
 
 (defn unwrap
   "The value lock a lock record holds, given the person entries, or nil
   when it does not open: a required person's lock destroyed, every any-of
-  person's lock destroyed, a record tampered with. Never throws."
+  person's lock destroyed, a record tampered with, or a record of another
+  scheme (an untagged record is read as this scheme's). Never throws."
   [record persons]
   (try
-    (when (map? record)
+    (when (and (map? record) (contains? #{nil wrap-scheme} (:scheme record)))
       (let [{:keys [required any-of blob any-blobs]} record
             lock-of (fn [p] (:lock (get persons p)))
             peel (fn [b] (reduce (fn [b p] (when b (open (lock-of p) b))) b (reverse required)))
@@ -941,7 +951,8 @@
 ;; Install functions: the schema fields, $$persons, the query topologies
 
 (defn- lock-record-schema []
-  (fixed-keys-schema {:required clojure.lang.PersistentVector
+  (fixed-keys-schema {:scheme clojure.lang.Keyword
+                      :required clojure.lang.PersistentVector
                       :any-of clojure.lang.PersistentVector
                       :blob byte/1
                       :any-blobs (map-schema clojure.lang.Keyword byte/1)}))
@@ -1242,7 +1253,7 @@
     (local-select> MAP-KEYS $$layers {:allow-yield? true} :> *layer)
     (local-select> [(keypath *layer :answers) ALL] $$layers {:allow-yield? true} :> [*aname *arec])
     (<<if (names-person? *arec *p)
-      (local-select> [(keypath *layer :log *aname) (subselect ALL)] $$layers :> *arows)
+      (local-select> [(keypath *layer :log *aname) (subselect ALL)] $$layers {:allow-yield? true} :> *arows)
       (ops/explode (locked-rows *arows) :> [*ridx *rrow])
       (get *rrow :lock-id :> *rlid)
       (local-select> (keypath *layer :erased *rlid) $$layers :> *rledger)
@@ -1352,7 +1363,7 @@
         (:> *acc)
        (else>)
         (first *todo :> [*stamp *name])
-        (local-select> [(keypath *layer :log *name) (subselect ALL)] $$layers :> *rows)
+        (local-select> [(keypath *layer :log *name) (subselect ALL)] $$layers {:allow-yield? true} :> *rows)
         (loop<- [*rtodo (seq (indexed *rows)) *racc *acc :> *acc2]
           (<<if (empty? *rtodo)
             (:> *racc)
