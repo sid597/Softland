@@ -43,6 +43,17 @@ as the read exit uses them, citing its runs; **[build checks]** unverified,
 the build runs a check first and the fallback is named. Everything else is
 derived in this plan from the sources named. -->
 
+<!-- Validated 26 September 2026, 03:22 to 04:35 IST, by a fresh validator
+session (Claude Opus 5.5, effort max): minor-fail, fixed in place. The fixes
+are marked [F1] to [F12] where they sit; PLAN_VALIDATION-reads-rest.md has
+each failure's trace. F1 the re-classed merge key; F2 a budget-cut delta's
+resume; F3 the running closing value in each line; F4 drop pages of 64;
+F5 the bucket count as maintenance state; F6 Option B at the yardstick,
+stated plainly; F7 membership by `subselect` over `set-elem`; F8 the
+partitioning tables; F9 the index-error flag; F10 time travel on a
+re-classed layer; F11 resuming a drop from the record; F12 a keyed digest
+in the micro value index, no plaintext leaving the arrival task. -->
+
 ## Scope of this stage
 
 The read exit (PLAN-read-exit.md, validated, being built in
@@ -202,9 +213,16 @@ On the layer's task, after the branch:
    seek); for a re-classed layer, the stream settings already read.
    `(shared-reads/visible? *settings *for)`: the base is visible to any
    authenticated actor; a group layer to its members, read as
-   `(local-select> [(keypath *layer :members) (view contains? *for)] $$micro :> *member?)`
-   [build checks: `view` over a subindexed set; fallback `(set-elem *for)`
-   with a nil test] (ruling 9's default; one seek). Membership is read as
+   **[F7]** `(local-select> [(keypath *layer :members) (subselect (set-elem *for))] $$micro :> *m)`,
+   `*member?` being `(seq *m)`: `set-elem` "navigates to a set element if
+   present; stops if absent" (paths.md), so bare it would emit nothing for a
+   non-member and the branch would never answer; inside `subselect` it
+   emits once, `[]` or `[*for]`, one seek into the subindexed set whatever
+   the group's size [build checks: `subselect` over `set-elem` on a
+   subindexed set in a query topology; fallback `(view contains? *for)`
+   only if the build shows it reads one element, since over a subindexed
+   set of tens of thousands of members it could read them all] (ruling 9's
+   default; one seek). Membership is read as
    it stands, not as of F: the micro plan writes `:members` without a batch
    and has no removal (RR2); a removal, when it exists, needs a batch on the
    member row so that a read at F sees the members at F.
@@ -229,8 +247,12 @@ On the layer's task, after the branch:
    - `[:latest e k]`: the read exit's tail read `(sorted-map-range-to *end
      {:max-amt 1})` [probed], with `*end` = `e ␀ k ␀ hex(F + 1)`, returns
      the latest head at F in one seek, for the current frontier or any
-     earlier one (time travel on a shared layer is a read at an older F).
-   - `[:kv k v]`: F5 holds: a kept entry is a candidate; it counts only
+     earlier one (time travel on a shared layer is a read at an older F;
+     **[F10]** on a re-classed layer only for its micro era: F bounds no
+     stream-era fact, step 6).
+   - `[:kv k v]`: **[F12]** the prefix is `k ␀ hex(kv-digest of v)`, the
+     digest computed in the query under the kv secret (in the module). F5
+     holds: a kept entry is a candidate; it counts only
      when it opens (step 5) to v. Its answer is ordered by batch, then
      stamp (across entities, the shared store's own order), where the read
      exit's is by stamp: a difference in the recorded `:exact` order (FR8),
@@ -244,12 +266,28 @@ On the layer's task, after the branch:
    stream-era entry is half of anything; "shows nothing admitted after it"
    is F's to bound and F does not bound a stream fact, see "What stays
    open"), opened by `locks/open-row>`. The two sorted lists, each at most
-   limit + 1 matches, are merged by address in memory
-   (`shared-reads/merge-eras`, pure); the first `limit` are shown; the read
-   is `:partial` when either loop was, or the merge had more than `limit`.
-   For `[:latest e k]` the merge keeps the one entry with the larger
-   address, which inside `e␀k␀` is the larger stamp (the head by P13's rule
-   across both eras).
+   limit + 1 matches, are merged in memory (`shared-reads/merge-eras`,
+   pure); the first `limit` are shown; the read is `:partial` when either
+   loop was, or the merge had more than `limit`.
+   **[F1] The merge never compares a stream-era address with a micro-era
+   one as strings:** the stream era's third part is `hex(stamp)` where the
+   micro era's is `hex(batch)`, and batch ids are small, so every micro-era
+   entry would sort before every stream-era entry of its prefix (a
+   micro-era replace of a stream-era head in batch 42 has
+   `…␀000000000000002a␀…` against the head's `…␀0191…␀…`, and "the larger
+   address" would be the replaced head). The merge key is taken from the
+   entries' fields: `[pattern part, :stamp, fid]` for `[:e]` (pattern part:
+   the key), `[:ek]` and `[:latest]` (none), `[:k]` (the entity) and
+   `[:all]` (entity, key); each era's list is already in that order inside
+   its pattern part, because inside one entity batch order is stamp order
+   (step 4), so this is a merge of two sorted lists and the first `limit`
+   are the true first `limit`. For `[:latest e k]` it keeps the entry with
+   the larger stamp: P13's head rule across both eras (stamps compare
+   across the stores, default 2, and a replace is stamped above what it
+   replaces, the clock promise). For `[:kv k v]`, whose micro order across
+   entities is by batch (FRR8) and so not by stamp, the key is `[era, the
+   era's own order]`: the stream era, then the micro era, inside the one
+   `(k, v)` group.
    Why a merge of two bounded lists and not one index: the stream era's
    entries are in `$$layers`, which only the stream gate may write, and the
    micro era's in `$$micro`, which only the micro topology may write (PState
@@ -373,20 +411,29 @@ gather reads the settings and the permission row(s) on hash(L) (micro plan,
   concentration at best, and it splits a re-classed layer's merge across
   two tasks. Not taken tonight.
 
-- **Option D, stored placement: B cut into buckets.** A layer's settings
-  carry a bucket count `B` (a setting, 1 by default); an entry lives on
+- **Option D, stored placement: B cut into buckets.** A layer's index
+  maintenance state carries a bucket count `B` (**[F5]** a plain field
+  `:ix-place` of `$$micro [L]`, absent meaning 1, written only by a
+  re-placement op on `*micro-index-ops` with the rebuild it needs; never a
+  settings fact, since a new part in a layer's settings would change what a
+  kept record carries); an entry lives on
   `hash([L (mod (hash e) B)])`. Entity-scoped reads go to one
   bucket: the same seeks as B, plus one hop for the settings when the
   bucket is not the layer's task. Key-scoped reads and `[:all]` fan out to
   B buckets: seeks 4 + B × pages instead of 4 + pages, and a merge of B
   sorted lists; writes spread over B tasks. Total I/O, the placement state
-  included (B is read with the settings already read, so it costs no seek):
+  included (**[F5]** B is read in the same select as F9's `:ix-error`, two
+  plain fields of one top-level value, so it adds no seek to what F9 pays
+  [build checks: one seek for both]):
   for B = 8, a key-scoped read of 60 matches costs about 4 + 8 × 1 = 12
   seeks against B's 7, weighted seeks about 9.3 against 6.1 (0.5 × 5 + 0.3 ×
   12 + 0.1 × 20 + 0.1 × 12), and each of
   the 8 bucket tasks takes one eighth of the layer's index puts and bytes.
-  Flat in N (B is the layer's, not the cluster's). It is the road for a hot
-  layer, paid only by that layer; with B = 1 it is Option B exactly.
+  Flat in N (B is the layer's, not the cluster's). It spreads a hot
+  layer's writes and entity-scoped reads, paid only by that layer; with B =
+  1 it is Option B exactly. **[F6]** It does not spread a hot layer's
+  key-scoped reads, `[:all]` or standing deltas: each of those visits every
+  bucket, so each bucket serves the whole of that read load.
 
 Chosen: B, as a rig choice (RR5), that is D with B = 1 for every layer,
 because it is the simplest pick that can change later without touching a
@@ -397,6 +444,34 @@ outgrows one task's disk or whose index puts exceed one task's write rate;
 phase 7 can measure the latter. The `|hash` indicator is met only in the
 common case (many shared layers, none hot); a hot layer is exactly the
 case D exists for.
+
+**[F6] Option B at the yardstick, stated plainly.** README.md's yardstick is
+"tens of thousands of people and their agents on one problem; a field of
+about ten million papers". As arithmetic under stated assumptions, not a
+measurement: a micro fact's row is about 400 to 500 B (a short sealed value,
+the 169 to 233 B wrapped lock of BENCH_NOTES-locks.md, a digest, its
+fields), and the index about four to six times that on the layer's task; the
+base at ten million papers of ten facts each is 10^8 facts, a log of about
+50 GB spread over N tasks and an index of about 200 GB on **one** task. Its
+reads all land on that task's one thread: at 5 to 7 seeks a read (the table
+below) and about 2,000 to 3,300 uncached seeks a second per task, ten
+thousand renderers holding one standing read each at one delivery a second
+ask for about 6 × 10^4 seeks a second, twenty to thirty times what the
+thread serves, before any value is opened. So at Sid's scale Option B keeps
+ruling 2's letter (rows, log, heads and answers by entity) and not its
+intent: the index and every read of a hot or large shared layer
+re-concentrate on `hash(L)` the load that placing by entity, and "a hot
+layer can be re-classed", exist to spread; and D alone does not answer it
+for reads (above). Why it stands tonight: it changes no record once the
+bucket count is maintenance state (F5); a recorded `{:frontier F}` is valid
+on every task (a batch starts only after every task committed the one
+before, "What Rama showed" 7), so a later fan-out read at F is still one
+moment; the recorded order and fingerprints are functions of the entries'
+fields, not of where they sit; complete reads reproduce exactly under any
+placement. The store core's index placement is **not** settled by this rig
+(for example entity-scoped indexes on `hash([L e])` beside the rows, value
+lookups on `hash([L k digest])`, key-scoped on `hash([L k])`, and the
+doorbell, RR9, so quiet deltas do not reach the index); it goes to Sid.
 
 ### The fields, and what each serves
 
@@ -424,10 +499,12 @@ batches (PState ownership: `$$micro` is declared by `micro`).
         sub   {:subindex-options {:track-size? false}}]
     {:ix-ek (map-schema String entry sub)                    ; e ␀ k ␀ hex(batch) ␀ hex(stamp) ␀ fid
      :ix-ke (map-schema String entry sub)                    ; k ␀ e ␀ hex(batch) ␀ hex(stamp) ␀ fid
-     :ix-kv (map-schema String entry sub)                    ; k ␀ len ␀ vtext ␀ hex(batch) ␀ hex(stamp) ␀ fid
+     :ix-kv (map-schema String entry sub)                    ; k ␀ hex(kv-digest) ␀ hex(batch) ␀ hex(stamp) ␀ fid  [F12]
      :ix-s  (map-schema String entry sub)                    ; hex(batch) ␀ hex(stamp) ␀ fid   (standing deltas)
      :ix-of (map-schema clojure.lang.PersistentVector (set-schema String) sub) ; fid -> its :ix-kv addresses
-     :ix-id (map-schema clojure.lang.PersistentVector String sub)}))           ; fid -> its :ix-ek address
+     :ix-id (map-schema clojure.lang.PersistentVector String sub)            ; fid -> its :ix-ek address
+     :ix-error Long                                           ; [F9] the batch of the first index gap, nil when none
+     :ix-place Long}))                                        ; [F5] Option D's bucket count, nil meaning 1 (maintenance state, never a fact)
 ```
 
 - `:ix-ek`, `:ix-ke`, `:ix-kv`, `:ix-of`: the read exit's four, serving
@@ -457,25 +534,33 @@ new **block 2d** after block 2b's name-task check (the check that decides
 
 1. Block 2b, on the arrival task, has each value's plaintext (opened from
    its lease), its sealed bytes, its re-wrapped lock record and its value
-   digest. Before it drops the plaintext, `(shared-reads/kv-prefixes hints
-   *layer *facts :> *kvp)`, pure, computes for each value-indexed fact the
-   text-bearing part of its `:ix-kv` address, `k ␀ len ␀ vtext ␀`, which
+   digest. Before it drops the plaintext, **[F12]** `(shared-reads/kv-digests
+   hints *layer *facts :> *kvp)`, pure, computes for each value-indexed fact
+   the value part of its `:ix-kv` address, `k ␀ hex(HMAC-SHA256(kv secret,
+   canonical text))`, the kv secret being derived in the module from the
+   fingerprint secret under the label `"softland.kv-index/1"` (FR12's
+   derivation; it never leaves the module), and the digest, not the text,
    travels on with the sealed bytes. After the name task's check gives the
    act's stamp and batch (the record written in block 2a),
    `(shared-reads/index-writes hints *layer *nm *rows *kvp *stamp *batch :>
    *d)`, pure and total, computes the act's entries (the rows as written,
    with `:e`, `:fid`, `:stamp`, `:batch`), their addresses (each `:ix-kv`
    address completed with `hex(batch) ␀ hex(stamp) ␀ fid`), the `:ix-of` sets and the
-   `:ix-id` addresses. An `:ix-kv` address holds the value's canonical
-   text, which is why its prefix is taken on the arrival task: that is the
-   one place the text exists. **A change to phase 3's discipline, named
-   for the merge:** block 2b's "never the plaintext" onward holds for the
-   rows; the `:ix-kv` addresses of values whose key is hinted `:by-value`
-   (and not `:opaque`) carry the canonical text to the layer's task inside
-   the batch, in the module, never in a depot, exactly as the stream gate's
-   `:ix-kv` address carries it into `$$layers` (the read exit's design: a
-   value index is over plaintext by definition, ruling 6's "no index on"
-   opaque values being the one exemption).
+   `:ix-id` addresses. **[F12] Why a keyed digest and not the text:** the
+   first draft carried `k ␀ len ␀ vtext ␀` to the layer's task, which broke
+   phase 3's validated discipline (block 2b: "the sealed bytes, the wrapped
+   lock record and the value digest go on to the entity task (never the
+   plaintext ...)") and made the micro index the one place plaintext sat at
+   rest in the micro store. The only form that reads `:ix-kv` is `[:kv k
+   v]`, an exact match whose candidates F5 already verifies by opening; the
+   query computes the same digest of v in the module. Same seeks, 64
+   characters in place of the text, phase 3's discipline unchanged, and no
+   plaintext in the micro store. The keyed digest is still purged by value
+   id and on a person forget (it would confirm a guessed value to the
+   module, and a rebuild cannot compute it for a value that no longer
+   opens, so the purge invariant needs its removal). The one-owner store
+   keeps the read exit's text form, which never crosses a task. Keys hinted
+   `:opaque` get no `:ix-kv` entry in either store (ruling 6).
 2. `(|hash *layer)`, then the read exit's three write blocks over `$$micro
    [L]` (puts, `:ix-of` sets, deletes), plus one for `:ix-id`: all
    `termval`s at computed addresses, no read. One hop per admitted act.
@@ -492,7 +577,18 @@ nothing written for that act's indexes and a counted `:index-error` on the
 task (RR6): the act is already decided in block 2a, so the micro gate cannot
 refuse it here as the stream gate does (`:gate-error`); the missing entries
 are then what the next rebuild's put pass restores, and a test asserts that
-no generated offer sets the flag. Never a throw (rule 9).
+no generated offer sets the flag. Never a throw (rule 9). **[F9]** Until that
+rebuild the layer's reads would say `:complete` while missing the act, so
+the flag is also written where the reads see it: `$$micro [L :ix-error]`, a
+plain Long field, the batch of the first gap (a `termval` in block 2d on
+hash(L), no read; a later gap writes its own batch, any value marks the
+layer), read by every shared read in the same select as F5's `:ix-place`
+(one seek), and while it is set every read of L is marked `:partial` (the
+record never claims a completeness the index cannot back). The rebuild
+clears it: its last sweep page over L writes `:ix-error` nil in its own
+batch, and only if no gap was flagged in a batch at or after the rebuild's
+first page (the field's batch is compared, so a gap during the rebuild
+stays flagged).
 
 ### Purge by value id, shared
 
@@ -522,7 +618,8 @@ for a row is decided by two cases, and the purges follow them:
   touch), and no `:ix-kv` or `:ix-of` entry. The open step shows such an
   entry as `{:erased-at date}` with the person's date (`wrap-closed`), so a
   read shows only the date either way. A person purge therefore deletes
-  only the plaintext-bearing entries, `:ix-kv` and `:ix-of`, of the values
+  only the value-bearing entries, `:ix-kv` (the text in the one-owner
+  store, its keyed digest in the micro store, **[F12]**) and `:ix-of`, of the values
   that died, and leaves the id indexes alone; a person forget after a value
   forget finds nothing left to delete.
 
@@ -568,8 +665,8 @@ same guard on the read exit's `*index-ops` for `:person-purge`):
   of a yes act opened by the same open step (`locks/unwrap` and `open` with
   the row's lock, or its lock row under an `:own-row` mark, and the entity
   task's `$$persons`; the ledger on this task gives the erasure date; the
-  `:ix-kv` prefix is taken here, on the entity task, as block 2b takes it
-  on the arrival task), then `(shared-reads/put-page-writes ...)`, pure:
+  `:ix-kv` digest is taken here, on the entity task, as block 2b takes it
+  on the arrival task, **[F12]**, so no text leaves the entity task), then `(shared-reads/put-page-writes ...)`, pure:
   the entries, tombstones and sets they imply, grouped by layer; `(|hash
   L)` per layer group; the write blocks. The batch's work is bounded by n
   entities and a row cap of 4,096 (the rest of an entity's rows, if more,
@@ -753,6 +850,24 @@ last acknowledged moment, as above. [Derived; test RT9 drives a delta of
 limit + 5 facts over two deliveries and checks each fact is delivered
 exactly once.]
 
+**[F2] A delta cut by the scan budget.** The resume above needs a shown
+row; a delta whose budget (16 × (limit + 1), F8) runs out before any match
+has none, and advancing to the delta's moment would skip every entry past
+the cut for ever (a standing `[:k :note]` with limit 10 scans 176 entries;
+500 `:status` facts and then one `:note` between two ticks: the `:note` is
+never delivered). So a budget-cut delta also answers `:scanned-to`, the
+**time part** of the last address it scanned (a stamp for one-owner
+`:ix-s`, a batch and a stamp for shared `:ix-s`, the same after the prefix
+for `[:ek]` and `[:kv]`; never an entity, a key, a fact id or a value, so
+nothing of an unshown fact but a moment reaches the client), and the next
+delta starts at the later of the last shown address followed by U+0000 and
+`prefix ␀ :scanned-to` (inclusive: the rest of that act's entries are
+examined again; none was shown, since none matched). A budget-cut delta with
+no match is `:nothing-new` and adds no line; a budget-cut delta with matches
+is a `:partial` delivery as above. Each tick advances by at least the
+budget, so a delta catches up. One caller per handle: a handle used from two
+threads could offer two lines for one delta.
+
 ### The entry's lines (first-record, FRR1 to FRR4)
 
 One entity per standing read, `:read-<uuid>` from the opening act's name
@@ -774,13 +889,29 @@ through the ordinary offer path, marked `:own-row` (see "The close act"):
   `[fid stamp]` pairs (FR11's function), because the closing fingerprint is
   taken over the lines' fingerprints; `:max-stamp` on a shared layer's line
   only (F1, below). The line is stamped by its act: R6's "stamped line".
+  **[F3]** Every delivery line also carries `:so-far {:fp hex :n i
+  :partial? b}`, the closing fingerprint, count and mark through this line:
+  `:fp` = HMAC-SHA256 under the fingerprint secret over
+  `"softland.standing-fp/1\n"` + the previous line's `:so-far :fp` (the
+  empty string for the first line) + `"\n"` + the canonical text of
+  `[line-moment line-fingerprint]`; `:n` the previous `:n` plus one;
+  `:partial?` the previous one or this line's `:partial`. The query that
+  computes the delivery (in the module, where the secret is) takes the
+  handle's previous `:so-far` and returns the next; `deliver!` puts it in
+  the line. Why: without it the close must open every line (below, about
+  2.5 seeks a line, 4,500 seeks for an hour of deliveries every two
+  seconds); with it the close reads one line, and a delivery pays one HMAC
+  and no seek.
 - **FRR3, the closing**: `{:e ent :k :read/closed :v {:layer L :moment
   m-last :deliveries d :fingerprint hex :fp-secret :read-fp/1 :mark
   :complete|:partial :closed-by :unsubscribe|:session-close|:crash}}`.
-  `:fingerprint` is HMAC-SHA256 under the fingerprint secret over
-  `"softland.standing-fp/1\n"` + the canonical text of the vector of
-  `[line-moment line-fingerprint]` of the entry's delivery lines in line
-  order (their stamp order): "a fingerprint over everything delivered",
+  `:fingerprint`, `:deliveries` and `:mark` are the last delivery line's
+  `:so-far` **[F3]** (for an entry with no delivery line, the HMAC over
+  `"softland.standing-fp/1\n"` alone, 0, `:complete`): a chain, under the
+  fingerprint secret, over the `[line-moment line-fingerprint]` of the
+  entry's delivery lines in line order (their stamp order, which is the
+  order they were offered, each only after the previous one's `:yes`):
+  "a fingerprint over everything delivered",
   computable from the record alone, for every reader kind (a tool's lines
   hold no ids, so a fingerprint over the delivered pairs could not be
   recomputed after a crash; one over the lines can). It is checkable by a
@@ -803,8 +934,9 @@ The read exit's `entry-moments` (F1) counts the moment of every
 ### The functions (`rig.store.standing`, client side beside the exit)
 
 A standing read's handle lives in the caller's process: `{:ent :layer
-:pattern :limit :reader-fields :scan :line :resume}` (`:resume` the last
-shown address after a cut delivery, RR10); it is not durable, and
+:pattern :limit :reader-fields :scan :line :resume :so-far}` (`:resume` the
+last shown address after a cut delivery, RR10, or the `:scanned-to` bound
+after a budget cut, **[F2]**; `:so-far` the last recorded line's, **[F3]**); it is not durable, and
 nothing depends on it surviving (the record has everything a close needs).
 
 - **`(subscribe! store spec)`** → `{:handle h :rows [...]}` or `{:refused
@@ -820,9 +952,11 @@ nothing depends on it surviving (the record has everything a close needs).
   `:line`, the moment of the last recorded line (the next line's recorded
   `:after`, so the lines chain). Steps: the delta query with `:after` the
   handle's `:scan`; no match gives `:nothing-new`, nothing offered, nothing
-  shown, and `:scan` advances to the delta's moment (safe: nothing matched
-  between, by the argument of "The delta", and a busy layer is then not
-  rescanned from the last line on every quiet tick); a match builds one
+  shown, and `:scan` advances to the delta's moment, or **[F2]**, when the
+  scan budget cut the delta, to its `:scanned-to` bound, never past an
+  unscanned entry (safe: nothing matched between, by the argument of "The
+  delta", and a busy layer is then not rescanned from the last line on
+  every quiet tick); a match builds one
   FRR2 act with `:after` the handle's `:line`, offers it until answered,
   and on `:yes` sets both moments to the delta's and returns the rows; on
   `:no` returns `{:refused r}`, shows nothing, and leaves both moments, so
@@ -831,11 +965,14 @@ nothing depends on it surviving (the record has everything a close needs).
   :unsubscribe`, its fingerprint and mark from the query below.
 - **The closing query `standing-close [*layer *ent :> *c]`** (a third
   query topology of this stage, on the working layer's home, `(|hash
-  *layer)`): the entry's delivery lines by `:ix-ek` prefix `ent␀read/delivery␀`
-  (in doubling pages, line order being stamp order), each line's row (`:no-copy`, one to two seeks each) opened by
-  `open-row>` (the lines are sealed values of the working layer, opened on
-  its home like any value), then the closing fingerprint under the
-  fingerprint secret, which exists only in the module (FR12), and the mark;
+  *layer)`): **[F3]** the entry's last delivery line, one tail read below
+  the `:ix-ek` prefix `ent␀read/delivery␀` followed by U+FFFF (`{:max-amt
+  1}`, line order being stamp order), its row (`:no-copy`, one to two
+  seeks) opened by `open-row>` with its lock row (the lines are sealed
+  values of the working layer, opened on its home like any value): about 4
+  seeks whatever the number of lines; its `:so-far` is the closing
+  fingerprint, count and mark (FRR3); with no line, the seed, computed
+  under the fingerprint secret, which exists only in the module (FR12);
   returns `{:fingerprint :deliveries :mark :moment}`, never a line's
   contents. Why a query and not the client: the secret never leaves the
   module, and a crash close has only the record to work from. It is not
@@ -924,7 +1061,7 @@ The closer (the session's door, or the operator after a crash) runs
    tombstoned), from one range of `:ix-ke`, the prefix `read/` (a keyword
    prints without its colon, so the five store keys share it), keeping only
    the five keys by the page step (a hand-written `:read/other` fact is
-   skipped, not forgotten), at most n (256) per page; ids and stamps only,
+   skipped, not forgotten), at most n (64, **[F4]**) per page; ids and stamps only,
    nothing opened (a maintenance read, RR11).
 2. **Forget** each page with one ordinary value-forget act, phase 2's OP9:
    `:who` the layer's owner (under `[owner L L]`) or `:operator`, as OP9
@@ -942,13 +1079,33 @@ The closer (the session's door, or the operator after a crash) runs
    running it again: the query returns only what is not yet erased, and a
    forget of a value already erased is admitted and changes nothing (phase
    2's OP9 row).
+4. **[F11] Who runs it again.** Nothing in the closer's process survives
+   its crash, so the trigger is the record: `(read-exit/resume-drops! store
+   layers)`, run by the owner's next door for its agent layers and by the
+   operator's start-up for every agent layer, finds the layer's
+   `:session-closed` fact by the `:ix-ke` prefix `session-closed␀` (a
+   tail read, one seek), opens it (`open-row>`) for its `:reads`, and, for
+   `:drop`, calls `entry-ids` with n = 1 below the close act's stamp; a
+   non-empty page means a drop is pending, and `drop-reads!` runs from the
+   start. The same pass is how an agent's own door "hands the drop" to the
+   owner or the operator: it offers the close act and stops; the drop is
+   the next door's or the operator's. Until it runs, RR15's window stays
+   open (for Sid).
 
-Each forget act's event is bounded: 256 targets × (the target row, the
-answer's stamp, the ledger, the lock row delete, `:ix-of`, the purge's
-five tombstones and deletes) is about 1,300 seeks and 2,500 writes, about
-0.7 s, under the stream timeout (F2's arithmetic; RR14, the page size;
-if phase 1's envelope bounds an act's facts or its `:stood-on` map below
-256, that bound is the page size [build checks]).
+Each forget act's event is bounded: **[F4]** 64 targets × (the target row,
+the answer's stamp, the ledger, the lock row delete, `:ix-of`, the purge's
+five tombstones and deletes) is about 330 seeks and 640 writes, about 0.1 to
+0.16 s, the order of the read exit's accepted rebuild page (its F2: 256 acts
+at about a seek each). Why not 256, the first pick: 256 targets are about
+1,300 seeks, 0.4 to 0.65 s in one event, and OP9 reads and writes the ledger
+per target, a path the skill says not to yield on (dataflow.md "Yielding":
+"Do NOT yield on a path where correctness depends on same-key events
+processing in order"), so the event would hold the agent layer's home, and
+every other layer on that task, people's among them, for its whole length at
+every dropping close. The forget facts are as many either way (one per
+target); only the acts are four times as many (RR14, the page size; if phase
+1's envelope bounds an act's facts or its `:stood-on` map below 64, that
+bound is the page size [build checks]).
 
 ### The mark at write: every read entry is `:own-row`
 
@@ -1003,7 +1160,7 @@ a change to phase 2's open functions).
 | `:ix-ek`, `:ix-ke`, `:ix-s` (one-owner) | `$$layers [L]`, the stream gate, in the admitting event | the row copied (sealed bytes, the lock record where the layer keeps it in the record, the digest) | tombstone: value fields nil, `:erased-at` the ledger's date | kept: opens nothing without the person lock, like the log row; the open step shows the date | the read exit's put and sweep pages |
 | `:ix-kv`, `:ix-of` (one-owner) | same | the value's canonical text in the address | delete | delete | same |
 | `:ix-ek`, `:ix-ke`, `:ix-s` (shared) | `$$micro [L]`, the micro topology, block 2d of the deciding batch | the micro row copied, with `:e` and `:batch`, and the value's lock record | tombstone, in the forget's batch | kept, as one-owner | the micro pass (above) |
-| `:ix-kv`, `:ix-of` (shared) | same | the value's text in the address | delete, in the forget's batch | delete | same |
+| `:ix-kv`, `:ix-of` (shared) | same | the value's keyed digest in the address, never its text **[F12]** | delete, in the forget's batch | delete | same |
 | `:ix-id` (shared) | same | fid → its `:ix-ek` address: ids only | kept | kept | same |
 | `:by-stamp` (phase 2) | `$$layers [L]`, the stream gate | stamp → name: ids only | kept | kept | phase 2's (from `:answers`) |
 | `:heads` (phase 1, phase 3) | both stores | ids, stamps, batches | kept | kept | not an index over values |
@@ -1016,8 +1173,9 @@ moment still shows the fact with its erasure date (the sharpening "Forget,
 time travel"); a value forget nils the copies of the sealed bytes and the
 lock with the original; a person forget destroys the one person lock that
 every copy's wrap needs, so the copies open nothing, as the log row opens
-nothing, and only the plaintext in `:ix-kv` addresses must go (the
-invariant, "Purge by value id, shared").
+nothing, and only the `:ix-kv` entries must go, the plaintext in the
+one-owner store's addresses and the keyed digest in the micro store's
+(**[F12]**; the invariant, "Purge by value id, shared").
 
 ### The five paths
 
@@ -1089,8 +1247,9 @@ invariant, "Purge by value id, shared").
    - **Between the forget and the purge,** reads never match or show a
      value that no longer opens (the read exit's F5 for `[:kv]`, and every
      shown row goes through the open step), so the window is one of
-     storage, not of showing: the value's text sits in `:ix-kv` addresses
-     until the pages pass. The rig constraint is "so a forget reaches it";
+     storage, not of showing: the value's text sits in one-owner `:ix-kv`
+     addresses, and its keyed digest in micro ones (**[F12]**), until the
+     pages pass. The rig constraint is "so a forget reaches it";
      it reaches it when `purge-person!` returns, and a crash of the
      operator's loop is repaired by running it again (every page is
      idempotent, and a purged entry is not a candidate again). A
@@ -1154,7 +1313,10 @@ rebuild's put page):
    `purge-writes`, `put-page-writes`, `sweep-page-writes`, `implied`, and
    the rebuild loop's field list ("The delta").
 3. **`:after`** on `read-pattern` and `(reads/delta-plan ...)`, and
-   `reads/matches?` for filtering `:ix-s` ("The delta").
+   `reads/matches?` for filtering `:ix-s` ("The delta"); **[F2]** a
+   budget-cut delta's `:scanned-to` in the answer; **[F3]** `:so-far` in
+   and out of `read-pattern` (the running closing fingerprint, count and
+   mark, computed under the fingerprint secret).
 4. **`reads/entry-facts`**: `:mark #{:own-row}` on every `:read/*` fact
    (FRR6); the shared line's `:moment {:frontier F}` and `:max-stamp`
    (FRR8); the standing lines (FRR1 to FRR3).
@@ -1177,7 +1339,8 @@ rebuild's put page):
 ## Interfaces, as this stage builds against them
 
 - **The read exit** (`rig.store.reads`, `rig.store.read-exit`): its
-  exports as its plan lists them, with the eight changes above; the
+  exports as its plan lists them, with the nine changes above (item 3
+  carrying F2's and F3's additions); the
   address, page step, fingerprint, parse and answer functions reused by the
   shared path unchanged.
 - **Phase 2** (`rig.store.locks`): `open-value>`, `open-row>` (one-owner);
@@ -1226,7 +1389,7 @@ query topology (phase-1-plan Step 1).
 | RS1 shared pattern read `[L for p as-of limit]` | the exit | `read-pattern`'s shared branch | stream settings (1), frontier (1), micro settings at F (1, group), membership (1, group), the page loop over one `$$micro [L]` index (1 seek per page, one iteration per entry, batch filter); re-classed: plus the read exit's loop over `$$layers [L]`; `$$persons` per wrap person (local) per opened entry |
 | RS2 shared point read `[L for fids as-of]` | the exit | `read-point`'s shared branch | settings as RS1; per fid `:ix-id` (1) and `:ix-ek` (1) when indexed; stream-era fids as the read exit |
 | RS3 a delta `[... :after m0]` | `standing/deliver!` | `read-pattern` with `:after` | as RS1 or the read exit's RE2, over `:ix-s` or the pattern's own stamp-ordered index from the bound |
-| RS4 closing fingerprint `[L ent]` | `standing/unsubscribe!`, `close-session!` | query `standing-close` on the working layer's home | the entry's delivery lines (1 page of `:ix-ek`), each line's row (1 to 2) and `open-row>` |
+| RS4 closing fingerprint `[L ent]` | `standing/unsubscribe!`, `close-session!` | query `standing-close` on the working layer's home | **[F3]** the last delivery line (1 tail read of `:ix-ek`), its row (1 to 2), its lock row and `open-row>`; its `:so-far` |
 | RS5 open standing entries `[L]` | `close-session!` | query `standing-open` | the `:ix-ke` ranges `read/standing␀` and, when not empty, `read/closed␀`, in pages; a set difference |
 | RS6 entry ids `[L before after n]` | `drop-reads!` | query `entry-ids` | one `:ix-ke` range, prefix `read/`, in pages, ids only |
 | RS7 a micro rebuild page's progress | the operator's loop | `foreign-select-one [(keypath :rebuild)] $$micro-task {:pkey t}` | 1 |
@@ -1240,7 +1403,7 @@ query topology (phase-1-plan Step 1).
 | WS3 shared index entries | block 2d of the deciding batch, from the offer and the fold's answer | the micro topology |
 | WS4 shared purge by value id | block 2d, in the forget's batch | the micro topology |
 | WS5 the close act's `:reads` | a part of phase 2's session close act | the stream gate (phase 2's decision, unchanged) |
-| WS6 a drop | phase 2's OP9 acts, 256 targets each, `:because-of` the close act | the stream gate |
+| WS6 a drop | phase 2's OP9 acts, 64 targets each **[F4]**, `:because-of` the close act | the stream gate |
 | WS7 a person purge page | `*index-ops` (one-owner) and `*micro-index-ops` (shared) records, one bounded page each | the gate topology's index-ops source; the micro topology |
 | WS8 a rebuild page | the read exit's `*index-ops` pages; `*micro-index-ops` put and sweep pages | as WS7 |
 | WS9 the restore fact | an operator offer into `:people` | the stream gate |
@@ -1316,6 +1479,8 @@ The read exit's `read-point` and `read-pattern` gain the shared branch and
 each on one task with a leading `(|hash *layer)` and a closing `(|origin)`,
 emitting once.
 
+- **[F8, F9]** Every shared figure in this section adds one seek, the
+  `:ix-error` and `:ix-place` select; a quiet shared tick is 6.
 - **`read-pattern`, shared branch.** A group layer's `[:e e]` with 12
   facts → 4 seeks (stream settings, frontier, micro settings, members) + 1
   page (16 iterated, 12 kept). `[:latest e k]` → 4 + 1 tail seek,
@@ -1333,15 +1498,17 @@ emitting once.
   with 3 new facts of 40 new in the layer (`[:k]` over `:ix-s`) → 3 + 1
   page of 40 iterated. `[:ek]` with 2 new → 3 + 1 page of 3. **Variable**,
   the same loop from a bound.
-- **`standing-close`.** d delivery lines → 1 + 1 page + d rows (1 to 2
-  each). **Variable**, a `loop<-` over the page.
+- **`standing-close`.** **[F3]** d delivery lines → 1 tail seek + the
+  last line's row (1 to 2) + its lock row (1), about 4 seeks whatever d; no
+  line → 1 seek (the empty tail). Fixed, not variable.
 - **`standing-open`.** A layer with no standing read → 1 seek (the empty
   `read/standing␀` range, the answer "none"), the closed range not read. A
   layer with 30 standing reads of which 28 closed → 2 range seeks + about
   60 iterations. **Variable**, conditional second range.
 - **`entry-ids`.** One `read/` range in doubling pages until n ids or the
-  range's end; a session with 1,000 entry facts → 7 page seeks for all of
-  them over four calls of 256. **Variable**, the page loop, stopping at n.
+  range's end; a session with 1,000 entry facts → about 7 page seeks for
+  all of them over sixteen calls of 64 **[F4]**. **Variable**, the page
+  loop, stopping at n.
 
 ## Partitioning efficiency
 
@@ -1357,32 +1524,57 @@ settings; key-scoped and whole-layer forms want `hash(L)` whatever else
 holds. The table is for B; the categories are the pattern families over
 shared layers, the base after re-class among them.
 
+**[F8]** The first draft's table listed only the pattern reads; the
+delivery tick, which R6 makes the most frequent operation (one query per
+delivery of every standing read), and the point read were missing, and the
+quiet shared tick was counted 4 where the steps give 5 (6 with F9's
+`:ix-error` select, which every shared read below includes). Proportions:
+a delivery-dominated workload; they sum to 1.00.
+
 ### N = 1 task (single-task baseline)
 | Data category | Frequency proportion | Seeks/op | Iterator reads/op |
 |---|---|---|---|
-| entity-scoped form, group layer, about 12 matches | 0.5 | 5 | 16 |
-| key-scoped form, group layer, about 60 matches | 0.3 | 7 | 61 |
-| `[:all]`, small group layer, about 200 facts | 0.1 | 8 | 201 |
-| key-scoped form on the re-classed base, 40 stream-era and 60 micro-era matches | 0.1 | 7 | 102 |
-Weighted seeks = 6.1   |   Weighted iterator reads = 56.6
+| a standing read's quiet delivery tick, one-owner layer (settings, clock, one empty range seek) | 0.25 | 3 | 0 |
+| a standing read's quiet delivery tick, group layer (stream settings, frontier, micro settings, members, `:ix-error`, one empty range seek) | 0.20 | 6 | 0 |
+| a busy delivery tick, group layer, `[:k]` over `:ix-s`, 40 new facts | 0.15 | 7 | 41 |
+| entity-scoped form, group layer, about 12 matches | 0.15 | 6 | 16 |
+| key-scoped form, group layer, about 60 matches | 0.10 | 8 | 61 |
+| `[:all]`, small group layer, about 200 facts | 0.03 | 9 | 201 |
+| key-scoped form on the re-classed base, 40 stream-era and 60 micro-era matches | 0.05 | 8 | 102 |
+| a point read of 5 fids on a group layer, 2 never indexed | 0.07 | 13 | 0 |
+Weighted seeks = 6.28   |   Weighted iterator reads = 25.78
 
 ### N = 16 tasks
 | Data category | Frequency proportion | Seeks/op | Iterator reads/op |
 |---|---|---|---|
-| entity-scoped form, group layer, about 12 matches | 0.5 | 5 | 16 |
-| key-scoped form, group layer, about 60 matches | 0.3 | 7 | 61 |
-| `[:all]`, small group layer, about 200 facts | 0.1 | 8 | 201 |
-| key-scoped form on the re-classed base, 40 stream-era and 60 micro-era matches | 0.1 | 7 | 102 |
-Weighted seeks = 6.1   |   Weighted iterator reads = 56.6
+| a standing read's quiet delivery tick, one-owner layer (settings, clock, one empty range seek) | 0.25 | 3 | 0 |
+| a standing read's quiet delivery tick, group layer (stream settings, frontier, micro settings, members, `:ix-error`, one empty range seek) | 0.20 | 6 | 0 |
+| a busy delivery tick, group layer, `[:k]` over `:ix-s`, 40 new facts | 0.15 | 7 | 41 |
+| entity-scoped form, group layer, about 12 matches | 0.15 | 6 | 16 |
+| key-scoped form, group layer, about 60 matches | 0.10 | 8 | 61 |
+| `[:all]`, small group layer, about 200 facts | 0.03 | 9 | 201 |
+| key-scoped form on the re-classed base, 40 stream-era and 60 micro-era matches | 0.05 | 8 | 102 |
+| a point read of 5 fids on a group layer, 2 never indexed | 0.07 | 13 | 0 |
+Weighted seeks = 6.28   |   Weighted iterator reads = 25.78
 
 ### N = 128 tasks
 | Data category | Frequency proportion | Seeks/op | Iterator reads/op |
 |---|---|---|---|
-| entity-scoped form, group layer, about 12 matches | 0.5 | 5 | 16 |
-| key-scoped form, group layer, about 60 matches | 0.3 | 7 | 61 |
-| `[:all]`, small group layer, about 200 facts | 0.1 | 8 | 201 |
-| key-scoped form on the re-classed base, 40 stream-era and 60 micro-era matches | 0.1 | 7 | 102 |
-Weighted seeks = 6.1   |   Weighted iterator reads = 56.6
+| a standing read's quiet delivery tick, one-owner layer (settings, clock, one empty range seek) | 0.25 | 3 | 0 |
+| a standing read's quiet delivery tick, group layer (stream settings, frontier, micro settings, members, `:ix-error`, one empty range seek) | 0.20 | 6 | 0 |
+| a busy delivery tick, group layer, `[:k]` over `:ix-s`, 40 new facts | 0.15 | 7 | 41 |
+| entity-scoped form, group layer, about 12 matches | 0.15 | 6 | 16 |
+| key-scoped form, group layer, about 60 matches | 0.10 | 8 | 61 |
+| `[:all]`, small group layer, about 200 facts | 0.03 | 9 | 201 |
+| key-scoped form on the re-classed base, 40 stream-era and 60 micro-era matches | 0.05 | 8 | 102 |
+| a point read of 5 fids on a group layer, 2 never indexed | 0.07 | 13 | 0 |
+Weighted seeks = 6.28   |   Weighted iterator reads = 25.78
+
+Check of the sums: seeks 0.25 × 3 + 0.20 × 6 + 0.15 × 7 + 0.15 × 6 + 0.10
+× 8 + 0.03 × 9 + 0.05 × 8 + 0.07 × 13 = 0.75 + 1.20 + 1.05 + 0.90 + 0.80 +
+0.27 + 0.40 + 0.91 = 6.28; iterations 0.15 × 41 + 0.15 × 16 + 0.10 × 61 +
+0.03 × 201 + 0.05 × 102 = 6.15 + 2.40 + 6.10 + 6.03 + 5.10 = 25.78. Every
+row is a total across tasks, and every row touches one task.
 
 Flat, because every read touches one task whatever N. (The seeks: group
 layers pay 4 before the first page, the base 2; pages double from 16, so
@@ -1396,9 +1588,11 @@ at N = 1), which is why it was rejected. The write side, per admitted
 act in a shared layer: one hop to `hash(L)` and 3 puts per fact (plus 2 for
 a value-indexed fact, plus 1 `:ix-id`), no seek, at every N.
 
-The standing read's quiet tick: 3 seeks (one-owner) or 4 (shared) on one
-task at every N; its busy tick adds one iteration per new fact of the
-layer.
+The standing read's quiet tick: 3 seeks (one-owner) or 6 (shared, **[F8]**,
+F9's select included) on one task at every N; its busy tick adds one
+iteration per new fact of the layer. (The Option A figure above, about 68
+weighted seeks at N = 128, is on the first draft's weights; on these it is
+larger still.)
 
 ## Design Decisions
 
@@ -1477,11 +1671,13 @@ Continuing the read exit's FR1 to FR14, which stand.
   `:read/standing {:layer :pattern :role :limit :moment}`, with the first delivery
   in the same act when the initial read matched; a delivery fact
   `:read/delivery {:layer :moment :after :role :count :mark :fingerprint
-  :fp-secret :exact :max-stamp}`, one act per delivery that shows something
-  new; the closing fact `:read/closed {:layer :moment :deliveries
-  :fingerprint :fp-secret :mark :closed-by}` with the closing fingerprint
-  over the vector of the lines' `[moment fingerprint]` under the fingerprint
-  secret, prefix `"softland.standing-fp/1\n"`; the mark `:partial` when any
+  :fp-secret :exact :max-stamp :so-far}`, one act per delivery that shows
+  something new, `:so-far {:fp :n :partial?}` the running closing value
+  through the line (**[F3]**); the closing fact `:read/closed {:layer
+  :moment :deliveries :fingerprint :fp-secret :mark :closed-by}` whose
+  fingerprint, count and mark are the last line's `:so-far`: a chain under
+  the fingerprint secret, prefix `"softland.standing-fp/1\n"`, over the
+  lines' `[moment fingerprint]` in line order; the mark `:partial` when any
   delivery was; the three keys as store-owned constants, one entity per
   standing read.
 - **FRR5.** The close act's part `:reads :keep | :drop` in phase 2's
@@ -1495,8 +1691,11 @@ Continuing the read exit's FR1 to FR14, which stand.
   `:max-stamp`, the largest matched stamp, which the gate's stamp rule
   counts (F1 extended); a shared row carries `:batch`; a shared `[:kv]`
   answer, and so its `:exact` list, is ordered by batch then stamp.
-- **FRR9.** A drop is recorded as phase 2's ordinary forget acts, 256
-  targets each, `:because-of` the close act; each dropped entry's erasure
+  **[F1]** A re-classed layer's answer merges its eras by `[pattern part,
+  stamp, fact id]`, and for `[:kv]` lists the stream era, then the micro
+  era.
+- **FRR9.** A drop is recorded as phase 2's ordinary forget acts, 64
+  targets each **[F4]**, `:because-of` the close act; each dropped entry's erasure
   date is its forget act's stamp.
 
 ## Rig choices (change without touching a record)
@@ -1508,10 +1707,15 @@ Continuing the read exit's FR1 to FR14, which stand.
   end bound for `[:ek]`, `[:latest]` and `[:kv]`.
 - RR4. `open-entry>` does not hop for a `:no-copy` entry; it answers
   `{:unreadable :no-copy}` (no `:read/*` fact lives in a shared layer).
-- RR5. Every index of a shared layer on the layer's task (Option B); C or
-  a `[L k]` placement is a rebuild away.
+- RR5. Every index of a shared layer on the layer's task (Option B); C,
+  D or a `[L k]` placement is a rebuild away, touching no record (**[F5]**
+  the bucket count is maintenance state, not a fact). **[F6]** Accepted for
+  the rig, not for the store core: at the yardstick it concentrates a hot
+  layer's index and every read of it on one task (see "Placement").
 - RR6. An index error in block 2d writes nothing for that act's indexes and
-  counts `:index-error` on the task; the next rebuild restores them.
+  counts `:index-error` on the task; the next rebuild restores them;
+  **[F9]** meanwhile `$$micro [L :ix-error]` marks every read of L
+  `:partial`.
 - RR7. Micro put pages of at most 64 entities and 4,096 rows; sweep pages
   of at most 512 entries.
 - RR8. `*micro-index-ops` and `$$micro-task :rebuild` are maintenance, not
@@ -1526,7 +1730,7 @@ Continuing the read exit's FR1 to FR14, which stand.
 - RR12. A standing read of a re-classed layer delivers its micro era only.
 - RR13. The gate needs no branch for the close act's `:reads`; the closer's
   procedure reads it.
-- RR14. Drop pages of 256 targets.
+- RR14. Drop pages of 64 targets **[F4]** (an event of about 330 seeks).
 - RR15. A drop takes effect on each entry when its forget act is decided,
   not at the close act.
 - RR16. `:person-purge` pages route by `:task` with `(|direct)` on the read
@@ -1599,7 +1803,9 @@ The tests the brief names, each with its setup and what it asserts:
   of lines, `:fingerprint` equal to the closing fingerprint computed in the
   test from the lines' moments and fingerprints (the pure function), `:mark
   :complete`; with a limit of 2 and 3 new facts, the delivery is `:partial`
-  and the closing mark is `:partial`.
+  and the closing mark is `:partial`. **[F3]** Each line's `:so-far` equals
+  the pure fold of the chain through it, and `standing-close` reads one
+  line (its query counts one tail seek whatever the number of lines).
 - **RT4. Closing at session close, and after a crash.** An agent session
   (`:alice-agent`) holds two standing reads; its door's orderly
   `close-session!` closes both with `:closed-by :session-close`, then offers
@@ -1616,7 +1822,8 @@ The tests the brief names, each with its setup and what it asserts:
   a kept one's can.** Two agent sessions of Alice with point, pattern and
   standing reads. Session one closes with `:reads :drop` and
   `drop-reads!` runs, interrupted once by a thrown hook between two pages
-  and run again; session two closes with no `:reads` part (kept). For
+  and resumed by `resume-drops!` from the record (**[F11]**), in 64-target
+  acts (**[F4]**); session two closes with no `:reads` part (kept). For
   session one, every `:read/*` fact admitted before its close act: no lock
   row at its lock id, a ledger entry `:how :row-deleted`, `open-value>`
   gives `{:erased-at s}` with s its forget act's stamp, a read through the
@@ -1632,7 +1839,9 @@ The tests the brief names, each with its setup and what it asserts:
   operator's nil-tagged forget in `:g`). Then, over every index field of
   both stores (`:ix-ek`, `:ix-ke`, `:ix-s`, `:ix-kv`, `:ix-of`, and the
   shared `:ix-id`) read whole by `foreign-select`: no address and no entry
-  contains the text; every entry for f has nil value fields (`:v`, the
+  contains the text (**[F12]** and no micro `:ix-kv` address, before the
+  forget either, contains it: the micro value index holds its keyed
+  digest); every entry for f has nil value fields (`:v`, the
   sealed bytes, `:lock`, `:digest`) and `:erased-at` equal to the ledger's
   date; no `:ix-kv` or `:ix-of` entry for f exists; `[:kv k text]` matches
   nothing and its fingerprint is the empty set's; `[:e e]` shows f with its
@@ -1676,15 +1885,22 @@ Tests the design adds:
   two offerers write matching and unmatching facts; the union of the
   delivered `[fid stamp]` sets equals the final full read's matched set, and
   no fact is delivered twice; a delta of limit + 5 facts is delivered over
-  two deliveries, the first `:partial`, each fact once.
+  two deliveries, the first `:partial`, each fact once. **[F2]** A matching
+  fact admitted after more unmatched facts than the scan budget is
+  delivered on a later tick; the ticks before it are `:nothing-new` and add
+  no line.
 - **RT10. Shared visibility and moments.** Bob, a member, reads `:g`; Carol,
   not a member, gets `:not-visible`, the same answer as for a layer never
   made; Bob reads the base after its re-class; `:as-of {:stamp s}` on `:g`
   is refused `:moment-kind` and nothing is recorded; a point read of five
   fids on `:g`, two never admitted, gives three rows and two `:absent`.
 - **RT11. The re-classed base reads both eras.** Facts on the base before
-  and after its re-class; `[:k k]` and `[:all]` show both eras in address
-  order, the limit applied across both; a stream-era fid by point read.
+  and after its re-class; `[:k k]` and `[:all]` show both eras in the merge
+  order of step 6 (pattern part, stamp, fact id), the limit applied across
+  both; a stream-era fid by point read. **[F1]** A stream-era head of
+  `(e, k)` replaced in the micro era: `[:latest e k]` answers the micro-era
+  replace, and `[:ek e k]` lists the stream-era head first; `[:kv k v]` with
+  matches in both eras lists the stream era first.
 - **RT12. `[:latest]` at a frontier.** A chain replaced in batch b; a read
   at F = b - 1 gives the old head, at F = b the new one.
 - **RT13. No throw.** Property tests over the new pure functions (moment,
@@ -1692,6 +1908,10 @@ Tests the design adds:
   closing fingerprint, the ops' parsers) with generated garbage; malformed
   `*micro-index-ops` and `*index-ops` records and malformed `:after`,
   `:as-of` and `:reads` parts answered as data, with no worker restart.
+  **[F9]** One index error forced in block 2d (R3's hook): the act is
+  admitted, every read of its layer is `:partial` until the rebuild, and
+  `:complete` again after it. **[F7]** A non-member's membership select
+  emits once, with `[]`.
 - **RT14. The earlier suites still pass**: phase 1's, phase 2's, phase 3's
   and the read exit's, by namespace.
 
@@ -1801,7 +2021,13 @@ Tests the design adds:
   that layer admitted after the re-class (P16's settings) is bounded by
   neither F nor any stamp the entry records, so a re-run at F can show one
   more such fact (the micro plan's §D open edge, now located here: the
-  merge step). A standing read of a re-classed layer does not deliver them
+  merge step). **[F10]** The same holds, more widely, for time travel: F
+  bounds no stream-era fact at all, so a read of a re-classed layer at an F
+  older than its first micro-era batch shows the whole stream era, facts
+  admitted after that frontier's moment among them, and "a read as of a
+  moment shows nothing admitted after it" (PROGRESS, the sharpening "Forget,
+  time travel") holds on such a layer for its micro era only. A standing
+  read of a re-classed layer does not deliver the post-re-class stream facts
   (RR12). A stamp moment on a shared layer is refused (RR1). Either a read
   closes its moment in every store it read, or the entry carries one
   moment per store; neither is chosen.
@@ -1815,9 +2041,10 @@ Tests the design adds:
   above; fallback named); its forget effects at a replay seam; `:reads` in
   the session close's value parser; whether `:by-stamp` stays now that
   `:ix-s` serves `read-as-of`'s range.
-- **For phase 3** (black box): block 2d after block 2b's name-task check,
-  and the plaintext of value-indexed keys reaching the layer's task inside
-  the batch; the forget's row seam giving the fact ids erased and the date;
+- **For phase 3** (black box): block 2d after block 2b's name-task check
+  (**[F12]** carrying a keyed digest, never the plaintext, so phase 3's
+  discipline is unchanged); the forget's row seam giving the fact ids
+  erased and the date;
   `$$micro-task :rebuild` and `:layers`; a third source; membership rows
   with a batch once a removal exists.
 - **For the build** [build checks]: a `view` over a subindexed set; a range
