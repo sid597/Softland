@@ -41,9 +41,9 @@ model's third round's.
   task by this plan's build. The cost: every layer states its own grammars,
   and session layers, made in quantity, start with none; one grammar
   reaching every layer still needs a copy, a hop or a placement change,
-  which go to Sid (sections 3.2, 3.3, 12). The store-wide alternatives (the base's grammar
-  read by a hop, or copied to every task) are costed in section 3; the copy
-  is marked unsettled there. A layer that wants another layer's grammar
+  which go to Sid (sections 3.2, 3.3, 12). The store-wide alternatives
+  (the base's grammar read by a hop, or copied to every task) are costed in
+  section 3; the copy is marked unsettled there. A layer that wants another layer's grammar
   adopts it by an act in itself standing on the source: that is a copy too,
   designed and marked unsettled, not built tonight.
 - **The grammar checks at the gate** where phase 2 already refuses one
