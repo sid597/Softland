@@ -136,6 +136,7 @@
   (let [facts (:facts offer)
         who (:who offer)
         exempt? (contains? exempt-actors who)
+        perm (when-not exempt? (permit/refusal offer rows))
         in-force (class-in-force offer settings)
         rs (keep :replaces facts)
         revoked-pids (keep revoke-target facts)]
@@ -151,8 +152,8 @@
 
       ;; the model's four permission reasons in its order, over the cited
       ;; permission's chain (PLAN-micro-store.md §B, R19: the walk)
-      (and (not exempt?) (permit/refusal offer rows))
-      (permit/refusal offer rows)
+      (some? perm)
+      perm
 
       (some #(and (control-fact? offer %) (not (control-value-ok? offer %))) facts)
       :malformed-control

@@ -68,7 +68,7 @@
    :malformed-control :control-not-allowed :stale-replaces :stale-revoke
    :layer-already-made :unsupported-reclass
    :does-not-open :malformed-value :value-shape :too-many-subjects
-   :grain-mismatch :no-such-person :person-forgotten])
+   :grain-mismatch :no-such-person :person-forgotten :person-already-made :no-such-value])
 
 (def ^:private reason-rank (zipmap reason-order (range)))
 
@@ -701,7 +701,9 @@
                          (vector? (:target v)) (= 2 (count (:target v)))
                          (env/valid-name? (nth (:target v) 0)) (int? (nth (:target v) 1))))
                :malformed-control
-               (not op?) :control-not-allowed)))
+               (not op?) :control-not-allowed
+               ;; M25: a stream-era target is the stream gate's to forget; this store holds no row of it
+               (= :by-layer (nth (nth (:target v) 0) 1)) :no-such-value)))
      (for [f facts :when (contains? foreign-control-keys (:k f))] :control-not-allowed)
      (when (and made? (some #(and (gate/setting-fact? o %) (= :class (:k %))) facts))
        [:unsupported-reclass]))))
@@ -1378,7 +1380,7 @@
     (frontier-of *f *own :> *F)
     (local-select> [(keypath *e :answers *name)] $$micro :> *rec)
     (<<if (visible-at? *rec *F)
-      (local-select> [(keypath *e :log *name) (subselect ALL)] $$micro :> *rows)
+      (local-select> [(keypath *e :log *name) (subselect ALL)] $$micro {:allow-yield? true} :> *rows)
      (else>)
       (identity nil :> *rows))
     (act-result *rec *rows *F :> *result)

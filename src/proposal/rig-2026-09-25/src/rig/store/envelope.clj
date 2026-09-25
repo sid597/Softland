@@ -327,7 +327,9 @@
       {:refuse :malformed}
       (< max-subjects (count subjects)) {:refuse :malformed}
       (not (sequential? facts)) {:refuse :malformed}
-      (contains? store-schemes (nth (:name raw) 2)) {:refuse :reserved-scheme}
+      ;; the micro gate takes stage 4's :landing as data (PLAN-micro-store.md M4); :crossing never
+      (if (= :micro gate) (= :crossing (nth (:name raw) 2)) (contains? store-schemes (nth (:name raw) 2)))
+      {:refuse :reserved-scheme}
       (empty? facts) {:refuse :empty-act}
       :else
       (let [fs (mapv parse-fact facts)]
