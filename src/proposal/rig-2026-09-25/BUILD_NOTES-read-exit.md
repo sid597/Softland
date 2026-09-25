@@ -10,12 +10,17 @@ under `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`.
 
 ## State
 
-- Step: 5 of 5 (run the suite to green).
+- Step: done. The suite is green (last run 03:38 IST: 37 tests, 1,340
+  assertions, 0 failures, 0 errors, 32 s; phase 1's gate suite on 8 tasks,
+  the rest on 4). runs/phase5-read-exit-suite.txt, full output in the .log
+  beside it.
 
 ## Next
 
-- Write the tests (phase-5-tests.md): reads-test (pure), read-exit-test
-  (cluster), read-model-test (the model).
+- Nothing in this build. For builder A and the merge: phase 2's `open-row>`
+  replaces the seam's body; phase 2's person forget calls `purge-writes`
+  per value; after phase 2 a put page's 4,096-row cap assumes cheap opens,
+  and a page holds its task for its length (no yields, by design).
 
 ## Brief overrides of the plan (the orchestrator's, binding)
 
@@ -106,3 +111,7 @@ under `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`.
   stamp for every layer) differs in 5 places, each traced to the model's
   per-partition clocks (its seed gives `:alice-hand`'s partition stamps 1 to
   5 before any history op); reported in the receipt, not asserted.
+- The whole suite twice, green both times: 37 tests, 1,340 assertions
+  (phase 1's 19 tests and 785 checks unchanged, plus this stage's 18 and
+  555), 0 failures, 0 errors, 34 s and 32 s, phase 1's gate suite on 2 and
+  then 8 tasks. The last run is runs/phase5-read-exit-suite.txt.

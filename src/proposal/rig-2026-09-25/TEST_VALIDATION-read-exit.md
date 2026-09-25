@@ -27,7 +27,7 @@ asserted.
 | M2 | RD4 edge cases | "T before any fact: empty" | T8: `[:all]` as of 0 |
 | M3 | RD3, ruling 3 | the line's role (only the pure test checked it) | T4: the default `:shown`, and a role given (`:stood-on`) recorded |
 | M4 | RD6, E8 R1 × forget | a re-run after a forget cannot reach the first fingerprint; the earlier entry is never rewritten | T9: both |
-| M5 | RD3 concurrency | a forget while a read runs: value or date, never a match on a value erased before | T9: a purge during a paged read of 1,500 entries; the row shows the value or the date |
+| M5 | RD3 concurrency | a forget while a read runs: value or date, never a match on a value erased before | T9: a purge sent while a paged read of 1,500 entries runs; the row shows the value or the date. (In both suite runs of phase 7 the purge landed after the read, so the row showed the value: the assertion holds either way, but an interleaving between pages was not shown to happen.) |
 | M6 | E8 R3 × forget | a point read of an erased fact reads "erased on F" | T19: under the erasure double, the row's date and no value; the entry's `:shown :erased` |
 | M7 | the plan's hooks | `:exit-shown` armed | T11 (b2) |
 | M8 | D5 (the build's divergence) | act order and `[:latest]` past index 9, in the cluster | "D5": 12 facts on one cell |
