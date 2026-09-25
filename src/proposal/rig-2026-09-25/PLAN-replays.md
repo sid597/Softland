@@ -28,7 +28,10 @@ are a standing practice at every step, not a final phase."
   5a). The phase 4 plan being validated:
   `/mnt/data/projects/Softland-rig-plan-promotion/src/proposal/rig-2026-09-25/PLAN-promotion.md`
   at `d6712941`. Line numbers below are "P2 L…", "P3 L…", "P4 L…", "P5 L…"
-  for those four files. Collection from them was done by four read-only
+  for those four files. Without "L", P1 to P16 are phase 1's rig
+  choices, L1 to L20 phase 2's, M1 to M25 phase 3's, PR1 to PR15 phase
+  4's, F1 to F14 the read exit's fixes, and P1 to P8 as named checks the
+  model's properties. Collection from them was done by four read-only
   gatherers; the lines that decide a case here were read again by this
   session (P4 L826-888, L980-985; P3 L715-742, L758-764, L2448-2454; P2
   L742-743, L1716-1726).
@@ -190,10 +193,10 @@ identity wherever the rig allows it.
 | key `:mention`, names `(:persons v)` | `:mention` under the grammar `{:mention {:subjects-at [:persons]}}` (P2 L183, L1726) | — |
 | a value `{:token "v1"}` or `{:token "v2" :persons #{:bob}}` | the model's value map verbatim (R17's domain), so an opened rig value is compared to the model's `:v` exactly | — |
 | mark `#{:die-with-any}` | the same mark (P2 L203) | — |
-| permission `[p l :own]` | `[p l l]` when p owns l, else `[p l l root]` beneath l's root: `[:alice :group :group [:group :group :group]]`, `[:bob :base :base [:operator :base :base]]` (P3 L729-732, M20) | KD9 |
+| permission `[p l :own]` | `[p l l]` when p owns l, else `[p l l root]` beneath l's root: `[:alice :group :group [:group :group :group]]`, `[:bob :base :base [:operator :base :base]]` (P3 L729-732, M20). A write cites it through the writer's session: where the merged door requires a session's permission for a lease (P3 L127-134, "citing s's permission in L"), the lease and the value act cite the session's grant `[S l l pid]` beneath it; a revoke of the model's pid is then the revoke of the rig's pid, which cuts the grant beneath it by the walk (R19). The build records which road the door takes | KD9 |
 | permission `[:alice l :session]`, kept in `:alice-hand` | `[:alice l :alice-hand]`, granted by the operator as a fact in `:alice-hand` (phase 1's `model-world`; M20) | KD9 |
 | the operator, the store | `:operator`; the store's own steps are continuations with no `:who` of their own (For Sid 2: the root actor and the operator are one principal tonight) | — |
-| a person's writing session | a session id for each writer, `:alice-hand` for Alice and `:bob-session` for Bob, opened by `open-session!` in each layer the history writes (P3 L456-461; P2 L334-336), so leases have a session | KD2 |
+| a person's writing session | a session id for each writer, `:alice-session` and `:bob-session`, opened by `open-session!` in each layer the history writes (P3 L456-461; P2 L334-336), so leases have a session; kept apart from the layer id `:alice-hand`, which is Alice's working layer for read entries (KD6) | KD2 |
 | the seed: every permission a first fact | the rig's seed: `:people` and the two persons; Alice's three layers; the base; the group (with the base's re-class); the permissions above; the sessions. Every seed act is the rig's, answered yes before the history starts; none is compared | KD8 |
 
 ## The step kinds and their rig counterparts
@@ -207,7 +210,7 @@ micro side through its dispatch by tag, P3 L2113-2120).
 | `[:offer {:who :layer :facts :stood-on nil :times 1}]` | queues an offer; `:times 1` sends once | at its decision: the door's `offer!` of the act, `:who`, `:layer`, the layer's class, the mapped permission, `:stood-on {}`, the model's facts with their values; the door leases and seals first (default 1; P2 L1919-1925), so a lease act precedes it | yes, with KD2's added lease act |
 | `… :cite :session` | cites `[who layer :session]` | cites `[:alice l :alice-hand]` | yes |
 | `[:work p]` | runs stream partition p's queue to empty | nothing of its own: each decision it made is played as its own effect (an offer sent, a continuation released) | yes |
-| `[:step p]` | one stream event on p | the one decision that event made, played as its effect; where the event is a promotion's read-out, the release and resend above | approximated where it is a read-out (a hold stands for the separate event) |
+| `[:step p]` | one stream event on p | the one decision that event made, played as its effect; where it decides a request whose read-out the model decides in a later op, the hold is armed before `promote!`; where it decides the read-out, the release and resend above | approximated where it splits a request from its read-out (the hold and the resend stand for the separate event) |
 | `[:batch]` | micro prepare and commit | each decision it made, sent and waited for: `micro-lookup` answers and the frontier passes its batch (P3 L2128-2133); for a held landing, the resume first | yes; a held landing is approximated |
 | `[:prepare]` then `[:commit]` | decides at prepare, shows at commit | the decision's offer sent at `[:prepare]` and waited for, decided and committed together; `[:commit]` is then a check that the answer is visible, nothing sent | approximated: the rig has no step between a batch's decision and its commit, and no hook there (P3 L2452-2454) |
 | `[:forget-person p]` | destroys p's person lock at once, stamped after everything | the operator's `forget-person!` act in `:people` and its fan-out to every task, waited for (P2 L1926-1927; P4 L878) | yes, with KD7 |
@@ -356,8 +359,9 @@ reasoned from the plans and not yet run.
   replay attempts the read and reports what the exit answers (predicted a
   refusal; which reason, `:person-forgotten` from the lease or a refusal
   of the entry, the run shows), with the store's judgment beside it. The
-  model's `:values` comparison does not depend on it. A1, A3, A4, A6, B2,
-  B4 (closing reads, and B2's and B4's reads after the forget).
+  model's `:values` comparison does not depend on it, nor does `:shown`
+  (from `promotion-status`, which takes no reader). A1, A3, A4, A6, B2,
+  B4 (their closing reads, and B4's read after the forget).
 
 **Observations that differ in form, not in answer.**
 
@@ -395,6 +399,16 @@ reasoned from the plans and not yet run.
 - **KD18.** Per-act lock grain with mixed marks (P2 L1512-1514): the
   rig's act lock dies with any subject of the union. No fixed history
   switches grain.
+- **KD19.** Named in the plans, read, and not exercised by any fixed
+  history, so printed once in the header as "not exercised": a resend
+  after a forget answered without a content check (For Sid 3); a resend
+  inside one micro batch heard as `:name-taken` (For Sid 12, P3
+  L289-295); `{:unreadable :does-not-open}`, which P2's writes cannot
+  produce (P2 L1239-1240); the refusals `:no-such-person` and
+  `:no-such-value` (P2 L749, L1706-1707); `:landing-lock-gone` (P4
+  L121-124), except as B4's risk; a landing into the base before its
+  re-class through a stream hop (P4 L285-292); the group's mark-on-write
+  rule, not built (P3 O17, L2125-2127).
 
 A difference the run finds that is none of these is a new finding: its
 line says "differs" with what each side saw, the test fails, and RIG.md
@@ -509,7 +523,8 @@ written in a `finally`, so a failing run still leaves its lines.
 
 The build checks each exists in the merged code under the name the plan
 gives, or records it as stubbed or missing; a missing one makes the cases
-that need it "not practical", named. "P1" is phase 1's code as it stands.
+that need it "not practical", named. Stage 1 is phase 1's code as it
+stands.
 
 | API | stage | named at | used for | cases |
 |---|---|---|---|---|
@@ -577,8 +592,8 @@ between a batch's decision and its commit (so D1 is approximated).
 2. **A fresh module per case**, weighed against one module with a fresh
    world per case and against one world for all. Forgetting is permanent
    and the base is one per module, so one world leaks; a fresh world per
-   case needs renamed layers and the micro helpers name `:group` and
-   `:base`. A fresh module keeps the model's names as the rig's, at the
+   case needs renamed layers, and the micro build's helpers
+   (`micro_client.clj` at `003f92a4`) name `:group` and `:base`. A fresh module keeps the model's names as the rig's, at the
    cost of fourteen launches; the fallback is named for when that cost is
    too high.
 3. **Two observations**, weighed against the exit alone. The model's
@@ -614,9 +629,11 @@ Each can change without touching a record.
   resend; a landing by pausing the micro topology, with the
   `:before-forward` hold as fallback.
 - **RP5.** D1's prepare and commit play as one batch, marked approximated.
-- **RP6.** Writers' sessions: `:alice-hand` for Alice (her hand layer's id)
-  and `:bob-session` for Bob, a session id with no layer, since the
-  model's world gives Bob none.
+- **RP6.** Writers' sessions: `:alice-session` and `:bob-session`, session
+  ids with no layer of their own (the model's world gives Bob no layer);
+  Alice's working layer for read entries is `:alice-hand`. If the merged
+  door ties a session to a session layer, the build uses its contract and
+  records it.
 - **RP7.** The test fails on a baseline `:values` or `:shown` difference
   and on any difference no known difference explains; the attribution
   rules are data in the namespace.
