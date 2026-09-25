@@ -783,8 +783,10 @@ poll, for four reasons, in order of weight:
    subscription for the server to time out.
 
 The cost the poll pays: one query per delivery tick even when nothing
-changed, about three seeks on the layer's task (settings, clock or
-frontier, one page or tail read) and no write.
+changed, about three seeks on a one-owner layer's task (settings, clock,
+one page or tail read) and six on a shared one's (**[F8]**: stream
+settings, frontier, micro settings, members, F9's `:ix-error`, one page),
+and no write.
 
 The alternative constructed, with numbers: **a doorbell.** One proxy per
 client process and layer on a per-layer long that every admitted act
@@ -1047,7 +1049,8 @@ and `[:latest]`, over their own batch-first index, "The delta"), the lines carry
 working layer, a one-owner layer on the stream gate. A shared layer's
 frontier moves about every tick (250 ms) whether or not the layer changed,
 so a delivery tick on a shared layer costs a delta query as on a one-owner
-layer; there is no extra cost for being shared.
+layer; the frontier's movement adds nothing, and the shared path's own
+reads make it six seeks against three (**[F8]**).
 
 ## The close act (CONCLUSION R5, default 4)
 
@@ -1426,7 +1429,7 @@ query topology (phase-1-plan Step 1).
 
 | read | who | method | reads, on the layer's task |
 |---|---|---|---|
-| RS1 shared pattern read `[L for p as-of limit]` | the exit | `read-pattern`'s shared branch | stream settings (1), frontier (1), micro settings at F (1, group), membership (1, group), the page loop over one `$$micro [L]` index (1 seek per page, one iteration per entry, batch filter); re-classed: plus the read exit's loop over `$$layers [L]`; `$$persons` per wrap person (local) per opened entry |
+| RS1 shared pattern read `[L for p as-of limit]` | the exit | `read-pattern`'s shared branch | stream settings (1), frontier (1), micro settings at F (1, group), membership (1, group), `:ix-error` and `:ix-place` (1, **[F9]**), the page loop over one `$$micro [L]` index (1 seek per page, one iteration per entry, batch filter); re-classed: plus the read exit's loop over `$$layers [L]`; `$$persons` per wrap person (local) per opened entry |
 | RS2 shared point read `[L for fids as-of]` | the exit | `read-point`'s shared branch | settings as RS1; per fid `:ix-id` (1) and `:ix-ek` (1) when indexed; stream-era fids as the read exit |
 | RS3 a delta `[... :after m0]` | `standing/deliver!` | `read-pattern` with `:after` | as RS1 or the read exit's RE2, over `:ix-s` or the pattern's own stamp-ordered index from the bound |
 | RS4 closing fingerprint `[L ent]` | `standing/unsubscribe!`, `close-session!` | query `standing-close` on the working layer's home | **[F3]** the last delivery line (1 tail read of `:ix-ek`), its row (1 to 2), its lock row and `open-row>`; its `:so-far` |
@@ -1537,7 +1540,10 @@ emitting once.
 - **`read-point`, shared branch.** 5 fids of which 2 never indexed → 4 + 5
   `:ix-id` + 3 `:ix-ek`. **Variable**, the read exit's `loop<-`.
 - **`read-pattern` with `:after`.** A quiet tick → 3 seeks (one-owner:
-  settings, clock, one range seek that finds nothing) or 4 (shared). A tick
+  settings, clock, one range seek that finds nothing) or 6 (shared,
+  **[F8]**: the steps give 5, stream settings, frontier, micro settings,
+  members and the range seek, where the draft counted 4; F9's select makes
+  6). A tick
   with 3 new facts of 40 new in the layer (`[:k]` over `:ix-s`) → 3 + 1
   page of 40 iterated. `[:ek]` with 2 new → 3 + 1 page of 3. **Variable**,
   the same loop from a bound.
@@ -2052,7 +2058,9 @@ Tests the design adds:
    rebuild disagreeing, and the person purge's sweep over `:ix-kv` missing
    dying values that are not value-indexed. The invariant "a purge writes
    what a rebuild would", with the rebuild tombstoning only a ledger
-   erasure, fixed all three: a person purge only deletes the plaintext,
+   erasure, fixed all three: a person purge only deletes the value index
+   (the plaintext in the one-owner store, a keyed digest in the micro store
+   after F12),
    the copies it leaves open nothing, and RT8 is exact.
 
 ## What stays open
