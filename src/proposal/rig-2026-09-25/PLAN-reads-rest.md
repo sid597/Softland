@@ -166,7 +166,17 @@ forbids a query that says "shared"), so a separate query costs a second
 round trip on every group-layer read or a kind cached in the client (the
 CLAUDE.md rule on caching: nothing here needs one, because both kinds'
 data sit on the task the first query already reached). The branch costs one
-seek (the frontier) on the shared path only.
+seek (the frontier) on the shared path only. On a group layer the read
+exit's stream-settings read is a miss: that miss is the kind test (the
+question "is this layer ordered by the stream gate?", answered no), the
+same standing as the micro plan's faces read in `micro-lookup`. The upgrade
+that removes it, a rig choice touching no record (RR19): an optional
+`:hint :group` in the exit's call, from a caller that knows it reads a group
+layer (a member holds the group's making fact), which makes the query read
+`$$micro [L :settings]` first and `$$layers` only on a miss; it saves one of
+about five seeks per group-layer read, and a wrong hint costs the same miss
+the other way. Not taken tonight by rule 10 of the brief (the simplest pick
+that changes no record); the table below counts the miss.
 
 The shared path's pure functions and fragments live in
 `rig.store.shared-reads`; the branch calls them. [build checks: a
@@ -336,12 +346,29 @@ gather reads the settings and the permission row(s) on hash(L) (micro plan,
   concentration at best, and it splits a re-classed layer's merge across
   two tasks. Not taken tonight.
 
-Chosen: B, as a rig choice (RR5): indexes are not records (they are
-rebuildable from the log), so moving a hot layer's indexes to C, or to a
-placement by `[L k]`, later is a rebuild, not a record change. What would
-force the move: a shared layer whose index outgrows one task's disk or
-whose index puts exceed one task's write rate; phase 7 can measure the
-latter.
+- **Option D, stored placement: B cut into buckets.** A layer's settings
+  carry a bucket count `B` (a fact, 1 by default); entry i of the layer
+  lives on `hash([L (mod (hash e) B)])`. Entity-scoped reads go to one
+  bucket: the same seeks as B, plus one hop for the settings when the
+  bucket is not the layer's task. Key-scoped reads and `[:all]` fan out to
+  B buckets: seeks 4 + B × pages instead of 4 + pages, and a merge of B
+  sorted lists; writes spread over B tasks. Total I/O, the placement state
+  included (B is read with the settings already read, so it costs no seek):
+  for B = 8, a key-scoped read of 60 matches costs about 4 + 8 × 1 = 12
+  seeks against B's 7, weighted seeks about 8.6 against 6.1, and each of
+  the 8 bucket tasks takes one eighth of the layer's index puts and bytes.
+  Flat in N (B is the layer's, not the cluster's). It is the road for a hot
+  layer, paid only by that layer; with B = 1 it is Option B exactly.
+
+Chosen: B, as a rig choice (RR5), that is D with B = 1 for every layer,
+because it is the simplest pick that can change later without touching a
+record (the brief's rule 10): indexes are rebuildable from the log, so
+moving a hot layer's indexes to D with B > 1, or to C, later is a rebuild,
+not a record change. What would force the move: a shared layer whose index
+outgrows one task's disk or whose index puts exceed one task's write rate;
+phase 7 can measure the latter. The `|hash` indicator is met only in the
+common case (many shared layers, none hot); a hot layer is exactly the
+case D exists for.
 
 ### The fields, and what each serves
 
@@ -557,10 +584,32 @@ poll, for four reasons, in order of weight:
 
 The cost the poll pays: one query per delivery tick even when nothing
 changed, about three seeks on the layer's task (settings, clock or
-frontier, one page or tail read) and no write. Named upgrade, a rig choice
-that touches no record (RR9): a doorbell proxy on a per-layer long, so a
-tick on a quiet layer skips its query; the lines are the same either way.
-Taken if phase 7 or src-inland shows empty polls to matter.
+frontier, one page or tail read) and no write.
+
+The alternative constructed, with numbers: **a doorbell.** One proxy per
+client process and layer on a per-layer long that every admitted act
+writes (`$$layers [L :last-stamp]` in the gate's decision event,
+`$$micro [L :last-batch]` in block 2d; one `termval` each, no read), which
+`deliver!` consults before querying: unchanged since the handle's last
+moment gives `:nothing-new` with no query; changed, the delta query runs
+as below (on a shared layer, possibly one or two ticks early, until the
+frontier reaches the rung batch). Costs, for a screen holding 20 standing
+reads over 5 layers at 2 deliveries a second, each layer changing once in
+10 s: the poll, 20 × 2 × 3 = 120 seeks a second; the doorbell, 0.5 changes
+a second × 4 reads × 3 = 6 seeks a second, plus 0.5 puts and 0.5 diffs a
+second, plus 5 subscriptions held on the server. For an agent session
+layer admitting 100 acts a second with one standing read at a model call a
+second: the poll, 3 seeks a second; the doorbell, the same 3 seeks plus 100
+puts and 100 diffs a second. So the doorbell does less aggregate work for
+quiet layers with many standing reads, and more for busy layers with few;
+Softland has both (renderers on people's layers; agents writing
+continuously). Taken tonight: the poll, by the brief's rule 10 (the
+simplest pick that can change without touching a record); the doorbell is
+the named change (RR9), which touches no record (the lines are the same
+either way) and adds one put per admitted act to phase 7's first number.
+Its trigger: src-inland's renderers or phase 7 showing empty polls to
+matter. [docs: a proxy may target a value inside a top-level map's value,
+15-pstates.md; not run.]
 
 ### The delta: "something new" since the last delivery, in both stores
 
@@ -725,9 +774,11 @@ erasures by date (phase 2's ledger is keyed by lock id, not by date).
   in the working layer. `(standing/close-session! store layer who)`, run by
   the session's next door or by the operator, finds them with the query
   **`standing-open [*layer :> *ents]`** (on the working layer's home: the
-  `:ix-ke` range `read/standing␀`, the entities in its addresses; for each,
-  one seek at `:ix-ek` prefix `ent␀read/closed␀`; ids only, a maintenance
-  read like the closing query), and closes each with `:closed-by :crash`,
+  `:ix-ke` range `read/standing␀` and, only when it is not empty, the range
+  `read/closed␀`, each in doubling pages; the open entries are the
+  entities of the first not in the second, a set difference in memory,
+  since `:ix-ke`'s address names the entity; ids only, a maintenance read
+  like the closing query), and closes each with `:closed-by :crash`,
   its fingerprint and mark from `standing-close`. The closer writes under
   its own permission in the working layer: the session's, or the operator's
   (R7's root permission, default 5; For Sid 2: the operator as the root
@@ -779,9 +830,11 @@ The closer (the session's door, or the operator after a crash) runs
    *page]`** (on the layer's home, `(|hash *layer)`): the ids of the
    `:read/*` facts of the layer admitted at or before `*before` (the close
    act's stamp) and not yet erased (their `:ix-ke` entries not
-   tombstoned), from the five `read/…␀` prefixes of `:ix-ke` in turn, at
-   most n (256) per page; ids and stamps only, nothing opened (a
-   maintenance read, RR11).
+   tombstoned), from one range of `:ix-ke`, the prefix `read/` (a keyword
+   prints without its colon, so the five store keys share it), keeping only
+   the five keys by the page step (a hand-written `:read/other` fact is
+   skipped, not forgotten), at most n (256) per page; ids and stamps only,
+   nothing opened (a maintenance read, RR11).
 2. **Forget** each page with one ordinary value-forget act, phase 2's OP9:
    `:who` the layer's owner or `:operator`, `:layer` the agent layer,
    `:stood-on` each target's `[fid stamp]`, `:because-of` the close act's
@@ -1065,8 +1118,8 @@ query topology (phase-1-plan Step 1).
 | RS2 shared point read `[L for fids as-of]` | the exit | `read-point`'s shared branch | settings as RS1; per fid `:ix-id` (1) and `:ix-ek` (1) when indexed; stream-era fids as the read exit |
 | RS3 a delta `[... :after m0]` | `standing/deliver!` | `read-pattern` with `:after` | as RS1 or the read exit's RE2, over `:ix-s` or the pattern's own stamp-ordered index from the bound |
 | RS4 closing fingerprint `[L ent]` | `standing/unsubscribe!`, `close-session!` | query `standing-close` on the working layer's home | the entry's delivery lines (1 page of `:ix-ek`), each line's row (1 to 2) and `open-row>` |
-| RS5 open standing entries `[L]` | `close-session!` | query `standing-open` | one page of `:ix-ke` `read/standing␀`, one seek per entry at `:ix-ek` `ent␀read/closed␀` |
-| RS6 entry ids `[L before after n]` | `drop-reads!`, the restore's replay | query `entry-ids` | up to five `:ix-ke` prefix pages, ids only |
+| RS5 open standing entries `[L]` | `close-session!` | query `standing-open` | the `:ix-ke` ranges `read/standing␀` and, when not empty, `read/closed␀`, in pages; a set difference |
+| RS6 entry ids `[L before after n]` | `drop-reads!` | query `entry-ids` | one `:ix-ke` range, prefix `read/`, in pages, ids only |
 | RS7 a micro rebuild page's progress | the operator's loop | `foreign-select-one [(keypath :rebuild)] $$micro-task {:pkey t}` | 1 |
 
 ## Writes
@@ -1134,7 +1187,18 @@ its index writes must be atomic with the rows they index across tasks, which
 only the batch gives, and exactly-once with the batch (block 2d's writes are
 `termval`s and `NONE>`s, applied once per batch). The stream gate stays
 stream: the one-owner `:ix-s` entry must be visible with the act's answer,
-as the read exit's other entries are.
+as the read exit's other entries are. Its concerns that do not need stream
+latency, the person-purge and forget-replay pages on `*index-ops`, stay on
+it for one reason, the one the read exit gave for its rebuild pages: they
+write `$$layers`, which only the gate topology may write (PState
+ownership), and moving the one-owner indexes to another topology would
+split what the admitting event now keeps atomic (the read exit's Option E,
+rejected there). Each page is one bounded event (well under the 5 s event
+timeout), so it delays the task's other events by at most its own length.
+No stream topology in this plan appends to a depot; the named alternative
+RR18 would, and would then put `(|direct (ops/current-task-id))` before
+each `depot-partition-append!` (stream.md, the commit boundary), with the
+receiving pages idempotent against the stream event's replays.
 
 ## Query Topologies
 
@@ -1162,10 +1226,13 @@ emitting once.
   the same loop from a bound.
 - **`standing-close`.** d delivery lines → 1 + 1 page + d rows (1 to 2
   each). **Variable**, a `loop<-` over the page.
-- **`standing-open`.** s standing entries in the layer → 1 page + s seeks.
-  **Variable**, `loop<-`.
-- **`entry-ids`.** Up to five prefix pages until n ids; **variable**, the
-  page loop, stopping at n.
+- **`standing-open`.** A layer with no standing read → 1 seek (the empty
+  `read/standing␀` range, the answer "none"), the closed range not read. A
+  layer with 30 standing reads of which 28 closed → 2 range seeks + about
+  60 iterations. **Variable**, conditional second range.
+- **`entry-ids`.** One `read/` range in doubling pages until n ids or the
+  range's end; a session with 1,000 entry facts → 7 page seeks for all of
+  them over four calls of 256. **Variable**, the page loop, stopping at n.
 
 ## Partitioning efficiency
 
@@ -1355,6 +1422,9 @@ Continuing the read exit's FR1 to FR14, which stand.
   subject index by person is the named upgrade.
 - RR18. Person purges are driven by the operator's loop; the store-driven
   first page from phase 2's fan-out is the named alternative.
+- RR19. No class hint on the exit's call; a group-layer read pays the
+  stream-settings miss as its kind test; `:hint :group` is the named
+  upgrade.
 
 ## Namespaces and tests
 
