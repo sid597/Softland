@@ -661,3 +661,204 @@ whole; `sorted-map-range-from` with `:max-amt` bounds each read, but a
 single read of `limit + 1` would iterate up to 1,001 entries past a
 three-fact entity. Doubling pages cost one extra seek per doubling for a
 large read and nothing extra for a small one.
+
+## The exit (`rig.store.read-exit`, client side in the rig)
+
+CONCLUSION R5 (a default) puts the exit in a read gateway on the server. In
+the rig the store's clients run in the test's process, so the exit is plain
+Clojure over the foreign API beside `rig.store.client`, and a kept store
+moves the same function behind the server. One function:
+
+```
+(read! store {:reader :alice :reader-kind :person|:model|:tool :rows? false
+              :working :alice-hand :permission [:alice :alice-hand :alice-hand]
+              :layer :alice :read [:point [fid ...]] | [:pattern p]
+              :as-of nil :limit 1000 :role :shown :entry-name nil})
+→ {:rows [...] :moment {:stamp m} :mark .. :fingerprint .. :entry name :entry-stamp s}
+| {:refused reason}                 ; nothing shown
+| {:refused reason :entry name}     ; the entry was refused: nothing shown
+```
+
+Steps, in this order, and nothing returned to the caller before step 5:
+
+1. **Check the call** (total, data): the reader, kind, role, working layer,
+   permission and read form are well formed; else `{:refused :bad-read}`.
+2. **Query**: `foreign-invoke-query` of `read-point` or `read-pattern` on
+   the read layer. A `{:refused r}` answer returns `{:refused r}`: nothing
+   was read, nothing is recorded.
+3. **Build the entry**: `client/build` with the entry's facts from
+   `(reads/entry-facts answer spec)`: rows for a point read, one line for a
+   pattern read, the exact list when the reader is a person or a model, or
+   a tool with `:rows? true`. The name is `:entry-name` when given (tests
+   arm the gate's crash hook on it), else fresh. The built map is kept for
+   resends (phase 1: the digest covers `:claimed-when`).
+4. **Append the entry and wait for its answer**:
+   `client/offer-until-answered!`, which resends the same map under the same
+   name after an error and takes the answer from the record (phase 0
+   finding 4). If it gives up, the exit throws; nothing was shown.
+5. **Answer**: on `:yes`, return the rows with the entry's name and stamp;
+   on `:no`, return `{:refused reason :entry name}` and no rows.
+
+Test hooks (R3, global atoms, the in-process cluster only):
+`(inject/point! :exit-after-query nm)` between steps 2 and 3 (the name is
+known because step 3's name is made first when `:entry-name` is absent, then
+used), `(inject/point! :exit-after-entry nm)` between steps 4 and 5, and
+`(inject/point! :exit-shown nm)` just before the return. An armed point
+throws, which here stands for the exit's process dying at that point.
+
+What this guarantees, derived: every answer shown has an entry the gate
+acknowledged, because the only road to a return with rows passes step 4's
+`:yes`. The converse is not promised: an entry can be recorded for an answer
+never shown (a crash between 4 and 5), which records a reading that did not
+reach the reader; ruling 3's exposure dimension is about reads that
+happened, and a recorded read that was not shown over-records rather than
+under-records. Named in "Open questions" for Sid.
+
+Agent session reads use the same exit with `:working :alice-agent`: eager,
+recorded in the agent session layer (the brief; CONCLUSION R5 reopens
+ruling 3's "may default to none"; this is a default, not a ruling).
+
+A reader's next act that stands on what it read carries `:stood-on` from
+the answer's `:matched` pairs, which are exactly R4's form; the exit does
+not write it.
+
+## `open-value` (phase 2's, consumed here)
+
+The one function every shown value passes through, in `rig.store.locks`
+(phase 2's lock namespace). The contract this stage builds against:
+
+- Called in dataflow as `(locks/open-value *layer *fid *entry *moment :> *opened)`,
+  on the layer's home task, inside a query topology or the gate's rebuild
+  event. `*entry` is an index entry, or a log row with `:stamp` added: a map
+  with the value slot `:v`, `:mark`, and whatever lock reference phase 2
+  puts beside the value in the row.
+- Returns exactly one of `{:value v}` (nil for a retract), `{:erased-at s}`
+  (the forget's stamp), `{:unreadable reason}`. Never throws.
+- It may read PStates on the same task (phase 2's lock rows sit with their
+  values, ruling 7), so it can be a `deframafn` whose reads the call site
+  does not see [docs: dataflow.md, a `deframafn` may `local-select>`]; it
+  must not repartition (a suspend on the path to its emit is not allowed in
+  a `deframafn`, and a partitioner would move the query off the home).
+- Tonight's body passes values through:
+  `{:value (env/decode-value (:v entry))}`, with a failure to decode caught
+  and returned as `{:unreadable :undecodable}`.
+
+The merge. If phase 2's build has merged when this stage builds,
+`rig.store.locks` exists and this stage only calls it. If not, this stage's
+build writes `src/rig/store/locks.clj` with the one function above and
+nothing else, and the merge keeps phase 2's file whole; phase 2's
+`open-value` must keep this arity and these three return shapes. That is the
+one place tonight's parallel builds can collide on a file; the resolution
+is fixed here so the merge is mechanical.
+
+## Hints (index kinds take hints as parameters)
+
+`hints` is a map passed to every function that decides what is indexed:
+`{:by-value #{fact-key ...} :opaque #{fact-key ...}}`. Tonight it is one
+constant, `reads/seed-hints`, `{:by-value #{:note} :opaque #{}}` for the
+model's world (`:note` holds a plain value; `:mention` names people and is
+matched by key). A key in both sets is opaque (ruling 6: no matching, no
+index on its values, shown as opaque; the opaque showing itself needs
+phase 6's grammar and is not built). Phase 6 replaces the constant with the
+key's grammar facts. Changing the hints for an existing layer needs a
+rebuild of its indexes (the rebuild takes the same hints), because entries
+were written under the old ones; tonight's hints never change while a
+module runs. A rig choice.
+
+## Purge and rebuild (the two tools a forget and a restore call)
+
+**Purge by value id**, `(reads/purge-writes fid row fact-stamp kv-addresses forget-stamp)`,
+pure and total, returning write lists for the three blocks:
+- `:index-put`: the fact's `:ix-ek` and `:ix-ke` entries as tombstones
+  (`:v nil`, `:erased-at forget-stamp`), at addresses computed from the row's
+  entity and key, the act's stamp and the fact id: no value is needed.
+- `:index-del`: every `:ix-kv` address in `kv-addresses`.
+- `:of-del`: the fact id's `:ix-of` entry.
+
+Its inputs are what phase 2's forget event reads anyway (the row and the
+act's record, to find the lock) plus RE4, one seek for `kv-addresses`.
+Phase 2's forget merges these lists into its decision's writes, in the same
+event, so the forget and the purge are one atomic group (phase 1: F12).
+After a purge no index holds the value or anything derived from it; the id,
+entity, key and stamp remain, so a read as of any moment that matched the
+fact shows it with its erasure date, as the model's `read-as-of` does
+(`:erased-at`), and a `[:kv]` read no longer matches it.
+
+A person's forget erases every value it closes at once; it reaches the
+indexes either by a purge per erased value, or by a rebuild of each layer it
+touches (the rebuild sees each such value erased through `open-value`).
+Which one is phase 2's pick; both tools exist.
+
+**Rebuild one layer from its log**, `(reads/rebuild-writes hints layer acts current)`,
+pure: `acts` is every yes act of the layer with its stamp, rows and each
+row's `open-value` result; `current` is the four fields' present entries. It
+returns what the log implies minus what is there, as the same write lists,
+applied by the gate's rebuild event (Topologies, 2). After it, the four
+fields hold exactly the entries the log implies under `hints`.
+
+## The one line in module.clj, and where Rama does not allow one
+
+Where it can be one form:
+- the schema: `(fixed-keys-schema (merge phase-1-fields reads/layer-fields))`;
+- the query topologies: `(reads/declare-queries! topologies)` [build checks];
+- the depot: `(reads/declare-depots! setup)`, declaring `*index-ops`
+  [build checks: a `declare-depot` from a function called in the module body].
+
+Where it cannot: the gate event's index writes and the rebuild source are
+dataflow inside the gate topology's `<<sources` block, because a PState is
+written only by the topology that declares it, and this plan keeps
+`$$layers` on the gate (F12). So module.clj gets the three write blocks
+(about six lines) after the heads writes, and the second `source>` inline
+unless a second `<<sources` call on the same topology works [build checks].
+`gate/decide*` gets one call, `(reads/index-writes ...)`, merged into its
+precomputed writes.
+
+## Interfaces, as this stage builds against them tonight
+
+- **`rig.store.clock`** (tonight's clock build): stamps are positive longs,
+  strictly increasing per task, below 2^63 (hex16 needs no sign), and the
+  home task's last stamp is readable with `(local-select> STAY $$clock)`.
+  Nothing else is used. If the clock build keeps the last stamp elsewhere,
+  the one `local-select>` in each query changes, nothing else.
+- **`rig.store.locks`** (phase 2): `open-value` as above; its forget calls
+  `reads/purge-writes` and reads RE4.
+- **Phase 3's micro gate** (its own namespace): nothing tonight. Its
+  settled-frontier id fills the moment's `{:frontier id}` slot later.
+- **What this stage exports**, in `rig.store.reads`: `layer-fields`,
+  `seed-hints`, `declare-queries!`, `declare-depots!`, `address`,
+  `index-writes`, `purge-writes`, `rebuild-writes`, `index-op`,
+  `parse-pattern`, `parse-point`, `visible?`, `moment`, `fingerprint`,
+  `entry-facts`; in `rig.store.read-exit`, `read!`. `rig.store.reads`
+  requires `rig.store.envelope` and `rig.store.locks`, never
+  `rig.store.client` (the client requires the module, which requires the
+  gate, which requires reads: a cycle otherwise).
+
+## Later stages and where they plug in
+
+- **Standing reads** (CONCLUSION R6, a default; not built). One entry opened
+  with pattern, role and moment; a stamped line per delivery that shows
+  something new, with delivered ids (exact for a person or a model, a
+  fingerprint for a tool); closed at unsubscribe or session close with a
+  fingerprint over everything delivered and a complete-or-partial mark.
+  Plugs in: `read-pattern` gains an `:after` bound (every entry carries its
+  stamp, so "new since s" is a filter on the same ranges); `read-exit`
+  gains `subscribe!`, `deliver!`, `close!`; the entry gains keys for the
+  opening, delivery and closing lines, which are first-record then.
+- **Shared-layer reads** (after phase 3). A shared layer is placed by
+  entity, so its pattern reads fan out over its entity partitions and read
+  through phase 3's settled frontier (R5 of the rig: never half a batch);
+  its indexes are the micro gate's to write in its own PStates. Plugs in: a
+  third query topology for shared layers, the exit choosing by the layer's
+  kind, and the moment's `{:frontier id}` part. The entry format is
+  unchanged otherwise.
+- **The agent session's close act** (after phase 2's forget). Keeping or
+  dropping the session's read entries: the entries are found by `[:k
+  :read/pattern]` and `[:k :read/point]` in the agent layer; dropping them
+  is phase 2's forget of each entry act's values, which purges them here.
+- **Grammars and tools** (phase 6). Hints from a key's grammar facts; a
+  tool's `:rows?` and its reader kind from its signature facts; "shown as
+  opaque" from the grammar.
+- **Sealed values** (phase 2). The index entry's `:v` then holds what the
+  row holds (sealed), so the id indexes carry no plaintext; an `:ix-kv`
+  address still needs the plaintext at admission, which the gate has through
+  `open-value` in the decision event (phase 2's to wire).
