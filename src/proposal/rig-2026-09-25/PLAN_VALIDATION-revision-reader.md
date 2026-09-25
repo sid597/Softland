@@ -10,7 +10,9 @@ lines cited, a self-consistency pass). Branch `rig-reader`, worktree
 The plan validated is `PLAN-revision-reader.md` at `117b6cf9`. The fixes
 were applied in place and committed as `183f381a`; **line numbers below
 ("L n") are the fixed plan's** at `183f381a`, and each fix is marked
-**[Fn]** where it lands in the plan.
+**[Fn]** where it lands in the plan. A later wording fix (`48ea15c5`)
+lengthened F5's paragraph by three lines, so in the plan as it now stands
+every line from L 334 on sits three lines later than cited here.
 
 Marks: **checked** (run or read in this session; the command or line is
 named), **derived** (follows from checked facts), **assumed** (not checked).
