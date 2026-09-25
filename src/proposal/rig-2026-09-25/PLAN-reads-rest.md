@@ -1123,7 +1123,8 @@ kept store").
 
 The read exit's build is in flight in `Softland-rig-build-reads`; it goes on
 as planned, and these land on top of it, at the merge of wave 1 or after
-(none changes a line it builds; each adds to a function or a list):
+(each adds to a function or a list; item 9 also changes one rule of its
+rebuild's put page):
 
 1. **Shared branch** in `read-point` and `read-pattern` after the settings
    read: by-entity layers go to `rig.store.shared-reads` on the same task
@@ -1471,7 +1472,8 @@ Continuing the read exit's FR1 to FR14, which stand.
 - **FRR8.** A shared read's recorded moment is `{:frontier F}` with F =
   `min(asked, the frontier on the layer's task)`; a shared line carries
   `:max-stamp`, the largest matched stamp, which the gate's stamp rule
-  counts (F1 extended); a shared row carries `:batch`.
+  counts (F1 extended); a shared row carries `:batch`; a shared `[:kv]`
+  answer, and so its `:exact` list, is ordered by batch then stamp.
 - **FRR9.** A drop is recorded as phase 2's ordinary forget acts, 256
   targets each, `:because-of` the close act; each dropped entry's erasure
   date is its forget act's stamp.
@@ -1759,11 +1761,15 @@ Tests the design adds:
    2's would be cheaper; designing it here would be designing phase 2's
    and 3's black box. The sweep is correct and bounded per page, rare, and
    the subject index is named as the upgrade.
-9. **What a purge dates.** I first wrote the forget's own stamp into every
-   tombstone; tracing L16 (a value forget after a person forget shows the
+9. **What a purge writes.** I first wrote the forget's own stamp into
+   every tombstone, and tombstoned a person-forgotten value's id-index
+   entries too; tracing L16 (a value forget after a person forget shows the
    value forget's date) and a rebuild after both showed the purge and the
-   rebuild disagreeing. The invariant "a purge writes what a rebuild would"
-   fixed both, and it is what makes RT8 exact.
+   rebuild disagreeing, and the person purge's sweep over `:ix-kv` missing
+   dying values that are not value-indexed. The invariant "a purge writes
+   what a rebuild would", with the rebuild tombstoning only a ledger
+   erasure, fixed all three: a person purge only deletes the plaintext,
+   the copies it leaves open nothing, and RT8 is exact.
 
 ## What stays open
 
