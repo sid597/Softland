@@ -571,16 +571,36 @@
 
 (defn up-front-persons
   "The persons the gate reads before the delivery (plan, gate event step
-  4): the layer's person owner, for an act that cites a lock, and the
-  offer's writer when a person, for an act that cites a lock or is a lease
-  (the rows a delivery opens are sealed under the lease act's writer, L23,
-  who for an honest door is the offer's). None for any other act."
+  4): the layer's person owner, for an act that cites a lock or is a lease,
+  and the offer's writer when a person, for an act that cites a lock or is
+  a lease (the rows a delivery opens are sealed under the lease act's
+  writer, L23, who for an honest door is the offer's; wave 1: under the
+  layer's owner when the writer is no person, `lease-under`). None for any
+  other act."
   [offer settings]
   (let [cites? (boolean (seq (cited-ids (:facts offer))))
         lease? (some? (fact-of offer :lease))]
     (into [] (comp (keep identity) (distinct))
-          [(when cites? (person-owner (:owner settings)))
+          [(when (or cites? lease?) (person-owner (:owner settings)))
            (when (or cites? lease?) (person-owner (:who offer)))])))
+
+(defn lease-under
+  "Whose person lock seals a lease act's rows (L23, and default 1's
+  'wrapped under the session owner's person lock'): the root actor's rows
+  are bare (nil); a writer who is a person (an entry in `persons`, alive or
+  forgotten) seals under their own lock; a writer who is no person (an
+  agent or a tool, holding a permission in the layer) seals under the
+  layer's person owner, whose session it writes in (wave 1, rig choice: an
+  agent's reads and writes in its person's session layer need a lease, and
+  the owner's forget then reaches its unconsumed rows); with no person
+  owner either, the writer, whom the refusal then names `:no-such-person`."
+  [offer settings persons]
+  (let [who (person-owner (:who offer))
+        owner (person-owner (:owner settings))]
+    (cond
+      (nil? who) nil
+      (contains? persons who) (if (some? (get persons who)) who (if owner owner who))
+      :else who)))
 
 (defn deliverable?
   "Whether a lock id can be delivered to an offer in `layer` under
@@ -682,7 +702,7 @@
 (defn- persons-refusal [offer settings lx]
   (let [persons (:persons lx)
         wrap-ps (plan-persons offer settings (:read lx))
-        lease-who (when (fact-of offer :lease) (person-owner (:who offer)))
+        lease-who (when (fact-of offer :lease) (lease-under offer settings persons))
         maker (making-owner offer settings)
         forgotten (when (fact-of offer :forget-person) (person-target offer))
         missing? (fn [p] (and (some? p) (nil? (get persons p))))
@@ -740,10 +760,10 @@
           (recur (next plan) (drop k ns) rows (cond-> lock-rows row? (conj [lock-id rec]))))
         {:rows rows :lock-rows lock-rows}))))
 
-(defn- lease-writes [offer lx]
+(defn- lease-writes [offer settings lx]
   (when-let [n (lease-count offer)]
     (let [ids (lease-ids (:name offer) n)
-          under (person-owner (:who offer))
+          under (lease-under offer settings (:persons lx))
           entry (get (:persons lx) under)
           Ks (:locks (:fresh lx))
           ns (if under (:lease-nonces (:fresh lx)) (repeat n nil))]
@@ -798,7 +818,7 @@
     (if (nil? stamp)
       {:consume consume}
       (let [v (value-writes offer settings lx)
-            l (lease-writes offer lx)
+            l (lease-writes offer settings lx)
             f (forget-writes offer lx stamp)
             p (person-writes offer lx stamp)]
         {:consume consume
