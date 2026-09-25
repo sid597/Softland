@@ -164,8 +164,19 @@
               (is (= [:no :name-taken] ((juxt :answer :reason) a)))
               (is (= :name-taken (get-in (faces-with st (:name o)) [(mc/fp-of other) :reason])))
               (is (= (:stamp rec) (:stamp (mc/record-of st (:name o)))))
+              (is (= [:no :mis-tagged true] ((juxt :answer :reason :face) (mc/offer! st (assoc o :layer :base :permission (bp :alice)))))
+                  "E1 N2 x tag mismatch: refused on its face")
+              (is (= (:stamp rec) (:stamp (mc/record-of st (:name o)))) "the record untouched")
               (is (some #(re-find #"taken by other content" %)
                         (:trace (fm/run fm/baseline [(m-offer) [:batch] [:reuse 0 {:who :alice :layer :group :facts [(assoc m-note :e :e1)]}] [:batch]]))))))))
+
+      (testing "an act touching many entities: many tasks, still whole (OP3)"
+        (let [es (take 6 ents)
+              r (write! (alice :s1 (vec (for [e es] {:e e :k :wide :v {:on e}}))))
+              nm (get-in r [:offer :name])]
+          (is (= :yes (get-in r [:answer :answer])))
+          (is (= (for [e es] [{:on e}]) (for [e es] (map :value (rows-of e nm)))) "every entity's row, one stamp")
+          (is (apply = (for [[i e] (map-indexed vector es)] (:stamp (mc/head-of st e :group :wide [nm i])))))))
 
       (testing "a resend and its original in one batch: decided once (OP3, the same envelope)"
         (let [o (mc/build (alice :s1 [{:e ea :k :note :v nil}]))]
@@ -182,7 +193,8 @@
               same-ids (mc/seal (assoc-in o [:facts 0 :v] {:token "two"}) (constantly id0) ks)
               one (mc/seal o (constantly id0) ks)
               other-ids (mc/seal (assoc-in o [:facts 0 :v] {:token "three"}) (constantly id1) ks)
-              envs [one same-ids other-ids]
+              mis-tagged (assoc one :layer :base :permission (bp :alice))
+              envs [one same-ids other-ids mis-tagged]
               _ (do (pause!) (doseq [e envs] (mc/send! st e)) (resume!))
               answers (mapv #(mc/await-answer st %) envs)
               plain-of {(mc/fp-of one) {:token "one"} (mc/fp-of same-ids) {:token "two"} (mc/fp-of other-ids) {:token "three"}}
@@ -191,6 +203,7 @@
           (say "same-name envelopes" (mapv (juxt :answer :reason) answers))
           (is (= 1 (count (filter #(= :yes (:answer %)) answers))) "one decided")
           (is (= 2 (count (filter #(and (:face %) (= :name-taken (:reason %))) answers))) "the others hear :name-taken on their faces")
+          (is (= [:no :mis-tagged true] ((juxt :answer :reason :face) (last answers))) "E1 N1 x tag mismatch: refused on its face, the original unaffected")
           (is (= (plain-of decided) v) "the rows are the decided envelope's, the lowest fingerprint's (the batch order's tiebreak)")))
 
       (testing "refused on the face, readable as data through micro-lookup, never the name's answer (M8, E1)"
@@ -206,7 +219,29 @@
               (is (nil? (mc/record-of st (:name o))) what)))))
 
       (testing "recorded refusals: a fact naming another layer; a :by-entity name into :alice before its re-class (from $$layers's class)"
-        (is (= :fact-outside-the-acts-layer (get-in (write! (alice :s1 [{:e ea :k :note :v nil :layer :base}])) [:answer :reason])))
+        (let [c0 (mc/clock-of st ea)
+              r (write! (alice :s1 [{:e ea :k :note :v nil :layer :base}]))
+              a (:answer r)
+              o (:offer r)]
+          (is (= :fact-outside-the-acts-layer (:reason a)))
+          (is (< c0 (:stamp a)) "E1 N0 x refused: the refusal consumed a stamp")
+          (is (<= (:stamp a) (mc/clock-of st ea)))
+          (is (= [:no :fact-outside-the-acts-layer (:stamp a)] ((juxt :answer :reason :stamp) (mc/offer! st o)))
+              "E1 N3 x resend: the same no and stamp")
+          (is (= :name-taken (:reason (mc/offer! st (assoc o :claimed-when 1)))) "E1 N3 x other content: a refused first use holds the name")
+          (is (= :mis-tagged (:reason (mc/offer! st (assoc o :layer :base :permission (bp :alice))))) "E1 N3 x tag mismatch"))
+        (let [r (write! (alice :s1 [{:e ea :k :note :v {:token "refused value"}}] :permission (gp :bob)) :lease-permission (sp :s1 :alice))
+              o (:offer r)
+              other (let [l (mc/lease! st {:who :alice :layer :group :session :s1 :permission (sp :s1 :alice) :n 1})
+                          ks (mc/take-locks st (:name l))]
+                      (assoc (mc/seal (mc/build (assoc (alice :s1 [{:e ea :k :note :v {:token "other value"}}] :permission (gp :bob)) :name (:name o)))
+                                      (constantly (first (:ids l))) ks)
+                             :claimed-when (:claimed-when o)))]
+          (is (= :permission-does-not-cover-this (get-in r [:answer :reason])))
+          (is (= [:no :permission-does-not-cover-this] ((juxt :answer :reason) (mc/offer! st other)))
+              "other value content under a refused name hears the recorded no (§J 1: no value digest is kept for a refused act)"))
+        (is (= :no-such-layer (:reason (mc/offer! st (mc/build {:who :operator :layer :nowhere :facts [{:e ea :k :note :v nil}]}))))
+            "E3 L0 x offer")
         (let [o (mc/build {:who :alice :layer :alice :session nil :permission [:alice :alice :alice] :facts [{:e ea :k :note :v nil}]})]
           (is (= :class-mismatch (:reason (mc/offer! st o))))))
 
@@ -223,7 +258,19 @@
           (is (= :stale-replaces (get-in (write! (alice :s1 [{:e eb :k :tag :v nil} {:e ea :k :tag :v nil :replaces [(env/make-name :group :by-entity) 0]}]))
                                          [:answer :reason]))
               "one good fact and one stale: refused whole")
-          (is (nil? (mc/head-of st eb :group :tag [(env/make-name :group :by-entity) 0])))))
+          (is (nil? (mc/head-of st eb :group :tag [(env/make-name :group :by-entity) 0]))))
+        (testing "E2 C1 x a new fact without replace: two unreplaced facts on one chain, each replaceable once; a retract replaces a head and erases nothing"
+          (let [ra (write! (alice :s1 [{:e ea :k :pair :v 1}]))
+                rb (write! (alice :s1 [{:e ea :k :pair :v 2}]))
+                fa [(get-in ra [:offer :name]) 0]
+                fb [(get-in rb [:offer :name]) 0]]
+            (is (= [:yes :yes] [(get-in ra [:answer :answer]) (get-in rb [:answer :answer])]))
+            (is (= :yes (get-in (write! (alice :s1 [{:e ea :k :pair :v 3 :replaces fa}])) [:answer :answer])))
+            (let [rt (write! (alice :s1 [{:e ea :k :pair :v nil :replaces fb}]))]
+              (is (= :yes (get-in rt [:answer :answer])) "a retract, replacing the other head")
+              (is (= [2] (map :value (rows-of ea (first fb)))) "the replaced value still opens: a retract erases nothing")
+              (is (= [nil] (map :value (rows-of ea (get-in rt [:offer :name]))))))
+            (is (= :stale-replaces (get-in (write! (alice :s1 [{:e ea :k :pair :v 4 :replaces fb}])) [:answer :reason]))))))
 
       (testing "a grain switch on a shared layer is the operator's, a new settings version; a person's is refused (OP8, M14)"
         (let [before (count (mc/settings-versions st :group))
@@ -240,7 +287,10 @@
               (is (= :grain-mismatch (get-in r [:answer :reason])))
               (is (empty? (mc/lease-rows st (get-in r [:lease :name]))) "its leases consumed at the recorded refusal")))
           (is (= :control-not-allowed (:reason (mc/offer! st (mc/build (alice :s1 [{:e :group :k :lock-grain :v :per-value}]))))))
-          (is (= :yes (:answer (mc/offer! st (mc/build {:who :operator :layer :group :facts [{:e :group :k :lock-grain :v :per-value}]})))))))
+          (is (= :yes (:answer (mc/offer! st (mc/build {:who :operator :layer :group :facts [{:e :group :k :lock-grain :v :per-value}]}))))))
+        (is (= :unsupported-reclass (:reason (mc/offer! st (mc/build {:who :operator :layer :group :facts [{:e :group :k :class :v :by-layer}]}))))
+            "E3 L4 x re-class: not ruled, refused (O9)")
+        (is (= :stale-revoke (:reason (mc/offer! st (mc/revoke-offer st [:nobody :group :group root])))) "E4 P0 x revoke"))
 
       ;; ------------------------------------------------------- permissions (R7)
       (testing "the permission cases at this gate"
@@ -326,7 +376,11 @@
             (is ok)
             (is (= {:values {[:group :note nil] :missing}} seen) "the model's D2: :missing, as the rig")
             (is (= :permission-revoked (:reason (mc/offer! st (mc/build (alice :s1 [{:e ea :k :note :v nil}])))))
-                "every session beneath her revoked permission is cut, with no write to them (R19)"))))
+                "every session beneath her revoked permission is cut, with no write to them (R19)")
+            (is (= :stale-revoke (:reason (mc/offer! st (mc/revoke-offer st (gp :alice))))) "E4 P2 x revoke again (R18)")
+            (is (= :yes (:answer (mc/offer! st (mc/grant-offer (gp :alice))))) "E4 P2 x re-grant: admitted as a fact")
+            (is (= :permission-revoked (:reason (mc/offer! st (mc/build (alice :s1 [{:e ea :k :note :v nil}])))))
+                "and the first grant's row stands, revoked (P8)"))))
 
       ;; ------------------------------------------------------------ re-class
       (testing "re-class moves a layer here, and its order promise ends there (OP7, M5)"
@@ -344,12 +398,15 @@
           (let [r (write! (agent [{:e ea :k :note :v {:token "micro-era"} :replaces sfid}]))]
             (is (= :yes (get-in r [:answer :answer])) "a :by-entity offer decided here, citing a stream-era permission (settled history)")
             (is (= #{:alice} (get-in r [:answer :subjects])) "a one-owner layer's owner is in the subject slot")
-            (is (= [:alice] (:required (:lock (second (first (:rows (mc/act st ea (get-in r [:offer :name]))))))))
+            (is (= [:alice] (:required (:lock (second (first (:rows (mc/act st ea (get-in r [:offer :name]) (get-in r [:answer :frontier]))))))))
                 "and required in the wrap (owner-required), the lock in the record (an agent layer)")
             (is (= [{:token "micro-era"}] (map :value (rows-of ea (get-in r [:offer :name])))))
             (is (some? (mc/tombstone-of st :alice-agent ea :note sfid)) "the stream-era head replaced here gets its tombstone")
             (is (= head-before (c/head st :alice-agent ea :note sfid)) "the frozen head untouched")
-            (is (= :stale-replaces (get-in (write! (agent [{:e ea :k :note :v 1 :replaces sfid}])) [:answer :reason])) "a second replace refused stale"))
+            (is (= :stale-replaces (get-in (write! (agent [{:e ea :k :note :v 1 :replaces sfid}])) [:answer :reason])) "a second replace refused stale")
+            (is (= [:no :wrong-gate true]
+                   ((juxt :answer :reason :face) (mc/offer! st (mc/build {:who :operator :layer :alice-agent :facts [{:e :alice-agent :k :lock-grain :v :per-act}]}))))
+                "a setting of a layer whose settings the stream gate keeps, sent here: refused on its face (P16, M25)"))
           (testing "two offers appended in one order whose UUID7s sort the other way, in one batch, are decided in UUID7 order"
             (let [lease (mc/lease! st {:who :alice :layer :alice-agent :session :sa :permission agent-perm :n 2})
                   ks (mc/take-locks st (:name lease))

@@ -314,8 +314,10 @@
 
 (defn open-act
   "Every row of an act on one entity, opened as `open-row` does, in index
-  order, through F."
-  ([store e nm] (open-act store e nm nil))
+  order, through one F (§D, the reader's rule): by default the F of the
+  name's task, where the answer is read, passed to the entity's task, which
+  may not have written its own frontier that far yet."
+  ([store e nm] (open-act store e nm (:frontier (lookup store nm nil nil nil))))
   ([store e nm F]
    (let [{:keys [record rows]} (act store e nm F)]
      (mapv (fn [[_ row]] (open-row store e row (:stamp record))) rows))))
