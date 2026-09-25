@@ -11,21 +11,58 @@ changes PROGRESS.md's "phases 2 to 4 wait" for the rig tonight. Builder B
 watches from `/mnt/data/projects/rig-relay-2026-09-26/` and takes over at a
 handoff.
 
-- **Done:** nothing built yet tonight; this section and the defaults.
+- **Done:**
+  - `7a7403bd`: this section, "For Sid", and the defaults below.
+  - `0bc0cd7f`: stamps on the hybrid clock (default 2), merged from
+    `rig-clock` (`42da5880`). `rig.store.clock` holds the whole encoding;
+    the gate's stamp is its `next-stamp`. New tests: `rig.store.clock-test`
+    (no cluster: the packing, both promises under a wall that stands still,
+    steps back or jumps, the counter past 65,535, 2,250 decisions a second
+    for 18 s ending 0 ms ahead where millisecond stamps end 22,500 ms ahead)
+    and, in the stream gate suite, a burst of 3,200 acts from 32 offerers
+    whose every stamp's millisecond lies between its send and its ack.
+    Phase 1's suite on the merge, run by builder A: 19 tests, 785 checks, 0
+    failures, 0 errors, 19 s (`runs/phase1-suite-after-clock-merge.log`;
+    the build's run on 8 tasks is `runs/phase1-suite-hybrid-clock.txt`).
+  - The 08:52 rewrite of `gate.clj`, traced; see "Found tonight".
 - **In flight**, each writer in its own worktree off this branch, merged by
-  commit: the 08:52 rewrite traced through the recall tools (read-only); the
-  hybrid clock on phase 1 (`Softland-rig-clock`); phase 2's plan revised for
-  sealing at the door (`Softland-rig-plan-locks`); phase 3's plan revised for
-  the permission and base defaults (`Softland-rig-plan-micro`); the one-owner
-  read exit planned (`Softland-rig-plan-reads`, `PLAN-read-exit.md`).
+  commit: phase 2's plan revised for sealing at the door
+  (`Softland-rig-plan-locks`, due 02:40); phase 3's plan revised for the
+  permission and base defaults (`Softland-rig-plan-micro`, due 03:00); the
+  one-owner read exit planned (`Softland-rig-plan-reads`,
+  `PLAN-read-exit.md`, due 02:50); phase 6's revision reader planned
+  (`Softland-rig-reader`, `PLAN-revision-reader.md`).
 - **Next:** each plan validated in a fresh session, phase 2's by 03:00 IST;
-  the clock merged and phase 1's suite rerun; then phases 2 and 3 and the
-  read exit built side by side.
+  then phases 2 and 3 and the read exit built side by side off this branch.
 - **How it runs:** worktrees are `/mnt/data/projects/Softland-rig-<name>` on
   branches `rig-<name>`. Every in-process cluster run waits on
   `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`. The partial
   `test/rig/store/gate_test.clj` is Sid's and stays unopened; suites name
   their namespaces, so it never loads.
+
+## Found tonight
+
+**The 08:52 rewrite of `gate.clj` on 25 September was Claude Code's own
+checkpoint restore, not an agent.** Reported only; nothing was changed
+because of it. At 03:22:19 UTC the safeguards refused a message of Sid's in
+the main "rig-build" session (31a3e01d) and the client offered "Double
+press esc to edit your last message". The edited resend at 03:23:08 branches
+from before the refused message. In that gap, at 08:52:49 IST, `gate.clj` was
+replaced in place by that session's file-history backup, taken with the
+refused message at 08:51:59: 12,220 bytes, 303 lines, md5 `50822e82…`, the
+same md5, size and line count the build recorded for the reverted file. The
+restore is a client action, so no transcript records a tool call, and no
+session could have owned it. The two plan sessions RIG.md and README.md
+suspected did nothing. Every other session active then, both Codex rollouts,
+git and the linters are ruled out, each by what it was doing at 08:52:49.
+*Seen* by the recall session: the backup and its time, the refusal, the
+resend's branch point, the file's mtime in the build's own listing, the
+build's record of the reverted file. *Spot-checked by builder A:* the
+backup's md5, size, line count and time; the refusal's text; the resend's
+parent. *Inferred:* that "restore code" was chosen in the rewind menu, which
+the client does not log. For runs with builds in flight: after a refusal,
+restoring the conversation only is safe; restoring code rewrites any file
+the session's history tracks, its subagents' files included.
 
 ## For Sid
 
@@ -178,7 +215,9 @@ session rewrote `gate.clj`, restoring an earlier text of the build's own
 without one fix. The build re-applied the fix and checked its sources
 against a backup after every later step, and the suite passed after. Two
 Fable plan sessions were running in the same worktree then, each told to
-edit only its plan file. The cause is not verified.
+edit only its plan file. The cause is not verified. *(Traced on 26
+September to a checkpoint restore in the main session; see "Found
+tonight".)*
 
 **The first run** stopped inside phase 1 at 03:05. My response writing the
 stage 1 test suite was stopped by a safety classifier, and I stopped rather
@@ -346,7 +385,9 @@ The measurements found one thing none of the three numbers asked about:
 stamps count milliseconds and each decision stamps at least one past the
 last, so above 1,000 acts a second on one task the stamps run ahead of real
 time (21 seconds after 18 seconds at 2,250 a second). The stamp's unit has
-to be settled before the first kept record.
+to be settled before the first kept record. *(26 September: stamps are now
+the hybrid clock, default 2 above; this paragraph describes the
+millisecond stamps the numbers were measured with.)*
 
 Only one in-process cluster can run on this machine at a time (port 2002),
 so measurements run one after another.
