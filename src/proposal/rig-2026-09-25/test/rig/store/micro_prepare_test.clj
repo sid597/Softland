@@ -457,7 +457,7 @@
             [first-fp second-fp] (sort [(mc/fp-of so) (mc/fp-of so2)])]
         (is (= :yes (:answer (answer-of ws so))))
         (is (= {[(:name so) second-fp] :name-taken} (faces ws)))
-        (is (= first-fp (some (fn [[kind route field _ v]] (when (and (= :name kind) (= :fp field)) v)) ws))
+        (is (= first-fp (some (fn [[kind _ field _ v]] (when (and (= :name kind) (= :fp field)) v)) ws))
             "the decided envelope's fingerprint beside the record, for block 2b's filter")))
     (testing "a face refusal is data under [name fp], never the name's answer (M8)"
       (let [bad (assoc so :who :store)

@@ -783,81 +783,81 @@
         heads (into {} (map (fn [[e k r]] [[e k r] (head-stamp w L e k r)])) (replacing-keys o))
         tasks (touched-tasks w sk)
         clock (reduce max 0 (map #(clock-of w %) tasks))
-        d (micro-decision o settings rows heads clock wall)]
-    (let [grain (or (:grain settings) :per-value)
-            reason (first-in-order (concat [(:reason d)]
-                                           (micro-extras o settings)
-                                           [(:value-reason sk)
-                                            (locks/grain-refusal grain (:facts o))
-                                            (:person-reason sk)]))
-            yes? (nil? reason)
-            stamp (:stamp d)
-            rec (micro-record o reason stamp (:digest sk) (record-subjects sk settings reason) b)
-            entities (:entities sk)
-            w (-> w
-                  (assoc-in [:names nm] {:record rec :fp fp})
-                  (put [:name nm :answer] [:name nm :answer nil rec])
-                  (put [:name nm :fp] [:name nm :fp nil fp])
-                  (as-> w (reduce (fn [w e] (put w [:entity e :answers nm] [:entity e :answers nm rec])) w entities))
-                  (as-> w (reduce (fn [w t] (update-in w [:given t] (fnil max 0) stamp)) w tasks))
-                  (consume (:owned sk)))]
-        (if-not yes?
-          w
-          (let [indexed (map-indexed vector (:facts o))
-                ;; heads: every fact heads its chain; a replaced head is kept with its replacer (M7)
-                w (reduce (fn [w [i f]]
-                            (let [fid [nm (long i)] e (:e f) k (:k f) head {:stamp stamp :batch b}
-                                  w (-> w
-                                        (assoc-in [:heads [L e k fid]] head)
-                                        (put [:entity e :heads [L k fid]] [:entity e :heads [L k fid] head]))]
-                              (if-let [r (:replaces f)]
-                                (if-let [mh (get-in w [:heads [L e k r]])]
-                                  (let [mh2 (assoc mh :replaced-by fid :replaced-batch b)]
-                                    (-> w
-                                        (assoc-in [:heads [L e k r]] mh2)
-                                        (put [:entity e :heads [L k r]] [:entity e :heads [L k r] mh2])))
-                                  (let [tomb {:by fid :batch b}]
-                                    (-> w
-                                        (assoc-in [:tombs [L e k r]] tomb)
-                                        (put [:entity L :replaced [e k r]] [:entity L :replaced [e k r] tomb]))))
-                                w)))
-                          w indexed)
-                ;; settings: a new version keyed by this batch (never an overwrite of an earlier one)
-                w (if-let [s (:settings d)]
-                    (let [v (assoc (select-keys s [:kind :owner :class :grain]) :batch b)]
-                      (-> w
-                          (assoc-in [:settings L :micro] v)
-                          (put [:entity L :settings b] [:entity L :settings b v])))
-                    w)
-                ;; a group's members
-                w (reduce (fn [w p] (put w [:entity L :members p] [:entity L :members p b]))
-                          w (for [f (:facts o) :when (= :members (:k f)) p (sort (:v f))] p))
-                ;; permissions: this store's delta rows (M5), batch-stamped
-                w (reduce (fn [w [pid row]]
-                            (let [mine (get-in w [:perms [L pid] :micro])
-                                  mrow (if (and (:revoked row) (nil? (:revoked mine)))
-                                         (assoc mine :revoked (:revoked row) :revoked-batch b)
-                                         (assoc mine :granted (:granted row) :granted-batch b))]
-                              (-> w
-                                  (assoc-in [:perms [L pid] :micro] mrow)
-                                  (put [:entity L :permissions pid] [:entity L :permissions pid mrow]))))
-                          w (:permissions d))
-                ;; a lease act mints its rows beside its name row (§A, M16)
-                w (if (lease-act? o)
-                    (update w :mints conj
-                            [:mint nm nil nil {:under (when-not (contains? gate/exempt-actors (:who o)) (:who o))
-                                               :session (:session o)
-                                               :layer L
-                                               :kind (:kind settings)
-                                               :owner (locks/person-owner (:owner settings))
-                                               :count (long (lease-count (first (:facts o))))
-                                               :batch b}])
-                    w)
-                ;; a session close deletes its unconsumed lease rows in the layer ([PV-F4])
-                w (if (close-act? o)
-                    (update w :dels into (map (fn [ln] [:del-leases ln nil nil nil])) (:close-names sk))
-                    w)]
-            w)))))
+        d (micro-decision o settings rows heads clock wall)
+        grain (or (:grain settings) :per-value)
+        reason (first-in-order (concat [(:reason d)]
+                                       (micro-extras o settings)
+                                       [(:value-reason sk)
+                                        (locks/grain-refusal grain (:facts o))
+                                        (:person-reason sk)]))
+        yes? (nil? reason)
+        stamp (:stamp d)
+        rec (micro-record o reason stamp (:digest sk) (record-subjects sk settings reason) b)
+        entities (:entities sk)
+        w (-> w
+              (assoc-in [:names nm] {:record rec :fp fp})
+              (put [:name nm :answer] [:name nm :answer nil rec])
+              (put [:name nm :fp] [:name nm :fp nil fp])
+              (as-> w (reduce (fn [w e] (put w [:entity e :answers nm] [:entity e :answers nm rec])) w entities))
+              (as-> w (reduce (fn [w t] (update-in w [:given t] (fnil max 0) stamp)) w tasks))
+              (consume (:owned sk)))]
+    (if-not yes?
+      w
+      (let [indexed (map-indexed vector (:facts o))
+            ;; heads: every fact heads its chain; a replaced head is kept with its replacer (M7)
+            w (reduce (fn [w [i f]]
+                        (let [fid [nm (long i)] e (:e f) k (:k f) head {:stamp stamp :batch b}
+                              w (-> w
+                                    (assoc-in [:heads [L e k fid]] head)
+                                    (put [:entity e :heads [L k fid]] [:entity e :heads [L k fid] head]))]
+                          (if-let [r (:replaces f)]
+                            (if-let [mh (get-in w [:heads [L e k r]])]
+                              (let [mh2 (assoc mh :replaced-by fid :replaced-batch b)]
+                                (-> w
+                                    (assoc-in [:heads [L e k r]] mh2)
+                                    (put [:entity e :heads [L k r]] [:entity e :heads [L k r] mh2])))
+                              (let [tomb {:by fid :batch b}]
+                                (-> w
+                                    (assoc-in [:tombs [L e k r]] tomb)
+                                    (put [:entity L :replaced [e k r]] [:entity L :replaced [e k r] tomb]))))
+                            w)))
+                      w indexed)
+            ;; settings: a new version keyed by this batch (never an overwrite of an earlier one)
+            w (if-let [s (:settings d)]
+                (let [v (assoc (select-keys s [:kind :owner :class :grain]) :batch b)]
+                  (-> w
+                      (assoc-in [:settings L :micro] v)
+                      (put [:entity L :settings b] [:entity L :settings b v])))
+                w)
+            ;; a group's members
+            w (reduce (fn [w p] (put w [:entity L :members p] [:entity L :members p b]))
+                      w (for [f (:facts o) :when (= :members (:k f)) p (sort (:v f))] p))
+            ;; permissions: this store's delta rows (M5), batch-stamped
+            w (reduce (fn [w [pid row]]
+                        (let [mine (get-in w [:perms [L pid] :micro])
+                              mrow (if (and (:revoked row) (nil? (:revoked mine)))
+                                     (assoc mine :revoked (:revoked row) :revoked-batch b)
+                                     (assoc mine :granted (:granted row) :granted-batch b))]
+                          (-> w
+                              (assoc-in [:perms [L pid] :micro] mrow)
+                              (put [:entity L :permissions pid] [:entity L :permissions pid mrow]))))
+                      w (:permissions d))
+            ;; a lease act mints its rows beside its name row (§A, M16)
+            w (if (lease-act? o)
+                (update w :mints conj
+                        [:mint nm nil nil {:under (when-not (contains? gate/exempt-actors (:who o)) (:who o))
+                                           :session (:session o)
+                                           :layer L
+                                           :kind (:kind settings)
+                                           :owner (locks/person-owner (:owner settings))
+                                           :count (long (lease-count (first (:facts o))))
+                                           :batch b}])
+                w)
+            ;; a session close deletes its unconsumed lease rows in the layer ([PV-F4])
+            w (if (close-act? o)
+                (update w :dels into (map (fn [ln] [:del-leases ln nil nil nil])) (:close-names sk))
+                w)]
+        w))))
 
 (defn- fold-envelope
   "One envelope of the batch, in order (§A 'The fold', [PV-F3]):

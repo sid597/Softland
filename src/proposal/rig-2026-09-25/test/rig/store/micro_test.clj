@@ -23,10 +23,8 @@
             [rig.store.client :as c]
             [rig.store.clock :as hlc]
             [rig.store.envelope :as env]
-            [rig.store.gate :as gate]
             [rig.store.inject :as inject]
             [rig.store.locks :as locks]
-            [rig.store.micro :as micro]
             [rig.store.micro-client :as mc]
             [rig.store.module :as m]))
 
@@ -78,7 +76,6 @@
           write! (fn [spec & opts] (apply mc/write! st spec opts))
           alice (fn [s facts & {:as more}] (merge {:who :alice :layer :group :session s :permission (sp s :alice) :facts facts} more))
           rows-of (fn [e nm] (mc/open-act st e nm))
-          answer (fn [r] (select-keys (:answer r) [:answer :reason]))
           ;; two entities on two different tasks, when there are two
           ents (vec (take 64 (for [i (range)] (keyword (str "e" i)))))
           task-of (memoize (fn [e] (mc/task-of st e)))
@@ -312,7 +309,7 @@
         (testing "D1: a group write under Alice's session permission kept in her hand layer: refused :permission-from-another-layer; the value is missing, as in the model"
           (let [r (write! (alice :s1 [{:e :e0 :k :note :v {:token "d1"}}] :permission [:alice :group :alice-hand])
                           :lease-permission (sp :s1 :alice))
-                [_ hist expect] (first fs/d-cases)
+                [_ _ expect] (first fs/d-cases)
                 [ok seen _] (fs/play fm/baseline (first fs/d-cases) [])]
             (is (= :permission-from-another-layer (get-in r [:answer :reason])))
             (is (empty? (rows-of :e0 (get-in r [:offer :name]))) "no value landed: :missing")
@@ -348,11 +345,11 @@
           (mc/open-session! st :s4 :bob [:group])
           (mc/open-session! st :s5 :bob [:group])
           (let [bob (fn [s v] (mc/build {:who :bob :layer :group :session s :permission (sp s :bob) :facts [{:e ea :k :note :v v}]}))
-                sealed-for (fn [s v] (let [l (mc/lease! st {:who :bob :layer :group :session s :permission (sp s :bob) :n 1})
+                sealed-for (fn [s] (let [l (mc/lease! st {:who :bob :layer :group :session s :permission (sp s :bob) :n 1})
                                            ks (mc/take-locks st (:name l))]
                                        (fn [o] (mc/seal o (constantly (first (:ids l))) ks))))
-                seal4 (sealed-for :s4 1)
-                seal5 (sealed-for :s5 2)
+                seal4 (sealed-for :s4)
+                seal5 (sealed-for :s5)
                 ;; a name's UUID7 is millisecond-grained (random within the millisecond), so
                 ;; the order of two builds is the batch order only a millisecond apart (M2)
                 revoke4 (mc/revoke-offer st (sp :s4 :bob))
