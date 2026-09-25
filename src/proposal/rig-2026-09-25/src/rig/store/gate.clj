@@ -216,6 +216,22 @@
            (some #(and (setting-fact? offer %) (= :class (:k %)) (= :by-layer (:v %))) facts))
       :unsupported-reclass)))
 
+(def micro-control-keys
+  "Control keys only the micro gate acts on: a group's `:members`, its
+  making fact there (rig.store.micro `micro-extras`). Envelope's control
+  keys hold them, so the parse takes their values as plaintext; at the
+  stream gate such a fact is refused `:control-not-allowed` (wave 1, the
+  mirror of the micro gate's `foreign-control-keys`), so no act here keeps
+  a plaintext value under a key this gate does not act on."
+  #{:members})
+
+(defn stream-refusal
+  "This gate's own reason beyond `refusal` (which both gates share):
+  `:control-not-allowed` for a fact under a key only the micro gate acts
+  on. Checked after `refusal`, before the lock reasons."
+  [offer]
+  (when (some #(contains? micro-control-keys (:k %)) (:facts offer)) :control-not-allowed))
+
 ;; ------------------------------------------------------------------ stamp
 
 (defn with-opened
@@ -338,6 +354,7 @@
   ([offer settings rows heads clock wall digest lx]
    (let [nm (:name offer)
          reason (or (refusal offer settings rows heads)
+                    (stream-refusal offer)
                     (locks/lock-refusal offer settings lx))
          ;; the values the gate opened (stage 2's `read-values`, by fact index)
          opened (:values (:read lx))
