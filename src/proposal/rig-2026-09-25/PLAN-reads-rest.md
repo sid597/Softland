@@ -1,7 +1,7 @@
 # Plan — stage 5b, "reads, the rest": frontier reads, standing reads, the close act, indexes and forgets whole
 
 <!-- Phase 1 of the rama skill for the rest of Sid's phase 5, written
-26 September 2026, 02:40 to 04:10 IST, by a fresh-context session (Claude
+26 September 2026, 02:40 to 03:25 IST, by a fresh-context session (Claude
 Opus 5.5, effort max) in worktree /mnt/data/projects/Softland-rig-plan-reads-rest,
 branch rig-plan-reads-rest. Plan only; no code, no probe was needed (see
 "Probes"). Sources read: SPEC.md (phase 5, "What Rama showed"); RIG.md on
@@ -698,10 +698,11 @@ matter. [docs: a proxy may target a value inside a top-level map's value,
 after `:after` and at or before the read's moment. "New" is exact in both
 stores:
 
-- **One-owner.** `:after {:stamp s0}`, where s0 is the moment of the last
-  acknowledged delivery. The moment of a read is `min(asked, clock)`
-  (FR2), and every fact admitted on the home task after that read gets a
-  stamp above the clock it read, so "stamp > s0 and ≤ m" names exactly the
+- **One-owner.** `:after {:stamp s0}`, where s0 is the handle's scan
+  moment, the moment of the last delta it ran. A standing read asks no
+  past moment, so each of its reads is at the home task's clock (FR2's
+  `min(asked, clock)` with nothing asked), and every fact admitted on the
+  home task after that read gets a stamp above the clock it read, so "stamp > s0 and ≤ m" names exactly the
   facts admitted between the two reads: nothing missed, nothing twice.
 - **Shared.** `:after {:frontier F0}`: "batch > F0 and ≤ F" names exactly
   the facts that became visible between the two frontiers.
