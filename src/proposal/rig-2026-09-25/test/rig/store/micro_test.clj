@@ -15,6 +15,7 @@
 
   Vocabulary: \"key\" is a fact's key; \"lock\" is an encryption key."
   (:require [clojure.test :refer [deftest is testing]]
+            [clojure.walk]
             [com.rpl.rama :refer :all]
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.test :as rtest]
@@ -30,6 +31,12 @@
 ;; ================================================================ helpers
 
 (defn- say [& xs] (apply println "OBSERVED" xs) (flush))
+
+(defn- bytes->vec
+  "Data with every byte array as a vector of its bytes (a byte array
+  compares by identity)."
+  [x]
+  (clojure.walk/postwalk #(if (bytes? %) (vec %) %) x))
 
 (defn- wait-until
   ([f] (wait-until f 60000))
@@ -125,8 +132,10 @@
                            :facts [{:e :eb0 :k :note :v {:token "replaced here"} :replaces base-fid}]})]
             (is (= :yes (get-in r [:answer :answer])))
             (is (= {:by [(get-in r [:offer :name]) 0]} (dissoc (mc/tombstone-of st :base :eb0 :note base-fid) :batch)))
-            (is (= base-row-before (foreign-select-one [(keypath :base :log (:name base-offer) 0)] (:layers st)))
-                "the stream-era row is byte-identical before and after the re-class (its lock record, once phase 2's rows carry one)")
+            ;; wave 1: phase 2's rows carry sealed bytes, a digest and a lock record, and a byte
+            ;; array compares by identity, so the two reads compare their bytes as vectors
+            (is (= (bytes->vec base-row-before) (bytes->vec (foreign-select-one [(keypath :base :log (:name base-offer) 0)] (:layers st))))
+                "the stream-era row is byte-identical before and after the re-class, its lock record included")
             (is (some? (c/head st :base :eb0 :note base-fid)) "the frozen stream head is not deleted (another topology's PState)")
             (is (= :stale-replaces (get-in (write! {:who :alice :layer :base :session :sb :permission [:sb :base :base (bp :alice)]
                                                      :facts [{:e :eb0 :k :note :v {:token "again"} :replaces base-fid}]})
@@ -319,11 +328,16 @@
           (is (= :permission-from-another-layer
                  (get-in (write! (alice :s1 [{:e ea :k :note :v 1}] :permission [:s1 :group :group (bp :alice)]) :lease-permission (sp :s1 :alice))
                          [:answer :reason])))
-          (is (= :permission-from-another-layer
-                 (:reason (c/offer! st (c/build {:who :alice :layer :alice :class :by-layer :session :sx
-                                                 :permission [:sx :alice :alice [:alice :alice-agent :alice-agent]]
-                                                 :facts [{:e :e0 :k :note :v 1}]}))))
-              "the stream gate walks the same chain"))
+          ;; wave 1 (phase 2's lease road, RIG.md For Sid 14): at the stream gate the door
+          ;; leases before it writes, so the chain is walked, and refused, on the lease act;
+          ;; the value act, citing no leased lock, is refused on its face
+          (let [chain [:sx :alice :alice [:alice :alice-agent :alice-agent]]]
+            (is (= :permission-from-another-layer (:reason (c/lease! st :alice :alice :sx 1 chain)))
+                "the stream gate walks the same chain, on the lease act it records")
+            (is (= :no-such-lock
+                   (:reason (c/offer! st (c/build {:who :alice :layer :alice :class :by-layer :session :sx
+                                                   :permission chain :facts [{:e :e0 :k :note :v 1}]}))))
+                "and the value act that follows is refused on its face (For Sid 14)")))
         (testing "revoke cuts everything below, on the stream gate: root, session, agent (R19, default 5)"
           (let [sroot [:alice :alice :alice]
                 sess [:s7 :alice :alice sroot]
