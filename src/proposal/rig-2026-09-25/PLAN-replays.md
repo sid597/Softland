@@ -226,3 +226,174 @@ no rig counterpart (IMPLICIT_SPEC D7: no leader epoch the rig controls,
 replication factor 1). The adapter refuses a history containing a step
 kind it has no row for, with the step named, so the report says "not
 practical" rather than playing part of it.
+
+## The fourteen cases
+
+The model's side of each is from `runs/phase8-model-traces.txt` (baseline)
+and `runs/phase8-model-report.txt` (the model's own report under the
+configurations `run.clj` names for the fixed histories). Names are the
+model's: `o0`, `o2`, … in the order it made them, `crossing:o2` and
+`landing:o2` for a promotion's store-made offers. "Settle" is scenarios.clj's
+`[:work 0] [:work 1] [:work 2] [:batch]`. Every case's seed is the rig's
+seed above; every value write carries a lease act before it (KD2); every
+read through the exit is an entry act (KD6). The status is the prediction
+this plan makes, to be confirmed or refuted by the run; the three classes
+are defined under "The report".
+
+### A: forgetting (A1 to A8)
+
+| case | the model's history and answers (baseline) | the rig plays | status, and the predicted line |
+|---|---|---|---|
+| A1 in Alice's layer a note and a mention of Bob both die with Alice | Alice's `o0` (`e0 :note`, `e1 :mention #{:bob}`) into `:alice`, yes at `[:work 0]`; Alice forgotten; values `alice note` erased, `alice mention bob` erased | at `[:work 0]` the door's `offer!` of the two-fact act into `:alice`; at the forget, `forget-person! :alice`; the store's judgment by `opens?` on both rig facts | **practical**. Values as said (both `{:erased-at s}`, the person forget's stamp). Answers 1 of 1 as the model's. Closing read: the exit's read for Alice is refused (KD10, predicted); beside it, the store's judgment |
+| A2 in the group a mention of Bob alone dies with Bob | Bob's `o0` (`e0 :mention #{:bob}`) into `:group`, yes at `[:batch]`; Bob forgotten; `group mention bob` erased | at `[:batch]` Bob's write into `:group` through the micro door (lease act, then the sealed act), waited for with the frontier; `forget-person! :bob`; the store's judgment by the group row read through the frontier | **practical**. Values as said. Answers as the model's. Closing read for Alice: the group through phase 5's shared read if built, else the frontier read, named in the line |
+| A3 in the group a plain note about no one survives both forgets | Bob's `o0` (`e0 :note`) into `:group`; Bob, then Alice forgotten; `group note` open | as A2, two person forgets in the model's order | **practical**. Values as said (open, its value equal to the model's). Closing read: refused for Alice, forgotten (KD10) |
+| A4 in the group a value about Alice and Bob survives Alice alone | Bob's `o0` (`e0 :mention #{:alice :bob}`); Alice forgotten; open | as A2 | **practical**. As said. Closing read refused (KD10) |
+| A5 … survives Bob alone | the same; Bob forgotten; open | as A2 | **practical**. As said. Closing read for Alice: open |
+| A6 … and dies when both are forgotten | the same; Bob, then Alice forgotten; erased | as A2 | **practical**. As said. Closing read refused (KD10) |
+| A7 marked, dies with Bob | Bob's `o0` (`e0 :mention #{:alice :bob}`, mark `#{:die-with-any}`); Bob forgotten; erased | as A2, the mark on the fact | **practical**. As said. Closing read for Alice: erased, with its date |
+| A8 (ruled 25 September) in Alice's layer a mention of Bob survives Bob | Alice's `o0` (`e1 :mention #{:bob}`) into `:alice`; Bob forgotten; open | as A1, `forget-person! :bob` | **practical**. As said. Closing read for Alice: open |
+
+Under the other three A configurations the rig's outcome does not change
+(it implements baseline), so its line says "differs from this
+configuration" exactly where the model's own line says DIFFERS (A1 under
+`baseline-but-not-owner-required`; A8 under
+`baseline-with-a-read-as-owner-and-an-other`; A2 and A6 under
+`baseline-with-the-third-reading-of-a`) and agrees elsewhere. A rig line
+that agrees with a non-baseline configuration where baseline differs is a
+finding: the rig then decides as that reading, not Sid's.
+
+### B: promotion against a forget (B1 to B4)
+
+| case | the model's history and answers (baseline) | the rig plays | status, and the predicted line |
+|---|---|---|---|
+| B1 a value forget queued before the read-out: pending, then refused | Alice's note `o0` yes; `[:promote 0 :group 1]` queues `o2`; `[:forget-value 0]` queues `o3` (target `o0#0`); `[:step 0]` decides `o2` yes; read: note open, `o2` pending; `[:step 0]` decides `o3` yes (note erased); read: pending; `[:step 0]` decides `crossing:o2` no `:source-erased`; closing read refused. Values `alice note` erased; shown `[:pending :pending :refused]` | `o0` at `[:work 0]`; at the first `[:step 0]`, the model decided `o2` alone, so: `lease-landing!` in `:group`, answered; `inject/hold!` on the request's name at `:before-read-out`; `promote!` → the request's yes; the read; at the second `[:step 0]`, `forget-value!` of the mapped `o0#0`; the read; at the third, `release!` and the door's resend of the request, answered from the record, whose continuation's read-out answers | **approximated**: the model's separate read-out event is the hold and the resend. Predicted: values and shown as said; the crossing's no carries `:source-erased` as the model's; KD3, KD4 |
+| B2 Alice forgotten before the read-out: pending, then refused | `o0` yes; `o2` queued; `[:step 0]` decides `o2`; read pending; Alice forgotten; `[:work 0]` decides `crossing:o2` no `:source-erased`; closing refused. Values `alice note` erased; shown `[:pending :refused]` | as B1 up to the first read; `forget-person! :alice`, its fan-out waited for; at `[:work 0]` release and resend (P4 T2, L876-879) | **approximated** (the hold). Predicted as said. The closing read's exit read is refused for Alice (KD10); `promotion-status` still answers `:refused` |
+| B3 a value forget after the read-out: crossed, then done; the copy stays | `o0` yes; `o2` queued; `[:work 0]` decides `o2` and `crossing:o2`, both yes, and queues `landing:o2`; read crossed; `o3` queued, decided at `[:work 0]`; read crossed; `[:batch]` decides `landing:o2` yes; read done; closing done. Values `alice note` erased, `group note` open; shown `[:crossed :crossed :done :done]` | `o0`; at the first `[:work 0]`: `lease-landing!` answered, the micro topology paused, `promote!` (request and read-out as one record; the forward's append waits); read; `forget-value!`; read; at `[:batch]` the topology resumed, the landing's answer and the frontier waited for; read; closing read | **approximated**: the model's queued landing is the paused micro topology. Predicted as said; KD3, KD4, KD13 (done is read only after the frontier passes the landing's batch) |
+| B4 Alice forgotten after the read-out: crossed, then done; the copy stays | as B3 with Alice forgotten in place of the value forget, and no read between the forget and `[:batch]`. Shown `[:crossed :done :done]` | as B3, `forget-person! :alice` in place of the value forget; the model's history followed exactly, so no read is added (P4's T4 leaves this open; the replay does not) | **approximated** (the pause). Predicted as said on values and shown, **at risk**: the landing lease is Alice's, and a lease row is sealed under its act's writer (For Sid 4). If her forget leaves the landing's lock unopenable, the rig answers `:landing-lock-gone` and shows `[:crossed :refused :refused]` where the model shows done: a finding, reported as such. P4 names PR13 as what lets the landing land; the run decides. Closing read refused for Alice (KD10) |
+
+Under `baseline-but-not-p6-line-at-the-read-out` the model's B lines are
+all "as said" with P6 objecting to B3's and B4's copies. The rig's line
+beside says the outcome is the same and that the objection is the model's
+property, which the rig does not evaluate (the properties use the model's
+`:order`, a ruler the rig has no counterpart of).
+
+### D: permissions (D1, D2)
+
+| case | the model's history and answers (baseline) | the rig plays | status, and the predicted line |
+|---|---|---|---|
+| D1 a group write under Alice's session permission; the session revokes it between prepare and commit | Alice's `o0` (`e0 :note`) into `:group` citing `[:alice :group :session]`, queued; `[:prepare]` decides it no `:permission-from-another-layer`; the operator's revoke `o2` in `:alice-hand` queued, decided yes at `[:step 1]`; `[:commit]` shows `o0`'s no. Value `group note` missing | at `[:prepare]`, Alice's write into `:group` citing `[:alice :group :alice-hand]`: the door's lease act is refused `:permission-from-another-layer` (recorded, under the lease's name) and the value act, holding no lock, is refused `:no-such-lock` on its face (nothing recorded); both waited for; at `[:step 1]` the operator's revoke of `[:alice :group :alice-hand]` in `:alice-hand`, yes; at `[:commit]` a check that the answers are visible | **approximated**: prepare and commit are one batch in the rig, so the value's decision is committed before the revoke where the model's is committed after; under baseline the answer rests on where the permission lives, which the pid itself says, so the order cannot change it. Predicted: value missing, as said; answers differ as KD1. Under `baseline-but-not-permissions-in-their-layer` the model's value is open (rv objects) and the rig's line says "differs from this configuration" |
+| D2 a group write under her group permission, revoked in the group first | the operator's revoke `o0` of `[:alice :group :own]` in `:group`, yes at `[:batch]`; Alice's `o1` into `:group`, no `:permission-revoked` at `[:batch]`. Value missing | at the first `[:batch]` the operator's revoke of `[:alice :group :group [:group :group :group]]` in `:group`, standing on its grant, waited for with the frontier; at the second, Alice's write: the lease act refused `:permission-revoked`, the value act `:no-such-lock` on its face | **practical**. Value missing, as said; answers differ as KD1. The walk (R19) finds the revoke on the cited pid itself here, so no ancestor is involved |
+
+## Differences known before the run, reported every run
+
+These are reported, never filtered: each appears in the lines of the cases
+it touches, by number, with what each side saw. "Predicted" marks those
+reasoned from the plans and not yet run.
+
+**Acts the rig adds that the model does not have.**
+
+- **KD2. A lease act before each value write** (default 1; P2 L105-107:
+  "phase 8 reports the lease acts as a difference by construction"). The
+  door leases in the value's layer, the gate mints the locks, the act cites
+  them. Control acts (forgets, revokes, the request) carry no value and
+  lease nothing. Every case.
+- **KD3. The landing lease before a promotion** (P4 L69-71, PR4, PR9): a
+  lease act of count 1 in the target, bound to the one landing name the
+  request will cause. B1 to B4.
+- **KD4. The read-out as a continuation of the request's record** (P4 PR7,
+  L649-652): no queued offer, no depot record; the request's ack carries
+  the crossing's answer. The order is the model's; the granularity is not,
+  which is why B1 and B2 need a hold. B1 to B4.
+- **KD5. The re-send from the stored forward** (P4 PR8, L660-664,
+  L1023-1026): the rig re-sends the stored forward byte for byte, even
+  after the source is forgotten; the model sends again only while the
+  source opens. No fixed history crashes between forward and landing, so
+  this shows only if B3 or B4 falls back to the `:before-forward` hold,
+  where the landing is then sent after the forget: the outcome is the
+  model's (done, the copy open), by another road, and the line says so.
+- **KD6. Every read through the exit is an act** (defaults 3 and 4; P5
+  L259-277): an entry in the reader's working layer, sealed at the door
+  under its own lease, stamped after its moment. The model's reads are not
+  acts. The entries land in `:alice-hand`, which no fixed history
+  compares, so they cannot change a compared answer; they are counted in
+  the line.
+- **KD7. Persons are data** (P2 L1904-1906, L7, L8): the `:people` layer,
+  the operator's `make-person!` and `forget-person!` acts, each answered
+  and stamped, with a fan-out to every task. The model has no make-person
+  step, and its person forget is a lock-store step with one global stamp,
+  "later than everything so far" (IMPLICIT_SPEC D3). Every case's seed;
+  every A case and B2, B4.
+- **KD8. Layers, the base and the group are made by acts** (P10, default
+  6, P3 L641-644): the model's layers are static. The base is one-owner on
+  the stream gate until the group's making re-classes it; the model's is
+  shared from the start ("the seed is the only place the two differ", P3
+  L641-644). Every case's seed; no fixed history writes into the base.
+
+**Refusals and answers that differ.**
+
+- **KD1. A writer without permission is refused on the lease, and the
+  value act on its face** (For Sid 1; P2 L1968-1973; P3 L225-232): the
+  lease act, citing the writer's permission, is refused with the model's
+  reason and recorded; the value act then cites no lock and is refused
+  `:no-such-lock` on its face, nothing recorded. The model records the
+  permission reason on the value act itself. D1 (`:permission-from-another-layer`)
+  and D2 (`:permission-revoked`). The value is missing on both sides.
+- **KD9. Permission ids and chains** (P3 L442-445, L478-484, M20): the
+  rig's id is `[holder layer in parent]` beneath a layer's root, at most
+  four deep, and the holder may be the offer's session; the model's is a
+  flat triple held by `:who`. Mapped as data above; no fixed history
+  depends on a chain except D2, where the revoke is on the cited id itself.
+- **KD10. After a person is forgotten, the exit cannot read that person's
+  layers for anyone** (predicted): an exit read appends an entry sealed
+  under a lease in the reader's working layer, and a lease whose layer's
+  owner has a destroyed person lock is refused `:person-forgotten` (P2
+  L742, L1716-1726). A one-owner layer is visible only to its owner (P5
+  L679-682), so after Alice's forget nobody reads `:alice` through the
+  exit; the model's read shows her facts with their erased dates. The
+  replay attempts the read and reports what the exit answers (predicted a
+  refusal; which reason, `:person-forgotten` from the lease or a refusal
+  of the entry, the run shows), with the store's judgment beside it. The
+  model's `:values` comparison does not depend on it. A1, A3, A4, A6, B2,
+  B4 (closing reads, and B2's and B4's reads after the forget).
+
+**Observations that differ in form, not in answer.**
+
+- **KD11. What a read is and what "now" means** (P5 L1293-1316): the
+  model's read covers every layer as of the largest clock anywhere, with
+  every promotion's status; the rig's covers one layer as of that layer's
+  task clock (a shared layer as of the frontier), and a promotion's status
+  is its own query. The replay reads, at each model read, every layer the
+  case's facts are in, and each request's status; it compares the case's
+  own facts, never the seed's, never the rig-only acts.
+- **KD12. Stamps** (default 2; P3 L693-701): the rig's hybrid clock values
+  (ms × 65536 + counter), per task, against the model's integers. Never
+  compared as values; the replay checks the relations both promise
+  (a decision after what it stood on; an erased date after the value).
+- **KD13. Done means settled** (P4 L329-331, L553-555): the rig reads done
+  only once the landing is at or below the frontier; the model's, once the
+  landing's stamp is at or before T. The replay reads after the frontier
+  passes the landing's batch, so the two agree at the model's read points.
+- **KD17. A value forget's answer carries `:how`** (P2 L1108-1110):
+  `:row-deleted` or `:excised`; the model's is a trace note. Printed, not
+  compared.
+
+**Model features the fixed histories do not use, so not replayed.**
+
+- **KD14.** Leaders, epochs, fencing, failover and the deposed leader
+  (`[:failover …]`, `[:zombie …]`; IMPLICIT_SPEC D7); `:tick` and `:order`
+  (the model's rulers). No fixed history steps them; the adapter refuses a
+  history that does (above). A random history containing them would be
+  "not practical" for these steps.
+- **KD15.** Rama replays completed records after a crash (IMPLICIT_SPEC
+  D4); the model replays only unfinished offers. No fixed history crashes.
+- **KD16.** Batch order: the rig orders one batch by the names' UUID7s,
+  the model by its inbox (P3 L1144-1146). No fixed history has two offers
+  in one batch.
+- **KD18.** Per-act lock grain with mixed marks (P2 L1512-1514): the
+  rig's act lock dies with any subject of the union. No fixed history
+  switches grain.
+
+A difference the run finds that is none of these is a new finding: its
+line says "differs" with what each side saw, the test fails, and RIG.md
+carries it under "Found tonight" (or its successor) until Sid or builder A
+names its cause.
