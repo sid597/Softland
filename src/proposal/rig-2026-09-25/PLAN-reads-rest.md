@@ -82,7 +82,7 @@ events; it never relies on how their unbuilt parts work.
 
 None run. Every Rama behaviour this plan leans on is either probed or run
 by earlier plans (String addresses and their ranges, the tail read with
-`{:max-amt 1}`, vector-keyed page walks: the read exit's three probes; a
+`{:max-amt 1}`, page walks over vector names: the read exit's three probes; a
 Long frontier id, stable across a retry: the micro plan's §G), or
 documented and marked [docs] (two sources in one microbatch topology, which
 phase 3 already uses for `*micro-tick`; internal depot appends and their
@@ -126,7 +126,7 @@ number is F. Carried, not closed: a read's moment across the two stores
 
 **Which layers are shared.** A layer is read on the shared path when its
 class in force is `:by-entity`: a group layer (made on the micro gate; its
-settings are in `$$micro [L :settings]` as batch-keyed versions, none in
+settings are in `$$micro [L :settings]` as versions by batch, none in
 `$$layers`), or a re-classed one-owner layer, the base above all (its
 settings are in `$$layers [L :settings]` with `:class :by-entity`; the micro
 gate reads them so, "`$$micro` first, `$$layers` on a miss"). Both stores
@@ -557,10 +557,11 @@ in [0, N) (`ops/num-tasks`), so the partitioner never throws (rule 9; the
 same guard on the read exit's `*index-ops` for `:person-purge`):
 
 - **Put page** `{:op :rebuild-put :task t :after e-or-nil :entities n}`
-  (1 ≤ n ≤ 64): on task t, the next n entity keys of `$$micro` after `e`
+  (1 ≤ n ≤ 64): on task t, the next n entities of `$$micro` (its top-level
+  ids) after `e`
   (`(sorted-map-range-from e {:max-amt n :inclusive? false})` over the
   top-level map, [build checks: a range over a PState's top-level keyword
-  keys; the read exit probed page walks over vector keys in a subindexed
+  ids; the read exit probed page walks over vector keys in a subindexed
   map; fallback, a per-task `$$micro-task :entities` subindexed set written
   by block 2b, one no-read put per new entity]), each entity's `:answers`
   and `:log` read whole (`subselect ALL`, `{:allow-yield? true}`), each row
@@ -852,7 +853,7 @@ What a standing read does not deliver (for Sid, touches a line): a forget of
 a fact it already delivered. The fact is not new; the next full read shows
 it erased; the renderer holding the shown value is outside the store. A
 delivery of erasures would need a line naming erased ids, and a delta over
-erasures by date (phase 2's ledger is keyed by lock id, not by date).
+erasures by date (phase 2's ledger is addressed by lock id, not by date).
 
 ### Crash, and the close at session close
 
@@ -1820,7 +1821,7 @@ Tests the design adds:
   `$$micro-task :rebuild` and `:layers`; a third source; membership rows
   with a batch once a removal exists.
 - **For the build** [build checks]: a `view` over a subindexed set; a range
-  over a PState's top-level keyword keys (fallback, a per-task entity set);
+  over a PState's top-level keyword ids (fallback, a per-task entity set);
   a third `source>` in the micro topology from a function; the block 2b
   hook for RT1; the read exit's own checks, which this plan's branch shares.
 - **For a kept store**: where the forget facts a restore replays live when
