@@ -9,7 +9,8 @@
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.ops :as ops]
             [rig.store.gate :as gate]
-            [rig.store.inject :as inject]))
+            [rig.store.inject :as inject]
+            [rig.store.micro :as micro]))
 
 (def layers-schema
   "Everything keyed by a one-owner layer, on the layer's home task
@@ -145,4 +146,6 @@
                 (local-transform> [(keypath *layer :permissions *pp) (termval *prow)] $$layers)))
             (local-transform> [(termval (get *d :stamp))] $$clock)
             (inject/point! :after-writes *name))
-          (ack-return> (get *d :ack)))))))
+          (ack-return> (get *d :ack))))))
+  ;; the micro store (stage 3): its depot, gate and queries, from its own namespace (M1)
+  (micro/declare! setup topologies))

@@ -263,9 +263,15 @@
        (int? (nth x 1)) (<= 0 (nth x 1))))
 
 (defn pid?
-  "A permission id [who layer in] (P8)."
-  [x]
-  (and (vector? x) (= 3 (count x)) (every? readable-keyword? x)))
+  "A permission id [who layer in] (P8), or [who layer in parent] with a
+  parent permission id, at most four deep (PLAN-micro-store.md §B, M20)."
+  ([x] (pid? x 1))
+  ([x depth]
+   (and (vector? x) (<= depth 4)
+        (case (count x)
+          3 (every? readable-keyword? x)
+          4 (and (every? readable-keyword? (take 3 x)) (pid? (nth x 3) (inc depth)))
+          false))))
 
 (defn- carried-stamp? [x] (and (int? x) (< x max-carried-stamp)))
 
@@ -274,6 +280,7 @@
 ;; PersistentVector key (F6; the F14 probe showed the refusal).
 (defn- norm-name [nm] (into [] nm))
 (defn- norm-fid [x] [(norm-name (nth x 0)) (long (nth x 1))])
+(defn- norm-pid [p] (cond-> (into [] (take 3 p)) (= 4 (count p)) (conj (norm-pid (nth p 3)))))
 
 (defn- parse-fact
   "A fact, normalised, or the reason it is refused."
@@ -331,7 +338,7 @@
                        :who (:who raw)
                        :layer (:layer raw)
                        :class (:class raw)
-                       :permission (some-> (:permission raw) norm-name)
+                       :permission (some-> (:permission raw) norm-pid)
                        :session (:session raw)
                        :stood-on (into {} (map (fn [[k v]] [(norm-fid k) (long v)])) so)
                        :because-of (some-> (:because-of raw) norm-name)
