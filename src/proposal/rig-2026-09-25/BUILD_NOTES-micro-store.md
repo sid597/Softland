@@ -100,3 +100,14 @@ Newest entries at the bottom.
   decided fingerprint in micro-lookup, the door's `own-answer?`). The raw
   readers' count is reported, not asserted: it measures Rama's commit
   timing, not this module.
+- 04:15 Second cluster run (2 tasks): 249 assertions, 0 failures; the
+  frontier run's bypassing readers, phase 0's per-task measure added,
+  caught 200 of 444,911 pairs older on the later read; through one F, 0
+  violations. An 8-task run: 249, 0 failures; bypassing, 4 acts seen on one
+  entity's task and not the other's; through F, 0.
+- 04:20 Read phase 2's current `gate/decide` (not merged): its 7-arity now
+  decides with an empty lock context, in which a sealed value does not
+  open, so the micro fold's call would refuse every sealed act after the
+  merge. The fold now decides by `gate/refusal` and `gate/stamp-for` and
+  builds its record and projections itself (`micro-decision`,
+  `micro-record`), the adapter [PV-F13] named. Pure suite green on it.

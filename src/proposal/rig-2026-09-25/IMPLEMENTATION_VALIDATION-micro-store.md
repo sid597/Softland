@@ -255,12 +255,26 @@ Every divergence found, with the reason it stands or the fix:
     offerer can tell its own envelope's outcome from another's. The door's
     rule is `micro-client/own-answer?`. Correctness. PASS.
 
+17. **The fold decides by `gate/refusal` and `gate/stamp-for`, not
+    `gate/decide` (`micro-decision`, `micro-record`).** The plan reuses
+    `gate/decide`. Phase 2's `decide` (rig-build-locks 33b357a4, read, not
+    merged) now opens an act's values itself, and its 7-arity decides with
+    an empty lock context in which "a sealed value then does not open", so
+    after the merge the leader's call would refuse every sealed act. The
+    plan named this adapter ([PV-F13]: "phase 2's decide on the stream gate
+    opens values itself, which the leader must never do"). The reason
+    order is still one function (`gate/refusal`, then `reason-order` for
+    this gate's inputs) and the stamp one function (`gate/stamp-for`, over
+    `rig.store.clock`); only the projections a yes writes (the settings
+    merge, the first grant per pid, the revoke rows) are built here, as
+    `gate/decide*` builds them. Correctness at the merge. PASS.
+
 Everything else matches: the depot and its route key (M4 revised, 287);
 the tick (1087-1089, behind the replaceable flag); the four PStates'
 shapes (107-183); blocks 0 to 2c in the plan's order with the plan's reads
 on the plan's tasks; the fold's four rules and M2's order with [PV-F3]'s
-tiebreak (598, 814); `gate/decide` reused, with this gate's reasons placed
-by one order (`reason-order`, 58; [PV-F13]); the four queries with explicit
+tiebreak (598, 814); `gate/refusal` and `gate/stamp-for` reused (item 17), with this gate's
+reasons placed by one order (`reason-order`, 58; [PV-F13]); the four queries with explicit
 F (1374-1423); the frontier as the previous batch's id (1105); keep-first
 faces (1281); consumption in 2c after 2b (1357-1368); the session close
 ([PV-F4]); the base on the stream gate and its re-class before the first

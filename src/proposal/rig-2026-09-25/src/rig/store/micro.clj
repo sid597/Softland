@@ -730,9 +730,52 @@
       (into #{} (:subjects o))
       (into base (:union sk)))))
 
+(defn micro-decision
+  "The decision's stage-1 part, by the stream gate's own functions (one
+  reason order, one stamp: `gate/refusal`, `gate/stamp-for`), and the
+  projections a yes writes: the settings as they stand after the act and
+  the permission rows it grants or revokes (the first grant per pid stays,
+  P8). Not `gate/decide`, whose later form (phase 2) opens the act's values
+  itself, which this gate's leader never holds (M3); the value and person
+  reasons come from the arrival task in the skeleton."
+  [o settings rows heads clock wall]
+  (let [facts (:facts o)
+        indexed (map-indexed vector facts)
+        nm (:name o)
+        updates (into {} (for [f facts :when (gate/setting-fact? o f)] [(env/setting-keys (:k f)) (:v f)]))
+        grants (second (reduce (fn [[seen out] [p _ :as pair]]
+                                 (if (contains? seen p) [seen out] [(conj seen p) (conj out pair)]))
+                               [#{} []]
+                               (for [[i f] indexed
+                                     :let [p (gate/grant-target f)]
+                                     :when (and p (nil? (:granted (get rows p))))]
+                                 [p [nm (long i)]])))
+        revokes (for [[i f] indexed :let [p (gate/revoke-target f)] :when p] [p [nm (long i)]])]
+    {:reason (gate/refusal o settings rows heads)
+     :stamp (gate/stamp-for o heads clock wall)
+     :settings (when (seq updates) (merge settings updates))
+     :permissions (into [] (concat (for [[p g] grants] [p {:granted g}])
+                                   (for [[p r] revokes] [p (assoc (get rows p) :revoked r)])))}))
+
+(defn micro-record
+  "The answer record (the stream plan's, P5's parts; plus `:batch`, M7)."
+  [o reason stamp digest subjects b]
+  {:answer (if reason :no :yes)
+   :reason reason
+   :stamp stamp
+   :digest digest
+   :who (:who o)
+   :class (:class o)
+   :permission (:permission o)
+   :session (:session o)
+   :because-of (:because-of o)
+   :claimed-when (:claimed-when o)
+   :subjects subjects
+   :batch b})
+
 (defn- decide-envelope
-  "Rule 4 of the fold: the decision, by `gate/decide` over W's inputs, with
-  this gate's reasons placed in `reason-order`; then W and the writes."
+  "Rule 4 of the fold: the decision over W's inputs (`micro-decision`),
+  with this gate's reasons placed in `reason-order`; then W and the writes."
   [w sk wall b]
   (let [o (:offer sk) nm (:name sk) fp (:fp sk) L (:layer o)
         settings (settings-in-force w L)
@@ -740,20 +783,16 @@
         heads (into {} (map (fn [[e k r]] [[e k r] (head-stamp w L e k r)])) (replacing-keys o))
         tasks (touched-tasks w sk)
         clock (reduce max 0 (map #(clock-of w %) tasks))
-        d (gate/decide o settings rows heads clock wall (:digest sk))]
-    (if (not= :decide (:kind d))
-      (face w nm fp :gate-error b)
-      (let [grain (or (:grain settings) :per-value)
-            reason (first-in-order (concat [(get-in d [:record :reason])]
+        d (micro-decision o settings rows heads clock wall)]
+    (let [grain (or (:grain settings) :per-value)
+            reason (first-in-order (concat [(:reason d)]
                                            (micro-extras o settings)
                                            [(:value-reason sk)
                                             (locks/grain-refusal grain (:facts o))
                                             (:person-reason sk)]))
             yes? (nil? reason)
             stamp (:stamp d)
-            rec (-> (:record d)
-                    (assoc :answer (if yes? :yes :no) :reason reason :batch b
-                           :subjects (record-subjects sk settings reason)))
+            rec (micro-record o reason stamp (:digest sk) (record-subjects sk settings reason) b)
             entities (:entities sk)
             w (-> w
                   (assoc-in [:names nm] {:record rec :fp fp})
@@ -818,7 +857,7 @@
                 w (if (close-act? o)
                     (update w :dels into (map (fn [ln] [:del-leases ln nil nil nil])) (:close-names sk))
                     w)]
-            w))))))
+            w)))))
 
 (defn- fold-envelope
   "One envelope of the batch, in order (§A 'The fold', [PV-F3]):
