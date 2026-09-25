@@ -1,0 +1,13 @@
+;; Probe for PLAN-tools-and-grammars.md, run 26 September 2026 03:15 IST on this machine,
+;; Rama 1.6.0 in-process cluster, 4 tasks, under flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock:
+;; clojure -Sdeps '{:aliases {:probe {:extra-paths ["runs/probes"]}}}' -M:test:probe rig.probe.tools-rows-probe
+;; Output below with Rama's log lines removed. Exit 0.
+Testing rig.probe.tools-rows-probe
+ROW-NOTE {:used true, :grammar {:fid [[:alice :by-layer :offer #uuid "bc105dd7-cfc9-4edb-a8e6-2e6f77fac9f2"] 0], :stamp 5, :shape "[:any]", :subjects-at nil, :opaque false, :index #{:by-value}}}
+ROW-MENTION {:used false, :grammar {:fid [[:alice :by-layer :offer #uuid "a51fa1f9-d2c9-47a8-af83-f2d0b3e1472e"] 1], :stamp 6, :shape "[:map {:persons [:set-of [:keyword] 1 2]} {:open? true}]", :subjects-at [:persons], :opaque false, :index #{}}}
+ROW-BLOB {:used true, :grammar nil}
+ROW-ABSENT nil
+SUBMAP-OF-3-NAMES-2-PRESENT {#uuid "4bbdd68b-2de4-4c44-94da-719b4ae9d960" 1, #uuid "82c17d1a-d7fc-4c5c-8b5d-0b539dfd7904" 2} count 2
+Ran 1 tests containing 6 assertions.
+0 failures, 0 errors.
+{:test 1, :pass 6, :fail 0, :error 0}
