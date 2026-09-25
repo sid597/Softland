@@ -2,8 +2,10 @@
 
 Written 26 September 2026 (IST) by the plan step of the rama skill's
 process, in a fresh session. Cut by Claude Opus 5.5 (`claude-opus-5-5`) at
-max effort. **Not yet validated:** a fresh session validates this plan
-(`PLAN_VALIDATION-revision-reader.md`), and another session builds it.
+max effort. **Validated** on 26 September by a fresh session: minor-fail,
+fixed in place as F1 to F14, each marked **[Fn]** where it lands; the
+findings and their evidence are in `PLAN_VALIDATION-revision-reader.md`.
+Another session builds it.
 Branch `rig-reader`, worktree `/mnt/data/projects/Softland-rig-reader`, cut
 from `rig-2026-09-25` at `7a7403bd`. Paths are relative to the worktree
 root unless they say otherwise; "the rig folder" is
@@ -89,8 +91,11 @@ at one revision is the same as one at the next; round three designs those.
   change, as long as no kept record depends on a cut's rules (G15).
 - **Replays.** Rig folder `IMPLICIT_SPEC.md`, OP18: "A runner re-run on a
   replay must not double its outputs". A read is a function of the commit,
-  the path, the cut and the reader's own code, so a replayed tool step gets
-  the same units (derived, section 9).
+  the path, the cut and the reader's own code (derived, section 9). A
+  revision string that moves (`HEAD`, a branch) is resolved when the read
+  runs, so a replayed step gets the same units only when it passes the
+  `:commit` the first read recorded; which one a replay passes is the
+  runner's rule, phase 6's **[F10]**.
 
 Not done here: the reference tool, its facts or its seed; minting; any
 identity or continuity rule; the runner (phase 6 proper); anything under
@@ -158,7 +163,12 @@ successful output (tested, section 11, test 20).
 `:commit` is 40 hex digits, or 64 in a SHA-256 repository. It identifies the
 snapshot, not any passage: it is what "at a revision" means once `HEAD` has
 moved, and decisions.md line 164 asks every result to keep it. The reader
-offers no blob id and no hash of any unit. A span read returns `{:rev
+offers no blob id and no hash of any unit. `:commit` and `:path` are
+position, not identity: they are the frame every unit's `:lines` and
+`:chars` are counted in, and a unit's whole position is the result's
+`:commit` and `:path` with the unit's own `:position`. Two results with
+equal `:path` were asked at the same place; that is no claim that they hold
+one file or one passage **[F13]**. A span read returns `{:rev
 :commit :path :unit}`; the private whole-file read under both entries
 returns `{:rev :commit :path :text}` (section 4).
 
@@ -171,9 +181,9 @@ error from a pure function carries only `:error` and its own keys.
 
 | `:error` | When | Also carries |
 |---|---|---|
-| `:bad-argument` | An input is malformed, checked before git runs: `repo` blank; `rev` blank, starting with `-`, or holding NUL, `\n` or `\r`; `path` blank, starting with `/`, ending with `/`, holding NUL, or with an empty, `.` or `..` segment; `:limit` not a positive integer; `:git` blank; `:cut` not `:blocks` or `:forms`; span lines not `1 <= first <= last`; after the read, span `last` past the file's last line | `:argument` (which input), `:value`; for a span past the end, `:line-count` |
-| `:not-a-repository` | git exits 128 while resolving the revision: the directory is missing, is not in a repository, or git refuses it (an unsafe owner, for one); its stderr says which | `:detail` (git's stderr) |
-| `:unknown-revision` | the revision names no commit (git exits 1), a tree or blob id included | |
+| `:bad-argument` | An input is malformed, checked before git runs: `repo`, `rev` or `path` not a string **[F6]**; `repo` blank; `rev` blank, starting with `-`, or holding NUL, `\n` or `\r`; `path` blank, starting with `/`, ending with `/`, holding NUL, or with an empty, `.` or `..` segment; a non-ASCII `rev` or `path` while the JVM's `sun.jnu.encoding` is not UTF-8 **[F14]**; `opts` not a map **[F6]**; `:limit` not a positive integer; `:cut` not `:blocks` or `:forms`; span lines not two integers with `1 <= first <= last` **[F6]**; a pure cut's text not a string **[F6]**; after the read, span `last` past the file's last line | `:argument` (which input), `:value`; for a span past the end, `:line-count`; for the encoding case, `:encoding` (the JVM's) |
+| `:not-a-repository` | git exits 128 while resolving the revision and `git -C <repo> rev-parse --git-dir` fails too **[F1]**: the directory is missing, is not in a repository, or git refuses it (an unsafe owner, for one); its stderr says which | `:detail` (git's stderr) |
+| `:unknown-revision` | the revision names no commit: git exits 1, a tree or blob id included; or exits 128 in a repository that `rev-parse --git-dir` accepts (`HEAD@{99999}`) **[F1]**; or exits 0 with stdout that is not one commit id (`^HEAD`) **[F2]** | `:detail` when git exited 128 |
 | `:missing-path` | no entry at exactly that path in the commit's tree | `:commit` |
 | `:not-a-file` | the entry is a directory, a symlink or a submodule | `:entry` (`:directory`, `:symlink`, `:submodule`) |
 | `:too-large` | the blob is larger than the byte budget | `:size`, `:limit` |
@@ -191,12 +201,17 @@ Public, in `rig.revision`:
 
 - `(read-units repo rev path)` and `(read-units repo rev path opts)`: a
   result or an error. `opts`: `:cut` (`:blocks` or `:forms`; default from
-  `cut-for`), `:limit` (bytes; default 1,048,576), `:git` (the git
-  executable; default `"git"`).
+  `cut-for`), `:limit` (bytes; default 1,048,576).
 - `(read-span repo rev path first-line last-line)` and the same with
-  `opts` (`:limit`, `:git`): `{:rev :commit :path :unit}` or an error.
-- `(blocks text)`: `{:units [...]}`; it has no error of its own (only
-  `:internal`, on a bug).
+  `opts` (`:limit`): `{:rev :commit :path :unit}` or an error.
+- The git executable is not an option **[F4]**. A tool's arguments come
+  from facts, and an executable named per call would let a fact choose
+  what program runs, with the repository path as its first operand. The
+  entries run `"git"` from `PATH`; the private `read-text` takes the
+  executable as its first argument, so a test can name a missing one.
+- `(blocks text)`: `{:units [...]}`; its only error of its own is
+  `:bad-argument` for text that is not a string **[F6]** (and `:internal`,
+  on a bug).
 - `(forms text)`: `{:units [...]}`, or `{:error :unreadable :at ... :reason
   ...}`.
 - `(span text first-line last-line)`: `{:unit ...}`, or `{:error
@@ -204,7 +219,7 @@ Public, in `rig.revision`:
 - `(cut-for path)`: `:forms` when the path, lowercased, ends in `.clj`,
   `.cljc`, `.cljs` or `.edn`; `:blocks` for every other path.
 
-Private: `(read-text repo rev path opts)`, steps 0 to 6 of section 5,
+Private: `(read-text git repo rev path opts)`, steps 0 to 6 of section 5,
 giving `{:rev :commit :path :text}` or an error. `read-units` is
 `read-text` then the cut; `read-span` is `read-text` then `span`. It is
 private because a whole file offered as a step a tool can call invites the
@@ -234,13 +249,22 @@ absolute paths and `.` or `..` segments loses nothing: paths in a git tree
 are always relative and normalized.
 
 **Step 1, the commit.** `git -C <repo> rev-parse --verify --quiet
---end-of-options <rev>^{commit}`. Exit 0: stdout, trimmed, is the commit
-id. Exit 1: `:unknown-revision`. Exit 128: `:not-a-repository`. Anything
-else, `:git-failed`. Checked tonight: `no-such-rev-2026` and forty zeros
+--end-of-options <rev>^{commit}`. Exit 0 with stdout, trimmed, exactly 40
+lowercase hex digits (64 in a SHA-256 repository): that is the commit id;
+exit 0 with anything else, `:unknown-revision` **[F2]**. Exit 1:
+`:unknown-revision`. Exit 128: one more command decides **[F1]**, `git -C
+<repo> rev-parse --git-dir`; its exit 0 means the repository is there and
+git refused the revision (`:unknown-revision`, with `:detail`), anything
+else is `:not-a-repository`. Anything else, `:git-failed`. Checked tonight:
+`no-such-rev-2026` and forty zeros
 exit 1; a tree id exits 1 (with a line on stderr despite `--quiet`); a
 missing directory and a directory outside any repository both exit 128;
 `--output=x` placed after `--end-of-options` is taken as a revision and
-exits 1. From here on every command names the commit id, never the
+exits 1. Checked by the validation, git 2.43.0: `^HEAD` exits 0 and prints
+`^` and an id, a negative revision and not a commit (F2); `HEAD@{99999}`
+exits 128 inside a good repository, git dying on a reflog entry it does not
+have (F1); a range such as `main..HEAD` exits 1 with two lines on stdout, so
+the exit code, not the output, decides. From here on every command names the commit id, never the
 revision string, so a ref that moves during the read (a commit landing on
 `HEAD`) cannot split one read across two snapshots (derived).
 
@@ -294,13 +318,32 @@ happen if the repository changes under the read, for example a pruned
 object). Each public function, the pure cuts included, also wraps its body
 in a catch of `Exception` that gives `:internal`, so a runner can call it
 from anywhere, a Rama task included, and never see an exception (an
-exception in topology code kills the worker: RIG.md, phase 0). Three
+exception in topology code kills the worker: RIG.md, phase 0), within
+memory **[F12]**: the catch takes `Exception`, not `Error`, so a caller-set
+`:limit` that the heap cannot hold about three times over (the bytes, the
+decoded string, the units' copies) can still end in `OutOfMemoryError`; the
+runner that sets the limit owns that bound. Three
 processes per read (by construction; their cost, a few milliseconds each, is
 assumed). No timeout, because
 `clojure.java.shell` has none and local plumbing reads of a bounded blob
-wait on nothing (assumed). A caller whose environment sets `GIT_DIR` reads
-that repository instead of the one named (git's rule); the runner must not
-set it.
+wait on nothing (assumed).
+
+Each command runs with the JVM's environment minus every variable whose
+name starts with `GIT_` **[F5]** (`clojure.java.shell`'s `:env` replaces the
+whole environment, so the reader passes the filtered copy). A git hook or
+`git rebase --exec` sets `GIT_DIR`, and with it git reads that repository
+instead of the one named, and finds a repository even at `/proc`. The
+tests' oracles run git with the same environment, and `git diff` with
+`--no-ext-diff --no-textconv`, so neither the environment nor user
+configuration can change what they report.
+
+Arguments reach git in the JVM's `sun.jnu.encoding` **[F14]**: UTF-8 on
+this machine under `LANG=en_US.UTF-8`, but `ANSI_X3.4-1968` (ASCII) under
+`LC_ALL=C` (checked by the validation), where a non-ASCII path would reach
+git mangled and read as missing. Step 0 therefore refuses a non-ASCII
+`rev` or `path` unless that encoding is UTF-8. No tracked path at the rig
+branch's head is non-ASCII (checked by the validation), so no fixture needs
+one.
 
 **What can be read.** Only what a commit holds: the working copy,
 uncommitted edits and untracked files are invisible (derived: every command
@@ -364,7 +407,10 @@ run of whole lines, by six rules.
    block there.
 6. **Everything else is paragraph text:** tables, block quotes, HTML,
    thematic breaks, setext underlines, indented code. A paragraph runs until
-   a blank line, or until rule 2, 3 or 4 starts a new block.
+   a blank line, or until rule 2, 3 or 4 starts a new block. A thematic
+   break written with spaces (`* * *`, `- - -`) matches rule 4 first and
+   reads as an item **[F8]**; the 36 Markdown files at `7a7403bd` hold none
+   (checked by the validation).
 
 Indentation counts a tab as advancing to the next multiple of four columns,
 as CommonMark does; the content keeps the tab.
@@ -402,7 +448,15 @@ all nine. Items are the grain the rulings are cited at. Fences are kept
 whole because a blank line or a `# ` inside a code block is not prose.
 
 **What it gives up.** A heading's section is not a unit: the heading's
-block is its one line. A list as a whole is not a unit. An item's later
+block is its one line. A list as a whole is not a unit. A nested item is
+not a unit either **[F8]**: it stays in its parent item's block (rule 4),
+so the finer-grain default stops at top-level items. That is a real share
+of the corpus: 240 indented item lines outside fences in the 36 Markdown
+files at `7a7403bd` (checked by the validation), none of them in
+PROGRESS.md's "The nine". A nested item is reachable today through
+`read-span`, and a cut that makes nested items blocks of their own is a
+refinement the reader can add at any time, because it keeps no records;
+round three says whether its references need one. An item's later
 paragraph stays with the item only when indented. Indented code, HTML
 comments and block quotes that hold blank lines are split at them. A setext
 heading reads as a paragraph with its underline. A heading inside a list
@@ -483,7 +537,8 @@ data the open top-level unit still needs.
   at depth 0 it opens a skipped region needing one, which emits no unit.
 - Openers are `(`, `[`, `{`, `#{`, `#(`. A closer must match the top of the
   stack.
-- A token ends at whitespace, a comma, or one of `"` `;` `@` `^` `` ` ``
+- A token ends at whitespace as Clojure's reader counts it
+  (`Character/isWhitespace`) **[F9]**, a comma, or one of `"` `;` `@` `^` `` ` ``
   `~` `(` `)` `[` `]` `{` `}` `\`, which are Clojure's terminating
   characters; `'`, `#` and `%` do not end one (`foo'` and `foo#` are
   symbols). This set is from Clojure's reader source, `LispReader`,
@@ -492,8 +547,10 @@ data the open top-level unit still needs.
   token characters after it (`\newline`, `\u00e9`, `\(`).
 - In a string or a regex, `\` takes the next char, and the first unescaped
   `"` ends it.
-- After `#`, any char other than `{ ( " ' _ = ? : ^ # !` or the start of a
-  tag symbol (`#<`, `#` then whitespace, `#` at the end) is `:bad-dispatch`.
+- After `#`, any char other than `{ ( " ' _ = ? : ^ # !` or a char that
+  can start a symbol (a tag's first char; a digit cannot) is
+  `:bad-dispatch` **[F9]**: for example `#<`, `#` then whitespace, and `#`
+  at the end of the text.
 - Errors, with `:at` the line and char: a closer with an empty stack,
   `:unexpected-close` at the closer; a closer that does not match,
   `:mismatched-close` at the closer; the end of the text inside a
@@ -567,8 +624,9 @@ in it.
 **Writes:** none. **State:** none. No PState, no task global, no atom, no
 dynamic var, no cache; git's object store is the only storage, and this code
 only reads it. A result is a function of the commit, the path, the cut and
-the reader's code, so a restart loses nothing and a retry returns the same
-result (derived). No cache is designed, and none should be added without the
+the reader's code, so a restart loses nothing and a retry by the same commit
+returns the same result (derived); a retry by a moving revision string
+resolves it again and may read a later commit **[F10]**. No cache is designed, and none should be added without the
 examination CLAUDE.md requires; if many reads a second ever matter, the
 first thing to examine is one long-lived `git cat-file --batch` process
 instead of three processes a read, which keeps no results.
@@ -622,6 +680,15 @@ commits stay reachable while the rig branch, or a merge of it that keeps its
 history, does; if it is ever squash-merged and deleted, re-point them in
 that one map.
 
+The `repo` every good read passes is the toplevel of the worktree the tests
+run in, from `git rev-parse --show-toplevel` run once from the rig folder
+and kept in the fixture map **[F7]**; every worktree of
+`/mnt/data/projects/Softland` shares one object store, so the same fixtures
+read the same bytes from the `rig-reader` worktree and the main rig
+worktree. Checked by the validation: each of the six commits below is a
+commit in that store and an ancestor of both `rig-2026-09-25` and
+`rig-reader`; `ce6ebaeb` and `d9e619b5` are also ancestors of `main`.
+
 | Commit | Where | Path | What it exercises |
 |---|---|---|---|
 | `ce6ebaeb01bbc8ea33d9d6ef25c47f9d641a1ee7` | main | `docs/builds/inland/README.md` | the golden block cut (section 6); an em dash on line 1 and an ellipsis on line 53, so chars and bytes differ |
@@ -673,9 +740,10 @@ bindings given in section 7.
    differs and `:path` does not; the heading "## Phase 0: the two Rama
    claims, and the cross-module read" is a one-line block at line 29 in the
    first and at line 209 in the second (checked with grep over git show),
-   and the test finds it in each by its content. The outputs carry nothing
-   that links one to the other; the test's own content match is the only
-   link, which is the point.
+   and the test finds it in each by its content. The outputs carry no claim
+   that one unit is the other: equal `:path` is the place both reads were
+   asked at, not a claim that they hold one passage **[F13]**; the test's own
+   content match is the only link, which is the point.
 7. `gate.clj` at `45627e45` and `ea52c424`: the form holding `(defn
    perm-entity` has the same content at [17 20] and at [21 24] (checked:
    the same four lines); the form holding `(defn refusal` differs, [101
@@ -687,13 +755,17 @@ bindings given in section 7.
 **D. Every error path,** each asserting the kind and its extra keys.
 9. `:bad-argument`: rev `""`, `nil`, `"-p"`, `"--output=x"`, `"a\nb"`; path
    `""`, `"/etc/hosts"`, `"../x"`, `"a/./b"`, `"a//b"`, the rig folder's
-   `"src/"`; repo `""`; `:limit` 0 and -1; `:git ""`; `:cut :nope`; spans
+   `"src/"`; repo `""`; `:limit` 0 and -1; `:cut :nope`; spans
    [0 1] and [5 4]; and, after a read, [1 N+1] on a file of N lines, with
-   `:line-count` N.
+   `:line-count` N. Values of the wrong type **[F6]**: rev `:HEAD`, path
+   `42`, repo `nil`, `opts` `[]`, span lines `[nil 1]` and `[1.5 2]`, and
+   `(blocks nil)`; each is `:bad-argument`, never `:internal`.
 10. `:not-a-repository`: repo `"/nonexistent-rig-reader"` (missing) and
     `"/proc"` (not in a repository). Neither writes anything.
 11. `:unknown-revision`: `"no-such-rev-2026"`, forty zeros, and
-    `"e53bc6d0^{tree}"`.
+    `"e53bc6d0^{tree}"`; `"HEAD@{99999}"`, which git exits 128 on in a good
+    repository, with `:detail` **[F1]**; `"^HEAD"`, which git exits 0 on with
+    a negated id **[F2]**; and the range `"ce6ebaeb..7a7403bd"`.
 12. `:missing-path`: `RIG.md` at `ce6ebaeb`; a path below a file, the rig
     folder's `"RIG.md/x"` at `7a7403bd`.
 13. `:not-a-file`: the rig folder's `src` at `7a7403bd` (`:directory`);
@@ -713,7 +785,8 @@ bindings given in section 7.
     `"\"abc"` and `"#\"abc"` (`:unclosed-string`), `"'"`, `"^:m"` and `"#_"`
     alone (`:unclosed`), a lone backslash (`:unclosed`), `"# x"` and `"#<x>"`
     (`:bad-dispatch`).
-18. `:git-failed`: a good read with `:git "/nonexistent/git"`.
+18. `:git-failed`: a good read through the private `read-text`, by its var,
+    with the executable `"/nonexistent/git"` **[F4]**.
 19. `:internal` appears in no result of any test (checked by the helper
     every test reads through).
 
@@ -781,8 +854,12 @@ built-in steps a tool can call, `read-units` (its cut a pick) and
 version it ran against (2.43.0 tonight). It touches nothing on the line: no
 envelope part ("Tools add facts, never envelope parts", PROGRESS.md line
 52), no gate rule, no key grammar, no store namespace, no Rama code. So it
-is not a compiled step of the line, and adding it once does not count
-against "zero new compiled steps".
+is not a compiled step of the line. Whether a class-three entry counts
+against "zero new compiled steps" is the count's own definition, which
+`IMPLICIT_SPEC.md` OP18 leaves open ("What counts as a compiled step is
+fixed by the plan and written down with the count (open how it is defined,
+O21)"); this plan records the reader as one class-three entry, anticipated
+on 13 September, and does not score it **[F11]**.
 
 **What is counted elsewhere:** whatever the runner needs in order to call
 a capability at all (resolving a tool's step to a function, taking its
@@ -805,8 +882,8 @@ both under RIG.md "For Sid" (section 14).
   Gives up: other languages get Markdown-shaped blocks; a one-map EDN file
   is one unit by default.
 - **G2. A passage is a block** (section 6's six rules). Gives up: sections,
-  whole lists, and blocks split where indented code or HTML holds blank
-  lines; setext headings.
+  whole lists, nested items as units of their own **[F8]**, and blocks split
+  where indented code or HTML holds blank lines; setext headings.
 - **G3. The lettered marker** (`7b.`), this project's convention. Gives up:
   agreement with how Markdown renders such a line.
 - **G4. A function is a top-level form, every one.** Gives up: telling a
@@ -826,8 +903,11 @@ both under RIG.md "For Sid" (section 14).
   byte order mark hides a heading on line 1; CRLF files keep `"\r"` inside
   content.
 - **G9. Git's CLI plumbing** through `clojure.java.shell`, the revision
-  resolved once to a commit id. Gives up: a timeout; three processes a read;
-  needs git 2.24 or later on `PATH`, or `:git`.
+  resolved once to a commit id. Gives up: a timeout; three processes a read
+  (four when git exits 128 on the revision, F1); needs git 2.30 or later on
+  `PATH` **[F3]**, the release where `rev-parse` learned `--end-of-options`
+  (`RelNotes/2.30.0.txt` line 74; 2.24 taught it to the other commands'
+  option parser, `RelNotes/2.24.0.txt` line 18).
 - **G10. Errors as data, never an exception,** with `:internal` as the last
   resort. Gives up: stack traces, which survive only as `:detail` text.
 - **G11. Text only.** Strict UTF-8; git's NUL test for binary; directories,
@@ -912,7 +992,10 @@ both under RIG.md "For Sid" (section 14).
 - **The `:git` option.** Close. `with-redefs` on `clojure.java.shell/sh`
   would test `:git-failed` without it, but replaces a core var for the
   whole JVM while it runs; the option is one key and also serves a host
-  whose git is not on `PATH`.
+  whose git is not on `PATH`. *Changed by the validation* **[F4]**: the
+  executable is an argument of the private `read-text`, not a public
+  option, because a per-call executable is a door a tool's facts could
+  open; the test reaches `:git-failed` through the private var.
 
 ## 16. Self-validation
 
@@ -981,7 +1064,8 @@ plan differs from that sketch by:
   first paragraph.
 
 **Faults and races.** A restart: there is no state to lose. A retry: the
-same inputs give the same result (derived from section 9). A partial
+same commit, path and cut give the same result (derived from section 9); a
+retry by a moving revision string may read a later commit (F10). A partial
 failure: there are no writes. Two callers at once: they share nothing. A
 ref that moves mid-read: pinned by step 1. An object pruned mid-read, which
 is possible only for an unreachable commit: step 2 or 4 exits non-zero and
@@ -1009,7 +1093,8 @@ of its brief; they are round three's, or Sid's.
    its processes, so not on a Rama task thread without a reason. It has no
    path policy, and a secret ever committed is readable at that revision.
 6. **Additions round three may ask for,** each a new entry in the same
-   capability: sections; names or kinds of forms, which is where identity
+   capability: sections; nested items as blocks of their own (F8); names or
+   kinds of forms, which is where identity
    starts, so they wait for its rule; the entries of an EDN file's top map;
    inner Clojure units, for which `rewrite-clj` would be the library to
    name; and whether non-Markdown text should drop the Markdown rules.
