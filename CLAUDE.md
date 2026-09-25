@@ -47,7 +47,7 @@ and usefulness to its inhabitant distinguishable.
   source snapshots; check their provenance and version before applying them.
   `history/` holds earlier plans,
   implementation logs, reviews, experiments, and research; consult it when a
-  question needs their reasoning or evidence, rather than loading it by default.
+  question needs their rationale or evidence, rather than loading it by default.
   Labels such as "current", "binding", or "next" inside historical records
   describe their original context. They do not establish present requirements
   or authorize unfinished work. Check implementation claims against current
@@ -97,7 +97,7 @@ Commit mechanics once settled: the repo is closed source (Sid, 2026-08-10) — c
   session.
 - Routing is two-tier:
   - deterministic collection
-    (greps, counts, suite runs, exact extraction) rides the cheapest competent
+    (greps, counts, suite runs, exact text collection) rides the cheapest competent
     lane;
   - judgment-adjacent reading (doc sweeps feeding a cut, ruling, or
     amendment) rides Opus-xhigh/fable-low — an UNCERTAINTY row is only as good as its
@@ -108,7 +108,7 @@ Commit mechanics once settled: the repo is closed source (Sid, 2026-08-10) — c
   In Sid's words: don't use your own tokens "just for puny gathering tasks —
   you are suited for sensemaking." Adjudication, synthesis, and verdicts
   never delegate. Make model routing explicit; judgment stays home.
-- the THINKING is never outsourced to lower
+- the JUDGMENT is never outsourced to lower
   models — contract cuts, rulings, repairs, cross-law composition ride the
   strongest model, no exceptions; every contract header names its cutter
   model + effort
@@ -122,7 +122,7 @@ Commit mechanics once settled: the repo is closed source (Sid, 2026-08-10) — c
 After the architectural pass, do a second pass whose job is to **break** the change. Review for falsification, not coherence.
 
 **Golden rule:** Never approve an optimistic-state change without tracing the full write → render → truth reconciliation → clear lifecycle.
-think like the Staff-level product architect, use the Staff-product-architect.md skill from the falsification angle
+Use the Staff-level product architect perspective and the Staff-product-architect.md skill for the falsification pass.
 
 
 ## Be wary of your own failure modes
@@ -136,10 +136,32 @@ protect the built thing instead of re-deriving sunk-context bias makes my own re
 
 you are too much into what exists today, and you cannot see what should exist and what will exist … bounded to the problem of what it is today and making some kind of decisions by yourself on it.
 
-Sid never constrained output length. When the deliverable is an analysis or a
-derivation  compressing it to verdict tables and a
-short story hides the working that lets him check the job was done. He read
-the compressed version as disingenuous.
+Sid has never asked for short output. What he reads is the working, because
+that is how he checks that the job was done. When a session compressed a
+derivation into verdict tables and a short story, the tables carried the
+conclusions and dropped the working, so there was nothing to check. He read
+that as disingenuous: a conclusion with its working removed looks like it is
+hiding whether the work was done at all. So length is not a cost to save. The
+working is the deliverable. The same failure happens one level down, at the
+sentence.
+
+When Sid is developing an idea, explain the subject fully in developed
+sentences. Include the premises, evidence, calculations, and connections
+needed to check the conclusions. Keep that explanation in the reply, even
+when it needs space.
+Compression is the failure: his phrases used as tokens, the shape of his
+notes copied, asides mid-clause, lines that would look good on a poster.
+Those are the signs to notice. Where a reply shows them, that passage is
+rewritten as developed sentences that carry the working.
+
+When he is asking for a thing, code or a specific answer, expository
+prose is padding. What has read well is the result first, a line on
+what it does, and what is uncertain.
+
+When he asks to write down what has settled, the house style of short
+declaratives fits, because he will be checking rather than building.
+
+A skill, `better-voice`, carries this so it can be reloaded mid-chat.
 
 
 **"fable tries to make shortcuts and codex only does what is told"**
