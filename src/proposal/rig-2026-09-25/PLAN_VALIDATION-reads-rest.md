@@ -24,9 +24,9 @@ against the files. -->
 ## Verdict
 
 **minor-fail.** Seventeen failures, each fixable by a localized edit; all
-seventeen are fixed in the plan in place (commits 5f8ef235, 5e983412 and
-the last commit of this session), numbered F1 to F17 and marked `[F1]` ...
-in the text. No failure needs a new architecture: the one-task read, block 2d,
+seventeen are fixed in the plan in place (commits 5f8ef235, 5e983412,
+124bfe60 and 0359c2c2), numbered F1 to F17 and marked `[F1]` ... in the
+text. No failure needs a new architecture: the one-task read, block 2d,
 the poll, the drop through OP9 and the purge invariant all stand. One check
 fails and is **not** fixed by an edit: the `|hash` indicator for a hot shared
 layer (the placement question below). It is accepted for tonight as the named
@@ -50,8 +50,8 @@ record, and it goes to Sid; F5 and F6 make that acceptance honest.
 | F13 | the micro rebuild's put page reads each entity's `:answers` and `:log` whole (`subselect ALL`) before its 4,096-row cap applies: a page's work is unbounded for a long-lived entity | two bounded ranges from the page's offset, walked together by name |
 | F14 | the progress row types `:cursor` as a String, while a sweep page's cursor is `[L a]` and a put page's an entity with a row offset | the cursor is a vector |
 | F15 | the restore replays a shared layer's forgets as `:replay-forget` "on the layer's ops depot", but `*micro-index-ops` defines no such op | the micro op, its route (hash(L), hash(e) for the ledger's date, back) and its idempotence |
-| F17 | the person purge is "called by phase 2's `forget-person!`", a change to phase 2's client that no list of changes names | a wrapper of this stage calls phase 2's `forget-person!`, then `purge-person!`; phase 2 untouched |
 | F16 | the validated micro plan's M25 sends a forget of a re-classed layer's stream-era value to the stream gate; the plan's five paths never name it, the one-owner person purge's seam covers "one-owner layers" only, and the carried moment question names P16's settings but not these forgets | path 1 names the stream-era target; the person purge covers every layer in `$$layers`; the carried item names M25's forgets |
+| F17 | the person purge is "called by phase 2's `forget-person!`", a change to phase 2's client that no list of changes names | a wrapper of this stage calls phase 2's `forget-person!`, then `purge-person!`; phase 2 untouched |
 
 ## The placement question (builder A's first trace)
 
@@ -235,7 +235,8 @@ Each clause of R6 (CONCLUSION l.85 to 92), traced:
   store does not pace it. The proxy was constructed and costed (four
   reasons; the doorbell's numbers). PASS.
 - "A delivery of nothing new adds no line": `:nothing-new`, nothing offered.
-  PASS, but **the delta that feeds it loses facts (F2)**: Alice's tool holds
+  The line rule holds; **the delta that feeds it FAILED, losing facts (F2,
+  fixed)**: Alice's tool holds
   `[:k :note]` on her layer with limit 10, so the scan budget is 176;
   between two ticks her agent admits 500 `:status` facts and then one
   `:note`. The delta over `:ix-s` scans 176 `:status` entries, matches
@@ -279,7 +280,8 @@ Each clause of R6 (CONCLUSION l.85 to 92), traced:
 - A drop as phase 2's value forgets: OP9 acts (locks plan l.747), one fact
   per target, `:because-of` the close act, answered by name, resumable
   because `entry-ids` lists only what is not yet erased and a second forget
-  "changes nothing". PASS for correctness. **The page size fails (F4)**: 256
+  "changes nothing". The mechanism holds. **The page size FAILED (F4,
+  fixed)**: 256
   targets × (the row, the answer's stamp, the ledger, the lock row, `:ix-of`,
   five purge writes) is the plan's own "about 1,300 seeks ... about 0.7 s"
   in one stream event. OP9 reads and writes the ledger per target, which is
@@ -450,7 +452,8 @@ Each checked against its plan:
 - Worker restart: queries fail and are retried by the caller, nothing shown;
   batches retry whole; stream pages replay idempotently. PASS.
 - Large scale: every collection subindexed; the hot-layer concentration is
-  the accepted RR5. PASS with that named.
+  the accepted RR5. **FAIL at the yardstick, accepted for tonight as RR5**
+  (the placement question), not passed.
 - Non-idempotent stream writes: none (termvals and deletes at computed
   addresses). PASS.
 
