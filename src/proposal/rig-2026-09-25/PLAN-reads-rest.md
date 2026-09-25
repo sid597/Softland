@@ -765,7 +765,8 @@ The read exit's `entry-moments` (F1) counts the moment of every
 ### The functions (`rig.store.standing`, client side beside the exit)
 
 A standing read's handle lives in the caller's process: `{:ent :layer
-:pattern :reader-fields :moment :lines-stamps}`; it is not durable, and
+:pattern :limit :reader-fields :scan :line :resume}` (`:resume` the last
+shown address after a cut delivery, RR10); it is not durable, and
 nothing depends on it surviving (the record has everything a close needs).
 
 - **`(subscribe! store spec)`** → `{:handle h :rows [...]}` or `{:refused
@@ -793,7 +794,7 @@ nothing depends on it surviving (the record has everything a close needs).
 - **The closing query `standing-close [*layer *ent :> *c]`** (a third
   query topology of this stage, on the working layer's home, `(|hash
   *layer)`): the entry's delivery lines by `:ix-ek` prefix `ent␀read/delivery␀`
-  (one page), each line's row (`:no-copy`, one to two seeks each) opened by
+  (in doubling pages, line order being stamp order), each line's row (`:no-copy`, one to two seeks each) opened by
   `open-row>` (the lines are sealed values of the working layer, opened on
   its home like any value), then the closing fingerprint under the
   fingerprint secret, which exists only in the module (FR12), and the mark;
@@ -841,8 +842,9 @@ erasures by date (phase 2's ledger is keyed by lock id, not by date).
 
 ### Standing reads on shared layers
 
-The same functions: the handle's moment is `{:frontier F}`, the delta runs
-over the micro `:ix-s` from `hex(F0 + 1)`, the lines carry `:moment
+The same functions: the handle's moments are `{:frontier F}`s, the delta
+runs over the micro `:ix-s` from `hex(F0 + 1)` (or, for `[:ek]`, `[:kv]`
+and `[:latest]`, over their own batch-first index, "The delta"), the lines carry `:moment
 {:frontier F}` and `:max-stamp`, and every line still lives in the reader's
 working layer, a one-owner layer on the stream gate. A shared layer's
 frontier moves about every tick (250 ms) whether or not the layer changed,
@@ -887,7 +889,11 @@ The closer (the session's door, or the operator after a crash) runs
    skipped, not forgotten), at most n (256) per page; ids and stamps only,
    nothing opened (a maintenance read, RR11).
 2. **Forget** each page with one ordinary value-forget act, phase 2's OP9:
-   `:who` the layer's owner or `:operator`, `:layer` the agent layer,
+   `:who` the layer's owner (under `[owner L L]`) or `:operator`, as OP9
+   requires (an agent cannot forget in its session layer: forgetting is
+   the owner's or the operator's, so an agent's door closing its own
+   session hands the drop to its owner's door or the operator), `:layer`
+   the agent layer,
    `:stood-on` each target's `[fid stamp]`, `:because-of` the close act's
    name (ruling 3: "trigger is already because-of"), one fact `{:e e :k
    :forget :v {:target fid}}` per target (acts of any size). Each is its own
@@ -902,7 +908,9 @@ The closer (the session's door, or the operator after a crash) runs
 Each forget act's event is bounded: 256 targets × (the target row, the
 answer's stamp, the ledger, the lock row delete, `:ix-of`, the purge's
 five tombstones and deletes) is about 1,300 seeks and 2,500 writes, about
-0.7 s, under the stream timeout (F2's arithmetic; RR14, the page size).
+0.7 s, under the stream timeout (F2's arithmetic; RR14, the page size;
+if phase 1's envelope bounds an act's facts or its `:stood-on` map below
+256, that bound is the page size [build checks]).
 
 ### The mark at write: every read entry is `:own-row`
 
