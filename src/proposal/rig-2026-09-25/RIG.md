@@ -110,6 +110,18 @@ handoff.
     would have a purged value written back (D3), and a fact id in an index
     address carries its index as fixed-width hex, so index 10 no longer
     sorts before 9 (D5).
+  - Phase 8's plan, replays of the model's fixed histories
+    (`PLAN-replays.md`), written and validated: minor-fail, twelve fixes
+    in place (`PLAN_VALIDATION-replays.md`, 03:42), merged here. One test
+    namespace, `rig.replay-test`, steps the model one operation at a time
+    and sends each rig act at the model step that decides its counterpart;
+    `:values` comes from the store's own opening, `:shown` from the
+    promotion status; a fresh module per case (probed: relaunch in about
+    380 ms). Nine cases practical, five approximated with a hold or a
+    paused micro topology, each with its reason; nineteen known differences
+    named and cited case by case; any unexplained difference fails the
+    test. Phase 4's build must provide its own hold hook: the only one that
+    exists blocks a task thread.
 - **In flight**, each writer in its own worktree off this branch, merged by
   commit: builds of phase 2 (`Softland-rig-build-locks`) and phase 3
   (`Softland-rig-build-micro`,
@@ -311,6 +323,10 @@ everyone including the past"?
     should be; a mark needs the subjects a grammar gives.
 27. **For round three:** the model's compiled grammar is the toy's
     kindness; the seed can model grammars as facts in layers.
+28. **Forget's reach over reads** (phase 8's KD10). After a person is
+    forgotten, no read can be recorded for them through the exit, since
+    the read entry's lease is refused, so nobody reads their one-owner
+    layers there any more. Is that the intended reach?
 
 ## Defaults taken overnight, not ruled
 

@@ -1,0 +1,275 @@
+== A1 as said - A: in Alice's own layer a note and a mention of Bob both die with Alice
+   history: [[:offer {:who :alice, :layer :alice, :facts [{:e :e0, :k :note, :mention nil, :replaces :none, :mark #{}, :other-layer nil} {:e :e1, :k :mention, :mention #{:bob}, :replaces :none, :mark #{}, :other-layer nil}], :stood-on nil, :times 1}] [:work 0] [:work 1] [:work 2] [:batch] [:forget-person :alice]]
+   seen: {:values {[:alice :note nil] :erased, [:alice :mention #{:bob}] :erased}}
+   client-sent: ["o0"]
+   answer o0 [[[:stream 0] :yes nil]]
+   read as of 6: grant:alice:alice#0 alice {:id [:alice :alice :own]}, o0#0 alice erased@6, o0#1 alice erased@6, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]}
+   persons: {:alice {:stamp 6, :tick 6, :order 13}}
+   | [t0] first facts: every permission, in the layer it lives in
+   | [t1] alice offers o0 (act layer alice, class by-layer): e0 note v1 in alice; e1 mention bob v2 in alice
+   | [t2]     stream p0 (epoch 0): o0 yes at stamp 2
+   | [t2]     stream p0: o0 finished and acknowledged
+   | [t5]     micro leader (epoch 0) prepares a batch
+   | [t5]     micro commits its batch
+   | [t6] alice is forgotten: their person lock is destroyed at stamp 6
+   | [t6] -- drain: no more failovers; the gates work off their queues
+== A2 as said - A: in the group a mention of Bob alone dies with Bob
+   history: [[:offer {:who :bob, :layer :group, :facts [{:e :e0, :k :mention, :mention #{:bob}, :replaces :none, :mark #{}, :other-layer nil}], :stood-on nil, :times 1}] [:work 0] [:work 1] [:work 2] [:batch] [:forget-person :bob]]
+   seen: {:values {[:group :mention #{:bob}] :erased}}
+   client-sent: ["o0"]
+   answer o0 [[[:micro 0] :yes nil]]
+   read as of 6: grant:alice:alice#0 alice {:id [:alice :alice :own]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, o0#0 group erased@6, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]}
+   persons: {:bob {:stamp 6, :tick 6, :order 12}}
+   | [t0] first facts: every permission, in the layer it lives in
+   | [t1] bob offers o0 (act layer group, class by-entity): e0 mention bob v1 in group
+   | [t5]     micro leader (epoch 0) prepares a batch: o0
+   | [t5]     micro commits its batch
+   | [t5]     micro p0 (epoch 0): o0 yes at stamp 5
+   | [t6] bob is forgotten: their person lock is destroyed at stamp 6
+   | [t6] -- drain: no more failovers; the gates work off their queues
+== A3 as said - A: in the group a plain note about no one survives both forgets
+   history: [[:offer {:who :bob, :layer :group, :facts [{:e :e0, :k :note, :mention nil, :replaces :none, :mark #{}, :other-layer nil}], :stood-on nil, :times 1}] [:work 0] [:work 1] [:work 2] [:batch] [:forget-person :bob] [:forget-person :alice]]
+   seen: {:values {[:group :note nil] :open}}
+   client-sent: ["o0"]
+   answer o0 [[[:micro 0] :yes nil]]
+   read as of 7: grant:alice:alice#0 alice {:id [:alice :alice :own]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, o0#0 group v1, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]}
+   persons: {:bob {:stamp 6, :tick 6, :order 12}, :alice {:stamp 7, :tick 7, :order 13}}
+   | [t0] first facts: every permission, in the layer it lives in
+   | [t1] bob offers o0 (act layer group, class by-entity): e0 note v1 in group
+   | [t5]     micro leader (epoch 0) prepares a batch: o0
+   | [t5]     micro commits its batch
+   | [t5]     micro p0 (epoch 0): o0 yes at stamp 5
+   | [t6] bob is forgotten: their person lock is destroyed at stamp 6
+   | [t7] alice is forgotten: their person lock is destroyed at stamp 7
+   | [t7] -- drain: no more failovers; the gates work off their queues
+== A4 as said - A: in the group a value about Alice and Bob survives Alice alone
+   history: [[:offer {:who :bob, :layer :group, :facts [{:e :e0, :k :mention, :mention #{:bob :alice}, :replaces :none, :mark #{}, :other-layer nil}], :stood-on nil, :times 1}] [:work 0] [:work 1] [:work 2] [:batch] [:forget-person :alice]]
+   seen: {:values {[:group :mention #{:bob :alice}] :open}}
+   client-sent: ["o0"]
+   answer o0 [[[:micro 0] :yes nil]]
+   read as of 6: grant:alice:alice#0 alice {:id [:alice :alice :own]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, o0#0 group v1, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]}
+   persons: {:alice {:stamp 6, :tick 6, :order 12}}
+   | [t0] first facts: every permission, in the layer it lives in
+   | [t1] bob offers o0 (act layer group, class by-entity): e0 mention alice+bob v1 in group
+   | [t5]     micro leader (epoch 0) prepares a batch: o0
+   | [t5]     micro commits its batch
+   | [t5]     micro p0 (epoch 0): o0 yes at stamp 5
+   | [t6] alice is forgotten: their person lock is destroyed at stamp 6
+   | [t6] -- drain: no more failovers; the gates work off their queues
+== A5 as said - A: in the group a value about Alice and Bob survives Bob alone
+   history: [[:offer {:who :bob, :layer :group, :facts [{:e :e0, :k :mention, :mention #{:bob :alice}, :replaces :none, :mark #{}, :other-layer nil}], :stood-on nil, :times 1}] [:work 0] [:work 1] [:work 2] [:batch] [:forget-person :bob]]
+   seen: {:values {[:group :mention #{:bob :alice}] :open}}
+   client-sent: ["o0"]
+   answer o0 [[[:micro 0] :yes nil]]
+   read as of 6: grant:alice:alice#0 alice {:id [:alice :alice :own]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, o0#0 group v1, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]}
+   persons: {:bob {:stamp 6, :tick 6, :order 12}}
+   | [t0] first facts: every permission, in the layer it lives in
+   | [t1] bob offers o0 (act layer group, class by-entity): e0 mention alice+bob v1 in group
+   | [t5]     micro leader (epoch 0) prepares a batch: o0
+   | [t5]     micro commits its batch
+   | [t5]     micro p0 (epoch 0): o0 yes at stamp 5
+   | [t6] bob is forgotten: their person lock is destroyed at stamp 6
+   | [t6] -- drain: no more failovers; the gates work off their queues
+== A6 as said - A: ... and dies when both are forgotten ('either one alone')
+   history: [[:offer {:who :bob, :layer :group, :facts [{:e :e0, :k :mention, :mention #{:bob :alice}, :replaces :none, :mark #{}, :other-layer nil}], :stood-on nil, :times 1}] [:work 0] [:work 1] [:work 2] [:batch] [:forget-person :bob] [:forget-person :alice]]
+   seen: {:values {[:group :mention #{:bob :alice}] :erased}}
+   client-sent: ["o0"]
+   answer o0 [[[:micro 0] :yes nil]]
+   read as of 7: grant:alice:alice#0 alice {:id [:alice :alice :own]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, o0#0 group erased@7, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]}
+   persons: {:bob {:stamp 6, :tick 6, :order 12}, :alice {:stamp 7, :tick 7, :order 13}}
+   | [t0] first facts: every permission, in the layer it lives in
+   | [t1] bob offers o0 (act layer group, class by-entity): e0 mention alice+bob v1 in group
+   | [t5]     micro leader (epoch 0) prepares a batch: o0
+   | [t5]     micro commits its batch
+   | [t5]     micro p0 (epoch 0): o0 yes at stamp 5
+   | [t6] bob is forgotten: their person lock is destroyed at stamp 6
+   | [t7] alice is forgotten: their person lock is destroyed at stamp 7
+   | [t7] -- drain: no more failovers; the gates work off their queues
+== A7 as said - A: in the group a value about Alice and Bob, marked, dies with Bob
+   history: [[:offer {:who :bob, :layer :group, :facts [{:e :e0, :k :mention, :mention #{:bob :alice}, :replaces :none, :mark #{:die-with-any}, :other-layer nil}], :stood-on nil, :times 1}] [:work 0] [:work 1] [:work 2] [:batch] [:forget-person :bob]]
+   seen: {:values {[:group :mention #{:bob :alice}] :erased}}
+   client-sent: ["o0"]
+   answer o0 [[[:micro 0] :yes nil]]
+   read as of 6: grant:alice:alice#0 alice {:id [:alice :alice :own]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, o0#0 group erased@6, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]}
+   persons: {:bob {:stamp 6, :tick 6, :order 12}}
+   | [t0] first facts: every permission, in the layer it lives in
+   | [t1] bob offers o0 (act layer group, class by-entity): e0 mention alice+bob v1 in group, marked die-with-any
+   | [t5]     micro leader (epoch 0) prepares a batch: o0
+   | [t5]     micro commits its batch
+   | [t5]     micro p0 (epoch 0): o0 yes at stamp 5
+   | [t6] bob is forgotten: their person lock is destroyed at stamp 6
+   | [t6] -- drain: no more failovers; the gates work off their queues
+== A8 as said - A, ruled 25 September: in Alice's own layer a mention of Bob survives Bob (7b)
+   history: [[:offer {:who :alice, :layer :alice, :facts [{:e :e1, :k :mention, :mention #{:bob}, :replaces :none, :mark #{}, :other-layer nil}], :stood-on nil, :times 1}] [:work 0] [:work 1] [:work 2] [:batch] [:forget-person :bob]]
+   seen: {:values {[:alice :mention #{:bob}] :open}}
+   client-sent: ["o0"]
+   answer o0 [[[:stream 0] :yes nil]]
+   read as of 6: grant:alice:alice#0 alice {:id [:alice :alice :own]}, o0#0 alice v1, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]}
+   persons: {:bob {:stamp 6, :tick 6, :order 12}}
+   | [t0] first facts: every permission, in the layer it lives in
+   | [t1] alice offers o0 (act layer alice, class by-layer): e1 mention bob v1 in alice
+   | [t2]     stream p0 (epoch 0): o0 yes at stamp 2
+   | [t2]     stream p0: o0 finished and acknowledged
+   | [t5]     micro leader (epoch 0) prepares a batch
+   | [t5]     micro commits its batch
+   | [t6] bob is forgotten: their person lock is destroyed at stamp 6
+   | [t6] -- drain: no more failovers; the gates work off their queues
+== B1 as said - B: a value forget queued before the read-out: pending, then refused
+   history: [[:offer {:who :alice, :layer :alice, :facts [{:e :e0, :k :note, :mention nil, :replaces :none, :mark #{}, :other-layer nil}], :stood-on nil, :times 1}] [:work 0] [:work 1] [:work 2] [:batch] [:promote 0 :group 1] [:forget-value 0] [:step 0] [:read :now] [:step 0] [:read :now] [:step 0]]
+   seen: {:values {[:alice :note nil] :erased}, :shown [:pending :pending :refused]}
+   client-sent: ["o0" "o2" "o3"]
+   answer crossing:o2 [[[:stream 0] :no :source-erased]]
+   answer o0 [[[:stream 0] :yes nil]]
+   answer o3 [[[:stream 0] :yes nil]]
+   answer o2 [[[:stream 0] :yes nil]]
+   read as of 8: grant:alice:alice#0 alice {:id [:alice :alice :own]}, o0#0 alice v1, o2#0 alice {:source ["o0" 0], :target :group}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]} | promotions: o2 pending
+   read as of 10: grant:alice:alice#0 alice {:id [:alice :alice :own]}, o0#0 alice erased@10, o2#0 alice {:source ["o0" 0], :target :group}, o3#0 alice {:target ["o0" 0]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]} | promotions: o2 pending
+   read as of 12: grant:alice:alice#0 alice {:id [:alice :alice :own]}, o0#0 alice erased@10, o2#0 alice {:source ["o0" 0], :target :group}, o3#0 alice {:target ["o0" 0]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]} | promotions: o2 refused
+   persons: {}
+   | [t0] first facts: every permission, in the layer it lives in
+   | [t1] alice offers o0 (act layer alice, class by-layer): e0 note v1 in alice
+   | [t2]     stream p0 (epoch 0): o0 yes at stamp 2
+   | [t2]     stream p0: o0 finished and acknowledged
+   | [t5]     micro leader (epoch 0) prepares a batch
+   | [t5]     micro commits its batch
+   | [t6] alice asks to promote o0#0 (v1) into group as o2
+   | [t7] alice forgets o0#0 (v1) as o3: its lock row will be deleted
+   | [t8]     stream p0 (epoch 0): o2 yes at stamp 8
+   | [t8]     promotion o2 queues its read-out crossing:o2 on stream p0
+   | [t9] a read as of stamp 8 sees grant:alice:alice#0@1 (setting), o0#0@2 v1, o2#0@8 (setting), grant:alice:alice-hand#0@1 (setting), grant:alice:alice@session#0@2 (setting), grant:alice:alice-agent@session#0@3 (setting), grant:alice:group@session#0@4 (setting), grant:alice:base@session#0@5 (setting), grant:alice:alice-agent#0@1 (setting), grant:alice:group#0@1 (setting), grant:alice:base#0@2 (setting), grant:bob:group#0@2 (setting), grant:bob:base#0@3 (setting); promotions: o2 pending
+   | [t10]     stream p0 (epoch 0): o3 yes at stamp 10
+   | [t11] a read as of stamp 10 sees grant:alice:alice#0@1 (setting), o0#0@2 erased on 10, o2#0@8 (setting), o3#0@10 (setting), grant:alice:alice-hand#0@1 (setting), grant:alice:alice@session#0@2 (setting), grant:alice:alice-agent@session#0@3 (setting), grant:alice:group@session#0@4 (setting), grant:alice:base@session#0@5 (setting), grant:alice:alice-agent#0@1 (setting), grant:alice:group#0@1 (setting), grant:alice:base#0@2 (setting), grant:bob:group#0@2 (setting), grant:bob:base#0@3 (setting); promotions: o2 pending
+   | [t12]     stream p0 (epoch 0): crossing:o2 no (source-erased) at stamp 12
+   | [t12] -- drain: no more failovers; the gates work off their queues
+   | [t13]     stream p0: o2 finished and acknowledged
+   | [t14]     stream p0: o3 finished and acknowledged
+   | [t15]     stream p0: crossing:o2 finished and acknowledged
+== B2 as said - B: Alice forgotten before the read-out: pending, then refused
+   history: [[:offer {:who :alice, :layer :alice, :facts [{:e :e0, :k :note, :mention nil, :replaces :none, :mark #{}, :other-layer nil}], :stood-on nil, :times 1}] [:work 0] [:work 1] [:work 2] [:batch] [:promote 0 :group 1] [:step 0] [:read :now] [:forget-person :alice] [:work 0]]
+   seen: {:values {[:alice :note nil] :erased}, :shown [:pending :refused]}
+   client-sent: ["o0" "o2"]
+   answer crossing:o2 [[[:stream 0] :no :source-erased]]
+   answer o0 [[[:stream 0] :yes nil]]
+   answer o2 [[[:stream 0] :yes nil]]
+   read as of 7: grant:alice:alice#0 alice {:id [:alice :alice :own]}, o0#0 alice v1, o2#0 alice {:source ["o0" 0], :target :group}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]} | promotions: o2 pending
+   read as of 10: grant:alice:alice#0 alice {:id [:alice :alice :own]}, o0#0 alice erased@8, o2#0 alice {:source ["o0" 0], :target :group}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]} | promotions: o2 refused
+   persons: {:alice {:stamp 8, :tick 9, :order 13}}
+   | [t0] first facts: every permission, in the layer it lives in
+   | [t1] alice offers o0 (act layer alice, class by-layer): e0 note v1 in alice
+   | [t2]     stream p0 (epoch 0): o0 yes at stamp 2
+   | [t2]     stream p0: o0 finished and acknowledged
+   | [t5]     micro leader (epoch 0) prepares a batch
+   | [t5]     micro commits its batch
+   | [t6] alice asks to promote o0#0 (v1) into group as o2
+   | [t7]     stream p0 (epoch 0): o2 yes at stamp 7
+   | [t7]     promotion o2 queues its read-out crossing:o2 on stream p0
+   | [t8] a read as of stamp 7 sees grant:alice:alice#0@1 (setting), o0#0@2 v1, o2#0@7 (setting), grant:alice:alice-hand#0@1 (setting), grant:alice:alice@session#0@2 (setting), grant:alice:alice-agent@session#0@3 (setting), grant:alice:group@session#0@4 (setting), grant:alice:base@session#0@5 (setting), grant:alice:alice-agent#0@1 (setting), grant:alice:group#0@1 (setting), grant:alice:base#0@2 (setting), grant:bob:group#0@2 (setting), grant:bob:base#0@3 (setting); promotions: o2 pending
+   | [t9] alice is forgotten: their person lock is destroyed at stamp 8
+   | [t10]     stream p0 (epoch 0): crossing:o2 no (source-erased) at stamp 10
+   | [t10]     stream p0: o2 finished and acknowledged
+   | [t10]     stream p0: crossing:o2 finished and acknowledged
+   | [t10] -- drain: no more failovers; the gates work off their queues
+== B3 as said - B: a value forget after the read-out: crossed, then done; the copy stays
+   history: [[:offer {:who :alice, :layer :alice, :facts [{:e :e0, :k :note, :mention nil, :replaces :none, :mark #{}, :other-layer nil}], :stood-on nil, :times 1}] [:work 0] [:work 1] [:work 2] [:batch] [:promote 0 :group 1] [:work 0] [:read :now] [:forget-value 0] [:work 0] [:read :now] [:batch] [:read :now]]
+   seen: {:values {[:alice :note nil] :erased, [:group :note nil] :open}, :shown [:crossed :crossed :done :done]}
+   client-sent: ["o0" "o2" "o3"]
+   answer landing:o2 [[[:micro 0] :yes nil] [[:micro 2] :yes nil]]
+   answer crossing:o2 [[[:stream 0] :yes nil]]
+   answer o0 [[[:stream 0] :yes nil]]
+   answer o3 [[[:stream 0] :yes nil]]
+   answer o2 [[[:stream 0] :yes nil]]
+   read as of 8: grant:alice:alice#0 alice {:id [:alice :alice :own]}, o0#0 alice v1, o2#0 alice {:source ["o0" 0], :target :group}, crossing:o2#0 alice {:request "o2", :source ["o0" 0]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]} | promotions: o2 crossed
+   read as of 10: grant:alice:alice#0 alice {:id [:alice :alice :own]}, o0#0 alice erased@10, o2#0 alice {:source ["o0" 0], :target :group}, crossing:o2#0 alice {:request "o2", :source ["o0" 0]}, o3#0 alice {:target ["o0" 0]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]} | promotions: o2 crossed
+   read as of 12: grant:alice:alice#0 alice {:id [:alice :alice :own]}, o0#0 alice erased@10, o2#0 alice {:source ["o0" 0], :target :group}, crossing:o2#0 alice {:request "o2", :source ["o0" 0]}, o3#0 alice {:target ["o0" 0]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, landing:o2#0 group v1, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]} | promotions: o2 done
+   read as of 12: grant:alice:alice#0 alice {:id [:alice :alice :own]}, o0#0 alice erased@10, o2#0 alice {:source ["o0" 0], :target :group}, crossing:o2#0 alice {:request "o2", :source ["o0" 0]}, o3#0 alice {:target ["o0" 0]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, landing:o2#0 group v1, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]} | promotions: o2 done
+   persons: {}
+   | [t0] first facts: every permission, in the layer it lives in
+   | [t1] alice offers o0 (act layer alice, class by-layer): e0 note v1 in alice
+   | [t2]     stream p0 (epoch 0): o0 yes at stamp 2
+   | [t2]     stream p0: o0 finished and acknowledged
+   | [t5]     micro leader (epoch 0) prepares a batch
+   | [t5]     micro commits its batch
+   | [t6] alice asks to promote o0#0 (v1) into group as o2
+   | [t7]     stream p0 (epoch 0): o2 yes at stamp 7
+   | [t7]     promotion o2 queues its read-out crossing:o2 on stream p0
+   | [t7]     stream p0 (epoch 0): crossing:o2 yes at stamp 8
+   | [t7]     promotion o2 sends its landing offer landing:o2 to the micro gate
+   | [t7]     stream p0: o2 finished and acknowledged
+   | [t7]     stream p0: crossing:o2 finished and acknowledged
+   | [t8] a read as of stamp 8 sees grant:alice:alice#0@1 (setting), o0#0@2 v1, o2#0@7 (setting), crossing:o2#0@8 (setting), grant:alice:alice-hand#0@1 (setting), grant:alice:alice@session#0@2 (setting), grant:alice:alice-agent@session#0@3 (setting), grant:alice:group@session#0@4 (setting), grant:alice:base@session#0@5 (setting), grant:alice:alice-agent#0@1 (setting), grant:alice:group#0@1 (setting), grant:alice:base#0@2 (setting), grant:bob:group#0@2 (setting), grant:bob:base#0@3 (setting); promotions: o2 crossed
+   | [t9] alice forgets o0#0 (v1) as o3: its lock row will be deleted
+   | [t10]     stream p0 (epoch 0): o3 yes at stamp 10
+   | [t10]     stream p0: o3 finished and acknowledged
+   | [t11] a read as of stamp 10 sees grant:alice:alice#0@1 (setting), o0#0@2 erased on 10, o2#0@7 (setting), crossing:o2#0@8 (setting), o3#0@10 (setting), grant:alice:alice-hand#0@1 (setting), grant:alice:alice@session#0@2 (setting), grant:alice:alice-agent@session#0@3 (setting), grant:alice:group@session#0@4 (setting), grant:alice:base@session#0@5 (setting), grant:alice:alice-agent#0@1 (setting), grant:alice:group#0@1 (setting), grant:alice:base#0@2 (setting), grant:bob:group#0@2 (setting), grant:bob:base#0@3 (setting); promotions: o2 crossed
+   | [t12]     micro leader (epoch 0) prepares a batch: landing:o2
+   | [t12]     micro commits its batch
+   | [t12]     micro p0 (epoch 0): landing:o2 yes at stamp 12
+   | [t13] a read as of stamp 12 sees grant:alice:alice#0@1 (setting), o0#0@2 erased on 10, o2#0@7 (setting), crossing:o2#0@8 (setting), o3#0@10 (setting), grant:alice:alice-hand#0@1 (setting), grant:alice:alice@session#0@2 (setting), grant:alice:alice-agent@session#0@3 (setting), grant:alice:group@session#0@4 (setting), grant:alice:base@session#0@5 (setting), grant:alice:alice-agent#0@1 (setting), landing:o2#0@12 v1, grant:alice:group#0@1 (setting), grant:alice:base#0@2 (setting), grant:bob:group#0@2 (setting), grant:bob:base#0@3 (setting); promotions: o2 done
+   | [t13] -- drain: no more failovers; the gates work off their queues
+== B4 as said - B: Alice forgotten after the read-out: crossed, then done; the copy stays
+   history: [[:offer {:who :alice, :layer :alice, :facts [{:e :e0, :k :note, :mention nil, :replaces :none, :mark #{}, :other-layer nil}], :stood-on nil, :times 1}] [:work 0] [:work 1] [:work 2] [:batch] [:promote 0 :group 1] [:work 0] [:read :now] [:forget-person :alice] [:batch] [:read :now]]
+   seen: {:values {[:alice :note nil] :erased, [:group :note nil] :open}, :shown [:crossed :done :done]}
+   client-sent: ["o0" "o2"]
+   answer landing:o2 [[[:micro 0] :yes nil] [[:micro 2] :yes nil]]
+   answer crossing:o2 [[[:stream 0] :yes nil]]
+   answer o0 [[[:stream 0] :yes nil]]
+   answer o2 [[[:stream 0] :yes nil]]
+   read as of 8: grant:alice:alice#0 alice {:id [:alice :alice :own]}, o0#0 alice v1, o2#0 alice {:source ["o0" 0], :target :group}, crossing:o2#0 alice {:request "o2", :source ["o0" 0]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]} | promotions: o2 crossed
+   read as of 10: grant:alice:alice#0 alice {:id [:alice :alice :own]}, o0#0 alice erased@9, o2#0 alice {:source ["o0" 0], :target :group}, crossing:o2#0 alice {:request "o2", :source ["o0" 0]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, landing:o2#0 group v1, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]} | promotions: o2 done
+   read as of 10: grant:alice:alice#0 alice {:id [:alice :alice :own]}, o0#0 alice erased@9, o2#0 alice {:source ["o0" 0], :target :group}, crossing:o2#0 alice {:request "o2", :source ["o0" 0]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, landing:o2#0 group v1, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]} | promotions: o2 done
+   persons: {:alice {:stamp 9, :tick 9, :order 14}}
+   | [t0] first facts: every permission, in the layer it lives in
+   | [t1] alice offers o0 (act layer alice, class by-layer): e0 note v1 in alice
+   | [t2]     stream p0 (epoch 0): o0 yes at stamp 2
+   | [t2]     stream p0: o0 finished and acknowledged
+   | [t5]     micro leader (epoch 0) prepares a batch
+   | [t5]     micro commits its batch
+   | [t6] alice asks to promote o0#0 (v1) into group as o2
+   | [t7]     stream p0 (epoch 0): o2 yes at stamp 7
+   | [t7]     promotion o2 queues its read-out crossing:o2 on stream p0
+   | [t7]     stream p0 (epoch 0): crossing:o2 yes at stamp 8
+   | [t7]     promotion o2 sends its landing offer landing:o2 to the micro gate
+   | [t7]     stream p0: o2 finished and acknowledged
+   | [t7]     stream p0: crossing:o2 finished and acknowledged
+   | [t8] a read as of stamp 8 sees grant:alice:alice#0@1 (setting), o0#0@2 v1, o2#0@7 (setting), crossing:o2#0@8 (setting), grant:alice:alice-hand#0@1 (setting), grant:alice:alice@session#0@2 (setting), grant:alice:alice-agent@session#0@3 (setting), grant:alice:group@session#0@4 (setting), grant:alice:base@session#0@5 (setting), grant:alice:alice-agent#0@1 (setting), grant:alice:group#0@1 (setting), grant:alice:base#0@2 (setting), grant:bob:group#0@2 (setting), grant:bob:base#0@3 (setting); promotions: o2 crossed
+   | [t9] alice is forgotten: their person lock is destroyed at stamp 9
+   | [t10]     micro leader (epoch 0) prepares a batch: landing:o2
+   | [t10]     micro commits its batch
+   | [t10]     micro p0 (epoch 0): landing:o2 yes at stamp 10
+   | [t11] a read as of stamp 10 sees grant:alice:alice#0@1 (setting), o0#0@2 erased on 9, o2#0@7 (setting), crossing:o2#0@8 (setting), grant:alice:alice-hand#0@1 (setting), grant:alice:alice@session#0@2 (setting), grant:alice:alice-agent@session#0@3 (setting), grant:alice:group@session#0@4 (setting), grant:alice:base@session#0@5 (setting), grant:alice:alice-agent#0@1 (setting), landing:o2#0@10 v1, grant:alice:group#0@1 (setting), grant:alice:base#0@2 (setting), grant:bob:group#0@2 (setting), grant:bob:base#0@3 (setting); promotions: o2 done
+   | [t11] -- drain: no more failovers; the gates work off their queues
+== D1 as said - D: a group write under Alice's session permission; the session revokes it between prepare and commit
+   history: [[:offer {:who :alice, :layer :group, :facts [{:e :e0, :k :note, :mention nil, :replaces :none, :mark #{}, :other-layer nil}], :stood-on nil, :times 1, :cite :session}] [:prepare] [:revoke [:alice :group :session]] [:step 1] [:commit]]
+   seen: {:values {[:group :note nil] :missing}}
+   client-sent: ["o0" "o2"]
+   answer o0 [[[:micro 0] :no :permission-from-another-layer]]
+   answer o2 [[[:stream 1] :yes nil]]
+   read as of 6: grant:alice:alice#0 alice {:id [:alice :alice :own]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, o2#0 alice-hand {:permission [:alice :group :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]}
+   persons: {}
+   | [t0] first facts: every permission, in the layer it lives in
+   | [t1] alice offers o0 (act layer group, class by-entity): e0 note v1 in group
+   | [t2]     micro leader (epoch 0) prepares a batch: o0
+   | [t3] operator revokes [:alice :group :session] (in alice-hand) as o2
+   | [t4]     stream p1 (epoch 0): o2 yes at stamp 6
+   | [t5]     micro commits its batch
+   | [t5]     micro p0 (epoch 0): o0 no (permission-from-another-layer) at stamp 3
+   | [t5] -- drain: no more failovers; the gates work off their queues
+   | [t6]     stream p1: o2 finished and acknowledged
+== D2 as said - D: a group write under her group permission, revoked in the group first
+   history: [[:revoke [:alice :group :own]] [:batch] [:offer {:who :alice, :layer :group, :facts [{:e :e0, :k :note, :mention nil, :replaces :none, :mark #{}, :other-layer nil}], :stood-on nil, :times 1}] [:batch]]
+   seen: {:values {[:group :note nil] :missing}}
+   client-sent: ["o0" "o1"]
+   answer o1 [[[:micro 0] :no :permission-revoked] [[:micro 2] :no :permission-revoked]]
+   answer o0 [[[:micro 0] :yes nil] [[:micro 1] :yes nil]]
+   read as of 5: grant:alice:alice#0 alice {:id [:alice :alice :own]}, grant:alice:alice-hand#0 alice-hand {:id [:alice :alice-hand :own]}, grant:alice:alice@session#0 alice-hand {:id [:alice :alice :session]}, grant:alice:alice-agent@session#0 alice-hand {:id [:alice :alice-agent :session]}, grant:alice:group@session#0 alice-hand {:id [:alice :group :session]}, grant:alice:base@session#0 alice-hand {:id [:alice :base :session]}, grant:alice:alice-agent#0 alice-agent {:id [:alice :alice-agent :own]}, grant:alice:group#0 group {:id [:alice :group :own]}, grant:alice:base#0 base {:id [:alice :base :own]}, o0#0 group {:permission [:alice :group :own]}, grant:bob:group#0 group {:id [:bob :group :own]}, grant:bob:base#0 base {:id [:bob :base :own]}
+   persons: {}
+   | [t0] first facts: every permission, in the layer it lives in
+   | [t1] operator revokes [:alice :group :own] (in group) as o0
+   | [t2]     micro leader (epoch 0) prepares a batch: o0
+   | [t2]     micro commits its batch
+   | [t2]     micro p0 (epoch 0): o0 yes at stamp 4
+   | [t3] alice offers o1 (act layer group, class by-entity): e0 note v2 in group
+   | [t4]     micro leader (epoch 0) prepares a batch: o1
+   | [t4]     micro commits its batch
+   | [t4]     micro p0 (epoch 0): o1 no (permission-revoked) at stamp 5
+   | [t4] -- drain: no more failovers; the gates work off their queues
