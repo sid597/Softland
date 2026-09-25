@@ -551,7 +551,9 @@ widened), checked after every forget in `forget_test.clj`:
   write of this plan produces). Its reads: the act's answer (the stamp), the
   row, the ledger entry, the lock row when the row's `:lock` is nil, the
   wrap's person entries. A control fact or a retract returns its plaintext
-  or nil. The read exit calls it; this stage's `read-as-of` calls it per row.
+  or nil. The read exit calls it; this stage's `read-as-of` calls its
+  twin `open-row>` (the same, given a row and its act's stamp the caller
+  already read), so no row is read twice.
   Install functions: `(layer-fields)`, the fields this stage adds to
   `$$layers`'s fixed-keys schema; `(declare-pstates! s)` for `$$persons` on
   the gate topology `s`; `(declare-queries! topologies)` for `lease-locks`
@@ -1052,6 +1054,38 @@ loop over PState contents in the gate.
 
 ## Query Topologies
 
+Two (revised 26 September): `lease-locks`, the door's one path to a leased
+lock's plaintext, and `read-as-of`, which now opens each row through
+`open-value>`.
+
+### `lease-locks` (revised 26 September)
+
+- **name:** `lease-locks`, signature `[*layer *session :> *result]`,
+  `*result` = `{:grain g :locks {lock-id K}}`.
+- **Route:** `(|hash *layer)` first, as `read-as-of` below.
+- **Reads, all local:** `(local-select> [(keypath *layer :settings)]
+  $$layers :> *settings)` (the grain in force and the owner);
+  `(local-select> [(keypath *owner)] $$persons :> *pe)`; `(local-select>
+  [(keypath *layer :leases *session) ALL] $$layers {:allow-yield? true} :>
+  [*lid *row])`, one emit per unconsumed row; per row the pure `unlease`
+  over the owner's entry; `(|origin)` and a map aggregation into `:locks`,
+  bound even when empty. A row that does not unlease is left out.
+- **Input example 1:** a session with one fresh lease of 64 → 1 + 1 + 1
+  range seek + 64 iterations; all meaningful.
+- **Input example 2:** a session whose leases are all consumed → 1 + 1 + 1
+  range seek to an empty map: the empty range is the answer, not avoidable
+  without knowing it.
+- **Input example 3:** a forgotten owner → the same reads; every row fails
+  to unlease, `:locks` empty (the door's next offer would be refused
+  anyway).
+- **Fixed or variable:** variable in the rows; dynamic by emission, nothing
+  padded. Cost: 3 seeks + rows, at the lease act's rate.
+- **Why a query topology:** three PStates reads and an unwrap that needs a
+  person lock, which must not leave the module; a client-side read would
+  carry the person lock to the door.
+
+### `read-as-of`
+
 One, `read-as-of`, this stage's read as of a moment: the erasure half of
 RD4 (I-L7), enough to check every A case both ways (R8) and to show "erased
 on this date" and nothing else from after the moment. Stage 5 owns points,
@@ -1067,17 +1101,17 @@ its output shape is what this stage leaves.
   (sorted-map-range-to (inc *T)) ALL] $$layers {:allow-yield? true} :>
   [*stamp *name])`, one emit per yes act at or before T; per act
   `(local-select> [(keypath *layer :log *name) INDEXED-VALS] $$layers :>
-  [*idx *row])`, one emit per row; per row, by its `:lock-id`: nil → the
-  row's `:v` decoded as EDN (a control fact's plaintext, or nil for a
-  retract) as `{:id [name idx] :stamp s :value v}`; else the ledger entry
-  `[(keypath *layer :erased *lid)]`, then, when no entry, the lock record
-  (the row's `:lock`, else `[(keypath *layer :locks *lid)]`), then
-  `[(keypath p)]` on `$$persons` for each person of the record's wrap in a
-  `loop<-` (a map, possibly empty), then the pure `lock/erasure` → `{:id
-  :stamp :erased-at e}` or, opening through `crypto/open`, `{:id :stamp
-  :value v}`; a lock record that is absent with no ledger entry cannot
-  arise from this plan's writes and is reported as `{:erased-at nil}` for
-  phase 8 to flag. Also `(local-select> [(keypath *layer :erased) ALL]
+  [*idx *row])`, one emit per row; per row, `open-value>` over the row
+  already read and the act's stamp (revised 26 September: the same
+  function the read exit calls; given the row and the stamp it does not
+  re-read them): a control fact's plaintext or a retract's nil as `{:id
+  [name idx] :stamp s :value v}`; else the ledger entry, then, when none,
+  the lock record (the row's `:lock`, else the lock row), then the wrap
+  persons in a `loop<-` (a map, possibly empty), then `locks/erasure` →
+  `{:id :stamp :erased-at e}` or, through `locks/unwrap` and `locks/open`,
+  `{:id :stamp :value v}`; `{:unreadable :does-not-open}` cannot arise from
+  this plan's writes and is reported for phase 8 to flag. Also
+  `(local-select> [(keypath *layer :erased) ALL]
   $$layers {:allow-yield? true} :> [*lid *entry])`, the ledger whole, each
   tagged `[:erased lid entry]`; and each fact tagged `[:fact m]`.
 - **Agg and post-agg:** `(|origin)`, `(aggs/+vec-agg *tagged :> *all)`,
@@ -1108,8 +1142,9 @@ its output shape is what this stage leaves.
   points.
 
 No other query topology: a value's open-or-erased state alone (RD7) is
-`read-as-of` at the value's stamp filtered by id in this stage; stage 5's
-point reads decide their own shape. Inside a gate event (stage 4's
+`read-as-of` at the value's stamp filtered by id in this stage's tests;
+the read exit's point reads call `open-value>` and decide their own shape
+(revised 26 September). Inside a gate event (stage 4's
 read-out) the same reads are local `local-select>`s and the same two pure
 functions.
 
@@ -1133,78 +1168,104 @@ decision touches one task, so the seek totals are flat in N. The person
 fan-out is N local writes with no read; it is shown as its own column so
 its growth with N is visible and weighed.
 
-Data categories for the gate's decision (one offer), record-first [F4]:
+Data categories for the gate's decision (one offer), record-first [F4],
+revised 26 September for the lease road. Counts are for the small acts
+agent sessions write, one value fact each under per-value grain; an act of
+f value facts adds f − 1 lease-row seeks to (a) and (b) and f − 1
+iterations to (c). The owner's `$$persons` entry is read only for an act
+that cites a lock or is a lease.
 
 - (a) an ordinary act, no replace, one owner in every wrap: record +
-  settings + clock + permission + `$$persons[owner]` = 5.
-- (b) an act with a replace: 6.
-- (c) a resend or replay of a decided offer: record = 1.
-- (d) an operator act (make, grant, revoke, re-class; a making act adds
-  `$$persons[owner]`): 4 to 5, counted 4.
-- (e) a face refusal (malformed, mis-tagged, `:value-shape`,
-  `:too-many-subjects`): 0.
+  settings + the owner's entry + one lease row (`deliver-lock>`) + clock +
+  permission = 6.
+- (b) an act with a replace: 7.
+- (c) a resend or replay of a decided offer: the record, then for a
+  recorded yes the value check (R1's rider): the act's rows (1 seek + f
+  iterations), the lock row (personal and hand; none for a record lock),
+  the owner's entry = 4 seeks and 1 iteration (it was 1 seek).
+- (d) an operator act with no value facts (make, grant, revoke, re-class; a
+  making act adds `$$persons[owner]`): 4 to 5, counted 4.
+- (e) a face refusal before the record (malformed, mis-tagged,
+  `:not-sealed`): 0.
+- (e') a missing lock (`:no-such-lock`): record + settings + the owner's
+  entry + the lease row = 4.
 - (f) a value forget: record + settings + clock + permission + target row
-  + ledger = 6.
+  + ledger = 6 (it cites no lock; the read exit's purge is that plan's
+  cost).
 - (g) a person act (make or forget): record + settings + clock +
   `$$persons[p]` = 4, then the fan-out: N task-writes, 0 seeks.
+- (h) a lease act: record + settings + the owner's entry + clock +
+  permission = 5, then n lease-row writes (n = 64 counted).
 
 Frequencies: agent sessions write "many small acts" (a); replaces are
 edits (b); resends per client error and replays after a crash (c);
-operator acts, value forgets and person acts are rare, person acts rarest.
+operator acts, value forgets and person acts are rare, person acts rarest;
+a lease per 64 value facts is about one per 80 offers (h); a missing lock
+is a door's error or a race with a session close, rarer than any other
+face refusal (e').
 
 ### N = 1 task (single-task baseline)
 | Data category | Frequency proportion | Seeks/op | Iterator reads/op | Fan-out task-writes/op |
 |---|---|---|---|---|
-| (a) ordinary act | 0.58 | 5 | 0 | 0 |
-| (b) act with a replace | 0.25 | 6 | 0 | 0 |
-| (c) resend / replay, decided | 0.10 | 1 | 0 | 0 |
+| (a) ordinary act | 0.568 | 6 | 0 | 0 |
+| (b) act with a replace | 0.25 | 7 | 0 | 0 |
+| (c) resend / replay, decided | 0.10 | 4 | 1 | 0 |
 | (d) operator act | 0.04 | 4 | 0 | 0 |
 | (e) face refusal | 0.01 | 0 | 0 | 0 |
+| (e') missing lock | 0.002 | 4 | 0 | 0 |
 | (f) value forget | 0.015 | 6 | 0 | 0 |
 | (g) person act | 0.005 | 4 | 0 | 1 |
-Weighted seeks = 4.77   |   Weighted iterator reads = 0   |   Weighted fan-out writes = 0.005
+| (h) lease act | 0.01 | 5 | 0 | 0 |
+Weighted seeks = 5.886   |   Weighted iterator reads = 0.10   |   Weighted fan-out writes = 0.005
 
 ### N = 16 tasks
 | Data category | Frequency proportion | Seeks/op | Iterator reads/op | Fan-out task-writes/op |
 |---|---|---|---|---|
-| (a) ordinary act | 0.58 | 5 | 0 | 0 |
-| (b) act with a replace | 0.25 | 6 | 0 | 0 |
-| (c) resend / replay, decided | 0.10 | 1 | 0 | 0 |
+| (a) ordinary act | 0.568 | 6 | 0 | 0 |
+| (b) act with a replace | 0.25 | 7 | 0 | 0 |
+| (c) resend / replay, decided | 0.10 | 4 | 1 | 0 |
 | (d) operator act | 0.04 | 4 | 0 | 0 |
 | (e) face refusal | 0.01 | 0 | 0 | 0 |
+| (e') missing lock | 0.002 | 4 | 0 | 0 |
 | (f) value forget | 0.015 | 6 | 0 | 0 |
 | (g) person act | 0.005 | 4 | 0 | 16 |
-Weighted seeks = 4.77   |   Weighted iterator reads = 0   |   Weighted fan-out writes = 0.08
+| (h) lease act | 0.01 | 5 | 0 | 0 |
+Weighted seeks = 5.886   |   Weighted iterator reads = 0.10   |   Weighted fan-out writes = 0.08
 
 ### N = 128 tasks
 | Data category | Frequency proportion | Seeks/op | Iterator reads/op | Fan-out task-writes/op |
 |---|---|---|---|---|
-| (a) ordinary act | 0.58 | 5 | 0 | 0 |
-| (b) act with a replace | 0.25 | 6 | 0 | 0 |
-| (c) resend / replay, decided | 0.10 | 1 | 0 | 0 |
+| (a) ordinary act | 0.568 | 6 | 0 | 0 |
+| (b) act with a replace | 0.25 | 7 | 0 | 0 |
+| (c) resend / replay, decided | 0.10 | 4 | 1 | 0 |
 | (d) operator act | 0.04 | 4 | 0 | 0 |
 | (e) face refusal | 0.01 | 0 | 0 | 0 |
+| (e') missing lock | 0.002 | 4 | 0 | 0 |
 | (f) value forget | 0.015 | 6 | 0 | 0 |
 | (g) person act | 0.005 | 4 | 0 | 128 |
-Weighted seeks = 4.77   |   Weighted iterator reads = 0   |   Weighted fan-out writes = 0.64
+| (h) lease act | 0.01 | 5 | 0 | 0 |
+Weighted seeks = 5.886   |   Weighted iterator reads = 0.10   |   Weighted fan-out writes = 0.64
 
-Weighted seeks: 0.58×5 + 0.25×6 + 0.10×1 + 0.04×4 + 0.01×0 + 0.015×6 +
-0.005×4 = 2.90 + 1.50 + 0.10 + 0.16 + 0 + 0.09 + 0.02 = 4.77 at every N,
-flat. The one quantity that grows with N is the person fan-out, 0.005·N
-no-read writes per offer on average (0.64 at N = 128, against 4.77 seeks):
-the price of `|all`, paid once per person act so that every one of the
-0.83 acts per offer that need a person lock (a, b) reads it locally. The
-alternative placement makes (a) and (b) pay a hop and a remote seek each
-(5 + 1 remote at every N, plus the round trip, plus a second atomic group):
-0.83 remote seeks per offer at every N against 0.005·N local writes; the
-break-even is N = 166, above the two-year N this rig contemplates, and the
-alternative also loses the one-group decision. So the growth is accepted
-with its arithmetic, not waved through.
+Weighted seeks: 0.568×6 + 0.25×7 + 0.10×4 + 0.04×4 + 0.01×0 + 0.002×4 +
+0.015×6 + 0.005×4 + 0.01×5 = 3.408 + 1.75 + 0.40 + 0.16 + 0 + 0.008 + 0.09
++ 0.02 + 0.05 = 5.886 at every N, flat (4.77 before the revision: the
+lease road costs one local seek per value fact at decision, 0.818 per
+offer, plus the lease acts and the value check on the record path). The
+one quantity that grows with N is still the person fan-out, 0.005·N no-read
+writes per offer (0.64 at N = 128). The alternative placement for person
+locks now makes 0.93 reads per offer remote ((a), (b), (c), (e'), (h) read
+the owner's entry) against 0.005·N local writes; the break-even is N =
+186, above the two-year N this rig contemplates, and the alternative also
+loses the one-group decision. The lease rows add 0.64 writes per offer on
+average (64 per lease act), flat in N. The `lease-locks` query, at the
+lease act's rate, is 3 seeks and 64 iterations on the layer's home, flat
+in N.
 
 Writes per offer, flat in N except the fan-out: stage 1's sets plus, per
-value fact, nothing extra for a record lock (the row's one `termval`
-carries it), one `termval` for a row lock, plus one `:by-stamp` set per
-act; a forget: one delete or f nils and one ledger set.
+value fact, one `NONE>` of its lease row, nothing extra for a record lock
+(the row's one `termval` carries it), one `termval` for a row lock, plus
+one `:by-stamp` set per act; a lease: n `termval`s; a session close: one
+delete; a forget: one delete or f nils and one ledger set.
 
 ## Design Decisions
 
