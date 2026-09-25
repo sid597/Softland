@@ -1,4 +1,5 @@
-;; IMPORTANT: Before modifying this file, re-read PLAN-stream-store.md.
+;; IMPORTANT: Before modifying this file, re-read PLAN-stream-store.md and
+;; PLAN-locks-and-forgetting.md (the refusal order L27, the gate event).
 (ns rig.store.gate
   "The stream gate's decision, pure and total: the rig's counterpart of
   model.clj's `stream-step`, `refusal` and `stamp-for` under `baseline`.
@@ -9,9 +10,18 @@
   heads rows), calls `decide`, and writes what it returns, in one event.
   `intake` and `decide` catch every throwable: an exception in topology
   code is fatal to the worker (RIG.md, phase 0), so a failure here is the
-  unrecorded face refusal :gate-error (F6)."
+  unrecorded face refusal :gate-error (F6).
+
+  Stage 2 (PLAN-locks-and-forgetting.md): `decide` takes the lock context
+  the event read (rig.store.locks `decision-reads>`), places this stage's
+  recorded reasons after stage 1's (`locks/lock-refusal`, L27's order) and
+  adds the lock effects (`locks/lock-effects`) under `:locks`; the lock
+  control facts (forget, lease, session close, person, forget person) are
+  control facts here, checked for shape and for who may write them (R13
+  grown: L10, L20, L28, L7)."
   (:require [rig.store.clock :as hlc]
-            [rig.store.envelope :as env])
+            [rig.store.envelope :as env]
+            [rig.store.locks :as locks])
   (:import [com.rpl.rama.helpers TopologyUtils]))
 
 (defn wall-now
@@ -33,7 +43,10 @@
 
 ;; ------------------------------------------------------------ control facts
 
-(def layer-kinds #{:personal :hand :agent :group :base})
+(def layer-kinds
+  "Layer kinds; stage 2 adds `:store`, the kind of the store layer
+  `:people` (L7)."
+  #{:personal :hand :agent :group :base :store})
 (def grains #{:per-value :per-act})
 
 (defn setting-fact?
@@ -42,9 +55,13 @@
   (and (= (:layer offer) (:e f)) (contains? env/setting-keys (:k f))))
 
 (defn control-fact?
-  "A fact the gate projects: a setting, a grant or a revocation."
+  "A fact the gate projects or acts on: a setting, a grant or a
+  revocation, and stage 2's lock control facts (a forget, a lease, a
+  session close, a person made or forgotten)."
   [offer f]
-  (or (setting-fact? offer f) (contains? #{:permission :revoke} (:k f))))
+  (or (setting-fact? offer f)
+      (contains? #{:permission :revoke} (:k f))
+      (contains? locks/lock-control-keys (:k f))))
 
 (defn grant-target
   "The permission a grant fact grants, when its value names one."
@@ -71,17 +88,35 @@
         :lock-grain (contains? grains v))
       (case (:k f)
         :permission (and (map? v) (= #{:id} (set (keys v))) (env/pid? (:id v)))
-        :revoke (and (map? v) (= #{:permission} (set (keys v))) (env/pid? (:permission v)))))))
+        :revoke (and (map? v) (= #{:permission} (set (keys v))) (env/pid? (:permission v)))
+        ;; stage 2 (plan, gate event step 2)
+        :forget (and (map? v) (= #{:target} (set (keys v))) (env/fid? (:target v)))
+        :person (and (map? v) (= #{:id} (set (keys v))) (env/readable-keyword? (:id v)) (= (:e f) (:id v)))
+        :forget-person (and (map? v) (= #{:person} (set (keys v))) (env/readable-keyword? (:person v))
+                            (= (:e f) (:person v)))
+        :lease (and (map? v) (= #{:count} (set (keys v))) (int? (:count v)) (<= 1 (:count v) locks/max-lease)
+                    (some? (:session offer)) (= (:e f) (:session offer)))
+        :session-closed (and (map? v) (= #{:session} (set (keys v))) (env/readable-keyword? (:session v))
+                             (= (:e f) (:session v)))))))
 
 (defn- control-allowed?
   "Who may write a control fact (R13): the operator any; the layer's owner
   only a lock-grain switch (P10: the owner's own permission covers a grain
-  switch). Grants and revocations are the operator's (P8)."
+  switch). Grants and revocations are the operator's (P8). Stage 2: the
+  owner may also forget a value (L10); anyone whose cited permission
+  covers the layer may lease (L20) and close their own session, the
+  operator any session (L28); person acts are the operator's, in the store
+  layer only (L7), so every person act is ordered on one task (L8)."
   [offer settings f]
-  (or (contains? exempt-actors (:who offer))
-      (and (setting-fact? offer f)
-           (= :lock-grain (:k f))
-           (= (:who offer) (:owner settings)))))
+  (let [who (:who offer)
+        k (:k f)]
+    (cond
+      (contains? #{:person :forget-person} k) (and (contains? exempt-actors who) (= :store (:kind settings)))
+      (contains? exempt-actors who) true
+      :else (or (and (setting-fact? offer f) (= :lock-grain k) (= who (:owner settings)))
+                (and (= :forget k) (= who (:owner settings)))
+                (= :lease k)
+                (and (= :session-closed k) (= (:session offer) (get-in f [:v :session])))))))
 
 (defn class-in-force
   "The class the offer's class is checked against: the layer's class fact,
@@ -160,7 +195,9 @@
       (and (not exempt?) (:revoked (get rows pid)))
       :permission-revoked
 
-      (some #(and (control-fact? offer %) (not (control-value-ok? offer %))) facts)
+      (or (some #(and (control-fact? offer %) (not (control-value-ok? offer %))) facts)
+          ;; a lock control fact is the act's one fact (rig choice)
+          (and (some #(contains? locks/lock-control-keys (:k %)) facts) (not= 1 (count facts))))
       :malformed-control
 
       (some #(and (control-fact? offer %) (not (control-allowed? offer settings %))) facts)
@@ -232,16 +269,24 @@
 
 ;; ----------------------------------------------------------------- decide
 
-(defn- log-rows [offer]
-  (mapv (fn [f] {:e (:e f) :k (:k f) :v (env/encode-value (:v f))
-                 :replaces (:replaces f) :mark (:mark f)})
+(defn- log-rows
+  "The act's rows: stage 1's {:e :k :v :replaces :mark}, `:v` the control
+  value's text or nil, and for a value fact the fields the lock effects
+  add (`:sealed` as offered, `:lock-id`, `:lock`, `:digest`)."
+  [offer extra]
+  (into [] (map-indexed (fn [i f] (merge {:e (:e f) :k (:k f) :v (env/encode-value (:v f))
+                                          :replaces (:replaces f) :mark (:mark f)}
+                                         (get extra i))))
         (:facts offer)))
 
 (defn- answer-record
   "The name's answer for ever (D4): a yes and a recorded no alike keep the
-  act's bounded parts; what it stood on is kept beside it, for a yes (F2)."
-  [offer settings reason stamp digest]
-  (let [owner (owner-in-force offer settings)]
+  act's bounded parts; what it stood on is kept beside it, for a yes (F2).
+  Its subject slot (ruling 8, for finding) is the act's union: the owner,
+  what it carried, and, stage 2, what the grammar read in its values
+  (`union`, when within the 256 cap, L13); the root actor is no subject."
+  [offer settings reason stamp digest union]
+  (let [owner (locks/person-owner (owner-in-force offer settings))]
     {:answer (if reason :no :yes)
      :reason reason
      :stamp stamp
@@ -252,7 +297,9 @@
      :session (:session offer)
      :because-of (:because-of offer)
      :claimed-when (:claimed-when offer)
-     :subjects (cond-> (into #{} (:subjects offer)) owner (conj owner))}))
+     :subjects (cond-> (into #{} (:subjects offer))
+                 (and union (<= (count union) locks/max-subjects)) (into union)
+                 owner (conj owner))}))
 
 (defn- first-per-pid
   "[pid fid] pairs keeping the first per pid: within one act, as across
@@ -263,49 +310,66 @@
                   [#{} []] pairs)))
 
 (defn- decide*
-  [offer settings rows heads clock wall digest]
-  (let [nm (:name offer)
-        reason (refusal offer settings rows heads)
-        stamp (stamp-for offer heads clock wall)
-        yes? (nil? reason)
-        facts (:facts offer)
-        indexed (map-indexed vector facts)
-        setting-updates (into {} (for [f facts :when (setting-fact? offer f)]
-                                   [(env/setting-keys (:k f)) (:v f)]))]
-    {:kind :decide
-     :stamp stamp
-     :record (answer-record offer settings reason stamp digest)
-     :ack (ack (if yes? :yes :no) reason stamp nm)
-     ;; the rest is written only for a yes
-     :log (when yes? (log-rows offer))
-     :stood-on (if yes? (:stood-on offer) {})
-     :heads-del (if yes? (into [] (distinct) (for [f facts :when (:replaces f)] [(:e f) (:k f) (:replaces f)])) [])
-     :heads-put (if yes? (vec (for [[i f] indexed] [[(:e f) (:k f) [nm (long i)]] stamp])) [])
-     ;; the settings as they stand after the act, written whole (they were read)
-     :settings (when (and yes? (seq setting-updates)) (merge settings setting-updates))
-     ;; permission rows as they stand after the act, written whole (they were read)
-     :permissions (if yes?
-                    (let [grants (first-per-pid
-                                  (for [[i f] indexed
-                                        :let [p (grant-target f)]
-                                        :when (and p (nil? (:granted (get rows p))))]
-                                    [p [nm (long i)]]))
-                          revokes (for [[i f] indexed
-                                        :let [p (revoke-target f)]
-                                        :when p]
-                                    [p [nm (long i)]])]
-                      (into []
-                            (concat (for [[p g] grants] [p {:granted g}])
-                                    (for [[p r] revokes] [p (assoc (get rows p) :revoked r)]))))
-                    [])}))
+  ([offer settings rows heads clock wall digest]
+   (decide* offer settings rows heads clock wall digest (locks/empty-context offer settings)))
+  ([offer settings rows heads clock wall digest lx]
+   (let [nm (:name offer)
+         reason (or (refusal offer settings rows heads)
+                    (locks/lock-refusal offer settings lx))
+         stamp (stamp-for offer heads clock wall)
+         yes? (nil? reason)
+         fx (locks/lock-effects offer settings lx (when yes? stamp))
+         facts (:facts offer)
+         indexed (map-indexed vector facts)
+         setting-updates (into {} (for [f facts :when (setting-fact? offer f)]
+                                    [(env/setting-keys (:k f)) (:v f)]))]
+     {:kind :decide
+      :stamp stamp
+      :record (answer-record offer settings reason stamp digest (:union (:read lx)))
+      :ack (merge (ack (if yes? :yes :no) reason stamp nm) (:ack fx))
+      ;; stage 2's lock writes (locks/lock-effects): for a no, the consumption only
+      :locks fx
+      ;; the rest is written only for a yes
+      :log (when yes? (log-rows offer (:rows fx)))
+      :stood-on (if yes? (:stood-on offer) {})
+      :heads-del (if yes? (into [] (distinct) (for [f facts :when (:replaces f)] [(:e f) (:k f) (:replaces f)])) [])
+      :heads-put (if yes? (vec (for [[i f] indexed] [[(:e f) (:k f) [nm (long i)]] stamp])) [])
+      ;; the settings as they stand after the act, written whole (they were read)
+      :settings (when (and yes? (seq setting-updates)) (merge settings setting-updates))
+      ;; permission rows as they stand after the act, written whole (they were read)
+      :permissions (if yes?
+                     (let [grants (first-per-pid
+                                   (for [[i f] indexed
+                                         :let [p (grant-target f)]
+                                         :when (and p (nil? (:granted (get rows p))))]
+                                     [p [nm (long i)]]))
+                           revokes (for [[i f] indexed
+                                         :let [p (revoke-target f)]
+                                         :when p]
+                                     [p [nm (long i)]])]
+                       (into []
+                             (concat (for [[p g] grants] [p {:granted g}])
+                                     (for [[p r] revokes] [p (assoc (get rows p) :revoked r)]))))
+                     [])})))
 
 (defn decide
   "Decide a fresh offer (no record under its name on this task): the answer
   record, the ack and every write, precomputed; the stamp is given for a yes
-  and a no alike. Total: a failure inside is the unrecorded face refusal
-  :gate-error, never an exception in the topology (F6)."
-  [offer settings rows heads clock wall digest]
-  (try
-    (decide* offer settings rows heads clock wall digest)
-    (catch Throwable _
-      {:kind :face :ack (ack :no :gate-error nil (:name offer))})))
+  and a no alike. `lx` is the lock context the event read (stage 2); the
+  7-arity decides with none (stage 1's pure tests). Total: a failure inside
+  is the unrecorded face refusal :gate-error, never an exception in the
+  topology (F6)."
+  ([offer settings rows heads clock wall digest]
+   (decide offer settings rows heads clock wall digest (locks/empty-context offer settings)))
+  ([offer settings rows heads clock wall digest lx]
+   (try
+     (decide* offer settings rows heads clock wall digest lx)
+     (catch Throwable _
+       {:kind :face :ack (ack :no :gate-error nil (:name offer))}))))
+
+(defn no-such-lock-ack
+  "The answer to an offer a cited lock of which was not delivered (plan,
+  'The missing lock'): refused on its face, through the ack only, nothing
+  recorded, consumed or written."
+  [nm]
+  (ack :no :no-such-lock nil nm))
