@@ -922,9 +922,15 @@
                    by-lock)})
     (catch Throwable _ {:lock-of {} :plain {} :wraps {} :row? {}})))
 
-(defn wrap-persons-of [ww] (into [] (comp (mapcat locks/wrap-persons) (distinct)) (vals (:wraps ww))))
+(defn wrap-persons-of
+  "Every person the act's wraps name, each once."
+  [ww]
+  (try (into [] (comp (mapcat locks/wrap-persons) (distinct)) (vals (:wraps ww))) (catch Throwable _ [])))
 
-(defn nonces-needed [ww] (reduce + 0 (map locks/seals-needed (vals (:wraps ww)))))
+(defn nonces-needed
+  "How many fresh nonces the act's wraps take."
+  [ww]
+  (try (reduce + 0 (map locks/seals-needed (vals (:wraps ww)))) (catch Throwable _ 0)))
 
 (defn fresh-nonces "`n` fresh nonces, drawn outside any decision." [n]
   (try (:nonces (locks/fresh 0 n)) (catch Throwable _ [])))
@@ -954,27 +960,33 @@
         L (:layer o)
         ns (vec nonces)
         ;; each lock's record, the nonces taken in the wraps' order
-        [records _] (reduce (fn [[acc off] [lid w]]
-                              (let [k (locks/seals-needed w)
-                                    K (get (:lock-of ww) lid)]
-                                [(assoc acc lid (when K (wrap-live K w persons (subvec ns (min off (count ns)) (min (+ off k) (count ns))))))
-                                 (+ off k)]))
-                            [{} 0] (sort-by (comp str key) (:wraps ww)))]
+        records (try
+                  (first (reduce (fn [[acc off] [lid w]]
+                                   (let [k (locks/seals-needed w)
+                                         K (get (:lock-of ww) lid)]
+                                     [(assoc acc lid (when K (wrap-live K w persons (subvec ns (min off (count ns)) (min (+ off k) (count ns))))))
+                                      (+ off k)]))
+                                 [{} 0] (sort-by (comp str key) (:wraps ww))))
+                  (catch Throwable _ {}))
+        ;; a value whose lock work fails is written admitted and closed (PV-F6): never a throw
+        closed (fn [f] {:layer L :k (:k f) :v nil :sealed (:sealed f) :replaces (:replaces f) :mark (:mark f)
+                        :lock-id (:lock-id f) :lock nil :digest nil})]
     (into []
           (map-indexed
            (fn [i f]
              (if (value-fact? f)
-               (let [lid (:lock-id f)
-                     K (get (:lock-of ww) lid)
-                     record (get records lid)
-                     row? (get (:row? ww) lid)
-                     plain (get (:plain ww) i)]
-                 [(:e f) (long i)
-                  {:layer L :k (:k f) :v nil :sealed (:sealed f) :replaces (:replaces f) :mark (:mark f)
-                   :lock-id lid
-                   :lock (when-not row? record)
-                   :digest (when (and K plain) (locks/value-digest K plain))}
-                  (when row? record)])
+               (try
+                 (let [lid (:lock-id f)
+                       K (get (:lock-of ww) lid)
+                       record (get records lid)
+                       row? (get (:row? ww) lid)
+                       plain (get (:plain ww) i)]
+                   [(:e f) (long i)
+                    (assoc (closed f)
+                           :lock (when-not row? record)
+                           :digest (when (and K plain) (locks/value-digest K plain)))
+                    (when row? record)])
+                 (catch Throwable _ [(:e f) (long i) (closed f) nil]))
                [(:e f) (long i)
                 {:layer L :k (:k f) :v (env/encode-value (:v f)) :replaces (:replaces f) :mark (:mark f)}
                 nil])))
