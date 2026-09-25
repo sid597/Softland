@@ -548,3 +548,386 @@ A value is checked under the grammar in force before its act: an act that
 writes a grammar for k and a value under k checks the value under the
 previous grammar (or none). The simplest rule, and the one that keeps the
 grammar a value was checked under derivable (T-FR3).
+
+## 5. The tool fact and tonight's vocabulary (question 3)
+
+### 5.1 Its form (first-record, T-FR4)
+
+```clojure
+{:e :mention-count                         ; the tool's id, and the actor it acts as
+ :k :tool                                  ; a store key the runner knows
+ :v {:matches    [:k :mention]             ; a read exit pattern, one of its six forms (P:145-152)
+     :signature  {:in    :match            ; tonight's one input: one matched fact per run
+                  :out   #{:note}          ; the keys its outputs may write
+                  :rows? false}            ; read-entry preference: the short line (default) or exact rows
+     :permission [:mention-count :alice :alice]   ; the pid it acts under, a grant in this layer
+     :recipe     [{:name :count-note
+                   :do   :emit
+                   :e    [:in :e]
+                   :k    :note
+                   :v    [:map {:token [:str [:count [:in :v :persons]] " named"]}]}]}}
+```
+
+- **What it matches**: a pattern the read exit already reads, validated by
+  the exit's own parser at the tool's first match read; a pattern the exit
+  refuses (`:bad-pattern`, `:not-indexed`, `:opaque`) comes back in the
+  runner's report as data. Tonight a tool matches in the layer it lives in.
+- **Its signature**: `:in :match` (the recipe sees one matched fact, its
+  `:e :k :v :fid :stamp`); `:out`, the keys its outputs may write, which the
+  executor enforces (an `:emit` of another key refuses the run) and the loop
+  check reads (6.4); `:rows?`, the read-entry preference of ruling 3 ("a
+  deterministic tool gets the short entry by default and may ask for exact
+  rows in its signature", lines 76-83), which the runner passes to the exit
+  as its `:rows?` parameter (P:243-245, "phase 6 makes it a fact on the
+  tool, tonight a parameter").
+- **The actor and the permission it acts under**: the tool acts as its own
+  id, under `:permission`, a pid `[who layer in]` (`envelope.clj:265-268`)
+  whose `who` is the tool's id and whose `layer` and `in` are the tool's
+  layer. The grant is a fact in that layer, as every permission is
+  (PROGRESS.md 159-161). Default 5 puts tools "narrower still", beneath the
+  session's permission, and a revoke cuts everything below it; the
+  permission cascade that gives a grant a parent is phase 3's (MP:444-448,
+  MP:508-518). Tonight the grant is a plain operator grant (phase 1's
+  `grant-offer`, P8); when the cascade lands, the tool's grant names the
+  session's pid in the layer as its parent, and the tool fact does not
+  change (T-RC7).
+- **Its recipe**: a vector of at most 16 named steps, run in order, once
+  each, per match. A step is `{:name n :do capability ...arguments}`; every
+  argument is a formula (5.2) or a literal where the capability says so.
+- A tool fact is an ordinary value fact, not a control fact: the gate never
+  reads it (only the runner does, through the exit), so it is sealed at the
+  door like any value and forgettable like any value (phase 2). Its shape
+  can be given by a grammar fact for `:tool` in the layer like any key's;
+  the runner's own parser, `recipe/parse-tool`, is the authority on whether
+  a tool can run, and a tool it cannot parse is skipped as data.
+
+"Nothing in a record is a program" (decisions.md 172): a recipe names
+capabilities and holds formulas in a closed total language. No step runs
+code the record supplies; no formula refers to a var, a namespace or a
+function outside the vocabulary.
+
+### 5.2 Tonight's vocabulary (the seed's list for tonight)
+
+Steps, each a capability (class c of the count):
+
+| Step `:do` | Arguments | Gives | Why tonight |
+|---|---|---|---|
+| `:emit` | `:e` formula, `:k` a literal key in `:out`, `:v` formula | one output fact, collected into the run's one output act | the test tool writes a `:note` |
+| `:revision/read-units` | `:repo`, `:rev`, `:path` formulas, `:cut` literal (`:blocks`, `:forms` or absent) | `rig.revision/read-units`'s result: `{:units [...]}` or an error as data, bound to the step's `:name` | the revision reader, consumed as a capability (its plan, lines 196-238); no test tool calls it tonight |
+| `:revision/read-span` | `:repo`, `:rev`, `:path`, `:first`, `:last` formulas | `rig.revision/read-span`'s result, bound to the step's `:name` | as above |
+
+Formulas, in the leaves (class c):
+
+| Formula | Value |
+|---|---|
+| `[:lit x]` | the plain value x |
+| `[:in part & path]` | a part of the matched fact (`:e`, `:k`, `:v`, `:fid`, `:stamp`); with a path, into `:v` |
+| `[:got step-name & path]` | an earlier step's result, and a path into it |
+| `[:count f]` | the element count of a collection; nil otherwise |
+| `[:str f ...]` | the concatenated string forms (`str` of each value) |
+| `[:map {k f ...}]` | a map from literal keywords to formula values |
+
+Totality (*derived*): at most 16 steps, each run once; formulas at most 8
+deep and 256 nodes; no loop, no recursion, no reference but `[:in]` and
+`[:got]` (to earlier steps only, checked at parse); every function total
+(a path into a missing place is nil; `[:count]` of a non-collection is nil).
+A capability returns data or an error as data. A failed step stops the run:
+the report says `{:refused :step-failed :step n :error e}` and nothing is
+offered. Every output still meets the gate: a formula that yields a value
+its key's grammar refuses gets `:value-shape`, as any offer would.
+
+Not in tonight's vocabulary, named so the count can see them come: a step
+that maps over a collection (one output per unit a revision read returns),
+a step that reads the store (a second pattern read, role `:stood-on`), a
+comparison or a conditional. The reference tool is likely to need the
+first two (*assumed*); round three's contract says.
+
+## 6. The minimal runner (question 4)
+
+### 6.1 Where it runs, and why not a topology
+
+`rig.store.runner`, plain Clojure beside `rig.store.client` (the door) and
+`rig.store.read-exit` (the exit), operator code as the exit is (P:800-802);
+a kept store moves it behind the server with them. Not a topology, because
+(*derived*): (1) its reads must go through the one exit (RIG.md default 4,
+"one exit for every read"), and the exit queries, offers an entry and waits
+for its answer before it shows anything, which topology code cannot do
+(a topology cannot block on an offer's answer); (2) its outputs are offers
+through the door, which seals them under leased locks at the edge (phase
+2, default 1), and the door is client code; (3) a tool runs in its layer,
+so a topology would have to route to that layer anyway. It is the executor's
+first runner, of the several decisions.md 166-169 expects.
+
+### 6.2 One pass: `(run-pass! store {:layer L :limit n})`
+
+1. **Find the tools by matching.** `read!` the pattern `[:k :tool]` in L
+   (served by `:ix-ke`, which the read exit kept for this, P:1186-1187), as
+   the operator: `:reader :operator`, `:reader-kind :tool`, `:rows? false`,
+   `:role :stood-on` (the runner stands on the tool facts to run them),
+   `:for` L's owner (from `client/settings`), `:working L`, `:permission`
+   nil (the operator acts at the root, `gate.clj:27-32`), `:limit n`. No
+   tool is known to compiled code: every tool the runner runs is found here.
+2. **Parse each tool** with `recipe/parse-tool`, total; a tool it cannot
+   parse is `{:tool fid :refused :malformed-tool}` in the report.
+3. **Refuse loops** (6.4): the tools that would feed themselves are
+   `{:tool fid :refused :tool-loop}`, and do not run.
+4. **For each remaining tool, in the order of its fact's stamp:**
+   a. `read!` its `:matches` in L as the tool: `:reader` the tool's id,
+      `:reader-kind :tool`, `:rows?` from its signature, `:role :matched`,
+      `:for` L's owner, `:working L`, `:permission` the tool's pid, `:limit
+      n`. The exit records one line: pattern, moment, role, fingerprint,
+      mark; the exact list only when the signature asks (P:272-277). A
+      refused read is data in the report.
+   b. For each matched row that shows a value (an erased or unreadable row
+      is skipped: a forgotten value is not run on), evaluate the recipe
+      over it, `(recipe/run tool row)`: output facts, or a refusal as data.
+   c. Build the output act: `:who` the tool's id, `:layer` L, `:class
+      :by-layer`, `:permission` the tool's pid, `:session` nil, `:stood-on`
+      `{matched-fid matched-stamp, tool-fid tool-stamp}` (based-on as the
+      fact ids it stood on with their stamps, CONCLUSION R4), `:because-of`
+      the matched fact's act name (ruling 3: "trigger is already
+      because-of"; the envelope's `:because-of` is a name,
+      `envelope.clj:317`), `:subjects #{}` (the tool names none, as in the
+      model), `:facts` the outputs, and the name `(run-name L tool-fid
+      matched-fid)` (6.3).
+   d. Ask the door for that name's answer first (`client/lookup store name
+      nil`, the answer lookup by name plus layer that resends use,
+      `client.clj:53-66`): an answer means this match already ran, and the
+      report says `:recorded`. Otherwise offer it with
+      `client/offer-until-answered!` (sealed at the door once phase 2 is
+      merged) and report the answer, yes or a refusal, as data.
+5. Return the report: for each tool, its read entry's name, its matches,
+   and each run's answer.
+
+The runner holds no state between passes. It never throws on a tool, a
+match, a refusal or a capability's error; each is a line in the report
+(rule 9 applied to the runner; *derived*).
+
+### 6.3 Once per match: the run's name
+
+`(run-name L tool-fid matched-fid)` is `[L :by-layer :offer id]` where id
+is a version 8 UUID made from the first 128 bits of SHA-256 over the
+canonical text of `[L tool-fid matched-fid]` (`env/canonical`). A second
+pass, a runner restarted mid-pass, or two runners at once all offer the
+same name with the same content for the same match, so the gate answers
+the later ones from the record (phase 1's record path; phase 2 keeps an
+honest resend's answer, its F1), and one output act exists per tool fact
+and match, for ever (*derived*; IMPLICIT_SPEC OP18 derived the same: "the
+names fixed in advance make repeats duplicates"). A tool fact replaced by a
+new one has a new fid, so the new version runs over the layer's existing
+matches too: what a new tool owes history is open item 85, and this is the
+simplest behaviour, not a ruling. The name is deterministic, not random;
+"names: random, made by the offerer before the gate" (PROGRESS.md line 57)
+and the landing precedent (names derived "from the request's name under a
+scheme reserved to the store", lines 128-130) are both near it, and it is
+Sid's question Q6. A writer in L who computes a run's name could offer
+other content under it first, so the run is refused `:name-taken`; tonight
+the writers in a one-owner layer are its owner and her sessions, and a
+store-held secret in the derivation would close it (T-RC6).
+
+### 6.4 What stops a tool from triggering itself for ever
+
+A static check over the layer's tools, before any runs, in
+`recipe/loop-free`, pure and total (*derived* as sufficient within one
+layer):
+
+- A tool whose pattern matches every key (`[:all]`, `[:e e]`) is refused
+  `:tool-loop`: it would match its own outputs.
+- A tool whose pattern's key is one of its own `:out` keys is refused.
+- Tools are added to a graph from matched key to output keys in the order
+  of their facts' stamps; a tool whose edges would close a cycle is
+  refused, and the tools before it keep running. So adding a tool never
+  stops one that ran before.
+
+Within one layer, with every tool's outputs in its own layer, an acyclic
+graph means every chain of runs is at most as long as the number of tools,
+and each (tool, match) runs once (6.3), so a sequence of passes over a
+fixed set of facts ends (*derived*). A pass is bounded besides: one read
+per tool, at most `n` matches, at most 16 outputs per run. The key-level
+graph is coarser than it could be (a tool matching `[:kv :note x]` and
+writing `:note y` does not loop, and is refused); a finer check is later
+work. A tool writing into another layer, where the loop could close across
+layers, is not possible tonight (the executor writes into the tool's own
+layer only).
+
+### 6.5 What a pass costs
+
+For a layer with T tools and M matches per tool, one pass: T + 1 pattern
+reads through the exit, each a query on L's home (one seek plus the
+entries it iterates, P:770-782) and one entry act through the gate; then
+T × M name lookups (one seek each) and one offer per new match. The
+lookups make an old match cost one seek rather than an offer. The pass is
+O(T × M) in lookups because the pattern language has no lower bound on the
+stamp: the fix, when a real layer needs it, is a "since" bound on a pattern
+or a standing read per tool (R6, not built), each a later fixed-side step.
+Tonight's layers hold a handful of facts.
+
+## 7. The proof (question 5): tests
+
+All in the rig's test folder, run by `clojure -M:test <ns> ...` from the
+rig folder, the cluster ones under `flock
+/mnt/data/projects/rig-relay-2026-09-26/cluster.lock`. No test reads or
+loads `test/rig/store/gate_test.clj`.
+
+### 7.1 Pure tests, no cluster
+
+`rig.store.shape-test`: every shape form accepts and refuses what the table
+in 4.2 says; bounds at admission (depth 9, 257 nodes, 9 `[:or]` branches,
+65 enum values refused); the budget (nested `[:or]` over a wide value stops
+at 65,536 visits with `:budget`); property tests (test.check, already in
+`:test`) that `grammar/parse` and `shape/check` never throw on any value the
+envelope's generator makes (`envelope_test.clj:128` has the generator).
+
+`rig.store.grammar-test`: `grammar/parse` refuses an opaque grammar with a
+shape other than `[:any]`, with `:subjects-at`, with `:by-value`; a
+`:subjects-at` path through an optional entry, or ending on a scalar, or on
+a collection with `max` above 256; a grammar on a store key. `grammar/hints`
+builds the exit's map from rows and merges `reads/store-hints`.
+
+`rig.store.recipe-test`: `parse-tool` refuses unknown steps, unknown
+formulas, forward `[:got]`, an `:emit` of a key outside `:out`, 17 steps,
+a formula 9 deep; `run` evaluates the test tool over a matched row to
+`{:e :e1 :k :note :v {:token "1 named"}}`; a capability error stops the run
+as data; `loop-free` refuses self-matching, match-all and cycle-closing
+tools in stamp order; `run-name` is the same for the same triple and
+differs when any part differs. When the revision reader is merged: a step
+`:revision/read-units` over the reader's own fixture repository binds its
+units, and an error from the reader comes back as data.
+
+### 7.2 Cluster tests: `rig.store.tools-test`
+
+Fixture: a module on 4 tasks (the suites' usual size, *assumed*), the
+model's world by `client/seed!`, then one operator act per one-owner layer
+writing the **toy grammars** as facts:
+`{:e :mention :k :grammar :v {:shape [:map {:persons [:set-of [:keyword] 1
+2]} {:open? true}] :subjects-at [:persons] :opaque false :index #{}}}` and
+`{:e :note :k :grammar :v {:shape [:any] :subjects-at nil :opaque false
+:index #{:by-value}}}`. The `:mention` grammar is the proof's test grammar;
+the pair is what today's compiled knowledge becomes (section 2).
+
+Gate:
+
+- **G1, a value refused by its key's grammar, as data.** In `:alice`, a
+  `:mention` of three people, and one whose `:persons` is a string: each
+  answered `{:answer :no :reason :value-shape}`, recorded (the lookup by
+  name finds the record); then a well-formed `:mention` is admitted, so the
+  worker lived. The same values in a layer with no grammar are admitted
+  (the permissive default, 4.6).
+- **G2, subjects taken from the grammar reaching the value's wrap.** In
+  `:alice`, a `:mention` of Bob marked `:die-with-any`: the answer record's
+  `:subjects` is `#{:alice :bob}` and the lock record's wrap is `{:required
+  [:alice :bob]}`. Then a grammar fact for `:mention` with no
+  `:subjects-at` (same shape, index and opaque, so admitted though the key
+  is used), and a second marked `:mention` of Bob: `:subjects #{:alice}`,
+  wrap `{:required [:alice]}`. After Bob's forget, the first no longer
+  opens and the second still does. The subjects came from facts.
+- **G3, an opaque key.** In `:alice`, a grammar for `:blob`, `:opaque true`:
+  a `:blob` whose value is a string, and one that is a map, are both
+  admitted (no shape check); `[:kv :blob v]` is refused `:opaque`; no
+  `:ix-kv` entry exists under the `:blob` prefix (read from `$$layers`);
+  `[:k :blob]` shows both rows with `:opaque true`; grammars for `:blob2`
+  that are opaque with `:subjects-at`, or with `:by-value`, are refused
+  `:malformed-control`.
+- **G4, index hints read from grammar facts.** In `:alice`, `[:kv :note
+  {:token "x"}]` answers the `:note` written with that value; `[:kv :mention
+  ...]` is refused `:not-indexed`. In `:alice-hand`, whose `:note` grammar
+  is rewritten before any `:note` without `:by-value`, `[:kv :note ...]` is
+  refused `:not-indexed`. A grammar adding `:by-value` to `:mention` in
+  `:alice`, which holds mentions, is refused `:grammar-change-needs-rebuild`;
+  the same fact in `:alice-agent`, which holds none, is admitted, and
+  `[:kv :mention v]` then answers there.
+- **G5, grammar admission.** A shape outside the language, a grammar on
+  `:permission`, and two grammar facts for `:note` in one act: each refused
+  `:malformed-control`. A grammar offered by the test tool's actor, which
+  holds a permission in `:alice` but is neither the operator nor the owner:
+  `:control-not-allowed`.
+- **G6, checked under the grammar before its act.** One act holding a
+  stricter `:mention` grammar (`[:set-of [:keyword] 1 1]`) and a `:mention`
+  of two people is admitted; the next act's `:mention` of two people is
+  refused `:value-shape`.
+
+Runner:
+
+- **R1, the runner finds the test tool by matching and runs it once per
+  match.** The operator writes the test tool (5.1) and its grant in
+  `:alice`: facts only. Alice writes `:mention`s of Bob on `:e1` and of
+  Alice and Bob on `:e2`. `run-pass!` reports the tool found by the `[:k
+  :tool]` read and two runs answered yes; `[:k :note]` in `:alice` then
+  shows `{:token "1 named"}` on `:e1` and `{:token "2 named"}` on `:e2`, each
+  by `:mention-count`.
+- **R2, once per match.** A second `run-pass!` reports both runs
+  `:recorded` and adds no fact. After a third `:mention`, the next pass runs
+  exactly one.
+- **R3, its reads recorded with its preference.** R1's pass left, in
+  `:alice`, a `:read/pattern` line by `:mention-count` with `:role
+  :matched`, `:pattern [:k :mention]`, `:count 2` and no `:exact`; and the
+  operator's line for `[:k :tool]` with `:role :stood-on`. A second tool
+  whose signature says `:rows? true` leaves a line whose `:exact` holds the
+  matched `[fid stamp]` pairs.
+- **R4, its outputs admitted under its permission with based-on.** Each
+  output's answer record has `:who :mention-count`, `:permission
+  [:mention-count :alice :alice]` and `:because-of` the matched act's name;
+  `$$layers [:alice :stood-on name]` holds the matched fid and the tool's
+  fid with their stamps; the output's stamp is later than both. After the
+  operator revokes the tool's grant, a new `:mention`'s run is refused
+  `:permission-revoked`, recorded, and the pass returns it as data.
+- **R5, a loop refused or bounded.** A tool matching `[:k :note]` that
+  writes `:note` is refused `:tool-loop` and leaves no output and no read
+  entry; with tool A (`:mention` to `:note`) written before tool B (`:note`
+  to `:mention`), A runs and B is refused; a tool matching `[:all]` is
+  refused.
+
+The count's receipt is the build's, not a test: the test tool and grammar
+are EDN data in `tools_test.clj`, written through `client/offer-until-
+answered!`, and adding them needed no change under `src/` beyond the steps
+section 8 lists.
+
+## 8. The machinery count, predicted (question 6)
+
+What counts as one compiled step here: one named code unit added to the
+fixed side or to the vocabulary, or one existing unit whose behaviour
+changes (*assumed* definition; IMPLICIT_SPEC O21 leaves it open, and the
+build records it with the count). Predicted: 11 + 4 + 9 = 24, and one more
+in class b if phase 2's leases need a tool road.
+
+**(a) Fixed-side steps the frame already promised (11).**
+
+| # | Step | Where | Promised by |
+|---|---|---|---|
+| a1 | `:grammar` a control key: `control-fact?`, `control-value-ok?` through `grammar/parse`, `control-allowed?` for the owner, phase 2's unsealed list | `gate.clj`, `locks.clj` | the grammar fact in the seed (CONCLUSION 115); "grammars at the gate" (PROGRESS "Next") |
+| a2 | the `:keys` rows written in the decision event | `module.clj`, `gate/decide*` | the same |
+| a3 | the stream gate reads the act's key rows in its one event | `module.clj` step 4 | the same |
+| a4 | the micro gate reads and writes the rows in its layer visit | the micro module | the same, for the second gate (ruling 1) |
+| a5 | the shape language and its checker | `rig.store.shape`, `grammar/parse` | ruling 6 "shape check"; the seed's "value shape" |
+| a6 | `read-values` checks the shape and takes subjects from the rows | `locks.clj` | ruling 8; LP:1499-1504 ("Stage 6 reads the same map from facts") |
+| a7 | opaque: no shape, no value subjects, `:opaque` in the hints | `locks.clj`, `grammar.clj` | ruling 6 |
+| a8 | index hints from the rows, in place of `reads/seed-hints`, at the three places that take hints | `gate.clj`, `reads.clj` | the read exit (P:915-916); CONCLUSION lane B ("Index kinds take the grammar's index hints as parameters") |
+| a9 | "shown as opaque": the exit reads the rows of the keys it shows and marks rows | `reads.clj` (`read-point`, `read-pattern`), `open-row>` | ruling 6; P:913-915 |
+| a10 | the recipe executor: `parse-tool`, `run`, the vocabulary table | `rig.store.recipe` | decisions.md 166-169, "one executor with several runners" |
+| a11 | the minimal runner, `run-pass!` | `rig.store.runner` | SPEC phase 6, "a minimal runner finds tools by matching" |
+
+The exit itself does not change for tools: the runner passes the tool's
+`:reader-kind`, `:rows?` and role as the parameters the exit already takes
+(P:242-257, P:1054-1056). Zero steps there.
+
+**(b) Fixed-side steps nobody anticipated (4, perhaps 5).**
+
+| # | Step | Why it was needed |
+|---|---|---|
+| b1 | `:grammar-change-needs-rebuild`, and the `:used` flag on a key's row | a grammar changing a used key's hints would leave its indexes wrong without a rebuild (P:916-918); nobody planned the refusal or the flag |
+| b2 | the run's derived name | once per match with no runner state; the rulings cover acts that name what they cause and derived landing names, not a tool's runs |
+| b3 | the loop check | nothing in the frame says what stops a tool feeding itself |
+| b4 | the micro gate's block 1 reads the rows before it opens values | phase 3 opens values on the arrival task before any hop (MP:208-223), and the rows live on `hash(L)` |
+| b5 (if needed) | a lease road for a tool actor | phase 2 seals a lease row under the lease act's writer, a person, and stores the operator's bare (LP:278-283); a tool is neither. If the runner can lease as the operator for the tools' acts under session nil, this step is not needed; the build finds out when phase 2 is merged |
+
+**(c) Capabilities (9).** `:emit`; `:revision/read-units` and
+`:revision/read-span` (the revision reader's two steps, its plan section
+12, anticipated since 13 September); and the formula functions `:lit`,
+`:in`, `:got`, `:count`, `:str`, `:map`. Each is a built-in a recipe calls.
+`:count` and `:str` are here because the test tool uses them; the thesis
+count, on a tool nobody tonight knows, will show which of these a second
+tool reuses and what it adds.
+
+After these, writing the test tool and the test grammar needs no compiled
+step: they are facts (R1, G1 to G6). That is the machinery count's zero,
+not the thesis count's.
