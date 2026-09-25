@@ -45,9 +45,9 @@ Each change, with its reason in a line:
    before anyone knows which entity it will seal, and a random lease name
    spreads even one hot session's acts over the tasks, one lease at a
    time.
-3. **Face refusals keyed by the envelope key (M8 revised).** Why: R1's
+3. **Face refusals keyed by the envelope fingerprint (M8 revised).** Why: R1's
    digest is keyed by the value's lock, which a missing-lock refusal does
-   not have; the envelope key (a keyed hash of the sealed envelope) is what
+   not have; the envelope fingerprint (a keyed hash of the sealed envelope) is what
    the door and the gate both hold.
 4. **The content digest is R1's** (an HMAC over the plaintext keyed by the
    value's lock), computed on the arrival task; a resend is checked there
@@ -142,7 +142,10 @@ a lock from an attempt that did not commit.
 F]` on hash(lease-name): read F; the rows under `[lease-name :leases]` with
 batch ≤ F (one seek, n iterations, a subindexed map keyed by index); `locks/deliver` each under the owner's person
 lock (`$$persons`, local); return the plaintext locks. The depot never sees
-this path.
+this path. Input examples: a settled lease of n rows, 2 reads (F, then the
+range: 1 seek and n iterations), all meaningful; a lease not yet settled or
+never made, 2 reads with an empty range, which is the answer the door needs
+("not yet"). Fixed: no read depends on another's result.
 
 **The door seals each value under one leased lock, and the offer cites its
 id** (the envelope part that carries it is phase 2's). All the locks an act
@@ -163,7 +166,7 @@ lease rows (one range read: one seek, one iteration per cited lock) and call
 `locks/deliver` on each. If any cited lock is absent (never minted, already
 consumed, made for another layer or session, or its owner's person lock
 destroyed), the offer is refused on its face as `:lock-missing`: one faces
-row under `[name envelope-key]`, no answer under the name, nothing else
+row under `[name envelope-fp]`, no answer under the name, nothing else
 gathered. A resend under the same name with a fresh lease is still allowed.
 Otherwise:
 
@@ -201,7 +204,7 @@ record. For a `:yes` record, a missing row means the content differs:
   under them, unwraps the first locks (`locks/unwrap`, `$$persons` local),
   and recomputes the digest under the first locks. If it matches, the
   answer is "recorded"; if it differs, a `:name-taken` face goes under
-  `[name envelope-key]`.
+  `[name envelope-fp]`.
 
 Resends are rare (category (e)). They pay two hops and a second lease read.
 No lock and no plaintext value crosses a task.
@@ -280,7 +283,11 @@ stream store: the layer's home, phase 2's; this store: the lease name's
 task), and that is outside the function.
 
 **What the depot holds after this.** Sealed bytes, lock ids, names, ids and
-the carried parts: nothing that could open a value (R1). The only locks not
+the carried parts: nothing that could open a value (R1). The lease rows are
+PState rows, durable and replicated, which is why R1 took the lease over
+the in-memory holder: nothing unreplicated sits in the decision path. A row
+is about 200 bytes (a wrapped 32-byte lock as base64 text, its fields and
+key), at most 256 per lease, gone at decision. The only locks not
 yet wrapped under a value's subjects are the lease rows in `$$micro-names`,
 and they are consumed at decision.
 
@@ -451,7 +458,7 @@ for group and base layers") and M11's base.
   largest F it has used and never reads at a smaller one.
 - **The query.** `micro-frontier` is `foreign-select-one [(keypath
   :frontier)] $$micro-task {:pkey 0}`: one seek. Every reader-facing query
-  takes F explicitly: `micro-lookup [name digest envelope-key F]`,
+  takes F explicitly: `micro-lookup [name digest envelope-fp F]`,
   `micro-act [e name F]`, `micro-lease [lease-name F]`. An F of nil means
   the reading task's own. `micro/visible-at? row F` is the one predicate,
   pure, that the reads stage builds shared-layer reads on.
@@ -573,7 +580,7 @@ chains of up to four pids, and double-cited locks; `skeleton`, `prepare`,
 ### G. The probe (a Rama question the plan must settle)
 
 One probe ran on the in-process cluster on 26 September at 02:08 IST, under
-the machine lock (Rama 1.6.0, 4 tasks, 2 threads, 1 worker; source
+`flock` on the relay's cluster.lock file, one cluster at a time (Rama 1.6.0, 4 tasks, 2 threads, 1 worker; source
 `runs/probe-micro-2026-09-26/rig/probe/micro_decl_test.clj`, report
 `runs/probe-micro-2026-09-26.txt`, raw log `runs/probe-micro-2026-09-26.raw.txt`;
 run 2: 8 passes, 0 failures, 0 errors). Each answer is what ran:
@@ -659,13 +666,13 @@ an entry holds): the simplest placeholder, listed in the receipt.
   lease name of the first lock it cites, else by its first fact's entity.
   Why: §A; the common control act keeps its local gather.
 - **M8, revised (first-record).** A face refusal, a taken name or a missing
-  lock is recorded under `[name envelope-key]` in the name entry's
-  `:faces`, never as the name's answer. The envelope key is P6's keyed
+  lock is recorded under `[name envelope-fp]` in the name entry's
+  `:faces`, never as the name's answer. The envelope fingerprint is P6's keyed
   HMAC (the rig constant secret) over the canonical sealed envelope minus
   its name, which the door and the gate both hold. It is not R1's reuse
   digest, which must not be taken over sealed bytes: a face refusal belongs
-  to one attempt, and a resend sealed again has its own envelope key and
-  its own faces entry. Why: R1's content digest needs the lock; a face key
+  to one attempt, and a resend sealed again has its own envelope fingerprint and
+  its own faces entry. Why: R1's content digest needs the lock; a face fingerprint
   must not.
 - **M11, revised.** The group is seeded through this gate as the model's
   `:group` with its root `[:group :group :group]` and Alice's and Bob's
@@ -736,7 +743,7 @@ by one as they are consumed, and a subindexed entry is one seek to delete.
 
 Row `:v` keeps its type (String): the base64 text of the sealed bytes,
 phase 2's form. The faces map's key keeps its type (String): now the
-envelope key.
+envelope fingerprint.
 
 **Files this stage touches.** New: `src/rig/store/micro.clj` (the gate, the
 queries, the offerer's side, `make-group!`, `open-session!`) and
@@ -887,7 +894,7 @@ strictly increasing stamps. Refusals are stamped too (model `decide`).
 ## Reads
 
 > **Revision:** every reader-facing query takes an explicit F;
-> `micro-lookup` takes `[name digest envelope-key F]`, digest being R1's
+> `micro-lookup` takes `[name digest envelope-fp F]`, digest being R1's
 > content digest (§D, M8 revised); `micro-lease` is added (§A).
 
 Point reads route by the first key; reads that need two PState reads on one
