@@ -699,10 +699,10 @@ Steps, in this order, and nothing returned to the caller before step 5:
 5. **Answer**: on `:yes`, return the rows with the entry's name and stamp;
    on `:no`, return `{:refused reason :entry name}` and no rows.
 
-Test hooks (R3, global atoms, the in-process cluster only):
-`(inject/point! :exit-after-query nm)` between steps 2 and 3 (the name is
-known because step 3's name is made first when `:entry-name` is absent, then
-used), `(inject/point! :exit-after-entry nm)` between steps 4 and 5, and
+Test hooks (R3, global atoms, the in-process cluster only). The exit makes
+the entry's name before step 1 (or takes `:entry-name`), so every hook names
+the read by it: `(inject/point! :exit-after-query nm)` between steps 2 and 3,
+`(inject/point! :exit-after-entry nm)` between steps 4 and 5, and
 `(inject/point! :exit-shown nm)` just before the return. An armed point
 throws, which here stands for the exit's process dying at that point.
 
@@ -862,3 +862,182 @@ precomputed writes.
   row holds (sealed), so the id indexes carry no plaintext; an `:ix-kv`
   address still needs the plaintext at admission, which the gate has through
   `open-value` in the decision event (phase 2's to wire).
+
+## Partitioning efficiency
+
+**Optimal placement first.** The dominant read is a pattern read of one
+one-owner layer. Its data is one layer's facts, which phase 1 already places
+on one task, `f(layer) = hash(layer) mod N` (P2); the read wants every entry
+it scans on that task and nowhere else, so `f` for the index fields is the
+same `f`, implemented by keeping them inside `$$layers`'s value, and the
+query is routed by its leading `(|hash *layer)`. No other placement reads
+fewer tasks than one. The entry's write lands on the working layer's home,
+`hash(working) mod N`, one task too.
+
+Categories (frequencies are assumptions for weighting, not measurements;
+the count's tool and the src-inland renderers are expected to be dominated
+by small entity and latest reads): latest 0.25 (3 seeks, 1 iteration); a
+small entity or chain read of about 12 facts 0.60 (3 seeks, 16 iterations,
+one page); a key read at the 1,000 limit 0.10 (settings 1 + clock 1 + 6 pages
+= 8 seeks, 1,001 iterations); an empty read 0.05 (3 seeks, 1 iteration).
+Seeks count every task touched; each read touches one.
+
+### N = 1 task (single-task baseline)
+| Data category | Frequency proportion | Seeks/op | Iterator reads/op |
+|---|---|---|---|
+| latest `[:latest e k]` | 0.25 | 3 | 1 |
+| small `[:e e]` / `[:ek e k]` | 0.60 | 3 | 16 |
+| large `[:k k]`, limit 1,000 | 0.10 | 8 | 1,001 |
+| empty | 0.05 | 3 | 1 |
+Weighted seeks = 3.5   |   Weighted iterator reads = 110.0
+
+### N = 16 tasks
+| Data category | Frequency proportion | Seeks/op | Iterator reads/op |
+|---|---|---|---|
+| latest | 0.25 | 3 | 1 |
+| small | 0.60 | 3 | 16 |
+| large | 0.10 | 8 | 1,001 |
+| empty | 0.05 | 3 | 1 |
+Weighted seeks = 3.5   |   Weighted iterator reads = 110.0
+
+### N = 128 tasks
+| Data category | Frequency proportion | Seeks/op | Iterator reads/op |
+|---|---|---|---|
+| latest | 0.25 | 3 | 1 |
+| small | 0.60 | 3 | 16 |
+| large | 0.10 | 8 | 1,001 |
+| empty | 0.05 | 3 | 1 |
+Weighted seeks = 3.5   |   Weighted iterator reads = 110.0
+
+Flat in N, because a one-owner layer is on one task. The exit adds the
+entry's decision on the working layer's task: phase 1's 4 reads (record,
+settings, clock, permission row) and the writes (record, log rows, 2 index
+entries per entry fact), also flat in N. Tonight `open-value` adds nothing;
+phase 2's will add its lock reads per shown value, on the same task.
+
+The hot-layer case, named: a layer whose reads are heavy loads one task,
+the same limit phase 1's placement by layer has for writes; ruling 2's
+re-class to by-entity is the ruled answer, and its reads are phase 3's.
+
+## Design Decisions
+
+- **Subindexing.** `:ix-ek`, `:ix-ke`, `:ix-kv` and `:ix-of` are subindexed
+  maps (unbounded per layer); an `:ix-of` value is a plain set (bounded by
+  the number of value-indexed kinds). Size tracking off.
+- **Colocation.** The indexes live in the layer's value on its home task,
+  written in the event that admits what they index; every read of one layer
+  is one task. The entry is written on the working layer's home through the
+  depot, placed by the depot's `hash-by :layer`.
+- **Addresses are Strings** because vector addresses have no prefix ranges
+  in Rama 1.6.0 [probed].
+- **Entries carry the row** so a pattern read costs no seek per fact.
+- **As of T is a stamp filter** on every entry (and a range bound where the
+  address orders by stamp), with the moment read before any page, so a read
+  that yields between pages stays exact: anything admitted meanwhile has a
+  stamp above the moment.
+- **Purge writes tombstones in the id indexes and deletes the value index**,
+  so time travel still shows the fact with only its erasure date.
+- **The exit is outside the module**: a query topology may append to a
+  depot, but it cannot wait for the gate's decision on that append (an
+  append's ack from inside a topology is the depot's, not the stream
+  topology's [docs: query-topologies.md, depot appends from queries;
+  core-concepts ack levels]), and "nothing shown before its entry is
+  acknowledged" needs the gate's answer.
+
+## State primitive selection
+
+- The four index fields of `$$layers` (PState): durable, co-located with the
+  log, written in the admitting event. Per source event: 2 entries per
+  fact, plus 2 writes per value-indexed fact.
+- No TaskGlobal. The fingerprint secret is a derived constant (a pure HMAC
+  of a constant), computed once per namespace load, not state.
+- No external system.
+
+## Resource usage analysis
+
+### Disk usage (PStates), per fact
+- The log row (phase 1): about 50 bytes + the value's canonical text `|v|`.
+- `:ix-ek` and `:ix-ke`: an address of about 100 bytes (entity and key
+  names, 16 hex, the fact id's canonical text of about 70 characters) and an
+  entry of about 100 bytes + `|v|`, so about 400 bytes + 2|v| for both.
+- A value-indexed fact adds an `:ix-kv` entry (about 200 bytes + 2|v|: the
+  value is in the address and in the entry) and an `:ix-of` set (about 70 +
+  110 + |v|).
+- So indexes multiply a plain fact's bytes by about three, and a
+  value-indexed fact's by about five. A read entry line with an exact list of
+  1,000 pairs is about 80 KB, stored three times (row, `:ix-ek`, `:ix-ke`):
+  about 240 KB per such read. At a person's rate that is small; at a model's
+  call rate in an agent session it is the number to watch (phase 7 can
+  measure it on the finished stage).
+
+### Memory usage (TaskGlobals)
+None.
+
+### Minimization
+- `:ix-ke` could carry only id and stamp, making `[:k k]` pay a row seek per
+  fact; not taken, because phase 6's runner finds tools by key.
+- Entries of the store's own read keys (`:read/*`) could carry no value copy
+  (a hint), so a line's exact list is stored once; a rig choice left for
+  after phase 7 measures it, since it changes no record.
+- The fact id's canonical text in every address could be shortened to the
+  name's scheme, UUID and index (the layer is the map's own key); not taken
+  tonight, since addresses are rebuildable and the full text is unambiguous.
+
+## First-record picks (placeholders for edition one; none is a ruling)
+
+- FR1. The moment's form: `{:stamp s}` inline for a one-owner layer, a
+  `{:frontier id}` part in its place for a shared layer later, nothing else.
+- FR2. What moment a read records: `min(asked, the home task's clock)`.
+- FR3. Where an entry lives: an ordinary act in the reader's working layer
+  (its session layer or its own), through `*offers`, named by the exit with a
+  fresh `:offer`-scheme name, `:who` the reader, under the reader's
+  permission in that layer.
+- FR4. The entry's parts: `:stood-on {}`, `:because-of nil`, `:subjects #{}`,
+  `:session nil`.
+- FR5. The entry's entity: one fresh `:read-<uuid>` per entry, from its name.
+- FR6. The entry's fact keys: `:read/point` and `:read/pattern`,
+  store-owned constants.
+- FR7. A point row's value:
+  `{:layer :moment :role :fid :stamp :shown}`, `:shown` one of `:value`,
+  `:erased`, `:unreadable`, `:absent`; never the value.
+- FR8. A pattern line's value:
+  `{:layer :moment :role :pattern :mark :count :fingerprint :fp-secret :exact}`,
+  `:exact` a vector of `[fid stamp]` in the answer's order, present for a
+  person or a model always and for a tool that asks.
+- FR9. The recorded pattern forms: `[:all]`, `[:e e]`, `[:ek e k]`,
+  `[:latest e k]`, `[:k k]`, `[:kv k v]`.
+- FR10. The roles as keywords: `:stood-on`, `:shown`, `:matched`,
+  `:passed-through`.
+- FR11. The fingerprint's bytes: HMAC-SHA256 over
+  `"softland.read-fp/1\n"` + the canonical text of the set of `[fid stamp]`
+  pairs matched, as hex; ids and stamps only.
+- FR12. The fingerprint secret: derived as `HMAC-SHA256(root,
+  "softland/read-fingerprint/1")`, named `:read-fp/1` in every line; `root` a
+  constant in code tonight; kept only in the module, never in a client.
+- FR13. A fact's id is phase 1's `[name idx]`; no new id is made.
+
+## Rig choices (change without touching a record)
+
+- RC1. Pattern parsing, the refusals before a read (`:bad-pattern`,
+  `:not-indexed`, `:opaque`, `:not-visible`, `:no-such-layer`,
+  `:bad-read`), none recorded.
+- RC2. Limits: 1,000 rows per pattern read by default, 1,000 fact ids per
+  point read.
+- RC3. Pages of 16 entries, doubling.
+- RC4. String addresses joined by U+0000, stamps as 16 hex digits, a value
+  length-prefixed in `:ix-kv`.
+- RC5. Index entries carry the row.
+- RC6. Visibility by ruling 9's default as a constant: personal, hand and
+  agent layers to their owner, the base to anyone; seed policy facts later.
+- RC7. Hints as a constant, `{:by-value #{:note} :opaque #{}}`.
+- RC8. Rebuild by an operator record on `*index-ops`, one event per layer,
+  not yielding; two test-only operator ops on the same depot, `:purge`
+  (runs `purge-writes` for one fact id with a given forget stamp, standing
+  in for phase 2's forget, which becomes its only caller) and `:drop` (clears
+  one layer's four fields, so a rebuild can be seen to restore them).
+- RC9. Tombstones in the id indexes after a purge; deletion in the value
+  index.
+- RC10. Partial only by the limit; unreadable rows leave a read complete.
+- RC11. A retract is not indexed by value.
+- RC12. The exit in the client's process in the rig, with hooks through
+  `rig.store.inject`.
