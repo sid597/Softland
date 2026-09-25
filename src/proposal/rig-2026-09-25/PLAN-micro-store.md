@@ -164,10 +164,12 @@ the subjects, the cited lock ids and the sealed bytes go on. The skeleton
 gains `:locks [lid ...]`, and its `:digest` is this digest.
 
 **A resend, or a replay of a decided name** (a name row exists). The name
-task sends the record's digest and the first act's entities onward. Each
-entity task reads the first act's rows' `:lock` (the value's lock, wrapped
-under its subjects, in the record) and phase 2's erasure state for them (the
-ledger on that task, `$$persons`: open-value's inputs).
+task sends the record's digest onward, and the flow goes to the entity task
+of each of the resend's own facts, which reads the first act's row at the
+same `[e name idx]`: its `:lock` (the value's lock, wrapped under its
+subjects, in the record) and phase 2's erasure state for it (the ledger on
+that task, `$$persons`: open-value's inputs). No new field is needed on the
+record. A missing row means the content differs: `:name-taken`.
 
 - If any first value is erased, the answer is "recorded", with no content
   check. This is R1's rider: after a forget, a reuse with other content
@@ -187,15 +189,38 @@ offer in the batch order already cited makes the later offer `:lock-missing`
 (two offers citing one leased lock is a door's bug). The fold sees digests
 and ids only; nothing else in it changes.
 
-**Block 2b (the rows), on the arrival task.** For an act decided yes in
-this batch with this digest: re-read its lease rows; deliver; open; compute
-each value's own subjects; re-wrap each lock under them (`locks/wrap`,
-shared-layer rules: 7b as written, an empty wrap for a value about no one).
-Ship the sealed bytes and the wrapped lock record to the entity task (never
-the plaintext, never the bare lock). There the row is written: `:v` holds
-the sealed bytes as offered, `:lock-id` the cited id, `:lock` the wrapped
-record (ruling 7: in the record). The leased lock has become the value's
-lock. M12's seam `micro/row-lock` becomes this code.
+**Block 2b (the rows), starting on the arrival task.** For a sealed
+record: re-read its lease rows; deliver; open; compute each value's own
+subjects; re-wrap each lock under them (`locks/wrap`, shared-layer rules:
+7b as written, an empty wrap for a value about no one); drop the plaintext
+and the bare locks. Then, as in the 25 September plan, the name task's
+record decides whether rows are written (decided yes in this batch, with
+this digest), and the sealed bytes and the wrapped lock record go on to the
+entity task (never the plaintext, never the bare lock). There the row is
+written: `:v` holds the sealed bytes as offered, `:lock-id` the cited id,
+`:lock` the wrapped record (ruling 7: in the record). The leased lock has
+become the value's lock. The wrap is done before the verdict is known so
+that no hop comes back to the arrival task; for a refused act it is a few
+microseconds of work thrown away. M12's seam `micro/row-lock` becomes this
+code.
+
+**Grain.** In a per-value layer each value cites its own leased lock; a lock
+cited twice in one act is `:lock-missing` for its second use. In a per-act
+layer the act may cite one leased lock for all its values (the grain's "one
+small lock shared by all values in an act").
+
+**The lease act's checks.** The lease act's gather reads `$$layers [S
+:settings]` on hash(S) (its arrival task) and hands the fold the session's
+owner. A lease act whose entity is not a session layer, or with a count out
+of bounds, is refused `:malformed-control` (R13's reason for a control fact
+with a bad value).
+
+**Nothing here throws.** Every lock function (deliver, open, wrap, unwrap,
+digest) is called through the per-offer `Throwable` guard. A sealed value
+that does not open under its cited lock (wrong lock, tampered bytes: an
+AEAD tag failure) is refused on its face as `:malformed`. A deterministic
+throw in a microbatch retries the batch for ever (rule 9, "What Rama
+showed" 3).
 
 **Block 2c, new: consume the leases.** A third pass over `%mb` on the
 arrival tasks. For every record whose cited lease rows exist on its task,
@@ -502,23 +527,29 @@ under a person's under the root: three reads in all). Routing by session
 turns the common single-entity act's entity reads and row writes into one
 hop, with no extra seek. Control-only acts (g) are unchanged.
 
-| Data category | Proportion | Seeks/op, N = 1, 16, 128 | Iterator reads/op |
-|---|---|---|---|
-| (a) ordinary sealed act, one entity, no replace: lease 2 + name 1 + settings 1 + chain 3 + clock 1 | 0.50 | 8 | 2 |
-| (b) as (a) with a replace: + head 1 | 0.18 | 9 | 2 |
-| (c) on two entities: + clock 1 | 0.05 | 9 | 4 |
-| (d) into a re-classed layer: lease 2 + name 1 + settings 2 + chain 3 in each store + clock 1 | 0.12 | 12 | 2 |
-| (e) a resend: lease 2 + name 1 + first row 1 | 0.10 | 4 | 2 |
-| (f) a face refusal (a missing lock reads its lease) | 0.02 | 1 | 1 |
-| (g) an operator act (make, grant, revoke) | 0.03 | 4 | 0 |
+Block 1's reads, the convention of the 25 September table (block 2b's reads
+are stated after it). The numbers are the same at N = 1, 16 and 128, so one
+table stands for the three.
 
-Weighted seeks = 4.00 + 1.62 + 0.45 + 1.44 + 0.40 + 0.02 + 0.12 = 8.05 at N
-= 1, 16 and 128; weighted iterator reads = 2.02, the same at every N. Flat
-in N: every read is on the arrival task, the name's task, the layer's task
-or an entity's task, each a fixed number of point or range reads. The cost
-over the 25 September table (4.31) is the leases (2) and the chain (2), both
-required by named lines (R1, R7). Block 2c's deletions are writes, one per
-cited lock.
+| Data category | Proportion | Seeks/op at N = 1, 16, 128 | Iterator reads/op |
+|---|---|---|---|
+| (a) ordinary sealed act, one entity, no replace: lease 1 + name 1 + settings 1 + chain 3 + clock 1 | 0.50 | 7 | 1 |
+| (b) as (a) with a replace: + head 1 | 0.18 | 8 | 1 |
+| (c) on two entities: + clock 1 | 0.05 | 8 | 2 |
+| (d) into a re-classed layer: lease 1 + name 1 + settings 2 + chain 3 in each store + clock 1 | 0.12 | 11 | 1 |
+| (e) a resend: lease 1 + name 1 + first row 1 + lease again 1 | 0.10 | 4 | 2 |
+| (f) a face refusal (a missing lock has read its lease) | 0.02 | 1 | 1 |
+| (g) an operator act (make, grant, revoke): no lease | 0.03 | 4 | 0 |
+
+Weighted seeks = 3.50 + 1.44 + 0.40 + 1.32 + 0.40 + 0.02 + 0.12 = 7.20;
+weighted iterator reads = 0.50 + 0.18 + 0.10 + 0.12 + 0.20 + 0.02 + 0 =
+1.12; both the same at N = 1, 16 and 128. Flat in N: every read is on the
+arrival task, the name's task, the layer's task or an entity's task, each a
+fixed number of point or range reads. Block 2b adds, per sealed record, one
+lease read and the 25 September plan's one name-row read; block 2c only
+writes, one deletion per cited lock. Against the 25 September table (4.31),
+the lease adds 1 and the chain 2 (typically), both required by named lines
+(R1, R7).
 
 ### I. New and revised rig choices
 
@@ -575,8 +606,48 @@ an entry holds): the simplest placeholder, listed in the receipt.
   all the locks one act cites come from one lease; `:lease` is a control
   key; n ≤ 256 per lease act. Why: one lease home per act, so its lock work
   is on one task.
+- **M25.** For a re-classed layer (the base included), a nil-tagged
+  `:forget` goes to the store that holds its target: a micro-era target
+  (its name tagged `:by-entity`) to this gate, landing on the value's
+  entity task (M9); a stream-era target to the stream gate. Settings
+  (`:class`, `:lock-grain`) stay with the stream gate, as P16. Why: P16
+  sent every nil-tagged act of a re-classed layer to the stream gate, which
+  cannot reach a row of this store; the client reads the target's tag, so
+  the routing needs no read.
+
+**The schema addition** for §A, one field in `$$micro`'s fixed-keys value,
+under a session id used as an entity:
+
+```clojure
+:leases (map-schema clojure.lang.PersistentVector              ; the lease act's name
+          (map-schema Long                                     ; i -> the lease row
+            (fixed-keys-schema {:lock  <phase 2's lock record> ; wrapped under the session owner's person lock
+                                :layer clojure.lang.Keyword
+                                :who   clojure.lang.Keyword
+                                :batch Long})
+            {:subindex-options {:track-size? false}})
+          {:subindex-options {:track-size? false}})
+```
+
+Row `:v` keeps its type (String): the base64 text of the sealed bytes,
+phase 2's form. The faces map's key keeps its type (String): now the
+envelope key.
+
+**Files this stage touches.** New: `src/rig/store/micro.clj` (the gate, the
+queries, the offerer's side, `make-group!`, `open-session!`) and
+`src/rig/store/permit.clj`. Changed: `module.clj` (one line and its
+require, §G), `gate.clj` (the two permission lines of §B),
+`envelope.clj` (`pid?`), `client.clj` (M13's dispatch, and M25's). Phase 2
+also changes `gate.clj` and `envelope.clj` tonight; the lines here are in
+functions its sealing does not need (`refusal`'s permission clauses,
+`pids-to-read`, `pid?`), and the merge is where a mismatch would show.
 
 ## Scope of this stage, in one paragraph
+
+> **Revision, 26 September:** values now arrive sealed under leased locks
+> (§A), so "values are stored as offered" and "a slot for the wrapped lock
+> that stage 2 fills" below are superseded; the base is made on the stream
+> gate and ordered here after its re-class (§C).
 
 The micro store end to end for layers placed by entity: the shared layers
 (group, base) and one-owner layers re-classed to by-entity. A second depot
@@ -626,6 +697,9 @@ micro name). A name tagged `:by-layer` is refused on its face as
 `:wrong-gate`, the mirror of the stream gate's refusal, so a name reaches one
 gate only whatever a client does.
 
+> **Revision:** the skeleton also carries `:locks`, the cited lock ids, and
+> its `:digest` is R1's content digest, computed on the arrival task (§A).
+
 **Offer skeleton** (what travels to the deciding task, "the leader", in
 block 1; never a value): the parsed offer minus every `:v`, plus its digest,
 the maximum carried stood-on stamp, and, per fact, `{:e :k :replaces :mark}`
@@ -659,6 +733,9 @@ the batch that wrote it; a later change is a new field with its own batch id
 reader at frontier F hides what a batch above F wrote. This is how R5 is
 kept; the rule is stated once here and applied in every schema below.
 
+> **Revision:** the stamp is `rig.store.clock`'s hybrid long (§E); the
+> terms below stand, in that unit.
+
 **Stamp** (I-O2, model `stamp-for` for `:micro`): `max(wall, max over the
 touched tasks (clock + 1), max carried stood-on stamp + 1, max replaced
 stamp + 1)`, the wall from `TopologyUtils/currentTimeMillis` read once per
@@ -668,6 +745,10 @@ from the fold's working state so two acts on one task in one batch get
 strictly increasing stamps. Refusals are stamped too (model `decide`).
 
 ## Reads
+
+> **Revision:** every reader-facing query takes an explicit F;
+> `micro-lookup` takes `[name digest envelope-key F]`, digest being R1's
+> content digest (§D, M8 revised); `micro-lease` is added (§A).
 
 Point reads route by the first key; reads that need two PState reads on one
 task are query topologies (phase-1-plan Step 1), which is what the frontier
@@ -695,6 +776,11 @@ committed the previous one (RQ 7), so the gate's view is whole without the
 frontier; the frontier is for readers outside the topology.
 
 ## Writes
+
+> **Revision:** OP5 no longer makes the base (§C); the seed row follows M11
+> as revised (§I); a lease act is added (§A); an OP6 grant may name a parent
+> (§B); a nil-tagged forget of a re-classed layer's micro-era value comes
+> here (M25).
 
 One client depot, `*micro-offers`; every write is an offer as shaped by the
 stream plan (P5). By operation:
@@ -751,6 +837,10 @@ one, name-keyed data in one, per-task values in one; the fourth is the
 stream store's `$$layers`, read here, never written.
 
 ### `$$micro` — everything keyed by an entity, on the entity's task
+
+> **Revision:** the value gains `:leases` under a session id (§I, the schema
+> addition); a `:log` row's `:v` holds the sealed bytes and `:lock` the
+> wrapped lock record (§A).
 
 Candidates, costed for the dominant read (the gate's gather per offer) and
 for the frontier rule:
@@ -922,6 +1012,9 @@ leader and is rebuilt from the gather every batch; nothing is cached.
 
 ## Depots
 
+> **Revision:** `*micro-offers` routes a sealed act by its `:session` (M4
+> revised, §A); an act with no sealed value routes as below.
+
 - **`*micro-offers`** — `(declare-depot setup *micro-offers (hash-by
   micro/route-key))`, client appends (people, the operator, the seed) and,
   in stage 4, the stream gate's `depot-partition-append!` of a landing
@@ -985,6 +1078,12 @@ skeletons and index rows, never values (a few hundred bytes per offer);
 reads and writes stay on the entity and name tasks. This is patterns.md's
 "two-phase aggregation": a first pass gathers, a repartition to one task
 decides, a second pass writes.
+
+> **Revision:** block 1 begins with §A's lease work on the arrival task (and,
+> for a resend, §A's content check); the `$$persons` subject read in block 1
+> below is replaced by §A's subjects from the opened value; block 2b is §A's;
+> a block 2c after it consumes the leases (§A). The fold's permission inputs
+> are the chain's rows (§B).
 
 **The batch, block by block.** Every block is a `<<batch` (a global
 barrier, microbatch.md), so each sees the previous one's writes on every
@@ -1189,6 +1288,9 @@ Both apply I-P2's visibility only as "stage 5's": in this stage the caller
 is trusted (O22 left to stage 5).
 
 ## Partitioning efficiency
+
+> **Revision:** recomputed in §H. The tables below are the 25 September
+> costs, before the lease read and the permission chain.
 
 **Optimal placement, derived first.** Two reads dominate: the gate's gather
 per offer and the offerer's lookup by name. The gather wants, for an act,
@@ -1417,6 +1519,9 @@ then garbage. Bounded by `depot.microbatch.max.records`; lower it if phase
 
 ## The settled frontier (R5), stated whole
 
+> **Revision:** the frontier id's form, the explicit-F reader's rule, the
+> query and what a read entry records are §D.
+
 - **What it is.** `$$micro-task :frontier` on every task: the id of the
   last batch every task has committed, written by block 0 of each batch as
   the previous batch's id, visible on a task once that batch commits there.
@@ -1458,6 +1563,9 @@ then garbage. Bounded by `depot.microbatch.max.records`; lower it if phase
   the forget *fact* is hidden like any row until its batch is at or below F.
 
 ## Rig choices proposed
+
+> **Revision:** M4, M8, M11 and M12 are revised, and M16 to M25 added, in
+> §I; M1's open question is the probe's (§G). The rest stand.
 
 Each is a pick where the rulings are silent, one line of what and one of
 why. None changes PROGRESS.md. The build session copies the ones it keeps
@@ -1583,6 +1691,12 @@ into RIG.md with the next free numbers.
 
 ## What this stage takes from the stream store, and the one-line change
 
+> **Revision:** this stage also takes phase 2's `rig.store.locks` (seal,
+> open, wrap, unwrap, the delivery function, open-value, the content
+> digest) and tonight's `rig.store.clock` (§E), and gives
+> `rig.store.permit` (§B), which changes `gate.clj` in two places and
+> `envelope.clj` in one.
+
 Read as interfaces, never edited here (R15: the two builds touch different
 files). The build session reads the built code first; where the built
 shape differs from the stream plan's description, the adapter is written in
@@ -1672,6 +1786,8 @@ Stated as what this stage leaves, not as their design.
   `:subjects` part arrives on the record as in the stream store.
 
 ## Namespaces and tests
+
+> **Revision:** the tests are §F's; where the lists below differ, §F wins.
 
 - `src/rig/store/micro.clj` — `declare!` (M1); `route-key`; `skeleton`,
   `prepare` (the fold), `row-of`, `row-lock` (M12), `wall`, all pure; the
@@ -1857,6 +1973,9 @@ Written while designing, first person.
   "Topologies", "The settled frontier" and "Rig choices".
 
 ## What this plan could not settle
+
+> **Revision:** M1's question went to the probe (§G), which also says what
+> stays open.
 
 - Whether `microbatch-topology`, `declare-pstate`, `declare-depot`,
   `declare-tick-depot` and `<<query-topology` may be called from a function
