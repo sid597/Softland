@@ -952,8 +952,9 @@ layer only).
 
 ### 6.5 What a pass costs
 
-For a layer with T tools and M matches per tool, one pass: T + 1 pattern
-reads through the exit, each a query on L's home (one seek plus the
+For a layer with T tools and M matches per tool, one pass: T operator
+lease acts for the tools that run ([V-F6]; more when a tool cites more
+than 256 locks), T + 1 pattern reads through the exit, each a query on L's home (one seek plus the
 entries it iterates, P:770-782) and one entry act through the gate; then
 T lookups, each one roundtrip for a tool's M names (one seek a name), and
 one offer per new match. The lookups make an old match cost one seek
@@ -1166,7 +1167,7 @@ count, on a tool nobody tonight knows, will show which of these a second
 tool reuses and what it adds.
 
 After these, writing the test tool and the test grammar needs no compiled
-step: they are facts (R1, G1 to G6). That is the machinery count's zero,
+step: they are facts (R1, G1 to G7). That is the machinery count's zero,
 not the thesis count's.
 
 ## 9. The plan template's sections
@@ -1201,6 +1202,7 @@ entry is *assumed*.
 | WR-T2 a tool's grant | `*offers` | phase 1's `grant-offer`, the operator's |
 | WR-T3 a run's output act | `*offers` | an ordinary offer through the door, under the tool's pid |
 | WR-T4 the runner's read entries | `*offers` | the exit's entry acts (P:259-277) |
+| WR-T5 the runner's leases for a tool ([V-F6]) | `*offers` | an operator lease act into the tool's door session, sized to what the tool will cite, bare rows consumed at decision |
 
 ### PState Design
 
