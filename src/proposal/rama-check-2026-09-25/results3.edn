@@ -1,0 +1,15 @@
+[{:claim "stream, retry :individual, throw intentional once on B",
+  :status :ran,
+  :detail
+  {:append {:ok {}},
+   :attempts
+   {:fail-kind {:b :intentional},
+    :fail {:b 0},
+    :attempts {:a 2, :b 2},
+    :block {}},
+   :a-entries
+   [{:stamp 2, :task 1, :id "x-intentional"}
+    {:stamp 3, :task 1, :id "x-intentional"}],
+   :b-entries [{:stamp 3, :task 2, :from "a", :id "x-intentional"}],
+   :other-records-replayed {},
+   :worker-connection-losses 0}}]
