@@ -35,14 +35,15 @@
 
 (defn record-purges!
   "Stage 2: record every call of the forget's purge seam from now on
-  (rig.store.locks `purge-read-indexes>`), so a test can see which values a
-  forget handed to the read exit's purge; off by default."
+  (rig.store.reads `purge>`, which rig.store.module wires to phase 2's value
+  and person forgets), so a test can see which values a forget handed to the
+  read exit's purge; off by default."
   []
   (reset! purges []) (reset! purging true))
 
 (defn purged!
-  "Called by the purge seam (a no-op tonight but for this record): one entry
-  per erased value when recording is on."
+  "Called by the purge seam before it purges: one entry per erased value
+  when recording is on."
   [task layer erased forget-stamp]
   (when @purging
     (swap! purges into (map (fn [e] {:task task :layer layer :fid (:fid e) :forget-stamp forget-stamp}) erased)))

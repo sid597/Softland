@@ -133,7 +133,10 @@
           (inject/point! :recorded *name)
           (locks/consume-locks> *layer (get *offer :session) (get *d :consume))
           (ack-return> (get *d :ack))
-          (locks/fan-out> *name (get *d :fan-out))
+          ;; a recorded person act fans out again (L9); a recorded person forget's
+          ;; values are purged again on every task, idempotently
+          (locks/fan-out> *name (get *d :fan-out) :> *rlayer *rerased *rdate)
+          (reads/purge> *rlayer *rerased *rdate)
          (else>)
           (local-select> (keypath *layer :settings) $$layers :> *settings)
           ;; stage 2: the delivery; a missing lock is refused on its face
@@ -201,12 +204,20 @@
                   (local-transform> [(keypath *layer :permissions *pp) (termval *prow)] $$layers)))
               ;; stage 2's lock writes, yes or no, in the same group
               (locks/write-decision> *layer *offer *d)
+              ;; a value forget purges the read exit's indexes of every value its lock
+              ;; erased, in the same group, dated by its stamp (the ledger's date)
+              (get (get *d :locks) :purge :> *purge)
+              (<<if (seq *purge)
+                (reads/purge> *layer *purge (get *d :stamp)))
               (local-transform> [(termval (get *d :stamp))] $$clock)
               (inject/point! :after-writes *name))
             (ack-return> (get *d :ack))
             ;; the person fan-out, after the answer is set: the ack returns once
-            ;; every task holds the entry (stream.md, the event tree)
-            (locks/fan-out> *name (get (get *d :locks) :fan-out))))))
+            ;; every task holds the entry (stream.md, the event tree); for a person
+            ;; forget each task purges the read exit's indexes of every value that
+            ;; died there with the person, dated by its wrap's close
+            (locks/fan-out> *name (get (get *d :locks) :fan-out) :> *dlayer *derased *ddate)
+            (reads/purge> *dlayer *derased *ddate)))))
     ;; stage 5a: the *index-ops source (rebuild pages, test-only ops) on this topology
     (reads/declare-index-ops-source! s))
   ;; stage 2's query topologies: lease-locks and read-as-of

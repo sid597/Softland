@@ -36,7 +36,19 @@
   layer], [who layer :session] to [who layer hand]). The model has no
   retracts (its offerer always makes a value), so retracts are tested in
   rig.store.read-exit-test only. scenarios.clj's fixed histories are listed
-  with what keeps each from being replayed tonight, and that is checked."
+  with what keeps each from being replayed tonight, and that is checked.
+
+  Wave 1 (phase 2 merged): values are sealed at the door, and the rig
+  differs from the model where RIG.md's For Sid 14 and 2 name it: an offer
+  by a writer who cannot lease in the layer (Bob into Alice's layers) is
+  refused on its face `:no-such-lock` and recorded nowhere, where the model
+  records the permission reason; so a reuse of such a name would be
+  decided fresh in the rig (the model keeps it refused), and is not sent;
+  and a reuse of a name whose act was refused and recorded, under the same
+  parts, is answered with the recorded refusal (the parts digest holds no
+  value), where the model says `:name-taken`. Each is counted and named
+  (OBSERVED), never hidden; every other answer and every read still
+  compares exactly."
   (:require [clojure.test :refer [deftest is testing]]
             [com.rpl.rama :refer :all]
             [com.rpl.rama.path :refer :all]
@@ -120,7 +132,9 @@
   "The model's one-owner world under per-history layer names."
   [ren]
   (let [[l1 l2 l3] (map ren one-owner)]
-    {:layers [[l1 {:kind :personal :owner :alice}] [l2 {:kind :hand :owner :alice}] [l3 {:kind :agent :owner :alice}]]
+    ;; wave 1: an owner is a person first (L11); after the first history the person acts are refused as made
+    {:persons [:alice :bob]
+     :layers [[l1 {:kind :personal :owner :alice}] [l2 {:kind :hand :owner :alice}] [l3 {:kind :agent :owner :alice}]]
      :permissions (vec (concat (for [l [l1 l2 l3]] [:alice l l])
                                (for [l [l1 l3 :group :base]] [:alice l l2])))}))
 
@@ -141,7 +155,8 @@
   [st ren]
   (let [world (rig-world ren)
         answers (c/seed! st world)
-        grants (drop (count (:layers world)) answers)
+        ;; wave 1: phase 2's seed answers the store layer, then each person, then each layer
+        grants (drop (+ 1 (count (:persons world)) (count (:layers world))) answers)
         by-pid (zipmap (:permissions world) grants)]
     (reduce (fn [ctx [who layer where :as pid]]
               (let [nm (str "grant:" (name who) ":" (name layer) (when (= :session where) "@session"))
@@ -173,6 +188,11 @@
 
 (def making-keys #{:kind :owner :class :lock-grain})
 
+(def door-keys
+  "Wave 1: the door's own acts in a layer, which the model does not have
+  (RIG.md For Sid 16): the lease before a write, a session close."
+  #{:lease :session-closed})
+
 (defn- kt [k] (subs (str k) 1))
 
 (defn- model-view
@@ -185,11 +205,15 @@
 (defn- rig-view [row] (select-keys row [:fid :e :k :replaces :value]))
 
 (defn- rig-rows
-  "The rig's rows of a pattern read, the layer-making facts left out."
+  "The rig's rows of a pattern read, the layer-making facts and the door's
+  own acts (a lease, a session close: For Sid 16) left out."
   [st rl pattern m]
   (let [a (foreign-invoke-query (:read-pattern st) rl :alice pattern m 10000)]
     (when (contains? a :refused) (throw (ex-info "read refused" {:answer a :pattern pattern})))
-    (into [] (comp (remove #(and (= rl (:e %)) (making-keys (:k %)))) (map rig-view)) (:rows a))))
+    (into [] (comp (remove #(and (= rl (:e %)) (making-keys (:k %))))
+                   (remove #(door-keys (:k %)))
+                   (map rig-view))
+          (:rows a))))
 
 (defn- compare-read
   "Compare one model read with the rig's reads, per layer; returns ctx with
@@ -264,6 +288,15 @@
 
 ;; ------------------------------------------------------------------ replay
 
+(defn- face-refused?
+  "A rig answer refused on its face (no stamp: nothing was recorded)."
+  [a]
+  (boolean (and (map? a) (= :no (:answer a)) (nil? (:stamp a)))))
+
+(def permission-reasons
+  #{:permission-does-not-cover-this :permission-from-another-layer :no-permission :permission-revoked})
+
+
 (defn- replay
   "Play a history through the model op by op and through the rig in
   lockstep; compare at every read; return the context with differences."
@@ -295,8 +328,14 @@
                       ctx)
              :reuse (if-let [mnm (pick a)]
                       (let [mo (last (:reuses ms2))
-                            ro (rig-offer ctx ren mo (get-in ctx [:names mnm]))]
-                        (update ctx :answers conj {:op i :kind :reuse :model-name mnm :rig (send! st ro)}))
+                            rnm (get-in ctx [:names mnm])
+                            first-rig (some #(when (and (= :offer (:kind %)) (= mnm (:model-name %))) (:rig %)) (:answers ctx))]
+                        (if (face-refused? first-rig)
+                          ;; wave 1 (For Sid 14): the name holds no record in the rig, so a reuse would be
+                          ;; decided fresh where the model keeps it refused; named, not sent
+                          (update ctx :known conj {:op i :kind :reuse-of-a-face :model-name mnm})
+                          (let [ro (rig-offer ctx ren mo rnm)]
+                            (update ctx :answers conj {:op i :kind :reuse :model-name mnm :rig (send! st ro)}))))
                       ctx)
              :read (let [r (last (:reads ms2))
                          label [hname i op]]
@@ -321,12 +360,31 @@
     (vec (for [x (:answers ctx)
                :let [mo (model-outcome ms (:model-name x))
                      ro (rig-outcome (:rig x))
+                     fa (first-answer (:model-name x))
                      bad (case (:kind x)
-                           :offer (not= mo ro)
-                           :retry (not= (dissoc (first-answer (:model-name x)) :name) (dissoc (:rig x) :name))
-                           :reuse (not (contains? #{:name-taken :mis-tagged} ro)))]
+                           ;; wave 1, For Sid 14: a writer who cannot lease is refused on its face
+                           :offer (not (or (= mo ro) (and (= :no-such-lock ro) (contains? permission-reasons mo))))
+                           :retry (not= (dissoc fa :name) (dissoc (:rig x) :name))
+                           ;; wave 1, For Sid 2: a recorded refusal under the same parts is answered as recorded
+                           :reuse (not (or (contains? #{:name-taken :mis-tagged} ro)
+                                           (and (= :no (:answer fa)) (some? (:stamp fa)) (= (:reason fa) ro)))))]
                :when bad]
            (assoc x :model mo :rig-outcome ro)))))
+
+(defn- known-differences
+  "The answers that differ from the model's only as RIG.md names (For Sid
+  14 and 2), and the reuses not sent: counted, for the OBSERVED line."
+  [ctx]
+  (let [ms (:ms ctx)
+        first-answer (into {} (for [x (:answers ctx) :when (= :offer (:kind x))] [(:model-name x) (:rig x)]))]
+    (concat (:known ctx)
+            (for [x (:answers ctx)
+                  :let [mo (model-outcome ms (:model-name x))
+                        ro (rig-outcome (:rig x))
+                        fa (first-answer (:model-name x))]
+                  :when (or (and (= :offer (:kind x)) (not= mo ro))
+                            (and (= :reuse (:kind x)) (not (contains? #{:name-taken :mis-tagged} ro))))]
+              {:op (:op x) :kind (:kind x) :model mo :rig ro :first fa}))))
 
 ;; ------------------------------------------------------------------ the test
 
@@ -367,6 +425,7 @@
               (say (name hname) ":" (count history) "ops," (:reads ctx 0) "reads compared,"
                    (count (:answers ctx)) "offers answered;" (count (:diffs ctx)) "differences;"
                    "single-moment observations:" (pr-str (:observed ctx)))
+              (say (name hname) ": known differences (For Sid 14, 2):" (pr-str (map #(select-keys % [:kind :model :rig]) (known-differences ctx))))
               (is (= (butlast (:reads run)) (:reads (:ms ctx)))
                   "formal.model/run gives the same reads: every offer was worked before its read")
               (is (empty? (:diffs ctx)) (with-out-str (doseq [d (take 5 (:diffs ctx))] (prn d))))

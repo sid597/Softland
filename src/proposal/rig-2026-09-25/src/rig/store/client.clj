@@ -388,11 +388,16 @@
                    :facts [{:e e :k :forget :v {:target fid}}]}))))
 
 ;; --------------------------------------------------------------- reads
+;; The store's own view, for tests and the operator's checks: these read
+;; through phase 2's internal `read-as-of` query, record no read entry and
+;; check no visibility. A reader reads through the one exit,
+;; `rig.store.read-exit/read!`, which records every read (wave 1).
 
 (defn read-as-of
   "The layer as of stamp `T` (`read-as-of`, L18): {:as-of T :facts [...]
   :erased {lock-id {:stamp :how}}}, each fact {:id :stamp :e :k :replaces
-  :mark} with `:value`, `:erased-at` or `:unreadable`."
+  :mark} with `:value`, `:erased-at` or `:unreadable`. The store's own
+  view (tests, the operator); never a reader's path."
   [store layer T]
   (foreign-invoke-query (:read-as-of-q store) layer T))
 

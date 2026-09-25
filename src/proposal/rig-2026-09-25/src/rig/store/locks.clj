@@ -29,9 +29,13 @@
   functions (`row-fields`, `layer-fields`, `declare-pstates!`,
   `declare-queries!`); the dataflow ops the gate's one event calls
   (`deliver-lock>`, `consume-locks>`, `deliver-all>`, `decision-reads>`,
-  `record-path>`, `write-decision>`, `fan-out>`), the seam to the read
-  exit's purge (`purge-read-indexes>`), and the reads (`open-value>`,
-  `open-row>`, `read-as-of>`, `lease-locks>`). The ops reach `$$layers`
+  `record-path>`, `write-decision>`, `fan-out>`), the enumeration of the
+  values that die with a person (`dying>`), and the reads (`open-value>`,
+  `open-row>`, `read-as-of>`, `lease-locks>`). A forget's purge of the read
+  exit's indexes is not called from here: this namespace does not require
+  the read exit's (which requires this one for its open step), so
+  rig.store.module wires the forget's erased values, which `lock-effects`
+  lists under `:purge` and `fan-out>` emits, to `rig.store.reads/purge>`. The ops reach `$$layers`
   and `$$persons` through `<<with-substitutions` and
   `this-module-pobject-task-global`, and none repartitions except the
   person fan-out.
@@ -939,8 +943,12 @@
   [record persons p]
   (boolean (and (map? record) (some #{p} (wrap-persons record)) (some? (wrap-closed record persons)))))
 
-(defn erased-item "One erased value, as the purge seam takes it." [nm idx row]
-  [{:fid [nm idx] :row row}])
+(defn erased-item
+  "One erased value, as the read exit's purge seam takes it
+  (rig.store.reads `purge>`): its fact id, its row as it stood, and its
+  act's stamp."
+  [nm idx row stamp]
+  [{:fid [nm idx] :row row :stamp stamp}])
 
 (defn fact-entry
   "One fact of `read-as-of`'s answer: its id, stamp, e, k, replaces and
@@ -1197,30 +1205,15 @@
       (identity nil :> *tledger))
     (:> (record-answer *offer *rec *d0 *verdict *tledger))))
 
-(deframaop purge-read-indexes>
-  "THE SEAM to the read exit's purge by value id (PLAN-read-exit.md,
-  'Purge and rebuild'). A forget calls it in its own event on the values'
-  task: a value forget once, after the ledger write, with every value its
-  lock erased; a person forget once per value that dies with the person,
-  on every task, in the fan-out child. `*erased` is a vector of {:fid
-  [name idx] :row row} (the row as it stood before the forget),
-  `*forget-stamp` the forget fact's stamp. A no-op tonight: the read
-  exit's indexes are not on this branch. The merge replaces this body with
-  the purge (its RE4 read of each value's `:ix-kv` addresses and the act's
-  stamp, `reads/purge-writes`, and the three write blocks), so the purge
-  commits with the forget. Tonight it only hands the call to the test
-  recorder (rig.store.inject `purged!`, off unless a test turns it on)."
-  [*layer *erased *forget-stamp]
-  (inject/purged! (ops/current-task-id) *layer *erased *forget-stamp)
-  (:>))
-
 (deframaop write-decision>
   "The lock writes of a fresh decision (plan, 'Writes'), in the decision's
   one atomic group after stage 1's writes: the consumption of the cited
   lease rows (yes or no), the lock rows, a lease's rows, a session close, a
-  forget's deletion or excision, its ledger entry and the purge seam, a
-  person act's entry on the home, and the by-stamp entry. Every write a
-  `termval` or a `NONE>` keyed by id."
+  forget's deletion or excision and its ledger entry, a person act's entry
+  on the home, and the by-stamp entry. Every write a `termval` or a `NONE>`
+  keyed by id. The values a value forget erased (`:purge` of the lock
+  effects) go to the read exit's purge in the same group, wired by
+  rig.store.module after this op."
   [*layer *offer *d]
   (<<with-substitutions [$$layers (rama/this-module-pobject-task-global "$$layers")
                          $$persons (rama/this-module-pobject-task-global "$$persons")]
@@ -1245,9 +1238,6 @@
     (<<atomic
       (ops/explode (get *fx :ledger) :> [*lid *entry])
       (local-transform> [(keypath *layer :erased *lid) (termval *entry)] $$layers))
-    (get *fx :purge :> *purge)
-    (<<if (seq *purge)
-      (purge-read-indexes> *layer *purge (get *d :stamp)))
     (get *fx :person :> *person)
     (<<if (some? *person)
       (first *person :> *p)
@@ -1260,14 +1250,20 @@
       (local-transform> [(keypath *layer :by-stamp *bstamp) (termval *bname)] $$layers))
     (:>)))
 
-(deframaop purge-dying>
+(deframaop dying>
   "On this task, after a person forget's fan-out child destroyed `*p`'s
   lock here (builder A's addition): every value whose wrap closes with the
-  forget, passed to the purge seam one by one. It scans every layer homed
-  on this task, and in each the acts whose subject slot names the person,
-  then those acts' rows, their lock records and persons, yielding as it
-  goes. Its cost is O(acts on the task) iterations plus a few seeks per
-  value that dies: over any per-event budget at scale (BUILD_NOTES)."
+  forget, emitted one by one as `[layer erased date]` (the read exit's
+  purge seam's arguments: `erased` one `erased-item`, `date` the date the
+  wrap closed, which is the date the open step gives, so an index purge
+  and a rebuild write the same tombstone). A value already erased by a
+  value forget (a ledger entry) is not emitted: that forget purged it. It
+  scans every layer homed on this task, and in each the acts whose subject
+  slot names the person, then those acts' rows, their lock records and
+  persons, yielding as it goes. Its cost is O(acts on the task) iterations
+  plus a few seeks per value that dies: over any per-event budget at scale
+  (BUILD_NOTES-locks-and-forgetting.md; the paged seam of
+  PLAN-reads-rest.md, `dying-with>`, replaces it)."
   [*p *entry]
   (<<with-substitutions [$$layers (rama/this-module-pobject-task-global "$$layers")]
     (local-select> MAP-KEYS $$layers {:allow-yield? true} :> *layer)
@@ -1285,15 +1281,19 @@
           (local-select> (keypath *layer :locks *rlid) $$layers :> *record))
         (read-persons> (wrap-persons-of *record) (hash-map *p *entry) :> *wpersons)
         (<<if (closes-with? *record *wpersons *p)
-          (purge-read-indexes> *layer (erased-item *aname *ridx *rrow) (get *entry :erased-at)))))))
+          (:> *layer (erased-item *aname *ridx *rrow (get *arec :stamp)) (wrap-closed *record *wpersons)))))))
 
 (deframaop fan-out>
   "The person fan-out (plan, gate event step 11; L9): for a person act
   answered yes, fresh or recorded, the home's `$$persons` entry as it
   stands, then `(|all)` (the commit boundary for the home's writes), then
   an unconditional `termval` of that entry on every task; for a person
-  forget, each task then passes the values that died with the person to
-  the purge seam. The crash hook's `:fan-out` point is in the child."
+  forget, each task then emits the values that died with the person there
+  (`dying>`: `[layer erased date]`, once per value), which
+  rig.store.module hands to the read exit's purge on that task, inside the
+  same event tree, so the forget's answer returns once every task has
+  purged. Emits nothing for any other act. The crash hook's `:fan-out`
+  point is in the child."
   [*name *p]
   (<<with-substitutions [$$persons (rama/this-module-pobject-task-global "$$persons")]
     (<<if (some? *p)
@@ -1302,7 +1302,8 @@
       (inject/point! :fan-out *name)
       (local-transform> [(keypath *p) (termval *entry)] $$persons)
       (<<if (some? (get *entry :erased-at))
-        (purge-dying> *p *entry)))))
+        (dying> *p *entry :> *dlayer *derased *ddate)
+        (:> *dlayer *derased *ddate)))))
 
 ;; ------------------------------------------------------------- the reads
 
@@ -1369,7 +1370,13 @@
   "The read as of a moment (RD4's erasure part, I-L7; L18), on the layer's
   home: every yes act stamped at or before `*T` (the by-stamp range), each
   of its rows through `open-row>`, and the erasure ledger whole. Yields as
-  it goes. Stage 5's read exit replaces it at the merge."
+  it goes. Internal since wave 1's merge: the read exit (rig.store.reads,
+  rig.store.read-exit) is the one way a reader reads, and records every
+  read; this body and its query are the store's own view, for tests and the
+  operator's checks, recording nothing and checking no visibility, so no
+  reader's path may call them (a contract, not enforced: the rig has no
+  caller identity). PLAN-reads-rest.md's `:ix-s` serves its range and
+  decides whether `:by-stamp` stays."
   [*layer *T]
   (<<with-substitutions [$$layers (rama/this-module-pobject-task-global "$$layers")]
     (<<if (int? *T)
@@ -1413,9 +1420,12 @@
 
 (defn declare-queries!
   "Declares this stage's two query topologies on the module's
-  `topologies`: `lease-locks [layer session]` and `read-as-of [layer T]`,
-  each routed by `(|hash layer)` to the layer's home, as the depot's
-  `hash-by :layer` and `$$layers`' key partitioner place it (P2)."
+  `topologies`: `lease-locks [layer session]`, the door's one path to a
+  leased lock, and `read-as-of [layer T]`, internal since wave 1 (the
+  store's own view for tests and the operator, never a reader's path; see
+  `read-as-of>`), each routed by `(|hash layer)` to the layer's home, as
+  the depot's `hash-by :layer` and `$$layers`' key partitioner place it
+  (P2)."
   [topologies]
   ;; the Rama kondo hook reads <<query-topology inside defmodule only
   #_:clj-kondo/ignore
