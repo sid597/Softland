@@ -9,7 +9,7 @@ not a module. Worktree `Softland-rig-plan-numbers`, branch
 **Status.** A plan. Nothing is built and nothing was run. One method
 question (can a harness tell a PState's lock rows apart from its other
 entries inside RocksDB?) was taken as far as reading takes it, from the
-Rama 1.6.0 jar's class listing (section 6.4); no cluster was started and
+Rama 1.6.0 jar's class listing (section 6.5); no cluster was started and
 no probe was run.
 
 **Marks.** Each load-bearing claim says where it comes from: *code* (a file
@@ -43,19 +43,19 @@ unless absolute. Vocabulary as SPEC.md fixes it: "key" is a fact's key,
   written under a session permission, K closed-loop writers sharing one
   door: K = 1, 4, 16, then 32, 64, 128 and on while the rate still rises.
   Value acts a second and index writes a second. Beside it, the same act
-  under a by-value grammar (11 writes), and S sessions on one task, each
-  with its own door, each writing at an assumed agent speed of 100 acts a
-  second: how many agent sessions one task carries at that speed, the
-  divisor the README's yardstick asks for. Third, the agent reading before
-  it writes, each read recorded through the exit.
+  under a by-value grammar (11 writes). In the full set: S sessions on one
+  task, each with its own door, each writing at an assumed agent speed of
+  100 acts a second, which measures how many agent sessions one task
+  carries at that speed, the divisor the README's yardstick asks for; and
+  the agent reading before it writes, each read recorded through the exit.
 - **Number 2, lock store growth under hand layers.** 100,000 values into a
   hand layer through the door, for 40-byte and 200-byte values, a point
   every 10,000. The finished store's real lock rows read back and sized in
   Rama's own serializers (logical bytes), and on disk after a forced
   compaction with the lock rows isolated from everything else the layer
   keeps. Each extra subject from values marked to die with one, two and
-  four more people. Then one hand layer at per-act grain, four values an
-  act: the README's fallback, computed on 25 September, run.
+  four more people. In the full set, one hand layer at per-act grain, four
+  values an act: the README's fallback, computed on 25 September, run.
 - **Number 3, one person's layer on one thread.** A personal layer: one
   sequential writer (6,400 measured acts, so the lease cadence is well
   sampled), then K = 1 to 128 closed-loop writers. Acts a second; latency
@@ -403,9 +403,9 @@ This is the number as asked, in the slices' shape.
   seconds, as the slices warmed.
 - **Levels.** K = 1, 4, 16, 32, 64, 128. At each: 3 seconds at K
   unmeasured, then a 15-second measured window. Past 128, K = 256 and then
-  512, each only while the median gain over the level before is at least
-  10%, p99 is at most 200 ms and nothing errs; the run applies this rule to
-  its own windows.
+  512, each only while the rate gained at least 10% over the level before,
+  p99 is at most 200 ms and nothing errs; the run applies this rule to its
+  own windows.
 - **Recorded per window** (a `RESULT` line): value offers sent and every
   answer (yes, no with its reason, error); lease acts, both counts (2.5);
   the rate, admitted value acts over the time from the window's start to
@@ -455,8 +455,9 @@ The divisor, measured instead of divided out.
   falls behind its schedule goes at once, and its latency is measured from
   its scheduled time, not from when it was sent, so a queue at the task
   shows as latency instead of the writers quietly slowing down.
-- **Levels.** S = 10, 20, 40, 80, 160: 1,000 to 16,000 value acts a second
-  offered. Each: 3 s unmeasured, 15 s measured. The run stops after the
+- **Levels.** After the idle window and a 20-second warm-up at S = 10:
+  S = 10, 20, 40, 80, 160, which offer 1,000 to 16,000 value acts a second.
+  Each: 3 s unmeasured, 15 s measured. The run stops after the
   first level where fewer than 90% of the offered acts were admitted in
   the window, or p99 passed 100 ms, or anything erred.
 - **Recorded per level**: offered and admitted value acts a second, lease
@@ -483,7 +484,7 @@ The divisor, measured instead of divided out.
 - **Per iteration**: one entry act and one value act, each sealed at the
   door under its own lock, so a lease act every 32 iterations. Writes (2.3):
   the entry act 10, the value act 9 plus one `:stood-on` row, so about
-  20 + 72/32 = 22.3 a iteration (*derived*).
+  20 + 72/32 = 22.3 an iteration (*derived*).
 - **Reported per level**: iterations a second; value, entry and lease acts
   a second; index writes a second; the lock rows the entries wrote (the
   `:locks` growth, one per entry, from the `:own-row` mark in an agent
@@ -493,7 +494,7 @@ The divisor, measured instead of divided out.
   with an exact list "the number to watch" at a model's call rate. After
   C's windows: a model's pattern reads `[:k :note]` with exact lists of
   10, 100 and 1,000 matched facts, and the logical bytes (Rama's
-  serializers, as in 6.3) of each entry act's row, its three id-index
+  serializers, as in 6.4) of each entry act's row, its three id-index
   entries (no copy) and its lock row.
 - **What it informs.** RIG.md default 4 records agent session reads
   through the exit, which "R5 partly reopens" against ruling 3's "agent
@@ -539,8 +540,9 @@ slices did not record it); setup about 10 s; idle 10 s; warm-up 20 s; A
 six levels of 18 s (108 s) and up to two more (36 s); A' three levels
 (54 s); D2 18 s. About 4.5 minutes, 5 with D1. Variant B: about 1 minute
 of setup (some 640 candidate layers made one at a time, 160 grants and 160
-sessions) and five levels of 18 s, about 2.5 minutes with the JVM. Variant
-C: three levels and setup, about 2 minutes. Three runs of each.
+sessions), the idle window and warm-up, and five levels of 18 s, about 3.5
+minutes with the JVM. Variant C: setup, warm-up and three levels, about 2
+minutes. Three runs of each.
 
 ## 5. Number 3: one person's layer on one thread, acts a second and latency
 
@@ -598,7 +600,9 @@ on a query and on an acked entry, the exit's two round trips
 
 JVM about 40 s; setup and idle 20 s; warm-up 20 s; (a) about 7,400 offers
 at roughly 3.5 ms, 26 s; (b) eight levels of 13 s, 104 s. About 3.5
-minutes a run; (c) adds about 10 s. Three runs.
+minutes a run, three runs. (c) runs once in a JVM of its own in the full
+set (8.2): setup and warm-up, then 2,000 reads at an estimated 7 ms each
+(a query and an acked entry), about 1.2 minutes.
 
 ## 6. Number 2: lock store growth under hand layers, bytes per value and the curve over 100,000 values
 
@@ -618,8 +622,9 @@ layers lock per act or keep locks in the record".
   the lock's index in it.
 - **Record**: `{:scheme :aes-gcm-1 :required [..] :any-of [..] :blob
   <bytes> :any-blobs nil}` (`lock-record-schema` :953), raw bytes in
-  `byte/1` slots (L4), where the slice kept base64 text in its plan's
-  first variant and raw bytes in its second.
+  `byte/1` slots (L4). The slice measured both base64 text (its plan's
+  choice then) and raw bytes; the finished store keeps raw bytes, so the
+  slice's raw variants are the ones to compare (10.4).
 - **Wrap in a hand layer** (`wrap-of` :253): an unmarked value is wrapped
   under the owner alone; a value marked `:die-with-any` under every
   subject, the owner among them, as a chain of seals in sorted order. Each
@@ -645,12 +650,21 @@ layers lock per act or keep locks in the record".
   variant, the owner's grain switch `{:e :alice-hand :k :lock-grain :v
   :per-act}` first.
 - **Values.** The slice's seeded generator (`rig.bench.lock-bench/value-spec`,
-  seed 20260925), so the same values in the same order at the same sizes:
-  `{:text "..."}` whose canonical EDN is exactly 40 or 200 bytes under key
-  `:note`; `{:persons #{...} :text "..."}` of 40 bytes under `:mention`,
-  marked `:die-with-any`. The harness asserts, for the first 100 values,
-  that the door's plaintext (`locks/canonical-bytes`, **to confirm at
-  build**) has exactly that size.
+  seed 20260925), so `h40`, `h200` and `h40-p2` get the same values in the
+  same order at the same sizes as the slice: `{:text "..."}` whose
+  canonical EDN is exactly 40 or 200 bytes under key `:note`, and
+  `{:persons #{:bob} :text "..."}` of 40 bytes under `:mention`, marked
+  `:die-with-any`. The slice's generator names Bob only, and four names do
+  not fit in 40 bytes (`{:persons #{:bob :carol :dave :erin} :text ""}` is
+  already longer), so `rig.bench.lock-growth` carries its own generator,
+  the slice's extended to a set of persons and checked to reproduce the
+  slice's first 100 values for the three variants above; `h40-p3` and
+  `h40-p5` use 64-byte values. The lock row does not depend on the value's
+  size (the slice's finding, 169 bytes at 40 and at 200), so the slope per
+  subject compares rows across these variants. The harness asserts, for
+  the first 100 values of every variant, that the door's plaintext
+  (`locks/canonical-bytes`, **to confirm at build**) has exactly the
+  intended size.
 - **Writers.** 64 threads sharing one door, each sending one act at a
   time with `c/offer!` as `:who :alice` under the root permission in the
   door's default session, taking values in order from one shared counter.
@@ -664,8 +678,8 @@ layers lock per act or keep locks in the record".
 | `h40` | 100,000 | 40 B | `:note`, none | `[:alice]` | per value | 100,000 | minimum |
 | `h200` | 100,000 | 200 B | `:note`, none | `[:alice]` | per value | 100,000 | minimum |
 | `h40-p2` | 100,000 | 40 B | `:mention` `#{:bob}`, `:die-with-any` | `[:alice :bob]` | per value | 100,000 | minimum |
-| `h40-p3` | 10,000, a point every 2,000 | 40 B | `:mention` `#{:bob :carol}`, marked | 3 persons | per value | 10,000 | minimum |
-| `h40-p5` | 10,000, a point every 2,000 | 40 B | `:mention` of four, marked | 5 persons | per value | 10,000 | minimum |
+| `h40-p3` | 10,000, a point every 2,000 | 64 B | `:mention` `#{:bob :carol}`, marked | 3 persons | per value | 10,000 | minimum |
+| `h40-p5` | 10,000, a point every 2,000 | 64 B | `:mention` of four, marked | 5 persons | per value | 10,000 | minimum |
 | `h40-again` | 100,000 | 40 B | as `h40` | | | 100,000 | full |
 | `h40-act4` | 100,000 in 25,000 acts of 4 | 40 B | `:note`, none | `[:alice]` | per act | 25,000 | full |
 
@@ -835,7 +849,10 @@ JVM exits, so a run waits behind any other session's cluster, and no two
 clusters try to bind port 2002 at once (the slices' collision at 11:10:33,
 BENCH_NOTES-locks.md). The lock is taken per run, not for a whole set, so
 another session can use the machine between runs; the overlap monitor
-(8.4) says whether anything else ran during a window.
+(8.4) says whether anything else ran during a window. Before each step the
+driver tries the lock without waiting (`flock -n`); if it is held, it
+writes "waiting for the cluster lock" to the progress file and then waits,
+so a watcher can tell a wait from a hang.
 
 ### 8.2 The driver, in the background
 
@@ -909,16 +926,16 @@ logs were; nothing a result needs lives only in them.
 | lock growth, 10,000 values | about 1 min | 2 | 2 min |
 | report | under 1 min | 1 | 1 min |
 | **minimum set** | | | **about 37 min** |
-| agent sessions (B) | about 3 min | 3 | 9.5 min |
+| agent sessions (B) | about 3.5 min | 3 | 10.5 min |
 | agent reads (C) | about 2.1 min | 3 | 6.5 min |
 | lock growth, `h40-again` and `h40-act4` | about 2.5 min | 2 | 5 min |
 | one person's reads | about 1.2 min | 1 | 1 min |
-| **full set** | | | **about 59 min** |
+| **full set** | | | **about 60 min** |
 
 Say about 40 minutes for the minimum and about an hour for the full set,
 plus any wait for the lock. If the door proves slower than assumed, the
-lock-growth steps stretch first: 100,000 values at 1,000 acts a second is
-another minute and a half a variant.
+lock-growth steps stretch first: 100,000 values at 1,000 acts a second
+instead of 3,000 adds about a minute a variant.
 
 ### 8.7 When something goes wrong
 
@@ -953,9 +970,10 @@ never changes what it measures. The slice benches
 (`src/rig/bench/lock_slice.clj`, `test/rig/bench/stream_bench.clj`,
 `test/rig/bench/lock_bench.clj`) and their run files, the record of how the
 slice numbers were made. `rig.bench.lock-growth` requires
-`rig.bench.lock-bench` for seven public pure helpers only (`value-spec`,
-`value-bytes`, `key-bytes`, `rocks-dirs`, `live-bytes`, `ipc-root`,
-`replog-bytes`). If the merged store stops that namespace from loading, the
+`rig.bench.lock-bench` for six public pure helpers (`value-bytes`,
+`key-bytes`, `rocks-dirs`, `live-bytes`, `ipc-root`, `replog-bytes`), and
+for its `value-spec` only as the reference its own generator is checked
+against (6.3). If the merged store stops that namespace from loading, the
 build copies those seven into `rig.bench.lock-growth` unchanged and says
 so in its notes.
 
@@ -978,7 +996,10 @@ so in its notes.
 - `field-counts`: for a layer, the entry count of every field of its
   `$$layers` value, the fields enumerated from the store itself (**to
   confirm at build**: `MAP-KEYS` on the layer's value, else the merged
-  module's field map), and `$$clock` per task.
+  module's field map), and `$$clock` per task. Nested fields are counted
+  at their leaves: `:leases` by session then lock id, `:stood-on` by act
+  then fact; `:log` by act, with its rows counted beside; a field that is
+  one value (`:settings`) is compared, not counted.
 - `offer-loop` and `window` (closed loop: the slice's
   `stream-bench/window`, extended with lease counting, a lease tag per
   offer, entry acts and the overlap mark), `open-loop-window` (variant B's
@@ -1003,7 +1024,8 @@ so in its notes.
 
 `rig.bench.one-thread`: `run` ((a) and (b)), `reads` ((c)).
 
-`rig.bench.lock-growth`: `variants` (6.3's table), `run <variant>`,
+`rig.bench.lock-growth`: `variants` (6.3's table), `value-spec` (the
+slice's generator extended to a set of persons, 6.3), `run <variant>`,
 `lock-rows-logical` (for any layer), `compacted` (6.4, item 3),
 `pick-lock-rows` and `repack` (6.5), `check-values` (the end-of-variant
 checks of 6.4), `report`.
@@ -1057,6 +1079,10 @@ cluster for the namespace at `{:tasks 4 :threads 4 :workers 1}`, and one at
 - **T10, the verdict rule**, on synthetic values: 10,000 against 1,000 is
   far above; 2,249 against 1,000 is near; bytes at 4.7 times are over four
   times.
+- **T11, the values** (pure): number 2's generator gives, for `h40`,
+  `h200` and `h40-p2`, the same first 100 values as the slice's
+  `value-spec`, and every variant's values have exactly their intended
+  canonical size.
 
 The driver runs no measurement unless this namespace passes.
 
@@ -1120,8 +1146,9 @@ Readings:
   long as K = 8 still gives at least 1,000 value acts a second.
 - **The latency verdict** was near (the best p99 4.7 ms, 4.2 times under
   20 ms). If the finished p99 at one writer is set by the lease tier, the
-  margin falls to about two times (*derived*: a leased offer waits for two
-  acked round trips and a query). If it passes 20 ms at one writer, the
+  margin falls to about two and a half times (*derived*: a leased offer
+  waits for two acked round trips of about 3.3 ms and a query, about 8 ms
+  in all). If it passes 20 ms at one writer, the
   assumed threshold fails at the smallest load, and the cause is the
   door's cadence, not the task: a door that leases ahead would remove it.
   (a)'s split of leased and unleased offers says which.
@@ -1263,7 +1290,7 @@ task for the bytes, four for the timings; 6,400 sequential acts for (a);
 
 ### Resource usage analysis
 
-- **Disk.** An M1 or M3 run's cluster directory grows by about 2 KB an
+- **Disk.** A run of number 1 or 3 grows its cluster directory by about 2 KB an
   admitted act (*derived*: the row and its three id-index copies, the
   other entries, the write-ahead log, the replication log and the depot),
   so about 1 GB for an agent-rate run of some 450,000 acts; the cluster
@@ -1280,7 +1307,7 @@ task for the bytes, four for the timings; 6,400 sequential acts for (a);
 
 Each is a name this plan uses that tonight's merges may move or rename.
 The build confirms each against the merged code before writing the
-harness, and T1 to T8 fail if any is wrong in a way that matters.
+harness, and T1 to T11 fail if any is wrong in a way that matters.
 
 | # | Binding point | Where it is today | What the harness does with it |
 |---|---|---|---|
@@ -1464,5 +1491,16 @@ Written as the plan was cut, first person.
 
   A run killed mid-way leaves partial lines that the summary ignores, and
   two sessions' clusters cannot overlap under `flock`: the failure and
-  race checks as they apply to a harness. No flaw found beyond the two
-  fixed while writing (5.3's reason for 6,400; the latency buffers).
+  race checks as they apply to a harness.
+
+- **Flaws found by this validation and the read-through after it, each
+  fixed in place:** 5.3's reason for 6,400 sequential acts (the slowest 1
+  in 100 is a leased offer at any sample size; the reason that holds is the
+  leased offers' own spread); latencies in primitive buffers (9.2); the
+  three- and five-person variants, whose persons do not fit in a 40-byte
+  value and whose persons the slice's generator cannot name (6.3: 64-byte
+  values, a generator of its own checked against the slice's by T11);
+  `field-counts` counting nested fields at their leaves, which T1's lease
+  arithmetic needs (9.2); variant B's missing warm-up (4.5); run lengths
+  made to agree between 4.9, 5.6, 6.7 and 8.6; section 0 marking which
+  variants belong to the full set. None found after those.
