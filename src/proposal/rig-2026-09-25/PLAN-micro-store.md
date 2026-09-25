@@ -255,7 +255,13 @@ the leases, and the records of one block run in no fixed order on a task,
 so a deletion in 2b by one record could land before another record's read.
 The barrier between 2b and 2c is what makes "consumed in the batch" safe.
 The deletion is exactly once with the batch: a retried batch finds the rows
-again and consumes them once.
+again and consumes them once. The deletion is a no-read write (`termval`),
+so a cited row that does not exist costs nothing. One consequence, named: a
+door that cites a lease in the same batch as the lease act that mints it
+gets `:lock-missing` (block 1 read committed state, before the minting in
+2b) and destroys that fresh lease in 2c. Only the door that named the lease
+act can do this, because lease names are random and are read only through
+the frontier; its own lease is the only one it can harm.
 
 **A missing lock, with nothing recorded.** The faces entry is not the name's
 answer, so the name stays free, which is the default's stated purpose ("so a
@@ -528,8 +534,9 @@ The rig's own, each named in the step:
 - **Re-class moves a layer, and its order promise ends there.** Re-class
   `:alice-agent` through the stream gate; its `:by-layer` names are then
   refused `:class-mismatch` and its `:by-entity` offers are decided here; two
-  offers appended in one order whose names' UUID7s sort the other way are
-  decided in UUID7 order (the single-owner order promise is gone); a
+  offers appended in one order whose names' UUID7s sort the other way, put
+  in one batch (pause the topology, append both, resume), are decided in
+  UUID7 order (the single-owner order promise is gone); a
   stream-era head replaced here gets its tombstone and the frozen head is
   untouched; a second replace of it is refused stale.
 - **The base re-classed at the first group.** The seed makes the base on
@@ -655,8 +662,11 @@ an entry holds): the simplest placeholder, listed in the receipt.
   lock is recorded under `[name envelope-key]` in the name entry's
   `:faces`, never as the name's answer. The envelope key is P6's keyed
   HMAC (the rig constant secret) over the canonical sealed envelope minus
-  its name, which the door and the gate both hold. Why: R1's content digest
-  needs the lock; a face key must not.
+  its name, which the door and the gate both hold. It is not R1's reuse
+  digest, which must not be taken over sealed bytes: a face refusal belongs
+  to one attempt, and a resend sealed again has its own envelope key and
+  its own faces entry. Why: R1's content digest needs the lock; a face key
+  must not.
 - **M11, revised.** The group is seeded through this gate as the model's
   `:group` with its root `[:group :group :group]` and Alice's and Bob's
   permissions beneath it; the base as §C. Why: R7, R8.
