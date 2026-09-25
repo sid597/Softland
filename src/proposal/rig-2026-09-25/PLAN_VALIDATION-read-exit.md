@@ -17,8 +17,8 @@ envelope.clj parts, bounds and `parse*`, module.clj whole). Interfaces read in
 the parallel worktrees: PLAN-locks-and-forgetting.md at cbd2bb16
 (rig-plan-locks) lines 94-100, 545-575, 598-606, 645-655, 1105-1115; the
 micro plan's frontier id (rig-plan-micro, M23). Not opened:
-src/app/server/env.clj, test/rig/store/gate_test.clj. No cluster probe was
-run (see "Unverified Rama behaviours"). -->
+src/app/server/env.clj, test/rig/store/gate_test.clj. One cluster probe
+was run, for F2's page reads (see "Unverified Rama behaviours"). -->
 
 ## Verdict
 
@@ -308,8 +308,9 @@ No mechanism fails deletion. Pass.
   event sees the value before or the date after.
 - **Flaws found**: F5. A person forget (phase 2) closes every value wrapped
   under the person's lock without touching them; PLAN-locks-and-forgetting.md
-  (cbd2bb16) line 649 writes "for a person act one termval into $$persons",
-  no purge. The `:ix-kv` address of such a value keeps its plaintext; a
+  (cbd2bb16) line 749 (OP10) writes `$$persons[p] = {:lock nil :erased-at
+  s}` on the home and on every task through `(|all)`, and line 649 "for a
+  person act one termval into $$persons": no purge. The `:ix-kv` address of such a value keeps its plaintext; a
   `[:kv :note "x"]` read then matches it and shows `:erased-at`, which
   confirms the guess "x" at a forgotten value (IMPLICIT_SPEC RD3: "never a
   match on a value erased before the read"; RD6: a fingerprint "does not let
@@ -626,7 +627,15 @@ prefix ranges, the tail read) or documented (`:max-amt` forms and
 documented `sorted-map-range-from` with `{:max-amt n :inclusive? false}` on
 the vector-keyed `:answers`; a page from an exact existing key needs no
 prefix range, so the probe's finding about vector ranges does not bear on
-it. The build runs it first.
+it. Because a failure there would have changed F2's design (the put pass
+would need another order to walk), it was probed tonight under the
+machine-wide lock: [probed] `runs/probes/rig/probe/read_pages_probe.clj`,
+output `runs/phase5-read-pages-probe.txt`: 23 names of the form `[layer
+class scheme uuid]` in a subindexed map, walked by
+`sorted-map-range-from-start 4` then `sorted-map-range-from last {:max-amt
+4 :inclusive? false}`, came back in 6 pages of 4, 4, 4, 4, 4 and 3, every
+name exactly once, in the map's own order (1 test, 3 assertions, 0
+failures, 02:34 IST).
 
 ## Self-consistency
 

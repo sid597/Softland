@@ -319,8 +319,12 @@ exit then appends through the depot.
 
 RE5 precisely: a page of at most 256 names' records in name order (a
 vector-keyed range from an exact existing name needs no prefix range, so
-the probe's finding about vector ranges does not bear on it; the build
-checks it first); the rows of a yes act are `[(keypath L :log name) (subselect ALL)]`, one
+the probe's finding about vector ranges does not bear on it: [probed]
+`runs/probes/rig/probe/read_pages_probe.clj`, output
+`runs/phase5-read-pages-probe.txt`: 23 names of the form `[layer class
+scheme uuid]` in a subindexed map, walked by `sorted-map-range-from-start
+4` then `sorted-map-range-from last {:max-amt 4 :inclusive? false}`, came
+back in 6 pages, every name once, in the map's own order); the rows of a yes act are `[(keypath L :log name) (subselect ALL)]`, one
 seek per act (the act's subindexed row vector is its own structure). A put
 page therefore costs at most 256 + 1 seeks plus one iteration per row, and
 stops early once 4,096 rows are gathered; it runs only at a restore or a
@@ -368,12 +372,13 @@ pattern read needs no seek per fact:
 ```clojure
 ;; [F6] the entry is the log row, whatever fields the row has (phase 1's
 ;; :e :k :v :replaces :mark; phase 2 adds :sealed :lock-id :lock :digest),
-;; plus three fields of its own; module.clj exposes the row's field map as
-;; `row-fields`, so a field phase 2 adds to a row rides in every entry and
-;; phase 2's open-row> can open an entry without reading the row
-(def index-entry
+;; plus its own fields; module.clj passes its row field map in, so a field
+;; phase 2 adds to a row rides in every entry and phase 2's open-row> can
+;; open an entry without reading the row (reads.clj never requires
+;; module.clj: module -> gate -> reads would be a cycle)
+(defn index-entry [row-fields]
   (fixed-keys-schema
-   (merge module/row-fields
+   (merge row-fields
           {:fid       clojure.lang.PersistentVector   ; [name idx]
            :stamp     Long                            ; the act's stamp
            :erased-at Long                            ; set by a purge: the forget's stamp
@@ -382,8 +387,9 @@ pattern read needs no seek per fact:
 ;; nil for a retract, nil once purged, and nil when :copy is false
 ```
 
-(`module/row-fields` is a plain map in a namespace both module.clj and
-reads.clj can require without a cycle; the build places it, a rig choice.)
+(module.clj names its row's field map once, `row-fields`, uses it for
+`:log`'s rows, and calls `(reads/layer-fields row-fields)`, which builds
+the four fields below around `(index-entry row-fields)`.)
 
 Addresses, built by one pure function `rig.store.reads/address`, parts joined
 by U+0000 (written ␀), stamps as `(format "%016x" stamp)`, a keyword as its
@@ -407,14 +413,15 @@ name is in the text.
 
 ```clojure
 ;; merged into phase 1's fixed-keys-schema for a layer's value (module.clj),
-;; by one form: (fixed-keys-schema (merge phase-1-fields reads/layer-fields))
-(def layer-fields
-  {:ix-ek (map-schema String index-entry {:subindex-options {:track-size? false}})
-   :ix-ke (map-schema String index-entry {:subindex-options {:track-size? false}})
-   :ix-kv (map-schema String index-entry {:subindex-options {:track-size? false}})
-   :ix-of (map-schema clojure.lang.PersistentVector              ; fid -> its :ix-kv addresses
-                      (set-schema String)
-                      {:subindex-options {:track-size? false}})})
+;; by one form: (fixed-keys-schema (merge phase-1-fields (reads/layer-fields row-fields))) [F6]
+(defn layer-fields [row-fields]                                ; [F6] a function of the row's fields
+  (let [entry (index-entry row-fields)]
+    {:ix-ek (map-schema String entry {:subindex-options {:track-size? false}})
+     :ix-ke (map-schema String entry {:subindex-options {:track-size? false}})
+     :ix-kv (map-schema String entry {:subindex-options {:track-size? false}})
+     :ix-of (map-schema clojure.lang.PersistentVector            ; fid -> its :ix-kv addresses
+                        (set-schema String)
+                        {:subindex-options {:track-size? false}})}))
 ```
 
 Why each:
@@ -907,7 +914,8 @@ module runs. A rig choice.
 **Purge by value id**, `(reads/purge-writes fid row fact-stamp kv-addresses forget-stamp)`,
 pure and total, returning write lists for the three blocks:
 - `:index-put`: the fact's `:ix-ek` and `:ix-ke` entries as tombstones
-  (the value fields nil, F6; `:erased-at forget-stamp`), at addresses computed from the row's
+  (the value fields nil, F6: `:v`, and phase 2's `:sealed`, `:lock`,
+  `:digest`, since a digest is derived from the value; `:erased-at forget-stamp`), at addresses computed from the row's
   entity and key, the act's stamp and the fact id: no value is needed.
 - `:index-del`: every `:ix-kv` address in `kv-addresses`, and `[:ix-of fid]`
   (the delete block's `keypath` takes the fact id as the address in that
@@ -948,7 +956,7 @@ implies under `hints`.
 ## The one line in module.clj, and where Rama does not allow one
 
 Where it can be one form:
-- the schema: `(fixed-keys-schema (merge phase-1-fields reads/layer-fields))`;
+- the schema: `(fixed-keys-schema (merge phase-1-fields (reads/layer-fields row-fields)))` [F6];
 - the query topologies: `(reads/declare-queries! topologies)` [build checks];
 - the depot: `(reads/declare-depots! setup)`, declaring `*index-ops`
   [build checks: a `declare-depot` from a function called in the module body].
