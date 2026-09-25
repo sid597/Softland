@@ -1177,8 +1177,6 @@
       (identity nil :> *tledger))
     (:> (record-answer *offer *rec *d0 *verdict *tledger))))
 
-;; the seam's parameters are its contract; tonight's body uses none
-#_{:clj-kondo/ignore [:unused-binding]}
 (deframaop purge-read-indexes>
   "THE SEAM to the read exit's purge by value id (PLAN-read-exit.md,
   'Purge and rebuild'). A forget calls it in its own event on the values'
@@ -1190,8 +1188,10 @@
   exit's indexes are not on this branch. The merge replaces this body with
   the purge (its RE4 read of each value's `:ix-kv` addresses and the act's
   stamp, `reads/purge-writes`, and the three write blocks), so the purge
-  commits with the forget."
+  commits with the forget. Tonight it only hands the call to the test
+  recorder (rig.store.inject `purged!`, off unless a test turns it on)."
   [*layer *erased *forget-stamp]
+  (inject/purged! (ops/current-task-id) *layer *erased *forget-stamp)
   (:>))
 
 (deframaop write-decision>

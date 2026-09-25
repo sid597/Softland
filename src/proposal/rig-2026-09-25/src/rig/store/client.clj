@@ -307,6 +307,18 @@
      (cond-> a
        (and (= :yes (:answer a)) (nil? (:lock-ids a))) (assoc :lock-ids (locks/lease-ids (:name o) n))))))
 
+(defn stock!
+  "Lease `n` locks for `session` in `layer` by `who` and take them into the
+  door's pool, so the acts that follow in that session need no lease (for a
+  test that predicts stamps, or a caller that leases ahead). The lease's
+  answer."
+  ([store who layer session n]
+   (stock! store who layer session n (when-not (= :operator who) [who layer layer])))
+  ([store who layer session n permission]
+   (let [a (lease! store who layer session n permission)]
+     (when (= :yes (:answer a)) (refresh! store layer session))
+     a)))
+
 (defn close-session!
   "The `:session-closed` act (L28) by `who`, the session's writer or the
   operator: on a yes its unconsumed lease rows in `layer` are deleted."
