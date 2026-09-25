@@ -45,14 +45,18 @@ Each change, with its reason in a line:
    before anyone knows which entity it will seal, and a random lease name
    spreads even one hot session's acts over the tasks, one lease at a
    time.
-3. **Face refusals keyed by the envelope fingerprint (M8 revised).** Why: R1's
-   digest is keyed by the value's lock, which a missing-lock refusal does
-   not have; the envelope fingerprint (a keyed hash of the sealed envelope) is what
-   the door and the gate both hold.
-4. **The content digest is R1's** (an HMAC over the plaintext keyed by the
-   value's lock), computed on the arrival task; a resend is checked there
-   under the first lock; after a forget, a same-name offer is answered from
-   the record with no content check. Why: R1's riders.
+3. **Face refusals keyed by the envelope fingerprint (M8 revised).** Why: a
+   face refusal belongs to one attempt, and phase 2's parts digest is the
+   same for an honest resend and for a resend whose sealed values differ;
+   the envelope fingerprint (a keyed hash of the sealed envelope as sent)
+   is per attempt, and the door and the gate both hold it.
+4. **Phase 2's two digests and record path.** The record keeps the parts
+   digest (no value in it, the lock ids in it); each row keeps its value
+   digest (R1's HMAC over the plaintext, keyed by the value's lock); a
+   decided name answers from its record whatever its leases; a resend's
+   values are checked on their entity tasks under the recorded locks; after
+   a forget the forgotten value is not checked. Why: R1's riders, and one
+   rule for both gates.
 5. **Permissions (§B).** A permission may name its parent; the check walks
    the chain; one function, `rig.store.permit/refusal`, serves both gates;
    the stream gate changes in three places. Why: default R7.
@@ -89,50 +93,60 @@ Each change, with its reason in a line:
 
 ### A. Sealing in shared layers
 
+Aligned with phase 2's revision (committed at 02:12 IST in the locks
+worktree, "The door and the lease road"): its lease fact `{:e s :k :lease
+:v {:count n}}`, its lock ids `(locks/lease-ids name n)` = `[name i]`, its
+lease row `{:under p :sealed bytes}`, its two digests, its record path and
+its consumption rule are taken as they are; only where this store keeps
+the rows and how its batch reaches them is this plan's.
+
 **The reading of "the task where it decides".** This gate decides in two
 places. The act's verdict is the leader's fold, which needs no lock and
-never sees a value (M3). Everything about a value is decided on the task
-where the offer arrives: whether its lock is there, its plaintext, its own
-subjects (the grammar reads the value), the content digest, the re-wrap.
-That task is where its lease rows sit. So a lock never leaves the task it
-was minted on, and a plaintext value never leaves the task it was opened
-on. What travels between tasks is sealed bytes, digests, subject sets, lock
-ids, and locks wrapped under person locks. A reading that put the leases on
-the leader (task 0) was weighed and rejected: every shared layer's lock
-traffic and every value's opening would funnel through one task, and the
-plaintext would travel to it.
+never sees a value (M3). Everything about a value is decided on a task
+that holds what it needs: a first offer's lock work (deliver, open, own
+subjects, re-wrap, value digest) on the task where the offer arrives, which
+is where its lease rows sit; a resend's value check on the value's entity
+task, where its recorded lock sits. A lock never leaves the task it is read
+on, and a plaintext value never leaves the task it is opened on. What
+travels between tasks is sealed bytes, digests, subject sets, lock ids, and
+locks wrapped under person locks. A reading that put the leases on the
+leader (task 0) was weighed and rejected: every shared layer's lock traffic
+and every value's opening would funnel through one task, and the plaintext
+would travel to it.
 
 **Who mints a shared layer's leases: this gate.** The stream gate cannot:
 a lease row must be consumed by the batch that decides its value, and only
-the topology that owns a PState writes it. A lease act is an ordinary offer
-into the shared layer L by a person in session S, citing S's permission in
-L (§B), named `[L :by-entity :offer uuid7]`, answered by name through the
-name row like any act, with one fact:
+the topology that owns a PState writes it. A lease act is phase 2's, made
+into the shared layer L: an ordinary act by a person in session s, citing
+s's permission in L (§B), named `[L :by-entity :offer uuid7]`, answered by
+name through the name row, with one control fact `{:e s :k :lease :v
+{:count n}}`, n a long in 1..256 (`:malformed-control` otherwise, R13; a
+non-operator may write it, as phase 2 extends R13's list). The session id
+stands as the entity, as a layer id does in M5, so the act arrives on
+hash(s) (it seals nothing, so it routes by its first entity). There the
+gather reads the session's owner, `$$layers [s :settings] :owner` (a
+session is a one-owner layer, so its settings sit on hash(s) in the stream
+store: a local read of settled history, and a session's owner never
+changes), and the owner's `$$persons` entry; phase 2's `:no-such-person`
+and `:person-forgotten` refuse the lease when the owner's lock is absent or
+destroyed. On yes, block 2b carries the owner from hash(s) to
+hash(lease-name), the lease act's own name task, and there mints n locks
+(phase 2's `fresh`), seals each under the owner's person lock, and writes
+the lease rows beside the lease act's name row:
 
-    {:e S :k :lease :v {:count n}}          ; n ≤ 256, a rig bound
-
-`:lease` joins the control keys (no lock; plaintext EDN value). The session
-id S stands as the entity, as a layer id does in M5, so the act arrives on
-hash(S) (it seals nothing, so it routes by its first entity), where the
-gather reads the session's owner: `$$layers [S :settings] :owner`, a local
-read of settled history, because a session is a one-owner layer whose
-settings sit on hash(S) in the stream store, and its owner never changes.
-On yes, block 2b carries the owner from hash(S) to hash(lease-name), the
-lease act's own name task, mints n locks there (phase 2's form, 32 random
-bytes each), wraps each under the owner's person lock (`$$persons`, on
-every task) and writes the lease rows beside the lease act's name row:
-
-    $$micro-names [lease-name :leases i]  =  {:lock    <phase 2's lock record, wrapped under the owner>
-                                              :layer   L
-                                              :session S
-                                              :who     P
+    $$micro-names [lease-name :leases i]  =  {:under   P                   ; phase 2's lease row
+                                              :sealed  bytes               ; K sealed under P's person lock
+                                              :layer   L                   ; marks this store adds
+                                              :session s
                                               :batch   b}
 
-The rows are marked with the session (`:session`), as R1 says. The operator, who
-has no person lock, leases under an empty wrap (phase 2's empty-wrap form).
-A leased lock's id is `[lease-name i]`. Both the row's shape and the lock
-id are first-record placeholders (M16); if phase 2's revision fixes another
-lock id form, this plan takes that one.
+The lock ids are `(locks/lease-ids lease-name n)`, a function of the name
+and the count, so the door knows them without an ack. The operator, who has
+no person lock, leases under an empty wrap (phase 2's empty-wrap form). The
+marks `:layer` and `:session` are what phase 2 gets from its key
+(`[layer :leases session lock-id]`); here the key is the lease's name, so
+they are fields. The row's shape beyond phase 2's and the placement are
+first-record placeholders (M16).
 
 A retried lease batch mints other bytes. Only the committed attempt's rows
 exist, and the door reads rows only through the frontier, so it never holds
@@ -140,18 +154,21 @@ a lock from an attempt that did not commit.
 
 **The door takes their plaintext by a query.** `micro-lease [lease-name
 F]` on hash(lease-name): read F; the rows under `[lease-name :leases]` with
-batch ≤ F (one seek, n iterations, a subindexed map keyed by index); `locks/deliver` each under the owner's person
-lock (`$$persons`, local); return the plaintext locks. The depot never sees
-this path. Input examples: a settled lease of n rows, 2 reads (F, then the
-range: 1 seek and n iterations), all meaningful; a lease not yet settled or
-never made, 2 reads with an empty range, which is the answer the door needs
-("not yet"). Fixed: no read depends on another's result.
+batch ≤ F (one seek, n iterations, a subindexed map keyed by index);
+`locks/unlease` each over the owner's `$$persons` entry (local); return the
+plaintext locks. The depot never sees this path. Input examples: a settled
+lease of n rows, 2 reads (F, then the range: 1 seek and n iterations), all
+meaningful; a lease not yet settled or never made, 2 reads with an empty
+range, which is the answer the door needs ("not yet"). Fixed: no read
+depends on another's result. A restarted door finds its leases again by
+`micro-leases-of [s F]` on hash(s): the range `[s :answers]`, the acts that
+touched the session as an entity (its lease acts), then `micro-lease` per
+name.
 
 **The door seals each value under one leased lock, and the offer cites its
-id** (the envelope part that carries it is phase 2's). All the locks an act
-cites come from one lease of the act's `:session`, made for the act's
-layer (M24). A lease row whose `:session` or `:layer` is not the offer's
-counts as missing.
+id** (phase 2's sealed fact). All the locks an act cites come from one
+lease of the act's `:session`, made for the act's layer (M24). A lease row
+whose `:session` or `:layer` is not the offer's counts as missing.
 
 **Routing (M4 revised).** `route-key` is the lease name of the first lock
 any of its facts cites (a lock id is `[lease-name i]`, so no read), else
@@ -159,137 +176,137 @@ its first fact's entity, else nil, where block 1 refuses the record as
 malformed. A sealed act therefore arrives where its lease rows are: the
 depot's `hash-by` and `$$micro-names`' default key partitioner hash the same
 name vector, the argument P2 and the 25 September plan already rest on for
-entities.
+entities, and the probe showed a name vector works as that key (§G).
 
-**Block 1, on the arrival task, before any hop.** For a sealed act, read its
-lease rows (one range read: one seek, one iteration per cited lock) and call
-`locks/deliver` on each. If any cited lock is absent (never minted, already
-consumed, made for another layer or session, or its owner's person lock
-destroyed), the offer is refused on its face as `:lock-missing`: one faces
-row under `[name envelope-fp]`, no answer under the name, nothing else
-gathered. A resend under the same name with a fresh lease is still allowed.
-Otherwise:
+**The two digests (phase 2's).** The answer record's `:digest` is the parts
+digest: `env/digest` over the offer minus its name with every `:sealed`
+removed. It covers the lock ids and nothing that is a value, so it is
+computed anywhere with no lock, and the name-taken check in the fold stays a
+comparison of digests (M8). The value digest, HMAC-SHA256 keyed by the
+value's lock over its plaintext (R1), goes in the value's row, written only
+for a yes.
 
-- open each value (`locks/open`);
-- compute its own subjects (phase 2's `subjects-of`: no owner in a shared
-  layer, then the grammar's subjects and the carried ones) and the act's
-  subject union;
-- compute the content digest (phase 2's digest function; R1: an HMAC over
-  the plaintext, keyed by the value's lock).
+**Block 1, a first offer, on the arrival task before any hop.** For a sealed
+act, read its lease rows (one range read: one seek, one iteration per cited
+lock) and `locks/unlease` each. If all are present: open each value
+(`locks/open`), compute its own subjects (phase 2's `subjects-of`: no owner
+in a shared layer, then the grammar's subjects and the carried ones) and
+the act's subject union. Then the flow drops the plaintext and the
+delivered locks, and carries on only the parts digest, the subject union,
+the cited lock ids and a lease status (all present, or which id is
+missing). The skeleton gains `:locks [lid ...]`.
 
-Then the flow drops the plaintext and the delivered locks. Only the digest,
-the subjects, the cited lock ids and the sealed bytes go on. The skeleton
-gains `:locks [lid ...]`, and its `:digest` is this digest.
+**Then the name task, as in the 25 September plan: a decided name answers
+from its record whatever its leases** (phase 2's order). If the name has no
+record and a cited lock was missing, the offer is refused on its face as
+`:no-such-lock` (phase 2's reason): a faces row under `[name
+envelope-fp]`, no answer under the name, nothing consumed, nothing else
+gathered, so a resend under the same name with a lock that delivers is
+decided fresh. If the name has no record and every lock was there, the
+gather goes on to the layer's task and the entity tasks as before.
 
-**A resend, or a replay of a decided name** (a name row exists). The name
-task sends the record's digest onward, and the flow goes to the entity task
-of each of the resend's own facts, which reads the first act's row at the
-same `[e name idx]`: its `:lock` (the value's lock, wrapped under its
-subjects, in the record) and phase 2's erasure state for it (the ledger on
-that task, `$$persons`: open-value's inputs). No new field is needed on the
-record. For a `:yes` record, a missing row means the content differs:
-`:name-taken`.
+**The record path** (the name has a record), phase 2's:
 
-- If the record is a `:no`, the answer is "recorded", with no content check
-  and no hop: the refused act's leased locks were destroyed at its decision
-  (R1: "refused ... destroyed"), so nothing can recompute its digest. A
-  reuse of a refused name with other content therefore hears the old
-  refusal, not `:name-taken`, where the model's digest check would say
-  taken. This follows from R1 and is listed as an open question.
-- If any first value is erased, the answer is "recorded", with no content
-  check. This is R1's rider: after a forget, a reuse with other content
-  cannot be told from a retry, which is the price of forgetting.
-- Otherwise the wrapped first locks go back to the arrival task by
-  `|direct`. That task re-reads the resend's lease rows, opens the resend
-  under them, unwraps the first locks (`locks/unwrap`, `$$persons` local),
-  and recomputes the digest under the first locks. If it matches, the
-  answer is "recorded"; if it differs, a `:name-taken` face goes under
-  `[name envelope-fp]`.
+- the parts digest differs: a `:name-taken` face;
+- it matches and the record is a no: "recorded" (the refused act's leases
+  were destroyed at its decision, so there is nothing to check);
+- it matches and the record is a yes: the flow goes, with the resend's
+  sealed bytes (safe to carry), to the entity task of each value fact,
+  where the first act's row sits at the same `[e name idx]` (the same lock
+  id, since the parts digest covers it). There the recorded lock is
+  unwrapped from the row's `:lock` (`locks/unwrap`, `$$persons` local); where
+  it opens, the resend's bytes are opened with it and the value digest
+  recomputed and compared with the row's; bytes that do not open or a
+  digest that differs give `:name-taken` (a face); where the recorded lock
+  does not open (the value forgotten, or its wrap closed by a person
+  forget), that value is not checked, which is R1's rider, the price of
+  forgetting. Every value checked or skipped: "recorded".
 
-Resends are rare (category (e)). They pay two hops and a second lease read.
-No lock and no plaintext value crosses a task.
+The record path writes nothing and consumes nothing: a matched parts digest
+means the resend cites the recorded ids, which the first decision consumed
+in its own batch. Resends are rare (category (e)); a yes record's check
+pays one hop per entity and no second lease read. The plaintext of a
+resend is opened only on the value's own task.
 
 **The fold** adds one check before a decision: a lock id that an earlier
-offer in the batch order already cited makes the later offer `:lock-missing`
-(two offers citing one leased lock is a door's bug). The fold sees digests
-and ids only; nothing else in it changes.
+offer in the batch order already cited makes the later offer `:no-such-lock`
+(two offers citing one leased lock is a door's bug; the stream gate gives
+the same answer because the first decision consumed the row). The fold
+sees digests and ids only. It adds to its output, for every act it decides
+in this batch (yes or no), a deletion of each cited lease row, for block
+2c.
 
 **Block 2b (the rows), starting on the arrival task.** For a sealed
-record: re-read its lease rows; deliver; open; compute each value's own
+record: re-read its lease rows; unlease; open; compute each value's own
 subjects; re-wrap each lock under them (`locks/wrap`, shared-layer rules:
-7b as written, an empty wrap for a value about no one); drop the plaintext
-and the bare locks. Then, as in the 25 September plan, the name task's
-record decides whether rows are written (decided yes in this batch, with
-this digest), and the sealed bytes and the wrapped lock record go on to the
+7b as written, an empty wrap for a value about no one); compute each value
+digest (`locks/value-digest`); drop the plaintext and the bare locks. Then,
+as in the 25 September plan, the name task's record decides whether rows
+are written (decided yes in this batch, with this parts digest), and the
+sealed bytes, the wrapped lock record and the value digest go on to the
 entity task (never the plaintext, never the bare lock). There the row is
 written: `:v` holds the sealed bytes as offered, `:lock-id` the cited id,
-`:lock` the wrapped record (ruling 7: in the record). The leased lock has
-become the value's lock. The wrap is done before the verdict is known so
-that no hop comes back to the arrival task; for a refused act it is a few
-microseconds of work thrown away. M12's seam `micro/row-lock` becomes this
-code.
+`:lock` the wrapped record (ruling 7: in the record), `:digest` the value
+digest. The leased lock has become the value's lock; K's bytes do not
+change, only its wrapping (phase 2's re-encoding). The wrap is done before
+the verdict is known so that no hop comes back to the arrival task; for a
+refused act it is a few microseconds of work thrown away. M12's seam
+`micro/row-lock` becomes this code.
+
+**Block 2c, new: consume the leases.** From the fold's output on task 0
+(materialized as block 2a's writes are), each deletion goes to its lease
+name's task: `(termval NONE)` on `[lease-name :leases i]`, a no-read write.
+So a lease row is consumed at decision whatever the decision (admitted: it
+has become the value's lock, wrapped into the record; refused: destroyed),
+in the batch that decides it, exactly once with the batch. Face refusals
+(`:no-such-lock`, `:name-taken`, a double use, anything before the name is
+trusted) consume nothing, as phase 2's do. Why a block after 2b: 2b re-reads
+the lease rows to re-wrap them, and a deletion before that read would take
+an admitted value's lock; the barrier is what makes "consumed in the batch"
+safe. A lease minted in this batch cannot be consumed in it: an offer
+citing it read committed state in block 1, found it missing, and was
+refused on its face.
 
 **Grain.** In a per-value layer each value cites its own leased lock; a lock
-cited twice in one act is `:lock-missing` for its second use. In a per-act
-layer the act may cite one leased lock for all its values (the grain's "one
+cited twice in one act is `:no-such-lock` for its second use. In a per-act
+layer the act cites one leased lock for all its values (the grain's "one
 small lock shared by all values in an act").
 
-**The lease act's checks.** The lease act's gather reads `$$layers [S
-:settings]` on hash(S) (its arrival task) and hands the fold the session's
-owner; block 2b reads it there again and carries it to the lease name's
-task. A lease act whose entity is not a session layer, or with a count out
-of bounds, is refused `:malformed-control` (R13's reason for a control fact
-with a bad value).
-
-**Nothing here throws.** Every lock function (deliver, open, wrap, unwrap,
-digest) is called through the per-offer `Throwable` guard. A sealed value
-that does not open under its cited lock (wrong lock, tampered bytes: an
-AEAD tag failure) is refused on its face as `:malformed`. A deterministic
-throw in a microbatch retries the batch for ever (rule 9, "What Rama
-showed" 3).
-
-**Block 2c, new: consume the leases.** A third pass over `%mb` on the
-arrival tasks. For every record whose cited lease rows exist on its task,
-whatever its decision, each cited `[lease-name :leases i]` gets
-`(termval NONE)`. "Whatever its decision" covers admitted, refused,
-answered from the record, taken, a later double use, and a face refusal
-made after the lease was read. Why a separate block: the rows of 2b re-read
-the leases, and the records of one block run in no fixed order on a task,
-so a deletion in 2b by one record could land before another record's read.
-The barrier between 2b and 2c is what makes "consumed in the batch" safe.
-The deletion is exactly once with the batch: a retried batch finds the rows
-again and consumes them once. The deletion is a no-read write (`termval`),
-so a cited row that does not exist costs nothing. One consequence, named: a
-door that cites a lease in the same batch as the lease act that mints it
-gets `:lock-missing` (block 1 read committed state, before the minting in
-2b) and destroys that fresh lease in 2c. Only the door that named the lease
-act can do this, because lease names are random and are read only through
-the frontier; its own lease is the only one it can harm.
+**Nothing here throws.** Every lock function (unlease, open, wrap, unwrap,
+value-digest) is total (phase 2's: nil on any failure) and is called
+through the per-offer `Throwable` guard besides. A sealed value that does
+not open under its cited lock (wrong lock, tampered bytes) is refused on
+its face as `:malformed`. A deterministic throw in a microbatch retries the
+batch for ever (rule 9, "What Rama showed" 3).
 
 **A missing lock, with nothing recorded.** The faces entry is not the name's
 answer, so the name stays free, which is the default's stated purpose ("so a
-resend under the same name is still allowed"). It is data the offerer can
-read, because a microbatch depot has no ack (M8). If the validator reads
-"nothing recorded" strictly, meaning no entry at all, the change is one
-line: drop the faces write for `:lock-missing`. The offerer then learns it
-by timing out, and re-leases.
+resend under the same name is still allowed"); phase 2's stream side
+answers through the ack, which a microbatch depot does not have, so this
+store's face refusals are data the offerer reads (M8). If the validator
+reads "nothing recorded" strictly, meaning no entry at all, the change is
+one line: drop the faces write for `:no-such-lock`. The offerer then learns
+it by timing out, and re-leases.
 
-**One delivery function.** Phase 2's `locks/deliver` (lease row, persons →
-the lock, or nil) is called with the same body by both gates. Each gate
-reads its own lease row from its own PState on the task where it decides,
-and the function unwraps the row under the owner's person lock. The micro
-side needs no other body. Only the place the row is read from differs (the
-stream store: the layer's home, phase 2's; this store: the lease name's
-task), and that is outside the function.
+**One delivery function, and why the micro side has its own read.** Phase
+2's `deliver-lock>` is a `deframafn` whose body reads `$$layers [layer
+:leases session lock-id]`, the stream store's rows, which this store's
+leases are not. So the micro side's delivery is its own read of
+`$$micro-names [lease-name :leases i]` around phase 2's pure half,
+`(locks/unlease row person-entry) → K | nil`, which phase 2 made public for
+this. The unwrapping, the nil for a missing or unopenable row, and the
+person-lock rule are one function for both gates; only the read differs,
+because a gate reads and consumes its own PState's rows.
 
 **What the depot holds after this.** Sealed bytes, lock ids, names, ids and
 the carried parts: nothing that could open a value (R1). The lease rows are
 PState rows, durable and replicated, which is why R1 took the lease over
 the in-memory holder: nothing unreplicated sits in the decision path. A row
-is about 200 bytes (a wrapped 32-byte lock as base64 text, its fields and
-key), at most 256 per lease, gone at decision. The only locks not
-yet wrapped under a value's subjects are the lease rows in `$$micro-names`,
-and they are consumed at decision.
+is about 150 bytes (phase 2's 140 and a batch id), at most 256 per lease,
+gone at decision. An unconsumed row opens only the depot bytes of an offer
+that cited it and was refused on its face or never decided, which are not a
+value of the store (phase 2's "retention it bounds"); a session close for
+shared layers is open (§J).
 
 ### B. Permissions (default R7), both gates
 
@@ -460,8 +477,14 @@ for group and base layers") and M11's base.
   :frontier)] $$micro-task {:pkey 0}`: one seek. Every reader-facing query
   takes F explicitly: `micro-lookup [name digest envelope-fp F]`,
   `micro-act [e name F]`, `micro-lease [lease-name F]`. An F of nil means
-  the reading task's own. `micro/visible-at? row F` is the one predicate,
-  pure, that the reads stage builds shared-layer reads on.
+  the reading task's own. `micro-lookup` answers, in order: a faces entry
+  under `[name envelope-fp]` at or below F gives its reason (so a resend
+  refused on its face is told so even when the name has a record); else a
+  record at or below F gives the record when its parts digest matches and
+  `:name-taken` when it differs; else `:no-answer`, and the offerer polls.
+  Three reads at most (F, faces, record), all on the name's task.
+  `micro/visible-at? row F` is the one predicate, pure, that the reads
+  stage builds shared-layer reads on.
 - **What a read entry records** (R3): for a shared layer `{:layer L
   :frontier F}`; for a one-owner layer `{:layer L :stamp s}` inline. The
   read exit's entry carries one per layer it read (its shape is that
@@ -555,23 +578,25 @@ The rig's own, each named in the step:
   re-class.
 - **A missing lock refused on its face:** a lock id never leased; a lease
   already consumed; a lease made for another layer; one of another session;
-  one whose owner's person lock is destroyed. Each gives a `:lock-missing`
+  one whose owner's person lock is destroyed. Each gives a `:no-such-lock`
   face through `micro-lookup`, no record under the name, and the same name
   resent under a fresh lease is admitted.
 - **A lease row consumed in the batch:** after an admitted offer the lease
   row is gone and the value opens through its row's lock (phase 2's
   `open-value`); after a refused offer (no permission) the row is gone and
-  nothing opens; after a resend answered from the record, the resend's row
-  is gone; two offers citing one lock in one batch, the first by M2's order
-  uses it and the second is `:lock-missing`; the lease act itself answered
+  nothing opens; after a resend answered from the record, no cited row
+  exists (the first decision consumed them) and nothing was written; two offers citing one lock in one batch, the first by M2's order
+  uses it and the second is `:no-such-lock`; the lease act itself answered
   by name, its locks readable through `micro-lease` only once its batch is
   at or below F.
 - **A permission cited from another layer refused:** D1; a chain whose
   ancestor lives in another layer; on both gates.
-- **Content check after a forget:** a group value forgotten (phase 2's
-  forget), then a same-name offer with other content, answered from the
-  record with no content check; before the forget, the same offer gives
-  `:name-taken`.
+- **The value check, before and after a forget:** a same-name offer citing
+  the recorded lock ids with other plaintext gives `:name-taken` before the
+  value is forgotten, and the recorded answer after (phase 2's forget; the
+  forgotten value is not checked); a same-name offer with other content
+  under fresh locks gives `:name-taken` by the parts digest, before and
+  after.
 
 The pure tests (`micro_prepare_test.clj`) gain generated sealed offers,
 chains of up to four pids, and double-cited locks; `skeleton`, `prepare`,
@@ -642,13 +667,13 @@ table stands for the three.
 | (b) as (a) with a replace: + head 1 | 0.18 | 8 | 1 |
 | (c) on two entities: + clock 1 | 0.05 | 8 | 2 |
 | (d) into a re-classed layer: lease 1 + name 1 + settings 2 + chain 3 in each store + clock 1 | 0.12 | 11 | 1 |
-| (e) a resend: lease 1 + name 1 + first row 1 + lease again 1 | 0.10 | 4 | 2 |
+| (e) a resend: lease 1 + name 1 + first row 1 | 0.10 | 3 | 1 |
 | (f) a face refusal (a missing lock has read its lease) | 0.02 | 1 | 1 |
 | (g) an operator act (make, grant, revoke): no lease | 0.03 | 4 | 0 |
 
-Weighted seeks = 3.50 + 1.44 + 0.40 + 1.32 + 0.40 + 0.02 + 0.12 = 7.20;
-weighted iterator reads = 0.50 + 0.18 + 0.10 + 0.12 + 0.20 + 0.02 + 0 =
-1.12; both the same at N = 1, 16 and 128. Flat in N: every read is on the
+Weighted seeks = 3.50 + 1.44 + 0.40 + 1.32 + 0.30 + 0.02 + 0.12 = 7.10;
+weighted iterator reads = 0.50 + 0.18 + 0.10 + 0.12 + 0.10 + 0.02 + 0 =
+1.02; both the same at N = 1, 16 and 128. Flat in N: every read is on the
 arrival task, the name's task, the layer's task or an entity's task, each a
 fixed number of point or range reads. Block 2b adds, per sealed record, one
 lease read and the 25 September plan's one name-row read; block 2c only
@@ -672,8 +697,9 @@ an entry holds): the simplest placeholder, listed in the receipt.
   its name, which the door and the gate both hold. It is not R1's reuse
   digest, which must not be taken over sealed bytes: a face refusal belongs
   to one attempt, and a resend sealed again has its own envelope fingerprint and
-  its own faces entry. Why: R1's content digest needs the lock; a face fingerprint
-  must not.
+  its own faces entry. Why: the parts digest cannot tell an honest resend
+  from one whose values differ, and a face refusal must not shadow the
+  record an honest resend is owed.
 - **M11, revised.** The group is seeded through this gate as the model's
   `:group` with its root `[:group :group :group]` and Alice's and Bob's
   permissions beneath it; the base as §C. Why: R7, R8.
@@ -686,15 +712,18 @@ an entry holds): the simplest placeholder, listed in the receipt.
   owner's person lock; a leased lock's id is `[lease-name i]`; the operator
   leases under an empty wrap. Why: §A; the stream gate cannot consume a row
   of this store.
-- **M17.** A sealed act's lock work (deliver, open, subjects, digest,
-  re-wrap) runs on its arrival task; the leader sees digests and ids only.
-  Why: a lock and a plaintext value stay on one task.
-- **M18.** A resend is content-checked on the arrival task under the first
-  locks, brought wrapped from the entity tasks; after a forget, it is
-  answered from the record. Why: R1's riders, with no bare lock or
-  plaintext crossing tasks.
-- **M19.** Leases are consumed in block 2c, a barrier after the rows, for
-  every record whose cited rows exist, whatever its decision. Why: §A.
+- **M17.** A first offer's lock work (unlease, open, subjects, re-wrap,
+  value digest) runs on its arrival task, where its lease rows are; the
+  leader sees digests and ids only. Why: a lock and a plaintext value stay
+  on one task.
+- **M18.** A resend with a yes record is value-checked on each value's
+  entity task under the recorded lock, the resend's sealed bytes carried
+  there; a forgotten value is not checked. Why: phase 2's record path, with
+  no bare lock or plaintext crossing tasks.
+- **M19.** Leases are consumed in block 2c, after the rows, from the fold's
+  output: every cited row of every act decided in the batch, yes or no;
+  face refusals consume nothing. Why: §A, and phase 2's rule, so both
+  gates consume alike.
 - **M20 (first-record).** A permission id is `[who layer in]` or `[who
   layer in parent]`, at most four deep; the check walks the chain; a revoke
   writes one row and cuts by the walk. Why: R7, with the fewest lines in
@@ -759,11 +788,12 @@ functions its sealing does not need (`refusal`'s permission clauses,
 Each is either Sid's, a later stage's, or the build's first check; none
 blocks the build of this stage.
 
-1. **A refused name reused with other content** hears the old refusal, not
-   `:name-taken` (§A, the resend path): R1 destroys a refused act's leased
-   locks, so its lock-keyed digest cannot be recomputed. The model's digest
-   check would say taken. Sid's, with R1: keep it as the price, or keep a
-   refused act's digest under a key that outlives its lock.
+1. **A refused name reused with other content.** Other content sealed
+   under fresh locks cites other lock ids, so phase 2's parts digest
+   differs and the answer is `:name-taken`, as the model's. Only a door that
+   cites the refused act's own (destroyed) lock ids with other plaintext
+   hears the old refusal, since nothing can recompute a value digest under
+   a destroyed lock. Named as the edge of R1's price, not a gap.
 2. **"Nothing recorded" for a missing lock**: this plan writes a faces
    entry that is not the name's answer (§A). If the default means no entry
    at all, the change is one line.
@@ -778,10 +808,13 @@ blocks the build of this stage.
    under its owner, opening nothing in the store; an expiry is not
    designed. A stream lease for the base minted before its re-class is
    phase 2's to consume or expire; the door leases here after.
-7. **Phase 2's shapes**: the lock id, the content digest's exact form over
-   an act of several values, and the envelope part that cites a lock are
-   taken from phase 2's revision; where they differ from §A's placeholders,
-   phase 2's win and the adapters are in `micro.clj`.
+7. **Phase 2's shapes** are taken from its revision as committed at 02:12
+   (the lease fact, `lease-ids`, the lease row, `unlease`, the two digests,
+   the record path, consumption). Where the built code differs, phase 2's
+   wins and the adapters are in `micro.clj`. A session close for shared
+   layers (phase 2's `:session-closed`) is not designed here: with rows
+   by lease name it fans out to the session's lease names, found under
+   `[s :answers]` on hash(s).
 8. **The root actor and the operator**: `:root` owns the base and holds its
    root, and never offers; whether it is the operator's identity is open.
 9. **The frontier id** is Rama's microbatch id (M23). A kept store that
@@ -845,7 +878,7 @@ micro name). A name tagged `:by-layer` is refused on its face as
 gate only whatever a client does.
 
 > **Revision:** the skeleton also carries `:locks`, the cited lock ids, and
-> its `:digest` is R1's content digest, computed on the arrival task (§A).
+> its `:digest` is phase 2's parts digest, which holds no value (§A).
 
 **Offer skeleton** (what travels to the deciding task, "the leader", in
 block 1; never a value): the parsed offer minus every `:v`, plus its digest,
@@ -894,8 +927,9 @@ strictly increasing stamps. Refusals are stamped too (model `decide`).
 ## Reads
 
 > **Revision:** every reader-facing query takes an explicit F;
-> `micro-lookup` takes `[name digest envelope-fp F]`, digest being R1's
-> content digest (§D, M8 revised); `micro-lease` is added (§A).
+> `micro-lookup` takes `[name digest envelope-fp F]`, the digest being
+> phase 2's parts digest (§D, M8 revised); `micro-lease` and
+> `micro-leases-of` are added (§A).
 
 Point reads route by the first key; reads that need two PState reads on one
 task are query topologies (phase-1-plan Step 1), which is what the frontier
