@@ -2032,11 +2032,12 @@
           (is (seq (:why kd)) (str id " says why no fixed history exercises it")))
       (do (is (seq (:cases kd)) (str id " cites the cases it touches"))
           (is (seq (:rule kd)) (str id " says how it is told from an unknown difference")))))
-  (doseq [[id ns] plan-case-kds]
-    (is (every? #(contains? (:cases (kd-by-n %)) id) ns)
-        (str id ": the plan's predicted line names only differences that cite it")))
-  (doseq [id case-ids]
-    (is (every? #(contains? (:cases (kd-by-n %)) id) (predicted-kds id)) (str id ": its predictions cite it")))
+  (let [by-n (into {} (map (juxt :n identity)) known-differences)]
+    (doseq [[id ns] plan-case-kds]
+      (is (every? #(contains? (:cases (by-n %)) id) ns)
+          (str id ": the plan's predicted line names only differences that cite it")))
+    (doseq [id case-ids]
+      (is (every? #(contains? (:cases (by-n %)) id) (predicted-kds id)) (str id ": its predictions cite it"))))
   (is (not (contains? (predicted-kds "B3") 5)) "KD5 shows only on the :before-forward fallback"))
 
 (deftest the-world-grants-every-model-permission

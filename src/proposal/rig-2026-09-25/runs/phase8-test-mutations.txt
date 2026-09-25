@@ -1,0 +1,31 @@
+baseline, no mutation: 0 failing
+CAUGHT   seen-of calls every found value open                                           23 failing
+CAUGHT   the lockstep skips the closing read                                            52 failing
+CAUGHT   op-effects ignores [:prepare]'s delta (F7)                                     1 failing
+CAUGHT   op-effects misses person forgets                                               10 failing
+CAUGHT   reduce-answers takes the first partition's answer (F6)                         3 failing
+CAUGHT   the guard never trips                                                          2 failing
+CAUGHT   a history outside the rows is played                                           5 failing
+CAUGHT   a forget in the group is played                                                1 failing
+CAUGHT   a named configuration is the wrong reading                                     1 failing
+CAUGHT   a named check is dropped                                                       1 failing
+CAUGHT   KD10 no longer cites A4                                                        1 failing
+CAUGHT   a known difference cites no case and gives no why                              2 failing
+CAUGHT   KD7 is dropped from the table                                                  1 failing
+CAUGHT   a session permission maps to the person's own                                  5 failing
+CAUGHT   a group permission maps without its root                                       8 failing
+CAUGHT   KD1 matches a lease refused for any reason                                     2 failing
+CAUGHT   a refused lease passes when the act is yes (F11)                               3 failing
+CAUGHT   KD10 explains any refusal after a forget (F3)                                  3 failing
+CAUGHT   KD10 explains a refusal for a reader never forgotten                           3 failing
+CAUGHT   judge-fact ignores the erasure's date                                          1 failing
+CAUGHT   judge-fact takes any control fact                                              2 failing
+CAUGHT   control-refs drops the crossing's request                                      1 failing
+CAUGHT   a status worse than predicted passes                                           1 failing
+CAUGHT   the holds are the first commit's rule (IV1)                                    4 failing
+CAUGHT   the group's reader ignores forgets (IV5)                                       2 failing
+CAUGHT   make-group!'s re-class answer is not seen                                      1 failing
+CAUGHT   a lease row is counted as a fact the model lacks                               1 failing
+CAUGHT   a call is not bounded                                                          3 failing
+CAUGHT   stage 1 is looked for in the wrong namespace                                   1 failing
+CAUGHT   the report drops the rig's line under other configurations                     1 failing
