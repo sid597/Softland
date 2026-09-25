@@ -554,3 +554,261 @@ never a request: 1. **Variable**, handled with `<<if` on each answer: the
 second task is reached only when the crossing is a yes, and no read is
 issued that the state already decided. The door's `promote!` and the read
 exit (a `:promote-request` row gets `:promotion` from this query) call it.
+
+## Partitioning efficiency
+
+**Optimal placement first.** Every step of a promotion wants to run where
+its state already is, and the rulings put that state in three places: the
+source's value and lock row on the owner layer's home (`hash(L) mod N`,
+phase 1's P2; phase 2: lock rows sit with their values), which is where the
+request, the read-out and the stored forward go; the landing lease on the
+task where the target's gate does a sealed act's value work
+(`hash(lease-name) mod N` on the micro gate, phase 3's M4; T's home on the
+stream gate), which is where the landing arrives; the copy's rows on its
+entity's task (phase 3). So `f(request) = hash(L)`, `f(landing) =
+hash(lease-name)` or `hash(T)`, and the partitioners are the ones that
+exist: `hash-by :layer` on `*offers`, `|hash` on the lease name before the
+append (the same function as `*micro-offers`' `hash-by route-key`, probed
+by phase 3's §G for a name vector), `|hash` on T for a stream target. No
+placement state, because each `f` is a pure function of what the step
+already holds.
+
+**The dominant read** is `promotion-status`. Seeks are point reads summed
+over every task the read touches (all are point reads into subindexed maps
+or top-level keys; no range scans, so iterator reads are 0). The mix is
+assumed, not measured: most promotions a person looks at have landed.
+
+### N = 1 task (single-task baseline)
+| Data category | Frequency proportion | Seeks/op | Iterator reads/op |
+|---|---|---|---|
+| landed, micro target (done) | 0.60 | 5 | 0 |
+| landed, base on the stream gate (done) | 0.05 | 4 | 0 |
+| crossed, not landed | 0.05 | 5 | 0 |
+| refused at the landing | 0.05 | 5 | 0 |
+| pending | 0.05 | 2 | 0 |
+| refused at the read-out | 0.10 | 2 | 0 |
+| not a request | 0.10 | 1 | 0 |
+Weighted seeks = 4.10   |   Weighted iterator reads = 0
+
+### N = 16 tasks
+| Data category | Frequency proportion | Seeks/op | Iterator reads/op |
+|---|---|---|---|
+| landed, micro target (done) | 0.60 | 5 | 0 |
+| landed, base on the stream gate (done) | 0.05 | 4 | 0 |
+| crossed, not landed | 0.05 | 5 | 0 |
+| refused at the landing | 0.05 | 5 | 0 |
+| pending | 0.05 | 2 | 0 |
+| refused at the read-out | 0.10 | 2 | 0 |
+| not a request | 0.10 | 1 | 0 |
+Weighted seeks = 4.10   |   Weighted iterator reads = 0
+
+### N = 128 tasks
+| Data category | Frequency proportion | Seeks/op | Iterator reads/op |
+|---|---|---|---|
+| landed, micro target (done) | 0.60 | 5 | 0 |
+| landed, base on the stream gate (done) | 0.05 | 4 | 0 |
+| crossed, not landed | 0.05 | 5 | 0 |
+| refused at the landing | 0.05 | 5 | 0 |
+| pending | 0.05 | 2 | 0 |
+| refused at the read-out | 0.10 | 2 | 0 |
+| not a request | 0.10 | 1 | 0 |
+Weighted seeks = 4.10   |   Weighted iterator reads = 0
+
+Flat: the read touches one task, or two, never a number that grows with N.
+At N = 1 the second "task" is the same task and the seeks are the same.
+
+**The write path, per promotion, for the same check.** Landing lease: a
+lease act (phase 2 or 3's cost, one row, one key pair, 0.09 ms). Request:
+phase 1's decision, no added read (the control value is checked in memory).
+Read-out, one event on L's home: the crossing name's record (1),
+`open-value>` of the source (its answer, row, lock row, and the owner's
+`$$persons` entry: 4), the settings and the clock (2): 7 seeks, 1 box and
+1 seal (0.2 ms), 5 writes. Forward: 1 hop and 1 append. Landing: one sealed
+act of phase 3 (or phase 2 on the base) plus 1 unbox (0.08 ms). Every term
+is independent of N.
+
+## Design Decisions
+
+- **Subindexing.** `:forwards` is subindexed (a layer promotes without
+  bound; a replay reads one entry). Lease rows keep phase 2's and phase
+  3's subindexing. Nothing else is new.
+- **Colocation.** The read-out is on the task that holds the source's lock
+  row, so the one-event rule holds with no partitioner inside; the landing
+  arrives on the task that holds its lease row, so the delivery is local;
+  the stored forward sits beside the crossing it belongs to.
+- **The read-out is a continuation, not a depot record** (PR7). The model
+  queues it as the store's own offer in the partition's inbox; the rig runs
+  it as the next event of the request's own record, past a commit boundary,
+  on the same task. The same order results (whatever the task decides in
+  between, a forget among it, is decided before the read-out, and the task
+  orders them), the reserved schemes and `:who :store` never pass a client
+  depot, the request's ack carries the crossing's answer, and a replay or a
+  resend of the request re-enters the same path by name. Weighed: a
+  `:disallow` stream depot for store steps, which the stream topology could
+  source beside `*offers`; it adds a depot and a second source for no
+  property the continuation lacks.
+- **The forward is stored, and every send is the stored bytes** (PR8).
+  Without it, a crash between the crossing's commit and the append, then a
+  forget of the source before the replay, leaves the replay nothing to send:
+  a crossed copy lost, against "after it does not recall". With it, the
+  target's gate sees one landing however many times it is sent.
+- **Landing leases are bare, bound to one landing, and live as leases
+  live** (PR9). Bare, because the copy must not die with its former owner
+  (B case 4). Bound to one landing name, so no other act can spend it and a
+  landing cannot spend another promotion's. Destroyed at their session's
+  close like every lease (default 1's sub-pick), because a second lifetime
+  rule would keep unused key pairs for ever, and the door keeps the session
+  open in T until each promotion citing one of its landing leases is done
+  or refused.
+- **A landing that cannot get its lock is recorded as refused** (PR5), so
+  every crossed promotion ends in done or refused.
+- **No check against the other store** anywhere in the protocol. The read-
+  out does not look at the target (T's class, permission or heads are T's
+  gate's), and the landing's gate does not look at the source or the
+  crossing (the model's `:landing-checks-source false`; phase 3's R6 pick:
+  the offer carries its stood-on stamps). Sid's rule: order between the
+  stores exists only through stood-on.
+
+## State primitive selection
+
+- `$$layers :forwards` (PState): one entry per crossed promotion, written
+  once in the crossing's yes; durable because a replay after a restart
+  needs it. Bounded by the promotions the layer's owner makes.
+- Lease rows with `:public` and `:for` (PState, phase 2's and 3's): one per
+  landing lease, deleted at the landing's decision or the session's close.
+- The crossing's and the landing's answers and rows (PState, the existing
+  records): as every act's.
+- No TaskGlobal. The in-memory holder was weighed for the landing's lock and
+  rejected: a worker restart between the read-out and the landing would
+  lose a crossed copy. `K`, the ephemeral private key and the plaintext are
+  locals of one event and are never stored in the clear.
+- No external system.
+
+## Resource usage analysis
+
+### Disk usage (PStates), per promotion
+
+- **Owner's home, kept:** the request's record and row (phase 1's sizes,
+  about 400 bytes with a 60-byte base64 public key in the control value);
+  the crossing's record, row and two stood-on entries (about 300 bytes);
+  the forward (the copy's sealed bytes, value size + 28 bytes of nonce and
+  tag, plus the 104-byte box and about 350 bytes of envelope). About 1.2 KB
+  + the value, per crossed promotion, on L's home; a refused read-out keeps
+  only the first two (about 700 bytes).
+- **Landing lease row:** 48 (private) + 44 (public) + about 120 (the
+  landing name, layer, session, batch) = about 210 bytes, from the lease
+  until the landing's decision or the session's close.
+- **The copy:** one sealed act in T, as any.
+- **Depots:** the request in `*offers` (about 500 bytes); the landing in
+  `*micro-offers` (the forward's size), once per send.
+
+At a thousand promotions a day per person, the owner's home grows by about
+1.2 MB a day plus the values promoted: small beside the values themselves.
+
+### Memory usage (TaskGlobals)
+
+None.
+
+### Minimization
+
+- The forward could keep only its sealed bytes and box (about the value +
+  130 bytes) and rebuild the envelope from the request's control value on a
+  replay, one seek more. Not taken: a byte-identical re-send is what makes
+  a replayed landing answer from the record by its digest without a second
+  mechanism, and it holds across a code change between the sends.
+- The request's public key (44 bytes, 60 as base64) is the only new field
+  a door sends; it replaces no field that exists.
+- Nothing is duplicated to serve a read faster: the status is read from
+  the records, not kept.
+
+## Rig choices proposed
+
+Numbered PR1 onward; the build copies the ones it keeps into RIG.md with
+the next free R numbers. **First-record** marks a pick that decides what a
+kept record carries; each is the simplest placeholder, and each is listed
+for Sid in the receipt.
+
+- **PR1, first-record: the request.** A control fact `:promote-request` on
+  the source's entity in the owner's layer, with the value above (source,
+  target, class, lease, public key, permission, replaces, subjects); its
+  act stands on the source. Why: a promotion must be a fact in the owner's
+  layer (Sid's phase 4, "a request act in the owner's layer"), and the
+  landing's name, road and permission must be fixed before the first gate.
+- **PR2, first-record: the crossing.** Named `[L nil :crossing uuid]`,
+  `:who :store`, no permission, one `:crossed` fact on the source's entity
+  with value `{:request req :source src-fid}`, standing on the source and the
+  request; its recorded refusals `:source-erased` and `:source-has-no-value`
+  under the same name. Why: the model's read-out, as phase 1 named it.
+- **PR3, first-record: the landing.** Named `[T C :landing uuid]`, C the
+  class the request carries (phase 1's `landing-name` gains the class);
+  `:who` the requester, `:because-of` the request, standing on the source
+  and the crossing with their stamps; one value fact on the source's e and
+  k, carrying the request's replaces and subjects; the envelope's fact parts
+  gain `:box`, accepted on a landing name only. Why: the names sharpening,
+  the model's `forward`, and default 1 (the lock must travel boxed).
+- **PR4, first-record: the landing lease.** A lease act with `{:count 1
+  :landing <landing-name>}`; its row bare, with `:public` and `:for`. Why:
+  the one place an opener can wait for the landing's decision.
+- **PR5, first-record: `:landing-lock-gone`**, a recorded refusal of a
+  landing whose lease is missing or bound to another landing. Why: a crossed
+  promotion must end.
+- **PR6: the sealed box.** X25519 (JDK `XDH`), the wrapping lock HMAC-SHA256
+  over the shared secret with the label `softland/landing-box/v1` and both
+  public keys, AES-GCM with a 12-byte nonce over the 32-byte lock. Can
+  change without touching a record: a box is read only at a landing's
+  decision, and a decided landing is answered from its record.
+- **PR7: the read-out as a continuation** of the request's record, past a
+  commit boundary; the stream-gate landing as a hop, never a depot record.
+- **PR8: the stored forward** `[L :forwards req]`, and every send of a
+  landing is those bytes.
+- **PR9: landing leases** are bare, bound to one landing, and destroyed at
+  their session's close like every lease; the door does not close a session
+  in T while a promotion citing one of its landing leases is neither done
+  nor refused.
+- **PR10: the reservation on the micro depot.** A `:landing` name is taken
+  only as a landing (one value fact citing a landing lease for that name);
+  a `:crossing` name is refused on its face (`:reserved-scheme`); an
+  `:offer` name citing a landing lease is `:no-such-lock`.
+- **PR11: no target-kind check.** The request names any layer other than
+  its own; the landing's gate decides with its ordinary checks (a landing
+  into someone else's one-owner layer lacks a permission there). Why: the
+  stream gate cannot read T's settings inside the request's event, and the
+  permissions already say who may write where.
+- **PR12: the read-out neither needs nor re-checks a permission** (the
+  model's `exempt?`), so a revoke in L between the request and the
+  read-out does not stop it; the landing's permission is checked in T by
+  T's gate.
+- **PR13: a value act's `:who` is not checked against `$$persons`** on
+  either gate (only its subjects and a lease act's `:who` are), so the
+  requester's forget after the read-out does not refuse the landing. Why:
+  B case 4. The build confirms phase 3's gather keeps to this; if it reads
+  `:who`, the landing is the exception.
+- **PR14: `promotion-status`** as specified, with the model's precedence,
+  and the statements at the point of promotion as data.
+- **PR15: the test hold** (R3): `inject/hold!` on a request name stops the
+  continuation before the read-out, so a test can order a forget before
+  it; after `release!`, the door's resend continues the promotion. A test
+  device only; in production the continuation always runs.
+
+## What this stage changes in stages 1 to 3 (for the build)
+
+- `rig.store.envelope`: `landing-name` takes the class; `:box` joins the
+  fact parts on a landing name only; `:promote-request` joins the control
+  facts with its value check; R13's list grows by it. `parse` still
+  refuses `:crossing`/`:landing` names and `:who :store` from `*offers`.
+- `rig.store.gate` and `module.clj`: the continuation (read-out, forward,
+  stream landing); `$$layers` gains `:forwards` and the two lease row
+  fields; the lease act mints a key pair when `:landing` is set.
+- `rig.store.locks`: `keypair`, `box`, `unbox` (the probe's functions,
+  total: nil on any failure, never a throw); `deliver-lock>`'s lease body
+  unboxes when the row has `:public` and the fact a `:box`; `lease-locks`
+  returns a landing row's public key only.
+- The micro gate: `parse` takes a `:landing` name as a landing; the gather
+  unboxes on the arrival task; `:landing-lock-gone` rides the skeleton to a
+  recorded no; the lease act mints a key pair; `micro-lease` returns a
+  landing row's public key only.
+- `rig.store.client`: `lease-landing!` (the lease act and the public key),
+  `promote!` (the request; its answer with the crossing's and the
+  statements), `promotion-status`.
+- New: `rig.store.promote` (the store-made crossing and landing offers,
+  pure; the status function over three answers, pure; the statements).
