@@ -166,6 +166,7 @@
                            (fixed-keys-schema {:reason clojure.lang.Keyword :batch Long})
                            sub)
      :stood-on (map-schema clojure.lang.PersistentVector Long sub)          ; fid -> stamp as carried ([F2])
+     :entities (map-schema clojure.lang.Keyword Long sub)                   ; wave 1: an act whose one lock spans entities -> each such entity (batch)
      :leases   (map-schema Long                                             ; i -> a lease row [PV-F1], M16
                            (fixed-keys-schema {:under   clojure.lang.Keyword ; the lease act's :who; nil for the operator
                                                :sealed  byte/1               ; K sealed under :under's person lock; K bare when :under is nil
@@ -624,6 +625,7 @@
     :resend (assoc-in w [:resend [(nth need 1) (nth need 2)] (nth need 3)] found)
     :face (assoc-in w [:faces [(nth need 1) (nth need 2)]] found)
     :offer (assoc-in w [:offers [(nth need 1) (nth need 2)]] found)
+    :target (assoc-in w [:targets [(nth need 1) (nth need 2)]] found)
     w))
 
 (defn- init-w
@@ -636,7 +638,7 @@
        (init-row w need found)
        (catch Throwable _ w)))
    {:names {} :settings {} :perms {} :sheads {} :tombs {} :heads {} :clocks {} :task-of {}
-    :resend {} :faces {} :offers {} :cited #{} :given {} :out {} :dels [] :mints []}
+    :resend {} :faces {} :offers {} :targets {} :erased-now #{} :cited #{} :given {} :out {} :dels [] :mints []}
    state))
 
 (defn- settings-in-force [w L]
@@ -713,6 +715,117 @@
      (when (and made? (some #(and (gate/setting-fact? o %) (= :class (:k %))) facts))
        [:unsupported-reclass]))))
 
+;; ======================================================= the value forget
+;; Wave 1 (phase 2's seam at this gate): a value forget in a shared layer, or
+;; in a layer re-classed here, reaches its lock. Ruling 7: the lock of an
+;; unmarked group or base value is in the record, and the operator's forget
+;; excises it; an `:own-row` value (or a re-classed personal or hand
+;; layer's) has a lock row, which the forget deletes; either way the ledger
+;; entry is written on every entity that holds a value under that lock, so
+;; `locks/open-with` shows the forget's date there (phase 2's order: the
+;; ledger first). Under per-act grain one lock covers every value of the
+;; act, on every entity it touched: the act's name row keeps those entities
+;; (`:entities`) so the forget reaches them all.
+
+(defn forget-target-of
+  "The target of a value forget this gate orders, normalised: the fact id a
+  `:forget` fact names when it is well formed and names an act admitted
+  here (a `:by-entity` name), else nil (a stream-era target is refused by
+  `micro-extras`, M25). Total."
+  [o]
+  (try
+    (let [t (some-> (locks/fact-of o :forget) :v :target)]
+      (when (and (env/fid? t) (= :by-entity (nth (nth t 0) 1)))
+        [(into [] (nth t 0)) (long (nth t 1))]))
+    (catch Throwable _ nil)))
+
+(defn lock-ids-of
+  "The distinct lock ids of an act's rows on one entity, `[[idx row] ...]`."
+  [rows]
+  (try (into [] (comp (keep (fn [[_ r]] (:lock-id r))) (distinct)) rows) (catch Throwable _ [])))
+
+(defn assoc-some "m with k -> v when v is not nil." [m k v] (if (some? v) (assoc m k v) m))
+
+(defn spread-entities
+  "The entities an act's one lock spans when it spans more than one: under
+  per-act grain every value of the act cites one lock id, and the act's
+  facts can sit on several entities. Sorted; [] when no lock spans two."
+  [facts]
+  (let [by-lock (group-by :lock-id (filter locks/sealed? facts))]
+    (into [] (comp (mapcat (fn [[_ fs]] (let [es (distinct (map :e fs))] (when (< 1 (count es)) es))))
+                   (distinct))
+          (sort-by str by-lock))))
+
+(defn forget-entities
+  "The entities a forget's gather visits for its target: the forget fact's
+  own entity (the target's, as the door builds it and the model has it)
+  and every entity the target act's lock spans, read from its name row."
+  [o spread]
+  (try (into [] (distinct) (concat (keep :e (filter #(= :forget (:k %)) (:facts o))) spread))
+       (catch Throwable _ [])))
+
+(defn target-view
+  "What the leader may see of a target row (M3: ids and marks, never a
+  value or a lock): its layer, its lock id, and whether its lock is in the
+  record. The sealed bytes, the digest and the wrapped lock stay on the
+  entity's task."
+  [row]
+  {:layer (:layer row) :lock-id (:lock-id row) :record-lock? (some? (:lock row))})
+
+(defn target-rows
+  "Block 1's rows for a forget's target on one entity: the target act's
+  rows there, as `target-view`s, and the ledger entries of their locks, as
+  one gathered row `[[:target name e] {:rows {idx view} :ledger {lock-id
+  entry}}]`. Total."
+  [tname e rows ledger]
+  (try [[[:target tname e] {:rows (into {} (map (fn [[i r]] [i (target-view r)])) rows)
+                            :ledger (or ledger {})}]]
+       (catch Throwable _ [])))
+
+(defn forget-effect
+  "A value forget's lock effect at this gate, pure over what the gather
+  read (W's `:targets`) and what this fold already erased
+  (`:erased-now`): nil for an act that is no micro value forget;
+  `{:reason :no-such-value}` when no row of this layer sits at the target;
+  `{:how nil}` when the target holds no lock (a control fact or a retract)
+  or its lock is already erased (a second forget changes nothing and keeps
+  the first date, phase 2's L16); else `{:how h :lock-id lid :writes
+  [...]}`: every row that shares the target's lock, on every entity, has
+  its record lock excised (`:excised`), or each entity's lock row is
+  deleted (`:row-deleted`), and each such entity's ledger entry is dated
+  by the forget's stamp."
+  [w o L stamp b]
+  (when-let [[tname tidx] (forget-target-of o)]
+    (let [gathered (for [[[n te] found] (:targets w) :when (= n tname)] [te found])
+          hit (some (fn [[te found]] (let [r (get (:rows found) tidx)] (when (and r (= L (:layer r))) [te r])))
+                    gathered)]
+      (if (nil? hit)
+        {:reason :no-such-value}
+        (let [[te0 row0] hit
+              lid (:lock-id row0)]
+          (if (or (nil? lid)
+                  (some? (get-in (into {} gathered) [te0 :ledger lid]))
+                  (contains? (:erased-now w) [te0 lid]))
+            {:how nil}
+            (let [sharing (for [[te found] gathered
+                                [idx r] (sort-by key (:rows found))
+                                :when (and (= lid (:lock-id r)) (= L (:layer r)))]
+                            [te idx r])
+                  excise? (:record-lock? row0)
+                  how (if excise? :excised :row-deleted)
+                  tes (into [] (distinct) (map first sharing))]
+              {:how how
+               :lock-id lid
+               :entities tes
+               :writes (-> []
+                           (into (when excise?
+                                   (for [[te idx _] sharing]
+                                     [[:entity te :lock-excise [tname idx]] [:entity te :lock-excise [tname idx] nil]])))
+                           (into (when-not excise?
+                                   (for [te tes] [[:entity te :locks-del lid] [:entity te :locks-del lid nil]])))
+                           (into (for [te tes]
+                                   [[:entity te :erased lid] [:entity te :erased lid {:stamp stamp :how how}]])))})))))))
+
 (defn record-subjects
   "The act's subject slot (ruling 8, phase 2's shapes): its facts' own
   subjects' union, with the layer's person owner (never the root actor)
@@ -781,13 +894,16 @@
         clock (reduce max 0 (map #(clock-of w %) tasks))
         d (micro-decision o settings rows heads clock wall)
         grain (or (:grain settings) :per-value)
+        stamp (:stamp d)
+        ;; wave 1: a value forget's lock effect at this gate (phase 2's seam)
+        fe (forget-effect w o L stamp b)
         reason (first-in-order (concat [(:reason d)]
                                        (micro-extras o settings)
                                        [(:value-reason sk)
                                         (locks/grain-refusal grain (:facts o))
-                                        (:person-reason sk)]))
+                                        (:person-reason sk)
+                                        (:reason fe)]))
         yes? (nil? reason)
-        stamp (:stamp d)
         rec (micro-record o reason stamp (:digest sk) (record-subjects sk settings reason) b)
         entities (:entities sk)
         w (-> w
@@ -852,6 +968,15 @@
             ;; a session close deletes its unconsumed lease rows in the layer ([PV-F4])
             w (if (close-act? o)
                 (update w :dels into (map (fn [ln] [:del-leases ln nil nil nil])) (:close-names sk))
+                w)
+            ;; wave 1: an act whose one lock spans entities keeps them on its name row,
+            ;; so a forget of any of its values reaches every one (per-act grain)
+            w (reduce (fn [w e] (put w [:name nm :entities e] [:name nm :entities e b]))
+                      w (spread-entities (:facts o)))
+            ;; wave 1: a value forget's lock effect, and what this fold has erased
+            w (if (:how fe)
+                (-> (reduce (fn [w [loc write]] (put w loc write)) w (:writes fe))
+                    (update :erased-now into (map (fn [te] [te (:lock-id fe)])) (:entities fe)))
                 w)]
         w))))
 
@@ -1238,21 +1363,47 @@
               (get *lstep :rows :> *rows)
              (else>)
               (into (get *nstep :rows) (get *lstep :rows) :> *first-rows)
-              ;; each entity's task: its task id, clock and micro heads
-              (ops/explode-indexed (get *sk2 :entities) :> *ei *e)
-              (|hash *e)
-              (ops/current-task-id :> *t)
-              (local-select> [(keypath :clock)] $$micro-task :> *eclock)
-              (micro-head-keys *sk2 *e *first-rows :> *mhkeys)
-              (loop<- [*l6-todo *mhkeys *l6-acc {} :> *mheads]
-                (<<if (empty? *l6-todo)
-                  (:> *l6-acc)
-                 (else>)
-                  (first *l6-todo :> *l6-hk)
-                  (micro-head-key *layer *l6-hk :> *l6-key)
-                  (local-select> [(keypath *e :heads *l6-key)] $$micro :> *l6-h)
-                  (continue> (rest *l6-todo) (assoc *l6-acc *l6-hk *l6-h))))
-              (entity-rows *sk2 *e *t *eclock *mheads *first-rows (= 0 *ei) :> *rows))
+              ;; wave 1: a value forget also gathers its target (phase 2's seam at this gate)
+              (forget-target-of (get *sk2 :offer) :> *ftarget)
+              (<<if (some? *ftarget)
+                (ops/explode [:own :target] :> *which)
+               (else>)
+                (identity :own :> *which))
+              (<<if (= :own *which)
+                ;; each entity's task: its task id, clock and micro heads
+                (ops/explode-indexed (get *sk2 :entities) :> *ei *e)
+                (|hash *e)
+                (ops/current-task-id :> *t)
+                (local-select> [(keypath :clock)] $$micro-task :> *eclock)
+                (micro-head-keys *sk2 *e *first-rows :> *mhkeys)
+                (loop<- [*l6-todo *mhkeys *l6-acc {} :> *mheads]
+                  (<<if (empty? *l6-todo)
+                    (:> *l6-acc)
+                   (else>)
+                    (first *l6-todo :> *l6-hk)
+                    (micro-head-key *layer *l6-hk :> *l6-key)
+                    (local-select> [(keypath *e :heads *l6-key)] $$micro :> *l6-h)
+                    (continue> (rest *l6-todo) (assoc *l6-acc *l6-hk *l6-h))))
+                (entity-rows *sk2 *e *t *eclock *mheads *first-rows (= 0 *ei) :> *rows)
+               (else>)
+                ;; the target act's name task (the entities its one lock spans), then each
+                ;; entity: the act's rows there and the ledger entries of their locks
+                (first *ftarget :> *tname)
+                (|hash *tname)
+                (local-select> [(keypath *tname :entities) (subselect MAP-KEYS)] $$micro-names :> *spread)
+                (forget-entities (get *sk2 :offer) *spread :> *tents)
+                (ops/explode *tents :> *te)
+                (|hash *te)
+                (local-select> [(keypath *te :log *tname) (subselect ALL)] $$micro {:allow-yield? true} :> *trows)
+                (lock-ids-of *trows :> *tlids)
+                (loop<- [*l8-todo *tlids *l8-acc {} :> *tledger]
+                  (<<if (empty? *l8-todo)
+                    (:> *l8-acc)
+                   (else>)
+                    (first *l8-todo :> *l8-lid)
+                    (local-select> [(keypath *te :erased *l8-lid)] $$micro :> *l8-entry)
+                    (continue> (rest *l8-todo) (assoc-some *l8-acc *l8-lid *l8-entry))))
+                (target-rows *tname *te *trows *tledger :> *rows)))
 
             (case> (= :resend *path))
             ;; the record path: each value checked on its entity task under the recorded lock (M18)
@@ -1306,7 +1457,15 @@
         (<<cond
           (case> (= :entity *kind2))
           (|hash *route2)
-          (local-transform> [(keypath *route2 *field2 *k2) (termval *v2)] $$micro)
+          (<<cond
+            ;; wave 1: a value forget's excision: the row's record lock removed
+            (case> (= :lock-excise *field2))
+            (local-transform> [(keypath *route2 :log (first *k2) (second *k2) :lock) NONE>] $$micro)
+            ;; wave 1: a value forget deletes a lock row
+            (case> (= :locks-del *field2))
+            (local-transform> [(keypath *route2 :locks *k2) NONE>] $$micro)
+            (default>)
+            (local-transform> [(keypath *route2 *field2 *k2) (termval *v2)] $$micro))
 
           (case> (= :name *kind2))
           (|hash *route2)
@@ -1315,6 +1474,9 @@
             (case> (= :face *field2))
             (partial keep-first *v2 :> *keep)
             (local-transform> [(keypath *route2 :faces *k2) (term *keep)] $$micro-names)
+            ;; wave 1: the entities an act's one lock spans
+            (case> (= :entities *field2))
+            (local-transform> [(keypath *route2 :entities *k2) (termval *v2)] $$micro-names)
             (default>)
             (local-transform> [(keypath *route2 *field2) (termval *v2)] $$micro-names))
 

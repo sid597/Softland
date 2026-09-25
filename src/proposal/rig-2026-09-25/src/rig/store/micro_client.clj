@@ -359,6 +359,32 @@
             :stood-on (if (and gfid gstamp) {gfid gstamp} {})
             :facts [{:e (gate/perm-entity who) :k :revoke :v {:permission pid}}]})))
 
+(defn forget-value!
+  "The operator's forget of value `fid` in layer `L` at this gate (wave 1,
+  phase 2's L10 here; M14: forgets at this gate are the operator's): the
+  forget fact on `e`, the target's entity (as the model builds it),
+  standing on the target with the stamp its name row holds, placed by the
+  store (its name carries no class). The gate excises the target's lock
+  from the record, or deletes its lock row, on every entity that holds a
+  value under that lock, and dates the ledger there by its stamp. Its
+  answer (micro-lookup's)."
+  [store L fid e]
+  (let [stamp (:stamp (record-of store (first fid)))
+        o (c/build {:who :operator :layer L :class :by-entity
+                    :stood-on (if stamp {fid stamp} {})
+                    :facts [{:e e :k :forget :v {:target fid}}]})]
+    (offer! store o)))
+
+(defn ledger-entry
+  "The ledger entry for lock `lid` as entity `e`'s task holds it, or nil."
+  [store e lid]
+  (retrying #(foreign-select-one [(keypath e :erased lid)] (:micro store))))
+
+(defn row-of
+  "One row of an act on entity `e`, as stored (tests only)."
+  [store e [nm idx]]
+  (retrying #(foreign-select-one [(keypath e :log nm idx)] (:micro store))))
+
 ;; ========================================================= the dispatch (M13)
 
 (defn gate-for
