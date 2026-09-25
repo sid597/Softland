@@ -324,10 +324,15 @@ on the value's entity task (`$$micro [e :erased lock-id]`, micro plan), not
 the layer's; this plan's purge writes the forget's date into every index
 entry of the value in the forget's own batch (below), so the entry carries
 the ledger's date and the read never needs the ledger. A value forget and
-its purge commit in one batch (a microbatch is atomic across tasks, "What
-Rama showed" 5), so no reader sees the lock excised and the entry not yet
-tombstoned, at any frontier: erasures cross the frontier, and both writes
-are the same batch's.
+its purge are decided in one batch and leave no partial state across tasks,
+but each task makes its part visible at its own commit ("What Rama showed"
+5). A read through the exit opens a shared value from the index on the
+layer's task alone, so it sees the value either before or after the purge
+commits there, one task's order, never half of it; the erasure is not
+hidden by F (erasures cross the frontier). A reader who also reads the
+value's entity task (phase 3's `micro-act`, for the offerer and tests) can
+see the two tasks' commits at different instants, which is two reads at two
+moments, not one read of half a batch.
 
 ## The micro store's indexes
 
@@ -457,7 +462,7 @@ new **block 2d** after block 2b's name-task check (the check that decides
    `(shared-reads/index-writes hints *layer *nm *rows *kvp *stamp *batch :>
    *d)`, pure and total, computes the act's entries (the rows as written,
    with `:e`, `:fid`, `:stamp`, `:batch`), their addresses (each `:ix-kv`
-   address completed with `hex(stamp) ␀ fid`), the `:ix-of` sets and the
+   address completed with `hex(batch) ␀ hex(stamp) ␀ fid`), the `:ix-of` sets and the
    `:ix-id` addresses. An `:ix-kv` address holds the value's canonical
    text, which is why its prefix is taken on the arrival task: that is the
    one place the text exists. **A change to phase 3's discipline, named
@@ -547,9 +552,9 @@ record names its task and the batch routes to it with `(|direct *task)`:
   appends the next page after it sees the previous page's progress row,
   below).
 - **Sweep page** `{:op :rebuild-sweep :task t :field f :after a :entries n}`
-  (1 ≤ n ≤ 512): on task t, for each layer whose home is t (`$$micro`'s
-  layer-as-entity keys; which keys are layers is known from their
-  `:settings`), the next n entries of field f after address a; for each
+  (1 ≤ n ≤ 512): on task t, for each shared layer whose home is t (the set
+  `$$micro-task :layers`, below), the next n entries of field f after
+  address a (the cursor is `[L a]`); for each
   entry, `(|hash (:e entry))`, its act's record and row on the entity task,
   back with `(|hash L)`; `(shared-reads/sweep-page-writes ...)`, pure: the
   delete of every entry the log does not imply (the read exit's rule), and
@@ -565,7 +570,13 @@ record names its task and the batch routes to it with `(|direct *task)`:
 Consistent without a snapshot, for the same reasons as the read exit's F2:
 puts only add, a sweep deletes only what the log read in its own batch does
 not imply, and an act admitted or a forget decided between two pages writes
-or purges its own entries in its own batch. `$$micro-task :rebuild` and the
+or purges its own entries in its own batch. One guard the micro side needs
+and the stream side does not: a sweep page shares its batch with block 2d's
+writes of the offers in the same batch, whose rows on other tasks it may not
+yet see, so the sweep judges only entries whose `:batch` is below the
+current batch's id (`ops/current-microbatch-id`); the log behind those is
+committed on every task (every task commits a batch before the next
+begins), so no fresh entry is deleted and every stale one is. `$$micro-task :rebuild` and the
 depot are maintenance: no act, nothing in the record (RR8), as the read
 exit's `*index-ops`.
 
@@ -711,8 +722,8 @@ One entity per standing read, `:read-<uuid>` from the opening act's name
 through the ordinary offer path, marked `:own-row` (see "The close act"):
 
 - **FRR1, the opening** (one act, one or two facts):
-  `{:e ent :k :read/standing :v {:layer L :pattern p :role r :moment m0}}`,
-  m0 the initial read's moment (`{:stamp s}` or `{:frontier F}`); and, when
+  `{:e ent :k :read/standing :v {:layer L :pattern p :role r :limit n
+  :moment m0}}`, m0 the initial read's moment (`{:stamp s}` or `{:frontier F}`); and, when
   the initial read matched anything, a first delivery line in the same act.
   An empty initial read opens the entry with no delivery line.
 - **FRR2, a delivery** (one act per delivery that shows something new):
@@ -730,13 +741,17 @@ through the ordinary offer path, marked `:own-row` (see "The close act"):
   :complete|:partial :closed-by :unsubscribe|:session-close|:crash}}`.
   `:fingerprint` is HMAC-SHA256 under the fingerprint secret over
   `"softland.standing-fp/1\n"` + the canonical text of the vector of
-  `[line-stamp line-fingerprint]` of the entry's delivery lines in stamp
-  order: "a fingerprint over everything delivered", computable from the
-  record alone, for every reader kind (a tool's lines hold no ids, so a
-  fingerprint over the delivered pairs could not be recomputed after a
-  crash; one over the lines can, and a re-run of a deterministic tool's
-  standing read over the same history gives the same lines and the same
-  closing fingerprint). `:mark` is `:partial` when any delivery line is
+  `[line-moment line-fingerprint]` of the entry's delivery lines in line
+  order (their stamp order): "a fingerprint over everything delivered",
+  computable from the record alone, for every reader kind (a tool's lines
+  hold no ids, so a fingerprint over the delivered pairs could not be
+  recomputed after a crash; one over the lines can). It is checkable by a
+  re-run: a replay of `deliver!`'s steps through the recorded sequence of
+  moments, from the opening's pattern and limit, reproduces every line's
+  fingerprint and so the closing one, while nothing it matched is
+  forgotten; once a matched value is forgotten it cannot, which the
+  sharpening "Forget, time travel" names as expected. The lines' own act
+  stamps are not in it, since a replay's acts are stamped anew. `:mark` is `:partial` when any delivery line is
   `:partial`, else `:complete`: the mark says whether the record names
   everything the read matched; how the entry closed is `:closed-by`'s.
 - **FRR4, the keys** `:read/standing`, `:read/delivery`, `:read/closed`,
@@ -1401,13 +1416,13 @@ None.
 Continuing the read exit's FR1 to FR14, which stand.
 
 - **FRR1 to FRR4.** A standing read's lines: the opening fact
-  `:read/standing {:layer :pattern :role :moment}`, with the first delivery
+  `:read/standing {:layer :pattern :role :limit :moment}`, with the first delivery
   in the same act when the initial read matched; a delivery fact
   `:read/delivery {:layer :moment :after :role :count :mark :fingerprint
   :fp-secret :exact :max-stamp}`, one act per delivery that shows something
   new; the closing fact `:read/closed {:layer :moment :deliveries
   :fingerprint :fp-secret :mark :closed-by}` with the closing fingerprint
-  over the vector of the lines' `[stamp fingerprint]` under the fingerprint
+  over the vector of the lines' `[moment fingerprint]` under the fingerprint
   secret, prefix `"softland.standing-fp/1\n"`; the mark `:partial` when any
   delivery was; the three keys as store-owned constants, one entity per
   standing read.
@@ -1523,7 +1538,7 @@ The tests the brief names, each with its setup and what it asserts:
   name (`:after-writes` before `:exit-shown`). `unsubscribe!`: one
   `:read/closed` fact, `:closed-by :unsubscribe`, `:deliveries` the number
   of lines, `:fingerprint` equal to the closing fingerprint computed in the
-  test from the lines' stamps and fingerprints (the pure function), `:mark
+  test from the lines' moments and fingerprints (the pure function), `:mark
   :complete`; with a limit of 2 and 3 new facts, the delivery is `:partial`
   and the closing mark is `:partial`.
 - **RT4. Closing at session close, and after a crash.** An agent session
