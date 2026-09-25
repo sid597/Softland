@@ -38,7 +38,10 @@ model's third round's.
   in its one event on the layer's home task, with no partitioner; the micro
   gate in the layer visit of its batch, where it already reads the layer's
   settings and permissions. No copy of any layer's facts is kept on another
-  task by this plan's build. The store-wide alternatives (the base's grammar
+  task by this plan's build. The cost: every layer states its own grammars,
+  and session layers, made in quantity, start with none; one grammar
+  reaching every layer still needs a copy, a hop or a placement change,
+  which go to Sid (sections 3.2, 3.3, 12). The store-wide alternatives (the base's grammar
   read by a hop, or copied to every task) are costed in section 3; the copy
   is marked unsettled there. A layer that wants another layer's grammar
   adopts it by an act in itself standing on the source: that is a copy too,
@@ -415,7 +418,7 @@ recursive type (the skill forbids `Object`):
 | `[:string]`, `[:string max]` | a string, at most `max` characters (max ≤ 1,048,576) |
 | `[:enum v ...]` | one of up to 64 literal plain values, compared after normalisation |
 | `[:vector-of s min max]`, `[:set-of s min max]` | a vector or set of `min` to `max` elements, each matching `s` (max ≤ 65,536) |
-| `[:map {k s ...} opts]` | a map whose keyword keys each match their shape; `opts` `{:optional #{k ...} :open? bool}`: optional keys may be absent; an open map admits other keys unchecked |
+| `[:map {k s ...} opts]` | a map whose entries, each named by a keyword, match their shapes; `opts` `{:optional #{k ...} :open? bool}`: optional entries may be absent; an open map admits other entries unchecked |
 | `[:or s ...]` | the first of up to 8 shapes that matches |
 
 Totality (*derived*): a shape is finite data with no names and no
@@ -443,7 +446,7 @@ failure refuses the act `:malformed-control`, at R13's place in the order
 
 ### 4.3 Subjects: which subjects a key's values name
 
-`:subjects-at` is nil or one path, a vector of map keys, into the value, to
+`:subjects-at` is nil or one path, a vector of entry names (keywords), into the value, to
 a collection of person ids: phase 2's form exactly (LP:183, "the value's
 `:persons` collection names people"), so phase 2's `(subjects-of grammars k
 v)` does not change; it takes a map from key to grammar, which the rows
@@ -1119,7 +1122,7 @@ but puts them all on the base's one task and adds two hops to each, so
 that task's load grows with N; C has the same reads and N row writes per
 grammar change (rare, and `|all`'s accepted cost), plus the copy.
 
-The same holds for `read-pattern` (+1 seek for keyed patterns, which are
+The same holds for `read-pattern` (+1 seek for patterns that name a key, which are
 most of them; + the page's distinct keys for `[:e]` and `[:all]`), all on
 the read layer's home.
 
@@ -1429,4 +1432,6 @@ it (T-FR3). Close, and cheap to change before edition one.
   decides it, and this plan states only that the rows must reach the open.
   The permissive default keeps every earlier suite's answers except where
   the constant grammar or the constant hints were relied on, which section
-  10 lists.
+  10 lists. The per-layer pick leaves new layers, session layers above all,
+  without grammars until a fact states them; 3.2 says so, and the roads
+  that close it are Sid's (Q1).
