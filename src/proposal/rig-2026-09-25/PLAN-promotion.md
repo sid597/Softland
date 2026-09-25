@@ -1132,3 +1132,34 @@ able to forge a landing at all (open question 1).
    continuation behaves as the plan assumes (phase 1 calls it once per
    record); and whether phase 3's gather reads a value act's `:who` against
    `$$persons` (PR13 needs it not to). Both are checks, not designs.
+
+## Checked against phase 3's validation (PLAN_VALIDATION-micro-store.md, F1 to F13)
+
+Read at 848020f0 in Softland-rig-plan-micro, fixes taken as applied.
+
+- **F1, F5** (lease rows under the lease act's `:who`; the operator's bare,
+  `{:under nil :sealed K}`): a landing lease is a third case, bare whoever
+  leases it, with `:sealed` holding the private key and `:public`, `:for`
+  beside it; its retention is named (nothing before the read-out, the
+  crossed copy after it, gone at the landing's decision or the close).
+- **F2** (phase 2's record path: a resend opened with its own lock,
+  recomputed under the recorded one, its cited rows consumed): a re-sent
+  landing's own lock is its landing lease, consumed by the first decision,
+  so its value check is skipped and the recorded answer returns; the record
+  path's `consume-locks>` of the cited id is a no-op.
+- **F3** (two envelopes under one name in one batch): a replayed forward
+  can put two byte-identical landings in one batch; this plan relies on
+  F3's fix deciding them once (T7 a).
+- **F4** (session close on the micro side): PR9 and T9 c, T11 rely on it.
+- **F6** (`$$persons` read for each subject): PR13 relies on the read
+  being for subjects and a lease act's `:who` only.
+- **F7, F8** (the table's totals; the permission cascade): the landing's
+  permission check is whatever phase 3 builds; this plan's table counts
+  only its own read.
+- **F9, F10, F11**: no bearing (the lookup query's text, faces entries,
+  the permission chain's coverage).
+- **F12** (`:operator`): used throughout; the base's owner is `:operator`.
+- **F13** (value-level refusal order after delivery, consuming leases):
+  a landing's copy that does not open under its unboxed lock is
+  `:does-not-open`, recorded, lease consumed, in F13's order; only a lease
+  that does not deliver is the landing's own `:landing-lock-gone`.
