@@ -503,15 +503,34 @@ entry (`:e :k :stamp :batch :fid`), no value needed; deletes of every
 [fid]` → `:ix-ek [address]` → the entry, and `:ix-of [fid]`: three seeks.
 
 **The invariant every purge keeps, both stores: a purge writes exactly what
-a rebuild would write for that fact at that moment.** The date in a
-tombstone is the date the open function gives for the fact at the purge's
-moment (the ledger's date, else the person-forget date, L16's order), never
-"the stamp of whatever triggered the purge". So a value forget after a
-person forget writes the value forget's date (the ledger is read first), a
-person forget after a value forget leaves the value forget's date, and a
-rebuild after either produces the same tombstone. This is what makes
-"restore, rebuild, forget replay reproduces the indexes exactly" hold by
-construction (test RT8).
+a rebuild would write for that fact at that moment.** What a rebuild writes
+for a row is decided by two cases, and the purges follow them:
+
+- **A value forget erased it** (a ledger entry exists for its lock): a
+  tombstone in every id index, dated by the ledger (the first forget's
+  stamp), and no `:ix-kv` or `:ix-of` entry. A value purge writes exactly
+  that, with the ledger's date: a second forget of an erased value changes
+  nothing, and a value forget after a person forget writes the value
+  forget's date (L16's order: the ledger is read first).
+- **A person forget closed its wrap** (no ledger entry, and the lock no
+  longer unwraps): the id-index entries as for a live row (the sealed copy
+  and the wrapped lock copy, which open nothing without the destroyed person
+  lock, exactly as the log row itself, which phase 2's forget does not
+  touch), and no `:ix-kv` or `:ix-of` entry. The open step shows such an
+  entry as `{:erased-at date}` with the person's date (`wrap-closed`), so a
+  read shows only the date either way. A person purge therefore deletes
+  only the plaintext-bearing entries, `:ix-kv` and `:ix-of`, of the values
+  that died, and leaves the id indexes alone; a person forget after a value
+  forget finds nothing left to delete.
+
+So a rebuild after any order of forgets produces the same fields as the
+purges did. This is what makes "restore, rebuild, forget replay reproduces
+the indexes exactly" hold by construction (test RT8). It asks one thing of
+the read exit's rebuild (a change to its build, item 9 below): its put page
+writes a tombstone only for a row with a ledger entry (one local seek,
+`[(keypath L :erased lock-id)]`, for a row the open step reports erased),
+and for a row whose wrap a person forget closed, the entry without an
+`:ix-kv` entry.
 
 ### Rebuild from the log, shared
 
@@ -962,9 +981,9 @@ a change to phase 2's open functions).
 
 | index | where, written by | holds | on a value forget | on a person forget | rebuilt by |
 |---|---|---|---|---|---|
-| `:ix-ek`, `:ix-ke`, `:ix-s` (one-owner) | `$$layers [L]`, the stream gate, in the admitting event | the row copied (sealed bytes, the lock record where the layer keeps it in the record, the digest) | tombstone: value fields nil, `:erased-at` | tombstone with the date open gives (below) | the read exit's put and sweep pages |
+| `:ix-ek`, `:ix-ke`, `:ix-s` (one-owner) | `$$layers [L]`, the stream gate, in the admitting event | the row copied (sealed bytes, the lock record where the layer keeps it in the record, the digest) | tombstone: value fields nil, `:erased-at` the ledger's date | kept: opens nothing without the person lock, like the log row; the open step shows the date | the read exit's put and sweep pages |
 | `:ix-kv`, `:ix-of` (one-owner) | same | the value's canonical text in the address | delete | delete | same |
-| `:ix-ek`, `:ix-ke`, `:ix-s` (shared) | `$$micro [L]`, the micro topology, block 2d of the deciding batch | the micro row copied, with `:e` and `:batch` | tombstone, in the forget's batch | tombstone | the micro pass (above) |
+| `:ix-ek`, `:ix-ke`, `:ix-s` (shared) | `$$micro [L]`, the micro topology, block 2d of the deciding batch | the micro row copied, with `:e` and `:batch`, and the value's lock record | tombstone, in the forget's batch | kept, as one-owner | the micro pass (above) |
 | `:ix-kv`, `:ix-of` (shared) | same | the value's text in the address | delete, in the forget's batch | delete | same |
 | `:ix-id` (shared) | same | fid → its `:ix-ek` address: ids only | kept | kept | same |
 | `:by-stamp` (phase 2) | `$$layers [L]`, the stream gate | stamp → name: ids only | kept | kept | phase 2's (from `:answers`) |
@@ -975,9 +994,11 @@ a change to phase 2's open functions).
 widened: "nothing retained opens or confirms a forgotten value"). A
 tombstone keeps the id, entity, key, stamp and batch, so a read as of any
 moment still shows the fact with its erasure date (the sharpening "Forget,
-time travel"); a copy of sealed bytes whose lock is gone opens nothing, but
-it is nilled anyway, so the purge and the rebuild write the same thing
-(the invariant, "Purge by value id, shared").
+time travel"); a value forget nils the copies of the sealed bytes and the
+lock with the original; a person forget destroys the one person lock that
+every copy's wrap needs, so the copies open nothing, as the log row opens
+nothing, and only the plaintext in `:ix-kv` addresses must go (the
+invariant, "Purge by value id, shared").
 
 ### The five paths
 
@@ -1011,9 +1032,10 @@ it is nilled anyway, so the purge and the rebuild write the same thing
      by `(|direct *task)` after the source (the depot's `hash-by :layer`
      sees a nil layer; RR16). On t, **phase 2's enumeration seam** gives the
      next page of `[layer fid]` on this task whose value died with p; per
-     fact, the row and its act's stamp, `open-row>` for the date (the
-     ledger's, else p's: L16's order), `:ix-of [fid]`, and
-     `reads/purge-writes` with that date; `ack-return> {:next :done?}`.
+     fact, `:ix-of [fid]` (one seek) and the deletes of its `:ix-kv`
+     addresses and its `:ix-of` entry (`reads/person-purge-writes`, pure);
+     nothing else (the invariant's second case); `ack-return> {:next
+     :done?}`.
      The contract taken from phase 2 (a black box: its body is phase 2's):
      `(locks/dying-with> *person *after *n :> *page)` on a task, `*page` =
      `{:fids [[layer fid] ...] :next cursor :done? bool}`, every value on
@@ -1021,18 +1043,19 @@ it is nilled anyway, so the purge and the rebuild write the same thing
      total, never throwing, bounded by n. **Fallback if the seam is not
      there at the merge:** the page sweeps the `:ix-kv` entries of the
      layers on task t (the read exit's sweep over one field, `open-row>`
-     on each; an entry that no longer opens is purged): the same result, at
-     the cost of every value-indexed entry on the task instead of only the
-     dying ones.
+     on each; an entry that no longer opens loses its `:ix-kv` and `:ix-of`
+     entries): the same result, exact since only those two fields change,
+     at the cost of every value-indexed entry on the task instead of only
+     the dying ones.
    - **Shared, per task t:** pages `{:op :person-purge :task t :person p
      :after [L address] :n 256}` on `*micro-index-ops`; on t, for each
      shared layer whose home is t, in order, its `:ix-kv` entries after the
      cursor whose `:lock` names p (in `:required` or `:any-of`, read from
      the entry itself) and that are not tombstones are opened by
-     `open-entry>`; each whose wrap is now closed is purged with p's date.
-     An entry already a tombstone was purged by a value forget in that
-     forget's batch, so its date is the ledger's and stays (L16's order,
-     kept without reading the ledger on hash(e)). The shared layers of a
+     `open-entry>`; for each whose wrap is now closed, its `:ix-kv` entry
+     and its `:ix-of` entry are deleted, nothing else. An entry already a
+     tombstone was purged whole by a value forget in that forget's batch,
+     so it has no `:ix-kv` entry left to find. The shared layers of a
      task are listed in a small subindexed set `$$micro-task :layers`,
      written by a layer's making act in block 2a on hash(L) (**a schema
      addition to phase 3**, beside `:rebuild`). No enumeration seam is
@@ -1123,6 +1146,11 @@ as planned, and these land on top of it, at the merge of wave 1 or after
 8. **The exit's call check**: `:as-of {:frontier F}` accepted (the query
    refuses it on a one-owner layer, `:moment-kind`, and a stamp moment on a
    shared one).
+9. **`reads/put-page-writes`**: a tombstone only for a row with a ledger
+   entry (one local seek for a row the open step reports erased); a row
+   whose wrap a person forget closed keeps its id-index entries and gets no
+   `:ix-kv` entry; and `reads/person-purge-writes`, pure, the deletes of a
+   fact's `:ix-kv` addresses and `:ix-of` entry ("The invariant").
 
 ## Interfaces, as this stage builds against them
 
@@ -1596,9 +1624,11 @@ The tests the brief names, each with its setup and what it asserts:
   `:g`. The operator forgets Bob, then `purge-person!` runs (once
   interrupted between pages and resumed). Every value that no longer opens
   (checked by `open-value>` and `open-entry>`) has no `:ix-kv` or `:ix-of`
-  entry, tombstones in the id indexes with Bob's date (or its earlier value
-  forget's date, for one value forgotten before Bob: L16's order), and no
-  text anywhere in the indexes; every value that still opens (7b's
+  entry and no text anywhere in the indexes; its id-index entries are
+  unchanged and show, through the exit, only Bob's date (or, for one value
+  forgotten before Bob, tombstones with that forget's date, L16's order);
+  for one value forgotten after Bob, tombstones with that later forget's
+  date; every value that still opens (7b's
   survivors, Alice's mention of Bob) keeps its entries and still matches its
   `[:kv]` read. With phase 2's seam absent, the fallback sweep gives the
   same fields.
@@ -1612,9 +1642,10 @@ The tests the brief names, each with its setup and what it asserts:
   (both stores, small pages, one page resent after a forced append error);
   the forget replay runs. Every field equals the snapshot, entry for entry
   (the purge invariant), and so does it after the replay a second time.
-  The pure half: for every row, `put-page-writes` over the row's open
-  result equals `purge-writes` at the date open gives, in both stores
-  (property test).
+  The pure half, a property test in both stores: for generated rows and
+  forget orders, the fields `put-page-writes` gives for the final state
+  equal the fields reached by applying each forget's purge in order to
+  the live entries.
 
 Tests the design adds:
 
