@@ -68,7 +68,7 @@ Each change, with its reason in a line:
    tests.
 10. **The partitioning table (§H)** recomputed for the lease read, the
     permission chain and the hop to the entity task. Why: the costs moved.
-11. **Rig choices.** M4, M8, M11 and M12 revised; M16 to M24 added (§I).
+11. **Rig choices.** M4, M8, M11 and M12 revised; M16 to M25 added (§I).
     First-record picks are marked.
 12. **The probe (§G)** settled M1 (one `defn`, one line in `defmodule`), the
     frontier id's class (a Long, the same across a retry), a name vector as
@@ -317,7 +317,7 @@ pure, in `src/rig/store/permit.clj`:
     is neither the offer's `:who` nor its `:session`, or its layer is not
     the offer's;
   - `:permission-from-another-layer` when the `in` of any element of its
-    chain is not the offer's layer;
+    chain, or the layer of any ancestor, is not the offer's layer;
   - `:no-permission` when any element has no grant in `rows`;
   - `:permission-revoked` when any element is revoked.
 
