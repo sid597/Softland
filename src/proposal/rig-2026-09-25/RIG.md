@@ -1,5 +1,120 @@
 # The rig — a Rama build of the store's rules, a candidate for the store core
 
+## Overnight state (26 September; rewritten after every commit)
+
+Builder A, from 01:37 IST, on Sid's overnight brief: build every remaining
+phase of SPEC.md tonight (2 locks and forgetting, 3 the micro store, 4
+promotion, 5 reads and read entries, 6 tools and grammars, 7 the three
+numbers on the finished store, 8 replays of the model's histories), with the
+defaults below. The brief widens `STARTER-next.md`, whose rules hold, and
+changes PROGRESS.md's "phases 2 to 4 wait" for the rig tonight. Builder B
+watches from `/mnt/data/projects/rig-relay-2026-09-26/` and takes over at a
+handoff.
+
+- **Done:** nothing built yet tonight; this section and the defaults.
+- **In flight**, each writer in its own worktree off this branch, merged by
+  commit: the 08:52 rewrite traced through the recall tools (read-only); the
+  hybrid clock on phase 1 (`Softland-rig-clock`); phase 2's plan revised for
+  sealing at the door (`Softland-rig-plan-locks`); phase 3's plan revised for
+  the permission and base defaults (`Softland-rig-plan-micro`); the one-owner
+  read exit planned (`Softland-rig-plan-reads`, `PLAN-read-exit.md`).
+- **Next:** each plan validated in a fresh session, phase 2's by 03:00 IST;
+  the clock merged and phase 1's suite rerun; then phases 2 and 3 and the
+  read exit built side by side.
+- **How it runs:** worktrees are `/mnt/data/projects/Softland-rig-<name>` on
+  branches `rig-<name>`. Every in-process cluster run waits on
+  `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`. The partial
+  `test/rig/store/gate_test.clj` is Sid's and stays unopened; suites name
+  their namespaces, so it never loads.
+
+## For Sid
+
+Questions that would touch a record, each with the placeholder used meanwhile,
+marked first-record. None yet.
+
+## Defaults taken overnight, not ruled
+
+Each is Sid's to rule; the model's third round puts each to him at the step
+where it applies. For each: what it is, what it is for, and what it was
+checked against. Sub-picks marked *builder A* were made so that stages built
+side by side share one contract; each can change without touching a record
+unless marked first-record.
+
+1. **Forget: nothing that could open a value sits in the depot**
+   (CONCLUSION.md R1). Values are sealed at the door under leased locks. A
+   lease act is answered by name like any offer; the gate mints the locks
+   into lease rows on its own task, wrapped under the session owner's
+   person lock. The door seals each value under a leased lock and the offer
+   cites its id. At decision the gate gets the lock through one delivery
+   function, so the in-memory holder road could replace the lease road, and
+   re-wraps it under the value's subjects. The reused-name digest is an HMAC
+   over the plaintext keyed by the value's lock; after a forget, a same-name
+   offer is answered from the record without a content check. *Builder A:*
+   the door takes a lease's plaintext by a query on the gate's task; a lease
+   row is consumed at decision whatever the decision (admitted, it becomes
+   the value's lock; refused or answered from the record, it is destroyed),
+   so nothing openable is kept that no forget can name; a lock leased to
+   another session is refused and left alone; unconsumed lease rows go when
+   their session closes. *For:* a forget reaches the operator's copy of a
+   value in the depot, which Rama keeps until a trim a quiet partition never
+   reaches. *Checked against:* the forget ruling ("gone for everyone
+   including the past", PROGRESS.md "Now"); R1's riders; P6 widened
+   (CONCLUSION.md, "Also going into the model"). *Fallback, Sid's:* if phase
+   2's plan is not revised and validated for this by 03:00 IST, it is built
+   as planned, the delivery behind the function, and the depot's plaintext
+   is marked first-record.
+2. **Stamps: a hybrid clock** (R2), wall-clock milliseconds plus a counter,
+   first-record in its packing: one long, ms × 65536 + counter. A task's
+   next stamp is the largest of the wall clock's ms × 65536, its last stamp
+   plus one, and the largest stood-on stamp plus one. *For:* stamps stay
+   within clock skew of wall time (millisecond stamps ran 21 s ahead after
+   18 s at 2,250 acts a second on one task); "as of T" stays one number;
+   stamps compare across tasks and stores. *Checked against:* ruling 4's
+   clock promises (phase 1's clock tests); R16's bound (2^62 is reached in
+   the year 4200); CONCLUSION R2 and R3.
+3. **Read entries: ruling 3 as written** (R3, R4). A one-owner layer's
+   moment is its stamp, inline; a shared layer's is the id of its settled
+   frontier. Based-on is fact ids with their stamps. The fingerprint is
+   keyed, over the ids and stamps of what matched, never values. *Builder
+   A:* an entry is an act in the reader's working layer, appended through
+   the ordinary offer path, so it is sealed at the door like any value
+   (first-record: where an entry lives, and its keys as store-owned
+   constants); a person's or a model's pattern read carries its exact list.
+   *For:* a later change to what a read matched can be noticed, while a
+   forget still reaches every value. *Checked against:* ruling 3; R1's rider
+   "read-entry fingerprints cover the ids of the matched facts, not their
+   values"; the rig constraint that fingerprints over values are keyed.
+4. **One exit for every read** (R5): it queries, appends the entry, then
+   answers; nothing is shown before its entry is acknowledged. Agent session
+   reads are recorded there, and kept or dropped when the session closes;
+   the close act says which. Standing reads as R6 has them. *For:* the
+   frame's promise that you find out when something you built on changes;
+   reads that happened cannot be unread. *Checked against:* R5 and R6;
+   ruling 3's "agent session layers may default to none", which R5 partly
+   reopens.
+5. **Permissions** (R7): a root permission made with each layer; opening a
+   session writes a narrower permission into each layer it may write,
+   through that layer's gate; agents and tools narrower still; a revoke cuts
+   everything below it. *For:* a gate checks only permissions in layers it
+   orders. *Checked against:* the permissions sharpening; the model's trace
+   14 (a gate checking a permission in the other store misses a revocation).
+6. **The base** (R8): one-owner on the stream gate, owned by the root actor,
+   re-classed to shared at the first group; its lock rules are shared-layer
+   rules from day one (7b as written, locks in the record). This overrides
+   SPEC.md phase 3's placement of the base. *For:* the re-class changes
+   nothing about locks. *Checked against:* ruling 9 (first facts stay
+   facts); the layer kinds.
+7. **The numbers** are judged against the thresholds assumed in this file
+   and README.md (at least 1,000 admitted acts a second a task with every
+   index written; at least 100 acts a second at 20 ms or less for the
+   slowest 1 in 100; a lock store at most twice the value bytes, above four
+   times change the default), which are assumed, not Sid's. Lock growth is
+   reported for 40- and 200-byte values.
+8. **Anything else:** the simplest thing that can change later without
+   touching a record, as a rig choice. If it would touch a record, the
+   simplest placeholder, marked first-record, with its question under "For
+   Sid".
+
 **Status, 25 September, evening (Sid's decision).** The rig began as a
 throwaway check. It is now a candidate for the store core: built in the
 form it should be, because it may be kept; adoption is Sid's, after a read
