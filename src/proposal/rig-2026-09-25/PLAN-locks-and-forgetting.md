@@ -267,9 +267,9 @@ digest (32 bytes, L26), nil for control facts and retracts.
 **Value digest** (L26): HMAC-SHA256 keyed by K over the value's canonical
 EDN bytes. It confirms a guess only to a holder of K, so it dies with the
 lock. **Parts digest**: stage 1's `env/digest` (HMAC under the rig secret)
-over the offer minus its name with every `:sealed` and every `:lock-id`
-removed, so a resend sealed again under a newly leased lock digests the
-same (L26). [V-F1: the 26 September text kept `:lock-id` in, which refused
+over the offer minus its name with every `:sealed` replaced by `true` and
+every `:lock-id` removed, so a resend sealed again under a newly leased lock
+digests the same (L26). [V-F1: the 26 September text kept `:lock-id` in, which refused
 an honest resend from a door that lost its locks as `:name-taken`;
 PLAN_VALIDATION-locks-and-forgetting.md, trace 1.]
 
@@ -489,8 +489,11 @@ open with the owner's lock alone (R1).
 ### The digest and the resend check
 
 - **Parts digest** (the answer record's `:digest`, a String as in stage 1):
-  `env/digest` over the offer minus its name, every `:sealed` and every
-  `:lock-id` removed [V-F1]. It covers who, layer, class, permission,
+  `env/digest` over the offer minus its name, every `:sealed` replaced by
+  `true` and every `:lock-id` removed [V-F1; the key is kept so that a
+  value fact, a retract (`:v nil`) and a control fact under the same e and
+  k still digest differently, and a resend cannot turn a value into a
+  retract unseen]. It covers who, layer, class, permission,
   session, stood-on, because-of, claimed-when, subjects, and per fact e, k,
   replaces, mark and any control value. Nothing in it is a value (P6 stands
   for what is not a value), and nothing in it names a lock, so a resend
@@ -1799,8 +1802,8 @@ Added 26 September, for the lease road (tonight's default, not a ruling):
   holder body described.** Why: R1 names both roads; one seam keeps the
   decision code the same under either.
 - **L26 (first-record: what the record holds). The parts digest (the rig
-  secret, over the offer minus its name, every `:sealed` and every
-  `:lock-id`) stays on the answer record; a value digest, HMAC-SHA256 keyed
+  secret, over the offer minus its name, every `:sealed` replaced by
+  `true`, every `:lock-id` removed) stays on the answer record; a value digest, HMAC-SHA256 keyed
   by the value's lock over its canonical EDN bytes, goes on each value
   fact's row, for a yes only.** Why: R1's rider; one act digest keyed by
   one lock would still confirm another forgotten value of the act to a

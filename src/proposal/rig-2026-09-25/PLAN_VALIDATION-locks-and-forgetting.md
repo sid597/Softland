@@ -107,8 +107,12 @@ lock id in it. The plan's reason for keeping them (a write-free record
 path) is answered by builder A's own sub-pick, which already destroys the
 lease rows of an offer "answered from the record".
 
-**F1, the fix applied.** The parts digest leaves out every `:sealed` and
-every `:lock-id`. The record path for a recorded yes, per value fact of the
+**F1, the fix applied.** The parts digest leaves out every `:lock-id` and
+replaces every `:sealed` by `true`: dropping the key outright would let a
+value fact and a retract (`:v nil`) under the same e and k digest alike if
+the canonical form treats a missing `:v` as nil, and a resend could then
+turn a value into a retract and be answered as a retry (its position has no
+cited lock, so the value check would skip). The record path for a recorded yes, per value fact of the
 resend (the parts digest matched, so the facts correspond by position):
 
 - the recorded lock `R`: the lock row, or the row's `:lock`, unwrapped with
