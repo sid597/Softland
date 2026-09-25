@@ -575,8 +575,9 @@ is the build's to check (the fallback deletes entry by entry).
    and the children index (F8, projections, rebuildable, no record); the
    root actor's id `:operator` (F12, phase 2's).
 5. **Named divergence (F3)**: an honest door that re-seals and resends
-   within one batch hears `:name-taken` on its face for the second
-   attempt, while its first attempt's answer stands; the stream gate
-   would answer the second from the record after a value check.
+   within one batch has one attempt decided (whichever sorts first by
+   fingerprint) and hears `:name-taken` on its face for the other, so it
+   asks by every fingerprint it sent; the stream gate would answer the
+   second from the record after a value check.
 
 PHASE_VALIDATION:minor-fail

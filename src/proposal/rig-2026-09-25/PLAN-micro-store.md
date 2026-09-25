@@ -288,9 +288,10 @@ byte-identical envelopes still collapse, rightly. The batch order is
    `:name-taken` face: the fold holds no value and cannot check content,
    and the rows written this batch are the decided envelope's only
    (block 2b's fp filter). An honest door that re-seals and resends inside
-   one batch hears this face for the second attempt while the first
-   attempt's answer stands; the stream gate would answer it from the record
-   after a value check (named divergence, for builder A);
+   one batch has one of its two attempts decided (whichever sorts first by
+   fp) and hears this face for the other, so it asks by every fingerprint
+   it sent; the stream gate would answer the second from the record after
+   a value check (named divergence, for builder A);
 3. a lock id that an earlier envelope under **another name** in the batch
    order already cited: `:no-such-lock`, a face (two acts citing one leased
    lock is a door's bug; the stream gate gives the same answer because the
