@@ -1,0 +1,12 @@
+
+Testing rig.probe.read-keys2-probe
+S-ALL-ORDER ["ab" "abc" "b" "e|note|0000000000000009" "e0|mention|0000000000000007" "e0|note|0000000000000005" "e0|note|000000000000000c" "e0|note|01a0c4506c000003" "e0a|note|0000000000000004" "e1|note|0000000000000003" "z" "été"]
+S-RANGE e0|note| .. e0|note|<13> ["e0|note|0000000000000005" "e0|note|000000000000000c"]
+S-RANGE e0| .. e0\u0001 ["e0|mention|0000000000000007" "e0|note|0000000000000005" "e0|note|000000000000000c" "e0|note|01a0c4506c000003"]
+S-RANGE-TO e0|note|<13> max 1 (tail read) ["e0|note|000000000000000c"]
+L-ALL-ORDER [-1 0 5 7 12 300 117309440000000003]
+L-RANGE 0..13 [0 5 7 12]
+
+Ran 1 tests containing 1 assertions.
+0 failures, 0 errors.
+{:test 1, :pass 1, :fail 0, :error 0}

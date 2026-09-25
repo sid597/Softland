@@ -1,0 +1,11 @@
+
+Testing rig.probe.read-keys-probe
+ALL-ORDER [[:e :note 9 [[:alice :by-layer :offer #uuid "01890000-0000-7000-8000-000000000001"] 4]] [:e0 :note 117309440000000003 [[:alice :by-layer :offer #uuid "01890000-0000-7000-8000-000000000002"] 0]] [:e0 :note 5 [[:alice :by-layer :offer #uuid "01890000-0000-7000-8000-000000000001"] 0]] [:e0 :note 12 [[:alice :by-layer :offer #uuid "01890000-0000-7000-8000-000000000001"] 5]] [:e0 :note 12 [[:alice :by-layer :offer #uuid "01890000-0000-7000-8000-000000000002"] 1]] [:e0 :note 300 [[:alice :by-layer :offer #uuid "01890000-0000-7000-8000-000000000001"] 1]] [:e0 :mention 7 [[:alice :by-layer :offer #uuid "01890000-0000-7000-8000-000000000001"] 2]] [:e1 :note 3 [[:alice :by-layer :offer #uuid "01890000-0000-7000-8000-000000000002"] 2]] [:e0a :note 4 [[:alice :by-layer :offer #uuid "01890000-0000-7000-8000-000000000001"] 3]]]
+RANGE [e0 note]..[e0 note 13) []
+RANGE [e0 note]..[e0 note MAX) []
+RANGE [e0]..[e0 :zzzzzz) []
+FROM [e0 note] max 2 []
+
+Ran 1 tests containing 1 assertions.
+0 failures, 0 errors.
+{:test 1, :pass 1, :fail 0, :error 0}

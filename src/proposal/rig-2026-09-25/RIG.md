@@ -34,14 +34,30 @@ handoff.
     the stream gate with a no-owner wrap, lease rows sealed under the lease
     act's writer (F2); consumption of a lock happens in one place (F3);
     seven phase 1 test expectations that change are listed (F4).
+  - The one-owner read exit planned (`PLAN-read-exit.md`) and validated:
+    minor-fail, twelve fixes in place (`PLAN_VALIDATION-read-exit.md`,
+    02:38), merged here. No new PState: four index fields in `$$layers`,
+    written in the gate's decision event; `read-point` and `read-pattern`
+    queries on the layer's home; the exit `read!` makes the entry's name,
+    queries, offers the entry and shows rows only on its yes. Among the
+    fixes: the entry stands on its moment, so it is stamped after it (F1);
+    a rebuild runs in pages of one event each, under the 5 s stream
+    timeout, where one event over 100,000 facts would replay for ever
+    (F2); a private layer answers "not visible" whether or not it exists
+    (F4); a value-index match counts only when the value still opens to
+    it, so an index cannot confirm a forgotten value (F5); visibility is
+    checked for the person a read is for (F12).
 - **In flight**, each writer in its own worktree off this branch, merged by
-  commit: phase 2 built from its plan (`Softland-rig-build-locks`);
-  validations of the read exit plan (`Softland-rig-plan-reads`), phase 3's
-  revised plan (`Softland-rig-plan-micro`) and the revision reader's plan
-  (`Softland-rig-reader`).
-- **Next:** the read exit, phase 3 and the revision reader built beside
-  phase 2 as their plans pass; then phases 4 and the rest of 5 planned
-  against the validated plans.
+  commit: phase 2 built (`Softland-rig-build-locks`); the read exit built
+  (`Softland-rig-build-reads`); phase 4's plan (`Softland-rig-plan-promotion`);
+  validations of phase 3's revised plan (`Softland-rig-plan-micro`) and the
+  revision reader's plan (`Softland-rig-reader`).
+- **Next:** phase 3 and the revision reader built as their plans pass; the
+  rest of phase 5 planned; then the merge of wave 1. Carried into the
+  merge: a person forget must purge the read exit's value index of every
+  value that dies with the person (phase 2 builds the enumeration behind a
+  seam); the read exit is the one way to read, and phase 2's own
+  `read-as-of` stays only as an internal body or a test helper.
 - **How it runs:** worktrees are `/mnt/data/projects/Softland-rig-<name>` on
   branches `rig-<name>`. Every in-process cluster run waits on
   `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`. The partial
@@ -99,6 +115,24 @@ marked first-record, and what the build does meanwhile.
    offer?** Built: the door keeps what it needs to reseal.
 7. **When a crashed door's session closes** (open item 82): until then its
    unconsumed lease rows stay.
+8. **The read entry's form**, first-record placeholders FR1 to FR14 in
+   `PLAN-read-exit.md`: the moment as `{:stamp s}`, with `{:frontier id}`
+   in its place for a shared layer; an entry as an ordinary act in the
+   working layer, one entity per entry, keys `:read/point` and
+   `:read/pattern`; the fingerprint as HMAC-SHA256 over the set of matched
+   fact ids and stamps, keyed by a secret derived inside the module; a
+   fact's id as phase 1's `[name idx]`; the entry standing on its moment
+   (FR14). And: is a cell read a point read, with rows, or a pattern read,
+   with a line (FR9; IMPLICIT_SPEC RD2 says rows, the plan says a line)?
+9. **What a read entry may hold of a value.** A `[:kv k v]` pattern keeps v
+   in the recorded pattern, and a forget of the matched value does not
+   reach it. Built: kept. The alternative is a keyed hash of v.
+10. **Exposure at the edges.** An entry acknowledged and the answer never
+    shown, because of a crash, is recorded as shown: over-recording, the
+    safe direction. A value forgotten between the query and the entry's
+    acknowledgement is still shown tonight. Should hand-written `:read/*`
+    facts be refused? Tonight they are admitted; they can only move the
+    clock as far as a stood-on stamp can.
 
 ## Defaults taken overnight, not ruled
 
