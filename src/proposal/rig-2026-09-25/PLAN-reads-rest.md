@@ -55,7 +55,8 @@ re-classed layer; F11 resuming a drop from the record; F12 a keyed digest
 in the micro value index, no plaintext leaving the arrival task; F13 the
 micro put page's bounded log reads; F14 the progress cursor's type; F15 the
 micro forget replay op; F16 forgets and person purges of a re-classed
-layer's stream era. -->
+layer's stream era; F17 the person forget's wrapper, leaving phase 2's
+client untouched. -->
 
 ## Scope of this stage
 
@@ -1231,8 +1232,16 @@ one-owner store's addresses and the keyed digest in the micro store's
    destroys the person lock and fans out to write `$$persons [p]` on every
    task. A person's values can be many, and one event must stay well under
    the stream timeout (F2), so the purge is paged, driven by
-   `(read-exit/purge-person! store p)`, which phase 2's `forget-person!`
-   calls right after the forget's `:yes` (and which the restore replays):
+   `(read-exit/purge-person! store p)`, called right after the forget's
+   `:yes` (and replayed by the restore). **[F17]** The caller is a wrapper
+   of this stage, `(read-exit/forget-person! store p ...)`, which calls
+   phase 2's `forget-person!` and then `purge-person!`; the first draft had
+   phase 2's function call it, a change to phase 2's client that no list of
+   changes named. With the wrapper phase 2 is untouched; a crash between the
+   two calls is repaired as a crashed purge is, by running `purge-person!`
+   again (the operator's recovery runs it for every `:forget-person` fact
+   whose person still has unpurged candidates; a page that finds nothing is
+   cheap):
    - **One-owner, per task t:** pages `{:op :person-purge :task t :person
      p :after cursor :n 256}` on the read exit's `*index-ops`, routed to t
      by `(|direct *task)` after the source (the depot's `hash-by :layer`

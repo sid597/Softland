@@ -23,9 +23,10 @@ against the files. -->
 
 ## Verdict
 
-**minor-fail.** Sixteen failures, each fixable by a localized edit; all
-sixteen are fixed in the plan in place (commits 5f8ef235 and 5e983412),
-numbered F1 to F16 and marked `[F1]` ... in the text. No failure needs a new architecture: the one-task read, block 2d,
+**minor-fail.** Seventeen failures, each fixable by a localized edit; all
+seventeen are fixed in the plan in place (commits 5f8ef235, 5e983412 and
+the last commit of this session), numbered F1 to F17 and marked `[F1]` ...
+in the text. No failure needs a new architecture: the one-task read, block 2d,
 the poll, the drop through OP9 and the purge invariant all stand. One check
 fails and is **not** fixed by an edit: the `|hash` indicator for a hot shared
 layer (the placement question below). It is accepted for tonight as the named
@@ -49,6 +50,7 @@ record, and it goes to Sid; F5 and F6 make that acceptance honest.
 | F13 | the micro rebuild's put page reads each entity's `:answers` and `:log` whole (`subselect ALL`) before its 4,096-row cap applies: a page's work is unbounded for a long-lived entity | two bounded ranges from the page's offset, walked together by name |
 | F14 | the progress row types `:cursor` as a String, while a sweep page's cursor is `[L a]` and a put page's an entity with a row offset | the cursor is a vector |
 | F15 | the restore replays a shared layer's forgets as `:replay-forget` "on the layer's ops depot", but `*micro-index-ops` defines no such op | the micro op, its route (hash(L), hash(e) for the ledger's date, back) and its idempotence |
+| F17 | the person purge is "called by phase 2's `forget-person!`", a change to phase 2's client that no list of changes names | a wrapper of this stage calls phase 2's `forget-person!`, then `purge-person!`; phase 2 untouched |
 | F16 | the validated micro plan's M25 sends a forget of a re-classed layer's stream-era value to the stream gate; the plan's five paths never name it, the one-owner person purge's seam covers "one-owner layers" only, and the carried moment question names P16's settings but not these forgets | path 1 names the stream-era target; the person purge covers every layer in `$$layers`; the carried item names M25's forgets |
 
 ## The placement question (builder A's first trace)
@@ -372,8 +374,11 @@ Each checked against its plan:
   and possible.
 - *Phase 2:* `:reads` in the `:session-closed` value parser; the purge call
   site now also tombstones `:ix-s` (the read exit's function, called as
-  before); the `dying-with>` seam with a named fallback; the replay seam,
-  which in the rig changes nothing but the purge (L17). Small and possible.
+  before); the `dying-with>` seam with a named fallback, whose contract F16
+  widens to every layer in `$$layers`; the replay seam, which in the rig
+  changes nothing but the purge (L17). The first draft also had phase 2's
+  `forget-person!` call the purge, unnamed: F17 moves that call into a
+  wrapper of this stage. Small and possible.
 - *Phase 3:* block 2d after block 2b's name-task check (the validated block
   2b already routes, after that check, from the arrival task to the entity
   tasks; block 2d is one more route, to hash(L)); the schema merge;
@@ -576,4 +581,12 @@ is in that sketch or justified:
    drop effective at the close act or per forget (RR15); delivering a forget
    of a delivered fact; the closing fingerprint's reading; what a restore
    records.
-3. The two-store moment (PROGRESS l.172), now stated whole (F10).
+3. The two-store moment (PROGRESS l.172), now stated whole (F10, F16).
+4. A read that pages across a commit on its task can show one erasure of a
+   batch and not another of the same batch (each page is its own select;
+   `:allow-yield?` keeps one select on a stable snapshot, not a loop of
+   them). It is a case of RIG.md "For Sid" 10, "a value forgotten between
+   the query and the entry's acknowledgement is still shown tonight", and
+   is left there, not fixed here: one select over the whole budget would
+   read up to sixteen times more than the doubling pages when matches are
+   dense.
