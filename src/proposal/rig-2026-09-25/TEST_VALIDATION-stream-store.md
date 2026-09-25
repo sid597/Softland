@@ -342,3 +342,82 @@ removed:
 **pass** after the seven additions. Before them the walk was a
 **minor-fail**: each missing row was a testing block or case added to an
 existing deftest, with no new namespace and no restructuring.
+
+## Hybrid clock (26 September)
+
+Validated by the clock session against PLAN-stream-store.md "Hybrid clock
+(26 September)" and ruling 4. Default verdict fail. For each promise, the
+test that exercises it, and whether the old millisecond stamp would fail it
+(a test that passes either way checks nothing about the change).
+
+- **The encoding** (`pack`, `ms-of`, `counter-of`): `clock_test.clj`
+  `encoding` — fixed values, a 2,000-case round trip over milliseconds to
+  2^46 and every counter, order of longs = order of (ms, counter) pairs, and
+  every long, negative ones included, is one pair. Pass.
+- **Never backward within a unit; never earlier than anything stood on;
+  never before the wall's millisecond**: `clock_test.clj` `the-two-promises`
+  (500 runs of up to 60 decisions each, walls that stand still, step back or
+  jump, stood-on stamps up to 2 s either side of the wall);
+  `envelope_test.clj` `stamps` (the gate's `stamp-for` against the formula
+  with the clock, carried stamps and replaced heads generated around the
+  wall's stamp, so each of them wins in some runs, and a fixed case tying it
+  to `next-stamp`); `stream_gate_test.clj` `stream-gate`, "stamps keep the
+  clock promises" (six decisions strictly increasing, yes and no alike, the
+  clock at the last). The first two fail under the old unit (their expected
+  values are packed). Pass.
+- **Stamps stay near wall time at a high rate**: `stream-gate`, "stamps stay
+  at the wall at a high rate" — 3,200 acts on `:alice-agent`'s task from 32
+  offerers at once; for every act, the millisecond it was sent ≤ its stamp's
+  millisecond ≤ the millisecond its ack came back; stamps all distinct; some
+  millisecond held more than one decision (a counter above 0); the clock at
+  the largest. It prints what the millisecond unit would have given over the
+  same decisions. The old unit fails it (its stamps read as hybrid are
+  milliseconds ÷ 65536). The same wall is read by the test and the gate
+  (one JVM, `System.currentTimeMillis` with no simulated time), so the bound
+  is exact; it assumes the machine's clock does not step back during the two
+  seconds, and it runs before any act leaves a task's clock ahead of the
+  wall, which its first assertion checks. `clock_test.clj`
+  `stamps-stay-near-the-wall-at-a-high-rate` does the arithmetic at 2,250
+  decisions a second for 18 s: lead 0 ms, against 22,500 ms for the
+  millisecond unit. Pass.
+- **A stood-on stamp ahead of the wall is honoured**: `stream-gate`, "a
+  stood-on stamp ahead of the wall clock is honoured" — a carried stamp one
+  minute ahead with counter 7 gives exactly one past it; the next act on the
+  task is one past that (counter 9), the wall behind; `clock_test.clj`
+  `a-stood-on-stamp-ahead-of-the-wall` also shows the wall catching up.
+  Pass.
+- **The counter rolling past 65,535 within one millisecond**: `stream-gate`,
+  under simulated time, "the counter rolling past 65,535 within one
+  millisecond" — a carried stamp at counter 65534 puts the task at 65535, the
+  next act is the next millisecond's counter 0 though the wall stands still,
+  and the wall reaching and passing it gives counter 1, then the wall's
+  millisecond at 0. `clock_test.clj` `the-counter` runs 65,537 decisions in
+  one millisecond: 65,536 fit, the next carries. The wall standing still
+  (counter 0, then 1) is the simulated-time block's first two assertions.
+  Pass.
+- **A replayed or resent offer answered with its recorded stamp**:
+  `stream-gate`, "a resend after the wall moved on" (the simulated wall two
+  milliseconds on: the same answer, the record's stamp at the old
+  millisecond and counter 0, no stamp given); "a completed offer replayed by
+  a later crash" now also resends after the replay and asserts the recorded
+  answer and stamp while the task's clock is past it; "a crash before the
+  writes" already asserts the resend's recorded stamp. Pass.
+- **Overflow is refused, not wrapped** (R16 stays): `clock_test.clj`
+  `overflow-is-refused-not-wrapped`; `envelope_test.clj` `parse-bounds`
+  (2^62 refused on the face, unchanged). Pass.
+- **The model**: every comparison with `formal.model/run` still compares
+  answers only; the namespace docstring of `stream_gate_test.clj` says how
+  the model's stamps relate (one integer, a tick and a counter step the same
+  size; the relations asserted hold in both). Pass.
+- **Minimize IPC launches**: no new cluster. The gate's cases run in the one
+  `stream-gate` cluster; `rig.store.clock-test` is a new namespace of pure
+  tests of the new namespace, with no cluster. Pass.
+- **Synchronization**: every send is an acked append, so the decision and
+  its writes are visible when it returns; the burst's 32 futures are all
+  dereferenced before any read. Pass.
+- **Test namespaces compile**: every changed namespace and the three bench
+  namespaces loaded with no cluster started. Pass.
+
+Self-consistency: the one environmental assumption (a wall that does not
+step back during the burst) is stated, not a missing case. **Verdict:
+pass.**

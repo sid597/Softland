@@ -10,11 +10,13 @@
   `intake` and `decide` catch every throwable: an exception in topology
   code is fatal to the worker (RIG.md, phase 0), so a failure here is the
   unrecorded face refusal :gate-error (F6)."
-  (:require [rig.store.envelope :as env])
+  (:require [rig.store.clock :as hlc]
+            [rig.store.envelope :as env])
   (:import [com.rpl.rama.helpers TopologyUtils]))
 
 (defn wall-now
-  "The gate's wall clock, simulated in tests. A function call, not a seek."
+  "The gate's wall clock in milliseconds, simulated in tests. A function
+  call, not a seek. `stamp-for` turns it into a stamp (rig.store.clock)."
   []
   (TopologyUtils/currentTimeMillis))
 
@@ -184,13 +186,15 @@
 ;; ------------------------------------------------------------------ stamp
 
 (defn stamp-for
-  "Ruling 4 as the model's hybrid clock: at or after the wall, after this
-  task's last stamp, after every stamp the act stood on (carried, P9) and
-  after every fact it replaces (read from the heads)."
+  "Ruling 4 as a hybrid clock (rig.store.clock/next-stamp): at or after the
+  wall's millisecond, after this task's last stamp `clock`, after every
+  stamp the act stood on (carried, P9) and after every fact it replaces
+  (read from the heads). `wall` is in milliseconds; every other argument
+  holds stamps."
   [offer heads clock wall]
-  (apply max (long wall) (inc (long clock))
-         (concat (map inc (vals (:stood-on offer)))
-                 (keep #(some-> (get heads [(:e %) (:k %) (:replaces %)]) inc) (:facts offer)))))
+  (hlc/next-stamp wall clock
+                  (concat (vals (:stood-on offer))
+                          (keep #(get heads [(:e %) (:k %) (:replaces %)]) (:facts offer)))))
 
 ;; ----------------------------------------------------------------- answer
 

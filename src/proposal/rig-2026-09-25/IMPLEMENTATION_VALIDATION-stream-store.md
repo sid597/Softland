@@ -356,3 +356,68 @@ picks where the rulings are silent, written to the build notes for RIG.md.
 **pass** (after the fix). Before it, the owner-in-force finding made this
 a **minor-fail**: a localized edit to one function, applied in place and
 re-traced; every other check passes on code-tracing.
+
+## Hybrid clock (26 September)
+
+Validated by the clock session against PLAN-stream-store.md "Hybrid clock
+(26 September)" and ruling 4 ("Never backward within a unit; never earlier
+than anything the fact stood on"), with CONCLUSION.md R2 as the default the
+note implements (a default, not a ruling). Default verdict fail; each check
+below is traced in code.
+
+- **The encoding lives in one place.** `clock.clj` 22-49: `pack` is
+  `ms × 65536 + counter` with checked `*` and `+`; `ms-of` is an arithmetic
+  shift by 16; `counter-of` masks the low 16 bits; `next-stamp` is
+  `max(pack(ms-now, 0), last + 1, each stood-on + 1)` by a `reduce` with
+  checked `inc`. Nothing else in `src/` multiplies, shifts or masks a stamp:
+  a grep for `65536`, `bit-shift` and `ms-of` outside `clock.clj` finds R16's
+  constant 2^62, the digest's hex encoder, the UUID7 builder (names, not
+  stamps) and one docstring; the bench's two reads use `ms-of`. Pass.
+- **Never backward within a unit.** The unit is the task (I-G9). `module.clj`
+  100 reads the task's last stamp (`STAY $$clock`) in the same event that
+  146 sets `$$clock` to the decided stamp; `gate.clj` 188-197 passes it as
+  `last`, so the stamp is at least `last + 1`. Every decision that gives a
+  stamp (a yes and a recorded no, `decide*` 269) writes the clock; the
+  recorded and taken paths (`module.clj` 95) and face refusals give none and
+  write none. A crash before the commit discards the clock write with the
+  rest; the replay reads the old clock and stamps at least one past it.
+  Pass.
+- **Never earlier than anything the fact stood on.** `stamp-for` hands
+  `next-stamp` every carried stood-on stamp (`(vals (:stood-on offer))`) and
+  every replaced fact's recorded head stamp (`heads`, read at `module.clj`
+  108-114), each + 1. The carried values are parsed as longs below 2^62
+  (`envelope.clj` 270, 315, 336, R16). Pass.
+- **At the wall's millisecond, within clock skew.** `wall-now` (`gate.clj`
+  17) is `TopologyUtils/currentTimeMillis` on the deciding task, packed with
+  counter 0, so the stamp's millisecond is the wall's unless the task's last
+  stamp or a stood-on stamp has reached that millisecond's counter 65535;
+  then it is theirs + 1 (the counter carries). Pass, as the note states it.
+- **One number.** Every stamp is a Long in the same slots as before
+  (`module.clj` `:stamp`, `:stood-on`, `:heads`, `$$clock`); no schema
+  changed, no field added. `max`, `inc` and `+` over longs return Long, which
+  the schema requires (a Double or Integer would throw in the write). Pass.
+- **The gate never throws.** `next-stamp` can throw only on overflow
+  (`ArithmeticException`) or a non-number (`ClassCastException`); it runs
+  inside `decide`'s `catch Throwable` (`gate.clj` 302-311), which answers
+  `:gate-error` unrecorded. Overflow needs a carried stamp past 2^62, which
+  the parser refuses, or a wall past millisecond 2^47 (the year 6400). Pass.
+- **A resend or replay keeps its recorded stamp.** `answer-from-record`
+  returns the record's `:stamp`; nothing on that path calls `stamp-for`.
+  Pass.
+- **Idempotency and I/O.** No new read, write, PState or partitioner; the
+  clock is still one `STAY` read and one root `termval` per decided offer.
+  The earlier "Stream topology idempotency" entry stands: the clock write is
+  a set of a value computed before any write. Pass.
+- **Plan conformance.** `wall-now` stays in the gate and is packed by
+  `next-stamp`; `decide`'s arguments are unchanged (`clock` a stamp, `wall`
+  milliseconds); comments in `module.clj`, `client.clj` and `envelope.clj`
+  name the unit; the bench's `:stamp-ahead-of-wall-ms` and probe line read
+  the millisecond with `ms-of`. No divergence. Pass.
+- **Left as the note says.** `:claimed-when` stays the offerer's wall
+  milliseconds (`client.clj` `build`); R16's bound is unchanged; `$$clock`
+  starts at 0. The model's `stamp-for` computes the same maximum over ticks;
+  answers compare, stamp values are not compared.
+
+Self-consistency: no entry above names a gap left open; the counter carry
+past 65,536 decisions in one millisecond is the stated behaviour of the
+default, not a defect. **Verdict: pass.**

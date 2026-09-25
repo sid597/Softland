@@ -8,6 +8,12 @@
   compared. Crashes are injected through `rig.store.inject` (R3, P14).
   Tests assert 'at least once', never an exact replay count (R4).
 
+  Stamps are hybrid stamps (rig.store.clock: ms × 65536 + counter). The
+  model's stamps are one integer in which a wall tick and a counter step
+  are the same size; only the model's answers are compared, never its
+  stamp values, and the relations asserted here (strictly increasing,
+  after what was stood on) hold in both units.
+
   `layers-schema-probe` repeats, as assertions, the build's first check
   (F14): the Rama behaviours of the exact `$$layers` schema the module
   rests on. It needs no module."
@@ -17,6 +23,7 @@
             [com.rpl.rama.test :as rtest]
             [formal.model :as fm]
             [rig.store.client :as c]
+            [rig.store.clock :as hlc]
             [rig.store.envelope :as env]
             [rig.store.inject :as inject]
             [rig.store.module :as m])
@@ -458,7 +465,7 @@
                 (is (= su (head :alice :e5 :note fu)) "C1 × a new fact without replace: both stay heads (C4)")
                 (is (= sb (head :alice :e5 :note [(:name beside) 0]))))))))
 
-      (testing "stamps keep the clock promises (I-O2, P9)"
+      (testing "stamps keep the clock promises (I-O2, P9), as hybrid stamps: ms × 65536 + counter (rig.store.clock)"
         (let [layer :alice-agent
               answers (vec (for [i (range 6)]
                              (send! (if (even? i)
@@ -467,20 +474,74 @@
               stamps (map :stamp answers)]
           (is (= [:yes :no :yes :no :yes :no] (map :answer answers)))
           (is (apply < stamps) "never backward on a task: one stamp per decided offer, yes or no, strictly increasing")
-          (is (= (last stamps) (clock layer)))
-          (let [ahead (+ (clock layer) 1000000)
+          (is (= (last stamps) (clock layer))))
+        ;; before any act carries a stamp ahead of the wall or time is simulated:
+        ;; both leave a task's clock ahead of the wall for the rest of the run
+        (testing "stamps stay at the wall at a high rate: 3,200 acts on one task from 32 offerers at once"
+          (let [layer :alice-agent
+                _ (is (<= (hlc/ms-of (clock layer)) (System/currentTimeMillis)) "before the burst the task's clock is not ahead of the wall")
+                t0 (System/nanoTime)
+                runs (doall (for [j (range 32)]
+                              (future
+                                (vec (for [i (range 100)]
+                                       (let [sent (System/currentTimeMillis)
+                                             a (send! (act :alice layer [(note-fact :e15 [j i])]))]
+                                         [sent (:stamp a) (System/currentTimeMillis) (:answer a)]))))))
+                acts (vec (mapcat deref runs))
+                secs (/ (- (System/nanoTime) t0) 1e9)
+                stamps (map second acts)
+                in-order (sort stamps)
+                walls (map hlc/ms-of in-order)
+                ms-unit (reductions (fn [p w] (max w (inc p))) (first walls) (rest walls))
+                lead (apply max (map (fn [[_ s acked]] (- (hlc/ms-of s) acked)) acts))
+                lag (apply max (map (fn [[sent s]] (- sent (hlc/ms-of s))) acts))]
+            (say "burst:" (count acts) "acts in" (format "%.2f" secs) "s," (Math/round (/ (count acts) secs)) "a second;"
+                 "largest lead of a stamp's millisecond over the wall at its ack" lead "ms;"
+                 "largest counter" (apply max (map hlc/counter-of stamps)) ";"
+                 "the millisecond unit over the same decisions would have ended" (- (last ms-unit) (last walls)) "ms ahead")
+            (is (every? #(= :yes (nth % 3)) acts))
+            (is (= (count acts) (count (set stamps))) "one stamp per decision, none shared")
+            (is (<= lead 0) "no stamp's millisecond is past the wall when its ack came back")
+            (is (<= lag 0) "none is before the wall when it was sent")
+            (is (some #(pos? (hlc/counter-of %)) stamps) "some millisecond held more than one decision, told apart by the counter")
+            (is (= (last in-order) (clock layer)))))
+        (testing "a stood-on stamp ahead of the wall clock is honoured, and the task keeps the lead: never backward"
+          (let [layer :alice-agent
+                ahead (hlc/pack (+ (System/currentTimeMillis) 60000) 7)
                 fid [(env/make-name :alice-hand :by-layer) 0]
-                a (send! (act :alice layer [(note-fact :e6 "stood")] :stood-on {fid ahead}))]
+                a (send! (act :alice layer [(note-fact :e6 "stood")] :stood-on {fid ahead}))
+                b (send! (act :alice layer [(note-fact :e6 "after it")]))]
             (is (= (inc ahead) (:stamp a)) "never earlier than anything it stood on (the carried stamp)")
-            (is (= (:stamp a) (clock layer)))))
+            (is (< (System/currentTimeMillis) (hlc/ms-of (:stamp a))) "its millisecond is ahead of the wall")
+            (is (= (inc (:stamp a)) (:stamp b)) "the next act: one past the last, though the wall is behind")
+            (is (= [(hlc/ms-of ahead) 9] ((juxt hlc/ms-of hlc/counter-of) (:stamp b))))
+            (is (= (:stamp b) (clock layer)))))
         (with-open [_ (TopologyUtils/startSimTime)]
           (let [layer :alice-hand
-                wall (+ (clock layer) 5000000)
+                wall (+ (hlc/ms-of (clock layer)) 5000000)
                 _ (TopologyUtils/advanceSimTime wall)
-                a (send! (act :alice layer [(note-fact :e6 "at the wall")]))
+                oa (act :alice layer [(note-fact :e6 "at the wall")])
+                a (send! oa)
                 b (send! (act :alice layer [(note-fact :e6 "same wall")]))]
-            (is (= wall (:stamp a)) "at or after the gate's wall clock: here exactly the simulated wall")
-            (is (= (inc wall) (:stamp b)) "the wall standing still: one past the task's last stamp"))))
+            (is (= (hlc/pack wall 0) (:stamp a)) "at the gate's wall clock: the simulated millisecond, counter 0")
+            (is (= (hlc/pack wall 1) (:stamp b)) "the wall standing still: one past the task's last stamp, the counter counting")
+            (testing "the counter rolling past 65,535 within one millisecond"
+              (let [fid [(env/make-name :alice-agent :by-layer) 0]
+                    top (send! (act :alice layer [(note-fact :e6 "to the top")] :stood-on {fid (hlc/pack wall 65534)}))
+                    over (send! (act :alice layer [(note-fact :e6 "past the top")]))]
+                (is (= (hlc/pack wall 65535) (:stamp top)) "the wall's millisecond, its last counter")
+                (is (= (hlc/pack (inc wall) 0) (:stamp over)) "carried into the next millisecond, which the wall has not reached")
+                (TopologyUtils/advanceSimTime 1)
+                (is (= (hlc/pack (inc wall) 1) (:stamp (send! (act :alice layer [(note-fact :e6 "the wall at it")]))))
+                    "the wall reaching the carried millisecond: the counter counts on")
+                (TopologyUtils/advanceSimTime 1)
+                (is (= (hlc/pack (+ wall 2) 0) (:stamp (send! (act :alice layer [(note-fact :e6 "the wall past it")]))))
+                    "the wall past the task's clock: its millisecond, counter 0")))
+            (testing "a resend after the wall moved on is answered with its recorded stamp, not a new one"
+              (let [c1 (clock layer)]
+                (is (= a (send! oa)))
+                (is (= [wall 0] ((juxt hlc/ms-of hlc/counter-of) (:stamp (rec (:name oa))))))
+                (is (= c1 (clock layer)) "no stamp given"))))))
 
       (testing "an act of 600 facts is admitted whole, at one stamp, in one decision"
         (let [facts (vec (for [i (range 600)] (note-fact (keyword (str "big" i)) i)))
@@ -621,7 +682,8 @@
                             (try (send! b) (catch Exception _ nil))
                             (wait-until #(map? (c/lookup st bn (env/offer-digest b))) 120000)
                             (wait-until #(<= 2 (inject/count-of :seen bn)) 30000)
-                            {:aa aa :r-before r-before :r-after (rec an) :rows (rows :alice-agent an)
+                            {:aa aa :resent (c/offer-until-answered! st a) :clock-after (clock :alice-agent)
+                             :r-before r-before :r-after (rec an) :rows (rows :alice-agent an)
                              :seen (inject/count-of :seen an) :recorded (inject/count-of :recorded an)
                              :decided (inject/count-of :before-writes an)
                              :ra ra :rr-before rr-before :rr-after (rec rn)
@@ -633,9 +695,11 @@
           (say "completed-record replay: attempts" (count results)
                "| times the completed offer was seen" (mapv :seen results)
                "| answered from its record" (mapv :recorded results))
-          (doseq [{:keys [aa r-before r-after rows decided ra rr-before rr-after r-decided]} results]
+          (doseq [{:keys [aa resent clock-after r-before r-after rows decided ra rr-before rr-after r-decided]} results]
             (is (= :yes (:answer aa)))
             (is (= r-before r-after) "the same answer and stamp")
+            (is (= aa resent) "a resend after the replay: the recorded answer and stamp")
+            (is (< (:stamp aa) clock-after) "though the task's clock has moved past it")
             (is (= 1 (count rows)) "no second admission")
             (is (= 1 decided) "the replay decided nothing and gave no stamp")
             (is (= :no-permission (:reason ra)))

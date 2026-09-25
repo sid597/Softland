@@ -60,10 +60,11 @@
 (def max-subjects "Carried subjects an offer may name (F3)." 256)
 
 (def max-carried-stamp
-  "A carried stood-on stamp must be below this (rig choice proposed in
-  BUILD_NOTES-stream-store.md): the stamp is at least a carried stamp + 1,
-  and a task's clock follows it, so a carried Long/MAX_VALUE would overflow
-  and leave every later offer on that task a gate error."
+  "A carried stood-on stamp must be below this (R16): the stamp is at least
+  a carried stamp + 1, and a task's clock follows it, so a carried
+  Long/MAX_VALUE would overflow and leave every later offer on that task a
+  gate error. In the hybrid encoding (rig.store.clock) 2^62 is millisecond
+  2^46, some two thousand years from now, so no honest stamp reaches it."
   (bit-shift-left 1 62))
 
 ;; -------------------------------------------------------------- EDN values

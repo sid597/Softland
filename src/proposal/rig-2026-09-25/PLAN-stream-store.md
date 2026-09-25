@@ -1167,3 +1167,59 @@ here.
   stage only the operator makes layers (P10).
 - `:session` on the offer is carried and stored, never checked; what a gate
   should check it against is not ruled.
+
+## Hybrid clock (26 September)
+
+Written by the clock session on branch `rig-clock`. It replaces the stamp's
+unit in "The shapes" (Stamp) and in P9; everything else in this plan stands.
+
+**What changes.** A stamp was wall milliseconds, and a decision stamped at
+least the task's last stamp + 1, so above 1,000 decisions a second on one
+task the stamps ran ahead of real time: 20.7 s ahead of the wall clock at
+2,234 acts a second (`BENCH_NOTES-stream.md`, agent-rate run 1, K = 16). The default for the stamp
+is now CONCLUSION.md R2 (main, `store-next-2026-09-25`), taken as a default,
+not a ruling: wall-clock milliseconds plus a counter. Tonight's encoding,
+first-record: one long, stamp = ms × 65536 + counter, counter 0 to 65535. A
+task's next stamp is `max(ms-now × 65536, last stamp + 1, largest stood-on
+stamp + 1)`, where stood-on covers the carried stamps and the replaced
+facts' recorded stamps, as P9 has them.
+
+**Where.**
+- `rig.store.clock` (new, pure): `pack`, `ms-of`, `counter-of`,
+  `next-stamp`. The encoding lives here only.
+- `rig.store.gate/stamp-for` calls `next-stamp`; `wall-now` stays the
+  gate's wall in milliseconds (`TopologyUtils/currentTimeMillis`, simulated
+  in tests) and is packed there. `decide` keeps its arguments: `clock` is a
+  stamp, `wall` is milliseconds.
+- `$$clock`, the record's `:stamp`, `:stood-on` values and `:heads` values
+  keep their schema (Long); only what the long means changes. Comments in
+  `module.clj`, `client.clj` and `envelope.clj` say so.
+- The stream bench reads the stamp's millisecond with `ms-of` where it
+  compared a stamp with the wall (`:stamp-ahead-of-wall-ms`).
+
+**Why this shape.** It keeps ruling 4's promises: a stamp is never backward
+within a task (at least last + 1) and never earlier than anything the fact
+stood on (at least each + 1). It keeps a stamp one number, so "as of T"
+stays one number (R3) and stamps compare across tasks and stores by `<`.
+It keeps the millisecond part at the deciding task's wall for up to 65,536
+decisions in one millisecond; past that the counter carries into the
+millisecond and the stamps run ahead until the wall catches up. A stood-on
+stamp ahead of the wall still wins, as ruling 4 requires. Packing into one
+long orders stamps by millisecond, then counter, so every comparison the
+gate and the tests make (`<`, `max`, `+ 1`) is unchanged.
+
+**What stays.** R16: a carried stood-on stamp must be below 2^62, refused
+as malformed on the face otherwise; 2^62 is now the stamp of millisecond
+2^46 (about the year 4200), so it bounds nothing honest. Negative carried
+stamps still pass (they never win the max). `$$clock` starts at 0, which is
+millisecond 0, counter 0. `:claimed-when` stays the offerer's wall
+milliseconds, carried and not checked: a claim, not a stamp (first-record,
+named). Names stay UUID7s over wall milliseconds (R12); they are ids, not
+stamps. The formal model's stamps are one integer in which a wall tick and
+a counter step are the same size (`stamp-for` in `model.clj`: `max(tick +
+skew, before + 1)`); the rig's tests compare the model's answers, never its
+stamp values, and the relations they check (`<`, after stood-on, strictly
+increasing) hold in both units. The later stages' plans
+(`PLAN-micro-store.md` "Stamp", `PLAN-locks-and-forgetting.md`'s erasure
+stamp) name a millisecond wall; when built they take their stamps from
+`rig.store.clock`.
