@@ -204,8 +204,28 @@ Four more findings, each ran:
 
 ## Numbers so far
 
-None. Machine for every number: AMD Ryzen 9 9900X (12 cores, 24 threads),
-62 GB RAM, Linux 7.0.0-31-generic, OpenJDK 21.0.12.1.
+Two of the three are measured; `README.md` has the table under "The
+numbers so far", and `runs/phase7-agent-rate.txt` and
+`runs/phase7-one-thread.txt` have the method and every run. In short: each
+small act makes 4 index writes; one offerer waiting on acks gets about 300
+acts a second; one layer's task passed 5,000 acts a second with 128
+offerers and was still rising; one act at a time takes 3.3 ms typically and
+4.7 ms for the slowest 1 in 100, mostly this machine's disk flushes. Lock
+growth is finishing in a separate session; its results land in
+`runs/phase7-lock-growth.txt`, with its running log in
+`BENCH_NOTES-locks.md`.
+
+The measurements found one thing none of the three numbers asked about:
+stamps count milliseconds and each decision stamps at least one past the
+last, so above 1,000 acts a second on one task the stamps run ahead of real
+time (21 seconds after 18 seconds at 2,250 a second). The stamp's unit has
+to be settled before the first kept record.
+
+Only one in-process cluster can run on this machine at a time (port 2002),
+so measurements run one after another.
+
+Machine for every number: AMD Ryzen 9 9900X (12 cores, 24 threads), 62 GB
+RAM, Linux 7.0.0-31-generic, OpenJDK 21.0.12.1.
 
 ## The skill's artifacts so far
 
@@ -263,3 +283,7 @@ session's assumptions, for Sid to correct:
 
 The count is not measured in this step. It needs most of the store, and
 the proposal is to make it the real store's first milestone.
+
+**Handoff, 25 September around noon:** Sid starts a new session, which
+opens with `STARTER-next.md` in this folder. The session that built the rig
+so far stays open only until the lock-growth run finishes.

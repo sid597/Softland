@@ -42,8 +42,8 @@ knowing the answers.
 | question | what it decides | status |
 |---|---|---|
 | Rama's claims: is a stream event atomic on one task and replayed at least once after a crash? Is a microbatch decided before it is visible and atomic across tasks? | whether the two gates can be built as ruled | done: all held except one reading, below |
-| Index writes per second, with an agent session writing small acts continuously | whether an agent session can be an ordinary one-owner layer that writes every index as each act is admitted, or needs coarser acts or fewer indexes | measuring now |
-| One person's layer on one thread: acts per second and latency | whether placing a person's whole layer on one task is enough, or persons need a different placement | measuring now |
+| Index writes per second, with an agent session writing small acts continuously | whether an agent session can be an ordinary one-owner layer that writes every index as each act is admitted, or needs coarser acts or fewer indexes | measured; see "The numbers so far" |
+| One person's layer on one thread: acts per second and latency | whether placing a person's whole layer on one task is enough, or persons need a different placement | measured; see "The numbers so far" |
 | Lock store growth under hand layers: bytes per value over 100,000 values | whether a separate lock row per value is an affordable default for hand sessions, or they should default to one lock per act or locks kept in the record | measuring now |
 | The count: add one new tool and one new key grammar by writing facts only, and count the code changes still needed | whether the line between what is compiled and what is a fact is drawn right, so the store can grow from inside | not started; needs most of the store; proposed as the real store's first milestone |
 | Replaying the model's fixed histories through the rig | whether Rama carries the rulings exactly as the model decides them | not started; proposed as the real store's acceptance tests |
@@ -60,6 +60,31 @@ assumptions, not rulings; Sid sets the real ones:
 The in-process cluster gives orders of magnitude, not production figures.
 A result far from its threshold decides the question; a result near it
 needs a real cluster.
+
+## The numbers so far
+
+Measured on 25 September by a fresh Opus session, on the stream store as
+built, with 4 tasks and a thread each, on an AMD Ryzen 9 9900X with 62 GB
+RAM. Medians of three runs checked for interference. Details and method:
+`runs/phase7-agent-rate.txt`, `runs/phase7-one-thread.txt`,
+`BENCH_NOTES-stream.md`.
+
+Each admitted small act makes 4 index writes (its answer record, its log
+row, its chain head, the task's clock) and 4 reads.
+
+| number | result | against the threshold |
+|---|---|---|
+| agent rate, one offerer waiting on each ack | about 300 acts per second; slowest 1 in 100 at 4.7 ms | one agent needs about 100 a second, so one is served three times over |
+| agent rate, 16 offerers on one layer | about 2,250 acts per second, 9,000 index writes per second; slowest 1 in 100 at 9.9 ms | about 2 times the 1,000 threshold |
+| agent rate, 128 offerers | about 5,200 acts per second, still rising | 5 times the threshold; points to yes, too close for this cluster to decide |
+| one person's layer, one act at a time | about 300 acts per second; 3.3 ms typical, 4.7 ms for the slowest 1 in 100 | rate 3 times the threshold, latency 4 times under it |
+| one person's layer, 8 at once | about 1,300 acts per second; slowest 1 in 100 at 8.7 ms | rate 13 times the threshold: decided yes |
+| lock store growth | still being measured; results land in `runs/phase7-lock-growth.txt` | |
+
+Most of the 3.3 ms is this machine's disk: about six small flushes per act.
+The gate's own work is under a millisecond, and its thread never went above
+60% of a core. Every offer into a layer was decided on that layer's one
+task.
 
 ## What was found so far
 
@@ -91,6 +116,18 @@ From the stream store's build and its reviews:
 - Rama 1.6.0 has no built-in time-ordered UUID generator, though the rama
   skill's reference names one; the rig makes its own.
 
+From the measurements:
+
+- **Stamps run ahead of real time on a busy task.** A stamp counts
+  milliseconds, and each decision stamps at least one past the task's last
+  stamp. Above 1,000 acts a second on one task, stamps pull ahead of the
+  wall clock: 21 seconds ahead after 18 seconds at 2,250 a second. The
+  clock promises still hold. A read by wall time, such as "as of 3pm", and
+  a comparison of stamps across the two stores, do not. The stamp's unit
+  is frozen by the first kept record, so before then stamps need a finer
+  unit, or a wall time plus a counter that keeps the time part at real
+  time.
+
 ## What exists
 
 - **Phase 0, done.** A small check module and its tests, `src/rig/claims.clj`
@@ -103,8 +140,8 @@ From the stream store's build and its reviews:
 - **Phase 2, locks and forgetting: planned, not validated, not built.**
 - **Phase 3, the micro store: planned, not validated, not built.**
 - Phases 4 to 8 (promotion, reads, tools and grammars, the numbers in full,
-  the replays) are not started. The three numbers are being measured now on
-  slices instead.
+  the replays) are not started. The three numbers are measured on slices
+  instead: two are in, lock growth is finishing.
 
 ## Open for Sid
 
@@ -124,12 +161,16 @@ From the stream store's build and its reviews:
    everything after the phase 0 commit is what to discard.
 6. `test/rig/store/gate_test.clj` is a partial file from an interrupted
    write, uncommitted and untouched. Keep or delete.
+7. The stamp's unit: milliseconds let a busy task's stamps run ahead of
+   real time. A finer unit, or a wall time plus a counter, has to be chosen
+   before the first kept record.
 
 ## The files
 
 | file | what it is |
 |---|---|
 | `README.md` | this overview |
+| `STARTER-next.md` | where the next session starts |
 | `RIG.md` | the running record: status, phase 0's table, rig choices R1 to R18, what is next |
 | `SPEC.md` | the brief the build follows: Sid's phases verbatim, pointers to the rulings and the model |
 | `IMPLICIT_SPEC.md` | every requirement the rulings imply, where the sources differ, and the open picks |
@@ -139,7 +180,8 @@ From the stream store's build and its reviews:
 | `PLAN-locks-and-forgetting.md`, `PLAN-micro-store.md` | phases 2 and 3's designs, not yet validated |
 | `src/rig/store/` | the stream store: envelope, gate decision, module, client |
 | `test/rig/` | the tests; `test/rig/store/stream_gate_test.clj` is phase 1's main suite |
-| `runs/` | saved results of the runs |
+| `runs/` | saved results of the runs, including the numbers (`phase7-*.txt`) |
+| `BENCH_NOTES-stream.md`, `BENCH_NOTES-locks.md` | the measurement sessions' running logs |
 
 ## How to run it
 
