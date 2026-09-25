@@ -2022,6 +2022,53 @@ Written while designing, first person.
   value; the second would make the row lock and the record lock the same
   shape in different maps and blur the ruled distinction. Row field, quickly.
 
+Added 26 September, while revising for the lease road (first person, this
+session):
+
+- **The digest's key.** I weighed three: one act digest keyed by one of the
+  act's locks (fails: after a second value of the act is forgotten, a
+  holder of the first lock can still confirm a guess of it), one act digest
+  keyed by a derivation over all the act's locks (works, but a second
+  mechanism, and the whole act's content check dies at its first forget),
+  and a digest per value keyed by its own lock beside a parts digest that
+  covers no value (chosen). Close between the last two; the per-value one
+  keeps the checks of values still open and needs no derivation.
+- **Lock ids inside the parts digest.** In: a resend must cite the locks the
+  first offer cited (P6's client keeps what it sent), and "answered from the
+  record, the lease is destroyed" holds by construction with the record path
+  still write-free. Out: a door that lost its locks could reseal under new
+  ones and still match, at the price of a lease read and a delete on the
+  record path. In, because the door can always retake its unconsumed locks
+  by `lease-locks`, so the case out would serve does not arise.
+- **Face or recorded after the delivery.** The default fixes the missing
+  lock as a face refusal. I first left `:value-shape`, `:too-many-subjects`
+  and R17's domain checks on the face where the 25 September text and stage
+  1 had them; then a refused offer's leases stay, and its depot bytes stay
+  openable, against "refused, it is destroyed". Recording them costs a
+  burned name for a door's bug. Not close once the default's intent was
+  read.
+- **`:grain-mismatch` on the face or recorded.** On the face the door could
+  reseal and resend under the same name; but the check reads settings, and
+  under `:all-after` a replay after a later grain switch could admit what
+  the first attempt refused. Recorded is deterministic. Close; the replay
+  decided it.
+- **Lease rows keyed session first or lock id first.** Lock id first would
+  make "leased to another session" a distinct reason; session first makes
+  the close one delete and the door's query one range, and the delivery's
+  signature already takes the session. Session first, not close.
+- **Whose lock seals a lease.** "The session owner's person lock", but the
+  rig has no session registry and an offer's `:who` may be the operator or
+  an agent with no person lock. The layer's owner is always a person in a
+  one-owner layer and is the lock the gate reads anyway. Forced once the
+  alternatives were seen to have no lock.
+- **Where the delivery gets the owner's lock.** A self-contained delivery
+  would read the owner's entry a second time in the same event; passing the
+  event's persons map in keeps one read and still lets the holder body
+  ignore it. Small, but the skill's rule on I/O decides it.
+- **The holder road.** I did not reopen it: CONCLUSION R1 made the lease the
+  default and the holder the alternative, and the seam (one delivery
+  function) is what keeps the choice open without building both.
+
 ## Self-validation against `artifact-plan-validation.md`
 
 Run against this plan before finishing; the Phase 2 artifact is not
@@ -2104,6 +2151,126 @@ written here.
   G0 and G1 (subjects) and G2 (a lock like any other): each is a test case
   above or a line in "Writes".
 
+### Self-validation of the revision (26 September)
+
+- **Query topology `lease-locks`:** three examples, N and M each; the empty
+  range for a spent session is the answer; variable, by emission. **PState
+  schemas:** `:leases` subindexed at both levels (unbounded per session in
+  principle); every byte slot `byte/1`; `:sealed` beside `:v`, so no slot
+  holds two classes; no `Object`. **Partitioning:** weighted seeks 5.886 at
+  N = 1, 16, 128, flat; the only growth is still the person fan-out.
+  **Topologies:** still one stream topology; each new concern (lease,
+  delivery, re-wrap, consumption, session close) is part of the one
+  decision whose answer the offerer takes from the ack, and a lease's rows
+  must stand when its answer returns; no test-synchronization argument.
+  **Internal depots, cross-topology, `depot-partition-append!`:** none.
+  **In-memory state:** none built; the holder is described only.
+- **Production readiness.** Concurrent clients: two offers citing one lease
+  row are ordered on the home; the first decided consumes it, the second is
+  `:no-such-lock` on its face; a lease, the offers citing it and a session
+  close ride one depot partition and are ordered on one task. Client
+  restart: the door retakes its unconsumed locks by `lease-locks`; an offer
+  in flight follows P6's road (resend what it kept, or a new name). Worker
+  restart at every point: a lease before its commit (nothing written; the
+  replay mints bytes no door saw), after it (the record answers, same ids);
+  an offer before its commit (the consumption was discarded with every
+  other write; the replay delivers the same locks), after it (the record
+  path, write-free); the person fan-out as traced. Scale: `:leases`,
+  `:locks`, `:erased`, `:by-stamp` subindexed; a lease writes at most 256
+  rows. Non-idempotent writes: none (every write a `termval` or `NONE>`
+  keyed by id). Multi-partition writes: only the person fan-out (L9).
+- **Throughput, adversarial, constructed.** The holder road, built on
+  paper: it drops the lease-row read at decision (0.818 seeks per offer),
+  the lease acts (0.05) and the lease-row sets and deletes (1.46 writes per
+  offer), about 5.02 weighted seeks against 5.886; it adds a query
+  invocation and a network round trip per offer, a TaskGlobal per task, and
+  after each worker restart a refusal of every undecided offer until the
+  door hands its locks again. Lower disk cost, one more round trip on every
+  offer's latency path, and a durability loss the lease road does not have;
+  CONCLUSION R1 makes the lease the default, and the one seam keeps the
+  holder a body swap. A second construction: lease rows kept in `:locks`
+  itself, so a personal-layer admission overwrites its lease row in place
+  and skips one delete per value fact written in personal and hand layers
+  (at most 0.818 writes per offer, when every offer is there); rejected,
+  because unconsumed leases would then sit in M2's count and a session
+  close would need an index from session to lock ids, one more write per
+  leased lock (0.64 per offer) and one more delete per consumption, which
+  is at least what it saves.
+- **Minimality.** Each added mechanism against deleting it: the lease act
+  (deleted: the lock must reach the gate through the depot or a holder, the
+  first forbidden, the second not the default); lease rows (deleted: no
+  durable place for a lock between its minting and its value); `lease-locks`
+  (deleted: the door cannot seal); the delivery function (deleted: the
+  holder road would touch the decision code); the value digest keyed by the
+  lock (deleted: the record confirms forgotten values, P6 widened broken);
+  the parts digest without `:sealed` (deleted: a resend sealed again reads as
+  other content); `:session-closed` (deleted: unconsumed leases live for
+  ever); the recorded refusals after the delivery (made face: a refused
+  offer's bytes stay openable). Each is required by the default or a named
+  check.
+
+#### Spec coverage, the default's clauses (source: CONCLUSION R1 and its riders; the orchestrator's statement of tonight's default)
+
+- **"Nothing that could open a value sits in the depot."** Trace: Alice's
+  door leases 64 in `:alice` (lease rows at `[:alice :leases :s1 [L 0..63]]`),
+  takes them, seals a 40-byte note under `[L 0]` into 68 bytes, appends; the
+  depot record holds the 68 bytes and `[L 0]`; the gate admits, re-wraps K
+  under `[:alice]`, deletes the lease row. Faults: a worker restart before
+  the commit discards the admission, the replay admits the same; a retry
+  finds the record. Race: a concurrent offer citing `[L 0]` is refused on
+  its face. Flaws: none found, with reasoning: the door is the one writer of
+  value bytes into the depot and seals them; a door that sends plaintext is
+  refused `:not-sealed`, but its record stays in the depot, which the gate
+  cannot undo (named: the door is trusted, ruled). Verdict: PASS.
+- **"A missing lock refuses the offer on its face with nothing recorded, so
+  a resend under the same name is still allowed."** Trace: an offer citing
+  `[L 99]` (never leased): after the record lookup, the delivery returns nil,
+  the ack says `:no-such-lock`, no answer, no row, no delete; the resend
+  citing `[L 1]` decides fresh. Faults: nothing was written, so a replay
+  decides again on the same rows (for a door that cites only answered
+  ids). Race: a session close ordered before the resend makes it
+  `:no-such-lock` again. Flaws: a door citing ids before the lease's answer
+  can see a replay answer otherwise; excluded by the door's rule. Verdict:
+  PASS.
+- **"A lease row is consumed at decision whatever the decision."** Trace:
+  admitted (row deleted, lock row written, one commit); refused
+  `:permission-revoked` (row deleted, nothing kept); answered from the
+  record (no cited row can exist, shown under "Consumption"). Faults: the
+  deletes are in the decision's group; a lost attempt deletes nothing.
+  Race: none beyond the task's order. Flaws: none found, with reasoning:
+  ids are minted once and the parts digest binds a resend to the recorded
+  ids. Verdict: PASS.
+- **"An offer citing a lock leased to another session is refused, and that
+  row is left alone."** Trace: session s2 cites `[L 0]` leased to s1: the
+  delivery looks under s2, finds nothing, `:no-such-lock`; s1's row stays.
+  Flaws: the refusal cannot say "another session's" (the key does not
+  find it); the reason covers both. Verdict: PASS.
+- **"The digest ... is an HMAC over the plaintext keyed by the value's
+  lock"; "on a resend the gate opens it with its cited lock and recomputes
+  the digest under the lock it recorded the first time"; "after the value
+  is forgotten, a same-name offer is answered from the record without a
+  content check."** Trace: X admitted with `:digest` HMAC_K(note); a resend
+  sealed again (other bytes) under `[L 0]`: parts digest equal, K from the
+  lock row, opened, HMAC equal, the recorded yes; a resend with another
+  note: HMAC differs, `:name-taken`; after `forget-value!` the lock row is
+  gone, the value's check is skipped, the recorded yes. Faults: the record
+  path writes nothing, so a retry is the same. Flaws: none found. Verdict:
+  PASS.
+- **"Unconsumed lease rows are destroyed when their session closes."**
+  Trace: s1 leased 64, used 3; `:session-closed` deletes `[:alice :leases
+  :s1]`, 61 rows. Faults: the delete is idempotent; a replay after the
+  commit answers from the record. Race: an offer citing a closed lease is
+  `:no-such-lock`; the door closes only after its offers are answered.
+  Flaws: a door that never closes leaves its leases until its owner is
+  forgotten (named retention). Verdict: PASS.
+- **"The depot, the lease rows and the lock store each hold nothing that
+  opens or confirms a forgotten value."** Trace: the three checks under "P6
+  widened". Flaws: the substrate (SST files, the retry cache) is outside the
+  module (named). Verdict: PASS for the three places named.
+- **"A lease act resent returns the same lock ids"; the two crashes.**
+  Traced under "The lease act and its answer" and "Same answer after a
+  crash". Verdict: PASS.
+
 ## What this plan could not settle
 
 - Whether `INDEXED-VALS` navigates a subindexed vector with its indices in
@@ -2119,8 +2286,35 @@ written here.
 - Whether `ack-return>` before a `|all` behaves as stream.md says (the ack
   sent when the whole tree completes): read from the reference, not run;
   the crash-mid-person-forget test shows it.
-- Whether `[B` is accepted as a schema class: not needed with L4; named for
-  a kept store.
+- Settled since 25 September: `byte/1` is accepted as a schema class and
+  round-trips a byte array (ran, BENCH_NOTES-locks.md); the build checks it
+  once more on the exact nested row schema (a `byte/1` inside a
+  fixed-keys element of a subindexed vector) with `create-test-pstate`.
+- Revised 26 September, open:
+  - Whether `NONE>` on a session's subindexed lease map is one range delete
+    or an iteration inside Rama (pstate-schema.md says delete the structure
+    itself; its cost is not stated). Bounded by the session's unconsumed
+    rows; the build measures it at 256 rows.
+  - Whether a `deframafn` in `rig.store.locks` reaches `$$layers` and
+    `$$persons` through `<<with-substitutions` (dataflow.md says it is the
+    idiom; not run here). Fallback: the PStates passed as parameters, with
+    no partitioner inside, which dataflow.md also allows.
+  - The read exit's indexes: if they are owned by a topology other than the
+    gate, the forget's event cannot purge them, and the merge has to route
+    the purge (an internal depot, or the indexes moved onto the gate).
+    Depends on PLAN-read-exit.md, not written when this was.
+  - Promotion's landing (stage 4) must be sealed under a lock leased for
+    the target, or the micro depot carries the plaintext this default
+    forbids; not this stage's to design.
+  - The micro gate's lease rows (stage 3): where they live on a store
+    placed by entity; `unlease` and the lock record serve whatever it picks.
+  - The model has no lease act, delivery or `:no-such-lock`: parity for the
+    lease road is by construction until the model's round adds both roads
+    (CONCLUSION "Also going into the model").
+  - Whether Sid rules R1 as the default reads (the lease), the holder, or
+    another road: the delivery's body is the one seam; the lease act, lease
+    rows, `lease-locks` and `:session-closed` are what a different ruling
+    removes.
 - The exact relation of a person forget's date to stamps given on other
   tasks by wall time (L8): under simulated time in tests it is exact; on a
   real cluster it holds up to clock skew, which is ruling 4's "unit"
