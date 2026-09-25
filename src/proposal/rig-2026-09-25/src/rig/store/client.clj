@@ -17,8 +17,7 @@
   Its held locks are an atom in the store handle, not store state; a
   restarted door (a new handle) takes its unconsumed locks again by the same
   query."
-  (:require [clojure.set :as set]
-            [com.rpl.rama :as rama :refer :all]
+  (:require [com.rpl.rama :as rama :refer :all]
             [com.rpl.rama.path :refer :all]
             [rig.store.envelope :as env]
             [rig.store.gate :as gate]
@@ -32,12 +31,13 @@
   64)
 
 (defn- fresh-door
-  "The door's memory: unused leased locks per [layer session], the ids it
-  has handed to offers (never pooled again), the grain each layer had at
-  its last `lease-locks`, the locks each unanswered offer was sealed under,
-  and the person acts it made (for a person forget's stood-on)."
+  "The door's memory: unused leased locks per [layer session], the leases
+  whose locks it has taken into its pool (each lease's once, so no lock is
+  handed out twice), the grain each layer had at its last `lease-locks`,
+  the locks each unanswered offer was sealed under, and the person acts it
+  made (for a person forget's stood-on)."
   []
-  {:pool {} :issued {} :grain {} :held {} :made {}})
+  {:pool {} :known {} :grain {} :held {} :made {}})
 
 (defn connect
   "Handles on the store, taken once, and a fresh door memory. A second
@@ -52,7 +52,9 @@
      :persons (foreign-pstate cluster mn "$$persons")
      :lease-locks-q (foreign-query cluster mn "lease-locks")
      :read-as-of-q (foreign-query cluster mn "read-as-of")
-     :door (atom (fresh-door))}))
+     :door (atom (fresh-door))
+     ;; one thread leases at a time; the others wait and take from the refilled pool
+     :lease-mutex (Object.)}))
 
 (defn forget-door!
   "Drop everything the door holds, as a door process restart would (the
@@ -98,25 +100,29 @@
     []))
 
 (defn- refresh!
-  "Take the session's unconsumed locks by `lease-locks` into the pool, all
-  but the ids already handed to offers, and note the grain in force; the
-  ids the query no longer returns are consumed and forgotten."
+  "Take the session's unconsumed locks by `lease-locks` into the pool and
+  note the grain in force. Only the locks of leases the door has not taken
+  before go in: a lease's locks enter the pool once, the first time a
+  result shows that lease, so a result older than another thread's use of
+  a lock can never put it back (a restarted door, knowing no lease, takes
+  every unconsumed lock of the session, as the plan's door does)."
   [store layer session]
   (let [{:keys [grain] leased :locks} (lease-locks store layer session)
         k [layer session]
         door (:door store)]
     (locking door
       (swap! door (fn [d]
-                    (let [issued (set/intersection (get-in d [:issued k] #{}) (set (keys leased)))]
+                    (let [known (get-in d [:known k] #{})
+                          fresh (into {} (remove (fn [[id _]] (contains? known (locks/lease-name-of id)))) leased)]
                       (-> d
                           (assoc-in [:grain layer] grain)
-                          (assoc-in [:issued k] issued)
-                          (update-in [:pool k] merge (into {} (remove (fn [[id _]] (contains? issued id))) leased)))))))
+                          (update-in [:known k] (fnil into #{}) (map (comp locks/lease-name-of first)) leased)
+                          (update-in [:pool k] merge fresh))))))
     grain))
 
 (defn- take!
-  "Take `n` pooled locks of [layer session], marking them handed out, or
-  nil when the pool holds fewer."
+  "Take `n` pooled locks of [layer session] out of the pool, or nil when it
+  holds fewer."
   [store layer session n]
   (let [door (:door store)
         k [layer session]]
@@ -124,9 +130,7 @@
       (let [pool (get-in @door [:pool k])]
         (when (<= n (count pool))
           (let [picked (vec (take n (sort-by (comp str first) pool)))]
-            (swap! door (fn [d] (-> d
-                                    (update-in [:pool k] #(apply dissoc % (map first picked)))
-                                    (update-in [:issued k] (fnil into #{}) (map first picked)))))
+            (swap! door update-in [:pool k] #(apply dissoc % (map first picked)))
             picked))))))
 
 (defn- lease-for!
@@ -159,19 +163,27 @@
   (let [layer (:layer offer)
         session (:session offer)
         grain (or (get-in @(:door store) [:grain layer]) (refresh! store layer session))
-        n (if (= :per-act grain) 1 (count idx))]
+        n (if (= :per-act grain) 1 (count idx))
+        mutex (:lease-mutex store)]
     (loop [tries 0]
       (if-let [picked (take! store layer session n)]
         (held-for idx picked grain)
-        (let [have (count (get-in @(:door store) [:pool [layer session]]))
-              a (lease-for! store offer (min locks/max-lease (max lease-size (- n have))))]
+        (let [outcome (locking mutex
+                        ;; another thread may have refilled the pool while this one waited
+                        (if (<= n (count (get-in @(:door store) [:pool [layer session]])))
+                          :refilled
+                          (let [have (count (get-in @(:door store) [:pool [layer session]]))
+                                a (lease-for! store offer (min locks/max-lease (max lease-size (- n have))))]
+                            (if (= :yes (:answer a))
+                              (do (refresh! store layer session) :leased)
+                              a))))]
           (cond
-            (not= :yes (:answer a))
-            (held-for idx (mapv (fn [id] [id (locks/fresh-lock)]) (locks/lease-ids (:name a) n)) grain)
+            (map? outcome)
+            (held-for idx (mapv (fn [id] [id (locks/fresh-lock)]) (locks/lease-ids (:name outcome) n)) grain)
 
             (< 100 tries) (throw (ex-info "the door could not lease enough locks" {:layer layer :n n}))
 
-            :else (do (refresh! store layer session) (recur (inc tries)))))))))
+            :else (recur (inc tries))))))))
 
 (defn- seal-with
   "The offer with each value fact sealed under its held lock (fresh nonces

@@ -218,7 +218,7 @@
               base (c/seed-base! st)]
           (is (= 13 (count answers)))
           (is (every? #(= :yes (:answer %)) (concat answers base)))
-          (is (= {:kind :store :owner nil :class :by-layer :grain :per-value} (c/settings st :people)))
+          (is (= {:kind :store :class :by-layer :grain :per-value} (c/settings st :people)) "the store layer has no owner")
           (is (= {:kind :base :owner :operator :class :by-layer :grain :per-value} (c/settings st :base))
               "the base is made with the root actor as its owner, not refused for want of a person lock")
           (doseq [p [:alice :bob]]
@@ -388,8 +388,8 @@
             (is (not (contains? (lease-ids-of st :alice sess) id4)) "the resend's lease row deleted")
             (p6-check! st :alice (fid a 0) "lost pool" [:alice :alice-hand :alice-agent :base] @all-persons
                        "a forgotten value resent under new locks" #{id id2 id4})
-            (is (= 3 (count (filter #(contains? #{id id2 id4} (:lock-id %)) (depot-copies st (:name o) 0))))
-                "its three copies: the first send and two resends; the other content under the name is not this value"))
+            (is (<= 3 (count (filter #(contains? #{id id2 id4} (:lock-id %)) (depot-copies st (:name o) 0))))
+                "its copies: the first send and two resends (a restarted door may take the lock the other-content resend left unconsumed, whose copy then dies with it)"))
           (testing "the record answer replayed after a later offer's crash: the same answer"
             (let [attempt (fn []
                             (let [x (act :alice :alice [(note :e8 "replayed record")])
@@ -731,8 +731,8 @@
             (is (= 1 (inject/fired-count :seen (:name o))) "the crash fired")
             (is (map? answered))
             (is (= :yes (:answer again)))
-            (is (= (dissoc before used) after) "the lease's other rows stand, the same ids and bytes: no new bytes")
-            (is (every? (fn [[id K]] (bytes= K (get before id))) after))
+            (is (= (set (keys (dissoc before used))) (set (keys after))) "the lease's other rows stand under the same ids")
+            (is (every? (fn [[id K]] (bytes= K (get before id))) after) "with the same bytes: no new bytes")
             (is (= {:value "after the lease"} (c/opens? st :alice-hand (fid again 0))) "the value opens under the lock the door sealed with"))))
 
       (testing "a crash during the gate event, before and after its writes: the writes discarded, the leases still there, the replay admits (7)"
@@ -783,11 +783,15 @@
           (inject/watch! (:name fo))
           (inject/arm! :before-writes (:name fo))
           (let [first-try (try (send! fo) (catch Exception _ :append-threw))
-                answer (c/offer-until-answered! st fo)]
+                answer (c/offer-until-answered! st fo)
+                ;; an answer found by lookup (the append failed while the worker restarted) has no :how;
+                ;; the resend's ack carries it, from the ledger
+                again (send! fo)]
             (say "crash in a value forget: the append" (if (= :append-threw first-try) "threw" "returned"))
             (is (= 1 (inject/fired-count :before-writes (:name fo))))
             (is (<= 2 (inject/count-of :before-writes (:name fo))) "decided again after the crash")
-            (is (= [:yes :row-deleted] [(:answer answer) (:how answer)]))
+            (is (= :yes (:answer answer)))
+            (is (= [:yes :row-deleted (:stamp answer)] [(:answer again) (:how again) (:stamp again)]))
             (is (= {:stamp (:stamp answer) :how :row-deleted} (get (c/ledger st :alice) lid)) "one ledger entry, the stamp that stood")
             (is (nil? (c/lock-row st :alice lid)))
             (is (= {:erased-at (:stamp answer)} (c/opens? st :alice id)))))))))

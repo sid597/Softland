@@ -389,10 +389,10 @@
                  (java.util.concurrent.atomic.AtomicLong. 1) (java.util.HashMap.)]]
         (is (= {:refuse :malformed} (env/parse (base v))) (pr-str v))))
     (testing "sealed, a value is its canonical text's: outside the domain it is refused at the opening, :malformed-value"
-      ;; a Java float's or a HashMap's text is a double's or a map's, which the domain holds:
-      ;; the door's canonical text is the value (RIG choice in BUILD_NOTES)
+      ;; a Java float's, an AtomicLong's or a HashMap's text is a double's, a long's or a map's,
+      ;; which the domain holds: the door's canonical text is the value (rig choice in BUILD_NOTES)
       (doseq [v ['(1 2) 'sym \c 1/3 (java.util.Date.) Double/NaN Double/POSITIVE_INFINITY
-                 (keyword "a b") (keyword "") {:a '(1)} #{(keyword "a b")} (java.util.concurrent.atomic.AtomicLong. 1)]]
+                 (keyword "a b") (keyword "") {:a '(1)} #{(keyword "a b")}]]
         (is (= :malformed-value (sealed-read v)) (pr-str v))))
     (testing "values inside it pass, normalised to one form per = class"
       (doseq [[v want] [[(int 7) 7] [(short 7) 7] [(byte 7) 7] [7N 7] [(biginteger 7) 7]
