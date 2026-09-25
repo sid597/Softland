@@ -549,7 +549,10 @@ A same-name offer after one of its values is forgotten: the parts digest is
 checked as always, the forgotten value's check is skipped, the other values
 of the act are checked while their locks live, and the recorded answer
 returns. So a reused name with other content in a forgotten value cannot be
-told from a retry: the price of forgetting (R1's rider).
+told from a retry: the price of forgetting (R1's rider). [V-F1] The resend's
+cited lease rows are deleted with that answer, so a resend of a forgotten
+value sealed under a newly leased lock (a door that lost its locks) leaves
+its depot bytes openable under no lock the store holds.
 
 ### Consumption of lease rows
 

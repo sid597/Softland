@@ -146,6 +146,14 @@ bytes open under no lock the store holds, so nothing is retained by it.
 The plan already says "a decided name answers from its record whatever its
 leases" (line 483-484); F1 keeps that sentence true.
 
+**The other way to keep lock ids in, constructed and set aside.** The
+offerer could persist the sealed offer (bytes and ids) before its first
+append and resend identical bytes, needing no lock; lock ids in the parts
+digest would then hold. R1's rider assumes the opposite ("a resend gets
+sealed again and its bytes differ"), and SPEC item 4 asks nothing of the
+offerer's storage, so F1 follows the rider; the choice of what an offerer
+keeps is noted for Sid.
+
 **After F1, the lost-pool history.** Step 7: parts digest matches (lock ids
 out); record yes; `R` = K0 from `[:alice :locks [N1 0]]` unwrapped with
 Alice's lock; `O` = K1 from `[N1 1]`; open the resend with K1 → "hello";
@@ -289,7 +297,13 @@ writer's lock, and the value must not die with the writer.
   admitted after T, `:after-moment` (plan 551-557); the model's
   `read-as-of` gives an erased value only its erasure stamp (model.clj
   1001-1021). **Agent layers:** excision nils the row's `:lock`; the row's
-  `:sealed` and `:digest` stay, both dead with the lock. PASS.
+  `:sealed` and `:digest` stay, both dead with the lock. **The act's
+  subject slot** (ruling 8, "for finding") keeps the person ids the
+  grammar read from the value, in plaintext on the answer record, after a
+  forget. Read against P6 widened's words ("opens or confirms a forgotten
+  value"), a list of person ids opens nothing and confirms no guess at the
+  value's content, and ruling 8 puts it there, so this passes; that a
+  forgotten mention still shows whom it named is a reading for Sid. PASS.
 
 ### Trace 6. The refusal order, and what phase 1 tests change — FAIL, fixed by F4
 
@@ -473,7 +487,13 @@ range read, at the lease act's rate (about one per 80 offers). PASS.
    value acts would reach the recorded checks in the model's order; the
    cost is lease rows any session can mint in any layer, bounded by the
    close. Kept as planned tonight; the choice is Sid's.
-7. **A crashed door's session.** Its unconsumed lease rows stay until a
+7. **What a forgotten value's act still shows.** Its subject slot (ruling
+   8) keeps the person ids the value named, after the forget (trace 5).
+8. **What an offerer keeps for a resend.** Plaintext, re-sealed on resend
+   (R1's rider, F1), or the sealed offer, resent byte for byte (trace 1's
+   other way). The second keeps nothing openable at the offerer after a
+   forget.
+9. **A crashed door's session.** Its unconsumed lease rows stay until a
    close; the operator may close it (plan 504-506). When a session is
    closed after a crash is open item 82's.
 
