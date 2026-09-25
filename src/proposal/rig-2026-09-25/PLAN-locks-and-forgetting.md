@@ -108,6 +108,13 @@ lease road".
 21. **Tests added** for the missing lock and its resend, lease consumption
     three ways, the raw depot after a forget, a resend with other content
     before and after a forget, a resent lease, and the two crashes.
+22. **Validation fixes, 26 September** (PLAN_VALIDATION-locks-and-forgetting.md,
+    minor-fail): F1, lock ids out of the parts digest and the record path's
+    resend check under the resend's own lock, with its lease rows deleted;
+    F2, the base on this stage's stream gate (default 6) and lease rows
+    sealed under the lease act's person; F3, `consume-locks>` split from
+    `deliver-lock>`; F4, the phase 1 expectations that change. Each is
+    marked `[V-F n]` where it lands.
 
 Picks that stand unchanged: the wrap table and `wrap-closed` (L3's key
 wrapping, now over bytes); rows for personal and hand layers, record locks
@@ -134,8 +141,10 @@ person lock destroyed), every forget a fact; and a read as of a moment that
 shows an erasure only as its date. The subjects of a value come from the
 layer's owner, the tool, and the one grammar the model has (`:mention`
 names people), in a form stage 6 can move into facts. The stage extends
-stage 1's stream gate and its `$$layers` PState on the one-owner side; the
-shared layers' locks in the record are stage 3's, promotion's read-out is
+stage 1's stream gate and its `$$layers` PState on the one-owner side,
+the base included (default 6: one-owner on the stream gate, shared-layer
+lock rules, locks in the record [V-F2]); the group layers' locks in the
+record are stage 3's, promotion's read-out is
 stage 4's, point and pattern reads with visibility are stage 5's. Later
 stages are black boxes: this plan says what state it leaves and where.
 
@@ -181,7 +190,8 @@ no entry names no one.
 
 **Own subjects of a value** (the sharpening of rulings 7, 7b, 8: "the three
 sources applied to that fact"): `owner ∪ grammar(k, v) ∪ carried`, where
-`owner` is the layer's owner from `:settings` (nil in shared layers),
+`owner` is the layer's owner from `:settings` (nil in shared layers and
+in the base, whose owner is not a person [V-F2]),
 `grammar` is above, and `carried` is the offer's `:subjects` part (the
 tool's, P15). **The act's subject slot** (ruling 8, "for finding") is the
 union of its facts' own subjects, on the answer record as stage 1 keeps it,
@@ -192,9 +202,22 @@ now including the grammar's. The union is capped at 256 persons (L13).
 
 - marked `:die-with-any`: required = own subjects (owner included), any-of
   empty;
-- unmarked, the layer has an owner: required = `[owner]`, any-of empty;
-- unmarked, no owner (shared layers, stage 3): required empty, any-of = own
+- unmarked, the layer has a person owner: required = `[owner]`, any-of
+  empty;
+- unmarked, no person owner (shared layers, stage 3; and the base, whose
+  owner is the root actor, default 6 [V-F2]): required empty, any-of = own
   subjects (empty when the value is about no one).
+
+**The base** [V-F2] (default 6 in the main RIG.md, CONCLUSION R8): a
+one-owner layer on this stream gate, `:kind :base`, its owner fact naming
+the root actor (the rig uses `:operator`, as the model's "the operator and
+the store's own steps act at the root"; the id is first-record, for Sid).
+Its lock rules follow its kind from day one: the root actor has no person
+lock, contributes no owner subject, is never looked up in `$$persons`, and
+the base's making act is not refused `:no-such-person` for it; wraps take
+the no-owner row above; locks sit in the record (the kind is neither
+personal nor hand). The re-class to shared at the first group changes
+nothing here.
 
 A wrap opens while every required person's lock is alive and, when any-of is
 non-empty, at least one any-of person's lock is alive (`wrap-closed`).
@@ -254,7 +277,10 @@ PLAN_VALIDATION-locks-and-forgetting.md, trace 1.]
 control fact `{:e session :k :lease :v {:count n}}`, `n` a long in 1..256.
 **Lease row** (L22): `{:under p :sealed bytes}` at `$$layers [layer :leases
 session lock-id]`: K sealed under person `p`'s lock, `p` the session owner,
-which in a one-owner layer is the layer's owner (L23). **Session close**
+the lease act's `:who` (L23, restated [V-F2]: in a person's own layers
+that is the owner, in the base the writer); a lease by the operator, who
+has no person lock, is stored `{:under nil :sealed K}` with K bare in the
+slot. **Session close**
 (L28): an act into the layer with one control fact `{:e session :k
 :session-closed :v {:session session}}`.
 
@@ -341,10 +367,13 @@ cites only lock ids it took from a lease's answer (see "The missing lock").
   facts a non-operator may write grows from `:lock-grain` and `:forget` (L10)
   by these two, for anyone whose cited permission covers L. A `:count` that
   is not a long in 1..256 is `:malformed-control` (R13).
-- Added reads when undecided: `$$persons [owner]` (the owner from
-  `:settings`). Added recorded refusals: `:no-such-person` (the owner has no
-  entry) and `:person-forgotten` (the owner's lock is destroyed), after stage
-  1's list, as L11.
+- Added reads when undecided: `$$persons [who]`, the lease act's `:who`,
+  the session owner whose lock seals its rows (none for the operator)
+  [V-F2: the 26 September text read the layer's owner, which in the base is
+  the root actor with no person lock, so every lease into the base was
+  refused]. Added recorded refusals: `:no-such-person` (that person has no
+  entry) and `:person-forgotten` (that person's lock is destroyed), after
+  stage 1's list, as L11.
 - On a yes: n fresh 32-byte locks, bound before `decide` from
   `SecureRandom` (as stage 1 binds the wall), each sealed under the owner's
   person lock into a lease row at `[L :leases s (lease-name i)]`, one
@@ -370,12 +399,17 @@ cites only lock ids it took from a lease's answer (see "The missing lock").
   the session's subindexed map (pstate-schema.md, "Deleting Subindexed
   Structures": delete the structure itself, never a parent), and makes
   `lease-locks` one range read of the session's rows.
-- **Wrapped under whom:** the session owner's person lock. In a one-owner
-  layer the session owner is the layer's owner (L23): every session writing
-  a one-owner layer writes for its owner, and the owner's lock is the one
-  person lock the gate reads for every act there. A forget of the owner
-  therefore makes every unconsumed lease in her layers unopenable at the
-  fan-out, with no write to the rows.
+- **Wrapped under whom:** the session owner's person lock, the lease act's
+  `:who` (L23, restated [V-F2]). In a person's own layers every session
+  writing there in the rig is the owner's, so it is the owner's lock, the
+  one person lock the gate reads for every act there, and a forget of the
+  owner makes every unconsumed lease in her layers unopenable at the
+  fan-out, with no write to the rows. In the base (owned by the root actor,
+  who has no person lock) it is the writer's lock: Alice's forget cuts her
+  unconsumed leases there, and the re-wrap at decision moves each admitted
+  lock off her lock onto the value's own wrap, so the base's values do not
+  die with their writer. A lease by the operator is bare (`:under nil`):
+  nothing a person forget could cut, consumed at decision like any row.
 - **Marked with the session:** by the key. A delivery looks under the
   offer's own `:session`; a row leased to another session is not found
   (missing) and is left alone.
@@ -440,7 +474,12 @@ required in one-owner layers; 7b among the other subjects; `:die-with-any`
 makes every subject required) → `(locks/wrap K wrap persons nonces)` → the lock
 record, written as the value's lock row `[layer :locks lock-id]` in personal
 and hand layers or under `:own-row`, else into the row's `:lock` (agent
-sessions; group layers and the base are stage 3's). Per-act grain: the one K
+sessions, and the base on this gate under default 6 [V-F2]; group layers
+are stage 3's). In the base the re-wrap takes K from under the writer's
+lease lock and wraps it by the no-owner row: a note about no one gets an
+empty wrap (K bare in the record, which R8 accepts), a mention of Bob
+`{:any-of [:bob]}`, a marked value every subject required; so the writer's
+forget erases none of them unless they are about her. Per-act grain: the one K
 of the act, one wrap over the act's union, placed by L6. K's bytes do not
 change, so the depot's sealed bytes and the log's are the same ciphertext
 under the same lock; only the lock's wrapping changes (a re-encoding, which
@@ -694,7 +733,7 @@ One depot, stage 1's `*offers`; every write is an offer. By operation:
 
 | op | offer | facts | decided by, and the lock effect |
 |---|---|---|---|
-| lease (revised 26 September) | the session's `:who`, a permission covering the layer, `:session s`, tag the layer's class | `{:e s :k :lease :v {:count n}}` | the gate on the home; the owner's person lock must be live (`:no-such-person`, `:person-forgotten`); n fresh locks, each sealed under the owner's lock into `:leases[s][[name i]]`; the ack carries `:lock-ids` |
+| lease (revised 26 September) | the session's `:who`, a permission covering the layer, `:session s`, tag the layer's class | `{:e s :k :lease :v {:count n}}` | the gate on the home; the person lock of the lease act's `:who`, the session owner, must be live (`:no-such-person`, `:person-forgotten`); n fresh locks, each sealed under that lock into `:leases[s][[name i]]`, bare with `:under nil` for the operator [V-F2]; the ack carries `:lock-ids` |
 | OP1 offer an act (stage 1, revised 26 September) | as stage 1, value facts sealed at the door | sealed facts citing leased lock ids | the gate on the home; each cited lock through `deliver-lock>` (any missing: `:no-such-lock` on the face, nothing written); each value opened; K re-wrapped under the fact's wrap into a lock record, which goes to `:locks[lock-id]` (row) or the row's `:lock` (record); the row keeps the offered `:sealed` bytes and the value digest; each cited lease row deleted, admitted or refused; a fact whose wrap names a person with no lock or a destroyed one is refused (`:no-such-person`, `:person-forgotten`, L11); `:by-stamp[stamp] = name` |
 | OP1 under per-act grain | as stage 1 | sealed facts all citing one lock id | one K for the act, re-wrapped under the act's union with marked? = any value fact marked (L6); the lock record at `:locks[lock-id]` when the layer's kind is personal or hand or any fact is marked `:own-row`, else in every row's `:lock`; an act whose citations do not fit the grain in force is refused `:grain-mismatch`, recorded (L30) |
 | session close (revised 26 September) | the session itself or `:operator`, a permission covering the layer | `{:e s :k :session-closed :v {:session s}}` | the gate on the home; `:leases[s]` deleted whole (`NONE>`, one direct delete); nothing else |
@@ -702,7 +741,7 @@ One depot, stage 1's `*offers`; every write is an offer. By operation:
 | OP9 forget a value | `:who` the layer's owner with `[owner L L]`, or `:operator`; `:layer` the target name's layer; tag class nil; `:stood-on {target-fid stamp}` | `{:e e :k :forget :v {:target fid}}` | the gate on the home; the target row must be in this layer's log on this task, else `:no-such-value` (L10); a target with no lock id, or a lock already in the ledger: admitted, nothing changes; else a row lock is deleted (`NONE>` on `:locks[lock-id]`, `:how :row-deleted`) or a record lock is excised (`termval nil` on the row's `:lock`, every row of the act under per-act, `:how :excised`), and `:erased[lock-id] = {:stamp s :how}` |
 | OP10 make a person | `:who :operator`, `:layer :people`, tag class nil | `{:e p :k :person :v {:id p}}` | the gate on `:people`'s home: `:person-already-made` when `$$persons[p]` exists; else `$$persons[p] = {:lock fresh :erased-at nil}` on the home in the decision's group, then `(|all)` and `termval` of the home's entry on every task (L7, L9) |
 | OP10 forget a person | `:who :operator`, `:layer :people`, tag class nil, `:stood-on {person-fid stamp}` | `{:e p :k :forget-person :v {:person p}}` | the gate on `:people`'s home: `:no-such-person` when no entry; an entry already erased: admitted, nothing changes (the first date stays); else `$$persons[p] = {:lock nil :erased-at s}` on the home in the decision's group, then `(|all)` and `termval` of the home's entry on every task |
-| seed | the operator's acts | the `:people` layer (`:kind :store`, `:class :by-layer`, `:lock-grain :per-value`, no owner), then a `:person` act per person of the world (`:alice`, `:bob`), then stage 1's layers and grants | the gate, before any history; a making act naming an owner with no person lock is refused `:no-such-person` (L11), so persons come first |
+| seed | the operator's acts | the `:people` layer (`:kind :store`, `:class :by-layer`, `:lock-grain :per-value`, no owner), then a `:person` act per person of the world (`:alice`, `:bob`), then stage 1's layers and grants | the gate, before any history; a making act naming an owner with no person lock is refused `:no-such-person` (L11), so persons come first; the base's making act (`:kind :base`, owner the root actor) is exempt, its owner not being a person (default 6) [V-F2] |
 
 The gate's writes on a fresh decision, all on the home task in the one
 decision event as stage 1, extended (revised 26 September): for any decided
@@ -720,7 +759,8 @@ lock are the door's, fixed in the depot record). A replay that reaches the
 writes (possible only when nothing was committed) produces the same facts
 under a different wrapping or, for a lease, other lock bytes under the same
 ids that no door has seen, which I-L8 allows and I-G2 does not forbid; a
-replay that finds the record writes nothing and, for a person act, repeats
+replay that finds the record writes nothing but the idempotent deletes of
+its cited lease rows [V-F1] and, for a person act, repeats
 the idempotent fan-out (L9). The person fan-out is the one place a
 partitioner enters the gate's event (see "Topologies").
 
@@ -1006,7 +1046,8 @@ person fan-out at the end:
    path's one write [V-F1, V-F3]; for `:name-taken` nothing written;
    `ack-return>`.
 4. Not found: `:settings`; `$$persons [owner]` (nil when the layer has no
-   owner or does not exist); then `deliver-lock>` per distinct cited lock id
+   person owner, as in shared layers and the base [V-F2], or does not
+   exist); then `deliver-lock>` per distinct cited lock id
    in a `loop<-` emitting a map `{lock-id K-or-nil}`, possibly empty [F7].
    Any nil: `:no-such-lock` through the ack, nothing written (face; "The
    missing lock").
@@ -1100,7 +1141,8 @@ decided): the replay of the lease takes the record path and mints nothing,
 so the rows the door took stand, and the offer then decides as it would
 have.
 A crash after the home's commit and before a fan-out child: the replay
-finds the record, writes nothing on the home, re-reads its `$$persons`
+finds the record, writes nothing on the home but the no-op deletes of
+its cited lease rows [V-F1], re-reads its `$$persons`
 entry and fans out again; a child that had already written gets the same
 entry. A crash in the middle of the children: the same, at least once per
 task. R4: tests assert at least once, never a count.
@@ -1140,10 +1182,14 @@ lock's plaintext, and `read-as-of`, which now opens each row through
 - **Route:** `(|hash *layer)` first, as `read-as-of` below.
 - **Reads, all local:** `(local-select> [(keypath *layer :settings)]
   $$layers :> *settings)` (the grain in force and the owner);
-  `(local-select> [(keypath *owner)] $$persons :> *pe)`; `(local-select>
+  `(local-select>
   [(keypath *layer :leases *session) ALL] $$layers {:allow-yield? true} :>
-  [*lid *row])`, one emit per unconsumed row; per row the pure `unlease`
-  over the owner's entry; `(|origin)` and a map aggregation into `:locks`,
+  [*lid *row])`, one emit per unconsumed row; the `$$persons` entry of the
+  rows' `:under` person, read once per distinct person (one for a session,
+  whose leases are all its owner's; none when `:under` is nil) [V-F2: the
+  26 September text read the layer's owner, the root actor in the base];
+  per row the pure `unlease` over that entry; `(|origin)` and a map
+  aggregation into `:locks`,
   bound even when empty. A row that does not unlease is left out.
 - **Input example 1:** a session with one fresh lease of 64 → 1 + 1 + 1
   range seek + 64 iterations; all meaningful.
@@ -1729,11 +1775,17 @@ Added 26 September, for the lease road (tonight's default, not a ruling):
   Why: the merge rule (same key and partitioner as the layer); session
   first gives a session close one direct delete and `lease-locks` one range
   read.
-- **L23. The session owner, whose person lock seals a lease row, is the
-  layer's owner in a one-owner layer.** Why: every session writing a
-  one-owner layer writes for its owner, and it is the one person lock the
-  gate already reads for every act there; forgetting the owner then kills
-  her unconsumed leases with no write.
+- **L23 (restated [V-F2]). The session owner, whose person lock seals a
+  lease row, is the lease act's `:who`; a lease by the operator is bare
+  (`:under nil`).** Why: R1, "wrapped under the session owner's lock". In a
+  person's own layers every session writing there in the rig is the
+  owner's, so it is the owner's lock, the one person lock the gate already
+  reads for every act there, and forgetting the owner kills her unconsumed
+  leases with no write. The 26 September text made it the layer's owner,
+  which in the base (default 6) is the root actor with no person lock, so
+  no lease into the base could be made; the operator, the root actor, has
+  no person lock either, and a bare row is consumed at decision like any
+  other.
 - **L24 (first-record). A value fact is offered as `{:e :k :sealed bytes
   :lock-id id :replaces :mark}`; the log row keeps `:sealed` as offered
   beside `:v` (control text), with `:lock-id`, `:lock` and `:digest`.** Why:
@@ -1887,6 +1939,24 @@ and the lease road").
   recorded, where they saw `:malformed` on the face, and its cases into an
   unknown layer with a value fact now see `:no-such-lock` on the face; the
   build updates those expectations and names each in its notes.
+  [V-F4] Also changing (PLAN_VALIDATION-locks-and-forgetting.md, trace 6):
+  stream_gate_test.clj 496-515, the value-domain rows 505-508 (unsealed, a
+  value fact with `:v` is `:not-sealed` on the face; sealed, a recorded
+  `:malformed-value` with a stamp, so "none of them was recorded under the
+  name" no longer holds for those rows; rows 509 and 510, carried subjects
+  and stood-on bounds, stay on the face); envelope_test.clj `parse-bounds`
+  288 and 310-314 (the nesting and value-type rows leave the parser for
+  value facts, stay for control values, and move to `locks/read-values`);
+  envelope_test.clj `digest-properties` 416-444 (a value-only change, and
+  a lock id change, no longer change the parts digest; the value digest is
+  tested instead); stream_gate_test.clj 241-242 (`c/lookup` compares the
+  parts digest only, so value-only other content looks like the record);
+  stream_gate_test.clj 303-306, "a refused first use still holds its name"
+  (other value content under a refused name now gets the recorded no, not
+  `:name-taken`: a refused act keeps no value digest; other non-value parts
+  still get `:name-taken`); stream_gate_test.clj 216-219 and 536-537 (the
+  outcomes stand, now through the gate's value check, so they need the
+  sealing harness).
 
 ## Namespaces and tests
 
@@ -1960,6 +2030,27 @@ Revised 26 September: `rig.store.crypto` and `rig.store.lock` fold into
      key per task. A8, a mention of Bob in `:alice`, `forget-person! :bob`:
      the value opens; Bob's lock nil on every task. Each asks the model for
      its answer to the same history and compares.
+     [V-F2] **A2 to A7 through the module in the base**, the stream-gated
+     layer under shared-layer rules (default 6; CONCLUSION "Also going into
+     the model": "a layer gated by the stream gate with its locks in the
+     record"): the base made by the operator with the root actor as owner
+     (admitted, no `:no-such-person`), a permission for each writer kept in
+     the base itself, Bob's and Alice's sessions leasing there (rows
+     `:under` the writer), each case's value offered, the forgets in the
+     case's order; `read-as-of` shows erased or open as the model's
+     `:group` case does, both directions. The re-wrap's direction: a note
+     about no one written by Alice in the base still opens after
+     `forget-person! :alice`, and her unconsumed lease rows there no longer
+     unlease.
+     [V-F1] **A resend from a door that lost its locks.** Offer X admitted;
+     the door's lock memory dropped; `lease-locks` no longer returns X's
+     lock; the door leases again and resends X under the same name, sealed
+     under the new lock: the recorded answer and stamp, and the new lease
+     row deleted. The same resend with other content: `:name-taken`, the
+     new row still there. The same resend after a forget of X's value: the
+     recorded answer, the new row deleted, and the depot's two copies open
+     under no lock the store holds (P6 check 1). The record answer replayed
+     after a crash at `:after-writes` of a later offer: the same answer.
   2. **The missing lock, then the resend.** An offer citing an id never
      leased: `:no-such-lock`, no answer record under the name, no row, no
      lease row touched. The same name resent, sealed under a leased lock:
@@ -2130,6 +2221,12 @@ session):
   ones and still match, at the price of a lease read and a delete on the
   record path. In, because the door can always retake its unconsumed locks
   by `lease-locks`, so the case out would serve does not arise.
+  [V-F1, reversed: the case does arise. After the first decision the cited
+  locks are consumed, and `lease-locks` returns only unconsumed ones, so a
+  door that lost its memory between the append and the answer (SPEC "What
+  Rama showed" 4's case) can only reseal under new locks. Out is chosen:
+  lock ids leave the parts digest; the record path pays a lease read per
+  value fact for such a resend and a no-read delete per cited id.]
 - **Face or recorded after the delivery.** The default fixes the missing
   lock as a face refusal. I first left `:value-shape`, `:too-many-subjects`
   and R17's domain checks on the face where the 25 September text and stage
@@ -2268,7 +2365,8 @@ written here.
   replay mints bytes no door saw), after it (the record answers, same ids);
   an offer before its commit (the consumption was discarded with every
   other write; the replay delivers the same locks), after it (the record
-  path, write-free); the person fan-out as traced. Scale: `:leases`,
+  path, whose only writes are idempotent lease-row deletes [V-F1]); the
+  person fan-out as traced. Scale: `:leases`,
   `:locks`, `:erased`, `:by-stamp` subindexed; a lease writes at most 256
   rows. Non-idempotent writes: none (every write a `termval` or `NONE>`
   keyed by id). Multi-partition writes: only the person fan-out (L9).
@@ -2347,7 +2445,10 @@ written here.
   lock row, opened, HMAC equal, the recorded yes; a resend with another
   note: HMAC differs, `:name-taken`; after `forget-value!` the lock row is
   gone, the value's check is skipped, the recorded yes. Faults: the record
-  path writes nothing, so a retry is the same. Flaws: none found. Verdict:
+  path writes nothing, so a retry is the same. [V-F1: the record path now
+  deletes the resend's cited lease rows, idempotent, and skips a value
+  whose own lock does not deliver, so a retry is still the same; a resend
+  under newly leased locks is traced in the validation, trace 1.] Flaws: none found. Verdict:
   PASS.
 - **"Unconsumed lease rows are destroyed when their session closes."**
   Trace: s1 leased 64, used 3; `:session-closed` deletes `[:alice :leases
