@@ -747,8 +747,8 @@ Steps, each a capability (class c of the count):
 | Step `:do` | Arguments | Gives | Why tonight |
 |---|---|---|---|
 | `:emit` | `:e` formula, `:k` a literal key in `:out`, `:v` formula | one output fact, collected into the run's one output act | the test tool writes a `:note` |
-| `:revision/read-units` | `:repo`, `:rev`, `:path` formulas, `:cut` literal (`:blocks`, `:forms` or absent) | `rig.revision/read-units`'s result: `{:units [...]}` or an error as data, bound to the step's `:name` | the revision reader, consumed as a capability (its plan, lines 196-238); no test tool calls it tonight |
-| `:revision/read-span` | `:repo`, `:rev`, `:path`, `:first`, `:last` formulas | `rig.revision/read-span`'s result, bound to the step's `:name` | as above |
+| `:revision/read-units` | `:repo` a literal repository id **[V-F13]**, `:rev`, `:path` formulas, `:cut` literal (`:blocks`, `:forms` or absent) | `rig.revision/read-units`'s result: `{:units [...]}` or an error as data, bound to the step's `:name` | the revision reader, consumed as a capability (its plan, lines 196-238); no test tool calls it tonight |
+| `:revision/read-span` | `:repo` a literal repository id **[V-F13]**, `:rev`, `:path`, `:first`, `:last` formulas | `rig.revision/read-span`'s result, bound to the step's `:name` | as above |
 
 Formulas, in the leaves (class c):
 
@@ -775,6 +775,20 @@ that maps over a collection (one output per unit a revision read returns),
 a step that reads the store (a second pattern read, role `:stood-on`), a
 comparison or a conditional. The reference tool is likely to need the
 first two (*assumed*); round three's contract says.
+
+**[V-F13] What a capability may reach.** The revision reader runs git
+plumbing on the host the runner runs on, and the runner is operator code.
+With `:repo` a formula, any writer of a tool fact in any layer could have
+the runner read any file at any revision of any repository the process can
+open, and `:emit` its content into the store: a record choosing what the
+operator's machine reads. So `:repo` is a literal id, and the runner is
+started with the map from id to path it may read (`{:repos {id path}}`,
+operator configuration, not a fact; empty by default, so tonight's runner
+reads no repository unless a test gives it the reader's fixture). `:rev`
+and `:path` stay formulas, bounded by the reader's own checks (its plan's
+hardening against `^HEAD`, an inherited `GIT_DIR`, non-ASCII paths). Which
+repositories a layer's tools may read is a policy question for Sid (a fact
+on the layer, or the operator's list): section 12, Q10.
 
 ## 6. The minimal runner (question 4)
 
@@ -984,7 +998,10 @@ as data; `loop-free` refuses self-matching, match-all and cycle-closing
 tools in stamp order; `run-name` is the same for the same triple and
 differs when any part differs. When the revision reader is merged: a step
 `:revision/read-units` over the reader's own fixture repository binds its
-units, and an error from the reader comes back as data.
+units, and an error from the reader comes back as data. **[V-F13]** A step
+naming a repository id the runner was not given (`{:repos {id path}}`) is
+`{:refused :step-failed ...}` as data and reads nothing; `parse-tool`
+refuses a `:repo` that is not a literal keyword.
 
 ### 7.2 Cluster tests: `rig.store.tools-test`
 
@@ -1013,7 +1030,8 @@ Gate:
   is used), and a second marked `:mention` of Bob: `:subjects #{:alice}`,
   wrap `{:required [:alice]}`. After Bob's forget, the first no longer
   opens and the second still does. The subjects came from facts.
-- **G3, an opaque key.** A test key, not a toy key, so each toy key keeps
+- **G3, an opaque key.** A test key, not a toy key ([V-F11]: G2, G4 and G6
+  do change a toy key's grammar, each in one layer and on purpose), so each toy key keeps
   one grammar in every layer (CORNERS C4.3). In `:alice`, a grammar for
   `:blob`, `:opaque true`:
   a `:blob` whose value is a string, and one that is a map, are both
@@ -1496,6 +1514,11 @@ Rig choices (each can change without touching a record):
 - **Q9. A replaced tool and history** (open item 85): tonight a new version
   of a tool runs over every existing match, and the old version's outputs
   stay.
+- **Q10. What a capability may reach ([V-F13]).** Tonight the operator's
+  runner configuration names the repositories a tool may read, by id, and
+  a record names only the id. Should that list be a fact on the layer (so
+  "from inside" covers it, with a permission to write it), or stay the
+  operator's?
 
 ## 13. Build order, and what to check first
 

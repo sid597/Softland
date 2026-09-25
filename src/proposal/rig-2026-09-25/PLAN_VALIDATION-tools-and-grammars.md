@@ -7,8 +7,8 @@ Validator: Claude Opus 5.5 (`claude-opus-5-5`), effort max, a fresh session,
 `/mnt/data/projects/Softland-rig-plan-tools`. The plan validated is
 `PLAN-tools-and-grammars.md` at `c161f238`. The default verdict was FAIL.
 
-**Verdict: minor-fail.** Twelve failures, each fixable by a localized edit;
-all twelve are fixed in the plan in place, numbered F1 to F12 and marked
+**Verdict: minor-fail.** Thirteen failures, each fixable by a localized
+edit; all thirteen are fixed in the plan in place, numbered F1 to F13 and marked
 `[V-F<n>]` where they land. None needs the architecture rethought: pick A
 (a grammar in the layer it governs, read locally), the stream gate's one
 event, the per-layer `:key-rows` row, the tool as one ordinary fact, and
@@ -56,6 +56,7 @@ a fix. Not opened: `env.clj`, anything under `src/app`,
 | F10 | The plan named functions of builds that had committed nothing; they have since. The hint seam is `reads/current-hints` (called at `gate.clj:281`, `reads.clj:426`, `reads.clj:975`), not only the constant `seed-hints`; `reads/read-keys` already names the read-entry keys; the micro gate's block 1 and fold are `micro/arrival-open`, `micro/layer-rows`, `micro/prepare`, and its refusal order `micro/reason-order`, where `:grammar-change-needs-rebuild` must also go | 1 (a table of what each name became), 10, 13: the names to bind after the merge |
 | F11 | `:tool` is called "a store key the runner knows" in 5.1 while 4.1 excludes it from the store keys and 5.1 lets a grammar govern it | 5.1: `:tool` is an ordinary key the runner reads by name; the store keys are the control keys, `:grammar` and `reads/read-keys` |
 | F12 | Section 10 misses `rig.store.read-model-test` (its histories read `[:kv ...]`), whose 0-difference result depends on the `:note` by-value hint | 10: listed; its replays write the toy grammars into each layer first |
+| F13 | The revision steps take `:repo` as a formula, so any writer of a tool fact in any layer could have the runner, operator code on the host, read any file at any revision of any repository the process can open and `:emit` it into the store | 5.2, recipe-test, Q10: `:repo` is a literal id; the runner is started with the map from id to path it may read (operator configuration, empty by default); an unknown id is a step failure as data |
 
 ## 1. The spec and the brief, verbatim, and where the plan answers them
 
@@ -703,15 +704,22 @@ against M2's zero, rejected for a security rule, costed (F9). Pass.
 
 ### The revision reader as a capability
 - **Source**: "the code that reads a file at a git revision into passages
-  and functions, with content and position and no store identity" (brief).
+  and functions, with content and position and no store identity" (brief);
+  "A capability is code below the waist, added once, with receipts"
+  (decisions.md).
 - **Trace**: built and merged, 25 tests green on the merge (RIG.md, the
   build's run `runs/revision-reader-after-merge.log`); the plan adds two
   vocabulary steps binding `rig.revision/read-units` and `read-span`
-  results to a step name, no store identity added.
-- **Flaws**: none found, with reasoning: the steps pass the reader's data
-  and its errors as data; nothing in the store gains an identity for a
-  passage.
-- **Verdict**: PASS.
+  results to a step name, no store identity added. History H9: Bob's agent,
+  holding a permission in its own session layer, writes a tool fact whose
+  step is `{:do :revision/read-units :repo [:lit "/some/repo"] :rev [:lit
+  "HEAD"] :path [:lit "any/tracked/file"]}` and an `:emit` of the first
+  unit's content; the runner, as operator code, reads it and offers it into
+  the layer.
+- **Flaws**: the capability's reach is set by the record: a record chooses
+  what the operator's machine reads.
+- **Verdict**: FAIL → F13, fixed (`:repo` a literal id from the runner's
+  operator configuration).
 
 ## 7. What should go to Sid
 
@@ -733,7 +741,10 @@ against M2's zero, rejected for a security rule, costed (F9). Pass.
    the test tool needs; decisions.md reserves "a designed total language"
    for when a record cannot say a needed tool twice over, "asked of Sid
    then". The thesis count will show whether that point comes.
-6. **The micro reorder** (F9): one hop per act, to keep bare operator
+6. **What a capability may reach** (F13, the plan's Q10): the
+   repositories a tool may read are named by the operator's runner
+   configuration tonight, by id; should the list be a fact on the layer?
+7. **The micro reorder** (F9): one hop per act, to keep bare operator
    locks and plaintext on the arrival task; M2 saves the hop by carrying
    sealed lease rows to `hash(L)`, at the price of bare operator locks on
    the wire. Phase 3's, and Sid's if the rule is to bend.
