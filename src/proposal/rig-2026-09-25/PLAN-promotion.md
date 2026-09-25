@@ -157,6 +157,18 @@ that holds the cited lease rows (phase 3, §A).
   target's (7b as written in shared layers), so it dies or survives with
   that person as any value in the target does; its depot bytes and
   `:forwards` follow the record lock, because the lease row is gone.
+- [F7] *A person forget of someone the copy is about, between the read-out
+  and the landing* (Bob forgotten after the read-out of Alice's `:mention`
+  of him, before its batch). The landing lease row is bare, so until the
+  landing is decided the store holds an opener of a copy about a forgotten
+  person: the forward's and the depot's box. The landing's decision
+  computes the copy's subjects, finds Bob forgotten, refuses it
+  (`:person-forgotten`, recorded) and deletes the row; after it nothing
+  opens the copy. The window runs from Bob's forget to the landing's
+  decision (one batch on the micro gate; the same record on the stream
+  gate), and is the one phase 2 leaves for every sealed offer in flight,
+  whose lease rows are wrapped under the writer, not the value's subjects.
+  Named for Sid under P6 widened, not closed here.
 
 **The one-event rule and the batch.** The read-out needs nothing from
 another task: the source's lock row is on the owner's home (phase 2: lock
@@ -218,16 +230,30 @@ shapes it writes are first-record (PR1 to PR5 below). Nothing in it
 depends on which gate lands the copy except the road of the forward.
 
 **0. The landing lease** (the target's gate). The door makes one lease act
-into the target layer T, named `[T C :offer uuid']` where C is T's class
-now, with the one control fact `{:e s :k :lease :v {:count 1 :landing
-L*}}`, where `L*` is the landing name the request will cause (step 1). A
-lease act is phase 2's and phase 3's, decided as they decide it (it needs
-a permission in T, RIG.md "For Sid" 1); the new part is the `:landing`
-field, which makes the gate mint one X25519 key pair instead of n
-symmetric locks, write its row bare (`:under nil`) with `:public` and `:for
-L*`, and refuse a count other than 1 (`:malformed-control`). The door takes
-the public key through the lease query, which for a landing row returns
+into the target layer T, named `[T C :offer u]` where C is T's class now
+and **u is the uuid the request will carry** [F1], with the one control
+fact `{:e s :k :lease :v {:count 1 :landing L*}}`, where `L*` is the
+landing name the request will cause (step 1). A lease act is phase 2's and
+phase 3's, decided as they decide it (it needs a permission in T, RIG.md
+"For Sid" 1); the new part is the `:landing` field, which makes the gate
+mint one X25519 key pair instead of n symmetric locks, write its row bare
+(`:under nil`) with `:public` and `:for L*`, and refuse on its face
+(`:malformed-control`) a count other than 1 and **an `L*` other than `[T C
+:landing u]` for the lease act's own T, C and u** [F1]. The door takes the
+public key through the lease query, which for a landing row returns
 `{:public bytes :for L*}` and never `:sealed`.
+
+[F1] *Why the lease is named from the request's uuid.* Without it nothing
+makes a landing lease the only lease for its landing name: the lease act's
+`:landing L*` is a plaintext control fact recorded in T, so any other
+writer in T could lease `:for L*` herself, seal her own content to her own
+public key, append a landing named `L*` to `*micro-offers`, and, decided
+first, take L*'s record; the real landing would then be refused by digest
+and `promotion-status` would read done with her content. Named `[T C
+:offer u]`, the lease is unique by the gate's own name rule (a second act
+under that name is a reused name, answered from the record or refused by
+digest), and u first appears in the requester's own lease act, so no one
+can take the name before it.
 
 **1. The request act** (the stream gate, the owner layer L's home). An
 ordinary act by the owner, named `[L :by-layer :offer uuid]`, citing a
@@ -239,7 +265,7 @@ entity:
      :v {:source    <src-fid>            ; a fact id in L
          :target    T                    ; a layer other than L
          :class     C                    ; T's class as the door saw it
-         :lease     [lease-name 0]       ; the landing lease's lock id; lease-name tagged [T C ...]
+         :lease     [[T C :offer u] 0]   ; the landing lease's lock id, u this request's own uuid [F1]
          :public    "<base64, 44 bytes>" ; the landing lease's public key
          :permission <pid in T>          ; the landing's permission, checked by T's gate
          :replaces  <fid in T> | nil     ; the head the copy replaces
@@ -250,9 +276,11 @@ A control fact, so its value is plaintext (the model's `control-keys` has
 a value. The gate adds `:promote-request` to R13's control facts a
 non-operator may write, for anyone whose permission covers L, and checks
 the value's shape (`:malformed-control` otherwise: the keys exactly these,
-the source's name in L, T ≠ L, C a class, the lease name tagged `[T C]`,
-the public key 44 bytes, the permission's layer T, the subjects at most
-256 readable keywords). Everything else about the source is the
+the source's name in L, T ≠ L, C a class, the lease id exactly `[[T C
+:offer u] 0]` with u the request's own uuid [F1], the public key 44 bytes
+that decode as an X25519 public key (`locks/public-key`, total, pure, no
+read) [F2], the permission's layer T, the subjects at most 256 readable
+keywords). Everything else about the source is the
 read-out's to check, as in the model, where the request is only a request.
 
 **2. The read-out** (the store's own step, on L's home). After the
@@ -266,9 +294,18 @@ permission (the model's `exempt?`: the store's own steps act at the root),
 control fact, class nil, phase 1's P4). Decided in one event:
 
 - the crossing name has a record → the record path (below);
-- `open-value>` of the source gives `{:value v :stamp s}` → **yes**: the
-  crossing's answer record and log row, its stood-on, the stored forward
-  `[L :forwards req]`, and the task's clock, one atomic group;
+- [F8] L's class fact (in the settings the event already reads) is no
+  longer `:by-layer`, because L was re-classed between the request and the
+  read-out → a recorded **no**, `:class-mismatch`: the stream gate no
+  longer orders L, so it neither opens the source nor writes a yes there;
+- `open-value>` of the source gives `{:value v :stamp s}` and the box to
+  the request's public key is made → **yes**: the crossing's answer record
+  and log row, its stood-on, the stored forward `[L :forwards req]`, and
+  the task's clock, one atomic group;
+- [F2] `open-value>` gives a value but `box` returns nil (a public key the
+  request's check let through that the agreement still refuses, such as a
+  small-order point) → a recorded **no**, `:malformed-control`. The read-out
+  never writes a yes without a box, and never throws;
 - `{:erased-at d}` (a value forget, or the owner's person forget closing
   the wrap) → a recorded **no**, `:source-erased`;
 - anything else (no such fact, a control fact, a retract) → a recorded
@@ -285,14 +322,18 @@ moment can say when it was refused.
 - C = `:by-entity` (a group, or the base after its re-class): `(|hash
   lease-name)`, the task `*micro-offers`' `hash-by micro/route-key` picks
   for this landing (route-key is the lease name of the first cited lock,
-  phase 3's M4), then `(depot-partition-append! *micro-offers landing
-  :append-ack)`;
+  phase 3's M4; the micro build's `route-key` does this, checked at
+  5afe3c7d), then `(|direct (ops/current-task-id))` immediately before
+  `(depot-partition-append! *micro-offers landing :append-ack)` [F6]
+  (stream.md: always a commit boundary right before an append in a stream
+  topology);
 - C = `:by-layer` (the base while one-owner, on the stream gate): `(|hash
   T)`, T's home (phase 1's P2), and the landing's decision there in one
   event, with no depot on the road at all.
 
-The landing is the one kept in `[L :forwards req]`, byte for byte: every
-send of it, first or replayed, is the same record, so the target's gate
+The landing is the one kept in `[L :forwards req]`, stored as the envelope
+that is sent, `:version` and all [F4], so every send of it, first or
+replayed, is the same record whatever code runs the replay: the target's gate
 answers every send after the first from its record, and a forget of the
 source after the read-out cannot stop a re-send (the read-out never opens
 the source again).
@@ -318,6 +359,33 @@ because a landing is never resent under another lease and a promotion must
 end as done or refused. The copy's subjects never include the source's
 owner unless T's grammar or the request's tool names her: the landing
 carries the request's `:subjects`, not the source act's subject slot.
+
+[F3] *Which refusals of a landing are recorded.* A landing name `[T C
+:landing u]` binds its lease id, `[[T C :offer u] 0]` (F1). At the
+target's gate, after the record path (a name with a record gets that
+record's answer, whatever the lease row):
+- refused on its face, nothing recorded, nothing consumed: an envelope that
+  is malformed or is not exactly one sealed value fact with a `:box`; a
+  cited lease id other than the one its name binds (`:no-such-lock`); a
+  bound lease row that is present but leased to another session (phase 2's
+  "left alone", so a forger citing someone's lease cannot destroy it or
+  record a refusal under their landing's name);
+- recorded, the row consumed where it is present: no row at the bound id
+  (consumed, closed with its session, never made) or a row whose `:for` is
+  another name, `:landing-lock-gone`; a box that does not open under the
+  row's private key, `:landing-lock-gone`; every value-level refusal
+  (`:permission-revoked`, `:stale-replaces`, `:person-forgotten`,
+  `:does-not-open`, `:class-mismatch`, ...), as for any sealed act;
+- inside one micro batch, an envelope that fails its face checks never
+  takes a name from one that passes (phase 3's F3 decides among the
+  passing envelopes only), so a same-batch forgery cannot push the store's
+  landing out to a face refusal.
+
+An honest door's store-made landing is never face-refused by these rules
+(its lease id is bound, its session is the lease's), so every crossed
+promotion from an honest door ends done or refused. A door that leased
+under another session than its request's stays crossed until it resends
+after that session closes; named in open question 2.
 
 **5. Pending, its two states, and the read.** The model's
 `promotion-status` as of T, without optimism:
@@ -368,20 +436,28 @@ statement that fits the state it found.
   re-class of T between the request and the landing makes the landing
   reach the gate that no longer orders T: the stream gate refuses it
   `:class-mismatch` (recorded, phase 1), and the promotion reads refused.
-- The landing lease act: `[T C :offer uuid']`, the door's, and its one
-  lock id `[lease-name 0]` (phase 2's `lease-ids`).
+- The landing lease act: `[T C :offer u]`, the door's, with the request's
+  own uuid u [F1], and its one lock id `[[T C :offer u] 0]` (phase 2's
+  `lease-ids`). So the four names of one promotion share u: the lease `[T
+  C :offer u]`, the request `[L :by-layer :offer u]`, the crossing `[L nil
+  :crossing u]`, the landing `[T C :landing u]`; each is a different name
+  (layer or scheme differ), and each is unique by its gate's name rule.
 - **The reservation.** The stream gate keeps refusing `:crossing` and
   `:landing` names from `*offers` on their face (phase 1's
   `:reserved-scheme`, unchanged): the store's steps on that gate never
   pass a depot. `*micro-offers` carries both the doors' acts and the
   store's landings, and a depot cannot tell a topology's append from a
   client's, so the micro gate takes a `:landing` name as a landing and only
-  as one: exactly one value fact, citing a landing lease whose `:for` is
-  this very name, and every such record decided and recorded. A `:crossing`
+  as one: exactly one value fact, citing the one lease id its name binds,
+  `[[T C :offer u] 0]` [F1], whose row's `:for` is this very name, and
+  recorded or refused on its face by step 4's rule [F3]. A `:crossing`
   name there stays refused on its face, and an `:offer` name citing a
   landing lease is `:no-such-lock`. The limit, named for Sid (open
   question 1): a door that deliberately makes a landing name for a
-  request it sent could land content no read-out made. "Operator trusted
+  request it sent could land content no read-out made. After F1 that
+  reach is its own promotion only: another writer in T can neither lease
+  for someone else's landing name nor spend or destroy their landing
+  lease without claiming their session. "Operator trusted
   at launch. No signing; ... a later edition can add the part": a store
   signature on its landings is that part.
 
@@ -433,18 +509,28 @@ PState per key and partitioner).
 **`$$layers`** (stream gate, `gate` topology; key a layer, on its home):
 
 - **`:forwards`**, new: `(map-schema PersistentVector <forward> {:subindex-options
-  {:track-size? false}})`, request name → the landing as sent:
+  {:track-size? false}})`, request name → the route and the landing
+  envelope exactly as it is sent [F4] (a rebuilt envelope would make every
+  send depend on the code that rebuilds it):
 
       (fixed-keys-schema
-       {:name       PersistentVector            ; [T C :landing uuid]
-        :route      PersistentVector            ; lease-name, the append's hash key, or nil for a stream target
-        :who        Keyword  :layer Keyword  :class Keyword  :session Keyword
-        :permission PersistentVector  :because-of PersistentVector
-        :stood-on   (map-schema PersistentVector Long)
-        :subjects   (set-schema Keyword)
-        :e Keyword  :k Keyword  :replaces PersistentVector
-        :sealed     bytes  :lock-id PersistentVector
-        :box        (fixed-keys-schema {:eph bytes :nonce bytes :wrapped bytes})})
+       {:route    PersistentVector              ; lease-name, the append's hash key, or nil for a stream target
+        :landing                                ; the envelope, as appended or hopped, never rebuilt
+        (fixed-keys-schema
+         {:version    Long
+          :name       PersistentVector          ; [T C :landing u]
+          :who        Keyword  :layer Keyword  :class Keyword  :session Keyword
+          :permission PersistentVector  :because-of PersistentVector
+          :stood-on   (map-schema PersistentVector Long)
+          :subjects   (set-schema Keyword)
+          :facts      (vector-schema             ; exactly one, built by rig.store.promote
+                       (fixed-keys-schema
+                        {:e Keyword  :k Keyword  :replaces PersistentVector
+                         :sealed bytes  :lock-id PersistentVector
+                         :box (fixed-keys-schema {:eph bytes :nonce bytes :wrapped bytes})}))})})
+
+  (The schema's spelling of the envelope's types follows phase 1's
+  envelope; the point of F4 is that the stored value is the envelope.)
 
   Written once, in the crossing's yes, with `termval`. Read only on the
   crossing's record path (a replay, a resend, the status read). Subindexed
@@ -506,8 +592,14 @@ more event flow in the same `<<sources` block, because only the gate writes
   answer is a yes and its fact is `:promote-request`: commit boundary; the
   read-out's event (record lookup of the crossing name; `open-value>` of the
   source; the pre-bound randomness; `decide` over the store-made crossing
-  offer; the writes, one atomic group); commit boundary; the forward; one
-  `ack-return>` at the end with `{:request <ack> :crossing <ack>}`.
+  offer; the writes, one atomic group); commit boundary; the forward (for
+  a micro target `(|hash lease-name)`, then `(|direct
+  (ops/current-task-id))` immediately before the append [F6]); one
+  `ack-return>` at the end with `{:request <ack> :crossing <ack>}` (several
+  calls are last-write-wins without `:ack-return-agg`, and the ack is sent
+  only when the record's whole event tree completes, stream.md; so open
+  question 7's first check is answered by the reference, and the build
+  confirms it).
   `:retry-mode :all-after` (phase 1) replays the whole record after a
   failure, and every step answers from its record by name, so a replay
   repeats nothing but the append.
@@ -543,23 +635,30 @@ the full typed schemas above; no `Object` anywhere.
 **`promotion-status [*layer *req *as-of :> *status]`**, invoked on
 `(|hash *layer)`, L's home:
 
-1. `[L :answers req]` (the request's record): nil → `{:status :none}`; a
-   no → `{:status :none :request-refused reason}` (a refused request is no
+1. `[L :answers req]` (the request's record): nil, or a yes stamped after
+   `*as-of` [F5] → `{:status :none}` (a read as of a moment shows nothing
+   admitted after it; the model's `promotion-status` does not look at the
+   request's stamp, a difference phase 8 reports); a no →
+   `{:status :none :request-refused reason}` (a refused request is no
    promotion, as in the model, which lists admitted requests only);
 2. `[L :answers crossing]`: nil, or stamped after `*as-of` → **pending**;
    a no → **refused** with its reason and stamp;
 3. a yes: `[L :forwards req]` for the landing's name and road; then
-   `(|hash landing-name)` for a micro target: the name row's answer and
-   `$$micro-task`'s frontier F on that task (phase 3's frontier; a batch
-   above F is not yet settled everywhere) → a yes in a batch ≤ F stamped at
-   or before `*as-of` → **done**; a no → **refused**; else **crossed**; or
+   `(|hash landing-name)` for a micro target: the name row's answer; nil →
+   **crossed**, with no further read [F5]; an answer → `$$micro-task`'s
+   frontier F on that task (phase 3's frontier; a batch above F is not yet
+   settled everywhere) → a yes in a batch ≤ F stamped at or before
+   `*as-of` → **done**; a no in a batch ≤ F stamped at or before `*as-of`
+   → **refused**; else **crossed**; or
    `(|hash T)` for a stream target: `[T :answers landing]` → done, refused
    or crossed by the same rule.
 
 Input examples and meaningful reads: an admitted request not yet read out:
 2 reads, both meaningful (the second's nil is the answer); refused at the
-read-out: 2; crossed or landed on the micro gate: 3 on L's home plus 2 on
-the landing's name task; on the stream gate: 3 plus 1; a name that was
+read-out: 2; landed, or refused at the landing, on the micro gate: 3 on
+L's home plus 2 on the landing's name task; crossed and not landed there:
+3 plus 1, the nil name row deciding it [F5]; on the stream gate: 3 plus 1;
+a request stamped after `*as-of`: 1 [F5]; a name that was
 never a request: 1. **Variable**, handled with `<<if` on each answer: the
 second task is reached only when the crossing is a yes, and no read is
 issued that the state already decided. The door's `promote!` and the read
@@ -593,36 +692,36 @@ assumed, not measured: most promotions a person looks at have landed.
 |---|---|---|---|
 | landed, micro target (done) | 0.60 | 5 | 0 |
 | landed, base on the stream gate (done) | 0.05 | 4 | 0 |
-| crossed, not landed | 0.05 | 5 | 0 |
+| crossed, not landed [F5] | 0.05 | 4 | 0 |
 | refused at the landing | 0.05 | 5 | 0 |
 | pending | 0.05 | 2 | 0 |
 | refused at the read-out | 0.10 | 2 | 0 |
 | not a request | 0.10 | 1 | 0 |
-Weighted seeks = 4.10   |   Weighted iterator reads = 0
+Weighted seeks = 4.05 [F5; 4.10 before]   |   Weighted iterator reads = 0
 
 ### N = 16 tasks
 | Data category | Frequency proportion | Seeks/op | Iterator reads/op |
 |---|---|---|---|
 | landed, micro target (done) | 0.60 | 5 | 0 |
 | landed, base on the stream gate (done) | 0.05 | 4 | 0 |
-| crossed, not landed | 0.05 | 5 | 0 |
+| crossed, not landed [F5] | 0.05 | 4 | 0 |
 | refused at the landing | 0.05 | 5 | 0 |
 | pending | 0.05 | 2 | 0 |
 | refused at the read-out | 0.10 | 2 | 0 |
 | not a request | 0.10 | 1 | 0 |
-Weighted seeks = 4.10   |   Weighted iterator reads = 0
+Weighted seeks = 4.05 [F5; 4.10 before]   |   Weighted iterator reads = 0
 
 ### N = 128 tasks
 | Data category | Frequency proportion | Seeks/op | Iterator reads/op |
 |---|---|---|---|
 | landed, micro target (done) | 0.60 | 5 | 0 |
 | landed, base on the stream gate (done) | 0.05 | 4 | 0 |
-| crossed, not landed | 0.05 | 5 | 0 |
+| crossed, not landed [F5] | 0.05 | 4 | 0 |
 | refused at the landing | 0.05 | 5 | 0 |
 | pending | 0.05 | 2 | 0 |
 | refused at the read-out | 0.10 | 2 | 0 |
 | not a request | 0.10 | 1 | 0 |
-Weighted seeks = 4.10   |   Weighted iterator reads = 0
+Weighted seeks = 4.05 [F5; 4.10 before]   |   Weighted iterator reads = 0
 
 Flat: the read touches one task, or two, never a number that grows with N.
 At N = 1 the second "task" is the same task and the seeks are the same.
@@ -723,9 +822,11 @@ None.
 
 - The forward could keep only its sealed bytes and box (about the value +
   130 bytes) and rebuild the envelope from the request's control value on a
-  replay, one seek more. Not taken: a byte-identical re-send is what makes
-  a replayed landing answer from the record by its digest without a second
-  mechanism, and it holds across a code change between the sends.
+  replay, one seek more. Not taken: a re-send of the stored envelope itself
+  (F4: the value kept is the envelope, not fields to rebuild it from) is
+  what makes a replayed landing answer from the record by its digest
+  without a second mechanism, and it holds across a code change between
+  the sends.
 - The request's public key (44 bytes, 60 as base64) is the only new field
   a door sends; it replaces no field that exists.
 - Nothing is duplicated to serve a read faster: the status is read from
@@ -748,35 +849,54 @@ for Sid in the receipt.
   `:who :store`, no permission, one `:crossed` fact on the source's entity
   with value `{:request req :source src-fid}`, standing on the source and the
   request; its recorded refusals `:source-erased` and `:source-has-no-value`
-  under the same name. Why: the model's read-out, as phase 1 named it.
+  under the same name, and, beside the model's two, `:class-mismatch` for a
+  source layer re-classed before the read-out [F8] and `:malformed-control`
+  for a public key no box can be made to [F2]. Why: the model's read-out,
+  as phase 1 named it; the two additions keep the read-out total.
 - **PR3, first-record: the landing.** Named `[T C :landing uuid]`, C the
   class the request carries (phase 1's `landing-name` gains the class);
   `:who` the requester, `:because-of` the request, standing on the source
   and the crossing with their stamps; one value fact on the source's e and
   k, carrying the request's replaces and subjects; the envelope's fact parts
   gain `:box`, accepted on a landing name only. Why: the names sharpening,
-  the model's `forward`, and default 1 (the lock must travel boxed).
-- **PR4, first-record: the landing lease.** A lease act with `{:count 1
-  :landing <landing-name>}`; its row bare, with `:public` and `:for`. Why:
-  the one place an opener can wait for the landing's decision.
+  the model's `forward`, and default 1 (the lock must travel boxed). `:box`
+  is a store-owned part, as phase 2's `:sealed` and `:lock-id` are, never a
+  tool's; it extends the ruled list of the store's named parts, so it is
+  Sid's to see, and, the rig's records not being kept, it joins version 1
+  rather than moving the version marker.
+- **PR4, first-record: the landing lease.** A lease act named `[T C :offer
+  u]` with the request's own uuid u [F1], with `{:count 1 :landing [T C
+  :landing u]}`; its row bare, with `:public` and `:for`. Why: the one place
+  an opener can wait for the landing's decision, and (F1) the one lease a
+  landing name can cite, unique by the gate's name rule.
 - **PR5, first-record: `:landing-lock-gone`**, a recorded refusal of a
-  landing whose lease is missing or bound to another landing. Why: a crossed
-  promotion must end.
+  landing whose bound lease row is missing or bound to another landing, or
+  whose box does not open under it; with step 4's [F3] rule of which
+  refusals of a landing are recorded and which stay on its face. Why: a
+  crossed promotion must end, and a forger must not be able to record a
+  refusal under someone else's landing name.
 - **PR6: the sealed box.** X25519 (JDK `XDH`), the wrapping lock HMAC-SHA256
   over the shared secret with the label `softland/landing-box/v1` and both
-  public keys, AES-GCM with a 12-byte nonce over the 32-byte lock. Can
-  change without touching a record: a box is read only at a landing's
-  decision, and a decided landing is answered from its record.
+  public keys, AES-GCM with a 12-byte nonce over the 32-byte lock, [F2]
+  with the lock id `[[T C :offer u] 0]` and the landing name as GCM's
+  associated data (encoded as phase 1's digest encodes names), so a box
+  opens only inside the landing it was made for. `box`, `unbox` and
+  `public-key` are total (nil on any failure: a non-key, a small-order
+  point, a changed byte), never a throw. Can change without touching a
+  record: a box is read only at a landing's decision, and a decided landing
+  is answered from its record.
 - **PR7: the read-out as a continuation** of the request's record, past a
   commit boundary; the stream-gate landing as a hop, never a depot record.
-- **PR8: the stored forward** `[L :forwards req]`, and every send of a
-  landing is those bytes.
+- **PR8: the stored forward** `[L :forwards req]`, the landing envelope as
+  sent [F4], and every send of a landing is that stored envelope.
 - **PR9: landing leases** are bare, bound to one landing, and destroyed at
   their session's close like every lease; the door does not close a session
   in T while a promotion citing one of its landing leases is neither done
   nor refused.
 - **PR10: the reservation on the micro depot.** A `:landing` name is taken
-  only as a landing (one value fact citing a landing lease for that name);
+  only as a landing (one value fact citing the one lease id its name binds,
+  `[[T C :offer u] 0]` [F1], refused on its face or recorded by step 4's
+  rule [F3]);
   a `:crossing` name is refused on its face (`:reserved-scheme`); an
   `:offer` name citing a landing lease is `:no-such-lock`.
 - **PR11: no target-kind check.** The request names any layer other than
@@ -792,7 +912,15 @@ for Sid in the receipt.
   either gate (only its subjects and a lease act's `:who` are), so the
   requester's forget after the read-out does not refuse the landing. Why:
   B case 4. The build confirms phase 3's gather keeps to this; if it reads
-  `:who`, the landing is the exception.
+  `:who`, the landing is the exception. [F9] B case 4 needs two more things
+  the build confirms: a person forget of the requester neither closes her
+  session in T nor deletes her lease rows there (phase 2's fan-out makes
+  her *wrapped* lease rows unopenable, PLAN-locks-and-forgetting.md
+  2062-2065; a landing lease row is bare, so it is untouched only if no
+  forget or close rule deletes rows by their session's owner); and her
+  permission in T is not revoked by her forget. If either is not so, the
+  landing lease is the exception, kept by the lease's bareness, not by its
+  owner.
 - **PR14: `promotion-status`** as specified, with the model's precedence,
   and the statements at the point of promotion as data.
 - **PR15: the test hold** (R3): `inject/hold!` on a request name stops the
@@ -809,14 +937,22 @@ for Sid in the receipt.
 - `rig.store.gate` and `module.clj`: the continuation (read-out, forward,
   stream landing); `$$layers` gains `:forwards` and the two lease row
   fields; the lease act mints a key pair when `:landing` is set.
-- `rig.store.locks`: `keypair`, `box`, `unbox` (the probe's functions,
-  total: nil on any failure, never a throw); `deliver-lock>`'s lease body
-  unboxes when the row has `:public` and the fact a `:box`; `lease-locks`
+- `rig.store.locks`: `keypair`, `box`, `unbox`, `public-key` (the probe's
+  functions, total: nil on any failure, never a throw; the probe's `box`
+  has no `try` and must gain one, and GCM's associated data, PR6 [F2]);
+  `deliver-lock>`'s lease body unboxes when the row has `:public` and the fact a `:box`; `lease-locks`
   returns a landing row's public key only.
 - The micro gate: `parse` takes a `:landing` name as a landing; the gather
   unboxes on the arrival task; `:landing-lock-gone` rides the skeleton to a
-  recorded no; the lease act mints a key pair; `micro-lease` returns a
+  recorded no; the lease act mints a key pair and refuses on its face a
+  `:landing` whose uuid is not its own name's [F1]; step 4's rule of which
+  landing refusals are recorded [F3], including that inside one batch a
+  face-failing envelope never takes a name from a passing one (phase 3's
+  F3 decides among passing envelopes only); `micro-lease` returns a
   landing row's public key only.
+- The stream gate's lease act refuses the same `:landing` mismatch on its
+  face [F1]; the read-out's two added branches (F2, F8); the forward's
+  `(|direct (ops/current-task-id))` right before the append [F6].
 - `rig.store.client`: `lease-landing!` (the lease act and the public key),
   `promote!` (the request; its answer with the crossing's and the
   statements), `promotion-status`.
@@ -847,7 +983,10 @@ in, and the test says so.
 
 - U1. The box: `box` then `unbox` with the lease's private key gives the
   lock back; with any other private key, a changed byte of the box, or a
-  public key of the wrong length, `unbox` is nil and never throws.
+  public key of the wrong length, `unbox` is nil and never throws. [F2]
+  Also: `box` to a 44-byte blob that is not an X25519 key, and to a
+  small-order point, is nil and never throws; a box made for one landing
+  name or lock id does not open under another (GCM's associated data).
 - U2. The store-made offers: `crossing-offer` and `landing-offer` from a
   request and a source are the shapes in PR2 and PR3; the landing's name is
   `[T C :landing uuid]` with the request's uuid and the carried class; its
@@ -859,7 +998,9 @@ in, and the test says so.
   landing above the frontier reads crossed).
 - U4. The request's control value check: each malformed shape is
   `:malformed-control`; the lease name tagged for another layer or class,
-  a 43-byte public key, a permission in another layer, 257 subjects.
+  a lease id whose uuid is not the request's own [F1], a 43-byte public
+  key, a 44-byte blob that does not decode as an X25519 key [F2], a
+  permission in another layer, 257 subjects.
 
 **Cluster.**
 
@@ -885,7 +1026,9 @@ in, and the test says so.
   - **T4** "Alice forgotten after the read-out: crossed, then done; the copy
     stays". As T3 with Alice's person forget in place of the value forget.
     Shown `[:crossed :done :done]`; the copy reads open. The landing's
-    `:who` is Alice, forgotten: PR13 is what lets it land.
+    `:who` is Alice, forgotten: PR13 is what lets it land. [F9] The test
+    also asserts that Alice's landing lease row in `:group` is still there
+    after her forget and before the batch, and gone after it.
 - **T5, both sides of the read-out line, by stamp.** In T3's history, a
   status read as of the request's stamp is pending, as of the crossing's
   stamp crossed, as of the landing's stamp done; in T1's, as of the
@@ -954,7 +1097,15 @@ in, and the test says so.
   on `*offers` is `:reserved-scheme`; a door's `:crossing` name on
   `*micro-offers` is `:reserved-scheme`; an `:offer` name citing a landing
   lease is `:no-such-lock`; a landing lease act of count 2 is
-  `:malformed-control`.
+  `:malformed-control`. [F1, F3] And the capture case: Bob, a writer in
+  `:group`, reads Alice's landing lease act, then (a) makes his own lease
+  act `:for` Alice's landing name: `:malformed-control` (its name's uuid is
+  not the landing's); (b) makes a lease act under Alice's lease name:
+  refused by digest; (c) appends a landing under Alice's landing name
+  citing her lease id under his session: refused on its face, nothing
+  recorded, her row left alone; (d) appends it in the same batch as her
+  real landing: hers is decided, his refused on its face. Each: Alice's
+  promotion then lands, done, with her content.
 - **T13, whose the copy is.** Alice's `:mention` of Bob in `:alice`,
   promoted into `:group`: Alice's person forget leaves the copy open; Bob's
   erases it (about one person in a shared layer, 7b as written). A plain
@@ -1109,12 +1260,25 @@ able to forge a landing at all (open question 1).
    to its own landing lease, can land content no read-out made. Built: the
    rule PR10; the strong form is a store signature on its landings, the
    part the ruling defers ("no signing; a later edition can add the part").
+   [F1] How far it gets: content the door's person could have written into
+   T directly, under her own permission and session, with a false
+   provenance (`:because-of` her request, standing on a crossing that
+   opened other content, or none: a read-out that said no leaves the status
+   refused whatever landed). Before F1 a *third* writer in T could do the
+   same to someone else's promotion, capturing it (status done with the
+   forger's content, the real landing refused by digest); F1's name binding
+   closes that without signing.
 2. **A landing lease dies with its session** (PR9), so a requester whose
    session in the target closes before the landing sees crossed, then
    refused (`:landing-lock-gone`). The door waits; a crashed door's session
    (open item 82) may not. Should a landing lease outlive its session, at
    the cost of a second lifetime rule and key pairs kept after abandoned
-   requests?
+   requests? [F3] Also here: a door that leased under another session than
+   its request's gets a landing refused on its face (phase 2's "leased to
+   another session, left alone"), and its promotion stays crossed until a
+   resend after that session closes records `:landing-lock-gone`. The door
+   rule (one session for the lease and the request) prevents it; nothing in
+   the store can, since the request's gate cannot see the lease.
 3. **A person's forget against a read-out** (PROGRESS.md, open): the rig
    orders them on the owner's home task, where both are decided; the
    fan-out's order on other tasks does not reach the read-out. Reasoned,
