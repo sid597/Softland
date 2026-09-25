@@ -111,3 +111,44 @@ Newest entries at the bottom.
   merge. The fold now decides by `gate/refusal` and `gate/stamp-for` and
   builds its record and projections itself (`micro-decision`,
   `micro-record`), the adapter [PV-F13] named. Pure suite green on it.
+- 04:11 The suite, last run (runs/phase3-suite.txt; the full log beside
+  it, git-ignored): 34 tests, 1,269 assertions, 0 failures, 0 errors, 4 min
+  35 s wall; the micro cluster on 4 tasks, the stream gate's on 8. The
+  group's six A cases matched the model; the frontier run held (300
+  batches, 14,415 acts, 529,374 pairs through one F, 0 violations; phase
+  0's per-task measure, bypassing F, caught 68 pairs older on the later
+  read).
+
+## For the merge (builder A)
+
+- Merged from rig-build-locks: 1febfa3d only (5afe3c7d). Its later notes:
+  b0f025d5 (the parts digest inside `env/digest`; the sealed parse,
+  `:not-sealed`, control keys), 3ddc6eab (`:scheme :aes-gcm-1` on lock
+  records; this branch's lock-record schema already takes it), 33b357a4
+  (`rig.store.locks` requires `com.rpl.rama` and `rig.store.inject`; new
+  helpers `lock-plan`, `lock-refusal`, `lock-effects`, `value-context`,
+  `fresh-for`, `record-answer`, `row-at`).
+- `rig.store.micro/persons-placeholder?` to false: phase 2's `gate` owns
+  `$$persons`; the door's `make-person!`/`forget-person!` then give way to
+  phase 2's `:people` acts, and the tests that call them follow.
+- phase 2's `env/control-keys` must hold `:members` (the group's making
+  fact), or its parse refuses the making act `:not-sealed`.
+- gate.clj: phase 2 keeps `refusal`'s four permission clauses and
+  `pids-to-read`'s one pid; this branch's walk (`permit/refusal`, the chain)
+  is R19's and must win in both functions. The micro fold calls
+  `gate/refusal`, `gate/stamp-for`, `gate/pids-to-read`, the grant, revoke
+  and setting predicates, not `gate/decide`.
+- envelope.clj: this branch's `pid?` (four deep), `norm-pid`, and the
+  `:landing` line, beside phase 2's sealed parse; `parse-micro` strips
+  sealed parts before `env/parse` and restores them, so it works with
+  either parse.
+
+## Seams and stubs
+
+- The `$$persons` placeholder (above).
+- The effect of a value forget in a shared layer (the record's lock
+  excised, the ledger written): not built; the plan left it to stage 2
+  through the row seam, and stage 2's build is the stream gate's. The
+  forget fact is admitted and its row written; a stream-era target is
+  refused `:no-such-value` here.
+- The cascade of [PV-F8]: not built (R19, the walk).
