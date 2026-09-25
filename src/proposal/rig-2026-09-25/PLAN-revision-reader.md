@@ -31,7 +31,8 @@ nothing else. Prose files (Markdown, and any file that is not Clojure) are
 cut into passages, which are blocks (section 6). Clojure files (`.clj`,
 `.cljc`, `.cljs`, `.edn`) are cut into top-level forms, which is how this
 plan reads "functions" (section 7). A third entry reads the lines a person
-points at as one unit (section 8). Every failure comes back as data. It has
+points at as one unit (section 8); a second entry reads it. Every failure
+comes back as data. It has
 no Rama in it, no dependency on the store's namespaces, no new library, and
 no identity of any kind: no ids, no names used as keys, no hashes offered as
 identity. It is a capability in the count's third class, a built-in a tool
@@ -158,9 +159,9 @@ successful output (tested, section 11, test 20).
 `:commit` is 40 hex digits, or 64 in a SHA-256 repository. It identifies the
 snapshot, not any passage: it is what "at a revision" means once `HEAD` has
 moved, and decisions.md line 164 asks every result to keep it. The reader
-offers no blob id and no hash of any unit. The other two entries return
-`{:rev :commit :path :text}` (the whole file) and `{:rev :commit :path
-:unit}` (a span).
+offers no blob id and no hash of any unit. A span read returns `{:rev
+:commit :path :unit}`; the private whole-file read under both entries
+returns `{:rev :commit :path :text}` (section 4).
 
 ### Errors
 
@@ -194,8 +195,6 @@ Public, in `rig.revision`:
   executable; default `"git"`).
 - `(read-span repo rev path first-line last-line)` and the same with
   `opts` (`:limit`, `:git`): `{:rev :commit :path :unit}` or an error.
-- `(read-text repo rev path)` and with `opts`: `{:rev :commit :path :text}`
-  or an error.
 - `(blocks text)`: `{:units [...]}`; it cannot fail.
 - `(forms text)`: `{:units [...]}`, or `{:error :unreadable :at ... :reason
   ...}`.
@@ -204,10 +203,16 @@ Public, in `rig.revision`:
 - `(cut-for path)`: `:forms` when the path, lowercased, ends in `.clj`,
   `.cljc`, `.cljs` or `.edn`; `:blocks` for every other path.
 
+Private: `(read-text repo rev path opts)`, steps 0 to 6 of section 5,
+giving `{:rev :commit :path :text}` or an error. `read-units` is
+`read-text` then the cut; `read-span` is `read-text` then `span`. It is
+private because a whole file offered as a step a tool can call invites the
+file-grain reference integration.md lines 52 to 54 warn against; a tool
+asks for units or a span. The tests call it through its var.
+
 The four pure functions take text the caller already holds, so a runner can
-cut text that did not come from git. `read-units` is `read-text` then the
-cut; `read-span` is `read-text` then `span`. Calls share nothing: no atom,
-no dynamic var, no cache.
+cut text that did not come from git, and the tests can reach every rule
+without git. Calls share nothing: no atom, no dynamic var, no cache.
 
 One entry with a `:cut`, rather than one for passages and one for
 functions, because a Clojure file read as blocks is a useful second reading
@@ -283,9 +288,11 @@ order mark, if present, stays as the text's first char.
 and no shell, so no argument is ever interpreted by a shell; stdout as
 bytes for step 4 and as UTF-8 text otherwise; stderr kept as `:detail`. An
 exception from starting the process (git missing) gives `:git-failed`.
-Each public entry also wraps its body in a catch of `Exception` that gives
-`:internal`, so a runner can call it from anywhere, a Rama task included,
-and never see an exception (an exception in topology code kills the
+A non-zero exit from step 2 or step 4 gives `:git-failed` too (it can only
+happen if the repository changes under the read, for example a pruned
+object). Each public function, the pure cuts included, also wraps its body
+in a catch of `Exception` that gives `:internal`, so a runner can call it
+from anywhere, a Rama task included, and never see an exception (an exception in topology code kills the
 worker: RIG.md, phase 0). Three processes per read (by construction; their
 cost, a few milliseconds each, is assumed). No timeout, because
 `clojure.java.shell` has none and local plumbing reads of a bounded blob
@@ -516,8 +523,9 @@ must return exactly these counts and lines.
 as it reads: it needs aliases for `::alias/b`, refuses `#=` and record
 literals unless evaluation is on, needs readers for tags, and stops at the
 first error; it records `:line` for lists only, and folds `\r\n` into one
-char, so it gives neither exact char offsets nor positions for vectors, maps
-or atoms. `tools.reader` gives end positions but interprets the same way
+char (checked tonight: its line-numbering reader reads `"a\r\nb"` as three
+chars), so it gives neither exact char offsets nor positions for vectors,
+maps or atoms. `tools.reader` gives end positions but interprets the same way
 and is a new library. `rewrite-clj` is the right tool for a full syntax
 tree, names and docstrings as nodes, and is the first addition to make if
 round three asks for names or inner forms; for top-level boundaries it is
@@ -594,3 +602,410 @@ decision (section 17).
 - `test/rig/revision_test.clj` in the rig folder, namespace
   `rig.revision-test`.
 - About 300 lines for the reader and 450 for the tests (assumed).
+
+## 11. Tests
+
+Run from the rig folder: `clojure -M:test rig.revision-test`. It starts no
+Rama cluster and loads no Rama namespace (the `:test` alias puts Rama on the
+classpath, and nothing requires it), so it does not wait on the cluster
+lock. Name the namespace; never glob test namespaces, so the untracked
+`test/rig/store/gate_test.clj` never loads, and never name that path, not
+even as a missing-path case.
+
+**Fixtures,** full ids, kept in one map at the top of the test namespace.
+All are reachable from this branch; "main" marks the two commits that are
+ancestors of `main` (checked with `git merge-base --is-ancestor`). The rig
+commits stay reachable while the rig branch, or a merge of it that keeps its
+history, does; if it is ever squash-merged and deleted, re-point them in
+that one map.
+
+| Commit | Where | Path | What it exercises |
+|---|---|---|---|
+| `ce6ebaeb01bbc8ea33d9d6ef25c47f9d641a1ee7` | main | `docs/builds/inland/README.md` | the golden block cut (section 6); an em dash on line 1 and an ellipsis on line 53, so chars and bytes differ |
+| same | main | `AGENTS.md` | `:not-a-file :symlink` (mode 120000, checked) |
+| same | main | `history/docs/below-the-waist/path-kind/production/receipts/png/gpu-path-production-empty-clip.png` | `:binary` (878 bytes, checked) |
+| same | main | the rig folder's `RIG.md` | `:missing-path`: the commit before the rig existed |
+| `d9e619b575fb00140d56ad196f3da2520fb815f1` | main | `src-inland/softland/inland/geometry.cljc` | a `.cljc` with reader conditionals inside forms (lines 44 and 45) |
+| `e53bc6d01a44cfb8a4967703cf2dc82446f88c76` | rig | the rig folder's `RIG.md` | the first of two revisions (96 lines, 6,891 bytes) |
+| `7a7403bd7850539e58c37da0fd0936bf46214f9b` | rig | the rig folder's `RIG.md`, `src` and `deps.edn` | the second revision (405 lines, 26,033 bytes); `:directory`; EDN as one form |
+| `45627e45d412b2c4c1b1224594823adc47e59d99` | rig | the rig folder's `src/rig/store/gate.clj` | the first of two revisions |
+| `ea52c424515ae06b5d283da82cef8296a320f825` | rig | the same `gate.clj`, and `src/rig/store/envelope.clj` | the second revision; escaped quotes and a bracket-holding regex |
+
+**Oracles.** Git's own output and Clojure's own reader, run inside the
+tests, never the code under test: `git show <commit>:<path>` (a different
+command from the reader's `cat-file`), `git rev-parse <rev>^{commit}`, `git
+diff --numstat 4b825dc642cb6eb9a060e54bf8d69288fbee4904 <commit> -- <path>`
+(the empty tree; `-` marks a binary file), and the read loop with the
+bindings given in section 7.
+
+**A. Faithful to git.**
+1. For every text fixture, the private `read-text` gives git show's bytes
+   decoded, `:commit` equal to rev-parse's, and a line count equal to git's
+   newline count.
+2. For every unit of every text fixture, `(subs text start end)` is
+   `:content`; for units of whole lines, `:content` is git show's lines
+   `first` to `last` joined by `"\n"`, and `start` is the sum of the
+   earlier lines' lengths in chars plus one per newline. In the README
+   fixture, the block at [3 6] starts at char 34 where git's bytes put
+   byte 36, and the block at [56 60] at char 2597 against byte 2601
+   (checked tonight).
+3. The README fixture cuts into exactly the 24 blocks of section 6, with
+   these positions (checked): [1 1] chars [0 32]; [3 6] [34 328]; [16 18]
+   [624 647]; [44 45] [1732 1878]; [56 60] [2597 2973]; [94 96]
+   [4426 4696].
+4. The block invariants of section 6 hold over every text fixture read as
+   blocks.
+
+**B. Faithful to Clojure's reader.**
+5. For both `gate.clj` revisions, `envelope.clj`, `geometry.cljc` and
+   `deps.edn`: the form count, each form's first line against the
+   reader's `:line` where it has one, and each last line against the
+   reader's line number after the read, equal both the reader's run in the
+   test and the numbers in section 7's table; each unit's content, read
+   alone, is one datum and then the end; the text outside the units reads
+   as nothing.
+
+**C. Two revisions.**
+6. `RIG.md` at `e53bc6d0` and at `7a7403bd`: both reads pass A; `:commit`
+   differs and `:path` does not; the heading "## Phase 0: the two Rama
+   claims, and the cross-module read" is a one-line block at line 29 in the
+   first and at line 209 in the second (checked with grep over git show),
+   and the test finds it in each by its content. The outputs carry nothing
+   that links one to the other; the test's own content match is the only
+   link, which is the point.
+7. `gate.clj` at `45627e45` and `ea52c424`: the form holding `(defn
+   perm-entity` has the same content at [17 20] and at [21 24] (checked:
+   the same four lines); the form holding `(defn refusal` differs, [101
+   114] against [125 141]; `(defn intake` exists only in the second.
+8. A read by `"HEAD"` has the `:commit` that rev-parse gives at test time
+   and equals the read by that commit id apart from `:rev`; two reads of one
+   commit and path are equal.
+
+**D. Every error path,** each asserting the kind and its extra keys.
+9. `:bad-argument`: rev `""`, `nil`, `"-p"`, `"--output=x"`, `"a\nb"`; path
+   `""`, `"/etc/hosts"`, `"../x"`, `"a/./b"`, `"a//b"`, the rig folder's
+   `"src/"`; repo `""`; `:limit` 0 and -1; `:git ""`; `:cut :nope`; spans
+   [0 1] and [5 4]; and, after a read, [1 N+1] on a file of N lines, with
+   `:line-count` N.
+10. `:not-a-repository`: repo `"/nonexistent-rig-reader"` (missing) and
+    `"/proc"` (not in a repository). Neither writes anything.
+11. `:unknown-revision`: `"no-such-rev-2026"`, forty zeros, and
+    `"e53bc6d0^{tree}"`.
+12. `:missing-path`: `RIG.md` at `ce6ebaeb`; a path below a file, the rig
+    folder's `"RIG.md/x"` at `7a7403bd`.
+13. `:not-a-file`: the rig folder's `src` at `7a7403bd` (`:directory`);
+    `AGENTS.md` at `ce6ebaeb` (`:symlink`); `:submodule` through the
+    private ls-tree record parser, given `"160000 commit <40 hex>       -\tvendor/x"`,
+    since no tracked path outside `src/app` is a submodule (checked).
+14. `:too-large`: `RIG.md` at `7a7403bd` with `:limit` 1000; with `:limit`
+    26033, its exact size, the read succeeds (the budget is inclusive).
+15. `:binary`: the PNG fixture; git's numstat gives `-` for it and `96 0`
+    for the README fixture.
+16. `:not-utf-8`: the private decode step on the bytes of `caf`, 0xE9 and
+    a newline (Latin-1); and that NUL-free invalid UTF-8 is `:not-utf-8`,
+    not `:binary`.
+17. `:unreadable`, through `forms`: `"(defn f [x]"` (`:unclosed` at line 1,
+    char 0), `"(a]"` (`:mismatched-close`), `")"` (`:unexpected-close`),
+    `"\"abc"` and `"#\"abc"` (`:unclosed-string`), `"'"`, `"^:m"` and `"#_"`
+    alone (`:unclosed`), a lone backslash (`:unclosed`), `"# x"` and `"#<x>"`
+    (`:bad-dispatch`).
+18. `:git-failed`: a good read with `:git "/nonexistent/git"`.
+19. `:internal` appears in no result of any test (checked by the helper
+    every test reads through).
+
+**E. No identity.**
+20. Walking every successful result of the suite: every map key anywhere is
+    one of `:rev :commit :path :cut :units :unit :text :content :position
+    :lines :chars`; every unit has exactly `:content` and `:position`, and
+    every position exactly `:lines` and `:chars`, each two non-negative
+    integers; `:commit` appears only at the top. So no id, name, hash, sha,
+    kind or index key can be present.
+
+**F. Rules on literal strings.**
+21. Blocks: a fence holding blank lines and a `# ` line is one block; an
+    unclosed fence runs to the last non-blank line; an item with a blank
+    line and an indented second paragraph is one block, and one whose next
+    line is not indented ends; `"2026. Then"` wrapped in a paragraph does
+    not split it, and `"1. First"` directly under a paragraph line does;
+    `"7b."` after item 7 starts a block; a nested item stays in its parent;
+    a heading directly under a paragraph line splits it; CRLF text: blank
+    lines still end blocks, content keeps an inner `"\r\n"`, and no unit
+    ends in `"\r"`; a tab-indented continuation; a byte order mark before
+    `# Title` makes that line paragraph text (G8, recorded as behaviour).
+22. Forms: two forms on one line; a comment holding `)` and `"`; the
+    characters `\(`, `\)`, `\;`, `\"`, `\\`, `\newline`, `\space`,
+    `é`; a string holding `(;` and an escaped quote; the regex
+    `#"[)\"]"`; `#{}`, `#()`, `##Inf`; `#inst "..."` and `#foo/bar {}`;
+    `^:private`, `^{:a 1}`, `#^` and `^:a ^:b x`; `'`, `` ` ``, `~`, `~@`,
+    `@`, `#'`, `#=`; `#?(...)` and `#?@(...)` at the top, one unit each;
+    `#:a{}` and `#::{}`; `::alias/k` and `:a/b`; a top-level `#_ x` and
+    `#_ #_ a b`, skipped, no unit; `#_` inside a form, kept; `#!` on line 1;
+    nesting 10,000 deep, no stack overflow; an astral char in a symbol and
+    in a string, counted as two chars.
+23. Span: the first line, the last line, a blank line, the whole file; a
+    text without a final newline, whose last line counts; an empty text,
+    where every span is `:bad-argument`.
+
+**G. Properties** (`test.check`, already in the `:test` alias).
+24. Blocks: random texts of blank, heading, text, bullet, ordered, lettered,
+    indented and fence lines, joined by `"\n"` or `"\r\n"`, satisfy section
+    6's invariants; 200 trials.
+25. Forms: random top-level data built from 22's atoms and prefixes,
+    nested to random depth and joined by random whitespace, commas and
+    comments that hold delimiters and quotes, give exactly the spans the
+    generator placed; 200 trials.
+
+Time: about 40 git reads at three processes each, plus the pure and
+property tests; well under a minute (assumed).
+
+## 12. What it gives the rig's phase 6 count
+
+**The third class: a capability.** PROGRESS.md "Next" (lines 221 to 223)
+reads the running count in three classes: "fixed-side steps the frame
+already promised, fixed-side steps nobody anticipated, and capabilities."
+This reader is in the third. decisions.md lines 169 to 170: "A capability
+is code below the waist, added once, with receipts." It is a built-in a tool
+calls: round three's seed lists "the built-in steps it calls"
+(STARTER-round-3.md line 32), and a tool that refers to a passage or a
+function at a revision calls it to get that material. It was anticipated:
+integration.md's forced first step (lines 34 to 39, 13 September) names
+this material.
+
+**What the count records:** one capability, `rig.revision`, with two
+built-in steps a tool can call, `read-units` (its cut a pick) and
+`read-span`. Its receipts are its test namespace, run green, and the git
+version it ran against (2.43.0 tonight). It touches nothing on the line: no
+envelope part ("Tools add facts, never envelope parts", PROGRESS.md line
+52), no gate rule, no key grammar, no store namespace, no Rama code. So it
+is not a compiled step of the line, and adding it once does not count
+against "zero new compiled steps".
+
+**What is counted elsewhere:** whatever the runner needs in order to call
+a capability at all (resolving a tool's step to a function, taking its
+arguments from facts, turning its plain-data result into offers) belongs to
+the runner, phase 6 proper, and the count classes it there: in the first
+class if the frame promised it, in the second if nobody did. The reader
+hides none of that. A cut or a field round three asks for later (sections,
+names, EDN entries) is another entry in this capability, class three again,
+unless it changes the line.
+
+## 13. Picks, and what each gives up
+
+Each is a plain rig choice that can change without touching a record,
+because the reader writes none. Two of them become first-record the moment
+a kept fact carries what they decide, G7 and G15; the build step writes
+both under RIG.md "For Sid" (section 14).
+
+- **G1. Two cuts, the default by extension, the pick by `:cut`.** `.clj`,
+  `.cljc`, `.cljs`, `.edn` read as forms; everything else as blocks.
+  Gives up: other languages get Markdown-shaped blocks; a one-map EDN file
+  is one unit by default.
+- **G2. A passage is a block** (section 6's six rules). Gives up: sections,
+  whole lists, and blocks split where indented code or HTML holds blank
+  lines; setext headings.
+- **G3. The lettered marker** (`7b.`), this project's convention. Gives up:
+  agreement with how Markdown renders such a line.
+- **G4. A function is a top-level form, every one.** Gives up: telling a
+  `defn` from a `def` or a `(comment ...)`; inner units.
+- **G5. Comments, whitespace and top-level discards belong to no form;
+  docstrings belong to theirs.** Gives up: a citation of a comment above a
+  function lands in no form (`read-span` reads it; `:cut :blocks` groups a
+  tight comment with its form).
+- **G6. A lexical scanner, not a reader.** Gives up: semantic checks; a
+  top-level `#?@` or an unknown tag still forms a unit.
+- **G7. Positions:** lines 1-based inclusive; chars 0-based, end exclusive,
+  in UTF-16 code units of the decoded text. Gives up: byte offsets (git's
+  unit) and code points (the two differ only for chars outside the Basic
+  Multilingual Plane). **First-record** when a kept fact carries a
+  position.
+- **G8. Content is the exact substring, nothing normalized.** Gives up: a
+  byte order mark hides a heading on line 1; CRLF files keep `"\r"` inside
+  content.
+- **G9. Git's CLI plumbing** through `clojure.java.shell`, the revision
+  resolved once to a commit id. Gives up: a timeout; three processes a read;
+  needs git 2.24 or later on `PATH`, or `:git`.
+- **G10. Errors as data, never an exception,** with `:internal` as the last
+  resort. Gives up: stack traces, which survive only as `:detail` text.
+- **G11. Text only.** Strict UTF-8; git's NUL test for binary; directories,
+  symlinks and submodules refused. Gives up: Latin-1 and other encodings;
+  `.gitattributes`; symlink targets.
+- **G12. A byte budget,** 1 MiB by default, a parameter. Gives up: one
+  tracked text file outside `src/app` (6.3 MB, under `history/`) needs a
+  larger `:limit`.
+- **G13. `read-span`,** beyond the literal ask, for the lines a person
+  points at and the file:line citations. Gives up: nothing; it can be cut.
+- **G14. No identity:** units are exactly `:content` and `:position`;
+  results carry `:rev`, `:commit`, `:path`, `:cut`; the whole-file read is
+  private. Gives up: a tool cannot find "the function named f" without
+  looking through content; names and kinds come when round three sends what
+  its tool needs.
+- **G15. A cut's name is the name of its rules.** Tonight the rules can
+  change freely. **First-record** once a kept fact records a cut's name:
+  from then on `:blocks` and `:forms` mean exactly their rules, and a
+  change is a new name, as the envelope's version marker works.
+
+## 14. The build step, in order
+
+1. In a worktree of its own off `rig-2026-09-25` (builder A names it), read
+   this plan and `PLAN_VALIDATION-revision-reader.md`.
+2. Write `src/rig/revision.clj`: the line index (line starts, the line of a
+   char, where a line's content ends), the block cut, the form scanner,
+   `span`, the git steps, then the entries. A docstring on every public
+   function naming its section here.
+3. Write `test/rig/revision_test.clj`: the fixture map first, then the
+   oracles as test helpers (git show, rev-parse, numstat, the reader loop),
+   then tests 1 to 25.
+4. From the rig folder, `clojure -M:test rig.revision-test`, to green. No
+   lock: no cluster starts. Other suites are not needed, since nothing is
+   shared; any that start a cluster wait on the lock.
+5. The rama skill's review steps, each in a fresh session, as builder A
+   runs them: implementation validation, tests, test validation.
+6. Upkeep with the code: README.md "Where to find it" gains rows for the
+   reader, its test and its command; RIG.md's overnight state names it;
+   RIG.md's rig choices gain one entry pointing at G1 to G15 here; RIG.md
+   "For Sid" gains the two first-record questions, G7 and G15, each with
+   the placeholder in use. SPEC.md is unchanged.
+7. Commit by explicit paths, in parts if the files are long, each message
+   saying what and why, with no attribution line; never push.
+
+## 15. Design difficulty log
+
+- **Whole lists or items.** The brief's example kept lists whole. It was
+  not close once I read how this project writes its rulings: PROGRESS.md's
+  "The nine" is one tight list, and a whole list would make one passage of
+  nine rulings. The grain line settled it.
+- **Sections.** Offering them would have cost twenty lines, and the first
+  material cites sections by name. What settled it was PROGRESS.md line 27
+  (coarsen later, never refine) and STARTER-next.md's "will send what its
+  tool needs from the rig". Close, and easy to reverse.
+- **The comment above a form.** Genuinely close. Attaching a directly
+  preceding comment matches how people read code, and a citation of that
+  comment would land in the function. Keeping comments out keeps the cut to
+  syntax with a clean oracle (every unit reads as one datum), and `:cut
+  :blocks` already gives the other grouping. I chose to keep them out; a
+  validator could fairly choose the other way; the change is local and
+  touches no record.
+- **Top-level `#_`.** My first rule treated it as a prefix, which glued
+  commented-out code to the next form, faithful to the reader's count and
+  wrong for citations. Then as a unit of its own, which broke agreement with
+  the reader's count. Skipping it like a comment keeps both.
+- **The scanner or a reader.** Not close once I had checked the alias
+  problem and the `\r\n` folding.
+- **The unit of chars.** No ruling decides it. UTF-16 code units are what
+  Clojure, ClojureScript and the browser index by; bytes are git's unit.
+  Picked for the stack, and flagged first-record for when a fact carries
+  one.
+- **`read-text` public or private.** I first had it public. Made private
+  because a whole-file step invites file-grain references.
+- **`read-span`.** Beyond the ask. Kept because the first material is
+  citations of line ranges, and it is the part a validator may cut.
+- **No names, no kinds.** The costliest omission: a tool cannot find "the
+  function f" in the output without looking through content. The brief is
+  explicit, and round three will say what its tool needs.
+- **An unreadable Clojure file.** An error for the whole file, rather than
+  the units before the break, because partial units would hide the broken
+  region at that revision.
+- **The `:git` option.** Close. `with-redefs` on `clojure.java.shell/sh`
+  would test `:git-failed` without it, but replaces a core var for the
+  whole JVM while it runs; the option is one key and also serves a host
+  whose git is not on `PATH`.
+
+## 16. Self-validation
+
+Against the parts of `artifact-plan-validation.md` that apply to plain code.
+
+**Minimality.** The simplest design that meets the brief: one function that
+resolves a revision, reads the blob, and cuts it by extension into blocks or
+top-level forms returned as content and position, with errors as data. The
+plan differs from that sketch by:
+
+- *The `:cut` pick.* Delete it, and a Clojure file can no longer be read as
+  blocks, and the pick is no longer a parameter a tool can carry, which is
+  PROGRESS.md's standing stance (lines 35 to 40). One key. Kept.
+- *`read-span`.* Delete it, and a cited line range spanning several blocks
+  has no unit. Not in the brief; kept as G13, and it can go without touching
+  anything else.
+- *The pure cuts as public functions.* Private, the tests still reach them
+  through vars, and a runner could not cut text from elsewhere. Nothing in
+  the brief needs that. Public costs nothing and keeps the cut definitions
+  where round three will look for them. Kept, a close call.
+- *Input validation, `--end-of-options` and `--literal-pathspecs` with the
+  exact match.* Delete them, and `--output=x` could reach git as an option
+  and `:(top)AGENTS.md` matches another path (checked). Kept.
+- *The byte budget, the NUL test, the strict decode.* Each is an error the
+  brief names ("a file too large", "binary file", "the encoding"). The NUL
+  test does not merge into the decode: NUL is valid UTF-8, so a binary made
+  of ASCII and NULs would decode. Kept.
+- *The commit resolved first.* Delete it, and a result cannot keep its
+  snapshot (decisions.md line 164) and a moving ref can split a read. Kept.
+- *The `:internal` catch.* Delete it, and a bug throws inside whatever
+  called the reader, a Rama task included. Kept.
+- *The iterative scanner.* A recursive one throws `StackOverflowError`, an
+  error the catch does not take, on deep nesting within the budget. Kept.
+- *Rule 5, list continuations, and the lettered marker.* Delete rule 5, and
+  an item with an indented second paragraph splits; delete the letter, and
+  ruling 7b joins ruling 7 (checked, PROGRESS.md line 101). Kept.
+
+**Coverage of the brief, traced.**
+
+- "a repository path, a revision (any git revision string), and a file
+  path": section 4's signatures; step 1 passes the string to rev-parse, so
+  anything rev-parse takes works. Trace: `"e53bc6d0"`, a short id, resolves
+  to `e53bc6d01a44cfb8a4967703cf2dc82446f88c76` (checked).
+- "passages ... or functions ..., each with its content and its position
+  (start and end line, and character offsets within the file at that
+  revision)": section 3. Trace: the README fixture's first item is lines 44
+  to 45, chars 1732 to 1878, 146 chars (checked).
+- "Decide what a passage is ... say what it gives up": section 6, G2, G3.
+- "what a function is ... which forms count, and how a docstring, a comment
+  block above a form, reader conditionals and namespaced keywords are
+  handled": section 7, G4 to G6.
+- "How the file is read at a revision ..., how errors come back as data
+  (unknown revision, missing path, binary file, a file too large), and the
+  encoding": section 5 and the error table; each has a test in D.
+- "its own namespace ... no dependency on the store's namespaces and no new
+  library unless the plan shows it is needed": section 10.
+- "Tests ... at fixed commits ..., against git's own output, a file read at
+  two revisions, every error path, and that no output carries an identity.
+  Tests must not need a Rama cluster": section 11, groups A to E, and its
+  run line.
+- "no ids, no names used as keys, no hashes offered as identity ... content
+  and position only": section 3 and test 20; `:commit` is the snapshot's,
+  and is justified there.
+- "What it gives the rig's phase 6 count": section 12.
+- "the plan's Rama sections ... don't apply; say so in one line": section 9,
+  first paragraph.
+
+**Faults and races.** A restart: there is no state to lose. A retry: the
+same inputs give the same result (derived from section 9). A partial
+failure: there are no writes. Two callers at once: they share nothing. A
+ref that moves mid-read: pinned by step 1. An object pruned mid-read, which
+is possible only for an unreachable commit: step 2 or 4 exits non-zero and
+the result is `:git-failed`, never a mixed read.
+
+**Consistency.** Nothing above is marked a gap and then passed. The open
+items are in section 17, and none of them is a flaw in this plan's reading
+of its brief; they are round three's, or Sid's.
+
+## 17. What this plan could not settle
+
+1. **The unit of positions** (G7) becomes first-record when a kept fact
+   carries a position. Round three can rule it at that step, or store lines
+   only, which carry no unit question.
+2. **A cut's name as a frozen meaning** (G15), if facts record which cut
+   made them.
+3. **Identity and continuity** stay round three's (its open items 17 and
+   60). The reader gives content and position at each revision; whatever
+   says two of them are the same is a claim with an actor (PICTURE.md line
+   82).
+4. **Uncommitted text** cannot be read: the reader sees commits only. If
+   Sid's first use cites files while they are being edited, the tool can
+   refer only to their committed text.
+5. **Where and under what permission the runner calls it.** It blocks for
+   its processes, so not on a Rama task thread without a reason. It has no
+   path policy, and a secret ever committed is readable at that revision.
+6. **Additions round three may ask for,** each a new entry in the same
+   capability: sections; names or kinds of forms, which is where identity
+   starts, so they wait for its rule; the entries of an EDN file's top map;
+   inner Clojure units, for which `rewrite-clj` would be the library to
+   name; and whether non-Markdown text should drop the Markdown rules.
