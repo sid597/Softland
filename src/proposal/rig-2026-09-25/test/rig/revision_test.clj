@@ -504,7 +504,12 @@
         (is (nil? (check repo c "é.md" {} "UTF-8")) "UTF-8 lets it through")
         (is (nil? (check repo c "é.md" {} "utf8")) "by charset, not by spelling")
         (is (nil? (check repo c p {} "ANSI_X3.4-1968")) "ASCII passes any encoding")
-        (is (= :path (:argument (check repo c "é.md" {} nil))) "an unknown encoding is not UTF-8")))))
+        (is (= :path (:argument (check repo c "é.md" {} nil))) "an unknown encoding is not UTF-8"))
+      (let [enc (System/getProperty "sun.jnu.encoding")
+            r   (ru repo c "é.md")]
+        (if (#'rev/utf-8-encoding? enc)
+          (is (= :missing-path (:error r)) (str "under " enc " the path reaches git, and is not there"))
+          (is (= [:path enc] ((juxt :argument :encoding) r)) (str "under " enc " it is refused")))))))
 
 (deftest t10-not-a-repository
   (doseq [repo ["/nonexistent-rig-reader" "/proc"]]
@@ -606,9 +611,24 @@
     (is (string? (:detail r))))
   (testing "the executable is not an option (F4): :git in opts opens no door"
     (is (= golden-readme (lines-of (units-of (fx :readme) {:git "/nonexistent/git"})))))
+  (testing "a non-zero exit where the step expects none"
+    (let [repo (:repo fx), zeros (apply str (repeat 40 "0"))]
+      (is (= [:git-failed 128] ((juxt :error :exit) (#'rev/find-entry "git" repo zeros "x")))
+          "step 2 on a commit the store lacks")
+      (is (= [:git-failed 128] ((juxt :error :exit) (#'rev/read-blob "git" repo zeros)))
+          "step 4 on a blob the store lacks")
+      (is (= [:git-failed 2] ((juxt :error :exit) (#'rev/resolve-commit "ls" repo "HEAD")))
+          "step 1 when the program exits 2, which is neither 0, 1 nor 128 (GNU ls refuses --verify)")))
   (testing "git runs without inherited GIT_ variables (F5)"
     (is (= {"PATH" "/usr/bin" "MY_GIT_X" "k"}
-           (#'rev/git-env {"GIT_DIR" "/x" "GIT_WORK_TREE" "/y" "PATH" "/usr/bin" "MY_GIT_X" "k"})))))
+           (#'rev/git-env {"GIT_DIR" "/x" "GIT_WORK_TREE" "/y" "PATH" "/usr/bin" "MY_GIT_X" "k"})))
+    (let [child  (set (map #(first (str/split % #"=" 2))
+                           (str/split-lines (:out (#'rev/run-git "env" [] false)))))
+          parent (set (keys (System/getenv)))]
+      (is (contains? child "PATH") "the child sees the rest of the environment")
+      (is (empty? (filter #(str/starts-with? % "GIT_") child))
+          (str "no GIT_ variable reaches the child; the JVM has "
+               (pr-str (filter #(str/starts-with? % "GIT_") parent)))))))
 
 (deftest t19-no-internal-anywhere
   (testing "the helper every test reads through asserts it; odd inputs here too"

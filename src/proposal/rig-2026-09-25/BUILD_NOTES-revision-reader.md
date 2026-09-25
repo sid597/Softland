@@ -56,3 +56,18 @@ reader is plain Clojure with no Rama in it (plan section 9).
   files, 3,327 forms, every count and line equal to Clojure's reader; the
   refusals were two symlinks, the 6.3 MB transcript, and three Markdown
   files git's numstat also calls binary.
+- 04:20. Phase 5, `test/rig/revision_test.clj` (namespace
+  `rig.revision-test`): the plan's tests 1 to 25, one deftest or defspec
+  each, named `t01` to `t25`; the fixture map first, then the oracles, then
+  `through`, the helper every result passes (no `:internal`, test 20's
+  walk). Hand-checking expected values against the rules before any run
+  caught three of my own mistakes: a unit's chars written `[5 12]` for
+  `[5 11]`; a headings case separated by blank lines, which could not tell
+  a heading from paragraph text (now each sits under a paragraph line); and
+  a case running `sh` as git, removed as shell-dependent. Loads clean, 25
+  test vars.
+- 04:40. Phase 6, `TEST_VALIDATION-revision-reader.md`: **minor-fail**,
+  three missing cases, fixed inside `t09` and `t18` as phase 7's pre-loop:
+  TV1, F5 checked at the process (`env` run through `run-git`); TV2, the
+  `:git-failed` exits of steps 1, 2 and 4; TV3, F14 checked at the entries
+  (a non-ASCII path under the JVM's own encoding).
