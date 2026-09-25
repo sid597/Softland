@@ -601,10 +601,15 @@
 
 (defn- envelopes
   "Every envelope of the batch, [name fp], in the batch order M2 with
-  [PV-F3]'s tiebreak: [uuid7 name fp]."
+  [PV-F3]'s tiebreak: [uuid7 name fp]. Only well-formed envelope rows (a
+  name, as the parser rebuilt it, and a fingerprint): a row that is not one
+  is skipped, so the order is total over what remains."
   [state]
   (->> (keys state)
-       (keep (fn [need] (when (#{:face :offer} (first need)) [(nth need 1) (nth need 2)])))
+       (keep (fn [need]
+               (when (and (vector? need) (= 3 (count need)) (#{:face :offer} (nth need 0))
+                          (env/valid-name? (nth need 1)) (string? (nth need 2)))
+                 [(nth need 1) (nth need 2)])))
        (distinct)
        (sort-by (fn [[nm fp]] [(uuid-of nm) nm fp]))))
 

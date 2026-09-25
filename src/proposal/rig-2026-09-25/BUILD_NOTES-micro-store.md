@@ -66,3 +66,25 @@ Newest entries at the bottom.
   replaced, a permission granted then revoked, two settings versions)
   would otherwise be two termvals of different values in one batch, in no
   fixed order.
+
+## Log, continued
+
+- 03:25 to 03:40 Self-validation (phase 3 step 6) and phase 4's adversarial
+  pass: IMPLEMENTATION_VALIDATION-micro-store.md, minor-fail, fixed in
+  place (a bare lock shipped at the name hop on the fresh path; `:landing`
+  at this gate; a yield on micro-act's rows; the walk computed twice; an
+  unguarded row computation; a stream-era forget target). Phase 1's suite
+  on the shared-file changes: 19 tests, 785 assertions, 0 failures.
+- 03:40 Phase 2's notes name later commits (b0f025d5 the sealed parse and
+  the parts digest in `env/digest`; 3ddc6eab `:scheme :aes-gcm-1` on lock
+  records; 33b357a4 more requires and helpers). Not merged (the brief: that
+  one commit); the micro lock-record schema takes an optional `:scheme` so
+  a merged `locks/wrap` fits it. For the merge: phase 2's `env/control-keys`
+  lacks `:members`, so its parse would refuse the group's making act
+  `:not-sealed`.
+- 03:43 to 03:55 Tests written (phase 5), validated (phase 6, minor-fail:
+  one synchronization fault, reading an act through a lagging entity
+  task's own frontier, and fourteen matrix rows), fixes applied.
+- 03:57 First run of the pure namespace: 226 of 227; the error was real,
+  `prepare`'s envelope order indexing a malformed row outside its guard;
+  fixed; 14 tests, 227 assertions, 0 failures.
