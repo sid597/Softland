@@ -27,7 +27,11 @@ are a standing practice at every step, not a final phase."
   (phase 2), `PLAN-micro-store.md` (phase 3), `PLAN-read-exit.md` (phase
   5a). The phase 4 plan being validated:
   `/mnt/data/projects/Softland-rig-plan-promotion/src/proposal/rig-2026-09-25/PLAN-promotion.md`
-  at `d6712941`. Line numbers below are "P2 L…", "P3 L…", "P4 L…", "P5 L…"
+  at `d6712941`. **[F5]** It has since been validated and merged: the
+  main rig worktree's `PLAN-promotion.md` at `2942e888` ("the
+  validation's fixes F1 to F9 applied in place") is the one the build
+  reads. Line numbers marked [F5] or later are that file's; earlier "P4 L…"
+  lines are `d6712941`'s and the build re-finds them. Line numbers below are "P2 L…", "P3 L…", "P4 L…", "P5 L…"
   for those four files. Without "L", P1 to P16 are phase 1's rig
   choices, L1 to L20 phase 2's, M1 to M25 phase 3's, PR1 to PR15 phase
   4's, F1 to F14 the read exit's fixes, and P1 to P8 as named checks the
@@ -97,8 +101,11 @@ that op's effects:
    re-implements a pick.
 2. **Decisions**: names that gained a recorded answer (`fm/answers-for`),
    each with store, partition, yes or no, and reason; and, for
-   `[:prepare]`, the decisions in `(:delta (:prepared st))`, which the
-   model makes at prepare and shows only at commit.
+   `[:prepare]`, the decisions in `(get-in st [:micro :prepared :delta])`
+   (model.clj L738-739), which the model makes at prepare and records
+   only at commit (L749-752). **[F7]** A name played from the prepared
+   delta is marked played; when its answer is recorded at `[:commit]` it
+   is checked, not sent again.
 3. **Person forgets**: persons new in `(:persons st)`.
 4. **Reads**: a read new in `(:reads st)`.
 
@@ -111,6 +118,20 @@ prepared delta and a work step's from the partition's stamps; the fixed
 histories do not need either, and the adapter asserts, per op, that it
 never sees two decisions whose order it cannot tell (a guard, so a later
 history that breaks this is caught, not mis-ordered).
+
+**[F10] What the lockstep does not test**, printed in the report's header
+so no line reads as more than it is:
+
+1. No rig offer is in flight while another is decided, except under a
+   hold or the pause, so the rig's own order for offers queued together is
+   not exercised. On a stream partition that order is the depot's append
+   order, which is the send order, so nothing is lost there; on the micro
+   side it is KD16, which no fixed history reaches.
+2. In the rig a read-out runs in its request's own event (P4 PR7), so B1's
+   and B2's order (a forget between request and read-out) exists in the
+   rig only on the recovery road after a crash. The hold and resend play
+   that road; the normal road has no such gap to test.
+3. The door's retry and timeout behaviour, since every rig act is awaited.
 
 The adapter keeps one table, **the correspondence**: model name → rig
 name, and model fact id `[name i]` → rig fact id. Every later rig step
@@ -158,6 +179,17 @@ read-out in B3's and B4's `[:work 0]`), nothing is held.
   build's `open-row`). `{:value v}` is open (and v must equal the model's
   value), `{:erased-at s}` is erased, no rig fact is missing. This is
   reader-independent on both sides, so it is compared for every case.
+  **[F1]** Which rig fact answers a ref `[layer k persons]` is found from
+  the rig's own records, never through the model's fact ids (a model
+  that made no fact would otherwise make the rig's side "missing" whatever
+  the rig did): for every act the replay sent and every act the store made
+  under the rig's names (a landing through `env/landing-name`), the rig's
+  answer, and for a yes the facts the rig recorded (`opens?`; `open-act`
+  through F), matched on layer, key and the persons of the value as the
+  replay sent it. "Missing" means no act the rig admitted carries such a
+  fact. Where a pattern read of the layer exists (`read-pattern`, P5 L712,
+  below the exit) it is used as well, and a rig fact matching the ref that
+  the adapter does not know of is a difference.
 - **A reader's view**, for each read's answer: at every `[:read :now]` and
   at `run`'s closing read, the adapter reads through the exit what the
   model's read shows of the case's own facts: `read-exit/read!` for
@@ -168,11 +200,24 @@ read-out in B3's and B4's `[:work 0]`), nothing is held.
   phase 5's rest has built it, else phase 3's frontier read, and the line
   names which. Where the exit refuses (a reader who has been forgotten,
   KD10), the refusal is the rig's answer to that read, and the store's
-  judgment is printed beside it so nothing is hidden.
+  judgment is printed beside it so nothing is hidden. **[F2]** Point reads
+  of known ids cannot show a fact the rig made and the model did not, so
+  each read also reads the case's one-owner layers by pattern
+  (`read-pattern`, P5 L322, L712, below the exit) and, on the micro side,
+  every rig name the replay sent into the group through F; a value fact
+  that is not a rig-only kind (lease, entry, session, permission, person,
+  making) and has no counterpart is a difference. **[F4]** The group is
+  read through the exit, once the shared read exists, as a member who is
+  not forgotten: Alice, else Bob in his rig-only working layer
+  `:bob-hand`, so A4's and B4's group reads keep a reader after Alice's
+  forget.
 
 `:shown` comes from `promotion-status` (reader-independent in P4's query
 signature `[*layer *req *as-of]`), so the B cases' `play` comparison does
-not depend on the exit.
+not depend on the exit. **[F1]** Each read's list of statuses is built
+from the requests the replay has sent so far, not from the model read's
+`:promotions`, so a request the model does not show cannot drop out of the
+rig's line.
 
 ## The world, as data
 
@@ -197,7 +242,7 @@ identity wherever the rig allows it.
 | permission `[:alice l :session]`, kept in `:alice-hand` | `[:alice l :alice-hand]`, granted by the operator as a fact in `:alice-hand` (phase 1's `model-world`; M20) | KD9 |
 | the operator, the store | `:operator`; the store's own steps are continuations with no `:who` of their own (For Sid 2: the root actor and the operator are one principal tonight) | — |
 | a person's writing session | a session id for each writer, `:alice-session` and `:bob-session`, opened by `open-session!` in each layer the history writes (P3 L456-461; P2 L334-336), so leases have a session; kept apart from the layer id `:alice-hand`, which is Alice's working layer for read entries (KD6) | KD2 |
-| the seed: every permission a first fact | the rig's seed: `:people` and the two persons; Alice's three layers; the base; the group (with the base's re-class); the permissions above; the sessions. Every seed act is the rig's, answered yes before the history starts; none is compared | KD8 |
+| the seed: every permission a first fact | the rig's seed: `:people` and the two persons; Alice's three layers; **[F4]** Bob's rig-only working layer `:bob-hand` (kind `:hand`, owner `:bob`), for his read entries only; the base; the group (with the base's re-class); the permissions above; the sessions. Every seed act is the rig's, answered yes before the history starts; none is compared, and **[F11]** a seed act not answered yes stops the case as "differs: seed act refused" with its name and reason | KD8 |
 
 ## The step kinds and their rig counterparts
 
@@ -272,7 +317,7 @@ finding: the rig then decides as that reading, not Sid's.
 | B1 a value forget queued before the read-out: pending, then refused | Alice's note `o0` yes; `[:promote 0 :group 1]` queues `o2`; `[:forget-value 0]` queues `o3` (target `o0#0`); `[:step 0]` decides `o2` yes; read: note open, `o2` pending; `[:step 0]` decides `o3` yes (note erased); read: pending; `[:step 0]` decides `crossing:o2` no `:source-erased`; closing read refused. Values `alice note` erased; shown `[:pending :pending :refused]` | `o0` at `[:work 0]`; at the first `[:step 0]`, the model decided `o2` alone, so: `lease-landing!` in `:group`, answered; `inject/hold!` on the request's name at `:before-read-out`; `promote!` → the request's yes; the read; at the second `[:step 0]`, `forget-value!` of the mapped `o0#0`; the read; at the third, `release!` and the door's resend of the request, answered from the record, whose continuation's read-out answers | **approximated**: the model's separate read-out event is the hold and the resend. Predicted: values and shown as said; the crossing's no carries `:source-erased` as the model's; KD3, KD4 |
 | B2 Alice forgotten before the read-out: pending, then refused | `o0` yes; `o2` queued; `[:step 0]` decides `o2`; read pending; Alice forgotten; `[:work 0]` decides `crossing:o2` no `:source-erased`; closing refused. Values `alice note` erased; shown `[:pending :refused]` | as B1 up to the first read; `forget-person! :alice`, its fan-out waited for; at `[:work 0]` release and resend (P4 T2, L876-879) | **approximated** (the hold). Predicted as said. The closing read's exit read is refused for Alice (KD10); `promotion-status` still answers `:refused` |
 | B3 a value forget after the read-out: crossed, then done; the copy stays | `o0` yes; `o2` queued; `[:work 0]` decides `o2` and `crossing:o2`, both yes, and queues `landing:o2`; read crossed; `o3` queued, decided at `[:work 0]`; read crossed; `[:batch]` decides `landing:o2` yes; read done; closing done. Values `alice note` erased, `group note` open; shown `[:crossed :crossed :done :done]` | `o0`; at the first `[:work 0]`: `lease-landing!` answered, the micro topology paused, `promote!` (request and read-out as one record; the forward's append waits); read; `forget-value!`; read; at `[:batch]` the topology resumed, the landing's answer and the frontier waited for; read; closing read | **approximated**: the model's queued landing is the paused micro topology. Predicted as said; KD3, KD4, KD13 (done is read only after the frontier passes the landing's batch) |
-| B4 Alice forgotten after the read-out: crossed, then done; the copy stays | as B3 with Alice forgotten in place of the value forget, and no read between the forget and `[:batch]`. Shown `[:crossed :done :done]` | as B3, `forget-person! :alice` in place of the value forget; the model's history followed exactly, so no read is added (P4's T4 leaves this open; the replay does not) | **approximated** (the pause). Predicted as said on values and shown, **at risk**: the landing lease is Alice's, and a lease row is sealed under its act's writer (For Sid 4). If her forget leaves the landing's lock unopenable, the rig answers `:landing-lock-gone` and shows `[:crossed :refused :refused]` where the model shows done: a finding, reported as such. P4 names PR13 as what lets the landing land; the run decides. Closing read refused for Alice (KD10) |
+| B4 Alice forgotten after the read-out: crossed, then done; the copy stays | as B3 with Alice forgotten in place of the value forget, and no read between the forget and `[:batch]`. Shown `[:crossed :done :done]` | as B3, `forget-person! :alice` in place of the value forget; the model's history followed exactly, so no read is added (P4's T4 leaves this open; the replay does not) | **approximated** (the pause). **[F5]** Predicted **as said** on values and shown. The validated P4 (main rig worktree, `2942e888`) settles the landing lease: PR9 (L892-895) "landing leases are bare", because "the copy must not die with its former owner (B case 4)" (L765-766); F9 (L915-920) has the build confirm that her forget neither closes her session in T nor deletes her lease rows there, and T4 (L1029-1031) asserts her landing lease row survives her forget. PR13 already holds in phase 3's build (`persons-to-check`, micro `micro.clj` L439-452, checks a value act's subjects and a lease act's `:who`, never a value act's `:who`), and phase 2's fan-out runs in the stream gate, which cannot write micro lease rows. So a landing refusal (`:landing-lock-gone`, `:person-forgotten`, `:no-such-lock`) is an unexplained difference that fails the test, and its line names which of F9's conditions its reason points to. The pause does not block her forget's fan-out (PLAN_VALIDATION-replays.md C7). Closing read refused for Alice (KD10); the group read as Bob (F4) |
 
 Under `baseline-but-not-p6-line-at-the-read-out` the model's B lines are
 all "as said" with P6 objecting to B3's and B4's copies. The rig's line
@@ -285,7 +330,7 @@ property, which the rig does not evaluate (the properties use the model's
 | case | the model's history and answers (baseline) | the rig plays | status, and the predicted line |
 |---|---|---|---|
 | D1 a group write under Alice's session permission; the session revokes it between prepare and commit | Alice's `o0` (`e0 :note`) into `:group` citing `[:alice :group :session]`, queued; `[:prepare]` decides it no `:permission-from-another-layer`; the operator's revoke `o2` in `:alice-hand` queued, decided yes at `[:step 1]`; `[:commit]` shows `o0`'s no. Value `group note` missing | at `[:prepare]`, Alice's write into `:group` citing `[:alice :group :alice-hand]`: the door's lease act is refused `:permission-from-another-layer` (recorded, under the lease's name) and the value act, holding no lock, is refused `:no-such-lock` on its face (nothing recorded); both waited for; at `[:step 1]` the operator's revoke of `[:alice :group :alice-hand]` in `:alice-hand`, yes; at `[:commit]` a check that the answers are visible | **approximated**: prepare and commit are one batch in the rig, so the value's decision is committed before the revoke where the model's is committed after; under baseline the answer rests on where the permission lives, which the pid itself says, so the order cannot change it. Predicted: value missing, as said; answers differ as KD1. Under `baseline-but-not-permissions-in-their-layer` the model's value is open (rv objects) and the rig's line says "differs from this configuration" |
-| D2 a group write under her group permission, revoked in the group first | the operator's revoke `o0` of `[:alice :group :own]` in `:group`, yes at `[:batch]`; Alice's `o1` into `:group`, no `:permission-revoked` at `[:batch]`. Value missing | at the first `[:batch]` the operator's revoke of `[:alice :group :group [:group :group :group]]` in `:group`, standing on its grant, waited for with the frontier; at the second, Alice's write: the lease act refused `:permission-revoked`, the value act `:no-such-lock` on its face | **practical**. Value missing, as said; answers differ as KD1. The walk (R19) finds the revoke on the cited pid itself here, so no ancestor is involved |
+| D2 a group write under her group permission, revoked in the group first | the operator's revoke `o0` of `[:alice :group :own]` in `:group`, yes at `[:batch]`; Alice's `o1` into `:group`, no `:permission-revoked` at `[:batch]`. Value missing | at the first `[:batch]` the operator's revoke of `[:alice :group :group [:group :group :group]]` in `:group`, standing on its grant, waited for with the frontier; at the second, Alice's write: the lease act refused `:permission-revoked`, the value act `:no-such-lock` on its face | **practical**. Value missing, as said; answers differ as KD1. **[F9]** On the door's direct road the lease cites Alice's pid and the check finds the revoke on it; on the session road (world table) it cites the session's grant beneath that pid, and the refusal comes from the walk's cut (R19; P3 L524-531: `:permission-revoked` "when it is revoked or cut"). The predicted reason is the same on both; the line names the road |
 
 ## Differences known before the run, reported every run
 
@@ -345,20 +390,29 @@ reasoned from the plans and not yet run.
   rig's id is `[holder layer in parent]` beneath a layer's root, at most
   four deep, and the holder may be the offer's session; the model's is a
   flat triple held by `:who`. Mapped as data above; no fixed history
-  depends on a chain except D2, where the revoke is on the cited id itself.
+  depends on a chain except D2, where the revoke is on the cited id itself
+  on the direct road and on its parent on the session road **[F9]**.
 - **KD10. After a person is forgotten, the exit cannot read for them, and
   nobody can read their one-owner layers through it** (predicted): an exit
   read appends an entry sealed under a lease in the reader's working layer,
   and a lease whose layer's owner has a destroyed person lock is refused
   `:person-forgotten` (P2 L742, L1716-1726). So a forgotten Alice cannot
-  read the group either (her working layer is `:alice-hand`; Bob has no
-  working layer in the model's world, and the replay adds none). A
+  read the group either (her working layer is `:alice-hand`). **[F4]** Bob
+  has no working layer in the model's world; the replay adds a rig-only
+  `:bob-hand` so the group keeps a reader through the exit after Alice's
+  forget (A4, B4), since that read is practical. A
   one-owner layer is visible only to its owner (P5 L679-682), so after
   Alice's forget nobody reads `:alice` through the exit; the model's read
   is nobody's and shows her facts with their erased dates. The
-  replay attempts the read and reports what the exit answers (predicted a
-  refusal; which reason, `:person-forgotten` from the lease or a refusal
-  of the entry, the run shows), with the store's judgment beside it. The
+  replay attempts the read and reports what the exit answers, with the
+  store's judgment beside it. **[F3]** KD10 explains a refusal only when
+  the reader's `forget-person!` was answered yes by the rig before the read
+  and the refusal is the entry's lease refused `:person-forgotten`
+  (P2 L11 revised, L740-746), or the entry refused `:no-such-lock` on its
+  face for a lease leased before the forget. Any other refusal, or a
+  refusal for a reader not forgotten, is unexplained. A forgotten reader's
+  read that succeeds is compared on its content like any read and printed
+  "predicted, not seen". The
   model's `:values` comparison does not depend on it, nor does `:shown`
   (from `promotion-status`, which takes no reader). A1, A3, A4, A6, B2,
   B4 (their closing reads, and B4's read after the forget).
@@ -371,7 +425,18 @@ reasoned from the plans and not yet run.
   task clock (a shared layer as of the frontier), and a promotion's status
   is its own query. The replay reads, at each model read, every layer the
   case's facts are in, and each request's status; it compares the case's
-  own facts, never the seed's, never the rig-only acts.
+  own facts, never the seed's, never the rig-only acts, and, by F2's
+  pattern reads, it also sees every fact the rig holds that is not a
+  rig-only kind, so an extra one is a difference and not left out.
+- **KD20. Control facts differ in form** **[F2]**: the model's request
+  `o2#0` `{:source ["o0" 0] :target :group}`, crossing `crossing:o2#0`
+  `{:request "o2" :source ["o0" 0]}`, value forget `o3#0` `{:target ["o0"
+  0]}` and revoke (traces L125-127, L181-184) against the rig's
+  `:promote-request` row, crossing fact (P4 L33, L179, L264) and forget
+  and revoke facts. They are compared on existence and on their references
+  through the correspondence (source, target, request, pid), not on their
+  literal value maps. B1 to B4 (request, crossing), B1 and B3 (forget), D1
+  and D2 (revoke).
 - **KD12. Stamps** (default 2; P3 L693-701): the rig's hybrid clock values
   (ms × 65536 + counter), per task, against the model's integers. Never
   compared as values; the replay checks the relations both promise
@@ -419,7 +484,8 @@ names its cause.
 
 `runs/phase8-replays.txt`, rewritten by every run, read by RIG.md. Its
 header: the date and time (IST), the rig commit, the model's commit, the
-task count, the run time, and which stages' APIs resolved. Then, for each
+task count, the run time, which stages' APIs resolved, and **[F10]** the
+three things the lockstep does not test (under "The adapter's shape"). Then, for each
 case set and each configuration `run.clj` names for it (A under
 `baseline` and the three A readings; B under `baseline` and
 `baseline-but-not-p6-line-at-the-read-out`; D under `baseline` and
@@ -461,7 +527,18 @@ printed once per case, under `baseline`. Every answer is compared name by
 name through the correspondence; a model answer whose rig counterpart
 differs in a way a known difference explains names that difference
 (KD1's rule is data: a model no with reason R on a value act matches a rig
-lease act no with R plus the value act's face `:no-such-lock`). A
+lease act no with R plus the value act's face `:no-such-lock`; **[F8]** if
+the merged door sends no value act after a refused lease, the build
+records it and the rule matches the lease alone, named in the line).
+**[F6]** The model can record one name at more than one partition
+(`landing:o2` at `[:micro 0]` and `[:micro 2]` in B3 and B4, traces L176,
+L213); its answers are reduced to one per name before comparison, all yes
+to yes, all no with one reason to that no. A model name whose partitions
+disagree is printed as the model's own finding and fails the test, since
+the rig answers once per name. **[F11]** Every rig-only act (KD2, KD3,
+KD6, KD7, KD8) must answer yes, except a lease under KD1's rule; a
+refused one is an unexplained difference named as itself, not left to
+surface through a later act. A
 predicted difference that does not show is printed as "predicted, not
 seen", so a prediction is checked, not assumed. The model's named checks
 (P1 to P8, x1, x2, rv) are the model's alone: they use its `:order`, which
@@ -532,19 +609,19 @@ stands.
 | `client/grant-offer`, `revoke-offer`, `make-layer-offer` | 1 | `client.clj` (built) | the seed's grants, D1's stream-side revoke, Alice's layers | all; D1 |
 | `inject/reset-all!`, `watch!`, `count-of` | 1 | `inject.clj` (built) | a clean start per case; seeing a continuation resume | all |
 | `offer!` sealing at the door, leasing when short; `lease!`; `close-session!` | 2 | P2 L1913-1925 | KD2's lease before each value write | all |
-| `make-person!`, `forget-person!` (acts in `:people`); the fan-out waited for, by the ack if it covers the fan-out, else by `person-on-task` on every task | 2 | P2 L1926-1927, L1934-1942 | the seed's persons; `[:forget-person p]` | A1-A8, B2, B4 |
+| `make-person!`, `forget-person!` (acts in `:people`; **[F8]** `rig.store.client/forget-person! [store p]` only, never phase 3's placeholder); the fan-out waited for, by the ack if it covers the fan-out, else by `person-on-task` on every task | 2 | P2 L1926-1927, L1934-1942 | the seed's persons; `[:forget-person p]` | A1-A8, B2, B4 |
 | `forget-value!` `[store who layer fid]` | 2 | P2 L1928-1930 | `[:forget-value i]` | B1, B3 |
 | `opens?` `[store layer fid]` → `{:value v}` or `{:erased-at s}` | 2 | P2 L1932-1933 | the store's judgment, stream-side layers | A1, A8, B1-B4 |
 | the grammar `{:mention {:subjects-at [:persons]}}`; the mark `:die-with-any` | 2 | P2 L183, L203 | a mention's subjects; A7's mark | A1-A8 |
 | the micro door: `*micro-offers` through the client's dispatch by tag; `micro-lookup` (the build's `await-answer`); micro leases | 3 | P3 L1451-1452, L1698-1702, L2113-2120 | every group write, revoke and grant | A2-A7, B3, B4, D1, D2 |
 | `make-base!`, `make-group!` (with the base's re-class), `open-session!` | 3 | P3 L606-644, L623-630, L456-461 | the seed's base, group and sessions | all |
-| `micro-frontier`, and a batch's id to wait past | 3 | P3 L646-691, L662-663 | the wait at every `[:batch]` | A2-A7, B3, B4, D1, D2 |
+| `micro-frontier` (**[F8]** built as `micro-client/frontier`), and a batch's id to wait past | 3 | P3 L646-691, L662-663 | the wait at every `[:batch]` | A2-A7, B3, B4, D1, D2 |
 | `micro-act` at F and the pure open of a row (the build's `open-row`) | 3 | P3 L1724-1728 | the store's judgment for a group row | A2-A7, B3, B4 |
 | `rtest/pause-microbatch-topology!`, `resume-microbatch-topology!` on the micro topology's name | Rama | `com.rpl.rama.test` (listed above); P3 L762 | holding a landing to the model's `[:batch]` | B3, B4 |
 | `lease-landing!` | 4 | P4 L820, L220-230 | KD3's landing lease | B1-B4 |
 | `promote!`, with the request's name known before sending (a build step or a caller-given name; P4 gives no argument list) | 4 | P4 L820-821, L238-246 | `[:promote i :group 1]` | B1-B4 |
 | `promotion-status` `[layer req as-of]` → `:none`, `:pending`, `:crossed`, `:done`, `:refused` | 4 | P4 L404-405, L543-557, L822 | `:shown` at every read | B1-B4 |
-| `inject/hold!` and `release!` at `:before-read-out`, `:before-forward` | 4 | P4 L836-841, PR15 | B1's and B2's read-out step; B3's and B4's fallback | B1-B4 |
+| `inject/hold!` and `release!` at `:before-read-out`, `:before-forward` (**[F8]** never `rig.claims/hold!`, which blocks the task) | 4 | P4 L836-841, PR15 | B1's and B2's read-out step; B3's and B4's fallback | B1-B4 |
 | `env/crossing-name`, `env/landing-name` | 4 | P4 L359-365 | the crossing's and the landing's answers by name | B1-B4 |
 | `read-exit/connect`, `read!` (point reads, `:as-of nil`) | 5a | P5 L797-815 | the reader's view at every read | all |
 | the `read-point` query, called below the exit | 5a | P5 L671 | the store's view beside a refused exit read (KD10) | A1, A3, A4, A6, B2, B4 |
@@ -563,8 +640,39 @@ has `connect`, `frontier`, `offer!`, `lease!`, `make-base!`,
 `$$persons` through a test depot, not the act; phase 5a's
 (`Softland-rig-build-reads` at `b070858c`) `read_exit.clj` has `connect`
 and `read!`; phase 4 is not built. The replay uses phase 2's person acts
-after the merge; run against phase 3's placeholder alone, a person forget
-is "approximated (its effect written directly, no act)".
+after the merge. ~~Run against phase 3's placeholder alone, a person
+forget is "approximated (its effect written directly, no act)".~~
+**[F8]** The placeholder is never resolved by the replay: it appends the
+effect to `*persons-placeholder`, written straight into `$$persons` by a
+stream topology (micro `micro_client.clj` L159-163, `micro.clj`
+L1060-1078), with no gate, answer or stamp, against "every forget is a
+fact" (SPEC.md L79, IMPLICIT_SPEC D3). An approximation that skips the
+forget's own decision and fan-out could turn a difference in them into "as
+said", so with the placeholder alone a case with a person forget is "not
+practical (phase 2's person act missing)". The merge drops it
+(`put-person!` throws once phase 2's gate merges, L151; `$$persons` has one
+owner).
+
+**[F8] Against the builds at validation time** (locks `cc506303`, micro
+`48562bde`, reads `aaee646b`; PLAN_VALIDATION-replays.md C6):
+`micro-frontier` is `micro-client/frontier [store]`, `[store pkey]`;
+`micro-lookup`, `micro-act`, `read-point` and `read-pattern` are query
+topologies (micro.clj L1375, L1390; reads.clj L1085), reached with
+`foreign-query`, which the build calls in a per-case `try` (a throw is "not
+practical", named), while the client functions `await-answer`, `act`,
+`open-act` and `open-row` are vars for `requiring-resolve`; `lease!` has
+two shapes, phase 2's `[store who layer session n permission nm]` and
+phase 3's `[store spec]`, and the build uses the merged door's one road and
+records it; `client/connect`, `micro-client/connect` and
+`read-exit/connect` each wrap the first, so the build merges their handles
+once per module; phase 2's fan-out is `fan-out>` with `|all` inside the
+stream gate (locks.clj L1270-1283, module.clj L123, L185), covered by the
+gate's acked append, with `person-on-task` as the check. The only `hold!`
+defined today is `rig.claims/hold!` (phase 0), which blocks the task thread
+("Block this task thread until the tag's gate is delivered"). The replay
+must never use it: a blocked stream task would hold up B1's forget on the
+held request's own task. Phase 4's hold ends the record's processing (P4
+L974-977), and that is the hold the replay uses.
 
 Gaps the build must close or record (found while planning): P4's list of
 changes to earlier stages (L803-824) does not name `rig.store.inject`,
@@ -645,7 +753,8 @@ Each can change without touching a record.
 - **RP5.** D1's prepare and commit play as one batch, marked approximated.
 - **RP6.** Writers' sessions: `:alice-session` and `:bob-session`, session
   ids with no layer of their own (the model's world gives Bob no layer);
-  Alice's working layer for read entries is `:alice-hand`. If the merged
+  Alice's working layer for read entries is `:alice-hand`, and **[F4]**
+  Bob's is the rig-only `:bob-hand`, used only when he reads the group. If the merged
   door ties a session to a session layer, the build uses its contract and
   records it.
 - **RP7.** The test fails on a baseline `:values` or `:shown` difference
@@ -673,6 +782,8 @@ Each can change without touching a record.
 - **B4's landing lease.** Not settled by any plan read here: whether
   Alice's forget leaves her landing lease openable. Carried as a risk with
   both outcomes' lines stated, rather than predicted either way.
+  **[F5]** Settled by the validated P4 (PR9, bare landing leases; F9;
+  T4): predicted as said, and a landing refusal fails the test.
 
 ## Self-validation
 
@@ -693,7 +804,7 @@ here. Its spec coverage, traced:
 - *"Where practical"*: the three classes, each case predicted and why, and
   "not practical" named per missing API rather than silently skipped.
 - *"Report every difference; a difference is a finding, not something to
-  hide"*: the eighteen known differences print by number in the cases
+  hide"*: the known differences, KD1 to KD20 (**[F2]** KD20 added; "eighteen" was a miscount), print by number in the cases
   they touch, predictions print when not seen, and an unexplained
   difference fails the test while its line is still written.
 - *"a standing practice at every step"*: the namespace compiles and runs
@@ -714,12 +825,21 @@ For the build's first check:
 
 1. Does `destroy-module!` and a second `launch-module!` of `Store` in one
    in-process cluster work in Rama 1.6.0, and at what cost? (RP2's
-   fallback otherwise.)
+   fallback otherwise.) **[F12]** Answered for phase 1's `Store` by the
+   validation's probe (`runs/probe-replays-2026-09-26.txt`): three rounds
+   in one cluster, launch 851, 377 and 381 ms, destroy 238, 157 and 162
+   ms. The build measures the merged module.
 2. Does pausing the micro topology block anything the model decides while
    a landing is held? In B3 and B4 those are stream-side (a value forget
    in `:alice`; a person forget in `:people` and its fan-out). If the
    fan-out reaches a copy of `$$persons` through the micro topology, the
    pause would block it, and the `:before-forward` fallback is used.
+   **[F12]** Answered as the builds stand: phase 2's fan-out is in the
+   stream gate (locks.clj L1270-1283) and the micro topology only reads
+   `$$persons` (micro.clj L1135-1414); the probe shows a stream `|all`
+   fan-out acked in 14 ms with a microbatch topology paused, the held
+   record processed 46 ms after resume, and a module destroyed while
+   paused relaunched running. The build re-checks on the merged module.
 3. `promote!`'s arguments: can the request's name be known before it is
    sent, so `hold!` is armed on it?
 4. Is the group readable through the exit by then (phase 5's rest)?
@@ -730,7 +850,10 @@ For Sid, none blocking, each with what the replay does meanwhile:
    exit, and they cannot read at all. It follows from defaults 1 and 3 and
    P2's L11; the model's read, being nobody's, shows erased dates. Is that
    the intended reach of forget? The replay reports it every run.
-6. B4 at risk: does a person's forget reach the landing lease of a
+6. ~~B4 at risk: does a person's forget reach the landing lease of a
    promotion already read out? The model says the copy lands (the forget
    is after the read-out, so it does not recall); the rig's answer rests on
-   For Sid 4 (lease rows sealed under their writer). The run shows which.
+   For Sid 4 (lease rows sealed under their writer). The run shows which.~~
+   **[F5]** No longer a question for Sid: the validated P4 answers it
+   (PR9, landing leases bare; F9; T4), and the run confirms or refutes it,
+   failing on a refusal.
