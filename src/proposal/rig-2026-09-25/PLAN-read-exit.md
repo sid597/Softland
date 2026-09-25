@@ -143,7 +143,7 @@ anything is recorded):
 | `[:ek e k]` | every fact about `e` with key `k` (the chain's history) | `:ix-ek`, prefix `e␀k␀`, bound `stamp ≤ T` | stamp, fact id |
 | `[:latest e k]` | the latest fact about `e` with key `k`, which heads its chain as of T | `:ix-ek`, tail read below `e␀k␀hex(T+1)`, one entry | — |
 | `[:k k]` | every fact with key `k` | `:ix-ke`, prefix `k␀` | entity, stamp, fact id |
-| `[:kv k v]` | every fact with key `k` whose value was `v` when admitted | `:ix-kv`, prefix `k␀len(v)v␀`, bound `stamp ≤ T` | stamp, fact id |
+| `[:kv k v]` | every fact with key `k` whose value was `v` when admitted | `:ix-kv`, prefix `k␀len␀v␀`, bound `stamp ≤ T` | stamp, fact id |
 
 `[:kv k v]` is answered only when the hints mark `k` as indexed by value;
 otherwise it is refused as data, `:not-indexed` (a scan of `[:k k]` filtered
@@ -190,7 +190,8 @@ only after the entry is acknowledged):
 choice). The query reads at most limit + 1 entries; if a limit + 1st matching
 entry exists, the answer holds the first `limit`, is marked `:partial`, and
 carries `:resume`, the address of the first entry not shown; else
-`:complete`. A partial read's line records what was matched and shown, not
+`:complete`. (The query stops reading once it has seen limit + 1 matches;
+entries it skips because they are stamped after the moment do not count.) A partial read's line records what was matched and shown, not
 the whole match. This is the only reason for `:partial` tonight; phase 2's
 unreadable values are shown as unreadable rows and leave the read complete
 (rig choice).
@@ -273,8 +274,8 @@ exit then appends through the depot.
 
 | read | who | method | reads on the home task |
 |---|---|---|---|
-| RE1 point read `[L fids as-of]` | the exit | query topology `read-point`, leading `(|hash *layer)` | `$$clock` STAY (1); per fid, `[(keypath L :answers name)]` (1 seek, the name's record) and `[(keypath L :log name idx)]` (1 to 2 seeks, the row) |
-| RE2 pattern read `[L pattern as-of limit]` | the exit | query topology `read-pattern`, leading `(|hash *layer)` | `$$clock` STAY (1); one range read of at most limit + 1 entries of one index, `{:allow-yield? true}` (1 seek + up to limit + 1 iterations); no per-fact seek (the entry carries the row) |
+| RE1 point read `[L reader fids as-of]` | the exit | query topology `read-point`, leading `(|hash *layer)` | the layer's settings (1, visibility); `$$clock` STAY (1); per fid, `[(keypath L :answers name)]` (1 seek, the name's record) and, only when the record is a yes at or before the moment, `[(keypath L :log name idx)]` (1 to 2 seeks, the row) |
+| RE2 pattern read `[L reader pattern as-of limit]` | the exit | query topology `read-pattern`, leading `(|hash *layer)` | the layer's settings (1); `$$clock` STAY (1); a loop of doubling pages over one index, `{:allow-yield? true}` (1 seek per page, one iteration per entry, stopping at the range's end or at limit + 1 matches); no per-fact seek (the entry carries the row) |
 | RE3 an entry's answer | the exit, tests | phase 1's `client/lookup` (RD1) | unchanged |
 | RE4 the index entries of one fact | purge (the gate, in a forget event), tests | `[(keypath L :ix-of fid)]` | 1 seek |
 | RE5 a layer's acts and rows, whole | rebuild (the gate, in a rebuild event), tests | `[(keypath L :answers) ALL]`, then per yes act `[(keypath L :log name) ALL]` | see below |
@@ -473,8 +474,8 @@ writes, in the same `<<if` for a yes, three blocks shaped like phase 1's:
 ```clojure
 (<<atomic (ops/explode (get *d :index-put) :> [*ix *ia *ie])
           (local-transform> [(keypath *layer *ix *ia) (termval *ie)] $$layers))
-(<<atomic (ops/explode (get *d :index-of) :> [*if *ias])
-          (local-transform> [(keypath *layer :ix-of *if) (termval *ias)] $$layers))
+(<<atomic (ops/explode (get *d :index-of) :> [*ofid *ias])
+          (local-transform> [(keypath *layer :ix-of *ofid) (termval *ias)] $$layers))
 (<<atomic (ops/explode (get *d :index-del) :> [*dx *da])
           (local-transform> [(keypath *layer *dx *da) NONE>] $$layers))
 ```
@@ -581,7 +582,9 @@ worker as a stream one is, but this plan does not find out by accident
 5. `loop<-` over the fact ids, in order, accumulating rows:
    `(local-select> [(keypath *layer :answers *nm)] $$layers :> *rec)`; when
    `*rec` is a yes stamped at or before `*m`,
-   `(local-select> [(keypath *layer :log *nm *idx)] $$layers :> *row)` and
+   `(local-select> [(keypath *layer :log *nm *idx)] $$layers :> *row)` (phase 1's
+   plan names this path for one row of the subindexed vector [build checks:
+   `keypath` with an index into a subindexed vector; fallback `(nthpath *idx)`]) and
    `(locks/open-value *layer *fid (assoc *row :stamp s) *m :> *opened)`;
    else the row `{:fid fid :absent true}`. `(yield-if-overtime)` in the
    loop body.
@@ -602,6 +605,10 @@ seek only when the record says the fact is there.
 
 1. `(|hash *layer)`.
 2. `(reads/parse-pattern *pattern *limit reads/seed-hints :> *pp)` — total:
+   it normalises a `[:kv k v]` value with `env/normalize-value` (so the
+   address matches the admitted text) and refuses a value nested deeper than
+   28 levels, so the recorded line (a map holding the pattern) stays within
+   the envelope's 32 (a rig choice); it returns
    `{:refused :bad-pattern | :not-indexed | :opaque}` or
    `{:ix field :from address :end address-or-nil :tail? bool :limit n}`.
 3. Settings and visibility, as `read-point` step 3.
@@ -615,9 +622,12 @@ seek only when the record says the fact is there.
      [probed: the tail read returned the entry just below the bound];
      the entry counts only if its address has the prefix `e␀k␀`.
    - every other kind: a `loop<-` of pages,
-     `(local-select> [(keypath *layer *ix) (sorted-map-range-from *from {:max-amt *page :inclusive? *incl})] $$layers {:allow-yield? true} :> *sub)`,
+     `(local-select> [(keypath *layer *ix) (sorted-map-range-from *from *page)] $$layers {:allow-yield? true} :> *sub)`
+     (the bare-count form of `:max-amt`, paths.md),
      with the first page 16 entries and each next page twice the last (a
-     rig choice), continuing from the page's last address exclusive, until
+     rig choice), each next page starting at the last address read followed
+     by U+0000, which is the least String above it (addresses are unique, so
+     nothing is read twice and nothing skipped), until
      an entry reaches `*end` (or the map ends) or `limit + 1` entries have
      matched. `(reads/page-step ...)` is the pure step: it keeps entries
      below `*end` whose stamp is at or before `*m`, counts them, and says
@@ -667,7 +677,10 @@ large read and nothing extra for a small one.
 CONCLUSION R5 (a default) puts the exit in a read gateway on the server. In
 the rig the store's clients run in the test's process, so the exit is plain
 Clojure over the foreign API beside `rig.store.client`, and a kept store
-moves the same function behind the server. One function:
+moves the same function behind the server. Its handles are taken once, `(read-exit/connect cluster)`: phase 1's
+`client/connect` map plus `foreign-query` handles for `read-point` and
+`read-pattern` and the `*index-ops` depot (client.clj is not changed). One
+function:
 
 ```
 (read! store {:reader :alice :reader-kind :person|:model|:tool :rows? false
@@ -1076,7 +1089,10 @@ The tests the brief names, each with its setup and what it asserts:
   replaces. Not compared: stamp values (the clocks differ) and the rig's
   layer-making facts (`:kind`, `:owner`, `:class`, `:lock-grain`, P10), which
   the model keeps as settings, not facts; both exclusions are stated in the
-  test. scenarios.clj's fixed histories use forgets, promotions and the group
+  test. T1 calls the two query topologies directly, not the exit, because
+  the exit's own entries are facts the model does not have and would change
+  the layers being compared; the exit is tested by T2 to T5, T11, T15 and
+  T16. scenarios.clj's fixed histories use forgets, promotions and the group
   layer, which the rig does not have until phases 2 to 4; the test lists
   each fixed history and says why it is not replayed yet, and every
   difference found is reported, not filtered.
