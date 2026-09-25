@@ -1311,9 +1311,11 @@ that cites a lock or is a lease.
   iterations), the lock row (personal and hand; none for a record lock),
   the owner's entry = 4 seeks and 1 iteration (it was 1 seek). [V-F1: a
   resend from a door that lost its locks adds one lease-row seek per value
-  fact (its own lock) and, for every resend, one no-read delete per cited
-  id; counted 0 in the weighting below, bounded by 0.10 × f extra seeks,
-  5.986 at f = 1 if every resend came from such a door; flat in N.]
+  fact (its own lock), at most one `$$persons` seek for a row's `:under`
+  person not already read (the base's writer), and, for every resend, one
+  no-read delete per cited id; counted 0 in the weighting below, bounded
+  by 0.10 × (f + 1) extra seeks, 6.086 at f = 1 if every resend came from
+  such a door in the base; flat in N.]
 - (d) an operator act with no value facts (make, grant, revoke, re-class; a
   making act adds `$$persons[owner]`): 4 to 5, counted 4.
 - (e) a face refusal before the record (malformed, mis-tagged,

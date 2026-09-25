@@ -403,9 +403,11 @@ totals are flat in N. What grows with N is the person fan-out, 0.005·N
 no-read writes per offer (0.64 at 128), costed against the one-task
 placement with a break-even at N = 186; no seek grows. F1 adds to row (c)
 one lease-row seek per value fact whose cited id is not the recorded one
-(a door that lost its locks) and one no-read delete per cited id: at most
-0.10 × f extra seeks, 5.986 for f = 1 if every resend came from such a
-door; 5.886 when doors keep their locks. `lease-locks`: 3 seeks and one
+(a door that lost its locks), at most one more `$$persons` seek when the
+row's `:under` person is not already read (the base's writer), and one
+no-read delete per cited id: at most 0.10 × (f + 1) extra seeks, 6.086 for
+f = 1 if every resend came from such a door in the base; 5.886 when doors
+keep their locks. Flat in N either way. `lease-locks`: 3 seeks and one
 range read, at the lease act's rate (about one per 80 offers). PASS.
 
 ## The template's checks, for the revision's mechanisms
