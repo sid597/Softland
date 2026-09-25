@@ -1,0 +1,46 @@
+# Phase 2 suite, last run (26 September 2026, 04:29:52 to 04:31:05 IST)
+
+Command, from the rig folder on branch rig-build-locks (worktree /mnt/data/projects/Softland-rig-build-locks):
+  flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock clojure -M:test rig.smoke-test rig.store.clock-test rig.store.envelope-test rig.store.stream-gate-test rig.store.lock-test rig.store.forget-test
+Rama 1.6.0, in-process cluster; tasks are drawn per run (rand-nth [2 4 8]). Full output: runs/phase2-suite.log (gitignored).
+Wall time 73 s. Two earlier consecutive runs green too (8 and 2 tasks, 4 and 4).
+
+## Summary
+
+Testing rig.smoke-test
+Testing rig.store.clock-test
+Testing rig.store.envelope-test
+Testing rig.store.stream-gate-test
+OBSERVED tasks 4
+Testing rig.store.lock-test
+Testing rig.store.forget-test
+OBSERVED tasks 2
+Ran 30 tests containing 1454 assertions.
+{:test 30, :pass 1454, :fail 0, :error 0}
+
+## Observations the tests print (OBSERVED lines)
+
+OBSERVED hybrid: largest lead over the wall 0 ms; the millisecond unit's, same walls: 22500 ms
+OBSERVED tasks 4
+OBSERVED burst: 3200 acts in 3.13 s, 1021 a second; largest lead of a stamp's millisecond over the wall at its ack -3 ms; largest counter 5 ; the millisecond unit over the same decisions would have ended 228 ms ahead
+OBSERVED a subvec name through the depot: {:answer :yes, :reason nil}
+OBSERVED crash before the writes: the append threw | the gate saw the offer 3 times, reached its writes 2 times
+OBSERVED crash after the writes: the append threw | decision code ran 2 times
+OBSERVED completed-record replay: attempts 1 | times the completed offer was seen [2] | answered from its record [1]
+OBSERVED tasks 2
+OBSERVED a forgotten value resent under new locks : locks the store holds 207 , depot copies of the value 4
+OBSERVED record path replay: times the resent offer was answered from its record [4]
+OBSERVED value forget, personal : locks the store holds 204 , depot copies of the value 1
+OBSERVED value forget, agent : locks the store holds 202 , depot copies of the value 1
+OBSERVED A1's person forget : locks the store holds 204 , depot copies of the value 1
+OBSERVED crash at :seen: the append threw
+OBSERVED crash at :before-writes : the append threw | decisions 2
+OBSERVED crash at :after-writes : the append threw | decisions 2
+OBSERVED crash in the fan-out: the append threw
+OBSERVED crash in a value forget: the append threw
+
+## Failures
+
+None: 0 failures, 0 errors.
+
+The ERROR lines in the full log are the crashes the tests inject (rig.store.inject), each a worker restart the tests then observe.

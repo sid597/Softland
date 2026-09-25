@@ -92,6 +92,69 @@ Changed since the primitives commit:
   one new finding (F-IV1, `:allow-yield?` on two act-row reads in yielding
   ops), fixed in 3ddc6eab. Verdict routing: minor-fail goes on to tests.
 
+- Phase 5 (tests, 6db2627a, dce34804): rig.store.lock-test (pure) and
+  rig.store.forget-test (one cluster) new; phase 1's envelope_test and
+  stream_gate_test adapted to sealing, each change marked at its place.
+  For them: `inject/record-purges!` records the purge seam's calls when a
+  test turns it on; `c/stock!` fills a session's pool ahead of acts whose
+  stamps a test predicts.
+- Phase 6 (TEST_VALIDATION-locks-and-forgetting.md): minor-fail, four
+  missing cases (T-F1 to T-F4), added in phase 7's pre-loop (2d530361).
+- Phase 7, the runs (each under the cluster lock):
+  - lock-test + envelope-test (04:05): 727 of 728; the one failure a wrong
+    expectation of mine (an AtomicLong prints "1", so the door's canonical
+    text of it is a valid long).
+  - forget-test alone, 4 tasks (04:05): 339 of 343; four test expectations
+    (the store layer has no `:owner` key; a restarted door may take the lock
+    another left unconsumed, so four copies cite the ids; byte-array maps
+    compare by identity; an answer found by lookup carries no `:how`).
+    Then 8 tasks (04:12): 344 of 344.
+  - stream-gate-test alone, 2 tasks (04:12): 238 of 245 and an exception.
+    A writer who holds a lease in the layer has the act's own permission
+    checked and recorded, as phase 1 and the model answer; only a writer
+    who cannot lease is refused `:no-such-lock` on its face, so three of my
+    [V-F4] rewrites were wrong and went back to phase 1's expectation, with
+    the pool stocked so the case is explicit. The exception was a real bug
+    in the door: `refresh!` pruned the handed-out ids against a lease-locks
+    result older than another thread's newer lease, so a lock in flight
+    could be pooled again and cited twice (the second `:no-such-lock`,
+    stampless, broke the burst's stamp arithmetic). Fixed in de86fd23: a
+    lease's locks enter the pool once; one thread leases at a time. The
+    burst went from 66 to about 1,000 acts a second. Then 4 tasks: 349 of
+    349.
+  - The whole suite (04:18 to 04:28): a phase 1 uuid7 test that made its
+    uuids lazily after its window (a flake, fixed with doall); my
+    schema-fit property checking what lease rows remained, which its own
+    session closes delete (fixed to record what it wrote, and its tracking
+    then called `seq` on a keyword, fixed); the fan-out crash fired twice
+    because `inject/point!`'s countdown read then decremented while two task
+    threads reached the point (made one swap). Then green three times in a
+    row: 04:27 (8 and 2 tasks), 04:28 (4 and 4), 04:29 (4 and 2), 30 tests,
+    1454 assertions, 0 failures, 0 errors, about 72 s each. The last run is
+    runs/phase2-suite.txt, its full output runs/phase2-suite.log.
+
+## Differences from the model's answers (findings, for phase 8)
+
+- A value act by a writer who cannot lease in the layer (no permission, a
+  permission for another layer or kept elsewhere, an unknown layer) is
+  refused `:no-such-lock` on its face and recorded nowhere, where the model
+  records the permission reason under the act's name; the rig records that
+  reason under the lease act's name. A name so refused is decided fresh
+  once the writer can lease (the model keeps it refused). A writer who
+  holds a lease there gets the model's answer. (stream_gate_test, the
+  refusals block.)
+- The lease acts, the delivery, `:no-such-lock` and the session close have
+  no counterpart in the model (the plan's revision item 20).
+- The eight A cases through the module (A1 and A8 in personal layers, A2 to
+  A7 in the base as the model's group cases): the same open or erased
+  answer for every value, dated by the forget the model says closed it; no
+  difference.
+- By construction, as the plan lists: the `:people` layer and person acts
+  (the model's person forget is not a fact); the person forget's date is a
+  stamp on `:people`'s home; retracts get no lock (the model locks every
+  non-control fact); per-act acts mixing marks die with any subject of the
+  union (L6; not exercised by the A cases).
+
 ## Rig choices (can change without touching a record)
 
 - An act carrying a lock control fact (`:forget`, `:lease`,
@@ -111,12 +174,19 @@ Changed since the primitives commit:
   forget's own erasure when the ledger's date is its stamp, else nil. Why:
   a replayed forget answers as the first attempt did.
 - The door: a value offer with no session is built in `:door/<who>`; it
-  leases 64 locks at a time (more, up to 256 a lease, for a larger act); a
-  lease refused leaves it no lock, so it cites the ids the refused lease
-  would have minted, sealed under locks it throws away, and the gate
-  answers `:no-such-lock` on its face; an offer keeps its locks until
-  answered, and a resend after an answer takes new ones; a grain switch it
-  sends makes it take the grain again.
+  leases 64 locks at a time (more, up to 256 a lease, for a larger act),
+  one thread at a time; a lease's locks enter its pool once (so no lock is
+  handed out twice; a restarted door takes every unconsumed lock of the
+  session); a lease refused leaves it no lock, so it cites the ids the
+  refused lease would have minted, sealed under locks it throws away, and
+  the gate answers `:no-such-lock` on its face; an offer keeps its locks
+  until answered, and a resend after an answer takes new ones; a grain
+  switch it sends makes it take the grain again.
+- A value's domain is its canonical text's: the door seals the canonical
+  EDN of the value it is given, so a Java float, an AtomicLong or a HashMap
+  offered at the door is stored as the double, long or map its text reads
+  as (the gate never sees the Java object); a text outside the domain is
+  `:malformed-value`.
 
 ## First-record picks (placeholders; for the receipt and RIG.md)
 
