@@ -130,7 +130,8 @@ clamp: every fact admitted on that task after the read gets a stamp above
 clock)` is final: re-running it later shows the same facts, and differs only
 where an erasure has since happened, which shows only its date. A read asked
 for a moment past the clock would otherwise record a moment whose answer can
-still grow. Rig choice for the clamp; the moment's form is first-record.
+still grow. The clamp decides which stamp an entry records, so it is
+first-record too (FR2), with the moment's form (FR1).
 
 **Pattern** (tonight's language; data, validated by a total parser; a
 pattern outside it is refused as data, `{:refused :bad-pattern}`, before
@@ -187,8 +188,8 @@ only after the entry is acknowledged):
 ```
 
 **Complete or partial.** A pattern read takes a limit (default 1,000, a rig
-choice). The query reads at most limit + 1 entries; if a limit + 1st matching
-entry exists, the answer holds the first `limit`, is marked `:partial`, and
+choice). The query stops once it has seen limit + 1 matching entries; if a
+limit + 1st matching entry exists, the answer holds the first `limit`, is marked `:partial`, and
 carries `:resume`, the address of the first entry not shown; else
 `:complete`. (The query stops reading once it has seen limit + 1 matches;
 entries it skips because they are stamped after the moment do not count.) A partial read's line records what was matched and shown, not
@@ -508,9 +509,14 @@ act that phase 1 would have admitted; the property test drives
 **2. The rebuild source.** A second `source>` in the gate topology's
 `<<sources` block, on `*index-ops`, `{:retry-mode :all-after}`:
 
-1. `(reads/index-op *raw :> *op)` — total; `{:refuse r}` for anything but
-   `{:layer keyword :op :rebuild}`; answered with `ack-return>` and nothing
-   else.
+1. `(reads/index-op *raw :> *op)` — total; it accepts `{:layer L :op
+   :rebuild}`, and two test-only ops (RC8): `{:layer L :op :purge :fid fid
+   :forget-stamp s}`, which reads the fact's row, its act's record and its
+   `:ix-of` entry (RE4) and applies `reads/purge-writes`, exactly the call
+   phase 2's forget will make, and `{:layer L :op :drop}`, which deletes
+   the layer's four fields' entries so a rebuild can be seen to restore
+   them. Anything else is `{:refuse r}`, answered with `ack-return>` and
+   nothing else. The steps below are the rebuild's.
 2. Reads, all on the home task, **not yielding** (a rebuild is one
    consistent snapshot; see cost below):
    `(local-select> [(keypath *layer :answers) (subselect ALL)] $$layers :> *answers)`;
@@ -624,8 +630,8 @@ seek only when the record says the fact is there.
    - every other kind: a `loop<-` of pages,
      `(local-select> [(keypath *layer *ix) (sorted-map-range-from *from *page)] $$layers {:allow-yield? true} :> *sub)`
      (the bare-count form of `:max-amt`, paths.md),
-     with the first page 16 entries and each next page twice the last (a
-     rig choice), each next page starting at the last address read followed
+     with the first page `min(16, limit + 1)` entries and each next page
+     twice the last (a rig choice), each next page starting at the last address read followed
      by U+0000, which is the least String above it (addresses are unique, so
      nothing is read twice and nothing skipped), until
      an entry reaches `*end` (or the map ends) or `limit + 1` entries have
@@ -653,8 +659,9 @@ with 12 facts over 3 keys; key `:note` on 4,000 facts):
 - `[:ek e :note]` as of now, 4 facts → 3 seeks + one page of 16 iterated,
   of which 4 match and the 5th ends the range. Meaningful.
 - `[:e e]` → 3 seeks + 13 iterations (one page), 12 meaningful.
-- `[:k :note]` with limit 1,000 → 3 + 7 page seeks (16 + 32 + ... + 1,024)
-  + 1,001 iterations; marked partial with a resume address. Variable,
+- `[:k :note]` with limit 1,000 → 2 + 6 page seeks = 8 (pages of 16, 32,
+  64, 128, 256 and 512 entries, 1,008 in all, the last cut at the 1,001st
+  match) + about 1,001 iterations; marked partial with a resume address. Variable,
   handled by the page loop: a small match reads one small page, a large one
   grows its pages, and no read is issued past the end or past limit + 1.
 - `[:kv :note "x"]` with two matches → 3 seeks + one page, 2 meaningful.
