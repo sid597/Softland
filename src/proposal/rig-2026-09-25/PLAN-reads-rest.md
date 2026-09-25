@@ -508,3 +508,333 @@ not imply, and an act admitted or a forget decided between two pages writes
 or purges its own entries in its own batch. `$$micro-task :rebuild` and the
 depot are maintenance: no act, nothing in the record (RR8), as the read
 exit's `*index-ops`.
+
+## Standing reads (CONCLUSION R6, a default)
+
+R6 as written: one entry per standing read, opened with its pattern, role
+and frontier; each delivery that shows something new adds a stamped line
+with the delivered fact ids, exact for a person or a model, a fingerprint
+for a deterministic tool; deliveries recorded at the rate the person is
+shown things, for an agent its model-call rate; a delivery of nothing new
+adds no line; the entry closes at unsubscribe or session close, with a
+fingerprint over everything delivered and a complete-or-partial mark; an
+entry left open by a crash is closed when the session closes.
+
+### Mechanism: a poll at the delivery rate, through the one exit
+
+Rama holds a read open in one way of its own, the reactive proxy
+(`foreign-proxy` on a PState path, pushing fine-grained diffs to a
+`ProxyState` in the client, heartbeating, resyncing on a CRC mismatch)
+[docs: reference/rama/docs/15-pstates.md, "Reactive queries", "Fault
+handling"]. The other way is the client asking again. This plan takes the
+poll, for four reasons, in order of weight:
+
+1. **A proxy on the data cannot show a value.** A proxy delivers the
+   PState's raw contents to the client: an index entry's sealed bytes and
+   wrapped lock, never an opened value. Values open only inside the module
+   (`open-row>`, `open-entry>`, with `$$persons` read on the task), because
+   nothing that opens a value may leave it (default 1, R1). A proxy on the
+   data would therefore either show nothing useful or need the person locks
+   outside the module. And it would put matched facts in the client before
+   any line exists, so "nothing shown before its line is acknowledged"
+   would rest on the client's discipline rather than on the exit's order.
+2. **A proxy can only be a doorbell, and a doorbell costs a new write and a
+   subscription.** Proxies cannot target a subindexed structure or a
+   top-level map [docs: 15-pstates.md, "you cannot proxy objects which index
+   their elements separately"], and every index here is subindexed; a
+   doorbell would be a new per-layer field written by every admitted act
+   (`$$layers [L :last-stamp]`, `$$micro [L :last-batch]`), plus a
+   server-side subscription per standing read (memory and a diff per
+   change, heartbeats), ringing at the rate the layer changes.
+3. **R6 fixes the rate at the delivery rate, not the change rate.** The
+   query rate the rule needs is exactly one query per delivery: the person's
+   refresh, the agent's model call. A poll at that rate is the rule itself;
+   a doorbell would still have to wait for the next delivery to query.
+4. **A poll is crash-simple.** No state lives in the store for a standing
+   read but its entry; a door that dies leaves an open entry and nothing
+   else, which the session close closes (below). A proxy leaves a
+   subscription for the server to time out.
+
+The cost the poll pays: one query per delivery tick even when nothing
+changed, about three seeks on the layer's task (settings, clock or
+frontier, one page or tail read) and no write. Named upgrade, a rig choice
+that touches no record (RR9): a doorbell proxy on a per-layer long, so a
+tick on a quiet layer skips its query; the lines are the same either way.
+Taken if phase 7 or src-inland shows empty polls to matter.
+
+### The delta: "something new" since the last delivery, in both stores
+
+`read-pattern` gains one input, `:after`, a moment of the read's kind
+(**a change to the read exit's build**): the delta is every match admitted
+after `:after` and at or before the read's moment. "New" is exact in both
+stores:
+
+- **One-owner.** `:after {:stamp s0}`, where s0 is the moment of the last
+  acknowledged delivery. The moment of a read is `min(asked, clock)`
+  (FR2), and every fact admitted on the home task after that read gets a
+  stamp above the clock it read, so "stamp > s0 and ≤ m" names exactly the
+  facts admitted between the two reads: nothing missed, nothing twice.
+- **Shared.** `:after {:frontier F0}`: "batch > F0 and ≤ F" names exactly
+  the facts that became visible between the two frontiers.
+
+Which index serves a delta, `(reads/delta-plan pp after)`, pure:
+
+- `[:ek e k]` and `[:kv k v]` (one-owner): their own index, from the
+  prefix plus `hex(s0 + 1)` to `hex(m + 1)`: the address orders them by
+  stamp inside the prefix, so the delta reads only new matches.
+- `[:latest e k]`: the tail read (one-owner; the tail loop at F, shared);
+  new when the head's stamp is above s0 (its batch above F0): then the one
+  new head is delivered, else nothing.
+- `[:all]`, `[:e e]`, `[:k k]` (one-owner), and every form on a shared
+  layer: **a new index, `:ix-s`**, every fact of the layer in stamp order
+  (`hex(stamp) ␀ fid` → the entry, one-owner) or in batch order (`hex(batch)
+  ␀ hex(stamp) ␀ fid`, shared, above), read from `hex(s0 + 1)` (or
+  `hex(F0 + 1)`) and filtered by the pattern's pure predicate
+  `(reads/matches? pp entry)`. Why a new index: in `:ix-ek` and `:ix-ke`,
+  `[:e]`, `[:k]` and `[:all]` are not stamp-ordered inside their prefix, so
+  their delta would rescan the whole prefix on every tick (a standing `[:all]`
+  over a 10,000-fact layer would hit F8's scan budget every tick and be
+  partial for ever); over `:ix-s` a delta costs one seek plus one iteration
+  per fact admitted since the last delivery. For a shared layer `:ix-ek` and
+  `:ix-kv` are stamp-ordered, not batch-ordered, and the first stamp of a
+  batch is not known, so `:ix-s` serves every shared form.
+
+The one-owner `:ix-s` is a fifth field of the read exit's `layer-fields`,
+written in the gate's decision event with the other four (one more
+`termval` per fact), tombstoned by `purge-writes`, rebuilt by the put pages
+and swept by the sweep pages: every read exit function that lists the index
+kinds gains one kind (**a change to the read exit's build**, named with the
+others below). It serves phase 2's `read-as-of` range too (every fact at or
+before T, with its row), so phase 2's `:by-stamp` (stamp → name, then a row
+read per act) is no longer needed by any read of this plan; whether it stays
+is builder A's call, and nothing here relies on its absence or presence.
+
+The limit and the scan budget hold for a delta as for any pattern read; a
+delta cut by the limit is a `:partial` delivery (below), and the next
+delivery starts after the last acknowledged moment, so the facts beyond the
+limit are delivered by no later delta (RR10: the next delta resumes from the
+last *shown* address inside the old moment first, then the new range; the
+last shown address is computed from the last shown row, so nothing of the
+unshown entry leaks, F3 kept). [Derived; a test drives a delta of limit + 5
+facts over two deliveries and checks each is delivered once.]
+
+### The entry's lines (first-record, FRR1 to FRR4)
+
+One entity per standing read, `:read-<uuid>` from the opening act's name
+(FR5's rule). Every line is a fact about it, in the reader's working layer,
+through the ordinary offer path, marked `:own-row` (see "The close act"):
+
+- **FRR1, the opening** (one act, one or two facts):
+  `{:e ent :k :read/standing :v {:layer L :pattern p :role r :moment m0}}`,
+  m0 the initial read's moment (`{:stamp s}` or `{:frontier F}`); and, when
+  the initial read matched anything, a first delivery line in the same act.
+  An empty initial read opens the entry with no delivery line.
+- **FRR2, a delivery** (one act per delivery that shows something new):
+  `{:e ent :k :read/delivery :v {:layer L :moment m :after m-prev :role r
+  :count n :mark :complete|:partial :fingerprint hex :fp-secret :read-fp/1
+  :exact [[fid stamp] ...] :max-stamp s}}`. `:exact` for a person or a model
+  always, for a tool only with `:rows? true` (ruling 3's split, R6's "exact
+  for a person or a model, a fingerprint for a deterministic tool");
+  `:fingerprint` on every line, over the set of that delivery's
+  `[fid stamp]` pairs (FR11's function), because the closing fingerprint is
+  taken over the lines' fingerprints; `:max-stamp` on a shared layer's line
+  only (F1, below). The line is stamped by its act: R6's "stamped line".
+- **FRR3, the closing**: `{:e ent :k :read/closed :v {:layer L :moment
+  m-last :deliveries d :fingerprint hex :fp-secret :read-fp/1 :mark
+  :complete|:partial :closed-by :unsubscribe|:session-close|:crash}}`.
+  `:fingerprint` is HMAC-SHA256 under the fingerprint secret over
+  `"softland.standing-fp/1\n"` + the canonical text of the vector of
+  `[line-stamp line-fingerprint]` of the entry's delivery lines in stamp
+  order: "a fingerprint over everything delivered", computable from the
+  record alone, for every reader kind (a tool's lines hold no ids, so a
+  fingerprint over the delivered pairs could not be recomputed after a
+  crash; one over the lines can, and a re-run of a deterministic tool's
+  standing read over the same history gives the same lines and the same
+  closing fingerprint). `:mark` is `:partial` when any delivery line is
+  `:partial`, else `:complete`: the mark says whether the record names
+  everything the read matched; how the entry closed is `:closed-by`'s.
+- **FRR4, the keys** `:read/standing`, `:read/delivery`, `:read/closed`,
+  store-owned constants beside `:read/point` and `:read/pattern` (FR6);
+  hinted `:no-copy` (F7), so their id-index entries carry no value copy.
+
+The read exit's `entry-moments` (F1) counts the moment of every
+`:read/standing`, `:read/delivery` and `:read/closed` fact, as it counts
+`:read/pattern`'s, so every line is stamped after what it names.
+
+### The functions (`rig.store.standing`, client side beside the exit)
+
+A standing read's handle lives in the caller's process: `{:ent :layer
+:pattern :reader-fields :moment :lines-stamps}`; it is not durable, and
+nothing depends on it surviving (the record has everything a close needs).
+
+- **`(subscribe! store spec)`** → `{:handle h :rows [...]}` or `{:refused
+  r}`. The exit's steps with one act of FRR1: query (`read-pattern`, no
+  `:after`), build the opening act (and the first delivery line when the
+  read matched), offer until answered, and only on `:yes` return the rows.
+  A refused opening shows nothing and opens nothing.
+- **`(deliver! store h)`** → `{:rows [...]}`, `:nothing-new`, or `{:refused
+  r}`. Called at the delivery rate by its caller (the renderer's refresh, the
+  agent's model call); the store does not pace it, and a line exists
+  exactly when a delivery is shown, which is R6's rate by construction.
+  Steps: the delta query with `:after` the handle's moment; no match gives
+  `:nothing-new`, nothing offered, nothing shown, the handle's moment
+  unchanged (so a later fact admitted before the unchanged moment's clamp
+  cannot be skipped: the next delta starts where the last acknowledged one
+  ended); a match builds one FRR2 act, offers it until answered, and on
+  `:yes` advances the handle's moment and returns the rows; on `:no`
+  returns `{:refused r}` and shows nothing, the moment unchanged.
+- **`(unsubscribe! store h)`** → the closing act, FRR3 with `:closed-by
+  :unsubscribe`, its fingerprint and mark from the query below.
+- **The closing query `standing-close [*layer *ent :> *c]`** (a third
+  query topology of this stage, on the working layer's home, `(|hash
+  *layer)`): the entry's delivery lines by `:ix-ek` prefix `ent␀read/delivery␀`
+  (one page), each line's row (`:no-copy`, one to two seeks each) opened by
+  `open-row>` (the lines are sealed values of the working layer, opened on
+  its home like any value), then the closing fingerprint under the
+  fingerprint secret, which exists only in the module (FR12), and the mark;
+  returns `{:fingerprint :deliveries :mark :moment}`, never a line's
+  contents. Why a query and not the client: the secret never leaves the
+  module, and a crash close has only the record to work from. It is not
+  itself recorded as a read (RR11): it reads the entry's own lines, whose
+  contents were each recorded when delivered, and shows no fact of the read
+  layer; its output is written into the closing line, which is its record.
+  For Sid, with the other maintenance reads (below).
+
+A standing read of a re-classed layer: its deltas read the micro era (batch
+above F0); a stream-side fact of the layer admitted after its re-class
+(P16's settings) is not delivered by a standing read (RR12), which is the
+two-store moment carried (see "What stays open").
+
+What a standing read does not deliver (for Sid, touches a line): a forget of
+a fact it already delivered. The fact is not new; the next full read shows
+it erased; the renderer holding the shown value is outside the store. A
+delivery of erasures would need a line naming erased ids, and a delta over
+erasures by date (phase 2's ledger is keyed by lock id, not by date).
+
+### Crash, and the close at session close
+
+- **Orderly session close** (the session's door is alive): the door closes
+  every live handle with `:closed-by :session-close`, then does the rest of
+  "The close act" below.
+- **After a crash** (the door died with handles open): the entries stay open
+  in the working layer. `(standing/close-session! store layer who)`, run by
+  the session's next door or by the operator, finds them with the query
+  **`standing-open [*layer :> *ents]`** (on the working layer's home: the
+  `:ix-ke` range `read/standing␀`, the entities in its addresses; for each,
+  one seek at `:ix-ek` prefix `ent␀read/closed␀`; ids only, a maintenance
+  read like the closing query), and closes each with `:closed-by :crash`,
+  its fingerprint and mark from `standing-close`. The closer writes under
+  its own permission in the working layer: the session's, or the operator's
+  (R7's root permission, default 5; For Sid 2: the operator as the root
+  actor).
+- Nothing is lost that was shown: no delivery is shown before its line is
+  acknowledged, so a crash can leave a line for a delivery not shown (the
+  over-recording the read exit already names), never a showing without a
+  line.
+
+### Standing reads on shared layers
+
+The same functions: the handle's moment is `{:frontier F}`, the delta runs
+over the micro `:ix-s` from `hex(F0 + 1)`, the lines carry `:moment
+{:frontier F}` and `:max-stamp`, and every line still lives in the reader's
+working layer, a one-owner layer on the stream gate. A shared layer's
+frontier moves about every tick (250 ms) whether or not the layer changed,
+so a delivery tick on a shared layer costs a delta query as on a one-owner
+layer; there is no extra cost for being shared.
+
+## The close act (CONCLUSION R5, default 4)
+
+### What the act says
+
+Phase 2's session close is an act into the session's layer, one control
+fact `{:e s :k :session-closed :v {:session s}}`, decided by the stream
+gate on the layer's home, which deletes the session's unconsumed lease rows
+(PLAN-locks-and-forgetting.md, "Writes", session close). This stage adds
+one optional part to its value: **`:reads :keep | :drop`** (FRR5,
+first-record); absent means `:keep`, tonight's default when the act says
+nothing (the brief). Phase 2's value parser for `:session-closed` accepts
+the part and refuses anything else as data (`:malformed-value`, phase 2's
+recorded reason). The decision's writes are phase 2's, unchanged; the part
+is read by the closer's procedure, not by the gate (RR13: the gate needs no
+branch).
+
+### Kept
+
+Nothing happens to the entries. They stay values of the agent layer, their
+locks in the layer's lock store, openable through the exit by whoever may
+see the layer (ruling 9's default: its owner).
+
+### Dropped: phase 2's value forget, one ordinary forget act per page
+
+The closer (the session's door, or the operator after a crash) runs
+`(read-exit/drop-reads! store layer close-name)` after the close act's
+`:yes`:
+
+1. **Enumerate** with the query **`entry-ids [*layer *before *after *n :>
+   *page]`** (on the layer's home, `(|hash *layer)`): the ids of the
+   `:read/*` facts of the layer admitted at or before `*before` (the close
+   act's stamp) and not yet erased (their `:ix-ke` entries not
+   tombstoned), from the five `read/…␀` prefixes of `:ix-ke` in turn, at
+   most n (256) per page; ids and stamps only, nothing opened (a
+   maintenance read, RR11).
+2. **Forget** each page with one ordinary value-forget act, phase 2's OP9:
+   `:who` the layer's owner or `:operator`, `:layer` the agent layer,
+   `:stood-on` each target's `[fid stamp]`, `:because-of` the close act's
+   name (ruling 3: "trigger is already because-of"), one fact `{:e e :k
+   :forget :v {:target fid}}` per target (acts of any size). Each is its own
+   fact, named by the closer before it is offered, answered by name,
+   retried from the record: every forget is a fact (the rig constraint),
+   and nothing in the gate is new.
+3. **Repeat** until a page is empty. A crash of the closer is repaired by
+   running it again: the query returns only what is not yet erased, and a
+   forget of a value already erased is admitted and changes nothing (phase
+   2's OP9 row).
+
+Each forget act's event is bounded: 256 targets × (the target row, the
+answer's stamp, the ledger, the lock row delete, `:ix-of`, the purge's
+five tombstones and deletes) is about 1,300 seeks and 2,500 writes, about
+0.7 s, under the stream timeout (F2's arithmetic; RR14, the page size).
+
+### The mark at write: every read entry is `:own-row`
+
+**Yes, the read exit must mark its entries at write.** An agent layer
+keeps a value's lock in the record by default (ruling 7: "in the record
+for agent sessions"); the forget of such a value is an excision, "the
+operator's fallback for unmarked record-default values" (ruling 7), which
+phase 2 builds as `termval nil` on the row's `:lock` with `:how :excised`.
+So without a mark a drop would still erase the entries mechanically, but
+only by running the operator's fallback at every agent session close:
+routine use of a fallback, rewriting log rows' bytes where the ordinary
+forget deletes a lock store row. Ruling 7 gives the value's writer the
+means for exactly this, "a mark on any value overrides": a value marked
+`:own-row` gets its own row in the lock store in any layer (phase 2's D9),
+and its forget deletes the row (`:how :row-deleted`). The choice between
+keep and drop is made at close, after the entries were written, so every
+entry must be written forgettable the ordinary way: marked at write.
+
+What it changes in the read exit's build:
+
+- `reads/entry-facts` puts `:mark #{:own-row}` on every `:read/*` fact it
+  builds, in every working layer (FRR6, first-record: where each entry's
+  lock lives, a pick that sticks per value). In personal and hand layers the
+  mark agrees with the default and changes nothing; marking everywhere
+  means the exit needs no knowledge of the working layer's kind.
+- Through phase 2's gate, unchanged: each entry value's lock becomes a row
+  in the working layer's `:locks`. The bytes move from the row's `:lock` to
+  a lock row; they do not grow. Phase 7 is told: agent layers now write lock
+  rows, one per read-entry value (phase 2's M1 says "agent layers write no
+  lock rows"), and M2's count of `:locks` in hand layers includes entries.
+- Nothing else: the entry path, its permission, its stamp rule are the
+  read exit's.
+
+### The tests' reading of "cannot be opened afterwards"
+
+After `drop-reads!` ends: every `:read/*` fact of the layer admitted before
+the close act has no lock row, has a ledger entry (`:row-deleted`, dated by
+its forget act), opens through `open-value>` as `{:erased-at s}`, shows
+through the exit as an erased row with its date and no value, and matches
+no `[:kv]` read; its index entries are tombstones. Between the close act
+and the end of the loop the remaining entries still open (RR15; For Sid:
+whether a drop must be effective at the close act's commit, which would
+need the gate's open to honour a layer-level "reads dropped before s" mark,
+a change to phase 2's open functions).
