@@ -210,25 +210,28 @@ On the layer's task, after the branch:
 4. **The range read** over the micro index on this task (next section),
    with the read exit's page loop and its pure step, one change: the
    visibility test of an entry is `(<= (:batch entry) F)` in place of
-   `(<= (:stamp entry) m)` (the rule of the frontier; an entry's stamp still
-   orders the chain inside an address). `[:ek e k]` and `[:kv k v]` have no
-   stamp bound in the address (their end is the prefix's end): the page
-   step filters by batch. The limit, the doubling pages (RC3), the scan
-   budget of 16 × (limit + 1) (F8) and the `:partial` mark are the read
-   exit's.
+   `(<= (:stamp entry) m)` (the rule of the frontier). The shared addresses
+   put the batch before the stamp (`e ␀ k ␀ hex(batch) ␀ hex(stamp) ␀
+   fid`, and likewise in `:ix-ke` and `:ix-kv`, "The fields"), so "as of F"
+   is an end bound, `prefix ␀ hex(F + 1)`, for `[:ek e k]` and `[:kv k v]`,
+   exactly as "as of m" is for the read exit, and those two read no hidden
+   entry at all; `[:e]`, `[:k]` and `[:all]` span several keys or entities
+   inside their prefix and filter by batch in the page step, as the read
+   exit's filter by stamp. Inside one entity, batch order is stamp order
+   (a micro stamp is at least the entity task's clock + 1, and every fact
+   about `e` touches `e`'s task), so a chain `e ␀ k ␀` is still ordered by
+   stamp, and P13's head rule still reads it. The limit, the doubling pages
+   (RC3), the scan budget of 16 × (limit + 1) (F8) and the `:partial` mark
+   are the read exit's.
    - `[:latest e k]`: the read exit's tail read `(sorted-map-range-to *end
-     {:max-amt 1})` [probed] returns the entry with the largest address
-     under `e␀k␀`; while that entry's batch is above F, the next tail read
-     is bounded by that entry's address, in a `loop<-`, at most 16 times
-     (then `:partial`, RR3). Why this is short: the entries above F are
-     those of at most the batches not yet settled, about two batch cycles'
-     worth (micro plan: the frontier lags "about one tick plus one batch"),
-     and within one entity a later batch always gives a larger stamp (the
-     micro stamp is at least the entity task's clock + 1, and every fact
-     about `e` touches `e`'s task), so the hidden entries are exactly the
-     top of the chain.
+     {:max-amt 1})` [probed], with `*end` = `e ␀ k ␀ hex(F + 1)`, returns
+     the latest head at F in one seek, for the current frontier or any
+     earlier one (time travel on a shared layer is a read at an older F).
    - `[:kv k v]`: F5 holds: a kept entry is a candidate; it counts only
-     when it opens (step 5) to v.
+     when it opens (step 5) to v. Its answer is ordered by batch, then
+     stamp (across entities, the shared store's own order), where the read
+     exit's is by stamp: a difference in the recorded `:exact` order (FR8),
+     named in FRR8.
 5. **Open.** Each kept entry goes through `shared-reads/open-entry>`, the
    shared twin of `open-row>`, on this task (next-but-one section).
 6. **Re-classed layer, the stream era.** For a layer with stream settings
@@ -411,22 +414,28 @@ batches (PState ownership: `$$micro` is declared by `micro`).
 (defn layer-fields [micro-row-fields]
   (let [entry (index-entry micro-row-fields)
         sub   {:subindex-options {:track-size? false}}]
-    {:ix-ek (map-schema String entry sub)                    ; e ␀ k ␀ hex(stamp) ␀ fid
-     :ix-ke (map-schema String entry sub)                    ; k ␀ e ␀ hex(stamp) ␀ fid
-     :ix-kv (map-schema String entry sub)                    ; k ␀ len ␀ vtext ␀ hex(stamp) ␀ fid
+    {:ix-ek (map-schema String entry sub)                    ; e ␀ k ␀ hex(batch) ␀ hex(stamp) ␀ fid
+     :ix-ke (map-schema String entry sub)                    ; k ␀ e ␀ hex(batch) ␀ hex(stamp) ␀ fid
+     :ix-kv (map-schema String entry sub)                    ; k ␀ len ␀ vtext ␀ hex(batch) ␀ hex(stamp) ␀ fid
      :ix-s  (map-schema String entry sub)                    ; hex(batch) ␀ hex(stamp) ␀ fid   (standing deltas)
      :ix-of (map-schema clojure.lang.PersistentVector (set-schema String) sub) ; fid -> its :ix-kv addresses
      :ix-id (map-schema clojure.lang.PersistentVector String sub)}))           ; fid -> its :ix-ek address
 ```
 
-- `:ix-ek`, `:ix-ke`, `:ix-kv`, `:ix-of`: the read exit's four, the same
-  addresses built by the same `reads/address` (RC4), the same forms served.
+- `:ix-ek`, `:ix-ke`, `:ix-kv`, `:ix-of`: the read exit's four, serving
+  the same forms, with one difference in the address: the batch, as 16 hex
+  digits, before the stamp, built by `shared-reads/address` from the read
+  exit's parts (RC4). Why: visibility here is by batch, so a batch-first
+  address makes "as of F" an end bound for `[:ek]`, `[:latest]` and `[:kv]`
+  (no hidden entry is read, at the current frontier or an old one); and
+  inside one entity batch order is stamp order, so `[:ek]`'s chain order is
+  unchanged.
 - `:ix-s`, new: every fact by batch, then stamp. A standing read's delta
   "what became visible since F0" is one range, `hex(F0 + 1)` to `hex(F +
   1)`, whatever the pattern ("Standing reads"). Ordered by batch first
   because the frontier, not the stamp, decides visibility here.
 - `:ix-id`, new: the point read's entry point (above). Holds ids only (the
-  address is entity, key, stamp and fact id), so a purge keeps it.
+  address is entity, key, batch, stamp and fact id), so a purge keeps it.
 - No `Object`; addresses are Strings; size tracking off everywhere (a
   count costs a read per write); every map subindexed (unbounded per
   layer); an `:ix-of` set is bounded by the value-indexed kinds (one
@@ -652,14 +661,15 @@ stores:
 
 Which index serves a delta, `(reads/delta-plan pp after)`, pure:
 
-- `[:ek e k]` and `[:kv k v]` (one-owner): their own index, from the
-  prefix plus `hex(s0 + 1)` to `hex(m + 1)`: the address orders them by
-  stamp inside the prefix, so the delta reads only new matches.
-- `[:latest e k]`: the tail read (one-owner; the tail loop at F, shared);
+- `[:ek e k]` and `[:kv k v]`: their own index, from the prefix plus
+  `hex(s0 + 1)` to `hex(m + 1)` (one-owner), or plus `hex(F0 + 1)` to
+  `hex(F + 1)` (shared, batch-first addresses): the address orders them by
+  time inside the prefix, so the delta reads only new matches.
+- `[:latest e k]`: the tail read below the moment's bound, in both stores;
   new when the head's stamp is above s0 (its batch above F0): then the one
   new head is delivered, else nothing.
-- `[:all]`, `[:e e]`, `[:k k]` (one-owner), and every form on a shared
-  layer: **a new index, `:ix-s`**, every fact of the layer in stamp order
+- `[:all]`, `[:e e]`, `[:k k]`, in both stores: **a new index, `:ix-s`**,
+  every fact of the layer in stamp order
   (`hex(stamp) ␀ fid` → the entry, one-owner) or in batch order (`hex(batch)
   ␀ hex(stamp) ␀ fid`, shared, above), read from `hex(s0 + 1)` (or
   `hex(F0 + 1)`) and filtered by the pattern's pure predicate
@@ -668,9 +678,7 @@ Which index serves a delta, `(reads/delta-plan pp after)`, pure:
   their delta would rescan the whole prefix on every tick (a standing `[:all]`
   over a 10,000-fact layer would hit F8's scan budget every tick and be
   partial for ever); over `:ix-s` a delta costs one seek plus one iteration
-  per fact admitted since the last delivery. For a shared layer `:ix-ek` and
-  `:ix-kv` are stamp-ordered, not batch-ordered, and the first stamp of a
-  batch is not known, so `:ix-s` serves every shared form.
+  per fact admitted since the last delivery.
 
 The one-owner `:ix-s` is a fifth field of the read exit's `layer-fields`,
 written in the gate's decision event with the other four (one more
@@ -1237,8 +1245,8 @@ emitting once.
 
 - **`read-pattern`, shared branch.** A group layer's `[:e e]` with 12
   facts → 4 seeks (stream settings, frontier, micro settings, members) + 1
-  page (16 iterated, 12 kept). `[:latest e k]` with nothing hidden → 4 + 1;
-  with one hidden entry above F → 4 + 2. `[:k :note]` over 1,000 matches →
+  page (16 iterated, 12 kept). `[:latest e k]` → 4 + 1 tail seek,
+  at the current F or an older one (the bound moves, not the cost). `[:k :note]` over 1,000 matches →
   4 + 6 pages (16 to 512 entries, 1,008 in all, cut at the 1,001st match),
   marked partial. The base's `[:k k]` after its re-class, 40 stream-era and 60
   micro-era matches → 2 (stream settings, frontier) + 2 pages (stream
@@ -1422,7 +1430,8 @@ Continuing the read exit's FR1 to FR14, which stand.
 - RR1. A stamp moment on a shared layer is refused `:moment-kind`.
 - RR2. Group membership is read as it stands, not as of F (no removal
   exists yet).
-- RR3. `[:latest]` at F takes at most 16 tail steps, then `:partial`.
+- RR3. Shared addresses put the batch before the stamp, so "as of F" is an
+  end bound for `[:ek]`, `[:latest]` and `[:kv]`.
 - RR4. `open-entry>` does not hop for a `:no-copy` entry; it answers
   `{:unreadable :no-copy}` (no `:read/*` fact lives in a shared layer).
 - RR5. Every index of a shared layer on the layer's task (Option B); C or
