@@ -564,6 +564,7 @@
   (with-open [tp (rtest/create-test-pstate m/layers-schema)
               pp (rtest/create-test-pstate (l/persons-schema))]
     (let [persons {:alice (entry) :bob (entry)}
+          written (atom #{})
           settings {:alice alice-settings :alice-agent agent-settings :base base-settings
                     :people {:kind :store :class :by-layer :grain :per-value}}]
       (testing "the decision with its lock context is total and every write it computes fits $$layers and $$persons"
@@ -574,15 +575,16 @@
                         s (settings layer)
                         d (decide* o s (granted who layer) {} 0 5 (env/digest o) (lx-for o s Ks persons))]
                     (apply-lock-writes! tp pp layer :s1 (:name o) d)
+                    (swap! written into (keep (fn [k] (let [v (get-in d [:locks k])]
+                                                        (when (if (coll? v) (seq v) (some? v)) k)))
+                                              [:lease-rows :lock-rows :rows :close :person :by-stamp]))
                     (and (= :decide (:kind d))
                          (instance? Long (:stamp d))
                          (if (= :yes (:answer (:record d)))
                            (= (count facts) (count (:log d)))
                            (nil? (:log d))))))))
-        (testing "and the property decided some of each kind yes (so their writes were written)"
-          (is (seq (rtest/test-pstate-select [(keypath :alice :leases :s1) ALL] tp)) "lease rows")
-          (is (seq (rtest/test-pstate-select [(keypath :alice :locks) ALL] tp)) "lock rows")
-          (is (seq (rtest/test-pstate-select [(keypath :alice :by-stamp) ALL] tp)) "by-stamp entries"))
+        (testing "and the property decided some of each kind yes, so each kind of write was written"
+          (is (= #{:lease-rows :lock-rows :rows :close :person :by-stamp} @written) (pr-str @written)))
       (testing "a forget's excision and ledger, written over rows that exist"
         (let [[o Ks] (parsed-sealed :alice :alice-agent [{:e :e0 :k :note :v "x"} {:e :e1 :k :note :v "y"}] :grain :per-act)
               s (assoc agent-settings :grain :per-act)

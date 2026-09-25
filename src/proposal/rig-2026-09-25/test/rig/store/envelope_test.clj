@@ -577,7 +577,8 @@
       (is (= [:group :by-entity :landing (nth req 3)] (env/landing-name req :group)))))
   (testing "uuid7: version 7, RFC variant, the current millisecond in its top 48 bits (R12)"
     (let [t0 (System/currentTimeMillis)
-          us (repeatedly 50 env/uuid7)
+          ;; realized inside the window (a lazy seq made its uuids after t1 was read, a flake)
+          us (doall (repeatedly 50 env/uuid7))
           t1 (System/currentTimeMillis)]
       (is (every? #(= 7 (.version ^UUID %)) us))
       (is (every? #(= 2 (.variant ^UUID %)) us))

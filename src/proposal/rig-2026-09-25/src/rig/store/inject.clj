@@ -65,9 +65,9 @@
     (swap! passes conj [point nm]))
   (when (seq @armed)
     (let [k [point nm]
-          left (get @armed k 0)]
-      (when (pos? left)
-        (swap! armed update k dec)
+          ;; one atomic countdown: the fan-out's children reach one point on several task threads at once
+          [before _] (swap-vals! armed (fn [m] (if (pos? (get m k 0)) (update m k dec) m)))]
+      (when (pos? (get before k 0))
         (swap! fired conj k)
         (throw (ex-info "injected crash" {:point point :name nm})))))
   nil)
