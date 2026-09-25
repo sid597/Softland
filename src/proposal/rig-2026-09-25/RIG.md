@@ -2,175 +2,253 @@
 
 ## Overnight state (26 September; rewritten after every commit)
 
-Builder A, from 01:37 IST, on Sid's overnight brief: build every remaining
-phase of SPEC.md tonight (2 locks and forgetting, 3 the micro store, 4
+Builder A ran from 01:37 to 04:15 IST on Sid's overnight brief: build every
+remaining phase of SPEC.md (2 locks and forgetting, 3 the micro store, 4
 promotion, 5 reads and read entries, 6 tools and grammars, 7 the three
-numbers on the finished store, 8 replays of the model's histories), with the
-defaults below. The brief widens `STARTER-next.md`, whose rules hold, and
-changes PROGRESS.md's "phases 2 to 4 wait" for the rig tonight. Builder B
-watches from `/mnt/data/projects/rig-relay-2026-09-26/` and takes over at a
-handoff.
+numbers on the finished store, 8 replays of the model's histories), with
+the defaults below. The brief widens `STARTER-next.md`, whose rules hold,
+and changes PROGRESS.md's "phases 2 to 4 wait" for the rig tonight. At
+04:10 builder B asked for the handoff (builder A's transcript passed 3.5
+MB), under the relay in `/mnt/data/projects/rig-relay-2026-09-26/`.
 
-- **Done:**
-  - `7a7403bd`: this section, "For Sid", and the defaults below.
-  - `0bc0cd7f`: stamps on the hybrid clock (default 2), merged from
-    `rig-clock` (`42da5880`). `rig.store.clock` holds the whole encoding;
-    the gate's stamp is its `next-stamp`. New tests: `rig.store.clock-test`
-    (no cluster: the packing, both promises under a wall that stands still,
-    steps back or jumps, the counter past 65,535, 2,250 decisions a second
-    for 18 s ending 0 ms ahead where millisecond stamps end 22,500 ms ahead)
-    and, in the stream gate suite, a burst of 3,200 acts from 32 offerers
-    whose every stamp's millisecond lies between its send and its ack.
-    Phase 1's suite on the merge, run by builder A: 19 tests, 785 checks, 0
-    failures, 0 errors, 19 s (`runs/phase1-suite-after-clock-merge.log`;
-    the build's run on 8 tasks is `runs/phase1-suite-hybrid-clock.txt`).
-  - The 08:52 rewrite of `gate.clj`, traced; see "Found tonight".
-  - Phase 2's plan revised for sealing at the door (default 1) and
-    validated before the 03:00 line: minor-fail, four fixes applied in the
-    plan (`PLAN_VALIDATION-locks-and-forgetting.md`, 02:34), merged here.
-    So the lease road is built; the fallback is not taken. The fixes: lock
-    ids stay out of the reused-name digest, so an honest resend sealed
-    under a new lease gets its recorded answer (F1); the base is made on
-    the stream gate with a no-owner wrap, lease rows sealed under the lease
-    act's writer (F2); consumption of a lock happens in one place (F3);
-    seven phase 1 test expectations that change are listed (F4).
-  - The one-owner read exit planned (`PLAN-read-exit.md`) and validated:
-    minor-fail, twelve fixes in place (`PLAN_VALIDATION-read-exit.md`,
-    02:38), merged here. No new PState: four index fields in `$$layers`,
-    written in the gate's decision event; `read-point` and `read-pattern`
-    queries on the layer's home; the exit `read!` makes the entry's name,
-    queries, offers the entry and shows rows only on its yes. Among the
-    fixes: the entry stands on its moment, so it is stamped after it (F1);
-    a rebuild runs in pages of one event each, under the 5 s stream
-    timeout, where one event over 100,000 facts would replay for ever
-    (F2); a private layer answers "not visible" whether or not it exists
-    (F4); a value-index match counts only when the value still opens to
-    it, so an index cannot confirm a forgotten value (F5); visibility is
-    checked for the person a read is for (F12).
-  - Phase 6's revision reader planned (`PLAN-revision-reader.md`) and
-    validated: minor-fail, fourteen fixes in place
-    (`PLAN_VALIDATION-revision-reader.md`, 02:45), merged here. Passages are
-    blocks (a heading, a paragraph, a fenced block, a top-level list item);
-    functions are top-level forms; each unit is only its content and its
-    position (lines, and character offsets in UTF-16 units); read through
-    git plumbing, every error as data. The fixes harden the read path
-    against git's edge cases (an inherited GIT_DIR, `^HEAD`, a caller
-    choosing the program, non-ASCII paths under a C locale).
-  - Phase 3's plan revised for defaults 1, 2, 5 and 6 and validated:
-    minor-fail, thirteen fixes in place (`PLAN_VALIDATION-micro-store.md`,
-    02:47), merged here. The micro gate mints a shared layer's leases and
-    keeps their rows beside the lease act's name row; a sealed act is
-    routed by its lock's lease name, so each lock is read, used and
-    consumed on the task where it arrives, in the batch that decides it.
-    The fixes align it with phase 2's validated plan (lease rows under the
-    lease act's writer, lock ids out of the digest, the operator's bare
-    lease), key a batch's envelopes by fingerprint so two under one name
-    cannot both write, and add a session close on the micro side. One
-    validator fix is overruled by builder A, R19 below: the permission
-    check walks the chain rather than cascading a revoke.
-  - Phase 4's plan, promotion (`PLAN-promotion.md`), written and validated:
-    minor-fail, nine fixes in place (`PLAN_VALIDATION-promotion.md`, 03:30),
-    merged here. Before the request the door leases once in the target; the
-    target's gate mints an X25519 key pair into that one lease row, named
-    from the request's uuid. At the read-out the stream gate opens the
-    source on the owner's task, seals the copy under a fresh lock, and seals
-    that lock to the lease's public key, so the only opener is the private
-    key in the lease row on the task where the landing is decided, and the
-    landing's decision deletes it whatever the answer. Among the fixes: a
-    lease bound one-to-one to its landing, so no other writer can capture
-    it (F1); a small-order key that would have made the read-out throw, and
-    so replay for ever, now decoded at the request and answered as data
-    (F2).
-  - Phase 6's revision reader built and green, merged here: `rig.revision`
-    (`read-units`, `read-span`; plain Clojure, no Rama, no store namespace,
-    no new library) and `rig.revision-test`, 25 tests. On the merge, run
-    by builder A: 25 tests, 2,837 checks, 0 failures, 0 errors
-    (`runs/revision-reader-after-merge.log`; no cluster needed). Both
-    validations minor-fail, fixed. As extra evidence the build cut every
-    tracked file outside `src/app`: 1,580 Markdown files into 126,747
-    blocks, every block rule holding, and 345 Clojure files into 3,327
-    forms, each count and line equal to Clojure's own reader. The plan's
-    test 7 named a block's extent where it meant a form's; the code was
-    right and the test asserts the form's. For phase 6's count it is one
-    capability, class (c): two built-in steps a tool can call.
-  - The one-owner read exit built and green, merged here: `rig.store.reads`
-    (four index fields in `$$layers` written in the gate's decision event;
-    purge by value id; a paged rebuild; the `read-point` and `read-pattern`
-    queries; the keyed fingerprint; the entry's facts; the open step behind
-    one seam that passes values through until phase 2's merge) and
-    `rig.store.read-exit` (`read!` shows rows only on its entry's yes). Its
-    tests: `rig.store.reads-test`, `rig.store.read-exit-test` (crashes at
-    each hook, last), `rig.store.read-model-test` (0 differences from the
-    model: 73 answers matched over five histories). On the merge, run by
-    builder A with phase 1, the clock and the revision reader: 62 tests,
-    4,177 checks, 0 failures, 0 errors, 32 s
-    (`runs/after-read-exit-merge.log`). Divergences from the plan are
-    named in `IMPLEMENTATION_VALIDATION-read-exit.md` (D1 to D13); among
-    them, rebuild pages never yield, since a forget landing inside a yield
-    would have a purged value written back (D3), and a fact id in an index
-    address carries its index as fixed-width hex, so index 10 no longer
-    sorts before 9 (D5).
-  - Phase 8's plan, replays of the model's fixed histories
-    (`PLAN-replays.md`), written and validated: minor-fail, twelve fixes
-    in place (`PLAN_VALIDATION-replays.md`, 03:42), merged here. One test
-    namespace, `rig.replay-test`, steps the model one operation at a time
-    and sends each rig act at the model step that decides its counterpart;
-    `:values` comes from the store's own opening, `:shown` from the
-    promotion status; a fresh module per case (probed: relaunch in about
-    380 ms). Nine cases practical, five approximated with a hold or a
-    paused micro topology, each with its reason; nineteen known differences
-    named and cited case by case; any unexplained difference fails the
-    test. Phase 4's build must provide its own hold hook: the only one that
-    exists blocks a task thread.
-  - The rest of phase 5 planned (`PLAN-reads-rest.md`) and validated:
-    minor-fail, eighteen fixes in place (`PLAN_VALIDATION-reads-rest.md`,
-    03:55), merged here. Shared-layer reads go through the same exit with
-    the moment `{:frontier F}`; a shared layer's indexes sit on the
-    layer's own task, written in the deciding batch, the value index
-    holding a keyed hash of the value rather than its text (F12), so no
-    plaintext crosses between micro tasks; standing reads poll at the
-    delivery rate through the exit, each line carrying a keyed chain so a
-    close reads one line (F3); an agent session's close act keeps or
-    drops its read entries, a drop being ordinary value forgets 64 at a
-    time (F4), which needs every entry marked for its own lock row; purge
-    and rebuild share one invariant, that a purge writes what a rebuild
-    would, with a restore replaying the forgets after its rebuild.
-    Placement: acceptable tonight as a named rig choice (RR5), not as the
-    store core's (For Sid 29).
-  - Phase 6's plan, tools and grammars (`PLAN-tools-and-grammars.md`),
-    written, put through the caching examination, and validated:
-    minor-fail, thirteen fixes in place
-    (`PLAN_VALIDATION-tools-and-grammars.md`, 04:00), merged here. A key's
-    grammar is a control fact in the layer it governs, projected into a
-    per-key row the layer's gate reads in its own event; a tool is an
-    ordinary fact (what it matches, its signature, its read-entry
-    preference, the permission it acts under, a recipe of named steps over
-    a vocabulary with formulas in the leaves); the runner is operator code
-    beside the door and the exit, reading as the tool and offering its
-    outputs under the tool's permission, with names derived so a rerun is
-    a retry and a static check against loops. Predicted machinery count:
-    25 built tonight, 11 of the kind the frame promised, 5 nobody
-    anticipated, 9 capabilities; the build takes the real count. Among the
-    fixes: a tool could have named any repository on the host for the
-    runner to read into the store, now a literal from the operator's
-    configuration, empty by default (F13, For Sid 33).
-- **In flight**, each writer in its own worktree off this branch, merged by
-  commit: builds of phase 2 (`Softland-rig-build-locks`) and phase 3
-  (`Softland-rig-build-micro`,
-  which merges phase 2's lock primitives from an early commit of
-  `rig-build-locks`).
-- **Next:** the merge of wave 1 in its own worktree, with the seams wired;
-  then phases 4, the rest of 5 and 6 built side by side; then phase 8's
-  replays; then phase 7's numbers on the finished store. Carried into the
-  merge: a person forget must purge the read exit's value index of every
-  value that dies with the person (phase 2 builds the enumeration behind a
-  seam); the read exit is the one way to read, and phase 2's own
-  `read-as-of` stays only as an internal body or a test helper.
-- **How it runs:** worktrees are `/mnt/data/projects/Softland-rig-<name>` on
-  branches `rig-<name>`. Every in-process cluster run waits on
-  `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`. The partial
-  `test/rig/store/gate_test.clj` is Sid's and stays unopened; suites name
-  their namespaces, so it never loads.
+**Where it stands at the handoff.** On this branch, built and green
+together: phase 1 with the hybrid clock, the revision reader and the
+one-owner read exit, 62 tests and 4,177 checks
+(`runs/after-read-exit-merge.log`). Every remaining stage has a validated
+plan on this branch except phase 7: `PLAN-locks-and-forgetting.md` (2),
+`PLAN-micro-store.md` (3), `PLAN-promotion.md` (4), `PLAN-read-exit.md` and
+`PLAN-reads-rest.md` (5), `PLAN-revision-reader.md` and
+`PLAN-tools-and-grammars.md` (6), `PLAN-replays.md` (8), each with its
+`PLAN_VALIDATION-*.md`; every verdict was minor-fail, fixed in place by the
+validator. No session tonight was stopped by the safety filter; all ran on
+Opus 5.5.
+
+**Built on their own branches, not merged here:**
+- **Phase 3, the micro store**, branch `rig-build-micro` (worktree
+  `Softland-rig-build-micro`), head `e60c8ee1`, green on its own: 34 tests,
+  1,269 checks, 275 s (`runs/phase3-suite.txt` in its rig folder). It merged
+  phase 2's lock primitives from `rig-build-locks` at `1febfa3d` (its merge
+  `5afe3c7d`). Its frontier run: 300 batches, 14,415 acts, 529,374 read
+  pairs through one settled frontier, 0 violations; readers bypassing the
+  frontier saw 68 pairs where the later read was older. Its notes for the
+  merge: `:members` must join phase 2's control keys, or phase 2's parse
+  refuses a group's making act; in `gate.clj` its permission walk
+  (`rig.store.permit`, R19) wins over phase 2's four permission clauses;
+  set `persons-placeholder?` to false and replace its placeholder
+  `make-person!` and `forget-person!` with phase 2's acts (every forget is a
+  fact); the lock effect of a value forget in a shared layer is not built
+  (it waits on phase 2's seam); its fold calls `gate/refusal` and
+  `gate/stamp-for`, not phase 2's `decide`, which opens values itself.
+  `IMPLEMENTATION_VALIDATION-micro-store.md` lists its 17 divergences.
+- **Phase 2, locks and forgetting**, branch `rig-build-locks` (worktree
+  `Softland-rig-build-locks`): still running at the handoff, in its last
+  step (the suite to green; its test validation committed at `2d530361`,
+  04:05; test files being edited). Its results land in its rig folder:
+  `BUILD_NOTES-locks-and-forgetting.md`,
+  `IMPLEMENTATION_VALIDATION-locks-and-forgetting.md`,
+  `TEST_VALIDATION-locks-and-forgetting.md`, `runs/phase2-suite.txt`. Its
+  receipt goes to builder A's session, which has stopped, so read the
+  branch. Builder A asked it, by message: a seam in the forget's event for
+  the read exit's purge, and an enumeration of the values dying with a
+  person for the same purge; its own `read-as-of` kept as an internal body
+  or a test helper; its lock primitives committed early (done, `1febfa3d`,
+  noted in its BUILD_NOTES); a `:scheme` tag on wrap records (done,
+  `3ddc6eab`); a test that a person forget's answer leaves no lock entry on
+  any task.
+
+**Unfinished, in order**, each through the rama skill's steps, each writer
+in its own worktree:
+1. **The merge of wave 1**: phases 2 and 3 onto this branch, in worktree
+   `Softland-rig-integrate` (branch `rig-integrate`, made at 04:13 at this
+   branch's head, empty; nothing was launched into it). The seams to wire,
+   from the builds' receipts: the read exit's open step (`reads/open-row>`,
+   a pass-through tonight) to phase 2's `open-row>`, signature `[layer fid
+   row stamp T]`, three return shapes; phase 2's forget seams to
+   `reads/purge-writes`, a value forget in the forget's own event and a
+   person forget through the enumeration; `reads/index-writes`' optional
+   plaintext argument, from the gate's opened values; the exit's entries
+   leasing and sealing at the door like any offer; phase 2's `read-as-of`
+   made internal, the exit being the one way to read; the put page's
+   4,096-row cap re-measured once opens read lock rows; and phase 3's notes
+   above. Then the whole suite green, every namespace named.
+2. **Wave 2**, side by side off the merge: phase 4 (`PLAN-promotion.md`; it
+   must provide its own hold hook, since `rig.claims/hold!` blocks a task
+   thread); the rest of phase 5 (`PLAN-reads-rest.md`, whose changes to the
+   read exit, phase 2 and phase 3 are listed in it); phase 6
+   (`PLAN-tools-and-grammars.md`, whose section 1 names what to bind to
+   after the merge; the machinery count is taken on the build). Then their
+   merge.
+3. **Phase 8's replays** (`PLAN-replays.md`) on the merged store.
+4. **Phase 7**: a plan for the three numbers on the finished store (the
+   harnesses in `src/rig/bench` and `test/rig/bench`; thresholds as default
+   7 says; lock growth for 40- and 200-byte values; long runs in the
+   background with progress under `runs/`), then the runs.
+5. **The rama skill's full-spec review** of the whole module, if time
+   allows.
+
+**How it runs:** worktrees are `/mnt/data/projects/Softland-rig-<name>` on
+branches `rig-<name>`. Every in-process cluster run waits on
+`flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`. The partial
+`test/rig/store/gate_test.clj` is Sid's and stays unopened; suites name
+their namespaces, so it never loads. Commits carry no attribution lines.
+
+**Done tonight, by commit on this branch:** `7a7403bd` the overnight
+sections and defaults; `0bc0cd7f` the hybrid clock merged (from
+`rig-clock` `42da5880`) and `5b29563f` its record with the 08:52 rewrite
+traced; `e3989912` phase 2's plan revised for sealing and validated at
+02:34, inside the 03:00 line; `b31ad57e` the read exit planned and
+validated; `d0eea904` the revision reader planned and validated; `5aba1253`
+phase 3's plan revised and validated, with R19; `02f08c7d` phase 4 planned
+and validated, For Sid regrouped; `4c150e4a` the revision reader built;
+`802af562` the caching rule's examination; `40374171` the read exit built;
+`e8676172` phase 8 planned and validated; `c90c5244` the rest of phase 5
+planned and validated; `f93b4ae5` phase 6 planned, examined and validated;
+and the handoff commit that carries this section.
+
+### Stages tonight, as each landed
+
+- `7a7403bd`: this section, "For Sid", and the defaults below.
+- `0bc0cd7f`: stamps on the hybrid clock (default 2), merged from
+  `rig-clock` (`42da5880`). `rig.store.clock` holds the whole encoding;
+  the gate's stamp is its `next-stamp`. New tests: `rig.store.clock-test`
+  (no cluster: the packing, both promises under a wall that stands still,
+  steps back or jumps, the counter past 65,535, 2,250 decisions a second
+  for 18 s ending 0 ms ahead where millisecond stamps end 22,500 ms ahead)
+  and, in the stream gate suite, a burst of 3,200 acts from 32 offerers
+  whose every stamp's millisecond lies between its send and its ack.
+  Phase 1's suite on the merge, run by builder A: 19 tests, 785 checks, 0
+  failures, 0 errors, 19 s (`runs/phase1-suite-after-clock-merge.log`;
+  the build's run on 8 tasks is `runs/phase1-suite-hybrid-clock.txt`).
+- The 08:52 rewrite of `gate.clj`, traced; see "Found tonight".
+- Phase 2's plan revised for sealing at the door (default 1) and
+  validated before the 03:00 line: minor-fail, four fixes applied in the
+  plan (`PLAN_VALIDATION-locks-and-forgetting.md`, 02:34), merged here.
+  So the lease road is built; the fallback is not taken. The fixes: lock
+  ids stay out of the reused-name digest, so an honest resend sealed
+  under a new lease gets its recorded answer (F1); the base is made on
+  the stream gate with a no-owner wrap, lease rows sealed under the lease
+  act's writer (F2); consumption of a lock happens in one place (F3);
+  seven phase 1 test expectations that change are listed (F4).
+- The one-owner read exit planned (`PLAN-read-exit.md`) and validated:
+  minor-fail, twelve fixes in place (`PLAN_VALIDATION-read-exit.md`,
+  02:38), merged here. No new PState: four index fields in `$$layers`,
+  written in the gate's decision event; `read-point` and `read-pattern`
+  queries on the layer's home; the exit `read!` makes the entry's name,
+  queries, offers the entry and shows rows only on its yes. Among the
+  fixes: the entry stands on its moment, so it is stamped after it (F1);
+  a rebuild runs in pages of one event each, under the 5 s stream
+  timeout, where one event over 100,000 facts would replay for ever
+  (F2); a private layer answers "not visible" whether or not it exists
+  (F4); a value-index match counts only when the value still opens to
+  it, so an index cannot confirm a forgotten value (F5); visibility is
+  checked for the person a read is for (F12).
+- Phase 6's revision reader planned (`PLAN-revision-reader.md`) and
+  validated: minor-fail, fourteen fixes in place
+  (`PLAN_VALIDATION-revision-reader.md`, 02:45), merged here. Passages are
+  blocks (a heading, a paragraph, a fenced block, a top-level list item);
+  functions are top-level forms; each unit is only its content and its
+  position (lines, and character offsets in UTF-16 units); read through
+  git plumbing, every error as data. The fixes harden the read path
+  against git's edge cases (an inherited GIT_DIR, `^HEAD`, a caller
+  choosing the program, non-ASCII paths under a C locale).
+- Phase 3's plan revised for defaults 1, 2, 5 and 6 and validated:
+  minor-fail, thirteen fixes in place (`PLAN_VALIDATION-micro-store.md`,
+  02:47), merged here. The micro gate mints a shared layer's leases and
+  keeps their rows beside the lease act's name row; a sealed act is
+  routed by its lock's lease name, so each lock is read, used and
+  consumed on the task where it arrives, in the batch that decides it.
+  The fixes align it with phase 2's validated plan (lease rows under the
+  lease act's writer, lock ids out of the digest, the operator's bare
+  lease), key a batch's envelopes by fingerprint so two under one name
+  cannot both write, and add a session close on the micro side. One
+  validator fix is overruled by builder A, R19 below: the permission
+  check walks the chain rather than cascading a revoke.
+- Phase 4's plan, promotion (`PLAN-promotion.md`), written and validated:
+  minor-fail, nine fixes in place (`PLAN_VALIDATION-promotion.md`, 03:30),
+  merged here. Before the request the door leases once in the target; the
+  target's gate mints an X25519 key pair into that one lease row, named
+  from the request's uuid. At the read-out the stream gate opens the
+  source on the owner's task, seals the copy under a fresh lock, and seals
+  that lock to the lease's public key, so the only opener is the private
+  key in the lease row on the task where the landing is decided, and the
+  landing's decision deletes it whatever the answer. Among the fixes: a
+  lease bound one-to-one to its landing, so no other writer can capture
+  it (F1); a small-order key that would have made the read-out throw, and
+  so replay for ever, now decoded at the request and answered as data
+  (F2).
+- Phase 6's revision reader built and green, merged here: `rig.revision`
+  (`read-units`, `read-span`; plain Clojure, no Rama, no store namespace,
+  no new library) and `rig.revision-test`, 25 tests. On the merge, run
+  by builder A: 25 tests, 2,837 checks, 0 failures, 0 errors
+  (`runs/revision-reader-after-merge.log`; no cluster needed). Both
+  validations minor-fail, fixed. As extra evidence the build cut every
+  tracked file outside `src/app`: 1,580 Markdown files into 126,747
+  blocks, every block rule holding, and 345 Clojure files into 3,327
+  forms, each count and line equal to Clojure's own reader. The plan's
+  test 7 named a block's extent where it meant a form's; the code was
+  right and the test asserts the form's. For phase 6's count it is one
+  capability, class (c): two built-in steps a tool can call.
+- The one-owner read exit built and green, merged here: `rig.store.reads`
+  (four index fields in `$$layers` written in the gate's decision event;
+  purge by value id; a paged rebuild; the `read-point` and `read-pattern`
+  queries; the keyed fingerprint; the entry's facts; the open step behind
+  one seam that passes values through until phase 2's merge) and
+  `rig.store.read-exit` (`read!` shows rows only on its entry's yes). Its
+  tests: `rig.store.reads-test`, `rig.store.read-exit-test` (crashes at
+  each hook, last), `rig.store.read-model-test` (0 differences from the
+  model: 73 answers matched over five histories). On the merge, run by
+  builder A with phase 1, the clock and the revision reader: 62 tests,
+  4,177 checks, 0 failures, 0 errors, 32 s
+  (`runs/after-read-exit-merge.log`). Divergences from the plan are
+  named in `IMPLEMENTATION_VALIDATION-read-exit.md` (D1 to D13); among
+  them, rebuild pages never yield, since a forget landing inside a yield
+  would have a purged value written back (D3), and a fact id in an index
+  address carries its index as fixed-width hex, so index 10 no longer
+  sorts before 9 (D5).
+- Phase 8's plan, replays of the model's fixed histories
+  (`PLAN-replays.md`), written and validated: minor-fail, twelve fixes
+  in place (`PLAN_VALIDATION-replays.md`, 03:42), merged here. One test
+  namespace, `rig.replay-test`, steps the model one operation at a time
+  and sends each rig act at the model step that decides its counterpart;
+  `:values` comes from the store's own opening, `:shown` from the
+  promotion status; a fresh module per case (probed: relaunch in about
+  380 ms). Nine cases practical, five approximated with a hold or a
+  paused micro topology, each with its reason; nineteen known differences
+  named and cited case by case; any unexplained difference fails the
+  test. Phase 4's build must provide its own hold hook: the only one that
+  exists blocks a task thread.
+- The rest of phase 5 planned (`PLAN-reads-rest.md`) and validated:
+  minor-fail, eighteen fixes in place (`PLAN_VALIDATION-reads-rest.md`,
+  03:55), merged here. Shared-layer reads go through the same exit with
+  the moment `{:frontier F}`; a shared layer's indexes sit on the
+  layer's own task, written in the deciding batch, the value index
+  holding a keyed hash of the value rather than its text (F12), so no
+  plaintext crosses between micro tasks; standing reads poll at the
+  delivery rate through the exit, each line carrying a keyed chain so a
+  close reads one line (F3); an agent session's close act keeps or
+  drops its read entries, a drop being ordinary value forgets 64 at a
+  time (F4), which needs every entry marked for its own lock row; purge
+  and rebuild share one invariant, that a purge writes what a rebuild
+  would, with a restore replaying the forgets after its rebuild.
+  Placement: acceptable tonight as a named rig choice (RR5), not as the
+  store core's (For Sid 29).
+- Phase 6's plan, tools and grammars (`PLAN-tools-and-grammars.md`),
+  written, put through the caching examination, and validated:
+  minor-fail, thirteen fixes in place
+  (`PLAN_VALIDATION-tools-and-grammars.md`, 04:00), merged here. A key's
+  grammar is a control fact in the layer it governs, projected into a
+  per-key row the layer's gate reads in its own event; a tool is an
+  ordinary fact (what it matches, its signature, its read-entry
+  preference, the permission it acts under, a recipe of named steps over
+  a vocabulary with formulas in the leaves); the runner is operator code
+  beside the door and the exit, reading as the tool and offering its
+  outputs under the tool's permission, with names derived so a rerun is
+  a retry and a static check against loops. Predicted machinery count:
+  25 built tonight, 11 of the kind the frame promised, 5 nobody
+  anticipated, 9 capabilities; the build takes the real count. Among the
+  fixes: a tool could have named any repository on the host for the
+  runner to read into the store, now a literal from the operator's
+  configuration, empty by default (F13, For Sid 33).
 
 ## Found tonight
 
