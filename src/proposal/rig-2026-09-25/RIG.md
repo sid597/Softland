@@ -56,16 +56,28 @@ handoff.
     git plumbing, every error as data. The fixes harden the read path
     against git's edge cases (an inherited GIT_DIR, `^HEAD`, a caller
     choosing the program, non-ASCII paths under a C locale).
+  - Phase 3's plan revised for defaults 1, 2, 5 and 6 and validated:
+    minor-fail, thirteen fixes in place (`PLAN_VALIDATION-micro-store.md`,
+    02:47), merged here. The micro gate mints a shared layer's leases and
+    keeps their rows beside the lease act's name row; a sealed act is
+    routed by its lock's lease name, so each lock is read, used and
+    consumed on the task where it arrives, in the batch that decides it.
+    The fixes align it with phase 2's validated plan (lease rows under the
+    lease act's writer, lock ids out of the digest, the operator's bare
+    lease), key a batch's envelopes by fingerprint so two under one name
+    cannot both write, and add a session close on the micro side. One
+    validator fix is overruled by builder A, R19 below: the permission
+    check walks the chain rather than cascading a revoke.
 - **In flight**, each writer in its own worktree off this branch, merged by
   commit: builds of phase 2 (`Softland-rig-build-locks`), the read exit
-  (`Softland-rig-build-reads`) and the revision reader
-  (`Softland-rig-build-reader`); plans of phase 4
+  (`Softland-rig-build-reads`), the revision reader
+  (`Softland-rig-build-reader`) and phase 3 (`Softland-rig-build-micro`,
+  which merges phase 2's lock primitives from an early commit of
+  `rig-build-locks` once it lands); plans of phase 4
   (`Softland-rig-plan-promotion`), the rest of phase 5
   (`Softland-rig-plan-reads-rest`) and phase 6's tools and grammars
-  (`Softland-rig-plan-tools`); the validation of phase 3's revised plan
-  (`Softland-rig-plan-micro`).
-- **Next:** phase 3 built as its plan passes; the three plans validated;
-  then the merge of wave 1. Carried into the
+  (`Softland-rig-plan-tools`).
+- **Next:** the three plans validated; then the merge of wave 1. Carried into the
   merge: a person forget must purge the read exit's value index of every
   value that dies with the person (phase 2 builds the enumeration behind a
   seam); the read exit is the one way to read, and phase 2's own
@@ -145,7 +157,17 @@ marked first-record, and what the build does meanwhile.
     acknowledgement is still shown tonight. Should hand-written `:read/*`
     facts be refused? Tonight they are admitted; they can only move the
     clock as far as a stood-on stamp can.
-11. **A passage's grain** (round three's). Top-level list items are
+11. **A face refusal's depot copy.** A face-refused offer records nothing
+    and leaves its lease rows alone, so its sealed bytes in the depot stay
+    openable until its session closes, even if a person it is about is
+    forgotten meanwhile. Is that inside "gone for everyone including the
+    past"? The alternative is a lease that expires on a clock.
+12. **A resend inside one micro batch.** If an honest door reseals and
+    resends while its first offer is in the same batch, one is decided and
+    the other hears `:name-taken` on its face; the offerer then finds the
+    answer by name. In the stream store a resend always gets the recorded
+    answer.
+13. **A passage's grain** (round three's). Top-level list items are
     passages; nested items stay inside their parent's block, and
     `read-span` reaches any line range. Unit positions are counted in UTF-16
     units and a cut's name freezes its rules; both become first-record the
@@ -447,6 +469,15 @@ Four more findings, each ran:
 - **R18. Two revocations of one permission in one act are refused
   `:stale-revoke`,** as a doubled replace is stale. Proposed by the phase 1
   build.
+- **R19. A permission check walks its chain; a revoke is one write**
+  (builder A, 26 September, overruling phase 3's validation fix PV-F8).
+  Default 5 has a revoke cut everything below it. A cascade writes the
+  revoke onto every permission beneath, which saves about two seeks an
+  offer (10.54 against 12.47 in the plan's count) but writes, in one event,
+  once for every session, agent and tool ever opened beneath: an unbounded
+  set, which the rama skill's cross-phase rule forbids. The walk reads at
+  most four ancestors a check and writes once a revoke. Either can change
+  later without touching a record.
 
 ## Numbers so far
 
