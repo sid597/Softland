@@ -145,23 +145,5 @@ hiding whether the work was done at all. So length is not a cost to save. The
 working is the deliverable. The same failure happens one level down, at the
 sentence.
 
-When Sid is developing an idea, explain the subject fully in developed
-sentences. Include the premises, evidence, calculations, and connections
-needed to check the conclusions. Keep that explanation in the reply, even
-when it needs space.
-Compression is the failure: his phrases used as tokens, the shape of his
-notes copied, asides mid-clause, lines that would look good on a poster.
-Those are the signs to notice. Where a reply shows them, that passage is
-rewritten as developed sentences that carry the working.
-
-When he is asking for a thing, code or a specific answer, expository
-prose is padding. What has read well is the result first, a line on
-what it does, and what is uncertain.
-
-When he asks to write down what has settled, the house style of short
-declaratives fits, because he will be checking rather than building.
-
-A skill, `better-voice`, carries this so it can be reloaded mid-chat.
-
 
 **"fable tries to make shortcuts and codex only does what is told"**
