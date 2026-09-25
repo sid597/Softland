@@ -56,7 +56,7 @@ in the micro value index, no plaintext leaving the arrival task; F13 the
 micro put page's bounded log reads; F14 the progress cursor's type; F15 the
 micro forget replay op; F16 forgets and person purges of a re-classed
 layer's stream era; F17 the person forget's wrapper, leaving phase 2's
-client untouched. -->
+client untouched; F18 a standing read held across its layer's re-class. -->
 
 ## Scope of this stage
 
@@ -928,7 +928,8 @@ through the ordinary offer path, marked `:own-row` (see "The close act"):
   and no seek.
 - **FRR3, the closing**: `{:e ent :k :read/closed :v {:layer L :moment
   m-last :deliveries d :fingerprint hex :fp-secret :read-fp/1 :mark
-  :complete|:partial :closed-by :unsubscribe|:session-close|:crash}}`.
+  :complete|:partial :closed-by :unsubscribe|:session-close|:crash|:reclass}}`
+  (`:reclass`, **[F18]**).
   `:fingerprint`, `:deliveries` and `:mark` are the last delivery line's
   `:so-far` **[F3]** (for an entry with no delivery line, the HMAC over
   `"softland.standing-fp/1\n"` alone, 0, `:complete`): a chain, under the
@@ -1010,6 +1011,22 @@ A standing read of a re-classed layer: its deltas read the micro era (batch
 above F0); a stream-side fact of the layer admitted after its re-class
 (P16's settings) is not delivered by a standing read (RR12), which is the
 two-store moment carried (see "What stays open").
+
+**[F18] A standing read held across its layer's re-class.** A handle opened
+on a one-owner layer carries stamp moments; after the layer's re-class
+(default 6 re-classes the base at the first group, and a hot layer can be
+re-classed at any time) its next delta reaches the shared path, which
+refuses a stamp moment (RR1), so the first draft's `deliver!` would get
+`{:refused :moment-kind}` at every tick for ever and show nothing again,
+silently. So the delta query answers `{:refused :reclassed}` when a stamp
+`:after` meets a layer whose class in force is `:by-entity` (a data answer
+the caller can tell from a malformed moment), and `deliver!` then closes
+the entry (FRR3 with `:closed-by :reclass`, its `:so-far` as always) and
+opens a new one on the same pattern, role and limit (FRR1, a frontier
+moment; its initial read shows both eras as step 6 reads them), returning
+that read's rows as the delivery. The facts the old entry already delivered
+are shown and recorded again under the new one: over-recording, the safe
+direction; the old entry stays complete for what it delivered.
 
 What a standing read does not deliver (for Sid, touches a line): a forget of
 a fact it already delivered. The fact is not new; the next full read shows
@@ -1776,7 +1793,9 @@ Continuing the read exit's FR1 to FR14, which stand.
   reads, ids and stamps only, not recorded (For Sid); tonight their
   callers are trusted (the rig's clients); a kept store's gateway allows
   them to the session's owner and the operator only.
-- RR12. A standing read of a re-classed layer delivers its micro era only.
+- RR12. A standing read of a re-classed layer delivers its micro era only;
+  **[F18]** one held across the re-class is closed `:reclass` and reopened
+  on a frontier moment.
 - RR13. The gate needs no branch for the close act's `:reads`; the closer's
   procedure reads it.
 - RR14. Drop pages of 64 targets **[F4]** (an event of about 330 seeks).
@@ -1946,7 +1965,10 @@ Tests the design adds:
 - **RT11. The re-classed base reads both eras.** Facts on the base before
   and after its re-class; `[:k k]` and `[:all]` show both eras in the merge
   order of step 6 (pattern part, stamp, fact id), the limit applied across
-  both; a stream-era fid by point read. **[F1]** A stream-era head of
+  both; a stream-era fid by point read. **[F18]** A standing read of the
+  base held across its re-class: the first delta after it closes the entry
+  `:closed-by :reclass` and opens a new one whose rows show both eras; no
+  tick answers `:moment-kind`. **[F1]** A stream-era head of
   `(e, k)` replaced in the micro era: `[:latest e k]` answers the micro-era
   replace, and `[:ek e k]` lists the stream-era head first; `[:kv k v]` with
   matches in both eras lists the stream era first.

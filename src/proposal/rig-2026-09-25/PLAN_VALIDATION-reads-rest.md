@@ -23,10 +23,10 @@ against the files. -->
 
 ## Verdict
 
-**minor-fail.** Seventeen failures, each fixable by a localized edit; all
-seventeen are fixed in the plan in place (commits 5f8ef235, 5e983412,
-124bfe60 and 0359c2c2), numbered F1 to F17 and marked `[F1]` ... in the
-text. No failure needs a new architecture: the one-task read, block 2d,
+**minor-fail.** Eighteen failures, each fixable by a localized edit; all
+eighteen are fixed in the plan in place (commits 5f8ef235, 5e983412,
+124bfe60, 0359c2c2 and the F18 commit), numbered F1 to F18 and marked
+`[F1]` ... in the text. No failure needs a new architecture: the one-task read, block 2d,
 the poll, the drop through OP9 and the purge invariant all stand. One check
 fails and is **not** fixed by an edit: the `|hash` indicator for a hot shared
 layer (the placement question below). It is accepted for tonight as the named
@@ -52,6 +52,7 @@ record, and it goes to Sid; F5 and F6 make that acceptance honest.
 | F15 | the restore replays a shared layer's forgets as `:replay-forget` "on the layer's ops depot", but `*micro-index-ops` defines no such op | the micro op, its route (hash(L), hash(e) for the ledger's date, back) and its idempotence |
 | F16 | the validated micro plan's M25 sends a forget of a re-classed layer's stream-era value to the stream gate; the plan's five paths never name it, the one-owner person purge's seam covers "one-owner layers" only, and the carried moment question names P16's settings but not these forgets | path 1 names the stream-era target; the person purge covers every layer in `$$layers`; the carried item names M25's forgets |
 | F17 | the person purge is "called by phase 2's `forget-person!`", a change to phase 2's client that no list of changes names | a wrapper of this stage calls phase 2's `forget-person!`, then `purge-person!`; phase 2 untouched |
+| F18 | a standing read opened on a one-owner layer and held across its re-class (the base's, at the first group, default 6) meets the shared path's refusal of a stamp moment (RR1) at every later tick: `{:refused :moment-kind}` for ever, nothing shown, silently | the query answers `:reclassed`; `deliver!` closes the entry `:closed-by :reclass` and reopens it on a frontier moment |
 
 ## The placement question (builder A's first trace)
 
@@ -262,6 +263,15 @@ Each clause of R6 (CONCLUSION l.85 to 92), traced:
   its lock row: about 4 seeks whatever the number of lines). Per delivery:
   one HMAC and about 100 bytes, no seek. Less total work at every size:
   adopted.
+- *Held across a re-class* (**FAILED, F18, fixed**): Alice's renderer holds
+  a standing `[:k :title]` on the base, opened while the base is one-owner
+  (moments `{:stamp s}`). The operator makes the first group; default 6
+  re-classes the base. The next `deliver!` sends `:after {:stamp s0}`; the
+  base's class in force is now `:by-entity`, the query takes the shared
+  branch, and RR1 refuses a stamp moment: `{:refused :moment-kind}`,
+  nothing shown, both moments kept, the same at every tick. RR12 covers a
+  standing read *opened* on a re-classed layer, not one held across the
+  re-class.
 - "An entry left open by a crash is closed when the session closes":
   `standing-open`'s set difference and `close-session!`. PASS. Who runs it
   after a crash is the session's next door or the operator: named (F11
