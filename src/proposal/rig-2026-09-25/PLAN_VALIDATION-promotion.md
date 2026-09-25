@@ -74,7 +74,7 @@ because nothing makes a landing lease the only lease for its landing name.
 ## Partitioning
 
 - `hash-by :layer` on `*offers` (request): phase 1's P2, one-owner layers placed by layer; the keyspace is layers, one layer's rate is one person's. Pass (phase 1's argument stands).
-- `|hash lease-name` before the forward's append: lease names are random (uuids), a large sparse-free keyspace, no hot key. Pass.
+- `|hash lease-name` before the forward's append: lease names are random (uuids), a large sparse-free keyspace, no hot key. Pass. That the topology's `|hash` on a name vector picks the same partition as the depot's `hash-by route-key` is the plan's claim from phase 3's §G probe, *not re-checked here*; the build's T7 a (the landing decided where its lease row is) is the check.
 - `|hash T` for a stream target (the base while one-owner): the base is one layer on one task until its re-class; that is default 6's placement (R8), not this plan's pick. Pass.
 - No `|all`. Pass.
 
@@ -114,7 +114,7 @@ for its rows. With F5's row (crossed, not landed: 4), 3.00 + 0.20 + 0.20 +
 
 ## Cross-topology correctness
 
-- The one flow is stream `gate` → `*micro-offers` → microbatch `micro`. Duplicates: every send is the same stored landing (F4 makes that literal); the micro gate answers a second send by name, and two in one batch by phase 3's F3. With F3 here: an envelope that fails its face checks never takes a name from one that passes. Pass after F3.
+- The one flow is stream `gate` → `*micro-offers` → microbatch `micro`. Duplicates: every send is the same stored landing (F4 makes that literal); the micro gate answers a second send by name, and two in one batch by phase 3's F3. With F3 here: an envelope that fails its face checks never takes a name from one that passes. Pass after F3. *Assumed of phase 3's F3, not read here*: that its one-per-name choice inside a batch can be made after the face checks; if it is made before them, the micro build changes it for landing names (step 4's rule says so).
 
 ## Stream topology correctness
 
