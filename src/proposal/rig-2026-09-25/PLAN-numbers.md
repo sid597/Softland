@@ -128,7 +128,7 @@ which feeds N, fixed at launch for two years. The README's arithmetic
 about 100 a second at full speed: about 50 agents a task) is *derived*,
 not measured, and the README names the missing inputs: "How fast an agent
 really writes, and how many run at once, are the inputs that turn this
-into a threshold." Variant B of number 1 (section 4.4) measures the task's
+into a threshold." Variant B of number 1 (section 4.5) measures the task's
 side of that division directly, at an agent speed that stays an
 assumption.
 
@@ -137,11 +137,11 @@ assumption.
 | Plan | What it leaves | Taken in |
 |---|---|---|
 | PLAN-locks-and-forgetting.md, "What later stages consume" (lines 1898-1902) | M2: iterate `[layer :locks]` for count and serialized bytes at each point, raw bytes; lease rows not counted, they are consumed at decision. M1: agent layers write no lock rows; their per-act writes are the row with the lock in it, `:by-stamp`, one lease-row delete per value fact, and a lease act per batch | 2.3, 6 |
-| PLAN-reads-rest.md, "The mark at write" (1153-1185) | every read entry is marked `:own-row`, so agent layers now write one lock row per read-entry value, and a hand layer's `:locks` count includes entries | 2.3; 4.5; 6.1 (number 2's workload makes no entries, so its count is values alone) |
+| PLAN-reads-rest.md, "The mark at write" (1153-1185) | every read entry is marked `:own-row`, so agent layers now write one lock row per read-entry value, and a hand layer's `:locks` count includes entries | 2.3; 4.6; 6.1 (number 2's workload makes no entries, so its count is values alone) |
 | PLAN-reads-rest.md, "The delta" (816-895) and WS11 | a fifth index, `:ix-s`, written in the admitting event for every fact | 2.3 |
-| PLAN-read-exit.md, "Disk usage" (1179) | an entry line with an exact list is "still the number to watch" at a model's call rate | 4.5, the entry bytes (optional) |
-| PLAN-read-exit.md, "Minimization" (1534) | the exit's two round trips are "the first thing to measure if phase 7 finds the exit slow" | 4.5, read latency |
-| PLAN-micro-store.md, permission walk (598) | "phase 7's numbers say whether the 1.5 seeks show" | 4.6, diagnostic D2 |
+| PLAN-read-exit.md, "Disk usage" (1179) | an entry line with an exact list is "still the number to watch" at a model's call rate | 4.6, the entry bytes (optional) |
+| PLAN-read-exit.md, "Minimization" (1534) | the exit's two round trips are "the first thing to measure if phase 7 finds the exit slow" | 4.6 and 5.5, read latency |
+| PLAN-micro-store.md, permission walk (598) | "phase 7's numbers say whether the 1.5 seeks show" | 4.7, diagnostic D2 |
 | PLAN-tools-and-grammars.md, section 10 (1418-1422) | the two-person `:mention` variant needs the toy grammar written, or Bob is not in its wraps | 6.1 |
 | PLAN-promotion.md (1133) | no new number | nothing |
 
@@ -241,7 +241,7 @@ has its three.
 
 Written by none of the workloads' acts, listed so a reader sees each was
 considered: `:stood-on` (one per carried entry; variant C's value act
-carries one, section 4.5), deletes of `:heads` (one per replaced fact),
+carries one, section 4.6), deletes of `:heads` (one per replaced fact),
 `:settings` (setting facts), `:permissions` (grants and revokes),
 `:key-rows` (phase 6 writes a row only when a grammar lands or the first
 fact under a key is admitted in a layer: *plan*, tools-and-grammars 4.7),
@@ -597,3 +597,223 @@ on a query and on an acked entry, the exit's two round trips
 JVM about 40 s; setup and idle 20 s; warm-up 20 s; (a) about 7,400 offers
 at roughly 3.5 ms, 26 s; (b) eight levels of 13 s, 104 s. About 3.5
 minutes a run; (c) adds about 10 s. Three runs.
+
+## 6. Number 2: lock store growth under hand layers, bytes per value and the curve over 100,000 values
+
+### 6.1 What it answers
+
+README.md: ruling 7 gives every value its own lock, a row of its own in
+personal and hand layers, and forgetting destroys the lock. A bad answer
+says "whether a lock row per value is an affordable default, or hand
+layers lock per act or keep locks in the record".
+
+### 6.2 The finished store's lock row (*code*, `rig-build-locks` locks.clj at `fd41f6d2`)
+
+- **Where**: `$$layers [L :locks lock-id]`, written in personal and hand
+  layers (`row-kinds` :364, `row-lock?` :366), one per value under
+  per-value grain and one per act under per-act (`lock-plan` :608).
+- **Key**: the lock id `[lease-name i]` (L21), the lease act's name and
+  the lock's index in it.
+- **Record**: `{:scheme :aes-gcm-1 :required [..] :any-of [..] :blob
+  <bytes> :any-blobs nil}` (`lock-record-schema` :953), raw bytes in
+  `byte/1` slots (L4), where the slice kept base64 text in its plan's
+  first variant and raw bytes in its second.
+- **Wrap in a hand layer** (`wrap-of` :253): an unmarked value is wrapped
+  under the owner alone; a value marked `:die-with-any` under every
+  subject, the owner among them, as a chain of seals in sorted order. Each
+  seal adds 28 bytes, a 12-byte nonce and a 16-byte tag (`wrap` :290).
+- **Expected** (*derived*, to be measured): about 180 bytes logical per
+  row: a key near the slice's 55-byte per-act id `[:act name]`, and a
+  record of the slice's 110 raw bytes plus `:scheme :aes-gcm-1`. The slice
+  measured 169 bytes raw (runs/phase7-lock-growth.txt).
+
+### 6.3 The workload
+
+- **Cluster and setup, per variant.** A fresh cluster,
+  `{:tasks 1 :threads 1 :workers 1}`. The store layer `:people`; the
+  persons `:alice` (the owner) and, for the subject variants, `:bob`,
+  `:carol`, `:dave` and `:erin`; the hand layer `:alice-hand`, `{:kind
+  :hand :owner :alice}`, at per-value grain from its making act; the root
+  permission `[:alice :alice-hand :alice-hand]`. For the `:mention`
+  variants, the `:mention` grammar `{:subjects-at [:persons]}` written in
+  the hand layer as a fact first, as the tools plan says the bench needs
+  (**to confirm at build**; if the merged gate has no grammar facts yet,
+  the offer carries the persons in `:subjects` with the mark, which gives
+  the same wrap: *plan*, tools-and-grammars 4.6 [V-F3]). For the per-act
+  variant, the owner's grain switch `{:e :alice-hand :k :lock-grain :v
+  :per-act}` first.
+- **Values.** The slice's seeded generator (`rig.bench.lock-bench/value-spec`,
+  seed 20260925), so the same values in the same order at the same sizes:
+  `{:text "..."}` whose canonical EDN is exactly 40 or 200 bytes under key
+  `:note`; `{:persons #{...} :text "..."}` of 40 bytes under `:mention`,
+  marked `:die-with-any`. The harness asserts, for the first 100 values,
+  that the door's plaintext (`locks/canonical-bytes`, **to confirm at
+  build**) has exactly that size.
+- **Writers.** 64 threads sharing one door, each sending one act at a
+  time with `c/offer!` as `:who :alice` under the root permission in the
+  door's default session, taking values in order from one shared counter.
+  At every point all writers finish their act and wait; the point is
+  measured; they go on. The slice kept 64 asynchronous appends in flight;
+  the finished store's appends go through the door, whose `c/offer!`
+  waits for its answer, so 64 threads keep 64 in flight.
+
+| Variant | Values | Value | Key and mark | Wrap, required | Grain | Lock rows at the end | Set |
+|---|---|---|---|---|---|---|---|
+| `h40` | 100,000 | 40 B | `:note`, none | `[:alice]` | per value | 100,000 | minimum |
+| `h200` | 100,000 | 200 B | `:note`, none | `[:alice]` | per value | 100,000 | minimum |
+| `h40-p2` | 100,000 | 40 B | `:mention` `#{:bob}`, `:die-with-any` | `[:alice :bob]` | per value | 100,000 | minimum |
+| `h40-p3` | 10,000, a point every 2,000 | 40 B | `:mention` `#{:bob :carol}`, marked | 3 persons | per value | 10,000 | minimum |
+| `h40-p5` | 10,000, a point every 2,000 | 40 B | `:mention` of four, marked | 5 persons | per value | 10,000 | minimum |
+| `h40-again` | 100,000 | 40 B | as `h40` | | | 100,000 | full |
+| `h40-act4` | 100,000 in 25,000 acts of 4 | 40 B | `:note`, none | `[:alice]` | per act | 25,000 | full |
+
+The hand layer of every variant holds only that variant's values, so its
+lock rows are the lock store and nothing else. That an unmarked `:mention`
+of Bob costs what `h40` costs (wrapped under the owner alone) is checked
+by the test namespace (T8), not by a variant.
+
+### 6.4 Measured at every point
+
+1. **Logical.** Every lock row of `[:alice-hand :locks]` read back in pages
+   of 10,000 (`sorted-map-range` paging, the slice's `lock-rows-logical`
+   generalized to any layer), each key sized by Rama's key encoder
+   (`rpl.rama.api.durable.rocksdb.key-encoding/k-ser`) and each record by
+   its PState value serializer (`rpl.rama.util.nippy-serialization/freeze`),
+   the slice's sizing. Count, total bytes, smallest and largest row.
+2. **Lease rows standing**: the count under `[:alice-hand :leases
+   <session>]`, at most 64 plus those in flight, and not part of the lock
+   store (phase 2's M2 note, 1.6).
+3. **Compacted, the whole layer store.** The home task's `$$layers` RocksDB
+   directory copied to scratch (without its `LOCK` and info `LOG`),
+   opened with the options Rama wrote into it, every column family
+   flushed and then compacted with `BottommostLevelCompaction/kForce`: the
+   slice's forced rewrite, without which a lone flushed file is moved and
+   not rewritten (runs/phase7-lock-growth.txt, "Runs"). Its SST bytes, and
+   every key and value counted, per column family.
+4. **Compacted, the lock store alone**: the lock rows picked out of that
+   compacted copy and re-packed alone (6.5). Its SST bytes are the lock
+   store's bytes on disk.
+5. **The rest**: (3) less (4), everything else the store keeps for these
+   values: rows, answers, heads, indexes, stamp-to-name entries. This is
+   the denominator of the README's closing reading ("measured against the
+   rows the store already writes for each value").
+6. **The live directory** as it stands (write-ahead log, SST, manifest,
+   options), for its shape only; the slice found it jumps at memtable
+   flushes (runs/phase7-lock-growth.txt, "The curve").
+7. **The replication log's** segment bytes, for reference, as the slice.
+
+At the end of each variant, on 100 sampled values: the stored row's
+`:sealed` is not the plaintext; the value opens through its lock row and
+the person entries read from `$$persons` (`locks/unwrap`, then
+`locks/open`; **to confirm at build**) to its canonical text; it does not
+open without `:alice`'s entry, nor, in the `p` variants, without each named
+person's; the lock-row count equals the values (per value) or the acts
+(per act); nothing was refused and nothing erred.
+
+### 6.5 Picking the lock rows out on disk, and why the pick can be trusted
+
+The slice measured the lock store on disk as a difference: the same
+values written with lock rows and without. The finished store cannot write
+a hand layer without lock rows, and every other field of the layer lives
+in the same PState, so the rows are picked out of the compacted copy
+instead:
+
+- **Pick by value.** Iterate the copy's `subindexed` column family and
+  thaw each value with Rama's `rpl.rama.util.nippy-serialization/thaw`
+  (the Rama 1.6.0 jar has `nippy_serialization$thaw`; its signature is
+  **to confirm at build**). In a hand layer a lock record is the only value
+  that is a map carrying `:scheme` and `:required`: a lease row is `{:under
+  :sealed}`, rows and index entries carry `:e` and `:k`, and a hand layer's
+  rows keep `:lock` nil. After the first point the scan seeks straight to
+  the range the first point found.
+- **Check that the pick is exactly one structure.** Every picked key must
+  start with one common prefix P, and every key that starts with P must
+  have been picked. Rama addresses a subindexed structure's elements under
+  a reference id (the jar has `key_encoding$freeze_SubReferenceID`), and
+  the slice found each lock row's RocksDB key 3 bytes longer than its lock
+  id's own encoding ("the subindex key prefix"), which is what one prefix
+  per structure predicts. If the check holds, the pick is `[:alice-hand
+  :locks]` and nothing else.
+- **Check the count and the size.** The picked entries number exactly the
+  logical pass's rows, and their key and value bytes are within a few
+  bytes a row of the logical sizes (the slice: within 3).
+- **Re-pack.** A fresh RocksDB in scratch, with the DB options and the
+  `subindexed` family's options loaded from the copy; the picked entries
+  put in key order; flushed; force-compacted; its
+  `rocksdb.total-sst-files-size` taken.
+- **If a check fails** (a merge changed the record's shape, or the rows do
+  not sit under one prefix): the lock store's compacted bytes are
+  estimated as the whole store's compacted bytes times the lock rows'
+  share of its raw key-value bytes, the result says "estimate" and names
+  the check that failed. No other road is taken silently.
+
+Alternatives weighed: RocksDB's approximate size of the key range [P, P+1)
+needs the same P and is an estimate over it, so it is kept as a
+cross-check printed beside the re-pack; the slice's difference needs a
+second store with the same rows and no lock rows, which the finished
+store cannot make without changing its code.
+
+### 6.6 Reported
+
+- **Bytes per value of the lock store** at 100,000 values: logical, raw
+  key-value, compacted; the key and the record apart, and the record's
+  parts (the 60-byte sealed lock, the wrap vectors, `:scheme`, the nil
+  `:any-blobs`) sized with the serializer, as the slice's breakdown.
+- **The curve**: the ten points of each variant, each step's increment,
+  and the largest departure of a step from the mean step (the slice:
+  exactly linear in logical bytes, within 0.4% to 1.3% on disk).
+- **Each extra subject**: bytes per lock row at 1, 2, 3 and 5 required
+  persons (`h40`, `h40-p2`, `h40-p3`, `h40-p5`), logical and compacted, and
+  the least-squares slope per extra person. From the code each extra
+  required person adds one 28-byte seal and one keyword in `:required`
+  (*derived*); the run measures it.
+- **Ratios**: lock store over the plaintext value (40 and 200 bytes),
+  logical and compacted; lock store over the rest (6.4, item 5).
+- **Per-act grain**, if run: 25,000 lock rows for 100,000 values, and the
+  bytes per value.
+- **Outside the lock store but part of the lock design**, as the slice
+  reported it: the row's `:sealed` (28 bytes over the plaintext),
+  `:lock-id` and `:digest` (32 bytes), sized per row; and the lease rows
+  standing at each point.
+- **The verdict** (section 7).
+
+### 6.7 Run length
+
+Each 100,000-value variant: the JVM about 40 s; setup a few seconds;
+writing at an *assumed* 2,000 to 5,000 acts a second through the door, 20
+to 50 s; ten points, each copying and force-compacting a layer store that
+grows to an estimated 150 to 250 MB by the last point (*derived* from 2.3:
+about ten entries per value, most carrying the sealed row), a few seconds
+each. About 3 to 4 minutes a variant. `h40-p3` and `h40-p5` about a minute
+each. Minimum set about 13 minutes; the full set adds about 7.
+
+## 7. The thresholds and the verdicts
+
+### 7.1 Default 7's thresholds, assumed and not Sid's
+
+| Number | Assumed threshold | Judged on |
+|---|---|---|
+| Agent rate | at least 1,000 admitted acts a second on one task, with every index written | variant A's value acts a second at each K, with the read-back complete; variant B's largest S reported against the same line (S × 100 acts a second) |
+| One person's layer | at least 100 acts a second, at 20 ms or less for the slowest 1 in 100 | value acts a second and p99 at each K, and at one sequential writer |
+| Lock store | at most twice the value bytes is fine; above four times, change the default | lock-store bytes per value over the plaintext value's bytes, at 40 and 200 bytes, logical and compacted |
+
+Every result file prints the line "thresholds assumed (RIG.md default 7),
+not Sid's".
+
+### 7.2 The rule for timings
+
+The slices' rule, kept so the verdicts compare: **far**, at least ten
+times on one side of the threshold, decides; **near**, within ten times,
+means the in-process cluster cannot decide. Each K is judged on its own;
+the verdict names the side and the factor.
+
+### 7.3 The rule for bytes
+
+Logical bytes are exact for Rama 1.6.0's serializers and are judged
+directly against 2× and 4×. Compacted bytes depend on the RocksDB options
+Rama sets on the in-process cluster (Snappy, 4 KB blocks, a 10-bit bloom
+filter, runs/phase7-lock-growth.txt); they are judged the same way and
+carry that caveat. The denominator is the plaintext value, the slice's
+reading; the ratio to the rest (6.4, item 5) is printed beside it,
+because the threshold does not say which bytes it means
+(runs/phase7-lock-growth.txt, "What is uncertain").
