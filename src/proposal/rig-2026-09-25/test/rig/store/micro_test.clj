@@ -69,7 +69,7 @@
 (deftest micro-store
   (inject/reset-all!)
   (with-open [ipc (rtest/create-ipc)]
-    (let [tasks (rand-nth [2 4 8])
+    (let [tasks (or (some-> (System/getenv "RIG_MICRO_TASKS") Long/parseLong) (rand-nth [2 4 8]))
           _ (rtest/launch-module! ipc m/Store {:tasks tasks :threads 2 :workers 1})
           st (mc/connect ipc)
           mn (:module-name st)

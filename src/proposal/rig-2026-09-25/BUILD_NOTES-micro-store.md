@@ -88,3 +88,15 @@ Newest entries at the bottom.
 - 03:57 First run of the pure namespace: 226 of 227; the error was real,
   `prepare`'s envelope order indexing a malformed row outside its guard;
   fixed; 14 tests, 227 assertions, 0 failures.
+- 04:02 First cluster run (2 tasks): 247 assertions, 237 passed, 10 failed.
+  The six group A cases matched the model; the frontier run held (300
+  batches, 12,505 acts, 550,251 pairs through one F, 0 violations; the raw
+  readers caught no half-visible batch on 2 tasks). The failures: pairs
+  whose order the tests took from build order (a UUID7 is random within
+  its millisecond, so builds are now 2 ms apart); faces read before the
+  batch wrote them; and one real gap: the door took a record's answer by
+  parts digest before the gate checked its resend, so other plaintext
+  under a decided name read "yes" (fixed: the `:recorded` trace, the
+  decided fingerprint in micro-lookup, the door's `own-answer?`). The raw
+  readers' count is reported, not asserted: it measures Rama's commit
+  timing, not this module.

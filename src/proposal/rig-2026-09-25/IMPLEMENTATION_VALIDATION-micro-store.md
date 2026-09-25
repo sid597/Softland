@@ -241,6 +241,20 @@ Every divergence found, with the reason it stands or the fix:
     stream gate's three places), not PV-F8's cascade, as builder A ruled.
     PASS.
 
+16. **Added in phase 7, after the first cluster run: every envelope the
+    record path answers leaves a keep-first `:recorded` entry under its
+    fingerprint in `:faces`, and `micro-lookup` returns a found record with
+    the fingerprint it was decided for (`[name :fp]`, one more point read,
+    only when a record is found and no face is; the plan's "three reads at
+    most" becomes four on that path).** The run showed the plan's lookup
+    answering a resend by the record's parts digest before the gate had
+    checked the resend: with values sealed, the parts digest holds no
+    value, so other plaintext under a decided name was told "yes" and its
+    `:name-taken` face came a batch later (E1 N2 × other content, from the
+    offerer's side). With the trace and the decided fingerprint, an
+    offerer can tell its own envelope's outcome from another's. The door's
+    rule is `micro-client/own-answer?`. Correctness. PASS.
+
 Everything else matches: the depot and its route key (M4 revised, 287);
 the tick (1087-1089, behind the replaceable flag); the four PStates'
 shapes (107-183); blocks 0 to 2c in the plan's order with the plan's reads
