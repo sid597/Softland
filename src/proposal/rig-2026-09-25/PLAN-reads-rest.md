@@ -551,7 +551,10 @@ topology beside `*micro-offers` (plus `*micro-tick`; phase 3 already
 declares two sources [docs: a microbatch topology may consume several
 depots]) [build checks: a third `source>` in the micro topology from a
 function of `rig.store.shared-reads`; fallback inline in `micro.clj`]. A
-record names its task and the batch routes to it with `(|direct *task)`:
+record names its task and the batch routes to it with `(|direct *task)`,
+after a total parse that drops as data any record whose task is not a long
+in [0, N) (`ops/num-tasks`), so the partitioner never throws (rule 9; the
+same guard on the read exit's `*index-ops` for `:person-purge`):
 
 - **Put page** `{:op :rebuild-put :task t :after e-or-nil :entities n}`
   (1 ≤ n ≤ 64): on task t, the next n entity keys of `$$micro` after `e`
@@ -598,7 +601,18 @@ writes of the offers in the same batch, whose rows on other tasks it may not
 yet see, so the sweep judges only entries whose `:batch` is below the
 current batch's id (`ops/current-microbatch-id`); the log behind those is
 committed on every task (every task commits a batch before the next
-begins), so no fresh entry is deleted and every stale one is. `$$micro-task :rebuild` and the
+begins), so no fresh entry is deleted and every stale one is. A second
+guard, for puts: a put page and a value forget of the same fact can share
+a batch, and whether the put page's reads see the forget's writes of the
+same batch is not known here [build checks: a task's reads within a
+microbatch see that batch's earlier writes on the task]; so a put page
+never overwrites a tombstone (it reads the `:ix-ek` address first, one
+seek per fact, and writes nothing for a fact already tombstoned), and
+**every micro rebuild ends with the forget replay** of the forgets
+decided since it began ("The five paths", 5.3), which purges again
+anything a put page wrote beside a forget in the same batch. The forget
+facts are replayed after any rebuild for the same reason the rig
+constraint replays them after any restore. `$$micro-task :rebuild` and the
 depot are maintenance: no act, nothing in the record (RR8), as the read
 exit's `*index-ops`.
 
