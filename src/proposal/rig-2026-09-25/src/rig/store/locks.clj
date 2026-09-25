@@ -1309,34 +1309,45 @@
 
 ;; *fid is the read exit's interface (it passes the row's id); the body needs the row
 #_{:clj-kondo/ignore [:unused-binding]}
-(deframafn open-row>
+(deframafn open-row-with>
   "What a read shows of one row it already holds, with its act's stamp
   (the read exit's interface): the ledger entry of its lock, its lock
   record (its `:lock`, else the lock row) and the wrap's person entries,
   all local, then `open-with`. Exactly one of {:value v :stamp s},
-  {:erased-at date}, {:unreadable reason}. Reads nothing for a control
-  fact, a retract, a missing row or a row after `*T`. `*fid` is the
-  interface's (the read exit passes it); the row already names its value."
-  [*layer *fid *row *stamp *T]
+  {:erased-at date}, {:unreadable reason}, and the person entries the
+  read holds: `*persons` are those it already read, extended with any
+  this row needed, so a read that opens many rows reads each person once
+  (wave 1: without it every row re-read its owner's entry, one seek of
+  about three). Reads nothing for a control fact, a retract, a missing row
+  or a row after `*T`. `*fid` is the interface's (the read exit passes
+  it); the row already names its value."
+  [*layer *fid *row *stamp *T *persons]
   (<<with-substitutions [$$layers (rama/this-module-pobject-task-global "$$layers")]
     (<<if (opens-at? *row *stamp *T)
       (get *row :lock-id :> *lid)
       (local-select> (keypath *layer :erased *lid) $$layers :> *ledger)
       (<<cond
         (case> (some? *ledger))
-        (:> (open-with *row *stamp *T *ledger nil {}))
+        (:> (open-with *row *stamp *T *ledger nil {}) *persons)
 
         (case> (some? (get *row :lock)))
         (get *row :lock :> *record)
-        (read-persons> (wrap-persons-of *record) {} :> *persons)
-        (:> (open-with *row *stamp *T nil *record *persons))
+        (read-persons> (wrap-persons-of *record) *persons :> *rpersons)
+        (:> (open-with *row *stamp *T nil *record *rpersons) *rpersons)
 
         (default>)
         (local-select> (keypath *layer :locks *lid) $$layers :> *lrecord)
-        (read-persons> (wrap-persons-of *lrecord) {} :> *lpersons)
-        (:> (open-with *row *stamp *T nil *lrecord *lpersons)))
+        (read-persons> (wrap-persons-of *lrecord) *persons :> *lpersons)
+        (:> (open-with *row *stamp *T nil *lrecord *lpersons) *lpersons))
      (else>)
-      (:> (open-with *row *stamp *T nil nil {})))))
+      (:> (open-with *row *stamp *T nil nil {}) *persons))))
+
+(deframafn open-row>
+  "`open-row-with>` for one row, reading its persons afresh: exactly one of
+  {:value v :stamp s}, {:erased-at date}, {:unreadable reason}."
+  [*layer *fid *row *stamp *T]
+  (open-row-with> *layer *fid *row *stamp *T {} :> *r *read)
+  (:> *r))
 
 (deframafn open-value>
   "Whether one value opens, and as of `*T` (RD7; the read exit's

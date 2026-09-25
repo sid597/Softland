@@ -425,6 +425,18 @@
   (locks/open-row> *layer *fid *row *stamp *T :> *o)
   (:> *o))
 
+(deframafn open-row-with>
+  "`open-row>` over the many rows of one read or one page: `*persons` are
+  the person entries this read has already read, and it hands back the
+  map extended with any this row needed (phase 2's `open-row-with>`), so
+  each person is read once per read, not once per row (wave 1). Every loop
+  here that opens rows carries the map. A read that yields between rows
+  judges them all by the person entries as it first read them: one read,
+  one view of who is forgotten."
+  [*layer *fid *row *stamp *T *persons]
+  (locks/open-row-with> *layer *fid *row *stamp *T *persons :> *o *persons2)
+  (:> *o *persons2))
+
 ;; ----------------------------------------------------------- the moment
 
 (defn moment
@@ -1063,7 +1075,7 @@
          (else>)
           (local-select> [(keypath *layer :answers) (sorted-map-range-from *after *opts)] $$layers :> *recs))
         (put-todo *recs :> *todo0)
-        (loop<- [*pt *todo0 *acts [] *nrows 0 *last nil :> *pout]
+        (loop<- [*pt *todo0 *acts [] *nrows 0 *last nil *ppc {} :> *pout]
           (<<if (or> (empty? *pt) (put-rows-full? *nrows))
             (:> (put-out *acts *last *pt))
            (else>)
@@ -1071,18 +1083,18 @@
             (<<if (= :yes (get *prec :answer))
               (local-select> [(keypath *layer :log *pnm) (subselect ALL)] $$layers :> *prows)
               (get *prec :stamp :> *pstamp)
-              (loop<- [*ri 0 *ropens [] :> *opens]
+              (loop<- [*ri 0 *ropens [] *rpc *ppc :> *opens *ppc2]
                 (<<if (>= *ri (count *prows))
-                  (:> *ropens)
+                  (:> *ropens *rpc)
                  (else>)
                   (nth *prows *ri :> *rrow)
                   (fid-of *pnm *ri :> *rfid)
-                  (open-row> *layer *rfid *rrow *pstamp *clock :> *ro)
-                  (continue> (inc *ri) (conj *ropens *ro))))
+                  (open-row-with> *layer *rfid *rrow *pstamp *clock *rpc :> *ro *rpc2)
+                  (continue> (inc *ri) (conj *ropens *ro) *rpc2)))
               (put-act *pnm *pstamp *prows *opens :> *pact)
-              (continue> (rest *pt) (conj *acts *pact) (+ *nrows (count *prows)) *pnm)
+              (continue> (rest *pt) (conj *acts *pact) (+ *nrows (count *prows)) *pnm *ppc2)
              (else>)
-              (continue> (rest *pt) *acts *nrows *pnm))))
+              (continue> (rest *pt) *acts *nrows *pnm *ppc))))
         (get *pout :acts :> *pacts)
         (put-page-writes *hints *layer *pacts :> *d)
         (put-ack *recs *n *pout :> *ack)
@@ -1098,23 +1110,23 @@
          (else>)
           (local-select> [(keypath *layer *field) (sorted-map-range-from *safter *sopts)] $$layers :> *ents))
         (sweep-todo *field *ents :> *stodo)
-        (loop<- [*sw *stodo *found [] :> *founds]
+        (loop<- [*sw *stodo *found [] *spc {} :> *founds]
           (<<if (empty? *sw)
             (:> *found)
            (else>)
             (first *sw :> [*sa *sv *sfid])
             (name-idx *sfid :> [*snm *sidx])
             (<<if (nil? *snm)
-              (continue> (rest *sw) (conj *found (found-of *sa nil nil nil nil)))
+              (continue> (rest *sw) (conj *found (found-of *sa nil nil nil nil)) *spc)
              (else>)
               (local-select> [(keypath *layer :answers *snm)] $$layers :> *srec)
               (local-select> [(keypath *layer :log *snm *sidx)] $$layers :> *srow)
-              (open-row> *layer *sfid *srow (get *srec :stamp) *sclock :> *so)
+              (open-row-with> *layer *sfid *srow (get *srec :stamp) *sclock *spc :> *so *spc2)
               (<<if (= *field :ix-kv)
                 (local-select> [(keypath *layer :ix-of *sfid)] $$layers :> *sof)
                (else>)
                 (identity nil :> *sof))
-              (continue> (rest *sw) (conj *found (found-of *sa *srec *srow *so *sof))))))
+              (continue> (rest *sw) (conj *found (found-of *sa *srec *srow *so *sof)) *spc2))))
         (sweep-entries *stodo :> *sents)
         (sweep-page-writes *hints *layer *field *sents *founds :> *d)
         (sweep-ack *stodo *sn *d :> *ack)
@@ -1185,7 +1197,7 @@
         (get *p :as-of :> *pas-of)
         (moment *pas-of *clock :> *m)
         (get *p :fids :> *pfids)
-        (loop<- [*todo *pfids *acc [] :> *rows]
+        (loop<- [*todo *pfids *acc [] *qpc {} :> *rows]
           (yield-if-overtime)
           (<<if (empty? *todo)
             (:> *acc)
@@ -1199,12 +1211,14 @@
               (get *rec :stamp :> *s)
               (<<if (nil? *row)
                 (absent-row *fid :> *r)
+                (identity *qpc :> *qpc2)
                (else>)
-                (open-row> *layer *fid *row *s *m :> *o)
+                (open-row-with> *layer *fid *row *s *m *qpc :> *o *qpc2)
                 (point-row *fid *s *row *o :> *r))
              (else>)
-              (absent-row *fid :> *r))
-            (continue> (rest *todo) (conj *acc *r))))
+              (absent-row *fid :> *r)
+              (identity *qpc :> *qpc2))
+            (continue> (rest *todo) (conj *acc *r) *qpc2)))
         (point-answer *layer *m *rows :> *answer)))
     (|origin))
 
@@ -1237,7 +1251,7 @@
           ;; doubling pages over one index, each read yielding, until the range's
           ;; end, limit + 1 matches, or the scan budget
           (page-init *pp *m :> *st0)
-          (loop<- [*pst *st0 :> *pfinal]
+          (loop<- [*pst *st0 *kpc {} :> *pfinal]
             (yield-if-overtime)
             (get *pst :from :> *pfrom)
             (get *pst :page :> *ppage)
@@ -1247,27 +1261,27 @@
             (kv-candidates *pst *pents :> *pcands)
             (kv-need *pst :> *pneed)
             ;; [F5] a [:kv] candidate counts only when its value opens to the pattern's
-            (loop<- [*kt *pcands *kn *pneed *kg {} :> *popened]
+            (loop<- [*kt *pcands *kn *pneed *kg {} *kpc2 *kpc :> *popened *kpc3]
               (yield-if-overtime)
               (<<if (or> (empty? *kt) (<= *kn 0))
-                (:> *kg)
+                (:> *kg *kpc2)
                (else>)
                 (first *kt :> [*ka *ke])
                 (get *ke :fid :> *kfid)
                 (get *ke :stamp :> *kstamp)
-                (open-row> *layer *kfid *ke *kstamp *m :> *ko)
+                (open-row-with> *layer *kfid *ke *kstamp *m *kpc2 :> *ko *kpc4)
                 (kv-hit? *pst *ko :> *khit)
                 (need-after *kn *khit :> *kn2)
-                (continue> (rest *kt) *kn2 (assoc *kg *ka *ko))))
+                (continue> (rest *kt) *kn2 (assoc *kg *ka *ko) *kpc4)))
             (page-step *pst *pents *popened :> *pst2)
             (<<if (get *pst2 :done?)
               (:> *pst2)
              (else>)
-              (continue> *pst2))))
+              (continue> *pst2 *kpc3))))
         (get *pfinal :kept :> *kept)
         (get *pfinal :more? :> *more?)
         ;; step 6: show each kept entry, opening it through the one seam
-        (loop<- [*vt *kept *vacc [] :> *vrows]
+        (loop<- [*vt *kept *vacc [] *vpc {} :> *vrows]
           (yield-if-overtime)
           (<<if (empty? *vt)
             (:> *vacc)
@@ -1281,15 +1295,16 @@
               (case> (= *how :read-row))
               (kept-name-idx *vk :> [*vnm *vidx])
               (local-select> [(keypath *layer :log *vnm *vidx)] $$layers :> *vrow)
-              (open-row> *layer *vfid *vrow *vstamp *m :> *vo)
+              (open-row-with> *layer *vfid *vrow *vstamp *m *vpc :> *vo *vpc2)
               (shown-row *vk *vo :> *vr)
 
               (case> (= *how :open))
-              (open-row> *layer *vfid *ve *vstamp *m :> *vo2)
+              (open-row-with> *layer *vfid *ve *vstamp *m *vpc :> *vo2 *vpc2)
               (shown-row *vk *vo2 :> *vr)
 
               (default>)
-              (shown-row *vk nil :> *vr))
-            (continue> (rest *vt) (conj *vacc *vr))))
+              (shown-row *vk nil :> *vr)
+              (identity *vpc :> *vpc2))
+            (continue> (rest *vt) (conj *vacc *vr) *vpc2)))
         (pattern-answer *layer *m *pp *vrows *more? :> *answer)))
     (|origin)))
