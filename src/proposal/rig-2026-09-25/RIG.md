@@ -47,13 +47,25 @@ handoff.
     (F4); a value-index match counts only when the value still opens to
     it, so an index cannot confirm a forgotten value (F5); visibility is
     checked for the person a read is for (F12).
+  - Phase 6's revision reader planned (`PLAN-revision-reader.md`) and
+    validated: minor-fail, fourteen fixes in place
+    (`PLAN_VALIDATION-revision-reader.md`, 02:45), merged here. Passages are
+    blocks (a heading, a paragraph, a fenced block, a top-level list item);
+    functions are top-level forms; each unit is only its content and its
+    position (lines, and character offsets in UTF-16 units); read through
+    git plumbing, every error as data. The fixes harden the read path
+    against git's edge cases (an inherited GIT_DIR, `^HEAD`, a caller
+    choosing the program, non-ASCII paths under a C locale).
 - **In flight**, each writer in its own worktree off this branch, merged by
-  commit: phase 2 built (`Softland-rig-build-locks`); the read exit built
-  (`Softland-rig-build-reads`); phase 4's plan (`Softland-rig-plan-promotion`);
-  validations of phase 3's revised plan (`Softland-rig-plan-micro`) and the
-  revision reader's plan (`Softland-rig-reader`).
-- **Next:** phase 3 and the revision reader built as their plans pass; the
-  rest of phase 5 planned; then the merge of wave 1. Carried into the
+  commit: builds of phase 2 (`Softland-rig-build-locks`), the read exit
+  (`Softland-rig-build-reads`) and the revision reader
+  (`Softland-rig-build-reader`); plans of phase 4
+  (`Softland-rig-plan-promotion`), the rest of phase 5
+  (`Softland-rig-plan-reads-rest`) and phase 6's tools and grammars
+  (`Softland-rig-plan-tools`); the validation of phase 3's revised plan
+  (`Softland-rig-plan-micro`).
+- **Next:** phase 3 built as its plan passes; the three plans validated;
+  then the merge of wave 1. Carried into the
   merge: a person forget must purge the read exit's value index of every
   value that dies with the person (phase 2 builds the enumeration behind a
   seam); the read exit is the one way to read, and phase 2's own
@@ -133,6 +145,11 @@ marked first-record, and what the build does meanwhile.
     acknowledgement is still shown tonight. Should hand-written `:read/*`
     facts be refused? Tonight they are admitted; they can only move the
     clock as far as a stood-on stamp can.
+11. **A passage's grain** (round three's). Top-level list items are
+    passages; nested items stay inside their parent's block, and
+    `read-span` reaches any line range. Unit positions are counted in UTF-16
+    units and a cut's name freezes its rules; both become first-record the
+    moment a kept fact carries them.
 
 ## Defaults taken overnight, not ruled
 
