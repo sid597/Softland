@@ -25,7 +25,7 @@ against the files. -->
 
 **minor-fail.** Eighteen failures, each fixable by a localized edit; all
 eighteen are fixed in the plan in place (commits 5f8ef235, 5e983412,
-124bfe60, 0359c2c2 and the F18 commit), numbered F1 to F18 and marked
+124bfe60, 0359c2c2 and 235ea524), numbered F1 to F18 and marked
 `[F1]` ... in the text. No failure needs a new architecture: the one-task read, block 2d,
 the poll, the drop through OP9 and the purge invariant all stand. One check
 fails and is **not** fixed by an edit: the `|hash` indicator for a hot shared
