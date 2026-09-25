@@ -301,3 +301,296 @@ path. `src/app/server/env.clj` is gitignored (`.gitignore` line 16; checked
 with `git check-ignore`, which reads no file). The reader has no path
 policy of its own: which paths a tool may read is the permission it runs
 under, which round three and the runner decide.
+
+## 6. Passages: the block cut
+
+A passage is a block. The file's non-blank lines are cut into blocks, each a
+run of whole lines, by six rules.
+
+1. **Blank lines end blocks.** A blank line (whitespace only, `\r`
+   included) ends the open block, except inside a fence (rule 3) and inside
+   a list item whose next non-blank line is indented as its continuation
+   (rule 5).
+2. **A heading is a block by itself.** A heading line is up to three
+   spaces, one to six `#`, then a space, a tab or the end of the line. It
+   ends whatever block is open and is a one-line block.
+3. **A fence is kept whole.** A line whose first non-blank characters are
+   three or more backticks, or three or more tildes, opens a fence. The
+   fence runs, blank lines included, to the first later line holding only
+   the same character repeated at least as many times, and whitespace. An
+   unclosed fence runs to the last non-blank line of the file. Inside a
+   fence no other rule applies. A fence opened outside a list item is its
+   own block and ends an open paragraph; a fence inside a list item,
+   indented at least to the column where the item's text begins, stays in
+   the item.
+4. **A list item is a block.** A list item line starts, after its
+   indentation, with `-`, `*` or `+`, or with one to nine digits, optionally
+   one lowercase letter, then `.` or `)`; and then a space, a tab or the end
+   of the line. It starts a new block when its indentation is no more than
+   that of the open block's first line; indented deeper, it is a nested
+   item and stays in the block it is in. In a paragraph (a block that did
+   not start as an item), a bullet or the number 1 interrupts the paragraph
+   and any other number does not, because a wrapped line can begin with a
+   number and a full stop. That is CommonMark's rule, and it is measured
+   here: in the 36 Markdown files of `docs/`, `src/proposal/` and `vision/`
+   on this branch, ten lines begin with a number marker directly under a
+   paragraph line; the eight that are `1.` start real lists (PROGRESS.md's
+   "**The nine ...**" label directly above "1. Gate kind", for one), and
+   the two that are not, `LEDGER.md` line 128 ("560. Line numbers below are
+   in that file") and the rig's `README.md` line 354 ("64. One offerer at
+   a time"), are wrapped prose (checked with awk tonight). The letter is
+   this project's own convention, not CommonMark's: three lines in those
+   files use it, each meant as its own item, ruling "7b." at PROGRESS.md
+   line 101 and steps "2a." and "2b." at `PLAN-micro-store.md` lines 488
+   and 495 (checked). Without it, ruling 7b would read as part of ruling
+   7's block, as it renders.
+5. **A list item keeps its continuation.** An item runs over every later
+   line until it ends: nested items, indented fences, and paragraphs after
+   blank lines when the next non-blank line is indented at least to the
+   column where the item's text begins (after the marker and the spaces
+   after it). After a blank line, a line indented less than that ends the
+   item. A non-blank line directly below, with no blank line between,
+   continues it (a lazy continuation), unless rule 2, 3 or 4 starts a new
+   block there.
+6. **Everything else is paragraph text:** tables, block quotes, HTML,
+   thematic breaks, setext underlines, indented code. A paragraph runs until
+   a blank line, or until rule 2, 3 or 4 starts a new block.
+
+Indentation counts a tab as advancing to the next multiple of four columns,
+as CommonMark does; the content keeps the tab.
+
+**Invariants** (tested, section 11): blocks are in file order and do not
+overlap; every non-blank line of the file is in exactly one block; every
+block begins and ends on a non-blank line; a blank line is inside a block
+only within a fence or a list item's continuation; `(subs text start end)`
+is the content.
+
+**The golden cut.** `docs/builds/inland/README.md` at `ce6ebaeb` (on main;
+96 lines, 4,701 bytes, 4,697 chars, checked) cuts into these 24 blocks, by
+line range. The list is derived by reading git's output of the file line by
+line against the six rules, not by running any code; the build confirms it.
+
+    [1 1] heading       [3 6]              [8 10]
+    [12 12] heading     [14 14]            [16 18] fence
+    [20 23]             [25 29]            [31 34] fence
+    [36 40]             [42 42] heading
+    [44 45] [46 48] [49 51] [52 55] [56 60]   the five items of an ordered
+                                              list, continuations indented 3
+    [62 63]             [65 65] heading    [67 68]
+    [70 74] fence       [76 79]            [81 85]
+    [87 92]             [94 96]
+
+**Why blocks, and items rather than whole lists.** The caller's example
+offered "a heading's section, or a block between blank lines, with headings,
+lists and fenced code kept whole". Sections are the coarser reading, and
+grain "can be coarsened later, never refined" (PROGRESS.md line 27), so the
+finer one is the default. Whole lists are too coarse for this project's
+first material: its rulings are written as list items. PROGRESS.md's "The
+nine" (lines 67 to 107) is one tight list; as one block, a citation of
+ruling 3 would resolve to all nine, and a change to any ruling would touch
+all nine. Items are the grain the rulings are cited at. Fences are kept
+whole because a blank line or a `# ` inside a code block is not prose.
+
+**What it gives up.** A heading's section is not a unit: the heading's
+block is its one line. A list as a whole is not a unit. An item's later
+paragraph stays with the item only when indented. Indented code, HTML
+comments and block quotes that hold blank lines are split at them. A setext
+heading reads as a paragraph with its underline. A heading inside a list
+item ends the item. Non-Markdown text files (shell, YAML, Python) get the
+same rules, so a `# comment` line there reads as a heading. A byte order
+mark before `#` on line 1 turns that heading into paragraph text. And `7b.`
+starts an item here although Markdown renders it as text.
+
+**The first coarsening round three may ask for** is the heading's section:
+a heading and every line to the next heading of its level or higher. It
+sits on the same line classification and is about twenty lines. It is not
+built tonight, because STARTER-next.md says round three "will send what its
+tool needs from the rig"; when it comes, it is another entry in the same
+capability (section 12).
+
+## 7. Functions: the form cut
+
+A function at a revision is read as the top-level form that holds it, and
+every top-level form is a unit: `ns`, `def`, `defn`, `defn-`, `defmacro`,
+`defmulti`, each `defmethod`, `defprotocol`, `defrecord`, `deftype`,
+`extend-protocol`, Rama's `defmodule` and `deframaop`, `declare`, a
+`(comment ...)` block, a top-level expression, even a top-level keyword or
+string. The reader does not decide which forms are functions. Deciding
+would take a list of defining heads that grows with every macro (the rig's
+own code defines with Rama's), and selecting a form by its head and its
+name is where naming, and so identity, begins.
+
+How each thing the brief names is handled:
+
+- **A docstring** is inside its form, so it is part of the form's content.
+- **A comment above a form**, like a banner comment between forms, belongs
+  to no unit: comments and whitespace between top-level forms are outside
+  every unit. `read-span` reads any lines, comments included, and `:cut
+  :blocks` on the same file returns a comment sitting directly above a
+  form in the form's block.
+- **Reader conditionals** (`#?(...)`, `#?@(...)`) are part of the form they
+  sit in. A top-level reader conditional is one unit holding every branch;
+  nothing is chosen per platform.
+- **Namespaced keywords** (`:a/b`, `::b`, `::alias/b`) and namespaced maps
+  (`#:a{...}`, `#::{...}`) are tokens to the scanner. No alias is resolved,
+  so a file is cut without its namespace or its requires being loaded.
+  Clojure's own reader needs the alias map to read `::alias/b`, or a
+  resolver bound in its place (checked tonight: with a permissive
+  `*reader-resolver*` bound, `::str/x` reads).
+- **Discards.** A top-level `#_` and the datum it discards are skipped like
+  a comment, since Clojure's reader yields nothing for them; `#_ #_ a b`
+  skips both, as Clojure does. Inside a form, a `#_` is part of the form.
+  So commented-out code is never glued to the form after it.
+- **Metadata** (`^:private`, `^{...}`, `#^`) belongs to the form it
+  precedes, and the unit starts at the `^`.
+- **Other prefixes** (quote, syntax-quote, unquote, unquote-splicing,
+  deref, var-quote, `#=`, a tag such as `#inst`) belong to the datum after
+  them.
+- **Strings, character literals and regexes** are scanned so a delimiter,
+  `;` or `"` inside them counts for nothing: `\(`, `\)`, `\;`, `\"`,
+  `"(;\""`, `#"[)\"]"`. The rig's `envelope.clj` at `ea52c424` has escaped
+  quotes in its namespace docstring (line 10) and a regex holding `[`, `]`,
+  `'` and `#` (line 73) (checked), so a real fixture carries them.
+- A comma is whitespace, as in Clojure. `;` and `#!` start a comment that
+  runs to the end of the line.
+
+**The scanner.** Lexical, iterative (no recursion, so no depth limit and no
+stack overflow on deep nesting), one pass over the text's chars. It keeps a
+stack of the closing delimiters it expects, and at depth 0 a count of the
+data the open top-level unit still needs.
+
+- An atom (a token, a string, a character, a regex, a symbolic value such
+  as `##Inf`), or a collection whose closer brings the depth back to 0,
+  completes a datum. If nothing is open, the atom is a unit by itself;
+  otherwise the count drops by one, and the unit (or skipped region) ends
+  when it reaches 0.
+- A prefix that yields a datum and takes one (`'`, `` ` ``, `~`, `~@`,
+  `@`, `#'`, `#=`, `#?`, `#?@`, `#:` with its namespace, a tag): if nothing
+  is open it opens a unit needing one; otherwise it fills the slot it sits
+  in and opens one, so the count stays. Metadata (`^`, `#^`) takes two: a
+  unit needing two, or the count plus one.
+- `#_` takes one and yields nothing: the count plus one. With nothing open
+  at depth 0 it opens a skipped region needing one, which emits no unit.
+- Openers are `(`, `[`, `{`, `#{`, `#(`. A closer must match the top of the
+  stack.
+- A token ends at whitespace, a comma, or one of `"` `;` `@` `^` `` ` ``
+  `~` `(` `)` `[` `]` `{` `}` `\`, which are Clojure's terminating
+  characters; `'`, `#` and `%` do not end one (`foo'` and `foo#` are
+  symbols). This set is from Clojure's reader source, `LispReader`,
+  assumed from memory; the reader oracle and the property test check it.
+- A character literal is `\`, then one char taken whatever it is, then any
+  token characters after it (`\newline`, `é`, `\(`).
+- In a string or a regex, `\` takes the next char, and the first unescaped
+  `"` ends it.
+- After `#`, any char other than `{ ( " ' _ = ? : ^ # !` or the start of a
+  tag symbol (`#<`, `#` then whitespace, `#` at the end) is `:bad-dispatch`.
+- Errors, with `:at` the line and char: a closer with an empty stack,
+  `:unexpected-close` at the closer; a closer that does not match,
+  `:mismatched-close` at the closer; the end of the text inside a
+  collection, or with a count above 0, `:unclosed` at the start of the unit
+  or skipped region; the end inside a string or regex, `:unclosed-string`
+  at its opening quote.
+
+A unit's `:chars` run from its first char to just after its last, and its
+`:lines` are the lines of those two chars.
+
+**Checked against Clojure's own reader tonight** (Clojure 1.12.4 from the
+local Maven cache, `*read-eval*` false, a permissive `*reader-resolver*`,
+`*default-data-reader-fn*` bound to `tagged-literal`, `:read-cond
+:preserve`; start lines from the reader's `:line` metadata, which only
+lists carry, and end lines from the reader's line number after each read):
+
+| Fixture | Top-level forms | First forms, by lines | Last |
+|---|---|---|---|
+| `gate.clj` at `45627e45` | 23 | [2 10] [12 15] [17 20] [24 24] | [229 237] |
+| `gate.clj` at `ea52c424` | 28 | [2 14] [16 19] [21 24] [26 30] | [298 307] |
+| `envelope.clj` at `ea52c424` | 51 | [2 18] | [377 382] |
+| `geometry.cljc` at `d9e619b5` | 11 | [1 7] | [39 53] |
+| rig `deps.edn` at `7a7403bd` | 1 | ends at line 19 | |
+
+(`gate.clj` and `envelope.clj` are under the rig folder's `src/rig/store/`;
+`geometry.cljc` is `src-inland/softland/inland/geometry.cljc`.) The form cut
+must return exactly these counts and lines.
+
+**Why a scanner of its own, and no library.** Clojure's reader interprets
+as it reads: it needs aliases for `::alias/b`, refuses `#=` and record
+literals unless evaluation is on, needs readers for tags, and stops at the
+first error; it records `:line` for lists only, and folds `\r\n` into one
+char, so it gives neither exact char offsets nor positions for vectors, maps
+or atoms. `tools.reader` gives end positions but interprets the same way
+and is a new library. `rewrite-clj` is the right tool for a full syntax
+tree, names and docstrings as nodes, and is the first addition to make if
+round three asks for names or inner forms; for top-level boundaries it is
+not needed. The scanner is about a hundred lines, and Clojure's reader stays
+in the tests as its oracle.
+
+**What it gives up.** Which forms are functions. Inner units: arities, a
+`let`'s definitions, the forms inside `(comment ...)`, the branches of
+`#?(...)`, a module's topologies. Comments and commented-out code. A file
+with one broken form is `:unreadable` as a whole at that revision (`:cut
+:blocks` still reads it). An EDN file of one map is one unit, since its top
+map is its one form; the finer reading, the entries of the top map, is the
+addition to make if round three's tool records are EDN files
+(integration.md line 50: "Today that means editing an EDN record").
+Semantic errors pass: a top-level `#?@`, an unknown tag, or a token Clojure
+would refuse still form units.
+
+## 8. The span
+
+`(span text first last)` returns lines `first` through `last` as one unit:
+whole lines, blank lines included, nothing trimmed. It serves the lines a
+person points at (PICTURE.md line 82, "pointing at a range") and the
+file:line citations that are round three's first material (STARTER-round-3
+line 28). A file's line count is the number of `"\n"`, plus one when the
+text does not end with one; an empty file has no lines. A range outside
+`1 <= first <= last <= line count` is `:bad-argument` with `:line-count`.
+The span is beyond the brief's literal ask (G13), and cutting it touches
+nothing else.
+
+## 9. What does not apply, and what little there is to size
+
+The plan template's Rama sections (PState design, depots, topologies, query
+topologies, partitioning) do not apply: this is plain Clojure with no Rama
+in it.
+
+**Writes:** none. **State:** none. No PState, no task global, no atom, no
+dynamic var, no cache; git's object store is the only storage, and this code
+only reads it. A result is a function of the commit, the path, the cut and
+the reader's code, so a restart loses nothing and a retry returns the same
+result (derived). No cache is designed, and none should be added without the
+examination CLAUDE.md requires; if many reads a second ever matter, the
+first thing to examine is one long-lived `git cat-file --batch` process
+instead of three processes a read, which keeps no results.
+
+**Resources per read:** three processes; the blob's bytes (at most the
+budget, 1 MiB by default), the decoded string (two bytes a char), and the
+units' contents, which copy their substrings, so about two to three times
+the text at worst; one pass over the text per cut. For the largest text
+fixture, RIG.md at `7a7403bd` (26,033 bytes, checked), that is well under a
+megabyte (derived).
+
+**Concurrency:** calls share nothing, and reads of git's object store may
+run at once (assumed from git's design; the tests do not run reads
+concurrently). Called on a Rama task thread, a read would block that task
+for its processes' time; where the runner calls it from is phase 6's
+decision (section 17).
+
+## 10. Where it lives
+
+- `src/rig/revision.clj` in the rig folder, namespace `rig.revision`. Its
+  first line, as the rig's other sources have: `;; IMPORTANT: Before
+  modifying this file, re-read PLAN-revision-reader.md.` A namespace
+  docstring saying what it is, that it gives no identity, that it never
+  throws, and where its plan is. It requires `clojure.java.shell` and
+  `clojure.string`, and imports from `java.nio.charset`
+  (`StandardCharsets`, `CodingErrorAction`) and `java.nio` (`ByteBuffer`).
+  `*warn-on-reflection*` on, and hinted until it is quiet.
+- No dependency on `rig.store.*` or any other rig namespace, and nothing in
+  the rig depends on it tonight.
+- The rig's `deps.edn` is unchanged. Clojure 1.12.4 has
+  `clojure.java.shell`, and `test.check`, which the property tests use, is
+  already in the `:test` alias. No new library (section 7 says why
+  `rewrite-clj` is not needed yet).
+- `test/rig/revision_test.clj` in the rig folder, namespace
+  `rig.revision-test`.
+- About 300 lines for the reader and 450 for the tests (assumed).
