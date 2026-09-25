@@ -9,6 +9,14 @@ Location: branch `rig-2026-09-25`, worktree
 `/mnt/data/projects/Softland-rig-2026-09-25`, folder
 `src/proposal/rig-2026-09-25/`. Nothing here reads or touches `src/app`.
 
+**Status, 25 September, evening.** This is the page as written at 11:05
+IST. Since then, Sid's decision: the rig is a candidate for the store
+core, not a throwaway; built in the form it should be, because it may be
+kept; records not kept until edition one. The order of work is
+`src/proposal/frame-2026-09-15/PROGRESS.md`, "Next"; "What is left: two
+ways forward" below is superseded by it. Phases 2, 3 and 4 wait; the next
+build is `STARTER-next.md`.
+
 Softland is meant to be a place people and agents change from the inside,
 including the tools they change it with. Its frame keeps everything in one
 store as facts and leaves only the runtime fixed. The rig is a throwaway

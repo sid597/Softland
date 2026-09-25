@@ -1,65 +1,30 @@
-# Starter: the next session on the rig and the real store
+# Starter: the read exit the count needs
 
-Written 25 September 2026, around noon, by the session that built the rig
-so far. Sid opens the new session with this file.
+Written 25 September 2026, evening, replacing the noon starter, which is in
+git at 23a271e3. Sid opens the build session with the prompt below.
 
-## Where things are
+---
 
-The rig lives on branch `rig-2026-09-25`, in the worktree
-`/mnt/data/projects/Softland-rig-2026-09-25`, folder
-`src/proposal/rig-2026-09-25/`. Work in that worktree. The main tree at
-`/mnt/data/projects/Softland` stays on `main`.
+I'm building Softland's store on Rama. A build of its stream side lives on branch rig-2026-09-25, in the worktree /mnt/data/projects/Softland-rig-2026-09-25, folder src/proposal/rig-2026-09-25/. It began as a throwaway check. It is now a candidate for the store core: build in the form it should be, because it may be kept; its records are not kept, and nothing is kept until edition one is written. Make your own git worktree off rig-2026-09-25 and work only there; other sessions use the worktree above. Load README.md, RIG.md and SPEC.md from the rig folder, then PLAN-stream-store.md "Rig choices proposed", then src/proposal/frame-2026-09-15/PROGRESS.md on main: "Now", ruling 3 and the sharpenings, and "Next". The status notes at the top of the rig's files are current; older text under them that says "throwaway" or lists this morning's options is history.
 
-Read, in this order:
+Where it stands. Phases 0 and 1 are built and tested: 13 tests, 728 checks. The three numbers were measured on slices. Phases 2, 3 and 4 wait; nothing there is on the road to the count.
 
-1. `README.md` in the rig folder: what the rig is, why, the questions and
-   what each decides, the numbers so far, what is open for Sid.
-2. `RIG.md`: the running record. Its "Status", "Numbers so far" and "What
-   is next" sections are enough to start; the rest is there when needed.
-3. The plans (`PLAN-*.md`) only when a question needs them.
+First, find what rewrote src/rig/store/gate.clj in the rig folder at 08:52 IST on 25 September; the recall tools have the sessions that were running. Tell me, and change nothing because of it.
 
-Words: Sid's phases are 0 to 8 of the rig. The rama skill's numbered parts
-inside a phase are "steps". A fact's key is a "key"; an encryption key is a
-"lock".
+Then the read exit the count needs, on the stream store as it is, for one-owner layers only:
+- Point reads and pattern reads on a layer's home task.
+- One exit for reads: query, append the read entry, then answer; nothing shown before its entry is acknowledged.
+- The read entry as ruling 3 has it: rows for point reads; one line per pattern read with the pattern, the moment, the role, a keyed fingerprint of what matched, and a complete-or-partial mark; empty pattern reads included. What the fingerprint covers, the ids of what matched or their values, is a rig choice marked pending my ruling; ruling 3 says only "a fingerprint of what matched". Build it as one swappable function. Roles are placeholders: stood on, shown, matched, passed through. Eager in personal and hand layers; agent session layers untouched.
+- Values stay unsealed; the open step passes them through. A rig choice.
+- Indexes: only what pattern reads need, each purgeable by value id and rebuildable from the log. Index kinds take hints as parameters; there are no grammar facts yet.
+- Standing reads: don't build. Write what one would record as a proposal in RIG.md, and stop; round three rules it in its trace.
 
-## State
+Then the code that reads a file at a git revision into its passages and functions, with content and position. Give them no store identity: the design session is deciding how a passage at one revision is known to be the same at the next, and will send what its tool needs from the rig; build that next.
 
-- Phases 0 and 1 are done and committed. Phase 1's suite passes: 13 tests,
-  728 checks.
-- Phases 2 and 3 have plans, not validated and not built. Phases 4 to 8 are
-  not started.
-- All three numbers are measured and committed (`README.md`, "The
-  numbers so far"). Lock growth was not rerun by a second session; the
-  measuring session's own runs repeated exactly.
-- `test/rig/store/gate_test.clj` is a partial file from an interrupted
-  write. It is Sid's to decide on; do not open, change or delete it.
+Wherever the formal model (src/proposal/formal-model-2026-09-24/ on main) has the same history, compare answers; a difference is a finding, not something to hide. The frontier, the agent-entry default and the stamp's form: don't build, don't pick. Where a ruling is silent on something a kept record would carry, its bytes, a stamp, an id, what an entry holds, stop and ask me; if a placeholder is unavoidable, use the simplest and mark it first-record in RIG.md so edition one reviews it. Pick the simplest thing as a plain rig choice only when it can change later without touching a record.
 
-## What to do first
+How it runs: the rama skill's phased process. Every concurrent session gets its own worktree off the branch and merges by commit. Every in-process cluster run waits on one machine-wide lock. Long artifacts are written and committed in parts; last run three plan sessions were cut off mid-write and one left a partial file. Each step ends with its tests run, RIG.md rewritten, and a commit on the branch.
 
-1. Rerun one point of each number yourself and compare, as a check. Only
-   one in-process cluster can run on this machine at a time.
-2. Ask Sid for what only he can give:
-   - the three thresholds, which are the old session's assumptions
-   - how big hand-session values usually are, which decides whether a lock
-     row per value is an affordable default
-   - the stamp's unit: milliseconds let a busy task's stamps run ahead of
-     real time, and the choice freezes at the first kept record
-   - the direction: the old session's proposal is to take the three numbers
-     and then start the real store, with the count as its first milestone
-     and the model's fixed histories as its acceptance tests
-3. The next question is where the real store lives: a new module beside
-   the server, or the server's existing Rama modules evolved toward the
-   rulings. Another session has mapped the rulings onto `src/app/server`;
-   ask Sid for it. Put that map beside the rig: for each part of the
-   rulings, mark the server as matching, conflicting or missing, and note
-   whether kept records depend on each conflict. Take a position with
-   reasons; Sid decides.
+Rules: never read src/app/server/env.clj; nothing under src/app is read or touched. Commit on the branch, never push, no Co-Authored-By or session lines. Ask me before deleting anything. test/rig/store/gate_test.clj is mine; don't open it.
 
-## Rules carried over
-
-- Never read `src/app/server/env.clj`.
-- Commit on the branch as work settles; never push. No Co-Authored-By
-  line and no session link in commit messages.
-- Ask Sid before deleting anything.
-- Keep exploration in the conversation; write to disk once something
-  settles, as the project's CLAUDE.md says.
+I still owe the thresholds and how big hand-session values are; ask when a number needs them.

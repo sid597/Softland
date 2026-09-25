@@ -6,6 +6,15 @@ are the only spec. Paths are relative to the worktree root,
 `/mnt/data/projects/Softland-rig-2026-09-25`. The rig's own folder is
 `src/proposal/rig-2026-09-25/` (below: "the rig folder").
 
+**Status, 25 September, evening.** The rig is a candidate for the store
+core, not a throwaway (Sid's decision); build in the form it should be.
+The order of work is PROGRESS.md "Next", not the phase order below; phases
+2, 3 and 4 wait. Where a ruling is silent on something a kept record would
+carry, stop and ask Sid; the "pick the simplest thing" rule below applies
+only to what can change without touching a record. Sid's instruction below
+is verbatim and unchanged. PROGRESS.md "Now" now runs past line 195; the
+ranges cited below inside it are unchanged.
+
 ## What the rig is
 
 Softland's store is to be built on Rama. Its rules were ruled by Sid in chat

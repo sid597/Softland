@@ -1,4 +1,13 @@
-# The rig — a throwaway Rama build of the store's rules
+# The rig — a Rama build of the store's rules, a candidate for the store core
+
+**Status, 25 September, evening (Sid's decision).** The rig began as a
+throwaway check. It is now a candidate for the store core: built in the
+form it should be, because it may be kept; adoption is Sid's, after a read
+of its code against the rulings. Its records are not kept, and nothing is
+kept until edition one is written. The order of work is
+`src/proposal/frame-2026-09-15/PROGRESS.md`, "Next". Phases 2, 3 and 4
+wait; the next build is the read exit the count needs, `STARTER-next.md`.
+Text below this note that says "throwaway" is history.
 
 Branch `rig-2026-09-25`, worktree `/mnt/data/projects/Softland-rig-2026-09-25`,
 folder `src/proposal/rig-2026-09-25/`. Rama 1.6.0, rama-helpers 0.10.0,
@@ -250,43 +259,32 @@ RAM, Linux 7.0.0-31-generic, OpenJDK 21.0.12.1.
 - The formal model rides on the rig's test classpath, so a test can ask it
   for its answer to the same history. Its 14 fixed histories all come out
   as stated under the baseline configuration.
-
 ## What is next
 
-Sid decides the direction first. The choices on the table, from the
-discussion on 25 September:
+The order is PROGRESS.md "Next", settled on 25 September in the evening.
+Two lanes now. The model's third round designs the seed against the
+reference tool with Sid, walking the tool through the protocol act by act
+(main, `src/proposal/formal-model-2026-09-24/STARTER-round-3.md`). This
+worktree builds the read exit the count needs, on the stream store as it
+is, then the code that reads a file at a git revision into passages and
+functions with no store identity (`STARTER-next.md`). Then the blind
+count: a fresh session writes a held-back tool and grammar as facts from
+round three's one-page contract, and reports what the contract could not
+say. Then phase 6 here: grammars at the gate, a minimal runner, and both
+tools as facts, which is the running count, read in three classes:
+fixed-side steps the frame already promised, fixed-side steps nobody
+anticipated, and capabilities. Then src-inland on this project's own
+file:line citations, Sid's first use, with a scribe for the misses; that
+needs the merge decision on this branch.
 
-1. **Continue the rig as briefed:** validate and build phases 2 and 3 side
-   by side, then 4 and 5, then 6, 7 and 8 (R15). A fresh session continuing
-   this starts from the phase 2 plan's validation.
-2. **Measure only the numbers, on thin slices.** Index writes at the agent
-   rate and one person's layer on one thread can be measured on the stream
-   store as it is; lock growth needs phase 2's lock rows and wrap. Each
-   number needs a threshold first: how fast an agent writes, how large the
-   lock store may grow against the values, and what rate and latency one
-   person needs. The count and the replay of the model's histories would
-   then move into the real store's build.
-3. **Start the real store directly,** carrying the plans and the stream
-   gate over as input.
+Phases 2, 3 and 4 wait: phase 2 for the forget road Sid rules, whether
+forget must reach the operator's copy of a value in the depot; phases 3
+and 4 until before the first shared layer. Phase 7's numbers are rerun on
+the finished store. Phase 8's replays are a standing practice at every
+step, not a final phase.
 
-The main session's position is option 2, then option 3.
-
-**Started 25 September, after Sid asked "so what next":** option 2. Two
-fresh Opus sessions measure the three numbers. One measures index writes at
-the agent rate and one person's layer on one thread, on the stream store as
-it is. The other measures lock growth on a separate slice built from the
-phase 2 plan's lock shapes. The thresholds they judge against are the main
-session's assumptions, for Sid to correct:
-
-| number | threshold that confirms the ruling |
-|---|---|
-| index writes at the agent rate | at least 1,000 admitted acts per second per task, every index written |
-| one person's layer on one thread | at least 100 acts per second at 20 ms or less at p99 |
-| lock store under hand layers | at most 2 times the value bytes; above 4 times, hand layers default to per-act locks or keep locks in the record |
-
-The count is not measured in this step. It needs most of the store, and
-the proposal is to make it the real store's first milestone.
-
-**Handoff, 25 September around noon:** Sid starts a new session, which
-opens with `STARTER-next.md` in this folder. The session that built the rig
-so far stays open only until the lock-growth run finishes.
+What only Sid can settle, unchanged from the README: the three thresholds,
+how big hand-session values are, whether two nodes can run here, the
+partial `test/rig/store/gate_test.clj`, and the phase 0 call. The stamp's
+unit is proposed as a hybrid clock and is ruled before the first kept
+record, not here.
