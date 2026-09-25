@@ -1,0 +1,5 @@
+java 21.0.12.1
+sizes: public 44 bytes, private 48 bytes, box eph 44 + nonce 12 + wrapped 48
+opens with the lease's private key: true
+opens with another private key: false
+per op over 2000: keygen 0.094 ms, box (with its ephemeral keygen) 0.184 ms, unbox 0.079 ms
