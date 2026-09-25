@@ -10,12 +10,12 @@ under `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`.
 
 ## State
 
-- Step: 2 of 5 (implementation validation).
+- Step: 3 of 5 (tests).
 
 ## Next
 
-- Write IMPLEMENTATION_VALIDATION-read-exit.md (phase-4-impl-validate.md),
-  then the tests.
+- Write the tests (phase-5-tests.md): reads-test (pure), read-exit-test
+  (cluster), read-model-test (the model).
 
 ## Brief overrides of the plan (the orchestrator's, binding)
 
@@ -67,3 +67,9 @@ under `flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock`.
 - Exploration run (scratch, not kept): point, pattern, as-of, tail, value
   index, visibility, refusals, the exit's entries, the no-copy line read from
   its row, purge, drop and the paged rebuild all behave on the first run.
+- Implementation validation (IMPLEMENTATION_VALIDATION-read-exit.md):
+  minor-fail, four findings fixed in place: a subvec could reach the
+  `:answers` navigator from a put page's cursor (V1); the `[:kv]` open loop
+  had no yield point (V2); the ops source read the clock for ops that do not
+  use it (V3); `moment-stamp` renamed to the plan's `moment` (V4). Thirteen
+  divergences from the plan listed with their reasons (D1 to D13).

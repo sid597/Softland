@@ -355,7 +355,7 @@
 
 ;; ----------------------------------------------------------- the moment
 
-(defn moment-stamp
+(defn moment
   "The stamp a read is as of (FR2, first-record): min(asked, clock), where
   clock is the home task's last stamp read in the same query; nil asked
   means the clock. Every fact admitted on the task after the read is stamped
@@ -814,7 +814,7 @@
         (case op
           :rebuild-put
           (if (and (bounded? (:acts raw) 1 max-put-acts) (or (nil? after) (env/valid-name? after)))
-            {:layer layer :op op :after (some-> after vec) :acts (long (:acts raw))}
+            {:layer layer :op op :after (some->> after (into [])) :acts (long (:acts raw))}
             {:refuse :bad-op})
 
           :rebuild-sweep
@@ -961,9 +961,10 @@
       (get *op :layer :> *layer)
       (get *op :op :> *kind)
       (current-hints :> *hints)
-      (local-select> STAY $$clock :> *clock)
       (<<cond
         (case> (= *kind :rebuild-put))
+        ;; the task's clock is "now" for the open of every row
+        (local-select> STAY $$clock :> *clock)
         (get *op :after :> *after)
         (get *op :acts :> *n)
         (after-opts *n :> *opts)
@@ -997,6 +998,7 @@
         (put-ack *recs *n *pout :> *ack)
 
         (case> (= *kind :rebuild-sweep))
+        (local-select> STAY $$clock :> *sclock)
         (get *op :field :> *field)
         (get *op :after :> *safter)
         (get *op :entries :> *sn)
@@ -1017,7 +1019,7 @@
              (else>)
               (local-select> [(keypath *layer :answers *snm)] $$layers :> *srec)
               (local-select> [(keypath *layer :log *snm *sidx)] $$layers :> *srow)
-              (open-row> *layer *sfid *srow (get *srec :stamp) *clock :> *so)
+              (open-row> *layer *sfid *srow (get *srec :stamp) *sclock :> *so)
               (<<if (= *field :ix-kv)
                 (local-select> [(keypath *layer :ix-of *sfid)] $$layers :> *sof)
                (else>)
@@ -1085,7 +1087,7 @@
         (default>)
         (local-select> STAY $$clock :> *clock)
         (get *p :as-of :> *pas-of)
-        (moment-stamp *pas-of *clock :> *m)
+        (moment *pas-of *clock :> *m)
         (get *p :fids :> *pfids)
         (loop<- [*todo *pfids *acc [] :> *rows]
           (yield-if-overtime)
@@ -1127,7 +1129,7 @@
         (default>)
         (local-select> STAY $$clock :> *clock)
         (get *pp :as-of :> *pas-of)
-        (moment-stamp *pas-of *clock :> *m)
+        (moment *pas-of *clock :> *m)
         (get *pp :ix :> *pix)
         (<<if (= :latest (get *pp :kind))
           ;; one tail read below the bound: the latest fact of (e, k) at or before m
@@ -1149,6 +1151,7 @@
             (kv-need *pst :> *pneed)
             ;; [F5] a [:kv] candidate counts only when its value opens to the pattern's
             (loop<- [*kt *pcands *kn *pneed *kg {} :> *popened]
+              (yield-if-overtime)
               (<<if (or> (empty? *kt) (<= *kn 0))
                 (:> *kg)
                (else>)
