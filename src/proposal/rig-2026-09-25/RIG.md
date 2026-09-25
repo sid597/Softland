@@ -68,16 +68,33 @@ handoff.
     cannot both write, and add a session close on the micro side. One
     validator fix is overruled by builder A, R19 below: the permission
     check walks the chain rather than cascading a revoke.
+  - Phase 4's plan, promotion (`PLAN-promotion.md`), written and validated:
+    minor-fail, nine fixes in place (`PLAN_VALIDATION-promotion.md`, 03:30),
+    merged here. Before the request the door leases once in the target; the
+    target's gate mints an X25519 key pair into that one lease row, named
+    from the request's uuid. At the read-out the stream gate opens the
+    source on the owner's task, seals the copy under a fresh lock, and seals
+    that lock to the lease's public key, so the only opener is the private
+    key in the lease row on the task where the landing is decided, and the
+    landing's decision deletes it whatever the answer. Among the fixes: a
+    lease bound one-to-one to its landing, so no other writer can capture
+    it (F1); a small-order key that would have made the read-out throw, and
+    so replay for ever, now decoded at the request and answered as data
+    (F2).
 - **In flight**, each writer in its own worktree off this branch, merged by
   commit: builds of phase 2 (`Softland-rig-build-locks`), the read exit
   (`Softland-rig-build-reads`), the revision reader
   (`Softland-rig-build-reader`) and phase 3 (`Softland-rig-build-micro`,
   which merges phase 2's lock primitives from an early commit of
-  `rig-build-locks` once it lands); plans of phase 4
-  (`Softland-rig-plan-promotion`), the rest of phase 5
-  (`Softland-rig-plan-reads-rest`) and phase 6's tools and grammars
-  (`Softland-rig-plan-tools`).
-- **Next:** the three plans validated; then the merge of wave 1. Carried into the
+  `rig-build-locks` once it lands); the validation of the rest of phase 5's
+  plan (`PLAN-reads-rest.md`, `Softland-rig-plan-reads-rest`); phase 8's
+  plan (`Softland-rig-plan-replays`); the caching rule's examination of
+  copies on many tasks (`Softland-rig-exam-copies`), which phase 6's plan
+  (`PLAN-tools-and-grammars.md`, written, in `Softland-rig-plan-tools`)
+  waits on before its validation.
+- **Next:** the merge of wave 1 in its own worktree, with the seams wired;
+  then phases 4, the rest of 5 and 6 built side by side; then phase 8's
+  replays; then phase 7's numbers on the finished store. Carried into the
   merge: a person forget must purge the read exit's value index of every
   value that dies with the person (phase 2 builds the enumeration behind a
   seam); the read exit is the one way to read, and phase 2's own
@@ -114,64 +131,110 @@ the session's history tracks, its subagents' files included.
 
 ## For Sid
 
-Questions that would touch a record, each with the placeholder used meanwhile,
-marked first-record, and what the build does meanwhile.
+Questions that would touch a record, each with what the build does meanwhile;
+placeholders are marked first-record. In four groups: forms that freeze at
+the first record; windows where a forget does not reach at once; where the
+rig differs from the model; smaller questions.
 
-1. **Should a lease need the write permission?** Built: yes, a lease act
-   is an act in the layer and needs a permission there. So a value act from
-   a writer without permission cites no lock and is refused on its face
-   (`:no-such-lock`, nothing recorded), where the model records a
-   permission refusal. A difference from the model; phase 8 reports it.
-2. **The root actor and the operator are one principal**, `:operator`
-   (first-record). Phase 1's R13 already names the operator; the phase 3
-   plan wrote `:root`; tonight's builds use `:operator` for both. Are they
-   one principal?
-3. **Lock ids stay out of the reused-name digest** (first-record). A resend
-   whose recorded lock or own lock is gone is answered without a content
-   check, as after a forget; a name once refused can no longer tell when
-   later content differs.
-4. **A lease row is sealed under the lease act's writer**, and is bare for
-   the operator until it is consumed at the decision or its session closes.
-5. **A forgotten value's act still names, in plain text, whom it
-   mentioned** (the act's subject slot, kept for finding). Open item 41,
-   opaque actor ids with one erasable link to the person, would close it.
-6. **For a resend, does the offerer keep the plaintext or the sealed
-   offer?** Built: the door keeps what it needs to reseal.
-7. **When a crashed door's session closes** (open item 82): until then its
-   unconsumed lease rows stay.
-8. **The read entry's form**, first-record placeholders FR1 to FR14 in
-   `PLAN-read-exit.md`: the moment as `{:stamp s}`, with `{:frontier id}`
-   in its place for a shared layer; an entry as an ordinary act in the
-   working layer, one entity per entry, keys `:read/point` and
-   `:read/pattern`; the fingerprint as HMAC-SHA256 over the set of matched
-   fact ids and stamps, keyed by a secret derived inside the module; a
-   fact's id as phase 1's `[name idx]`; the entry standing on its moment
-   (FR14). And: is a cell read a point read, with rows, or a pattern read,
-   with a line (FR9; IMPLICIT_SPEC RD2 says rows, the plan says a line)?
-9. **What a read entry may hold of a value.** A `[:kv k v]` pattern keeps v
+**Forms that freeze at the first record** (placeholders built tonight):
+
+1. **The root actor and the operator are one principal**, `:operator`.
+   Phase 1's R13 names the operator; phase 3's plan wrote `:root`; tonight's
+   builds use `:operator` for both. Are they one principal?
+2. **Lock ids stay out of the reused-name digest.** A resend whose recorded
+   lock or own lock is gone is answered without a content check, as after a
+   forget; a name once refused can no longer tell when later content
+   differs.
+3. **The read entry's form**, FR1 to FR14 in `PLAN-read-exit.md`: the moment
+   as `{:stamp s}`, with `{:frontier id}` in its place for a shared layer;
+   an entry as an ordinary act in the working layer, one entity per entry,
+   keys `:read/point` and `:read/pattern`; the fingerprint as HMAC-SHA256
+   over the set of matched fact ids and stamps, keyed by a secret derived
+   inside the module; a fact's id as phase 1's `[name idx]`; the entry
+   standing on its moment (FR14). And: is a cell read a point read, with
+   rows, or a pattern read, with a line (FR9; IMPLICIT_SPEC RD2 says rows,
+   the plan says a line)?
+4. **What a read entry may hold of a value.** A `[:kv k v]` pattern keeps v
    in the recorded pattern, and a forget of the matched value does not
    reach it. Built: kept. The alternative is a keyed hash of v.
-10. **Exposure at the edges.** An entry acknowledged and the answer never
+5. **Promotion's forms**, PR1 to PR5 in `PLAN-promotion.md`: the request
+   fact and its value; the crossing act and its recorded refusals; the
+   landing's name carrying the target's class, and the envelope's
+   store-owned `:box` part; the landing lease, named from the request's
+   uuid; `:landing-lock-gone`.
+6. **The rest of phase 5's forms**, FRR1 to FRR9 in `PLAN-reads-rest.md`
+   (being validated): a standing read's lines and keys; the close act's
+   `:reads` part; the own-row mark on every read entry, so a drop can
+   forget it; the restore fact; the shared moment's clamp; a drop recorded
+   as ordinary forget acts.
+7. **Phase 6's forms**, T-FR1 to T-FR7 in `PLAN-tools-and-grammars.md`
+   (waiting on the caching examination, then validation): the grammar fact
+   and its shapes, `:grammar` as a control key, the tool fact, a run's
+   output act and its derived name, and where a grammar lives.
+8. **A passage's grain** (round three's). Top-level list items are
+   passages; nested items stay inside their parent's block, and `read-span`
+   reaches any line range. Unit positions are counted in UTF-16 units and a
+   cut's name freezes its rules; both become first-record the moment a kept
+   fact carries them.
+
+**Windows where a forget does not reach at once.** Is each inside "gone for
+everyone including the past"?
+
+9. **A lease row in flight.** A lease row is sealed under the lease act's
+   writer, and is bare for the operator, until the decision consumes it or
+   its session closes.
+10. **A face refusal's depot copy.** A face-refused offer records nothing
+    and leaves its lease rows alone, so its sealed bytes in the depot stay
+    openable until its session closes, even if a person it is about is
+    forgotten meanwhile. The alternative is a lease that expires on a
+    clock.
+11. **A promotion in flight.** Between the read-out and the landing's
+    decision the landing lease row is bare and opens the copy, even if one
+    of its subjects is forgotten meanwhile (phase 4's F7): the same window
+    as any sealed offer in flight.
+12. **A crashed door's session** (open item 82): until it closes, its
+    unconsumed lease rows stay.
+13. **A dropped agent session's read entries** stay openable until the
+    drop's forgets finish (`PLAN-reads-rest.md`).
+
+**Where the rig differs from the model** (phase 8 reports each):
+
+14. **A lease needs the write permission.** A lease act is an act in the
+    layer, so a value act from a writer without permission cites no lock
+    and is refused on its face (`:no-such-lock`, nothing recorded), where
+    the model records a permission refusal.
+15. **A resend inside one micro batch.** If an honest door reseals and
+    resends while its first offer is in the same batch, one is decided and
+    the other hears `:name-taken` on its face; the offerer then finds the
+    answer by name. In the stream store a resend always gets the recorded
+    answer.
+16. **Acts the model does not have:** a lease before each write, a landing
+    lease before a promotion, the read-out as the next event of the
+    request's own record, and the stored forward re-sent after a crash.
+
+**Smaller questions:**
+
+17. **Plain-text subjects.** A forgotten value's act still names, in plain
+    text, whom it mentioned (the act's subject slot, kept for finding), and
+    a promotion request names its copy's subjects the same way. Open item
+    41, opaque actor ids with one erasable link to the person, would close
+    both.
+18. **For a resend, does the offerer keep the plaintext or the sealed
+    offer?** Built: the door keeps what it needs to reseal.
+19. **Exposure at the edges.** An entry acknowledged and the answer never
     shown, because of a crash, is recorded as shown: over-recording, the
     safe direction. A value forgotten between the query and the entry's
     acknowledgement is still shown tonight. Should hand-written `:read/*`
     facts be refused? Tonight they are admitted; they can only move the
     clock as far as a stood-on stamp can.
-11. **A face refusal's depot copy.** A face-refused offer records nothing
-    and leaves its lease rows alone, so its sealed bytes in the depot stay
-    openable until its session closes, even if a person it is about is
-    forgotten meanwhile. Is that inside "gone for everyone including the
-    past"? The alternative is a lease that expires on a clock.
-12. **A resend inside one micro batch.** If an honest door reseals and
-    resends while its first offer is in the same batch, one is decided and
-    the other hears `:name-taken` on its face; the offerer then finds the
-    answer by name. In the stream store a resend always gets the recorded
-    answer.
-13. **A passage's grain** (round three's). Top-level list items are
-    passages; nested items stay inside their parent's block, and
-    `read-span` reaches any line range. Unit positions are counted in UTF-16
-    units and a cut's name freezes its rules; both become first-record the
-    moment a kept fact carries them.
+20. **A forged landing.** A door can forge a landing for its own promotion,
+    limited to that promotion and its own permission, with false
+    provenance. Signing, which the rulings defer, closes it.
+21. **Should a landing lease outlive its session?** Built: no, so a crossed
+    promotion whose requester's session closes ends refused.
+22. **Re-class and promotion.** A target re-classed between the request and
+    the landing refuses the landing; promotion out of a re-classed layer is
+    not built.
 
 ## Defaults taken overnight, not ruled
 

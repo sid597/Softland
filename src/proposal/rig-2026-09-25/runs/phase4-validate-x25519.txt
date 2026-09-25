@@ -1,0 +1,6 @@
+java 21.0.12.1
+44 random bytes (not SPKI): decode threw java.security.spec.InvalidKeySpecException: java.security.InvalidKeyException: Unable to decode key
+SPKI, u = 0 (small order): decodes; then agreement threw java.security.InvalidKeyException: Point has small order
+SPKI, u = 1 (small order): decodes; then agreement threw java.security.InvalidKeyException: Point has small order
+SPKI, u = 2^256-1 (non-canonical): decodes; then: agreement returned 32 bytes, all zero: false
+a real public key: decodes; then: agreement returned 32 bytes, all zero: false
