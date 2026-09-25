@@ -17,6 +17,307 @@ dataflow, stream, unique-ids, patterns, app-design). Where a line here
 summarises a source, the source wins. Vocabulary: "key" is a fact's key;
 "lock" is an encryption key. -->
 
+## Revision, 26 September
+
+<!-- Revised on 26 September 2026, 01:50 to 03:00 IST, by a fresh-context
+session (Claude Opus 5.5, effort max), the rama skill's plan step, for
+tonight's defaults: CONCLUSION.md R1, R2, R3, R7 and R8
+(src/proposal/store-next-2026-09-25/ on main). They are Sid's proposals
+taken as defaults, not rulings; this plan names them as defaults. The
+sections after this revision are the 25 September plan. Where a line there
+contradicts a section here, this revision wins, and the body carries a
+pointer at each such place. Phase 2's revision (sealing at the door, in
+/mnt/data/projects/Softland-rig-plan-locks) was not committed when this was
+written; its interface is taken as the step brief names it: `rig.store.locks`
+with seal, open, wrap, unwrap, the delivery function and open-value. -->
+
+Each change, with its reason in a line:
+
+1. **Sealing in shared layers (§A).** This gate mints a shared layer's
+   leases; the lease rows sit on the session's task; a sealed act is routed
+   there; each lock is read, used and consumed on that one task in the
+   batch that decides the value. Why: default R1 (nothing that could open a
+   value sits in the depot) and ruling 7 (wrapped locks in the record).
+2. **The micro depot's partitioner (M4 revised).** A sealed act arrives on
+   hash(its `:session`); an act with no sealed value arrives on hash(its
+   first entity), as before. Why: the lease rows must be on the task where
+   the value-level checks run, and a lock is minted before anyone knows
+   which entity it will seal.
+3. **Face refusals keyed by the envelope key (M8 revised).** Why: R1's
+   digest is keyed by the value's lock, which a missing-lock refusal does
+   not have; the envelope key (a keyed hash of the sealed envelope) is what
+   the door and the gate both hold.
+4. **The content digest is R1's** (an HMAC over the plaintext keyed by the
+   value's lock), computed on the arrival task; a resend is checked there
+   under the first lock; after a forget, a same-name offer is answered from
+   the record with no content check. Why: R1's riders.
+5. **Permissions (§B).** A permission may name its parent; the check walks
+   the chain; one function, `rig.store.permit/refusal`, serves both gates;
+   the stream gate changes in three places. Why: default R7.
+6. **The base (§C).** Made on the stream gate as a one-owner layer owned by
+   the root actor; re-classed to by-entity before the first group is made;
+   M11 revised. Why: default R8, which overrides SPEC.md phase 3's placement
+   of the base with the group.
+7. **The settled frontier (§D).** The frontier id's form, the query that
+   reads through it with one explicit F, and what a read entry records.
+   Why: RIG.md R5 and default R3.
+8. **Stamps (§E)** come from `rig.store.clock`. Why: default R2.
+9. **Tests (§F)** rewritten for all of the above. Why: the step's named
+   tests.
+10. **The partitioning table (§H)** recomputed for the lease read, the
+    permission chain and the hop to the entity task. Why: the costs moved.
+11. **Rig choices.** M4, M8, M11 and M12 revised; M16 to M24 added (§I).
+    First-record picks are marked.
+12. **What stands unchanged, and why it still holds:** M1 (with the probe's
+    answer, §G), M2 (batch order), M3 (the leader's fold over skeletons: a
+    lock and a value never reach it), M5 (a re-classed layer's stream-era
+    history read as settled history; the base now uses it too), M6 (R6:
+    the offer carries its stood-on stamps), M7 (batch-stamped, never
+    overwritten; lease rows are the one ruled exception, consumed), M9, M10,
+    M13, M14, M15; `gate/decide` reused, not rewritten; the name row, so an
+    answer is found by name plus layer (the name carries its layer) on the
+    name's task, written in the deciding batch; the re-class of a hot layer
+    moving it here; the four PStates; the frontier's mechanism.
+
+### A. Sealing in shared layers
+
+**The reading of "the task where it decides".** This gate decides in two
+places. The act's verdict is the leader's fold, which needs no lock and
+never sees a value (M3). Everything about a value is decided on the task
+where the offer arrives: whether its lock is there, its plaintext, its own
+subjects (the grammar reads the value), the content digest, the re-wrap.
+That task is where its lease rows sit. So a lock never leaves the task it
+was minted on, and a plaintext value never leaves the task it was opened
+on. What travels between tasks is sealed bytes, digests, subject sets, lock
+ids, and locks wrapped under person locks. A reading that put the leases on
+the leader (task 0) was weighed and rejected: every shared layer's lock
+traffic and every value's opening would funnel through one task, and the
+plaintext would travel to it.
+
+**Who mints a shared layer's leases: this gate.** The stream gate cannot:
+a lease row must be consumed by the batch that decides its value, and only
+the topology that owns a PState writes it. A lease act is an ordinary offer
+into the shared layer L by a person in session S, citing S's permission in
+L (§B), named `[L :by-entity :offer uuid7]`, answered by name through the
+name row like any act, with one fact:
+
+    {:e S :k :lease :v {:count n}}          ; n ≤ 256, a rig bound
+
+`:lease` joins the control keys (no lock; plaintext EDN value). The session
+id S stands as the entity, as a layer id does in M5, so the act arrives on
+hash(S) (it seals nothing, so it routes by its first entity). On yes, block
+2b on hash(S) mints n locks (phase 2's form, 32 random bytes each), wraps
+each under the session owner's person lock, and writes the lease rows:
+
+    $$micro [S :leases lease-name i]  =  {:lock    <phase 2's lock record, wrapped under the owner>
+                                          :layer   L
+                                          :who     P
+                                          :batch   b}
+
+The session owner is `$$layers [S :settings] :owner`: a session is a
+one-owner layer, so its settings sit on hash(S) in the stream store, a local
+read of settled history (a session's owner never changes). The operator, who
+has no person lock, leases under an empty wrap (phase 2's empty-wrap form).
+A leased lock's id is `[lease-name i]`. Both the row's shape and the lock
+id are first-record placeholders (M16); if phase 2's revision fixes another
+lock id form, this plan takes that one.
+
+A retried lease batch mints other bytes. Only the committed attempt's rows
+exist, and the door reads rows only through the frontier, so it never holds
+a lock from an attempt that did not commit.
+
+**The door takes their plaintext by a query.** `micro-lease [S lease-name
+F]` on hash(S): read F; the rows under `[S :leases lease-name]` with batch ≤
+F (one seek, n iterations; a two-level subindexed map, so no question of
+vector-key prefix order); `locks/deliver` each under the owner's person
+lock (`$$persons`, local); return the plaintext locks. The depot never sees
+this path.
+
+**The door seals each value under one leased lock, and the offer cites its
+id** (the envelope part that carries it is phase 2's). All the locks an act
+cites come from one lease of the act's `:session`, made for the act's
+layer (M24).
+
+**Routing (M4 revised).** `route-key` is the offer's `:session` when any of
+its facts cites a lock, else its first fact's entity, else nil, where block
+1 refuses the record as malformed. A sealed act therefore arrives where its
+lease rows are.
+
+**Block 1, on the arrival task, before any hop.** For a sealed act, read its
+lease rows (one range read: one seek, one iteration per cited lock) and call
+`locks/deliver` on each. If any cited lock is absent (never minted, already
+consumed, made for another layer or session, or its owner's person lock
+destroyed), the offer is refused on its face as `:lock-missing`: one faces
+row under `[name envelope-key]`, no answer under the name, nothing else
+gathered. A resend under the same name with a fresh lease is still allowed.
+Otherwise:
+
+- open each value (`locks/open`);
+- compute its own subjects (phase 2's `subjects-of`: no owner in a shared
+  layer, then the grammar's subjects and the carried ones) and the act's
+  subject union;
+- compute the content digest (phase 2's digest function; R1: an HMAC over
+  the plaintext, keyed by the value's lock).
+
+Then the flow drops the plaintext and the delivered locks. Only the digest,
+the subjects, the cited lock ids and the sealed bytes go on. The skeleton
+gains `:locks [lid ...]`, and its `:digest` is this digest.
+
+**A resend, or a replay of a decided name** (a name row exists). The name
+task sends the record's digest and the first act's entities onward. Each
+entity task reads the first act's rows' `:lock` (the value's lock, wrapped
+under its subjects, in the record) and phase 2's erasure state for them (the
+ledger on that task, `$$persons`: open-value's inputs).
+
+- If any first value is erased, the answer is "recorded", with no content
+  check. This is R1's rider: after a forget, a reuse with other content
+  cannot be told from a retry, which is the price of forgetting.
+- Otherwise the wrapped first locks go back to the arrival task by
+  `|direct`. That task re-reads the resend's lease rows, opens the resend
+  under them, unwraps the first locks (`locks/unwrap`, `$$persons` local),
+  and recomputes the digest under the first locks. If it matches, the
+  answer is "recorded"; if it differs, a `:name-taken` face goes under
+  `[name envelope-key]`.
+
+Resends are rare (category (e)). They pay two hops and a second lease read.
+No lock and no plaintext value crosses a task.
+
+**The fold** adds one check before a decision: a lock id that an earlier
+offer in the batch order already cited makes the later offer `:lock-missing`
+(two offers citing one leased lock is a door's bug). The fold sees digests
+and ids only; nothing else in it changes.
+
+**Block 2b (the rows), on the arrival task.** For an act decided yes in
+this batch with this digest: re-read its lease rows; deliver; open; compute
+each value's own subjects; re-wrap each lock under them (`locks/wrap`,
+shared-layer rules: 7b as written, an empty wrap for a value about no one).
+Ship the sealed bytes and the wrapped lock record to the entity task (never
+the plaintext, never the bare lock). There the row is written: `:v` holds
+the sealed bytes as offered, `:lock-id` the cited id, `:lock` the wrapped
+record (ruling 7: in the record). The leased lock has become the value's
+lock. M12's seam `micro/row-lock` becomes this code.
+
+**Block 2c, new: consume the leases.** A third pass over `%mb` on the
+arrival tasks. For every record whose cited lease rows exist on its task,
+whatever its decision, each cited `[S :leases lease-name i]` gets
+`(termval NONE)`. "Whatever its decision" covers admitted, refused,
+answered from the record, taken, a later double use, and a face refusal
+made after the lease was read. Why a separate block: the rows of 2b re-read
+the leases, and the records of one block run in no fixed order on a task,
+so a deletion in 2b by one record could land before another record's read.
+The barrier between 2b and 2c is what makes "consumed in the batch" safe.
+The deletion is exactly once with the batch: a retried batch finds the rows
+again and consumes them once.
+
+**A missing lock, with nothing recorded.** The faces entry is not the name's
+answer, so the name stays free, which is the default's stated purpose ("so a
+resend under the same name is still allowed"). It is data the offerer can
+read, because a microbatch depot has no ack (M8). If the validator reads
+"nothing recorded" strictly, meaning no entry at all, the change is one
+line: drop the faces write for `:lock-missing`. The offerer then learns it
+by timing out, and re-leases.
+
+**One delivery function.** Phase 2's `locks/deliver` (lease row, persons →
+the lock, or nil) is called with the same body by both gates. Each gate
+reads its own lease row from its own PState on the task where it decides,
+and the function unwraps the row under the owner's person lock. The micro
+side needs no other body. Only the place the row is read from differs (the
+stream store: the layer's home, phase 2's; this store: hash(S)), and that is
+outside the function.
+
+**What the depot holds after this.** Sealed bytes, lock ids, names, ids and
+the carried parts: nothing that could open a value (R1). The only locks not
+yet wrapped under a value's subjects are the lease rows in `$$micro`, and
+they are consumed at decision.
+
+### B. Permissions (default R7), both gates
+
+**The shape (first-record, M20).** A permission id is P8's triple `[who
+layer in]`, or `[who layer in parent]` with `parent` a permission id: a
+narrower permission beneath its parent. Chains are at most four deep (root,
+session, agent, tool); `env/pid?` refuses deeper ones as malformed. `who`
+is the holder:
+
+- a person, a session id, an agent id or a tool id;
+- for a group's root, the group itself, named by its layer id (ruling 9's
+  "root permission made with the layer naming the group");
+- for the base's root, the root actor `:root` (default R8).
+
+A layer's root permission is granted in its making act (P10's grants in the
+making act): `[owner L L]` for a one-owner layer, `[L L L]` for a group,
+`[:root :base :base]` for the base. Opening a session writes, through each
+layer's own gate, a grant `[S L L p]` beneath the person's permission p in
+L. An agent's or a tool's goes beneath the session's. Grants and revokes
+stay the operator's (R13). In the rig, opening a session is the operator's
+act, one per layer, made by the test helper `open-session!`; whether a
+holder may grant beneath itself is open and changes no record.
+
+**The check: one function both gates call.** `rig.store.permit`, new and
+pure, in `src/rig/store/permit.clj`:
+
+- `(chain pid)` gives `[pid parent ... top]`, from the id alone, with no
+  read.
+- `(refusal offer rows)` gives one of the model's four reasons in the
+  model's order, or nil. For an offer that is not exempt:
+  - `:permission-does-not-cover-this` when the cited pid is nil, its holder
+    is neither the offer's `:who` nor its `:session`, or its layer is not
+    the offer's;
+  - `:permission-from-another-layer` when the `in` of any element of its
+    chain is not the offer's layer;
+  - `:no-permission` when any element has no grant in `rows`;
+  - `:permission-revoked` when any element is revoked.
+
+  For a triple this is exactly P8's four checks, so phase 1's cases and the
+  model's are unchanged.
+
+**What changes in the stream gate, exactly.**
+
+1. `gate/refusal`: its four permission clauses become one clause returning
+   `(permit/refusal offer rows)`, in the same place in the order.
+2. `gate/pids-to-read`: `[(:permission offer)]` becomes `(permit/chain
+   (:permission offer))`. The grant and revoke targets are read as before.
+3. `env/pid?`: accepts the four-element form with a nested pid, at most
+   four deep.
+
+That is the whole change. The rows are read as now, one keypath per pid on
+the home task, only now up to four of them, and `decide` writes permission
+rows as it does now. The `:session` part is already a readable keyword in
+the envelope.
+
+**How a revoke cuts everything below it.** A revoke writes one row (P8: it
+stands on its grant; `:stale-revoke` for an unknown or already revoked pid;
+R18). Nothing below it is written. Every later check walks its chain and
+meets the revoked row.
+
+- **On the stream gate**, the revoke is one event on the layer's home. Offers
+  decided on that task after the event are refused and those decided before
+  it were admitted: the home's single thread is the order.
+- **On the micro gate**, the revoke is decided in the batch order (M2). The
+  fold marks the pid revoked in its working state W, so every later offer
+  in the same batch whose chain holds the pid is refused
+  `:permission-revoked`, and every later batch reads the committed row. For
+  a re-classed layer (and the base), each element's row is read from both
+  stores and merged: live if granted in either and revoked in neither (M5).
+  A stream-era root revoked on the micro side therefore cuts everything
+  below it.
+- **A grant beneath a revoked or never-granted parent** is admitted as a
+  fact and covers nothing, because the walk refuses every offer that cites
+  it (rig choice; no new reason).
+
+**Cost.** The check reads the chain's rows on the one task that holds the
+layer's permission index. A session's write, under a person's permission,
+under the root, reads 3 rows where P8 read 1, all point reads on one task.
+The alternative, cascading a revoke into every descendant's row, makes a
+check one read. It costs a subtree walk inside one stream event or one
+batch (a group root's subtree is every member's sessions, agents and tools),
+a children index, and a gathered subtree in the fold for the in-batch race.
+Rejected: the walk is bounded at four reads; the cascade has no bound.
+
+**A permission cited from another layer** is refused
+`:permission-from-another-layer`, whether the cited pid or any of its
+ancestors lives elsewhere. That is the ruling: a gate checks only
+permissions in layers it orders.
+
 ## Scope of this stage, in one paragraph
 
 The micro store end to end for layers placed by entity: the shared layers
