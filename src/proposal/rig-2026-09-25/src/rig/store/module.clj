@@ -9,7 +9,18 @@
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.ops :as ops]
             [rig.store.gate :as gate]
-            [rig.store.inject :as inject]))
+            [rig.store.inject :as inject]
+            [rig.store.reads :as reads]))
+
+(def row-fields
+  "The fields of one log row, named once: the log's rows carry them, and so
+  does every index entry of stage 5a (PLAN-read-exit.md F6), so a field a
+  later stage adds to a row rides in every entry."
+  {:e        clojure.lang.Keyword
+   :k        clojure.lang.Keyword
+   :v        String              ; canonical EDN; nil for a retract
+   :replaces clojure.lang.PersistentVector
+   :mark     (set-schema clojure.lang.Keyword)})
 
 (def layers-schema
   "Everything keyed by a one-owner layer, on the layer's home task
@@ -18,9 +29,11 @@
   are a subindexed vector (F1) and what it stood on its own subindexed map
   (F2), because neither has an enforced bound. Every stamp in it (the
   record's, what an act stood on, a head's) is a hybrid stamp, one long in
-  rig.store.clock's encoding."
+  rig.store.clock's encoding. Stage 5a adds its four index fields
+  (reads/layer-fields), merged in by one form."
   {clojure.lang.Keyword
    (fixed-keys-schema
+    (merge
     {:settings    (fixed-keys-schema {:kind  clojure.lang.Keyword    ; :personal :hand :agent
                                       :owner clojure.lang.Keyword
                                       :class clojure.lang.Keyword    ; :by-layer :by-entity
@@ -41,11 +54,7 @@
                               {:subindex-options {:track-size? false}})
      :log         (map-schema clojure.lang.PersistentVector          ; name -> the act's rows
                               (vector-schema
-                               (fixed-keys-schema {:e        clojure.lang.Keyword
-                                                   :k        clojure.lang.Keyword
-                                                   :v        String              ; canonical EDN; nil for a retract
-                                                   :replaces clojure.lang.PersistentVector
-                                                   :mark     (set-schema clojure.lang.Keyword)})
+                               (fixed-keys-schema row-fields)
                                ;; [F1] subindexed; Rama 1.6.0's vector-schema takes only
                                ;; :subindex? (no :subindex-options), so size tracking stays on
                                {:subindex? true})
@@ -59,7 +68,8 @@
      :permissions (map-schema clojure.lang.PersistentVector          ; pid [who layer in]
                               (fixed-keys-schema {:granted clojure.lang.PersistentVector
                                                   :revoked clojure.lang.PersistentVector})
-                              {:subindex-options {:track-size? false}})})})
+                              {:subindex-options {:track-size? false}})}
+    (reads/layer-fields row-fields)))})
 
 ;; The one event, on the layer's home task, with no partitioner, so every
 ;; read sees this task's state and every write commits in one group (RQ 1):
@@ -73,6 +83,7 @@
 (defmodule Store
   [setup topologies]
   (declare-depot setup *offers (hash-by :layer))
+  (reads/declare-depots! setup)
   (let [s (stream-topology topologies "gate")]
     (declare-pstate s $$layers layers-schema)
     ;; the task's last stamp, a hybrid stamp (rig.store.clock); 0 before the first
@@ -135,6 +146,17 @@
               (<<atomic
                 (ops/explode (get *d :heads-put) :> [*hk *hs])
                 (local-transform> [(keypath *layer :heads *hk) (termval *hs)] $$layers))
+              ;; stage 5a: the act's index entries, computed in decide (reads/index-writes);
+              ;; the same three blocks apply a purge's and a rebuild's lists
+              (<<atomic
+                (ops/explode (get *d :index-put) :> [*ix *ia *ie])
+                (local-transform> [(keypath *layer *ix *ia) (termval *ie)] $$layers))
+              (<<atomic
+                (ops/explode (get *d :index-of) :> [*ofid *ias])
+                (local-transform> [(keypath *layer :ix-of *ofid) (termval *ias)] $$layers))
+              (<<atomic
+                (ops/explode (get *d :index-del) :> [*dx *da])
+                (local-transform> [(keypath *layer *dx *da) NONE>] $$layers))
               ;; settings and permission rows as they stand after the act; both were
               ;; read in this event, so each is one write with no read
               (get *d :settings :> *new-settings)
@@ -145,4 +167,8 @@
                 (local-transform> [(keypath *layer :permissions *pp) (termval *prow)] $$layers)))
             (local-transform> [(termval (get *d :stamp))] $$clock)
             (inject/point! :after-writes *name))
-          (ack-return> (get *d :ack)))))))
+          (ack-return> (get *d :ack)))))
+    ;; stage 5a: the *index-ops source (rebuild pages, test-only ops) on this topology
+    (reads/declare-index-ops-source! s))
+  ;; stage 5a: the read queries read-point and read-pattern
+  (reads/declare-queries! topologies))

@@ -11,7 +11,8 @@
   code is fatal to the worker (RIG.md, phase 0), so a failure here is the
   unrecorded face refusal :gate-error (F6)."
   (:require [rig.store.clock :as hlc]
-            [rig.store.envelope :as env])
+            [rig.store.envelope :as env]
+            [rig.store.reads :as reads])
   (:import [com.rpl.rama.helpers TopologyUtils]))
 
 (defn wall-now
@@ -188,13 +189,15 @@
 (defn stamp-for
   "Ruling 4 as a hybrid clock (rig.store.clock/next-stamp): at or after the
   wall's millisecond, after this task's last stamp `clock`, after every
-  stamp the act stood on (carried, P9) and after every fact it replaces
-  (read from the heads). `wall` is in milliseconds; every other argument
-  holds stamps."
+  stamp the act stood on (carried, P9), after every fact it replaces (read
+  from the heads), and after the moment of every read entry fact it carries
+  (stage 5a, F1: a read entry is stamped after what it read). `wall` is in
+  milliseconds; every other argument holds stamps."
   [offer heads clock wall]
   (hlc/next-stamp wall clock
                   (concat (vals (:stood-on offer))
-                          (keep #(get heads [(:e %) (:k %) (:replaces %)]) (:facts offer)))))
+                          (keep #(get heads [(:e %) (:k %) (:replaces %)]) (:facts offer))
+                          (reads/entry-moments (:facts offer)))))
 
 ;; ----------------------------------------------------------------- answer
 
@@ -271,13 +274,18 @@
         facts (:facts offer)
         indexed (map-indexed vector facts)
         setting-updates (into {} (for [f facts :when (setting-fact? offer f)]
-                                   [(env/setting-keys (:k f)) (:v f)]))]
+                                   [(env/setting-keys (:k f)) (:v f)]))
+        log (when yes? (log-rows offer))
+        ;; stage 5a: the admitted act's index entries, from the rows as written (a
+        ;; failure there is this function's throw, so decide's :gate-error road)
+        ix (if yes? (reads/index-writes (reads/current-hints) (:layer offer) nm log stamp) reads/no-index-writes)
+        _ (when (:index-error ix) (throw (ex-info "index writes failed" {:name nm})))]
     {:kind :decide
      :stamp stamp
      :record (answer-record offer settings reason stamp digest)
      :ack (ack (if yes? :yes :no) reason stamp nm)
      ;; the rest is written only for a yes
-     :log (when yes? (log-rows offer))
+     :log log
      :stood-on (if yes? (:stood-on offer) {})
      :heads-del (if yes? (into [] (distinct) (for [f facts :when (:replaces f)] [(:e f) (:k f) (:replaces f)])) [])
      :heads-put (if yes? (vec (for [[i f] indexed] [[(:e f) (:k f) [nm (long i)]] stamp])) [])
@@ -297,7 +305,11 @@
                       (into []
                             (concat (for [[p g] grants] [p {:granted g}])
                                     (for [[p r] revokes] [p (assoc (get rows p) :revoked r)]))))
-                    [])}))
+                    [])
+     ;; stage 5a: the three index write lists (empty for a no)
+     :index-put (:index-put ix)
+     :index-of (:index-of ix)
+     :index-del (:index-del ix)}))
 
 (defn decide
   "Decide a fresh offer (no record under its name on this task): the answer
