@@ -52,7 +52,10 @@ F5 the bucket count as maintenance state; F6 Option B at the yardstick,
 stated plainly; F7 membership by `subselect` over `set-elem`; F8 the
 partitioning tables; F9 the index-error flag; F10 time travel on a
 re-classed layer; F11 resuming a drop from the record; F12 a keyed digest
-in the micro value index, no plaintext leaving the arrival task. -->
+in the micro value index, no plaintext leaving the arrival task; F13 the
+micro put page's bounded log reads; F14 the progress cursor's type; F15 the
+micro forget replay op; F16 forgets and person purges of a re-classed
+layer's stream era. -->
 
 ## Scope of this stage
 
@@ -585,10 +588,10 @@ hash(L), no read; a later gap writes its own batch, any value marks the
 layer), read by every shared read in the same select as F5's `:ix-place`
 (one seek), and while it is set every read of L is marked `:partial` (the
 record never claims a completeness the index cannot back). The rebuild
-clears it: its last sweep page over L writes `:ix-error` nil in its own
-batch, and only if no gap was flagged in a batch at or after the rebuild's
-first page (the field's batch is compared, so a gap during the rebuild
-stays flagged).
+clears it: its last sweep page over L carries the batch of the rebuild's
+first page (the operator's loop read it from the first progress row) and
+writes `:ix-error` nil in its own batch only when the flagged batch is below
+it (so a gap during the rebuild stays flagged).
 
 ### Purge by value id, shared
 
@@ -661,7 +664,13 @@ same guard on the read exit's `*index-ops` for `:person-purge`):
   ids; the read exit probed page walks over vector keys in a subindexed
   map; fallback, a per-task `$$micro-task :entities` subindexed set written
   by block 2b, one no-read put per new entity]), each entity's `:answers`
-  and `:log` read whole (`subselect ALL`, `{:allow-yield? true}`), each row
+  and `:log` read **[F13]** as two bounded ranges from the page's offset,
+  `(sorted-map-range-from offset {:max-amt m})` with m the rows the page
+  may still take under its cap, both keyed by name first and so walked
+  together as a merge-join by name (`{:allow-yield? true}`); the first draft
+  read them whole with `subselect ALL`, which reads an entity's whole log
+  before the cap below applies (a paper of the base touched by years of
+  acts would be read whole on every page that reaches it), each row
   of a yes act opened by the same open step (`locks/unwrap` and `open` with
   the row's lock, or its lock row under an `:own-row` mark, and the entity
   task's `$$persons`; the ledger on this task gives the erasure date; the
@@ -671,7 +680,7 @@ same guard on the read exit's `*index-ops` for `:person-purge`):
   L)` per layer group; the write blocks. The batch's work is bounded by n
   entities and a row cap of 4,096 (the rest of an entity's rows, if more,
   wait for the next page, which starts at that entity again with a row
-  offset: RR7). One record per batch per task at most (the operator's loop
+  offset, the `[name idx]` after the last row taken: RR7). One record per batch per task at most (the operator's loop
   appends the next page after it sees the previous page's progress row,
   below).
 - **Sweep page** `{:op :rebuild-sweep :task t :field f :after a :entries n}`
@@ -683,9 +692,21 @@ same guard on the read exit's `*index-ops` for `:person-purge`):
   delete of every entry the log does not imply (the read exit's rule), and
   for `:ix-kv` its removal from `:ix-of`, for `:ix-id` a mismatch rewritten.
   Two hops per entry, batched by the microbatch.
+- **[F15] Forget replay** `{:op :replay-forget :task t :layer L :fid
+  target :stamp s}`, t the home of L: the shared twin of the one-owner
+  `:replay-forget` ("The five paths", 5.3), which the first draft sent to
+  "the layer's ops depot" without defining it on this one. On t, `:ix-id
+  [fid]` → the entry and its `:e`; `(|hash e)`: phase 3's (and 2's) forget
+  effect for the target at the replay seam (in the rig, where no lock is
+  restored, a read of the ledger that changes nothing) and the ledger's
+  date; `(|hash L)` back; `shared-reads/purge-writes` with that date.
+  Idempotent, and independent of its order among other replays in a batch
+  (each purge writes what the ledger's first date implies), so the loop may
+  send many per batch; a target never indexed is dropped as data.
 - **Progress row.** A microbatch cannot `ack-return>`; the operator's loop
   learns where a page stopped from `$$micro-task :rebuild` on task t, a
-  small fixed-keys field `{:op :cursor :done? :batch}` written by each page
+  small fixed-keys field `{:op :cursor :done? :batch}` (the cursor a
+  vector, **[F14]**) written by each page
   (a `termval`, exactly once with the batch), polled by the loop (testing.md
   "Synchronizing Any Design" [docs]). **A schema addition to phase 3's
   `$$micro-task`**, named for the merge.
@@ -953,8 +974,9 @@ nothing depends on it surviving (the record has everything a close needs).
   `:after`, so the lines chain). Steps: the delta query with `:after` the
   handle's `:scan`; no match gives `:nothing-new`, nothing offered, nothing
   shown, and `:scan` advances to the delta's moment, or **[F2]**, when the
-  scan budget cut the delta, to its `:scanned-to` bound, never past an
-  unscanned entry (safe: nothing matched between, by the argument of "The
+  scan budget cut the delta, `:scan` stays and `:resume` takes its
+  `:scanned-to` bound, so the next delta never starts past an unscanned
+  entry (safe: nothing matched between, by the argument of "The
   delta", and a busy layer is then not rescanned from the last line on
   every quiet tick); a match builds one
   FRR2 act with `:after` the handle's `:line`, offers it until answered,
@@ -1184,6 +1206,13 @@ one-owner store's addresses and the keyed digest in the micro store's
    exit's) now also tombstones `:ix-s`. The date is the forget's stamp,
    which is the ledger's date the event writes (a second forget of the same
    value: "admitted, nothing changes", no purge, the first date stays).
+   **[F16]** The same path serves a **stream-era target of a re-classed
+   layer**: the validated micro plan's M25 sends a nil-tagged `:forget` to
+   the store that holds its target, a stream-era one to the stream gate, so
+   OP9 and the read exit's purge reach the stream era's indexes in
+   `$$layers [L]`, which the micro topology may not write. That forget fact
+   is itself a stream-side fact admitted after the re-class, one more case
+   of the carried moment question ("What stays open").
 2. **A value forget in a shared layer.** Phase 3's nil-tagged operator act
    `{:e e :k :forget :v {:target fid}}` in the value's layer, arriving on
    hash(e) (the micro depot routes an act with no sealed value by its first
@@ -1216,7 +1245,9 @@ one-owner store's addresses and the keyed digest in the micro store's
      The contract taken from phase 2 (a black box: its body is phase 2's):
      `(locks/dying-with> *person *after *n :> *page)` on a task, `*page` =
      `{:fids [[layer fid] ...] :next cursor :done? bool}`, every value on
-     this task in a one-owner layer whose wrap closed with p's lock,
+     this task in `$$layers` (one-owner layers, and **[F16]** the stream
+     era of re-classed ones, whose `:ix-kv` addresses hold plaintext too)
+     whose wrap closed with p's lock,
      total, never throwing, bounded by n. **Fallback if the seam is not
      there at the merge:** the page sweeps the `:ix-kv` entries of the
      layers on task t (the read exit's sweep over one field, `open-row>`
@@ -1429,8 +1460,10 @@ No new PState. Fields added to three existing ones, by the merge rule
   `:ix-kv`, `:ix-of`, `:ix-s`, `:ix-id` (schema in "The fields"); options A,
   B, C in "Placement"; B chosen.
 - **`$$micro-task`** (micro topology): `:rebuild` (`(fixed-keys-schema {:op
-  Keyword :cursor String :done? Boolean :batch Long})`, a rebuild's
-  progress) and `:layers` (`(set-schema Keyword {:subindex? true})`, the
+  Keyword :cursor clojure.lang.PersistentVector :done? Boolean :batch
+  Long})`, a rebuild's progress; **[F14]** the cursor is a vector, `[e
+  [name idx]]` after a put page and `[L address]` after a sweep page, where
+  the first draft typed it `String` and could hold neither) and `:layers` (`(set-schema Keyword {:subindex? true})`, the
   shared layers whose home is this task; subindexed because a task can hold
   many layers).
 
@@ -1440,7 +1473,8 @@ No new PState. Fields added to three existing ones, by the merge rule
   ordinary offers.
 - `*index-ops` (the read exit's, `hash-by :layer`): gains the ops
   `:person-purge` (routed to its `:task` by `(|direct)` after the source)
-  and `:replay-forget`.
+  and `:replay-forget`; `*micro-index-ops` gains the same pair
+  (**[F15]**: `:person-purge` and `:replay-forget`, both routed by `:task`).
 - `*micro-index-ops`, new: `(declare-depot setup *micro-index-ops
   :random)`, operator appends, a third source of the micro topology; every
   record names its task and is routed by `(|direct *task)`. `:random`
@@ -2018,7 +2052,8 @@ Tests the design adds:
   (PROGRESS "Open while the rig runs"; the model's x2). A shared read
   records `{:frontier F}`, a one-owner read `{:stamp s}`; a read of a
   re-classed layer shows its stream-era facts, and a stream-side fact of
-  that layer admitted after the re-class (P16's settings) is bounded by
+  that layer admitted after the re-class (P16's settings, and **[F16]** the
+  micro plan's M25 forgets of stream-era targets) is bounded by
   neither F nor any stamp the entry records, so a re-run at F can show one
   more such fact (the micro plan's §D open edge, now located here: the
   merge step). **[F10]** The same holds, more widely, for time travel: F
