@@ -20,6 +20,7 @@
             [com.rpl.rama.test :as rtest]
             [formal.model :as fm]
             [formal.scenarios :as fs]
+            [rig.store.clock :as hlc]
             [rig.store.envelope :as env]
             [rig.store.gate :as gate]
             [rig.store.module :as m])
@@ -593,22 +594,41 @@
                         (or (nil? r) (some #{r} recorded-reasons))))))))))
 
 (deftest stamps
-  (testing "the stamp is max(wall, clock + 1, every carried stood-on + 1, every replaced head + 1) (P9)"
+  (testing "the stamp is max(wall ms × 65536, clock + 1, every carried stood-on + 1, every replaced head + 1) (P9, hybrid clock)"
+    ;; stamps are generated around the wall's own stamp, a few milliseconds
+    ;; either side, so the wall, the task's clock, a carried stamp and a
+    ;; replaced head each win in some runs, and counters cross milliseconds
     (check! "stamp-for" 1000
-            (prop/for-all [clock (gen/choose 0 5000000)
-                           wall (gen/choose 0 5000000)
-                           stood (gen/map gen-fid (gen/choose 0 6000000) {:max-elements 3})
-                           head-stamps (gen/vector (gen/one-of [(gen/return nil) (gen/choose 0 5000000)]) 0 3)]
-              (let [facts (vec (for [i (range (count head-stamps))]
+            (prop/for-all [wall (gen/choose 0 5000000)
+                           clock-at (gen/choose -300000 300000)
+                           stood-at (gen/map gen-fid (gen/choose -400000 400000) {:max-elements 3})
+                           head-at (gen/vector (gen/one-of [(gen/return nil) (gen/choose -400000 400000)]) 0 3)]
+              (let [base (hlc/pack wall 0)
+                    clock (max 0 (+ base clock-at))
+                    stood (update-vals stood-at #(+ base %))
+                    head-stamps (map #(some-> % (+ base)) head-at)
+                    facts (vec (for [i (range (count head-stamps))]
                                  {:e :e0 :k :note :v i :replaces [[:alice :by-layer :offer (UUID. i i)] 0]}))
                     o (offer* :alice :alice (if (seq facts) facts [{:e :e0 :k :note :v 1}]) :stood-on stood)
                     heads (into {} (for [[f h] (map vector (:facts o) head-stamps)]
                                      [[(:e f) (:k f) (:replaces f)] h]))
                     s (gate/stamp-for o heads clock wall)
-                    want (apply max wall (inc clock) (concat (map inc (vals (:stood-on o))) (map inc (keep identity head-stamps))))]
-                (and (= want s) (instance? Long s) (< clock s) (<= wall s)
+                    before (concat [clock] (vals (:stood-on o)) (keep identity head-stamps))
+                    want (apply max base (map inc before))]
+                (and (= want s) (instance? Long s) (< clock s) (<= base s) (<= wall (hlc/ms-of s))
                      (every? #(< % s) (vals (:stood-on o)))
-                     (every? #(< % s) (keep identity head-stamps))))))))
+                     (every? #(< % s) (keep identity head-stamps))
+                     ;; the wall's own millisecond unless something it follows reached the wall's last counter
+                     (or (<= (hlc/pack wall hlc/max-counter) (apply max before))
+                         (= wall (hlc/ms-of s))))))))
+  (testing "the gate's stamp is the clock namespace's next-stamp over the carried and the replaced stamps"
+    (let [f [(nm :alice :by-layer) 0]
+          o (offer* :alice :alice [{:e :e0 :k :note :v 1 :replaces f}] :stood-on {[(nm :alice-hand :by-layer) 0] (hlc/pack 90 4)})]
+      (is (= (hlc/next-stamp 50 (hlc/pack 50 2) [(hlc/pack 90 4) (hlc/pack 95 0)])
+             (gate/stamp-for o {[:e0 :note f] (hlc/pack 95 0)} (hlc/pack 50 2) 50)))
+      (is (= (hlc/pack 95 1) (gate/stamp-for o {[:e0 :note f] (hlc/pack 95 0)} (hlc/pack 50 2) 50)))
+      (is (= (hlc/pack 100 0) (gate/stamp-for o {[:e0 :note f] (hlc/pack 95 0)} (hlc/pack 50 2) 100))
+          "a wall past everything: its millisecond, counter 0"))))
 
 ;; ------------------------------------------- decide: total, and fits the schema
 

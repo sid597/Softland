@@ -22,7 +22,8 @@
   "An offer ready to send: version marker, defaults, and a fresh name unless
   one is given. Pure: the map it returns is what is sent and what is resent
   (the digest covers `:claimed-when` and `:stood-on`, so a resend is this
-  map, never a rebuilt one)."
+  map, never a rebuilt one). `:claimed-when` defaults to the offerer's wall
+  clock in milliseconds: the offerer's claim, not a stamp."
   [{:keys [name who layer class permission facts stood-on subjects because-of session claimed-when]}]
   (let [offer {:version env/version
                :who who
@@ -113,7 +114,8 @@
   (foreign-select-one [(keypath layer :heads [e k fid])] (:layers store)))
 
 (defn clock
-  "The last stamp given by the task that is the layer's home."
+  "The last stamp given by the task that is the layer's home: a hybrid stamp,
+  whose wall millisecond is `rig.store.clock/ms-of`."
   [store layer]
   (foreign-select-one STAY (:clock store) {:pkey layer}))
 

@@ -35,6 +35,7 @@
             [com.rpl.rama.path :refer :all]
             [com.rpl.rama.test :as rtest]
             [rig.store.client :as c]
+            [rig.store.clock :as hlc]
             [rig.store.envelope :as env]
             [rig.store.module :as m])
   (:import [java.lang.management GarbageCollectorMXBean ManagementFactory ThreadMXBean]
@@ -241,7 +242,7 @@
                  :one-task? (boolean (and home (= [home] grew) (= [home] moved)
                                           (= offers (get pd home))
                                           (>= (get cd home) (+ yes no))))}
-     :stamp-ahead-of-wall-ms (when home (- (get clocks1 home) wall-end))
+     :stamp-ahead-of-wall-ms (when home (- (hlc/ms-of (get clocks1 home)) wall-end))
      :wall-ms [wall-start wall-end]
      :gc {:count (- (first gc1) (first gc0)) :ms (- (second gc1) (second gc0))}
      :busiest-threads (busiest cpu0 cpu1 elapsed 5)
@@ -339,7 +340,7 @@
       (println "PROBE object-info" (foreign-object-info (:depot st)))
       (println "PROBE partitions" (partition-ends st))
       (println "PROBE clocks" (task-clocks st) "home clock" (c/clock st :bench-agent)
-               "wall" (System/currentTimeMillis))
+               "its ms" (hlc/ms-of (c/clock st :bench-agent)) "wall" (System/currentTimeMillis))
       (println "PROBE thread names"
                (->> (vals (thread-cpu)) (map first) (map #(str/replace % #"\d+" "N")) frequencies (sort-by key)))
       (let [w (window st lay 4 {:secs 3})]

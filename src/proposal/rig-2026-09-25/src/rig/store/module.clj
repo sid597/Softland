@@ -16,7 +16,9 @@
   (PLAN-stream-store.md, `$$layers`). The answer record keeps the bounded
   parts of an act (subjects capped at 256 by the parser, F3); the act's rows
   are a subindexed vector (F1) and what it stood on its own subindexed map
-  (F2), because neither has an enforced bound."
+  (F2), because neither has an enforced bound. Every stamp in it (the
+  record's, what an act stood on, a head's) is a hybrid stamp, one long in
+  rig.store.clock's encoding."
   {clojure.lang.Keyword
    (fixed-keys-schema
     {:settings    (fixed-keys-schema {:kind  clojure.lang.Keyword    ; :personal :hand :agent
@@ -73,6 +75,7 @@
   (declare-depot setup *offers (hash-by :layer))
   (let [s (stream-topology topologies "gate")]
     (declare-pstate s $$layers layers-schema)
+    ;; the task's last stamp, a hybrid stamp (rig.store.clock); 0 before the first
     (declare-pstate s $$clock Long {:initial-value 0})
     (<<sources s
       (source> *offers {:retry-mode :all-after} :> *raw)

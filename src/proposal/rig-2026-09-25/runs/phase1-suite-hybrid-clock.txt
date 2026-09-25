@@ -1,0 +1,144 @@
+Phase 1 suite after the hybrid clock (branch rig-clock), last run 26 September 2026, 02:04 IST
+Command, from the rig folder:
+  flock /mnt/data/projects/rig-relay-2026-09-26/cluster.lock clojure -M:test rig.smoke-test rig.store.envelope-test rig.store.stream-gate-test rig.store.clock-test
+Result: Ran 19 tests containing 785 assertions. 0 failures, 0 errors. Exit 0. 18.7 s wall.
+  In-process cluster, 1 worker, 2 threads, tasks drawn: 8. The three fatal errors are the three crashes the tests inject.
+  Earlier runs this session, same code: tasks 4, 2, 2; each 19 tests, 785 assertions, 0 failures, 0 errors.
+  AMD Ryzen 9 9900X, OpenJDK 21.0.12.1, Rama 1.6.0.
+Below: the run's output as printed, with 4836 Java stack frame lines collapsed where marked.
+Full output: runs/phase1-suite-hybrid-clock.log (runs/*.log is not committed).
+----------------------------------------------------------------------------
+WARNING: abs already refers to: #'clojure.core/abs in namespace: clojure.test.check.generators, being replaced by: #'clojure.test.check.generators/abs
+
+Testing rig.smoke-test
+SEED [[:yes nil] [:yes nil] [:yes nil] [:yes nil] [:yes nil] [:yes nil] [:yes nil] [:yes nil] [:yes nil] [:yes nil]]
+ANSWER {:answer :yes, :reason nil, :stamp 117333588892516352, :name [:alice :by-layer :offer #uuid "01a0da47-0625-7537-a0cd-2597df838d3d"]}
+RESEND {:answer :yes, :reason nil, :stamp 117333588892516352, :name [:alice :by-layer :offer #uuid "01a0da47-0625-7537-a0cd-2597df838d3d"]}
+REUSE {:answer :no, :reason :name-taken, :stamp nil, :name [:alice :by-layer :offer #uuid "01a0da47-0625-7537-a0cd-2597df838d3d"]}
+FACTS [{:e :e0, :k :note, :v {:token v1}, :replaces nil, :mark #{}} {:e :e1, :k :mention, :v {:persons #{:bob}}, :replaces nil, :mark #{}}]
+SETTINGS {:kind :personal, :owner :alice, :class :by-layer, :grain :per-value}
+PERM {:granted [[:alice :by-layer :offer #uuid "01a0da47-05d0-7a09-ad3b-5e7b292eb4f5"] 0]}
+HEAD 117333588892516352
+CLOCK 117333588892516352
+LOOKUP {:claimed-when 1790368482853, :who :alice, :permission [:alice :alice :alice], :stamp 117333588892516352, :digest 6b3856d4a85b5a0086070dfb8ac0095ba5f210786626b4e378718bd93bf9a3a3, :reason nil, :because-of nil, :class :by-layer, :answer :yes, :subjects #{:alice}, :session nil} {:answer :no, :reason :name-taken, :name [:alice :by-layer :offer #uuid "01a0da47-0625-7537-a0cd-2597df838d3d"]}
+FACE {:answer :no, :reason :unknown-part, :stamp nil, :name nil} {:answer :no, :reason :malformed, :stamp nil, :name nil}
+
+Testing rig.store.envelope-test
+
+Testing rig.store.stream-gate-test
+OBSERVED tasks 8
+OBSERVED burst: 3200 acts in 1.83 s, 1751 a second; largest lead of a stamp's millisecond over the wall at its ack -2 ms; largest counter 12 ; the millisecond unit over the same decisions would have ended 1389 ms ahead
+OBSERVED a subvec name through the depot: {:answer :yes, :reason nil}
+02:04:48.700 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:streaming :gate :topology-event :execute-batch]}
+clojure.lang.ExceptionInfo: injected crash
+	... 214 stack frame lines elided
+02:04:48.706 ERROR throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: injected crash
+	... 214 stack frame lines elided
+02:04:48.708 ERROR recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: injected crash
+	... 214 stack frame lines elided
+02:04:48.709 ERROR recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2002 DTT 0 0-queue-consumer}
+clojure.lang.ExceptionInfo: injected crash
+	... 214 stack frame lines elided
+02:04:48.738 ERROR watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:04:48.759 ERROR core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2002], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated errors {:type :rpl.rama.util.watchable-promise/do-all, :errors [#error {
+ :cause injected crash
+ :data {:point :before-writes, :name [:alice :by-layer :offer #uuid "01a0da47-1cf7-70a9-a30f-6bc5618185ef"]}
+ :via
+	... 1 stack frame lines elided
+   :message injected crash
+   :data {:point :before-writes, :name [:alice :by-layer :offer #uuid "01a0da47-1cf7-70a9-a30f-6bc5618185ef"]}
+   :at [rig.store.inject$point_BANG_ invokeStatic inject.clj 54]}]
+ :trace
+	... 214 stack frame lines elided
+ :cause injected crash
+ :data {:point :before-writes, :name [:alice :by-layer :offer #uuid "01a0da47-1cf7-70a9-a30f-6bc5618185ef"]}
+ :via
+	... 1 stack frame lines elided
+   :message injected crash
+   :data {:point :before-writes, :name [:alice :by-layer :offer #uuid "01a0da47-1cf7-70a9-a30f-6bc5618185ef"]}
+   :at [rig.store.inject$point_BANG_ invokeStatic inject.clj 54]}]
+ :trace
+	... 214 stack frame lines elided
+clojure.lang.ExceptionInfo: injected crash
+	... 214 stack frame lines elided
+OBSERVED crash before the writes: the append threw | the gate saw the offer 3 times, reached its writes 2 times
+02:04:49.490 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:streaming :gate :topology-event :execute-batch]}
+clojure.lang.ExceptionInfo: injected crash
+	... 262 stack frame lines elided
+02:04:49.492 ERROR throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: injected crash
+	... 262 stack frame lines elided
+02:04:49.493 ERROR recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: injected crash
+	... 262 stack frame lines elided
+02:04:49.494 ERROR recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2002 DTT 2 0-queue-consumer}
+clojure.lang.ExceptionInfo: injected crash
+	... 262 stack frame lines elided
+02:04:49.551 ERROR watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:04:49.572 ERROR core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2002], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated errors {:type :rpl.rama.util.watchable-promise/do-all, :errors [#error {
+ :cause injected crash
+ :data {:point :after-writes, :name [:alice-hand :by-layer :offer #uuid "01a0da47-1fa0-7eff-87f6-aa31334c34f7"]}
+ :via
+	... 1 stack frame lines elided
+   :message injected crash
+   :data {:point :after-writes, :name [:alice-hand :by-layer :offer #uuid "01a0da47-1fa0-7eff-87f6-aa31334c34f7"]}
+   :at [rig.store.inject$point_BANG_ invokeStatic inject.clj 54]}]
+ :trace
+	... 262 stack frame lines elided
+ :cause injected crash
+ :data {:point :after-writes, :name [:alice-hand :by-layer :offer #uuid "01a0da47-1fa0-7eff-87f6-aa31334c34f7"]}
+ :via
+	... 1 stack frame lines elided
+   :message injected crash
+   :data {:point :after-writes, :name [:alice-hand :by-layer :offer #uuid "01a0da47-1fa0-7eff-87f6-aa31334c34f7"]}
+   :at [rig.store.inject$point_BANG_ invokeStatic inject.clj 54]}]
+ :trace
+	... 262 stack frame lines elided
+clojure.lang.ExceptionInfo: injected crash
+	... 262 stack frame lines elided
+OBSERVED crash after the writes: the append threw | decision code ran 2 times
+02:04:50.232 ERROR throwable-handler - Unexpected throwable! Will be treated as a fatal! {:event-tags [:streaming :gate :topology-event :execute-batch]}
+clojure.lang.ExceptionInfo: injected crash
+	... 214 stack frame lines elided
+02:04:50.234 ERROR throwable-handler - Uncaught throwable in task thread outer loop {:event-tags nil}
+clojure.lang.ExceptionInfo: injected crash
+	... 214 stack frame lines elided
+02:04:50.235 ERROR recurrent-task - Uncaught exception in watchable promise
+clojure.lang.ExceptionInfo: injected crash
+	... 214 stack frame lines elided
+02:04:50.236 ERROR recurrent-task - Unexpected throwable in recurrent task {:description Worker bb1ad573 00000000@2002 DTT 2 0-queue-consumer}
+clojure.lang.ExceptionInfo: injected crash
+	... 214 stack frame lines elided
+02:04:50.244 ERROR watchdog - One or more monitored components have become unhealthy! Triggering system shutdown. {:unhealthy-component-keys [:task-thread-systems]}
+02:04:50.262 ERROR core - Component :task-context-runner threw during unclean stop-async! {:sys [sys:Worker bb1ad573 00000000@2002], :comp-key :task-context-runner, :ex [[clojure.lang.ExceptionInfo do-all evaluated errors {:type :rpl.rama.util.watchable-promise/do-all, :errors [#error {
+ :cause injected crash
+ :data {:point :before-writes, :name [:alice-agent :by-layer :offer #uuid "01a0da47-2150-7a5c-bed1-4b6139171275"]}
+ :via
+	... 1 stack frame lines elided
+   :message injected crash
+   :data {:point :before-writes, :name [:alice-agent :by-layer :offer #uuid "01a0da47-2150-7a5c-bed1-4b6139171275"]}
+   :at [rig.store.inject$point_BANG_ invokeStatic inject.clj 54]}]
+ :trace
+	... 214 stack frame lines elided
+ :cause injected crash
+ :data {:point :before-writes, :name [:alice-agent :by-layer :offer #uuid "01a0da47-2150-7a5c-bed1-4b6139171275"]}
+ :via
+	... 1 stack frame lines elided
+   :message injected crash
+   :data {:point :before-writes, :name [:alice-agent :by-layer :offer #uuid "01a0da47-2150-7a5c-bed1-4b6139171275"]}
+   :at [rig.store.inject$point_BANG_ invokeStatic inject.clj 54]}]
+ :trace
+	... 214 stack frame lines elided
+clojure.lang.ExceptionInfo: injected crash
+	... 214 stack frame lines elided
+OBSERVED completed-record replay: attempts 1 | times the completed offer was seen [2] | answered from its record [1]
+
+Testing rig.store.clock-test
+OBSERVED hybrid: largest lead over the wall 0 ms; the millisecond unit's, same walls: 22500 ms
+
+Ran 19 tests containing 785 assertions.
+0 failures, 0 errors.
+{:test 19, :pass 785, :fail 0, :error 0}
+wall 18.69 s
